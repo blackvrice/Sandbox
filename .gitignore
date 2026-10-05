@@ -1,0 +1,22 @@
+# 빌드 산출물
+/build/
+/out/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# 도구 캐시
+.cache/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db

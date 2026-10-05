@@ -1,0 +1,19 @@
+# 기본: 텍스트는 저장소에 LF 로 저장한다
+* text=auto eol=lf
+
+# Windows 전용 스크립트는 CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.sln  text eol=crlf
+
+# 바이너리
+*.png  binary
+*.jpg  binary
+*.ttf  binary
+*.otf  binary
+*.wav  binary
+*.ogg  binary
+*.zip  binary
+*.chunk binary
+*.sbxr binary

@@ -1,0 +1,47 @@
+# ADR-0007. HLSL 단일 소스 + DXC + SPIRV-Cross, 오프라인 컴파일
+
+- 상태: **Accepted** · 날짜: 2026-10-05
+- 관련: [06-RENDERING](../06-RENDERING.md) 6장
+
+## 맥락
+
+플랫폼마다 셰이더를 세 벌 수동 작성하는 것은 피해야 합니다. 2026-10 기준: DXC는 정기 릴리스 중(2026년 9월판 v1.9.2609)이며
+SPIR-V 출력을 공식 지원합니다. Slang은 활발히 릴리스(v2026.18.x)되고 Metal 타깃이 있으나 Metal 포팅 관련 이슈가 계속 보고되고 있습니다.
+Microsoft는 차기 DirectX 셰이더 교환 포맷으로 SPIR-V 채택을 발표했습니다(Shader Model 7 계획).
+
+## 결정
+
+```text
+HLSL(SM 6.0 부분집합) → DXC → DXIL (D3D12)
+                     → DXC -spirv (-fvk-use-dx-layout) → SPIR-V (Vulkan)
+                     → SPIR-V → SPIRV-Cross → MSL → xcrun metal → metallib (Metal)
+리플렉션: SPIR-V 기준 .reflect.json → 레이아웃 자동 생성 + C++ 상수 버퍼 헤더 생성
+빌드 타임 오프라인 컴파일. 런타임 컴파일은 에디터 핫 리로드 옵션만.
+도구 버전 고정.
+```
+
+## 근거
+
+```text
+- HLSL 은 D3D12 1급이고 DXC 가 SPIR-V 를 공식 지원한다. 자료·도구가 가장 많다.
+- 하나의 리플렉션 기준(SPIR-V)으로 세 백엔드의 바인딩 레이아웃을 만들 수 있다.
+- 오프라인 컴파일이면 배포물에 컴파일러가 필요 없고 셰이더 오류가 빌드 오류가 된다.
+```
+
+## 결과
+
+- 얻는 것: 셰이더 소스 1벌, 바인딩 정의 1벌.
+- 포기하는 것: Metal 고유 기능을 MSL로 직접 쓰는 자유 (필요 시 백엔드 전용 셰이더 허용 — 예외로 문서화).
+- 위험: SPIRV-Cross 변환 실패 영역 → HLSL 부분집합 규약, macOS 컴파일 CI를 Phase 14 이전에.
+
+## 대안
+
+| 대안 | 기각/보류 사유 |
+|---|---|
+| Slang | **보류.** Phase 14.0 스파이크에서 Metal 경로 안정성 확인 후 교체 검토 (리플렉션 API는 더 좋음) |
+| GLSL + glslang | D3D12 경로가 부자연스러움 |
+| 백엔드별 수작업 | 요구사항 위반 |
+
+## 재검토 조건
+
+Slang Metal 경로가 스파이크에서 기준 이미지를 전부 통과하거나, DirectX의 SPIR-V 수용이 실현될 때.

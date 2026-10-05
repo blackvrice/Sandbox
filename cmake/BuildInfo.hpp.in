@@ -1,0 +1,15 @@
+#pragma once
+// 생성 파일 — cmake/BuildInfo.hpp.in 을 고치십시오.
+
+#include <cstdint>
+#include <string_view>
+
+namespace sbx::build {
+inline constexpr std::uint32_t kVersionMajor = @PROJECT_VERSION_MAJOR@;
+inline constexpr std::uint32_t kVersionMinor = @PROJECT_VERSION_MINOR@;
+inline constexpr std::uint32_t kVersionPatch = @PROJECT_VERSION_PATCH@;
+inline constexpr std::string_view kVersionString = "@PROJECT_VERSION@";
+inline constexpr std::string_view kGitCommit = "@SBX_GIT_COMMIT@";
+inline constexpr std::string_view kCompilerId = "@CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@";
+inline constexpr std::string_view kSystemName = "@CMAKE_SYSTEM_NAME@";
+} // namespace sbx::build

@@ -1,0 +1,15 @@
+# docs/12-CODING-STANDARDS.md 11장 — CI 에서 경고로 보고한다
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  performance-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-using,
+  modernize-use-equals-default,
+  cppcoreguidelines-owning-memory,
+  readability-braces-around-statements
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(foundation|core|network|platform|render|editor|apps)/'
+FormatStyle: file
