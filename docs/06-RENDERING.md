@@ -10,7 +10,7 @@
 > WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient --direct-sim 관찰(9장).
 > `[계획]` Compute 파이프라인·dispatch, Terrain · Grid · Selection · Debug 패스 · 타임스탬프(8B), ImGui(8C), Vulkan(13), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
-> 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md).
+> 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -583,9 +583,12 @@ batch_1k). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼�
 
 Render 스레드 분리 시 RenderWorld를 이중 버퍼로 두고 포인터만 교환합니다. Dedicated Server에는 이 흐름 전체가 없습니다.
 
-**Phase 8A 구현 (임시 경로):** `SandboxClient --direct-sim <시나리오>` — 클라이언트가 SimulationWorld 를 직접 돌린다
-(ScenarioRunner, 30 TPS × 속도, 일시정지 · 한 틱은 클라이언트 쪽 진행만). `presentation/SpriteExtraction` 이 매 프레임
-transform + persistence 를 읽어 스프라이트 하나씩 (render.sprite Opaque 를 saveId 별 캐시, 직전 틱과 보간, 배경 = 월드 경계).
+**Phase 8A 구현 (임시 경로):** `SandboxClient --direct-sim <시나리오>` — 클라이언트 프로세스가 SimulationWorld 를 직접
+돌린다 (ScenarioRunner, 30 TPS × 속도, 일시정지 · 한 틱은 클라이언트 쪽 진행만). 창에서는 **Simulation 스레드**가 월드를
+소유하고(01 5장 T1), 틱마다 `presentation/SpriteExtraction::capture` 가 transform + persistence 를 읽어 불변
+`WorldSnapshot`(개체마다 직전 · 지금 위치, render.sprite Opaque 는 saveId 별 캐시, 배경 = 월드 경계)을 내놓는다.
+Main 스레드는 프레임마다 `emit` 으로 최신 스냅숏을 보간해 RenderWorld 를 채운다 — 틱이 느려도(Debug 빌드) 화면은 제 속도로
+그린다 ([ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md)). `--headless` 는 프레임 안에서 진행한다 (틱 수 고정).
 Network · ClientWorld · InterpolationSystem 은 Phase 10, --direct-sim 은 그때 삭제 (16-ROADMAP).
 
 ---

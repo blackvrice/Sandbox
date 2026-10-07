@@ -139,6 +139,16 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return std::unexpected(n.error());
             }
             opts.seed = *n;
+        } else if (a == "--threads") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            auto n = parseU64(a, *v);
+            if (!n || *n > 64) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--threads 는 0~64: '{}'", *v));
+            }
+            opts.simThreads = static_cast<u32>(*n);
         } else if (a == "--content" || a == "--assets") {
             auto v = value();
             if (!v) {
@@ -181,6 +191,7 @@ std::string clientUsage() {
            "      --direct-sim <시나리오>  클라이언트가 시뮬레이션을 직접 돌려 관찰 (임시 — Phase 10 에서 삭제)\n"
            "                         예: ecosystem_survival, ecosystem_small, eco_lifecycle, random_walk_1k\n"
            "      --seed <n>         --direct-sim 의 월드 시드 (기본 1)\n"
+           "      --threads <n>      --direct-sim 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"
            "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)"
            "\n"

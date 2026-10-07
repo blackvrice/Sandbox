@@ -3,7 +3,9 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "apps/client/Application.hpp"
@@ -123,6 +125,68 @@ TEST_SUITE("client") {
         const auto err = DirectSim::create(bad, none);
         REQUIRE_FALSE(err.has_value());
         CHECK(err.error().message.find("ecosystem_small") != std::string::npos); // 있는 이름을 알려 준다
+    }
+
+    TEST_CASE(
+        "direct-sim threaded: Simulation thread advances on its own, pause · step · speed, same world as inline") {
+        auto mats = materials();
+        DirectSimDesc d;
+        d.scenario = "ecosystem_small";
+        d.seed = 1;
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.mode = DirectSimMode::Threaded;
+        d.workers = 2;
+        auto made = DirectSim::create(d, mats);
+        REQUIRE(made.has_value());
+        auto ds = std::move(*made);
+        ds->changeSpeed(+1);
+        ds->changeSpeed(+1); // ×4 → 120 TPS 목표 (시험을 짧게)
+        ds->update(10.0);    // Threaded 에서는 아무것도 하지 않는다
+        REQUIRE(ds->waitForTick(6, std::chrono::seconds(20)));
+
+        // 일시정지 → 틱이 멈춘다, 한 틱 요청은 정확히 하나
+        ds->togglePause();
+        const sim::Tick base = [&] {
+            sim::Tick prev = ds->tick();
+            for (int i = 0; i < 50; ++i) { // 진행 중이던 틱이 끝나 스냅숏이 나올 때까지
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                const sim::Tick t = ds->tick();
+                if (t == prev) {
+                    return t;
+                }
+                prev = t;
+            }
+            return prev;
+        }();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        CHECK(ds->tick() == base);
+        CHECK(ds->alpha() == 1.f);
+        ds->stepOnce();
+        REQUIRE(ds->waitForTick(base + 1, std::chrono::seconds(20)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        CHECK(ds->tick() == base + 1);
+        CHECK(ds->status().find("일시정지") != std::string::npos);
+
+        // 그릴 거리: 스냅숏에서 (배경 + 개체)
+        render::RenderWorld w;
+        ds->extract(w);
+        CHECK(w.sprites.size() == ds->extractionStats().entities + 1);
+        CHECK(ds->stats().ticks == base + 1);
+        CHECK(ds->averageTickMs() > 0);
+
+        // 같은 시드 · 같은 틱이면 Inline 과 같은 월드 (스레드 · Worker 수와 무관 — D5): 개체 수 · 위치가 같다
+        auto inl = makeSim(mats);
+        while (inl->tick() < base + 1) {
+            inl->update(1.0 / 30.0);
+        }
+        inl->togglePause(); // 둘 다 일시정지 → alpha 1 (지금 틱의 위치)
+        render::RenderWorld wi;
+        inl->extract(wi);
+        REQUIRE(wi.sprites.size() == w.sprites.size());
+        for (usize i = 0; i < w.sprites.size(); ++i) {
+            REQUIRE(w.sprites[i].position == wi.sprites[i].position);
+        }
+        ds.reset(); // 스레드를 멈추고 기다린다
     }
 
     TEST_CASE("extraction: background + one sprite per entity, render.sprite drives material · size · layer, lerp") {

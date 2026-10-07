@@ -46,6 +46,15 @@ struct AppConfig {
     f64 fixedDt = 0;                    // > 0 이면 월드 진행에 실제 시간 대신 이 값 (헤드리스 시험 — 결과가 고정된다)
 };
 
+// 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
+struct FrameTimings {
+    f64 frameMs = 0;   // 프레임 사이 실제 시간 (fps = 1000 / frameMs)
+    f64 worldMs = 0;   // IWorldSession::update (--direct-sim 인라인이면 틱 실행 포함)
+    f64 extractMs = 0; // IWorldSession::extract
+    f64 renderMs = 0;  // IFrameRenderer::render (기록 · 제출 · Present, GPU 대기 포함)
+    u64 frames = 0;    // 이 평균에 들어간 프레임 수
+};
+
 class Application {
 public:
     // window · audio 는 Application 보다 오래 산다
@@ -73,6 +82,9 @@ public:
     [[nodiscard]] std::string statusLine() const;
     [[nodiscard]] const render::Camera2D& camera() const noexcept { return m_renderWorld.camera; }
     [[nodiscard]] const render::RenderWorld& renderWorld() const noexcept { return m_renderWorld; }
+    // 최근 평균 (0.5 초마다 갱신)과 InWorld 전체 평균
+    [[nodiscard]] const FrameTimings& timings() const noexcept { return m_timings; }
+    [[nodiscard]] FrameTimings totalTimings() const noexcept;
 
 private:
     void handleEvent(const platform::PlatformEvent& e);
@@ -118,6 +130,13 @@ private:
     render::RenderWorld m_renderWorld;
     bool m_cameraFitted = false;
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
+
+    // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)
+    void accumulateTimings(f64 frameS, f64 worldS, f64 extractS, f64 renderS);
+    FrameTimings m_windowSum;
+    f64 m_windowSeconds = 0;
+    FrameTimings m_timings;
+    FrameTimings m_total;
 };
 
 // 이벤트 한 줄 설명 (--log-input)

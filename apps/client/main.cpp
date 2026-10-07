@@ -1,12 +1,14 @@
 // SandboxClient 진입점. Phase 6: 빈 창 + 앱 상태기계 (docs/16-ROADMAP.md 6.5). Phase 8A: --direct-sim 월드 관찰.
 // Windows 에서는 GUI 서브시스템 실행 파일이다 (콘솔 창이 뜨지 않는다). 로그를 보려면 --console,
 // 또는 CLion·리디렉션처럼 출력이 이미 연결된 곳에서 실행한다. WinMain 대신 main (07 6.1).
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <format>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "apps/client/Application.hpp"
@@ -147,6 +149,11 @@ int main(int argc, char** argv) {
         dd.seed = opts->seed;
         dd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
+        // 창: Simulation 스레드 (틱이 느려도 화면은 제 속도로 — ADR-0021). 헤드리스: 프레임 안에서 (틱 수가 고정된다)
+        dd.mode = opts->headless ? sbx::client::DirectSimMode::Inline : sbx::client::DirectSimMode::Threaded;
+        // Worker: 메인 · Simulation 스레드 몫을 남기고 1~4 (결과는 Worker 수와 무관 — D5). 헤드리스는 0
+        const unsigned hc = std::thread::hardware_concurrency();
+        dd.workers = opts->simThreads.value_or(opts->headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
         auto ds = sbx::client::DirectSim::create(dd, materials);
         if (!ds) {
             sbx::log::error("client", "{}", ds.error().describe());
@@ -181,8 +188,17 @@ int main(int argc, char** argv) {
 
     const int code = app.run(pacer.get());
     if (world) {
+        const auto ws = world->stats();
         printText(std::format("direct-sim {} tick {} 개체 {}\n", *opts->directSim, world->tick(),
                               world->extractionStats().entities));
+        const auto t = app.totalTimings();
+        if (t.frames > 0) {
+            printText(
+                std::format("프레임 평균 ({} 프레임, {:.1f} fps): 월드 {:.2f} ms · 추출 {:.2f} ms · 렌더 {:.2f} ms\n",
+                            t.frames, 1000.0 / t.frameMs, t.worldMs, t.extractMs, t.renderMs));
+            printText(std::format("틱 평균 {:.2f} ms ({} 틱, 버린 몫 {})\n", world->averageTickMs(), ws.ticks,
+                                  ws.droppedTicks));
+        }
     }
     world.reset();
     renderer.reset(); // 창보다 먼저 (스왑체인이 HWND 를 쓴다)

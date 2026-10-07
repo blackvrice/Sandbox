@@ -321,19 +321,32 @@ bool Application::frame() {
     const f64 realDt = std::chrono::duration<f64>(now - m_lastFrameTime).count();
     m_lastFrameTime = now;
     const bool inWorld = m_state == AppState::InWorld && m_config.world != nullptr;
+    using Clock = std::chrono::steady_clock;
+    const auto seconds = [](Clock::time_point a, Clock::time_point b) {
+        return std::chrono::duration<f64>(b - a).count();
+    };
+    auto t0 = Clock::now(), t1 = t0, t2 = t0;
     if (inWorld) {
         const f64 worldDt = m_config.fixedDt > 0 ? m_config.fixedDt : realDt;
         syncViewport();
         handleWorldInput(worldDt);
+        t0 = Clock::now();
         m_config.world->update(worldDt);
+        t1 = Clock::now();
         m_renderWorld.reset();
         m_config.world->extract(m_renderWorld);
+        t2 = Clock::now();
     }
 
+    auto t3 = Clock::now(), t4 = t3;
     if (m_config.renderer != nullptr && !m_window.minimized()) {
         // 애니메이션은 실제 시간으로 (VSync 를 끄면 프레임 수가 시간과 따로 논다)
         m_config.renderer->render(std::chrono::duration<f64>(now - m_startTime).count(),
                                   inWorld ? &m_renderWorld : nullptr);
+        t4 = Clock::now();
+    }
+    if (inWorld) {
+        accumulateTimings(realDt, seconds(t0, t1), seconds(t1, t2), seconds(t3, t4));
     }
 
     // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (Phase 8A — 메뉴 UI 는 8C)
@@ -363,6 +376,34 @@ bool Application::frame() {
     return m_state != AppState::Shutdown;
 }
 
+void Application::accumulateTimings(f64 frameS, f64 worldS, f64 extractS, f64 renderS) {
+    const auto add = [&](FrameTimings& t) {
+        t.frameMs += frameS * 1000.0;
+        t.worldMs += worldS * 1000.0;
+        t.extractMs += extractS * 1000.0;
+        t.renderMs += renderS * 1000.0;
+        ++t.frames;
+    };
+    add(m_windowSum);
+    add(m_total);
+    m_windowSeconds += frameS;
+    if (m_windowSeconds >= 0.5) {
+        const f64 n = static_cast<f64>(m_windowSum.frames);
+        m_timings = {m_windowSum.frameMs / n, m_windowSum.worldMs / n, m_windowSum.extractMs / n,
+                     m_windowSum.renderMs / n, m_windowSum.frames};
+        m_windowSum = {};
+        m_windowSeconds = 0;
+    }
+}
+
+FrameTimings Application::totalTimings() const noexcept {
+    if (m_total.frames == 0) {
+        return {};
+    }
+    const f64 n = static_cast<f64>(m_total.frames);
+    return {m_total.frameMs / n, m_total.worldMs / n, m_total.extractMs / n, m_total.renderMs / n, m_total.frames};
+}
+
 int Application::run(FramePacer* pacer) {
     while (frame()) {
         if (m_window.minimized()) {
@@ -387,6 +428,11 @@ std::string Application::statusLine() const {
         // 월드 보기: 입력 모니터 대신 월드 · 카메라 상태
         s += " | " + m_config.world->status();
         s += std::format(" | 줌 {:.1f} px/칸", m_renderWorld.camera.pixelsPerUnit);
+        if (m_timings.frames > 0) {
+            // 어디가 느린지 바로 보이게 (MANUAL-QA 8A 에 그대로 적는다)
+            s += std::format(" | {:.0f} fps · 월드 {:.1f} · 추출 {:.1f} · 렌더 {:.1f} ms", 1000.0 / m_timings.frameMs,
+                             m_timings.worldMs, m_timings.extractMs, m_timings.renderMs);
+        }
         if (m_config.renderer != nullptr) {
             s += " | " + m_config.renderer->status();
         }

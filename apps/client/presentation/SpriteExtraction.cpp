@@ -47,44 +47,64 @@ const SpriteExtraction::Resolved& SpriteExtraction::resolve(const sim::Simulatio
     return m_cache.emplace(saveId, r).first->second;
 }
 
-void SpriteExtraction::extract(sim::SimulationWorld& world, const PositionHistory& previous, f32 alpha,
-                               render::RenderWorld& out) {
-    ++m_frame;
-    m_stats = {};
-    alpha = std::clamp(alpha, 0.f, 1.f);
+void SpriteExtraction::capture(sim::SimulationWorld& world, WorldSnapshot& out) {
+    ++m_captures;
+    out.tick = world.currentTick();
+    out.sprites.clear();
+    out.stats = {};
 
     // 배경 (월드 경계)
     const render::WorldRect b = worldBounds(world);
     const render::Material ground = m_materials.find("terrain/" + world.desc().fillMaterial);
-    out.sprites.push_back({.position = (b.min + b.max) * 0.5f,
-                           .size = b.max - b.min,
-                           .sprite = ground.sprite,
-                           .color = ground.color,
-                           .layer = 0,
-                           .depth = -1e30f});
+    out.background = {.position = (b.min + b.max) * 0.5f,
+                      .size = b.max - b.min,
+                      .sprite = ground.sprite,
+                      .color = ground.color,
+                      .layer = 0,
+                      .depth = -1e30f};
 
+    m_nextPositions.clear();
+    m_nextPositions.reserve(m_lastPositions.size() + 64);
     for (auto [e, t, p] : world.registry().view<ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
         (void)e;
         const Resolved& r = resolve(world, p.saveId);
-        Vec2 pos = t.position;
-        if (const auto it = previous.find(p.saveId); it != previous.end()) {
-            pos = it->second + (t.position - it->second) * alpha;
+        Vec2 previous = t.position;
+        if (const auto it = m_lastPositions.find(p.saveId); it != m_lastPositions.end()) {
+            previous = it->second;
         }
-        out.sprites.push_back({.position = pos,
+        m_nextPositions.emplace(p.saveId, t.position);
+        out.sprites.push_back({.previous = previous,
+                               .current = t.position,
                                .size = r.size,
                                .rotation = t.rotation,
                                .sprite = r.material.sprite,
                                .color = r.material.color,
-                               .layer = r.layer,
-                               .depth = -pos.y});
-        ++m_stats.entities;
-        m_stats.withSprite += r.fromContent ? 1 : 0;
+                               .layer = r.layer});
+        ++out.stats.entities;
+        out.stats.withSprite += r.fromContent ? 1 : 0;
     }
+    m_lastPositions.swap(m_nextPositions);
     // 사라진 엔티티의 캐시를 가끔 정리 (saveId 는 재사용되지 않으므로 틀린 값을 쓸 일은 없다 — 메모리만)
-    if (m_frame % 600 == 0 && m_cache.size() > static_cast<usize>(m_stats.entities) * 2) {
-        std::erase_if(m_cache, [&](const auto& kv) { return !world.opaqueComponents().contains(kv.first); });
+    if (m_captures % 300 == 0 && m_cache.size() > static_cast<usize>(out.stats.entities) * 2) {
+        std::erase_if(m_cache, [&](const auto& kv) { return !m_lastPositions.contains(kv.first); });
     }
-    m_stats.cached = static_cast<u32>(m_cache.size());
+    out.stats.cached = static_cast<u32>(m_cache.size());
+}
+
+void SpriteExtraction::emit(const WorldSnapshot& snapshot, f32 alpha, render::RenderWorld& out) {
+    alpha = std::clamp(alpha, 0.f, 1.f);
+    out.sprites.reserve(out.sprites.size() + snapshot.sprites.size() + 1);
+    out.sprites.push_back(snapshot.background);
+    for (const SnapshotSprite& s : snapshot.sprites) {
+        const Vec2 pos = s.previous + (s.current - s.previous) * alpha;
+        out.sprites.push_back({.position = pos,
+                               .size = s.size,
+                               .rotation = s.rotation,
+                               .sprite = s.sprite,
+                               .color = s.color,
+                               .layer = s.layer,
+                               .depth = -pos.y});
+    }
 }
 
 } // namespace sbx::client

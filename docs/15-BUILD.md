@@ -182,8 +182,11 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     [--log-level L] [--version]
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
-    (Phase 8A) [--direct-sim <시나리오>] [--seed N] [--content <dir>] [--assets <dir>]
-    --direct-sim: 클라이언트가 시뮬레이션을 직접 돌려 월드를 그린다 (임시, Phase 10 삭제). 끝날 때 "direct-sim <이름> tick N 개체 M".
+    (Phase 8A) [--direct-sim <시나리오>] [--seed N] [--threads N] [--content <dir>] [--assets <dir>]
+    --direct-sim: 클라이언트가 시뮬레이션을 직접 돌려 월드를 그린다 (임시, Phase 10 삭제). 창에서는 Simulation 스레드
+    (ADR-0021), --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5). 제목 줄에 TPS · 틱 ms 와
+    "fps · 월드 · 추출 · 렌더 ms". 끝날 때 "direct-sim <이름> tick N 개체 M" + 프레임 · 틱 평균.
+    성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7).
     월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데/왼쪽 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]

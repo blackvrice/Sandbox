@@ -1,7 +1,7 @@
 #pragma once
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
 // Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --direct-sim · --seed ·
-// --content · --assets. 접속(--connect …)은 Phase 10.
+// --threads · --content · --assets. 접속(--connect …)은 Phase 10.
 
 #include <optional>
 #include <span>
@@ -38,10 +38,11 @@ struct ClientOptions {
 
     // 월드 (Phase 8A)
     std::optional<std::string>
-        directSim;           // --direct-sim <시나리오>: 클라이언트가 시뮬레이션을 직접 (임시, Phase 10 삭제)
-    u64 seed = 1;            // --seed
-    std::string contentRoot; // --content (비면 빌드 때 정한 저장소의 content/)
-    std::string assetRoot;   // --assets (비면 저장소의 assets/)
+        directSim;                 // --direct-sim <시나리오>: 클라이언트가 시뮬레이션을 직접 (임시, Phase 10 삭제)
+    u64 seed = 1;                  // --seed
+    std::optional<u32> simThreads; // --threads: 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
+    std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
+    std::string assetRoot;         // --assets (비면 저장소의 assets/)
 };
 
 [[nodiscard]] Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args);

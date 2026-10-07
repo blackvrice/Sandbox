@@ -288,6 +288,8 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
            client_direct_sim_headless (28 틱), render.sprite_batch 벤치
   Wine     11.19 + lavapipe: sbx_render_tests 22 케이스 (sprite · camera · order · batch_1k · assets · materials 추가),
            SandboxClient --direct-sim: ecosystem_small 스크린숏, ecosystem_10k 12,877 스프라이트 · Draw 1 (소프트웨어 54 fps)
+  후속     사용자 PC Debug 에서 ecosystem_10k 3 ~ 6 fps (렌더 스레드의 틱 × 4 따라잡기) → 창은 Simulation 스레드 +
+           불변 스냅숏 (ADR-0021). Wine Debug 4 → 52 fps (시뮬레이션은 9.3/30 TPS 로 표시), TSan 단위 테스트 (14 7.7)
   남음     사용자 PC: ctest -L render (sprite · batch_1k 를 WARP 로), MANUAL-QA Phase 8A (실제 GPU 의 10k 60 FPS 확인)
 ```
 

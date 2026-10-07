@@ -291,3 +291,39 @@ System 별 평균 (Worker 1): Sensor 3.79 · Collision 1.42 · Behavior 0.75 · 
 - 남은 비용은 인스턴스 채우기와 컬링이다. GPU 비용 · 실제 fps 는 사용자 PC 에서 (MANUAL-QA 8A). Wine + lavapipe
   (소프트웨어)에서 ecosystem_10k: 12,877 스프라이트 · Draw 1 · 54 fps — 하드웨어 수치가 아니다.
 ```
+
+### 7.7 Phase 8A 후속 — --direct-sim 프레임 시간 (2026-10-07)
+
+사용자 PC(MSVC Debug, CLion cmake-build-debug)에서 `--direct-sim ecosystem_10k --vsync off` 가 3 ~ 6 fps, Release 로 바꾸면
+fps 가 오른다는 보고. 원인은 그래픽이 아니라 렌더 스레드 안의 시뮬레이션 틱이었다 (ADR-0021).
+
+```text
+머신       클라우드 컨테이너 2코어. 헤드리스 = Linux clang 19 (Debug · RelWithDebInfo), 창 = MinGW + Wine 11.19 + lavapipe
+           (소프트웨어 렌더 — GPU 가 아니다. 렌더 ms 의 대부분이 CPU 래스터화), 960×600
+명령       SandboxClient --headless --direct-sim ecosystem_10k --frames 120        (끝 요약)
+           SandboxClient --direct-sim ecosystem_10k --vsync off --rhi-fl11  40 초 (제목 줄 · 끝 요약)
+```
+
+헤드리스 (렌더 없음, 프레임 안 진행 — 바뀌기 전 경로):
+
+| 빌드             | 틱 평균 | 프레임당 월드 진행 | 추출 (ECS → 스프라이트) | 배치 10k (render.sprite_batch) |
+|------------------|---------|--------------------|-------------------------|--------------------------------|
+| clang Debug      | 82.6 ms | 40.9 ms            | 4.2 ms                  | 4.9 ms                         |
+| clang RelWithDeb | 14.4 ms | 7.2 ms             | 0.4 ms                  | 0.4 ms                         |
+
+창 (Wine, ecosystem_10k, 40 초 뒤):
+
+| 빌드          | 바뀌기 전 (렌더 스레드에서 틱, 4 틱 따라잡기) | 바뀐 뒤 (Simulation 스레드 + 스냅숏)                                   |
+|---------------|-----------------------------------------------|------------------------------------------------------------------------|
+| MinGW Debug   | **4 fps**, 틱 481                             | **52 fps** (평균 69.8), 시뮬레이션 9.3/30 TPS · 틱 105 ms, 추출 0.8 ms |
+| MinGW Release | 60 fps, 틱 1,134                              | 57 fps (평균 68.9), 29.8/30 TPS · 틱 17.8 ms, 추출 0.3 ms              |
+
+```text
+해석
+- Debug: 틱(80 ~ 100 ms) > 틱 간격(33 ms) 이라 바뀌기 전에는 프레임마다 4 틱을 몰아 돌았다 → 프레임 ≈ 틱 × 4 ≈ 250 ms.
+  바뀐 뒤에는 화면이 틱을 기다리지 않는다. 시뮬레이션은 실시간의 약 1/3 로 느려지고 제목 줄 TPS 가 그것을 보인다.
+- Release: 이 컨테이너는 2코어에 소프트웨어 렌더라 Simulation 스레드와 lavapipe 가 같은 코어를 나눠 써 차이가 작다.
+  코어가 많고 GPU 가 있는 PC 에서는 렌더 스레드에서 틱(5 ~ 15 ms)이 빠지는 만큼 fps 가 오른다 — MANUAL-QA 8A 에서 확인.
+- 추출은 틱마다 capture(Simulation 스레드) + 프레임마다 emit(배열 보간)으로 나뉘어 렌더 쪽이 4.2 → 0.8 ms (Debug).
+- Debug 의 틱 자체는 그대로 느리다 (MSVC Debug 는 반복자 검사까지 있어 clang -O0 보다 더 느리다). 성능은 Release/RWD 로 잰다.
+```

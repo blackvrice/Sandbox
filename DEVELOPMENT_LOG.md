@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-10-07 — Phase 8A 후속: --direct-sim 을 Simulation 스레드로 (Debug 3 ~ 6 fps)
+
+**무엇을**
+
+- 사용자 보고: `--direct-sim ecosystem_10k --vsync off` 가 3 ~ 6 fps (MSVC Debug), Release 로 바꾸니 올랐다.
+- 원인: DirectSim 이 렌더 스레드에서 ScenarioRunner.step 을 부르고 밀리면 한 프레임에 4 틱까지 따라잡았다. Debug 의 틱
+  (clang -O0 82.6 ms, MSVC Debug 는 더 느림)이 틱 간격 33 ms 보다 길어 늘 4 틱 → 프레임 ≈ 틱 × 4.
+- DirectSim: 창 = **Threaded** (Simulation 스레드가 월드 소유, 30 TPS × 속도 시각표, 0.25 초 넘게 밀리면 버림, 일시정지 ·
+  한 틱 · 속도는 mutex + condition_variable), 헤드리스 · 테스트 = **Inline** (그대로). 시뮬레이션 Worker 를 DirectSim 이 소유
+  (`--threads n`, 기본 코어 수 - 2 를 1 ~ 4, 헤드리스 0).
+- SpriteExtraction: `capture`(Simulation 스레드, 틱마다 → 불변 WorldSnapshot — 직전 · 지금 위치, 크기, 회전, 스프라이트, 색,
+  레이어, 배경) + `emit`(Main 스레드, 프레임마다 보간). 스냅숏은 shared_ptr<const> 로 내놓고 이전 버퍼를 다시 쓴다.
+- 제목 줄: 시뮬레이션 "29.8/30 TPS · 틱 12.3 ms", Application "144 fps · 월드 · 추출 · 렌더 ms" (0.5 초 평균).
+  끝날 때 프레임 · 틱 평균을 출력.
+- 문서: ADR-0021 (ADR-0020 결정 5 · 6 대체), 01(상태), 06 9장, 13, 14 7.7, 15, 16, 17, MANUAL-QA 8A(fps 는 Release 로).
+
+**왜**
+
+- 느린 틱이 화면 · 카메라까지 막았다. 01 5장의 스레드 모델(Simulation 스레드, T1 · T2)대로 나누면 틱 비용과 무관하게 그린다.
+- 헤드리스는 Inline 으로 남겨 CTest client_direct_sim_headless 의 틱 수(28)가 시간과 무관하게 고정된다.
+
+**검증**
+
+- Wine 11.19 + lavapipe(소프트웨어, 2코어), ecosystem_10k --vsync off 40 초: MinGW Debug **4 → 52 fps**(평균 69.8, 시뮬레이션
+  9.3/30 TPS · 틱 105 ms 로 표시), Release 60 → 57 fps(평균 68.9, 29.8/30 TPS) — 2코어 소프트웨어 렌더라 Release 차이는 작다.
+- 단위 테스트: Threaded(Worker 2) 진행 · 일시정지 · 한 틱 정확히 하나 · 같은 틱에서 Inline(Worker 0) 과 위치가 같다 (D5).
+  TSan(linux-clang-tsan, clang 19) client · foundation 3회 경고 0. Linux clang · gcc Debug/RWD CTest, MinGW 경고 0.
+- 헤드리스 끝 요약으로 틱 · 추출을 Debug/RWD 비교 (14-PERFORMANCE 7.7).
+
+**남은 일**
+
+- 사용자 PC: Release ecosystem_10k 의 fps · TPS · 렌더 ms, Debug 에서 카메라가 부드러운지 (MANUAL-QA 8A).
+- `[계획]` Debug 의 틱 자체(MSVC 반복자 검사)는 그대로 느리다. Phase 10 에서 --direct-sim 이 LocalServerHost 로 바뀐다.
+
+---
+
 ## 2026-10-07 — Phase 8A: 스프라이트 렌더러 · AssetManager · --direct-sim 관찰
 
 **무엇을**
