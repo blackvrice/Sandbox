@@ -29,6 +29,8 @@ add_library(SandboxRender STATIC
     renderer/TerrainPass.cpp
     renderer/OverlayPasses.hpp
     renderer/OverlayPasses.cpp
+    imgui/ImGuiRenderer.hpp
+    imgui/ImGuiRenderer.cpp
     renderer/SpriteBatcher.hpp
     renderer/SpriteBatcher.cpp
     renderer/Renderer.hpp
@@ -60,7 +62,7 @@ endif()
 
 target_link_libraries(SandboxRender
     PUBLIC SandboxPlatform
-    PRIVATE sbx_stb sbx_nlohmann_json sbx_warnings)
+    PRIVATE sbx_stb sbx_nlohmann_json sbx_imgui sbx_warnings)
 
 # 내장 셰이더 (06 6장, ADR-0019) — SBX_BUILD_SHADERS=ON 일 때만. 생성 헤더: render/generated/<Pascal>Shader.hpp
 sbx_add_shader(TARGET SandboxRender NAME basic_color SOURCE shaders/basic_color.hlsl STAGES vs:VSMain ps:PSMain)
@@ -69,6 +71,7 @@ sbx_add_shader(TARGET SandboxRender NAME sprite SOURCE shaders/sprite.hlsl STAGE
 sbx_add_shader(TARGET SandboxRender NAME terrain SOURCE shaders/terrain.hlsl STAGES vs:VSMain ps:PSMain)
 sbx_add_shader(TARGET SandboxRender NAME grid SOURCE shaders/grid.hlsl STAGES vs:VSMain ps:PSMain)
 sbx_add_shader(TARGET SandboxRender NAME lines SOURCE shaders/lines.hlsl STAGES vs:VSMain ps:PSMain)
+sbx_add_shader(TARGET SandboxRender NAME imgui SOURCE shaders/imgui.hlsl STAGES vs:VSMain ps:PSMain)
 if(SBX_BUILD_SHADERS)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_SHADERS=1)
 endif()

@@ -232,7 +232,7 @@ TEST_SUITE("render.gpu") {
         REQUIRE(g.valid);
         CHECK(g.frameNumber < device().frameNumber());
         CHECK(g.totalMs > 0.0);
-        const f64 parts = g.uploadMs + g.terrainMs + g.spriteMs + g.gridMs + g.selectionMs + g.debugMs;
+        const f64 parts = g.uploadMs + g.terrainMs + g.spriteMs + g.gridMs + g.selectionMs + g.debugMs + g.uiMs;
         CHECK(parts == doctest::Approx(g.totalMs).epsilon(0.01));
         MESSAGE("GPU ms: total " << g.totalMs << " terrain " << g.terrainMs << " grid " << g.gridMs);
     }

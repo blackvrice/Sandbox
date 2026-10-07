@@ -113,10 +113,12 @@ void Renderer::collectGpuTimes() {
     m_gpu.gridMs = ts.millis(kMarkSprites, kMarkGrid);
     m_gpu.selectionMs = ts.millis(kMarkGrid, kMarkSelection);
     m_gpu.debugMs = ts.millis(kMarkSelection, kMarkDebug);
-    m_gpu.totalMs = ts.millis(kMarkFrameStart, kMarkDebug);
+    m_gpu.uiMs = ts.millis(kMarkDebug, kMarkUi);
+    m_gpu.totalMs = ts.millis(kMarkFrameStart, kMarkUi);
 }
 
-void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const RenderWorld& world) {
+void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const RenderWorld& world,
+                      const std::function<void(rhi::ICommandList&)>& ui) {
     m_stats = {};
     collectGpuTimes();
     m_stats.gpu = m_gpu;
@@ -200,6 +202,10 @@ void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const Rende
     cl.endDebugLabel();
     cl.writeTimestamp(kMarkDebug);
     cl.endRenderPass();
+    if (ui) {
+        ui(cl);
+    }
+    cl.writeTimestamp(kMarkUi);
     cl.resolveTimestamps(kMarkCount);
 
     m_stats.terrain = m_terrain.stats();
