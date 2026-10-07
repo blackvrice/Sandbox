@@ -175,13 +175,14 @@ int main(int argc, char** argv) {
     // 끝: 누수 · Debug Layer
     rendertest::g_device->waitIdle();
     const rhi::DeviceStats s = rendertest::g_device->stats();
-    std::printf("끝: 살아 있는 버퍼 %llu · 텍스처 %llu · 해제 %llu · Debug Layer 경고 %llu · 오류 %llu (예상된 사용 "
-                "오류 %llu)\n",
+    std::printf("끝: 살아 있는 버퍼 %llu · 텍스처 %llu · 파이프라인 객체 %llu · 디스크립터 %llu · 해제 %llu · Debug "
+                "Layer 경고 %llu · 오류 %llu (예상된 사용 오류 %llu)\n",
                 static_cast<unsigned long long>(s.liveBuffers), static_cast<unsigned long long>(s.liveTextures),
+                static_cast<unsigned long long>(s.livePipelines), static_cast<unsigned long long>(s.descriptorsUsed),
                 static_cast<unsigned long long>(s.releasedObjects), static_cast<unsigned long long>(s.debugWarnings),
                 static_cast<unsigned long long>(s.debugErrors),
                 static_cast<unsigned long long>(rendertest::g_expectedValidationErrors));
-    if (s.liveBuffers != 0 || s.liveTextures != 0) {
+    if (s.liveBuffers != 0 || s.liveTextures != 0 || s.livePipelines != 0 || s.descriptorsUsed != 0) {
         std::fprintf(stderr, "실패: 테스트가 GPU 리소스를 해제하지 않았다\n");
         result = result == 0 ? 1 : result;
     }
