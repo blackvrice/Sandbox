@@ -36,14 +36,14 @@ Rule, Pathfinding, Lifecycle, Save/Load, Rendering, Networking을 동시에 검�
 
 ### 4.1 기능 목표
 
-| # | 목표 | 검증 방법 |
-|---|---|---|
+| #  | 목표                                                           | 검증 방법                                            |
+|----|----------------------------------------------------------------|------------------------------------------------------|
 | G1 | 엔진 코드 수정 없이 콘텐츠 데이터만으로 새 시뮬레이션을 만든다 | Ecosystem 외 두 번째 콘텐츠 팩을 C++ 변경 0줄로 추가 |
-| G2 | Simulation 코드 변경 없이 Renderer 백엔드를 교체한다 | DX12 / Vulkan / Metal에서 같은 기준 이미지 |
-| G3 | Network 코드 변경 없이 헤드리스 Dedicated Server를 실행한다 | `SandboxServer`가 창·GPU 없는 CI에서 실행 |
-| G4 | Renderer 코드 변경 없이 Simulation Content를 바꾼다 | SandboxRender가 SandboxCore에 링크 의존이 없음 |
-| G5 | 여러 사용자가 같은 월드를 동시에 편집한다 | 2클라이언트 동시 편집 통합 테스트 |
-| G6 | 같은 세이브 + 같은 명령 로그 → 같은 결과 | 리플레이 divergence 0 |
+| G2 | Simulation 코드 변경 없이 Renderer 백엔드를 교체한다           | DX12 / Vulkan / Metal에서 같은 기준 이미지           |
+| G3 | Network 코드 변경 없이 헤드리스 Dedicated Server를 실행한다    | `SandboxServer`가 창·GPU 없는 CI에서 실행            |
+| G4 | Renderer 코드 변경 없이 Simulation Content를 바꾼다            | SandboxRender가 SandboxCore에 링크 의존이 없음       |
+| G5 | 여러 사용자가 같은 월드를 동시에 편집한다                      | 2클라이언트 동시 편집 통합 테스트                    |
+| G6 | 같은 세이브 + 같은 명령 로그 → 같은 결과                       | 리플레이 divergence 0                                |
 
 ### 4.2 성능 목표 ([14-PERFORMANCE](14-PERFORMANCE.md))
 
@@ -69,11 +69,11 @@ Core 구조는 처음부터 세 플랫폼을 전제하고, 구현은 이 순서�
 
 ## 5. 첫 콘텐츠: Ecosystem
 
-| 종 | 행동 | 검증하는 것 |
-|---|---|---|
-| Grass | 성장(Growth), 번식(Spread: 인접 빈 셀에 확률적 생성) | Lifecycle, Random, 대량 정적 엔티티 |
-| Rabbit | 먹이 탐색 → 이동 → 먹기 → 번식 → 사망(굶주림·포식·노화) | Sensor, Behavior FSM, Pathfinding, Rule |
-| Wolf | 토끼 탐색 → 추격 → 먹기 → 번식 → 사망 | 동적 목표 추격, 경쟁 해소(Intent/Resolve) |
+| 종     | 행동                                                    | 검증하는 것                               |
+|--------|---------------------------------------------------------|-------------------------------------------|
+| Grass  | 성장(Growth), 번식(Spread: 인접 빈 셀에 확률적 생성)    | Lifecycle, Random, 대량 정적 엔티티       |
+| Rabbit | 먹이 탐색 → 이동 → 먹기 → 번식 → 사망(굶주림·포식·노화) | Sensor, Behavior FSM, Pathfinding, Rule   |
+| Wolf   | 토끼 탐색  → 추격 → 먹기 → 번식 → 사망                  | 동적 목표 추격, 경쟁 해소(Intent/Resolve) |
 
 **합격 기준** (Phase 5): 헤드리스로 18,000틱(10분) 실행 시 고정 시드 3개 모두에서 세 종이 공존하고,
 10k 엔티티에서 평균 tick < 10 ms.
@@ -118,28 +118,28 @@ Correctness → Architecture → Tests → Profiling → Optimization
 
 ## 9. 용어집
 
-| 용어 | 뜻 |
-|---|---|
+| 용어                  | 뜻                                                                                               |
+|-----------------------|--------------------------------------------------------------------------------------------------|
 | **Entity / EntityId** | 프로세스 로컬 ECS 핸들. `{index:32, generation:32}` 64비트. 네트워크·세이브에 그대로 싣지 않는다 |
-| **NetEntityId** | 서버가 부여하는 네트워크 정체성. 세션 내 재사용 없음 |
-| **saveId** | 월드 내 영구 엔티티 id. 세이브·RNG 키·리플레이 진단에 쓴다 |
-| **Component** | 순수 데이터. `stableId`(예: `"core.transform"`)로 식별 |
-| **System** | 틱 파이프라인의 한 단계에서 실행되는 로직 |
-| **Registry** | 한 월드의 ECS 저장소 |
-| **ECB** | EntityCommandBuffer. 구조 변경(생성/파괴/추가/제거)을 모았다가 동기화 지점에서 적용 |
-| **Prefab** | 컴포넌트 묶음의 데이터 정의. 엔티티 생성 템플릿 |
-| **Tag** | 엔티티 분류 문자열(예: `prey`). Rule·Sensor 매칭에 쓴다 |
-| **Rule** | "source가 target에게 action을 하면 effects" 형태의 데이터 규칙 |
-| **Intent** | 경쟁이 있는 상호작용의 의도. Resolve 단계에서 결정적으로 해소 |
-| **SimCommand** | 월드를 바꾸는 유일한 입력. 편집·플레이어 행동·실행 제어 |
-| **Tick** | 고정 시뮬레이션 단계. 30 TPS, dt = 1/30 고정 |
-| **simVersion** | 시뮬레이션 규칙 버전. 엔진·빌드 버전과 별개 |
-| **WorldHash** | 시뮬레이션 상태의 64비트 다이제스트 |
-| **Chunk** | 32×32 타일 월드 분할 단위. Terrain·Spatial·Interest·Save가 공유 |
-| **Snapshot / Delta** | 서버→클라 상태 전송. ack된 baseline 대비 변경분 |
-| **Interest** | 클라이언트에게 보낼 관련 엔티티 집합을 정하는 규칙 |
-| **ClientWorld** | 클라이언트의 복제본 Registry. 게임 System은 돌지 않는다 |
-| **RenderWorld** | 프레임마다 Extraction이 채우는 렌더 전용 데이터. ECS를 모른다 |
-| **RHI** | Render Hardware Interface. DX12/Vulkan/Metal 위의 얇은 추상화 |
-| **Content / Asset** | Content = 서버도 쓰는 데이터(Prefab 등), Asset = 클라 표현 리소스(텍스처 등) |
-| **Golden Hash** | 회귀 기준 WorldHash. 저장소에 커밋 |
+| **NetEntityId**       | 서버가 부여하는 네트워크 정체성. 세션 내 재사용 없음                                             |
+| **saveId**            | 월드 내 영구 엔티티 id. 세이브·RNG 키·리플레이 진단에 쓴다                                       |
+| **Component**         | 순수 데이터. `stableId`(예: `"core.transform"`)로 식별                                           |
+| **System**            | 틱 파이프라인의 한 단계에서 실행되는 로직                                                        |
+| **Registry**          | 한 월드의 ECS 저장소                                                                             |
+| **ECB**               | EntityCommandBuffer. 구조 변경(생성/파괴/추가/제거)을 모았다가 동기화 지점에서 적용              |
+| **Prefab**            | 컴포넌트 묶음의 데이터 정의. 엔티티 생성 템플릿                                                  |
+| **Tag**               | 엔티티 분류 문자열(예: `prey`). Rule·Sensor 매칭에 쓴다                                          |
+| **Rule**              | "source가 target에게 action을 하면 effects" 형태의 데이터 규칙                                   |
+| **Intent**            | 경쟁이 있는 상호작용의 의도. Resolve 단계에서 결정적으로 해소                                    |
+| **SimCommand**        | 월드를 바꾸는 유일한 입력. 편집·플레이어 행동·실행 제어                                          |
+| **Tick**              | 고정 시뮬레이션 단계. 30 TPS, dt = 1/30 고정                                                     |
+| **simVersion**        | 시뮬레이션 규칙 버전. 엔진·빌드 버전과 별개                                                      |
+| **WorldHash**         | 시뮬레이션 상태의 64비트 다이제스트                                                              |
+| **Chunk**             | 32×32 타일 월드 분할 단위. Terrain·Spatial·Interest·Save가 공유                                  |
+| **Snapshot / Delta**  | 서버→클라 상태 전송. ack된 baseline 대비 변경분                                                  |
+| **Interest**          | 클라이언트에게 보낼 관련 엔티티 집합을 정하는 규칙                                               |
+| **ClientWorld**       | 클라이언트의 복제본 Registry. 게임 System은 돌지 않는다                                          |
+| **RenderWorld**       | 프레임마다 Extraction이 채우는 렌더 전용 데이터. ECS를 모른다                                    |
+| **RHI**               | Render Hardware Interface. DX12/Vulkan/Metal 위의 얇은 추상화                                    |
+| **Content / Asset**   | Content = 서버도 쓰는 데이터(Prefab 등), Asset = 클라 표현 리소스(텍스처 등)                     |
+| **Golden Hash**       | 회귀 기준 WorldHash. 저장소에 커밋                                                               |

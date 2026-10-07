@@ -18,19 +18,19 @@ C++23. 컴파일러: MSVC (최신 Visual Studio 툴셋), Clang 18+, Apple Clang 
 
 ## 2. 이름
 
-| 대상 | 규칙 | 예 |
-|---|---|---|
-| 네임스페이스 | `sbx::<module>` 소문자 | `sbx::ecs`, `sbx::rhi`, `sbx::net` |
-| 타입·클래스·구조체·enum | PascalCase | `ComponentPool`, `RenderWorld` |
-| 함수·메서드·변수 | camelCase | `queryRadius`, `currentTick` |
-| 멤버 변수 | `m_` + camelCase | `m_freeIndices` |
-| 상수·constexpr | `k` + PascalCase | `kTickRate`, `kFixedDt` |
-| enum 값 | PascalCase | `QueueType::Graphics` |
-| 매크로 | `SBX_` + 대문자 | `SBX_ASSERT`, `SBX_COMPONENT` |
-| 인터페이스 | `I` 접두사 | `IRenderDevice`, `INetworkTransport` |
-| 파일 | 타입명과 같게, `.hpp` / `.cpp` / `.mm` | `ComponentPool.hpp` |
-| 콘텐츠 id·stableId | `<namespace>.<snake_case>` | `life.energy`, `eco.rabbit` |
-| 열거형 → 이름 함수 | `<대상>Name()` — **`toString` 금지** | `errorCodeName(ErrorCode)`, `levelName(Level)` |
+| 대상                    | 규칙                                   | 예                                             |
+|-------------------------|----------------------------------------|------------------------------------------------|
+| 네임스페이스            | `sbx::<module>` 소문자                 | `sbx::ecs`, `sbx::rhi`, `sbx::net`             |
+| 타입·클래스·구조체·enum | PascalCase                             | `ComponentPool`, `RenderWorld`                 |
+| 함수·메서드·변수        | camelCase                              | `queryRadius`, `currentTick`                   |
+| 멤버 변수               | `m_` + camelCase                       | `m_freeIndices`                                |
+| 상수·constexpr          | `k` + PascalCase                       | `kTickRate`, `kFixedDt`                        |
+| enum 값                 | PascalCase                             | `QueueType::Graphics`                          |
+| 매크로                  | `SBX_` + 대문자                        | `SBX_ASSERT`, `SBX_COMPONENT`                  |
+| 인터페이스              | `I` 접두사                             | `IRenderDevice`, `INetworkTransport`           |
+| 파일                    | 타입명과 같게, `.hpp` / `.cpp` / `.mm` | `ComponentPool.hpp`                            |
+| 콘텐츠 id·stableId      | `<namespace>.<snake_case>`             | `life.energy`, `eco.rabbit`                    |
+| 열거형 → 이름 함수      | `<대상>Name()` — **`toString` 금지**   | `errorCodeName(ErrorCode)`, `levelName(Level)` |
 
 `toString`이라는 자유 함수는 doctest 가 값 출력에 쓰는 이름과 ADL 로 충돌해 `CHECK(a == b)`가 컴파일되지 않습니다 (Phase 1에서 실제로 발생).
 
@@ -56,13 +56,13 @@ C++23. 컴파일러: MSVC (최신 Visual Studio 툴셋), Clang 18+, Apple Clang 
 
 ## 5. 오류 처리
 
-| 상황 | 방법 |
-|---|---|
-| 프로그래머 오류(불변식 위반) | `SBX_ASSERT(cond, msg)` — Debug에서 중단, Release에서 제거 |
-| Release에서도 확인할 치명 조건 | `SBX_VERIFY(cond, msg)` — 로그 후 중단 |
-| 복구 가능한 실패(파일 없음, 파싱 실패, 검증 실패) | `std::expected<T, Error>` 반환 |
-| 외부 입력(네트워크, 세이브, 콘텐츠) | 절대 assert로 처리하지 않는다. 검증 후 Error |
-| 예외 | 서드파티(nlohmann::json)가 던지는 것은 경계에서 잡아 `Error`로 변환. 엔진 코드는 던지지 않는다 |
+| 상황                                              | 방법                                                                                           |
+|---------------------------------------------------|------------------------------------------------------------------------------------------------|
+| 프로그래머 오류(불변식 위반)                      | `SBX_ASSERT(cond, msg)` — Debug에서 중단, Release에서 제거                                     |
+| Release에서도 확인할 치명 조건                    | `SBX_VERIFY(cond, msg)` — 로그 후 중단                                                         |
+| 복구 가능한 실패(파일 없음, 파싱 실패, 검증 실패) | `std::expected<T, Error>` 반환                                                                 |
+| 외부 입력(네트워크, 세이브, 콘텐츠)               | 절대 assert로 처리하지 않는다. 검증 후 Error                                                   |
+| 예외                                              | 서드파티(nlohmann::json)가 던지는 것은 경계에서 잡아 `Error`로 변환. 엔진 코드는 던지지 않는다 |
 
 `Error`는 `{ ErrorCode code; std::string message; std::string context; }`. 사용자에게 보이는 메시지는 원인과 위치(파일:JSON 포인터, 틱, netId)를 담습니다.
 

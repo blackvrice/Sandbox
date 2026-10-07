@@ -9,6 +9,15 @@ add_library(SandboxFoundation STATIC
     log/Log.cpp
     hash/Fnv1a.hpp
     handle/Handle.hpp
+    container/SmallVector.hpp
+    container/FixedString.hpp
+    math/Vec2.hpp
+    io/FileIo.hpp
+    io/FileIo.cpp
+    io/Console.hpp
+    io/Console.cpp
+    job/JobSystem.hpp
+    job/JobSystem.cpp
 )
 add_library(Sandbox::Foundation ALIAS SandboxFoundation)
 
@@ -19,3 +28,6 @@ target_include_directories(SandboxFoundation PUBLIC
     "${SBX_GENERATED_DIR}")
 target_compile_features(SandboxFoundation PUBLIC cxx_std_23)
 target_link_libraries(SandboxFoundation PRIVATE sbx_warnings sbx_strict_conversions)
+# JobSystem (std::thread)
+find_package(Threads REQUIRED)
+target_link_libraries(SandboxFoundation PUBLIC Threads::Threads)

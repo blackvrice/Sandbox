@@ -3,6 +3,10 @@
 Vendored 서드파티. 버전 업그레이드는 단독 커밋으로 하고 이 표를 갱신합니다 ([docs/15-BUILD.md](../docs/15-BUILD.md) 5장).
 각 라이브러리의 LICENSE 파일을 지우지 않습니다.
 
-| 라이브러리 | 버전 | 출처 | 파일 | 사용처 |
-|---|---|---|---|---|
-| doctest | v2.5.0 (d44d4f6, 2026-03-28) | https://github.com/doctest/doctest | `doctest/doctest.h`, `doctest/LICENSE.txt` | SandboxTests |
+| 라이브러리    | 버전                                              | 출처                               | 파일                                                                                                 | 사용처                                                                                  |
+|---------------|---------------------------------------------------|------------------------------------|------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| doctest       | v2.5.0 (d44d4f6, 2026-03-28)                      | https://github.com/doctest/doctest | `doctest/doctest.h`, `doctest/LICENSE.txt`                                                           | SandboxTests (`sbx_doctest`)                                                            |
+| nlohmann/json | v3.12.0 (55f9368, 2025-04-11 릴리스 태그)         | https://github.com/nlohmann/json   | `nlohmann_json/include/nlohmann/json.hpp`, `json_fwd.hpp`, `LICENSE.MIT`                             | SandboxCore (`nlohmann_json::nlohmann_json`, `JSON_USE_IMPLICIT_CONVERSIONS=0`)         |
+| stb           | stb_image v2.30 · stb_image_write v1.16 (f58f558) | https://github.com/nothings/stb    | `stb/stb_image.h`, `stb/stb_image_write.h`, `stb/LICENSE` (MIT 또는 공개 도메인 — 헤더 끝과 같은 글) | SandboxRender (`sbx_stb`, 구현은 `render/asset/StbImpl.cpp` 한 곳, PNG 만 · stdio 없음) |
+
+타깃 정의는 `external/CMakeLists.txt`.

@@ -68,3 +68,15 @@ if(NOT SBX_HAS_REQUIRED_STDLIB)
         "(${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}). "
         "Linux 에서는 Clang 19 이상(-D CMAKE_CXX_COMPILER=clang++-19) 또는 GCC 13 이상을 쓰십시오. docs/15-BUILD.md 1장.")
 endif()
+
+# ---------------------------------------------------------------------------
+# 지원하지 않는 툴체인 알림 (ADR-0009)
+# ---------------------------------------------------------------------------
+# MinGW 는 지원 대상이 아니다. 지금(Phase 2)까지의 코드는 빌드되지만, Phase 7 의 D3D12 디버그 도구·PIX·
+# D3D12MA 는 MSVC 기준이다. 막지는 않고 경고만 한다 — CLion 기본 프로필로 구성하면 이 경고가 보인다.
+if(MINGW)
+    message(WARNING
+        "MinGW 툴체인으로 구성했습니다. 이 프로젝트의 Windows 지원 툴체인은 MSVC(또는 clang-cl)입니다 (ADR-0009). "
+        "CLion: Settings → Toolchains 에서 Visual Studio 툴체인을 추가하고 CMakePresets 의 windows-msvc 프로필을 쓰십시오. "
+        "docs/15-BUILD.md 1.1")
+endif()

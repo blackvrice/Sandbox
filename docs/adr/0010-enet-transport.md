@@ -29,10 +29,10 @@ GameNetworkingSockets는 암호화·NAT·릴레이가 필요해질 때 2차 구�
 
 ## 대안
 
-| 대안 | 기각/보류 사유 |
-|---|---|
-| GameNetworkingSockets | 보류 (후속 2차 구현) |
-| Asio + 자체 RUDP | 요구사항 위반 |
+| 대안                               | 기각/보류 사유              |
+|------------------------------------|-----------------------------|
+| GameNetworkingSockets              | 보류 (후속 2차 구현)        |
+| Asio + 자체 RUDP                   | 요구사항 위반               |
 | SteamNetworkingSockets(Steamworks) | Steam 종속, GNS 경로로 흡수 |
 
 ## 재검토 조건

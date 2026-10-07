@@ -7,24 +7,24 @@
 
 ## 1. 결정 표
 
-| 항목 | 결정 | 이유 |
-|---|---|---|
-| Server Authority | 서버만 진짜 `SimulationWorld`. 클라이언트는 명령을 보내고 결과를 받는다 | 50k 엔티티, 동시 편집, Late Join. 신뢰 경계가 하나 |
-| Lockstep | 기본 방식으로 쓰지 않음 | 전 클라이언트 전체 계산, Late Join 비용, 최저 사양 클라에 맞춰짐 |
-| 싱글플레이 | in-process Server + Loopback | 코드 경로 단일화 |
-| Transport | `INetworkTransport`. 1차 ENet, Loopback, Simulated. 후속 GameNetworkingSockets | 2장 |
-| Channel | Control(신뢰·순서) / Snapshot(비신뢰·순차) / Bulk(신뢰·저우선) | 3장 |
-| 직렬화 | 자체 비트스트림 + 리플렉션 Visitor, 위치 양자화 | [09](09-SERIALIZATION.md) 5장 |
-| NetEntityId | 서버 부여 u32, 세션 내 재사용 금지, epoch | 7장 |
-| Snapshot Rate | 기본 15 Hz = 2틱마다. 허용값 10/15/30 (틱레이트 약수) | 간격 일정 → 보간 지터 없음 |
-| Delta | 클라이언트별 ack baseline 대비 변경 컴포넌트 | 6장 |
-| Interest | 청크 구독 ∩ Spatial 버킷 + alwaysRelevant, 히스테리시스 | 8장 |
-| Late Join | 핸드셰이크 → Bulk(관련 청크 지형 + 엔티티 baseline) → Ready → Delta | 4장 |
-| Reconnect | 세션 토큰으로 60초 내 재접속 시 같은 ClientId·역할. 상태는 Late Join으로 재동기화 | 단순성 |
-| Protocol Version | `kProtocolVersion` 정확 일치 + capabilities 비트 | 불일치 즉시 거절 + 사유 |
-| Content Hash | 로드된 Content 매니페스트(경로 정렬 + 바이트)의 해시 | 같은 Prefab/Rule 정의 확인 |
-| Client Interpolation | renderTime = 추정 서버 시각 − 보간 지연(2 스냅샷 간격 + 지터 여유 ≈ 150 ms) | 패킷 하나 손실 흡수 |
-| 예측 | 게임플레이 예측 없음. 에디터 EditPreview만 | [10](10-EDITOR.md) 6장 |
+| 항목                 | 결정                                                                              | 이유                                                             |
+|----------------------|-----------------------------------------------------------------------------------|------------------------------------------------------------------|
+| Server Authority     | 서버만 진짜 `SimulationWorld`. 클라이언트는 명령을 보내고 결과를 받는다           | 50k 엔티티, 동시 편집, Late Join. 신뢰 경계가 하나               |
+| Lockstep             | 기본 방식으로 쓰지 않음                                                           | 전 클라이언트 전체 계산, Late Join 비용, 최저 사양 클라에 맞춰짐 |
+| 싱글플레이           | in-process Server + Loopback                                                      | 코드 경로 단일화                                                 |
+| Transport            | `INetworkTransport`. 1차 ENet, Loopback, Simulated. 후속 GameNetworkingSockets    | 2장                                                              |
+| Channel              | Control(신뢰·순서) / Snapshot(비신뢰·순차) / Bulk(신뢰·저우선)                    | 3장                                                              |
+| 직렬화               | 자체 비트스트림 + 리플렉션 Visitor, 위치 양자화                                   | [09](09-SERIALIZATION.md) 5장                                    |
+| NetEntityId          | 서버 부여 u32, 세션 내 재사용 금지, epoch                                         | 7장                                                              |
+| Snapshot Rate        | 기본 15 Hz = 2틱마다. 허용값 10/15/30 (틱레이트 약수)                             | 간격 일정 → 보간 지터 없음                                       |
+| Delta                | 클라이언트별 ack baseline 대비 변경 컴포넌트                                      | 6장                                                              |
+| Interest             | 청크 구독 ∩ Spatial 버킷 + alwaysRelevant, 히스테리시스                           | 8장                                                              |
+| Late Join            | 핸드셰이크 → Bulk(관련 청크 지형 + 엔티티 baseline) → Ready → Delta               | 4장                                                              |
+| Reconnect            | 세션 토큰으로 60초 내 재접속 시 같은 ClientId·역할. 상태는 Late Join으로 재동기화 | 단순성                                                           |
+| Protocol Version     | `kProtocolVersion` 정확 일치 + capabilities 비트                                  | 불일치 즉시 거절 + 사유                                          |
+| Content Hash         | 로드된 Content 매니페스트(경로 정렬 + 바이트)의 해시                              | 같은 Prefab/Rule 정의 확인                                       |
+| Client Interpolation | renderTime = 추정 서버 시각 − 보간 지연(2 스냅샷 간격 + 지터 여유 ≈ 150 ms)       | 패킷 하나 손실 흡수                                              |
+| 예측                 | 게임플레이 예측 없음. 에디터 EditPreview만                                        | [10](10-EDITOR.md) 6장                                           |
 
 ---
 
@@ -46,12 +46,12 @@ public:
 };
 ```
 
-| 구현 | 용도 | 비고 |
-|---|---|---|
-| `EnetTransport` | 실제 네트워크 | ENet 채널 3개 매핑. Snapshot = `ENET_PACKET_FLAG_UNSEQUENCED` 아님, **unreliable sequenced**(오래된 것 폐기) |
-| `LoopbackTransport` | 싱글플레이·테스트 | 같은 프로세스, 큐 복사. 직렬화는 그대로 거친다 (경로 동일성) |
-| `SimulatedTransport` | 테스트 | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정 |
-| `GnsTransport` `[후속]` | 암호화·NAT·릴레이 | ADR로 도입 |
+| 구현                    | 용도              | 비고                                                                                                         |
+|-------------------------|-------------------|--------------------------------------------------------------------------------------------------------------|
+| `EnetTransport`         | 실제 네트워크     | ENet 채널 3개 매핑. Snapshot = `ENET_PACKET_FLAG_UNSEQUENCED` 아님, **unreliable sequenced**(오래된 것 폐기) |
+| `LoopbackTransport`     | 싱글플레이·테스트 | 같은 프로세스, 큐 복사. 직렬화는 그대로 거친다 (경로 동일성)                                                 |
+| `SimulatedTransport`    | 테스트            | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정                                      |
+| `GnsTransport` `[후속]` | 암호화·NAT·릴레이 | ADR로 도입                                                                                                   |
 
 ENet은 암호화가 없습니다. 공개 인터넷 서버를 운영하기 전에 GNS로 교체하거나 DTLS 계층을 추가해야 합니다 ([16-ROADMAP](16-ROADMAP.md) 위험 R6).
 
@@ -59,11 +59,11 @@ ENet은 암호화가 없습니다. 공개 인터넷 서버를 운영하기 전�
 
 ## 3. 채널
 
-| 채널 | 보장 | 내용 | 크기 상한 |
-|---|---|---|---|
-| Control | 신뢰 + 순서 | 핸드셰이크, 명령(C→S), CommandResult, 권한 변경, 채팅, ServerStats | 메시지 64 KB |
-| Snapshot | 비신뢰 + 순차 | Delta Snapshot | 패킷 1,200 B 목표(MTU), 클라이언트별 예산 |
-| Bulk | 신뢰 + 순서, 낮은 우선순위 | 청크 지형, 엔티티 baseline, 콘텐츠 오버레이 | 조각화, 청크 단위 |
+| 채널     | 보장                       | 내용                                                               | 크기 상한                                 |
+|----------|----------------------------|--------------------------------------------------------------------|-------------------------------------------|
+| Control  | 신뢰 + 순서                | 핸드셰이크, 명령(C→S), CommandResult, 권한 변경, 채팅, ServerStats | 메시지 64 KB                              |
+| Snapshot | 비신뢰 + 순차              | Delta Snapshot                                                     | 패킷 1,200 B 목표(MTU), 클라이언트별 예산 |
+| Bulk     | 신뢰 + 순서, 낮은 우선순위 | 청크 지형, 엔티티 baseline, 콘텐츠 오버레이                        | 조각화, 청크 단위                         |
 
 ---
 
@@ -95,26 +95,26 @@ Kick/Ban   Control: Disconnect{reason} 후 연결 종료
 
 ## 5. 메시지 카탈로그 (`kProtocolVersion = 1`)
 
-| id | 이름 | 방향 | 채널 | 필드 |
-|---|---|---|---|---|
-| 1 | Hello | C→S | Control | protocolVersion u32, buildId u64, caps u32 |
-| 2 | Challenge | S→C | Control | nonce u64 |
-| 3 | Auth | C→S | Control | token bytes, displayName str(32), contentHash u64, nonce u64 |
-| 4 | Welcome | S→C | Control | clientId u16, role u8, epoch u8, worldMeta, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes |
-| 5 | Reject | S→C | Control | reason u8, detail str |
-| 10 | Subscribe | C→S | Control | chunks[] (ChunkCoord varint) |
-| 11 | Ready | C→S | Control | baselineTick u64 |
-| 20 | Command | C→S | Control | sequence u32, payload (SimCommand 바이너리) |
-| 21 | CommandResult | S→C | Control | sequence u32, status u8, reason u8, detail str |
-| 30 | Snapshot | S→C | Snapshot | 6.2 |
-| 31 | SnapshotAck | C→S | Snapshot | lastSnapshotId u32, receivedBitmask u32 |
-| 40 | TerrainChunk | S→C | Bulk | coord, revision, compressed layers |
-| 41 | EntityBaseline | S→C | Bulk | baselineTick, entities[] (Spawn 형식) |
-| 42 | ContentOverlay | S→C | Bulk | rules/behaviors/prefabs JSON (월드 오버레이분) |
-| 50 | ServerStats | S→C | Control | tickMs avg/p99, entityCount, systemTimes[], pathQueue, jobQueue (1 Hz) |
-| 60 | Chat | 양방향 | Control | text str(256) |
-| 61 | RoleChanged | S→C | Control | clientId, role |
-| 62 | Disconnect | 양방향 | Control | reason u8 |
+| id | 이름           | 방향   | 채널     | 필드                                                                                                         |
+|----|----------------|--------|----------|--------------------------------------------------------------------------------------------------------------|
+| 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                   |
+| 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                    |
+| 3  | Auth           | C→S    | Control  | token bytes, displayName str(32), contentHash u64, nonce u64                                                 |
+| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes |
+| 5  | Reject         | S→C    | Control  | reason u8, detail str                                                                                        |
+| 10 | Subscribe      | C→S    | Control  | chunks[] (ChunkCoord varint)                                                                                 |
+| 11 | Ready          | C→S    | Control  | baselineTick u64                                                                                             |
+| 20 | Command        | C→S    | Control  | sequence u32, payload (SimCommand 바이너리)                                                                  |
+| 21 | CommandResult  | S→C    | Control  | sequence u32, status u8, reason u8, detail str                                                               |
+| 30 | Snapshot       | S→C    | Snapshot | 6.2                                                                                                          |
+| 31 | SnapshotAck    | C→S    | Snapshot | lastSnapshotId u32, receivedBitmask u32                                                                      |
+| 40 | TerrainChunk   | S→C    | Bulk     | coord, revision, compressed layers                                                                           |
+| 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식)                                                                        |
+| 42 | ContentOverlay | S→C    | Bulk     | rules/behaviors/prefabs JSON (월드 오버레이분)                                                               |
+| 50 | ServerStats    | S→C    | Control  | tickMs avg/p99, entityCount, systemTimes[], pathQueue, jobQueue (1 Hz)                                       |
+| 60 | Chat           | 양방향 | Control  | text str(256)                                                                                                |
+| 61 | RoleChanged    | S→C    | Control  | clientId, role                                                                                               |
+| 62 | Disconnect     | 양방향 | Control  | reason u8                                                                                                    |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 
@@ -192,13 +192,13 @@ ack    → 다음 SnapshotAck 에 lastSnapshotId + 최근 32개 수신 비트마
 클라      NetEntityMap: unordered_map<NetEntityId, EntityId> + 역방향 (조회 전용 → 04 4.2 위반 아님)
 ```
 
-| 문제 | 해결 |
-|---|---|
-| 슬롯 재사용으로 옛 참조가 새 엔티티를 가리킴 | NetEntityId는 EntityId 슬롯과 무관, 재사용 없음 |
-| Despawn 손실 | ack될 때까지 매 스냅샷에 포함 |
-| 늦은 옛 스냅샷이 despawn된 엔티티를 되살림 | 순차 채널 + tombstone |
-| 컴포넌트 내 엔티티 참조 | `Hint::EntityRef` → 전송 시 netId, 수신 시 로컬 EntityId |
-| 세이브 | NetEntityId 저장 안 함. saveId 사용 ([09](09-SERIALIZATION.md)) |
+| 문제                                         | 해결                                                            |
+|----------------------------------------------|-----------------------------------------------------------------|
+| 슬롯 재사용으로 옛 참조가 새 엔티티를 가리킴 | NetEntityId는 EntityId 슬롯과 무관, 재사용 없음                 |
+| Despawn 손실                                 | ack될 때까지 매 스냅샷에 포함                                   |
+| 늦은 옛 스냅샷이 despawn된 엔티티를 되살림   | 순차 채널 + tombstone                                           |
+| 컴포넌트 내 엔티티 참조                      | `Hint::EntityRef` → 전송 시 netId, 수신 시 로컬 EntityId        |
+| 세이브                                       | NetEntityId 저장 안 함. saveId 사용 ([09](09-SERIALIZATION.md)) |
 
 ---
 

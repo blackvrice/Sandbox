@@ -119,6 +119,11 @@ def check_file(path: Path, rel: str) -> list[str]:
 
 
 def main() -> int:
+    # Windows 콘솔·CTest 의 기본 인코딩(cp949 등)은 메시지의 '—' 같은 문자를 못 쓴다 → UnicodeEncodeError 로 죽는다.
+    # 실행 옵션(-X utf8)에 기대지 않고 출력 인코딩을 직접 UTF-8 로 고정한다.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", required=True, type=Path)
     ap.add_argument("--expect", type=int, default=None, help="정확히 이 수의 위반을 기대 (자체 시험용)")

@@ -15,6 +15,9 @@ Sink g_sink;        // 비어 있으면 기본 싱크
 void defaultSink(Level level, std::string_view category, std::string_view message) {
     const std::string line = std::format("[{}] [{}] {}\n", levelName(level), category, message);
     std::fwrite(line.data(), 1, line.size(), stderr);
+    // Windows CRT 는 파일·파이프로 넘긴 stderr 를 버퍼링한다 — 강제 종료·크래시 직전 줄을 잃지 않게 (Phase 6, GUI
+    // 클라이언트)
+    std::fflush(stderr);
 }
 
 } // namespace

@@ -40,4 +40,24 @@ TEST_SUITE("server") {
         CHECK_FALSE(parseServerOptions(bad).has_value());
     }
 
+    TEST_CASE("server options: headless scenario run") {
+        constexpr std::array<std::string_view, 7> args{"--scenario", "random_walk_1k", "--ticks", "90", "--seed",
+                                                       "7",          "--realtime"};
+        const auto r = parseServerOptions(args);
+        REQUIRE(r.has_value());
+        CHECK(r->scenario == "random_walk_1k");
+        CHECK(r->ticks == 90u);
+        CHECK(r->seed == 7u);
+        CHECK(r->realtime);
+        constexpr std::array<std::string_view, 4> root{"--scenario", "eco_lifecycle", "--content-root", "/c"};
+        CHECK(parseServerOptions(root)->contentRoot == "/c");
+    }
+
+    TEST_CASE("server options: scenario numbers are validated and --ticks needs --scenario") {
+        constexpr std::array<std::string_view, 4> neg{"--scenario", "x", "--ticks", "-1"};
+        CHECK_FALSE(parseServerOptions(neg).has_value());
+        constexpr std::array<std::string_view, 2> alone{"--ticks", "10"};
+        CHECK_FALSE(parseServerOptions(alone).has_value());
+    }
+
 } // TEST_SUITE

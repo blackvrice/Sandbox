@@ -10,10 +10,10 @@
 ### 1.1 Simulation (30 TPS = 33.33 ms/tick)
 
 | 규모 단계 | 엔티티 | 개발 Phase | 평균 tick | p99 tick |
-|---|---|---|---|---|
-| 1단계 | 1,000 | 3 | < 2 ms | < 5 ms |
-| 2단계 | 10,000 | 5 | < 10 ms | < 25 ms |
-| 3단계 | 50,000 | 15 | < 10 ms | < 25 ms |
+|-----------|--------|------------|-----------|----------|
+| 1단계     | 1,000  | 3          | < 2 ms    | < 5 ms   |
+| 2단계     | 10,000 | 5          | < 10 ms   | < 25 ms  |
+| 3단계     | 50,000 | 15         | < 10 ms   | < 25 ms  |
 
 "일반 부하" = Ecosystem 정상 상태. "높은 부하" = 대량 생성/파괴 + 경로 요청 폭주 + 저장 동시 진행.
 
@@ -52,17 +52,18 @@ Late Join: 관련 청크 64개 + 엔티티 5,000 baseline < 2초 (LAN)
 
 ## 2. 벤치마크 시나리오 (`sbx_bench`)
 
-| 이름 | 내용 | 지표 |
-|---|---|---|
-| `ecs.iterate` | 1k/10k/50k, 1/2/4 컴포넌트 view | ns/entity |
-| `ecs.churn` | 틱당 1% 생성·파괴 + 컴포넌트 추가·제거 | ns/op, 메모리 |
-| `ecs.vs_entt` | 같은 시나리오를 EnTT로 (기준선, 벤치 전용 의존성) | 비율 |
-| `sim.ecosystem` | 1k/10k/50k (Grass 70 / Rabbit 25 / Wolf 5 %) 3,000틱 | tick 평균·p95·p99·최대, System별 |
-| `sim.spatial` | 50k, queryRadius 10만 회 | ns/query |
-| `sim.path` | 틱당 요청 16/64/256 | Job 대기, 적용 지연 |
-| `net.snapshot` | 50k, 클라 1/4/16, 카메라 이동 패턴 | bytes/s/client, 직렬화 ms |
-| `render.sprites` | 1k/10k/50k | CPU ms, GPU ms, Draw 수 |
-| `save.world` | 50k 저장/로드 | ms, 파일 크기 |
+| 이름              | 내용                                                                                                                                   | 지표                                           |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| `ecs.iterate`     | 1k/10k/50k, 1/2/4 컴포넌트 view                                                                                                        | ns/entity                                      |
+| `ecs.churn`       | 틱당 1% 생성·파괴 + 컴포넌트 추가·제거                                                                                                 | ns/op, 메모리                                  |
+| `ecs.vs_entt`     | 같은 시나리오를 EnTT로 (기준선, 벤치 전용 의존성)                                                                                      | 비율                                           |
+| `sim.random_walk` | 1k/10k `random_walk_*` 시나리오, 예열 30틱 후 300틱 — **Phase 3 구현**                                                                 | tick 평균·최대                                 |
+| `sim.ecosystem`   | `ecosystem_10k`(192×192, 10,000 개체 시작) 예열 30틱 후 3,000틱, `--threads n` — **Phase 5C 구현** (`--quick` 은 ecosystem_small 60틱) | tick 평균·p95·p99·최대, System별, 종별 개체 수 |
+| `sim.spatial`     | 50k 재구성 + queryRadius(r=4) 10만 회 — **Phase 3 구현**                                                                               | ms, ns/query                                   |
+| `sim.path`        | 틱당 요청 16/64/256                                                                                                                    | Job 대기, 적용 지연                            |
+| `net.snapshot`    | 50k, 클라 1/4/16, 카메라 이동 패턴                                                                                                     | bytes/s/client, 직렬화 ms                      |
+| `render.sprites`  | 1k/10k/50k                                                                                                                             | CPU ms, GPU ms, Draw 수                        |
+| `save.world`      | 50k 저장/로드 — **Phase 4 구현** (컴포넌트 5~6개, 칠한 청크 약 260개)                                                                  | ms, 파일 크기                                  |
 
 ```text
 sbx_bench --scenario sim.ecosystem --entities 10000 --ticks 3000 --seed 1 --threads 8 --out result.json
@@ -95,11 +96,11 @@ GPU    PIX (D3D12), RenderDoc (D3D12/Vulkan), Xcode GPU Capture (Metal), Nsight
 
 ## 5. 오버레이 지표
 
-| 오버레이 | 지표 | 출처 |
-|---|---|---|
-| Graphics | FPS, Frame Time, CPU Render Time, GPU Frame Time, Draw Calls, Triangles, Visible / Culled Entities, Texture Memory, Buffer Memory, Upload Bytes, Frame Latency | Renderer 카운터, 타임스탬프 쿼리, D3D12MA/VMA |
-| Network | Ping, Packet Loss, Bytes In / Out, Snapshot Size, Relevant Entities, Server Tick | `TransportStats`, ClientSession |
-| Simulation | Tick Time(평균/p99), Entity Count, System별 실행 시간, Pathfinding Queue, Job Queue | 서버 `ServerStats` 1 Hz (Control 채널) |
+| 오버레이   | 지표                                                                                                                                                           | 출처                                          |
+|------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
+| Graphics   | FPS, Frame Time, CPU Render Time, GPU Frame Time, Draw Calls, Triangles, Visible / Culled Entities, Texture Memory, Buffer Memory, Upload Bytes, Frame Latency | Renderer 카운터, 타임스탬프 쿼리, D3D12MA/VMA |
+| Network    | Ping, Packet Loss, Bytes In / Out, Snapshot Size, Relevant Entities, Server Tick                                                                               | `TransportStats`, ClientSession               |
+| Simulation | Tick Time(평균/p99), Entity Count, System별 실행 시간, Pathfinding Queue, Job Queue                                                                            | 서버 `ServerStats` 1 Hz (Control 채널)        |
 
 ```text
 수집: foundation/metrics — 고정 크기 링 버퍼 카운터·히스토그램, 락 없는 단일 작성자
@@ -108,15 +109,162 @@ GPU    PIX (D3D12), RenderDoc (D3D12/Vulkan), Xcode GPU Capture (Metal), Nsight
 
 ## 6. 최적화 착수 조건 (Phase 15 후보)
 
-| 후보 | 착수 조건 |
-|---|---|
-| 병렬 SystemScheduler | 50k에서 평균 tick > 10 ms이고 단일 System이 40% 미만 (병렬 이득이 있는 분포) |
-| Owning group / Archetype | 다중 컴포넌트 view가 tick의 30% 초과 |
-| Spatial 증분 갱신 | 재구성 > 1 ms |
-| HPA* | 경로 Job 평균 > 2 ms 또는 장거리 요청 비율 높음 |
-| Render 스레드 분리 | CPU 렌더 > 6 ms |
-| GPU 컬링 | 컬링 CPU > 1 ms |
-| 스냅샷 필드 마스크·압축 | 클라당 > 256 KB/s |
-| 변경 추적 목록화 | Replication 수집 > 1 ms |
+| 후보                     | 착수 조건                                                                    |
+|--------------------------|------------------------------------------------------------------------------|
+| 병렬 SystemScheduler     | 50k에서 평균 tick > 10 ms이고 단일 System이 40% 미만 (병렬 이득이 있는 분포) |
+| Owning group / Archetype | 다중 컴포넌트 view가 tick의 30% 초과                                         |
+| Spatial 증분 갱신        | 재구성 > 1 ms                                                                |
+| HPA*                     | 경로 Job 평균 > 2 ms 또는 장거리 요청 비율 높음                              |
+| Render 스레드 분리       | CPU 렌더 > 6 ms                                                              |
+| GPU 컬링                 | 컬링 CPU > 1 ms                                                              |
+| 스냅샷 필드 마스크·압축  | 클라당 > 256 KB/s                                                            |
+| 변경 추적 목록화         | Replication 수집 > 1 ms                                                      |
 
 각 최적화 커밋은 **전후 벤치 수치 + 골든 해시 동일(또는 의도된 변경)** 을 함께 제시합니다.
+
+## 7. 기록된 측정
+
+### 7.1 Phase 2 — ECS (2026-10-05)
+
+```text
+머신   클라우드 컨테이너 (Intel Xeon @ 2.10GHz, 2 vCPU) — 사용자 PC 아님
+빌드   RelWithDebInfo, Clang 19.1.1, Linux
+명령   sbx_bench --machine cloud-sandbox-container --out …
+기준선 bench/baselines/cloud-sandbox-container.json
+```
+
+| 시나리오    | 엔티티 | 컴포넌트 | 중앙값 (5회)    |
+|-------------|--------|----------|-----------------|
+| ecs.iterate | 1,000  | 1        | 1.21 ns/entity  |
+| ecs.iterate | 1,000  | 2        | 5.28 ns/entity  |
+| ecs.iterate | 1,000  | 4        | 8.12 ns/entity  |
+| ecs.iterate | 10,000 | 1        | 1.11 ns/entity  |
+| ecs.iterate | 10,000 | 2        | 5.31 ns/entity  |
+| ecs.iterate | 10,000 | 4        | 8.18 ns/entity  |
+| ecs.iterate | 50,000 | 1        | 1.35 ns/entity  |
+| ecs.iterate | 50,000 | 2        | 5.50 ns/entity  |
+| ecs.iterate | 50,000 | 4        | 10.87 ns/entity |
+| ecs.churn   | 1,000  | (틱 200) | 40.0 ns/op      |
+| ecs.churn   | 10,000 | (틱 200) | 51.7 ns/op      |
+| ecs.churn   | 50,000 | (틱 200) | 77.9 ns/op      |
+
+```text
+해석
+- 50,000 엔티티 × 컴포넌트 4개 view 한 번 ≈ 0.54 ms. 30 TPS 예산(33 ms)의 1.6%.
+  System 10개가 각각 이런 순회를 해도 Phase 3 규모 목표(평균 < 10 ms) 안이다.
+- 1→2 컴포넌트에서 비용이 4배: 두 번째 풀은 indexOf(sparse 페이지 + 역참조) 로 찾는다. 예상된 sparse set 비용.
+  6장의 "다중 컴포넌트 view 가 tick 의 30% 초과" 조건은 Phase 5 의 실제 시스템으로 다시 잰다.
+- churn 은 ECB 경유(명령당 힙 할당 포함) 기준이다. 50k 에서 1% 교체(틱당 500 생성+500 파괴) ≈ 0.2 ms.
+- EnTT 기준선(ecs.vs_entt)은 아직 없다 — 외부 의존을 벤치 전용으로 받는 작업이 남아 있다.
+```
+
+### 7.2 Phase 3 — 헤드리스 시뮬레이션 (2026-10-05)
+
+```text
+머신·빌드  7.1 과 같음 (RelWithDebInfo, Clang 19.1.1, 클라우드 컨테이너)
+명령       sbx_bench --machine cloud-sandbox-container        (sim.random_walk)
+           sbx_sim_check --golden tests/golden/random_walk_1k.json --profile
+```
+
+| 시나리오        | 엔티티 | 평균 tick | 최대 tick | 예산 (1.1)             |
+|-----------------|--------|-----------|-----------|------------------------|
+| sim.random_walk | 1,000  | 0.29 ms   | 3.1 ms    | 평균 < 2 ms ✅         |
+| sim.random_walk | 10,000 | 3.8 ms    | 10.1 ms   | (Phase 5 기준 < 10 ms) |
+
+| 시나리오    | 엔티티 | 재구성 | queryRadius (r=4) |
+|-------------|--------|--------|-------------------|
+| sim.spatial | 50,000 | 6.8 ms | 0.85 µs/query     |
+
+| System (1k, `--profile`)                | 평균      |
+|-----------------------------------------|-----------|
+| RandomWalk (공간 질의 nearest 1회/개체) | 0.21 ms   |
+| Movement                                | 0.01 ms   |
+| Lifecycle                               | < 0.01 ms |
+
+```text
+해석
+- 1k 평균 0.3 ms 로 Phase 3 완료 기준(< 2 ms)의 15%. 남는 대부분은 RandomWalk 의 queryNearest 와
+  매 틱 SpatialIndex 재구성(비교 정렬 O(N log N))이다.
+- 최대 tick 은 첫 틱(1,000 개 CreateEntity 명령 적용 + JSON 해석)이다. 정상 틱의 p99 는 따로 재지 않았다
+  (sbx_bench 가 p99 를 내도록 하는 것은 sim.ecosystem 과 함께 Phase 5).
+- sim.spatial 50k 재구성 6.8 ms 는 05-WORLD 4.1 의 "1 ms 초과 시 바꾼다" 조건에 걸린다 → Phase 4 카운팅 정렬 (05-WORLD 4.4).
+- 10k 3.8 ms 는 Phase 5 의 2단계 예산(10 ms) 안이지만 RandomWalk 는 Behavior·Sensor 가 들어오면 빠진다.
+  재구성 비용은 Phase 4 의 청크 경계 + 카운팅 정렬(05-WORLD 4장)로 O(N) 이 된다.
+- Debug 빌드는 1k 평균 약 1.6~1.9 ms (Clang/GCC) — 측정값으로 쓰지 않는다.
+- 이 컨테이너는 같은 바이너리로도 ecs.iterate 가 실행마다 최대 2배 흔들렸다. 기준선 파일의 ECS 수치는 Phase 2 값을 유지한다.
+```
+
+### 7.3 Phase 4 — World · Save/Load (2026-10-05)
+
+```text
+머신·빌드  7.1 과 같음 (RelWithDebInfo, Clang 19.1.1, 클라우드 컨테이너)
+명령       sbx_bench --machine cloud-sandbox-container
+```
+
+| 시나리오        | 규모   | 결과                                                               | 기준                       |
+|-----------------|--------|--------------------------------------------------------------------|----------------------------|
+| sim.spatial     | 50,000 | 재구성 1.1 ms, queryRadius(r=4) 0.37 µs                            | (Phase 3: 6.8 ms, 0.85 µs) |
+| sim.random_walk | 1,000  | 평균 tick 0.18 ms, 최대 0.36 ms                                    | 평균 < 2 ms ✅             |
+| sim.random_walk | 10,000 | 평균 tick 1.9 ms, 최대 6.9 ms                                      | (Phase 5 기준 < 10 ms)     |
+| save.world      | 50,000 | 저장 188 ms, 로드 504 ms (entities.jsonl 15.3 MB, 청크 파일 262개) | 50k 저장 < 1 s ✅          |
+
+```text
+해석
+- 공간 색인을 경계 안 격자 + 카운팅 정렬로 바꿔 50k 재구성이 6배 빨라졌고, 행 단위 연속 구간 덕에 질의도 2배 빨라졌다.
+  1k/10k tick 이 Phase 3 대비 약 40~50% 줄어든 것도 대부분 이것이다.
+- 로드가 저장보다 2.7배 느리다: 줄마다 JSON 파싱 + 컴포넌트마다 리플렉션 검증(타입·범위·모르는 키). 1 s 안이라 그대로 둔다.
+  더 줄여야 하면 1순위는 바이너리 엔티티 포맷이다 (09 S4: JSON 은 저작·디버그용).
+- 저장은 호출 스레드에서 동기다. 30 TPS 서버에서 50k 저장은 약 6 틱을 막는다 → Phase 9 의 오토세이브는
+  틱 경계 메모리 스냅샷 + Worker 직렬화로 바꾼다 (09 3.4 원래 설계).
+```
+
+### 7.4 Phase 5B — 감지 · 행동 · 경로 · 충돌 (2026-10-06)
+
+```text
+머신·빌드  7.1 과 같은 종류의 클라우드 컨테이너 (2코어), RelWithDebInfo, Clang 19.1.1
+명령       sbx_sim_check --scenario eco_lifecycle --profile   ·   --scenario random_walk_10k --ticks 300
+```
+
+| 시나리오                     | 규모            | 결과                                                                                                      | 기준                               |
+|------------------------------|-----------------|-----------------------------------------------------------------------------------------------------------|------------------------------------|
+| eco_lifecycle 1800틱         | 약 400~550 개체 | 평균 tick 0.11 ms, 최대 5.6 ms. Worker 4 개도 0.11 ms                                                     | (10k 기준은 5C 에서)               |
+| eco_lifecycle System 별 평균 | 〃              | Sensor 0.026 · PathRequest 0.018 · Collision 0.016 · Behavior 0.013 · Lifecycle 0.012 · Movement 0.006 ms | —                                  |
+| sim.random_walk              | 10,000          | 평균 tick 2.0 ms (Phase 4: 1.9 ms)                                                                        | 새 System 이 비용을 더하지 않음 ✅ |
+
+```text
+해석
+- 새 System 은 대상 컴포넌트가 없는 엔티티를 건드리지 않는다 — random_walk_10k 는 Phase 4 와 같은 수준.
+- 이 규모에서는 경로 Job 이 작아(128² 지도, 대부분 직선으로 보여 요청 자체가 드물다) Worker 를 써도 이득이 없다.
+  병렬화의 이득·대기열 길이·감지 비용은 10k 생태계(5C, sbx_bench sim.ecosystem)에서 잰다.
+- 최대 tick 5 ms 대의 원인은 아직 보지 않았다 (처음 몇 틱의 풀 생성·A* 작업 버퍼 할당으로 추정 — 5C 에서 p99 와 함께 확인).
+```
+
+### 7.5 Phase 5C — 생태계 10k (2026-10-06)
+
+```text
+머신·빌드  7.4 와 같음 (2코어 클라우드 컨테이너, RelWithDebInfo, Clang 19.1.1)
+명령       sbx_bench --only sim.ecosystem --threads {0,1}
+시나리오   ecosystem_10k: 192×192, 풀·토끼·늑대 7,000/2,500/500 시작 → 3,000틱 뒤 14,710 (12,698/1,512/500)
+```
+
+| Worker | 평균 tick | p95      | p99      | 최대    | 기준 (16 Phase 5)                     |
+|--------|-----------|----------|----------|---------|---------------------------------------|
+| 0      | 10.48 ms  | 13.65 ms | 15.95 ms | 27.3 ms | 평균 < 10 ms ✗(근소) · p99 < 25 ms ✅ |
+| 1      | 7.83 ms   | 10.43 ms | 13.56 ms | 31.1 ms | 평균 < 10 ms ✅ · p99 < 25 ms ✅      |
+
+System 별 평균 (Worker 1): Sensor 3.79 · Collision 1.42 · Behavior 0.75 · Lifecycle 0.69 · Movement 0.17 · PathRequest 0.06 ms
+(Worker 0: Sensor 6.03 · Collision 1.93).
+
+```text
+해석·바꾼 것
+- 512×512 에 10,000 을 풀면 풀이 늘어 3,000틱 뒤 27,000 이 된다 — "10k" 측정이 아니게 된다. 평형 밀도(약 0.35 개체/타일)를
+  쟀고, 10,000 근처에서 머무는 192×192 로 시나리오를 정했다.
+- 비용은 개체 수보다 **밀도**를 따른다: 감지 반경 안 후보 수가 밀도에 비례한다. 줄인 것 —
+  (1) 색인 항목에 태그 사본 (후보마다 레지스트리 조회 없음): 감지 7.3 → 5.6 ms
+  (2) flee 목표를 통행 가능한 점으로: 물 위 목표로 A* 가 확장 상한(4,096)까지 헤매던 경로 비용 4.5 → 0.08 ms
+  (3) 감지·충돌 읽기 패스를 Worker 와 나눔 (ADR-0016): Worker 1 에서 평균 10.4 → 7.8 ms
+- Worker 0(단일 스레드)은 평균 기준을 0.5 ms 넘는다. 기준은 Worker 를 쓰는 서버 기준으로 판정했다 (사용자 PC 는 코어가 더 많다).
+  더 줄일 후보: 감지 질의를 TagMask 별 색인으로 나누기(S5), 감지 반경 축소(밸런스와 함께), 충돌 후보 범위 축소.
+- 최대 tick 30 ms 안팎은 측정 구간 앞쪽의 개체 폭증(번식) 틱이다 — 원인 분석은 Phase 15 프로파일러와 함께.
+```
+

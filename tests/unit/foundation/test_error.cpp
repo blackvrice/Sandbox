@@ -1,3 +1,5 @@
+#include <ostream>
+#include <string_view>
 #include <doctest/doctest.h>
 
 #include "foundation/types/Error.hpp"

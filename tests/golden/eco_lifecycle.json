@@ -1,0 +1,56 @@
+{
+  "entries": {
+    "Linux-x86_64-Clang-19": {
+      "compiler": "Clang 19.1.1",
+      "hashes": {
+        "1080": "0xbdafb3be4ca61010",
+        "1260": "0x81ff4a14a5a6e8e4",
+        "1440": "0xd0deda706538a327",
+        "1620": "0x9c596dfc828ae813",
+        "180": "0xd35c0cf95834899b",
+        "1800": "0x2a45326d34544a49",
+        "360": "0x58c9e0b6939e3096",
+        "540": "0x19e3eed6f5676d0e",
+        "720": "0xdb26f2eef3e340ab",
+        "900": "0x1c596ea19dd04342"
+      },
+      "simVersion": 4
+    },
+    "Linux-x86_64-GNU-13": {
+      "compiler": "GNU 13.3.0",
+      "hashes": {
+        "1080": "0xbdafb3be4ca61010",
+        "1260": "0x81ff4a14a5a6e8e4",
+        "1440": "0xd0deda706538a327",
+        "1620": "0x9c596dfc828ae813",
+        "180": "0xd35c0cf95834899b",
+        "1800": "0x2a45326d34544a49",
+        "360": "0x58c9e0b6939e3096",
+        "540": "0x19e3eed6f5676d0e",
+        "720": "0xdb26f2eef3e340ab",
+        "900": "0x1c596ea19dd04342"
+      },
+      "simVersion": 4
+    },
+    "Windows-x86_64-MSVC-19.44": {
+      "compiler": "MSVC 19.44.35228.0",
+      "hashes": {
+        "1080": "0xbdafb3be4ca61010",
+        "1260": "0x81ff4a14a5a6e8e4",
+        "1440": "0xd0deda706538a327",
+        "1620": "0x9c596dfc828ae813",
+        "180": "0xd35c0cf95834899b",
+        "1800": "0x2a45326d34544a49",
+        "360": "0x58c9e0b6939e3096",
+        "540": "0x19e3eed6f5676d0e",
+        "720": "0xdb26f2eef3e340ab",
+        "900": "0x1c596ea19dd04342"
+      },
+      "simVersion": 4
+    }
+  },
+  "hashEvery": 180,
+  "scenario": "eco_lifecycle",
+  "seed": 1,
+  "ticks": 1800
+}

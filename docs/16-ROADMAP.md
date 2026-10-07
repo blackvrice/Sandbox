@@ -1,6 +1,6 @@
 # 16. 로드맵
 
-> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-05 (Phase 1 완료 반영).
+> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-06 (Phase 7A 반영).
 
 ---
 
@@ -19,12 +19,12 @@
 ```text
 Phase 0   분석·설계·문서                          ← 완료 (2026-10-05)
 Phase 1   저장소 골격 · CI · 경계 검사              ← 완료 (2026-10-05, CI 원격 실행 확인 대기)
-Phase 2   Core ECS
-Phase 3   헤드리스 시뮬레이션 · 결정론 하네스
-Phase 4   World (Chunk · Terrain · Spatial · Save/Load)
-Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성
-Phase 6   Windows 플랫폼 (Win32 · Input · Audio)
-Phase 7   DirectX 12 RHI · 셰이더 파이프라인
+Phase 2   Core ECS                                  ← 완료 (2026-10-05)
+Phase 3   헤드리스 시뮬레이션 · 결정론 하네스           ← 완료
+Phase 4   World (Chunk · Terrain · Spatial · Save/Load)  ← 완료
+Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성 (완료 2026-10-06)
+Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
+Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 7A 구현 2026-10-06 (Clear · 프레임 자원), 7B 셰이더·파이프라인
 Phase 8   Renderer · Asset · ImGui                  ← 화면에 보인다
 Phase 9   Network Foundation · Dedicated Server
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
@@ -58,17 +58,17 @@ Phase 15  Optimization (측정 기반)
 
 ### Phase 1 — 저장소 골격 ✅
 
-| # | 티켓 | 상태 |
-|---|---|---|
-| 1.1 | `.gitignore`, `.gitattributes`(LF 기본, Windows 스크립트 CRLF), `.editorconfig`, `.clang-format`, `.clang-tidy` | ✅ 2026-10-05 |
-| 1.1b | `git init` + 첫 커밋 + 원격 저장소 | ⏳ 사용자 작업 (이 세션은 사용자 PC 에서 git 을 실행할 수 없음) |
-| 1.1c | `LICENSE` | ⏸ 열린 질문 Q1 결정 후 |
-| 1.2 | 루트 `CMakeLists.txt`, `CMakePresets.json`(windows-msvc · windows-clangcl · linux-clang · linux-gcc · linux-clang-asan · linux-clang-tsan · macos), `cmake/Sbx*.cmake` | ✅ |
-| 1.3 | `SandboxFoundation`: `Types`, `Error`/`Expected`, `SBX_ASSERT`/`SBX_VERIFY`, `log`, `Fnv1a64`(동결), `Handle<Tag>`, `BuildInfo`(생성) | ✅ — `SmallVector`는 첫 사용처인 Phase 2로 이동 |
-| 1.4 | `SandboxCore`(시뮬레이션 상수), `SandboxServer`(`--help`/`--version`/`--log-level`), `SandboxTests`(doctest v2.5.0) | ✅ |
-| 1.5 | `sbx_check_link_boundaries()`(전이 검사) + `tools/check_includes.py` + 각각의 자체 시험, CTest 라벨 `arch` | ✅ |
-| 1.6 | `sbx_simulation_flags` (Core 가 PUBLIC 으로 전파) | ✅ |
-| 1.7 | CI: `.github/workflows/ci.yml` (Windows MSVC · Linux clang/gcc/asan · macOS) | ✅ 작성 — 원격 저장소 생성 후 첫 실행으로 확인 |
+| #    | 티켓                                                                                                                                                                   | 상태                                                                                                                        |
+|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| 1.1  | `.gitignore`, `.gitattributes`(LF 기본, Windows 스크립트 CRLF), `.editorconfig`, `.clang-format`, `.clang-tidy`                                                        | ✅ 2026-10-05                                                                                                               |
+| 1.1b | `git init` + 첫 커밋 + 원격 저장소                                                                                                                                     | ⏳ 사용자 작업 (이 세션은 사용자 PC 에서 git 을 실행할 수 없음)                                                             |
+| 1.1c | `LICENSE`                                                                                                                                                              | ⏸ 열린 질문 Q1 결정 후                                                                                                      |
+| 1.2  | 루트 `CMakeLists.txt`, `CMakePresets.json`(windows-msvc · windows-clangcl · linux-clang · linux-gcc · linux-clang-asan · linux-clang-tsan · macos), `cmake/Sbx*.cmake` | ✅                                                                                                                          |
+| 1.3  | `SandboxFoundation`: `Types`, `Error`/`Expected`, `SBX_ASSERT`/`SBX_VERIFY`, `log`, `Fnv1a64`(동결), `Handle<Tag>`, `BuildInfo`(생성)                                  | ✅ — `SmallVector`는 첫 사용처인 Phase 2로 이동                                                                             |
+| 1.4  | `SandboxCore`(시뮬레이션 상수), `SandboxServer`(`--help`/`--version`/`--log-level`), `SandboxTests`(doctest v2.5.0)                                                    | ✅                                                                                                                          |
+| 1.5  | `sbx_check_link_boundaries()`(전이 검사) + `tools/check_includes.py` + 각각의 자체 시험, CTest 라벨 `arch`                                                             | ✅                                                                                                                          |
+| 1.6  | `sbx_simulation_flags` (Core 가 PUBLIC 으로 전파)                                                                                                                      | ✅                                                                                                                          |
+| 1.7  | CI: `.github/workflows/ci.yml` (Windows MSVC · Linux clang/gcc/asan · macOS)                                                                                           | ✅ 작성 — `.github/` 는 원격 도구로 쓸 수 없어 **사용자가 직접 배치** (채팅으로 전달), 원격 저장소 생성 후 첫 실행으로 확인 |
 
 ```text
 완료 기준  세 OS CI 에서 빌드 + unit/arch 테스트 통과. 의도적으로 Server 에 Platform 링크를 넣으면 구성이 실패한다.
@@ -80,90 +80,175 @@ Phase 15  Optimization (측정 기반)
 미검증  Windows MSVC · macOS 빌드 — 이 세션에서 실행할 수 없음. 사용자 PC 또는 CI 첫 실행에서 확인 필요.
 ```
 
-### Phase 2 — Core ECS
+### Phase 2 — Core ECS  ✅
 
-| # | 티켓 |
-|---|---|
-| 2.1 | `EntityId`, `EntityManager` (LIFO 재사용, 퇴역 슬롯) |
-| 2.2 | `ComponentPool<T>` sparse set + `validate()`, `foundation/container/SmallVector` (Phase 1에서 이동) |
-| 2.3 | 컴포넌트 등록 `SBX_COMPONENT`, stableId(동결 테스트), Flags |
-| 2.4 | 리플렉션 Visitor 개념 + `JsonWriter/Reader`, `HashVisitor` |
-| 2.5 | `Registry` (create/destroy/emplace/remove/read/write, 구조 변경 가드, Resource) |
-| 2.6 | `View<Read/Write/Exclude>` (가장 작은 풀 드라이버, changed[] 갱신) |
-| 2.7 | `EntityCommandBuffer` (PendingEntity, 적용 순서, 상쇄) |
-| 2.8 | 속성 테스트: Registry vs 참조 모델 10만 연산 |
-| 2.9 | `sbx_bench ecs.iterate / ecs.churn` 최초 기록 |
+| #   | 티켓                                                                                                               | 상태                                             |
+|-----|--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| 2.1 | `EntityId`, `EntityManager` (LIFO 재사용, 퇴역 슬롯)                                                               | ✅                                               |
+| 2.2 | `ComponentPool<T>` sparse set + `validate()`, `foundation/container/SmallVector`, `foundation/math/Vec2`           | ✅                                               |
+| 2.3 | `SBX_COMPONENT`, stableId 동결 테스트, Flags(+`NotHashed`), 이름 규칙 컴파일 타임 검사                             | ✅                                               |
+| 2.4 | 리플렉션 계약 + `JsonWriter/Reader`, `HashVisitor`, `ComponentCatalog`(명시 등록, ADR-0011), nlohmann/json v3.12.0 | ✅                                               |
+| 2.5 | `Registry` (구조 잠금, emplaceOrReplace, 리소스, 결정적 순회 도우미)                                               | ✅                                               |
+| 2.6 | `View<Read/Write/Exclude>` (가장 작은 풀 드라이버, changed 갱신)                                                   | ✅                                               |
+| 2.7 | `EntityCommandBuffer` (PendingEntity, 기록 순서, 생성→파괴 상쇄)                                                   | ✅                                               |
+| 2.8 | 속성 테스트: Registry vs 참조 모델 10만 연산                                                                       | ✅                                               |
+| 2.9 | `sbx_bench ecs.iterate / ecs.churn` 최초 기록                                                                      | ✅ (클라우드 컨테이너 기준선) — EnTT 비교는 남음 |
 
 ```text
-완료  02-ECS 15장 테스트 전부 통과. 10k view 순회 수치 기록.
+완료 기준  02-ECS 15장 테스트 전부 통과. 10k view 순회 수치 기록.
+검증 (2026-10-05)
+  linux-clang · linux-gcc · linux-clang-asan × Debug · RelWithDebInfo, -Werror → 각 11/11 (doctest 76 케이스)
+  MinGW GCC 13 크로스 컴파일(-Werror) 빌드 성공 — Windows 컴파일 대리 확인. 실행·MSVC 는 미검증.
+  10k × 4 컴포넌트 view: 8.2 ns/entity (14-PERFORMANCE 7.1)
+남은 것   EnTT 기준선(ecs.vs_entt), Opaque 컴포넌트·Binary/Bit Visitor (필요한 Phase 에서)
 ```
 
-### Phase 3 — 헤드리스 시뮬레이션
+### Phase 3 — 헤드리스 시뮬레이션  ✅
 
-| # | 티켓 |
-|---|---|
-| 3.1 | `SimulationClock`, `SimulationWorld::tick()`, `SystemScheduler`(고정 Stage) |
-| 3.2 | `SimCommand` variant + `CommandQueue` + 적용기(CreateEntity/DeleteEntity/MoveEntity/ChangeComponent) |
-| 3.3 | `SpatialIndex` (정렬 배열 격자) + 속성 테스트 |
-| 3.4 | `RandomService` (CounterRng) |
-| 3.5 | `LifecycleSystem`(Lifetime, Age), `MovementSystem`(직선 적분), `EventStream` |
-| 3.6 | `WorldHash` (리플렉션 기반) + `kSimVersion = 1` |
-| 3.7 | `sbx_sim_check --repeat --hash-at --print-hash --threads` |
-| 3.8 | 시나리오 `random_walk_1k` |
+| #   | 티켓                                                                                                         | 상태                                                                                          |
+|-----|--------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| 3.1 | `SimulationClock`, `SimulationWorld::tick()`, `SystemScheduler`(고정 Stage)                                  | ✅ — 편집 단계(일시정지), Step, 속도, ISystemProfiler 훅                                      |
+| 3.2 | `SimCommand` variant + `CommandQueue` + 적용기                                                               | ✅ — Create/Delete/Move/Add/Remove/ChangeComponent + Pause/Resume/Step/Speed, 명령마다 원자적 |
+| 3.3 | `SpatialIndex` (정렬 배열 격자) + 속성 테스트                                                                | ✅ — 카운팅 정렬은 Phase 4                                                                    |
+| 3.4 | `RandomService` (CounterRng)                                                                                 | ✅                                                                                            |
+| 3.5 | `LifecycleSystem`(Lifetime, Age), `MovementSystem`(직선 적분), `EventStream`                                 | ✅ + 진단용 `debug.random_walk`                                                               |
+| 3.6 | `WorldHash` (리플렉션 기반, saveId 순서) + `kSimVersion = 1` + 정체성(`persist.persistence`, `net.identity`) | ✅                                                                                            |
+| 3.7 | `sbx_sim_check --repeat --hash-at --hash-every --print-hash --golden --record-golden` + 불일치 진단          | ✅ — `--threads` 는 Phase 5 (아래)                                                            |
+| 3.8 | 시나리오 `random_walk_1k` (+ `random_walk_10k`), 골든(툴체인별, ADR-0012), `SandboxServer --scenario`        | ✅                                                                                            |
 
 ```text
-완료  random_walk_1k 에서 D1, D5 통과. 1k 엔티티 평균 tick < 2 ms.
+완료 기준  random_walk_1k 에서 D1, D5 통과. 1k 엔티티 평균 tick < 2 ms.
+검증 (2026-10-05)
+  D1  det_random_walk_repeat (600틱, 30틱마다 2실행 비교) 통과. 하네스 자체 시험 det_harness_selftest 통과.
+  D4  골든 tests/golden/random_walk_1k.json — Linux-x86_64-Clang-19, Linux-x86_64-GNU-13 기록·일치.
+      (두 컴파일러, Debug/RelWithDebInfo 모두 같은 해시였다 — 그래도 항목은 툴체인별)
+  D5  ⚠ 미검증 — 시뮬레이션이 아직 단일 스레드라 워커 수가 없다. JobSystem 과 함께 Phase 5 로 옮긴다
+      (--threads 는 지금 Unsupported 로 거절한다. 조용히 통과시키지 않기 위해).
+  성능 1k 평균 0.29 ms (RelWithDebInfo, 클라우드 컨테이너) — 기준의 15%. 10k 3.8 ms.
+  linux-clang · linux-gcc × Debug · RelWithDebInfo → 각 16/16, linux-clang-asan Debug 15/15 (doctest 111 케이스), -Werror
+  MinGW GCC 13 크로스 컴파일(-Werror) 성공. Windows 실행·MSVC 는 미검증 (사용자 PC: 골든은 SKIP → --record-golden)
+발견·수정
+  arch_link_boundary_selftest 가 CLion(MinGW)에서 Ninja 를 못 찾던 문제 (CMAKE_MAKE_PROGRAM 전달)
+  JSON: 코드에서 만든 양의 정수(signed)를 부호 없는 필드가 거절하던 문제 (Phase 2 코드)
+  SpatialIndex: 거대한 AABB 질의에서 셀 수 곱이 u64 를 넘쳐 무한 루프 (단위 테스트가 잡음)
+남은 것   D5(--threads), 공간 색인 카운팅 정렬(50k 재구성 6.8 ms), p99 측정, 권한·속도 제한 검증(Phase 9~12)
 ```
 
-### Phase 4 — World
+### Phase 4 — World  ✅
 
-| # | 티켓 |
-|---|---|
-| 4.1 | `ChunkCoord`, `Chunk`, `WorldGrid` (고정 경계) |
-| 4.2 | Terrain 레이어 + `TerrainMaterial`(ContentDatabase 최소판) + `PaintTerrain` 명령 |
-| 4.3 | `queryRadius/AABB/Nearest/Chunk` 완성 |
-| 4.4 | 세이브: world.json, entities.jsonl, chunk 파일, 테이블 재매핑, Opaque 보존 |
-| 4.5 | 마이그레이션 프레임워크 + 샘플 세이브 테스트 |
-| 4.6 | `sbx_sim_check --save-at`, 시나리오 `world_save_load` |
+| #   | 티켓                                                                             | 상태                                                                   |
+|-----|----------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| 4.1 | `ChunkCoord`, `Chunk`, `WorldGrid` (고정 경계)                                   | ✅ — 기본 16×16 청크, 최대 64×64                                       |
+| 4.2 | Terrain 레이어 + `TerrainMaterial`(ContentDatabase 최소판) + `PaintTerrain` 명령 | ✅ — 내장 머티리얼 4종, 경계 검증                                      |
+| 4.3 | `queryRadius/AABB/Nearest/Chunk` 완성                                            | ✅ — 카운팅 정렬, `forEachInChunk`·`countInChunk` (TagMask 는 Phase 5) |
+| 4.4 | 세이브: world.json, entities.jsonl, chunk 파일, 테이블 재매핑, Opaque 보존       | ✅ — 폴더 교체 원자성 (ADR-0013)                                       |
+| 4.5 | 마이그레이션 프레임워크 + 샘플 세이브 테스트                                     | ✅ — `tests/data/saves/v1_sample`                                      |
+| 4.6 | `sbx_sim_check --save-at`, 시나리오 `world_save_load`                            | ✅                                                                     |
 
 ```text
-완료  D2 통과. Spatial 속성 테스트 통과. 50k 저장 < 1 s.
+완료 기준  D2 통과. Spatial 속성 테스트 통과. 50k 저장 < 1 s.
+검증 (2026-10-05)
+  D2  det_world_save_load (250틱 저장 → 600틱까지 나란히), det_random_walk_save_paused (일시정지 상태 저장) 통과.
+      로드할 때 world.json 의 worldHash 와도 비교한다 (조건은 09 3.5).
+  D4  골든 random_walk_1k 재기록 (simVersion 2), world_save_load 신규 — Clang 19 · GCC 13 같은 해시
+  속성 SpatialIndex vs 전수 탐색 (무작위 월드 경계·경계 밖 점 포함) 통과
+  성능 50k 저장 188 ms / 로드 504 ms. 1k tick 0.18 ms, 10k 1.9 ms. 50k 공간 재구성 1.1 ms (Phase 3: 6.8 ms)
+  linux-clang · linux-gcc × Debug · RelWithDebInfo → 각 20/20, linux-clang-asan Debug 19/19 (doctest 126 케이스), -Werror
+  MinGW GCC 13 크로스 컴파일(-Werror) 성공. Windows 실행·MSVC 는 미검증
+kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색인 격자)
+남은 것   증분 저장·zstd·Worker 직렬화(Phase 9 오토세이브와 함께), EntityRef 2-pass(Phase 5), 스키마 마이그레이션 체인(스키마 2 가 생길 때)
 ```
 
-### Phase 5 — Ecosystem
+### Phase 5 — Ecosystem  ✅
 
-| # | 티켓 |
-|---|---|
-| 5.1 | ContentDatabase 완성: Prefab, Tag, Rule, BehaviorGraph 로더 + 검증기(V1~V7) + contentHash |
-| 5.2 | `SensorSystem`, `BehaviorSystem`(FSM, 노드 어휘), `InteractionSystem` + `ResolveIntents`, Effect op |
-| 5.3 | `life.*` 컴포넌트와 Lifecycle 완성 (Energy, Growth, Reproduce) |
-| 5.4 | `PathfindingService` (A*, PathGridSnapshot, Job 계약 T→T+1), `CollisionSystem` |
-| 5.5 | `content/ecosystem` 팩 (11-CONTENT-SCHEMA 7장 수치) |
-| 5.6 | Replay 기록·재생 + `--replay-roundtrip` |
-| 5.7 | 골든 `ecosystem_small`, 시나리오 `ecosystem_survival` |
-| 5.8 | `sbx_bench sim.ecosystem 10k` |
+티켓이 9개라 검증 단위로 셋으로 나눈다 (2026-10-05): **5A** 콘텐츠·생명 주기 → **5B** 행동·상호작용·경로 → **5C** 리플레이·밸런스·성능.
+
+| #   | 티켓                                                                                                  | 단계 | 상태                                            |
+|-----|-------------------------------------------------------------------------------------------------------|------|-------------------------------------------------|
+| 5.1 | ContentDatabase 완성: Prefab, Tag, Rule, BehaviorGraph 로더 + 검증기(V1~V7) + contentHash             | 5A   | ✅                                              |
+| 5.3 | `life.*` 컴포넌트와 Lifecycle 완성 (Energy, Health, Growth, Reproduce) + Prefab 생성(명령·SpawnQueue) | 5A   | ✅                                              |
+| 5.5 | `content/ecosystem` 팩 (11-CONTENT-SCHEMA 7장 수치)                                                   | 5A   | ✅ (5B: 이동·충돌·감지·행동·경로 컴포넌트 추가) |
+| 5.2 | `SensorSystem`, `BehaviorSystem`(FSM, 노드 어휘), `InteractionSystem` + `ResolveIntents`, Effect op   | 5B   | ✅                                              |
+| 5.4 | `PathfindingService` (A*, PathGridSnapshot, Job 계약 T→T+1), `CollisionSystem`                        | 5B   | ✅                                              |
+| 5.9 | JobSystem + `sbx_sim_check --threads 0,1,8` (D5 — Phase 3 에서 이월)                                  | 5B   | ✅                                              |
+| 5.6 | Replay 기록·재생 + `--replay-roundtrip` (D3)                                                          | 5C   | ✅                                              |
+| 5.7 | 골든 `ecosystem_small`, 시나리오 `ecosystem_survival`                                                 | 5C   | ✅                                              |
+| 5.8 | `sbx_bench sim.ecosystem 10k`                                                                         | 5C   | ✅                                              |
 
 ```text
-완료  시드 3개 18,000틱 세 종 공존. D1~D5 통과. 10k 평균 tick < 10 ms, p99 < 25 ms.
+완료  시드 3개 18,000틱 세 종 공존. D1~D5 통과. 10k 평균 tick < 10 ms, p99 < 25 ms.   → **충족 (2026-10-06, 아래 5C 검증)**
+
+5A 검증 (2026-10-05)
+  콘텐츠  content/ecosystem 검증 오류·경고 0 (CTest content_eco_validate). 검증기 V1~V7 를 일부러 틀린 팩으로 시험
+  D1·D2   eco_lifecycle (풀 400 · 토끼 60 · 늑대 10, 1800틱): --repeat 2 + 900틱 저장→로드 (태그 표·Opaque render.sprite
+          를 지나는 세이브 왕복, 로드 해시 검증 일치)
+  D4      골든 eco_lifecycle 신규. 기존 골든(random_walk_1k, world_save_load)은 변하지 않았다 → kSimVersion 그대로 2
+  발견    nlohmann::json items().begin() 프록시를 구조적 바인딩으로 잡으면 매달린 참조 — Debug 는 통과, RelWithDebInfo 에서
+          예외. 최적화 빌드 테스트가 잡았다 (콘텐츠 로더의 조건 노드 파서)
+  Windows 사용자 PC (MSVC 19.44, CLion Debug, Phase 4 코드): ctest 17/19 — D1·D2 통과, random_walk_1k·world_save_load 최종 해시가
+          Linux 골든과 같다. 실패 2개(린터 cp949 출력, 중첩 구성의 vcvars 환경)는 5A 에서 수정. 5A 코드의 MSVC 빌드는 미검증
+
+5B 검증 (2026-10-06)
+  D1·D2·D5 eco_lifecycle: --repeat 2 --save-at 900 --threads 0,1,8 (CTest det_eco_lifecycle). 저장 시점 101~110·211·333·517·700
+          에서도 D2 일치. 단위 테스트가 경로 Job 진행 중(Submitted) 저장→로드 후 400틱 동일을 확인
+  D4      kSimVersion 3 — 골든 3개 재기록, Clang 19 · GCC 13 같은 해시
+  동작    eco_lifecycle 1800틱: 늑대가 토끼를 잡아먹고(60회) 토끼가 풀을 먹고 번식한다. 밸런스(토끼 증가·풀 감소)는 5C
+  측정·전체 매트릭스 결과는 DEVELOPMENT_LOG 의 Phase 5B 항목
+
+5C 검증 (2026-10-06)
+  D3      리플레이 기록→재생: random_walk_1k(일시정지 편집) · world_save_load(지형) · eco_lifecycle · ecosystem_small 일치.
+          변조한 리플레이는 다음 해시 레코드에서 잡힌다 (단위 테스트)
+  공존    ecosystem_survival 18,000틱 시드 1·2·3 — 세 종 모두 생존 (CTest balance_*, 수치는 11 7장)
+  성능    sbx_bench sim.ecosystem (ecosystem_10k, 10,000 개체 시작 → 끝 14,700): Worker 1 평균 7.6 ms · p99 12.4 ms,
+          Worker 0 평균 10.4 ms · p99 16.5 ms (2코어 클라우드 컨테이너, 14-PERFORMANCE 7.5)
+  D4      kSimVersion 4 — 골든 4개 (ecosystem_small 신규), Clang 19 · GCC 13 같은 해시. Windows 항목은 다시 기록 필요
 ```
 
-### Phase 6 — Windows 플랫폼
+### Phase 6 — Windows 플랫폼  ✅ (수동 QA 대기)
+
+| #   | 티켓                                                                                             | 상태                                   |
+|-----|--------------------------------------------------------------------------------------------------|----------------------------------------|
+| 6.1 | IWindow / NativeWindowHandle / PlatformEvent / Key (물리 위치) + HeadlessWindow                  | ✅ 2026-10-06                          |
+| 6.2 | Win32Window (DPI v2, Raw Input, IME, 클립보드, 커서) + FramePacer · attachConsole                | ✅ (Wine 시험 통과, 사용자 PC QA 대기) |
+| 6.3 | InputSystem (I1·I3·I4) + ActionMap (settings/input.json, 정확 수정자, 충돌) + Gamepad 인터페이스 | ✅                                     |
+| 6.4 | IAudioBackend + NullAudioBackend                                                                 | ✅                                     |
+| 6.5 | SandboxClient 빈 창 + 앱 상태기계 골격 (`--headless`, 제목 줄 입력 모니터)                       | ✅                                     |
 
 ```text
-6.1 IWindow / NativeWindowHandle / PlatformEvent / Key        6.2 Win32Window (DPI v2, Raw Input, IME)
-6.3 InputSystem + ActionMap                                    6.4 IAudioBackend + Null 구현
-6.5 SandboxClient 빈 창 + 앱 상태기계 골격
 완료  입력 단위 테스트 + qa/MANUAL-QA 의 Phase 6 항목
+      → 단위 테스트 충족 (2026-10-06). 수동 QA 는 사용자 PC 에서 (Wine 에서 미리 확인한 항목은 아래)
+
+검증 (2026-10-06)
+  단위    tests/unit/platform · tests/unit/client (doctest), CTest client_version · client_headless_smoke (모든 OS)
+  Win32   MinGW 교차 빌드 → Wine 9 + Xvfb + xdotool 로 실제 Win32Window 구동: 키(스캔 코드 → Key)·Shift·F2 글자 입력·
+          클릭·더블클릭(×2)·휠·가운데 버튼·F3 캡처 중 Raw Input 상대 이동 Δ(30,10)·창 크기 변경·제목 줄(한국어)·Ctrl+Q 종료.
+          SandboxTests.exe 전체 통과. Wine 은 Per-Monitor DPI 를 지원하지 않는다 → DPI·IME 조합·Alt+Tab 은 사용자 PC QA
+  남음    MSVC 빌드와 qa/MANUAL-QA Phase 6 체크리스트 (사용자 PC)
 ```
 
 ### Phase 7 — DirectX 12 RHI
 
+티켓이 7개라 둘로 나눈다 (2026-10-06, ADR-0018): **7A** RHI 골격 · 디바이스 · Clear · 프레임 자원 · 기준 이미지 틀 →
+**7B** 셰이더 빌드 · 파이프라인 · Triangle · Texture.
+
+| #   | 티켓                                                                                        | 단계 | 상태                                                    |
+|-----|---------------------------------------------------------------------------------------------|------|---------------------------------------------------------|
+| 7.1 | RHI 인터페이스·Desc·Caps·Handle (7A 범위: Buffer·Texture·RenderPass·Barrier·Copy·SwapChain) | 7A   | ✅ 2026-10-06 (Shader·Pipeline·BindGroup·Sampler 는 7B) |
+| 7.2 | Device/Adapter/Queue/Fence/SwapChain (Clear)                                                | 7A   | ✅ (Wine 시험 통과, 사용자 PC 대기)                     |
+| 7.3 | FrameContext, 업로드 링, 파괴 대기열                                                        | 7A   | ✅                                                      |
+| 7.7 | sbx_render_tests + WARP CTest (clear · upload · region copy · 수명)                         | 7A   | ✅ (triangle · texture 기준 이미지는 7B)                |
+| 7.4 | 셰이더 빌드(sbx_add_shader, DXC, 리플렉션 JSON, 헤더 생성)                                  | 7B   | [계획]                                                  |
+| 7.5 | Pipeline/RootSignature/BindGroup (Triangle)                                                 | 7B   | [계획]                                                  |
+| 7.6 | Texture + 업로드 (Texture — 샘플링)                                                         | 7B   | [계획]                                                  |
+
 ```text
-7.1 RHI 인터페이스·Desc·Caps·Handle              7.2 Device/Adapter/Queue/Fence/SwapChain (Clear)
-7.3 FrameContext, 업로드 링, 파괴 대기열          7.4 셰이더 빌드(sbx_add_shader, DXC, 리플렉션 JSON, 헤더 생성)
-7.5 Pipeline/RootSignature/BindGroup (Triangle)   7.6 Texture + 업로드 (Texture)
-7.7 sbx_render_tests + WARP CI
 완료  clear/triangle/texture 기준 이미지 통과, Debug Layer·GBV 경고 0
+
+7A 검증 (2026-10-06)
+  Linux    RHI 순수 로직(핸들 풀 · 지연 해제 · 업로드 링 참조 모델 2,000프레임 · 이미지 PNG 왕복·비교)과 클라이언트(가짜 렌더러)
+  Wine     MinGW 교차 빌드 → Wine 9 d3d12(vkd3d) → lavapipe: sbx_render_tests 8케이스 통과 (누수 0, 경고 0),
+           SandboxClient 실제 창: 스왑체인 생성 · Clear · 크기 변경 · Ctrl+Q. vkd3d 는 FL 11_1 까지라 --fl11 · --rhi-fl11
+  남음     사용자 PC: MSVC 빌드, ctest -L render (WARP + Debug Layer), SandboxClient 수동 QA (DPI·최소화·VSync·--rhi-debug)
 ```
 
 ### Phase 8 — Renderer
@@ -245,35 +330,35 @@ Phase 15  Optimization (측정 기반)
 ## 4. 지금 착수할 티켓
 
 ```text
-0. [1.1b] 사용자: D:\Game\Sandbox 에서 git init → 첫 커밋 → GitHub 원격 생성 → push (CI 첫 실행)
-0. [1.7]  사용자: Windows 에서 cmake --preset windows-msvc 로 빌드·테스트 1회 (MSVC 경로 확인)
-1. [2.1] EntityId, EntityManager (LIFO 재사용, 퇴역 슬롯)
-2. [2.2] ComponentPool<T> sparse set + validate()   (SmallVector 포함)
-3. [2.3] SBX_COMPONENT 등록, stableId 동결 테스트, Flags
-4. [2.4] 리플렉션 Visitor + JsonWriter/Reader, HashVisitor   (nlohmann/json vendoring)
-5. [2.5~2.7] Registry · View · ECB
-6. [2.8~2.9] 속성 테스트, 첫 벤치
+사용자: [1.1b] git 첫 커밋 + 원격 push → CI 첫 실행,  [1.7] windows-msvc 프리셋 빌드·ctest 1회
+1. [3.1] SimulationClock, SimulationWorld::tick(), SystemScheduler(고정 Stage, StructuralLockGuard 적용)
+2. [3.2] SimCommand variant + CommandQueue + 적용기
+3. [3.3] SpatialIndex (정렬 배열 격자) + 속성 테스트
+4. [3.4] RandomService (CounterRng)
+5. [3.5] Lifecycle/Movement 최소판, EventStream
+6. [3.6] WorldHash (poolsByStableId + forEachEntityByIndex + 카탈로그 해시) + kSimVersion = 1
+7. [3.7~3.8] sbx_sim_check --repeat/--hash-at/--threads, 시나리오 random_walk_1k
 ```
 
 ## 5. 위험
 
-| # | 위험 | 가능성 | 영향 | 완화 |
-|---|---|---|---|---|
-| R1 | 범위: 1인 개발, 15 Phase, 3 플랫폼 | 높음 | 치명 | Phase 12를 1차 목표선으로 고정. Phase마다 동작하는 상태 |
-| R2 | 툴체인 전환 (MinGW → MSVC) | 중 | 높음 | Phase 1에서 즉시. RTS의 MinGW 간헐 컴파일 실패도 해소 |
-| R3 | RHI 과잉/과소 추상화 | 중 | 높음 | Vulkan을 Windows에서 일찍 붙여 인터페이스 검증. 그 전까지 RHI 변경 허용 |
-| R4 | GPU 동기화·수명 버그 | 높음 | 중 | Debug Layer/GBV/Validation 상시, 파괴 대기열 단일화, DRED, 기준 이미지 |
-| R5 | 50k 성능 미달 | 중 | 높음 | Phase 2부터 벤치, EnTT 기준선, 착수 조건 표 |
-| R6 | ENet 암호화 부재 | 확정 | 중 | LAN·신뢰 환경 한정 명시. 공개 서버 전 GNS 또는 DTLS (ADR 필요) |
-| R7 | 네트워크 대역폭 (50k + 다수 클라) | 중 | 높음 | Interest, 양자화, 우선순위·예산, 측정 후 압축 |
-| R8 | 복제 엔티티 참조 꼬임 | 중 | 중 | 재사용 금지, tombstone, 대기 목록, 수렴 테스트 |
-| R9 | 결정론 회귀가 숨음 | 중 | 중 | Persistent → Hashed 기본, 리플렉션 자동 해시, 골든 simVersion 불일치 시 실패 |
-| R10 | 셰이더 툴체인 (MSL 변환 실패, 버전 차이) | 중 | 중 | HLSL 부분집합 규약, 버전 고정, Phase 14 전 macOS 컴파일 CI |
-| R11 | macOS 하드웨어·CI 접근 | 중 | 중 | Apple Silicon CI 러너, 실기 확인은 마일스톤만 |
-| R12 | Wayland 복잡도 | 높음 | 낮음 | X11 먼저, libdecor, 대안 SDL3 백엔드 (ADR-0005 대안) |
-| R13 | 원격 편집 체감 지연 | 중 | 중 | EditPreview, 로컬 서버는 지연 0 |
-| R14 | 콘텐츠 표현력 부족 | 높음 | 중 | 요구 3건 누적 시 스크립팅 검토 (03 6.4) |
-| R15 | ImGui 자체 렌더러 유지비 | 낮음 | 낮음 | 폴백: 공식 dx12 백엔드 래핑 (ADR-0008) |
+| #   | 위험                                     | 가능성 | 영향 | 완화                                                                         |
+|-----|------------------------------------------|--------|------|------------------------------------------------------------------------------|
+| R1  | 범위: 1인 개발, 15 Phase, 3 플랫폼       | 높음   | 치명 | Phase 12를 1차 목표선으로 고정. Phase마다 동작하는 상태                      |
+| R2  | 툴체인 전환 (MinGW → MSVC)               | 중     | 높음 | Phase 1에서 즉시. RTS의 MinGW 간헐 컴파일 실패도 해소                        |
+| R3  | RHI 과잉/과소 추상화                     | 중     | 높음 | Vulkan을 Windows에서 일찍 붙여 인터페이스 검증. 그 전까지 RHI 변경 허용      |
+| R4  | GPU 동기화·수명 버그                     | 높음   | 중   | Debug Layer/GBV/Validation 상시, 파괴 대기열 단일화, DRED, 기준 이미지       |
+| R5  | 50k 성능 미달                            | 중     | 높음 | Phase 2부터 벤치, EnTT 기준선, 착수 조건 표                                  |
+| R6  | ENet 암호화 부재                         | 확정   | 중   | LAN·신뢰 환경 한정 명시. 공개 서버 전 GNS 또는 DTLS (ADR 필요)               |
+| R7  | 네트워크 대역폭 (50k + 다수 클라)        | 중     | 높음 | Interest, 양자화, 우선순위·예산, 측정 후 압축                                |
+| R8  | 복제 엔티티 참조 꼬임                    | 중     | 중   | 재사용 금지, tombstone, 대기 목록, 수렴 테스트                               |
+| R9  | 결정론 회귀가 숨음                       | 중     | 중   | Persistent → Hashed 기본, 리플렉션 자동 해시, 골든 simVersion 불일치 시 실패 |
+| R10 | 셰이더 툴체인 (MSL 변환 실패, 버전 차이) | 중     | 중   | HLSL 부분집합 규약, 버전 고정, Phase 14 전 macOS 컴파일 CI                   |
+| R11 | macOS 하드웨어·CI 접근                   | 중     | 중   | Apple Silicon CI 러너, 실기 확인은 마일스톤만                                |
+| R12 | Wayland 복잡도                           | 높음   | 낮음 | X11 먼저, libdecor, 대안 SDL3 백엔드 (ADR-0005 대안)                         |
+| R13 | 원격 편집 체감 지연                      | 중     | 중   | EditPreview, 로컬 서버는 지연 0                                              |
+| R14 | 콘텐츠 표현력 부족                       | 높음   | 중   | 요구 3건 누적 시 스크립팅 검토 (03 6.4)                                      |
+| R15 | ImGui 자체 렌더러 유지비                 | 낮음   | 낮음 | 폴백: 공식 dx12 백엔드 래핑 (ADR-0008)                                       |
 
 ## 6. 범위 밖 (의도적)
 

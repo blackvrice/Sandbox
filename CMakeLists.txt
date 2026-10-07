@@ -35,15 +35,38 @@ if(SBX_BUILD_TESTS)
 endif()
 
 # --- 모듈 (의존 순서) -------------------------------------------------------
+add_subdirectory(external)
 add_subdirectory(foundation)
 add_subdirectory(core)
+# Platform 은 항상 만든다: 클라이언트가 없어도 입력·오디오 단위 테스트가 쓴다 (창 구현은 OS 별, 없으면 stub).
+add_subdirectory(platform)
+# Render 도 항상 만든다: RHI 의 순수 로직(핸들 풀·지연 해제·업로드 링)과 이미지 비교를 단위 테스트가 쓴다.
+# 백엔드가 없는 OS 는 createRenderDevice 가 Unsupported.
+add_subdirectory(render)
 
 if(SBX_BUILD_SERVER)
     add_subdirectory(apps/server)
 endif()
 
+if(SBX_BUILD_CLIENT)
+    add_subdirectory(apps/client)
+endif()
+
+if(SBX_BUILD_TOOLS)
+    add_subdirectory(tools/sim_check)
+endif()
+
+# GPU 기준 이미지 테스트 (06 14장). 백엔드가 있는 플랫폼(지금은 Windows D3D12)에서만.
+if(SBX_BUILD_TESTS AND WIN32)
+    add_subdirectory(tests/render)
+endif()
+
 if(SBX_BUILD_TESTS)
     add_subdirectory(tests)
+endif()
+
+if(SBX_BUILD_BENCH)
+    add_subdirectory(bench)
 endif()
 
 # --- 경계 규칙 --------------------------------------------------------------

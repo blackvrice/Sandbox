@@ -12,4 +12,6 @@ inline constexpr std::string_view kVersionString = "@PROJECT_VERSION@";
 inline constexpr std::string_view kGitCommit = "@SBX_GIT_COMMIT@";
 inline constexpr std::string_view kCompilerId = "@CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@";
 inline constexpr std::string_view kSystemName = "@CMAKE_SYSTEM_NAME@";
+// 골든 해시 키 "<System>-<processor>-<CompilerId>-<major>" (ADR-0012)
+inline constexpr std::string_view kToolchainKey = "@SBX_TOOLCHAIN_KEY@";
 } // namespace sbx::build

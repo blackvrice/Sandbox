@@ -1,0 +1,178 @@
+{
+  "build": "optimized",
+  "commit": "unknown",
+  "compiler": "Clang 19.1.1",
+  "machine": "cloud-sandbox-container",
+  "results": [
+    {
+      "metrics": {
+        "ns_per_entity": 1.2127045
+      },
+      "params": {
+        "components": 1,
+        "entities": 1000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 5.2780375
+      },
+      "params": {
+        "components": 2,
+        "entities": 1000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 8.1191105
+      },
+      "params": {
+        "components": 4,
+        "entities": 1000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 1.110723
+      },
+      "params": {
+        "components": 1,
+        "entities": 10000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 5.307448
+      },
+      "params": {
+        "components": 2,
+        "entities": 10000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 8.1756555
+      },
+      "params": {
+        "components": 4,
+        "entities": 10000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 1.347582
+      },
+      "params": {
+        "components": 1,
+        "entities": 50000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 5.501622
+      },
+      "params": {
+        "components": 2,
+        "entities": 50000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_entity": 10.8686955
+      },
+      "params": {
+        "components": 4,
+        "entities": 50000
+      },
+      "scenario": "ecs.iterate"
+    },
+    {
+      "metrics": {
+        "ns_per_op": 39.9671
+      },
+      "params": {
+        "entities": 1000,
+        "ticks": 200
+      },
+      "scenario": "ecs.churn"
+    },
+    {
+      "metrics": {
+        "ns_per_op": 51.71898
+      },
+      "params": {
+        "entities": 10000,
+        "ticks": 200
+      },
+      "scenario": "ecs.churn"
+    },
+    {
+      "metrics": {
+        "ns_per_op": 77.919524
+      },
+      "params": {
+        "entities": 50000,
+        "ticks": 200
+      },
+      "scenario": "ecs.churn"
+    },
+    {
+      "metrics": {
+        "ns_per_query": 373.11275,
+        "rebuild_ms": 1.094731
+      },
+      "params": {
+        "entities": 50000,
+        "queries": 100000,
+        "radius": 4
+      },
+      "scenario": "sim.spatial"
+    },
+    {
+      "metrics": {
+        "avg_tick_ms": 0.17571869666666665,
+        "max_tick_ms": 0.354642
+      },
+      "params": {
+        "entities": 1000,
+        "ticks": 300
+      },
+      "scenario": "sim.random_walk"
+    },
+    {
+      "metrics": {
+        "avg_tick_ms": 1.9331775800000002,
+        "max_tick_ms": 6.878732
+      },
+      "params": {
+        "entities": 10000,
+        "ticks": 300
+      },
+      "scenario": "sim.random_walk"
+    },
+    {
+      "metrics": {
+        "entities_bytes": 15320147,
+        "load_ms": 504.212165,
+        "save_ms": 188.040305
+      },
+      "params": {
+        "chunkFiles": 262,
+        "entities": 50000
+      },
+      "scenario": "save.world"
+    }
+  ],
+  "version": "0.1.0",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz, 2 vCPU (클라우드 컨테이너)",
+  "recordedAt": "2026-10-05",
+  "note": "Phase 2 첫 기록. 사용자 PC 기준선이 아니다 — 같은 머신끼리만 비교한다 (14-PERFORMANCE 3장). | ECS 수치는 Phase 2 값 (이 컨테이너는 실행마다 최대 2배 흔들린다). sim.* · save.world 는 Phase 4 (2026-10-05) 측정."
+}

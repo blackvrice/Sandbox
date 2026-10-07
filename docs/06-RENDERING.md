@@ -1,7 +1,9 @@
 # 06. 렌더링
 
 > **규범 문서.** RHI, 세 백엔드, 셰이더 파이프라인, 에셋, Renderer 프레임을 정합니다.
-> 상태: 전부 `[계획]` — DX12 Phase 7, Renderer Phase 8, Vulkan Phase 13, Metal Phase 14.
+> 상태: **Phase 7A 구현** — RHI 골격(3장 중 Buffer·Texture·RenderPass Clear·Barrier·Copy·SwapChain), 4장 FrameContext·업로드 링·
+> 지연 해제, D3D12 백엔드(5.1 중 committed 리소스·RTV·Debug Layer·DRED), 이미지 비교·`sbx_render_tests`(14장 중 Clear·업로드·복사·수명).
+> `[계획]` Shader·Pipeline·BindGroup·Sampler(7B), Renderer·Asset·ImGui(8), Vulkan(13), Metal(14). 7A 결정: [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -24,27 +26,27 @@ R5. SFML, OpenGL 은 어떤 형태로도 쓰지 않는다.
 
 ## 2. 결정 표
 
-| 항목 | 결정 | 이유 |
-|---|---|---|
-| SFML 제거 범위 | Graphics·Window·System·Audio·OpenGL·ImGui OpenGL3 백엔드 **전부 0**. CMake에 `find_package(SFML)`·`OpenGL` 없음 | 임시 의존은 영구 의존이 된다 (RTS core 헤더의 SFML include가 증거) |
-| Window Abstraction | `IWindow` + 이벤트 큐. 렌더링 메서드 없음 ([07](07-PLATFORM.md)) | 창과 렌더러의 수명·스레드 분리 |
-| Input Abstraction | PlatformEvent → InputSystem → InputState → ActionMap | 시뮬레이션이 입력 장치를 모르게 |
-| RHI Boundary | 얇은 가상 인터페이스 + Desc 구조체 + Caps (3장) | 백엔드 교체·추가가 상위 코드 무변경 |
-| Render Resource Handle | 상위: `{index:32, generation:32}` 핸들 (리소스 매니저 소유). RHI: `RhiTexture` 등 백엔드 객체 핸들 | 무효 핸들 검출, native 포인터 차단 |
-| Frame Resource 관리 | `FrameContext[N]`: 커맨드 할당자/풀, 업로드 링 구간, 임시 디스크립터, 타임스탬프, 파괴 대기열 | 프레임 간 대기 제거 |
-| Frames In Flight | **기본 2**, 설정으로 3 | 에디터는 입력 지연이 체감된다. GPU 바운드면 3 |
-| GPU Synchronization | 큐당 단조 증가 64비트 타임라인 펜스 하나. 프레임·업로드·파괴가 같은 값 공간 | 세 API 공통분모 (D3D12 Fence / Vulkan timeline semaphore / MTLSharedEvent) |
-| Shader Language | HLSL (SM 6.0 기본 부분집합) 단일 소스 | 6장 |
-| Shader Compiler | DXC → DXIL / SPIR-V, SPIRV-Cross → MSL → `metal`. **빌드 타임 오프라인** | 런타임 컴파일러 의존 제거, 셰이더 오류 = 빌드 오류 |
-| Shader Reflection | SPIR-V 기준 `.reflect.json` → 레이아웃 자동 생성 + C++ 상수 버퍼 헤더 생성 | 바인딩 수동 복제 금지 |
-| Resource Binding | 빈도별 BindGroup 4개(0 Frame · 1 Pass · 2 Material · 3 Draw) + Push Constants ≤ 128B | 세 API에 무리 없이 내려가는 최소 모델 |
-| Texture Loading | Worker 디코드 → Render 스레드 Upload Queue → 업로드 링 → GPU | Worker는 GPU 리소스를 만들지 않는다 |
-| Sprite Batching | 인스턴스 쿼드, 64비트 정렬 키, Texture2DArray 페이지 | 엔티티당 Draw 금지 |
-| GPU Instancing | 기본 경로. `draw(4, n)` + StructuredBuffer 인스턴스 | 50k 스프라이트를 수십 Draw로 |
-| ImGui Integration | 공식 백엔드 미사용. RHI 위 자체 렌더러 1벌 + InputState→ImGuiIO 공급 | Editor가 native 타입 0개. 백엔드 3벌 유지비 제거 |
-| DX12 Backend | FL 12_0+, D3D12MA, Debug Layer / GBV / DRED, PIX 마커 | 1차 플랫폼 |
-| Vulkan Backend | 1.3 core (dynamic rendering, sync2, timeline), volk, VMA | RenderPass 객체 없이 DX12·Metal과 모양 일치 |
-| Metal Backend | Metal 3, Objective-C++ `.mm` + ARC + pimpl, macOS 13+ Apple Silicon | 공개 헤더에 ObjC 타입 0개 |
+| 항목                   | 결정                                                                                                            | 이유                                                                       |
+|------------------------|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| SFML 제거 범위         | Graphics·Window·System·Audio·OpenGL·ImGui OpenGL3 백엔드 **전부 0**. CMake에 `find_package(SFML)`·`OpenGL` 없음 | 임시 의존은 영구 의존이 된다 (RTS core 헤더의 SFML include가 증거)         |
+| Window Abstraction     | `IWindow` + 이벤트 큐. 렌더링 메서드 없음 ([07](07-PLATFORM.md))                                                | 창과 렌더러의 수명·스레드 분리                                             |
+| Input Abstraction      | PlatformEvent → InputSystem → InputState → ActionMap                                                            | 시뮬레이션이 입력 장치를 모르게                                            |
+| RHI Boundary           | 얇은 가상 인터페이스 + Desc 구조체 + Caps (3장)                                                                 | 백엔드 교체·추가가 상위 코드 무변경                                        |
+| Render Resource Handle | 상위: `{index:32, generation:32}` 핸들 (리소스 매니저 소유). RHI: `RhiTexture` 등 백엔드 객체 핸들              | 무효 핸들 검출, native 포인터 차단                                         |
+| Frame Resource 관리    | `FrameContext[N]`: 커맨드 할당자/풀, 업로드 링 구간, 임시 디스크립터, 타임스탬프, 파괴 대기열                   | 프레임 간 대기 제거                                                        |
+| Frames In Flight       | **기본 2**, 설정으로 3                                                                                          | 에디터는 입력 지연이 체감된다. GPU 바운드면 3                              |
+| GPU Synchronization    | 큐당 단조 증가 64비트 타임라인 펜스 하나. 프레임·업로드·파괴가 같은 값 공간                                     | 세 API 공통분모 (D3D12 Fence / Vulkan timeline semaphore / MTLSharedEvent) |
+| Shader Language        | HLSL (SM 6.0 기본 부분집합) 단일 소스                                                                           | 6장                                                                        |
+| Shader Compiler        | DXC → DXIL / SPIR-V, SPIRV-Cross → MSL → `metal`. **빌드 타임 오프라인**                                        | 런타임 컴파일러 의존 제거, 셰이더 오류 = 빌드 오류                         |
+| Shader Reflection      | SPIR-V 기준 `.reflect.json` → 레이아웃 자동 생성 + C++ 상수 버퍼 헤더 생성                                      | 바인딩 수동 복제 금지                                                      |
+| Resource Binding       | 빈도별 BindGroup 4개(0 Frame · 1 Pass · 2 Material · 3 Draw) + Push Constants ≤ 128B                            | 세 API에 무리 없이 내려가는 최소 모델                                      |
+| Texture Loading        | Worker 디코드 → Render 스레드 Upload Queue → 업로드 링 → GPU                                                    | Worker는 GPU 리소스를 만들지 않는다                                        |
+| Sprite Batching        | 인스턴스 쿼드, 64비트 정렬 키, Texture2DArray 페이지                                                            | 엔티티당 Draw 금지                                                         |
+| GPU Instancing         | 기본 경로. `draw(4, n)` + StructuredBuffer 인스턴스                                                             | 50k 스프라이트를 수십 Draw로                                               |
+| ImGui Integration      | 공식 백엔드 미사용. RHI 위 자체 렌더러 1벌 + InputState→ImGuiIO 공급                                            | Editor가 native 타입 0개. 백엔드 3벌 유지비 제거                           |
+| DX12 Backend           | FL 12_0+, D3D12MA, Debug Layer / GBV / DRED, PIX 마커                                                           | 1차 플랫폼                                                                 |
+| Vulkan Backend         | 1.3 core (dynamic rendering, sync2, timeline), volk, VMA                                                        | RenderPass 객체 없이 DX12·Metal과 모양 일치                                |
+| Metal Backend          | Metal 3, Objective-C++ `.mm` + ARC + pimpl, macOS 13+ Apple Silicon                                             | 공개 헤더에 ObjC 타입 0개                                                  |
 
 ---
 
@@ -130,6 +132,30 @@ public:
 ```
 
 모든 백엔드 클래스는 `final`. 가상 호출 비용은 배치 단위 호출 수(프레임당 수천 이하)에서 무시 가능합니다.
+
+**Phase 7A 구현 (`render/rhi/RenderDevice.hpp`)** — 위 초안과 다른 점 (ADR-0018):
+
+```text
+IRenderDevice  + beginFrame() / endFrame() / framesInFlight() / frameIndex() / frameNumber() / waitIdle()
+               + map(RhiBuffer)            Upload · Readback 영구 매핑 (mapUploadBuffer 대신)
+               + allocateUpload(size, align) → UploadAllocation{buffer, offset, cpu}   업로드 링 구간
+               + destroy(RhiBuffer) · destroy(RhiTexture) 오버로드, alive(h), textureDesc(h), stats() → DeviceStats
+               createSwapChain → Expected<unique_ptr<ISwapChain>>
+               [7B] createSampler · createShader · createGraphics/ComputePipeline · createBindGroupLayout · createBindGroup
+ICommandList   7A: begin end barrier beginRenderPass endRenderPass setViewport setScissor copyBuffer
+                   copyBufferToTexture + copyTextureToBuffer (기준 이미지 읽기) beginDebugLabel endDebugLabel
+               [7B] setPipeline setBindGroup pushConstants setVertexBuffer setIndexBuffer draw drawIndexed dispatch
+               [8]  writeTimestamp
+ICommandQueue  + lastSubmittedValue()
+ISwapChain     acquire() → {backbuffer, skip(최소화)}, present() → bool, resize(w, h), setVsync/vsync, format, extent
+ResourceBarrier  7A 는 텍스처 전이만 ({texture, before, after}). 버퍼는 메모리 종류가 상태를 정한다
+RenderPass     beginRenderPass 가 색 첨부를 묶고 LoadOp::Clear 면 지우며, 뷰포트·시저를 첫 첨부 크기로 맞춘다
+DeviceDesc     backend · debugLayer · gpuValidation · warp · framesInFlight(2|3) · uploadRingBytes(32 MB) ·
+               allowFeatureLevel11 (시험 전용 — Wine/vkd3d)
+DeviceCaps     + adapterName · softwareAdapter · featureLevel · dedicatedVideoMemory · tearing ·
+               textureCopyRowAlignment(D3D12 256) · textureCopyOffsetAlignment(D3D12 512)
+createRenderDevice(desc)  이 빌드의 백엔드. 없는 OS(지금 Linux·macOS)는 Unsupported (render/stub)
+```
 Windows에서 DX12와 Vulkan을 함께 빌드할 수 있게(`SBX_ENABLE_VULKAN_ON_WINDOWS`) 가상 인터페이스를 유지합니다.
 
 ### 3.3 Capability / Extension
@@ -151,12 +177,12 @@ template<class Ext> Ext* queryExtension(IRenderDevice&);  // IBindlessExtension,
 
 HLSL 규칙: `register(<b|t|s|u>N, spaceG)` 에서 **G = BindGroup 번호(0~3)**, push constant는 `[[vk::push_constant]]` + DX12 root constant(`b0, space7` 예약).
 
-| RHI | D3D12 | Vulkan | Metal |
-|---|---|---|---|
-| BindGroupLayout | Root Signature의 descriptor table | `VkDescriptorSetLayout` | Argument Buffer 레이아웃 (Tier 2) |
-| BindGroup | shader-visible heap 연속 구간 | `VkDescriptorSet` | argument `MTLBuffer` + `useResource` |
-| Push Constants | Root Constants | Push Constants | `set{Vertex,Fragment}Bytes` |
-| 동적 상수 | Root CBV (GPU VA) | Dynamic UBO offset | `setBuffer:offset:` |
+| RHI             | D3D12                             | Vulkan                  | Metal                                |
+|-----------------|-----------------------------------|-------------------------|--------------------------------------|
+| BindGroupLayout | Root Signature의 descriptor table | `VkDescriptorSetLayout` | Argument Buffer 레이아웃 (Tier 2)    |
+| BindGroup       | shader-visible heap 연속 구간     | `VkDescriptorSet`       | argument `MTLBuffer` + `useResource` |
+| Push Constants  | Root Constants                    | Push Constants          | `set{Vertex,Fragment}Bytes`          |
+| 동적 상수       | Root CBV (GPU VA)                 | Dynamic UBO offset      | `setBuffer:offset:`                  |
 
 ### 3.5 Resource Barrier
 
@@ -198,6 +224,10 @@ Upload 메모리 하나(기본 32 MB), 영구 매핑. 프레임마다 [head, tai
 텍스처 업로드도 같은 링을 쓰되 프레임 예산(기본 8 MB)을 둔다.
 ```
 
+**Phase 7A 구현:** `render/rhi/UploadRing`(구간 관리 — 정렬, 끝에 안 맞으면 앞으로 감기, 감을 때 버린 꼬리도 사용량, 프레임
+펜스로 반납)과 D3D12 의 Upload 버퍼 하나(영구 매핑). 가득 차면 무효 할당 + `stats.uploadRingDeferred` 증가 — 이월은 호출자.
+프레임 예산(텍스처 8 MB)은 Phase 8.
+
 ### 4.3 GPU Resource Lifetime
 
 ```text
@@ -208,11 +238,11 @@ destroy(handle)
   → 종료: waitIdle 후 전부 해제, 타입별 잔존 수 로그 (Debug 에서 0 이 아니면 실패)
 ```
 
-| 규칙 | 이유 |
-|---|---|
-| 상위 계층은 `destroy`만 부르고 시점을 모른다 | 펜스 지식을 RHI 안에 가둔다 |
-| 생성·파괴는 Render 스레드만 | 수명 장부를 한 스레드가 가진다 |
-| 소유 관용구: D3D12 `ComPtr`, Vulkan VMA + 핸들, Metal ARC `id<>` | |
+| 규칙                                                                                       | 이유                           |
+|--------------------------------------------------------------------------------------------|--------------------------------|
+| 상위 계층은 `destroy`만 부르고 시점을 모른다                                               | 펜스 지식을 RHI 안에 가둔다    |
+| 생성·파괴는 Render 스레드만                                                                | 수명 장부를 한 스레드가 가진다 |
+| 소유 관용구: D3D12 `Com<T>`(render/dx12, ComPtr 대신), Vulkan VMA + 핸들, Metal ARC `id<>` |                                |
 
 ---
 
@@ -226,15 +256,29 @@ HWND → IDXGIFactory6::EnumAdapterByGpuPreference(HIGH_PERFORMANCE) (CI: WARP)
      → IDXGISwapChain4 (FLIP_DISCARD, 버퍼 = framesInFlight + 1, ALLOW_TEARING 지원 시)
 ```
 
-| 구성 | 결정 |
-|---|---|
-| Command List | `ID3D12GraphicsCommandList7` 가능 시, 아니면 4 |
+| 구성            | 결정                                                                                                                              |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Command List    | `ID3D12GraphicsCommandList7` 가능 시, 아니면 4                                                                                    |
 | Descriptor Heap | CPU 힙(RTV/DSV/스테이징) + shader-visible CBV/SRV/UAV 1개(1,000,000) + Sampler(2048). shader-visible은 장기 영역 + 프레임 링 영역 |
-| Root Signature | 리플렉션에서 생성, 해시 공유 |
-| PSO | Desc 해시 캐시. `ID3D12PipelineLibrary` 디스크 캐시는 후속 |
-| Memory | D3D12MA |
-| 디버그 | `--rhi-debug` Debug Layer, `--rhi-gbv` GPU-Based Validation, DRED(Debug 기본), WinPixEventRuntime 마커, `--rhi-warp` |
-| Agility SDK | 초기 미사용. Enhanced Barriers 등 필요 시 ADR |
+| Root Signature  | 리플렉션에서 생성, 해시 공유                                                                                                      |
+| PSO             | Desc 해시 캐시. `ID3D12PipelineLibrary` 디스크 캐시는 후속                                                                        |
+| Memory          | D3D12MA                                                                                                                           |
+| 디버그          | `--rhi-debug` Debug Layer, `--rhi-gbv` GPU-Based Validation, DRED(Debug 기본), WinPixEventRuntime 마커, `--rhi-warp`              |
+| Agility SDK     | 초기 미사용. Enhanced Barriers 등 필요 시 ADR                                                                                     |
+
+**Phase 7A 구현 (`render/dx12/`)** — 위 표와 다른 점:
+
+```text
+메모리        CreateCommittedResource (D3D12MA 는 Phase 8 — ADR-0018). 텍스처는 COMMON 으로 만든다 (Undefined = COMMON)
+디스크립터    RTV CPU 힙 1024 + 자리 목록. shader-visible CBV/SRV/UAV · Sampler 힙은 7B
+커맨드 리스트 ID3D12GraphicsCommandList (기본 인터페이스 — 7A 기능에 충분, MinGW 헤더와도 맞는다). 슬롯마다 할당자 하나
+어댑터        --rhi-warp 면 WARP. 아니면 고성능 순서의 하드웨어 → 소프트웨어 → WARP. 최소 FL 12_0 (allowFeatureLevel11 시험용 11_0)
+Debug Layer   ID3D12InfoQueue 를 프레임마다 비워 경고·오류를 센다(정보성 메시지는 저장 안 함). 없으면 "그래픽 도구" 안내 후 계속
+DRED          Debug 빌드와 --rhi-debug 에서 자동 브레드크럼 · 페이지 폴트. 디바이스 제거는 원인을 한 번 로그
+PIX 마커      BeginEvent(metadata 0, UTF-16) — WinPixEventRuntime 없이
+스왑체인      FLIP_DISCARD, BGRA8Unorm, 버퍼 framesInFlight + 1, ALLOW_TEARING(지원 시, VSync 끔), DXGI_MWA_NO_ALT_ENTER
+펜스 대기     5초마다 디바이스 제거 확인, 30초면 포기 (멈춘 GPU 에서 테스트가 영원히 걸리지 않게)
+```
 
 ### 5.2 Vulkan (Linux, Windows 옵션)
 
@@ -246,16 +290,16 @@ X11(Display*, Window) | Wayland(wl_display*, wl_surface*)
  → VkSwapchainKHR (FIFO 기본, MAILBOX 선택) → 프레임별 Command Pool
 ```
 
-| 구성 | 결정 |
-|---|---|
-| 로더 | volk |
-| 메모리 | VMA |
-| 동기화 | 큐 타임라인 세마포어 + 스왑체인 이미지별 binary 세마포어(acquire/present) |
-| Render Pass | `vkCmdBeginRendering` |
-| Descriptor | 장기 풀 + 프레임별 리셋 풀 |
-| 캐시 | `VkPipelineCache` 디스크 저장 |
-| 재생성 | `OUT_OF_DATE`/`SUBOPTIMAL` → idle 후 재생성 |
-| 디버그 | Debug 빌드 Validation Layer 기본, `--rhi-sync-validation` |
+| 구성        | 결정                                                                      |
+|-------------|---------------------------------------------------------------------------|
+| 로더        | volk                                                                      |
+| 메모리      | VMA                                                                       |
+| 동기화      | 큐 타임라인 세마포어 + 스왑체인 이미지별 binary 세마포어(acquire/present) |
+| Render Pass | `vkCmdBeginRendering`                                                     |
+| Descriptor  | 장기 풀 + 프레임별 리셋 풀                                                |
+| 캐시        | `VkPipelineCache` 디스크 저장                                             |
+| 재생성      | `OUT_OF_DATE`/`SUBOPTIMAL` → idle 후 재생성                               |
+| 디버그      | Debug 빌드 Validation Layer 기본, `--rhi-sync-validation`                 |
 
 ### 5.3 Metal (macOS)
 
@@ -297,13 +341,13 @@ sbx_add_shader(TARGET SandboxRender SOURCE shaders/sprite.hlsl
                OUTPUT_HEADER render/generated/SpriteShader.hpp)   # 상수 버퍼 구조체 + static_assert
 ```
 
-| 결정 | 내용 |
-|---|---|
+| 결정           | 내용                                                                                                                                                           |
+|----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 도구 버전 고정 | DXC·SPIRV-Cross 버전을 `cmake/SbxDependencies.cmake`에 고정 (2026-10 기준 DXC 최신은 2026년 9월 릴리스 v1.9.2609). 업그레이드는 단독 커밋 + 기준 이미지 재확인 |
-| 산출물 위치 | `build/<preset>/shaders/<backend>/` — 저장소에 커밋하지 않음 |
-| 런타임 | 패키지된 바이트코드만 로드. 에디터 옵션 `--shader-hot-reload`만 런타임 DXC 호출 |
-| 기능 제한 | SM 6.0 + 위 바인딩 규칙. 웨이브 intrinsic·16비트 타입은 Caps 분기 + 셰이더 변형 |
-| 대안 | Slang: Phase 13 이전 스파이크 후 ADR. Microsoft의 DirectX SPIR-V 채택(SM7 계획)이 실현되면 산출물 단일화 검토 |
+| 산출물 위치    | `build/<preset>/shaders/<backend>/` — 저장소에 커밋하지 않음                                                                                                   |
+| 런타임         | 패키지된 바이트코드만 로드. 에디터 옵션 `--shader-hot-reload`만 런타임 DXC 호출                                                                                |
+| 기능 제한      | SM 6.0 + 위 바인딩 규칙. 웨이브 intrinsic·16비트 타입은 Caps 분기 + 셰이더 변형                                                                                |
+| 대안           | Slang: Phase 13 이전 스파이크 후 ADR. Microsoft의 DirectX SPIR-V 채택(SM7 계획)이 실현되면 산출물 단일화 검토                                                  |
 
 ### 6.2 HLSL 작성 규칙
 
@@ -333,10 +377,10 @@ sbx_add_shader(TARGET SandboxRender SOURCE shaders/sprite.hlsl
 
 ### 7.1 Content vs Asset
 
-| 구분 | 로더 | 서버 필요 | 예 | contentHash 포함 |
-|---|---|---|---|---|
-| Content | `ContentDatabase` (Core) | ✓ | Prefab, Rule, Behavior, TerrainMaterial | ✓ |
-| Asset | `AssetManager` (Render) | ✗ | Texture, Mesh, Shader, Material, Font, Sound | ✗ |
+| 구분    | 로더                     | 서버 필요 | 예                                           | contentHash 포함 |
+|---------|--------------------------|-----------|----------------------------------------------|------------------|
+| Content | `ContentDatabase` (Core) | ✓         | Prefab, Rule, Behavior, TerrainMaterial      | ✓                |
+| Asset   | `AssetManager` (Render)  | ✗         | Texture, Mesh, Shader, Material, Font, Sound | ✗                |
 
 ### 7.2 AssetManager
 
@@ -394,14 +438,14 @@ struct RenderWorld {
 
 ### 8.3 Pass
 
-| Pass | 내용 |
-|---|---|
-| TerrainPass | 보이는 청크 메시 (revision 바뀐 청크만 재빌드) |
-| WorldSpritePass | 인스턴스 배치 |
-| GridPass | 에디터 타일·청크 격자 |
-| SelectionPass | 선택 외곽선, 박스 선택 |
-| DebugPass | DebugDraw (경로, 센서 반경, 청크 경계) |
-| UIPass | ImGui |
+| Pass            | 내용                                           |
+|-----------------|------------------------------------------------|
+| TerrainPass     | 보이는 청크 메시 (revision 바뀐 청크만 재빌드) |
+| WorldSpritePass | 인스턴스 배치                                  |
+| GridPass        | 에디터 타일·청크 격자                          |
+| SelectionPass   | 선택 외곽선, 박스 선택                         |
+| DebugPass       | DebugDraw (경로, 센서 반경, 청크 경계)         |
+| UIPass          | ImGui                                          |
 
 ### 8.4 프레임
 
@@ -473,13 +517,13 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 
 ## 12. 좌표 규약
 
-| 항목 | 엔진 규약 | D3D12 | Vulkan | Metal |
-|---|---|---|---|---|
-| NDC Y | 위가 +1 | 동일 | 아래가 +1 → **음수 높이 viewport**로 뒤집음 (1.1 core) | 동일 |
-| Depth | [0, 1] | 동일 | 동일 | 동일 |
-| 텍스처 원점 | 좌상단 | 동일 | 동일 | 동일 |
-| Front Face | CCW = 앞면, PipelineDesc에 명시 | `FrontCounterClockwise` | Y 뒤집힘을 고려해 백엔드가 매핑 | `MTLWindingCounterClockwise` |
-| 상수 버퍼 레이아웃 | DXIL 패킹 | 기준 | `-fvk-use-dx-layout`로 일치 | SPIRV-Cross가 오프셋 유지 |
+| 항목               | 엔진 규약                       | D3D12                   | Vulkan                                                 | Metal                        |
+|--------------------|---------------------------------|-------------------------|--------------------------------------------------------|------------------------------|
+| NDC Y              | 위가 +1                         | 동일                    | 아래가 +1 → **음수 높이 viewport**로 뒤집음 (1.1 core) | 동일                         |
+| Depth              | [0, 1]                          | 동일                    | 동일                                                   | 동일                         |
+| 텍스처 원점        | 좌상단                          | 동일                    | 동일                                                   | 동일                         |
+| Front Face         | CCW = 앞면, PipelineDesc에 명시 | `FrontCounterClockwise` | Y 뒤집힘을 고려해 백엔드가 매핑                        | `MTLWindingCounterClockwise` |
+| 상수 버퍼 레이아웃 | DXIL 패킹                       | 기준                    | `-fvk-use-dx-layout`로 일치                            | SPIRV-Cross가 오프셋 유지    |
 
 ```text
 규칙: 게임 로직·Extraction·셰이더 소스에 백엔드 분기 금지. 차이는 백엔드의 viewport/파이프라인 생성 코드 한 곳에서만.
@@ -490,16 +534,18 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 
 ## 13. 디버그 옵션 (SandboxClient)
 
-| 옵션 | 효과 |
-|---|---|
-| `--rhi=dx12\|vulkan\|metal` | 백엔드 선택 (빌드에 포함된 것만) |
-| `--rhi-debug` | Debug Layer / Validation Layer / Metal API Validation |
-| `--rhi-gbv` | D3D12 GPU-Based Validation |
-| `--rhi-sync-validation` | Vulkan synchronization validation |
-| `--rhi-warp` | D3D12 WARP 소프트웨어 디바이스 |
-| `--rhi-capture=N` | N번째 프레임 프로그램 캡처 (PIX / Xcode) |
-| `--frames-in-flight=2\|3` | |
-| `--vsync=on\|off` | |
+| 옵션                        | 효과                                                      |
+|-----------------------------|-----------------------------------------------------------|
+| `--rhi=dx12\|vulkan\|metal` | 백엔드 선택 (빌드에 포함된 것만)                          |
+| `--rhi-debug`               | Debug Layer / Validation Layer / Metal API Validation     |
+| `--rhi-gbv`                 | D3D12 GPU-Based Validation                                |
+| `--rhi-sync-validation`     | Vulkan synchronization validation                         |
+| `--rhi-warp`                | D3D12 WARP 소프트웨어 디바이스                            |
+| `--rhi-fl11`                | D3D12 FL 11_0 어댑터도 허용 (오래된 GPU·Wine 시험, 7A)    |
+| `--no-render`               | 렌더러 없이 창만 (7A)                                     |
+| `--rhi-capture=N`           | N번째 프레임 프로그램 캡처 (PIX / Xcode)                  |
+| `--frames-in-flight 2\|3`   | 7A 구현                                                   |
+| `--vsync on\|off`           | 7A 구현. 렌더러가 있으면 페이싱도 VSync (--fps 가 이긴다) |
 
 ---
 
@@ -512,3 +558,9 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 - 리플렉션 헤더: static_assert 가 깨지면 빌드 실패 (테스트 대신 컴파일이 검사)
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
+
+Phase 7A 구현 (`tests/render/`): clear(64×48) · 두 색 첨부 · upload_quadrants(버퍼 → 텍스처, 좌상단 원점·행 순서 — 손실 없음) ·
+region_copy(오프셋 부분 복사) · 버퍼 왕복 + 업로드 링 감기(12프레임) · 수명(기록 중 파괴 → 지연 해제) · 사용 오류 보고.
+끝에 누수 0, Debug Layer 경고 0, 오류 = 예상한 사용 오류 수. CTest `render_tests_warp` (Windows). 클라우드에서는 MinGW +
+Wine(vkd3d) + lavapipe 로 같은 실행 파일을 돌린다 (`tools/wine/`, ADR-0018). 순수 로직(핸들 풀·지연 해제·업로드 링·이미지 비교)은
+SandboxTests 의 `render` 스위트 (모든 OS).

@@ -37,26 +37,26 @@ SandboxEditor
 
 ## 3. 툴
 
-| 툴 | 입력 | 명령 |
-|---|---|---|
-| Select | 클릭, 박스 드래그, Shift 추가, Ctrl 토글 | 없음 (로컬) |
-| Move | 선택 드래그 (그리드 스냅 옵션) | 드래그 중 EditPreview, 놓을 때 `MoveEntity{netIds, delta}` |
-| Place | Palette에서 Prefab 선택 → 클릭/드래그 연속 배치 | `CreateEntity{prefab, position}` (드래그 시 간격마다) |
-| TerrainBrush | 좌클릭 칠하기, 우클릭 지우기(기본 머티리얼) | `PaintTerrain` — 프레임당 최대 1개로 셀 묶음 전송 |
-| Erase | 클릭/박스 | `DeleteEntity{netIds}` |
+| 툴           | 입력                                            | 명령                                                       |
+|--------------|-------------------------------------------------|------------------------------------------------------------|
+| Select       | 클릭, 박스 드래그, Shift 추가, Ctrl 토글        | 없음 (로컬)                                                |
+| Move         | 선택 드래그 (그리드 스냅 옵션)                  | 드래그 중 EditPreview, 놓을 때 `MoveEntity{netIds, delta}` |
+| Place        | Palette에서 Prefab 선택 → 클릭/드래그 연속 배치 | `CreateEntity{prefab, position}` (드래그 시 간격마다)      |
+| TerrainBrush | 좌클릭 칠하기, 우클릭 지우기(기본 머티리얼)     | `PaintTerrain` — 프레임당 최대 1개로 셀 묶음 전송          |
+| Erase        | 클릭/박스                                       | `DeleteEntity{netIds}`                                     |
 
 ## 4. Inspector 위젯 매핑
 
-| 필드 타입 / Hint | 위젯 |
-|---|---|
-| float / int + `FieldMeta{min,max}` | 슬라이더 (없으면 드래그 숫자) |
-| `Hint::Position` | Vec2 입력 + "뷰에서 선택" 버튼 |
-| `Hint::Angle` | 각도(도) 입력 |
-| bool | 체크박스 |
-| Enum | 콤보 |
-| `Hint::EntityRef` | 엔티티 선택기 (뷰 클릭) |
-| PrefabId / TagSet | 콘텐츠 목록 콤보 / 태그 칩 |
-| Opaque | 원시 JSON 텍스트 (읽기 전용 → 편집 시 AddComponent로 교체) |
+| 필드 타입 / Hint                   | 위젯                                                       |
+|------------------------------------|------------------------------------------------------------|
+| float / int + `FieldMeta{min,max}` | 슬라이더 (없으면 드래그 숫자)                              |
+| `Hint::Position`                   | Vec2 입력 + "뷰에서 선택" 버튼                             |
+| `Hint::Angle`                      | 각도(도) 입력                                              |
+| bool                               | 체크박스                                                   |
+| Enum                               | 콤보                                                       |
+| `Hint::EntityRef`                  | 엔티티 선택기 (뷰 클릭)                                    |
+| PrefabId / TagSet                  | 콘텐츠 목록 콤보 / 태그 칩                                 |
+| Opaque                             | 원시 JSON 텍스트 (읽기 전용 → 편집 시 AddComponent로 교체) |
 
 편집 확정(포커스 이탈·Enter·슬라이더 놓기) 시 `ChangeComponent{netId, stableId, fieldPath, bytes}` 1개.
 다중 선택 시 같은 컴포넌트를 가진 엔티티 전부에 같은 값을 보냅니다 (명령 N개를 한 번에 묶은 `batchId`).
@@ -98,13 +98,13 @@ Move 드래그 중: 대상 엔티티에 클라 전용 editor.preview{offset} 컴
 
 ## 7. 권한
 
-| 역할 | 관찰 | 플레이어 행동 | 엔티티·컴포넌트 편집 | 지형 편집 | Rule·Behavior·Prefab 편집 | 시뮬레이션 제어 | 역할 부여 |
-|---|---|---|---|---|---|---|---|
-| Owner | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 전부 |
-| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Editor 이하 |
-| Editor | ✓ | ✓ | ✓ | ✓ | ✓ | – | – |
-| Player | ✓ | ✓ | – | – | – | – | – |
-| Observer | ✓ | – | – | – | – | – | – |
+| 역할     | 관찰 | 플레이어 행동 | 엔티티·컴포넌트 편집 | 지형 편집 | Rule·Behavior·Prefab 편집 | 시뮬레이션 제어 | 역할 부여   |
+|----------|------|---------------|----------------------|-----------|---------------------------|-----------------|-------------|
+| Owner    | ✓   | ✓            | ✓                   | ✓        | ✓                        | ✓              | 전부        |
+| Admin    | ✓   | ✓            | ✓                   | ✓        | ✓                        | ✓              | Editor 이하 |
+| Editor   | ✓   | ✓            | ✓                   | ✓        | ✓                        | –               | –           |
+| Player   | ✓   | ✓            | –                    | –         | –                         | –               | –           |
+| Observer | ✓   | –             | –                    | –         | –                         | –               | –           |
 
 ```text
 - 판단은 서버 CommandValidator 한 곳. 클라 UI 의 버튼 숨김은 편의일 뿐.

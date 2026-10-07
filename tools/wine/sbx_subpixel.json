@@ -1,0 +1,4 @@
+{ "file_format_version": "1.1.2",
+  "layer": { "name": "VK_LAYER_SBX_subpixel", "type": "GLOBAL", "library_path": "./libsbx_subpixel.so",
+             "api_version": "1.3.0", "implementation_version": "1", "description": "test only",
+             "functions": { "vkNegotiateLoaderLayerInterfaceVersion": "sbx_NegotiateLoaderLayerInterfaceVersion" } } }

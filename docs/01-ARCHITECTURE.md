@@ -1,7 +1,8 @@
 # 01. 아키텍처
 
 > **규범 문서.** 타깃 경계, 의존 방향, 스레드 소유권, 데이터 흐름을 정합니다.
-> 세부는 각 주제 문서에 있고, 이 문서는 **경계**만 다룹니다. 상태: 전부 `[계획]`.
+> 세부는 각 주제 문서에 있고, 이 문서는 **경계**만 다룹니다. 상태: 타깃 경계·의존 방향 검사는 Phase 1, Worker Pool(5장)은
+> Phase 5B 의 `foundation/job/JobSystem`(경로 Job 만 — T3 계약 그대로). 스레드 분리(Main·Render·Network)는 `[계획]`.
 
 ---
 
@@ -63,16 +64,16 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
    sbx_sim_check / sbx_bench      = Core (+ Network)
 ```
 
-| 타깃 | 종류 | 책임 | 의존 (PUBLIC) | 절대 의존 금지 |
-|---|---|---|---|---|
-| SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 시간, 파일 IO, Job System, 메트릭 | 없음 | 그 외 전부 |
-| SandboxCore | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random | Foundation | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
-| SandboxNetwork | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost | Core | Platform, Render, Editor |
-| SandboxPlatform | static | IWindow, Input, IAudioBackend, 플랫폼 구현 | Foundation | Core, Render, Network |
-| SandboxRender | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러 | Platform | **Core**, Network, Editor |
-| SandboxEditor | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더 | Core, Render | Network (ICommandSink로 분리) |
-| SandboxClient | exe | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost | Editor, Network, Render, Platform, Core | — |
-| SandboxServer | exe | 인자 파싱 → ServerHost | Network, Core | Platform, Render, Editor, ImGui |
+| 타깃              | 종류   | 책임                                                                           | 의존 (PUBLIC)                           | 절대 의존 금지                                    |
+|-------------------|--------|--------------------------------------------------------------------------------|-----------------------------------------|---------------------------------------------------|
+| SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 시간, 파일 IO, Job System, 메트릭 | 없음                                    | 그 외 전부                                        |
+| SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random        | Foundation                              | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
+| SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
+| SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
+| SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |
+| SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render                            | Network (ICommandSink로 분리)                     |
+| SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core | —                                                 |
+| SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core                           | Platform, Render, Editor, ImGui                   |
 
 ### 2.1 원본 요구와 다른 점: Render는 Core를 모른다
 
@@ -93,12 +94,12 @@ ECS → RenderWorld 변환(Extraction)은 SandboxClient/presentation 에 둔다.
 둘 다 자체 시험이 CTest `arch` 라벨에 있습니다. include 검사는 링크와 별개로 **모듈 방향**도 봅니다 —
 include 루트가 저장소 루트라 링크하지 않은 모듈의 헤더도 경로상으로는 보이기 때문입니다.
 
-| 규칙 | 수단 | 실패 시 |
-|---|---|---|
-| Server가 Platform/Render/Editor를 링크하지 않음 | CMake 구성 시 링크 그래프 재귀 검사 | `FATAL_ERROR` |
-| Render가 Core를 링크하지 않음 | 같은 검사 | `FATAL_ERROR` |
-| foundation/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`) | 테스트 실패 |
-| 플랫폼 소스가 다른 OS에서 컴파일되지 않음 | CMake `if(WIN32)/APPLE/UNIX` + 백엔드 헤더 `#error` 가드 | 컴파일 에러 |
+| 규칙                                                                        | 수단                                                     | 실패 시       |
+|-----------------------------------------------------------------------------|----------------------------------------------------------|---------------|
+| Server가 Platform/Render/Editor를 링크하지 않음                             | CMake 구성 시 링크 그래프 재귀 검사                      | `FATAL_ERROR` |
+| Render가 Core를 링크하지 않음                                               | 같은 검사                                                | `FATAL_ERROR` |
+| foundation/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`)            | 테스트 실패   |
+| 플랫폼 소스가 다른 OS에서 컴파일되지 않음                                   | CMake `if(WIN32)/APPLE/UNIX` + 백엔드 헤더 `#error` 가드 | 컴파일 에러   |
 
 금지 헤더 목록: `d3d12.h dxgi*.h d3dcompiler.h vulkan/*.h Metal/*.h QuartzCore/*.h Cocoa/*.h AppKit/*.h
 windows.h X11/*.h wayland-*.h xcb/*.h imgui*.h miniaudio.h enet/*.h`(enet은 network/transport만 허용).
@@ -167,14 +168,14 @@ ServerHost (SandboxNetwork/server)
 
 ### 5.1 스레드 목록
 
-| 스레드 | 위치 | 주기 | 소유(Write) |
-|---|---|---|---|
-| Main / Platform | Client | 이벤트 + 프레임 | Window, InputState, Editor UI 상태, ClientWorld |
-| Render | Client | 프레임 | RHI 디바이스, GPU 리소스, RenderWorld(소비) |
-| Simulation | Server (싱글이면 Client 프로세스 안) | 30 TPS | `SimulationWorld` 전부 |
-| Network IO | 둘 다 | 이벤트 | Transport, 송수신 큐 |
-| Worker Pool | 둘 다 | Job | 없음 (입력 복사 → 결과 반환) |
-| Audio | Client | 백엔드 콜백 | 보이스, 오디오 버퍼 |
+| 스레드          | 위치                                 | 주기            | 소유(Write)                                     |
+|-----------------|--------------------------------------|-----------------|-------------------------------------------------|
+| Main / Platform | Client                               | 이벤트 + 프레임 | Window, InputState, Editor UI 상태, ClientWorld |
+| Render          | Client                               | 프레임          | RHI 디바이스, GPU 리소스, RenderWorld(소비)     |
+| Simulation      | Server (싱글이면 Client 프로세스 안) | 30 TPS          | `SimulationWorld` 전부                          |
+| Network IO      | 둘 다                                | 이벤트          | Transport, 송수신 큐                            |
+| Worker Pool     | 둘 다                                | Job             | 없음 (입력 복사 → 결과 반환)                    |
+| Audio           | Client                               | 백엔드 콜백     | 보이스, 오디오 버퍼                             |
 
 **초기에는 Main과 Render를 한 스레드로 합칩니다.** 단 경계는 처음부터 코드에 둡니다 —
 Render 쪽 입력은 불변 패킷 `RenderFrameInput` 하나뿐입니다. CPU 렌더가 6 ms를 넘으면 분리합니다.
@@ -237,14 +238,14 @@ Rendering    60 FPS 이상, 가변              (06-RENDERING) — 스냅샷 사
 
 ## 8. 확장 지점
 
-| 무엇을 추가하나 | 어디에 | 건드리지 않는 것 |
-|---|---|---|
-| 새 콘텐츠(시뮬레이션 종류) | `content/<pack>/` JSON | 모든 C++ |
-| 새 범용 컴포넌트 | `core/components/` + 리플렉션 + 버전 | Render, Network(리플렉션이 처리) |
-| 새 렌더 컴포넌트 | `apps/client/presentation/components/` | Server, Core |
-| 새 System | `core/systems/` + 파이프라인 Stage 등록 + `kSimVersion` 증가 | Render |
-| 새 Rule effect op / Behavior 노드 | `core/rules/ops/`, `core/behavior/nodes/` | Render, Network |
-| 새 렌더 백엔드 | `render/<backend>/` + `IRenderDevice` 구현 | Renderer 상위, Core, Editor |
-| 새 플랫폼 | `platform/<os>/` + `IWindow` 구현 | Core, Renderer 상위 |
-| 새 Transport | `network/transport/` + `INetworkTransport` 구현 | Session 이상 |
-| 새 편집 명령 | `core/command/` payload + Validator 규칙 + 에디터 툴 | Render |
+| 무엇을 추가하나                   | 어디에                                                       | 건드리지 않는 것                 |
+|-----------------------------------|--------------------------------------------------------------|----------------------------------|
+| 새 콘텐츠(시뮬레이션 종류)        | `content/<pack>/` JSON                                       | 모든 C++                         |
+| 새 범용 컴포넌트                  | `core/components/` + 리플렉션 + 버전                         | Render, Network(리플렉션이 처리) |
+| 새 렌더 컴포넌트                  | `apps/client/presentation/components/`                       | Server, Core                     |
+| 새 System                         | `core/systems/` + 파이프라인 Stage 등록 + `kSimVersion` 증가 | Render                           |
+| 새 Rule effect op / Behavior 노드 | `core/rules/ops/`, `core/behavior/nodes/`                    | Render, Network                  |
+| 새 렌더 백엔드                    | `render/<backend>/` + `IRenderDevice` 구현                   | Renderer 상위, Core, Editor      |
+| 새 플랫폼                         | `platform/<os>/` + `IWindow` 구현                            | Core, Renderer 상위              |
+| 새 Transport                      | `network/transport/` + `INetworkTransport` 구현              | Session 이상                     |
+| 새 편집 명령                      | `core/command/` payload + Validator 규칙 + 에디터 툴         | Render                           |

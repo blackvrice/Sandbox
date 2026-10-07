@@ -1,0 +1,19 @@
+{
+  "id": "eco.herbivore",
+  "initial": "wander",
+  "states": [
+    { "id": "wander",    "onTick": [ { "action": "wander", "radius": 6, "interval": 3.0 } ] },
+    { "id": "seek_food", "onTick": [ { "action": "seek", "tags": { "all": ["plant"] } } ] },
+    { "id": "eat",       "onTick": [ { "action": "interact", "name": "eat" } ] },
+    { "id": "flee",      "onTick": [ { "action": "flee", "tags": { "all": ["predator"] }, "distance": 10 } ] }
+  ],
+  "transitions": [
+    { "from": "*",         "to": "flee",      "priority": 100, "when": { "sensed": { "all": ["predator"] } } },
+    { "from": "flee",      "to": "wander",    "priority": 50,  "when": { "not": { "sensed": { "all": ["predator"] } } } },
+    { "from": "wander",    "to": "seek_food", "priority": 10,  "when": { "and": [ { "energyBelow": 60 }, { "sensed": { "all": ["plant"] } } ] } },
+    { "from": "seek_food", "to": "eat",       "priority": 10,  "when": { "targetInRange": 0.6 } },
+    { "from": "seek_food", "to": "wander",    "priority": 6,   "when": { "not": "targetValid" } },
+    { "from": "seek_food", "to": "wander",    "priority": 5,   "when": { "stateTime": { "op": ">=", "seconds": 10 } } },
+    { "from": "eat",       "to": "wander",    "priority": 10,  "when": { "or": [ { "energyAbove": 90 }, { "not": "targetValid" } ] } }
+  ]
+}

@@ -1,0 +1,5 @@
+[
+  { "id": "eco.dirt",      "moveCost": 12 },
+  { "id": "eco.grassland", "moveCost": 10 },
+  { "id": "eco.water",     "moveCost": 0, "flags": ["Water", "NoBuild"] }
+]

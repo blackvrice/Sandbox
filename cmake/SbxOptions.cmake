@@ -2,7 +2,10 @@
 # 옵션은 해당 기능이 실제로 생기는 Phase 에 추가한다 (쓰이지 않는 옵션을 미리 만들지 않는다).
 
 option(SBX_BUILD_SERVER         "SandboxServer 빌드"                                   ON)
+option(SBX_BUILD_CLIENT         "SandboxClient 빌드 (Phase 6: 빈 창 + 앱 상태기계)"         ON)
 option(SBX_BUILD_TESTS          "SandboxTests 와 CTest 등록"                           ON)
+option(SBX_BUILD_TOOLS          "개발 도구(sbx_sim_check) 빌드"                          ON)
+option(SBX_BUILD_BENCH          "sbx_bench 벤치마크 빌드 (docs/14-PERFORMANCE.md)"         OFF)
 option(SBX_WARNINGS_AS_ERRORS   "경고를 에러로 (CI 에서 ON)"                            OFF)
 
 # 경계 검사 자체를 검사하기 위한 내부 옵션. tests/ 의 arch_link_boundary_selftest 만 켠다.

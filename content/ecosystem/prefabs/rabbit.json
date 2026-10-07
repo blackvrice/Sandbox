@@ -1,0 +1,21 @@
+{
+  "id": "eco.rabbit",
+  "name": "Rabbit",
+  "category": "Animals",
+  "tags": ["animal", "herbivore", "prey"],
+  "components": {
+    "core.transform": {},
+    "core.velocity":  {},
+    "life.health":    { "value": 20, "max": 20 },
+    "life.energy":    { "value": 60, "max": 100, "drainPerSecond": 1.0 },
+    "life.age":       { "maxAgeTicks": 54000 },
+    "life.reproduce": { "minEnergy": 75, "energyCost": 35, "cooldown": 20, "cooldownLeft": 12, "offspring": "eco.rabbit",
+                        "crowdRadius": 6, "crowdMax": 4 },
+    "core.movement":  { "maxSpeed": 2.5, "accel": 8.0, "arriveRadius": 0.2 },
+    "core.collider":  { "radius": 0.3 },
+    "ai.sensor":      { "radius": 8 },
+    "ai.behavior":    { "graph": "eco.herbivore" },
+    "ai.path":        {},
+    "render.sprite":  { "material": "eco/rabbit", "size": [0.8, 0.8], "layer": 10 }
+  }
+}
