@@ -99,7 +99,12 @@ int main(int argc, char** argv) {
         window = std::move(*w);
     }
 
-    // 렌더러 (Phase 7A): 렌더 백엔드가 있는 OS 의 실제 창에서만. 실패하면 그리지 않고 계속한다 (Phase 6 동작).
+#ifdef SBX_HAS_SHADERS
+    constexpr const char* kRendererName = "Clear + 삼각형 (Phase 7B)";
+#else
+    constexpr const char* kRendererName = "Clear (Phase 7A)";
+#endif
+    // 렌더러 (Phase 7A~): 렌더 백엔드가 있는 OS 의 실제 창에서만. 실패하면 그리지 않고 계속한다 (Phase 6 동작).
     std::unique_ptr<sbx::client::IFrameRenderer> renderer;
     if (!opts->headless && !opts->noRender) {
         sbx::client::RendererOptions ro;
@@ -137,7 +142,7 @@ int main(int argc, char** argv) {
     }
     sbx::log::info("client", "창 {}, 렌더러 {}, 오디오 null",
                    opts->headless ? std::string_view("headless") : sbx::platform::windowBackendName(),
-                   renderer ? "Clear (Phase 7A)" : "없음");
+                   renderer ? kRendererName : "없음");
 
     const int code = app.run(pacer.get());
     renderer.reset(); // 창보다 먼저 (스왑체인이 HWND 를 쓴다)

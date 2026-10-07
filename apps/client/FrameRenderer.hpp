@@ -1,6 +1,6 @@
 #pragma once
 // Application ↔ 렌더러 경계. Application 은 RHI 를 모른다 — 단위 테스트가 가짜 렌더러를 끼운다.
-// Phase 7A: ClearRenderer (스왑체인을 지우기만). Phase 8:
+// Phase 7A: ClearRenderer (스왑체인을 지우기만). 7B: 셰이더가 내장된 빌드는 도는 삼각형도 그린다. Phase 8:
 // Renderer(RenderWorld → 패스) 가 이 자리에 들어온다.
 
 #include <memory>
