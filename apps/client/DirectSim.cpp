@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <format>
 
+#include "apps/client/presentation/SelectionOverlay.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "foundation/assert/Assert.hpp"
 #include "foundation/log/Log.hpp"
@@ -41,7 +42,7 @@ Expected<std::unique_ptr<DirectSim>> DirectSim::create(const DirectSimDesc& desc
 
     // 처음 스냅숏 (틱 0) — 첫 프레임부터 그릴 것이 있게
     auto first = std::make_shared<WorldSnapshot>();
-    ds->m_extraction.capture(w, *first);
+    ds->m_extraction.capture(w, {}, *first);
     ds->m_published = std::move(first);
     ds->m_publishedAt = Clock::now();
     ds->m_tpsWindowStart = ds->m_publishedAt;
@@ -82,19 +83,24 @@ f64 DirectSim::tickInterval() const {
     return m_tickSeconds / static_cast<f64>(kSpeeds[m_speedIndex]);
 }
 
-void DirectSim::stepAndPublish() {
+void DirectSim::stepAndPublish(bool step) {
     const auto start = Clock::now();
-    m_runner->step();
+    if (step) {
+        m_runner->step();
+    }
 
     std::shared_ptr<WorldSnapshot> buffer;
+    std::vector<SaveId> selection;
     {
         std::lock_guard lk(m_mutex);
         buffer = std::move(m_spare);
+        selection = m_selection;
+        m_recapture = false;
     }
     if (!buffer) {
         buffer = std::make_shared<WorldSnapshot>();
     }
-    m_extraction.capture(m_runner->world(), *buffer);
+    m_extraction.capture(m_runner->world(), selection, *buffer);
     const auto end = Clock::now();
     const f64 secs = std::chrono::duration<f64>(end - start).count();
 
@@ -108,16 +114,18 @@ void DirectSim::stepAndPublish() {
         if (old && old.use_count() == 1) {
             m_spare = std::const_pointer_cast<WorldSnapshot>(old);
         }
-        DirectSimStats& s = m_stats;
-        ++s.ticks;
-        s.tickSecondsTotal += secs;
-        s.recentTickMs = s.ticks == 1 ? secs * 1000.0 : s.recentTickMs * 0.9 + secs * 100.0;
-        ++m_tpsWindowTicks;
-        const f64 window = std::chrono::duration<f64>(end - m_tpsWindowStart).count();
-        if (window >= 1.0) {
-            s.ticksPerSecond = static_cast<f64>(m_tpsWindowTicks) / window;
-            m_tpsWindowTicks = 0;
-            m_tpsWindowStart = end;
+        if (step) { // 다시 capture 만 한 것은 틱 통계에 넣지 않는다
+            DirectSimStats& s = m_stats;
+            ++s.ticks;
+            s.tickSecondsTotal += secs;
+            s.recentTickMs = s.ticks == 1 ? secs * 1000.0 : s.recentTickMs * 0.9 + secs * 100.0;
+            ++m_tpsWindowTicks;
+            const f64 window = std::chrono::duration<f64>(end - m_tpsWindowStart).count();
+            if (window >= 1.0) {
+                s.ticksPerSecond = static_cast<f64>(m_tpsWindowTicks) / window;
+                m_tpsWindowTicks = 0;
+                m_tpsWindowStart = end;
+            }
         }
     }
     m_cv.notify_all();
@@ -130,6 +138,12 @@ void DirectSim::threadMain() {
     m_tpsWindowTicks = 0;
     while (!m_stop) {
         if (m_paused) {
+            if (m_recapture && m_stepRequests == 0) {
+                lk.unlock();
+                stepAndPublish(false); // 선택이 바뀌었다 — 진행 없이 자세한 상태만 다시
+                lk.lock();
+                continue;
+            }
             if (m_stepRequests == 0) {
                 m_cv.wait(lk);
                 next = Clock::now(); // 다시 진행할 때 쉬는 동안의 시간을 몰아 돌지 않게
@@ -264,12 +278,36 @@ f32 DirectSim::alpha() const {
 void DirectSim::extract(render::RenderWorld& out) {
     std::shared_ptr<const WorldSnapshot> snap;
     f32 a = 1;
+    std::vector<SaveId> selection;
+    bool detail = false;
     {
         std::lock_guard lk(m_mutex);
         snap = m_published;
+        selection = m_selection;
+        detail = m_detailOverlay;
         a = alphaOf(m_mode, m_paused, m_accum, m_tickSeconds, tickInterval(), m_stats.recentTickMs, m_publishedAt);
     }
     SpriteExtraction::emit(*snap, a, out); // 락 밖에서 (Simulation 스레드를 막지 않게)
+    if (!selection.empty()) {
+        const usize drawn = drawSelectionOutlines(*snap, a, selection, out.selection);
+        if (drawn < selection.size()) {
+            // 죽은 개체는 선택에서 뺀다 (스냅숏에 없다)
+            std::vector<SaveId> alive;
+            for (const SnapshotSprite& sp : snap->sprites) {
+                if (std::ranges::binary_search(selection, sp.id)) {
+                    alive.push_back(sp.id);
+                }
+            }
+            std::ranges::sort(alive);
+            std::lock_guard lk(m_mutex);
+            if (m_selection == selection) { // 그사이 사용자가 바꾸지 않았으면
+                m_selection = std::move(alive);
+            }
+        }
+        if (detail) {
+            drawSelectedDetails(*snap, out.debug);
+        }
+    }
 }
 
 sim::Tick DirectSim::tick() const {
@@ -295,6 +333,84 @@ f64 DirectSim::averageTickMs() const {
 bool DirectSim::waitForTick(sim::Tick target, std::chrono::milliseconds timeout) const {
     std::unique_lock lk(m_mutex);
     return m_cv.wait_for(lk, timeout, [&] { return m_published->tick >= target; });
+}
+
+void DirectSim::selectionChanged() {
+    if (m_mode == DirectSimMode::Inline) {
+        if (paused()) {
+            stepAndPublish(false);
+        }
+        return;
+    }
+    {
+        std::lock_guard lk(m_mutex);
+        if (!m_paused) {
+            return; // 다음 틱의 capture 가 채운다
+        }
+        m_recapture = true;
+    }
+    m_cv.notify_all();
+}
+
+void DirectSim::selectAt(Vec2 world, bool additive) {
+    {
+        std::lock_guard lk(m_mutex);
+        const f32 a =
+            alphaOf(m_mode, m_paused, m_accum, m_tickSeconds, tickInterval(), m_stats.recentTickMs, m_publishedAt);
+        const std::optional<SaveId> id = pickAt(*m_published, a, world);
+        if (!additive) {
+            m_selection.clear();
+            if (id) {
+                m_selection.push_back(*id);
+            }
+        } else if (id) {
+            // 더하기: 이미 있으면 뺀다 (Shift + 클릭으로 하나씩 고르고 빼기)
+            if (const auto it = std::ranges::lower_bound(m_selection, *id); it != m_selection.end() && *it == *id) {
+                m_selection.erase(it);
+            } else {
+                m_selection.insert(it, *id);
+            }
+        }
+    }
+    selectionChanged();
+}
+
+void DirectSim::selectBox(render::WorldRect area, bool additive) {
+    {
+        std::lock_guard lk(m_mutex);
+        const f32 a =
+            alphaOf(m_mode, m_paused, m_accum, m_tickSeconds, tickInterval(), m_stats.recentTickMs, m_publishedAt);
+        std::vector<SaveId> ids = pickBox(*m_published, a, area);
+        if (additive) {
+            mergeSelection(m_selection, ids);
+        } else {
+            m_selection = std::move(ids);
+        }
+    }
+    selectionChanged();
+}
+
+void DirectSim::clearSelection() {
+    {
+        std::lock_guard lk(m_mutex);
+        m_selection.clear();
+    }
+    selectionChanged();
+}
+
+void DirectSim::setDetailOverlay(bool on) {
+    std::lock_guard lk(m_mutex);
+    m_detailOverlay = on;
+}
+
+std::vector<SaveId> DirectSim::selection() const {
+    std::lock_guard lk(m_mutex);
+    return m_selection;
+}
+
+std::string DirectSim::selectionStatus() const {
+    std::lock_guard lk(m_mutex);
+    return describeSelection(*m_published, m_selection);
 }
 
 std::string DirectSim::status() const {

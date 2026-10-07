@@ -58,6 +58,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DirectSim.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다

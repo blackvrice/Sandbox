@@ -22,6 +22,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/SpriteExtraction.hpp"
@@ -68,6 +69,13 @@ public:
     void stepOnce() override;
     void changeSpeed(int dir) override;
     [[nodiscard]] std::string status() const override;
+    // 8B 선택 — 최신 스냅숏에서 고른다. 일시정지 중이면 바로 다시 capture 해 자세한 상태를 채운다
+    void selectAt(Vec2 world, bool additive) override;
+    void selectBox(render::WorldRect area, bool additive) override;
+    void clearSelection() override;
+    void setDetailOverlay(bool on) override;
+    [[nodiscard]] std::string selectionStatus() const override;
+    [[nodiscard]] std::vector<SaveId> selection() const;
 
     [[nodiscard]] DirectSimMode mode() const noexcept { return m_mode; }
     [[nodiscard]] bool paused() const;
@@ -92,8 +100,10 @@ private:
     DirectSim(std::unique_ptr<ecs::ComponentCatalog> catalog, std::unique_ptr<content::ContentDatabase> content,
               std::string scenario, render::MaterialLibrary& materials, const DirectSimDesc& desc);
     // 틱 하나 + capture + 내놓기. Inline 은 호출 스레드, Threaded 는 Simulation 스레드에서
-    void stepAndPublish();
+    // 틱 하나(step = false 면 진행 없이 다시 capture 만) + 내놓기. Inline 은 호출 스레드, Threaded 는 Simulation 스레드
+    void stepAndPublish(bool step = true);
     void threadMain();
+    void selectionChanged();                // 일시정지 중이면 다시 capture (진행 중이면 다음 틱이 채운다)
     [[nodiscard]] f64 tickInterval() const; // 실제 초 (speed 반영), m_mutex 안에서
 
     std::unique_ptr<ecs::ComponentCatalog> m_catalog; // 월드보다 오래 산다
@@ -117,7 +127,10 @@ private:
     u32 m_stepRequests = 0;
     usize m_speedIndex = 2; // ×1
     bool m_stop = false;
-    f64 m_accum = 0; // Inline: 다음 틱까지 쌓인 시간 (초, speed 반영)
+    std::vector<SaveId> m_selection; // 오름차순 (Main 이 쓰고 Simulation 이 capture 때 복사)
+    bool m_detailOverlay = true;
+    bool m_recapture = false; // Threaded · 일시정지: 선택이 바뀌어 다시 capture 할 것
+    f64 m_accum = 0;          // Inline: 다음 틱까지 쌓인 시간 (초, speed 반영)
     // Threaded: 속도 측정 (1 초 창)
     u64 m_tpsWindowTicks = 0;
     std::chrono::steady_clock::time_point m_tpsWindowStart;

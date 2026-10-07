@@ -4,6 +4,7 @@ namespace sbx::client {
 
 std::string_view defaultInputJson() noexcept {
     // app.* · debug.* 는 Phase 6 의 빈 창이 쓴다. camera.* · editor.* · sim.* 는 Phase 8·12 가 쓴다 (이름을 먼저 고정).
+    // view.* 는 8B 오버레이 (격자 · 선택한 개체의 감지 반경 · 경로).
     // 키 이름은 물리 위치다 (AZERTY 에서도 W 자리).
     return R"json({
   "format": "sandbox.input",
@@ -24,6 +25,7 @@ std::string_view defaultInputJson() noexcept {
     "camera.drag": ["MouseMiddle"],
     "camera.reset": ["Home"],
     "editor.select": ["MouseLeft"],
+    "editor.select_add": ["Shift+MouseLeft"],
     "editor.context": ["MouseRight"],
     "editor.delete": ["Delete"],
     "editor.undo": ["Ctrl+Z"],
@@ -32,7 +34,9 @@ std::string_view defaultInputJson() noexcept {
     "sim.toggle_pause": ["Space"],
     "sim.step": ["Period"],
     "sim.speed_up": ["Equal", "KpAdd"],
-    "sim.speed_down": ["Minus", "KpSubtract"]
+    "sim.speed_down": ["Minus", "KpSubtract"],
+    "view.grid": ["G"],
+    "view.details": ["V"]
   }
 }
 )json";

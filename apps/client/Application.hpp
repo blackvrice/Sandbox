@@ -7,8 +7,10 @@
 // MainMenu 는 아직 그릴 UI 가 없어 창 제목 줄에 입력 상태를
 // 보여 준다 (수동 QA — 키·마우스·휠·더블클릭·IME 글자·DPI·포커스).
 // Phase 8A: 월드 세션(IWorldSession — 지금은 --direct-sim)이 있으면 MainMenu → Connecting → InWorld 로 바로 가서
-// 월드를 진행하고 RenderWorld 를 채워 그린다. 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데/왼쪽 끌기 · Home(맞춤).
-// 시뮬레이션: Space 일시정지 · . 한 틱 · = / - 속도. [계획] 메뉴 UI(8C), 서버 접속(Phase 10).
+// 월드를 진행하고 RenderWorld 를 채워 그린다. 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데 끌기 · Home(맞춤).
+// 시뮬레이션: Space 일시정지 · . 한 틱 · = / - 속도.
+// 8B: 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 (Shift = 더하기/빼기) · Esc 선택 해제 · G 격자 · V 선택한 개체의 감지 반경 ·
+// 경로 표시. [계획] 메뉴 UI(8C), 서버 접속(Phase 10).
 //
 // 상태 전이는 요청만 받고 프레임 끝에서 적용한다 (프레임 중간에 상태가 바뀌어 반쯤 다른 상태로 도는 일이 없게).
 
@@ -122,13 +124,20 @@ private:
     struct Ids {
         std::optional<platform::ActionId> quit, textInput, captureMouse, cycleCursor, copyText, pasteText, escape,
             eraseChar;
-        std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select;
-        std::optional<platform::ActionId> pause, step, faster, slower;
+        std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select, selectAdd;
+        std::optional<platform::ActionId> pause, step, faster, slower, toggleGrid, toggleDetails;
     } m_ids;
 
     // 월드 (InWorld)
     render::RenderWorld m_renderWorld;
     bool m_cameraFitted = false;
+    // 8B 선택: 왼쪽(Shift = 더하기)을 누른 자리. 4 px 넘게 끌면 박스 선택
+    bool m_selecting = false;
+    bool m_selectAdditive = false;
+    bool m_boxing = false;
+    Vec2 m_selectStart{}; // 프레임버퍼 픽셀
+    Vec2 m_selectNow{};
+    bool m_detailOverlay = true;
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 
     // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)

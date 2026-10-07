@@ -263,6 +263,15 @@ public:
         if (m_drewWorld) {
             const render::RendererStats& r = m_renderer->stats();
             out += std::format(" · 스프라이트 {} · Draw {}", r.sprites.drawn, r.draws);
+            if (r.terrain.chunksPending > 0) {
+                out += std::format(" · 지형 대기 {}", r.terrain.chunksPending);
+            }
+            if (r.gpu.valid) {
+                // 패스별 GPU 시간 (06 8.6 — framesInFlight 프레임 전 값). 선 = 선택 + 디버그
+                out += std::format(" · GPU {:.2f} ms (지형 {:.2f} · 스프라이트 {:.2f} · 격자 {:.2f} · 선 {:.2f})",
+                                   r.gpu.totalMs, r.gpu.terrainMs, r.gpu.spriteMs, r.gpu.gridMs,
+                                   r.gpu.selectionMs + r.gpu.debugMs);
+            }
         }
         if (m_assets && m_assets->stats().queued > 0) {
             out += std::format(" · 에셋 대기 {}", m_assets->stats().queued);

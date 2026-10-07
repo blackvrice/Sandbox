@@ -136,6 +136,9 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.drag = m_actionMap.find("camera.drag");
     m_ids.cameraReset = m_actionMap.find("camera.reset");
     m_ids.select = m_actionMap.find("editor.select");
+    m_ids.selectAdd = m_actionMap.find("editor.select_add");
+    m_ids.toggleGrid = m_actionMap.find("view.grid");
+    m_ids.toggleDetails = m_actionMap.find("view.details");
     m_ids.pause = m_actionMap.find("sim.toggle_pause");
     m_ids.step = m_actionMap.find("sim.step");
     m_ids.faster = m_actionMap.find("sim.speed_up");
@@ -258,8 +261,47 @@ void Application::handleWorldInput(f64 dt) {
     }
     // 마우스: 논리 좌표 → 프레임버퍼 픽셀
     const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
-    if (down(m_ids.drag) || down(m_ids.select)) { // 8A: 편집 모드 전이라 왼쪽 끌기도 카메라 (Edit 는 Phase 12)
+    if (down(m_ids.drag)) {
         cam.panByScreen(in.mouseDelta * scale);
+    }
+    // 선택 (8B): 누른 자리에서 4 px 넘게 끌면 박스, 아니면 점. 떼는 순간 세션에 알린다
+    const Vec2 mousePx = in.mousePosition * scale;
+    if (!m_selecting && (pressed(m_ids.select) || pressed(m_ids.selectAdd))) {
+        m_selecting = true;
+        m_selectAdditive = pressed(m_ids.selectAdd);
+        m_boxing = false;
+        m_selectStart = mousePx;
+    }
+    if (m_selecting) {
+        m_selectNow = mousePx;
+        const Vec2 d = mousePx - m_selectStart;
+        if (d.x * d.x + d.y * d.y > 16.f) {
+            m_boxing = true;
+        }
+        if (!down(m_ids.select) && !down(m_ids.selectAdd)) {
+            const Vec2 a = cam.screenToWorld(m_selectStart), b = cam.screenToWorld(mousePx);
+            if (m_boxing) {
+                m_config.world->selectBox({a, b}, m_selectAdditive);
+            } else {
+                m_config.world->selectAt(b, m_selectAdditive);
+            }
+            m_selecting = false;
+            m_boxing = false;
+            m_titleDirty = true;
+        }
+    }
+    if (pressed(m_ids.escape)) {
+        m_config.world->clearSelection();
+        m_titleDirty = true;
+    }
+    if (pressed(m_ids.toggleGrid)) {
+        m_renderWorld.overlay.grid = !m_renderWorld.overlay.grid;
+        log::info("client", "격자 {}", m_renderWorld.overlay.grid ? "켬" : "끔");
+    }
+    if (pressed(m_ids.toggleDetails)) {
+        m_detailOverlay = !m_detailOverlay;
+        m_config.world->setDetailOverlay(m_detailOverlay);
+        log::info("client", "선택한 개체의 감지 반경 · 경로 {}", m_detailOverlay ? "켬" : "끔");
     }
     if (in.wheel.y != 0.f) {
         cam.zoomAt(in.mousePosition * scale, std::pow(1.15f, in.wheel.y));
@@ -335,6 +377,12 @@ bool Application::frame() {
         t1 = Clock::now();
         m_renderWorld.reset();
         m_config.world->extract(m_renderWorld);
+        if (m_selecting && m_boxing) {
+            // 끌고 있는 박스 (화면 사각형 → 월드)
+            const render::Camera2D& cam = m_renderWorld.camera;
+            m_renderWorld.selection.rect(cam.screenToWorld(m_selectStart), cam.screenToWorld(m_selectNow),
+                                         render::packRgba8(255, 214, 0, 200), 1.f);
+        }
         t2 = Clock::now();
     }
 
@@ -427,6 +475,9 @@ std::string Application::statusLine() const {
     if (m_state == AppState::InWorld && m_config.world != nullptr) {
         // 월드 보기: 입력 모니터 대신 월드 · 카메라 상태
         s += " | " + m_config.world->status();
+        if (const std::string sel = m_config.world->selectionStatus(); !sel.empty()) {
+            s += " | " + sel;
+        }
         s += std::format(" | 줌 {:.1f} px/칸", m_renderWorld.camera.pixelsPerUnit);
         if (m_timings.frames > 0) {
             // 어디가 느린지 바로 보이게 (MANUAL-QA 8A 에 그대로 적는다)

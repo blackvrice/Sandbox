@@ -16,6 +16,8 @@ add_executable(SandboxClient
     DirectSim.cpp
     presentation/SpriteExtraction.hpp
     presentation/SpriteExtraction.cpp
+    presentation/SelectionOverlay.hpp
+    presentation/SelectionOverlay.cpp
 )
 target_link_libraries(SandboxClient PRIVATE SandboxRender SandboxPlatform SandboxCore sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
