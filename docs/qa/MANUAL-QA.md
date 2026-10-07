@@ -92,13 +92,34 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure
 [ ] Debug 빌드 ecosystem_10k: 시뮬레이션이 실시간을 못 따라가도(TPS < 30) 카메라 이동 · 줌은 부드럽다 (ADR-0021).
     제목 줄의 TPS · 틱 ms · fps 를 적어 주십시오
 [ ] 움직임이 끊기지 않는다 (30 TPS 를 렌더 프레임마다 보간) — 144 Hz 모니터에서도 매끄럽다
-[ ] WASD/화살표로 이동, 휠로 커서 아래를 기준으로 확대 · 축소, 가운데(또는 왼쪽) 버튼으로 끌면 잡은 곳이 커서를 따라온다,
+[ ] WASD/화살표로 이동, 휠로 커서 아래를 기준으로 확대 · 축소, 가운데 버튼으로 끌면 잡은 곳이 커서를 따라온다 (8B 부터 왼쪽은 선택),
     Home 으로 월드 전체 맞춤. 창 크기를 바꿔도 찌그러지지 않는다
 [ ] Space 일시정지(제목 줄 "일시정지", 개체가 멈춘다) → . 로 한 틱씩 → Space 로 재개. = / - 로 ×¼ ~ ×8
 [ ] Release ecosystem_10k --vsync off: 제목 줄의 fps · TPS · 틱 · 추출 · 렌더 ms 를 적어 주십시오
     (목표 10k 스프라이트 60 FPS 이상, Draw 1~2, 30/30 TPS)
 [ ] --rhi-debug 로 1분: 끝 로그 "Debug Layer 경고 0 · 오류 0"
 [ ] ctest -L render 통과 (22 케이스 — sprite · batch_1k 기준 이미지는 Wine 에서 만들었다. 실패하면 out_warp 의 PNG)
+```
+
+## Phase 8B — 지형 · 격자 · 선택 · 디버그 · GPU 시간
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --direct-sim ecosystem_survival
+.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+ctest --test-dir cmake-build-debug -L render --output-on-failure
+```
+
+```text
+[ ] 지형: 풀밭(어두운 초록)에 호수(파랑) · 흙(갈색)이 보인다. 확대(휠)하면 타일마다 밝기가 조금씩 다르다 (결)
+[ ] G: 격자 — 확대할수록 타일 선이 진해지고, 32 타일마다 청크 선, 월드 가장자리는 금색 선. 다시 G 로 끈다
+[ ] 왼쪽 클릭: 토끼 · 늑대 하나가 노란 상자로 선택되고 제목 줄에 "선택 eco.rabbit #… · 상태 · 에너지 … · 체력 …"
+    하늘색 원(감지 반경) · 초록 선(남은 경로)과 × (목표) · 빨강 선(쫓는/피하는 대상) · 흰 화살표(속도)
+[ ] 왼쪽 끌기: 노란 박스가 따라오고, 떼면 안에 든 개체가 모두 선택 ("선택 N"). Shift + 클릭으로 하나씩 더하고 빼기
+[ ] Space 로 멈춘 뒤 클릭해도 바로 자세한 상태가 나온다. V: 원 · 경로 선을 끄고 켠다. Esc: 선택 해제
+[ ] 선택한 개체가 죽으면 상자가 사라진다 (선택 수가 줄어든다)
+[ ] 제목 줄 끝 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 실제 GPU 에서 수치를 적어 주십시오 (Release, ecosystem_10k)
+[ ] --rhi-debug 로 1분 (격자 켜고 선택한 채): "Debug Layer 경고 0 · 오류 0"
+[ ] ctest -L render 통과 (26 케이스 — terrain · overlay 기준 이미지는 Wine 에서 만들었다. 실패하면 out_warp 의 PNG)
 ```
 
 ## Phase 8 — 렌더러

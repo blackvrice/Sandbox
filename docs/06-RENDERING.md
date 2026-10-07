@@ -8,9 +8,12 @@
 > **Phase 8A 구현** — AssetManager(7.2~7.4 중 PNG 디코드 Worker · 업로드 예산 · Texture2DArray 아틀라스 선반 패킹 · 자리 표시),
 > MaterialLibrary(assets/<팩>/materials.json), Camera2D · RenderWorld · 정렬 키 · SpriteBatcher(8.1 · 8.2 · 8.5), Renderer(Clear +
 > WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient --direct-sim 관찰(9장).
-> `[계획]` Compute 파이프라인·dispatch, Terrain · Grid · Selection · Debug 패스 · 타임스탬프(8B), ImGui(8C), Vulkan(13), Metal(14).
+> **Phase 8B 구현** — TerrainPass(타일 머티리얼 번호 텍스처 + 팔레트, 바뀐 청크만), GridPass · SelectionPass · DebugPass(화면 픽셀
+> 두께 선, DebugDrawList), GPU 타임스탬프(3.2 · 8.4 — 패스별 ms), R16Uint, 기준 이미지 terrain · overlay(14장), 선택(9장).
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, ImGui(8C), Vulkan(13), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
-> 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md).
+> 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
+> 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -515,7 +518,12 @@ struct RenderWorld {
 **Phase 8A 구현** (`render/renderer/`): `RenderWorld{camera, clear, sprites}`, `SpriteDraw{position, size, rotation, sprite(SpriteId),
 color(RGBA8), flags(뒤집기), layer, depth}`. GPU 인스턴스 `SpriteInstanceGpu`는 위 초안과 같은 48 바이트 배치(page · uvRect ·
 color · flags)이며 StructuredBuffer 가 아니라 **인스턴스 정점 버퍼**(업로드 링 구간)로 준다. `Camera2D{center, pixelsPerUnit,
-viewport}` — 월드 y 위, 화면 y 아래, `zoomAt`(커서 아래 점 고정) · `panByScreen` · `fit`. 지형 · 디버그 · 오버레이는 8B `[계획]`.
+viewport}` — 월드 y 위, 화면 y 아래, `zoomAt`(커서 아래 점 고정) · `panByScreen` · `fit`.
+
+**Phase 8B 구현**: `RenderWorld{camera, clear, terrain, sprites, overlay{grid}, selection, debug}`. `TerrainView{worldId, chunkSize,
+청크 범위, chunks[{x, y, revision, tiles(shared u16 — chunkSize², 행 = 청크 안 y)}], palette(RGBA8) + paletteVersion}` — 초안의
+`TerrainChunkDraw{ChunkCoord, revision, MeshHandle}` 자리. `DebugDrawList`(line · rect · box · circle · arrow · polyline, 선 =
+두 끝점 · 색 · 두께 px)가 `selection` · `debug` 두 목록으로 초안의 `DebugDrawList` · `OverlayInputs` 를 맡는다.
 
 ### 8.2 정렬 키 (64비트)
 
@@ -538,11 +546,28 @@ Extraction 은 depth = -y.
 | DebugPass       | DebugDraw (경로, 센서 반경, 청크 경계)         |
 | UIPass          | ImGui                                          |
 
+8B 구현 ([ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md)):
+
+```text
+TerrainPass     tiles(R16 UINT, 월드 타일 수 크기) + palette(RGBA8 1 행). 월드 격자를 덮는 사각형 하나 → 픽셀마다 Load 두 번.
+                revision 이 바뀐 청크만 영역 업로드 (프레임 예산 4 MB). worldId · 범위가 바뀌면 텍스처를 다시. Draw 1
+GridPass        같은 사각형 하나, 셰이더가 화면 거리로 타일 선(6 px/칸 이상에서 서서히) · 청크 선 · 월드 경계. Draw 1 (G 로 켬)
+SelectionPass   LinePass — 선마다 인스턴스(24 바이트), 화면 픽셀 두께 + 1 px 부드러운 가장자리. 선택 외곽선 · 끄는 중의 박스
+DebugPass       같은 LinePass — 선택한 개체의 감지 반경 · 남은 경로 · 목표 × · 대상 선 · 속도 화살표 (V 로 끔)
+```
+
+"청크 메시 캐시"(P5)의 목적(바뀐 청크만 다시)은 텍스처 영역 갱신이 맡는다 — 정점이 없어 청크 수와 무관하게 Draw 1개.
+
 ### 8.4 프레임
 
 8A 구현 (`Renderer::record`): `AssetManager::update`(업로드 · 배리어, 패스 밖) → `SpriteBatcher::build`(컬링 → 정렬 → 묶음)
 → 인스턴스를 업로드 링에 → 패스(Clear → WorldSpritePass: 파이프라인 · 아틀라스 바인드 그룹 · push constant(카메라) ·
 `draw(4, n, 0, first)` 묶음마다). 스왑체인 acquire · 배리어 · 제출 · Present 는 호출자(SandboxClient 의 ClientRenderer).
+
+8B 구현: 타임스탬프 0 → assets · terrain 업로드 → 배치 → 1 → 패스 하나 안에서 Clear → Terrain(2) → WorldSprite(3) →
+Grid(4) → Selection(5) → Debug(6) → 패스 밖 `resolveTimestamps(7)`. 값은 `IRenderDevice::completedTimestamps()` 로
+framesInFlight 프레임 뒤에 나온다 (beginFrame 이 슬롯을 다시 쓰기 전에 옮긴다 — GPU 를 기다리지 않음) → `RendererStats.gpu`
+(패스별 ms). 프레임 슬롯마다 32 칸 (`kMaxTimestampsPerFrame`). 각 패스는 디버그 라벨(PIX)로 감싼다.
 
 ```text
 BeginFrame → AcquireSwapchainImage → (RenderWorld 수신) → ProcessUploadQueue → UploadDynamicData
@@ -559,16 +584,18 @@ P4 컬링 2단(청크 → 스프라이트), 후속 GPU 컬링   P5 지형 청크
 ```
 
 8A 측정: `render.sprite_batch`(14-PERFORMANCE 7장), Wine + lavapipe(소프트웨어)에서 ecosystem_10k 12,877 스프라이트 · Draw 1.
+8B: 월드 Draw = 지형 1 + 스프라이트 묶음(대개 1) + 격자 1 + 선택 · 디버그 각 1 이하 (14-PERFORMANCE 7.8).
 
 ### 8.6 첫 Renderer 순서 (Phase 7~8)
 
 ```text
-Window → Clear → Triangle → Texture → Sprite → Camera → Batch → ImGui
+Window → Clear → Triangle → Texture → Sprite → Camera → Batch → Terrain · Overlay → ImGui
 각 단계 = 커밋 1개 + 기준 이미지 테스트 1개.
 ```
 
 7A 까지 Clear, 7B 까지 Triangle · Texture (기준 이미지 triangle · texture_linear), 8A 까지 Sprite · Camera · Batch (sprite ·
-batch_1k). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형, `--direct-sim` 이면 Renderer 로 월드를 그린다.
+batch_1k), 8B 까지 Terrain · Overlay (terrain · overlay). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형,
+`--direct-sim` 이면 Renderer 로 월드를 그린다.
 
 ---
 
@@ -589,6 +616,10 @@ Render 스레드 분리 시 RenderWorld를 이중 버퍼로 두고 포인터만 
 `WorldSnapshot`(개체마다 직전 · 지금 위치, render.sprite Opaque 는 saveId 별 캐시, 배경 = 월드 경계)을 내놓는다.
 Main 스레드는 프레임마다 `emit` 으로 최신 스냅숏을 보간해 RenderWorld 를 채운다 — 틱이 느려도(Debug 빌드) 화면은 제 속도로
 그린다 ([ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md)). `--headless` 는 프레임 안에서 진행한다 (틱 수 고정).
+8B: capture 가 지형 청크의 머티리얼 번호를 revision 이 바뀔 때만 복사해 스냅숏끼리 공유하고(팔레트 = 콘텐츠 머티리얼 순서의
+"terrain/<id>" 색), 선택한 개체(최대 32)의 자세한 상태를 담는다. 선택은 Main 스레드가 스냅숏에서 고른다 — 왼쪽 클릭 = 맨 위
+개체, 끌기 = 박스, Shift = 더하기/빼기, Esc = 해제 (`presentation/SelectionOverlay`,
+[ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md)).
 Network · ClientWorld · InterpolationSystem 은 Phase 10, --direct-sim 은 그때 삭제 (16-ROADMAP).
 
 ---
@@ -666,6 +697,12 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 - 리플렉션 헤더: static_assert 가 깨지면 빌드 실패 (테스트 대신 컴파일이 검사)
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
+
+Phase 8B 구현 (`tests/render/test_world_passes.cpp` · `test_rhi_basic.cpp`): terrain(타일 텍스처 + 팔레트 — 픽셀마다 기대 색과
+비교, 없는 번호 마젠타, 바뀐 청크 하나만 다시 올림, 같은 revision 은 믿음, 다른 월드면 처음부터 — 기준 이미지) · overlay(격자
+청크 선 · 월드 경계 · 선택 상자 · 원 · 화살표, 화면 밖 선 버림 — 기준 이미지) · gpu timings(framesInFlight 뒤 패스별 ms, 합 =
+전체) · timestamps(RHI: 슬롯을 다시 쓸 때 나온다, 순서, 패스 안 쓰기, 잘못된 칸 · 패스 안 resolve 는 오류). 순수 로직은
+SandboxTests `render`(DebugDrawList 도형 · 선 컬링 · TerrainCache), `client`(지형 capture · 버퍼 공유 · 고르기 · 박스 · 앱 입력).
 
 Phase 8A 구현 (`tests/render/test_sprites.cpp`): sprite(아틀라스 텍스처 방향 · 좌우 뒤집기 · 45° 회전 · 색 곱 — 기준 이미지) ·
 camera(worldToScreen 이 예측한 픽셀 · 컬링) · order(레이어 > 제출 순서, 같은 레이어는 depth, 반투명 α 128) · batch_1k(1,000개 ·

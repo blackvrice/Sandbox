@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-10-07 — Phase 8B: 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간
+
+**무엇을**
+
+- RHI: GPU 타임스탬프 — `ICommandList::writeTimestamp(i)` · `resolveTimestamps(n)`, `IRenderDevice::completedTimestamps()`
+  (프레임 슬롯마다 32 칸, beginFrame 이 슬롯을 다시 쓰기 전에 옮긴다 — GPU 를 기다리지 않음). D3D12 쿼리 힙 + Readback 버퍼.
+  `Format::R16Uint`.
+- TerrainPass: 타일 머티리얼 번호 텍스처(R16 UINT) + 팔레트(RGBA8 1 행), 월드를 덮는 사각형 하나 · Draw 1개, revision 이
+  바뀐 청크만 영역 업로드(프레임 4 MB), TerrainCache(순수 로직). 확대하면 타일마다 밝기 결, 없는 번호 = 마젠타.
+- GridPass(타일 · 청크 선 · 월드 경계를 픽셀 셰이더로), LinePass(선마다 인스턴스, 화면 픽셀 두께) — SelectionPass · DebugPass.
+  DebugDrawList(line · rect · box · circle · arrow · polyline). Renderer 순서: Clear → Terrain → Sprite → Grid → Selection →
+  Debug, 각 뒤에 타임스탬프 → RendererStats.gpu (패스별 ms). 셰이더 terrain · grid · lines.
+- 클라이언트: capture 가 지형 청크를 revision 이 바뀔 때만 복사(스냅숏끼리 공유) · 팔레트 = "terrain/<id>" 색, 선택한 개체
+  (최대 32)의 프리팹 · 상태 · 에너지 · 체력 · 감지 반경 · 경로 · 목표 · 대상 · 속도. presentation/SelectionOverlay(고르기 ·
+  외곽선 · 자세히 · 제목 줄). IWorldSession 에 선택 API. 조작: 왼쪽 클릭 · 끌기 박스 · Shift 더하기/빼기 · Esc · G 격자 · V 자세히,
+  카메라 끌기는 가운데 버튼만. 일시정지 중 선택이 바뀌면 진행 없이 다시 capture. 배경 스프라이트는 지형이 대신한다.
+- 제목 줄: "선택 eco.rabbit #… · flee · 에너지 … · 체력 … · 경로 …", "GPU … ms (지형 · 스프라이트 · 격자 · 선)".
+- assets/ecosystem/materials.json: 흙 · 물 · core.* 지형 색.
+- 문서: ADR-0022, 06(상태 · 8.1 · 8.3 · 8.4 · 8.5 · 8.6 · 9 · 14장), 11(지형 색), 13, 14(7.8), 15, 16(8.3 · 8.6 ✅), 17,
+  MANUAL-QA 8B, README.
+
+**왜**
+
+- 8A 의 월드는 단색 사각형 위의 개체뿐이었다 — 호수 · 흙이 안 보이고, 무엇이 왜 움직이는지 볼 방법이 없었다.
+- 타일 하나 = 텍셀 하나면 정점 메시 없이 청크 수와 무관하게 Draw 1개, 구현마다 같은 픽셀 (ADR-0022).
+- 줌 범위(0.25 ~ 512 px/칸)에서 선이 보이려면 화면 픽셀 두께여야 한다.
+
+**검증**
+
+- Linux: clang Debug/RWD · gcc Debug — 경고 0, CTest 37/37. TSan client · render · foundation 2회 경고 0.
+- Wine 11.19 + lavapipe: sbx_render_tests 26 케이스 통과 (terrain · overlay 기준 이미지를 확대해 검토, vkd3d 도 타임스탬프를
+  준다), 누수 0. SandboxClient ecosystem_survival: 지형 · 격자 · 박스 선택 21개 · 감지 반경 · 속도 화살표 스크린숏.
+- ecosystem_10k 헤드리스 RWD: 틱 13.9 ~ 14.3 ms (8B 전 14.4 — 지형 capture 비용이 보이지 않는다), emit 0.10 ms (14 7.8).
+
+**남은 일**
+
+- 사용자 PC: ctest -L render (terrain · overlay 를 WARP 로), MANUAL-QA 8B (실제 GPU 의 패스별 ms).
+- `[계획]` 지형 타일 그림 · 경계 섞기 · 밉맵, 화면 글자 지표(8C ImGui), 스트리밍 월드의 지형 고리 텍스처.
+
+---
+
 ## 2026-10-07 — Phase 8A 후속: --direct-sim 을 Simulation 스레드로 (Debug 3 ~ 6 fps)
 
 **무엇을**

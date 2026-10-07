@@ -187,7 +187,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (ADR-0021), --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5). 제목 줄에 TPS · 틱 ms 와
     "fps · 월드 · 추출 · 렌더 ms". 끝날 때 "direct-sim <이름> tick N 개체 M" + 프레임 · 틱 평균.
     성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7).
-    월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데/왼쪽 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
+    월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
+    (8B) 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 · Shift 더하기/빼기 · Esc 해제 · G 격자 · V 선택한 개체의 감지 반경 · 경로.
+    제목 줄 끝에 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 패스별 GPU 시간 (타임스탬프, ADR-0022)
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
     기준 이미지 tests/render/references/*.png. 실패하면 --out 에 <name>.actual.png · <name>.diff.png

@@ -25,7 +25,7 @@ Phase 4   World (Chunk · Terrain · Spatial · Save/Load)  ← 완료
 Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성 (완료 2026-10-06)
 Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
-Phase 8   Renderer · Asset · ImGui                  ← 8A 구현 2026-10-07 (스프라이트 · --direct-sim), 8B 패스 · 8C ImGui
+Phase 8   Renderer · Asset · ImGui                  ← 8A · 8B 구현 2026-10-07 (스프라이트 · --direct-sim · 지형 · 오버레이 · GPU 시간), 8C ImGui
 Phase 9   Network Foundation · Dedicated Server
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
 Phase 11  Interest Management
@@ -270,8 +270,8 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 | 8.1 | AssetManager (Texture · Material), Worker 디코드 → Upload Queue | 8A   | ✅ 2026-10-07 (스프라이트 아틀라스 · materials.json. Font 는 8C) |
 | 8.2 | Camera2D, SpriteBatcher(인스턴싱 · 정렬 키 · Texture2DArray)    | 8A   | ✅ (sprite · batch_1k 기준 이미지)                               |
 | 8.5 | SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)           | 8A   | ✅ (카메라 팬 · 줌 · 일시정지 · 속도, 보간)                      |
-| 8.3 | TerrainPass · DebugDraw · GridPass · SelectionPass              | 8B   | [계획]                                                           |
-| 8.6 | Graphics 오버레이 지표, 타임스탬프 쿼리                         | 8B   | [계획]                                                           |
+| 8.3 | TerrainPass · DebugDraw · GridPass · SelectionPass              | 8B   | ✅ 2026-10-07 (타일 텍스처 지형 · 화면 픽셀 선 · 선택, ADR-0022) |
+| 8.6 | Graphics 오버레이 지표, 타임스탬프 쿼리                         | 8B   | ✅ (패스별 GPU ms 를 제목 줄에 — 화면 글자는 8C)                 |
 | 8.4 | ImGuiRenderer(RHI) + InputState→ImGuiIO, 기본 패널              | 8C   | [계획]                                                           |
 
 ```text
@@ -291,6 +291,13 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   후속     사용자 PC Debug 에서 ecosystem_10k 3 ~ 6 fps (렌더 스레드의 틱 × 4 따라잡기) → 창은 Simulation 스레드 +
            불변 스냅숏 (ADR-0021). Wine Debug 4 → 52 fps (시뮬레이션은 9.3/30 TPS 로 표시), TSan 단위 테스트 (14 7.7)
   남음     사용자 PC: ctest -L render (sprite · batch_1k 를 WARP 로), MANUAL-QA Phase 8A (실제 GPU 의 10k 60 FPS 확인)
+
+8B 검증 (2026-10-07)
+  Linux    clang · gcc Debug/RWD: DebugDrawList · 선 컬링 · TerrainCache · 지형 capture · 고르기 · 박스 · 앱 입력 단위 테스트,
+           TSan client (Simulation 스레드 다시 capture)
+  Wine     sbx_render_tests 26 케이스 (terrain · overlay 기준 이미지, timestamps, gpu timings — vkd3d 도 타임스탬프를 준다),
+           SandboxClient: 지형(호수 · 흙) · 격자 · 박스 선택 21개 · 감지 반경 · 속도 화살표 스크린숏, 패스별 GPU ms (소프트웨어)
+  남음     사용자 PC: ctest -L render (terrain · overlay 를 WARP 로), MANUAL-QA Phase 8B (실제 GPU 의 패스별 ms)
 ```
 
 ### Phase 9 — Network Foundation

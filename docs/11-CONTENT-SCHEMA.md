@@ -220,6 +220,10 @@ content/<pack>/
 플래그   이름은 대문자 시작 (Blocked/Water/NoBuild). 위 초안 예시의 소문자 "water" 는 Phase 5 팩 로더에서 같이 정리한다
 ```
 
+**Phase 8B (표현):** 콘텐츠의 `render` 키는 아직 없다 — 지형 색은 표현 에셋 `assets/<팩>/materials.json` 의
+`"terrain/<머티리얼 id>": {"color": [r, g, b]}` 로 정한다 (06 7.1 — contentHash 와 무관, 서버는 읽지 않는다). 없으면 이름 해시
+색. 타일 그림(`tileset`) · 경계 섞기 · 애니메이션은 `[계획]` (ADR-0022).
+
 ## 6. Tag / Action
 
 ```jsonc

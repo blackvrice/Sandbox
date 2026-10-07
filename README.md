@@ -7,7 +7,7 @@ C++23 기반의 자체 **Sandbox Simulation Engine / Maker**입니다.
 Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **특정 장르 규칙에 묶이지 않고**
 만들 수 있는 것이 목표입니다.
 
-> **현재 상태: Phase 8A 구현 (스프라이트 렌더러 · `--direct-sim` 으로 생태계를 창에서 관찰). Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
+> **현재 상태: Phase 8B 구현 (지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간). Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
 > 30 TPS 틱 파이프라인·명령(SimCommand)·공간 색인·난수·WorldHash, 청크 월드·지형 칠하기·세이브/로드(마이그레이션·Opaque),
 > 콘텐츠 팩 로더·검증기(Prefab·Tag·Rule·BehaviorGraph)·생명 주기(에너지·성장·번식·사망)·`content/ecosystem` 팩,
 > 감지·FSM 행동·Rule 상호작용·A* 경로 Job·조향 이동·충돌, 리플레이 기록·재생, 세 종이 공존하는 생태계 시나리오,
@@ -15,9 +15,10 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > Platform 계층(Win32 창 — DPI v2·Raw Input·IME·클립보드, 물리 키 InputSystem·ActionMap, Null 오디오, HeadlessWindow),
 > RHI + D3D12 백엔드(디바이스·큐/펜스·스왑체인·Clear·업로드 링·지연 해제·Debug Layer·셰이더·바인드 그룹·루트 시그니처·PSO·draw),
 > HLSL 셰이더 빌드(DXC 고정 버전 · SPIR-V 리플렉션 · cbuffer 헤더 생성), `sbx_render_tests` 기준 이미지,
-> 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, SandboxClient 창(앱 상태기계, `--direct-sim` 월드 관찰 —
-> 카메라 팬 · 줌 · 일시정지 · 속도, 제목 줄 입력 모니터), 테스트·벤치·경계 검사가 있습니다.
-> 지형 · 디버그 패스(8B) · ImGui(8C) · 네트워크 · 에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, 지형(타일 텍스처) · 격자 · 선택 · 디버그 선 패스와
+> GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--direct-sim` 월드 관찰 — Simulation 스레드, 카메라 팬 · 줌 · 일시정지 · 속도,
+> 클릭 · 박스 선택), 테스트·벤치·경계 검사가 있습니다.
+> ImGui(8C) · 네트워크 · 에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 
@@ -71,7 +72,7 @@ build\windows-msvc\bin\Debug\sbx_sim_check.exe --scenario world_save_load --save
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\random_walk_1k.json    # 이 툴체인 골든 기록
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\world_save_load.json
 build\windows-msvc\bin\Debug\SandboxClient.exe --console                 # D3D12 창 (Clear + 도는 삼각형). 제목 줄이 입력 모니터, Ctrl+Q 종료
-build\windows-msvc\bin\Debug\SandboxClient.exe --console --direct-sim ecosystem_survival   # 생태계 관찰 (WASD · 휠 · Space)
+build\windows-msvc\bin\Debug\SandboxClient.exe --console --direct-sim ecosystem_survival   # 생태계 관찰 (WASD · 휠 · Space · 클릭 선택 · G 격자)
 ctest --preset windows-msvc-debug -L render                                  # WARP 기준 이미지 테스트
 ```
 
