@@ -238,9 +238,15 @@ Expected<void> Dx12Device::init() {
     if (m_debugActive && SUCCEEDED(m_device.as(m_infoQueue))) {
         // 정보성 메시지는 저장하지 않는다 — 경고 이상만 센다
         D3D12_MESSAGE_SEVERITY deny[] = {D3D12_MESSAGE_SEVERITY_INFO, D3D12_MESSAGE_SEVERITY_MESSAGE};
+        // 성능 안내일 뿐 정확성 문제가 아닌 경고 (Microsoft 샘플·대부분의 엔진이 같은 것을 끈다):
+        //   Clear 색이 생성 때 넘긴 최적 Clear 값과 다르거나 넘기지 않았다 — 스왑체인 백버퍼는 최적 값을 줄 수 없다
+        D3D12_MESSAGE_ID denyIds[] = {D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+                                      D3D12_MESSAGE_ID_CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE};
         D3D12_INFO_QUEUE_FILTER filter{};
         filter.DenyList.NumSeverities = static_cast<UINT>(std::size(deny));
         filter.DenyList.pSeverityList = deny;
+        filter.DenyList.NumIDs = static_cast<UINT>(std::size(denyIds));
+        filter.DenyList.pIDList = denyIds;
         m_infoQueue->PushStorageFilter(&filter);
     }
 

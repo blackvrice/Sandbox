@@ -307,6 +307,7 @@ TEST_SUITE("render.gpu") {
         td.debugName = "misuse";
         const RhiTexture tex = dev.createTexture(td);
         const u64 errorsBefore = dev.stats().debugErrors;
+        MESSAGE("다음 [error] copyBufferToTexture 로그 1건은 이 테스트가 일부러 낸 것이다");
         submitAndWait(dev, [&](ICommandList& cl) {
             const UploadAllocation up = dev.allocateUpload(4096, dev.caps().textureCopyOffsetAlignment);
             REQUIRE(up.valid());

@@ -274,6 +274,7 @@ HWND → IDXGIFactory6::EnumAdapterByGpuPreference(HIGH_PERFORMANCE) (CI: WARP)
 커맨드 리스트 ID3D12GraphicsCommandList (기본 인터페이스 — 7A 기능에 충분, MinGW 헤더와도 맞는다). 슬롯마다 할당자 하나
 어댑터        --rhi-warp 면 WARP. 아니면 고성능 순서의 하드웨어 → 소프트웨어 → WARP. 최소 FL 12_0 (allowFeatureLevel11 시험용 11_0)
 Debug Layer   ID3D12InfoQueue 를 프레임마다 비워 경고·오류를 센다(정보성 메시지는 저장 안 함). 없으면 "그래픽 도구" 안내 후 계속
+              성능 안내만인 CLEAR(RENDERTARGET|DEPTHSTENCIL)VIEW_MISMATCHINGCLEARVALUE 는 저장하지 않는다 (백버퍼는 최적 값이 없다)
 DRED          Debug 빌드와 --rhi-debug 에서 자동 브레드크럼 · 페이지 폴트. 디바이스 제거는 원인을 한 번 로그
 PIX 마커      BeginEvent(metadata 0, UTF-16) — WinPixEventRuntime 없이
 스왑체인      FLIP_DISCARD, BGRA8Unorm, 버퍼 framesInFlight + 1, ALLOW_TEARING(지원 시, VSync 끔), DXGI_MWA_NO_ALT_ENTER

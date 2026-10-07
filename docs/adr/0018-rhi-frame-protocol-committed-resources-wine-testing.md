@@ -41,7 +41,8 @@ Phase 7 의 티켓은 7개라 Phase 5 처럼 나눈다: **7A** RHI 골격 · D3D
 
 ```text
 - WRL ComPtr 대신 render/dx12 의 최소 Com<T> (MSVC · MinGW 같은 동작).
-- Debug Layer 메시지는 ID3D12InfoQueue 를 프레임마다 비워 센다 (경고·오류만 저장). RegisterMessageCallback(InfoQueue1)은
+- Debug Layer 메시지는 ID3D12InfoQueue 를 프레임마다 비워 센다 (경고·오류만 저장). 단 Clear 값이 생성 때의 최적 값과 다르거나
+  없다는 성능 안내(ID 820·821)는 저장하지 않는다 — 스왑체인 백버퍼는 최적 값을 가질 수 없다 (사용자 PC 첫 실행에서 발견). RegisterMessageCallback(InfoQueue1)은
   Windows 11 + 새 SDK 에만 있어 쓰지 않는다. RHI 사용 오류(잘못된 정렬·무효 핸들)도 같은 오류 수에 더한다.
 - DRED: Debug 빌드와 --rhi-debug 에서 자동 브레드크럼·페이지 폴트 켬. 디바이스 제거는 원인을 한 번 로그.
 - PIX 마커: BeginEvent(metadata 0, UTF-16) — WinPixEventRuntime 없이.

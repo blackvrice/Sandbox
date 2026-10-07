@@ -7,6 +7,23 @@
 
 ---
 
+## 2026-10-06 — Phase 7A 후속: 사용자 PC 의 Debug Layer 성능 경고
+
+**무엇을**
+
+- 사용자 PC (MSVC, WARP, Debug Layer 켬): `render_tests_warp` 8 케이스는 모두 통과했지만 끝 검사에서 실패 — Debug Layer 경고 5건
+  "ClearRenderTargetView: The application did not pass any clear value to resource creation". 정확성 문제가 아니라 성능 안내다.
+- `Dx12Device` 의 InfoQueue 저장 필터에 `D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE` ·
+  `CLEARDEPTHSTENCILVIEW_MISMATCHINGCLEARVALUE` 를 뺐다 (스왑체인 백버퍼는 최적 Clear 값을 가질 수 없어 매 프레임 났을 것).
+- 사용 오류 테스트가 일부러 낸 `[error]` 로그 앞에 안내 MESSAGE.
+
+**검증**
+
+- 사용자 PC 관찰: FL 12_1 · Microsoft Basic Render Driver · Debug Layer 켬 — 기준 이미지 3장 · 수명 · 링 감기 모두 통과 (Debug Layer 메시지 외).
+- Wine 재실행 통과 (Wine 에는 Debug Layer 가 없어 필터 자체는 사용자 PC 에서 다시 확인).
+
+---
+
 ## 2026-10-06 — Phase 7A: RHI 골격 · D3D12 디바이스 · 스왑체인 Clear · 프레임 자원 · 기준 이미지 테스트
 
 **무엇을**
