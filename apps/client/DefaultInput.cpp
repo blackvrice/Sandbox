@@ -36,7 +36,8 @@ std::string_view defaultInputJson() noexcept {
     "sim.speed_up": ["Equal", "KpAdd"],
     "sim.speed_down": ["Minus", "KpSubtract"],
     "view.grid": ["G"],
-    "view.details": ["V"]
+    "view.details": ["V"],
+    "view.panels": ["F1"]
   }
 }
 )json";

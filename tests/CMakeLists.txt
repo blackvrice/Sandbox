@@ -55,15 +55,18 @@ if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
         unit/client/test_direct_sim.cpp
+        unit/client/test_imgui_layer.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DirectSim.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxPlatform SandboxRender sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxPlatform SandboxRender sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")

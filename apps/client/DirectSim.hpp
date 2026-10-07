@@ -75,6 +75,7 @@ public:
     void clearSelection() override;
     void setDetailOverlay(bool on) override;
     [[nodiscard]] std::string selectionStatus() const override;
+    [[nodiscard]] WorldInfo info() const override;
     [[nodiscard]] std::vector<SaveId> selection() const;
 
     [[nodiscard]] DirectSimMode mode() const noexcept { return m_mode; }

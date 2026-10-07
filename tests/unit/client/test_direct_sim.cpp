@@ -82,7 +82,7 @@ struct FakeRenderer final : IFrameRenderer {
     int renders = 0, worldRenders = 0;
     usize lastSprites = 0;
     void resize(u32, u32) override {}
-    void render(f64, const render::RenderWorld* w) override {
+    void render(f64, const render::RenderWorld* w, ImDrawData*) override {
         ++renders;
         if (w != nullptr) {
             ++worldRenders;

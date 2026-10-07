@@ -155,6 +155,14 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return std::unexpected(v.error());
             }
             (a == "--content" ? opts.contentRoot : opts.assetRoot) = std::string(*v);
+        } else if (a == "--font") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            opts.font = std::string(*v);
+        } else if (a == "--no-ui") {
+            opts.noUi = true;
         } else if (a == "--input") {
             auto v = value();
             if (!v) {
@@ -193,10 +201,12 @@ std::string clientUsage() {
            "      --seed <n>         --direct-sim 의 월드 시드 (기본 1)\n"
            "      --threads <n>      --direct-sim 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"
-           "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)"
+           "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)\n"
+           "      --font <file>      UI 폰트 (.ttf/.ttc — 기본: Windows 맑은 고딕, 없으면 내장 영문 폰트)\n"
+           "      --no-ui            ImGui 패널 없이 (제목 줄만)"
            "\n"
            "창 안 단축키 (수동 QA, docs/qa/MANUAL-QA.md): F2 글자 입력 켜기/끄기, F3 마우스 캡처, F4 커서 모양,\n"
-           "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료.\n"
+           "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료, F1 패널(시뮬레이션 · 통계).\n"
            "--direct-sim 월드: WASD·화살표 이동, 휠 확대(커서 기준), 가운데·왼쪽 끌기, Home 맞춤, Space 일시정지,\n"
            ". 한 틱, = / - 속도. 서버 접속(--connect …)은 Phase 10 (docs/16-ROADMAP.md).\n";
 }

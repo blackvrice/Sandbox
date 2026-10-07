@@ -10,6 +10,19 @@
 
 namespace sbx::client {
 
+// 패널(시뮬레이션)이 보는 진행 상태 (8C)
+struct WorldInfo {
+    std::string name;
+    u64 tick = 0;
+    u32 entities = 0;
+    f32 speed = 1;
+    bool paused = false;
+    f64 ticksPerSecond = 0;       // 실제 (최근 1 초)
+    f64 targetTicksPerSecond = 0; // 30 × 속도
+    f64 tickMs = 0;               // 최근 틱 시간
+    usize selected = 0;
+};
+
 class IWorldSession {
 public:
     virtual ~IWorldSession() = default;
@@ -34,6 +47,7 @@ public:
     // 선택한 개체의 감지 반경 · 경로 · 대상 · 속도 선
     virtual void setDetailOverlay(bool /*on*/) {}
     [[nodiscard]] virtual std::string selectionStatus() const { return {}; } // 비면 선택 없음
+    [[nodiscard]] virtual WorldInfo info() const { return {}; }
 };
 
 } // namespace sbx::client

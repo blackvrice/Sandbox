@@ -185,6 +185,7 @@ public:
 
     ~ClientRenderer() override {
         m_dev->waitIdle();
+        m_ui.reset();
 #ifdef SBX_HAS_SHADERS
         m_demo.reset();
 #endif
@@ -204,7 +205,44 @@ public:
         return m_assets && m_assets->atlas().valid() ? m_assets.get() : nullptr;
     }
 
-    void render(f64 timeSeconds, const render::RenderWorld* world) override {
+    bool attachImGui(ImGuiIO& io, ImGuiPlatformIO& platformIo) override {
+        auto ui = std::make_unique<render::ImGuiRenderer>(*m_dev);
+        if (auto r = ui->init(m_swapChain->format(), io, platformIo); !r) {
+            log::warn("render", "UI 를 그리지 않습니다: {}", r.error().describe());
+            return false;
+        }
+        m_ui = std::move(ui);
+        return true;
+    }
+
+    void detachImGui(ImGuiPlatformIO& platformIo) override {
+        if (m_ui) {
+            m_ui->shutdown(platformIo);
+            m_dev->waitIdle();
+            m_ui.reset();
+        }
+    }
+
+    [[nodiscard]] FrameRendererInfo info() const override {
+        const rhi::DeviceCaps& c = m_dev->caps();
+        FrameRendererInfo i;
+        i.backend = std::string(rhi::backendName(c.backend));
+        i.adapter = c.adapterName;
+        i.software = c.softwareAdapter;
+        i.vsync = m_swapChain->vsync();
+        i.fps = m_fps;
+        i.drewWorld = m_drewWorld;
+        if (m_renderer) {
+            i.world = m_renderer->stats();
+        }
+        if (m_ui) {
+            i.ui = m_ui->stats();
+        }
+        i.device = m_dev->stats();
+        return i;
+    }
+
+    void render(f64 timeSeconds, const render::RenderWorld* world, ImDrawData* ui) override {
         m_dev->beginFrame();
         const rhi::AcquireResult acq = m_swapChain->acquire();
         if (acq.skip) {
@@ -217,8 +255,13 @@ public:
                                             rhi::ResourceState::RenderTarget};
         cl.barrier({&toTarget, 1});
         m_drewWorld = world != nullptr && m_renderer != nullptr;
+        const auto drawUi = [&](rhi::ICommandList& c) {
+            if (m_ui && ui != nullptr) {
+                m_ui->record(c, acq.backbuffer, ui);
+            }
+        };
         if (m_drewWorld) {
-            m_renderer->record(cl, acq.backbuffer, *world);
+            m_renderer->record(cl, acq.backbuffer, *world, drawUi);
         } else {
             if (m_assets && m_assets->atlas().valid()) {
                 m_assets->update(cl); // 메뉴 중에도 디코드가 끝난 스프라이트를 올려 둔다 (패스 밖)
@@ -235,6 +278,7 @@ public:
             }
 #endif
             cl.endRenderPass();
+            drawUi(cl);
         }
         const rhi::ResourceBarrier toPresent{acq.backbuffer, rhi::ResourceState::RenderTarget,
                                              rhi::ResourceState::Present};
@@ -290,6 +334,7 @@ private:
     std::unique_ptr<TriangleDemo> m_demo;
 #endif
     std::unique_ptr<render::AssetManager> m_assets;
+    std::unique_ptr<render::ImGuiRenderer> m_ui;  // 8C (attachImGui)
     std::unique_ptr<render::Renderer> m_renderer; // 셰이더가 없거나 만들지 못하면 없음 (지우기만)
     bool m_drewWorld = false;
     Clock::time_point m_fpsStart;

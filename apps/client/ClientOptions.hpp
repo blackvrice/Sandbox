@@ -1,7 +1,7 @@
 #pragma once
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
 // Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --direct-sim · --seed ·
-// --threads · --content · --assets. 접속(--connect …)은 Phase 10.
+// --threads · --content · --assets. Phase 8C: --font · --no-ui. 접속(--connect …)은 Phase 10.
 
 #include <optional>
 #include <span>
@@ -43,6 +43,10 @@ struct ClientOptions {
     std::optional<u32> simThreads; // --threads: 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
     std::string assetRoot;         // --assets (비면 저장소의 assets/)
+
+    // UI (Phase 8C)
+    std::string font;  // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)
+    bool noUi = false; // --no-ui: ImGui 패널 없이
 };
 
 [[nodiscard]] Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args);

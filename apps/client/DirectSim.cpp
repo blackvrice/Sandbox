@@ -413,6 +413,21 @@ std::string DirectSim::selectionStatus() const {
     return describeSelection(*m_published, m_selection);
 }
 
+WorldInfo DirectSim::info() const {
+    std::lock_guard lk(m_mutex);
+    WorldInfo i;
+    i.name = m_name;
+    i.tick = m_published->tick;
+    i.entities = m_published->stats.entities;
+    i.speed = kSpeeds[m_speedIndex];
+    i.paused = m_paused;
+    i.ticksPerSecond = m_mode == DirectSimMode::Threaded ? m_stats.ticksPerSecond : 0.0;
+    i.targetTicksPerSecond = 1.0 / tickInterval();
+    i.tickMs = m_stats.recentTickMs;
+    i.selected = m_selection.size();
+    return i;
+}
+
 std::string DirectSim::status() const {
     std::lock_guard lk(m_mutex);
     std::string s = std::format("{} tick {} · 개체 {} · ×{}", m_name, m_published->tick, m_published->stats.entities,

@@ -15,6 +15,7 @@
 #include "apps/client/ClientOptions.hpp"
 #include "apps/client/DefaultInput.hpp"
 #include "apps/client/DirectSim.hpp"
+#include "apps/client/ui/ImGuiLayer.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/job/JobSystem.hpp"
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
     }
 
 #ifdef SBX_HAS_SHADERS
-    constexpr const char* kRendererName = "스프라이트 (Phase 8A)";
+    constexpr const char* kRendererName = "스프라이트 · 지형 · UI (Phase 8C)";
 #else
     constexpr const char* kRendererName = "Clear (셰이더 없는 빌드)";
 #endif
@@ -162,6 +163,16 @@ int main(int argc, char** argv) {
         world = std::move(*ds);
     }
 
+    // UI (Phase 8C): ImGui 레이어 — 렌더러가 있으면 UIPass 를 붙인다. 헤드리스도 돈다 (텍스처 요청은 레이어가 받는다)
+    std::unique_ptr<sbx::client::ImGuiLayer> ui;
+    bool uiRendered = false;
+    if (!opts->noUi) {
+        sbx::client::ImGuiLayerDesc ud;
+        ud.font = opts->font;
+        ui = std::make_unique<sbx::client::ImGuiLayer>(*window, ud);
+        uiRendered = renderer != nullptr && renderer->attachImGui(ui->io(), ui->platformIo());
+    }
+
     sbx::platform::NullAudioBackend audio;
     audio.init({});
 
@@ -174,6 +185,8 @@ int main(int argc, char** argv) {
     cfg.renderer = renderer.get();
     cfg.world = world.get();
     cfg.fixedDt = opts->headless ? 1.0 / 60.0 : 0.0; // 헤드리스는 프레임마다 1/60 초 — 같은 명령이면 같은 틱 수
+    cfg.ui = ui.get();
+    cfg.uiRendered = uiRendered;
     sbx::client::Application app(*window, std::move(*actions), audio, cfg);
 
     std::unique_ptr<sbx::platform::FramePacer> pacer;
@@ -201,7 +214,11 @@ int main(int argc, char** argv) {
         }
     }
     world.reset();
+    if (renderer && ui) {
+        renderer->detachImGui(ui->platformIo()); // ImGui 컨텍스트보다 먼저 UI 텍스처를 놓는다
+    }
     renderer.reset(); // 창보다 먼저 (스왑체인이 HWND 를 쓴다)
+    ui.reset();
     audio.shutdown();
     printText(std::format("SandboxClient 끝: frames {} state {}\n", app.frameCount(),
                           sbx::client::appStateName(app.state())));

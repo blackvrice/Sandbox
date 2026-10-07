@@ -21,6 +21,7 @@
 
 #include "apps/client/FrameRenderer.hpp"
 #include "apps/client/WorldSession.hpp"
+#include "apps/client/ui/DebugPanels.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
 #include "platform/common/Audio.hpp"
@@ -29,6 +30,8 @@
 #include "platform/common/Window.hpp"
 
 namespace sbx::client {
+
+class ImGuiLayer;
 
 enum class AppState : u8 { Boot = 0, MainMenu, Connecting, InWorld, Shutdown };
 enum class WorldMode : u8 { Play = 0, Edit };
@@ -46,6 +49,8 @@ struct AppConfig {
     IFrameRenderer* renderer = nullptr; // 없으면 그리지 않는다 (--headless, 렌더 백엔드가 없는 OS, --no-render)
     IWorldSession* world = nullptr;     // 있으면 InWorld 로 가서 진행 · 그린다 (Phase 8A --direct-sim)
     f64 fixedDt = 0;                    // > 0 이면 월드 진행에 실제 시간 대신 이 값 (헤드리스 시험 — 결과가 고정된다)
+    ImGuiLayer* ui = nullptr;           // 8C: 있으면 패널을 그리고 입력을 먼저 본다 (I1)
+    bool uiRendered = false;            // renderer->attachImGui 가 성공했다 (아니면 텍스처 요청을 레이어가 받는다)
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -86,6 +91,7 @@ public:
     [[nodiscard]] const render::RenderWorld& renderWorld() const noexcept { return m_renderWorld; }
     // 최근 평균 (0.5 초마다 갱신)과 InWorld 전체 평균
     [[nodiscard]] const FrameTimings& timings() const noexcept { return m_timings; }
+    [[nodiscard]] const PanelState& panels() const noexcept { return m_panels; }
     [[nodiscard]] FrameTimings totalTimings() const noexcept;
 
 private:
@@ -94,6 +100,7 @@ private:
     [[nodiscard]] bool pressed(const std::optional<platform::ActionId>& id) const noexcept;
     void applyPendingTransition();
     void handleWorldInput(f64 dt);
+    void applyPanelActions(const PanelActions& act);
     void syncViewport();
 
     platform::IWindow& m_window;
@@ -125,7 +132,7 @@ private:
         std::optional<platform::ActionId> quit, textInput, captureMouse, cycleCursor, copyText, pasteText, escape,
             eraseChar;
         std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select, selectAdd;
-        std::optional<platform::ActionId> pause, step, faster, slower, toggleGrid, toggleDetails;
+        std::optional<platform::ActionId> pause, step, faster, slower, toggleGrid, toggleDetails, togglePanels;
     } m_ids;
 
     // 월드 (InWorld)
@@ -138,6 +145,7 @@ private:
     Vec2 m_selectStart{}; // 프레임버퍼 픽셀
     Vec2 m_selectNow{};
     bool m_detailOverlay = true;
+    PanelState m_panels; // 8C (F1)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 
     // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)

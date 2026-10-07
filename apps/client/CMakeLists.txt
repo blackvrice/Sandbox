@@ -18,8 +18,12 @@ add_executable(SandboxClient
     presentation/SpriteExtraction.cpp
     presentation/SelectionOverlay.hpp
     presentation/SelectionOverlay.cpp
+    ui/ImGuiLayer.hpp
+    ui/ImGuiLayer.cpp
+    ui/DebugPanels.hpp
+    ui/DebugPanels.cpp
 )
-target_link_libraries(SandboxClient PRIVATE SandboxRender SandboxPlatform SandboxCore sbx_warnings)
+target_link_libraries(SandboxClient PRIVATE SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                  SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
 

@@ -1,5 +1,7 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/ImGuiLayer.hpp"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -139,6 +141,7 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.selectAdd = m_actionMap.find("editor.select_add");
     m_ids.toggleGrid = m_actionMap.find("view.grid");
     m_ids.toggleDetails = m_actionMap.find("view.details");
+    m_ids.togglePanels = m_actionMap.find("view.panels");
     m_ids.pause = m_actionMap.find("sim.toggle_pause");
     m_ids.step = m_actionMap.find("sim.step");
     m_ids.faster = m_actionMap.find("sim.speed_up");
@@ -347,8 +350,19 @@ bool Application::frame() {
     for (const PlatformEvent& e : m_events) {
         handleEvent(e);
     }
-    // I1: 위쪽 소비자(ImGui, Phase 8)가 아직 없다 — 아무것도 가져가지 않는다
-    m_input.setCapture(false, false);
+    // 실제 시간 (월드 진행 · ImGui)
+    const auto now = std::chrono::steady_clock::now();
+    const f64 realDt = std::chrono::duration<f64>(now - m_lastFrameTime).count();
+    m_lastFrameTime = now;
+
+    // I1: ImGui 가 먼저 본다 — 그 위의 창(또는 글자 칸)이면 그 장치를 게임 입력에서 뺀다 (8C)
+    if (m_config.ui != nullptr) {
+        m_config.ui->feed(m_events);
+        m_config.ui->beginFrame(m_config.fixedDt > 0 ? m_config.fixedDt : realDt);
+        m_input.setCapture(m_config.ui->wantMouse(), m_config.ui->wantKeyboard());
+    } else {
+        m_input.setCapture(false, false);
+    }
     m_actionState.update(m_actionMap, m_input.downstream());
 
     handleDebugActions();
@@ -359,9 +373,6 @@ bool Application::frame() {
     m_audio.update(static_cast<f32>(dt));
 
     // 월드 진행 · 그릴 거리 (InWorld)
-    const auto now = std::chrono::steady_clock::now();
-    const f64 realDt = std::chrono::duration<f64>(now - m_lastFrameTime).count();
-    m_lastFrameTime = now;
     const bool inWorld = m_state == AppState::InWorld && m_config.world != nullptr;
     using Clock = std::chrono::steady_clock;
     const auto seconds = [](Clock::time_point a, Clock::time_point b) {
@@ -386,11 +397,39 @@ bool Application::frame() {
         t2 = Clock::now();
     }
 
+    // UI (8C): 패널 → ImGui::Render. 패널이 고른 일은 단축키와 같은 길로 적용한다
+    ImDrawData* ui = nullptr;
+    if (m_config.ui != nullptr) {
+        if (pressed(m_ids.togglePanels)) {
+            m_panels.visible = !m_panels.visible;
+        }
+        m_panels.pushFrame(realDt * 1000.0);
+        const FrameRendererInfo rinfo = m_config.renderer != nullptr ? m_config.renderer->info() : FrameRendererInfo{};
+        const WorldInfo winfo = inWorld ? m_config.world->info() : WorldInfo{};
+        PanelInputs pin;
+        pin.world = inWorld ? &winfo : nullptr;
+        pin.selection = inWorld ? m_config.world->selectionStatus() : std::string();
+        pin.timings = &m_timings;
+        pin.renderer = m_config.renderer != nullptr ? &rinfo : nullptr;
+        pin.grid = m_renderWorld.overlay.grid;
+        pin.details = m_detailOverlay;
+        pin.zoom = m_renderWorld.camera.pixelsPerUnit;
+        pin.font = m_config.ui->fontName();
+        const PanelActions act = drawDebugPanels(m_panels, pin);
+        if (inWorld) {
+            applyPanelActions(act);
+        }
+        ui = m_config.ui->endFrame(m_cursor);
+        if (!m_config.uiRendered) {
+            m_config.ui->acknowledgeTextures(); // 그릴 렌더러가 없다 (헤드리스 · 시험)
+        }
+    }
+
     auto t3 = Clock::now(), t4 = t3;
     if (m_config.renderer != nullptr && !m_window.minimized()) {
         // 애니메이션은 실제 시간으로 (VSync 를 끄면 프레임 수가 시간과 따로 논다)
         m_config.renderer->render(std::chrono::duration<f64>(now - m_startTime).count(),
-                                  inWorld ? &m_renderWorld : nullptr);
+                                  inWorld ? &m_renderWorld : nullptr, ui);
         t4 = Clock::now();
     }
     if (inWorld) {
@@ -422,6 +461,32 @@ bool Application::frame() {
     }
 
     return m_state != AppState::Shutdown;
+}
+
+void Application::applyPanelActions(const PanelActions& act) {
+    if (act.togglePause) {
+        m_config.world->togglePause();
+    }
+    if (act.step) {
+        m_config.world->stepOnce();
+    }
+    if (act.speed != 0) {
+        m_config.world->changeSpeed(act.speed);
+    }
+    if (act.clearSelection) {
+        m_config.world->clearSelection();
+    }
+    if (act.fitCamera) {
+        m_renderWorld.camera.fit(m_config.world->bounds());
+    }
+    m_renderWorld.overlay.grid = act.grid;
+    if (act.details != m_detailOverlay) {
+        m_detailOverlay = act.details;
+        m_config.world->setDetailOverlay(m_detailOverlay);
+    }
+    if (act.togglePause || act.speed != 0 || act.clearSelection) {
+        m_titleDirty = true;
+    }
 }
 
 void Application::accumulateTimings(f64 frameS, f64 worldS, f64 extractS, f64 renderS) {
