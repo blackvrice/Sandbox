@@ -1,0 +1,10 @@
+{
+  "materials": {
+    "eco/grass": { "sprite": "ecosystem/grass.png" },
+    "eco/rabbit": { "sprite": "ecosystem/rabbit.png" },
+    "eco/wolf": { "sprite": "ecosystem/wolf.png" },
+    "terrain/eco.grassland": { "color": [44, 62, 38] },
+    "terrain/core.grass": { "color": [44, 62, 38] },
+    "debug/entity": { "color": [230, 230, 240] }
+  }
+}
