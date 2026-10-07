@@ -203,6 +203,10 @@ if(Python3_Interpreter_FOUND)
             --expect 8
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
+    # 셰이더 코드 생성기 자체 검사 (손으로 만든 SPIR-V 로 리플렉션·병합 규칙) — dxc 없이 모든 OS 에서 (ADR-0019)
+    add_test(NAME shader_gen_selftest
+        COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/shader/sbx_shader_gen.py --self-test)
+    set_tests_properties(shader_gen_selftest PROPERTIES LABELS "unit" PASS_REGULAR_EXPRESSION "self-test OK")
 else()
     message(WARNING "Python3 를 찾지 못해 include 경계 테스트(arch_include_lint)를 등록하지 않습니다. CI 에서는 검사됩니다.")
 endif()

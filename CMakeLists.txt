@@ -29,6 +29,7 @@ include(SbxOptions)
 include(SbxCompilerSettings)
 include(SbxBoundaries)
 include(SbxBuildInfo)
+include(SbxShaders)
 
 if(SBX_BUILD_TESTS)
     include(CTest)

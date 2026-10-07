@@ -8,6 +8,7 @@ add_library(SandboxRender STATIC
     rhi/DeferredDestruction.hpp
     rhi/UploadRing.hpp
     rhi/UploadRing.cpp
+    rhi/ShaderTypes.hpp
     asset/Image.hpp
     asset/Image.cpp
 )
@@ -38,3 +39,9 @@ target_link_libraries(SandboxRender
     PUBLIC SandboxPlatform
     PRIVATE sbx_stb sbx_warnings)
 
+# 내장 셰이더 (06 6장, ADR-0019) — SBX_BUILD_SHADERS=ON 일 때만. 생성 헤더: render/generated/<Pascal>Shader.hpp
+sbx_add_shader(TARGET SandboxRender NAME basic_color SOURCE shaders/basic_color.hlsl STAGES vs:VSMain ps:PSMain)
+sbx_add_shader(TARGET SandboxRender NAME basic_texture SOURCE shaders/basic_texture.hlsl STAGES vs:VSMain ps:PSMain)
+if(SBX_BUILD_SHADERS)
+    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_SHADERS=1)
+endif()
