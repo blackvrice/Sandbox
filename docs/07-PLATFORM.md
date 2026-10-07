@@ -104,6 +104,12 @@ ActionMap (settings/input.json) + ActionState(프레임마다 pressed/down/relea
 소비 순서: ImGui → Editor 툴 → Play 컨트롤 → 카메라
 ```
 
+**Phase 8C 구현 (I1):** ImGui 는 InputState 가 아니라 이번 프레임의 PlatformEvent 를 그대로 받는다
+(`apps/client/ui/ImGuiLayer` — 공식 imgui_impl_win32 없음, OS 무관). 순서: 이벤트 → `ImGui::NewFrame` →
+`setCapture(WantCaptureMouse, WantCaptureKeyboard)` → ActionState → 게임 입력. 키보드 내비게이션은 끈다 (패널을 누른 뒤에도
+WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 켜고, 끝나면 우리가 켠 것만 끈다. 커서 · 클립보드는 창 API
+([ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md)).
+
 `settings/input.json` 형식 (`platform/common/ActionMap`):
 
 ```json

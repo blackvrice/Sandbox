@@ -190,6 +190,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
     (8B) 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 · Shift 더하기/빼기 · Esc 해제 · G 격자 · V 선택한 개체의 감지 반경 · 경로.
     제목 줄 끝에 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 패스별 GPU 시간 (타임스탬프, ADR-0022)
+    (Phase 8C) [--font <ttf|ttc>] [--no-ui]
+    ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 → 내장 영문 (ADR-0023).
+    Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
     기준 이미지 tests/render/references/*.png. 실패하면 --out 에 <name>.actual.png · <name>.diff.png

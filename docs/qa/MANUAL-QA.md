@@ -122,6 +122,35 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure
 [ ] ctest -L render 통과 (26 케이스 — terrain · overlay 기준 이미지는 Wine 에서 만들었다. 실패하면 out_warp 의 PNG)
 ```
 
+## Phase 8C — ImGui 패널
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --direct-sim ecosystem_10k --vsync off
+.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+.\cmake-build-release\bin\SandboxClient.exe --console            (메뉴 — 월드 없이 패널만)
+ctest --test-dir cmake-build-debug -L render --output-on-failure
+```
+
+```text
+[ ] 왼쪽 위 "시뮬레이션", 오른쪽 위 "통계" 창이 한글(맑은 고딕)로 보인다. 콘솔에 "ImGui 1.92.9b (docking) · 폰트 malgun.ttf …"
+    (--font C:/Windows/Fonts/gulim.ttc 처럼 다른 폰트도 된다. 없는 파일이면 경고 후 맑은 고딕 → 영문 폰트)
+[ ] 시뮬레이션 창: tick 이 오르고, TPS 가 30 근처. 일시정지 버튼 = Space, "한 틱" = . (멈췄을 때만), - / + = 속도
+[ ] 격자 · 자세히 체크 = G · V 와 같다 (키로 바꾸면 체크도 바뀐다). "월드 맞춤" = Home
+[ ] 개체를 클릭하면 시뮬레이션 창 아래에 선택 설명 + "선택 해제" 버튼
+[ ] 통계 창: fps 그래프가 움직이고, CPU(월드 · 추출 · 렌더) · GPU 패스(… · UI) · Draw · 디바이스 수치가 나온다
+    UI GPU 시간을 적어 주십시오 (Release, ecosystem_10k)
+[ ] 패널 위에서 클릭 · 끌기 · 휠: 월드가 선택되거나 움직이지 않는다 (I1). 패널 밖으로 나가면 다시 된다
+[ ] 패널 제목 줄을 끌어 옮길 수 있다. 창 크기를 바꿔도 패널이 깨지지 않는다
+[ ] F1: 패널을 숨기고 다시 보인다. 숨긴 동안 클릭은 모두 월드로 간다
+[ ] 통계 창 "ImGui 데모" → 데모 창. 글자 칸(Widgets > Text Input)에 한글 입력(조합 중 글자 포함)이 되고,
+    글자 칸에 있는 동안 WASD · Space 가 게임으로 가지 않는다. Ctrl+C / Ctrl+V 가 Windows 클립보드와 오간다
+[ ] 데모 창의 크기 조절 모서리 · 글자 칸 위에서 커서 모양이 바뀐다
+[ ] 메뉴(월드 없음)에서도 패널이 그려지고 "월드 없음" 이 나온다
+[ ] --no-ui: 패널이 없고 8B 와 같이 동작한다
+[ ] --rhi-debug 로 1분 (패널 · 데모 창 켜고): "Debug Layer 경고 0 · 오류 0", 끝 로그 살아 있는 텍스처 0
+[ ] ctest -L render 통과 (28 케이스 — imgui_basic 기준 이미지는 Wine 에서 만들었다. 실패하면 out_warp 의 PNG)
+```
+
 ## Phase 8 — 렌더러
 
 ```text

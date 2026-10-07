@@ -10,10 +10,12 @@
 > WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient --direct-sim 관찰(9장).
 > **Phase 8B 구현** — TerrainPass(타일 머티리얼 번호 텍스처 + 팔레트, 바뀐 청크만), GridPass · SelectionPass · DebugPass(화면 픽셀
 > 두께 선, DebugDrawList), GPU 타임스탬프(3.2 · 8.4 — 패스별 ms), R16Uint, 기준 이미지 terrain · overlay(14장), 선택(9장).
-> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, ImGui(8C), Vulkan(13), Metal(14).
+> **Phase 8C 구현** — ImGui 1.92.9b docking(벤더링), ImGuiRenderer(10장 — 동적 텍스처 · 업로드 링 · scissor), UIPass 타임스탬프,
+> 기준 이미지 imgui_basic(14장).
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan(13), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
-> 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md).
+> 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -594,7 +596,7 @@ Window → Clear → Triangle → Texture → Sprite → Camera → Batch → Te
 ```
 
 7A 까지 Clear, 7B 까지 Triangle · Texture (기준 이미지 triangle · texture_linear), 8A 까지 Sprite · Camera · Batch (sprite ·
-batch_1k), 8B 까지 Terrain · Overlay (terrain · overlay). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형,
+batch_1k), 8B 까지 Terrain · Overlay (terrain · overlay), 8C 까지 ImGui (imgui_basic). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형,
 `--direct-sim` 이면 Renderer 로 월드를 그린다.
 
 ---
@@ -638,6 +640,20 @@ I1. ImGui 가 WantCaptureMouse/Keyboard 이면 그 프레임 게임 입력 차�
 I2. docking 브랜치 사용. 멀티 뷰포트(창 밖으로 떼기)는 초기 미지원
 I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에서 래핑 (ADR-0008 대안)
 ```
+
+**Phase 8C 구현** ([ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md)):
+
+```text
+external/imgui     Dear ImGui v1.92.9b docking (수정 없음) → 정적 라이브러리 sbx_imgui
+render/imgui       ImGuiRenderer — 1.92 동적 텍스처(RendererHasTextures): WantCreate → RGBA8 텍스처 + 바인드 그룹 + 업로드,
+                   WantUpdates → 바뀐 사각형만, WantDestroy → 지연 해제. ImTextureID = 표의 칸 + 1. 정점 · uint16 인덱스는
+                   업로드 링, 파이프라인 하나(shaders/imgui.hlsl), 명령마다 scissor + drawIndexed(vertexOffset). LoadOp::Load
+apps/client/ui     ImGuiLayer (PlatformEvent → ImGuiIO, I1, IME 켜기, 커서 · 클립보드, 폰트 --font → 맑은 고딕 → 내장),
+                   DebugPanels ("시뮬레이션" · "통계", PanelActions 로 돌려준다), F1
+```
+
+SandboxEditor 는 아직 없다 — 기본 패널은 SandboxClient 에 두고 Phase 12 에 옮긴다 `[계획]`. 폰트 아틀라스는 "일반 텍스처
+에셋" 이 아니라 ImGui 가 요청하는 텍스처다 (1.92 — 쓰는 글자만 굽는다). UI GPU 시간은 Renderer 의 ui 콜백 뒤 타임스탬프.
 
 ---
 
@@ -697,6 +713,11 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 - 리플렉션 헤더: static_assert 가 깨지면 빌드 실패 (테스트 대신 컴파일이 검사)
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
+
+Phase 8C 구현 (`tests/render/test_imgui.cpp`): imgui_basic(내장 비트맵 폰트 창 · 체크 · 버튼 · 진행 막대 · 그래프 — 기준 이미지,
+창 밖은 지운 색 그대로) · 폰트 텍스처를 처음에 만들고 같은 UI 면 다시 안 만든다 · 큰 글자에서 아틀라스 갱신 · 화면 밖 창은 Draw 0
+· 끝나면 UI 텍스처가 모두 파괴된다. SandboxTests `client`: 키 · 커서 표, 이벤트 → ImGuiIO · 수정자 · 글자 · 클립보드 · 표시 크기,
+창 위 가로채기 · 글자 칸 IME 켜고 끄기, 앱(패널 위 클릭은 월드로 안 간다 · F1), 패널 액션.
 
 Phase 8B 구현 (`tests/render/test_world_passes.cpp` · `test_rhi_basic.cpp`): terrain(타일 텍스처 + 팔레트 — 픽셀마다 기대 색과
 비교, 없는 번호 마젠타, 바뀐 청크 하나만 다시 올림, 같은 revision 은 믿음, 다른 월드면 처음부터 — 기준 이미지) · overlay(격자

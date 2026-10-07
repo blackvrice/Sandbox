@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-10-07 — Phase 8C: ImGui (1.92 docking) · 기본 패널 — Phase 8 완료
+
+**무엇을**
+
+- `external/imgui`: Dear ImGui v1.92.9b docking 을 수정 없이 벤더링 (crates.io dear-imgui-sys 0.18.0 의 cimgui 서브모듈 사본,
+  crate SHA256 external/README 에). 정적 라이브러리 `sbx_imgui` (IMGUI_DISABLE_OBSOLETE_FUNCTIONS, 경고 끔).
+- `render/imgui/ImGuiRenderer` + `shaders/imgui.hlsl`: 1.92 동적 텍스처 프로토콜(RendererHasTextures) — 만들기 · 바뀐 사각형
+  갱신 · 지연 해제, ImTextureID = 칸 + 1, Alpha8 → 흰색 + 알파. 업로드 링 정점 · uint16 인덱스, 명령마다 scissor +
+  drawIndexed(VtxOffset), ResetRenderState 는 platformIo 콜백. `Renderer::record` 에 UI 콜백 + 타임스탬프 kMarkUi →
+  `GpuPassTimes.uiMs`.
+- `apps/client/ui/ImGuiLayer`: PlatformEvent → ImGuiIO (수정자는 좌우 키 상태), WantCaptureMouse/Keyboard →
+  `InputSystem::setCapture` (I1), 커서 모양 · 클립보드 · 글자 칸에서 IME 켜기/끄기, 키보드 내비게이션 끔, imgui.ini 안 씀.
+  폰트: `--font` → 맑은 고딕 → 내장 벡터 폰트 (동적 아틀라스 — 쓴 글자만).
+- `apps/client/ui/DebugPanels`: "시뮬레이션"(tick · TPS · 일시정지 · 한 틱 · 속도 · 격자 · 자세히 · 맞춤 · 선택 설명 · 해제),
+  "통계"(fps 그래프 · CPU 구간 · GPU 패스 · Draw · UI · 디바이스 · ImGui 데모). 패널은 `PanelActions` 를 돌려주고
+  Application 이 단축키와 같은 함수로 적용. F1 숨기기. `IFrameRenderer::info()` · `IWorldSession::info()` 가 수치를 준다.
+- 옵션 `--font <파일>`, `--no-ui`. ADR-0023. 06 10 · 14장, 07 (I1), 13, 15, 16 (Phase 8 완료), 17, MANUAL-QA 8C.
+
+**왜**
+
+- 16-ROADMAP 8.4 — Phase 8 의 마지막 항목. 에디터(Phase 12)와 이후 디버깅이 화면 패널을 전제한다.
+- 1.92 동적 텍스처: 한글 UI 에서 정적 아틀라스는 수 MB 를 굽는다. 요청 처리는 RHI 에 이미 있는 텍스처 생성 · 영역 복사뿐.
+- 패널 → 액션: 동작이 키보드 단축키와 한 곳에서 정해지고, 단위 테스트가 그리지 않고 액션을 본다.
+
+**검증**
+
+- 단위 (SandboxTests, client 스위트): test_imgui_layer 5 케이스 — 키 · 커서 변환 전부, 이벤트 → io, 가로채기 · IME 켜기/끄기,
+  Application + UI (I1: 패널 위 클릭이 선택을 만들지 않는다, F1), 패널 액션.
+- GPU (sbx_render_tests, Wine + lavapipe): test_imgui 2 케이스 — 기준 이미지 imgui_basic (내장 비트맵 폰트, 허용 8 · 2%),
+  창 밖은 지운 색 그대로, 두 번째 프레임에 텍스처를 다시 만들지 않음, 큰 폰트 → 갱신, 화면 밖 창 = Draw 0, 끝나면 텍스처 수 원래대로.
+  render 28 케이스 통과, 끝 로그 살아 있는 리소스 0.
+- 빌드 · ctest: Linux clang Debug · RelWithDebInfo, gcc Debug 37/37 (경고 0), MinGW 전체 빌드 경고 0. 헤드리스 클라이언트 tick 28 유지.
+- Wine 창 QA: 한글 패널(Noto CJK 를 --font 로), 일시정지 버튼 클릭 → 멈춤.
+
+**남은 일**
+
+- 사용자 PC: `ctest -L render` (imgui_basic), MANUAL-QA 8C (맑은 고딕 · 패널 · F1 · 입력 가로채기 · 데모 창 한글 입력), UI GPU 시간.
+- [계획] imgui.ini · 도킹 레이아웃 · 인스펙터는 Phase 12 에디터와 함께 (SandboxEditor 로 옮긴다).
+
+---
+
 ## 2026-10-07 — Phase 8B 측정: 사용자 PC 의 실제 GPU
 
 **무엇을**

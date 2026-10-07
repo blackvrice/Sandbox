@@ -25,7 +25,7 @@ Phase 4   World (Chunk · Terrain · Spatial · Save/Load)  ← 완료
 Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성 (완료 2026-10-06)
 Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
-Phase 8   Renderer · Asset · ImGui                  ← 8A · 8B 구현 2026-10-07 (스프라이트 · --direct-sim · 지형 · 오버레이 · GPU 시간), 8C ImGui
+Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-07 (8A 스프라이트 · --direct-sim, 8B 지형 · 오버레이 · GPU 시간, 8C ImGui 패널), 사용자 PC 확인 대기
 Phase 9   Network Foundation · Dedicated Server
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
 Phase 11  Interest Management
@@ -265,14 +265,14 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 티켓이 6개라 셋으로 나눈다 (2026-10-07, ADR-0020): **8A** 텍스처 에셋 · Camera2D · SpriteBatcher · Renderer · --direct-sim →
 **8B** TerrainPass · DebugDraw · Grid · Selection · 지표 · 타임스탬프 → **8C** ImGui.
 
-| #   | 티켓                                                            | 단계 | 상태                                                             |
-|-----|-----------------------------------------------------------------|------|------------------------------------------------------------------|
-| 8.1 | AssetManager (Texture · Material), Worker 디코드 → Upload Queue | 8A   | ✅ 2026-10-07 (스프라이트 아틀라스 · materials.json. Font 는 8C) |
-| 8.2 | Camera2D, SpriteBatcher(인스턴싱 · 정렬 키 · Texture2DArray)    | 8A   | ✅ (sprite · batch_1k 기준 이미지)                               |
-| 8.5 | SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)           | 8A   | ✅ (카메라 팬 · 줌 · 일시정지 · 속도, 보간)                      |
-| 8.3 | TerrainPass · DebugDraw · GridPass · SelectionPass              | 8B   | ✅ 2026-10-07 (타일 텍스처 지형 · 화면 픽셀 선 · 선택, ADR-0022) |
-| 8.6 | Graphics 오버레이 지표, 타임스탬프 쿼리                         | 8B   | ✅ (패스별 GPU ms 를 제목 줄에 — 화면 글자는 8C)                 |
-| 8.4 | ImGuiRenderer(RHI) + InputState→ImGuiIO, 기본 패널              | 8C   | [계획]                                                           |
+| #   | 티켓                                                            | 단계 | 상태                                                                |
+|-----|-----------------------------------------------------------------|------|---------------------------------------------------------------------|
+| 8.1 | AssetManager (Texture · Material), Worker 디코드 → Upload Queue | 8A   | ✅ 2026-10-07 (스프라이트 아틀라스 · materials.json. Font 는 8C)    |
+| 8.2 | Camera2D, SpriteBatcher(인스턴싱 · 정렬 키 · Texture2DArray)    | 8A   | ✅ (sprite · batch_1k 기준 이미지)                                  |
+| 8.5 | SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)           | 8A   | ✅ (카메라 팬 · 줌 · 일시정지 · 속도, 보간)                         |
+| 8.3 | TerrainPass · DebugDraw · GridPass · SelectionPass              | 8B   | ✅ 2026-10-07 (타일 텍스처 지형 · 화면 픽셀 선 · 선택, ADR-0022)    |
+| 8.6 | Graphics 오버레이 지표, 타임스탬프 쿼리                         | 8B   | ✅ (패스별 GPU ms 를 제목 줄에 — 화면 글자는 8C)                    |
+| 8.4 | ImGuiRenderer(RHI) + InputState→ImGuiIO, 기본 패널              | 8C   | ✅ 2026-10-07 (1.92 동적 텍스처 · 한글 · 시뮬레이션/통계, ADR-0023) |
 
 ```text
 8.1 AssetManager (Texture, Material, Font), Worker 디코드 → Upload Queue
@@ -300,6 +300,14 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   사용자 PC  Release ecosystem_10k --vsync off: 1,628 fps, 렌더 CPU 0.4 ms, GPU 0.05 ms (지형 0.04 · 스프라이트 0.01), 30/30 TPS ·
            틱 5.2 ms — "10k 스프라이트 60 FPS" 완료 기준 충족 (14 7.8)
   남음     사용자 PC: ctest -L render (terrain · overlay 를 WARP 로), MANUAL-QA Phase 8B 나머지 (선택 · 격자 · --rhi-debug)
+
+8C 검증 (2026-10-07)
+  Linux    clang · gcc Debug/RWD: ImGui 키 · 커서 표, 이벤트 → ImGuiIO, 가로채기(I1) · IME 켜고 끄기, 앱(패널 위 클릭 · F1),
+           패널 액션, 헤드리스 SandboxClient (텍스처 요청을 레이어가 받는다 — client_direct_sim_headless 28 틱 그대로)
+  Wine     sbx_render_tests 28 케이스 (imgui_basic 기준 이미지, 동적 폰트 갱신, UI 텍스처 해제), SandboxClient 패널 스크린숏
+           (Noto Sans CJK 로 한글, 시뮬레이션 패널 버튼으로 일시정지)
+  완료 기준 10k 스프라이트 60 FPS ✅(사용자 PC 1,628 fps) · Draw ≤ 16 ✅(월드 2 ~ 5 + UI) · sprite/batch_1k/imgui_basic ✅
+  남음     사용자 PC: ctest -L render (imgui_basic 을 WARP 로), MANUAL-QA Phase 8C (맑은 고딕 한글 · 패널 · 입력 가로채기)
 ```
 
 ### Phase 9 — Network Foundation
