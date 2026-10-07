@@ -16,3 +16,22 @@ target_compile_definitions(sbx_doctest INTERFACE DOCTEST_CONFIG_USE_STD_HEADERS)
 # stb_image · stb_image_write (공개 도메인 / MIT). 구현은 render/asset/StbImpl.cpp 한 곳에서 (STB_*_IMPLEMENTATION).
 add_library(sbx_stb INTERFACE)
 target_include_directories(sbx_stb SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/stb")
+
+# Dear ImGui (MIT, docking 브랜치 — 06 10장 I2). 정적 라이브러리 하나. 백엔드(imgui_impl_*)는 쓰지 않는다 —
+# 렌더러는 render/imgui/ImGuiRenderer(RHI), 입력은 apps/client/ui/ImGuiLayer (ADR-0008 · ADR-0023).
+add_library(sbx_imgui STATIC
+    imgui/imgui.cpp
+    imgui/imgui_demo.cpp
+    imgui/imgui_draw.cpp
+    imgui/imgui_tables.cpp
+    imgui/imgui_widgets.cpp
+)
+target_include_directories(sbx_imgui SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+target_compile_definitions(sbx_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
+target_compile_features(sbx_imgui PUBLIC cxx_std_20)
+# 서드파티 코드의 경고는 우리 정책(경고 = 오류)에서 뺀다
+if(MSVC)
+    target_compile_options(sbx_imgui PRIVATE /w)
+else()
+    target_compile_options(sbx_imgui PRIVATE -w)
+endif()
