@@ -6,7 +6,7 @@ add_executable(sbx_render_tests
 )
 # 7B 그리기 테스트는 셰이더가 내장됐을 때만 (SBX_BUILD_SHADERS — cmake/SbxShaders.cmake)
 if(SBX_BUILD_SHADERS)
-    target_sources(sbx_render_tests PRIVATE test_rhi_draw.cpp)
+    target_sources(sbx_render_tests PRIVATE test_rhi_draw.cpp test_sprites.cpp)
 endif()
 target_link_libraries(sbx_render_tests PRIVATE SandboxRender sbx_doctest sbx_warnings)
 target_compile_definitions(sbx_render_tests PRIVATE SBX_RENDER_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/references")
