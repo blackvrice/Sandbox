@@ -297,7 +297,9 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
            TSan client (Simulation 스레드 다시 capture)
   Wine     sbx_render_tests 26 케이스 (terrain · overlay 기준 이미지, timestamps, gpu timings — vkd3d 도 타임스탬프를 준다),
            SandboxClient: 지형(호수 · 흙) · 격자 · 박스 선택 21개 · 감지 반경 · 속도 화살표 스크린숏, 패스별 GPU ms (소프트웨어)
-  남음     사용자 PC: ctest -L render (terrain · overlay 를 WARP 로), MANUAL-QA Phase 8B (실제 GPU 의 패스별 ms)
+  사용자 PC  Release ecosystem_10k --vsync off: 1,628 fps, 렌더 CPU 0.4 ms, GPU 0.05 ms (지형 0.04 · 스프라이트 0.01), 30/30 TPS ·
+           틱 5.2 ms — "10k 스프라이트 60 FPS" 완료 기준 충족 (14 7.8)
+  남음     사용자 PC: ctest -L render (terrain · overlay 를 WARP 로), MANUAL-QA Phase 8B 나머지 (선택 · 격자 · --rhi-debug)
 ```
 
 ### Phase 9 — Network Foundation

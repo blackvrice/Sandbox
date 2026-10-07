@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-10-07 — Phase 8B 측정: 사용자 PC 의 실제 GPU
+
+**무엇을**
+
+- 사용자 PC (MSVC Release, `--direct-sim ecosystem_10k --vsync off`, 4.3 px/칸) 제목 줄 수치를 14-PERFORMANCE 7.8 · 16-ROADMAP 에 적었다:
+  1,628 fps · 렌더 CPU 0.4 ms · 추출 0.1 ms · Draw 2 · GPU 0.05 ms (지형 0.04 · 스프라이트 0.01 · 격자 0.00 · 선 0.00) ·
+  30.0/30 TPS · 틱 5.2 ms (개체 9,652). 그 전의 8A 빌드는 VSync 켬에서 144 fps (모니터 상한).
+
+**왜**
+
+- Wine + lavapipe 수치(지형 3 ~ 5 ms)는 소프트웨어 래스터라 실제 비용을 말하지 않는다 — 실제 GPU 로 확인했다.
+
+**검증**
+
+- 사용자 스크린숏의 제목 줄. Phase 8 완료 기준 "10k 스프라이트 60 FPS · Draw ≤ 16" 충족.
+
+**남은 일**
+
+- MANUAL-QA 8B 의 선택 · 격자 · --rhi-debug 항목, ctest -L render.
+
+---
+
 ## 2026-10-07 — Phase 8B: 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간
 
 **무엇을**
