@@ -9,6 +9,9 @@ add_library(SandboxRender STATIC
     rhi/UploadRing.hpp
     rhi/UploadRing.cpp
     rhi/ShaderTypes.hpp
+    rhi/RangeAllocator.hpp
+    rhi/PipelineValidation.hpp
+    rhi/PipelineValidation.cpp
     asset/Image.hpp
     asset/Image.cpp
 )

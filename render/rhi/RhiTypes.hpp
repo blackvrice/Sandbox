@@ -15,11 +15,17 @@
 
 #include "foundation/handle/Handle.hpp"
 #include "foundation/types/Types.hpp"
+#include "render/rhi/ShaderTypes.hpp"
 
 namespace sbx::rhi {
 
 using RhiBuffer = Handle<struct BufferTag>;
 using RhiTexture = Handle<struct TextureTag>;
+using RhiSampler = Handle<struct SamplerTag>;
+using RhiShader = Handle<struct ShaderTag>;
+using RhiPipeline = Handle<struct PipelineTag>;
+using RhiBindGroupLayout = Handle<struct BindGroupLayoutTag>;
+using RhiBindGroup = Handle<struct BindGroupTag>;
 
 using FenceValue = u64;
 
@@ -40,6 +46,11 @@ enum class Format : u8 {
     R32Float,
     D32Float,
     D24UnormS8Uint,
+    // 정점 속성 (7B)
+    R32Uint,
+    RG32Float,
+    RGB32Float,
+    RGBA32Float,
     Count
 };
 
@@ -217,6 +228,8 @@ struct DeviceCaps {
 struct DeviceStats {
     u64 liveBuffers = 0; // 사용자가 만든 것만 (업로드 링 · 스왑체인 백버퍼 제외)
     u64 liveTextures = 0;
+    u64 livePipelines = 0;   // 7B: 셰이더 · 샘플러 · 레이아웃 · 바인드 그룹 · 파이프라인 합계
+    u64 descriptorsUsed = 0; // shader-visible 힙 (CBV/SRV/UAV)
     u64 pendingDestructions = 0;
     u64 releasedObjects = 0; // 지연 해제 큐에서 실제로 해제한 수 (누적)
     u64 debugWarnings = 0;   // Debug Layer 메시지 (누적)
@@ -245,6 +258,94 @@ struct SwapChainDesc {
 struct AcquireResult {
     RhiTexture backbuffer;
     bool skip = false; // 최소화 · 크기 0 — 이 프레임은 그리지 않는다
+};
+
+// ---- 7B: 샘플러 · 바인딩 · 파이프라인 -------------------------------------------------------------
+
+enum class Filter : u8 { Nearest = 0, Linear };
+enum class AddressMode : u8 { Clamp = 0, Repeat, Mirror };
+
+struct SamplerDesc {
+    Filter filter = Filter::Linear; // 축소·확대
+    Filter mipFilter = Filter::Linear;
+    AddressMode address = AddressMode::Clamp; // u · v · w 공통
+    std::string debugName;
+};
+
+struct BindGroupLayoutEntry {
+    u32 binding = 0;
+    BindingType type = BindingType::ConstantBuffer;
+    ShaderStageMask stages = kAllGraphicsStages;
+    TextureDim dim = TextureDim::Tex2D; // Texture · StorageTexture
+};
+
+struct BindGroupLayoutDesc {
+    std::vector<BindGroupLayoutEntry> entries;
+    std::string debugName;
+};
+
+// 리플렉션(여러 단계면 모두)에서 group 번호의 레이아웃을 만든다. 그 그룹에 바인딩이 없으면 entries 가 빈다.
+[[nodiscard]] BindGroupLayoutDesc layoutFromReflection(std::span<const ShaderReflection* const> reflections, u32 group);
+
+struct BindGroupEntry {
+    u32 binding = 0;
+    RhiBuffer buffer; // ConstantBuffer · StorageBuffer(RW)
+    u64 offset = 0;   // ConstantBuffer: 256 의 배수 (D3D12)
+    u64 size = 0;     // 0 = 버퍼 끝까지
+    u32 stride = 0;   // StorageBuffer(RW): 요소 크기
+    RhiTexture texture;
+    RhiSampler sampler;
+};
+
+struct BindGroupDesc {
+    RhiBindGroupLayout layout;
+    std::vector<BindGroupEntry> entries;
+    std::string debugName;
+};
+
+struct ShaderDesc {
+    ShaderBytecode code;
+    // 있으면 파이프라인을 만들 때 레이아웃·push constant·정점 입력과 대조한다 (생성 헤더의 reflection())
+    const ShaderReflection* reflection = nullptr;
+};
+
+enum class PrimitiveTopology : u8 { TriangleList = 0, TriangleStrip, LineList, LineStrip, PointList };
+enum class CullMode : u8 { None = 0, Back, Front };
+enum class FrontFace : u8 { CounterClockwise = 0, Clockwise }; // 엔진 규약: CCW = 앞면 (06 12장)
+enum class BlendMode : u8 { Opaque = 0, Alpha, PremultipliedAlpha, Additive };
+enum class IndexFormat : u8 { Uint16 = 0, Uint32 };
+enum class VertexStepMode : u8 { Vertex = 0, Instance };
+
+struct VertexBufferLayout {
+    u32 stride = 0;
+    VertexStepMode step = VertexStepMode::Vertex;
+};
+
+// D3D12 는 semantic 이름·번호로, Vulkan(Phase 13)은 location 으로 셰이더 입력과 잇는다
+struct VertexAttribute {
+    std::string semantic; // "POSITION", "COLOR", "TEXCOORD"
+    u32 semanticIndex = 0;
+    u32 location = 0;
+    Format format = Format::RG32Float;
+    u32 offset = 0;
+    u32 bufferSlot = 0;
+};
+
+struct GraphicsPipelineDesc {
+    RhiShader vertexShader;
+    RhiShader pixelShader;
+    std::vector<VertexBufferLayout> vertexBuffers;
+    std::vector<VertexAttribute> attributes;
+    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    CullMode cull = CullMode::None;
+    FrontFace frontFace = FrontFace::CounterClockwise;
+    bool wireframe = false;
+    std::array<Format, kMaxColorAttachments> colorFormats{Format::RGBA8Unorm};
+    u32 colorCount = 1;
+    BlendMode blend = BlendMode::Opaque; // 모든 색 첨부에
+    std::array<RhiBindGroupLayout, kMaxBindGroups> bindGroupLayouts{};
+    u32 pushConstantBytes = 0; // 4 의 배수, ≤ 128
+    std::string debugName;
 };
 
 [[nodiscard]] constexpr u64 alignUp(u64 v, u64 a) noexcept {

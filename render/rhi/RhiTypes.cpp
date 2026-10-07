@@ -1,5 +1,7 @@
 #include "render/rhi/RhiTypes.hpp"
 
+#include <algorithm>
+
 namespace sbx::rhi {
 namespace {
 
@@ -16,8 +18,12 @@ constexpr std::array<FormatInfo, static_cast<usize>(Format::Count)> kFormats{{
     {"R32Float", 4, false, false, false},
     {"D32Float", 4, true, false, false},
     {"D24UnormS8Uint", 4, true, true, false},
+    {"R32Uint", 4, false, false, false},
+    {"RG32Float", 8, false, false, false},
+    {"RGB32Float", 12, false, false, false},
+    {"RGBA32Float", 16, false, false, false},
 }};
-static_assert(kFormats.back().name == "D24UnormS8Uint", "kFormats 가 Format 열거와 어긋났다");
+static_assert(kFormats.back().name == "RGBA32Float", "kFormats 가 Format 열거와 어긋났다");
 
 } // namespace
 
@@ -38,6 +44,46 @@ std::string_view backendName(BackendType b) noexcept {
 const FormatInfo& formatInfo(Format f) noexcept {
     const auto i = static_cast<usize>(f);
     return i < kFormats.size() ? kFormats[i] : kFormats[0];
+}
+
+std::string_view bindingTypeName(BindingType t) noexcept {
+    switch (t) {
+    case BindingType::ConstantBuffer:
+        return "ConstantBuffer";
+    case BindingType::Texture:
+        return "Texture";
+    case BindingType::StorageBuffer:
+        return "StorageBuffer";
+    case BindingType::StorageBufferRW:
+        return "StorageBufferRW";
+    case BindingType::StorageTexture:
+        return "StorageTexture";
+    case BindingType::Sampler:
+        return "Sampler";
+    }
+    return "?";
+}
+
+BindGroupLayoutDesc layoutFromReflection(std::span<const ShaderReflection* const> reflections, u32 group) {
+    BindGroupLayoutDesc d;
+    for (const ShaderReflection* r : reflections) {
+        if (r == nullptr) {
+            continue;
+        }
+        for (const ReflectedBinding& b : r->bindings) {
+            if (b.group != group) {
+                continue;
+            }
+            auto it = std::ranges::find(d.entries, b.binding, &BindGroupLayoutEntry::binding);
+            if (it != d.entries.end()) {
+                it->stages = static_cast<ShaderStageMask>(it->stages | b.stages);
+                continue;
+            }
+            d.entries.push_back({b.binding, b.type, b.stages, b.dim == TextureDim::None ? TextureDim::Tex2D : b.dim});
+        }
+    }
+    std::ranges::sort(d.entries, {}, &BindGroupLayoutEntry::binding);
+    return d;
 }
 
 std::string_view resourceStateName(ResourceState s) noexcept {
