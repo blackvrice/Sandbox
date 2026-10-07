@@ -1,7 +1,7 @@
-// Phase 7A 렌더러: 스왑체인 백버퍼를 천천히 색이 바뀌는 어두운 색으로 지우고 표시한다 (06 8.6 "Window → Clear").
-// 화면이 실제로 GPU 를 거쳐 갱신되는지(리사이즈·최소화·DPI·VSync)를 눈으로 확인하는 용도.
-// Phase 7B: 셰이더가 내장된 빌드(SBX_HAS_SHADERS)는 그 위에 천천히 도는 정점 색 삼각형을 그린다 (06 8.6 "Triangle") —
-// 셰이더 · 파이프라인 · 바인드 그룹 · push constant 가 실제 스왑체인에서 도는지 눈으로 본다 (MANUAL-QA Phase 7B).
+// SandboxClient 렌더러 (IFrameRenderer). docs/06-RENDERING.md 8장, ADR-0020.
+//   RenderWorld 가 오면(InWorld) render::Renderer 로 — AssetManager 아틀라스 스프라이트 (Phase 8A)
+//   없으면(메뉴) 천천히 색이 바뀌는 어두운 색으로 지우고 (7A — 화면이 GPU 를 거쳐 갱신되는지), 셰이더가 내장된 빌드는
+//   그 위에 도는 정점 색 삼각형 (7B — 셰이더 · 파이프라인 · push constant 가 실제 스왑체인에서 도는지, MANUAL-QA)
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -10,6 +10,8 @@
 
 #include "apps/client/FrameRenderer.hpp"
 #include "foundation/log/Log.hpp"
+#include "render/asset/AssetManager.hpp"
+#include "render/renderer/Renderer.hpp"
 #include "render/rhi/RenderDevice.hpp"
 
 #ifdef SBX_HAS_SHADERS
@@ -159,21 +161,35 @@ private:
 };
 #endif
 
-class ClearRenderer final : public IFrameRenderer {
+class ClientRenderer final : public IFrameRenderer {
 public:
-    ClearRenderer(std::unique_ptr<rhi::IRenderDevice> dev, std::unique_ptr<rhi::ISwapChain> sc,
-                  std::unique_ptr<rhi::ICommandList> list)
+    ClientRenderer(std::unique_ptr<rhi::IRenderDevice> dev, std::unique_ptr<rhi::ISwapChain> sc,
+                   std::unique_ptr<rhi::ICommandList> list, const RendererOptions& options)
         : m_dev(std::move(dev)), m_swapChain(std::move(sc)), m_list(std::move(list)), m_fpsStart(Clock::now()) {
 #ifdef SBX_HAS_SHADERS
         m_demo = std::make_unique<TriangleDemo>(*m_dev, m_swapChain->format());
 #endif
+        render::AssetManagerDesc ad;
+        ad.root = options.assetRoot;
+        m_assets = std::make_unique<render::AssetManager>(*m_dev, options.jobs, ad);
+        if (auto r = m_assets->init(); !r) {
+            log::warn("render", "스프라이트 아틀라스 없이 계속합니다: {}", r.error().describe());
+            return;
+        }
+        m_renderer = std::make_unique<render::Renderer>(*m_dev, *m_assets);
+        if (auto r = m_renderer->init(m_swapChain->format()); !r) {
+            log::warn("render", "월드를 지우기만 합니다: {}", r.error().describe());
+            m_renderer.reset();
+        }
     }
 
-    ~ClearRenderer() override {
+    ~ClientRenderer() override {
         m_dev->waitIdle();
 #ifdef SBX_HAS_SHADERS
         m_demo.reset();
 #endif
+        m_renderer.reset();
+        m_assets.reset();
         m_list.reset();
         m_swapChain.reset(); // 디바이스보다 먼저
         const rhi::DeviceStats s = m_dev->stats();
@@ -184,7 +200,11 @@ public:
 
     void resize(u32 width, u32 height) override { m_swapChain->resize(width, height); }
 
-    void render(f64 timeSeconds) override {
+    [[nodiscard]] render::AssetManager* assets() noexcept override {
+        return m_assets && m_assets->atlas().valid() ? m_assets.get() : nullptr;
+    }
+
+    void render(f64 timeSeconds, const render::RenderWorld* world) override {
         m_dev->beginFrame();
         const rhi::AcquireResult acq = m_swapChain->acquire();
         if (acq.skip) {
@@ -196,15 +216,26 @@ public:
         const rhi::ResourceBarrier toTarget{acq.backbuffer, rhi::ResourceState::Present,
                                             rhi::ResourceState::RenderTarget};
         cl.barrier({&toTarget, 1});
-        rhi::RenderPassDesc pass;
-        pass.colorCount = 1;
-        pass.colors[0] = {acq.backbuffer, rhi::LoadOp::Clear, rhi::StoreOp::Store, hsv(timeSeconds / 30.0, 0.35, 0.22)};
-        pass.debugLabel = "Clear";
-        cl.beginRenderPass(pass);
+        m_drewWorld = world != nullptr && m_renderer != nullptr;
+        if (m_drewWorld) {
+            m_renderer->record(cl, acq.backbuffer, *world);
+        } else {
+            if (m_assets && m_assets->atlas().valid()) {
+                m_assets->update(cl); // 메뉴 중에도 디코드가 끝난 스프라이트를 올려 둔다 (패스 밖)
+            }
+            rhi::RenderPassDesc pass;
+            pass.colorCount = 1;
+            pass.colors[0] = {acq.backbuffer, rhi::LoadOp::Clear, rhi::StoreOp::Store,
+                              world != nullptr ? world->clear : hsv(timeSeconds / 30.0, 0.35, 0.22)};
+            pass.debugLabel = "Clear";
+            cl.beginRenderPass(pass);
 #ifdef SBX_HAS_SHADERS
-        m_demo->draw(cl, m_swapChain->extent(), timeSeconds);
+            if (world == nullptr) {
+                m_demo->draw(cl, m_swapChain->extent(), timeSeconds);
+            }
 #endif
-        cl.endRenderPass();
+            cl.endRenderPass();
+        }
         const rhi::ResourceBarrier toPresent{acq.backbuffer, rhi::ResourceState::RenderTarget,
                                              rhi::ResourceState::Present};
         cl.barrier({&toPresent, 1});
@@ -229,6 +260,13 @@ public:
         const rhi::DeviceStats s = m_dev->stats();
         std::string out = std::format("{}{} {:.0f} fps VSync {}", rhi::backendName(c.backend),
                                       c.softwareAdapter ? " WARP" : "", m_fps, m_swapChain->vsync() ? "켬" : "끔");
+        if (m_drewWorld) {
+            const render::RendererStats& r = m_renderer->stats();
+            out += std::format(" · 스프라이트 {} · Draw {}", r.sprites.drawn, r.draws);
+        }
+        if (m_assets && m_assets->stats().queued > 0) {
+            out += std::format(" · 에셋 대기 {}", m_assets->stats().queued);
+        }
         if (s.debugWarnings + s.debugErrors > 0) {
             out += std::format(" · D3D12 경고 {} 오류 {}", s.debugWarnings, s.debugErrors);
         }
@@ -242,6 +280,9 @@ private:
 #ifdef SBX_HAS_SHADERS
     std::unique_ptr<TriangleDemo> m_demo;
 #endif
+    std::unique_ptr<render::AssetManager> m_assets;
+    std::unique_ptr<render::Renderer> m_renderer; // 셰이더가 없거나 만들지 못하면 없음 (지우기만)
+    bool m_drewWorld = false;
     Clock::time_point m_fpsStart;
     u64 m_fpsFrames = 0;
     f64 m_fps = 0;
@@ -249,8 +290,8 @@ private:
 
 } // namespace
 
-Expected<std::unique_ptr<IFrameRenderer>> createClearRenderer(platform::IWindow& window,
-                                                              const RendererOptions& options) {
+Expected<std::unique_ptr<IFrameRenderer>> createClientRenderer(platform::IWindow& window,
+                                                               const RendererOptions& options) {
     rhi::DeviceDesc dd;
     dd.debugLayer = options.debugLayer || options.gpuValidation;
     dd.gpuValidation = options.gpuValidation;
@@ -275,7 +316,7 @@ Expected<std::unique_ptr<IFrameRenderer>> createClearRenderer(platform::IWindow&
         return makeError(ErrorCode::Unsupported, "커맨드 리스트를 만들 수 없습니다");
     }
     return std::unique_ptr<IFrameRenderer>(
-        std::make_unique<ClearRenderer>(std::move(*dev), std::move(*sc), std::move(list)));
+        std::make_unique<ClientRenderer>(std::move(*dev), std::move(*sc), std::move(list), options));
 }
 
 } // namespace sbx::client

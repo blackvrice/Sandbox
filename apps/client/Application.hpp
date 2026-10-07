@@ -5,7 +5,10 @@
 //
 // Phase 6: Boot → MainMenu → Shutdown 만 실제로 지난다. Phase 7A 부터 렌더러가 있으면 매 프레임 화면을 지운다(Clear).
 // MainMenu 는 아직 그릴 UI 가 없어 창 제목 줄에 입력 상태를
-// 보여 준다 (수동 QA — 키·마우스·휠·더블클릭·IME 글자·DPI·포커스). Connecting·InWorld 는 Phase 8~10. [계획]
+// 보여 준다 (수동 QA — 키·마우스·휠·더블클릭·IME 글자·DPI·포커스).
+// Phase 8A: 월드 세션(IWorldSession — 지금은 --direct-sim)이 있으면 MainMenu → Connecting → InWorld 로 바로 가서
+// 월드를 진행하고 RenderWorld 를 채워 그린다. 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데/왼쪽 끌기 · Home(맞춤).
+// 시뮬레이션: Space 일시정지 · . 한 틱 · = / - 속도. [계획] 메뉴 UI(8C), 서버 접속(Phase 10).
 //
 // 상태 전이는 요청만 받고 프레임 끝에서 적용한다 (프레임 중간에 상태가 바뀌어 반쯤 다른 상태로 도는 일이 없게).
 
@@ -15,6 +18,7 @@
 #include <string_view>
 
 #include "apps/client/FrameRenderer.hpp"
+#include "apps/client/WorldSession.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
 #include "platform/common/Audio.hpp"
@@ -38,6 +42,8 @@ struct AppConfig {
     f64 fps = 60;                       // 오디오 update 의 명목 dt 에만 쓴다 (페이싱은 run 에 넘기는 FramePacer)
     u32 titleEveryFrames = 6;           // 제목 줄 갱신 간격 (60 Hz 에서 100 ms). 상태가 바뀌면 바로
     IFrameRenderer* renderer = nullptr; // 없으면 그리지 않는다 (--headless, 렌더 백엔드가 없는 OS, --no-render)
+    IWorldSession* world = nullptr;     // 있으면 InWorld 로 가서 진행 · 그린다 (Phase 8A --direct-sim)
+    f64 fixedDt = 0;                    // > 0 이면 월드 진행에 실제 시간 대신 이 값 (헤드리스 시험 — 결과가 고정된다)
 };
 
 class Application {
@@ -65,12 +71,16 @@ public:
     [[nodiscard]] const std::string& typedText() const noexcept { return m_text; }
     // 창 제목 줄 문자열 (MainMenu 의 입력 모니터)
     [[nodiscard]] std::string statusLine() const;
+    [[nodiscard]] const render::Camera2D& camera() const noexcept { return m_renderWorld.camera; }
+    [[nodiscard]] const render::RenderWorld& renderWorld() const noexcept { return m_renderWorld; }
 
 private:
     void handleEvent(const platform::PlatformEvent& e);
     void handleDebugActions();
     [[nodiscard]] bool pressed(const std::optional<platform::ActionId>& id) const noexcept;
     void applyPendingTransition();
+    void handleWorldInput(f64 dt);
+    void syncViewport();
 
     platform::IWindow& m_window;
     platform::ActionMap m_actionMap;
@@ -100,7 +110,14 @@ private:
     struct Ids {
         std::optional<platform::ActionId> quit, textInput, captureMouse, cycleCursor, copyText, pasteText, escape,
             eraseChar;
+        std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select;
+        std::optional<platform::ActionId> pause, step, faster, slower;
     } m_ids;
+
+    // 월드 (InWorld)
+    render::RenderWorld m_renderWorld;
+    bool m_cameraFitted = false;
+    std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 };
 
 // 이벤트 한 줄 설명 (--log-input)

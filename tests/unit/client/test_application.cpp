@@ -50,7 +50,7 @@ struct FakeRenderer final : IFrameRenderer {
     int renders = 0;
     std::vector<std::pair<u32, u32>> resizes;
     void resize(u32 w, u32 h) override { resizes.emplace_back(w, h); }
-    void render(f64) override { ++renders; }
+    void render(f64, const render::RenderWorld*) override { ++renders; }
     [[nodiscard]] std::string status() const override { return "Fake 60 fps"; }
 };
 

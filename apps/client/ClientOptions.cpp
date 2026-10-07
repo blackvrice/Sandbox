@@ -123,6 +123,28 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return makeError(ErrorCode::InvalidArgument, std::format("{} 는 64~16384: '{}'", a, *v));
             }
             (a == "--width" ? opts.width : opts.height) = static_cast<u32>(*n);
+        } else if (a == "--direct-sim") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            opts.directSim = std::string(*v);
+        } else if (a == "--seed") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            auto n = parseU64(a, *v);
+            if (!n) {
+                return std::unexpected(n.error());
+            }
+            opts.seed = *n;
+        } else if (a == "--content" || a == "--assets") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            (a == "--content" ? opts.contentRoot : opts.assetRoot) = std::string(*v);
         } else if (a == "--input") {
             auto v = value();
             if (!v) {
@@ -156,10 +178,16 @@ std::string clientUsage() {
            "      --rhi-fl11         D3D12 FL 11_0 어댑터도 허용 (기본은 12_0 이상 — 오래된 GPU · Wine 시험용)\n"
            "      --vsync on|off     수직 동기 (기본 on)\n"
            "      --frames-in-flight 2|3  CPU 가 앞서 기록할 프레임 수 (기본 2)\n"
+           "      --direct-sim <시나리오>  클라이언트가 시뮬레이션을 직접 돌려 관찰 (임시 — Phase 10 에서 삭제)\n"
+           "                         예: ecosystem_survival, ecosystem_small, eco_lifecycle, random_walk_1k\n"
+           "      --seed <n>         --direct-sim 의 월드 시드 (기본 1)\n"
+           "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"
+           "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)"
            "\n"
            "창 안 단축키 (수동 QA, docs/qa/MANUAL-QA.md): F2 글자 입력 켜기/끄기, F3 마우스 캡처, F4 커서 모양,\n"
            "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료.\n"
-           "월드 관찰·접속(--direct-sim, --connect …)은 Phase 8~10 에서 추가됩니다 (docs/16-ROADMAP.md).\n";
+           "--direct-sim 월드: WASD·화살표 이동, 휠 확대(커서 기준), 가운데·왼쪽 끌기, Home 맞춤, Space 일시정지,\n"
+           ". 한 틱, = / - 속도. 서버 접속(--connect …)은 Phase 10 (docs/16-ROADMAP.md).\n";
 }
 
 } // namespace sbx::client

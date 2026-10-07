@@ -1,6 +1,7 @@
 #pragma once
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
-// Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. 월드·접속(--connect …)은 Phase 8~10.
+// Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --direct-sim · --seed ·
+// --content · --assets. 접속(--connect …)은 Phase 10.
 
 #include <optional>
 #include <span>
@@ -34,6 +35,13 @@ struct ClientOptions {
     bool rhiFl11 = false;   // --rhi-fl11: FL 11_0 어댑터도 허용 (오래된 GPU · Wine 시험)
     bool vsync = true;      // --vsync on|off
     u32 framesInFlight = 2; // --frames-in-flight 2|3
+
+    // 월드 (Phase 8A)
+    std::optional<std::string>
+        directSim;           // --direct-sim <시나리오>: 클라이언트가 시뮬레이션을 직접 (임시, Phase 10 삭제)
+    u64 seed = 1;            // --seed
+    std::string contentRoot; // --content (비면 빌드 때 정한 저장소의 content/)
+    std::string assetRoot;   // --assets (비면 저장소의 assets/)
 };
 
 [[nodiscard]] Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args);

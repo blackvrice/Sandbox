@@ -53,10 +53,13 @@ add_executable(SandboxTests
 if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
+        unit/client/test_direct_sim.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/DirectSim.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
-    # ClearRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
+    # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
 target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxPlatform SandboxRender sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
@@ -106,6 +109,12 @@ if(TARGET SandboxClient)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
     set_tests_properties(client_headless_smoke PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "SandboxClient 끝: frames 30 state Shutdown")
+    # Phase 8A: --direct-sim 이 InWorld 로 들어가 월드를 진행한다. 헤드리스는 프레임마다 1/60 초 → 부팅 · 메뉴 · 접속
+    # 세 프레임 뒤 57 프레임 = 0.95 초 = 28 틱 (30 TPS)
+    add_test(NAME client_direct_sim_headless
+        COMMAND SandboxClient --headless --direct-sim ecosystem_small --frames 60)
+    set_tests_properties(client_direct_sim_headless PROPERTIES LABELS "unit;client"
+        PASS_REGULAR_EXPRESSION "direct-sim ecosystem_small tick 28 개체 [1-9][0-9]*")
 endif()
 
 # ---------------------------------------------------------------------------

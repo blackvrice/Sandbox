@@ -1,7 +1,9 @@
 #include "apps/client/Application.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <format>
 #include <type_traits>
 
@@ -127,6 +129,17 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.pasteText = m_actionMap.find("debug.paste_text");
     m_ids.escape = m_actionMap.find("debug.escape");
     m_ids.eraseChar = m_actionMap.find("debug.erase_char");
+    m_ids.panUp = m_actionMap.find("camera.pan.up");
+    m_ids.panDown = m_actionMap.find("camera.pan.down");
+    m_ids.panLeft = m_actionMap.find("camera.pan.left");
+    m_ids.panRight = m_actionMap.find("camera.pan.right");
+    m_ids.drag = m_actionMap.find("camera.drag");
+    m_ids.cameraReset = m_actionMap.find("camera.reset");
+    m_ids.select = m_actionMap.find("editor.select");
+    m_ids.pause = m_actionMap.find("sim.toggle_pause");
+    m_ids.step = m_actionMap.find("sim.step");
+    m_ids.faster = m_actionMap.find("sim.speed_up");
+    m_ids.slower = m_actionMap.find("sim.speed_down");
     m_pending = AppState::MainMenu; // 부팅은 첫 프레임 하나 — 이후 Phase 8 의 에셋 로드가 여기 들어간다
 }
 
@@ -219,6 +232,55 @@ void Application::handleDebugActions() {
     }
 }
 
+void Application::syncViewport() {
+    const Extent2D fb = m_window.framebufferSize();
+    m_renderWorld.camera.viewportWidth = std::max(fb.width, 1u);
+    m_renderWorld.camera.viewportHeight = std::max(fb.height, 1u);
+}
+
+void Application::handleWorldInput(f64 dt) {
+    const InputState& in = m_input.downstream();
+    render::Camera2D& cam = m_renderWorld.camera;
+    const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
+    if (!m_cameraFitted || pressed(m_ids.cameraReset)) {
+        cam.fit(m_config.world->bounds());
+        m_cameraFitted = true;
+    }
+    // 키보드 이동: 화면 기준 초당 뷰포트 짧은 변의 0.6 배
+    const f32 speed = 0.6f * static_cast<f32>(std::min(cam.viewportWidth, cam.viewportHeight));
+    Vec2 dir{};
+    dir.x += down(m_ids.panRight) ? 1.f : 0.f;
+    dir.x -= down(m_ids.panLeft) ? 1.f : 0.f;
+    dir.y -= down(m_ids.panUp) ? 1.f : 0.f; // 화면 y 는 아래 +
+    dir.y += down(m_ids.panDown) ? 1.f : 0.f;
+    if (dir.x != 0.f || dir.y != 0.f) {
+        cam.panByScreen(dir * (-speed * static_cast<f32>(dt))); // 카메라가 dir 로 가면 세상은 반대로 끌린다
+    }
+    // 마우스: 논리 좌표 → 프레임버퍼 픽셀
+    const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
+    if (down(m_ids.drag) || down(m_ids.select)) { // 8A: 편집 모드 전이라 왼쪽 끌기도 카메라 (Edit 는 Phase 12)
+        cam.panByScreen(in.mouseDelta * scale);
+    }
+    if (in.wheel.y != 0.f) {
+        cam.zoomAt(in.mousePosition * scale, std::pow(1.15f, in.wheel.y));
+    }
+    if (pressed(m_ids.pause)) {
+        m_config.world->togglePause();
+        m_titleDirty = true;
+    }
+    if (pressed(m_ids.step)) {
+        m_config.world->stepOnce();
+    }
+    if (pressed(m_ids.faster)) {
+        m_config.world->changeSpeed(+1);
+        m_titleDirty = true;
+    }
+    if (pressed(m_ids.slower)) {
+        m_config.world->changeSpeed(-1);
+        m_titleDirty = true;
+    }
+}
+
 void Application::applyPendingTransition() {
     if (!m_pending) {
         return;
@@ -254,9 +316,33 @@ bool Application::frame() {
     const f64 dt = m_config.fps > 0 ? 1.0 / m_config.fps : 1.0 / 60.0;
     m_audio.update(static_cast<f32>(dt));
 
+    // 월드 진행 · 그릴 거리 (InWorld)
+    const auto now = std::chrono::steady_clock::now();
+    const f64 realDt = std::chrono::duration<f64>(now - m_lastFrameTime).count();
+    m_lastFrameTime = now;
+    const bool inWorld = m_state == AppState::InWorld && m_config.world != nullptr;
+    if (inWorld) {
+        const f64 worldDt = m_config.fixedDt > 0 ? m_config.fixedDt : realDt;
+        syncViewport();
+        handleWorldInput(worldDt);
+        m_config.world->update(worldDt);
+        m_renderWorld.reset();
+        m_config.world->extract(m_renderWorld);
+    }
+
     if (m_config.renderer != nullptr && !m_window.minimized()) {
         // 애니메이션은 실제 시간으로 (VSync 를 끄면 프레임 수가 시간과 따로 논다)
-        m_config.renderer->render(std::chrono::duration<f64>(std::chrono::steady_clock::now() - m_startTime).count());
+        m_config.renderer->render(std::chrono::duration<f64>(now - m_startTime).count(),
+                                  inWorld ? &m_renderWorld : nullptr);
+    }
+
+    // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (Phase 8A — 메뉴 UI 는 8C)
+    if (m_config.world != nullptr && !m_pending) {
+        if (m_state == AppState::MainMenu) {
+            (void)request(AppState::Connecting);
+        } else if (m_state == AppState::Connecting) {
+            (void)request(AppState::InWorld);
+        }
     }
 
     if (m_config.maxFrames != 0 && m_frame >= m_config.maxFrames) {
@@ -296,6 +382,15 @@ std::string Application::statusLine() const {
     std::string s = std::format("Sandbox — {}", appStateName(m_state));
     if (m_state == AppState::InWorld) {
         s += m_mode == WorldMode::Play ? " (Play)" : " (Edit)";
+    }
+    if (m_state == AppState::InWorld && m_config.world != nullptr) {
+        // 월드 보기: 입력 모니터 대신 월드 · 카메라 상태
+        s += " | " + m_config.world->status();
+        s += std::format(" | 줌 {:.1f} px/칸", m_renderWorld.camera.pixelsPerUnit);
+        if (m_config.renderer != nullptr) {
+            s += " | " + m_config.renderer->status();
+        }
+        return s;
     }
     const Extent2D fb = m_window.framebufferSize();
     s += std::format(" | {}×{} px ×{:.2f}", fb.width, fb.height, m_window.contentScale());

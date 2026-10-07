@@ -1,7 +1,8 @@
-// SandboxClient 진입점. Phase 6: 빈 창 + 앱 상태기계 (docs/16-ROADMAP.md 6.5).
+// SandboxClient 진입점. Phase 6: 빈 창 + 앱 상태기계 (docs/16-ROADMAP.md 6.5). Phase 8A: --direct-sim 월드 관찰.
 // Windows 에서는 GUI 서브시스템 실행 파일이다 (콘솔 창이 뜨지 않는다). 로그를 보려면 --console,
 // 또는 CLion·리디렉션처럼 출력이 이미 연결된 곳에서 실행한다. WinMain 대신 main (07 6.1).
 #include <cstdio>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <string>
@@ -11,11 +12,14 @@
 #include "apps/client/Application.hpp"
 #include "apps/client/ClientOptions.hpp"
 #include "apps/client/DefaultInput.hpp"
+#include "apps/client/DirectSim.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
+#include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
+#include "render/asset/MaterialLibrary.hpp"
 #include "render/rhi/RenderDevice.hpp"
 
 namespace {
@@ -100,10 +104,14 @@ int main(int argc, char** argv) {
     }
 
 #ifdef SBX_HAS_SHADERS
-    constexpr const char* kRendererName = "Clear + 삼각형 (Phase 7B)";
+    constexpr const char* kRendererName = "스프라이트 (Phase 8A)";
 #else
-    constexpr const char* kRendererName = "Clear (Phase 7A)";
+    constexpr const char* kRendererName = "Clear (셰이더 없는 빌드)";
 #endif
+    const std::filesystem::path assetRoot = opts->assetRoot.empty() ? std::filesystem::path(SBX_DEFAULT_ASSETS_DIR)
+                                                                    : std::filesystem::path(opts->assetRoot);
+    // 에셋 디코드 Worker (렌더러가 있을 때만 쓴다). 렌더러보다 먼저 만들고 나중에 사라진다
+    sbx::JobSystem jobs(opts->headless ? 0u : 2u);
     // 렌더러 (Phase 7A~): 렌더 백엔드가 있는 OS 의 실제 창에서만. 실패하면 그리지 않고 계속한다 (Phase 6 동작).
     std::unique_ptr<sbx::client::IFrameRenderer> renderer;
     if (!opts->headless && !opts->noRender) {
@@ -114,12 +122,37 @@ int main(int argc, char** argv) {
         ro.allowFeatureLevel11 = opts->rhiFl11;
         ro.vsync = opts->vsync;
         ro.framesInFlight = opts->framesInFlight;
-        auto r = sbx::client::createClearRenderer(*window, ro);
+        ro.assetRoot = assetRoot;
+        ro.jobs = &jobs;
+        auto r = sbx::client::createClientRenderer(*window, ro);
         if (r) {
             renderer = std::move(*r);
         } else {
             sbx::log::warn("client", "렌더러 없이 계속합니다: {}", r.error().describe());
         }
+    }
+
+    // 월드 (Phase 8A --direct-sim). 머티리얼은 렌더러가 없어도(헤드리스) 색으로 쓴다
+    sbx::render::MaterialLibrary materials;
+    std::unique_ptr<sbx::client::DirectSim> world;
+    if (opts->directSim) {
+        if (auto n = materials.loadAll(assetRoot, renderer ? renderer->assets() : nullptr); !n) {
+            sbx::log::warn("client", "머티리얼을 읽지 못했습니다 (색 사각형으로 그립니다): {}", n.error().describe());
+        } else {
+            sbx::log::info("client", "머티리얼 {}개 ({} 의 */materials.json {}개)", materials.size(),
+                           assetRoot.generic_string(), *n);
+        }
+        sbx::client::DirectSimDesc dd;
+        dd.scenario = *opts->directSim;
+        dd.seed = opts->seed;
+        dd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
+                                                   : std::filesystem::path(opts->contentRoot);
+        auto ds = sbx::client::DirectSim::create(dd, materials);
+        if (!ds) {
+            sbx::log::error("client", "{}", ds.error().describe());
+            return kExitBadArgs;
+        }
+        world = std::move(*ds);
     }
 
     sbx::platform::NullAudioBackend audio;
@@ -132,6 +165,8 @@ int main(int argc, char** argv) {
     cfg.logInput = opts->logInput;
     cfg.fps = fps > 0 ? fps : 60.0; // 오디오·애니메이션의 명목 dt
     cfg.renderer = renderer.get();
+    cfg.world = world.get();
+    cfg.fixedDt = opts->headless ? 1.0 / 60.0 : 0.0; // 헤드리스는 프레임마다 1/60 초 — 같은 명령이면 같은 틱 수
     sbx::client::Application app(*window, std::move(*actions), audio, cfg);
 
     std::unique_ptr<sbx::platform::FramePacer> pacer;
@@ -145,6 +180,11 @@ int main(int argc, char** argv) {
                    renderer ? kRendererName : "없음");
 
     const int code = app.run(pacer.get());
+    if (world) {
+        printText(std::format("direct-sim {} tick {} 개체 {}\n", *opts->directSim, world->tick(),
+                              world->extractionStats().entities));
+    }
+    world.reset();
     renderer.reset(); // 창보다 먼저 (스왑체인이 HWND 를 쓴다)
     audio.shutdown();
     printText(std::format("SandboxClient 끝: frames {} state {}\n", app.frameCount(),
