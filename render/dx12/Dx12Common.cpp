@@ -78,6 +78,8 @@ DXGI_FORMAT toDxgi(Format f) noexcept {
         return DXGI_FORMAT_R32G32B32_FLOAT;
     case Format::RGBA32Float:
         return DXGI_FORMAT_R32G32B32A32_FLOAT;
+    case Format::R16Uint:
+        return DXGI_FORMAT_R16_UINT;
     case Format::Unknown:
     case Format::Count:
         break;

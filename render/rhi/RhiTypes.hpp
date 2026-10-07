@@ -3,7 +3,7 @@
 // 그래픽 API 헤더를 include 하지 않는다 (R2). 백엔드는 render/<backend>/ 에.
 //
 // Phase 7A: Buffer · Texture · RenderPass(Clear) · Barrier · Copy · SwapChain. Shader · Pipeline · BindGroup · Sampler
-// 는 7B.
+// 는 7B. 타임스탬프 · R16Uint 는 8B.
 
 #include <array>
 #include <optional>
@@ -51,6 +51,8 @@ enum class Format : u8 {
     RG32Float,
     RGB32Float,
     RGBA32Float,
+    // 8B: 정수 텍스처 (지형 타일 머티리얼 번호 — 셰이더는 Load 로만 읽는다)
+    R16Uint,
     Count
 };
 
@@ -346,6 +348,29 @@ struct GraphicsPipelineDesc {
     std::array<RhiBindGroupLayout, kMaxBindGroups> bindGroupLayouts{};
     u32 pushConstantBytes = 0; // 4 의 배수, ≤ 128
     std::string debugName;
+};
+
+// ---- 8B: GPU 타임스탬프 (06 8.4 · 8.6) ----------------------------------------------------------------------
+
+// 프레임 슬롯마다 쓸 수 있는 타임스탬프 수. ICommandList::writeTimestamp(i) 의 i < 이 값
+inline constexpr u32 kMaxTimestampsPerFrame = 32;
+
+// GPU 가 끝낸 프레임 하나의 타임스탬프. IRenderDevice::completedTimestamps 가 beginFrame 마다 바꾼다
+// (보통 framesInFlight 프레임 전의 값 — GPU 를 기다리지 않는다).
+struct TimestampReadback {
+    u64 frameNumber = 0; // 이 값을 기록한 프레임 (0 = 아직 없음)
+    u32 count = 0;       // resolveTimestamps 한 수
+    u64 frequency = 0;   // 틱 / 초
+    std::array<u64, kMaxTimestampsPerFrame> ticks{};
+
+    [[nodiscard]] bool valid() const noexcept { return frameNumber != 0 && count != 0 && frequency != 0; }
+    // ticks[a] → ticks[b] 구간 (ms). 범위 밖이거나 거꾸로면 0
+    [[nodiscard]] f64 millis(u32 a, u32 b) const noexcept {
+        if (!valid() || a >= count || b >= count || ticks[b] < ticks[a]) {
+            return 0.0;
+        }
+        return static_cast<f64>(ticks[b] - ticks[a]) * 1000.0 / static_cast<f64>(frequency);
+    }
 };
 
 [[nodiscard]] constexpr u64 alignUp(u64 v, u64 a) noexcept {

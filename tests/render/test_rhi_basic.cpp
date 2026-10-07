@@ -328,4 +328,56 @@ TEST_SUITE("render.gpu") {
         }
         dev.destroy(tex);
     }
+
+    TEST_CASE("timestamps: written around GPU work come back after the frame slot is reused, in order (8B)") {
+        IRenderDevice& dev = device();
+        if (!dev.caps().timestampQueries) {
+            MESSAGE("이 어댑터는 타임스탬프가 없다 — 건너뜀");
+            return;
+        }
+        const RhiTexture rt = makeTarget(dev, 256, 256, "timestamp target");
+        u64 written = 0;
+        submitAndWait(dev, [&](ICommandList& cl) {
+            written = dev.frameNumber();
+            cl.writeTimestamp(0);
+            const ResourceBarrier toRt{rt, ResourceState::Undefined, ResourceState::RenderTarget};
+            cl.barrier({&toRt, 1});
+            RenderPassDesc pass;
+            pass.colorCount = 1;
+            pass.colors[0] = {rt, LoadOp::Clear, StoreOp::Store, {0.2f, 0.4f, 0.6f, 1.f}};
+            cl.beginRenderPass(pass);
+            cl.writeTimestamp(1); // 패스 안에서도 된다
+            cl.endRenderPass();
+            cl.writeTimestamp(2);
+            cl.resolveTimestamps(3);
+        });
+        // 그 슬롯을 다시 쓸 때(beginFrame) 옮겨진다 — 프레임 framesInFlight 개를 더 돈다
+        for (u32 i = 0; i < dev.framesInFlight(); ++i) {
+            submitAndWait(dev, [](ICommandList&) {});
+        }
+        const TimestampReadback& ts = dev.completedTimestamps();
+        REQUIRE(ts.valid());
+        CHECK(ts.frameNumber == written);
+        CHECK(ts.count == 3);
+        CHECK(ts.frequency > 0);
+        CHECK(ts.ticks[0] <= ts.ticks[1]);
+        CHECK(ts.ticks[1] <= ts.ticks[2]);
+        CHECK(ts.millis(0, 2) >= 0.0);
+        CHECK(ts.millis(0, 2) < 1000.0);
+        CHECK(ts.millis(2, 0) == 0.0); // 거꾸로면 0
+        CHECK(ts.millis(0, 5) == 0.0); // 범위 밖
+
+        // 잘못된 칸 · 패스 안 resolve 는 오류로 센다 (기록은 계속)
+        submitAndWait(dev, [&](ICommandList& cl) {
+            cl.writeTimestamp(kMaxTimestampsPerFrame);
+            RenderPassDesc pass; // rt 는 위에서 RenderTarget 상태로 남았다
+            pass.colorCount = 1;
+            pass.colors[0] = {rt, LoadOp::Load, StoreOp::Store, {}};
+            cl.beginRenderPass(pass);
+            cl.resolveTimestamps(1);
+            cl.endRenderPass();
+        });
+        rendertest::expectValidationErrors(2);
+        dev.destroy(rt);
+    }
 }

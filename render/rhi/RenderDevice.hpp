@@ -55,7 +55,14 @@ public:
     virtual void draw(u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0) = 0;
     virtual void drawIndexed(u32 indexCount, u32 instanceCount = 1, u32 firstIndex = 0, i32 vertexOffset = 0,
                              u32 firstInstance = 0) = 0;
-    // [계획] dispatch · 컴퓨트 파이프라인 (Phase 8 이후), writeTimestamp (Phase 8)
+    // ---- 8B: GPU 타임스탬프 ----
+    // 이번 프레임 슬롯의 index 번 칸에 지금 GPU 시각을 적는다 (index < kMaxTimestampsPerFrame). 렌더 패스 안에서도
+    // 된다. caps.timestampQueries 가 false 면 아무것도 하지 않는다.
+    virtual void writeTimestamp(u32 index) = 0;
+    // [0, count) 칸을 읽을 수 있게 모은다 — 렌더 패스 밖, 그 프레임의 writeTimestamp 뒤에 한 번.
+    // 값은 GPU 가 그 프레임을 끝낸 뒤 IRenderDevice::completedTimestamps 로 나온다.
+    virtual void resolveTimestamps(u32 count) = 0;
+    // [계획] dispatch · 컴퓨트 파이프라인 (Phase 8 이후)
 };
 
 class ICommandQueue {
@@ -132,6 +139,9 @@ public:
     [[nodiscard]] virtual u32 framesInFlight() const = 0;
     [[nodiscard]] virtual u32 frameIndex() const = 0; // 0 .. framesInFlight-1
     [[nodiscard]] virtual u64 frameNumber() const = 0;
+    // 8B: GPU 가 끝낸 가장 최근 프레임(타임스탬프를 resolve 한 것)의 값. beginFrame 이 이 슬롯을 다시 쓰기 전에 옮겨
+    // 둔다
+    [[nodiscard]] virtual const TimestampReadback& completedTimestamps() const = 0;
     // GPU 를 기다리고 지연 해제 큐를 모두 비운다
     virtual void waitIdle() = 0;
 };

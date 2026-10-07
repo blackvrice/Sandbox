@@ -22,8 +22,9 @@ constexpr std::array<FormatInfo, static_cast<usize>(Format::Count)> kFormats{{
     {"RG32Float", 8, false, false, false},
     {"RGB32Float", 12, false, false, false},
     {"RGBA32Float", 16, false, false, false},
+    {"R16Uint", 2, false, false, false},
 }};
-static_assert(kFormats.back().name == "RGBA32Float", "kFormats 가 Format 열거와 어긋났다");
+static_assert(kFormats.back().name == "R16Uint", "kFormats 가 Format 열거와 어긋났다");
 
 } // namespace
 

@@ -276,6 +276,36 @@ public:
         m_list->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 
+    // ---- 8B: 타임스탬프 ----
+    void writeTimestamp(u32 index) override {
+        ID3D12QueryHeap* heap = m_dev.timestampHeap();
+        if (heap == nullptr) {
+            return; // caps.timestampQueries == false
+        }
+        if (index >= kMaxTimestampsPerFrame) {
+            error(std::format("writeTimestamp: 칸 {} ≥ {}", index, kMaxTimestampsPerFrame));
+            return;
+        }
+        m_list->EndQuery(heap, D3D12_QUERY_TYPE_TIMESTAMP, m_dev.frameIndex() * kMaxTimestampsPerFrame + index);
+    }
+
+    void resolveTimestamps(u32 count) override {
+        ID3D12QueryHeap* heap = m_dev.timestampHeap();
+        ID3D12Resource* dst = m_dev.timestampReadback();
+        if (heap == nullptr || dst == nullptr || count == 0) {
+            return;
+        }
+        if (count > kMaxTimestampsPerFrame || m_inPass) {
+            error(m_inPass ? "resolveTimestamps: 렌더 패스 밖에서" : "resolveTimestamps: 칸 수가 상한을 넘는다");
+            return;
+        }
+        const u32 first = m_dev.frameIndex() * kMaxTimestampsPerFrame;
+        // Readback 버퍼는 늘 COPY_DEST 상태다 — 배리어가 필요 없다
+        m_list->ResolveQueryData(heap, D3D12_QUERY_TYPE_TIMESTAMP, first, count, dst,
+                                 static_cast<UINT64>(first) * sizeof(u64));
+        m_dev.noteTimestampsResolved(count);
+    }
+
 private:
     void error(std::string_view what) {
         log::error("render", "{}", what);

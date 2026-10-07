@@ -199,6 +199,7 @@ public:
     [[nodiscard]] u32 framesInFlight() const override { return m_framesInFlight; }
     [[nodiscard]] u32 frameIndex() const override { return m_frameIndex; }
     [[nodiscard]] u64 frameNumber() const override { return m_frameNumber; }
+    [[nodiscard]] const TimestampReadback& completedTimestamps() const override { return m_timestamps; }
     void waitIdle() override;
 
     // ---- 백엔드 내부 (커맨드 리스트 · 스왑체인) ----
@@ -220,6 +221,10 @@ public:
     // HRESULT 실패를 기록하고, 디바이스 제거면 원인을 남긴다
     void reportFailure(std::string_view what, HRESULT hr);
     void countValidationError() noexcept { ++m_debugErrors; } // RHI 사용 오류 (잘못된 정렬 등)
+    // 8B 타임스탬프: 프레임 슬롯 s 의 칸은 힙 [s × kMaxTimestampsPerFrame, …), 읽기 버퍼도 같은 배치 (8 바이트씩)
+    [[nodiscard]] ID3D12QueryHeap* timestampHeap() const noexcept { return m_tsHeap.get(); }
+    [[nodiscard]] ID3D12Resource* timestampReadback() noexcept;
+    void noteTimestampsResolved(u32 count) noexcept; // 이번 프레임 슬롯에 count 칸을 resolve 했다
 
 private:
     Expected<void> init();
@@ -265,6 +270,16 @@ private:
     RhiBuffer m_ringBuffer;
     std::byte* m_ringCpu = nullptr;
     UploadRing m_ring{0};
+
+    // 8B 타임스탬프
+    Com<ID3D12QueryHeap> m_tsHeap;
+    RhiBuffer m_tsReadback;
+    struct ResolvedTimestamps {
+        u64 frameNumber = 0;
+        u32 count = 0;
+    };
+    std::vector<ResolvedTimestamps> m_tsResolved; // 프레임 슬롯마다
+    TimestampReadback m_timestamps;
 
     std::vector<FenceValue> m_frameFences;
     u32 m_frameIndex = 0;

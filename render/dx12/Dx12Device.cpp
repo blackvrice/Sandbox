@@ -1,6 +1,7 @@
 // D3D12 디바이스 · 큐 · 리소스 · 프레임. docs/06-RENDERING.md 4·5.1장.
 #include "render/dx12/Dx12Device.hpp"
 
+#include <cstring>
 #include <format>
 #include <iterator>
 
@@ -219,7 +220,6 @@ Expected<void> Dx12Device::init() {
                                   ? static_cast<u32>(fl.MaxSupportedFeatureLevel)
                                   : static_cast<u32>(minLevel);
     }
-    m_caps.timestampQueries = true;
     m_caps.compute = true;
     m_caps.maxTextureSize = D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION;
     m_caps.maxPushConstantBytes = 128;
@@ -275,6 +275,30 @@ Expected<void> Dx12Device::init() {
         m_ringCpu = rb->mapped;
     } else {
         return makeError(ErrorCode::Unsupported, "업로드 링 버퍼를 만들 수 없습니다");
+    }
+
+    // 8B 타임스탬프: 프레임 슬롯마다 kMaxTimestampsPerFrame 칸 + Readback 버퍼 (영구 매핑)
+    {
+        D3D12_QUERY_HEAP_DESC qd{};
+        qd.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+        qd.Count = m_framesInFlight * kMaxTimestampsPerFrame;
+        UINT64 freq = 0;
+        if (SUCCEEDED(m_device->CreateQueryHeap(&qd, IID_PPV_ARGS(m_tsHeap.put()))) &&
+            SUCCEEDED(m_queue.native()->GetTimestampFrequency(&freq)) && freq != 0) {
+            BufferDesc rd{static_cast<u64>(qd.Count) * sizeof(u64), BufferUsage::CopyDst, MemoryType::Readback,
+                          "timestamp readback"};
+            m_tsReadback = createBuffer(rd);
+            if (Dx12Buffer* b = m_buffers.get(m_tsReadback); b != nullptr) {
+                b->internal = true;
+                m_timestamps.frequency = freq;
+            }
+        }
+        m_tsResolved.assign(m_framesInFlight, {});
+        m_caps.timestampQueries = m_tsHeap && m_tsReadback.valid() && m_timestamps.frequency != 0;
+        if (!m_caps.timestampQueries) {
+            m_tsHeap.reset();
+            log::warn("render", "GPU 타임스탬프를 쓸 수 없습니다 — 패스별 GPU 시간을 재지 않는다");
+        }
     }
 
     log::info("render", "D3D12: {}{} · FL {}_{} · VRAM {} MB · frames in flight {} · Debug Layer {}{}",
@@ -531,7 +555,26 @@ void Dx12Device::beginFrame() {
     const FenceValue done = m_queue.completedValue();
     m_ring.retire(done);
     m_released += m_garbage.collect(done);
+    // 이 슬롯을 마지막으로 쓴 프레임은 GPU 가 끝냈다 — 그 타임스탬프를 덮이기 전에 옮긴다
+    if (ResolvedTimestamps& r = m_tsResolved[m_frameIndex]; r.count != 0) {
+        if (const Dx12Buffer* b = m_buffers.get(m_tsReadback); b != nullptr && b->mapped != nullptr) {
+            const usize first = static_cast<usize>(m_frameIndex) * kMaxTimestampsPerFrame;
+            std::memcpy(m_timestamps.ticks.data(), b->mapped + first * sizeof(u64), r.count * sizeof(u64));
+            m_timestamps.count = r.count;
+            m_timestamps.frameNumber = r.frameNumber;
+        }
+        r = {};
+    }
     drainDebugMessages();
+}
+
+ID3D12Resource* Dx12Device::timestampReadback() noexcept {
+    Dx12Buffer* b = m_buffers.get(m_tsReadback);
+    return b != nullptr ? b->resource.get() : nullptr;
+}
+
+void Dx12Device::noteTimestampsResolved(u32 count) noexcept {
+    m_tsResolved[m_frameIndex] = {m_frameNumber, count};
 }
 
 void Dx12Device::endFrame() {
