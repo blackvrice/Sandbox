@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "render/rhi/RhiTypes.hpp"
@@ -35,6 +36,10 @@ public:
         }
     }
     Com(Com&& o) noexcept : m_p(o.m_p) { o.m_p = nullptr; }
+    // 파생 → 기반 인터페이스 (ID3D12Resource → ID3D12DeviceChild)
+    template <class U>
+        requires std::is_convertible_v<U*, T*>
+    Com(Com<U>&& o) noexcept : m_p(o.detach()) {}
     Com& operator=(Com o) noexcept {
         std::swap(m_p, o.m_p);
         return *this;
@@ -48,6 +53,12 @@ public:
         }
     }
     [[nodiscard]] T* get() const noexcept { return m_p; }
+    // 참조를 넘겨주고 비운다 (Release 하지 않는다)
+    [[nodiscard]] T* detach() noexcept {
+        T* p = m_p;
+        m_p = nullptr;
+        return p;
+    }
     T* operator->() const noexcept { return m_p; }
     explicit operator bool() const noexcept { return m_p != nullptr; }
     // 출력 인자용: 기존 참조를 놓고 주소를 준다

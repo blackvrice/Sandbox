@@ -7,8 +7,14 @@
 #include <vector>
 
 #include "render/dx12/Dx12Common.hpp"
+#include <array>
+#include <functional>
+#include <string>
+#include <unordered_map>
+
 #include "render/rhi/DeferredDestruction.hpp"
 #include "render/rhi/HandlePool.hpp"
+#include "render/rhi/RangeAllocator.hpp"
 #include "render/rhi/RenderDevice.hpp"
 #include "render/rhi/UploadRing.hpp"
 
@@ -58,28 +64,70 @@ struct Dx12Texture {
     bool external = false; // 스왑체인 백버퍼
 };
 
-// 지연 해제 항목: 리소스 참조 + 돌려줄 RTV 자리
+// 지연 해제 항목: D3D12 객체 참조 + 해제 때 할 일 (RTV · 디스크립터 구간 반납)
 class Garbage {
 public:
-    Garbage(Com<ID3D12Resource> resource, u32 descriptor, DescriptorFreeList* freeList)
-        : m_resource(std::move(resource)), m_descriptor(descriptor), m_freeList(freeList) {}
-    Garbage(Garbage&& o) noexcept
-        : m_resource(std::move(o.m_resource)), m_descriptor(o.m_descriptor), m_freeList(o.m_freeList) {
-        o.m_freeList = nullptr;
+    explicit Garbage(Com<ID3D12DeviceChild> obj, std::function<void()> onRelease = {})
+        : m_obj(std::move(obj)), m_onRelease(std::move(onRelease)) {}
+    Garbage(Garbage&& o) noexcept : m_obj(std::move(o.m_obj)), m_onRelease(std::move(o.m_onRelease)) {
+        o.m_onRelease = nullptr;
     }
     Garbage& operator=(Garbage&&) = delete;
     Garbage(const Garbage&) = delete;
     ~Garbage() {
-        m_resource.reset();
-        if (m_freeList != nullptr) {
-            m_freeList->release(m_descriptor);
+        m_obj.reset();
+        if (m_onRelease) {
+            m_onRelease();
         }
     }
 
 private:
-    Com<ID3D12Resource> m_resource;
-    u32 m_descriptor = kNoDescriptor;
-    DescriptorFreeList* m_freeList = nullptr;
+    Com<ID3D12DeviceChild> m_obj;
+    std::function<void()> m_onRelease;
+};
+
+// ---- 7B 객체 ----
+struct Dx12Shader {
+    ShaderStage stage = ShaderStage::Vertex;
+    std::vector<std::byte> dxil;
+    std::string entry;
+    std::string name;
+    const ShaderReflection* reflection = nullptr;
+};
+
+struct Dx12Sampler {
+    D3D12_SAMPLER_DESC desc{};
+    std::string name;
+};
+
+struct Dx12BindGroupLayout {
+    BindGroupLayoutDesc desc;
+    std::string signature;
+    std::vector<u32> resourceEntries; // desc.entries 의 인덱스, 표 순서 (샘플러 아닌 것)
+    std::vector<u32> samplerEntries;  // 샘플러 표 순서
+};
+
+struct Dx12BindGroup {
+    std::string layoutSignature;
+    u32 resStart = kNoDescriptor;
+    u32 resCount = 0;
+    u32 smpStart = kNoDescriptor;
+    u32 smpCount = 0;
+    std::string name;
+};
+
+struct Dx12Pipeline {
+    Com<ID3D12PipelineState> pso;
+    Com<ID3D12RootSignature> root;
+    D3D_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    std::array<std::string, kMaxBindGroups> slotSignatures{};
+    std::array<bool, kMaxBindGroups> slotUsed{};
+    std::array<i32, kMaxBindGroups> resParam{-1, -1, -1, -1};
+    std::array<i32, kMaxBindGroups> smpParam{-1, -1, -1, -1};
+    i32 pushParam = -1;
+    u32 pushBytes = 0;
+    std::vector<u32> vertexStrides;
+    std::string name;
 };
 
 class Dx12Device;
@@ -125,6 +173,19 @@ public:
     [[nodiscard]] bool alive(RhiTexture texture) const override { return m_textures.get(texture) != nullptr; }
     [[nodiscard]] const TextureDesc* textureDesc(RhiTexture texture) const override;
 
+    [[nodiscard]] RhiShader createShader(const ShaderDesc& desc) override;
+    [[nodiscard]] RhiSampler createSampler(const SamplerDesc& desc) override;
+    [[nodiscard]] RhiBindGroupLayout createBindGroupLayout(const BindGroupLayoutDesc& desc) override;
+    [[nodiscard]] RhiBindGroup createBindGroup(const BindGroupDesc& desc) override;
+    [[nodiscard]] RhiPipeline createGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
+    void destroy(RhiShader shader) override;
+    void destroy(RhiSampler sampler) override;
+    void destroy(RhiBindGroupLayout layout) override;
+    void destroy(RhiBindGroup group) override;
+    void destroy(RhiPipeline pipeline) override;
+    [[nodiscard]] bool alive(RhiPipeline pipeline) const override { return m_pipelines.get(pipeline) != nullptr; }
+    [[nodiscard]] bool alive(RhiBindGroup group) const override { return m_groups.get(group) != nullptr; }
+
     [[nodiscard]] std::byte* map(RhiBuffer buffer) override;
     [[nodiscard]] UploadAllocation allocateUpload(u64 size, u64 alignment) override;
 
@@ -147,6 +208,12 @@ public:
     [[nodiscard]] Dx12Buffer* buffer(RhiBuffer h) noexcept { return m_buffers.get(h); }
     [[nodiscard]] Dx12Texture* texture(RhiTexture h) noexcept { return m_textures.get(h); }
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(u32 index) const noexcept;
+    [[nodiscard]] Dx12Pipeline* pipeline(RhiPipeline h) noexcept { return m_pipelines.get(h); }
+    [[nodiscard]] Dx12BindGroup* bindGroup(RhiBindGroup h) noexcept { return m_groups.get(h); }
+    [[nodiscard]] ID3D12DescriptorHeap* resourceHeap() const noexcept { return m_resHeap.get(); }
+    [[nodiscard]] ID3D12DescriptorHeap* samplerHeap() const noexcept { return m_smpHeap.get(); }
+    [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE resourceGpu(u32 index) const noexcept;
+    [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE samplerGpu(u32 index) const noexcept;
     RhiTexture registerBackbuffer(Com<ID3D12Resource> resource, const TextureDesc& desc);
     void releaseBackbufferNow(RhiTexture texture); // GPU 가 쉬는 중에만 (스왑체인 resize · 소멸)
     void drainDebugMessages();
@@ -157,6 +224,10 @@ public:
 private:
     Expected<void> init();
     bool createRtv(Dx12Texture& t);
+    bool createDescriptorHeaps();
+    Com<ID3D12RootSignature> rootSignatureFor(const std::array<const Dx12BindGroupLayout*, kMaxBindGroups>& layouts,
+                                              u32 pushBytes, Dx12Pipeline& out);
+    void validationError(std::string_view what); // 로그 + 오류 수
     FenceValue nextFence() const noexcept { return m_queue.lastSubmittedValue() + 1; }
 
     DeviceDesc m_desc;
@@ -173,8 +244,22 @@ private:
     u32 m_rtvStride = 0;
     DescriptorFreeList m_rtvFree;
 
+    // shader-visible 힙 (06 5.1): BindGroup 마다 연속 구간. 한 커맨드 리스트가 둘을 함께 묶는다
+    Com<ID3D12DescriptorHeap> m_resHeap; // CBV/SRV/UAV
+    u32 m_resStride = 0;
+    RangeAllocator m_resAlloc;
+    Com<ID3D12DescriptorHeap> m_smpHeap; // Sampler
+    u32 m_smpStride = 0;
+    RangeAllocator m_smpAlloc;
+    std::unordered_map<std::string, Com<ID3D12RootSignature>> m_rootSignatures; // 레이아웃 모양 → 공유
+
     HandlePool<BufferTag, Dx12Buffer> m_buffers;
     HandlePool<TextureTag, Dx12Texture> m_textures;
+    HandlePool<ShaderTag, Dx12Shader> m_shaders;
+    HandlePool<SamplerTag, Dx12Sampler> m_samplers;
+    HandlePool<BindGroupLayoutTag, Dx12BindGroupLayout> m_layouts;
+    HandlePool<BindGroupTag, Dx12BindGroup> m_groups;
+    HandlePool<PipelineTag, Dx12Pipeline> m_pipelines;
     DeferredDestructionQueue<Garbage> m_garbage;
 
     RhiBuffer m_ringBuffer;

@@ -39,6 +39,23 @@ public:
 
     virtual void beginDebugLabel(std::string_view label) = 0; // PIX · RenderDoc 마커
     virtual void endDebugLabel() = 0;
+
+    // ---- 7B: 그리기 ----
+    // 파이프라인을 묶는다. 이후 setBindGroup · pushConstants · setVertexBuffer 는 이 파이프라인의 레이아웃을 따른다.
+    virtual void setPipeline(RhiPipeline pipeline) = 0;
+    // slot 의 레이아웃은 파이프라인을 만들 때의 bindGroupLayouts[slot] 과 같아야 한다
+    virtual void setBindGroup(u32 slot, RhiBindGroup group) = 0;
+    virtual void pushConstants(std::span<const std::byte> data) = 0; // 4 의 배수, ≤ 파이프라인 pushConstantBytes
+    template <class T>
+    void pushConstants(const T& value) {
+        pushConstants(std::span<const std::byte>(reinterpret_cast<const std::byte*>(&value), sizeof(T)));
+    }
+    virtual void setVertexBuffer(u32 slot, RhiBuffer buffer, u64 offset = 0) = 0; // stride 는 파이프라인에서
+    virtual void setIndexBuffer(RhiBuffer buffer, u64 offset, IndexFormat format) = 0;
+    virtual void draw(u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0) = 0;
+    virtual void drawIndexed(u32 indexCount, u32 instanceCount = 1, u32 firstIndex = 0, i32 vertexOffset = 0,
+                             u32 firstInstance = 0) = 0;
+    // [계획] dispatch · 컴퓨트 파이프라인 (Phase 8 이후), writeTimestamp (Phase 8)
 };
 
 class ICommandQueue {
@@ -83,6 +100,22 @@ public:
     [[nodiscard]] virtual bool alive(RhiBuffer buffer) const = 0;
     [[nodiscard]] virtual bool alive(RhiTexture texture) const = 0;
     [[nodiscard]] virtual const TextureDesc* textureDesc(RhiTexture texture) const = 0;
+
+    // ---- 7B: 셰이더 · 샘플러 · 바인딩 · 파이프라인 (실패하면 무효 핸들 + 로그 + stats.debugErrors) ----
+    [[nodiscard]] virtual RhiShader createShader(const ShaderDesc& desc) = 0;
+    [[nodiscard]] virtual RhiSampler createSampler(const SamplerDesc& desc) = 0;
+    [[nodiscard]] virtual RhiBindGroupLayout createBindGroupLayout(const BindGroupLayoutDesc& desc) = 0;
+    // 디스크립터를 지금 쓴다. 가리키는 버퍼·텍스처·샘플러는 바인드 그룹보다 오래 살아야 한다
+    [[nodiscard]] virtual RhiBindGroup createBindGroup(const BindGroupDesc& desc) = 0;
+    // 셰이더에 리플렉션이 있으면 레이아웃 · push constant · 정점 입력과 대조한다 (validateAgainstReflection)
+    [[nodiscard]] virtual RhiPipeline createGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
+    virtual void destroy(RhiShader shader) = 0; // 파이프라인을 만든 뒤에는 바로 파괴해도 된다
+    virtual void destroy(RhiSampler sampler) = 0;
+    virtual void destroy(RhiBindGroupLayout layout) = 0;
+    virtual void destroy(RhiBindGroup group) = 0;
+    virtual void destroy(RhiPipeline pipeline) = 0;
+    [[nodiscard]] virtual bool alive(RhiPipeline pipeline) const = 0;
+    [[nodiscard]] virtual bool alive(RhiBindGroup group) const = 0;
 
     // Upload · Readback 메모리의 영구 매핑. GpuOnly 면 nullptr.
     [[nodiscard]] virtual std::byte* map(RhiBuffer buffer) = 0;

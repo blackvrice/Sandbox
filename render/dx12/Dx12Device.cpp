@@ -262,6 +262,9 @@ Expected<void> Dx12Device::init() {
     }
     m_rtvStride = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     m_rtvFree.init(hd.NumDescriptors);
+    if (!createDescriptorHeaps()) {
+        return makeError(ErrorCode::Unsupported, "shader-visible 디스크립터 힙을 만들 수 없습니다");
+    }
 
     // 업로드 링: Upload 메모리 하나를 영구 매핑해 프레임마다 구간을 나눠 쓴다 (06 4.2)
     m_ring = UploadRing(m_desc.uploadRingBytes);
@@ -300,6 +303,15 @@ Dx12Device::~Dx12Device() {
             log::warn("render", "해제되지 않은 텍스처 '{}' ({}×{})", t.desc.debugName, t.desc.width, t.desc.height);
         }
     });
+    const usize leakedOther =
+        m_shaders.size() + m_samplers.size() + m_layouts.size() + m_groups.size() + m_pipelines.size();
+    m_pipelines.forEach(
+        [&](RhiPipeline, Dx12Pipeline& p) { log::warn("render", "해제되지 않은 파이프라인 '{}'", p.name); });
+    m_groups.forEach(
+        [&](RhiBindGroup, Dx12BindGroup& g) { log::warn("render", "해제되지 않은 바인드 그룹 '{}'", g.name); });
+    if (leakedOther != 0) {
+        log::warn("render", "종료 시 남은 셰이더·샘플러·레이아웃·바인드 그룹·파이프라인 {}", leakedOther);
+    }
     if (leakedBuffers + leakedTextures != 0) {
         log::warn("render", "종료 시 남은 GPU 리소스: 버퍼 {} · 텍스처 {} (destroy 를 부르지 않았다)", leakedBuffers,
                   leakedTextures);
@@ -311,6 +323,8 @@ DeviceStats Dx12Device::stats() const {
     DeviceStats s;
     m_buffers.forEach([&](RhiBuffer, const Dx12Buffer& b) { s.liveBuffers += b.internal ? 0 : 1; });
     m_textures.forEach([&](RhiTexture, const Dx12Texture& t) { s.liveTextures += t.external ? 0 : 1; });
+    s.livePipelines = m_shaders.size() + m_samplers.size() + m_layouts.size() + m_groups.size() + m_pipelines.size();
+    s.descriptorsUsed = m_resAlloc.used();
     s.pendingDestructions = m_garbage.size();
     s.releasedObjects = m_released;
     s.debugWarnings = m_debugWarnings;
@@ -454,7 +468,7 @@ void Dx12Device::destroy(RhiBuffer buffer) {
     }
     if (auto b = m_buffers.take(buffer)) {
         // 아직 제출하지 않은 기록이 쓸 수 있다 → 다음 제출이 끝난 뒤 해제
-        m_garbage.push(Garbage(std::move(b->resource), kNoDescriptor, nullptr), nextFence());
+        m_garbage.push(Garbage(Com<ID3D12DeviceChild>(std::move(b->resource))), nextFence());
     }
 }
 
@@ -469,7 +483,9 @@ void Dx12Device::destroy(RhiTexture texture) {
         return;
     }
     auto taken = m_textures.take(texture);
-    m_garbage.push(Garbage(std::move(taken->resource), taken->rtv, &m_rtvFree), nextFence());
+    const u32 rtv = taken->rtv;
+    m_garbage.push(Garbage(Com<ID3D12DeviceChild>(std::move(taken->resource)), [this, rtv] { m_rtvFree.release(rtv); }),
+                   nextFence());
 }
 
 const TextureDesc* Dx12Device::textureDesc(RhiTexture texture) const {

@@ -1,4 +1,5 @@
 // D3D12 커맨드 리스트. 프레임 슬롯마다 할당자 하나 (06 4.1 FrameContext).
+#include <format>
 #include <vector>
 
 #include "foundation/log/Log.hpp"
@@ -51,6 +52,11 @@ public:
         if (HRESULT hr = m_list->Reset(m_allocators[slot].get(), nullptr); FAILED(hr)) {
             m_dev.reportFailure("CommandList::Reset", hr);
         }
+        // shader-visible 힙은 리스트마다 한 번 묶는다 (바인드 그룹의 표가 이 두 힙을 가리킨다)
+        ID3D12DescriptorHeap* heaps[] = {m_dev.resourceHeap(), m_dev.samplerHeap()};
+        m_list->SetDescriptorHeaps(2, heaps);
+        m_pipelineHandle = {};
+        m_rootSignature = nullptr;
         m_recording = true;
     }
 
@@ -175,7 +181,107 @@ public:
     }
     void endDebugLabel() override { m_list->EndEvent(); }
 
+    // ---- 7B: 그리기 ----
+    void setPipeline(RhiPipeline pipeline) override {
+        Dx12Pipeline* p = m_dev.pipeline(pipeline);
+        if (p == nullptr) {
+            error("setPipeline: 무효 파이프라인 핸들");
+            m_pipelineHandle = {};
+            return;
+        }
+        m_list->SetPipelineState(p->pso.get());
+        if (m_rootSignature != p->root.get()) {
+            m_list->SetGraphicsRootSignature(p->root.get());
+            m_rootSignature = p->root.get();
+        }
+        m_list->IASetPrimitiveTopology(p->topology);
+        m_pipelineHandle = pipeline;
+    }
+
+    void setBindGroup(u32 slot, RhiBindGroup group) override {
+        Dx12Pipeline* const pl = m_dev.pipeline(m_pipelineHandle); // 풀이 커져도 안전하게 핸들로 찾는다
+        Dx12BindGroup* g = m_dev.bindGroup(group);
+        if (pl == nullptr || g == nullptr || slot >= kMaxBindGroups) {
+            error("setBindGroup: 파이프라인이 없거나 무효 그룹·슬롯");
+            return;
+        }
+        if (!pl->slotUsed[slot] || pl->slotSignatures[slot] != g->layoutSignature) {
+            error(std::format("setBindGroup: 그룹 '{}' 의 레이아웃이 파이프라인 '{}' 의 슬롯 {} 과 다르다", g->name,
+                              pl->name, slot));
+            return;
+        }
+        if (pl->resParam[slot] >= 0) {
+            m_list->SetGraphicsRootDescriptorTable(static_cast<UINT>(pl->resParam[slot]),
+                                                   m_dev.resourceGpu(g->resStart));
+        }
+        if (pl->smpParam[slot] >= 0) {
+            m_list->SetGraphicsRootDescriptorTable(static_cast<UINT>(pl->smpParam[slot]),
+                                                   m_dev.samplerGpu(g->smpStart));
+        }
+    }
+
+    void pushConstants(std::span<const std::byte> data) override {
+        Dx12Pipeline* const pl = m_dev.pipeline(m_pipelineHandle); // 풀이 커져도 안전하게 핸들로 찾는다
+        if (pl == nullptr || pl->pushParam < 0 || data.size() % 4 != 0 || data.size() > pl->pushBytes) {
+            error(std::format("pushConstants: {} 바이트 (파이프라인 {} 바이트, 4 의 배수)", data.size(),
+                              pl != nullptr ? pl->pushBytes : 0));
+            return;
+        }
+        m_list->SetGraphicsRoot32BitConstants(static_cast<UINT>(pl->pushParam), static_cast<UINT>(data.size() / 4),
+                                              data.data(), 0);
+    }
+
+    void setVertexBuffer(u32 slot, RhiBuffer buffer, u64 offset) override {
+        Dx12Pipeline* const pl = m_dev.pipeline(m_pipelineHandle); // 풀이 커져도 안전하게 핸들로 찾는다
+        Dx12Buffer* b = m_dev.buffer(buffer);
+        if (pl == nullptr || b == nullptr || slot >= pl->vertexStrides.size() || offset >= b->desc.size) {
+            error("setVertexBuffer: 파이프라인이 없거나 무효 버퍼·슬롯·오프셋");
+            return;
+        }
+        D3D12_VERTEX_BUFFER_VIEW vbv{};
+        vbv.BufferLocation = b->resource->GetGPUVirtualAddress() + offset;
+        vbv.SizeInBytes = static_cast<UINT>(b->desc.size - offset);
+        vbv.StrideInBytes = pl->vertexStrides[slot];
+        m_list->IASetVertexBuffers(slot, 1, &vbv);
+    }
+
+    void setIndexBuffer(RhiBuffer buffer, u64 offset, IndexFormat format) override {
+        Dx12Buffer* b = m_dev.buffer(buffer);
+        if (b == nullptr || offset >= b->desc.size) {
+            error("setIndexBuffer: 무효 버퍼 또는 오프셋");
+            return;
+        }
+        D3D12_INDEX_BUFFER_VIEW ibv{};
+        ibv.BufferLocation = b->resource->GetGPUVirtualAddress() + offset;
+        ibv.SizeInBytes = static_cast<UINT>(b->desc.size - offset);
+        ibv.Format = format == IndexFormat::Uint16 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
+        m_list->IASetIndexBuffer(&ibv);
+    }
+
+    void draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
+        Dx12Pipeline* const pl = m_dev.pipeline(m_pipelineHandle); // 풀이 커져도 안전하게 핸들로 찾는다
+        if (pl == nullptr) {
+            error("draw: setPipeline 이 먼저");
+            return;
+        }
+        m_list->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+    }
+
+    void drawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance) override {
+        Dx12Pipeline* const pl = m_dev.pipeline(m_pipelineHandle); // 풀이 커져도 안전하게 핸들로 찾는다
+        if (pl == nullptr) {
+            error("drawIndexed: setPipeline 이 먼저");
+            return;
+        }
+        m_list->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+
 private:
+    void error(std::string_view what) {
+        log::error("render", "{}", what);
+        m_dev.countValidationError();
+    }
+
     void copyTexture(const BufferTextureCopy& c, bool toTexture) {
         Dx12Buffer* b = m_dev.buffer(c.buffer);
         Dx12Texture* t = m_dev.texture(c.texture);
@@ -226,6 +332,8 @@ private:
     std::vector<u64> m_allocFrame;
     Com<ID3D12GraphicsCommandList> m_list;
     bool m_recording = false;
+    RhiPipeline m_pipelineHandle;
+    ID3D12RootSignature* m_rootSignature = nullptr;
     bool m_inPass = false;
     bool m_passLabel = false;
 };

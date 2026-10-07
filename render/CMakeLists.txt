@@ -29,6 +29,7 @@ if(WIN32)
         dx12/Dx12Device.hpp
         dx12/Dx12Device.cpp
         dx12/Dx12CommandList.cpp
+        dx12/Dx12Pipeline.cpp
         dx12/Dx12SwapChain.cpp)
     target_compile_definitions(SandboxRender PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
                                                      _WIN32_WINNT=0x0A00 WINVER=0x0A00)
