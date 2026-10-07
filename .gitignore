@@ -14,6 +14,9 @@ compile_commands.json
 
 # 도구 캐시
 .cache/
+
+# 커밋 전달용 git bundle (AGENTS.md 5장 — 가져온 뒤 지운다)
+*.bundle
 __pycache__/
 *.pyc
 

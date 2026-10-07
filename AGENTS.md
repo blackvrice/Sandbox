@@ -27,6 +27,7 @@ Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선�
 8. Runtime Verification  실행 파일을 실제로 돌려 본다 (Server 는 --ticks N --exit 로 헤드리스 확인)
 9. Benchmark          성능에 영향이 있는 변경이면 sbx_bench 결과를 남긴다
 10. Documentation Update  같은 커밋에서
+11. Commit & Push      5장. 파일을 고친 작업은 커밋하고 push 해야 끝난다
 ```
 
 ## 3. 빌드 툴체인
@@ -47,9 +48,27 @@ Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선�
 - Simulation 은 입력 장치·벽시계·스레드 완료 순서를 보지 않는다.
 ```
 
-## 5. 커밋 규칙
+## 5. 커밋 · Push 규칙
 
-- 작업이 끝나면 `git status`로 범위를 확인하고, 관련 파일만 커밋한 뒤 현재 브랜치를 push 합니다.
+**파일을 수정한 작업은 Git 커밋과 push 까지 마쳐야 완료입니다.** 수정만 하고 끝내지 않습니다.
+
+```text
+1. 빌드 · 테스트 통과 (2장 6~8). 실패하면 이번 변경이 만든 문제를 고친 뒤에 커밋한다
+2. git status · git diff 로 범위 확인
+3. 이번 작업의 파일만 git add <경로> 로 올린다 (git add -A · git add . 금지)
+4. git commit — 작업 단위(로드맵 항목 · 버그 수정 · 문서 갱신)마다 하나. 다른 항목을 한 커밋에 섞지 않는다.
+   커밋마다 빌드 · 테스트가 통과해야 한다
+5. git push origin <현재 브랜치>
+6. 최종 응답에 커밋 해시 · 제목과 push 결과를 적는다
+```
+
+- 사용자가 만든 변경이나 이번 작업과 무관한 변경은 커밋에 넣지 않고, 남겨 둔 파일을 최종 응답에 적습니다.
+- push 가 거절되면(원격이 앞섬) `git pull --rebase` 후 다시 빌드 · 테스트하고 push 합니다. `--force` · `--force-with-lease` 로
+  밀어붙이지 않습니다. 충돌 · 인증 실패로 끝내지 못하면 멈추고 상황과 남은 명령을 보고합니다.
+- 히스토리를 고치는 명령(`git reset --hard`, `git rebase -i`, 이미 push 한 커밋의 amend)은 사용자가 요청할 때만 씁니다.
+- 저장소에서 git 을 직접 실행할 수 없는 환경(원격 세션이 `.git` 에 쓰지 못하는 경우 등)이면, 같은 규칙으로 만든 커밋을
+  `git bundle` 로 저장소 루트에 두고(`*.bundle` 은 .gitignore) 가져오기 · push 명령을 최종 응답에 적습니다:
+  `git fetch .\<이름>.bundle <브랜치>` → `git reset FETCH_HEAD` (작업 파일은 그대로, 브랜치 · 인덱스만 이동) → `git push`.
 - **리팩터링 커밋은 골든 WorldHash가 같아야 합니다.** 시뮬레이션 동작을 의도적으로 바꾼 커밋은
   `kSimVersion`을 올리고 골든 해시를 갱신하며, 커밋 메시지에 이유를 적습니다. ([13-TESTING](docs/13-TESTING.md))
 - 커밋 메시지: `<영역>: <요약>` (예: `ecs: add sparse set component pool`). 영역 = 최상위 디렉터리 또는 문서명.
