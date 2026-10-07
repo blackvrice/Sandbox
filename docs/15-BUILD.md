@@ -57,24 +57,26 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 
 ## 3. 옵션
 
-| 옵션                           | 기본        | 의미                                                                     | 상태              |
-|--------------------------------|-------------|--------------------------------------------------------------------------|-------------------|
-| `SBX_BUILD_SERVER`             | ON          | SandboxServer                                                            | 구현              |
-| `SBX_BUILD_TESTS`              | ON          | SandboxTests + CTest 등록                                                | 구현              |
-| `SBX_BUILD_TOOLS`              | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`)                              | 구현 (Phase 3)    |
-| `SBX_WARNINGS_AS_ERRORS`       | OFF (CI ON) | 경고 = 에러                                                              | 구현              |
-| `SBX_BOUNDARY_SELFTEST`        | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                             | 구현              |
-| `SBX_BUILD_CLIENT`             | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드 | 구현 (Phase 6)    |
-| `SBX_BUILD_BENCH`              | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                 | 구현              |
-| `SBX_ENABLE_VULKAN_ON_WINDOWS` | OFF         | Windows 에서 Vulkan 백엔드도 빌드                                        | `[계획]` Phase 13 |
-| `SBX_ENABLE_TRACY`             | OFF         | Tracy 계측                                                               | `[계획]`          |
-| `SBX_SHADER_HOT_RELOAD`        | ON(Debug)   | 런타임 DXC 호출 허용                                                     | `[계획]` Phase 7  |
+| 옵션                           | 기본        | 의미                                                                               | 상태                  |
+|--------------------------------|-------------|------------------------------------------------------------------------------------|-----------------------|
+| `SBX_BUILD_SERVER`             | ON          | SandboxServer                                                                      | 구현                  |
+| `SBX_BUILD_TESTS`              | ON          | SandboxTests + CTest 등록                                                          | 구현                  |
+| `SBX_BUILD_TOOLS`              | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`)                                        | 구현 (Phase 3)        |
+| `SBX_WARNINGS_AS_ERRORS`       | OFF (CI ON) | 경고 = 에러                                                                        | 구현                  |
+| `SBX_BOUNDARY_SELFTEST`        | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
+| `SBX_BUILD_CLIENT`             | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
+| `SBX_BUILD_BENCH`              | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
+| `SBX_ENABLE_VULKAN_ON_WINDOWS` | OFF         | Windows 에서 Vulkan 백엔드도 빌드                                                  | `[계획]` Phase 13     |
+| `SBX_ENABLE_TRACY`             | OFF         | Tracy 계측                                                                         | `[계획]`              |
+| `SBX_BUILD_SHADERS`            | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
+| `SBX_DXC`                      | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로 내려받는다                  | 구현 (Phase 7B)       |
+| `SBX_SHADER_HOT_RELOAD`        | ON(Debug)   | 런타임 DXC 호출 허용                                                               | `[계획]` Phase 8 이후 |
 
 옵션은 기능이 실제로 생기는 Phase 에 추가합니다. 쓰이지 않는 옵션을 미리 만들지 않습니다.
 
 ## 4. 타깃 구조
 
-현재 (Phase 7A):
+현재 (Phase 7B):
 
 ```text
 sbx_warnings              INTERFACE  경고 수준. MSVC: /W4 /permissive- /utf-8 /Zc:__cplusplus /Zc:preprocessor
@@ -89,6 +91,8 @@ SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_jso
                                      그 밖: platform/stub (createWindow = Unsupported, Phase 13·14 전)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid. 그 밖: render/stub (createRenderDevice = Unsupported)
+                                     SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
+                                     PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 SandboxServer             EXE        Core
 SandboxClient             EXE        Render Platform (SBX_BUILD_CLIENT=ON). WIN32: GUI 서브시스템 + /ENTRY:mainCRTStartup (MSVC),
@@ -125,21 +129,22 @@ if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos
 
 ## 5. 외부 의존성 (버전 고정)
 
-| 라이브러리                             | 용도                 | 대상                        | 방식                                                 |
-|----------------------------------------|----------------------|-----------------------------|------------------------------------------------------|
-| nlohmann/json                          | 콘텐츠·세이브        | Core (PUBLIC — 헤더 템플릿) | vendored — **v3.12.0** (`external/nlohmann_json/`)   |
-| doctest                                | 테스트               | Tests                       | vendored — **v2.5.0** (`external/doctest/`)          |
-| ENet                                   | Transport            | Network                     | vendored                                             |
-| zstd                                   | 청크·스냅샷 압축     | Core/Network                | FetchContent (해시 고정)                             |
-| Dear ImGui (docking)                   | Editor UI            | Editor/Render               | vendored, 백엔드 파일 미사용                         |
-| stb_image, stb_truetype, stb_rect_pack | 디코드·폰트·아틀라스 | Render                      | vendored                                             |
-| miniaudio                              | 오디오               | Platform                    | vendored                                             |
-| D3D12 Memory Allocator                 | D3D12 메모리         | Render/dx12                 | vendored                                             |
-| volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored                                             |
-| DXC, SPIRV-Cross                       | 셰이더 빌드 도구     | 빌드 타임                   | 릴리스 바이너리 다운로드(SHA256 고정) / FetchContent |
-| WinPixEventRuntime                     | PIX 마커             | Render/dx12                 | NuGet 패키지 버전 고정                               |
-| Tracy                                  | 프로파일러           | 옵션                        | FetchContent                                         |
-| EnTT                                   | 벤치 기준선만        | sbx_bench                   | FetchContent, `SBX_BUILD_BENCH`                      |
+| 라이브러리                             | 용도                 | 대상                        | 방식                                                                             |
+|----------------------------------------|----------------------|-----------------------------|----------------------------------------------------------------------------------|
+| nlohmann/json                          | 콘텐츠·세이브        | Core (PUBLIC — 헤더 템플릿) | vendored — **v3.12.0** (`external/nlohmann_json/`)                               |
+| doctest                                | 테스트               | Tests                       | vendored — **v2.5.0** (`external/doctest/`)                                      |
+| ENet                                   | Transport            | Network                     | vendored                                                                         |
+| zstd                                   | 청크·스냅샷 압축     | Core/Network                | FetchContent (해시 고정)                                                         |
+| Dear ImGui (docking)                   | Editor UI            | Editor/Render               | vendored, 백엔드 파일 미사용                                                     |
+| stb_image, stb_truetype, stb_rect_pack | 디코드·폰트·아틀라스 | Render                      | vendored                                                                         |
+| miniaudio                              | 오디오               | Platform                    | vendored                                                                         |
+| D3D12 Memory Allocator                 | D3D12 메모리         | Render/dx12                 | vendored                                                                         |
+| volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored                                                                         |
+| DXC                                    | 셰이더 컴파일러      | 빌드 타임                   | NuGet Microsoft.Direct3D.DXC **1.9.2609.5** (SHA256 고정, 구성 때 `.cache/dxc/`) |
+| SPIRV-Cross                            | MSL 변환 (Metal)     | 빌드 타임                   | `[계획]` Phase 14. 리플렉션은 자체 파서 (ADR-0019)                               |
+| WinPixEventRuntime                     | PIX 마커             | Render/dx12                 | NuGet 패키지 버전 고정                                                           |
+| Tracy                                  | 프로파일러           | 옵션                        | FetchContent                                                                     |
+| EnTT                                   | 벤치 기준선만        | sbx_bench                   | FetchContent, `SBX_BUILD_BENCH`                                                  |
 
 현재 vendored 목록과 버전: [external/README.md](../external/README.md).
 
@@ -244,6 +249,14 @@ SandboxClient                         싱글플레이 (LocalServerHost, Phase 10
 - Ubuntu 24.04 의 기본 clang++ 는 18 이다. linux-clang 프리셋에는 -D CMAKE_CXX_COMPILER=clang++-19 를 붙인다.
 - 열거형 → 문자열 함수를 toString 이라 부르지 않는다 (doctest 가 ADL 로 잡아 컴파일 오류). 12-CODING-STANDARDS 2장.
 - 셰이더 산출물을 저장소에 커밋하지 않는다.
+- (Phase 7B) Windows 의 첫 구성은 DXC 패키지(약 53 MB)를 내려받는다 — 인터넷이 필요하다. 이후에는 `<저장소>/.cache/dxc/`
+  를 프리셋끼리 공유한다. 오프라인이면 -D SBX_DXC=<dxc.exe> (Windows SDK 의 bin\<버전>\x64\dxc.exe 도 된다 — 단 같은 폴더에
+  dxil.dll 이 있어야 한다. 없으면 DXIL 이 서명되지 않아 생성기가 빌드를 멈춘다. 서명 없는 DXIL 은 실제 D3D12 가 거부한다).
+- (Phase 7B) SBX_BUILD_SHADERS=ON 이면 Python 3 이 필수다 (없으면 구성 오류). 셰이더 없이 빌드하려면 -D SBX_BUILD_SHADERS=OFF
+  — 그러면 sbx_render_tests 의 그리기 케이스와 SandboxClient 의 삼각형이 빠진다.
+- (Phase 7B) 클라우드에서 DXIL 그리기 시험: Ubuntu 24.04 의 wine 9.0(vkd3d 1.10)은 DXIL 을 컴파일하지 못한다
+  ("vkd3d result -4"). WineHQ 의 wine-devel(11.19 에서 확인)을 dpkg -x 로 풀고 tools/wine/run.sh 에 WINE=<풀어 둔 곳>/opt/wine-devel/bin/wine
+  을 준다. 새 Wine 은 접두사를 따로 둔다 (WINEPREFIX). 셰이더 컴파일(tools/wine/dxc.sh 로 Windows dxc.exe)은 wine 9 로도 된다.
 - (Phase 6) SandboxClient 는 Windows GUI 서브시스템이다. PowerShell 에서 그냥 실행하면 로그가 보이지 않는다 → --console.
   MSVC 는 /ENTRY:mainCRTStartup 으로 main 을 진입점으로 쓴다. Windows CRT 는 파이프로 넘긴 stderr 를 버퍼링해 강제 종료 때
   마지막 로그를 잃었다 → 기본 로그 싱크가 줄마다 flush 한다.

@@ -7,6 +7,54 @@
 
 ---
 
+## 2026-10-07 — Phase 7B: 셰이더 빌드 · 파이프라인 · BindGroup · Triangle · Texture
+
+**무엇을**
+
+- 셰이더 빌드 (ADR-0019): `cmake/SbxShaders.cmake` — DXC 를 NuGet `Microsoft.Direct3D.DXC` 1.9.2609.5 (SHA256 고정)로 처음 구성 때
+  `.cache/dxc/` 에 내려받는다 (Windows). `SBX_BUILD_SHADERS`(기본 Windows ON) · `SBX_DXC` · `sbx_add_shader()`. HLSL → DXIL + SPIR-V →
+  `tools/shader/sbx_shader_gen.py`(자체 SPIR-V 리플렉션, Python 표준 라이브러리만) → `<Pascal>Shader.{hpp,cpp}`(내장 바이트코드 ·
+  리플렉션 표 · cbuffer/push 구조체 + offsetof/sizeof static_assert) + `.reflect.json`. 생성기가 DXIL 서명(dxil.dll)을 검사한다.
+- 셰이더: `shaders/basic_color.hlsl`(정점 색 · Frame tint · push 변환), `basic_texture.hlsl`(Texture2D + Sampler, 그룹 2),
+  `common/Common.hlsli`. 바인딩 규칙 register(xN, spaceG) — G = 그룹, N = 그룹 안 고유 binding, push = b0 space7.
+- RHI: `ShaderTypes`(단계 · 바인딩 종류 · ShaderReflection · ShaderBytecode), Sampler · BindGroupLayout · BindGroup · GraphicsPipeline Desc,
+  `layoutFromReflection`, `RangeAllocator`, `PipelineValidation`(레이아웃 · 파이프라인 ↔ 리플렉션 · 바인드 그룹 검사 — 그래픽 API 전에),
+  ICommandList 의 setPipeline · setBindGroup · pushConstants · setVertexBuffer · setIndexBuffer · draw · drawIndexed, DeviceStats 의
+  livePipelines · descriptorsUsed.
+- D3D12 (`Dx12Pipeline.cpp`): shader-visible CBV/SRV/UAV 65,536 · Sampler 2,048 힙, 바인드 그룹 = 연속 구간(지연 반납), 루트 시그니처를
+  레이아웃 모양 + push 크기로 만들어 캐시([루트 상수] → 슬롯마다 리소스 표 + 샘플러 표), PSO(CCW 앞면 · 블렌드 4종 · 깊이 끔).
+  Garbage 를 일반화(객체 + 해제 콜백). `Com<T>` 변환 이동 생성자.
+- 테스트: `tests/render/test_rhi_draw.cpp` 8케이스 — triangle · coord_convention(래스터 사분면 == 업로드 사분면, 비트 단위) ·
+  culling_ccw · push/상수 버퍼 · drawIndexed · texture(nearest == 사분면, linear) · 검증 오류 5종 · 수명. 기준 이미지 4장 추가.
+  끝의 누수 검사에 파이프라인 객체 · 디스크립터. 실패해도 이미 만든 것을 해제하도록 ColorRig 를 정리.
+  SandboxTests `render`: `test_pipeline_validation.cpp`(RangeAllocator 참조 모델 · 검사 · 생성 셰이더). CTest `shader_gen_selftest`.
+- SandboxClient: 셰이더가 내장된 빌드는 Clear 위에 도는 삼각형(가로세로비 보정 · 뒷면 컬링 — 규약 확인용).
+- 시험 도구: `tools/wine/dxc.sh`(Windows dxc.exe 를 Wine 으로 — 교차 빌드), `run.sh` 에 `WINE` · Mono/Gecko 끔.
+- 문서: 06(상태 · 3.2 · 3.4 · 5.1 · 6장 · 8.6 · 14장), 13, 15(옵션 · 함정), 16(7.4~7.6 ✅), 17, MANUAL-QA Phase 7B, README, ADR-0019.
+
+**왜**
+
+- ADR-0007 의 "도구 버전 고정 · SPIR-V 리플렉션 · 오프라인 컴파일" 을 사용자 PC 와 클라우드 세션 양쪽에서 같은 바이트로 하려면
+  NuGet 이 맞았다 (GitHub 릴리스는 세션에서 막힘). 리플렉션에 필요한 정보는 SPIR-V 장식에 다 있어 SPIRV-Cross 빌드를 미뤘다.
+- 바인딩 오류를 D3D12 런타임 오류(또는 조용한 잘못된 바인딩)가 아니라 원인 문장으로 받으려고 검사를 백엔드 앞에 뒀다.
+
+**검증**
+
+- Linux (셰이더 OFF): clang-19 · gcc-13 Debug/RelWithDebInfo, clang ASan — 빌드 경고 0, CTest 전부 통과 (36~40개).
+- MinGW 교차 빌드 + `tools/wine/dxc.sh`(Wine 9 의 dxc.exe)로 셰이더까지 빌드 → **Wine 11.19 (WineHQ devel, dpkg -x)** d3d12(vkd3d) +
+  lavapipe: `sbx_render_tests --fl11` 16케이스 · 222 단언 통과, 끝 "버퍼 0 · 텍스처 0 · 파이프라인 객체 0 · 디스크립터 0 · 경고 0 ·
+  오류 6 (예상 6)". 7A 기준 이미지 3장은 바이트 단위로 그대로, 새 4장은 확대해 눈으로 검토. SandboxTests render 16케이스 통과.
+  SandboxClient 실제 창: 삼각형이 돌고 가로세로비가 맞다 (스크린숏 2장).
+- Ubuntu 의 Wine 9.0(vkd3d 1.10)은 PSO 생성에서 "Failed to compile shader, vkd3d result -4" — DXIL 미지원이라 시험 환경을 올렸다.
+- GCC 13 -Warray-bounds 오진(RangeAllocator::allocate 의 vector::erase) → 반복자 루프로 바꿔 없앴다.
+
+**남은 일**
+
+- 사용자 PC: 첫 구성의 DXC 내려받기 · `ctest -L render`(WARP + Debug Layer 에서 기준 이미지 4장 재확인) · MANUAL-QA Phase 7B.
+- `[계획]` Compute 파이프라인 · dispatch, 깊이 버퍼, PSO 캐시 (Phase 8). D3D12MA (Phase 8).
+
+---
+
 ## 2026-10-06 — Phase 7A 후속: 사용자 PC 의 Debug Layer 성능 경고
 
 **무엇을**

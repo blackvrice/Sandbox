@@ -1,6 +1,6 @@
 # 16. 로드맵
 
-> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-06 (Phase 7A 반영).
+> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-07 (Phase 7B 반영).
 
 ---
 
@@ -24,7 +24,7 @@ Phase 3   헤드리스 시뮬레이션 · 결정론 하네스           ← 완�
 Phase 4   World (Chunk · Terrain · Spatial · Save/Load)  ← 완료
 Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성 (완료 2026-10-06)
 Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
-Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 7A 구현 2026-10-06 (Clear · 프레임 자원), 7B 셰이더·파이프라인
+Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
 Phase 8   Renderer · Asset · ImGui                  ← 화면에 보인다
 Phase 9   Network Foundation · Dedicated Server
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
@@ -231,15 +231,15 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 티켓이 7개라 둘로 나눈다 (2026-10-06, ADR-0018): **7A** RHI 골격 · 디바이스 · Clear · 프레임 자원 · 기준 이미지 틀 →
 **7B** 셰이더 빌드 · 파이프라인 · Triangle · Texture.
 
-| #   | 티켓                                                                                        | 단계 | 상태                                                    |
-|-----|---------------------------------------------------------------------------------------------|------|---------------------------------------------------------|
-| 7.1 | RHI 인터페이스·Desc·Caps·Handle (7A 범위: Buffer·Texture·RenderPass·Barrier·Copy·SwapChain) | 7A   | ✅ 2026-10-06 (Shader·Pipeline·BindGroup·Sampler 는 7B) |
-| 7.2 | Device/Adapter/Queue/Fence/SwapChain (Clear)                                                | 7A   | ✅ (Wine 시험 통과, 사용자 PC 대기)                     |
-| 7.3 | FrameContext, 업로드 링, 파괴 대기열                                                        | 7A   | ✅                                                      |
-| 7.7 | sbx_render_tests + WARP CTest (clear · upload · region copy · 수명)                         | 7A   | ✅ (triangle · texture 기준 이미지는 7B)                |
-| 7.4 | 셰이더 빌드(sbx_add_shader, DXC, 리플렉션 JSON, 헤더 생성)                                  | 7B   | [계획]                                                  |
-| 7.5 | Pipeline/RootSignature/BindGroup (Triangle)                                                 | 7B   | [계획]                                                  |
-| 7.6 | Texture + 업로드 (Texture — 샘플링)                                                         | 7B   | [계획]                                                  |
+| #   | 티켓                                                                                        | 단계 | 상태                                                            |
+|-----|---------------------------------------------------------------------------------------------|------|-----------------------------------------------------------------|
+| 7.1 | RHI 인터페이스·Desc·Caps·Handle (7A 범위: Buffer·Texture·RenderPass·Barrier·Copy·SwapChain) | 7A   | ✅ 2026-10-06 (Shader·Pipeline·BindGroup·Sampler 는 7B)         |
+| 7.2 | Device/Adapter/Queue/Fence/SwapChain (Clear)                                                | 7A   | ✅ (Wine 시험 통과, 사용자 PC 대기)                             |
+| 7.3 | FrameContext, 업로드 링, 파괴 대기열                                                        | 7A   | ✅                                                              |
+| 7.7 | sbx_render_tests + WARP CTest (clear · upload · region copy · 수명)                         | 7A   | ✅ (triangle · texture 기준 이미지는 7B)                        |
+| 7.4 | 셰이더 빌드(sbx_add_shader, DXC, 리플렉션 JSON, 헤더 생성)                                  | 7B   | ✅ 2026-10-07 (DXC NuGet 고정 · 자체 SPIR-V 리플렉션, ADR-0019) |
+| 7.5 | Pipeline/RootSignature/BindGroup (Triangle)                                                 | 7B   | ✅ (triangle · coord_convention · culling_ccw)                  |
+| 7.6 | Texture + 업로드 (Texture — 샘플링)                                                         | 7B   | ✅ (nearest == 사분면, texture_linear)                          |
 
 ```text
 완료  clear/triangle/texture 기준 이미지 통과, Debug Layer·GBV 경고 0
@@ -249,6 +249,15 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   Wine     MinGW 교차 빌드 → Wine 9 d3d12(vkd3d) → lavapipe: sbx_render_tests 8케이스 통과 (누수 0, 경고 0),
            SandboxClient 실제 창: 스왑체인 생성 · Clear · 크기 변경 · Ctrl+Q. vkd3d 는 FL 11_1 까지라 --fl11 · --rhi-fl11
   남음     사용자 PC: MSVC 빌드, ctest -L render (WARP + Debug Layer), SandboxClient 수동 QA (DPI·최소화·VSync·--rhi-debug)
+           → 2026-10-06 사용자 PC 에서 render_tests_warp 8/8 (Debug Layer 성능 안내 ID 820·821 제외 후)
+
+7B 검증 (2026-10-07)
+  Linux    clang · gcc Debug/RelWithDebInfo · ASan: RangeAllocator 참조 모델 · 파이프라인 검사 · 생성기 self-test (셰이더는 OFF)
+  Wine     MinGW + tools/wine/dxc.sh(Windows dxc.exe) 로 셰이더까지 교차 빌드 → Wine 11.19(WineHQ devel) d3d12(vkd3d) →
+           lavapipe: sbx_render_tests 16케이스 · 222 단언 통과 (누수 0 · 디스크립터 0 · 예상 오류 6), SandboxTests render 16케이스,
+           SandboxClient 실제 창에 도는 삼각형. Ubuntu 의 Wine 9 (vkd3d 1.10)은 DXIL 을 못 받는다
+  남음     사용자 PC: 첫 구성의 DXC 내려받기, ctest -L render (WARP + Debug Layer — 기준 이미지 4장 재확인),
+           MANUAL-QA Phase 7B (삼각형 · --rhi-debug 경고 0 · 리사이즈 · 최소화)
 ```
 
 ### Phase 8 — Renderer
@@ -260,7 +269,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 8.4 ImGuiRenderer(RHI) + InputState→ImGuiIO, 기본 패널(Simulation, Stats)
 8.5 SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)
 8.6 Graphics 오버레이 지표, 타임스탬프 쿼리
-완료  10k 스프라이트 60 FPS, Draw ≤ 16, sprite/batch_1k/coord_convention/imgui_basic 기준 이미지
+완료  10k 스프라이트 60 FPS, Draw ≤ 16, sprite/batch_1k/imgui_basic 기준 이미지 (coord_convention 은 7B 에서)
 ```
 
 ### Phase 9 — Network Foundation

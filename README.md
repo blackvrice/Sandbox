@@ -7,15 +7,16 @@ C++23 기반의 자체 **Sandbox Simulation Engine / Maker**입니다.
 Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **특정 장르 규칙에 묶이지 않고**
 만들 수 있는 것이 목표입니다.
 
-> **현재 상태: Phase 7A 구현 (D3D12 RHI 골격 — 디바이스 · 스왑체인 · Clear · 프레임 자원 · 기준 이미지 테스트). Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
+> **현재 상태: Phase 7 구현 (D3D12 RHI — 7A 디바이스 · 스왑체인 · Clear · 프레임 자원, 7B 셰이더 빌드 · 파이프라인 · 삼각형 · 텍스처). Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
 > 30 TPS 틱 파이프라인·명령(SimCommand)·공간 색인·난수·WorldHash, 청크 월드·지형 칠하기·세이브/로드(마이그레이션·Opaque),
 > 콘텐츠 팩 로더·검증기(Prefab·Tag·Rule·BehaviorGraph)·생명 주기(에너지·성장·번식·사망)·`content/ecosystem` 팩,
 > 감지·FSM 행동·Rule 상호작용·A* 경로 Job·조향 이동·충돌, 리플레이 기록·재생, 세 종이 공존하는 생태계 시나리오,
 > 결정론 하네스(`sbx_sim_check` — 재현·세이브 왕복·리플레이·골든·Worker 수·콘텐츠 검증·공존), 헤드리스 서버(`--scenario`),
 > Platform 계층(Win32 창 — DPI v2·Raw Input·IME·클립보드, 물리 키 InputSystem·ActionMap, Null 오디오, HeadlessWindow),
-> RHI + D3D12 백엔드(디바이스·큐/펜스·스왑체인·Clear·업로드 링·지연 해제·Debug Layer), `sbx_render_tests` 기준 이미지,
-> SandboxClient 창(앱 상태기계, 화면 Clear, 제목 줄 입력 모니터), 테스트·벤치·경계 검사가 있습니다.
-> 셰이더·파이프라인(7B)·Renderer(8)·네트워크·에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> RHI + D3D12 백엔드(디바이스·큐/펜스·스왑체인·Clear·업로드 링·지연 해제·Debug Layer·셰이더·바인드 그룹·루트 시그니처·PSO·draw),
+> HLSL 셰이더 빌드(DXC 고정 버전 · SPIR-V 리플렉션 · cbuffer 헤더 생성), `sbx_render_tests` 기준 이미지,
+> SandboxClient 창(앱 상태기계, 화면 Clear + 도는 삼각형, 제목 줄 입력 모니터), 테스트·벤치·경계 검사가 있습니다.
+> Renderer·Asset·ImGui(8)·네트워크·에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 
@@ -68,9 +69,12 @@ build\windows-msvc\bin\Debug\sbx_sim_check.exe --repeat 2               # 결정
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --scenario world_save_load --save-at 250   # 세이브 왕복(D2) 확인
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\random_walk_1k.json    # 이 툴체인 골든 기록
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\world_save_load.json
-build\windows-msvc\bin\Debug\SandboxClient.exe --console                 # D3D12 창 (7A: Clear). 제목 줄이 입력 모니터, Ctrl+Q 종료
+build\windows-msvc\bin\Debug\SandboxClient.exe --console                 # D3D12 창 (Clear + 도는 삼각형). 제목 줄이 입력 모니터, Ctrl+Q 종료
 ctest --preset windows-msvc-debug -L render                                  # WARP 기준 이미지 테스트
 ```
+
+Windows 첫 구성은 셰이더 컴파일러 DXC(NuGet, 약 53 MB)를 `.cache\dxc\` 로 한 번 내려받고, 셰이더 코드 생성에 Python 3 을
+씁니다. 셰이더 없이 빌드하려면 `-D SBX_BUILD_SHADERS=OFF` ([15-BUILD](docs/15-BUILD.md) 9장).
 
 Linux (Clang 19+ 또는 GCC 13+):
 

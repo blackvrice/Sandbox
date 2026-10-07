@@ -52,6 +52,29 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure             # W
 [ ] ctest -L render 통과 (render_tests_warp). 실패하면 cmake-build-debug\tests\render\out_warp 의 actual·diff PNG
 ```
 
+## Phase 7B — 셰이더 · 파이프라인 (삼각형 · 텍스처)
+
+```powershell
+# 첫 구성(CLion 의 CMake 다시 불러오기)에서 "DXC 1.9.2609.5 내려받는 중" 이 한 번 보인다 (약 53 MB, .cache\dxc\)
+.\cmake-build-debug\bin\SandboxClient.exe --console
+.\cmake-build-debug\bin\SandboxClient.exe --console --rhi-debug
+# ctest 가 PATH 에 없으면 CLion 동봉판: & "$env:LOCALAPPDATA\Programs\CLion\bin\cmake\win\x64\bin\ctest.exe" ...
+ctest --test-dir cmake-build-debug -L render --output-on-failure
+ctest --test-dir cmake-build-debug -R "unit_render|shader_gen_selftest" --output-on-failure
+```
+
+```text
+[ ] 구성 로그에 "셰이더: dxc = …\.cache\dxc\1.9.2609.5\build\native\bin\x64\dxc.exe". 두 번째 구성부터는 내려받지 않는다
+[ ] 창 가운데에 빨강(위)·초록(왼쪽 아래)·파랑(오른쪽 아래) 꼭짓점의 삼각형이 천천히 반시계로 돈다 (약 12초에 한 바퀴).
+    로그 "렌더러 Clear + 삼각형 (Phase 7B)"
+[ ] 창을 가로로·세로로 길게 늘려도 삼각형이 찌그러지지 않는다 (가로세로비 보정). 최소화 → 복원 후 계속 돈다
+[ ] 삼각형이 안 보이면 뒷면 컬링 = 감기 방향 규약이 틀린 것이다 (FrontFace) — 로그와 함께 알려 주십시오
+[ ] --rhi-debug 로 1분: 끝 로그 "Debug Layer 경고 0 · 오류 0"
+[ ] ctest -L render 통과: 16케이스, 끝 줄 "파이프라인 객체 0 · 디스크립터 0 · … 오류 6 (예상된 사용 오류 6)" + "render tests OK".
+    기준 이미지 4장(triangle · coord_convention · culling_ccw · texture_linear)은 Wine 에서 만들었다 — WARP 에서 실패하면
+    cmake-build-debug\tests\render\out_warp 의 *.actual.png · *.diff.png 를 보내 주십시오
+```
+
 ## Phase 8 — 렌더러
 
 ```text
