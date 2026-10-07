@@ -23,6 +23,12 @@ add_library(SandboxRender STATIC
     renderer/Camera2D.hpp
     renderer/Camera2D.cpp
     renderer/RenderWorld.hpp
+    renderer/DebugDraw.hpp
+    renderer/DebugDraw.cpp
+    renderer/TerrainPass.hpp
+    renderer/TerrainPass.cpp
+    renderer/OverlayPasses.hpp
+    renderer/OverlayPasses.cpp
     renderer/SpriteBatcher.hpp
     renderer/SpriteBatcher.cpp
     renderer/Renderer.hpp
@@ -60,6 +66,9 @@ target_link_libraries(SandboxRender
 sbx_add_shader(TARGET SandboxRender NAME basic_color SOURCE shaders/basic_color.hlsl STAGES vs:VSMain ps:PSMain)
 sbx_add_shader(TARGET SandboxRender NAME basic_texture SOURCE shaders/basic_texture.hlsl STAGES vs:VSMain ps:PSMain)
 sbx_add_shader(TARGET SandboxRender NAME sprite SOURCE shaders/sprite.hlsl STAGES vs:VSMain ps:PSMain)
+sbx_add_shader(TARGET SandboxRender NAME terrain SOURCE shaders/terrain.hlsl STAGES vs:VSMain ps:PSMain)
+sbx_add_shader(TARGET SandboxRender NAME grid SOURCE shaders/grid.hlsl STAGES vs:VSMain ps:PSMain)
+sbx_add_shader(TARGET SandboxRender NAME lines SOURCE shaders/lines.hlsl STAGES vs:VSMain ps:PSMain)
 if(SBX_BUILD_SHADERS)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_SHADERS=1)
 endif()

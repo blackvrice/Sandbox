@@ -1,5 +1,6 @@
 #include "render/renderer/Renderer.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <format>
 
@@ -11,7 +12,8 @@
 
 namespace sbx::render {
 
-Renderer::Renderer(rhi::IRenderDevice& device, AssetManager& assets) : m_dev(device), m_assets(assets) {}
+Renderer::Renderer(rhi::IRenderDevice& device, AssetManager& assets)
+    : m_dev(device), m_assets(assets), m_terrain(device), m_grid(device), m_lines(device) {}
 
 Renderer::~Renderer() {
     m_dev.destroy(m_pipeline);
@@ -80,6 +82,16 @@ Expected<void> Renderer::init(rhi::Format targetFormat) {
     if (!m_pipeline.valid() || !m_group.valid()) {
         return makeError(ErrorCode::Unsupported, "스프라이트 파이프라인을 만들 수 없습니다 (위 [render] 오류)");
     }
+    // 8B 패스
+    if (auto r = m_terrain.init(targetFormat); !r) {
+        return r;
+    }
+    if (auto r = m_grid.init(targetFormat); !r) {
+        return r;
+    }
+    if (auto r = m_lines.init(targetFormat); !r) {
+        return r;
+    }
     return {};
 #else
     (void)targetFormat;
@@ -87,9 +99,34 @@ Expected<void> Renderer::init(rhi::Format targetFormat) {
 #endif
 }
 
+void Renderer::collectGpuTimes() {
+    const rhi::TimestampReadback& ts = m_dev.completedTimestamps();
+    if (!ts.valid() || ts.count != kMarkCount || ts.frameNumber == m_gpu.frameNumber ||
+        std::ranges::find(m_markedFrames, ts.frameNumber) == m_markedFrames.end()) {
+        return; // 새 값이 없거나 이 Renderer 가 쓴 프레임이 아니다
+    }
+    m_gpu.valid = true;
+    m_gpu.frameNumber = ts.frameNumber;
+    m_gpu.uploadMs = ts.millis(kMarkFrameStart, kMarkUploads);
+    m_gpu.terrainMs = ts.millis(kMarkUploads, kMarkTerrain);
+    m_gpu.spriteMs = ts.millis(kMarkTerrain, kMarkSprites);
+    m_gpu.gridMs = ts.millis(kMarkSprites, kMarkGrid);
+    m_gpu.selectionMs = ts.millis(kMarkGrid, kMarkSelection);
+    m_gpu.debugMs = ts.millis(kMarkSelection, kMarkDebug);
+    m_gpu.totalMs = ts.millis(kMarkFrameStart, kMarkDebug);
+}
+
 void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const RenderWorld& world) {
     m_stats = {};
+    collectGpuTimes();
+    m_stats.gpu = m_gpu;
+    m_markedFrames[m_dev.frameNumber() % m_markedFrames.size()] = m_dev.frameNumber();
+    m_lines.resetStats();
+    m_grid.resetStats();
+
+    cl.writeTimestamp(kMarkFrameStart);
     m_assets.update(cl);
+    m_terrain.update(cl, world.terrain);
 
     m_camera = world.camera;
     if (const rhi::TextureDesc* td = m_dev.textureDesc(target)) {
@@ -114,12 +151,20 @@ void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const Rende
             }
         }
     }
+    cl.writeTimestamp(kMarkUploads);
 
     rhi::RenderPassDesc pass;
     pass.colorCount = 1;
     pass.colors[0] = {target, rhi::LoadOp::Clear, rhi::StoreOp::Store, world.clear};
-    pass.debugLabel = "WorldSpritePass";
+    pass.debugLabel = "World";
     cl.beginRenderPass(pass);
+
+    cl.beginDebugLabel("TerrainPass");
+    m_terrain.draw(cl, world.terrain, m_camera);
+    cl.endDebugLabel();
+    cl.writeTimestamp(kMarkTerrain);
+
+    cl.beginDebugLabel("WorldSpritePass");
     if (inst.valid()) {
         cl.setPipeline(m_pipeline);
         cl.setBindGroup(m_atlasSlot, m_group);
@@ -131,7 +176,36 @@ void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const Rende
             ++m_stats.draws;
         }
     }
+    cl.endDebugLabel();
+    cl.writeTimestamp(kMarkSprites);
+
+    cl.beginDebugLabel("GridPass");
+    if (world.overlay.grid && !world.terrain.empty()) {
+        m_grid.draw(cl, m_camera, world.terrain.worldMin(), world.terrain.worldSize(),
+                    static_cast<f32>(world.terrain.chunkSize));
+    }
+    cl.endDebugLabel();
+    cl.writeTimestamp(kMarkGrid);
+
+    cl.beginDebugLabel("SelectionPass");
+    m_lines.draw(cl, m_camera, world.selection.lines());
+    m_stats.selection = m_lines.stats();
+    cl.endDebugLabel();
+    cl.writeTimestamp(kMarkSelection);
+
+    m_lines.resetStats();
+    cl.beginDebugLabel("DebugPass");
+    m_lines.draw(cl, m_camera, world.debug.lines());
+    m_stats.debug = m_lines.stats();
+    cl.endDebugLabel();
+    cl.writeTimestamp(kMarkDebug);
     cl.endRenderPass();
+    cl.resolveTimestamps(kMarkCount);
+
+    m_stats.terrain = m_terrain.stats();
+    m_stats.grid = m_grid.drawn();
+    m_stats.draws +=
+        (m_stats.terrain.drawn ? 1u : 0u) + (m_stats.grid ? 1u : 0u) + m_stats.selection.draws + m_stats.debug.draws;
 }
 
 } // namespace sbx::render
