@@ -4,7 +4,12 @@
     "eco/rabbit": { "sprite": "ecosystem/rabbit.png" },
     "eco/wolf": { "sprite": "ecosystem/wolf.png" },
     "terrain/eco.grassland": { "color": [44, 62, 38] },
+    "terrain/eco.dirt": { "color": [86, 70, 50] },
+    "terrain/eco.water": { "color": [36, 66, 104] },
     "terrain/core.grass": { "color": [44, 62, 38] },
+    "terrain/core.rock": { "color": [84, 84, 90] },
+    "terrain/core.sand": { "color": [164, 146, 104] },
+    "terrain/core.water": { "color": [36, 66, 104] },
     "debug/entity": { "color": [230, 230, 240] }
   }
 }
