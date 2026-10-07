@@ -5,8 +5,12 @@
 > 지연 해제, D3D12 백엔드(5.1 중 committed 리소스·RTV·Debug Layer·DRED), 이미지 비교·`sbx_render_tests`(14장 중 Clear·업로드·복사·수명).
 > 7B: 셰이더 빌드(6장 — DXC 고정·자체 리플렉션·생성 헤더), Shader·Sampler·BindGroupLayout·BindGroup·GraphicsPipeline·draw(3.2·3.4),
 > D3D12 shader-visible 힙·루트 시그니처·PSO(5.1), 기준 이미지 Triangle·좌표 규약·컬링·Texture(14장).
-> `[계획]` Compute 파이프라인·dispatch, Renderer·Asset·ImGui(8), Vulkan(13), Metal(14).
-> 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md).
+> **Phase 8A 구현** — AssetManager(7.2~7.4 중 PNG 디코드 Worker · 업로드 예산 · Texture2DArray 아틀라스 선반 패킹 · 자리 표시),
+> MaterialLibrary(assets/<팩>/materials.json), Camera2D · RenderWorld · 정렬 키 · SpriteBatcher(8.1 · 8.2 · 8.5), Renderer(Clear +
+> WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient --direct-sim 관찰(9장).
+> `[계획]` Compute 파이프라인·dispatch, Terrain · Grid · Selection · Debug 패스 · 타임스탬프(8B), ImGui(8C), Vulkan(13), Metal(14).
+> 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
+> 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -470,6 +474,20 @@ Render   UploadQueue.pop (프레임 예산 8 MB) → createTexture → 업로드
 스프라이트는 2048² 페이지로 패킹(빌드 단계 도구 `sbx_atlas`, 초기에는 로드 시 패킹) → `Texture2DArray`.
 인스턴스에 (page, uvRect). 같은 배열·같은 파이프라인이면 한 번의 Draw.
 
+**Phase 8A 구현** (`render/asset/`, ADR-0020):
+
+```text
+AssetManager   requestSprite(경로) → SpriteId (바로 — 준비 전 흰색 자리). 경로 정규화 + FNV-1a64 로 한 번만 읽는다
+               Worker(JobSystem): 파일 읽기 + PNG 디코드 → 결과 칸. 없으면 그 자리에서 (테스트 — 순서 고정)
+               Render: update(cl) — 요청 순으로 선반 패킹(ShelfPacker) → 1 텍셀 테두리 → 업로드 링 → copyBufferToTexture
+               (그 영역만), 프레임 예산 8 MB (최소 하나), 그리기보다 먼저 기록되어 그 프레임부터 보인다
+               아틀라스 = Texture2DArray 하나, 고정 크기 (기본 1024² × 4 층, RGBA8Unorm). 다시 만들지 않는다
+               실패(파일 없음 · 디코드 · 가득) = 마젠타 + 경고. [계획] 해제 · refcount · 핫 리로드 · 밉 · sbx_atlas
+MaterialLibrary assets/<팩>/materials.json: {"materials": {"eco/rabbit": {"sprite": "ecosystem/rabbit.png",
+               "color": [r, g, b, a]}}} — 둘 다 선택. 없는 이름 = 흰 사각형 + 이름 해시 색 (경고 한 번)
+               loadAll(assets/) 은 */materials.json 을 이름 순으로. 렌더러가 없으면(헤드리스) 색만
+```
+
 ---
 
 ## 8. Renderer
@@ -494,11 +512,20 @@ struct RenderWorld {
 
 `RenderWorld`는 프레임마다 다시 채웁니다. 지속 상태(청크 메시, 텍스처)는 리소스 매니저에 있습니다.
 
+**Phase 8A 구현** (`render/renderer/`): `RenderWorld{camera, clear, sprites}`, `SpriteDraw{position, size, rotation, sprite(SpriteId),
+color(RGBA8), flags(뒤집기), layer, depth}`. GPU 인스턴스 `SpriteInstanceGpu`는 위 초안과 같은 48 바이트 배치(page · uvRect ·
+color · flags)이며 StructuredBuffer 가 아니라 **인스턴스 정점 버퍼**(업로드 링 구간)로 준다. `Camera2D{center, pixelsPerUnit,
+viewport}` — 월드 y 위, 화면 y 아래, `zoomAt`(커서 아래 점 고정) · `panByScreen` · `fit`. 지형 · 디버그 · 오버레이는 8B `[계획]`.
+
 ### 8.2 정렬 키 (64비트)
 
 ```text
 [ pass:4 | layer:8 | pipeline:12 | material(texture page 포함):20 | depth:20 ]
 ```
+
+8A 구현: material = 아틀라스(텍스처 배열) 번호 — 층(page)은 인스턴스에 있어 키를 나누지 않는다. depth 는 float 를 순서가
+지켜지는 u32 로 바꾼 상위 20 비트, 같은 키는 제출 순서 — 안정 LSD 기수 정렬 (`spriteSortKey`, `SpriteBatcher`).
+Extraction 은 depth = -y.
 
 ### 8.3 Pass
 
@@ -512,6 +539,10 @@ struct RenderWorld {
 | UIPass          | ImGui                                          |
 
 ### 8.4 프레임
+
+8A 구현 (`Renderer::record`): `AssetManager::update`(업로드 · 배리어, 패스 밖) → `SpriteBatcher::build`(컬링 → 정렬 → 묶음)
+→ 인스턴스를 업로드 링에 → 패스(Clear → WorldSpritePass: 파이프라인 · 아틀라스 바인드 그룹 · push constant(카메라) ·
+`draw(4, n, 0, first)` 묶음마다). 스왑체인 acquire · 배리어 · 제출 · Present 는 호출자(SandboxClient 의 ClientRenderer).
 
 ```text
 BeginFrame → AcquireSwapchainImage → (RenderWorld 수신) → ProcessUploadQueue → UploadDynamicData
@@ -527,6 +558,8 @@ P4 컬링 2단(청크 → 스프라이트), 후속 GPU 컬링   P5 지형 청크
 목표(설계값): 50k 가시 스프라이트에서 Draw ≤ 64, CPU 렌더 ≤ 4 ms, 인스턴스 업로드 ≈ 2.4 MB/frame
 ```
 
+8A 측정: `render.sprite_batch`(14-PERFORMANCE 7장), Wine + lavapipe(소프트웨어)에서 ecosystem_10k 12,877 스프라이트 · Draw 1.
+
 ### 8.6 첫 Renderer 순서 (Phase 7~8)
 
 ```text
@@ -534,8 +567,8 @@ Window → Clear → Triangle → Texture → Sprite → Camera → Batch → Im
 각 단계 = 커밋 1개 + 기준 이미지 테스트 1개.
 ```
 
-7A 까지 Clear, 7B 까지 Triangle · Texture (기준 이미지 triangle · texture_linear). SandboxClient 는 셰이더가 내장된 빌드에서
-지우기 위에 천천히 도는 정점 색 삼각형을 그린다 (가로세로비 보정 · 뒷면 컬링 — 엔진 규약이 맞으면 보인다).
+7A 까지 Clear, 7B 까지 Triangle · Texture (기준 이미지 triangle · texture_linear), 8A 까지 Sprite · Camera · Batch (sprite ·
+batch_1k). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형, `--direct-sim` 이면 Renderer 로 월드를 그린다.
 
 ---
 
@@ -549,6 +582,11 @@ Window → Clear → Triangle → Texture → Sprite → Camera → Batch → Im
 ```
 
 Render 스레드 분리 시 RenderWorld를 이중 버퍼로 두고 포인터만 교환합니다. Dedicated Server에는 이 흐름 전체가 없습니다.
+
+**Phase 8A 구현 (임시 경로):** `SandboxClient --direct-sim <시나리오>` — 클라이언트가 SimulationWorld 를 직접 돌린다
+(ScenarioRunner, 30 TPS × 속도, 일시정지 · 한 틱은 클라이언트 쪽 진행만). `presentation/SpriteExtraction` 이 매 프레임
+transform + persistence 를 읽어 스프라이트 하나씩 (render.sprite Opaque 를 saveId 별 캐시, 직전 틱과 보간, 배경 = 월드 경계).
+Network · ClientWorld · InterpolationSystem 은 Phase 10, --direct-sim 은 그때 삭제 (16-ROADMAP).
 
 ---
 
@@ -625,6 +663,12 @@ I3. 폴백: 문제가 생기면 공식 imgui_impl_dx12 를 render/dx12 내부에
 - 리플렉션 헤더: static_assert 가 깨지면 빌드 실패 (테스트 대신 컴파일이 검사)
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
+
+Phase 8A 구현 (`tests/render/test_sprites.cpp`): sprite(아틀라스 텍스처 방향 · 좌우 뒤집기 · 45° 회전 · 색 곱 — 기준 이미지) ·
+camera(worldToScreen 이 예측한 픽셀 · 컬링) · order(레이어 > 제출 순서, 같은 레이어는 depth, 반투명 α 128) · batch_1k(1,000개 ·
+층 3개 · Draw 1 — 기준 이미지. 픽셀 경계 정렬 · 무회전 · 완만한 텍스처라 구현과 무관) · assets(Worker 디코드 · 예산 1 바이트로
+프레임마다 하나 · 없는 파일 마젠타 · 경로 정규화) · materials(JSON · 오류 · 대체 색). 순수 로직은 SandboxTests `render`
+(Camera2D · 정렬 키 · SpriteBatcher · ShelfPacker · AssetId), 클라이언트 흐름은 `client`(DirectSim · Extraction · 앱 InWorld).
 
 Phase 7B 구현 (`tests/render/test_rhi_draw.cpp`, 셰이더가 내장된 빌드만): triangle(정점 색) · coord_convention(NDC 사분면에
 그린 네 색 == 7A 의 upload_quadrants — 비트 단위) · culling_ccw(CCW 앞면 보임, CW 컬링, FrontFace::Clockwise 는 반대) ·

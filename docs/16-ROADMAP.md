@@ -1,6 +1,6 @@
 # 16. 로드맵
 
-> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-07 (Phase 7B 반영).
+> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-07 (Phase 8A 반영).
 
 ---
 
@@ -25,7 +25,7 @@ Phase 4   World (Chunk · Terrain · Spatial · Save/Load)  ← 완료
 Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐츠 완성 (완료 2026-10-06)
 Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
-Phase 8   Renderer · Asset · ImGui                  ← 화면에 보인다
+Phase 8   Renderer · Asset · ImGui                  ← 8A 구현 2026-10-07 (스프라이트 · --direct-sim), 8B 패스 · 8C ImGui
 Phase 9   Network Foundation · Dedicated Server
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
 Phase 11  Interest Management
@@ -262,6 +262,18 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 
 ### Phase 8 — Renderer
 
+티켓이 6개라 셋으로 나눈다 (2026-10-07, ADR-0020): **8A** 텍스처 에셋 · Camera2D · SpriteBatcher · Renderer · --direct-sim →
+**8B** TerrainPass · DebugDraw · Grid · Selection · 지표 · 타임스탬프 → **8C** ImGui.
+
+| #   | 티켓                                                            | 단계 | 상태                                                             |
+|-----|-----------------------------------------------------------------|------|------------------------------------------------------------------|
+| 8.1 | AssetManager (Texture · Material), Worker 디코드 → Upload Queue | 8A   | ✅ 2026-10-07 (스프라이트 아틀라스 · materials.json. Font 는 8C) |
+| 8.2 | Camera2D, SpriteBatcher(인스턴싱 · 정렬 키 · Texture2DArray)    | 8A   | ✅ (sprite · batch_1k 기준 이미지)                               |
+| 8.5 | SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)           | 8A   | ✅ (카메라 팬 · 줌 · 일시정지 · 속도, 보간)                      |
+| 8.3 | TerrainPass · DebugDraw · GridPass · SelectionPass              | 8B   | [계획]                                                           |
+| 8.6 | Graphics 오버레이 지표, 타임스탬프 쿼리                         | 8B   | [계획]                                                           |
+| 8.4 | ImGuiRenderer(RHI) + InputState→ImGuiIO, 기본 패널              | 8C   | [계획]                                                           |
+
 ```text
 8.1 AssetManager (Texture, Material, Font), Worker 디코드 → Upload Queue
 8.2 Camera2D, SpriteBatcher(인스턴싱, 정렬 키, Texture2DArray 아틀라스)
@@ -270,6 +282,13 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 8.5 SandboxClient --direct-sim 으로 Ecosystem 관찰 (임시)
 8.6 Graphics 오버레이 지표, 타임스탬프 쿼리
 완료  10k 스프라이트 60 FPS, Draw ≤ 16, sprite/batch_1k/imgui_basic 기준 이미지 (coord_convention 은 7B 에서)
+
+8A 검증 (2026-10-07)
+  Linux    clang · gcc Debug/RWD · ASan: 카메라 · 정렬 · 배치 · 패킹 · 추출 · DirectSim · 앱 InWorld 단위 테스트,
+           client_direct_sim_headless (28 틱), render.sprite_batch 벤치
+  Wine     11.19 + lavapipe: sbx_render_tests 22 케이스 (sprite · camera · order · batch_1k · assets · materials 추가),
+           SandboxClient --direct-sim: ecosystem_small 스크린숏, ecosystem_10k 12,877 스프라이트 · Draw 1 (소프트웨어 54 fps)
+  남음     사용자 PC: ctest -L render (sprite · batch_1k 를 WARP 로), MANUAL-QA Phase 8A (실제 GPU 의 10k 60 FPS 확인)
 ```
 
 ### Phase 9 — Network Foundation

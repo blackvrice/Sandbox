@@ -95,8 +95,9 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 SandboxServer             EXE        Core
-SandboxClient             EXE        Render Platform (SBX_BUILD_CLIENT=ON). WIN32: GUI 서브시스템 + /ENTRY:mainCRTStartup (MSVC),
-                                     SandboxClient.manifest (Per-Monitor DPI v2). Render·Network·Editor·Core 는 Phase 7~12
+SandboxClient             EXE        Render Platform Core (SBX_BUILD_CLIENT=ON — Core 는 8A --direct-sim). WIN32: GUI 서브시스템 +
+                                     /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
+                                     SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Network·Editor 는 Phase 9~12
 SandboxTests              EXE        Foundation Core Platform (+ ServerOptions.cpp · SimCheckOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
@@ -181,6 +182,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     [--log-level L] [--version]
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
+    (Phase 8A) [--direct-sim <시나리오>] [--seed N] [--content <dir>] [--assets <dir>]
+    --direct-sim: 클라이언트가 시뮬레이션을 직접 돌려 월드를 그린다 (임시, Phase 10 삭제). 끝날 때 "direct-sim <이름> tick N 개체 M".
+    월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데/왼쪽 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
     기준 이미지 tests/render/references/*.png. 실패하면 --out 에 <name>.actual.png · <name>.diff.png

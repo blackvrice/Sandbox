@@ -75,6 +75,27 @@ ctest --test-dir cmake-build-debug -R "unit_render|shader_gen_selftest" --output
     cmake-build-debug\tests\render\out_warp 의 *.actual.png · *.diff.png 를 보내 주십시오
 ```
 
+## Phase 8A — 스프라이트 · --direct-sim
+
+```powershell
+.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_survival
+.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_10k --vsync off
+.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+ctest --test-dir cmake-build-debug -L render --output-on-failure
+```
+
+```text
+[ ] 창에 어두운 녹색 월드 사각형과 풀(초록 덤불) · 토끼(갈색) · 늑대(회색)가 보이고 움직인다. 제목 줄
+    "InWorld (Play) | ecosystem_survival tick … · 개체 … · ×1 | 줌 … px/칸 | D3D12 … fps … · 스프라이트 … · Draw 1"
+[ ] 움직임이 끊기지 않는다 (30 TPS 를 렌더 프레임마다 보간) — 144 Hz 모니터에서도 매끄럽다
+[ ] WASD/화살표로 이동, 휠로 커서 아래를 기준으로 확대 · 축소, 가운데(또는 왼쪽) 버튼으로 끌면 잡은 곳이 커서를 따라온다,
+    Home 으로 월드 전체 맞춤. 창 크기를 바꿔도 찌그러지지 않는다
+[ ] Space 일시정지(제목 줄 "일시정지", 개체가 멈춘다) → . 로 한 틱씩 → Space 로 재개. = / - 로 ×¼ ~ ×8
+[ ] ecosystem_10k --vsync off: fps 를 적어 주십시오 (목표 10k 스프라이트 60 FPS 이상, Draw 1~2)
+[ ] --rhi-debug 로 1분: 끝 로그 "Debug Layer 경고 0 · 오류 0"
+[ ] ctest -L render 통과 (22 케이스 — sprite · batch_1k 기준 이미지는 Wine 에서 만들었다. 실패하면 out_warp 의 PNG)
+```
+
 ## Phase 8 — 렌더러
 
 ```text

@@ -7,6 +7,51 @@
 
 ---
 
+## 2026-10-07 — Phase 8A: 스프라이트 렌더러 · AssetManager · --direct-sim 관찰
+
+**무엇을**
+
+- Phase 8 을 셋으로 나눴다 (ADR-0020): 8A 에셋 · 스프라이트 · Renderer · --direct-sim → 8B 지형 · 디버그 패스 · 지표 → 8C ImGui.
+- `render/renderer`: Camera2D(월드 y 위, 줌 = px/칸, 커서 기준 줌 · 끌기 · 맞춤), RenderWorld · SpriteDraw, 정렬 키
+  [pass|layer|pipeline|material|depth], SpriteBatcher(컬링 → 안정 LSD 기수 정렬 → 아틀라스 · 상한별 묶음), Renderer
+  (AssetManager.update → 배치 → 인스턴스를 업로드 링에 → Clear + WorldSpritePass, 묶음마다 draw(4, n)).
+- `shaders/sprite.hlsl`: 정점 버퍼 없이 SV_VertexID 사각형 + 48 바이트 인스턴스 정점(위치 · 크기 · 회전 · 층 · uv · 색),
+  카메라 push constant, Texture2DArray 아틀라스.
+- `render/asset`: AssetManager(경로 정규화 id, JobSystem Worker 디코드, 요청 순 선반 패킹 + 1 텍셀 테두리, 프레임 예산 8 MB 의
+  영역 업로드, 흰색 자리 · 마젠타 실패), ShelfPacker, MaterialLibrary(`assets/<팩>/materials.json`, 대체 색).
+- `assets/ecosystem`: 풀 · 토끼 · 늑대 32² 자리 표시 그림(새로 그린 단순 도형)과 머티리얼 표.
+- SandboxClient: ClientRenderer(ClearRenderer 를 바꿈 — 월드면 Renderer, 메뉴면 Clear + 7B 삼각형, AssetManager 소유),
+  IWorldSession · DirectSim(`--direct-sim <시나리오>` — ScenarioRunner 30 TPS × ¼ ~ 8, 일시정지 · 한 틱, 따라잡기 4 틱),
+  presentation/SpriteExtraction(render.sprite Opaque → 머티리얼 · 크기 · 레이어, saveId 캐시, 틱 사이 보간, depth = -y,
+  월드 배경). Application: 세션이 있으면 InWorld 로, WASD · 휠 · 끌기 · Home · Space · . · = · -. 옵션 --seed · --content · --assets.
+  SandboxClient 가 SandboxCore 를 링크한다 (01 의 계획대로).
+- 테스트: sbx_render_tests 6 케이스(sprite · camera · order · batch_1k · assets · materials) + 기준 이미지 2장, SandboxTests
+  render(카메라 · 키 · 배치 · 기수 = 기준 stable_sort · 패커 · id) · client(DirectSim · Extraction · 앱 InWorld · 옵션),
+  CTest client_direct_sim_headless. 벤치 render.sprite_batch.
+- 문서: 06(상태 · 7 · 8 · 9 · 14장), 11(material 의미), 13, 14(7.6), 15, 16(Phase 8 표), 17, MANUAL-QA 8A, README, ADR-0020.
+
+**왜**
+
+- Phase 8 의 "화면에 보인다" 를 지형 · UI 보다 먼저 스프라이트로 — 시뮬레이션(Phase 5)을 처음으로 눈으로 본다.
+- 인스턴스 정점 버퍼 · 고정 아틀라스 · push constant 카메라는 프레임마다 바인드 그룹을 다시 쓰지 않는 가장 단순한 조합 (ADR-0020).
+
+**검증**
+
+- Linux: clang · gcc Debug/RelWithDebInfo, clang ASan — 경고 0, CTest 전부 통과 (37~41개). include 경계 0.
+- MinGW + Wine 11.19 + lavapipe: sbx_render_tests 22 케이스 · 313 단언 통과, 누수 0. 7A · 7B 기준 이미지 7장은 그대로.
+  sprite · batch_1k 는 확대해 검토. SandboxClient --direct-sim ecosystem_small 스크린숏(풀 · 토끼 · 늑대, 휠 줌 ×2.3 이 커서 기준),
+  ecosystem_10k 12,877 스프라이트 · Draw 1 · 54 fps (소프트웨어 렌더 — 하드웨어 수치 아님).
+- 벤치(RWD, 2코어 컨테이너): 50k 배치 4.85 ms(비교 정렬) → 2.19 ms(기수 정렬), 10k 0.44 ms. 14-PERFORMANCE 7.6.
+- 고친 것: batch_1k 는 처음에 회전한 3.6 px 스프라이트 + 날카로운 텍스처라 구현마다 다를 수 있어 픽셀 정렬 · 무회전 · 완만한
+  텍스처로 바꿨다. DirectSim 따라잡기에서 fmod 나머지가 다음 프레임에 틱을 하나 더 넣던 것을 밀린 시간 통째 버리기로.
+
+**남은 일**
+
+- 사용자 PC: ctest -L render (sprite · batch_1k 를 WARP 로), MANUAL-QA 8A (실제 GPU 에서 ecosystem_10k fps).
+- `[계획]` 8B TerrainPass(호수 · 지형) · Grid · Selection · DebugDraw · 타임스탬프, 8C ImGui, 아틀라스 해제 · 밉 · 핫 리로드.
+
+---
+
 ## 2026-10-07 — 규칙: 수정 작업은 커밋 · push 까지
 
 **무엇을**

@@ -52,18 +52,19 @@ Late Join: 관련 청크 64개 + 엔티티 5,000 baseline < 2초 (LAN)
 
 ## 2. 벤치마크 시나리오 (`sbx_bench`)
 
-| 이름              | 내용                                                                                                                                   | 지표                                           |
-|-------------------|----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
-| `ecs.iterate`     | 1k/10k/50k, 1/2/4 컴포넌트 view                                                                                                        | ns/entity                                      |
-| `ecs.churn`       | 틱당 1% 생성·파괴 + 컴포넌트 추가·제거                                                                                                 | ns/op, 메모리                                  |
-| `ecs.vs_entt`     | 같은 시나리오를 EnTT로 (기준선, 벤치 전용 의존성)                                                                                      | 비율                                           |
-| `sim.random_walk` | 1k/10k `random_walk_*` 시나리오, 예열 30틱 후 300틱 — **Phase 3 구현**                                                                 | tick 평균·최대                                 |
-| `sim.ecosystem`   | `ecosystem_10k`(192×192, 10,000 개체 시작) 예열 30틱 후 3,000틱, `--threads n` — **Phase 5C 구현** (`--quick` 은 ecosystem_small 60틱) | tick 평균·p95·p99·최대, System별, 종별 개체 수 |
-| `sim.spatial`     | 50k 재구성 + queryRadius(r=4) 10만 회 — **Phase 3 구현**                                                                               | ms, ns/query                                   |
-| `sim.path`        | 틱당 요청 16/64/256                                                                                                                    | Job 대기, 적용 지연                            |
-| `net.snapshot`    | 50k, 클라 1/4/16, 카메라 이동 패턴                                                                                                     | bytes/s/client, 직렬화 ms                      |
-| `render.sprites`  | 1k/10k/50k                                                                                                                             | CPU ms, GPU ms, Draw 수                        |
-| `save.world`      | 50k 저장/로드 — **Phase 4 구현** (컴포넌트 5~6개, 칠한 청크 약 260개)                                                                  | ms, 파일 크기                                  |
+| 이름                  | 내용                                                                                                                                   | 지표                                           |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| `ecs.iterate`         | 1k/10k/50k, 1/2/4 컴포넌트 view                                                                                                        | ns/entity                                      |
+| `ecs.churn`           | 틱당 1% 생성·파괴 + 컴포넌트 추가·제거                                                                                                 | ns/op, 메모리                                  |
+| `ecs.vs_entt`         | 같은 시나리오를 EnTT로 (기준선, 벤치 전용 의존성)                                                                                      | 비율                                           |
+| `sim.random_walk`     | 1k/10k `random_walk_*` 시나리오, 예열 30틱 후 300틱 — **Phase 3 구현**                                                                 | tick 평균·최대                                 |
+| `sim.ecosystem`       | `ecosystem_10k`(192×192, 10,000 개체 시작) 예열 30틱 후 3,000틱, `--threads n` — **Phase 5C 구현** (`--quick` 은 ecosystem_small 60틱) | tick 평균·p95·p99·최대, System별, 종별 개체 수 |
+| `sim.spatial`         | 50k 재구성 + queryRadius(r=4) 10만 회 — **Phase 3 구현**                                                                               | ms, ns/query                                   |
+| `sim.path`            | 틱당 요청 16/64/256                                                                                                                    | Job 대기, 적용 지연                            |
+| `net.snapshot`        | 50k, 클라 1/4/16, 카메라 이동 패턴                                                                                                     | bytes/s/client, 직렬화 ms                      |
+| `render.sprites`      | 1k/10k/50k                                                                                                                             | CPU ms, GPU ms, Draw 수                        |
+| `render.sprite_batch` | 10k/50k 스프라이트 SpriteBatcher(컬링 · 정렬 · 묶음) CPU — **Phase 8A 구현** (`--quick` 은 10k), GPU 없이 모든 OS                      | build ms, 묶음 수                              |
+| `save.world`          | 50k 저장/로드 — **Phase 4 구현** (컴포넌트 5~6개, 칠한 청크 약 260개)                                                                  | ms, 파일 크기                                  |
 
 ```text
 sbx_bench --scenario sim.ecosystem --entities 10000 --ticks 3000 --seed 1 --threads 8 --out result.json
@@ -268,3 +269,25 @@ System 별 평균 (Worker 1): Sensor 3.79 · Collision 1.42 · Behavior 0.75 · 
 - 최대 tick 30 ms 안팎은 측정 구간 앞쪽의 개체 폭증(번식) 틱이다 — 원인 분석은 Phase 15 프로파일러와 함께.
 ```
 
+
+### 7.6 Phase 8A — 스프라이트 배치 (2026-10-07)
+
+```text
+머신       클라우드 컨테이너 2코어 (Intel Xeon 2.8 GHz), Clang 19 RelWithDebInfo — 같은 머신의 상대 비교용
+명령       sbx_bench --only render
+시나리오   render.sprite_batch: ±100 단위에 무작위 스프라이트, 레이어 2종 · 스프라이트 3종, 카메라에 전부 보임 (컬링 0 — 최악)
+```
+
+| 스프라이트 | 비교 정렬 (첫 구현) | LSD 기수 정렬 (채택) | 묶음 | 기준 (06 8.5)                        |
+|------------|---------------------|----------------------|------|--------------------------------------|
+| 10,000     | 0.83 ms             | 0.44 ms              | 1    | —                                    |
+| 50,000     | 4.85 ms             | 2.19 ms              | 1    | CPU 렌더 전체 ≤ 4 ms → 배치만 ≈ 55 % |
+
+```text
+해석
+- 비교 정렬(키 + 제출 순서)이 50k 에서 렌더 CPU 예산 전체를 넘었다. 키가 64비트 정수이고 같은 키는 제출 순서를 지켜야
+  하므로 안정 LSD 기수 정렬(바이트 8단계, 모든 키가 같은 바이트는 건너뜀 — pass · pipeline 바이트)로 바꿨다.
+  무작위 3,000개에서 기준 stable_sort 와 순서가 같은지 단위 테스트가 본다.
+- 남은 비용은 인스턴스 채우기와 컬링이다. GPU 비용 · 실제 fps 는 사용자 PC 에서 (MANUAL-QA 8A). Wine + lavapipe
+  (소프트웨어)에서 ecosystem_10k: 12,877 스프라이트 · Draw 1 · 54 fps — 하드웨어 수치가 아니다.
+```

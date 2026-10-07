@@ -120,6 +120,8 @@ content/<pack>/
     "ai.sensor":       { "radius": 8, "mask": ["plant", "predator"] },
     "ai.behavior":     { "graph": "eco.herbivore" },
     "render.sprite":   { "material": "eco/rabbit", "size": [0.8, 0.8], "layer": 10 }
+    // material 은 표현 에셋 이름 — assets/<팩>/materials.json 이 스프라이트 · 색으로 푼다 (06 7.1 · 7.4, Phase 8A).
+    // 서버 · contentHash 와 무관 (render.* 는 Opaque). size 는 월드 단위, layer 0~255 (큰 값이 위)
   },
   "inherits": null                          // 후속: 단일 상속 (병합 규칙 미정)
 }
