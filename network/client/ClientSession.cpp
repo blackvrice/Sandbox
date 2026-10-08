@@ -187,6 +187,14 @@ u32 ClientSession::sendCommand(cmd::CommandPayload payload) {
     return seq;
 }
 
+void ClientSession::subscribe(const Subscribe& interest) {
+    if (m_state != ClientState::Connected || m_subscribed == interest) {
+        return;
+    }
+    m_subscribed = interest;
+    send(interest);
+}
+
 void ClientSession::setInspect(std::span<const NetEntityId> ids) {
     if (m_state != ClientState::Connected) {
         return;

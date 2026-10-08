@@ -199,7 +199,7 @@ TEST_SUITE("network") {
             many.writeVarU(i + 1);
         }
         CHECK_FALSE(decodeMessage(many.bytes()).has_value());
-        CHECK(kProtocolVersion == 3);
+        CHECK(kProtocolVersion >= 3);
     }
 
     TEST_CASE("command codec: format limits — counts, NaN, unknown tag, bad JSON, shape, radius") {

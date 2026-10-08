@@ -315,6 +315,11 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         m_acks.emplace_back(client.clientId, *ack);
         return;
     }
+    if (const auto* sub = std::get_if<Subscribe>(&msg)) {
+        const std::lock_guard lock(m_mutex);
+        m_subscribes.emplace_back(client.clientId, *sub);
+        return;
+    }
     if (auto* inspect = std::get_if<InspectRequest>(&msg)) {
         // 읽기 전용 — 모든 역할 (개수 상한은 decode 가 본다)
         const std::lock_guard lock(m_mutex);
@@ -421,12 +426,14 @@ void ServerHost::simStep(f64 now) {
     std::vector<RosterEvent> roster;
     std::vector<std::pair<u16, SnapshotAck>> acks;
     std::vector<std::pair<u16, InspectRequest>> inspects;
+    std::vector<std::pair<u16, Subscribe>> subscribes;
     {
         const std::lock_guard lock(m_mutex);
         commands.swap(m_inbox);
         roster.swap(m_roster);
         acks.swap(m_acks);
         inspects.swap(m_inspectRequests);
+        subscribes.swap(m_subscribes);
     }
     for (const RosterEvent& r : roster) {
         if (!r.joined) {
@@ -446,6 +453,17 @@ void ServerHost::simStep(f64 now) {
         }
         for (const auto& [id, a] : acks) {
             m_replication->onAck(id, a.epoch, a.snapshotId);
+        }
+        // 관심 (Phase 11): 구독 사각형, 선택한 개체는 관심과 무관하게 늘 (roster 다음 — 같은 배치에 들어온
+        // 클라이언트도)
+        for (const auto& [id, sub] : subscribes) {
+            m_replication->setInterest(id, sub);
+        }
+        for (const auto& [id, req] : inspects) {
+            (void)req;
+            const auto it = m_inspect.find(id);
+            m_replication->setAlwaysRelevant(id, it != m_inspect.end() ? std::span<const NetEntityId>(it->second)
+                                                                       : std::span<const NetEntityId>());
         }
     }
     auto& world = m_runner->world();

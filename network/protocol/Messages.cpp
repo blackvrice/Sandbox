@@ -88,6 +88,8 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::Inspect;
             } else if constexpr (std::is_same_v<T, InspectResult>) {
                 return MessageId::InspectResult;
+            } else if constexpr (std::is_same_v<T, Subscribe>) {
+                return MessageId::Subscribe;
             } else {
                 static_assert(std::is_same_v<T, TerrainChunk>);
                 return MessageId::TerrainChunk;
@@ -326,6 +328,15 @@ void encodeBody(BitWriter& w, const TerrainChunk& m) {
     }
 }
 
+void encodeBody(BitWriter& w, const Subscribe& m) {
+    w.writeBool(m.all);
+    if (!m.all) {
+        w.writeVarI(m.minChunkX);
+        w.writeVarI(m.minChunkY);
+        w.writeVarI(m.maxChunkX);
+        w.writeVarI(m.maxChunkY);
+    }
+}
 void encodeBody(BitWriter& w, const InspectRequest& m) {
     w.writeVarU(m.ids.size());
     for (const NetEntityId id : m.ids) {
@@ -529,6 +540,23 @@ TerrainChunk decodeTerrainChunk(BitReader& r) {
     }
     return m;
 }
+Subscribe decodeSubscribe(BitReader& r) {
+    Subscribe m;
+    m.all = r.readBool();
+    if (!m.all) {
+        m.minChunkX = readI32(r);
+        m.minChunkY = readI32(r);
+        m.maxChunkX = readI32(r);
+        m.maxChunkY = readI32(r);
+        // 뒤집힌 사각형 · 월드 최대 크기(축마다 64 청크)보다 큰 것은 형식 오류
+        const i64 w = i64{m.maxChunkX} - m.minChunkX;
+        const i64 h = i64{m.maxChunkY} - m.minChunkY;
+        if (w < 0 || h < 0 || w >= world::kMaxWorldChunks * 2 || h >= world::kMaxWorldChunks * 2) {
+            r.fail();
+        }
+    }
+    return m;
+}
 InspectRequest decodeInspect(BitReader& r) {
     InspectRequest m;
     const u64 n = r.readVarU(kMaxInspect);
@@ -628,6 +656,9 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::Inspect:
         out = decodeInspect(r);
+        break;
+    case MessageId::Subscribe:
+        out = decodeSubscribe(r);
         break;
     case MessageId::InspectResult:
         out = decodeInspectResult(r);

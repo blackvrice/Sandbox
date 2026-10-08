@@ -1,9 +1,12 @@
 #include "network/replication/ReplicationWriter.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <optional>
 
 #include "core/components/core/Identity.hpp"
+#include "core/components/core/Transform.hpp"
 #include "foundation/assert/Assert.hpp"
 
 namespace sbx::net {
@@ -58,6 +61,103 @@ void ReplicationWriter::onAck(u16 clientId, u32 epoch, u32 snapshotId) {
     }
 }
 
+void ReplicationWriter::setInterest(u16 clientId, const Subscribe& interest) {
+    const auto it = m_clients.find(clientId);
+    if (it == m_clients.end()) {
+        return;
+    }
+    Client& c = it->second;
+    if (c.interest == interest) {
+        return;
+    }
+    // 빠진 청크는 잠시 남긴다 (히스테리시스). 월드 전체에서 좁힐 때는 남기지 않는다 (전부라서)
+    if (!c.interest.all) {
+        const u64 until = c.builds + m_desc.interestLingerSnapshots;
+        for (i32 y = c.interest.minChunkY; y <= c.interest.maxChunkY; ++y) {
+            for (i32 x = c.interest.minChunkX; x <= c.interest.maxChunkX; ++x) {
+                const bool stillIn = !interest.all && x >= interest.minChunkX && x <= interest.maxChunkX &&
+                                     y >= interest.minChunkY && y <= interest.maxChunkY;
+                if (!stillIn) {
+                    c.linger[{x, y}] = until;
+                }
+            }
+        }
+    }
+    c.interest = interest;
+}
+
+void ReplicationWriter::setAlwaysRelevant(u16 clientId, std::span<const NetEntityId> ids) {
+    const auto it = m_clients.find(clientId);
+    if (it == m_clients.end()) {
+        return;
+    }
+    it->second.always.assign(ids.begin(), ids.end());
+    std::ranges::sort(it->second.always);
+}
+
+bool ReplicationWriter::View::contains(world::ChunkCoord c) const noexcept {
+    if (c.x < bounds.minChunk.x || c.y < bounds.minChunk.y || c.x > bounds.maxChunk.x || c.y > bounds.maxChunk.y) {
+        return false;
+    }
+    const i32 w = bounds.maxChunk.x - bounds.minChunk.x + 1;
+    return chunks[static_cast<usize>((c.y - bounds.minChunk.y) * w + (c.x - bounds.minChunk.x))] != 0;
+}
+
+void ReplicationWriter::computeView(Client& c, const sim::SimulationWorld& world) {
+    ++c.builds;
+    View& v = m_view;
+    v.bounds = world.grid().bounds();
+    const i32 w = v.bounds.maxChunk.x - v.bounds.minChunk.x + 1;
+    const i32 h = v.bounds.maxChunk.y - v.bounds.minChunk.y + 1;
+    v.chunks.assign(static_cast<usize>(w * h), c.interest.all ? u8{1} : u8{0});
+    auto mark = [&](i32 x, i32 y) {
+        if (x >= v.bounds.minChunk.x && y >= v.bounds.minChunk.y && x <= v.bounds.maxChunk.x &&
+            y <= v.bounds.maxChunk.y) {
+            v.chunks[static_cast<usize>((y - v.bounds.minChunk.y) * w + (x - v.bounds.minChunk.x))] = 1;
+        }
+    };
+    constexpr f32 kChunk = static_cast<f32>(world::kChunkSize);
+    if (c.interest.all) {
+        v.center = {static_cast<f32>(v.bounds.minChunk.x + v.bounds.maxChunk.x + 1) * kChunk * 0.5f,
+                    static_cast<f32>(v.bounds.minChunk.y + v.bounds.maxChunk.y + 1) * kChunk * 0.5f};
+    } else {
+        const i32 x0 = std::max(c.interest.minChunkX, v.bounds.minChunk.x);
+        const i32 x1 = std::min(c.interest.maxChunkX, v.bounds.maxChunk.x);
+        const i32 y0 = std::max(c.interest.minChunkY, v.bounds.minChunk.y);
+        const i32 y1 = std::min(c.interest.maxChunkY, v.bounds.maxChunk.y);
+        for (i32 y = y0; y <= y1; ++y) {
+            for (i32 x = x0; x <= x1; ++x) {
+                mark(x, y);
+            }
+        }
+        v.center = {static_cast<f32>(c.interest.minChunkX + c.interest.maxChunkX + 1) * kChunk * 0.5f,
+                    static_cast<f32>(c.interest.minChunkY + c.interest.maxChunkY + 1) * kChunk * 0.5f};
+    }
+    for (auto it = c.linger.begin(); it != c.linger.end();) {
+        if (it->second < c.builds) {
+            it = c.linger.erase(it);
+        } else {
+            mark(it->first.first, it->first.second);
+            ++it;
+        }
+    }
+    c.stats.relevantChunks = static_cast<usize>(std::count(v.chunks.begin(), v.chunks.end(), u8{1}));
+
+    m_relevant.clear();
+    for (const Current& cur : m_current) {
+        if (!cur.positioned || v.contains(cur.chunk) || std::ranges::binary_search(c.always, cur.netId)) {
+            m_relevant.push_back(cur);
+        }
+    }
+    c.stats.relevant = m_relevant.size();
+    // 관심에서 빠진 엔티티의 "미룬 시각" 은 가끔 정리 (메모리만)
+    if (c.deferredSince.size() > m_relevant.size() * 2 + 64) {
+        std::erase_if(c.deferredSince, [&](const auto& kv) {
+            return !std::ranges::binary_search(m_relevant, kv.first, {}, &Current::netId);
+        });
+    }
+}
+
 const ReplicationClientStats* ReplicationWriter::stats(u16 clientId) const {
     const auto it = m_clients.find(clientId);
     return it == m_clients.end() ? nullptr : &it->second.stats;
@@ -70,7 +170,6 @@ void ReplicationWriter::resetEpoch(Client& c) {
     c.history.clear();
     c.needsReset = false;
     c.epochStartDropped = false;
-    c.cursor = 0;
     if (c.epoch > 1) {
         ++c.stats.resyncs;
     }
@@ -97,18 +196,32 @@ void ReplicationWriter::collect(const sim::SimulationWorld& world) {
                     mask |= u64{1} << i;
                 }
             }
-            m_current.push_back(Current{id->netId, e, mask});
+            Current cur{id->netId, e, mask, {}, {}, false};
+            if (const auto* t = reg.tryRead<comp::Transform>(e)) {
+                cur.position = t->position;
+                cur.chunk = world::chunkOfTile(
+                    Vec2i{static_cast<i32>(std::floor(t->position.x)), static_cast<i32>(std::floor(t->position.y))});
+                cur.positioned = true;
+            }
+            m_current.push_back(cur);
         }
     }
-    std::sort(m_current.begin(), m_current.end(), [](const Current& a, const Current& b) { return a.netId < b.netId; });
+    // 풀 순서는 대개 생성 순서 = netId 순서라 이미 정렬돼 있다 — 확인만 하고 넘어간다
+    const auto byNetId = [](const Current& a, const Current& b) { return a.netId < b.netId; };
+    if (!std::is_sorted(m_current.begin(), m_current.end(), byNetId)) {
+        std::sort(m_current.begin(), m_current.end(), byNetId);
+    }
 }
 
 void ReplicationWriter::build(const sim::SimulationWorld& world, std::vector<std::pair<u16, Message>>& out) {
     if (m_clients.empty()) {
         return;
     }
+    const auto t0 = std::chrono::steady_clock::now();
     collect(world);
+    m_collectMs = std::chrono::duration<f64, std::milli>(std::chrono::steady_clock::now() - t0).count();
     for (auto& [id, c] : m_clients) {
+        computeView(c, world);
         out.emplace_back(id, buildFor(c, world));
         buildTerrain(c, world, id, out);
     }
@@ -190,14 +303,14 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
         bool inInflight = false;
         u64 changed = 0;
     };
-    const usize n = m_current.size();
+    const usize n = m_relevant.size();
     std::vector<Decision> decisions(n);
     const std::vector<EntityRecord> empty;
     const std::vector<EntityRecord>& baseList = base != nullptr ? base->entities : empty;
     usize bi = 0;
     usize ii = 0;
     for (usize k = 0; k < n; ++k) {
-        const Current& cur = m_current[k];
+        const Current& cur = m_relevant[k];
         while (bi < baseList.size() && baseList[bi].netId < cur.netId) {
             ++bi;
         }
@@ -253,35 +366,55 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
         }
         usize k = 0;
         for (const NetEntityId id : known) {
-            while (k < n && m_current[k].netId < id) {
+            while (k < n && m_relevant[k].netId < id) {
                 ++k;
             }
-            if (k == n || m_current[k].netId != id) {
+            if (k == n || m_relevant[k].netId != id) {
                 s.despawns.push_back(id);
             }
         }
     }
 
-    // --- 2. 예산 안에서 인코딩 (시작 위치를 돌려 가며) ---
+    // --- 2. 예산 안에서 인코딩 — 예산이 있으면 우선순위 순서로 (헤더 주석) ---
+    std::vector<usize> order;
+    order.reserve(n);
+    for (usize k = 0; k < n; ++k) {
+        if (decisions[k].kind != Kind::Keep) {
+            order.push_back(k);
+        }
+    }
+    const usize budget = m_desc.bytesPerSnapshot;
+    if (budget != 0 && !order.empty()) {
+        std::vector<f32> key(n, 0.0f);
+        for (const usize k : order) {
+            const Current& cur = m_relevant[k];
+            if (std::ranges::binary_search(c.always, cur.netId)) {
+                key[k] = -1e30f;
+                continue;
+            }
+            const Vec2 d = cur.positioned ? cur.position - m_view.center : Vec2{};
+            f32 k0 = std::sqrt(d.x * d.x + d.y * d.y);
+            if (decisions[k].kind == Kind::Update) {
+                k0 += 1e6f; // 이미 가진 개체의 갱신은 처음 보는 개체(spawn) 뒤 — 새 접속이 빨리 다 본다 (11.3)
+            }
+            if (const auto it = c.deferredSince.find(cur.netId); it != c.deferredSince.end()) {
+                k0 -= static_cast<f32>(stamp - it->second) * m_desc.agingTilesPerTick;
+            }
+            key[k] = k0;
+        }
+        std::ranges::stable_sort(order, [&](usize a, usize b) { return key[a] < key[b]; });
+    }
     std::vector<std::optional<EntityState>> encoded(n);
     usize bytes = 16 + s.despawns.size() * 4;
-    const usize budget = m_desc.bytesPerSnapshot;
     bool over = false;
-    usize firstDeferred = n;
-    for (usize step = 0; step < n; ++step) {
-        const usize k = n == 0 ? 0 : (c.cursor + step) % n;
+    for (const usize k : order) {
         const Decision& d = decisions[k];
-        if (d.kind == Kind::Keep) {
-            continue;
-        }
+        const Current& cur = m_relevant[k];
         if (over) {
-            if (firstDeferred == n) {
-                firstDeferred = k;
-            }
+            c.deferredSince.try_emplace(cur.netId, stamp);
             ++c.stats.deferred;
             continue;
         }
-        const Current& cur = m_current[k];
         EntityState es;
         es.netId = cur.netId;
         es.spawn = d.kind == Kind::Spawn;
@@ -311,15 +444,13 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
         if (budget != 0 && bytes + size > budget && bytes > 16 + s.despawns.size() * 4) {
             // 이번 것부터 다음으로 (적어도 하나는 보낸다 — 아주 큰 엔티티 하나로 영원히 막히지 않게)
             over = true;
-            firstDeferred = k;
+            c.deferredSince.try_emplace(cur.netId, stamp);
             ++c.stats.deferred;
             continue;
         }
         bytes += size;
+        c.deferredSince.erase(cur.netId);
         encoded[k] = std::move(es);
-    }
-    if (firstDeferred != n) {
-        c.cursor = firstDeferred;
     }
     s.complete = !over;
 
@@ -328,7 +459,7 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
     rec.id = s.snapshotId;
     rec.entities.reserve(n);
     for (usize k = 0; k < n; ++k) {
-        const Current& cur = m_current[k];
+        const Current& cur = m_relevant[k];
         const Decision& d = decisions[k];
         if (encoded[k]) {
             s.entities.push_back(std::move(*encoded[k]));
@@ -356,24 +487,39 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
 
 void ReplicationWriter::buildTerrain(Client& c, const sim::SimulationWorld& world, u16 clientId,
                                      std::vector<std::pair<u16, Message>>& out) {
-    usize sent = 0;
+    // 관심 청크 중 이 클라이언트가 가진 revision 과 다른 것 — 중심에서 가까운 것부터 상한까지
+    struct Candidate {
+        const world::Chunk* chunk;
+        f32 distance;
+    };
+    std::vector<Candidate> todo;
+    constexpr f32 kHalf = static_cast<f32>(world::kChunkSize) * 0.5f;
     for (const world::Chunk& ch : world.grid().chunks()) {
-        if (sent >= m_desc.terrainChunksPerSnapshot) {
-            break;
+        if (!m_view.contains(ch.coord())) {
+            continue;
         }
-        const auto key = std::make_pair(ch.coord().x, ch.coord().y);
-        const auto it = c.terrainRevision.find(key);
+        const auto it = c.terrainRevision.find({ch.coord().x, ch.coord().y});
         if (it != c.terrainRevision.end() && it->second == ch.terrainRevision()) {
             continue;
         }
+        const Vec2 mid{static_cast<f32>(ch.coord().x * world::kChunkSize) + kHalf,
+                       static_cast<f32>(ch.coord().y * world::kChunkSize) + kHalf};
+        const Vec2 d = mid - m_view.center;
+        todo.push_back({&ch, d.x * d.x + d.y * d.y});
+    }
+    if (todo.size() > m_desc.terrainChunksPerSnapshot) {
+        std::ranges::stable_sort(todo, {}, &Candidate::distance);
+        todo.resize(m_desc.terrainChunksPerSnapshot);
+    }
+    for (const Candidate& cand : todo) {
+        const world::Chunk& ch = *cand.chunk;
         TerrainChunk m;
         m.x = ch.coord().x;
         m.y = ch.coord().y;
         m.revision = ch.terrainRevision();
         m.materials.assign(ch.layers().material.begin(), ch.layers().material.end());
         out.emplace_back(clientId, std::move(m));
-        c.terrainRevision[key] = ch.terrainRevision();
-        ++sent;
+        c.terrainRevision[{ch.coord().x, ch.coord().y}] = ch.terrainRevision();
         ++c.stats.terrainSent;
     }
 }

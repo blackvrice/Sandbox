@@ -1,7 +1,8 @@
 #pragma once
 // 클라이언트 쪽 연결: 핸드셰이크 · 명령 보내기 · 결과 · 서버 통계. docs/08-NETWORK.md 4장, ADR-0024.
 // Phase 10: Welcome 뒤 ClientWorld(복제 월드)에 Snapshot · TerrainChunk 를 적용하고 SnapshotAck 를 보낸다.
-// Phase 10B: 선택 상세 (setInspect → InspectResult). SandboxClient 의 NetworkSession 이 쓴다. [계획 11] Subscribe.
+// Phase 10B: 선택 상세 (setInspect → InspectResult). Phase 11: 관심 영역 (subscribe).
+// SandboxClient 의 NetworkSession 이 쓴다.
 //
 // 한 스레드에서 쓴다 (Transport 계약). 시간은 호출자가 준다 (초) — 핸드셰이크 시간 초과에만 쓴다.
 
@@ -67,6 +68,9 @@ public:
     [[nodiscard]] u64 snapshotBytes() const noexcept { return m_snapshotBytes; }
     // 선택 상세 (10B): 볼 개체 (kMaxInspect 까지, 빈 목록 = 그만). 바뀌었을 때만 보낸다. 접속 전이면 무시
     void setInspect(std::span<const NetEntityId> ids);
+    // 관심 영역 (Phase 11): 바뀌었을 때만 보낸다. 접속 전이면 무시 (보내지 않은 것으로 남아 다음에 다시)
+    void subscribe(const Subscribe& interest);
+    [[nodiscard]] const std::optional<Subscribe>& subscribed() const noexcept { return m_subscribed; }
     // 가장 최근 InspectResult (요청이 없거나 아직 안 왔으면 비어 있다)
     [[nodiscard]] const std::optional<InspectResult>& inspect() const noexcept { return m_inspect; }
 
@@ -92,6 +96,7 @@ private:
     u64 m_snapshotBytes = 0;
     std::vector<NetEntityId> m_inspectIds;
     std::optional<InspectResult> m_inspect;
+    std::optional<Subscribe> m_subscribed; // 마지막으로 보낸 관심 영역
     std::vector<TransportEvent> m_events;
 };
 

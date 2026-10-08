@@ -20,7 +20,8 @@
 //           이름 규칙 · 시간 초과(handshakeTimeout). 해석할 수 없는 메시지 → ProtocolError 로 끊는다.
 // 복제 (Phase 10, ADR-0025 · 0026): Sim 절반이 스냅숏 간격(실제 시간 — 속도 배율과 무관하게 초당 15 번)마다
 //   ReplicationWriter::build, 선택 상세를 요청한 클라이언트에는 InspectResult 도.
-//   [계획] Subscribe (Phase 11), 재접속 토큰 (11.4), 역할 바꾸기 (12).
+// 관심 (Phase 11): Subscribe · 선택(Inspect) 을 ReplicationWriter 에 넘긴다.
+//   [계획] 재접속 토큰 (11.4), 역할 바꾸기 (12).
 
 #include <atomic>
 #include <map>
@@ -185,8 +186,9 @@ private:
     };
     std::vector<RosterEvent> m_roster;               // Net → Sim: 복제 대상 추가 · 제거
     std::vector<std::pair<u16, SnapshotAck>> m_acks; // Net → Sim
-    // Net → Sim: 선택 상세 요청 (10B)
+    // Net → Sim: 선택 상세 요청 (10B) · 관심 영역 (11)
     std::vector<std::pair<u16, InspectRequest>> m_inspectRequests;
+    std::vector<std::pair<u16, Subscribe>> m_subscribes;
     WorldStatus m_status;
     ServerHostStats m_stats;
 

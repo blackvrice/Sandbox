@@ -4,8 +4,8 @@
 // 메시지 = id(varint) + 필드 (BitStream, 09 5장). 메시지 하나 = Transport 패킷 하나.
 // Phase 9 구현: Hello · Challenge · Auth · Welcome · Reject · Command · CommandResult · ServerStats · Disconnect.
 // Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제). 10B: Inspect · InspectResult (선택한 개체의 서버 전용 상태).
-// [계획] Subscribe (11) · Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · ContentOverlay · Chat ·
-// RoleChanged (12)
+// Phase 11: Subscribe (관심 영역 — 08 8장), Auth.token 으로 다시 접속 (11.4).
+// [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · ContentOverlay · Chat · RoleChanged (12)
 //        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
 // 상한 (11장): 모든 길이 · 개수에 상한이 있다. 넘으면 decodeMessage 가 오류 → 받는 쪽은 연결을 끊는다.
@@ -21,8 +21,9 @@
 
 namespace sbx::net {
 
-// 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B
-inline constexpr u32 kProtocolVersion = 3;
+// 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
+// 4: Subscribe · 다시 접속 토큰 — Phase 11
+inline constexpr u32 kProtocolVersion = 4;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -48,7 +49,7 @@ enum class MessageId : u8 {
     Auth = 3,
     Welcome = 4,
     Reject = 5,
-    Subscribe = 10, // [계획 Phase 11]
+    Subscribe = 10, // Phase 11
     Ready = 11,     // [계획 — Snapshot 이 바로 시작한다, ADR-0025]
     Command = 20,
     CommandResult = 21,
@@ -93,7 +94,7 @@ struct Challenge {
     u64 nonce = 0;
 };
 struct Auth {
-    std::vector<std::byte> token; // 재접속 토큰 [계획 Phase 11.4 — 지금은 비운다]
+    std::vector<std::byte> token; // 다시 접속 토큰 (Welcome.sessionToken — 11.4). 처음 접속이면 빈 것
     std::string displayName;
     u64 contentHash = 0;
     u64 nonce = 0; // Challenge 의 값을 그대로
@@ -184,6 +185,16 @@ struct TerrainChunk {
         materials; // 머티리얼 번호 kTilesPerChunk 개 (와이어는 길이 부호화 — 콘텐츠 해시가 같으니 번호가 같다)
 };
 
+// --- 관심 영역 (Phase 11, 08 8장 · ADR-0027) -------------------------------------------------------------------------
+// 클라이언트가 보는 청크 사각형 (양끝 포함 — 카메라 + 1 청크 여유). all 이면 월드 전체 (구독 전 기본값과 같다).
+// 서버는 월드 경계로 자르고, 그 청크 안의 엔티티 · 지형만 보낸다 (+ 선택한 개체 · 위치 없는 개체). 빠진 청크는 잠시
+// 남겨 둔다 (히스테리시스)
+struct Subscribe {
+    bool all = true;
+    i32 minChunkX = 0, minChunkY = 0, maxChunkX = 0, maxChunkY = 0;
+    friend bool operator==(const Subscribe&, const Subscribe&) = default;
+};
+
 // --- 선택 상세 (Phase 10B, ADR-0026) — 서버에만 있는 컴포넌트(ai.*)를 선택한 개체에 한해 본다 ------------------------
 // 클라이언트가 볼 개체 집합을 보내면(빈 목록 = 그만) 서버가 스냅숏마다 InspectResult 를 보낸다 (Snapshot 채널 — 잃어도
 // 다음 것이 온다). 읽기 전용이라 모든 역할이 쓸 수 있다.
@@ -203,8 +214,9 @@ struct InspectResult {
     std::vector<InspectEntry> entries; // 살아 있는 것만, 요청 순서
 };
 
-using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
-                             DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult>;
+using Message =
+    std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats, DisconnectMsg,
+                 Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult, Subscribe>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
