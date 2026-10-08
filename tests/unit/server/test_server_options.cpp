@@ -74,6 +74,9 @@ TEST_SUITE("server") {
         CHECK(r->threads == 2u);
         CHECK(r->ticks == 300u);
         CHECK(r->exitAtTicks);
+        CHECK(r->snapshotKBps == 256u);
+        constexpr std::array<std::string_view, 4> kbps{"--world", "w", "--snapshot-kbps", "0"};
+        CHECK(parseServerOptions(kbps)->snapshotKBps == 0u);
 
         constexpr std::array<std::string_view, 2> plain{"--world", "w"};
         CHECK(parseServerOptions(plain)->port == sbx::server::kDefaultPort);

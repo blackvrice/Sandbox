@@ -222,6 +222,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.packs = world->packs;
     desc.mode = sbx::net::ServerMode::Threaded;
     desc.stopAtTick = opts.exitAtTicks ? *opts.ticks : 0;
+    desc.snapshotBytesPerSecond = static_cast<sbx::usize>(opts.snapshotKBps) * 1024;
     sbx::net::ServerHost host(**transport, std::move(world->runner), desc);
     if (auto r = host.start({opts.bind, opts.port}); !r) {
         sbx::log::error("server", "{}", r.error().describe());
@@ -261,10 +262,11 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::log::error("server", "{}", hash.error().describe());
         return kExitNotImplemented;
     }
-    std::printf("tick %llu hash %s entities %zu  accepted %llu  rejected %llu  overruns %llu\n",
+    std::printf("tick %llu hash %s entities %zu  accepted %llu  rejected %llu  overruns %llu  replication %.2f ms\n",
                 static_cast<unsigned long long>(host.world().currentTick()), sbx::replay::formatHash(*hash).c_str(),
                 host.world().registry().aliveCount(), static_cast<unsigned long long>(s.commandsAccepted),
-                static_cast<unsigned long long>(s.commandsRejected), static_cast<unsigned long long>(s.overruns));
+                static_cast<unsigned long long>(s.commandsRejected), static_cast<unsigned long long>(s.overruns),
+                s.replicationMs);
     return kExitOk;
 }
 

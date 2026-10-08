@@ -88,15 +88,17 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
                 }
                 opts.defaultRole = std::string(*v);
             }
-        } else if (a == "--ticks" || a == "--seed" || a == "--port" || a == "--max-clients" || a == "--threads") {
+        } else if (a == "--ticks" || a == "--seed" || a == "--port" || a == "--max-clients" || a == "--threads" ||
+                   a == "--snapshot-kbps") {
             const auto text = value();
             if (!text) {
                 return std::unexpected(text.error());
             }
-            Expected<u64> v = a == "--port"          ? parseBounded(a, *text, 0, 65535)
-                              : a == "--max-clients" ? parseBounded(a, *text, 1, 255)
-                              : a == "--threads"     ? parseBounded(a, *text, 0, 64)
-                                                     : parseU64(a, *text);
+            Expected<u64> v = a == "--port"            ? parseBounded(a, *text, 0, 65535)
+                              : a == "--max-clients"   ? parseBounded(a, *text, 1, 255)
+                              : a == "--threads"       ? parseBounded(a, *text, 0, 64)
+                              : a == "--snapshot-kbps" ? parseBounded(a, *text, 0, 1024 * 1024)
+                                                       : parseU64(a, *text);
             if (!v) {
                 return std::unexpected(v.error());
             }
@@ -108,8 +110,10 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
                 opts.port = static_cast<u16>(*v);
             } else if (a == "--max-clients") {
                 opts.maxClients = static_cast<u32>(*v);
-            } else {
+            } else if (a == "--threads") {
                 opts.threads = static_cast<u32>(*v);
+            } else {
+                opts.snapshotKBps = static_cast<u32>(*v);
             }
         } else if (a == "--realtime") {
             opts.realtime = true;
@@ -157,6 +161,7 @@ std::string serverUsage() {
            "      --default-role <r>   새 접속자 역할 observer|player|editor|admin|owner (기본 editor —\n"
            "                           일시정지 · 속도는 admin 부터, docs/10-EDITOR.md 7장)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
+           "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 접속자를 끊고 끝낸다 (CI)\n"
            "      Ctrl+C               접속자에게 서버 종료를 알리고 끝낸다\n"
            "\n"

@@ -36,6 +36,7 @@ struct ServerOptions {
     std::string defaultRole = "editor";
     std::optional<u32> threads; // 시뮬레이션 Worker 수 (없으면 코어 수 - 2 를 1 ~ 4)
     bool exitAtTicks = false;   // --exit: --ticks 에 도달하면 끝낸다 (CI · 벤치)
+    u32 snapshotKBps = 256;     // 클라이언트당 복제 예산 KB/s (0 = 제한 없음, 08 6.3)
 };
 
 [[nodiscard]] Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> args);

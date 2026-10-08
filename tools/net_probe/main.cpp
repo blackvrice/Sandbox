@@ -50,10 +50,12 @@ struct Probe {
     sbx::net::Endpoint target;
     std::unique_ptr<sbx::net::EnetTransport> transport;
     std::unique_ptr<sbx::net::ClientSession> session;
+    const sbx::ecs::ComponentCatalog* catalog = nullptr;
 };
 
 // 접속을 한 번 시도한다. Connected 면 probe.session 이 살아 있다
-Attempt connectOnce(Probe& p, sbx::u64 contentHash, std::optional<sbx::net::Reject>& rejectOut) {
+Attempt connectOnce(Probe& p, const sbx::content::ContentDatabase& content,
+                    std::optional<sbx::net::Reject>& rejectOut) {
     auto t = sbx::net::EnetTransport::create();
     if (!t) {
         std::fprintf(stderr, "sbx_net_probe: %s\n", t.error().describe().c_str());
@@ -63,7 +65,9 @@ Attempt connectOnce(Probe& p, sbx::u64 contentHash, std::optional<sbx::net::Reje
     p.transport = std::move(*t);
     sbx::net::ClientSessionDesc d;
     d.displayName = p.opts.name;
-    d.contentHash = contentHash;
+    d.contentHash = content.contentHash();
+    d.catalog = p.catalog; // 복제 월드를 만든다 (받은 개체 수를 보여 준다)
+    d.content = &content;
     d.buildId = sbx::net::localBuildId();
     d.handshakeTimeoutSeconds = p.opts.connectTimeoutSeconds;
     p.session = std::make_unique<sbx::net::ClientSession>(*p.transport, d);
@@ -132,22 +136,23 @@ int main(int argc, char** argv) {
         return kExitFailed;
     }
 
-    Probe probe{*opts, *target, nullptr, nullptr};
+    Probe probe{*opts, *target, nullptr, nullptr, &catalog};
     std::optional<sbx::net::Reject> reject;
-    Attempt a = connectOnce(probe, sbx::content::ContentDatabase::builtin().contentHash(), reject);
+    auto content = std::make_unique<sbx::content::ContentDatabase>(sbx::content::ContentDatabase::builtin());
+    Attempt a = connectOnce(probe, *content, reject);
     if (a == Attempt::ContentMismatch) {
         // 서버가 알려 준 팩을 읽어 해시를 맞춘다
         const std::filesystem::path root = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                                      : std::filesystem::path(opts->contentRoot);
-        sbx::u64 hash = sbx::content::ContentDatabase::builtin().contentHash();
         if (!reject->packs.empty()) {
             auto db = sbx::content::loadContent(root, reject->packs, catalog);
             if (!db) {
                 std::printf("서버의 콘텐츠 팩을 읽지 못했습니다: %s\n", db.error().describe().c_str());
                 return kExitFailed;
             }
-            hash = db->contentHash();
+            content = std::make_unique<sbx::content::ContentDatabase>(std::move(*db));
         }
+        const sbx::u64 hash = content->contentHash();
         if (hash != reject->contentHash) {
             std::printf("콘텐츠가 다릅니다: 서버 %016llx, 이 컴퓨터 %016llx (팩 %zu 개)\n",
                         static_cast<unsigned long long>(reject->contentHash), static_cast<unsigned long long>(hash),
@@ -160,7 +165,7 @@ int main(int argc, char** argv) {
         }
         std::printf("서버 콘텐츠(%s)를 읽어 다시 접속합니다\n", packs.empty() ? "내장" : packs.c_str());
         reject.reset();
-        a = connectOnce(probe, hash, reject);
+        a = connectOnce(probe, *content, reject);
     }
     if (a != Attempt::Connected) {
         return kExitFailed;
@@ -229,6 +234,13 @@ int main(int argc, char** argv) {
     }
     if (session.lastStats() && session.lastStats()->serverTick != firstStatsTick) {
         printStats(*session.lastStats());
+    }
+    if (const sbx::net::ClientWorld* rw = session.world()) {
+        const auto& st = rw->stats();
+        std::printf("복제 개체 %zu · 스냅숏 %llu (다시 맞춤 %llu) · 지형 청크 %llu · 받은 %.1f KB\n", rw->entityCount(),
+                    static_cast<unsigned long long>(st.snapshotsApplied), static_cast<unsigned long long>(st.resets),
+                    static_cast<unsigned long long>(st.terrainChunks),
+                    static_cast<double>(session.snapshotBytes()) / 1024.0);
     }
     session.disconnect();
     probe.transport->drain(200);
