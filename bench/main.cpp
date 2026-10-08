@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
     }
     sbx::bench::runSimBenchmarks(ctx);
     sbx::bench::runRenderBenchmarks(ctx);
+    sbx::bench::runNetBenchmarks(ctx);
 
     if (!outPath.empty()) {
         nlohmann::json doc = {{"machine", machine},

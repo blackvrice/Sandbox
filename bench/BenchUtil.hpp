@@ -58,6 +58,7 @@ inline bool wants(const Context& ctx, std::string_view name) {
 
 void runEcsBenchmarks(Context& ctx);
 void runSimBenchmarks(Context& ctx);
+void runNetBenchmarks(Context& ctx);
 void runRenderBenchmarks(Context& ctx);
 
 } // namespace sbx::bench

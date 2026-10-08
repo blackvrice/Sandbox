@@ -5,9 +5,10 @@ add_executable(sbx_bench
     EcsBench.cpp
     SimBench.cpp
     RenderBench.cpp
+    NetBench.cpp
 )
-# render.* 는 백엔드와 무관한 순수 로직만 (SpriteBatcher) — GPU 없이 모든 OS 에서
-target_link_libraries(sbx_bench PRIVATE SandboxCore SandboxRender sbx_warnings)
+# render.* 는 백엔드와 무관한 순수 로직만 (SpriteBatcher) — GPU 없이 모든 OS 에서. net.* 는 ReplicationWriter (Phase 11)
+target_link_libraries(sbx_bench PRIVATE SandboxCore SandboxNetwork SandboxRender sbx_warnings)
 # sim.ecosystem 이 eco 팩을 읽는다 (저장소의 content/)
 target_compile_definitions(sbx_bench PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")
 
