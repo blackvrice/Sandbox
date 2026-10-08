@@ -7,20 +7,19 @@
 #include <csignal>
 #include <cstdio>
 #include <filesystem>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <vector>
 
 #include "apps/server/ServerOptions.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
-#include "core/content/ContentLoader.hpp"
-#include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
-#include "foundation/io/FileIo.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
 #include "network/server/ServerHost.hpp"
@@ -117,81 +116,6 @@ int runScenario(const sbx::server::ServerOptions& opts) {
     return kExitOk;
 }
 
-// 세이브를 이어 돌릴 때의 시나리오: 아무것도 넣지 않는다 (명령은 접속자만)
-class ContinueScenario final : public sbx::scenario::IScenario {
-public:
-    [[nodiscard]] std::string_view name() const noexcept override { return "save"; }
-    [[nodiscard]] std::string_view description() const noexcept override { return "세이브 이어 돌리기"; }
-    [[nodiscard]] sbx::sim::Tick defaultTicks() const noexcept override { return 0; }
-    void setup(sbx::sim::SimulationWorld&) override {}
-    void beforeTick(sbx::sim::SimulationWorld&) override {}
-};
-
-// 서버가 돌릴 월드: 시나리오 이름 또는 세이브 폴더. 콘텐츠는 runner 보다 오래 살아야 한다
-struct LoadedWorld {
-    std::unique_ptr<sbx::content::ContentDatabase> content;
-    std::unique_ptr<sbx::scenario::ScenarioRunner> runner;
-    std::vector<std::string> packs;
-    std::string name;
-};
-
-sbx::Expected<LoadedWorld> loadServerWorld(const sbx::server::ServerOptions& opts,
-                                           const sbx::ecs::ComponentCatalog& catalog) {
-    LoadedWorld out;
-    const std::string& w = *opts.world;
-    if (auto sc = sbx::scenario::makeScenario(w)) {
-        auto db = sbx::scenario::loadScenarioContent(*sc, contentRootOf(opts), catalog);
-        if (!db) {
-            return std::unexpected(db.error());
-        }
-        out.packs = sc->requiredPacks();
-        out.content = std::make_unique<sbx::content::ContentDatabase>(std::move(*db));
-        out.runner = std::make_unique<sbx::scenario::ScenarioRunner>(catalog, *out.content, std::move(sc), opts.seed);
-        out.name = w;
-        return out;
-    }
-    const std::filesystem::path dir(w);
-    const auto worldJson = sbx::io::readFile(dir / "world.json");
-    if (!worldJson) {
-        return sbx::makeError(
-            sbx::ErrorCode::NotFound,
-            "시나리오 이름도 아니고 세이브 폴더(world.json)도 아닙니다 (sbx_sim_check --list-scenarios)", w);
-    }
-    const auto j = sbx::ecs::Json::parse(*worldJson, nullptr, false);
-    if (j.is_discarded()) {
-        return sbx::makeError(sbx::ErrorCode::ParseError, "world.json 을 읽지 못했습니다", w);
-    }
-    if (const auto it = j.find("content"); it != j.end() && it->is_object()) {
-        if (const auto p = it->find("packs"); p != it->end() && p->is_array()) {
-            for (const auto& id : *p) {
-                if (id.is_string()) {
-                    out.packs.push_back(id.get<std::string>());
-                }
-            }
-        }
-    }
-    if (out.packs.empty()) {
-        out.content = std::make_unique<sbx::content::ContentDatabase>(sbx::content::ContentDatabase::builtin());
-    } else {
-        auto db = sbx::content::loadContent(contentRootOf(opts), out.packs, catalog);
-        if (!db) {
-            return std::unexpected(db.error());
-        }
-        out.content = std::make_unique<sbx::content::ContentDatabase>(std::move(*db));
-    }
-    auto loaded = sbx::persist::loadWorld(catalog, *out.content, dir);
-    if (!loaded) {
-        return std::unexpected(loaded.error());
-    }
-    for (const auto& warning : loaded->warnings) {
-        sbx::log::warn("server", "세이브: {}", warning);
-    }
-    out.runner =
-        std::make_unique<sbx::scenario::ScenarioRunner>(std::move(loaded->world), std::make_unique<ContinueScenario>());
-    out.name = dir.filename().empty() ? dir.parent_path().filename().string() : dir.filename().string();
-    return out;
-}
-
 // Phase 9 네트워크 서버
 int runWorldServer(const sbx::server::ServerOptions& opts) {
     sbx::ecs::ComponentCatalog catalog;
@@ -199,10 +123,13 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::log::error("server", "{}", r.error().describe());
         return kExitNotImplemented;
     }
-    auto world = loadServerWorld(opts, catalog);
+    auto world = sbx::scenario::openWorldSource(*opts.world, contentRootOf(opts), opts.seed, catalog);
     if (!world) {
         sbx::log::error("server", "{}", world.error().describe());
         return kExitBadArgs;
+    }
+    for (const auto& warning : world->warnings) {
+        sbx::log::warn("server", "세이브: {}", warning);
     }
     const unsigned hc = std::thread::hardware_concurrency();
     const sbx::u32 workers = opts.threads.value_or(std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
@@ -274,11 +201,9 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
 
 int main(int argc, char** argv) {
     sbx::console::useUtf8Output(); // Windows 콘솔(cp949)에서 한국어 메시지가 깨지지 않게
-    std::vector<std::string_view> args;
-    args.reserve(static_cast<std::size_t>(argc > 0 ? argc - 1 : 0));
-    for (int i = 1; i < argc; ++i) {
-        args.emplace_back(argv[i]);
-    }
+    // Windows: argv 는 시스템 코드 페이지 — 한글 세이브 폴더 · 경로가 깨지지 않게 UTF-8 로 다시 (10B)
+    const std::vector<std::string> argStore = sbx::console::utf8Arguments(argc, argv);
+    std::vector<std::string_view> args(argStore.begin() + (argStore.empty() ? 0 : 1), argStore.end());
 
     const auto opts = sbx::server::parseServerOptions(args);
     if (!opts) {

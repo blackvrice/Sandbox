@@ -113,6 +113,8 @@ add_library(SandboxCore STATIC
     scenarios/EcoLifecycleScenario.cpp
     scenarios/EcosystemScenario.hpp
     scenarios/EcosystemScenario.cpp
+    scenarios/WorldSource.hpp
+    scenarios/WorldSource.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 
