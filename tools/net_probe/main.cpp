@@ -108,10 +108,9 @@ Attempt connectOnce(Probe& p, const sbx::content::ContentDatabase& content,
 
 int main(int argc, char** argv) {
     sbx::console::useUtf8Output();
-    std::vector<std::string_view> args;
-    for (int i = 1; i < argc; ++i) {
-        args.emplace_back(argv[i]);
-    }
+    // Windows: argv 는 시스템 코드 페이지 — --name 한글이 깨지지 않게 UTF-8 로 다시 (10B)
+    const std::vector<std::string> argStore = sbx::console::utf8Arguments(argc, argv);
+    std::vector<std::string_view> args(argStore.begin() + (argStore.empty() ? 0 : 1), argStore.end());
     const auto opts = sbx::probe::parseNetProbeOptions(args);
     if (!opts) {
         std::fprintf(stderr, "sbx_net_probe: %s\n\n%s", opts.error().describe().c_str(),

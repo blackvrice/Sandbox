@@ -31,3 +31,7 @@ target_link_libraries(SandboxFoundation PRIVATE sbx_warnings sbx_strict_conversi
 # JobSystem (std::thread)
 find_package(Threads REQUIRED)
 target_link_libraries(SandboxFoundation PUBLIC Threads::Threads)
+# io/Console 의 utf8Arguments (CommandLineToArgvW)
+if(WIN32)
+    target_link_libraries(SandboxFoundation PUBLIC shell32)
+endif()

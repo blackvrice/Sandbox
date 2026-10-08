@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "foundation/io/Console.hpp"
 #include "foundation/text/Utf8.hpp"
 
 TEST_SUITE("foundation") {
@@ -38,5 +39,22 @@ TEST_SUITE("foundation") {
         CHECK(sbx::utf8::tail(s, 3) == "라ab");
         CHECK(sbx::utf8::tail(s, 10) == s);
         CHECK(sbx::utf8::tail(s, 0).empty());
+    }
+
+    TEST_CASE("console: command-line arguments come back as UTF-8") {
+        char a0[] = "prog";
+        char a1[] = "--name";
+        char a2[] = "\xEC\xB2\xA0\xEC\x88\x98"; // 철수
+        char a3[] = "--x";
+        char a4[] = "y";
+        char* argv[] = {a0, a1, a2, a3, a4};
+        const auto v = sbx::console::utf8Arguments(5, argv);
+#ifdef _WIN32
+        CHECK_FALSE(v.empty()); // 이 프로세스의 실제 명령줄 (개수가 같으면) 또는 argv
+#else
+        REQUIRE(v.size() == 5);
+        CHECK(v[1] == "--name");
+        CHECK(v[2] == "철수");
+#endif
     }
 }

@@ -254,10 +254,9 @@ static int verifyReplay(const std::filesystem::path& file, const std::filesystem
 
 int main(int argc, char** argv) {
     console::useUtf8Output(); // Windows 콘솔(cp949)에서 한국어 메시지가 깨지지 않게
-    std::vector<std::string_view> args;
-    for (int i = 1; i < argc; ++i) {
-        args.emplace_back(argv[i]);
-    }
+    // Windows: argv 는 시스템 코드 페이지 — 한글 경로가 깨지지 않게 UTF-8 로 다시 (10B)
+    const std::vector<std::string> argStore = console::utf8Arguments(argc, argv);
+    std::vector<std::string_view> args(argStore.begin() + (argStore.empty() ? 0 : 1), argStore.end());
     const auto parsed = parseSimCheckOptions(args);
     if (!parsed) {
         printErr(parsed.error().describe());
