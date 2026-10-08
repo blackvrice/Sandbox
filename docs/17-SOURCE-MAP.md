@@ -90,6 +90,8 @@
 | `network/client/InterpolationClock.{hpp,cpp}`                                                               | 보간 시계 (10B, 08 9장) — 서버 틱 추정 · renderTick (지연 0.1 초 · 앞으로만 · 일시정지)                                                                             | SandboxNetwork              |
 | `network/replication/ReplicationWriter.{hpp,cpp}`                                                           | 서버 복제 (10A) — 클라이언트별 기록 32 · 차분 · epoch · 지형 청크, 관심 영역 · 예산 우선순위 (11)                                                                   | SandboxNetwork              |
 | `network/replication/Inspect.{hpp,cpp}`                                                                     | `buildInspect` — 선택한 개체의 서버 전용 상태 → InspectResult (10B)                                                                                                 | SandboxNetwork              |
+| `editor/CMakeLists.txt`, `editor/EditorHost.hpp`                                                            | SandboxEditor (Core + Render + imgui, Network 금지). `ICommandSink` · `IEditorHost` — 에디터 ↔ 클라이언트 경계 (12A)                                                | SandboxEditor               |
+| `editor/Editor.{hpp,cpp}`, `editor/ui/EditorPanel.{hpp,cpp}`                                                | 툴 다섯 (선택 · 이동 · 배치 · 지형 · 지우기) · EditPreview · 덧그림, "편집" 패널 (12A, ADR-0028)                                                                    | SandboxEditor               |
 | `platform/CMakeLists.txt`                                                                                   | SandboxPlatform — OS 별 소스 선택 (WIN32: `windows/`, 그 밖: `stub/`)                                                                                               | SandboxPlatform             |
 | `platform/common/Key.{hpp,cpp}`                                                                             | `Key`(물리 위치), `MouseButton`, `Modifiers`, 이름 표 (ADR-0017)                                                                                                    | SandboxPlatform             |
 | `platform/common/PlatformEvent.hpp`                                                                         | `PlatformEvent` variant, `PlatformEventQueue`, `Extent2D`                                                                                                           | SandboxPlatform             |
@@ -150,6 +152,7 @@
 | `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client, net — net = 복제 수렴 `net_convergence`)    | SandboxTests                |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
+| `tests/unit/editor/test_editor.cpp`, `tests/unit/client/test_editor_session.cpp`                            | 에디터 툴 (가짜 host), 로컬 서버까지 편집 · 앱 숫자 키 (Phase 12A)                                                                                                  | SandboxTests                |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
@@ -255,8 +258,8 @@ render/
   generated/    (빌드 산출 <빌드>/generated/render/generated/: <Pascal>Shader.{hpp,cpp} · *.reflect.json) — 저장소에 없음
 
 editor/
-  EditorContext, ICommandSink
-  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)
+  EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
+  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 12B ~ 12D — 지금은 Editor 한 클래스]
 
 apps/client/
   main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)

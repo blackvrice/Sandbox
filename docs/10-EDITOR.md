@@ -1,7 +1,10 @@
 # 10. 에디터
 
-> **설계 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다. 상태: 전부 `[계획]` — Phase 12 (일부 패널은 Phase 8부터).
-> 예외: 7장 권한 표는 Phase 9 의 서버 CommandValidator 가 이미 판단한다 (기본 역할 = `--default-role`, 역할 바꾸기는 Phase 12).
+> **설계 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다. 상태: **Phase 12A 구현** — SandboxEditor(`editor/`), IEditorHost ·
+> ICommandSink, 툴 다섯(Select · Move · Place · TerrainBrush · Erase), EditPreview, "편집" 패널(Palette · Terrain 의 첫 모양) —
+> 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. 나머지는 `[계획 12B ~ 12D]` (Inspector · Hierarchy · Undo, 역할 · Players · 콘텐츠
+> 편집, 세이브 · 리플레이 UI — 16-ROADMAP Phase 12). 7장 권한 표는 Phase 9 의 서버 CommandValidator 가 판단한다.
+> 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md).
 
 ---
 
@@ -36,6 +39,20 @@ SandboxEditor
  └─ inspector/        ImGuiInspector Visitor (Hint → 위젯)
 ```
 
+Phase 12A 구현 (ADR-0028) — 위 구조와 다른 점:
+
+```text
+editor/EditorHost.hpp   ICommandSink (submit → sequence) · IEditorHost : ICommandSink — 결과(takeOutcomes) · 콘텐츠 · 복제 지형 ·
+                        그린 개체 고르기(pickAt · pickBox) · 선택 · EditPreview · 스냅숏 수 · 서버 틱 · 그린 틱.
+                        SandboxClient 의 NetworkSession 이 구현한다 (IWorldSession::editorHost) — 에디터는 Network 를 모른다
+editor/Editor.{hpp,cpp} 툴 다섯 · 설정(Prefab · 간격 · 격자 맞춤 · 머티리얼 · 브러시) · preview · 결과 처리 · 덧그림(박스 · 브러시 ·
+                        배치 자리). EditorContext 는 따로 없다 — Editor + host 가 그 몫 (카메라는 Application 이 커서를 월드로)
+editor/ui/EditorPanel   "편집" 패널 (오른쪽 아래, F1 로 숨김): 툴 · Prefab 목록(거르기) · 끌기 간격 · 머티리얼 · 브러시 반지름 ·
+                        모양 · 격자 맞춤 · 보낸/수락/거절 수 · 최근 거절 사유
+선택                    NetworkSession 이 계속 갖는다 (Inspect · 외곽선 · 제목 줄) — 에디터는 host.selection · setSelection
+Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 툴(선택) = 8B 와 같다. WorldMode::Edit [계획]
+```
+
 ## 3. 툴
 
 | 툴           | 입력                                            | 명령                                                       |
@@ -45,6 +62,20 @@ SandboxEditor
 | Place        | Palette에서 Prefab 선택 → 클릭/드래그 연속 배치 | `CreateEntity{prefab, position}` (드래그 시 간격마다)      |
 | TerrainBrush | 좌클릭 칠하기, 우클릭 지우기(기본 머티리얼)     | `PaintTerrain` — 프레임당 최대 1개로 셀 묶음 전송          |
 | Erase        | 클릭/박스                                       | `DeleteEntity{netIds}`                                     |
+
+Phase 12A 구현:
+
+```text
+Select        클릭(4 px 안) = 맨 위 개체, 끌기 = 박스(가운데가 안에), Shift = 클릭은 넣기/빼기 · 박스는 더하기
+Move          선택한 개체를 누르면 선택 전부, 선택에 없는 개체를 누르면 그것만 (Shift = 더해서) 끈다. 빈 곳 = Select 처럼.
+              4 px 넘게 끌어야 MoveEntity{선택, delta, 상대} — 격자 맞춤이면 delta 를 정수 칸으로 (Ctrl 토글 [계획])
+Place         CreateEntity{prefab, 커서} — 누른 채 끌면 간격(기본 2 칸)마다, 프레임당 하나. 격자 맞춤 = 칸 가운데. 월드 밖은 안 보낸다
+TerrainBrush  왼쪽 = 고른 머티리얼, 오른쪽 = 월드 바탕(fill). 프레임마다 지난 커서 → 지금 커서를 반 칸 간격으로 훑어 새 칸만
+              PaintTerrain{cells} 하나 (경계 안 · 이번 붓질에서 처음 · 복제 지형이 이미 그 머티리얼이 아닌 칸, 상한 4096).
+              브러시 원 · 사각형, 반지름 0 ~ 8
+Erase         클릭 = 그 개체, 끌기 = 박스 안 전부 → DeleteEntity. Delete 키 = 어느 툴에서든 선택 전부
+CreateEntity 결과의 새 netId 는 Editor::lastCreated (선택하지는 않는다)
+```
 
 ## 4. Inspector 위젯 매핑
 
@@ -82,6 +113,11 @@ Move 드래그 중: 대상 엔티티에 클라 전용 editor.preview{offset} 컴
 서버 확정 스냅샷이 오면 preview 제거. 거절되면 preview 제거 + Console/토스트에 사유.
 시뮬레이션 예측이 아니므로 롤백·재시뮬레이션이 없다.
 ```
+
+Phase 12A 구현: preview 는 컴포넌트가 아니라 IEditorHost::setPreview 의 표(netId → offset) — NetworkSession 이 그릴 때 스냅숏
+위치에 더한다 (고르기 · 외곽선 · 선택 상세도 옮긴 자리). 끄는 중 + 결과를 기다리는 이동의 합. 걷기: 거절이면 바로 (사유는 패널),
+받아들여지면 그 뒤 처음 적용한 스냅숏의 서버 틱까지 그린 틱이 오면 (일시정지면 바로), 3 초 안에 결과가 없으면 (끊김). 연결이
+바뀌면(다시 접속) 기다리던 결과는 거절로 돌아온다.
 
 ### 6.2 Undo
 
@@ -131,10 +167,14 @@ Space 재생/일시정지   . 한 틱 진행   Ctrl+Z / Ctrl+Y Undo/Redo   Delet
 Ctrl+S 저장   F 선택으로 카메라 이동   G 그리드 토글   F3 Stats 오버레이
 ```
 
+Phase 12A 구현: 툴은 숫자 **1 선택 · 2 이동 · 3 배치 · 4 지형 · 5 지우기** (`editor.tool.*` — W A S D 가 카메라라서, ADR-0028).
+Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다. Undo/Redo · 저장 · F 는 `[계획 12B · 12D]`.
+
 ## 10. 필수 테스트
 
 ```text
 - 헤드리스 Editor + 가짜 ICommandSink: 툴 조작 → 기대 명령 (Place/Move/Erase/TerrainBrush/Inspector)
+  ✅ 12A — Inspector 빼고 (editor 스위트 test_editor, 로컬 서버까지는 client 스위트 test_editor_session)
 - Undo 역명령 생성 (각 명령 종류), 거절 시 스택 미반영
 - 2클라이언트(Loopback) 동시 편집: 같은 필드 연속 변경, 삭제된 엔티티 편집 거절
 - 권한 표 전체: 역할 × 명령 종류 매트릭스

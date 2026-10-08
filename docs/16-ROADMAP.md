@@ -29,7 +29,7 @@ Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
-Phase 12  Multiplayer Editor                        ← 1차 목표선
+Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 (2026-10-09) · 12B ~ 12D [계획]
 Phase 13  Linux (X11 → Vulkan → Wayland)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
@@ -428,6 +428,31 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 12.5 권한(역할 표), Players 패널                        12.6 Undo/Redo
 12.7 세이브/로드 UI, 리플레이 재생 UI
 완료  edit_session 시나리오 D3, 2클라 동시 편집 통합 테스트, 권한 매트릭스 테스트
+```
+
+넷으로 나눈다 (ADR-0028 결정 1):
+
+```text
+12A 에디터 툴 ✅ (2026-10-09, ADR-0028)
+  12.1 ✅ SandboxEditor (editor/, Core + Render + imgui, Network 금지) · ICommandSink · IEditorHost(= NetworkSession) · 선택(세션) ·
+          Editor (EditorContext 몫)
+  12.3 ✅ 툴 다섯 — 선택 · 이동(MoveEntity, 격자 맞춤) · 배치(CreateEntity, 끌기 간격) · 지형(프레임당 PaintTerrain{cells}, 오른쪽 =
+          바탕) · 지우기(DeleteEntity, Delete 키) + EditPreview (그린 위치에 더한다 — 그린 틱이 확정 스냅숏에 닿으면 걷는다)
+  12.2 ◐ Palette · Terrain = "편집" 패널 (Prefab 목록 · 거르기 · 머티리얼 · 브러시). Hierarchy · Inspector 는 12B
+  단축키 1 ~ 5 (W A S D 가 카메라 — 10-EDITOR 9장)
+12B Inspector(리플렉션 → ChangeComponent) · Hierarchy + 12.6 Undo/Redo (역명령 · 거절 미반영)          [계획]
+12C 12.5 역할 바꾸기(RoleChanged) · Players 패널 · 권한 없을 때 툴 숨김 + 12.4 Rule · Behavior · ContentOverlay   [계획]
+12D 12.7 세이브 · 로드 · 리플레이 UI + edit_session D3 · 두 클라이언트 동시 편집 · 권한 매트릭스 (Phase 12 완료 기준)  [계획]
+```
+
+```text
+12A 검증 (2026-10-09)
+  Linux    clang · gcc Debug: ctest 44/44 — unit_editor 7 케이스 (가짜 host: 툴 다섯 · preview · 거절 · 경계 · 붓질),
+           unit_client + test_editor_session (로컬 서버까지 배치 · 이동 · 지형 · 지우기, 앱 숫자 키 · 클릭). TSan client · editor
+  Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client · editor 179 케이스. 창 ecosystem_small:
+           배치 · 지형 끌기 · 이동(끄는 동안 preview, 놓은 뒤 같은 자리) · 편집 패널
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12A (원격 편집 · 권한 거절 포함)
+  다음     12B — Inspector · Hierarchy · Undo/Redo
 ```
 
 ### Phase 13 — Linux

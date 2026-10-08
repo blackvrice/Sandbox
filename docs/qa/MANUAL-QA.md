@@ -270,6 +270,33 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] sbx_bench --only net. 끝의 net.snapshot · net.late_join 줄을 붙여 주십시오 (Release)
 ```
 
+## Phase 12A — 에디터 툴 (배치 · 이동 · 지형 · 지우기)
+
+**먼저 다시 빌드.** 툴은 숫자 키 1 선택 · 2 이동 · 3 배치 · 4 지형 · 5 지우기. 오른쪽 아래 "편집" 패널에서 Prefab · 머티리얼 ·
+브러시를 고른다 (F1 로 숨김).
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+# 두 창 (원격 편집 — 기본 역할 editor 는 편집 가능, 일시정지 · 속도는 admin)
+.\cmake-build-release\bin\SandboxServer.exe --world ecosystem_survival
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 철수
+ctest --test-dir cmake-build-debug --output-on-failure
+```
+
+```text
+[ ] 제목 줄 끝에 "툴 선택". 왼쪽 클릭 · 끌기 선택은 이전(8B)과 같다
+[ ] 3 (배치): 패널에 Prefab 목록 (eco.grass · eco.rabbit · eco.wolf), 거르기 칸에 "wolf" → 하나만. 클릭한 자리에 바로 생긴다.
+    누른 채 끌면 2 칸마다 하나씩. "격자 맞춤" 을 켜면 칸 가운데
+[ ] 2 (이동): 개체를 끌면 끄는 동안 따라오고, 놓으면 그 자리에 남는다 (되돌아가며 깜빡이지 않는다). 여러 개 선택 후 하나를 끌면 함께
+[ ] 4 (지형): 커서에 브러시 원. 왼쪽으로 끌면 고른 머티리얼로 칠해지고 (빨리 끌어도 끊기지 않는다), 오른쪽으로 끌면 바탕(풀)으로.
+    반지름 슬라이더 · 원/사각형
+[ ] 5 (지우기): 클릭 = 그 개체, 끌기 = 빨간 박스 안 전부. 아무 툴에서나 Delete = 선택 지우기, Esc = 끌기 취소 → 선택 해제
+[ ] 패널 아래 "명령 N · 수락 N · 거절 0"
+[ ] 원격(--connect, 역할 editor): 위 동작이 같고 두 번째 클라이언트를 띄우면 서로의 편집이 보인다. 서버를 --default-role player
+    로 띄우면 배치가 거절되고 패널에 빨간 사유 (권한)
+[ ] 숫자 키는 글자 입력 칸(패널의 거르기)에 쓰는 동안 툴을 바꾸지 않는다
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

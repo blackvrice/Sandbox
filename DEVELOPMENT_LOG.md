@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-09 — Phase 12A: 에디터 툴 — SandboxEditor · IEditorHost · 선택 · 이동 · 배치 · 지형 · 지우기 · EditPreview
+
+**무엇을**
+
+- editor/ = SandboxEditor (새 라이브러리, Core + Render + imgui, Network 금지): `EditorHost.hpp` (ICommandSink · IEditorHost),
+  `Editor` (툴 다섯 · 설정 · EditPreview · 결과 처리 · 덧그림 · 상태 줄), `ui/EditorPanel` ("편집" 패널 — 툴 · Prefab 목록 ·
+  거르기 · 끌기 간격 · 머티리얼 · 브러시 반지름 · 모양 · 격자 맞춤 · 명령 수 · 거절 사유). 루트 CMake 가 늘 만든다.
+- client: NetworkSession 이 IEditorHost — submit(=명령 보내기) · 결과를 에디터 몫으로 · 콘텐츠 · 복제 지형 · 스냅숏 고르기 ·
+  setSelection · setPreview(그릴 때 스냅숏 위치에 더한다) · 연결이 바뀌면 기다리던 결과를 거절로. IWorldSession::editorHost.
+  Application: 세션이 host 를 주면 왼쪽 · 오른쪽 · Delete · Esc · 숫자 키(editor.tool.* = Digit1 ~ 5)를 에디터로, 덧그림 ·
+  편집 패널 · 제목 줄 "툴 …". host 가 없으면(가짜 세션) 8B 선택 그대로.
+- 테스트: editor 스위트 (test_editor — 가짜 host), client (test_editor_session — 로컬 서버까지, 앱 숫자 키 · 클릭). CTest unit_editor.
+- 문서: ADR-0028, 10-EDITOR(상태 · 2 · 3 · 6.1 · 9 · 10장), 06 10장, 13, 15(타깃 · 실행), 16(Phase 12 를 12A ~ 12D 로, 12A ✅), 17,
+  MANUAL-QA 12A, README.
+
+**왜**
+
+- Phase 12 는 1차 목표선이지만 일곱 묶음이라 넷으로 나눈다 (ADR-0028). 12A 로 "놓고 · 옮기고 · 칠하고 · 지운다" 가 서버 권한
+  그대로(싱글플레이도) 돈다 — Inspector · Undo · 역할 · 콘텐츠 편집은 그 위에.
+- 10-EDITOR E2: 에디터는 Network 를 모른다 — 복제 월드 · 선택 · 명령 결과를 가진 NetworkSession 이 host.
+- 원안 단축키 Q W E B X 는 카메라 W A S D 와 겹친다 → 숫자 키.
+
+**검증**
+
+- Linux clang · gcc Debug: ctest 44/44 (unit_editor 7 케이스, client 28 케이스). TSan client · editor 35 케이스 경고 0.
+- MinGW Release 빌드 경고 0 + Wine: network · net · core · foundation · client · editor 179 케이스.
+- Wine 창 (ecosystem_small, 일시정지): 3 배치 클릭 · 4 지형 끌기(바위 띠 · 브러시 원) · 2 이동(끄는 동안 preview 자리 = 놓은 뒤 서버
+  자리, 깜빡임 없음), 서버 "수락한 명령 12 · 거절 0". 편집 패널이 오른쪽 아래에서 잘려 크기를 고정했다.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12A (원격 편집 · player 역할 거절).
+- 12B Inspector · Hierarchy · Undo/Redo, 12C 역할 · Players · 콘텐츠 편집, 12D 세이브 · 리플레이 UI · 완료 기준 시험.
+- [계획] 배치 미리보기 그림, 툴 커서 모양, 패널을 SandboxEditor 로 옮기고 도킹 레이아웃.
+
+---
+
 ## 2026-10-08 — 측정: 사용자 PC (MSVC Release) sbx_bench --only net.
 
 **무엇을** 사용자가 보낸 결과를 14-PERFORMANCE 7.11 · 16-ROADMAP Phase 11 에 기록. 바이트 · 관심 개체 · late_join 스냅숏 수가

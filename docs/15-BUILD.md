@@ -95,12 +95,13 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
+SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
 SandboxServer             EXE        Network Core
-SandboxClient             EXE        Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
+SandboxClient             EXE        Editor Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
-SandboxTests              EXE        Foundation Core Network Platform (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · apps/client 의 Application ·
+SandboxTests              EXE        Foundation Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
@@ -122,7 +123,7 @@ sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_T
 계획 (Phase 6 이후):
 
 ```cmake
-add_library(SandboxEditor   STATIC …)   # PUBLIC Core Render, PRIVATE imgui  Phase 8/12
+add_library(SandboxEditor   STATIC …)   # PUBLIC Core Render, PRIVATE imgui  — Phase 12A 에 생겼다 (위 목록)
 add_executable(SandboxClient …)         # Editor Network Render Platform Core
 if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos + render/metal   elseif(UNIX) platform/linux + render/vulkan
 ```
@@ -223,6 +224,8 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱 · 적용이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7 · 7.10).
     월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
     (8B) 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 · Shift 더하기/빼기 · Esc 해제 · G 격자 · V 선택한 개체의 감지 반경 · 경로.
+    (12A) 에디터 툴: 1 선택 · 2 이동 · 3 배치 · 4 지형 · 5 지우기 (왼쪽 = 툴, 지형은 오른쪽 = 바탕으로 지우기), Delete = 선택
+    지우기. 패널 "편집"(오른쪽 아래): Prefab 목록 · 머티리얼 · 브러시 · 격자 맞춤. 제목 줄에 "툴 …" (10-EDITOR 3장, ADR-0028)
     제목 줄 끝에 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 패스별 GPU 시간 (타임스탬프, ADR-0022)
     (Phase 8C) [--font <ttf|ttc>] [--no-ui]
     ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 → 내장 영문 (ADR-0023).
