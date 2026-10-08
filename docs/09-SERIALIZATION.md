@@ -2,7 +2,7 @@
 
 > **규범 문서.** 디스크·와이어 포맷과 버전·마이그레이션 규칙을 정합니다.
 > 상태: 3장 Save 와 6장 마이그레이션이 **Phase 4에서 구현됨** (2026-10-05, 3.5 참고). 4장 Replay 는 Phase 5C, 5장 비트스트림은 **Phase 9 에서 구현됨**
-> (`network/protocol/BitStream` — 양자화 · 위치 · 회전 인코딩은 복제와 함께 `[계획 Phase 10]`).
+> (`network/protocol/BitStream`), 컴포넌트 값 바이트(`BinaryCodec`)는 Phase 10A — 양자화 · 위치 · 회전 압축은 `[계획 — 측정 뒤]`.
 
 ---
 
@@ -210,6 +210,19 @@ BitWriter / BitReader
 ```
 
 양자화는 **표현용 손실**입니다. 서버 시뮬레이션 값은 float 그대로이고 복제본만 거칩니다.
+
+**Phase 9 · 10A 구현:** 메시지 필드는 `network/protocol/BitStream` (위 규칙 — 위치 · 회전 압축은 `[계획]`). 컴포넌트 값은
+`core/serialization/BinaryCodec` (리플렉션 Visitor, S1) 이 **바이트 정렬**로 만들어 비트스트림 안에 길이 붙은 바이트열로
+넣는다 — 받는 쪽이 모르는 컴포넌트를 건너뛸 수 있게:
+
+```text
+bool 1 바이트 · 부호 없는 정수 LEB128 · 부호 있는 정수 zigzag LEB128 · enum = 바탕 타입
+f32 / f64 리틀 엔디안 IEEE 비트 그대로 (양자화 [계획] — 지금은 서버 값과 비트 단위로 같다)
+Vec2 = f32 둘 · Vec2i = zigzag 둘 · FixedString = 길이 + 바이트 · std::array = N 개 · SmallVector = 개수 + 원소 (상한 4096)
+EntityId = EntityRefCodec (복제: NetEntityId, 모르는 대상 = 0 → null)
+읽기      끝 넘음 · 상한 · 긴 varint → 실패 (예외 없음). 바이트를 정확히 다 써야 성공
+카탈로그  ComponentInfo::writeBinary / readBinary (02 9장)
+```
 
 ---
 

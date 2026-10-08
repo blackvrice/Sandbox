@@ -90,7 +90,9 @@
 - (Phase 5C) 리플레이 기록: SimulationWorld::setCommandObserver — 수락된 명령의 페이로드를 엔티티 참조를 saveId 로 바꿔 넘긴다 (09 4장).
 - (Phase 5C) kSimVersion 3 → 4. 골든 4개 (ecosystem_small 신규) 재기록.
 - [Phase 10 주의] 편집 단계의 변경은 같은 틱 번호로 changed 틱이 찍힌다. 복제 baseline 은 tick 만으로는 이를
-  구분하지 못하므로 Phase 10 에서 (tick, editSequence) 를 baseline 으로 쓴다.
+  구분하지 못한다 → (Phase 10A) SimulationWorld::changeStamp — tick() 마다 max(이전 + 1, 틱) 로 오르는 변경 순번을
+  레지스트리 currentTick 으로 쓴다 (02 8장, ADR-0025). (tick, editSequence) 를 기준으로 쓰는 방법은 같은 틱에 움직인
+  엔티티를 편집마다 다시 보내서 버렸다. 세이브 복원 시 순번 = 복원 틱.
 ```
 
 ---

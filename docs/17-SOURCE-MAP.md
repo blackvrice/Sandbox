@@ -42,6 +42,7 @@
 | `core/serialization/JsonVisitor.hpp`                                                                        | `componentToJson`, `componentFromJson`                                                                                                                              | SandboxCore                 |
 | `core/serialization/HashVisitor.hpp`                                                                        | `hashComponent` (H1 정수화)                                                                                                                                         | SandboxCore                 |
 | `core/serialization/FieldAccess.hpp`                                                                        | 이름으로 필드 접근 (수치 읽기/쓰기, 필드 목록)                                                                                                                      | SandboxCore                 |
+| `core/serialization/BinaryCodec.hpp`                                                                        | `componentToBinary`·`componentFromBinary`, `EntityRefCodec`, `ByteWriter`·`ByteReader` — 컴포넌트 값 와이어 바이트 (Phase 10A)                                      | SandboxCore                 |
 | `core/components/core/{Transform,Velocity,Lifetime,Movement}.hpp`                                           | `core.transform`, `core.velocity`, `core.lifetime`, `core.movement`·`core.collider`(5B)                                                                             | SandboxCore                 |
 | `core/components/core/Identity.hpp`                                                                         | `SaveId`, `NetEntityId`, `persist.persistence`, `net.identity`                                                                                                      | SandboxCore                 |
 | `core/components/life/Age.hpp`, `core/components/debug/RandomWalk.hpp`                                      | `life.age`, `debug.random_walk`                                                                                                                                     | SandboxCore                 |
@@ -82,7 +83,9 @@
 | `network/protocol/BitStream.{hpp,cpp}`                                                                      | `BitWriter`·`BitReader` — LSB 우선, LEB128 varint · zigzag, 상한 · UTF-8 검사, 오류 플래그                                                                          | SandboxNetwork              |
 | `network/protocol/Messages.{hpp,cpp}`, `CommandCodec.{hpp,cpp}`                                             | 메시지 카탈로그 (`kProtocolVersion`, `Role`, `RejectReason`, encode/decode), 명령 페이로드 (`PayloadTag`)                                                           | SandboxNetwork              |
 | `network/server/ServerHost.{hpp,cpp}`, `CommandValidator.{hpp,cpp}`                                         | 서버 (Net 절반 + Sim 절반, Inline · Threaded, 핸드셰이크 · 결과 · 통계), 순번 · 속도 제한 · 권한 표                                                                 | SandboxNetwork              |
-| `network/client/ClientSession.{hpp,cpp}`                                                                    | 클라이언트 연결 — 핸드셰이크 · 명령 · 결과 · ServerStats                                                                                                            | SandboxNetwork              |
+| `network/client/ClientSession.{hpp,cpp}`                                                                    | 클라이언트 연결 — 핸드셰이크 · 명령 · 결과 · ServerStats · 복제 적용 · SnapshotAck (Phase 10A)                                                                      | SandboxNetwork              |
+| `network/client/ClientWorld.{hpp,cpp}`                                                                      | 복제 월드 (Phase 10A, ADR-0025) — Registry · WorldGrid · netId 표 · Opaque · transform 표본, Snapshot/TerrainChunk 적용 (시뮬레이션 없음)                           | SandboxNetwork              |
+| `network/replication/ReplicationWriter.{hpp,cpp}`                                                           | 서버 복제 (Phase 10A) — 클라이언트별 기록 32 · 차분 · 예산 round-robin · epoch · 지형 청크                                                                          | SandboxNetwork              |
 | `platform/CMakeLists.txt`                                                                                   | SandboxPlatform — OS 별 소스 선택 (WIN32: `windows/`, 그 밖: `stub/`)                                                                                               | SandboxPlatform             |
 | `platform/common/Key.{hpp,cpp}`                                                                             | `Key`(물리 위치), `MouseButton`, `Modifiers`, 이름 표 (ADR-0017)                                                                                                    | SandboxPlatform             |
 | `platform/common/PlatformEvent.hpp`                                                                         | `PlatformEvent` variant, `PlatformEventQueue`, `Extent2D`                                                                                                           | SandboxPlatform             |
@@ -140,7 +143,7 @@
 | `tests/golden/{random_walk_1k,world_save_load,eco_lifecycle,ecosystem_small}.json`                          | 골든 해시 (툴체인별, ADR-0012)                                                                                                                                      | 데이터                      |
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `content/ecosystem/`                                                                                        | 콘텐츠 팩 \"eco\" (tags · terrain · prefabs · rules · behaviors)                                                                                                    | 데이터                      |
-| `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client)                                             | SandboxTests                |
+| `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client, net — net = 복제 수렴 `net_convergence`)    | SandboxTests                |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
@@ -207,7 +210,7 @@ core/
   pathfinding/  PathfindingService, PathGridSnapshot, GridAStar      ← Phase 5B 구현은 core/path/ (PathGrid · Pathfinder · PathfindingService)
   content/      ContentDatabase, Prefab, TagTable, TerrainMaterial, 로더, Validator, ContentHash, Overlay
   command/      SimCommand, CommandQueue, CommandApplier
-  serialization/ JsonVisitor, HashVisitor, BinaryVisitor, BitWriter/BitReader
+  serialization/ JsonVisitor, HashVisitor, BinaryVisitor, BitWriter/BitReader   ← BinaryCodec (Phase 10A). BitStream 은 network/protocol
   persist/      WorldSave(세이브·로드), ChunkFile, Migration              ← Phase 4 구현 (초안의 serialization/SaveGame 자리)
   replay/       ReplayWriter, ReplayReader, WorldHash
   random/       CounterRng, RandomService
@@ -215,10 +218,10 @@ core/
 network/
   transport/    INetworkTransport, EnetTransport, LoopbackTransport, SimulatedTransport   ← Phase 9 구현
   protocol/     BitStream, Messages(kProtocolVersion · Role), CommandCodec                   ← Phase 9 구현
-  client/       ClientSession                                                                ← Phase 9 구현 (핸드셰이크 · 명령)
+  client/       ClientSession, ClientWorld                                                   ← Phase 9 · 10A 구현 (핸드셰이크 · 명령 · 복제 월드)
   session/      [계획] 초안의 ServerSession · Handshake · Roles 는 ServerHost · Messages 안에 (Phase 9)
-  snapshot/     Snapshot, SnapshotBuffer
-  replication/  ReplicationWriter, ReplicationReader, NetEntityMap
+  snapshot/     Snapshot, SnapshotBuffer        ← Snapshot 은 protocol/Messages (10A), SnapshotBuffer [계획 10B]
+  replication/  ReplicationWriter, ReplicationReader, NetEntityMap   ← Writer 구현 (10A), Reader · NetEntityMap = client/ClientWorld
   interest/     InterestManager
   server/       ServerHost, CommandValidator (Phase 9) · PersistenceService, ReplayRecorder [계획]
 
@@ -279,6 +282,7 @@ apps/server/
 | 해시                        | `core/replay/WorldHash.cpp`                                                                                     |
 | 세이브 포맷                 | `core/persist/WorldSave.cpp` + [09](09-SERIALIZATION.md) 3장                                                    |
 | 와이어 메시지               | `network/protocol/Messages.hpp` + [08](08-NETWORK.md) 5장                                                       |
+| 복제 (무엇을 보내나)        | `network/replication/ReplicationWriter.cpp` → `network/client/ClientWorld.cpp` + [08](08-NETWORK.md) 6장        |
 | 스프라이트가 화면에 가는 길 | `apps/client/presentation/SpriteExtraction.cpp` → `render/renderer/SpriteBatcher.cpp` · `Renderer.cpp`          |
 | 화면 패널 (ImGui)           | `apps/client/ui/DebugPanels.cpp` → `Application.cpp` (`applyPanelActions`) · `render/imgui/ImGuiRenderer.cpp`   |
 | D3D12 디바이스 생성         | `render/dx12/D3D12Device.cpp`                                                                                   |

@@ -622,7 +622,7 @@ Main 스레드는 프레임마다 `emit` 으로 최신 스냅숏을 보간해 Re
 "terrain/<id>" 색), 선택한 개체(최대 32)의 자세한 상태를 담는다. 선택은 Main 스레드가 스냅숏에서 고른다 — 왼쪽 클릭 = 맨 위
 개체, 끌기 = 박스, Shift = 더하기/빼기, Esc = 해제 (`presentation/SelectionOverlay`,
 [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md)).
-Network · ClientWorld · InterpolationSystem 은 Phase 10, --direct-sim 은 그때 삭제 (16-ROADMAP).
+Network · ClientWorld 는 Phase 10A 구현 (그리기 연결 · InterpolationSystem 은 10B), --direct-sim 은 10B 에서 삭제 (16-ROADMAP).
 
 ---
 

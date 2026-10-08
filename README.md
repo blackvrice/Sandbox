@@ -7,18 +7,18 @@ C++23 기반의 자체 **Sandbox Simulation Engine / Maker**입니다.
 Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **특정 장르 규칙에 묶이지 않고**
 만들 수 있는 것이 목표입니다.
 
-> **현재 상태: Phase 9 네트워크 기초 구현 — 전용 서버(`SandboxServer --world`, ENet UDP) · 핸드셰이크 · 명령 · 권한 · `sbx_net_probe`. Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
+> **현재 상태: Phase 10A 복제 구현 — 서버 월드를 클라이언트별 차분 스냅숏으로 보내고(예산 · 손실 복구 · 다시 맞추기) 클라이언트 복제 월드에 적용, `sbx_net_probe` 가 복제 개체를 센다. Phase 9 네트워크 기초 (전용 서버 `SandboxServer --world`, ENet UDP · 핸드셰이크 · 명령 · 권한). Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
 > 30 TPS 틱 파이프라인·명령(SimCommand)·공간 색인·난수·WorldHash, 청크 월드·지형 칠하기·세이브/로드(마이그레이션·Opaque),
 > 콘텐츠 팩 로더·검증기(Prefab·Tag·Rule·BehaviorGraph)·생명 주기(에너지·성장·번식·사망)·`content/ecosystem` 팩,
 > 감지·FSM 행동·Rule 상호작용·A* 경로 Job·조향 이동·충돌, 리플레이 기록·재생, 세 종이 공존하는 생태계 시나리오,
-> 결정론 하네스(`sbx_sim_check` — 재현·세이브 왕복·리플레이·골든·Worker 수·콘텐츠 검증·공존), 헤드리스 서버(`--scenario`)와 네트워크 서버(`--world` — ServerHost: Simulation 스레드 + Net IO 스레드, ENet · Loopback · Simulated Transport, 비트스트림 메시지, 핸드셰이크 · 콘텐츠 해시 · 역할별 권한 · 속도 제한),
+> 결정론 하네스(`sbx_sim_check` — 재현·세이브 왕복·리플레이·골든·Worker 수·콘텐츠 검증·공존), 헤드리스 서버(`--scenario`)와 네트워크 서버(`--world` — ServerHost: Simulation 스레드 + Net IO 스레드, ENet · Loopback · Simulated Transport, 비트스트림 메시지, 핸드셰이크 · 콘텐츠 해시 · 역할별 권한 · 속도 제한, 복제 — ReplicationWriter · ClientWorld · 수렴 테스트),
 > Platform 계층(Win32 창 — DPI v2·Raw Input·IME·클립보드, 물리 키 InputSystem·ActionMap, Null 오디오, HeadlessWindow),
 > RHI + D3D12 백엔드(디바이스·큐/펜스·스왑체인·Clear·업로드 링·지연 해제·Debug Layer·셰이더·바인드 그룹·루트 시그니처·PSO·draw),
 > HLSL 셰이더 빌드(DXC 고정 버전 · SPIR-V 리플렉션 · cbuffer 헤더 생성), `sbx_render_tests` 기준 이미지,
 > 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, 지형(타일 텍스처) · 격자 · 선택 · 디버그 선 패스와
 > GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--direct-sim` 월드 관찰 — Simulation 스레드, 카메라 팬 · 줌 · 일시정지 · 속도,
 > 클릭 · 박스 선택), Dear ImGui(1.92 docking, RHI 위 렌더러 · 동적 폰트 텍스처 · 입력 가로채기)와 기본 패널, 테스트·벤치·경계 검사가 있습니다.
-> 스냅숏 복제(클라이언트가 서버 월드를 보기 — Phase 10) · 에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> SandboxClient 가 네트워크로 서버 월드를 그리기(LocalServerHost · 보간 — Phase 10B) · 에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

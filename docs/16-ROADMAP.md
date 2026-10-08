@@ -27,7 +27,7 @@ Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 202
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
 Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-07 (8A 스프라이트 · --direct-sim, 8B 지형 · 오버레이 · GPU 시간, 8C ImGui 패널), 사용자 PC 확인 대기
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
-Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
+Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성. 10A 복제 구현 2026-10-08 (ReplicationWriter · ClientWorld · net_convergence), 10B 클라이언트 연결 다음
 Phase 11  Interest Management
 Phase 12  Multiplayer Editor                        ← 1차 목표선
 Phase 13  Linux (X11 → Vulkan → Wayland)
@@ -330,7 +330,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   다음     Phase 10 — 복제 (NetEntityId · Snapshot · 보간), LocalServerHost, --direct-sim 삭제
 ```
 
-### Phase 10 — Replication
+### Phase 10 — Replication (10A ✅ 구현 2026-10-08 — ADR-0025, 10B 다음)
 
 ```text
 10.1 NetEntityId, NetIdentity 부여, NetEntityMap        10.2 Spawn/Update/Despawn, ack, baseline 32개
@@ -338,6 +338,37 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 10.5 LocalServerHost — 싱글플레이 경로 전환, --direct-sim 삭제
 10.6 ServerStats 메시지, Network 오버레이
 완료  net_convergence (100ms, 5% 손실) 통과, --direct-sim 코드 0줄
+```
+
+둘로 나눈다:
+
+```text
+10A 복제 ✅ (2026-10-08)
+  10.1 ✅ NetEntityId 는 Phase 9 (net.identity), NetEntityMap = ClientWorld 의 표
+  10.2 ✅ ReplicationWriter — 클라이언트별 기록 32 (변경 순번 · mask), spawn/update/despawn, ack, 예산 round-robin, epoch 다시 맞추기,
+          TerrainChunk (길이 부호화). 프로토콜 2. SandboxServer --snapshot-kbps
+  10.3 ◐ EntityRef 변환 ✅ (NetEntityId), tombstone 은 단조 적용으로 대신 ✅, 양자화 [계획 — 측정 뒤]
+  10.4 ◐ 표본만 (ClientWorld::transformTrack — 직전 · 지금), SnapshotBuffer · 보간은 10B
+  10.6 ◐ ServerStats ✅ (Phase 9), 서버 끝 줄 replication ms · probe 복제 개체 수
+  완료 기준 net_convergence (100 ms ± 20 · 5 % 손실 양방향 · 64 KB/s) ✅
+
+10B SandboxClient 를 네트워크 위로 [다음]
+  NetworkSession (클라이언트 앱 상태: 접속 · 다시 접속 · 끊김 UI), SandboxClient --connect host:port
+  LocalServerHost — 싱글플레이 = 같은 프로세스 ServerHost + Loopback (Simulation 스레드는 서버 쪽), 예산 없음
+  그리기: SpriteExtraction · 지형 capture 를 SimulationWorld 대신 ClientWorld 에서 (Opaque render.sprite 를 읽는다)
+  보간: SnapshotBuffer (serverTick 추정 · renderTick = 추정 − interpDelay), 순간이동 스냅
+  선택 상세: 서버만 아는 값(ServerOnly · 행동 상태)은 Inspect 요청/응답 메시지 [계획 — 10B 또는 12]
+  --direct-sim 삭제 (ADR-0021 의 Simulation 스레드 스냅숏은 LocalServerHost 로 옮긴다), Network 패널 (RTT · 바이트 · 스냅숏)
+  완료 기준 --direct-sim 코드 0줄, SandboxClient 가 SandboxServer 에 접속해 10k 를 그린다, 싱글플레이 프레임 시간 회귀 없음
+```
+
+```text
+10A 검증 (2026-10-08)
+  Linux    clang · gcc Debug: ctest 42/42 — unit_network 복제 6 케이스, net_convergence (Loopback 249 개체 · 100 ms ± 20 · 5 % 손실 ·
+           64 KB/s 330 개체, 바이트 단위로 같다), 결정론 골든 그대로. TSan network · net 36 케이스 경고 0
+  Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation 132 케이스
+  성능     Release ecosystem_10k: 스냅숏 만들기 5.4 ~ 5.7 ms (제한 없음) · 1.5 ms (256 KB/s), 틱 7 ms 안팎 (14 7.9)
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 10A
 ```
 
 ### Phase 11 — Interest

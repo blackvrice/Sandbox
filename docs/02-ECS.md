@@ -16,7 +16,7 @@
 | 5 Registry      | ✅ — 아래 차이 참고                                                                                                                                                                                                                                                                               | `core/ecs/Registry.{hpp,cpp}`                                            |
 | 6 View          | ✅ Read/Write/Exclude, 범위 for · `each` · `count`                                                                                                                                                                                                                                                | `core/ecs/View.hpp`                                                      |
 | 7 ECB           | ✅ `createEmpty`/`destroy`/`emplace`/`remove` — `create(PrefabId)`는 Phase 5                                                                                                                                                                                                                      | `core/ecs/EntityCommandBuffer.{hpp,cpp}`                                 |
-| 8 변경 추적     | ✅ changed/added 틱, `createdThisTick()`·`destroyedThisTick()` (Phase 3) — `removedLog<T>` 는 `[계획]` Phase 10                                                                                                                                                                                   |                                                                          |
+| 8 변경 추적     | ✅ changed/added 틱, `createdThisTick()`·`destroyedThisTick()` (Phase 3), 변경 순번 (Phase 10A) — `removedLog<T>` 는 쓰지 않음 (복제는 mask 비교)                                                                                                                                                 |                                                                          |
 | 9 등록·리플렉션 | ✅ `SBX_COMPONENT`, `ComponentCatalog`(명시 등록), JSON·해시 Visitor — Binary/Bit/ImGui/Diff Visitor 와 Opaque 는 `[계획]`                                                                                                                                                                        | `core/ecs/Component*`, `core/ecs/Reflection.hpp`, `core/serialization/*` |
 | 10 Resource     | ✅ `emplaceResource/resource/tryResource`                                                                                                                                                                                                                                                         | Registry                                                                 |
 | 11 EventStream  | ✅ Phase 3 — `EntitySpawned`/`EntityDestroyed`/`Custom`, BeginTick 에 비움                                                                                                                                                                                                                        | `core/simulation/EventStream.hpp`                                        |
@@ -254,6 +254,12 @@ pool.forEachChangedSince(Tick baseline, fn);   // 복제 Delta, 증분 세이브
 ```
 
 Dirty bit가 아니라 **틱**을 기록하는 이유: 클라이언트마다 ack한 baseline이 다릅니다.
+
+**Phase 10A — 변경 순번 (ADR-0025):** changed/added 에 들어가는 값은 `Registry::currentTick()` 이고, SimulationWorld 는
+여기에 틱 번호가 아니라 `changeStamp()` 를 넣는다 — tick() 마다 `max(이전 + 1, 틱 번호)` 로 오르는 순번이라 일시정지 편집
+단계(틱 번호가 그대로)의 변경도 다른 값으로 찍힌다. 일시정지가 없으면 틱 번호와 같다. 복제는 `changed > 기록의 stamp` 로
+고른다 (08 6.1). 변경 기록은 해시 · 세이브에 들어가지 않는다 (결정론 골든과 무관). `removedLog<T>` 는 쓰지 않는다 — 복제는
+mask(붙은 컴포넌트 비트) 비교로 떼기를 안다.
 
 **최적화 `[계획]` (측정 후):** 50k에서 `forEachChangedSince`가 전체 dense를 훑는 비용이 문제면
 틱별 변경 목록(append-only) 또는 청크별 변경 비트맵을 추가합니다.

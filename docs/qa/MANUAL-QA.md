@@ -187,6 +187,27 @@ ctest --test-dir cmake-build-debug -R "server|net" --output-on-failure
 [ ] ctest -R "server|net" 통과 (net_server_probe_smoke 는 UDP 47791 을 쓴다)
 ```
 
+## Phase 10A — 복제 (화면 없음 — 그리기는 10B)
+
+Phase 9 의 창 두 개 그대로. **먼저 다시 빌드** (`cmake --build cmake-build-debug` 또는 CLion Build All) — 옛 실행 파일이면
+새 테스트가 0 개로 돌다가 이제는 실패로 나온다.
+
+```powershell
+.\SandboxServer.exe --world ecosystem_small --default-role admin
+.\sbx_net_probe.exe --seconds 3
+.\SandboxServer.exe --world ecosystem_10k --snapshot-kbps 0      # 제한 없음 (같은 PC)
+.\sbx_net_probe.exe --seconds 5
+ctest --test-dir cmake-build-debug -R "net|unit_network" --output-on-failure
+```
+
+```text
+[ ] probe 끝 무렵 "복제 개체 N · 스냅숏 M (다시 맞춤 0) · 지형 청크 C · 받은 X KB" — N 이 서버 통계 줄의 개체 수와 같거나 가깝다
+    (ecosystem_small: 지형 청크 4)
+[ ] ecosystem_10k 기본 예산(256 KB/s)에서는 5 초 안에 N 이 10k 에 못 미칠 수 있다 (예산 round-robin — 정상). --snapshot-kbps 0 이면 거의 다 온다
+[ ] 서버 끝 줄 (Ctrl+C) 에 "replication X ms" — 10k 제한 없음에서 수 ms
+[ ] ctest -R net_convergence 통과 (수 초)
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

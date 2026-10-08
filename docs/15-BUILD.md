@@ -176,9 +176,11 @@ SandboxServer --scenario <random_walk_1k|random_walk_10k> [--ticks N] [--seed N]
     --realtime: 30 Hz × speed 로 페이싱, 3틱 넘게 밀리면 기준점을 다시 잡고 overruns 에 센다 (03-SIMULATION 3장).
     네트워크 없이 시나리오만 — 결정론 · 성능 확인용으로 남긴다.
 SandboxServer --world <시나리오|세이브 폴더> [--port 7777] [--bind addr] [--max-clients 16] [--default-role editor]
-              [--threads N] [--seed N] [--content-root d] [--ticks N --exit]      (Phase 9, ADR-0024)
+              [--threads N] [--seed N] [--content-root d] [--snapshot-kbps 256] [--ticks N --exit]  (Phase 9 · 10A)
     네트워크 서버: ServerHost (Simulation 스레드 + Net IO 스레드) + ENet UDP. 시작하면 "listening udp *:<port> world …"
-    (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected …". 세이브 폴더는 world.json 의 팩을 읽는다.
+    (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected … overruns … replication X ms"
+    (replication = 스냅숏 만들기 평균, Phase 10A). 세이브 폴더는 world.json 의 팩을 읽는다.
+    --snapshot-kbps: 클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음 — 08 6.3, ADR-0025). 넘는 엔티티는 다음 스냅숏으로.
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
     Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
@@ -187,7 +189,8 @@ SandboxServer --world <시나리오|세이브 폴더> [--port 7777] [--bind addr
 sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] [--timeout s]
               [--pause] [--resume] [--step n] [--speed x] [--create x,y]       (Phase 9 — 화면 없는 접속 확인 도구)
     접속 → "접속 client #1 role … world … tick …" → 명령 결과 "결과 #n <명령> 수락 tick … | 거절 <ErrorCode> — 사유" →
-    "서버 tick … · 개체 … · 틱 … ms · TPS · 접속 …" → "probe 끝: 명령 N 수락 a 거절 r".
+    "서버 tick … · 개체 … · 틱 … ms · TPS · 접속 …" → (Phase 10A) "복제 개체 N · 스냅숏 M (다시 맞춤 R) · 지형 청크 C · 받은 X KB"
+    → "probe 끝: 명령 N 수락 a 거절 r". 복제 개체 수는 --seconds 동안 따라온 만큼 (예산이 걸리면 큰 월드는 늦게 다 온다).
     콘텐츠가 다르다고 거절되면 서버가 알려 준 팩을 --content-root 에서 읽어 한 번 다시 접속한다.
     종료 코드: 0 · 1 접속 실패/거절 · 2 잘못된 인자 · 3 거절된 명령 있음
 

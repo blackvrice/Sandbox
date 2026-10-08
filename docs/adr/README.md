@@ -39,3 +39,4 @@
 | [0022](0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md)      | 지형은 타일 머티리얼 번호 텍스처 + 팔레트로 한 번에 그리고, 격자 · 선택 · 디버그는 화면 픽셀 오버레이로, 패스별 GPU 시간은 프레임 슬롯 타임스탬프로 잰다 | Accepted                                  | 2026-10-07 |
 | [0023](0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md)  | ImGui 는 1.92 docking 을 벤더링하고, 렌더러는 동적 텍스처 프로토콜로 RHI 위에, 입력은 PlatformEvent 로 직접 먹인다                                       | Accepted                                  | 2026-10-07 |
 | [0024](0024-network-foundation-enet-serverhost-two-halves.md)           | 네트워크 기초: ENet 1.3.18 을 벤더링하고, ServerHost 는 Net 절반 · Sim 절반을 큐로 잇고, 권한 · 속도 제한은 Net 쪽 CommandValidator 한 곳에서            | Accepted                                  | 2026-10-08 |
+| [0025](0025-replication-change-stamp-records-epochs.md)                 | 복제는 클라이언트별 스냅숏 기록(변경 순번)으로 차분을 만들고, 기준을 잃으면 epoch 으로 다시 맞추며, 클라이언트는 시뮬레이션 없는 ClientWorld 에 적용한다 | Accepted                                  | 2026-10-08 |

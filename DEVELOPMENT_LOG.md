@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-10-08 — Phase 10A: 복제 — 변경 순번 · ReplicationWriter · ClientWorld · 프로토콜 2 · net_convergence
+
+**무엇을**
+
+- core: `SimulationWorld::changeStamp` — tick() 마다 `max(이전 + 1, 틱)` 로 오르는 변경 순번을 레지스트리 currentTick 으로 쓴다
+  (일시정지 편집 단계도 다른 값). `core/serialization/BinaryCodec` (리플렉션 ↔ 바이트: LEB128 · zigzag · f32 비트 그대로 ·
+  EntityRef 는 EntityRefCodec), `ComponentInfo::writeBinary/readBinary`.
+- network: 프로토콜 2 (Welcome.replicated · Snapshot · SnapshotAck · TerrainChunk 길이 부호화, 스트림 메시지 16 MB).
+  `ReplicationWriter` — 클라이언트별 스냅숏 기록 32 개, ack 된 기준 + inflight 합으로 spawn · update · despawn, 바이트 예산
+  round-robin, 기준을 잃으면 epoch 으로 다시 맞추기, 바뀐 지형 청크 (스냅숏당 64). `ClientWorld` — 시뮬레이션 없는 복제 월드
+  (Registry · WorldGrid · netId 표 · Opaque · transform 표본). ServerHost: 단계 2 번마다 스냅숏(일시정지 중에도), 클라이언트당
+  예산, roster · ack 큐, replicationMs. ClientSession: Welcome 뒤 ClientWorld 를 만들고 적용 · ack, Welcome 보다 먼저 온 지형을
+  모아 둔다.
+- SandboxServer `--snapshot-kbps` (기본 256, 0 = 제한 없음), 끝 줄 `replication X ms`. sbx_net_probe 가 복제 개체 수를 보인다.
+- 테스트: unit_network 에 복제 6 케이스, CTest `net_convergence` (서버 + 클라이언트, Loopback · 100 ms ± 20 · 5 % 손실 양방향 ·
+  64 KB/s — 복제 컴포넌트 · Opaque · 지형이 바이트 단위로 같다). `unit_*` · `net_convergence` 는 케이스가 0 개면 실패.
+- 문서: ADR-0025, 08(상태 · 4 · 5 · 6 · 7 · 9 · 12 · 13장), 02 8장, 03, 09 5장, 13, 14 7.9, 15, 16(Phase 10 → 10A ✅ · 10B),
+  17, MANUAL-QA 10A, README.
+
+**왜**
+
+- 16-ROADMAP Phase 10 — LocalServerHost 와 --direct-sim 삭제(10B)는 클라이언트가 서버 월드를 받아 볼 수 있어야 시작할 수 있다.
+  Phase 10 을 10A(복제 자체 · 수렴 시험)와 10B(SandboxClient 연결 · 보간)로 나눠 복제를 그리기 없이 바이트 비교로 먼저 확정한다.
+- 틱 번호만으로는 일시정지 편집을 놓쳤고, 편집 순번을 기준에 섞으면 같은 틱에 움직인 엔티티를 모두 다시 보냈다 (29 개 대
+  2 개) → 변경 순번 (ADR-0025).
+- 사용자 PC 에서 다시 빌드하지 않은 ctest 가 unit_network 0 케이스로 "통과" 했다 → 0 케이스 실패 규칙.
+
+**검증**
+
+- Linux clang Debug · gcc Debug: ctest 42/42 (새: net_convergence — Loopback 249 개체, 나쁜 링크 330 개체 수렴). 결정론 골든
+  그대로 (변경 순번은 해시와 무관).
+- TSan: SandboxTests network · net 36 케이스, 경고 0.
+- MinGW 전체 빌드 경고 0. Wine 11: SandboxTests network · net · core · foundation 132 케이스.
+- Release, ecosystem_10k + probe (ENet 127.0.0.1): 스냅숏 만들기 제한 없음 5.4 ~ 5.7 ms · 256 KB/s 1.5 ms, 틱 7 ms 안팎 (14 7.9).
+
+**남은 일**
+
+- 사용자 PC (MSVC): **다시 빌드한 뒤** ctest (net_convergence 포함), MANUAL-QA Phase 10A.
+- [계획 10B] NetworkSession · `SandboxClient --connect` · LocalServerHost, 그리기를 ClientWorld 에서, 보간(SnapshotBuffer),
+  선택 상세(Inspect), --direct-sim 삭제, Network 패널. [계획] 양자화 · 필드 마스크 · Event 복제 · EntityRef 대기 목록 ·
+  Opaque 갱신 · 클라이언트 간 바이트 재사용. [계획 11] Interest · 우선순위.
+
+---
+
 ## 2026-10-08 — Phase 9: 네트워크 기초 — ENet · 핸드셰이크 · 명령 · ServerHost · SandboxServer --world · sbx_net_probe
 
 **무엇을**
