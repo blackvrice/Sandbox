@@ -39,6 +39,8 @@ endif()
 add_subdirectory(external)
 add_subdirectory(foundation)
 add_subdirectory(core)
+# Network 는 Core 위. 서버 · 클라이언트 · 테스트가 쓴다 (헤드리스 — OS 창 · GPU 없음)
+add_subdirectory(network)
 # Platform 은 항상 만든다: 클라이언트가 없어도 입력·오디오 단위 테스트가 쓴다 (창 구현은 OS 별, 없으면 stub).
 add_subdirectory(platform)
 # Render 도 항상 만든다: RHI 의 순수 로직(핸들 풀·지연 해제·업로드 링)과 이미지 비교를 단위 테스트가 쓴다.

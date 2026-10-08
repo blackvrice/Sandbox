@@ -47,6 +47,9 @@ add_executable(SandboxTests
     unit/render/test_pipeline_validation.cpp
     unit/render/test_sprite_logic.cpp
     unit/render/test_world_logic.cpp
+    unit/network/test_bitstream.cpp
+    unit/network/test_messages.cpp
+    unit/network/test_transport.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
@@ -66,13 +69,13 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxPlatform SandboxRender sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxNetwork SandboxPlatform SandboxRender sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
-set(_sbx_suites foundation core ecs persist content server tools platform render)
+set(_sbx_suites foundation core ecs persist content network server tools platform render)
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()

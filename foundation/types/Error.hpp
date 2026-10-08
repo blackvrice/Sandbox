@@ -25,7 +25,10 @@ enum class ErrorCode : u16 {
     Unsupported,
     OutOfRange,
     PermissionDenied,
+    RateLimited, // 너무 자주 (네트워크 명령 속도 제한 — 08 11장)
 };
+// 마지막 값 (와이어에서 받은 코드의 범위 검사용). 새 코드는 끝에 붙이고 이것을 바꾼다
+inline constexpr ErrorCode kLastErrorCode = ErrorCode::RateLimited;
 
 [[nodiscard]] std::string_view errorCodeName(ErrorCode code) noexcept;
 

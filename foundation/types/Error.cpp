@@ -26,6 +26,8 @@ std::string_view errorCodeName(ErrorCode code) noexcept {
         return "OutOfRange";
     case ErrorCode::PermissionDenied:
         return "PermissionDenied";
+    case ErrorCode::RateLimited:
+        return "RateLimited";
     }
     return "Unknown";
 }

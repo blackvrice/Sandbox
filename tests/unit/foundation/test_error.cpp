@@ -36,7 +36,7 @@ TEST_SUITE("foundation") {
     }
 
     TEST_CASE("error: every code has a name") {
-        for (u16 c = 0; c <= static_cast<u16>(ErrorCode::PermissionDenied); ++c) {
+        for (u16 c = 0; c <= static_cast<u16>(kLastErrorCode); ++c) {
             CHECK_FALSE(errorCodeName(static_cast<ErrorCode>(c)).empty());
         }
         CHECK(errorCodeName(ErrorCode::VersionMismatch) == "VersionMismatch");
