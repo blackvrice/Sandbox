@@ -67,6 +67,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_application.cpp
         unit/client/test_network_session.cpp
         unit/client/test_imgui_layer.cpp
+        unit/client/test_editor_session.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"

@@ -2,12 +2,16 @@
 // Application ↔ "보고 있는 월드" 경계. Application 은 월드가 어디서 오는지 모른다.
 //   Phase 10B: NetworkSession — 서버(같은 프로세스의 LocalServerHost 또는 원격 SandboxServer)의 스냅숏 → ClientWorld.
 //   (Phase 8A 의 --direct-sim 은 지웠다 — ADR-0026)
-// 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022).
+// 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
 
 #include <optional>
 #include <string>
 
 #include "render/renderer/RenderWorld.hpp"
+
+namespace sbx::editor {
+class IEditorHost;
+}
 
 namespace sbx::client {
 
@@ -77,6 +81,8 @@ public:
     virtual void setDetailOverlay(bool /*on*/) {}
     [[nodiscard]] virtual std::string selectionStatus() const { return {}; } // 비면 선택 없음
     [[nodiscard]] virtual WorldInfo info() const { return {}; }
+    // ---- 12A: 에디터 (없으면 null — Application 은 8B 의 선택만 한다) ----
+    [[nodiscard]] virtual editor::IEditorHost* editorHost() { return nullptr; }
 };
 
 } // namespace sbx::client

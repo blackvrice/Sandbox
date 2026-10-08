@@ -4,7 +4,8 @@ namespace sbx::client {
 
 std::string_view defaultInputJson() noexcept {
     // app.* · debug.* 는 Phase 6 의 빈 창이 쓴다. camera.* · editor.* · sim.* 는 Phase 8·12 가 쓴다 (이름을 먼저 고정).
-    // view.* 는 8B 오버레이 (격자 · 선택한 개체의 감지 반경 · 경로).
+    // view.* 는 8B 오버레이 (격자 · 선택한 개체의 감지 반경 · 경로). editor.tool.* 는 12A 툴 — 숫자 1 ~ 5 (WASD 가
+    // 카메라라서 10-EDITOR 9장 원안의 Q W E B X 대신, ADR-0028).
     // 키 이름은 물리 위치다 (AZERTY 에서도 W 자리).
     return R"json({
   "format": "sandbox.input",
@@ -25,6 +26,11 @@ std::string_view defaultInputJson() noexcept {
     "camera.drag": ["MouseMiddle"],
     "camera.reset": ["Home"],
     "editor.select": ["MouseLeft"],
+    "editor.tool.select": ["Digit1"],
+    "editor.tool.move": ["Digit2"],
+    "editor.tool.place": ["Digit3"],
+    "editor.tool.terrain": ["Digit4"],
+    "editor.tool.erase": ["Digit5"],
     "editor.select_add": ["Shift+MouseLeft"],
     "editor.context": ["MouseRight"],
     "editor.delete": ["Delete"],

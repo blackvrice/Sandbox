@@ -1,5 +1,6 @@
 # SandboxClient — 앱 상태기계 + 창 루프. Phase 6: Platform. Phase 7A: + Render (Clear). Phase 8A: + Core,
-# presentation/(복제 월드 → RenderWorld). Phase 10B: + Network (NetworkSession — 로컬 서버 · 원격 서버). Editor 는 Phase 12.
+# presentation/(복제 월드 → RenderWorld). Phase 10B: + Network (NetworkSession — 로컬 서버 · 원격 서버).
+# Phase 12A: + Editor (툴 · "편집" 패널).
 # 의존 계획: Editor + Network + Render + Platform + Core (docs/01-ARCHITECTURE.md 2장).
 add_executable(SandboxClient
     main.cpp
@@ -23,7 +24,7 @@ add_executable(SandboxClient
     ui/DebugPanels.hpp
     ui/DebugPanels.cpp
 )
-target_link_libraries(SandboxClient PRIVATE SandboxNetwork SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
+target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                  SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
 

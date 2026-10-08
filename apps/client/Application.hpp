@@ -10,10 +10,12 @@
 // RenderWorld 를 채워 그린다. 10B: Connecting 은 세션이 준비될 때까지 (접속 · 첫 스냅숏), 실패하면 끝낸다 (종료 코드
 // 1). 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데 끌기 · Home(맞춤). 시뮬레이션: Space 일시정지 · . 한 틱 · = / -
 // 속도. 8B: 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 (Shift = 더하기/빼기) · Esc 선택 해제 · G 격자 · V 선택한 개체의 감지
-// 반경 · 경로 표시. [계획] 메뉴 UI.
+// 반경 · 경로 표시. 12A: 세션이 에디터 호스트면 왼쪽 · 오른쪽 클릭 · Delete · Esc 는 에디터 툴로 (1 선택 · 2 이동 ·
+// 3 배치 · 4 지형 · 5 지우기, "편집" 패널 — ADR-0028). [계획] 메뉴 UI.
 //
 // 상태 전이는 요청만 받고 프레임 끝에서 적용한다 (프레임 중간에 상태가 바뀌어 반쯤 다른 상태로 도는 일이 없게).
 
+#include <array>
 #include <chrono>
 #include <optional>
 #include <string>
@@ -22,6 +24,8 @@
 #include "apps/client/FrameRenderer.hpp"
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
+#include "editor/Editor.hpp"
+#include "editor/ui/EditorPanel.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
 #include "platform/common/Audio.hpp"
@@ -93,6 +97,8 @@ public:
     [[nodiscard]] const FrameTimings& timings() const noexcept { return m_timings; }
     [[nodiscard]] const PanelState& panels() const noexcept { return m_panels; }
     [[nodiscard]] FrameTimings totalTimings() const noexcept;
+    [[nodiscard]] const editor::Editor& editor() const noexcept { return m_editor; }
+    [[nodiscard]] editor::Editor& editor() noexcept { return m_editor; }
 
 private:
     void handleEvent(const platform::PlatformEvent& e);
@@ -100,6 +106,8 @@ private:
     [[nodiscard]] bool pressed(const std::optional<platform::ActionId>& id) const noexcept;
     void applyPendingTransition();
     void handleWorldInput(f64 dt);
+    void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
+    void handleEditor(editor::IEditorHost& host, const render::Camera2D& cam, Vec2 mousePx, f64 dt);
     void applyPanelActions(const PanelActions& act);
     void syncViewport();
 
@@ -134,6 +142,8 @@ private:
             eraseChar;
         std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select, selectAdd;
         std::optional<platform::ActionId> pause, step, faster, slower, toggleGrid, toggleDetails, togglePanels;
+        std::optional<platform::ActionId> context, deleteSelection;
+        std::array<std::optional<platform::ActionId>, editor::kToolCount> tools; // editor.tool.* (1 ~ 5)
     } m_ids;
 
     // 월드 (InWorld)
@@ -147,6 +157,10 @@ private:
     Vec2 m_selectNow{};
     bool m_detailOverlay = true;
     PanelState m_panels; // 8C (F1)
+    // 12A 에디터 (세션이 editorHost 를 줄 때만 쓴다)
+    editor::Editor m_editor;
+    editor::EditorPanelState m_editorPanel;
+    f64 m_editorClock = 0; // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 
     // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)

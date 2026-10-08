@@ -139,6 +139,11 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.cameraReset = m_actionMap.find("camera.reset");
     m_ids.select = m_actionMap.find("editor.select");
     m_ids.selectAdd = m_actionMap.find("editor.select_add");
+    m_ids.context = m_actionMap.find("editor.context");
+    m_ids.deleteSelection = m_actionMap.find("editor.delete");
+    m_ids.tools = {m_actionMap.find("editor.tool.select"), m_actionMap.find("editor.tool.move"),
+                   m_actionMap.find("editor.tool.place"), m_actionMap.find("editor.tool.terrain"),
+                   m_actionMap.find("editor.tool.erase")};
     m_ids.toggleGrid = m_actionMap.find("view.grid");
     m_ids.toggleDetails = m_actionMap.find("view.details");
     m_ids.togglePanels = m_actionMap.find("view.panels");
@@ -244,31 +249,9 @@ void Application::syncViewport() {
     m_renderWorld.camera.viewportHeight = std::max(fb.height, 1u);
 }
 
-void Application::handleWorldInput(f64 dt) {
-    const InputState& in = m_input.downstream();
-    render::Camera2D& cam = m_renderWorld.camera;
+void Application::handleSelection(const render::Camera2D& cam, Vec2 mousePx) {
     const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
-    if (!m_cameraFitted || pressed(m_ids.cameraReset)) {
-        cam.fit(m_config.world->bounds());
-        m_cameraFitted = true;
-    }
-    // 키보드 이동: 화면 기준 초당 뷰포트 짧은 변의 0.6 배
-    const f32 speed = 0.6f * static_cast<f32>(std::min(cam.viewportWidth, cam.viewportHeight));
-    Vec2 dir{};
-    dir.x += down(m_ids.panRight) ? 1.f : 0.f;
-    dir.x -= down(m_ids.panLeft) ? 1.f : 0.f;
-    dir.y -= down(m_ids.panUp) ? 1.f : 0.f; // 화면 y 는 아래 +
-    dir.y += down(m_ids.panDown) ? 1.f : 0.f;
-    if (dir.x != 0.f || dir.y != 0.f) {
-        cam.panByScreen(dir * (-speed * static_cast<f32>(dt))); // 카메라가 dir 로 가면 세상은 반대로 끌린다
-    }
-    // 마우스: 논리 좌표 → 프레임버퍼 픽셀
-    const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
-    if (down(m_ids.drag)) {
-        cam.panByScreen(in.mouseDelta * scale);
-    }
     // 선택 (8B): 누른 자리에서 4 px 넘게 끌면 박스, 아니면 점. 떼는 순간 세션에 알린다
-    const Vec2 mousePx = in.mousePosition * scale;
     if (!m_selecting && (pressed(m_ids.select) || pressed(m_ids.selectAdd))) {
         m_selecting = true;
         m_selectAdditive = pressed(m_ids.selectAdd);
@@ -296,6 +279,64 @@ void Application::handleWorldInput(f64 dt) {
     if (pressed(m_ids.escape)) {
         m_config.world->clearSelection();
         m_titleDirty = true;
+    }
+}
+
+void Application::handleEditor(editor::IEditorHost& host, const render::Camera2D& cam, Vec2 mousePx, f64 dt) {
+    const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
+    m_editorClock += dt;
+    editor::EditorInput ei;
+    ei.now = m_editorClock;
+    ei.cursor = cam.screenToWorld(mousePx);
+    ei.pixelsPerUnit = cam.pixelsPerUnit;
+    ei.primaryPressed = pressed(m_ids.select) || pressed(m_ids.selectAdd);
+    ei.primaryDown = down(m_ids.select) || down(m_ids.selectAdd);
+    ei.additive = pressed(m_ids.selectAdd) || down(m_ids.selectAdd);
+    ei.secondaryPressed = pressed(m_ids.context);
+    ei.secondaryDown = down(m_ids.context);
+    ei.cancel = pressed(m_ids.escape);
+    ei.deleteSelection = pressed(m_ids.deleteSelection);
+    for (usize i = 0; i < m_ids.tools.size(); ++i) {
+        if (pressed(m_ids.tools[i])) {
+            ei.tool = static_cast<editor::Tool>(i);
+        }
+    }
+    const editor::Tool before = m_editor.tool();
+    const usize selected = host.selection().size();
+    m_editor.update(ei, host);
+    if (m_editor.tool() != before || host.selection().size() != selected) {
+        m_titleDirty = true;
+    }
+}
+
+void Application::handleWorldInput(f64 dt) {
+    const InputState& in = m_input.downstream();
+    render::Camera2D& cam = m_renderWorld.camera;
+    const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
+    if (!m_cameraFitted || pressed(m_ids.cameraReset)) {
+        cam.fit(m_config.world->bounds());
+        m_cameraFitted = true;
+    }
+    // 키보드 이동: 화면 기준 초당 뷰포트 짧은 변의 0.6 배
+    const f32 speed = 0.6f * static_cast<f32>(std::min(cam.viewportWidth, cam.viewportHeight));
+    Vec2 dir{};
+    dir.x += down(m_ids.panRight) ? 1.f : 0.f;
+    dir.x -= down(m_ids.panLeft) ? 1.f : 0.f;
+    dir.y -= down(m_ids.panUp) ? 1.f : 0.f; // 화면 y 는 아래 +
+    dir.y += down(m_ids.panDown) ? 1.f : 0.f;
+    if (dir.x != 0.f || dir.y != 0.f) {
+        cam.panByScreen(dir * (-speed * static_cast<f32>(dt))); // 카메라가 dir 로 가면 세상은 반대로 끌린다
+    }
+    // 마우스: 논리 좌표 → 프레임버퍼 픽셀
+    const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
+    if (down(m_ids.drag)) {
+        cam.panByScreen(in.mouseDelta * scale);
+    }
+    const Vec2 mousePx = in.mousePosition * scale;
+    if (editor::IEditorHost* host = m_config.world->editorHost()) {
+        handleEditor(*host, cam, mousePx, dt);
+    } else {
+        handleSelection(cam, mousePx);
     }
     if (pressed(m_ids.toggleGrid)) {
         m_renderWorld.overlay.grid = !m_renderWorld.overlay.grid;
@@ -392,7 +433,9 @@ bool Application::frame() {
         t1 = Clock::now();
         m_renderWorld.reset();
         m_config.world->extract(m_renderWorld);
-        if (m_selecting && m_boxing) {
+        if (m_config.world->editorHost() != nullptr) {
+            m_editor.drawOverlay(m_renderWorld.selection); // 끌고 있는 박스 · 브러시 · 배치 자리 (12A)
+        } else if (m_selecting && m_boxing) {
             // 끌고 있는 박스 (화면 사각형 → 월드)
             const render::Camera2D& cam = m_renderWorld.camera;
             m_renderWorld.selection.rect(cam.screenToWorld(m_selectStart), cam.screenToWorld(m_selectNow),
@@ -422,6 +465,9 @@ bool Application::frame() {
         const PanelActions act = drawDebugPanels(m_panels, pin);
         if (inWorld) {
             applyPanelActions(act);
+            if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {
+                editor::drawEditorPanel(m_editor, m_editorPanel, host->content()); // 12A "편집"
+            }
         }
         ui = m_config.ui->endFrame(m_cursor);
         if (!m_config.uiRendered) {
@@ -554,6 +600,9 @@ std::string Application::statusLine() const {
         s += " | " + m_config.world->status();
         if (const std::string sel = m_config.world->selectionStatus(); !sel.empty()) {
             s += " | " + sel;
+        }
+        if (m_config.world->editorHost() != nullptr) {
+            s += " | " + m_editor.status();
         }
         s += std::format(" | 줌 {:.1f} px/칸", m_renderWorld.camera.pixelsPerUnit);
         if (m_timings.frames > 0) {

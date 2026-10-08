@@ -12,6 +12,7 @@
 // 둘 다 같은 길: ClientSession 이 Snapshot 을 ClientWorld 에 적용하고, 프레임마다 InterpolationClock 의 renderTick 으로
 // SpriteExtraction 이 그릴 거리를 만든다. 일시정지 · 한 틱 · 속도는 서버로 가는 명령 (역할이 모자라면 거절 — 상태 줄과
 // 네트워크 패널에 보인다). 선택은 netId 로, 선택한 개체의 서버 전용 상태는 Inspect 로 받는다.
+// Phase 12A: 에디터의 IEditorHost — 툴 명령을 서버로 보내고 결과를 돌려주며, EditPreview 를 그릴 때 더한다 (ADR-0028).
 // 한 스레드(Main)에서 쓴다.
 
 #include <filesystem>
@@ -25,6 +26,7 @@
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/SpriteExtraction.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "editor/EditorHost.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/client/InterpolationClock.hpp"
 #include "network/server/LocalServerHost.hpp"
@@ -47,7 +49,7 @@ struct NetworkSessionDesc {
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };
 
-class NetworkSession final : public IWorldSession {
+class NetworkSession final : public IWorldSession, public editor::IEditorHost {
 public:
     static Expected<std::unique_ptr<NetworkSession>> create(const NetworkSessionDesc& desc,
                                                             render::MaterialLibrary& materials);
@@ -74,16 +76,28 @@ public:
     void setDetailOverlay(bool on) override { m_detailOverlay = on; }
     [[nodiscard]] std::string selectionStatus() const override;
     [[nodiscard]] WorldInfo info() const override;
+    [[nodiscard]] editor::IEditorHost* editorHost() override { return this; }
+
+    // ---- IEditorHost (12A) ----
+    u32 submit(cmd::CommandPayload payload) override;
+    [[nodiscard]] std::vector<editor::CommandOutcome> takeOutcomes() override;
+    [[nodiscard]] const content::ContentDatabase* content() const override;
+    [[nodiscard]] const world::WorldGrid* grid() const override;
+    [[nodiscard]] std::optional<NetEntityId> pickAt(Vec2 world) const override;
+    [[nodiscard]] std::vector<NetEntityId> pickBox(render::WorldRect area) const override;
+    [[nodiscard]] std::span<const NetEntityId> selection() const override { return m_selection; }
+    void setSelection(std::vector<NetEntityId> ids) override;
+    void setPreview(std::span<const editor::PreviewOffset> offsets) override;
+    [[nodiscard]] u64 snapshotsApplied() const override { return m_seenSnapshots; }
 
     // 시험 · 끝 요약
     [[nodiscard]] const std::string& name() const noexcept { return m_name; }
     [[nodiscard]] const net::ClientWorld* clientWorld() const noexcept;
     [[nodiscard]] net::ClientSession* session() noexcept { return m_session.get(); }
     [[nodiscard]] net::LocalServerHost* localServer() noexcept { return m_local.get(); }
-    [[nodiscard]] const std::vector<NetEntityId>& selection() const noexcept { return m_selection; }
     [[nodiscard]] const WorldSnapshot& lastSnapshot() const noexcept { return m_snapshot; }
-    [[nodiscard]] f64 renderTick() const noexcept { return m_snapshot.renderTick; }
-    [[nodiscard]] u64 serverTick() const noexcept;
+    [[nodiscard]] f64 renderTick() const override { return m_snapshot.renderTick; }
+    [[nodiscard]] u64 serverTick() const override;
     [[nodiscard]] bool paused() const noexcept;
     [[nodiscard]] f32 speed() const noexcept;
     [[nodiscard]] u64 commandsRejected() const noexcept { return m_commandsRejected; }
@@ -105,8 +119,9 @@ private:
     [[nodiscard]] net::ClientSessionDesc sessionDesc(const content::ContentDatabase& content) const;
     void updateReconnect();
     void handleRejected();
-    void send(cmd::CommandPayload payload);
+    u32 send(cmd::CommandPayload payload); // sequence (0 = 보내지 못함)
     void selectionChanged();
+    void applyPreview(); // 스냅숏의 그릴 위치에 EditPreview 를 더한다 (고르기 · 외곽선도 옮긴 자리로)
 
     NetworkSessionDesc m_desc;
     std::string m_name;
@@ -144,6 +159,10 @@ private:
     std::optional<std::pair<u32, f32>> m_pendingSpeed;
     u64 m_commandsRejected = 0;
     std::string m_lastRejection;
+    // 에디터가 보낸 명령 (결과를 IEditorHost::takeOutcomes 로) · EditPreview (netId 오름차순) — 12A
+    std::vector<u32> m_editorSequences;
+    std::vector<editor::CommandOutcome> m_outcomes;
+    std::vector<editor::PreviewOffset> m_preview;
 
     // 받은 바이트 (최근 1 초)
     f64 m_bytesWindowStart = 0;

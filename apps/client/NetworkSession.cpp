@@ -5,6 +5,7 @@
 #include <cmath>
 #include <format>
 #include <iterator>
+#include <utility>
 
 #include "apps/client/presentation/SelectionOverlay.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
@@ -164,7 +165,7 @@ const net::ClientWorld* NetworkSession::clientWorld() const noexcept {
     return m_session ? m_session->world() : nullptr;
 }
 
-u64 NetworkSession::serverTick() const noexcept {
+u64 NetworkSession::serverTick() const {
     const net::ClientWorld* w = clientWorld();
     return w != nullptr ? w->serverTick() : 0;
 }
@@ -265,6 +266,12 @@ void NetworkSession::update(f64 dtSeconds) {
         m_clock.reset();
         m_seenSnapshots = 0;
         m_selection.clear();
+        // 다른 연결(다시 접속)의 sequence 는 새로 시작한다 — 기다리던 에디터 명령은 결과가 오지 않는다
+        for (const u32 seq : m_editorSequences) {
+            m_outcomes.push_back({seq, false, 0, {}, "연결이 바뀌어 결과를 받지 못했습니다"});
+        }
+        m_editorSequences.clear();
+        m_preview.clear();
     }
     if (world->stats().snapshotsApplied != m_seenSnapshots) {
         m_seenSnapshots = world->stats().snapshotsApplied;
@@ -287,6 +294,11 @@ void NetworkSession::update(f64 dtSeconds) {
             ++m_commandsRejected;
             m_lastRejection = std::format("{} 거절: {}", name, r.detail.empty() ? errorCodeName(r.reason) : r.detail);
             log::warn("client", "{}", m_lastRejection);
+        }
+        if (const auto e = std::ranges::find(m_editorSequences, r.sequence); e != m_editorSequences.end()) {
+            m_editorSequences.erase(e);
+            m_outcomes.push_back(
+                {r.sequence, r.accepted, r.appliedTick, r.created, r.accepted ? std::string() : m_lastRejection});
         }
     }
 
@@ -325,6 +337,7 @@ void NetworkSession::extract(render::RenderWorld& out) {
     const f64 rt = m_clock.renderTick(m_now);
     const auto& inspect = m_session->inspect();
     m_extraction.capture(*world, rt, m_selection, inspect ? &*inspect : nullptr, m_snapshot);
+    applyPreview();
     SpriteExtraction::emit(m_snapshot, out);
     if (!m_selection.empty()) {
         (void)drawSelectionOutlines(m_snapshot, m_selection, out.selection);
@@ -360,9 +373,9 @@ render::WorldRect NetworkSession::bounds() const {
     return w != nullptr ? SpriteExtraction::worldBounds(*w) : render::WorldRect{};
 }
 
-void NetworkSession::send(cmd::CommandPayload payload) {
+u32 NetworkSession::send(cmd::CommandPayload payload) {
     if (!m_session) {
-        return;
+        return 0;
     }
     const std::string name(cmd::commandName(payload));
     const bool isPause = std::holds_alternative<cmd::PauseSimulation>(payload);
@@ -371,7 +384,7 @@ void NetworkSession::send(cmd::CommandPayload payload) {
     const f32 speedValue = speed != nullptr ? speed->speed : 0.0f;
     const u32 seq = m_session->sendCommand(std::move(payload));
     if (seq == 0) {
-        return; // 접속 전
+        return 0; // 접속 전
     }
     m_pendingNames[seq] = name;
     if (isPause || isResume) {
@@ -380,17 +393,18 @@ void NetworkSession::send(cmd::CommandPayload payload) {
     if (speed != nullptr) {
         m_pendingSpeed = std::pair{seq, speedValue};
     }
+    return seq;
 }
 
 void NetworkSession::togglePause() {
     const bool nowPaused = m_pendingPause ? m_pendingPause->second : paused();
-    send(nowPaused ? cmd::CommandPayload{cmd::ResumeSimulation{}} : cmd::CommandPayload{cmd::PauseSimulation{}});
+    (void)send(nowPaused ? cmd::CommandPayload{cmd::ResumeSimulation{}} : cmd::CommandPayload{cmd::PauseSimulation{}});
 }
 
 void NetworkSession::stepOnce() {
     const bool nowPaused = m_pendingPause ? m_pendingPause->second : paused();
     if (nowPaused) {
-        send(cmd::StepSimulation{1});
+        (void)send(cmd::StepSimulation{1});
     }
 }
 
@@ -405,7 +419,7 @@ void NetworkSession::changeSpeed(int dir) {
     }
     const usize next = dir > 0 ? std::min(idx + 1, std::size(kSpeeds) - 1) : (idx > 0 ? idx - 1 : 0);
     if (kSpeeds[next] != current) {
-        send(cmd::SetSimulationSpeed{kSpeeds[next]});
+        (void)send(cmd::SetSimulationSpeed{kSpeeds[next]});
     }
 }
 
@@ -435,7 +449,7 @@ void NetworkSession::selectionChanged() {
 }
 
 void NetworkSession::selectAt(Vec2 world, bool additive) {
-    const auto id = pickAt(m_snapshot, world);
+    const auto id = client::pickAt(m_snapshot, world);
     if (!additive) {
         m_selection.clear();
         if (id) {
@@ -452,13 +466,80 @@ void NetworkSession::selectAt(Vec2 world, bool additive) {
 }
 
 void NetworkSession::selectBox(render::WorldRect area, bool additive) {
-    auto ids = pickBox(m_snapshot, area);
+    auto ids = client::pickBox(m_snapshot, area);
     if (additive) {
         mergeSelection(m_selection, ids);
     } else {
         m_selection = std::move(ids);
     }
     selectionChanged();
+}
+
+// ---- IEditorHost (12A) ----
+
+u32 NetworkSession::submit(cmd::CommandPayload payload) {
+    const u32 seq = send(std::move(payload));
+    if (seq != 0) {
+        m_editorSequences.push_back(seq);
+    }
+    return seq;
+}
+
+std::vector<editor::CommandOutcome> NetworkSession::takeOutcomes() {
+    return std::exchange(m_outcomes, {});
+}
+
+const content::ContentDatabase* NetworkSession::content() const {
+    const net::ClientWorld* w = clientWorld();
+    return w != nullptr ? &w->content() : nullptr;
+}
+
+const world::WorldGrid* NetworkSession::grid() const {
+    const net::ClientWorld* w = clientWorld();
+    return w != nullptr ? &w->grid() : nullptr;
+}
+
+std::optional<NetEntityId> NetworkSession::pickAt(Vec2 world) const {
+    return client::pickAt(m_snapshot, world);
+}
+
+std::vector<NetEntityId> NetworkSession::pickBox(render::WorldRect area) const {
+    return client::pickBox(m_snapshot, area);
+}
+
+void NetworkSession::setSelection(std::vector<NetEntityId> ids) {
+    std::ranges::sort(ids);
+    const auto [first, last] = std::ranges::unique(ids);
+    ids.erase(first, last);
+    if (ids != m_selection) {
+        m_selection = std::move(ids);
+        selectionChanged();
+    }
+}
+
+void NetworkSession::setPreview(std::span<const editor::PreviewOffset> offsets) {
+    m_preview.assign(offsets.begin(), offsets.end());
+    std::ranges::sort(m_preview, {}, &editor::PreviewOffset::id);
+}
+
+void NetworkSession::applyPreview() {
+    if (m_preview.empty()) {
+        return;
+    }
+    const auto offsetOf = [&](NetEntityId id) -> const Vec2* {
+        const auto it = std::ranges::lower_bound(m_preview, id, {}, &editor::PreviewOffset::id);
+        return it != m_preview.end() && it->id == id ? &it->offset : nullptr;
+    };
+    for (SnapshotSprite& s : m_snapshot.sprites) {
+        if (const Vec2* o = offsetOf(s.id)) {
+            s.position += *o;
+        }
+    }
+    for (SelectedDetail& d : m_snapshot.selected) {
+        if (const Vec2* o = offsetOf(d.id)) {
+            d.position += *o;
+        }
+    }
 }
 
 void NetworkSession::clearSelection() {
