@@ -40,6 +40,7 @@ add_executable(SandboxTests
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp
+    unit/tools/test_net_probe_options.cpp
     unit/platform/test_input.cpp
     unit/platform/test_action_map.cpp
     unit/render/test_rhi_helpers.cpp
@@ -55,6 +56,7 @@ add_executable(SandboxTests
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/net_probe/NetProbeOptions.cpp"
 )
 if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
@@ -104,6 +106,21 @@ if(TARGET SandboxServer)
     add_test(NAME server_scenario_smoke COMMAND SandboxServer --scenario random_walk_1k --ticks 60)
     set_tests_properties(server_scenario_smoke PROPERTIES LABELS "unit;server"
         PASS_REGULAR_EXPRESSION "tick 60 hash 0x[0-9a-f]+ entities [0-9]+")
+
+    # Phase 9: 네트워크 서버가 월드를 30 TPS 로 돌리고 --ticks N --exit 에서 끝난다 (포트 0 = 빈 포트).
+    add_test(NAME server_world_exit
+        COMMAND SandboxServer --world random_walk_1k --port 0 --ticks 60 --exit --log-level warn)
+    set_tests_properties(server_world_exit PROPERTIES LABELS "unit;server"
+        PASS_REGULAR_EXPRESSION "tick 60 hash 0x[0-9a-f]+ entities [0-9]+")
+    add_test(NAME server_world_bad_name COMMAND SandboxServer --world no_such_world --port 0)
+    set_tests_properties(server_world_bad_name PROPERTIES LABELS "unit;server" WILL_FAIL TRUE)
+    if(TARGET sbx_net_probe)
+        # 서버 + probe 두 프로세스, 실제 UDP (핸드셰이크 · 명령 3개 · 서버 통계)
+        add_test(NAME net_server_probe_smoke
+            COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DPROBE=$<TARGET_FILE:sbx_net_probe>
+                    -DPORT=47791 -P "${CMAKE_CURRENT_SOURCE_DIR}/net/net_smoke.cmake")
+        set_tests_properties(net_server_probe_smoke PROPERTIES LABELS "net" TIMEOUT 90)
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------

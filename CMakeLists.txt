@@ -57,6 +57,7 @@ endif()
 
 if(SBX_BUILD_TOOLS)
     add_subdirectory(tools/sim_check)
+    add_subdirectory(tools/net_probe)
 endif()
 
 # GPU 기준 이미지 테스트 (06 14장). 백엔드가 있는 플랫폼(지금은 Windows D3D12)에서만.
@@ -81,6 +82,7 @@ sbx_forbid_link(SandboxPlatform   SandboxCore SandboxNetwork SandboxRender Sandb
 sbx_forbid_link(SandboxRender     SandboxCore SandboxNetwork SandboxEditor)
 sbx_forbid_link(SandboxEditor     SandboxNetwork)
 sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui)
+sbx_forbid_link(sbx_net_probe     SandboxPlatform SandboxRender SandboxEditor imgui)
 
 if(SBX_BOUNDARY_SELFTEST)
     include(SbxBoundarySelftest)
