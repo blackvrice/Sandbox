@@ -63,10 +63,10 @@ add_executable(SandboxTests
 if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
-        unit/client/test_direct_sim.cpp
+        unit/client/test_network_session.cpp
         unit/client/test_imgui_layer.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
-        "${PROJECT_SOURCE_DIR}/apps/client/DirectSim.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
@@ -143,12 +143,14 @@ if(TARGET SandboxClient)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
     set_tests_properties(client_headless_smoke PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "SandboxClient 끝: frames 30 state Shutdown")
-    # Phase 8A: --direct-sim 이 InWorld 로 들어가 월드를 진행한다. 헤드리스는 프레임마다 1/60 초 → 부팅 · 메뉴 · 접속
-    # 세 프레임 뒤 57 프레임 = 0.95 초 = 28 틱 (30 TPS)
-    add_test(NAME client_direct_sim_headless
-        COMMAND SandboxClient --headless --direct-sim ecosystem_small --frames 60)
-    set_tests_properties(client_direct_sim_headless PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "direct-sim ecosystem_small tick 28 개체 [1-9][0-9]*")
+    # Phase 10B: --world 가 같은 프로세스의 서버(헤드리스는 프레임 안에서 — 프레임마다 1/60 초)에 접속해 첫 스냅숏을 받고
+    # InWorld 로 들어가 그린다. 같은 dt 열이라 틱 수가 고정된다
+    add_test(NAME client_local_world_headless
+        COMMAND SandboxClient --headless --world ecosystem_small --frames 60)
+    set_tests_properties(client_local_world_headless PROPERTIES LABELS "unit;client"
+        PASS_REGULAR_EXPRESSION "world ecosystem_small tick 28 개체 [1-9][0-9]* 스냅숏 [1-9][0-9]* \\(다시 맞춤 0\\)")
+    add_test(NAME client_world_bad_name COMMAND SandboxClient --headless --world no_such_world --frames 5)
+    set_tests_properties(client_world_bad_name PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
 endif()
 
 # ---------------------------------------------------------------------------

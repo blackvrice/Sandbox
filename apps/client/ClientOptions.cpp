@@ -123,12 +123,21 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return makeError(ErrorCode::InvalidArgument, std::format("{} 는 64~16384: '{}'", a, *v));
             }
             (a == "--width" ? opts.width : opts.height) = static_cast<u32>(*n);
-        } else if (a == "--direct-sim") {
+        } else if (a == "--world" || a == "--connect" || a == "--name") {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
             }
-            opts.directSim = std::string(*v);
+            if (v->empty()) {
+                return makeError(ErrorCode::InvalidArgument, std::format("{} 에 빈 값", a));
+            }
+            if (a == "--world") {
+                opts.world = std::string(*v);
+            } else if (a == "--connect") {
+                opts.connect = std::string(*v);
+            } else {
+                opts.name = std::string(*v);
+            }
         } else if (a == "--seed") {
             auto v = value();
             if (!v) {
@@ -173,6 +182,9 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             return makeError(ErrorCode::InvalidArgument, std::format("알 수 없는 옵션 '{}' (--help)", a));
         }
     }
+    if (opts.world && opts.connect) {
+        return makeError(ErrorCode::InvalidArgument, "--world(로컬 서버) 와 --connect(원격 서버) 중 하나만");
+    }
     return opts;
 }
 
@@ -196,19 +208,26 @@ std::string clientUsage() {
            "      --rhi-fl11         D3D12 FL 11_0 어댑터도 허용 (기본은 12_0 이상 — 오래된 GPU · Wine 시험용)\n"
            "      --vsync on|off     수직 동기 (기본 on)\n"
            "      --frames-in-flight 2|3  CPU 가 앞서 기록할 프레임 수 (기본 2)\n"
-           "      --direct-sim <시나리오>  클라이언트가 시뮬레이션을 직접 돌려 관찰 (임시 — Phase 10 에서 삭제)\n"
-           "                         예: ecosystem_survival, ecosystem_small, eco_lifecycle, random_walk_1k\n"
-           "      --seed <n>         --direct-sim 의 월드 시드 (기본 1)\n"
-           "      --threads <n>      --direct-sim 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
+           "      --world <이름|폴더> 싱글플레이 — 같은 프로세스의 서버로 시나리오(ecosystem_survival, "
+           "ecosystem_small,\n"
+           "                         eco_lifecycle, random_walk_1k …) 또는 세이브 폴더(world.json)를 돌려 접속 (Phase "
+           "10B)\n"
+           "      --connect <h:p>    SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르면 서버 팩을 --content 에서 "
+           "읽는다\n"
+           "      --name <이름>      접속 이름 (기본 player, 32 글자까지)\n"
+           "      --seed <n>         --world 시나리오의 월드 시드 (기본 1)\n"
+           "      --threads <n>      --world 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"
            "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)\n"
            "      --font <file>      UI 폰트 (.ttf/.ttc — 기본: Windows 맑은 고딕, 없으면 내장 영문 폰트)\n"
            "      --no-ui            ImGui 패널 없이 (제목 줄만)"
            "\n"
            "창 안 단축키 (수동 QA, docs/qa/MANUAL-QA.md): F2 글자 입력 켜기/끄기, F3 마우스 캡처, F4 커서 모양,\n"
-           "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료, F1 패널(시뮬레이션 · 통계).\n"
-           "--direct-sim 월드: WASD·화살표 이동, 휠 확대(커서 기준), 가운데·왼쪽 끌기, Home 맞춤, Space 일시정지,\n"
-           ". 한 틱, = / - 속도. 서버 접속(--connect …)은 Phase 10 (docs/16-ROADMAP.md).\n";
+           "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료, F1 패널(시뮬레이션 · 네트워크 "
+           "· 통계).\n"
+           "월드: WASD·화살표 이동, 휠 확대(커서 기준), 가운데 끌기, Home 맞춤, 왼쪽 클릭 · 끌기 선택, Space "
+           "일시정지,\n"
+           ". 한 틱, = / - 속도 (서버 명령 — 원격 서버는 admin 역할부터).\n";
 }
 
 } // namespace sbx::client

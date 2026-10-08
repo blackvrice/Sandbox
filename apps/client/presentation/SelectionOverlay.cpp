@@ -14,21 +14,17 @@ constexpr u32 kPath = render::packRgba8(110, 255, 120, 220);
 constexpr u32 kTarget = render::packRgba8(255, 80, 70, 220);
 constexpr u32 kVelocity = render::packRgba8(255, 255, 255, 200);
 
-Vec2 lerp(const SnapshotSprite& s, f32 alpha) {
-    return s.previous + (s.current - s.previous) * std::clamp(alpha, 0.f, 1.f);
-}
-
-bool contains(std::span<const SaveId> sorted, SaveId id) {
+bool contains(std::span<const NetEntityId> sorted, NetEntityId id) {
     return std::ranges::binary_search(sorted, id);
 }
 
 } // namespace
 
-std::optional<SaveId> pickAt(const WorldSnapshot& s, f32 alpha, Vec2 world) {
+std::optional<NetEntityId> pickAt(const WorldSnapshot& s, Vec2 world) {
     const SnapshotSprite* best = nullptr;
     f32 bestDepth = 0;
     for (const SnapshotSprite& sp : s.sprites) {
-        const Vec2 p = lerp(sp, alpha);
+        const Vec2 p = sp.position;
         if (std::abs(world.x - p.x) > sp.size.x * 0.5f || std::abs(world.y - p.y) > sp.size.y * 0.5f) {
             continue;
         }
@@ -39,15 +35,15 @@ std::optional<SaveId> pickAt(const WorldSnapshot& s, f32 alpha, Vec2 world) {
             bestDepth = depth;
         }
     }
-    return best != nullptr ? std::optional<SaveId>(best->id) : std::nullopt;
+    return best != nullptr ? std::optional<NetEntityId>(best->id) : std::nullopt;
 }
 
-std::vector<SaveId> pickBox(const WorldSnapshot& s, f32 alpha, render::WorldRect area) {
+std::vector<NetEntityId> pickBox(const WorldSnapshot& s, render::WorldRect area) {
     const Vec2 lo{std::min(area.min.x, area.max.x), std::min(area.min.y, area.max.y)};
     const Vec2 hi{std::max(area.min.x, area.max.x), std::max(area.min.y, area.max.y)};
-    std::vector<SaveId> out;
+    std::vector<NetEntityId> out;
     for (const SnapshotSprite& sp : s.sprites) {
-        const Vec2 p = lerp(sp, alpha);
+        const Vec2 p = sp.position;
         if (p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y) {
             out.push_back(sp.id);
         }
@@ -56,7 +52,7 @@ std::vector<SaveId> pickBox(const WorldSnapshot& s, f32 alpha, render::WorldRect
     return out;
 }
 
-usize drawSelectionOutlines(const WorldSnapshot& s, f32 alpha, std::span<const SaveId> selection,
+usize drawSelectionOutlines(const WorldSnapshot& s, std::span<const NetEntityId> selection,
                             render::DebugDrawList& out) {
     if (selection.empty()) {
         return 0;
@@ -68,7 +64,7 @@ usize drawSelectionOutlines(const WorldSnapshot& s, f32 alpha, std::span<const S
         }
         // 그림보다 조금 크게 (작은 개체도 보이게 최소 0.6)
         const Vec2 size{std::max(sp.size.x * 1.25f, 0.6f), std::max(sp.size.y * 1.25f, 0.6f)};
-        out.box(lerp(sp, alpha), size, sp.rotation, kOutline, 2.f);
+        out.box(sp.position, size, sp.rotation, kOutline, 2.f);
         ++n;
     }
     return n;
@@ -99,7 +95,7 @@ void drawSelectedDetails(const WorldSnapshot& s, render::DebugDrawList& out) {
     }
 }
 
-std::string describeSelection(const WorldSnapshot& s, std::span<const SaveId> selection) {
+std::string describeSelection(const WorldSnapshot& s, std::span<const NetEntityId> selection) {
     if (selection.empty()) {
         return {};
     }
@@ -127,8 +123,8 @@ std::string describeSelection(const WorldSnapshot& s, std::span<const SaveId> se
     return out;
 }
 
-void mergeSelection(std::vector<SaveId>& a, std::span<const SaveId> b) {
-    std::vector<SaveId> merged;
+void mergeSelection(std::vector<NetEntityId>& a, std::span<const NetEntityId> b) {
+    std::vector<NetEntityId> merged;
     merged.reserve(a.size() + b.size());
     std::ranges::set_union(a, b, std::back_inserter(merged));
     a.swap(merged);

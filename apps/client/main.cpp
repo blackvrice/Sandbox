@@ -1,4 +1,4 @@
-// SandboxClient 진입점. Phase 6: 빈 창 + 앱 상태기계 (docs/16-ROADMAP.md 6.5). Phase 8A: --direct-sim 월드 관찰.
+// SandboxClient 진입점. Phase 6: 빈 창 + 앱 상태기계 (docs/16-ROADMAP.md 6.5). Phase 10B: --world · --connect 월드.
 // Windows 에서는 GUI 서브시스템 실행 파일이다 (콘솔 창이 뜨지 않는다). 로그를 보려면 --console,
 // 또는 CLion·리디렉션처럼 출력이 이미 연결된 곳에서 실행한다. WinMain 대신 main (07 6.1).
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include "apps/client/Application.hpp"
 #include "apps/client/ClientOptions.hpp"
 #include "apps/client/DefaultInput.hpp"
-#include "apps/client/DirectSim.hpp"
+#include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
@@ -41,7 +41,9 @@ void printText(const std::string& s) {
 
 int main(int argc, char** argv) {
     sbx::console::useUtf8Output();
-    std::vector<std::string_view> args(argv + 1, argv + argc);
+    // Windows: argv 는 시스템 코드 페이지라 한글 이름 · 경로가 깨진다 — UTF-16 명령줄에서 UTF-8 로 (10B)
+    const std::vector<std::string> argStore = sbx::console::utf8Arguments(argc, argv);
+    std::vector<std::string_view> args(argStore.begin() + (argStore.empty() ? 0 : 1), argStore.end());
     auto opts = sbx::client::parseClientOptions(args);
     if (!opts) {
         sbx::platform::attachConsole();
@@ -135,32 +137,37 @@ int main(int argc, char** argv) {
         }
     }
 
-    // 월드 (Phase 8A --direct-sim). 머티리얼은 렌더러가 없어도(헤드리스) 색으로 쓴다
+    // 월드 (Phase 10B): --world = 같은 프로세스의 서버, --connect = 원격 서버. 머티리얼은 렌더러가 없어도(헤드리스)
+    // 색으로 쓴다
     sbx::render::MaterialLibrary materials;
-    std::unique_ptr<sbx::client::DirectSim> world;
-    if (opts->directSim) {
+    std::unique_ptr<sbx::client::NetworkSession> world;
+    if (opts->world || opts->connect) {
         if (auto n = materials.loadAll(assetRoot, renderer ? renderer->assets() : nullptr); !n) {
             sbx::log::warn("client", "머티리얼을 읽지 못했습니다 (색 사각형으로 그립니다): {}", n.error().describe());
         } else {
             sbx::log::info("client", "머티리얼 {}개 ({} 의 */materials.json {}개)", materials.size(),
                            assetRoot.generic_string(), *n);
         }
-        sbx::client::DirectSimDesc dd;
-        dd.scenario = *opts->directSim;
-        dd.seed = opts->seed;
-        dd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
+        sbx::client::NetworkSessionDesc nd;
+        nd.mode = opts->world ? sbx::client::NetworkSessionMode::Local : sbx::client::NetworkSessionMode::Remote;
+        nd.world = opts->world.value_or("");
+        nd.connect = opts->connect.value_or("");
+        nd.displayName = opts->name;
+        nd.seed = opts->seed;
+        nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
-        // 창: Simulation 스레드 (틱이 느려도 화면은 제 속도로 — ADR-0021). 헤드리스: 프레임 안에서 (틱 수가 고정된다)
-        dd.mode = opts->headless ? sbx::client::DirectSimMode::Inline : sbx::client::DirectSimMode::Threaded;
-        // Worker: 메인 · Simulation 스레드 몫을 남기고 1~4 (결과는 Worker 수와 무관 — D5). 헤드리스는 0
+        // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
+        // (틱 수가 고정된다)
+        nd.inlineServer = opts->headless;
+        // Worker: 메인 · Simulation · Net 스레드 몫을 남기고 1~4 (결과는 Worker 수와 무관 — D5). 헤드리스는 0
         const unsigned hc = std::thread::hardware_concurrency();
-        dd.workers = opts->simThreads.value_or(opts->headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
-        auto ds = sbx::client::DirectSim::create(dd, materials);
-        if (!ds) {
-            sbx::log::error("client", "{}", ds.error().describe());
+        nd.workers = opts->simThreads.value_or(opts->headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
+        auto ns = sbx::client::NetworkSession::create(nd, materials);
+        if (!ns) {
+            sbx::log::error("client", "{}", ns.error().describe());
             return kExitBadArgs;
         }
-        world = std::move(*ds);
+        world = std::move(*ns);
     }
 
     // UI (Phase 8C): ImGui 레이어 — 렌더러가 있으면 UIPass 를 붙인다. 헤드리스도 돈다 (텍스처 요청은 레이어가 받는다)
@@ -201,16 +208,26 @@ int main(int argc, char** argv) {
 
     const int code = app.run(pacer.get());
     if (world) {
-        const auto ws = world->stats();
-        printText(std::format("direct-sim {} tick {} 개체 {}\n", *opts->directSim, world->tick(),
-                              world->extractionStats().entities));
+        const sbx::net::ClientWorld* cw = world->clientWorld();
+        printText(std::format("world {} tick {} 개체 {} 스냅숏 {} (다시 맞춤 {}) · 받기 · 적용 {:.2f} ms\n",
+                              world->name(), world->serverTick(), cw != nullptr ? cw->entityCount() : 0,
+                              cw != nullptr ? cw->stats().snapshotsApplied : 0, cw != nullptr ? cw->stats().resets : 0,
+                              world->applyMs()));
         const auto t = app.totalTimings();
         if (t.frames > 0) {
             printText(
                 std::format("프레임 평균 ({} 프레임, {:.1f} fps): 월드 {:.2f} ms · 추출 {:.2f} ms · 렌더 {:.2f} ms\n",
                             t.frames, 1000.0 / t.frameMs, t.worldMs, t.extractMs, t.renderMs));
-            printText(std::format("틱 평균 {:.2f} ms ({} 틱, 버린 몫 {})\n", world->averageTickMs(), ws.ticks,
-                                  ws.droppedTicks));
+        }
+        if (sbx::net::LocalServerHost* local = world->localServer()) {
+            const auto ss = local->stats();
+            std::optional<sbx::net::ServerStats> st;
+            if (world->session() != nullptr) {
+                st = world->session()->lastStats();
+            }
+            printText(std::format("로컬 서버: 틱 {} 번 · 최근 틱 {:.2f} ms · 스냅숏 만들기 {:.2f} ms · 밀림 {}\n",
+                                  ss.ticksRun, st ? static_cast<double>(st->tickMsAvg) : 0.0, ss.replicationMs,
+                                  ss.overruns));
         }
     }
     world.reset();

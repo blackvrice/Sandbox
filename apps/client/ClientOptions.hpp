@@ -1,7 +1,7 @@
 #pragma once
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
-// Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --direct-sim · --seed ·
-// --threads · --content · --assets. Phase 8C: --font · --no-ui. 접속(--connect …)은 Phase 10.
+// Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --seed · --threads ·
+// --content · --assets. Phase 8C: --font · --no-ui. Phase 10B: --world · --connect · --name (--direct-sim 은 지웠다).
 
 #include <optional>
 #include <span>
@@ -36,13 +36,14 @@ struct ClientOptions {
     bool vsync = true;      // --vsync on|off
     u32 framesInFlight = 2; // --frames-in-flight 2|3
 
-    // 월드 (Phase 8A)
-    std::optional<std::string>
-        directSim;                 // --direct-sim <시나리오>: 클라이언트가 시뮬레이션을 직접 (임시, Phase 10 삭제)
-    u64 seed = 1;                  // --seed
-    std::optional<u32> simThreads; // --threads: 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
-    std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
-    std::string assetRoot;         // --assets (비면 저장소의 assets/)
+    // 월드 (Phase 10B — 8A 의 --direct-sim 을 대신한다)
+    std::optional<std::string> world;   // --world <시나리오|세이브 폴더>: 같은 프로세스의 서버(LocalServerHost)
+    std::optional<std::string> connect; // --connect host:port: 원격 SandboxServer
+    std::string name = "player";        // --name: 접속 이름
+    u64 seed = 1;                       // --seed (--world)
+    std::optional<u32> simThreads;      // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
+    std::string contentRoot;            // --content (비면 빌드 때 정한 저장소의 content/)
+    std::string assetRoot;              // --assets (비면 저장소의 assets/)
 
     // UI (Phase 8C)
     std::string font;  // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)

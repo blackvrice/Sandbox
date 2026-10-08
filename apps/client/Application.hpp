@@ -6,11 +6,11 @@
 // Phase 6: Boot → MainMenu → Shutdown 만 실제로 지난다. Phase 7A 부터 렌더러가 있으면 매 프레임 화면을 지운다(Clear).
 // MainMenu 는 아직 그릴 UI 가 없어 창 제목 줄에 입력 상태를
 // 보여 준다 (수동 QA — 키·마우스·휠·더블클릭·IME 글자·DPI·포커스).
-// Phase 8A: 월드 세션(IWorldSession — 지금은 --direct-sim)이 있으면 MainMenu → Connecting → InWorld 로 바로 가서
-// 월드를 진행하고 RenderWorld 를 채워 그린다. 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데 끌기 · Home(맞춤).
-// 시뮬레이션: Space 일시정지 · . 한 틱 · = / - 속도.
-// 8B: 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 (Shift = 더하기/빼기) · Esc 선택 해제 · G 격자 · V 선택한 개체의 감지 반경 ·
-// 경로 표시. [계획] 메뉴 UI(8C), 서버 접속(Phase 10).
+// Phase 8A: 월드 세션(IWorldSession)이 있으면 MainMenu → Connecting → InWorld 로 바로 가서 월드를 진행하고
+// RenderWorld 를 채워 그린다. 10B: Connecting 은 세션이 준비될 때까지 (접속 · 첫 스냅숏), 실패하면 끝낸다 (종료 코드
+// 1). 카메라: WASD/화살표 · 휠(커서 기준 줌) · 가운데 끌기 · Home(맞춤). 시뮬레이션: Space 일시정지 · . 한 틱 · = / -
+// 속도. 8B: 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 (Shift = 더하기/빼기) · Esc 선택 해제 · G 격자 · V 선택한 개체의 감지
+// 반경 · 경로 표시. [계획] 메뉴 UI.
 //
 // 상태 전이는 요청만 받고 프레임 끝에서 적용한다 (프레임 중간에 상태가 바뀌어 반쯤 다른 상태로 도는 일이 없게).
 
@@ -47,7 +47,7 @@ struct AppConfig {
     f64 fps = 60;                       // 오디오 update 의 명목 dt 에만 쓴다 (페이싱은 run 에 넘기는 FramePacer)
     u32 titleEveryFrames = 6;           // 제목 줄 갱신 간격 (60 Hz 에서 100 ms). 상태가 바뀌면 바로
     IFrameRenderer* renderer = nullptr; // 없으면 그리지 않는다 (--headless, 렌더 백엔드가 없는 OS, --no-render)
-    IWorldSession* world = nullptr;     // 있으면 InWorld 로 가서 진행 · 그린다 (Phase 8A --direct-sim)
+    IWorldSession* world = nullptr;     // 있으면 InWorld 로 가서 진행 · 그린다 (10B NetworkSession)
     f64 fixedDt = 0;                    // > 0 이면 월드 진행에 실제 시간 대신 이 값 (헤드리스 시험 — 결과가 고정된다)
     ImGuiLayer* ui = nullptr;           // 8C: 있으면 패널을 그리고 입력을 먼저 본다 (I1)
     bool uiRendered = false;            // renderer->attachImGui 가 성공했다 (아니면 텍스처 요청을 레이어가 받는다)
@@ -56,7 +56,7 @@ struct AppConfig {
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
 struct FrameTimings {
     f64 frameMs = 0;   // 프레임 사이 실제 시간 (fps = 1000 / frameMs)
-    f64 worldMs = 0;   // IWorldSession::update (--direct-sim 인라인이면 틱 실행 포함)
+    f64 worldMs = 0;   // IWorldSession::update (받은 스냅숏 적용, 헤드리스 로컬 서버면 틱 실행 포함)
     f64 extractMs = 0; // IWorldSession::extract
     f64 renderMs = 0;  // IFrameRenderer::render (기록 · 제출 · Present, GPU 대기 포함)
     u64 frames = 0;    // 이 평균에 들어간 프레임 수
@@ -113,6 +113,7 @@ private:
     platform::InputSystem m_input;
 
     AppState m_state = AppState::Boot;
+    int m_exitCode = 0; // run() 이 돌려준다 (월드 접속 실패 = 1)
     std::optional<AppState> m_pending;
     WorldMode m_mode = WorldMode::Play;
     u64 m_frame = 0;

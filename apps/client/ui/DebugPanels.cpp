@@ -40,7 +40,7 @@ void simulationPanel(const PanelInputs& in, PanelActions& act) {
         return;
     }
     if (in.world == nullptr) {
-        ImGui::TextDisabled("월드 없음 (--direct-sim <시나리오>)");
+        ImGui::TextDisabled("월드 없음 (--world <시나리오> · --connect <서버>)");
         ImGui::End();
         return;
     }
@@ -168,6 +168,35 @@ void statsPanel(PanelState& state, const PanelInputs& in) {
     ImGui::End();
 }
 
+void networkPanel(const PanelInputs& in) {
+    if (in.world == nullptr || !in.world->net) {
+        return;
+    }
+    const NetInfo& n = *in.world->net;
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos({vp->WorkPos.x + 12, vp->WorkPos.y + vp->WorkSize.y - 12}, ImGuiCond_FirstUseEver, {0, 1});
+    if (!ImGui::Begin("네트워크", nullptr, kPanelFlags)) {
+        ImGui::End();
+        return;
+    }
+    text(n.local ? std::string("로컬 서버 (같은 프로세스)") : std::format("서버 {}", n.server));
+    if (ImGui::BeginTable("net", 2, ImGuiTableFlags_SizingFixedFit)) {
+        row("역할", n.role);
+        if (!n.local) {
+            row("RTT", std::format("{:.0f} ms", n.rttMs));
+        }
+        row("스냅숏", std::format("{} (epoch {} · 다시 맞춤 {})", n.snapshots, n.epoch, n.resyncs));
+        row("받음", std::format("{:.1f} KB/s · 적용 {:.2f} ms", n.receivedKBps, n.applyMs));
+        row("보간 지연", std::format("{:.0f} ms · 서버보다 {:.1f} 틱 뒤", n.delayMs, n.behindTicks));
+        row("거절된 명령", std::format("{}", n.commandsRejected));
+        ImGui::EndTable();
+    }
+    if (!n.lastRejection.empty()) {
+        ImGui::TextColored({1.f, 0.6f, 0.4f, 1.f}, "%s", n.lastRejection.c_str());
+    }
+    ImGui::End();
+}
+
 } // namespace
 
 PanelActions drawDebugPanels(PanelState& state, const PanelInputs& in) {
@@ -178,6 +207,7 @@ PanelActions drawDebugPanels(PanelState& state, const PanelInputs& in) {
         return act;
     }
     simulationPanel(in, act);
+    networkPanel(in);
     statsPanel(state, in);
     if (state.demo) {
         ImGui::ShowDemoWindow(&state.demo);

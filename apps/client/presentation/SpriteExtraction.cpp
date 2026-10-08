@@ -4,7 +4,7 @@
 #include <atomic>
 #include <string>
 
-#include "core/components/ai/Ai.hpp"
+#include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/core/Velocity.hpp"
@@ -25,24 +25,30 @@ u64 nextWorldId() {
 SpriteExtraction::SpriteExtraction(render::MaterialLibrary& materials)
     : m_materials(materials), m_worldId(nextWorldId()) {}
 
-render::WorldRect SpriteExtraction::worldBounds(const sim::SimulationWorld& world) {
-    const world::GridBounds b = world.desc().bounds;
+render::WorldRect SpriteExtraction::worldBounds(const net::ClientWorld& world) {
+    const world::GridBounds b = world.grid().bounds();
     return {{static_cast<f32>(b.minChunk.x * world::kChunkSize), static_cast<f32>(b.minChunk.y * world::kChunkSize)},
             {static_cast<f32>((b.maxChunk.x + 1) * world::kChunkSize),
              static_cast<f32>((b.maxChunk.y + 1) * world::kChunkSize)}};
 }
 
-const SpriteExtraction::Resolved& SpriteExtraction::resolve(const sim::SimulationWorld& world, SaveId saveId) {
-    if (const auto it = m_cache.find(saveId); it != m_cache.end()) {
+void SpriteExtraction::reset() {
+    m_cache.clear();
+    m_terrain.clear();
+    m_palette.reset();
+    m_worldId = nextWorldId();
+}
+
+const SpriteExtraction::Resolved& SpriteExtraction::resolve(const net::ClientWorld& world, NetEntityId id) {
+    if (const auto it = m_cache.find(id); it != m_cache.end()) {
         return it->second;
     }
     Resolved r;
     r.material = m_materials.find("debug/entity");
     r.size = {0.5f, 0.5f};
     r.layer = 5;
-    const auto& opaque = world.opaqueComponents();
-    if (const auto it = opaque.find(saveId); it != opaque.end()) {
-        const ecs::Json& comps = it->second;
+    if (const ecs::Json* opaque = world.opaque(id)) {
+        const ecs::Json& comps = *opaque;
         // {"render.sprite": {"version": 1, "value": {"material": "eco/rabbit", "size": [0.8, 0.8], "layer": 10}}}
         if (comps.is_object() && comps.contains("render.sprite") && comps["render.sprite"].contains("value")) {
             const ecs::Json& v = comps["render.sprite"]["value"];
@@ -61,10 +67,10 @@ const SpriteExtraction::Resolved& SpriteExtraction::resolve(const sim::Simulatio
             }
         }
     }
-    return m_cache.emplace(saveId, r).first->second;
+    return m_cache.emplace(id, r).first->second;
 }
 
-void SpriteExtraction::captureTerrain(const sim::SimulationWorld& world, WorldSnapshot& out) {
+void SpriteExtraction::captureTerrain(const net::ClientWorld& world, WorldSnapshot& out) {
     const world::WorldGrid& grid = world.grid();
     if (!m_palette) {
         // 콘텐츠는 월드가 사는 동안 그대로 — 처음 한 번 (머티리얼 번호 = 콘텐츠 순서)
@@ -103,41 +109,34 @@ void SpriteExtraction::captureTerrain(const sim::SimulationWorld& world, WorldSn
     v.paletteVersion = 1;
 }
 
-void SpriteExtraction::captureSelected(sim::SimulationWorld& world, std::span<const SaveId> selection,
+void SpriteExtraction::captureSelected(const net::ClientWorld& world, f64 renderTick,
+                                       std::span<const NetEntityId> selection, const net::InspectResult* inspect,
                                        WorldSnapshot& out) {
     const ecs::Registry& reg = world.registry();
-    const content::ContentDatabase& content = world.content();
-    for (const SaveId id : selection) {
+    auto positionOf = [&](NetEntityId id) -> std::optional<Vec2> {
+        if (const net::TransformTrack* t = world.transformTrack(id)) {
+            return net::sampleTransform(*t, renderTick).position;
+        }
+        return std::nullopt;
+    };
+    for (const NetEntityId id : selection) {
         if (out.selected.size() >= kMaxSelectedDetails) {
             break;
         }
-        const ecs::EntityId e = world.resolveSave(id);
-        if (!reg.alive(e)) {
-            continue; // 죽었다 — 선택은 다음 프레임에 Main 쪽이 정리한다
+        const ecs::EntityId e = world.find(id);
+        if (e == ecs::kNullEntity) {
+            continue; // 사라졌다 — 선택은 세션이 정리한다
         }
         SelectedDetail d;
         d.id = id;
-        if (const auto* t = reg.tryRead<comp::Transform>(e)) {
-            d.position = t->position;
+        if (const auto p = positionOf(id)) {
+            d.position = *p;
         }
         if (const auto* v = reg.tryRead<comp::Velocity>(e)) {
             d.velocity = v->value;
         }
         if (const auto* p = reg.tryRead<comp::PrefabSource>(e)) {
             d.prefab = std::string(p->prefab.view());
-        }
-        if (const auto* b = reg.tryRead<comp::Behavior>(e)) {
-            if (const content::BehaviorGraph* g = content.findBehavior(b->graph.view());
-                g != nullptr && b->state < g->states.size()) {
-                d.state = g->states[b->state].id;
-            }
-            if (b->target != kInvalidSaveId) {
-                if (const ecs::EntityId te = world.resolveSave(b->target); reg.alive(te)) {
-                    if (const auto* tt = reg.tryRead<comp::Transform>(te)) {
-                        d.target = tt->position;
-                    }
-                }
-            }
         }
         if (const auto* en = reg.tryRead<comp::Energy>(e)) {
             d.energy = en->value;
@@ -147,77 +146,80 @@ void SpriteExtraction::captureSelected(sim::SimulationWorld& world, std::span<co
             d.health = h->value;
             d.healthMax = h->max;
         }
-        if (const auto* s = reg.tryRead<comp::Sensor>(e)) {
-            d.sensorRadius = s->radius;
-        }
-        if (const auto* p = reg.tryRead<comp::Path>(e)) {
-            if (p->state == comp::PathState::Following) {
-                for (usize i = p->cursor; i < p->waypoints.size(); ++i) {
-                    d.path.push_back(p->waypoints[i]);
+        if (inspect != nullptr) {
+            if (const auto it = std::ranges::find(inspect->entries, id, &net::InspectEntry::netId);
+                it != inspect->entries.end()) {
+                d.state = it->state;
+                d.sensorRadius = it->sensorRadius;
+                d.path = it->path;
+                d.goal = it->goal;
+                if (it->target != kInvalidNetEntityId) {
+                    d.target = positionOf(it->target);
                 }
-            }
-            if (p->state == comp::PathState::Following || p->state == comp::PathState::Pending ||
-                p->state == comp::PathState::Submitted) {
-                d.goal = p->goal;
             }
         }
         out.selected.push_back(std::move(d));
     }
 }
 
-void SpriteExtraction::capture(sim::SimulationWorld& world, std::span<const SaveId> selection, WorldSnapshot& out) {
+void SpriteExtraction::capture(const net::ClientWorld& world, f64 renderTick, std::span<const NetEntityId> selection,
+                               const net::InspectResult* inspect, WorldSnapshot& out) {
     ++m_captures;
-    out.tick = world.currentTick();
+    out.serverTick = world.serverTick();
+    out.renderTick = renderTick;
     out.sprites.clear();
     out.selected.clear();
     out.stats = {};
 
     captureTerrain(world, out);
 
-    m_nextPositions.clear();
-    m_nextPositions.reserve(m_lastPositions.size() + 64);
-    for (auto [e, t, p] : world.registry().view<ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
-        (void)e;
-        const Resolved& r = resolve(world, p.saveId);
-        Vec2 previous = t.position;
-        if (const auto it = m_lastPositions.find(p.saveId); it != m_lastPositions.end()) {
-            previous = it->second;
+    out.sprites.reserve(world.entityCount());
+    // 엔티티 index 순서 (프레임마다 같은 순서 — 같은 깊이끼리의 그리기 순서가 흔들리지 않게)
+    const ecs::Registry& reg = world.registry();
+    reg.forEachEntityByIndex([&](ecs::EntityId e) {
+        const auto* t = reg.tryRead<comp::Transform>(e);
+        const auto* ni = reg.tryRead<comp::NetIdentity>(e);
+        if (t == nullptr || ni == nullptr) {
+            return;
         }
-        m_nextPositions.emplace(p.saveId, t.position);
-        out.sprites.push_back({.id = p.saveId,
-                               .previous = previous,
-                               .current = t.position,
+        const Resolved& r = resolve(world, ni->netId);
+        Vec2 position = t->position;
+        f32 rotation = t->rotation;
+        if (const net::TransformTrack* track = world.transformTrack(ni->netId)) {
+            const net::TransformSample s = net::sampleTransform(*track, renderTick);
+            position = s.position;
+            rotation = s.rotation;
+        }
+        out.sprites.push_back({.id = ni->netId,
+                               .position = position,
                                .size = r.size,
-                               .rotation = t.rotation,
+                               .rotation = rotation,
                                .sprite = r.material.sprite,
                                .color = r.material.color,
                                .layer = r.layer});
         ++out.stats.entities;
         out.stats.withSprite += r.fromContent ? 1 : 0;
-    }
-    m_lastPositions.swap(m_nextPositions);
-    // 사라진 엔티티의 캐시를 가끔 정리 (saveId 는 재사용되지 않으므로 틀린 값을 쓸 일은 없다 — 메모리만)
-    if (m_captures % 300 == 0 && m_cache.size() > static_cast<usize>(out.stats.entities) * 2) {
-        std::erase_if(m_cache, [&](const auto& kv) { return !m_lastPositions.contains(kv.first); });
+    });
+    // 사라진 엔티티의 캐시를 가끔 정리 (netId 는 재사용되지 않으므로 틀린 값을 쓸 일은 없다 — 메모리만)
+    if (m_captures % 600 == 0 && m_cache.size() > static_cast<usize>(out.stats.entities) * 2) {
+        std::erase_if(m_cache, [&](const auto& kv) { return world.find(kv.first) == ecs::kNullEntity; });
     }
     out.stats.cached = static_cast<u32>(m_cache.size());
 
-    captureSelected(world, selection, out);
+    captureSelected(world, renderTick, selection, inspect, out);
 }
 
-void SpriteExtraction::emit(const WorldSnapshot& snapshot, f32 alpha, render::RenderWorld& out) {
-    alpha = std::clamp(alpha, 0.f, 1.f);
+void SpriteExtraction::emit(const WorldSnapshot& snapshot, render::RenderWorld& out) {
     out.terrain = snapshot.terrain;
     out.sprites.reserve(out.sprites.size() + snapshot.sprites.size());
     for (const SnapshotSprite& s : snapshot.sprites) {
-        const Vec2 pos = s.previous + (s.current - s.previous) * alpha;
-        out.sprites.push_back({.position = pos,
+        out.sprites.push_back({.position = s.position,
                                .size = s.size,
                                .rotation = s.rotation,
                                .sprite = s.sprite,
                                .color = s.color,
                                .layer = s.layer,
-                               .depth = -pos.y});
+                               .depth = -s.position.y});
     }
 }
 

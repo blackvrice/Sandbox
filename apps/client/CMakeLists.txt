@@ -1,5 +1,5 @@
-# SandboxClient — 앱 상태기계 + 창 루프. Phase 6: Platform. Phase 7A: + Render (Clear). Phase 8A: + Core (--direct-sim 의
-# 임시 경로 — Phase 10 부터는 ClientWorld 로 같은 Core 를 쓴다), presentation/(ECS → RenderWorld). Network·Editor 는 Phase 9~12.
+# SandboxClient — 앱 상태기계 + 창 루프. Phase 6: Platform. Phase 7A: + Render (Clear). Phase 8A: + Core,
+# presentation/(복제 월드 → RenderWorld). Phase 10B: + Network (NetworkSession — 로컬 서버 · 원격 서버). Editor 는 Phase 12.
 # 의존 계획: Editor + Network + Render + Platform + Core (docs/01-ARCHITECTURE.md 2장).
 add_executable(SandboxClient
     main.cpp
@@ -12,8 +12,8 @@ add_executable(SandboxClient
     FrameRenderer.hpp
     ClientRenderer.cpp
     WorldSession.hpp
-    DirectSim.hpp
-    DirectSim.cpp
+    NetworkSession.hpp
+    NetworkSession.cpp
     presentation/SpriteExtraction.hpp
     presentation/SpriteExtraction.cpp
     presentation/SelectionOverlay.hpp
@@ -23,7 +23,7 @@ add_executable(SandboxClient
     ui/DebugPanels.hpp
     ui/DebugPanels.cpp
 )
-target_link_libraries(SandboxClient PRIVATE SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
+target_link_libraries(SandboxClient PRIVATE SandboxNetwork SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                  SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
 

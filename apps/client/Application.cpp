@@ -379,6 +379,9 @@ bool Application::frame() {
         return std::chrono::duration<f64>(b - a).count();
     };
     auto t0 = Clock::now(), t1 = t0, t2 = t0;
+    if (m_state == AppState::Connecting && m_config.world != nullptr) {
+        m_config.world->update(m_config.fixedDt > 0 ? m_config.fixedDt : realDt); // 접속 진행 (10B)
+    }
     if (inWorld) {
         const f64 worldDt = m_config.fixedDt > 0 ? m_config.fixedDt : realDt;
         syncViewport();
@@ -436,11 +439,19 @@ bool Application::frame() {
         accumulateTimings(realDt, seconds(t0, t1), seconds(t1, t2), seconds(t3, t4));
     }
 
-    // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (Phase 8A — 메뉴 UI 는 8C)
+    // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (메뉴 UI [계획]). Connecting 은 세션이 준비될 때까지
+    // (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
-        if (m_state == AppState::MainMenu) {
+        if (m_state == AppState::Connecting || m_state == AppState::InWorld) {
+            if (const auto failure = m_config.world->failure()) {
+                log::error("client", "{}", *failure);
+                m_exitCode = 1;
+                (void)request(AppState::Shutdown);
+            }
+        }
+        if (!m_pending && m_state == AppState::MainMenu) {
             (void)request(AppState::Connecting);
-        } else if (m_state == AppState::Connecting) {
+        } else if (!m_pending && m_state == AppState::Connecting && m_config.world->ready()) {
             (void)request(AppState::InWorld);
         }
     }
@@ -528,7 +539,7 @@ int Application::run(FramePacer* pacer) {
             pacer->wait();
         }
     }
-    return 0;
+    return m_exitCode;
 }
 
 std::string Application::statusLine() const {
