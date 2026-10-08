@@ -50,6 +50,8 @@ add_executable(SandboxTests
     unit/network/test_bitstream.cpp
     unit/network/test_messages.cpp
     unit/network/test_transport.cpp
+    unit/network/test_server_host.cpp
+    unit/network/test_enet.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"

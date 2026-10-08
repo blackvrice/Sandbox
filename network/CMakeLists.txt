@@ -16,6 +16,14 @@ add_library(SandboxNetwork STATIC
     protocol/CommandCodec.cpp
     protocol/Messages.hpp
     protocol/Messages.cpp
+
+    server/CommandValidator.hpp
+    server/CommandValidator.cpp
+    server/ServerHost.hpp
+    server/ServerHost.cpp
+
+    client/ClientSession.hpp
+    client/ClientSession.cpp
 )
 add_library(Sandbox::Network ALIAS SandboxNetwork)
 target_link_libraries(SandboxNetwork
