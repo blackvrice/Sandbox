@@ -377,3 +377,32 @@ fps 가 오른다는 보고. 원인은 그래픽이 아니라 렌더 스레드 �
   재지 않았다 — Interest · 바이트 재사용 뒤에 sbx_bench net.snapshot 으로 [계획].
 - 틱 예산(33 ms) 안이다: Simulation 스레드 틱 7 ms 안팎 + 스냅숏 1.5 ms ÷ 2 틱.
 ```
+
+### 7.10 Phase 10B — 클라이언트가 서버 복제본을 그린다 (2026-10-08)
+
+```text
+머신       7.9 와 같음 (클라우드 컨테이너 2코어). 헤드리스 = Linux clang 19, 창 = MinGW Release + Wine 11 + lavapipe
+명령       SandboxClient --headless --world ecosystem_10k --frames 600 (Release) · --frames 120 (Debug)  — 서버는 프레임 안에서
+           SandboxClient --world ecosystem_small (창, 같은 프로세스 서버 스레드) · SandboxServer --world ecosystem_survival +
+           SandboxClient --connect 127.0.0.1:<port> (창, Wine 두 프로세스)
+지표       끝 요약 "받기 · 적용 X ms" (ClientSession::update 의 지수 평균 — 프레임마다, 스냅숏은 15 Hz) · 프레임 평균의 추출
+```
+
+| 경우                                     | 개체   | 추출 (프레임마다) | 받기 · 적용 (프레임 평균 → 스냅숏 하나) | 그 밖                                  |
+|------------------------------------------|--------|-------------------|-----------------------------------------|----------------------------------------|
+| 헤드리스 ecosystem_10k, clang Release    | 11,571 | 1.9 ms            | 2.1 ms → 약 8 ms                        | 서버 스냅숏 만들기 7.4 ms (Worker 0)   |
+| 헤드리스 ecosystem_10k, clang Debug      | 9,700  | 9.2 ms            | 11.8 ms → 약 45 ms                      | 서버 틱 126 ms · 스냅숏 만들기 44 ms   |
+| 창 ecosystem_small (로컬), MinGW Release | 730    | 0.2 ms            | 0.2 ms                                  | 55 fps (VSync · 소프트웨어 렌더 11 ms) |
+| 창 ecosystem_survival (원격, 256 KB/s)   | 4,292  | 1.9 ms            | 1.5 ms                                  | 41 fps · RTT 11 ms · 받은 239 KB/s     |
+
+```text
+해석
+- 8A 의 --direct-sim 은 렌더 쪽 추출이 배열 보간뿐이었다 (0.3 ms, 7.7). 지금은 Main 스레드가 복제 월드를 직접 읽고
+  (엔티티마다 컴포넌트 조회 둘 · 표 조회 둘 · 표본 보간) 스냅숏도 적용한다 — 10k Release 에서 추출 1.9 ms + 66 ms 마다
+  적용 약 8 ms. 60 FPS 예산 안이지만 적용 프레임이 튄다. Debug 10k 는 적용 45 ms 로 끊겨 보인다.
+- 줄이는 길 [계획]: Interest(Phase 11 — 화면 근처만 받는다), 디코드 · 적용을 클라이언트 Net 스레드로 (이중 버퍼, 15),
+  추출 표를 엔티티 배열로.
+- Wine 원격에서 다시 맞춤 2 번 — 시작 직후 클라이언트가 수 초 멈춘 사이(폰트 · 셰이더 준비) ack 가 기록 32 개를 넘었다.
+  네이티브 헤드리스 원격 15 초는 0 번.
+```
+

@@ -5,7 +5,9 @@
 > Phase 5B 의 `foundation/job/JobSystem`(경로 Job 만 — T3 계약 그대로). Simulation 스레드는 Phase 8A 의 `--direct-sim`
 > 창 실행에서 처음 클라이언트 프로세스 안에 생겼다 (T1 · T2 — 불변 스냅숏, [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md)).
 > 서버의 Simulation 스레드 + Network IO 스레드는 Phase 9 의 ServerHost (4장, [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md)).
-> 클라이언트의 Main·Render 분리와 클라이언트 Network IO 스레드는 `[계획]`.
+> Phase 10B 부터 클라이언트 안의 Simulation 스레드는 LocalServerHost(같은 프로세스의 ServerHost)의 것이다 — `--direct-sim` 은
+> 지웠다 ([ADR-0026](adr/0026-network-session-local-server-inspect.md)). 클라이언트는 Main 스레드에서 스냅숏을 받아 ClientWorld 에
+> 적용하고 그린다. 클라이언트의 Main·Render 분리와 클라이언트 Network IO 스레드(디코드 · 적용)는 `[계획]`.
 
 ---
 

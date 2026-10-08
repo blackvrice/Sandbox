@@ -75,14 +75,14 @@ ctest --test-dir cmake-build-debug -R "unit_render|shader_gen_selftest" --output
     cmake-build-debug\tests\render\out_warp 의 *.actual.png · *.diff.png 를 보내 주십시오
 ```
 
-## Phase 8A — 스프라이트 · --direct-sim
+## Phase 8A — 스프라이트 (8A 의 `--direct-sim` 은 10B 에서 `--world` 로 바뀌었다 — 아래 명령은 바꿔 적었다)
 
 ```powershell
-.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_survival
-.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+.\cmake-build-debug\bin\SandboxClient.exe --console --world ecosystem_survival
+.\cmake-build-debug\bin\SandboxClient.exe --console --world ecosystem_small --rhi-debug
 ctest --test-dir cmake-build-debug -L render --output-on-failure
 # fps 는 최적화 빌드로 (CLion 의 Release/RelWithDebInfo 프로필 — 폴더 이름은 프로필마다 다르다)
-.\cmake-build-release\bin\SandboxClient.exe --console --direct-sim ecosystem_10k --vsync off
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_10k --vsync off
 ```
 
 ```text
@@ -104,8 +104,8 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure
 ## Phase 8B — 지형 · 격자 · 선택 · 디버그 · GPU 시간
 
 ```powershell
-.\cmake-build-release\bin\SandboxClient.exe --console --direct-sim ecosystem_survival
-.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+.\cmake-build-debug\bin\SandboxClient.exe --console --world ecosystem_small --rhi-debug
 ctest --test-dir cmake-build-debug -L render --output-on-failure
 ```
 
@@ -125,8 +125,8 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure
 ## Phase 8C — ImGui 패널
 
 ```powershell
-.\cmake-build-release\bin\SandboxClient.exe --console --direct-sim ecosystem_10k --vsync off
-.\cmake-build-debug\bin\SandboxClient.exe --console --direct-sim ecosystem_small --rhi-debug
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_10k --vsync off
+.\cmake-build-debug\bin\SandboxClient.exe --console --world ecosystem_small --rhi-debug
 .\cmake-build-release\bin\SandboxClient.exe --console            (메뉴 — 월드 없이 패널만)
 ctest --test-dir cmake-build-debug -L render --output-on-failure
 ```
@@ -206,6 +206,37 @@ ctest --test-dir cmake-build-debug -R "net|unit_network" --output-on-failure
 [ ] ecosystem_10k 기본 예산(256 KB/s)에서는 5 초 안에 N 이 10k 에 못 미칠 수 있다 (예산 round-robin — 정상). --snapshot-kbps 0 이면 거의 다 온다
 [ ] 서버 끝 줄 (Ctrl+C) 에 "replication X ms" — 10k 제한 없음에서 수 ms
 [ ] ctest -R net_convergence 통과 (수 초)
+```
+
+## Phase 10B — SandboxClient 가 서버의 복제본을 그린다 (싱글플레이 · 접속)
+
+**먼저 다시 빌드.** `--direct-sim` 은 없어졌다 — 싱글플레이는 `--world`, 서버 접속은 `--connect`.
+
+```powershell
+# 싱글플레이 (같은 프로세스의 서버)
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_10k --vsync off
+# 두 창: 서버 + 클라이언트 (혼자 시험이면 admin — 일시정지 · 속도는 admin 부터)
+.\cmake-build-release\bin\SandboxServer.exe --world ecosystem_survival --default-role admin
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 철수
+ctest --test-dir cmake-build-debug --output-on-failure
+```
+
+```text
+[ ] --world: 8A ~ 8C 와 같은 월드 · 패널이 보이고, 왼쪽 아래 "네트워크" 패널에 "로컬 서버 (같은 프로세스)" · 역할 owner ·
+    스냅숏 수가 오른다 · 보간 지연 100 ms. 개체 움직임이 매끄럽다 (15 Hz 스냅숏 사이를 보간 — 144 Hz 모니터에서도)
+[ ] Space 일시정지 · . 한 틱 · = / - 속도 (서버 명령) — 제목 줄 · 패널에 바로 보인다. ×8 에서도 네트워크 패널의 받은 KB/s 가
+    ×1 과 크게 다르지 않다 (스냅숏은 초당 15 번)
+[ ] 클릭 선택: 노란 상자 + 제목 줄 "선택 eco.rabbit #… · 상태 · 에너지 …", 잠시 뒤 감지 반경 원 · 경로 · 대상 선
+    (서버가 InspectResult 로 준다). Space 로 멈춘 뒤에도 같다
+[ ] Release ecosystem_10k --vsync off: fps 와 통계 패널의 추출 ms, 네트워크 패널의 "적용 ms" 를 적어 주십시오
+    (15 Hz 로 스냅숏을 적용하는 프레임이 튈 수 있다 — 14-PERFORMANCE 7.10)
+[ ] --connect: 콘솔에 "서버 콘텐츠(eco)를 읽어 다시 접속합니다" 뒤 월드가 보인다. 네트워크 패널: 서버 127.0.0.1:7777 · 역할
+    admin · RTT 수 ms. 서버 창에 "들어옴: 철수 (#1, admin)" — 한글 이름이 깨지지 않는다
+[ ] 서버를 --default-role editor 로 다시 띄우고 Space: 네트워크 패널 "거절된 명령 1" · "PauseSimulation 거절: …"
+[ ] 서버 창에서 Ctrl+C: 클라이언트가 "서버와 연결이 끊겼습니다 …" 로그를 남기고 닫힌다 (종료 코드 1)
+[ ] 없는 서버(--connect 127.0.0.1:7999): 약 10 초 뒤 같은 식으로 끝난다
+[ ] ctest 전부 통과 (client_local_world_headless 포함)
 ```
 
 ## Phase 10~12 — 네트워크·에디터

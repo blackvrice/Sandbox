@@ -7,15 +7,17 @@
 > D3D12 shader-visible 힙·루트 시그니처·PSO(5.1), 기준 이미지 Triangle·좌표 규약·컬링·Texture(14장).
 > **Phase 8A 구현** — AssetManager(7.2~7.4 중 PNG 디코드 Worker · 업로드 예산 · Texture2DArray 아틀라스 선반 패킹 · 자리 표시),
 > MaterialLibrary(assets/<팩>/materials.json), Camera2D · RenderWorld · 정렬 키 · SpriteBatcher(8.1 · 8.2 · 8.5), Renderer(Clear +
-> WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient --direct-sim 관찰(9장).
+> WorldSpritePass, 8.4), 기준 이미지 sprite · batch_1k(14장), SandboxClient 월드 관찰(9장 — 8A 의 --direct-sim, 10B 부터 서버 복제본).
 > **Phase 8B 구현** — TerrainPass(타일 머티리얼 번호 텍스처 + 팔레트, 바뀐 청크만), GridPass · SelectionPass · DebugPass(화면 픽셀
 > 두께 선, DebugDrawList), GPU 타임스탬프(3.2 · 8.4 — 패스별 ms), R16Uint, 기준 이미지 terrain · overlay(14장), 선택(9장).
 > **Phase 8C 구현** — ImGui 1.92.9b docking(벤더링), ImGuiRenderer(10장 — 동적 텍스처 · 업로드 링 · scissor), UIPass 타임스탬프,
 > 기준 이미지 imgui_basic(14장).
+> **Phase 10B** — SandboxClient 가 서버의 복제본(ClientWorld)을 그린다: 보간(renderTick) · 선택 netId · 선택 상세 Inspect (9장).
 > `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan(13), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
-> 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md).
+> 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md),
+> 10B [ADR-0026](adr/0026-network-session-local-server-inspect.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -597,7 +599,7 @@ Window → Clear → Triangle → Texture → Sprite → Camera → Batch → Te
 
 7A 까지 Clear, 7B 까지 Triangle · Texture (기준 이미지 triangle · texture_linear), 8A 까지 Sprite · Camera · Batch (sprite ·
 batch_1k), 8B 까지 Terrain · Overlay (terrain · overlay), 8C 까지 ImGui (imgui_basic). SandboxClient 는 메뉴(월드 없음)에서 지우기 + 도는 삼각형,
-`--direct-sim` 이면 Renderer 로 월드를 그린다.
+월드가 있으면(`--world` · `--connect`, 10B — 8A 의 `--direct-sim` 은 지웠다) Renderer 로 월드를 그린다.
 
 ---
 
@@ -622,7 +624,16 @@ Main 스레드는 프레임마다 `emit` 으로 최신 스냅숏을 보간해 Re
 "terrain/<id>" 색), 선택한 개체(최대 32)의 자세한 상태를 담는다. 선택은 Main 스레드가 스냅숏에서 고른다 — 왼쪽 클릭 = 맨 위
 개체, 끌기 = 박스, Shift = 더하기/빼기, Esc = 해제 (`presentation/SelectionOverlay`,
 [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md)).
-Network · ClientWorld 는 Phase 10A 구현 (그리기 연결 · InterpolationSystem 은 10B), --direct-sim 은 10B 에서 삭제 (16-ROADMAP).
+(위 문단은 8A ~ 8C 의 기록이다. `--direct-sim` 은 10B 에서 지웠다.)
+
+**Phase 10B 구현 (지금):** `SandboxClient --world <시나리오|세이브>` 는 같은 프로세스의 LocalServerHost(ServerHost +
+Loopback — 창에서는 서버의 Simulation · Net IO 스레드), `--connect host:port` 는 원격 SandboxServer 에 접속한다 — 둘 다
+`NetworkSession` (apps/client). Main 스레드가 프레임마다 받은 스냅숏을 ClientWorld 에 적용하고(08 6.4), InterpolationClock 의
+renderTick 으로 `SpriteExtraction::capture` 가 ClientWorld 를 읽어 그릴 거리를 만든다 (위 그림의 InterpolationSystem ·
+ExtractionSystem 자리 — 엔티티별 transform 표본 둘을 보간, render.sprite Opaque 는 netId 별 캐시). 지형은 ClientWorld 가
+받은 청크마다 올리는 revision 으로 바뀐 것만 복사. 선택은 netId, 선택한 개체의 행동 상태 · 감지 반경 · 경로 · 대상은
+서버가 InspectResult 로 준다 (ai.* 는 ServerOnly). 일시정지 · 한 틱 · 속도는 서버 명령 (원격은 admin 역할부터 —
+거절은 네트워크 패널에). [ADR-0026](adr/0026-network-session-local-server-inspect.md).
 
 ---
 
@@ -729,7 +740,7 @@ Phase 8A 구현 (`tests/render/test_sprites.cpp`): sprite(아틀라스 텍스처
 camera(worldToScreen 이 예측한 픽셀 · 컬링) · order(레이어 > 제출 순서, 같은 레이어는 depth, 반투명 α 128) · batch_1k(1,000개 ·
 층 3개 · Draw 1 — 기준 이미지. 픽셀 경계 정렬 · 무회전 · 완만한 텍스처라 구현과 무관) · assets(Worker 디코드 · 예산 1 바이트로
 프레임마다 하나 · 없는 파일 마젠타 · 경로 정규화) · materials(JSON · 오류 · 대체 색). 순수 로직은 SandboxTests `render`
-(Camera2D · 정렬 키 · SpriteBatcher · ShelfPacker · AssetId), 클라이언트 흐름은 `client`(DirectSim · Extraction · 앱 InWorld).
+(Camera2D · 정렬 키 · SpriteBatcher · ShelfPacker · AssetId), 클라이언트 흐름은 `client`(8A DirectSim → 10B NetworkSession · Extraction · 앱 InWorld).
 
 Phase 7B 구현 (`tests/render/test_rhi_draw.cpp`, 셰이더가 내장된 빌드만): triangle(정점 색) · coord_convention(NDC 사분면에
 그린 네 색 == 7A 의 upload_quadrants — 비트 단위) · culling_ccw(CCW 앞면 보임, CW 컬링, FrontFace::Clockwise 는 반대) ·

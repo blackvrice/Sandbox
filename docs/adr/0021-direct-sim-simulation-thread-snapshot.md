@@ -1,6 +1,6 @@
 # ADR-0021. --direct-sim 은 창에서 Simulation 스레드로 돌리고, 렌더 쪽에는 틱마다 만든 불변 스냅숏만 넘긴다
 
-- 상태: **Accepted** · 날짜: 2026-10-07
+- 상태: **Superseded by [ADR-0026](0026-network-session-local-server-inspect.md)** (2026-10-08 — --direct-sim 삭제, Simulation 스레드는 LocalServerHost 로) · 날짜: 2026-10-07
 - 관련: [ADR-0020](0020-sprite-atlas-instancing-direct-sim-presentation.md) 결정 5 · 6 (이 ADR 이 대체),
   [01-ARCHITECTURE](../01-ARCHITECTURE.md) 5장 (T1 · T2), [06-RENDERING](../06-RENDERING.md) 9장,
   [14-PERFORMANCE](../14-PERFORMANCE.md) 7.7

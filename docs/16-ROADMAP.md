@@ -27,7 +27,7 @@ Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 202
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
 Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-07 (8A 스프라이트 · --direct-sim, 8B 지형 · 오버레이 · GPU 시간, 8C ImGui 패널), 사용자 PC 확인 대기
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
-Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성. 10A 복제 구현 2026-10-08 (ReplicationWriter · ClientWorld · net_convergence), 10B 클라이언트 연결 다음
+Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management
 Phase 12  Multiplayer Editor                        ← 1차 목표선
 Phase 13  Linux (X11 → Vulkan → Wayland)
@@ -330,7 +330,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   다음     Phase 10 — 복제 (NetEntityId · Snapshot · 보간), LocalServerHost, --direct-sim 삭제
 ```
 
-### Phase 10 — Replication (10A ✅ 구현 2026-10-08 — ADR-0025, 10B 다음)
+### Phase 10 — Replication ✅ (10A · 10B 구현 2026-10-08 — ADR-0025 · 0026, 사용자 PC 확인 대기)
 
 ```text
 10.1 NetEntityId, NetIdentity 부여, NetEntityMap        10.2 Spawn/Update/Despawn, ack, baseline 32개
@@ -348,18 +348,22 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   10.2 ✅ ReplicationWriter — 클라이언트별 기록 32 (변경 순번 · mask), spawn/update/despawn, ack, 예산 round-robin, epoch 다시 맞추기,
           TerrainChunk (길이 부호화). 프로토콜 2. SandboxServer --snapshot-kbps
   10.3 ◐ EntityRef 변환 ✅ (NetEntityId), tombstone 은 단조 적용으로 대신 ✅, 양자화 [계획 — 측정 뒤]
-  10.4 ◐ 표본만 (ClientWorld::transformTrack — 직전 · 지금), SnapshotBuffer · 보간은 10B
+  10.4 ◐ 표본만 (ClientWorld::transformTrack — 직전 · 지금) → 10B 에서 보간 ✅
   10.6 ◐ ServerStats ✅ (Phase 9), 서버 끝 줄 replication ms · probe 복제 개체 수
   완료 기준 net_convergence (100 ms ± 20 · 5 % 손실 양방향 · 64 KB/s) ✅
 
-10B SandboxClient 를 네트워크 위로 [다음]
-  NetworkSession (클라이언트 앱 상태: 접속 · 다시 접속 · 끊김 UI), SandboxClient --connect host:port
-  LocalServerHost — 싱글플레이 = 같은 프로세스 ServerHost + Loopback (Simulation 스레드는 서버 쪽), 예산 없음
-  그리기: SpriteExtraction · 지형 capture 를 SimulationWorld 대신 ClientWorld 에서 (Opaque render.sprite 를 읽는다)
-  보간: SnapshotBuffer (serverTick 추정 · renderTick = 추정 − interpDelay), 순간이동 스냅
-  선택 상세: 서버만 아는 값(ServerOnly · 행동 상태)은 Inspect 요청/응답 메시지 [계획 — 10B 또는 12]
-  --direct-sim 삭제 (ADR-0021 의 Simulation 스레드 스냅숏은 LocalServerHost 로 옮긴다), Network 패널 (RTT · 바이트 · 스냅숏)
-  완료 기준 --direct-sim 코드 0줄, SandboxClient 가 SandboxServer 에 접속해 10k 를 그린다, 싱글플레이 프레임 시간 회귀 없음
+10B SandboxClient 를 네트워크 위로 ✅ (2026-10-08, ADR-0026)
+  10.4 ✅ InterpolationClock (서버 틱 추정 · renderTick = 추정 − 0.1 초, 앞으로만, 일시정지 = 마지막 틱) + 엔티티별 표본 둘
+          (SnapshotBuffer 32 대신 — 08 9장), 순간이동 8 칸, 외삽 없음
+  10.5 ✅ LocalServerHost (ServerHost + Loopback, 역할 owner · 예산 없음, 창 = 서버 스레드 · 헤드리스 = 프레임 안).
+          SandboxClient --world <시나리오|세이브> · --connect host:port · --name — NetworkSession (접속 · 콘텐츠 다시 맞추기 ·
+          Connecting 대기 · 실패하면 종료 코드 1). --direct-sim · DirectSim · 그 시험 삭제 (코드 0줄)
+  10.6 ✅ Network 패널 (서버 · 역할 · RTT · 스냅숏 · 받은 KB/s · 적용 ms · 보간 지연 · 거절된 명령)
+  그 밖 ✅ 그리기를 ClientWorld 에서 (SpriteExtraction · 선택 netId), 선택 상세 = Inspect · InspectResult (프로토콜 3),
+          스냅숏 간격은 실제 시간 (×8 에서도 15 Hz), 일시정지 · 한 틱 · 속도 = 서버 명령, 명령줄 인자 UTF-8 (Windows 한글)
+  완료 기준 --direct-sim 코드 0줄 ✅ · SandboxClient 가 SandboxServer 에 접속해 그린다 ✅ (Wine 4.3k, 네이티브 10k 헤드리스) ·
+          싱글플레이 프레임 시간 회귀 없음 ◐ — 작은 월드는 같고, 10k 는 추출 1.9 ms + 15 Hz 적용 약 8 ms (Release, 14 7.10).
+          Main 스레드 적용은 Interest(11) · Net 스레드 디코드 [계획 15] 로 줄인다
 ```
 
 ```text
@@ -369,6 +373,17 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation 132 케이스
   성능     Release ecosystem_10k: 스냅숏 만들기 5.4 ~ 5.7 ms (제한 없음) · 1.5 ms (256 KB/s), 틱 7 ms 안팎 (14 7.9)
   남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 10A
+```
+
+```text
+10B 검증 (2026-10-08)
+  Linux    clang · gcc Debug: ctest 43/43 — unit_network(Inspect · 보간 시계 · 표본 · 선택 상세 · LocalServerHost ×8 15 Hz),
+           unit_client(NetworkSession 로컬 Inline · 서버 스레드 · 원격 Loopback 콘텐츠 다시 맞추기 · editor 거절 · 서버 종료),
+           client_local_world_headless (tick 28), client_world_bad_name. TSan network · net · client
+  Windows  MinGW 빌드 경고 0 + Wine: SandboxClient --world ecosystem_small 창 (55 fps, 패널 일시정지 = 서버 명령),
+           SandboxServer + SandboxClient --connect --name 원격 두 프로세스 (콘텐츠 다시 맞추기, 한글 이름, 4.3k 개체)
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 10B
+  다음     Phase 11 — Interest (Subscribe · 화면 근처만 · 히스테리시스 · 우선순위), 재접속 토큰
 ```
 
 ### Phase 11 — Interest

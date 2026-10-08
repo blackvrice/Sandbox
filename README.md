@@ -7,7 +7,7 @@ C++23 기반의 자체 **Sandbox Simulation Engine / Maker**입니다.
 Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **특정 장르 규칙에 묶이지 않고**
 만들 수 있는 것이 목표입니다.
 
-> **현재 상태: Phase 10A 복제 구현 — 서버 월드를 클라이언트별 차분 스냅숏으로 보내고(예산 · 손실 복구 · 다시 맞추기) 클라이언트 복제 월드에 적용, `sbx_net_probe` 가 복제 개체를 센다. Phase 9 네트워크 기초 (전용 서버 `SandboxServer --world`, ENet UDP · 핸드셰이크 · 명령 · 권한). Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
+> **현재 상태: Phase 10 복제 완료 — SandboxClient 가 언제나 서버의 복제본을 그린다: 싱글플레이 `--world`(같은 프로세스의 서버) · 접속 `--connect`(SandboxServer), 보간 · 선택 상세 · 네트워크 패널 (10B, `--direct-sim` 삭제). 10A: 클라이언트별 차분 스냅숏(예산 · 손실 복구 · 다시 맞추기). Phase 9 네트워크 기초 (전용 서버 `SandboxServer --world`, ENet UDP · 핸드셰이크 · 명령 · 권한). Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
 > 30 TPS 틱 파이프라인·명령(SimCommand)·공간 색인·난수·WorldHash, 청크 월드·지형 칠하기·세이브/로드(마이그레이션·Opaque),
 > 콘텐츠 팩 로더·검증기(Prefab·Tag·Rule·BehaviorGraph)·생명 주기(에너지·성장·번식·사망)·`content/ecosystem` 팩,
 > 감지·FSM 행동·Rule 상호작용·A* 경로 Job·조향 이동·충돌, 리플레이 기록·재생, 세 종이 공존하는 생태계 시나리오,
@@ -16,9 +16,9 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > RHI + D3D12 백엔드(디바이스·큐/펜스·스왑체인·Clear·업로드 링·지연 해제·Debug Layer·셰이더·바인드 그룹·루트 시그니처·PSO·draw),
 > HLSL 셰이더 빌드(DXC 고정 버전 · SPIR-V 리플렉션 · cbuffer 헤더 생성), `sbx_render_tests` 기준 이미지,
 > 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, 지형(타일 텍스처) · 격자 · 선택 · 디버그 선 패스와
-> GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--direct-sim` 월드 관찰 — Simulation 스레드, 카메라 팬 · 줌 · 일시정지 · 속도,
+> GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--world` · `--connect` 로 서버 복제본 관찰 — 보간, 카메라 팬 · 줌 · 일시정지 · 속도는 서버 명령,
 > 클릭 · 박스 선택), Dear ImGui(1.92 docking, RHI 위 렌더러 · 동적 폰트 텍스처 · 입력 가로채기)와 기본 패널, 테스트·벤치·경계 검사가 있습니다.
-> SandboxClient 가 네트워크로 서버 월드를 그리기(LocalServerHost · 보간 — Phase 10B) · 에디터는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> Interest(화면 근처만 받기 — Phase 11) · 에디터(Phase 12)는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 
@@ -72,7 +72,9 @@ build\windows-msvc\bin\Debug\sbx_sim_check.exe --scenario world_save_load --save
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\random_walk_1k.json    # 이 툴체인 골든 기록
 build\windows-msvc\bin\Debug\sbx_sim_check.exe --record-golden tests\golden\world_save_load.json
 build\windows-msvc\bin\Debug\SandboxClient.exe --console                 # D3D12 창 (Clear + 도는 삼각형). 제목 줄이 입력 모니터, Ctrl+Q 종료
-build\windows-msvc\bin\Debug\SandboxClient.exe --console --direct-sim ecosystem_survival   # 생태계 관찰 (WASD · 휠 · Space · 클릭 선택 · G 격자)
+build\windows-msvc\bin\Debug\SandboxClient.exe --console --world ecosystem_survival        # 싱글플레이 생태계 (WASD · 휠 · Space · 클릭 선택 · G 격자)
+build\windows-msvc\bin\Debug\SandboxServer.exe --world ecosystem_survival --default-role admin   # 서버 (다른 창)
+build\windows-msvc\bin\Debug\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 철수  # 서버 접속
 ctest --preset windows-msvc-debug -L render                                  # WARP 기준 이미지 테스트
 ```
 
@@ -86,12 +88,12 @@ cmake --preset linux-clang -D CMAKE_CXX_COMPILER=clang++-19
 cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 ```
 
-계획된 실행 형태 `[계획]`:
+실행 형태 (Phase 9 · 10 구현 — 옵션 전체는 [15-BUILD](docs/15-BUILD.md) 7장):
 
 ```text
-SandboxServer --world ecosystem01                 # 헤드리스 전용 서버 (Phase 9)
-SandboxClient                                     # 싱글플레이, 내장 서버 (Phase 10)
-SandboxClient --connect 127.0.0.1:7777            # 원격 서버 접속 (Phase 10)
+SandboxServer --world ecosystem_survival          # 헤드리스 전용 서버 (Phase 9)
+SandboxClient --world ecosystem_survival          # 싱글플레이, 같은 프로세스의 서버 (Phase 10B)
+SandboxClient --connect 127.0.0.1:7777            # 원격 서버 접속 (Phase 10B)
 ```
 
 상세는 [docs/15-BUILD.md](docs/15-BUILD.md).

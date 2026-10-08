@@ -1,7 +1,8 @@
 # ADR-0020. 스프라이트는 Texture2DArray 아틀라스 하나 + 인스턴스 정점 버퍼로 그리고, 머티리얼은 assets 의 표로 풀며, --direct-sim 은 클라이언트 쪽 진행만 조절한다
 
 - 상태: **Accepted** · 날짜: 2026-10-07 — 결정 5(추출 시점) · 6(인라인 진행 · 4 틱 따라잡기)은
-  [ADR-0021](0021-direct-sim-simulation-thread-snapshot.md) 이 대체 (2026-10-07)
+  [ADR-0021](0021-direct-sim-simulation-thread-snapshot.md) 이 대체 (2026-10-07). 결정 5 의 입력(SimulationWorld · saveId) ·
+  6(--direct-sim)은 [ADR-0026](0026-network-session-local-server-inspect.md) 이 대체 (2026-10-08)
 - 관련: [06-RENDERING](../06-RENDERING.md) 7 · 8 · 14장, [01-ARCHITECTURE](../01-ARCHITECTURE.md) 3장, [16-ROADMAP](../16-ROADMAP.md) Phase 8,
   [ADR-0019](0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md)
 

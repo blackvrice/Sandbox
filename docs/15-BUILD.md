@@ -97,9 +97,9 @@ sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU 
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
 SandboxServer             EXE        Network Core
-SandboxClient             EXE        Render Platform Core (SBX_BUILD_CLIENT=ON — Core 는 8A --direct-sim). WIN32: GUI 서브시스템 +
+SandboxClient             EXE        Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
-                                     SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Network·Editor 는 Phase 9~12
+                                     SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
 SandboxTests              EXE        Foundation Core Network Platform (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
@@ -181,6 +181,7 @@ SandboxServer --world <시나리오|세이브 폴더> [--port 7777] [--bind addr
     (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected … overruns … replication X ms"
     (replication = 스냅숏 만들기 평균, Phase 10A). 세이브 폴더는 world.json 의 팩을 읽는다.
     --snapshot-kbps: 클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음 — 08 6.3, ADR-0025). 넘는 엔티티는 다음 스냅숏으로.
+    0 은 측정용 — 10k 월드의 스냅숏이 1 MB 를 넘어 UDP 받기 버퍼에서 조각을 잃고 클라이언트가 거의 못 받는다 (10B 측정).
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
     Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
@@ -201,16 +202,23 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     [--log-level L] [--version]
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
-    (Phase 8A) [--direct-sim <시나리오>] [--seed N] [--threads N] [--content <dir>] [--assets <dir>]
-    --direct-sim: 클라이언트가 시뮬레이션을 직접 돌려 월드를 그린다 (임시, Phase 10 삭제). 창에서는 Simulation 스레드
-    (ADR-0021), --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5). 제목 줄에 TPS · 틱 ms 와
-    "fps · 월드 · 추출 · 렌더 ms". 끝날 때 "direct-sim <이름> tick N 개체 M" + 프레임 · 틱 평균.
-    성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7).
+    (Phase 10B) [--world <시나리오|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
+                [--content <dir>] [--assets <dir>]       (8A 의 --direct-sim 은 지웠다 — ADR-0026)
+    --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 또는 세이브를
+    돌리고 접속한다. 창에서는 서버의 Simulation · Net IO 스레드, --headless 는 프레임 안에서 (틱 수 고정).
+    --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5).
+    --connect: SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르다고 거절되면 서버 팩을 --content 에서 읽어 다시.
+    일시정지 · 한 틱 · 속도는 서버 명령 — 원격 서버의 기본 역할 editor 는 거절된다 (서버 --default-role admin).
+    접속하고 첫 스냅숏을 받을 때까지 Connecting, 거절 · 끊김이면 오류를 남기고 종료 코드 1.
+    제목 줄에 "<월드> tick · 개체 · TPS · 틱 ms (· RTT)" 와 "fps · 월드 · 추출 · 렌더 ms". 끝날 때
+    "world <이름> tick N 개체 M 스냅숏 S (다시 맞춤 R) · 받기 · 적용 X ms" + 프레임 평균 (+ 로컬 서버 틱 · 스냅숏 만들기).
+    성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱 · 적용이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7 · 7.10).
     월드 조작: WASD/화살표 이동 · 휠 확대(커서 기준) · 가운데 끌기 · Home 맞춤 · Space 일시정지 · . 한 틱 · = / - 속도
     (8B) 왼쪽 클릭 선택 · 왼쪽 끌기 박스 선택 · Shift 더하기/빼기 · Esc 해제 · G 격자 · V 선택한 개체의 감지 반경 · 경로.
     제목 줄 끝에 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 패스별 GPU 시간 (타임스탬프, ADR-0022)
     (Phase 8C) [--font <ttf|ttc>] [--no-ui]
     ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 → 내장 영문 (ADR-0023).
+    (10B) 패널 "네트워크": 서버 · 역할 · RTT · 스냅숏(epoch · 다시 맞춤) · 받은 KB/s · 적용 ms · 보간 지연 · 거절된 명령.
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
@@ -219,7 +227,7 @@ sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--re
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
     창이 아직 없는 OS(Linux·macOS)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
     창 안 단축키(수동 QA): F2 글자 입력 · F3 마우스 캡처 · F4 커서 모양 · Ctrl+C/V · Esc · Ctrl+Q (qa/MANUAL-QA Phase 6)
-종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일) · 2 잘못된 인자
+종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일 · 서버 접속 실패 · 끊김) · 2 잘못된 인자 (없는 월드 포함)
 
 (Phase 5A) 콘텐츠 루트: SandboxServer --content-root · sbx_sim_check --content-root. 생략하면 빌드 때 컴파일된
 저장소의 content/ (SBX_DEFAULT_CONTENT_DIR — 개발용 기본값, 배포 경로 정책은 Phase 9)
@@ -230,8 +238,7 @@ sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--re
 ```text
 SandboxServer … [--autosave 300] [--record-replay] [--metrics-csv path]      (Phase 9 에서 나머지는 구현)
 
-SandboxClient                         싱글플레이 (LocalServerHost, Phase 10)
-              [--world <name>] [--connect host:port] [--name <displayName>] [--direct-sim (Phase 8 임시)]
+SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
               [--rhi dx12|vulkan|metal] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-capture N]
               [--frames-in-flight 2|3] [--vsync on|off] [--platform x11|wayland]
 ```

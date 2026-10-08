@@ -149,6 +149,8 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 - 크기 변경 중 렌더: WM_SIZE 이벤트만 쌓고, 실제 swapchain resize 는 렌더 루프에서
 - 고해상도 대기: CreateWaitableTimerExW(CREATE_WAITABLE_TIMER_HIGH_RESOLUTION) — timeBeginPeriod 사용 안 함
 - WinMain 대신 main (CMake WIN32 서브시스템 + 콘솔 옵션 --console)
+- 명령줄 인자는 UTF-16 명령줄(GetCommandLineW · CommandLineToArgvW)에서 UTF-8 로 다시 만든다 — main 의 argv 는 시스템 코드
+  페이지(cp949)라 한글 이름 · 경로가 깨진다 (foundation/io/Console::utf8Arguments, Phase 10B. 모든 실행 파일)
 ```
 
 구현 세부 (Phase 6):

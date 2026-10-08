@@ -7,6 +7,51 @@
 
 ---
 
+## 2026-10-08 — Phase 10B: SandboxClient 가 서버의 복제본을 그린다 — LocalServerHost · NetworkSession · 보간 · Inspect · --direct-sim 삭제
+
+**무엇을**
+
+- core: `scenarios/WorldSource` (`openWorldSource` — 시나리오 이름 · 세이브 폴더 → 월드). SandboxServer --world 의 코드를 옮겨
+  클라이언트 --world 와 같이 쓴다.
+- network: 프로토콜 3 — `Inspect`(볼 netId ≤ 32) · `InspectResult`(행동 상태 · 감지 반경 · 남은 경로 · 목표 · 대상 netId, Snapshot
+  채널). ServerHost: 클라이언트별 선택 상세 집합, 스냅숏 간격을 실제 시간으로 (×8 에서도 15 Hz). `LocalServerHost`
+  (ServerHost + Loopback 둘, 역할 owner · 예산 없음, Threaded | Inline). `InterpolationClock` (서버 틱 추정 · renderTick,
+  지연 0.1 초 · 앞으로만 · 일시정지 · 재개 · 다시 맞춤). ClientWorld: `sampleTransform` (선형 · 최단 회전 · 순간이동 · 같은 틱),
+  직전 표본 틱 ≥ 직전 스냅숏 틱. ClientSession: `setInspect` · `inspect`.
+- client: `NetworkSession` (IWorldSession — 로컬 · 원격 접속, 콘텐츠가 다르면 서버 팩을 읽어 다시, 첫 스냅숏까지 Connecting,
+  거절 · 끊김이면 실패, 일시정지 · 한 틱 · 속도 = 서버 명령, 선택 netId + Inspect, 받은 KB/s · 적용 ms). SpriteExtraction 은
+  ClientWorld + renderTick 에서 (render.sprite Opaque 캐시 netId 별, 지형은 바뀐 청크만). Application: Connecting 에서 update ·
+  ready 대기 · failure 면 종료 코드 1. "네트워크" 패널. 옵션 `--world` · `--connect` · `--name` (--direct-sim · DirectSim 삭제).
+- foundation: `console::utf8Arguments` — Windows 에서 명령줄을 UTF-16 에서 UTF-8 로 (Wine 원격 QA 에서 `--name 원격` 이 "??" 로
+  보여 찾았다). SandboxClient · SandboxServer · sbx_net_probe · sbx_sim_check 에 적용, shell32 링크.
+- 테스트: unit_network (Inspect 메시지 · 보간 시계 · 표본 · 선택 상세 · LocalServerHost ×8 15 Hz · 없는 월드), unit_client
+  (test_network_session — test_direct_sim 대신), foundation (명령줄 UTF-8). CTest `client_local_world_headless` (tick 28 ·
+  다시 맞춤 0) · `client_world_bad_name` (client_direct_sim_headless 대신).
+- 문서: ADR-0026 (ADR-0021 Superseded, 0020 결정 5 입력 · 6 대체), 08(상태 · 4 · 5 · 6.3 · 6.4 · 9 · 12 · 13장, 프로토콜 3), 06 9장,
+  01, 07 6.1, 13, 14 7.10, 15, 16(Phase 10 ✅), 17, MANUAL-QA 10B (8A ~ 8C 명령을 --world 로), README.
+
+**왜**
+
+- 16-ROADMAP 2장 · 10.5: "--direct-sim 은 Phase 10 완료 기준에서 삭제를 강제한다" — 싱글플레이도 명령 · 권한 · 복제를 같은 길로.
+- 선택 상세(8B 의 감지 반경 · 경로 · 대상)는 서버 전용 컴포넌트라 복제되지 않는다 → 고른 개체만 Inspect 로.
+- 10A 의 "Simulation 단계 2 번마다" 스냅숏은 ×8 에서 120 Hz 가 되어 대역폭 · 클라이언트 적용이 속도에 비례했다 → 실제 시간.
+
+**검증**
+
+- Linux clang Debug: ctest 43/43. 헤드리스 `--world ecosystem_small --frames 60` 이 두 번 모두 tick 28 (결정적).
+- 네이티브 원격: Release SandboxServer ecosystem_survival · 10k + 헤드리스 SandboxClient --connect (15 Hz, 다시 맞춤 0).
+- Wine (MinGW Release): SandboxClient --world ecosystem_small 창 (55 fps, 네트워크 패널, 패널 버튼 일시정지 = 서버 명령),
+  SandboxServer + SandboxClient --connect --name 원격 (콘텐츠 다시 맞추기, 4.3k 개체, 한글 이름).
+- 측정 (14 7.10): 10k Release 추출 1.9 ms · 스냅숏 적용 약 8 ms (15 Hz), Debug 적용 약 45 ms.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 10B (8A ~ 8C 의 남은 항목도 이제 --world 로).
+- [계획] 스냅숏 디코드 · 적용을 클라이언트 Net 스레드로 (10k 에서 66 ms 마다 튐), 메뉴 · 다시 접속 UI, 외삽, Phase 11 Interest ·
+  재접속 토큰, Phase 12 인스펙터.
+
+---
+
 ## 2026-10-08 — Phase 10A: 복제 — 변경 순번 · ReplicationWriter · ClientWorld · 프로토콜 2 · net_convergence
 
 **무엇을**

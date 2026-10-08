@@ -2,10 +2,11 @@
 
 > **규범 문서.** 서버 권한 네트워킹 전체를 정합니다. 상태: **Phase 9 구현** — Transport(ENet · Loopback · Simulated) ·
 > 비트스트림 · 메시지(핸드셰이크 · 명령 · 결과 · 통계 · 끊기) · ServerHost · CommandValidator · ClientSession (12장).
-> **Phase 10A 구현** — 복제(6 · 7장: ReplicationWriter · ClientWorld · Snapshot · SnapshotAck · TerrainChunk, 프로토콜 2).
-> 보간 · SandboxClient 연결(9장)은 `[계획 Phase 10B]`, Interest · 재접속(8장)은 `[계획 Phase 11]`.
+> **Phase 10A 구현** — 복제(6 · 7장: ReplicationWriter · ClientWorld · Snapshot · SnapshotAck · TerrainChunk).
+> **Phase 10B 구현** — SandboxClient 가 언제나 서버(같은 프로세스의 LocalServerHost 또는 원격)에 접속, 보간(9장), 선택 상세
+> (Inspect · InspectResult), 스냅숏 간격은 실제 시간, 프로토콜 3. Interest · 재접속(8장)은 `[계획 Phase 11]`.
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
-> [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md).
+> [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md).
 
 ---
 
@@ -111,12 +112,14 @@ Phase 9 구현 (ServerHost · ClientSession — Subscribe 부터는 Phase 10 · 
           (sbx_net_probe). 콘텐츠를 보내 주는 것은 ContentOverlay [계획 Phase 12].
 Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 시 Disconnect{ServerShutdown}. 그 밖의 메시지 → ProtocolError 로 끊기.
           Phase 10A: Welcome 뒤 Snapshot(15 Hz) · TerrainChunk 를 받고 SnapshotAck 를 보낸다.
+          Phase 10B: Inspect(볼 netId) → InspectResult. SandboxClient 는 접속하고 첫 스냅숏을 받을 때까지 Connecting,
+          거절 · 끊김 · 시간 초과면 끝낸다 (종료 코드 1). 콘텐츠가 다르면 서버 팩을 읽어 한 번 다시 (probe 와 같다).
 역할      Welcome.role = 서버 --default-role (기본 editor). 역할 바꾸기(RoleChanged)는 [계획 Phase 12].
 ```
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 2`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 3`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -135,6 +138,8 @@ Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 �
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
 | 42 | ContentOverlay | S→C    | Bulk     | rules/behaviors/prefabs JSON (월드 오버레이분) `[계획 Phase 12]`                                                                                                      |
 | 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz). [계획] systemTimes[] · pathQueue · jobQueue |
+| 51 | Inspect        | C→S    | Control  | ids[] NetEntityId varint × ≤ 32 (빈 목록 = 그만, 10B)                                                                                                                 |
+| 52 | InspectResult  | S→C    | Snapshot | serverTick, entries[] {netId, state str(64), sensorRadius f32, path[] Vec2 × ≤ 64, goal?, target netId} (10B)                                                         |
 | 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
 | 61 | RoleChanged    | S→C    | Control  | clientId, role `[계획 Phase 12]`                                                                                                                                      |
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
@@ -142,7 +147,8 @@ Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 �
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 (Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
 프로토콜 2 (Phase 10A): Welcome 끝에 replicated[] (복제 컴포넌트 stableId u64 × ≤ 64 — Snapshot 의 컴포넌트 번호 = 이 표의 칸) ·
-Snapshot · SnapshotAck · TerrainChunk. Snapshot · TerrainChunk 는 16 MB 까지, 그 밖은 64 KB.
+Snapshot · SnapshotAck · TerrainChunk. Snapshot · TerrainChunk 는 16 MB 까지, 그 밖은 64 KB. 프로토콜 3 (10B): Inspect ·
+InspectResult — 서버 전용 컴포넌트(ai.behavior · ai.sensor · ai.path)를 선택한 개체에 한해 (ADR-0026). 읽기 전용, 모든 역할.
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -234,8 +240,10 @@ for client in clients (clientId 오름차순):
 ```
 
 Phase 10A: Interest 없이 모든 엔티티 (netId 오름차순), 우선순위 대신 round-robin `[계획 Phase 11]`. ServerHost 의 Sim 절반이
-Simulation 단계 2 번마다 (일시정지 중에도 — 편집이 보이게) `ReplicationWriter::build` → 메시지를 Net 절반으로. 예산 =
-SandboxServer `--snapshot-kbps` (기본 256, 0 = 제한 없음) × 1024 × 간격 ÷ 30.
+스냅숏 간격마다 (일시정지 중에도 — 편집이 보이게) `ReplicationWriter::build` → 메시지를 Net 절반으로. 예산 =
+SandboxServer `--snapshot-kbps` (기본 256, 0 = 제한 없음) × 1024 × 간격 ÷ 30. 10B: 간격은 실제 시간 (2 ÷ 30 초 = 15 Hz,
+속도 배율과 무관 — ×8 에서도 클라이언트 적용 · 대역폭이 같다. 단계 시각이 흔들려도 간격의 1/4 까지 당겨 보낸다). 같은 때에
+선택 상세를 요청한 클라이언트에 InspectResult.
 
 ### 6.4 클라이언트 측
 
@@ -256,7 +264,8 @@ Phase 10A 구현 (`network/client/ClientWorld`, ClientSession 이 쓴다):
 새 epoch 모두 지우고 시작
 적용    despawns → 파괴. entities → 없으면 만든다 (spawn 비트가 없어도 — 방어), mask 에 없는 것을 떼고 받은 값을 쓴다 (멱등)
 EntityRef netId → 로컬 EntityId, 모르면 null [계획 — 대기 목록]
-표본    core.transform 이 바뀔 때마다 (serverTick, 위치, 회전) 둘 (직전 · 지금) — 보간 [계획 10B]
+표본    core.transform 이 바뀔 때마다 (serverTick, 위치, 회전) 둘 (직전 · 지금). 직전 표본의 틱은 적어도 직전 스냅숏의
+        틱 (멈췄다 움직인 개체 — 10B) — 보간 9장
 지형    TerrainChunk → WorldGrid 에 쓰고 로컬 revision 을 올린다. Welcome 보다 먼저 온 것은 모아 두었다가 적용
 ack     적용한 스냅숏마다 SnapshotAck{epoch, snapshotId} (비트마스크 없음 — 서버는 가장 최근 ack 만 기준으로 쓴다)
 Event   [계획]
@@ -307,9 +316,7 @@ Chunk System과 Interest가 **같은 ChunkCoord 분할**을 씁니다. 추가 �
 
 ---
 
-## 9. 클라이언트 보간 `[계획 Phase 10B]`
-
-Phase 10A 는 표본만 남긴다 (ClientWorld::transformTrack — 직전 · 지금). SnapshotBuffer · renderTick 은 10B.
+## 9. 클라이언트 보간
 
 ```text
 serverTimeEstimate: Snapshot.serverTick 수신 시각들의 지수 평활 (RTT/2 보정)
@@ -318,6 +325,20 @@ SnapshotBuffer: 최근 32개 (serverTick, netId → Transform)
 pos = lerp(a.pos, b.pos, α), 회전은 최단 각도 보간
 순간이동: 한 구간 이동 > maxSpeed × 구간 × 4 → 스냅 (RTS TickInterpolator 규칙)
 버퍼 고갈: 최대 1 구간 외삽, 이후 정지
+```
+
+Phase 10B 구현 (ADR-0026) — SnapshotBuffer 32 대신 엔티티별 표본 둘 (엔티티마다 바뀐 스냅숏이 다르다 — 예산 · 변경 없음):
+
+```text
+InterpolationClock (network/client)
+  est(now)   = base + (now − t) × 30 × speed. 스냅숏마다 오차의 0.1 만 당긴다 (지터 평균), 0.5 초 넘게 어긋나면 다시 맞춤.
+               마지막 스냅숏보다 0.25 초 몫 넘게 앞서지 않는다 (스냅숏이 끊기면 멈춘다)
+  renderTick = est − 0.1 초 몫 (스냅숏 간격 1.5 배), 앞으로만 (다시 맞춘 직후 · 속도가 바뀐 직후는 예외)
+  일시정지    renderTick = 마지막 serverTick (편집이 바로 보인다). 재개하면 멈춘 자리에서 이어 간다
+sampleTransform (ClientWorld 표본 직전 · 지금)
+  renderTick 이 둘 사이면 선형 · 회전은 최단 각도, 밖이면 끝값 (외삽 없음 [계획]), 같은 틱(일시정지 편집)이거나 한 구간에
+  8 칸 넘게 움직였으면 지금 값 (순간이동)
+SandboxClient: 프레임마다 SpriteExtraction 이 renderTick 으로 위치를 정한다 (06 9장)
 ```
 
 ---
@@ -366,24 +387,30 @@ Simulation 30 TPS ≠ Snapshot 15 Hz (2틱마다, 틱 경계 정렬) ≠ Render 
 - Loopback 수렴: 서버 틱 T 상태 == 클라 복제본 (Replicated 필드, 양자화 오차 허용)   ✅ Phase 10A (net_convergence — 바이트 비교)
 - SimulatedTransport(100 ms, 지터 20 ms, 손실 5%, 재정렬) 에서 수렴                   ✅ Phase 10A (+ 64 KB/s 예산)
 - Despawn 손실, 늦은 스냅샷 tombstone, EntityRef 대기 목록                           ✅ 대기 목록 빼고 (test_replication)
+- 보간 시계 · 표본 보간 · 선택 상세 · 로컬 서버 · ×8 에서도 15 Hz                     ✅ Phase 10B (test_client_view)
+- SandboxClient 가 로컬 · 원격 서버에 접속 (콘텐츠 다시 맞추기 · 권한 거절 · 끊김)    ✅ Phase 10B (test_network_session)
 - Interest: 카메라 이동 시 Spawn/Despawn 수 상한, 히스테리시스
 - 대역폭: 50k 월드에서 클라이언트당 바이트가 가시 엔티티 수에 비례 (sbx_bench net.snapshot)
 ```
 
 ---
 
-## 13. 구현 (Phase 9 · 10A)
+## 13. 구현 (Phase 9 · 10A · 10B)
 
 ```text
 network/transport/   Transport.hpp (INetworkTransport · Endpoint · DisconnectReason) · LoopbackTransport(+ LoopbackNetwork 허브)
                      · SimulatedTransport · EnetTransport (enet.h 는 이 .cpp 에만)
 network/protocol/    BitStream · Messages (카탈로그 · encode/decode · Role · RejectReason) · CommandCodec (5.1)
-network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded) · CommandValidator
-network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack) · ClientWorld (복제 월드, 6.4)
-network/replication/ ReplicationWriter (6.1 · 6.3 — Simulation 스레드)
+network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded) · CommandValidator · LocalServerHost (싱글플레이 —
+                     ServerHost + Loopback, 역할 Owner · 예산 없음, 10B)
+network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack · 선택 상세) · ClientWorld (복제 월드,
+                     6.4) · InterpolationClock (9장)
+network/replication/ ReplicationWriter (6.1 · 6.3 — Simulation 스레드) · Inspect (InspectResult 만들기)
+core/scenarios/      WorldSource (시나리오 이름 · 세이브 폴더 → 월드 — 서버 --world 와 클라이언트 --world 가 같이)
 core/serialization/  BinaryCodec (컴포넌트 값 바이트, 09 5장)
 apps/server          SandboxServer --world <시나리오 | 세이브 폴더> … (15-BUILD 7장)
 tools/net_probe      sbx_net_probe — 접속 · 명령 · 통계 확인 도구
+apps/client          SandboxClient --world (LocalServerHost) · --connect (원격) — NetworkSession (06 9장, 10B)
 ```
 
 ServerHost 스레드 (01 5장, ADR-0024):
@@ -393,6 +420,7 @@ Net IO 스레드     transport.wait(2 ms) → poll → 핸드셰이크 · 검사
 Simulation 스레드 30 TPS × speed 로 틱. inbox → executeTick 스탬프 → ScenarioRunner.step → 네트워크 명령의 결과만 outbox
                   (시나리오가 넣은 명령은 issuer 가 같아도 가리지 않는다 — (issuer, sequence) 집합). 1 초마다 ServerStats.
                   3 틱 넘게 밀리면 기준점을 다시 잡는다 (overruns, 03 3장)
-                  단계 2 번마다 ReplicationWriter::build (roster · ack 는 Net 절반이 큐로 넘긴다) → outbox (Phase 10A)
+                  스냅숏 간격(실제 시간)마다 ReplicationWriter::build + InspectResult (roster · ack · Inspect 요청은 Net 절반이
+                  큐로 넘긴다) → outbox (Phase 10A · 10B)
 멈추기            Sim 멈춤 → Net 멈춤 → 모두에게 Disconnect{ServerShutdown} + 끊기 → drain(300 ms)
 ```
