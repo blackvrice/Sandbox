@@ -41,3 +41,4 @@
 | [0024](0024-network-foundation-enet-serverhost-two-halves.md)           | 네트워크 기초: ENet 1.3.18 을 벤더링하고, ServerHost 는 Net 절반 · Sim 절반을 큐로 잇고, 권한 · 속도 제한은 Net 쪽 CommandValidator 한 곳에서            | Accepted                                  | 2026-10-08 |
 | [0025](0025-replication-change-stamp-records-epochs.md)                 | 복제는 클라이언트별 스냅숏 기록(변경 순번)으로 차분을 만들고, 기준을 잃으면 epoch 으로 다시 맞추며, 클라이언트는 시뮬레이션 없는 ClientWorld 에 적용한다 | Accepted                                  | 2026-10-08 |
 | [0026](0026-network-session-local-server-inspect.md)                    | 클라이언트는 언제나 서버(로컬 LocalServerHost 또는 원격)의 복제본을 그리고, 서버 전용 상태는 Inspect 로, 보간은 서버 틱 추정 시계로                      | Accepted                                  | 2026-10-08 |
+| [0027](0027-interest-chunk-rect-linger-priority-reconnect-token.md)     | 관심 영역은 청크 사각형 구독 + 지연 해제로, 예산은 spawn 먼저 · 거리 · 미룬 시간 순으로, 다시 접속은 세션 토큰으로 한다                                  | Accepted                                  | 2026-10-08 |

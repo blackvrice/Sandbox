@@ -239,11 +239,40 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] ctest 전부 통과 (client_local_world_headless 포함)
 ```
 
+## Phase 11 — 관심 영역 · 다시 접속
+
+**먼저 다시 빌드** (프로토콜 4 — 서버 · 클라이언트를 같이).
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_10k --vsync off
+.\cmake-build-release\bin\SandboxServer.exe --world ecosystem_10k --default-role admin
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 철수
+.\cmake-build-release\bin\sbx_bench.exe --only net.
+ctest --test-dir cmake-build-debug --output-on-failure
+```
+
+```text
+[ ] --world ecosystem_10k: 네트워크 패널 "관심 영역" 이 처음(Home 맞춤 — 월드 전체가 보인다)에는 "월드 전체",
+    휠로 확대하면 "청크 x0..x1 × y0..y1" 로 바뀐다. 확대한 채 WASD 로 움직여도 화면 가장자리에 개체가 비어 보이지 않는다
+    (1 청크 여유). 통계 패널의 개체 수가 줄고 네트워크 패널의 적용 ms 가 10B 보다 작다 — 값을 적어 주십시오
+[ ] 확대한 채 멀리 갔다가 돌아오면 지형이 바로 보인다 (클라이언트가 들고 있다), 개체는 잠깐 뒤에 (다시 받는다)
+[ ] 확대한 채 개체 하나를 선택하고 카메라를 멀리 옮겼다가 Home 으로 돌아와도 선택이 그대로 (선택한 개체는 늘 받는다)
+[ ] --connect ecosystem_10k 를 확대해서 볼 때 받은 KB/s 가 256 보다 확실히 작고 화면 안 개체가 매끄럽다 (10A 는 4k 가 넘으면
+    따라오는 데 몇 초 걸렸다)
+[ ] 다시 접속: 리소스 모니터(resmon) → CPU → SandboxServer.exe 오른쪽 클릭 "프로세스 일시 중단" 30 초 (ENet 무응답 15 초 뒤 끊긴다) →
+    클라이언트 로그 "서버와 연결이 끊겼습니다 — 다시 접속합니다", 화면은 멈춘 채 남고 제목 줄 "다시 접속 중 N 초".
+    "프로세스 다시 시작" → 클라이언트 "다시 접속했습니다 … (#1)" (같은 번호), 서버 "다시 들어옴: 철수 (#1, admin)".
+    네트워크 패널 "다시 접속 1 번"
+[ ] 서버를 일시 중단한 채 60 초 넘게 두면 클라이언트가 "… 60 초 동안 다시 접속하지 못했습니다" 로 끝난다 (종료 코드 1)
+[ ] 서버 창 Ctrl+C 는 10B 처럼 바로 끝난다 (다시 접속하지 않는다)
+[ ] sbx_bench --only net. 끝의 net.snapshot · net.late_join 줄을 붙여 주십시오 (Release)
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text
 [ ] 두 PC(LAN) 접속, 한쪽 편집이 다른 쪽에 0.5초 내 반영
-[ ] 서버 재시작 없이 클라이언트 재접속 (토큰)
+[ ] 서버 재시작 없이 클라이언트 재접속 (토큰) — Phase 11 위 항목
 [ ] Observer 역할에서 편집 UI 비활성 + 서버 거절
 [ ] Undo/Redo 10단계, 다른 사용자 편집과 섞였을 때 경고
 [ ] 저장 → 서버 재시작 → 로드 → 동일 상태

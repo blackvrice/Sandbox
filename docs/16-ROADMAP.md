@@ -28,7 +28,7 @@ Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-1
 Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-07 (8A 스프라이트 · --direct-sim, 8B 지형 · 오버레이 · GPU 시간, 8C ImGui 패널), 사용자 PC 확인 대기
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
-Phase 11  Interest Management
+Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
 Phase 12  Multiplayer Editor                        ← 1차 목표선
 Phase 13  Linux (X11 → Vulkan → Wayland)
 Phase 14  macOS (Cocoa → Metal)
@@ -386,12 +386,37 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   다음     Phase 11 — Interest (Subscribe · 화면 근처만 · 히스테리시스 · 우선순위), 재접속 토큰
 ```
 
-### Phase 11 — Interest
+### Phase 11 — Interest ✅ (구현 2026-10-08 — ADR-0027, 사용자 PC 확인 대기)
 
 ```text
 11.1 Subscribe, relevantChunks/Entities, alwaysRelevant   11.2 히스테리시스, 우선순위·바이트 예산
 11.3 Bulk TerrainChunk 캐시(revision), Late Join 흐름     11.4 Reconnect 토큰
 완료  50k 월드에서 클라당 바이트 ∝ 가시 엔티티 (sbx_bench net.snapshot), Late Join < 2 s
+```
+
+```text
+11.1 ✅ Subscribe = 청크 사각형 | all (프로토콜 4). 서버: 위치 → 청크 비트맵, 관심 = 구독 청크 ∪ 늘 보낼 것 (Inspect 로 선택한
+        개체 · 위치 없는 개체 — 소유 개체는 Phase 12). 클라이언트: 카메라 화면 + 1 청크, 초당 2 번까지
+11.2 ✅ 빠진 청크 30 스냅숏 지연 해제 (스냅숏 수 — 결정적). 예산 순서 = 늘 보낼 것 → spawn → update, 같은 단계는 중심 거리 −
+        미룬 틱 × 0.5 칸 (round-robin 삭제)
+11.3 ✅ 지형은 관심 청크만 · 가까운 것부터 · 클라이언트가 들고 있다 (같은 revision 이면 다시 안 보낸다). Late Join 은 10A 대로
+        새 epoch 스냅숏 (EntityBaseline · Ready 없음 — ADR-0025)
+11.4 ✅ 세션 토큰 (60 초, ClientQuit 면 지움, 살아 있는 연결이면 옛 연결 Kicked). SandboxClient --connect 는 시간 초과면 2 초마다
+        다시 (60 초까지), 그동안 옛 복제본
+완료 기준 바이트 ∝ 관심 개체 ✅ (개체당 약 19.6 B — 14 7.11) · Late Join(화면, 256 KB/s) 0.33 초 ✅.
+        14 1.4 의 "클라 16 · 50k 스냅숏 < 3 ms" 는 37 ms — 바이트 재사용 · Net 스레드 인코딩 [계획 15]
+```
+
+```text
+11 검증 (2026-10-08)
+  Linux    clang · gcc Debug: ctest 43/43 — unit_network test_interest (지연 해제 · 늘 보낼 것 · 관심 지형 · 우선순위 · 메시지 ·
+           LocalServerHost 구석 구독) · 토큰 다시 접속, unit_client (interestFor · 원격 다시 접속 · 60 초 실패). TSan network ·
+           net · client 73 케이스 경고 0
+  Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client 170 케이스. 창 ecosystem_survival: 확대하면
+           관심 "청크 -1..2 × -2..1", 클라이언트 개체 2,316 → 692 · 받은 KB/s 425 → 145
+  성능     Release sbx_bench --only net. (14 7.11)
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 11
+  다음     Phase 12 — Multiplayer Editor (1차 목표선)
 ```
 
 ### Phase 12 — Multiplayer Editor (1차 목표선)

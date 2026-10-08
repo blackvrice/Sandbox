@@ -4,9 +4,12 @@
 > 비트스트림 · 메시지(핸드셰이크 · 명령 · 결과 · 통계 · 끊기) · ServerHost · CommandValidator · ClientSession (12장).
 > **Phase 10A 구현** — 복제(6 · 7장: ReplicationWriter · ClientWorld · Snapshot · SnapshotAck · TerrainChunk).
 > **Phase 10B 구현** — SandboxClient 가 언제나 서버(같은 프로세스의 LocalServerHost 또는 원격)에 접속, 보간(9장), 선택 상세
-> (Inspect · InspectResult), 스냅숏 간격은 실제 시간, 프로토콜 3. Interest · 재접속(8장)은 `[계획 Phase 11]`.
+> (Inspect · InspectResult), 스냅숏 간격은 실제 시간, 프로토콜 3.
+> **Phase 11 구현** — Interest(8장: Subscribe 청크 사각형 · 지연 해제 · 늘 보낼 것), 예산 우선순위(6.3), 관심 청크만 지형,
+> 세션 토큰 다시 접속(4장), 프로토콜 4.
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
-> [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md).
+> [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
+> [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
 
 ---
 
@@ -98,7 +101,7 @@ Phase 10A 는 Subscribe · EntityBaseline · Ready 없이 간다 (ADR-0025 결�
 
 ```text
 타임아웃   핸드셰이크 10초, 무응답 연결 15초
-Reconnect  Auth{sessionToken} 이 60초 내 유효하면 같은 clientId/role. 상태는 위 Bulk 부터 다시. [계획 Phase 11.4 — 지금은 토큰 발급만]
+Reconnect  Auth{sessionToken} 이 60초 내 유효하면 같은 clientId/role. 상태는 위 Bulk 부터 다시. (Phase 11 — 아래)
 Kick/Ban   Control: Disconnect{reason} 후 연결 종료
 ```
 
@@ -117,18 +120,32 @@ Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 �
 역할      Welcome.role = 서버 --default-role (기본 editor). 역할 바꾸기(RoleChanged)는 [계획 Phase 12].
 ```
 
+Phase 11 (ADR-0027):
+
+```text
+Subscribe  Welcome 뒤 아무 때나 (바뀔 때만 · 초당 2 번까지). 구독 전 = 월드 전체. Snapshot 이 곧바로 시작하는 것은 10A 그대로
+           (Subscribe 는 기다리지 않는다) — 관심 밖 개체는 다음 스냅숏에서 despawn, 지형은 관심 청크만 (8장)
+토큰      Welcome.sessionToken = 서버가 만든 무작위 16 바이트. 서버 표 = 토큰 → {clientId, 역할}. 연결이 끊기면 60 초
+           (ServerHostDesc::reconnectSeconds) 유효, ClientQuit 로 스스로 나가면 바로 지운다
+다시 접속  Auth.token 이 표에 있으면 같은 clientId · 역할 (이름은 새로 보낸 것). 그 토큰의 연결이 아직 살아 있으면 옛 연결을
+           Kicked 로 끊고 이어 받는다. 모르는 · 지난 토큰은 새 접속으로 친다 (거절하지 않는다). 복제는 새 epoch 부터
+클라이언트 NetworkSession(--connect): 시간 초과로 끊기면 2 초마다 같은 토큰으로 다시, 60 초 넘으면 실패 (종료 코드 1).
+           그동안 옛 복제본을 그리고 상태 줄에 "다시 접속 중 N 초", 새 연결이 첫 스냅숏을 받으면 바꿔 낀다.
+           거절 · ServerShutdown · Kicked 는 바로 실패. 로컬 서버(--world)는 끊길 일이 없어 다시 접속하지 않는다
+```
+
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 3`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 4`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
 | 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
-| 3  | Auth           | C→S    | Control  | token bytes(≤32, [계획 11.4] 지금은 비움), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64                                           |
+| 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64                                   |
 | 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes(16)              |
 | 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료 중), detail str(256), serverProtocolVersion u32, contentHash u64, packs[] str(64) × ≤16     |
-| 10 | Subscribe      | C→S    | Control  | chunks[] (ChunkCoord varint) `[계획 Phase 11]`                                                                                                                        |
+| 10 | Subscribe      | C→S    | Control  | all bool, (all 이 아니면) 청크 사각형 minX · minY · maxX · maxY zigzag (양끝 포함, 뒤집힘 · 축마다 128 이상 = 형식 오류)                                              |
 | 11 | Ready          | C→S    | Control  | baselineTick u64 `[계획 — 쓰지 않는다: Welcome 뒤 Snapshot 이 바로 시작, ADR-0025]`                                                                                   |
 | 20 | Command        | C→S    | Control  | sequence u32 (1 부터 단조 증가), payload (5.1)                                                                                                                        |
 | 21 | CommandResult  | S→C    | Control  | sequence u32, accepted bool, reason u8 (ErrorCode), detail str(256), appliedTick u64 (틱 전 거절이면 0), created[] NetEntityId                                        |
@@ -149,6 +166,7 @@ Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 �
 프로토콜 2 (Phase 10A): Welcome 끝에 replicated[] (복제 컴포넌트 stableId u64 × ≤ 64 — Snapshot 의 컴포넌트 번호 = 이 표의 칸) ·
 Snapshot · SnapshotAck · TerrainChunk. Snapshot · TerrainChunk 는 16 MB 까지, 그 밖은 64 KB. 프로토콜 3 (10B): Inspect ·
 InspectResult — 서버 전용 컴포넌트(ai.behavior · ai.sensor · ai.path)를 선택한 개체에 한해 (ADR-0026). 읽기 전용, 모든 역할.
+프로토콜 4 (11): Subscribe (예약 → 구현), Auth.token · Welcome.sessionToken 을 실제로 쓴다 (ADR-0027).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -186,9 +204,10 @@ spawn       B 에 없음 (또는 pendingSpawn) → 복제 컴포넌트 전부 + 
 update      바뀐 컴포넌트 (B 에 없던 것 · changedAt > stamp), 또는 mask 가 B · inflight(OR) 와 다르면 mask 만이라도
 despawn     (B ∪ inflight) − 지금. ack 될 때까지 매번
 예산        bytesPerSnapshot 를 넘으면 나머지 spawn · update 는 미룬다 (기록은 B 의 것을 이어 받는다 — B 에 없고 inflight 에만
-            있으면 pendingSpawn). 시작 위치를 돌려 가며 (round-robin). despawn 은 예산 밖
+            있으면 pendingSpawn). 시작 위치를 돌려 가며 (round-robin — 11 에서 우선순위로 바뀜, 6.3). despawn 은 예산 밖
 다시 맞추기 ack 된 기준이 기록 밖으로 밀려났고 epoch 의 첫 스냅숏도 밀려났으면 epoch++ 하고 기준 없이 처음부터 (EntityBaseline 대신)
 지형        청크 revision 이 이 클라이언트에 마지막으로 보낸 것과 다르면 TerrainChunk (Bulk · 신뢰 — 보낸 것으로 친다), 스냅숏당 64 청크
+            (11: 관심 청크만, 중심에서 가까운 것부터 — 8장)
 Event       [계획] (6.2 events[])
 ```
 
@@ -239,11 +258,24 @@ for client in clients (clientId 오름차순):
   직렬화 바이트 → Net IO 스레드
 ```
 
-Phase 10A: Interest 없이 모든 엔티티 (netId 오름차순), 우선순위 대신 round-robin `[계획 Phase 11]`. ServerHost 의 Sim 절반이
+Phase 10A: Interest 없이 모든 엔티티 (netId 오름차순), 우선순위 대신 round-robin (11 에서 아래로 바뀜). ServerHost 의 Sim 절반이
 스냅숏 간격마다 (일시정지 중에도 — 편집이 보이게) `ReplicationWriter::build` → 메시지를 Net 절반으로. 예산 =
 SandboxServer `--snapshot-kbps` (기본 256, 0 = 제한 없음) × 1024 × 간격 ÷ 30. 10B: 간격은 실제 시간 (2 ÷ 30 초 = 15 Hz,
 속도 배율과 무관 — ×8 에서도 클라이언트 적용 · 대역폭이 같다. 단계 시각이 흔들려도 간격의 1/4 까지 당겨 보낸다). 같은 때에
 선택 상세를 요청한 클라이언트에 InspectResult.
+
+Phase 11 (ADR-0027) — `relevant` 와 우선순위:
+
+```text
+훑기       스냅숏마다 한 번 (클라이언트 수와 무관): 엔티티마다 복제 상태 · core.transform 위치 → 청크 (위치 없으면 "늘 보낼 것")
+relevant   클라이언트마다: 관심 청크 비트맵(8장) 안의 엔티티 ∪ 늘 보낼 것(Inspect 로 선택한 개체 · 위치 없는 개체)
+           관심 밖으로 나간 것 = 지금 없는 것 → 6.1 의 despawn 이 그대로 (ack 까지 매번). 다시 들어오면 spawn
+우선순위   예산이 있을 때만 (없으면 netId 순 그대로): 늘 보낼 것 → spawn(이 클라이언트가 모르는 것) → update.
+           같은 단계 안에서는 점수 = 관심 중심까지 거리(칸) − 미룬 틱 × 0.5 칸 (agingTilesPerTick), 작은 것부터.
+           미룬 시각은 클라이언트별로 처음 미룬 changeStamp 를 기억하고 보내면 지운다 — 멀리 있는 개체도 결국 간다
+           (소유 개체 — Phase 12. 카메라 중심 = 관심 사각형 중심)
+통계       ReplicationStats.relevant · relevantChunks (네트워크 패널 "관심 영역"), lastCollectMs (sbx_bench)
+```
 
 ### 6.4 클라이언트 측
 
@@ -314,6 +346,20 @@ Subscribe{chunks}: 클라이언트가 카메라 가시 영역 + 1청크 여유�
 
 Chunk System과 Interest가 **같은 ChunkCoord 분할**을 씁니다. 추가 공간 자료구조가 없습니다 ([05](05-WORLD.md)).
 
+Phase 11 구현 (`ReplicationWriter::setInterest` · `setAlwaysRelevant`, ADR-0027) — 위 설계와 다른 점:
+
+```text
+구독 형식   청크 목록이 아니라 사각형 하나 (양끝 포함) 또는 all. 256 청크 상한 없음 — 줌 아웃하면 다 보이고 예산이 양을 정한다.
+            클라이언트: 카메라 visibleRect + 1 청크 여유 → 월드 경계로 자른다 → 경계 전체면 all (NetworkSession::interestFor)
+판정        청크 비트맵 (월드 경계 크기) — 엔티티의 청크 = core.transform 위치를 내림한 타일의 청크. SpatialIndex 는 쓰지 않는다
+            (스냅숏마다 위치를 한 번 훑는 편이 같은 값을 낸다 — 50k 4 ~ 7 ms, sbx_bench net.snapshot 훑기)
+히스테리시스 사각형에서 빠진 청크는 30 스냅숏(15 Hz 에서 2 초, interestLingerSnapshots) 동안 관심에 남는다. 시간이 아니라 스냅숏
+            수 — 일시정지 · 속도 배율 · Inline 시험에서 결정적. all → 사각형 전환은 남기지 않는다 (줌 인 직후 한 번에 줄인다)
+alwaysRelevant  Inspect 로 선택한 개체 (서버가 Inspect 요청을 그대로 쓴다) · 위치 없는 개체. 소유 개체 [계획 Phase 12]
+지형        관심 청크 중 보낸 revision 과 다른 것만, 중심에서 가까운 것부터 스냅숏당 64. 관심에서 빠진 청크는 클라이언트가 그대로
+            들고 있다 (돌아왔을 때 같은 revision 이면 다시 안 보낸다 — "캐시"). 관심 밖에서 바뀐 청크는 들어올 때 보낸다
+```
+
 ---
 
 ## 9. 클라이언트 보간
@@ -380,7 +426,7 @@ Simulation 30 TPS ≠ Snapshot 15 Hz (2틱마다, 틱 경계 정렬) ≠ Render 
 
 ```text
 - BitWriter/Reader 왕복, 경계 초과 시 error                                         ✅ Phase 9 (test_bitstream · test_messages)
-- 핸드셰이크: 버전 불일치, contentHash 불일치, 재접속 토큰                          ✅ 재접속 토큰 빼고 (test_server_host)
+- 핸드셰이크: 버전 불일치, contentHash 불일치, 재접속 토큰                          ✅ Phase 11 (test_server_host — 토큰 · 이어 받기 · 만료)
 - 명령: 다음 틱 스탬프 · 결과 · 월드 거절 · 권한 · 속도 제한 · 종료 틱                ✅ Phase 9
 - Transport: Loopback · Simulated(지연 · 손실 · 순서, seed) · ENet(실제 UDP, 3 채널)    ✅ Phase 9 (test_transport · test_enet)
 - 서버 + 클라이언트 두 프로세스 (SandboxServer + sbx_net_probe, 실제 UDP)           ✅ Phase 9 (CTest net_server_probe_smoke)
@@ -389,23 +435,25 @@ Simulation 30 TPS ≠ Snapshot 15 Hz (2틱마다, 틱 경계 정렬) ≠ Render 
 - Despawn 손실, 늦은 스냅샷 tombstone, EntityRef 대기 목록                           ✅ 대기 목록 빼고 (test_replication)
 - 보간 시계 · 표본 보간 · 선택 상세 · 로컬 서버 · ×8 에서도 15 Hz                     ✅ Phase 10B (test_client_view)
 - SandboxClient 가 로컬 · 원격 서버에 접속 (콘텐츠 다시 맞추기 · 권한 거절 · 끊김)    ✅ Phase 10B (test_network_session)
-- Interest: 카메라 이동 시 Spawn/Despawn 수 상한, 히스테리시스
-- 대역폭: 50k 월드에서 클라이언트당 바이트가 가시 엔티티 수에 비례 (sbx_bench net.snapshot)
+- Interest: 관심 밖 despawn · 다시 들어오면 spawn · 히스테리시스 · 늘 보낼 것 · 관심 청크 지형 ✅ Phase 11 (test_interest)
+- 예산 우선순위: 가까운 것 먼저 · 미룬 개체도 결국 · spawn 먼저                      ✅ Phase 11 (test_interest)
+- 다시 접속: 같은 번호로 돌아오고 그동안 옛 복제본을 그린다 · 60 초 넘으면 실패      ✅ Phase 11 (test_network_session)
+- 대역폭: 50k 월드에서 클라이언트당 바이트가 가시 엔티티 수에 비례                  ✅ Phase 11 (sbx_bench net.snapshot, 14 7.11)
 ```
 
 ---
 
-## 13. 구현 (Phase 9 · 10A · 10B)
+## 13. 구현 (Phase 9 · 10A · 10B · 11)
 
 ```text
-network/transport/   Transport.hpp (INetworkTransport · Endpoint · DisconnectReason) · LoopbackTransport(+ LoopbackNetwork 허브)
-                     · SimulatedTransport · EnetTransport (enet.h 는 이 .cpp 에만)
+network/transport/   Transport.hpp (INetworkTransport · Endpoint · DisconnectReason) · LoopbackTransport(+ LoopbackNetwork 허브,
+                     시험용 severAll — 모든 연결을 시간 초과로 끊는다, 11) · SimulatedTransport · EnetTransport (enet.h 는 이 .cpp 에만)
 network/protocol/    BitStream · Messages (카탈로그 · encode/decode · Role · RejectReason) · CommandCodec (5.1)
 network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded) · CommandValidator · LocalServerHost (싱글플레이 —
                      ServerHost + Loopback, 역할 Owner · 예산 없음, 10B)
 network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack · 선택 상세) · ClientWorld (복제 월드,
                      6.4) · InterpolationClock (9장)
-network/replication/ ReplicationWriter (6.1 · 6.3 — Simulation 스레드) · Inspect (InspectResult 만들기)
+network/replication/ ReplicationWriter (6.1 · 6.3 · 8장 관심 · 우선순위 — Simulation 스레드) · Inspect (InspectResult 만들기)
 core/scenarios/      WorldSource (시나리오 이름 · 세이브 폴더 → 월드 — 서버 --world 와 클라이언트 --world 가 같이)
 core/serialization/  BinaryCodec (컴포넌트 값 바이트, 09 5장)
 apps/server          SandboxServer --world <시나리오 | 세이브 폴더> … (15-BUILD 7장)
@@ -420,7 +468,8 @@ Net IO 스레드     transport.wait(2 ms) → poll → 핸드셰이크 · 검사
 Simulation 스레드 30 TPS × speed 로 틱. inbox → executeTick 스탬프 → ScenarioRunner.step → 네트워크 명령의 결과만 outbox
                   (시나리오가 넣은 명령은 issuer 가 같아도 가리지 않는다 — (issuer, sequence) 집합). 1 초마다 ServerStats.
                   3 틱 넘게 밀리면 기준점을 다시 잡는다 (overruns, 03 3장)
-                  스냅숏 간격(실제 시간)마다 ReplicationWriter::build + InspectResult (roster · ack · Inspect 요청은 Net 절반이
-                  큐로 넘긴다) → outbox (Phase 10A · 10B)
+                  스냅숏 간격(실제 시간)마다 ReplicationWriter::build + InspectResult (roster · ack · Inspect 요청 · Subscribe 는
+                  Net 절반이 큐로 넘긴다 — Inspect 집합은 alwaysRelevant 로도) → outbox (Phase 10A · 10B · 11)
+토큰 표           Net 절반에만 (월드와 무관). 끊긴 토큰은 netStep 마다 만료 검사 (Phase 11)
 멈추기            Sim 멈춤 → Net 멈춤 → 모두에게 Disconnect{ServerShutdown} + 끊기 → drain(300 ms)
 ```

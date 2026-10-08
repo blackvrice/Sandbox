@@ -7,7 +7,7 @@ C++23 기반의 자체 **Sandbox Simulation Engine / Maker**입니다.
 Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **특정 장르 규칙에 묶이지 않고**
 만들 수 있는 것이 목표입니다.
 
-> **현재 상태: Phase 10 복제 완료 — SandboxClient 가 언제나 서버의 복제본을 그린다: 싱글플레이 `--world`(같은 프로세스의 서버) · 접속 `--connect`(SandboxServer), 보간 · 선택 상세 · 네트워크 패널 (10B, `--direct-sim` 삭제). 10A: 클라이언트별 차분 스냅숏(예산 · 손실 복구 · 다시 맞추기). Phase 9 네트워크 기초 (전용 서버 `SandboxServer --world`, ENet UDP · 핸드셰이크 · 명령 · 권한). Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
+> **현재 상태: Phase 11 관심 영역 완료 — 클라이언트는 화면 근처(+ 1 청크)만 받고(바이트 ∝ 보이는 개체), 예산은 새 개체 · 가까운 개체 · 오래 미룬 개체 순, 네트워크가 끊기면 세션 토큰으로 다시 접속. Phase 10 복제 완료 — SandboxClient 가 언제나 서버의 복제본을 그린다: 싱글플레이 `--world`(같은 프로세스의 서버) · 접속 `--connect`(SandboxServer), 보간 · 선택 상세 · 네트워크 패널 (10B, `--direct-sim` 삭제). 10A: 클라이언트별 차분 스냅숏(예산 · 손실 복구 · 다시 맞추기). Phase 9 네트워크 기초 (전용 서버 `SandboxServer --world`, ENet UDP · 핸드셰이크 · 명령 · 권한). Phase 8 렌더러 완료 (8C ImGui 패널, 8B 지형 · 격자 · 선택 · 디버그 선 · 패스별 GPU 시간, Phase 8A 스프라이트 렌더러 · `--direct-sim`, Phase 7 D3D12 RHI · 셰이더, Phase 6 Windows 플랫폼, Phase 5 까지 헤드리스 생태계 완료.** 빌드 시스템, Foundation(JobSystem 포함), ECS(Registry·View·ECB·리플렉션·JSON/해시),
 > 30 TPS 틱 파이프라인·명령(SimCommand)·공간 색인·난수·WorldHash, 청크 월드·지형 칠하기·세이브/로드(마이그레이션·Opaque),
 > 콘텐츠 팩 로더·검증기(Prefab·Tag·Rule·BehaviorGraph)·생명 주기(에너지·성장·번식·사망)·`content/ecosystem` 팩,
 > 감지·FSM 행동·Rule 상호작용·A* 경로 Job·조향 이동·충돌, 리플레이 기록·재생, 세 종이 공존하는 생태계 시나리오,
@@ -18,7 +18,7 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, 지형(타일 텍스처) · 격자 · 선택 · 디버그 선 패스와
 > GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--world` · `--connect` 로 서버 복제본 관찰 — 보간, 카메라 팬 · 줌 · 일시정지 · 속도는 서버 명령,
 > 클릭 · 박스 선택), Dear ImGui(1.92 docking, RHI 위 렌더러 · 동적 폰트 텍스처 · 입력 가로채기)와 기본 패널, 테스트·벤치·경계 검사가 있습니다.
-> Interest(화면 근처만 받기 — Phase 11) · 에디터(Phase 12)는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> 에디터(Phase 12)는 아직 없습니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

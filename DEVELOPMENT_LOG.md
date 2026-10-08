@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-10-08 — Phase 11: 관심 영역 — Subscribe 청크 사각형 · 지연 해제 · 예산 우선순위 · 관심 지형 · 세션 토큰 다시 접속
+
+**무엇을**
+
+- network: 프로토콜 4 — `Subscribe` (청크 사각형 또는 all). `ReplicationWriter`: 스냅숏마다 위치 → 청크를 한 번 훑고,
+  클라이언트마다 관심 = 구독 청크 비트맵 ∪ 늘 보낼 것(`setAlwaysRelevant` — Inspect 로 선택한 개체 · 위치 없는 개체).
+  빠진 청크는 30 스냅숏 지연 해제, 관심 밖 = despawn · 들어오면 spawn. 예산이 있으면 늘 보낼 것 → spawn → update, 같은
+  단계는 중심 거리 − 미룬 틱 × 0.5 칸 (round-robin 삭제). 지형은 관심 청크만 · 가까운 것부터 · 클라이언트가 들고 있다.
+  ServerHost: Subscribe → setInterest, Inspect 집합 → setAlwaysRelevant. 세션 토큰 표 (60 초, ClientQuit 면 지움, 살아 있는
+  연결의 토큰이면 옛 연결 Kicked). ClientSession::subscribe · desc.token. LoopbackTransport::severAll (시험).
+- client: `IWorldSession::setView` (Application 이 카메라 visibleRect), `NetworkSession::interestFor` (+ 1 청크 · 경계로 자름 ·
+  전체면 all, 초당 2 번). --connect 가 시간 초과로 끊기면 같은 토큰으로 2 초마다 다시 (60 초), 그동안 옛 복제본. 네트워크
+  패널 "관심 영역" · "다시 접속".
+- bench: `net.snapshot` · `net.late_join` (bench/NetBench.cpp, sbx_bench 가 SandboxNetwork 링크).
+- 테스트: test_interest (새 파일), test_server_host (토큰), test_network_session (interestFor · 원격 다시 접속), test_messages.
+- 문서: ADR-0027, 08(상태 · 4 · 5 · 6.1 · 6.3 · 8 · 12 · 13장, 프로토콜 4), 13, 14(1.4 · 2 · 6 · 7.11), 15, 16(Phase 11 ✅), 17,
+  MANUAL-QA 11, README.
+
+**왜**
+
+- Phase 10 은 모든 엔티티를 모든 클라이언트에 보냈다 — 50k 면 클라이언트당 스냅숏 1 MB (14 MB/s). 256 KB/s 예산에서는
+  화면 안 개체도 늦게 왔다 (14 7.9). 완료 기준: 바이트 ∝ 가시 엔티티, Late Join < 2 초.
+- 처음 구현(거리 순 우선순위만)은 50k 화면 새 접속이 77 스냅숏(5.1 초) — 가까운 개체의 매 틱 갱신이 예산을 먹었다 →
+  spawn 을 update 앞에 두어 5 스냅숏(0.33 초).
+- 다시 접속: 16-ROADMAP 11.4. 무선 · 잠깐의 끊김에 월드를 잃지 않게.
+
+**검증**
+
+- Linux clang · gcc Debug: ctest 43/43. TSan network · net · client 73 케이스 경고 0.
+- MinGW Release 빌드 경고 0 + Wine: network · net · core · foundation · client 170 케이스.
+- Wine 창 (ecosystem_survival, 서버 스레드): Home(월드 전체) 2,316 개체 → 휠 확대(22.6 px/칸) 뒤 관심 "청크 -1..2 × -2..1",
+  클라이언트 개체 692 · 받은 KB/s 425 → 145.
+- 측정 (14 7.11, Release `sbx_bench --only net.`): 바이트 ≈ 관심 개체 × 19.6 B (월드 전체 978 KB · 화면 49 KB), 새 접속 화면
+  0.33 초 · 월드 전체 6.07 초, 클라 16 화면 만들기 37 ms.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 11 (확대 · 다시 접속 — resmon 으로 서버 일시 중단).
+- [계획 15] 클라이언트 16 · 50k 스냅숏 만들기 < 3 ms (14 1.4) — 같은 개체 인코딩 바이트 재사용 · Net 스레드 인코딩.
+  위치 양자화 · 필드 마스크 (예산 없이 화면 하나 600 ~ 720 KB/s). 소유 개체 alwaysRelevant · 역할 바꾸기 (Phase 12).
+- 다음: Phase 12 — Multiplayer Editor.
+
+---
+
 ## 2026-10-08 — Phase 10B: SandboxClient 가 서버의 복제본을 그린다 — LocalServerHost · NetworkSession · 보간 · Inspect · --direct-sim 삭제
 
 **무엇을**

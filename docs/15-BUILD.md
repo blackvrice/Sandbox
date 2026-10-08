@@ -104,7 +104,7 @@ SandboxTests              EXE        Foundation Core Network Platform (+ ServerO
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
-sbx_bench                 EXE        Core   (SBX_BUILD_BENCH=ON)
+sbx_bench                 EXE        Core Network   (SBX_BUILD_BENCH=ON — Network 은 net.* 벤치, Phase 11)
 sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_TESTS 만 (tests/render). CTest render_tests_warp
 
 생성 헤더 build/<preset>/generated/foundation/BuildInfo.hpp
@@ -197,6 +197,10 @@ sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] 
 
 sbx_sim_check --help      결정론 하네스. 옵션은 13-TESTING 4장
 
+sbx_bench [--quick] [--out result.json] [--machine name] [--threads n] [--only <이름 접두사>]   (14-PERFORMANCE 2장)
+    예: --only net. → net.snapshot (50k, 클라이언트 1 · 4 · 16, 관심 = 월드 전체 · 화면) · net.late_join (Phase 11).
+    --quick 은 10k · 클라이언트 4 까지. 숫자는 Release 로
+
 SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     [--console] [--headless] [--frames N] [--fps HZ] [--width W] [--height H] [--input settings.json] [--log-input]
     [--log-level L] [--version]
@@ -210,6 +214,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     --connect: SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르다고 거절되면 서버 팩을 --content 에서 읽어 다시.
     일시정지 · 한 틱 · 속도는 서버 명령 — 원격 서버의 기본 역할 editor 는 거절된다 (서버 --default-role admin).
     접속하고 첫 스냅숏을 받을 때까지 Connecting, 거절 · 끊김이면 오류를 남기고 종료 코드 1.
+    (Phase 11) 화면에 보이는 영역 + 1 청크만 받는다 (관심 영역 — 줌 아웃해 월드 전체가 보이면 전부). --connect 에서 네트워크가
+    끊기면(시간 초과) 같은 세션 토큰으로 2 초마다 다시 접속하고 60 초 넘으면 끝낸다 — 그동안 마지막 화면이 남고 상태 줄에
+    "다시 접속 중 N 초". 서버가 Ctrl+C 로 끝났거나 쫓아냈으면 바로 끝낸다.
     제목 줄에 "<월드> tick · 개체 · TPS · 틱 ms (· RTT)" 와 "fps · 월드 · 추출 · 렌더 ms". 끝날 때
     "world <이름> tick N 개체 M 스냅숏 S (다시 맞춤 R) · 받기 · 적용 X ms" + 프레임 평균 (+ 로컬 서버 틱 · 스냅숏 만들기).
     성능을 볼 때는 RelWithDebInfo/Release 로 (Debug 는 틱 · 적용이 5 ~ 10 배 느리다 — 14-PERFORMANCE 7.7 · 7.10).
@@ -219,6 +226,7 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (Phase 8C) [--font <ttf|ttc>] [--no-ui]
     ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 → 내장 영문 (ADR-0023).
     (10B) 패널 "네트워크": 서버 · 역할 · RTT · 스냅숏(epoch · 다시 맞춤) · 받은 KB/s · 적용 ms · 보간 지연 · 거절된 명령.
+    (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
 
 sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
