@@ -30,6 +30,7 @@ add_library(SandboxCore STATIC
     ecs/ComponentCatalog.cpp
 
     serialization/FieldCodec.hpp
+    serialization/BinaryCodec.hpp
     serialization/HashVisitor.hpp
     serialization/JsonVisitor.hpp
     serialization/FieldAccess.hpp

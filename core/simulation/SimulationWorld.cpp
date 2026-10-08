@@ -113,7 +113,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
         m_clock.advance();
     }
     const Tick now = m_clock.tick();
-    m_registry.setCurrentTick(now);
+    m_changeStamp = std::max(m_changeStamp + 1, now);
+    m_registry.setCurrentTick(m_changeStamp);
     m_random.setTick(now);
 
     // --- 2·3 ApplyCommands + Structural① --------------------------------------
@@ -203,6 +204,7 @@ void SimulationWorld::syncIdentityLogs() {
 
 void SimulationWorld::beginRestore(Tick tick) {
     SBX_VERIFY(m_registry.aliveCount() == 0 && m_nextSaveId == 1, "restore 는 빈 월드에서만");
+    m_changeStamp = tick;
     m_registry.setCurrentTick(tick);
 }
 
@@ -229,7 +231,8 @@ void SimulationWorld::restoreOpaque(SaveId saveId, ecs::Json components) {
 void SimulationWorld::finishRestore(const RestoreState& state) {
     m_clock.restore(state.tick, state.paused, state.speed, state.pendingSteps, state.editSequence);
     m_nextSaveId = state.nextSaveId;
-    m_registry.setCurrentTick(state.tick);
+    m_changeStamp = std::max(m_changeStamp, state.tick);
+    m_registry.setCurrentTick(m_changeStamp);
     m_random.setTick(state.tick);
     m_registry.clearTickLogs();
     m_createdCursor = 0;

@@ -14,6 +14,7 @@
 
 #include "core/ecs/ComponentPool.hpp"
 #include "core/ecs/Reflection.hpp"
+#include "core/serialization/BinaryCodec.hpp"
 #include "core/serialization/FieldAccess.hpp"
 #include "core/serialization/HashVisitor.hpp"
 #include "core/serialization/JsonVisitor.hpp"
@@ -38,6 +39,10 @@ struct ComponentInfo {
     // 기본값 + in 으로 만들 수 있는지만 검사한다 (명령의 사전 검증용, 아무것도 바꾸지 않는다).
     Expected<void> (*validateJson)(const Json& in, std::string_view context) = nullptr;
     void (*hash)(const void* component, Fnv1a64& h) = nullptr;
+    // 바이트 형식 (복제 — BinaryCodec.hpp). refs 는 EntityId 필드를 바꾼다 (null 이면 raw)
+    void (*writeBinary)(const void* component, std::vector<u8>& out, const EntityRefCodec* refs) = nullptr;
+    // 바이트를 정확히 다 읽어야 true. 실패하면 component 가 일부만 바뀌었을 수 있다 (새로 만든 값에 읽는다)
+    bool (*readBinary)(void* component, const u8* data, usize size, const EntityRefCodec* refs) = nullptr;
 
     // 이름으로 수치 필드 읽기/쓰기 (Rule 조건·효과). 없거나 수치가 아니면 nullopt / false.
     std::optional<f64> (*getNumber)(const void* component, std::string_view field) = nullptr;
@@ -90,6 +95,12 @@ public:
             return componentFromJson(probe, in, ctx);
         };
         info.hash = [](const void* c, Fnv1a64& h) { hashComponent(h, *static_cast<const T*>(c)); };
+        info.writeBinary = [](const void* c, std::vector<u8>& out, const EntityRefCodec* refs) {
+            componentToBinary(*static_cast<const T*>(c), out, refs);
+        };
+        info.readBinary = [](void* c, const u8* data, usize size, const EntityRefCodec* refs) {
+            return componentFromBinary(*static_cast<T*>(c), data, size, refs);
+        };
         info.getNumber = [](const void* c, std::string_view field) {
             NumberGetVisitor v(field);
             visitConst(v, *static_cast<const T*>(c));

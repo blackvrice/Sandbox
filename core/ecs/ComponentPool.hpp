@@ -5,7 +5,9 @@
 //             페이지는 처음 쓰일 때 할당한다.
 //   dense   : dense[i] 의 주인 EntityId
 //   data    : dense 와 같은 순서의 T (AoS)
-//   changed : 마지막 Write 접근 틱       added : 붙은 틱
+//   changed : 마지막 Write 접근 때의 Registry::currentTick   added : 붙을 때의 값
+//             (SimulationWorld 는 틱 번호가 아니라 변경 순번을 넣는다 — tick() 마다 증가, 일시정지 편집 단계 포함. 복제가
+//              "기준 이후 바뀐 것" 을 고를 때 쓴다 — 08 6장, ADR-0025)
 //
 // 불변식 (validate() 가 검사)
 //   P1. sparse[e.index] = i  ⇔  dense[i] == e

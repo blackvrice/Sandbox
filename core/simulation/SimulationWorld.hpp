@@ -89,6 +89,9 @@ public:
     [[nodiscard]] const EventStream& events() const noexcept { return m_events; }
 
     [[nodiscard]] Tick currentTick() const noexcept { return m_clock.tick(); }
+    // 변경 순번: tick() 호출마다 1 이상 오른다 (일시정지 편집 단계도 — 틱 번호는 그대로인데 값은 바뀌므로). 레지스트리의
+    // changed/added 기록이 이 값이다. 일시정지가 없으면 틱 번호와 같다. 복제가 기준 이후 바뀐 컴포넌트를 고른다 (ADR-0025)
+    [[nodiscard]] u64 changeStamp() const noexcept { return m_changeStamp; }
     [[nodiscard]] const SimulationClock& clock() const noexcept { return m_clock; }
     [[nodiscard]] u64 seed() const noexcept { return m_random.worldSeed(); }
     // 마지막 tick() 이 System 을 돌렸는가 (일시정지 편집 단계면 false)
@@ -188,6 +191,7 @@ private:
     usize m_destroyedCursor = 0;
     bool m_lastRanSystems = false;
     bool m_editStep = false; // 이번 tick() 이 일시정지 편집 단계인가 (editSequence 를 올리는 조건)
+    u64 m_changeStamp = 0;
 };
 
 // 경계·머티리얼 검사 (세이브 로드·시나리오 설정 등 외부 입력용)
