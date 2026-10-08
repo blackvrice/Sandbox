@@ -104,7 +104,7 @@ SandboxTests              EXE        Foundation Core Network Platform (+ ServerO
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
-sbx_bench                 EXE        Core Network   (SBX_BUILD_BENCH=ON — Network 은 net.* 벤치, Phase 11)
+sbx_bench                 EXE        Core Network Render   (SBX_BUILD_BENCH=ON 일 때만 — 기본 OFF. Network 은 net.* 벤치, Phase 11)
 sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_TESTS 만 (tests/render). CTest render_tests_warp
 
 생성 헤더 build/<preset>/generated/foundation/BuildInfo.hpp
@@ -198,6 +198,7 @@ sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] 
 sbx_sim_check --help      결정론 하네스. 옵션은 13-TESTING 4장
 
 sbx_bench [--quick] [--out result.json] [--machine name] [--threads n] [--only <이름 접두사>]   (14-PERFORMANCE 2장)
+    기본 구성에는 없다: -DSBX_BUILD_BENCH=ON 으로 구성해야 타깃이 생긴다 (CLion 은 프로필의 CMake options 에).
     예: --only net. → net.snapshot (50k, 클라이언트 1 · 4 · 16, 관심 = 월드 전체 · 화면) · net.late_join (Phase 11).
     --quick 은 10k · 클라이언트 4 까지. 숫자는 Release 로
 

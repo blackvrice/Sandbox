@@ -247,6 +247,8 @@ ctest --test-dir cmake-build-debug --output-on-failure
 .\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_10k --vsync off
 .\cmake-build-release\bin\SandboxServer.exe --world ecosystem_10k --default-role admin
 .\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 철수
+# sbx_bench 는 기본으로 빌드되지 않는다 (SBX_BUILD_BENCH=OFF) — CLion: Settings → Build, Execution, Deployment → CMake →
+# Release 프로필의 CMake options 에 -DSBX_BUILD_BENCH=ON 을 더하고 Reload → sbx_bench 를 빌드
 .\cmake-build-release\bin\sbx_bench.exe --only net.
 ctest --test-dir cmake-build-debug --output-on-failure
 ```

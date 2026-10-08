@@ -7,6 +7,19 @@
 
 ---
 
+## 2026-10-08 — 문서: sbx_bench 는 SBX_BUILD_BENCH=ON 으로 구성해야 생긴다
+
+**무엇을** MANUAL-QA Phase 11 · 15-BUILD 에 sbx_bench 를 켜는 방법(CLion 프로필 CMake options 에 `-DSBX_BUILD_BENCH=ON`)을
+적었다. 15-BUILD 4장의 sbx_bench 링크 목록을 실제대로 (Core Network Render).
+
+**왜** 사용자 보고 "sbx_bench 빌드가 안 된다" — cmake-build-release 의 캐시가 `SBX_BUILD_BENCH=OFF`(기본값)라 타깃이 없었다.
+MANUAL-QA 11 이 켜는 단계 없이 실행 명령만 적었다.
+
+**검증** MinGW Release 에서 SBX_BUILD_BENCH=ON 으로 sbx_bench 빌드 경고 0, Wine 에서 `sbx_bench --quick` 끝까지 (net.* 포함).
+MSVC 로는 아직 빌드한 적 없다 — 사용자 PC 에서 처음.
+
+---
+
 ## 2026-10-08 — Phase 11: 관심 영역 — Subscribe 청크 사각형 · 지연 해제 · 예산 우선순위 · 관심 지형 · 세션 토큰 다시 접속
 
 **무엇을**
