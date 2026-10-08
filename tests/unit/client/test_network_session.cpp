@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <format>
 #include <string>
 #include <thread>
@@ -405,6 +406,79 @@ TEST_SUITE("client") {
         CHECK(ns->failure()->find("끊겼습니다") != std::string::npos);
     }
 
+    TEST_CASE("network session (remote): a dropped network reconnects with the session token, a gone server fails") {
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        auto src = scenario::openWorldSource("ecosystem_small", SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE(src.has_value());
+        net::LoopbackNetwork hub;
+        net::LoopbackTransport serverT(hub);
+        net::ServerHostDesc hd;
+        hd.packs = src->packs;
+        hd.defaultRole = net::Role::Admin;
+        hd.randomSeed = 9;
+        auto host = std::make_unique<net::ServerHost>(serverT, std::move(src->runner), hd);
+        REQUIRE(host->start({"srv", 7777}).has_value());
+
+        auto mats = materials();
+        std::vector<net::LoopbackTransport*> made;
+        NetworkSessionDesc d;
+        d.mode = NetworkSessionMode::Remote;
+        d.connect = "srv:7777";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.transportFactory = [&]() -> Expected<std::unique_ptr<net::INetworkTransport>> {
+            auto t = std::make_unique<net::LoopbackTransport>(hub);
+            made.push_back(t.get());
+            return std::unique_ptr<net::INetworkTransport>(std::move(t));
+        };
+        auto created = NetworkSession::create(d, mats);
+        REQUIRE(created.has_value());
+        auto ns = std::move(*created);
+        auto frame = [&] {
+            ns->update(kDt);
+            if (host) {
+                host->update(kDt);
+            }
+            render::RenderWorld w;
+            ns->extract(w);
+        };
+        for (int i = 0; i < 200 && !ns->ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns->ready());
+        const u16 id = ns->session()->welcome()->clientId;
+        const usize before = ns->clientWorld()->entityCount();
+
+        made.back()->severAll(); // 네트워크가 끊긴다
+        frame();
+        CHECK(ns->reconnecting());
+        CHECK_FALSE(ns->failure().has_value());
+        CHECK(ns->status().find("다시 접속 중") != std::string::npos);
+        CHECK(ns->clientWorld()->entityCount() == before); // 그동안 옛 복제본을 그린다
+        for (int i = 0; i < 150 && ns->reconnecting(); ++i) {
+            frame();
+        }
+        REQUIRE_FALSE(ns->reconnecting());
+        CHECK(ns->reconnects() == 1);
+        CHECK(ns->session()->welcome()->clientId == id); // 같은 번호 · 역할
+        CHECK(ns->session()->welcome()->role == net::Role::Admin);
+        for (int i = 0; i < 10; ++i) {
+            frame();
+        }
+        CHECK(ns->ready());
+        CHECK(ns->info().net->reconnects == 1);
+
+        // 서버가 없어지면 60 초 동안 2 초마다 시도하다 실패
+        made.back()->severAll();
+        host->stop();
+        host.reset();
+        for (int i = 0; i < 30 * 70 && !ns->failure(); ++i) {
+            frame();
+        }
+        REQUIRE(ns->failure().has_value());
+        CHECK(ns->failure()->find("다시 접속하지 못했습니다") != std::string::npos);
+    }
+
     TEST_CASE("network session (local, server threads): the window path — server ticks on its own, client follows") {
         auto mats = materials();
         NetworkSessionDesc d;
@@ -437,6 +511,49 @@ TEST_SUITE("client") {
         }
         CHECK(ns->paused());
         ns.reset(); // 접속을 끊고 서버 스레드를 멈춘다
+    }
+
+    TEST_CASE("network session: the visible rect becomes the interest (1 chunk margin, clamped, 2 Hz)") {
+        net::WorldMeta w;
+        w.minChunkX = -4;
+        w.minChunkY = -4;
+        w.maxChunkX = 3;
+        w.maxChunkY = 3;
+        // 청크 0 의 가운데 일부 → 0 ± 1
+        const auto a = NetworkSession::interestFor({{5, 5}, {20, 20}}, w);
+        CHECK_FALSE(a.all);
+        CHECK(a.minChunkX == -1);
+        CHECK(a.maxChunkX == 1);
+        CHECK(a.minChunkY == -1);
+        CHECK(a.maxChunkY == 1);
+        // 월드 전체가 보이면 all, 월드 밖 아주 먼 곳 · NaN 도 올바른 사각형
+        CHECK(NetworkSession::interestFor({{-1000, -1000}, {1000, 1000}}, w).all);
+        const auto far = NetworkSession::interestFor({{1e30f, 1e30f}, {2e30f, 2e30f}}, w);
+        CHECK(far.minChunkX == 3);
+        CHECK(far.maxChunkX == 3);
+        const auto nan = NetworkSession::interestFor({{std::nanf(""), 0}, {1, 1}}, w);
+        CHECK(nan.minChunkX <= nan.maxChunkX);
+
+        // 로컬 서버 (ecosystem_survival 8 × 8 청크): 구석을 보면 그 근처 개체만 받는다
+        auto mats = materials();
+        auto ns = makeLocal(mats, "ecosystem_survival");
+        untilReady(*ns);
+        const render::WorldRect b = ns->bounds();
+        ns->setView({b.min, b.min + Vec2{20, 20}});
+        for (int i = 0; i < 60; ++i) {
+            ns->update(kDt);
+        }
+        const usize server = ns->localServer()->host().world().registry().aliveCount();
+        const usize client = ns->clientWorld()->entityCount();
+        MESSAGE("server ", server, " client ", client);
+        CHECK(client * 4 < server);
+        CHECK(ns->info().net->interest.find("청크") == 0);
+        ns->setView(b); // 다시 전체
+        for (int i = 0; i < 60; ++i) {
+            ns->update(kDt);
+        }
+        CHECK(ns->info().net->interest == "월드 전체");
+        CHECK(ns->clientWorld()->entityCount() * 10 > server * 9);
     }
 
     TEST_CASE("network session: unknown world and bad address fail at create") {

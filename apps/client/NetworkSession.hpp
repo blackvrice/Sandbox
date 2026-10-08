@@ -6,7 +6,8 @@
 //           창 실행은 서버가 자기 스레드(Simulation · Net IO)에서 돈다. 헤드리스 · 시험은 inlineServer — update(dt) 가
 //           그 자리에서 서버를 돌린다 (같은 dt 열이면 같은 결과).
 //   Remote  --connect host:port: ENet 으로 SandboxServer 에 접속한다. 콘텐츠가 다르다고 거절되면 서버가 알려 준 팩을
-//           --content 루트에서 읽어 한 번 다시 접속한다 (sbx_net_probe 와 같은 규칙).
+//           --content 루트에서 읽어 한 번 다시 접속한다 (sbx_net_probe 와 같은 규칙). 네트워크가 끊기면(시간 초과)
+//           같은 세션 토큰으로 2 초마다 다시 접속한다 (60 초까지, 11.4) — 그동안 옛 복제본을 그린다.
 //
 // 둘 다 같은 길: ClientSession 이 Snapshot 을 ClientWorld 에 적용하고, 프레임마다 InterpolationClock 의 renderTick 으로
 // SpriteExtraction 이 그릴 거리를 만든다. 일시정지 · 한 틱 · 속도는 서버로 가는 명령 (역할이 모자라면 거절 — 상태 줄과
@@ -62,6 +63,7 @@ public:
     [[nodiscard]] std::optional<std::string> failure() const override { return m_failure; }
     void extract(render::RenderWorld& out) override;
     [[nodiscard]] render::WorldRect bounds() const override;
+    void setView(render::WorldRect visible) override { m_view = visible; }
     void togglePause() override;
     void stepOnce() override;
     void changeSpeed(int dir) override;
@@ -88,10 +90,20 @@ public:
     [[nodiscard]] f64 applyMs() const noexcept { return m_applyMs; }
 
     static constexpr f32 kSpeeds[] = {0.25f, 0.5f, 1.f, 2.f, 4.f, 8.f};
+    static constexpr f64 kSubscribeInterval = 0.5; // 관심 영역은 바뀌어도 초당 2 번까지 (08 8장)
+    static constexpr f64 kReconnectSeconds = 60;   // 이만큼 다시 접속하지 못하면 실패 (서버 토큰도 60 초)
+    static constexpr f64 kRetryInterval = 2;
+    [[nodiscard]] u32 reconnects() const noexcept { return m_reconnects; }
+    [[nodiscard]] bool reconnecting() const noexcept { return m_lostAt >= 0; }
+    // 보이는 사각형 → 관심 청크 사각형 (1 청크 여유, 월드 경계로 자른다 — 항상 올바른 사각형)
+    [[nodiscard]] static net::Subscribe interestFor(render::WorldRect visible, const net::WorldMeta& world);
 
 private:
     NetworkSession(const NetworkSessionDesc& desc, render::MaterialLibrary& materials);
     [[nodiscard]] Expected<void> connect();
+    [[nodiscard]] Expected<std::unique_ptr<net::INetworkTransport>> makeTransport() const;
+    [[nodiscard]] net::ClientSessionDesc sessionDesc(const content::ContentDatabase& content) const;
+    void updateReconnect();
     void handleRejected();
     void send(cmd::CommandPayload payload);
     void selectionChanged();
@@ -104,6 +116,12 @@ private:
     std::unique_ptr<net::LocalServerHost> m_local;
     std::unique_ptr<net::INetworkTransport> m_ownTransport; // Remote
     std::unique_ptr<net::ClientSession> m_session;
+    // 다시 접속 (11.4): 끊긴 뒤 kRetryInterval 마다 같은 토큰으로. 새 연결이 그릴 수 있게 되면 바꿔 낀다
+    std::unique_ptr<net::INetworkTransport> m_retryTransport;
+    std::unique_ptr<net::ClientSession> m_retry;
+    f64 m_lostAt = -1; // 끊긴 시각 (다시 접속 중이면 ≥ 0)
+    f64 m_nextRetryAt = 0;
+    u32 m_reconnects = 0;
     net::Endpoint m_target;
     bool m_retriedContent = false;
     std::optional<std::string> m_failure;
@@ -117,6 +135,8 @@ private:
 
     std::vector<NetEntityId> m_selection; // 오름차순
     bool m_detailOverlay = true;
+    std::optional<render::WorldRect> m_view; // 화면에 보이는 사각형 (Application 이 프레임마다)
+    f64 m_lastSubscribeAt = -1e9;
 
     // 보낸 명령 (결과를 기다린다) — 거절 문구와 일시정지 · 속도의 "보낸 값"
     std::map<u32, std::string> m_pendingNames;

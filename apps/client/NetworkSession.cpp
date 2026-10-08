@@ -71,6 +71,28 @@ NetworkSession::~NetworkSession() {
     }
 }
 
+Expected<std::unique_ptr<net::INetworkTransport>> NetworkSession::makeTransport() const {
+    if (m_desc.transportFactory) {
+        return m_desc.transportFactory();
+    }
+    auto e = net::EnetTransport::create();
+    if (!e) {
+        return std::unexpected(e.error());
+    }
+    return std::unique_ptr<net::INetworkTransport>(std::move(*e));
+}
+
+net::ClientSessionDesc NetworkSession::sessionDesc(const content::ContentDatabase& content) const {
+    net::ClientSessionDesc cd;
+    cd.displayName = m_desc.displayName;
+    cd.contentHash = content.contentHash();
+    cd.buildId = net::localBuildId();
+    cd.handshakeTimeoutSeconds = m_desc.connectTimeoutSeconds;
+    cd.catalog = m_catalog.get();
+    cd.content = &content;
+    return cd;
+}
+
 Expected<void> NetworkSession::connect() {
     m_session.reset();
     net::INetworkTransport* transport = nullptr;
@@ -79,14 +101,7 @@ Expected<void> NetworkSession::connect() {
         transport = &m_local->clientTransport();
         content = &m_local->content();
     } else {
-        auto t = m_desc.transportFactory ? m_desc.transportFactory()
-                                         : [&]() -> Expected<std::unique_ptr<net::INetworkTransport>> {
-            auto e = net::EnetTransport::create();
-            if (!e) {
-                return std::unexpected(e.error());
-            }
-            return std::unique_ptr<net::INetworkTransport>(std::move(*e));
-        }();
+        auto t = makeTransport();
         if (!t) {
             return std::unexpected(t.error());
         }
@@ -94,14 +109,7 @@ Expected<void> NetworkSession::connect() {
         transport = m_ownTransport.get();
         content = m_ownContent.get();
     }
-    net::ClientSessionDesc cd;
-    cd.displayName = m_desc.displayName;
-    cd.contentHash = content->contentHash();
-    cd.buildId = net::localBuildId();
-    cd.handshakeTimeoutSeconds = m_desc.connectTimeoutSeconds;
-    cd.catalog = m_catalog.get();
-    cd.content = content;
-    m_session = std::make_unique<net::ClientSession>(*transport, cd);
+    m_session = std::make_unique<net::ClientSession>(*transport, sessionDesc(*content));
     m_seenWorld = nullptr;
     m_seenSnapshots = 0;
     if (auto r = m_session->connect(m_target, m_now); !r) {
@@ -109,6 +117,47 @@ Expected<void> NetworkSession::connect() {
     }
     log::info("client", "접속: {} ({})", m_target.describe(), m_local ? "로컬 서버" : "원격");
     return {};
+}
+
+void NetworkSession::updateReconnect() {
+    if (m_retry) {
+        m_retry->update(m_now);
+        const net::ClientWorld* w = m_retry->world();
+        if (m_retry->state() == net::ClientState::Connected && w != nullptr && w->stats().snapshotsApplied > 0) {
+            // 새 연결이 그릴 수 있게 되면 바꿔 낀다 (그때까지 옛 복제본을 그렸다)
+            m_session.reset();
+            m_ownTransport = std::move(m_retryTransport);
+            m_session = std::move(m_retry);
+            m_lostAt = -1;
+            ++m_reconnects;
+            m_lastSubscribeAt = -1e9; // 관심 · 선택 상세를 새 연결에 다시 알린다
+            selectionChanged();
+            log::info("client", "다시 접속했습니다: {} (#{})", m_target.describe(), m_session->welcome()->clientId);
+            return;
+        }
+        if (m_retry->state() == net::ClientState::Rejected || m_retry->state() == net::ClientState::Disconnected) {
+            m_retry.reset();
+            m_retryTransport.reset();
+            m_nextRetryAt = m_now + kRetryInterval;
+        }
+    } else if (m_now >= m_nextRetryAt) {
+        auto t = makeTransport();
+        if (t) {
+            m_retryTransport = std::move(*t);
+            net::ClientSessionDesc cd = sessionDesc(*m_ownContent);
+            cd.token = m_session->welcome()->sessionToken;
+            m_retry = std::make_unique<net::ClientSession>(*m_retryTransport, cd);
+            if (!m_retry->connect(m_target, m_now)) {
+                m_retry.reset();
+                m_retryTransport.reset();
+            }
+        }
+        m_nextRetryAt = m_now + kRetryInterval;
+    }
+    if (m_lostAt >= 0 && m_now - m_lostAt > kReconnectSeconds) {
+        m_failure = std::format("서버와 연결이 끊겼고 {:.0f} 초 동안 다시 접속하지 못했습니다 ({})", kReconnectSeconds,
+                                m_target.describe());
+    }
 }
 
 const net::ClientWorld* NetworkSession::clientWorld() const noexcept {
@@ -183,10 +232,22 @@ void NetworkSession::update(f64 dtSeconds) {
     case net::ClientState::Rejected:
         handleRejected();
         return;
-    case net::ClientState::Disconnected:
-        m_failure = std::format("서버와 연결이 끊겼습니다 ({}): {}", m_target.describe(),
-                                net::disconnectReasonName(m_session->disconnectReason()));
+    case net::ClientState::Disconnected: {
+        // 네트워크가 끊긴 것(시간 초과)이면 같은 토큰으로 다시 접속한다 (11.4) — 그동안 옛 복제본을 그린다
+        const net::DisconnectReason reason = m_session->disconnectReason();
+        if (!m_local && m_session->welcome() && reason == net::DisconnectReason::Timeout) {
+            if (m_lostAt < 0) {
+                m_lostAt = m_now;
+                m_nextRetryAt = m_now;
+                log::warn("client", "서버와 연결이 끊겼습니다 — 다시 접속합니다 ({})", m_target.describe());
+            }
+            updateReconnect();
+            return;
+        }
+        m_failure =
+            std::format("서버와 연결이 끊겼습니다 ({}): {}", m_target.describe(), net::disconnectReasonName(reason));
         return;
+    }
     case net::ClientState::Connected:
         break;
     default:
@@ -229,6 +290,15 @@ void NetworkSession::update(f64 dtSeconds) {
         }
     }
 
+    // 관심 영역 (Phase 11): 화면이 바뀌면 (초당 2 번까지) 서버에 알린다
+    if (m_view && m_now - m_lastSubscribeAt >= kSubscribeInterval && m_session->welcome()) {
+        const net::Subscribe want = interestFor(*m_view, m_session->welcome()->world);
+        if (m_session->subscribed() != want) {
+            m_session->subscribe(want);
+            m_lastSubscribeAt = m_now;
+        }
+    }
+
     // 사라진 개체는 선택에서 뺀다
     if (!m_selection.empty()) {
         const auto before = m_selection.size();
@@ -262,6 +332,27 @@ void NetworkSession::extract(render::RenderWorld& out) {
             drawSelectedDetails(m_snapshot, out.debug);
         }
     }
+}
+
+net::Subscribe NetworkSession::interestFor(render::WorldRect visible, const net::WorldMeta& world) {
+    // 타일 좌표 → 청크 번호 (아주 먼 곳 · NaN 도 i32 범위 안으로)
+    auto chunkOf = [](f32 tile) -> i64 {
+        const f64 c = std::floor(static_cast<f64>(tile) / static_cast<f64>(world::kChunkSize));
+        return std::isfinite(c) ? static_cast<i64>(std::clamp(c, -1e9, 1e9)) : 0;
+    };
+    auto clampX = [&](i64 v) { return static_cast<i32>(std::clamp<i64>(v, world.minChunkX, world.maxChunkX)); };
+    auto clampY = [&](i64 v) { return static_cast<i32>(std::clamp<i64>(v, world.minChunkY, world.maxChunkY)); };
+    net::Subscribe s;
+    s.all = false;
+    s.minChunkX = clampX(chunkOf(std::min(visible.min.x, visible.max.x)) - 1);
+    s.maxChunkX = clampX(chunkOf(std::max(visible.min.x, visible.max.x)) + 1);
+    s.minChunkY = clampY(chunkOf(std::min(visible.min.y, visible.max.y)) - 1);
+    s.maxChunkY = clampY(chunkOf(std::max(visible.min.y, visible.max.y)) + 1);
+    if (s.minChunkX == world.minChunkX && s.minChunkY == world.minChunkY && s.maxChunkX == world.maxChunkX &&
+        s.maxChunkY == world.maxChunkY) {
+        return net::Subscribe{}; // 월드 전체
+    }
+    return s;
 }
 
 render::WorldRect NetworkSession::bounds() const {
@@ -324,6 +415,9 @@ std::string NetworkSession::status() const {
         return std::format("{} 접속 중", m_name);
     }
     std::string s = std::format("{} tick {} · 개체 {}", m_name, w->serverTick(), w->entityCount());
+    if (m_lostAt >= 0) {
+        s += std::format(" · 다시 접속 중 {:.0f} 초", m_now - m_lostAt);
+    }
     if (const auto& st = m_session->lastStats()) {
         s += std::format(" · {:.1f} TPS · 틱 {:.1f} ms", st->ticksPerSecond, st->tickMsAvg);
     }
@@ -408,6 +502,14 @@ WorldInfo NetworkSession::info() const {
     n.delayMs = m_clock.delayTicks() / std::max(1e-6, 30.0 * static_cast<f64>(w->speed())) * 1000.0;
     n.behindTicks = static_cast<f64>(w->serverTick()) - m_snapshot.renderTick;
     n.commandsRejected = m_commandsRejected;
+    n.reconnecting = m_lostAt >= 0;
+    n.reconnects = m_reconnects;
+    if (const auto& sub = m_session->subscribed(); sub && !sub->all) {
+        n.interest =
+            std::format("청크 {}..{} × {}..{}", sub->minChunkX, sub->maxChunkX, sub->minChunkY, sub->maxChunkY);
+    } else {
+        n.interest = "월드 전체";
+    }
     n.lastRejection = m_lastRejection;
     i.net = std::move(n);
     return i;

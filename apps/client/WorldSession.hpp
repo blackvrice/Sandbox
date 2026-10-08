@@ -24,6 +24,10 @@ struct NetInfo {
     f64 applyMs = 0;      // 받기 · 복제 월드 적용 (프레임마다, 지수 평균)
     f64 delayMs = 0;      // 보간 지연
     f64 behindTicks = 0;  // 마지막 서버 틱 − 그린 틱
+    // 관심 청크 사각형 ("월드 전체" 또는 "청크 x0..x1 × y0..y1") · 다시 접속 중 · 다시 접속한 횟수 (Phase 11)
+    std::string interest;
+    bool reconnecting = false;
+    u32 reconnects = 0;
     u64 commandsRejected = 0;
     std::string lastRejection; // 가장 최근 거절된 명령 (명령 · 사유)
 };
@@ -55,6 +59,8 @@ public:
     virtual void extract(render::RenderWorld& out) = 0;
     // 처음 카메라를 맞출 월드 사각형
     [[nodiscard]] virtual render::WorldRect bounds() const = 0;
+    // 화면에 보이는 월드 사각형 (프레임마다, InWorld) — 서버에 관심 영역으로 알린다 (Phase 11)
+    virtual void setView(render::WorldRect /*visible*/) {}
 
     virtual void togglePause() = 0;
     virtual void stepOnce() = 0;                          // 일시정지 중 한 틱

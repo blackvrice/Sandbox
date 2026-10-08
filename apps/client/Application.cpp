@@ -386,6 +386,7 @@ bool Application::frame() {
         const f64 worldDt = m_config.fixedDt > 0 ? m_config.fixedDt : realDt;
         syncViewport();
         handleWorldInput(worldDt);
+        m_config.world->setView(m_renderWorld.camera.visibleRect()); // 관심 영역 (Phase 11)
         t0 = Clock::now();
         m_config.world->update(worldDt);
         t1 = Clock::now();

@@ -188,6 +188,8 @@ void networkPanel(const PanelInputs& in) {
         row("스냅숏", std::format("{} (epoch {} · 다시 맞춤 {})", n.snapshots, n.epoch, n.resyncs));
         row("받음", std::format("{:.1f} KB/s · 적용 {:.2f} ms", n.receivedKBps, n.applyMs));
         row("보간 지연", std::format("{:.0f} ms · 서버보다 {:.1f} 틱 뒤", n.delayMs, n.behindTicks));
+        row("관심 영역", n.interest);
+        row("다시 접속", n.reconnecting ? std::string("중…") : std::format("{} 번", n.reconnects));
         row("거절된 명령", std::format("{}", n.commandsRejected));
         ImGui::EndTable();
     }
