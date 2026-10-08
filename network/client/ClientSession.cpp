@@ -110,6 +110,7 @@ void ClientSession::onMessage(Message& m) {
         if (const auto* ch = std::get_if<Challenge>(&m)) {
             Auth a;
             a.displayName = m_desc.displayName;
+            a.token = m_desc.token;
             a.contentHash = m_desc.contentHash;
             a.nonce = ch->nonce;
             send(a);

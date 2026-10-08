@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <cstring>
 #include <format>
 
 #include "foundation/assert/Assert.hpp"
@@ -148,7 +149,22 @@ sim::SimulationWorld& ServerHost::world() {
 // Net 절반
 // ---------------------------------------------------------------------------------------------------------------
 
+void ServerHost::releaseTicket(const Client& client, DisconnectReason reason) {
+    const auto it = m_tickets.find(client.token);
+    if (it == m_tickets.end() || it->second.clientId != client.clientId) {
+        return;
+    }
+    if (reason == DisconnectReason::ClientQuit) {
+        m_tickets.erase(it); // 스스로 나갔다 — 다시 접속할 일이 없다
+    } else {
+        it->second.active = false;
+        it->second.expiresAt = m_netNow + m_desc.reconnectSeconds;
+    }
+}
+
 void ServerHost::netStep(f64 now) {
+    m_netNow = now;
+    std::erase_if(m_tickets, [&](const auto& kv) { return !kv.second.active && kv.second.expiresAt < now; });
     m_events.clear();
     m_transport.poll(m_events);
     for (auto& ev : m_events) {
@@ -178,6 +194,7 @@ void ServerHost::netStep(f64 now) {
             if (it->second.state == Client::State::Active) {
                 log::info("net", "나감: {} (#{}) — {}", it->second.name, it->second.clientId,
                           disconnectReasonName(ev.reason));
+                releaseTicket(it->second, ev.reason);
                 m_byClientId.erase(it->second.clientId);
                 const std::lock_guard lock(m_mutex);
                 m_roster.push_back(RosterEvent{it->second.clientId, false});
@@ -251,12 +268,38 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
                    std::format("서버 콘텐츠 해시 {:016x}, 클라이언트 {:016x}", m_contentHash, auth->contentHash));
             return;
         }
-        if (m_nextClientId == 0) { // u16 을 다 썼다 (세션 안 재사용 없음)
-            reject(conn, client, RejectReason::ServerFull, "클라이언트 번호를 다 썼습니다");
-            return;
+        // 다시 접속 (11.4): 유효한 토큰이면 같은 번호 · 역할. 살아 있는 연결의 토큰이면 옛 연결을 끊고 이어 받는다
+        bool resumed = false;
+        if (!auth->token.empty()) {
+            const std::string key(reinterpret_cast<const char*>(auth->token.data()), auth->token.size());
+            if (const auto t = m_tickets.find(key); t != m_tickets.end()) {
+                const Ticket ticket = t->second;
+                if (ticket.active) {
+                    if (const auto old = m_byClientId.find(ticket.clientId); old != m_byClientId.end()) {
+                        log::info("net", "#{} 의 옛 연결 {} 을 끊고 새 연결이 이어 받습니다", ticket.clientId,
+                                  old->second);
+                        dropConnection(old->second, DisconnectReason::Kicked); // 표를 비활성으로 돌린다
+                    }
+                }
+                client.clientId = ticket.clientId;
+                client.role = ticket.role;
+                client.token = key;
+                resumed = true;
+            }
         }
-        client.clientId = m_nextClientId++;
-        client.role = m_desc.defaultRole;
+        if (!resumed) {
+            if (m_nextClientId == 0) { // u16 을 다 썼다 (세션 안 재사용 없음)
+                reject(conn, client, RejectReason::ServerFull, "클라이언트 번호를 다 썼습니다");
+                return;
+            }
+            client.clientId = m_nextClientId++;
+            client.role = m_desc.defaultRole;
+            client.token.resize(kSessionTokenBytes);
+            for (char& b : client.token) {
+                b = static_cast<char>(m_random() & 0xFF);
+            }
+        }
+        m_tickets[client.token] = Ticket{client.clientId, client.role, true, 0};
         client.name = std::move(auth->displayName);
         client.state = Client::State::Active;
         m_byClientId[client.clientId] = conn;
@@ -272,10 +315,8 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
             w.world.speed = m_status.speed;
         }
         w.tickRate = static_cast<u8>(sim::kTickRate);
-        w.sessionToken.resize(kSessionTokenBytes);
-        for (auto& b : w.sessionToken) {
-            b = static_cast<std::byte>(m_random() & 0xFF);
-        }
+        w.sessionToken.resize(client.token.size());
+        std::memcpy(w.sessionToken.data(), client.token.data(), client.token.size());
         if (m_replication) {
             w.replicated = m_replication->table(); // 만든 뒤 바뀌지 않는다 (스레드 사이 읽기 안전)
             w.snapshotRate = static_cast<u8>(sim::kTickRate / std::max<u32>(1, m_desc.snapshotIntervalSteps));
@@ -287,7 +328,8 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
             const std::lock_guard lock(m_mutex);
             m_roster.push_back(RosterEvent{client.clientId, true});
         }
-        log::info("net", "들어옴: {} (#{}, {}) — 연결 {}", client.name, client.clientId, roleName(client.role), conn);
+        log::info("net", "{}: {} (#{}, {}) — 연결 {}", resumed ? "다시 들어옴" : "들어옴", client.name, client.clientId,
+                  roleName(client.role), conn);
         return;
     }
     case Client::State::Active:
@@ -365,6 +407,7 @@ void ServerHost::dropConnection(ConnectionId conn, DisconnectReason reason) {
     const auto it = m_clients.find(conn);
     if (it != m_clients.end()) {
         if (it->second.state == Client::State::Active) {
+            releaseTicket(it->second, reason);
             m_byClientId.erase(it->second.clientId);
             const std::lock_guard lock(m_mutex);
             m_roster.push_back(RosterEvent{it->second.clientId, false});

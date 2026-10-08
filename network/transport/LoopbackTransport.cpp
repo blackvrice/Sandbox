@@ -133,6 +133,21 @@ void LoopbackTransport::disconnect(ConnectionId connection, DisconnectReason rea
     link.peer->pushLocked(std::move(ev));
 }
 
+void LoopbackTransport::severAll() {
+    const std::lock_guard lock(m_network.m_mutex);
+    for (const auto& [id, link] : m_links) {
+        link.peer->m_links.erase(link.peerConnection);
+        for (auto [who, conn] : {std::pair{link.peer, link.peerConnection}, std::pair{this, id}}) {
+            TransportEvent ev;
+            ev.type = TransportEvent::Type::Disconnected;
+            ev.connection = conn;
+            ev.reason = DisconnectReason::Timeout;
+            who->pushLocked(std::move(ev));
+        }
+    }
+    m_links.clear();
+}
+
 TransportStats LoopbackTransport::stats(ConnectionId connection) const {
     const std::lock_guard lock(m_network.m_mutex);
     const auto it = m_links.find(connection);

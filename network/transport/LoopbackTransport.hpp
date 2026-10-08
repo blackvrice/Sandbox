@@ -53,6 +53,9 @@ public:
     [[nodiscard]] TransportStats stats(ConnectionId connection) const override;
     [[nodiscard]] std::string_view name() const noexcept override { return "Loopback"; }
 
+    // 네트워크가 끊긴 것처럼 (시험 — 다시 접속, Phase 11.4): 이 Transport 의 모든 연결에서 양쪽 모두
+    // Disconnected{Timeout} 을 받는다
+    void severAll();
     // 열린 연결 수 (테스트)
     [[nodiscard]] usize openConnections() const;
 

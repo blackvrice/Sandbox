@@ -461,6 +461,67 @@ TEST_SUITE("network") {
         CHECK(results[0].accepted);
     }
 
+    TEST_CASE("server host: session token reconnects with the same id and role within the window (11.4)") {
+        ServerHostDesc desc;
+        desc.defaultRole = Role::Admin;
+        desc.reconnectSeconds = 5;
+        Rig rig(desc);
+        auto first = std::make_unique<Peer>(rig, goodDesc("철수"));
+        pump(rig, {&first->session}, 5);
+        REQUIRE(first->session.state() == ClientState::Connected);
+        const u16 id = first->session.welcome()->clientId;
+        const auto token = first->session.welcome()->sessionToken;
+        REQUIRE(token.size() == kSessionTokenBytes);
+        CHECK(rig.host->reconnectTickets() == 1);
+
+        // 네트워크가 끊긴다 (시간 초과) → 토큰으로 다시 → 같은 번호 · 역할 · 토큰
+        first->transport.severAll();
+        pump(rig, {&first->session}, 2);
+        CHECK(first->session.state() == ClientState::Disconnected);
+        CHECK(rig.host->stats().clients == 0);
+        auto d = goodDesc("철수");
+        d.token = token;
+        Peer again(rig, d);
+        pump(rig, {&again.session}, 5);
+        REQUIRE(again.session.state() == ClientState::Connected);
+        CHECK(again.session.welcome()->clientId == id);
+        CHECK(again.session.welcome()->role == Role::Admin);
+        CHECK(again.session.welcome()->sessionToken == token);
+
+        // 살아 있는 연결의 토큰으로 또 들어오면 옛 연결을 끊고 이어 받는다 (Kicked)
+        Peer takeover(rig, d);
+        pump(rig, {&again.session, &takeover.session}, 5);
+        CHECK(takeover.session.state() == ClientState::Connected);
+        CHECK(takeover.session.welcome()->clientId == id);
+        CHECK(again.session.state() == ClientState::Disconnected);
+        CHECK(again.session.disconnectReason() == DisconnectReason::Kicked);
+        CHECK(rig.host->stats().clients == 1);
+
+        // 시간이 지나면 토큰은 버려진다 → 모르는 토큰은 새 클라이언트
+        takeover.transport.severAll();
+        pump(rig, {&takeover.session}, 2);
+        for (int i = 0; i < 6 * 30; ++i) {
+            rig.step();
+        }
+        CHECK(rig.host->reconnectTickets() == 0);
+        Peer late(rig, d);
+        pump(rig, {&late.session}, 5);
+        REQUIRE(late.session.state() == ClientState::Connected);
+        CHECK(late.session.welcome()->clientId != id);
+        CHECK(late.session.welcome()->sessionToken != token);
+
+        // 스스로 나가면(ClientQuit) 토큰을 지운다
+        const auto lateToken = late.session.welcome()->sessionToken;
+        late.session.disconnect();
+        pump(rig, {}, 2);
+        CHECK(rig.host->reconnectTickets() == 0);
+        auto d2 = goodDesc("철수");
+        d2.token = lateToken;
+        Peer after(rig, d2);
+        pump(rig, {&after.session}, 5);
+        CHECK(after.session.welcome()->clientId != late.session.welcome()->clientId);
+    }
+
     TEST_CASE("server host: threaded mode serves a client in real time") {
         LoopbackNetwork hub;
         LoopbackTransport serverT(hub);

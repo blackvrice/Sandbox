@@ -1,7 +1,7 @@
 #pragma once
 // 클라이언트 쪽 연결: 핸드셰이크 · 명령 보내기 · 결과 · 서버 통계. docs/08-NETWORK.md 4장, ADR-0024.
 // Phase 10: Welcome 뒤 ClientWorld(복제 월드)에 Snapshot · TerrainChunk 를 적용하고 SnapshotAck 를 보낸다.
-// Phase 10B: 선택 상세 (setInspect → InspectResult). Phase 11: 관심 영역 (subscribe).
+// Phase 10B: 선택 상세 (setInspect → InspectResult). Phase 11: 관심 영역 (subscribe), 다시 접속 토큰.
 // SandboxClient 의 NetworkSession 이 쓴다.
 //
 // 한 스레드에서 쓴다 (Transport 계약). 시간은 호출자가 준다 (초) — 핸드셰이크 시간 초과에만 쓴다.
@@ -32,6 +32,8 @@ struct ClientSessionDesc {
     u64 contentHash = 0;
     u64 buildId = 0;
     f64 handshakeTimeoutSeconds = 10;
+    // 다시 접속 (11.4): 지난 Welcome.sessionToken. 서버가 알아보면 같은 clientId · 역할 (모르면 새 클라이언트로)
+    std::vector<std::byte> token;
     // 둘 다 있으면 Welcome 뒤 ClientWorld 를 만들어 Snapshot · TerrainChunk 를 적용한다 (Phase 10). 없으면 스냅숏은 ack
     // 만
     const ecs::ComponentCatalog* catalog = nullptr;

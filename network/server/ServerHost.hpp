@@ -21,7 +21,10 @@
 // 복제 (Phase 10, ADR-0025 · 0026): Sim 절반이 스냅숏 간격(실제 시간 — 속도 배율과 무관하게 초당 15 번)마다
 //   ReplicationWriter::build, 선택 상세를 요청한 클라이언트에는 InspectResult 도.
 // 관심 (Phase 11): Subscribe · 선택(Inspect) 을 ReplicationWriter 에 넘긴다.
-//   [계획] 재접속 토큰 (11.4), 역할 바꾸기 (12).
+// 다시 접속 (11.4): Welcome.sessionToken 을 Auth.token 으로 가져오면 reconnectSeconds 안이면 같은 clientId · 역할.
+//   아직 살아 있는 연결의 토큰이면 옛 연결을 끊고(Kicked) 이어 받는다 (클라이언트 쪽 네트워크만 바뀐 경우). 스스로
+//   나간(ClientQuit) 토큰은 지운다. 상태(복제)는 처음부터 — 클라이언트가 새 epoch 로 받는다.
+//   [계획] 역할 바꾸기 (12).
 
 #include <atomic>
 #include <map>
@@ -51,6 +54,7 @@ struct ServerHostDesc {
     std::vector<std::string> packs; // 콘텐츠 팩 id (Reject{ContentMismatch} 로 알려 준다)
     f64 handshakeTimeoutSeconds = 10;
     f64 statsIntervalSeconds = 1;
+    f64 reconnectSeconds = 60; // 다시 접속 토큰이 유효한 시간 (끊긴 뒤)
     CommandValidatorDesc validator;
     u64 randomSeed = 0; // nonce · 세션 토큰. 0 = std::random_device (테스트는 고정)
     ServerMode mode = ServerMode::Inline;
@@ -103,6 +107,8 @@ public:
     // 월드: Inline 이거나 (Threaded) 시작 전 · 멈춘 뒤에만
     [[nodiscard]] sim::SimulationWorld& world();
     [[nodiscard]] u16 boundPort() const noexcept { return m_transport.boundPort(); }
+    // 다시 접속 토큰 수 (시험) — Net 절반 소유라 Inline 에서만
+    [[nodiscard]] usize reconnectTickets() const noexcept { return m_tickets.size(); }
 
 private:
     struct Client {
@@ -113,8 +119,17 @@ private:
         u16 clientId = 0;
         Role role = Role::Observer;
         std::string name;
+        std::string token; // 세션 토큰 (바이트)
         ClientCommandState commands;
     };
+    // 다시 접속 표 (11.4) — 토큰 → 누구였나
+    struct Ticket {
+        u16 clientId = 0;
+        Role role = Role::Observer;
+        bool active = true; // 지금 연결이 있다
+        f64 expiresAt = 0;  // active 가 아니면 이 시각까지
+    };
+    void releaseTicket(const Client& client, DisconnectReason reason);
     struct ValidatedCommand {
         cmd::ClientId issuer = 0;
         u32 sequence = 0;
@@ -156,6 +171,8 @@ private:
     // Net 절반 소유
     std::map<ConnectionId, Client> m_clients;
     std::map<u16, ConnectionId> m_byClientId;
+    std::map<std::string, Ticket> m_tickets;
+    f64 m_netNow = 0;
     u16 m_nextClientId = 1;
     std::mt19937_64 m_random;
     std::vector<TransportEvent> m_events;
