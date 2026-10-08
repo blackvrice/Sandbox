@@ -3,13 +3,14 @@
 //
 // 메시지 = id(varint) + 필드 (BitStream, 09 5장). 메시지 하나 = Transport 패킷 하나.
 // Phase 9 구현: Hello · Challenge · Auth · Welcome · Reject · Command · CommandResult · ServerStats · Disconnect.
-// Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제).
+// Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제). 10B: Inspect · InspectResult (선택한 개체의 서버 전용 상태).
 // [계획] Subscribe (11) · Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · ContentOverlay · Chat ·
 // RoleChanged (12)
 //        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
 // 상한 (11장): 모든 길이 · 개수에 상한이 있다. 넘으면 decodeMessage 가 오류 → 받는 쪽은 연결을 끊는다.
 
+#include <optional>
 #include <span>
 #include <string>
 #include <variant>
@@ -20,8 +21,8 @@
 
 namespace sbx::net {
 
-inline constexpr u32 kProtocolVersion =
-    2; // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10
+// 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B
+inline constexpr u32 kProtocolVersion = 3;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -37,6 +38,9 @@ inline constexpr usize kMaxReplicatedComponents = 64; // EntityState.mask 가 u6
 inline constexpr usize kMaxSnapshotEntities = 1u << 20;
 inline constexpr usize kMaxComponentBytes = 64 * 1024;
 inline constexpr usize kMaxOpaqueBytes = 16 * 1024;
+inline constexpr usize kMaxInspect = 32;     // 한 번에 볼 수 있는 개체 (선택 상세)
+inline constexpr usize kMaxInspectPath = 64; // 남은 경로 점
+inline constexpr usize kMaxStateBytes = 64;  // 행동 상태 id
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -54,8 +58,10 @@ enum class MessageId : u8 {
     EntityBaseline = 41, // [계획 — Snapshot(epoch) 이 대신한다]
     ContentOverlay = 42, // [계획 Phase 12]
     ServerStats = 50,
-    Chat = 60,        // [계획 Phase 12]
-    RoleChanged = 61, // [계획 Phase 12]
+    Inspect = 51,       // 10B
+    InspectResult = 52, // 10B
+    Chat = 60,          // [계획 Phase 12]
+    RoleChanged = 61,   // [계획 Phase 12]
     Disconnect = 62,
 };
 
@@ -178,12 +184,31 @@ struct TerrainChunk {
         materials; // 머티리얼 번호 kTilesPerChunk 개 (와이어는 길이 부호화 — 콘텐츠 해시가 같으니 번호가 같다)
 };
 
+// --- 선택 상세 (Phase 10B, ADR-0026) — 서버에만 있는 컴포넌트(ai.*)를 선택한 개체에 한해 본다 ------------------------
+// 클라이언트가 볼 개체 집합을 보내면(빈 목록 = 그만) 서버가 스냅숏마다 InspectResult 를 보낸다 (Snapshot 채널 — 잃어도
+// 다음 것이 온다). 읽기 전용이라 모든 역할이 쓸 수 있다.
+struct InspectRequest {
+    std::vector<NetEntityId> ids; // ≤ kMaxInspect
+};
+struct InspectEntry {
+    NetEntityId netId = kInvalidNetEntityId;
+    std::string state;                        // ai.behavior 의 지금 상태 id (없으면 "")
+    f32 sensorRadius = 0;                     // ai.sensor (없으면 0)
+    std::vector<Vec2> path;                   // 남은 경유점 (따라가는 중일 때)
+    std::optional<Vec2> goal;                 // ai.path 의 목표 (따라가는 중 · 대기 중)
+    NetEntityId target = kInvalidNetEntityId; // ai.behavior.target (살아 있으면)
+};
+struct InspectResult {
+    u64 serverTick = 0;
+    std::vector<InspectEntry> entries; // 살아 있는 것만, 요청 순서
+};
+
 using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
-                             DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk>;
+                             DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
-// 이 메시지가 가는 채널: Snapshot · SnapshotAck = Snapshot, TerrainChunk = Bulk, 나머지 = Control
+// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk = Bulk, 나머지 = Control
 [[nodiscard]] Channel channelOf(const Message& m) noexcept;
 
 [[nodiscard]] std::vector<std::byte> encodeMessage(const Message& m);

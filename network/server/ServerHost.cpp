@@ -8,6 +8,7 @@
 #include "foundation/assert/Assert.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
+#include "network/replication/Inspect.hpp"
 
 namespace sbx::net {
 
@@ -84,6 +85,7 @@ Expected<void> ServerHost::start(const Endpoint& at) {
     } else {
         m_nextTickAt = interval;
         m_statsWindowStart = 0;
+        m_nextSnapshotAt = snapshotIntervalSeconds();
     }
     return {};
 }
@@ -313,6 +315,12 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         m_acks.emplace_back(client.clientId, *ack);
         return;
     }
+    if (auto* inspect = std::get_if<InspectRequest>(&msg)) {
+        // 읽기 전용 — 모든 역할 (개수 상한은 decode 가 본다)
+        const std::lock_guard lock(m_mutex);
+        m_inspectRequests.emplace_back(client.clientId, std::move(*inspect));
+        return;
+    }
     if (std::holds_alternative<DisconnectMsg>(msg)) {
         // 클라이언트가 곧 끊는다 — Transport 의 Disconnected 로 정리된다
         return;
@@ -412,11 +420,25 @@ void ServerHost::simStep(f64 now) {
     std::vector<ValidatedCommand> commands;
     std::vector<RosterEvent> roster;
     std::vector<std::pair<u16, SnapshotAck>> acks;
+    std::vector<std::pair<u16, InspectRequest>> inspects;
     {
         const std::lock_guard lock(m_mutex);
         commands.swap(m_inbox);
         roster.swap(m_roster);
         acks.swap(m_acks);
+        inspects.swap(m_inspectRequests);
+    }
+    for (const RosterEvent& r : roster) {
+        if (!r.joined) {
+            m_inspect.erase(r.clientId);
+        }
+    }
+    for (auto& [id, req] : inspects) {
+        if (req.ids.empty()) {
+            m_inspect.erase(id);
+        } else {
+            m_inspect[id] = std::move(req.ids);
+        }
     }
     if (m_replication) {
         for (const RosterEvent& r : roster) {
@@ -496,14 +518,24 @@ void ServerHost::simStep(f64 now) {
         m_ticksInWindow = 0;
     }
 
-    // 복제: snapshotIntervalSteps 단계마다 (일시정지 편집 단계도 센다 — 멈춘 월드의 편집도 보이게)
+    // 복제: 스냅숏 간격(실제 시간)마다 — 일시정지 편집 단계에서도 (멈춘 월드의 편집도 보이게). 속도 배율이 커도
+    // 초당 횟수는 그대로라 예산 · 클라이언트 적용 비용이 속도에 비례해 늘지 않는다 (ADR-0026). 단계 시각이 조금
+    // 흔들려도 간격의 1/4 까지는 당겨 보낸다
     m_replicationOut.clear();
     ++m_steps;
     f64 replicationMs = -1;
-    if (m_replication && m_steps % std::max<u32>(1, m_desc.snapshotIntervalSteps) == 0) {
+    const f64 snapInterval = snapshotIntervalSeconds();
+    if (m_replication && now >= m_nextSnapshotAt - snapInterval * 0.25) {
         const f64 r0 = steadySeconds();
         m_replication->build(world, m_replicationOut);
+        for (const auto& [id, ids] : m_inspect) {
+            m_replicationOut.emplace_back(id, buildInspect(world, ids));
+        }
         replicationMs = (steadySeconds() - r0) * 1000.0;
+        m_nextSnapshotAt += snapInterval;
+        if (m_nextSnapshotAt < now) { // 많이 밀렸다 (느린 틱) — 쌓아 두지 않는다
+            m_nextSnapshotAt = now + snapInterval * 0.5;
+        }
     }
 
     const std::lock_guard lock(m_mutex);
@@ -537,6 +569,10 @@ void ServerHost::simStep(f64 now) {
     }
 }
 
+f64 ServerHost::snapshotIntervalSeconds() const noexcept {
+    return static_cast<f64>(std::max<u32>(1, m_desc.snapshotIntervalSteps)) / static_cast<f64>(sim::kTickRate);
+}
+
 void ServerHost::publishStatus() {
     const auto& world = m_runner->world();
     const std::lock_guard lock(m_mutex);
@@ -552,6 +588,7 @@ void ServerHost::simThreadMain() {
     using Clock = std::chrono::steady_clock;
     auto next = Clock::now();
     m_statsWindowStart = steadySeconds();
+    m_nextSnapshotAt = m_statsWindowStart + snapshotIntervalSeconds();
     std::mutex sleepMutex;
     std::condition_variable never;
     while (!m_quitSim.load(std::memory_order_acquire)) {

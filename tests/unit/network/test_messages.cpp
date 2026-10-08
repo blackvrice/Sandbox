@@ -159,6 +159,49 @@ TEST_SUITE("network") {
         CHECK_FALSE(decodeMessage(welcome).has_value());
     }
 
+    TEST_CASE("messages: Inspect · InspectResult round-trip, channel and limits (10B)") {
+        InspectRequest q;
+        q.ids = {3, 70000, 1};
+        CHECK(roundTrip(q).ids == q.ids);
+        CHECK(channelOf(Message{q}) == Channel::Control);
+        CHECK(roundTrip(InspectRequest{}).ids.empty());
+
+        InspectResult r;
+        r.serverTick = 12345;
+        InspectEntry e;
+        e.netId = 7;
+        e.state = "flee";
+        e.sensorRadius = 6.5f;
+        e.path = {{1, 2}, {-3.5f, 4}};
+        e.goal = Vec2{9, -9};
+        e.target = 42;
+        InspectEntry e8;
+        e8.netId = 8;
+        r.entries = {e, e8};
+        const InspectResult r2 = roundTrip(r);
+        CHECK(channelOf(Message{r}) == Channel::Snapshot);
+        CHECK(r2.serverTick == 12345);
+        REQUIRE(r2.entries.size() == 2);
+        CHECK(r2.entries[0].state == "flee");
+        CHECK(r2.entries[0].sensorRadius == 6.5f);
+        CHECK(r2.entries[0].path == e.path);
+        CHECK(r2.entries[0].goal == Vec2{9, -9});
+        CHECK(r2.entries[0].target == 42);
+        CHECK(r2.entries[1].netId == 8);
+        CHECK_FALSE(r2.entries[1].goal.has_value());
+        CHECK(r2.entries[1].state.empty());
+
+        // 상한: 33 개 요청은 형식 오류
+        BitWriter many;
+        many.writeVarU(static_cast<u8>(MessageId::Inspect));
+        many.writeVarU(kMaxInspect + 1);
+        for (usize i = 0; i <= kMaxInspect; ++i) {
+            many.writeVarU(i + 1);
+        }
+        CHECK_FALSE(decodeMessage(many.bytes()).has_value());
+        CHECK(kProtocolVersion == 3);
+    }
+
     TEST_CASE("command codec: format limits — counts, NaN, unknown tag, bad JSON, shape, radius") {
         auto decode = [](const BitWriter& w) {
             BitReader r(w.bytes());

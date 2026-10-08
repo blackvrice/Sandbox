@@ -84,6 +84,10 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::Snapshot;
             } else if constexpr (std::is_same_v<T, SnapshotAck>) {
                 return MessageId::SnapshotAck;
+            } else if constexpr (std::is_same_v<T, InspectRequest>) {
+                return MessageId::Inspect;
+            } else if constexpr (std::is_same_v<T, InspectResult>) {
+                return MessageId::InspectResult;
             } else {
                 static_assert(std::is_same_v<T, TerrainChunk>);
                 return MessageId::TerrainChunk;
@@ -124,6 +128,10 @@ std::string_view messageName(MessageId id) noexcept {
         return "ContentOverlay";
     case MessageId::ServerStats:
         return "ServerStats";
+    case MessageId::Inspect:
+        return "Inspect";
+    case MessageId::InspectResult:
+        return "InspectResult";
     case MessageId::Chat:
         return "Chat";
     case MessageId::RoleChanged:
@@ -135,7 +143,8 @@ std::string_view messageName(MessageId id) noexcept {
 }
 
 Channel channelOf(const Message& m) noexcept {
-    if (std::holds_alternative<Snapshot>(m) || std::holds_alternative<SnapshotAck>(m)) {
+    if (std::holds_alternative<Snapshot>(m) || std::holds_alternative<SnapshotAck>(m) ||
+        std::holds_alternative<InspectResult>(m)) {
         return Channel::Snapshot;
     }
     if (std::holds_alternative<TerrainChunk>(m)) {
@@ -317,6 +326,33 @@ void encodeBody(BitWriter& w, const TerrainChunk& m) {
     }
 }
 
+void encodeBody(BitWriter& w, const InspectRequest& m) {
+    w.writeVarU(m.ids.size());
+    for (const NetEntityId id : m.ids) {
+        w.writeVarU(id);
+    }
+}
+void encodeBody(BitWriter& w, const InspectResult& m) {
+    w.writeVarU(m.serverTick);
+    w.writeVarU(m.entries.size());
+    for (const InspectEntry& e : m.entries) {
+        w.writeVarU(e.netId);
+        w.writeString(e.state);
+        w.writeF32(e.sensorRadius);
+        w.writeVarU(e.path.size());
+        for (const Vec2 p : e.path) {
+            w.writeF32(p.x);
+            w.writeF32(p.y);
+        }
+        w.writeBool(e.goal.has_value());
+        if (e.goal) {
+            w.writeF32(e.goal->x);
+            w.writeF32(e.goal->y);
+        }
+        w.writeVarU(e.target);
+    }
+}
+
 Hello decodeHello(BitReader& r) {
     Hello m;
     m.protocolVersion = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
@@ -493,6 +529,39 @@ TerrainChunk decodeTerrainChunk(BitReader& r) {
     }
     return m;
 }
+InspectRequest decodeInspect(BitReader& r) {
+    InspectRequest m;
+    const u64 n = r.readVarU(kMaxInspect);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        m.ids.push_back(static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull)));
+    }
+    return m;
+}
+InspectResult decodeInspectResult(BitReader& r) {
+    InspectResult m;
+    m.serverTick = r.readVarU();
+    const u64 n = r.readVarU(kMaxInspect);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        InspectEntry e;
+        e.netId = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));
+        e.state = r.readString(kMaxStateBytes);
+        e.sensorRadius = readFiniteF32(r);
+        const u64 np = r.readVarU(kMaxInspectPath);
+        for (u64 k = 0; k < np && !r.error(); ++k) {
+            const f32 x = readFiniteF32(r);
+            const f32 y = readFiniteF32(r);
+            e.path.push_back({x, y});
+        }
+        if (r.readBool()) {
+            const f32 x = readFiniteF32(r);
+            const f32 y = readFiniteF32(r);
+            e.goal = Vec2{x, y};
+        }
+        e.target = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));
+        m.entries.push_back(std::move(e));
+    }
+    return m;
+}
 DisconnectMsg decodeDisconnect(BitReader& r) {
 
     const u8 reason = r.readU8();
@@ -556,6 +625,12 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::TerrainChunk:
         out = decodeTerrainChunk(r);
+        break;
+    case MessageId::Inspect:
+        out = decodeInspect(r);
+        break;
+    case MessageId::InspectResult:
+        out = decodeInspectResult(r);
         break;
     case MessageId::Disconnect:
         out = decodeDisconnect(r);

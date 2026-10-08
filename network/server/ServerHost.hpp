@@ -10,7 +10,7 @@
 //   —
 //              Welcome 에 싣는다). 모두 뮤텍스 + vector 교환 (배치마다 락 한 번, 01 5.3).
 //
-// 진행 방식 (ADR-0021 의 DirectSim 과 같은 두 가지)
+// 진행 방식 (두 가지 — LocalServerHost 도 같다, ADR-0026)
 //   Threaded  start() 가 Simulation 스레드와 Net IO 스레드를 띄운다. SandboxServer.
 //   Inline    update(dt) 가 그 자리에서 Net → 틱(밀린 만큼, 최대 kMaxCatchUpTicks) → Net 을 돈다. 단위 테스트 — 시간을
 //             손으로 넣으므로 결정적이다.
@@ -18,7 +18,9 @@
 // 핸드셰이크 (08 4장): Connected → Hello → Challenge{nonce} → Auth → Welcome | Reject + 끊기.
 //   Reject: 버전이 다름 · 콘텐츠 해시가 다름(팩 목록과 해시를 실어 준다) · 가득 참 · 순서 틀림 · nonce 틀림 ·
 //           이름 규칙 · 시간 초과(handshakeTimeout). 해석할 수 없는 메시지 → ProtocolError 로 끊는다.
-//   [계획] Subscribe · Bulk · Ready · Snapshot (Phase 10 · 11), 재접속 토큰 (11.4), 역할 바꾸기 (12).
+// 복제 (Phase 10, ADR-0025 · 0026): Sim 절반이 스냅숏 간격(실제 시간 — 속도 배율과 무관하게 초당 15 번)마다
+//   ReplicationWriter::build, 선택 상세를 요청한 클라이언트에는 InspectResult 도.
+//   [계획] Subscribe (Phase 11), 재접속 토큰 (11.4), 역할 바꾸기 (12).
 
 #include <atomic>
 #include <map>
@@ -52,8 +54,8 @@ struct ServerHostDesc {
     u64 randomSeed = 0; // nonce · 세션 토큰. 0 = std::random_device (테스트는 고정)
     ServerMode mode = ServerMode::Inline;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
-    // 복제 (Phase 10, ADR-0025): 스냅숏 간격(Simulation 단계 수 — 2 = 30 TPS 에서 15 Hz) · 클라이언트당 초당 바이트
-    // 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
+    // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
+    // 클라이언트당 초당 바이트 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
     bool replicate = true;
     u32 snapshotIntervalSteps = 2;
     usize snapshotBytesPerSecond = 256 * 1024;
@@ -141,6 +143,7 @@ private:
     void simStep(f64 now);
     void simThreadMain();
     void publishStatus();
+    [[nodiscard]] f64 snapshotIntervalSeconds() const noexcept;
 
     INetworkTransport& m_transport;
     std::unique_ptr<scenario::ScenarioRunner> m_runner;
@@ -161,6 +164,8 @@ private:
         m_replication; // 표(table)는 만든 뒤 바뀌지 않는다 — Net 절반이 Welcome 에 읽는다
     u64 m_steps = 0;
     std::vector<std::pair<u16, Message>> m_replicationOut;
+    f64 m_nextSnapshotAt = 0;                          // 다음 스냅숏 시각 (실제 초)
+    std::map<u16, std::vector<NetEntityId>> m_inspect; // 클라이언트별 선택 상세 (10B)
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;
@@ -180,6 +185,8 @@ private:
     };
     std::vector<RosterEvent> m_roster;               // Net → Sim: 복제 대상 추가 · 제거
     std::vector<std::pair<u16, SnapshotAck>> m_acks; // Net → Sim
+    // Net → Sim: 선택 상세 요청 (10B)
+    std::vector<std::pair<u16, InspectRequest>> m_inspectRequests;
     WorldStatus m_status;
     ServerHostStats m_stats;
 

@@ -10,7 +10,7 @@
 //     despawns → 파괴. entities → 없으면 만든다(spawn 이 아니어도 — 방어), mask 에 없는 복제 컴포넌트는 떼고, 받은 값을
 //     쓴다. EntityRef 필드는 netId → 로컬 EntityId (모르면 null). [계획] 대기 목록 — 나중에 생기면 다시 연결 (6.4)
 //   보간용 표본: core.transform 이 갱신될 때마다 (serverTick, 위치) 를 엔티티마다 둘 (직전 · 지금) 남긴다 (9장 — 그리는
-//   쪽이 renderTick 으로 보간한다).
+//   쪽이 renderTick 으로 보간한다, sampleTransform). 직전 표본의 틱은 적어도 직전 스냅숏의 틱 (멈춰 있다 움직인 개체).
 // 한 스레드에서 쓴다 (ClientSession 과 같은 스레드).
 
 #include <optional>
@@ -48,6 +48,11 @@ struct TransformTrack {
     TransformSample current;
     u8 samples = 0; // 0 ~ 2 (previous 가 의미 있으려면 2)
 };
+
+// renderTick 에서의 위치 · 회전 (9장): 직전 · 지금 사이를 선형 보간, 구간 밖은 끝값 (외삽 없음 [계획]). 두 표본이
+// 같은 틱(일시정지 편집)이거나 한 구간에 teleportDistance 넘게 움직였으면 지금 값
+[[nodiscard]] TransformSample sampleTransform(const TransformTrack& track, f64 renderTick,
+                                              f32 teleportDistance = 8.0f) noexcept;
 
 class ClientWorld {
 public:

@@ -1,5 +1,7 @@
 #include "network/client/ClientWorld.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <format>
 
 #include "core/components/core/Identity.hpp"
@@ -99,6 +101,25 @@ void ClientWorld::destroy(NetEntityId id) {
     ++m_stats.despawns;
 }
 
+TransformSample sampleTransform(const TransformTrack& t, f64 renderTick, f32 teleportDistance) noexcept {
+    if (t.samples < 2 || t.current.tick <= t.previous.tick || renderTick >= static_cast<f64>(t.current.tick)) {
+        return t.current;
+    }
+    if (renderTick <= static_cast<f64>(t.previous.tick)) {
+        return t.previous;
+    }
+    const Vec2 d = t.current.position - t.previous.position;
+    if (d.x * d.x + d.y * d.y > teleportDistance * teleportDistance) {
+        return t.current; // 순간이동 (또는 손실로 큰 구간) — 미끄러지지 않게
+    }
+    const f64 a = (renderTick - static_cast<f64>(t.previous.tick)) / static_cast<f64>(t.current.tick - t.previous.tick);
+    const f32 af = static_cast<f32>(a);
+    // 회전: 최단 각도
+    constexpr f32 kTwoPi = 6.28318530717959f;
+    const f32 dr = std::remainder(t.current.rotation - t.previous.rotation, kTwoPi);
+    return TransformSample{t.current.tick, t.previous.position + d * af, t.previous.rotation + dr * af};
+}
+
 bool ClientWorld::apply(const Snapshot& s) {
     if (s.epoch < m_epoch || (s.epoch == m_epoch && s.snapshotId <= m_lastSnapshot)) {
         ++m_stats.snapshotsDropped;
@@ -160,7 +181,10 @@ bool ClientWorld::apply(const Snapshot& s) {
                 const auto* t = static_cast<const comp::Transform*>(raw);
                 TransformTrack& tr = m_tracks[es.netId];
                 if (tr.samples > 0) {
+                    // 직전 표본 = 지난 값. 이 엔티티가 몇 스냅숏 동안 안 바뀌었으면(멈춰 있었다) 직전 스냅숏 틱까지는
+                    // 그 자리였다고 본다 — 오래전 표본에서 보간하면 움직임이 긴 구간에 퍼져 보인다 (10B)
                     tr.previous = tr.current;
+                    tr.previous.tick = std::max(tr.previous.tick, m_serverTick);
                 }
                 tr.current = TransformSample{s.serverTick, t->position, t->rotation};
                 tr.samples = static_cast<u8>(tr.samples < 2 ? tr.samples + 1 : 2);

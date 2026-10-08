@@ -21,14 +21,20 @@ add_library(SandboxNetwork STATIC
     server/CommandValidator.cpp
     server/ServerHost.hpp
     server/ServerHost.cpp
+    server/LocalServerHost.hpp
+    server/LocalServerHost.cpp
 
     client/ClientSession.hpp
     client/ClientSession.cpp
     client/ClientWorld.hpp
     client/ClientWorld.cpp
+    client/InterpolationClock.hpp
+    client/InterpolationClock.cpp
 
     replication/ReplicationWriter.hpp
     replication/ReplicationWriter.cpp
+    replication/Inspect.hpp
+    replication/Inspect.cpp
 )
 add_library(Sandbox::Network ALIAS SandboxNetwork)
 target_link_libraries(SandboxNetwork

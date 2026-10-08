@@ -1,5 +1,7 @@
 #include "network/client/ClientSession.hpp"
 
+#include <algorithm>
+
 #include "foundation/log/Log.hpp"
 
 namespace sbx::net {
@@ -161,6 +163,13 @@ void ClientSession::onMessage(Message& m) {
             }
             return;
         }
+        if (auto* ir = std::get_if<InspectResult>(&m)) {
+            // 요청을 거둔 뒤 늦게 온 것 · 옛것은 버린다
+            if (!m_inspectIds.empty() && (!m_inspect || ir->serverTick >= m_inspect->serverTick)) {
+                m_inspect = std::move(*ir);
+            }
+            return;
+        }
         break;
     default:
         break;
@@ -176,6 +185,21 @@ u32 ClientSession::sendCommand(cmd::CommandPayload payload) {
     const u32 seq = m_nextSequence++;
     send(CommandMsg{seq, std::move(payload)});
     return seq;
+}
+
+void ClientSession::setInspect(std::span<const NetEntityId> ids) {
+    if (m_state != ClientState::Connected) {
+        return;
+    }
+    const std::span<const NetEntityId> clipped = ids.first(std::min(ids.size(), kMaxInspect));
+    if (std::ranges::equal(clipped, m_inspectIds)) {
+        return;
+    }
+    m_inspectIds.assign(clipped.begin(), clipped.end());
+    if (m_inspectIds.empty()) {
+        m_inspect.reset();
+    }
+    send(InspectRequest{m_inspectIds});
 }
 
 void ClientSession::disconnect() {
