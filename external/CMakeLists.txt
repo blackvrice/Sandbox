@@ -35,3 +35,52 @@ if(MSVC)
 else()
     target_compile_options(sbx_imgui PRIVATE -w)
 endif()
+
+# ENet 1.3.18 (MIT) — 신뢰성 UDP, SandboxNetwork 의 EnetTransport 만 쓴다 (ADR-0010 · ADR-0024). C 라이브러리라 C 언어를
+# 켠다. 헤더(enet/*.h)는 network/transport 에서만 include 할 수 있다 (tools/check_includes.py). Windows 는 winsock.
+enable_language(C)
+add_library(sbx_enet STATIC
+    enet/callbacks.c
+    enet/compress.c
+    enet/host.c
+    enet/list.c
+    enet/packet.c
+    enet/peer.c
+    enet/protocol.c
+    enet/unix.c
+    enet/win32.c
+)
+target_include_directories(sbx_enet SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/enet/include")
+if(WIN32)
+    target_link_libraries(sbx_enet PUBLIC ws2_32 winmm)
+    # winsock 의 옛 함수(inet_addr · gethostbyname) 경고 끔
+    target_compile_definitions(sbx_enet PRIVATE _WINSOCK_DEPRECATED_NO_WARNINGS _CRT_SECURE_NO_WARNINGS)
+else()
+    # 업스트림 CMakeLists 의 configure 단계와 같은 검사 (unix.c 가 쓰는 함수 · 타입)
+    include(CheckFunctionExists)
+    include(CheckStructHasMember)
+    include(CheckTypeSize)
+    check_function_exists("fcntl" SBX_ENET_HAS_FCNTL)
+    check_function_exists("poll" SBX_ENET_HAS_POLL)
+    check_function_exists("getaddrinfo" SBX_ENET_HAS_GETADDRINFO)
+    check_function_exists("getnameinfo" SBX_ENET_HAS_GETNAMEINFO)
+    check_function_exists("gethostbyname_r" SBX_ENET_HAS_GETHOSTBYNAME_R)
+    check_function_exists("gethostbyaddr_r" SBX_ENET_HAS_GETHOSTBYADDR_R)
+    check_function_exists("inet_pton" SBX_ENET_HAS_INET_PTON)
+    check_function_exists("inet_ntop" SBX_ENET_HAS_INET_NTOP)
+    check_struct_has_member("struct msghdr" "msg_flags" "sys/types.h;sys/socket.h" SBX_ENET_HAS_MSGHDR_FLAGS)
+    set(CMAKE_EXTRA_INCLUDE_FILES "sys/types.h" "sys/socket.h")
+    check_type_size("socklen_t" SBX_ENET_HAS_SOCKLEN_T BUILTIN_TYPES_ONLY)
+    unset(CMAKE_EXTRA_INCLUDE_FILES)
+    foreach(_f FCNTL POLL GETADDRINFO GETNAMEINFO GETHOSTBYNAME_R GETHOSTBYADDR_R INET_PTON INET_NTOP MSGHDR_FLAGS SOCKLEN_T)
+        if(SBX_ENET_HAS_${_f})
+            target_compile_definitions(sbx_enet PRIVATE HAS_${_f}=1)
+        endif()
+    endforeach()
+endif()
+# 서드파티 코드의 경고는 우리 정책(경고 = 오류)에서 뺀다
+if(MSVC)
+    target_compile_options(sbx_enet PRIVATE /w)
+else()
+    target_compile_options(sbx_enet PRIVATE -w)
+endif()
