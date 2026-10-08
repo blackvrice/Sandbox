@@ -7,6 +7,15 @@
 
 ---
 
+## 2026-10-08 — 측정: 사용자 PC (MSVC Release) sbx_bench --only net.
+
+**무엇을** 사용자가 보낸 결과를 14-PERFORMANCE 7.11 · 16-ROADMAP Phase 11 에 기록. 바이트 · 관심 개체 · late_join 스냅숏 수가
+컨테이너(clang)와 정확히 같고, 만들기 시간은 클라 16 · 화면 13.5 ms (컨테이너 37 ms), 훑기 약 2 ms.
+
+**남은 일** 14 1.4 의 3 ms 목표는 여전히 [계획 15]. MANUAL-QA 11 의 나머지 (확대 · 다시 접속).
+
+---
+
 ## 2026-10-08 — 문서: sbx_bench 는 SBX_BUILD_BENCH=ON 으로 구성해야 생긴다
 
 **무엇을** MANUAL-QA Phase 11 · 15-BUILD 에 sbx_bench 를 켜는 방법(CLion 프로필 CMake options 에 `-DSBX_BUILD_BENCH=ON`)을

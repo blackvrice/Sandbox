@@ -404,7 +404,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 11.4 ✅ 세션 토큰 (60 초, ClientQuit 면 지움, 살아 있는 연결이면 옛 연결 Kicked). SandboxClient --connect 는 시간 초과면 2 초마다
         다시 (60 초까지), 그동안 옛 복제본
 완료 기준 바이트 ∝ 관심 개체 ✅ (개체당 약 19.6 B — 14 7.11) · Late Join(화면, 256 KB/s) 0.33 초 ✅.
-        14 1.4 의 "클라 16 · 50k 스냅숏 < 3 ms" 는 37 ms — 바이트 재사용 · Net 스레드 인코딩 [계획 15]
+        14 1.4 의 "클라 16 · 50k 스냅숏 < 3 ms" 는 37 ms (사용자 PC MSVC 13.5 ms) — 바이트 재사용 · Net 스레드 인코딩 [계획 15]
 ```
 
 ```text
@@ -414,8 +414,8 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
            net · client 73 케이스 경고 0
   Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client 170 케이스. 창 ecosystem_survival: 확대하면
            관심 "청크 -1..2 × -2..1", 클라이언트 개체 2,316 → 692 · 받은 KB/s 425 → 145
-  성능     Release sbx_bench --only net. (14 7.11)
-  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 11
+  성능     Release sbx_bench --only net. (14 7.11) — 사용자 PC MSVC 도 측정 (바이트 같음, 클라 16 화면 13.5 ms)
+  남음     사용자 PC (MSVC): ctest, MANUAL-QA Phase 11 (sbx_bench 항목은 끝남)
   다음     Phase 12 — Multiplayer Editor (1차 목표선)
 ```
 
