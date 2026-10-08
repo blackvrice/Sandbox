@@ -1,5 +1,6 @@
 #include "network/server/ServerHost.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <format>
@@ -52,6 +53,13 @@ ServerHost::ServerHost(INetworkTransport& transport, std::unique_ptr<scenario::S
     m_meta.maxChunkX = world.desc().bounds.maxChunk.x;
     m_meta.maxChunkY = world.desc().bounds.maxChunk.y;
     m_contentHash = world.content().contentHash();
+    if (m_desc.replicate) {
+        ReplicationDesc rd;
+        const u32 interval = std::max<u32>(1, m_desc.snapshotIntervalSteps);
+        // 초당 예산 → 스냅숏당 (스냅숏 빈도 = 30 TPS ÷ 간격, 속도 배율과 무관하게 셈)
+        rd.bytesPerSnapshot = m_desc.snapshotBytesPerSecond * interval / sim::kTickRate;
+        m_replication = std::make_unique<ReplicationWriter>(world.catalog(), rd);
+    }
     publishStatus();
 }
 
@@ -169,6 +177,8 @@ void ServerHost::netStep(f64 now) {
                 log::info("net", "나감: {} (#{}) — {}", it->second.name, it->second.clientId,
                           disconnectReasonName(ev.reason));
                 m_byClientId.erase(it->second.clientId);
+                const std::lock_guard lock(m_mutex);
+                m_roster.push_back(RosterEvent{it->second.clientId, false});
             }
             m_clients.erase(it);
             break;
@@ -264,7 +274,17 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         for (auto& b : w.sessionToken) {
             b = static_cast<std::byte>(m_random() & 0xFF);
         }
+        if (m_replication) {
+            w.replicated = m_replication->table(); // 만든 뒤 바뀌지 않는다 (스레드 사이 읽기 안전)
+            w.snapshotRate = static_cast<u8>(sim::kTickRate / std::max<u32>(1, m_desc.snapshotIntervalSteps));
+        } else {
+            w.snapshotRate = 0;
+        }
         sendTo(conn, w);
+        {
+            const std::lock_guard lock(m_mutex);
+            m_roster.push_back(RosterEvent{client.clientId, true});
+        }
         log::info("net", "들어옴: {} (#{}, {}) — 연결 {}", client.name, client.clientId, roleName(client.role), conn);
         return;
     }
@@ -286,6 +306,11 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         }
         const std::lock_guard lock(m_mutex);
         m_inbox.push_back(ValidatedCommand{client.clientId, command->sequence, std::move(command->payload)});
+        return;
+    }
+    if (const auto* ack = std::get_if<SnapshotAck>(&msg)) {
+        const std::lock_guard lock(m_mutex);
+        m_acks.emplace_back(client.clientId, *ack);
         return;
     }
     if (std::holds_alternative<DisconnectMsg>(msg)) {
@@ -328,6 +353,8 @@ void ServerHost::dropConnection(ConnectionId conn, DisconnectReason reason) {
     if (it != m_clients.end()) {
         if (it->second.state == Client::State::Active) {
             m_byClientId.erase(it->second.clientId);
+            const std::lock_guard lock(m_mutex);
+            m_roster.push_back(RosterEvent{it->second.clientId, false});
         }
         m_clients.erase(it);
     }
@@ -383,9 +410,21 @@ void ServerHost::netThreadMain() {
 
 void ServerHost::simStep(f64 now) {
     std::vector<ValidatedCommand> commands;
+    std::vector<RosterEvent> roster;
+    std::vector<std::pair<u16, SnapshotAck>> acks;
     {
         const std::lock_guard lock(m_mutex);
         commands.swap(m_inbox);
+        roster.swap(m_roster);
+        acks.swap(m_acks);
+    }
+    if (m_replication) {
+        for (const RosterEvent& r : roster) {
+            r.joined ? m_replication->addClient(r.clientId) : m_replication->removeClient(r.clientId);
+        }
+        for (const auto& [id, a] : acks) {
+            m_replication->onAck(id, a.epoch, a.snapshotId);
+        }
     }
     auto& world = m_runner->world();
     if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
@@ -457,15 +496,33 @@ void ServerHost::simStep(f64 now) {
         m_ticksInWindow = 0;
     }
 
+    // 복제: snapshotIntervalSteps 단계마다 (일시정지 편집 단계도 센다 — 멈춘 월드의 편집도 보이게)
+    m_replicationOut.clear();
+    ++m_steps;
+    f64 replicationMs = -1;
+    if (m_replication && m_steps % std::max<u32>(1, m_desc.snapshotIntervalSteps) == 0) {
+        const f64 r0 = steadySeconds();
+        m_replication->build(world, m_replicationOut);
+        replicationMs = (steadySeconds() - r0) * 1000.0;
+    }
+
     const std::lock_guard lock(m_mutex);
     for (auto& r : results) {
         m_outbox.push_back(std::move(r));
+    }
+    for (auto& [id, m] : m_replicationOut) {
+        m_outbox.push_back(Outgoing{id, std::move(m)});
     }
     if (statsMsg) {
         m_outbox.push_back(Outgoing{0, *statsMsg});
     }
     m_stats.commandsAccepted += accepted;
     m_stats.commandsRejected += rejected;
+    if (replicationMs >= 0 && !m_replicationOut.empty()) {
+        m_stats.replicationMs =
+            m_stats.snapshotsBuilt == 0 ? replicationMs : m_stats.replicationMs * 0.9 + replicationMs * 0.1;
+        ++m_stats.snapshotsBuilt;
+    }
     if (advanced) {
         ++m_stats.ticksRun;
     }

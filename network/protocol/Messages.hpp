@@ -3,8 +3,10 @@
 //
 // 메시지 = id(varint) + 필드 (BitStream, 09 5장). 메시지 하나 = Transport 패킷 하나.
 // Phase 9 구현: Hello · Challenge · Auth · Welcome · Reject · Command · CommandResult · ServerStats · Disconnect.
-// [계획] Subscribe · Ready (11) · Snapshot · SnapshotAck · TerrainChunk · EntityBaseline (10) · ContentOverlay · Chat ·
-//        RoleChanged (12) — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
+// Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제).
+// [계획] Subscribe (11) · Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · ContentOverlay · Chat ·
+// RoleChanged (12)
+//        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
 // 상한 (11장): 모든 길이 · 개수에 상한이 있다. 넘으면 decodeMessage 가 오류 → 받는 쪽은 연결을 끊는다.
 
@@ -18,7 +20,8 @@
 
 namespace sbx::net {
 
-inline constexpr u32 kProtocolVersion = 1;
+inline constexpr u32 kProtocolVersion =
+    2; // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -28,6 +31,12 @@ inline constexpr usize kSessionTokenBytes = 16;
 inline constexpr usize kMaxWorldNameBytes = 64;
 inline constexpr usize kMaxPacks = 16;
 inline constexpr usize kMaxPackIdBytes = 64;
+inline constexpr usize kMaxStreamMessageBytes =
+    16 * 1024 * 1024;                                 // Snapshot · Bulk (조각 — 예산은 ServerHost 가 정한다)
+inline constexpr usize kMaxReplicatedComponents = 64; // EntityState.mask 가 u64
+inline constexpr usize kMaxSnapshotEntities = 1u << 20;
+inline constexpr usize kMaxComponentBytes = 64 * 1024;
+inline constexpr usize kMaxOpaqueBytes = 16 * 1024;
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -36,13 +45,13 @@ enum class MessageId : u8 {
     Welcome = 4,
     Reject = 5,
     Subscribe = 10, // [계획 Phase 11]
-    Ready = 11,     // [계획 Phase 10]
+    Ready = 11,     // [계획 — Snapshot 이 바로 시작한다, ADR-0025]
     Command = 20,
     CommandResult = 21,
-    Snapshot = 30,       // [계획 Phase 10]
-    SnapshotAck = 31,    // [계획 Phase 10]
-    TerrainChunk = 40,   // [계획 Phase 10]
-    EntityBaseline = 41, // [계획 Phase 10]
+    Snapshot = 30,
+    SnapshotAck = 31,
+    TerrainChunk = 40,
+    EntityBaseline = 41, // [계획 — Snapshot(epoch) 이 대신한다]
     ContentOverlay = 42, // [계획 Phase 12]
     ServerStats = 50,
     Chat = 60,        // [계획 Phase 12]
@@ -98,6 +107,9 @@ struct Welcome {
     u8 tickRate = 30;
     u8 snapshotRate = 15;
     std::vector<std::byte> sessionToken; // kSessionTokenBytes
+    // 복제되는 컴포넌트 표 (stableId, 서버 순서). Snapshot 의 컴포넌트 번호 = 이 표의 칸. 클라이언트가 모르는 것은
+    // 건너뛴다
+    std::vector<u64> replicated;
 };
 struct Reject {
     RejectReason reason = RejectReason::BadHandshake;
@@ -132,12 +144,46 @@ struct DisconnectMsg {
     DisconnectReason reason = DisconnectReason::None;
 };
 
-using Message =
-    std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats, DisconnectMsg>;
+// --- 복제 (Phase 10, 08 6장 · ADR-0025) ----------------------------------------------------------------------
+struct ReplicatedComponent {
+    u8 index = 0;          // Welcome.replicated 의 칸
+    std::vector<u8> bytes; // 컴포넌트 값 (core/serialization/BinaryCodec — EntityRef 는 NetEntityId)
+};
+struct EntityState {
+    NetEntityId netId = kInvalidNetEntityId;
+    bool spawn = false; // 처음 보내거나(받는 쪽에 없을 수 있다) 다시 보냄 — 받는 쪽은 없으면 만든다
+    u64 mask = 0;       // 지금 붙어 있는 복제 컴포넌트 (bit i = 표의 칸 i). 받는 쪽은 mask 에 없는 것을 뗀다
+    std::vector<ReplicatedComponent> components; // 바뀐 것만 (spawn 이면 전부)
+    std::string opaque; // spawn 때만: 서버가 해석하지 않는 컴포넌트 (render.* 등) JSON 텍스트, 없으면 ""
+};
+struct Snapshot {
+    u32 snapshotId = 0; // epoch 안에서 1 부터 단조 증가
+    u32 epoch = 0;      // 다시 맞추기(resync)마다 1 증가 — 받는 쪽은 새 epoch 면 모두 지우고 시작
+    u32 baselineId = 0; // 이 차분의 기준 (0 = 없음)
+    u64 serverTick = 0;
+    bool paused = false;
+    f32 speed = 1.0f;
+    bool complete = true; // 예산 때문에 미룬 엔티티가 없다
+    std::vector<EntityState> entities;
+    std::vector<NetEntityId> despawns;
+};
+struct SnapshotAck {
+    u32 epoch = 0;
+    u32 snapshotId = 0; // 적용한 가장 최근 스냅숏
+};
+struct TerrainChunk {
+    i32 x = 0, y = 0; // 청크 좌표
+    u64 revision = 0;
+    std::vector<u16>
+        materials; // 머티리얼 번호 kTilesPerChunk 개 (와이어는 길이 부호화 — 콘텐츠 해시가 같으니 번호가 같다)
+};
+
+using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
+                             DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
-// 이 메시지가 가는 채널 (Phase 9 의 메시지는 모두 Control)
+// 이 메시지가 가는 채널: Snapshot · SnapshotAck = Snapshot, TerrainChunk = Bulk, 나머지 = Control
 [[nodiscard]] Channel channelOf(const Message& m) noexcept;
 
 [[nodiscard]] std::vector<std::byte> encodeMessage(const Message& m);

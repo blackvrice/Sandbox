@@ -32,6 +32,7 @@
 
 #include "core/scenarios/Scenario.hpp"
 #include "network/protocol/Messages.hpp"
+#include "network/replication/ReplicationWriter.hpp"
 #include "network/server/CommandValidator.hpp"
 #include "network/transport/Transport.hpp"
 
@@ -51,6 +52,11 @@ struct ServerHostDesc {
     u64 randomSeed = 0; // nonce · 세션 토큰. 0 = std::random_device (테스트는 고정)
     ServerMode mode = ServerMode::Inline;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
+    // 복제 (Phase 10, ADR-0025): 스냅숏 간격(Simulation 단계 수 — 2 = 30 TPS 에서 15 Hz) · 클라이언트당 초당 바이트
+    // 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
+    bool replicate = true;
+    u32 snapshotIntervalSteps = 2;
+    usize snapshotBytesPerSecond = 256 * 1024;
 };
 
 // 서버 상태 요약 (아무 스레드에서나 읽는다 — 복사본)
@@ -66,6 +72,8 @@ struct ServerHostStats {
     bool paused = false;
     f32 speed = 1.0f;
     bool reachedStopTick = false;
+    f64 replicationMs = 0; // 스냅숏 만들기 (모든 클라이언트) — 최근 값의 지수 평균, Simulation 스레드 시간
+    u64 snapshotsBuilt = 0;
 };
 
 class ServerHost {
@@ -149,6 +157,10 @@ private:
     std::vector<TransportEvent> m_events;
 
     // Sim 절반 소유
+    std::unique_ptr<ReplicationWriter>
+        m_replication; // 표(table)는 만든 뒤 바뀌지 않는다 — Net 절반이 Welcome 에 읽는다
+    u64 m_steps = 0;
+    std::vector<std::pair<u16, Message>> m_replicationOut;
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;
@@ -162,6 +174,12 @@ private:
     mutable std::mutex m_mutex;
     std::vector<ValidatedCommand> m_inbox;
     std::vector<Outgoing> m_outbox;
+    struct RosterEvent {
+        u16 clientId = 0;
+        bool joined = false;
+    };
+    std::vector<RosterEvent> m_roster;               // Net → Sim: 복제 대상 추가 · 제거
+    std::vector<std::pair<u16, SnapshotAck>> m_acks; // Net → Sim
     WorldStatus m_status;
     ServerHostStats m_stats;
 

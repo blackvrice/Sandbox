@@ -53,6 +53,7 @@ add_executable(SandboxTests
     unit/network/test_transport.cpp
     unit/network/test_server_host.cpp
     unit/network/test_enet.cpp
+    unit/network/test_replication.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
@@ -85,8 +86,13 @@ if(SBX_BUILD_CLIENT)
 endif()
 foreach(suite IN ITEMS ${_sbx_suites})
     add_test(NAME unit_${suite} COMMAND SandboxTests --test-suite=${suite} --no-intro --no-version)
-    set_tests_properties(unit_${suite} PROPERTIES LABELS "unit")
+    # 케이스가 0 개면 실패 (예: 스위트를 등록했는데 실행 파일이 옛것 — doctest 는 0 개도 성공으로 친다)
+    set_tests_properties(unit_${suite} PROPERTIES LABELS "unit" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
 endforeach()
+
+# 복제 수렴 (08 12장 L3′): 서버 + 클라이언트, Loopback 과 Simulated(100 ms ± 20, 5 % 손실, 예산) — 수 초
+add_test(NAME net_convergence COMMAND SandboxTests --test-suite=net --no-intro --no-version)
+set_tests_properties(net_convergence PROPERTIES LABELS "net" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
 
 # 속성 테스트 (참조 모델 대조). 단위 테스트보다 느리므로 라벨을 나눈다.
 add_test(NAME property_ecs COMMAND SandboxTests --test-suite=property --no-intro --no-version)

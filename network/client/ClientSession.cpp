@@ -63,6 +63,9 @@ void ClientSession::update(f64 nowSeconds) {
             }
             break;
         case TransportEvent::Type::Received: {
+            if (ev.channel != Channel::Control) {
+                m_snapshotBytes += ev.data.size();
+            }
             auto m = decodeMessage(ev.data);
             if (!m) {
                 log::warn("net", "서버 메시지를 읽지 못했습니다: {}", m.error().describe());
@@ -113,6 +116,25 @@ void ClientSession::onMessage(Message& m) {
         if (auto* w = std::get_if<Welcome>(&m)) {
             m_welcome = std::move(*w);
             m_state = ClientState::Connected;
+            if (m_desc.catalog != nullptr && m_desc.content != nullptr) {
+                auto world = ClientWorld::create(*m_desc.catalog, *m_desc.content, *m_welcome);
+                if (world) {
+                    m_world = std::move(*world);
+                    for (const TerrainChunk& c : m_earlyTerrain) {
+                        m_world->apply(c);
+                    }
+                } else {
+                    log::warn("net", "복제 월드를 만들지 못했습니다: {}", world.error().describe());
+                }
+            }
+            m_earlyTerrain.clear();
+            return;
+        }
+        if (std::holds_alternative<Snapshot>(m)) {
+            return; // Welcome 보다 먼저 왔다 — 버려도 된다 (ack 하지 않으면 서버가 다음 차분에 담는다)
+        }
+        if (auto* tc = std::get_if<TerrainChunk>(&m)) {
+            m_earlyTerrain.push_back(std::move(*tc));
             return;
         }
         break;
@@ -123,6 +145,20 @@ void ClientSession::onMessage(Message& m) {
         }
         if (const auto* s = std::get_if<ServerStats>(&m)) {
             m_stats = *s;
+            return;
+        }
+        if (const auto* snap = std::get_if<Snapshot>(&m)) {
+            // 복제 월드가 없어도 ack 한다 — 서버가 같은 상태를 계속 다시 보내지 않게
+            const bool applied = m_world == nullptr || m_world->apply(*snap);
+            if (applied) {
+                send(SnapshotAck{snap->epoch, snap->snapshotId});
+            }
+            return;
+        }
+        if (const auto* tc = std::get_if<TerrainChunk>(&m)) {
+            if (m_world != nullptr) {
+                m_world->apply(*tc);
+            }
             return;
         }
         break;

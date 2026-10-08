@@ -24,6 +24,11 @@ add_library(SandboxNetwork STATIC
 
     client/ClientSession.hpp
     client/ClientSession.cpp
+    client/ClientWorld.hpp
+    client/ClientWorld.cpp
+
+    replication/ReplicationWriter.hpp
+    replication/ReplicationWriter.cpp
 )
 add_library(Sandbox::Network ALIAS SandboxNetwork)
 target_link_libraries(SandboxNetwork

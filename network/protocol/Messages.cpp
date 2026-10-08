@@ -5,6 +5,7 @@
 #include <limits>
 #include <type_traits>
 
+#include "core/world/ChunkCoord.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 #include "foundation/text/Utf8.hpp"
@@ -77,9 +78,15 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::CommandResult;
             } else if constexpr (std::is_same_v<T, ServerStats>) {
                 return MessageId::ServerStats;
-            } else {
-                static_assert(std::is_same_v<T, DisconnectMsg>);
+            } else if constexpr (std::is_same_v<T, DisconnectMsg>) {
                 return MessageId::Disconnect;
+            } else if constexpr (std::is_same_v<T, Snapshot>) {
+                return MessageId::Snapshot;
+            } else if constexpr (std::is_same_v<T, SnapshotAck>) {
+                return MessageId::SnapshotAck;
+            } else {
+                static_assert(std::is_same_v<T, TerrainChunk>);
+                return MessageId::TerrainChunk;
             }
         },
         m);
@@ -127,7 +134,13 @@ std::string_view messageName(MessageId id) noexcept {
     return "?";
 }
 
-Channel channelOf(const Message&) noexcept {
+Channel channelOf(const Message& m) noexcept {
+    if (std::holds_alternative<Snapshot>(m) || std::holds_alternative<SnapshotAck>(m)) {
+        return Channel::Snapshot;
+    }
+    if (std::holds_alternative<TerrainChunk>(m)) {
+        return Channel::Bulk;
+    }
     return Channel::Control;
 }
 
@@ -207,6 +220,10 @@ void encodeBody(BitWriter& w, const Welcome& m) {
     w.writeU8(m.tickRate);
     w.writeU8(m.snapshotRate);
     writeBytesFixed(w, m.sessionToken);
+    w.writeVarU(m.replicated.size());
+    for (const u64 id : m.replicated) {
+        w.writeU64(id);
+    }
 }
 void encodeBody(BitWriter& w, const Reject& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -245,6 +262,59 @@ void encodeBody(BitWriter& w, const ServerStats& m) {
 }
 void encodeBody(BitWriter& w, const DisconnectMsg& m) {
     w.writeU8(static_cast<u8>(m.reason));
+}
+void encodeBody(BitWriter& w, const Snapshot& m) {
+    w.writeVarU(m.snapshotId);
+    w.writeVarU(m.epoch);
+    w.writeVarU(m.baselineId);
+    w.writeVarU(m.serverTick);
+    w.writeBool(m.paused);
+    w.writeF32(m.speed);
+    w.writeBool(m.complete);
+    w.writeVarU(m.entities.size());
+    for (const EntityState& e : m.entities) {
+        w.writeVarU(e.netId);
+        w.writeBool(e.spawn);
+        w.writeVarU(e.mask);
+        w.writeVarU(e.components.size());
+        for (const ReplicatedComponent& c : e.components) {
+            w.writeVarU(c.index);
+            w.writeVarU(c.bytes.size());
+            for (const u8 b : c.bytes) {
+                w.writeU8(b);
+            }
+        }
+        if (e.spawn) {
+            w.writeString(e.opaque);
+        }
+    }
+    w.writeVarU(m.despawns.size());
+    for (const NetEntityId id : m.despawns) {
+        w.writeVarU(id);
+    }
+}
+void encodeBody(BitWriter& w, const SnapshotAck& m) {
+    w.writeVarU(m.epoch);
+    w.writeVarU(m.snapshotId);
+}
+void encodeBody(BitWriter& w, const TerrainChunk& m) {
+    w.writeVarI(m.x);
+    w.writeVarI(m.y);
+    w.writeVarU(m.revision);
+    // 길이 부호화 (run, 머티리얼) — 한 머티리얼로 채운 청크는 몇 바이트
+    std::vector<std::pair<u64, u16>> runs;
+    for (const u16 v : m.materials) {
+        if (!runs.empty() && runs.back().second == v) {
+            ++runs.back().first;
+        } else {
+            runs.emplace_back(1, v);
+        }
+    }
+    w.writeVarU(runs.size());
+    for (const auto& [n, v] : runs) {
+        w.writeVarU(n);
+        w.writeVarU(v);
+    }
 }
 
 Hello decodeHello(BitReader& r) {
@@ -285,6 +355,10 @@ Welcome decodeWelcome(BitReader& r) {
     m.tickRate = r.readU8();
     m.snapshotRate = r.readU8();
     m.sessionToken = r.readBytes(kMaxTokenBytes);
+    const u64 n = r.readVarU(kMaxReplicatedComponents);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        m.replicated.push_back(r.readU64());
+    }
     return m;
 }
 Reject decodeReject(BitReader& r) {
@@ -344,7 +418,83 @@ ServerStats decodeServerStats(BitReader& r) {
     m.clients = r.readU8();
     return m;
 }
+Snapshot decodeSnapshot(BitReader& r) {
+    Snapshot m;
+    m.snapshotId = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.epoch = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.baselineId = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.serverTick = r.readVarU();
+    m.paused = r.readBool();
+    m.speed = readFiniteF32(r);
+    m.complete = r.readBool();
+    const u64 n = r.readVarU(kMaxSnapshotEntities);
+    if (r.remainingBits() < n * 8) { // 엔티티마다 최소 몇 바이트 — 큰 개수로 메모리를 먼저 잡지 않게
+        r.fail();
+    }
+    m.entities.reserve(r.error() ? 0 : static_cast<usize>(n));
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        EntityState e;
+        e.netId = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));
+        e.spawn = r.readBool();
+        e.mask = r.readVarU();
+        const u64 nc = r.readVarU(kMaxReplicatedComponents);
+        for (u64 c = 0; c < nc && !r.error(); ++c) {
+            ReplicatedComponent rc;
+            rc.index = static_cast<u8>(r.readVarU(kMaxReplicatedComponents - 1));
+            const u64 len = r.readVarU(kMaxComponentBytes);
+            if (r.remainingBits() < len * 8) {
+                r.fail();
+                break;
+            }
+            rc.bytes.resize(static_cast<usize>(len));
+            for (auto& b : rc.bytes) {
+                b = r.readU8();
+            }
+            e.components.push_back(std::move(rc));
+        }
+        if (e.spawn) {
+            e.opaque = r.readString(kMaxOpaqueBytes);
+        }
+        m.entities.push_back(std::move(e));
+    }
+    const u64 nd = r.readVarU(kMaxSnapshotEntities);
+    if (r.remainingBits() < nd * 8) {
+        r.fail();
+    }
+    for (u64 i = 0; i < nd && !r.error(); ++i) {
+        m.despawns.push_back(static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull)));
+    }
+    return m;
+}
+SnapshotAck decodeSnapshotAck(BitReader& r) {
+    SnapshotAck m;
+    m.epoch = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.snapshotId = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    return m;
+}
+TerrainChunk decodeTerrainChunk(BitReader& r) {
+    TerrainChunk m;
+    m.x = readI32(r);
+    m.y = readI32(r);
+    m.revision = r.readVarU();
+    const u64 runs = r.readVarU(static_cast<u64>(world::kTilesPerChunk));
+    m.materials.reserve(static_cast<usize>(world::kTilesPerChunk));
+    for (u64 i = 0; i < runs && !r.error(); ++i) {
+        const u64 n = r.readVarU(static_cast<u64>(world::kTilesPerChunk));
+        const u16 v = static_cast<u16>(r.readVarU(0xFFFF));
+        if (n == 0 || m.materials.size() + n > static_cast<usize>(world::kTilesPerChunk)) {
+            r.fail();
+            break;
+        }
+        m.materials.insert(m.materials.end(), static_cast<usize>(n), v);
+    }
+    if (m.materials.size() != static_cast<usize>(world::kTilesPerChunk)) {
+        r.fail();
+    }
+    return m;
+}
 DisconnectMsg decodeDisconnect(BitReader& r) {
+
     const u8 reason = r.readU8();
     if (reason > static_cast<u8>(DisconnectReason::ConnectFailed)) {
         r.fail();
@@ -362,15 +512,16 @@ std::vector<std::byte> encodeMessage(const Message& m) {
 }
 
 Expected<Message> decodeMessage(std::span<const std::byte> data) {
-    if (data.size() > kMaxControlMessageBytes) {
-        return makeError(ErrorCode::ParseError, std::format("메시지가 너무 큽니다 ({} 바이트)", data.size()));
-    }
     BitReader r(data);
     const u64 rawId = r.readVarU(255);
     if (r.error()) {
         return makeError(ErrorCode::ParseError, "메시지 id 를 읽지 못했습니다");
     }
     const auto id = static_cast<MessageId>(rawId);
+    const bool stream = id == MessageId::Snapshot || id == MessageId::TerrainChunk;
+    if (data.size() > (stream ? kMaxStreamMessageBytes : kMaxControlMessageBytes)) {
+        return makeError(ErrorCode::ParseError, std::format("메시지가 너무 큽니다 ({} 바이트)", data.size()));
+    }
     Message out;
     switch (id) {
     case MessageId::Hello:
@@ -396,6 +547,15 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::ServerStats:
         out = decodeServerStats(r);
+        break;
+    case MessageId::Snapshot:
+        out = decodeSnapshot(r);
+        break;
+    case MessageId::SnapshotAck:
+        out = decodeSnapshotAck(r);
+        break;
+    case MessageId::TerrainChunk:
+        out = decodeTerrainChunk(r);
         break;
     case MessageId::Disconnect:
         out = decodeDisconnect(r);
