@@ -251,6 +251,9 @@ struct SimCommand { CommandHeader header; CommandPayload payload; };
 
 ### 4.1 검증 (CommandValidator, Stage 1 이전)
 
+구현 (Phase 9, ADR-0024): 1 · 2 · 6 은 서버 Net IO 의 `network/server/CommandValidator` (순번 · 속도 제한 · 권한 — 월드를 보지 않는다),
+3 · 4 · 5 는 SimulationWorld 가 적용하면서 (거절도 `CommandResult`). 대상의 Interest 검사는 `[계획 Phase 11]`.
+
 ```text
 1. 형식: 크기·필드 범위·문자열 길이·배열 길이 상한 (DeleteEntity 최대 4096 등)
 2. 권한: 10-EDITOR 7장 표

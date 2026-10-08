@@ -1,7 +1,9 @@
 # 08. 네트워크 — Transport · Protocol · Replication · Interest
 
-> **규범 문서.** 서버 권한 네트워킹 전체를 정합니다. 상태: 전부 `[계획]` — Phase 9~11.
-> 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md).
+> **규범 문서.** 서버 권한 네트워킹 전체를 정합니다. 상태: **Phase 9 구현** — Transport(ENet · Loopback · Simulated) ·
+> 비트스트림 · 메시지(핸드셰이크 · 명령 · 결과 · 통계 · 끊기) · ServerHost · CommandValidator · ClientSession (12장).
+> 복제(6 · 7 · 9장)는 `[계획 Phase 10]`, Interest · 재접속(8장)은 `[계획 Phase 11]`.
+> 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md).
 
 ---
 
@@ -33,25 +35,28 @@
 ```cpp
 enum class Channel : std::uint8_t { Control = 0, Snapshot = 1, Bulk = 2 };
 
-class INetworkTransport {
+class INetworkTransport {   // network/transport/Transport.hpp — 한 객체 = 한 스레드, ConnectionId 재사용 없음
 public:
     virtual ~INetworkTransport() = default;
-    virtual bool listen(const Endpoint&, std::uint32_t maxConnections) = 0;
-    virtual ConnectionId connect(const Endpoint&) = 0;
-    virtual void send(ConnectionId, Channel, std::span<const std::byte>) = 0;
+    virtual Expected<void> listen(const Endpoint&, u32 maxConnections) = 0;
+    virtual u16 boundPort() const noexcept = 0;               // listen 에서 port 0 이면 OS 가 고른 포트
+    virtual Expected<ConnectionId> connect(const Endpoint&) = 0;
+    virtual void send(ConnectionId, Channel, std::span<const std::byte>) = 0;   // 복사, 끊긴 id 면 버림
     virtual void flush() = 0;
-    virtual void poll(std::vector<TransportEvent>& out) = 0;   // Connected / Disconnected / Received
-    virtual void disconnect(ConnectionId, DisconnectReason) = 0;
-    virtual TransportStats stats(ConnectionId) const = 0;      // rtt, rttVar, loss, bytesIn/Out, queued
+    virtual void poll(std::vector<TransportEvent>& out) = 0;   // Connected / Disconnected{reason} / Received
+    virtual void wait(u32 maxMs);                              // Net IO 스레드가 이벤트를 기다린다
+    virtual void disconnect(ConnectionId, DisconnectReason) = 0; // 쌓인 송신 뒤에 끊는다. 상대만 Disconnected 를 받는다
+    virtual void drain(u32 maxMs);                             // 끊는 중인 연결이 상대에게 닿을 시간 (서버 종료)
+    virtual TransportStats stats(ConnectionId) const = 0;      // rtt, rttVar, loss, bytes · packets in/out
 };
 ```
 
-| 구현                    | 용도              | 비고                                                                                                         |
-|-------------------------|-------------------|--------------------------------------------------------------------------------------------------------------|
-| `EnetTransport`         | 실제 네트워크     | ENet 채널 3개 매핑. Snapshot = `ENET_PACKET_FLAG_UNSEQUENCED` 아님, **unreliable sequenced**(오래된 것 폐기) |
-| `LoopbackTransport`     | 싱글플레이·테스트 | 같은 프로세스, 큐 복사. 직렬화는 그대로 거친다 (경로 동일성)                                                 |
-| `SimulatedTransport`    | 테스트            | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정                                      |
-| `GnsTransport` `[후속]` | 암호화·NAT·릴레이 | ADR로 도입                                                                                                   |
+| 구현                    | 용도              | 비고                                                                                                                                                         |
+|-------------------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `EnetTransport`         | 실제 네트워크     | ENet 1.3.18 채널 3개 매핑. Snapshot = `ENET_PACKET_FLAG_UNSEQUENCED` 아님, **unreliable sequenced**(오래된 것 폐기). 끊기 = `disconnect_later`, 무응답 15 초 |
+| `LoopbackTransport`     | 싱글플레이·테스트 | 같은 프로세스, 큐 복사. 직렬화는 그대로 거친다 (경로 동일성)                                                                                                 |
+| `SimulatedTransport`    | 테스트            | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정                                                                                      |
+| `GnsTransport` `[후속]` | 암호화·NAT·릴레이 | ADR로 도입                                                                                                                                                   |
 
 ENet은 암호화가 없습니다. 공개 인터넷 서버를 운영하기 전에 GNS로 교체하거나 DTLS 계층을 추가해야 합니다 ([16-ROADMAP](16-ROADMAP.md) 위험 R6).
 
@@ -87,36 +92,61 @@ Client                                     Server
 
 ```text
 타임아웃   핸드셰이크 10초, 무응답 연결 15초
-Reconnect  Auth{sessionToken} 이 60초 내 유효하면 같은 clientId/role. 상태는 위 Bulk 부터 다시.
+Reconnect  Auth{sessionToken} 이 60초 내 유효하면 같은 clientId/role. 상태는 위 Bulk 부터 다시. [계획 Phase 11.4 — 지금은 토큰 발급만]
 Kick/Ban   Control: Disconnect{reason} 후 연결 종료
+```
+
+Phase 9 구현 (ServerHost · ClientSession — Subscribe 부터는 Phase 10 · 11):
+
+```text
+거절      버전 · 콘텐츠(팩 목록 + contentHash 를 실어 준다) · 가득 참(maxClients — Transport 는 4 개 더 받아 Reject 로 말한다) ·
+          순서(Hello 전에 Auth 등) · nonce · 이름(1 ~ 32 글자, 제어 문자 없음) · 시간 초과(10 초). Reject 뒤 서버가 끊는다.
+          buildId 가 다르면 경고만 (프로토콜이 같으면 접속).
+콘텐츠    Reject{ContentMismatch} 를 받은 클라이언트는 packs 를 자기 content 루트에서 읽어 해시가 맞으면 다시 접속한다
+          (sbx_net_probe). 콘텐츠를 보내 주는 것은 ContentOverlay [계획 Phase 12].
+Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 시 Disconnect{ServerShutdown}. 그 밖의 메시지 → ProtocolError 로 끊기.
+역할      Welcome.role = 서버 --default-role (기본 editor). 역할 바꾸기(RoleChanged)는 [계획 Phase 12].
 ```
 
 ---
 
 ## 5. 메시지 카탈로그 (`kProtocolVersion = 1`)
 
-| id | 이름           | 방향   | 채널     | 필드                                                                                                         |
-|----|----------------|--------|----------|--------------------------------------------------------------------------------------------------------------|
-| 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                   |
-| 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                    |
-| 3  | Auth           | C→S    | Control  | token bytes, displayName str(32), contentHash u64, nonce u64                                                 |
-| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes |
-| 5  | Reject         | S→C    | Control  | reason u8, detail str                                                                                        |
-| 10 | Subscribe      | C→S    | Control  | chunks[] (ChunkCoord varint)                                                                                 |
-| 11 | Ready          | C→S    | Control  | baselineTick u64                                                                                             |
-| 20 | Command        | C→S    | Control  | sequence u32, payload (SimCommand 바이너리)                                                                  |
-| 21 | CommandResult  | S→C    | Control  | sequence u32, status u8, reason u8, detail str                                                               |
-| 30 | Snapshot       | S→C    | Snapshot | 6.2                                                                                                          |
-| 31 | SnapshotAck    | C→S    | Snapshot | lastSnapshotId u32, receivedBitmask u32                                                                      |
-| 40 | TerrainChunk   | S→C    | Bulk     | coord, revision, compressed layers                                                                           |
-| 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식)                                                                        |
-| 42 | ContentOverlay | S→C    | Bulk     | rules/behaviors/prefabs JSON (월드 오버레이분)                                                               |
-| 50 | ServerStats    | S→C    | Control  | tickMs avg/p99, entityCount, systemTimes[], pathQueue, jobQueue (1 Hz)                                       |
-| 60 | Chat           | 양방향 | Control  | text str(256)                                                                                                |
-| 61 | RoleChanged    | S→C    | Control  | clientId, role                                                                                               |
-| 62 | Disconnect     | 양방향 | Control  | reason u8                                                                                                    |
+| id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
+|----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
+| 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
+| 3  | Auth           | C→S    | Control  | token bytes(≤32, [계획 11.4] 지금은 비움), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64                                           |
+| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes(16)              |
+| 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료 중), detail str(256), serverProtocolVersion u32, contentHash u64, packs[] str(64) × ≤16     |
+| 10 | Subscribe      | C→S    | Control  | chunks[] (ChunkCoord varint) `[계획 Phase 11]`                                                                                                                        |
+| 11 | Ready          | C→S    | Control  | baselineTick u64 `[계획 Phase 10]`                                                                                                                                    |
+| 20 | Command        | C→S    | Control  | sequence u32 (1 부터 단조 증가), payload (5.1)                                                                                                                        |
+| 21 | CommandResult  | S→C    | Control  | sequence u32, accepted bool, reason u8 (ErrorCode), detail str(256), appliedTick u64 (틱 전 거절이면 0), created[] NetEntityId                                        |
+| 30 | Snapshot       | S→C    | Snapshot | 6.2 `[계획 Phase 10]`                                                                                                                                                 |
+| 31 | SnapshotAck    | C→S    | Snapshot | lastSnapshotId u32, receivedBitmask u32 `[계획 Phase 10]`                                                                                                             |
+| 40 | TerrainChunk   | S→C    | Bulk     | coord, revision, compressed layers `[계획 Phase 10]`                                                                                                                  |
+| 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 Phase 10]`                                                                                                               |
+| 42 | ContentOverlay | S→C    | Bulk     | rules/behaviors/prefabs JSON (월드 오버레이분) `[계획 Phase 12]`                                                                                                      |
+| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz). [계획] systemTimes[] · pathQueue · jobQueue |
+| 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
+| 61 | RoleChanged    | S→C    | Control  | clientId, role `[계획 Phase 12]`                                                                                                                                      |
+| 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
+(Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
+메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
+끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
+
+### 5.1 Command 페이로드 (`network/protocol/CommandCodec`)
+
+```text
+종류 태그 u8 (값 고정): 1 CreateEntity · 2 DeleteEntity · 3 MoveEntity · 4 AddComponent · 5 RemoveComponent · 6 ChangeComponent ·
+                       7 PaintTerrain · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed
+엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
+컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
+개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)
+```
 
 ---
 
@@ -236,10 +266,10 @@ pos = lerp(a.pos, b.pos, α), 회전은 최단 각도 보간
 ```text
 ── Client → Server ───────────────────────────────────────────────
 Editor/Input → SimCommand{seq} → ClientSession.outbox → [Net IO] BitWriter → Control
- → Server [Net IO] 역직렬화 + 형식 검증 → Simulation inbox (배치 swap)
- → [Stage 1] CommandValidator (권한·대상·콘텐츠·값·속도 제한)
-     거절 → CommandResult{Rejected}      승인 → executeTick = tick + 1 → CommandQueue → ReplayRecorder
- → [Stage 2] 적용
+ → Server [Net IO] 역직렬화 + 형식 검증 → CommandValidator (순번 · 속도 제한 · 권한 — 월드를 보지 않는다, ADR-0024)
+     거절 → CommandResult{Rejected, appliedTick 0}      통과 → Simulation inbox (배치 swap)
+ → [Sim] executeTick = currentTick + 1 → CommandQueue → [Stage 2] 적용 (대상 · 콘텐츠 · 값 검사 — 거절도 CommandResult)
+ → ReplayRecorder [계획 — 서버 --record-replay]
 
 ── Server → Client ───────────────────────────────────────────────
 [Stage 18] Replication → 클라이언트별 바이트 → [Net IO] Snapshot/Bulk
@@ -267,11 +297,38 @@ Simulation 30 TPS ≠ Snapshot 15 Hz (2틱마다, 틱 경계 정렬) ≠ Render 
 ## 12. 필수 테스트
 
 ```text
-- BitWriter/Reader 왕복, 경계 초과 시 error
-- 핸드셰이크: 버전 불일치, contentHash 불일치, 재접속 토큰
+- BitWriter/Reader 왕복, 경계 초과 시 error                                         ✅ Phase 9 (test_bitstream · test_messages)
+- 핸드셰이크: 버전 불일치, contentHash 불일치, 재접속 토큰                          ✅ 재접속 토큰 빼고 (test_server_host)
+- 명령: 다음 틱 스탬프 · 결과 · 월드 거절 · 권한 · 속도 제한 · 종료 틱                ✅ Phase 9
+- Transport: Loopback · Simulated(지연 · 손실 · 순서, seed) · ENet(실제 UDP, 3 채널)    ✅ Phase 9 (test_transport · test_enet)
+- 서버 + 클라이언트 두 프로세스 (SandboxServer + sbx_net_probe, 실제 UDP)           ✅ Phase 9 (CTest net_server_probe_smoke)
 - Loopback 수렴: 서버 틱 T 상태 == 클라 복제본 (Replicated 필드, 양자화 오차 허용)
 - SimulatedTransport(100 ms, 지터 20 ms, 손실 5%, 재정렬) 에서 수렴
 - Despawn 손실, 늦은 스냅샷 tombstone, EntityRef 대기 목록
 - Interest: 카메라 이동 시 Spawn/Despawn 수 상한, 히스테리시스
 - 대역폭: 50k 월드에서 클라이언트당 바이트가 가시 엔티티 수에 비례 (sbx_bench net.snapshot)
+```
+
+---
+
+## 13. 구현 (Phase 9)
+
+```text
+network/transport/   Transport.hpp (INetworkTransport · Endpoint · DisconnectReason) · LoopbackTransport(+ LoopbackNetwork 허브)
+                     · SimulatedTransport · EnetTransport (enet.h 는 이 .cpp 에만)
+network/protocol/    BitStream · Messages (카탈로그 · encode/decode · Role · RejectReason) · CommandCodec (5.1)
+network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded) · CommandValidator
+network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계)
+apps/server          SandboxServer --world <시나리오 | 세이브 폴더> … (15-BUILD 7장)
+tools/net_probe      sbx_net_probe — 접속 · 명령 · 통계 확인 도구
+```
+
+ServerHost 스레드 (01 5장, ADR-0024):
+
+```text
+Net IO 스레드     transport.wait(2 ms) → poll → 핸드셰이크 · 검사 → inbox · 결과 송신 · outbox 비우기 → flush
+Simulation 스레드 30 TPS × speed 로 틱. inbox → executeTick 스탬프 → ScenarioRunner.step → 네트워크 명령의 결과만 outbox
+                  (시나리오가 넣은 명령은 issuer 가 같아도 가리지 않는다 — (issuer, sequence) 집합). 1 초마다 ServerStats.
+                  3 틱 넘게 밀리면 기준점을 다시 잡는다 (overruns, 03 3장)
+멈추기            Sim 멈춤 → Net 멈춤 → 모두에게 Disconnect{ServerShutdown} + 끊기 → drain(300 ms)
 ```

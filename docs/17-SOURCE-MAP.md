@@ -1,11 +1,11 @@
 # 17. 소스 지도
 
 > **참조 문서.** "이 코드가 어디 있지?"에 답합니다. 모듈·폴더·진입점·타깃을 추가/이동/삭제하면 같은 커밋에서 갱신합니다.
-> 상태: Phase 7A (2026-10-06). **0장이 실제로 존재하는 파일**이고, 1장 이후는 전체 계획 구조입니다.
+> 상태: Phase 9 (2026-10-08). **0장이 실제로 존재하는 파일**이고, 1장 이후는 전체 계획 구조입니다.
 
 ---
 
-## 0. 현재 존재하는 것 (Phase 7A)
+## 0. 현재 존재하는 것 (Phase 9)
 
 | 경로                                                                                                        | 내용                                                                                                                                                                | 타깃                        |
 |-------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
@@ -75,6 +75,14 @@
 | `core/replay/Replay.{hpp,cpp}`                                                                              | 리플레이 기록(`ReplayRecorder`)·파일(JSON Lines)·재생(`playReplay`) — D3 (5C)                                                                                       | SandboxCore                 |
 | `core/scenarios/Scenario.{hpp,cpp}`, `RandomWalkScenario.{hpp,cpp}`                                         | `IScenario`, `ScenarioRunner`, `random_walk_1k/10k`                                                                                                                 | SandboxCore                 |
 | `core/scenarios/EcosystemScenario.{hpp,cpp}`                                                                | `ecosystem_small` · `ecosystem_survival` · `ecosystem_10k` (5C)                                                                                                     | SandboxCore                 |
+| `network/CMakeLists.txt`                                                                                    | SandboxNetwork — PUBLIC Core, PRIVATE sbx_enet (Phase 9, ADR-0024)                                                                                                  | SandboxNetwork              |
+| `network/transport/Transport.{hpp,cpp}`                                                                     | `INetworkTransport`, `Endpoint`·`parseEndpoint`, `Channel`, `DisconnectReason`, `TransportEvent`·`TransportStats`                                                   | SandboxNetwork              |
+| `network/transport/LoopbackTransport.{hpp,cpp}`, `SimulatedTransport.{hpp,cpp}`                             | 같은 프로세스 Transport (+ `LoopbackNetwork` 허브), 지연·지터·손실·순서 흉내 (seed · 주입 시계)                                                                     | SandboxNetwork              |
+| `network/transport/EnetTransport.{hpp,cpp}`                                                                 | ENet UDP — 채널 3개, disconnect_later, 15 초 시간 초과. enet.h 는 이 .cpp 에만                                                                                      | SandboxNetwork              |
+| `network/protocol/BitStream.{hpp,cpp}`                                                                      | `BitWriter`·`BitReader` — LSB 우선, LEB128 varint · zigzag, 상한 · UTF-8 검사, 오류 플래그                                                                          | SandboxNetwork              |
+| `network/protocol/Messages.{hpp,cpp}`, `CommandCodec.{hpp,cpp}`                                             | 메시지 카탈로그 (`kProtocolVersion`, `Role`, `RejectReason`, encode/decode), 명령 페이로드 (`PayloadTag`)                                                           | SandboxNetwork              |
+| `network/server/ServerHost.{hpp,cpp}`, `CommandValidator.{hpp,cpp}`                                         | 서버 (Net 절반 + Sim 절반, Inline · Threaded, 핸드셰이크 · 결과 · 통계), 순번 · 속도 제한 · 권한 표                                                                 | SandboxNetwork              |
+| `network/client/ClientSession.{hpp,cpp}`                                                                    | 클라이언트 연결 — 핸드셰이크 · 명령 · 결과 · ServerStats                                                                                                            | SandboxNetwork              |
 | `platform/CMakeLists.txt`                                                                                   | SandboxPlatform — OS 별 소스 선택 (WIN32: `windows/`, 그 밖: `stub/`)                                                                                               | SandboxPlatform             |
 | `platform/common/Key.{hpp,cpp}`                                                                             | `Key`(물리 위치), `MouseButton`, `Modifiers`, 이름 표 (ADR-0017)                                                                                                    | SandboxPlatform             |
 | `platform/common/PlatformEvent.hpp`                                                                         | `PlatformEvent` variant, `PlatformEventQueue`, `Extent2D`                                                                                                           | SandboxPlatform             |
@@ -119,6 +127,7 @@
 | `assets/<팩>/materials.json`, `assets/ecosystem/*.png`                                                      | 표현 에셋 (서버 · contentHash 와 무관 — 06 7.1): 머티리얼 표, 자리 표시 스프라이트 그림 (8A)                                                                        | — (SandboxClient 가 읽는다) |
 | `tools/shader/sbx_shader_gen.py`                                                                            | SPIR-V 리플렉션 + DXIL 서명 검사 → `<Pascal>Shader.{hpp,cpp}` (내장 바이트코드·cbuffer 구조체) + `.reflect.json` (7B)                                               | 빌드 단계                   |
 | `external/stb/`                                                                                             | stb_image v2.30 · stb_image_write v1.16                                                                                                                             | sbx_stb                     |
+| `external/enet/`                                                                                            | ENet v1.3.18 (C 소스 · include/enet · LICENSE, 수정 없음)                                                                                                           | sbx_enet                    |
 | `external/imgui/`                                                                                           | Dear ImGui v1.92.9b docking (imgui*.{h,cpp} · imstb_* · LICENSE, 수정 없음 — ADR-0023)                                                                              | sbx_imgui                   |
 | `apps/client/main.cpp`                                                                                      | 클라이언트 진입점 (Windows: GUI 서브시스템 + main)                                                                                                                  | SandboxClient               |
 | `apps/client/Application.{hpp,cpp}`                                                                         | 앱 상태기계(`AppState`, 전이 표), 프레임 루프, 제목 줄 입력 모니터, ImGui 프레임 · 패널 액션 (8C)                                                                   | SandboxClient               |
@@ -127,10 +136,12 @@
 | `apps/server/main.cpp`                                                                                      | 서버 진입점 (`--scenario` 헤드리스 실행)                                                                                                                            | SandboxServer               |
 | `apps/server/ServerOptions.{hpp,cpp}`                                                                       | 명령줄 파싱                                                                                                                                                         | SandboxServer (+ Tests)     |
 | `tools/sim_check/main.cpp`, `SimCheckOptions.{hpp,cpp}`                                                     | 결정론 하네스                                                                                                                                                       | sbx_sim_check (+ Tests)     |
+| `tools/net_probe/main.cpp`, `NetProbeOptions.{hpp,cpp}`                                                     | 서버 접속 확인 도구 — 핸드셰이크 · 명령 · 결과 · 통계 (Phase 9)                                                                                                     | sbx_net_probe (+ Tests)     |
 | `tests/golden/{random_walk_1k,world_save_load,eco_lifecycle,ecosystem_small}.json`                          | 골든 해시 (툴체인별, ADR-0012)                                                                                                                                      | 데이터                      |
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `content/ecosystem/`                                                                                        | 콘텐츠 팩 \"eco\" (tags · terrain · prefabs · rules · behaviors)                                                                                                    | 데이터                      |
-| `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, server, tools, platform, client)                                                              | SandboxTests                |
+| `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client)                                             | SandboxTests                |
+| `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
@@ -143,7 +154,7 @@
 | `.github/workflows/ci.yml`                                                                                  | CI (Windows MSVC, Linux clang/gcc/asan, macOS)                                                                                                                      | —                           |
 | `.clang-format`, `.clang-tidy`, `.editorconfig`, `.gitattributes`, `.gitignore`                             | 포맷·린트·줄끝 규칙                                                                                                                                                 | —                           |
 
-빌드 산출물: `build/<preset>/bin/<Config>/SandboxClient(.exe)`, `SandboxServer(.exe)`, `SandboxTests(.exe)`, `sbx_render_tests.exe`(Windows), `sbx_sim_check(.exe)`, `sbx_bench(.exe)`.
+빌드 산출물: `build/<preset>/bin/<Config>/SandboxClient(.exe)`, `SandboxServer(.exe)`, `SandboxTests(.exe)`, `sbx_render_tests.exe`(Windows), `sbx_sim_check(.exe)`, `sbx_net_probe(.exe)`, `sbx_bench(.exe)`.
 
 ## 1. 최상위
 
@@ -164,7 +175,7 @@
 | `assets/`                                       | 텍스처·폰트·사운드                                                                             | 런타임 데이터                  |
 | `tests/`                                        | 단위·속성·시나리오·결정론·네트워크·렌더 테스트, 골든                                           | SandboxTests, sbx_render_tests |
 | `bench/`                                        | 벤치 시나리오·머신별 기준선                                                                    | sbx_bench                      |
-| `tools/`                                        | `check_includes.py`(구현), `sbx_sim_check`·`sbx_atlas`(계획)                                   | 도구                           |
+| `tools/`                                        | `check_includes.py`·`sim_check`·`net_probe`(구현), `sbx_atlas`(계획)                           | 도구                           |
 | `docs/`                                         | 문서                                                                                           | —                              |
 
 ## 2. 모듈별 상세
@@ -202,13 +213,14 @@ core/
   random/       CounterRng, RandomService
 
 network/
-  transport/    INetworkTransport, EnetTransport, LoopbackTransport, SimulatedTransport
-  protocol/     Messages, ProtocolVersion, MessageCodec
-  session/      ClientSession, ServerSession, Handshake, Roles
+  transport/    INetworkTransport, EnetTransport, LoopbackTransport, SimulatedTransport   ← Phase 9 구현
+  protocol/     BitStream, Messages(kProtocolVersion · Role), CommandCodec                   ← Phase 9 구현
+  client/       ClientSession                                                                ← Phase 9 구현 (핸드셰이크 · 명령)
+  session/      [계획] 초안의 ServerSession · Handshake · Roles 는 ServerHost · Messages 안에 (Phase 9)
   snapshot/     Snapshot, SnapshotBuffer
   replication/  ReplicationWriter, ReplicationReader, NetEntityMap
   interest/     InterestManager
-  server/       ServerHost, CommandValidator, PersistenceService, ReplayRecorder
+  server/       ServerHost, CommandValidator (Phase 9) · PersistenceService, ReplayRecorder [계획]
 
 platform/
   common/       IWindow, WindowDesc, NativeWindowHandle, PlatformEvent, Key, InputSystem, ActionMap, IAudioBackend,
@@ -253,6 +265,7 @@ apps/server/
 | `SandboxServer`    | `apps/server/main.cpp`     | 헤드리스 전용 서버                       |
 | `SandboxTests`     | `tests/main.cpp` (doctest) | 단위·속성·시나리오·네트워크              |
 | `sbx_sim_check`    | `tools/sim_check/main.cpp` | 결정론 하네스, 콘텐츠 검증               |
+| `sbx_net_probe`    | `tools/net_probe/main.cpp` | 서버 접속 · 명령 확인 (Phase 9)          |
 | `sbx_bench`        | `bench/main.cpp`           | 벤치마크                                 |
 | `sbx_render_tests` | `tests/render/main.cpp`    | 기준 이미지                              |
 

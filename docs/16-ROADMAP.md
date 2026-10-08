@@ -26,7 +26,7 @@ Phase 5   Ecosystem · Pathfinding Job · Replay       ← 헤드리스 콘텐�
 Phase 6   Windows 플랫폼 (Win32 · Input · Audio)      ← 구현 완료 2026-10-06, 사용자 PC 수동 QA 대기
 Phase 7   DirectX 12 RHI · 셰이더 파이프라인          ← 구현 2026-10-07 (7A Clear · 프레임 자원, 7B 셰이더 · 파이프라인 · Triangle · Texture), 사용자 PC 확인 대기
 Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-07 (8A 스프라이트 · --direct-sim, 8B 지형 · 오버레이 · GPU 시간, 8C ImGui 패널), 사용자 PC 확인 대기
-Phase 9   Network Foundation · Dedicated Server
+Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성
 Phase 11  Interest Management
 Phase 12  Multiplayer Editor                        ← 1차 목표선
@@ -310,14 +310,24 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   남음     사용자 PC: ctest -L render (imgui_basic 을 WARP 로), MANUAL-QA Phase 8C (맑은 고딕 한글 · 패널 · 입력 가로채기)
 ```
 
-### Phase 9 — Network Foundation
+### Phase 9 — Network Foundation ✅ (구현 2026-10-08, 사용자 PC 확인 대기 — ADR-0024)
 
 ```text
-9.1 INetworkTransport + Loopback + Simulated            9.2 EnetTransport (vendored)
-9.3 BitWriter/Reader + 메시지 카탈로그(08 5장)          9.4 핸드셰이크·버전·contentHash·Reject
-9.5 ServerHost (Simulation 스레드 + Net IO 스레드), CommandValidator(형식·속도 제한)
-9.6 SandboxServer --world --ticks N --exit
+9.1 INetworkTransport + Loopback + Simulated ✅          9.2 EnetTransport (vendored ENet 1.3.18) ✅
+9.3 BitWriter/Reader + 메시지 카탈로그(08 5장) ✅        9.4 핸드셰이크·버전·contentHash·Reject ✅
+9.5 ServerHost (Simulation 스레드 + Net IO 스레드), CommandValidator(순번·속도 제한·권한 표) ✅
+9.6 SandboxServer --world --ticks N --exit ✅ (+ sbx_net_probe 접속 도구)
 완료  Loopback 핸드셰이크·명령·거절 테스트, 헤드리스 서버 CI 실행
+
+검증 (2026-10-08)
+  Linux    clang · gcc Debug: unit_network 28 케이스 — 비트스트림 · 메시지 · 명령 페이로드 전부 왕복 · 형식 상한, Loopback ·
+           Simulated(100 ms ± 20, 손실 5 %, seed 결정적) · ENet(127.0.0.1 실제 UDP, 3 채널, 3 KB 조각), ServerHost Inline
+           (핸드셰이크 · 거절 6 가지 · 시간 초과 · ProtocolError · 명령 결과 · 권한 · 속도 제한 · 종료 틱 · 나쁜 네트워크) ·
+           Threaded(Loopback · ENet). CTest server_world_exit (--world random_walk_1k --ticks 60 --exit — 해시가 헤드리스
+           --scenario 와 같다), net_server_probe_smoke (두 프로세스: 서버 + probe 명령 3 개 수락)
+  Windows  MinGW 빌드 + Wine: 위 단위 테스트 (winsock 경로), SandboxServer + sbx_net_probe
+  남음     사용자 PC (MSVC): ctest, MANUAL-QA Phase 9 (콘솔 두 개 · 방화벽 · 다른 PC 에서 접속)
+  다음     Phase 10 — 복제 (NetEntityId · Snapshot · 보간), LocalServerHost, --direct-sim 삭제
 ```
 
 ### Phase 10 — Replication

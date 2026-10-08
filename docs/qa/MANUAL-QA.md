@@ -161,6 +161,32 @@ ctest --test-dir cmake-build-debug -L render --output-on-failure
 [ ] PIX 캡처 1회 성공
 ```
 
+## Phase 9 — 네트워크 서버 · 접속 (화면 없음)
+
+PowerShell 창 두 개. 실행 파일은 `cmake-build-release\bin` (Debug 도 된다).
+
+```powershell
+# 창 1: 서버 (혼자 시험할 때는 admin — 일시정지 · 속도는 admin 부터)
+.\SandboxServer.exe --world ecosystem_small --default-role admin
+# 창 2: 접속 · 명령
+.\sbx_net_probe.exe --pause --step 30 --resume --speed 2 --create 0,0 --seconds 3
+.\sbx_net_probe.exe --name "두번째" --seconds 2
+ctest --test-dir cmake-build-debug -R "server|net" --output-on-failure
+```
+
+```text
+[ ] 서버: "listening udp *:7777 world ecosystem_small workers N". Windows 방화벽 창이 뜨면 "개인 네트워크" 허용
+[ ] probe: "서버 콘텐츠(eco)를 읽어 다시 접속합니다" 뒤 "접속 client #1 role admin world ecosystem_small tick …"
+[ ] 명령 결과 5 줄이 모두 "수락", CreateEntity 에 netId. 서버 통계 줄: 개체 수 · 틱 ms · 30 TPS 안팎 · 속도 x2
+[ ] 서버 창: "들어옴: probe (#1, admin)" · "나감: probe (#1) — 상대가 끊음" 이 한글로
+[ ] 서버를 --default-role editor 로 다시 띄우고 probe --pause: "거절 PermissionDenied — editor 역할은 PauseSimulation …", 종료 코드 3
+[ ] probe 를 계속 붙여 둔 채(--seconds 30) 서버 창에서 Ctrl+C: probe 에 "서버가 끊었습니다: 서버 종료", 서버는 마지막 해시 줄을 찍고 끝
+[ ] 서버 없이 probe: 약 10 초 뒤 "접속 실패: 127.0.0.1:7777 (…)", 종료 코드 1
+[ ] (선택) 다른 PC 에서 --connect <서버 IP>:7777 — 같은 결과. 암호화가 없으니 LAN 에서만
+[ ] (선택) 세이브 폴더로: SandboxServer --world <세이브 폴더> — 일시정지 상태로 저장된 월드면 probe --resume 으로 진행
+[ ] ctest -R "server|net" 통과 (net_server_probe_smoke 는 UDP 47791 을 쓴다)
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

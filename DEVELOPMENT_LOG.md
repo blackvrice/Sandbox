@@ -7,6 +7,51 @@
 
 ---
 
+## 2026-10-08 — Phase 9: 네트워크 기초 — ENet · 핸드셰이크 · 명령 · ServerHost · SandboxServer --world · sbx_net_probe
+
+**무엇을**
+
+- `external/enet`: ENet v1.3.18 C 소스를 수정 없이 (Debian `enet_1.3.18+ds.orig.tar.xz`, SHA256 = 서명된 .dsc 값). `sbx_enet`
+  정적 라이브러리 — 루트가 C 언어를 켠다, Linux 는 업스트림과 같은 configure 검사, Windows 는 ws2_32 · winmm.
+- `network/` (SandboxNetwork, PUBLIC Core): Transport 계약(`INetworkTransport` — wait · drain · boundPort, ConnectionId 재사용 없음),
+  LoopbackTransport(+ 허브, 스레드 사이) · SimulatedTransport(지연 · 지터 · 대역폭 · Snapshot 손실 · 옛것 버림 · 신뢰 채널 재전송
+  지연, seed · 주입 시계) · EnetTransport(채널 3, disconnect_later, 15 초). BitStream(LSB 우선 · LEB128 · zigzag · 상한 · 엄격한
+  UTF-8 · 오류 플래그). Messages(kProtocolVersion 1, Hello · Challenge · Auth · Welcome · Reject · Command · CommandResult ·
+  ServerStats · Disconnect, 나머지 id 는 예약) · CommandCodec(명령 11 종, JSON 값은 텍스트).
+- ServerHost: Net 절반(핸드셰이크 · 거절 6 가지 · 10 초 시간 초과 · ProtocolError 끊기 · CommandValidator) + Sim 절반(ScenarioRunner,
+  executeTick = 다음 틱, 네트워크 명령의 결과만 돌려줌, 1 초마다 ServerStats), inbox · outbox · status 큐. Inline · Threaded.
+  CommandValidator: 순번 → 속도 제한(초당 120) → 권한(10 7장 표 — 편집 Editor, 시뮬레이션 제어 Admin). ErrorCode::RateLimited.
+- ClientSession: 핸드셰이크 · 명령 · 결과 · 통계 · 끊기 이유.
+- SandboxServer `--world <시나리오|세이브 폴더> --port --bind --max-clients --default-role --threads --ticks N --exit`, Ctrl+C 로
+  서버 종료 알림, 실제 포트 출력, SIGPIPE 무시. `sbx_net_probe`(tools/net_probe): 접속 · 명령 · 결과 · 통계, 콘텐츠가 다르면
+  서버가 알려 준 팩을 읽어 다시 접속.
+- 문서: ADR-0024, 08(상태 · 2 · 4 · 5 · 5.1 · 10 · 12 · 13장), 01 · 03 · 09 · 10 상태, 13, 15, 16(Phase 9 ✅), 17, MANUAL-QA 9,
+  external/README, README.
+
+**왜**
+
+- 16-ROADMAP Phase 9 — 에디터(12)가 처음부터 명령을 서버로 보내는 구조로 태어나야 하고(2장), Phase 10 복제 · LocalServerHost 가
+  이 위에 선다. --direct-sim 을 지우려면(10.5) 네트워크 경로가 먼저 있어야 한다.
+- 검증을 Net 쪽에 두어 거절될 명령이 Simulation 스레드에 닿지 않게, Inline 모드로 핸드셰이크 · 시간 초과 · 속도 제한을 실제
+  시간 없이 결정적으로 시험한다 (ADR-0024).
+
+**검증**
+
+- Linux clang Debug: ctest 41/41 (새: unit_network 28 케이스 · server_world_exit · server_world_bad_name · net_server_probe_smoke).
+  `SandboxServer --world random_walk_1k --ticks 60 --exit` 의 해시가 헤드리스 `--scenario random_walk_1k --ticks 60` 과 같다.
+- MinGW 전체 빌드 경고 0. Wine 11: SandboxTests network · server · tools · foundation 76 케이스 (ENet 이 winsock 위에서),
+  SandboxServer.exe + sbx_net_probe.exe 두 프로세스 (콘텐츠 해시 다시 맞추기 · 명령 3 개 수락 · 나감 로그).
+- 수동: 서버 + probe 로 MANUAL-QA 9 의 흐름 (Pause/Step/Resume/Speed/Create 수락, editor 의 Pause 거절 → 종료 코드 3, Ctrl+C →
+  probe 에 "서버 종료", 서버 없음 → 10 초 뒤 접속 실패).
+
+**남은 일**
+
+- 사용자 PC (MSVC): ctest, MANUAL-QA Phase 9 (방화벽 · 다른 PC 접속).
+- [계획 Phase 10] 복제(NetEntityId · Snapshot · Bulk · 보간), SandboxClient 의 네트워크 세션 · LocalServerHost, --direct-sim 삭제.
+  [계획 11] Subscribe · Interest · 재접속 토큰. [계획 12] 역할 바꾸기 · Chat · ContentOverlay. 서버 --record-replay · --autosave.
+
+---
+
 ## 2026-10-07 — Phase 8C: ImGui (1.92 docking) · 기본 패널 — Phase 8 완료
 
 **무엇을**

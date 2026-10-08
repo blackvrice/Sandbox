@@ -4,7 +4,8 @@
 > 세부는 각 주제 문서에 있고, 이 문서는 **경계**만 다룹니다. 상태: 타깃 경계·의존 방향 검사는 Phase 1, Worker Pool(5장)은
 > Phase 5B 의 `foundation/job/JobSystem`(경로 Job 만 — T3 계약 그대로). Simulation 스레드는 Phase 8A 의 `--direct-sim`
 > 창 실행에서 처음 클라이언트 프로세스 안에 생겼다 (T1 · T2 — 불변 스냅숏, [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md)).
-> 스레드 분리(Main·Render·Network)는 `[계획]`.
+> 서버의 Simulation 스레드 + Network IO 스레드는 Phase 9 의 ServerHost (4장, [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md)).
+> 클라이언트의 Main·Render 분리와 클라이언트 Network IO 스레드는 `[계획]`.
 
 ---
 

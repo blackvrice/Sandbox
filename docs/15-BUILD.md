@@ -61,7 +61,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 |--------------------------------|-------------|------------------------------------------------------------------------------------|-----------------------|
 | `SBX_BUILD_SERVER`             | ON          | SandboxServer                                                                      | 구현                  |
 | `SBX_BUILD_TESTS`              | ON          | SandboxTests + CTest 등록                                                          | 구현                  |
-| `SBX_BUILD_TOOLS`              | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`)                                        | 구현 (Phase 3)        |
+| `SBX_BUILD_TOOLS`              | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`) · `sbx_net_probe` (9)                  | 구현 (Phase 3)        |
 | `SBX_WARNINGS_AS_ERRORS`       | OFF (CI ON) | 경고 = 에러                                                                        | 구현                  |
 | `SBX_BOUNDARY_SELFTEST`        | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
 | `SBX_BUILD_CLIENT`             | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
@@ -94,13 +94,16 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
                                      SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
-SandboxServer             EXE        Core
+SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
+sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
+SandboxServer             EXE        Network Core
 SandboxClient             EXE        Render Platform Core (SBX_BUILD_CLIENT=ON — Core 는 8A --direct-sim). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Network·Editor 는 Phase 9~12
-SandboxTests              EXE        Foundation Core Platform (+ ServerOptions.cpp · SimCheckOptions.cpp · apps/client 의 Application ·
+SandboxTests              EXE        Foundation Core Network Platform (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
+sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
 sbx_bench                 EXE        Core   (SBX_BUILD_BENCH=ON)
 sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_TESTS 만 (tests/render). CTest render_tests_warp
 
@@ -119,7 +122,6 @@ sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_T
 계획 (Phase 6 이후):
 
 ```cmake
-add_library(SandboxNetwork  STATIC …)   # PUBLIC Core, PRIVATE enet          Phase 9
 add_library(SandboxEditor   STATIC …)   # PUBLIC Core Render, PRIVATE imgui  Phase 8/12
 add_executable(SandboxClient …)         # Editor Network Render Platform Core
 if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos + render/metal   elseif(UNIX) platform/linux + render/vulkan
@@ -134,7 +136,7 @@ if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos
 |----------------------------------------|----------------------|-----------------------------|----------------------------------------------------------------------------------|
 | nlohmann/json                          | 콘텐츠·세이브        | Core (PUBLIC — 헤더 템플릿) | vendored — **v3.12.0** (`external/nlohmann_json/`)                               |
 | doctest                                | 테스트               | Tests                       | vendored — **v2.5.0** (`external/doctest/`)                                      |
-| ENet                                   | Transport            | Network                     | vendored                                                                         |
+| ENet                                   | Transport            | Network                     | vendored — **v1.3.18** (`external/enet/`, C, ADR-0024)                           |
 | zstd                                   | 청크·스냅샷 압축     | Core/Network                | FetchContent (해시 고정)                                                         |
 | Dear ImGui (docking)                   | Editor UI            | Editor/Render               | vendored, 백엔드 파일 미사용                                                     |
 | stb_image, stb_truetype, stb_rect_pack | 디코드·폰트·아틀라스 | Render                      | vendored                                                                         |
@@ -172,8 +174,22 @@ SandboxServer --help | --version | --log-level <trace|debug|info|warn|error|off>
 SandboxServer --scenario <random_walk_1k|random_walk_10k> [--ticks N] [--seed N] [--realtime]
     헤드리스로 시나리오를 돌리고 "tick N hash 0x… entities … avg tick … ms" 한 줄을 출력한다.
     --realtime: 30 Hz × speed 로 페이싱, 3틱 넘게 밀리면 기준점을 다시 잡고 overruns 에 센다 (03-SIMULATION 3장).
-    [Phase 9] ServerHost(시뮬레이션 스레드 + 네트워크)가 이 경로를 대체한다.
-종료 코드: 0 정상 · 1 아직 구현되지 않은 동작/실행 오류 · 2 잘못된 인자
+    네트워크 없이 시나리오만 — 결정론 · 성능 확인용으로 남긴다.
+SandboxServer --world <시나리오|세이브 폴더> [--port 7777] [--bind addr] [--max-clients 16] [--default-role editor]
+              [--threads N] [--seed N] [--content-root d] [--ticks N --exit]      (Phase 9, ADR-0024)
+    네트워크 서버: ServerHost (Simulation 스레드 + Net IO 스레드) + ENet UDP. 시작하면 "listening udp *:<port> world …"
+    (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected …". 세이브 폴더는 world.json 의 팩을 읽는다.
+    역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
+    Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
+    Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
+종료 코드: 0 정상 · 1 실행 오류 · 2 잘못된 인자 (모르는 월드 포함)
+
+sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] [--timeout s]
+              [--pause] [--resume] [--step n] [--speed x] [--create x,y]       (Phase 9 — 화면 없는 접속 확인 도구)
+    접속 → "접속 client #1 role … world … tick …" → 명령 결과 "결과 #n <명령> 수락 tick … | 거절 <ErrorCode> — 사유" →
+    "서버 tick … · 개체 … · 틱 … ms · TPS · 접속 …" → "probe 끝: 명령 N 수락 a 거절 r".
+    콘텐츠가 다르다고 거절되면 서버가 알려 준 팩을 --content-root 에서 읽어 한 번 다시 접속한다.
+    종료 코드: 0 · 1 접속 실패/거절 · 2 잘못된 인자 · 3 거절된 명령 있음
 
 sbx_sim_check --help      결정론 하네스. 옵션은 13-TESTING 4장
 
@@ -209,9 +225,7 @@ sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--re
 계획:
 
 ```text
-SandboxServer --world <name|path> [--content <pack>] [--port 7777] [--tick-rate 30]
-              [--max-clients 16] [--default-role editor] [--autosave 300] [--record-replay]
-              [--ticks N --exit] [--metrics-csv path] [--log-level info]
+SandboxServer … [--autosave 300] [--record-replay] [--metrics-csv path]      (Phase 9 에서 나머지는 구현)
 
 SandboxClient                         싱글플레이 (LocalServerHost, Phase 10)
               [--world <name>] [--connect host:port] [--name <displayName>] [--direct-sim (Phase 8 임시)]
