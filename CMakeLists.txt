@@ -46,6 +46,8 @@ add_subdirectory(platform)
 # Render 도 항상 만든다: RHI 의 순수 로직(핸들 풀·지연 해제·업로드 링)과 이미지 비교를 단위 테스트가 쓴다.
 # 백엔드가 없는 OS 는 createRenderDevice 가 Unsupported.
 add_subdirectory(render)
+# Editor 도 항상 만든다 (Phase 12): 툴 로직을 단위 테스트가 가짜 IEditorHost 로 돌린다. Network 는 모른다.
+add_subdirectory(editor)
 
 if(SBX_BUILD_SERVER)
     add_subdirectory(apps/server)
