@@ -63,6 +63,7 @@ add_executable(SandboxTests
     unit/editor/test_editor.cpp
     unit/editor/test_undo.cpp
     unit/editor/test_editor_roles.cpp
+    unit/editor/test_editor_world_change.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
@@ -75,6 +76,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_imgui_layer.cpp
         unit/client/test_editor_session.cpp
         unit/client/test_roles_content.cpp
+        unit/client/test_world_panel.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -82,6 +84,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다

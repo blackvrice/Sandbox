@@ -9,6 +9,8 @@
 //                 목록(Hierarchy), 그린 위치(카메라 맞추기).
 //                 12C: 지금 역할로 할 수 있는 것 (EditPermissions — 툴 · 패널을 숨긴다. 판단은 서버), content() 는
 //                 서버의 월드 오버레이까지 적용한 콘텐츠 (overlay() 가 그 오버레이).
+//                 12D: 서버 월드가 바뀐 횟수 (worldGeneration — 불러오기 · 리플레이 재생. 바뀌면 에디터가 되돌리기 기록을
+//                 비운다: 옛 월드의 netId 다).
 //
 // 에디터는 월드를 직접 바꾸지 않는다. 한 스레드(Main)에서 쓴다.
 
@@ -113,6 +115,10 @@ public:
 
     // ---- 12C ----
     [[nodiscard]] virtual EditPermissions permissions() const = 0;
+
+    // ---- 12D ----
+    // 서버 월드가 바뀐 횟수 (불러오기 · 리플레이 재생 — WorldChanged.generation)
+    [[nodiscard]] virtual u32 worldGeneration() const { return 0; }
 };
 
 } // namespace sbx::editor

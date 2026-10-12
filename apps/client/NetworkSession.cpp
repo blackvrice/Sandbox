@@ -36,6 +36,7 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         ld.seed = desc.seed;
         ld.workers = desc.workers;
         ld.mode = desc.inlineServer ? net::ServerMode::Inline : net::ServerMode::Threaded;
+        ld.savesRoot = desc.savesRoot;
         auto local = net::LocalServerHost::create(*s->m_catalog, ld);
         if (!local) {
             return std::unexpected(local.error());
@@ -270,12 +271,14 @@ void NetworkSession::update(f64 dtSeconds) {
         m_clock.reset();
         m_seenSnapshots = 0;
         m_selection.clear();
-        // 다른 연결(다시 접속)의 sequence 는 새로 시작한다 — 기다리던 에디터 명령은 결과가 오지 않는다
+        // 다른 연결(다시 접속)의 sequence 는 새로 시작한다 — 기다리던 에디터 명령은 결과가 오지 않는다. 같은 연결의
+        // 월드가 바뀐 것(12D)이면 결과는 오지만 옛 월드의 것이라 에디터가 기록을 비운다
         for (const u32 seq : m_editorSequences) {
-            m_outcomes.push_back({seq, false, 0, {}, "연결이 바뀌어 결과를 받지 못했습니다"});
+            m_outcomes.push_back({seq, false, 0, {}, "연결 · 월드가 바뀌어 결과를 받지 못했습니다"});
         }
         m_editorSequences.clear();
         m_preview.clear();
+        selectionChanged();
     }
     if (world->stats().snapshotsApplied != m_seenSnapshots) {
         m_seenSnapshots = world->stats().snapshotsApplied;
@@ -283,6 +286,7 @@ void NetworkSession::update(f64 dtSeconds) {
     }
 
     refreshOverlay(*world);
+    updateWorldOps();
     for (const net::SetRoleResultMsg& r : m_session->takeRoleResults()) {
         m_roleMessage = r.accepted ? std::format("#{} → {}", r.clientId, net::roleName(r.role))
                                    : std::format("역할 바꾸기 거절: {}", r.detail);
@@ -409,20 +413,38 @@ u32 NetworkSession::send(cmd::CommandPayload payload) {
     return seq;
 }
 
+bool NetworkSession::playingReplay() const noexcept {
+    const auto& st = m_session ? m_session->lastStats() : std::optional<net::ServerStats>{};
+    return st && st->mode == 2;
+}
+
+bool NetworkSession::controlPaused() const noexcept {
+    if (m_pendingPause) {
+        return m_pendingPause->second;
+    }
+    return playingReplay() ? m_session->lastStats()->replayPaused : paused();
+}
+
+f32 NetworkSession::controlSpeed() const noexcept {
+    if (m_pendingSpeed) {
+        return m_pendingSpeed->second;
+    }
+    return playingReplay() ? m_session->lastStats()->replaySpeed : speed();
+}
+
 void NetworkSession::togglePause() {
-    const bool nowPaused = m_pendingPause ? m_pendingPause->second : paused();
-    (void)send(nowPaused ? cmd::CommandPayload{cmd::ResumeSimulation{}} : cmd::CommandPayload{cmd::PauseSimulation{}});
+    (void)send(controlPaused() ? cmd::CommandPayload{cmd::ResumeSimulation{}}
+                               : cmd::CommandPayload{cmd::PauseSimulation{}});
 }
 
 void NetworkSession::stepOnce() {
-    const bool nowPaused = m_pendingPause ? m_pendingPause->second : paused();
-    if (nowPaused) {
+    if (controlPaused()) {
         (void)send(cmd::StepSimulation{1});
     }
 }
 
 void NetworkSession::changeSpeed(int dir) {
-    const f32 current = m_pendingSpeed ? m_pendingSpeed->second : speed();
+    const f32 current = controlSpeed();
     // 지금 값에 가장 가까운 칸에서 한 칸
     usize idx = 0;
     for (usize i = 0; i < std::size(kSpeeds); ++i) {
@@ -449,6 +471,12 @@ std::string NetworkSession::status() const {
         s += std::format(" · {:.1f} TPS · 틱 {:.1f} ms", st->ticksPerSecond, st->tickMsAvg);
     }
     s += w->paused() ? " · 일시정지" : std::format(" · ×{}", w->speed());
+    if (const auto& st = m_session->lastStats(); st && st->mode == 1) {
+        s += std::format(" · 기록 중 {}", st->modeName);
+    } else if (st && st->mode == 2) {
+        s += std::format(" · 재생 {} {}/{}{}", st->modeName, st->replayCall, st->replayCalls,
+                         st->replayPaused ? " 멈춤" : "");
+    }
     if (!m_local) {
         s += std::format(" · RTT {:.0f} ms", m_session->transportStats().rttMs);
     }
@@ -570,6 +598,71 @@ void NetworkSession::requestRole(u16 clientId, u8 role) {
     }
     if (!m_session->requestRole(clientId, static_cast<net::Role>(role))) {
         m_roleMessage = "접속 전이라 역할을 바꿀 수 없습니다";
+    }
+}
+
+void NetworkSession::updateWorldOps() {
+    // 접속하면 (다시 접속해도) 목록을 한 번
+    if (m_listSession != m_session.get() && m_session->welcome()) {
+        if (m_session->requestWorldOp(net::WorldOpKind::List)) {
+            m_listSession = m_session.get();
+        }
+    }
+    bool relist = false;
+    for (const net::WorldOpResultMsg& r : m_session->takeWorldOpResults()) {
+        const std::string what = r.name.empty() ? std::string(net::worldOpName(r.op))
+                                                : std::format("{} '{}'", net::worldOpName(r.op), r.name);
+        m_worldMessage =
+            r.accepted ? std::format("{}: {}", what, r.detail) : std::format("{} 거절: {}", what, r.detail);
+        if (r.accepted) {
+            log::info("client", "{}", m_worldMessage);
+            relist = true; // 폴더가 바뀌었을 수 있다
+        } else {
+            log::warn("client", "{}", m_worldMessage);
+        }
+    }
+    if (m_session->worldChanges() != m_seenWorldChanges) {
+        m_seenWorldChanges = m_session->worldChanges();
+        if (const auto& wc = m_session->lastWorldChange()) {
+            log::info("client", "서버 월드가 바뀌었습니다 ({} '{}', generation {})",
+                      wc->reason == net::WorldChangeReason::Load ? "불러오기" : "리플레이", wc->name, wc->generation);
+        }
+    }
+    if (relist) {
+        (void)m_session->requestWorldOp(net::WorldOpKind::List);
+    }
+}
+
+std::optional<WorldOpsInfo> NetworkSession::worldOps() const {
+    if (!m_session || !m_session->welcome()) {
+        return std::nullopt;
+    }
+    WorldOpsInfo info;
+    info.canChange = permissions().simulation; // 실행 제어와 같은 열 (admin 부터)
+    if (const auto& list = m_session->worldList()) {
+        info.listed = true;
+        for (const net::SavedWorld& w : list->worlds) {
+            info.saved.push_back({w.name, w.replay, w.tick, w.entities});
+        }
+    }
+    if (const auto& st = m_session->lastStats()) {
+        info.mode = st->mode;
+        info.modeName = st->modeName;
+        info.replayCall = st->replayCall;
+        info.replayCalls = st->replayCalls;
+        info.hashesChecked = st->hashesChecked;
+        info.mismatch = st->mismatch;
+        info.replayPaused = st->replayPaused;
+        info.replaySpeed = st->replaySpeed;
+    }
+    info.generation = m_session->generation();
+    info.message = m_worldMessage;
+    return info;
+}
+
+void NetworkSession::worldOp(WorldOp op, std::string name) {
+    if (!m_session || !m_session->requestWorldOp(static_cast<net::WorldOpKind>(op), std::move(name))) {
+        m_worldMessage = "접속 전이라 요청할 수 없습니다";
     }
 }
 

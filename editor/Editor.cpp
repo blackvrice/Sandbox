@@ -411,8 +411,31 @@ void Editor::rebuildPreview(IEditorHost& host) {
     host.setPreview(m_preview);
 }
 
+void Editor::resetForNewWorld(IEditorHost& host) {
+    m_drag = Drag::None;
+    m_boxing = false;
+    m_moving.clear();
+    m_stroke.clear();
+    m_pending.clear();
+    m_preview.clear();
+    m_creates.clear();
+    m_lastCreated.clear();
+    m_txns.clear();
+    m_undo.clear();
+    m_redo.clear();
+    m_replay.reset();
+    m_remap = {};
+    host.setPreview({});
+    m_message = "서버 월드가 바뀌어 되돌리기 기록을 비웠습니다";
+}
+
 void Editor::update(const EditorInput& in, IEditorHost& host) {
     m_cursor = in.cursor;
+    // 서버 월드가 바뀌었다 (12D) — 옛 월드의 netId 를 가리키는 기록 · 기다리던 편집을 버린다
+    if (const u32 g = host.worldGeneration(); g != m_generation) {
+        m_generation = g;
+        resetForNewWorld(host);
+    }
     // 처음 접속했을 때 고를 것이 비어 있으면 콘텐츠의 첫 항목으로 (패널에서 바꾼다)
     if (const content::ContentDatabase* content = host.content()) {
         if (m_settings.prefab.empty() && !content->prefabs().empty()) {

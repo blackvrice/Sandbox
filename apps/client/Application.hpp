@@ -25,6 +25,7 @@
 #include "apps/client/FrameRenderer.hpp"
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
+#include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
@@ -145,7 +146,7 @@ private:
             eraseChar;
         std::optional<platform::ActionId> panUp, panDown, panLeft, panRight, drag, cameraReset, select, selectAdd;
         std::optional<platform::ActionId> pause, step, faster, slower, toggleGrid, toggleDetails, togglePanels;
-        std::optional<platform::ActionId> context, deleteSelection, undo, redo, focus;
+        std::optional<platform::ActionId> context, deleteSelection, undo, redo, focus, save;
         std::array<std::optional<platform::ActionId>, editor::kToolCount> tools; // editor.tool.* (1 ~ 5)
     } m_ids;
 
@@ -165,6 +166,7 @@ private:
     editor::EditorPanelState m_editorPanel;
     editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"
     editor::ContentPanelState m_contentPanel; // 12C "콘텐츠"
+    WorldPanelState m_worldPanel;             // 12D "월드" (Ctrl+S 도 이 이름으로 저장)
     f64 m_editorClock = 0;                    // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 

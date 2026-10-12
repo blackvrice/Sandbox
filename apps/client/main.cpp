@@ -154,6 +154,7 @@ int main(int argc, char** argv) {
         nd.connect = opts->connect.value_or("");
         nd.displayName = opts->name;
         nd.ownerKey = opts->ownerKey;
+        nd.savesRoot = opts->saves.value_or("saves"); // 싱글플레이 세이브 · 리플레이 (12D)
         nd.seed = opts->seed;
         nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);

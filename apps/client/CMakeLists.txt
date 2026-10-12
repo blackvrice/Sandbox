@@ -25,6 +25,8 @@ add_executable(SandboxClient
     ui/DebugPanels.cpp
     ui/PlayersPanel.hpp
     ui/PlayersPanel.cpp
+    ui/WorldPanel.hpp
+    ui/WorldPanel.cpp
 )
 target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"

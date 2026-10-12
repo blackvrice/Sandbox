@@ -20,6 +20,9 @@
 // 12C: 역할이 허락하지 않는 툴 · 편집은 하지 않는다 (host.permissions() — 툴이 막히면 선택 툴로). 콘텐츠 편집
 // (editContent — 월드 오버레이 항목 하나를 EditContent 로, 되돌리기는 이전 오버레이 값).
 //
+// 12D: 서버 월드가 바뀌면 (host.worldGeneration — 불러오기 · 리플레이 재생) 되돌리기 · 다시 하기 · 기다리던 편집 ·
+// EditPreview · 끄는 중인 것을 모두 비운다 (옛 월드의 netId 라 새 월드에서 뜻이 없다).
+//
 // 에디터는 월드를 바꾸지 않는다 — 명령만 낸다 (E1). 툴 상태 · 선택은 클라이언트 로컬 (E3).
 
 #include <optional>
@@ -158,6 +161,7 @@ private:
     [[nodiscard]] Vec2 snapped(Vec2 p) const;
     [[nodiscard]] bool pastThreshold(const EditorInput& in) const;
     void rebuildPreview(IEditorHost& host);
+    void resetForNewWorld(IEditorHost& host); // 12D
 
     Tool m_tool = Tool::Select;
     EditorSettings m_settings;
@@ -212,6 +216,7 @@ private:
     std::optional<Replay> m_replay;
     IdRemap m_remap;
     bool m_focusRequested = false;
+    u32 m_generation = 0; // 마지막으로 본 host.worldGeneration() (12D)
 };
 
 } // namespace sbx::editor

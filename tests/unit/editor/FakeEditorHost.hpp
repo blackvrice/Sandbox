@@ -43,6 +43,7 @@ struct FakeHost final : IEditorHost {
     ecs::ComponentCatalog cat;
     std::map<NetEntityId, std::vector<ComponentState>> comps; // 12B: 개체별 컴포넌트 값 (시험이 채운다)
     EditPermissions perms;                                    // 12C
+    u32 generation = 0;                                       // 12D
     const content::ContentDatabase* contentDb = nullptr;      // 12C: 오버레이 시험 (없으면 내장 db)
 
     FakeHost() : worldGrid(*world::WorldGrid::create({{-1, -1}, {0, 0}}, db, 0)) { // 64 × 64 타일, -32 ~ 31
@@ -106,6 +107,7 @@ struct FakeHost final : IEditorHost {
         return std::nullopt;
     }
     EditPermissions permissions() const override { return perms; }
+    u32 worldGeneration() const override { return generation; }
     // 시험이 서버 대신 결과를 준다
     void accept(u32 seq, std::vector<NetEntityId> created = {}) {
         outcomes.push_back({seq, true, tick, std::move(created), {}});

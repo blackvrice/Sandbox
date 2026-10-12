@@ -3,7 +3,7 @@
 //   Phase 10B: NetworkSession — 서버(같은 프로세스의 LocalServerHost 또는 원격 SandboxServer)의 스냅숏 → ClientWorld.
 //   (Phase 8A 의 --direct-sim 은 지웠다 — ADR-0026)
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
-// 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030).
+// 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030). 12D: 세이브 · 로드 · 리플레이 ("월드" 패널 — ADR-0031).
 
 #include <optional>
 #include <string>
@@ -49,6 +49,31 @@ struct PlayersInfo {
     std::vector<PlayerRow> players; // clientId 오름차순
     u8 myRole = 0;
     std::string message; // 가장 최근 역할 바꾸기 결과 (거절 사유 등)
+};
+
+// 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind
+enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play };
+struct SavedWorldRow {
+    std::string name;
+    bool replay = false; // 리플레이 (재생) — 아니면 세이브 (불러오기)
+    u64 tick = 0;        // 세이브의 틱 (리플레이는 시작 틱)
+    u64 entities = 0;
+};
+// "월드" 패널이 보는 것 (12D)
+struct WorldOpsInfo {
+    bool canChange = false;           // 저장 · 불러오기 · 기록 · 재생 (admin 부터 — 판단은 서버)
+    bool listed = false;              // 목록을 받았다
+    std::vector<SavedWorldRow> saved; // 이름 순
+    u8 mode = 0;                      // 0 보통 · 1 기록 중 · 2 재생 중 (서버 통계 — 1 초마다)
+    std::string modeName;             // 기록 · 재생 중인 이름
+    u64 replayCall = 0;               // 기록: 기록한 tick() 수 · 재생: 재생한 수
+    u64 replayCalls = 0;              // 재생: 전체
+    u32 hashesChecked = 0;
+    bool mismatch = false; // 재생: 기록과 다른 해시
+    bool replayPaused = false;
+    f32 replaySpeed = 1;
+    u32 generation = 0;  // 서버 월드가 바뀐 횟수
+    std::string message; // 가장 최근 결과 (거절 사유 · 요약)
 };
 
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
@@ -103,6 +128,10 @@ public:
     [[nodiscard]] virtual std::optional<PlayersInfo> players() const { return std::nullopt; }
     // 역할 바꾸기 요청 (서버가 판단 — 결과는 players().message)
     virtual void requestRole(u16 /*clientId*/, u8 /*role*/) {}
+    // ---- 12D: 세이브 · 로드 · 리플레이 (없으면 "월드" 패널을 그리지 않는다) ----
+    [[nodiscard]] virtual std::optional<WorldOpsInfo> worldOps() const { return std::nullopt; }
+    // 서버에 요청 (결과는 worldOps().message — 목록은 saved)
+    virtual void worldOp(WorldOp /*op*/, std::string /*name*/) {}
 };
 
 } // namespace sbx::client

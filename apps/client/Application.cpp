@@ -2,6 +2,7 @@
 
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
+#include "apps/client/ui/WorldPanel.hpp"
 
 #include <algorithm>
 #include <array>
@@ -145,6 +146,7 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.undo = m_actionMap.find("editor.undo");
     m_ids.redo = m_actionMap.find("editor.redo");
     m_ids.focus = m_actionMap.find("editor.focus");
+    m_ids.save = m_actionMap.find("editor.save");
     m_ids.tools = {m_actionMap.find("editor.tool.select"), m_actionMap.find("editor.tool.move"),
                    m_actionMap.find("editor.tool.place"), m_actionMap.find("editor.tool.terrain"),
                    m_actionMap.find("editor.tool.erase")};
@@ -386,6 +388,10 @@ void Application::handleWorldInput(f64 dt) {
         m_config.world->changeSpeed(-1);
         m_titleDirty = true;
     }
+    // 빠른 저장 (12D): "월드" 패널의 이름으로 (권한 · 결과는 서버 — 패널의 마지막 줄)
+    if (pressed(m_ids.save) && m_config.world->worldOps()) {
+        m_config.world->worldOp(WorldOp::Save, m_worldPanel.name);
+    }
 }
 
 void Application::applyPendingTransition() {
@@ -495,6 +501,11 @@ bool Application::frame() {
             if (const auto players = m_config.world->players(); players && m_panels.visible) {
                 if (const auto req = drawPlayersPanel(*players)) { // 12C "접속자"
                     m_config.world->requestRole(req->clientId, req->role);
+                }
+            }
+            if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible) {
+                if (auto req = drawWorldPanel(*ops, m_worldPanel)) { // 12D "월드"
+                    m_config.world->worldOp(req->op, std::move(req->name));
                 }
             }
         }

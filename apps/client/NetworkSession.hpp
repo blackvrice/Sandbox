@@ -16,6 +16,9 @@
 // 12B: 컴포넌트 값 = 복제 월드의 EditorVisible 값 + 선택 상세(Inspect)의 서버 전용 값, 개체 목록, 그린 위치 (ADR-0029).
 // 12C: 접속자 표 · 역할 바꾸기 요청, 역할 → EditPermissions, 서버가 보낸 월드 오버레이를 팩 콘텐츠에 얹은 DB 를
 // content() 로 (오버레이가 바뀔 때마다 다시 — 검증에 실패하면 팩 그대로 쓰고 경고), --owner-key (ADR-0030).
+// 12D: "월드" 패널의 세이브 · 로드 · 리플레이 요청 (접속하면 목록을 한 번, 받아들여진 결과마다 다시), 서버 월드가 바뀌면
+// (WorldChanged) 새 복제 월드로 — 선택 · 기다리던 명령을 비우고 worldGeneration 이 올라 에디터도 기록을 비운다. 재생 중
+// 일시정지 · 한 틱 · 속도는 재생을 다룬다 (서버 통계의 재생 상태로 판단). 로컬 서버의 세이브 폴더 = savesRoot (ADR-0031).
 //
 // 한 스레드(Main)에서 쓴다.
 
@@ -49,7 +52,8 @@ struct NetworkSessionDesc {
     u32 workers = 0;           // Local: 시뮬레이션 Job Worker 수
     bool inlineServer = false; // Local: update(dt) 안에서 서버를 돌린다 (헤드리스 · 시험)
     f64 connectTimeoutSeconds = 10;
-    std::string ownerKey; // Remote: 서버 --owner-key 와 같으면 Owner (12C)
+    std::string ownerKey;            // Remote: 서버 --owner-key 와 같으면 Owner (12C)
+    std::filesystem::path savesRoot; // Local: 세이브 · 리플레이 폴더 (12D, --saves). 비면 저장 · 불러오기를 서버가 거절
     // Remote: Transport 를 만든다 (없으면 ENet). 시험은 Loopback 을 넣는다
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };
@@ -102,6 +106,12 @@ public:
     // ---- 12C: 접속자 ----
     [[nodiscard]] std::optional<PlayersInfo> players() const override;
     void requestRole(u16 clientId, u8 role) override;
+    // ---- 12D: 세이브 · 로드 · 리플레이 ----
+    [[nodiscard]] std::optional<WorldOpsInfo> worldOps() const override;
+    void worldOp(WorldOp op, std::string name) override;
+    [[nodiscard]] u32 worldGeneration() const override { return m_session ? m_session->generation() : 0; }
+    // 서버가 리플레이를 재생 중이다 (마지막 통계 기준)
+    [[nodiscard]] bool playingReplay() const noexcept;
     // 오버레이를 적용하지 못했으면 그 이유 (시험 · 패널)
     [[nodiscard]] const std::string& overlayError() const noexcept { return m_overlayError; }
 
@@ -138,6 +148,9 @@ private:
     void selectionChanged();
     void applyPreview(); // 스냅숏의 그릴 위치에 EditPreview 를 더한다 (고르기 · 외곽선도 옮긴 자리로)
     void refreshOverlay(const net::ClientWorld& world); // 서버 오버레이가 바뀌었으면 콘텐츠를 다시 만든다 (12C)
+    void updateWorldOps();                              // 12D: 목록 요청 · 결과
+    [[nodiscard]] bool controlPaused() const noexcept;  // 일시정지 단추가 볼 값 (재생 중이면 재생의 멈춤)
+    [[nodiscard]] f32 controlSpeed() const noexcept;
 
     NetworkSessionDesc m_desc;
     std::string m_name;
@@ -186,6 +199,11 @@ private:
     u64 m_overlayRevision = 0;
     std::string m_overlayError;
     std::string m_roleMessage; // 가장 최근 역할 바꾸기 결과
+
+    // 세이브 · 로드 · 리플레이 (12D)
+    const net::ClientSession* m_listSession = nullptr; // 목록을 요청한 세션 (다시 접속하면 다시)
+    u64 m_seenWorldChanges = 0;
+    std::string m_worldMessage;
 
     // 받은 바이트 (최근 1 초)
     f64 m_bytesWindowStart = 0;
