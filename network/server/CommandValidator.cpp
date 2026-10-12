@@ -12,6 +12,8 @@ CommandClass classifyCommand(const cmd::CommandPayload& payload) noexcept {
             using T = std::decay_t<decltype(p)>;
             if constexpr (std::is_same_v<T, cmd::PaintTerrain>) {
                 return CommandClass::TerrainEdit;
+            } else if constexpr (std::is_same_v<T, cmd::EditContent>) {
+                return CommandClass::ContentEdit;
             } else if constexpr (std::is_same_v<T, cmd::PauseSimulation> || std::is_same_v<T, cmd::ResumeSimulation> ||
                                  std::is_same_v<T, cmd::StepSimulation> || std::is_same_v<T, cmd::SetSimulationSpeed>) {
                 return CommandClass::SimulationControl;

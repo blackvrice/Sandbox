@@ -135,9 +135,12 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "resume"}};
             } else if constexpr (std::is_same_v<P, StepSimulation>) {
                 return Json{{"op", "step"}, {"ticks", p.ticks}};
-            } else {
-                static_assert(std::is_same_v<P, SetSimulationSpeed>);
+            } else if constexpr (std::is_same_v<P, SetSimulationSpeed>) {
                 return Json{{"op", "speed"}, {"speed", static_cast<f64>(p.speed)}};
+            } else {
+                static_assert(std::is_same_v<P, EditContent>);
+                return Json{
+                    {"op", "content"}, {"kind", content::contentKindName(p.kind)}, {"id", p.id}, {"value", p.value}};
             }
         },
         payload);
@@ -261,6 +264,17 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
             return makeError(ErrorCode::ParseError, "speed 의 'speed' 는 수");
         }
         return CommandPayload{SetSimulationSpeed{static_cast<f32>(j["speed"].get<f64>())}};
+    }
+    if (op == "content") {
+        EditContent c;
+        if (!j.contains("kind") || !j["kind"].is_string() ||
+            !content::parseContentKind(j["kind"].get<std::string>(), c.kind) || !j.contains("id") ||
+            !j["id"].is_string() || !j.contains("value") || !(j["value"].is_object() || j["value"].is_null())) {
+            return makeError(ErrorCode::ParseError, "content 는 {kind: prefab|rule|behavior, id, value: 객체|null}");
+        }
+        c.id = j["id"].get<std::string>();
+        c.value = j["value"];
+        return CommandPayload{std::move(c)};
     }
     return makeError(ErrorCode::ParseError, std::format("모르는 명령 '{}'", op));
 }

@@ -19,7 +19,7 @@ enum class CommandClass : u8 {
     PlayerAction = 0,      // [계획 Phase 12] — 아직 그런 명령이 없다
     EntityEdit = 1,        // 엔티티 · 컴포넌트 편집
     TerrainEdit = 2,       // 지형 칠하기
-    ContentEdit = 3,       // Rule · Behavior · Prefab [계획 Phase 12]
+    ContentEdit = 3,       // Rule · Behavior · Prefab (EditContent — 12C)
     SimulationControl = 4, // 일시정지 · 재개 · 한 틱 · 속도
 };
 

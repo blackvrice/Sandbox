@@ -361,6 +361,9 @@ TEST_SUITE("network") {
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK(roleAllows(Role::Owner, CommandClass::SimulationControl));
         CHECK(classifyCommand(cmd::PaintTerrain{}) == CommandClass::TerrainEdit);
+        CHECK(classifyCommand(cmd::EditContent{}) == CommandClass::ContentEdit);
+        CHECK(roleAllows(Role::Editor, CommandClass::ContentEdit));
+        CHECK_FALSE(roleAllows(Role::Player, CommandClass::ContentEdit));
     }
 
     TEST_CASE("server host: stats every second, Disconnect{ServerShutdown} on stop, stop tick holds the world") {

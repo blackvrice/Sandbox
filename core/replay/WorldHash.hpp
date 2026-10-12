@@ -10,7 +10,7 @@
 //        끝 표식
 //   4. 지형 (Phase 4, simVersion 2): 경계, 청크(좌표 오름차순)마다 Chunk::terrainHash
 //        = (좌표, terrainRevision, 머티리얼 id 의 stableId, flags, moveCost, height). revision 으로 캐시된다.
-//   [Phase 5] 월드 오버레이 콘텐츠 해시
+//   5. 월드 오버레이 (Phase 12C): 비어 있지 않을 때만 "OVERLAY" + ContentOverlay::hash()
 //   제외: Opaque 컴포넌트(이 프로세스가 모르는 것), net.identity, EventStream, 시계의 speed·editSequence
 //
 // 엔티티 순서가 EntityId.index 가 아니라 saveId 인 이유: 로드하면 index 가 바뀌어도 saveId 는 그대로다 (D2).

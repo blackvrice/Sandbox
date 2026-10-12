@@ -13,6 +13,7 @@
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
+#include "core/content/ContentLoader.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "foundation/log/Log.hpp"
 
@@ -82,8 +83,8 @@ Expected<void> validateWorldDesc(const WorldDesc& desc, const content::ContentDa
 
 SimulationWorld::SimulationWorld(const ecs::ComponentCatalog& catalog, const content::ContentDatabase& content,
                                  const WorldDesc& desc)
-    : m_catalog(catalog), m_content(content), m_desc(desc), m_grid(makeGrid(desc, content)), m_spatial(desc.bounds),
-      m_random(desc.seed) {
+    : m_catalog(catalog), m_baseContent(content), m_content(&content), m_desc(desc), m_grid(makeGrid(desc, content)),
+      m_spatial(desc.bounds), m_random(desc.seed) {
     m_clock.reset(0, desc.startPaused);
     if (desc.registerDefaultSystems) {
         registerDefaultSystems(m_scheduler);
@@ -134,7 +135,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
 
     // --- 5~16 Systems, 17 Structural② ----------------------------------------
     const SystemContext base{m_registry, m_baseEcb, m_spatial,           m_grid,    m_random,
-                             m_events,   m_spawns,  m_content,           m_catalog, m_saves,
+                             m_events,   m_spawns,  *m_content,          m_catalog, m_saves,
                              m_intents,  m_paths,   m_paths.jobSystem(), now,       kFixedDt};
     m_scheduler.run(base, profiler);
     m_scheduler.applyBuffers(m_registry, [this] { syncIdentityLogs(); });
@@ -144,7 +145,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
 Expected<u64> SimulationWorld::worldHash() const {
     return replay::computeWorldHash(m_registry, m_catalog,
                                     replay::WorldHashHeader{m_clock.tick(), m_random.worldSeed(), m_clock.paused()},
-                                    m_grid, m_content);
+                                    m_grid, *m_content);
 }
 
 ecs::EntityId SimulationWorld::resolveSave(SaveId id) const noexcept {
@@ -485,7 +486,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
     if (const auto* c = std::get_if<cmd::CreateEntity>(&payload)) {
         const content::Prefab* prefab = nullptr;
         if (!c->prefab.empty()) {
-            prefab = m_content.findPrefab(c->prefab);
+            prefab = m_content->findPrefab(c->prefab);
             if (prefab == nullptr) {
                 return makeError(ErrorCode::NotFound, std::format("Prefab '{}' 가 콘텐츠에 없다", c->prefab));
             }
@@ -617,7 +618,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
     }
 
     if (const auto* c = std::get_if<cmd::PaintTerrain>(&payload)) {
-        const auto m = m_content.findMaterial(c->materialId);
+        const auto m = m_content->findMaterial(c->materialId);
         if (!m) {
             return makeError(ErrorCode::NotFound, std::format("머티리얼 '{}' 가 콘텐츠에 없다", c->materialId));
         }
@@ -643,7 +644,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
             }
             tiles = brushTiles(*c, m_grid);
         }
-        (void)m_grid.paint(tiles, *m, m_content.material(*m));
+        (void)m_grid.paint(tiles, *m, m_content->material(*m));
         return Result{};
     }
 
@@ -675,8 +676,125 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         m_clock.setSpeed(c->speed);
         return Result{};
     }
+    if (const auto* c = std::get_if<cmd::EditContent>(&payload)) {
+        if (auto r = applyEditContent(*c); !r) {
+            return std::unexpected(r.error());
+        }
+        return Result{};
+    }
     SBX_VERIFY(false, "처리하지 않은 명령 종류");
     return makeError(ErrorCode::Unsupported, std::string(cmd::commandName(payload)));
+}
+
+// --- 월드 오버레이 (ADR-0030) ---------------------------------------------------------------------------------
+
+Expected<std::shared_ptr<const content::ContentDatabase>>
+SimulationWorld::buildOverlaid(const content::ContentOverlay& overlay) const {
+    content::ContentLoadResult r = content::ContentLoader::applyOverlay(m_baseContent, overlay, m_catalog);
+    if (!r.ok()) {
+        std::string msg = std::format("콘텐츠 검증 오류 {}개", r.errorCount());
+        usize shown = 0;
+        for (const content::ContentIssue& i : r.issues) {
+            if (i.severity == content::ContentIssue::Severity::Error && shown++ < 3) {
+                msg += "\n  " + i.describe();
+            }
+        }
+        return makeError(ErrorCode::ValidationFailed, msg);
+    }
+    return std::make_shared<const content::ContentDatabase>(std::move(r.db));
+}
+
+Expected<void> SimulationWorld::setContentOverlay(const content::ContentOverlay& overlay) {
+    if (overlay == m_content->overlay()) {
+        return {};
+    }
+    if (overlay.empty()) {
+        m_overlaid.reset();
+        m_content = &m_baseContent;
+        ++m_contentRevision;
+        return {};
+    }
+    auto db = buildOverlaid(overlay);
+    if (!db) {
+        return std::unexpected(db.error());
+    }
+    m_overlaid = std::move(*db);
+    m_content = m_overlaid.get();
+    ++m_contentRevision;
+    return {};
+}
+
+Expected<void> SimulationWorld::applyEditContent(const cmd::EditContent& c) {
+    if (!content::isValidContentId(c.id) || c.id.size() > ContentId::kCapacity) {
+        return makeError(ErrorCode::InvalidArgument, std::format("콘텐츠 id '{}' 가 규칙에 맞지 않다", c.id));
+    }
+    content::ContentOverlay next = m_content->overlay();
+    if (c.value.is_null()) {
+        if (!next.erase(c.kind, c.id)) {
+            return makeError(ErrorCode::NotFound, std::format("오버레이에 {} '{}' 가 없다 (이미 팩 값)",
+                                                              content::contentKindName(c.kind), c.id));
+        }
+    } else {
+        if (!c.value.is_object()) {
+            return makeError(ErrorCode::InvalidArgument, "콘텐츠 값은 JSON 객체 또는 null");
+        }
+        if (c.value.dump().size() > content::kMaxOverlayItemBytes) {
+            return makeError(ErrorCode::OutOfRange,
+                             std::format("콘텐츠 JSON 이 {} 바이트를 넘는다", content::kMaxOverlayItemBytes));
+        }
+        if (next.find(c.kind, c.id) == nullptr && next.size() >= content::kMaxOverlayItems) {
+            return makeError(ErrorCode::OutOfRange,
+                             std::format("오버레이 항목이 {}개를 넘는다", content::kMaxOverlayItems));
+        }
+        next.set(c.kind, c.id, c.value);
+    }
+    if (next == m_content->overlay()) {
+        return {}; // 같은 값 — 바뀐 것이 없다
+    }
+    std::shared_ptr<const content::ContentDatabase> db;
+    if (!next.empty()) {
+        auto built = buildOverlaid(next);
+        if (!built) {
+            return std::unexpected(built.error());
+        }
+        db = std::move(*built);
+    }
+    const content::ContentDatabase& after = db ? *db : m_baseContent;
+
+    // BehaviorGraph 가 바뀌면 그 그래프를 쓰는 개체의 상태 번호를 상태 id 로 옮긴다 (없어진 상태면 처음부터 — initial).
+    // 번호가 같으면 쓰지 않는다 (changed 를 올리지 않게)
+    if (c.kind == content::ContentKind::Behavior) {
+        const content::BehaviorGraph* before = m_content->findBehavior(c.id);
+        const content::BehaviorGraph* now = after.findBehavior(c.id);
+        if (before != nullptr) {
+            std::vector<std::pair<ecs::EntityId, u16>> moves; // 순회 중에는 쓰지 않는다
+            for (auto [e, b] : m_registry.view<ecs::Read<comp::Behavior>>()) {
+                if (b.graph.view() != c.id || b.state == comp::kBehaviorNotStarted) {
+                    continue;
+                }
+                u16 mapped = comp::kBehaviorNotStarted;
+                if (now != nullptr && b.state < before->states.size()) {
+                    const std::string& name = before->states[b.state].id;
+                    for (usize i = 0; i < now->states.size(); ++i) {
+                        if (now->states[i].id == name) {
+                            mapped = static_cast<u16>(i);
+                            break;
+                        }
+                    }
+                }
+                if (mapped != b.state) {
+                    moves.emplace_back(e, mapped);
+                }
+            }
+            for (const auto& [e, state] : moves) {
+                m_registry.write<comp::Behavior>(e).state = state;
+            }
+        }
+    }
+    m_overlaid = std::move(db);
+    m_content = m_overlaid ? m_overlaid.get() : &m_baseContent;
+    ++m_contentRevision;
+    return {};
 }
 
 } // namespace sbx::sim

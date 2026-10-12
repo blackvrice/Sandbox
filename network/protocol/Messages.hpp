@@ -22,8 +22,8 @@
 namespace sbx::net {
 
 // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
-// 4: Subscribe · 다시 접속 토큰 — Phase 11
-inline constexpr u32 kProtocolVersion = 5;
+// 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C
+inline constexpr u32 kProtocolVersion = 6;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;

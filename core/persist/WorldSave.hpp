@@ -4,6 +4,7 @@
 //   <dir>/world.json          버전·시드·틱·경계·테이블(머티리얼 id, 컴포넌트 버전)·시계·worldHash
 //   <dir>/entities.jsonl      한 줄에 엔티티 하나, saveId 오름차순, Persistent 컴포넌트 (이름 → 리플렉션 JSON)
 //   <dir>/chunks/<x>_<y>.chunk  손댄 청크만 (terrainRevision > 0). 나머지는 fillMaterial 로 다시 만든다
+//   <dir>/overlay/<prefabs|rules|behaviors>/<id>.json  월드 오버레이 항목 (12C, ADR-0030 — 있을 때만)
 //
 // 저장은 틱 경계에서 부른다 (tick() 밖). 같은 부모 폴더의 임시 폴더에 전부 쓴 뒤 폴더째 바꿔 넣는다 —
 // 중간에 실패해도 이전 세이브가 반쯤 덮이지 않고, 지난 세이브의 남은 청크 파일도 섞이지 않는다.
@@ -13,7 +14,8 @@
 // worldHash 비교 (같은 simVersion, 마이그레이션·Opaque 없음일 때 — D2).
 //
 // 콘텐츠 (Phase 5A): world.json 에 팩 목록·contentHash·태그 표. 다르면 경고, core.tags 비트는 태그 표로 재매핑.
-// [Phase 5B~] EntityRef 필드는 saveId 로 기록·2-pass 재연결, 오버레이(rules/behaviors/prefabs).
+// [Phase 5B~] EntityRef 필드는 saveId 로 기록·2-pass 재연결.
+// 오버레이 (12C): 로드할 때 검증에 실패하면(팩이 바뀜) 경고하고 팩 콘텐츠로 — 해시 비교는 건너뛴다.
 // [계획]   증분 저장 (바뀐 청크만), zstd 압축, Worker 스레드 직렬화 (지금은 호출 스레드에서 동기).
 
 #include <filesystem>
@@ -37,6 +39,7 @@ struct SaveStats {
     usize entities = 0;
     usize chunkFiles = 0;
     usize opaqueEntities = 0;
+    usize overlayItems = 0;
     u64 worldHash = 0;
 };
 
@@ -57,6 +60,7 @@ struct LoadResult {
     usize migratedComponents = 0;
     usize opaqueComponents = 0;
     u32 savedSimVersion = 0;
+    usize overlayItems = 0;            // 세이브의 월드 오버레이 항목 수
     std::vector<std::string> warnings; // 콘텐츠가 다름, 없어진 태그 등 — 로드는 성공했다
 };
 

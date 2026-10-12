@@ -37,6 +37,7 @@ add_executable(SandboxTests
     unit/persist/test_world_save.cpp
     unit/persist/test_sample_saves.cpp
     unit/content/test_content_loader.cpp
+    unit/content/test_content_overlay.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp

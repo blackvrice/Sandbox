@@ -8,6 +8,7 @@
 //                 rules/*.json         Rule 배열
 //                 behaviors/*.json     BehaviorGraph 하나
 //                 presentation/**      클라 전용 — 읽지 않고 contentHash 에서도 뺀다
+//   + 월드 오버레이 (ADR-0030): 읽은 파일 텍스트를 DB 에 남겨(ContentSources) applyOverlay 가 다시 만든다
 //
 // 로드 순서: 요청한 팩 + requires 를 위상 정렬 (동순위는 id), 팩 안의 파일은 경로 문자열 정렬 (04 4.5).
 // 검증 규칙 V1~V7 (11 8장). 문제를 모두 모아 돌려준다 — 첫 오류에서 멈추지 않는다.
@@ -48,6 +49,11 @@ public:
     // root 아래에서 packIds 와 그 requires 를 찾아 읽는다. 팩 폴더 이름은 무엇이든 되고, pack.json 의 id 로 찾는다.
     [[nodiscard]] static ContentLoadResult load(const std::filesystem::path& root, std::span<const std::string> packIds,
                                                 const ecs::ComponentCatalog& catalog);
+    // base 의 팩 원본(sources)에 오버레이를 얹어 다시 만든다 (디스크를 읽지 않는다 — ADR-0030). 오버레이 항목은 같은 id
+    // 의 팩 항목을 바꾸거나 새로 더한다. 검증은 팩과 같다 (V1~V7 — 문제는 "overlay/<종류>/<id>.json" 이름으로). 결과 DB
+    // 의 contentHash 는 base 와 같고 overlay() 가 이 오버레이다. base 가 팩 없이 만든 DB 면 빈 오버레이만 된다
+    [[nodiscard]] static ContentLoadResult applyOverlay(const ContentDatabase& base, const ContentOverlay& overlay,
+                                                        const ecs::ComponentCatalog& catalog);
 };
 
 // 편의: 오류가 있으면 처음 몇 개를 묶은 Error 로

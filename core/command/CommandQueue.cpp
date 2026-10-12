@@ -17,6 +17,7 @@ std::string_view commandName(const CommandPayload& payload) noexcept {
         std::string_view operator()(const ResumeSimulation&) const noexcept { return "ResumeSimulation"; }
         std::string_view operator()(const StepSimulation&) const noexcept { return "StepSimulation"; }
         std::string_view operator()(const SetSimulationSpeed&) const noexcept { return "SetSimulationSpeed"; }
+        std::string_view operator()(const EditContent&) const noexcept { return "EditContent"; }
     };
     return std::visit(Namer{}, payload);
 }

@@ -50,7 +50,9 @@ std::vector<cmd::CommandPayload> everyPayload() {
             cmd::PauseSimulation{},
             cmd::ResumeSimulation{},
             cmd::StepSimulation{12},
-            cmd::SetSimulationSpeed{2.0f}};
+            cmd::SetSimulationSpeed{2.0f},
+            cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
+            cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr}};
 }
 
 } // namespace
@@ -252,6 +254,21 @@ TEST_SUITE("network") {
             bad.writeU8(2);
             bad.writeVarU(0);
             CHECK_FALSE(decode(bad));
+        }
+        {
+            // EditContent (12C): 종류는 0~2, 값은 객체 또는 null
+            BitWriter badKind;
+            badKind.writeU8(static_cast<u8>(PayloadTag::EditContent));
+            badKind.writeU8(3);
+            badKind.writeString("eco.x");
+            badKind.writeString("null");
+            CHECK_FALSE(decode(badKind));
+            BitWriter badValue;
+            badValue.writeU8(static_cast<u8>(PayloadTag::EditContent));
+            badValue.writeU8(1);
+            badValue.writeString("eco.x");
+            badValue.writeString("[1, 2]");
+            CHECK_FALSE(decode(badValue));
         }
         {
             BitWriter w;

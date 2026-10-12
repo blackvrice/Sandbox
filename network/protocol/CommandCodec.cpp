@@ -144,6 +144,11 @@ void writePayload(BitWriter& w, const cmd::CommandPayload& payload) {
             } else if constexpr (std::is_same_v<T, cmd::SetSimulationSpeed>) {
                 w.writeU8(static_cast<u8>(PayloadTag::SetSimulationSpeed));
                 w.writeF32(p.speed);
+            } else if constexpr (std::is_same_v<T, cmd::EditContent>) {
+                w.writeU8(static_cast<u8>(PayloadTag::EditContent));
+                w.writeU8(static_cast<u8>(p.kind));
+                w.writeString(p.id);
+                writeJson(w, p.value);
             } else {
                 static_assert(sizeof(T) == 0, "새 명령의 와이어 형식을 정하십시오 (PayloadTag 에 새 값)");
             }
@@ -243,6 +248,20 @@ bool readPayload(BitReader& r, cmd::CommandPayload& out) {
             r.fail();
         }
         out = cmd::SetSimulationSpeed{speed};
+        break;
+    }
+    case PayloadTag::EditContent: {
+        cmd::EditContent p;
+        const u8 kind = r.readU8();
+        if (kind >= content::kContentKindCount) {
+            r.fail();
+        }
+        p.kind = static_cast<content::ContentKind>(kind);
+        p.id = r.readString(kMaxContentIdBytes);
+        if (readJson(r, p.value) && !p.value.is_object() && !p.value.is_null()) {
+            r.fail();
+        }
+        out = std::move(p);
         break;
     }
     default:

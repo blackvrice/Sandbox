@@ -11,6 +11,7 @@
 //   {"op":"change", "target":ref, "id":"0x…", "patch":{…}}
 //   {"op":"paint", "material":"", "cells":[[x,y]…], "center":[x,y], "shape":0|1, "radius":r}
 //   {"op":"pause"} {"op":"resume"} {"op":"step","ticks":n} {"op":"speed","speed":f}
+//   {"op":"content", "kind":"prefab|rule|behavior", "id":"", "value":{…}|null}   (12C — 월드 오버레이)
 // f32 는 JSON 수(double)로 왕복해도 같은 값이다.
 
 #include <functional>

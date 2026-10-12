@@ -64,6 +64,8 @@ add_library(SandboxCore STATIC
     content/ContentModel.hpp
     content/ContentLoader.hpp
     content/ContentLoader.cpp
+    content/ContentOverlay.hpp
+    content/ContentOverlay.cpp
 
     command/SimCommand.hpp
     command/CommandQueue.hpp

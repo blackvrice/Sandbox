@@ -105,6 +105,11 @@ Expected<u64> computeWorldHash(const ecs::Registry& registry, const ecs::Compone
     }
     h.string("TERRAIN");
     grid.hashInto(h, world::materialStableIds(content));
+    // 월드 오버레이 (Phase 12C, ADR-0030) — 비어 있으면 넣지 않는다 (오버레이 없는 월드의 해시 · 골든은 그대로)
+    if (const u64 overlay = content.overlay().hash(); overlay != 0) {
+        h.string("OVERLAY");
+        h.u64le(overlay);
+    }
     return h.value();
 }
 

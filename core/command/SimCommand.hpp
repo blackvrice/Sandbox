@@ -9,14 +9,15 @@
 // M6 실패는 조용히 무시하지 않고 CommandResult{Rejected} 로 알린다.
 //
 // 컴포넌트 값은 JSON 으로 싣는다 (리플렉션 JsonReader 로 적용). 와이어 포맷(비트스트림)은 Phase 9.
-// Phase 3 범위의 명령만 있다. PaintTerrain(4)·ChangeRule/ChangeBehavior/CreatePrefab/PlayerAction(5, 12) 은 해당 Phase
-// 에서 추가한다.
+// PaintTerrain 은 Phase 4, EditContent(콘텐츠 오버레이 — 설계 초안의 ChangeRule/ChangeBehavior/CreatePrefab)는 Phase
+// 12C (ADR-0030). PlayerAction 은 [계획].
 
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "core/components/core/Identity.hpp"
+#include "core/content/ContentOverlay.hpp"
 #include "core/ecs/Component.hpp"
 #include "core/serialization/JsonVisitor.hpp"
 #include "core/simulation/SimConstants.hpp"
@@ -85,6 +86,16 @@ struct PaintTerrain {
     u32 radius = 0; // 0 = center 한 칸, 최대 31
 };
 
+// 월드 오버레이 (10-EDITOR 8장, ADR-0030): Prefab · Rule · BehaviorGraph 하나를 팩 파일과 같은 JSON 으로 바꾸거나
+// 더한다. value 가 null 이면 오버레이에서 뺀다 (팩 값으로 — 오버레이로 더한 것이면 없어진다). 검증은 콘텐츠 로더 그대로
+// — 오류가 있으면 거절되고 아무것도 바뀌지 않는다. BehaviorGraph 를 바꾸면 그 그래프를 쓰는 개체의 상태는 상태 id 로
+// 옮긴다.
+struct EditContent {
+    content::ContentKind kind = content::ContentKind::Rule;
+    std::string id;
+    ecs::Json value; // 객체 또는 null
+};
+
 // --- 실행 제어 ---------------------------------------------------------------
 struct PauseSimulation {};
 struct ResumeSimulation {};
@@ -97,7 +108,7 @@ struct SetSimulationSpeed {
 
 using CommandPayload =
     std::variant<CreateEntity, DeleteEntity, MoveEntity, AddComponent, RemoveComponent, ChangeComponent, PaintTerrain,
-                 PauseSimulation, ResumeSimulation, StepSimulation, SetSimulationSpeed>;
+                 PauseSimulation, ResumeSimulation, StepSimulation, SetSimulationSpeed, EditContent>;
 
 struct SimCommand {
     CommandHeader header;

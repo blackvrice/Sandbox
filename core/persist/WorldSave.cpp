@@ -242,6 +242,21 @@ Expected<SaveStats> saveWorld(const sim::SimulationWorld& world, const fs::path&
         }
         ++stats.chunkFiles;
     }
+    // 월드 오버레이 (12C, ADR-0030): overlay/<prefabs|rules|behaviors>/<id>.json — 항목 하나에 파일 하나
+    const content::ContentOverlay& overlay = world.contentOverlay();
+    for (u8 k = 0; k < content::kContentKindCount; ++k) {
+        const auto kind = static_cast<content::ContentKind>(k);
+        for (const auto& [id, value] : overlay.items(kind)) {
+            const fs::path file = staging / "overlay" / std::string(content::contentKindFolder(kind)) / (id + ".json");
+            if (auto r = io::createDirectories(file.parent_path()); !r) {
+                return std::unexpected(r.error());
+            }
+            if (auto r = io::writeFileAtomic(file, value.dump(2) + "\n"); !r) {
+                return std::unexpected(r.error());
+            }
+            ++stats.overlayItems;
+        }
+    }
     if (auto r = io::writeFileAtomic(staging / "entities.jsonl", lines); !r) {
         return std::unexpected(r.error());
     }
@@ -408,6 +423,45 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& catalog, const conte
     auto w = std::make_unique<sim::SimulationWorld>(catalog, content, desc);
     w->beginRestore(tick);
 
+    // --- 월드 오버레이 (12C) -------------------------------------------------
+    // 팩이 바뀌어 검증에 실패하면 오버레이 없이 로드하고 경고한다 (해시 비교는 건너뛴다)
+    bool overlayFailed = false;
+    {
+        content::ContentOverlay overlay;
+        std::error_code oec;
+        for (u8 k = 0; k < content::kContentKindCount; ++k) {
+            const auto kind = static_cast<content::ContentKind>(k);
+            const fs::path folder = dir / "overlay" / std::string(content::contentKindFolder(kind));
+            if (!fs::is_directory(folder, oec)) {
+                continue;
+            }
+            std::vector<fs::path> files;
+            for (const auto& entry : fs::directory_iterator(folder, oec)) {
+                if (entry.is_regular_file(oec) && entry.path().extension() == ".json") {
+                    files.push_back(entry.path());
+                }
+            }
+            std::sort(files.begin(), files.end());
+            for (const fs::path& file : files) {
+                const std::string rel =
+                    "overlay/" + std::string(content::contentKindFolder(kind)) + "/" + file.filename().generic_string();
+                SBX_TRY_ASSIGN(text, io::readFile(file));
+                json value = json::parse(text, nullptr, false);
+                if (value.is_discarded() || !value.is_object()) {
+                    return makeError(ErrorCode::ParseError, "오버레이 항목은 JSON 객체", rel);
+                }
+                overlay.set(kind, file.stem().generic_string(), std::move(value));
+            }
+        }
+        result.overlayItems = overlay.size();
+        if (!overlay.empty()) {
+            if (auto r = w->setContentOverlay(overlay); !r) {
+                overlayFailed = true;
+                result.warnings.push_back("월드 오버레이를 적용하지 못해 팩 콘텐츠로 로드했다: " + r.error().message);
+            }
+        }
+    }
+
     // --- 청크 ----------------------------------------------------------------
     const fs::path chunkDir = dir / "chunks";
     std::error_code ec;
@@ -565,6 +619,8 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& catalog, const conte
         result.hashSkippedReason = std::format("simVersion {} → {} (규칙 차이)", simVersion, sim::kSimVersion);
     } else if (result.migratedComponents > 0) {
         result.hashSkippedReason = "마이그레이션이 적용됨";
+    } else if (overlayFailed) {
+        result.hashSkippedReason = "월드 오버레이를 적용하지 못했다";
     } else if (!tagTableSame) {
         result.hashSkippedReason = "태그 표가 저장 당시와 다르다 (core.tags 비트가 재매핑됨)";
     } else if (!savedOpaqueNames || *savedOpaqueNames != loaderOpaqueNames) {

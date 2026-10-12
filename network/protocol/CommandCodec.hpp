@@ -4,6 +4,7 @@
 //   종류 태그 u8 (PayloadTag — 값은 바꾸지 않는다, 새 명령은 새 값) + 종류별 필드.
 //   엔티티 참조 = NetEntityId varint (03 4장 M2). 좌표 · 속도 = f32. 타일 = zigzag varint.
 //   컴포넌트 값 · 패치는 JSON 텍스트 (리플렉션 JsonReader 로 적용 — SimCommand 가 JSON 을 싣는 것과 같다).
+//   EditContent (12C): 종류 u8 (0 prefab · 1 rule · 2 behavior), id str(64), 값 JSON 텍스트 (객체 또는 null).
 //
 // 읽기에서 막는 것 = 형식 (03 4.1 의 1단계): 개수 · 길이 상한, 유한한 수, 알려진 태그, 파싱되는 JSON. 대상이 있는지 ·
 // 값이 범위 안인지 · 콘텐츠 id 가 있는지는 SimulationWorld 가 적용하면서 본다 (거절 → CommandResult).
@@ -21,6 +22,7 @@ enum class PayloadTag : u8 {
     RemoveComponent = 5,
     ChangeComponent = 6,
     PaintTerrain = 7,
+    EditContent = 8, // 프로토콜 6 (12C)
     PauseSimulation = 20,
     ResumeSimulation = 21,
     StepSimulation = 22,

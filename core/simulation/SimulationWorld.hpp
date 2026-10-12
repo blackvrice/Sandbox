@@ -89,8 +89,9 @@ public:
     [[nodiscard]] const EventStream& events() const noexcept { return m_events; }
 
     [[nodiscard]] Tick currentTick() const noexcept { return m_clock.tick(); }
-    // 변경 순번: tick() 호출마다 1 이상 오른다 (일시정지 편집 단계도 — 틱 번호는 그대로인데 값은 바뀌므로). 레지스트리의
-    // changed/added 기록이 이 값이다. 일시정지가 없으면 틱 번호와 같다. 복제가 기준 이후 바뀐 컴포넌트를 고른다 (ADR-0025)
+    // 변경 순번: tick() 호출마다 1 이상 오른다 (일시정지 편집 단계도 — 틱 번호는 그대로인데 값은 바뀌므로).
+    // 레지스트리의 changed/added 기록이 이 값이다. 일시정지가 없으면 틱 번호와 같다. 복제가 기준 이후 바뀐 컴포넌트를
+    // 고른다 (ADR-0025)
     [[nodiscard]] u64 changeStamp() const noexcept { return m_changeStamp; }
     [[nodiscard]] const SimulationClock& clock() const noexcept { return m_clock; }
     [[nodiscard]] u64 seed() const noexcept { return m_random.worldSeed(); }
@@ -126,7 +127,16 @@ public:
     [[nodiscard]] SystemScheduler& scheduler() noexcept { return m_scheduler; }
     [[nodiscard]] const world::SpatialIndex& spatial() const noexcept { return m_spatial; }
     [[nodiscard]] const world::WorldGrid& grid() const noexcept { return m_grid; }
-    [[nodiscard]] const content::ContentDatabase& content() const noexcept { return m_content; }
+    // 지금 쓰는 콘텐츠 = 팩 + 월드 오버레이 (EditContent 가 바꾼다 — ADR-0030). 참조는 다음 EditContent ·
+    // setContentOverlay 까지만 유효하다 (틱 밖에서 읽고 들고 있지 않는다)
+    [[nodiscard]] const content::ContentDatabase& content() const noexcept { return *m_content; }
+    // 생성자에 준 팩 콘텐츠 (오버레이 없음)
+    [[nodiscard]] const content::ContentDatabase& baseContent() const noexcept { return m_baseContent; }
+    [[nodiscard]] const content::ContentOverlay& contentOverlay() const noexcept { return m_content->overlay(); }
+    // 오버레이가 바뀔 때마다 1 씩 (복제가 바뀐 것을 알린다)
+    [[nodiscard]] u64 contentRevision() const noexcept { return m_contentRevision; }
+    // 오버레이를 통째로 (세이브 로드 · 시험). 검증에 실패하면 아무것도 바뀌지 않는다. 개체의 행동 상태는 옮기지 않는다
+    [[nodiscard]] Expected<void> setContentOverlay(const content::ContentOverlay& overlay);
     [[nodiscard]] const WorldDesc& desc() const noexcept { return m_desc; }
     [[nodiscard]] NetEntityId nextNetId() const noexcept { return m_nextNetId; }
 
@@ -160,10 +170,17 @@ private:
     // Prefab(없어도 됨) + 덮어쓰기 컴포넌트로 엔티티 하나를 원자적으로 만든다 (명령·SpawnQueue 공용)
     Expected<ecs::EntityId> instantiate(const content::Prefab* prefab, Vec2 position,
                                         std::span<const cmd::ComponentValue> overrides);
+    Expected<void> applyEditContent(const cmd::EditContent& c);
+    // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
+    Expected<std::shared_ptr<const content::ContentDatabase>>
+    buildOverlaid(const content::ContentOverlay& overlay) const;
     void applySpawns();
 
     const ecs::ComponentCatalog& m_catalog;
-    const content::ContentDatabase& m_content;
+    const content::ContentDatabase& m_baseContent;
+    std::shared_ptr<const content::ContentDatabase> m_overlaid; // 오버레이가 있을 때만
+    const content::ContentDatabase* m_content;                  // m_overlaid 또는 m_baseContent
+    u64 m_contentRevision = 0;
     WorldDesc m_desc;
     ecs::Registry m_registry;
     world::WorldGrid m_grid;

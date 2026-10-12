@@ -19,8 +19,8 @@ namespace sbx::content {
 struct PrefabComponent {
     std::string name;           // "life.energy"
     ecs::StableId stableId = 0; // 카탈로그에 있으면 그 stableId
-    bool opaque = false; // 이 프로세스가 모르는 컴포넌트 (render.* 등) — 엔티티에 Opaque 로 붙는다
-    nlohmann::json value; // 리플렉션 JSON (생략한 필드는 기본값, P2)
+    bool opaque = false;        // 이 프로세스가 모르는 컴포넌트 (render.* 등) — 엔티티에 Opaque 로 붙는다
+    nlohmann::json value;       // 리플렉션 JSON (생략한 필드는 기본값, P2)
 };
 
 struct Prefab {
@@ -31,6 +31,8 @@ struct Prefab {
     TagSet tags;
     std::vector<PrefabComponent> components; // 이름 정렬
     std::string file;                        // 진단용 "<pack>/prefabs/rabbit.json"
+    nlohmann::json raw;                      // 읽은 JSON 그대로 (에디터가 보여 주고 고친다 — 오버레이, ADR-0030)
+    bool overlay = false;                    // 월드 오버레이에서 왔다
 };
 
 // --- Rule (11 3장, 03 6장) ------------------------------------------------------------------------------------------
@@ -96,6 +98,8 @@ struct Rule {
     u32 order = 0;    // 정의 순서 (팩 로드 순 → 파일 경로 순 → 배열 순). 동점 정렬 키
     u16 actionId = 0; // ContentDatabase::actions() 의 번호 + 1 (로드 마지막에 정한다)
     std::string file;
+    nlohmann::json raw; // 읽은 JSON 객체 그대로 (오버레이)
+    bool overlay = false;
 };
 
 // --- BehaviorGraph (11 4장, 03 5장) ------------------------------------------------------------------------------
@@ -163,6 +167,8 @@ struct BehaviorGraph {
     // SensorSystem 이 질의마다 개수·가장 가까운 개체를 계산하고, 노드는 번호(query)로 읽는다.
     std::vector<TagExpr> queries;
     std::string file;
+    nlohmann::json raw; // 읽은 JSON 그대로 (오버레이)
+    bool overlay = false;
 };
 
 inline constexpr usize kMaxBehaviorQueries = 8; // == comp::kMaxSensorQueries
