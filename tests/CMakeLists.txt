@@ -192,13 +192,18 @@ if(TARGET sbx_sim_check)
                 --save-dir "${CMAKE_CURRENT_BINARY_DIR}/det_eco_lifecycle")
     # Phase 5C: D3 — 시작 세이브 + 적용된 명령으로 기록한 리플레이를 재생해 같은 해시. 일시정지 편집(random_walk_1k)·
     # 지형 칠하기(world_save_load)·생태계(eco_lifecycle) 각각
-    foreach(_rs IN ITEMS random_walk_1k world_save_load eco_lifecycle ecosystem_small)
+    foreach(_rs IN ITEMS random_walk_1k world_save_load eco_lifecycle ecosystem_small edit_session)
         add_test(NAME det_replay_${_rs}
             COMMAND sbx_sim_check --scenario ${_rs} --ticks 600 --replay-roundtrip
                     --replay-dir "${CMAKE_CURRENT_BINARY_DIR}/det_replay_${_rs}")
         set_tests_properties(det_replay_${_rs} PROPERTIES LABELS "det"
             PASS_REGULAR_EXPRESSION "리플레이 일치 \\(D3\\)")
     endforeach()
+    # Phase 12D: edit_session (두 사람의 편집 명령 로그 — 월드 오버레이가 든 세이브 왕복) — D1 + D2 + D5. D3 은 위 det_replay_
+    add_test(NAME det_edit_session
+        COMMAND sbx_sim_check --scenario edit_session --repeat 2 --save-at 300 --threads 0,1,8
+                --save-dir "${CMAKE_CURRENT_BINARY_DIR}/det_edit_session")
+    set_tests_properties(det_edit_session PROPERTIES LABELS "det")
     # Phase 5C: ecosystem_small (보충 없는 생태계) — D1 + D2 + D5 + 골든
     add_test(NAME det_ecosystem_small
         COMMAND sbx_sim_check --scenario ecosystem_small --repeat 2 --save-at 450 --threads 0,1,8

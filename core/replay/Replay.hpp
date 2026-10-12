@@ -23,6 +23,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -105,6 +106,38 @@ struct PlaybackResult {
     std::optional<PlaybackMismatch> mismatch; // 첫 불일치에서 멈춘다
     bool simVersionDiffers = false;    // 불일치가 있으면 "규칙 차이"(true) / "버그"(false) 로 분류
     std::vector<std::string> warnings; // 재생 중 거절된 명령 등
+};
+
+// 한 call 씩 재생한다 (서버의 리플레이 재생 — 12D, 실시간으로 한 call 씩 · 멈췄다 이어서). world 와 replay 는 player 보다
+// 오래 살아야 한다. world = replay.header.startWorld 를 로드한 월드 (아직 tick() 하지 않은 상태) — start 가 시작 틱 ·
+// 시작 해시를 확인한다. 불일치가 있어도 끝까지 갈 수 있다 (result().mismatch 는 처음 것)
+class ReplayPlayer {
+public:
+    [[nodiscard]] static Expected<std::unique_ptr<ReplayPlayer>> start(sim::SimulationWorld& world,
+                                                                       const Replay& replay);
+    ReplayPlayer(const ReplayPlayer&) = delete;
+    ReplayPlayer& operator=(const ReplayPlayer&) = delete;
+    ReplayPlayer(ReplayPlayer&&) = delete;
+    ReplayPlayer& operator=(ReplayPlayer&&) = delete;
+    ~ReplayPlayer() = default;
+
+    // 다음 call 의 명령을 넣고 tick() 한 번, 그 call 의 해시 기록과 비교 (끝 call 이면 끝 해시도)
+    [[nodiscard]] Expected<void> step();
+    [[nodiscard]] bool done() const noexcept { return m_call >= m_replay.calls; }
+    [[nodiscard]] u64 call() const noexcept { return m_call; } // 다음에 재생할 call (= 재생한 수)
+    [[nodiscard]] u64 calls() const noexcept { return m_replay.calls; }
+    [[nodiscard]] const PlaybackResult& result() const noexcept { return m_result; }
+
+private:
+    ReplayPlayer(sim::SimulationWorld& world, const Replay& replay) : m_world(world), m_replay(replay) {}
+
+    sim::SimulationWorld& m_world;
+    const Replay& m_replay;
+    PlaybackResult m_result;
+    u64 m_call = 0;
+    usize m_ci = 0;
+    usize m_hi = 0;
+    u32 m_seq = 0;
 };
 
 // world = replay.header.startWorld 를 로드한 월드 (아직 tick() 하지 않은 상태).

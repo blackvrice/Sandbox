@@ -6,6 +6,7 @@
 #include "core/content/ContentLoader.hpp"
 #include "core/scenarios/EcoLifecycleScenario.hpp"
 #include "core/scenarios/EcosystemScenario.hpp"
+#include "core/scenarios/EditSessionScenario.hpp"
 #include "core/scenarios/RandomWalkScenario.hpp"
 
 namespace sbx::scenario {
@@ -16,6 +17,8 @@ constexpr std::array kScenarios{
     ScenarioEntry{"ecosystem_10k", "192×192 생태계 10,000 개체, 3,000틱 — 성능 기준 (Phase 5C)"},
     ScenarioEntry{"ecosystem_small", "64×64 생태계 300 개체, 900틱, 보충 없음 — D1~D5 · 골든 (Phase 5C)"},
     ScenarioEntry{"ecosystem_survival", "256×256 생태계 1,500 개체, 18,000틱 — 세 종 공존 (Phase 5C)"},
+    ScenarioEntry{"edit_session",
+                  "두 사람의 편집 명령 로그 — 값 · Rule · 지형 · 일시정지 편집 · 새 Prefab · 행동 (Phase 12)"},
     ScenarioEntry{"random_walk_10k", "random_walk_1k 과 같고 개체 10,000 (성능 측정용)"},
     ScenarioEntry{"random_walk_1k", "무작위 보행 1,000 개체 + 주기적 편집 명령 (Phase 3 결정론 기준)"},
     ScenarioEntry{"world_save_load", "128×128 월드, 300 개체 + 10틱마다 지형 칠하기 (Phase 4 D2 기준)"},
@@ -42,6 +45,9 @@ std::unique_ptr<IScenario> makeScenario(std::string_view name) {
     }
     if (name == "ecosystem_10k") {
         return std::make_unique<EcosystemScenario>(EcosystemScenario::tenK());
+    }
+    if (name == "edit_session") {
+        return std::make_unique<EditSessionScenario>();
     }
     if (name == "eco_lifecycle") {
         return std::make_unique<EcoLifecycleScenario>();

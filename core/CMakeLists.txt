@@ -113,6 +113,8 @@ add_library(SandboxCore STATIC
     scenarios/RandomWalkScenario.cpp
     scenarios/EcoLifecycleScenario.hpp
     scenarios/EcoLifecycleScenario.cpp
+    scenarios/EditSessionScenario.hpp
+    scenarios/EditSessionScenario.cpp
     scenarios/EcosystemScenario.hpp
     scenarios/EcosystemScenario.cpp
     scenarios/WorldSource.hpp

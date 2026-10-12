@@ -239,70 +239,90 @@ Expected<Replay> readReplay(const std::filesystem::path& file) {
 }
 
 // --- 재생 ------------------------------------------------------------------------------------------------------------
-Expected<PlaybackResult> playReplay(sim::SimulationWorld& world, const Replay& r,
-                                    const std::function<void(u64 call)>& afterCall) {
-    PlaybackResult result;
-    result.simVersionDiffers = r.header.simVersion != sim::kSimVersion;
-    if (r.header.contentHash != world.content().contentHash()) {
+// --- 재생 ------------------------------------------------------------------------------------------------------------
+Expected<std::unique_ptr<ReplayPlayer>> ReplayPlayer::start(sim::SimulationWorld& world, const Replay& replay) {
+    std::unique_ptr<ReplayPlayer> p(new ReplayPlayer(world, replay));
+    PlaybackResult& result = p->m_result;
+    result.simVersionDiffers = replay.header.simVersion != sim::kSimVersion;
+    if (replay.header.contentHash != world.content().contentHash()) {
         result.warnings.push_back(std::format("콘텐츠가 기록 당시와 다르다 (contentHash {} → {})",
-                                              formatHash(r.header.contentHash),
+                                              formatHash(replay.header.contentHash),
                                               formatHash(world.content().contentHash())));
     }
-    if (world.currentTick() != r.header.startTick) {
+    if (world.currentTick() != replay.header.startTick) {
         return makeError(ErrorCode::ValidationFailed, std::format("시작 틱이 다르다: 월드 {} · 리플레이 {}",
-                                                                  world.currentTick(), r.header.startTick));
+                                                                  world.currentTick(), replay.header.startTick));
     }
     SBX_TRY_ASSIGN(startHash, world.worldHash());
-    if (startHash != r.header.startWorldHash) {
+    if (startHash != replay.header.startWorldHash) {
         return makeError(ErrorCode::ValidationFailed,
                          std::format("시작 월드의 해시 {} ≠ 기록 {} (다른 세이브?)", formatHash(startHash),
-                                     formatHash(r.header.startWorldHash)));
+                                     formatHash(replay.header.startWorldHash)));
     }
+    return p;
+}
 
-    const auto toNet = [&world](u64 saveId) -> NetEntityId {
-        const ecs::EntityId e = world.resolveSave(saveId);
-        const comp::NetIdentity* n = e.valid() ? world.registry().tryRead<comp::NetIdentity>(e) : nullptr;
+Expected<void> ReplayPlayer::step() {
+    if (done()) {
+        return {};
+    }
+    const Replay& r = m_replay;
+    const u64 call = m_call;
+    const auto toNet = [this](u64 saveId) -> NetEntityId {
+        const ecs::EntityId e = m_world.resolveSave(saveId);
+        const comp::NetIdentity* n = e.valid() ? m_world.registry().tryRead<comp::NetIdentity>(e) : nullptr;
         return n != nullptr ? n->netId : kInvalidNetEntityId;
     };
-
-    usize ci = 0;
-    usize hi = 0;
-    u32 seq = 0;
-    for (u64 call = 0; call < r.calls; ++call) {
-        for (; ci < r.commands.size() && r.commands[ci].call == call; ++ci) {
-            auto payload = cmd::payloadFromJson(r.commands[ci].payload, toNet);
-            if (!payload) {
-                return makeError(ErrorCode::ParseError,
-                                 std::format("call {} 의 명령을 읽을 수 없다: {}", call, payload.error().describe()));
-            }
-            world.enqueue(cmd::SimCommand{cmd::CommandHeader{0, cmd::kServerIssuer, seq++}, std::move(*payload)});
+    for (; m_ci < r.commands.size() && r.commands[m_ci].call == call; ++m_ci) {
+        auto payload = cmd::payloadFromJson(r.commands[m_ci].payload, toNet);
+        if (!payload) {
+            return makeError(ErrorCode::ParseError,
+                             std::format("call {} 의 명령을 읽을 수 없다: {}", call, payload.error().describe()));
         }
-        world.tick();
-        result.calls = call + 1;
-        for (const cmd::CommandResult& res : world.lastResults()) {
-            if (!res.accepted) {
-                result.warnings.push_back(std::format("call {} tick {}: 기록 때 수락된 명령이 거절됐다 — {}", call,
-                                                      world.currentTick(), res.error.describe()));
-            }
+        m_world.enqueue(cmd::SimCommand{cmd::CommandHeader{0, cmd::kServerIssuer, m_seq++}, std::move(*payload)});
+    }
+    m_world.tick();
+    m_call = call + 1;
+    m_result.calls = m_call;
+    for (const cmd::CommandResult& res : m_world.lastResults()) {
+        if (!res.accepted) {
+            m_result.warnings.push_back(std::format("call {} tick {}: 기록 때 수락된 명령이 거절됐다 — {}", call,
+                                                    m_world.currentTick(), res.error.describe()));
+        }
+    }
+    for (; m_hi < r.hashes.size() && r.hashes[m_hi].call == call; ++m_hi) {
+        SBX_TRY_ASSIGN(h, m_world.worldHash());
+        ++m_result.hashesCompared;
+        if (!m_result.mismatch && (h != r.hashes[m_hi].hash || m_world.currentTick() != r.hashes[m_hi].tick)) {
+            m_result.mismatch = PlaybackMismatch{call, m_world.currentTick(), r.hashes[m_hi].hash, h};
+        }
+    }
+    if (done()) {
+        SBX_TRY_ASSIGN(finalHash, m_world.worldHash());
+        ++m_result.hashesCompared;
+        if (!m_result.mismatch && (finalHash != r.finalHash || m_world.currentTick() != r.endTick)) {
+            m_result.mismatch = PlaybackMismatch{r.calls, m_world.currentTick(), r.finalHash, finalHash};
+        }
+    }
+    return {};
+}
+
+Expected<PlaybackResult> playReplay(sim::SimulationWorld& world, const Replay& r,
+                                    const std::function<void(u64 call)>& afterCall) {
+    SBX_TRY_ASSIGN(player, ReplayPlayer::start(world, r));
+    while (!player->done()) {
+        const u64 call = player->call();
+        if (auto s = player->step(); !s) {
+            return std::unexpected(s.error());
         }
         if (afterCall) {
             afterCall(call);
         }
-        for (; hi < r.hashes.size() && r.hashes[hi].call == call; ++hi) {
-            SBX_TRY_ASSIGN(h, world.worldHash());
-            ++result.hashesCompared;
-            if (h != r.hashes[hi].hash || world.currentTick() != r.hashes[hi].tick) {
-                result.mismatch = PlaybackMismatch{call, world.currentTick(), r.hashes[hi].hash, h};
-                return result;
-            }
+        if (player->result().mismatch) {
+            return player->result(); // 첫 불일치에서 멈춘다
         }
     }
-    SBX_TRY_ASSIGN(finalHash, world.worldHash());
-    ++result.hashesCompared;
-    if (finalHash != r.finalHash || world.currentTick() != r.endTick) {
-        result.mismatch = PlaybackMismatch{r.calls, world.currentTick(), r.finalHash, finalHash};
-    }
-    return result;
+    return player->result();
 }
 
 } // namespace sbx::replay

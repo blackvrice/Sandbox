@@ -30,6 +30,25 @@ struct WorldSource {
 [[nodiscard]] Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot,
                                                     u64 seed, const ecs::ComponentCatalog& catalog);
 
+// 이미 읽은 콘텐츠로 세이브 폴더를 연다 — 서버가 실행 중에 불러오기 (Phase 12D). 접속한 클라이언트가 그 콘텐츠를 가지고
+// 있으므로 world.json 의 contentHash 가 content 의 것과 다르면 거절한다 (InvalidArgument). runner 의 월드가 content 를
+// 가리킨다
+struct OpenedSave {
+    std::unique_ptr<ScenarioRunner> runner;
+    std::vector<std::string> warnings;
+};
+[[nodiscard]] Expected<OpenedSave> openSave(const std::filesystem::path& dir, const content::ContentDatabase& content,
+                                            const ecs::ComponentCatalog& catalog);
+
+// 세이브 폴더 요약 (world.json 만 읽는다 — 목록 표시용)
+struct SaveSummary {
+    sim::Tick tick = 0;
+    u64 entities = 0;
+    u64 contentHash = 0;
+    std::vector<std::string> packs;
+};
+[[nodiscard]] Expected<SaveSummary> readSaveSummary(const std::filesystem::path& dir);
+
 // "random_walk_1k, ecosystem_small, …" (오류 문구용)
 [[nodiscard]] std::string scenarioNames();
 

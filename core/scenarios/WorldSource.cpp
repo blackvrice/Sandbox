@@ -4,6 +4,7 @@
 
 #include "core/content/ContentLoader.hpp"
 #include "core/persist/WorldSave.hpp"
+#include "core/replay/WorldHash.hpp"
 #include "foundation/io/FileIo.hpp"
 
 namespace sbx::scenario {
@@ -81,6 +82,62 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
     out.warnings = std::move(loaded->warnings);
     out.runner = std::make_unique<ScenarioRunner>(std::move(loaded->world), std::make_unique<ContinueScenario>());
     out.name = dir.filename().empty() ? dir.parent_path().filename().string() : dir.filename().string();
+    return out;
+}
+
+Expected<SaveSummary> readSaveSummary(const std::filesystem::path& dir) {
+    const auto text = io::readFile(dir / "world.json");
+    if (!text) {
+        return std::unexpected(text.error());
+    }
+    const auto j = ecs::Json::parse(*text, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) {
+        return makeError(ErrorCode::ParseError, "world.json 을 읽지 못했습니다", io::displayPath(dir));
+    }
+    SaveSummary out;
+    if (j.contains("tick") && j["tick"].is_number_unsigned()) {
+        out.tick = j["tick"].get<sim::Tick>();
+    }
+    if (j.contains("entityCount") && j["entityCount"].is_number_unsigned()) {
+        out.entities = j["entityCount"].get<u64>();
+    }
+    if (const auto it = j.find("content"); it != j.end() && it->is_object()) {
+        if (const auto h = it->find("contentHash"); h != it->end() && h->is_string()) {
+            if (auto v = replay::parseHash(h->get<std::string>())) {
+                out.contentHash = *v;
+            }
+        }
+        if (const auto p = it->find("packs"); p != it->end() && p->is_array()) {
+            for (const auto& id : *p) {
+                if (id.is_string()) {
+                    out.packs.push_back(id.get<std::string>());
+                }
+            }
+        }
+    }
+    return out;
+}
+
+Expected<OpenedSave> openSave(const std::filesystem::path& dir, const content::ContentDatabase& content,
+                              const ecs::ComponentCatalog& catalog) {
+    auto summary = readSaveSummary(dir);
+    if (!summary) {
+        return std::unexpected(summary.error());
+    }
+    if (summary->contentHash != content.contentHash()) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("다른 콘텐츠로 만든 세이브입니다 (세이브 {}, 서버 {})",
+                                     replay::formatHash(summary->contentHash),
+                                     replay::formatHash(content.contentHash())),
+                         io::displayPath(dir));
+    }
+    auto loaded = persist::loadWorld(catalog, content, dir);
+    if (!loaded) {
+        return std::unexpected(loaded.error());
+    }
+    OpenedSave out;
+    out.warnings = std::move(loaded->warnings);
+    out.runner = std::make_unique<ScenarioRunner>(std::move(loaded->world), std::make_unique<ContinueScenario>());
     return out;
 }
 
