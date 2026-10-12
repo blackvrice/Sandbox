@@ -121,18 +121,28 @@ void ClientSession::onMessage(Message& m) {
             m_welcome = std::move(*w);
             m_state = ClientState::Connected;
             m_role = m_welcome->role;
-            if (m_desc.catalog != nullptr && m_desc.content != nullptr) {
-                auto world = ClientWorld::create(*m_desc.catalog, *m_desc.content, *m_welcome);
-                if (world) {
-                    m_world = std::move(*world);
-                    for (const TerrainChunk& c : m_earlyTerrain) {
-                        m_world->apply(c);
-                    }
-                } else {
-                    log::warn("net", "복제 월드를 만들지 못했습니다: {}", world.error().describe());
+            if (m_earlyWorldChange && m_earlyWorldChange->generation > m_welcome->generation) {
+                // Welcome 이 옛 월드를 실었다 — 먼저 온 WorldChanged 의 월드로 시작한다
+                m_welcome->world = m_earlyWorldChange->world;
+                m_welcome->generation = m_earlyWorldChange->generation;
+                m_lastWorldChange = std::move(m_earlyWorldChange);
+                ++m_worldChanges;
+            }
+            m_earlyWorldChange.reset();
+            makeWorld();
+            if (m_world != nullptr) {
+                for (const TerrainChunk& c : m_earlyTerrain) {
+                    m_world->apply(c);
                 }
             }
             m_earlyTerrain.clear();
+            return;
+        }
+        if (auto* wc = std::get_if<WorldChanged>(&m)) {
+            if (!m_earlyWorldChange || wc->generation > m_earlyWorldChange->generation) {
+                m_earlyWorldChange = std::move(*wc);
+                m_earlyTerrain.clear(); // 같은 Bulk 채널 — 앞서 온 지형은 옛 월드 것
+            }
             return;
         }
         if (std::holds_alternative<Snapshot>(m)) {
@@ -156,12 +166,32 @@ void ClientSession::onMessage(Message& m) {
             m_stats = *s;
             return;
         }
-        if (const auto* snap = std::get_if<Snapshot>(&m)) {
-            // 복제 월드가 없어도 ack 한다 — 서버가 같은 상태를 계속 다시 보내지 않게
-            const bool applied = m_world == nullptr || m_world->apply(*snap);
-            if (applied) {
-                send(SnapshotAck{snap->epoch, snap->snapshotId});
+        if (auto* snap = std::get_if<Snapshot>(&m)) {
+            if (snap->generation > generation()) { // 새 월드 것이 WorldChanged 보다 먼저 왔다
+                if (m_heldSnapshots.size() < kMaxHeldSnapshots) {
+                    m_heldSnapshots.push_back(std::move(*snap));
+                }
+                return;
             }
+            if (snap->generation < generation()) {
+                return; // 옛 월드 것
+            }
+            onSnapshot(*snap);
+            return;
+        }
+        if (const auto* wc = std::get_if<WorldChanged>(&m)) {
+            if (wc->generation > generation()) {
+                changeWorld(*wc);
+            }
+            return;
+        }
+        if (auto* wr = std::get_if<WorldOpResultMsg>(&m)) {
+            m_worldOpResults.push_back(std::move(*wr));
+            return;
+        }
+        if (auto* wl = std::get_if<WorldList>(&m)) {
+            m_worldList = std::move(*wl);
+            ++m_worldListRevision;
             return;
         }
         if (const auto* tc = std::get_if<TerrainChunk>(&m)) {
@@ -246,6 +276,61 @@ bool ClientSession::requestRole(u16 clientId, Role role) {
 std::vector<SetRoleResultMsg> ClientSession::takeRoleResults() {
     std::vector<SetRoleResultMsg> out;
     out.swap(m_roleResults);
+    return out;
+}
+
+void ClientSession::makeWorld() {
+    m_world.reset();
+    if (m_desc.catalog == nullptr || m_desc.content == nullptr || !m_welcome) {
+        return;
+    }
+    auto world = ClientWorld::create(*m_desc.catalog, *m_desc.content, *m_welcome);
+    if (world) {
+        m_world = std::move(*world);
+    } else {
+        log::warn("net", "복제 월드를 만들지 못했습니다: {}", world.error().describe());
+    }
+}
+
+void ClientSession::onSnapshot(const Snapshot& snap) {
+    // 복제 월드가 없어도 ack 한다 — 서버가 같은 상태를 계속 다시 보내지 않게
+    const bool applied = m_world == nullptr || m_world->apply(snap);
+    if (applied) {
+        send(SnapshotAck{snap.epoch, snap.snapshotId});
+    }
+}
+
+void ClientSession::changeWorld(const WorldChanged& changed) {
+    m_welcome->world = changed.world;
+    m_welcome->generation = changed.generation;
+    m_lastWorldChange = changed;
+    ++m_worldChanges;
+    // 선택 상세는 옛 월드의 개체 — 서버도 지웠다 (다시 고르면 다시 보낸다)
+    m_inspectIds.clear();
+    m_inspect.reset();
+    makeWorld();
+    std::vector<Snapshot> held;
+    held.swap(m_heldSnapshots);
+    for (const Snapshot& s : held) {
+        if (s.generation == changed.generation) {
+            onSnapshot(s);
+        } else if (s.generation > changed.generation) {
+            m_heldSnapshots.push_back(s); // 그 다음 WorldChanged 를 기다린다
+        }
+    }
+}
+
+bool ClientSession::requestWorldOp(WorldOpKind op, std::string name) {
+    if (m_state != ClientState::Connected) {
+        return false;
+    }
+    send(WorldOpRequest{op, std::move(name)});
+    return true;
+}
+
+std::vector<WorldOpResultMsg> ClientSession::takeWorldOpResults() {
+    std::vector<WorldOpResultMsg> out;
+    out.swap(m_worldOpResults);
     return out;
 }
 

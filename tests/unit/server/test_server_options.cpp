@@ -106,4 +106,16 @@ TEST_SUITE("server") {
         CHECK_FALSE(parseServerOptions(tooLong).has_value());
     }
 
+    TEST_CASE("server options: --saves (12D)") {
+        constexpr std::array<std::string_view, 2> none{"--world", "w"};
+        CHECK(parseServerOptions(none)->saves == "saves");
+        constexpr std::array<std::string_view, 4> ok{"--world", "w", "--saves", "D:/worlds"};
+        CHECK(parseServerOptions(ok)->saves == "D:/worlds");
+        constexpr std::array<std::string_view, 4> scenario{"--scenario", "s", "--saves", "x"};
+        CHECK_FALSE(parseServerOptions(scenario).has_value());
+        constexpr std::array<std::string_view, 4> empty{"--world", "w", "--saves", ""};
+        CHECK_FALSE(parseServerOptions(empty).has_value());
+        CHECK(sbx::server::serverUsage().find("--saves") != std::string::npos);
+    }
+
 } // TEST_SUITE

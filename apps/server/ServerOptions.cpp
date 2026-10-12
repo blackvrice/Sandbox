@@ -68,7 +68,7 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             }
             opts.logLevel = level;
         } else if (a == "--scenario" || a == "--world" || a == "--content-root" || a == "--bind" ||
-                   a == "--default-role" || a == "--owner-key") {
+                   a == "--default-role" || a == "--owner-key" || a == "--saves") {
             const auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -81,6 +81,12 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
                 opts.contentRoot = std::string(*v);
             } else if (a == "--bind") {
                 opts.bind = std::string(*v);
+            } else if (a == "--saves") {
+                if (v->empty()) {
+                    return makeError(ErrorCode::InvalidArgument, "--saves 에 빈 값");
+                }
+                opts.saves = std::string(*v);
+                opts.savesGiven = true;
             } else if (a == "--owner-key") {
                 if (v->empty() || v->size() > 64) {
                     return makeError(ErrorCode::InvalidArgument, "--owner-key 는 1 ~ 64 바이트");
@@ -149,6 +155,9 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
         if (!opts.ownerKey.empty()) {
             return makeError(ErrorCode::InvalidArgument, "--owner-key 는 --world 와 함께 씁니다");
         }
+        if (opts.savesGiven) {
+            return makeError(ErrorCode::InvalidArgument, "--saves 는 --world 와 함께 씁니다");
+        }
     }
     return opts;
 }
@@ -169,6 +178,7 @@ std::string serverUsage() {
            "      --default-role <r>   새 접속자 역할 observer|player|editor|admin|owner (기본 editor —\n"
            "                           일시정지 · 속도는 admin 부터, docs/10-EDITOR.md 7장)\n"
            "      --owner-key <k>      이 열쇠로 접속한 사람이 owner (SandboxClient --owner-key, 12C)\n"
+           "      --saves <dir>        세이브 · 리플레이 폴더 (기본 saves — 월드 창의 저장 · 불러오기 · 기록, 12D)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 접속자를 끊고 끝낸다 (CI)\n"

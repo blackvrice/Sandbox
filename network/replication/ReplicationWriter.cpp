@@ -44,6 +44,17 @@ void ReplicationWriter::addClient(u16 clientId) {
     m_clients[clientId] = Client{};
 }
 
+void ReplicationWriter::resetWorld() {
+    for (auto& [id, c] : m_clients) {
+        (void)id;
+        resetEpoch(c);
+        c.terrainRevision.clear();
+        c.linger.clear();
+        c.always.clear();
+        c.deferredSince.clear();
+    }
+}
+
 void ReplicationWriter::removeClient(u16 clientId) {
     m_clients.erase(clientId);
 }

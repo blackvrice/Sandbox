@@ -4,6 +4,9 @@
 // Phase 10B: 선택 상세 (setInspect → InspectResult). Phase 11: 관심 영역 (subscribe), 다시 접속 토큰.
 // Phase 12C: 접속자 표 (PlayerList · 지금 내 역할), 역할 바꾸기 요청 (requestRole → SetRoleResult), 월드 오버레이
 // (ContentOverlay 를 모아 overlay() — 바뀔 때마다 overlayRevision 이 오른다).
+// Phase 12D: 세이브 · 로드 · 리플레이 요청 (requestWorldOp → WorldOpResult · WorldList). 서버 월드가 바뀌면 (WorldChanged)
+// 복제 월드를 새 경계로 다시 만들고 generation 을 따라간다 — 새 generation 의 Snapshot 이 WorldChanged 보다 먼저 오면
+// (채널이 다르다) 쥐고 있다가 그 뒤에 적용한다. 옛 generation 의 것은 버린다.
 // SandboxClient 의 NetworkSession 이 쓴다.
 //
 // 한 스레드에서 쓴다 (Transport 계약). 시간은 호출자가 준다 (초) — 핸드셰이크 시간 초과에만 쓴다.
@@ -92,11 +95,26 @@ public:
     [[nodiscard]] const content::ContentOverlay& overlay() const noexcept { return m_overlay; }
     [[nodiscard]] u64 overlayRevision() const noexcept { return m_overlayRevision; }
 
+    // --- 12D ---
+    // 세이브 · 로드 · 리플레이 (서버가 권한을 본다 — 결과는 takeWorldOpResults, List 는 worldList). 접속 전이면 false
+    bool requestWorldOp(WorldOpKind op, std::string name = {});
+    [[nodiscard]] std::vector<WorldOpResultMsg> takeWorldOpResults();
+    [[nodiscard]] const std::optional<WorldList>& worldList() const noexcept { return m_worldList; }
+    [[nodiscard]] u64 worldListRevision() const noexcept { return m_worldListRevision; }
+    // 지금 따라가는 서버 월드 (Welcome · WorldChanged) · 바뀐 횟수 · 마지막 WorldChanged
+    [[nodiscard]] u32 generation() const noexcept { return m_welcome ? m_welcome->generation : 0; }
+    [[nodiscard]] u64 worldChanges() const noexcept { return m_worldChanges; }
+    [[nodiscard]] const std::optional<WorldChanged>& lastWorldChange() const noexcept { return m_lastWorldChange; }
+    static constexpr usize kMaxHeldSnapshots = 64;
+
 private:
     void send(const Message& m);
     void onMessage(Message& m);
     void fail(DisconnectReason reason);
     void applyOverlay(const ContentOverlayMsg& m);
+    void onSnapshot(const Snapshot& snap);
+    void changeWorld(const WorldChanged& changed);
+    void makeWorld();
 
     INetworkTransport& m_transport;
     ClientSessionDesc m_desc;
@@ -122,6 +140,13 @@ private:
     std::vector<SetRoleResultMsg> m_roleResults;
     content::ContentOverlay m_overlay;
     u64 m_overlayRevision = 0;
+    std::vector<WorldOpResultMsg> m_worldOpResults;
+    std::optional<WorldList> m_worldList;
+    u64 m_worldListRevision = 0;
+    u64 m_worldChanges = 0;
+    std::optional<WorldChanged> m_lastWorldChange;
+    std::optional<WorldChanged> m_earlyWorldChange; // Welcome 보다 먼저 온 것 (Bulk 채널)
+    std::vector<Snapshot> m_heldSnapshots;          // WorldChanged 보다 먼저 온 새 generation 의 것
     std::vector<TransportEvent> m_events;
 };
 

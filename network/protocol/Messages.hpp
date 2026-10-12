@@ -6,6 +6,7 @@
 // Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제). 10B: Inspect · InspectResult (선택한 개체의 서버 전용 상태).
 // Phase 11: Subscribe (관심 영역 — 08 8장), Auth.token 으로 다시 접속 (11.4).
 // Phase 12C: PlayerList · SetRole · SetRoleResult (접속자 · 역할), ContentOverlay (월드 오버레이), Auth.ownerKey.
+// Phase 12D: WorldOp · WorldOpResult · WorldList (세이브 · 로드 · 리플레이 기록 · 재생), WorldChanged (월드가 바뀜 — generation).
 // [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · Chat
 //        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
@@ -23,8 +24,9 @@
 namespace sbx::net {
 
 // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
-// 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C
-inline constexpr u32 kProtocolVersion = 6;
+// 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C.
+// 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의 모드) — 12D
+inline constexpr u32 kProtocolVersion = 7;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -47,6 +49,8 @@ inline constexpr usize kMaxInspectComponents = 16;  // 선택 상세의 서버 �
 inline constexpr usize kMaxInspectJsonBytes = 4096; // 그 JSON 하나
 inline constexpr usize kMaxOwnerKeyBytes = 64;      // Auth.ownerKey (12C)
 inline constexpr usize kMaxPlayers = 256;           // PlayerList (12C)
+inline constexpr usize kMaxSaveNameBytes = 48;      // 세이브 · 리플레이 이름 (12D — isValidSaveName)
+inline constexpr usize kMaxSavedWorlds = 256;       // WorldList
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -72,6 +76,10 @@ enum class MessageId : u8 {
     Disconnect = 62,
     SetRole = 63,       // 12C
     SetRoleResult = 64, // 12C
+    WorldOp = 65,       // 12D
+    WorldOpResult = 66, // 12D
+    WorldList = 67,     // 12D
+    WorldChanged = 68,  // 12D
 };
 
 // 10-EDITOR 7장. 값 순서 = 권한 크기 (Observer < … < Owner)
@@ -127,6 +135,7 @@ struct Welcome {
     // 복제되는 컴포넌트 표 (stableId, 서버 순서). Snapshot 의 컴포넌트 번호 = 이 표의 칸. 클라이언트가 모르는 것은
     // 건너뛴다
     std::vector<u64> replicated;
+    u32 generation = 0; // 프로토콜 7: 서버 월드가 바뀐 횟수 (로드 · 리플레이 재생 — WorldChanged)
 };
 struct Reject {
     RejectReason reason = RejectReason::BadHandshake;
@@ -156,6 +165,15 @@ struct ServerStats {
     bool paused = false;
     f32 speed = 1.0f;
     u8 clients = 0;
+    // 프로토콜 7 (12D): 월드 모드 — 0 보통 · 1 리플레이 기록 중 · 2 리플레이 재생 중
+    u8 mode = 0;
+    std::string modeName;  // 기록 · 재생 중인 이름 (str 48)
+    u64 replayCall = 0;    // 기록: 기록한 tick() 수 · 재생: 재생한 수
+    u64 replayCalls = 0;   // 재생: 전체
+    u32 hashesChecked = 0; // 재생: 비교한 해시
+    bool mismatch = false; // 재생: 기록과 다른 해시가 나왔다
+    bool replayPaused = false;
+    f32 replaySpeed = 1.0f;
 };
 struct DisconnectMsg {
     DisconnectReason reason = DisconnectReason::None;
@@ -174,6 +192,7 @@ struct EntityState {
     std::string opaque; // spawn 때만: 서버가 해석하지 않는 컴포넌트 (render.* 등) JSON 텍스트, 없으면 ""
 };
 struct Snapshot {
+    u32 generation = 0; // 프로토콜 7: 이 스냅숏의 서버 월드 (WorldChanged 를 받기 전에 온 새 월드 것은 미뤄 둔다)
     u32 snapshotId = 0; // epoch 안에서 1 부터 단조 증가
     u32 epoch = 0;      // 다시 맞추기(resync)마다 1 증가 — 받는 쪽은 새 epoch 면 모두 지우고 시작
     u32 baselineId = 0; // 이 차분의 기준 (0 = 없음)
@@ -269,14 +288,58 @@ struct ContentOverlayMsg {
     std::vector<ContentOverlayItem> items; // ≤ content::kMaxOverlayItems
 };
 
+// --- 세이브 · 로드 · 리플레이 (Phase 12D, ADR-0031) -----------------------------------------------------------------
+// 요청 하나 = WorldOp (이름은 isValidSaveName). 목록은 모든 역할, 나머지는 admin 부터 (10-EDITOR 7장 실행 제어 열).
+// 결과는 보낸 사람에게 WorldOpResult (List 는 WorldList). 로드 · 재생이 월드를 바꾸면 모두에게 WorldChanged (Bulk).
+enum class WorldOpKind : u8 {
+    List = 1,        // 서버 저장 폴더의 세이브 · 리플레이
+    Save = 2,        // 지금 월드를 <저장 폴더>/<이름>
+    Load = 3,        // 그 세이브로 월드를 바꾼다
+    RecordStart = 4, // <이름>/start 에 시작 세이브, 이후 적용된 명령을 기록
+    RecordStop = 5,  // <이름>/replay.sbxr 로 쓰고 끝
+    Play = 6,        // 리플레이를 재생 (시작 세이브를 불러와 한 call 씩 — 편집 명령은 거절, 실행 제어는 재생을 다룬다)
+};
+[[nodiscard]] std::string_view worldOpName(WorldOpKind op) noexcept;
+// 세이브 이름: 영문 · 숫자 · '_' · '-' 1 ~ 48 글자 (경로 문자 · 점 · 공백 없음 — 저장 폴더 아래 한 단계)
+[[nodiscard]] bool isValidSaveName(std::string_view name) noexcept;
+
+struct WorldOpRequest {
+    WorldOpKind op = WorldOpKind::List;
+    std::string name; // List 는 무시
+};
+struct WorldOpResultMsg {
+    WorldOpKind op = WorldOpKind::List;
+    std::string name;
+    bool accepted = false;
+    std::string detail; // 거절 사유 · 결과 요약
+};
+struct SavedWorld {
+    std::string name;
+    bool replay = false; // 리플레이 폴더 (재생) — 아니면 세이브 (불러오기)
+    u64 tick = 0;        // 세이브의 틱 (리플레이는 시작 틱)
+    u64 entities = 0;
+    friend bool operator==(const SavedWorld&, const SavedWorld&) = default;
+};
+struct WorldList {
+    std::vector<SavedWorld> worlds; // 이름 순, ≤ kMaxSavedWorlds
+};
+enum class WorldChangeReason : u8 { Load = 1, Replay = 2 };
+struct WorldChanged {
+    u32 generation = 0; // 새 월드 (이 번호의 Snapshot 부터 그린다)
+    WorldMeta world;    // 새 월드의 이름 · 경계 · 일시정지 · 속도
+    WorldChangeReason reason = WorldChangeReason::Load;
+    std::string name; // 세이브 · 리플레이 이름
+};
+
 using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
                              DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult,
-                             Subscribe, PlayerList, SetRoleRequest, SetRoleResultMsg, ContentOverlayMsg>;
+                             Subscribe, PlayerList, SetRoleRequest, SetRoleResultMsg, ContentOverlayMsg, WorldOpRequest,
+                             WorldOpResultMsg, WorldList, WorldChanged>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
-// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk · ContentOverlay = Bulk,
-// 나머지 = Control
+// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk · ContentOverlay · WorldChanged =
+// Bulk, 나머지 = Control
 [[nodiscard]] Channel channelOf(const Message& m) noexcept;
 
 [[nodiscard]] std::vector<std::byte> encodeMessage(const Message& m);

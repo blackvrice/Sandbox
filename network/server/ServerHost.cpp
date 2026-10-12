@@ -6,6 +6,9 @@
 #include <cstring>
 #include <format>
 
+#include "core/persist/WorldSave.hpp"
+#include "core/replay/WorldHash.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "foundation/assert/Assert.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
@@ -142,7 +145,7 @@ void ServerHost::update(f64 dtSeconds) {
     int ran = 0;
     while (m_nextTickAt <= now && ran < kMaxCatchUpTicks) {
         simStep(now);
-        m_nextTickAt += static_cast<f64>(m_runner->world().clock().tickIntervalNanos()) / 1e9;
+        m_nextTickAt += stepIntervalSeconds();
         ++ran;
     }
     if (m_nextTickAt <= now) { // 너무 밀렸다 — 몰아 돌지 않고 기준점을 다시 잡는다
@@ -165,6 +168,14 @@ void ServerHost::stop() {
         m_quitNet = true;
         if (m_netThread.joinable()) {
             m_netThread.join();
+        }
+    }
+    // 기록 중이던 리플레이는 쓴다 (Simulation 스레드가 끝났다)
+    if (m_recording) {
+        if (auto r = stopRecording(); r) {
+            log::info("net", "서버를 멈추며 리플레이를 썼습니다: {}", *r);
+        } else {
+            log::warn("net", "리플레이를 쓰지 못했습니다: {}", r.error().describe());
         }
     }
     // Net IO 스레드가 끝났으니 이 스레드가 Transport 를 이어받는다 (한 번에 한 스레드)
@@ -362,9 +373,10 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         Welcome w;
         w.clientId = client.clientId;
         w.role = client.role;
-        w.world = m_meta;
         {
             const std::lock_guard lock(m_mutex);
+            w.world = m_status.meta;
+            w.generation = m_status.generation;
             w.serverTick = m_status.tick;
             w.world.paused = m_status.paused;
             w.world.speed = m_status.speed;
@@ -426,6 +438,18 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
     }
     if (const auto* setRole = std::get_if<SetRoleRequest>(&msg)) {
         onSetRole(conn, client, *setRole);
+        return;
+    }
+    if (auto* op = std::get_if<WorldOpRequest>(&msg)) {
+        // 목록은 모두, 저장 · 불러오기 · 기록 · 재생은 실행 제어와 같은 열 (admin 부터 — 10-EDITOR 7장)
+        if (op->op != WorldOpKind::List && !roleAllows(client.role, CommandClass::SimulationControl)) {
+            sendTo(conn, WorldOpResultMsg{op->op, op->name, false,
+                                          std::format("{} 역할로는 {} 요청을 할 수 없습니다 (admin 부터)",
+                                                      roleName(client.role), worldOpName(op->op))});
+            return;
+        }
+        const std::lock_guard lock(m_mutex);
+        m_worldOps.push_back(WorldOpTask{client.clientId, std::move(*op)});
         return;
     }
     if (std::holds_alternative<DisconnectMsg>(msg)) {
@@ -587,9 +611,11 @@ void ServerHost::simStep(f64 now) {
     std::vector<std::pair<u16, SnapshotAck>> acks;
     std::vector<std::pair<u16, InspectRequest>> inspects;
     std::vector<std::pair<u16, Subscribe>> subscribes;
+    std::vector<WorldOpTask> worldOps;
     {
         const std::lock_guard lock(m_mutex);
         commands.swap(m_inbox);
+        worldOps.swap(m_worldOps);
         roster.swap(m_roster);
         acks.swap(m_acks);
         inspects.swap(m_inspectRequests);
@@ -629,6 +655,23 @@ void ServerHost::simStep(f64 now) {
                                                                        : std::span<const NetEntityId>());
         }
     }
+    // 세이브 · 로드 · 리플레이 (12D) — 틱 사이에. 월드가 바뀌면 이 배치의 명령은 옛 월드의 것이라 적용하지 않는다
+    std::vector<Outgoing> worldOut;
+    std::vector<Outgoing> results;
+    bool replaced = false;
+    for (const WorldOpTask& t : worldOps) {
+        runWorldOp(t, worldOut, replaced);
+    }
+    if (replaced) {
+        for (auto& c : commands) {
+            CommandResultMsg r;
+            r.sequence = c.sequence;
+            r.reason = ErrorCode::Unsupported;
+            r.detail = "월드가 바뀌어 적용하지 않았습니다";
+            results.push_back(Outgoing{c.issuer, std::move(r)});
+        }
+        commands.clear();
+    }
     auto& world = m_runner->world();
     if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
         // 멈춘 뒤 온 명령은 적용하지 않는다 — 말없이 버리지 않고 거절을 알린다 (M6)
@@ -645,18 +688,63 @@ void ServerHost::simStep(f64 now) {
         for (auto& o : overlayOut) {
             m_outbox.push_back(std::move(o));
         }
+        for (auto& o : worldOut) {
+            m_outbox.push_back(std::move(o));
+        }
+        for (auto& o : results) {
+            m_outbox.push_back(std::move(o));
+        }
         m_stats.reachedStopTick = true;
         return;
     }
-    // M4: executeTick 은 서버가 정한다 — 다음 tick() 이 적용할 틱 (일시정지 편집 단계도 "다음 틱" 몫을 적용한다)
-    for (auto& c : commands) {
-        m_awaitingResult.emplace(c.issuer, c.sequence);
-        world.enqueue(
-            cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, c.issuer, c.sequence}, std::move(c.payload)});
-    }
     const sim::Tick before = world.currentTick();
     const f64 t0 = steadySeconds();
-    m_runner->step();
+    if (m_playback) {
+        // 리플레이 재생: 편집은 거절, 실행 제어는 재생을 다룬다. 기록된 call 하나 (멈췄으면 없음)
+        for (const auto& c : commands) {
+            handlePlaybackCommand(c, results);
+        }
+        Playback& pb = *m_playback;
+        if (!pb.paused || pb.steps > 0) {
+            if (auto r = pb.player->step(); !r) {
+                log::warn("net", "리플레이 재생 오류 — 재생을 끝냅니다: {}", r.error().describe());
+                worldOut.push_back(Outgoing{0, WorldOpResultMsg{WorldOpKind::Play, pb.name, false,
+                                                                clampUtf8(r.error().message, kMaxDetailBytes)}});
+                m_playback.reset();
+            } else if (pb.paused) {
+                --pb.steps;
+            }
+        }
+        if (m_playback && m_playback->player->done()) {
+            const replay::PlaybackResult& res = m_playback->player->result();
+            std::string detail =
+                res.mismatch
+                    ? std::format("재생 끝 — 기록과 다르다: call {} tick {}", res.mismatch->call, res.mismatch->tick)
+                    : std::format("재생 끝 — {} call, 해시 {}개 일치", res.calls, res.hashesCompared);
+            log::info("net", "리플레이 {}: {}", m_playback->name, detail);
+            worldOut.push_back(
+                Outgoing{0, WorldOpResultMsg{WorldOpKind::Play, m_playback->name, !res.mismatch.has_value(), detail}});
+            m_playback.reset();
+            // 보통 월드로 돌아와 멈춰 둔다 (살펴보고 이어서 편집)
+            world.enqueue(
+                cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, cmd::kServerIssuer, ++m_serverSequence},
+                                cmd::PauseSimulation{}});
+        }
+    } else {
+        // M4: executeTick 은 서버가 정한다 — 다음 tick() 이 적용할 틱 (일시정지 편집 단계도 "다음 틱" 몫을 적용한다)
+        for (auto& c : commands) {
+            m_awaitingResult.emplace(c.issuer, c.sequence);
+            world.enqueue(cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, c.issuer, c.sequence},
+                                          std::move(c.payload)});
+        }
+        m_runner->step();
+        if (m_recording) {
+            if (auto r = m_recording->recorder->afterTick(); !r) {
+                log::warn("net", "리플레이 기록 오류 — 기록을 끝냅니다: {}", r.error().describe());
+                (void)stopRecording();
+            }
+        }
+    }
     const f64 ms = (steadySeconds() - t0) * 1000.0;
     const bool advanced = world.currentTick() != before;
 
@@ -669,7 +757,6 @@ void ServerHost::simStep(f64 now) {
         m_sentContentRevision = world.contentRevision();
     }
 
-    std::vector<Outgoing> results;
     u64 accepted = 0;
     u64 rejected = 0;
     for (const auto& res : world.lastResults()) {
@@ -704,6 +791,20 @@ void ServerHost::simStep(f64 now) {
         s.ticksPerSecond = span > 0 ? static_cast<f32>(m_ticksInWindow / span) : 0.0f;
         s.paused = world.clock().paused();
         s.speed = world.clock().speed();
+        if (m_playback) {
+            s.mode = 2;
+            s.modeName = m_playback->name;
+            s.replayCall = m_playback->player->call();
+            s.replayCalls = m_playback->player->calls();
+            s.hashesChecked = static_cast<u32>(m_playback->player->result().hashesCompared);
+            s.mismatch = m_playback->player->result().mismatch.has_value();
+            s.replayPaused = m_playback->paused;
+            s.replaySpeed = m_playback->speed;
+        } else if (m_recording) {
+            s.mode = 1;
+            s.modeName = m_recording->name;
+            s.replayCall = m_recording->recorder->replay().calls;
+        }
         statsMsg = s;
         m_statsWindowStart = now;
         m_tickMsSum = 0;
@@ -721,6 +822,12 @@ void ServerHost::simStep(f64 now) {
     if (m_replication && now >= m_nextSnapshotAt - snapInterval * 0.25) {
         const f64 r0 = steadySeconds();
         m_replication->build(world, m_replicationOut);
+        for (auto& [id, m] : m_replicationOut) {
+            (void)id;
+            if (auto* snap = std::get_if<Snapshot>(&m)) {
+                snap->generation = m_generation;
+            }
+        }
         for (const auto& [id, ids] : m_inspect) {
             m_replicationOut.emplace_back(id, buildInspect(world, ids));
         }
@@ -733,6 +840,9 @@ void ServerHost::simStep(f64 now) {
 
     const std::lock_guard lock(m_mutex);
     for (auto& o : overlayOut) {
+        m_outbox.push_back(std::move(o));
+    }
+    for (auto& o : worldOut) {
         m_outbox.push_back(std::move(o));
     }
     for (auto& r : results) {
@@ -760,6 +870,7 @@ void ServerHost::simStep(f64 now) {
     m_stats.tick = m_status.tick;
     m_stats.paused = m_status.paused;
     m_stats.speed = m_status.speed;
+    writeModeStats();
     if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
         m_stats.reachedStopTick = true;
     }
@@ -769,15 +880,336 @@ f64 ServerHost::snapshotIntervalSeconds() const noexcept {
     return static_cast<f64>(std::max<u32>(1, m_desc.snapshotIntervalSteps)) / static_cast<f64>(sim::kTickRate);
 }
 
+f64 ServerHost::stepIntervalSeconds() const noexcept {
+    const f64 interval = static_cast<f64>(m_runner->world().clock().tickIntervalNanos()) / 1e9;
+    return m_playback ? interval / static_cast<f64>(m_playback->speed) : interval;
+}
+
 void ServerHost::publishStatus() {
     const auto& world = m_runner->world();
     const std::lock_guard lock(m_mutex);
     m_status.tick = world.currentTick();
     m_status.paused = world.clock().paused();
     m_status.speed = world.clock().speed();
+    m_status.meta = m_meta;
+    m_status.generation = m_generation;
     m_stats.tick = m_status.tick;
     m_stats.paused = m_status.paused;
     m_stats.speed = m_status.speed;
+    writeModeStats();
+}
+
+void ServerHost::writeModeStats() {
+    m_stats.generation = m_generation;
+    m_stats.mode = m_playback ? 2 : (m_recording ? 1 : 0);
+    m_stats.replayCall =
+        m_playback ? m_playback->player->call() : (m_recording ? m_recording->recorder->replay().calls : 0);
+    m_stats.replayCalls = m_playback ? m_playback->player->calls() : 0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 세이브 · 로드 · 리플레이 (12D, ADR-0031) — Sim 절반, 틱 사이
+// ---------------------------------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr const char* kReplayFile = "replay.sbxr";
+constexpr const char* kReplayStart = "start";
+
+bool isReplayFolder(const std::filesystem::path& dir) {
+    std::error_code ec;
+    return std::filesystem::is_regular_file(dir / kReplayFile, ec);
+}
+
+bool isSaveFolder(const std::filesystem::path& dir) {
+    std::error_code ec;
+    return std::filesystem::is_regular_file(dir / "world.json", ec);
+}
+
+} // namespace
+
+void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced) {
+    const WorldOpRequest& req = task.request;
+    WorldOpResultMsg result{req.op, req.name, false, {}};
+    const auto reply = [&](std::string detail, bool accepted) {
+        result.accepted = accepted;
+        result.detail = clampUtf8(detail, kMaxDetailBytes);
+        if (accepted) {
+            log::info("net", "월드 {} '{}' (#{}): {}", worldOpName(req.op), req.name, task.clientId, detail);
+        }
+        out.push_back(Outgoing{task.clientId, result});
+    };
+    if (req.op == WorldOpKind::List) {
+        out.push_back(Outgoing{task.clientId, listWorlds()});
+        return;
+    }
+    if (req.op == WorldOpKind::RecordStop) {
+        if (!m_recording) {
+            reply("기록 중이 아닙니다", false);
+            return;
+        }
+        result.name = m_recording->name;
+        auto r = stopRecording();
+        r ? reply(*r, true) : reply(r.error().message, false);
+        return;
+    }
+    if (m_desc.savesRoot.empty()) {
+        reply("이 서버에는 세이브 폴더가 없습니다 (--saves)", false);
+        return;
+    }
+    if (!isValidSaveName(req.name)) {
+        reply("이름은 영문 · 숫자 · _ · - 로 1 ~ 48 글자", false);
+        return;
+    }
+    const std::filesystem::path dir = m_desc.savesRoot / req.name;
+    auto& world = m_runner->world();
+    switch (req.op) {
+    case WorldOpKind::Save: {
+        if (isReplayFolder(dir)) {
+            reply("같은 이름의 리플레이가 있습니다", false);
+            return;
+        }
+        auto saved = persist::saveWorld(world, dir, persist::SaveOptions{req.name});
+        if (!saved) {
+            reply(saved.error().describe(), false);
+            return;
+        }
+        reply(std::format("tick {} · 엔티티 {}", world.currentTick(), saved->entities), true);
+        return;
+    }
+    case WorldOpKind::Load: {
+        if (isReplayFolder(dir)) {
+            reply("리플레이입니다 — 재생으로 여세요", false);
+            return;
+        }
+        if (!isSaveFolder(dir)) {
+            reply("그런 세이브가 없습니다", false);
+            return;
+        }
+        auto opened = scenario::openSave(dir, world.baseContent(), world.catalog());
+        if (!opened) {
+            reply(opened.error().describe(), false);
+            return;
+        }
+        for (const auto& w : opened->warnings) {
+            log::warn("net", "세이브 {}: {}", req.name, w);
+        }
+        std::string recorded;
+        if (m_recording) { // 기록하던 월드가 사라진다 — 거기까지 쓴다
+            auto r = stopRecording();
+            recorded =
+                r ? std::format(" (기록을 끝냈습니다: {})", *r) : std::format(" (기록 실패: {})", r.error().message);
+        }
+        const sim::Tick tick = opened->runner->world().currentTick();
+        replaceWorld(std::move(opened->runner), WorldChangeReason::Load, req.name, out);
+        replaced = true;
+        reply(std::format("tick {}{}", tick, recorded), true);
+        return;
+    }
+    case WorldOpKind::RecordStart: {
+        if (m_recording) {
+            reply(std::format("이미 '{}' 를 기록하고 있습니다", m_recording->name), false);
+            return;
+        }
+        if (m_playback) {
+            reply("리플레이를 재생하는 중에는 기록할 수 없습니다", false);
+            return;
+        }
+        std::error_code ec;
+        if (std::filesystem::exists(dir, ec)) {
+            reply("같은 이름의 세이브 · 리플레이가 있습니다", false);
+            return;
+        }
+        auto saved = persist::saveWorld(world, dir / kReplayStart, persist::SaveOptions{req.name});
+        if (!saved) {
+            reply(saved.error().describe(), false);
+            return;
+        }
+        auto startHash = world.worldHash();
+        if (!startHash) {
+            reply(startHash.error().describe(), false);
+            return;
+        }
+        replay::ReplayHeader header;
+        header.startWorld = kReplayStart;
+        header.startWorldHash = *startHash;
+        Recording rec;
+        rec.name = req.name;
+        rec.dir = dir;
+        rec.recorder = std::make_unique<replay::ReplayRecorder>(world, std::move(header));
+        m_recording = std::move(rec);
+        reply(std::format("tick {} 부터 기록", world.currentTick()), true);
+        publishStatus();
+        return;
+    }
+    case WorldOpKind::Play: {
+        if (!isReplayFolder(dir)) {
+            reply("그런 리플레이가 없습니다", false);
+            return;
+        }
+        auto pb = std::make_unique<Playback>();
+        pb->name = req.name;
+        auto rep = replay::readReplay(dir / kReplayFile);
+        if (!rep) {
+            reply(rep.error().describe(), false);
+            return;
+        }
+        pb->replay = std::move(*rep);
+        if (pb->replay.header.contentHash != m_contentHash) {
+            reply(std::format("다른 콘텐츠로 기록한 리플레이입니다 (리플레이 {}, 서버 {})",
+                              replay::formatHash(pb->replay.header.contentHash), replay::formatHash(m_contentHash)),
+                  false);
+            return;
+        }
+        auto opened = scenario::openSave(dir / pb->replay.header.startWorld, world.baseContent(), world.catalog());
+        if (!opened) {
+            reply(opened.error().describe(), false);
+            return;
+        }
+        auto player = replay::ReplayPlayer::start(opened->runner->world(), pb->replay);
+        if (!player) {
+            reply(player.error().describe(), false);
+            return;
+        }
+        pb->player = std::move(*player);
+        std::string recorded;
+        if (m_recording) {
+            auto r = stopRecording();
+            recorded =
+                r ? std::format(" (기록을 끝냈습니다: {})", *r) : std::format(" (기록 실패: {})", r.error().message);
+        }
+        const u64 calls = pb->player->calls();
+        replaceWorld(std::move(opened->runner), WorldChangeReason::Replay, req.name, out);
+        m_playback = std::move(pb);
+        replaced = true;
+        reply(std::format("{} call 재생 시작{}", calls, recorded), true);
+        publishStatus();
+        return;
+    }
+    case WorldOpKind::List:
+    case WorldOpKind::RecordStop:
+        break;
+    }
+}
+
+void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
+                              const std::string& name, std::vector<Outgoing>& out) {
+    SBX_ASSERT(!m_recording, "기록을 끝낸 뒤 월드를 바꿔야 합니다");
+    runner->world().setJobSystem(m_runner->world().paths().jobSystem());
+    m_playback.reset(); // 옛 월드를 가리킨다
+    m_runner = std::move(runner);
+    auto& world = m_runner->world();
+    ++m_generation;
+    m_inspect.clear();
+    m_awaitingResult.clear();
+    m_meta.minChunkX = world.desc().bounds.minChunk.x;
+    m_meta.minChunkY = world.desc().bounds.minChunk.y;
+    m_meta.maxChunkX = world.desc().bounds.maxChunk.x;
+    m_meta.maxChunkY = world.desc().bounds.maxChunk.y;
+    if (m_replication) {
+        m_replication->resetWorld();
+    }
+    WorldChanged changed;
+    changed.generation = m_generation;
+    changed.world = m_meta;
+    changed.world.paused = world.clock().paused();
+    changed.world.speed = world.clock().speed();
+    changed.reason = reason;
+    changed.name = clampUtf8(name, kMaxSaveNameBytes);
+    out.push_back(Outgoing{0, std::move(changed)});
+    m_sentOverlay = world.contentOverlay();
+    m_sentContentRevision = world.contentRevision();
+    out.push_back(Outgoing{0, fullOverlay(m_sentOverlay)});
+    log::info("net", "월드를 바꿨습니다 ({} '{}'): tick {} · 엔티티 {} · generation {}",
+              reason == WorldChangeReason::Load ? "불러오기" : "리플레이", name, world.currentTick(),
+              world.registry().aliveCount(), m_generation);
+    publishStatus();
+}
+
+Expected<std::string> ServerHost::stopRecording() {
+    SBX_ASSERT(m_recording.has_value(), "기록 중이 아닙니다");
+    Recording rec = std::move(*m_recording);
+    m_recording.reset();
+    if (auto r = rec.recorder->finish(); !r) {
+        return std::unexpected(r.error());
+    }
+    const replay::Replay& rep = rec.recorder->replay();
+    if (auto w = replay::writeReplay(rep, rec.dir / kReplayFile); !w) {
+        return std::unexpected(w.error());
+    }
+    std::string summary = std::format("{} call · 명령 {} · tick {} → {}", rep.calls, rep.commands.size(),
+                                      rep.header.startTick, rep.endTick);
+    rec.recorder.reset(); // 관찰자를 뗀다
+    publishStatus();
+    return summary;
+}
+
+WorldList ServerHost::listWorlds() const {
+    WorldList list;
+    if (m_desc.savesRoot.empty()) {
+        return list;
+    }
+    std::error_code ec;
+    std::filesystem::directory_iterator it(m_desc.savesRoot, ec);
+    if (ec) {
+        return list;
+    }
+    for (const auto& entry : it) {
+        if (!entry.is_directory(ec)) {
+            continue;
+        }
+        const std::string name = entry.path().filename().string();
+        if (!isValidSaveName(name)) {
+            continue;
+        }
+        SavedWorld w;
+        w.name = name;
+        w.replay = isReplayFolder(entry.path());
+        const std::filesystem::path summaryDir = w.replay ? entry.path() / kReplayStart : entry.path();
+        if (!w.replay && !isSaveFolder(summaryDir)) {
+            continue;
+        }
+        if (auto s = scenario::readSaveSummary(summaryDir)) {
+            w.tick = s->tick;
+            w.entities = s->entities;
+        }
+        list.worlds.push_back(std::move(w));
+    }
+    std::ranges::sort(list.worlds, {}, &SavedWorld::name);
+    if (list.worlds.size() > kMaxSavedWorlds) {
+        list.worlds.resize(kMaxSavedWorlds);
+    }
+    return list;
+}
+
+void ServerHost::handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results) {
+    Playback& pb = *m_playback;
+    CommandResultMsg r;
+    r.sequence = c.sequence;
+    r.accepted = true;
+    r.appliedTick = m_runner->world().currentTick();
+    if (std::holds_alternative<cmd::PauseSimulation>(c.payload)) {
+        pb.paused = true;
+        pb.steps = 0;
+    } else if (std::holds_alternative<cmd::ResumeSimulation>(c.payload)) {
+        pb.paused = false;
+        pb.steps = 0;
+    } else if (const auto* step = std::get_if<cmd::StepSimulation>(&c.payload)) {
+        pb.paused = true;
+        pb.steps += std::max<u32>(1, step->ticks);
+    } else if (const auto* speed = std::get_if<cmd::SetSimulationSpeed>(&c.payload)) {
+        pb.speed = speed->speed; // 검사기가 범위를 봤다
+    } else {
+        r.accepted = false;
+        r.appliedTick = 0;
+        r.reason = ErrorCode::Unsupported;
+        r.detail = "리플레이 재생 중에는 편집할 수 없습니다";
+    }
+    {
+        const std::lock_guard lock(m_mutex);
+        ++(r.accepted ? m_stats.commandsAccepted : m_stats.commandsRejected);
+    }
+    results.push_back(Outgoing{c.issuer, std::move(r)});
 }
 
 void ServerHost::simThreadMain() {
@@ -788,7 +1220,7 @@ void ServerHost::simThreadMain() {
     std::mutex sleepMutex;
     std::condition_variable never;
     while (!m_quitSim.load(std::memory_order_acquire)) {
-        const auto interval = std::chrono::nanoseconds(m_runner->world().clock().tickIntervalNanos());
+        const auto interval = std::chrono::nanoseconds(static_cast<std::int64_t>(stepIntervalSeconds() * 1e9));
         next += interval;
         auto now = Clock::now();
         // 잠깐씩 끊어 자면서 종료 요청을 본다

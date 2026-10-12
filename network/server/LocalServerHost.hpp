@@ -25,6 +25,7 @@ struct LocalServerDesc {
     u32 workers = 0; // 시뮬레이션 Job Worker 수 (0 = 없음 — 결과는 같다, D5)
     ServerMode mode = ServerMode::Threaded;
     u32 snapshotIntervalSteps = 2;
+    std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D — 비면 저장 · 불러오기 · 기록을 거절)
 };
 
 class LocalServerHost {

@@ -40,6 +40,38 @@ Expected<Role> parseRole(std::string_view text) {
                      std::string(text));
 }
 
+std::string_view worldOpName(WorldOpKind op) noexcept {
+    switch (op) {
+    case WorldOpKind::List:
+        return "목록";
+    case WorldOpKind::Save:
+        return "저장";
+    case WorldOpKind::Load:
+        return "불러오기";
+    case WorldOpKind::RecordStart:
+        return "기록 시작";
+    case WorldOpKind::RecordStop:
+        return "기록 멈춤";
+    case WorldOpKind::Play:
+        return "리플레이 재생";
+    }
+    return "?";
+}
+
+bool isValidSaveName(std::string_view name) noexcept {
+    if (name.empty() || name.size() > kMaxSaveNameBytes) {
+        return false;
+    }
+    for (const char c : name) {
+        const bool ok =
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+        if (!ok) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::string_view rejectReasonName(RejectReason r) noexcept {
     switch (r) {
     case RejectReason::VersionMismatch:
@@ -98,6 +130,14 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::SetRoleResult;
             } else if constexpr (std::is_same_v<T, ContentOverlayMsg>) {
                 return MessageId::ContentOverlay;
+            } else if constexpr (std::is_same_v<T, WorldOpRequest>) {
+                return MessageId::WorldOp;
+            } else if constexpr (std::is_same_v<T, WorldOpResultMsg>) {
+                return MessageId::WorldOpResult;
+            } else if constexpr (std::is_same_v<T, WorldList>) {
+                return MessageId::WorldList;
+            } else if constexpr (std::is_same_v<T, WorldChanged>) {
+                return MessageId::WorldChanged;
             } else {
                 static_assert(std::is_same_v<T, TerrainChunk>);
                 return MessageId::TerrainChunk;
@@ -152,6 +192,14 @@ std::string_view messageName(MessageId id) noexcept {
         return "SetRole";
     case MessageId::SetRoleResult:
         return "SetRoleResult";
+    case MessageId::WorldOp:
+        return "WorldOp";
+    case MessageId::WorldOpResult:
+        return "WorldOpResult";
+    case MessageId::WorldList:
+        return "WorldList";
+    case MessageId::WorldChanged:
+        return "WorldChanged";
     }
     return "?";
 }
@@ -161,7 +209,8 @@ Channel channelOf(const Message& m) noexcept {
         std::holds_alternative<InspectResult>(m)) {
         return Channel::Snapshot;
     }
-    if (std::holds_alternative<TerrainChunk>(m) || std::holds_alternative<ContentOverlayMsg>(m)) {
+    if (std::holds_alternative<TerrainChunk>(m) || std::holds_alternative<ContentOverlayMsg>(m) ||
+        std::holds_alternative<WorldChanged>(m)) {
         return Channel::Bulk;
     }
     return Channel::Control;
@@ -248,6 +297,7 @@ void encodeBody(BitWriter& w, const Welcome& m) {
     for (const u64 id : m.replicated) {
         w.writeU64(id);
     }
+    w.writeVarU(m.generation);
 }
 void encodeBody(BitWriter& w, const Reject& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -283,11 +333,20 @@ void encodeBody(BitWriter& w, const ServerStats& m) {
     w.writeBool(m.paused);
     w.writeF32(m.speed);
     w.writeU8(m.clients);
+    w.writeU8(m.mode);
+    w.writeString(m.modeName);
+    w.writeVarU(m.replayCall);
+    w.writeVarU(m.replayCalls);
+    w.writeVarU(m.hashesChecked);
+    w.writeBool(m.mismatch);
+    w.writeBool(m.replayPaused);
+    w.writeF32(m.replaySpeed);
 }
 void encodeBody(BitWriter& w, const DisconnectMsg& m) {
     w.writeU8(static_cast<u8>(m.reason));
 }
 void encodeBody(BitWriter& w, const Snapshot& m) {
+    w.writeVarU(m.generation);
     w.writeVarU(m.snapshotId);
     w.writeVarU(m.epoch);
     w.writeVarU(m.baselineId);
@@ -410,6 +469,47 @@ void encodeBody(BitWriter& w, const ContentOverlayMsg& m) {
     }
 }
 
+void encodeBody(BitWriter& w, const WorldOpRequest& m) {
+    w.writeU8(static_cast<u8>(m.op));
+    w.writeString(m.name);
+}
+void encodeBody(BitWriter& w, const WorldOpResultMsg& m) {
+    w.writeU8(static_cast<u8>(m.op));
+    w.writeString(m.name);
+    w.writeBool(m.accepted);
+    w.writeString(m.detail);
+}
+void encodeBody(BitWriter& w, const WorldList& m) {
+    w.writeVarU(m.worlds.size());
+    for (const SavedWorld& s : m.worlds) {
+        w.writeString(s.name);
+        w.writeBool(s.replay);
+        w.writeVarU(s.tick);
+        w.writeVarU(s.entities);
+    }
+}
+void encodeBody(BitWriter& w, const WorldChanged& m) {
+    w.writeVarU(m.generation);
+    w.writeString(m.world.name);
+    w.writeVarI(m.world.minChunkX);
+    w.writeVarI(m.world.minChunkY);
+    w.writeVarI(m.world.maxChunkX);
+    w.writeVarI(m.world.maxChunkY);
+    w.writeBool(m.world.paused);
+    w.writeF32(m.world.speed);
+    w.writeU8(static_cast<u8>(m.reason));
+    w.writeString(m.name);
+}
+
+WorldOpKind readWorldOp(BitReader& r) {
+    const u8 op = r.readU8();
+    if (op < static_cast<u8>(WorldOpKind::List) || op > static_cast<u8>(WorldOpKind::Play)) {
+        r.fail();
+        return WorldOpKind::List;
+    }
+    return static_cast<WorldOpKind>(op);
+}
+
 Role readRole(BitReader& r) {
     const u8 role = r.readU8();
     if (role > static_cast<u8>(Role::Owner)) {
@@ -462,6 +562,7 @@ Welcome decodeWelcome(BitReader& r) {
     for (u64 i = 0; i < n && !r.error(); ++i) {
         m.replicated.push_back(r.readU64());
     }
+    m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     return m;
 }
 Reject decodeReject(BitReader& r) {
@@ -519,10 +620,22 @@ ServerStats decodeServerStats(BitReader& r) {
     m.paused = r.readBool();
     m.speed = readFiniteF32(r);
     m.clients = r.readU8();
+    m.mode = r.readU8();
+    if (m.mode > 2) {
+        r.fail();
+    }
+    m.modeName = r.readString(kMaxSaveNameBytes);
+    m.replayCall = r.readVarU();
+    m.replayCalls = r.readVarU();
+    m.hashesChecked = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.mismatch = r.readBool();
+    m.replayPaused = r.readBool();
+    m.replaySpeed = readFiniteF32(r);
     return m;
 }
 Snapshot decodeSnapshot(BitReader& r) {
     Snapshot m;
+    m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     m.snapshotId = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     m.epoch = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     m.baselineId = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
@@ -699,6 +812,51 @@ ContentOverlayMsg decodeContentOverlay(BitReader& r) {
     }
     return m;
 }
+WorldOpRequest decodeWorldOp(BitReader& r) {
+    WorldOpRequest m;
+    m.op = readWorldOp(r);
+    m.name = r.readString(kMaxSaveNameBytes);
+    return m;
+}
+WorldOpResultMsg decodeWorldOpResult(BitReader& r) {
+    WorldOpResultMsg m;
+    m.op = readWorldOp(r);
+    m.name = r.readString(kMaxSaveNameBytes);
+    m.accepted = r.readBool();
+    m.detail = r.readString(kMaxDetailBytes);
+    return m;
+}
+WorldList decodeWorldList(BitReader& r) {
+    WorldList m;
+    const u64 n = r.readVarU(kMaxSavedWorlds);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        SavedWorld s;
+        s.name = r.readString(kMaxSaveNameBytes);
+        s.replay = r.readBool();
+        s.tick = r.readVarU();
+        s.entities = r.readVarU();
+        m.worlds.push_back(std::move(s));
+    }
+    return m;
+}
+WorldChanged decodeWorldChanged(BitReader& r) {
+    WorldChanged m;
+    m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.world.name = r.readString(kMaxWorldNameBytes);
+    m.world.minChunkX = readI32(r);
+    m.world.minChunkY = readI32(r);
+    m.world.maxChunkX = readI32(r);
+    m.world.maxChunkY = readI32(r);
+    m.world.paused = r.readBool();
+    m.world.speed = readFiniteF32(r);
+    const u8 reason = r.readU8();
+    if (reason < 1 || reason > 2) {
+        r.fail();
+    }
+    m.reason = static_cast<WorldChangeReason>(reason);
+    m.name = r.readString(kMaxSaveNameBytes);
+    return m;
+}
 DisconnectMsg decodeDisconnect(BitReader& r) {
 
     const u8 reason = r.readU8();
@@ -786,6 +944,18 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::ContentOverlay:
         out = decodeContentOverlay(r);
+        break;
+    case MessageId::WorldOp:
+        out = decodeWorldOp(r);
+        break;
+    case MessageId::WorldOpResult:
+        out = decodeWorldOpResult(r);
+        break;
+    case MessageId::WorldList:
+        out = decodeWorldList(r);
+        break;
+    case MessageId::WorldChanged:
+        out = decodeWorldChanged(r);
         break;
     default:
         return makeError(ErrorCode::ParseError, std::format("아직 없는 메시지 {} ({})", rawId, messageName(id)));

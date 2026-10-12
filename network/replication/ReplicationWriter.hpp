@@ -78,6 +78,9 @@ public:
     void setInterest(u16 clientId, const Subscribe& interest);
     // 관심과 무관하게 늘 보낼 엔티티 (선택한 개체 — 10B Inspect 와 같은 집합)
     void setAlwaysRelevant(u16 clientId, std::span<const NetEntityId> ids);
+    // 월드가 통째로 바뀌었다 (세이브 로드 · 리플레이 재생 — 12D): 모든 클라이언트를 새 epoch 로 처음부터, 보낸 지형 ·
+    // 지연 해제 · 늘 보낼 것 · 미룬 기록을 잊는다 (관심 사각형은 그대로 — 화면은 같다)
+    void resetWorld();
     // 모든 클라이언트의 이번 스냅숏 (+ 지형 청크) — (clientId, 메시지)
     void build(const sim::SimulationWorld& world, std::vector<std::pair<u16, Message>>& out);
 

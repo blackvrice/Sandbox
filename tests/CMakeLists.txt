@@ -58,6 +58,8 @@ add_executable(SandboxTests
     unit/network/test_client_view.cpp
     unit/network/test_interest.cpp
     unit/network/test_roles_overlay.cpp
+    unit/network/test_world_ops.cpp
+    unit/network/test_multi_client.cpp
     unit/editor/test_editor.cpp
     unit/editor/test_undo.cpp
     unit/editor/test_editor_roles.cpp

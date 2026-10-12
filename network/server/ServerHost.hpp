@@ -29,8 +29,14 @@
 //   이하로, 자기 자신은 못 바꾼다). 바뀐 역할은 다시 접속 표에도. Auth.ownerKey 가 --owner-key 와 같으면 Owner.
 // 월드 오버레이 (12C): 들어온 클라이언트에 ContentOverlay{reset} 로 전체, 월드의 오버레이가 바뀌면 (EditContent) 바뀐
 //   항목만 모두에게 — Sim 절반이 contentRevision 으로 알아챈다.
+// 세이브 · 로드 · 리플레이 (12D, ADR-0031): WorldOp 을 Net 절반이 권한(목록 = 모두, 나머지 = admin 부터)으로 거르고 Sim
+//   절반이 틱 사이에 한다 — <savesRoot>/<이름>. 로드 · 재생은 월드를 통째로 바꾼다 (같은 콘텐츠의 세이브만): generation++,
+//   복제를 새 epoch 로, 모두에게 WorldChanged · 오버레이 전체, 그 배치의 명령은 거절. 기록 = 시작 세이브 + ReplayRecorder
+//   (tick() 마다), 재생 = ReplayPlayer 로 한 call 씩 (편집 명령 거절, 실행 제어는 재생을 멈추고 · 한 call 씩 · 빠르게),
+//   끝나면 보통 월드로 돌아와 일시정지. 서버를 멈추면 기록 중인 리플레이를 쓴다.
 
 #include <atomic>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -40,6 +46,7 @@
 #include <thread>
 #include <vector>
 
+#include "core/replay/Replay.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "network/protocol/Messages.hpp"
 #include "network/replication/ReplicationWriter.hpp"
@@ -55,8 +62,9 @@ struct ServerHostDesc {
     u32 maxClients = 16;
     Role defaultRole = Role::Editor; // 10 7장: 기본 역할 (--default-role)
     u64 buildId = 0;
-    std::vector<std::string> packs; // 콘텐츠 팩 id (Reject{ContentMismatch} 로 알려 준다)
-    std::string ownerKey;           // 비지 않으면 Auth.ownerKey 가 같은 사람이 Owner (--owner-key, 12C)
+    std::vector<std::string> packs;  // 콘텐츠 팩 id (Reject{ContentMismatch} 로 알려 준다)
+    std::string ownerKey;            // 비지 않으면 Auth.ownerKey 가 같은 사람이 Owner (--owner-key, 12C)
+    std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D, --saves). 비면 목록만 (빈 목록)
     f64 handshakeTimeoutSeconds = 10;
     f64 statsIntervalSeconds = 1;
     f64 reconnectSeconds = 60; // 다시 접속 토큰이 유효한 시간 (끊긴 뒤)
@@ -86,6 +94,10 @@ struct ServerHostStats {
     bool reachedStopTick = false;
     f64 replicationMs = 0; // 스냅숏 만들기 (모든 클라이언트) — 최근 값의 지수 평균, Simulation 스레드 시간
     u64 snapshotsBuilt = 0;
+    u32 generation = 0;  // 월드가 바뀐 횟수 (12D)
+    u8 mode = 0;         // 0 보통 · 1 기록 중 · 2 재생 중 (ServerStats.mode)
+    u64 replayCall = 0;  // 기록: 기록한 tick() 수 · 재생: 재생한 call
+    u64 replayCalls = 0; // 재생: 전체 call
 };
 
 class ServerHost {
@@ -150,6 +162,26 @@ private:
         sim::Tick tick = 0;
         bool paused = false;
         f32 speed = 1.0f;
+        WorldMeta meta;     // 로드하면 바뀐다 (Welcome)
+        u32 generation = 0; // Welcome
+    };
+    struct WorldOpTask {
+        u16 clientId = 0;
+        WorldOpRequest request;
+    };
+    // 리플레이 기록 · 재생 (12D, Sim 절반 소유)
+    struct Recording {
+        std::string name;
+        std::filesystem::path dir;
+        std::unique_ptr<replay::ReplayRecorder> recorder;
+    };
+    struct Playback {
+        std::string name;
+        replay::Replay replay;                        // player 가 가리킨다 (Playback 은 힙에 — 주소 고정)
+        std::unique_ptr<replay::ReplayPlayer> player; // 월드 = m_runner 의 것
+        bool paused = false;
+        u32 steps = 0; // 멈춘 동안 진행할 call
+        f32 speed = 1.0f;
     };
 
     // --- Net 절반 (Net IO 스레드 또는 Inline) ---
@@ -168,13 +200,22 @@ private:
     void simStep(f64 now);
     void simThreadMain();
     void publishStatus();
+    void writeModeStats(); // m_stats 의 generation · 기록/재생 (m_mutex 를 잡고)
     [[nodiscard]] f64 snapshotIntervalSeconds() const noexcept;
+    // 다음 단계까지 (월드의 틱 간격, 재생 중이면 재생 속도로 나눈다)
+    [[nodiscard]] f64 stepIntervalSeconds() const noexcept;
+    void runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced);
+    void replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
+                      const std::string& name, std::vector<Outgoing>& out);
+    [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
+    [[nodiscard]] WorldList listWorlds() const;
+    void handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results);
 
     INetworkTransport& m_transport;
     std::unique_ptr<scenario::ScenarioRunner> m_runner;
     ServerHostDesc m_desc;
     CommandValidator m_validator;
-    WorldMeta m_meta; // 바뀌지 않는 월드 정보 (이름 · 경계)
+    WorldMeta m_meta; // 월드 정보 (이름 · 경계) — Sim 절반 소유, 로드하면 바뀐다 (Net 절반은 m_status.meta)
     u64 m_contentHash = 0;
 
     // Net 절반 소유
@@ -195,6 +236,10 @@ private:
     std::map<u16, std::vector<NetEntityId>> m_inspect; // 클라이언트별 선택 상세 (10B)
     content::ContentOverlay m_sentOverlay;             // 마지막으로 모두에게 보낸 월드 오버레이 (12C)
     u64 m_sentContentRevision = 0;
+    u32 m_generation = 0; // 월드가 바뀐 횟수 (12D)
+    std::optional<Recording> m_recording;
+    std::unique_ptr<Playback> m_playback;
+    u32 m_serverSequence = 0; // 서버가 넣는 명령 (재생 끝 일시정지)
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;
@@ -217,6 +262,7 @@ private:
     // Net → Sim: 선택 상세 요청 (10B) · 관심 영역 (11)
     std::vector<std::pair<u16, InspectRequest>> m_inspectRequests;
     std::vector<std::pair<u16, Subscribe>> m_subscribes;
+    std::vector<WorldOpTask> m_worldOps; // Net → Sim (12D)
     WorldStatus m_status;
     ServerHostStats m_stats;
 

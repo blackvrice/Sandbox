@@ -28,6 +28,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.mode = desc.mode;
     sd.snapshotIntervalSteps = desc.snapshotIntervalSteps;
     sd.snapshotBytesPerSecond = 0; // Loopback — 예산 없음
+    sd.savesRoot = desc.savesRoot;
     h->m_host = std::make_unique<ServerHost>(*h->m_serverTransport, std::move(src->runner), sd);
     if (auto r = h->m_host->start(h->endpoint()); !r) {
         return std::unexpected(r.error());

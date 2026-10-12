@@ -146,6 +146,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.maxClients = opts.maxClients;
     desc.defaultRole = sbx::net::parseRole(opts.defaultRole).value_or(sbx::net::Role::Editor);
     desc.ownerKey = opts.ownerKey;
+    desc.savesRoot = opts.saves;
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
     desc.mode = sbx::net::ServerMode::Threaded;
