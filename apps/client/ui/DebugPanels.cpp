@@ -60,6 +60,8 @@ void simulationPanel(const PanelInputs& in, PanelActions& act) {
     }
     text(std::format("틱 {:.2f} ms", w.tickMs));
     ImGui::Separator();
+    // 12C: 실행 제어는 admin 부터 — 쓸 수 없는 역할이면 단추를 끈다 (판단은 서버)
+    ImGui::BeginDisabled(!w.canControl);
     if (ImGui::Button(w.paused ? "재개 (Space)" : "일시정지 (Space)")) {
         act.togglePause = true;
     }
@@ -77,6 +79,10 @@ void simulationPanel(const PanelInputs& in, PanelActions& act) {
     ImGui::SameLine();
     if (ImGui::Button("+")) {
         act.speed = +1;
+    }
+    ImGui::EndDisabled();
+    if (!w.canControl) {
+        ImGui::TextDisabled("일시정지 · 속도는 admin 부터");
     }
     ImGui::Separator();
     ImGui::Checkbox("격자 (G)", &act.grid);

@@ -14,6 +14,9 @@
 // 네트워크 패널에 보인다). 선택은 netId 로, 선택한 개체의 서버 전용 상태는 Inspect 로 받는다.
 // Phase 12A: 에디터의 IEditorHost — 툴 명령을 서버로 보내고 결과를 돌려주며, EditPreview 를 그릴 때 더한다 (ADR-0028).
 // 12B: 컴포넌트 값 = 복제 월드의 EditorVisible 값 + 선택 상세(Inspect)의 서버 전용 값, 개체 목록, 그린 위치 (ADR-0029).
+// 12C: 접속자 표 · 역할 바꾸기 요청, 역할 → EditPermissions, 서버가 보낸 월드 오버레이를 팩 콘텐츠에 얹은 DB 를
+// content() 로 (오버레이가 바뀔 때마다 다시 — 검증에 실패하면 팩 그대로 쓰고 경고), --owner-key (ADR-0030).
+//
 // 한 스레드(Main)에서 쓴다.
 
 #include <filesystem>
@@ -46,6 +49,7 @@ struct NetworkSessionDesc {
     u32 workers = 0;           // Local: 시뮬레이션 Job Worker 수
     bool inlineServer = false; // Local: update(dt) 안에서 서버를 돌린다 (헤드리스 · 시험)
     f64 connectTimeoutSeconds = 10;
+    std::string ownerKey; // Remote: 서버 --owner-key 와 같으면 Owner (12C)
     // Remote: Transport 를 만든다 (없으면 ENet). 시험은 Loopback 을 넣는다
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };
@@ -94,6 +98,12 @@ public:
     [[nodiscard]] std::vector<editor::ComponentState> components(NetEntityId id) const override;
     void listEntities(std::vector<editor::EntityRow>& out) const override;
     [[nodiscard]] std::optional<Vec2> positionOf(NetEntityId id) const override;
+    [[nodiscard]] editor::EditPermissions permissions() const override;
+    // ---- 12C: 접속자 ----
+    [[nodiscard]] std::optional<PlayersInfo> players() const override;
+    void requestRole(u16 clientId, u8 role) override;
+    // 오버레이를 적용하지 못했으면 그 이유 (시험 · 패널)
+    [[nodiscard]] const std::string& overlayError() const noexcept { return m_overlayError; }
 
     // 시험 · 끝 요약
     [[nodiscard]] const std::string& name() const noexcept { return m_name; }
@@ -127,6 +137,7 @@ private:
     u32 send(cmd::CommandPayload payload); // sequence (0 = 보내지 못함)
     void selectionChanged();
     void applyPreview(); // 스냅숏의 그릴 위치에 EditPreview 를 더한다 (고르기 · 외곽선도 옮긴 자리로)
+    void refreshOverlay(const net::ClientWorld& world); // 서버 오버레이가 바뀌었으면 콘텐츠를 다시 만든다 (12C)
 
     NetworkSessionDesc m_desc;
     std::string m_name;
@@ -168,6 +179,13 @@ private:
     std::vector<u32> m_editorSequences;
     std::vector<editor::CommandOutcome> m_outcomes;
     std::vector<editor::PreviewOffset> m_preview;
+
+    // 월드 오버레이 (12C): 팩 콘텐츠 + 서버 오버레이 (없으면 null — 복제 월드의 팩 콘텐츠를 쓴다)
+    std::shared_ptr<const content::ContentDatabase> m_overlaid;
+    const net::ClientSession* m_overlaySession = nullptr;
+    u64 m_overlayRevision = 0;
+    std::string m_overlayError;
+    std::string m_roleMessage; // 가장 최근 역할 바꾸기 결과
 
     // 받은 바이트 (최근 1 초)
     f64 m_bytesWindowStart = 0;

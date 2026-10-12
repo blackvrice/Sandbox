@@ -2,8 +2,8 @@
 // 기본 패널 (Phase 8C, 16-ROADMAP 8.4): "시뮬레이션"(진행 · 속도 · 선택 · 보기) · "통계"(프레임 · CPU · GPU 패스 ·
 // 디바이스) · (10B) "네트워크"(서버 · 역할 · RTT · 스냅숏 · 받은 바이트 · 보간 지연 · 거절된 명령).
 // docs/06-RENDERING.md 10장, ADR-0023. ImGui:: 호출만 한다 — 바꿀 일은 PanelActions 로 돌려주고 Application 이 한다
-// (패널이 세션 · 카메라를 직접 바꾸지 않는다 — 키보드 단축키와 같은 길로). [계획] Phase 12 에디터가 SandboxEditor 로
-// 옮기고 도킹 레이아웃 · 인스펙터를 더한다.
+// (패널이 세션 · 카메라를 직접 바꾸지 않는다 — 키보드 단축키와 같은 길로). 에디터 패널은 SandboxEditor (12A ~),
+// 접속자는 PlayersPanel (12C). 12C: 실행 제어 단추는 WorldInfo::canControl 이 false 면 끈다. 도킹 레이아웃 [계획].
 
 #include <array>
 #include <string>

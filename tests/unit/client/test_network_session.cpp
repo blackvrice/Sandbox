@@ -736,5 +736,10 @@ TEST_SUITE("client") {
         CHECK_FALSE(parseClientOptions(gone).has_value());
         CHECK(clientUsage().find("--connect") != std::string::npos);
         CHECK(clientUsage().find("--direct-sim") == std::string::npos);
+        // 12C: --owner-key 는 --connect 와 함께
+        const std::string_view key[] = {"--connect", "h", "--owner-key", "비밀"};
+        CHECK(parseClientOptions(key)->ownerKey == "비밀");
+        const std::string_view localKey[] = {"--world", "w", "--owner-key", "비밀"};
+        CHECK_FALSE(parseClientOptions(localKey).has_value());
     }
 }

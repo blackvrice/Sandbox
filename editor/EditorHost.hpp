@@ -7,6 +7,8 @@
 //                 EditPreview(서버가 확정할 때까지 옮겨 그리기), 보낸 명령의 결과.
 //                 12B: 컴포넌트 값(Inspector · Undo 의 이전 값 — 복제 값 + 선택한 개체의 서버 전용 값), 개체
 //                 목록(Hierarchy), 그린 위치(카메라 맞추기).
+//                 12C: 지금 역할로 할 수 있는 것 (EditPermissions — 툴 · 패널을 숨긴다. 판단은 서버), content() 는
+//                 서버의 월드 오버레이까지 적용한 콘텐츠 (overlay() 가 그 오버레이).
 //
 // 에디터는 월드를 직접 바꾸지 않는다. 한 스레드(Main)에서 쓴다.
 
@@ -64,6 +66,16 @@ struct ComponentState {
     bool replicated = true; // false = 서버가 선택 상세(Inspect)로 준 값 — 선택한 개체만, 한 스냅숏 늦을 수 있다
 };
 
+// 지금 역할로 할 수 있는 편집 (10-EDITOR 7장 표의 열 — 12C). 서버가 판단하고, 에디터는 툴 · 단추를 숨긴다
+struct EditPermissions {
+    bool entities = true;   // 개체 · 컴포넌트 편집 (이동 · 배치 · 지우기 · Inspector)
+    bool terrain = true;    // 지형 칠하기
+    bool content = true;    // Rule · Behavior · Prefab (월드 오버레이)
+    bool simulation = true; // 일시정지 · 한 틱 · 속도
+    [[nodiscard]] bool anyEdit() const noexcept { return entities || terrain || content; }
+    friend bool operator==(const EditPermissions&, const EditPermissions&) = default;
+};
+
 // Hierarchy 한 줄
 struct EntityRow {
     NetEntityId id = kInvalidNetEntityId;
@@ -98,6 +110,9 @@ public:
     virtual void listEntities(std::vector<EntityRow>& out) const = 0;
     // 그린 위치 (없으면 nullopt)
     [[nodiscard]] virtual std::optional<Vec2> positionOf(NetEntityId id) const = 0;
+
+    // ---- 12C ----
+    [[nodiscard]] virtual EditPermissions permissions() const = 0;
 };
 
 } // namespace sbx::editor

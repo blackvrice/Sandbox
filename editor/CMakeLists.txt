@@ -10,5 +10,7 @@ add_library(SandboxEditor STATIC
     ui/EditorPanel.cpp
     ui/InspectorPanel.hpp
     ui/InspectorPanel.cpp
+    ui/ContentPanel.hpp
+    ui/ContentPanel.cpp
 )
 target_link_libraries(SandboxEditor PUBLIC SandboxCore SandboxRender PRIVATE sbx_imgui sbx_warnings)

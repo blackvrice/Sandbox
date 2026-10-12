@@ -17,6 +17,7 @@ namespace sbx::editor {
 
 struct EditorPanelState {
     std::array<char, 64> filter{}; // Prefab 거르기
+    bool contentOpen = false;      // "콘텐츠" 창 (12C — 이 패널의 단추로 연다)
 };
 
 void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host);

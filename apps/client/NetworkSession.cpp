@@ -13,6 +13,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "foundation/log/Log.hpp"
+#include "network/server/CommandValidator.hpp"
 #include "network/transport/EnetTransport.hpp"
 
 namespace sbx::client {
@@ -93,6 +94,7 @@ net::ClientSessionDesc NetworkSession::sessionDesc(const content::ContentDatabas
     cd.handshakeTimeoutSeconds = m_desc.connectTimeoutSeconds;
     cd.catalog = m_catalog.get();
     cd.content = &content;
+    cd.ownerKey = m_desc.ownerKey;
     return cd;
 }
 
@@ -278,6 +280,15 @@ void NetworkSession::update(f64 dtSeconds) {
     if (world->stats().snapshotsApplied != m_seenSnapshots) {
         m_seenSnapshots = world->stats().snapshotsApplied;
         m_clock.onSnapshot(world->serverTick(), world->paused(), world->speed(), m_now);
+    }
+
+    refreshOverlay(*world);
+    for (const net::SetRoleResultMsg& r : m_session->takeRoleResults()) {
+        m_roleMessage = r.accepted ? std::format("#{} → {}", r.clientId, net::roleName(r.role))
+                                   : std::format("역할 바꾸기 거절: {}", r.detail);
+        if (!r.accepted) {
+            log::warn("client", "{}", m_roleMessage);
+        }
     }
 
     for (const net::CommandResultMsg& r : m_session->takeResults()) {
@@ -493,7 +504,73 @@ std::vector<editor::CommandOutcome> NetworkSession::takeOutcomes() {
 
 const content::ContentDatabase* NetworkSession::content() const {
     const net::ClientWorld* w = clientWorld();
-    return w != nullptr ? &w->content() : nullptr;
+    if (w == nullptr) {
+        return nullptr;
+    }
+    return m_overlaid ? m_overlaid.get() : &w->content();
+}
+
+void NetworkSession::refreshOverlay(const net::ClientWorld& world) {
+    if (m_overlaySession == m_session.get() && m_overlayRevision == m_session->overlayRevision()) {
+        return;
+    }
+    m_overlaySession = m_session.get();
+    m_overlayRevision = m_session->overlayRevision();
+    const content::ContentOverlay& overlay = m_session->overlay();
+    if (overlay.empty()) {
+        m_overlaid.reset();
+        m_overlayError.clear();
+        return;
+    }
+    // 서버가 받아들인 오버레이다 — 같은 팩 · 같은 카탈로그면 여기서도 검증을 통과한다
+    content::ContentLoadResult r = content::ContentLoader::applyOverlay(world.content(), overlay, *m_catalog);
+    if (!r.ok()) {
+        m_overlaid.reset();
+        m_overlayError = std::format("서버의 콘텐츠 오버레이를 적용하지 못했습니다 (오류 {}개)", r.errorCount());
+        for (const content::ContentIssue& i : r.issues) {
+            if (i.severity == content::ContentIssue::Severity::Error) {
+                m_overlayError += "\n  " + i.describe();
+                break;
+            }
+        }
+        log::warn("client", "{}", m_overlayError);
+        return;
+    }
+    m_overlayError.clear();
+    m_overlaid = std::make_shared<const content::ContentDatabase>(std::move(r.db));
+}
+
+editor::EditPermissions NetworkSession::permissions() const {
+    const net::Role role = m_session ? m_session->role() : net::Role::Observer;
+    editor::EditPermissions p;
+    p.entities = net::roleAllows(role, net::CommandClass::EntityEdit);
+    p.terrain = net::roleAllows(role, net::CommandClass::TerrainEdit);
+    p.content = net::roleAllows(role, net::CommandClass::ContentEdit);
+    p.simulation = net::roleAllows(role, net::CommandClass::SimulationControl);
+    return p;
+}
+
+std::optional<PlayersInfo> NetworkSession::players() const {
+    if (!m_session || !m_session->welcome()) {
+        return std::nullopt;
+    }
+    PlayersInfo info;
+    info.myRole = static_cast<u8>(m_session->role());
+    info.message = m_roleMessage;
+    const u16 me = m_session->welcome()->clientId;
+    for (const net::PlayerEntry& p : m_session->players()) {
+        info.players.push_back({p.clientId, static_cast<u8>(p.role), p.name, p.clientId == me});
+    }
+    return info;
+}
+
+void NetworkSession::requestRole(u16 clientId, u8 role) {
+    if (role > static_cast<u8>(net::Role::Owner) || !m_session) {
+        return;
+    }
+    if (!m_session->requestRole(clientId, static_cast<net::Role>(role))) {
+        m_roleMessage = "접속 전이라 역할을 바꿀 수 없습니다";
+    }
 }
 
 const world::WorldGrid* NetworkSession::grid() const {
@@ -641,9 +718,8 @@ WorldInfo NetworkSession::info() const {
     NetInfo n;
     n.local = m_local != nullptr;
     n.server = m_local ? std::string("로컬") : m_target.describe();
-    if (const auto& wel = m_session->welcome()) {
-        n.role = std::string(net::roleName(wel->role));
-    }
+    n.role = std::string(net::roleName(m_session->role())); // 12C: 바뀐 역할까지
+    i.canControl = permissions().simulation;
     n.rttMs = m_session->transportStats().rttMs;
     n.snapshots = w->stats().snapshotsApplied;
     n.resyncs = w->stats().resets;

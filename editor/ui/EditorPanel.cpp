@@ -88,15 +88,25 @@ void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host)
         ImGui::End();
         return;
     }
+    // 12C: 지금 역할로 쓸 수 없는 툴은 숨긴다 (선택은 언제나)
+    const EditPermissions perms = host.permissions();
+    bool first = true;
     for (usize i = 0; i < kToolCount; ++i) {
         const Tool t = static_cast<Tool>(i);
+        if (!toolAllowed(t, perms)) {
+            continue;
+        }
         const std::string label = std::format("{} ({})", toolName(t), i + 1);
-        if (i > 0) {
+        if (!first) {
             ImGui::SameLine();
         }
+        first = false;
         if (ImGui::RadioButton(label.c_str(), editor.tool() == t)) {
             editor.setTool(t);
         }
+    }
+    if (!perms.anyEdit()) {
+        ImGui::TextDisabled("지금 역할로는 보기만 할 수 있습니다 (접속자 패널의 역할)");
     }
     ImGui::Separator();
     switch (editor.tool()) {
@@ -124,20 +134,24 @@ void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host)
     }
     ImGui::Separator();
     // 되돌리기 · 다시 하기 (12B) — 단추 이름에 무엇을 되돌리는지
-    ImGui::BeginDisabled(!editor.canUndo());
+    ImGui::BeginDisabled(!editor.canUndo() || !perms.anyEdit());
     const std::string undo = std::format("되돌리기 {}##undo", editor.undoLabel());
     if (ImGui::Button(undo.c_str())) {
         editor.undo(host);
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::BeginDisabled(!editor.canRedo());
+    ImGui::BeginDisabled(!editor.canRedo() || !perms.anyEdit());
     const std::string redo = std::format("다시 {}##redo", editor.redoLabel());
     if (ImGui::Button(redo.c_str())) {
         editor.redo(host);
     }
     ImGui::EndDisabled();
     ImGui::TextDisabled("Ctrl+Z · Ctrl+Y — 기록 %zu · %zu", editor.undoDepth(), editor.redoDepth());
+    ImGui::SameLine();
+    if (ImGui::SmallButton(state.contentOpen ? "콘텐츠 창 닫기" : "콘텐츠 창")) {
+        state.contentOpen = !state.contentOpen; // Rule · Behavior · Prefab (12C)
+    }
     const EditorStats& s = editor.stats();
     ImGui::Text("명령 %llu · 수락 %llu · 거절 %llu", static_cast<unsigned long long>(s.sent),
                 static_cast<unsigned long long>(s.accepted), static_cast<unsigned long long>(s.rejected));

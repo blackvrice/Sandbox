@@ -1,6 +1,7 @@
 #include "apps/client/Application.hpp"
 
 #include "apps/client/ui/ImGuiLayer.hpp"
+#include "apps/client/ui/PlayersPanel.hpp"
 
 #include <algorithm>
 #include <array>
@@ -489,6 +490,12 @@ bool Application::frame() {
                 editor::drawEditorPanel(m_editor, m_editorPanel, *host);  // 12A "편집"
                 editor::drawInspectorPanel(m_editor, m_inspector, *host); // 12B
                 editor::drawHierarchyPanel(m_editor, m_inspector, *host);
+                editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
+            }
+            if (const auto players = m_config.world->players(); players && m_panels.visible) {
+                if (const auto req = drawPlayersPanel(*players)) { // 12C "접속자"
+                    m_config.world->requestRole(req->clientId, req->role);
+                }
             }
         }
         ui = m_config.ui->endFrame(m_cursor);

@@ -3,9 +3,11 @@
 //   Phase 10B: NetworkSession — 서버(같은 프로세스의 LocalServerHost 또는 원격 SandboxServer)의 스냅숏 → ClientWorld.
 //   (Phase 8A 의 --direct-sim 은 지웠다 — ADR-0026)
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
+// 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030).
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "render/renderer/RenderWorld.hpp"
 
@@ -36,6 +38,19 @@ struct NetInfo {
     std::string lastRejection; // 가장 최근 거절된 명령 (명령 · 사유)
 };
 
+// 접속자 한 사람 (12C). role = 역할 번호 (0 observer · 1 player · 2 editor · 3 admin · 4 owner — net::Role 과 같은 값)
+struct PlayerRow {
+    u16 clientId = 0;
+    u8 role = 0;
+    std::string name;
+    bool self = false;
+};
+struct PlayersInfo {
+    std::vector<PlayerRow> players; // clientId 오름차순
+    u8 myRole = 0;
+    std::string message; // 가장 최근 역할 바꾸기 결과 (거절 사유 등)
+};
+
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
     std::string name;
@@ -47,6 +62,7 @@ struct WorldInfo {
     f64 targetTicksPerSecond = 0; // 30 × 속도
     f64 tickMs = 0;               // 최근 틱 시간
     usize selected = 0;
+    bool canControl = true;     // 일시정지 · 한 틱 · 속도를 쓸 수 있는 역할 (12C — 단추를 끈다. 판단은 서버)
     std::optional<NetInfo> net; // 10B
 };
 
@@ -83,6 +99,10 @@ public:
     [[nodiscard]] virtual WorldInfo info() const { return {}; }
     // ---- 12A: 에디터 (없으면 null — Application 은 8B 의 선택만 한다) ----
     [[nodiscard]] virtual editor::IEditorHost* editorHost() { return nullptr; }
+    // ---- 12C: 접속자 · 역할 (없으면 패널을 그리지 않는다) ----
+    [[nodiscard]] virtual std::optional<PlayersInfo> players() const { return std::nullopt; }
+    // 역할 바꾸기 요청 (서버가 판단 — 결과는 players().message)
+    virtual void requestRole(u16 /*clientId*/, u8 /*role*/) {}
 };
 
 } // namespace sbx::client

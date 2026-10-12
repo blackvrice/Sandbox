@@ -26,6 +26,7 @@
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "editor/Editor.hpp"
+#include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
 #include "foundation/types/Error.hpp"
@@ -162,8 +163,9 @@ private:
     // 12A 에디터 (세션이 editorHost 를 줄 때만 쓴다)
     editor::Editor m_editor;
     editor::EditorPanelState m_editorPanel;
-    editor::InspectorState m_inspector; // 12B "인스펙터" · "목록"
-    f64 m_editorClock = 0;              // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
+    editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"
+    editor::ContentPanelState m_contentPanel; // 12C "콘텐츠"
+    f64 m_editorClock = 0;                    // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 
     // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)

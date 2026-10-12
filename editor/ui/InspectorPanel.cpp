@@ -176,6 +176,11 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
         ImGui::SameLine();
         ImGui::TextDisabled("외 %zu — 바꾸면 그 컴포넌트가 있는 개체 전부", selection.size() - 1);
     }
+    // 12C: 개체를 고칠 수 없는 역할이면 보기만 (판단은 서버 — 여기서는 위젯을 끈다)
+    const bool editable = host.permissions().entities;
+    if (!editable) {
+        ImGui::TextDisabled("보기만 — 지금 역할로는 값을 바꿀 수 없습니다");
+    }
     ImGui::Separator();
     for (const ComponentState& s : comps) {
         const ecs::ComponentInfo* info = catalog->find(s.stableId);
@@ -187,15 +192,21 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
             continue;
         }
         ImGui::PushID(static_cast<int>(info->stableId & 0x7FFF'FFFF));
+        ImGui::BeginDisabled(!editable);
         for (const ecs::FieldDesc& f : info->fields) {
             if (s.value.is_object() && s.value.contains(std::string(f.name))) {
                 fieldWidget(editor, st, host, *info, f, s.value[std::string(f.name)]);
             }
         }
-        if (ImGui::SmallButton("컴포넌트 빼기")) {
+        if (editable && ImGui::SmallButton("컴포넌트 빼기")) {
             editor.removeComponent(host, s.stableId);
         }
+        ImGui::EndDisabled();
         ImGui::PopID();
+    }
+    if (!editable) {
+        ImGui::End();
+        return;
     }
     ImGui::Separator();
     ImGui::SetNextItemWidth(220.f * dpi());

@@ -1,6 +1,7 @@
 #pragma once
-// 시험용 가짜 IEditorHost (Phase 12A · 12B): 보낸 명령을 모으고, 결과는 시험이 넣는다. 개체 = 위치 하나 (0.5 칸 안을
-// 누르면 고른다), 컴포넌트 값은 comps 에. 32 px/칸 손(Hand)으로 한 프레임씩 입력한다.
+// 시험용 가짜 IEditorHost (Phase 12A · 12B · 12C): 보낸 명령을 모으고, 결과는 시험이 넣는다. 개체 = 위치 하나 (0.5 칸
+// 안을 누르면 고른다), 컴포넌트 값은 comps 에, 역할 권한은 perms 에, 콘텐츠는 contentDb(없으면 내장)에. 32 px/칸
+// 손(Hand)으로 한 프레임씩 입력한다.
 #include <doctest/doctest.h>
 
 #include <algorithm>
@@ -41,6 +42,8 @@ struct FakeHost final : IEditorHost {
 
     ecs::ComponentCatalog cat;
     std::map<NetEntityId, std::vector<ComponentState>> comps; // 12B: 개체별 컴포넌트 값 (시험이 채운다)
+    EditPermissions perms;                                    // 12C
+    const content::ContentDatabase* contentDb = nullptr;      // 12C: 오버레이 시험 (없으면 내장 db)
 
     FakeHost() : worldGrid(*world::WorldGrid::create({{-1, -1}, {0, 0}}, db, 0)) { // 64 × 64 타일, -32 ~ 31
         REQUIRE(comp::registerCoreComponents(cat).has_value());
@@ -54,7 +57,7 @@ struct FakeHost final : IEditorHost {
         return ++nextSeq;
     }
     std::vector<CommandOutcome> takeOutcomes() override { return std::exchange(outcomes, {}); }
-    const content::ContentDatabase* content() const override { return &db; }
+    const content::ContentDatabase* content() const override { return contentDb != nullptr ? contentDb : &db; }
     const world::WorldGrid* grid() const override { return &worldGrid; }
     std::optional<NetEntityId> pickAt(Vec2 p) const override {
         for (const FakeEntity& e : entities) {
@@ -102,6 +105,7 @@ struct FakeHost final : IEditorHost {
         }
         return std::nullopt;
     }
+    EditPermissions permissions() const override { return perms; }
     // 시험이 서버 대신 결과를 준다
     void accept(u32 seq, std::vector<NetEntityId> created = {}) {
         outcomes.push_back({seq, true, tick, std::move(created), {}});

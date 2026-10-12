@@ -62,6 +62,20 @@ std::string_view toolName(Tool t) noexcept {
     return "?";
 }
 
+bool toolAllowed(Tool t, const EditPermissions& p) noexcept {
+    switch (t) {
+    case Tool::Select:
+        return true;
+    case Tool::Move:
+    case Tool::Place:
+    case Tool::Erase:
+        return p.entities;
+    case Tool::TerrainBrush:
+        return p.terrain;
+    }
+    return false;
+}
+
 void Editor::setTool(Tool t) {
     if (t == m_tool) {
         return;
@@ -411,10 +425,22 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
         }
     }
     handleOutcomes(host, in.now);
-    if (in.tool) {
-        setTool(*in.tool);
+    // 역할 (12C): 막힌 툴이면 선택 툴로 (끌던 것은 버린다)
+    const EditPermissions perms = host.permissions();
+    if (!toolAllowed(m_tool, perms)) {
+        setTool(Tool::Select);
+        m_message = "지금 역할로는 그 툴을 쓸 수 없어 선택 툴로 바꿨습니다";
     }
-    if (in.undo) {
+    if (in.tool) {
+        if (toolAllowed(*in.tool, perms)) {
+            setTool(*in.tool);
+        } else {
+            m_message = std::format("지금 역할로는 {} 툴을 쓸 수 없습니다", toolName(*in.tool));
+        }
+    }
+    if ((in.undo || in.redo) && !perms.anyEdit()) {
+        m_message = "지금 역할로는 편집할 수 없습니다";
+    } else if (in.undo) {
         undo(host);
     } else if (in.redo) {
         redo(host);
@@ -432,7 +458,7 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
             host.setSelection({});
         }
     }
-    if (in.deleteSelection && !host.selection().empty()) {
+    if (in.deleteSelection && !host.selection().empty() && perms.entities) {
         cmd::DeleteEntity d;
         d.targets.assign(host.selection().begin(), host.selection().end());
         std::vector<UndoCmd> inverse = recreates(host, d.targets);
@@ -578,6 +604,10 @@ std::vector<UndoCmd> Editor::recreates(IEditorHost& host, std::span<const NetEnt
 // ---- 12B: Inspector ----
 
 void Editor::setField(IEditorHost& host, ecs::StableId component, std::string_view field, const ecs::Json& value) {
+    if (!host.permissions().entities) {
+        m_message = "지금 역할로는 값을 바꿀 수 없습니다";
+        return;
+    }
     const ecs::ComponentCatalog* catalog = host.catalog();
     const ecs::ComponentInfo* info = catalog != nullptr ? catalog->find(component) : nullptr;
     if (info == nullptr) {
@@ -603,6 +633,10 @@ void Editor::setField(IEditorHost& host, ecs::StableId component, std::string_vi
 }
 
 void Editor::addComponent(IEditorHost& host, ecs::StableId component) {
+    if (!host.permissions().entities) {
+        m_message = "지금 역할로는 컴포넌트를 바꿀 수 없습니다";
+        return;
+    }
     beginTxn("컴포넌트 더하기");
     for (const NetEntityId id : std::vector<NetEntityId>(host.selection().begin(), host.selection().end())) {
         const auto comps = host.components(id);
@@ -622,6 +656,10 @@ void Editor::addComponent(IEditorHost& host, ecs::StableId component) {
 }
 
 void Editor::removeComponent(IEditorHost& host, ecs::StableId component) {
+    if (!host.permissions().entities) {
+        m_message = "지금 역할로는 컴포넌트를 바꿀 수 없습니다";
+        return;
+    }
     const ecs::ComponentCatalog* catalog = host.catalog();
     const ecs::ComponentInfo* info = catalog != nullptr ? catalog->find(component) : nullptr;
     if (info == nullptr) {
@@ -643,6 +681,29 @@ void Editor::removeComponent(IEditorHost& host, ecs::StableId component) {
         }
     }
     endTxn();
+}
+
+// ---- 12C: 콘텐츠 ----
+
+bool Editor::editContent(IEditorHost& host, content::ContentKind kind, const std::string& id, ecs::Json value) {
+    if (!host.permissions().content) {
+        m_message = "지금 역할로는 콘텐츠를 바꿀 수 없습니다";
+        return false;
+    }
+    const content::ContentDatabase* content = host.content();
+    if (content == nullptr) {
+        return false;
+    }
+    const ecs::Json* now = content->overlay().find(kind, id);
+    ecs::Json before = now != nullptr ? *now : ecs::Json(nullptr);
+    if (before == value) {
+        return false; // 바뀌는 것이 없다
+    }
+    cmd::EditContent back{kind, id, std::move(before)};
+    beginTxn(std::format("{} {}", content::contentKindName(kind), id));
+    const u32 seq = sendEdit(host, cmd::EditContent{kind, id, std::move(value)}, {UndoCmd{std::move(back), {}}});
+    endTxn();
+    return seq != 0;
 }
 
 void Editor::drawOverlay(render::DebugDrawList& out) const {

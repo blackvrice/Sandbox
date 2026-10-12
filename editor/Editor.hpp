@@ -17,6 +17,9 @@
 // 12B: Inspector 값 바꾸기 · 컴포넌트 더하기/빼기 (선택한 개체 전부), 되돌리기 · 다시 하기 (Undo.hpp — 편집 한 번 =
 // 기록 한 칸, 받아들여진 명령만). 되돌리기 · 다시 하기는 앞 편집의 결과가 다 온 뒤에.
 //
+// 12C: 역할이 허락하지 않는 툴 · 편집은 하지 않는다 (host.permissions() — 툴이 막히면 선택 툴로). 콘텐츠 편집
+// (editContent — 월드 오버레이 항목 하나를 EditContent 로, 되돌리기는 이전 오버레이 값).
+//
 // 에디터는 월드를 바꾸지 않는다 — 명령만 낸다 (E1). 툴 상태 · 선택은 클라이언트 로컬 (E3).
 
 #include <optional>
@@ -36,6 +39,8 @@ namespace sbx::editor {
 enum class Tool : u8 { Select = 0, Move, Place, TerrainBrush, Erase };
 inline constexpr usize kToolCount = 5;
 [[nodiscard]] std::string_view toolName(Tool t) noexcept; // "선택" · "이동" · …
+// 이 권한으로 쓸 수 있는 툴인가 (선택은 언제나 — 12C)
+[[nodiscard]] bool toolAllowed(Tool t, const EditPermissions& p) noexcept;
 
 // 한 프레임의 입력 (Application 이 InputState · 카메라에서 만든다 — ImGui 가 가져간 입력은 이미 빠져 있다)
 struct EditorInput {
@@ -101,6 +106,11 @@ public:
     void setField(IEditorHost& host, ecs::StableId component, std::string_view field, const ecs::Json& value);
     void addComponent(IEditorHost& host, ecs::StableId component);    // 없는 개체에만
     void removeComponent(IEditorHost& host, ecs::StableId component); // 있는 개체에서
+
+    // ---- 12C: 콘텐츠 (월드 오버레이) ----
+    // EditContent{kind, id, value} 하나 (value null = 팩 값으로). 지금 오버레이 값과 같으면 보내지 않는다. 기록 한 칸 —
+    // 역명령은 지금 오버레이 값 (없었으면 null). 보냈으면 true
+    bool editContent(IEditorHost& host, content::ContentKind kind, const std::string& id, ecs::Json value);
 
     // ---- 12B: 되돌리기 ----
     void undo(IEditorHost& host);

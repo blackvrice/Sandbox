@@ -123,7 +123,7 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return makeError(ErrorCode::InvalidArgument, std::format("{} 는 64~16384: '{}'", a, *v));
             }
             (a == "--width" ? opts.width : opts.height) = static_cast<u32>(*n);
-        } else if (a == "--world" || a == "--connect" || a == "--name") {
+        } else if (a == "--world" || a == "--connect" || a == "--name" || a == "--owner-key") {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -135,6 +135,11 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 opts.world = std::string(*v);
             } else if (a == "--connect") {
                 opts.connect = std::string(*v);
+            } else if (a == "--owner-key") {
+                if (v->size() > 64) {
+                    return makeError(ErrorCode::InvalidArgument, "--owner-key 는 64 바이트까지");
+                }
+                opts.ownerKey = std::string(*v);
             } else {
                 opts.name = std::string(*v);
             }
@@ -185,6 +190,9 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
     if (opts.world && opts.connect) {
         return makeError(ErrorCode::InvalidArgument, "--world(로컬 서버) 와 --connect(원격 서버) 중 하나만");
     }
+    if (!opts.ownerKey.empty() && !opts.connect) {
+        return makeError(ErrorCode::InvalidArgument, "--owner-key 는 --connect 와 함께 (싱글플레이는 언제나 owner)");
+    }
     return opts;
 }
 
@@ -215,6 +223,7 @@ std::string clientUsage() {
            "      --connect <h:p>    SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르면 서버 팩을 --content 에서 "
            "읽는다\n"
            "      --name <이름>      접속 이름 (기본 player, 32 글자까지)\n"
+           "      --owner-key <k>    서버의 --owner-key 와 같으면 owner 로 접속 (12C)\n"
            "      --seed <n>         --world 시나리오의 월드 시드 (기본 1)\n"
            "      --threads <n>      --world 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"

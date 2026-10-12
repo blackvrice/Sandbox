@@ -153,6 +153,7 @@ int main(int argc, char** argv) {
         nd.world = opts->world.value_or("");
         nd.connect = opts->connect.value_or("");
         nd.displayName = opts->name;
+        nd.ownerKey = opts->ownerKey;
         nd.seed = opts->seed;
         nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
