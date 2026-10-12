@@ -23,7 +23,7 @@ namespace sbx::net {
 
 // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
 // 4: Subscribe · 다시 접속 토큰 — Phase 11
-inline constexpr u32 kProtocolVersion = 4;
+inline constexpr u32 kProtocolVersion = 5;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -39,9 +39,11 @@ inline constexpr usize kMaxReplicatedComponents = 64; // EntityState.mask 가 u6
 inline constexpr usize kMaxSnapshotEntities = 1u << 20;
 inline constexpr usize kMaxComponentBytes = 64 * 1024;
 inline constexpr usize kMaxOpaqueBytes = 16 * 1024;
-inline constexpr usize kMaxInspect = 32;     // 한 번에 볼 수 있는 개체 (선택 상세)
-inline constexpr usize kMaxInspectPath = 64; // 남은 경로 점
-inline constexpr usize kMaxStateBytes = 64;  // 행동 상태 id
+inline constexpr usize kMaxInspect = 32;            // 한 번에 볼 수 있는 개체 (선택 상세)
+inline constexpr usize kMaxInspectPath = 64;        // 남은 경로 점
+inline constexpr usize kMaxStateBytes = 64;         // 행동 상태 id
+inline constexpr usize kMaxInspectComponents = 16;  // 선택 상세의 서버 컴포넌트 (12B)
+inline constexpr usize kMaxInspectJsonBytes = 4096; // 그 JSON 하나
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -201,6 +203,12 @@ struct Subscribe {
 struct InspectRequest {
     std::vector<NetEntityId> ids; // ≤ kMaxInspect
 };
+// 복제되지 않는 EditorVisible 컴포넌트의 값 (Phase 12B — Inspector 가 서버 전용 값을 보고 고친다)
+struct InspectComponent {
+    u64 stableId = 0;
+    std::string json; // 리플렉션 JSON (≤ kMaxInspectJsonBytes)
+    friend bool operator==(const InspectComponent&, const InspectComponent&) = default;
+};
 struct InspectEntry {
     NetEntityId netId = kInvalidNetEntityId;
     std::string state;                        // ai.behavior 의 지금 상태 id (없으면 "")
@@ -208,6 +216,7 @@ struct InspectEntry {
     std::vector<Vec2> path;                   // 남은 경유점 (따라가는 중일 때)
     std::optional<Vec2> goal;                 // ai.path 의 목표 (따라가는 중 · 대기 중)
     NetEntityId target = kInvalidNetEntityId; // ai.behavior.target (살아 있으면)
+    std::vector<InspectComponent> components; // 프로토콜 5 (≤ kMaxInspectComponents, stableId 오름차순)
 };
 struct InspectResult {
     u64 serverTick = 0;

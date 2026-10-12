@@ -2,6 +2,7 @@
 // 선택 상세 (Phase 10B, ADR-0026): 서버에만 있는 컴포넌트(ai.sensor · ai.behavior · ai.path)를 클라이언트가 고른 개체에
 // 한해 읽어 InspectResult 로. docs/08-NETWORK.md 5장. Simulation 스레드에서 (월드를 읽는다 — T1, 바꾸지 않는다).
 // 복제되는 값(위치 · 속도 · 프리팹 · 에너지 · 체력)은 넣지 않는다 — 클라이언트가 ClientWorld 에서 읽는다.
+// Phase 12B: 복제되지 않는 EditorVisible 컴포넌트 전부를 JSON 으로 (Inspector 가 보고 ChangeComponent 로 고친다).
 
 #include <span>
 

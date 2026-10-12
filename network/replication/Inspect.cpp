@@ -5,6 +5,7 @@
 #include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/content/ContentDatabase.hpp"
+#include "core/ecs/ComponentCatalog.hpp"
 
 namespace sbx::net {
 
@@ -45,6 +46,27 @@ InspectResult buildInspect(const sim::SimulationWorld& world, std::span<const Ne
             if (p->state == comp::PathState::Following || p->state == comp::PathState::Pending ||
                 p->state == comp::PathState::Submitted) {
                 d.goal = p->goal;
+            }
+        }
+        // 12B: 복제되지 않는 EditorVisible 컴포넌트의 값 (Inspector — core.movement · life.age · ai.sensor …)
+        for (const ecs::ComponentInfo& info : world.catalog().all()) {
+            if (d.components.size() >= kMaxInspectComponents) {
+                break;
+            }
+            if (!ecs::hasFlag(info.flags, ecs::ComponentFlags::EditorVisible) ||
+                ecs::hasFlag(info.flags, ecs::ComponentFlags::Replicated)) {
+                continue;
+            }
+            const ecs::ComponentPoolBase* pool = reg.poolByStableId(info.stableId);
+            const void* raw = pool != nullptr ? pool->getRaw(e) : nullptr;
+            if (raw == nullptr) {
+                continue;
+            }
+            ecs::Json j;
+            info.writeJson(raw, j);
+            std::string text = j.dump();
+            if (text.size() <= kMaxInspectJsonBytes) {
+                d.components.push_back({info.stableId, std::move(text)});
             }
         }
         out.entries.push_back(std::move(d));

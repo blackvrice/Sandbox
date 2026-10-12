@@ -361,6 +361,11 @@ void encodeBody(BitWriter& w, const InspectResult& m) {
             w.writeF32(e.goal->y);
         }
         w.writeVarU(e.target);
+        w.writeVarU(e.components.size());
+        for (const InspectComponent& c : e.components) {
+            w.writeU64(c.stableId);
+            w.writeString(c.json);
+        }
     }
 }
 
@@ -586,6 +591,13 @@ InspectResult decodeInspectResult(BitReader& r) {
             e.goal = Vec2{x, y};
         }
         e.target = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));
+        const u64 nc = r.readVarU(kMaxInspectComponents);
+        for (u64 k = 0; k < nc && !r.error(); ++k) {
+            InspectComponent c;
+            c.stableId = r.readU64();
+            c.json = r.readString(kMaxInspectJsonBytes);
+            e.components.push_back(std::move(c));
+        }
         m.entries.push_back(std::move(e));
     }
     return m;

@@ -7,6 +7,7 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/ai/Ai.hpp"
+#include "core/ecs/ComponentCatalog.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/client/InterpolationClock.hpp"
 #include "network/server/LocalServerHost.hpp"
@@ -162,6 +163,19 @@ TEST_SUITE("network") {
         CHECK(r.entries[0].netId == pick);
         CHECK(r.entries[0].sensorRadius == radius);
         CHECK_FALSE(r.entries[0].state.empty());
+        // 12B: 복제되지 않는 EditorVisible 컴포넌트의 값 (ai.sensor 의 radius 가 그 JSON 에도)
+        const ecs::ComponentInfo* sensor = sw.catalog().find("ai.sensor");
+        REQUIRE(sensor != nullptr);
+        const auto it = std::ranges::find(r.entries[0].components, sensor->stableId, &InspectComponent::stableId);
+        REQUIRE(it != r.entries[0].components.end());
+        const ecs::Json j = ecs::Json::parse(it->json);
+        CHECK(j["radius"].get<f32>() == radius);
+        for (const InspectComponent& c : r.entries[0].components) {
+            const ecs::ComponentInfo* info = sw.catalog().find(c.stableId);
+            REQUIRE(info != nullptr);
+            CHECK(ecs::hasFlag(info->flags, ecs::ComponentFlags::EditorVisible));
+            CHECK_FALSE(ecs::hasFlag(info->flags, ecs::ComponentFlags::Replicated));
+        }
         // 그만 보기
         rig.session.setInspect({});
         CHECK_FALSE(rig.session.inspect().has_value());

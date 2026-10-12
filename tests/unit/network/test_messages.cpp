@@ -175,6 +175,7 @@ TEST_SUITE("network") {
         e.path = {{1, 2}, {-3.5f, 4}};
         e.goal = Vec2{9, -9};
         e.target = 42;
+        e.components = {{0x1234'5678'9ABC'DEF0ull, R"({"maxSpeed":2.5})"}, {7, "{}"}}; // 프로토콜 5 (12B)
         InspectEntry e8;
         e8.netId = 8;
         r.entries = {e, e8};
@@ -187,6 +188,8 @@ TEST_SUITE("network") {
         CHECK(r2.entries[0].path == e.path);
         CHECK(r2.entries[0].goal == Vec2{9, -9});
         CHECK(r2.entries[0].target == 42);
+        CHECK(r2.entries[0].components == e.components);
+        CHECK(r2.entries[1].components.empty());
         CHECK(r2.entries[1].netId == 8);
         CHECK_FALSE(r2.entries[1].goal.has_value());
         CHECK(r2.entries[1].state.empty());
