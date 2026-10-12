@@ -29,7 +29,7 @@ Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
-Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C · 12D [계획]
+Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 (2026-10-12) · 12D [계획]
 Phase 13  Linux (X11 → Vulkan → Wayland)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
@@ -445,7 +445,15 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           빼기. 서버 전용 EditorVisible 값은 선택 상세로 (프로토콜 5). "목록"(Hierarchy) — 관심 영역 안의 개체, 거르기, 두 번 = 카메라
   12.6 ✅ Undo/Redo — 사용자 동작 하나 = 한 칸, 받아들여진 명령만, 역명령은 보내기 전 값으로, 지운 개체는 Prefab + 알던 값으로
           다시 만들고 IdRemap 으로 옛 기록을 새 netId 에. 기다리는 동안 막기, 거절된 되돌리기는 칸 빼기. Ctrl+Z · Ctrl+Y · F
-12C 12.5 역할 바꾸기(RoleChanged) · Players 패널 · 권한 없을 때 툴 숨김 + 12.4 Rule · Behavior · ContentOverlay   [계획]
+12C 역할 · 콘텐츠 ✅ (2026-10-12, ADR-0030)
+  12.5 ✅ 역할 바꾸기 — SetRole → 서버 Net 절반이 10-EDITOR 7장 "역할 부여" 열대로 (owner · admin), 접속자 표 PlayerList 를 모두에게,
+          다시 접속해도 그 역할, 전용 서버의 owner = --owner-key. "접속자" 패널 (역할 콤보). 역할이 막는 툴 · 편집 · 실행 제어를
+          숨기거나 끈다 (IEditorHost::permissions — 판단은 서버)
+  12.4 ✅ 콘텐츠 편집 — EditContent{prefab | rule | behavior, id, JSON | null} → 월드 오버레이, 서버가 팩 원본 + 오버레이로 콘텐츠를
+          다시 만든다 (검증 V1~V7, 실패면 거절), 행동 상태는 상태 id 로 옮긴다, WorldHash · 세이브(overlay/) · 리플레이에 남는다.
+          ContentOverlay 메시지로 모두에게 · 늦게 들어온 클라이언트에 전체. "콘텐츠" 창 (JSON 편집 · 검사 · 적용 · 팩 값으로 · 새 항목,
+          행동 상태 · 전이 요약). 폼 · 노드 그래프 편집은 [계획]
+  프로토콜 6 (EditContent · ContentOverlay · PlayerList · SetRole · SetRoleResult · Auth.ownerKey — 08 5장)
 12D 12.7 세이브 · 로드 · 리플레이 UI + edit_session D3 · 두 클라이언트 동시 편집 · 권한 매트릭스 (Phase 12 완료 기준)  [계획]
 ```
 
@@ -467,6 +475,20 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
            인스펙터(복제 · "(서버)" 컴포넌트, 이름 순) · 목록 · 배치 두 번 → Ctrl+Z (서버 "수락 4 · 거절 0")
   남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12B
   다음     12C — 역할 바꾸기 · Players · 권한 없을 때 툴 숨김 + Rule · Behavior · ContentOverlay
+```
+
+```text
+12C 검증 (2026-10-12)
+  Linux    clang · gcc Debug: ctest 44/44 (골든 그대로 — 오버레이가 없으면 WorldHash 가 같다) — unit_content · core · persist
+           test_content_overlay 14 케이스 (applyOverlay 자리 · 검증 · 지문, EditContent · 상태 옮기기 · 결정론 · 명령 JSON, 세이브 왕복 ·
+           깨진 오버레이), unit_network test_roles_overlay 5 (메시지 · 주인 열쇠 · 역할 부여 표 · 다시 접속 · 오버레이 전달), unit_editor
+           test_editor_roles 3, unit_client test_roles_content 3 (원격 역할 → 에디터 · 로컬 콘텐츠 편집 → 되돌리기 · 패널).
+           TSan network · net · client · editor · content 116 케이스 경고 0
+  Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client · editor · content · persist 229 케이스. 창: 원격
+           서버(--default-role player --owner-key) + 클라이언트 둘 — 손님 창의 "접속자"(주인 owner · 손님 player), "편집" 패널은 선택
+           툴만 · "보기만" · 2 키 거절 문구, "시뮬레이션"의 실행 제어 꺼짐. 로컬: "콘텐츠" 창 (규칙 JSON · 요약)
+  남음     사용자 PC (MSVC): 다시 빌드(프로토콜 6 — 서버 · 클라이언트 둘 다) → ctest, MANUAL-QA Phase 12C
+  다음     12D — 세이브 · 로드 · 리플레이 UI + 완료 기준 (edit_session D3 · 두 클라이언트 동시 편집 · 역할 × 명령 매트릭스)
 ```
 
 ### Phase 13 — Linux

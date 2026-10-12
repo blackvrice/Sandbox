@@ -3,9 +3,11 @@
 > **설계 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다. 상태: **Phase 12A 구현** — SandboxEditor(`editor/`), IEditorHost ·
 > ICommandSink, 툴 다섯(Select · Move · Place · TerrainBrush · Erase), EditPreview, "편집" 패널(Palette · Terrain 의 첫 모양) —
 > 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. **Phase 12B 구현** — Inspector(리플렉션 필드 → ChangeComponent, 서버 전용 값은
-> 선택 상세로) · Hierarchy("목록") · Undo/Redo — 2 · 4 · 6.2 · 9 · 10장의 "Phase 12B 구현" 단락. 나머지는 `[계획 12C · 12D]`
-> (역할 · Players · 콘텐츠 편집, 세이브 · 리플레이 UI — 16-ROADMAP Phase 12). 7장 권한 표는 Phase 9 의 서버 CommandValidator 가
-> 판단한다. 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md), [ADR-0029](adr/0029-inspector-server-values-undo-entries.md).
+> 선택 상세로) · Hierarchy("목록") · Undo/Redo — 2 · 4 · 6.2 · 9 · 10장의 "Phase 12B 구현" 단락. **Phase 12C 구현** — 역할
+> 바꾸기 · "접속자"(Players) 패널 · 역할에 맞춘 툴 숨김, 콘텐츠 편집(EditContent → 월드 오버레이 · "콘텐츠" 창) — 2 · 7 · 8 · 9 · 10장의
+> "Phase 12C 구현" 단락. 나머지(세이브 · 리플레이 UI, 완료 기준 시험)는 `[계획 12D]` (16-ROADMAP Phase 12). 7장 권한 표는 서버
+> CommandValidator 가 판단한다. 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md),
+> [ADR-0029](adr/0029-inspector-server-values-undo-entries.md), [ADR-0030](adr/0030-roles-player-list-content-overlay.md).
 
 ---
 
@@ -55,6 +57,10 @@ Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 �
 (12B) editor/Undo       UndoEntry(보낸 명령 · 역명령) · IdRemap · 역명령 만들기 — Editor 가 기록 · 되돌리기 · 다시 하기 (6.2)
 (12B) ui/InspectorPanel "인스펙터"(4장) · "목록"(Hierarchy — 복제 월드의 개체, 관심 영역 안). IEditorHost 에 components ·
                         listEntities · positionOf · catalog 가 더해졌다
+(12C) ui/ContentPanel   "콘텐츠" 창 = Rules · Behaviors (+ Prefab) 패널의 첫 모양 (8장) — "편집" 패널의 "콘텐츠 창" 단추로 연다.
+                        IEditorHost::permissions() = 지금 역할로 할 수 있는 것 (7장), content() 는 월드 오버레이까지 적용한 것
+(12C) Players           apps/client/ui/PlayersPanel "접속자" — 접속자 · 역할 표, 바꿀 수 있는 사람에게 역할 콤보 (7장).
+                        에디터가 아니라 클라이언트에 둔다 (역할 · 접속은 Network 의 것 — 에디터는 permissions 만 안다)
 ```
 
 ## 3. 툴
@@ -182,6 +188,20 @@ netId 잇기   다시 만든 개체는 새 netId — IdRemap(옛 → 새, 사슬
 - 기본 역할은 서버 설정 --default-role (기본 Editor).
 ```
 
+Phase 12C 구현 (ADR-0030):
+
+```text
+Owner        싱글플레이 = 언제나. 전용 서버 = SandboxServer --owner-key <k> 를 띄우고 SandboxClient --owner-key <k> 로 들어온 사람
+             (틀린 열쇠 · 열쇠 없는 서버에 열쇠 = 접속 거절). 열쇠는 평문 — LAN · 신뢰하는 환경 전용 (Phase 9 와 같다)
+역할 바꾸기  "접속자" 패널의 콤보 → SetRole → 서버 Net 절반이 위 표의 "역할 부여" 열대로 (net::roleCanAssign — 패널도 같은 함수로
+             콤보를 채운다): Owner = 누구든 무엇이든, Admin = Admin 아래인 사람을 Editor 이하로, 자기 자신은 못 바꾼다. 결과는 패널
+             아래 한 줄. 바뀐 역할은 다시 접속해도 그대로 (세션 토큰 표)
+알림         들어옴 · 나감 · 역할이 바뀔 때마다 모두에게 접속자 표 (PlayerList) — 자기 줄이 지금 역할
+에디터       IEditorHost::permissions() = {개체 · 지형 · 콘텐츠 · 실행 제어} (위 표의 열). 쓸 수 없는 툴은 "편집" 패널에서 숨기고
+             단축키도 막는다 (지금 툴이 막히면 선택 툴로). Delete · 인스펙터(보기만) · 되돌리기 · 콘텐츠 적용도 막는다. "시뮬레이션"
+             패널의 일시정지 · 한 틱 · 속도는 Admin 부터 (단추를 끈다 — 키는 보내고 서버가 거절한다)
+```
+
 ## 8. 콘텐츠 편집 (Rule / Behavior / Prefab)
 
 ```text
@@ -190,6 +210,24 @@ netId 잇기   다시 만든 개체는 새 netId — IdRemap(옛 → 새, 사슬
   → Bulk ContentOverlay 로 전 클라이언트에 전송.
 - 오버레이 변경은 WorldHash 에 포함된다 (04 5.1).
 - "오버레이를 콘텐츠 팩으로 내보내기"는 후속 기능.
+```
+
+Phase 12C 구현 (ADR-0030):
+
+```text
+명령         EditContent{kind: prefab | rule | behavior, id, value: 팩 파일과 같은 JSON 객체 | null} 하나 (위의 셋을 합친다) —
+             같은 id 의 팩 항목을 바꾸거나 새로 더한다 (id 의 팩 접두사는 월드가 읽은 팩). null = 오버레이에서 뺀다 (팩 값으로)
+적용         서버 월드가 팩 원본(로더가 남긴 파일 텍스트) + 오버레이로 콘텐츠를 다시 만든다 — 팩과 같은 검증(V1~V7, 문제는
+             "overlay/<종류>/<id>.json"), 실패면 거절 · 그대로. 태그 · 머티리얼은 바꿀 수 없다 (모르는 태그 = V7).
+             BehaviorGraph 를 바꾸면 그 그래프를 쓰는 개체의 상태를 상태 id 로 옮긴다 (없어진 상태면 처음부터). 바꾼 Rule 은 원래
+             정의 순서 자리, 더한 Rule 은 맨 뒤. 이미 만든 개체는 Prefab 이 바뀌어도 그대로 (새로 만드는 것부터)
+전송         ContentOverlay (Bulk) — 들어오면 전체, 바뀌면 바뀐 항목만. 클라이언트도 자기 팩에 얹어 content() 로 (팔레트에 새 Prefab)
+해시 · 세이브 오버레이 지문은 WorldHash 끝에 (비어 있으면 넣지 않는다). contentHash(접속 검사)는 팩 그대로.
+             세이브 overlay/<prefabs|rules|behaviors>/<id>.json, 리플레이는 명령 그대로 ({"op": "content"})
+"콘텐츠" 창  종류(규칙 · 행동 · Prefab) → 목록 (● = 이 월드가 바꾼 것) → JSON 편집 · "검사"(이 컴퓨터의 로더 — 서버와 같은 검사) ·
+             "적용"(되돌리기 한 칸, 역명령 = 이전 오버레이 값 | null) · "고친 것 버리기" · "팩 값으로" · "새 항목"(틀에서).
+             행동은 상태 · 전이, 규칙은 action · 우선순위 · 효과 수를 요약해 보인다. 역할이 콘텐츠를 못 바꾸면 보기만
+[계획]       폼 · 노드 그래프 편집 (지금은 JSON 글자), 팩 항목 끄기, 오버레이를 팩으로 내보내기, 태그 · 머티리얼 편집
 ```
 
 ## 9. 단축키 (기본값, ActionMap으로 변경 가능)
@@ -204,6 +242,8 @@ Phase 12A 구현: 툴은 숫자 **1 선택 · 2 이동 · 3 배치 · 4 지형 �
 Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다. 저장은 `[계획 12D]`.
 Phase 12B 구현: Ctrl+Z 되돌리기 · Ctrl+Y(Ctrl+Shift+Z) 다시 하기, F 선택한 개체들의 가운데로 카메라 (`editor.focus`, 줌 그대로).
 "목록"(Hierarchy) 패널: 클릭 = 선택, Ctrl+클릭 = 넣기/빼기, 두 번 클릭 = 카메라 맞추기.
+Phase 12C 구현: "콘텐츠" 창은 "편집" 패널의 "콘텐츠 창" 단추로 열고 닫는다 (단축키 `[계획]`). 역할이 막는 툴의 숫자 키는 무시하고
+편집 패널에 사유를 보인다.
 
 ## 10. 필수 테스트
 
@@ -215,4 +255,8 @@ Phase 12B 구현: Ctrl+Z 되돌리기 · Ctrl+Y(Ctrl+Shift+Z) 다시 하기, F �
   ✅ 12B (test_undo — 이동 · 배치 · 지우기 · 지형 · 값 · 컴포넌트, netId 잇기, 거절 · 기다림, 로컬 서버에서 지운 개체 되살리기)
 - 2클라이언트(Loopback) 동시 편집: 같은 필드 연속 변경, 삭제된 엔티티 편집 거절
 - 권한 표 전체: 역할 × 명령 종류 매트릭스
+  ◐ 12C — 역할 부여 열 전체(test_roles_overlay — Owner · Admin · Editor, 자기 자신 · 없는 번호, 다시 접속), 역할이 바뀐 뒤 편집 ·
+    콘텐츠 명령 거절, 패널과 서버가 같은 표 (test_roles_content). 역할 × 명령 종류 전체 매트릭스 · 2 클라이언트 동시 편집은 12D
+- 콘텐츠 편집 (12C): 오버레이 검증 · 자리 · 지문 (content), EditContent · 상태 옮기기 · 결정론 (core), 세이브 왕복 (persist),
+  전달 · 늦게 들어온 클라이언트 (network), 권한 · 되돌리기 · 검사 (editor), 로컬 서버에서 편집 → 되돌리기 (client)
 ```

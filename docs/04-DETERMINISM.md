@@ -126,7 +126,8 @@ dt 는 항상 sim::kFixedDt (1/30). 측정된 벽시계 델타를 시뮬레이�
            4. 지형 (Phase 4): 태그 "TERRAIN", 경계, 청크 (좌표 오름차순)마다 Chunk::terrainHash =
                 좌표, terrainRevision, 머티리얼 **id 의 stableId**(인덱스가 아니다 — 콘텐츠 순서와 무관), flags, moveCost, height
               청크 해시는 terrainRevision 으로 캐시된다 (지형은 revision 을 올리지 않고 바뀌지 않는다)
-           5. [계획 Phase 5] 월드 오버레이 콘텐츠(Rule/Behavior/Prefab 변경분)의 해시
+           5. 월드 오버레이 (Phase 12C): 비어 있지 않을 때만 태그 "OVERLAY" + ContentOverlay::hash() = 종류 · id 순으로
+              compact JSON (키 정렬) — 오버레이가 없는 월드의 해시 · 골든은 그대로 (kSimVersion 그대로)
            6. RandomService 는 시드뿐이라 1 에 포함된다 (별도 리소스 상태가 생기면 여기)
 오류       카탈로그에 없는 Hashed 풀, 정체성(saveId) 없는 엔티티, saveId 중복 → 해시 대신 Error (조용히 빼지 않는다 — H3)
 구현       core/replay/WorldHash.{hpp,cpp}. 진단용 computeEntityHashes / describeEntity 도 같은 곳.

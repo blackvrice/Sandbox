@@ -251,6 +251,11 @@ struct SimCommand { CommandHeader header; CommandPayload payload; };
 | M6   | 적용 실패(대상 소멸 등)는 조용히 무시하지 않고 `CommandResult{Rejected, reason}`을 issuer에게 |
 | M7   | 서버가 **실제로 적용한** 명령만 리플레이에 기록                                               |
 
+Phase 12C 구현 (ADR-0030): `ChangeRule` · `ChangeBehavior` · `CreatePrefab` 대신 `EditContent{kind: prefab | rule | behavior, id,
+value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목을 바꾸거나 더하거나 (null) 뺀다. 적용 = 콘텐츠를 팩 원본 + 오버레이로
+다시 만들어 (검증 실패면 거절) 바꿔 끼운다 — Stage 2 에서만, 그 틱의 System 은 새 콘텐츠를 본다. BehaviorGraph 를 바꾸면 그
+그래프를 쓰는 개체의 ai.behavior.state 를 상태 id 로 옮긴다 (없어진 상태 = 처음부터). `PlayerAction` 은 `[계획]`.
+
 ### 4.1 검증 (CommandValidator, Stage 1 이전)
 
 구현 (Phase 9, ADR-0024): 1 · 2 · 6 은 서버 Net IO 의 `network/server/CommandValidator` (순번 · 속도 제한 · 권한 — 월드를 보지 않는다),

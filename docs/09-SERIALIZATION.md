@@ -44,9 +44,9 @@ worlds/<name>/
   world.json
   chunks/<cx>_<cy>.chunk      지형 (바이너리, zstd)
   entities.jsonl              엔티티 1줄 1개 (Persistent 컴포넌트만), saveId 오름차순
-  overlay/rules/*.json        이 월드가 콘텐츠를 덮어쓴 것
-  overlay/behaviors/*.json
-  overlay/prefabs/*.json
+  overlay/rules/<id>.json     이 월드가 콘텐츠를 덮어쓴 것 (Phase 12C — 항목 하나에 파일 하나, 팩 파일과 같은 JSON 객체.
+  overlay/behaviors/<id>.json   Rule 도 배열이 아니라 객체 하나. 오버레이가 있을 때만)
+  overlay/prefabs/<id>.json
   thumbnail.png               (클라이언트가 저장 시 생성, 선택)
 ```
 
@@ -120,7 +120,10 @@ layers  material u16[1024], flags u8[1024], moveCost u8[1024], height i16[1024] 
 - 청크 파일은 terrainRevision > 0 인 청크만 쓴다. 나머지는 world.json 의 fillMaterial 로 다시 만든다.
 - world.json 추가 필드: entityCount(줄 수 검증), fillMaterial, opaqueEntities, simulation.{pendingSteps, editSequence}.
   seed·worldHash 는 "0x…" 16진 문자열. contentHash 는 머티리얼 표의 지문 (팩 매니페스트 기반은 Phase 5, 7장).
-  tags · overlay/ · thumbnail 은 Phase 5/8.
+  tags 는 Phase 5, overlay/ 는 Phase 12C (아래), thumbnail 은 [계획].
+- overlay/ (12C, ADR-0030): 로드는 월드를 만든 뒤 오버레이를 적용한다 (setContentOverlay — 팩 원본 + 오버레이로 콘텐츠를
+  다시 만든다). 검증에 실패하면(팩이 바뀌었다) 경고하고 팩 콘텐츠로 로드, 해시 비교는 건너뛴다. 폴더 구조의 선택 항목이라
+  worldVersion 은 1 그대로 (초안에 있던 폴더).
 - entities.jsonl 한 줄 = {"saveId": n, "components": {"<이름>": <리플렉션 JSON>}}. persist.persistence 는 saveId 로 대신하고
   net.identity 는 저장하지 않는다 (세션 값 — 로드하면 saveId 순으로 1 부터 다시 매긴다). prefab 필드는 Phase 5.
   CRLF 줄 끝도 읽는다 (Windows git autocrlf).
@@ -253,7 +256,8 @@ registerMigration("life.energy", /*from*/ 1, /*to*/ 2, [](nlohmann::json& j) {
 ```text
 매니페스트 = content/<pack>/ 아래 모든 .json 을 경로 정렬 → (상대경로, 바이트 FNV-1a64) 목록
 contentHash = 매니페스트를 다시 해시
-월드 오버레이는 contentHash 에 포함하지 않는다 (서버가 ContentOverlay 로 내려준다).
+월드 오버레이는 contentHash 에 포함하지 않는다 (서버가 ContentOverlay 로 내려준다). Phase 12C 구현: 오버레이를 적용한
+ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문은 WorldHash 에 (04 5장).
 ```
 
 ## 8. 필수 테스트

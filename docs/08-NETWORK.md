@@ -7,7 +7,8 @@
 > (Inspect · InspectResult), 스냅숏 간격은 실제 시간, 프로토콜 3.
 > **Phase 11 구현** — Interest(8장: Subscribe 청크 사각형 · 지연 해제 · 늘 보낼 것), 예산 우선순위(6.3), 관심 청크만 지형,
 > 세션 토큰 다시 접속(4장), 프로토콜 4. **Phase 12B** — 프로토콜 5: 선택 상세에 서버 전용 EditorVisible 컴포넌트 값 (Inspector,
-> [ADR-0029](adr/0029-inspector-server-values-undo-entries.md)).
+> [ADR-0029](adr/0029-inspector-server-values-undo-entries.md)). **Phase 12C** — 프로토콜 6: 접속자 표 · 역할 바꾸기 · 주인 열쇠(4장),
+> 월드 오버레이 전달(ContentOverlay) · EditContent 명령 ([ADR-0030](adr/0030-roles-player-list-content-overlay.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -113,12 +114,12 @@ Phase 9 구현 (ServerHost · ClientSession — Subscribe 부터는 Phase 10 · 
           순서(Hello 전에 Auth 등) · nonce · 이름(1 ~ 32 글자, 제어 문자 없음) · 시간 초과(10 초). Reject 뒤 서버가 끊는다.
           buildId 가 다르면 경고만 (프로토콜이 같으면 접속).
 콘텐츠    Reject{ContentMismatch} 를 받은 클라이언트는 packs 를 자기 content 루트에서 읽어 해시가 맞으면 다시 접속한다
-          (sbx_net_probe). 콘텐츠를 보내 주는 것은 ContentOverlay [계획 Phase 12].
+          (sbx_net_probe). 콘텐츠 팩 자체를 보내 주는 것은 [계획] — 12C 의 ContentOverlay 는 월드 오버레이(팩 위에 고친 것)만.
 Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 시 Disconnect{ServerShutdown}. 그 밖의 메시지 → ProtocolError 로 끊기.
           Phase 10A: Welcome 뒤 Snapshot(15 Hz) · TerrainChunk 를 받고 SnapshotAck 를 보낸다.
           Phase 10B: Inspect(볼 netId) → InspectResult. SandboxClient 는 접속하고 첫 스냅숏을 받을 때까지 Connecting,
           거절 · 끊김 · 시간 초과면 끝낸다 (종료 코드 1). 콘텐츠가 다르면 서버 팩을 읽어 한 번 다시 (probe 와 같다).
-역할      Welcome.role = 서버 --default-role (기본 editor). 역할 바꾸기(RoleChanged)는 [계획 Phase 12].
+역할      Welcome.role = 서버 --default-role (기본 editor). 역할 바꾸기는 Phase 12C — 아래.
 ```
 
 Phase 11 (ADR-0027):
@@ -135,15 +136,29 @@ Subscribe  Welcome 뒤 아무 때나 (바뀔 때만 · 초당 2 번까지). 구�
            거절 · ServerShutdown · Kicked 는 바로 실패. 로컬 서버(--world)는 끊길 일이 없어 다시 접속하지 않는다
 ```
 
+Phase 12C (ADR-0030):
+
+```text
+접속자 표  서버 Net 절반이 Welcome 직후 · 나감 · 역할이 바뀔 때마다 모두에게 PlayerList (표 전체). 클라이언트는 자기 줄로 지금
+           역할을 안다 (Welcome.role 은 처음 값)
+역할 바꾸기 SetRole{clientId, role} → Net 절반이 10-EDITOR 7장 "역할 부여" 열대로 판단 (net::roleCanAssign: Owner = 누구든 무엇이든,
+           Admin = Admin 아래인 사람을 Editor 이하로, 자기 자신 · 없는 번호 = 거절) → 보낸 사람에게 SetRoleResult, 바뀌었으면
+           PlayerList. 바뀐 역할은 다시 접속 표(토큰)에도 쓴다
+주인 열쇠  SandboxServer --owner-key <k>: Auth.ownerKey 가 같으면 Owner 로 들어온다. 틀린 열쇠 · 열쇠 없는 서버에 열쇠 =
+           Reject{BadHandshake}. 평문 — LAN · 신뢰하는 환경 전용 (9장 보안 수준 그대로)
+오버레이   Sim 절반: 들어온 클라이언트에 ContentOverlay{reset, 전체}, 월드의 contentRevision 이 바뀌면 바뀐 항목만 모두에게
+           (Bulk — 스냅숏보다 먼저 내보낸다). ClientSession 이 모아 overlay() 로 — Bulk 라 Welcome 보다 먼저 와도 받는다
+```
+
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 5`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 6`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
 | 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
-| 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64                                   |
+| 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64, ownerKey str(64, 12C)            |
 | 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes(16)              |
 | 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료 중), detail str(256), serverProtocolVersion u32, contentHash u64, packs[] str(64) × ≤16     |
 | 10 | Subscribe      | C→S    | Control  | all bool, (all 이 아니면) 청크 사각형 minX · minY · maxX · maxY zigzag (양끝 포함, 뒤집힘 · 축마다 128 이상 = 형식 오류)                                              |
@@ -154,13 +169,15 @@ Subscribe  Welcome 뒤 아무 때나 (바뀔 때만 · 초당 2 번까지). 구�
 | 31 | SnapshotAck    | C→S    | Snapshot | epoch varint, snapshotId varint (적용한 가장 최근 것)                                                                                                                 |
 | 40 | TerrainChunk   | S→C    | Bulk     | x · y zigzag, revision varint, runs[] {count, material} varint (길이 부호화, 머티리얼 번호 kTilesPerChunk 개)                                                         |
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
-| 42 | ContentOverlay | S→C    | Bulk     | rules/behaviors/prefabs JSON (월드 오버레이분) `[계획 Phase 12]`                                                                                                      |
+| 42 | ContentOverlay | S→C    | Bulk     | reset bool, items[] {kind u8 (0 prefab · 1 rule · 2 behavior), id str(64), json str(16 KB — "" = 지움)} × ≤ 1024 (12C, 16 MB 까지)                                    |
 | 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz). [계획] systemTimes[] · pathQueue · jobQueue |
 | 51 | Inspect        | C→S    | Control  | ids[] NetEntityId varint × ≤ 32 (빈 목록 = 그만, 10B)                                                                                                                 |
 | 52 | InspectResult  | S→C    | Snapshot | serverTick, entries[] {netId, state str(64), sensorRadius f32, path[] Vec2 × ≤ 64, goal?, target netId} (10B)                                                         |
 | 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
-| 61 | RoleChanged    | S→C    | Control  | clientId, role `[계획 Phase 12]`                                                                                                                                      |
+| 61 | PlayerList     | S→C    | Control  | players[] {clientId varint, role u8, name str(64)} × ≤ 256, clientId 오름차순 (12C — 예약했던 RoleChanged 를 대신한다)                                                |
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
+| 63 | SetRole        | C→S    | Control  | clientId varint, role u8 — 역할 바꾸기 요청 (12C, 10-EDITOR 7장)                                                                                                      |
+| 64 | SetRoleResult  | S→C    | Control  | clientId varint, role u8, accepted bool, detail str(256) — SetRole 을 보낸 사람에게 (12C)                                                                             |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 (Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
@@ -170,6 +187,8 @@ InspectResult — 서버 전용 컴포넌트(ai.behavior · ai.sensor · ai.path
 프로토콜 4 (11): Subscribe (예약 → 구현), Auth.token · Welcome.sessionToken 을 실제로 쓴다 (ADR-0027).
 프로토콜 5 (12B): InspectResult 의 entries 마다 끝에 components[] {stableId u64, json str(4 KB)} × ≤ 16 — 복제되지 않는
 EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플렉션 JSON, 에디터 Inspector 가 쓴다 (ADR-0029).
+프로토콜 6 (12C): 명령 EditContent(5.1 태그 8), ContentOverlay(42 — Snapshot · TerrainChunk 처럼 16 MB 까지), PlayerList(61 —
+예약했던 RoleChanged 자리), SetRole(63) · SetRoleResult(64), Auth 끝에 ownerKey (ADR-0030).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -177,7 +196,8 @@ EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플
 
 ```text
 종류 태그 u8 (값 고정): 1 CreateEntity · 2 DeleteEntity · 3 MoveEntity · 4 AddComponent · 5 RemoveComponent · 6 ChangeComponent ·
-                       7 PaintTerrain · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed
+                       7 PaintTerrain · 8 EditContent (12C) · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed
+EditContent  종류 u8 (0 prefab · 1 rule · 2 behavior — 그 밖은 형식 오류), id str(64), 값 JSON 텍스트 (객체 또는 null)
 엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
 컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
 개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)

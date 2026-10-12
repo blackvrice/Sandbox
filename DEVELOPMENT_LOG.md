@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-10-12 — Phase 12C: 역할 · 접속자 · 콘텐츠 편집 — 역할은 Net 절반의 접속자 표로, 콘텐츠는 EditContent → 월드 오버레이 (프로토콜 6)
+
+**무엇을**
+
+- core: `content/ContentOverlay` (종류 · id → JSON, 지문). 로더가 읽은 파일 텍스트를 DB 에 남기고(ContentSources)
+  `ContentLoader::applyOverlay` 가 팩 원본 + 오버레이로 다시 만든다 (팩 항목을 바꾸면 그 자리를 건너뛰고 오버레이 쪽을 읽는다,
+  Rule 은 원래 정의 순서). 항목마다 raw JSON · overlay 표시, findRule. 명령 `EditContent` (CommandJson "content").
+  SimulationWorld = 팩 DB + 오버레이 DB, content() 는 지금 것, contentRevision · setContentOverlay · 행동 상태를 상태 id 로 옮기기.
+  WorldHash 끝에 오버레이 지문 (비면 없음), 세이브 overlay/<종류>/<id>.json · 로드(실패면 경고 + 팩 콘텐츠).
+- network: 프로토콜 6 — 명령 태그 8, ContentOverlay(42) · PlayerList(61) · SetRole(63) · SetRoleResult(64), Auth.ownerKey.
+  ServerHost: 접속자 표 알림 · 역할 바꾸기(net::roleCanAssign) · 토큰 표에 역할 · 주인 열쇠, Sim 절반이 오버레이 차이 · 들어온
+  클라이언트 전체를 보낸다. ClientSession: players · role · requestRole · overlay. CommandValidator: EditContent = ContentEdit.
+  SandboxServer `--owner-key`.
+- editor: EditPermissions (IEditorHost::permissions) — 막힌 툴 숨김 · 선택 툴로, Delete · Inspector · 되돌리기 막기.
+  `Editor::editContent` (되돌리기 한 칸 — 이전 오버레이 값). `ui/ContentPanel` ("콘텐츠" 창 — 목록 · JSON · 검사 · 적용 · 팩 값으로 ·
+  새 항목 · 요약), 편집 패널의 "콘텐츠 창" 단추 · 막힌 툴 숨김, 인스펙터 "보기만".
+- client: NetworkSession — 오버레이를 팩 콘텐츠에 얹어 content(), permissions, players · requestRole, `--owner-key`.
+  `ui/PlayersPanel` ("접속자"), 시뮬레이션 패널의 실행 제어를 역할로 끈다.
+- 테스트: content/core/persist test_content_overlay, network test_roles_overlay (+ test_messages · test_server_host), editor
+  test_editor_roles (FakeEditorHost 에 perms · contentDb), client test_roles_content, 옵션 시험.
+- 문서: ADR-0030, 10-EDITOR(상태 · 2 · 7 · 8 · 9 · 10장), 08(상태 · 4 · 5장, 프로토콜 6), 03 4장, 04 5장, 09 3 · 7장, 11 0 · 1.2장,
+  13, 15, 16(12C ✅), 17, MANUAL-QA 12C, README.
+
+**왜**
+
+- 역할은 시뮬레이션 상태가 아니다 — 명령이 아니라 Net 절반의 메시지로 두면 Sim 스레드를 거치지 않고 판단 · 알린다. 표 전체를
+  보내 접속자 패널이 그대로 쓴다 (ADR-0030 결정 1 · 2).
+- 콘텐츠 DB 는 색인 · action 번호 · 감지 질의 · 교차 참조가 얽혀 있다 — 부분 패치 대신 로더 한 길로 다시 만들어 팩과 같은 검증 ·
+  같은 결과를 보장한다. 불변 DB 를 갈아 끼우면 System 코드는 그대로다 (결정 3).
+
+**검증**
+
+- Linux clang · gcc Debug: ctest 44/44 (골든 그대로). TSan network · net · client · editor · content 116 케이스 경고 0.
+- MinGW Release 빌드 경고 0 + Wine 229 케이스. Wine 창: 원격 서버(--default-role player --owner-key) + 두 클라이언트 — 손님 창의
+  접속자 표 · 선택 툴만 · 2 키 거절 문구 · 실행 제어 꺼짐. 로컬 "콘텐츠" 창(규칙 JSON · 요약). 처음 둔 접힌 콘텐츠 창이 목록
+  패널 제목과 겹쳐 "편집" 패널의 단추로 여닫는 창으로 바꿨다 (열 때 앞으로). Wine · xdotool 의 클릭이 ImGui 단추에 닿지 않아
+  창 안의 조작은 단위 시험(패널 그리기)과 기본값을 바꾼 임시 빌드의 화면으로 확인했다.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드(프로토콜 6) → ctest, MANUAL-QA Phase 12C.
+- [계획] 폼 · 노드 그래프 편집, 팩 항목 끄기 · 오버레이를 팩으로 내보내기, 태그 · 머티리얼 편집, 강퇴 · 차단, 소유 개체.
+- 다음: 12D 세이브 · 로드 · 리플레이 UI + 완료 기준 (edit_session D3 · 두 클라이언트 동시 편집 · 역할 × 명령 매트릭스).
+
+---
+
 ## 2026-10-12 — Phase 12B: 인스펙터 · 목록 · 되돌리기 — 서버 전용 값은 선택 상세로 (프로토콜 5), 받아들여진 편집 한 번 = 한 칸
 
 **무엇을**

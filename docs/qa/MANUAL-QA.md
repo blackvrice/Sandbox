@@ -321,6 +321,47 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] 원격(--connect, 역할 editor)에서도 위가 같다. --default-role player 면 인스펙터 편집이 거절되고 되돌리기 기록에 남지 않는다
 ```
 
+## Phase 12C — 역할 · 접속자 · 콘텐츠 편집
+
+**먼저 다시 빌드** (프로토콜 6 — 서버 · 클라이언트를 같이). "접속자" 패널(위, 목록 오른쪽)이 새로 생기고, "편집" 패널에
+"콘텐츠 창" 단추가 생긴다.
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+```
+
+```text
+[ ] "접속자" 에 "player #1 (나) — owner (주인)" 한 줄
+[ ] "편집" 패널 → "콘텐츠 창": 규칙(Rule) 목록에 eco.rabbit_grazes · eco.rabbit_finishes_grass · eco.wolf_eats_rabbit
+[ ] eco.rabbit_grazes 를 골라 JSON 의 첫 효과 "value": 15 를 40 으로 → "검사" = "문제 없음" → "적용" → 목록의 이름 앞에 "●",
+    위에 "월드 오버레이", 요약 줄은 그대로. 토끼가 풀을 먹으면 에너지가 크게 오른다 (인스펙터 life.energy)
+[ ] "target" 의 태그를 "dragon" 으로 바꾸고 "검사" → 빨간 줄 "overlay/rules/eco.rabbit_grazes.json:…: 오류 V7 …", "적용" 해도
+    보내지 않는다
+[ ] Ctrl+Z → 이름 앞 "●" 가 사라지고 15 로. Ctrl+Y → 다시 40. "팩 값으로" 도 같은 결과
+[ ] 행동(Behavior) → eco.herbivore: "상태 4 · 전이 7" 을 펼치면 wander ◀ 처음 · seek_food · eat · flee 와 전이들
+[ ] "새 id" 에 eco.fox → "새 항목"(Prefab 탭) → 틀의 JSON 에 "name": "여우" 와 eco.rabbit 의 components 를 붙여 넣고 "적용" →
+    배치(3) 의 Prefab 목록에 eco.fox 가 생기고 놓을 수 있다
+```
+
+원격 — 서버 하나 · 클라이언트 둘 (같은 PC 면 창 둘):
+
+```powershell
+.\cmake-build-release\bin\SandboxServer.exe --world ecosystem_survival --default-role player --owner-key 비밀
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 주인 --owner-key 비밀
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 손님
+```
+
+```text
+[ ] 둘 다 "접속자" 에 주인 (owner) · 손님 (player). 손님 창: "편집" 패널은 "선택 (1)" 만 + "보기만", 숫자 2 를 누르면 "지금 역할로는
+    이동 툴을 쓸 수 없습니다", "시뮬레이션" 의 일시정지 · 속도 단추가 흐리고 "admin 부터", 인스펙터는 "보기만"
+[ ] 주인 창의 "접속자" 에서 손님의 콤보 → editor: 손님 창에 이동 · 배치 · 지형 · 지우기 툴이 나타나고 편집할 수 있다
+[ ] 주인이 콘텐츠 창에서 규칙을 바꾸면 손님 창의 같은 규칙에도 "●" 와 새 값 (늦게 들어온 클라이언트도)
+[ ] 손님 창을 닫았다 다시 열어도(60 초 안 · 같은 창의 다시 접속은 11 처럼) 역할이 유지된다. 손님이 나가면 주인의 표에서 빠진다
+[ ] --owner-key 를 틀리게 주면 "서버가 거절했습니다: 핸드셰이크 오류 — 주인 열쇠가 다릅니다"
+[ ] 콘텐츠를 바꾼 뒤 서버를 저장 · 로드할 수 있게 되면 (12D) 오버레이가 남는다 — 지금은 세이브 폴더로 시작한 서버에서
+    overlay/ 폴더가 읽힌다 (12D 에서 UI)
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

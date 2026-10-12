@@ -58,6 +58,14 @@ Phase 5B (실행 — 03 5·6·7장)
 Phase 5C
 - life.reproduce 에 crowdRadius(0~32) · crowdMax(0~255, 0 = 끔): 반경 안에 같은 Prefab(offspring)이 crowdMax 이상이면 낳지 않고
   쿨다운을 다시 건다 (수용력). 기존 데이터는 그대로 읽힌다 (없는 키 = 끔).
+
+Phase 12C 월드 오버레이 (core/content/ContentOverlay, ADR-0030)
+- 항목 = (종류 prefab · rule · behavior, id) → 이 문서의 형식 그대로인 JSON 객체 하나 ("id" = 항목 id, Rule 도 객체 하나).
+  같은 id 의 팩 항목을 바꾸고, 없으면 더한다 (id 의 팩 접두사는 월드가 읽은 팩 — V1 · V2). 1024 항목 · 항목당 16 KB 까지.
+- ContentLoader::applyOverlay(base, overlay) = 로더가 남긴 팩 원본(ContentSources — 파일 텍스트)에서 다시 만든다. 검증은
+  V1~V7 그대로, 문제 위치는 "overlay/<prefabs|rules|behaviors>/<id>.json". 태그 · 머티리얼은 바꿀 수 없다 (tags.json ·
+  terrain.json 은 팩에서만 — 오버레이가 모르는 태그를 쓰면 V7). 바꾼 Rule 은 원래 정의 순서, 더한 Rule 은 맨 뒤.
+- 각 항목은 읽은 JSON 을 raw 로 갖고 overlay 표시가 있다 (에디터 "콘텐츠" 창). contentHash 는 팩 그대로.
 ```
 
 ---
@@ -95,7 +103,7 @@ content/<pack>/
 
 ```text
 팩: requires 위상 정렬, 동순위는 id 정렬. 파일: 경로 문자열 정렬. (04 4.5)
-같은 id 가 두 번 정의되면 오류 (덮어쓰기는 월드 오버레이만 허용)
+같은 id 가 두 번 정의되면 오류 (덮어쓰기는 월드 오버레이만 허용 — 12C, 0장 끝)
 ```
 
 ---

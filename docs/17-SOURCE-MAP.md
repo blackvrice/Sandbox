@@ -70,6 +70,7 @@
 | `core/content/ContentDatabase.{hpp,cpp}`                                                                    | 콘텐츠 조회: 머티리얼·태그·Prefab·Rule·Behavior (불변)                                                                                                              | SandboxCore                 |
 | `core/content/ContentLoader.{hpp,cpp}`                                                                      | 팩 로더 + 검증기 V1~V7 + contentHash                                                                                                                                | SandboxCore                 |
 | `core/content/ContentModel.hpp`, `TagSet.hpp`                                                               | Prefab · Rule · BehaviorGraph 모델, TagSet · TagExpr                                                                                                                | SandboxCore                 |
+| `core/content/ContentOverlay.{hpp,cpp}`                                                                     | 월드 오버레이 (종류 · id → JSON, 지문) — ContentLoader::applyOverlay 가 팩 원본에 얹는다 (12C, ADR-0030)                                                            | SandboxCore                 |
 | `core/persist/WorldSave.{hpp,cpp}`                                                                          | `saveWorld`, `loadWorld` (world.json · entities.jsonl · chunks/)                                                                                                    | SandboxCore                 |
 | `core/persist/ChunkFile.{hpp,cpp}`, `Migration.{hpp,cpp}`                                                   | 청크 바이너리 포맷, `MigrationRegistry`                                                                                                                             | SandboxCore                 |
 | `core/replay/WorldHash.{hpp,cpp}`                                                                           | WorldHash, 엔티티별 해시, 진단용 JSON                                                                                                                               | SandboxCore                 |
@@ -129,6 +130,7 @@
 | `apps/client/presentation/SpriteExtraction.{hpp,cpp}`                                                       | capture(ClientWorld + renderTick → 그릴 거리 · 지형 · 선택 상세, 10B) · emit, Presentation (8A · 8B)                                                                | SandboxClient               |
 | `apps/client/presentation/SelectionOverlay.{hpp,cpp}`                                                       | 스냅숏에서 고르기(점 · 박스, netId) · 선택 외곽선 · 선택한 개체의 디버그 선 · 제목 줄 설명 (8B)                                                                     | SandboxClient               |
 | `apps/client/ui/ImGuiLayer.{hpp,cpp}`, `DebugPanels.{hpp,cpp}`                                              | ImGui 플랫폼 쪽(PlatformEvent → ImGuiIO, 가로채기 I1, 커서 · 클립보드 · IME, 폰트), 기본 패널 "시뮬레이션" · "통계" → PanelActions (8C, ADR-0023)                   | SandboxClient               |
+| `apps/client/ui/PlayersPanel.{hpp,cpp}`                                                                     | "접속자" 패널 — 접속자 · 역할 표, 역할 콤보 (net::roleCanAssign) (12C, ADR-0030)                                                                                    | SandboxClient               |
 | `tests/render/main.cpp`, `RenderTestEnv.hpp`, `test_rhi_*.cpp`, `test_sprites.cpp`, `test_world_passes.cpp` | `sbx_render_tests` — 공유 디바이스, 기준 이미지 비교, 7A · 7B · 8A 케이스, 8B 지형 · 오버레이 · 타임스탬프                                                          | sbx_render_tests (WIN32)    |
 | `tests/render/test_imgui.cpp`                                                                               | 8C ImGuiRenderer — 기준 이미지 imgui_basic, 텍스처 만들기 · 갱신 · 해제, 화면 밖 창                                                                                 | sbx_render_tests (WIN32)    |
 | `tests/render/references/*.png`                                                                             | GPU 기준 이미지 (7A clear · upload_quadrants · region_copy, 7B 4장, 8A sprite · batch_1k, 8B terrain · overlay, 8C imgui_basic)                                     | —                           |
@@ -153,8 +155,10 @@
 | `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client, net — net = 복제 수렴 `net_convergence`)    | SandboxTests                |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
+| `tests/unit/network/test_roles_overlay.cpp`, `tests/unit/content/test_content_overlay.cpp`                  | 메시지 · 주인 열쇠 · 역할 부여 표 · 오버레이 전달 (12C), 오버레이 검증 · EditContent · 세이브 (12C)                                                                 | SandboxTests                |
 | `tests/unit/editor/test_editor.cpp`, `tests/unit/client/test_editor_session.cpp`                            | 에디터 툴 (가짜 host), 로컬 서버까지 편집 · 앱 숫자 키 (Phase 12A)                                                                                                  | SandboxTests                |
 | `tests/unit/editor/test_undo.cpp`, `FakeEditorHost.hpp`                                                     | 되돌리기 · Inspector 명령 (가짜 host 공유) (12B)                                                                                                                    | SandboxTests                |
+| `tests/unit/editor/test_editor_roles.cpp`, `tests/unit/client/test_roles_content.cpp`                       | 역할 → 툴 · 편집 막기, 콘텐츠 편집 · 되돌리기 · 검사, 원격 역할 바꾸기 · 로컬 콘텐츠 편집 · 패널 (12C)                                                              | SandboxTests                |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
@@ -262,12 +266,13 @@ render/
 editor/
   EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
   Undo (UndoEntry · IdRemap · 역명령), ui/InspectorPanel (인스펙터 · 목록)                       ← Phase 12B 구현 (ADR-0029)
-  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 12B ~ 12D — 지금은 Editor 한 클래스]
+  ui/ContentPanel ("콘텐츠" 창 — Rule · Behavior · Prefab JSON), EditPermissions · editContent  ← Phase 12C 구현 (ADR-0030)
+  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 12D — 지금은 Editor 한 클래스]
 
 apps/client/
   main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)
   presentation/ InterpolationSystem, ExtractionSystem, AudioExtraction, components/(render.*, client.*, editor.*)
-  ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B)
+  ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C)
 apps/server/
   main.cpp (인자 파싱 → ServerHost)
 ```
