@@ -5,9 +5,11 @@
 > 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. **Phase 12B 구현** — Inspector(리플렉션 필드 → ChangeComponent, 서버 전용 값은
 > 선택 상세로) · Hierarchy("목록") · Undo/Redo — 2 · 4 · 6.2 · 9 · 10장의 "Phase 12B 구현" 단락. **Phase 12C 구현** — 역할
 > 바꾸기 · "접속자"(Players) 패널 · 역할에 맞춘 툴 숨김, 콘텐츠 편집(EditContent → 월드 오버레이 · "콘텐츠" 창) — 2 · 7 · 8 · 9 · 10장의
-> "Phase 12C 구현" 단락. 나머지(세이브 · 리플레이 UI, 완료 기준 시험)는 `[계획 12D]` (16-ROADMAP Phase 12). 7장 권한 표는 서버
-> CommandValidator 가 판단한다. 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md),
-> [ADR-0029](adr/0029-inspector-server-values-undo-entries.md), [ADR-0030](adr/0030-roles-player-list-content-overlay.md).
+> "Phase 12C 구현" 단락. **Phase 12D 구현** — 세이브 · 불러오기 · 리플레이 기록 · 재생("월드" 패널 · Ctrl+S), 월드가 바뀌면
+> 에디터 기록 비우기, 완료 기준 시험(역할 × 명령 표 · 두 클라이언트 동시 편집 · edit_session D3) — 2 · 7 · 9 · 10장의 "Phase 12D
+> 구현" 단락. Phase 12 완료. 7장 권한 표는 서버 CommandValidator 가 판단한다. 결정 근거:
+> [ADR-0028](adr/0028-editor-library-host-tools-preview.md), [ADR-0029](adr/0029-inspector-server-values-undo-entries.md),
+> [ADR-0030](adr/0030-roles-player-list-content-overlay.md), [ADR-0031](adr/0031-world-ops-generation-replay-playback.md).
 
 ---
 
@@ -61,6 +63,10 @@ Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 �
                         IEditorHost::permissions() = 지금 역할로 할 수 있는 것 (7장), content() 는 월드 오버레이까지 적용한 것
 (12C) Players           apps/client/ui/PlayersPanel "접속자" — 접속자 · 역할 표, 바꿀 수 있는 사람에게 역할 콤보 (7장).
                         에디터가 아니라 클라이언트에 둔다 (역할 · 접속은 Network 의 것 — 에디터는 permissions 만 안다)
+(12D) World             apps/client/ui/WorldPanel "월드" — 이름 · 저장 · 기록 시작/끝 · 새로고침, 서버 저장 폴더의 세이브 · 리플레이
+                        목록 → 불러오기 · 재생, 기록 · 재생 상태 한 줄 (call · 비교한 해시 · 일치), 마지막 결과. 처음엔 접혀
+                        있고 제목 줄에 상태 ("월드 — 보통"). 판단은 서버 (ADR-0031). IEditorHost::worldGeneration() — 서버 월드가 바뀌면(불러오기 · 재생) 에디터가 되돌리기 ·
+                        다시 하기 · 기다리던 편집 · EditPreview 를 비운다 (옛 월드의 netId 다)
 ```
 
 ## 3. 툴
@@ -202,6 +208,14 @@ Owner        싱글플레이 = 언제나. 전용 서버 = SandboxServer --owner-
              패널의 일시정지 · 한 틱 · 속도는 Admin 부터 (단추를 끈다 — 키는 보내고 서버가 거절한다)
 ```
 
+Phase 12D 구현 (ADR-0031):
+
+```text
+월드 요청    목록 = 모든 역할. 저장 · 불러오기 · 리플레이 기록 · 재생 = 시뮬레이션 제어 열 (Admin 부터). "월드" 패널은 단추를 끄고,
+             서버 Net 절반이 거절한다 ("… (admin 부터)")
+시험         역할 × 명령 12 종 + 월드 요청 5 종을 서버 끝까지 (test_multi_client — 위 표를 시험 안에 따로 적어 서버 코드와 대조)
+```
+
 ## 8. 콘텐츠 편집 (Rule / Behavior / Prefab)
 
 ```text
@@ -239,11 +253,13 @@ Ctrl+S 저장   F 선택으로 카메라 이동   G 그리드 토글   F3 Stats 
 ```
 
 Phase 12A 구현: 툴은 숫자 **1 선택 · 2 이동 · 3 배치 · 4 지형 · 5 지우기** (`editor.tool.*` — W A S D 가 카메라라서, ADR-0028).
-Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다. 저장은 `[계획 12D]`.
+Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다.
 Phase 12B 구현: Ctrl+Z 되돌리기 · Ctrl+Y(Ctrl+Shift+Z) 다시 하기, F 선택한 개체들의 가운데로 카메라 (`editor.focus`, 줌 그대로).
 "목록"(Hierarchy) 패널: 클릭 = 선택, Ctrl+클릭 = 넣기/빼기, 두 번 클릭 = 카메라 맞추기.
 Phase 12C 구현: "콘텐츠" 창은 "편집" 패널의 "콘텐츠 창" 단추로 열고 닫는다 (단축키 `[계획]`). 역할이 막는 툴의 숫자 키는 무시하고
 편집 패널에 사유를 보인다.
+Phase 12D 구현: Ctrl+S (`editor.save`) = "월드" 패널의 이름(기본 quicksave)으로 서버에 저장 — 결과는 패널 아래 한 줄. 리플레이를
+재생하는 동안 Space · . · = / - 는 재생을 멈추고 · 한 call 씩 · 배율을 바꾼다 (서버가 재생 상태로 처리, 편집 명령은 거절).
 
 ## 10. 필수 테스트
 
@@ -254,9 +270,15 @@ Phase 12C 구현: "콘텐츠" 창은 "편집" 패널의 "콘텐츠 창" 단추�
 - Undo 역명령 생성 (각 명령 종류), 거절 시 스택 미반영
   ✅ 12B (test_undo — 이동 · 배치 · 지우기 · 지형 · 값 · 컴포넌트, netId 잇기, 거절 · 기다림, 로컬 서버에서 지운 개체 되살리기)
 - 2클라이언트(Loopback) 동시 편집: 같은 필드 연속 변경, 삭제된 엔티티 편집 거절
+  ✅ 12D (test_multi_client — 같은 개체를 상대 · 절대 이동, 같은 필드 회전, 겹치는 칸 칠하기, 지우는 개체 옮기기 → 거절, 모든
+    명령에 결과 하나, 두 복제본의 개체 · 위치 · 회전 · 지형이 서버와 같다)
 - 권한 표 전체: 역할 × 명령 종류 매트릭스
-  ◐ 12C — 역할 부여 열 전체(test_roles_overlay — Owner · Admin · Editor, 자기 자신 · 없는 번호, 다시 접속), 역할이 바뀐 뒤 편집 ·
-    콘텐츠 명령 거절, 패널과 서버가 같은 표 (test_roles_content). 역할 × 명령 종류 전체 매트릭스 · 2 클라이언트 동시 편집은 12D
+  ✅ 12C — 역할 부여 열 전체(test_roles_overlay — Owner · Admin · Editor, 자기 자신 · 없는 번호, 다시 접속), 역할이 바뀐 뒤 편집 ·
+    콘텐츠 명령 거절, 패널과 서버가 같은 표 (test_roles_content)
+  ✅ 12D — 5 역할 × 명령 12 종 + 월드 요청 5 종 (test_multi_client — PermissionDenied 여부를 시험에 따로 적은 표와 대조)
 - 콘텐츠 편집 (12C): 오버레이 검증 · 자리 · 지문 (content), EditContent · 상태 옮기기 · 결정론 (core), 세이브 왕복 (persist),
   전달 · 늦게 들어온 클라이언트 (network), 권한 · 되돌리기 · 검사 (editor), 로컬 서버에서 편집 → 되돌리기 (client)
+- 세이브 · 리플레이 (12D): 월드가 바뀌면 기록 비우기 (editor test_editor_world_change), 로컬 서버에서 저장 · 목록 · 불러오기 →
+  오버레이 복원 · 기록 비우기, 기록 → 재생 · 재생 멈춤 · 한 call, "월드" 패널 그리기 · 앱 Ctrl+S (client test_world_panel), 서버 쪽은
+  08 12장 (test_world_ops), 편집 명령 전 종류를 담은 시나리오 edit_session 의 D1 · D2 · D3 · D5 (13-TESTING)
 ```

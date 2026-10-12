@@ -74,19 +74,20 @@
 | `core/persist/WorldSave.{hpp,cpp}`                                                                          | `saveWorld`, `loadWorld` (world.json · entities.jsonl · chunks/)                                                                                                    | SandboxCore                 |
 | `core/persist/ChunkFile.{hpp,cpp}`, `Migration.{hpp,cpp}`                                                   | 청크 바이너리 포맷, `MigrationRegistry`                                                                                                                             | SandboxCore                 |
 | `core/replay/WorldHash.{hpp,cpp}`                                                                           | WorldHash, 엔티티별 해시, 진단용 JSON                                                                                                                               | SandboxCore                 |
-| `core/replay/Replay.{hpp,cpp}`                                                                              | 리플레이 기록(`ReplayRecorder`)·파일(JSON Lines)·재생(`playReplay`) — D3 (5C)                                                                                       | SandboxCore                 |
+| `core/replay/Replay.{hpp,cpp}`                                                                              | 리플레이 기록(`ReplayRecorder`)·파일(JSON Lines)·재생(`ReplayPlayer` 한 call 씩 · `playReplay`) — D3 (5C · 12D)                                                     | SandboxCore                 |
 | `core/scenarios/Scenario.{hpp,cpp}`, `RandomWalkScenario.{hpp,cpp}`                                         | `IScenario`, `ScenarioRunner`, `random_walk_1k/10k`                                                                                                                 | SandboxCore                 |
 | `core/scenarios/EcosystemScenario.{hpp,cpp}`                                                                | `ecosystem_small` · `ecosystem_survival` · `ecosystem_10k` (5C)                                                                                                     | SandboxCore                 |
-| `core/scenarios/WorldSource.{hpp,cpp}`                                                                      | `openWorldSource` — 시나리오 이름 · 세이브 폴더 → 월드 (서버 · 클라이언트 --world, 10B)                                                                             | SandboxCore                 |
+| `core/scenarios/EditSessionScenario.{hpp,cpp}`                                                              | `edit_session` — 두 사람의 편집 명령 로그 (편집 명령 전 종류 · 일시정지 편집 · 오버레이, 12D)                                                                       | SandboxCore                 |
+| `core/scenarios/WorldSource.{hpp,cpp}`                                                                      | `openWorldSource` — 시나리오 이름 · 세이브 폴더 → 월드 (서버 · 클라이언트 --world, 10B), `openSave` · `readSaveSummary` (12D)                                       | SandboxCore                 |
 | `network/CMakeLists.txt`                                                                                    | SandboxNetwork — PUBLIC Core, PRIVATE sbx_enet (Phase 9, ADR-0024)                                                                                                  | SandboxNetwork              |
 | `network/transport/Transport.{hpp,cpp}`                                                                     | `INetworkTransport`, `Endpoint`·`parseEndpoint`, `Channel`, `DisconnectReason`, `TransportEvent`·`TransportStats`                                                   | SandboxNetwork              |
 | `network/transport/LoopbackTransport.{hpp,cpp}`, `SimulatedTransport.{hpp,cpp}`                             | 같은 프로세스 Transport (+ `LoopbackNetwork` 허브, 시험용 `severAll`), 지연·지터·손실·순서 흉내 (seed · 주입 시계)                                                  | SandboxNetwork              |
 | `network/transport/EnetTransport.{hpp,cpp}`                                                                 | ENet UDP — 채널 3개, disconnect_later, 15 초 시간 초과. enet.h 는 이 .cpp 에만                                                                                      | SandboxNetwork              |
 | `network/protocol/BitStream.{hpp,cpp}`                                                                      | `BitWriter`·`BitReader` — LSB 우선, LEB128 varint · zigzag, 상한 · UTF-8 검사, 오류 플래그                                                                          | SandboxNetwork              |
 | `network/protocol/Messages.{hpp,cpp}`, `CommandCodec.{hpp,cpp}`                                             | 메시지 카탈로그 (`kProtocolVersion`, `Role`, `RejectReason`, encode/decode), 명령 페이로드 (`PayloadTag`)                                                           | SandboxNetwork              |
-| `network/server/ServerHost.{hpp,cpp}`, `CommandValidator.{hpp,cpp}`                                         | 서버 (Net 절반 + Sim 절반, Inline · Threaded, 핸드셰이크 · 결과 · 통계), 순번 · 속도 제한 · 권한 표                                                                 | SandboxNetwork              |
+| `network/server/ServerHost.{hpp,cpp}`, `CommandValidator.{hpp,cpp}`                                         | 서버 (Net 절반 + Sim 절반, Inline · Threaded, 핸드셰이크 · 결과 · 통계 · 월드 요청 · 리플레이 재생 12D), 순번 · 속도 제한 · 권한 표                                 | SandboxNetwork              |
 | `network/server/LocalServerHost.{hpp,cpp}`                                                                  | 싱글플레이 서버 (10B, ADR-0026) — ServerHost + Loopback 둘, 역할 owner · 예산 없음, openWorldSource                                                                 | SandboxNetwork              |
-| `network/client/ClientSession.{hpp,cpp}`                                                                    | 클라이언트 연결 — 핸드셰이크 · 명령 · 결과 · ServerStats · 복제 적용 · SnapshotAck (10A) · 선택 상세 (10B)                                                          | SandboxNetwork              |
+| `network/client/ClientSession.{hpp,cpp}`                                                                    | 클라이언트 연결 — 핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack (10A) · 선택 상세 (10B) · generation · 월드 요청 (12D)                                          | SandboxNetwork              |
 | `network/client/ClientWorld.{hpp,cpp}`                                                                      | 복제 월드 (Phase 10A, ADR-0025) — Registry · WorldGrid · netId 표 · Opaque · transform 표본, Snapshot/TerrainChunk 적용 (시뮬레이션 없음)                           | SandboxNetwork              |
 | `network/client/InterpolationClock.{hpp,cpp}`                                                               | 보간 시계 (10B, 08 9장) — 서버 틱 추정 · renderTick (지연 0.1 초 · 앞으로만 · 일시정지)                                                                             | SandboxNetwork              |
 | `network/replication/ReplicationWriter.{hpp,cpp}`                                                           | 서버 복제 (10A) — 클라이언트별 기록 32 · 차분 · epoch · 지형 청크, 관심 영역 · 예산 우선순위 (11)                                                                   | SandboxNetwork              |
@@ -131,6 +132,7 @@
 | `apps/client/presentation/SelectionOverlay.{hpp,cpp}`                                                       | 스냅숏에서 고르기(점 · 박스, netId) · 선택 외곽선 · 선택한 개체의 디버그 선 · 제목 줄 설명 (8B)                                                                     | SandboxClient               |
 | `apps/client/ui/ImGuiLayer.{hpp,cpp}`, `DebugPanels.{hpp,cpp}`                                              | ImGui 플랫폼 쪽(PlatformEvent → ImGuiIO, 가로채기 I1, 커서 · 클립보드 · IME, 폰트), 기본 패널 "시뮬레이션" · "통계" → PanelActions (8C, ADR-0023)                   | SandboxClient               |
 | `apps/client/ui/PlayersPanel.{hpp,cpp}`                                                                     | "접속자" 패널 — 접속자 · 역할 표, 역할 콤보 (net::roleCanAssign) (12C, ADR-0030)                                                                                    | SandboxClient               |
+| `apps/client/ui/WorldPanel.{hpp,cpp}`                                                                       | "월드" 패널 — 저장 · 기록 · 목록 → 불러오기 · 재생, 기록 · 재생 상태 (12D, ADR-0031)                                                                                | SandboxClient               |
 | `tests/render/main.cpp`, `RenderTestEnv.hpp`, `test_rhi_*.cpp`, `test_sprites.cpp`, `test_world_passes.cpp` | `sbx_render_tests` — 공유 디바이스, 기준 이미지 비교, 7A · 7B · 8A 케이스, 8B 지형 · 오버레이 · 타임스탬프                                                          | sbx_render_tests (WIN32)    |
 | `tests/render/test_imgui.cpp`                                                                               | 8C ImGuiRenderer — 기준 이미지 imgui_basic, 텍스처 만들기 · 갱신 · 해제, 화면 밖 창                                                                                 | sbx_render_tests (WIN32)    |
 | `tests/render/references/*.png`                                                                             | GPU 기준 이미지 (7A clear · upload_quadrants · region_copy, 7B 4장, 8A sprite · batch_1k, 8B terrain · overlay, 8C imgui_basic)                                     | —                           |
@@ -159,6 +161,8 @@
 | `tests/unit/editor/test_editor.cpp`, `tests/unit/client/test_editor_session.cpp`                            | 에디터 툴 (가짜 host), 로컬 서버까지 편집 · 앱 숫자 키 (Phase 12A)                                                                                                  | SandboxTests                |
 | `tests/unit/editor/test_undo.cpp`, `FakeEditorHost.hpp`                                                     | 되돌리기 · Inspector 명령 (가짜 host 공유) (12B)                                                                                                                    | SandboxTests                |
 | `tests/unit/editor/test_editor_roles.cpp`, `tests/unit/client/test_roles_content.cpp`                       | 역할 → 툴 · 편집 막기, 콘텐츠 편집 · 되돌리기 · 검사, 원격 역할 바꾸기 · 로컬 콘텐츠 편집 · 패널 (12C)                                                              | SandboxTests                |
+| `tests/unit/network/test_world_ops.cpp`, `tests/unit/network/test_multi_client.cpp`                         | 저장 · 불러오기 · 기록 → 재생 · 스냅숏 쥐기 (12D), 역할 × 명령 표 · 두 클라이언트 동시 편집 (12D)                                                                   | SandboxTests                |
+| `tests/unit/editor/test_editor_world_change.cpp`, `tests/unit/client/test_world_panel.cpp`                  | 월드가 바뀌면 기록 비우기, 로컬 서버 저장 · 불러오기 · 재생 멈춤 · "월드" 패널 (12D)                                                                                | SandboxTests                |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
@@ -227,7 +231,7 @@ core/
   command/      SimCommand, CommandQueue, CommandApplier
   serialization/ JsonVisitor, HashVisitor, BinaryVisitor, BitWriter/BitReader   ← BinaryCodec (Phase 10A). BitStream 은 network/protocol
   persist/      WorldSave(세이브·로드), ChunkFile, Migration              ← Phase 4 구현 (초안의 serialization/SaveGame 자리)
-  replay/       ReplayWriter, ReplayReader, WorldHash
+  replay/       ReplayWriter, ReplayReader, WorldHash   ← Replay (ReplayRecorder · ReplayPlayer · 파일, 5C · 12D) · WorldHash
   random/       CounterRng, RandomService
 
 network/
@@ -238,7 +242,8 @@ network/
   snapshot/     Snapshot, SnapshotBuffer        ← Snapshot 은 protocol/Messages (10A), SnapshotBuffer [계획 10B]
   replication/  ReplicationWriter, ReplicationReader, NetEntityMap   ← Writer 구현 (10A), Reader · NetEntityMap = client/ClientWorld
   interest/     InterestManager
-  server/       ServerHost, CommandValidator (Phase 9), LocalServerHost (10B) · PersistenceService, ReplayRecorder [계획]
+  server/       ServerHost, CommandValidator (Phase 9), LocalServerHost (10B) · PersistenceService · ReplayRecorder 자리 =
+                ServerHost 의 월드 요청 (저장 · 불러오기 · 기록 · 재생 — 12D, ADR-0031)
 
 platform/
   common/       IWindow, WindowDesc, NativeWindowHandle, PlatformEvent, Key, InputSystem, ActionMap, IAudioBackend,
@@ -267,12 +272,14 @@ editor/
   EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
   Undo (UndoEntry · IdRemap · 역명령), ui/InspectorPanel (인스펙터 · 목록)                       ← Phase 12B 구현 (ADR-0029)
   ui/ContentPanel ("콘텐츠" 창 — Rule · Behavior · Prefab JSON), EditPermissions · editContent  ← Phase 12C 구현 (ADR-0030)
-  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 12D — 지금은 Editor 한 클래스]
+  worldGeneration (12D — 서버 월드가 바뀌면 기록 비우기, ADR-0031)
+  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 — 지금은 Editor 한 클래스]
 
 apps/client/
   main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)
   presentation/ InterpolationSystem, ExtractionSystem, AudioExtraction, components/(render.*, client.*, editor.*)
-  ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C)
+  ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C),
+                WorldPanel (12D)
 apps/server/
   main.cpp (인자 파싱 → ServerHost)
 ```

@@ -164,6 +164,10 @@ ServerHost (SandboxNetwork/server)
  └─ ReplayRecorder      권한 명령 로그 + 해시 체크포인트
 ```
 
+Phase 12D 구현 ([ADR-0031](adr/0031-world-ops-generation-replay-playback.md)): PersistenceService · ReplayRecorder 몫은 ServerHost
+Sim 절반의 "월드 요청" — 클라이언트가 보낸 저장 · 불러오기 · 기록 · 재생을 틱 사이에 (Simulation 스레드에서 동기, --saves 폴더).
+불러오기 · 재생은 월드를 통째로 바꾸고 generation 을 올린다 (복제는 새 epoch). 오토세이브 · `--record-replay` 는 `[계획]`.
+
 서버는 `render.*` 같은 클라이언트 전용 컴포넌트를 **Opaque Component(불투명 바이트)** 로 보존·저장·복제만 하고
 해석하지 않습니다. 새 렌더 컴포넌트를 추가해도 서버를 다시 빌드할 필요가 없습니다 ([02-ECS](02-ECS.md) 9장).
 

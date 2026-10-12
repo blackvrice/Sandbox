@@ -3,6 +3,7 @@
 > **규범 문서.** 디스크·와이어 포맷과 버전·마이그레이션 규칙을 정합니다.
 > 상태: 3장 Save 와 6장 마이그레이션이 **Phase 4에서 구현됨** (2026-10-05, 3.5 참고). 4장 Replay 는 Phase 5C, 5장 비트스트림은 **Phase 9 에서 구현됨**
 > (`network/protocol/BitStream`), 컴포넌트 값 바이트(`BinaryCodec`)는 Phase 10A — 양자화 · 위치 · 회전 압축은 `[계획 — 측정 뒤]`.
+> Phase 12D: 서버가 실행 중에 세이브 · 불러오기 · 리플레이 기록 · 재생 (4.1, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)).
 
 ---
 
@@ -193,6 +194,23 @@ end      {k:"end", calls, endTick, finalHash}. end 가 없으면 잘린 파일�
          sbx_sim_check --replay D/replay.sbxr                기록된 리플레이 검사만
 ```
 
+### 4.1 서버의 저장 폴더 (Phase 12D, ADR-0031)
+
+```text
+<saves>/                      SandboxServer --saves (기본 saves) · 싱글플레이 SandboxClient --saves (같은 기본)
+  <이름>/                     세이브 = 3장 World 패키지 그대로 (이름 = [A-Za-z0-9_-]{1,48} — 경로가 아니다)
+  <이름>/replay.sbxr          리플레이 폴더 = replay.sbxr + start/ (시작 세이브 — 머리의 startWorld "start")
+  <이름>/start/               기록을 시작한 순간의 세이브 (오버레이 포함)
+  <이름>.saving/              저장 중 임시 폴더 (3.4 — 목록에 나오지 않는다)
+기록     "월드" 패널 · WorldOp 기록 시작 → start/ 저장 + ReplayRecorder (서버 단계마다 afterTick — 일시정지 편집 단계도 call
+         하나) → 기록 끝 · 불러오기 · 재생 · 서버 멈춤 때 finish 하고 replay.sbxr 를 쓴다
+재생     ReplayPlayer (core/replay — playReplay 도 이것으로): start 를 열어 시작 틱 · 해시 확인 → 서버 단계마다 call 하나 (step),
+         해시 레코드 · 끝 해시 비교, 불일치는 처음 것을 기억하고 끝까지. 서버는 그 월드를 모두에게 보여 주고 끝나면 이어 쓴다
+목록     world.json 만 읽는다 (tick · entityCount — 리플레이는 start/ 의 것). 콘텐츠 해시가 서버와 다른 세이브 · 리플레이는
+         불러오기 · 재생을 거절한다 (접속한 클라이언트가 그 콘텐츠를 가지고 있다 — 팩을 바꾸려면 서버를 다시 띄운다)
+[계획]   지우기 · 이름 바꾸기, 썸네일, 자동 저장, 클라이언트로 내려받기 · 올리기, 재생 되감기 · 시크
+```
+
 ---
 
 ## 5. 비트스트림 (와이어·바이너리)
@@ -270,5 +288,6 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
 - 재매핑: 콘텐츠 머티리얼·태그 순서를 바꾼 뒤 로드
 - 마이그레이션 체인, 누락 단계 오류
 - 리플레이 기록 → 재생 divergence 0 (D3), 손상 파일 거부
+- 서버 저장 · 불러오기 · 기록 → 재생 (12D — network test_world_ops, edit_session 시나리오 det_replay_edit_session)
 - BitReader 퍼징 (무작위 바이트 → 크래시 없음)
 ```

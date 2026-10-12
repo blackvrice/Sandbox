@@ -7,6 +7,58 @@
 
 ---
 
+## 2026-10-12 — Phase 12D: 세이브 · 로드 · 리플레이 UI + 완료 기준 — 서버가 틱 사이에 하고, 월드를 바꾸면 generation (프로토콜 7). Phase 12 완료
+
+**무엇을**
+
+- core: `replay/ReplayPlayer` — 시작 틱 · 해시 확인 뒤 step() 마다 call 하나 (그 call 의 명령 + tick(), 해시 레코드 · 끝 해시
+  비교 — 불일치는 처음 것을 기억하고 끝까지). playReplay 는 이것으로. 시나리오 `edit_session` (두 사람의 편집 명령 로그 600틱 —
+  이동 · 값 · 컴포넌트 더하기/빼기 · 지형 · Rule · Prefab · Behavior 오버레이, 일시정지 편집 · 한 틱 · 속도, 일부러 거절 하나).
+  `WorldSource`: openSave (이미 읽은 콘텐츠로 세이브 열기 — contentHash 가 다르면 거절) · readSaveSummary.
+- network: 프로토콜 7 — WorldOp(65) · WorldOpResult(66) · WorldList(67) · WorldChanged(68, Bulk), Welcome · Snapshot 의
+  generation, ServerStats 의 기록 · 재생 상태. ServerHost: Net 절반이 권한으로 거르고(목록 = 모두, 나머지 = admin 부터) Sim
+  절반이 틱 사이에 저장 · 불러오기 · 기록 시작/끝 · 재생 (<savesRoot>/<이름>, 이름 = [A-Za-z0-9_-]{1,48}). 월드 바꾸기 =
+  generation++ · ReplicationWriter::resetWorld(새 epoch) · WorldChanged · 오버레이 전체 · 그 배치의 명령 거절. 재생 중 편집은
+  거절, Pause · Resume · Step · Speed 는 재생 제어, 끝나면 모두에게 결과 · 일시정지. 멈출 때 기록 중인 리플레이를 쓴다.
+  ClientSession: requestWorldOp · 결과 · 목록 · generation (새 generation 스냅숏은 WorldChanged 까지 쥐고, 옛 것은 버리고,
+  Welcome 보다 먼저 온 WorldChanged 로 시작). SandboxServer `--saves`, LocalServerDesc::savesRoot.
+- editor: IEditorHost::worldGeneration — 바뀌면 되돌리기 · 다시 하기 · 기다리던 편집 · EditPreview 를 비운다.
+- client: NetworkSession — worldOps · worldOp (접속하면 목록, 받아들여진 결과마다 다시), 재생 중 Space · . · = / - 는 재생 제어,
+  상태 줄에 기록 · 재생. `ui/WorldPanel` ("월드"), Ctrl+S (`editor.save`) = 그 이름으로 저장, SandboxClient `--saves`.
+- 테스트 (Phase 12 완료 기준): network test_world_ops (메시지 · 저장 · 불러오기 · 같은 배치 거절 · 늦게 들어옴 · 콘텐츠 다름 ·
+  기록 → 재생 · 재생 제어 · 멈출 때 쓰기 · 스냅숏 쥐기 · 이른 WorldChanged), test_multi_client (5 역할 × 명령 12 종 + 월드 요청 5 종,
+  두 editor 동시 편집 수렴), core edit_session (+ CTest det_edit_session · det_replay_edit_session), editor
+  test_editor_world_change, client test_world_panel, 옵션 시험.
+- 문서: ADR-0031, 10-EDITOR(상태 · 2 · 7 · 9 · 10장), 08(상태 · 4 · 5 · 12 · 13장, 프로토콜 7), 09 4.1, 01 4장, 13, 15, 16(12D ✅ ·
+  Phase 12 완료), 17, MANUAL-QA 12D, README.
+
+**왜**
+
+- 클라이언트는 월드를 갖지 않는다 (ADR-0026) — 저장 · 불러오기는 서버의 일이다. 원격 클라이언트가 서버 파일을 고르는 것은
+  "저장 폴더 안의 이름" 으로만 (경로 · .. 금지).
+- 월드를 통째로 바꾸는 것은 epoch 재동기화(ADR-0025)와 같은 길에 얹고, 경계가 바뀔 수 있어 복제 월드를 다시 만든다. 채널 사이
+  순서가 보장되지 않아 "옛 스냅숏이 새 월드에 붙는" 경우를 generation 으로 막는다 (ADR-0031 결정 3).
+- 재생을 서버 월드로 하면 모두가 같은 재생을 보고, 끝난 자리에서 그대로 이어 편집한다. call 단위라 일시정지 편집까지 같다 (D3).
+- 되돌리기 기록은 netId 로 대상을 가리킨다 — 다른 월드에서는 엉뚱한 개체를 바꾸므로 비운다.
+
+**검증**
+
+- Linux clang Debug (커밋마다) · gcc Debug: ctest 46/46 (골든 그대로 — det_edit_session · det_replay_edit_session 추가).
+  TSan network · net · client · editor · content 129 케이스 경고 0.
+- MinGW Release 빌드 경고 0 (커밋마다) + Wine 230 → 238 → 243 케이스. Wine 창 ecosystem_small --saves (sbx_sim_check 로 만든
+  리플레이 · 세이브): 접힌 "월드 — 보통" 제목 줄, 펼친 패널의 목록([리플레이] · tick · 개체) · Ctrl+S → 목록에 quicksave · 결과
+  줄. 처음 둔 펼친 패널은 인스펙터 · 편집 패널과 겹쳐 접어 두고 제목 줄에 상태를 보이게 바꿨다. Ctrl+S 가 처음엔 에디터 없는
+  선택 경로에만 있어 듣지 않았다 — 월드 입력 공통 자리로 옮기고 앱 시험(Ctrl+S → 세이브 폴더)을 더했다.
+- Wine · xdotool 의 클릭이 ImGui 단추에 닿지 않아 불러오기 · 재생 단추는 단위 시험(로컬 서버 · 패널 그리기)으로 확인했다.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드(프로토콜 7 — 서버 · 클라이언트 둘 다) → ctest, MANUAL-QA Phase 12D.
+- [계획] 세이브 지우기 · 이름 바꾸기 · 썸네일 · 자동 저장, 클라이언트로 내려받기 · 올리기, 재생 되감기 · 시크, 저장을 Worker 로.
+- 다음: Phase 13 (Linux — X11 → Vulkan → Wayland).
+
+---
+
 ## 2026-10-12 — Phase 12C: 역할 · 접속자 · 콘텐츠 편집 — 역할은 Net 절반의 접속자 표로, 콘텐츠는 EditContent → 월드 오버레이 (프로토콜 6)
 
 **무엇을**

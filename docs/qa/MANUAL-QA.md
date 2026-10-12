@@ -362,6 +362,45 @@ ctest --test-dir cmake-build-debug --output-on-failure
     overlay/ 폴더가 읽힌다 (12D 에서 UI)
 ```
 
+## Phase 12D — 세이브 · 불러오기 · 리플레이 ("월드" 패널)
+
+**먼저 다시 빌드** (프로토콜 7 — 서버 · 클라이언트를 같이). "월드" 패널(접속자 아래, 처음엔 접혀 있다 — 제목 줄
+"월드 — 보통"을 눌러 펼친다)이 새로 생긴다. 세이브 · 리플레이는 작업 폴더의 `saves\` 에 (`--saves <폴더>` 로 바꾼다).
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+```
+
+```text
+[ ] "월드 — 보통" 제목 줄을 눌러 펼친다: "보통 · 월드 #0", 이름 칸 quicksave, "저장된 세이브 · 리플레이가 없습니다"
+[ ] 개체 몇 개를 배치하고 Ctrl+S → 패널 아래 "저장 'quicksave': tick … · 엔티티 …", 목록에 "quicksave · tick … · 개체 …",
+    탐색기에 saves\quicksave\world.json
+[ ] 배치한 개체를 지우고 목록에서 quicksave 를 골라 "불러오기" → 지운 개체가 돌아오고 "월드 #1", 편집 패널의 되돌리기가 비고
+    "서버 월드가 바뀌어 되돌리기 기록을 비웠습니다"
+[ ] 이름을 rec1 로 바꾸고 "기록 시작" → 상태 "기록 중 'rec1' — N call" (1 초마다), 몇 가지 편집 · 일시정지 편집 · 속도 바꾸기 →
+    "기록 끝" → 목록에 "[리플레이] rec1". 기록 · 재생 중에는 접어도 제목 줄에 상태가 보인다
+[ ] rec1 을 골라 "재생" → 기록을 시작한 순간으로 돌아가 같은 편집이 다시 일어난다. 상태 "재생 'rec1' a/b call · 해시 n 일치 · ×1"
+[ ] 재생 중 Space = 멈춤(상태에 "멈춤"), . = 한 call, = = 빠르게. 배치 · 이동을 해 보면 "리플레이 재생 중에는 편집할 수 없습니다"
+[ ] 끝나면 "리플레이 재생 'rec1': 재생 끝 — … call, 해시 n개 일치", 월드는 일시정지 — Space 로 이어서 돌고 편집된다
+[ ] 이름 칸에 "a b" 처럼 공백 · 한글을 넣으면 저장 · 기록 단추가 흐려진다
+```
+
+원격 — 서버 하나 · 클라이언트 둘:
+
+```powershell
+.\cmake-build-release\bin\SandboxServer.exe --world ecosystem_survival --owner-key 비밀 --saves D:\sbx_saves
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 주인 --owner-key 비밀
+.\cmake-build-release\bin\SandboxClient.exe --console --connect 127.0.0.1:7777 --name 손님
+```
+
+```text
+[ ] 손님(editor) 창: "월드" 패널의 목록은 보이지만 저장 · 불러오기 · 기록 · 재생 단추가 흐리다. Ctrl+S = "저장 'quicksave' 거절:
+    editor 역할로는 저장 요청을 할 수 없습니다 (admin 부터)"
+[ ] 주인이 저장 → 손님의 목록에도 (새로고침) 보인다. 주인이 불러오기 → 두 창 모두 그 세이브로 바뀌고 "월드 #1"
+[ ] 주인이 기록 → 재생: 두 창이 같은 재생을 본다. 손님이 편집하면 거절. 끝나면 두 창 모두 마지막 줄에 "해시 n개 일치"
+[ ] 기록 중에 서버 창에서 Ctrl+C → 로그 "서버를 멈추며 리플레이를 썼습니다: …", D:\sbx_saves\<이름>\replay.sbxr 가 생긴다
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text
@@ -369,8 +408,8 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] 서버 재시작 없이 클라이언트 재접속 (토큰) — Phase 11 위 항목
 [ ] Observer 역할에서 편집 UI 비활성 + 서버 거절
 [ ] Undo/Redo 10단계, 다른 사용자 편집과 섞였을 때 경고
-[ ] 저장 → 서버 재시작 → 로드 → 동일 상태
-[ ] 리플레이 재생이 라이브와 같아 보인다
+[ ] 저장 → 서버 재시작 → 로드 → 동일 상태 (12D: 서버를 켠 채 "월드" 패널로도)
+[ ] 리플레이 재생이 라이브와 같아 보인다 (12D 위 항목)
 ```
 
 ## Phase 13·14 — 이식

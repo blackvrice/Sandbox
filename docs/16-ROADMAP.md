@@ -29,7 +29,7 @@ Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
-Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 (2026-10-12) · 12D [계획]
+Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
 Phase 13  Linux (X11 → Vulkan → Wayland)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
@@ -454,7 +454,14 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           ContentOverlay 메시지로 모두에게 · 늦게 들어온 클라이언트에 전체. "콘텐츠" 창 (JSON 편집 · 검사 · 적용 · 팩 값으로 · 새 항목,
           행동 상태 · 전이 요약). 폼 · 노드 그래프 편집은 [계획]
   프로토콜 6 (EditContent · ContentOverlay · PlayerList · SetRole · SetRoleResult · Auth.ownerKey — 08 5장)
-12D 12.7 세이브 · 로드 · 리플레이 UI + edit_session D3 · 두 클라이언트 동시 편집 · 권한 매트릭스 (Phase 12 완료 기준)  [계획]
+12D 세이브 · 리플레이 · 완료 기준 ✅ (2026-10-12, ADR-0031)
+  12.7 ✅ 서버가 틱 사이에 저장 · 불러오기 · 리플레이 기록 · 재생 (WorldOp — 목록 = 모두, 나머지 = admin 부터, <--saves>/<이름>).
+          불러오기 · 재생은 모두의 월드를 바꾼다 — generation · 새 epoch · WorldChanged (클라이언트는 새 generation 스냅숏을
+          WorldChanged 까지 쥔다), 에디터 기록 비우기. 재생 = ReplayPlayer 한 call 씩 (편집 거절, 실행 제어 = 재생 멈춤 · 한 call ·
+          배율, 끝나면 해시 결과 · 일시정지). "월드" 패널 · Ctrl+S
+  완료 ✅ edit_session 시나리오 (편집 명령 전 종류 · 일시정지 편집 · 오버레이) D1 · D2 · D3 · D5, 두 클라이언트 동시 편집 수렴
+          (test_multi_client), 역할 × 명령 권한 표 (5 역할 × 명령 12 종 + 월드 요청 5 종)
+  프로토콜 7 (WorldOp · WorldOpResult · WorldList · WorldChanged · generation · 재생 통계 — 08 5장)
 ```
 
 ```text
@@ -489,6 +496,18 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
            툴만 · "보기만" · 2 키 거절 문구, "시뮬레이션"의 실행 제어 꺼짐. 로컬: "콘텐츠" 창 (규칙 JSON · 요약)
   남음     사용자 PC (MSVC): 다시 빌드(프로토콜 6 — 서버 · 클라이언트 둘 다) → ctest, MANUAL-QA Phase 12C
   다음     12D — 세이브 · 로드 · 리플레이 UI + 완료 기준 (edit_session D3 · 두 클라이언트 동시 편집 · 역할 × 명령 매트릭스)
+```
+
+```text
+12D 검증 (2026-10-12) — Phase 12 완료
+  Linux    clang Debug (커밋마다) · gcc Debug: ctest 46/46 (det_edit_session · det_replay_edit_session 추가, 골든 그대로) —
+           unit_core edit_session, unit_network test_world_ops 6 · test_multi_client 2, unit_editor test_editor_world_change,
+           unit_client test_world_panel 4. TSan network · net · client · editor · content 129 케이스 경고 0
+  Windows  MinGW 빌드 경고 0 (커밋마다) + Wine: network · net · core · foundation · client · editor · content · persist
+           230 → 238 → 243 케이스. 창 ecosystem_small --saves (sim_check 로 만든 리플레이 · 세이브): 접힌 "월드 — 보통",
+           펼친 패널의 목록 · Ctrl+S → 목록에 quicksave · 결과 줄
+  남음     사용자 PC (MSVC): 다시 빌드(프로토콜 7 — 서버 · 클라이언트 둘 다) → ctest, MANUAL-QA Phase 12D
+  다음     Phase 13 — Linux (X11 → Vulkan → Wayland)
 ```
 
 ### Phase 13 — Linux

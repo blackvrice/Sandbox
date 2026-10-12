@@ -9,6 +9,8 @@
 > 세션 토큰 다시 접속(4장), 프로토콜 4. **Phase 12B** — 프로토콜 5: 선택 상세에 서버 전용 EditorVisible 컴포넌트 값 (Inspector,
 > [ADR-0029](adr/0029-inspector-server-values-undo-entries.md)). **Phase 12C** — 프로토콜 6: 접속자 표 · 역할 바꾸기 · 주인 열쇠(4장),
 > 월드 오버레이 전달(ContentOverlay) · EditContent 명령 ([ADR-0030](adr/0030-roles-player-list-content-overlay.md)).
+> **Phase 12D** — 프로토콜 7: 세이브 · 로드 · 리플레이 기록 · 재생 요청(WorldOp), 서버 월드가 바뀌면 WorldChanged 와 generation
+> (4장 · 5장, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -150,27 +152,44 @@ Phase 12C (ADR-0030):
            (Bulk — 스냅숏보다 먼저 내보낸다). ClientSession 이 모아 overlay() 로 — Bulk 라 Welcome 보다 먼저 와도 받는다
 ```
 
+Phase 12D (ADR-0031):
+
+```text
+월드 요청  WorldOp{op, name} — 1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생. 이름 = [A-Za-z0-9_-]{1,48}
+           (<서버 --saves>/<이름> — 경로가 아니다). Net 절반: 목록 = 모든 역할, 나머지 = admin 부터 (실행 제어 열). Sim 절반이
+           틱 사이에 해서 보낸 사람에게 WorldOpResult (목록은 WorldList — 이름 순, world.json 요약)
+월드 바꾸기 불러오기 · 재생 = 같은 팩 콘텐츠의 세이브만 (world.json 의 contentHash). generation++ → 복제를 클라이언트마다 새 epoch
+           (ReplicationWriter::resetWorld) → 모두에게 WorldChanged{generation, WorldMeta, reason, name} + ContentOverlay{reset}.
+           그 배치에 들어온 명령은 거절 ("월드가 바뀌어 적용하지 않았습니다"). 결과를 기다리던 명령 · 선택 상세는 버린다
+generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드의 지형보다 먼저). ClientSession: 지금보다 새 generation
+           의 Snapshot 은 WorldChanged 까지 쥔다 (64 개), 옛 것은 버린다 (ack 없음). WorldChanged → 새 경계로 ClientWorld 를 다시
+           만들고 쥔 것을 적용 · 선택 상세를 비운다. Welcome 보다 먼저 온 WorldChanged 는 그 월드로 시작한다
+리플레이   기록 = <이름>/start/ 세이브 + ReplayRecorder (tick() 마다). 재생 = start 를 불러와 바꾸고 Sim 단계마다 ReplayPlayer 의
+           call 하나 (해시 비교). 재생 중 편집 명령은 거절, Pause · Resume · Step n · Speed 는 재생을 다룬다. 끝나면 모두에게
+           WorldOpResult{재생, 요약} 후 그 월드에서 일시정지. ServerStats 에 기록 · 재생 상태. 서버를 멈추면 기록 중인 것을 쓴다
+```
+
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 6`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 7`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
 | 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
 | 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64, ownerKey str(64, 12C)            |
-| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken bytes(16)              |
+| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken(16), generation (12D)  |
 | 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료 중), detail str(256), serverProtocolVersion u32, contentHash u64, packs[] str(64) × ≤16     |
 | 10 | Subscribe      | C→S    | Control  | all bool, (all 이 아니면) 청크 사각형 minX · minY · maxX · maxY zigzag (양끝 포함, 뒤집힘 · 축마다 128 이상 = 형식 오류)                                              |
 | 11 | Ready          | C→S    | Control  | baselineTick u64 `[계획 — 쓰지 않는다: Welcome 뒤 Snapshot 이 바로 시작, ADR-0025]`                                                                                   |
 | 20 | Command        | C→S    | Control  | sequence u32 (1 부터 단조 증가), payload (5.1)                                                                                                                        |
 | 21 | CommandResult  | S→C    | Control  | sequence u32, accepted bool, reason u8 (ErrorCode), detail str(256), appliedTick u64 (틱 전 거절이면 0), created[] NetEntityId                                        |
-| 30 | Snapshot       | S→C    | Snapshot | snapshotId · epoch · baselineId · serverTick varint, paused, speed f32, complete, entities[], despawns[] NetEntityId (6.2)                                            |
+| 30 | Snapshot       | S→C    | Snapshot | generation (12D) · snapshotId · epoch · baselineId · serverTick varint, paused, speed f32, complete, entities[], despawns[] NetEntityId (6.2)                         |
 | 31 | SnapshotAck    | C→S    | Snapshot | epoch varint, snapshotId varint (적용한 가장 최근 것)                                                                                                                 |
 | 40 | TerrainChunk   | S→C    | Bulk     | x · y zigzag, revision varint, runs[] {count, material} varint (길이 부호화, 머티리얼 번호 kTilesPerChunk 개)                                                         |
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
 | 42 | ContentOverlay | S→C    | Bulk     | reset bool, items[] {kind u8 (0 prefab · 1 rule · 2 behavior), id str(64), json str(16 KB — "" = 지움)} × ≤ 1024 (12C, 16 MB 까지)                                    |
-| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz). [계획] systemTimes[] · pathQueue · jobQueue |
+| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz), 기록 · 재생 상태 (12D) [계획] systemTimes[] |
 | 51 | Inspect        | C→S    | Control  | ids[] NetEntityId varint × ≤ 32 (빈 목록 = 그만, 10B)                                                                                                                 |
 | 52 | InspectResult  | S→C    | Snapshot | serverTick, entries[] {netId, state str(64), sensorRadius f32, path[] Vec2 × ≤ 64, goal?, target netId} (10B)                                                         |
 | 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
@@ -178,6 +197,10 @@ Phase 12C (ADR-0030):
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
 | 63 | SetRole        | C→S    | Control  | clientId varint, role u8 — 역할 바꾸기 요청 (12C, 10-EDITOR 7장)                                                                                                      |
 | 64 | SetRoleResult  | S→C    | Control  | clientId varint, role u8, accepted bool, detail str(256) — SetRole 을 보낸 사람에게 (12C)                                                                             |
+| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 — 그 밖은 형식 오류), name str(48) (12D)                                                       |
+| 66 | WorldOpResult  | S→C    | Control  | op u8, name str(48), accepted bool, detail str(256) — 보낸 사람에게 (재생 끝은 모두에게) (12D)                                                                        |
+| 67 | WorldList      | S→C    | Control  | worlds[] {name str(48), replay bool, tick varint, entities varint} × ≤ 256, 이름 순 (12D)                                                                             |
+| 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생), name str(48) (12D)                                          |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 (Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
@@ -189,6 +212,9 @@ InspectResult — 서버 전용 컴포넌트(ai.behavior · ai.sensor · ai.path
 EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플렉션 JSON, 에디터 Inspector 가 쓴다 (ADR-0029).
 프로토콜 6 (12C): 명령 EditContent(5.1 태그 8), ContentOverlay(42 — Snapshot · TerrainChunk 처럼 16 MB 까지), PlayerList(61 —
 예약했던 RoleChanged 자리), SetRole(63) · SetRoleResult(64), Auth 끝에 ownerKey (ADR-0030).
+프로토콜 7 (12D): WorldOp(65) · WorldOpResult(66) · WorldList(67) · WorldChanged(68 — Bulk), Welcome 끝에 generation varint,
+Snapshot 처음에 generation varint, ServerStats 끝에 mode u8 (0 보통 · 1 기록 중 · 2 재생 중) · modeName str(48) · replayCall ·
+replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySpeed f32 (ADR-0031).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -462,18 +488,22 @@ Simulation 30 TPS ≠ Snapshot 15 Hz (2틱마다, 틱 경계 정렬) ≠ Render 
 - 예산 우선순위: 가까운 것 먼저 · 미룬 개체도 결국 · spawn 먼저                      ✅ Phase 11 (test_interest)
 - 다시 접속: 같은 번호로 돌아오고 그동안 옛 복제본을 그린다 · 60 초 넘으면 실패      ✅ Phase 11 (test_network_session)
 - 대역폭: 50k 월드에서 클라이언트당 바이트가 가시 엔티티 수에 비례                  ✅ Phase 11 (sbx_bench net.snapshot, 14 7.11)
+- 월드 요청: 저장 · 목록 · 불러오기 · 같은 배치 거절 · 기록 → 재생 · 재생 제어      ✅ Phase 12D (test_world_ops)
+- 새 generation 스냅숏은 WorldChanged 까지 쥔다 · 이른 WorldChanged                 ✅ Phase 12D (test_world_ops)
+- 두 클라이언트 동시 편집 수렴 · 역할 × 명령 권한 표 (서버 끝까지)                  ✅ Phase 12D (test_multi_client)
 ```
 
 ---
 
-## 13. 구현 (Phase 9 · 10A · 10B · 11)
+## 13. 구현 (Phase 9 · 10A · 10B · 11 · 12D)
 
 ```text
 network/transport/   Transport.hpp (INetworkTransport · Endpoint · DisconnectReason) · LoopbackTransport(+ LoopbackNetwork 허브,
                      시험용 severAll — 모든 연결을 시간 초과로 끊는다, 11) · SimulatedTransport · EnetTransport (enet.h 는 이 .cpp 에만)
 network/protocol/    BitStream · Messages (카탈로그 · encode/decode · Role · RejectReason) · CommandCodec (5.1)
-network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded) · CommandValidator · LocalServerHost (싱글플레이 —
-                     ServerHost + Loopback, 역할 Owner · 예산 없음, 10B)
+network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded — 12D: 월드 요청 · 월드 바꾸기 · 리플레이 기록 · 재생) ·
+                     CommandValidator · LocalServerHost (싱글플레이 — ServerHost + Loopback, 역할 Owner · 예산 없음, 10B ·
+                     저장 폴더 --saves, 12D)
 network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack · 선택 상세) · ClientWorld (복제 월드,
                      6.4) · InterpolationClock (9장)
 network/replication/ ReplicationWriter (6.1 · 6.3 · 8장 관심 · 우선순위 — Simulation 스레드) · Inspect (InspectResult 만들기)
@@ -494,5 +524,7 @@ Simulation 스레드 30 TPS × speed 로 틱. inbox → executeTick 스탬프 �
                   스냅숏 간격(실제 시간)마다 ReplicationWriter::build + InspectResult (roster · ack · Inspect 요청 · Subscribe 는
                   Net 절반이 큐로 넘긴다 — Inspect 집합은 alwaysRelevant 로도) → outbox (Phase 10A · 10B · 11)
 토큰 표           Net 절반에만 (월드와 무관). 끊긴 토큰은 netStep 마다 만료 검사 (Phase 11)
-멈추기            Sim 멈춤 → Net 멈춤 → 모두에게 Disconnect{ServerShutdown} + 끊기 → drain(300 ms)
+월드 요청 (12D)   Net 절반이 권한으로 거른 WorldOp 을 큐로 → Sim 절반이 틱 사이에 (inbox 를 넣기 전). 월드를 바꾸면 그 배치의 명령은
+                  거절. 재생 중에는 ScenarioRunner.step 대신 ReplayPlayer.step (재생 배율로 단계 간격을 나눈다)
+멈추기            Sim 멈춤 → (기록 중이면 리플레이를 쓴다) → Net 멈춤 → 모두에게 Disconnect{ServerShutdown} + 끊기 → drain(300 ms)
 ```
