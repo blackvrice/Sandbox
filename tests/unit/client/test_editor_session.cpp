@@ -10,6 +10,8 @@
 #include "apps/client/Application.hpp"
 #include "apps/client/DefaultInput.hpp"
 #include "apps/client/NetworkSession.hpp"
+#include "core/components/core/Movement.hpp"
+#include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
 #include "editor/Editor.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
@@ -138,6 +140,67 @@ TEST_SUITE("client") {
         CHECK(r.ed.stats().accepted == 4);
     }
 
+    TEST_CASE(
+        "inspector and undo on a local server: server-only value edit, undo restores, deleted entity comes back") {
+        EditRig r;
+        r.until([&] { return r.ns->ready(); });
+        r.ns->togglePause();
+        r.until([&] { return r.ns->paused(); });
+        r.ed.setTool(editor::Tool::Place);
+        r.ed.settings().prefab = "eco.rabbit";
+        auto in = r.input({2.5f, 3.5f});
+        in.primaryPressed = true;
+        r.frame(in);
+        r.until([&] { return !r.ed.lastCreated().empty() && r.ed.idle(); });
+        const NetEntityId id = r.ed.lastCreated().front();
+        REQUIRE(r.ed.undoDepth() == 1);
+
+        const ecs::StableId movement = r.ns->catalog()->find("core.movement")->stableId;
+        const auto serverSpeed = [&](NetEntityId netId) {
+            const sim::SimulationWorld& sw = r.ns->localServer()->host().world();
+            const ecs::EntityId e = sw.resolve(netId);
+            const auto* m = e != ecs::kNullEntity ? sw.registry().tryRead<comp::Movement>(e) : nullptr;
+            return m != nullptr ? m->maxSpeed : -1.f;
+        };
+        const auto shownSpeed = [&](NetEntityId netId) -> f64 {
+            for (const editor::ComponentState& s : r.ns->components(netId)) {
+                if (s.stableId == movement) {
+                    CHECK_FALSE(s.replicated); // 서버 전용 — 선택 상세로 온다
+                    return s.value["maxSpeed"].get<f64>();
+                }
+            }
+            return -1;
+        };
+        r.ns->setSelection({id});
+        r.until([&] { return shownSpeed(id) == doctest::Approx(2.5); });
+
+        // Inspector 값 바꾸기 → 서버 값 → 선택 상세로 돌아온다
+        r.ed.setField(*r.ns, movement, "maxSpeed", 5.0);
+        r.until([&] { return r.ed.idle() && r.ed.undoDepth() == 2; });
+        CHECK(serverSpeed(id) == doctest::Approx(5.f));
+        r.until([&] { return shownSpeed(id) == doctest::Approx(5.0); });
+        CHECK(r.ed.undoLabel() == "core.movement.maxSpeed");
+
+        // 되돌리기 → 옛 값
+        r.ed.undo(*r.ns);
+        r.until([&] { return r.ed.idle() && r.ed.redoDepth() == 1; });
+        CHECK(serverSpeed(id) == doctest::Approx(2.5f));
+
+        // 지우기 → 되돌리기 = 같은 Prefab · 자리 · 값으로 새 개체 (새 netId)
+        in = r.input({1e4f, 1e4f});
+        in.deleteSelection = true;
+        r.frame(in);
+        r.until([&] { return r.ed.idle() && !r.drawnAt(id).has_value(); });
+        r.ed.undo(*r.ns);
+        r.until([&] { return r.ed.idle() && r.ed.remap().resolve(id) != id; });
+        const NetEntityId back = r.ed.remap().resolve(id);
+        r.until([&] { return r.drawnAt(back).has_value(); });
+        CHECK(r.drawnAt(back)->x == doctest::Approx(2.5f));
+        CHECK(r.drawnAt(back)->y == doctest::Approx(3.5f));
+        CHECK(serverSpeed(back) == doctest::Approx(2.5f));
+        CHECK(r.ed.stats().rejected == 0);
+    }
+
     TEST_CASE("app: number keys pick the tool, a left click places, the title shows the tool") {
         render::MaterialLibrary mats;
         auto ns = localSession(mats);
@@ -174,6 +237,23 @@ TEST_SUITE("client") {
         CHECK(app.editor().stats().sent == 1);
         CHECK(ns->clientWorld()->entityCount() >= before); // 생태계가 움직이니 수는 정확히 비교하지 않는다
         CHECK(ns->clientWorld()->find(app.editor().lastCreated().front()) != ecs::kNullEntity);
+
+        // Ctrl+Z: 방금 놓은 것을 지운다 (12B)
+        const NetEntityId placed = app.editor().lastCreated().front();
+        for (int i = 0; i < 60 && !app.editor().canUndo(); ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.editor().canUndo());
+        window.inject(KeyDown{Key::LeftCtrl, 0, {}, false});
+        window.inject(KeyDown{Key::Z, 0, {}, false});
+        window.inject(KeyUp{Key::Z, 0, {}});
+        REQUIRE(app.frame());
+        window.inject(KeyUp{Key::LeftCtrl, 0, {}});
+        for (int i = 0; i < 60 && ns->clientWorld()->find(placed) != ecs::kNullEntity; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(ns->clientWorld()->find(placed) == ecs::kNullEntity);
+        CHECK(app.editor().redoDepth() == 1);
 
         // 4 = 지형 툴, 1 = 다시 선택
         window.inject(KeyDown{Key::Digit4, 0, {}, false});

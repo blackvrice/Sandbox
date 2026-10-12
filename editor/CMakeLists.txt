@@ -4,7 +4,11 @@ add_library(SandboxEditor STATIC
     EditorHost.hpp
     Editor.hpp
     Editor.cpp
+    Undo.hpp
+    Undo.cpp
     ui/EditorPanel.hpp
     ui/EditorPanel.cpp
+    ui/InspectorPanel.hpp
+    ui/InspectorPanel.cpp
 )
 target_link_libraries(SandboxEditor PUBLIC SandboxCore SandboxRender PRIVATE sbx_imgui sbx_warnings)

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "core/content/ContentDatabase.hpp"
+#include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
 #include "render/renderer/RenderWorld.hpp"
 
@@ -65,10 +66,11 @@ void Editor::setTool(Tool t) {
     if (t == m_tool) {
         return;
     }
-    // 끌던 것은 버린다 (보낸 명령은 그대로)
+    // 끌던 것은 버린다 (보낸 명령은 그대로 — 열린 기록은 닫는다)
     m_drag = Drag::None;
     m_boxing = false;
     m_moving.clear();
+    endTxn();
     m_tool = t;
 }
 
@@ -99,12 +101,50 @@ void Editor::handleOutcomes(IEditorHost& host, f64 now) {
                 it->snapshotsAtAccept = host.snapshotsApplied();
             }
         }
+        // 되돌리기 기록 (12B): 편집 · 되돌리기 단계
+        for (Txn& txn : m_txns) {
+            for (TxnStep& s : txn.steps) {
+                if (s.sequence != o.sequence || s.done) {
+                    continue;
+                }
+                s.done = true;
+                s.accepted = o.accepted;
+                if (o.accepted && std::holds_alternative<cmd::CreateEntity>(s.forward.payload)) {
+                    s.forward.recreates = o.created; // 다시 하기에서 만들어질 새 netId 를 이 id 에 잇는다
+                    cmd::DeleteEntity del;
+                    del.targets = o.created;
+                    s.inverse = {UndoCmd{std::move(del), {}}};
+                }
+            }
+        }
+        if (m_replay) {
+            for (ReplayStep& s : m_replay->steps) {
+                if (s.sequence == o.sequence && !s.done) {
+                    s.done = true;
+                    s.accepted = o.accepted;
+                    for (usize i = 0; o.accepted && i < std::min(s.recreates.size(), o.created.size()); ++i) {
+                        m_remap.set(s.recreates[i], o.created[i]);
+                    }
+                }
+            }
+        }
         if (const auto it = std::ranges::find(m_creates, o.sequence); it != m_creates.end()) {
             m_creates.erase(it);
             if (o.accepted) {
                 m_lastCreated = std::move(o.created);
             }
         }
+    }
+    settleTxns();
+    if (m_replay && std::ranges::all_of(m_replay->steps, &ReplayStep::done)) {
+        const bool all = std::ranges::all_of(m_replay->steps, &ReplayStep::accepted);
+        if (all) {
+            (m_replay->undoing ? m_redo : m_undo).push_back(std::move(m_replay->entry));
+        } else {
+            m_message = std::format("{} 일부가 거절되어 기록에서 뺐습니다 ({})",
+                                    m_replay->undoing ? "되돌리기" : "다시 하기", m_replay->entry.label);
+        }
+        m_replay.reset();
     }
     // 받아들여진 이동: 그 뒤 처음 온 스냅숏의 틱까지 그린 틱이 따라오면 그려진 위치가 이미 옮긴 위치다
     std::erase_if(m_pending, [&](Pending& p) {
@@ -146,7 +186,7 @@ void Editor::placeAt(Vec2 at, IEditorHost& host) {
     cmd::CreateEntity c;
     c.position = p;
     c.prefab = m_settings.prefab;
-    if (const u32 seq = send(host, std::move(c)); seq != 0) {
+    if (const u32 seq = sendEdit(host, std::move(c), {}); seq != 0) { // 역명령(DeleteEntity)은 결과의 새 netId 로
         m_creates.push_back(seq);
     }
 }
@@ -191,7 +231,8 @@ void Editor::paintAlong(Vec2 from, Vec2 to, IEditorHost& host) {
         }
     }
     if (!paint.cells.empty()) {
-        (void)send(host, std::move(paint)); // 프레임당 하나
+        std::vector<UndoCmd> inverse = paintInverse(paint, *grid, *content); // 보내기 전 머티리얼
+        (void)sendEdit(host, std::move(paint), std::move(inverse));          // 프레임당 하나
     }
 }
 
@@ -222,6 +263,7 @@ void Editor::beginPress(const EditorInput& in, IEditorHost& host, bool secondary
         break;
     }
     case Tool::Place:
+        beginTxn("배치"); // 끌어서 놓은 것 전부 = 기록 한 칸
         m_drag = Drag::Place;
         m_lastPlace = in.cursor;
         placeAt(in.cursor, host);
@@ -241,6 +283,7 @@ void Editor::beginPress(const EditorInput& in, IEditorHost& host, bool secondary
             m_message = "칠할 머티리얼을 고르십시오 (편집 패널)";
             return;
         }
+        beginTxn(std::format("지형 {}", m_strokeMaterial)); // 붓질 한 번 = 기록 한 칸
         m_drag = Drag::Paint;
         m_lastPaint = in.cursor;
         paintAlong(in.cursor, in.cursor, host);
@@ -274,6 +317,9 @@ void Editor::continueDrag(const EditorInput& in, IEditorHost& host) {
 
 void Editor::endDrag(const EditorInput& in, IEditorHost& host) {
     const Drag drag = std::exchange(m_drag, Drag::None);
+    if (drag == Drag::Place || drag == Drag::Paint) {
+        endTxn();
+    }
     if (drag == Drag::Box) {
         std::vector<NetEntityId> ids;
         if (m_boxing) {
@@ -283,9 +329,10 @@ void Editor::endDrag(const EditorInput& in, IEditorHost& host) {
         }
         if (m_dragTool == Tool::Erase) {
             if (!ids.empty()) {
+                std::vector<UndoCmd> inverse = recreates(host, ids);
                 cmd::DeleteEntity d;
                 d.targets = std::move(ids);
-                (void)send(host, std::move(d));
+                (void)sendEdit(host, std::move(d), std::move(inverse));
             }
         } else if (!m_dragAdditive) {
             host.setSelection(std::move(ids));
@@ -310,7 +357,10 @@ void Editor::endDrag(const EditorInput& in, IEditorHost& host) {
             cmd::MoveEntity mv;
             mv.targets = m_moving;
             mv.value = delta;
-            if (const u32 seq = send(host, std::move(mv)); seq != 0) {
+            cmd::MoveEntity back;
+            back.targets = m_moving;
+            back.value = -delta;
+            if (const u32 seq = sendEdit(host, std::move(mv), {UndoCmd{std::move(back), {}}}); seq != 0) {
                 Pending p;
                 p.sequence = seq;
                 p.ids = m_moving;
@@ -364,11 +414,20 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
     if (in.tool) {
         setTool(*in.tool);
     }
+    if (in.undo) {
+        undo(host);
+    } else if (in.redo) {
+        redo(host);
+    }
+    if (in.focus) {
+        requestFocus();
+    }
     if (in.cancel) {
         if (m_drag != Drag::None) {
             m_drag = Drag::None;
             m_boxing = false;
             m_moving.clear();
+            endTxn();
         } else {
             host.setSelection({});
         }
@@ -376,7 +435,8 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
     if (in.deleteSelection && !host.selection().empty()) {
         cmd::DeleteEntity d;
         d.targets.assign(host.selection().begin(), host.selection().end());
-        (void)send(host, std::move(d));
+        std::vector<UndoCmd> inverse = recreates(host, d.targets);
+        (void)sendEdit(host, std::move(d), std::move(inverse));
         host.setSelection({});
     }
     if (m_drag == Drag::None) {
@@ -394,6 +454,195 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
         }
     }
     rebuildPreview(host);
+}
+
+// ---- 12B: 되돌리기 기록 ----
+
+void Editor::beginTxn(std::string label) {
+    endTxn();
+    m_txns.push_back({std::move(label), {}, true});
+}
+
+void Editor::endTxn() {
+    if (!m_txns.empty() && m_txns.back().open) {
+        m_txns.back().open = false;
+        settleTxns();
+    }
+}
+
+u32 Editor::sendEdit(IEditorHost& host, cmd::CommandPayload payload, std::vector<UndoCmd> inverse) {
+    const bool oneShot = m_txns.empty() || !m_txns.back().open;
+    if (oneShot) {
+        beginTxn(std::string(cmd::commandName(payload)));
+    }
+    cmd::CommandPayload forward = payload;
+    const u32 seq = send(host, std::move(payload));
+    if (seq != 0) {
+        m_txns.back().steps.push_back({seq, UndoCmd{std::move(forward), {}}, std::move(inverse)});
+    }
+    if (oneShot) {
+        endTxn();
+    }
+    return seq;
+}
+
+void Editor::settleTxns() {
+    // 앞에서부터: 닫혔고 결과가 다 온 것 → 받아들여진 단계만 기록 한 칸 (순서를 지키려고 앞이 끝나야 뒤를 본다)
+    while (!m_txns.empty() && !m_txns.front().open && std::ranges::all_of(m_txns.front().steps, &TxnStep::done)) {
+        Txn txn = std::move(m_txns.front());
+        m_txns.erase(m_txns.begin());
+        UndoEntry entry;
+        entry.label = std::move(txn.label);
+        for (TxnStep& s : txn.steps) {
+            if (s.accepted) {
+                entry.forward.push_back(std::move(s.forward));
+            }
+        }
+        for (auto it = txn.steps.rbegin(); it != txn.steps.rend(); ++it) {
+            if (it->accepted) {
+                for (UndoCmd& c : it->inverse) {
+                    entry.inverse.push_back(std::move(c));
+                }
+            }
+        }
+        if (entry.forward.empty()) {
+            continue; // 다 거절 — 기록하지 않는다
+        }
+        m_undo.push_back(std::move(entry));
+        if (m_undo.size() > kMaxUndo) {
+            m_undo.erase(m_undo.begin());
+        }
+        m_redo.clear();
+    }
+}
+
+void Editor::replay(IEditorHost& host, bool undoing) {
+    std::vector<UndoEntry>& from = undoing ? m_undo : m_redo;
+    if (from.empty()) {
+        return;
+    }
+    if (!idle()) {
+        m_message = "앞 편집의 결과를 기다리는 중입니다";
+        return;
+    }
+    Replay r;
+    r.undoing = undoing;
+    r.entry = std::move(from.back());
+    from.pop_back();
+    bool anySent = false;
+    for (const UndoCmd& c : undoing ? r.entry.inverse : r.entry.forward) {
+        cmd::CommandPayload p = c.payload;
+        m_remap.apply(p); // 다시 만든 개체는 새 netId 로
+        const u32 seq = send(host, std::move(p));
+        r.steps.push_back({seq, c.recreates, seq == 0, false});
+        anySent = anySent || seq != 0;
+    }
+    if (!anySent) {
+        from.push_back(std::move(r.entry)); // 하나도 못 보냈다 — 그대로 둔다
+        return;
+    }
+    m_replay = std::move(r);
+}
+
+void Editor::undo(IEditorHost& host) {
+    replay(host, true);
+}
+
+void Editor::redo(IEditorHost& host) {
+    replay(host, false);
+}
+
+std::string_view Editor::undoLabel() const noexcept {
+    return m_undo.empty() ? std::string_view() : std::string_view(m_undo.back().label);
+}
+
+std::string_view Editor::redoLabel() const noexcept {
+    return m_redo.empty() ? std::string_view() : std::string_view(m_redo.back().label);
+}
+
+std::vector<UndoCmd> Editor::recreates(IEditorHost& host, std::span<const NetEntityId> ids) const {
+    std::vector<UndoCmd> out;
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    if (catalog == nullptr) {
+        return out;
+    }
+    for (const NetEntityId id : ids) {
+        const std::vector<ComponentState> comps = host.components(id);
+        if (!comps.empty()) {
+            out.push_back(recreateCommand(id, comps, *catalog)); // 모르는 개체(관심 밖)는 되돌릴 수 없다
+        }
+    }
+    return out;
+}
+
+// ---- 12B: Inspector ----
+
+void Editor::setField(IEditorHost& host, ecs::StableId component, std::string_view field, const ecs::Json& value) {
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    const ecs::ComponentInfo* info = catalog != nullptr ? catalog->find(component) : nullptr;
+    if (info == nullptr) {
+        return;
+    }
+    beginTxn(std::format("{}.{}", info->name, field));
+    const std::string key(field);
+    for (const NetEntityId id : std::vector<NetEntityId>(host.selection().begin(), host.selection().end())) {
+        for (const ComponentState& s : host.components(id)) {
+            if (s.stableId != component || !s.value.is_object() || !s.value.contains(key) || s.value[key] == value) {
+                continue;
+            }
+            cmd::ChangeComponent change;
+            change.target = id;
+            change.stableId = component;
+            change.patch = ecs::Json::object({{key, value}});
+            cmd::ChangeComponent back = change;
+            back.patch = ecs::Json::object({{key, s.value[key]}});
+            (void)sendEdit(host, std::move(change), {UndoCmd{std::move(back), {}}});
+        }
+    }
+    endTxn();
+}
+
+void Editor::addComponent(IEditorHost& host, ecs::StableId component) {
+    beginTxn("컴포넌트 더하기");
+    for (const NetEntityId id : std::vector<NetEntityId>(host.selection().begin(), host.selection().end())) {
+        const auto comps = host.components(id);
+        if (comps.empty() ||
+            std::ranges::any_of(comps, [&](const ComponentState& s) { return s.stableId == component; })) {
+            continue;
+        }
+        cmd::AddComponent add;
+        add.target = id;
+        add.component = {component, ecs::Json::object()};
+        cmd::RemoveComponent back;
+        back.target = id;
+        back.stableId = component;
+        (void)sendEdit(host, std::move(add), {UndoCmd{std::move(back), {}}});
+    }
+    endTxn();
+}
+
+void Editor::removeComponent(IEditorHost& host, ecs::StableId component) {
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    const ecs::ComponentInfo* info = catalog != nullptr ? catalog->find(component) : nullptr;
+    if (info == nullptr) {
+        return;
+    }
+    beginTxn(std::format("{} 빼기", info->name));
+    for (const NetEntityId id : std::vector<NetEntityId>(host.selection().begin(), host.selection().end())) {
+        for (const ComponentState& s : host.components(id)) {
+            if (s.stableId != component) {
+                continue;
+            }
+            cmd::RemoveComponent rm;
+            rm.target = id;
+            rm.stableId = component;
+            cmd::AddComponent back;
+            back.target = id;
+            back.component = {component, withoutEntityRefs(s.value, *info)};
+            (void)sendEdit(host, std::move(rm), {UndoCmd{std::move(back), {}}});
+        }
+    }
+    endTxn();
 }
 
 void Editor::drawOverlay(render::DebugDrawList& out) const {

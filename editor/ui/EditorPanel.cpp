@@ -77,7 +77,8 @@ void materialList(Editor& editor, const content::ContentDatabase& content) {
 
 } // namespace
 
-void drawEditorPanel(Editor& editor, EditorPanelState& state, const content::ContentDatabase* content) {
+void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host) {
+    const content::ContentDatabase* content = host.content();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({vp->WorkPos.x + vp->WorkSize.x - 12, vp->WorkPos.y + vp->WorkSize.y - 12},
@@ -122,6 +123,21 @@ void drawEditorPanel(Editor& editor, EditorPanelState& state, const content::Con
         break;
     }
     ImGui::Separator();
+    // 되돌리기 · 다시 하기 (12B) — 단추 이름에 무엇을 되돌리는지
+    ImGui::BeginDisabled(!editor.canUndo());
+    const std::string undo = std::format("되돌리기 {}##undo", editor.undoLabel());
+    if (ImGui::Button(undo.c_str())) {
+        editor.undo(host);
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!editor.canRedo());
+    const std::string redo = std::format("다시 {}##redo", editor.redoLabel());
+    if (ImGui::Button(redo.c_str())) {
+        editor.redo(host);
+    }
+    ImGui::EndDisabled();
+    ImGui::TextDisabled("Ctrl+Z · Ctrl+Y — 기록 %zu · %zu", editor.undoDepth(), editor.redoDepth());
     const EditorStats& s = editor.stats();
     ImGui::Text("명령 %llu · 수락 %llu · 거절 %llu", static_cast<unsigned long long>(s.sent),
                 static_cast<unsigned long long>(s.accepted), static_cast<unsigned long long>(s.rejected));

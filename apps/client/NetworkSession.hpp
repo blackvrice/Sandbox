@@ -13,6 +13,7 @@
 // SpriteExtraction 이 그릴 거리를 만든다. 일시정지 · 한 틱 · 속도는 서버로 가는 명령 (역할이 모자라면 거절 — 상태 줄과
 // 네트워크 패널에 보인다). 선택은 netId 로, 선택한 개체의 서버 전용 상태는 Inspect 로 받는다.
 // Phase 12A: 에디터의 IEditorHost — 툴 명령을 서버로 보내고 결과를 돌려주며, EditPreview 를 그릴 때 더한다 (ADR-0028).
+// 12B: 컴포넌트 값 = 복제 월드의 EditorVisible 값 + 선택 상세(Inspect)의 서버 전용 값, 개체 목록, 그린 위치 (ADR-0029).
 // 한 스레드(Main)에서 쓴다.
 
 #include <filesystem>
@@ -89,6 +90,10 @@ public:
     void setSelection(std::vector<NetEntityId> ids) override;
     void setPreview(std::span<const editor::PreviewOffset> offsets) override;
     [[nodiscard]] u64 snapshotsApplied() const override { return m_seenSnapshots; }
+    [[nodiscard]] const ecs::ComponentCatalog* catalog() const override { return m_catalog.get(); }
+    [[nodiscard]] std::vector<editor::ComponentState> components(NetEntityId id) const override;
+    void listEntities(std::vector<editor::EntityRow>& out) const override;
+    [[nodiscard]] std::optional<Vec2> positionOf(NetEntityId id) const override;
 
     // 시험 · 끝 요약
     [[nodiscard]] const std::string& name() const noexcept { return m_name; }

@@ -9,6 +9,8 @@
 
 #include "apps/client/presentation/SelectionOverlay.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/core/Identity.hpp"
+#include "core/components/core/Tags.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "foundation/log/Log.hpp"
 #include "network/transport/EnetTransport.hpp"
@@ -540,6 +542,74 @@ void NetworkSession::applyPreview() {
             d.position += *o;
         }
     }
+}
+
+std::vector<editor::ComponentState> NetworkSession::components(NetEntityId id) const {
+    std::vector<editor::ComponentState> out;
+    const net::ClientWorld* w = clientWorld();
+    const ecs::EntityId e = w != nullptr ? w->find(id) : ecs::kNullEntity;
+    if (e == ecs::kNullEntity) {
+        return out;
+    }
+    // 서버 전용 값: 선택한 개체면 선택 상세에 온다 (한 스냅숏 늦을 수 있다)
+    const net::InspectEntry* inspect = nullptr;
+    if (m_session && m_session->inspect()) {
+        for (const net::InspectEntry& entry : m_session->inspect()->entries) {
+            if (entry.netId == id) {
+                inspect = &entry;
+            }
+        }
+    }
+    const ecs::Registry& reg = w->registry();
+    for (const ecs::ComponentInfo& info : w->catalog().all()) {
+        if (!ecs::hasFlag(info.flags, ecs::ComponentFlags::EditorVisible)) {
+            continue;
+        }
+        if (ecs::hasFlag(info.flags, ecs::ComponentFlags::Replicated)) {
+            const ecs::ComponentPoolBase* pool = reg.poolByStableId(info.stableId);
+            if (const void* raw = pool != nullptr ? pool->getRaw(e) : nullptr) {
+                ecs::Json j;
+                info.writeJson(raw, j);
+                out.push_back({info.stableId, info.name, std::move(j), true});
+            }
+        } else if (inspect != nullptr) {
+            for (const net::InspectComponent& c : inspect->components) {
+                if (c.stableId != info.stableId) {
+                    continue;
+                }
+                ecs::Json j = ecs::Json::parse(c.json, nullptr, false);
+                if (!j.is_discarded()) {
+                    out.push_back({info.stableId, info.name, std::move(j), false});
+                }
+            }
+        }
+    }
+    return out;
+}
+
+void NetworkSession::listEntities(std::vector<editor::EntityRow>& out) const {
+    out.clear();
+    const net::ClientWorld* w = clientWorld();
+    if (w == nullptr) {
+        return;
+    }
+    const ecs::Registry& reg = w->registry();
+    reg.forEachEntityByIndex([&](ecs::EntityId e) {
+        if (const auto* ni = reg.tryRead<comp::NetIdentity>(e)) {
+            const auto* prefab = reg.tryRead<comp::PrefabSource>(e);
+            out.push_back({ni->netId, prefab != nullptr ? prefab->prefab.view() : std::string_view()});
+        }
+    });
+    std::ranges::sort(out, {}, &editor::EntityRow::id);
+}
+
+std::optional<Vec2> NetworkSession::positionOf(NetEntityId id) const {
+    for (const SnapshotSprite& s : m_snapshot.sprites) {
+        if (s.id == id) {
+            return s.position;
+        }
+    }
+    return std::nullopt;
 }
 
 void NetworkSession::clearSelection() {

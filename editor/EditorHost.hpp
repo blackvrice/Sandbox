@@ -5,20 +5,28 @@
 //                 SandboxClient 의 NetworkSession 이 ClientSession 으로 서버에 보낸다 (싱글플레이도 같은 길).
 //   IEditorHost   에디터가 보는 월드: 복제 월드의 콘텐츠 · 지형, 그린 개체 고르기, 선택(클라이언트 로컬 — E3),
 //                 EditPreview(서버가 확정할 때까지 옮겨 그리기), 보낸 명령의 결과.
+//                 12B: 컴포넌트 값(Inspector · Undo 의 이전 값 — 복제 값 + 선택한 개체의 서버 전용 값), 개체
+//                 목록(Hierarchy), 그린 위치(카메라 맞추기).
 //
 // 에디터는 월드를 직접 바꾸지 않는다. 한 스레드(Main)에서 쓴다.
 
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/command/SimCommand.hpp"
 #include "core/components/core/Identity.hpp"
+#include "core/ecs/Component.hpp"
+#include "core/serialization/JsonVisitor.hpp"
 #include "render/renderer/Camera2D.hpp"
 
 namespace sbx::content {
 class ContentDatabase;
+}
+namespace sbx::ecs {
+class ComponentCatalog;
 }
 namespace sbx::world {
 class WorldGrid;
@@ -48,6 +56,20 @@ struct PreviewOffset {
     Vec2 offset{};
 };
 
+// 개체 하나의 컴포넌트 값 (Inspector · Undo — 12B)
+struct ComponentState {
+    ecs::StableId stableId = 0;
+    std::string_view name;  // 카탈로그 이름 (정적 수명)
+    ecs::Json value;        // 리플렉션 JSON
+    bool replicated = true; // false = 서버가 선택 상세(Inspect)로 준 값 — 선택한 개체만, 한 스냅숏 늦을 수 있다
+};
+
+// Hierarchy 한 줄
+struct EntityRow {
+    NetEntityId id = kInvalidNetEntityId;
+    std::string_view prefab; // core.prefab (없으면 빈 문자열) — 다음 update 까지 유효
+};
+
 class IEditorHost : public ICommandSink {
 public:
     // submit 으로 보낸 명령의 결과 (도착 순서). 가져가면 비운다
@@ -67,6 +89,15 @@ public:
     [[nodiscard]] virtual u64 snapshotsApplied() const = 0;
     [[nodiscard]] virtual u64 serverTick() const = 0;
     [[nodiscard]] virtual f64 renderTick() const = 0;
+
+    // ---- 12B ----
+    [[nodiscard]] virtual const ecs::ComponentCatalog* catalog() const = 0;
+    // EditorVisible 컴포넌트 (stableId 오름차순). 모르는 개체면 빈 목록
+    [[nodiscard]] virtual std::vector<ComponentState> components(NetEntityId id) const = 0;
+    // 복제 월드의 개체 (관심 영역 안), netId 오름차순
+    virtual void listEntities(std::vector<EntityRow>& out) const = 0;
+    // 그린 위치 (없으면 nullopt)
+    [[nodiscard]] virtual std::optional<Vec2> positionOf(NetEntityId id) const = 0;
 };
 
 } // namespace sbx::editor

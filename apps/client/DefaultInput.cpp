@@ -37,6 +37,7 @@ std::string_view defaultInputJson() noexcept {
     "editor.undo": ["Ctrl+Z"],
     "editor.redo": ["Ctrl+Y", "Ctrl+Shift+Z"],
     "editor.save": ["Ctrl+S"],
+    "editor.focus": ["F"],
     "sim.toggle_pause": ["Space"],
     "sim.step": ["Period"],
     "sim.speed_up": ["Equal", "KpAdd"],

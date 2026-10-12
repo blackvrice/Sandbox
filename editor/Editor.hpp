@@ -14,15 +14,21 @@
 // EditPreview 걷기: 거절되면 바로. 받아들여지면 그 뒤 처음 적용한 스냅숏의 서버 틱까지 그린 틱이 따라오면 (그때
 // 그려지는 위치가 옮긴 위치다). 결과가 오지 않으면(끊김) 3 초 뒤.
 //
+// 12B: Inspector 값 바꾸기 · 컴포넌트 더하기/빼기 (선택한 개체 전부), 되돌리기 · 다시 하기 (Undo.hpp — 편집 한 번 =
+// 기록 한 칸, 받아들여진 명령만). 되돌리기 · 다시 하기는 앞 편집의 결과가 다 온 뒤에.
+//
 // 에디터는 월드를 바꾸지 않는다 — 명령만 낸다 (E1). 툴 상태 · 선택은 클라이언트 로컬 (E3).
 
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "editor/EditorHost.hpp"
+#include "editor/Undo.hpp"
 #include "render/renderer/DebugDraw.hpp"
 
 namespace sbx::editor {
@@ -43,6 +49,9 @@ struct EditorInput {
     bool additive = false;        // Shift (Select · Move 의 빈 곳 클릭)
     bool cancel = false;          // Esc — 끌기 취소 · 선택 해제
     bool deleteSelection = false; // Delete
+    bool undo = false;            // Ctrl+Z (12B)
+    bool redo = false;            // Ctrl+Y
+    bool focus = false;           // F — 선택으로 카메라
     std::optional<Tool> tool;     // 단축키로 고른 툴
 };
 
@@ -68,6 +77,7 @@ public:
     static constexpr f64 kPreviewTimeoutSeconds = 3.0;
     static constexpr u32 kMaxBrushRadius = 8;
     static constexpr usize kMaxCellsPerCommand = 4096; // PaintTerrain 상한 (03 4.1)
+    static constexpr usize kMaxUndo = 100;
 
     void update(const EditorInput& in, IEditorHost& host);
     // 끌고 있는 박스 · 브러시 원 · 배치 자리 (월드 선 — SelectionPass)
@@ -86,6 +96,29 @@ public:
     // 제목 줄 한 토막 ("툴 배치 eco.rabbit")
     [[nodiscard]] std::string status() const;
 
+    // ---- 12B: Inspector ----
+    // 선택한 개체 중 그 컴포넌트가 있는 것 전부에 ChangeComponent{field: value} (값이 같으면 보내지 않는다). 기록 한 칸
+    void setField(IEditorHost& host, ecs::StableId component, std::string_view field, const ecs::Json& value);
+    void addComponent(IEditorHost& host, ecs::StableId component);    // 없는 개체에만
+    void removeComponent(IEditorHost& host, ecs::StableId component); // 있는 개체에서
+
+    // ---- 12B: 되돌리기 ----
+    void undo(IEditorHost& host);
+    void redo(IEditorHost& host);
+    [[nodiscard]] bool canUndo() const noexcept { return !m_undo.empty() && idle(); }
+    [[nodiscard]] bool canRedo() const noexcept { return !m_redo.empty() && idle(); }
+    [[nodiscard]] std::string_view undoLabel() const noexcept;
+    [[nodiscard]] std::string_view redoLabel() const noexcept;
+    [[nodiscard]] usize undoDepth() const noexcept { return m_undo.size(); }
+    [[nodiscard]] usize redoDepth() const noexcept { return m_redo.size(); }
+    [[nodiscard]] const IdRemap& remap() const noexcept { return m_remap; }
+    // 결과를 기다리는 편집 · 되돌리기가 없다
+    [[nodiscard]] bool idle() const noexcept { return m_txns.empty() && !m_replay; }
+
+    // 선택으로 카메라 맞추기 (F 키 · Hierarchy 두 번 클릭) — Application 이 가져간다
+    void requestFocus() noexcept { m_focusRequested = true; }
+    [[nodiscard]] bool takeFocusRequest() noexcept { return std::exchange(m_focusRequested, false); }
+
 private:
     enum class Drag : u8 { None = 0, Box, Move, Place, Paint };
     struct Pending {
@@ -99,6 +132,13 @@ private:
     };
 
     u32 send(IEditorHost& host, cmd::CommandPayload payload);
+    // 편집 명령: 보내고 지금 열린 기록(없으면 label 로 하나)에 역명령과 함께 둔다
+    u32 sendEdit(IEditorHost& host, cmd::CommandPayload payload, std::vector<UndoCmd> inverse);
+    void beginTxn(std::string label);
+    void endTxn();
+    void settleTxns();
+    void replay(IEditorHost& host, bool undoing);
+    [[nodiscard]] std::vector<UndoCmd> recreates(IEditorHost& host, std::span<const NetEntityId> ids) const;
     void handleOutcomes(IEditorHost& host, f64 now);
     void beginPress(const EditorInput& in, IEditorHost& host, bool secondary);
     void continueDrag(const EditorInput& in, IEditorHost& host);
@@ -131,6 +171,37 @@ private:
     std::vector<PreviewOffset> m_preview; // 지금 그리는 것 (끄는 중 + m_pending)
     std::vector<u32> m_creates;           // 결과를 기다리는 CreateEntity
     std::vector<NetEntityId> m_lastCreated;
+
+    // 되돌리기 (12B)
+    struct TxnStep {
+        u32 sequence = 0;
+        UndoCmd forward;
+        std::vector<UndoCmd> inverse;
+        bool done = false;
+        bool accepted = false;
+    };
+    struct Txn {
+        std::string label;
+        std::vector<TxnStep> steps;
+        bool open = true;
+    };
+    struct ReplayStep {
+        u32 sequence = 0;
+        std::vector<NetEntityId> recreates;
+        bool done = false;
+        bool accepted = false;
+    };
+    struct Replay {
+        bool undoing = true;
+        UndoEntry entry;
+        std::vector<ReplayStep> steps;
+    };
+    std::vector<Txn> m_txns; // 결과를 기다리는 편집 (마지막이 열려 있을 수 있다)
+    std::vector<UndoEntry> m_undo;
+    std::vector<UndoEntry> m_redo;
+    std::optional<Replay> m_replay;
+    IdRemap m_remap;
+    bool m_focusRequested = false;
 };
 
 } // namespace sbx::editor

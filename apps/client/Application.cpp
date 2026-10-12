@@ -141,6 +141,9 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.selectAdd = m_actionMap.find("editor.select_add");
     m_ids.context = m_actionMap.find("editor.context");
     m_ids.deleteSelection = m_actionMap.find("editor.delete");
+    m_ids.undo = m_actionMap.find("editor.undo");
+    m_ids.redo = m_actionMap.find("editor.redo");
+    m_ids.focus = m_actionMap.find("editor.focus");
     m_ids.tools = {m_actionMap.find("editor.tool.select"), m_actionMap.find("editor.tool.move"),
                    m_actionMap.find("editor.tool.place"), m_actionMap.find("editor.tool.terrain"),
                    m_actionMap.find("editor.tool.erase")};
@@ -296,6 +299,9 @@ void Application::handleEditor(editor::IEditorHost& host, const render::Camera2D
     ei.secondaryDown = down(m_ids.context);
     ei.cancel = pressed(m_ids.escape);
     ei.deleteSelection = pressed(m_ids.deleteSelection);
+    ei.undo = pressed(m_ids.undo);
+    ei.redo = pressed(m_ids.redo);
+    ei.focus = pressed(m_ids.focus);
     for (usize i = 0; i < m_ids.tools.size(); ++i) {
         if (pressed(m_ids.tools[i])) {
             ei.tool = static_cast<editor::Tool>(i);
@@ -335,6 +341,20 @@ void Application::handleWorldInput(f64 dt) {
     const Vec2 mousePx = in.mousePosition * scale;
     if (editor::IEditorHost* host = m_config.world->editorHost()) {
         handleEditor(*host, cam, mousePx, dt);
+        // F · 목록 두 번 클릭: 선택한 개체들의 가운데로 (줌은 그대로)
+        if (m_editor.takeFocusRequest()) {
+            Vec2 sum{};
+            usize n = 0;
+            for (const NetEntityId id : host->selection()) {
+                if (const auto p = host->positionOf(id)) {
+                    sum += *p;
+                    ++n;
+                }
+            }
+            if (n > 0) {
+                cam.center = sum / static_cast<f32>(n);
+            }
+        }
     } else {
         handleSelection(cam, mousePx);
     }
@@ -466,7 +486,9 @@ bool Application::frame() {
         if (inWorld) {
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {
-                editor::drawEditorPanel(m_editor, m_editorPanel, host->content()); // 12A "편집"
+                editor::drawEditorPanel(m_editor, m_editorPanel, *host);  // 12A "편집"
+                editor::drawInspectorPanel(m_editor, m_inspector, *host); // 12B
+                editor::drawHierarchyPanel(m_editor, m_inspector, *host);
             }
         }
         ui = m_config.ui->endFrame(m_cursor);
