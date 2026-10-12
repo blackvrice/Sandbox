@@ -41,6 +41,44 @@ std::string clampUtf8(std::string_view s, usize maxBytes) {
     return std::string(s.substr(0, keep));
 }
 
+ContentOverlayItem overlayItem(content::ContentKind kind, const std::string& id, const nlohmann::json* value) {
+    return ContentOverlayItem{kind, id, value != nullptr ? value->dump() : std::string{}};
+}
+
+// 들어온 클라이언트에 보낼 전체 (reset)
+ContentOverlayMsg fullOverlay(const content::ContentOverlay& overlay) {
+    ContentOverlayMsg m;
+    m.reset = true;
+    for (u8 k = 0; k < content::kContentKindCount; ++k) {
+        const auto kind = static_cast<content::ContentKind>(k);
+        for (const auto& [id, value] : overlay.items(kind)) {
+            m.items.push_back(overlayItem(kind, id, &value));
+        }
+    }
+    return m;
+}
+
+// before → after 에서 바뀐 항목 (지운 것은 json "")
+ContentOverlayMsg overlayDiff(const content::ContentOverlay& before, const content::ContentOverlay& after) {
+    ContentOverlayMsg m;
+    for (u8 k = 0; k < content::kContentKindCount; ++k) {
+        const auto kind = static_cast<content::ContentKind>(k);
+        for (const auto& [id, value] : after.items(kind)) {
+            const nlohmann::json* old = before.find(kind, id);
+            if (old == nullptr || *old != value) {
+                m.items.push_back(overlayItem(kind, id, &value));
+            }
+        }
+        for (const auto& [id, value] : before.items(kind)) {
+            (void)value;
+            if (after.find(kind, id) == nullptr) {
+                m.items.push_back(overlayItem(kind, id, nullptr));
+            }
+        }
+    }
+    return m;
+}
+
 } // namespace
 
 ServerHost::ServerHost(INetworkTransport& transport, std::unique_ptr<scenario::ScenarioRunner> runner,
@@ -55,6 +93,8 @@ ServerHost::ServerHost(INetworkTransport& transport, std::unique_ptr<scenario::S
     m_meta.maxChunkX = world.desc().bounds.maxChunk.x;
     m_meta.maxChunkY = world.desc().bounds.maxChunk.y;
     m_contentHash = world.content().contentHash();
+    m_sentOverlay = world.contentOverlay();
+    m_sentContentRevision = world.contentRevision();
     if (m_desc.replicate) {
         ReplicationDesc rd;
         const u32 interval = std::max<u32>(1, m_desc.snapshotIntervalSteps);
@@ -77,9 +117,9 @@ Expected<void> ServerHost::start(const Endpoint& at) {
     }
     m_started = true;
     const f64 interval = static_cast<f64>(m_runner->world().clock().tickIntervalNanos()) / 1e9;
-    log::info("net", "서버 시작: {} · {} {} 포트 {} · 최대 {} 명 · 기본 역할 {}", m_meta.name, m_transport.name(),
-              at.host.empty() ? "*" : at.host, m_transport.boundPort(), m_desc.maxClients,
-              roleName(m_desc.defaultRole));
+    log::info("net", "서버 시작: {} · {} {} 포트 {} · 최대 {} 명 · 기본 역할 {}{}", m_meta.name, m_transport.name(),
+              at.host.empty() ? "*" : at.host, m_transport.boundPort(), m_desc.maxClients, roleName(m_desc.defaultRole),
+              m_desc.ownerKey.empty() ? "" : " · 주인 열쇠 있음");
     if (m_desc.mode == ServerMode::Threaded) {
         m_simThread = std::thread([this] { simThreadMain(); });
         m_netThread = std::thread([this] { netThreadMain(); });
@@ -196,8 +236,13 @@ void ServerHost::netStep(f64 now) {
                           disconnectReasonName(ev.reason));
                 releaseTicket(it->second, ev.reason);
                 m_byClientId.erase(it->second.clientId);
-                const std::lock_guard lock(m_mutex);
-                m_roster.push_back(RosterEvent{it->second.clientId, false});
+                {
+                    const std::lock_guard lock(m_mutex);
+                    m_roster.push_back(RosterEvent{it->second.clientId, false});
+                }
+                m_clients.erase(it);
+                broadcastPlayers();
+                break;
             }
             m_clients.erase(it);
             break;
@@ -268,6 +313,13 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
                    std::format("서버 콘텐츠 해시 {:016x}, 클라이언트 {:016x}", m_contentHash, auth->contentHash));
             return;
         }
+        // 주인 열쇠 (12C): 맞으면 Owner. 틀린 열쇠는 조용히 무시하지 않고 거절한다 (잘못 친 것을 알게)
+        const bool owner = !auth->ownerKey.empty();
+        if (owner && (m_desc.ownerKey.empty() || auth->ownerKey != m_desc.ownerKey)) {
+            reject(conn, client, RejectReason::BadHandshake,
+                   m_desc.ownerKey.empty() ? "이 서버에는 주인 열쇠가 없습니다 (--owner-key)" : "주인 열쇠가 다릅니다");
+            return;
+        }
         // 다시 접속 (11.4): 유효한 토큰이면 같은 번호 · 역할. 살아 있는 연결의 토큰이면 옛 연결을 끊고 이어 받는다
         bool resumed = false;
         if (!auth->token.empty()) {
@@ -298,6 +350,9 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
             for (char& b : client.token) {
                 b = static_cast<char>(m_random() & 0xFF);
             }
+        }
+        if (owner) {
+            client.role = Role::Owner;
         }
         m_tickets[client.token] = Ticket{client.clientId, client.role, true, 0};
         client.name = std::move(auth->displayName);
@@ -330,6 +385,7 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         }
         log::info("net", "{}: {} (#{}, {}) — 연결 {}", resumed ? "다시 들어옴" : "들어옴", client.name, client.clientId,
                   roleName(client.role), conn);
+        broadcastPlayers();
         return;
     }
     case Client::State::Active:
@@ -366,6 +422,10 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         // 읽기 전용 — 모든 역할 (개수 상한은 decode 가 본다)
         const std::lock_guard lock(m_mutex);
         m_inspectRequests.emplace_back(client.clientId, std::move(*inspect));
+        return;
+    }
+    if (const auto* setRole = std::get_if<SetRoleRequest>(&msg)) {
+        onSetRole(conn, client, *setRole);
         return;
     }
     if (std::holds_alternative<DisconnectMsg>(msg)) {
@@ -406,14 +466,71 @@ void ServerHost::dropConnection(ConnectionId conn, DisconnectReason reason) {
     m_transport.disconnect(conn, reason);
     const auto it = m_clients.find(conn);
     if (it != m_clients.end()) {
-        if (it->second.state == Client::State::Active) {
+        const bool active = it->second.state == Client::State::Active;
+        if (active) {
             releaseTicket(it->second, reason);
             m_byClientId.erase(it->second.clientId);
             const std::lock_guard lock(m_mutex);
             m_roster.push_back(RosterEvent{it->second.clientId, false});
         }
         m_clients.erase(it);
+        if (active) {
+            broadcastPlayers();
+        }
     }
+}
+
+PlayerList ServerHost::players() const {
+    PlayerList list;
+    for (const auto& [id, conn] : m_byClientId) { // clientId 오름차순
+        const Client& c = m_clients.at(conn);
+        if (list.players.size() < kMaxPlayers) {
+            list.players.push_back(PlayerEntry{c.clientId, c.role, c.name});
+        }
+    }
+    return list;
+}
+
+void ServerHost::broadcastPlayers() {
+    if (m_byClientId.empty()) {
+        return;
+    }
+    const PlayerList list = players();
+    const auto bytes = encodeMessage(list);
+    for (const auto& [id, conn] : m_byClientId) {
+        m_transport.send(conn, Channel::Control, bytes);
+    }
+}
+
+void ServerHost::onSetRole(ConnectionId conn, Client& client, const SetRoleRequest& request) {
+    SetRoleResultMsg result{request.clientId, request.role, false, {}};
+    const auto target = m_byClientId.find(request.clientId);
+    if (target == m_byClientId.end()) {
+        result.detail = std::format("#{} 접속자가 없습니다", request.clientId);
+    } else if (request.clientId == client.clientId) {
+        result.detail = "자기 역할은 바꿀 수 없습니다";
+    } else {
+        Client& who = m_clients.at(target->second);
+        // 10-EDITOR 7장 "역할 부여": Owner 전부, Admin 은 Editor 이하 (Admin 이상인 사람은 건드리지 못한다)
+        if (!roleCanAssign(client.role, who.role, request.role)) {
+            result.detail =
+                client.role == Role::Admin
+                    ? "Admin 은 Admin 아래인 사람을 Editor 이하로만 바꿀 수 있습니다"
+                    : std::format("{} 역할은 역할을 바꿀 수 없습니다 (10-EDITOR 7장)", roleName(client.role));
+        } else {
+            result.accepted = true;
+            if (who.role != request.role) {
+                log::info("net", "역할: {} (#{}) {} → {} (바꾼 사람 {} #{})", who.name, who.clientId,
+                          roleName(who.role), roleName(request.role), client.name, client.clientId);
+                who.role = request.role;
+                if (const auto t = m_tickets.find(who.token); t != m_tickets.end()) {
+                    t->second.role = who.role; // 다시 접속해도 바뀐 역할
+                }
+                broadcastPlayers();
+            }
+        }
+    }
+    sendTo(conn, result);
 }
 
 void ServerHost::flushOutbox() {
@@ -478,9 +595,12 @@ void ServerHost::simStep(f64 now) {
         inspects.swap(m_inspectRequests);
         subscribes.swap(m_subscribes);
     }
+    std::vector<Outgoing> overlayOut; // 월드 오버레이 (12C) — 스냅숏보다 먼저 내보낸다
     for (const RosterEvent& r : roster) {
         if (!r.joined) {
             m_inspect.erase(r.clientId);
+        } else {
+            overlayOut.push_back(Outgoing{r.clientId, fullOverlay(m_sentOverlay)});
         }
     }
     for (auto& [id, req] : inspects) {
@@ -522,6 +642,9 @@ void ServerHost::simStep(f64 now) {
             ++m_stats.commandsRejected;
         }
         const std::lock_guard lock(m_mutex);
+        for (auto& o : overlayOut) {
+            m_outbox.push_back(std::move(o));
+        }
         m_stats.reachedStopTick = true;
         return;
     }
@@ -536,6 +659,15 @@ void ServerHost::simStep(f64 now) {
     m_runner->step();
     const f64 ms = (steadySeconds() - t0) * 1000.0;
     const bool advanced = world.currentTick() != before;
+
+    if (world.contentRevision() != m_sentContentRevision) {
+        ContentOverlayMsg diff = overlayDiff(m_sentOverlay, world.contentOverlay());
+        if (!diff.items.empty()) {
+            overlayOut.push_back(Outgoing{0, std::move(diff)});
+        }
+        m_sentOverlay = world.contentOverlay();
+        m_sentContentRevision = world.contentRevision();
+    }
 
     std::vector<Outgoing> results;
     u64 accepted = 0;
@@ -600,6 +732,9 @@ void ServerHost::simStep(f64 now) {
     }
 
     const std::lock_guard lock(m_mutex);
+    for (auto& o : overlayOut) {
+        m_outbox.push_back(std::move(o));
+    }
     for (auto& r : results) {
         m_outbox.push_back(std::move(r));
     }

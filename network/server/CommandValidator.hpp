@@ -25,6 +25,9 @@ enum class CommandClass : u8 {
 
 [[nodiscard]] CommandClass classifyCommand(const cmd::CommandPayload& payload) noexcept;
 [[nodiscard]] bool roleAllows(Role role, CommandClass c) noexcept;
+// 역할 부여 (10 7장 마지막 열, 12C): me 가 다른 사람(지금 target)을 role 로 바꿀 수 있나. Owner = 누구든 무엇이든,
+// Admin = Admin 아래인 사람을 Editor 이하로, 그 밖 = 못 한다. 자기 자신은 호출하는 쪽이 막는다 (ServerHost)
+[[nodiscard]] bool roleCanAssign(Role me, Role target, Role role) noexcept;
 
 struct CommandValidatorDesc {
     f64 ratePerSecond = 120;

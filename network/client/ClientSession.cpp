@@ -113,12 +113,14 @@ void ClientSession::onMessage(Message& m) {
             a.token = m_desc.token;
             a.contentHash = m_desc.contentHash;
             a.nonce = ch->nonce;
+            a.ownerKey = m_desc.ownerKey;
             send(a);
             return;
         }
         if (auto* w = std::get_if<Welcome>(&m)) {
             m_welcome = std::move(*w);
             m_state = ClientState::Connected;
+            m_role = m_welcome->role;
             if (m_desc.catalog != nullptr && m_desc.content != nullptr) {
                 auto world = ClientWorld::create(*m_desc.catalog, *m_desc.content, *m_welcome);
                 if (world) {
@@ -138,6 +140,10 @@ void ClientSession::onMessage(Message& m) {
         }
         if (auto* tc = std::get_if<TerrainChunk>(&m)) {
             m_earlyTerrain.push_back(std::move(*tc));
+            return;
+        }
+        if (const auto* ov = std::get_if<ContentOverlayMsg>(&m)) {
+            applyOverlay(*ov); // Bulk 채널이라 Welcome 보다 먼저 올 수 있다 — 복제 월드와 무관하니 바로
             return;
         }
         break;
@@ -162,6 +168,24 @@ void ClientSession::onMessage(Message& m) {
             if (m_world != nullptr) {
                 m_world->apply(*tc);
             }
+            return;
+        }
+        if (const auto* ov = std::get_if<ContentOverlayMsg>(&m)) {
+            applyOverlay(*ov);
+            return;
+        }
+        if (auto* pl = std::get_if<PlayerList>(&m)) {
+            m_players = std::move(pl->players);
+            ++m_playersRevision;
+            for (const PlayerEntry& p : m_players) {
+                if (m_welcome && p.clientId == m_welcome->clientId) {
+                    m_role = p.role;
+                }
+            }
+            return;
+        }
+        if (auto* rr = std::get_if<SetRoleResultMsg>(&m)) {
+            m_roleResults.push_back(std::move(*rr));
             return;
         }
         if (auto* ir = std::get_if<InspectResult>(&m)) {
@@ -209,6 +233,40 @@ void ClientSession::setInspect(std::span<const NetEntityId> ids) {
         m_inspect.reset();
     }
     send(InspectRequest{m_inspectIds});
+}
+
+bool ClientSession::requestRole(u16 clientId, Role role) {
+    if (m_state != ClientState::Connected) {
+        return false;
+    }
+    send(SetRoleRequest{clientId, role});
+    return true;
+}
+
+std::vector<SetRoleResultMsg> ClientSession::takeRoleResults() {
+    std::vector<SetRoleResultMsg> out;
+    out.swap(m_roleResults);
+    return out;
+}
+
+void ClientSession::applyOverlay(const ContentOverlayMsg& m) {
+    if (m.reset) {
+        m_overlay = {};
+    }
+    for (const ContentOverlayItem& item : m.items) {
+        if (item.json.empty()) {
+            m_overlay.erase(item.kind, item.id);
+            continue;
+        }
+        nlohmann::json value = nlohmann::json::parse(item.json, nullptr, false);
+        if (value.is_discarded() || !value.is_object()) {
+            log::warn("net", "오버레이 항목 {} '{}' 의 JSON 을 읽지 못해 건너뜁니다",
+                      content::contentKindName(item.kind), item.id);
+            continue;
+        }
+        m_overlay.set(item.kind, item.id, std::move(value));
+    }
+    ++m_overlayRevision;
 }
 
 void ClientSession::disconnect() {

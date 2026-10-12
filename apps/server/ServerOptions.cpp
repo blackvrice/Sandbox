@@ -68,7 +68,7 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             }
             opts.logLevel = level;
         } else if (a == "--scenario" || a == "--world" || a == "--content-root" || a == "--bind" ||
-                   a == "--default-role") {
+                   a == "--default-role" || a == "--owner-key") {
             const auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -81,6 +81,11 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
                 opts.contentRoot = std::string(*v);
             } else if (a == "--bind") {
                 opts.bind = std::string(*v);
+            } else if (a == "--owner-key") {
+                if (v->empty() || v->size() > 64) {
+                    return makeError(ErrorCode::InvalidArgument, "--owner-key 는 1 ~ 64 바이트");
+                }
+                opts.ownerKey = std::string(*v);
             } else {
                 if (std::find(kRoles.begin(), kRoles.end(), *v) == kRoles.end()) {
                     return makeError(ErrorCode::InvalidArgument,
@@ -141,6 +146,9 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
         if (opts.exitAtTicks) {
             return makeError(ErrorCode::InvalidArgument, "--exit 는 --world 와 함께 씁니다");
         }
+        if (!opts.ownerKey.empty()) {
+            return makeError(ErrorCode::InvalidArgument, "--owner-key 는 --world 와 함께 씁니다");
+        }
     }
     return opts;
 }
@@ -160,6 +168,7 @@ std::string serverUsage() {
            "      --max-clients <n>    최대 접속 (기본 16)\n"
            "      --default-role <r>   새 접속자 역할 observer|player|editor|admin|owner (기본 editor —\n"
            "                           일시정지 · 속도는 admin 부터, docs/10-EDITOR.md 7장)\n"
+           "      --owner-key <k>      이 열쇠로 접속한 사람이 owner (SandboxClient --owner-key, 12C)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 접속자를 끊고 끝낸다 (CI)\n"

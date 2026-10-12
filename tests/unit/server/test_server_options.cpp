@@ -94,4 +94,16 @@ TEST_SUITE("server") {
         CHECK_FALSE(parseServerOptions(scenarioExit).has_value());
     }
 
+    TEST_CASE("server options: --owner-key (12C)") {
+        constexpr std::array<std::string_view, 4> ok{"--world", "w", "--owner-key", "비밀"};
+        CHECK(parseServerOptions(ok)->ownerKey == "비밀");
+        constexpr std::array<std::string_view, 2> none{"--world", "w"};
+        CHECK(parseServerOptions(none)->ownerKey.empty());
+        constexpr std::array<std::string_view, 4> scenario{"--scenario", "s", "--owner-key", "k"};
+        CHECK_FALSE(parseServerOptions(scenario).has_value());
+        const std::string longKey(65, 'k');
+        const std::array<std::string_view, 4> tooLong{"--world", "w", "--owner-key", longKey};
+        CHECK_FALSE(parseServerOptions(tooLong).has_value());
+    }
+
 } // TEST_SUITE

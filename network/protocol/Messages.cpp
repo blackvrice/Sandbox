@@ -90,6 +90,14 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::InspectResult;
             } else if constexpr (std::is_same_v<T, Subscribe>) {
                 return MessageId::Subscribe;
+            } else if constexpr (std::is_same_v<T, PlayerList>) {
+                return MessageId::PlayerList;
+            } else if constexpr (std::is_same_v<T, SetRoleRequest>) {
+                return MessageId::SetRole;
+            } else if constexpr (std::is_same_v<T, SetRoleResultMsg>) {
+                return MessageId::SetRoleResult;
+            } else if constexpr (std::is_same_v<T, ContentOverlayMsg>) {
+                return MessageId::ContentOverlay;
             } else {
                 static_assert(std::is_same_v<T, TerrainChunk>);
                 return MessageId::TerrainChunk;
@@ -136,10 +144,14 @@ std::string_view messageName(MessageId id) noexcept {
         return "InspectResult";
     case MessageId::Chat:
         return "Chat";
-    case MessageId::RoleChanged:
-        return "RoleChanged";
+    case MessageId::PlayerList:
+        return "PlayerList";
     case MessageId::Disconnect:
         return "Disconnect";
+    case MessageId::SetRole:
+        return "SetRole";
+    case MessageId::SetRoleResult:
+        return "SetRoleResult";
     }
     return "?";
 }
@@ -149,7 +161,7 @@ Channel channelOf(const Message& m) noexcept {
         std::holds_alternative<InspectResult>(m)) {
         return Channel::Snapshot;
     }
-    if (std::holds_alternative<TerrainChunk>(m)) {
+    if (std::holds_alternative<TerrainChunk>(m) || std::holds_alternative<ContentOverlayMsg>(m)) {
         return Channel::Bulk;
     }
     return Channel::Control;
@@ -215,6 +227,7 @@ void encodeBody(BitWriter& w, const Auth& m) {
     w.writeString(m.displayName);
     w.writeU64(m.contentHash);
     w.writeU64(m.nonce);
+    w.writeString(m.ownerKey);
 }
 void encodeBody(BitWriter& w, const Welcome& m) {
     w.writeVarU(m.clientId);
@@ -369,6 +382,43 @@ void encodeBody(BitWriter& w, const InspectResult& m) {
     }
 }
 
+void encodeBody(BitWriter& w, const PlayerList& m) {
+    w.writeVarU(m.players.size());
+    for (const PlayerEntry& p : m.players) {
+        w.writeVarU(p.clientId);
+        w.writeU8(static_cast<u8>(p.role));
+        w.writeString(p.name);
+    }
+}
+void encodeBody(BitWriter& w, const SetRoleRequest& m) {
+    w.writeVarU(m.clientId);
+    w.writeU8(static_cast<u8>(m.role));
+}
+void encodeBody(BitWriter& w, const SetRoleResultMsg& m) {
+    w.writeVarU(m.clientId);
+    w.writeU8(static_cast<u8>(m.role));
+    w.writeBool(m.accepted);
+    w.writeString(m.detail);
+}
+void encodeBody(BitWriter& w, const ContentOverlayMsg& m) {
+    w.writeBool(m.reset);
+    w.writeVarU(m.items.size());
+    for (const ContentOverlayItem& item : m.items) {
+        w.writeU8(static_cast<u8>(item.kind));
+        w.writeString(item.id);
+        w.writeString(item.json);
+    }
+}
+
+Role readRole(BitReader& r) {
+    const u8 role = r.readU8();
+    if (role > static_cast<u8>(Role::Owner)) {
+        r.fail();
+        return Role::Observer;
+    }
+    return static_cast<Role>(role);
+}
+
 Hello decodeHello(BitReader& r) {
     Hello m;
     m.protocolVersion = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
@@ -385,6 +435,7 @@ Auth decodeAuth(BitReader& r) {
     m.displayName = r.readString(kMaxDisplayNameBytes);
     m.contentHash = r.readU64();
     m.nonce = r.readU64();
+    m.ownerKey = r.readString(kMaxOwnerKeyBytes);
     return m;
 }
 Welcome decodeWelcome(BitReader& r) {
@@ -602,6 +653,52 @@ InspectResult decodeInspectResult(BitReader& r) {
     }
     return m;
 }
+PlayerList decodePlayerList(BitReader& r) {
+    PlayerList m;
+    const u64 n = r.readVarU(kMaxPlayers);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        PlayerEntry p;
+        p.clientId = static_cast<u16>(r.readVarU(0xFFFF));
+        p.role = readRole(r);
+        p.name = r.readString(kMaxDisplayNameBytes);
+        m.players.push_back(std::move(p));
+    }
+    return m;
+}
+SetRoleRequest decodeSetRole(BitReader& r) {
+    SetRoleRequest m;
+    m.clientId = static_cast<u16>(r.readVarU(0xFFFF));
+    m.role = readRole(r);
+    return m;
+}
+SetRoleResultMsg decodeSetRoleResult(BitReader& r) {
+    SetRoleResultMsg m;
+    m.clientId = static_cast<u16>(r.readVarU(0xFFFF));
+    m.role = readRole(r);
+    m.accepted = r.readBool();
+    m.detail = r.readString(kMaxDetailBytes);
+    return m;
+}
+ContentOverlayMsg decodeContentOverlay(BitReader& r) {
+    ContentOverlayMsg m;
+    m.reset = r.readBool();
+    const u64 n = r.readVarU(content::kMaxOverlayItems);
+    if (r.remainingBits() < n * 24) { // 항목마다 최소 3 바이트
+        r.fail();
+    }
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        ContentOverlayItem item;
+        const u8 kind = r.readU8();
+        if (kind >= content::kContentKindCount) {
+            r.fail();
+        }
+        item.kind = static_cast<content::ContentKind>(kind);
+        item.id = r.readString(kMaxContentIdBytes);
+        item.json = r.readString(content::kMaxOverlayItemBytes);
+        m.items.push_back(std::move(item));
+    }
+    return m;
+}
 DisconnectMsg decodeDisconnect(BitReader& r) {
 
     const u8 reason = r.readU8();
@@ -627,7 +724,7 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         return makeError(ErrorCode::ParseError, "메시지 id 를 읽지 못했습니다");
     }
     const auto id = static_cast<MessageId>(rawId);
-    const bool stream = id == MessageId::Snapshot || id == MessageId::TerrainChunk;
+    const bool stream = id == MessageId::Snapshot || id == MessageId::TerrainChunk || id == MessageId::ContentOverlay;
     if (data.size() > (stream ? kMaxStreamMessageBytes : kMaxControlMessageBytes)) {
         return makeError(ErrorCode::ParseError, std::format("메시지가 너무 큽니다 ({} 바이트)", data.size()));
     }
@@ -677,6 +774,18 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::Disconnect:
         out = decodeDisconnect(r);
+        break;
+    case MessageId::PlayerList:
+        out = decodePlayerList(r);
+        break;
+    case MessageId::SetRole:
+        out = decodeSetRole(r);
+        break;
+    case MessageId::SetRoleResult:
+        out = decodeSetRoleResult(r);
+        break;
+    case MessageId::ContentOverlay:
+        out = decodeContentOverlay(r);
         break;
     default:
         return makeError(ErrorCode::ParseError, std::format("아직 없는 메시지 {} ({})", rawId, messageName(id)));

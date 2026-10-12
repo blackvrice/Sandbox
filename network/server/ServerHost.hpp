@@ -24,7 +24,11 @@
 // 다시 접속 (11.4): Welcome.sessionToken 을 Auth.token 으로 가져오면 reconnectSeconds 안이면 같은 clientId · 역할.
 //   아직 살아 있는 연결의 토큰이면 옛 연결을 끊고(Kicked) 이어 받는다 (클라이언트 쪽 네트워크만 바뀐 경우). 스스로
 //   나간(ClientQuit) 토큰은 지운다. 상태(복제)는 처음부터 — 클라이언트가 새 epoch 로 받는다.
-//   [계획] 역할 바꾸기 (12).
+// 접속자 · 역할 (12C, ADR-0030): 들어옴 · 나감 · 역할이 바뀔 때마다 모두에게 PlayerList. SetRole 은 Net 절반이
+//   10-EDITOR 7장 표대로 판단한다 (roleCanAssign — Owner = 누구든 어떤 역할로, Admin = Admin 아래인 사람을 Editor
+//   이하로, 자기 자신은 못 바꾼다). 바뀐 역할은 다시 접속 표에도. Auth.ownerKey 가 --owner-key 와 같으면 Owner.
+// 월드 오버레이 (12C): 들어온 클라이언트에 ContentOverlay{reset} 로 전체, 월드의 오버레이가 바뀌면 (EditContent) 바뀐
+//   항목만 모두에게 — Sim 절반이 contentRevision 으로 알아챈다.
 
 #include <atomic>
 #include <map>
@@ -52,6 +56,7 @@ struct ServerHostDesc {
     Role defaultRole = Role::Editor; // 10 7장: 기본 역할 (--default-role)
     u64 buildId = 0;
     std::vector<std::string> packs; // 콘텐츠 팩 id (Reject{ContentMismatch} 로 알려 준다)
+    std::string ownerKey;           // 비지 않으면 Auth.ownerKey 가 같은 사람이 Owner (--owner-key, 12C)
     f64 handshakeTimeoutSeconds = 10;
     f64 statsIntervalSeconds = 1;
     f64 reconnectSeconds = 60; // 다시 접속 토큰이 유효한 시간 (끊긴 뒤)
@@ -109,6 +114,8 @@ public:
     [[nodiscard]] u16 boundPort() const noexcept { return m_transport.boundPort(); }
     // 다시 접속 토큰 수 (시험) — Net 절반 소유라 Inline 에서만
     [[nodiscard]] usize reconnectTickets() const noexcept { return m_tickets.size(); }
+    // 접속자 표 (시험 — Inline 에서만, Net 절반 소유)
+    [[nodiscard]] PlayerList players() const;
 
 private:
     struct Client {
@@ -151,6 +158,8 @@ private:
     void sendTo(ConnectionId c, const Message& m);
     void reject(ConnectionId c, Client& client, RejectReason reason, std::string detail);
     void dropConnection(ConnectionId c, DisconnectReason reason);
+    void broadcastPlayers();
+    void onSetRole(ConnectionId c, Client& client, const SetRoleRequest& request);
     void flushOutbox();
     void netShutdown();
     void netThreadMain();
@@ -184,6 +193,8 @@ private:
     std::vector<std::pair<u16, Message>> m_replicationOut;
     f64 m_nextSnapshotAt = 0;                          // 다음 스냅숏 시각 (실제 초)
     std::map<u16, std::vector<NetEntityId>> m_inspect; // 클라이언트별 선택 상세 (10B)
+    content::ContentOverlay m_sentOverlay;             // 마지막으로 모두에게 보낸 월드 오버레이 (12C)
+    u64 m_sentContentRevision = 0;
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;

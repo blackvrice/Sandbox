@@ -38,6 +38,16 @@ bool roleAllows(Role role, CommandClass c) noexcept {
     return false;
 }
 
+bool roleCanAssign(Role me, Role target, Role role) noexcept {
+    if (role > Role::Owner) {
+        return false;
+    }
+    if (me == Role::Owner) {
+        return true;
+    }
+    return me == Role::Admin && target < Role::Admin && role <= Role::Editor;
+}
+
 Expected<void> CommandValidator::check(ClientCommandState& state, Role role, u32 sequence,
                                        const cmd::CommandPayload& payload, f64 nowSeconds) const {
     if (sequence <= state.lastSequence) {

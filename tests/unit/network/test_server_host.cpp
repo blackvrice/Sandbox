@@ -205,7 +205,7 @@ TEST_SUITE("network") {
         }
         {
             RawPeer raw(rig);
-            raw.send(Auth{{}, "x", contentHash(), 0}); // Hello 없이
+            raw.send(Auth{{}, "x", contentHash(), 0, {}}); // Hello 없이
             rig.step();
             raw.poll();
             REQUIRE(raw.lastReject() != nullptr);
@@ -215,7 +215,7 @@ TEST_SUITE("network") {
             RawPeer raw(rig);
             raw.send(Hello{});
             rig.step();
-            raw.send(Auth{{}, "x", contentHash(), 12345}); // nonce 틀림
+            raw.send(Auth{{}, "x", contentHash(), 12345, {}}); // nonce 틀림
             rig.step();
             raw.poll();
             REQUIRE(raw.lastReject() != nullptr);
@@ -264,11 +264,12 @@ TEST_SUITE("network") {
         rude.poll();
         REQUIRE(rude.received.size() == 1);
         const u64 nonce = std::get<Challenge>(rude.received[0]).nonce;
-        rude.send(Auth{{}, "rude", contentHash(), nonce});
+        rude.send(Auth{{}, "rude", contentHash(), nonce, {}});
         rig.step();
         rude.poll();
-        REQUIRE(rude.received.size() == 2);
+        REQUIRE(rude.received.size() >= 3); // Welcome · PlayerList (12C) · 스냅숏 · ContentOverlay{reset}
         CHECK(std::holds_alternative<Welcome>(rude.received[1]));
+        CHECK(std::holds_alternative<PlayerList>(rude.received[2]));
         CHECK(rig.host->stats().clients == 1);
         rude.send(Welcome{});
         rig.step();

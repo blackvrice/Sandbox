@@ -2,6 +2,7 @@
 // SandboxServer 명령줄. 전체 목록은 docs/15-BUILD.md 7장.
 // Phase 1: --help / --version / --log-level.  Phase 3: --scenario / --ticks / --seed / --realtime (헤드리스 실행).
 // Phase 9: --world / --port / --bind / --max-clients / --default-role / --threads / --ticks N --exit (네트워크 서버).
+// Phase 12C: --owner-key (그 열쇠로 접속한 사람이 Owner).
 // [계획] --autosave · --record-replay · --metrics-csv.
 
 #include <optional>
@@ -34,6 +35,7 @@ struct ServerOptions {
     std::string bind;        // 비면 모든 인터페이스
     u32 maxClients = 16;
     std::string defaultRole = "editor";
+    std::string ownerKey;       // 비지 않으면 이 열쇠로 접속한 사람이 Owner (12C)
     std::optional<u32> threads; // 시뮬레이션 Worker 수 (없으면 코어 수 - 2 를 1 ~ 4)
     bool exitAtTicks = false;   // --exit: --ticks 에 도달하면 끝낸다 (CI · 벤치)
     u32 snapshotKBps = 256;     // 클라이언트당 복제 예산 KB/s (0 = 제한 없음, 08 6.3)

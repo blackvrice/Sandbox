@@ -5,7 +5,8 @@
 // Phase 9 구현: Hello · Challenge · Auth · Welcome · Reject · Command · CommandResult · ServerStats · Disconnect.
 // Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제). 10B: Inspect · InspectResult (선택한 개체의 서버 전용 상태).
 // Phase 11: Subscribe (관심 영역 — 08 8장), Auth.token 으로 다시 접속 (11.4).
-// [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · ContentOverlay · Chat · RoleChanged (12)
+// Phase 12C: PlayerList · SetRole · SetRoleResult (접속자 · 역할), ContentOverlay (월드 오버레이), Auth.ownerKey.
+// [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · Chat
 //        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
 // 상한 (11장): 모든 길이 · 개수에 상한이 있다. 넘으면 decodeMessage 가 오류 → 받는 쪽은 연결을 끊는다.
@@ -44,6 +45,8 @@ inline constexpr usize kMaxInspectPath = 64;        // 남은 경로 점
 inline constexpr usize kMaxStateBytes = 64;         // 행동 상태 id
 inline constexpr usize kMaxInspectComponents = 16;  // 선택 상세의 서버 컴포넌트 (12B)
 inline constexpr usize kMaxInspectJsonBytes = 4096; // 그 JSON 하나
+inline constexpr usize kMaxOwnerKeyBytes = 64;      // Auth.ownerKey (12C)
+inline constexpr usize kMaxPlayers = 256;           // PlayerList (12C)
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -59,13 +62,16 @@ enum class MessageId : u8 {
     SnapshotAck = 31,
     TerrainChunk = 40,
     EntityBaseline = 41, // [계획 — Snapshot(epoch) 이 대신한다]
-    ContentOverlay = 42, // [계획 Phase 12]
+    ContentOverlay = 42, // 12C
+
     ServerStats = 50,
     Inspect = 51,       // 10B
     InspectResult = 52, // 10B
-    Chat = 60,          // [계획 Phase 12]
-    RoleChanged = 61,   // [계획 Phase 12]
+    Chat = 60,          // [계획]
+    PlayerList = 61,    // 12C (설계 초안의 RoleChanged 를 대신한다 — 접속 · 나감 · 역할이 모두 이 표로)
     Disconnect = 62,
+    SetRole = 63,       // 12C
+    SetRoleResult = 64, // 12C
 };
 
 // 10-EDITOR 7장. 값 순서 = 권한 크기 (Observer < … < Owner)
@@ -100,6 +106,8 @@ struct Auth {
     std::string displayName;
     u64 contentHash = 0;
     u64 nonce = 0; // Challenge 의 값을 그대로
+    // 프로토콜 6 (12C): 서버의 --owner-key 와 같으면 Owner 로 들어온다. 비면 없음 (다르면 Reject{BadHandshake})
+    std::string ownerKey;
 };
 struct WorldMeta {
     std::string name;
@@ -223,13 +231,52 @@ struct InspectResult {
     std::vector<InspectEntry> entries; // 살아 있는 것만, 요청 순서
 };
 
-using Message =
-    std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats, DisconnectMsg,
-                 Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult, Subscribe>;
+// --- 접속자 · 역할 (Phase 12C, ADR-0030) -------------------------------------------------------------------------
+// 서버가 접속자 표가 바뀔 때마다 (들어옴 · 나감 · 역할) 모두에게 표 전체를 보낸다. 역할 바꾸기는 SetRole → 서버가
+// 10-EDITOR 7장 표대로 판단 (Owner = 누구든 무엇이든, Admin = Admin 아래인 사람을 Editor 이하로, 자기 역할은 못 바꾼다)
+// → 요청한 사람에게 SetRoleResult, 바뀌었으면 모두에게 PlayerList.
+struct PlayerEntry {
+    u16 clientId = 0;
+    Role role = Role::Observer;
+    std::string name;
+    friend bool operator==(const PlayerEntry&, const PlayerEntry&) = default;
+};
+struct PlayerList {
+    std::vector<PlayerEntry> players; // clientId 오름차순, ≤ kMaxPlayers
+};
+struct SetRoleRequest {
+    u16 clientId = 0;
+    Role role = Role::Observer;
+};
+struct SetRoleResultMsg {
+    u16 clientId = 0;
+    Role role = Role::Observer;
+    bool accepted = false;
+    std::string detail; // 거절 사유
+};
+
+// --- 월드 오버레이 (Phase 12C, ADR-0030) -------------------------------------------------------------------------
+// 서버 월드의 콘텐츠 오버레이 (EditContent 가 바꾼다). 들어오면 reset 으로 전체, 그 뒤로는 바뀐 항목만 (json 이 "" =
+// 지움). Bulk 채널 (신뢰 · 순서), Snapshot 처럼 16 MB 까지.
+struct ContentOverlayItem {
+    content::ContentKind kind = content::ContentKind::Rule;
+    std::string id;
+    std::string json; // compact JSON 객체 (≤ content::kMaxOverlayItemBytes), "" = 오버레이에서 뺐다
+    friend bool operator==(const ContentOverlayItem&, const ContentOverlayItem&) = default;
+};
+struct ContentOverlayMsg {
+    bool reset = false;                    // 받는 쪽은 지금 오버레이를 비우고 시작
+    std::vector<ContentOverlayItem> items; // ≤ content::kMaxOverlayItems
+};
+
+using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
+                             DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult,
+                             Subscribe, PlayerList, SetRoleRequest, SetRoleResultMsg, ContentOverlayMsg>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
-// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk = Bulk, 나머지 = Control
+// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk · ContentOverlay = Bulk,
+// 나머지 = Control
 [[nodiscard]] Channel channelOf(const Message& m) noexcept;
 
 [[nodiscard]] std::vector<std::byte> encodeMessage(const Message& m);
