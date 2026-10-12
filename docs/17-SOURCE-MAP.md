@@ -92,6 +92,7 @@
 | `network/replication/Inspect.{hpp,cpp}`                                                                     | `buildInspect` — 선택한 개체의 서버 전용 상태 → InspectResult (10B)                                                                                                 | SandboxNetwork              |
 | `editor/CMakeLists.txt`, `editor/EditorHost.hpp`                                                            | SandboxEditor (Core + Render + imgui, Network 금지). `ICommandSink` · `IEditorHost` — 에디터 ↔ 클라이언트 경계 (12A)                                                | SandboxEditor               |
 | `editor/Editor.{hpp,cpp}`, `editor/ui/EditorPanel.{hpp,cpp}`                                                | 툴 다섯 (선택 · 이동 · 배치 · 지형 · 지우기) · EditPreview · 덧그림, "편집" 패널 (12A, ADR-0028)                                                                    | SandboxEditor               |
+| `editor/Undo.{hpp,cpp}`, `editor/ui/InspectorPanel.{hpp,cpp}`                                               | 되돌리기 기록 (역명령 · IdRemap), "인스펙터" · "목록" 패널 (12B, ADR-0029)                                                                                          | SandboxEditor               |
 | `platform/CMakeLists.txt`                                                                                   | SandboxPlatform — OS 별 소스 선택 (WIN32: `windows/`, 그 밖: `stub/`)                                                                                               | SandboxPlatform             |
 | `platform/common/Key.{hpp,cpp}`                                                                             | `Key`(물리 위치), `MouseButton`, `Modifiers`, 이름 표 (ADR-0017)                                                                                                    | SandboxPlatform             |
 | `platform/common/PlatformEvent.hpp`                                                                         | `PlatformEvent` variant, `PlatformEventQueue`, `Extent2D`                                                                                                           | SandboxPlatform             |
@@ -153,6 +154,7 @@
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
 | `tests/unit/editor/test_editor.cpp`, `tests/unit/client/test_editor_session.cpp`                            | 에디터 툴 (가짜 host), 로컬 서버까지 편집 · 앱 숫자 키 (Phase 12A)                                                                                                  | SandboxTests                |
+| `tests/unit/editor/test_undo.cpp`, `FakeEditorHost.hpp`                                                     | 되돌리기 · Inspector 명령 (가짜 host 공유) (12B)                                                                                                                    | SandboxTests                |
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
@@ -259,6 +261,7 @@ render/
 
 editor/
   EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
+  Undo (UndoEntry · IdRemap · 역명령), ui/InspectorPanel (인스펙터 · 목록)                       ← Phase 12B 구현 (ADR-0029)
   panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 12B ~ 12D — 지금은 Editor 한 클래스]
 
 apps/client/

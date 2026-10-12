@@ -29,7 +29,7 @@ Phase 8   Renderer · Asset · ImGui                  ← 구현 완료 2026-10-
 Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (ENet · 핸드셰이크 · 명령 · ServerHost · sbx_net_probe)
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
-Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 (2026-10-09) · 12B ~ 12D [계획]
+Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C · 12D [계획]
 Phase 13  Linux (X11 → Vulkan → Wayland)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
@@ -440,7 +440,11 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           바탕) · 지우기(DeleteEntity, Delete 키) + EditPreview (그린 위치에 더한다 — 그린 틱이 확정 스냅숏에 닿으면 걷는다)
   12.2 ◐ Palette · Terrain = "편집" 패널 (Prefab 목록 · 거르기 · 머티리얼 · 브러시). Hierarchy · Inspector 는 12B
   단축키 1 ~ 5 (W A S D 가 카메라 — 10-EDITOR 9장)
-12B Inspector(리플렉션 → ChangeComponent) · Hierarchy + 12.6 Undo/Redo (역명령 · 거절 미반영)          [계획]
+12B 인스펙터 · 목록 · 되돌리기 ✅ (2026-10-12, ADR-0029)
+  12.2 ✅ "인스펙터" — ComponentInfo::fields × JSON 종류로 위젯 (E4), 편집이 끝나면 선택 전부에 ChangeComponent, 컴포넌트 더하기 ·
+          빼기. 서버 전용 EditorVisible 값은 선택 상세로 (프로토콜 5). "목록"(Hierarchy) — 관심 영역 안의 개체, 거르기, 두 번 = 카메라
+  12.6 ✅ Undo/Redo — 사용자 동작 하나 = 한 칸, 받아들여진 명령만, 역명령은 보내기 전 값으로, 지운 개체는 Prefab + 알던 값으로
+          다시 만들고 IdRemap 으로 옛 기록을 새 netId 에. 기다리는 동안 막기, 거절된 되돌리기는 칸 빼기. Ctrl+Z · Ctrl+Y · F
 12C 12.5 역할 바꾸기(RoleChanged) · Players 패널 · 권한 없을 때 툴 숨김 + 12.4 Rule · Behavior · ContentOverlay   [계획]
 12D 12.7 세이브 · 로드 · 리플레이 UI + edit_session D3 · 두 클라이언트 동시 편집 · 권한 매트릭스 (Phase 12 완료 기준)  [계획]
 ```
@@ -452,7 +456,17 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client · editor 179 케이스. 창 ecosystem_small:
            배치 · 지형 끌기 · 이동(끄는 동안 preview, 놓은 뒤 같은 자리) · 편집 패널
   남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12A (원격 편집 · 권한 거절 포함)
-  다음     12B — Inspector · Hierarchy · Undo/Redo
+```
+
+```text
+12B 검증 (2026-10-12)
+  Linux    clang · gcc Debug: ctest 44/44 — unit_editor 14 케이스 (test_undo 7: 명령 종류마다 역명령 · netId 잇기 · 거절 · 기다림),
+           unit_network (선택 상세의 컴포넌트 — 프로토콜 5 왕복 · 로컬 서버 ai.sensor), unit_client (로컬 서버에서 서버 전용 값
+           고치기 → 되돌리기, 지운 개체 되살리기, 앱 Ctrl+Z). TSan client · editor · network 88 케이스 경고 0
+  Windows  MinGW 빌드 경고 0 + Wine: network · net · core · foundation · client · editor 187 케이스. 창 ecosystem_small: 박스 선택 →
+           인스펙터(복제 · "(서버)" 컴포넌트, 이름 순) · 목록 · 배치 두 번 → Ctrl+Z (서버 "수락 4 · 거절 0")
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12B
+  다음     12C — 역할 바꾸기 · Players · 권한 없을 때 툴 숨김 + Rule · Behavior · ContentOverlay
 ```
 
 ### Phase 13 — Linux

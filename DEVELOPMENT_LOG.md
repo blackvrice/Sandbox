@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-12 — Phase 12B: 인스펙터 · 목록 · 되돌리기 — 서버 전용 값은 선택 상세로 (프로토콜 5), 받아들여진 편집 한 번 = 한 칸
+
+**무엇을**
+
+- network: 프로토콜 5 — InspectEntry.components[] {stableId, json ≤ 4 KB} × ≤ 16. buildInspect 가 복제되지 않는 EditorVisible
+  컴포넌트(core.movement · life.age · ai.sensor …)의 리플렉션 JSON 을 담는다.
+- editor: `Undo.{hpp,cpp}` (UndoEntry · IdRemap · paintInverse · recreateCommand · withoutEntityRefs). Editor 에 기록(편집 한 번 =
+  한 칸, 결과가 다 오면 받아들여진 명령만) · undo · redo (기다리는 동안 막기, 거절이면 칸 빼기) · setField · addComponent ·
+  removeComponent · 카메라 맞추기 요청. 툴이 보내는 명령마다 역명령 (이동 -delta, 배치 → 새 netId 지우기, 지우기 → 다시 만들기,
+  지형 → 이전 머티리얼). `ui/InspectorPanel` ("인스펙터" — 리플렉션 필드 위젯, 이름 순, "(서버)", 더하기 · 빼기 / "목록"),
+  편집 패널에 되돌리기 · 다시 단추. IEditorHost 에 catalog · components · listEntities · positionOf.
+- client: NetworkSession 이 위 넷을 구현 (복제 월드 + 선택 상세). Application: Ctrl+Z · Ctrl+Y · F(editor.focus), 두 패널.
+- 테스트: editor test_undo (FakeEditorHost.hpp 로 가짜 host 공유), network (선택 상세 컴포넌트), client (로컬 서버에서 고치기 →
+  되돌리기 · 지운 개체 되살리기 · 앱 Ctrl+Z).
+- 문서: ADR-0029, 10-EDITOR(상태 · 2 · 4 · 6.2 · 9 · 10장), 08(상태 · 5장, 프로토콜 5), 13, 15, 16(12B ✅), 17, MANUAL-QA 12B, README.
+
+**왜**
+
+- 복제 월드에는 복제 컴포넌트뿐이라 사용자가 고칠 값 대부분(maxSpeed · 감지 반경 · 수명)이 안 보였다. 전부 복제하면 모든 개체의
+  대역폭이 늘어난다 — 고른 개체만 오가는 선택 상세 길에 얹었다 (ADR-0029).
+- 되돌리기는 10-EDITOR 6.2 그대로 — 서버가 받아들인 것만, 역명령도 보통 명령. 지운 개체는 새 netId 로 돌아오므로 기록을 잇는 표가
+  필요했다.
+
+**검증**
+
+- Linux clang · gcc Debug: ctest 44/44. TSan client · editor · network 88 케이스 경고 0.
+- MinGW Release 빌드 경고 0 + Wine: 187 케이스. Wine 창: 박스 선택 → 인스펙터(복제 · 서버 컴포넌트) · 목록, 배치 두 번 → Ctrl+Z
+  (서버 수락 4 · 거절 0). 컴포넌트가 stableId 순이라 뒤섞여 보여 이름 순으로, 목록 패널을 네트워크 패널과 겹치지 않는 자리로 옮겼다.
+
+**남은 일**
+
+- 사용자 PC (MSVC): 다시 빌드 → ctest, MANUAL-QA Phase 12B.
+- [계획] 덮어쓰기 경고 · 잠금, 되살린 개체의 saveId · 관계, enum 이름 · 태그 칩 · EntityRef 고르기 · "뷰에서 선택", batchId.
+- 다음: 12C 역할 · Players · 콘텐츠 편집, 12D 세이브 · 리플레이 UI · 완료 기준 시험.
+
+---
+
 ## 2026-10-09 — Phase 12A: 에디터 툴 — SandboxEditor · IEditorHost · 선택 · 이동 · 배치 · 지형 · 지우기 · EditPreview
 
 **무엇을**

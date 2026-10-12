@@ -2,9 +2,10 @@
 
 > **설계 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다. 상태: **Phase 12A 구현** — SandboxEditor(`editor/`), IEditorHost ·
 > ICommandSink, 툴 다섯(Select · Move · Place · TerrainBrush · Erase), EditPreview, "편집" 패널(Palette · Terrain 의 첫 모양) —
-> 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. 나머지는 `[계획 12B ~ 12D]` (Inspector · Hierarchy · Undo, 역할 · Players · 콘텐츠
-> 편집, 세이브 · 리플레이 UI — 16-ROADMAP Phase 12). 7장 권한 표는 Phase 9 의 서버 CommandValidator 가 판단한다.
-> 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md).
+> 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. **Phase 12B 구현** — Inspector(리플렉션 필드 → ChangeComponent, 서버 전용 값은
+> 선택 상세로) · Hierarchy("목록") · Undo/Redo — 2 · 4 · 6.2 · 9 · 10장의 "Phase 12B 구현" 단락. 나머지는 `[계획 12C · 12D]`
+> (역할 · Players · 콘텐츠 편집, 세이브 · 리플레이 UI — 16-ROADMAP Phase 12). 7장 권한 표는 Phase 9 의 서버 CommandValidator 가
+> 판단한다. 결정 근거: [ADR-0028](adr/0028-editor-library-host-tools-preview.md), [ADR-0029](adr/0029-inspector-server-values-undo-entries.md).
 
 ---
 
@@ -51,6 +52,9 @@ editor/ui/EditorPanel   "편집" 패널 (오른쪽 아래, F1 로 숨김): 툴 �
                         모양 · 격자 맞춤 · 보낸/수락/거절 수 · 최근 거절 사유
 선택                    NetworkSession 이 계속 갖는다 (Inspect · 외곽선 · 제목 줄) — 에디터는 host.selection · setSelection
 Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 툴(선택) = 8B 와 같다. WorldMode::Edit [계획]
+(12B) editor/Undo       UndoEntry(보낸 명령 · 역명령) · IdRemap · 역명령 만들기 — Editor 가 기록 · 되돌리기 · 다시 하기 (6.2)
+(12B) ui/InspectorPanel "인스펙터"(4장) · "목록"(Hierarchy — 복제 월드의 개체, 관심 영역 안). IEditorHost 에 components ·
+                        listEntities · positionOf · catalog 가 더해졌다
 ```
 
 ## 3. 툴
@@ -93,6 +97,20 @@ CreateEntity 결과의 새 netId 는 Editor::lastCreated (선택하지는 않는
 편집 확정(포커스 이탈·Enter·슬라이더 놓기) 시 `ChangeComponent{netId, stableId, fieldPath, bytes}` 1개.
 다중 선택 시 같은 컴포넌트를 가진 엔티티 전부에 같은 값을 보냅니다 (명령 N개를 한 번에 묶은 `batchId`).
 
+Phase 12B 구현 (`editor/ui/InspectorPanel`, ADR-0029) — 위 표와 다른 점:
+
+```text
+값의 출처   IEditorHost::components(netId) = 복제 월드의 EditorVisible 컴포넌트 + 선택 상세(Inspect, 프로토콜 5)의 복제되지 않는
+            EditorVisible 컴포넌트 JSON ("(서버)" 표시 — 선택한 개체만, 한 스냅숏 늦을 수 있다). 선택한 첫 개체의 값을 보인다
+위젯        ComponentInfo::fields(reflect 순서 · Hint · FieldMeta) × JSON 종류: bool → 체크, 정수 · 실수 → 끌기 — 범위 폭 ≤ 1000
+            이면 슬라이더 (life.energy 의 ±1e6 같은 넓은 범위는 끌기 + 자르기), Percent → 0 ~ 1, Angle → 도, [x, y] → 두 칸
+            (Position 의 "뷰에서 선택" [계획]), 문자열 → 글자 칸, PrefabRef → Prefab 콤보, EntityRef · 배열(TagSet 비트) · 객체 →
+            읽기만, Enum 은 정수 칸 (이름 콤보 [계획])
+보내기      편집이 끝날 때 (끌기 놓기 · Enter · 포커스 이탈, 체크 · 콤보는 바로) Editor::setField — 선택한 개체 중 그 컴포넌트가 있는
+            것마다 ChangeComponent{target, stableId, {필드: 값}}, 값이 같으면 보내지 않는다. batchId 대신 되돌리기 한 칸으로 묶는다
+더하기/빼기 콤보(카탈로그의 EditorVisible 중 없는 것) → AddComponent{기본값}, "컴포넌트 빼기" → RemoveComponent
+```
+
 ## 5. 편집 흐름 (멀티플레이)
 
 ```text
@@ -133,6 +151,21 @@ Phase 12A 구현: preview 는 컴포넌트가 아니라 IEditorHost::setPreview 
 - 거절된 명령은 스택에 남기지 않는다.
 ```
 
+Phase 12B 구현 (`editor/Undo`, Editor 의 기록, ADR-0029):
+
+```text
+한 칸        사용자 동작 하나 — 배치(끌어서 여러 개) · 붓질 한 번 · 이동 한 번 · 지우기 · Inspector 값 하나 · 컴포넌트 더하기/빼기.
+             결과가 다 와야 칸이 생기고 받아들여진 명령만 담는다 (다 거절이면 없음). 100 칸, 새 편집은 다시 하기를 비운다
+역명령       보내기 전의 클라이언트 값으로 — Move → -delta, ChangeComponent → 이전 값(복제 값 또는 선택 상세의 서버 값),
+             Add ↔ Remove(이전 값), PaintTerrain → 칸의 이전 머티리얼마다, CreateEntity → DeleteEntity{결과의 새 netId},
+             DeleteEntity → 개체마다 CreateEntity{core.prefab, 알던 컴포넌트 값 (core.prefab · net.identity · EntityRef 필드 빼고)}
+             — 고르지 않은 개체는 서버 전용 값을 몰라 Prefab 기본값으로 돌아온다
+netId 잇기   다시 만든 개체는 새 netId — IdRemap(옛 → 새, 사슬)으로 기록 속 명령의 대상을 보낼 때 바꾼다
+언제         결과를 기다리는 편집이 없을 때만 (Editor::idle — 아니면 "기다리는 중"). 되돌리기 · 다시 하기의 명령이 하나라도
+             거절되면 그 칸을 기록에서 뺀다 (사유는 편집 패널)
+확정 시 비교 경고 · 잠금 [계획]
+```
+
 ## 7. 권한
 
 | 역할     | 관찰 | 플레이어 행동 | 엔티티·컴포넌트 편집 | 지형 편집 | Rule·Behavior·Prefab 편집 | 시뮬레이션 제어 | 역할 부여   |
@@ -168,14 +201,18 @@ Ctrl+S 저장   F 선택으로 카메라 이동   G 그리드 토글   F3 Stats 
 ```
 
 Phase 12A 구현: 툴은 숫자 **1 선택 · 2 이동 · 3 배치 · 4 지형 · 5 지우기** (`editor.tool.*` — W A S D 가 카메라라서, ADR-0028).
-Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다. Undo/Redo · 저장 · F 는 `[계획 12B · 12D]`.
+Delete · Esc(끌기 취소 → 선택 해제) · Space · . · G 는 위와 같다. 저장은 `[계획 12D]`.
+Phase 12B 구현: Ctrl+Z 되돌리기 · Ctrl+Y(Ctrl+Shift+Z) 다시 하기, F 선택한 개체들의 가운데로 카메라 (`editor.focus`, 줌 그대로).
+"목록"(Hierarchy) 패널: 클릭 = 선택, Ctrl+클릭 = 넣기/빼기, 두 번 클릭 = 카메라 맞추기.
 
 ## 10. 필수 테스트
 
 ```text
 - 헤드리스 Editor + 가짜 ICommandSink: 툴 조작 → 기대 명령 (Place/Move/Erase/TerrainBrush/Inspector)
   ✅ 12A — Inspector 빼고 (editor 스위트 test_editor, 로컬 서버까지는 client 스위트 test_editor_session)
+  ✅ 12B — Inspector 명령 (setField · 더하기 · 빼기 — test_undo, 로컬 서버의 서버 전용 값 — test_editor_session)
 - Undo 역명령 생성 (각 명령 종류), 거절 시 스택 미반영
+  ✅ 12B (test_undo — 이동 · 배치 · 지우기 · 지형 · 값 · 컴포넌트, netId 잇기, 거절 · 기다림, 로컬 서버에서 지운 개체 되살리기)
 - 2클라이언트(Loopback) 동시 편집: 같은 필드 연속 변경, 삭제된 엔티티 편집 거절
 - 권한 표 전체: 역할 × 명령 종류 매트릭스
 ```

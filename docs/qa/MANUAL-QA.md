@@ -297,6 +297,30 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] 숫자 키는 글자 입력 칸(패널의 거르기)에 쓰는 동안 툴을 바꾸지 않는다
 ```
 
+## Phase 12B — 인스펙터 · 목록 · 되돌리기
+
+**먼저 다시 빌드** (프로토콜 5 — 서버 · 클라이언트를 같이). 화면에 "인스펙터"(오른쪽 아래, 편집 패널 왼쪽) · "목록"(왼쪽) 패널이
+새로 생긴다.
+
+```powershell
+.\cmake-build-release\bin\SandboxClient.exe --console --world ecosystem_survival
+```
+
+```text
+[ ] Space 로 일시정지 후 토끼 하나를 클릭: 인스펙터에 "eco.rabbit #N" 과 core.transform · life.energy … 그리고 "(서버)" 가 붙은
+    core.movement · life.age · ai.sensor … 가 보인다
+[ ] core.movement 의 maxSpeed 를 끌어서 5 로 → 놓는 순간 서버로 (편집 패널 "명령 1 · 수락 1"), 잠시 뒤 값이 5 로 남는다.
+    재개(Space)하면 그 토끼만 빨리 달린다
+[ ] Ctrl+Z → maxSpeed 가 2.5 로 돌아온다. Ctrl+Y → 다시 5. 편집 패널의 단추에 "되돌리기 core.movement.maxSpeed"
+[ ] 토끼 셋을 Shift 로 고르고 life.energy 의 value 를 바꾸면 셋 다 바뀐다 (Ctrl+Z 한 번에 셋 다 돌아온다)
+[ ] 3(배치)으로 끌어서 여러 마리 → Ctrl+Z 한 번에 그 끌기 전부가 사라진다. 4(지형) 붓질 → Ctrl+Z 로 원래 지형
+[ ] 개체를 Delete 로 지우고 Ctrl+Z → 같은 자리에 같은 종류로 돌아온다 (번호는 새 것). 그 전에 옮긴 것도 Ctrl+Z 로 이어서 되돌려진다
+[ ] 풀(eco.grass)을 골라 "컴포넌트 더하기…" → core.movement 가 인스펙터에 생긴다 ("(서버)"), "컴포넌트 빼기" → 사라진다
+    (둘 다 Ctrl+Z 로 되돌려진다)
+[ ] 목록: 거르기 칸에 "wolf" → 늑대만, 두 번 클릭 → 카메라가 그 늑대로. F → 선택한 개체들의 가운데로
+[ ] 원격(--connect, 역할 editor)에서도 위가 같다. --default-role player 면 인스펙터 편집이 거절되고 되돌리기 기록에 남지 않는다
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

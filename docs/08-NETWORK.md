@@ -6,7 +6,8 @@
 > **Phase 10B 구현** — SandboxClient 가 언제나 서버(같은 프로세스의 LocalServerHost 또는 원격)에 접속, 보간(9장), 선택 상세
 > (Inspect · InspectResult), 스냅숏 간격은 실제 시간, 프로토콜 3.
 > **Phase 11 구현** — Interest(8장: Subscribe 청크 사각형 · 지연 해제 · 늘 보낼 것), 예산 우선순위(6.3), 관심 청크만 지형,
-> 세션 토큰 다시 접속(4장), 프로토콜 4.
+> 세션 토큰 다시 접속(4장), 프로토콜 4. **Phase 12B** — 프로토콜 5: 선택 상세에 서버 전용 EditorVisible 컴포넌트 값 (Inspector,
+> [ADR-0029](adr/0029-inspector-server-values-undo-entries.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -136,7 +137,7 @@ Subscribe  Welcome 뒤 아무 때나 (바뀔 때만 · 초당 2 번까지). 구�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 4`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 5`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -167,6 +168,8 @@ Subscribe  Welcome 뒤 아무 때나 (바뀔 때만 · 초당 2 번까지). 구�
 Snapshot · SnapshotAck · TerrainChunk. Snapshot · TerrainChunk 는 16 MB 까지, 그 밖은 64 KB. 프로토콜 3 (10B): Inspect ·
 InspectResult — 서버 전용 컴포넌트(ai.behavior · ai.sensor · ai.path)를 선택한 개체에 한해 (ADR-0026). 읽기 전용, 모든 역할.
 프로토콜 4 (11): Subscribe (예약 → 구현), Auth.token · Welcome.sessionToken 을 실제로 쓴다 (ADR-0027).
+프로토콜 5 (12B): InspectResult 의 entries 마다 끝에 components[] {stableId u64, json str(4 KB)} × ≤ 16 — 복제되지 않는
+EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플렉션 JSON, 에디터 Inspector 가 쓴다 (ADR-0029).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
