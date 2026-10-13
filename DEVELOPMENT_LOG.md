@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-10-13 — Phase 13A: Vulkan 백엔드 — volk + 벤더링한 헤더, 타임라인 세마포어, lavapipe 로 D3D12 와 같은 기준 이미지
+
+**무엇을**
+
+- external: Vulkan-Headers 1.4.309 (C 헤더만) · volk 1.4.304 — Debian orig 묶음에서 (서명된 .dsc 의 SHA256), 수정 없음.
+  `sbx_vulkan_headers` (VK_NO_PROTOTYPES, Windows 는 VK_USE_PLATFORM_WIN32_KHR) · `sbx_volk`. 옵션 `SBX_ENABLE_VULKAN` (Linux 기본 ON,
+  Windows · macOS 기본 OFF — 계획의 SBX_ENABLE_VULKAN_ON_WINDOWS 를 대신한다).
+- render/vulkan: VulkanDevice (인스턴스 1.3 · Validation · debug utils, 장치 고르기 — --rhi-warp = CPU 장치, 타임라인 큐, 리소스마다
+  vkAllocateMemory, 업로드 링 · 지연 해제 · 타임스탬프 = D3D12 와 같은 프로토콜), VulkanPipeline (셰이더 · 샘플러 · 세트/파이프라인
+  레이아웃 캐시 · 바인드 그룹 = 디스크립터 세트 · dynamic rendering 파이프라인), VulkanCommandList (프레임 슬롯마다 커맨드 풀,
+  텍스처 전이 + 보수적인 전역 메모리 배리어, 음수 높이 뷰포트), VulkanSwapChain (Win32 표면, acquire · present binary 세마포어를
+  큐가 맡는다, OUT_OF_DATE · VSync 바꿈 → 다시 만들기). DeviceCaps 정렬은 D3D12 값 이상.
+- render/rhi/RenderDeviceFactory: createRenderDevice · defaultBackend · backendCompiled · parseBackend, SBX_HAS_D3D12 ·
+  SBX_HAS_VULKAN. render/stub 을 지웠다.
+- 셰이더: Linux 는 PATH 의 dxc (또는 SBX_DXC) 가 있으면 내장 셰이더를 켠다. sbx_shader_gen 이 내장 SPIR-V 에서 -fspv-reflect 의
+  SPV_GOOGLE_* 확장 · 장식을 뺀다 (리플렉션은 원본으로 — self-test 추가).
+- 시험: sbx_render_tests `--rhi auto|dx12|vulkan`, Vulkan 빌드면 Linux 에서도. CTest `render_tests_lavapipe`. SandboxTests: 백엔드
+  팩토리 (이름 · 빌드에 든 것 · 없는 백엔드 = Unsupported), 클라이언트 --rhi. 고친 시험: 16 바이트 변수에서 256 바이트를 읽던 상수
+  버퍼 업로드 (ASan 이 잡았다), 대소문자를 가리는 파일 시스템의 에셋 이름 (Green.png → green.png).
+- client: `--rhi auto|dx12|vulkan`, --version 의 render 에 빌드에 든 다른 백엔드 ("D3D12 (+Vulkan)"), 상태 줄 · 디버그 패널의 검증
+  경고 문구를 백엔드 이름으로, 소프트웨어 장치 표시 "(소프트웨어)".
+- 문서: ADR-0032, 06(상태 · 2 · 3.2 · 5.2 · 12 · 13 · 14장), 07 6.2, 13, 15(1 · 3 · 4 · 5 · 7 · 9장), 16(Phase 13 = 13A · 13B · 13C,
+  13A ✅), 17, external/README, MANUAL-QA 13A, README.
+
+**왜**
+
+- 창(13B)을 기다리면 백엔드 버그와 창 버그가 섞인다. 헤드리스 렌더 시험이 백엔드의 거의 전부를 덮고, 스왑체인은 이미 있는
+  Win32 창으로 먼저 시험한다 (로드맵의 "Vulkan 을 Windows 에서 먼저").
+- volk + 벤더링한 헤더: SDK · import 라이브러리 없이 재현 가능한 빌드, 로더가 없는 PC 에서도 D3D12 클라이언트가 뜬다.
+- 타임라인 세마포어는 D3D12 펜스와 같은 모양이라 FrameContext · 업로드 링 · 지연 해제가 그대로다. binary 세마포어는 큐 안에
+  숨겨 ISwapChain · ICommandQueue 를 바꾸지 않았다 (ADR-0032 결정 3).
+- 정렬 · NDC Y · 기준 이미지를 D3D12 에 맞춰 "상위 코드 diff 0 줄" 을 기준 이미지로 증명한다 — 백엔드별 기준을 두지 않았다.
+
+**검증**
+
+- Linux clang 19 Debug (커밋마다 -Werror — 셰이더 없이 7A 케이스) · gcc 13 Debug: ctest 47/47. 셰이더(tools/wine/dxc.sh)를 켠
+  빌드의 sbx_render_tests --rhi vulkan --warp: 커밋된 기준 이미지로 28 케이스 · 누수 0 · Validation 경고 0 · 오류 = 예상 8,
+  --gbv (동기화 검증) 도 0. ASan · UBSan 빌드의 sbx_render_tests 0.
+- MinGW Release (-D SBX_ENABLE_VULKAN=ON) 경고 0 (커밋마다) + Wine 11: sbx_render_tests --rhi vulkan (winevulkan → lavapipe) ·
+  기본 dx12 (vkd3d) 모두 28 케이스, SandboxTests 348 케이스. 창 ecosystem_small --rhi vulkan: 스왑체인 FIFO 3장, 제목 줄
+  "Vulkan (소프트웨어) 88 fps", 지형 · 스프라이트 · 패널, SetWindowPos 로 1200×800 · 0×0 · 1100×760 (다시 만들기 · 최소화) 뒤에도
+  창을 채운다, Ctrl+Q.
+- 처음 돌렸을 때 잡은 것: 스왑체인 확장을 표면 없는 인스턴스에서 켜던 것 (VUID-…-01387), SPIR-V 의 GOOGLE 확장 (08742), 복사 전용
+  텍스처의 이미지 뷰 (04441), 디바이스 detach 순서 (시험 끝 SIGSEGV).
+
+**남은 일**
+
+- 사용자 PC (MSVC): `render/stub/StubRenderDevice.cpp` 지우기 → 다시 빌드 → ctest (render_tests_warp), `-DSBX_ENABLE_VULKAN=ON` 으로
+  실제 GPU 의 --rhi vulkan (MANUAL-QA Phase 13A).
+- [계획] VMA · 서브 할당, 디스크립터 프레임 링 · bindless, VkPipelineCache, 세밀한 버퍼 배리어, 전송 큐, 깊이 첨부.
+- 다음: 13B — X11 창 · 입력 · Xlib 표면 → Linux 클라이언트. 13C — Wayland · Linux CI.
+
+---
+
 ## 2026-10-12 — Phase 12D: 세이브 · 로드 · 리플레이 UI + 완료 기준 — 서버가 틱 사이에 하고, 월드를 바꾸면 generation (프로토콜 7). Phase 12 완료
 
 **무엇을**

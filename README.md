@@ -21,7 +21,9 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > 스프라이트 Renderer(아틀라스 · 인스턴싱 · Camera2D · 정렬 · 배치)와 AssetManager, 지형(타일 텍스처) · 격자 · 선택 · 디버그 선 패스와
 > GPU 타임스탬프, SandboxClient 창(앱 상태기계, `--world` · `--connect` 로 서버 복제본 관찰 — 보간, 카메라 팬 · 줌 · 일시정지 · 속도는 서버 명령,
 > 클릭 · 박스 선택), Dear ImGui(1.92 docking, RHI 위 렌더러 · 동적 폰트 텍스처 · 입력 가로채기)와 기본 패널, 테스트·벤치·경계 검사가 있습니다.
-> 다음은 Phase 13 (Linux). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> Phase 13A 로 Vulkan 백엔드(volk · 타임라인 세마포어 · dynamic rendering)가 생겼습니다 — Linux 에서 lavapipe 로 D3D12 와 같은
+> 기준 이미지를 통과하고, Windows 는 `-DSBX_ENABLE_VULKAN=ON` 으로 `--rhi vulkan` 을 고릅니다.
+> 다음은 Phase 13B (Linux X11 창). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

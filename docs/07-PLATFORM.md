@@ -172,8 +172,9 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 ### 6.2 Linux (Phase 13)
 
 ```text
-13a X11: Xlib 창 + XInput2(마우스) + XKB(키) + XIM(텍스트), Vulkan 표면은 VK_KHR_xlib_surface
-13b Wayland: wl_compositor + xdg-shell + libdecor(창 장식) + wl_seat + xkbcommon + text-input-v3
+13B X11: Xlib 창 + XInput2(마우스) + XKB(키) + XIM(텍스트), Vulkan 표면은 VK_KHR_xlib_surface
+13C Wayland: wl_compositor + xdg-shell + libdecor(창 장식) + wl_seat + xkbcommon + text-input-v3
+(13A 는 창 없이 Vulkan 백엔드 · 헤드리스 시험 — 06 5.2, ADR-0032. 그동안 Linux 는 platform/stub 창 · --headless)
 런타임 선택: WAYLAND_DISPLAY 있으면 Wayland, 실패 시 X11 (--platform=x11|wayland 로 강제)
 ```
 

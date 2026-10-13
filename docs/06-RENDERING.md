@@ -13,11 +13,13 @@
 > **Phase 8C 구현** — ImGui 1.92.9b docking(벤더링), ImGuiRenderer(10장 — 동적 텍스처 · 업로드 링 · scissor), UIPass 타임스탬프,
 > 기준 이미지 imgui_basic(14장).
 > **Phase 10B** — SandboxClient 가 서버의 복제본(ClientWorld)을 그린다: 보간(renderTick) · 선택 netId · 선택 상세 Inspect (9장).
-> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan(13), Metal(14).
+> **Phase 13A 구현** — Vulkan 백엔드(5.2 — volk · 타임라인 세마포어 · dynamic rendering · Win32 표면 스왑체인), 백엔드 팩토리
+> (3.2 — `--rhi auto|dx12|vulkan`), lavapipe 기준 이미지(14장 — D3D12 와 같은 기준 · 허용치), 음수 높이 뷰포트(12장).
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan 창 표면 Xlib · Wayland(13B · 13C), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
 > 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md),
-> 10B [ADR-0026](adr/0026-network-session-local-server-inspect.md).
+> 10B [ADR-0026](adr/0026-network-session-local-server-inspect.md), 13A [ADR-0032](adr/0032-vulkan-volk-timeline-binary-present-d3d-parity.md).
 > 결정 근거: [ADR-0006](adr/0006-thin-rhi.md), [ADR-0007](adr/0007-hlsl-shader-pipeline.md), [ADR-0008](adr/0008-imgui-on-rhi.md).
 
 ---
@@ -59,7 +61,7 @@ R5. SFML, OpenGL 은 어떤 형태로도 쓰지 않는다.
 | GPU Instancing         | 기본 경로. `draw(4, n)` + StructuredBuffer 인스턴스                                                             | 50k 스프라이트를 수십 Draw로                                               |
 | ImGui Integration      | 공식 백엔드 미사용. RHI 위 자체 렌더러 1벌 + InputState→ImGuiIO 공급                                            | Editor가 native 타입 0개. 백엔드 3벌 유지비 제거                           |
 | DX12 Backend           | FL 12_0+, D3D12MA, Debug Layer / GBV / DRED, PIX 마커                                                           | 1차 플랫폼                                                                 |
-| Vulkan Backend         | 1.3 core (dynamic rendering, sync2, timeline), volk, VMA                                                        | RenderPass 객체 없이 DX12·Metal과 모양 일치                                |
+| Vulkan Backend         | 1.3 core (dynamic rendering, sync2, timeline), volk, VMA(`[계획]` — 13A 는 리소스마다 할당)                     | RenderPass 객체 없이 DX12·Metal과 모양 일치                                |
 | Metal Backend          | Metal 3, Objective-C++ `.mm` + ARC + pimpl, macOS 13+ Apple Silicon                                             | 공개 헤더에 ObjC 타입 0개                                                  |
 
 ---
@@ -170,9 +172,11 @@ DeviceDesc     backend · debugLayer · gpuValidation · warp · framesInFlight(
 DeviceStats    + livePipelines (셰이더·샘플러·레이아웃·바인드 그룹·파이프라인 합계) · descriptorsUsed (7B)
 DeviceCaps     + adapterName · softwareAdapter · featureLevel · dedicatedVideoMemory · tearing ·
                textureCopyRowAlignment(D3D12 256) · textureCopyOffsetAlignment(D3D12 512)
-createRenderDevice(desc)  이 빌드의 백엔드. 없는 OS(지금 Linux·macOS)는 Unsupported (render/stub)
+createRenderDevice(desc)  desc.backend (Auto = 플랫폼 기본: D3D12 → Vulkan). 빌드에 없는 백엔드 · 백엔드가 없는 빌드(지금
+               macOS)는 Unsupported. defaultBackend · backendCompiled · parseBackend("auto|dx12|d3d12|vulkan|vk|metal")
+               (13A, render/rhi/RenderDeviceFactory — SBX_HAS_D3D12 · SBX_HAS_VULKAN)
 ```
-Windows에서 DX12와 Vulkan을 함께 빌드할 수 있게(`SBX_ENABLE_VULKAN_ON_WINDOWS`) 가상 인터페이스를 유지합니다.
+Windows에서 DX12와 Vulkan을 함께 빌드할 수 있게(`SBX_ENABLE_VULKAN`, 13A) 가상 인터페이스를 유지합니다.
 
 ### 3.3 Capability / Extension
 
@@ -336,13 +340,43 @@ X11(Display*, Window) | Wayland(wl_display*, wl_surface*)
 | 구성        | 결정                                                                      |
 |-------------|---------------------------------------------------------------------------|
 | 로더        | volk                                                                      |
-| 메모리      | VMA                                                                       |
+| 메모리      | VMA (`[계획]` — 13A 는 리소스마다 vkAllocateMemory)                       |
 | 동기화      | 큐 타임라인 세마포어 + 스왑체인 이미지별 binary 세마포어(acquire/present) |
 | Render Pass | `vkCmdBeginRendering`                                                     |
-| Descriptor  | 장기 풀 + 프레임별 리셋 풀                                                |
-| 캐시        | `VkPipelineCache` 디스크 저장                                             |
+| Descriptor  | 장기 풀 + 프레임별 리셋 풀 (13A 는 장기 풀 하나 — 프레임 풀은 `[계획]`)   |
+| 캐시        | `VkPipelineCache` 디스크 저장 (`[계획]`)                                  |
 | 재생성      | `OUT_OF_DATE`/`SUBOPTIMAL` → idle 후 재생성                               |
-| 디버그      | Debug 빌드 Validation Layer 기본, `--rhi-sync-validation`                 |
+| 디버그      | `--rhi-debug` Validation Layer, `--rhi-gbv` + 동기화 검증 (13A)           |
+
+**Phase 13A 구현 (`render/vulkan/`, ADR-0032)** — 위와 다른 점 · 정한 것:
+
+```text
+로더 · 헤더   external/volk + external/vulkan-headers (C 헤더만). VK_NO_PROTOTYPES, 로더는 실행 중에 (vulkan-1.dll ·
+              libvulkan.so.1) — 없으면 Vulkan 만 Unsupported. 옵션 SBX_ENABLE_VULKAN (Linux 기본 ON, Windows 는 켜서 D3D12 와 함께)
+장치          --rhi-warp 면 CPU 장치(lavapipe) 우선, 아니면 discrete → integrated → virtual → CPU. 필수: 1.3 + dynamicRendering ·
+              synchronization2 · timelineSemaphore · hostQueryReset (fillModeNonSolid 는 있으면). 그래픽 큐 하나
+큐 펜스       타임라인 세마포어 하나 (submit 마다 +1). wait = 5초마다 확인 · 30초 포기 (D3D12 와 같다)
+스왑체인      [13A] Win32 표면만 (Xlib 13B, Wayland 13C). 이미지 = max(min, framesInFlight + 1), FIFO(VSync) · MAILBOX → IMMEDIATE.
+              acquire 세마포어(슬롯마다)는 큐의 다음 제출이 색 출력 단계에서 기다리고, present = "마지막 타임라인 값을 기다려
+              이미지마다의 present 세마포어를 켜는" 빈 제출 + vkQueuePresentKHR. 첫 전이는 UNDEFINED 에서. OUT_OF_DATE ·
+              SUBOPTIMAL · VSync 바꿈 → 다음 acquire 전에 idle 후 다시 만든다. 표면 형식 BGRA8 · RGBA8 (sRGB 비선형)
+메모리        리소스마다 vkAllocateMemory (Upload = HOST_VISIBLE|COHERENT, Readback = + HOST_CACHED 우선, 늘 매핑).
+              버퍼는 늘 TRANSFER_SRC|DST|STORAGE + 쓰임새, 이미지는 늘 TRANSFER_SRC|DST + 쓰임새 (뷰는 셰이더 · 첨부 쓰임새만)
+디스크립터    BindGroup = VkDescriptorSet 하나 (FREE 플래그 풀 하나 — 세트 8192). 세트 · 파이프라인 레이아웃은 layoutSignature
+              (+ push 크기)로 캐시해 디바이스 수명 동안 공유, 빈 슬롯 = 빈 세트 레이아웃. Texture2DArray 뷰는 처음 쓸 때
+파이프라인    dynamic rendering, 뷰포트 · 시저 동적, push constant = ALL_GRAPHICS 한 구간, 블렌드 표는 D3D12 와 같다
+커맨드 리스트 프레임 슬롯마다 VkCommandPool (그 프레임 첫 begin 에 리셋 — 그 풀의 마지막 제출을 기다린 뒤, 같은 프레임의
+              begin 은 다음 버퍼). 배리어: 텍스처 = RHI 전이(레이아웃), 버퍼 · 복사 = 보수적인 전역 메모리 배리어 — 기록 시작
+              (이전 쓰기 → 모든 접근), 복사 뒤 다음 복사 · 렌더 패스 · 끝 전, 기록 끝(모든 쓰기 → HOST 읽기)
+정렬 (caps)   D3D12 이상으로: 상수 버퍼 256, 복사 행 256, 복사 오프셋 512 — 상위 코드는 백엔드마다 배치를 만들지 않는다
+타임스탬프    슬롯마다 kMaxTimestampsPerFrame 칸, beginFrame 이 옮긴 뒤 호스트 리셋, resolve = vkCmdCopyQueryPoolResults
+              (64비트 · WAIT) → Readback, 주파수 = 1e9 / timestampPeriod
+검증          --rhi-debug = VK_LAYER_KHRONOS_validation (없으면 경고 후 계속), --rhi-gbv = + 동기화 검증. ERROR = 오류 수,
+              VALIDATION 종류 WARNING = 경고 수, 성능 · 일반 메시지는 debug 로그만. 디버그 이름 · 라벨 = VK_EXT_debug_utils
+수명          커맨드 리스트 · 스왑체인이 디바이스보다 오래 살면 디바이스 소멸자가 그 네이티브 객체를 먼저 놓는다 (경고)
+SPIR-V        sbx_shader_gen 이 내장 바이트코드에서 -fspv-reflect 의 SPV_GOOGLE_* 확장 · 장식을 뺀다 (리플렉션은 원본으로)
+`[계획]`      VMA · 서브 할당, 프레임 디스크립터 링 · bindless, VkPipelineCache, 세밀한 버퍼 배리어, 전송 큐, 깊이 첨부
+```
 
 ### 5.3 Metal (macOS)
 
@@ -689,7 +723,7 @@ SandboxClient 에 있고 옮기는 것은 `[계획 12B]`. 폰트 아틀라스는
 | NDC Y              | 위가 +1                         | 동일                    | 아래가 +1 → **음수 높이 viewport**로 뒤집음 (1.1 core) | 동일                         |
 | Depth              | [0, 1]                          | 동일                    | 동일                                                   | 동일                         |
 | 텍스처 원점        | 좌상단                          | 동일                    | 동일                                                   | 동일                         |
-| Front Face         | CCW = 앞면, PipelineDesc에 명시 | `FrontCounterClockwise` | Y 뒤집힘을 고려해 백엔드가 매핑                        | `MTLWindingCounterClockwise` |
+| Front Face         | CCW = 앞면, PipelineDesc에 명시 | `FrontCounterClockwise` | 그대로 COUNTER_CLOCKWISE (13A — culling_ccw 통과)      | `MTLWindingCounterClockwise` |
 | 상수 버퍼 레이아웃 | DXIL 패킹                       | 기준                    | `-fvk-use-dx-layout`로 일치                            | SPIRV-Cross가 오프셋 유지    |
 
 ```text
@@ -701,18 +735,17 @@ SandboxClient 에 있고 옮기는 것은 `[계획 12B]`. 폰트 아틀라스는
 
 ## 13. 디버그 옵션 (SandboxClient)
 
-| 옵션                        | 효과                                                      |
-|-----------------------------|-----------------------------------------------------------|
-| `--rhi=dx12\|vulkan\|metal` | 백엔드 선택 (빌드에 포함된 것만)                          |
-| `--rhi-debug`               | Debug Layer / Validation Layer / Metal API Validation     |
-| `--rhi-gbv`                 | D3D12 GPU-Based Validation                                |
-| `--rhi-sync-validation`     | Vulkan synchronization validation                         |
-| `--rhi-warp`                | D3D12 WARP 소프트웨어 디바이스                            |
-| `--rhi-fl11`                | D3D12 FL 11_0 어댑터도 허용 (오래된 GPU·Wine 시험, 7A)    |
-| `--no-render`               | 렌더러 없이 창만 (7A)                                     |
-| `--rhi-capture=N`           | N번째 프레임 프로그램 캡처 (PIX / Xcode)                  |
-| `--frames-in-flight 2\|3`   | 7A 구현                                                   |
-| `--vsync on\|off`           | 7A 구현. 렌더러가 있으면 페이싱도 VSync (--fps 가 이긴다) |
+| 옵션                       | 효과                                                      |
+|----------------------------|-----------------------------------------------------------|
+| `--rhi auto\|dx12\|vulkan` | 백엔드 선택 (빌드에 포함된 것만, 13A 구현. metal 은 14)   |
+| `--rhi-debug`              | Debug Layer / Validation Layer / Metal API Validation     |
+| `--rhi-gbv`                | D3D12 GPU-Based Validation · Vulkan 동기화 검증 (13A)     |
+| `--rhi-warp`               | D3D12 WARP · Vulkan CPU 장치 lavapipe (13A)               |
+| `--rhi-fl11`               | D3D12 FL 11_0 어댑터도 허용 (오래된 GPU·Wine 시험, 7A)    |
+| `--no-render`              | 렌더러 없이 창만 (7A)                                     |
+| `--rhi-capture=N`          | N번째 프레임 프로그램 캡처 (PIX / Xcode)                  |
+| `--frames-in-flight 2\|3`  | 7A 구현                                                   |
+| `--vsync on\|off`          | 7A 구현. 렌더러가 있으면 페이싱도 VSync (--fps 가 이긴다) |
 
 ---
 
@@ -725,6 +758,13 @@ SandboxClient 에 있고 옮기는 것은 `[계획 12B]`. 폰트 아틀라스는
 - 리플렉션 헤더: static_assert 가 깨지면 빌드 실패 (테스트 대신 컴파일이 검사)
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
+
+Phase 13A 구현: `sbx_render_tests --rhi auto|dx12|vulkan` — 모든 케이스가 백엔드 공통이고 기준 이미지 · 허용치도 하나다
+(Vulkan 이라고 따로 두지 않는다). CTest `render_tests_lavapipe` (Linux, `--rhi vulkan --warp --debug`, 드라이버 목록을 lavapipe
+하나로 — `VK_DRIVER_FILES`): 28 케이스 · Validation 0 (`--gbv` 동기화 검증도 0). 셰이더(내장 SPIR-V)는 dxc 가 있는 빌드만 —
+없으면 7A 케이스만. Windows 의 Vulkan 은 MinGW + Wine(winevulkan → lavapipe)으로 확인 (CTest 에는 넣지 않는다 — 드라이버가
+기계마다 다르다, MANUAL-QA). 같이 고친 시험: 상수 버퍼를 16 바이트 변수에서 256 바이트 읽던 것(ASan), 대소문자를 가리는
+파일 시스템의 에셋 이름. SandboxTests `render`: 백엔드 이름 · 빌드에 든 백엔드 · 없는 백엔드는 Unsupported (GPU 없이).
 
 Phase 8C 구현 (`tests/render/test_imgui.cpp`): imgui_basic(내장 비트맵 폰트 창 · 체크 · 버튼 · 진행 막대 · 그래프 — 기준 이미지,
 창 밖은 지운 색 그대로) · 폰트 텍스처를 처음에 만들고 같은 UI 면 다시 안 만든다 · 큰 글자에서 아틀라스 갱신 · 화면 밖 창은 Draw 0

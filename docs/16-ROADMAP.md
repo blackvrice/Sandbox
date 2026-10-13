@@ -30,7 +30,7 @@ Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (E
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
 Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
-Phase 13  Linux (X11 → Vulkan → Wayland)
+Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan (2026-10-13)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
 ```
@@ -518,6 +518,35 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 완료  Core·Renderer 상위 diff 0줄, Linux CI lavapipe 기준 이미지 통과
 ```
 
+셋으로 나눈다 (ADR-0032 결정 1):
+
+```text
+13A Vulkan 백엔드 ✅ (2026-10-13, ADR-0032)
+  13.0 ✅ render/vulkan — volk + 벤더링한 Vulkan-Headers (SDK 없음), 1.3 (dynamic rendering · sync2 · timeline · hostQueryReset),
+          큐 펜스 = 타임라인 세마포어, 리소스마다 할당, BindGroup = 디스크립터 세트, 정렬 · 좌표는 D3D12 에 맞춘다. 옵션 이름은
+          SBX_ENABLE_VULKAN (Linux 기본 ON, Windows 는 켜서 D3D12 와 함께). 백엔드 팩토리 · --rhi auto|dx12|vulkan
+          (sbx_render_tests · SandboxClient). 스왑체인은 Win32 표면 — Windows 클라이언트 --rhi vulkan
+  13.2 ◐ Linux 에서 SandboxRender · sbx_render_tests 빌드 · 실행 (헤드리스) — CTest render_tests_lavapipe: D3D12 와 같은 기준
+          이미지 28 케이스 · Validation 0. 클라이언트 창은 13B
+13B X11 [계획]
+  13.1 X11Window (Xlib) + 입력 (물리 키 · IME · 클립보드 · 커서 — 07), Xlib 표면 스왑체인, Linux 클라이언트 창 · MANUAL-QA
+13C Wayland · CI [계획]
+  13.3 WaylandWindow (libdecor) + Wayland 표면, --platform x11|wayland, Linux CI (lavapipe 기준 이미지 · Linux dxc 고정 여부)
+```
+
+```text
+13A 검증 (2026-10-13)
+  Linux    clang Debug (커밋마다 -Werror) · gcc Debug: ctest 47/47 (render_tests_lavapipe 추가) — 셰이더(Wine dxc)를 켠 빌드의
+           sbx_render_tests --rhi vulkan --warp: 28 케이스, Validation 경고 0 · 오류 = 예상 8, --gbv(동기화 검증) 0, ASan · UBSan 빌드도 0.
+           unit_render 백엔드 팩토리 · unit_client --rhi
+  Windows  MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0 + Wine: sbx_render_tests --rhi vulkan (winevulkan → lavapipe) · --rhi dx12
+           (vkd3d) 둘 다 28 케이스, SandboxTests 348 케이스. 창 ecosystem_small --rhi vulkan: 스왑체인 FIFO 3장 · 지형 · 스프라이트 ·
+           패널 · 창 크기 바꾸기(다시 만들기) · Ctrl+Q
+  남음     사용자 PC (MSVC): 다시 빌드 → ctest (render_tests_warp), -D SBX_ENABLE_VULKAN=ON 으로 실제 GPU 의 --rhi vulkan ·
+           MANUAL-QA Phase 13A. 지울 파일: render/stub/StubRenderDevice.cpp
+  다음     13B — X11 창 · 입력 · Xlib 표면 → Linux 클라이언트
+```
+
 ### Phase 14 — macOS
 
 ```text
@@ -554,7 +583,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 |-----|------------------------------------------|--------|------|------------------------------------------------------------------------------|
 | R1  | 범위: 1인 개발, 15 Phase, 3 플랫폼       | 높음   | 치명 | Phase 12를 1차 목표선으로 고정. Phase마다 동작하는 상태                      |
 | R2  | 툴체인 전환 (MinGW → MSVC)               | 중     | 높음 | Phase 1에서 즉시. RTS의 MinGW 간헐 컴파일 실패도 해소                        |
-| R3  | RHI 과잉/과소 추상화                     | 중     | 높음 | Vulkan을 Windows에서 일찍 붙여 인터페이스 검증. 그 전까지 RHI 변경 허용      |
+| R3  | RHI 과잉/과소 추상화                     | 중     | 높음 | Vulkan을 Windows에서 일찍 붙여 인터페이스 검증 (13A — RHI 인터페이스 그대로) |
 | R4  | GPU 동기화·수명 버그                     | 높음   | 중   | Debug Layer/GBV/Validation 상시, 파괴 대기열 단일화, DRED, 기준 이미지       |
 | R5  | 50k 성능 미달                            | 중     | 높음 | Phase 2부터 벤치, EnTT 기준선, 착수 조건 표                                  |
 | R6  | ENet 암호화 부재                         | 확정   | 중   | LAN·신뢰 환경 한정 명시. 공개 서버 전 GNS 또는 DTLS (ADR 필요)               |

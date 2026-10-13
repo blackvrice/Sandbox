@@ -401,6 +401,38 @@ ctest --test-dir cmake-build-debug --output-on-failure
 [ ] 기록 중에 서버 창에서 Ctrl+C → 로그 "서버를 멈추며 리플레이를 썼습니다: …", D:\sbx_saves\<이름>\replay.sbxr 가 생긴다
 ```
 
+## Phase 13A — Vulkan 백엔드 (Windows 에서 먼저)
+
+**먼저** `render\stub\StubRenderDevice.cpp` 를 지운다 (백엔드 팩토리가 대신한다 — 빌드에 들어가지 않는다). 평소 구성(D3D12 만)은
+그대로다:
+
+```powershell
+.\cmake-build-debug\bin\SandboxClient.exe --version          # "render D3D12"
+ctest --test-dir cmake-build-debug -L render --output-on-failure   # render_tests_warp (--rhi dx12)
+```
+
+Vulkan 을 함께: CLion 프로필의 CMake options 에 `-DSBX_ENABLE_VULKAN=ON` 을 더해 다시 불러오고 빌드한다 (Vulkan SDK 는 필요 없다 —
+로더 vulkan-1.dll 은 GPU 드라이버에 있다. Validation 레이어를 보려면 Vulkan SDK 를 설치한다 — 없으면 경고 후 계속).
+
+```powershell
+.\cmake-build-debug\bin\SandboxClient.exe --version          # "render D3D12 (+Vulkan)"
+.\cmake-build-debug\bin\sbx_render_tests.exe --rhi vulkan --debug
+.\cmake-build-release\bin\SandboxClient.exe --console --rhi vulkan --world ecosystem_survival
+.\cmake-build-release\bin\SandboxClient.exe --console --rhi dx12 --world ecosystem_survival
+```
+
+```text
+[ ] sbx_render_tests --rhi vulkan: 첫 줄 "Vulkan · <GPU 이름>", 끝에 "render tests OK" (D3D12 와 같은 기준 이미지). SDK 가 있으면
+    "Debug Layer 켬" 이고 경고 0 · 오류 = 예상 8. 실패하면 render_test_output\ 의 actual · diff PNG
+[ ] --rhi vulkan 창: 로그 "Vulkan 1.x.y: <GPU 이름>" · "스왑체인 W×H BGRA8Unorm · 이미지 3 · VSync 켬 · present mode FIFO",
+    제목 줄 "Vulkan 60 fps VSync 켬" (주사율). 지형 · 스프라이트 · 격자 · 패널이 --rhi dx12 창과 같은 모습 (스크린샷 둘을 견준다)
+[ ] 크기 조절 · 최대화 · 복원 · 최소화 → 복원 후 계속 그린다 (검은 띠 · 늘어짐 없음, 로그에 오류 없음)
+[ ] --vsync off: 로그 present mode MAILBOX 또는 IMMEDIATE, fps 가 주사율보다 높다
+[ ] --rhi-debug (SDK 설치 시) 로 1분 돌리고 Ctrl+Q: 끝 로그 "Debug Layer 경고 0 · 오류 0", 제목 줄에 "Vulkan 경고" 가 없다
+[ ] 제목 줄 끝 GPU 시간(지형 · 스프라이트 · 격자 · 선)이 D3D12 와 비슷한 크기로 나온다 (타임스탬프)
+[ ] SandboxClient --rhi metal · --rhi opengl → 잘못된 인자 (종료 코드 2), SBX_ENABLE_VULKAN=OFF 빌드의 --rhi vulkan 도 같다
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text
@@ -415,6 +447,7 @@ ctest --test-dir cmake-build-debug --output-on-failure
 ## Phase 13·14 — 이식
 
 ```text
+[ ] (13B) Linux X11 창에서 SandboxClient — 위 13A 항목을 Linux 에서 (실제 GPU · lavapipe)
 [ ] 같은 세이브를 Windows/Linux/macOS 에서 열었을 때 같은 화면 구성
 [ ] Linux X11·Wayland 각각 입력·리사이즈
 [ ] macOS Retina 배율, 메뉴 바, Cmd 단축키

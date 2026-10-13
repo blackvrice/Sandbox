@@ -15,6 +15,10 @@
 
 구성 단계가 `std::expected`·`std::format`·`std::source_location`을 실제로 컴파일해 보고, 안 되면 원인 한 줄로 중단합니다 (`cmake/SbxCompilerSettings.cmake`).
 
+Linux 의 Vulkan (Phase 13A): 빌드에는 아무것도 더 필요 없다 (헤더 · volk 벤더링, 로더는 실행 중에). 실행 · 시험에는
+`libvulkan1` (로더) 과 드라이버 — GPU 가 없으면 `mesa-vulkan-drivers` 의 lavapipe, `--rhi-debug` 에는 `vulkan-validationlayers`.
+내장 셰이더(그리기 시험 · 클라이언트 렌더러)는 `dxc` 가 PATH 에 있을 때만 (Vulkan SDK 또는 배포판 패키지 — 6장).
+
 ### 1.1 CLion 설정 (Windows)
 
 ```text
@@ -57,20 +61,20 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 
 ## 3. 옵션
 
-| 옵션                           | 기본        | 의미                                                                               | 상태                  |
-|--------------------------------|-------------|------------------------------------------------------------------------------------|-----------------------|
-| `SBX_BUILD_SERVER`             | ON          | SandboxServer                                                                      | 구현                  |
-| `SBX_BUILD_TESTS`              | ON          | SandboxTests + CTest 등록                                                          | 구현                  |
-| `SBX_BUILD_TOOLS`              | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`) · `sbx_net_probe` (9)                  | 구현 (Phase 3)        |
-| `SBX_WARNINGS_AS_ERRORS`       | OFF (CI ON) | 경고 = 에러                                                                        | 구현                  |
-| `SBX_BOUNDARY_SELFTEST`        | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
-| `SBX_BUILD_CLIENT`             | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
-| `SBX_BUILD_BENCH`              | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
-| `SBX_ENABLE_VULKAN_ON_WINDOWS` | OFF         | Windows 에서 Vulkan 백엔드도 빌드                                                  | `[계획]` Phase 13     |
-| `SBX_ENABLE_TRACY`             | OFF         | Tracy 계측                                                                         | `[계획]`              |
-| `SBX_BUILD_SHADERS`            | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
-| `SBX_DXC`                      | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로 내려받는다                  | 구현 (Phase 7B)       |
-| `SBX_SHADER_HOT_RELOAD`        | ON(Debug)   | 런타임 DXC 호출 허용                                                               | `[계획]` Phase 8 이후 |
+| 옵션                     | 기본        | 의미                                                                               | 상태                  |
+|--------------------------|-------------|------------------------------------------------------------------------------------|-----------------------|
+| `SBX_BUILD_SERVER`       | ON          | SandboxServer                                                                      | 구현                  |
+| `SBX_BUILD_TESTS`        | ON          | SandboxTests + CTest 등록                                                          | 구현                  |
+| `SBX_BUILD_TOOLS`        | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`) · `sbx_net_probe` (9)                  | 구현 (Phase 3)        |
+| `SBX_WARNINGS_AS_ERRORS` | OFF (CI ON) | 경고 = 에러                                                                        | 구현                  |
+| `SBX_BOUNDARY_SELFTEST`  | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
+| `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
+| `SBX_BUILD_BENCH`        | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
+| `SBX_ENABLE_VULKAN`      | ON(Linux)   | Vulkan 백엔드 (render/vulkan). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan`      | 구현 (Phase 13A)      |
+| `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
+| `SBX_BUILD_SHADERS`      | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
+| `SBX_DXC`                | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로, Linux 는 PATH 의 dxc       | 구현 (Phase 7B · 13A) |
+| `SBX_SHADER_HOT_RELOAD`  | ON(Debug)   | 런타임 DXC 호출 허용                                                               | `[계획]` Phase 8 이후 |
 
 옵션은 기능이 실제로 생기는 Phase 에 추가합니다. 쓰이지 않는 옵션을 미리 만들지 않습니다.
 
@@ -90,10 +94,13 @@ SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_jso
                                      WIN32: platform/windows/* + user32 imm32, UNICODE, _WIN32_WINNT=0x0A00
                                      그 밖: platform/stub (createWindow = Unsupported, Phase 13·14 전)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
-                                     WIN32: render/dx12/* + d3d12 dxgi dxguid. 그 밖: render/stub (createRenderDevice = Unsupported)
+                                     WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
+                                     PRIVATE sbx_volk, PUBLIC SBX_HAS_VULKAN (13A). 백엔드는 rhi/RenderDeviceFactory 가 고른다 (stub 은 지웠다)
                                      SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
+sbx_vulkan_headers        INTERFACE  external/vulkan-headers (SYSTEM), VK_NO_PROTOTYPES, WIN32: VK_USE_PLATFORM_WIN32_KHR (13A)
+sbx_volk                  STATIC     external/volk/volk.c (C, 경고 끔) + ${CMAKE_DL_LIBS}. SBX_ENABLE_VULKAN 일 때만 (13A)
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
 SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
@@ -106,7 +113,8 @@ SandboxTests              EXE        Foundation Core Network Platform Render Edi
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
 sbx_bench                 EXE        Core Network Render   (SBX_BUILD_BENCH=ON 일 때만 — 기본 OFF. Network 은 net.* 벤치, Phase 11)
-sbx_render_tests          EXE        Render, sbx_doctest — WIN32 + SBX_BUILD_TESTS 만 (tests/render). CTest render_tests_warp
+sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와 (WIN32 또는 SBX_ENABLE_VULKAN) (tests/render). CTest
+                                     render_tests_warp (Windows, --rhi dx12) · render_tests_lavapipe (Linux, --rhi vulkan — 13A)
 
 생성 헤더 build/<preset>/generated/foundation/BuildInfo.hpp
   kVersion*, kGitCommit, kCompilerId, kSystemName,
@@ -143,7 +151,7 @@ if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos
 | stb_image, stb_truetype, stb_rect_pack | 디코드·폰트·아틀라스 | Render                      | vendored                                                                         |
 | miniaudio                              | 오디오               | Platform                    | vendored                                                                         |
 | D3D12 Memory Allocator                 | D3D12 메모리         | Render/dx12                 | vendored                                                                         |
-| volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored                                                                         |
+| volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored — volk **1.4.304** · Vulkan-Headers **1.4.309** (13A). VMA `[계획]`     |
 | DXC                                    | 셰이더 컴파일러      | 빌드 타임                   | NuGet Microsoft.Direct3D.DXC **1.9.2609.5** (SHA256 고정, 구성 때 `.cache/dxc/`) |
 | SPIRV-Cross                            | MSL 변환 (Metal)     | 빌드 타임                   | `[계획]` Phase 14. 리플렉션은 자체 파서 (ADR-0019)                               |
 | WinPixEventRuntime                     | PIX 마커             | Render/dx12                 | NuGet 패키지 버전 고정                                                           |
@@ -212,6 +220,8 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     [--log-level L] [--version]
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
+    (Phase 13A) [--rhi auto|dx12|vulkan] — 빌드에 든 백엔드만 (Windows 는 -D SBX_ENABLE_VULKAN=ON 으로 구성하면 vulkan).
+    --version 의 render 는 기본 백엔드 + 빌드에 든 다른 백엔드 ("render D3D12 (+Vulkan)"). Linux 는 창이 13B 라 아직 --headless.
     (Phase 10B) [--world <시나리오|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
                 [--content <dir>] [--assets <dir>]       (8A 의 --direct-sim 은 지웠다 — ADR-0026)
     --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 또는 세이브를
@@ -246,8 +256,11 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
 
-sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>] [doctest 옵션]
-    기준 이미지 tests/render/references/*.png. 실패하면 --out 에 <name>.actual.png · <name>.diff.png
+sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>]
+                 [--out <dir>] [doctest 옵션]
+    기준 이미지 tests/render/references/*.png (백엔드 공통). 실패하면 --out 에 <name>.actual.png · <name>.diff.png
+    (13A) --rhi: 빌드에 든 백엔드 (auto = 플랫폼 기본). Vulkan 의 --warp = CPU 장치(lavapipe), --gbv = 동기화 검증.
+    GPU 가 있는 Linux 에서 lavapipe 로만: VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json (CTest 가 그렇게 한다)
     Windows 는 GUI 서브시스템 실행 파일이라 PowerShell 에서 실행해도 로그가 안 보인다 → --console (부모 콘솔에 붙는다).
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
     창이 아직 없는 OS(Linux·macOS)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
@@ -264,8 +277,7 @@ sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--re
 SandboxServer … [--autosave 300] [--record-replay] [--metrics-csv path]      (Phase 9 에서 나머지는 구현)
 
 SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
-              [--rhi dx12|vulkan|metal] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-capture N]
-              [--frames-in-flight 2|3] [--vsync on|off] [--platform x11|wayland]
+              [--rhi metal] (14) [--rhi-capture N] [--platform x11|wayland] (13B · 13C)
 ```
 
 ## 8. CI
@@ -326,6 +338,15 @@ SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
 - (Phase 7A) 클라우드의 D3D12 시험: MinGW 교차 빌드 → tools/wine/run.sh (Wine d3d12 = vkd3d → lavapipe). vkd3d 는 FL 11_1 까지라
   --fl11 / --rhi-fl11 이 필요하고, lavapipe 의 viewportSubPixelBits 를 올리는 시험용 Vulkan 레이어를 함께 쓴다 (ADR-0018).
   Wine 이 보고하는 어댑터 이름(예: "NVIDIA GeForce GTX 470")은 가짜다.
+- (Phase 13A) Linux 에는 고정 버전 DXC 를 내려받지 않는다 — PATH 의 dxc(Vulkan SDK · 배포판)가 없으면 SBX_BUILD_SHADERS 가
+  OFF 로 구성되고 (구성 메시지) render_tests_lavapipe 는 7A 케이스만 돈다. 다른 dxc 는 -D SBX_DXC=<dxc>. 클라우드에서는
+  tools/wine/dxc.sh (Windows dxc.exe 를 Wine 으로) 를 SBX_DXC 로 준다. dxc 버전이 달라도 기준 이미지는 같아야 한다.
+- (Phase 13A) Linux 파일 시스템은 대소문자를 가린다. 에셋 경로는 소문자로 정규화돼 열리므로 (AssetId) 에셋 파일 이름은
+  소문자로 둔다.
+- (Phase 13A) Vulkan Validation 레이어가 없으면 --rhi-debug · --debug 는 경고만 하고 계속한다 (Linux: vulkan-validationlayers,
+  Windows: Vulkan SDK). Wine 의 winevulkan 은 Windows 쪽 레이어를 보지 않는다 — Validation 은 Linux 빌드에서 본다.
+- (Phase 13A) 클라우드의 Windows Vulkan 시험: MinGW 를 -D SBX_ENABLE_VULKAN=ON 으로 구성하고 tools/wine/run.sh 로
+  sbx_render_tests.exe --rhi vulkan · SandboxClient.exe --rhi vulkan (Wine 의 winevulkan → 호스트 lavapipe — vkd3d 가 없어도 된다).
 - (Phase 6) Win32 코드는 클라우드에서 MinGW 교차 빌드 + Wine(Xvfb) + xdotool 로 실행 시험을 한다. Wine 은 Per-Monitor DPI 를
   지원하지 않아 "DPI 를 켜지 못했습니다" 경고가 나온다 — 실제 Windows 에서는 나오지 않아야 한다.
 ```
