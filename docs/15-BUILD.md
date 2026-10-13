@@ -24,6 +24,12 @@ Linux 의 창 (Phase 13B): `libx11-dev` 가 필요하고 `libxi-dev` 가 있으�
 (`platform_x11` · `client_x11_world_smoke`)은 `xvfb` 가 있으면 가상 화면에서 돈다. 한글 UI 글꼴은 `fonts-noto-cjk` 또는
 `fonts-nanum` 을 찾는다.
 
+Linux 의 Wayland 창 (Phase 13C): `libwayland-dev` · `wayland-protocols` · `libxkbcommon-dev` · `libdecor-0-dev` (Debian/Ubuntu:
+`sudo apt install libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev`, 창 틀 플러그인 `libdecor-0-plugin-1-cairo`
+또는 `-gtk` — GNOME 은 서버가 틀을 그려 주지 않는다). 확장 프로토콜 C 코드는 빌드 때 `wayland-scanner` 로 만든다 (C 컴파일러
+필요). Wayland 없이 빌드하려면 `-D SBX_ENABLE_WAYLAND=OFF` (X11 만). 둘 다 켜면 실행 중에 고른다 (7장 `--platform`).
+창 시험(`platform_wayland` · `client_wayland_world_smoke`)은 `weston` 이 있으면 화면 없는 컴포지터(`tools/wayland/run_headless.sh`)에서 돈다.
+
 ### 1.1 CLion 설정 (Windows)
 
 ```text
@@ -76,7 +82,8 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
 | `SBX_BUILD_BENCH`        | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
 | `SBX_ENABLE_VULKAN`      | ON(Linux)   | Vulkan 백엔드 (render/vulkan). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan`      | 구현 (Phase 13A)      |
-| `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). OFF = 창 없음              | 구현 (Phase 13B)      |
+| `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). 둘 다 OFF = 창 없음        | 구현 (Phase 13B)      |
+| `SBX_ENABLE_WAYLAND`     | ON(Linux)   | Linux Wayland 창 (libwayland · libdecor · xkbcommon). X11 과 함께 = 실행 중 선택   | 구현 (Phase 13C)      |
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
 | `SBX_BUILD_SHADERS`      | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
 | `SBX_DXC`                | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로, Linux 는 PATH 의 dxc       | 구현 (Phase 7B · 13A) |
@@ -99,7 +106,9 @@ SandboxCore               STATIC     PUBLIC Foundation, PUBLIC sbx_nlohmann_json
 SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_json (ActionMap). 항상 빌드 (입력·오디오 단위 테스트)
                                      WIN32: platform/windows/* + user32 imm32, UNICODE, _WIN32_WINNT=0x0A00
                                      SBX_ENABLE_X11 (Linux, 13B): platform/linux/* + X11::X11 (+ X11::Xi → SBX_HAS_XINPUT2),
-                                     PUBLIC SBX_HAS_X11. 그 밖(macOS · X11 끔): platform/stub (createWindow = Unsupported)
+                                     PUBLIC SBX_HAS_X11. SBX_ENABLE_WAYLAND (Linux, 13C): WaylandWindow · WaylandInput +
+                                     PkgConfig::SBX_WAYLAND + 생성한 프로토콜 C (cmake/SbxWayland.cmake), PUBLIC SBX_HAS_WAYLAND.
+                                     그 밖(macOS · 둘 다 끔): platform/stub (createWindow = Unsupported)
                                      platform/linux/X11KeyMap 은 순수 표라 모든 OS 에서 컴파일한다 (Win32KeyMap 과 같다)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
@@ -231,7 +240,10 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (Phase 13A) [--rhi auto|dx12|vulkan] — 빌드에 든 백엔드만 (Windows 는 -D SBX_ENABLE_VULKAN=ON 으로 구성하면 vulkan).
     --version 의 render 는 기본 백엔드 + 빌드에 든 다른 백엔드 ("render D3D12 (+Vulkan)").
     (Phase 13B) Linux: X11 창 + Vulkan ("window X11, render Vulkan"). DISPLAY 가 없으면 창을 만들지 못하고 종료 코드 1 —
-    --headless 로. Wayland 데스크톱에서는 Xwayland 로 돈다 (네이티브 Wayland 는 13C).
+    --headless 로.
+    (Phase 13C) [--platform auto|x11|wayland] — Linux 창 시스템. auto = WAYLAND_DISPLAY 가 있으면 Wayland, 안 되면 X11
+    (Xwayland). 강제한 쪽이 안 되면 종료 코드 1. 로그 "창 Wayland" = 실제로 고른 것, --version 은 빌드에 든 것
+    ("window Wayland · X11"). Wayland 창은 libdecor 틀 · 정수 배율(wl_output.scale) · text-input-v3 입력기.
     (Phase 10B) [--world <시나리오|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
                 [--content <dir>] [--assets <dir>]       (8A 의 --direct-sim 은 지웠다 — ADR-0026)
     --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 또는 세이브를
@@ -274,7 +286,7 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
     GPU 가 있는 Linux 에서 lavapipe 로만: VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json (CTest 가 그렇게 한다)
     Windows 는 GUI 서브시스템 실행 파일이라 PowerShell 에서 실행해도 로그가 안 보인다 → --console (부모 콘솔에 붙는다).
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
-    창이 없는 빌드(macOS · SBX_ENABLE_X11=OFF)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
+    창이 없는 빌드(macOS · SBX_ENABLE_X11 · SBX_ENABLE_WAYLAND 둘 다 OFF)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
     창 안 단축키(수동 QA): F2 글자 입력 · F3 마우스 캡처 · F4 커서 모양 · Ctrl+C/V · Esc · Ctrl+Q (qa/MANUAL-QA Phase 6)
 종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일 · 서버 접속 실패 · 끊김) · 2 잘못된 인자 (없는 월드 포함)
 
@@ -288,13 +300,14 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
 SandboxServer … [--autosave 300] [--record-replay] [--metrics-csv path]      (Phase 9 에서 나머지는 구현)
 
 SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
-              [--rhi metal] (14) [--rhi-capture N] [--platform x11|wayland] (13C)
+              [--rhi metal] (14) [--rhi-capture N]
 ```
 
 ## 8. CI
 
-[13-TESTING](13-TESTING.md) 8장의 매트릭스. 워크플로: `.github/workflows/ci.yml` — Phase 1 범위(Windows MSVC, Linux clang-19/gcc-13/asan, macOS)로 작성됨.
-원격 저장소에 push 하면 첫 실행됩니다 (아직 실행된 적 없음).
+[13-TESTING](13-TESTING.md) 8장의 매트릭스. 워크플로: `.github/workflows/ci.yml` — Windows MSVC, Linux clang-19/gcc-13/asan, macOS.
+Linux 잡은 (Phase 13C) Vulkan 로더 · lavapipe · Validation 레이어 + X11 · Wayland 개발 파일 + Xvfb · weston 을 설치해 창 시험
+(`platform_x11` · `platform_wayland` · `client_*_world_smoke`)까지 화면 없이 돈다. 원격 저장소에 push 하면 실행됩니다.
 
 ```text
 - Core·Server·Tests 는 Phase 1 부터 Windows/Linux/macOS 세 OS 에서 빌드.
@@ -358,6 +371,15 @@ SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
   Windows: Vulkan SDK). Wine 의 winevulkan 은 Windows 쪽 레이어를 보지 않는다 — Validation 은 Linux 빌드에서 본다.
 - (Phase 13A) 클라우드의 Windows Vulkan 시험: MinGW 를 -D SBX_ENABLE_VULKAN=ON 으로 구성하고 tools/wine/run.sh 로
   sbx_render_tests.exe --rhi vulkan · SandboxClient.exe --rhi vulkan (Wine 의 winevulkan → 호스트 lavapipe — vkd3d 가 없어도 된다).
+- (Phase 13C) Wayland 표면은 버퍼를 붙여 커밋해야 지도에 오른다 — 그 전에는 창이 안 보이고 입력도 없다. 그래서
+  --no-render 에서도 wl_shm 어두운 버퍼를 붙인다. libdecor 장식(제목 줄 · 테두리)도 우리 wl_pointer 로 이벤트가 온다 —
+  우리 표면의 것만 낸다 (안 그러면 닫기 단추를 누른 것이 게임 클릭으로 샌다).
+- (Phase 13C) Wayland 는 다른 클라이언트에 입력을 보낼 수 없다 (XSendEvent · XTEST 같은 것이 없다). 클라우드의 사람 손 시험 =
+  Xvfb 위에 weston --backend=x11-backend.so 를 띄우고 xdotool 로 weston 창에 입력 (weston 이 Wayland 입력으로 옮긴다) ·
+  wl-copy · wl-paste (wl-clipboard). wl-copy 는 잠깐 포커스를 가져가므로 창을 누르기 전에 한다.
+- (Phase 13C) 클립보드 쓰기(set_selection)는 마지막 입력의 serial 이 필요하다 — 입력이 한 번도 없는 창은 서버가 거절한다.
+- (Phase 13C) CMake 의 Wayland 블록은 C 언어를 켠다 (wayland-scanner 가 만든 .c). 프리셋은 C++ 컴파일러만 고르므로 C 는
+  시스템 cc 다 — 경고 없이(-w) 컴파일하고 산출물은 C 링크라 섞여도 된다.
 - (Phase 6) Win32 코드는 클라우드에서 MinGW 교차 빌드 + Wine(Xvfb) + xdotool 로 실행 시험을 한다. Wine 은 Per-Monitor DPI 를
   지원하지 않아 "DPI 를 켜지 못했습니다" 경고가 나온다 — 실제 Windows 에서는 나오지 않아야 한다.
 ```

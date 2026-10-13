@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-10-13 — Phase 13C: Linux Wayland 창 — libdecor · xkbcommon · text-input-v3, 실행 중 창 시스템 선택, Linux CI
+
+**무엇을**
+
+- platform/linux: `WaylandWindow` (libwayland + libdecor 틀 — 서버 장식이 있으면 서버 것, 없으면 플러그인. configure 크기 ·
+  최대화를 풀면 떠 있던 크기 · SUSPENDED = 최소화 · close → CloseRequested, 렌더러 전 wl_shm 어두운 버퍼), 키 = 같은 evdev 표,
+  `WaylandInput` (xkbcommon 키맵 · 수정자 · 글자 · compose 데드 키 · repeat_info 로 클라이언트 자동 반복 · 버튼 코드 · 더블클릭),
+  text-input-v3 입력기, pointer-constraints lock + relative-pointer 캡처, wl_data_device 클립보드, wl_cursor 테마, 정수 배율.
+  확장 프로토콜 C 는 빌드 때 wayland-scanner 로 (`cmake/SbxWayland.cmake`). 옵션 `SBX_ENABLE_WAYLAND` (Linux 기본 ON).
+- `WindowDesc.system` (Auto · X11 · Wayland) · `IWindow::backendName()` · `LinuxPlatform` 의 선택 (Auto = WAYLAND_DISPLAY →
+  Wayland, 안 되면 X11 · 강제한 쪽은 대신하지 않음 · 한쪽만 든 빌드는 그쪽만).
+- render/vulkan: Wayland 표면 (vkCreateWaylandSurfaceKHR), Linux 인스턴스 확장 = surface + 있는 것.
+- client: `--platform auto|x11|wayland`, 로그 "창 <실제 백엔드>" (--headless 는 "Headless").
+- 시험: unit_platform 에 xkb 키맵 이름으로 Wayland 입력(us · fr · us intl, 반복 시각, 수정자 키 반복 없음, 키맵 없음, 버튼,
+  더블클릭), 강제 Wayland, 창 시스템 이름 · unit_client --platform. 스위트 `wayland` (실제 컴포지터 — 핸들 · 크기 · 제목 ·
+  클립보드 · 커서 · 캡처 · 두 연결). CTest `platform_wayland` · `client_wayland_world_smoke` — `tools/wayland/run_headless.sh`
+  (weston headless, 자기 XDG_RUNTIME_DIR), ASan 은 `tools/wayland/lsan.supp` (libdecor cairo 플러그인의 fontconfig · pango 캐시).
+- CI: `.github/workflows/ci.yml` (문서에는 있었지만 커밋 기록에 없던 파일을 이번에 넣는다) — Linux 잡에 X11 · Wayland 개발 파일 · Xvfb · weston,
+  push 트리거를 main → master (이 저장소의 브랜치).
+- 문서: ADR-0034, 07(상태 · 1 · 2 · 6.2 · 9장), 06(상태 · 5.2), 13(CTest · CI 표), 15(1 · 4 · 7 · 8 · 9장), 16(13C ✅), 17,
+  MANUAL-QA 13C, README.
+
+**왜**
+
+- 지금 데스크톱의 기본 세션은 Wayland 다. Xwayland 위의 X11 창은 배율이 흐리고 입력기가 XIM 을 거친다.
+- GNOME 은 서버 장식이 없다 — libdecor 가 GNOME 에선 틀을 그리고 다른 서버에선 서버 틀을 쓴다 (SDL · GLFW 와 같은 선택).
+- Wayland 키 코드 = evdev → 13B 의 표 그대로, 두 창 시스템이 같은 Key 를 낸다. 반복은 Wayland 규약상 클라이언트 몫이다.
+- 한 바이너리가 X11 · Wayland 세션 모두에서 돌아야 한다 (배포판 패키지 하나).
+
+**검증**
+
+- Linux clang 19 Debug (-Werror) · gcc 13 Debug: ctest 51/51 (platform_wayland · client_wayland_world_smoke 추가).
+  ASan · UBSan: platform_x11 · platform_wayland · unit_platform · client 창 스모크 둘 — 보고 없음 (억제 파일 적용 뒤).
+  Wayland 만 · X11 만 · 둘 다 끈 구성: SandboxClient · SandboxTests 경고 0, --version "window Wayland" · "window X11",
+  Wayland 만 든 빌드는 WAYLAND_DISPLAY 가 없어도 기본 소켓을 해 본다, X11 만 든 빌드의 --platform wayland = 오류.
+- Xvfb 위 weston(x11 백엔드) + xdotool QA: libdecor cairo 틀(한글 제목 · 단추)에 월드 · 패널 (lavapipe FIFO 4장), 로그
+  "Wayland 창 … · libdecor · 상대 이동 있음". 최대화 단추 → Resized 1300×804 → 복원 → 900×560, 모서리 끌기 → 820×496
+  까지 매 단계 Resized, 닫기 단추 → CloseRequested → Shutdown. --no-render --log-input: 클릭 · F2 글자 a Z 9 ! · 키 반복
+  (1 초에 약 25 번) · Ctrl+C → wl-paste "aZ9!xxx…" · wl-copy "붙여넣기" → Ctrl+V → Ctrl+C → wl-paste "붙여넣기" ·
+  F3 캡처 중 MouseMove 위치 (500, 368) 그대로 Δ(15, -5) 셋 · 더블클릭 ×2 · 휠 (0, -1) · 가로 (-1, 0) · Ctrl+Q.
+- 처음 잡은 것: 버퍼가 없는 표면은 지도에 오르지 않아 --no-render 창이 보이지도 입력을 받지도 않았다 (wl_shm 버퍼),
+  libdecor 제목 줄 · 단추 클릭이 우리 wl_pointer 로도 와 게임 클릭으로 샜다 (표면 비교), 최대화를 풀 때 configure 에
+  크기가 없어 최대화 크기에 남았다 (떠 있던 크기 기억), weston x11 백엔드에서 잠금이 늦게 켜져 캡처 중 절대 위치가
+  움직였다 (캡처 중 위치 고정), 입력이 없는 창의 set_selection 은 weston 이 거절한다 (규약 — 시험을 그에 맞춤).
+- MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0 (커밋마다).
+
+**남은 일**
+
+- 사용자 Linux PC: MANUAL-QA Phase 13C (GNOME · KDE · 한글 입력기 text-input-v3 · 배율 2 · 실제 GPU). CI 첫 실행 확인.
+- [계획] 분수 배율 (wp-fractional-scale), 조합 중 글자 UI, wp-cursor-shape, 전체 화면, 닫은 뒤 클립보드, DnD, Linux CI dxc 고정.
+- 다음: Phase 14 — macOS (Cocoa · Metal).
+
+---
+
 ## 2026-10-13 — Phase 13B: Linux X11 창 — Xlib · evdev 키 표 · XIM · XInput2 Raw · 클립보드, Xlib 표면으로 Linux 클라이언트
 
 **무엇을**

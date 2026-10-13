@@ -30,7 +30,7 @@ Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (E
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
 Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
-Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트 (2026-10-13)
+Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트, 13C Wayland · --platform · Linux CI (2026-10-13) — Phase 13 구현 완료, CI 첫 실행 · 사용자 PC QA 대기
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
 ```
@@ -533,8 +533,16 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           XIM 텍스트 입력(ibus · fcitx), XInput2 Raw 캡처(없으면 가운데로 되돌리기), CLIPBOARD UTF-8, _NET_WM_NAME, Xft.dpi 배율,
           cursorfont 커서. 옵션 SBX_ENABLE_X11 (libx11-dev · libxi-dev)
   13.2 ✅ Xlib 표면 스왑체인 (vkCreateXlibSurfaceKHR) → Linux SandboxClient 창 (Vulkan, 한글 UI 글꼴 Noto CJK · 나눔고딕)
-13C Wayland · CI [계획]
-  13.3 WaylandWindow (libdecor) + Wayland 표면, --platform x11|wayland, Linux CI (lavapipe 기준 이미지 · Linux dxc 고정 여부)
+13C Wayland · CI ✅ (2026-10-13, ADR-0034)
+  13.3 ✅ WaylandWindow (libwayland · libdecor 틀, platform/linux) — 키 = 같은 evdev 표, xkbcommon 키맵 · 수정자 · 글자 · 데드 키
+          (compose), 클라이언트 자동 반복(repeat_info), text-input-v3 입력기, pointer-constraints + relative-pointer 캡처,
+          wl_data_device 클립보드, wl_cursor 테마, 정수 배율(wl_output.scale), SUSPENDED = 최소화. 옵션 SBX_ENABLE_WAYLAND
+          (libwayland-dev · wayland-protocols · libxkbcommon-dev · libdecor-0-dev, 프로토콜 C 는 wayland-scanner 로 생성)
+  13.2 ✅ Wayland 표면 스왑체인 (vkCreateWaylandSurfaceKHR), 실행 중 선택 --platform auto|x11|wayland (Auto = WAYLAND_DISPLAY →
+          Wayland, 안 되면 X11), IWindow::backendName
+  CI   ✅ Linux 잡에 X11 · Wayland 개발 파일 · Xvfb · weston · lavapipe — 창 시험까지 화면 없이 (tools/wayland/run_headless.sh)
+  [계획] Linux CI 의 dxc 고정 (지금 CI 는 셰이더 없는 빌드 — 그리기 기준 이미지는 dxc 가 있는 빌드에서만), 분수 배율,
+          조합 중 글자 UI, 전체 화면
 ```
 
 ```text
@@ -559,6 +567,18 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   Windows  MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0 (X11 키 표는 모든 OS 에서 컴파일)
   남음     사용자 Linux PC: 실제 데스크톱(창 관리자 · 한글 입력기 ibus/fcitx · 실제 GPU) MANUAL-QA Phase 13B. Windows 는 다시 빌드 → ctest
   다음     13C — Wayland(libdecor · xkbcommon · text-input-v3) + --platform + Linux CI
+```
+
+```text
+13C 검증 (2026-10-13)
+  Linux    clang · gcc Debug: ctest 51/51 (platform_wayland · client_wayland_world_smoke 추가 — weston headless), unit_platform
+           xkb 입력 해석 · unit_client --platform. ASan · UBSan: wayland · x11 스위트 · 클라이언트 창 둘 (libdecor 플러그인 누수
+           억제). Wayland 만 · X11 만 · 창 없음 구성 경고 0. Xvfb 위 weston(x11 백엔드) + xdotool QA: libdecor 틀 · 월드
+           (lavapipe), 최대화 · 복원(원래 크기) · 모서리 크기 조절 · 닫기 단추, --log-input 으로 글자 · 반복 · 클립보드
+           (wl-copy · wl-paste 양방향) · F3 캡처(위치 고정 · Δ) · 더블클릭 · 휠 · Ctrl+Q
+  Windows  MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0 (바뀐 것은 IWindow::backendName · --platform 파싱)
+  남음     사용자 Linux PC: MANUAL-QA Phase 13C (GNOME · KDE · 한글 입력기 · 배율 2). CI 첫 실행. Windows 는 다시 빌드 → ctest
+  다음     Phase 14 — macOS (Cocoa · Metal)
 ```
 
 ### Phase 14 — macOS

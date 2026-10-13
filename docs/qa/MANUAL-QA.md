@@ -464,6 +464,39 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 [ ] --rhi-debug 로 1분 돌리고 Ctrl+Q: "Debug Layer 경고 0 · 오류 0"
 ```
 
+## Phase 13C — Linux Wayland 창 (실제 데스크톱)
+
+Wayland 세션 (GNOME · KDE Plasma · sway 중 하나 이상). 준비 (13B 의 패키지 +):
+
+```bash
+sudo apt install libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev libdecor-0-plugin-1-cairo weston
+cmake --preset linux-clang -D CMAKE_CXX_COMPILER=clang++-19
+cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug   # platform_wayland · client_wayland_world_smoke
+./build/linux-clang/bin/Debug/SandboxClient --version                  # "window Wayland · X11, render Vulkan"
+./build/linux-clang/bin/Debug/SandboxClient --world ecosystem_survival   # Wayland 세션이면 Wayland 창
+./build/linux-clang/bin/Debug/SandboxClient --world ecosystem_survival --platform x11   # 같은 세션에서 Xwayland
+```
+
+```text
+[ ] 로그 "Wayland 창 1600×900 (논리) · 배율 … · libdecor · 입력기 있음 · 상대 이동 있음", "창 Wayland". GNOME 에서는 libdecor
+    틀(제목 · 최소화 · 최대화 · 닫기)이 보이고, KDE · sway 에서는 서버 틀. 한글 제목이 깨지지 않는다
+[ ] 지형 · 스프라이트 · 패널 · 한글 글자. 휠 확대 · 가운데 끌기 · WASD · 클릭 · 박스 선택 (X11 창과 같은 느낌)
+[ ] 틀을 끌어 옮기기 · 모서리로 크기 조절 · 최대화 → 복원 (원래 크기로 돌아온다) · 최소화 → 복원 후 계속 그린다.
+    제목 줄 · 단추를 누른 것이 게임 클릭으로 새지 않는다 (--log-input 에 MouseButtonDown 이 없다)
+[ ] 닫기 단추 → 정상 종료 ("state Shutdown"). Ctrl+Q 도
+[ ] 배율 200 % 출력: 로그 배율 2, 글자가 흐리지 않다 (Xwayland 로 띄운 --platform x11 과 비교). 다른 배율의 모니터로
+    옮기면 배율 · 크기가 바뀐다 (ContentScaleChanged). 분수 배율(125 %)은 [계획] — 가장 가까운 정수로 그리고 서버가 줄인다
+[ ] 한글 입력기(ibus-hangul · fcitx5-hangul, Wayland 의 text-input-v3)를 켠 채: "목록" 거르기 칸 · "콘텐츠" 창에 한글 —
+    확정 글자만 들어간다. 칸 밖에서는 WASD 가 카메라로. 미국 국제 배열(us intl)에서 ' 다음 e = é
+[ ] Ctrl+C → 다른 Wayland 프로그램(gedit · kate)에 붙여넣기, 반대로 그쪽에서 복사 → Ctrl+V. Xwayland 프로그램과도
+[ ] --no-render --log-input: F3 캡처 → 커서가 사라지고 제자리에 묶이며 MouseMove 의 위치는 그대로 · Δ 만 바뀐다. Esc 로 풀림.
+    캡처 중 Alt+Tab → 다른 창에서 커서가 보이고, 돌아오면 다시 잡힌다
+[ ] --log-input: 키를 누르고 있으면 KeyDown 반복 (데스크톱 설정의 반복 지연 · 속도를 따른다), 떼면 KeyUp 하나. Shift 만
+    누르고 있으면 반복 없음. 두 번 클릭 = ×2, 뒤로 · 앞으로 = X1 · X2, 터치패드 두 손가락 스크롤 = 부드러운 MouseWheel
+[ ] WAYLAND_DISPLAY 를 틀린 이름으로: --platform auto 는 경고 후 X11, --platform wayland 는 종료 코드 1
+[ ] --rhi-debug 로 1분 돌리고 Ctrl+Q: Validation 경고 0
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

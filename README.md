@@ -24,7 +24,9 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > Phase 13A 로 Vulkan 백엔드(volk · 타임라인 세마포어 · dynamic rendering)가 생겼습니다 — Linux 에서 lavapipe 로 D3D12 와 같은
 > 기준 이미지를 통과하고, Windows 는 `-DSBX_ENABLE_VULKAN=ON` 으로 `--rhi vulkan` 을 고릅니다.
 > Phase 13B 로 Linux X11 창(Xlib · XIM 한글 입력 · XInput2 · 클립보드)이 생겨 SandboxClient 가 Linux 에서 Vulkan 으로 그립니다.
-> 다음은 Phase 13C (Wayland · Linux CI). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> Phase 13C 로 Wayland 창(libdecor 틀 · xkbcommon · text-input-v3 한글 입력 · 포인터 잠금 · 정수 배율)이 생겼고, 실행 중에
+> 창 시스템을 고릅니다 (`--platform auto|x11|wayland`). Linux CI 는 Xvfb · weston headless 로 창 시험까지 돕니다.
+> 다음은 Phase 14 (macOS — Cocoa · Metal). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 
