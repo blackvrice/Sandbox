@@ -39,6 +39,7 @@ public:
     [[nodiscard]] std::string clipboardText() const override { return m_clipboard; }
     void setClipboardText(std::string_view utf8) override { m_clipboard = utf8; }
 
+    [[nodiscard]] std::string_view backendName() const override { return "Headless"; }
     [[nodiscard]] NativeWindowHandle nativeHandle() const override { return {}; }
 
     // 테스트용 관찰

@@ -1,4 +1,4 @@
-// Platform 입력: Key 이름, Win32 · X11 키 표, InputSystem (I1·I3·I4), HeadlessWindow. docs/07-PLATFORM.md 9장.
+// Platform 입력: Key 이름, Win32 · X11 키 표, InputSystem (I1·I3·I4), HeadlessWindow, 창 시스템 이름. docs/07-PLATFORM.md 9장.
 #include <doctest/doctest.h>
 
 #include "platform/common/HeadlessWindow.hpp"
@@ -303,5 +303,15 @@ TEST_SUITE("platform") {
         HeadlessWindow w2(lowDpi, 2.f);
         CHECK(w2.contentScale() == doctest::Approx(1.0));
         CHECK(w2.framebufferSize() == Extent2D{1600, 900});
+    }
+
+    TEST_CASE("window system: names round-trip, unknown names rejected, headless reports its backend") {
+        for (const WindowSystem s : {WindowSystem::Auto, WindowSystem::X11, WindowSystem::Wayland}) {
+            CHECK(parseWindowSystem(windowSystemName(s)) == s);
+        }
+        CHECK_FALSE(parseWindowSystem("Wayland").has_value()); // 소문자만 (--platform 값)
+        CHECK_FALSE(parseWindowSystem("").has_value());
+        const HeadlessWindow w;
+        CHECK(w.backendName() == "Headless");
     }
 }

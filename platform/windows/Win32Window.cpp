@@ -83,6 +83,7 @@ public:
     [[nodiscard]] NativeWindowHandle nativeHandle() const override {
         return {NativeWindowHandle::Kind::Win32, m_hwnd, m_instance};
     }
+    [[nodiscard]] std::string_view backendName() const override { return "Win32"; }
 
 private:
     static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);

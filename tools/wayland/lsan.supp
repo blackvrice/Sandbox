@@ -1,0 +1,10 @@
+# LeakSanitizer 억제 — Wayland 창 시험 (CTest platform_wayland · client_wayland_world_smoke). ADR-0034.
+# libdecor 의 cairo 플러그인이 제목을 그릴 때 fontconfig · pango 가 프로세스 전역 캐시를 만들고 끝에 풀지 않는다.
+# 우리 코드는 이 라이브러리들을 부르지 않는다 — 스택에 이들이 있으면 플러그인 쪽 누수다 (ASan 빌드에서만 쓰인다).
+leak:libfontconfig.so
+leak:libpango-1.0.so
+leak:libpangoft2-1.0.so
+leak:libpangocairo-1.0.so
+leak:libcairo.so
+leak:libglib-2.0.so
+leak:libgobject-2.0.so

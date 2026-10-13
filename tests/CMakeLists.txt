@@ -116,6 +116,24 @@ if(SBX_ENABLE_X11)
     set_tests_properties(platform_x11 PROPERTIES LABELS "platform" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|"
                                                  RUN_SERIAL TRUE)
 endif()
+# Wayland (Phase 13C, ADR-0034): xkb 입력 해석은 platform 스위트 (서버 없이), 창은 wayland 스위트 — weston 이 있으면 화면 없는
+# 컴포지터(tools/wayland/run_headless.sh)에서, 없으면 지금 WAYLAND_DISPLAY 에서 (없으면 케이스가 건너뛴다)
+if(SBX_ENABLE_WAYLAND)
+    target_sources(SandboxTests PRIVATE unit/platform/test_wayland_input.cpp unit/platform/test_wayland_window.cpp)
+    find_program(SBX_WESTON weston)
+    mark_as_advanced(SBX_WESTON)
+    set(_sbx_wl_prefix "")
+    if(SBX_WESTON)
+        set(_sbx_wl_prefix sh "${PROJECT_SOURCE_DIR}/tools/wayland/run_headless.sh")
+    endif()
+    add_test(NAME platform_wayland COMMAND ${_sbx_wl_prefix} $<TARGET_FILE:SandboxTests> --test-suite=wayland --no-intro
+                                           --no-version)
+    set_tests_properties(platform_wayland PROPERTIES LABELS "platform" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|"
+                                                     RUN_SERIAL TRUE)
+    # libdecor cairo 플러그인(fontconfig · pango)의 전역 캐시 — ASan 빌드의 LeakSanitizer 가 보지 않게
+    set(_sbx_wl_lsan "LSAN_OPTIONS=suppressions=${PROJECT_SOURCE_DIR}/tools/wayland/lsan.supp")
+    set_tests_properties(platform_wayland PROPERTIES ENVIRONMENT "${_sbx_wl_lsan}")
+endif()
 
 foreach(suite IN ITEMS ${_sbx_suites})
     add_test(NAME unit_${suite} COMMAND SandboxTests --test-suite=${suite} --no-intro --no-version)
@@ -169,7 +187,7 @@ endif()
 if(TARGET SandboxClient)
     add_test(NAME client_version COMMAND SandboxClient --version)
     set_tests_properties(client_version PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|none), render (D3D12|Vulkan|none)")
+        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|none), render (D3D12|Vulkan|none)")
     add_test(NAME client_rejects_unknown_option COMMAND SandboxClient --no-such-option)
     set_tests_properties(client_rejects_unknown_option PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)

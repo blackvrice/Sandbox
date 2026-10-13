@@ -18,11 +18,15 @@ endif()
 option(SBX_ENABLE_VULKAN        "Vulkan 렌더 백엔드 (render/vulkan — volk 로 로더를 실행 중에 연다)" ${_sbx_vulkan_default})
 
 # Linux 창 (docs/07-PLATFORM.md 6.2, ADR-0033). X11 은 Linux 기본 — libx11-dev (+ libxi-dev) 가 필요하다.
-# 끄면 창 없이 (SandboxClient --headless 만, 서버 · 도구 빌드 머신용). Wayland 는 [계획] 13C.
+# 끄면 X11 창 없이 (둘 다 끄면 SandboxClient --headless 만 — 서버 · 도구 빌드 머신용).
+# Wayland 는 13C (ADR-0034) — libwayland-dev · wayland-protocols · libxkbcommon-dev · libdecor-0-dev. 둘 다 켜면 실행 중에
+# 고른다 (WAYLAND_DISPLAY 가 있으면 Wayland, 안 되면 X11 — SandboxClient --platform 으로 강제).
 if(UNIX AND NOT APPLE)
     option(SBX_ENABLE_X11       "Linux X11 창 (platform/linux — Xlib · XIM · XInput2)"     ON)
+    option(SBX_ENABLE_WAYLAND   "Linux Wayland 창 (platform/linux — libdecor · xkbcommon · text-input-v3)" ON)
 else()
     set(SBX_ENABLE_X11 OFF)
+    set(SBX_ENABLE_WAYLAND OFF)
 endif()
 
 # 경계 검사 자체를 검사하기 위한 내부 옵션. tests/ 의 arch_link_boundary_selftest 만 켠다.

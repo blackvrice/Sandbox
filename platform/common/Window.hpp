@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -15,12 +16,20 @@
 
 namespace sbx::platform {
 
+// Linux 의 창 시스템 (--platform). Windows · macOS 는 무시한다. docs/07-PLATFORM.md 6.2, ADR-0034.
+enum class WindowSystem : u8 {
+    Auto = 0, // WAYLAND_DISPLAY 가 있으면 Wayland, 안 되면 X11
+    X11,
+    Wayland
+};
+
 struct WindowDesc {
     u32 width = 1600; // 논리 단위 (highDpi 면 contentScale 을 곱한 픽셀로 만든다)
     u32 height = 900;
     std::string title = "Sandbox";
     bool resizable = true;
     bool highDpi = true; // false 면 contentScale 을 1 로 고정한다 (논리 = 픽셀)
+    WindowSystem system = WindowSystem::Auto;
 };
 
 enum class CursorShape : u8 {
@@ -75,9 +84,14 @@ public:
     virtual void setClipboardText(std::string_view utf8) = 0;
 
     [[nodiscard]] virtual NativeWindowHandle nativeHandle() const = 0;
+    // 이 창의 구현: "Win32" | "X11" | "Wayland" | "Headless" (로그 · 제목 줄)
+    [[nodiscard]] virtual std::string_view backendName() const = 0;
 };
 
-// 이 OS 의 창. platform/<os>/ 가 구현한다. 창이 아직 없는 OS(Phase 13·14 전)는 Unsupported.
+// 이 OS 의 창. platform/<os>/ 가 구현한다. 창이 없는 빌드(macOS — Phase 14, Linux 창 옵션을 끈 빌드)는 Unsupported.
 [[nodiscard]] Expected<std::unique_ptr<IWindow>> createWindow(const WindowDesc& desc);
+
+[[nodiscard]] std::string_view windowSystemName(WindowSystem s) noexcept; // "auto" | "x11" | "wayland"
+[[nodiscard]] std::optional<WindowSystem> parseWindowSystem(std::string_view name) noexcept;
 
 } // namespace sbx::platform

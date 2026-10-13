@@ -210,9 +210,7 @@ int main(int argc, char** argv) {
         sbx::log::info("client", "프레임 페이싱 {} Hz ({})", fps,
                        pacer->highResolution() ? "고해상도 타이머" : "sleep_until");
     }
-    sbx::log::info("client", "창 {}, 렌더러 {}, 오디오 null",
-                   opts->headless ? std::string_view("headless") : sbx::platform::windowBackendName(),
-                   renderer ? kRendererName : "없음");
+    sbx::log::info("client", "창 {}, 렌더러 {}, 오디오 null", window->backendName(), renderer ? kRendererName : "없음");
 
     const int code = app.run(pacer.get());
     if (world) {

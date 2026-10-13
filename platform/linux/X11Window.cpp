@@ -21,6 +21,7 @@
 
 #include "foundation/log/Log.hpp"
 #include "platform/common/Window.hpp"
+#include "platform/linux/LinuxWindows.hpp"
 #include "platform/linux/X11KeyMap.hpp"
 
 // Xlib 은 None · Bool · Status · True 같은 매크로를 정의한다 — 우리 헤더 뒤에 둔다
@@ -150,6 +151,7 @@ public:
         h.display = m_dpy;
         return h;
     }
+    [[nodiscard]] std::string_view backendName() const override { return "X11"; }
 
 private:
     void push(PlatformEvent e) { m_pending.push(std::move(e)); }
@@ -869,7 +871,7 @@ void X11Window::handle(XEvent& e) {
     }
 }
 
-Expected<std::unique_ptr<IWindow>> createWindow(const WindowDesc& desc) {
+Expected<std::unique_ptr<IWindow>> linuxwin::createX11Window(const WindowDesc& desc) {
     return X11Window::create(desc);
 }
 
