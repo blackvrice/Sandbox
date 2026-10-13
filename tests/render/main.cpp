@@ -1,7 +1,9 @@
 // sbx_render_tests — GPU 기준 이미지·수명 테스트 (doctest). docs/06-RENDERING.md 14장, docs/13-TESTING.md.
 //
-//   sbx_render_tests [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>] [--out <dir>]
-//   [doctest 옵션…]
+//   sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references]
+//   [--references <dir>] [--out <dir>] [doctest 옵션…]
+//
+// --warp 는 소프트웨어 어댑터: D3D12 WARP, Vulkan 은 CPU 디바이스(lavapipe). 기준 이미지는 백엔드가 같이 쓴다.
 //
 // 끝에 공유 디바이스의 누수(살아 있는 버퍼·텍스처)와 Debug Layer 경고·오류를 검사한다 — 0 이 아니면 실패.
 #define DOCTEST_CONFIG_IMPLEMENT
@@ -32,6 +34,7 @@ Options& options() {
 
 rhi::DeviceDesc deviceDesc() {
     rhi::DeviceDesc d;
+    d.backend = options().backend;
     d.warp = options().warp;
     d.debugLayer = options().debugLayer || options().gpuValidation;
     d.gpuValidation = options().gpuValidation;
@@ -136,7 +139,14 @@ int main(int argc, char** argv) {
     std::vector<char*> rest{argv[0]};
     for (int i = 1; i < argc; ++i) {
         const std::string_view a = argv[i];
-        if (a == "--warp") {
+        if (a == "--rhi" && i + 1 < argc) {
+            const auto b = rhi::parseBackend(argv[++i]);
+            if (!b || (*b != rhi::BackendType::Auto && !rhi::backendCompiled(*b))) {
+                std::fprintf(stderr, "--rhi %s: 이 빌드에 없는 백엔드 (auto · dx12 · vulkan)\n", argv[i]);
+                return 2;
+            }
+            o.backend = *b;
+        } else if (a == "--warp") {
             o.warp = true;
         } else if (a == "--debug") {
             o.debugLayer = true;
@@ -187,7 +197,7 @@ int main(int argc, char** argv) {
         result = result == 0 ? 1 : result;
     }
     if (s.debugWarnings != 0 || s.debugErrors != rendertest::g_expectedValidationErrors) {
-        std::fprintf(stderr, "실패: Debug Layer · 검증 메시지가 있다 (위 [d3d12] 로그)\n");
+        std::fprintf(stderr, "실패: Debug Layer · 검증 메시지가 있다 (위 [d3d12] · [vulkan] 로그)\n");
         result = result == 0 ? 1 : result;
     }
     rendertest::g_device.reset();

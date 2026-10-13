@@ -59,7 +59,8 @@ public:
 };
 
 struct RendererOptions {
-    bool debugLayer = false; // --rhi-debug
+    rhi::BackendType backend = rhi::BackendType::Auto; // --rhi
+    bool debugLayer = false;                           // --rhi-debug
     bool gpuValidation = false;
     bool warp = false;
     bool allowFeatureLevel11 = false;

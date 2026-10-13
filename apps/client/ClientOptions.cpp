@@ -4,6 +4,8 @@
 #include <charconv>
 #include <format>
 
+#include "render/rhi/RenderDevice.hpp"
+
 namespace sbx::client {
 namespace {
 
@@ -52,6 +54,20 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.logInput = true;
         } else if (a == "--no-render") {
             opts.noRender = true;
+        } else if (a == "--rhi") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const auto b = rhi::parseBackend(*v);
+            if (!b) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--rhi 는 auto|dx12|vulkan: '{}'", *v));
+            }
+            if (*b != rhi::BackendType::Auto && !rhi::backendCompiled(*b)) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 std::format("--rhi {}: 이 빌드에 없는 백엔드입니다", rhi::backendName(*b)));
+            }
+            opts.rhi = *b;
         } else if (a == "--rhi-debug") {
             opts.rhiDebug = true;
         } else if (a == "--rhi-gbv") {
@@ -215,9 +231,10 @@ std::string clientUsage() {
            "      --input <file>     기본 키 바인딩 위에 덮어쓸 settings/input.json\n"
            "      --log-input        입력 이벤트를 로그로 (수동 QA)\n"
            "      --no-render        렌더러 없이 창만 (Phase 6 동작)\n"
-           "      --rhi-debug        D3D12 Debug Layer (Windows \"그래픽 도구\" 선택적 기능 필요)\n"
-           "      --rhi-gbv          GPU-Based Validation (느림, Debug Layer 포함)\n"
-           "      --rhi-warp         소프트웨어 디바이스 WARP\n"
+           "      --rhi <백엔드>     auto|dx12|vulkan (기본 auto: Windows D3D12, Linux Vulkan)\n"
+           "      --rhi-debug        D3D12 Debug Layer (Windows \"그래픽 도구\") · Vulkan Validation 레이어\n"
+           "      --rhi-gbv          D3D12 GPU-Based Validation · Vulkan 동기화 검증 (느림, --rhi-debug 포함)\n"
+           "      --rhi-warp         소프트웨어 디바이스 (D3D12 WARP · Vulkan CPU 디바이스 lavapipe)\n"
            "      --rhi-fl11         D3D12 FL 11_0 어댑터도 허용 (기본은 12_0 이상 — 오래된 GPU · Wine 시험용)\n"
            "      --vsync on|off     수직 동기 (기본 on)\n"
            "      --frames-in-flight 2|3  CPU 가 앞서 기록할 프레임 수 (기본 2)\n"

@@ -12,6 +12,7 @@
 namespace sbx::rendertest {
 
 struct Options {
+    rhi::BackendType backend = rhi::BackendType::Auto; // --rhi
     bool warp = false;
     bool debugLayer = false;
     bool gpuValidation = false;

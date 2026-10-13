@@ -302,8 +302,9 @@ public:
     [[nodiscard]] std::string status() const override {
         const rhi::DeviceCaps& c = m_dev->caps();
         const rhi::DeviceStats s = m_dev->stats();
-        std::string out = std::format("{}{} {:.0f} fps VSync {}", rhi::backendName(c.backend),
-                                      c.softwareAdapter ? " WARP" : "", m_fps, m_swapChain->vsync() ? "켬" : "끔");
+        std::string out =
+            std::format("{}{} {:.0f} fps VSync {}", rhi::backendName(c.backend),
+                        c.softwareAdapter ? " (소프트웨어)" : "", m_fps, m_swapChain->vsync() ? "켬" : "끔");
         if (m_drewWorld) {
             const render::RendererStats& r = m_renderer->stats();
             out += std::format(" · 스프라이트 {} · Draw {}", r.sprites.drawn, r.draws);
@@ -321,7 +322,7 @@ public:
             out += std::format(" · 에셋 대기 {}", m_assets->stats().queued);
         }
         if (s.debugWarnings + s.debugErrors > 0) {
-            out += std::format(" · D3D12 경고 {} 오류 {}", s.debugWarnings, s.debugErrors);
+            out += std::format(" · {} 경고 {} 오류 {}", rhi::backendName(c.backend), s.debugWarnings, s.debugErrors);
         }
         return out;
     }
@@ -347,6 +348,7 @@ private:
 Expected<std::unique_ptr<IFrameRenderer>> createClientRenderer(platform::IWindow& window,
                                                                const RendererOptions& options) {
     rhi::DeviceDesc dd;
+    dd.backend = options.backend;
     dd.debugLayer = options.debugLayer || options.gpuValidation;
     dd.gpuValidation = options.gpuValidation;
     dd.warp = options.warp;

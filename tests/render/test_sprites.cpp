@@ -218,7 +218,8 @@ TEST_SUITE("render.gpu") {
     TEST_CASE("assets: worker decode, upload budget across frames, missing file → magenta") {
         const auto dir = std::filesystem::temp_directory_path() / "sbx_render_tests_assets";
         std::filesystem::create_directories(dir / "pack");
-        REQUIRE(savePng(dir / "pack" / "Green.png", Image::filled(6, 6, 0, 255, 0)));
+        // 파일 이름은 소문자 — 정규화된 id 가 소문자 경로로 연다 (Linux 는 대소문자를 가린다, 06 9장 AssetId)
+        REQUIRE(savePng(dir / "pack" / "green.png", Image::filled(6, 6, 0, 255, 0)));
         REQUIRE(savePng(dir / "pack" / "blue.png", Image::filled(6, 6, 0, 0, 255)));
         JobSystem jobs(2);
         // 예산 1 바이트 = 프레임마다 하나씩 (최소 하나는 보낸다)

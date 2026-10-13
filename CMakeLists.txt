@@ -62,8 +62,8 @@ if(SBX_BUILD_TOOLS)
     add_subdirectory(tools/net_probe)
 endif()
 
-# GPU 기준 이미지 테스트 (06 14장). 백엔드가 있는 플랫폼(지금은 Windows D3D12)에서만.
-if(SBX_BUILD_TESTS AND WIN32)
+# GPU 기준 이미지 테스트 (06 14장). 백엔드가 있는 빌드에서만 (Windows D3D12, Vulkan — ADR-0032).
+if(SBX_BUILD_TESTS AND (WIN32 OR SBX_ENABLE_VULKAN))
     add_subdirectory(tests/render)
 endif()
 

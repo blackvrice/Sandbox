@@ -2,7 +2,7 @@
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
 // Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --seed · --threads ·
 // --content · --assets. Phase 8C: --font · --no-ui. Phase 10B: --world · --connect · --name (--direct-sim 은 지웠다).
-// Phase 12C: --owner-key. Phase 12D: --saves.
+// Phase 12C: --owner-key. Phase 12D: --saves. Phase 13A: --rhi <auto|dx12|vulkan>.
 
 #include <optional>
 #include <span>
@@ -11,6 +11,7 @@
 
 #include "foundation/log/Log.hpp"
 #include "foundation/types/Error.hpp"
+#include "render/rhi/RhiTypes.hpp"
 
 namespace sbx::client {
 
@@ -29,13 +30,14 @@ struct ClientOptions {
     u32 height = 900;
 
     // 렌더링 (Phase 7A, docs/06-RENDERING.md 13장)
-    bool noRender = false;  // --no-render: 창만 (Phase 6 동작)
-    bool rhiDebug = false;  // --rhi-debug: D3D12 Debug Layer
-    bool rhiGbv = false;    // --rhi-gbv: GPU-Based Validation (Debug Layer 포함)
-    bool rhiWarp = false;   // --rhi-warp: 소프트웨어 디바이스
-    bool rhiFl11 = false;   // --rhi-fl11: FL 11_0 어댑터도 허용 (오래된 GPU · Wine 시험)
-    bool vsync = true;      // --vsync on|off
-    u32 framesInFlight = 2; // --frames-in-flight 2|3
+    bool noRender = false;                         // --no-render: 창만 (Phase 6 동작)
+    rhi::BackendType rhi = rhi::BackendType::Auto; // --rhi: 이 빌드에 든 백엔드 (13A, ADR-0032)
+    bool rhiDebug = false;                         // --rhi-debug: D3D12 Debug Layer · Vulkan Validation 레이어
+    bool rhiGbv = false;                           // --rhi-gbv: GPU-Based Validation (Debug Layer 포함)
+    bool rhiWarp = false;                          // --rhi-warp: 소프트웨어 디바이스
+    bool rhiFl11 = false;                          // --rhi-fl11: FL 11_0 어댑터도 허용 (오래된 GPU · Wine 시험)
+    bool vsync = true;                             // --vsync on|off
+    u32 framesInFlight = 2;                        // --frames-in-flight 2|3
 
     // 월드 (Phase 10B — 8A 의 --direct-sim 을 대신한다)
     std::optional<std::string> world;   // --world <시나리오|세이브 폴더>: 같은 프로세스의 서버(LocalServerHost)

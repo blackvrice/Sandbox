@@ -3,6 +3,7 @@
 //   기준) · push constant + 상수 버퍼 · 인덱스 그리기 · 검증 오류 · 수명
 #include <doctest/doctest.h>
 
+#include <array>
 #include <cstring>
 #include <vector>
 
@@ -106,7 +107,10 @@ struct ColorRig {
         dev.destroy(o.ps);
         o.vs = {};
         o.ps = {};
-        o.frame = uploadBuffer(dev, &tint, 256, BufferUsage::Constant, "frame constants");
+        // 상수 버퍼 한 칸(256 B) — 내용은 앞의 tint 만 (나머지 0)
+        std::array<std::byte, 256> frameBytes{};
+        std::memcpy(frameBytes.data(), &tint, sizeof(tint));
+        o.frame = uploadBuffer(dev, frameBytes.data(), frameBytes.size(), BufferUsage::Constant, "frame constants");
         BindGroupDesc gd;
         gd.layout = o.layout;
         BindGroupEntry e;

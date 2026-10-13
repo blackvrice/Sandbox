@@ -60,12 +60,17 @@ int main(int argc, char** argv) {
         return kExitOk;
     }
     if (opts->showVersion) {
+        // render: 기본 백엔드 먼저, 이 빌드에 든 다른 백엔드는 괄호 (--rhi 로 고른다)
         const auto rb = sbx::rhi::defaultBackend();
-        printText(
-            std::format("SandboxClient {} (commit {}, {}, {})\nwindow {}, render {}, audio null\n",
-                        sbx::build::kVersionString, sbx::build::kGitCommit, sbx::build::kSystemName,
-                        sbx::build::kCompilerId, sbx::platform::windowBackendName(),
-                        rb == sbx::rhi::BackendType::Auto ? std::string_view("none") : sbx::rhi::backendName(rb)));
+        std::string render(rb == sbx::rhi::BackendType::Auto ? std::string_view("none") : sbx::rhi::backendName(rb));
+        for (const auto b : {sbx::rhi::BackendType::D3D12, sbx::rhi::BackendType::Vulkan}) {
+            if (b != rb && sbx::rhi::backendCompiled(b)) {
+                render += std::format(" (+{})", sbx::rhi::backendName(b));
+            }
+        }
+        printText(std::format("SandboxClient {} (commit {}, {}, {})\nwindow {}, render {}, audio null\n",
+                              sbx::build::kVersionString, sbx::build::kGitCommit, sbx::build::kSystemName,
+                              sbx::build::kCompilerId, sbx::platform::windowBackendName(), render));
         return kExitOk;
     }
     if (opts->logLevel) {
@@ -121,6 +126,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<sbx::client::IFrameRenderer> renderer;
     if (!opts->headless && !opts->noRender) {
         sbx::client::RendererOptions ro;
+        ro.backend = opts->rhi;
         ro.debugLayer = opts->rhiDebug;
         ro.gpuValidation = opts->rhiGbv;
         ro.warp = opts->rhiWarp;

@@ -11,6 +11,7 @@
 #include "apps/client/DefaultInput.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
+#include "render/rhi/RenderDevice.hpp"
 
 using namespace sbx;
 using namespace sbx::client;
@@ -284,6 +285,23 @@ TEST_SUITE("client") {
         CHECK(ro->framesInFlight == 3u);
         CHECK(ro->noRender);
         CHECK(parseClientOptions({}).value().vsync);
+        // --rhi (13A): 이름은 백엔드 목록, 이 빌드에 없는 백엔드는 거절
+        CHECK(fails({"--rhi"}));
+        CHECK(fails({"--rhi", "opengl"}));
+        CHECK(fails({"--rhi", "metal"})); // Phase 14
+        CHECK(parseClientOptions({}).value().rhi == rhi::BackendType::Auto);
+        const std::vector<std::string_view> autoRhi{"--rhi", "auto"};
+        CHECK(parseClientOptions(autoRhi).value().rhi == rhi::BackendType::Auto);
+        for (const auto& [name, type] :
+             {std::pair{"vulkan", rhi::BackendType::Vulkan}, std::pair{"dx12", rhi::BackendType::D3D12}}) {
+            CAPTURE(name);
+            const std::vector<std::string_view> v{"--rhi", name};
+            const auto p = parseClientOptions(v);
+            CHECK(p.has_value() == rhi::backendCompiled(type));
+            if (p) {
+                CHECK(p->rhi == type);
+            }
+        }
         CHECK(clientUsage().find("--headless") != std::string::npos);
     }
 }

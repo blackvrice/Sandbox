@@ -164,7 +164,8 @@ void statsPanel(PanelState& state, const PanelInputs& in) {
         if (r.device.debugWarnings + r.device.debugErrors > 0) {
             ImGui::TextColored(
                 {1.f, 0.45f, 0.4f, 1.f}, "%s",
-                std::format("D3D12 경고 {} · 오류 {}", r.device.debugWarnings, r.device.debugErrors).c_str());
+                std::format("{} 검증 경고 {} · 오류 {}", r.backend, r.device.debugWarnings, r.device.debugErrors)
+                    .c_str());
         }
     }
     ImGui::Separator();
