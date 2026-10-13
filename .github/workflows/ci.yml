@@ -1,0 +1,79 @@
+# CI — docs/13-TESTING.md 8장. 세 OS 에서 빌드 · 테스트한다.
+# Linux 는 창(X11 · Wayland)과 Vulkan 까지: Xvfb(xvfb-run) · weston headless(tools/wayland/run_headless.sh) · lavapipe 로
+# 화면 없이 platform_x11 · platform_wayland · client_*_world_smoke · render_tests_lavapipe 가 돈다 (Phase 13, ADR-0033 · 0034).
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1          # cl.exe 와 Windows SDK 환경 변수
+        with:
+          arch: x64
+      - name: Configure
+        run: cmake --preset windows-msvc -D SBX_WARNINGS_AS_ERRORS=ON
+      - name: Build (Debug)
+        run: cmake --build --preset windows-msvc-debug
+      - name: Test (Debug)
+        run: ctest --preset windows-msvc-debug
+      - name: Build (RelWithDebInfo)
+        run: cmake --build --preset windows-msvc-relwithdebinfo
+      - name: Test (RelWithDebInfo)
+        run: ctest --preset windows-msvc-relwithdebinfo
+
+  linux:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: linux-clang
+            cxx: clang++-19
+          - preset: linux-gcc
+            cxx: g++-13
+          - preset: linux-clang-asan
+            cxx: clang++-19
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang-19
+          # render_tests_lavapipe (Phase 13A, ADR-0032): Vulkan 로더 · lavapipe · Validation 레이어
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers
+          # 창 (Phase 13B · 13C, ADR-0033 · 0034): X11 · Wayland 개발 파일, 화면 없는 서버 (Xvfb · weston)
+          sudo apt-get install -y libx11-dev libxi-dev libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+                                  xvfb xauth weston
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }} -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} -D SBX_WARNINGS_AS_ERRORS=ON -D SBX_BUILD_BENCH=ON
+      - name: Build (Debug)
+        run: cmake --build --preset ${{ matrix.preset }}-debug
+      - name: Test (Debug)
+        run: ctest --preset ${{ matrix.preset }}-debug
+      - name: Build (RelWithDebInfo)
+        run: cmake --build --preset ${{ matrix.preset }}-relwithdebinfo
+      - name: Test (RelWithDebInfo)
+        run: ctest --preset ${{ matrix.preset }}-relwithdebinfo
+
+  macos:
+    runs-on: macos-15                        # Apple Silicon, Xcode 16 (Apple Clang)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja
+        run: brew install ninja
+      - name: Configure
+        run: cmake --preset macos -D SBX_WARNINGS_AS_ERRORS=ON
+      - name: Build (Debug)
+        run: cmake --build --preset macos-debug
+      - name: Test (Debug)
+        run: ctest --preset macos-debug
