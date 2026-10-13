@@ -433,6 +433,37 @@ Vulkan 을 함께: CLion 프로필의 CMake options 에 `-DSBX_ENABLE_VULKAN=ON`
 [ ] SandboxClient --rhi metal · --rhi opengl → 잘못된 인자 (종료 코드 2), SBX_ENABLE_VULKAN=OFF 빌드의 --rhi vulkan 도 같다
 ```
 
+## Phase 13B — Linux X11 창 (실제 데스크톱)
+
+Linux PC (Ubuntu 24.04 등, X11 세션 또는 Wayland 세션의 Xwayland). 준비:
+
+```bash
+sudo apt install clang-19 ninja-build cmake python3 libx11-dev libxi-dev libvulkan1 mesa-vulkan-drivers \
+                 vulkan-validationlayers fonts-noto-cjk xvfb
+# 내장 셰이더(그리기)는 dxc 가 필요하다 — Vulkan SDK 의 dxc 를 PATH 에 두거나 -D SBX_DXC=<dxc>
+cmake --preset linux-clang -D CMAKE_CXX_COMPILER=clang++-19
+cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
+./build/linux-clang/bin/Debug/SandboxClient --version                  # "window X11, render Vulkan"
+./build/linux-clang/bin/Debug/SandboxClient --world ecosystem_survival
+```
+
+```text
+[ ] 로그 "X11 창 1600×900 px, 배율 … · 입력기 있음 · XInput2 있음", "Vulkan 1.x: <GPU 이름>", "스왑체인 … present mode FIFO".
+    작업 표시줄 · Alt+Tab 에 "Sandbox" (한글 제목 줄이 깨지지 않는다)
+[ ] 지형 · 스프라이트 · 패널 · 한글 글자가 Windows 와 같은 모습. 휠 확대 · 가운데 끌기 · WASD · 클릭 · 박스 선택
+[ ] 창 크기 조절 · 최대화 · 복원 · 최소화 → 복원 후 계속 그린다 (검은 띠 · 늘어짐 없음). 최소화 중 CPU 가 거의 0
+[ ] 창의 닫기 단추 → 정상 종료 ("SandboxClient 끝: … state Shutdown"). Ctrl+Q 도
+[ ] 한글 입력기(ibus-hangul 또는 fcitx5-hangul)를 켠 채: "목록" 의 거르기 칸 · "콘텐츠" 창에 한글을 친다 — 조합 창은 입력기의
+    것이 뜨고, 확정된 글자만 칸에 들어간다. 칸 밖에서는 W A S D 가 입력기로 가지 않고 카메라가 움직인다 (한/영 상태와 무관)
+[ ] Ctrl+C 로 칸의 글을 복사 → 다른 프로그램(텍스트 편집기)에 붙여넣기, 반대로 다른 프로그램에서 복사 → Ctrl+V
+[ ] --no-render --log-input: F3 캡처 → 커서가 사라지고 창 밖으로 나가지 않으며 마우스를 움직이면 MouseMove Δ (가속 없음),
+    Esc 로 풀림. 캡처 중 Alt+Tab → 다른 창에서 커서가 보인다, 돌아오면 다시 잡힌다
+[ ] --log-input: 키를 누르고 있으면 KeyDown 반복(repeat), 떼면 KeyUp 하나. 두 번 클릭 = ×2, 뒤로 · 앞으로 버튼 = X1 · X2,
+    가로 휠(터치패드) = MouseWheel x
+[ ] 배율 125 % · 200 % 데스크톱(Xft.dpi): 로그의 배율이 맞고 UI 가 그만큼 크다
+[ ] --rhi-debug 로 1분 돌리고 Ctrl+Q: "Debug Layer 경고 0 · 오류 0"
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

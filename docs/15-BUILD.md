@@ -19,6 +19,11 @@ Linux 의 Vulkan (Phase 13A): 빌드에는 아무것도 더 필요 없다 (헤�
 `libvulkan1` (로더) 과 드라이버 — GPU 가 없으면 `mesa-vulkan-drivers` 의 lavapipe, `--rhi-debug` 에는 `vulkan-validationlayers`.
 내장 셰이더(그리기 시험 · 클라이언트 렌더러)는 `dxc` 가 PATH 에 있을 때만 (Vulkan SDK 또는 배포판 패키지 — 6장).
 
+Linux 의 창 (Phase 13B): `libx11-dev` 가 필요하고 `libxi-dev` 가 있으면 커서 캡처에 XInput2 를 쓴다 (Debian/Ubuntu:
+`sudo apt install libx11-dev libxi-dev`). 창 없이(서버 · 도구만) 빌드하려면 `-D SBX_ENABLE_X11=OFF`. 창 시험
+(`platform_x11` · `client_x11_world_smoke`)은 `xvfb` 가 있으면 가상 화면에서 돈다. 한글 UI 글꼴은 `fonts-noto-cjk` 또는
+`fonts-nanum` 을 찾는다.
+
 ### 1.1 CLion 설정 (Windows)
 
 ```text
@@ -71,6 +76,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
 | `SBX_BUILD_BENCH`        | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
 | `SBX_ENABLE_VULKAN`      | ON(Linux)   | Vulkan 백엔드 (render/vulkan). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan`      | 구현 (Phase 13A)      |
+| `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). OFF = 창 없음              | 구현 (Phase 13B)      |
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
 | `SBX_BUILD_SHADERS`      | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
 | `SBX_DXC`                | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로, Linux 는 PATH 의 dxc       | 구현 (Phase 7B · 13A) |
@@ -92,7 +98,9 @@ sbx_doctest               INTERFACE  external/doctest (SYSTEM include), DOCTEST_
 SandboxCore               STATIC     PUBLIC Foundation, PUBLIC sbx_nlohmann_json, PUBLIC sbx_simulation_flags
 SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_json (ActionMap). 항상 빌드 (입력·오디오 단위 테스트)
                                      WIN32: platform/windows/* + user32 imm32, UNICODE, _WIN32_WINNT=0x0A00
-                                     그 밖: platform/stub (createWindow = Unsupported, Phase 13·14 전)
+                                     SBX_ENABLE_X11 (Linux, 13B): platform/linux/* + X11::X11 (+ X11::Xi → SBX_HAS_XINPUT2),
+                                     PUBLIC SBX_HAS_X11. 그 밖(macOS · X11 끔): platform/stub (createWindow = Unsupported)
+                                     platform/linux/X11KeyMap 은 순수 표라 모든 OS 에서 컴파일한다 (Win32KeyMap 과 같다)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
                                      PRIVATE sbx_volk, PUBLIC SBX_HAS_VULKAN (13A). 백엔드는 rhi/RenderDeviceFactory 가 고른다 (stub 은 지웠다)
@@ -221,7 +229,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
     (Phase 13A) [--rhi auto|dx12|vulkan] — 빌드에 든 백엔드만 (Windows 는 -D SBX_ENABLE_VULKAN=ON 으로 구성하면 vulkan).
-    --version 의 render 는 기본 백엔드 + 빌드에 든 다른 백엔드 ("render D3D12 (+Vulkan)"). Linux 는 창이 13B 라 아직 --headless.
+    --version 의 render 는 기본 백엔드 + 빌드에 든 다른 백엔드 ("render D3D12 (+Vulkan)").
+    (Phase 13B) Linux: X11 창 + Vulkan ("window X11, render Vulkan"). DISPLAY 가 없으면 창을 만들지 못하고 종료 코드 1 —
+    --headless 로. Wayland 데스크톱에서는 Xwayland 로 돈다 (네이티브 Wayland 는 13C).
     (Phase 10B) [--world <시나리오|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
                 [--content <dir>] [--assets <dir>]       (8A 의 --direct-sim 은 지웠다 — ADR-0026)
     --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 또는 세이브를
@@ -251,7 +261,8 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     중에는 편집이 거절되고 Space · . · = / - 가 재생을 멈추고 · 한 call · 배율 — 끝나면 그 월드에서 일시정지 (10-EDITOR 9장)
     제목 줄 끝에 "GPU … ms (지형 · 스프라이트 · 격자 · 선)" — 패스별 GPU 시간 (타임스탬프, ADR-0022)
     (Phase 8C) [--font <ttf|ttc>] [--no-ui]
-    ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 → 내장 영문 (ADR-0023).
+    ImGui 패널 "시뮬레이션" · "통계" (F1 로 숨김). 폰트: --font → Windows 맑은 고딕 · Linux Noto Sans CJK · 나눔고딕 (13B)
+    → 내장 영문 (ADR-0023).
     (10B) 패널 "네트워크": 서버 · 역할 · RTT · 스냅숏(epoch · 다시 맞춤) · 받은 KB/s · 적용 ms · 보간 지연 · 거절된 명령.
     (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
@@ -263,7 +274,7 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
     GPU 가 있는 Linux 에서 lavapipe 로만: VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json (CTest 가 그렇게 한다)
     Windows 는 GUI 서브시스템 실행 파일이라 PowerShell 에서 실행해도 로그가 안 보인다 → --console (부모 콘솔에 붙는다).
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
-    창이 아직 없는 OS(Linux·macOS)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
+    창이 없는 빌드(macOS · SBX_ENABLE_X11=OFF)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
     창 안 단축키(수동 QA): F2 글자 입력 · F3 마우스 캡처 · F4 커서 모양 · Ctrl+C/V · Esc · Ctrl+Q (qa/MANUAL-QA Phase 6)
 종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일 · 서버 접속 실패 · 끊김) · 2 잘못된 인자 (없는 월드 포함)
 
@@ -277,7 +288,7 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
 SandboxServer … [--autosave 300] [--record-replay] [--metrics-csv path]      (Phase 9 에서 나머지는 구현)
 
 SandboxClient (--world · --connect · --name 은 Phase 10B 구현)
-              [--rhi metal] (14) [--rhi-capture N] [--platform x11|wayland] (13B · 13C)
+              [--rhi metal] (14) [--rhi-capture N] [--platform x11|wayland] (13C)
 ```
 
 ## 8. CI

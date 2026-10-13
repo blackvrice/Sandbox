@@ -107,7 +107,9 @@
 | `platform/common/Platform.hpp`, `FramePacer.cpp`                                                            | `attachConsole`, `windowBackendName`, `PreciseSleeper`, `FramePacer`                                                                                                | SandboxPlatform             |
 | `platform/windows/Win32Window.cpp`, `Win32Platform.cpp`, `Win32Common.hpp`                                  | Win32 창·메시지 처리·DPI·Raw Input·IME·클립보드, 콘솔·고해상도 타이머 (WIN32 전용)                                                                                  | SandboxPlatform             |
 | `platform/windows/Win32KeyMap.{hpp,cpp}`                                                                    | Win32 스캔 코드 → `Key` 표 (windows.h 없음 — 모든 OS 에서 컴파일·테스트)                                                                                            | SandboxPlatform             |
-| `platform/stub/StubPlatform.cpp`                                                                            | 창이 아직 없는 OS: `createWindow` = Unsupported (Linux Phase 13, macOS Phase 14)                                                                                    | SandboxPlatform             |
+| `platform/linux/X11Window.cpp`, `LinuxPlatform.cpp`                                                         | X11 창 (Xlib · XIM · XInput2 Raw · CLIPBOARD · Xft.dpi), 백엔드 이름 · 잠자기 (SBX_ENABLE_X11, 13B — ADR-0033)                                                      | SandboxPlatform (X11)       |
+| `platform/linux/X11KeyMap.{hpp,cpp}`                                                                        | X keycode(evdev + 8) → `Key` 표 (Xlib.h 없음 — 모든 OS 에서 컴파일·테스트)                                                                                          | SandboxPlatform             |
+| `platform/stub/StubPlatform.cpp`                                                                            | 창이 없는 빌드: `createWindow` = Unsupported (macOS Phase 14, SBX_ENABLE_X11=OFF 인 Linux)                                                                          | SandboxPlatform             |
 | `render/CMakeLists.txt`                                                                                     | SandboxRender — 백엔드 소스 (WIN32: `dx12/`, SBX_ENABLE_VULKAN: `vulkan/` + sbx_volk), SBX_HAS_D3D12 · SBX_HAS_VULKAN, stb 구현 OBJECT, 내장 셰이더                 | SandboxRender               |
 | `render/rhi/RhiTypes.{hpp,cpp}`                                                                             | 핸들(버퍼·텍스처·샘플러·셰이더·파이프라인·바인드 그룹), 열거, Desc·Caps·Stats, 포맷 표, 파이프라인·바인딩 Desc, `layoutFromReflection`                              | SandboxRender               |
 | `render/rhi/RenderDevice.hpp`                                                                               | `IRenderDevice`·`ICommandList`·`ICommandQueue`·`ISwapChain`, `createRenderDevice` · `backendCompiled` · `parseBackend` (ADR-0006·0018·0032)                         | SandboxRender               |
@@ -159,6 +161,7 @@
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `content/ecosystem/`                                                                                        | 콘텐츠 팩 \"eco\" (tags · terrain · prefabs · rules · behaviors)                                                                                                    | 데이터                      |
 | `tests/main.cpp`, `tests/unit/**`                                                                           | doctest 단위 테스트 (스위트: foundation, core, ecs, persist, content, network, server, tools, platform, render, client, net — net = 복제 수렴 `net_convergence`)    | SandboxTests                |
+| `tests/unit/platform/test_x11_window.cpp`                                                                   | 스위트 `x11` — 실제 X 서버(Xvfb)에 창, XSendEvent 합성 이벤트 (13B, CTest platform_x11)                                                                             | SandboxTests (X11)          |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
 | `tests/unit/network/test_roles_overlay.cpp`, `tests/unit/content/test_content_overlay.cpp`                  | 메시지 · 주인 열쇠 · 역할 부여 표 · 오버레이 전달 (12C), 오버레이 검증 · EditContent · 세이브 (12C)                                                                 | SandboxTests                |
@@ -253,8 +256,8 @@ platform/
   common/       IWindow, WindowDesc, NativeWindowHandle, PlatformEvent, Key, InputSystem, ActionMap, IAudioBackend,
                 HeadlessWindow, Gamepad, Platform(FramePacer · attachConsole)
   windows/      Win32Window, Win32Platform, Win32KeyMap(순수 표 — 모든 OS 에서 테스트)   (나머지는 WIN32 전용)
-  stub/         StubPlatform                      (창이 아직 없는 OS — Phase 13·14 에서 linux/ · macos/ 로 대체)
-  linux/        X11Window, WaylandWindow          (Linux 전용)
+  stub/         StubPlatform                      (창이 없는 빌드 — macOS(14) · SBX_ENABLE_X11=OFF)
+  linux/        X11Window, LinuxPlatform (13B), X11KeyMap(순수 표 — 모든 OS 에서 테스트), WaylandWindow [계획 13C]
   macos/        CocoaWindow.mm                    (APPLE 전용)
   audio/        NullAudioBackend, MiniaudioBackend
 
@@ -315,5 +318,5 @@ apps/server/
 | 화면 패널 (ImGui)           | `apps/client/ui/DebugPanels.cpp` → `Application.cpp` (`applyPanelActions`) · `render/imgui/ImGuiRenderer.cpp`   |
 | D3D12 디바이스 생성         | `render/dx12/Dx12Device.cpp`                                                                                    |
 | Vulkan 디바이스 생성        | `render/vulkan/VulkanDevice.cpp` (백엔드 고르기는 `render/rhi/RenderDeviceFactory.cpp`)                         |
-| 창 메시지 처리              | `platform/windows/Win32Window.cpp`                                                                              |
+| 창 메시지 처리              | `platform/windows/Win32Window.cpp` · `platform/linux/X11Window.cpp` (`handle`)                                  |
 | 콘텐츠 검증 규칙            | `core/content/Validator.cpp` + [11](11-CONTENT-SCHEMA.md) 8장                                                   |

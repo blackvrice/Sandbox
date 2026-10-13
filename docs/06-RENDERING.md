@@ -15,7 +15,8 @@
 > **Phase 10B** — SandboxClient 가 서버의 복제본(ClientWorld)을 그린다: 보간(renderTick) · 선택 netId · 선택 상세 Inspect (9장).
 > **Phase 13A 구현** — Vulkan 백엔드(5.2 — volk · 타임라인 세마포어 · dynamic rendering · Win32 표면 스왑체인), 백엔드 팩토리
 > (3.2 — `--rhi auto|dx12|vulkan`), lavapipe 기준 이미지(14장 — D3D12 와 같은 기준 · 허용치), 음수 높이 뷰포트(12장).
-> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan 창 표면 Xlib · Wayland(13B · 13C), Metal(14).
+> **Phase 13B** — Xlib 표면(5.2 — vkCreateXlibSurfaceKHR): Linux SandboxClient 가 X11 창에 Vulkan 으로 그린다 ([ADR-0033](adr/0033-x11-xlib-evdev-keys-xim-xinput2-raw.md)).
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Vulkan Wayland 표면(13C), Metal(14).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
 > 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md),
@@ -356,7 +357,8 @@ X11(Display*, Window) | Wayland(wl_display*, wl_surface*)
 장치          --rhi-warp 면 CPU 장치(lavapipe) 우선, 아니면 discrete → integrated → virtual → CPU. 필수: 1.3 + dynamicRendering ·
               synchronization2 · timelineSemaphore · hostQueryReset (fillModeNonSolid 는 있으면). 그래픽 큐 하나
 큐 펜스       타임라인 세마포어 하나 (submit 마다 +1). wait = 5초마다 확인 · 30초 포기 (D3D12 와 같다)
-스왑체인      [13A] Win32 표면만 (Xlib 13B, Wayland 13C). 이미지 = max(min, framesInFlight + 1), FIFO(VSync) · MAILBOX → IMMEDIATE.
+스왑체인      Win32 표면 (13A) · Xlib 표면 (13B — VulkanSwapChain.cpp 만 Xlib.h 를 보고 함수는 vkGetInstanceProcAddr 로,
+              VK_USE_PLATFORM_XLIB_KHR 를 전역에 켜지 않는다). Wayland 13C. 이미지 = max(min, framesInFlight + 1), FIFO(VSync) · MAILBOX → IMMEDIATE.
               acquire 세마포어(슬롯마다)는 큐의 다음 제출이 색 출력 단계에서 기다리고, present = "마지막 타임라인 값을 기다려
               이미지마다의 present 세마포어를 켜는" 빈 제출 + vkQueuePresentKHR. 첫 전이는 UNDEFINED 에서. OUT_OF_DATE ·
               SUBOPTIMAL · VSync 바꿈 → 다음 acquire 전에 idle 후 다시 만든다. 표면 형식 BGRA8 · RGBA8 (sRGB 비선형)

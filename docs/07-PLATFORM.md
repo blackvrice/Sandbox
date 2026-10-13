@@ -1,7 +1,8 @@
 # 07. 플랫폼 — 창 · 입력 · 오디오
 
 > **규범 문서.** OS 계층 추상화를 정합니다. 상태: **Windows 창 · 입력 · ActionMap · Null 오디오 · HeadlessWindow 구현 (Phase 6)**.
-> Linux 창은 Phase 13, macOS 는 Phase 14, miniaudio 는 Phase 8 이후 `[계획]`. 결정 근거는 [ADR-0017](adr/0017-physical-keys-event-queue-headless-window.md).
+> **Linux X11 창 · 입력 구현 (Phase 13B)** — Xlib · evdev 키 표 · XIM · XInput2 Raw · 클립보드 (6.2, [ADR-0033](adr/0033-x11-xlib-evdev-keys-xim-xinput2-raw.md)).
+> Wayland 는 13C, macOS 는 Phase 14, miniaudio 는 Phase 8 이후 `[계획]`. 결정 근거는 [ADR-0017](adr/0017-physical-keys-event-queue-headless-window.md).
 
 ---
 
@@ -9,7 +10,7 @@
 
 ```text
 SandboxPlatform 은 Foundation 에만 의존한다. ECS·Renderer·Network 를 모른다.
-  (서드파티: nlohmann/json 을 ActionMap 파싱에만 PRIVATE 로. Windows: user32 · imm32)
+  (서드파티: nlohmann/json 을 ActionMap 파싱에만 PRIVATE 로. Windows: user32 · imm32. Linux: libX11 (+ libXi) — 13B)
 플랫폼 헤더(windows.h, X11/*, wayland-*, Cocoa)는 platform/<os>/ 의 .cpp/.mm 안에만.
 공개 헤더(platform/common/)는 플랫폼 독립 타입만 노출한다.
 ```
@@ -174,8 +175,34 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 ```text
 13B X11: Xlib 창 + XInput2(마우스) + XKB(키) + XIM(텍스트), Vulkan 표면은 VK_KHR_xlib_surface
 13C Wayland: wl_compositor + xdg-shell + libdecor(창 장식) + wl_seat + xkbcommon + text-input-v3
-(13A 는 창 없이 Vulkan 백엔드 · 헤드리스 시험 — 06 5.2, ADR-0032. 그동안 Linux 는 platform/stub 창 · --headless)
-런타임 선택: WAYLAND_DISPLAY 있으면 Wayland, 실패 시 X11 (--platform=x11|wayland 로 강제)
+(13A 는 창 없이 Vulkan 백엔드 · 헤드리스 시험 — 06 5.2, ADR-0032)
+런타임 선택: WAYLAND_DISPLAY 있으면 Wayland, 실패 시 X11 (--platform=x11|wayland 로 강제) — [계획] 13C. 지금은 X11 만
+             (Wayland 데스크톱에서는 Xwayland 로 돈다)
+```
+
+구현 세부 (Phase 13B — `platform/linux/X11Window.cpp`, `LinuxPlatform.cpp`, `X11KeyMap`, ADR-0033):
+
+```text
+- 빌드: SBX_ENABLE_X11 (Linux 기본 ON) — libx11-dev 필요(없으면 구성 오류 + 패키지 안내), libxi-dev 가 있으면 XInput2.
+  OFF 면 platform/stub (창 없음, --headless 만). XInitThreads (Vulkan WSI 가 같은 연결을 다른 스레드에서 쓴다).
+- 로캘: LC_CTYPE = 사용자 로캘, UTF-8 이 아니면 C.UTF-8. XSetLocaleModifiers("") — XMODIFIERS(@im=ibus · fcitx) 를 따른다.
+- 창: XCreateWindow (배경 없음 — 렌더러가 칠한다), WM_DELETE_WINDOW → CloseRequested, WM_CLASS sandbox/Sandbox, 최소
+  320×200 (resizable=false 면 고정). 크기 = ConfigureNotify → Resized. 최소화 = UnmapNotify · _NET_WM_STATE_HIDDEN.
+  DPI = Xft.dpi ÷ 96 (없으면 1, highDpi=false 면 1). 실행 중 바뀜(XSETTINGS)은 [계획].
+- 키: keycode = evdev 코드 + 8 → X11KeyMap (물리 위치, Xlib 없이 순수 표 — KEY_HANGEUL = Lang1, KEY_HANJA = Lang2).
+  자동 반복 = XkbSetDetectableAutoRepeat (지원하지 않으면 같은 시각의 Release + Press 쌍을 반복으로). 수정자 = state
+  (+ 수정자 키 자신의 비트를 누름에서 더하고 뗌에서 뺀다).
+- 텍스트: XIM + XIC (조합 창은 입력기의 것 — PreeditNothing), Xutf8LookupString. 텍스트 입력을 끄면 XUnsetICFocus + 조합 버림.
+  입력기가 보낸 확정 글자(keycode 0)는 TextInput 만. XIM 이 없으면 XLookupString (Latin-1).
+- 마우스: 버튼 1 · 2 · 3 = 왼쪽 · 가운데 · 오른쪽, 4 · 5 = 휠 위 · 아래, 6 · 7 = 왼쪽 · 오른쪽, 8 · 9 = X1 · X2. 더블클릭은 직접
+  판정 (같은 버튼 · 500 ms · 4 px 안, 세 번째는 다시 1). 캡처 = XGrabPointer(창 안에 가둠 · 빈 커서) + XInput2 RawMotion
+  (가속 없음). XInput2 가 없으면 커서를 가운데로 되돌리며 잰다. 포커스를 잃으면 잡기를 풀고 다시 얻으면 다시 잡는다.
+- 커서: cursorfont (XCreateFontCursor — 대각선 크기 화살표는 모서리 모양), 숨김 = 빈 비트맵. Xcursor 테마는 [계획].
+- 클립보드: CLIPBOARD + UTF8_STRING. 우리가 가진 동안 SelectionRequest(TARGETS · UTF8_STRING · STRING)에 답한다. 읽기는
+  XConvertSelection → SelectionNotify 를 250 ms 까지. INCR(큰 글) · 창을 닫은 뒤 남기기(SAVE_TARGETS)는 [계획].
+- 제목: _NET_WM_NAME (UTF8_STRING) + WM_NAME (Xutf8SetWMProperties).
+- 포커스를 잃으면(키보드 잡기 때문의 NotifyGrab · NotifyUngrab 은 빼고) FocusLost (I3), IC 포커스 해제.
+- 기다림: waitEvents = poll(ConnectionNumber). PreciseSleeper = sleep_until (Linux hrtimer).
 ```
 
 ### 6.3 macOS (Phase 14)
@@ -237,3 +264,9 @@ SFML Audio 는 거치지 않는다 (요구사항상 임시 허용이지만 minia
 구현된 것 (Phase 6): `tests/unit/platform/` — Key 이름 왕복, Win32 키 표(전 키 왕복·한/영·확장 키), InputSystem(탭·반복·I1·I3·I4),
 HeadlessWindow, ActionMap(형식 오류 위치·정확 일치·눌린 순간 수정자·병합·충돌·가장자리), NullAudioBackend.
 `tests/unit/client/` — 앱 상태기계, HeadlessWindow 로 돈 프레임 루프. 수동 체크리스트는 [qa/MANUAL-QA](qa/MANUAL-QA.md) Phase 6.
+
+구현된 것 (Phase 13B): X11 키 표(전 키 왕복 · evdev + 8 · 한/영 · 한자 — 모든 OS 의 `platform` 스위트), SandboxTests 스위트
+`x11`(`tests/unit/platform/test_x11_window.cpp` — 실제 X 서버에 창을 만들고 XSendEvent 합성 이벤트: 닫기 요청 · 키 · 자동 반복 ·
+수정자 · 텍스트 입력 켬/끔 · 버튼 · 더블클릭 · 휠 · X1 · 이동 · 크기 바꾸기 · 포커스 · 클립보드 · UTF-8 제목 · 커서 · 캡처).
+CTest `platform_x11` · `client_x11_world_smoke` (xvfb-run 이 있으면 가상 화면, 없으면 DISPLAY — 없으면 케이스가 건너뛴다).
+수동: [qa/MANUAL-QA](qa/MANUAL-QA.md) Phase 13B (한글 입력기 · 창 관리자 · 실제 GPU).

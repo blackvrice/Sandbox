@@ -30,7 +30,7 @@ Phase 9   Network Foundation · Dedicated Server        ← 구현 2026-10-08 (E
 Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 완성 (2026-10-08): 10A 복제 (ReplicationWriter · ClientWorld · net_convergence), 10B SandboxClient 가 로컬 · 원격 서버의 복제본을 그린다 (--direct-sim 삭제)
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
 Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
-Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan (2026-10-13)
+Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트 (2026-10-13)
 Phase 14  macOS (Cocoa → Metal)
 Phase 15  Optimization (측정 기반)
 ```
@@ -528,8 +528,11 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           (sbx_render_tests · SandboxClient). 스왑체인은 Win32 표면 — Windows 클라이언트 --rhi vulkan
   13.2 ◐ Linux 에서 SandboxRender · sbx_render_tests 빌드 · 실행 (헤드리스) — CTest render_tests_lavapipe: D3D12 와 같은 기준
           이미지 28 케이스 · Validation 0. 클라이언트 창은 13B
-13B X11 [계획]
-  13.1 X11Window (Xlib) + 입력 (물리 키 · IME · 클립보드 · 커서 — 07), Xlib 표면 스왑체인, Linux 클라이언트 창 · MANUAL-QA
+13B X11 ✅ (2026-10-13, ADR-0033)
+  13.1 ✅ X11Window (Xlib, platform/linux) — 키 = evdev keycode 표 (물리 위치, 한/영 · 한자), XKB detectable auto-repeat,
+          XIM 텍스트 입력(ibus · fcitx), XInput2 Raw 캡처(없으면 가운데로 되돌리기), CLIPBOARD UTF-8, _NET_WM_NAME, Xft.dpi 배율,
+          cursorfont 커서. 옵션 SBX_ENABLE_X11 (libx11-dev · libxi-dev)
+  13.2 ✅ Xlib 표면 스왑체인 (vkCreateXlibSurfaceKHR) → Linux SandboxClient 창 (Vulkan, 한글 UI 글꼴 Noto CJK · 나눔고딕)
 13C Wayland · CI [계획]
   13.3 WaylandWindow (libdecor) + Wayland 표면, --platform x11|wayland, Linux CI (lavapipe 기준 이미지 · Linux dxc 고정 여부)
 ```
@@ -545,6 +548,17 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   남음     사용자 PC (MSVC): 다시 빌드 → ctest (render_tests_warp), -D SBX_ENABLE_VULKAN=ON 으로 실제 GPU 의 --rhi vulkan ·
            MANUAL-QA Phase 13A. 지울 파일: render/stub/StubRenderDevice.cpp
   다음     13B — X11 창 · 입력 · Xlib 표면 → Linux 클라이언트
+```
+
+```text
+13B 검증 (2026-10-13)
+  Linux    clang · gcc Debug: ctest 49/49 (platform_x11 · client_x11_world_smoke 추가 — xvfb-run -noreset), unit_platform X11 키 표
+           (모든 Key 왕복). ASan · UBSan: x11 스위트 · 클라이언트 창. Xvfb + xdotool(XTEST — 실제 입력 경로) QA: 월드 창
+           (lavapipe FIFO), 휠 확대 · 가운데 끌기 · WASD · 박스 선택, ImGui 글자 칸에 입력 · xclip 붙여넣기 · 복사, F1 · G,
+           창 크기 바꾸기 · unmap/map, --log-input 으로 F3 캡처(XInput2 Raw Δ) · F2 글자 · 더블클릭 · 휠 · Ctrl+Q
+  Windows  MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0 (X11 키 표는 모든 OS 에서 컴파일)
+  남음     사용자 Linux PC: 실제 데스크톱(창 관리자 · 한글 입력기 ibus/fcitx · 실제 GPU) MANUAL-QA Phase 13B. Windows 는 다시 빌드 → ctest
+  다음     13C — Wayland(libdecor · xkbcommon · text-input-v3) + --platform + Linux CI
 ```
 
 ### Phase 14 — macOS

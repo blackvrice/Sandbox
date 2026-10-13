@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-10-13 — Phase 13B: Linux X11 창 — Xlib · evdev 키 표 · XIM · XInput2 Raw · 클립보드, Xlib 표면으로 Linux 클라이언트
+
+**무엇을**
+
+- platform/linux: `X11Window` (Xlib — WM_DELETE_WINDOW · ConfigureNotify 크기 · Unmap/_NET_WM_STATE_HIDDEN 최소화 · 포커스(키보드
+  잡기 때문의 가짜 포커스는 뺀다) · Xft.dpi 배율 · _NET_WM_NAME 제목 · cursorfont 커서 · 빈 커서), 키 = keycode(evdev + 8) →
+  `X11KeyMap` (순수 표, 모든 OS 에서 컴파일 · 시험), XKB detectable auto-repeat (없으면 같은 시각 Release + Press 쌍), XIM + XIC 텍스트
+  입력 (Xutf8LookupString, 끄면 XUnsetICFocus + 조합 버림), 더블클릭 직접 판정, 휠 4 ~ 7 · X1/X2 8 · 9, 캡처 = XGrabPointer +
+  XInput2 RawMotion (없으면 가운데로 되돌리기), CLIPBOARD UTF8_STRING (SelectionRequest 응답 · XConvertSelection 읽기),
+  poll 기다림. `LinuxPlatform` (백엔드 이름 "X11", 잠자기). 옵션 `SBX_ENABLE_X11` (Linux 기본 ON — libx11-dev, libxi-dev 는 있으면).
+- render/vulkan: Xlib 표면 — VulkanSwapChain.cpp 만 Xlib.h · vulkan_xlib.h 를 보고 vkCreateXlibSurfaceKHR 은 vkGetInstanceProcAddr 로,
+  인스턴스 확장 VK_KHR_xlib_surface.
+- client: Linux 한글 UI 글꼴 (Noto Sans CJK · 나눔고딕을 찾는다), --version "window X11".
+- 시험: unit_platform X11 키 표 (모든 Key 왕복 · 한/영 · 한자), SandboxTests 스위트 `x11` (실제 X 서버 + XSendEvent 합성 이벤트 —
+  닫기 · 키 · 반복 · 수정자 · 글자 켬/끔 · 버튼 · 더블클릭 · 휠 · X1 · 이동 · 크기 · 포커스 · 클립보드 · UTF-8 제목 · 커서 · 캡처),
+  CTest `platform_x11` · `client_x11_world_smoke` (xvfb-run -noreset 이 있으면 가상 화면, 클라이언트는 lavapipe 로 월드를 그린다).
+- 문서: ADR-0033, 07(상태 · 1 · 6.2 · 9장), 06(상태 · 5.2), 13, 15(1 · 3 · 4 · 7장), 16(13B ✅), 17, MANUAL-QA 13B, README.
+
+**왜**
+
+- Xlib 은 XIM · 글자 변환 · 클립보드가 있고 Vulkan 의 VK_KHR_xlib_surface 가 그대로 받는다 (XCB 만으로는 IME 가 없다).
+- evdev keycode 는 물리 위치 그대로라 ADR-0017 의 Key 와 뜻이 같다 — Wayland(13C)도 같은 표를 쓴다.
+- XInput2 Raw 가 Win32 Raw Input 과 같은 "가속 없는 상대 이동" 이다.
+- 합성 이벤트는 같은 처리 함수를 지나므로 표 · 상태 기계를 실제 X 서버에서 자동 시험할 수 있다.
+
+**검증**
+
+- Linux clang 19 · gcc 13 Debug: ctest 49/49. ASan · UBSan 빌드: x11 · platform · client 스위트 56 케이스, 클라이언트 창(lavapipe)
+  120 프레임 — 보고 없음.
+- Xvfb + xdotool(XTEST — 실제 입력 경로): 월드 창(FIFO 3장, 제목 줄 "Vulkan (소프트웨어) 88 fps"), 한글 패널 글자, 휠 확대(줌 8.5 →
+  22.4 px/칸) · 가운데 끌기 · D 키 이동 · 박스 선택("선택 eco.rabbit #275 …"), ImGui 글자 칸 입력 · xclip 붙여넣기("붙여넣기") ·
+  Ctrl+C → xclip -o, G 격자 · F1, 창 크기 1200×760 · 500×300 · unmap/map · 1000×640 뒤 창을 채운다. --log-input: F3 캡처 중
+  mousemove_relative 15,-5 → MouseMove Δ(15, -5) (XInput2 Raw), F2 글자 'a' 'Z' '9' '!' · Backspace 는 글자 아님, 더블클릭 ×2,
+  휠 아래 · 왼쪽, Ctrl+Q.
+- 처음 잡은 것: X.h 의 `CursorShape` 매크로가 우리 enum 을 가렸다 (#undef), Xvfb 가 마지막 클라이언트가 나갈 때 리셋해 다음 창이
+  2 초 늦거나 연결이 거절됐다 (CTest 에 -noreset).
+- MinGW (-D SBX_ENABLE_VULKAN=ON) 경고 0.
+
+**남은 일**
+
+- 사용자 Linux PC (실제 창 관리자 · 한글 입력기 · GPU): MANUAL-QA Phase 13B. Windows 는 다시 빌드 → ctest (바뀐 것은 X11 키 표뿐).
+- [계획] XSETTINGS 로 실행 중 배율, 클립보드 INCR · 닫은 뒤 남기기, on-the-spot 조합 글자 그리기, Xcursor 테마, 전체 화면.
+- 다음: 13C — Wayland (libdecor · xkbcommon · text-input-v3) + --platform + Linux CI.
+
+---
+
 ## 2026-10-13 — Phase 13A: Vulkan 백엔드 — volk + 벤더링한 헤더, 타임라인 세마포어, lavapipe 로 D3D12 와 같은 기준 이미지
 
 **무엇을**

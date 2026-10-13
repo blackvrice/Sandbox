@@ -23,7 +23,8 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > 클릭 · 박스 선택), Dear ImGui(1.92 docking, RHI 위 렌더러 · 동적 폰트 텍스처 · 입력 가로채기)와 기본 패널, 테스트·벤치·경계 검사가 있습니다.
 > Phase 13A 로 Vulkan 백엔드(volk · 타임라인 세마포어 · dynamic rendering)가 생겼습니다 — Linux 에서 lavapipe 로 D3D12 와 같은
 > 기준 이미지를 통과하고, Windows 는 `-DSBX_ENABLE_VULKAN=ON` 으로 `--rhi vulkan` 을 고릅니다.
-> 다음은 Phase 13B (Linux X11 창). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> Phase 13B 로 Linux X11 창(Xlib · XIM 한글 입력 · XInput2 · 클립보드)이 생겨 SandboxClient 가 Linux 에서 Vulkan 으로 그립니다.
+> 다음은 Phase 13C (Wayland · Linux CI). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 
