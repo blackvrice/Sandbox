@@ -99,6 +99,24 @@ set(_sbx_suites foundation core ecs persist content network server tools platfor
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()
+# X11 창 (Phase 13B, ADR-0033): 실제 X 서버에 창을 만들고 합성 이벤트를 보낸다. xvfb-run 이 있으면 가상 화면에서,
+# 없으면 지금 DISPLAY 에서 (없으면 케이스가 건너뛴다)
+if(SBX_ENABLE_X11)
+    find_package(X11 REQUIRED)
+    target_sources(SandboxTests PRIVATE unit/platform/test_x11_window.cpp)
+    target_link_libraries(SandboxTests PRIVATE X11::X11)
+    find_program(SBX_XVFB_RUN xvfb-run)
+    mark_as_advanced(SBX_XVFB_RUN)
+    set(_sbx_x11_prefix "")
+    if(SBX_XVFB_RUN)
+        set(_sbx_x11_prefix "${SBX_XVFB_RUN}" -a -s "-screen 0 1280x800x24 -noreset")
+    endif()
+    add_test(NAME platform_x11 COMMAND ${_sbx_x11_prefix} $<TARGET_FILE:SandboxTests> --test-suite=x11 --no-intro
+                                       --no-version)
+    set_tests_properties(platform_x11 PROPERTIES LABELS "platform" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|"
+                                                 RUN_SERIAL TRUE)
+endif()
+
 foreach(suite IN ITEMS ${_sbx_suites})
     add_test(NAME unit_${suite} COMMAND SandboxTests --test-suite=${suite} --no-intro --no-version)
     # 케이스가 0 개면 실패 (예: 스위트를 등록했는데 실행 파일이 옛것 — doctest 는 0 개도 성공으로 친다)
@@ -151,7 +169,7 @@ endif()
 if(TARGET SandboxClient)
     add_test(NAME client_version COMMAND SandboxClient --version)
     set_tests_properties(client_version PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|none), render (D3D12|Vulkan|none)")
+        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|none), render (D3D12|Vulkan|none)")
     add_test(NAME client_rejects_unknown_option COMMAND SandboxClient --no-such-option)
     set_tests_properties(client_rejects_unknown_option PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)

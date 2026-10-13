@@ -1,8 +1,9 @@
-// Platform 입력: Key 이름, Win32 키 표, InputSystem (I1·I3·I4), HeadlessWindow. docs/07-PLATFORM.md 9장.
+// Platform 입력: Key 이름, Win32 · X11 키 표, InputSystem (I1·I3·I4), HeadlessWindow. docs/07-PLATFORM.md 9장.
 #include <doctest/doctest.h>
 
 #include "platform/common/HeadlessWindow.hpp"
 #include "platform/common/InputSystem.hpp"
+#include "platform/linux/X11KeyMap.hpp"
 #include "platform/windows/Win32KeyMap.hpp"
 
 using namespace sbx;
@@ -72,6 +73,47 @@ TEST_SUITE("platform") {
             CHECK(keyFromScancode(sc.code, sc.extended, 0) == k);
         }
         CHECK(mapped == kKeyCount - 1); // Unknown 을 뺀 모든 Key 에 Win32 스캔 코드가 있다
+    }
+
+    TEST_CASE("x11 keycode table: evdev + 8, physical positions, Korean keys") {
+        using namespace sbx::platform::x11;
+        CHECK(keyFromKeycode(9) == Key::Escape);  // KEY_ESC 1
+        CHECK(keyFromKeycode(25) == Key::W);      // KEY_W 17 — AZERTY 에서도 같은 자리
+        CHECK(keyFromKeycode(38) == Key::A);      // KEY_A 30
+        CHECK(keyFromKeycode(10) == Key::Digit1); // KEY_1 2
+        CHECK(keyFromKeycode(19) == Key::Digit0); // KEY_0 11
+        CHECK(keyFromKeycode(50) == Key::LeftShift);
+        CHECK(keyFromKeycode(62) == Key::RightShift);
+        CHECK(keyFromKeycode(37) == Key::LeftCtrl);
+        CHECK(keyFromKeycode(105) == Key::RightCtrl);
+        CHECK(keyFromKeycode(108) == Key::RightAlt);
+        CHECK(keyFromKeycode(111) == Key::Up); // KEY_UP 103
+        CHECK(keyFromKeycode(80) == Key::Kp8); // KEY_KP8 72
+        CHECK(keyFromKeycode(104) == Key::KpEnter);
+        CHECK(keyFromKeycode(119) == Key::Delete);
+        CHECK(keyFromKeycode(95) == Key::F11);
+        CHECK(keyFromKeycode(191) == Key::F13);
+        CHECK(keyFromKeycode(202) == Key::F24);
+        CHECK(keyFromKeycode(127) == Key::Pause);
+        CHECK(keyFromKeycode(130) == Key::Lang1); // KEY_HANGEUL 122
+        CHECK(keyFromKeycode(131) == Key::Lang2); // KEY_HANJA 123
+        CHECK(keyFromKeycode(135) == Key::Menu);
+        CHECK(keyFromKeycode(0) == Key::Unknown);
+        CHECK(keyFromKeycode(7) == Key::Unknown);
+        CHECK(keyFromKeycode(264) == Key::Unknown);
+        CHECK(keyFromKeycode(255) == Key::Unknown);
+
+        usize mapped = 0;
+        for (usize i = 1; i < kKeyCount; ++i) {
+            const Key k = static_cast<Key>(i);
+            const u32 code = keycodeFromKey(k);
+            CAPTURE(keyName(k));
+            REQUIRE(code >= kEvdevOffset);
+            ++mapped;
+            CHECK(keyFromKeycode(code) == k);
+        }
+        CHECK(mapped == kKeyCount - 1); // Unknown 을 뺀 모든 Key 에 X keycode 가 있다
+        CHECK(keycodeFromKey(Key::Unknown) == 0);
     }
 
     TEST_CASE("input: pressed/released/down across frames, and a tap inside one frame") {
