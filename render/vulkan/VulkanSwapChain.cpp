@@ -1,6 +1,6 @@
 // Vulkan 스왑체인 (VK_KHR_swapchain). docs/06-RENDERING.md 5.2, ADR-0032.
 //
-//   표면: Win32 (vkCreateWin32SurfaceKHR) · Xlib (vkCreateXlibSurfaceKHR, 13B). Wayland 표면은 [계획] Phase 13C.
+//   표면: Win32 (vkCreateWin32SurfaceKHR) · Xlib (13B) · Wayland (13C) — 함수는 vkGetInstanceProcAddr 로.
 //   이미지 수 = max(minImageCount, framesInFlight + 1). VSync 켬 = FIFO, 끔 = MAILBOX → IMMEDIATE → FIFO.
 //   acquire: 프레임 슬롯마다 binary 세마포어 하나 → 큐의 다음 제출이 색 출력 단계에서 기다린다.
 //   present: 이미지마다 binary 세마포어 하나 — 큐가 마지막 제출(타임라인)이 끝나면 켜고, 프레젠트가 기다린다.
@@ -23,6 +23,9 @@
 #if defined(SBX_HAS_X11)
 #include <X11/Xlib.h>
 #include <vulkan/vulkan_xlib.h>
+#endif
+#if defined(SBX_HAS_WAYLAND)
+#include <vulkan/vulkan_wayland.h> // wl_display · wl_surface 는 앞선언만 쓴다
 #endif
 
 namespace sbx::rhi::vk {
@@ -244,8 +247,23 @@ private:
             return {};
         }
 #endif
-        return makeError(ErrorCode::Unsupported,
-                         "이 창 종류의 Vulkan 표면은 아직 없습니다 ([계획] Wayland — Phase 13C, Metal — 14)");
+#if defined(SBX_HAS_WAYLAND)
+        if (m_window.kind == platform::NativeWindowHandle::Kind::Wayland) {
+            const auto create = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(
+                vkGetInstanceProcAddr(m_dev->instance(), "vkCreateWaylandSurfaceKHR"));
+            if (create == nullptr) {
+                return makeError(ErrorCode::Unsupported, "Vulkan 로더에 VK_KHR_wayland_surface 가 없습니다");
+            }
+            VkWaylandSurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
+            si.display = static_cast<wl_display*>(m_window.display);
+            si.surface = static_cast<wl_surface*>(m_window.window);
+            if (const VkResult r = create(m_dev->instance(), &si, nullptr, &m_surface); r != VK_SUCCESS) {
+                return makeError(ErrorCode::Unsupported, "vkCreateWaylandSurfaceKHR: " + resultText(r));
+            }
+            return {};
+        }
+#endif
+        return makeError(ErrorCode::Unsupported, "이 창 종류의 Vulkan 표면은 없습니다 ([계획] Metal — Phase 14)");
     }
 
     // 창의 지금 크기 — 표면이 정해 주지 않으면(0xFFFFFFFF) 요청 크기 · Win32 클라이언트 영역
@@ -469,13 +487,26 @@ std::vector<const char*> surfaceExtensions(std::span<const VkExtensionProperties
         out.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         out.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
     }
-#elif defined(SBX_HAS_X11)
-    if (hasExt(available, VK_KHR_SURFACE_EXTENSION_NAME) && hasExt(available, VK_KHR_XLIB_SURFACE_EXTENSION_NAME)) {
-        out.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-        out.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-    }
 #else
-    (void)available; // 창 없는 빌드 · [계획] Wayland 표면 (Phase 13C)
+    // Linux: 빌드에 든 창 시스템의 표면 확장을 모두 (어느 창을 쓸지는 실행 중에 정한다 — ADR-0034)
+    const auto add = [&](const char* name) {
+        if (hasExt(available, name)) {
+            out.push_back(name);
+        }
+    };
+#if defined(SBX_HAS_X11)
+    add(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif
+#if defined(SBX_HAS_WAYLAND)
+    add(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+#endif
+    if (!out.empty()) {
+        if (!hasExt(available, VK_KHR_SURFACE_EXTENSION_NAME)) {
+            out.clear();
+        } else {
+            out.insert(out.begin(), VK_KHR_SURFACE_EXTENSION_NAME);
+        }
+    }
 #endif
     return out;
 }

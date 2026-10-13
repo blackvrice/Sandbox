@@ -101,6 +101,7 @@ int main(int argc, char** argv) {
     desc.width = opts->width;
     desc.height = opts->height;
     desc.title = "Sandbox";
+    desc.system = opts->platform;
     std::unique_ptr<sbx::platform::IWindow> window;
     if (opts->headless) {
         window = std::make_unique<sbx::platform::HeadlessWindow>(desc);

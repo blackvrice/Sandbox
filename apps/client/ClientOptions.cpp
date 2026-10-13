@@ -54,6 +54,16 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.logInput = true;
         } else if (a == "--no-render") {
             opts.noRender = true;
+        } else if (a == "--platform") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const auto s = platform::parseWindowSystem(*v);
+            if (!s) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--platform 은 auto|x11|wayland: '{}'", *v));
+            }
+            opts.platform = *s;
         } else if (a == "--rhi") {
             auto v = value();
             if (!v) {
@@ -232,6 +242,7 @@ std::string clientUsage() {
            "      --log-input        입력 이벤트를 로그로 (수동 QA)\n"
            "      --no-render        렌더러 없이 창만 (Phase 6 동작)\n"
            "      --rhi <백엔드>     auto|dx12|vulkan (기본 auto: Windows D3D12, Linux Vulkan)\n"
+           "      --platform <창>    (Linux) auto|x11|wayland — auto 는 Wayland 세션이면 Wayland, 안 되면 X11\n"
            "      --rhi-debug        D3D12 Debug Layer (Windows \"그래픽 도구\") · Vulkan Validation 레이어\n"
            "      --rhi-gbv          D3D12 GPU-Based Validation · Vulkan 동기화 검증 (느림, --rhi-debug 포함)\n"
            "      --rhi-warp         소프트웨어 디바이스 (D3D12 WARP · Vulkan CPU 디바이스 lavapipe)\n"

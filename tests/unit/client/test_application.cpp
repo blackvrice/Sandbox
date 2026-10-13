@@ -302,6 +302,19 @@ TEST_SUITE("client") {
                 CHECK(p->rhi == type);
             }
         }
+        // --platform (13C): 이름은 어느 OS 에서나 받는다 (Linux 밖에서는 무시), 모르는 이름 · 대문자는 거절
+        CHECK(parseClientOptions({}).value().platform == platform::WindowSystem::Auto);
+        for (const auto& [name, sys] :
+             {std::pair{"auto", platform::WindowSystem::Auto}, std::pair{"x11", platform::WindowSystem::X11},
+              std::pair{"wayland", platform::WindowSystem::Wayland}}) {
+            CAPTURE(name);
+            const std::vector<std::string_view> v{"--platform", name};
+            CHECK(parseClientOptions(v).value().platform == sys);
+        }
+        CHECK(fails({"--platform"}));
+        CHECK(fails({"--platform", "Wayland"}));
+        CHECK(fails({"--platform", "mir"}));
         CHECK(clientUsage().find("--headless") != std::string::npos);
+        CHECK(clientUsage().find("--platform") != std::string::npos);
     }
 }

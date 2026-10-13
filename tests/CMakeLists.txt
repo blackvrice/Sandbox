@@ -213,6 +213,19 @@ if(TARGET SandboxClient)
                 ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
         endif()
     endif()
+    # Phase 13C: 같은 월드를 Wayland 창으로 (weston headless — 클라이언트 렌더러는 wl_shm 으로 내보낸다)
+    if(SBX_ENABLE_WAYLAND AND SBX_WESTON)
+        add_test(NAME client_wayland_world_smoke
+            COMMAND sh "${PROJECT_SOURCE_DIR}/tools/wayland/run_headless.sh"
+                    $<TARGET_FILE:SandboxClient> --platform wayland --world random_walk_1k --frames 90 --width 800
+                    --height 500)
+        set_tests_properties(client_wayland_world_smoke PROPERTIES LABELS "client" RUN_SERIAL TRUE
+            PASS_REGULAR_EXPRESSION "창 Wayland.*SandboxClient 끝: frames 90 state Shutdown" ENVIRONMENT "${_sbx_wl_lsan}")
+        if(SBX_LAVAPIPE_ICD)
+            set_tests_properties(client_wayland_world_smoke PROPERTIES ENVIRONMENT
+                "${_sbx_wl_lsan};VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
+        endif()
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------
