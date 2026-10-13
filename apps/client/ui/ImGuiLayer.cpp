@@ -228,6 +228,14 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
     }
 #ifdef _WIN32
     candidates.emplace_back("C:/Windows/Fonts/malgun.ttf");
+#elif defined(__linux__)
+    // 배포판의 한글 글꼴 (Noto CJK · 나눔) — 첫 번째로 있는 것
+    for (const char* p :
+         {"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+          "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+          "/usr/share/fonts/nanum/NanumGothic.ttf"}) {
+        candidates.emplace_back(p);
+    }
 #endif
     ImFont* font = nullptr;
     for (const auto& p : candidates) {

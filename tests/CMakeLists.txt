@@ -183,6 +183,18 @@ if(TARGET SandboxClient)
         PASS_REGULAR_EXPRESSION "world ecosystem_small tick 28 개체 [1-9][0-9]* 스냅숏 [1-9][0-9]* \\(다시 맞춤 0\\)")
     add_test(NAME client_world_bad_name COMMAND SandboxClient --headless --world no_such_world --frames 5)
     set_tests_properties(client_world_bad_name PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
+    # Phase 13B: 실제 X11 창 + (Vulkan 이 있으면) 렌더러로 월드를 그린다. 가상 화면이 있을 때만 (xvfb-run)
+    if(SBX_ENABLE_X11 AND SBX_XVFB_RUN)
+        add_test(NAME client_x11_world_smoke
+            COMMAND "${SBX_XVFB_RUN}" -a -s "-screen 0 1280x800x24 -noreset"
+                    $<TARGET_FILE:SandboxClient> --world random_walk_1k --frames 90 --width 800 --height 500)
+        set_tests_properties(client_x11_world_smoke PROPERTIES LABELS "client" RUN_SERIAL TRUE
+            PASS_REGULAR_EXPRESSION "창 X11.*SandboxClient 끝: frames 90 state Shutdown")
+        if(SBX_LAVAPIPE_ICD)
+            set_tests_properties(client_x11_world_smoke PROPERTIES
+                ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
+        endif()
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------

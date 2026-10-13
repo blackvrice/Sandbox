@@ -1,6 +1,6 @@
 // Vulkan 스왑체인 (VK_KHR_swapchain). docs/06-RENDERING.md 5.2, ADR-0032.
 //
-//   표면: Win32 (vkCreateWin32SurfaceKHR). Xlib · Wayland 표면은 [계획] Phase 13B · 13C.
+//   표면: Win32 (vkCreateWin32SurfaceKHR) · Xlib (vkCreateXlibSurfaceKHR, 13B). Wayland 표면은 [계획] Phase 13C.
 //   이미지 수 = max(minImageCount, framesInFlight + 1). VSync 켬 = FIFO, 끔 = MAILBOX → IMMEDIATE → FIFO.
 //   acquire: 프레임 슬롯마다 binary 세마포어 하나 → 큐의 다음 제출이 색 출력 단계에서 기다린다.
 //   present: 이미지마다 binary 세마포어 하나 — 큐가 마지막 제출(타임라인)이 끝나면 켜고, 프레젠트가 기다린다.
@@ -17,6 +17,13 @@
 
 #include "foundation/log/Log.hpp"
 #include "render/vulkan/VulkanDevice.hpp"
+
+// Xlib 표면 (13B): 타입만 쓰고 함수는 vkGetInstanceProcAddr 로 — VK_USE_PLATFORM_XLIB_KHR 를 전역에 켜지 않는다
+// (volk · 다른 파일이 Xlib.h 를 보지 않게). Xlib 의 매크로가 우리 헤더를 가리지 않도록 맨 뒤에 둔다.
+#if defined(SBX_HAS_X11)
+#include <X11/Xlib.h>
+#include <vulkan/vulkan_xlib.h>
+#endif
 
 namespace sbx::rhi::vk {
 namespace {
@@ -221,8 +228,24 @@ private:
             return {};
         }
 #endif
+#if defined(SBX_HAS_X11)
+        if (m_window.kind == platform::NativeWindowHandle::Kind::Xlib) {
+            const auto create = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(
+                vkGetInstanceProcAddr(m_dev->instance(), "vkCreateXlibSurfaceKHR"));
+            if (create == nullptr) {
+                return makeError(ErrorCode::Unsupported, "Vulkan 로더에 VK_KHR_xlib_surface 가 없습니다");
+            }
+            VkXlibSurfaceCreateInfoKHR si{VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR};
+            si.dpy = static_cast<Display*>(m_window.display);
+            si.window = static_cast<::Window>(reinterpret_cast<uintptr_t>(m_window.window));
+            if (const VkResult r = create(m_dev->instance(), &si, nullptr, &m_surface); r != VK_SUCCESS) {
+                return makeError(ErrorCode::Unsupported, "vkCreateXlibSurfaceKHR: " + resultText(r));
+            }
+            return {};
+        }
+#endif
         return makeError(ErrorCode::Unsupported,
-                         "이 창 종류의 Vulkan 표면은 아직 없습니다 ([계획] Xlib · Wayland — Phase 13B · 13C)");
+                         "이 창 종류의 Vulkan 표면은 아직 없습니다 ([계획] Wayland — Phase 13C, Metal — 14)");
     }
 
     // 창의 지금 크기 — 표면이 정해 주지 않으면(0xFFFFFFFF) 요청 크기 · Win32 클라이언트 영역
@@ -446,8 +469,13 @@ std::vector<const char*> surfaceExtensions(std::span<const VkExtensionProperties
         out.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         out.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
     }
+#elif defined(SBX_HAS_X11)
+    if (hasExt(available, VK_KHR_SURFACE_EXTENSION_NAME) && hasExt(available, VK_KHR_XLIB_SURFACE_EXTENSION_NAME)) {
+        out.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+        out.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+    }
 #else
-    (void)available; // [계획] Xlib · Wayland 표면 (Phase 13B · 13C)
+    (void)available; // 창 없는 빌드 · [계획] Wayland 표면 (Phase 13C)
 #endif
     return out;
 }
