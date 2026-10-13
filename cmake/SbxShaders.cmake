@@ -12,9 +12,20 @@
 set(SBX_DXC_VERSION "1.9.2609.5")
 set(SBX_DXC_SHA256 "73cfa082245918c2cc1ec6740250eb7377e83a757b3b3a3e16e0d71535bfbfc3")
 
-# 렌더 백엔드가 있는 플랫폼에서만 기본으로 켠다 (지금은 Windows D3D12). Linux Vulkan 은 Phase 13.
+# 렌더 백엔드가 있는 플랫폼에서 기본으로 켠다. Windows 는 고정 버전 DXC 를 내려받는다. Linux(Vulkan, Phase 13)는 고정
+# 버전을 내려받지 않는다 — PATH 의 dxc (Vulkan SDK · 배포판 패키지) 가 있으면 켜고, 없으면 끈다 (그리기 시험 · 클라이언트
+# 렌더러가 빠진다 — 구성 메시지). 다른 dxc 는 -D SBX_DXC=<경로>.
 if(WIN32)
     set(_sbx_shaders_default ON)
+elseif(SBX_ENABLE_VULKAN)
+    find_program(SBX_DXC_ON_PATH dxc)
+    mark_as_advanced(SBX_DXC_ON_PATH)
+    if(SBX_DXC OR SBX_DXC_ON_PATH)
+        set(_sbx_shaders_default ON)
+    else()
+        set(_sbx_shaders_default OFF)
+        message(STATUS "셰이더: dxc 가 PATH 에 없어 SBX_BUILD_SHADERS=OFF (Vulkan SDK 를 설치하거나 -D SBX_DXC=<dxc>)")
+    endif()
 else()
     set(_sbx_shaders_default OFF)
 endif()
@@ -24,6 +35,10 @@ set(SBX_DXC "" CACHE FILEPATH "dxc 실행 파일 (비면: Windows 는 고정 버
 function(sbx_find_dxc out)
     if(SBX_DXC)
         set(${out} "${SBX_DXC}" PARENT_SCOPE)
+        return()
+    endif()
+    if(NOT CMAKE_HOST_WIN32 AND SBX_DXC_ON_PATH)
+        set(${out} "${SBX_DXC_ON_PATH}" PARENT_SCOPE)
         return()
     endif()
     if(NOT CMAKE_HOST_WIN32)

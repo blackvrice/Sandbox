@@ -6,6 +6,7 @@
 #include <iterator>
 
 #include "foundation/log/Log.hpp"
+#include "render/rhi/Backends.hpp"
 
 namespace sbx::rhi::dx12 {
 
@@ -660,18 +661,10 @@ void Dx12Device::reportFailure(std::string_view what, HRESULT hr) {
 
 } // namespace sbx::rhi::dx12
 
-namespace sbx::rhi {
+namespace sbx::rhi::dx12 {
 
-BackendType defaultBackend() noexcept {
-    return BackendType::D3D12;
+Expected<std::unique_ptr<IRenderDevice>> createDevice(const DeviceDesc& desc) {
+    return Dx12Device::create(desc);
 }
 
-Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& desc) {
-    if (desc.backend != BackendType::Auto && desc.backend != BackendType::D3D12) {
-        return makeError(ErrorCode::Unsupported,
-                         std::format("이 빌드에 {} 백엔드가 없습니다 (Windows: D3D12)", backendName(desc.backend)));
-    }
-    return dx12::Dx12Device::create(desc);
-}
-
-} // namespace sbx::rhi
+} // namespace sbx::rhi::dx12

@@ -4,6 +4,8 @@ add_library(SandboxRender STATIC
     rhi/RhiTypes.hpp
     rhi/RhiTypes.cpp
     rhi/RenderDevice.hpp
+    rhi/Backends.hpp
+    rhi/RenderDeviceFactory.cpp
     rhi/HandlePool.hpp
     rhi/DeferredDestruction.hpp
     rhi/UploadRing.hpp
@@ -55,9 +57,31 @@ if(WIN32)
     target_compile_definitions(SandboxRender PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
                                                      _WIN32_WINNT=0x0A00 WINVER=0x0A00)
     target_link_libraries(SandboxRender PRIVATE d3d12 dxgi dxguid)
-else()
-    # 렌더 백엔드가 아직 없는 OS: Linux Vulkan Phase 13, macOS Metal Phase 14
-    target_sources(SandboxRender PRIVATE stub/StubRenderDevice.cpp)
+endif()
+# Vulkan (Linux 기본, Windows 는 SBX_ENABLE_VULKAN 으로 D3D12 와 함께 — ADR-0032). 로더는 volk 가 실행 중에 연다.
+if(SBX_ENABLE_VULKAN)
+    target_sources(SandboxRender PRIVATE
+        vulkan/VulkanCommon.hpp
+        vulkan/VulkanCommon.cpp
+        vulkan/VulkanDevice.hpp
+        vulkan/VulkanDevice.cpp
+        vulkan/VulkanPipeline.cpp
+        vulkan/VulkanCommandList.cpp
+        vulkan/VulkanSwapChain.cpp)
+    target_link_libraries(SandboxRender PRIVATE sbx_volk)
+    # Vk*Info x{VK_STRUCTURE_TYPE_…} 는 Vulkan 의 관용 초기화 — 나머지 필드는 0 이 맞다
+    if(NOT MSVC)
+        set_source_files_properties(vulkan/VulkanCommon.cpp vulkan/VulkanDevice.cpp vulkan/VulkanPipeline.cpp
+                                    vulkan/VulkanCommandList.cpp vulkan/VulkanSwapChain.cpp
+                                    PROPERTIES COMPILE_OPTIONS -Wno-missing-field-initializers)
+    endif()
+endif()
+# 이 빌드에 들어간 백엔드 (render/rhi/Backends.hpp · RenderDeviceFactory, 시험의 기대값 — PUBLIC)
+if(WIN32)
+    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_D3D12=1)
+endif()
+if(SBX_ENABLE_VULKAN)
+    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_VULKAN=1)
 endif()
 
 target_link_libraries(SandboxRender

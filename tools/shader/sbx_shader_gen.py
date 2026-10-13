@@ -44,6 +44,10 @@ DEC_ARRAY_STRIDE, DEC_MATRIX_STRIDE, DEC_BUILTIN = 6, 7, 11
 DEC_NON_WRITABLE = 24
 DEC_LOCATION, DEC_BINDING, DEC_DESCRIPTOR_SET, DEC_OFFSET = 30, 33, 34, 35
 DEC_USER_SEMANTIC = 5635
+# 내장 바이트코드에서 뺀다 (strip_reflect) — 리플렉션 전용, 드라이버가 몰라도 되게 (ADR-0032)
+OP_EXTENSION, OP_DECORATE_ID = 10, 332
+DEC_COUNTER_BUFFER, DEC_USER_TYPE = 5634, 5636
+REFLECT_EXTENSIONS = ("SPV_GOOGLE_hlsl_functionality1", "SPV_GOOGLE_user_type", "SPV_GOOGLE_decorate_string")
 
 SC_UNIFORM_CONSTANT, SC_INPUT, SC_UNIFORM, SC_OUTPUT, SC_PUSH_CONSTANT, SC_STORAGE_BUFFER = 0, 1, 2, 3, 9, 12
 
@@ -128,6 +132,31 @@ def parse_spirv(data: bytes) -> Module:
             m.variables.append((args[1], args[0], args[2]))
         i += count
     return m
+
+
+def strip_reflect(data: bytes) -> bytes:
+    """-fspv-reflect 가 넣은 것(GOOGLE 확장 · 시맨틱 · user type 장식)을 뺀 SPIR-V — spirv-opt --strip-reflect 와 같다.
+    리플렉션은 원본으로 하고, 디바이스에는 이것을 넘긴다 (VK_GOOGLE_* 확장이 없는 드라이버도 받게)."""
+    words = list(struct.unpack(f"<{len(data) // 4}I", data))
+    out = words[:5]
+    i = 5
+    while i < len(words):
+        count = words[i] >> 16
+        op = words[i] & 0xFFFF
+        args = words[i + 1:i + count]
+        drop = False
+        if op == OP_EXTENSION:
+            drop = _string(args) in REFLECT_EXTENSIONS
+        elif op == OP_DECORATE_STRING:
+            drop = args[1] in (DEC_USER_SEMANTIC, DEC_USER_TYPE)
+        elif op == OP_MEMBER_DECORATE_STRING:
+            drop = args[2] in (DEC_USER_SEMANTIC, DEC_USER_TYPE)
+        elif op == OP_DECORATE_ID:
+            drop = args[1] == DEC_COUNTER_BUFFER
+        if not drop:
+            out += words[i:i + count]
+        i += count
+    return struct.pack(f"<{len(out)}I", *out)
 
 
 def clean_type_name(name: str) -> str:
@@ -601,6 +630,14 @@ def self_test() -> int:
         raise AssertionError("겹치는 binding 을 놓쳤다")
     except GenError as e:
         assert "겹친다" in str(e)
+    # strip_reflect: GOOGLE 확장 · 시맨틱 장식만 빠지고 나머지는 그대로
+    ext = [(OP_EXTENSION, _str_words("SPV_GOOGLE_hlsl_functionality1")), (OP_EXTENSION, _str_words("SPV_KHR_other")),
+           (OP_DECORATE_STRING, [VAR, DEC_USER_SEMANTIC] + _str_words("TEXCOORD0")),
+           (OP_MEMBER_DECORATE_STRING, [ST, 0, DEC_USER_TYPE] + _str_words("float4x4"))]
+    stripped = parse_spirv(strip_reflect(_asm(ext + ins)))
+    assert not stripped.strings, stripped.strings
+    assert stripped.decorations == m.decorations and stripped.variables == m.variables
+    assert strip_reflect(_asm([ext[1]] + ins)) == _asm([ext[1]] + ins)
     # DXIL 서명 검사
     check_dxil(b"DXBC" + bytes(range(1, 17)) + b"\0" * 8, "signed")
     for blob, why in ((b"DXBC" + b"\0" * 24, "서명되지"), (b"XXXX" + b"\1" * 24, "컨테이너가 아니다")):
@@ -642,7 +679,7 @@ def main(argv: list[str]) -> int:
             check_dxil(dxil, m.group(1))
             spirv = Path(m.group(2)).read_bytes()
             mod = parse_spirv(spirv)
-            stages.append(Stage(key, entry, dxil, spirv, mod, reflect(mod, key)))
+            stages.append(Stage(key, entry, dxil, strip_reflect(spirv), mod, reflect(mod, key)))
         generate(a.name, a.source, stages, Path(a.out_dir))
     except (GenError, OSError, KeyError) as e:
         print(f"sbx_shader_gen: {a.source or a.name}: 오류: {e}", file=sys.stderr)

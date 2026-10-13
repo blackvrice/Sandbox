@@ -10,7 +10,9 @@
 // 생성·파괴·기록은 한 스레드(Render 스레드, 지금은 메인)에서만. 모든 백엔드 클래스는 final.
 
 #include <memory>
+#include <optional>
 #include <span>
+#include <string_view>
 
 #include "foundation/types/Error.hpp"
 #include "platform/common/Window.hpp"
@@ -146,10 +148,14 @@ public:
     virtual void waitIdle() = 0;
 };
 
-// 이 빌드에 들어 있는 백엔드로 디바이스를 만든다. Auto = 플랫폼 기본 (Windows: D3D12).
-// 백엔드가 없는 OS(Linux Vulkan 은 Phase 13, macOS Metal 은 Phase 14)는 Unsupported.
+// 이 빌드에 들어 있는 백엔드로 디바이스를 만든다. Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan — ADR-0032).
+// 빌드에 없는 백엔드(macOS Metal 은 Phase 14)는 Unsupported. 로더 · 드라이버가 없어도 Unsupported (실행 파일은 뜬다).
 [[nodiscard]] Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& desc);
 // 이 빌드의 기본 백엔드 (없으면 Auto)
 [[nodiscard]] BackendType defaultBackend() noexcept;
+// 이 빌드에 들어간 백엔드인가 (Auto 는 false)
+[[nodiscard]] bool backendCompiled(BackendType backend) noexcept;
+// "auto" · "dx12" · "d3d12" · "vulkan" · "vk" · "metal" (--rhi 옵션)
+[[nodiscard]] std::optional<BackendType> parseBackend(std::string_view name) noexcept;
 
 } // namespace sbx::rhi

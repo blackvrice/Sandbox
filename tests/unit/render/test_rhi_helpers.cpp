@@ -182,12 +182,46 @@ TEST_SUITE("render") {
         CHECK_FALSE(hasFlag(TextureUsage::RenderTarget, TextureUsage::Sampled));
     }
 
-#ifndef _WIN32
-    TEST_CASE("render device factory: no backend on this OS yet") {
+    TEST_CASE("render device factory: backend names and what this build has") {
+        CHECK(parseBackend("auto") == BackendType::Auto);
+        CHECK(parseBackend("dx12") == BackendType::D3D12);
+        CHECK(parseBackend("d3d12") == BackendType::D3D12);
+        CHECK(parseBackend("vulkan") == BackendType::Vulkan);
+        CHECK(parseBackend("vk") == BackendType::Vulkan);
+        CHECK(parseBackend("metal") == BackendType::Metal);
+        CHECK_FALSE(parseBackend("opengl").has_value());
+        CHECK_FALSE(parseBackend("").has_value());
+
+        CHECK_FALSE(backendCompiled(BackendType::Auto));
+        CHECK_FALSE(backendCompiled(BackendType::Metal)); // Phase 14
+#if defined(SBX_HAS_D3D12)
+        CHECK(backendCompiled(BackendType::D3D12));
+        CHECK(defaultBackend() == BackendType::D3D12);
+#else
+        CHECK_FALSE(backendCompiled(BackendType::D3D12));
+#endif
+#if defined(SBX_HAS_VULKAN)
+        CHECK(backendCompiled(BackendType::Vulkan));
+#else
+        CHECK_FALSE(backendCompiled(BackendType::Vulkan));
+#endif
+#if !defined(SBX_HAS_D3D12) && defined(SBX_HAS_VULKAN)
+        CHECK(defaultBackend() == BackendType::Vulkan);
+#elif !defined(SBX_HAS_D3D12) && !defined(SBX_HAS_VULKAN)
         CHECK(defaultBackend() == BackendType::Auto);
-        auto dev = createRenderDevice({});
+#endif
+    }
+
+    TEST_CASE("render device factory: a backend missing from this build is Unsupported (no GPU touched)") {
+        DeviceDesc d;
+        d.backend = BackendType::Metal;
+        auto dev = createRenderDevice(d);
         REQUIRE_FALSE(dev.has_value());
         CHECK(dev.error().code == ErrorCode::Unsupported);
-    }
+#if !defined(SBX_HAS_D3D12) && !defined(SBX_HAS_VULKAN)
+        auto any = createRenderDevice({});
+        REQUIRE_FALSE(any.has_value());
+        CHECK(any.error().code == ErrorCode::Unsupported);
 #endif
+    }
 }
