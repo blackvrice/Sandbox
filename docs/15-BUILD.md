@@ -87,6 +87,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
 | `SBX_BUILD_SHADERS`      | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |
 | `SBX_DXC`                | (빔)        | dxc 경로. 비면 Windows 는 고정 버전을 `.cache/dxc/` 로, Linux 는 PATH 의 dxc       | 구현 (Phase 7B · 13A) |
+| `SBX_SHADER_MSL`         | ON(macOS)   | 셰이더를 MSL 로도 내장 (호스트 도구 sbx_msl, 정의 `SBX_HAS_MSL`). 교차 빌드 불가   | 구현 (Phase 14A)      |
 | `SBX_SHADER_HOT_RELOAD`  | ON(Debug)   | 런타임 DXC 호출 허용                                                               | `[계획]` Phase 8 이후 |
 
 옵션은 기능이 실제로 생기는 Phase 에 추가합니다. 쓰이지 않는 옵션을 미리 만들지 않습니다.
@@ -114,10 +115,12 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
                                      PRIVATE sbx_volk, PUBLIC SBX_HAS_VULKAN (13A). 백엔드는 rhi/RenderDeviceFactory 가 고른다 (stub 은 지웠다)
                                      SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
-                                     PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake)
+                                     PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake). SBX_SHADER_MSL: + PUBLIC SBX_HAS_MSL=1 (14A)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 sbx_vulkan_headers        INTERFACE  external/vulkan-headers (SYSTEM), VK_NO_PROTOTYPES, WIN32: VK_USE_PLATFORM_WIN32_KHR (13A)
 sbx_volk                  STATIC     external/volk/volk.c (C, 경고 끔) + ${CMAKE_DL_LIBS}. SBX_ENABLE_VULKAN 일 때만 (13A)
+sbx_spirv_cross           STATIC     external/spirv-cross (코어 · GLSL · MSL, 경고 끔). SBX_SHADER_MSL 일 때만 (14A)
+sbx_msl                   EXECUTABLE tools/shader/sbx_msl.cpp — 빌드 때 SPIR-V → MSL 호스트 도구. 셰이더 생성이 의존한다 (14A)
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
 SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
@@ -170,7 +173,7 @@ if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos
 | D3D12 Memory Allocator                 | D3D12 메모리         | Render/dx12                 | vendored                                                                         |
 | volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored — volk **1.4.304** · Vulkan-Headers **1.4.309** (13A). VMA `[계획]`     |
 | DXC                                    | 셰이더 컴파일러      | 빌드 타임                   | NuGet Microsoft.Direct3D.DXC **1.9.2609.5** (SHA256 고정, 구성 때 `.cache/dxc/`) |
-| SPIRV-Cross                            | MSL 변환 (Metal)     | 빌드 타임                   | `[계획]` Phase 14. 리플렉션은 자체 파서 (ADR-0019)                               |
+| SPIRV-Cross                            | MSL 변환 (Metal)     | 빌드 타임 (sbx_msl)         | vendored — **1.4.304.1** (`external/spirv-cross/`, 14A, ADR-0035)                |
 | WinPixEventRuntime                     | PIX 마커             | Render/dx12                 | NuGet 패키지 버전 고정                                                           |
 | Tracy                                  | 프로파일러           | 옵션                        | FetchContent                                                                     |
 | EnTT                                   | 벤치 기준선만        | sbx_bench                   | FetchContent, `SBX_BUILD_BENCH`                                                  |
@@ -365,6 +368,9 @@ Linux 잡은 (Phase 13C) Vulkan 로더 · lavapipe · Validation 레이어 + X11
 - (Phase 13A) Linux 에는 고정 버전 DXC 를 내려받지 않는다 — PATH 의 dxc(Vulkan SDK · 배포판)가 없으면 SBX_BUILD_SHADERS 가
   OFF 로 구성되고 (구성 메시지) render_tests_lavapipe 는 7A 케이스만 돈다. 다른 dxc 는 -D SBX_DXC=<dxc>. 클라우드에서는
   tools/wine/dxc.sh (Windows dxc.exe 를 Wine 으로) 를 SBX_DXC 로 준다. dxc 버전이 달라도 기준 이미지는 같아야 한다.
+- (Phase 14A) MSL 생성 시험은 macOS 가 아니어도 된다: -D SBX_SHADER_MSL=ON (SBX_BUILD_SHADERS 필요) 이면 sbx_msl 을 빌드해
+  셰이더마다 .metal 을 만들고 (<빌드>/shaders/<이름>/<이름>.<vs|ps>.metal) unit_render 가 번호를 확인한다. 처음 빌드에
+  SPIRV-Cross 컴파일이 약 30 초 더 든다 (클라우드 측정). 교차 빌드(MinGW)에서는 켤 수 없다 — 호스트 도구를 실행한다.
 - (Phase 13A) Linux 파일 시스템은 대소문자를 가린다. 에셋 경로는 소문자로 정규화돼 열리므로 (AssetId) 에셋 파일 이름은
   소문자로 둔다.
 - (Phase 13A) Vulkan Validation 레이어가 없으면 --rhi-debug · --debug 는 경고만 하고 계속한다 (Linux: vulkan-validationlayers,

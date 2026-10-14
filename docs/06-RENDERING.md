@@ -17,7 +17,9 @@
 > (3.2 — `--rhi auto|dx12|vulkan`), lavapipe 기준 이미지(14장 — D3D12 와 같은 기준 · 허용치), 음수 높이 뷰포트(12장).
 > **Phase 13B** — Xlib 표면(5.2 — vkCreateXlibSurfaceKHR): Linux SandboxClient 가 X11 창에 Vulkan 으로 그린다 ([ADR-0033](adr/0033-x11-xlib-evdev-keys-xim-xinput2-raw.md)).
 > **Phase 13C** — Wayland 표면(5.2 — vkCreateWaylandSurfaceKHR): Wayland 데스크톱에서 Xwayland 없이 그린다 ([ADR-0034](adr/0034-wayland-libdecor-xkbcommon-text-input-v3-runtime-select.md)).
-> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Metal(14).
+> **Phase 14A** — 셰이더 MSL 경로(6.1 — SPIRV-Cross 호스트 도구 sbx_msl, Metal 번호 규칙, MSL 소스 내장 —
+> [ADR-0035](adr/0035-msl-spirv-cross-tool-metal-indices-runtime-compile.md)). Metal 백엔드 · Cocoa 창은 14B `[계획]`.
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Metal 백엔드(14B).
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
 > 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md),
@@ -397,7 +399,7 @@ CocoaWindow(.mm): NSWindow + layer-backed NSView + CAMetalLayer
 render/metal/MetalDevice.hpp      class MetalRenderDevice final : public rhi::IRenderDevice { struct Impl; std::unique_ptr<Impl> m; };
 render/metal/MetalDevice.mm       Impl: id<MTLDevice>, id<MTLCommandQueue> (ARC)
 render/metal/MetalSwapChain.mm    CAMetalLayer, nextDrawable
-render/metal/MetalPipeline.mm     MTLRenderPipelineState, metallib 로드
+render/metal/MetalPipeline.mm     MTLRenderPipelineState, 내장 MSL 을 newLibraryWithSource 로 (ADR-0035)
 render/metal/MetalBuffer.mm       MTLBuffer (shared / private)
 규칙: .hpp 에 Objective-C 타입·#import 금지. ObjC 는 .mm 안에서만.
 디버그: Metal API Validation, Shader Validation, MTLCaptureManager 프로그램 캡처(--rhi-capture)
@@ -413,8 +415,9 @@ render/metal/MetalBuffer.mm       MTLBuffer (shared / private)
 shaders/<name>.hlsl
   Windows : dxc -T vs_6_0|ps_6_0|cs_6_0 -E <entry> -Zpc -Qstrip_reflect → .dxil
   Vulkan  : dxc -spirv -fspv-target-env=vulkan1.3 -fvk-use-dx-layout     → .spv
-  Metal   : .spv → spirv-cross --msl --msl-version 30000                 → .metal → xcrun metal → .metallib
-  공통    : .spv → SPIRV-Cross 리플렉션                                   → .reflect.json
+  Metal   : .spv → sbx_msl (SPIRV-Cross 1.4.304.1, MSL 3.0, 번호 고정)   → .metal → 소스로 내장 (14A, ADR-0035)
+            → 실행 중 newLibraryWithSource [계획 14B] (빌드 때 metallib 는 [계획])
+  공통    : .spv → 리플렉션 (sbx_shader_gen.py 자체 파서 — ADR-0019)     → .reflect.json
 ```
 
 ```cmake
@@ -437,6 +440,19 @@ dxc       NuGet Microsoft.Direct3D.DXC 1.9.2609.5 (SHA256 고정). Windows 는 �
           · shaders/common/Common.hlsli
 ```
 
+**Phase 14A 구현** (MSL — `external/spirv-cross`, `tools/shader/sbx_msl.cpp`, ADR-0035):
+
+```text
+옵션      SBX_SHADER_MSL (macOS + SBX_BUILD_SHADERS 면 기본 ON, 다른 OS 는 켜서 시험). 교차 빌드에서는 쓸 수 없다. 정의 SBX_HAS_MSL
+도구      sbx_msl = SPIRV-Cross 1.4.304.1 (코어 · GLSL · MSL 만 벤더링) 호스트 도구. 생성기가 단계마다
+          sbx_msl --in <.spv> --out <.metal> --stage vs|ps --entry <E> --push-buffer 0 --bind <g>:<b>:buffer|texture|sampler:<n>
+          으로 부른다. 번호를 받지 못한 리소스가 있으면 실패. MSL 3.0, macOS, 인자 버퍼 없음
+번호      프로그램(모든 단계)의 바인딩을 (group, binding) 순서로 종류마다: 버퍼 1.. · 텍스처 0.. · 샘플러 0.., push constant =
+          buffer 0, 정점 버퍼 slot s = buffer 30 - s (4 개까지) → 리소스 버퍼 26 · 텍스처 31 · 샘플러 16 개까지.
+          ReflectedBinding::metalIndex, 상수 rhi::kMetal* (ShaderTypes.hpp) = 생성기 METAL_*
+내장      ShaderBytecode::msl (소스) · mslEntry (MSL 진입점 이름). .metal 은 <빌드>/shaders/<name>/ 에도 남는다
+```
+
 생성 헤더 예 (`BasicColorShader.hpp`):
 
 ```cpp
@@ -451,7 +467,7 @@ const rhi::ShaderReflection& reflection();  rhi::ShaderBytecode vs();  rhi::Shad
 
 | 결정           | 내용                                                                                                                                          |
 |----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| 도구 버전 고정 | DXC 를 `cmake/SbxShaders.cmake`에 고정 (1.9.2609.5 — 2026년 9월 릴리스). SPIRV-Cross 는 Phase 14. 업그레이드는 단독 커밋 + 기준 이미지 재확인 |
+| 도구 버전 고정 | DXC 1.9.2609.5 는 `cmake/SbxShaders.cmake`, SPIRV-Cross 1.4.304.1 은 external/ 에 고정한다 (14A). 업그레이드는 단독 커밋 + 기준 이미지 재확인 |
 | 산출물 위치    | `<빌드>/shaders/<name>/` (.dxil·.spv) · `<빌드>/generated/render/generated/` — 저장소에 커밋하지 않음                                         |
 | 런타임         | 내장 바이트코드만 쓴다 (7B). 에디터 옵션 `--shader-hot-reload`만 런타임 DXC 호출 `[계획]`                                                     |
 | 기능 제한      | SM 6.0 + 위 바인딩 규칙. 웨이브 intrinsic·16비트 타입은 Caps 분기 + 셰이더 변형                                                               |
@@ -479,7 +495,8 @@ const rhi::ShaderReflection& reflection();  rhi::ShaderBytecode vs();  rhi::Shad
                     { "location": 1, "semantic": "TEXCOORD", "semanticIndex": 0, "components": 2 } ] }
 ```
 
-`stages` 비트: 1 = VS, 2 = PS. ConstantBuffer 의 `size` 는 바이트, StorageBuffer 는 요소 stride. 정점 입력은 SPIR-V 의
+14A 부터 바인딩마다 `metalIndex` (종류 안의 Metal 번호 — ADR-0035), SBX_SHADER_MSL 빌드면 `"msl": {"vs": "VSMain", …}`
+(MSL 진입점 이름)이 더해진다. `stages` 비트: 1 = VS, 2 = PS. ConstantBuffer 의 `size` 는 바이트, StorageBuffer 는 요소 stride. 정점 입력은 SPIR-V 의
 UserSemantic 장식에서 semantic 이름·번호를 읽는다 (D3D12 입력 레이아웃이 semantic 으로 묶기 때문).
 
 용도: 파이프라인 레이아웃 자동 생성(`layoutFromReflection`) · 파이프라인 검사 · C++ 상수 버퍼 헤더 생성 · 머티리얼 에디터

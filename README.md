@@ -26,7 +26,8 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > Phase 13B 로 Linux X11 창(Xlib · XIM 한글 입력 · XInput2 · 클립보드)이 생겨 SandboxClient 가 Linux 에서 Vulkan 으로 그립니다.
 > Phase 13C 로 Wayland 창(libdecor 틀 · xkbcommon · text-input-v3 한글 입력 · 포인터 잠금 · 정수 배율)이 생겼고, 실행 중에
 > 창 시스템을 고릅니다 (`--platform auto|x11|wayland`). Linux CI 는 Xvfb · weston headless 로 창 시험까지 돕니다.
-> 다음은 Phase 14 (macOS — Cocoa · Metal). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> Phase 14A 로 셰이더가 MSL 로도 만들어집니다 (벤더링한 SPIRV-Cross 호스트 도구 · Metal 번호 규칙 — macOS 가 없어도 생성 ·
+> 번호를 시험). 다음은 Phase 14B (Cocoa 창 · Metal 백엔드 — Mac 또는 CI 의 macOS 잡에서 확인). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

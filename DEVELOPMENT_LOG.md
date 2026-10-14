@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-14 — Phase 14A: 셰이더 MSL 경로 — 벤더링한 SPIRV-Cross 호스트 도구, Metal 번호 규칙, MSL 소스 내장
+
+**무엇을**
+
+- external: SPIRV-Cross 1.4.304.1 (Debian orig 묶음, 서명된 .dsc 의 SHA256 7c9ffa18…, 수정 없음)의 코어 · GLSL · MSL 소스와
+  라이선스만 → `sbx_spirv_cross` (경고 끔).
+- tools/shader: `sbx_msl` (SPIR-V 한 단계 → .metal, MSL 3.0 · macOS · 인자 버퍼 없음). 번호는 정하지 않고 `--bind` 로 받는다
+  — 셰이더가 쓰는 리소스가 번호를 받지 못했으면 실패.
+- `sbx_shader_gen.py`: 프로그램의 바인딩을 (group, binding) 순서로 종류마다 Metal 번호 (버퍼 1.. · 텍스처 0.. · 샘플러 0..,
+  push constant = buffer 0, 정점 버퍼 = 30 - slot, 한계 26 · 31 · 16) → `ReflectedBinding::metalIndex` · reflect.json, `--msl-tool`
+  이면 sbx_msl 을 불러 `ShaderBytecode::msl` · `mslEntry` 로 내장. 자체 시험에 번호 · 한계.
+- `render/rhi/ShaderTypes.hpp`: `kMetal*` 상수 · `metalVertexBufferIndex`, 필드 셋. 옵션 `SBX_SHADER_MSL` (macOS + 셰이더면 기본
+  ON, 교차 빌드 불가), 정의 `SBX_HAS_MSL`. macOS 에서도 PATH 의 dxc 로 셰이더를 켠다.
+- 시험: unit_render `test_shader_msl` (상수, 내장 셰이더 7 개의 번호, MSL 의 진입점 · 한정자 · "<이름> [[texture(n)]]" ·
+  push constant buffer 0).
+- 덤 (버그): `UploadRing` 이 비면 처음으로 돌아가던 것을 "끝에 자리가 없을 때만" 으로. GPU 가 프레임마다 다 끝내면(빈 링)
+  위치가 늘 0 이라 render_tests_lavapipe 의 "링 감기" 검사가 부하(ctest -j8)에 따라 실패했다 (13B 부터 가끔 보였다).
+  unit 시험 하나 추가.
+- 문서: ADR-0035, 06(상태 · 5.3 · 6.1 · 6.3), 13, 15(3 · 4 · 5 · 9장), 16(Phase 14 를 14A · 14B 로), 17, external/README, README.
+
+**왜**
+
+- 개발 · 검증 환경에 macOS 가 없다 — Metal 을 돌릴 수 없으니 여기서 시험할 수 있는 셰이더 경로부터 (사용자 선택).
+- 배포판 spirv-cross 는 판이 제각각(Ubuntu 24.04 = 2021 판)이고 Windows 에 없다 → 소스를 고정해 세 OS 가 같은 MSL 을 만든다.
+- 번호를 생성기 한 곳에서 정하면 백엔드(리플렉션)와 셰이더(MSL)가 어긋날 수 없다.
+- metallib 는 Xcode 전체가 필요하고 Linux 에서 시험할 수 없다 → MSL 소스를 내장해 Metal 이 실행 중에 컴파일 (14B).
+
+**검증**
+
+- Linux clang 19 Debug, `-D SBX_SHADER_MSL=ON` (셰이더 = Wine 의 dxc): sbx_msl 빌드 · 셰이더 7 개 × 2 단계 MSL 생성, ctest 51/51
+  세 번 연속 (-j8), unit_render 31 케이스. 생성 MSL 을 눈으로: sprite VS `[[stage_in]]` + `push [[buffer(0)]]` + `[[vertex_id]]`,
+  PS `atlas [[texture(0)]]` · `atlasSampler [[sampler(0)]]`, terrain `tiles [[texture(0)]]` · `palette [[texture(1)]]`.
+  sbx_msl 에 샘플러 번호를 빼면 "Metal 번호를 받지 못한 리소스: atlasSampler(2:1)" 로 실패.
+- MinGW (MSL 끔) 경고 0, gcc 13 Debug (MSL 켬) — 커밋마다.
+
+**남은 일**
+
+- 14B: Cocoa 창 · Metal 백엔드 (MSL 실행 중 컴파일 · 번호 표), 내장 MSL 을 Metal 로 컴파일하는 macOS 시험, 기준 이미지.
+- [계획] metallib, 인자 버퍼, 14.0 Slang 스파이크 (14B 이후), CI 에서 MSL 생성 (Linux CI 에 dxc 고정이 먼저).
+
+---
+
 ## 2026-10-13 — Phase 13C: Linux Wayland 창 — libdecor · xkbcommon · text-input-v3, 실행 중 창 시스템 선택, Linux CI
 
 **무엇을**
