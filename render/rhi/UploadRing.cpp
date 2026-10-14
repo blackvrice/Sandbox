@@ -8,8 +8,10 @@ std::optional<u64> UploadRing::allocate(u64 size, u64 alignment) {
     if (size == 0 || size > m_capacity) {
         return std::nullopt;
     }
-    if (m_used == 0) {
-        m_head = m_tail = 0; // 비었으면 처음부터 — 가장 긴 연속 공간
+    if (m_used == 0 && alignUp(m_head, alignment) + size > m_capacity) {
+        // 비었는데 끝에 자리가 없으면 처음부터 — 가장 긴 연속 공간. 자리가 있으면 그대로 앞으로 간다: GPU 가 프레임마다
+        // 다 끝내도 위치가 돌아 감기가 생긴다 (끝냈는지에 따라 위치가 달라지지 않게 — 시험 copy: ring wrap-around)
+        m_head = m_tail = 0;
     }
     const bool full = m_used != 0 && m_head == m_tail;
     if (full) {

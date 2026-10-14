@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <random>
+#include <vector>
 
 #include "render/rhi/DeferredDestruction.hpp"
 #include "render/rhi/HandlePool.hpp"
@@ -113,6 +114,22 @@ TEST_SUITE("render") {
         CHECK_FALSE(ring.allocate(1, 1));
         CHECK_FALSE(UploadRing(16).allocate(17, 1));
         CHECK_FALSE(UploadRing(16).allocate(0, 1));
+    }
+
+    TEST_CASE("upload ring: an empty ring keeps moving forward, so it wraps whether or not the GPU kept up") {
+        // GPU 가 프레임마다 바로 끝내도(매번 비어도) 위치가 앞으로 가다 감긴다 — 끝낸 시점에 따라 달라지지 않는다
+        UploadRing ring(64);
+        std::vector<u64> offsets;
+        for (u64 f = 1; f <= 5; ++f) {
+            const auto o = ring.allocate(20, 1);
+            REQUIRE(o);
+            offsets.push_back(*o);
+            ring.endFrame(f);
+            ring.retire(f); // 바로 끝났다
+        }
+        CHECK(offsets == std::vector<u64>{0, 20, 40, 0, 20}); // 60 + 20 > 64 → 처음부터
+        // 비었고 끝에 자리가 없으면 처음부터 — 링 전체 크기도 받는다
+        CHECK(ring.allocate(64, 1).value_or(1) == 0);
     }
 
     TEST_CASE("upload ring: random frames never hand out overlapping live ranges") {
