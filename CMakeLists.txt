@@ -37,6 +37,10 @@ endif()
 
 # --- 모듈 (의존 순서) -------------------------------------------------------
 add_subdirectory(external)
+# 셰이더 빌드 도구 (SPIR-V → MSL) — render 의 셰이더 생성이 쓰므로 render 보다 먼저 (ADR-0035)
+if(SBX_SHADER_MSL)
+    add_subdirectory(tools/shader)
+endif()
 add_subdirectory(foundation)
 add_subdirectory(core)
 # Network 는 Core 위. 서버 · 클라이언트 · 테스트가 쓴다 (헤드리스 — OS 창 · GPU 없음)

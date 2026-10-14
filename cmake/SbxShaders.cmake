@@ -4,6 +4,7 @@
 #        └ dxc -spirv ─▶ .spv (리플렉션 · Phase 13 Vulkan)
 #   .dxil + .spv ─ tools/shader/sbx_shader_gen.py ─▶ render/generated/<Pascal>Shader.{hpp,cpp} (바이트코드 내장 · 리플렉션 ·
 #                                                     cbuffer 구조체 + static_assert) + <name>.reflect.json
+#   (SBX_SHADER_MSL) .spv ─ sbx_msl (SPIRV-Cross) ─▶ .metal — 생성기가 Metal 번호를 정해 부르고 MSL 소스를 함께 내장 (ADR-0035)
 #
 # DXC 는 버전을 고정한다 (06 6.1). Windows 호스트는 NuGet 패키지 Microsoft.Direct3D.DXC 를 처음 구성할 때 내려받아
 # <저장소>/.cache/dxc/<버전>/ 에 풀어 둔다 (약 53 MB, 프리셋끼리 공유, .gitignore). SBX_DXC 로 다른 dxc 를 지정할 수 있다.
@@ -17,7 +18,7 @@ set(SBX_DXC_SHA256 "73cfa082245918c2cc1ec6740250eb7377e83a757b3b3a3e16e0d71535bf
 # 렌더러가 빠진다 — 구성 메시지). 다른 dxc 는 -D SBX_DXC=<경로>.
 if(WIN32)
     set(_sbx_shaders_default ON)
-elseif(SBX_ENABLE_VULKAN)
+elseif(SBX_ENABLE_VULKAN OR APPLE)
     find_program(SBX_DXC_ON_PATH dxc)
     mark_as_advanced(SBX_DXC_ON_PATH)
     if(SBX_DXC OR SBX_DXC_ON_PATH)
@@ -31,6 +32,22 @@ else()
 endif()
 option(SBX_BUILD_SHADERS "HLSL 셰이더를 빌드해 SandboxRender 에 내장 (DXC · Python 3 필요)" ${_sbx_shaders_default})
 set(SBX_DXC "" CACHE FILEPATH "dxc 실행 파일 (비면: Windows 는 고정 버전을 내려받는다)")
+
+# MSL (Phase 14, ADR-0035): SPIR-V 를 SPIRV-Cross(external/spirv-cross)로 MSL 로 바꿔 함께 내장한다. macOS 는 기본 ON,
+# 다른 OS 는 시험용으로 켤 수 있다 (MSL 생성 · 번호 시험 — Linux CI). 호스트 도구 sbx_msl 을 빌드해 실행하므로
+# 교차 빌드(MinGW 등)에서는 쓸 수 없다.
+if(APPLE AND SBX_BUILD_SHADERS)
+    set(_sbx_msl_default ON)
+else()
+    set(_sbx_msl_default OFF)
+endif()
+option(SBX_SHADER_MSL "셰이더를 MSL 로도 바꿔 내장 (SPIRV-Cross 호스트 도구 sbx_msl)" ${_sbx_msl_default})
+if(SBX_SHADER_MSL AND NOT SBX_BUILD_SHADERS)
+    message(FATAL_ERROR "SBX_SHADER_MSL 은 SBX_BUILD_SHADERS=ON 이 필요하다 (SPIR-V 에서 MSL 을 만든다)")
+endif()
+if(SBX_SHADER_MSL AND CMAKE_CROSSCOMPILING)
+    message(FATAL_ERROR "SBX_SHADER_MSL 은 교차 빌드에서 쓸 수 없다 (호스트 도구 sbx_msl 을 이 툴체인으로 빌드해 실행한다)")
+endif()
 
 function(sbx_find_dxc out)
     if(SBX_DXC)
@@ -124,11 +141,17 @@ function(sbx_add_shader)
     set(hpp "${gen}/${pascal}Shader.hpp")
     set(cpp "${gen}/${pascal}Shader.cpp")
     set(json "${gen}/${S_NAME}.reflect.json")
+    set(msl_args "")
+    set(msl_deps "")
+    if(SBX_SHADER_MSL)
+        set(msl_args --msl-tool "$<TARGET_FILE:sbx_msl>" --msl-dir "${work}")
+        set(msl_deps sbx_msl)
+    endif()
     add_custom_command(
         OUTPUT "${hpp}" "${cpp}" "${json}"
         COMMAND "${Python3_EXECUTABLE}" -X utf8 "${PROJECT_SOURCE_DIR}/tools/shader/sbx_shader_gen.py"
-                --name "${S_NAME}" --source "${S_SOURCE}" --out-dir "${gen}" ${stage_args}
-        DEPENDS ${stage_outputs} "${PROJECT_SOURCE_DIR}/tools/shader/sbx_shader_gen.py"
+                --name "${S_NAME}" --source "${S_SOURCE}" --out-dir "${gen}" ${stage_args} ${msl_args}
+        DEPENDS ${stage_outputs} "${PROJECT_SOURCE_DIR}/tools/shader/sbx_shader_gen.py" ${msl_deps}
         COMMENT "셰이더 코드 생성 ${pascal}Shader"
         VERBATIM)
     target_sources(${S_TARGET} PRIVATE "${hpp}" "${cpp}")

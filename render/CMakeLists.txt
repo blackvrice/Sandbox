@@ -98,4 +98,7 @@ sbx_add_shader(TARGET SandboxRender NAME lines SOURCE shaders/lines.hlsl STAGES 
 sbx_add_shader(TARGET SandboxRender NAME imgui SOURCE shaders/imgui.hlsl STAGES vs:VSMain ps:PSMain)
 if(SBX_BUILD_SHADERS)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_SHADERS=1)
+    if(SBX_SHADER_MSL)
+        target_compile_definitions(SandboxRender PUBLIC SBX_HAS_MSL=1) # ShaderBytecode::msl 이 찬다 (ADR-0035)
+    endif()
 endif()

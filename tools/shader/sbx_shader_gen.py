@@ -6,9 +6,14 @@ DXC 가 만든 단계별 DXIL(.dxil)과 SPIR-V(.spv)를 받아
   <Pascal>Shader.cpp   바이트코드 배열(실행 파일에 내장 — 경로 문제 없음), 리플렉션 표
   <name>.reflect.json  리플렉션 (06 6.3 형식)
 를 쓴다. 리플렉션은 SPIR-V 를 직접 읽는다 (SPIRV-Cross 없이 — 바인딩·구조체 배치·정점 입력만 필요하다).
+--msl-tool 을 주면 (SBX_SHADER_MSL, Phase 14) 단계마다 sbx_msl(SPIRV-Cross)로 MSL 을 만들어 함께 내장한다 (ADR-0035).
 
 바인딩 규칙 (06 3.4): register(<b|t|s|u>N, spaceG) → group G(0~3), binding N. 한 그룹 안 binding 은 종류를 가리지 않고 고유.
 push constant: [[vk::push_constant]] cbuffer 하나 (D3D12 는 b0, space7 의 루트 상수).
+
+Metal 번호 (ADR-0035, render/rhi/ShaderTypes.hpp 의 kMetal* 와 같아야 한다): 단계마다 따로인 표 셋에 프로그램 단위로
+  push constant = buffer 0, (group, binding) 순서로 버퍼(cbuffer · StructuredBuffer) = buffer 1.., 텍스처 = texture 0..,
+  샘플러 = sampler 0... 정점 버퍼 slot s = buffer 30 - s (4 개까지) — 그래서 리소스 버퍼는 26 개까지.
 
 사용:
   sbx_shader_gen.py --name triangle --source shaders/triangle.hlsl --out-dir <dir> \
@@ -54,6 +59,17 @@ SC_UNIFORM_CONSTANT, SC_INPUT, SC_UNIFORM, SC_OUTPUT, SC_PUSH_CONSTANT, SC_STORA
 STAGE_BITS = {"vs": 1, "ps": 2, "cs": 4}
 STAGE_ENUM = {"vs": "Vertex", "ps": "Pixel", "cs": "Compute"}
 BINDING_TYPES = ["ConstantBuffer", "Texture", "StorageBuffer", "StorageBufferRW", "StorageTexture", "Sampler"]
+
+# Metal 번호 (render/rhi/ShaderTypes.hpp kMetal* 와 같다)
+METAL_PUSH_BUFFER = 0
+METAL_FIRST_BUFFER = 1
+METAL_VERTEX_BUFFER_TOP = 30
+METAL_MAX_VERTEX_BUFFERS = 4
+METAL_MAX_BUFFERS = METAL_VERTEX_BUFFER_TOP - METAL_MAX_VERTEX_BUFFERS + 1 - METAL_FIRST_BUFFER  # 1..26
+METAL_MAX_TEXTURES = 31
+METAL_MAX_SAMPLERS = 16
+METAL_KIND = {"ConstantBuffer": "buffer", "StorageBuffer": "buffer", "StorageBufferRW": "buffer",
+              "Texture": "texture", "StorageTexture": "texture", "Sampler": "sampler"}
 
 
 class GenError(Exception):
@@ -350,6 +366,8 @@ class Stage:
     spirv: bytes
     module: Module
     refl: dict
+    msl: str = ""
+    msl_entry: str = ""
 
 
 def merge(stages: list[Stage]) -> tuple[list[dict], dict | None, list[dict], StructEmitter | None, dict]:
@@ -394,7 +412,37 @@ def merge(stages: list[Stage]) -> tuple[list[dict], dict | None, list[dict], Str
             inputs = st.refl["inputs"]
     # 같은 그룹 안에서 binding 중복 검사는 key 로 이미 됐다. 정렬: group, binding
     bindings = sorted(merged.values(), key=lambda b: (b["group"], b["binding"]))
+    assign_metal(bindings)
     return bindings, push, inputs, None, structs
+
+
+def assign_metal(bindings: list[dict]) -> None:
+    """Metal 번호 (ADR-0035): (group, binding) 순서로 종류마다 0 부터 — 버퍼는 push constant(0) 다음부터."""
+    nxt = {"buffer": METAL_FIRST_BUFFER, "texture": 0, "sampler": 0}
+    limit = {"buffer": METAL_FIRST_BUFFER + METAL_MAX_BUFFERS, "texture": METAL_MAX_TEXTURES,
+             "sampler": METAL_MAX_SAMPLERS}
+    for b in bindings:
+        kind = METAL_KIND[b["type"]]
+        if nxt[kind] >= limit[kind]:
+            raise GenError(f"'{b['name']}': Metal {kind} 번호가 모자란다 (최대 {limit[kind]} — ADR-0035)")
+        b["metalKind"] = kind
+        b["metalIndex"] = nxt[kind]
+        nxt[kind] += 1
+
+
+def run_msl(tool: str, work: Path, name: str, st: "Stage", spv_path: Path, bindings: list[dict]) -> tuple[str, str]:
+    """sbx_msl 로 한 단계의 MSL 을 만든다. (MSL 소스, MSL 진입점 이름)"""
+    import subprocess
+    out = work / f"{name}.{st.key}.metal"
+    cmd = [tool, "--in", str(spv_path), "--out", str(out), "--stage", st.key, "--entry", st.entry,
+           "--push-buffer", str(METAL_PUSH_BUFFER)]
+    for b in bindings:
+        cmd += ["--bind", f"{b['group']}:{b['binding']}:{b['metalKind']}:{b['metalIndex']}"]
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if r.returncode != 0:
+        raise GenError(f"sbx_msl ({st.key}:{st.entry}) 실패: {r.stderr.strip() or r.stdout.strip()}")
+    entry = json.loads(r.stdout.strip().splitlines()[-1])["entry"]
+    return out.read_text(encoding="utf-8"), entry
 
 
 # --- 출력 ------------------------------------------------------------------------------------------
@@ -419,8 +467,14 @@ def byte_array(name: str, data: bytes) -> str:
     return "\n".join(out)
 
 
-def generate(name: str, source: str, stages: list[Stage], out_dir: Path) -> list[Path]:
+def generate(name: str, source: str, stages: list[Stage], out_dir: Path, msl_tool: str = "", msl_dir: Path | None = None,
+             spv_paths: dict | None = None) -> list[Path]:
     bindings, push, inputs, _, structs = merge(stages)
+    if msl_tool:
+        work = msl_dir or out_dir
+        work.mkdir(parents=True, exist_ok=True)
+        for st in stages:
+            st.msl, st.msl_entry = run_msl(msl_tool, work, name, st, spv_paths[st.key], bindings)
     pas = pascal(name)
     ns = f"sbx::render::shaders::{name}"
 
@@ -477,14 +531,17 @@ inline constexpr u32 kPushConstantBytes = {push["size"] if push else 0};
     for st in stages:
         arrays.append(byte_array(f"k{st.key.upper()}Dxil", st.dxil))
         arrays.append(byte_array(f"k{st.key.upper()}Spirv", st.spirv))
+        msl = st.msl.encode("utf-8")
+        arrays.append(byte_array(f"k{st.key.upper()}Msl", msl))
         funcs.append(f"""rhi::ShaderBytecode {st.key}() {{
     return {{rhi::ShaderStage::{STAGE_ENUM[st.key]}, "{st.entry}",
             {{reinterpret_cast<const std::byte*>(k{st.key.upper()}Dxil), {len(st.dxil)}}},
-            {{reinterpret_cast<const std::byte*>(k{st.key.upper()}Spirv), {len(st.spirv)}}}, "{name}.{st.key}"}};
+            {{reinterpret_cast<const std::byte*>(k{st.key.upper()}Spirv), {len(st.spirv)}}}, "{name}.{st.key}",
+            {{reinterpret_cast<const char*>(k{st.key.upper()}Msl), {len(msl)}}}, "{st.msl_entry}"}};
 }}""")
     binds = ",\n".join(
         f'    rhi::ReflectedBinding{{{b["group"]}, {b["binding"]}, rhi::BindingType::{b["type"]}, {b["stages"]}, '
-        f'{b["size"]}, rhi::TextureDim::{b["dim"]}, "{b["name"]}"}}'
+        f'{b["size"]}, rhi::TextureDim::{b["dim"]}, "{b["name"]}", {b["metalIndex"]}}}'
         for b in bindings)
     ins = ",\n".join(
         f'    rhi::ReflectedVertexInput{{{i["location"]}, "{i["semantic"]}", {i["semanticIndex"]}, {i["components"]}}}'
@@ -523,11 +580,13 @@ const rhi::ShaderReflection& reflection() {{
         "stages": [st.key for st in stages],
         "bindGroups": [
             {"group": g, "bindings": [
-                {k: v for k, v in b.items() if k in ("name", "type", "binding", "size", "dim", "stages", "structName")}
+                {k: v for k, v in b.items()
+                 if k in ("name", "type", "binding", "size", "dim", "stages", "structName", "metalIndex")}
                 for b in bindings if b["group"] == g]}
             for g in sorted({b["group"] for b in bindings})],
         "pushConstants": {"size": push["size"], "struct": push["structName"]} if push else None,
         "vertexInputs": [{k: v for k, v in i.items()} for i in inputs],
+        "msl": {st.key: st.msl_entry for st in stages} if msl_tool else None,
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = [out_dir / f"{pas}Shader.hpp", out_dir / f"{pas}Shader.cpp", out_dir / f"{name}.reflect.json"]
@@ -609,6 +668,16 @@ def self_test() -> int:
         (0, 0, "ConstantBuffer"), (2, 0, "Texture"), (2, 1, "Sampler")], bindings
     assert bindings[0]["size"] == 80 and bindings[0]["structName"] == "Frame", bindings[0]
     assert bindings[1]["dim"] == "Tex2D"
+    # Metal 번호: 버퍼는 push constant(0) 다음 1 부터, 텍스처 · 샘플러는 0 부터
+    assert [(b["metalKind"], b["metalIndex"]) for b in bindings] == [("buffer", 1), ("texture", 0), ("sampler", 0)]
+    many = [{"group": g, "binding": n, "type": "ConstantBuffer", "name": f"c{g}{n}"} for g in range(4) for n in range(7)]
+    try:
+        assign_metal(many)
+        raise AssertionError("Metal 버퍼 28 개를 놓쳤다")
+    except GenError as e:
+        assert "모자란다" in str(e), e
+    assign_metal(many[:26])
+    assert many[25]["metalIndex"] == 26 and 26 < METAL_VERTEX_BUFFER_TOP - METAL_MAX_VERTEX_BUFFERS + 1
     assert push == {"structName": "Push", "size": 12}, push
     import tempfile
     with tempfile.TemporaryDirectory() as d:
@@ -618,6 +687,8 @@ def self_test() -> int:
         assert "static_assert(offsetof(Frame, tint) == 64);" in hpp
         assert "static_assert(sizeof(Push) == 12);" in hpp
         assert "kPushConstantBytes = 12" in hpp
+        cpp = paths[1].read_text(encoding="utf-8")
+        assert '"tex", 0}' in cpp and '"samp", 0}' in cpp and '"Frame", 1}' in cpp, cpp
     # 같은 binding 에 다른 종류 → 오류
     bad = [ins[i] for i in range(len(ins))]
     bad = [(op, a) if not (op == OP_DECORATE and a[0] == VSMP and a[1] == DEC_BINDING) else (op, [VSMP, DEC_BINDING, 0])
@@ -662,12 +733,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--source", default="")
     ap.add_argument("--out-dir")
     ap.add_argument("--stage", action="append", default=[], help="key:entry:dxil:spirv (key = vs|ps|cs)")
+    ap.add_argument("--msl-tool", default="", help="sbx_msl 실행 파일 — 주면 MSL 도 내장한다 (ADR-0035)")
+    ap.add_argument("--msl-dir", default="", help=".metal 을 둘 폴더 (기본 --out-dir)")
     a = ap.parse_args(argv)
     if a.self_test:
         return self_test()
     if not a.name or not a.out_dir or not a.stage:
         ap.error("--name, --out-dir, --stage 가 필요하다")
     stages = []
+    spv_paths = {}
     try:
         for spec in a.stage:
             # Windows 경로의 드라이브 문자(C:)가 있어 앞 두 칸만 ':' 로 자른다
@@ -678,9 +752,10 @@ def main(argv: list[str]) -> int:
             dxil = Path(m.group(1)).read_bytes()
             check_dxil(dxil, m.group(1))
             spirv = Path(m.group(2)).read_bytes()
+            spv_paths[key] = Path(m.group(2))
             mod = parse_spirv(spirv)
             stages.append(Stage(key, entry, dxil, strip_reflect(spirv), mod, reflect(mod, key)))
-        generate(a.name, a.source, stages, Path(a.out_dir))
+        generate(a.name, a.source, stages, Path(a.out_dir), a.msl_tool, Path(a.msl_dir) if a.msl_dir else None, spv_paths)
     except (GenError, OSError, KeyError) as e:
         print(f"sbx_shader_gen: {a.source or a.name}: 오류: {e}", file=sys.stderr)
         return 1

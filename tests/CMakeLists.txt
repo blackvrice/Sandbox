@@ -47,6 +47,7 @@ add_executable(SandboxTests
     unit/render/test_rhi_helpers.cpp
     unit/render/test_image.cpp
     unit/render/test_pipeline_validation.cpp
+    unit/render/test_shader_msl.cpp
     unit/render/test_sprite_logic.cpp
     unit/render/test_world_logic.cpp
     unit/network/test_bitstream.cpp
