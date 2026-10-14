@@ -107,3 +107,22 @@ if(SBX_ENABLE_VULKAN)
         target_compile_options(sbx_volk PRIVATE -w)
     endif()
 endif()
+
+# SPIRV-Cross 1.4.304.1 (Apache-2.0 또는 MIT) — 빌드 때만 쓰는 호스트 도구 sbx_msl (SPIR-V → MSL, tools/shader/sbx_msl.cpp)
+# 에 링크한다. 실행 파일 · 엔진 라이브러리에는 들어가지 않는다 (ADR-0035). 코어 · GLSL · MSL 컴파일러만 넣었다.
+if(SBX_SHADER_MSL)
+    add_library(sbx_spirv_cross STATIC
+        spirv-cross/spirv_cross.cpp
+        spirv-cross/spirv_parser.cpp
+        spirv-cross/spirv_cross_parsed_ir.cpp
+        spirv-cross/spirv_cfg.cpp
+        spirv-cross/spirv_glsl.cpp
+        spirv-cross/spirv_msl.cpp)
+    target_include_directories(sbx_spirv_cross SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/spirv-cross")
+    target_compile_features(sbx_spirv_cross PUBLIC cxx_std_17)
+    if(MSVC)
+        target_compile_options(sbx_spirv_cross PRIVATE /w)
+    else()
+        target_compile_options(sbx_spirv_cross PRIVATE -w)
+    endif()
+endif()
