@@ -5,7 +5,9 @@
 cmake_minimum_required(VERSION 3.28)
 
 # macOS 최소 버전 (06 2장 — Metal 3 · Apple Silicon). project() 앞에 둬야 한다. 다른 OS 에서는 쓰이지 않는다.
-set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "macOS 최소 버전")
+# 13.4: Apple libc++ 의 std::format 이 쓰는 std::to_chars(double) 이 그 버전의 시스템 라이브러리에 있다 (13.0 이면
+# "'to_chars' is unavailable: introduced in macOS 13.3/13.4" 로 컴파일 오류 — SDK 15.4 기준 13.4).
+set(CMAKE_OSX_DEPLOYMENT_TARGET "13.4" CACHE STRING "macOS 최소 버전")
 
 project(Sandbox
         VERSION 0.1.0

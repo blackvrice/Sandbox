@@ -248,7 +248,7 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 실행해 보지 않았다 (개발 환경에 macOS 가 없다 — GNUstep 헤더로 문법 · 형 · ARC 만 검사). 첫 확인은 CI 의 macOS 잡 · MANUAL-QA 14B.
 
 ```text
-- 빌드: APPLE 이면 OBJCXX 를 켜고 CocoaWindow.mm 만 -fobjc-arc, AppKit · QuartzCore · CoreGraphics. 배포 목표 macOS 13.0
+- 빌드: APPLE 이면 OBJCXX 를 켜고 CocoaWindow.mm 만 -fobjc-arc, AppKit · QuartzCore · CoreGraphics. 배포 목표 macOS 13.4 (14C — std::format 의 to_chars)
   (CMAKE_OSX_DEPLOYMENT_TARGET). 정의 SBX_HAS_COCOA (PUBLIC). 공개 헤더(MacWindows.hpp)에 ObjC 타입 없음.
 - 앱: NSApplication · ActivationPolicyRegular (번들 없는 실행 파일도 Dock · 키보드 포커스), 앱 메뉴 "종료"(⌘Q) = 키 창의
   performClose: → CloseRequested (바로 끝내지 않는다).
