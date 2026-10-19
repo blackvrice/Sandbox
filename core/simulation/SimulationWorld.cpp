@@ -278,6 +278,16 @@ Expected<ecs::EntityId> SimulationWorld::instantiate(const content::Prefab* pref
         return makeError(ErrorCode::InvalidArgument,
                          std::format("컴포넌트 {}개 (최대 {})", overrides.size(), kMaxCommandComponents));
     }
+    const bool templatable = prefab != nullptr && overrides.empty();
+    if (templatable) {
+        if (m_prefabTemplatesRevision != m_contentRevision) {
+            m_prefabTemplates.clear(); // 콘텐츠가 바뀌었다 (Prefab 포인터도 다른 DB 의 것일 수 있다)
+            m_prefabTemplatesRevision = m_contentRevision;
+        }
+        if (const auto it = m_prefabTemplates.find(prefab); it != m_prefabTemplates.end()) {
+            return instantiateFromTemplate(*prefab, it->second, position);
+        }
+    }
     struct Pending {
         const ecs::ComponentInfo* info;
         Json value;
@@ -356,11 +366,46 @@ Expected<ecs::EntityId> SimulationWorld::instantiate(const content::Prefab* pref
     // 5) 적용 — 검증을 통과했으므로 실패하지 않는다
     const Tick tick = m_clock.tick();
     const ecs::EntityId e = m_registry.create();
+    PrefabTemplate made;
     for (const Pending& p : pending) {
         void* raw = poolFor(*p.info).emplaceDefaultRaw(e, tick);
         const auto r = p.info->readJson(raw, p.value, p.info->name);
         SBX_VERIFY(r.has_value(), "검증을 통과한 컴포넌트 값의 적용이 실패했다");
+        if (templatable) {
+            std::vector<u8> bytes;
+            p.info->writeBinary(raw, bytes, nullptr);
+            made.components.emplace_back(p.info, std::move(bytes));
+        }
     }
+    if (templatable) {
+        m_prefabTemplates.emplace(prefab, std::move(made));
+    }
+    finishPrefabEntity(e, prefab);
+    return e;
+}
+
+Expected<ecs::EntityId> SimulationWorld::instantiateFromTemplate(const content::Prefab& prefab, const PrefabTemplate& t,
+                                                                 Vec2 position) {
+    // JSON 경로의 위치 검사와 같다 (position 은 f32 → f64 → f32 로 그대로 돌아온다)
+    if (!m_grid.containsPoint(position)) {
+        return makeError(ErrorCode::OutOfRange,
+                         std::format("위치 ({}, {}) 가 월드 경계 밖이다", position.x, position.y));
+    }
+    const Tick tick = m_clock.tick();
+    const ecs::EntityId e = m_registry.create();
+    for (const auto& [info, bytes] : t.components) {
+        void* raw = poolFor(*info).emplaceDefaultRaw(e, tick);
+        const bool ok = info->readBinary(raw, bytes.data(), bytes.size(), nullptr);
+        SBX_VERIFY(ok, "Prefab 템플릿 바이트를 읽지 못했다");
+        if (info->stableId == ecs::stableIdOf<comp::Transform>) {
+            static_cast<comp::Transform*>(raw)->position = position; // JSON 경로의 "position" 덮어쓰기와 같다
+        }
+    }
+    finishPrefabEntity(e, &prefab);
+    return e;
+}
+
+void SimulationWorld::finishPrefabEntity(ecs::EntityId e, const content::Prefab* prefab) {
     if (prefab != nullptr) {
         if (!m_registry.has<comp::Tags>(e)) {
             m_registry.emplace<comp::Tags>(e, comp::Tags{prefab->tags});
@@ -383,7 +428,6 @@ Expected<ecs::EntityId> SimulationWorld::instantiate(const content::Prefab* pref
             m_opaque[m_registry.read<comp::Persistence>(e).saveId] = std::move(opaque);
         }
     }
-    return e;
 }
 
 void SimulationWorld::applySpawns() {

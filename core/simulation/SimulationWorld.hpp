@@ -170,6 +170,16 @@ private:
     // Prefab(없어도 됨) + 덮어쓰기 컴포넌트로 엔티티 하나를 원자적으로 만든다 (명령·SpawnQueue 공용)
     Expected<ecs::EntityId> instantiate(const content::Prefab* prefab, Vec2 position,
                                         std::span<const cmd::ComponentValue> overrides);
+    // (15A) Prefab 템플릿 — 덮어쓰기 없는 생성(번식 · 시나리오 배치)은 처음 한 번 JSON 으로 만든 컴포넌트 값을 바이트
+    // (BinaryCodec — 반사 필드 전부, 비트 그대로)로 기억해 두고 다음부터 그것을 읽는다. 결과 엔티티는 JSON 경로와 같다
+    // (위치만 다르게 쓴다). 콘텐츠가 바뀌면(contentRevision) 버린다.
+    struct PrefabTemplate {
+        std::vector<std::pair<const ecs::ComponentInfo*, std::vector<u8>>> components; // JSON 경로의 적용 순서
+    };
+    Expected<ecs::EntityId> instantiateFromTemplate(const content::Prefab& prefab, const PrefabTemplate& t,
+                                                    Vec2 position);
+    // Prefab 이 붙이는 엔진 컴포넌트 (core.tags · core.prefab) · 정체성 · opaque — 두 경로 공통
+    void finishPrefabEntity(ecs::EntityId e, const content::Prefab* prefab);
     Expected<void> applyEditContent(const cmd::EditContent& c);
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
@@ -181,6 +191,8 @@ private:
     std::shared_ptr<const content::ContentDatabase> m_overlaid; // 오버레이가 있을 때만
     const content::ContentDatabase* m_content;                  // m_overlaid 또는 m_baseContent
     u64 m_contentRevision = 0;
+    std::unordered_map<const content::Prefab*, PrefabTemplate> m_prefabTemplates; // 조회 전용 (순회하지 않는다)
+    u64 m_prefabTemplatesRevision = 0;
     WorldDesc m_desc;
     ecs::Registry m_registry;
     world::WorldGrid m_grid;
