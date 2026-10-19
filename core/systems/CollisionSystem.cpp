@@ -4,9 +4,13 @@
 //    겹침을 모아 밀어낼 양을 계산한다 — 두 원이 겹친 깊이의 반씩, 서로 반대 방향. 정확히 같은 위치면
 //    saveId 가 작은 쪽이 −x, 큰 쪽이 +x 로 (결정적).
 //    색인은 이번 틱 Movement 전 위치라서, 후보 반경에 "이번 틱 최대 속도 × dt × 2" 를 더한다.
+//    (15A) 후보 반경의 "상대 반지름" 은 이번 틱 항목의 가장 큰 반지름 (전에는 상한 kMaxColliderRadius 2) — 겹칠 수 있는
+//    이웃은 모두 그 안에 있으므로 찾는 이웃 · 더하는 순서가 같고 결과도 같다. 후보가 수 배 준다.
 // 2) 쓰기 패스: 모은 양을 더한 뒤 통행 불가 타일(moveCost 0)과 겹치면 밖으로 밀어내고 월드 경계로 자른다.
 // 엔티티마다 자기 위치에만 쓰고, 읽기는 모두 1) 에서 끝나므로 순회 순서와 무관하다 (Jacobi 방식).
-// (Phase 5C) 1) 은 Worker 와 나눠 계산한다 — 레지스트리는 읽기만 (tryRead), 쓰기는 2) 에서 호출 스레드가.
+// (Phase 5C) 1) 은 Worker 와 나눠 계산한다 — 레지스트리는 읽기만, 쓰기는 2) 에서 호출 스레드가.
+// (15A) 후보의 콜라이더 · 위치는 레지스트리 대신 이번 틱 항목 표(엔티티 index → 항목)에서 — 후보 대부분(풀)은 콜라이더가
+// 없어 한 번의 배열 읽기로 거른다. 값은 같은 틱 같은 단계에 읽은 것이라 레지스트리 조회와 같다.
 // 정밀 물리가 목표가 아니다 — 한 틱에 한 번, 반복하지 않는다.
 
 #include <algorithm>
@@ -82,9 +86,11 @@ Vec2 resolveTerrain(const world::WorldGrid& grid, Vec2 pos, f32 r) {
 void CollisionSystem::run(sim::SystemContext& ctx) {
     std::vector<Item> items;
     f32 maxSpeed2 = 0.f;
+    f32 maxRadius = 0.f;
     for (auto [e, col, tr, id] :
          ctx.reg.view<ecs::Read<comp::Collider>, ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
         items.push_back(Item{e, id.saveId, tr.position, col, Vec2{}});
+        maxRadius = std::max(maxRadius, col.radius);
         if (const comp::Velocity* v = ctx.reg.tryRead<comp::Velocity>(e)) {
             maxSpeed2 = std::max(maxSpeed2, v->value.lengthSquared());
         }
@@ -92,22 +98,30 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
     if (items.empty()) {
         return;
     }
+    // 엔티티 index → 항목 번호 + 1 (0 = 콜라이더 없음). 이 단계에서는 구조 변경이 없어 index 가 바뀌지 않는다
+    std::vector<u32> itemOf(ctx.reg.slotCount(), 0u);
+    for (usize i = 0; i < items.size(); ++i) {
+        itemOf[items[i].entity.index()] = static_cast<u32>(i + 1);
+    }
     const f32 margin = 2.f * std::sqrt(maxSpeed2) * ctx.dt + 0.01f;
 
     // 1) 읽기 패스 — 항목마다 자기 push 에만 쓰므로 Worker 와 나눠도 결과가 같다 (D5)
     const auto readPass = [&](Item& it) {
-        const f32 queryR = it.collider.radius + comp::kMaxColliderRadius + margin;
+        const f32 queryR = it.collider.radius + maxRadius + margin;
         ctx.spatial.forEachInRadius(it.position, queryR, [&](const world::SpatialEntry& c) {
             if (c.entity == it.entity) {
                 return;
             }
-            const comp::Collider* oc = ctx.reg.tryRead<comp::Collider>(c.entity);
-            if (oc == nullptr || (it.collider.layer & oc->mask) == 0 || (oc->layer & it.collider.mask) == 0) {
+            const u32 k = c.entity.index() < itemOf.size() ? itemOf[c.entity.index()] : 0u;
+            if (k == 0 || items[k - 1].entity != c.entity) {
                 return;
             }
-            const Vec2 other = ctx.reg.read<comp::Transform>(c.entity).position;
-            const Vec2 d = it.position - other;
-            const f32 rsum = it.collider.radius + oc->radius;
+            const Item& o = items[k - 1];
+            if ((it.collider.layer & o.collider.mask) == 0 || (o.collider.layer & it.collider.mask) == 0) {
+                return;
+            }
+            const Vec2 d = it.position - o.position;
+            const f32 rsum = it.collider.radius + o.collider.radius;
             const f32 d2 = d.lengthSquared();
             if (d2 >= rsum * rsum) {
                 return;
@@ -123,12 +137,17 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
         }
     });
 
-    // 2) 쓰기 패스
-    for (const Item& it : items) {
-        Vec2 p = it.position + it.push;
-        p = ctx.grid.clampPoint(resolveTerrain(ctx.grid, p, it.collider.radius));
-        if (!(p == it.position)) {
-            ctx.reg.write<comp::Transform>(it.entity).position = p;
+    // 2) 쓰기 패스 — 지형 밀어내기 계산은 항목마다 독립 (Worker 와 나눈다, 15A), 레지스트리 쓰기는 호출 스레드가 순서대로
+    std::vector<Vec2> finalPos(items.size());
+    parallelFor(ctx.jobs, items.size(), 256, [&](usize begin, usize end) {
+        for (usize i = begin; i < end; ++i) {
+            const Item& it = items[i];
+            finalPos[i] = ctx.grid.clampPoint(resolveTerrain(ctx.grid, it.position + it.push, it.collider.radius));
+        }
+    });
+    for (usize i = 0; i < items.size(); ++i) {
+        if (!(finalPos[i] == items[i].position)) {
+            ctx.reg.write<comp::Transform>(items[i].entity).position = finalPos[i];
         }
     }
 }

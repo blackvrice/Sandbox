@@ -52,6 +52,8 @@ public:
     bool destroy(EntityId e);
     [[nodiscard]] bool alive(EntityId e) const noexcept { return m_entities.alive(e); }
     [[nodiscard]] usize aliveCount() const noexcept { return m_entities.aliveCount(); }
+    // 엔티티 index 의 상한 (모든 index < slotCount) — index 로 찾는 틱 안의 임시 표 크기 (15A)
+    [[nodiscard]] usize slotCount() const noexcept { return m_entities.slotCount(); }
 
     // 살아 있는 엔티티를 index 오름차순으로 순회 — 해시·저장처럼 순서가 결과에 들어가는 곳에서 쓴다 (02-ECS E2).
     template <class Fn>

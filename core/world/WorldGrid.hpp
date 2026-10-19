@@ -76,15 +76,33 @@ public:
     [[nodiscard]] Vec2 worldMin() const noexcept;
     [[nodiscard]] Vec2 worldMax() const noexcept;
     [[nodiscard]] Vec2i tileMin() const noexcept { return chunkOrigin(m_bounds.minChunk); }
-    [[nodiscard]] Vec2i tileMax() const noexcept; // 포함 끝
-    [[nodiscard]] bool containsTile(Vec2i t) const noexcept;
+    [[nodiscard]] Vec2i tileMax() const noexcept { // 포함 끝
+        const Vec2i t = chunkOrigin(ChunkCoord{m_bounds.maxChunk.x + 1, m_bounds.maxChunk.y + 1});
+        return Vec2i{t.x - 1, t.y - 1};
+    }
+    [[nodiscard]] bool containsTile(Vec2i t) const noexcept {
+        const Vec2i lo = tileMin();
+        const Vec2i hi = tileMax();
+        return t.x >= lo.x && t.x <= hi.x && t.y >= lo.y && t.y <= hi.y;
+    }
     [[nodiscard]] bool containsPoint(Vec2 p) const noexcept; // NaN 이면 false
     // 경계 안으로 밀어 넣는다 (최댓값은 worldMax 바로 아래). NaN 은 worldMin.
     [[nodiscard]] Vec2 clampPoint(Vec2 p) const noexcept;
 
     [[nodiscard]] MaterialIndex materialAt(Vec2i tile) const noexcept; // 경계 밖이면 fill
     [[nodiscard]] u8 flagsAt(Vec2i tile) const noexcept;
-    [[nodiscard]] u8 moveCostAt(Vec2i tile) const noexcept;
+    // 경로 · 직선 검사 · 충돌이 타일마다 부른다 — 인라인 (15A). 경계 밖이면 0 (통행 불가)
+    // 경계의 왼쪽 위가 청크 경계라서 경계 기준 좌표의 몫 · 나머지가 곧 청크 · 청크 안 좌표다 (floorDiv 없이)
+    [[nodiscard]] u8 moveCostAt(Vec2i tile) const noexcept {
+        const i64 lx = static_cast<i64>(tile.x) - static_cast<i64>(m_bounds.minChunk.x) * kChunkSize;
+        const i64 ly = static_cast<i64>(tile.y) - static_cast<i64>(m_bounds.minChunk.y) * kChunkSize;
+        const i64 cw = chunksX();
+        if (lx < 0 || ly < 0 || lx >= cw * kChunkSize || ly >= static_cast<i64>(chunksY()) * kChunkSize) {
+            return 0;
+        }
+        const Chunk& c = m_chunks[static_cast<usize>((ly / kChunkSize) * cw + lx / kChunkSize)];
+        return c.layers().moveCost[static_cast<usize>((ly % kChunkSize) * kChunkSize + lx % kChunkSize)];
+    }
 
     // tiles 를 머티리얼 m 으로 칠한다 (flags·moveCost 는 머티리얼 기본값으로). 경계 밖 타일은 호출자가 걸러야
     // 한다(단언). 실제로 바뀐 셀이 있는 청크만 revision 이 1 오른다. 바뀐 셀 수를 돌려준다.
@@ -95,7 +113,10 @@ public:
 
 private:
     WorldGrid() = default;
-    [[nodiscard]] usize chunkIndex(ChunkCoord c) const noexcept;
+    [[nodiscard]] usize chunkIndex(ChunkCoord c) const noexcept {
+        return static_cast<usize>(c.y - m_bounds.minChunk.y) * static_cast<usize>(chunksX()) +
+               static_cast<usize>(c.x - m_bounds.minChunk.x);
+    }
 
     GridBounds m_bounds;
     MaterialIndex m_fill = 0;

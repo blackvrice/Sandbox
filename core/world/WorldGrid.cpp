@@ -66,11 +66,6 @@ Expected<WorldGrid> WorldGrid::create(const GridBounds& bounds, const content::C
     return g;
 }
 
-usize WorldGrid::chunkIndex(ChunkCoord c) const noexcept {
-    return static_cast<usize>(c.y - m_bounds.minChunk.y) * static_cast<usize>(chunksX()) +
-           static_cast<usize>(c.x - m_bounds.minChunk.x);
-}
-
 const Chunk* WorldGrid::chunk(ChunkCoord c) const noexcept {
     if (c.x < m_bounds.minChunk.x || c.x > m_bounds.maxChunk.x || c.y < m_bounds.minChunk.y ||
         c.y > m_bounds.maxChunk.y) {
@@ -93,16 +88,7 @@ Vec2 WorldGrid::worldMax() const noexcept {
     return Vec2{static_cast<f32>(t.x), static_cast<f32>(t.y)};
 }
 
-Vec2i WorldGrid::tileMax() const noexcept {
-    const Vec2i t = chunkOrigin(ChunkCoord{m_bounds.maxChunk.x + 1, m_bounds.maxChunk.y + 1});
-    return Vec2i{t.x - 1, t.y - 1};
-}
 
-bool WorldGrid::containsTile(Vec2i t) const noexcept {
-    const Vec2i lo = tileMin();
-    const Vec2i hi = tileMax();
-    return t.x >= lo.x && t.x <= hi.x && t.y >= lo.y && t.y <= hi.y;
-}
 
 bool WorldGrid::containsPoint(Vec2 p) const noexcept {
     const Vec2 lo = worldMin();
@@ -133,10 +119,6 @@ u8 WorldGrid::flagsAt(Vec2i tile) const noexcept {
                         : c->layers().flags[static_cast<usize>(localTileIndex(tile))];
 }
 
-u8 WorldGrid::moveCostAt(Vec2i tile) const noexcept {
-    const Chunk* c = containsTile(tile) ? chunk(chunkOfTile(tile)) : nullptr;
-    return c == nullptr ? u8{0} : c->layers().moveCost[static_cast<usize>(localTileIndex(tile))];
-}
 
 usize WorldGrid::paint(std::span<const Vec2i> tiles, MaterialIndex m, const content::TerrainMaterial& def) {
     usize changed = 0;

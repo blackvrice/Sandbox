@@ -28,12 +28,62 @@ struct Death {
 constexpr std::array<Vec2i, 8> kNeighbours{Vec2i{-1, -1}, Vec2i{0, -1}, Vec2i{1, -1}, Vec2i{-1, 0},
                                            Vec2i{1, 0},   Vec2i{-1, 1}, Vec2i{0, 1},  Vec2i{1, 1}};
 
+// (15A) 엔티티 index → Prefab 번호 표. 이웃마다 레지스트리를 찾고 ContentId(48 바이트)를 견주던 것을 번호 비교로.
+// 처음 필요할 때 한 번 만든다 (번식 단계에서는 PrefabSource 가 바뀌지 않는다). 번호 kNone = PrefabSource 없음.
+class PrefabTable {
+public:
+    static constexpr u32 kNone = 0xFFFF'FFFFu;
+
+    explicit PrefabTable(const ecs::Registry& reg) : m_reg(reg) {}
+
+    // id 의 번호 (아직 없는 id 면 새 번호 — 그런 엔티티는 표에 없으므로 일치하는 것이 없다)
+    u32 intern(const ContentId& id) {
+        for (usize i = m_ids.size(); i-- > 0;) {
+            if (m_ids[i] == id) {
+                return static_cast<u32>(i);
+            }
+        }
+        m_ids.push_back(id);
+        return static_cast<u32>(m_ids.size() - 1);
+    }
+
+    [[nodiscard]] u32 of(ecs::EntityId e) {
+        build();
+        return e.index() < m_byIndex.size() ? m_byIndex[e.index()] : kNone;
+    }
+
+private:
+    void build() {
+        if (m_built) {
+            return;
+        }
+        m_built = true;
+        m_byIndex.assign(m_reg.slotCount(), kNone);
+        const auto* pool = m_reg.findPool<comp::PrefabSource>();
+        if (pool == nullptr) {
+            return;
+        }
+        u32 last = kNone;
+        for (usize i = 0; i < pool->size(); ++i) {
+            const ContentId& id = pool->dataAt(i).prefab;
+            if (last == kNone || !(m_ids[last] == id)) {
+                last = intern(id);
+            }
+            m_byIndex[pool->entityAt(i).index()] = last;
+        }
+    }
+
+    const ecs::Registry& m_reg;
+    std::vector<ContentId> m_ids;
+    std::vector<u32> m_byIndex;
+    bool m_built = false;
+};
+
 // 타일 중심 0.45 안에 같은 Prefab 이 있으면 점유
-bool occupied(const sim::SystemContext& ctx, Vec2 center, const comp::PrefabSource& who) {
+bool occupied(const sim::SystemContext& ctx, PrefabTable& prefabs, Vec2 center, u32 who) {
     bool hit = false;
     ctx.spatial.forEachInRadius(center, 0.45f, [&](const world::SpatialEntry& e) {
-        if (const auto* src = ctx.reg.tryRead<comp::PrefabSource>(e.entity);
-            src != nullptr && src->prefab == who.prefab) {
+        if (prefabs.of(e.entity) == who) {
             hit = true;
         }
     });
@@ -102,6 +152,7 @@ void LifecycleSystem::run(sim::SystemContext& ctx) {
     };
 
     // 번식
+    PrefabTable prefabs(ctx.reg);
     for (auto [e, r, id, tr] :
          ctx.reg.view<ecs::Read<comp::Reproduce>, ecs::Read<comp::Persistence>, ecs::Read<comp::Transform>>()) {
         if (r.cooldownLeft > 0.f) {
@@ -129,12 +180,10 @@ void LifecycleSystem::run(sim::SystemContext& ctx) {
         if (r.crowdMax > 0 && r.crowdRadius > 0.f) {
             // 주변 같은 종(offspring Prefab) 수 — 자신은 빼고, Stage 4 색인 기준
             u32 near = 0;
+            const u32 offspring = prefabs.intern(r.offspring);
             ctx.spatial.forEachInRadius(tr.position, r.crowdRadius, [&](const world::SpatialEntry& n) {
-                if (n.entity != e) {
-                    if (const auto* src = ctx.reg.tryRead<comp::PrefabSource>(n.entity);
-                        src != nullptr && src->prefab == r.offspring) {
-                        ++near;
-                    }
+                if (n.entity != e && prefabs.of(n.entity) == offspring) {
+                    ++near;
                 }
             });
             if (near >= r.crowdMax) {
@@ -149,9 +198,9 @@ void LifecycleSystem::run(sim::SystemContext& ctx) {
                                  static_cast<i32>(std::floor(tr.position.y))};
                 const Vec2i t = here + kNeighbours[rng.below(8)];
                 const Vec2 center{static_cast<f32>(t.x) + 0.5f, static_cast<f32>(t.y) + 0.5f};
-                const comp::PrefabSource* src = ctx.reg.tryRead<comp::PrefabSource>(e);
+                const u32 self = prefabs.of(e);
                 if (!ctx.grid.containsTile(t) || ctx.grid.moveCostAt(t) == 0 ||
-                    (src != nullptr && occupied(ctx, center, *src))) {
+                    (self != PrefabTable::kNone && occupied(ctx, prefabs, center, self))) {
                     continue;
                 }
                 ctx.spawns.push(id.saveId, prefab, center, true);

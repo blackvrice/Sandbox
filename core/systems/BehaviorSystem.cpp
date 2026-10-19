@@ -15,6 +15,7 @@
 //   - 막혔으면 Pending → Stage 8 이 Job 을 제출한다
 
 #include <cmath>
+#include <vector>
 
 #include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
@@ -24,6 +25,7 @@
 #include "core/path/PathGrid.hpp"
 #include "core/systems/AiCommon.hpp"
 #include "core/systems/AiSystems.hpp"
+#include "foundation/job/JobSystem.hpp"
 
 namespace sbx::sys {
 namespace {
@@ -258,15 +260,33 @@ private:
 
 } // namespace
 
+// (15A) 평가는 Worker 와 나눈다 (04 7장 "System 내 병렬: dense 범위 분할"). 엔티티마다
+//   쓰기 = 자기 컴포넌트(Behavior · Movement · Path)만 — 풀의 원소 칸(값 · changed 틱)이라 서로 겹치지 않는다
+//   읽기 = 자기 컴포넌트 + 다른 엔티티의 Transform(이 System 이 쓰지 않는다) · saveId 표 · 지형 · 콘텐츠 (불변)
+//   난수 = (틱, Behavior, saveId) 스트림 — 엔티티마다 따로
+// 그래서 순서 · Worker 수와 무관하다 (D5). 구조 변경 · 이벤트 · ECB 를 쓰는 행동이 생기면 다시 나눠야 한다.
+// 그래프 찾기(graphOf — Behavior 의 캐시 칸을 고친다)는 먼저 호출 스레드에서.
 void BehaviorSystem::run(sim::SystemContext& ctx) {
+    struct Job {
+        ecs::EntityId entity;
+        SaveId saveId;
+        const content::BehaviorGraph* graph;
+        Vec2 position;
+    };
+    std::vector<Job> jobs;
     for (auto [e, beh, id, tr] :
          ctx.reg.view<ecs::Read<comp::Behavior>, ecs::Read<comp::Persistence>, ecs::Read<comp::Transform>>()) {
         const content::BehaviorGraph* g = ai::graphOf(ctx.content, beh);
         if (g == nullptr || g->states.empty()) {
             continue;
         }
-        Evaluator(ctx, e, id.saveId, *g, tr.position).run();
+        jobs.push_back(Job{e, id.saveId, g, tr.position});
     }
+    parallelFor(ctx.jobs, jobs.size(), 128, [&](usize begin, usize end) {
+        for (usize i = begin; i < end; ++i) {
+            Evaluator(ctx, jobs[i].entity, jobs[i].saveId, *jobs[i].graph, jobs[i].position).run();
+        }
+    });
 }
 
 } // namespace sbx::sys
