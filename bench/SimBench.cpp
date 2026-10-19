@@ -179,10 +179,10 @@ double percentile(std::vector<double> v, double p) {
     return v[std::min(idx, v.size() - 1)];
 }
 
-// sim.ecosystem: ecosystem_10k (192×192, 풀·토끼·늑대 7,000/2,500/500) — 예열 30틱 뒤 3,000틱의 틱별 시간.
-// --quick 은 ecosystem_small 60틱 (동작 확인용). 경로 Job Worker 수는 --threads.
-void ecosystem(Context& ctx, const ecs::ComponentCatalog& catalog) {
-    const std::string name = ctx.quick ? "ecosystem_small" : "ecosystem_10k";
+// sim.ecosystem: ecosystem_10k (192×192, 풀·토끼·늑대 7,000/2,500/500) — 예열 30틱 뒤 3,000틱의 틱별 시간,
+// ecosystem_50k (448×448, 같은 밀도 — Phase 15) — 예열 30틱 뒤 1,000틱. --quick 은 ecosystem_small 60틱 (동작 확인용).
+// 경로 Job Worker 수는 --threads.
+void ecosystem(Context& ctx, const ecs::ComponentCatalog& catalog, const std::string& name, sim::Tick measuredTicks) {
     auto probe = scenario::makeScenario(name);
     auto content = scenario::loadScenarioContent(*probe, SBX_DEFAULT_CONTENT_DIR, catalog);
     if (!content) {
@@ -193,7 +193,7 @@ void ecosystem(Context& ctx, const ecs::ComponentCatalog& catalog) {
     scenario::ScenarioRunner runner(catalog, *content, scenario::makeScenario(name), 1);
     runner.world().setJobSystem(&jobs);
     const sim::Tick warmup = 30;
-    const sim::Tick measured = ctx.quick ? 60 : 3000;
+    const sim::Tick measured = measuredTicks;
     if (!runner.runUntil(warmup)) {
         std::fprintf(stderr, "sim.ecosystem: 예열 실패\n");
         std::abort();
@@ -270,7 +270,12 @@ void runSimBenchmarks(Context& ctx) {
         saveLoad(ctx, catalog);
     }
     if (wants(ctx, "sim.ecosystem")) {
-        ecosystem(ctx, catalog);
+        if (ctx.quick) {
+            ecosystem(ctx, catalog, "ecosystem_small", 60);
+        } else {
+            ecosystem(ctx, catalog, "ecosystem_10k", 3000);
+            ecosystem(ctx, catalog, "ecosystem_50k", 1000);
+        }
     }
 }
 

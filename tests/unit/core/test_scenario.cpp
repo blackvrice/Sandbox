@@ -32,7 +32,7 @@ u64 runHash(std::string_view name, u64 seed, sim::Tick ticks) {
 TEST_SUITE("core") {
 
     TEST_CASE("scenario: registry lists and builds scenarios") {
-        CHECK(scenario::scenarioList().size() == 8);
+        CHECK(scenario::scenarioList().size() == 9);
         for (const auto& s : scenario::scenarioList()) {
             const auto sc = scenario::makeScenario(s.name);
             REQUIRE(sc != nullptr);

@@ -7,6 +7,8 @@
 //   ecosystem_survival  256×256 타일, 1,500 개체, 18,000틱 — 시드 1·2·3 에서 세 종이 0 이 되지 않는가 (16 Phase 5 완료
 //   조건) ecosystem_10k       192×192 타일, 10,000 개체, 3,000틱 — sbx_bench sim.ecosystem · 성능 기준 (평균 < 10 ms,
 //   p99 < 25 ms)
+//   ecosystem_50k       448×448 타일, 50,000 개체, 1,000틱 — Phase 15 의 3단계 기준 (14 1.1 — 같은 밀도, 호수 · 흙 수는
+//   10k 와 같다: 반지름이 지도 폭에 비례해 물 · 흙의 비율이 같다)
 //
 // 지형: 시나리오 난수로 호수(eco.water 원)와 흙(eco.dirt 사각형)을 놓는다. 개체는 호수 밖의 무작위 타일 중심에 놓는다.
 // 모든 입력은 명령이고, 난수는 (worldSeed, tick, Purpose::Scenario) 에서만 나온다.
@@ -44,6 +46,7 @@ public:
     [[nodiscard]] static EcosystemParams small();
     [[nodiscard]] static EcosystemParams survival();
     [[nodiscard]] static EcosystemParams tenK();
+    [[nodiscard]] static EcosystemParams fiftyK();
 
 private:
     EcosystemParams m_params;

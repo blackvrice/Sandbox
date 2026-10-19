@@ -15,6 +15,7 @@ namespace {
 constexpr std::array kScenarios{
     ScenarioEntry{"eco_lifecycle", "eco 팩 풀·토끼·늑대 400/60/10, 128×128, 300틱마다 토끼 보충 (Phase 5A·5B)"},
     ScenarioEntry{"ecosystem_10k", "192×192 생태계 10,000 개체, 3,000틱 — 성능 기준 (Phase 5C)"},
+    ScenarioEntry{"ecosystem_50k", "448×448 생태계 50,000 개체, 1,000틱 — 50k 성능 기준 (Phase 15)"},
     ScenarioEntry{"ecosystem_small", "64×64 생태계 300 개체, 900틱, 보충 없음 — D1~D5 · 골든 (Phase 5C)"},
     ScenarioEntry{"ecosystem_survival", "256×256 생태계 1,500 개체, 18,000틱 — 세 종 공존 (Phase 5C)"},
     ScenarioEntry{"edit_session",
@@ -45,6 +46,9 @@ std::unique_ptr<IScenario> makeScenario(std::string_view name) {
     }
     if (name == "ecosystem_10k") {
         return std::make_unique<EcosystemScenario>(EcosystemScenario::tenK());
+    }
+    if (name == "ecosystem_50k") {
+        return std::make_unique<EcosystemScenario>(EcosystemScenario::fiftyK());
     }
     if (name == "edit_session") {
         return std::make_unique<EditSessionScenario>();

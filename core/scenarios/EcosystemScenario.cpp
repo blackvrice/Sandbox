@@ -68,6 +68,16 @@ EcosystemParams EcosystemScenario::tenK() {
                            3};
 }
 
+EcosystemParams EcosystemScenario::fiftyK() {
+    return EcosystemParams{"ecosystem_50k",
+                           "448×448 생태계, 50,000 개체, 1,000틱 — Phase 15 성능 기준 (평균 < 10 ms, p99 < 25 ms)",
+                           world::GridBounds{world::ChunkCoord{-7, -7}, world::ChunkCoord{6, 6}},
+                           1000,
+                           50000,
+                           4,
+                           3};
+}
+
 sim::WorldDesc EcosystemScenario::worldDesc() const {
     sim::WorldDesc d;
     d.bounds = m_params.bounds;
