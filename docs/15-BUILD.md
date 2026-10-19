@@ -217,11 +217,15 @@ SandboxServer --scenario <random_walk_1k|random_walk_10k> [--ticks N] [--seed N]
     헤드리스로 시나리오를 돌리고 "tick N hash 0x… entities … avg tick … ms" 한 줄을 출력한다.
     --realtime: 30 Hz × speed 로 페이싱, 3틱 넘게 밀리면 기준점을 다시 잡고 overruns 에 센다 (03-SIMULATION 3장).
     네트워크 없이 시나리오만 — 결정론 · 성능 확인용으로 남긴다.
-SandboxServer --world <시나리오|세이브 폴더> [--port 7777] [--bind addr] [--max-clients 16] [--default-role editor]
+SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--port 7777] [--bind addr] [--max-clients 16] [--default-role editor]
               [--threads N] [--seed N] [--content-root d] [--snapshot-kbps 256] [--ticks N --exit]  (Phase 9 · 10A)
     네트워크 서버: ServerHost (Simulation 스레드 + Net IO 스레드) + ENet UDP. 시작하면 "listening udp *:<port> world …"
     (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected … overruns … replication X ms"
     (replication = 스냅숏 만들기 평균, Phase 10A). 세이브 폴더는 world.json 의 팩을 읽는다.
+    (v0.2 M1-T2) 게임 프로젝트 폴더(sandbox.project.json): 프로젝트 검사(18 5.2 — 매니페스트 · 이 엔진 버전 · 팩 · 시작 월드)를
+    통과해야 연다 (오류면 문제 목록과 종료 코드 2, 경고는 로그). 팩은 <프로젝트>/content (--content-root 는 쓰지 않는다),
+    월드는 entryWorld 세이브 그대로 (틱 · 일시정지 포함), 월드 이름 = 매니페스트 name. 원격 클라이언트는
+    --content <프로젝트>/content 로 같은 팩을 읽는다 (ADR-0041).
     --snapshot-kbps: 클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음 — 08 6.3, ADR-0025). 넘는 엔티티는 다음 스냅숏으로.
     0 은 측정용 — 10k 월드의 스냅숏이 1 MB 를 넘어 UDP 받기 버퍼에서 조각을 잃고 클라이언트가 거의 못 받는다 (10B 측정).
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
@@ -261,10 +265,10 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (Phase 13C) [--platform auto|x11|wayland] — Linux 창 시스템. auto = WAYLAND_DISPLAY 가 있으면 Wayland, 안 되면 X11
     (Xwayland). 강제한 쪽이 안 되면 종료 코드 1. 로그 "창 Wayland" = 실제로 고른 것, --version 은 빌드에 든 것
     ("window Wayland · X11"). Wayland 창은 libdecor 틀 · 정수 배율(wl_output.scale) · text-input-v3 입력기.
-    (Phase 10B) [--world <시나리오|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
+    (Phase 10B) [--world <시나리오|게임 프로젝트|세이브 폴더>] [--connect host:port] [--name <이름>] [--seed N] [--threads N]
                 [--content <dir>] [--assets <dir>]       (8A 의 --direct-sim 은 지웠다 — ADR-0026)
-    --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 또는 세이브를
-    돌리고 접속한다. 창에서는 서버의 Simulation · Net IO 스레드, --headless 는 프레임 안에서 (틱 수 고정).
+    --world: 싱글플레이 — 같은 프로세스의 서버(LocalServerHost: ServerHost + Loopback, 역할 owner)로 시나리오 · 게임 프로젝트
+    (v0.2, 서버와 같은 규칙) 또는 세이브를 돌리고 접속한다. 창에서는 서버의 Simulation · Net IO 스레드, --headless 는 프레임 안에서 (틱 수 고정).
     --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5).
     --connect: SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르다고 거절되면 서버 팩을 --content 에서 읽어 다시.
     일시정지 · 한 틱 · 속도는 서버 명령 — 원격 서버의 기본 역할 editor 는 거절된다 (서버 --default-role admin).

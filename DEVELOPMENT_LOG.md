@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-10-19 — v0.2 M1-T2: 서버 · 클라이언트가 게임 프로젝트를 연다 (ADR-0041)
+
+**무엇을**
+
+- `project::openProject` — validateProject 와 같은 검사(공용 함수 checkProject 로 나눔)를 하고, 오류가 없으면 콘텐츠와 시작
+  월드를 넘긴다 (검사 때 연 월드를 그대로 — 두 번 열지 않는다). 오류면 ValidationFailed (처음 5 개 문제). `isProjectFolder`.
+- `scenario::openWorldSource`: 시나리오 → 게임 프로젝트(sandbox.project.json) → 세이브 폴더 순서. 프로젝트는 이 엔진 버전
+  (BuildInfo)으로 검사, 팩 = <프로젝트>/content (--content-root 를 쓰지 않음), 월드 이름 = 매니페스트 name,
+  `WorldSource.game` = 매니페스트. 그래서 `SandboxServer --world <프로젝트>` 와 `SandboxClient --world <프로젝트>`
+  (LocalServerHost) 가 같은 길로 연다. 서버는 게임 정보를 로그에, 도움말 · NotFound 문구에 프로젝트.
+- 시험: unit_project 5 케이스 더 (열기 · 직접 로드와 같은 해시 · 엔진 범위 · gameId 오류 문구 · 경고 · WorldSource 세 갈래),
+  CTest server_project_exit · server_project_invalid · client_local_project_headless. tests/data/projects/minimal 의 월드는
+  일시정지를 풀었다 (서버가 60 틱까지 돈다).
+- 문서: ADR-0041, 18 (0 · 2 · 3 · 5.1 — T2 ✅, T3 = 핸드셰이크 게임 정체성, T4 = 새 프로젝트 · 저장 · 7 · 8장), 15 7장,
+  08 (WorldSource), 17, 13, adr/README.
+
+**왜**
+
+- M1-T1 의 프로젝트를 실제로 돌릴 길. 서버와 싱글플레이가 한 함수로 월드를 여는 구조(ADR-0026)라 거기에 더했다.
+- 검사 오류가 있으면 시작하지 않는다 — 접속자가 깨진 콘텐츠 · 월드를 받지 않게. 경고(다른 콘텐츠로 저장된 월드 등)는 열린다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 58/58 (+3). unit_project 20 케이스 · 225 단언.
+- 실행: `SandboxServer --world tests/data/projects/minimal --port 0 --ticks 60 --exit` → "게임 프로젝트 sandbox.minimal 0.1.0
+  Minimal", "listening udp … world Minimal", "tick 60 hash …". bad_manifest → P2 · P3 · P4 세 줄과 종료 코드 2.
+  `SandboxClient --headless --world tests/data/projects/minimal --frames 60` → 스냅숏 받음, 다시 맞춤 0.
+- 와이어 · 세이브 · 시뮬레이션 형식 변경 없음 (프로토콜 7 · kSimVersion 그대로, det_* 통과).
+
+**남은 일**
+
+- M1-T3: Welcome · Reject 에 게임 정체성 (프로토콜 8) — 원격 클라이언트는 지금 `--content <프로젝트>/content` 로 접속한다.
+- M1-T4: 새 프로젝트 만들기, 에디터 저장을 프로젝트 worlds/ 로.
+
+---
+
 ## 2026-10-19 — v0.2 M1-T1: GameProject 매니페스트 · SemVer · 프로젝트 검사 (ADR-0040)
 
 **무엇을**

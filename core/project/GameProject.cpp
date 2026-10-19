@@ -303,9 +303,17 @@ Expected<void> saveManifest(const std::filesystem::path& projectDir, const GameM
     return io::writeFileAtomic(projectDir / std::string(kManifestFile), writeManifest(manifest));
 }
 
-ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
-                              const ecs::ComponentCatalog& catalog) {
-    ProjectReport r;
+namespace {
+
+// 검사가 연 콘텐츠 · 월드를 openProject 가 가져가려고 남긴다 (validateProject 는 버린다)
+struct Opened {
+    std::unique_ptr<content::ContentDatabase> db; // world 가 가리킨다 — world 보다 먼저 만들고 늦게 없앤다
+    std::unique_ptr<sim::SimulationWorld> world;
+};
+
+// validateProject · openProject 공용: 매니페스트 → 엔진 범위 → 팩 → 시작 월드. 오류가 있어도 가능한 데까지 본다
+void checkProject(const std::filesystem::path& projectDir, const SemVer& engine, const ecs::ComponentCatalog& catalog,
+                  ProjectReport& r, Opened& out) {
     Collector c(r.issues);
     const std::string file(kManifestFile);
 
@@ -313,12 +321,12 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     const auto text = io::readFile(projectDir / std::string(kManifestFile));
     if (!text) {
         c.error(file, "", "P1", std::format("매니페스트를 읽을 수 없다 — {}", text.error().describe()));
-        return r;
+        return;
     }
     ManifestParseResult parsed = parseManifest(*text);
     r.issues.insert(r.issues.end(), parsed.issues.begin(), parsed.issues.end());
     if (!parsed.ok()) {
-        return r; // 필드가 비었을 수 있다 — 디스크 검사로 넘어가지 않는다
+        return; // 필드가 비었을 수 있다 — 디스크 검사로 넘어가지 않는다
     }
     r.manifest = std::move(parsed.manifest);
     r.manifestRead = true;
@@ -332,9 +340,8 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
 
     // 3. 콘텐츠 — 팩이 없으면 내장 콘텐츠 (세이브 폴더를 여는 규칙과 같다, WorldSource)
     const fs::path contentRoot = projectDir / "content";
-    std::optional<content::ContentDatabase> db;
     if (m.contentPacks.empty()) {
-        db.emplace(content::ContentDatabase::builtin());
+        out.db = std::make_unique<content::ContentDatabase>(content::ContentDatabase::builtin());
     } else {
         std::error_code ec;
         if (!fs::is_directory(contentRoot, ec)) {
@@ -348,13 +355,13 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
                 r.issues.push_back(std::move(i));
             }
             if (loaded.ok()) {
-                db.emplace(std::move(loaded.db));
+                out.db = std::make_unique<content::ContentDatabase>(std::move(loaded.db));
             }
         }
     }
-    if (db) {
-        r.contentHash = db->contentHash();
-        r.prefabs = db->prefabs().size();
+    if (out.db) {
+        r.contentHash = out.db->contentHash();
+        r.prefabs = out.db->prefabs().size();
     }
 
     // 4. 시작 월드: 폴더 · 요약 · 팩 · 실제로 열기
@@ -363,12 +370,12 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     std::error_code ec;
     if (!fs::is_directory(worldDir, ec)) {
         c.error(m.entryWorld, "", "P4", "entryWorld 폴더가 없다");
-        return r;
+        return;
     }
     auto summary = scenario::readSaveSummary(worldDir);
     if (!summary) {
         c.error(worldFile, "", "P4", std::format("월드 요약을 읽을 수 없다 — {}", summary.error().describe()));
-        return r;
+        return;
     }
     bool packsOk = true;
     for (usize i = 0; i < summary->packs.size(); ++i) {
@@ -379,18 +386,18 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
             packsOk = false;
         }
     }
-    if (!db || !packsOk) {
-        return r; // 콘텐츠가 없으면 월드를 열어 볼 수 없다 (오류는 이미 있다)
+    if (!out.db || !packsOk) {
+        return; // 콘텐츠가 없으면 월드를 열어 볼 수 없다 (오류는 이미 있다)
     }
-    if (summary->contentHash != db->contentHash()) {
+    if (summary->contentHash != out.db->contentHash()) {
         c.warning(worldFile, "/content/contentHash", "P5",
                   std::format("월드는 다른 콘텐츠로 저장됐다 (월드 {}, 프로젝트 {}) — 열리지만 다시 저장 권장",
-                              replay::formatHash(summary->contentHash), replay::formatHash(db->contentHash())));
+                              replay::formatHash(summary->contentHash), replay::formatHash(out.db->contentHash())));
     }
-    auto loaded = persist::loadWorld(catalog, *db, worldDir);
+    auto loaded = persist::loadWorld(catalog, *out.db, worldDir);
     if (!loaded) {
         c.error(worldFile, "", "P4", std::format("월드를 열 수 없다 — {}", loaded.error().describe()));
-        return r;
+        return;
     }
     for (const std::string& w : loaded->warnings) {
         c.warning(worldFile, "", "P4", w);
@@ -398,7 +405,47 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     r.worldOpened = true;
     r.worldTick = loaded->world->clock().tick();
     r.worldEntities = summary->entities;
+    out.world = std::move(loaded->world);
+}
+
+} // namespace
+
+ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
+                              const ecs::ComponentCatalog& catalog) {
+    ProjectReport r;
+    Opened opened;
+    checkProject(projectDir, engine, catalog, r, opened);
     return r;
+}
+
+Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
+                                    const ecs::ComponentCatalog& catalog) {
+    ProjectReport r;
+    Opened opened;
+    checkProject(projectDir, engine, catalog, r, opened);
+    if (!r.ok() || !opened.world) {
+        std::string msg = std::format("게임 프로젝트 오류 {}개", r.errorCount());
+        usize shown = 0;
+        for (const ContentIssue& i : r.issues) {
+            if (i.severity == Severity::Error && shown++ < 5) {
+                msg += "\n  " + i.describe();
+            }
+        }
+        return makeError(ErrorCode::ValidationFailed, msg, io::displayPath(projectDir));
+    }
+    OpenedProject out;
+    out.manifest = std::move(r.manifest);
+    out.content = std::move(opened.db);
+    out.world = std::move(opened.world);
+    for (const ContentIssue& i : r.issues) {
+        out.warnings.push_back(i.describe()); // ok() 이므로 모두 경고
+    }
+    return out;
+}
+
+bool isProjectFolder(const std::filesystem::path& dir) {
+    std::error_code ec;
+    return fs::is_regular_file(dir / std::string(kManifestFile), ec);
 }
 
 } // namespace sbx::project

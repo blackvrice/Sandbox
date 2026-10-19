@@ -518,9 +518,9 @@ network/server/      ServerHost (Net 절반 + Sim 절반, Inline | Threaded — 
 network/client/      ClientSession (핸드셰이크 · 명령 · 결과 · 통계 · 복제 적용 · ack · 선택 상세) · ClientWorld (복제 월드,
                      6.4) · InterpolationClock (9장)
 network/replication/ ReplicationWriter (6.1 · 6.3 · 8장 관심 · 우선순위 — Simulation 스레드) · Inspect (InspectResult 만들기)
-core/scenarios/      WorldSource (시나리오 이름 · 세이브 폴더 → 월드 — 서버 --world 와 클라이언트 --world 가 같이)
+core/scenarios/      WorldSource (시나리오 이름 · 게임 프로젝트 · 세이브 폴더 → 월드 — 서버 --world 와 클라이언트 --world 가 같이)
 core/serialization/  BinaryCodec (컴포넌트 값 바이트, 09 5장)
-apps/server          SandboxServer --world <시나리오 | 세이브 폴더> … (15-BUILD 7장)
+apps/server          SandboxServer --world <시나리오 | 게임 프로젝트 | 세이브 폴더> … (15-BUILD 7장)
 tools/net_probe      sbx_net_probe — 접속 · 명령 · 통계 확인 도구
 apps/client          SandboxClient --world (LocalServerHost) · --connect (원격) — NetworkSession (06 9장, 10B)
 ```

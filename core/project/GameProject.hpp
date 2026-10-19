@@ -16,12 +16,14 @@
 //   월드가 쓰는 팩 · contentHash)   + 팩의 V1~V7 (file 은 "content/<팩 폴더>/…")
 
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "core/content/ContentLoader.hpp"
+#include "core/simulation/SimulationWorld.hpp"
 #include "foundation/version/SemVer.hpp"
 
 namespace sbx::project {
@@ -77,6 +79,20 @@ struct ProjectReport {
 // engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7) → 시작 월드 (형식 · 팩 · 열기) 순서
 [[nodiscard]] ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                             const ecs::ComponentCatalog& catalog);
+
+// 프로젝트를 실행용으로 연다 (v0.2 M1-T2): validateProject 와 같은 검사를 하고, 오류가 하나라도 있으면 ValidationFailed
+// (처음 5 개의 문제를 메시지에). 성공하면 콘텐츠와 시작 월드 (세이브 그대로 — 틱 · 일시정지 상태 포함)
+struct OpenedProject {
+    GameManifest manifest;
+    std::unique_ptr<content::ContentDatabase> content; // world 가 가리킨다 — world 보다 오래 살아야 한다 (선언 순서)
+    std::unique_ptr<sim::SimulationWorld> world;
+    std::vector<std::string> warnings; // 검사 경고 (P5 해시 · 로드 경고)를 describe() 로
+};
+[[nodiscard]] Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
+                                                  const ecs::ComponentCatalog& catalog);
+
+// dir 에 매니페스트 파일이 있나 (서버 · 클라이언트 --world 가 프로젝트와 세이브 폴더를 가른다)
+[[nodiscard]] bool isProjectFolder(const std::filesystem::path& dir);
 
 // 경로 형식 검사 (P4): 비지 않은 상대 경로, '/' 구분, 마디는 [A-Za-z0-9_.-] 이고 "." · ".." · '.' 로 끝남 ·
 // Windows 예약 이름(con, nul, com1 …)이 아니다. 문제가 없으면 빈 optional, 있으면 이유

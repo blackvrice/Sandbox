@@ -36,7 +36,7 @@
     "life.age": 1
   },
   "simulation": {
-    "paused": true,
+    "paused": false,
     "speed": 1.0,
     "pendingSteps": 0,
     "editSequence": 1

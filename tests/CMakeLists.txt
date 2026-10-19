@@ -182,6 +182,16 @@ if(TARGET SandboxServer)
         COMMAND SandboxServer --world random_walk_1k --port 0 --ticks 60 --exit --log-level warn)
     set_tests_properties(server_world_exit PROPERTIES LABELS "unit;server"
         PASS_REGULAR_EXPRESSION "tick 60 hash 0x[0-9a-f]+ entities [0-9]+")
+    # 게임 프로젝트 폴더를 연다 (v0.2 M1-T2): 매니페스트 · 팩 · 시작 월드 (tests/data/projects/minimal — 일시정지 아님)
+    add_test(NAME server_project_exit
+        COMMAND SandboxServer --world "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal" --port 0 --ticks 60 --exit
+                --log-level info)
+    set_tests_properties(server_project_exit PROPERTIES LABELS "unit;server"
+        PASS_REGULAR_EXPRESSION "listening udp [^\n]* world Minimal workers [0-9]+.*tick 60 hash 0x[0-9a-f]+")
+    # 검사 오류가 있는 프로젝트는 열지 않는다
+    add_test(NAME server_project_invalid
+        COMMAND SandboxServer --world "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest" --port 0)
+    set_tests_properties(server_project_invalid PROPERTIES LABELS "unit;server" WILL_FAIL TRUE)
     add_test(NAME server_world_bad_name COMMAND SandboxServer --world no_such_world --port 0)
     set_tests_properties(server_world_bad_name PROPERTIES LABELS "unit;server" WILL_FAIL TRUE)
     if(TARGET sbx_net_probe)
@@ -212,6 +222,10 @@ if(TARGET SandboxClient)
         COMMAND SandboxClient --headless --world ecosystem_small --frames 60)
     set_tests_properties(client_local_world_headless PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "world ecosystem_small tick 28 개체 [1-9][0-9]* 스냅숏 [1-9][0-9]* \\(다시 맞춤 0\\)")
+    add_test(NAME client_local_project_headless
+        COMMAND SandboxClient --headless --world "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal" --frames 60)
+    set_tests_properties(client_local_project_headless PROPERTIES LABELS "unit;client"
+        PASS_REGULAR_EXPRESSION "world Minimal tick [1-9][0-9]* 개체 [0-9]+ 스냅숏 [1-9][0-9]* \\(다시 맞춤 0\\)")
     add_test(NAME client_world_bad_name COMMAND SandboxClient --headless --world no_such_world --frames 5)
     set_tests_properties(client_world_bad_name PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     # Phase 13B: 실제 X11 창 + (Vulkan 이 있으면) 렌더러로 월드를 그린다. 가상 화면이 있을 때만 (xvfb-run)

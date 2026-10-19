@@ -5,6 +5,7 @@
 #include "core/content/ContentLoader.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "foundation/BuildInfo.hpp"
 #include "foundation/io/FileIo.hpp"
 
 namespace sbx::scenario {
@@ -46,11 +47,27 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
         return out;
     }
     const std::filesystem::path dir{std::string(spec)};
+    if (project::isProjectFolder(dir)) {
+        const SemVer engine{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
+        auto opened = project::openProject(dir, engine, catalog);
+        if (!opened) {
+            return std::unexpected(opened.error());
+        }
+        out.packs = opened->manifest.contentPacks;
+        out.content = std::move(opened->content);
+        out.runner = std::make_unique<ScenarioRunner>(std::move(opened->world), std::make_unique<ContinueScenario>());
+        out.name = opened->manifest.name;
+        out.warnings = std::move(opened->warnings);
+        out.game = std::move(opened->manifest);
+        return out;
+    }
     const auto worldJson = io::readFile(dir / "world.json");
     if (!worldJson) {
         return makeError(
             ErrorCode::NotFound,
-            std::format("시나리오 이름도 아니고 세이브 폴더(world.json)도 아닙니다 (시나리오: {})", scenarioNames()),
+            std::format("시나리오 이름도, 게임 프로젝트 폴더(sandbox.project.json)도, 세이브 폴더(world.json)도 "
+                        "아닙니다 (시나리오: {})",
+                        scenarioNames()),
             std::string(spec));
     }
     const auto j = ecs::Json::parse(*worldJson, nullptr, false);

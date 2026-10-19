@@ -129,7 +129,12 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         return kExitBadArgs;
     }
     for (const auto& warning : world->warnings) {
-        sbx::log::warn("server", "세이브: {}", warning);
+        sbx::log::warn("server", "{}: {}", world->game ? "프로젝트" : "세이브", warning);
+    }
+    if (world->game) {
+        sbx::log::info("server", "게임 프로젝트 {} {} \"{}\" — 팩 {} 개, 시작 월드 {}", world->game->gameId,
+                       world->game->version.toString(), world->game->name, world->packs.size(),
+                       world->game->entryWorld);
     }
     const unsigned hc = std::thread::hardware_concurrency();
     const sbx::u32 workers = opts.threads.value_or(std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));

@@ -6,6 +6,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/project/GameProject.hpp"
+#include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
 
@@ -360,5 +361,92 @@ TEST_SUITE("project") {
             CHECK(hasIssue(r.issues, "P4", ""));
             CHECK_FALSE(r.worldOpened);
         }
+    }
+
+    TEST_CASE("프로젝트 열기: 검사를 통과하면 콘텐츠와 시작 월드를 준다 (M1-T2)") {
+        TempDir dir("open_ok");
+        const auto catalog = coreCatalog();
+        const u64 hash = makeEcoProject(dir.path, catalog, kValid);
+        CHECK(project::isProjectFolder(dir.path));
+        CHECK_FALSE(project::isProjectFolder(dir.path / "worlds" / "main"));
+        auto opened = project::openProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(opened.has_value(), opened.error().describe());
+        CHECK(opened->manifest.gameId == "studio.arena");
+        REQUIRE(opened->content);
+        CHECK(opened->content->contentHash() == hash);
+        REQUIRE(opened->world);
+        CHECK(opened->world->registry().aliveCount() > 0);
+        CHECK(opened->warnings.empty());
+        // 세이브를 직접 연 월드와 같은 상태다
+        auto direct = persist::loadWorld(catalog, *opened->content, dir.path / "worlds" / "main");
+        REQUIRE(direct.has_value());
+        CHECK(*opened->world->worldHash() == *direct->world->worldHash());
+    }
+
+    TEST_CASE("프로젝트 열기: 오류가 하나라도 있으면 ValidationFailed (문제를 메시지에)") {
+        const auto catalog = coreCatalog();
+        {
+            TempDir dir("open_engine");
+            makeEcoProject(dir.path, catalog, kValid);
+            const auto r = project::openProject(dir.path, SemVer{2, 0, 0, {}, {}}, catalog);
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().code == ErrorCode::ValidationFailed);
+            CHECK(r.error().message.find("P3") != std::string::npos);
+        }
+        {
+            TempDir dir("open_bad_id");
+            makeEcoProject(dir.path, catalog, withField("gameId", "\"nonamespace\""));
+            const auto r = project::openProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().message.find("sandbox.project.json:/gameId: 오류 P2") != std::string::npos);
+        }
+    }
+
+    TEST_CASE("프로젝트 열기: 경고는 열고 warnings 로 돌려준다") {
+        TempDir dir("open_warn");
+        const auto catalog = coreCatalog();
+        makeEcoProject(dir.path, catalog, kValid);
+        auto packJson = nlohmann::json::parse(*io::readFile(dir.path / "content/ecosystem/pack.json"));
+        packJson["version"] = "0.1.1";
+        REQUIRE(io::writeFileAtomic(dir.path / "content/ecosystem/pack.json", packJson.dump()).has_value());
+        auto opened = project::openProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE(opened.has_value());
+        REQUIRE_FALSE(opened->warnings.empty());
+        CHECK(opened->warnings.front().find("P5") != std::string::npos);
+    }
+
+    TEST_CASE("WorldSource: --world 에 프로젝트 폴더를 주면 프로젝트로 연다 (서버 · 클라이언트 공용)") {
+        TempDir dir("world_source");
+        const auto catalog = coreCatalog();
+        const u64 hash = makeEcoProject(dir.path, catalog, kValid);
+        // contentRoot 인자는 프로젝트에 쓰이지 않는다 (프로젝트의 content/ 를 쓴다)
+        auto src = scenario::openWorldSource(dir.path.string(), dir.path / "no_such_root", 1, catalog);
+        REQUIRE_MESSAGE(src.has_value(), src.error().describe());
+        REQUIRE(src->game.has_value());
+        CHECK(src->game->gameId == "studio.arena");
+        CHECK(src->name == "Arena 아레나");
+        CHECK(src->packs == std::vector<std::string>{"eco"});
+        CHECK(src->content->contentHash() == hash);
+        const auto before = src->runner->world().currentTick();
+        src->runner->step();
+        CHECK(src->runner->world().currentTick() == before + 1);
+
+        // 세이브 폴더 · 시나리오는 그대로 (game 없음)
+        auto save = scenario::openWorldSource((dir.path / "worlds" / "main").string(), SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE(save.has_value());
+        CHECK_FALSE(save->game.has_value());
+        auto sc = scenario::openWorldSource("random_walk_1k", SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE(sc.has_value());
+        CHECK_FALSE(sc->game.has_value());
+    }
+
+    TEST_CASE("WorldSource: 이 엔진이 범위 밖인 프로젝트는 열지 않는다") {
+        TempDir dir("world_source_engine");
+        const auto catalog = coreCatalog();
+        makeEcoProject(dir.path, catalog, withField("engine", "\">=99.0.0\""));
+        auto src = scenario::openWorldSource(dir.path.string(), SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE_FALSE(src.has_value());
+        CHECK(src.error().code == ErrorCode::ValidationFailed);
+        CHECK(src.error().message.find("/engine: 오류 P3") != std::string::npos);
     }
 }

@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 진행 중)
-다음     v0.2 M1-T2 — 프로젝트를 서버 · 클라이언트가 연다 (--world <프로젝트 폴더>)
+다음     v0.2 M1-T3 — 핸드셰이크에 게임 정체성 (gameId · 이름 · 버전 — 프로토콜 8)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -54,7 +54,7 @@
 | 멀티플레이 에디터       | Implemented | editor/ (ICommandSink · 툴 · 인스펙터 · Undo · 역할 · 콘텐츠 창 · 월드 저장/불러오기 · 리플레이), unit_editor · unit_client |
 | 렌더 · 플랫폼           | Implemented | DX12 · Vulkan (lavapipe 기준 이미지) · Metal (macOS 검증 대기), Win32 · X11 · Wayland · Cocoa(미검증)                       |
 | 성능                    | Partial     | 50k 2코어 29.6 ms — 판정 대기 (14 7.12)                                                                                     |
-| GameProject · Manifest  | Partial     | v0.2 M1-T1 로 매니페스트 · 검사 (5.2). 서버 · 에디터 연결 · 새 프로젝트 만들기는 M1-T2 · T3                                 |
+| GameProject · Manifest  | Partial     | 매니페스트 · 검사 (M1-T1), 서버 · 클라이언트 --world <프로젝트> (M1-T2). 게임 정체성 전달 · 새 프로젝트는 M1-T3 · T4        |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
@@ -74,12 +74,12 @@
 재사용 (고치지 않고 쓴다)
   core/content ContentLoader · ContentIssue    프로젝트 팩 검사 · 문제 보고 형식 (V1~V7 + P1~P5)
   core/persist saveWorld · loadWorld           월드 = 세이브 폴더 (ADR-0040)
-  core/scenarios WorldSource                   서버 · 클라이언트가 월드를 여는 한 곳 (M1-T2 가 프로젝트를 더한다)
+  core/scenarios WorldSource                   서버 · 클라이언트가 월드를 여는 한 곳 (M1-T2 로 프로젝트도 — ADR-0041)
   network ServerHost · LocalServerHost         같은 GamePackage 를 헤드리스 서버와 로컬 플레이에서 (v0.2 요구 6)
   editor ICommandSink · Undo · 역할            Game Creator 편집도 SimCommand (00 2장)
 새로 (v0.2)
   foundation/version   SemVer · 버전 범위                         의존 없음 (v0.4 패키지 관리자가 넓힌다)
-  core/project         GameProject 매니페스트 · 검사 · (M1-T2~) 열기  Core 안 — 서버가 링크한다, 그래픽 없음
+  core/project         GameProject 매니페스트 · 검사 · 열기 (M1-T1 · T2)   Core 안 — 서버가 링크한다, 그래픽 없음
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
 나중 (v0.3~, 초안 architecture/01 3장)
   SandboxScriptRuntime (Core 를 모름) · SandboxScriptCompilerTools (빌드 · 에디터 프로세스) · SandboxScriptBindings (Core + Runtime)
@@ -106,9 +106,11 @@ Edit ↔ TestPlay 분리, 한 패키지를 헤드리스 서버와 로컬 플레�
 ```text
 M1 GameProject
   T1 ✅ 매니페스트 sandbox.project.json (schemaVersion 1) · SemVer · 검사 P1~P5 · sbx_sim_check --validate-project (ADR-0040)
-  T2 [계획] 프로젝트 열기: WorldSource 가 프로젝트 폴더를 안다 → SandboxServer --world <프로젝트> · SandboxClient --world 가
-           <프로젝트>/content 팩과 entryWorld 로 시작, 핸드셰이크에 gameId · 버전
-  T3 [계획] 프로젝트 만들기 · 저장: 템플릿에서 새 프로젝트 (빈 월드 + 팩 뼈대), 에디터 "월드" 저장이 프로젝트의 worlds/ 로
+  T2 ✅ 프로젝트 열기: openProject (검사와 같은 함수, 오류면 시작 안 함) · WorldSource 가 프로젝트 폴더를 안다 →
+        SandboxServer --world <프로젝트> · SandboxClient --world <프로젝트> (팩 = <프로젝트>/content, 월드 = entryWorld) (ADR-0041)
+  T3 [계획] 핸드셰이크에 게임 정체성: Welcome · Reject 에 gameId · 이름 · 버전 (프로토콜 8), 클라이언트 표시 · 콘텐츠 불일치
+           문구 (원격 접속은 지금 --content <프로젝트>/content)
+  T4 [계획] 프로젝트 만들기 · 저장: 템플릿에서 새 프로젝트 (빈 월드 + 팩 뼈대), 에디터 "월드" 저장이 프로젝트의 worlds/ 로
 M2 GameMode · 라이프사이클 (서버 권위)
   T1 GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — 콘텐츠 팩 스키마 확장 (11 갱신)
   T2 GameSession 상태기계 Created → Loading → Lobby → Starting → Running → Finished → Stopped (서버 · 결정적 · 복제)
@@ -198,7 +200,8 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 
 ```text
 지금      ADR-0039 범위 · 버전 줄, ADR-0040 GameProject 매니페스트, 00 (1 · 7장), 16 (2 · 6장 → 이 문서), 17, 13, 11 (프로젝트 폴더)
-M1-T2     08 (핸드셰이크에 게임 정체성), 15 (실행 옵션), ADR (서버가 프로젝트를 여는 규칙)
+M1-T2 ✅  15 (실행 옵션), 08 (WorldSource), ADR-0041 (서버가 프로젝트를 여는 규칙)
+M1-T3     08 (핸드셰이크에 게임 정체성 · 프로토콜 8)
 M2 · M3   03 (GameSession Stage · 게임 System), 11 (GameMode · 게임 컴포넌트), 04 (상태기계 결정론), ADR
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
@@ -211,4 +214,5 @@ v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 Linux clang 19 Debug (-Werror, Vulkan · MSL 셰이더) ctest -LE "balance|bench": 51/51 통과 (det 16 · unit 23 · client 7 · …)
 GitHub master = f4a72c1 (git ls-remote 확인). Actions 결과는 이 환경에서 읽을 수 없다 (1.1)
 v0.2 M1-T1 뒤: 같은 구성 55/55 (+ unit_project · project_minimal_validate · project_bad_manifest_rejected · _message)
+v0.2 M1-T2 뒤: 58/58 (+ server_project_exit · server_project_invalid · client_local_project_headless)
 ```

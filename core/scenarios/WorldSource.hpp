@@ -1,19 +1,25 @@
 #pragma once
-// 서버가 돌릴 월드를 이름으로 연다: 시나리오 이름(ecosystem_small …) 또는 세이브 폴더(world.json 이 있는 곳).
-// SandboxServer --world 와 SandboxClient --world(LocalServerHost, Phase 10B)가 같은 규칙을 쓴다. docs/15-BUILD.md 7장.
+// 서버가 돌릴 월드를 이름으로 연다: 시나리오 이름(ecosystem_small …), 게임 프로젝트 폴더(sandbox.project.json 이 있는 곳)
+// 또는 세이브 폴더(world.json 이 있는 곳). SandboxServer --world 와 SandboxClient --world(LocalServerHost, Phase 10B)가 같은
+// 규칙을 쓴다. docs/15-BUILD.md 7장.
 //
 //   시나리오   loadScenarioContent 로 팩을 읽고 ScenarioRunner(catalog, content, 시나리오, seed)
+//   프로젝트   project::openProject (v0.2 M1-T2, 18 5.2) — 매니페스트 · 이 엔진 버전(BuildInfo) · <프로젝트>/content 팩 ·
+//              entryWorld 를 검사하고 연다 (contentRoot 인자는 쓰지 않는다). 검사 오류가 하나라도 있으면 열지 않는다.
+//              name = 매니페스트 name, game = 매니페스트. 이어 돌리기는 세이브와 같다
 //   세이브     world.json 의 content.packs 를 contentRoot 에서 읽고 (없으면 내장) persist::loadWorld →
 //              아무 명령도 넣지 않는 "save" 시나리오로 이어 돌린다. 세이브 경고는 warnings 에
-//   둘 다 아님 NotFound — 있는 시나리오 이름을 알려 준다
+//   셋 다 아님 NotFound — 있는 시나리오 이름을 알려 준다
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "core/content/ContentDatabase.hpp"
+#include "core/project/GameProject.hpp"
 #include "core/scenarios/Scenario.hpp"
 
 namespace sbx::scenario {
@@ -23,8 +29,9 @@ struct WorldSource {
     std::unique_ptr<content::ContentDatabase> content;
     std::unique_ptr<ScenarioRunner> runner;
     std::vector<std::string> packs; // 읽은 콘텐츠 팩 (비면 내장)
-    std::string name;               // 시나리오 이름 또는 세이브 폴더 이름
+    std::string name;               // 시나리오 이름, 게임 이름(매니페스트 name) 또는 세이브 폴더 이름
     std::vector<std::string> warnings;
+    std::optional<project::GameManifest> game; // 게임 프로젝트를 열었을 때만
 };
 
 [[nodiscard]] Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot,
