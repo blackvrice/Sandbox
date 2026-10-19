@@ -497,6 +497,37 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug   #
 [ ] --rhi-debug 로 1분 돌리고 Ctrl+Q: Validation 경고 0
 ```
 
+## Phase 14B — macOS Cocoa 창 (Mac, 처음 빌드)
+
+이 코드는 macOS 에서 한 번도 빌드 · 실행되지 않았다 (ADR-0036). Apple Silicon Mac, macOS 13 이상. 준비:
+
+```bash
+xcode-select --install          # Command Line Tools (Apple Clang)
+brew install cmake ninja
+cmake --preset macos && cmake --build --preset macos-debug && ctest --preset macos-debug   # platform_cocoa 포함
+./build/macos/bin/Debug/SandboxClient --version                   # "window Cocoa, render none" (Metal 은 14C)
+./build/macos/bin/Debug/SandboxClient --world ecosystem_small --log-input
+```
+
+```text
+[ ] 빌드 오류 · 경고가 있으면 로그 전체를 보고 (컴파일러 · 링커 메시지 그대로)
+[ ] ctest 전부 통과 — 특히 platform_cocoa 의 케이스 수가 0 이 아니다 (화면 없는 세션이면 건너뛴 메시지)
+[ ] 로그 "Cocoa 창 1600×900 (논리) · 배율 2.00 · 3200×1800 px" (Retina). Dock 에 아이콘, ⌘Tab 으로 오간다
+[ ] 창이 검다 (렌더러 없음 — 14C). 제목 줄에 한글 제목, 크기 조절 · 최소화 · 복원 · 다른 배율 모니터로 옮기기 →
+    --log-input 에 Resized · ContentScaleChanged
+[ ] 닫기 단추 · ⌘Q → "CloseRequested" 후 정상 종료 (state Shutdown — 강제 종료가 아니다)
+[ ] --log-input: 키를 누르면 KeyDown(Key 이름 = 물리 위치 — 두벌식에서도 W 자리는 W), 누르고 있으면 repeat, 떼면 KeyUp.
+    왼쪽 · 오른쪽 Shift · ⌘ · ⌥ · ⌃ 가 각각 Left/Right 로, Caps Lock 은 누를 때마다 KeyDown + KeyUp. ⌘ 를 누른 채 A 를 떼도
+    KeyUp A 가 나온다
+[ ] F2 (글자 입력): 영문 · 한글(두벌식) 입력 → TextInput 이 확정 글자만 (조합 중 글자는 화면에 안 보인다 — [계획]).
+    F2 를 다시 누르면 WASD 가 글자가 아니라 키로만
+[ ] 클릭 · 두 번 클릭(×2) · 오른쪽 · 가운데 · 뒤로/앞으로 버튼 (X1/X2), 트랙패드 두 손가락 스크롤 = 부드러운 MouseWheel,
+    마우스 휠 위 = +
+[ ] F3 캡처: 커서가 사라지고 창 밖으로 나가지 않으며 MouseMove 의 위치는 그대로 · Δ 만. Esc 로 풀림. 캡처 중 ⌘Tab → 다른
+    앱에서 커서가 보이고 돌아오면 다시 잡힌다
+[ ] F4 커서 모양 바꾸기, Ctrl+C/V (다른 앱과 클립보드)
+```
+
 ## Phase 10~12 — 네트워크·에디터
 
 ```text

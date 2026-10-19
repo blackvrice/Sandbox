@@ -112,7 +112,9 @@
 | `platform/linux/WaylandWindow.cpp`                                                                          | Wayland 창 (libdecor · wl_seat · text-input-v3 · pointer-constraints · relative-pointer · wl_data_device · 정수 배율, SBX_ENABLE_WAYLAND, 13C — ADR-0034)           | SandboxPlatform (Wayland)   |
 | `platform/linux/WaylandInput.{hpp,cpp}`                                                                     | xkbcommon 키맵 · 수정자 · 글자 · compose · 클라이언트 자동 반복, 버튼 코드, 더블클릭 판정 (wayland-client 없음 — 서버 없이 시험)                                    | SandboxPlatform (Wayland)   |
 | `platform/linux/X11KeyMap.{hpp,cpp}`                                                                        | X keycode(evdev + 8) → `Key` 표 (Xlib.h 없음 — 모든 OS 에서 컴파일·테스트)                                                                                          | SandboxPlatform             |
-| `platform/stub/StubPlatform.cpp`                                                                            | 창이 없는 빌드: `createWindow` = Unsupported (macOS Phase 14, X11 · Wayland 둘 다 끈 Linux)                                                                         | SandboxPlatform             |
+| `platform/macos/CocoaWindow.mm`, `MacPlatform.cpp`, `MacWindows.hpp`                                        | macOS 창 (AppKit · Objective-C++ ARC · CAMetalLayer · NSTextInputClient · flagsChanged · 캡처, 14B — ADR-0036, 미검증), "Cocoa" · 잠자기                            | SandboxPlatform (macOS)     |
+| `platform/macos/MacKeyMap.{hpp,cpp}`                                                                        | macOS 가상 키 코드(kVK_*) → `Key` 표 · 장치별 수정자 비트 (AppKit 없음 — 모든 OS 에서 컴파일·테스트)                                                                | SandboxPlatform             |
+| `platform/stub/StubPlatform.cpp`                                                                            | 창이 없는 빌드: `createWindow` = Unsupported (X11 · Wayland 둘 다 끈 Linux)                                                                                         | SandboxPlatform             |
 | `render/CMakeLists.txt`                                                                                     | SandboxRender — 백엔드 소스 (WIN32: `dx12/`, SBX_ENABLE_VULKAN: `vulkan/` + sbx_volk), SBX_HAS_D3D12 · SBX_HAS_VULKAN, stb 구현 OBJECT, 내장 셰이더                 | SandboxRender               |
 | `render/rhi/RhiTypes.{hpp,cpp}`                                                                             | 핸들(버퍼·텍스처·샘플러·셰이더·파이프라인·바인드 그룹), 열거, Desc·Caps·Stats, 포맷 표, 파이프라인·바인딩 Desc, `layoutFromReflection`                              | SandboxRender               |
 | `render/rhi/RenderDevice.hpp`                                                                               | `IRenderDevice`·`ICommandList`·`ICommandQueue`·`ISwapChain`, `createRenderDevice` · `backendCompiled` · `parseBackend` (ADR-0006·0018·0032)                         | SandboxRender               |
@@ -170,6 +172,7 @@
 | `tests/unit/platform/test_x11_window.cpp`                                                                   | 스위트 `x11` — 실제 X 서버(Xvfb)에 창, XSendEvent 합성 이벤트 (13B, CTest platform_x11)                                                                             | SandboxTests (X11)          |
 | `tests/unit/platform/test_wayland_input.cpp`                                                                | 스위트 `platform` — xkb 키맵 이름으로 키 · 수정자 · 배열 · 데드 키 · 반복 · 버튼 · 더블클릭, 강제 Wayland (13C)                                                     | SandboxTests (Wayland)      |
 | `tests/unit/platform/test_wayland_window.cpp`                                                               | 스위트 `wayland` — 실제 컴포지터(weston headless)에 창: 핸들 · 크기 · 클립보드 · 커서 · 캡처 (13C, CTest platform_wayland)                                          | SandboxTests (Wayland)      |
+| `tests/unit/platform/test_cocoa_window.mm`                                                                  | 스위트 `cocoa` — 실제 AppKit 창의 뷰에 NSEvent (14B, macOS 만, CTest platform_cocoa)                                                                                | SandboxTests (macOS)        |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
 | `tests/unit/network/test_roles_overlay.cpp`, `tests/unit/content/test_content_overlay.cpp`                  | 메시지 · 주인 열쇠 · 역할 부여 표 · 오버레이 전달 (12C), 오버레이 검증 · EditContent · 세이브 (12C)                                                                 | SandboxTests                |
@@ -264,9 +267,9 @@ platform/
   common/       IWindow, WindowDesc, NativeWindowHandle, PlatformEvent, Key, InputSystem, ActionMap, IAudioBackend,
                 HeadlessWindow, Gamepad, Platform(FramePacer · attachConsole)
   windows/      Win32Window, Win32Platform, Win32KeyMap(순수 표 — 모든 OS 에서 테스트)   (나머지는 WIN32 전용)
-  stub/         StubPlatform                      (창이 없는 빌드 — macOS(14) · X11 · Wayland 둘 다 끔)
+  stub/         StubPlatform                      (창이 없는 빌드 — X11 · Wayland 둘 다 끈 Linux)
   linux/        X11Window, LinuxPlatform (13B), X11KeyMap(순수 표 — 모든 OS 에서 테스트), WaylandWindow · WaylandInput (13C)
-  macos/        CocoaWindow.mm                    (APPLE 전용)
+  macos/        CocoaWindow.mm · MacPlatform (APPLE 전용, 14B), MacKeyMap(순수 표 — 모든 OS 에서 테스트)
   audio/        NullAudioBackend, MiniaudioBackend
 
 render/

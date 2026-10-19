@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-19 — Phase 14B: macOS Cocoa 창 — AppKit (Objective-C++ · ARC), 가상 키 코드 표, NSTextInputClient (미검증)
+
+**무엇을**
+
+- platform/macos: `CocoaWindow.mm` — NSApplication(Regular · 앱 메뉴 ⌘Q = 닫기 요청), NSWindow + flipped 내용 뷰
+  (layer = CAMetalLayer → NativeWindowHandle{Cocoa}), 위임으로 닫기 요청 · 크기 · 배율 · 최소화 · 포커스, 키(keyCode →
+  `MacKeyMap`, 반복 = isARepeat, flagsChanged 의 장치별 비트로 왼 · 오른 수정자, Caps Lock 누름 + 뗌, ⌘ keyUp 직접 전달),
+  글자(켜져 있을 때만 interpretKeyEvents → insertText, 조합 중 글자는 버림), 마우스(other 버튼 2 · 3 · 4, clickCount, 휠 =
+  scrollingDelta, 정밀 ÷ 10), 캡처(CGAssociate + 델타), NSCursor, NSPasteboard, poll/wait = nextEventMatchingMask.
+  `MacKeyMap` (kVK 표 — AppKit 없음, 모든 OS 컴파일), `MacPlatform.cpp` ("Cocoa"), `MacWindows.hpp`.
+- CMake: APPLE 이면 OBJCXX · CocoaWindow.mm 만 -fobjc-arc · AppKit · QuartzCore · CoreGraphics, SBX_HAS_COCOA. 배포 목표 13.0.
+  stub 창은 이제 "X11 · Wayland 를 모두 끈 Linux" 뿐.
+- client: macOS 한글 UI 글꼴 (Apple SD 산돌고딕 Neo → 나눔고딕 → AppleGothic). client_version 정규식에 Cocoa.
+- 시험: unit_platform Mac 키 표 (모든 OS), 스위트 `cocoa` (test_cocoa_window.mm, macOS 만) · CTest `platform_cocoa`.
+- 문서: ADR-0036, 07(상태 · 1 · 2 · 6.3 · 9장), 13, 15(1 · 4 · 9장), 16(14B ◐ · 14C), 17, MANUAL-QA 14B, README.
+
+**왜**
+
+- Phase 14 의 두 번째 단계. Metal 백엔드(14C)가 받을 CAMetalLayer 를 창이 만든다.
+- 가상 키 코드는 물리 위치 — 세 OS 가 같은 Key 를 낸다. 엔진이 이벤트 루프를 쥐어 다른 OS 와 같은 poll/wait 계약.
+
+**검증**
+
+- macOS 가 없어 **빌드 · 실행하지 못했다**. 대신: GNUstep 헤더(libgnustep-gui-dev) + 없는 Apple API 를 적은 검사용 머리 파일로
+  `clang++-19 -fsyntax-only -fobjc-arc -fobjc-runtime=gnustep-2.0` — CocoaWindow.mm · test_cocoa_window.mm 오류 · 경고 0
+  (문법 · C++ 형 · ARC 만 — Apple API 이름 · 시그니처는 확인 못 함).
+- Linux clang 19 · gcc 13 Debug: ctest 51/51 (Mac 키 표 시험 151 단언). MinGW 경고 0 (커밋마다).
+- 사고 하나: .clang-format 이 Objective-C 를 지원하지 않아 clang-format 이 .mm 에 빈 출력을 냈고 그것으로 파일을 덮어썼다 —
+  대화 기록에서 되살렸다. 이제 서식 도구는 실패하면 건너뛴다 (클라우드 스크립트), 15-BUILD 9장에 적었다.
+
+**남은 일**
+
+- 첫 확인: push 후 CI 의 macOS 잡 (빌드 · platform_cocoa), Mac 이 있으면 MANUAL-QA 14B. 오류 로그를 받아 고친다.
+- [계획] 조합 중 글자 UI, GCMouse 가속 없는 캡처, 대각선 크기 커서, 전체 화면.
+- 다음: 14C — Metal 백엔드 (내장 MSL 실행 중 컴파일 · 번호 표 · MTLSharedEvent 타임라인).
+
+---
+
 ## 2026-10-14 — Phase 14A: 셰이더 MSL 경로 — 벤더링한 SPIRV-Cross 호스트 도구, Metal 번호 규칙, MSL 소스 내장
 
 **무엇을**

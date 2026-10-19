@@ -30,6 +30,11 @@ Linux 의 Wayland 창 (Phase 13C): `libwayland-dev` · `wayland-protocols` · `l
 필요). Wayland 없이 빌드하려면 `-D SBX_ENABLE_WAYLAND=OFF` (X11 만). 둘 다 켜면 실행 중에 고른다 (7장 `--platform`).
 창 시험(`platform_wayland` · `client_wayland_world_smoke`)은 `weston` 이 있으면 화면 없는 컴포지터(`tools/wayland/run_headless.sh`)에서 돈다.
 
+macOS 의 창 (Phase 14B, **미검증**): 더 필요한 것 없음 — AppKit · QuartzCore · CoreGraphics 는 SDK 에 있다 (Xcode Command Line
+Tools). Objective-C++ (`platform/macos/CocoaWindow.mm`, ARC). 배포 목표 macOS 13.0 (`CMAKE_OSX_DEPLOYMENT_TARGET`, 루트
+CMakeLists 가 project() 앞에서 정한다). 렌더러(Metal)는 14C — 그때까지 창은 그리지 않는다. 내장 셰이더 · MSL 은 PATH 의 `dxc`
+(Vulkan SDK) 가 있을 때만. 이 코드는 개발 환경에 macOS 가 없어 빌드해 보지 않았다 — 오류가 나면 로그를 보고해 주십시오.
+
 ### 1.1 CLion 설정 (Windows)
 
 ```text
@@ -109,7 +114,8 @@ SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_jso
                                      SBX_ENABLE_X11 (Linux, 13B): platform/linux/* + X11::X11 (+ X11::Xi → SBX_HAS_XINPUT2),
                                      PUBLIC SBX_HAS_X11. SBX_ENABLE_WAYLAND (Linux, 13C): WaylandWindow · WaylandInput +
                                      PkgConfig::SBX_WAYLAND + 생성한 프로토콜 C (cmake/SbxWayland.cmake), PUBLIC SBX_HAS_WAYLAND.
-                                     그 밖(macOS · 둘 다 끔): platform/stub (createWindow = Unsupported)
+                                     APPLE (14B): OBJCXX + platform/macos (CocoaWindow.mm -fobjc-arc) + AppKit · QuartzCore ·
+                                     CoreGraphics, PUBLIC SBX_HAS_COCOA. 그 밖(Linux 에서 둘 다 끔): platform/stub
                                      platform/linux/X11KeyMap 은 순수 표라 모든 OS 에서 컴파일한다 (Win32KeyMap 과 같다)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
@@ -371,6 +377,12 @@ Linux 잡은 (Phase 13C) Vulkan 로더 · lavapipe · Validation 레이어 + X11
 - (Phase 14A) MSL 생성 시험은 macOS 가 아니어도 된다: -D SBX_SHADER_MSL=ON (SBX_BUILD_SHADERS 필요) 이면 sbx_msl 을 빌드해
   셰이더마다 .metal 을 만들고 (<빌드>/shaders/<이름>/<이름>.<vs|ps>.metal) unit_render 가 번호를 확인한다. 처음 빌드에
   SPIRV-Cross 컴파일이 약 30 초 더 든다 (클라우드 측정). 교차 빌드(MinGW)에서는 켤 수 없다 — 호스트 도구를 실행한다.
+- (Phase 14B) macOS 가 없는 개발 환경의 Objective-C++ 검사: GNUstep 헤더(libgnustep-gui-dev)로 clang -fsyntax-only
+  -fobjc-arc -fobjc-runtime=gnustep-2.0 을 돌린다. GNUstep 에 없는 Apple API(CAMetalLayer · CoreGraphics 일부 · 10.12 이후
+  이름)는 검사용 머리 파일에 적어 -include 한다 (저장소 밖 — 클라우드 /tmp). gcc 의 objc/runtime.h 는 ARC 에서 오류가 나 고친
+  사본을 쓴다. 문법 · C++ 형 · ARC 규칙만 보고 Apple API 이름은 확인하지 못한다 — 실제 확인은 CI 의 macOS 잡 (ADR-0036).
+- (Phase 14B) 저장소의 .clang-format 은 Objective-C 를 지원하지 않는다 ("Configuration file(s) do(es) not support
+  Objective-C") — .mm 에 clang-format 을 돌리면 빈 출력이 나온다. .mm 은 손으로 같은 모양을 맞춘다.
 - (Phase 13A) Linux 파일 시스템은 대소문자를 가린다. 에셋 경로는 소문자로 정규화돼 열리므로 (AssetId) 에셋 파일 이름은
   소문자로 둔다.
 - (Phase 13A) Vulkan Validation 레이어가 없으면 --rhi-debug · --debug 는 경고만 하고 계속한다 (Linux: vulkan-validationlayers,

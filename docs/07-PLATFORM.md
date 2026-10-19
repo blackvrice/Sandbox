@@ -3,7 +3,8 @@
 > **규범 문서.** OS 계층 추상화를 정합니다. 상태: **Windows 창 · 입력 · ActionMap · Null 오디오 · HeadlessWindow 구현 (Phase 6)**.
 > **Linux X11 창 · 입력 구현 (Phase 13B)** — Xlib · evdev 키 표 · XIM · XInput2 Raw · 클립보드 (6.2, [ADR-0033](adr/0033-x11-xlib-evdev-keys-xim-xinput2-raw.md)).
 > **Linux Wayland 창 · 입력 구현 (Phase 13C)** — libdecor · xkbcommon · text-input-v3 · 실행 중 창 시스템 선택 (6.2, [ADR-0034](adr/0034-wayland-libdecor-xkbcommon-text-input-v3-runtime-select.md)).
-> macOS 는 Phase 14, miniaudio 는 Phase 8 이후 `[계획]`. 결정 근거는 [ADR-0017](adr/0017-physical-keys-event-queue-headless-window.md).
+> **macOS Cocoa 창 · 입력 (Phase 14B, 미검증 — macOS 에서 빌드 · 실행해 보지 않았다)** — AppKit · 가상 키 코드 표 · NSTextInputClient ·
+> CAMetalLayer (6.3, [ADR-0036](adr/0036-cocoa-window-appkit-objcxx-arc-unverified-build.md)). miniaudio 는 Phase 8 이후 `[계획]`. 결정 근거는 [ADR-0017](adr/0017-physical-keys-event-queue-headless-window.md).
 
 ---
 
@@ -12,7 +13,7 @@
 ```text
 SandboxPlatform 은 Foundation 에만 의존한다. ECS·Renderer·Network 를 모른다.
   (서드파티: nlohmann/json 을 ActionMap 파싱에만 PRIVATE 로. Windows: user32 · imm32. Linux: libX11 (+ libXi) — 13B,
-   libwayland-client · wayland-cursor · xkbcommon · libdecor-0 — 13C)
+   libwayland-client · wayland-cursor · xkbcommon · libdecor-0 — 13C. macOS: AppKit · QuartzCore · CoreGraphics — 14B)
 플랫폼 헤더(windows.h, X11/*, wayland-*, Cocoa)는 platform/<os>/ 의 .cpp/.mm 안에만.
 공개 헤더(platform/common/)는 플랫폼 독립 타입만 노출한다.
 ```
@@ -47,7 +48,7 @@ public:
     virtual std::string clipboardText() const = 0;
     virtual void     setClipboardText(std::string_view) = 0;
     virtual NativeWindowHandle nativeHandle() const = 0;    // RHI 만 사용
-    virtual std::string_view backendName() const = 0;       // "Win32" · "X11" · "Wayland" · "Headless" (로그 · 진단)
+    virtual std::string_view backendName() const = 0;       // "Win32" · "X11" · "Wayland" · "Cocoa" · "Headless"
 };
 Expected<std::unique_ptr<IWindow>> createWindow(const WindowDesc&);   // platform/<os>/. 창이 없는 OS 는 Unsupported
 ```
@@ -243,6 +244,34 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 - 창·이벤트는 메인 스레드 전용. Render 스레드 분리 시에도 이 규칙 유지
 ```
 
+구현 세부 (Phase 14B — `platform/macos/CocoaWindow.mm`, `MacKeyMap`, `MacPlatform.cpp`, ADR-0036). **미검증**: macOS 에서 빌드 ·
+실행해 보지 않았다 (개발 환경에 macOS 가 없다 — GNUstep 헤더로 문법 · 형 · ARC 만 검사). 첫 확인은 CI 의 macOS 잡 · MANUAL-QA 14B.
+
+```text
+- 빌드: APPLE 이면 OBJCXX 를 켜고 CocoaWindow.mm 만 -fobjc-arc, AppKit · QuartzCore · CoreGraphics. 배포 목표 macOS 13.0
+  (CMAKE_OSX_DEPLOYMENT_TARGET). 정의 SBX_HAS_COCOA (PUBLIC). 공개 헤더(MacWindows.hpp)에 ObjC 타입 없음.
+- 앱: NSApplication · ActivationPolicyRegular (번들 없는 실행 파일도 Dock · 키보드 포커스), 앱 메뉴 "종료"(⌘Q) = 키 창의
+  performClose: → CloseRequested (바로 끝내지 않는다).
+- 창: NSWindow (Titled · Closable · Miniaturizable, resizable 이면 Resizable, 탭 끔, 최소 320×200), 가운데. windowShouldClose =
+  NO + CloseRequested (창은 소유자가 파괴할 때 닫힌다). windowDidResize → Resized, windowDidChangeBackingProperties →
+  ContentScaleChanged (+ Resized), (de)miniaturize → minimized, become/resignKey → FocusGained/Lost.
+- 좌표: 포인트 = 논리 단위, 뷰는 flipped (왼쪽 위 원점). framebuffer = convertRectToBacking (highDpi=false 면 포인트 그대로).
+  CAMetalLayer 의 contentsScale · drawableSize 를 창이 맞춘다. NativeWindowHandle{Cocoa, window = CAMetalLayer*}.
+- 키: keyCode(kVK_*) → MacKeyMap (물리 위치). 반복 = isARepeat. 수정자 키 = flagsChanged + 장치별 비트(왼 · 오른 구별),
+  Caps Lock = 바뀔 때마다 누름 + 뗌. ⌘ 를 누른 채 뗀 keyUp 은 pollEvents 가 키 창에 직접 넘긴다. Command = Super.
+- 글자: 켜져 있을 때만 interpretKeyEvents → insertText → TextInput (제어 문자 · 기능 키 문자 0xF700~0xF8FF 제외).
+  setMarkedText(조합 중)는 받아 두기만, 끄면 버린다 ([계획] UI 에 그리기). doCommandBySelector 는 무시 (경고음 없음).
+- 마우스: 왼쪽 · 오른쪽 · other(buttonNumber 2 · 3 · 4 = 가운데 · X1 · X2). 더블클릭 = clickCount == 2 (세 번째 1).
+  휠 = scrollingDelta (정밀 장치 ÷ 10, X 는 부호를 뒤집어 오른쪽 +, 위 = +). 이동 = 추적 영역(NSTrackingMouseMoved).
+- 캡처: 커서 숨김 + 창 가운데로 옮기고 CGAssociateMouseAndMouseCursorPosition(false) + 이벤트 deltaX/Y (가속 섞임 —
+  GCMouse 는 [계획]). 포커스를 잃으면 풀고 다시 얻으면 잡는다. 커서 숨김(NSCursor hide)은 횟수를 세므로 한 번씩만.
+- 커서: NSCursor (arrow · IBeam · pointingHand · openHand · resizeLeftRight · resizeUpDown · operationNotAllowed). 대각선
+  크기 커서는 공개 API 가 없어 가로 화살표로.
+- 클립보드: NSPasteboard 의 문자열 (generalPasteboard). 제목: setTitle (UTF-8 → NSString).
+- 기다림: pollEvents = nextEventMatchingMask(distantPast) → sendEvent, waitEvents = 제한 시간까지 기다려 꺼낸 이벤트를 큐 앞에
+  되돌린다. PreciseSleeper = sleep_until.
+```
+
 ## 7. Audio
 
 ```cpp
@@ -307,3 +336,8 @@ Key · scancode = evdev + 8 · 텍스트 켬/끔 · 제어 문자 · 수정자 �
 두 연결). Wayland 는 입력을 합성할 수 없어 키 · 마우스는 사람 손 시험으로. CTest `platform_wayland` ·
 `client_wayland_world_smoke` (`tools/wayland/run_headless.sh` = weston headless — 없으면 WAYLAND_DISPLAY, 없으면 건너뛴다).
 수동: [qa/MANUAL-QA](qa/MANUAL-QA.md) Phase 13C (GNOME · KDE · 한글 입력기 · 배율 2 · 실제 GPU).
+
+구현된 것 (Phase 14B, 미검증): Mac 키 표(`platform` 스위트, 모든 OS — kVK 코드 · 왕복 · 장치별 수정자 비트 · Caps Lock · 수정자
+집합), 스위트 `cocoa`(`tests/unit/platform/test_cocoa_window.mm`, macOS 만 — 실제 AppKit 창의 뷰에 NSEvent 를 넘겨 키 ·
+반복 · flagsChanged · 글자 켬/끔 · 조합 버림 · 버튼 · clickCount · other 버튼 · 이동 · 휠 · 닫기 요청 · 크기 · 클립보드 · 커서 ·
+캡처). CTest `platform_cocoa`. 수동: [qa/MANUAL-QA](qa/MANUAL-QA.md) Phase 14B.

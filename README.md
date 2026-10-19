@@ -27,7 +27,8 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > Phase 13C 로 Wayland 창(libdecor 틀 · xkbcommon · text-input-v3 한글 입력 · 포인터 잠금 · 정수 배율)이 생겼고, 실행 중에
 > 창 시스템을 고릅니다 (`--platform auto|x11|wayland`). Linux CI 는 Xvfb · weston headless 로 창 시험까지 돕니다.
 > Phase 14A 로 셰이더가 MSL 로도 만들어집니다 (벤더링한 SPIRV-Cross 호스트 도구 · Metal 번호 규칙 — macOS 가 없어도 생성 ·
-> 번호를 시험). 다음은 Phase 14B (Cocoa 창 · Metal 백엔드 — Mac 또는 CI 의 macOS 잡에서 확인). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> 번호를 시험). Phase 14B 로 macOS Cocoa 창(AppKit · 가상 키 코드 표 · 한글 입력기 · CAMetalLayer)을 썼습니다 — macOS 가
+> 없는 환경이라 **아직 빌드해 보지 않았습니다** (CI 의 macOS 잡 · Mac 에서 확인). 다음은 Phase 14C (Metal 백엔드). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

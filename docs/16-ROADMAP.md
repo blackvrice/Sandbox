@@ -31,7 +31,7 @@ Phase 10  Replication · LocalServerHost             ← 단일 코드 경로 �
 Phase 11  Interest Management                       ← 완료 (2026-10-08): 화면 근처만 받기 · 예산 우선순위 · 세션 토큰 다시 접속
 Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
 Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트, 13C Wayland · --platform · Linux CI (2026-10-13) — Phase 13 구현 완료, CI 첫 실행 · 사용자 PC QA 대기
-Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL 경로 · Metal 번호 규칙 (2026-10-14), 14B Cocoa 창 · Metal 백엔드 [계획]
+Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL 경로 · Metal 번호 규칙 (2026-10-14), 14B Cocoa 창 (2026-10-19, 미검증), 14C Metal 백엔드 [계획]
 Phase 15  Optimization (측정 기반)
 ```
 
@@ -589,7 +589,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 완료  Core·Renderer 상위 diff 0줄, macOS CI 기준 이미지 통과
 ```
 
-둘로 나눈다 (ADR-0035 맥락 — 개발 · 검증 환경에 macOS 가 없다):
+셋으로 나눈다 (ADR-0035 맥락 — 개발 · 검증 환경에 macOS 가 없다):
 
 ```text
 14A 셰이더 MSL 경로 ✅ (2026-10-14, ADR-0035)
@@ -597,10 +597,15 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           Metal 번호를 매긴다 (종류마다 (group, binding) 순, push constant = buffer 0, 정점 버퍼 = 30 - slot) →
           ReflectedBinding::metalIndex + ShaderBytecode::msl · mslEntry (MSL 3.0 소스 내장, 실행 중 컴파일은 14B)
   덤   업로드 링이 비어도 앞으로 간다 — render_tests_lavapipe 의 링 감기 시험이 부하(ctest -j8)에서 가끔 실패하던 원인
-14B Cocoa 창 · Metal 백엔드 [계획] — Mac 또는 CI 의 macOS 잡에서 확인
-  14.1 CocoaWindow.mm (NSWindow · CAMetalLayer · NSTextInputClient · 키 표), 14.2 Metal 백엔드 (MTLDevice · 공유 이벤트 타임라인 ·
-       내장 MSL newLibraryWithSource · 번호 표), 내장 MSL 전부를 Metal 로 컴파일하는 시험, 기준 이미지
-  14.0 Slang 재평가 스파이크 — Metal 출력을 기준 이미지로 견줄 수 있는 14B 이후 (ADR-0007 보류 유지)
+14B Cocoa 창 ◐ (2026-10-19, ADR-0036) — 작성 · 문법 검사까지, macOS 빌드 · 실행은 미검증 (CI macOS 잡 · MANUAL-QA 14B)
+  14.1 ◐ CocoaWindow.mm (AppKit · Objective-C++ ARC — NSWindow · flipped 뷰 + CAMetalLayer · NSTextInputClient · flagsChanged ·
+          ⌘ keyUp 우회 · CGAssociate 캡처 · NSPasteboard · backingScaleFactor), MacKeyMap (kVK 표 — 모든 OS 단위 시험),
+          MacPlatform ("Cocoa"), 배포 목표 macOS 13.0, 스위트 cocoa · CTest platform_cocoa (macOS 만), 한글 UI 글꼴
+          (Apple SD 산돌고딕 Neo)
+14C Metal 백엔드 [계획] — Mac 또는 CI 의 macOS 잡에서 확인
+  14.2 Metal 백엔드 (MTLDevice · 공유 이벤트 타임라인 · 내장 MSL newLibraryWithSource · 번호 표), 내장 MSL 전부를 Metal 로
+       컴파일하는 시험, 기준 이미지
+  14.0 Slang 재평가 스파이크 — Metal 출력을 기준 이미지로 견줄 수 있는 14C 이후 (ADR-0007 보류 유지)
 ```
 
 ```text
@@ -608,8 +613,17 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
   Linux    clang Debug (-D SBX_SHADER_MSL=ON, 셰이더 = Wine dxc): ctest 51/51 × 3 (ctest -j8), 내장 셰이더 7 개 · 14 단계의 MSL
            생성 · 번호 확인. 생성기 자체 시험. gcc 13 Debug (MSL 켬) 51/51. 커밋마다 clang -Werror (MSL 켬) 51/51 ·
            MinGW 경고 0 (MSL 끔 — 교차 빌드)
-  남음     macOS 에서 MSL 컴파일 · 그리기 (14B)
-  다음     14B — Cocoa 창 · Metal 백엔드
+  남음     macOS 에서 MSL 컴파일 · 그리기 (14C)
+  다음     14B — Cocoa 창
+```
+
+```text
+14B 검증 (2026-10-19)
+  Linux    clang · gcc Debug: ctest 51/51 (Mac 키 표 시험 추가 — 모든 OS). CocoaWindow.mm · test_cocoa_window.mm 은 GNUstep 헤더 +
+           검사용 Apple API 선언으로 clang -fsyntax-only -fobjc-arc 오류 · 경고 0 (문법 · C++ 형 · ARC 만)
+  Windows  MinGW 경고 0
+  미검증   macOS 빌드 · 실행 · platform_cocoa — CI 의 macOS 잡 첫 실행, Mac 이 있으면 MANUAL-QA 14B
+  다음     14C — Metal 백엔드
 ```
 
 ### Phase 15 — Optimization
