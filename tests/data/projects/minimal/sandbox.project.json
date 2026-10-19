@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "gameId": "sandbox.minimal",
+  "name": "Minimal",
+  "version": "0.1.0",
+  "engine": ">=0.1.0 <1.0.0",
+  "description": "v0.2 M1 시험용 최소 프로젝트 — 내장 콘텐츠, 시작 월드는 v1_sample 세이브",
+  "entryWorld": "worlds/main"
+}

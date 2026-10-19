@@ -89,6 +89,9 @@ content/<pack>/
 { "id": "ecosystem", "version": "0.1.0", "requires": [], "description": "Grass / Rabbit / Wolf" }
 ```
 
+팩을 찾는 루트는 둘입니다: 저장소의 `content/` (`--content-root`, 시나리오 · 세이브) 와 게임 프로젝트의 `<프로젝트>/content/`
+(v0.2 — 매니페스트 `content.packs` 가 고른다, [18-PLATFORM](18-PLATFORM.md) 5.2 · ADR-0040). 팩 형식 · 규칙은 같습니다.
+
 ### 1.1 id 규칙
 
 ```text

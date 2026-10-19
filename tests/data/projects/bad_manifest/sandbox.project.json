@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "gameId": "NoNamespace",
+  "name": "Bad",
+  "version": "1.0",
+  "engine": ">=0.1.0",
+  "entryWorld": "../outside"
+}

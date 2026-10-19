@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-10-19 — v0.2 M1-T1: GameProject 매니페스트 · SemVer · 프로젝트 검사 (ADR-0040)
+
+**무엇을**
+
+- `foundation/version/SemVer`: SemVer 2.0.0 엄격 파서 (세 숫자 · 앞자리 0 금지 · 프리릴리스 · 빌드 · u32), 11장 우선순위,
+  `VersionRange` (>= > <= < = ^, 부분 버전은 npm 과 같은 뜻, 공백 = AND). `||` · `~` · `*` · 하이픈은 Unsupported (D-05).
+- `core/project/GameProject`: `sandbox.project.json` schemaVersion 1 (gameId · name · version · engine · description? ·
+  content.packs? · entryWorld) 읽기 · 정규형 쓰기 · 원자적 저장, 경로 검사 (상대 · '/' · '..' · Windows 예약 이름),
+  `validateProject` — 매니페스트 → 엔진 범위 → `<프로젝트>/content` 팩 (ContentLoader V1~V7) → 시작 월드 (요약 · 팩 ·
+  contentHash · persist::loadWorld 로 실제로 열기). 문제는 ContentIssue (P1~P5) 로 모두 모은다.
+- `sbx_sim_check --validate-project <폴더>` (다른 실행 · 검사 옵션과 함께 쓰면 거절).
+- 시험: unit_foundation (test_semver), 새 스위트 unit_project (test_game_project 15 케이스 — eco 팩을 복사하고
+  ecosystem_small 3 틱을 저장한 프로젝트를 실제로 연다), unit_tools (옵션), CTest project_minimal_validate ·
+  project_bad_manifest_rejected · project_bad_manifest_message, 데이터 tests/data/projects/{minimal,bad_manifest}.
+- 문서: ADR-0040, 18 (현황 표 · 5.1 T1 ✅ · 5.2 규범 · 8장), 17, 13, 11 1장, 09 3장, adr/README.
+
+**왜**
+
+- v0.2 의 첫 조각: 게임 하나를 담는 단위가 없었다 (서버는 시나리오 이름 · 세이브 폴더 + 저장소 content/ 만 안다).
+  새 맵 형식을 만들지 않고 세이브 폴더를 월드로, 기존 팩을 프로젝트 안에 — 저장 · 마이그레이션 · 해시 · 에디터 경로 재사용.
+- 검사가 월드를 실제로 여는 이유: "형식은 맞는데 안 열린다"를 서버 시작 전에 잡는다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest -LE "balance|bench" 55/55 (기준 51 + 4). unit_project 15 케이스 · 167 단언.
+- 실행: `sbx_sim_check --validate-project tests/data/projects/minimal` → 오류 0 · 경고 0, 시작 월드 열림 (tick 3, 엔티티 3);
+  bad_manifest → P2 · P3 · P4 세 줄, 종료 코드 1.
+- 시뮬레이션 · 세이브 · 와이어 형식은 바뀌지 않았다 (kSimVersion · 골든 그대로, det_* 통과).
+
+**남은 일**
+
+- M1-T2: WorldSource 가 프로젝트를 연다 → SandboxServer · SandboxClient `--world <프로젝트>`, 핸드셰이크에 게임 정체성.
+- M1-T3: 새 프로젝트 만들기 · 에디터 저장을 프로젝트 worlds/ 로.
+
+---
+
 ## 2026-10-19 — 플랫폼 범위 · 버전 줄 (ADR-0039), 18-PLATFORM 통합 계획, 설계 초안 원본 (docs/platform/)
 
 **무엇을**

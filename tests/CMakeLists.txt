@@ -15,6 +15,7 @@ add_executable(SandboxTests
     unit/foundation/test_small_vector.cpp
     unit/foundation/test_job_system.cpp
     unit/foundation/test_utf8.cpp
+    unit/foundation/test_semver.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp
@@ -38,6 +39,7 @@ add_executable(SandboxTests
     unit/persist/test_sample_saves.cpp
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
+    unit/project/test_game_project.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp
@@ -96,7 +98,7 @@ target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRE
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
-set(_sbx_suites foundation core ecs persist content network server tools platform render editor)
+set(_sbx_suites foundation core ecs persist content project network server tools platform render editor)
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()
@@ -306,6 +308,20 @@ if(TARGET sbx_sim_check)
     add_test(NAME content_eco_validate COMMAND sbx_sim_check --validate-content eco)
     set_tests_properties(content_eco_validate PROPERTIES LABELS "content"
         PASS_REGULAR_EXPRESSION "콘텐츠 검증: 오류 0, 경고 0")
+
+    # 게임 프로젝트 검사 (18-PLATFORM 5장, v0.2 M1) — 커밋된 최소 프로젝트는 오류 · 경고 0 이고 시작 월드가 열린다
+    add_test(NAME project_minimal_validate
+        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal")
+    set_tests_properties(project_minimal_validate PROPERTIES LABELS "content"
+        PASS_REGULAR_EXPRESSION "프로젝트 검사: 오류 0, 경고 0 [^\n]*시작 월드 열림")
+    # 깨진 매니페스트는 종료 코드 1 과 규칙 이름으로 실패해야 한다
+    add_test(NAME project_bad_manifest_rejected
+        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
+    set_tests_properties(project_bad_manifest_rejected PROPERTIES LABELS "content" WILL_FAIL TRUE)
+    add_test(NAME project_bad_manifest_message
+        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
+    set_tests_properties(project_bad_manifest_message PROPERTIES LABELS "content"
+        PASS_REGULAR_EXPRESSION "sandbox\\.project\\.json:/gameId: 오류 P2[^\n]*\n.*프로젝트 검사: 오류 [1-9]")
 
     # 하네스 자체 시험: 일부러 만든 차이를 잡아 엔티티·필드까지 좁혀야 한다
     add_test(NAME det_harness_selftest

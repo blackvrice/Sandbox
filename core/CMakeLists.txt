@@ -119,6 +119,9 @@ add_library(SandboxCore STATIC
     scenarios/EcosystemScenario.cpp
     scenarios/WorldSource.hpp
     scenarios/WorldSource.cpp
+
+    project/GameProject.hpp
+    project/GameProject.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

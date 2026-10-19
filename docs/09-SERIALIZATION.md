@@ -51,6 +51,9 @@ worlds/<name>/
   thumbnail.png               (클라이언트가 저장 시 생성, 선택)
 ```
 
+게임 프로젝트의 월드(`<프로젝트>/worlds/<이름>/`, 매니페스트 `entryWorld`)도 이 형식 그대로입니다 — 맵 형식을 따로 두지 않는다
+([ADR-0040](adr/0040-game-project-manifest-world-is-save-folder.md), [18-PLATFORM](18-PLATFORM.md) 5.2).
+
 ### 3.1 world.json
 
 ```jsonc

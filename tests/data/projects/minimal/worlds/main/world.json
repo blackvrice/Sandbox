@@ -1,0 +1,46 @@
+{
+  "worldVersion": 1,
+  "schemaVersion": 1,
+  "simVersion": 2,
+  "name": "v1_sample",
+  "seed": "0x0000000000005eed",
+  "tick": 3,
+  "nextSaveId": 5,
+  "entityCount": 3,
+  "chunkSize": 32,
+  "bounds": {
+    "minChunk": [
+      -1,
+      0
+    ],
+    "maxChunk": [
+      1,
+      1
+    ]
+  },
+  "fillMaterial": "core.sand",
+  "content": {
+    "contentHash": "0xc3323c3ed3070d80"
+  },
+  "terrainMaterials": [
+    "core.grass",
+    "core.rock",
+    "core.sand",
+    "core.water"
+  ],
+  "components": {
+    "core.lifetime": 1,
+    "core.transform": 1,
+    "core.velocity": 1,
+    "debug.random_walk": 1,
+    "life.age": 1
+  },
+  "simulation": {
+    "paused": true,
+    "speed": 1.0,
+    "pendingSteps": 0,
+    "editSequence": 1
+  },
+  "worldHash": "0xeb031963401696ae",
+  "opaqueEntities": 0
+}

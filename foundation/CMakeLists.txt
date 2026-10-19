@@ -18,6 +18,8 @@ add_library(SandboxFoundation STATIC
     io/Console.cpp
     job/JobSystem.hpp
     job/JobSystem.cpp
+    version/SemVer.hpp
+    version/SemVer.cpp
 )
 add_library(Sandbox::Foundation ALIAS SandboxFoundation)
 

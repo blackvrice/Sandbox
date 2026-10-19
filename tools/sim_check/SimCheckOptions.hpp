@@ -40,6 +40,9 @@ struct SimCheckOptions {
     std::string contentRoot;
     // --validate-content <팩,팩>: 시뮬레이션 없이 콘텐츠 검증만 (11 8장). 오류가 있으면 종료 코드 1
     std::vector<std::string> validatePacks;
+    // --validate-project <폴더>: 게임 프로젝트 검사만 (매니페스트 · 팩 · 시작 월드 열기 — 18-PLATFORM 5장).
+    // 오류가 있으면 종료 코드 1. 다른 실행 옵션과 함께 쓸 수 없다
+    std::string validateProject;
     // Worker 수. 첫 값으로 기본 실행(들)을 돌리고, 나머지 값마다 실행을 하나씩 더해 나란히 비교한다 (D5)
     std::vector<u32> threads{0};
     // D3: 시작 세이브 + 적용된 명령을 리플레이로 기록하고, 세이브를 로드해 재생하며 해시를 비교한다

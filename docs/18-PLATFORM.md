@@ -1,16 +1,16 @@
 # 18. 플랫폼 계획 (v0.1 ~ v1.0)
 
-> **계획 문서**. Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
+> **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-19 (master f4a72c1).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-19 (master f4a72c1 + v0.2 M1).
 
 ---
 
 ## 0. 지금
 
 ```text
-버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator — 착수
-다음     v0.2 M1-T1 — GameProject 매니페스트 · SemVer · 프로젝트 검사 (5.1)
+버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 진행 중)
+다음     v0.2 M1-T2 — 프로젝트를 서버 · 클라이언트가 연다 (--world <프로젝트 폴더>)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -19,7 +19,7 @@
 | 버전 | 목표                   | 제품 검증 (초안 04_RELEASE_MATRIX)         | 상태                                            |
 |------|------------------------|--------------------------------------------|-------------------------------------------------|
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
-| v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | 착수 — M1-T1 (5장)                              |
+| v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ◐ M1 진행 (5장)                                 |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | [계획] (6장)                                    |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
@@ -54,8 +54,8 @@
 | 멀티플레이 에디터       | Implemented | editor/ (ICommandSink · 툴 · 인스펙터 · Undo · 역할 · 콘텐츠 창 · 월드 저장/불러오기 · 리플레이), unit_editor · unit_client |
 | 렌더 · 플랫폼           | Implemented | DX12 · Vulkan (lavapipe 기준 이미지) · Metal (macOS 검증 대기), Win32 · X11 · Wayland · Cocoa(미검증)                       |
 | 성능                    | Partial     | 50k 2코어 29.6 ms — 판정 대기 (14 7.12)                                                                                     |
-| GameProject · Manifest  | Planned     | 지금은 세이브 폴더 + 콘텐츠 팩 루트 (WorldSource). 매니페스트 · 검사는 M1-T1 (5.2)                                          |
-| World / Map             | Implemented | 세이브 폴더(지형 · Prefab 인스턴스 · 오버레이)를 월드로 쓴다 — M1-T1 의 ADR 로 정한다                                       |
+| GameProject · Manifest  | Partial     | v0.2 M1-T1 로 매니페스트 · 검사 (5.2). 서버 · 에디터 연결 · 새 프로젝트 만들기는 M1-T2 · T3                                 |
+| World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
 | 게임 라이프사이클       | Partial     | 일시정지 · 단계 · 속도 (SimulationClock 편집 단계), 세션 · 역할. Lobby → Running → Finished 상태기계는 Planned (M2)         |
@@ -65,7 +65,7 @@
 | Edit ↔ Test Play        | Partial     | 편집 단계 · 월드 저장/불러오기 · 리플레이. 분기 세션 · 원본 보호는 Planned (M5)                                             |
 | SandboxScript · VM      | Planned     | v0.3. 지금 표현력 확장은 Rule op (03 6.4 — ADR-0039 가 언어를 TypeScript 부분집합으로 정함)                                 |
 | 사용자 Component 스키마 | Planned     | v0.3 (D-03). 콘텐츠 로더는 등록되지 않은 컴포넌트를 거절한다 (그대로 둔다)                                                  |
-| 패키지 · SemVer         | Planned     | 콘텐츠 팩 version 은 문자열뿐. SemVer 비교는 M1-T1, 의존성 해석 · 잠금 파일은 v0.4                                          |
+| 패키지 · SemVer         | Partial     | foundation/version/SemVer (v0.2 M1-T1 — 버전 · 범위 비교만). 의존성 해석 · 잠금 파일은 v0.4                                 |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
 
 ## 3. 모듈 계획 (C++ 의존 방향은 01 2장 그대로)
@@ -73,7 +73,7 @@
 ```text
 재사용 (고치지 않고 쓴다)
   core/content ContentLoader · ContentIssue    프로젝트 팩 검사 · 문제 보고 형식 (V1~V7 + P1~P5)
-  core/persist saveWorld · loadWorld           월드 = 세이브 폴더 (M1-T1 에서 ADR)
+  core/persist saveWorld · loadWorld           월드 = 세이브 폴더 (ADR-0040)
   core/scenarios WorldSource                   서버 · 클라이언트가 월드를 여는 한 곳 (M1-T2 가 프로젝트를 더한다)
   network ServerHost · LocalServerHost         같은 GamePackage 를 헤드리스 서버와 로컬 플레이에서 (v0.2 요구 6)
   editor ICommandSink · Undo · 역할            Game Creator 편집도 SimCommand (00 2장)
@@ -105,7 +105,7 @@ Edit ↔ TestPlay 분리, 한 패키지를 헤드리스 서버와 로컬 플레�
 
 ```text
 M1 GameProject
-  T1 [계획] 매니페스트 sandbox.project.json (schemaVersion 1) · SemVer · 검사 P1~P5 · sbx_sim_check --validate-project (ADR 함께)
+  T1 ✅ 매니페스트 sandbox.project.json (schemaVersion 1) · SemVer · 검사 P1~P5 · sbx_sim_check --validate-project (ADR-0040)
   T2 [계획] 프로젝트 열기: WorldSource 가 프로젝트 폴더를 안다 → SandboxServer --world <프로젝트> · SandboxClient --world 가
            <프로젝트>/content 팩과 entryWorld 로 시작, 핸드셰이크에 gameId · 버전
   T3 [계획] 프로젝트 만들기 · 저장: 템플릿에서 새 프로젝트 (빈 월드 + 팩 뼈대), 에디터 "월드" 저장이 프로젝트의 worlds/ 로
@@ -132,7 +132,7 @@ M6 E2E · 회귀
 v0.2 완료 기준 (초안 5장 → 자동 검증): 템플릿만으로 미니게임을 만들어 저장 · 실행 · 종료 (M6-T1 시나리오), 종료 조건 ·
 Lobby · Restart 의 서버 권위 상태 시험 (M2 · M3), Edit / Play 분리 · Undo / Redo · 패키지 검증 시험 (M5). 기존 det_* · 골든 회귀 없음.
 
-### 5.2 GameProject 매니페스트 ([계획] v0.2 M1-T1 — 구현 커밋과 함께 규범이 된다)
+### 5.2 GameProject 매니페스트 (규범 — v0.2 M1-T1, ADR-0040)
 
 ```text
 MyGame/
@@ -186,7 +186,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 열림 (M5-T2)                                 |
 | D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림                                         |
 | D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 열림                                         |
-| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 열림 — v0.2 는 4장의 좁은 범위 문법만        |
+| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                  |
 | D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                         |
 | D-07 | 공개 네트워크 보안 전송 · NAT                                     | v0.7 진입 전 | 열림 (R6)                                    |
 | D-08 | 무료 세션 자원 · 릴레이 비용 한도                                 | v0.7 초기    | 열림                                         |
@@ -210,4 +210,5 @@ v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```text
 Linux clang 19 Debug (-Werror, Vulkan · MSL 셰이더) ctest -LE "balance|bench": 51/51 통과 (det 16 · unit 23 · client 7 · …)
 GitHub master = f4a72c1 (git ls-remote 확인). Actions 결과는 이 환경에서 읽을 수 없다 (1.1)
+v0.2 M1-T1 뒤: 같은 구성 55/55 (+ unit_project · project_minimal_validate · project_bad_manifest_rejected · _message)
 ```
