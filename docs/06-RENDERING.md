@@ -18,8 +18,11 @@
 > **Phase 13B** — Xlib 표면(5.2 — vkCreateXlibSurfaceKHR): Linux SandboxClient 가 X11 창에 Vulkan 으로 그린다 ([ADR-0033](adr/0033-x11-xlib-evdev-keys-xim-xinput2-raw.md)).
 > **Phase 13C** — Wayland 표면(5.2 — vkCreateWaylandSurfaceKHR): Wayland 데스크톱에서 Xwayland 없이 그린다 ([ADR-0034](adr/0034-wayland-libdecor-xkbcommon-text-input-v3-runtime-select.md)).
 > **Phase 14A** — 셰이더 MSL 경로(6.1 — SPIRV-Cross 호스트 도구 sbx_msl, Metal 번호 규칙, MSL 소스 내장 —
-> [ADR-0035](adr/0035-msl-spirv-cross-tool-metal-indices-runtime-compile.md)). Metal 백엔드 · Cocoa 창은 14B `[계획]`.
-> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Metal 백엔드(14B).
+> [ADR-0035](adr/0035-msl-spirv-cross-tool-metal-indices-runtime-compile.md)).
+> **Phase 14C — 구현 완료 · macOS 검증 대기** — Metal 백엔드(5.3 — MTLSharedEvent 타임라인 · Private/Shared 메모리 · 내장 MSL
+> 실행 중 컴파일 · 그릴 때 묶는 번호 표 · CAMetalLayer 스왑체인, 3.4 · 3.5 · 14장 `render_tests_metal` —
+> [ADR-0037](adr/0037-metal-backend-shared-event-bind-tables-unverified.md)). macOS 에서 빌드 · 실행해 보지 않았다.
+> `[계획]` Compute 파이프라인·dispatch, 지형 타일 그림 · 경계 섞기, Metal 타임스탬프 · metallib · Argument Buffer.
 > 결정: 7A [ADR-0018](adr/0018-rhi-frame-protocol-committed-resources-wine-testing.md), 7B [ADR-0019](adr/0019-dxc-nuget-pin-own-spirv-reflector-root-signature-layout.md),
 > 8A [ADR-0020](adr/0020-sprite-atlas-instancing-direct-sim-presentation.md) · [ADR-0021](adr/0021-direct-sim-simulation-thread-snapshot.md),
 > 8B [ADR-0022](adr/0022-terrain-tile-texture-overlay-passes-gpu-timestamps.md), 8C [ADR-0023](adr/0023-imgui-docking-1-92-dynamic-textures-own-platform-layer.md),
@@ -66,7 +69,7 @@ R5. SFML, OpenGL 은 어떤 형태로도 쓰지 않는다.
 | ImGui Integration      | 공식 백엔드 미사용. RHI 위 자체 렌더러 1벌 + InputState→ImGuiIO 공급                                            | Editor가 native 타입 0개. 백엔드 3벌 유지비 제거                           |
 | DX12 Backend           | FL 12_0+, D3D12MA, Debug Layer / GBV / DRED, PIX 마커                                                           | 1차 플랫폼                                                                 |
 | Vulkan Backend         | 1.3 core (dynamic rendering, sync2, timeline), volk, VMA(`[계획]` — 13A 는 리소스마다 할당)                     | RenderPass 객체 없이 DX12·Metal과 모양 일치                                |
-| Metal Backend          | Metal 3, Objective-C++ `.mm` + ARC + pimpl, macOS 13+ Apple Silicon                                             | 공개 헤더에 ObjC 타입 0개                                                  |
+| Metal Backend          | Metal 3, Objective-C++ `.mm` + ARC (내부 헤더만 ObjC), macOS 13.4+ (14C, 미검증)                                | 공개 헤더에 ObjC 타입 0개                                                  |
 
 ---
 
@@ -205,8 +208,8 @@ Vulkan 의 descriptor set 은 binding 번호 하나 공간이기 때문). push c
 
 | RHI             | D3D12                             | Vulkan                  | Metal                                |
 |-----------------|-----------------------------------|-------------------------|--------------------------------------|
-| BindGroupLayout | Root Signature의 descriptor table | `VkDescriptorSetLayout` | Argument Buffer 레이아웃 (Tier 2)    |
-| BindGroup       | shader-visible heap 연속 구간     | `VkDescriptorSet`       | argument `MTLBuffer` + `useResource` |
+| BindGroupLayout | Root Signature의 descriptor table | `VkDescriptorSetLayout` | 모양(서명)만 + 파이프라인 번호 표    |
+| BindGroup       | shader-visible heap 연속 구간     | `VkDescriptorSet`       | 리소스 목록 → draw 때 `set*:atIndex` |
 | Push Constants  | Root Constants                    | Push Constants          | `set{Vertex,Fragment}Bytes`          |
 | 동적 상수       | Root CBV (GPU VA)                 | Dynamic UBO offset      | `setBuffer:offset:`                  |
 
@@ -235,7 +238,7 @@ RHI 상태: `Undefined, RenderTarget, DepthWrite, DepthRead, ShaderRead, Unorder
 ```text
 D3D12   Legacy ResourceBarrier (Enhanced Barriers 는 Caps 로 후속)
 Vulkan  vkCmdPipelineBarrier2 (상태 → stage/access/layout 테이블)
-Metal   대부분 no-op (자동 hazard tracking). untracked 리소스만 MTLFence
+Metal   검사만, 명령 없음 (Tracked 리소스 — Metal 이 위험을 막는다. 14C: 앞 복사를 읽는 복사는 새 블리트 인코더)
 초기에는 Pass 가 배리어를 손으로 선언한다. 자동 추적은 RenderGraph 도입 시 (11장).
 ```
 
@@ -396,13 +399,39 @@ CocoaWindow(.mm): NSWindow + layer-backed NSView + CAMetalLayer
 ```
 
 ```text
-render/metal/MetalDevice.hpp      class MetalRenderDevice final : public rhi::IRenderDevice { struct Impl; std::unique_ptr<Impl> m; };
-render/metal/MetalDevice.mm       Impl: id<MTLDevice>, id<MTLCommandQueue> (ARC)
-render/metal/MetalSwapChain.mm    CAMetalLayer, nextDrawable
-render/metal/MetalPipeline.mm     MTLRenderPipelineState, 내장 MSL 을 newLibraryWithSource 로 (ADR-0035)
-render/metal/MetalBuffer.mm       MTLBuffer (shared / private)
-규칙: .hpp 에 Objective-C 타입·#import 금지. ObjC 는 .mm 안에서만.
-디버그: Metal API Validation, Shader Validation, MTLCaptureManager 프로그램 캡처(--rhi-capture)
+규칙: 공개 헤더(render/rhi)에 Objective-C 타입·#import 금지. ObjC 는 render/metal 의 .mm 과 그것만 include 하는 내부 헤더에서만.
+```
+
+**Phase 14C 구현 — macOS 검증 대기** (`render/metal/`, ADR-0037). 개발 환경에 macOS 가 없어 GNUstep 헤더 + 검사용 Metal
+선언으로 문법 · 형 · ARC 만 확인했다 — 실제 빌드 · 실행은 CI 의 macOS 잡과 MANUAL-QA 14C.
+
+```text
+MetalDevice.hpp      내부 헤더 (ObjC++ · ARC 전용 — #error 로 막는다). MetalBuffer · MetalTexture(+ 2D/배열 뷰) · MetalShader ·
+                     MetalBindGroup(리소스 목록) · MetalPipeline(번호 표) · MetalQueue · GpuErrorSink
+MetalDevice.mm       MTLCreateSystemDefaultDevice, MTLGPUFamilyMetal3 아니면 Unsupported. 큐 = MTLCommandQueue, 펜스 =
+                     MTLSharedEvent (submit 의 마지막 명령 버퍼가 encodeSignalEvent, wait = 5초씩 · 30초 포기).
+                     GpuOnly = Private, Upload · Readback = Shared (contents = 영구 매핑). 텍스처 Private 2D/2DArray.
+                     caps: 정렬 256/256/512 (D3D12 와 같은 값), push 128, maxTextureSize 16384, timestampQueries false
+MetalPipeline.mm     MSL 소스 → newLibraryWithSource(MSL 3.0) → mslEntry (단계 확인). 샘플러 · 레이아웃(모양만) · 바인드 그룹
+                     (오프셋 검사 후 버퍼 · 텍스처 뷰 · 샘플러를 풀어 둔다). 파이프라인: 정점 서술자(attribute = location,
+                     buffer = 30 - slot, stride 4 의 배수), 블렌드 · 형식 = 다른 백엔드와 같은 식, 리플렉션 → (group,
+                     binding) → (종류, metalIndex, 단계) 표 — 리플렉션 필수, 번호가 정점 버퍼 칸과 겹치면 오류
+MetalCommandList.mm  begin = 명령 버퍼 하나 (일회용, 큐가 가져간다). 렌더 패스 = 렌더 인코더, 복사 = 블리트 인코더. 파이프라인 ·
+                     그룹 · push(128 바이트 사본 → buffer 0 setVertexBytes · setFragmentBytes) · 정점 버퍼 · 뷰포트 · 시저를
+                     기억했다가 draw* 에서 바뀐 것만. 뷰포트는 뒤집지 않는다, 시저는 첨부 안으로 자르고 비면 그리지 않는다.
+                     copyBuffer 오프셋 · 크기 4 의 배수(macOS), 인덱스 오프셋 = 인덱스 크기의 배수, 정점 버퍼 오프셋 4 의 배수.
+                     draw 전에: 파이프라인 색 형식 = 패스 첨부(번호 그대로), 정점 버퍼 · 바인드 그룹이 다 묶였나 — 아니면 검증
+                     오류 (Metal 검증 계층이 멈추기 전에 원인을 말한다). 블리트 인코더는 앞 복사와 읽기/쓰기가 겹치면 나눈다.
+                     2D 복사의 bytesPerImage = 0, 깊이 텍스처 복사는 [계획]. 타임스탬프는 아무것도 안 함
+MetalSwapChain.mm    창의 CAMetalLayer 에 device · 형식(BGRA8 · BGRA8 sRGB · RGBA16F, RGBA8 → BGRA8 대체) · framebufferOnly NO ·
+                     drawable clamp(frames + 1, 2, 3) · displaySyncEnabled. acquire = nextDrawable (1초 → 건너뜀) → 외부 핸들,
+                     present = 새 명령 버퍼 presentDrawable + commit. drawable · 명령 버퍼마다 @autoreleasepool
+검증          --rhi-debug = MTL_DEBUG_LAYER=1 + METAL_DEVICE_WRAPPER_TYPE=1 (첫 디바이스 전, 오류면 Metal 이 멈춘다),
+              --rhi-gbv = + MTL_SHADER_VALIDATION=1.
+              명령 버퍼 오류(완료 처리기) = debugErrors. --rhi-warp 는 경고 후 기본 GPU (소프트웨어 디바이스 없음)
+`[계획]`      타임스탬프(MTLCounterSampleBuffer), 깊이 첨부, metallib · MTLBinaryArchive, Argument Buffer, MTLCaptureManager
+              (--rhi-capture), Managed 메모리 (Intel Mac 의 외장 GPU 는 Shared 로 동작은 하지만 느리다), PointList 의
+              [[point_size]] (셰이더가 쓰지 않으면 Metal 은 점 크기가 정해지지 않는다 — 지금 점을 그리는 셰이더는 없다)
 ```
 
 ---
@@ -416,7 +445,7 @@ shaders/<name>.hlsl
   Windows : dxc -T vs_6_0|ps_6_0|cs_6_0 -E <entry> -Zpc -Qstrip_reflect → .dxil
   Vulkan  : dxc -spirv -fspv-target-env=vulkan1.3 -fvk-use-dx-layout     → .spv
   Metal   : .spv → sbx_msl (SPIRV-Cross 1.4.304.1, MSL 3.0, 번호 고정)   → .metal → 소스로 내장 (14A, ADR-0035)
-            → 실행 중 newLibraryWithSource [계획 14B] (빌드 때 metallib 는 [계획])
+            → 실행 중 newLibraryWithSource (14C, ADR-0037 — 빌드 때 metallib 는 [계획])
   공통    : .spv → 리플렉션 (sbx_shader_gen.py 자체 파서 — ADR-0019)     → .reflect.json
 ```
 
@@ -759,7 +788,7 @@ SandboxClient 에 있고 옮기는 것은 `[계획 12B]`. 폰트 아틀라스는
 
 | 옵션                       | 효과                                                      |
 |----------------------------|-----------------------------------------------------------|
-| `--rhi auto\|dx12\|vulkan` | 백엔드 선택 (빌드에 포함된 것만, 13A 구현. metal 은 14)   |
+| `--rhi auto\|dx12\|vulkan` | 백엔드 선택 (빌드에 든 것만, 13A. `metal` 은 14C)         |
 | `--rhi-debug`              | Debug Layer / Validation Layer / Metal API Validation     |
 | `--rhi-gbv`                | D3D12 GPU-Based Validation · Vulkan 동기화 검증 (13A)     |
 | `--rhi-warp`               | D3D12 WARP · Vulkan CPU 장치 lavapipe (13A)               |
@@ -787,6 +816,10 @@ Phase 13A 구현: `sbx_render_tests --rhi auto|dx12|vulkan` — 모든 케이스
 없으면 7A 케이스만. Windows 의 Vulkan 은 MinGW + Wine(winevulkan → lavapipe)으로 확인 (CTest 에는 넣지 않는다 — 드라이버가
 기계마다 다르다, MANUAL-QA). 같이 고친 시험: 상수 버퍼를 16 바이트 변수에서 256 바이트 읽던 것(ASan), 대소문자를 가리는
 파일 시스템의 에셋 이름. SandboxTests `render`: 백엔드 이름 · 빌드에 든 백엔드 · 없는 백엔드는 Unsupported (GPU 없이).
+
+Phase 14C (구현 완료 · macOS 검증 대기): CTest `render_tests_metal` (macOS, `--rhi metal --debug --skip-unsupported`) — 같은
+케이스 · 기준 이미지 · 허용치. Metal 3 디바이스가 없으면 77 로 끝나 건너뛴다 (CI 실행기가 가상 GPU 일 때). 그리기 케이스는
+셰이더(dxc → SPIR-V → MSL)가 있는 빌드만. 아직 한 번도 돌려 보지 않았다 — CI 의 macOS 잡 · MANUAL-QA 14C.
 
 Phase 8C 구현 (`tests/render/test_imgui.cpp`): imgui_basic(내장 비트맵 폰트 창 · 체크 · 버튼 · 진행 막대 · 그래프 — 기준 이미지,
 창 밖은 지운 색 그대로) · 폰트 텍스처를 처음에 만들고 같은 UI 면 다시 안 만든다 · 큰 글자에서 아틀라스 갱신 · 화면 밖 창은 Draw 0

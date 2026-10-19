@@ -28,7 +28,10 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > 창 시스템을 고릅니다 (`--platform auto|x11|wayland`). Linux CI 는 Xvfb · weston headless 로 창 시험까지 돕니다.
 > Phase 14A 로 셰이더가 MSL 로도 만들어집니다 (벤더링한 SPIRV-Cross 호스트 도구 · Metal 번호 규칙 — macOS 가 없어도 생성 ·
 > 번호를 시험). Phase 14B 로 macOS Cocoa 창(AppKit · 가상 키 코드 표 · 한글 입력기 · CAMetalLayer)을 썼습니다 — macOS 가
-> 없는 환경이라 **아직 빌드해 보지 않았습니다** (CI 의 macOS 잡 · Mac 에서 확인). 다음은 Phase 14C (Metal 백엔드). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> 없는 환경이라 **아직 빌드해 보지 않았습니다** (CI 의 macOS 잡 · Mac 에서 확인). Phase 14C 로 Metal 백엔드(공유 이벤트
+> 타임라인 · 내장 MSL 실행 중 컴파일 · 리플렉션 번호 표 · CAMetalLayer 스왑체인 · `--rhi metal`)를 써서 **Phase 14 는 구현
+> 완료 · macOS 검증 대기**입니다 (CI 의 macOS 잡 · Mac 의 MANUAL-QA 14B · 14C 가 통과하면 완료). 다음은 Phase 15
+> (최적화). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
 
 ---
 

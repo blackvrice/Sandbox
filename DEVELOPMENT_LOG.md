@@ -7,6 +7,55 @@
 
 ---
 
+## 2026-10-19 — Phase 14C: Metal 백엔드 — 공유 이벤트 타임라인, 그릴 때 묶는 번호 표, CAMetalLayer 스왑체인 (구현 완료 · macOS 검증 대기)
+
+**무엇을**
+
+- render/metal (Objective-C++ · ARC): `MetalDevice.hpp` (내부 헤더 — ObjC++ 밖에서 include 하면 #error), `MetalDevice.mm`
+  (Metal 3 장치 · MTLCommandQueue · MTLSharedEvent 타임라인 · 명령 버퍼 오류 수집 · Private/Shared 버퍼 · Private 2D/2DArray
+  텍스처와 뷰 · 업로드 링 · 지연 해제 · 프레임), `MetalPipeline.mm` (MSL newLibraryWithSource · 샘플러 · 레이아웃 서명 ·
+  바인드 그룹 리소스 목록 · 정점 서술자 · 블렌드 · 리플렉션 번호 표), `MetalCommandList.mm` (렌더 · 블리트 인코더, 기억한
+  상태를 draw 때 묶기, push = buffer 0 setBytes, 시저 자르기, 디버그 그룹), `MetalSwapChain.mm` (CAMetalLayer · nextDrawable ·
+  별도 명령 버퍼 presentDrawable · @autoreleasepool).
+- RHI: `Backends.hpp` 에 metal::createDevice, 팩토리 Auto = D3D12 → Vulkan → Metal, `backendCompiled(Metal)`.
+  CMake: `SBX_ENABLE_METAL` (macOS 기본 ON), OBJCXX · -fobjc-arc · Metal · QuartzCore · Foundation, `SBX_HAS_METAL`.
+  sbx_render_tests 는 Metal 빌드에도 (루트 CMakeLists 조건).
+- 시험: CTest `render_tests_metal` (`--rhi metal --debug --skip-unsupported` — 새 옵션: 디바이스가 Unsupported 면 77 →
+  건너뜀). 팩토리 시험 · `--rhi` 시험이 Metal 이 든 빌드를 다룬다. client: `--rhi metal`, `--version` 의 render 목록,
+  client_version 정규식에 Metal. Vulkan 의 Cocoa 표면 메시지는 "--rhi metal" 을 가리킨다.
+- build: macOS 배포 목표 13.0 → 13.4 (따로 커밋). Apple libc++ 의 std::format 은 std::to_chars(double) 을 쓰는데 그 시스템
+  라이브러리가 13.3/13.4 부터라 13.0 이면 모든 std::format TU 가 "unavailable" 로 컴파일 오류 — 14B 를 macOS 에서 빌드해 보지
+  않아 놓쳤다 (리뷰 에이전트가 Apple 포럼 사례로 찾음).
+- 문서: ADR-0037, 06(상태 · 2 · 3.4 · 3.5 · 5.3 · 6.1 · 13 · 14장), 13, 15(1 · 3 · 4 · 6 · 9장), 16(Phase 14 = 구현 완료 ·
+  macOS 검증 대기 — ◐ 의 뜻을 적었다), 17, MANUAL-QA 14C (14B 의 "render none" 을 고쳤다), README.
+
+**왜**
+
+- Phase 14 의 마지막 단계. 사용자: "완료는 Test 후이고 Mac 이 없으니 완료는 대기 상태로" — 코드 · 빌드 · 시험 · 문서를 끝내고
+  상태를 "구현 완료 · macOS 검증 대기"로 둔다 (✅ 는 macOS 결과가 온 뒤).
+- 펜스를 MTLSharedEvent 로 하면 프레임 슬롯 · 업로드 링 · 지연 해제가 다른 백엔드와 같은 코드다. Argument Buffer 대신 그릴 때
+  setBuffer — 지금 규모에서 단순하고, MSL 쪽(ADR-0035 의 고정 번호)을 바꾸지 않는다.
+
+**검증**
+
+- macOS 가 없어 **빌드 · 실행하지 못했다**. render/metal 의 .mm 넷: GNUstep 헤더 + 검사용 Apple 선언(14B 의 머리 파일에 Metal
+  프로토콜 · 서술자 · 열거를 더함, -fblocks)으로 `clang++-19 -fsyntax-only -fobjc-arc -Wall -Wextra -Wpedantic -Wshadow` —
+  우리 코드의 오류 · 경고 0. Metal API 의 제약은 Apple 문서로 확인한 것만 검사에 넣었다 (copyBuffer 4 의 배수 · 인덱스 오프셋 =
+  인덱스 크기의 배수).
+- 독립 리뷰(서브 에이전트가 Apple 문서 JSON 으로 셀렉터 · 열거 · 가용 버전을 대조): 이름 · 시그니처 오류 없음. 고친 것 —
+  패스 밖에서 연 디버그 그룹을 패스 안에서 닫으면 짝이 어긋남, 빠진 색 첨부가 번호를 당김 · 파이프라인 형식과 패스 첨부가
+  다른 draw, 묶지 않은 정점 버퍼, 2D 복사의 bytesPerImage(0 이어야), 깊이 텍스처 복사, 빈 제출의 명령 버퍼가 nil 이면 펜스만
+  오름, 블리트 인코더 안의 쓰기-쓰기 · 읽기-쓰기, 정수 형식 블렌딩, 버퍼 밖 오프셋의 크기 계산, METAL_DEVICE_WRAPPER_TYPE.
+- Linux clang 19 (-Werror, MSL 켬) · gcc 13 Debug: ctest 51/51. MinGW 경고 0 (커밋마다).
+
+**남은 일**
+
+- CI 의 macOS 잡 첫 실행 (빌드 · platform_cocoa · render_tests_metal — 실행기의 GPU 가 Metal 3 가 아니면 건너뛴다, dxc 가 없으면
+  그리기 케이스 없음) → 로그를 받아 고친다. Mac 이 있으면 MANUAL-QA 14B · 14C. 통과하면 Phase 14 ✅.
+- [계획] Metal 타임스탬프 · 깊이 · metallib · Argument Buffer · --rhi-capture, Slang 재평가 스파이크(14.0).
+
+---
+
 ## 2026-10-19 — Phase 14B: macOS Cocoa 창 — AppKit (Objective-C++ · ARC), 가상 키 코드 표, NSTextInputClient (미검증)
 
 **무엇을**

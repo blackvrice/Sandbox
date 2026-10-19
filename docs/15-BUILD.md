@@ -30,10 +30,13 @@ Linux 의 Wayland 창 (Phase 13C): `libwayland-dev` · `wayland-protocols` · `l
 필요). Wayland 없이 빌드하려면 `-D SBX_ENABLE_WAYLAND=OFF` (X11 만). 둘 다 켜면 실행 중에 고른다 (7장 `--platform`).
 창 시험(`platform_wayland` · `client_wayland_world_smoke`)은 `weston` 이 있으면 화면 없는 컴포지터(`tools/wayland/run_headless.sh`)에서 돈다.
 
-macOS 의 창 (Phase 14B, **미검증**): 더 필요한 것 없음 — AppKit · QuartzCore · CoreGraphics 는 SDK 에 있다 (Xcode Command Line
-Tools). Objective-C++ (`platform/macos/CocoaWindow.mm`, ARC). 배포 목표 macOS 13.0 (`CMAKE_OSX_DEPLOYMENT_TARGET`, 루트
-CMakeLists 가 project() 앞에서 정한다). 렌더러(Metal)는 14C — 그때까지 창은 그리지 않는다. 내장 셰이더 · MSL 은 PATH 의 `dxc`
-(Vulkan SDK) 가 있을 때만. 이 코드는 개발 환경에 macOS 가 없어 빌드해 보지 않았다 — 오류가 나면 로그를 보고해 주십시오.
+macOS 의 창 · Metal (Phase 14B · 14C, **구현 완료 · macOS 검증 대기**): 더 필요한 것 없음 — AppKit · QuartzCore · CoreGraphics ·
+Metal 은 SDK 에 있다 (Xcode Command Line Tools). Objective-C++ (`platform/macos/CocoaWindow.mm`, `render/metal/*.mm`, ARC).
+배포 목표 macOS 13.4 (`CMAKE_OSX_DEPLOYMENT_TARGET`, 루트 CMakeLists 가 project() 앞에서 정한다 — 13.0 이면 Apple libc++ 의
+std::format 이 쓰는 to_chars(double) 이 "unavailable" 로 컴파일 오류, 14C 에서 올렸다). GPU 는 Metal 3 (Apple Silicon · 최근
+Intel/AMD Mac — 아니면 렌더러 없이 창만). 내장 셰이더 · MSL 은 PATH 의 `dxc` (Vulkan SDK) 가 있을 때만 — 없으면
+Metal 은 지우기만 하고 월드를 그리지 않는다 (렌더 시험도 그리기 케이스가 빠진다). 이 코드는 개발 환경에 macOS 가 없어 빌드해
+보지 않았다 — 오류가 나면 로그를 보고해 주십시오.
 
 ### 1.1 CLion 설정 (Windows)
 
@@ -87,6 +90,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
 | `SBX_BUILD_BENCH`        | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
 | `SBX_ENABLE_VULKAN`      | ON(Linux)   | Vulkan 백엔드 (render/vulkan). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan`      | 구현 (Phase 13A)      |
+| `SBX_ENABLE_METAL`       | ON(macOS)   | Metal 백엔드 (render/metal, Objective-C++). macOS 만 — 다른 OS 는 늘 OFF           | 구현 (14C, 검증 대기) |
 | `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). 둘 다 OFF = 창 없음        | 구현 (Phase 13B)      |
 | `SBX_ENABLE_WAYLAND`     | ON(Linux)   | Linux Wayland 창 (libwayland · libdecor · xkbcommon). X11 과 함께 = 실행 중 선택   | 구현 (Phase 13C)      |
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
@@ -120,6 +124,8 @@ SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_jso
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
                                      WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
                                      PRIVATE sbx_volk, PUBLIC SBX_HAS_VULKAN (13A). 백엔드는 rhi/RenderDeviceFactory 가 고른다 (stub 은 지웠다)
+                                     SBX_ENABLE_METAL (14C): OBJCXX + render/metal/*.mm (-fobjc-arc) + Metal · QuartzCore · Foundation,
+                                     PUBLIC SBX_HAS_METAL
                                      SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake). SBX_SHADER_MSL: + PUBLIC SBX_HAS_MSL=1 (14A)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
@@ -139,8 +145,9 @@ SandboxTests              EXE        Foundation Core Network Platform Render Edi
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
 sbx_bench                 EXE        Core Network Render   (SBX_BUILD_BENCH=ON 일 때만 — 기본 OFF. Network 은 net.* 벤치, Phase 11)
-sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와 (WIN32 또는 SBX_ENABLE_VULKAN) (tests/render). CTest
-                                     render_tests_warp (Windows, --rhi dx12) · render_tests_lavapipe (Linux, --rhi vulkan — 13A)
+sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와 (WIN32 · SBX_ENABLE_VULKAN · SBX_ENABLE_METAL) (tests/render).
+                                     CTest render_tests_warp (Windows, --rhi dx12) · render_tests_lavapipe (Linux, --rhi vulkan — 13A) ·
+                                     render_tests_metal (macOS, --rhi metal --skip-unsupported — 14C, Metal 3 가 없으면 건너뜀)
 
 생성 헤더 build/<preset>/generated/foundation/BuildInfo.hpp
   kVersion*, kGitCommit, kCompilerId, kSystemName,
@@ -247,6 +254,7 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (Phase 7A) [--no-render] [--rhi-debug] [--rhi-gbv] [--rhi-warp] [--rhi-fl11] [--vsync on|off] [--frames-in-flight 2|3]
     렌더러가 있으면 화면을 천천히 색이 바뀌는 어두운 색으로 지우고, 제목 줄 끝에 "D3D12 60 fps VSync 켬" 이 붙는다.
     (Phase 13A) [--rhi auto|dx12|vulkan] — 빌드에 든 백엔드만 (Windows 는 -D SBX_ENABLE_VULKAN=ON 으로 구성하면 vulkan).
+    (Phase 14C) [--rhi metal] — macOS ("window Cocoa, render Metal"). --rhi-warp 는 Metal 에서 경고 후 기본 GPU.
     --version 의 render 는 기본 백엔드 + 빌드에 든 다른 백엔드 ("render D3D12 (+Vulkan)").
     (Phase 13B) Linux: X11 창 + Vulkan ("window X11, render Vulkan"). DISPLAY 가 없으면 창을 만들지 못하고 종료 코드 1 —
     --headless 로.
@@ -382,7 +390,11 @@ Linux 잡은 (Phase 13C) Vulkan 로더 · lavapipe · Validation 레이어 + X11
   이름)는 검사용 머리 파일에 적어 -include 한다 (저장소 밖 — 클라우드 /tmp). gcc 의 objc/runtime.h 는 ARC 에서 오류가 나 고친
   사본을 쓴다. 문법 · C++ 형 · ARC 규칙만 보고 Apple API 이름은 확인하지 못한다 — 실제 확인은 CI 의 macOS 잡 (ADR-0036).
 - (Phase 14B) 저장소의 .clang-format 은 Objective-C 를 지원하지 않는다 ("Configuration file(s) do(es) not support
-  Objective-C") — .mm 에 clang-format 을 돌리면 빈 출력이 나온다. .mm 은 손으로 같은 모양을 맞춘다.
+  Objective-C") — .mm 에 clang-format 을 돌리면 빈 출력이 나온다. .mm 은 손으로 같은 모양을 맞춘다. (14C) 같은 설정에
+  `Language: ObjC` · `ObjCBlockIndentWidth: 4` 를 붙인 임시 파일을 --style=file:<경로> 로 주면 .mm 도 같은 모양으로 맞출 수 있다.
+- (Phase 14C) Metal 백엔드의 문법 검사도 14B 와 같은 방법 — 검사용 머리 파일에 쓰는 Metal 선언(프로토콜 · 서술자 · 열거)을
+  Apple SDK 의 모양대로 적고 -fblocks (완료 처리기 블록, GNUstep 의 objc/blocks_runtime.h 는 선언만 둔 사본)를 더한다.
+  MTL_DEBUG_LAYER 는 오류에서 프로세스를 멈춘다 (기본 assert) — 로그만 원하면 실행 전에 MTL_DEBUG_LAYER_ERROR_MODE=nslog.
 - (Phase 13A) Linux 파일 시스템은 대소문자를 가린다. 에셋 경로는 소문자로 정규화돼 열리므로 (AssetId) 에셋 파일 이름은
   소문자로 둔다.
 - (Phase 13A) Vulkan Validation 레이어가 없으면 --rhi-debug · --debug 는 경고만 하고 계속한다 (Linux: vulkan-validationlayers,

@@ -505,7 +505,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug   #
 xcode-select --install          # Command Line Tools (Apple Clang)
 brew install cmake ninja
 cmake --preset macos && cmake --build --preset macos-debug && ctest --preset macos-debug   # platform_cocoa 포함
-./build/macos/bin/Debug/SandboxClient --version                   # "window Cocoa, render none" (Metal 은 14C)
+./build/macos/bin/Debug/SandboxClient --version                   # "window Cocoa, render Metal" (14C 부터)
 ./build/macos/bin/Debug/SandboxClient --world ecosystem_small --log-input
 ```
 
@@ -513,7 +513,7 @@ cmake --preset macos && cmake --build --preset macos-debug && ctest --preset mac
 [ ] 빌드 오류 · 경고가 있으면 로그 전체를 보고 (컴파일러 · 링커 메시지 그대로)
 [ ] ctest 전부 통과 — 특히 platform_cocoa 의 케이스 수가 0 이 아니다 (화면 없는 세션이면 건너뛴 메시지)
 [ ] 로그 "Cocoa 창 1600×900 (논리) · 배율 2.00 · 3200×1800 px" (Retina). Dock 에 아이콘, ⌘Tab 으로 오간다
-[ ] 창이 검다 (렌더러 없음 — 14C). 제목 줄에 한글 제목, 크기 조절 · 최소화 · 복원 · 다른 배율 모니터로 옮기기 →
+[ ] 창이 그려진다 (Metal — 아래 14C). 제목 줄에 한글 제목, 크기 조절 · 최소화 · 복원 · 다른 배율 모니터로 옮기기 →
     --log-input 에 Resized · ContentScaleChanged
 [ ] 닫기 단추 · ⌘Q → "CloseRequested" 후 정상 종료 (state Shutdown — 강제 종료가 아니다)
 [ ] --log-input: 키를 누르면 KeyDown(Key 이름 = 물리 위치 — 두벌식에서도 W 자리는 W), 누르고 있으면 repeat, 떼면 KeyUp.
@@ -526,6 +526,32 @@ cmake --preset macos && cmake --build --preset macos-debug && ctest --preset mac
 [ ] F3 캡처: 커서가 사라지고 창 밖으로 나가지 않으며 MouseMove 의 위치는 그대로 · Δ 만. Esc 로 풀림. 캡처 중 ⌘Tab → 다른
     앱에서 커서가 보이고 돌아오면 다시 잡힌다
 [ ] F4 커서 모양 바꾸기, Ctrl+C/V (다른 앱과 클립보드)
+```
+
+## Phase 14C — Metal 백엔드 (Mac, 처음 실행)
+
+이 코드도 macOS 에서 한 번도 빌드 · 실행되지 않았다 (ADR-0037). 14B 의 준비에 더해 내장 셰이더(MSL)를 쓰려면 dxc 가 PATH 에
+있어야 한다 (Vulkan SDK for macOS 를 설치하면 `dxc` 가 들어 있다 — 없으면 구성 메시지 "셰이더: dxc 가 PATH 에 없어", 그때는
+지우기만 한다). 통과하면 16-ROADMAP 의 Phase 14 를 ✅ 로 바꾼다.
+
+```bash
+cmake --preset macos && cmake --build --preset macos-debug
+ctest --preset macos-debug -R render_tests_metal --output-on-failure      # Metal 3 GPU 가 아니면 "Not Run" (건너뜀)
+./build/macos/bin/Debug/sbx_render_tests --rhi metal --debug             # 케이스 수 · "render tests OK" · 끝 줄 누수 0 · 오류 0
+./build/macos/bin/Debug/SandboxClient --world ecosystem_small --rhi-debug
+```
+
+```text
+[ ] 구성 로그에 "셰이더" 경고가 없다 (dxc · MSL 켬). 빌드 오류 · 경고가 있으면 로그 전체를 보고
+[ ] render_tests_metal 통과 — 실패하면 out_metal/ 의 *.actual.png · *.diff.png 와 콘솔 전체를 보고.
+    MTL_DEBUG_LAYER 가 멈추면(assert) 그 메시지 그대로 (어느 setVertex* · draw* 인지가 나온다)
+[ ] 시작 로그 "Metal: <GPU 이름> · 작업 메모리 … MB · 프레임 2 · API 검증 켬", "스왑체인 3200×1800 BGRA8Unorm · drawable 3"
+[ ] 월드가 Windows(D3D12) · Linux(Vulkan) 와 같은 모양: 지형 · 스프라이트 · 격자 · 선택 상자 · ImGui 패널 (위아래 · 좌우가
+    뒤집히지 않는다, 반투명 패널 색이 같다). 제목 줄 "Metal 60 fps VSync 켬"
+[ ] 창 크기 조절 · 최소화 · 복원 · 다른 배율 모니터로 옮기기: 늘어나거나 흐려지지 않는다 (drawableSize = 픽셀)
+[ ] --vsync off: fps 가 오른다. --frames-in-flight 3: 시작 로그 "drawable 3", 끊김 없음
+[ ] 1분 돌리고 ⌘Q: 종료 로그에 "해제되지 않은" 경고 없음, debug 오류 0 (제목 줄 · 패널의 "Metal 경고 0 오류 0")
+[ ] (Intel · AMD Mac 이 있으면) 같은 항목 — Metal 3 가 아닌 GPU 는 "Metal 3 를 지원하지 않습니다" 후 렌더러 없이 창만
 ```
 
 ## Phase 10~12 — 네트워크·에디터

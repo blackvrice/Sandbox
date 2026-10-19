@@ -125,10 +125,12 @@
 | `render/dx12/Dx12Device.{hpp,cpp}`                                                                          | D3D12 디바이스·어댑터 선택·큐/펜스·리소스·RTV·업로드 링·프레임·Debug Layer·DRED                                                                                     | SandboxRender (WIN32)       |
 | `render/dx12/Dx12CommandList.cpp`, `Dx12SwapChain.cpp`                                                      | 커맨드 리스트(배리어·Clear·복사·마커 + 7B 파이프라인·바인드 그룹·push·정점/인덱스·draw), 플립 모델 스왑체인                                                         | SandboxRender (WIN32)       |
 | `render/dx12/Dx12Pipeline.cpp`                                                                              | 셰이더·샘플러·shader-visible 힙·바인드 그룹·루트 시그니처 캐시·PSO (7B, ADR-0019)                                                                                   | SandboxRender (WIN32)       |
-| `render/rhi/RenderDeviceFactory.cpp`, `Backends.hpp`                                                        | 백엔드 고르기 (Auto = D3D12 → Vulkan, 빌드에 없으면 Unsupported), 백엔드 생성 함수 선언 (13A — render/stub 을 대신)                                                 | SandboxRender               |
+| `render/rhi/RenderDeviceFactory.cpp`, `Backends.hpp`                                                        | 백엔드 고르기 (Auto = D3D12 → Vulkan → Metal, 빌드에 없으면 Unsupported), 백엔드 생성 함수 선언 (13A · 14C)                                                         | SandboxRender               |
 | `render/vulkan/VulkanCommon.{hpp,cpp}`                                                                      | volk include, VkResult 문장, Format · 상태 → (단계 · 접근 · 레이아웃) · 디스크립터 매핑 (vulkan.h 는 render/vulkan 안에서만, 13A)                                   | SandboxRender (Vulkan)      |
 | `render/vulkan/VulkanDevice.{hpp,cpp}`                                                                      | 인스턴스 · Validation · 장치 고르기 · 타임라인 큐 · 메모리 · 버퍼/텍스처 · 업로드 링 · 프레임 · 타임스탬프 (ADR-0032)                                               | SandboxRender (Vulkan)      |
 | `render/vulkan/VulkanPipeline.cpp`, `VulkanCommandList.cpp`, `VulkanSwapChain.cpp`                          | 셰이더 · 샘플러 · 세트/파이프라인 레이아웃 캐시 · 바인드 그룹 · dynamic rendering 파이프라인, 커맨드 풀 · 배리어 · 그리기, Win32 표면 스왑체인                      | SandboxRender (Vulkan)      |
+| `render/metal/MetalDevice.hpp`, `MetalDevice.mm`                                                            | (14C, macOS · 검증 대기) 내부 헤더(ObjC++ 전용) · 장치(Metal 3) · 공유 이벤트 큐 · Private/Shared 메모리 · 버퍼/텍스처(뷰) · 업로드 링 · 프레임 (ADR-0037)          | SandboxRender (Metal)       |
+| `render/metal/MetalPipeline.mm`, `MetalCommandList.mm`, `MetalSwapChain.mm`                                 | MSL 실행 중 컴파일 · 샘플러 · 바인드 그룹(리소스 목록) · 파이프라인(번호 표), 인코더 · 기억한 상태를 draw 때 묶기, CAMetalLayer 스왑체인                            | SandboxRender (Metal)       |
 | `render/asset/Image.{hpp,cpp}`, `StbImpl.cpp`                                                               | RGBA8 이미지, PNG 읽기·쓰기(stb), 비교·차이 그림                                                                                                                    | SandboxRender               |
 | `render/asset/AssetManager.{hpp,cpp}`, `ShelfPacker.hpp`, `AssetId.hpp`                                     | 스프라이트 에셋: Worker 디코드 · 업로드 예산 · Texture2DArray 아틀라스 선반 패킹 · 자리 표시, 경로 정규화 id (8A, ADR-0020)                                         | SandboxRender               |
 | `render/asset/MaterialLibrary.{hpp,cpp}`                                                                    | 머티리얼 이름 → 스프라이트 · 색 (`assets/<팩>/materials.json`), 대체 색 (8A)                                                                                        | SandboxRender               |
@@ -278,7 +280,7 @@ render/
   dx12/         Dx12Device, Dx12CommandList, Dx12SwapChain, Dx12Common (7A) · Dx12Pipeline (7B)  (WIN32)
   rhi/          (13A) RenderDeviceFactory · Backends — 빌드에 든 백엔드에서 고른다 (stub/ 은 지웠다)
   vulkan/       (13A) VulkanDevice, VulkanCommandList, VulkanSwapChain, VulkanPipeline, VulkanCommon  (SBX_ENABLE_VULKAN — ADR-0032)
-  metal/        MetalDevice.hpp + *.mm  (APPLE)
+  metal/        (14C) MetalDevice(.hpp 내부 · .mm), MetalPipeline, MetalCommandList, MetalSwapChain  (SBX_ENABLE_METAL — ADR-0037)
   renderer/     Renderer, RenderWorld, RenderQueue, Passes/, SpriteBatcher, Camera2D, DebugDraw, ImGuiRenderer
   renderer/     (8A) Camera2D, RenderWorld, SpriteBatcher, Renderer
   imgui/        (8C) ImGuiRenderer — 1.92 동적 텍스처, RHI 위 (ADR-0023)
@@ -329,5 +331,6 @@ apps/server/
 | 화면 패널 (ImGui)           | `apps/client/ui/DebugPanels.cpp` → `Application.cpp` (`applyPanelActions`) · `render/imgui/ImGuiRenderer.cpp`   |
 | D3D12 디바이스 생성         | `render/dx12/Dx12Device.cpp`                                                                                    |
 | Vulkan 디바이스 생성        | `render/vulkan/VulkanDevice.cpp` (백엔드 고르기는 `render/rhi/RenderDeviceFactory.cpp`)                         |
+| Metal 디바이스 생성         | `render/metal/MetalDevice.mm` (`MetalDevice::init` — 14C, macOS 검증 대기)                                      |
 | 창 메시지 처리              | `Win32Window.cpp` · `X11Window.cpp` (`handle`) · `WaylandWindow.cpp` (`Listeners`) — platform/<os>/             |
 | 콘텐츠 검증 규칙            | `core/content/Validator.cpp` + [11](11-CONTENT-SCHEMA.md) 8장                                                   |
