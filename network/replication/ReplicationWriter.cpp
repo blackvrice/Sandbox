@@ -1,6 +1,7 @@
 #include "network/replication/ReplicationWriter.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <optional>
@@ -154,10 +155,44 @@ void ReplicationWriter::computeView(Client& c, const sim::SimulationWorld& world
     }
     c.stats.relevantChunks = static_cast<usize>(std::count(v.chunks.begin(), v.chunks.end(), u8{1}));
 
+    // 관심 = 위치 없음 ∪ 관심 청크 안 ∪ 늘 보낼 것 (netId 순). (15B) 청크별 목록에서 모아 정렬한다 — 월드 전체를 훑던
+    // 것과 같은 집합 · 같은 순서
     m_relevant.clear();
-    for (const Current& cur : m_current) {
-        if (!cur.positioned || v.contains(cur.chunk) || std::ranges::binary_search(c.always, cur.netId)) {
-            m_relevant.push_back(cur);
+    if (c.interest.all) {
+        m_relevant = m_current; // 월드 경계 안 청크가 모두 관심. 경계 밖 위치는 늘 보낼 것이 아니면 뺀다 (원래 판정)
+        if (!m_unplaced.empty()) {
+            std::erase_if(m_relevant, [&](const Current& cur) {
+                return cur.positioned && !v.contains(cur.chunk) && !std::ranges::binary_search(c.always, cur.netId);
+            });
+        }
+    } else {
+        m_pick.clear();
+        const i32 cw = m_collectBounds.maxChunk.x - m_collectBounds.minChunk.x + 1;
+        for (usize s = 0; s + 1 < m_chunkStart.size(); ++s) {
+            const world::ChunkCoord cc{m_collectBounds.minChunk.x + static_cast<i32>(s % static_cast<usize>(cw)),
+                                       m_collectBounds.minChunk.y + static_cast<i32>(s / static_cast<usize>(cw))};
+            if (m_chunkStart[s] != m_chunkStart[s + 1] && v.contains(cc)) {
+                m_pick.insert(m_pick.end(), m_chunkItems.begin() + m_chunkStart[s],
+                              m_chunkItems.begin() + m_chunkStart[s + 1]);
+            }
+        }
+        for (const u32 k : m_unplaced) {
+            const Current& cur = m_current[k];
+            if (!cur.positioned || v.contains(cur.chunk) || std::ranges::binary_search(c.always, cur.netId)) {
+                m_pick.push_back(k);
+            }
+        }
+        for (const NetEntityId id : c.always) {
+            const auto it = std::ranges::lower_bound(m_current, id, {}, &Current::netId);
+            if (it != m_current.end() && it->netId == id) {
+                m_pick.push_back(it->index);
+            }
+        }
+        std::ranges::sort(m_pick);
+        m_pick.erase(std::unique(m_pick.begin(), m_pick.end()), m_pick.end());
+        m_relevant.reserve(m_pick.size());
+        for (const u32 k : m_pick) {
+            m_relevant.push_back(m_current[k]);
         }
     }
     c.stats.relevant = m_relevant.size();
@@ -195,18 +230,22 @@ void ReplicationWriter::collect(const sim::SimulationWorld& world) {
     for (usize i = 0; i < m_table.size(); ++i) {
         m_pools[i] = reg.poolByStableId(m_table[i]);
     }
+    // (15B) 복제 컴포넌트 mask 를 엔티티 index 표로 — 엔티티마다 풀 수만큼 contains 를 묻던 것을 풀마다 한 번 훑기로
+    m_maskByIndex.assign(reg.slotCount(), 0);
+    for (usize i = 0; i < m_pools.size(); ++i) {
+        if (m_pools[i] != nullptr) {
+            for (const ecs::EntityId e : m_pools[i]->entities()) {
+                m_maskByIndex[e.index()] |= u64{1} << i;
+            }
+        }
+    }
     if (const auto* idPool = reg.poolByStableId(ecs::stableIdOf<comp::NetIdentity>)) {
         for (const ecs::EntityId e : idPool->entities()) {
             const auto* id = reg.tryRead<comp::NetIdentity>(e);
             if (id == nullptr || id->netId == kInvalidNetEntityId) {
                 continue;
             }
-            u64 mask = 0;
-            for (usize i = 0; i < m_pools.size(); ++i) {
-                if (m_pools[i] != nullptr && m_pools[i]->contains(e)) {
-                    mask |= u64{1} << i;
-                }
-            }
+            const u64 mask = m_maskByIndex[e.index()];
             Current cur{id->netId, e, mask, {}, {}, false};
             if (const auto* t = reg.tryRead<comp::Transform>(e)) {
                 cur.position = t->position;
@@ -217,10 +256,84 @@ void ReplicationWriter::collect(const sim::SimulationWorld& world) {
             m_current.push_back(cur);
         }
     }
-    // 풀 순서는 대개 생성 순서 = netId 순서라 이미 정렬돼 있다 — 확인만 하고 넘어간다
+    // 풀 순서는 생성 순서 = netId 순서에서 시작하지만 파괴(맨 끝과 바꿔 지우기)가 섞는다. (15B) 비교 정렬(48 바이트 항목)
+    // 대신 netId 기수 정렬(11 비트씩, 모두 같은 자리는 건너뜀) 로 번호를 정렬한 뒤 한 번 옮긴다. netId 는 유일 — 결과는
+    // 비교 정렬과 같다
     const auto byNetId = [](const Current& a, const Current& b) { return a.netId < b.netId; };
     if (!std::is_sorted(m_current.begin(), m_current.end(), byNetId)) {
-        std::sort(m_current.begin(), m_current.end(), byNetId);
+        const usize n = m_current.size();
+        std::vector<u32> order(n);
+        std::vector<u32> tmp(n);
+        for (usize k = 0; k < n; ++k) {
+            order[k] = static_cast<u32>(k);
+        }
+        constexpr u32 kBits = 11;
+        constexpr u32 kBuckets = 1u << kBits;
+        std::vector<u32> count(kBuckets);
+        for (u32 shift = 0; shift < 64; shift += kBits) {
+            std::fill(count.begin(), count.end(), 0u);
+            for (const Current& cur : m_current) {
+                ++count[(u64{cur.netId} >> shift) & (kBuckets - 1)];
+            }
+            if (std::ranges::find(count, static_cast<u32>(n)) != count.end()) {
+                continue; // 이 자리는 모두 같다
+            }
+            u32 sum = 0;
+            for (u32& c : count) {
+                const u32 v = c;
+                c = sum;
+                sum += v;
+            }
+            for (const u32 k : order) {
+                tmp[count[(u64{m_current[k].netId} >> shift) & (kBuckets - 1)]++] = k;
+            }
+            order.swap(tmp);
+        }
+        std::vector<Current> sorted;
+        sorted.reserve(n);
+        for (const u32 k : order) {
+            sorted.push_back(m_current[k]);
+        }
+        m_current.swap(sorted);
+    }
+    // (15B) 번호 · 청크별 목록 (카운팅 정렬 — 청크 안에서도 netId 오름차순)
+    const world::GridBounds b = world.grid().bounds();
+    m_collectBounds = b;
+    const i32 w = b.maxChunk.x - b.minChunk.x + 1;
+    const i32 h = b.maxChunk.y - b.minChunk.y + 1;
+    const usize chunks = static_cast<usize>(w) * static_cast<usize>(h);
+    const auto chunkSlot = [&](const Current& cur) -> i64 {
+        if (!cur.positioned || cur.chunk.x < b.minChunk.x || cur.chunk.y < b.minChunk.y || cur.chunk.x > b.maxChunk.x ||
+            cur.chunk.y > b.maxChunk.y) {
+            return -1;
+        }
+        return static_cast<i64>(cur.chunk.y - b.minChunk.y) * w + (cur.chunk.x - b.minChunk.x);
+    };
+    m_chunkStart.assign(chunks + 1, 0u);
+    m_unplaced.clear();
+    for (usize k = 0; k < m_current.size(); ++k) {
+        m_current[k].index = static_cast<u32>(k);
+        if (const i64 s = chunkSlot(m_current[k]); s >= 0) {
+            ++m_chunkStart[static_cast<usize>(s) + 1];
+        } else {
+            m_unplaced.push_back(static_cast<u32>(k));
+        }
+    }
+    for (usize c = 0; c < chunks; ++c) {
+        m_chunkStart[c + 1] += m_chunkStart[c];
+    }
+    m_chunkItems.resize(m_chunkStart[chunks]);
+    std::vector<u32> cursor(m_chunkStart.begin(), m_chunkStart.end() - 1);
+    for (usize k = 0; k < m_current.size(); ++k) {
+        if (const i64 s = chunkSlot(m_current[k]); s >= 0) {
+            m_chunkItems[cursor[static_cast<usize>(s)]++] = static_cast<u32>(k);
+        }
+    }
+    // (15B) 인코딩 캐시: 세대만 올리면 지난 build 의 칸은 모두 무효
+    ++m_buildGen;
+    m_encodeArena.clear();
+    if (m_encoded.size() < m_current.size() * m_pools.size()) {
+        m_encoded.resize(m_current.size() * m_pools.size());
     }
 }
 
@@ -431,6 +544,7 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
         es.spawn = d.kind == Kind::Spawn;
         es.mask = cur.mask;
         const u64 send = es.spawn ? cur.mask : d.changed;
+        es.components.reserve(static_cast<usize>(std::popcount(send)));
         usize size = 8;
         for (usize i = 0; i < m_pools.size(); ++i) {
             if ((send & (u64{1} << i)) == 0) {
@@ -438,7 +552,15 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
             }
             ReplicatedComponent rc;
             rc.index = static_cast<u8>(i);
-            m_infos[i]->writeBinary(m_pools[i]->getRaw(cur.entity), rc.bytes, &refs);
+            // (15B) 이번 build 에서 처음이면 인코딩해 두고, 아니면 다른 클라이언트가 만든 바이트를 그대로
+            Encoded& enc = m_encoded[static_cast<usize>(cur.index) * m_pools.size() + i];
+            if (enc.gen != m_buildGen) {
+                enc.gen = m_buildGen;
+                enc.offset = static_cast<u32>(m_encodeArena.size());
+                m_infos[i]->writeBinary(m_pools[i]->getRaw(cur.entity), m_encodeArena, &refs);
+                enc.size = static_cast<u32>(m_encodeArena.size() - enc.offset);
+            }
+            rc.bytes.assign(m_encodeArena.begin() + enc.offset, m_encodeArena.begin() + enc.offset + enc.size);
             size += rc.bytes.size() + 2;
             es.components.push_back(std::move(rc));
         }
@@ -469,6 +591,7 @@ Snapshot ReplicationWriter::buildFor(Client& c, const sim::SimulationWorld& worl
     SnapshotRecord rec;
     rec.id = s.snapshotId;
     rec.entities.reserve(n);
+    s.entities.reserve(static_cast<usize>(std::ranges::count_if(encoded, [](const auto& e) { return e.has_value(); })));
     for (usize k = 0; k < n; ++k) {
         const Current& cur = m_relevant[k];
         const Decision& d = decisions[k];

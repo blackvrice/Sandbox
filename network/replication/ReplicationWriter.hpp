@@ -26,7 +26,10 @@
 // 지형: 관심 청크 중 revision 이 이 클라이언트에 마지막으로 보낸 것과 다른 것만 TerrainChunk (Bulk — 신뢰 채널이라
 // 보낸 것으로 친다). 관심에서 빠진 청크는 클라이언트가 계속 들고 있다 (같은 revision 이면 다시 안 보낸다 — 11.3).
 // 한 번에 상한, 중심에서 가까운 것부터.
-// [계획] 양자화, 필드 단위 마스크, Event 복제, 여러 클라이언트에 같은 컴포넌트 바이트 재사용.
+// (15B) 한 build 안에서 같은 엔티티 · 컴포넌트의 바이트는 한 번만 인코딩해 클라이언트들이 나눠 쓴다 (값 · netId 변환이
+// 클라이언트와 무관하다). 관심 엔티티는 청크별 목록(collect 가 한 번 만든다)에서 모은다 — 클라이언트마다 월드 전체를
+// 훑지 않는다.
+// [계획] 양자화, 필드 단위 마스크, Event 복제.
 
 #include <deque>
 #include <map>
@@ -123,6 +126,13 @@ private:
         Vec2 position;           // core.transform (없으면 positioned = false)
         world::ChunkCoord chunk; // position 의 청크
         bool positioned;
+        u32 index = 0; // m_current 안의 번호 (netId 순) — 인코딩 캐시의 키
+    };
+    // (15B) 이번 build 의 인코딩 캐시 칸 — gen 이 m_buildGen 이면 m_encodeArena[offset, offset + size) 가 그 값
+    struct Encoded {
+        u64 gen = 0;
+        u32 offset = 0;
+        u32 size = 0;
     };
     // 이번 build 의 관심 (클라이언트마다 다시 계산)
     struct View {
@@ -150,6 +160,17 @@ private:
     // 지금 클라이언트의 관심 엔티티 (m_current 의 부분, netId 오름차순)와 관심 청크
     std::vector<Current> m_relevant;
     View m_view;
+    // (15B) collect 가 만드는 청크별 목록: 월드 경계 안 청크마다 m_current 번호 (오름차순). 위치 없음 · 경계 밖은 따로
+    std::vector<u32> m_chunkStart; // 청크 수 + 1
+    std::vector<u32> m_chunkItems;
+    std::vector<u32> m_unplaced;    // 위치가 없거나 경계 밖 (경계 밖은 관심 청크에 들 수 없다 — 원래 판정과 같다)
+    std::vector<u32> m_pick;        // computeView 의 임시 목록
+    std::vector<u64> m_maskByIndex; // collect 의 임시 표: 엔티티 index → 복제 컴포넌트 mask
+    world::GridBounds m_collectBounds;
+    // (15B) 인코딩 캐시 (m_current 번호 × 복제 컴포넌트 칸)
+    std::vector<Encoded> m_encoded;
+    std::vector<u8> m_encodeArena;
+    u64 m_buildGen = 0;
     f64 m_collectMs = 0;
 };
 
