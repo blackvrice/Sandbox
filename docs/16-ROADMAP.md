@@ -1,6 +1,8 @@
 # 16. 로드맵
 
 > **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-07 (Phase 8A 반영).
+> **Phase 0~15 = 플랫폼 v0.1.** 그 뒤의 계획 · 진행은 [18-PLATFORM](18-PLATFORM.md) 에서 버전 · 마일스톤 · 태스크로
+> ([ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md)). 이 문서는 Phase 이력과 남은 Phase 검증을 맡는다.
 
 ---
 
@@ -33,6 +35,9 @@ Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에�
 Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트, 13C Wayland · --platform · Linux CI (2026-10-13) — Phase 13 구현 완료, CI 첫 실행 · 사용자 PC QA 대기
 Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL 경로 · Metal 번호 규칙 (2026-10-14), 14B Cocoa 창 · 14C Metal 백엔드 (2026-10-19) — Phase 14 구현 완료 · macOS 검증 대기 (CI macOS 잡 · Mac QA)
 Phase 15  Optimization (측정 기반)                     ← 15A 시뮬레이션 50k · 15B 스냅숏 (2026-10-19, ADR-0038) — 결과가 같은 최적화, 50k 완료 판정은 사용자 PC 측정 대기
+──────── Phase 0~15 = v0.1 Engine Foundation. 이후 (ADR-0039, 18-PLATFORM):
+v0.2 Game Creator → v0.3 SandboxScript → v0.4 Package Manager → v0.5 Creator Alpha → v0.6 Hub → v0.7 Multiplayer Platform
+→ v0.8 Marketplace & Hosting → v0.9 Business → v1.0 GA          ← v0.2 M1 진행 중 (2026-10-19)
 ```
 
 순서의 이유:
@@ -708,15 +713,16 @@ CI 의 macOS 잡과 MANUAL-QA 14B · 14C 가 통과하면 ✅ 로 바꾼다.
 | R11 | macOS 하드웨어·CI 접근                   | 중     | 중   | Apple Silicon CI 러너, 실기 확인은 마일스톤만                                |
 | R12 | Wayland 복잡도                           | 높음   | 낮음 | X11 먼저, libdecor, 대안 SDL3 백엔드 (ADR-0005 대안)                         |
 | R13 | 원격 편집 체감 지연                      | 중     | 중   | EditPreview, 로컬 서버는 지연 0                                              |
-| R14 | 콘텐츠 표현력 부족                       | 높음   | 중   | 요구 3건 누적 시 스크립팅 검토 (03 6.4)                                      |
+| R14 | 콘텐츠 표현력 부족                       | 높음   | 중   | v0.2 Native Feature · Visual Trigger, v0.3 SandboxScript (ADR-0039)          |
 | R15 | ImGui 자체 렌더러 유지비                 | 낮음   | 낮음 | 폴백: 공식 dx12 백엔드 래핑 (ADR-0008)                                       |
 
 ## 6. 범위 밖 (의도적)
 
 ```text
-3D 렌더링 · 스크립팅 언어 · 클라이언트 게임플레이 예측 · 공개 인터넷 서버 운영(암호화·계정)
-· 워크샵/월드 공유 플랫폼 · 무한 월드 스트리밍 · 모바일/웹
+3D 렌더링 · 클라이언트 게임플레이 예측 · 무한 월드 스트리밍 · 모바일/웹
 → 설계는 막지 않는다. 필요해지면 ADR 로 범위에 넣는다.
+ADR-0039 로 범위에 들어옴 (시점은 18-PLATFORM): 스크립팅 언어 (v0.3, TypeScript 부분집합 VM) · 월드/게임 공유 (v0.4~v0.6)
+· 공개 인터넷 서버 운영 — 암호화 · 계정 (v0.7, 보안 전송 ADR 먼저)
 ```
 
 ## 7. 열린 질문

@@ -33,7 +33,10 @@ Ecosystem, Colony, City, Traffic, Factory, Battle 같은 시뮬레이션을 **�
 > 완료 · macOS 검증 대기**입니다 (CI 의 macOS 잡 · Mac 의 MANUAL-QA 14B · 14C 가 통과하면 완료). Phase 15 (최적화)는 50k 생태계
 > 시나리오를 만들어 재고, 결과가 비트 단위로 같은 최적화만 했습니다 — 태그 종류별 공간 색인 · 행동 병렬 · Prefab 템플릿 ·
 > 스냅숏 인코딩 공유로 50k 틱이 2코어에서 약 37 % 줄었고(46.6 → 29.6 ms), 50k < 10 ms 판정은 사용자 PC 측정을 기다립니다.
-> 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md).
+> **이제 Phase 0~15 = 플랫폼 v0.1** 입니다: 이 엔진 · 에디터를 바탕으로 비개발자 게임 제작(v0.2 Game Creator) → 스크립트 SDK(v0.3)
+> → 패키지(v0.4) → 공유 · Hub · 방 · 호스팅 · 마켓(v0.5~v1.0)으로 넓힙니다 ([ADR-0039](docs/adr/0039-platform-scope-version-line-after-phase-15.md),
+> 계획과 현황은 [docs/18-PLATFORM.md](docs/18-PLATFORM.md)).
+> 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다. 진행 상황은 [docs/16-ROADMAP.md](docs/16-ROADMAP.md) · [docs/18-PLATFORM.md](docs/18-PLATFORM.md).
 
 ---
 
@@ -69,6 +72,7 @@ AI 에이전트는 [AGENTS.md](AGENTS.md)를 먼저 따릅니다.
 | 무엇을 왜 만드나           | [00-OVERVIEW](docs/00-OVERVIEW.md)                                 |
 | 전체 구조와 의존성         | [01-ARCHITECTURE](docs/01-ARCHITECTURE.md)                         |
 | 다음에 할 일               | [16-ROADMAP](docs/16-ROADMAP.md)                                   |
+| 플랫폼 버전 계획 · 현황    | [18-PLATFORM](docs/18-PLATFORM.md)                                 |
 | 빌드 방법                  | [15-BUILD](docs/15-BUILD.md)                                       |
 | 원본 설계서 (Phase 0 입력) | [design/SANDBOX_ARCHITECTURE](docs/design/SANDBOX_ARCHITECTURE.md) |
 

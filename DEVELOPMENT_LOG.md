@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-19 — 플랫폼 범위 · 버전 줄 (ADR-0039), 18-PLATFORM 통합 계획, 설계 초안 원본 (docs/platform/)
+
+**무엇을**
+
+- 사용자의 플랫폼 설계 초안(2026-10-13, 28 문서)을 `docs/platform/` 에 원본 그대로 (동결 · 비규범).
+- ADR-0039: 제품 = Sandbox Platform (Engine + Game Creator + SandboxScript + Package Manager + Hub + Cloud + Marketplace).
+  Phase 0~15 = v0.1 Engine Foundation, 이후 작업 단위는 "v0.N Mk-Tn". 스크립팅은 v0.3 TypeScript 부분집합 → 자체 VM (Lua · WASM
+  후보에서 뺌), 공개 인터넷은 v0.7 전 보안 전송 ADR, 결제 · 호스팅은 v0.8. 바뀌지 않는 것(서버 권위 · 30 TPS · 결정론 · 경계 ·
+  3 백엔드)을 명시.
+- 18-PLATFORM (새 계획 문서): 버전 줄 · v0.1 의 열린 항목 · 초안 대비 현황 표(Implemented / Partial / Planned — 소스 · 시험
+  근거) · 모듈 계획 · 버전 규칙 · v0.2 마일스톤 M1~M6 과 태스크 · 열린 결정 D-01~D-11 · 문서/ADR 계획 · 기준선.
+- 00 (1장 플랫폼 문단, 7장 스크립팅 비목표), 03 6.4 (언어 후보), 16 (머리말 · 2장 버전 줄 · 6장 범위 밖 · R14), docs/README
+  (지도 · 읽는 순서), adr/README, README.
+
+**왜**
+
+- 새 방향이 기존 규범과 6 군데 부딪혔다 (00 비목표 · 16 범위 밖 · 03 6.4 언어 후보 · ADR-0011 명시 등록 · R6 평문 ENet ·
+  Phase/버전 번호). 한쪽을 조용히 무시하지 않고 ADR 로 처리 방법과 시점을 정했다.
+- 초안의 "현행 구현"은 2026-10-13 기준이라 그 뒤의 13A~15 가 빠져 있다 — 현황 표는 2026-10-19 소스 · 시험으로 다시 썼다.
+
+**검증**
+
+- 문서만 바꿨다. 기준선: master f4a72c1 (= GitHub master, git ls-remote) Linux clang 19 Debug -Werror ctest 51/51 통과.
+- 표 정렬 (열 폭 유지), 링크 대상 파일 존재 확인.
+
+**남은 일**
+
+- v0.2 M1-T1 (다음 커밋): GameProject 매니페스트 · SemVer · 프로젝트 검사.
+- v0.1 열린 항목: 사용자 PC 실기 QA · 50k 판정, CI 결과, macOS.
+
+---
+
 ## 2026-10-19 — Phase 15A · 15B: 50k 시나리오, 결과가 같은 최적화 — 태그 종류 색인 · 행동 병렬 · Prefab 템플릿 · 스냅숏 공유
 
 **무엇을**

@@ -10,6 +10,11 @@
 **대규모 ECS 시뮬레이션 + 샌드박스 에디터 + 멀티플레이 + 네이티브 그래픽 API를 하나의 일관된 구조로
 갖춘, 장르에 종속되지 않는 시뮬레이션 메이커.**
 
+v0.1 (Phase 0~15) 이후 이 시뮬레이션 메이커는 **게임 제작 · 배포 플랫폼(Sandbox Platform)의 Engine · Editor 층**이 됩니다:
+비개발자의 게임 제작(v0.2) → 스크립트 SDK(v0.3) → 패키지(v0.4) → 공유 · Hub · 방 · 호스팅 · 마켓(v0.5~v1.0).
+범위와 버전 줄은 [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md), 계획과 현황은 [18-PLATFORM](18-PLATFORM.md).
+아래 원칙(서버 권위 · 30 TPS · 결정론 · 경계)은 플랫폼에서도 그대로입니다.
+
 ## 2. 사용자 흐름
 
 ```text
@@ -100,7 +105,8 @@ RTS 저장소는 수정하지 않습니다. 상세 분석은 [design/SANDBOX_ARC
 - 범용 3D 게임 엔진. 2D 시뮬레이션이 1차 목표다. (RHI·좌표계는 3D 를 막지 않는다)
 - 기기 간 bit 단위 결정론. 서버 권한 구조라 필요 없다. (ADR-0004)
 - Lockstep 멀티플레이. (ADR-0003)
-- 초기 스크립팅 언어(Lua/WASM). Rule op + FSM 데이터로 시작한다. 확장 기준은 03-SIMULATION 6.4.
+- 초기 스크립팅 언어. Rule op + FSM 데이터로 시작한다 (v0.2 까지). v0.3 에서 TypeScript 부분집합 → 자체 바이트코드 VM 으로
+  넣는다 — Lua · WASM 은 쓰지 않는다 (ADR-0039).
 - 처음부터 Render Graph / Archetype ECS / 병렬 스케줄러. 측정 후 도입한다.
 - OpenGL, SFML.
 - 클라이언트 측 게임플레이 예측. 에디터 프리뷰만 예외 (10-EDITOR 6장).

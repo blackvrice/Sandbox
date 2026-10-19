@@ -351,8 +351,9 @@ Stage 11 ResolveIntents:
 
 ### 6.4 표현력 확장 기준
 
-Rule op + FSM으로 표현할 수 없는 콘텐츠 요구가 **3건 누적**되면 Rule Graph / Lua / WASM 도입을 ADR로 검토합니다.
-그 전에는 op를 추가하는 것으로 대응합니다.
+Rule op + FSM으로 표현할 수 없는 콘텐츠 요구는 op · Native Feature 를 추가하는 것으로 대응합니다 (v0.2 Game Creator 까지).
+스크립트 언어는 v0.3 SandboxScript — TypeScript 문법 부분집합 → 자체 바이트코드 VM 으로 정했습니다 ([ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md),
+Lua · WASM 은 후보에서 뺌). 그 전까지 이 장의 원칙(새 표현력은 데이터 + Native op)은 그대로입니다.
 
 ---
 
