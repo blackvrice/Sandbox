@@ -148,8 +148,8 @@ public:
     virtual void waitIdle() = 0;
 };
 
-// 이 빌드에 들어 있는 백엔드로 디바이스를 만든다. Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan — ADR-0032).
-// 빌드에 없는 백엔드(macOS Metal 은 Phase 14)는 Unsupported. 로더 · 드라이버가 없어도 Unsupported (실행 파일은 뜬다).
+// 이 빌드에 들어 있는 백엔드로 디바이스를 만든다. Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan — ADR-0032,
+// macOS: Metal — ADR-0037). 빌드에 없는 백엔드는 Unsupported. 로더 · 드라이버가 없어도 Unsupported (실행 파일은 뜬다).
 [[nodiscard]] Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& desc);
 // 이 빌드의 기본 백엔드 (없으면 Auto)
 [[nodiscard]] BackendType defaultBackend() noexcept;

@@ -9,13 +9,18 @@ option(SBX_BUILD_BENCH          "sbx_bench 벤치마크 빌드 (docs/14-PERFORMA
 option(SBX_WARNINGS_AS_ERRORS   "경고를 에러로 (CI 에서 ON)"                            OFF)
 
 # 렌더 백엔드 (docs/06-RENDERING.md 5장, ADR-0032). D3D12 는 Windows 에서 언제나. Vulkan 은 Linux 기본, Windows 는 켜서
-# D3D12 와 함께 빌드한다 (--rhi vulkan 으로 고른다 — 같은 기준 이미지로 두 백엔드를 비교). macOS 는 Metal (Phase 14).
+# D3D12 와 함께 빌드한다 (--rhi vulkan 으로 고른다 — 같은 기준 이미지로 두 백엔드를 비교). macOS 는 Metal (14C, ADR-0037).
 if(WIN32 OR APPLE)
     set(_sbx_vulkan_default OFF)
 else()
     set(_sbx_vulkan_default ON)
 endif()
 option(SBX_ENABLE_VULKAN        "Vulkan 렌더 백엔드 (render/vulkan — volk 로 로더를 실행 중에 연다)" ${_sbx_vulkan_default})
+if(APPLE)
+    option(SBX_ENABLE_METAL     "Metal 렌더 백엔드 (render/metal — Objective-C++, macOS 기본)"  ON)
+else()
+    set(SBX_ENABLE_METAL OFF)
+endif()
 
 # Linux 창 (docs/07-PLATFORM.md 6.2, ADR-0033). X11 은 Linux 기본 — libx11-dev (+ libxi-dev) 가 필요하다.
 # 끄면 X11 창 없이 (둘 다 끄면 SandboxClient --headless 만 — 서버 · 도구 빌드 머신용).

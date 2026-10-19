@@ -198,7 +198,7 @@ endif()
 if(TARGET SandboxClient)
     add_test(NAME client_version COMMAND SandboxClient --version)
     set_tests_properties(client_version PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|Cocoa|none), render (D3D12|Vulkan|none)")
+        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|Cocoa|none), render (D3D12|Vulkan|Metal|none)")
     add_test(NAME client_rejects_unknown_option COMMAND SandboxClient --no-such-option)
     set_tests_properties(client_rejects_unknown_option PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)

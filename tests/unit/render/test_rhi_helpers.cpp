@@ -210,7 +210,11 @@ TEST_SUITE("render") {
         CHECK_FALSE(parseBackend("").has_value());
 
         CHECK_FALSE(backendCompiled(BackendType::Auto));
-        CHECK_FALSE(backendCompiled(BackendType::Metal)); // Phase 14
+#if defined(SBX_HAS_METAL)
+        CHECK(backendCompiled(BackendType::Metal)); // 14C (macOS)
+#else
+        CHECK_FALSE(backendCompiled(BackendType::Metal));
+#endif
 #if defined(SBX_HAS_D3D12)
         CHECK(backendCompiled(BackendType::D3D12));
         CHECK(defaultBackend() == BackendType::D3D12);
@@ -224,6 +228,8 @@ TEST_SUITE("render") {
 #endif
 #if !defined(SBX_HAS_D3D12) && defined(SBX_HAS_VULKAN)
         CHECK(defaultBackend() == BackendType::Vulkan);
+#elif !defined(SBX_HAS_D3D12) && defined(SBX_HAS_METAL)
+        CHECK(defaultBackend() == BackendType::Metal);
 #elif !defined(SBX_HAS_D3D12) && !defined(SBX_HAS_VULKAN)
         CHECK(defaultBackend() == BackendType::Auto);
 #endif
@@ -231,11 +237,15 @@ TEST_SUITE("render") {
 
     TEST_CASE("render device factory: a backend missing from this build is Unsupported (no GPU touched)") {
         DeviceDesc d;
+#if !defined(SBX_HAS_METAL)
         d.backend = BackendType::Metal;
+#else
+        d.backend = BackendType::D3D12; // macOS 빌드에는 D3D12 가 없다
+#endif
         auto dev = createRenderDevice(d);
         REQUIRE_FALSE(dev.has_value());
         CHECK(dev.error().code == ErrorCode::Unsupported);
-#if !defined(SBX_HAS_D3D12) && !defined(SBX_HAS_VULKAN)
+#if !defined(SBX_HAS_D3D12) && !defined(SBX_HAS_VULKAN) && !defined(SBX_HAS_METAL)
         auto any = createRenderDevice({});
         REQUIRE_FALSE(any.has_value());
         CHECK(any.error().code == ErrorCode::Unsupported);

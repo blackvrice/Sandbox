@@ -288,12 +288,12 @@ TEST_SUITE("client") {
         // --rhi (13A): 이름은 백엔드 목록, 이 빌드에 없는 백엔드는 거절
         CHECK(fails({"--rhi"}));
         CHECK(fails({"--rhi", "opengl"}));
-        CHECK(fails({"--rhi", "metal"})); // Phase 14
         CHECK(parseClientOptions({}).value().rhi == rhi::BackendType::Auto);
         const std::vector<std::string_view> autoRhi{"--rhi", "auto"};
         CHECK(parseClientOptions(autoRhi).value().rhi == rhi::BackendType::Auto);
         for (const auto& [name, type] :
-             {std::pair{"vulkan", rhi::BackendType::Vulkan}, std::pair{"dx12", rhi::BackendType::D3D12}}) {
+             {std::pair{"vulkan", rhi::BackendType::Vulkan}, std::pair{"dx12", rhi::BackendType::D3D12},
+              std::pair{"metal", rhi::BackendType::Metal}}) {
             CAPTURE(name);
             const std::vector<std::string_view> v{"--rhi", name};
             const auto p = parseClientOptions(v);

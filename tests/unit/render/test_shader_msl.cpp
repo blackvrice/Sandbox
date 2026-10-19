@@ -1,5 +1,5 @@
 // Metal 번호 · MSL (Phase 14A, ADR-0035): 생성기가 매긴 ReflectedBinding::metalIndex 와, SBX_SHADER_MSL 빌드면 내장한
-// MSL 소스가 그 번호를 쓰는지. MSL 을 Metal 로 컴파일하는 것은 macOS 에서만 (Metal 백엔드 — [계획] 14B).
+// MSL 소스가 그 번호를 쓰는지. MSL 을 Metal 로 컴파일하는 것은 macOS 에서만 (Metal 백엔드 14C — render_tests_metal).
 // docs/06-RENDERING.md 6장.
 #include <doctest/doctest.h>
 

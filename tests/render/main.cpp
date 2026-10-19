@@ -1,9 +1,11 @@
 // sbx_render_tests — GPU 기준 이미지·수명 테스트 (doctest). docs/06-RENDERING.md 14장, docs/13-TESTING.md.
 //
-//   sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references]
-//   [--references <dir>] [--out <dir>] [doctest 옵션…]
+//   sbx_render_tests [--rhi auto|dx12|vulkan|metal] [--warp] [--debug] [--gbv] [--fl11] [--update-references]
+//   [--references <dir>] [--out <dir>] [--skip-unsupported] [doctest 옵션…]
 //
-// --warp 는 소프트웨어 어댑터: D3D12 WARP, Vulkan 은 CPU 디바이스(lavapipe). 기준 이미지는 백엔드가 같이 쓴다.
+// --warp 는 소프트웨어 어댑터: D3D12 WARP, Vulkan 은 CPU 디바이스(lavapipe). Metal 에는 없다 (기본 GPU). 기준 이미지는
+// 백엔드가 같이 쓴다. --skip-unsupported: 디바이스를 만들 수 없으면(Unsupported — GPU · 드라이버 없음) 77 로 끝낸다
+// (CTest SKIP_RETURN_CODE — macOS CI 의 가상 GPU 가 Metal 3 가 아닐 때).
 //
 // 끝에 공유 디바이스의 누수(살아 있는 버퍼·텍스처)와 Debug Layer 경고·오류를 검사한다 — 0 이 아니면 실패.
 #define DOCTEST_CONFIG_IMPLEMENT
@@ -137,12 +139,13 @@ int main(int argc, char** argv) {
     o.referenceDir = SBX_RENDER_REFERENCE_DIR;
     o.outputDir = "render_test_output";
     std::vector<char*> rest{argv[0]};
+    bool skipUnsupported = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view a = argv[i];
         if (a == "--rhi" && i + 1 < argc) {
             const auto b = rhi::parseBackend(argv[++i]);
             if (!b || (*b != rhi::BackendType::Auto && !rhi::backendCompiled(*b))) {
-                std::fprintf(stderr, "--rhi %s: 이 빌드에 없는 백엔드 (auto · dx12 · vulkan)\n", argv[i]);
+                std::fprintf(stderr, "--rhi %s: 이 빌드에 없는 백엔드 (auto · dx12 · vulkan · metal)\n", argv[i]);
                 return 2;
             }
             o.backend = *b;
@@ -154,6 +157,8 @@ int main(int argc, char** argv) {
             o.gpuValidation = true;
         } else if (a == "--fl11") {
             o.allowFeatureLevel11 = true; // Wine/vkd3d 시험용
+        } else if (a == "--skip-unsupported") {
+            skipUnsupported = true;
         } else if (a == "--update-references") {
             o.updateReferences = true;
         } else if ((a == "--references" || a == "--out") && i + 1 < argc) {
@@ -166,6 +171,10 @@ int main(int argc, char** argv) {
     auto dev = rhi::createRenderDevice(rendertest::deviceDesc());
     if (!dev) {
         std::fprintf(stderr, "렌더 디바이스를 만들 수 없습니다: %s\n", dev.error().describe().c_str());
+        if (skipUnsupported && dev.error().code == ErrorCode::Unsupported) {
+            std::fprintf(stderr, "--skip-unsupported: 건너뜀\n");
+            return 77;
+        }
         return 2;
     }
     rendertest::g_device = std::move(*dev);

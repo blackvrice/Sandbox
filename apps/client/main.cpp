@@ -63,7 +63,8 @@ int main(int argc, char** argv) {
         // render: 기본 백엔드 먼저, 이 빌드에 든 다른 백엔드는 괄호 (--rhi 로 고른다)
         const auto rb = sbx::rhi::defaultBackend();
         std::string render(rb == sbx::rhi::BackendType::Auto ? std::string_view("none") : sbx::rhi::backendName(rb));
-        for (const auto b : {sbx::rhi::BackendType::D3D12, sbx::rhi::BackendType::Vulkan}) {
+        for (const auto b :
+             {sbx::rhi::BackendType::D3D12, sbx::rhi::BackendType::Vulkan, sbx::rhi::BackendType::Metal}) {
             if (b != rb && sbx::rhi::backendCompiled(b)) {
                 render += std::format(" (+{})", sbx::rhi::backendName(b));
             }

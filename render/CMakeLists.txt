@@ -76,12 +76,32 @@ if(SBX_ENABLE_VULKAN)
                                     PROPERTIES COMPILE_OPTIONS -Wno-missing-field-initializers)
     endif()
 endif()
+# Metal (macOS 기본, 14C — ADR-0037). Objective-C++ (ARC). 셰이더는 생성 헤더의 MSL 을 실행 중에 컴파일한다 (SBX_SHADER_MSL).
+if(SBX_ENABLE_METAL)
+    enable_language(OBJCXX)
+    target_sources(SandboxRender PRIVATE
+        metal/MetalDevice.hpp
+        metal/MetalDevice.mm
+        metal/MetalPipeline.mm
+        metal/MetalCommandList.mm
+        metal/MetalSwapChain.mm)
+    set_source_files_properties(metal/MetalDevice.mm metal/MetalPipeline.mm metal/MetalCommandList.mm
+                                metal/MetalSwapChain.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(SandboxRender PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation"
+                                                "-framework CoreGraphics") # 창 없는 시험에서도 장치를 찾게
+    if(SBX_BUILD_SHADERS AND NOT SBX_SHADER_MSL)
+        message(WARNING "SBX_SHADER_MSL=OFF: 내장 셰이더에 MSL 이 없어 Metal 이 파이프라인을 만들지 못한다 (createShader 실패)")
+    endif()
+endif()
 # 이 빌드에 들어간 백엔드 (render/rhi/Backends.hpp · RenderDeviceFactory, 시험의 기대값 — PUBLIC)
 if(WIN32)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_D3D12=1)
 endif()
 if(SBX_ENABLE_VULKAN)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_VULKAN=1)
+endif()
+if(SBX_ENABLE_METAL)
+    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_METAL=1)
 endif()
 
 target_link_libraries(SandboxRender

@@ -1,5 +1,5 @@
 // createRenderDevice: 이 빌드에 들어간 백엔드 중에서 고른다. docs/06-RENDERING.md 3.3 · 5장, ADR-0032.
-//   Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan). 빌드에 없는 백엔드를 고르면 Unsupported.
+//   Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan, macOS: Metal). 빌드에 없는 백엔드를 고르면 Unsupported.
 #include <format>
 
 #include "render/rhi/Backends.hpp"
@@ -23,7 +23,11 @@ bool backendCompiled(BackendType b) noexcept {
         return false;
 #endif
     case BackendType::Metal:
+#if defined(SBX_HAS_METAL)
+        return true;
+#else
         return false;
+#endif
     }
     return false;
 }
@@ -33,6 +37,8 @@ BackendType defaultBackend() noexcept {
     return BackendType::D3D12;
 #elif defined(SBX_HAS_VULKAN)
     return BackendType::Vulkan;
+#elif defined(SBX_HAS_METAL)
+    return BackendType::Metal;
 #else
     return BackendType::Auto;
 #endif
@@ -59,12 +65,14 @@ Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& de
     if (want == BackendType::Auto) {
         return makeError(ErrorCode::Unsupported,
                          "이 빌드에는 렌더 백엔드가 없습니다 (Windows: D3D12, Linux: Vulkan — SBX_ENABLE_VULKAN, "
-                         "macOS Metal: Phase 14)");
+                         "macOS: Metal — SBX_ENABLE_METAL)");
     }
     if (!backendCompiled(want)) {
         return makeError(ErrorCode::Unsupported,
                          std::format("이 빌드에 {} 백엔드가 없습니다{}", backendName(want),
-                                     want == BackendType::Vulkan ? " (-D SBX_ENABLE_VULKAN=ON 으로 구성)" : ""));
+                                     want == BackendType::Vulkan  ? " (-D SBX_ENABLE_VULKAN=ON 으로 구성)"
+                                     : want == BackendType::Metal ? " (macOS 빌드만 — SBX_ENABLE_METAL)"
+                                                                  : ""));
     }
 #if defined(SBX_HAS_D3D12)
     if (want == BackendType::D3D12) {
@@ -74,6 +82,11 @@ Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& de
 #if defined(SBX_HAS_VULKAN)
     if (want == BackendType::Vulkan) {
         return vk::createDevice(desc);
+    }
+#endif
+#if defined(SBX_HAS_METAL)
+    if (want == BackendType::Metal) {
+        return metal::createDevice(desc);
     }
 #endif
     return makeError(ErrorCode::Unsupported, std::format("{} 백엔드를 만들 수 없습니다", backendName(want)));

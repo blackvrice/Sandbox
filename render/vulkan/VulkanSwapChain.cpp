@@ -263,7 +263,7 @@ private:
             return {};
         }
 #endif
-        return makeError(ErrorCode::Unsupported, "이 창 종류의 Vulkan 표면은 없습니다 ([계획] Metal — Phase 14)");
+        return makeError(ErrorCode::Unsupported, "이 창 종류의 Vulkan 표면은 없습니다 (macOS 는 Metal — --rhi metal)");
     }
 
     // 창의 지금 크기 — 표면이 정해 주지 않으면(0xFFFFFFFF) 요청 크기 · Win32 클라이언트 영역

@@ -35,3 +35,11 @@ if(SBX_ENABLE_VULKAN AND NOT WIN32)
                        "(Debian/Ubuntu: mesa-vulkan-drivers)")
     endif()
 endif()
+# Metal (macOS, 14C — ADR-0037): 기본 GPU 로 (소프트웨어 디바이스가 없다). API 검증(MTL_DEBUG_LAYER)은 --debug 가 켠다.
+# GPU 가 Metal 3 가 아니면(가상 머신 등) 건너뛴다 (77). 그리기 시험은 셰이더(dxc → MSL)가 있을 때만 — 15-BUILD.
+if(SBX_ENABLE_METAL)
+    add_test(NAME render_tests_metal
+        COMMAND sbx_render_tests --rhi metal --debug --skip-unsupported --out "${CMAKE_CURRENT_BINARY_DIR}/out_metal")
+    set_tests_properties(render_tests_metal PROPERTIES LABELS "render" PASS_REGULAR_EXPRESSION "render tests OK"
+                                                       SKIP_RETURN_CODE 77)
+endif()

@@ -2,7 +2,7 @@
 // SandboxClient 명령줄. 전체 목록(계획)은 docs/15-BUILD.md 7장.
 // Phase 6: 빈 창 + 앱 상태기계. Phase 7A: --rhi-* · --vsync · --frames-in-flight. Phase 8A: --seed · --threads ·
 // --content · --assets. Phase 8C: --font · --no-ui. Phase 10B: --world · --connect · --name (--direct-sim 은 지웠다).
-// Phase 12C: --owner-key. Phase 12D: --saves. Phase 13A: --rhi <auto|dx12|vulkan>. Phase 13C: --platform.
+// Phase 12C: --owner-key. Phase 12D: --saves. Phase 13A: --rhi <auto|dx12|vulkan> (14C: metal). Phase 13C: --platform.
 
 #include <optional>
 #include <span>
