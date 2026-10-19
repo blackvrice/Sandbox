@@ -209,6 +209,19 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 Phase 5C 추가: 엔티티마다 독립적인 **읽기 전용** 패스(감지 Stage 6, 충돌의 읽기 패스 Stage 16)를 parallelFor 로 Worker 와 나눈다.
 결과는 엔티티마다 자기 칸에 쓰고 컴포넌트 쓰기는 호출 스레드가 순서대로 한다 ([ADR-0016](adr/0016-replay-call-index-json-lines.md)).
 
+Phase 15A 추가 ([ADR-0038](adr/0038-sim-50k-tag-class-index-own-entity-parallel-writes.md)) — Worker 가 레지스트리에 **직접** 써도
+되는 조건 (System 내 병렬, "dense 범위 분할"의 구체화):
+
+```text
+(a) 자기 엔티티의 컴포넌트에만 쓴다 (풀의 원소 칸 — 값 · changed 틱. 다른 엔티티의 칸과 겹치지 않는다)
+(b) 그 System 이 쓰는 컴포넌트를 다른 엔티티에서 읽지 않는다 (읽기 집합 ∩ 다른 엔티티의 쓰기 집합 = ∅)
+(c) 구조 변경 · 이벤트 · ECB · 의도(Intent) · 공유 컨테이너를 쓰지 않는다
+(d) 난수는 (틱, 목적, saveId) 스트림 — 엔티티마다 따로
+(e) 공유 캐시 칸(BehaviorGraph 찾기의 cacheIndex 같은 것)은 호출 스레드가 먼저 채운다
+적용: 행동 평가 (Stage 7 — Behavior · Movement · Path 를 자기 것만 쓴다). 충돌 쓰기 패스는 계산만 나누고 쓰기는 순서대로.
+검증: D5 (--threads 0,1,4 같은 해시) · TSan. 조건을 어기는 기능(행동이 이벤트를 내는 등)을 넣으면 그 System 의 병렬을 다시 나눈다
+```
+
 Phase 5B 구현 (병렬화는 경로 Job 만): Worker 는 PathfindingService 의 Job 만 돌린다. Job 은 (시작, 목표, 확장 상한)과
 불변 PathGridSnapshot 을 값으로 붙잡고 자기 결과 칸에만 쓴다. 결과는 다음 틱 Stage 5 에서 **모든 Job 을 기다린 뒤 제출
 순서로** 적용한다 → 완료 순서·Worker 수와 무관. A* 의 open set 은 (f, h, 삽입 순번) 전순서. CTest `det_eco_lifecycle` 이

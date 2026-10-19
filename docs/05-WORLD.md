@@ -17,7 +17,7 @@
 | 3.2 TerrainMaterial | ✅ 최소 ContentDatabase (id 정렬 인덱스, 내장 `core.grass/rock/sand/water`)                                                                    | `core/content/ContentDatabase.*`                        |
 | 3.3 편집            | ✅ `PaintTerrain` 명령 → 바뀐 청크만 revision +1. 경로 스냅샷은 revision 이 바뀐 청크만 다시 복사(Phase 5B). 복제는 Phase 10                   | `SimulationWorld::applyPayload`, `core/path/PathGrid.*` |
 | 4.3 충돌            | ✅ Phase 5B — `CollisionSystem`(Stage 16): 원-원 분리(layer·mask) + moveCost 0 타일 밀어내기, 읽기→쓰기 두 패스                                | `core/systems/CollisionSystem.cpp`                      |
-| 4 Spatial           | ✅ 경계 안 격자 + 카운팅 정렬, `forEachInChunk`·`countInChunk`. 항목에 core.tags 사본(5C — S5 의 첫 단계). 질의 함수의 TagMask 인자는 `[계획]` | `core/world/SpatialIndex.*`                             |
+| 4 Spatial           | ✅ 경계 안 격자 + 카운팅 정렬, `forEachInChunk`·`countInChunk`, 태그 사본(5C). 15A: 위치 SoA · 태그 종류 · 종류별 색인(4.4). TagMask `[계획]`  | `core/world/SpatialIndex.*`                             |
 
 ```text
 문서 초안과 달라진 점
@@ -165,6 +165,14 @@ public:
          집합·순서·nearest 동점 규칙 대조
 측정     50k 재구성 1.1 ms (Phase 3 비교 정렬 6.8 ms), queryRadius(r=4) 0.37 µs (14-PERFORMANCE 7.3).
          재구성은 아직 1 ms 언저리 — 증분 갱신은 Phase 5 의 실제 부하(10k 생태계)로 다시 재고 정한다.
+(15A)    positions — entries[i].position 의 사본 (SoA). 질의는 위치만 훑고 범위 안 항목만 entries 를 읽는다.
+         정렬은 u32 순열(카운팅 + 셀 안 saveId 삽입 정렬)로 하고 마지막에 한 번 옮긴다.
+         태그 종류 — 재구성마다 태그 집합을 번호로 묶는다 (tagClasses · tagClassOf · tagsOf). 빈 집합 = 종류 0.
+         종류별 색인 — 종류 ≤ 32 이면 종류마다 고운 격자(4 × 4 타일)의 작은 색인 (위치 · 엔티티 · saveId SoA).
+         forEachInRadiusOfClass 는 행마다 원의 현 밖 칸을 넉넉하게 건너뛴다 (판정은 항목마다 forEachInRadius 와 같다).
+         ★ 이 색인의 순서는 S1 이 아니다 (고운 칸 순) — 순서와 무관한 질의(감지의 개수 · 최소)만 쓴다 (ADR-0038).
+         셀 계산은 인라인 (floor 호출 없이 — 정수 변환 + 보정, 같은 값).
+         50k 생태계(70k 개체 · 태그 3 종류) 재구성 약 2 ms — 14 6장 조건(> 1 ms)은 넘지만 증분 갱신은 보류 (tick 의 7 %)
 ```
 
 ### 4.3 충돌·분리

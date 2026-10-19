@@ -212,6 +212,7 @@ sbx_sim_check --world <path|scenario> [--content <pack>] --ticks N
 | `ecosystem_small`    | 5C    | 64×64 타일(호수 1·흙 1), 300 개체(풀·토끼·늑대 70/25/5 %), 900틱, 보충 없음 — **구현**                                                                  | D1~D5, 골든                                                                   |
 | `ecosystem_survival` | 5C    | 256×256(호수 5·흙 4), 1,500 개체, 18,000틱 (문서 초안 512×512 — 시드 3개를 수 분 안에 돌리려고 줄였다) — **구현**                                       | 세 종 공존 (balance)                                                          |
 | `ecosystem_10k`      | 5C    | 192×192, 10,000 개체(평형 근처에서 시작), 3,000틱 — **구현**                                                                                            | 벤치 sim.ecosystem                                                            |
+| `ecosystem_50k`      | 15    | 448×448, 50,000 개체(10k 와 같은 밀도 · 호수 · 흙 수), 1,000틱 — **구현**                                                                               | 벤치 sim.ecosystem (50k 완료 기준)                                            |
 | `edit_session`       | 12D   | 두 사람의 편집 명령 로그 600틱: 이동 · 값 · 컴포넌트 · 지형 · Rule · Prefab · Behavior 오버레이, 일시정지 편집 · 속도 · 거절 — **구현**                 | D1, D2, D3, D5                                                                |
 | `net_convergence`    | 10    | 서버 + 클라 1 + Simulated(100 ms ± 20, 5 %, 64 KB/s) — **구현 (10A, 테스트 `net` 스위트)** — 2클라 = 12D test_multi_client                              | L3′                                                                           |
 

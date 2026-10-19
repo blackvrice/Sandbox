@@ -326,6 +326,17 @@ relevant   클라이언트마다: 관심 청크 비트맵(8장) 안의 엔티티
 통계       ReplicationStats.relevant · relevantChunks (네트워크 패널 "관심 영역"), lastCollectMs (sbx_bench)
 ```
 
+Phase 15B ([ADR-0038](adr/0038-sim-50k-tag-class-index-own-entity-parallel-writes.md), 14 7.12) — 메시지 바이트는 그대로:
+
+```text
+훑기       복제 mask = 풀마다 한 번 훑어 엔티티 index 표로 (엔티티 × 풀 contains 대신), netId 정렬 = 기수 정렬,
+           청크별 목록(청크 안 netId 순) + 위치 없음 · 경계 밖 목록을 같이 만든다
+relevant   관심 청크의 목록 ∪ 위치 없음 ∪ 늘 보낼 것 → 정렬 (월드 전체를 클라이언트마다 훑지 않는다)
+인코딩     (엔티티, 컴포넌트) 바이트를 build 마다 한 번 — 아레나에 두고 클라이언트들이 복사해 쓴다 (값 · netId 변환이
+           클라이언트와 무관). 같은 개체를 많이 볼수록 이득 (클라 16 · 월드 전체 219 → 127 ms)
+[계획]     스냅숏 만들기를 Net 스레드로 · 메시지 아레나 (컴포넌트마다 vector 를 없앤다), 양자화 · 필드 마스크
+```
+
 ### 6.4 클라이언트 측
 
 ```text

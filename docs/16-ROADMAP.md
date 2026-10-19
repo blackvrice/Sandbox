@@ -32,7 +32,7 @@ Phase 11  Interest Management                       ← 완료 (2026-10-08): 화
 Phase 12  Multiplayer Editor                        ← 1차 목표선. 12A 에디터 툴 · 12B 인스펙터 · 되돌리기 (2026-10-09 · 12) · 12C 역할 · 콘텐츠 · 12D 세이브 · 리플레이 (2026-10-12) — Phase 12 완료
 Phase 13  Linux (X11 → Vulkan → Wayland)               ← 13A Vulkan 백엔드 · lavapipe 기준 이미지 · Windows --rhi vulkan, 13B X11 창 · Linux 클라이언트, 13C Wayland · --platform · Linux CI (2026-10-13) — Phase 13 구현 완료, CI 첫 실행 · 사용자 PC QA 대기
 Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL 경로 · Metal 번호 규칙 (2026-10-14), 14B Cocoa 창 · 14C Metal 백엔드 (2026-10-19) — Phase 14 구현 완료 · macOS 검증 대기 (CI macOS 잡 · Mac QA)
-Phase 15  Optimization (측정 기반)
+Phase 15  Optimization (측정 기반)                     ← 15A 시뮬레이션 50k · 15B 스냅숏 (2026-10-19, ADR-0038) — 결과가 같은 최적화, 50k 완료 판정은 사용자 PC 측정 대기
 ```
 
 순서의 이유:
@@ -648,6 +648,32 @@ CI 의 macOS 잡과 MANUAL-QA 14B · 14C 가 통과하면 ✅ 로 바꾼다.
 ```text
 14-PERFORMANCE 6장의 착수 조건을 만족한 항목만. 각 커밋에 전후 벤치 + 해시 동일성.
 완료  50k: 평균 tick < 10 ms, p99 < 25 ms, 50k 가시 스프라이트 Draw ≤ 64
+```
+
+측정부터 (50k 시나리오가 없었다), 결과가 비트 단위로 같은 최적화만 (ADR-0038 — 동작을 바꾸는 것은 밸런스와 함께 따로):
+
+```text
+15.0 ✅ ecosystem_50k (448 × 448, 50,000 개체, 1,000 틱 — 10k 와 같은 밀도) · sbx_bench sim.ecosystem 이 10k · 50k 를 함께
+15A 시뮬레이션 ◐ (2026-10-19) — 구현 · 2코어 측정 끝, 완료 판정은 사용자 PC 측정 대기
+  ✅ 공간 색인: 위치 SoA · u32 순열 정렬 · 태그 종류(intern) · 종류별 고운 색인(4 × 4 타일, 원의 현 안 칸만 — 순서 S1 아님)
+  ✅ 감지: 그래프 × 태그 종류 일치 표, 일치하는 종류만 훑는다 (늑대가 풀을 건너뛴다)
+  ✅ 충돌: 후보를 항목 표에서 · 상대 반지름 = 이번 틱 최대 · 쓰기 계산 병렬. 행동: 평가 병렬 (04 7장 Worker 쓰기 조건)
+  ✅ 번식: 이웃 Prefab 번호 표. 셀 계산 · 이동 비용 조회 인라인. Prefab 템플릿 (BinaryCodec 바이트, contentRevision 무효화)
+15B 스냅숏 ◐ (2026-10-19) — 인코딩 공유 · 청크별 관심 · netId 기수 정렬 · mask 표 (메시지 바이트 동일)
+  [계획] Net 스레드 · 메시지 아레나 (클라 16 < 3 ms), 양자화 · 필드 마스크
+[계획] 색인 증분 갱신(재구성 ≈ 2 ms — 보류), 시스템 간 병렬(AccessSet), 번식 · 이동 병렬, 감지의 원 안 칸 합산
+판정 남음  사용자 PC: sbx_bench --only sim.ecosystem --threads <코어 수 − 1> → 50k 평균 < 10 ms · p99 < 25 ms 면 Phase 15 ✅.
+           50k 가시 스프라이트 Draw ≤ 64 는 7.6 (50k 배치 = 묶음 1) ✅
+```
+
+```text
+15A · 15B 검증 (2026-10-19)
+  해시     ecosystem_small · eco_lifecycle (골든) · ecosystem_10k (600 틱) · ecosystem_50k (300 틱) 50 틱마다 바꾸기 전과 같음,
+           --threads 0,1,4 같음 (D5), TSan(ecosystem_10k 60 틱 · Worker 3) 경고 0. 스냅숏: 바이트 · 관심 개체 수 같음
+  성능     2코어 클라우드, 같은 기계 번갈아 (14 7.12): 50k 평균 Worker 0 63.7 → 38.5 ms · Worker 1 46.6 → 29.6 ms
+           (p99 81 → 53 ms), 10k 9.4 → 5.5 ms. 스냅숏 클라 16 · 월드 전체 219 → 127 ms, 화면 25 → 20 ms
+  Linux    clang (-Werror) · gcc Debug ctest 51/51. Windows MinGW 경고 0
+  다음     사용자 PC 측정 → 남은 직렬 몫(번식 · 재구성 · 이동)이 크면 15C, 아니면 Phase 15 ✅
 ```
 
 ---

@@ -288,6 +288,8 @@ transition  = { from("*" 허용), to, condition, priority }  ← 같은 틱에 �
 1. 현재 상태의 transitions + from="*" transitions 를 priority 내림차순으로 검사 → 첫 참이면 전이
 2. 전이 시 onExit → onEnter, Behavior.enteredTick = tick
 3. onTick 행동 실행 → 결과는 컴포넌트(PathRequest, Behavior.target) 또는 Intent 로만
+(15A) 엔티티마다 독립이라 Worker 와 나눠 평가한다 — 자기 Behavior · Movement · Path 만 쓰고 남의 Transform 만 읽는다
+      (04 7장의 Worker 쓰기 조건, ADR-0038). Intent · 이벤트를 쓰는 행동이 생기면 이 병렬을 다시 나눠야 한다
 ```
 
 ### 5.2 노드 어휘 (초기)
