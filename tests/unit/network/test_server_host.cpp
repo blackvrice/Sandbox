@@ -151,6 +151,36 @@ std::vector<CommandResultMsg> waitResults(Rig& rig, ClientSession& s, usize coun
 
 TEST_SUITE("network") {
 
+    TEST_CASE("server host: 게임 프로젝트 서버는 Welcome · Reject 에 게임 정체성을 싣는다 (v0.2 M1-T3)") {
+        {
+            Rig plain;
+            Peer p(plain, goodDesc("가"));
+            pump(plain, {&p.session}, 3);
+            REQUIRE(p.session.state() == ClientState::Connected);
+            CHECK(p.session.welcome()->game.empty());
+        }
+        ServerHostDesc desc;
+        desc.game = GameIdentity{"studio.arena", "아레나 " + std::string(300, 'x'), "0.1.0"}; // 이름은 상한으로 잘린다
+        Rig rig(desc);
+        Peer a(rig, goodDesc("가"));
+        pump(rig, {&a.session}, 3);
+        REQUIRE(a.session.state() == ClientState::Connected);
+        const GameIdentity& g = a.session.welcome()->game;
+        CHECK(g.gameId == "studio.arena");
+        CHECK(g.version == "0.1.0");
+        CHECK(g.name.size() <= kMaxGameNameBytes);
+        CHECK(g.name.starts_with("아레나 x"));
+
+        ClientSessionDesc wrong = goodDesc("나");
+        wrong.contentHash = contentHash() ^ 1;
+        Peer b(rig, wrong);
+        pump(rig, {&b.session}, 3);
+        REQUIRE(b.session.state() == ClientState::Rejected);
+        CHECK(b.session.reject()->reason == RejectReason::ContentMismatch);
+        CHECK(b.session.reject()->game.gameId == "studio.arena");
+        CHECK(b.session.reject()->packs == std::vector<std::string>{"eco"});
+    }
+
     TEST_CASE("server host: handshake gives each client a new id, the default role and the world meta") {
         Rig rig;
         Peer a(rig, goodDesc("가"));

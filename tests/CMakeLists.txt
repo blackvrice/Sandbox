@@ -200,6 +200,12 @@ if(TARGET SandboxServer)
             COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DPROBE=$<TARGET_FILE:sbx_net_probe>
                     -DPORT=47791 -P "${CMAKE_CURRENT_SOURCE_DIR}/net/net_smoke.cmake")
         set_tests_properties(net_server_probe_smoke PROPERTIES LABELS "net" TIMEOUT 90)
+        # 게임 프로젝트 서버 (v0.2 M1-T3): Welcome 이 게임 정체성(gameId · 버전 · 이름)을 싣는다 — 포트가 달라 같이 돌아도 된다
+        add_test(NAME net_server_probe_project
+            COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DPROBE=$<TARGET_FILE:sbx_net_probe>
+                    -DPORT=47792 "-DWORLD=${PROJECT_SOURCE_DIR}/tests/data/projects/minimal" -DWORLD_NAME=Minimal
+                    "-DGAME=게임 sandbox\\.minimal 0\\.1\\.0 \"Minimal\"" -P "${CMAKE_CURRENT_SOURCE_DIR}/net/net_smoke.cmake")
+        set_tests_properties(net_server_probe_project PROPERTIES LABELS "net" TIMEOUT 90)
     endif()
 endif()
 

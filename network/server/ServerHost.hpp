@@ -71,6 +71,8 @@ struct ServerHostDesc {
     CommandValidatorDesc validator;
     u64 randomSeed = 0; // nonce · 세션 토큰. 0 = std::random_device (테스트는 고정)
     ServerMode mode = ServerMode::Inline;
+    // 게임 프로젝트면 그 정체성 (Welcome · Reject 에 — v0.2 M1-T3, ADR-0042). 서버가 사는 동안 같다
+    GameIdentity game;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
     // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
     // 클라이언트당 초당 바이트 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s

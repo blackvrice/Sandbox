@@ -20,6 +20,11 @@ namespace sbx::client {
 
 namespace {
 constexpr u16 kDefaultPort = 7777;
+
+// "Arena — studio.arena 0.1.0" (게임이 아니면 빈 문자열)
+std::string describeGame(const net::GameIdentity& g) {
+    return g.empty() ? std::string{} : std::format("{} — {} {}", g.name, g.gameId, g.version);
+}
 } // namespace
 
 Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSessionDesc& desc,
@@ -199,6 +204,11 @@ void NetworkSession::handleRejected() {
             auto db = content::loadContent(m_desc.contentRoot, r.packs, *m_catalog);
             if (!db) {
                 m_failure = std::format("서버의 콘텐츠 팩을 읽지 못했습니다: {}", db.error().describe());
+                if (!r.game.empty()) {
+                    *m_failure += std::format("\n게임 {} 의 팩은 그 프로젝트의 content/ 에 있습니다 — "
+                                              "--content <프로젝트 폴더>/content 로 다시 접속하십시오",
+                                              describeGame(r.game));
+                }
                 return;
             }
             m_session.reset(); // 복제 월드가 옛 콘텐츠를 가리킨다 — 먼저 없앤다
@@ -207,6 +217,11 @@ void NetworkSession::handleRejected() {
         if (m_ownContent->contentHash() != r.contentHash) {
             m_failure = std::format("콘텐츠가 다릅니다: 서버 {:016x}, 이 컴퓨터 {:016x} (팩 {} 개)", r.contentHash,
                                     m_ownContent->contentHash(), r.packs.size());
+            if (!r.game.empty()) {
+                // 게임 프로젝트 서버 — 팩은 그 프로젝트의 content/ 에 있다 (ADR-0041)
+                *m_failure +=
+                    std::format(" — 게임 {} 의 팩: --content <그 프로젝트 폴더>/content", describeGame(r.game));
+            }
             return;
         }
         std::string packs;
@@ -795,6 +810,9 @@ WorldInfo NetworkSession::info() const {
     WorldInfo i;
     i.name = m_name;
     i.selected = m_selection.size();
+    if (m_session && m_session->welcome()) {
+        i.game = describeGame(m_session->welcome()->game);
+    }
     const net::ClientWorld* w = clientWorld();
     if (w == nullptr || !m_session) {
         return i;

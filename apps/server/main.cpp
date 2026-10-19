@@ -154,6 +154,9 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.savesRoot = opts.saves;
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
+    if (world->game) {
+        desc.game = sbx::net::gameIdentityOf(*world->game);
+    }
     desc.mode = sbx::net::ServerMode::Threaded;
     desc.stopAtTick = opts.exitAtTicks ? *opts.ticks : 0;
     desc.snapshotBytesPerSecond = static_cast<sbx::usize>(opts.snapshotKBps) * 1024;

@@ -79,6 +79,7 @@ struct WorldOpsInfo {
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
     std::string name;
+    std::string game; // 게임 프로젝트면 "<이름> — <gameId> <버전>" (Welcome.game, v0.2 M1-T3), 아니면 빈 문자열
     u64 tick = 0;
     u32 entities = 0;
     f32 speed = 1;

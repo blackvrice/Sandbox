@@ -224,6 +224,12 @@ void writeBytesFixed(BitWriter& w, std::span<const std::byte> b) {
 
 } // namespace
 
+static_assert(project::kMaxContentPacks <= kMaxPacks, "매니페스트 팩 상한은 Reject 가 실을 수 있는 수 이하");
+
+GameIdentity gameIdentityOf(const project::GameManifest& manifest) {
+    return GameIdentity{manifest.gameId, manifest.name, manifest.version.toString()};
+}
+
 u64 localBuildId() {
     static const u64 id = fnv1a64(std::format("{} {}", build::kVersionString, build::kGitCommit));
     return id;
@@ -263,6 +269,23 @@ i32 readI32(BitReader& r) {
     return static_cast<i32>(v);
 }
 
+// GameIdentity (프로토콜 8): 세 문자열. 게임이 아니면 셋 다 비어 있어야 한다 (gameId 만 빈 것은 형식 오류)
+void writeGame(BitWriter& w, const GameIdentity& g) {
+    w.writeString(g.gameId);
+    w.writeString(g.name);
+    w.writeString(g.version);
+}
+GameIdentity readGame(BitReader& r) {
+    GameIdentity g;
+    g.gameId = r.readString(kMaxGameIdBytes);
+    g.name = r.readString(kMaxGameNameBytes);
+    g.version = r.readString(kMaxGameVersionBytes);
+    if (g.gameId.empty() && (!g.name.empty() || !g.version.empty())) {
+        r.fail();
+    }
+    return g;
+}
+
 void encodeBody(BitWriter& w, const Hello& m) {
     w.writeVarU(m.protocolVersion);
     w.writeU64(m.buildId);
@@ -298,6 +321,7 @@ void encodeBody(BitWriter& w, const Welcome& m) {
         w.writeU64(id);
     }
     w.writeVarU(m.generation);
+    writeGame(w, m.game);
 }
 void encodeBody(BitWriter& w, const Reject& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -308,6 +332,7 @@ void encodeBody(BitWriter& w, const Reject& m) {
     for (const auto& p : m.packs) {
         w.writeString(p);
     }
+    writeGame(w, m.game);
 }
 void encodeBody(BitWriter& w, const CommandMsg& m) {
     w.writeVarU(m.sequence);
@@ -563,6 +588,7 @@ Welcome decodeWelcome(BitReader& r) {
         m.replicated.push_back(r.readU64());
     }
     m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.game = readGame(r);
     return m;
 }
 Reject decodeReject(BitReader& r) {
@@ -580,6 +606,7 @@ Reject decodeReject(BitReader& r) {
     for (u64 i = 0; i < n && !r.error(); ++i) {
         m.packs.push_back(r.readString(kMaxPackIdBytes));
     }
+    m.game = readGame(r);
     return m;
 }
 CommandMsg decodeCommand(BitReader& r) {

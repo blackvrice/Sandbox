@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-19 — v0.2 M1-T3: 핸드셰이크가 게임 정체성을 싣는다 — 프로토콜 8 (ADR-0042)
+
+**무엇을**
+
+- `net::GameIdentity{gameId, name, version}` 을 Welcome 끝 · Reject 끝에 (kProtocolVersion 7 → 8, 상한 64 · 256 · 128 바이트,
+  gameId 없이 name · version 만 있으면 형식 오류). `gameIdentityOf(매니페스트)`. ServerHostDesc.game — 서버가 상한으로 자르고
+  모든 Welcome · Reject 에 싣는다. SandboxServer · LocalServerHost 가 WorldSource.game 에서 채운다.
+- 클라이언트: WorldInfo.game → "월드" 패널 "게임 <이름> — <gameId> <버전>", --headless 끝 "game …" 줄, sbx_net_probe "게임 …" 줄.
+  ContentMismatch 로 팩을 못 읽거나 해시가 다르면 실패 문구에 "--content <프로젝트 폴더>/content" 안내.
+- 매니페스트 content.packs ≤ 16 (P2) — Reject 가 실을 수 있는 팩 수와 같게 (static_assert).
+- 시험: test_messages (왕복 · 형식 오류 · 상한 · 프로토콜 8 고정), test_server_host (Welcome · Reject 의 게임, 이름 자르기),
+  test_network_session (로컬 프로젝트 표시 · 시나리오는 빈 값 · 원격 팩 실패 안내), test_game_project (팩 17 개 P2),
+  test_world_ops 의 "== 7" 고정을 ">= 7" 로 (지금 판 고정은 test_messages). CTest net_server_probe_project (실제 UDP —
+  net_smoke.cmake 에 WORLD · WORLD_NAME · GAME, 게임이 아닌 서버는 게임 줄이 없어야 한다).
+- 문서: ADR-0042, 08 (머리말 · 4장 게임 · 5장 표 · 프로토콜 8 이력), 18 (T3 ✅ · 다음 T4 · 5.2 팩 상한 · 8장), 15 7장, 13,
+  adr/README.
+
+**왜**
+
+- 접속한 클라이언트가 어떤 게임인지 몰랐다 (월드 이름은 64 바이트로 잘림). 프로젝트 팩은 저장소 content/ 에 없어 원격 접속이
+  "팩을 찾을 수 없다"로만 끝났다 — 무엇을 어디서 읽어야 하는지 알려 준다. 자동 탐색 · 다운로드는 무결성 문제로 뒤로 (v0.5 · v0.7).
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 59/59 (+1). unit_network · unit_client · unit_project 통과.
+- 실행: `SandboxClient --headless --world tests/data/projects/minimal` → "game Minimal — sandbox.minimal 0.1.0".
+  probe (실제 UDP) → 게임 sandbox.minimal 0.1.0 "Minimal".
+- 프로토콜 7 클라이언트는 VersionMismatch 로 거절된다 (정확 일치 규칙 그대로). 세이브 · 시뮬레이션 형식 변경 없음.
+
+**남은 일**
+
+- M1-T4: 새 프로젝트 만들기 (템플릿 → 매니페스트 + 빈 월드 + 팩 뼈대), 에디터 저장을 프로젝트 worlds/ 로.
+
+---
+
 ## 2026-10-19 — v0.2 M1-T2: 서버 · 클라이언트가 게임 프로젝트를 연다 (ADR-0041)
 
 **무엇을**

@@ -46,6 +46,9 @@ void simulationPanel(const PanelInputs& in, PanelActions& act) {
     }
     const WorldInfo& w = *in.world;
     text(std::format("{} · tick {}", w.name, w.tick));
+    if (!w.game.empty()) {
+        text(std::format("게임 {}", w.game));
+    }
     text(std::format("개체 {}", w.entities));
     if (w.paused) {
         ImGui::TextColored({1.f, 0.8f, 0.3f, 1.f}, "일시정지");

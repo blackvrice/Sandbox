@@ -91,6 +91,14 @@ ServerHost::ServerHost(INetworkTransport& transport, std::unique_ptr<scenario::S
     SBX_ASSERT(m_runner != nullptr, "ServerHost: 월드가 없습니다");
     const auto& world = m_runner->world();
     m_meta.name = clampUtf8(m_desc.worldName, kMaxWorldNameBytes);
+    // 와이어 상한 안으로 (매니페스트 검사가 이미 지키지만, 다른 호출자를 위해). gameId 가 없으면 게임이 아니다
+    if (!m_desc.game.empty()) {
+        m_desc.game.gameId = clampUtf8(m_desc.game.gameId, kMaxGameIdBytes);
+        m_desc.game.name = clampUtf8(m_desc.game.name, kMaxGameNameBytes);
+        m_desc.game.version = clampUtf8(m_desc.game.version, kMaxGameVersionBytes);
+    } else {
+        m_desc.game = GameIdentity{};
+    }
     m_meta.minChunkX = world.desc().bounds.minChunk.x;
     m_meta.minChunkY = world.desc().bounds.minChunk.y;
     m_meta.maxChunkX = world.desc().bounds.maxChunk.x;
@@ -390,6 +398,7 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         } else {
             w.snapshotRate = 0;
         }
+        w.game = m_desc.game;
         sendTo(conn, w);
         {
             const std::lock_guard lock(m_mutex);
@@ -477,6 +486,7 @@ void ServerHost::reject(ConnectionId conn, Client& client, RejectReason reason, 
             r.packs.push_back(clampUtf8(p, kMaxPackIdBytes));
         }
     }
+    r.game = m_desc.game;
     sendTo(conn, r);
     log::info("net", "연결 {} 거절: {} — {}", conn, rejectReasonName(reason), detail);
     {

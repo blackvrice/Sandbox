@@ -176,6 +176,9 @@ int main(int argc, char** argv) {
                 static_cast<int>(sbx::net::roleName(w.role).size()), sbx::net::roleName(w.role).data(),
                 w.world.name.c_str(), static_cast<unsigned long long>(w.serverTick),
                 w.world.paused ? " (일시정지)" : "", static_cast<double>(session.transportStats().rttMs));
+    if (!w.game.empty()) {
+        std::printf("게임 %s %s \"%s\"\n", w.game.gameId.c_str(), w.game.version.c_str(), w.game.name.c_str());
+    }
     std::fflush(stdout);
 
     for (const auto& c : opts->commands) {

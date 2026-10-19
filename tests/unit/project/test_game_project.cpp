@@ -226,6 +226,15 @@ TEST_SUITE("project") {
         CHECK(hasIssue(project::parseManifest(withField("content", R"({"packs": [1]})")).issues, "P2",
                        "/content/packs/0"));
         CHECK(project::parseManifest(withField("content", R"({"packs": []})")).ok());
+        // 팩은 16 개까지 (서버가 Reject 로 알려 줄 수 있는 수)
+        nlohmann::json packs = nlohmann::json::array();
+        for (int i = 0; i < 17; ++i) {
+            packs.push_back("p" + std::to_string(i));
+        }
+        CHECK(hasIssue(project::parseManifest(withField("content", nlohmann::json{{"packs", packs}}.dump())).issues,
+                       "P2", "/content/packs"));
+        packs.erase(packs.end() - 1);
+        CHECK(project::parseManifest(withField("content", nlohmann::json{{"packs", packs}}.dump())).ok());
         CHECK(project::parseManifest(withField("content", R"({})")).ok());
     }
 

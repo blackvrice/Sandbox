@@ -177,7 +177,7 @@ T roundTrip(const T& in) {
 TEST_SUITE("network") {
 
     TEST_CASE("messages (12D): WorldOp · WorldOpResult · WorldList · WorldChanged · generation · stats round-trip") {
-        CHECK(kProtocolVersion == 7);
+        CHECK(kProtocolVersion >= 7); // 12D 메시지는 7 부터 (지금 판의 고정은 test_messages 의 게임 정체성 시험)
         const WorldOpRequest op = roundTrip(WorldOpRequest{WorldOpKind::RecordStart, "rec_1"});
         CHECK(op.op == WorldOpKind::RecordStart);
         CHECK(op.name == "rec_1");

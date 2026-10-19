@@ -10,7 +10,8 @@
 > [ADR-0029](adr/0029-inspector-server-values-undo-entries.md)). **Phase 12C** — 프로토콜 6: 접속자 표 · 역할 바꾸기 · 주인 열쇠(4장),
 > 월드 오버레이 전달(ContentOverlay) · EditContent 명령 ([ADR-0030](adr/0030-roles-player-list-content-overlay.md)).
 > **Phase 12D** — 프로토콜 7: 세이브 · 로드 · 리플레이 기록 · 재생 요청(WorldOp), 서버 월드가 바뀌면 WorldChanged 와 generation
-> (4장 · 5장, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)).
+> (4장 · 5장, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)). **v0.2 M1-T3** — 프로토콜 8: Welcome · Reject 에 게임
+> 정체성 GameIdentity{gameId, name, version} (게임 프로젝트 서버만, [ADR-0042](adr/0042-handshake-game-identity-protocol-8.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -117,6 +118,9 @@ Phase 9 구현 (ServerHost · ClientSession — Subscribe 부터는 Phase 10 · 
           buildId 가 다르면 경고만 (프로토콜이 같으면 접속).
 콘텐츠    Reject{ContentMismatch} 를 받은 클라이언트는 packs 를 자기 content 루트에서 읽어 해시가 맞으면 다시 접속한다
           (sbx_net_probe). 콘텐츠 팩 자체를 보내 주는 것은 [계획] — 12C 의 ContentOverlay 는 월드 오버레이(팩 위에 고친 것)만.
+게임      (프로토콜 8) 서버가 게임 프로젝트를 돌리면(--world <프로젝트>, ADR-0041) Welcome · Reject 가 GameIdentity 를 싣는다.
+          클라이언트는 표시하고("월드" 패널 · --headless 의 game 줄 · probe), 팩을 못 읽으면 "--content <프로젝트>/content" 를
+          안내한다. 프로젝트를 스스로 찾거나 내려받지는 않는다 ([계획] v0.5 패키지 공유 · v0.7 게임 다운로드).
 Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 시 Disconnect{ServerShutdown}. 그 밖의 메시지 → ProtocolError 로 끊기.
           Phase 10A: Welcome 뒤 Snapshot(15 Hz) · TerrainChunk 를 받고 SnapshotAck 를 보낸다.
           Phase 10B: Inspect(볼 netId) → InspectResult. SandboxClient 는 접속하고 첫 스냅숏을 받을 때까지 Connecting,
@@ -171,15 +175,15 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 7`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 8`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
 | 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
 | 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64, ownerKey str(64, 12C)            |
-| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, worldMeta{name, 청크 경계 4 × i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken(16), generation (12D)  |
-| 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료 중), detail str(256), serverProtocolVersion u32, contentHash u64, packs[] str(64) × ≤16     |
+| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, world{name, 경계 4×i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken(16), generation (12D), game (8)   |
+| 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료), detail str(256), serverProtocolVersion u32, contentHash u64, packs[≤16] str(64), game (8) |
 | 10 | Subscribe      | C→S    | Control  | all bool, (all 이 아니면) 청크 사각형 minX · minY · maxX · maxY zigzag (양끝 포함, 뒤집힘 · 축마다 128 이상 = 형식 오류)                                              |
 | 11 | Ready          | C→S    | Control  | baselineTick u64 `[계획 — 쓰지 않는다: Welcome 뒤 Snapshot 이 바로 시작, ADR-0025]`                                                                                   |
 | 20 | Command        | C→S    | Control  | sequence u32 (1 부터 단조 증가), payload (5.1)                                                                                                                        |
@@ -215,6 +219,8 @@ EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플
 프로토콜 7 (12D): WorldOp(65) · WorldOpResult(66) · WorldList(67) · WorldChanged(68 — Bulk), Welcome 끝에 generation varint,
 Snapshot 처음에 generation varint, ServerStats 끝에 mode u8 (0 보통 · 1 기록 중 · 2 재생 중) · modeName str(48) · replayCall ·
 replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySpeed f32 (ADR-0031).
+프로토콜 8 (v0.2 M1-T3): Welcome 끝 · Reject 끝에 game = gameId str(64) · name str(256) · version str(128) (게임이 아니면 셋 다
+빈 문자열 — gameId 없이 name · version 만 있으면 형식 오류). 서버는 상한으로 자른다 (ADR-0042).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

@@ -135,6 +135,45 @@ TEST_SUITE("network") {
         }
     }
 
+    TEST_CASE("messages: 게임 정체성 (프로토콜 8 — Welcome · Reject)") {
+        CHECK(kProtocolVersion == 8); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M1-T3)
+        Welcome w;
+        w.world.name = "Arena";
+        const Welcome plain = roundTrip(w);
+        CHECK(plain.game.empty());
+        w.game = GameIdentity{"studio.arena", "아레나 Arena", "1.2.0-beta.1+b7"};
+        const Welcome w2 = roundTrip(w);
+        CHECK(w2.game == w.game);
+        CHECK_FALSE(w2.game.empty());
+
+        Reject rj;
+        rj.reason = RejectReason::ContentMismatch;
+        rj.packs = {"arena"};
+        rj.game = w.game;
+        CHECK(roundTrip(rj).game == w.game);
+
+        project::GameManifest m;
+        m.gameId = "studio.arena";
+        m.name = "Arena";
+        m.version = SemVer{0, 3, 1, "rc.1", {}};
+        CHECK(gameIdentityOf(m) == GameIdentity{"studio.arena", "Arena", "0.3.1-rc.1"});
+
+        // gameId 없이 이름 · 버전만 있는 것은 형식 오류
+        Welcome bad;
+        bad.game.name = "이름만";
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{bad})).has_value());
+        // 상한을 넘는 문자열은 거절 (보내는 쪽 ServerHost 가 자른다)
+        Welcome longId;
+        longId.game = GameIdentity{std::string(kMaxGameIdBytes + 1, 'a'), "n", "1.0.0"};
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longId})).has_value());
+        Welcome longName;
+        longName.game = GameIdentity{"a.b", std::string(kMaxGameNameBytes + 1, 'n'), "1.0.0"};
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longName})).has_value());
+        Welcome maxName;
+        maxName.game = GameIdentity{"a.b", std::string(kMaxGameNameBytes, 'n'), std::string(kMaxGameVersionBytes, '1')};
+        CHECK(decodeMessage(encodeMessage(Message{maxName})).has_value());
+    }
+
     TEST_CASE("messages: reserved ids, trailing bytes, bad enums and oversize messages are rejected") {
         BitWriter reserved;
         reserved.writeVarU(static_cast<u8>(MessageId::Snapshot));

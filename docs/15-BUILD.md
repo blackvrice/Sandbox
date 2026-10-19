@@ -271,6 +271,8 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (v0.2, 서버와 같은 규칙) 또는 세이브를 돌리고 접속한다. 창에서는 서버의 Simulation · Net IO 스레드, --headless 는 프레임 안에서 (틱 수 고정).
     --threads 는 그 Worker 수 (기본 코어 수 - 2 를 1~4, 결과는 같다 — D5).
     --connect: SandboxServer 에 접속 (포트 기본 7777). 콘텐츠가 다르다고 거절되면 서버 팩을 --content 에서 읽어 다시.
+    (v0.2 M1-T3) 게임 프로젝트 서버면 "월드" 패널 · --headless 끝 줄(game …)에 게임 이름 · gameId · 버전. 그 팩은
+    --content <프로젝트>/content 로 (못 읽으면 실패 문구가 안내한다 — ADR-0042).
     일시정지 · 한 틱 · 속도는 서버 명령 — 원격 서버의 기본 역할 editor 는 거절된다 (서버 --default-role admin).
     (12C) --owner-key <k>: 서버의 --owner-key 와 같으면 owner 로 접속 (--connect 만 — 싱글플레이는 언제나 owner).
     (12D) --saves <dir>: 싱글플레이(--world)의 세이브 · 리플레이 폴더 (기본 saves — 작업 폴더 기준). --connect 는 서버의 --saves.

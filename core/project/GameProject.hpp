@@ -30,6 +30,8 @@ namespace sbx::project {
 
 inline constexpr std::string_view kManifestFile = "sandbox.project.json";
 inline constexpr u32 kManifestSchemaVersion = 1;
+// content.packs 상한 — 서버가 Reject 로 팩 목록을 알려 줄 수 있는 수 (network kMaxPacks 와 같다, static_assert 가 지킨다)
+inline constexpr usize kMaxContentPacks = 16;
 
 struct GameManifest {
     u32 schemaVersion = kManifestSchemaVersion;

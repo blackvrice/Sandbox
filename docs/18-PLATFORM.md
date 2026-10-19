@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 진행 중)
-다음     v0.2 M1-T3 — 핸드셰이크에 게임 정체성 (gameId · 이름 · 버전 — 프로토콜 8)
+다음     v0.2 M1-T4 — 새 프로젝트 만들기 · 에디터 저장을 프로젝트 worlds/ 로
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -54,7 +54,7 @@
 | 멀티플레이 에디터       | Implemented | editor/ (ICommandSink · 툴 · 인스펙터 · Undo · 역할 · 콘텐츠 창 · 월드 저장/불러오기 · 리플레이), unit_editor · unit_client |
 | 렌더 · 플랫폼           | Implemented | DX12 · Vulkan (lavapipe 기준 이미지) · Metal (macOS 검증 대기), Win32 · X11 · Wayland · Cocoa(미검증)                       |
 | 성능                    | Partial     | 50k 2코어 29.6 ms — 판정 대기 (14 7.12)                                                                                     |
-| GameProject · Manifest  | Partial     | 매니페스트 · 검사 (M1-T1), 서버 · 클라이언트 --world <프로젝트> (M1-T2). 게임 정체성 전달 · 새 프로젝트는 M1-T3 · T4        |
+| GameProject · Manifest  | Partial     | 매니페스트 · 검사 (T1), --world <프로젝트> (T2), 핸드셰이크 게임 정체성 (T3). 새 프로젝트 · 저장은 M1-T4                    |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
@@ -108,8 +108,8 @@ M1 GameProject
   T1 ✅ 매니페스트 sandbox.project.json (schemaVersion 1) · SemVer · 검사 P1~P5 · sbx_sim_check --validate-project (ADR-0040)
   T2 ✅ 프로젝트 열기: openProject (검사와 같은 함수, 오류면 시작 안 함) · WorldSource 가 프로젝트 폴더를 안다 →
         SandboxServer --world <프로젝트> · SandboxClient --world <프로젝트> (팩 = <프로젝트>/content, 월드 = entryWorld) (ADR-0041)
-  T3 [계획] 핸드셰이크에 게임 정체성: Welcome · Reject 에 gameId · 이름 · 버전 (프로토콜 8), 클라이언트 표시 · 콘텐츠 불일치
-           문구 (원격 접속은 지금 --content <프로젝트>/content)
+  T3 ✅ 핸드셰이크에 게임 정체성: Welcome · Reject 에 GameIdentity (프로토콜 8), 클라이언트 표시 · 팩을 못 읽으면
+        --content <프로젝트>/content 안내, 매니페스트 팩 ≤ 16 (ADR-0042)
   T4 [계획] 프로젝트 만들기 · 저장: 템플릿에서 새 프로젝트 (빈 월드 + 팩 뼈대), 에디터 "월드" 저장이 프로젝트의 worlds/ 로
 M2 GameMode · 라이프사이클 (서버 권위)
   T1 GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — 콘텐츠 팩 스키마 확장 (11 갱신)
@@ -143,16 +143,16 @@ MyGame/
   worlds/<이름>/          월드 = 세이브 폴더 형식 (09 6장 — world.json · entities.jsonl · chunks/)
 ```
 
-| 키              | 필수 | 형식                                                                                                     |
-|-----------------|------|----------------------------------------------------------------------------------------------------------|
-| `schemaVersion` | 예   | 1. 다르면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다)                                          |
-| `gameId`        | 예   | 소문자 · 숫자 · `_` 마디 둘 이상을 `.` 로 (`studio.arena`), ≤ 64 바이트 (P2)                             |
-| `name`          | 예   | 1~64 글자, 제어 문자 없음 (P1)                                                                           |
-| `version`       | 예   | SemVer 2.0.0 (P3)                                                                                        |
-| `engine`        | 예   | 버전 범위 (4장) — 이 엔진이 범위 밖이면 P3                                                               |
-| `description`   | 아니 | ≤ 1024 글자 (P1)                                                                                         |
-| `content`       | 아니 | `{"packs": [팩 id …]}` — `<프로젝트>/content` 에서 찾는다. 없거나 비면 내장 콘텐츠 (중복 · `core` 는 P2) |
-| `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)       |
+| 키              | 필수 | 형식                                                                                                                 |
+|-----------------|------|----------------------------------------------------------------------------------------------------------------------|
+| `schemaVersion` | 예   | 1. 다르면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다)                                                      |
+| `gameId`        | 예   | 소문자 · 숫자 · `_` 마디 둘 이상을 `.` 로 (`studio.arena`), ≤ 64 바이트 (P2)                                         |
+| `name`          | 예   | 1~64 글자, 제어 문자 없음 (P1)                                                                                       |
+| `version`       | 예   | SemVer 2.0.0 (P3)                                                                                                    |
+| `engine`        | 예   | 버전 범위 (4장) — 이 엔진이 범위 밖이면 P3                                                                           |
+| `description`   | 아니 | ≤ 1024 글자 (P1)                                                                                                     |
+| `content`       | 아니 | `{"packs": [팩 id …]}` — `<프로젝트>/content` 에서 찾는다. 없거나 비면 내장 콘텐츠 (중복 · `core` · 16 개 초과는 P2) |
+| `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)                   |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.
@@ -201,7 +201,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 ```text
 지금      ADR-0039 범위 · 버전 줄, ADR-0040 GameProject 매니페스트, 00 (1 · 7장), 16 (2 · 6장 → 이 문서), 17, 13, 11 (프로젝트 폴더)
 M1-T2 ✅  15 (실행 옵션), 08 (WorldSource), ADR-0041 (서버가 프로젝트를 여는 규칙)
-M1-T3     08 (핸드셰이크에 게임 정체성 · 프로토콜 8)
+M1-T3 ✅  08 (핸드셰이크에 게임 정체성 · 프로토콜 8), ADR-0042
 M2 · M3   03 (GameSession Stage · 게임 System), 11 (GameMode · 게임 컴포넌트), 04 (상태기계 결정론), ADR
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
@@ -215,4 +215,5 @@ Linux clang 19 Debug (-Werror, Vulkan · MSL 셰이더) ctest -LE "balance|bench
 GitHub master = f4a72c1 (git ls-remote 확인). Actions 결과는 이 환경에서 읽을 수 없다 (1.1)
 v0.2 M1-T1 뒤: 같은 구성 55/55 (+ unit_project · project_minimal_validate · project_bad_manifest_rejected · _message)
 v0.2 M1-T2 뒤: 58/58 (+ server_project_exit · server_project_invalid · client_local_project_headless)
+v0.2 M1-T3 뒤: 59/59 (+ net_server_probe_project — 실제 UDP 로 Welcome.game)
 ```

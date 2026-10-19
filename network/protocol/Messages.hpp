@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "core/command/SimCommand.hpp"
+#include "core/project/GameProject.hpp"
 #include "network/transport/Transport.hpp"
 
 namespace sbx::net {
@@ -26,7 +27,8 @@ namespace sbx::net {
 // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
 // 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C.
 // 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의 모드) — 12D
-inline constexpr u32 kProtocolVersion = 7;
+// 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3
+inline constexpr u32 kProtocolVersion = 8;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -36,6 +38,9 @@ inline constexpr usize kSessionTokenBytes = 16;
 inline constexpr usize kMaxWorldNameBytes = 64;
 inline constexpr usize kMaxPacks = 16;
 inline constexpr usize kMaxPackIdBytes = 64;
+inline constexpr usize kMaxGameIdBytes = 64;       // 매니페스트 gameId 와 같다 (18 5.2)
+inline constexpr usize kMaxGameNameBytes = 256;    // 매니페스트 name 64 글자의 UTF-8 상한
+inline constexpr usize kMaxGameVersionBytes = 128; // SemVer 문자열 (프리릴리스 · 빌드 포함)
 inline constexpr usize kMaxStreamMessageBytes =
     16 * 1024 * 1024;                                 // Snapshot · Bulk (조각 — 예산은 ServerHost 가 정한다)
 inline constexpr usize kMaxReplicatedComponents = 64; // EntityState.mask 가 u64
@@ -117,6 +122,17 @@ struct Auth {
     // 프로토콜 6 (12C): 서버의 --owner-key 와 같으면 Owner 로 들어온다. 비면 없음 (다르면 Reject{BadHandshake})
     std::string ownerKey;
 };
+// 서버가 돌리는 게임 프로젝트의 정체성 (프로토콜 8, v0.2 M1-T3 — 18 5장). 시나리오 · 세이브 폴더면 모두 빈 문자열
+struct GameIdentity {
+    std::string gameId;  // "studio.arena"
+    std::string name;    // 매니페스트 name (WorldMeta.name 은 64 바이트로 잘릴 수 있다 — 이것은 잘리지 않는다)
+    std::string version; // SemVer 문자열 "0.1.0"
+
+    [[nodiscard]] bool empty() const noexcept { return gameId.empty(); }
+    bool operator==(const GameIdentity&) const = default;
+};
+// 매니페스트 → 와이어의 게임 정체성 (서버 --world <프로젝트> · LocalServerHost)
+[[nodiscard]] GameIdentity gameIdentityOf(const project::GameManifest& manifest);
 struct WorldMeta {
     std::string name;
     i32 minChunkX = 0, minChunkY = 0, maxChunkX = 0, maxChunkY = 0; // 양끝 포함
@@ -136,6 +152,7 @@ struct Welcome {
     // 건너뛴다
     std::vector<u64> replicated;
     u32 generation = 0; // 프로토콜 7: 서버 월드가 바뀐 횟수 (로드 · 리플레이 재생 — WorldChanged)
+    GameIdentity game;  // 프로토콜 8
 };
 struct Reject {
     RejectReason reason = RejectReason::BadHandshake;
@@ -143,6 +160,7 @@ struct Reject {
     u32 serverProtocolVersion = kProtocolVersion;
     u64 contentHash = 0;            // 서버 콘텐츠 (ContentMismatch 일 때 쓸모)
     std::vector<std::string> packs; // 서버가 읽은 콘텐츠 팩 id (비면 내장 콘텐츠)
+    GameIdentity game;              // 프로토콜 8: 게임 프로젝트면 그 정체성 (ContentMismatch 때 무엇의 팩인지)
 };
 struct CommandMsg {
     u32 sequence = 0; // 클라이언트별 1 부터 단조 증가

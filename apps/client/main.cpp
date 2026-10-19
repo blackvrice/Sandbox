@@ -221,6 +221,9 @@ int main(int argc, char** argv) {
                               world->name(), world->serverTick(), cw != nullptr ? cw->entityCount() : 0,
                               cw != nullptr ? cw->stats().snapshotsApplied : 0, cw != nullptr ? cw->stats().resets : 0,
                               world->applyMs()));
+        if (const std::string game = world->info().game; !game.empty()) {
+            printText(std::format("game {}\n", game)); // 게임 정체성 (Welcome.game — v0.2 M1-T3)
+        }
         const auto t = app.totalTimings();
         if (t.frames > 0) {
             printText(

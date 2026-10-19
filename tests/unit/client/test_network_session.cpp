@@ -556,6 +556,56 @@ TEST_SUITE("client") {
         CHECK(ns->clientWorld()->entityCount() * 10 > server * 9);
     }
 
+    TEST_CASE(
+        "network session: 게임 프로젝트의 정체성 (v0.2 M1-T3) — 로컬은 표시, 원격 팩이 없으면 프로젝트 content/ 안내") {
+        auto mats = materials();
+        {
+            auto ns = makeLocal(mats, std::string(SBX_TEST_DATA_DIR) + "/projects/minimal");
+            untilReady(*ns);
+            const WorldInfo info = ns->info();
+            CHECK(info.name == "Minimal");
+            CHECK(info.game == "Minimal — sandbox.minimal 0.1.0");
+        }
+        {
+            auto ns = makeLocal(mats);
+            untilReady(*ns);
+            CHECK(ns->info().game.empty()); // 시나리오는 게임이 아니다
+        }
+        // 원격: 서버는 이 컴퓨터의 --content 루트에 없는 팩을 쓰는 게임 → 실패 문구가 프로젝트 content/ 를 안내한다
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        auto src = scenario::openWorldSource("ecosystem_small", SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE(src.has_value());
+        net::LoopbackNetwork hub;
+        net::LoopbackTransport serverT(hub);
+        net::ServerHostDesc hd;
+        hd.worldName = "Arena";
+        hd.packs = {"arena_only"};
+        hd.game = net::GameIdentity{"studio.arena", "Arena", "0.2.0"};
+        hd.randomSeed = 5;
+        net::ServerHost host(serverT, std::move(src->runner), hd);
+        REQUIRE(host.start({"srv", 7777}).has_value());
+        NetworkSessionDesc d;
+        d.mode = NetworkSessionMode::Remote;
+        d.connect = "srv:7777";
+        d.displayName = "원격";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.transportFactory = [&]() -> Expected<std::unique_ptr<net::INetworkTransport>> {
+            return std::unique_ptr<net::INetworkTransport>(std::make_unique<net::LoopbackTransport>(hub));
+        };
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        auto ns = std::move(*made);
+        for (int i = 0; i < 200 && !ns->failure(); ++i) {
+            ns->update(kDt);
+            host.update(kDt);
+        }
+        REQUIRE(ns->failure().has_value());
+        CHECK(ns->failure()->find("Arena — studio.arena 0.2.0") != std::string::npos);
+        CHECK(ns->failure()->find("--content <프로젝트 폴더>/content") != std::string::npos);
+        host.stop();
+    }
+
     TEST_CASE("network session: unknown world and bad address fail at create") {
         auto mats = materials();
         NetworkSessionDesc bad;

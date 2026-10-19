@@ -25,6 +25,9 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.defaultRole = Role::Owner; // 혼자 하는 게임 — 일시정지 · 속도 · 편집 모두
     sd.buildId = localBuildId();
     sd.packs = src->packs;
+    if (src->game) {
+        sd.game = gameIdentityOf(*src->game);
+    }
     sd.mode = desc.mode;
     sd.snapshotIntervalSteps = desc.snapshotIntervalSteps;
     sd.snapshotBytesPerSecond = 0; // Loopback — 예산 없음

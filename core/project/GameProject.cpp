@@ -253,6 +253,8 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
             if (const auto p = ct->find("packs"); p != ct->end()) {
                 if (!p->is_array()) {
                     c.error(file, "/content/packs", "P1", "packs 는 팩 id 배열");
+                } else if (p->size() > kMaxContentPacks) {
+                    c.error(file, "/content/packs", "P2", std::format("팩은 {} 개까지", kMaxContentPacks));
                 } else {
                     std::set<std::string> seen;
                     for (usize i = 0; i < p->size(); ++i) {
