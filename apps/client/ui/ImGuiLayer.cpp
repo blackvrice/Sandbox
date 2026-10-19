@@ -236,6 +236,12 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
           "/usr/share/fonts/nanum/NanumGothic.ttf"}) {
         candidates.emplace_back(p);
     }
+#elif defined(__APPLE__)
+    // macOS 기본 한글 글꼴 (Apple SD 산돌고딕 Neo) → 사용자가 설치한 나눔고딕
+    for (const char* p : {"/System/Library/Fonts/AppleSDGothicNeo.ttc", "/Library/Fonts/NanumGothic.ttf",
+                          "/System/Library/Fonts/Supplemental/AppleGothic.ttf"}) {
+        candidates.emplace_back(p);
+    }
 #endif
     ImFont* font = nullptr;
     for (const auto& p : candidates) {

@@ -4,6 +4,9 @@
 # sbx_check_link_boundaries() 가 그 규칙을 구성 단계에서 강제한다.
 cmake_minimum_required(VERSION 3.28)
 
+# macOS 최소 버전 (06 2장 — Metal 3 · Apple Silicon). project() 앞에 둬야 한다. 다른 OS 에서는 쓰이지 않는다.
+set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "macOS 최소 버전")
+
 project(Sandbox
         VERSION 0.1.0
         DESCRIPTION "Sandbox Simulation Maker"

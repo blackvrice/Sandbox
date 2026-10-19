@@ -1,9 +1,10 @@
-// Platform 입력: Key 이름, Win32 · X11 키 표, InputSystem (I1·I3·I4), HeadlessWindow, 창 시스템 이름. docs/07-PLATFORM.md 9장.
+// Platform 입력: Key 이름, Win32 · X11 · macOS 키 표, InputSystem (I1·I3·I4), HeadlessWindow, 창 시스템 이름. docs/07-PLATFORM.md 9장.
 #include <doctest/doctest.h>
 
 #include "platform/common/HeadlessWindow.hpp"
 #include "platform/common/InputSystem.hpp"
 #include "platform/linux/X11KeyMap.hpp"
+#include "platform/macos/MacKeyMap.hpp"
 #include "platform/windows/Win32KeyMap.hpp"
 
 using namespace sbx;
@@ -114,6 +115,63 @@ TEST_SUITE("platform") {
         }
         CHECK(mapped == kKeyCount - 1); // Unknown 을 뺀 모든 Key 에 X keycode 가 있다
         CHECK(keycodeFromKey(Key::Unknown) == 0);
+    }
+
+    TEST_CASE("macos virtual key code table: physical positions, modifier keys by device bits, Korean keys") {
+        using namespace sbx::platform::mac;
+        CHECK(keyFromKeyCode(0x00) == Key::A); // kVK_ANSI_A
+        CHECK(keyFromKeyCode(0x0D) == Key::W); // kVK_ANSI_W — AZERTY 에서도 같은 자리
+        CHECK(keyFromKeyCode(0x12) == Key::Digit1);
+        CHECK(keyFromKeyCode(0x1D) == Key::Digit0);
+        CHECK(keyFromKeyCode(0x24) == Key::Enter);
+        CHECK(keyFromKeyCode(0x33) == Key::Backspace); // kVK_Delete
+        CHECK(keyFromKeyCode(0x75) == Key::Delete);    // kVK_ForwardDelete
+        CHECK(keyFromKeyCode(0x35) == Key::Escape);
+        CHECK(keyFromKeyCode(0x37) == Key::LeftSuper); // Command
+        CHECK(keyFromKeyCode(0x36) == Key::RightSuper);
+        CHECK(keyFromKeyCode(0x3A) == Key::LeftAlt); // Option
+        CHECK(keyFromKeyCode(0x3E) == Key::RightCtrl);
+        CHECK(keyFromKeyCode(0x7E) == Key::Up);
+        CHECK(keyFromKeyCode(0x4C) == Key::KpEnter);
+        CHECK(keyFromKeyCode(0x51) == Key::KpEqual);
+        CHECK(keyFromKeyCode(0x7A) == Key::F1);
+        CHECK(keyFromKeyCode(0x5A) == Key::F20);
+        CHECK(keyFromKeyCode(0x68) == Key::Lang1);   // HID LANG1 (한/영) = kVK_JIS_Kana
+        CHECK(keyFromKeyCode(0x66) == Key::Lang2);   // HID LANG2 (한자) = kVK_JIS_Eisu
+        CHECK(keyFromKeyCode(0x3F) == Key::Unknown); // fn
+        CHECK(keyFromKeyCode(0x80) == Key::Unknown);
+        CHECK(keyFromKeyCode(0xFFFF) == Key::Unknown);
+
+        // 표에 있는 코드는 모두 되돌아온다 (서로 다른 코드가 같은 Key 를 가리키지 않는다)
+        usize mapped = 0;
+        for (u32 code = 0; code < 128; ++code) {
+            const Key k = keyFromKeyCode(code);
+            if (k == Key::Unknown) {
+                continue;
+            }
+            CAPTURE(code);
+            ++mapped;
+            CHECK(keyCodeFromKey(k) == code);
+        }
+        CHECK(mapped >= 100); // Mac 키보드에 없는 키(PrintScreen · Pause · F21~F24 …)는 비어 있다
+        CHECK_FALSE(keyCodeFromKey(Key::Unknown).has_value());
+        CHECK_FALSE(keyCodeFromKey(Key::PrintScreen).has_value());
+        CHECK(keyCodeFromKey(Key::A) == 0u); // 0 도 실제 코드다
+
+        // 수정자 키: 장치별 비트로 왼쪽 · 오른쪽을 가린다
+        CHECK(modifierKeyDown(0x38, kFlagShift | kDeviceLeftShift) == true);
+        CHECK(modifierKeyDown(0x38, kFlagShift | kDeviceRightShift) == false); // 오른쪽만 눌림 → 왼쪽은 뗌
+        CHECK(modifierKeyDown(0x3C, kFlagShift | kDeviceRightShift) == true);
+        CHECK(modifierKeyDown(0x37, kFlagCommand | kDeviceLeftCommand) == true);
+        CHECK(modifierKeyDown(0x3E, kFlagControl | kDeviceRightControl) == true);
+        CHECK(modifierKeyDown(0x3D, 0) == false);
+        CHECK(modifierKeyDown(0x39, kFlagCapsLock) == true);        // Caps Lock = 켜짐 여부
+        CHECK_FALSE(modifierKeyDown(0x00, kFlagShift).has_value()); // A 는 수정자 키가 아니다
+        const Modifiers m = modifiersFromFlags(kFlagCommand | kFlagOption);
+        CHECK(m.super());
+        CHECK(m.alt());
+        CHECK_FALSE(m.ctrl());
+        CHECK_FALSE(m.shift());
     }
 
     TEST_CASE("input: pressed/released/down across frames, and a tap inside one frame") {

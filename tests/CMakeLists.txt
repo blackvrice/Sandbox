@@ -117,6 +117,16 @@ if(SBX_ENABLE_X11)
     set_tests_properties(platform_x11 PROPERTIES LABELS "platform" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|"
                                                  RUN_SERIAL TRUE)
 endif()
+# macOS 창 (Phase 14B, ADR-0036): 실제 AppKit 창에 NSEvent 를 넘긴다 (Objective-C++). 화면이 없는 세션이면 건너뛴다.
+if(APPLE)
+    enable_language(OBJCXX)
+    target_sources(SandboxTests PRIVATE unit/platform/test_cocoa_window.mm)
+    set_source_files_properties(unit/platform/test_cocoa_window.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(SandboxTests PRIVATE "-framework AppKit" "-framework QuartzCore" "-framework CoreGraphics")
+    add_test(NAME platform_cocoa COMMAND $<TARGET_FILE:SandboxTests> --test-suite=cocoa --no-intro --no-version)
+    set_tests_properties(platform_cocoa PROPERTIES LABELS "platform" FAIL_REGULAR_EXPRESSION "test cases: +0 \\|"
+                                                   RUN_SERIAL TRUE)
+endif()
 # Wayland (Phase 13C, ADR-0034): xkb 입력 해석은 platform 스위트 (서버 없이), 창은 wayland 스위트 — weston 이 있으면 화면 없는
 # 컴포지터(tools/wayland/run_headless.sh)에서, 없으면 지금 WAYLAND_DISPLAY 에서 (없으면 케이스가 건너뛴다)
 if(SBX_ENABLE_WAYLAND)
@@ -188,7 +198,7 @@ endif()
 if(TARGET SandboxClient)
     add_test(NAME client_version COMMAND SandboxClient --version)
     set_tests_properties(client_version PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|none), render (D3D12|Vulkan|none)")
+        PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|Cocoa|none), render (D3D12|Vulkan|none)")
     add_test(NAME client_rejects_unknown_option COMMAND SandboxClient --no-such-option)
     set_tests_properties(client_rejects_unknown_option PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)

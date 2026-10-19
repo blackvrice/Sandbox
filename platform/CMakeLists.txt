@@ -18,11 +18,13 @@ add_library(SandboxPlatform STATIC
     common/FramePacer.cpp
     audio/NullAudioBackend.hpp
     audio/NullAudioBackend.cpp
-    # 순수 표 — 모든 OS 에서 컴파일해 단위 테스트가 확인한다 (windows.h · Xlib.h 를 쓰지 않는다)
+    # 순수 표 — 모든 OS 에서 컴파일해 단위 테스트가 확인한다 (windows.h · Xlib.h · AppKit 을 쓰지 않는다)
     windows/Win32KeyMap.hpp
     windows/Win32KeyMap.cpp
     linux/X11KeyMap.hpp
     linux/X11KeyMap.cpp
+    macos/MacKeyMap.hpp
+    macos/MacKeyMap.cpp
 )
 add_library(Sandbox::Platform ALIAS SandboxPlatform)
 
@@ -77,8 +79,19 @@ elseif(SBX_ENABLE_X11 OR SBX_ENABLE_WAYLAND)
         # Vulkan 의 Wayland 표면 · 시험이 안다
         target_compile_definitions(SandboxPlatform PUBLIC SBX_HAS_WAYLAND=1)
     endif()
+elseif(APPLE)
+    # macOS 창 (Phase 14B, ADR-0036): AppKit · Objective-C++ (ARC). 창 · 이벤트는 메인 스레드 전용.
+    enable_language(OBJCXX)
+    target_sources(SandboxPlatform PRIVATE
+        macos/MacWindows.hpp
+        macos/CocoaWindow.mm
+        macos/MacPlatform.cpp)
+    set_source_files_properties(macos/CocoaWindow.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(SandboxPlatform PRIVATE "-framework AppKit" "-framework QuartzCore" "-framework CoreGraphics")
+    # Metal 백엔드(render/metal) · 시험이 안다
+    target_compile_definitions(SandboxPlatform PUBLIC SBX_HAS_COCOA=1)
 else()
-    # 창 구현이 없는 빌드: macOS(Phase 14), X11 · Wayland 를 모두 끈 Linux. createWindow 는 Unsupported.
+    # 창 구현이 없는 빌드: X11 · Wayland 를 모두 끈 Linux. createWindow 는 Unsupported.
     target_sources(SandboxPlatform PRIVATE stub/StubPlatform.cpp)
 endif()
 
