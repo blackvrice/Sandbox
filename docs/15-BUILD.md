@@ -235,6 +235,9 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준, 게임 프로젝트면 <프로젝트>/worlds — v0.2
     M1-T5, ADR-0044). 클라이언트 "월드" 패널의 저장 · 불러오기 ·
     기록 · 재생이 여기에 <이름>/ 으로 (admin 부터, 목록은 모두 — 09 4.1, ADR-0031). 기록 중에 Ctrl+C 로 끝내면 리플레이를 쓴다.
+    (v0.2 M2-T3) [--start-game]: 게임 모드가 있는 프로젝트(매니페스트 gameMode)는 Lobby 로 열려 틱이 오르지 않는다 — admin 이
+    클라이언트 "게임" 패널에서 시작하거나, 이 옵션으로 서버가 첫 틱에 시작한다 (헤드리스 · CI: --start-game --ticks N --exit).
+    게임 모드가 없는 월드에 주면 종료 코드 2. 재시작(WorldOp Restart · GameMode.restart auto)은 시작 월드를 다시 연다 (ADR-0046).
     Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
 종료 코드: 0 정상 · 1 실행 오류 · 2 잘못된 인자 (모르는 월드 포함)

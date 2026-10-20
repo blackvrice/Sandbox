@@ -136,12 +136,12 @@ Expected<SaveSummary> readSaveSummary(const std::filesystem::path& dir) {
 }
 
 Expected<OpenedSave> openSave(const std::filesystem::path& dir, const content::ContentDatabase& content,
-                              const ecs::ComponentCatalog& catalog) {
+                              const ecs::ComponentCatalog& catalog, bool allowOtherContent) {
     auto summary = readSaveSummary(dir);
     if (!summary) {
         return std::unexpected(summary.error());
     }
-    if (summary->contentHash != content.contentHash()) {
+    if (summary->contentHash != content.contentHash() && !allowOtherContent) {
         return makeError(ErrorCode::InvalidArgument,
                          std::format("다른 콘텐츠로 만든 세이브입니다 (세이브 {}, 서버 {})",
                                      replay::formatHash(summary->contentHash),

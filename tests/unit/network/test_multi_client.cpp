@@ -1,4 +1,4 @@
-// Phase 12 완료 기준 (docs/16-ROADMAP.md 12장, 10-EDITOR 7장): 역할 × 명령 권한 표를 서버 끝까지 (명령 12 종 + 월드 요청),
+// Phase 12 완료 기준 (docs/16-ROADMAP.md 12장, 10-EDITOR 7장): 역할 × 명령 권한 표를 서버 끝까지 (명령 14 종 + 월드 요청),
 // 두 클라이언트가 같은 개체 · 같은 칸을 동시에 편집해도 서버 순서 하나로 정해져 모두가 같은 월드로 모인다.
 #include <doctest/doctest.h>
 
@@ -122,7 +122,7 @@ struct Expect {
 
 TEST_SUITE("network") {
 
-    TEST_CASE("roles × commands: the 10-EDITOR 7 permission table holds end to end (12 payloads + world requests)") {
+    TEST_CASE("roles × commands: the 10-EDITOR 7 permission table holds end to end (14 payloads + world requests)") {
         const ecs::StableId transform = catalog().find("core.transform")->stableId;
         const std::vector<Expect> table{
             {"create", cmd::CreateEntity{{1.f, 1.f}, {}, {}}, Role::Editor},
@@ -138,6 +138,9 @@ TEST_SUITE("network") {
             {"step", cmd::StepSimulation{1}, Role::Admin},
             {"resume", cmd::ResumeSimulation{}, Role::Admin},
             {"speed", cmd::SetSimulationSpeed{2.f}, Role::Admin},
+            // v0.2 M2-T3: 게임 시작 · 중단 = 실행 제어 열 (이 월드엔 세션이 없어 admin 은 NotFound 로 거절된다)
+            {"game start", cmd::GameControl{cmd::GameControlOp::Start}, Role::Admin},
+            {"game abort", cmd::GameControl{cmd::GameControlOp::Abort}, Role::Admin},
         };
         for (u8 ri = 0; ri <= static_cast<u8>(Role::Owner); ++ri) {
             const Role role = static_cast<Role>(ri);
@@ -194,7 +197,8 @@ TEST_SUITE("network") {
                                                                   {WorldOpKind::RecordStart, "rec"},
                                                                   {WorldOpKind::RecordStop, ""},
                                                                   {WorldOpKind::Load, "nope"},
-                                                                  {WorldOpKind::Play, "nope"}}) {
+                                                                  {WorldOpKind::Play, "nope"},
+                                                                  {WorldOpKind::Restart, ""}}) {
                 CAPTURE(worldOpName(op));
                 const WorldOpResultMsg r = request(op, name);
                 const bool denied = r.detail.find("(admin 부터)") != std::string::npos;

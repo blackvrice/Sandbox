@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 
+#include "core/command/CommandJson.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
@@ -316,6 +317,70 @@ TEST_SUITE("core") {
         CHECK(a.session().gameState() == GameState::Finished);
         CHECK(game::findSession(c.registry())->gameState() == GameState::Finished);
         CHECK(*a.world.worldHash() == *c.worldHash());
+    }
+
+    TEST_CASE("game: 명령 GameControl — Start 는 Lobby 에서만, Abort 는 Starting · Running 에서만 (M2-T3)") {
+        HuntWorld w;
+        // 세션이 없으면 거절
+        auto r = w.run(cmd::GameControl{cmd::GameControlOp::Start});
+        CHECK_FALSE(r.accepted);
+        CHECK(r.error.code == ErrorCode::NotFound);
+
+        w.spawnRabbits(1);
+        REQUIRE(game::resetSession(w.world, "eco.hunt").has_value());
+        const sim::Tick t0 = w.world.currentTick();
+        CHECK(w.session().gameState() == GameState::Lobby);
+        CHECK(w.session().stateTick == t0);
+        CHECK(w.run(cmd::GameControl{cmd::GameControlOp::Abort}).error.code == ErrorCode::InvalidArgument);
+
+        // Lobby 의 편집 단계에서 적용 — stateTick = 지금 틱, 다음 tick() 부터 돈다
+        r = w.run(cmd::GameControl{cmd::GameControlOp::Start});
+        REQUIRE_MESSAGE(r.accepted, r.error.describe());
+        CHECK(w.world.currentTick() == t0);
+        CHECK(w.session().gameState() == GameState::Starting);
+        CHECK(w.session().stateTick == t0);
+        CHECK(w.run(cmd::GameControl{cmd::GameControlOp::Start}).error.code == ErrorCode::InvalidArgument); // 두 번
+        CHECK(w.world.currentTick() == t0 + 1); // 위 run 의 틱은 돌았다 (Starting)
+        for (int i = 0; i < 29; ++i) {
+            w.world.tick();
+        }
+        CHECK(w.session().gameState() == GameState::Running); // t0 + 30
+        CHECK(w.session().stateTick == t0 + 30);
+
+        r = w.run(cmd::GameControl{cmd::GameControlOp::Abort});
+        REQUIRE(r.accepted);
+        CHECK(w.session().gameState() == GameState::Finished);
+        CHECK(w.session().outcome() == GameOutcome::None);
+        CHECK(w.session().rule == 0);
+        const sim::Tick end = w.world.currentTick();
+        w.world.tick();
+        CHECK(w.world.currentTick() == end);
+        CHECK(w.run(cmd::GameControl{cmd::GameControlOp::Start}).error.code == ErrorCode::InvalidArgument);
+
+        // resetSession: 같은 엔티티를 Lobby 로 되돌린다 (새로 만들지 않는다), 없는 모드는 거절
+        const usize alive = w.world.registry().aliveCount();
+        REQUIRE(game::resetSession(w.world, "eco.hunt").has_value());
+        CHECK(w.world.registry().aliveCount() == alive);
+        CHECK(w.session().gameState() == GameState::Lobby);
+        CHECK(w.session().outcome() == GameOutcome::None);
+        CHECK(game::resetSession(w.world, "eco.nope").error().code == ErrorCode::NotFound);
+        CHECK(w.session().mode == std::string_view("eco.hunt"));
+        CHECK(game::gameOutcomeName(GameOutcome::Draw) == "draw");
+    }
+
+    TEST_CASE("game: GameControl 의 리플레이 JSON 왕복") {
+        for (const auto op : {cmd::GameControlOp::Start, cmd::GameControlOp::Abort}) {
+            const cmd::CommandPayload p = cmd::GameControl{op};
+            const auto j = cmd::payloadToJson(p, [](NetEntityId n) { return u64{n}; });
+            auto back = cmd::payloadFromJson(j, [](u64 n) { return static_cast<NetEntityId>(n); });
+            REQUIRE(back.has_value());
+            REQUIRE(std::holds_alternative<cmd::GameControl>(*back));
+            CHECK(std::get<cmd::GameControl>(*back).op == op);
+        }
+        CHECK_FALSE(cmd::payloadFromJson(ecs::Json{{"op", "game"}, {"action", "pause"}}, [](u64 n) {
+                        return static_cast<NetEntityId>(n);
+                    }).has_value());
+        CHECK(cmd::commandName(cmd::GameControl{}) == "GameControl");
     }
 
 } // TEST_SUITE

@@ -39,13 +39,14 @@ struct WorldSource {
 
 // 이미 읽은 콘텐츠로 세이브 폴더를 연다 — 서버가 실행 중에 불러오기 (Phase 12D). 접속한 클라이언트가 그 콘텐츠를 가지고
 // 있으므로 world.json 의 contentHash 가 content 의 것과 다르면 거절한다 (InvalidArgument). runner 의 월드가 content 를
-// 가리킨다
+// 가리킨다. allowOtherContent = 해시가 달라도 연다 (게임 재시작의 시작 월드 — 프로젝트를 열 때처럼 경고만, v0.2 M2-T3.
+// 로드 경고가 warnings 에 든다)
 struct OpenedSave {
     std::unique_ptr<ScenarioRunner> runner;
     std::vector<std::string> warnings;
 };
 [[nodiscard]] Expected<OpenedSave> openSave(const std::filesystem::path& dir, const content::ContentDatabase& content,
-                                            const ecs::ComponentCatalog& catalog);
+                                            const ecs::ComponentCatalog& catalog, bool allowOtherContent = false);
 
 // 세이브 폴더 요약 (world.json 만 읽는다 — 목록 표시용)
 struct SaveSummary {

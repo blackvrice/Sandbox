@@ -149,6 +149,9 @@ void writePayload(BitWriter& w, const cmd::CommandPayload& payload) {
                 w.writeU8(static_cast<u8>(p.kind));
                 w.writeString(p.id);
                 writeJson(w, p.value);
+            } else if constexpr (std::is_same_v<T, cmd::GameControl>) {
+                w.writeU8(static_cast<u8>(PayloadTag::GameControl));
+                w.writeU8(static_cast<u8>(p.op));
             } else {
                 static_assert(sizeof(T) == 0, "새 명령의 와이어 형식을 정하십시오 (PayloadTag 에 새 값)");
             }
@@ -262,6 +265,14 @@ bool readPayload(BitReader& r, cmd::CommandPayload& out) {
             r.fail();
         }
         out = std::move(p);
+        break;
+    }
+    case PayloadTag::GameControl: {
+        const u8 op = r.readU8();
+        if (op < static_cast<u8>(cmd::GameControlOp::Start) || op > static_cast<u8>(cmd::GameControlOp::Abort)) {
+            r.fail();
+        }
+        out = cmd::GameControl{static_cast<cmd::GameControlOp>(op)};
         break;
     }
     default:

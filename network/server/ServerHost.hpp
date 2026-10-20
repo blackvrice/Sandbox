@@ -73,6 +73,12 @@ struct ServerHostDesc {
     ServerMode mode = ServerMode::Inline;
     // 게임 프로젝트면 그 정체성 (Welcome · Reject 에 — v0.2 M1-T3, ADR-0042). 서버가 사는 동안 같다
     GameIdentity game;
+    // 게임 진행 (v0.2 M2-T3, ADR-0045): 시작 월드 폴더 (비면 재시작 없음) · 게임 모드 id · 시작에 필요한 참가자 수
+    // (역할 player 이상으로 접속한 사람 — GameMode.players.min). 재시작 = 시작 월드를 다시 열고 세션을 Lobby 로,
+    // GameMode.restart 가 auto 면 Finished 뒤 delay 만큼 서버 단계가 지나면 스스로
+    std::filesystem::path entryWorld;
+    std::string gameMode;
+    u32 minPlayers = 0;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
     // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
     // 클라이언트당 초당 바이트 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
@@ -80,6 +86,11 @@ struct ServerHostDesc {
     u32 snapshotIntervalSteps = 2;
     usize snapshotBytesPerSecond = 256 * 1024;
 };
+
+// 게임 프로젝트의 정체성 · 진행 설정을 desc 에 (game · entryWorld · gameMode · minPlayers — v0.2 M2-T3).
+// projectDir = --world 에 준 프로젝트 폴더, content = 그 프로젝트 콘텐츠 (모드의 players.min)
+void setGameProject(ServerHostDesc& desc, const project::GameManifest& manifest,
+                    const std::filesystem::path& projectDir, const content::ContentDatabase& content);
 
 // 서버 상태 요약 (아무 스레드에서나 읽는다 — 복사본)
 struct ServerHostStats {
@@ -210,6 +221,10 @@ private:
     void replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
                       const std::string& name, std::vector<Outgoing>& out);
     [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
+    // 게임 재시작 (WorldOp Restart · 자동, M2-T3): 시작 월드를 다시 열어 바꾸고 세션을 Lobby 로. 결과 요약
+    [[nodiscard]] Expected<std::string> restartGame(std::vector<Outgoing>& out);
+    [[nodiscard]] bool autoRestartDue();
+    [[nodiscard]] u32 playerCount() const; // 역할 player 이상으로 접속한 사람 수 (네트워크 스레드)
     [[nodiscard]] WorldList listWorlds() const;
     void handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results);
 
@@ -242,6 +257,7 @@ private:
     std::optional<Recording> m_recording;
     std::unique_ptr<Playback> m_playback;
     u32 m_serverSequence = 0; // 서버가 넣는 명령 (재생 끝 일시정지)
+    u64 m_finishedSteps = 0;  // 게임이 Finished 로 머문 서버 단계 수 (자동 재시작, M2-T3)
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;

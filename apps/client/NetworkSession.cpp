@@ -12,6 +12,7 @@
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/game/GameRules.hpp"
 #include "foundation/log/Log.hpp"
 #include "network/server/CommandValidator.hpp"
 #include "network/transport/EnetTransport.hpp"
@@ -327,6 +328,9 @@ void NetworkSession::update(f64 dtSeconds) {
             m_lastRejection = std::format("{} 거절: {}", name, r.detail.empty() ? errorCodeName(r.reason) : r.detail);
             log::warn("client", "{}", m_lastRejection);
         }
+        if (name == "GameControl") {
+            m_gameMessage = r.accepted ? std::string() : m_lastRejection;
+        }
         if (const auto e = std::ranges::find(m_editorSequences, r.sequence); e != m_editorSequences.end()) {
             m_editorSequences.erase(e);
             m_outcomes.push_back(
@@ -629,6 +633,9 @@ void NetworkSession::updateWorldOps() {
                                                 : std::format("{} '{}'", net::worldOpName(r.op), r.name);
         m_worldMessage =
             r.accepted ? std::format("{}: {}", what, r.detail) : std::format("{} 거절: {}", what, r.detail);
+        if (r.op == net::WorldOpKind::Restart) {
+            m_gameMessage = m_worldMessage;
+        }
         if (r.accepted) {
             log::info("client", "{}", m_worldMessage);
             relist = true; // 폴더가 바뀌었을 수 있다
@@ -640,7 +647,10 @@ void NetworkSession::updateWorldOps() {
         m_seenWorldChanges = m_session->worldChanges();
         if (const auto& wc = m_session->lastWorldChange()) {
             log::info("client", "서버 월드가 바뀌었습니다 ({} '{}', generation {})",
-                      wc->reason == net::WorldChangeReason::Load ? "불러오기" : "리플레이", wc->name, wc->generation);
+                      wc->reason == net::WorldChangeReason::Load      ? "불러오기"
+                      : wc->reason == net::WorldChangeReason::Restart ? "게임 재시작"
+                                                                      : "리플레이",
+                      wc->name, wc->generation);
         }
     }
     if (relist) {
@@ -673,6 +683,58 @@ std::optional<WorldOpsInfo> NetworkSession::worldOps() const {
     info.generation = m_session->generation();
     info.message = m_worldMessage;
     return info;
+}
+
+std::optional<GameInfo> NetworkSession::game() const {
+    const net::ClientWorld* w = clientWorld();
+    if (w == nullptr || !m_session) {
+        return std::nullopt;
+    }
+    const comp::GameSession* s = game::findSession(w->registry());
+    if (s == nullptr) {
+        return std::nullopt;
+    }
+    GameInfo info;
+    info.modeId = s->mode.str();
+    info.modeName = info.modeId;
+    info.state = s->state;
+    info.result = s->result;
+    info.rule = s->rule;
+    info.tick = w->serverTick();
+    info.stateTick = s->stateTick;
+    if (const content::ContentDatabase* db = content(); db != nullptr) {
+        if (const content::GameMode* m = db->findMode(info.modeId); m != nullptr) {
+            info.modeName = m->name;
+            info.countdownTicks = m->countdownTicks;
+            info.minPlayers = m->minPlayers;
+            info.maxPlayers = m->maxPlayers;
+            info.autoRestart = m->autoRestart;
+            info.restartDelayTicks = m->restartDelayTicks;
+            if (s->team > 0 && s->team <= m->teams.size()) {
+                info.team = m->teams[s->team - 1].name;
+            }
+        }
+    }
+    info.canControl = permissions().simulation; // 실행 제어와 같은 열 (admin 부터)
+    info.message = m_gameMessage;
+    return info;
+}
+
+void NetworkSession::gameCommand(GameCommand c) {
+    switch (c) {
+    case GameCommand::Start:
+    case GameCommand::Abort:
+        if (send(cmd::GameControl{c == GameCommand::Start ? cmd::GameControlOp::Start : cmd::GameControlOp::Abort}) ==
+            0) {
+            m_gameMessage = "접속 전이라 보낼 수 없습니다";
+        }
+        return;
+    case GameCommand::Restart:
+        if (!m_session || !m_session->requestWorldOp(net::WorldOpKind::Restart)) {
+            m_gameMessage = "접속 전이라 요청할 수 없습니다";
+        }
+        return;
+    }
 }
 
 void NetworkSession::worldOp(WorldOp op, std::string name) {

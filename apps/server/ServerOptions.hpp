@@ -3,6 +3,7 @@
 // Phase 1: --help / --version / --log-level.  Phase 3: --scenario / --ticks / --seed / --realtime (헤드리스 실행).
 // Phase 9: --world / --port / --bind / --max-clients / --default-role / --threads / --ticks N --exit (네트워크 서버).
 // Phase 12C: --owner-key (그 열쇠로 접속한 사람이 Owner). Phase 12D: --saves (세이브 · 리플레이 폴더).
+// v0.2 M2-T3: --start-game (게임 모드가 있는 프로젝트를 Lobby 에서 바로 시작 — 헤드리스 · CI).
 // [계획] --autosave · --record-replay · --metrics-csv.
 
 #include <optional>
@@ -41,6 +42,7 @@ struct ServerOptions {
     std::optional<u32> threads;  // 시뮬레이션 Worker 수 (없으면 코어 수 - 2 를 1 ~ 4)
     bool exitAtTicks = false;    // --exit: --ticks 에 도달하면 끝낸다 (CI · 벤치)
     u32 snapshotKBps = 256;      // 클라이언트당 복제 예산 KB/s (0 = 제한 없음, 08 6.3)
+    bool startGame = false;      // --start-game: 게임 세션을 바로 시작 (서버가 GameControl Start 를 넣는다, M2-T3)
 };
 
 [[nodiscard]] Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> args);

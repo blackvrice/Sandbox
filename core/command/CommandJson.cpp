@@ -137,6 +137,8 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "step"}, {"ticks", p.ticks}};
             } else if constexpr (std::is_same_v<P, SetSimulationSpeed>) {
                 return Json{{"op", "speed"}, {"speed", static_cast<f64>(p.speed)}};
+            } else if constexpr (std::is_same_v<P, GameControl>) {
+                return Json{{"op", "game"}, {"action", p.op == GameControlOp::Start ? "start" : "abort"}};
             } else {
                 static_assert(std::is_same_v<P, EditContent>);
                 return Json{
@@ -275,6 +277,17 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
         c.id = j["id"].get<std::string>();
         c.value = j["value"];
         return CommandPayload{std::move(c)};
+    }
+    if (op == "game") {
+        const std::string action =
+            j.contains("action") && j["action"].is_string() ? j["action"].get<std::string>() : "";
+        if (action == "start") {
+            return CommandPayload{GameControl{GameControlOp::Start}};
+        }
+        if (action == "abort") {
+            return CommandPayload{GameControl{GameControlOp::Abort}};
+        }
+        return makeError(ErrorCode::ParseError, "game 의 'action' 은 start | abort");
     }
     return makeError(ErrorCode::ParseError, std::format("모르는 명령 '{}'", op));
 }

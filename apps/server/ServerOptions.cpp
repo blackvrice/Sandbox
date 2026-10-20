@@ -130,6 +130,8 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             opts.realtime = true;
         } else if (a == "--exit") {
             opts.exitAtTicks = true;
+        } else if (a == "--start-game") {
+            opts.startGame = true;
         } else {
             return makeError(ErrorCode::InvalidArgument, std::format("unknown option '{}'", a));
         }
@@ -158,6 +160,9 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
         if (opts.savesGiven) {
             return makeError(ErrorCode::InvalidArgument, "--saves 는 --world 와 함께 씁니다");
         }
+        if (opts.startGame) {
+            return makeError(ErrorCode::InvalidArgument, "--start-game 은 --world 와 함께 씁니다");
+        }
     }
     return opts;
 }
@@ -183,6 +188,8 @@ std::string serverUsage() {
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 접속자를 끊고 끝낸다 (CI)\n"
+           "      --start-game         게임 모드가 있는 프로젝트를 Lobby 에서 바로 시작 (없으면 admin 이 \"게임\" "
+           "창에서)\n"
            "      Ctrl+C               접속자에게 서버 종료를 알리고 끝낸다\n"
            "\n"
            "헤드리스 시나리오 (Phase 3 — 네트워크 없이 최대 속도로)\n"

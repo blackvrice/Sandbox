@@ -20,7 +20,7 @@ enum class CommandClass : u8 {
     EntityEdit = 1,        // 엔티티 · 컴포넌트 편집
     TerrainEdit = 2,       // 지형 칠하기
     ContentEdit = 3,       // Rule · Behavior · Prefab (EditContent — 12C)
-    SimulationControl = 4, // 일시정지 · 재개 · 한 틱 · 속도
+    SimulationControl = 4, // 일시정지 · 재개 · 한 틱 · 속도 · 게임 시작 · 중단 (GameControl, v0.2 M2-T3)
 };
 
 [[nodiscard]] CommandClass classifyCommand(const cmd::CommandPayload& payload) noexcept;

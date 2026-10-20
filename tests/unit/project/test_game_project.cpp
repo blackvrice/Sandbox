@@ -4,6 +4,7 @@
 #include <filesystem>
 
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
@@ -260,6 +261,25 @@ TEST_SUITE("project") {
             // 팩에 파일이 늘어 contentHash 가 바뀌었다 → 월드는 경고 (열린다)
             CHECK(hasIssue(r.issues, "P5", "/content/contentHash", content::ContentIssue::Severity::Warning));
             CHECK(r.worldOpened);
+
+            // 열면 세션이 Lobby 로 생긴다 (v0.2 M2-T3) — 세이브된 세션이 Finished 여도 다시 Lobby
+            auto opened = project::openProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE_MESSAGE(opened.has_value(), opened.error().describe());
+            const comp::GameSession* s = game::findSession(opened->world->registry());
+            REQUIRE(s != nullptr);
+            CHECK(s->gameState() == comp::GameState::Lobby);
+            CHECK(s->mode == std::string_view("eco.survival"));
+            CHECK(s->stateTick == opened->world->currentTick());
+            CHECK(game::gameHoldsSimulation(opened->world->registry()));
+            opened->world->registry()
+                .write<comp::GameSession>(game::findSessionEntity(opened->world->registry()))
+                .state = static_cast<u8>(comp::GameState::Finished);
+            REQUIRE(persist::saveWorld(*opened->world, dir.path / "worlds/main").has_value());
+            const usize entities = opened->world->registry().aliveCount();
+            auto again = project::openProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE(again.has_value());
+            CHECK(game::findSession(again->world->registry())->gameState() == comp::GameState::Lobby);
+            CHECK(again->world->registry().aliveCount() == entities); // 세션을 하나 더 만들지 않는다
         }
     }
 

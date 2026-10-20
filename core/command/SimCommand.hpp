@@ -106,9 +106,18 @@ struct SetSimulationSpeed {
     f32 speed = 1.0f; // 0.25 ~ 8. 틱 간격(페이싱)만 바꾼다 — dt 는 영원히 상수
 };
 
+// --- 게임 진행 (v0.2 M2-T3, ADR-0045) ----------------------------------------------------------------------------
+// 월드의 game.session 을 바꾼다 (core/game/GameRules). Start = Lobby → Starting (카운트다운은 단계 17b),
+// Abort = Starting · Running → Finished (결과 없음). 세션이 없거나 상태가 맞지 않으면 거절. 재시작은 명령이 아니라
+// 서버가 시작 월드를 다시 여는 것 (WorldOp Restart)
+enum class GameControlOp : u8 { Start = 1, Abort = 2 };
+struct GameControl {
+    GameControlOp op = GameControlOp::Start;
+};
+
 using CommandPayload =
     std::variant<CreateEntity, DeleteEntity, MoveEntity, AddComponent, RemoveComponent, ChangeComponent, PaintTerrain,
-                 PauseSimulation, ResumeSimulation, StepSimulation, SetSimulationSpeed, EditContent>;
+                 PauseSimulation, ResumeSimulation, StepSimulation, SetSimulationSpeed, EditContent, GameControl>;
 
 struct SimCommand {
     CommandHeader header;

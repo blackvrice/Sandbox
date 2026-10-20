@@ -54,6 +54,8 @@ std::string_view worldOpName(WorldOpKind op) noexcept {
         return "기록 멈춤";
     case WorldOpKind::Play:
         return "리플레이 재생";
+    case WorldOpKind::Restart:
+        return "게임 재시작";
     }
     return "?";
 }
@@ -528,7 +530,7 @@ void encodeBody(BitWriter& w, const WorldChanged& m) {
 
 WorldOpKind readWorldOp(BitReader& r) {
     const u8 op = r.readU8();
-    if (op < static_cast<u8>(WorldOpKind::List) || op > static_cast<u8>(WorldOpKind::Play)) {
+    if (op < static_cast<u8>(WorldOpKind::List) || op > static_cast<u8>(WorldOpKind::Restart)) {
         r.fail();
         return WorldOpKind::List;
     }
@@ -877,7 +879,7 @@ WorldChanged decodeWorldChanged(BitReader& r) {
     m.world.paused = r.readBool();
     m.world.speed = readFiniteF32(r);
     const u8 reason = r.readU8();
-    if (reason < 1 || reason > 2) {
+    if (reason < 1 || reason > static_cast<u8>(WorldChangeReason::Restart)) {
         r.fail();
     }
     m.reason = static_cast<WorldChangeReason>(reason);

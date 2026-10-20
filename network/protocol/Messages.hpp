@@ -28,7 +28,8 @@ namespace sbx::net {
 // 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C.
 // 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의 모드) — 12D
 // 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3
-inline constexpr u32 kProtocolVersion = 8;
+// 9: 게임 진행 — 명령 GameControl (시작 · 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3
+inline constexpr u32 kProtocolVersion = 9;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -316,6 +317,7 @@ enum class WorldOpKind : u8 {
     RecordStart = 4, // <이름>/start 에 시작 세이브, 이후 적용된 명령을 기록
     RecordStop = 5,  // <이름>/replay.sbxr 로 쓰고 끝
     Play = 6,        // 리플레이를 재생 (시작 세이브를 불러와 한 call 씩 — 편집 명령은 거절, 실행 제어는 재생을 다룬다)
+    Restart = 7,     // 게임 재시작 (프로토콜 9): 게임 프로젝트의 시작 월드를 다시 열고 세션을 Lobby 로 — 이름은 무시
 };
 [[nodiscard]] std::string_view worldOpName(WorldOpKind op) noexcept;
 // 세이브 이름: 영문 · 숫자 · '_' · '-' 1 ~ 48 글자 (경로 문자 · 점 · 공백 없음 — 저장 폴더 아래 한 단계)
@@ -341,7 +343,7 @@ struct SavedWorld {
 struct WorldList {
     std::vector<SavedWorld> worlds; // 이름 순, ≤ kMaxSavedWorlds
 };
-enum class WorldChangeReason : u8 { Load = 1, Replay = 2 };
+enum class WorldChangeReason : u8 { Load = 1, Replay = 2, Restart = 3 }; // Restart: 프로토콜 9
 struct WorldChanged {
     u32 generation = 0; // 새 월드 (이 번호의 Snapshot 부터 그린다)
     WorldMeta world;    // 새 월드의 이름 · 경계 · 일시정지 · 속도

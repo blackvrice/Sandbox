@@ -161,7 +161,20 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
     if (world->game) {
-        desc.game = sbx::net::gameIdentityOf(*world->game);
+        sbx::net::setGameProject(desc, *world->game, *opts.world, world->runner->world().content());
+    }
+    // 게임 진행 (v0.2 M2-T3): 모드가 있으면 세션은 Lobby — admin 이 "게임" 창에서 (또는 --start-game) 시작한다
+    if (!desc.gameMode.empty()) {
+        auto& w = world->runner->world();
+        if (opts.startGame) {
+            w.enqueue(sbx::cmd::SimCommand{sbx::cmd::CommandHeader{w.currentTick() + 1, sbx::cmd::kServerIssuer, 1},
+                                           sbx::cmd::GameControl{sbx::cmd::GameControlOp::Start}});
+        }
+        sbx::log::info("server", "게임 모드 {} — {}", desc.gameMode,
+                       opts.startGame ? "바로 시작 (--start-game)" : "Lobby (admin 이 시작)");
+    } else if (opts.startGame) {
+        sbx::log::error("server", "--start-game: 게임 모드가 있는 프로젝트가 아닙니다");
+        return kExitBadArgs;
     }
     desc.mode = sbx::net::ServerMode::Threaded;
     desc.stopAtTick = opts.exitAtTicks ? *opts.ticks : 0;

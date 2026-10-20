@@ -12,6 +12,8 @@
 > **Phase 12D** — 프로토콜 7: 세이브 · 로드 · 리플레이 기록 · 재생 요청(WorldOp), 서버 월드가 바뀌면 WorldChanged 와 generation
 > (4장 · 5장, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)). **v0.2 M1-T3** — 프로토콜 8: Welcome · Reject 에 게임
 > 정체성 GameIdentity{gameId, name, version} (게임 프로젝트 서버만, [ADR-0042](adr/0042-handshake-game-identity-protocol-8.md)).
+> **v0.2 M2-T3** — 프로토콜 9: 게임 시작 · 중단 명령 GameControl (5.1 태그 24), 게임 재시작 WorldOp Restart (op 7) ·
+> WorldChanged reason Restart (3) — 시작 월드를 다시 연다 ([ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -121,6 +123,10 @@ Phase 9 구현 (ServerHost · ClientSession — Subscribe 부터는 Phase 10 · 
 게임      (프로토콜 8) 서버가 게임 프로젝트를 돌리면(--world <프로젝트>, ADR-0041) Welcome · Reject 가 GameIdentity 를 싣는다.
           클라이언트는 표시하고("월드" 패널 · --headless 의 game 줄 · probe), 팩을 못 읽으면 "--content <프로젝트>/content" 를
           안내한다. 프로젝트를 스스로 찾거나 내려받지는 않는다 ([계획] v0.5 패키지 공유 · v0.7 게임 다운로드).
+게임 진행 (프로토콜 9) 게임 모드가 있는 프로젝트 서버는 세션(game.session — 복제 컴포넌트)이 Lobby 로 시작한다. admin 이
+          Command{GameControl start} 로 시작 (역할 player 이상 접속자가 GameMode.players.min 에 모자라면 서버가 거절), abort 로
+          중단, WorldOp Restart 로 시작 월드를 다시 연다 → 모두에게 WorldChanged{Restart}. GameMode.restart 가 auto 면 Finished 뒤
+          delay 만큼 서버 단계가 지나면 서버가 스스로 Restart (ADR-0046).
 Welcome 뒤 Command → CommandResult, 1 초마다 ServerStats, 서버 종료 시 Disconnect{ServerShutdown}. 그 밖의 메시지 → ProtocolError 로 끊기.
           Phase 10A: Welcome 뒤 Snapshot(15 Hz) · TerrainChunk 를 받고 SnapshotAck 를 보낸다.
           Phase 10B: Inspect(볼 netId) → InspectResult. SandboxClient 는 접속하고 첫 스냅숏을 받을 때까지 Connecting,
@@ -175,7 +181,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 8`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 9`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -201,10 +207,10 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
 | 63 | SetRole        | C→S    | Control  | clientId varint, role u8 — 역할 바꾸기 요청 (12C, 10-EDITOR 7장)                                                                                                      |
 | 64 | SetRoleResult  | S→C    | Control  | clientId varint, role u8, accepted bool, detail str(256) — SetRole 을 보낸 사람에게 (12C)                                                                             |
-| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 — 그 밖은 형식 오류), name str(48) (12D)                                                       |
+| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 · 7 재시작 (9) — 그 밖은 형식 오류), name str(48) (12D)                                        |
 | 66 | WorldOpResult  | S→C    | Control  | op u8, name str(48), accepted bool, detail str(256) — 보낸 사람에게 (재생 끝은 모두에게) (12D)                                                                        |
 | 67 | WorldList      | S→C    | Control  | worlds[] {name str(48), replay bool, tick varint, entities varint} × ≤ 256, 이름 순 (12D)                                                                             |
-| 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생), name str(48) (12D)                                          |
+| 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생 · 3 재시작 (9)), name str(48) (12D)                           |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 (Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
@@ -221,6 +227,8 @@ Snapshot 처음에 generation varint, ServerStats 끝에 mode u8 (0 보통 · 1 
 replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySpeed f32 (ADR-0031).
 프로토콜 8 (v0.2 M1-T3): Welcome 끝 · Reject 끝에 game = gameId str(64) · name str(256) · version str(128) (게임이 아니면 셋 다
 빈 문자열 — gameId 없이 name · version 만 있으면 형식 오류). 서버는 상한으로 자른다 (ADR-0042).
+프로토콜 9 (v0.2 M2-T3): 명령 GameControl (5.1 태그 24), WorldOp 의 op 7 Restart (이름 무시 — 게임 재시작), WorldChanged 의
+reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 늘었다.
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -228,8 +236,10 @@ replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySp
 
 ```text
 종류 태그 u8 (값 고정): 1 CreateEntity · 2 DeleteEntity · 3 MoveEntity · 4 AddComponent · 5 RemoveComponent · 6 ChangeComponent ·
-                       7 PaintTerrain · 8 EditContent (12C) · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed
+                       7 PaintTerrain · 8 EditContent (12C) · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed ·
+                       24 GameControl (프로토콜 9)
 EditContent  종류 u8 (0 prefab · 1 rule · 2 behavior — 그 밖은 형식 오류), id str(64), 값 JSON 텍스트 (객체 또는 null)
+GameControl  op u8 (1 start · 2 abort — 그 밖은 형식 오류). 권한 = 실행 제어 (admin 부터)
 엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
 컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
 개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)

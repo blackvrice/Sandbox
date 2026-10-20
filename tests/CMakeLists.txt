@@ -64,6 +64,7 @@ add_executable(SandboxTests
     unit/network/test_interest.cpp
     unit/network/test_roles_overlay.cpp
     unit/network/test_world_ops.cpp
+    unit/network/test_game_control.cpp
     unit/network/test_multi_client.cpp
     unit/editor/test_editor.cpp
     unit/editor/test_undo.cpp
@@ -83,6 +84,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_editor_session.cpp
         unit/client/test_roles_content.cpp
         unit/client/test_world_panel.cpp
+        unit/client/test_game_panel.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -91,6 +93,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
@@ -376,6 +379,12 @@ if(TARGET sbx)
                     -DFROM=ecosystem_small -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=30
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_new.cmake")
         set_tests_properties(project_new_from_scenario PROPERTIES LABELS "content" TIMEOUT 180)
+        # 게임 모드 프로젝트 → 검사 → 서버 --start-game (v0.2 M2-T3)
+        add_test(NAME project_game_start
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_game"
+                    -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_game.cmake")
+        set_tests_properties(project_game_start PROPERTIES LABELS "content" TIMEOUT 180)
     endif()
 endif()
 

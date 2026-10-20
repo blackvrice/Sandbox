@@ -110,6 +110,9 @@ public:
     [[nodiscard]] std::optional<WorldOpsInfo> worldOps() const override;
     void worldOp(WorldOp op, std::string name) override;
     [[nodiscard]] u32 worldGeneration() const override { return m_session ? m_session->generation() : 0; }
+    // ---- v0.2 M2-T3: 게임 진행 ----
+    [[nodiscard]] std::optional<GameInfo> game() const override;
+    void gameCommand(GameCommand c) override;
     // 서버가 리플레이를 재생 중이다 (마지막 통계 기준)
     [[nodiscard]] bool playingReplay() const noexcept;
     // 오버레이를 적용하지 못했으면 그 이유 (시험 · 패널)
@@ -188,6 +191,7 @@ private:
     std::optional<std::pair<u32, f32>> m_pendingSpeed;
     u64 m_commandsRejected = 0;
     std::string m_lastRejection;
+    std::string m_gameMessage; // "게임" 패널 (GameControl 거절 · 재시작 결과)
     // 에디터가 보낸 명령 (결과를 IEditorHost::takeOutcomes 로) · EditPreview (netId 오름차순) — 12A
     std::vector<u32> m_editorSequences;
     std::vector<editor::CommandOutcome> m_outcomes;

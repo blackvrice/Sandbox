@@ -15,7 +15,8 @@ CommandClass classifyCommand(const cmd::CommandPayload& payload) noexcept {
             } else if constexpr (std::is_same_v<T, cmd::EditContent>) {
                 return CommandClass::ContentEdit;
             } else if constexpr (std::is_same_v<T, cmd::PauseSimulation> || std::is_same_v<T, cmd::ResumeSimulation> ||
-                                 std::is_same_v<T, cmd::StepSimulation> || std::is_same_v<T, cmd::SetSimulationSpeed>) {
+                                 std::is_same_v<T, cmd::StepSimulation> || std::is_same_v<T, cmd::SetSimulationSpeed> ||
+                                 std::is_same_v<T, cmd::GameControl>) { // 게임 시작 · 중단 = 실행 제어 (M2-T3)
                 return CommandClass::SimulationControl;
             } else {
                 return CommandClass::EntityEdit;

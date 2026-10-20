@@ -118,4 +118,14 @@ TEST_SUITE("server") {
         CHECK(sbx::server::serverUsage().find("--saves") != std::string::npos);
     }
 
+    TEST_CASE("server options: --start-game (v0.2 M2-T3)") {
+        constexpr std::array<std::string_view, 2> none{"--world", "w"};
+        CHECK_FALSE(parseServerOptions(none)->startGame);
+        constexpr std::array<std::string_view, 3> ok{"--world", "w", "--start-game"};
+        CHECK(parseServerOptions(ok)->startGame);
+        constexpr std::array<std::string_view, 3> scenario{"--scenario", "s", "--start-game"};
+        CHECK_FALSE(parseServerOptions(scenario).has_value());
+        CHECK(sbx::server::serverUsage().find("--start-game") != std::string::npos);
+    }
+
 } // TEST_SUITE

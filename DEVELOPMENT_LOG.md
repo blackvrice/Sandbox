@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-20 — v0.2 M2-T3: 게임 시작 · 중단 · 재시작, "게임" 패널, 프로토콜 9 → M2 완료 (ADR-0046)
+
+**무엇을**
+
+- 명령 `GameControl{start | abort}` (core/command, 와이어 태그 24, 리플레이 JSON {"op": "game", "action": …}):
+  start = Lobby → Starting, abort = Starting · Running → Finished (결과 없음). 권한 = 실행 제어 (admin 부터).
+  서버는 역할 player 이상 접속자가 GameMode.players.min 에 모자라면 start 를 거절한다.
+- `game::resetSession` — 세션을 Lobby 로 (없으면 만든다). openProject 가 gameMode 가 있으면 부른다 (시작 월드는 언제나 Lobby).
+- WorldOp `Restart` (op 7): 서버가 시작 월드를 다시 열고 (openSave — contentHash 가 달라도 경고만) 세션을 Lobby 로 →
+  WorldChanged{Restart}. GameMode.restart auto 면 Finished 뒤 delay 만큼 서버 단계가 지나면 스스로.
+  `net::setGameProject` 로 서버 · 로컬 서버가 시작 월드 · 모드 · players.min 을 받는다. 프로토콜 9.
+- SandboxServer `--start-game` (헤드리스 · CI 에서 Lobby 를 넘는다).
+- 클라이언트 "게임" 패널 (apps/client/ui/GamePanel): 모드 · 상태 한 줄 (카운트다운 · 경과 · 결과와 팀) · 시작 · 중단 · 재시작 ·
+  거절 줄. NetworkSession::game() 은 복제된 game.session 을 읽는다 (클라이언트에는 saveId 가 없어 세션 찾기에 대체 규칙).
+- 시험: test_game_control (network 3), test_game_panel (client 2), test_game_rules +2, test_game_project (openProject = Lobby),
+  test_messages (프로토콜 9 · 태그 24), test_multi_client 역할 표 +2 명령 · Restart, test_server_options, CTest project_game_start.
+- 문서: ADR-0046, 08 (머리말 · 4 · 5 · 5.1장), 10 7 · 9장, 15 7장, 03 (2 · 4장), 13, 17, 18 (M2 ✅ — 다음 M3-T1), adr/README.
+
+**왜**
+
+- 시작 · 중단은 시뮬레이션 상태 전이라 명령이어야 리플레이 · 결과 · 역할 검사를 그대로 탄다. 재시작은 한 판의 모든 변경을
+  되돌려야 해서 시작 월드를 다시 여는 것(12D 불러오기와 같은 경로)이 가장 확실하다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 63/63 (+ project_game_start). 골든 · 리플레이 해시 그대로 (세션 없는 월드).
+- 와이어: 프로토콜 8 → 9 (명령 태그 · 열거 값만 늘었다). 세이브 형식 변경 없음.
+
+**남은 일**
+
+- players.max (접속 · 역할 제한), 준비(ready) · 팀 고르기, 여러 맵 순환 — [계획].
+- M3-T1 PlayerAction (콘텐츠 actions.json, 역할 player).
+- (알림) ADR-0045 에 M2-T2 에서 "구체화" 절을 더했다 — AGENTS.md 6장은 기존 ADR 을 고치지 않는다고 하므로, 이후 결정은
+  ADR-0046 처럼 새 ADR 로 쓴다.
+
+---
+
 ## 2026-10-20 — v0.2 M2-T2: game.session · 단계 17b GameRules (ADR-0045 구체화)
 
 **무엇을**

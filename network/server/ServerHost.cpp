@@ -6,6 +6,7 @@
 #include <cstring>
 #include <format>
 
+#include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
@@ -414,7 +415,15 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
     }
 
     if (auto* command = std::get_if<CommandMsg>(&msg)) {
-        if (auto ok = m_validator.check(client.commands, client.role, command->sequence, command->payload, now); !ok) {
+        auto ok = m_validator.check(client.commands, client.role, command->sequence, command->payload, now);
+        // 게임 시작은 참가자가 모였을 때만 (GameMode.players.min — v0.2 M2-T3). 상태 검사는 시뮬레이션이 한다
+        if (const auto* gc = std::get_if<cmd::GameControl>(&command->payload);
+            ok && gc != nullptr && gc->op == cmd::GameControlOp::Start && playerCount() < m_desc.minPlayers) {
+            ok = makeError(
+                ErrorCode::InvalidArgument,
+                std::format("참가자가 모자랍니다 ({} / 최소 {} — 역할 player 이상)", playerCount(), m_desc.minPlayers));
+        }
+        if (!ok) {
             CommandResultMsg r;
             r.sequence = command->sequence;
             r.accepted = false;
@@ -669,6 +678,10 @@ void ServerHost::simStep(f64 now) {
     std::vector<Outgoing> worldOut;
     std::vector<Outgoing> results;
     bool replaced = false;
+    if (autoRestartDue()) { // GameMode.restart auto (M2-T3) — 결과는 모두에게
+        log::info("net", "게임 자동 재시작");
+        worldOps.push_back(WorldOpTask{0, WorldOpRequest{WorldOpKind::Restart, {}}});
+    }
     for (const WorldOpTask& t : worldOps) {
         runWorldOp(t, worldOut, replaced);
     }
@@ -953,6 +966,14 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         out.push_back(Outgoing{task.clientId, listWorlds()});
         return;
     }
+    if (req.op == WorldOpKind::Restart) {
+        auto r = restartGame(out);
+        if (r) {
+            replaced = true;
+        }
+        r ? reply(*r, true) : reply(r.error().describe(), false);
+        return;
+    }
     if (req.op == WorldOpKind::RecordStop) {
         if (!m_recording) {
             reply("기록 중이 아닙니다", false);
@@ -1098,8 +1119,74 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
     }
     case WorldOpKind::List:
     case WorldOpKind::RecordStop:
+    case WorldOpKind::Restart:
         break;
     }
+}
+
+void setGameProject(ServerHostDesc& desc, const project::GameManifest& manifest,
+                    const std::filesystem::path& projectDir, const content::ContentDatabase& content) {
+    desc.game = gameIdentityOf(manifest);
+    if (manifest.gameMode.empty()) {
+        return;
+    }
+    desc.entryWorld = projectDir / manifest.entryWorld;
+    desc.gameMode = manifest.gameMode;
+    const content::GameMode* mode = content.findMode(manifest.gameMode);
+    desc.minPlayers = mode != nullptr ? mode->minPlayers : 0;
+}
+
+Expected<std::string> ServerHost::restartGame(std::vector<Outgoing>& out) {
+    if (m_desc.entryWorld.empty() || m_desc.gameMode.empty()) {
+        return makeError(ErrorCode::Unsupported, "게임 모드가 있는 프로젝트 서버만 재시작할 수 있습니다");
+    }
+    auto& world = m_runner->world();
+    // 시작 월드는 프로젝트를 열 때처럼 콘텐츠 해시가 달라도 연다 (P5 경고 — 팩을 고친 뒤 월드를 다시 저장하지 않았다)
+    auto opened = scenario::openSave(m_desc.entryWorld, world.baseContent(), world.catalog(), true);
+    if (!opened) {
+        return std::unexpected(opened.error());
+    }
+    for (const auto& w : opened->warnings) {
+        log::warn("net", "시작 월드: {}", w);
+    }
+    if (auto s = game::resetSession(opened->runner->world(), m_desc.gameMode); !s) {
+        return std::unexpected(s.error());
+    }
+    std::string recorded;
+    if (m_recording) {
+        auto r = stopRecording();
+        recorded = r ? std::format(" (기록을 끝냈습니다: {})", *r) : std::format(" (기록 실패: {})", r.error().message);
+    }
+    const sim::Tick tick = opened->runner->world().currentTick();
+    replaceWorld(std::move(opened->runner), WorldChangeReason::Restart, {}, out);
+    m_finishedSteps = 0;
+    return std::format("시작 월드 tick {} · Lobby{}", tick, recorded);
+}
+
+bool ServerHost::autoRestartDue() {
+    if (m_desc.entryWorld.empty() || m_playback) {
+        return false;
+    }
+    const auto& world = m_runner->world();
+    const comp::GameSession* s = game::findSession(world.registry());
+    if (s == nullptr || s->gameState() != comp::GameState::Finished) {
+        m_finishedSteps = 0;
+        return false;
+    }
+    const content::GameMode* mode = world.content().findMode(std::string_view(s->mode.view()));
+    if (mode == nullptr || !mode->autoRestart) {
+        return false;
+    }
+    return ++m_finishedSteps > mode->restartDelayTicks;
+}
+
+u32 ServerHost::playerCount() const {
+    u32 n = 0;
+    for (const auto& [id, conn] : m_byClientId) {
+        (void)id;
+        n += m_clients.at(conn).role >= Role::Player ? 1u : 0u;
+    }
+    return n;
 }
 
 void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,

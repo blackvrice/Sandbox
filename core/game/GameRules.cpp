@@ -1,7 +1,10 @@
 #include "core/game/GameRules.hpp"
 
+#include <format>
+
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
+#include "core/simulation/SimulationWorld.hpp"
 
 namespace sbx::game {
 namespace {
@@ -27,7 +30,8 @@ ecs::EntityId findSessionEntity(const ecs::Registry& reg) noexcept {
         return ecs::kNullEntity;
     }
     // 하나뿐인 것이 보통이다. 둘 이상이면 saveId 가 가장 작은 것 (dense 순서는 세이브/로드에 따라 다르다).
-    // 정체성이 아직 없는 것(saveId 0)은 고르지 않는다
+    // saveId 가 없는 것은 saveId 가 있는 것이 하나도 없을 때만 — 클라이언트 복제 월드 (persist.persistence 는 복제하지
+    // 않는다, 표시만 한다)
     ecs::EntityId best = ecs::kNullEntity;
     SaveId bestId = kInvalidSaveId;
     for (const ecs::EntityId e : pool->entities()) {
@@ -38,7 +42,7 @@ ecs::EntityId findSessionEntity(const ecs::Registry& reg) noexcept {
             bestId = id;
         }
     }
-    return best;
+    return best != ecs::kNullEntity ? best : pool->entities().front();
 }
 
 const comp::GameSession* findSession(const ecs::Registry& reg) noexcept {
@@ -116,6 +120,86 @@ std::optional<comp::GameState> stepGameRules(ecs::Registry& reg, const content::
         return std::nullopt; // 시뮬레이션이 멈춰 있어 여기 오지 않는다 (상태를 직접 바꾼 시험 · 도구)
     }
     return std::nullopt; // 범위 밖 값 (0~3 밖) — 그대로 둔다
+}
+
+Expected<void> applyGameControl(ecs::Registry& reg, const content::ContentDatabase& content, cmd::GameControlOp op,
+                                sim::Tick now) {
+    const ecs::EntityId e = findSessionEntity(reg);
+    if (e == ecs::kNullEntity) {
+        return makeError(ErrorCode::NotFound, "게임 세션이 없다 (게임 모드가 있는 프로젝트를 여십시오)");
+    }
+    const comp::GameSession& s = reg.read<comp::GameSession>(e);
+    const comp::GameState state = s.gameState();
+    switch (op) {
+    case cmd::GameControlOp::Start: {
+        if (state != comp::GameState::Lobby) {
+            return makeError(
+                ErrorCode::InvalidArgument,
+                std::format("{} 에서는 시작할 수 없다 (Lobby 에서만 — 끝난 게임은 재시작)", gameStateName(state)));
+        }
+        if (content.findMode(std::string_view(s.mode.view())) == nullptr) {
+            return makeError(ErrorCode::NotFound, std::format("게임 모드 '{}' 가 콘텐츠에 없다", s.mode.view()));
+        }
+        comp::GameSession& w = reg.write<comp::GameSession>(e);
+        w.state = static_cast<u8>(comp::GameState::Starting);
+        w.stateTick = now;
+        w.result = 0;
+        w.team = 0;
+        w.rule = 0;
+        return {};
+    }
+    case cmd::GameControlOp::Abort: {
+        if (state != comp::GameState::Starting && state != comp::GameState::Running) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("{} 에서는 중단할 수 없다 (Starting · Running 에서만)", gameStateName(state)));
+        }
+        comp::GameSession& w = reg.write<comp::GameSession>(e);
+        w.state = static_cast<u8>(comp::GameState::Finished);
+        w.stateTick = now;
+        w.result = static_cast<u8>(comp::GameOutcome::None);
+        w.team = 0;
+        w.rule = 0;
+        return {};
+    }
+    }
+    return makeError(ErrorCode::InvalidArgument, "모르는 GameControl");
+}
+
+Expected<void> resetSession(sim::SimulationWorld& world, std::string_view mode) {
+    if (world.content().findMode(mode) == nullptr) {
+        return makeError(ErrorCode::NotFound, std::format("게임 모드 '{}' 가 콘텐츠에 없다", mode));
+    }
+    ContentId id;
+    if (!id.assign(mode)) {
+        return makeError(ErrorCode::InvalidArgument, std::format("게임 모드 id 가 너무 길다: {}", mode));
+    }
+    comp::GameSession fresh;
+    fresh.mode = id;
+    fresh.state = static_cast<u8>(comp::GameState::Lobby);
+    fresh.stateTick = world.currentTick();
+    ecs::Registry& reg = world.registry();
+    if (const ecs::EntityId e = findSessionEntity(reg); e != ecs::kNullEntity) {
+        reg.write<comp::GameSession>(e) = fresh;
+        return {};
+    }
+    const ecs::EntityId e = reg.create();
+    reg.emplace<comp::GameSession>(e, fresh);
+    world.assignPendingIdentities();
+    return {};
+}
+
+std::string_view gameOutcomeName(comp::GameOutcome o) noexcept {
+    switch (o) {
+    case comp::GameOutcome::None:
+        return "none";
+    case comp::GameOutcome::Win:
+        return "win";
+    case comp::GameOutcome::Lose:
+        return "lose";
+    case comp::GameOutcome::Draw:
+        return "draw";
+    }
+    return "?";
 }
 
 std::string_view gameStateName(comp::GameState s) noexcept {

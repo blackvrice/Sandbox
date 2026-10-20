@@ -83,7 +83,7 @@
 | `core/scenarios/WorldSource.{hpp,cpp}`                                                                      | `openWorldSource` — 시나리오 이름 · 게임 프로젝트(v0.2, ADR-0041) · 세이브 폴더 → 월드 (서버 · 클라이언트 --world), `openSave` · `readSaveSummary` (12D)            | SandboxCore                 |
 | `core/project/GameProject.{hpp,cpp}`                                                                        | 매니페스트 읽기 · 쓰기, `validateProject` · `openProject` · `createProject`(빈 월드 · 시나리오 템플릿) — ADR-0040 · 0041 · 0043                                     | SandboxCore                 |
 | `core/components/game/GameSession.hpp`                                                                      | `game.session` (게임 진행 상태 — 엔진 관리, v0.2 M2-T2)                                                                                                             | SandboxCore                 |
-| `core/game/GameRules.{hpp,cpp}`                                                                             | 단계 17b: 세션 찾기 · Lobby/Finished 멈춤 · 카운트다운 · 끝 조건 (ADR-0045)                                                                                         | SandboxCore                 |
+| `core/game/GameRules.{hpp,cpp}`                                                                             | 단계 17b: 세션 찾기 · Lobby/Finished 멈춤 · 카운트다운 · 끝 조건 · GameControl · resetSession (ADR-0045 · 0046)                                                     | SandboxCore                 |
 | `network/CMakeLists.txt`                                                                                    | SandboxNetwork — PUBLIC Core, PRIVATE sbx_enet (Phase 9, ADR-0024)                                                                                                  | SandboxNetwork              |
 | `network/transport/Transport.{hpp,cpp}`                                                                     | `INetworkTransport`, `Endpoint`·`parseEndpoint`, `Channel`, `DisconnectReason`, `TransportEvent`·`TransportStats`                                                   | SandboxNetwork              |
 | `network/transport/LoopbackTransport.{hpp,cpp}`, `SimulatedTransport.{hpp,cpp}`                             | 같은 프로세스 Transport (+ `LoopbackNetwork` 허브, 시험용 `severAll`), 지연·지터·손실·순서 흉내 (seed · 주입 시계)                                                  | SandboxNetwork              |
@@ -149,6 +149,7 @@
 | `apps/client/ui/ImGuiLayer.{hpp,cpp}`, `DebugPanels.{hpp,cpp}`                                              | ImGui 플랫폼 쪽(PlatformEvent → ImGuiIO, 가로채기 I1, 커서 · 클립보드 · IME, 폰트), 기본 패널 "시뮬레이션" · "통계" → PanelActions (8C, ADR-0023)                   | SandboxClient               |
 | `apps/client/ui/PlayersPanel.{hpp,cpp}`                                                                     | "접속자" 패널 — 접속자 · 역할 표, 역할 콤보 (net::roleCanAssign) (12C, ADR-0030)                                                                                    | SandboxClient               |
 | `apps/client/ui/WorldPanel.{hpp,cpp}`                                                                       | "월드" 패널 — 저장 · 기록 · 목록 → 불러오기 · 재생, 기록 · 재생 상태 (12D, ADR-0031)                                                                                | SandboxClient               |
+| `apps/client/ui/GamePanel.{hpp,cpp}`                                                                        | "게임" 패널 — 모드 · 상태 한 줄 · 시작 · 중단 · 재시작 (v0.2 M2-T3, ADR-0046)                                                                                       | SandboxClient               |
 | `tests/render/main.cpp`, `RenderTestEnv.hpp`, `test_rhi_*.cpp`, `test_sprites.cpp`, `test_world_passes.cpp` | `sbx_render_tests` — 공유 디바이스, 기준 이미지 비교, 7A · 7B · 8A 케이스, 8B 지형 · 오버레이 · 타임스탬프, --rhi (13A)                                             | sbx_render_tests            |
 | `tests/render/test_imgui.cpp`                                                                               | 8C ImGuiRenderer — 기준 이미지 imgui_basic, 텍스처 만들기 · 갱신 · 해제, 화면 밖 창                                                                                 | sbx_render_tests            |
 | `tests/render/references/*.png`                                                                             | GPU 기준 이미지 (7A clear · upload_quadrants · region_copy, 7B 4장, 8A sprite · batch_1k, 8B terrain · overlay, 8C imgui_basic)                                     | —                           |
@@ -306,7 +307,7 @@ apps/client/
   main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)
   presentation/ InterpolationSystem, ExtractionSystem, AudioExtraction, components/(render.*, client.*, editor.*)
   ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C),
-                WorldPanel (12D)
+                WorldPanel (12D), GamePanel (v0.2 M2-T3)
 apps/server/
   main.cpp (인자 파싱 → ServerHost)
 ```

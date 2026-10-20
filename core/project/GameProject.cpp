@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 
+#include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
@@ -470,6 +471,13 @@ Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, con
     out.world = std::move(opened.world);
     for (const ContentIssue& i : r.issues) {
         out.warnings.push_back(i.describe()); // ok() 이므로 모두 경고
+    }
+    // 게임 모드가 있으면 시작 월드는 언제나 Lobby 에서 시작한다 (세이브된 세션 상태와 무관 — v0.2 M2-T3, ADR-0045).
+    // 검사가 모드가 콘텐츠에 있는 것을 보았다 (P5)
+    if (!out.manifest.gameMode.empty()) {
+        if (auto s = game::resetSession(*out.world, out.manifest.gameMode); !s) {
+            return std::unexpected(s.error());
+        }
     }
     return out;
 }

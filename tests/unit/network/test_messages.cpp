@@ -52,7 +52,9 @@ std::vector<cmd::CommandPayload> everyPayload() {
             cmd::StepSimulation{12},
             cmd::SetSimulationSpeed{2.0f},
             cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
-            cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr}};
+            cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr},
+            cmd::GameControl{cmd::GameControlOp::Start},
+            cmd::GameControl{cmd::GameControlOp::Abort}};
 }
 
 } // namespace
@@ -135,8 +137,20 @@ TEST_SUITE("network") {
         }
     }
 
+    TEST_CASE("messages: 게임 진행 (프로토콜 9 — GameControl · WorldOp Restart · WorldChanged Restart)") {
+        CHECK(kProtocolVersion == 9); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M2-T3)
+        const WorldOpRequest op = roundTrip(WorldOpRequest{WorldOpKind::Restart, {}});
+        CHECK(op.op == WorldOpKind::Restart);
+        CHECK(worldOpName(WorldOpKind::Restart) == "게임 재시작");
+        WorldChanged wc;
+        wc.generation = 3;
+        wc.reason = WorldChangeReason::Restart;
+        CHECK(roundTrip(wc).reason == WorldChangeReason::Restart);
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(8), {}}})).has_value());
+    }
+
     TEST_CASE("messages: 게임 정체성 (프로토콜 8 — Welcome · Reject)") {
-        CHECK(kProtocolVersion == 8); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M1-T3)
+        CHECK(kProtocolVersion >= 8); // v0.2 M1-T3 에서 8 (지금 값은 아래 "게임 진행" 케이스가 고정한다)
         Welcome w;
         w.world.name = "Arena";
         const Welcome plain = roundTrip(w);
@@ -308,6 +322,15 @@ TEST_SUITE("network") {
             badValue.writeString("eco.x");
             badValue.writeString("[1, 2]");
             CHECK_FALSE(decode(badValue));
+        }
+        {
+            // GameControl (프로토콜 9): op 는 1 · 2
+            for (const u8 op : {u8{0}, u8{3}}) {
+                BitWriter bad;
+                bad.writeU8(static_cast<u8>(PayloadTag::GameControl));
+                bad.writeU8(op);
+                CHECK_FALSE(decode(bad));
+            }
         }
         {
             BitWriter w;

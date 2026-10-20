@@ -160,7 +160,9 @@ SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱
 Running, Running 에서 `end` 를 위에서부터 처음 맞는 규칙 → Finished (result · team · rule). 세션이 Lobby · Finished 이면 그
 tick() 은 일시정지와 같은 **편집 단계**다 (틱 그대로, 명령만 — `clock.paused` 와 별개, 남은 Step 도 쓰지 않는다).
 세션이 없는 월드에서는 아무것도 하지 않는다 → 기존 월드의 결과 · 골든 해시가 그대로 (kSimVersion 그대로 — 04 6장).
-`game.session` 은 엔진이 관리한다: 사용자 명령 · Prefab 으로 붙이거나 바꿀 수 없다 (시작 · 재시작 명령은 M2-T3).
+`game.session` 은 엔진이 관리한다: 사용자 명령 · Prefab 으로 붙이거나 바꿀 수 없다. 바꾸는 길은 게임 프로젝트를 열 때 ·
+재시작 (Lobby 로 — `game::resetSession`)과 명령 GameControl (start = Lobby → Starting, abort = → Finished) 뿐이다 (M2-T3,
+[ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
 
 ### 2.1 순서 결정의 이유
 
@@ -244,6 +246,8 @@ using CommandPayload = std::variant<
     CreatePrefab,      // {prefabId, prefabJson | fromEntity netId}
     // 실행 제어
     SetSimulationSpeed, PauseSimulation, ResumeSimulation, StepSimulation,
+    // 게임 진행 (v0.2 M2-T3 — 구현: GameControl{start | abort} → game.session, ADR-0046)
+    GameControl,
     // 플레이어 행동 (콘텐츠 정의)
     PlayerAction       // {actionId, targets[], position, args}
 >;

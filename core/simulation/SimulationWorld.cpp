@@ -733,6 +733,14 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         }
         return Result{};
     }
+
+    // --- 게임 진행 (v0.2 M2-T3) -------------------------------------------------
+    if (const auto* c = std::get_if<cmd::GameControl>(&payload)) {
+        if (auto r = game::applyGameControl(m_registry, *m_content, c->op, tick); !r) {
+            return std::unexpected(r.error());
+        }
+        return Result{};
+    }
     SBX_VERIFY(false, "처리하지 않은 명령 종류");
     return makeError(ErrorCode::Unsupported, std::string(cmd::commandName(payload)));
 }

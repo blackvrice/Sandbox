@@ -1,5 +1,6 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
@@ -509,6 +510,11 @@ bool Application::frame() {
             if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible) {
                 if (auto req = drawWorldPanel(*ops, m_worldPanel)) { // 12D "월드"
                     m_config.world->worldOp(req->op, std::move(req->name));
+                }
+            }
+            if (const auto game = m_config.world->game(); game && m_panels.visible) {
+                if (const auto c = drawGamePanel(*game)) { // v0.2 M2-T3 "게임"
+                    m_config.world->gameCommand(*c);
                 }
             }
         }

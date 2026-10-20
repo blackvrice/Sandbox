@@ -26,7 +26,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.buildId = localBuildId();
     sd.packs = src->packs;
     if (src->game) {
-        sd.game = gameIdentityOf(*src->game);
+        setGameProject(sd, *src->game, desc.world, *h->m_content); // 재시작 · 참가자 수 (v0.2 M2-T3)
     }
     sd.mode = desc.mode;
     sd.snapshotIntervalSteps = desc.snapshotIntervalSteps;

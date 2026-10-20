@@ -4,6 +4,7 @@
 //   (Phase 8A 의 --direct-sim 은 지웠다 — ADR-0026)
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
 // 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030). 12D: 세이브 · 로드 · 리플레이 ("월드" 패널 — ADR-0031).
+// v0.2 M2-T3: 게임 진행 ("게임" 패널 — ADR-0045).
 
 #include <optional>
 #include <string>
@@ -51,8 +52,8 @@ struct PlayersInfo {
     std::string message; // 가장 최근 역할 바꾸기 결과 (거절 사유 등)
 };
 
-// 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind
-enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play };
+// 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind (Restart = 게임 재시작, v0.2 M2-T3)
+enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play, Restart };
 struct SavedWorldRow {
     std::string name;
     bool replay = false; // 리플레이 (재생) — 아니면 세이브 (불러오기)
@@ -75,6 +76,27 @@ struct WorldOpsInfo {
     u32 generation = 0;  // 서버 월드가 바뀐 횟수
     std::string message; // 가장 최근 결과 (거절 사유 · 요약)
 };
+
+// "게임" 패널이 보는 것 (v0.2 M2-T3). state · result = comp::GameState · GameOutcome 값 (0 Lobby · 1 Starting ·
+// 2 Running · 3 Finished / 0 없음 · 1 win · 2 lose · 3 draw). 복제된 game.session + 콘텐츠의 GameMode
+struct GameInfo {
+    std::string modeId;
+    std::string modeName; // GameMode.name (콘텐츠에 없으면 id)
+    u8 state = 0;
+    u8 result = 0;
+    u8 rule = 0;       // 끝낸 end 규칙 (1 부터, 0 = 없음 — 중단)
+    std::string team;  // result 의 팀 이름 (없으면 빈 문자열)
+    u64 tick = 0;      // 서버 틱 (복제 월드)
+    u64 stateTick = 0; // 지금 상태에 들어간 틱
+    u32 countdownTicks = 0;
+    u32 minPlayers = 1;
+    u32 maxPlayers = 16;
+    bool autoRestart = false;
+    u32 restartDelayTicks = 0;
+    bool canControl = false; // 시작 · 중단 · 재시작 (admin 부터 — 판단은 서버)
+    std::string message;     // 가장 최근 거절 · 결과
+};
+enum class GameCommand : u8 { Start = 1, Abort = 2, Restart = 3 };
 
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
@@ -133,6 +155,10 @@ public:
     [[nodiscard]] virtual std::optional<WorldOpsInfo> worldOps() const { return std::nullopt; }
     // 서버에 요청 (결과는 worldOps().message — 목록은 saved)
     virtual void worldOp(WorldOp /*op*/, std::string /*name*/) {}
+    // ---- v0.2 M2-T3: 게임 진행 (세션이 없으면 "게임" 패널을 그리지 않는다) ----
+    [[nodiscard]] virtual std::optional<GameInfo> game() const { return std::nullopt; }
+    // 시작 · 중단 = 명령 GameControl, 재시작 = WorldOp Restart (결과는 game().message)
+    virtual void gameCommand(GameCommand /*c*/) {}
 };
 
 } // namespace sbx::client
