@@ -99,6 +99,38 @@ bool addScore(ecs::Registry& reg, const content::ContentDatabase& content, const
     return true;
 }
 
+std::optional<usize> scoreSlot(const content::GameMode* mode, std::string_view team) noexcept {
+    if (team.empty()) {
+        return usize{0};
+    }
+    if (mode == nullptr) {
+        return std::nullopt;
+    }
+    const auto it =
+        std::find_if(mode->teams.begin(), mode->teams.end(), [&](const content::GameTeam& t) { return t.id == team; });
+    if (it == mode->teams.end()) {
+        return std::nullopt;
+    }
+    return static_cast<usize>(it - mode->teams.begin()) + 1;
+}
+
+bool finishGame(ecs::Registry& reg, const content::ContentDatabase& content, content::GameResult result,
+                std::string_view team, sim::Tick now) {
+    const ecs::EntityId e = findSessionEntity(reg);
+    if (e == ecs::kNullEntity || reg.read<comp::GameSession>(e).gameState() != comp::GameState::Running) {
+        return false;
+    }
+    const content::GameMode* mode = content.findMode(std::string_view(reg.read<comp::GameSession>(e).mode.view()));
+    const auto slot = team.empty() ? std::nullopt : scoreSlot(mode, team);
+    comp::GameSession& w = reg.write<comp::GameSession>(e);
+    w.state = static_cast<u8>(comp::GameState::Finished);
+    w.stateTick = now;
+    w.result = static_cast<u8>(outcomeOf(result));
+    w.team = slot ? static_cast<u8>(*slot) : u8{0};
+    w.rule = 0; // 끝 규칙이 아니라 트리거가 끝냈다
+    return true;
+}
+
 bool gameHoldsSimulation(const ecs::Registry& reg) noexcept {
     const comp::GameSession* s = findSession(reg);
     return s != nullptr && (s->gameState() == comp::GameState::Lobby || s->gameState() == comp::GameState::Finished);

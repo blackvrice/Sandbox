@@ -21,6 +21,7 @@ enum class Purpose : u32 {
     Interaction = 6,  // Rule spawn 효과의 위치 흩뿌리기
     PlayerAction = 7, // PlayerAction spawn 효과의 위치 (v0.2 M3-T1 — 키 = 대상 saveId 와 그 틱의 명령 순번)
     GameStart = 8,    // 게임 시작 때 game.spawn_point 의 위치 흩뿌리기 (v0.2 M3-T2 — 키 = 지점 saveId)
+    Trigger = 9, // 트리거의 cond.chance · spawn 흩뿌리기 (v0.2 M4-T2 — 키 = 트리거 순서 · 그 틱의 실행 번호 · 명령 줄)
 };
 
 class RandomService {

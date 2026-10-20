@@ -196,6 +196,7 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 | 4    | 2026-10-06 (Phase 5C) | life.reproduce 밀도 제한(crowdRadius·crowdMax), flee 가 통행 가능한 목표를 고름, 감지가 색인의 태그 사본을 쓰고 태그 없는 엔티티를 건너뜀                                         |
 | (4)  | 2026-10-20 (v0.2 M2)  | 올리지 않음 — 새 컴포넌트 game.session 과 그 단계 17b GameRules 만 추가. 세션이 없는 월드는 아무것도 하지 않아 기존 골든 전부가 그대로 (5A 와 같은 근거, M2-T2)                   |
 | (4)  | 2026-10-20 (v0.2 M3)  | 올리지 않음 — game.score · game.spawn_point · 효과 score.add · 난수 Purpose::GameStart 추가. score.add 는 세션이 없으면, 스폰 지점은 GameControl Start 밖에서 아무것도 하지 않아 골든 그대로 (M3-T2) |
+| (4)  | 2026-10-20 (v0.2 M4)  | 올리지 않음 — 단계 17c Triggers · Purpose::Trigger · PlayerAction 효과를 공용 실행기로 (같은 동작 · 난수 키). 트리거는 세션이 Running 인 월드에서만 — 골든 그대로 (M4-T2, ADR-0051) |
 
 ---
 

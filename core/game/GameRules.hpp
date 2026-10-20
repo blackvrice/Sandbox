@@ -50,6 +50,15 @@ namespace sbx::game {
 bool addScore(ecs::Registry& reg, const content::ContentDatabase& content, const content::RuleEffect& fx,
               ecs::EntityId who);
 
+// 점수 칸 (v0.2 M4-T2 — 트리거의 score 조건 · 이벤트): team 이 비면 0 (공용), 모드의 팀이면 그 번호 + 1,
+// 모드가 없거나 그 팀이 없으면 nullopt
+[[nodiscard]] std::optional<usize> scoreSlot(const content::GameMode* mode, std::string_view team) noexcept;
+
+// 효과 game.end (v0.2 M4-T2): Running 이면 Finished (result · team — 모드에 없는 팀이면 0, rule 0 · stateTick = now).
+// 바꿨으면 true
+bool finishGame(ecs::Registry& reg, const content::ContentDatabase& content, content::GameResult result,
+                std::string_view team, sim::Tick now);
+
 // 세션이 시뮬레이션을 멈춰 두는가 (Lobby · Finished)
 [[nodiscard]] bool gameHoldsSimulation(const ecs::Registry& reg) noexcept;
 

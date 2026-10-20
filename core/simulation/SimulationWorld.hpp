@@ -11,6 +11,7 @@
 //   5~16 Systems        (일시정지 중에는 건너뜀)
 //   17 Structural②      System ECB 를 실행 순서대로 적용 + 정체성 부여
 //   17b GameRules       game.session 전이 (카운트다운 · 끝 조건 — core/game/GameRules, ADR-0045). 세션이 없으면 없다
+//   17c Triggers        콘텐츠 Trigger 실행 (세션이 Running 일 때만 — SimulationTriggers.cpp, v0.2 M4-T2, ADR-0051)
 //
 // 일시정지: tick() 은 편집 단계가 된다 — 틱 번호를 올리지 않고 "다음 틱" 몫의 명령만 적용한다(편집이 바로 보이게).
 //           StepSimulation{n} 이 남아 있으면 그 수만큼은 정상 틱을 돈다.
@@ -21,6 +22,7 @@
 //   saveId 1 부터 단조 증가, netId 1 부터 단조 증가. 생성 순서대로 붙는다 — 생성 순서는 명령 순서와
 //   System 실행 순서로 결정적이다. 사용자 명령은 둘을 바꾸거나 붙이거나 뗄 수 없다 (PermissionDenied).
 
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -30,6 +32,7 @@
 #include <vector>
 
 #include "core/command/CommandQueue.hpp"
+#include "core/components/game/GameScore.hpp"
 #include "core/content/ContentDatabase.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/ecs/Registry.hpp"
@@ -157,6 +160,15 @@ public:
     void beginRestore(Tick tick);
     [[nodiscard]] const cmd::CommandQueue& commandQueue() const noexcept { return m_commands; }
 
+    // 단계 17c 트리거의 마지막 tick() 수 (v0.2 M4-T2 — 시험 · 진단). cut = 예산(perTick · 틱 전체)으로 건너뛴 실행 ·
+    // 끊김
+    struct TriggerStats {
+        u32 runs = 0;
+        u32 steps = 0;
+        u32 cut = 0;
+    };
+    [[nodiscard]] const TriggerStats& lastTriggerStats() const noexcept { return m_triggerStats; }
+
 private:
     struct SlotIdentity {
         ecs::EntityId entity{};
@@ -187,6 +199,19 @@ private:
     Expected<std::vector<NetEntityId>> applyPlayerAction(const cmd::PlayerAction& c);
     // GameControl Start 를 적용한 뒤: game.spawn_point 마다 Prefab 을 만든다 (v0.2 M3-T2, ADR-0048)
     std::vector<NetEntityId> spawnAtSpawnPoints();
+    // 효과 하나를 바로 적용한다 (명령 단계 · 단계 17c — PlayerAction · Trigger 공용). who 가 없거나 죽었으면 대상 효과
+    // (field · destroy · tag) 는 아무것도 하지 않는다. spawn 자리 = spawnAt, 없으면 who 의 위치 (둘 다 없으면
+    // 건너뛴다), 흩뿌리기 난수 = (purpose, rngKey). destroy 는 바로 구조 변경 + Died{Killed}
+    struct EffectOutcome {
+        bool destroyed = false;
+        std::vector<ecs::EntityId> spawned;
+    };
+    EffectOutcome applyEffectNow(const content::RuleEffect& fx, ecs::EntityId who, SaveId whoSave,
+                                 std::optional<Vec2> spawnAt, rnd::Purpose purpose, u64 rngKey);
+    // 단계 0 (v0.2 M4-T2): 트리거가 볼 틱 처음의 상태 — 점수, (영역 진입 · 죽음 트리거가 있으면) 개체 위치 · 태그.
+    // 저장된 상태에서 다시 만들 수 있는 값이라 세이브/로드와 무관하다
+    void snapshotForTriggers();
+    void runTriggers(Tick now); // 단계 17c
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;
@@ -226,6 +251,17 @@ private:
     usize m_destroyedCursor = 0;
     bool m_lastRanSystems = false;
     bool m_editStep = false; // 이번 tick() 이 일시정지 편집 단계인가 (editSequence 를 올리는 조건)
+    struct TriggerSnapEntry {
+        SaveId saveId = kInvalidSaveId;
+        Vec2 position{};
+        content::TagSet tags;
+    };
+    struct TriggerSnapshot {
+        bool taken = false;
+        std::array<i32, comp::kScoreSlots> score{};
+        std::vector<TriggerSnapEntry> entities; // saveId 오름차순
+    } m_triggerSnap;
+    TriggerStats m_triggerStats;
     u64 m_changeStamp = 0;
 };
 

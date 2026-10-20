@@ -16,7 +16,8 @@
          core/content/TagSet.hpp                TagSet(256 비트) · TagExpr{all, any, none}
          core/content/ContentDatabase.{hpp,cpp} 조회 API (findPrefab · findBehavior · findTag · rules() …)
 팩       content/ecosystem/  (pack id "eco") — 7장 수치의 Grass/Rabbit/Wolf, 먹기 Rule 3개, Behavior 2개,
-         (v0.2 M3-T3) 데모 모드 eco.protect · 행동 eco.feed · eco.trap · 게임 키 presentation/input.json (9장)
+         (v0.2 M3-T3) 데모 모드 eco.protect · 행동 eco.feed · eco.trap · 게임 키 presentation/input.json (9장),
+         (v0.2 M4-T2) 트리거 eco.rabbit_lost (토끼가 죽으면 점수 −1 — 10장)
 검사     sbx_sim_check --validate-content eco  (CTest content_eco_validate: 오류·경고 0)
 
 초안과 달라진 점 · 구현에서 정한 것
@@ -396,7 +397,8 @@ presentation/input.json play.action.eco.feed = Q · play.action.eco.trap = E
 ## 10. Trigger (v0.2 M4-T1 — [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md))
 
 월드 수준 규칙: 이벤트 하나 → 조건 → 효과. 원본은 그래프 (노드 · 연결 · 편집 배치), 로더가 실행 표현 (이벤트 + 조건 · 효과 표 +
-펼친 명령열) 을 만든다. **실행은 M4-T2** — 지금은 읽고 검사만 한다 (시뮬레이션 결과는 같다).
+펼친 명령열) 을 만든다. 실행은 단계 17c (v0.2 M4-T2, [ADR-0051](adr/0051-trigger-execution-stage-17c-same-tick-cascade-budget.md),
+03 2장) — **게임 세션이 Running 일 때만** (세션 없는 샌드박스 월드에서는 돌지 않는다).
 
 ```jsonc
 // triggers/gate.json — 파일 하나에 트리거 하나
@@ -453,5 +455,9 @@ DB          트리거 ≤ 256 (V10), id 중복 V1. 정의 순서 = 팩 로드 �
 재진입      효과가 내는 이벤트 (score.add → event.score, destroy → event.death, spawn → event.area_enter) 를 듣는 트리거로 잇는
             고리 (자기 자신 포함) 는 경고 V10 — 한 틱에 perTick 번까지만 돈다
 실행 표현   조건 = Cond(거짓이면 else 로) · then · (else 가 있으면) Jump(끝으로) · else, 효과 = Effect · 다음 노드. 자식은 links 순서
-[계획]      실행 (M4-T2 — Stage 고정 · 예산), 에디터 폼 · 월드 오버레이로 고치기 (M4-T3), 합류 · 변수 · 반복 · 대기 노드
+실행 (M4-T2) 이벤트: 앞 상태 = 틱 처음 (그 틱의 명령 전) 스냅숏. area_enter 는 명령으로 옮기거나 만든 개체도, death 의 대상
+            위치 · 태그는 틱 처음 값 (트리거의 destroy 면 지우기 직전 값). 효과가 낸 이벤트 (destroy · spawn · score.add) 는 같은
+            틱에 이어서. 예산: 트리거마다 perTick, 틱 전체 1024 실행 · 65536 줄 — 넘으면 건너뛴다. game.end 면 그 틱의 남은 실행 없음
+대상 규칙   죽은 대상: field · destroy · tag 는 아무것도 안 함, spawn 은 죽은 자리, score.add 는 공용 칸 (팀은 team 으로)
+[계획]      에디터 폼 · 월드 오버레이로 고치기 (M4-T3), 합류 · 변수 · 반복 · 대기 노드, 영역 나감 · 머묾, 세션 없는 월드의 트리거
 ```

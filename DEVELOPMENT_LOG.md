@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-20 — v0.2 M4-T2: Trigger 실행 — 단계 17c, 틱 처음 스냅숏, 같은 틱 이어짐, 예산 (ADR-0051)
+
+**무엇을**
+
+- 단계 17c Triggers (`core/simulation/SimulationTriggers.cpp` — SimulationWorld 의 일부): 세션이 Running 일 때만. 단계 0 (명령 전)
+  스냅숏 = 점수 칸 + (area_enter · death 트리거가 있으면) 개체 saveId · 위치 · 태그. 처음 목록 (game_start · tick · timer ·
+  score 가장자리 · area_enter 밖→안 · 이번 틱 Died) 을 FIFO 로, 효과가 낸 이벤트 (destroy → death · spawn → area_enter ·
+  score.add → score) 는 같은 틱에 목록 끝으로. 예산 perTick · 틱 1024 실행 · 65536 줄 (lastTriggerStats). game.end 로 끝.
+  조건 count · score · time · field · tags · chance (Purpose::Trigger).
+- 효과 실행기 `applyEffectNow` — PlayerAction 의 효과 코드를 옮겨 Trigger 와 공용 (같은 동작 · 같은 난수 키).
+  game::scoreSlot · game::finishGame (GameRules).
+- eco 팩 트리거 `eco.rabbit_lost` (토끼가 죽으면 점수 −1) — 데모 "토끼 지키기" 의 점수 = 덫 − 잃은 토끼.
+- 시험: test_trigger_run (core 8). 문서: ADR-0051, 03 2장 (17b · 17c 표 · 글 · 그림), 04 · SimVersion 이력, 11 (0 · 10장),
+  13, 17, 18 (M4-T2 ✅ — 다음 M4-T3), adr/README.
+
+**왜**
+
+- M4-T1 의 실행 표현을 서버 권위 · 결정적으로 돌린다. 앞 상태를 저장된 상태에서 다시 만드는 스냅숏으로 잡아 세이브/로드한
+  월드도 같다. 같은 틱 이어짐이라 "덫 → 죽음 → 점수 → 보너스" 가 읽히는 대로 한 틱에 끝나고, 예산이 고리를 끊는다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 59/59 통과 (render_tests_warp 제외). 골든 · 리플레이 해시 그대로 (세션 없는 월드), PlayerAction
+  시험 그대로 (공용 실행기). 세이브 왕복 후 같은 해시 (chance · 스냅숏). `sbx_sim_check --validate-content eco` 오류 · 경고 0.
+- 와이어 · 세이브 형식 · kSimVersion 그대로. eco contentHash 는 바뀐다 (triggers/ 추가).
+
+**남은 일**
+
+- M4-T3 트리거 에디터 폼 · 오버레이로 고치기. 영역 나감 · 머묾, 세션 없는 월드의 트리거, 스냅숏 비용 측정 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M4-T1: Visual Trigger 스키마 — triggers/*.json · 노드 종류 표 · 실행 표현 · V10 (ADR-0050)
 
 **무엇을**

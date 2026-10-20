@@ -122,6 +122,10 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_changeStamp = std::max(m_changeStamp + 1, now);
     m_registry.setCurrentTick(m_changeStamp);
     m_random.setTick(now);
+    m_triggerStats = {};
+    if (run) {
+        snapshotForTriggers(); // 명령 전 — 명령으로 옮기거나 지운 개체도 이번 틱의 영역 진입 · 죽음이다
+    }
 
     // --- 2·3 ApplyCommands + Structural① --------------------------------------
     // 일시정지 편집 단계는 "다음 틱" 몫의 명령을 지금 적용한다 (서버는 항상 현재 틱 + 1 로 스탬프한다).
@@ -149,6 +153,11 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     // --- 17b GameRules ---------------------------------------------------------
     // 이번 틱의 생성 · 파괴가 반영된 뒤 세션 전이 (세션이 없으면 아무것도 안 한다)
     (void)game::stepGameRules(m_registry, *m_content, now);
+
+    // --- 17c Triggers ----------------------------------------------------------
+    // 콘텐츠 Trigger — 세션이 Running 일 때만 (Starting → Running 이 된 틱도). 효과가 낸 이벤트는 같은 틱에 이어서,
+    // 예산까지
+    runTriggers(now);
 }
 
 Expected<u64> SimulationWorld::worldHash() const {
@@ -827,61 +836,84 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd:
             if (destroyed.contains(t.saveId)) {
                 break; // 앞 효과가 대상을 지웠다
             }
-            switch (fx.op) {
-            case content::EffectOp::FieldAdd:
-            case content::EffectOp::FieldSet: {
-                ecs::ComponentPoolBase* pool = m_registry.poolByStableId(fx.field.component);
-                const ecs::ComponentInfo* info = m_catalog.find(fx.field.component);
-                if (pool != nullptr && info != nullptr && info->applyNumber != nullptr &&
-                    pool->getRaw(t.e) != nullptr) {
-                    (void)info->applyNumber(pool->getRawForWrite(t.e, m_changeStamp), fx.field.field, fx.value,
-                                            fx.op == content::EffectOp::FieldAdd);
-                }
-                break;
+            // 흩뿌리기 난수 키 = (대상 saveId, 이번 틱 명령 순번) — M3-T1 과 같다
+            const EffectOutcome out = applyEffectNow(fx, t.e, t.saveId, std::nullopt, rnd::Purpose::PlayerAction,
+                                                     (u64{t.saveId} << 16) ^ commandIndex);
+            for (const ecs::EntityId e : out.spawned) {
+                created.push_back(m_registry.read<comp::NetIdentity>(e).netId);
             }
-            case content::EffectOp::Destroy:
+            if (out.destroyed) {
                 destroyed.insert(t.saveId);
-                m_events.push(
-                    sim::SimEvent{sim::EventKind::Died, t.e, t.saveId, static_cast<u64>(sim::DeathCause::Killed), 0});
-                (void)m_registry.destroy(t.e);
-                syncIdentityLogs();
-                break;
-            case content::EffectOp::Spawn: {
-                const content::Prefab* prefab = m_content->findPrefab(fx.prefab);
-                const comp::Transform* tr = m_registry.tryRead<comp::Transform>(t.e);
-                if (prefab == nullptr || tr == nullptr) {
-                    break;
-                }
-                const Vec2 at = tr->position;
-                auto rng = m_random.stream(rnd::Purpose::PlayerAction, (u64{t.saveId} << 16) ^ commandIndex);
-                for (u32 k = 0; k < fx.count; ++k) {
-                    const Vec2 off{rng.rangeF32(-0.5f, 0.5f), rng.rangeF32(-0.5f, 0.5f)};
-                    if (auto e = instantiate(prefab, m_grid.clampPoint(at + off), {})) {
-                        created.push_back(m_registry.read<comp::NetIdentity>(*e).netId);
-                    }
-                }
-                break;
-            }
-            case content::EffectOp::TagAdd:
-            case content::EffectOp::TagRemove:
-                if (comp::Tags* tags = m_registry.tryWrite<comp::Tags>(t.e)) {
-                    if (fx.op == content::EffectOp::TagAdd) {
-                        tags->set.set(fx.tag);
-                    } else {
-                        tags->set.reset(fx.tag);
-                    }
-                }
-                break;
-            case content::EffectOp::Event:
-                m_events.push(sim::SimEvent{sim::EventKind::Custom, t.e, t.saveId, fx.eventCode, 0});
-                break;
-            case content::EffectOp::ScoreAdd:
-                (void)game::addScore(m_registry, *m_content, fx, t.e);
-                break;
             }
         }
     }
     return created;
+}
+
+// --- 효과 바로 적용 (PlayerAction · Trigger 공용) -----------------------------------------------------------------
+SimulationWorld::EffectOutcome SimulationWorld::applyEffectNow(const content::RuleEffect& fx, ecs::EntityId who,
+                                                               SaveId whoSave, std::optional<Vec2> spawnAt,
+                                                               rnd::Purpose purpose, u64 rngKey) {
+    EffectOutcome out;
+    const bool alive = who.valid() && m_registry.alive(who);
+    switch (fx.op) {
+    case content::EffectOp::FieldAdd:
+    case content::EffectOp::FieldSet: {
+        ecs::ComponentPoolBase* pool = m_registry.poolByStableId(fx.field.component);
+        const ecs::ComponentInfo* info = m_catalog.find(fx.field.component);
+        if (alive && pool != nullptr && info != nullptr && info->applyNumber != nullptr &&
+            pool->getRaw(who) != nullptr) {
+            (void)info->applyNumber(pool->getRawForWrite(who, m_changeStamp), fx.field.field, fx.value,
+                                    fx.op == content::EffectOp::FieldAdd);
+        }
+        break;
+    }
+    case content::EffectOp::Destroy:
+        if (alive) {
+            m_events.push(SimEvent{EventKind::Died, who, whoSave, static_cast<u64>(DeathCause::Killed), 0});
+            (void)m_registry.destroy(who);
+            syncIdentityLogs();
+            out.destroyed = true;
+        }
+        break;
+    case content::EffectOp::Spawn: {
+        const content::Prefab* prefab = m_content->findPrefab(fx.prefab);
+        std::optional<Vec2> at = spawnAt;
+        if (!at && alive) {
+            if (const comp::Transform* tr = m_registry.tryRead<comp::Transform>(who)) {
+                at = tr->position;
+            }
+        }
+        if (prefab == nullptr || !at) {
+            break;
+        }
+        auto rng = m_random.stream(purpose, rngKey);
+        for (u32 k = 0; k < fx.count; ++k) {
+            const Vec2 off{rng.rangeF32(-0.5f, 0.5f), rng.rangeF32(-0.5f, 0.5f)};
+            if (auto e = instantiate(prefab, m_grid.clampPoint(*at + off), {})) {
+                out.spawned.push_back(*e);
+            }
+        }
+        break;
+    }
+    case content::EffectOp::TagAdd:
+    case content::EffectOp::TagRemove:
+        if (comp::Tags* tags = alive ? m_registry.tryWrite<comp::Tags>(who) : nullptr) {
+            if (fx.op == content::EffectOp::TagAdd) {
+                tags->set.set(fx.tag);
+            } else {
+                tags->set.reset(fx.tag);
+            }
+        }
+        break;
+    case content::EffectOp::Event:
+        m_events.push(SimEvent{EventKind::Custom, alive ? who : ecs::kNullEntity, whoSave, fx.eventCode, 0});
+        break;
+    case content::EffectOp::ScoreAdd:
+        (void)game::addScore(m_registry, *m_content, fx, alive ? who : ecs::kNullEntity);
+        break;
+    }
+    return out;
 }
 
 // --- 스폰 지점 (v0.2 M3-T2, ADR-0048) -------------------------------------------------------------------------

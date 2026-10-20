@@ -21,6 +21,7 @@
 //                   (세션 없는 월드의 결과 · 기존 골든 그대로, 04 6장 이력)
 //   (4) 2026-10-20  v0.2 M3-T2: 올리지 않음 — 효과 score.add 는 세션이 없으면, game.spawn_point 는 GameControl Start 밖에서
 //                   아무것도 하지 않는다 (기존 골든 그대로)
+//   (4) 2026-10-20  v0.2 M4-T2: 올리지 않음 — 단계 17c Triggers 는 세션이 Running 인 월드에서만 (기존 골든 그대로)
 
 #include "foundation/types/Types.hpp"
 

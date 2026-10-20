@@ -151,6 +151,8 @@ public:
 | 15 | LifecycleSystem          | Age·Energy·Growth·Reproduce·Lifetime → 사망/번식                         | ECB                                 |
 | 16 | CollisionSystem          | 분리(separation), 지형 충돌 보정                                         | Transform                           |
 | 17 | ApplyStructuralChanges②  | ECB 일괄 적용                                                            | Registry                            |
+| 17b | GameRules (v0.2)        | game.session 전이 — 카운트다운 · 끝 조건 (세션이 있을 때만)              | game.session                        |
+| 17c | Triggers (v0.2 M4-T2)   | 콘텐츠 Trigger — 세션이 Running 일 때만, 같은 틱 이어짐 · 예산           | 효과 (바로 적용)                    |
 | 18 | ReplicationSystem        | (ServerHost) 클라이언트별 Delta 작성 — 읽기 전용                         | —                                   |
 | 19 | WorldHash                | N틱마다(기본 30)                                                         | —                                   |
 | 20 | EndTick                  | 메트릭, 리플레이 체크포인트, 오토세이브 스냅샷, 로그 정리                | —                                   |
@@ -164,6 +166,13 @@ tick() 은 일시정지와 같은 **편집 단계**다 (틱 그대로, 명령만
 `game.session` 은 엔진이 관리한다: 사용자 명령 · Prefab 으로 붙이거나 바꿀 수 없다. 바꾸는 길은 게임 프로젝트를 열 때 ·
 재시작 (Lobby 로 — `game::resetSession`)과 명령 GameControl (start = Lobby → Starting, abort = → Finished) 뿐이다 (M2-T3,
 [ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
+
+`17c Triggers` (v0.2 M4-T2, [ADR-0051](adr/0051-trigger-execution-stage-17c-same-tick-cascade-budget.md), `SimulationTriggers.cpp`):
+세션이 Running 일 때만. 앞 상태는 단계 0 (명령 전) 의 스냅숏 — 점수 칸, area_enter · death 트리거가 있으면 개체 saveId · 위치 ·
+태그. 처음 목록 (트리거 정의 순서: game_start · tick · timer · score 가장자리 · area_enter 밖→안 (saveId 순) · 이번 틱 Died) 을
+FIFO 로 실행하고, 효과가 낸 이벤트 (destroy → death · spawn → area_enter · score.add → score) 는 같은 틱에 목록 끝으로. 예산:
+트리거마다 perTick, 틱 전체 1024 실행 · 65536 줄 — 넘으면 건너뛴다 (`lastTriggerStats().cut`). game.end 면 남은 실행은 없다.
+효과는 PlayerAction 과 같은 `applyEffectNow` (바로 적용). 난수 Purpose::Trigger. 세션 없는 월드 · 골든은 그대로.
 점수 `game.score` (v0.2 M3-T2, [ADR-0048](adr/0048-game-score-team-tags-spawn-points.md)) 는 같은 엔티티에 붙고 같은 규칙으로
 엔진이 관리한다 — 시작 · resetSession 이 0 으로, 효과 score.add (Stage 11 · PlayerAction) 가 Running 동안 더한다. 끝 조건
 `score` 는 17b 가 같은 틱의 효과 뒤에 본다.
@@ -382,7 +391,7 @@ Lua · WASM 은 후보에서 뺌). 그 전까지 이 장의 원칙(새 표현력
 Visual Trigger (v0.2 M4, [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md)) 와 Rule 의 관계: Rule 은 개체 둘
 (source · target) 의 interact 에 묶인 규칙이고, Trigger 는 월드 수준 이벤트 (시작 · 틱 · 타이머 · 영역 진입 · 점수 · 죽음) 에서
 시작하는 규칙이다. 효과는 같은 op (6.3 + game.end) 를 같은 실행기로 쓴다. M4-T1 은 스키마 · 검사 · 실행 표현 (11 10장),
-실행 단계 (Stage) · 예산은 M4-T2 `[계획]`.
+M4-T2 는 실행 — 단계 17c (2장, ADR-0051).
 
 ---
 
@@ -436,6 +445,7 @@ SimCommand ─▶ [2 Apply] ─ECB─▶ [3 Structural①] ─▶ Registry
                               [17 Structural②] ─▶ Registry, destroyedLog, EventStream
                                          │
                               [17b GameRules] ─▶ game.session (있을 때만)
+                              [17c Triggers]  ─▶ 효과 (Running 일 때만, 같은 틱 이어짐 · 예산)
                                          │
                  [18 Replication]   [19 WorldHash]   [20 EndTick: Replay·Autosave·Metrics]
 ```
