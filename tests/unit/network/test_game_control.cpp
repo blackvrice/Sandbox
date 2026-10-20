@@ -1,5 +1,5 @@
-// v0.2 M2-T3 (ADR-0045): 게임 진행을 네트워크로 — GameControl 명령 (역할 · 참가자 수), WorldOp Restart (시작 월드를 다시 열고
-// Lobby), GameMode.restart auto. 서버는 eco 팩 사본 + 시험용 모드, 시작 월드는 세이브 폴더.
+// v0.2 M2-T3 (ADR-0045): 게임 진행을 네트워크로 — GameControl 명령 (역할 · 참가자 수), WorldOp Restart (시작 월드를
+// 다시 열고 Lobby), GameMode.restart auto. 서버는 eco 팩 사본 + 시험용 모드, 시작 월드는 세이브 폴더.
 #include <doctest/doctest.h>
 
 #include <filesystem>
@@ -266,6 +266,61 @@ TEST_SUITE("network") {
         pump(rig, {&owner}, 4);
         REQUIRE(owner.session.lastWorldChange());
         CHECK(owner.session.lastWorldChange()->reason == WorldChangeReason::Restart);
+    }
+
+    TEST_CASE("test play (v0.2 M5-T1): 편집 월드의 복사본에서 게임 · 멈추면 편집 월드 그대로 (틱 · 해시 · 개체)") {
+        Rig rig("eco.quick", 0); // 0.1 초에 win, 0.2 초 뒤 자동 재시작 — 테스트 플레이 중에는 하지 않는다
+        Peer owner(rig, "owner", "k");
+        Peer ed(rig, "ed");
+        pump(rig, {&owner, &ed}, 10);
+        REQUIRE(owner.session.state() == ClientState::Connected);
+        // 편집: Lobby 에서 개체 하나 더
+        REQUIRE(command(rig, {&owner, &ed}, owner, cmd::CreateEntity{{-3.f, 1.f}, {}, "eco.rabbit"}).accepted);
+        const sim::Tick editTick = rig.host->world().currentTick();
+        const u64 editHash = *rig.host->world().worldHash();
+        const usize editEntities = rig.host->world().registry().aliveCount();
+        CHECK(rig.session().gameState() == GameState::Lobby);
+
+        CHECK_FALSE(worldOp(rig, {&owner, &ed}, ed, WorldOpKind::TestPlay).accepted); // admin 부터
+        const WorldOpResultMsg start = worldOp(rig, {&owner, &ed}, owner, WorldOpKind::TestPlay);
+        REQUIRE_MESSAGE(start.accepted, start.detail);
+        CHECK(start.detail.find("게임 eco.quick 시작") != std::string::npos);
+        CHECK(rig.host->stats().generation == 1);
+        CHECK(rig.host->stats().mode == 3);
+        pump(rig, {&owner, &ed}, 4);
+        REQUIRE(owner.session.lastWorldChange());
+        CHECK(owner.session.lastWorldChange()->reason == WorldChangeReason::TestPlay);
+
+        // 복사본에서 게임이 돈다 — 끝나도 자동 재시작은 없다 (테스트 플레이는 멈출 때까지)
+        REQUIRE(command(rig, {&owner, &ed}, ed, cmd::CreateEntity{{3.f, -1.f}, {}, "eco.wolf"}).accepted);
+        for (int i = 0; i < 40 && rig.session().gameState() != GameState::Finished; ++i) {
+            pump(rig, {&owner, &ed}, 1);
+        }
+        CHECK(rig.session().gameState() == GameState::Finished);
+        CHECK(rig.session().outcome() == comp::GameOutcome::Win);
+        pump(rig, {&owner, &ed}, 30);
+        CHECK(rig.host->stats().generation == 1);
+        CHECK(rig.host->world().currentTick() > editTick);
+
+        // 그동안 월드를 바꾸는 다른 요청은 거절
+        const WorldOpResultMsg restart = worldOp(rig, {&owner, &ed}, owner, WorldOpKind::Restart);
+        CHECK_FALSE(restart.accepted);
+        CHECK(restart.detail.find("테스트 플레이 중") != std::string::npos);
+        CHECK(worldOp(rig, {&owner, &ed}, owner, WorldOpKind::TestPlay).detail.find("이미") != std::string::npos);
+
+        const WorldOpResultMsg stop = worldOp(rig, {&owner, &ed}, owner, WorldOpKind::TestStop);
+        REQUIRE_MESSAGE(stop.accepted, stop.detail);
+        CHECK(rig.host->stats().generation == 2);
+        CHECK(rig.host->stats().mode == 0);
+        CHECK(rig.host->world().currentTick() == editTick);
+        CHECK(*rig.host->world().worldHash() == editHash);
+        CHECK(rig.host->world().registry().aliveCount() == editEntities);
+        CHECK(rig.session().gameState() == GameState::Lobby);
+        pump(rig, {&owner, &ed}, 4);
+        REQUIRE(ed.session.lastWorldChange());
+        CHECK(ed.session.lastWorldChange()->reason == WorldChangeReason::TestStop);
+        CHECK(worldOp(rig, {&owner, &ed}, owner, WorldOpKind::TestStop).detail.find("중이 아닙니다") !=
+              std::string::npos);
     }
 
     TEST_CASE("game: 게임 프로젝트가 아닌 서버는 재시작을 거절한다") {

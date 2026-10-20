@@ -653,9 +653,11 @@ void NetworkSession::updateWorldOps() {
         m_seenWorldChanges = m_session->worldChanges();
         if (const auto& wc = m_session->lastWorldChange()) {
             log::info("client", "서버 월드가 바뀌었습니다 ({} '{}', generation {})",
-                      wc->reason == net::WorldChangeReason::Load      ? "불러오기"
-                      : wc->reason == net::WorldChangeReason::Restart ? "게임 재시작"
-                                                                      : "리플레이",
+                      wc->reason == net::WorldChangeReason::Load       ? "불러오기"
+                      : wc->reason == net::WorldChangeReason::Restart  ? "게임 재시작"
+                      : wc->reason == net::WorldChangeReason::TestPlay ? "테스트 플레이"
+                      : wc->reason == net::WorldChangeReason::TestStop ? "테스트 플레이 멈춤"
+                                                                       : "리플레이",
                       wc->name, wc->generation);
         }
     }

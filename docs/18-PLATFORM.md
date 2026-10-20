@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, M4 ✅, 다음 M5)
-다음     v0.2 M5-T1 — Test Play (편집 월드의 메모리 스냅숏에서 분기 세션, Stop 이면 버리고 원본 그대로)
+다음     v0.2 M5-T2 — GamePackage 빌드 · 로드 (D-02: 형식 · 다이제스트), SaveGame 결속
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -142,7 +142,9 @@ M4 Visual Trigger
         편집 = EditContent{trigger} (오버레이 종류 Trigger, 프로토콜 11, 세이브 overlay/triggers/) (ADR-0052)
   → M4 완료 (2026-10-20): 트리거 만들기 (폼) → 검사 (V10) → 적용 (게임 중에도) → 단계 17c 실행 → 세이브
 M5 Edit ↔ Test Play · GamePackage
-  T1 Test Play: 편집 월드의 메모리 스냅숏에서 분기 세션, Stop 이면 버리고 원본 그대로 (선택 저장)
+  T1 ✅ Test Play: 서버가 편집 월드 runner 를 메모리에 그대로 맡기고 복사본 (임시 세이브 → 열기) 으로 바꾼다 — 게임이면
+        시작 · 일시정지면 재개, 멈추면 원본 그대로 돌아온다. 그 동안 저장만 (불러오기 · 재생 · 재시작 · 기록 · 자동 재시작 거절),
+        WorldOp TestPlay · TestStop · 프로토콜 12, "월드" 패널 단추 (ADR-0053)
   T2 GamePackage 빌드 · 로드 (D-02: 형식 · 다이제스트), SaveGame 결속 (패키지 다이제스트 · 게임 버전)
 M6 E2E · 회귀
   T1 데모 미니게임 프로젝트 (samples/) — 헤드리스 서버와 로컬 플레이에서 같은 결과, 시나리오로 끝까지 (자동)
@@ -233,6 +235,7 @@ M3-T3 ✅  07 5장 (게임 키), 10 9장 (게임 키 · 카메라 처음 자리)
 M4-T1 ✅  11 (1 · 8 · 10장 Trigger · V10), 03 6.4 (Trigger 와 Rule), 13, 17, ADR-0050
 M4-T2 ✅  03 2장 (17c), 04 (simVersion 이력), 11 (0 · 10장 실행), 13, 17, ADR-0051
 M4-T3 ✅  10 8장 (트리거 폼), 08 (프로토콜 11), 09 3장 (overlay/triggers), 11 10장, 13, 17, ADR-0052
+M5-T1 ✅  08 (프로토콜 12), 10 9장 (테스트 플레이), 13, ADR-0053
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
@@ -257,4 +260,5 @@ v0.2 M3-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외, + project_de
 v0.2 M4-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_content +5 (test_trigger)
 v0.2 M4-T2 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_core +8 (test_trigger_run)
 v0.2 M4-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_editor +4 (test_trigger_form) · unit_core +1 · unit_network 갱신 (프로토콜 11)
+v0.2 M5-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_network +2 · unit_client +1 (프로토콜 12)
 ```

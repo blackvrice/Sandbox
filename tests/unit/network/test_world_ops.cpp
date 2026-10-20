@@ -244,7 +244,7 @@ TEST_SUITE("network") {
         CHECK_FALSE(isValidSaveName("세이브"));
         CHECK_FALSE(isValidSaveName(std::string(kMaxSaveNameBytes + 1, 'a')));
         CHECK(isValidSaveName(std::string(kMaxSaveNameBytes, 'a')));
-        const auto bad = decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(9), "a"}}));
+        const auto bad = decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(10), "a"}}));
         CHECK_FALSE(bad.has_value());
     }
 

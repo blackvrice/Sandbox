@@ -31,7 +31,8 @@ namespace sbx::net {
 // 9: 게임 진행 — 명령 GameControl (시작 · 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3
 // 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터) — v0.2 M3-T1
 // 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3
-inline constexpr u32 kProtocolVersion = 11;
+// 12: 테스트 플레이 — WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1
+inline constexpr u32 kProtocolVersion = 12;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -186,7 +187,7 @@ struct ServerStats {
     bool paused = false;
     f32 speed = 1.0f;
     u8 clients = 0;
-    // 프로토콜 7 (12D): 월드 모드 — 0 보통 · 1 리플레이 기록 중 · 2 리플레이 재생 중
+    // 프로토콜 7 (12D): 월드 모드 — 0 보통 · 1 리플레이 기록 중 · 2 리플레이 재생 중 · 3 테스트 플레이 (프로토콜 12)
     u8 mode = 0;
     std::string modeName;  // 기록 · 재생 중인 이름 (str 48)
     u64 replayCall = 0;    // 기록: 기록한 tick() 수 · 재생: 재생한 수
@@ -320,6 +321,9 @@ enum class WorldOpKind : u8 {
     RecordStop = 5,  // <이름>/replay.sbxr 로 쓰고 끝
     Play = 6,        // 리플레이를 재생 (시작 세이브를 불러와 한 call 씩 — 편집 명령은 거절, 실행 제어는 재생을 다룬다)
     Restart = 7,     // 게임 재시작 (프로토콜 9): 게임 프로젝트의 시작 월드를 다시 열고 세션을 Lobby 로 — 이름은 무시
+    // 테스트 플레이 (프로토콜 12, v0.2 M5-T1, ADR-0053) — 이름은 무시
+    TestPlay = 8, // 지금 (편집) 월드의 복사본으로 바꾸고 원본은 서버 메모리에 그대로 둔다. 게임 모드면 시작, 일시정지를 푼다
+    TestStop = 9, // 복사본을 버리고 원본으로 되돌린다
 };
 [[nodiscard]] std::string_view worldOpName(WorldOpKind op) noexcept;
 // 세이브 이름: 영문 · 숫자 · '_' · '-' 1 ~ 48 글자 (경로 문자 · 점 · 공백 없음 — 저장 폴더 아래 한 단계)
@@ -345,7 +349,8 @@ struct SavedWorld {
 struct WorldList {
     std::vector<SavedWorld> worlds; // 이름 순, ≤ kMaxSavedWorlds
 };
-enum class WorldChangeReason : u8 { Load = 1, Replay = 2, Restart = 3 }; // Restart: 프로토콜 9
+// Restart: 프로토콜 9, TestPlay · TestStop: 프로토콜 12
+enum class WorldChangeReason : u8 { Load = 1, Replay = 2, Restart = 3, TestPlay = 4, TestStop = 5 };
 struct WorldChanged {
     u32 generation = 0; // 새 월드 (이 번호의 Snapshot 부터 그린다)
     WorldMeta world;    // 새 월드의 이름 · 경계 · 일시정지 · 속도

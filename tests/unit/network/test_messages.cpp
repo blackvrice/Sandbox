@@ -141,7 +141,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 11); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M4-T3)
+        CHECK(kProtocolVersion == 12); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M5-T1)
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
@@ -164,7 +164,32 @@ TEST_SUITE("network") {
         wc.generation = 3;
         wc.reason = WorldChangeReason::Restart;
         CHECK(roundTrip(wc).reason == WorldChangeReason::Restart);
-        CHECK_FALSE(decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(8), {}}})).has_value());
+        CHECK_FALSE(
+            decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(10), {}}})).has_value());
+    }
+
+    TEST_CASE(
+        "messages: 테스트 플레이 (프로토콜 12 — WorldOp TestPlay · TestStop · WorldChanged · ServerStats 모드 3)") {
+        for (const WorldOpKind k : {WorldOpKind::TestPlay, WorldOpKind::TestStop}) {
+            CHECK(roundTrip(WorldOpRequest{k, {}}).op == k);
+            CHECK(roundTrip(WorldOpResultMsg{k, {}, true, "ok"}).op == k);
+        }
+        CHECK(worldOpName(WorldOpKind::TestPlay) == "테스트 플레이");
+        CHECK(worldOpName(WorldOpKind::TestStop) == "테스트 플레이 멈춤");
+        for (const WorldChangeReason r : {WorldChangeReason::TestPlay, WorldChangeReason::TestStop}) {
+            WorldChanged wc;
+            wc.generation = 4;
+            wc.reason = r;
+            CHECK(roundTrip(wc).reason == r);
+        }
+        ServerStats s;
+        s.mode = 3;
+        CHECK(roundTrip(s).mode == 3);
+        s.mode = 4;
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{s})).has_value());
+        WorldChanged bad;
+        bad.reason = static_cast<WorldChangeReason>(6);
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{bad})).has_value());
     }
 
     TEST_CASE("messages: 게임 정체성 (프로토콜 8 — Welcome · Reject)") {

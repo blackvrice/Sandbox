@@ -18,6 +18,8 @@ std::string worldModeLine(const WorldOpsInfo& info) {
         return std::format("재생 '{}' {}/{} call · 해시 {} {}{}", info.modeName, info.replayCall, info.replayCalls,
                            info.hashesChecked, info.mismatch ? "불일치!" : "일치",
                            info.replayPaused ? " · 멈춤" : std::format(" · ×{}", info.replaySpeed));
+    case 3:
+        return "테스트 플레이 — 멈추면 편집 월드로";
     default:
         return "보통";
     }
@@ -69,6 +71,16 @@ std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldP
     if (ImGui::Button("새로고침")) {
         request = WorldPanelRequest{WorldOp::List, {}};
     }
+    // 테스트 플레이 (v0.2 M5-T1): 편집 월드의 복사본으로 플레이 — 멈추면 버리고 편집 월드 그대로 (저장은 멈추기 전에)
+    ImGui::BeginDisabled(!info.canChange || info.mode == 1 || info.mode == 2);
+    if (info.mode == 3) {
+        if (ImGui::Button("테스트 플레이 멈추기 (되돌리기)")) {
+            request = WorldPanelRequest{WorldOp::TestStop, {}};
+        }
+    } else if (ImGui::Button("테스트 플레이")) {
+        request = WorldPanelRequest{WorldOp::TestPlay, {}};
+    }
+    ImGui::EndDisabled();
 
     ImGui::Separator();
     if (!info.listed) {

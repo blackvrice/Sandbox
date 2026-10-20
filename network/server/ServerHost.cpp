@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <format>
+#include <utility>
 
 #include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
@@ -827,6 +828,8 @@ void ServerHost::simStep(f64 now) {
             s.mode = 1;
             s.modeName = m_recording->name;
             s.replayCall = m_recording->recorder->replay().calls;
+        } else if (m_editRunner) {
+            s.mode = 3; // 테스트 플레이 (프로토콜 12)
         }
         statsMsg = s;
         m_statsWindowStart = now;
@@ -924,7 +927,7 @@ void ServerHost::publishStatus() {
 
 void ServerHost::writeModeStats() {
     m_stats.generation = m_generation;
-    m_stats.mode = m_playback ? 2 : (m_recording ? 1 : 0);
+    m_stats.mode = m_playback ? 2 : (m_recording ? 1 : (m_editRunner ? 3 : 0));
     m_stats.replayCall =
         m_playback ? m_playback->player->call() : (m_recording ? m_recording->recorder->replay().calls : 0);
     m_stats.replayCalls = m_playback ? m_playback->player->calls() : 0;
@@ -964,6 +967,21 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
     };
     if (req.op == WorldOpKind::List) {
         out.push_back(Outgoing{task.clientId, listWorlds()});
+        return;
+    }
+    // 테스트 플레이 (v0.2 M5-T1): 시작 · 멈춤은 세이브 폴더가 없어도 된다. 그 동안 월드를 바꾸는 다른 요청은 거절
+    // (저장은 된다 — 플레이 결과를 남기려면 저장한다)
+    if (req.op == WorldOpKind::TestPlay || req.op == WorldOpKind::TestStop) {
+        auto r = req.op == WorldOpKind::TestPlay ? startTestPlay(out) : stopTestPlay(out);
+        if (r) {
+            replaced = true;
+        }
+        r ? reply(*r, true) : reply(r.error().message, false);
+        return;
+    }
+    if (m_editRunner && (req.op == WorldOpKind::Load || req.op == WorldOpKind::Play || req.op == WorldOpKind::Restart ||
+                         req.op == WorldOpKind::RecordStart)) {
+        reply("테스트 플레이 중입니다 — 먼저 멈추십시오", false);
         return;
     }
     if (req.op == WorldOpKind::Restart) {
@@ -1120,8 +1138,75 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
     case WorldOpKind::List:
     case WorldOpKind::RecordStop:
     case WorldOpKind::Restart:
+    case WorldOpKind::TestPlay:
+    case WorldOpKind::TestStop:
         break;
     }
+}
+
+// --- 테스트 플레이 (v0.2 M5-T1, ADR-0053) ------------------------------------------------------------------------
+// 복사본 = 편집 월드를 임시 폴더에 저장하고 다시 연 것 (세이브 · 로드와 같은 길 — 해시 검증, 오버레이 포함). 폴더는
+// 바로 지운다. 원본 runner 는 m_editRunner 에 그대로 맡겨 두고 돌리지 않는다 — 멈추면 그 객체가 돌아오므로 틱 ·
+// 일시정지 · 선택하지 않은 모든 상태가 시작 전과 같다. 게임 모드가 있으면 복사본의 세션을 Lobby 로 놓고 시작 명령을,
+// 일시정지였으면 재개 명령을 서버가 넣는다.
+Expected<std::string> ServerHost::startTestPlay(std::vector<Outgoing>& out) {
+    if (m_editRunner) {
+        return makeError(ErrorCode::InvalidArgument, "이미 테스트 플레이 중입니다");
+    }
+    if (m_playback) {
+        return makeError(ErrorCode::InvalidArgument, "리플레이를 재생하는 중에는 테스트 플레이를 할 수 없습니다");
+    }
+    if (m_recording) {
+        return makeError(ErrorCode::InvalidArgument, "기록 중에는 테스트 플레이를 할 수 없습니다 — 기록을 끝내십시오");
+    }
+    auto& world = m_runner->world();
+    std::error_code ec;
+    const std::filesystem::path dir =
+        std::filesystem::temp_directory_path(ec) /
+        std::format("sbx-testplay-{:x}-{}",
+                    static_cast<u64>(std::chrono::steady_clock::now().time_since_epoch().count()), m_generation);
+    struct Cleanup {
+        std::filesystem::path dir;
+        ~Cleanup() {
+            std::error_code e;
+            std::filesystem::remove_all(dir, e);
+        }
+    } cleanup{dir};
+    if (auto saved = persist::saveWorld(world, dir, persist::SaveOptions{"testplay"}); !saved) {
+        return std::unexpected(saved.error());
+    }
+    auto opened = scenario::openSave(dir, world.baseContent(), world.catalog());
+    if (!opened) {
+        return std::unexpected(opened.error());
+    }
+    sim::SimulationWorld& copy = opened->runner->world();
+    std::string what = "편집 월드의 복사본";
+    if (!m_desc.gameMode.empty()) {
+        if (auto s = game::resetSession(copy, m_desc.gameMode); !s) {
+            return std::unexpected(s.error());
+        }
+        copy.enqueue(cmd::SimCommand{cmd::CommandHeader{copy.currentTick() + 1, cmd::kServerIssuer, ++m_serverSequence},
+                                     cmd::GameControl{cmd::GameControlOp::Start}});
+        what += std::format(" · 게임 {} 시작", m_desc.gameMode);
+    }
+    if (copy.clock().paused()) {
+        copy.enqueue(cmd::SimCommand{cmd::CommandHeader{copy.currentTick() + 1, cmd::kServerIssuer, ++m_serverSequence},
+                                     cmd::ResumeSimulation{}});
+    }
+    const sim::Tick tick = copy.currentTick();
+    replaceWorld(std::move(opened->runner), WorldChangeReason::TestPlay, {}, out, &m_editRunner);
+    m_finishedSteps = 0;
+    return std::format("tick {} — {} (멈추면 편집 월드로 돌아갑니다)", tick, what);
+}
+
+Expected<std::string> ServerHost::stopTestPlay(std::vector<Outgoing>& out) {
+    if (!m_editRunner) {
+        return makeError(ErrorCode::InvalidArgument, "테스트 플레이 중이 아닙니다");
+    }
+    const sim::Tick tick = m_editRunner->world().currentTick();
+    replaceWorld(std::move(m_editRunner), WorldChangeReason::TestStop, {}, out);
+    m_finishedSteps = 0;
+    return std::format("편집 월드로 돌아왔습니다 (tick {}) — 플레이한 것은 버렸습니다", tick);
 }
 
 void setGameProject(ServerHostDesc& desc, const project::GameManifest& manifest,
@@ -1164,7 +1249,7 @@ Expected<std::string> ServerHost::restartGame(std::vector<Outgoing>& out) {
 }
 
 bool ServerHost::autoRestartDue() {
-    if (m_desc.entryWorld.empty() || m_playback) {
+    if (m_desc.entryWorld.empty() || m_playback || m_editRunner) { // 테스트 플레이는 멈출 때까지 그대로
         return false;
     }
     const auto& world = m_runner->world();
@@ -1190,11 +1275,15 @@ u32 ServerHost::playerCount() const {
 }
 
 void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
-                              const std::string& name, std::vector<Outgoing>& out) {
+                              const std::string& name, std::vector<Outgoing>& out,
+                              std::unique_ptr<scenario::ScenarioRunner>* keepOld) {
     SBX_ASSERT(!m_recording, "기록을 끝낸 뒤 월드를 바꿔야 합니다");
     runner->world().setJobSystem(m_runner->world().paths().jobSystem());
     m_playback.reset(); // 옛 월드를 가리킨다
-    m_runner = std::move(runner);
+    std::unique_ptr<scenario::ScenarioRunner> old = std::exchange(m_runner, std::move(runner));
+    if (keepOld != nullptr) {
+        *keepOld = std::move(old); // 테스트 플레이: 편집 월드를 맡긴다
+    }
     auto& world = m_runner->world();
     ++m_generation;
     m_inspect.clear();
@@ -1218,8 +1307,12 @@ void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, 
     m_sentContentRevision = world.contentRevision();
     out.push_back(Outgoing{0, fullOverlay(m_sentOverlay)});
     log::info("net", "월드를 바꿨습니다 ({} '{}'): tick {} · 엔티티 {} · generation {}",
-              reason == WorldChangeReason::Load ? "불러오기" : "리플레이", name, world.currentTick(),
-              world.registry().aliveCount(), m_generation);
+              reason == WorldChangeReason::Load       ? "불러오기"
+              : reason == WorldChangeReason::Restart  ? "게임 재시작"
+              : reason == WorldChangeReason::TestPlay ? "테스트 플레이"
+              : reason == WorldChangeReason::TestStop ? "테스트 플레이 멈춤"
+                                                      : "리플레이",
+              name, world.currentTick(), world.registry().aliveCount(), m_generation);
     publishStatus();
 }
 

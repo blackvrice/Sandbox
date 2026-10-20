@@ -18,6 +18,8 @@
 > [ADR-0047](adr/0047-player-action-content-command-point-targets.md)).
 > **v0.2 M4-T3** — 프로토콜 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3,
 > [ADR-0052](adr/0052-trigger-editor-form-overlay-kind-protocol-11.md)).
+> **v0.2 M5-T1** — 프로토콜 12: 테스트 플레이 WorldOp TestPlay (8) · TestStop (9), WorldChanged reason 4 · 5, ServerStats 모드 3
+> ([ADR-0053](adr/0053-test-play-copy-world-park-edit-world-protocol-12.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -185,7 +187,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 11`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 12`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -211,10 +213,10 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
 | 63 | SetRole        | C→S    | Control  | clientId varint, role u8 — 역할 바꾸기 요청 (12C, 10-EDITOR 7장)                                                                                                      |
 | 64 | SetRoleResult  | S→C    | Control  | clientId varint, role u8, accepted bool, detail str(256) — SetRole 을 보낸 사람에게 (12C)                                                                             |
-| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 · 7 재시작 (9) — 그 밖은 형식 오류), name str(48) (12D)                                        |
+| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 · 7 재시작 (9) · 8 테스트 플레이 · 9 멈춤 (12) — 그 밖은 형식 오류), name str(48) (12D) |
 | 66 | WorldOpResult  | S→C    | Control  | op u8, name str(48), accepted bool, detail str(256) — 보낸 사람에게 (재생 끝은 모두에게) (12D)                                                                        |
 | 67 | WorldList      | S→C    | Control  | worlds[] {name str(48), replay bool, tick varint, entities varint} × ≤ 256, 이름 순 (12D)                                                                             |
-| 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생 · 3 재시작 (9)), name str(48) (12D)                           |
+| 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생 · 3 재시작 (9) · 4 테스트 플레이 · 5 멈춤 (12)), name str(48) (12D) |
 
 메시지 헤더: `id: varint`. 필드 인코딩은 [09](09-SERIALIZATION.md) 5장. 메시지를 추가·변경하면 `kProtocolVersion`을 올리고 이 표를 갱신합니다.
 (Phase 9 에서 3 · 4 · 5 · 21 · 50 의 필드를 구현에 맞췄다 — 아직 내보낸 적 없는 프로토콜이라 버전은 1 그대로, ADR-0024.)
@@ -227,7 +229,7 @@ EditorVisible 컴포넌트(core.movement · life.age · ai.sensor …)의 리플
 프로토콜 6 (12C): 명령 EditContent(5.1 태그 8), ContentOverlay(42 — Snapshot · TerrainChunk 처럼 16 MB 까지), PlayerList(61 —
 예약했던 RoleChanged 자리), SetRole(63) · SetRoleResult(64), Auth 끝에 ownerKey (ADR-0030).
 프로토콜 7 (12D): WorldOp(65) · WorldOpResult(66) · WorldList(67) · WorldChanged(68 — Bulk), Welcome 끝에 generation varint,
-Snapshot 처음에 generation varint, ServerStats 끝에 mode u8 (0 보통 · 1 기록 중 · 2 재생 중) · modeName str(48) · replayCall ·
+Snapshot 처음에 generation varint, ServerStats 끝에 mode u8 (0 보통 · 1 기록 중 · 2 재생 중 · 3 테스트 플레이 (12)) · modeName str(48) · replayCall ·
 replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySpeed f32 (ADR-0031).
 프로토콜 8 (v0.2 M1-T3): Welcome 끝 · Reject 끝에 game = gameId str(64) · name str(256) · version str(128) (게임이 아니면 셋 다
 빈 문자열 — gameId 없이 name · version 만 있으면 형식 오류). 서버는 상한으로 자른다 (ADR-0042).
@@ -235,6 +237,8 @@ replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySp
 reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 늘었다.
 프로토콜 10 (v0.2 M3-T1): 명령 PlayerAction (5.1 태그 30 — action str(64), position f32 × 2) (ADR-0047).
 프로토콜 11 (v0.2 M4-T3): EditContent (5.1 태그 8) · ContentOverlay (42) 의 kind u8 가 0~3 (3 = trigger). 메시지 모양은 그대로 (ADR-0052).
+프로토콜 12 (v0.2 M5-T1): WorldOp op 8 TestPlay · 9 TestStop (이름 무시), WorldChanged reason 4 TestPlay · 5 TestStop, ServerStats
+mode 3 (테스트 플레이). 메시지 모양은 그대로 — 열거 값만 (ADR-0053).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

@@ -52,8 +52,9 @@ struct PlayersInfo {
     std::string message; // 가장 최근 역할 바꾸기 결과 (거절 사유 등)
 };
 
-// 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind (Restart = 게임 재시작, v0.2 M2-T3)
-enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play, Restart };
+// 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind (Restart = 게임 재시작 — v0.2 M2-T3,
+// TestPlay · TestStop = 테스트 플레이 시작 · 멈추고 되돌리기 — v0.2 M5-T1)
+enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play, Restart, TestPlay, TestStop };
 struct SavedWorldRow {
     std::string name;
     bool replay = false; // 리플레이 (재생) — 아니면 세이브 (불러오기)
@@ -65,7 +66,7 @@ struct WorldOpsInfo {
     bool canChange = false;           // 저장 · 불러오기 · 기록 · 재생 (admin 부터 — 판단은 서버)
     bool listed = false;              // 목록을 받았다
     std::vector<SavedWorldRow> saved; // 이름 순
-    u8 mode = 0;                      // 0 보통 · 1 기록 중 · 2 재생 중 (서버 통계 — 1 초마다)
+    u8 mode = 0;                      // 0 보통 · 1 기록 중 · 2 재생 중 · 3 테스트 플레이 (서버 통계 — 1 초마다)
     std::string modeName;             // 기록 · 재생 중인 이름
     u64 replayCall = 0;               // 기록: 기록한 tick() 수 · 재생: 재생한 수
     u64 replayCalls = 0;              // 재생: 전체

@@ -260,6 +260,48 @@ TEST_SUITE("client") {
         CHECK(ns->worldGeneration() == 1);
     }
 
+    TEST_CASE(
+        "world (local server): 테스트 플레이 → 멈추기 — 새 월드 두 번, 편집 월드의 틱 · 개체 그대로 (v0.2 M5-T1)") {
+        TempDir dir("client_testplay");
+        render::MaterialLibrary mats;
+        auto ns = local(mats, dir.path);
+        const auto frame = [&] {
+            ns->update(kDt);
+            render::RenderWorld w;
+            ns->extract(w);
+        };
+        for (int i = 0; i < 120 && !ns->ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns->ready());
+        ns->togglePause(); // 편집: 멈춘 월드
+        for (int i = 0; i < 10; ++i) {
+            frame();
+        }
+        const u64 editTick = ns->info().tick;
+        ns->worldOp(WorldOp::TestPlay, {});
+        for (int i = 0; i < 60 && ns->worldGeneration() < 1; ++i) {
+            frame();
+        }
+        CHECK(ns->worldGeneration() == 1);
+        for (int i = 0; i < 60 && ns->worldOps()->mode != 3; ++i) {
+            frame(); // 서버 통계 (1 초마다)
+        }
+        CHECK(ns->worldOps()->mode == 3);
+        CHECK(ns->info().tick > editTick); // 복사본은 돈다 (재개)
+        CHECK(ns->worldOps()->message.find("테스트 플레이") != std::string::npos);
+        ns->worldOp(WorldOp::TestStop, {});
+        for (int i = 0; i < 60 && ns->worldGeneration() < 2; ++i) {
+            frame();
+        }
+        CHECK(ns->worldGeneration() == 2);
+        for (int i = 0; i < 10; ++i) {
+            frame();
+        }
+        CHECK(ns->info().tick == editTick); // 편집 월드 그대로 (멈춰 있다)
+        CHECK(ns->info().paused);
+    }
+
     TEST_CASE("world (local server): record → play, pause stops the playback, the status line shows it") {
         TempDir dir("client_replay");
         render::MaterialLibrary mats;
@@ -364,6 +406,10 @@ TEST_SUITE("client") {
         info.replayPaused = false;
         info.replaySpeed = 2;
         CHECK(worldModeLine(info) == "재생 'r' 300/608 call · 해시 10 불일치! · ×2");
+        info.mode = 3; // 테스트 플레이 (v0.2 M5-T1) — 멈추기 단추
+        CHECK(worldModeLine(info) == "테스트 플레이 — 멈추면 편집 월드로");
+        uiFrame([&] { req = drawWorldPanel(info, st); });
+        CHECK_FALSE(req);
         info.mode = 0;
         CHECK(worldModeLine(info) == "보통");
         CHECK(st.name == "quicksave");

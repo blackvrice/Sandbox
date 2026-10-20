@@ -108,7 +108,7 @@ struct ServerHostStats {
     f64 replicationMs = 0; // 스냅숏 만들기 (모든 클라이언트) — 최근 값의 지수 평균, Simulation 스레드 시간
     u64 snapshotsBuilt = 0;
     u32 generation = 0;  // 월드가 바뀐 횟수 (12D)
-    u8 mode = 0;         // 0 보통 · 1 기록 중 · 2 재생 중 (ServerStats.mode)
+    u8 mode = 0;         // 0 보통 · 1 기록 중 · 2 재생 중 · 3 테스트 플레이 (ServerStats.mode)
     u64 replayCall = 0;  // 기록: 기록한 tick() 수 · 재생: 재생한 call
     u64 replayCalls = 0; // 재생: 전체 call
 };
@@ -218,8 +218,14 @@ private:
     // 다음 단계까지 (월드의 틱 간격, 재생 중이면 재생 속도로 나눈다)
     [[nodiscard]] f64 stepIntervalSeconds() const noexcept;
     void runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced);
+    // keepOld 가 있으면 옛 월드를 버리지 않고 거기에 맡긴다 (테스트 플레이 — 편집 월드를 그대로 둔다)
     void replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
-                      const std::string& name, std::vector<Outgoing>& out);
+                      const std::string& name, std::vector<Outgoing>& out,
+                      std::unique_ptr<scenario::ScenarioRunner>* keepOld = nullptr);
+    // 테스트 플레이 (v0.2 M5-T1, ADR-0053): 편집 월드의 복사본으로 바꾸고 원본은 m_editRunner 에 맡긴다 · 되돌린다.
+    // 결과 요약
+    [[nodiscard]] Expected<std::string> startTestPlay(std::vector<Outgoing>& out);
+    [[nodiscard]] Expected<std::string> stopTestPlay(std::vector<Outgoing>& out);
     [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
     // 게임 재시작 (WorldOp Restart · 자동, M2-T3): 시작 월드를 다시 열어 바꾸고 세션을 Lobby 로. 결과 요약
     [[nodiscard]] Expected<std::string> restartGame(std::vector<Outgoing>& out);
@@ -258,6 +264,8 @@ private:
     std::unique_ptr<Playback> m_playback;
     u32 m_serverSequence = 0; // 서버가 넣는 명령 (재생 끝 일시정지)
     u64 m_finishedSteps = 0;  // 게임이 Finished 로 머문 서버 단계 수 (자동 재시작, M2-T3)
+    // 테스트 플레이 중 맡겨 둔 편집 월드 (v0.2 M5-T1) — 돌리지 않는다, 멈추면 그대로 돌아온다
+    std::unique_ptr<scenario::ScenarioRunner> m_editRunner;
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
     // (random_walk 는 1) issuer 만으로는 가릴 수 없다
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;

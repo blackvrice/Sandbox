@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-10-20 — v0.2 M5-T1: 테스트 플레이 — 편집 월드는 서버 메모리에 맡기고 복사본으로, 멈추면 되돌린다 (ADR-0053)
+
+**무엇을**
+
+- ServerHost: WorldOp `TestPlay` — 편집 월드를 임시 폴더에 저장하고 다시 열어 복사본을 만들고 (폴더는 바로 지움), 원본 runner 는
+  `m_editRunner` 에 그대로 맡긴다 (replaceWorld 의 keepOld). 게임 프로젝트면 복사본의 세션을 Lobby 로 놓고 GameControl Start,
+  일시정지였으면 ResumeSimulation 을 서버가 넣는다. `TestStop` — 복사본을 버리고 맡긴 원본으로 되돌린다.
+  그 동안 불러오기 · 재생 · 재시작 · 기록 시작 거절, 저장은 된다, 자동 재시작 없음. ServerStats mode 3.
+- 프로토콜 11 → 12: WorldOp op 8 · 9, WorldChanged reason 4 · 5, ServerStats mode 3.
+- 클라이언트 "월드" 패널: "테스트 플레이" · "테스트 플레이 멈추기 (되돌리기)" 단추, 상태 줄. WorldOp 열거 값 TestPlay · TestStop.
+- 시험: test_game_control +1 (서버 끝까지), test_world_panel +1 (로컬 서버) · 패널 모드 3, test_messages +1 (프로토콜 12).
+- 문서: ADR-0053, 08 (머리말 · 5장 표 · 프로토콜 12), 10 9장, 13, 18 (M5-T1 ✅ — 다음 M5-T2), adr/README.
+
+**왜**
+
+- 편집 → 플레이 → 되돌리기를 저장 · 불러오기 없이. 원본 객체를 그대로 맡겨 "원본 오염 없음" 을 가장 확실하게 (세이브에 담지
+  않는 상태까지 그대로).
+
+**검증**
+
+- Windows MSVC Debug: ctest 59/59 통과 (render_tests_warp 제외). 멈춘 뒤 편집 월드의 틱 · WorldHash · 개체 수 · 세션 Lobby 가 시작
+  전과 같다 (test_game_control). 골든 · 세이브 형식 · kSimVersion 그대로.
+
+**남은 일**
+
+- M5-T2 GamePackage. 메모리 직렬화 (임시 폴더 없이), 여러 사람이 각자 테스트 플레이 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M4-T3: 트리거 편집 — 오버레이 종류 Trigger (프로토콜 11) · "콘텐츠" 창의 트리거 폼 → M4 완료 (ADR-0052)
 
 **무엇을**
