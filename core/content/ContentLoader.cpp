@@ -1,6 +1,7 @@
 #include "core/content/ContentLoader.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 #include <map>
 #include <queue>
@@ -8,6 +9,8 @@
 
 #include "core/components/game/GameScore.hpp"
 #include "core/simulation/SimConstants.hpp"
+#include "core/trigger/TriggerCompiler.hpp"
+#include "core/trigger/TriggerSchema.hpp"
 #include "foundation/container/FixedString.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -121,6 +124,10 @@ private:
     void loadBehavior(const PackDir& p, const SourceFile& f);
     void loadBehaviorJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
     void loadMode(const PackDir& p, const SourceFile& f);
+    void loadTrigger(const PackDir& p, const SourceFile& f);
+    // 트리거 노드 값 하나 (표의 타입 · 범위 — V3 · V7 · V2). 맞으면 true
+    bool checkTriggerParam(const PackDir& p, const SourceFile& f, const trigger::ParamSpec& spec, const json& v,
+                           const std::string& at);
     // 초 → 틱 (0 ≤ s ≤ maxSeconds, 반올림). allowZero = false 면 1 틱 이상
     std::optional<u64> secondsToTicks(const json& j, const SourceFile& f, const std::string& at, f64 maxSeconds,
                                       bool allowZero);
@@ -160,6 +167,7 @@ private:
     std::vector<Ref> m_refs;
     std::map<std::string, std::string, std::less<>> m_interactUsers; // action → 처음 쓴 behavior (V4)
     u32 m_ruleOrder = 0;
+    u32 m_triggerOrder = 0;
     const ContentOverlay* m_overlay = nullptr;
     std::map<std::string, u32, std::less<>> m_replacedRuleOrder; // 오버레이가 바꾼 팩 Rule 의 정의 순서
 };
@@ -1601,6 +1609,375 @@ void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
     }
 }
 
+// --- Trigger (11 10장, v0.2 M4-T1, ADR-0050) ---------------------------------------------------------------------
+namespace {
+
+const std::map<std::string, CmpOp, std::less<>>& cmpOps() {
+    static const std::map<std::string, CmpOp, std::less<>> ops{{"<", CmpOp::Lt},  {"<=", CmpOp::Le}, {">", CmpOp::Gt},
+                                                               {">=", CmpOp::Ge}, {"==", CmpOp::Eq}, {"!=", CmpOp::Ne}};
+    return ops;
+}
+
+std::optional<GameResult> resultOf(const json& v) {
+    if (v == "win") {
+        return GameResult::Win;
+    }
+    if (v == "lose") {
+        return GameResult::Lose;
+    }
+    if (v == "draw") {
+        return GameResult::Draw;
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+bool ContentLoaderImpl::checkTriggerParam(const PackDir& p, const SourceFile& f, const trigger::ParamSpec& spec,
+                                          const json& v, const std::string& at) {
+    using trigger::ParamType;
+    const auto bad = [&](std::string what) {
+        error(f.display, at, "V3", std::format("{} 는 {}", spec.key, what));
+        return false;
+    };
+    switch (spec.type) {
+    case ParamType::Number:
+        if (!v.is_number() || !std::isfinite(v.get<f64>()) || v.get<f64>() < spec.min || v.get<f64>() > spec.max) {
+            return bad(std::format("{} ~ {} 의 수", spec.min, spec.max));
+        }
+        return true;
+    case ParamType::Integer:
+        if (!v.is_number_integer() || static_cast<f64>(v.get<i64>()) < spec.min ||
+            static_cast<f64>(v.get<i64>()) > spec.max) {
+            return bad(std::format("{} ~ {} 의 정수", spec.min, spec.max));
+        }
+        return true;
+    case ParamType::Bool:
+        return v.is_boolean() || bad("true · false");
+    case ParamType::Tags:
+        return parseTagExpr(v, f, at).has_value();
+    case ParamType::Op:
+        return (v.is_string() && cmpOps().contains(v.get<std::string>())) || bad("< <= > >= == != 중 하나");
+    case ParamType::Vec2:
+        if (!v.is_array() || v.size() != 2 || !v[0].is_number() || !v[1].is_number() ||
+            !std::isfinite(v[0].get<f64>()) || !std::isfinite(v[1].get<f64>()) || std::abs(v[0].get<f64>()) > 1e6 ||
+            std::abs(v[1].get<f64>()) > 1e6) {
+            return bad("[x, y] (유한한 수, |값| ≤ 1,000,000)");
+        }
+        return true;
+    case ParamType::Field:
+        if (!v.is_string()) {
+            return bad(R"("<컴포넌트>.<수치 필드>")");
+        }
+        return parseFieldRef(v.get<std::string>(), f, at).has_value();
+    case ParamType::Prefab:
+        if (!v.is_string() || !isValidContentId(v.get<std::string>())) {
+            return bad("Prefab id");
+        }
+        noteRef(true, v.get<std::string>(), p, f, at);
+        return true;
+    case ParamType::Tag:
+        if (!v.is_string() || !m_db.findTag(v.get<std::string>())) {
+            error(f.display, at, "V7", "선언된 태그 이름이 필요하다");
+            return false;
+        }
+        return true;
+    case ParamType::Team:
+        return (v.is_string() && isLowerIdent(v.get<std::string>()) && v.get<std::string>().size() <= 32) ||
+               bad("팀 id (소문자 · 숫자 · '_')");
+    case ParamType::Result:
+        return resultOf(v).has_value() || bad("win · lose · draw");
+    case ParamType::EventName:
+        return (v.is_string() && isValidContentId(v.get<std::string>())) || bad("'<pack>.<name>'");
+    }
+    return false;
+}
+
+// triggers/<이름>.json — Visual Trigger 하나. 노드 값은 TriggerSchema 표로 (V3 · V7 · V2), 모양은 trigger::compileGraph
+// (V10). 문제가 하나라도 있으면 트리거를 넣지 않는다
+void ContentLoaderImpl::loadTrigger(const PackDir& p, const SourceFile& f) {
+    const json j = json::parse(f.text, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) {
+        error(f.display, "", "JSON", "Trigger 객체여야 한다");
+        return;
+    }
+    bool ok = onlyKeys(j, {"id", "name", "limits", "nodes", "links"}, f, "");
+    TriggerDef t;
+    t.file = f.display;
+    t.raw = j;
+    t.order = m_triggerOrder++;
+    if (!j.contains("id") || !checkId(p, f, "/id", j["id"], t.id)) {
+        return;
+    }
+    t.name = t.id;
+    if (j.contains("name")) {
+        if (!j["name"].is_string() || j["name"].get<std::string>().empty() ||
+            j["name"].get<std::string>().size() > 128) {
+            error(f.display, "/name", "V3", "name 은 1~128 바이트 문자열");
+            ok = false;
+        } else {
+            t.name = j["name"].get<std::string>();
+        }
+    }
+    if (j.contains("limits")) {
+        const json& l = j["limits"];
+        if (!l.is_object() || !onlyKeys(l, {"perTick"}, f, "/limits")) {
+            error(f.display, "/limits", "V10", R"(limits 는 {"perTick": 1})");
+            ok = false;
+        } else if (l.contains("perTick")) {
+            if (!l["perTick"].is_number_unsigned() || l["perTick"].get<u64>() < 1 ||
+                l["perTick"].get<u64>() > kMaxTriggerFiresPerTick) {
+                error(f.display, "/limits/perTick", "V10",
+                      std::format("perTick 은 1 ~ {} 의 정수", kMaxTriggerFiresPerTick));
+                ok = false;
+            } else {
+                t.perTick = static_cast<u32>(l["perTick"].get<u64>());
+            }
+        }
+    }
+
+    // 노드 — 표로 키 · 값을 본 뒤 타입별 실행 표현으로
+    const json* nodes = j.contains("nodes") ? &j["nodes"] : nullptr;
+    if (nodes == nullptr || !nodes->is_array() || nodes->empty()) {
+        error(f.display, "/nodes", "V10", "nodes 는 비어 있지 않은 배열 (이벤트 노드 하나에서 시작한다)");
+        return;
+    }
+    std::vector<std::string> ids;
+    std::vector<trigger::GraphNode> graph;
+    std::vector<u16> slot; // 노드 → conditions · effects 번호 (이벤트는 0)
+    for (usize i = 0; i < nodes->size(); ++i) {
+        const std::string at = ptr("/nodes", i);
+        const json& n = (*nodes)[i];
+        ids.emplace_back();
+        graph.emplace_back();
+        slot.push_back(0);
+        if (!n.is_object() || !n.contains("id") || !n["id"].is_string() || !isLowerIdent(n["id"].get<std::string>()) ||
+            n["id"].get<std::string>().size() > 32) {
+            error(f.display, at, "V10",
+                  R"(노드는 {"id": "start", "type": "event.timer", ...} — id 는 소문자 · 숫자 · '_')");
+            ok = false;
+            continue;
+        }
+        ids.back() = n["id"].get<std::string>();
+        if (std::find(ids.begin(), ids.end() - 1, ids.back()) != ids.end() - 1) {
+            error(f.display, ptr(at, "id"), "V10", std::format("노드 id '{}' 중복", ids.back()));
+            ok = false;
+            continue;
+        }
+        const trigger::NodeTypeSpec* spec =
+            n.contains("type") && n["type"].is_string() ? trigger::findNodeType(n["type"].get<std::string>()) : nullptr;
+        if (spec == nullptr) {
+            error(f.display, ptr(at, "type"), "V3", "모르는 노드 type (event.* · cond.* · effect.* — 11 10장의 표)");
+            ok = false;
+            continue;
+        }
+        bool nok = true;
+        for (const auto& [key, value] : n.items()) {
+            if (std::find(std::begin(trigger::kNodeReservedKeys), std::end(trigger::kNodeReservedKeys), key) !=
+                std::end(trigger::kNodeReservedKeys)) {
+                continue;
+            }
+            const trigger::ParamSpec* ps = trigger::findParam(*spec, key);
+            if (ps == nullptr) {
+                error(f.display, ptr(at, key), "V3", std::format("'{}' 에 모르는 키 '{}'", spec->type, key));
+                nok = false;
+            } else {
+                nok = checkTriggerParam(p, f, *ps, value, ptr(at, key)) && nok;
+            }
+        }
+        for (const trigger::ParamSpec& ps : spec->params) {
+            if (ps.required && !n.contains(ps.key)) {
+                error(f.display, at, "V3", std::format("'{}' 에 '{}' 가 필요하다", spec->type, ps.key));
+                nok = false;
+            }
+        }
+        graph.back().category = spec->category;
+        graph.back().givesSubject = spec->givesSubject;
+        graph.back().needsSubject = spec->needsSubject || (spec->type == "effect.spawn" && !n.contains("at"));
+        if (!nok) {
+            ok = false;
+            continue;
+        }
+        const std::string_view type = spec->type;
+        const auto num = [&](const char* k, f64 d = 0) { return n.contains(k) ? n[k].get<f64>() : d; };
+        const auto op = [&] { return cmpOps().find(n["op"].get<std::string>())->second; };
+        const auto tags = [&](const char* k) { return n.contains(k) ? *parseTagExpr(n[k], f, ptr(at, k)) : TagExpr{}; };
+        const auto text = [&](const char* k) { return n.contains(k) ? n[k].get<std::string>() : std::string(); };
+        switch (spec->category) {
+        case trigger::NodeCategory::Event: {
+            // 둘째 이벤트 노드는 compileGraph 가 알린다 (값은 마지막 것이 남지만 그때는 넣지 않는다)
+            TriggerEvent& e = t.event;
+            if (type == "event.game_start") {
+                e.kind = TriggerEventKind::GameStart;
+            } else if (type == "event.tick") {
+                e.kind = TriggerEventKind::Tick;
+            } else if (type == "event.timer") {
+                e.kind = TriggerEventKind::Timer;
+                const auto ticks = secondsToTicks(n["seconds"], f, ptr(at, "seconds"), 86400, false);
+                ok = ok && ticks.has_value();
+                e.ticks = ticks.value_or(1);
+                e.repeat = n.contains("repeat") && n["repeat"].get<bool>();
+            } else if (type == "event.area_enter") {
+                e.kind = TriggerEventKind::AreaEnter;
+                e.minX = n["min"][0].get<f32>();
+                e.minY = n["min"][1].get<f32>();
+                e.maxX = n["max"][0].get<f32>();
+                e.maxY = n["max"][1].get<f32>();
+                if (e.minX > e.maxX || e.minY > e.maxY) {
+                    error(f.display, at, "V10", "영역의 min 이 max 보다 크다");
+                    ok = false;
+                }
+                e.tags = tags("tags");
+            } else if (type == "event.score") {
+                e.kind = TriggerEventKind::Score;
+                e.team = text("team");
+                e.op = op();
+                e.value = n["value"].get<i64>();
+            } else {
+                e.kind = TriggerEventKind::Death;
+                e.tags = tags("tags");
+            }
+            break;
+        }
+        case trigger::NodeCategory::Condition: {
+            TriggerCondition c;
+            if (type == "cond.count") {
+                c.kind = TriggerConditionKind::Count;
+                c.tags = tags("tags");
+                c.op = op();
+                c.value = num("value");
+            } else if (type == "cond.score") {
+                c.kind = TriggerConditionKind::Score;
+                c.team = text("team");
+                c.op = op();
+                c.value = num("value");
+            } else if (type == "cond.time") {
+                c.kind = TriggerConditionKind::Time;
+                c.op = op();
+                const auto ticks = secondsToTicks(n["seconds"], f, ptr(at, "seconds"), 86400, true);
+                ok = ok && ticks.has_value();
+                c.ticks = ticks.value_or(0);
+            } else if (type == "cond.field") {
+                c.kind = TriggerConditionKind::Field;
+                c.field = *parseFieldRef(n["field"].get<std::string>(), f, ptr(at, "field"));
+                c.op = op();
+                c.value = num("value");
+            } else if (type == "cond.tags") {
+                c.kind = TriggerConditionKind::Tags;
+                c.tags = tags("tags");
+            } else {
+                c.kind = TriggerConditionKind::Chance;
+                c.chance = static_cast<f32>(num("p"));
+            }
+            slot.back() = static_cast<u16>(t.conditions.size());
+            t.conditions.push_back(std::move(c));
+            break;
+        }
+        case trigger::NodeCategory::Effect: {
+            TriggerEffect x;
+            RuleEffect& fx = x.fx;
+            fx.who = Who::Target; // 대상 (subject)
+            if (type == "effect.field.add" || type == "effect.field.set") {
+                fx.op = type == "effect.field.add" ? EffectOp::FieldAdd : EffectOp::FieldSet;
+                fx.field = *parseFieldRef(n["field"].get<std::string>(), f, ptr(at, "field"));
+                fx.value = num("value");
+            } else if (type == "effect.destroy") {
+                fx.op = EffectOp::Destroy;
+            } else if (type == "effect.spawn") {
+                fx.op = EffectOp::Spawn;
+                fx.prefab = n["prefab"].get<std::string>();
+                fx.count = n.contains("count") ? static_cast<u32>(n["count"].get<i64>()) : 1;
+                if (n.contains("at")) {
+                    x.hasAt = true;
+                    x.atX = n["at"][0].get<f32>();
+                    x.atY = n["at"][1].get<f32>();
+                }
+            } else if (type == "effect.tag.add" || type == "effect.tag.remove") {
+                fx.op = type == "effect.tag.add" ? EffectOp::TagAdd : EffectOp::TagRemove;
+                fx.tag = *m_db.findTag(n["tag"].get<std::string>());
+            } else if (type == "effect.event") {
+                fx.op = EffectOp::Event;
+                fx.event = n["name"].get<std::string>();
+                fx.eventCode = fnv1a64(fx.event);
+            } else if (type == "effect.score.add") {
+                fx.op = EffectOp::ScoreAdd;
+                fx.value = static_cast<f64>(n["value"].get<i64>());
+                fx.team = text("team");
+            } else {
+                x.kind = TriggerEffectKind::GameEnd;
+                x.result = *resultOf(n["result"]);
+                x.team = text("team");
+                if (x.result == GameResult::Draw && !x.team.empty()) {
+                    error(f.display, ptr(at, "team"), "V10", "draw 에는 team 을 쓰지 않는다");
+                    ok = false;
+                }
+            }
+            slot.back() = static_cast<u16>(t.effects.size());
+            t.effects.push_back(std::move(x));
+            break;
+        }
+        }
+    }
+
+    // 연결 {from, to, port?}
+    std::vector<trigger::GraphLink> links;
+    if (j.contains("links")) {
+        const json& ls = j["links"];
+        if (!ls.is_array()) {
+            error(f.display, "/links", "V10", R"(links 는 [{"from": "a", "to": "b", "port": "else"}, ...])");
+            ok = false;
+        } else {
+            for (usize i = 0; i < ls.size(); ++i) {
+                const std::string at = ptr("/links", i);
+                const json& l = ls[i];
+                const auto nodeOf = [&](const char* k) -> std::optional<u16> {
+                    if (!l.contains(k) || !l[k].is_string()) {
+                        return std::nullopt;
+                    }
+                    const auto it = std::find(ids.begin(), ids.end(), l[k].get<std::string>());
+                    return it != ids.end() ? std::optional<u16>(static_cast<u16>(it - ids.begin())) : std::nullopt;
+                };
+                if (!l.is_object() || !onlyKeys(l, {"from", "to", "port"}, f, at)) {
+                    ok = false;
+                    continue;
+                }
+                const auto from = nodeOf("from");
+                const auto to = nodeOf("to");
+                const bool portOk = !l.contains("port") || l["port"] == "then" || l["port"] == "else";
+                if (!from || !to || !portOk) {
+                    error(f.display, at, "V10", R"(연결은 {"from": 노드 id, "to": 노드 id, "port": "then" | "else"})");
+                    ok = false;
+                    continue;
+                }
+                links.push_back(trigger::GraphLink{*from, *to, l.contains("port") && l["port"] == "else"});
+            }
+        }
+    }
+    if (!ok) {
+        return; // 노드 값이 틀리면 모양 검사는 하지 않는다 (같은 문제를 두 번 알리지 않게)
+    }
+
+    const trigger::CompiledGraph g = trigger::compileGraph(graph, links);
+    for (const trigger::GraphIssue& i : g.issues) {
+        const std::string at = i.where == trigger::GraphIssue::Where::Node   ? ptr("/nodes", i.index)
+                               : i.where == trigger::GraphIssue::Where::Link ? ptr("/links", i.index)
+                                                                             : std::string();
+        if (i.warning) {
+            warn(f.display, at, "V10", i.message);
+        } else {
+            error(f.display, at, "V10", i.message);
+        }
+    }
+    if (!g.ok) {
+        return;
+    }
+    t.hasSubject = graph[g.eventNode].givesSubject;
+    for (const trigger::CompiledStep& st : g.steps) {
+        t.program.push_back(TriggerStep{st.op, st.op == TriggerStep::Op::Jump ? u16{0} : slot[st.node], st.jump});
+    }
+    m_db.m_triggers.push_back(std::move(t));
+}
+
 void ContentLoaderImpl::crossCheck() {
     // V1 중복 id
     const auto dupCheck = [&](auto& items, const char* what) {
@@ -1616,6 +1993,24 @@ void ContentLoaderImpl::crossCheck() {
     dupCheck(m_db.m_behaviors, "Behavior");
     dupCheck(m_db.m_modes, "GameMode");
     dupCheck(m_db.m_playerActions, "PlayerAction");
+    {
+        // Trigger 는 정의 순서를 지킨다 (실행 순서) — 복사본으로 중복만 본다
+        std::vector<std::pair<std::string, std::string>> ids;
+        for (const TriggerDef& t : m_db.m_triggers) {
+            ids.emplace_back(t.id, t.file);
+        }
+        std::sort(ids.begin(), ids.end());
+        for (usize i = 1; i < ids.size(); ++i) {
+            if (ids[i].first == ids[i - 1].first) {
+                error(ids[i].second, "/id", "V1",
+                      std::format("Trigger id '{}' 중복 (처음: {})", ids[i].first, ids[i - 1].second));
+            }
+        }
+        if (m_db.m_triggers.size() > kMaxTriggers) {
+            error(m_db.m_triggers.back().file, "", "V10",
+                  std::format("Trigger 는 모든 팩을 합쳐 {} 개까지 ({} 개)", kMaxTriggers, m_db.m_triggers.size()));
+        }
+    }
     if (m_db.m_playerActions.size() > kMaxPlayerActions) {
         error(m_db.m_playerActions.back().file, "", "V9",
               std::format("PlayerAction 은 모든 팩을 합쳐 {} 개까지 ({} 개)", kMaxPlayerActions,
@@ -1673,6 +2068,75 @@ void ContentLoaderImpl::crossCheck() {
     }
     for (const PlayerActionDef& a : m_db.m_playerActions) {
         checkScoreTeams(a.effects, a.file, a.id);
+    }
+
+    // Trigger (v0.2 M4-T1): 팀 id (V2 경고 — score.add 와 같은 이유) · 재진입 고리 (V10 경고)
+    const auto teamKnown = [&](const std::string& team) {
+        return team.empty() || std::any_of(m_db.m_modes.begin(), m_db.m_modes.end(), [&](const GameMode& m) {
+                   return std::any_of(m.teams.begin(), m.teams.end(), [&](const GameTeam& t) { return t.id == team; });
+               });
+    };
+    for (const TriggerDef& t : m_db.m_triggers) {
+        std::vector<std::string> teams{t.event.team};
+        for (const TriggerCondition& c : t.conditions) {
+            teams.push_back(c.team);
+        }
+        for (const TriggerEffect& x : t.effects) {
+            teams.push_back(x.kind == TriggerEffectKind::GameEnd ? x.team : x.fx.team);
+        }
+        for (const std::string& team : teams) {
+            if (!teamKnown(team)) {
+                warn(t.file, "", "V2", std::format("Trigger '{}' 의 팀 '{}' 가 어느 GameMode 에도 없다", t.id, team));
+            }
+        }
+    }
+    // 재진입: 트리거의 효과가 내는 이벤트 (score.add → 점수, destroy → 죽음, spawn → 영역 진입) 를 다른 (또는 같은)
+    // 트리거가 듣는다. 고리면 한 틱 안에서 서로를 부를 수 있다 — 실행 예산(perTick)이 끊지만 의도를 확인하라고 알린다
+    const usize nt = m_db.m_triggers.size();
+    const auto raises = [&](const TriggerDef& t, TriggerEventKind k) {
+        return std::any_of(t.effects.begin(), t.effects.end(), [&](const TriggerEffect& x) {
+            if (x.kind != TriggerEffectKind::Rule) {
+                return false;
+            }
+            return (k == TriggerEventKind::Score && x.fx.op == EffectOp::ScoreAdd) ||
+                   (k == TriggerEventKind::Death && x.fx.op == EffectOp::Destroy) ||
+                   (k == TriggerEventKind::AreaEnter && x.fx.op == EffectOp::Spawn);
+        });
+    };
+    std::vector<std::vector<usize>> next(nt);
+    for (usize a = 0; a < nt; ++a) {
+        for (usize b = 0; b < nt; ++b) {
+            if (raises(m_db.m_triggers[a], m_db.m_triggers[b].event.kind)) {
+                next[a].push_back(b);
+            }
+        }
+    }
+    std::vector<u8> color(nt, 0); // 0 아직 · 1 지나는 중 · 2 끝
+    std::vector<usize> stack;
+    const auto visit = [&](auto& self, usize a) -> void {
+        color[a] = 1;
+        stack.push_back(a);
+        for (const usize b : next[a]) {
+            if (color[b] == 1) {
+                // stack 에서 b 부터 끝까지가 고리
+                std::string path;
+                for (auto it = std::find(stack.begin(), stack.end(), b); it != stack.end(); ++it) {
+                    path += m_db.m_triggers[*it].id + " → ";
+                }
+                path += m_db.m_triggers[b].id;
+                warn(m_db.m_triggers[b].file, "", "V10",
+                     std::format("재진입 고리 {} — 한 틱에 perTick 번까지만 돈다", path));
+            } else if (color[b] == 0) {
+                self(self, b);
+            }
+        }
+        stack.pop_back();
+        color[a] = 2;
+    };
+    for (usize a = 0; a < nt; ++a) {
+        if (color[a] == 0) {
+            visit(visit, a);
+        }
     }
 }
 
@@ -1827,6 +2291,8 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
                 loadMode(p, f);
             } else if (f.rel == "actions.json") {
                 loadActions(p, f);
+            } else if (f.rel.starts_with("triggers/") && f.rel.ends_with(".json")) {
+                loadTrigger(p, f);
             } else {
                 warn(f.display, "", "IO", "알 수 없는 파일 — 읽지 않는다");
             }

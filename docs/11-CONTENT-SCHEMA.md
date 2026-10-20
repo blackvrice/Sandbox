@@ -85,6 +85,7 @@ content/<pack>/
   behaviors/*.json        BehaviorGraph 1파일 1개
   modes/*.json            GameMode 1파일 1개 (선택 — v0.2 M2, 9장)
   actions.json            PlayerAction 정의 (선택)
+  triggers/*.json         Trigger 1파일 1개 (선택 — v0.2 M4-T1, 10장)
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
     input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.
                           "play.action.<PlayerAction id>": ["Q"] = 누르면 커서 자리에 그 행동. 로더는 원문만 PackInfo 에
@@ -330,6 +331,7 @@ V7  태그 선언 여부 (오타 방지)
 V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복 · 팀 태그 중복, 초 범위, 끝 규칙 ≤ 32 · when (time · count ·
     score) · op · result · team 참조)
 V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
+V10 Trigger: 그래프 모양 (이벤트 하나 · 나무 · 순환 · 닿음 · 깊이 16 · 노드 64 · 대상) · limits · 개수 256, 재진입 고리 경고 (v0.2 M4-T1)
 실패 메시지 형식:  <파일>:<JSON 포인터>: <규칙> — <설명>
 ```
 
@@ -387,4 +389,69 @@ actions.json            eco.feed "먹이 주기" (prey · 반경 3 · 3 마리 �
                         반경 1.5 · 1 마리 → score.add +1 · destroy)
 presentation/input.json play.action.eco.feed = Q · play.action.eco.trap = E
 만들기                  sbx new <폴더> --id <gameId> --from ecosystem_small --mode eco.protect (15 7장, CTest project_demo_protect)
+```
+
+---
+
+## 10. Trigger (v0.2 M4-T1 — [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md))
+
+월드 수준 규칙: 이벤트 하나 → 조건 → 효과. 원본은 그래프 (노드 · 연결 · 편집 배치), 로더가 실행 표현 (이벤트 + 조건 · 효과 표 +
+펼친 명령열) 을 만든다. **실행은 M4-T2** — 지금은 읽고 검사만 한다 (시뮬레이션 결과는 같다).
+
+```jsonc
+// triggers/gate.json — 파일 하나에 트리거 하나
+{
+  "id": "eco.gate",                 // <팩>.<이름> (V1)
+  "name": "우리 문",                 // 선택, 1~128 바이트 (기본 id)
+  "limits": { "perTick": 4 },       // 선택, 한 틱에 몇 번까지 (1 ~ 64, 기본 1) — M4-T2 가 지킨다
+  "nodes": [
+    { "id": "enter", "type": "event.area_enter", "min": [-2, -2], "max": [2, 2], "tags": { "all": ["prey"] },
+      "pos": [40, 80] },                                    // pos · note = 편집 정보 (실행 표현에 없다)
+    { "id": "hungry", "type": "cond.field", "field": "life.energy.value", "op": "<", "value": 50 },
+    { "id": "feed",   "type": "effect.field.add", "field": "life.energy.value", "value": 20 },
+    { "id": "point",  "type": "effect.score.add", "value": 1 }
+  ],
+  "links": [
+    { "from": "enter", "to": "hungry" },
+    { "from": "hungry", "to": "feed" },                    // port 기본 "then"
+    { "from": "hungry", "to": "point", "port": "else" }    // else 는 조건 노드에서만
+  ]
+}
+```
+
+노드 종류 (표 = `core/trigger/TriggerSchema` — 에디터 폼도 같은 표, 모든 노드 권한 ServerGameplay):
+
+| type                | 키 (* 필수)                                       | 뜻                                                          |
+|---------------------|---------------------------------------------------|-------------------------------------------------------------|
+| `event.game_start`  | —                                                 | 세션이 Running 이 될 때                                     |
+| `event.tick`        | —                                                 | Running 동안 매 틱                                          |
+| `event.timer`       | seconds* (1 틱 ~ 86400) · repeat                  | Running 경과 seconds 에 (repeat 면 그 간격마다)             |
+| `event.area_enter`  | min* · max* ([x, y]) · tags                       | 태그에 맞는 개체가 사각형 밖 → 안 — **대상** = 그 개체      |
+| `event.score`       | team · op* · value* (정수)                        | 점수 칸이 조건을 거짓 → 참으로 넘을 때 (team 없으면 공용)   |
+| `event.death`       | tags                                              | 태그에 맞는 개체가 죽음 — **대상** = 죽은 개체              |
+| `cond.count`        | tags* · op* · value* (0 ~ 1,000,000)              | 태그 식에 맞는 개체 수                                      |
+| `cond.score`        | team · op* · value*                               | 점수 칸                                                     |
+| `cond.time`         | op* · seconds*                                    | Running 경과                                                |
+| `cond.field`        | field* · op* · value*                             | 대상의 수치 필드 (대상 필요)                                |
+| `cond.tags`         | tags*                                             | 대상의 태그 식 (대상 필요)                                  |
+| `cond.chance`       | p* (0 ~ 1)                                        | 확률 (결정적 난수 — M4-T2)                                  |
+| `effect.field.add` · `.set` | field* · value*                           | 대상 필드 (FieldMeta 범위로 자름, 대상 필요)                |
+| `effect.destroy`    | —                                                 | 대상 없애기 (대상 필요)                                     |
+| `effect.spawn`      | prefab* · count (1 ~ 16) · at ([x, y])            | at 이 없으면 대상 둘레 ±0.5 (그때는 대상 필요)              |
+| `effect.tag.add` · `.remove` | tag*                                     | 대상 태그 (대상 필요)                                       |
+| `effect.event`      | name* (`<pack>.<name>`)                           | EventStream.Custom                                          |
+| `effect.score.add`  | value* (±1,000,000) · team                        | 점수 (team → 대상의 팀 태그 → 공용, 9장)                    |
+| `effect.game.end`   | result* (win · lose · draw) · team                | 게임 끝 (draw 에는 team 없음)                               |
+
+```text
+모양 (V10)  이벤트 노드 하나, 이벤트로 들어오는 연결 없음, 노드마다 들어오는 연결 하나까지 (나무 — 같은 노드를 두 길에서 쓰려면
+            복사), 순환 없음, 모든 노드가 이벤트에서 닿음, else 는 조건에서만, 노드 ≤ 64, 깊이(이벤트에서 노드 수) ≤ 16,
+            대상이 필요한 노드는 대상을 주는 이벤트(area_enter · death) 아래, 노드 id 는 트리거 안에서 하나 (소문자 · 숫자 · '_')
+            경고: 닿는 효과가 없다
+값          표에 없는 키 · 필수 키 · 타입 · 범위 V3, 태그 V7, Prefab V2, 팀 id 가 어느 GameMode 에도 없음 V2 경고
+DB          트리거 ≤ 256 (V10), id 중복 V1. 정의 순서 = 팩 로드 순 → 파일 경로 순 (같은 틱 실행 순서 — M4-T2)
+재진입      효과가 내는 이벤트 (score.add → event.score, destroy → event.death, spawn → event.area_enter) 를 듣는 트리거로 잇는
+            고리 (자기 자신 포함) 는 경고 V10 — 한 틱에 perTick 번까지만 돈다
+실행 표현   조건 = Cond(거짓이면 else 로) · then · (else 가 있으면) Jump(끝으로) · else, 효과 = Effect · 다음 노드. 자식은 links 순서
+[계획]      실행 (M4-T2 — Stage 고정 · 예산), 에디터 폼 · 월드 오버레이로 고치기 (M4-T3), 합류 · 변수 · 반복 · 대기 노드
 ```

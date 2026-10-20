@@ -256,6 +256,74 @@ struct GameMode {
     nlohmann::json raw; // 읽은 JSON 그대로
 };
 
+// --- Trigger (11 10장, v0.2 M4-T1 — ADR-0050) ----------------------------------------------------------------------
+// 원본 = 팩의 triggers/<이름>.json (노드 · 연결 · 편집 배치 — raw 에 그대로). 실행 표현 = 아래의 이벤트 하나 + 조건 ·
+// 효과 표 + program (나무를 펼친 명령열). 실행은 M4-T2 (Stage 고정, 예산). 대상(subject) = 이벤트가 준 개체 (area_enter
+// · death).
+inline constexpr usize kMaxTriggers = 256;         // DB 전체
+inline constexpr usize kMaxTriggerNodes = 64;      // 트리거 하나
+inline constexpr usize kMaxTriggerDepth = 16;      // 이벤트에서 가장 먼 노드까지의 노드 수
+inline constexpr u32 kMaxTriggerFiresPerTick = 64; // limits.perTick 상한 (트리거 하나)
+
+enum class TriggerEventKind : u8 { GameStart = 0, Tick, Timer, AreaEnter, Score, Death };
+
+struct TriggerEvent {
+    TriggerEventKind kind = TriggerEventKind::GameStart;
+    u64 ticks = 0; // Timer: Running 경과 틱 (repeat 면 그 간격, 0 은 쓰지 않는다 — 1 틱 이상)
+    bool repeat = false;
+    f32 minX = 0, minY = 0, maxX = 0, maxY = 0; // AreaEnter (min ≤ max)
+    TagExpr tags;                               // AreaEnter · Death: 대상 거르기 (비면 무엇이든)
+    std::string team;                           // Score: 팀 id (비면 공용 칸) — 실행 때 세션 모드에서 고른다
+    CmpOp op = CmpOp::Ge;
+    i64 value = 0; // Score: 거짓 → 참이 되는 틱에 한 번
+};
+
+enum class TriggerConditionKind : u8 { Count = 0, Score, Time, Field, Tags, Chance };
+
+struct TriggerCondition {
+    TriggerConditionKind kind = TriggerConditionKind::Count;
+    TagExpr tags; // Count · Tags
+    CmpOp op = CmpOp::Ge;
+    f64 value = 0;    // Count · Score · Field
+    std::string team; // Score
+    u64 ticks = 0;    // Time
+    FieldRef field;   // Field (대상의)
+    f32 chance = 0;   // Chance (0 ~ 1)
+};
+
+enum class TriggerEffectKind : u8 { Rule = 0, GameEnd };
+
+struct TriggerEffect {
+    TriggerEffectKind kind = TriggerEffectKind::Rule;
+    RuleEffect fx;      // Rule: field.* · destroy · spawn · tag.* · event · score.add (who = Target = 대상)
+    bool hasAt = false; // spawn 자리 (없으면 대상 둘레)
+    f32 atX = 0, atY = 0;
+    GameResult result = GameResult::Win; // GameEnd
+    std::string team;                    // GameEnd
+};
+
+// 실행 표현 — 위에서 아래로. Cond 가 거짓이면 jump 로, Jump 는 jump 로. index = conditions · effects 의 번호
+struct TriggerStep {
+    enum class Op : u8 { Cond = 0, Effect, Jump };
+    Op op = Op::Effect;
+    u16 index = 0;
+    u16 jump = 0;
+};
+
+struct TriggerDef {
+    std::string id;
+    std::string name; // 표시 이름 (없으면 id)
+    u32 perTick = 1;  // 한 틱에 몇 번까지 (limits.perTick, 1 ~ kMaxTriggerFiresPerTick) — 넘으면 그 틱은 끊는다 (M4-T2)
+    TriggerEvent event;
+    bool hasSubject = false; // 이벤트가 대상을 준다
+    std::vector<TriggerCondition> conditions;
+    std::vector<TriggerEffect> effects;
+    std::vector<TriggerStep> program;
+    u32 order = 0; // 정의 순서 (팩 로드 순 → 파일 경로 순) — 같은 틱 실행 순서 (M4-T2)
+    std::string file;
+    nlohmann::json raw; // 원본 그래프 그대로 (노드 · 연결 · pos · note — 에디터)
+};
+
 struct PackInfo {
     std::string id;
     std::string version;

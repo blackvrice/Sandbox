@@ -129,6 +129,10 @@ add_library(SandboxCore STATIC
 
     game/GameRules.hpp
     game/GameRules.cpp
+    trigger/TriggerSchema.hpp
+    trigger/TriggerSchema.cpp
+    trigger/TriggerCompiler.hpp
+    trigger/TriggerCompiler.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

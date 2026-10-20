@@ -190,6 +190,12 @@ const PlayerActionDef* ContentDatabase::findPlayerAction(std::string_view id) co
     return (it != m_playerActions.end() && it->id == id) ? &*it : nullptr;
 }
 
+const TriggerDef* ContentDatabase::findTrigger(std::string_view id) const noexcept {
+    // 정의 순서라 정렬되어 있지 않다 (256 개까지 — 선형)
+    const auto it = std::find_if(m_triggers.begin(), m_triggers.end(), [&](const TriggerDef& t) { return t.id == id; });
+    return it != m_triggers.end() ? &*it : nullptr;
+}
+
 const GameMode* ContentDatabase::findMode(std::string_view id) const noexcept {
     const auto it = std::lower_bound(m_modes.begin(), m_modes.end(), id,
                                      [](const GameMode& m, std::string_view k) { return m.id < k; });

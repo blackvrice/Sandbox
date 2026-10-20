@@ -379,6 +379,11 @@ Rule op + FSM으로 표현할 수 없는 콘텐츠 요구는 op · Native Featur
 스크립트 언어는 v0.3 SandboxScript — TypeScript 문법 부분집합 → 자체 바이트코드 VM 으로 정했습니다 ([ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md),
 Lua · WASM 은 후보에서 뺌). 그 전까지 이 장의 원칙(새 표현력은 데이터 + Native op)은 그대로입니다.
 
+Visual Trigger (v0.2 M4, [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md)) 와 Rule 의 관계: Rule 은 개체 둘
+(source · target) 의 interact 에 묶인 규칙이고, Trigger 는 월드 수준 이벤트 (시작 · 틱 · 타이머 · 영역 진입 · 점수 · 죽음) 에서
+시작하는 규칙이다. 효과는 같은 op (6.3 + game.end) 를 같은 실행기로 쓴다. M4-T1 은 스키마 · 검사 · 실행 표현 (11 10장),
+실행 단계 (Stage) · 예산은 M4-T2 `[계획]`.
+
 ---
 
 ## 7. Pathfinding

@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-10-20 — v0.2 M4-T1: Visual Trigger 스키마 — triggers/*.json · 노드 종류 표 · 실행 표현 · V10 (ADR-0050)
+
+**무엇을**
+
+- `core/trigger/TriggerSchema`: 노드 종류 표 21 종 (event 6 · cond 6 · effect 9) — 키 · 타입 · 범위 · 필수, 대상(subject) 규칙,
+  권한 (모두 ServerGameplay). 로더와 에디터 폼(M4-T3)이 같은 표를 읽는다.
+- `core/trigger/TriggerCompiler::compileGraph`: 원본 그래프의 모양 검사 (이벤트 하나 · 이벤트로 들어옴 없음 · 들어오는 연결 하나 ·
+  순환 · 닿음 · else 는 조건에서만 · 노드 64 · 깊이 16 · 대상) 와 나무 → 명령열 (Cond · Effect · Jump) 펼치기.
+- 콘텐츠: 팩의 `triggers/*.json` → `TriggerDef` (event · conditions · effects · program · perTick · raw 원본).
+  ContentLoader::loadTrigger — 값은 표로 (V3 · V7 · V2 · 초는 V8), 모양은 V10. crossCheck: id 중복 V1, 256 개 V10, 팀 id V2 경고,
+  재진입 고리 (score.add → event.score · destroy → event.death · spawn → event.area_enter) V10 경고. ContentDatabase::triggers ·
+  findTrigger. 효과는 RuleEffect 를 그대로 (실행기 재사용 — M4-T2), game.end 만 새것.
+- 시험: test_trigger (content 5).
+- 문서: ADR-0050, 11 (1 · 8 · 10장), 03 6.4, 13, 17, 18 (M4-T1 ✅ — 다음 M4-T2), adr/README.
+
+**왜**
+
+- 월드 수준 규칙 (타이머 · 영역 · 점수 · 죽음 → 조건 → 효과) 을 콘텐츠로. Rule 은 개체 둘의 interact 에 묶여 있어 못 쓴다.
+- 나무 + 펼친 명령열: 실행 순서가 분명하고 예산 · 깊이 검사가 쉽다. 원본(편집 배치)과 실행 표현을 나눠 에디터가 배치를 바꿔도
+  실행은 같다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 59/59 통과 (render_tests_warp 제외, `chcp 65001` 뒤). 골든 · 리플레이 해시 그대로 — 시뮬레이션은
+  아직 트리거를 읽지 않는다. 와이어 · 세이브 · kSimVersion 그대로. eco 팩에는 트리거를 넣지 않았다 (contentHash 그대로).
+
+**남은 일**
+
+- M4-T2 실행: Stage 위치, 이벤트 수집 (영역 진입 = 이전 틱 위치 비교, 점수 가장자리), cond.chance 난수 키, perTick 예산.
+- M4-T3 에디터 폼 · 월드 오버레이로 고치기. 합류 · 변수 · 반복 · 대기 노드 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M3-T3: 게임 키 · 카메라 처음 자리 · 데모 모드 "토끼 지키기" → M3 완료 (ADR-0049)
 
 **무엇을**

@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, 다음 M4)
-다음     v0.2 M4-T1 — Visual Trigger 스키마 (이벤트 · 조건 · 효과 노드, 원본 그래프와 실행 표현 분리, 예산 · 깊이 · 순환 검사)
+다음     v0.2 M4-T2 — Trigger 실행 (Rule · Effect op 재사용, 결정적 순서 · Stage 고정, 폭주는 예산으로 끊고 월드는 무결)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -132,7 +132,9 @@ M3 Feature Bundle (Native)
         feed · trap · 키 Q · E) · sbx new --mode (ADR-0049)
   → M3 완료 (2026-10-20): sbx new --from ecosystem_small --mode eco.protect → 클라이언트 → 시작 → Q · E 로 플레이 → 승패
 M4 Visual Trigger
-  T1 트리거 스키마: 이벤트(틱 · 타이머 · 영역 진입 · 점수 · 사망) · 조건 · 효과 노드 — 원본 그래프와 실행 표현 분리, 예산 · 깊이 · 순환 검사
+  T1 ✅ 트리거 스키마: 팩의 triggers/*.json — 이벤트 하나에서 시작하는 나무 (노드 · links · then/else), 노드 종류 표
+        core/trigger/TriggerSchema (21 종 · 타입 · 범위 · 대상 규칙), compileGraph → 실행 표현 (펼친 명령열), V10 (모양 · 깊이 16 ·
+        노드 64 · 개수 256 · limits.perTick) · 재진입 고리 경고 (ADR-0050)
   T2 실행: Rule · Effect op 재사용, 결정적 순서 (Stage 고정), 폭주는 예산으로 끊고 월드는 무결
   T3 에디터 폼 (노드 목록 · 인스펙터 양식) — 편집은 EditContent 명령 (오버레이 경로)
 M5 Edit ↔ Test Play · GamePackage
@@ -224,7 +226,8 @@ M3-T1 ✅  11 (6 · 8장 PlayerAction · V9), 03 4장, 08 (프로토콜 10), 10 
 M3-T2 ✅  11 (0 · 8 · 9장 점수 · 팀 · 스폰 지점), 03 (2 · 4 · 6.3장), 02, 04 (simVersion 이력), 10 9장 (점수 줄), 13, 17, ADR-0048
 M3-T3 ✅  07 5장 (게임 키), 10 9장 (게임 키 · 카메라 처음 자리), 11 (0 · 1 · 9장 데모), 15 7장 (sbx new --mode · 데모), 02, 13, 17,
           ADR-0049
-M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
+M4-T1 ✅  11 (1 · 8 · 10장 Trigger · V10), 03 6.4 (Trigger 와 Rule), 13, 17, ADR-0050
+M4-T2~    03 2장 (Trigger Stage · 예산), 10 (트리거 편집 — T3), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
@@ -246,4 +249,5 @@ v0.2 M3-T1 뒤: 63/63 (unit_core · unit_content · unit_client · unit_network 
 v0.2 M3-T2 뒤: Windows MSVC Debug 58/58 (render_tests_warp 제외 — 아래) · unit 케이스 +9 (test_game_score 5 · content 3 · client 1)
               render_tests_warp 는 이 기계에서 D3D12 Debug Layer 배리어 메시지로 실패 (doctest 28/28 통과, M3 는 render 를 건드리지 않음)
 v0.2 M3-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외, + project_demo_protect) · unit 케이스 +6
+v0.2 M4-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_content +5 (test_trigger)
 ```
