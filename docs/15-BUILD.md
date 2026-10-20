@@ -235,6 +235,12 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준, 게임 프로젝트면 <프로젝트>/worlds — v0.2
     M1-T5, ADR-0044). 클라이언트 "월드" 패널의 저장 · 불러오기 ·
     기록 · 재생이 여기에 <이름>/ 으로 (admin 부터, 목록은 모두 — 09 4.1, ADR-0031). 기록 중에 Ctrl+C 로 끝내면 리플레이를 쓴다.
+    (v0.2 M6-T1) --exit 는 --ticks 에 닿거나 게임이 끝나면 (Finished — 자동 재시작 모드 말고) 끝낸다 — Finished 는 틱을 멈춘다.
+    끝날 때 게임 세션이 있으면 "게임 결과: 게임 <상태> · <결과> · team · rule · 점수 · tick · hash" 한 줄을 더 쓴다.
+    (v0.2 M6-T1) [--script <파일>]: 자동 플레이 스크립트 (13 5.1 — 서버 러너가 정한 단계에 명령). 게임이 끝나거나 maxTicks 면
+    결과 한 줄을 쓰고 끝낸다, expect 와 다르면 종료 코드 1. --start-game 과는 같이 쓰지 않는다. 클라이언트도 같은 옵션
+    (SandboxClient --world <…> --script <파일> — 헤드리스면 끝날 때 같은 결과 줄을 쓰고 끝, 창이면 끝난 판을 본다).
+    데모: SandboxServer --world samples/rabbit_guard --script samples/rabbit_guard/playthrough.json --port 0
     (v0.2 M2-T3) [--start-game]: 게임 모드가 있는 프로젝트(매니페스트 gameMode)는 Lobby 로 열려 틱이 오르지 않는다 — admin 이
     클라이언트 "게임" 패널에서 시작하거나, 이 옵션으로 서버가 첫 틱에 시작한다 (헤드리스 · CI: --start-game --ticks N --exit).
     게임 모드가 없는 월드에 주면 종료 코드 2. 재시작(WorldOp Restart · GameMode.restart auto)은 시작 월드를 다시 연다 (ADR-0046).

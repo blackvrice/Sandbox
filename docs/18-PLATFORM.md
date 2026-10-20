@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, M4 ✅, 다음 M5)
-다음     v0.2 M6-T1 — 데모 미니게임 프로젝트 (samples/) — 헤드리스 서버와 로컬 플레이에서 같은 결과, 시나리오로 끝까지 (자동)
+다음     v0.2 M6-T2 — 버전 종료: 요구사항 done / deferred / removed, 제품 버전 0.2.0
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -150,7 +150,9 @@ M5 Edit ↔ Test Play · GamePackage
         세이브 결속 world.json "game" {gameId, version, package} — 다른 게임 거절 · 다른 버전 알림 (ADR-0054, D-02 결정)
   → M5 완료 (2026-10-20): 편집 → 테스트 플레이 → 되돌리기 → sbx build → 패키지로 서버 · 싱글플레이 → 세이브가 게임에 묶인다
 M6 E2E · 회귀
-  T1 데모 미니게임 프로젝트 (samples/) — 헤드리스 서버와 로컬 플레이에서 같은 결과, 시나리오로 끝까지 (자동)
+  T1 ✅ 데모 미니게임 samples/rabbit_guard (sbx new --mode eco.protect 그대로 + README) · 자동 플레이 스크립트 playthrough.json
+        (core/scenarios/PlayScript — 서버 러너의 시나리오, 단계마다 명령) · SandboxServer · SandboxClient --script → 같은 "게임 결과:"
+        줄 (CTest sample_playthrough), expect (해시는 툴체인별), --exit 는 게임이 끝나도 끝낸다 (ADR-0055)
   T2 버전 종료: 요구사항 done / deferred / removed, 제품 버전 0.2.0
 ```
 
@@ -240,6 +242,7 @@ M4-T2 ✅  03 2장 (17c), 04 (simVersion 이력), 11 (0 · 10장 실행), 13, 17
 M4-T3 ✅  10 8장 (트리거 폼), 08 (프로토콜 11), 09 3장 (overlay/triggers), 11 10장, 13, 17, ADR-0052
 M5-T1 ✅  08 (프로토콜 12), 10 9장 (테스트 플레이), 13, ADR-0053
 M5-T2 ✅  09 2 · 9장 (GamePackage · 세이브 결속), 15 7장 (sbx build · --world 패키지), 13, 17, ADR-0054 (D-02)
+M6-T1 ✅  13 5.1 (자동 플레이), 15 7장 (--script · --exit), 17 (samples/ · PlayScript), ADR-0055
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
 
@@ -265,4 +268,5 @@ v0.2 M4-T2 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_core
 v0.2 M4-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_editor +4 (test_trigger_form) · unit_core +1 · unit_network 갱신 (프로토콜 11)
 v0.2 M5-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_network +2 · unit_client +1 (프로토콜 12)
 v0.2 M5-T2 뒤: Windows MSVC Debug 60/60 (render_tests_warp 제외, + project_package) · unit +7 (sha256 2 · package 4 · 결속 1)
+v0.2 M6-T1 뒤: Windows MSVC Debug 61/61 (render_tests_warp 제외, + sample_playthrough) · unit +4 (play script 3 · server options 1)
 ```

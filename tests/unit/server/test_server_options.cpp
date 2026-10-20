@@ -128,4 +128,16 @@ TEST_SUITE("server") {
         CHECK(sbx::server::serverUsage().find("--start-game") != std::string::npos);
     }
 
+    TEST_CASE("server options: --script (v0.2 M6-T1) — --world 와, --start-game 과는 같이 쓰지 않는다") {
+        constexpr std::array<std::string_view, 4> ok{"--world", "samples/x", "--script", "p.json"};
+        const auto r = parseServerOptions(ok);
+        REQUIRE(r.has_value());
+        CHECK(r->script == "p.json");
+        constexpr std::array<std::string_view, 2> alone{"--script", "p.json"};
+        CHECK_FALSE(parseServerOptions(alone).has_value());
+        constexpr std::array<std::string_view, 5> both{"--world", "w", "--script", "p.json", "--start-game"};
+        CHECK_FALSE(parseServerOptions(both).has_value());
+        CHECK(sbx::server::serverUsage().find("--script") != std::string::npos);
+    }
+
 } // TEST_SUITE

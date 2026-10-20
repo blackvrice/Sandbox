@@ -33,6 +33,7 @@
 
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/SpriteExtraction.hpp"
+#include "core/scenarios/PlayScript.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/EditorHost.hpp"
 #include "network/client/ClientSession.hpp"
@@ -55,6 +56,7 @@ struct NetworkSessionDesc {
     f64 connectTimeoutSeconds = 10;
     std::string ownerKey;            // Remote: 서버 --owner-key 와 같으면 Owner (12C)
     std::filesystem::path savesRoot; // Local: 세이브 · 리플레이 폴더 (12D, --saves). 비면 저장 · 불러오기를 서버가 거절
+    std::optional<scenario::PlayScript> script; // Local: 자동 플레이 (v0.2 M6-T1 — --script)
     // Remote: Transport 를 만든다 (없으면 ENet). 시험은 Loopback 을 넣는다
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };

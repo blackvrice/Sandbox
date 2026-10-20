@@ -149,6 +149,7 @@ int main(int argc, char** argv) {
     // 색으로 쓴다
     sbx::render::MaterialLibrary materials;
     std::unique_ptr<sbx::client::NetworkSession> world;
+    std::optional<sbx::scenario::PlayScript> script;
     const sbx::client::WorldSaveDefaults saveDefaults = sbx::client::worldSaveDefaults(*opts);
     if (opts->world || opts->connect) {
         if (auto n = materials.loadAll(assetRoot, renderer ? renderer->assets() : nullptr); !n) {
@@ -165,6 +166,15 @@ int main(int argc, char** argv) {
         nd.ownerKey = opts->ownerKey;
         // 싱글플레이 세이브 · 리플레이 (12D, 게임 프로젝트면 <프로젝트>/worlds — M1-T5)
         nd.savesRoot = saveDefaults.savesRoot;
+        if (opts->script) { // 자동 플레이 (v0.2 M6-T1) — 로컬 서버가 헤드리스 서버와 같은 단계에 같은 명령
+            auto loaded = sbx::scenario::loadPlayScript(*opts->script);
+            if (!loaded) {
+                sbx::log::error("client", "{}", loaded.error().describe());
+                return kExitBadArgs;
+            }
+            script = *loaded;
+            nd.script = std::move(*loaded);
+        }
         nd.seed = opts->seed;
         nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
@@ -209,6 +219,13 @@ int main(int argc, char** argv) {
     if (opts->world) {
         cfg.saveName = saveDefaults.saveName; // 게임 프로젝트면 시작 월드 — Ctrl+S 가 편집한 맵을 게임에 (M1-T5)
     }
+    if (script && opts->headless) {
+        // 자동 플레이: 로컬 서버가 멈추면 (게임 끝 · maxTicks) 끝낸다 — 창이 있으면 끝난 판을 보고 사람이 닫는다
+        cfg.quitWhen = [&world] {
+            sbx::net::LocalServerHost* local = world ? world->localServer() : nullptr;
+            return local != nullptr && local->stats().reachedStopTick;
+        };
+    }
     sbx::client::Application app(*window, std::move(*actions), audio, cfg);
 
     std::unique_ptr<sbx::platform::FramePacer> pacer;
@@ -220,6 +237,7 @@ int main(int argc, char** argv) {
     sbx::log::info("client", "창 {}, 렌더러 {}, 오디오 null", window->backendName(), renderer ? kRendererName : "없음");
 
     const int code = app.run(pacer.get());
+    bool scriptFailed = false;
     if (world) {
         const sbx::net::ClientWorld* cw = world->clientWorld();
         printText(std::format("world {} tick {} 개체 {} 스냅숏 {} (다시 맞춤 {}) · 받기 · 적용 {:.2f} ms\n",
@@ -234,6 +252,14 @@ int main(int argc, char** argv) {
             printText(
                 std::format("프레임 평균 ({} 프레임, {:.1f} fps): 월드 {:.2f} ms · 추출 {:.2f} ms · 렌더 {:.2f} ms\n",
                             t.frames, 1000.0 / t.frameMs, t.worldMs, t.extractMs, t.renderMs));
+        }
+        if (sbx::net::LocalServerHost* local = world->localServer(); local != nullptr && script) {
+            // 서버 월드 (권위) 의 결과 — 헤드리스 서버의 "게임 결과:" 줄과 같은 형식 (같아야 한다)
+            printText(std::format("게임 결과: {}\n", sbx::scenario::describePlayResult(local->serverWorld())));
+            for (const auto& d : sbx::scenario::checkPlayExpectation(local->serverWorld(), script->expect)) {
+                sbx::log::error("client", "자동 플레이 기대와 다름 — {}", d);
+                scriptFailed = true;
+            }
         }
         if (sbx::net::LocalServerHost* local = world->localServer()) {
             const auto ss = local->stats();
@@ -255,5 +281,5 @@ int main(int argc, char** argv) {
     audio.shutdown();
     printText(std::format("SandboxClient 끝: frames {} state {}\n", app.frameCount(),
                           sbx::client::appStateName(app.state())));
-    return code;
+    return scriptFailed && code == 0 ? 1 : code;
 }

@@ -77,6 +77,8 @@ public:
     [[nodiscard]] sim::SimulationWorld& world() noexcept { return *m_world; }
     [[nodiscard]] const sim::SimulationWorld& world() const noexcept { return *m_world; }
     [[nodiscard]] IScenario& scenario() noexcept { return *m_scenario; }
+    // 시나리오를 바꾼다 (월드는 그대로 — 자동 플레이 스크립트, v0.2 M6-T1). setup() 은 부르지 않는다
+    void replaceScenario(std::unique_ptr<IScenario> scenario);
 
 private:
     std::unique_ptr<IScenario> m_scenario;

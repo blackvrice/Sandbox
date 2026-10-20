@@ -124,6 +124,8 @@ add_library(SandboxCore STATIC
     scenarios/EcosystemScenario.cpp
     scenarios/WorldSource.hpp
     scenarios/WorldSource.cpp
+    scenarios/PlayScript.hpp
+    scenarios/PlayScript.cpp
 
     project/GameProject.hpp
     project/GameProject.cpp

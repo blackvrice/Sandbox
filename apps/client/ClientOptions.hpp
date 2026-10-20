@@ -48,6 +48,8 @@ struct ClientOptions {
     std::string name = "player";        // --name: 접속 이름
     std::string ownerKey;               // --owner-key: 서버 열쇠와 같으면 owner (12C, --connect 만)
     std::optional<std::string> saves;   // --saves: 싱글플레이 세이브 · 리플레이 폴더 (12D, 기본 saves)
+    // --script <파일>: 자동 플레이 (v0.2 M6-T1 — 로컬 서버가 스크립트로 돈다. 헤드리스면 게임이 끝날 때 결과 한 줄을 쓰고 끝)
+    std::optional<std::string> script;
     u64 seed = 1;                       // --seed (--world)
     std::optional<u32> simThreads;      // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;            // --content (비면 빌드 때 정한 저장소의 content/)

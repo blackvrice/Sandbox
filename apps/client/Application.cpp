@@ -626,7 +626,7 @@ bool Application::frame() {
         }
     }
 
-    if (m_config.maxFrames != 0 && m_frame >= m_config.maxFrames) {
+    if ((m_config.maxFrames != 0 && m_frame >= m_config.maxFrames) || (m_config.quitWhen && m_config.quitWhen())) {
         (void)request(AppState::Shutdown);
     }
 

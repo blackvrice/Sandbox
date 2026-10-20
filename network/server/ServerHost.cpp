@@ -697,7 +697,7 @@ void ServerHost::simStep(f64 now) {
         commands.clear();
     }
     auto& world = m_runner->world();
-    if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
+    if (reachedStop(world)) {
         // 멈춘 뒤 온 명령은 적용하지 않는다 — 말없이 버리지 않고 거절을 알린다 (M6)
         for (auto& c : commands) {
             CommandResultMsg r;
@@ -897,7 +897,7 @@ void ServerHost::simStep(f64 now) {
     m_stats.paused = m_status.paused;
     m_stats.speed = m_status.speed;
     writeModeStats();
-    if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
+    if (reachedStop(world)) {
         m_stats.reachedStopTick = true;
     }
 }
@@ -1040,7 +1040,8 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         if (const auto summary = scenario::readSaveSummary(dir); summary && summary->game && !m_desc.game.empty()) {
             const persist::GameBinding& g = *summary->game;
             if (g.gameId != m_desc.game.gameId) {
-                reply(std::format("다른 게임 '{}' 의 세이브입니다 (이 서버는 '{}')", g.gameId, m_desc.game.gameId), false);
+                reply(std::format("다른 게임 '{}' 의 세이브입니다 (이 서버는 '{}')", g.gameId, m_desc.game.gameId),
+                      false);
                 return;
             }
             if (g.version != m_desc.game.version) {
@@ -1211,6 +1212,21 @@ Expected<std::string> ServerHost::startTestPlay(std::vector<Outgoing>& out) {
     replaceWorld(std::move(opened->runner), WorldChangeReason::TestPlay, {}, out, &m_editRunner);
     m_finishedSteps = 0;
     return std::format("tick {} — {} (멈추면 편집 월드로 돌아갑니다)", tick, what);
+}
+
+bool ServerHost::reachedStop(const sim::SimulationWorld& world) const {
+    if (m_desc.stopAtTick != 0 && world.currentTick() >= m_desc.stopAtTick) {
+        return true;
+    }
+    if (!m_desc.stopWhenGameFinished || m_editRunner) { // 테스트 플레이의 끝은 서버의 끝이 아니다
+        return false;
+    }
+    const comp::GameSession* s = game::findSession(world.registry());
+    if (s == nullptr || s->gameState() != comp::GameState::Finished) {
+        return false;
+    }
+    const content::GameMode* mode = world.content().findMode(std::string_view(s->mode.view()));
+    return mode == nullptr || !mode->autoRestart; // 자동 재시작이면 다음 판이 온다
 }
 
 std::optional<persist::GameBinding> ServerHost::gameBinding() const {

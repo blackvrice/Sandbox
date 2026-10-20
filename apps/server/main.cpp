@@ -14,7 +14,9 @@
 
 #include "apps/server/ServerOptions.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/game/GameRules.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "core/simulation/SimConstants.hpp"
@@ -186,6 +188,25 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     }
     desc.mode = sbx::net::ServerMode::Threaded;
     desc.stopAtTick = opts.exitAtTicks ? *opts.ticks : 0;
+    // --exit 는 게임이 끝나도 끝낸다 (Finished 는 틱을 멈춘다 — v0.2 M6-T1)
+    desc.stopWhenGameFinished = opts.exitAtTicks;
+    // 자동 플레이 스크립트 (v0.2 M6-T1, ADR-0055): 서버 러너의 시나리오로 — 로컬 플레이와 같은 단계에 같은 명령
+    std::optional<sbx::scenario::PlayScript> script;
+    if (opts.script) {
+        auto loaded = sbx::scenario::loadPlayScript(*opts.script);
+        if (!loaded) {
+            sbx::log::error("server", "{}", loaded.error().describe());
+            return kExitBadArgs;
+        }
+        script = std::move(*loaded);
+        desc.stopWhenGameFinished = true;
+        if (script->maxTicks != 0 && !opts.exitAtTicks) {
+            desc.stopAtTick = world->runner->world().currentTick() + script->maxTicks;
+        }
+        sbx::log::info("server", "자동 플레이 '{}' — 명령 {} 개, 최대 {} 틱", script->name, script->steps.size(),
+                       script->maxTicks);
+        sbx::scenario::attachPlayScript(*world->runner, *script);
+    }
     desc.snapshotBytesPerSecond = static_cast<sbx::usize>(opts.snapshotKBps) * 1024;
     sbx::net::ServerHost host(**transport, std::move(world->runner), desc);
     if (auto r = host.start({opts.bind, opts.port}); !r) {
@@ -231,6 +252,18 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
                 host.world().registry().aliveCount(), static_cast<unsigned long long>(s.commandsAccepted),
                 static_cast<unsigned long long>(s.commandsRejected), static_cast<unsigned long long>(s.overruns),
                 s.replicationMs);
+    if (script || sbx::game::findSession(host.world().registry()) != nullptr) {
+        std::printf("게임 결과: %s\n", sbx::scenario::describePlayResult(host.world()).c_str());
+    }
+    if (script) {
+        const auto diff = sbx::scenario::checkPlayExpectation(host.world(), script->expect);
+        for (const auto& d : diff) {
+            sbx::log::error("server", "자동 플레이 기대와 다름 — {}", d);
+        }
+        if (!diff.empty()) {
+            return kExitNotImplemented; // 1 = 실패
+        }
+    }
     return kExitOk;
 }
 

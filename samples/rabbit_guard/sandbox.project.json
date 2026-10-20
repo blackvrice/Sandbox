@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "gameId": "sandbox.rabbit_guard",
+  "name": "토끼 지키기",
+  "version": "0.1.0",
+  "engine": ">=0.1.0 <1.0.0",
+  "content": {
+    "packs": [
+      "eco"
+    ]
+  },
+  "entryWorld": "worlds/main",
+  "gameMode": "eco.protect"
+}

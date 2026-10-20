@@ -33,6 +33,13 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.snapshotIntervalSteps = desc.snapshotIntervalSteps;
     sd.snapshotBytesPerSecond = 0; // Loopback — 예산 없음
     sd.savesRoot = desc.savesRoot;
+    if (desc.script) {
+        sd.stopWhenGameFinished = true;
+        if (desc.script->maxTicks != 0) {
+            sd.stopAtTick = src->runner->world().currentTick() + desc.script->maxTicks;
+        }
+        scenario::attachPlayScript(*src->runner, *desc.script);
+    }
     h->m_host = std::make_unique<ServerHost>(*h->m_serverTransport, std::move(src->runner), sd);
     if (auto r = h->m_host->start(h->endpoint()); !r) {
         return std::unexpected(r.error());

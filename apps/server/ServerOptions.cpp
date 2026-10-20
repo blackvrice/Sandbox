@@ -68,7 +68,7 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             }
             opts.logLevel = level;
         } else if (a == "--scenario" || a == "--world" || a == "--content-root" || a == "--bind" ||
-                   a == "--default-role" || a == "--owner-key" || a == "--saves") {
+                   a == "--default-role" || a == "--owner-key" || a == "--saves" || a == "--script") {
             const auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -77,6 +77,8 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
                 opts.scenario = std::string(*v);
             } else if (a == "--world") {
                 opts.world = std::string(*v);
+            } else if (a == "--script") {
+                opts.script = std::string(*v);
             } else if (a == "--content-root") {
                 opts.contentRoot = std::string(*v);
             } else if (a == "--bind") {
@@ -147,6 +149,10 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
         if (opts.ticks.has_value() != opts.exitAtTicks) {
             return makeError(ErrorCode::InvalidArgument, "--world 와 함께라면 --ticks N 과 --exit 를 같이 씁니다");
         }
+        if (opts.script && opts.startGame) {
+            return makeError(ErrorCode::InvalidArgument,
+                             "--script 가 게임을 시작한다 — --start-game 과 같이 쓰지 않는다");
+        }
     } else {
         if ((opts.ticks || opts.realtime) && !opts.scenario) {
             return makeError(ErrorCode::InvalidArgument, "--ticks/--realtime 은 --scenario 와 함께 씁니다");
@@ -162,6 +168,9 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
         }
         if (opts.startGame) {
             return makeError(ErrorCode::InvalidArgument, "--start-game 은 --world 와 함께 씁니다");
+        }
+        if (opts.script) {
+            return makeError(ErrorCode::InvalidArgument, "--script 는 --world 와 함께 씁니다");
         }
     }
     return opts;
@@ -187,7 +196,11 @@ std::string serverUsage() {
            "      --saves <dir>        세이브 · 리플레이 폴더 (기본 saves — 월드 창의 저장 · 불러오기 · 기록, 12D)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
-           "      --ticks <n> --exit   그 틱에 도달하면 접속자를 끊고 끝낸다 (CI)\n"
+           "      --ticks <n> --exit   그 틱에 도달하면 (또는 게임이 끝나면 — 자동 재시작 모드 말고) 접속자를 끊고\n"
+           "                           끝낸다 (CI)\n"
+           "      --script <파일>      자동 플레이 스크립트 (v0.2 M6-T1) — 정한 단계에 명령을 넣고, 게임이 끝나거나\n"
+           "                           maxTicks 면 결과 한 줄 (\"게임 결과: …\") 을 쓰고 끝낸다. expect 가 다르면 종료 "
+           "코드 1\n"
            "      --start-game         게임 모드가 있는 프로젝트를 Lobby 에서 바로 시작 (없으면 admin 이 \"게임\" "
            "창에서)\n"
            "      Ctrl+C               접속자에게 서버 종료를 알리고 끝낸다\n"

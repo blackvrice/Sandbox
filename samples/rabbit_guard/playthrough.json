@@ -1,0 +1,416 @@
+{
+  "format": 1,
+  "name": "토끼 지키기 — 자동 플레이 (덫 · 먹이, 8 배속)",
+  "maxTicks": 6000,
+  "steps": [
+    {
+      "at": 1,
+      "command": {
+        "op": "speed",
+        "speed": 8
+      }
+    },
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 100,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          -21.5,
+          -19.49
+        ]
+      }
+    },
+    {
+      "at": 105,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          -20.51,
+          -6.5
+        ]
+      }
+    },
+    {
+      "at": 110,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          14.5,
+          7.51
+        ]
+      }
+    },
+    {
+      "at": 115,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          6.49,
+          -0.5
+        ]
+      }
+    },
+    {
+      "at": 120,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          12.5,
+          26.51
+        ]
+      }
+    },
+    {
+      "at": 125,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          1.51,
+          -26.5
+        ]
+      }
+    },
+    {
+      "at": 130,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          13.51,
+          25.51
+        ]
+      }
+    },
+    {
+      "at": 135,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          4.5,
+          -6.49
+        ]
+      }
+    },
+    {
+      "at": 140,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          15.5,
+          7.49
+        ]
+      }
+    },
+    {
+      "at": 145,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          -30.51,
+          30.51
+        ]
+      }
+    },
+    {
+      "at": 150,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          31.5,
+          -8.49
+        ]
+      }
+    },
+    {
+      "at": 155,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          6.5,
+          -24.49
+        ]
+      }
+    },
+    {
+      "at": 160,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          31.49,
+          -26.51
+        ]
+      }
+    },
+    {
+      "at": 165,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          -11.49,
+          -2.51
+        ]
+      }
+    },
+    {
+      "at": 170,
+      "command": {
+        "op": "action",
+        "action": "eco.trap",
+        "position": [
+          8.5,
+          -31.49
+        ]
+      }
+    },
+    {
+      "at": 900,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          8.51,
+          -27.51
+        ]
+      }
+    },
+    {
+      "at": 903,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -1.5,
+          9.51
+        ]
+      }
+    },
+    {
+      "at": 906,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -16.49,
+          -20.5
+        ]
+      }
+    },
+    {
+      "at": 909,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          21.5,
+          -6.49
+        ]
+      }
+    },
+    {
+      "at": 912,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -5.49,
+          7.49
+        ]
+      }
+    },
+    {
+      "at": 1800,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          11.51,
+          -28.49
+        ]
+      }
+    },
+    {
+      "at": 1803,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          8.5,
+          14.51
+        ]
+      }
+    },
+    {
+      "at": 1806,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          20.51,
+          25.5
+        ]
+      }
+    },
+    {
+      "at": 1809,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -22.51,
+          -31.5
+        ]
+      }
+    },
+    {
+      "at": 1812,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          29.49,
+          14.5
+        ]
+      }
+    },
+    {
+      "at": 2700,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          9.51,
+          -5.5
+        ]
+      }
+    },
+    {
+      "at": 2703,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -31.49,
+          -4.5
+        ]
+      }
+    },
+    {
+      "at": 2706,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -4.5,
+          22.49
+        ]
+      }
+    },
+    {
+      "at": 2709,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          -30.5,
+          -9.51
+        ]
+      }
+    },
+    {
+      "at": 2712,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          29.51,
+          29.5
+        ]
+      }
+    },
+    {
+      "at": 3600,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          29.49,
+          -6.49
+        ]
+      }
+    },
+    {
+      "at": 3603,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          28.49,
+          -23.49
+        ]
+      }
+    },
+    {
+      "at": 3606,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          31.5,
+          -11.51
+        ]
+      }
+    },
+    {
+      "at": 3609,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          3.49,
+          18.5
+        ]
+      }
+    },
+    {
+      "at": 3612,
+      "command": {
+        "op": "action",
+        "action": "eco.feed",
+        "position": [
+          23.49,
+          17.5
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "team": 0,
+    "rule": 3,
+    "tick": 3691,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0x02d03b52e9655a3f"
+    }
+  }
+}

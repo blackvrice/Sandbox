@@ -42,6 +42,9 @@ struct ServerOptions {
     std::optional<u32> threads;  // 시뮬레이션 Worker 수 (없으면 코어 수 - 2 를 1 ~ 4)
     bool exitAtTicks = false;    // --exit: --ticks 에 도달하면 끝낸다 (CI · 벤치)
     u32 snapshotKBps = 256;      // 클라이언트당 복제 예산 KB/s (0 = 제한 없음, 08 6.3)
+    // --script <파일>: 자동 플레이 스크립트 (v0.2 M6-T1, ADR-0055) — 게임이 끝나거나 maxTicks 면 결과 한 줄을 쓰고 끝낸다,
+    // expect 가 다르면 종료 코드 1
+    std::optional<std::string> script;
     bool startGame = false;      // --start-game: 게임 세션을 바로 시작 (서버가 GameControl Start 를 넣는다, M2-T3)
 };
 

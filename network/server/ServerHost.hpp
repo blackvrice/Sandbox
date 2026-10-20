@@ -82,6 +82,9 @@ struct ServerHostDesc {
     std::string packageDigest; // 게임 패키지로 돌리면 그 digest (v0.2 M5-T2 — 세이브의 "game".package)
     u32 minPlayers = 0;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
+    // 게임 세션이 Finished (자동 재시작이 없는 모드) 가 되면 진행을 멈춘다 (--exit · --script, v0.2 M6-T1) — Finished 는
+    // 틱을 멈추므로 stopAtTick 만으로는 끝나지 않는다
+    bool stopWhenGameFinished = false;
     // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
     // 클라이언트당 초당 바이트 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
     bool replicate = true;
@@ -230,6 +233,8 @@ private:
     [[nodiscard]] Expected<std::string> stopTestPlay(std::vector<Outgoing>& out);
     // 세이브에 쓸 게임 정체성 (게임 프로젝트 · 패키지 서버만, v0.2 M5-T2)
     [[nodiscard]] std::optional<persist::GameBinding> gameBinding() const;
+    // stopAtTick 에 닿았거나 (stopWhenGameFinished 면) 게임이 끝났다
+    [[nodiscard]] bool reachedStop(const sim::SimulationWorld& world) const;
     [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
     // 게임 재시작 (WorldOp Restart · 자동, M2-T3): 시작 월드를 다시 열어 바꾸고 세션을 Lobby 로. 결과 요약
     [[nodiscard]] Expected<std::string> restartGame(std::vector<Outgoing>& out);

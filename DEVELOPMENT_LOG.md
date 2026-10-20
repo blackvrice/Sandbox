@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-21 — v0.2 M6-T1: 데모 미니게임 samples/rabbit_guard · 자동 플레이 스크립트 — 헤드리스 서버 = 로컬 플레이 (ADR-0055)
+
+**무엇을**
+
+- `samples/rabbit_guard/` — 커밋한 게임 프로젝트 (sbx new --from ecosystem_small --mode eco.protect 그대로) + README +
+  `playthrough.json` (8 배속 · 시작 · 늑대가 처음 있던 자리에 덫 15 번 · 30 초마다 먹이, expect = Finished · win · rule 3 ·
+  tick 3691 · 해시 (MSVC 키)).
+- `core/scenarios/PlayScript`: 스크립트 읽기 (format 1 · steps {at, command — 리플레이 JSON} · maxTicks · expect — 해시는 툴체인
+  키별), attachPlayScript (ScenarioRunner::replaceScenario — 서버 러너의 시나리오로), playFinished · describePlayResult ("게임 결과:"
+  한 줄 — 상태 · 결과 · team · rule · 점수 · tick · hash) · checkPlayExpectation · runPlayScript.
+- ServerHostDesc.stopWhenGameFinished + reachedStop (게임 Finished — 자동 재시작 모드 말고 — 이거나 stopAtTick). --exit 와
+  --script 가 켠다 → `--ticks N --exit` 가 일찍 끝난 게임에서 멈추지 않던 문제도 고쳤다 (테스트 플레이 중은 제외).
+- SandboxServer · SandboxClient `--script <파일>` (클라이언트는 LocalServerDesc.script · AppConfig::quitWhen — 헤드리스면
+  로컬 서버가 멈출 때 끝, 서버 월드의 결과 줄). expect 가 다르면 종료 코드 1.
+- 시험: test_play_script (3 — 저장소 샘플을 같은 프로세스에서 끝까지 두 번), test_server_options +1, CTest sample_playthrough
+  (헤드리스 서버와 로컬 플레이의 결과 줄이 같다).
+- 문서: ADR-0055, 13 5.1, 15 7장, 17, 18 (M6-T1 ✅ — 다음 M6-T2), adr/README, samples/rabbit_guard/README.
+
+**왜**
+
+- v0.2 완료 기준 "템플릿만으로 미니게임을 만들어 저장 · 실행 · 종료" 를 사람 없이 자동으로. 서버가 넣는 명령은 러너 단계에
+  묶여 있어 실시간 서버 (Threaded) 와 고정 dt 로컬 플레이 (Inline) 가 같은 입력을 받는다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 61/61 통과 (render_tests_warp 제외). 수동: SandboxServer --script 16 초 · SandboxClient --headless
+  --script 9 초, 둘 다 "게임 Finished · win · team 0 · rule 3 · 점수 -60 · tick 3691 · hash 0x02d03b52e9655a3f".
+  sbx check samples/rabbit_guard 오류 · 경고 0.
+- 골든 · 와이어 · 세이브 형식 · kSimVersion 그대로.
+
+**남은 일**
+
+- M6-T2 버전 종료 (요구사항 정리 · 제품 버전 0.2.0). 봇 클라이언트 (접속자 입력) 자동 플레이, 스크립트 녹화, Linux 툴체인의 샘플
+  해시 기록 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M5-T2: 게임 패키지 .sbpkg · 세이브 결속 → M5 완료 (ADR-0054, D-02 결정)
 
 **무엇을**

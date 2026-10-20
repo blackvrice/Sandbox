@@ -91,6 +91,11 @@ ScenarioRunner::ScenarioRunner(std::unique_ptr<sim::SimulationWorld> world, std:
     SBX_VERIFY(m_scenario != nullptr && m_world != nullptr, "ScenarioRunner: null");
 }
 
+void ScenarioRunner::replaceScenario(std::unique_ptr<IScenario> scenario) {
+    SBX_VERIFY(scenario != nullptr, "ScenarioRunner: null scenario");
+    m_scenario = std::move(scenario);
+}
+
 void ScenarioRunner::step(sim::ISystemProfiler* profiler) {
     m_scenario->beforeTick(*m_world);
     m_world->tick(profiler);

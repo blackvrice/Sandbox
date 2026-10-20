@@ -217,6 +217,30 @@ sbx_sim_check --world <path|scenario> [--content <pack>] --ticks N
   (RTS 에서 simVersion 2 전환 후 골든이 1로 남았던 상태를 구조적으로 막는다)
 ```
 
+### 5.1 자동 플레이 (v0.2 M6-T1, [ADR-0055](adr/0055-sample-minigame-play-script-server-equals-local.md))
+
+게임을 사람 없이 끝까지: 스크립트 (`core/scenarios/PlayScript`) 가 서버 러너의 시나리오로 들어가 정한 단계에 명령을 넣는다.
+
+```jsonc
+// samples/rabbit_guard/playthrough.json
+{ "format": 1, "name": "…", "maxTicks": 6000,
+  "steps": [ {"at": 1, "command": {"op": "speed", "speed": 8}}, {"at": 2, "command": {"op": "game", "action": "start"}},
+             {"at": 100, "command": {"op": "action", "action": "eco.trap", "position": [-21.5, -19.49]}}, … ],
+  "expect": { "state": "Finished", "result": "win", "team": 0, "rule": 3, "tick": 3691,
+              "hash": { "Windows-x86_64-MSVC-19.44": "0x02d03b52e9655a3f" } } }
+```
+
+```text
+at        러너 단계 번호 (ScenarioRunner::step 횟수 — Lobby · 일시정지의 편집 단계도 센다), 오름차순
+command   리플레이 JSON 명령 (09 4장 — 개체 참조 없는 것), issuer = 서버. 거절도 결정적이다
+끝        게임 Finished (자동 재시작 모드 말고) 또는 시작 틱 + maxTicks
+expect    다르면 종료 코드 1. hash 는 골든처럼 툴체인 키별 — 이 툴체인 항목이 없으면 보지 않는다 (ADR-0012)
+실행      SandboxServer --world <프로젝트> --script <파일> · SandboxClient --headless --world <프로젝트> --script <파일>
+          → 둘 다 "게임 결과: …" 한 줄 (서버 월드). CTest sample_playthrough 가 두 줄이 같은지 본다
+시험      game test_play_script (읽기 · 형식 오류 · 툴체인 키 해시 · 저장소 샘플을 같은 프로세스에서 끝까지 두 번 같다 ·
+          세션 없는 월드 maxTicks · expect 다름 목록 · 끝나지 않으면 OutOfRange), server test_server_options (--script)
+```
+
 ## 6. 시나리오 목록
 
 | 이름                 | Phase | 내용                                                                                                                                                    | 검사                                                                          |

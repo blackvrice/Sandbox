@@ -1,0 +1,80 @@
+{
+  "worldVersion": 1,
+  "schemaVersion": 1,
+  "simVersion": 4,
+  "name": "main",
+  "seed": "0x0000000000000001",
+  "tick": 1,
+  "nextSaveId": 301,
+  "entityCount": 300,
+  "chunkSize": 32,
+  "bounds": {
+    "minChunk": [
+      -1,
+      -1
+    ],
+    "maxChunk": [
+      0,
+      0
+    ]
+  },
+  "fillMaterial": "eco.grassland",
+  "content": {
+    "packs": [
+      "eco"
+    ],
+    "contentHash": "0xee7c3de10a235898"
+  },
+  "tags": [
+    "animal",
+    "carnivore",
+    "dead",
+    "herbivore",
+    "plant",
+    "predator",
+    "prey"
+  ],
+  "terrainMaterials": [
+    "core.grass",
+    "core.rock",
+    "core.sand",
+    "core.water",
+    "eco.dirt",
+    "eco.grassland",
+    "eco.water"
+  ],
+  "components": {
+    "ai.behavior": 1,
+    "ai.path": 1,
+    "ai.sensor": 1,
+    "core.collider": 1,
+    "core.lifetime": 1,
+    "core.movement": 1,
+    "core.prefab": 1,
+    "core.tags": 1,
+    "core.transform": 1,
+    "core.velocity": 1,
+    "debug.random_walk": 1,
+    "game.camera_start": 1,
+    "game.score": 1,
+    "game.session": 1,
+    "game.spawn_point": 1,
+    "life.age": 1,
+    "life.energy": 1,
+    "life.growth": 1,
+    "life.health": 1,
+    "life.reproduce": 1,
+    "render.sprite": 1
+  },
+  "simulation": {
+    "paused": false,
+    "speed": 1.0,
+    "pendingSteps": 0,
+    "editSequence": 0
+  },
+  "worldHash": "0x8d7da763d06f108d",
+  "opaqueEntities": 300,
+  "opaqueComponents": [
+    "render.sprite"
+  ]
+}

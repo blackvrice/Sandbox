@@ -1,0 +1,13 @@
+{
+  "id": "eco.protect",
+  "name": "토끼 지키기",
+  "description": "토끼를 지키세요 — 먹이 주기(Q) · 덫 놓기(E). 토끼가 모두 사라지면 패배, 늑대를 다 잡거나 2 분을 버티면 승리",
+  "players": { "min": 1, "max": 4 },
+  "start": { "countdownSeconds": 3 },
+  "end": [
+    { "when": { "count": { "tags": { "all": ["prey"] }, "op": "<=", "value": 0 } }, "result": "lose" },
+    { "when": { "count": { "tags": { "all": ["predator"] }, "op": "<=", "value": 0 } }, "result": "win" },
+    { "when": { "time": { "op": ">=", "seconds": 120 } }, "result": "win" }
+  ],
+  "restart": { "mode": "manual" }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "eco.wolf",
+  "name": "Wolf",
+  "category": "Animals",
+  "tags": ["animal", "carnivore", "predator"],
+  "components": {
+    "core.transform": {},
+    "core.velocity":  {},
+    "life.health":    { "value": 40, "max": 40 },
+    "life.energy":    { "value": 100, "max": 150, "drainPerSecond": 1.0 },
+    "life.age":       { "maxAgeTicks": 72000 },
+    "life.reproduce": { "minEnergy": 120, "energyCost": 60, "cooldown": 60, "cooldownLeft": 30, "offspring": "eco.wolf",
+                        "crowdRadius": 20, "crowdMax": 2 },
+    "core.movement":  { "maxSpeed": 3.2, "accel": 10.0, "arriveRadius": 0.3 },
+    "core.collider":  { "radius": 0.4 },
+    "ai.sensor":      { "radius": 12 },
+    "ai.behavior":    { "graph": "eco.carnivore" },
+    "ai.path":        {},
+    "render.sprite":  { "material": "eco/wolf", "size": [1.0, 1.0], "layer": 10 }
+  }
+}

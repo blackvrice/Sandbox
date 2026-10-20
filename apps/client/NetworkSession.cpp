@@ -46,6 +46,7 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         ld.workers = desc.workers;
         ld.mode = desc.inlineServer ? net::ServerMode::Inline : net::ServerMode::Threaded;
         ld.savesRoot = desc.savesRoot;
+        ld.script = desc.script;
         auto local = net::LocalServerHost::create(*s->m_catalog, ld);
         if (!local) {
             return std::unexpected(local.error());

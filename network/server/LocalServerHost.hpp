@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 
+#include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "network/server/ServerHost.hpp"
@@ -26,6 +27,9 @@ struct LocalServerDesc {
     ServerMode mode = ServerMode::Threaded;
     u32 snapshotIntervalSteps = 2;
     std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D — 비면 저장 · 불러오기 · 기록을 거절)
+    // 자동 플레이 (v0.2 M6-T1, ADR-0055): 서버 러너의 시나리오로 (헤드리스 서버와 같은 단계에 같은 명령). 게임이 끝나거나
+    // maxTicks 면 서버가 멈춘다 (stats().reachedStopTick)
+    std::optional<scenario::PlayScript> script;
 };
 
 class LocalServerHost {
@@ -50,6 +54,8 @@ public:
     void update(f64 dtSeconds);
     [[nodiscard]] ServerHostStats stats() const { return m_host->stats(); }
     [[nodiscard]] ServerHost& host() noexcept { return *m_host; }
+    // 서버 월드 (권위 — 자동 플레이의 결과 · 해시를 읽는다. Inline 이거나 서버가 멈췄을 때만)
+    [[nodiscard]] const sim::SimulationWorld& serverWorld() const { return m_host->world(); }
 
 private:
     LocalServerHost() = default;

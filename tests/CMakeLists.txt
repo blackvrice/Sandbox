@@ -46,6 +46,7 @@ add_executable(SandboxTests
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
     unit/game/test_trigger_run.cpp
+    unit/game/test_play_script.cpp
     unit/content/test_trigger.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
@@ -112,7 +113,8 @@ endif()
 target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
-                                               SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")
+                                               SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
+                                               SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
 set(_sbx_suites foundation core ecs persist content project network server tools platform render editor)
@@ -408,6 +410,14 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_package.cmake")
         set_tests_properties(project_package PROPERTIES LABELS "content" TIMEOUT 180)
+        # 데모 미니게임 자동 플레이 — 헤드리스 서버 = 로컬 플레이, expect 그대로 (v0.2 M6-T1)
+        if(TARGET SandboxClient)
+            add_test(NAME sample_playthrough
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
+            set_tests_properties(sample_playthrough PROPERTIES LABELS "content" TIMEOUT 300)
+        endif()
     endif()
 endif()
 
