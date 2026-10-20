@@ -6,14 +6,16 @@
 //     content/<팩>/          콘텐츠 팩 — 11-CONTENT-SCHEMA 그대로 (pack.json 의 id 로 찾는다)
 //     worlds/<이름>/         월드 = 세이브 폴더 형식 그대로 (world.json · entities.jsonl · chunks/, 09 6장)
 //
-// 매니페스트 schemaVersion 1 (모르는 키는 오류 — 새 키는 schemaVersion 을 올려 더한다):
-//   {"schemaVersion": 1, "gameId": "studio.arena", "name": "Arena", "version": "0.1.0",
-//    "engine": ">=0.1.0 <1.0.0", "description": "...", "content": {"packs": ["arena"]}, "entryWorld": "worlds/main"}
+// 매니페스트 schemaVersion 2 (1 도 읽는다 — 모르는 키는 오류, 새 키는 schemaVersion 을 올려 더한다):
+//   {"schemaVersion": 2, "gameId": "studio.arena", "name": "Arena", "version": "0.1.0",
+//    "engine": ">=0.1.0 <1.0.0", "description": "...", "content": {"packs": ["arena"]}, "entryWorld": "worlds/main",
+//    "gameMode": "arena.duel"}
+//   2 에서 더한 키: gameMode (콘텐츠의 GameMode id — v0.2 M2, ADR-0045. 없으면 끝 없는 샌드박스)
 //
 // 문제는 ContentLoader 와 같은 ContentIssue 로 모두 모은다 (첫 오류에서 멈추지 않는다). 규칙 이름:
 //   P1 형식 (JSON · 모르는 키 · 타입 · 필수 키)   P2 식별자 (gameId · 팩 id)   P3 버전 (schemaVersion · version ·
 //   engine 범위 · 이 엔진이 범위 밖)   P4 경로 (entryWorld 형식 · 폴더 · 월드 열기)   P5 콘텐츠 참조 (팩 폴더 ·
-//   월드가 쓰는 팩 · contentHash)   + 팩의 V1~V7 (file 은 "content/<팩 폴더>/…")
+//   월드가 쓰는 팩 · contentHash · gameMode 가 콘텐츠에 없음)   + 팩의 V1~V7 (file 은 "content/<팩 폴더>/…")
 
 #include <filesystem>
 #include <memory>
@@ -29,7 +31,8 @@
 namespace sbx::project {
 
 inline constexpr std::string_view kManifestFile = "sandbox.project.json";
-inline constexpr u32 kManifestSchemaVersion = 1;
+inline constexpr u32 kManifestSchemaVersion = 2;    // 새로 쓰는 판
+inline constexpr u32 kMinManifestSchemaVersion = 1; // 읽을 수 있는 가장 옛 판
 // content.packs 상한 — 서버가 Reject 로 팩 목록을 알려 줄 수 있는 수 (network kMaxPacks 와 같다, static_assert 가 지킨다)
 inline constexpr usize kMaxContentPacks = 16;
 
@@ -42,6 +45,7 @@ struct GameManifest {
     std::string description;               // 선택 (≤ 1024 글자)
     std::vector<std::string> contentPacks; // <프로젝트>/content 에서 찾을 팩 id (비면 내장 콘텐츠만)
     std::string entryWorld;                // 시작 월드 폴더 — 프로젝트 기준 상대 경로, '/' 구분 ("worlds/main")
+    std::string gameMode;                  // schemaVersion 2: GameMode id (비면 없음)
 
     bool operator==(const GameManifest&) const = default;
 };

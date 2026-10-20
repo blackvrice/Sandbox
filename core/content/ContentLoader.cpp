@@ -6,6 +6,7 @@
 #include <queue>
 #include <set>
 
+#include "core/simulation/SimConstants.hpp"
 #include "foundation/container/FixedString.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -112,6 +113,10 @@ private:
     void loadRule(const PackDir& p, const SourceFile& f, const json& r, const std::string& at, bool fromOverlay);
     void loadBehavior(const PackDir& p, const SourceFile& f);
     void loadBehaviorJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
+    void loadMode(const PackDir& p, const SourceFile& f);
+    // 초 → 틱 (0 ≤ s ≤ maxSeconds, 반올림). allowZero = false 면 1 틱 이상
+    std::optional<u64> secondsToTicks(const json& j, const SourceFile& f, const std::string& at, f64 maxSeconds,
+                                      bool allowZero);
     void loadOverlay(const ContentOverlay& overlay);
     // 팩 항목이 오버레이에 있으면 팩 쪽을 건너뛴다 (오버레이가 바꾼다)
     [[nodiscard]] bool overridden(ContentKind k, std::string_view id, bool fromOverlay) const {
@@ -1136,6 +1141,265 @@ void ContentLoaderImpl::loadBehaviorJson(const PackDir& p, const SourceFile& f, 
     m_db.m_behaviors.push_back(std::move(g));
 }
 
+std::optional<u64> ContentLoaderImpl::secondsToTicks(const json& j, const SourceFile& f, const std::string& at,
+                                                     f64 maxSeconds, bool allowZero) {
+    if (!j.is_number() || !(j.get<f64>() >= 0) || j.get<f64>() > maxSeconds) {
+        error(f.display, at, "V8", std::format("초는 0 ~ {} 의 수", maxSeconds));
+        return std::nullopt;
+    }
+    const auto ticks = static_cast<u64>(j.get<f64>() * static_cast<f64>(sim::kTickRate) + 0.5);
+    if (!allowZero && ticks == 0) {
+        error(f.display, at, "V8", std::format("1 틱(1/{} 초) 이상", sim::kTickRate));
+        return std::nullopt;
+    }
+    return ticks;
+}
+
+// modes/<이름>.json — GameMode 하나 (11 9장, ADR-0045). 문제는 모두 모으고, 하나라도 있으면 모드를 넣지 않는다
+void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
+    const json j = json::parse(f.text, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) {
+        error(f.display, "", "JSON", "GameMode 객체여야 한다");
+        return;
+    }
+    bool ok = onlyKeys(j, {"id", "name", "description", "players", "teams", "start", "end", "restart"}, f, "");
+    GameMode m;
+    m.file = f.display;
+    m.raw = j;
+    if (!j.contains("id") || !checkId(p, f, "/id", j["id"], m.id)) {
+        return;
+    }
+    const auto text = [&](const char* key, std::string& out, bool required) {
+        if (!j.contains(key)) {
+            if (required) {
+                error(f.display, ptr("", key), "V8", std::format("'{}' 가 필요하다", key));
+                ok = false;
+            }
+            return;
+        }
+        if (!j[key].is_string() || j[key].get<std::string>().size() > 256) {
+            error(f.display, ptr("", key), "V8", std::format("'{}' 는 256 바이트 이하 문자열", key));
+            ok = false;
+            return;
+        }
+        out = j[key].get<std::string>();
+    };
+    text("name", m.name, true);
+    text("description", m.description, false);
+
+    // players {min, max}
+    if (j.contains("players")) {
+        const json& pl = j["players"];
+        const auto count = [&](const char* key, u32& out) {
+            if (!pl.contains(key)) {
+                return;
+            }
+            if (!pl[key].is_number_unsigned() || pl[key].get<u64>() < 1 || pl[key].get<u64>() > kMaxGamePlayers) {
+                error(f.display, ptr("/players", key), "V8", std::format("{} 는 1 ~ {} 의 정수", key, kMaxGamePlayers));
+                ok = false;
+                return;
+            }
+            out = static_cast<u32>(pl[key].get<u64>());
+        };
+        if (!pl.is_object() || !onlyKeys(pl, {"min", "max"}, f, "/players")) {
+            error(f.display, "/players", "V8", R"(players 는 {"min": 1, "max": 4})");
+            ok = false;
+        } else {
+            count("min", m.minPlayers);
+            count("max", m.maxPlayers);
+            if (m.minPlayers > m.maxPlayers) {
+                error(f.display, "/players", "V8",
+                      std::format("min {} 이 max {} 보다 크다", m.minPlayers, m.maxPlayers));
+                ok = false;
+            }
+        }
+    }
+
+    // teams [{id, name}]
+    if (j.contains("teams")) {
+        const json& ts = j["teams"];
+        if (!ts.is_array() || ts.size() > kMaxGameTeams) {
+            error(f.display, "/teams", "V8", std::format("teams 는 {} 개까지의 배열", kMaxGameTeams));
+            ok = false;
+        } else {
+            for (usize i = 0; i < ts.size(); ++i) {
+                const std::string at = ptr("/teams", i);
+                const json& t = ts[i];
+                if (!t.is_object() || !onlyKeys(t, {"id", "name"}, f, at) || !t.contains("id") ||
+                    !t["id"].is_string() || !isLowerIdent(t["id"].get<std::string>()) ||
+                    t["id"].get<std::string>().size() > 32 || !t.contains("name") || !t["name"].is_string() ||
+                    t["name"].get<std::string>().empty() || t["name"].get<std::string>().size() > 64) {
+                    error(f.display, at, "V8", R"(팀은 {"id": "red", "name": "빨강"} — id 는 소문자·숫자·'_')");
+                    ok = false;
+                    continue;
+                }
+                GameTeam team{t["id"].get<std::string>(), t["name"].get<std::string>()};
+                if (std::any_of(m.teams.begin(), m.teams.end(), [&](const GameTeam& o) { return o.id == team.id; })) {
+                    error(f.display, ptr(at, "id"), "V8", std::format("팀 id '{}' 중복", team.id));
+                    ok = false;
+                    continue;
+                }
+                m.teams.push_back(std::move(team));
+            }
+        }
+    }
+
+    // start {countdownSeconds}
+    if (j.contains("start")) {
+        const json& st = j["start"];
+        if (!st.is_object() || !onlyKeys(st, {"countdownSeconds"}, f, "/start")) {
+            error(f.display, "/start", "V8", R"(start 는 {"countdownSeconds": 3})");
+            ok = false;
+        } else if (st.contains("countdownSeconds")) {
+            if (const auto t = secondsToTicks(st["countdownSeconds"], f, "/start/countdownSeconds", 60, true)) {
+                m.countdownTicks = static_cast<u32>(*t);
+            } else {
+                ok = false;
+            }
+        }
+    }
+
+    // end [{when: {time?, count?}, result, team?}]
+    static const std::map<std::string, CmpOp, std::less<>> kOps{
+        {"<", CmpOp::Lt}, {"<=", CmpOp::Le}, {">", CmpOp::Gt}, {">=", CmpOp::Ge}, {"==", CmpOp::Eq}, {"!=", CmpOp::Ne}};
+    const auto opOf = [&](const json& o, const std::string& at) -> std::optional<CmpOp> {
+        const auto it = o.is_string() ? kOps.find(o.get<std::string>()) : kOps.end();
+        if (it == kOps.end()) {
+            error(f.display, at, "V8", "op 는 < <= > >= == != 중 하나");
+            return std::nullopt;
+        }
+        return it->second;
+    };
+    if (j.contains("end")) {
+        const json& es = j["end"];
+        if (!es.is_array() || es.size() > kMaxGameEndRules) {
+            error(f.display, "/end", "V8", std::format("end 는 {} 개까지의 배열", kMaxGameEndRules));
+            ok = false;
+        } else {
+            for (usize i = 0; i < es.size(); ++i) {
+                const std::string at = ptr("/end", i);
+                const json& e = es[i];
+                if (!e.is_object() || !onlyKeys(e, {"when", "result", "team"}, f, at)) {
+                    error(f.display, at, "V8", R"(끝 규칙은 {"when": {...}, "result": "win", "team": "red"})");
+                    ok = false;
+                    continue;
+                }
+                GameEndRule rule;
+                bool rok = true;
+                // when
+                const json* w = e.contains("when") ? &e["when"] : nullptr;
+                const std::string wat = ptr(at, "when");
+                if (w == nullptr || !w->is_object() || w->empty() || !onlyKeys(*w, {"time", "count"}, f, wat)) {
+                    error(f.display, wat, "V8", R"(when 은 {"time": {...}} · {"count": {...}} 중 하나 이상)");
+                    rok = false;
+                } else {
+                    if (w->contains("time")) {
+                        const json& tm = (*w)["time"];
+                        const std::string tat = ptr(wat, "time");
+                        if (!tm.is_object() || !onlyKeys(tm, {"op", "seconds"}, f, tat) || !tm.contains("op") ||
+                            !tm.contains("seconds")) {
+                            error(f.display, tat, "V8", R"(time 은 {"op": ">=", "seconds": 180})");
+                            rok = false;
+                        } else {
+                            const auto op = opOf(tm["op"], ptr(tat, "op"));
+                            const auto ticks = secondsToTicks(tm["seconds"], f, ptr(tat, "seconds"), 86400, true);
+                            if (op && ticks) {
+                                rule.when.hasTime = true;
+                                rule.when.timeOp = *op;
+                                rule.when.timeTicks = *ticks;
+                            } else {
+                                rok = false;
+                            }
+                        }
+                    }
+                    if (w->contains("count")) {
+                        const json& cn = (*w)["count"];
+                        const std::string cat = ptr(wat, "count");
+                        if (!cn.is_object() || !onlyKeys(cn, {"tags", "op", "value"}, f, cat) || !cn.contains("tags") ||
+                            !cn.contains("op") || !cn.contains("value")) {
+                            error(f.display, cat, "V8", R"(count 는 {"tags": {"all": [...]}, "op": "<=", "value": 0})");
+                            rok = false;
+                        } else {
+                            const auto tags = parseTagExpr(cn["tags"], f, ptr(cat, "tags"));
+                            const auto op = opOf(cn["op"], ptr(cat, "op"));
+                            const bool valueOk =
+                                cn["value"].is_number_unsigned() && cn["value"].get<u64>() <= 1'000'000;
+                            if (!valueOk) {
+                                error(f.display, ptr(cat, "value"), "V8", "value 는 0 ~ 1,000,000 의 정수");
+                            }
+                            if (tags && op && valueOk) {
+                                rule.when.hasCount = true;
+                                rule.when.countTags = *tags;
+                                rule.when.countOp = *op;
+                                rule.when.countValue = static_cast<u32>(cn["value"].get<u64>());
+                            } else {
+                                rok = false;
+                            }
+                        }
+                    }
+                }
+                // result
+                static const std::map<std::string, GameResult, std::less<>> kResults{
+                    {"win", GameResult::Win}, {"lose", GameResult::Lose}, {"draw", GameResult::Draw}};
+                const auto rit = e.contains("result") && e["result"].is_string()
+                                     ? kResults.find(e["result"].get<std::string>())
+                                     : kResults.end();
+                if (rit == kResults.end()) {
+                    error(f.display, ptr(at, "result"), "V8", "result 는 win · lose · draw");
+                    rok = false;
+                } else {
+                    rule.result = rit->second;
+                }
+                // team (그 팀의 승리 · 패배)
+                if (e.contains("team")) {
+                    const auto tit =
+                        e["team"].is_string()
+                            ? std::find_if(m.teams.begin(), m.teams.end(),
+                                           [&](const GameTeam& t) { return t.id == e["team"].get<std::string>(); })
+                            : m.teams.end();
+                    if (tit == m.teams.end()) {
+                        error(f.display, ptr(at, "team"), "V8", "team 은 teams 에 있는 팀 id");
+                        rok = false;
+                    } else if (rule.result == GameResult::Draw) {
+                        error(f.display, ptr(at, "team"), "V8", "draw 에는 team 을 쓰지 않는다");
+                        rok = false;
+                    } else {
+                        rule.team = static_cast<u8>(tit - m.teams.begin() + 1);
+                    }
+                }
+                if (rok) {
+                    m.end.push_back(std::move(rule));
+                } else {
+                    ok = false;
+                }
+            }
+        }
+    }
+
+    // restart {mode, delaySeconds}
+    if (j.contains("restart")) {
+        const json& rs = j["restart"];
+        if (!rs.is_object() || !onlyKeys(rs, {"mode", "delaySeconds"}, f, "/restart") || !rs.contains("mode") ||
+            !rs["mode"].is_string() ||
+            (rs["mode"].get<std::string>() != "manual" && rs["mode"].get<std::string>() != "auto")) {
+            error(f.display, "/restart", "V8", R"(restart 는 {"mode": "manual" | "auto", "delaySeconds": 5})");
+            ok = false;
+        } else {
+            m.autoRestart = rs["mode"].get<std::string>() == "auto";
+            if (rs.contains("delaySeconds")) {
+                if (const auto t = secondsToTicks(rs["delaySeconds"], f, "/restart/delaySeconds", 60, true)) {
+                    m.restartDelayTicks = static_cast<u32>(*t);
+                } else {
+                    ok = false;
+                }
+            }
+        }
+    }
+    if (ok) {
+        m_db.m_modes.push_back(std::move(m));
+    }
+}
+
 void ContentLoaderImpl::crossCheck() {
     // V1 중복 id
     const auto dupCheck = [&](auto& items, const char* what) {
@@ -1149,6 +1413,7 @@ void ContentLoaderImpl::crossCheck() {
     };
     dupCheck(m_db.m_prefabs, "Prefab");
     dupCheck(m_db.m_behaviors, "Behavior");
+    dupCheck(m_db.m_modes, "GameMode");
     {
         std::vector<const Rule*> rs;
         for (const Rule& r : m_db.m_rules) {
@@ -1321,6 +1586,8 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
                 loadRules(p, f);
             } else if (f.rel.starts_with("behaviors/") && f.rel.ends_with(".json")) {
                 loadBehavior(p, f);
+            } else if (f.rel.starts_with("modes/") && f.rel.ends_with(".json")) {
+                loadMode(p, f);
             } else if (f.rel == "actions.json") {
                 warn(f.display, "", "V3", "actions.json (PlayerAction) 은 Phase 12 — 지금은 읽지 않는다");
             } else {

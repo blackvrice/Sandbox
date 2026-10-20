@@ -28,6 +28,7 @@ constexpr usize kMaxPathBytes = 200;
 
 constexpr std::array kManifestKeys{"schemaVersion", "gameId",      "name",    "version",
                                    "engine",        "description", "content", "entryWorld"};
+constexpr std::array kManifestKeysV2{"gameMode"}; // schemaVersion 2 에서 더한 키
 
 bool isLowerIdentChar(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
@@ -191,16 +192,34 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
         c.error(file, "/schemaVersion", "P1", "필수 키 'schemaVersion' (양의 정수)");
         return out;
     }
-    if (sv->get<u64>() != kManifestSchemaVersion) {
+    if (sv->get<u64>() < kMinManifestSchemaVersion || sv->get<u64>() > kManifestSchemaVersion) {
         c.error(file, "/schemaVersion", "P3",
-                std::format("schemaVersion {} 은 이 엔진이 모른다 (지원: {})", sv->get<u64>(), kManifestSchemaVersion));
+                std::format("schemaVersion {} 은 이 엔진이 모른다 (지원: {} ~ {})", sv->get<u64>(),
+                            kMinManifestSchemaVersion, kManifestSchemaVersion));
         return out;
     }
-    m.schemaVersion = kManifestSchemaVersion;
+    m.schemaVersion = static_cast<u32>(sv->get<u64>());
 
     for (const auto& [k, _] : j.items()) {
-        if (std::find(kManifestKeys.begin(), kManifestKeys.end(), k) == kManifestKeys.end()) {
-            c.error(file, std::format("/{}", k), "P1", std::format("모르는 키 '{}'", k));
+        if (std::find(kManifestKeys.begin(), kManifestKeys.end(), k) != kManifestKeys.end()) {
+            continue;
+        }
+        if (std::find(kManifestKeysV2.begin(), kManifestKeysV2.end(), k) != kManifestKeysV2.end()) {
+            if (m.schemaVersion < 2) {
+                c.error(file, std::format("/{}", k), "P1",
+                        std::format("'{}' 는 schemaVersion 2 의 키 (지금 {})", k, m.schemaVersion));
+            }
+            continue;
+        }
+        c.error(file, std::format("/{}", k), "P1", std::format("모르는 키 '{}'", k));
+    }
+    if (m.schemaVersion >= 2) {
+        if (const std::string* s = stringField(j, "gameMode", false, c)) {
+            if (content::isValidContentId(*s)) {
+                m.gameMode = *s;
+            } else {
+                c.error(file, "/gameMode", "P2", "gameMode 는 콘텐츠 id '<팩>.<이름>'");
+            }
         }
     }
     if (const std::string* s = stringField(j, "gameId", true, c)) {
@@ -299,6 +318,9 @@ std::string writeManifest(const GameManifest& m) {
         j["content"]["packs"] = m.contentPacks;
     }
     j["entryWorld"] = m.entryWorld;
+    if (!m.gameMode.empty()) {
+        j["gameMode"] = m.gameMode;
+    }
     return j.dump(2) + "\n";
 }
 
@@ -365,6 +387,12 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     if (out.db) {
         r.contentHash = out.db->contentHash();
         r.prefabs = out.db->prefabs().size();
+    }
+
+    // 3b. GameMode (schemaVersion 2) — 프로젝트 콘텐츠에 있어야 한다
+    if (out.db && !m.gameMode.empty() && out.db->findMode(m.gameMode) == nullptr) {
+        c.error(file, "/gameMode", "P5",
+                std::format("gameMode '{}' 가 프로젝트 콘텐츠에 없다 (팩의 modes/*.json)", m.gameMode));
     }
 
     // 4. 시작 월드: 폴더 · 요약 · 팩 · 실제로 열기

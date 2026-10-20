@@ -196,11 +196,71 @@ TEST_SUITE("project") {
 
     TEST_CASE("매니페스트: schemaVersion 이 다르면 나머지를 보지 않는다 (P3)") {
         auto j = nlohmann::json::parse(kValid);
-        j["schemaVersion"] = 2;
+        j["schemaVersion"] = 3;
         j["future"] = "키";
         const auto r = project::parseManifest(j.dump());
         REQUIRE(r.issues.size() == 1);
         CHECK(hasIssue(r.issues, "P3", "/schemaVersion"));
+        j["schemaVersion"] = 0;
+        CHECK(hasIssue(project::parseManifest(j.dump()).issues, "P3", "/schemaVersion"));
+    }
+
+    TEST_CASE("매니페스트 schemaVersion 2: gameMode (v0.2 M2-T1) — 1 은 그대로 읽는다") {
+        // 1 에는 gameMode 가 없다
+        CHECK(hasIssue(project::parseManifest(withField("gameMode", "\"eco.survival\"")).issues, "P1", "/gameMode"));
+        auto j = nlohmann::json::parse(kValid);
+        j["schemaVersion"] = 2;
+        j["gameMode"] = "eco.survival";
+        const auto r = project::parseManifest(j.dump());
+        INFO(dumpIssues(r.issues));
+        REQUIRE(r.ok());
+        CHECK(r.manifest.schemaVersion == 2);
+        CHECK(r.manifest.gameMode == "eco.survival");
+        // 정규형 쓰기 · 다시 읽기 — 판은 그대로
+        const std::string text = project::writeManifest(r.manifest);
+        CHECK(text.find("\"gameMode\": \"eco.survival\"") != std::string::npos);
+        CHECK(project::parseManifest(text).manifest == r.manifest);
+        // 2 인데 gameMode 가 없어도 된다
+        j.erase("gameMode");
+        CHECK(project::parseManifest(j.dump()).ok());
+        j["gameMode"] = "NotAnId";
+        CHECK(hasIssue(project::parseManifest(j.dump()).issues, "P2", "/gameMode"));
+        j["gameMode"] = 3;
+        CHECK(hasIssue(project::parseManifest(j.dump()).issues, "P1", "/gameMode"));
+        // 새 프로젝트는 지금 판으로 쓴다
+        CHECK(project::GameManifest{}.schemaVersion == project::kManifestSchemaVersion);
+        CHECK(project::kManifestSchemaVersion == 2);
+    }
+
+    TEST_CASE("프로젝트 검사: gameMode 는 프로젝트 콘텐츠에 있어야 한다 (P5)") {
+        const auto catalog = coreCatalog();
+        auto j = nlohmann::json::parse(kValid);
+        j["schemaVersion"] = 2;
+        j["gameMode"] = "eco.survival";
+        {
+            TempDir dir("mode_missing");
+            makeEcoProject(dir.path, catalog, j.dump());
+            const auto r = project::validateProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+            CHECK(hasIssue(r.issues, "P5", "/gameMode"));
+            CHECK_FALSE(r.ok());
+        }
+        {
+            TempDir dir("mode_ok");
+            makeEcoProject(dir.path, catalog, j.dump());
+            fs::create_directories(dir.path / "content/ecosystem/modes");
+            REQUIRE(io::writeFileAtomic(dir.path / "content/ecosystem/modes/survival.json",
+                                        R"({"id": "eco.survival", "name": "토끼 지키기",
+                                            "end": [{"when": {"count": {"tags": {"all": ["prey"]}, "op": "<=", "value": 0}},
+                                                     "result": "lose"}]})")
+                        .has_value());
+            const auto r = project::validateProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+            INFO(dumpIssues(r.issues));
+            CHECK(r.ok());
+            CHECK_FALSE(hasIssue(r.issues, "P5", "/gameMode"));
+            // 팩에 파일이 늘어 contentHash 가 바뀌었다 → 월드는 경고 (열린다)
+            CHECK(hasIssue(r.issues, "P5", "/content/contentHash", content::ContentIssue::Severity::Warning));
+            CHECK(r.worldOpened);
+        }
     }
 
     TEST_CASE("매니페스트: gameId · 팩 id (P2)") {

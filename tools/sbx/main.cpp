@@ -40,6 +40,9 @@ int runCheck(const std::filesystem::path& dir, const ecs::ComponentCatalog& cata
         std::printf("프로젝트 %s %s (\"%s\", 엔진 %s 범위 \"%s\")\n", r.manifest.gameId.c_str(),
                     r.manifest.version.toString().c_str(), r.manifest.name.c_str(), engine.toString().c_str(),
                     r.manifest.engine.text.c_str());
+        if (!r.manifest.gameMode.empty()) {
+            std::printf("게임 모드 %s\n", r.manifest.gameMode.c_str());
+        }
     }
     const std::string world = r.worldOpened ? std::format("열림 — tick {}, 엔티티 {}", r.worldTick, r.worldEntities)
                                             : std::string("열지 못함");

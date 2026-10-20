@@ -80,6 +80,7 @@ content/<pack>/
   prefabs/*.json          Prefab 1파일 1개 (또는 배열)
   rules/*.json            Rule 배열
   behaviors/*.json        BehaviorGraph 1파일 1개
+  modes/*.json            GameMode 1파일 1개 (선택 — v0.2 M2, 9장)
   actions.json            PlayerAction 정의 (선택)
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
 ```
@@ -308,5 +309,42 @@ V4  Rule: action 을 interact 하는 Behavior 가 하나 이상 (고아 Rule 경
 V5  Behavior: 도달 불가 상태, initial 존재, 전이 대상 존재
 V6  Terrain: default 머티리얼 1개, moveCost 범위
 V7  태그 선언 여부 (오타 방지)
+V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복, 초 범위, 끝 규칙 ≤ 32 · when · op · result · team 참조)
 실패 메시지 형식:  <파일>:<JSON 포인터>: <규칙> — <설명>
+```
+
+---
+
+## 9. GameMode (v0.2 M2 — [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md))
+
+게임 하나의 진행 규칙: 참가자 · 팀 · 시작 카운트다운 · 끝 조건 · 재시작. 프로젝트 매니페스트(schemaVersion 2)의
+`gameMode` 가 하나를 고른다 ([18-PLATFORM](18-PLATFORM.md) 5.2). 진행 상태(Lobby → Starting → Running → Finished)는
+시뮬레이션의 `game.session` 이 든다 — M2-T2 `[계획]`.
+
+```jsonc
+// modes/survival.json — 파일 하나에 모드 하나
+{
+  "id": "eco.survival",                        // <팩>.<이름> (V1)
+  "name": "토끼 지키기",                        // 필수, ≤ 256 바이트
+  "description": "3 분 동안 토끼를 지켜라",     // 선택
+  "players": { "min": 1, "max": 4 },           // 1 ~ 64, 기본 1 ~ 16
+  "teams": [ { "id": "red", "name": "빨강" } ], // 선택, ≤ 8. id 는 모드 안에서만 (소문자 · 숫자 · '_')
+  "start": { "countdownSeconds": 3 },          // Starting 길이 0 ~ 60 초 (기본 0)
+  "end": [                                     // 위에서부터 처음 맞는 것 (Running 중 틱마다). 비면 끝나지 않는다
+    { "when": { "time":  { "op": ">=", "seconds": 180 } }, "result": "win" },
+    { "when": { "count": { "tags": { "all": ["prey"] }, "op": "<=", "value": 0 } }, "result": "lose" },
+    { "when": { "time": { "op": ">=", "seconds": 60 },
+                "count": { "tags": { "all": ["predator"] }, "op": "==", "value": 0 } }, "result": "win", "team": "red" }
+  ],
+  "restart": { "mode": "manual", "delaySeconds": 5 }   // manual(명령) | auto(지연 뒤 서버가)
+}
+```
+
+```text
+when      time  = Running 에 들어간 뒤 지난 시간 {op, seconds 0 ~ 86400}
+          count = 태그 식(6장)에 맞는 살아 있는 개체 수 {tags, op, value 0 ~ 1,000,000}
+          둘 다 쓰면 AND. 하나는 있어야 한다. op = < <= > >= == !=
+result    win · lose · draw. team 이 있으면 그 팀의 승리 · 패배 (draw 에는 team 없음), 없으면 모두
+시간      초는 로드할 때 틱으로 (× 30, 반올림 — 0.5 초 = 15 틱). 시뮬레이션은 틱만 본다 (04)
+[계획]    월드 오버레이로 고치기(EditContent), 점수 조건 (M3), Visual Trigger 와의 관계 (M4)
 ```

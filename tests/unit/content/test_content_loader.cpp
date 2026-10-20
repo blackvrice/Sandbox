@@ -324,3 +324,133 @@ TEST_SUITE("content") {
     }
 
 } // TEST_SUITE
+
+// GameMode (v0.2 M2-T1, ADR-0045, 11 9장)
+TEST_SUITE("content") {
+    constexpr std::string_view kMode = R"({
+      "id": "t.survival",
+      "name": "토끼 지키기",
+      "description": "3 분 버티기",
+      "players": {"min": 1, "max": 4},
+      "teams": [{"id": "red", "name": "빨강"}, {"id": "blue", "name": "파랑"}],
+      "start": {"countdownSeconds": 3},
+      "end": [
+        {"when": {"time": {"op": ">=", "seconds": 180}}, "result": "win"},
+        {"when": {"count": {"tags": {"all": ["a"]}, "op": "<=", "value": 0}}, "result": "lose", "team": "red"},
+        {"when": {"time": {"op": ">", "seconds": 0.5}, "count": {"tags": {"any": ["a", "b"], "none": ["b"]}, "op": "==", "value": 7}}, "result": "draw"}
+      ],
+      "restart": {"mode": "auto", "delaySeconds": 5}
+    })";
+
+    TEST_CASE("content: GameMode 를 읽는다 (초 → 틱, 팀 번호, 태그 식)") {
+        TempContent c("mode_ok");
+        c.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/modes/survival.json", kMode);
+        const auto r = c.load();
+        INFO(dumpIssues(r));
+        REQUIRE(r.ok());
+        CHECK(r.issues.empty());
+        REQUIRE(r.db.modes().size() == 1);
+        const GameMode* m = r.db.findMode("t.survival");
+        REQUIRE(m != nullptr);
+        CHECK(r.db.findMode("t.nope") == nullptr);
+        CHECK(m->name == "토끼 지키기");
+        CHECK(m->minPlayers == 1);
+        CHECK(m->maxPlayers == 4);
+        REQUIRE(m->teams.size() == 2);
+        CHECK(m->teams[1].id == "blue");
+        CHECK(m->countdownTicks == 90);
+        CHECK(m->autoRestart);
+        CHECK(m->restartDelayTicks == 150);
+        REQUIRE(m->end.size() == 3);
+        CHECK(m->end[0].when.hasTime);
+        CHECK_FALSE(m->end[0].when.hasCount);
+        CHECK(m->end[0].when.timeTicks == 5400);
+        CHECK(m->end[0].when.timeOp == CmpOp::Ge);
+        CHECK(m->end[0].result == GameResult::Win);
+        CHECK(m->end[0].team == 0);
+        CHECK(m->end[1].when.hasCount);
+        CHECK(m->end[1].when.countOp == CmpOp::Le);
+        CHECK(m->end[1].when.countValue == 0);
+        CHECK(m->end[1].when.countTags.all.test(*r.db.findTag("a")));
+        CHECK(m->end[1].result == GameResult::Lose);
+        CHECK(m->end[1].team == 1); // red = 첫 팀
+        CHECK(m->end[2].when.hasTime);
+        CHECK(m->end[2].when.hasCount);
+        CHECK(m->end[2].when.timeTicks == 15); // 0.5 초
+        CHECK(m->end[2].result == GameResult::Draw);
+
+        // 최소 모드: id · name 만 (기본값: 플레이어 1~16, 카운트다운 0, 끝 없음, 수동 재시작)
+        TempContent d("mode_min");
+        d.file("t/pack.json", kPack).file("t/modes/free.json", R"({"id": "t.free", "name": "자유"})");
+        const auto r2 = d.load();
+        REQUIRE(r2.ok());
+        const GameMode* f = r2.db.findMode("t.free");
+        REQUIRE(f != nullptr);
+        CHECK(f->maxPlayers == 16);
+        CHECK(f->end.empty());
+        CHECK_FALSE(f->autoRestart);
+    }
+
+    TEST_CASE("content: GameMode 는 contentHash 에 든다") {
+        TempContent a("mode_hash_a");
+        a.file("t/pack.json", kPack).file("t/tags.json", kTags);
+        TempContent b("mode_hash_b");
+        b.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/modes/survival.json", kMode);
+        CHECK(a.load().db.contentHash() != b.load().db.contentHash());
+    }
+
+    TEST_CASE("content: GameMode 검사 V8 — 모두 모으고, 문제가 있으면 넣지 않는다") {
+        const auto withMode = [](std::string_view name, std::string_view json) {
+            TempContent c(name);
+            c.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/modes/m.json", json);
+            return c.load();
+        };
+        const auto bad = [&](std::string_view name, std::string_view json, std::string_view rule,
+                             std::string_view fragment) {
+            const auto r = withMode(name, json);
+            INFO(name, " ", dumpIssues(r));
+            CHECK_FALSE(r.ok());
+            CHECK(r.db.modes().empty());
+            CHECK(hasIssue(r, rule, fragment));
+        };
+        bad("m_noname", R"({"id": "t.m"})", "V8", "'name' 가 필요하다");
+        bad("m_badid", R"({"id": "other.m", "name": "x"})", "V1", "팩 접두사");
+        bad("m_key", R"({"id": "t.m", "name": "x", "rules": []})", "V3", "모르는 키 'rules'");
+        bad("m_players", R"({"id": "t.m", "name": "x", "players": {"min": 0}})", "V8", "min 는 1 ~ 64");
+        bad("m_players2", R"({"id": "t.m", "name": "x", "players": {"min": 5, "max": 2}})", "V8", "max 2 보다 크다");
+        bad("m_team", R"({"id": "t.m", "name": "x", "teams": [{"id": "Red", "name": "r"}]})", "V8", "팀은");
+        bad("m_team2", R"({"id": "t.m", "name": "x", "teams": [{"id": "r", "name": "a"}, {"id": "r", "name": "b"}]})",
+            "V8", "팀 id 'r' 중복");
+        bad("m_cd", R"({"id": "t.m", "name": "x", "start": {"countdownSeconds": 61}})", "V8", "초는 0 ~ 60");
+        bad("m_when", R"({"id": "t.m", "name": "x", "end": [{"when": {}, "result": "win"}]})", "V8", "when 은");
+        bad("m_op",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"time": {"op": "=>", "seconds": 1}}, "result": "win"}]})",
+            "V8", "op 는");
+        bad("m_tag",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"count": {"tags": {"all": ["zzz"]}, "op": "<", "value": 1}}, "result": "win"}]})",
+            "V7", "선언되지 않은 태그");
+        bad("m_value",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"count": {"tags": {}, "op": "<", "value": -1}}, "result": "win"}]})",
+            "V8", "value 는");
+        bad("m_result",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"time": {"op": ">", "seconds": 1}}, "result": "victory"}]})",
+            "V8", "result 는");
+        bad("m_teamref",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"time": {"op": ">", "seconds": 1}}, "result": "win", "team": "red"}]})",
+            "V8", "team 은 teams 에 있는");
+        bad("m_drawteam",
+            R"({"id": "t.m", "name": "x", "teams": [{"id": "red", "name": "r"}], "end": [{"when": {"time": {"op": ">", "seconds": 1}}, "result": "draw", "team": "red"}]})",
+            "V8", "draw 에는 team");
+        bad("m_restart", R"({"id": "t.m", "name": "x", "restart": {"mode": "never"}})", "V8", "restart 는");
+        bad("m_long",
+            R"({"id": "t.m", "name": "x", "end": [{"when": {"time": {"op": ">", "seconds": 90000}}, "result": "win"}]})",
+            "V8", "초는 0 ~ 86400");
+        bad("m_json", "{ 이건 아님", "JSON", "GameMode 객체");
+        // 중복 id (두 파일)
+        TempContent dup("m_dup");
+        dup.file("t/pack.json", kPack)
+            .file("t/modes/a.json", R"({"id": "t.m", "name": "a"})")
+            .file("t/modes/b.json", R"({"id": "t.m", "name": "b"})");
+        CHECK(hasIssue(dup.load(), "V1", "GameMode id 't.m' 중복"));
+    }
+}

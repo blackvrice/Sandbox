@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, 다음 M2)
-다음     v0.2 M2-T1 — GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — D-11 플레이어 행동 모델과 함께 설계
+다음     v0.2 M2-T2 — game.session 컴포넌트 · GameSystem (Starting → Running → Finished, 끝 조건) — ADR-0045
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -58,8 +58,8 @@
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
-| 게임 라이프사이클       | Partial     | 일시정지 · 단계 · 속도 (SimulationClock 편집 단계), 세션 · 역할. Lobby → Running → Finished 상태기계는 Planned (M2)         |
-| 플레이어 행동           | Partial     | 역할 Player · CommandClass::PlayerAction 예약 (network/server/CommandValidator) — 그 분류의 명령은 아직 없다 (M3)           |
+| 게임 라이프사이클       | Partial     | GameMode 데이터 ✅ (M2-T1, 팩 modes/). 진행 상태 game.session · GameSystem 은 M2-T2, 시작 · 재시작 명령은 T3                |
+| 플레이어 행동           | Partial     | D-11 결정: 콘텐츠 PlayerAction 부터 (ADR-0045, M3-T1). 역할 Player · CommandClass::PlayerAction 은 예약만                   |
 | Feature Bundle          | Partial     | life.health · energy · Spawn(Prefab 생성 · Reproduce) · Camera2D · ActionMap. Score · Timer · Win/Lose 는 Planned (M3)      |
 | Visual Trigger          | Partial     | Rule(source · action · target · effects) · BehaviorGraph FSM · Effect op. 게임 이벤트 · 조건 · 효과 노드는 Planned (M4)     |
 | Edit ↔ Test Play        | Partial     | 편집 단계 · 월드 저장/불러오기 · 리플레이. 분기 세션 · 원본 보호는 Planned (M5)                                             |
@@ -114,14 +114,16 @@ M1 GameProject
         도구 sbx new · check · templates (검사를 sbx_sim_check 에서 옮김) (ADR-0043)
   T5 ✅ 에디터 저장 위치: 프로젝트 서버 · 싱글플레이의 세이브 폴더 = <프로젝트>/worlds, Ctrl+S 처음 이름 = 시작 월드 (ADR-0044)
   → M1 완료 (2026-10-20): 만들기 (sbx new) → 검사 (sbx check) → 열기 (--world) → 편집 · 저장 (Ctrl+S) → 서버로 실행
-M2 GameMode · 라이프사이클 (서버 권위)
-  T1 GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — 콘텐츠 팩 스키마 확장 (11 갱신)
-  T2 GameSession 상태기계 Created → Loading → Lobby → Starting → Running → Finished → Stopped (서버 · 결정적 · 복제)
-  T3 Lobby 준비 · 시작 · 재시작 명령과 역할 권한, 오류 상태 (버전 · 콘텐츠 불일치)
+M2 GameMode · 라이프사이클 (서버 권위 — ADR-0045: 모드는 콘텐츠, 진행 상태는 시뮬레이션 안)
+  T1 ✅ GameMode 데이터: 팩의 modes/*.json (players · teams · start · end{time · count} · restart, V8), 매니페스트
+        schemaVersion 2 의 gameMode (1 도 읽는다, P5 = 콘텐츠에 없음) (11 9장)
+  T2 [계획] game.session 컴포넌트 (월드에 하나 — Persistent · Replicated) · GameSystem (새 Stage): Starting 카운트다운 →
+        Running → 끝 조건 → Finished. game.session 이 없는 월드는 그대로 (골든 동일)
+  T3 [계획] 시작 · 재시작 명령 · 역할 권한, Lobby = 일시정지, 재시작 = 서버가 시작 월드를 다시 연다, 클라이언트 "게임" 패널
 M3 Feature Bundle (Native)
-  T1 플레이어 행동 명령 (CommandClass::PlayerAction 을 채운다 — 자기 유닛 이동 · 상호작용, 서버 검증)
-  T2 game.score · game.timer · game.team · 스폰 지점 컴포넌트와 System (Health 는 life.health 재사용)
-  T3 Win / Lose 판정 → GameSession Finished, 카메라 · 입력 바인딩 기본값
+  T1 PlayerAction (D-11 결정 — 11 6장 actions.json: 범위 안 태그 식 개체에 Rule 효과, CommandClass::PlayerAction 을 채운다)
+  T2 점수 · 팀 (game.score — 효과 op score.add, 끝 조건 score), 스폰 지점
+  T3 카메라 · 입력 바인딩 기본값, 데모 모드 (생태계 "토끼 지키기")
 M4 Visual Trigger
   T1 트리거 스키마: 이벤트(틱 · 타이머 · 영역 진입 · 점수 · 사망) · 조건 · 효과 노드 — 원본 그래프와 실행 표현 분리, 예산 · 깊이 · 순환 검사
   T2 실행: Rule · Effect op 재사용, 결정적 순서 (Stage 고정), 폭주는 예산으로 끊고 월드는 무결
@@ -148,7 +150,7 @@ MyGame/
 
 | 키              | 필수 | 형식                                                                                                                 |
 |-----------------|------|----------------------------------------------------------------------------------------------------------------------|
-| `schemaVersion` | 예   | 1. 다르면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다)                                                      |
+| `schemaVersion` | 예   | 2 (1 도 읽는다 — 2 의 키는 쓸 수 없다). 그 밖이면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다)              |
 | `gameId`        | 예   | 소문자 · 숫자 · `_` 마디 둘 이상을 `.` 로 (`studio.arena`), ≤ 64 바이트 (P2)                                         |
 | `name`          | 예   | 1~64 글자, 제어 문자 없음 (P1)                                                                                       |
 | `version`       | 예   | SemVer 2.0.0 (P3)                                                                                                    |
@@ -156,6 +158,7 @@ MyGame/
 | `description`   | 아니 | ≤ 1024 글자 (P1)                                                                                                     |
 | `content`       | 아니 | `{"packs": [팩 id …]}` — `<프로젝트>/content` 에서 찾는다. 없거나 비면 내장 콘텐츠 (중복 · `core` · 16 개 초과는 P2) |
 | `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)                   |
+| `gameMode`      | 아니 | schemaVersion 2. 콘텐츠의 GameMode id (11 9장) — 형식 P2, 프로젝트 콘텐츠에 없으면 P5. 없으면 끝 없는 샌드박스       |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.
@@ -185,19 +188,19 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 
 ### 6.1 열린 결정 (초안 04 3장 + 이 저장소)
 
-| 번호 | 결정                                                              | 기한         | 상태                                         |
-|------|-------------------------------------------------------------------|--------------|----------------------------------------------|
-| D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 열림                                         |
-| D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 열림 (M5-T2)                                 |
-| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림                                         |
-| D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 열림                                         |
-| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                  |
-| D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                         |
-| D-07 | 공개 네트워크 보안 전송 · NAT                                     | v0.7 진입 전 | 열림 (R6)                                    |
-| D-08 | 무료 세션 자원 · 릴레이 비용 한도                                 | v0.7 초기    | 열림                                         |
-| D-09 | 판매 국가 · 수수료 · 환불 · 정산 사업자                           | v0.8 진입 전 | 열림                                         |
-| D-10 | Business 좌석 · CI 할당 · SLA                                     | v0.9 초기    | 열림                                         |
-| D-11 | 플레이어 행동 모델 (유닛 명령 · 직접 조작, 지연 체감 — 예측 없음) | v0.2 M3 전   | 열림 — 비목표 "클라 예측 없음"과 함께 정한다 |
+| 번호 | 결정                                                              | 기한         | 상태                                       |
+|------|-------------------------------------------------------------------|--------------|--------------------------------------------|
+| D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 열림                                       |
+| D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 열림 (M5-T2)                               |
+| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림                                       |
+| D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 열림                                       |
+| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                |
+| D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                       |
+| D-07 | 공개 네트워크 보안 전송 · NAT                                     | v0.7 진입 전 | 열림 (R6)                                  |
+| D-08 | 무료 세션 자원 · 릴레이 비용 한도                                 | v0.7 초기    | 열림                                       |
+| D-09 | 판매 국가 · 수수료 · 환불 · 정산 사업자                           | v0.8 진입 전 | 열림                                       |
+| D-10 | Business 좌석 · CI 할당 · SLA                                     | v0.9 초기    | 열림                                       |
+| D-11 | 플레이어 행동 모델 (유닛 명령 · 직접 조작, 지연 체감 — 예측 없음) | v0.2 M3 전   | 결정 — 콘텐츠 PlayerAction 부터 (ADR-0045) |
 
 ## 7. 문서 · ADR 계획
 
@@ -207,7 +210,8 @@ M1-T2 ✅  15 (실행 옵션), 08 (WorldSource), ADR-0041 (서버가 프로젝�
 M1-T3 ✅  08 (핸드셰이크에 게임 정체성 · 프로토콜 8), ADR-0042
 M1-T4 ✅  15 (sbx), 17, 13, ADR-0043
 M1-T5 ✅  10 9장, 15, 13, ADR-0044
-M2 · M3   03 (GameSession Stage · 게임 System), 11 (GameMode · 게임 컴포넌트), 04 (상태기계 결정론), ADR
+M2-T1 ✅  11 (1 · 8 · 9장 GameMode), 18 5.2 (gameMode), ADR-0045 (D-11 포함)
+M2-T2~ · M3   03 (GameSession Stage · 게임 System), 04 (상태기계 결정론), 11 (actions.json · 점수)
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
@@ -223,4 +227,5 @@ v0.2 M1-T2 뒤: 58/58 (+ server_project_exit · server_project_invalid · client
 v0.2 M1-T3 뒤: 59/59 (+ net_server_probe_project — 실제 UDP 로 Welcome.game)
 v0.2 M1-T4 뒤: 61/61 (+ project_new_empty · project_new_from_scenario)
 v0.2 M1-T5 뒤: 62/62 (+ server_project_saves_root)
+v0.2 M2-T1 뒤: 62/62 (unit_content · unit_project 케이스 추가)
 ```

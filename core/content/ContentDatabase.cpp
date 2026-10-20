@@ -184,6 +184,12 @@ const BehaviorGraph* ContentDatabase::findBehavior(std::string_view id) const no
     return (it != m_behaviors.end() && it->id == id) ? &*it : nullptr;
 }
 
+const GameMode* ContentDatabase::findMode(std::string_view id) const noexcept {
+    const auto it = std::lower_bound(m_modes.begin(), m_modes.end(), id,
+                                     [](const GameMode& m, std::string_view k) { return m.id < k; });
+    return (it != m_modes.end() && it->id == id) ? &*it : nullptr;
+}
+
 const Rule* ContentDatabase::findRule(std::string_view id) const noexcept {
     // Rule 은 정의 순서로 둔다 (정렬하지 않는다) — 에디터 · 명령만 찾으니 선형으로
     const auto it = std::find_if(m_rules.begin(), m_rules.end(), [&](const Rule& r) { return r.id == id; });

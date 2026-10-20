@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-10-20 — v0.2 M2-T1: GameMode 콘텐츠 · 매니페스트 schemaVersion 2 gameMode — D-11 결정 (ADR-0045)
+
+**무엇을**
+
+- 콘텐츠 팩의 `modes/<이름>.json` → `content::GameMode` (id · name · description · players{min, max} · teams ≤ 8 ·
+  start{countdownSeconds} · end[{when{time, count}, result, team?}] ≤ 32 · restart{manual|auto, delaySeconds}). 초는 로드할
+  때 틱으로 (×30). `ContentDatabase::modes()` · `findMode(id)`, contentHash 에 든다. 검사 규칙 V8 (모르는 키 V3, 태그 V7,
+  중복 id V1) — 문제가 있으면 그 모드는 넣지 않는다.
+- 매니페스트 schemaVersion 2 (1 도 읽는다): 선택 키 `gameMode` (콘텐츠 id). v1 에서 쓰면 P1, 프로젝트 콘텐츠에 없으면 P5.
+  `sbx check` 가 "게임 모드" 줄을 찍는다.
+- ADR-0045: GameMode = 콘텐츠, 진행 상태 = 시뮬레이션 안의 game.session (M2-T2), 플레이어 행동(D-11) = 콘텐츠 PlayerAction
+  부터 (M3-T1), 유닛 지시 · 직접 조작은 뒤로.
+- 시험: unit_content 3 케이스 (로드 · 해시 · V8 오류 모음), unit_project 2 케이스 (v2 gameMode, P5).
+- 문서: ADR-0045, 11 (1 · 8 · 9장 GameMode), 18 (2 · 5.2 · 6.1 D-11 · 7 · 8장, 다음 M2-T2), 13, adr/README.
+
+**왜**
+
+- 엔진에 "게임"(시작 · 끝 · 승패)이 없다. 승패 규칙은 게임 규칙이라 팩에 둔다 — V-규칙 검사 · contentHash 일치 · 오버레이 ·
+  공유를 그대로 얻는다. 데이터를 먼저 고정하고 상태기계(T2) · 명령(T3)을 그 위에 올린다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 62/62. unit_content · unit_project 통과.
+- 와이어 · 세이브 · 시뮬레이션 형식 변경 없음 (modes/ 가 없는 팩의 contentHash 는 그대로 — 골든 해시 그대로).
+- 기존 v1 매니페스트 (tests/data/projects/minimal 등)는 그대로 읽힌다. 새로 쓰는 매니페스트는 schemaVersion 2.
+
+**남은 일**
+
+- M2-T2 game.session 컴포넌트 · GameSystem (Starting → Running → Finished, 끝 조건). game.session 이 없는 월드는 결과가
+  같아야 한다.
+- M2-T3 시작 · 재시작 명령 · 역할 · UI. GameMode 를 월드 오버레이로 고치기는 M4.
+
+---
+
 ## 2026-10-20 — v0.2 M1-T5: 프로젝트의 세이브 폴더 = worlds/, Ctrl+S = 시작 월드 → M1 완료 (ADR-0044)
 
 **무엇을**

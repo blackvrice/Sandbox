@@ -173,6 +173,50 @@ struct BehaviorGraph {
 
 inline constexpr usize kMaxBehaviorQueries = 8; // == comp::kMaxSensorQueries
 
+// --- GameMode (11 9장, v0.2 M2 — ADR-0045) -------------------------------------------------------------------------
+enum class GameResult : u8 { Win = 0, Lose = 1, Draw = 2 };
+
+// 끝 조건: 있는 것이 모두 맞아야 한다 (AND). 하나는 있어야 한다
+struct GameEndCondition {
+    bool hasTime = false; // Running 에 들어간 뒤 지난 틱
+    CmpOp timeOp = CmpOp::Ge;
+    u64 timeTicks = 0;
+    bool hasCount = false; // 태그 식에 맞는 살아 있는 개체 수
+    TagExpr countTags;
+    CmpOp countOp = CmpOp::Le;
+    u32 countValue = 0;
+};
+
+struct GameEndRule {
+    GameEndCondition when;
+    GameResult result = GameResult::Win;
+    u8 team = 0; // 0 = 모두 (팀 없음), 1.. = GameMode::teams 의 번호 + 1
+};
+
+struct GameTeam {
+    std::string id;   // "red" (모드 안에서만 — 소문자 · 숫자 · '_')
+    std::string name; // 표시 이름
+};
+
+inline constexpr usize kMaxGameTeams = 8;
+inline constexpr usize kMaxGameEndRules = 32;
+inline constexpr u32 kMaxGamePlayers = 64;
+
+struct GameMode {
+    std::string id; // "eco.survival"
+    std::string name;
+    std::string description;
+    u32 minPlayers = 1;
+    u32 maxPlayers = 16;
+    std::vector<GameTeam> teams;
+    u32 countdownTicks = 0;       // Starting 의 길이
+    std::vector<GameEndRule> end; // 위에서부터 처음 맞는 것. 비면 끝나지 않는다
+    bool autoRestart = false;     // Finished 뒤 restartDelayTicks 가 지나면 서버가 다시 시작한다
+    u32 restartDelayTicks = 0;
+    std::string file;
+    nlohmann::json raw; // 읽은 JSON 그대로
+};
+
 struct PackInfo {
     std::string id;
     std::string version;

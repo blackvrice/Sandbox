@@ -80,6 +80,9 @@ public:
     // action 번호(1 부터)의 Rule 인덱스들 — (priority 내림, 정의 순) 정렬. 03 6.2
     [[nodiscard]] std::span<const u32> rulesForAction(u16 actionId) const noexcept;
     [[nodiscard]] std::span<const PackInfo> packs() const noexcept { return m_packs; } // 로드 순서
+    // GameMode (v0.2 M2, ADR-0045) — id 정렬
+    [[nodiscard]] std::span<const GameMode> modes() const noexcept { return m_modes; }
+    [[nodiscard]] const GameMode* findMode(std::string_view id) const noexcept;
 
     // 콘텐츠 지문. 머티리얼만 있으면 (id·moveCost·flags) 지문, 팩을 읽었으면 매니페스트 지문 (09 7장).
     // 오버레이를 적용한 DB 도 팩의 지문 그대로다 (오버레이 지문은 overlay().hash() — WorldHash 가 먹는다)
@@ -98,6 +101,7 @@ private:
     std::vector<Prefab> m_prefabs;
     std::vector<Rule> m_rules;
     std::vector<BehaviorGraph> m_behaviors;
+    std::vector<GameMode> m_modes;
     std::vector<std::string> m_actions;            // 이름 정렬
     std::vector<std::vector<u32>> m_rulesByAction; // m_actions 와 같은 순서
     std::vector<PackInfo> m_packs;
