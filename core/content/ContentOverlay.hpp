@@ -1,6 +1,6 @@
 #pragma once
-// 월드 오버레이 — 이 월드가 콘텐츠 팩 위에 덮어쓴 Prefab · Rule · BehaviorGraph. docs/10-EDITOR.md 8장,
-// docs/09-SERIALIZATION.md 3장, ADR-0030.
+// 월드 오버레이 — 이 월드가 콘텐츠 팩 위에 덮어쓴 Prefab · Rule · BehaviorGraph · Trigger (v0.2 M4-T3, ADR-0052).
+// docs/10-EDITOR.md 8장, docs/09-SERIALIZATION.md 3장, ADR-0030.
 //
 //   항목 = (종류, id) → 팩 파일과 같은 형식의 JSON 객체 하나 (Rule 도 배열이 아니라 객체 하나). "id" 는 항목 id 와
 //   같다. 같은 id 가 팩에 있으면 그 항목을 **바꾸고**, 없으면 **더한다** (id 의 팩은 읽은 팩이어야 한다 — V1 · V2
@@ -22,11 +22,12 @@
 
 namespace sbx::content {
 
-enum class ContentKind : u8 { Prefab = 0, Rule = 1, Behavior = 2 };
-inline constexpr u8 kContentKindCount = 3;
+// ★ 값은 와이어 (EditContent · ContentOverlay 메시지) 와 리플레이에 실린다 — 바꾸지 않고 추가만 (Trigger = v0.2 M4-T3)
+enum class ContentKind : u8 { Prefab = 0, Rule = 1, Behavior = 2, Trigger = 3 };
+inline constexpr u8 kContentKindCount = 4;
 
-[[nodiscard]] std::string_view contentKindName(ContentKind k) noexcept; // "prefab" "rule" "behavior"
-// 세이브 폴더 이름 · 팩 폴더 이름과 같다: "prefabs" "rules" "behaviors"
+[[nodiscard]] std::string_view contentKindName(ContentKind k) noexcept; // "prefab" "rule" "behavior" "trigger"
+// 세이브 폴더 이름 · 팩 폴더 이름과 같다: "prefabs" "rules" "behaviors" "triggers"
 [[nodiscard]] std::string_view contentKindFolder(ContentKind k) noexcept;
 [[nodiscard]] bool parseContentKind(std::string_view name, ContentKind& out) noexcept; // 단수 이름
 

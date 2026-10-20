@@ -60,6 +60,7 @@ Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 �
 (12B) ui/InspectorPanel "인스펙터"(4장) · "목록"(Hierarchy — 복제 월드의 개체, 관심 영역 안). IEditorHost 에 components ·
                         listEntities · positionOf · catalog 가 더해졌다
 (12C) ui/ContentPanel   "콘텐츠" 창 = Rules · Behaviors (+ Prefab) 패널의 첫 모양 (8장) — "편집" 패널의 "콘텐츠 창" 단추로 연다.
+(v0.2 M4-T3) ui/TriggerForm  "콘텐츠" 창의 트리거 폼 — 노드 · 연결 양식 (8장)
                         IEditorHost::permissions() = 지금 역할로 할 수 있는 것 (7장), content() 는 월드 오버레이까지 적용한 것
 (12C) Players           apps/client/ui/PlayersPanel "접속자" — 접속자 · 역할 표, 바꿀 수 있는 사람에게 역할 콤보 (7장).
                         에디터가 아니라 클라이언트에 둔다 (역할 · 접속은 Network 의 것 — 에디터는 permissions 만 안다)
@@ -232,7 +233,7 @@ v0.2 M3-T1 (ADR-0047):
 시험         역할 표 시험이 명령 15 종 (+ PlayerAction — Player 부터)
 ```
 
-## 8. 콘텐츠 편집 (Rule / Behavior / Prefab)
+## 8. 콘텐츠 편집 (Rule / Behavior / Prefab / Trigger)
 
 ```text
 - 편집 결과는 "월드 오버레이"로 저장된다 (콘텐츠 팩 원본 파일은 바꾸지 않는다).
@@ -257,7 +258,11 @@ Phase 12C 구현 (ADR-0030):
 "콘텐츠" 창  종류(규칙 · 행동 · Prefab) → 목록 (● = 이 월드가 바꾼 것) → JSON 편집 · "검사"(이 컴퓨터의 로더 — 서버와 같은 검사) ·
              "적용"(되돌리기 한 칸, 역명령 = 이전 오버레이 값 | null) · "고친 것 버리기" · "팩 값으로" · "새 항목"(틀에서).
              행동은 상태 · 전이, 규칙은 action · 우선순위 · 효과 수를 요약해 보인다. 역할이 콘텐츠를 못 바꾸면 보기만
-[계획]       폼 · 노드 그래프 편집 (지금은 JSON 글자), 팩 항목 끄기, 오버레이를 팩으로 내보내기, 태그 · 머티리얼 편집
+트리거       (v0.2 M4-T3, ADR-0052) 종류 "트리거" — EditContent{trigger} (프로토콜 11, 세이브 overlay/triggers/). 바꾼 트리거는
+             팩의 실행 순서 자리, 더한 것은 맨 뒤, 게임 중에도 다음 단계부터. "폼" 탭 (editor/ui/TriggerForm): 노드마다 머리
+             ("[이벤트] 타이머 · id") · id · 표(TriggerSchema)의 키 위젯 (선택 키는 "사용" 상자), 노드 더하기 (종류 콤보 — 필수 키는
+             기본값) · 지우기 (연결도), 연결 from → to · else (조건에서만), 이름 · 틱마다. "JSON" 탭은 같은 글. 요약 = 실행 표현 줄
+[계획]       노드 그래프 캔버스 (pos 배치 · 끌어 잇기), 행동 · 규칙의 폼, 팩 항목 끄기, 오버레이를 팩으로 내보내기, 태그 · 머티리얼 편집
 ```
 
 ## 9. 단축키 (기본값, ActionMap으로 변경 가능)

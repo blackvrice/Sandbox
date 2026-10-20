@@ -321,7 +321,8 @@ struct TriggerDef {
     std::vector<TriggerStep> program;
     u32 order = 0; // 정의 순서 (팩 로드 순 → 파일 경로 순) — 같은 틱 실행 순서 (M4-T2)
     std::string file;
-    nlohmann::json raw; // 원본 그래프 그대로 (노드 · 연결 · pos · note — 에디터)
+    nlohmann::json raw;   // 원본 그래프 그대로 (노드 · 연결 · pos · note — 에디터)
+    bool overlay = false; // 월드 오버레이가 바꾸거나 더한 것 (v0.2 M4-T3 — 바꾼 것은 팩의 자리 · 순서를 이어받는다)
 };
 
 struct PackInfo {

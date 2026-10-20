@@ -66,3 +66,4 @@
 | [0049](0049-game-keys-pack-presentation-camera-start-demo-mode.md)      | 게임 키는 팩의 presentation/input.json (play.* 만, 누르면 커서 자리에 PlayerAction), 카메라 처음 자리는 월드의 game.camera_start, 데모 모드 eco.protect | Accepted                                  | 2026-10-20 |
 | [0050](0050-visual-trigger-schema-tree-graph-flat-program.md)          | Visual Trigger 스키마 — 팩의 triggers/*.json, 이벤트 하나에서 시작하는 나무 그래프 (노드 종류 표), 실행 표현은 펼친 명령열 · V10 · 재진입 경고 | Accepted                                  | 2026-10-20 |
 | [0051](0051-trigger-execution-stage-17c-same-tick-cascade-budget.md)   | Trigger 실행 — 단계 17c (세션 Running 만), 틱 처음 스냅숏으로 이벤트, 같은 틱 이어짐, perTick · 틱 예산, 효과는 PlayerAction 과 공용 실행기 | Accepted                                  | 2026-10-20 |
+| [0052](0052-trigger-editor-form-overlay-kind-protocol-11.md)           | 트리거 편집 — 오버레이 종류 Trigger (EditContent · 세이브 overlay/triggers/, 프로토콜 11), "콘텐츠" 창의 표 기반 노드 · 연결 폼 | Accepted                                  | 2026-10-20 |

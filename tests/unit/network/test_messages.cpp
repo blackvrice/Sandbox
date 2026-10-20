@@ -54,6 +54,7 @@ std::vector<cmd::CommandPayload> everyPayload() {
             cmd::SetSimulationSpeed{2.0f},
             cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
             cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr},
+            cmd::EditContent{content::ContentKind::Trigger, "eco.lost", ecs::Json{{"id", "eco.lost"}}}, // v0.2 M4-T3
             cmd::GameControl{cmd::GameControlOp::Start},
             cmd::GameControl{cmd::GameControlOp::Abort},
             cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}}};
@@ -140,7 +141,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 10); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M3-T1)
+        CHECK(kProtocolVersion == 11); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M4-T3)
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
@@ -326,10 +327,10 @@ TEST_SUITE("network") {
             CHECK_FALSE(decode(bad));
         }
         {
-            // EditContent (12C): 종류는 0~2, 값은 객체 또는 null
+            // EditContent (12C): 종류는 0~3 (3 = trigger, v0.2 M4-T3), 값은 객체 또는 null
             BitWriter badKind;
             badKind.writeU8(static_cast<u8>(PayloadTag::EditContent));
-            badKind.writeU8(3);
+            badKind.writeU8(4);
             badKind.writeString("eco.x");
             badKind.writeString("null");
             CHECK_FALSE(decode(badKind));

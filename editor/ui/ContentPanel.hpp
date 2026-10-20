@@ -1,11 +1,12 @@
 #pragma once
 // "콘텐츠" 패널 (Phase 12C, docs/10-EDITOR.md 2 · 8장 — Rules · Behaviors 패널의 첫 모양, ADR-0030).
 //
-//   종류(규칙 · 행동 · Prefab) → 목록 (거르기, 오버레이로 바꾼 것 · 더한 것은 "●") → 고른 항목의 JSON (팩 파일과 같은
-//   형식) 을 고친다. "검사" = 이 컴퓨터에서 콘텐츠 로더로 (V1~V7 — 서버도 같은 검사를 한다), "적용" = 검사가 통과하면
-//   Editor::editContent (EditContent 명령 — 되돌리기 한 칸), "팩 값으로" = 오버레이에서 뺀다, "새 항목" = 틀에서 시작.
-//   행동은 상태 · 전이를, 규칙은 action · 효과를 요약해 보여 준다 (폼 · 노드 그래프 편집은 [계획]).
-//   역할이 콘텐츠를 바꿀 수 없으면 보기만.
+//   종류(규칙 · 행동 · Prefab · 트리거) → 목록 (거르기, 오버레이로 바꾼 것 · 더한 것은 "●") → 고른 항목의 JSON (팩
+//   파일과 같은 형식) 을 고친다. "검사" = 이 컴퓨터에서 콘텐츠 로더로 (V1~V7 — 서버도 같은 검사를 한다), "적용" =
+//   검사가 통과하면 Editor::editContent (EditContent 명령 — 되돌리기 한 칸), "팩 값으로" = 오버레이에서 뺀다, "새 항목"
+//   = 틀에서 시작. 행동은 상태 · 전이를, 규칙은 action · 효과를 요약해 보여 준다. 트리거 (v0.2 M4-T3) 는 "폼" 탭
+//   (TriggerForm — 노드 · 연결 양식) 과 "JSON" 탭, 요약에 실행 표현 (펼친 명령열). 행동 · 규칙의 폼 · 노드 그래프
+//   편집은 [계획]. 역할이 콘텐츠를 바꿀 수 없으면 보기만.
 //
 // ImGui::NewFrame 과 Render 사이에서. 월드는 Editor 가 명령으로만 바꾼다.
 
@@ -16,6 +17,7 @@
 
 #include "core/content/ContentOverlay.hpp"
 #include "editor/Editor.hpp"
+#include "editor/ui/TriggerForm.hpp"
 
 namespace sbx::editor {
 
@@ -35,7 +37,8 @@ struct ContentPanelState {
     std::string checked;       // 검사한 JSON
     // 적용 · 팩 값으로를 보낸 뒤: 그때의 값 (서버 값이 이것과 달라지면 — 받아들여졌다 — 새 값으로 다시 불러온다)
     std::optional<std::string> pendingFrom;
-    bool wasOpen = false; // 열리는 프레임에 창을 앞으로
+    bool wasOpen = false;     // 열리는 프레임에 창을 앞으로
+    TriggerFormState trigger; // 트리거 폼 (v0.2 M4-T3)
 };
 
 // 고친 JSON 을 이 컴퓨터에서 검사한다 (오버레이에 넣어 콘텐츠 로더로). JSON 이 아니면 그 오류 하나.

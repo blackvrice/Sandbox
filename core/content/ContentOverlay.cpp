@@ -12,6 +12,8 @@ std::string_view contentKindName(ContentKind k) noexcept {
         return "rule";
     case ContentKind::Behavior:
         return "behavior";
+    case ContentKind::Trigger:
+        return "trigger";
     }
     return "?";
 }
@@ -24,6 +26,8 @@ std::string_view contentKindFolder(ContentKind k) noexcept {
         return "rules";
     case ContentKind::Behavior:
         return "behaviors";
+    case ContentKind::Trigger:
+        return "triggers";
     }
     return "?";
 }

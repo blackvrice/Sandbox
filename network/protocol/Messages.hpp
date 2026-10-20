@@ -30,7 +30,8 @@ namespace sbx::net {
 // 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3
 // 9: 게임 진행 — 명령 GameControl (시작 · 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3
 // 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터) — v0.2 M3-T1
-inline constexpr u32 kProtocolVersion = 10;
+// 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3
+inline constexpr u32 kProtocolVersion = 11;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;

@@ -48,6 +48,7 @@ worlds/<name>/
   overlay/rules/<id>.json     이 월드가 콘텐츠를 덮어쓴 것 (Phase 12C — 항목 하나에 파일 하나, 팩 파일과 같은 JSON 객체.
   overlay/behaviors/<id>.json   Rule 도 배열이 아니라 객체 하나. 오버레이가 있을 때만)
   overlay/prefabs/<id>.json
+  overlay/triggers/<id>.json  (v0.2 M4-T3 — ADR-0052. 선택 폴더라 worldVersion 1 그대로, 옛 엔진은 해시 검증에서 실패)
   thumbnail.png               (클라이언트가 저장 시 생성, 선택)
 ```
 

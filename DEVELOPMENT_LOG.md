@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-20 — v0.2 M4-T3: 트리거 편집 — 오버레이 종류 Trigger (프로토콜 11) · "콘텐츠" 창의 트리거 폼 → M4 완료 (ADR-0052)
+
+**무엇을**
+
+- 오버레이 종류 `ContentKind::Trigger` (값 3, "trigger", 폴더 "triggers"): EditContent 로 트리거를 바꾸거나 더하거나 뺀다.
+  로더 loadTriggerJson (팩 · 오버레이 공용) — 바꾼 것은 팩의 실행 순서 자리, 더한 것은 맨 뒤 (TriggerDef.overlay).
+  와이어 kind 0~3 → 프로토콜 11. 세이브 overlay/triggers/<id>.json (worldVersion 그대로). 리플레이 {"kind": "trigger"}.
+- 에디터 `editor/ui/TriggerForm`: 표(TriggerSchema) 기반 노드 양식 (종류별 위젯 · 선택 키 "사용" · 노드 더하기/지우기 · id 바꾸면
+  연결도), 연결 표 (from → to · else), 이름 · 틱마다. 순수 함수 triggerTemplate · defaultTriggerNode · freeNodeId ·
+  removeTriggerNode · describeTriggerNode · describeProgram.
+- "콘텐츠" 창: 종류 "트리거", 폼 · JSON 탭 (같은 글), 요약에 실행 표현 줄. 검사 · 적용 · 되돌리기는 기존 경로.
+- 시험: test_trigger_form (editor 4), test_trigger_run +1 (오버레이 순서 · 게임 중 EditContent · 세이브 왕복), test_messages ·
+  test_roles_overlay (프로토콜 11 · trigger 왕복 · kind 4 거절).
+- 문서: ADR-0052, 08 (프로토콜 11), 09 3장, 10 2 · 8장, 11 10장, 13, 17, 18 (M4 ✅ — 다음 M5-T1), adr/README.
+
+**왜**
+
+- 트리거를 에디터에서 만들고 고치게 (v0.2 "비개발자가 템플릿으로"). 오버레이를 그대로 쓰면 서버 검사 · 역할 · 되돌리기 · 세이브 ·
+  복제 · 해시가 따라온다. 폼은 표에서 위젯을 만들어 노드 종류가 늘어도 코드가 늘지 않는다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 59/59 통과 (render_tests_warp 제외). 골든 그대로 (오버레이 없는 월드). 모든 노드 종류의 기본값이
+  로더 검사를 통과 (시험). 세이브 왕복 후 같은 해시.
+- 와이어: 프로토콜 10 → 11 (열거 값). 세이브 형식: 선택 폴더 하나 (worldVersion 1). kSimVersion 그대로.
+
+**남은 일**
+
+- M5-T1 Test Play. 노드 그래프 캔버스, 행동 · 규칙 폼, 오버레이를 팩으로 내보내기 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M4-T2: Trigger 실행 — 단계 17c, 틱 처음 스냅숏, 같은 틱 이어짐, 예산 (ADR-0051)
 
 **무엇을**

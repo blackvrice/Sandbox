@@ -16,6 +16,8 @@
 > WorldChanged reason Restart (3) — 시작 월드를 다시 연다 ([ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
 > **v0.2 M3-T1** — 프로토콜 10: 플레이어 행동 명령 PlayerAction (5.1 태그 30 — 역할 player 부터,
 > [ADR-0047](adr/0047-player-action-content-command-point-targets.md)).
+> **v0.2 M4-T3** — 프로토콜 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3,
+> [ADR-0052](adr/0052-trigger-editor-form-overlay-kind-protocol-11.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -183,7 +185,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 10`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 11`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -232,6 +234,7 @@ replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySp
 프로토콜 9 (v0.2 M2-T3): 명령 GameControl (5.1 태그 24), WorldOp 의 op 7 Restart (이름 무시 — 게임 재시작), WorldChanged 의
 reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 늘었다.
 프로토콜 10 (v0.2 M3-T1): 명령 PlayerAction (5.1 태그 30 — action str(64), position f32 × 2) (ADR-0047).
+프로토콜 11 (v0.2 M4-T3): EditContent (5.1 태그 8) · ContentOverlay (42) 의 kind u8 가 0~3 (3 = trigger). 메시지 모양은 그대로 (ADR-0052).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

@@ -371,4 +371,65 @@ TEST_SUITE("core") {
         CHECK(game::findSession(world.registry())->gameState() == GameState::Running);
     }
 
+    TEST_CASE("trigger overlay (M4-T3): 바꾼 트리거는 팩의 자리 · 순서, 더한 것은 맨 뒤 · 게임 중 EditContent · 세이브 "
+              "왕복") {
+        TempDir dir("overlay");
+        const auto db = loadPack(dir.path, {
+                                               {"a", R"({"id": "t.a", "nodes": [{"id": "e", "type": "event.tick"},
+                {"id": "x", "type": "effect.score.add", "value": 1}], "links": [{"from": "e", "to": "x"}]})"},
+                                               {"b", R"({"id": "t.b", "nodes": [{"id": "e", "type": "event.tick"},
+                {"id": "x", "type": "effect.event", "name": "t.b"}], "links": [{"from": "e", "to": "x"}]})"},
+                                           });
+        // 오버레이: t.a 를 바꾸고 (+10) t.c 를 더한다 (+100)
+        content::ContentOverlay o;
+        ecs::Json a = db.findTrigger("t.a")->raw;
+        a["nodes"][1]["value"] = 10;
+        o.set(content::ContentKind::Trigger, "t.a", a);
+        o.set(content::ContentKind::Trigger, "t.c",
+              ecs::Json::parse(R"({"id": "t.c", "nodes": [{"id": "e", "type": "event.tick"},
+                {"id": "x", "type": "effect.score.add", "value": 100}], "links": [{"from": "e", "to": "x"}]})"));
+        const auto over = content::ContentLoader::applyOverlay(db, o, catalog());
+        REQUIRE(over.ok());
+        REQUIRE(over.db.triggers().size() == 3);
+        CHECK(over.db.triggers()[0].id == "t.a");
+        CHECK(over.db.triggers()[0].overlay);
+        CHECK(over.db.triggers()[1].id == "t.b");
+        CHECK_FALSE(over.db.triggers()[1].overlay);
+        CHECK(over.db.triggers()[2].id == "t.c");
+        CHECK(over.db.triggers()[2].overlay);
+
+        // 게임 중 EditContent — 그 틱부터 새 콘텐츠
+        World w(db);
+        w.start();
+        CHECK(w.score() == 1);
+        CHECK(w.run(cmd::EditContent{content::ContentKind::Trigger, "t.a", a}).accepted);
+        CHECK(w.score() == 11);
+        CHECK(w.run(cmd::EditContent{content::ContentKind::Trigger, "t.c",
+                                     o.items(content::ContentKind::Trigger).at("t.c")})
+                  .accepted);
+        CHECK(w.score() == 121);
+        // 틀린 트리거는 거절 (콘텐츠 그대로)
+        ecs::Json broken = a;
+        broken["links"] = ecs::Json::array();
+        CHECK_FALSE(w.run(cmd::EditContent{content::ContentKind::Trigger, "t.a", broken}).accepted);
+        CHECK(w.score() == 231);
+
+        // 세이브 왕복 — overlay/triggers/ 로 저장되고 불러온 월드도 같은 결과
+        TempDir save("overlay_save");
+        REQUIRE(persist::saveWorld(w.world, save.path / "s").has_value());
+        CHECK(fs::exists(save.path / "s" / "overlay" / "triggers" / "t.a.json"));
+        CHECK(fs::exists(save.path / "s" / "overlay" / "triggers" / "t.c.json"));
+        auto loaded = persist::loadWorld(catalog(), db, save.path / "s");
+        REQUIRE(loaded.has_value());
+        CHECK(loaded->hashVerified);
+        sim::SimulationWorld& c = *loaded->world;
+        REQUIRE(c.content().triggers().size() == 3);
+        for (int i = 0; i < 5; ++i) {
+            w.world.tick();
+            c.tick();
+        }
+        CHECK(game::findScore(c.registry())->points[0] == w.score());
+        CHECK(*w.world.worldHash() == *c.worldHash());
+    }
+
 } // TEST_SUITE

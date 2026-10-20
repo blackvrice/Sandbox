@@ -125,6 +125,7 @@ private:
     void loadBehaviorJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
     void loadMode(const PackDir& p, const SourceFile& f);
     void loadTrigger(const PackDir& p, const SourceFile& f);
+    void loadTriggerJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
     // 트리거 노드 값 하나 (표의 타입 · 범위 — V3 · V7 · V2). 맞으면 true
     bool checkTriggerParam(const PackDir& p, const SourceFile& f, const trigger::ParamSpec& spec, const json& v,
                            const std::string& at);
@@ -168,6 +169,7 @@ private:
     std::map<std::string, std::string, std::less<>> m_interactUsers; // action → 처음 쓴 behavior (V4)
     u32 m_ruleOrder = 0;
     u32 m_triggerOrder = 0;
+    std::map<std::string, u32, std::less<>> m_replacedTriggerOrder; // 오버레이가 바꾼 팩 Trigger 의 정의 순서
     const ContentOverlay* m_overlay = nullptr;
     std::map<std::string, u32, std::less<>> m_replacedRuleOrder; // 오버레이가 바꾼 팩 Rule 의 정의 순서
 };
@@ -1701,13 +1703,28 @@ void ContentLoaderImpl::loadTrigger(const PackDir& p, const SourceFile& f) {
         error(f.display, "", "JSON", "Trigger 객체여야 한다");
         return;
     }
+    loadTriggerJson(p, f, j, false);
+}
+
+// 오버레이 (v0.2 M4-T3): 팩 항목을 바꾸면 그 정의 순서(실행 순서)를 이어받고, 더한 것은 모든 팩 트리거 뒤
+void ContentLoaderImpl::loadTriggerJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay) {
     bool ok = onlyKeys(j, {"id", "name", "limits", "nodes", "links"}, f, "");
     TriggerDef t;
     t.file = f.display;
     t.raw = j;
+    t.overlay = fromOverlay;
     t.order = m_triggerOrder++;
     if (!j.contains("id") || !checkId(p, f, "/id", j["id"], t.id)) {
         return;
+    }
+    if (overridden(ContentKind::Trigger, t.id, fromOverlay)) {
+        m_replacedTriggerOrder[t.id] = t.order;
+        return;
+    }
+    if (fromOverlay) {
+        if (const auto it = m_replacedTriggerOrder.find(t.id); it != m_replacedTriggerOrder.end()) {
+            t.order = it->second;
+        }
     }
     t.name = t.id;
     if (j.contains("name")) {
@@ -2310,6 +2327,9 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
             error("terrain.json", "", "V1", std::format("머티리얼 id '{}' 중복", m_db.m_materials[i].id));
         }
     }
+    // Trigger 도 정의 순서 (실행 순서 — 오버레이가 바꾼 것은 원래 자리, 더한 것은 맨 뒤)
+    std::stable_sort(m_db.m_triggers.begin(), m_db.m_triggers.end(),
+                     [](const TriggerDef& a, const TriggerDef& b) { return a.order < b.order; });
     // Rule 은 정의 순서 (오버레이가 바꾼 Rule 은 원래 자리 — 오버레이로 더한 것은 맨 뒤)
     std::stable_sort(m_db.m_rules.begin(), m_db.m_rules.end(),
                      [](const Rule& a, const Rule& b) { return a.order < b.order; });
@@ -2371,6 +2391,9 @@ void ContentLoaderImpl::loadOverlay(const ContentOverlay& overlay) {
                 break;
             case ContentKind::Behavior:
                 loadBehaviorJson(*pack, f, value, true);
+                break;
+            case ContentKind::Trigger:
+                loadTriggerJson(*pack, f, value, true);
                 break;
             }
         }

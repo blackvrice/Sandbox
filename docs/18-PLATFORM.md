@@ -9,8 +9,8 @@
 ## 0. 지금
 
 ```text
-버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, 다음 M4)
-다음     v0.2 M4-T3 — 트리거 에디터 폼 (노드 목록 · 인스펙터 양식, 편집은 EditContent — 오버레이 경로)
+버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, M4 ✅, 다음 M5)
+다음     v0.2 M5-T1 — Test Play (편집 월드의 메모리 스냅숏에서 분기 세션, Stop 이면 버리고 원본 그대로)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -138,7 +138,9 @@ M4 Visual Trigger
   T2 ✅ 실행: 단계 17c Triggers (세션 Running 만) — 틱 처음 스냅숏으로 이벤트, 같은 틱 이어짐 (destroy → death · spawn →
         area_enter · score.add → score), 예산 perTick · 틱 1024 실행 · 65536 줄, 효과는 PlayerAction 과 공용 applyEffectNow,
         eco 트리거 eco.rabbit_lost (ADR-0051)
-  T3 에디터 폼 (노드 목록 · 인스펙터 양식) — 편집은 EditContent 명령 (오버레이 경로)
+  T3 ✅ 에디터 폼: "콘텐츠" 창의 트리거 — 표 기반 노드 · 연결 양식 (editor/ui/TriggerForm) · JSON 탭 · 실행 표현 줄,
+        편집 = EditContent{trigger} (오버레이 종류 Trigger, 프로토콜 11, 세이브 overlay/triggers/) (ADR-0052)
+  → M4 완료 (2026-10-20): 트리거 만들기 (폼) → 검사 (V10) → 적용 (게임 중에도) → 단계 17c 실행 → 세이브
 M5 Edit ↔ Test Play · GamePackage
   T1 Test Play: 편집 월드의 메모리 스냅숏에서 분기 세션, Stop 이면 버리고 원본 그대로 (선택 저장)
   T2 GamePackage 빌드 · 로드 (D-02: 형식 · 다이제스트), SaveGame 결속 (패키지 다이제스트 · 게임 버전)
@@ -230,7 +232,7 @@ M3-T3 ✅  07 5장 (게임 키), 10 9장 (게임 키 · 카메라 처음 자리)
           ADR-0049
 M4-T1 ✅  11 (1 · 8 · 10장 Trigger · V10), 03 6.4 (Trigger 와 Rule), 13, 17, ADR-0050
 M4-T2 ✅  03 2장 (17c), 04 (simVersion 이력), 11 (0 · 10장 실행), 13, 17, ADR-0051
-M4-T3     10 (트리거 편집), ADR
+M4-T3 ✅  10 8장 (트리거 폼), 08 (프로토콜 11), 09 3장 (overlay/triggers), 11 10장, 13, 17, ADR-0052
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
@@ -254,4 +256,5 @@ v0.2 M3-T2 뒤: Windows MSVC Debug 58/58 (render_tests_warp 제외 — 아래) �
 v0.2 M3-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외, + project_demo_protect) · unit 케이스 +6
 v0.2 M4-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_content +5 (test_trigger)
 v0.2 M4-T2 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_core +8 (test_trigger_run)
+v0.2 M4-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_editor +4 (test_trigger_form) · unit_core +1 · unit_network 갱신 (프로토콜 11)
 ```

@@ -189,7 +189,7 @@ TEST_SUITE("network") {
         badKind.writeVarU(static_cast<u8>(MessageId::ContentOverlay));
         badKind.writeBool(false);
         badKind.writeVarU(1);
-        badKind.writeU8(3);
+        badKind.writeU8(4); // 0~3 (3 = trigger, v0.2 M4-T3)
         badKind.writeString("eco.x");
         badKind.writeString("");
         CHECK_FALSE(decodeMessage(badKind.bytes()).has_value());

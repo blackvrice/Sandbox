@@ -45,6 +45,11 @@ struct Item {
             out.push_back({g.id, g.overlay, &g.raw});
         }
         break;
+    case content::ContentKind::Trigger:
+        for (const content::TriggerDef& t : db.triggers()) { // 실행 순서
+            out.push_back({t.id, t.overlay, &t.raw});
+        }
+        break;
     }
     return out;
 }
@@ -63,6 +68,10 @@ struct Item {
     case content::ContentKind::Behavior: {
         const content::BehaviorGraph* g = db.findBehavior(id);
         return g != nullptr ? &g->raw : nullptr;
+    }
+    case content::ContentKind::Trigger: {
+        const content::TriggerDef* t = db.findTrigger(id);
+        return t != nullptr ? &t->raw : nullptr;
     }
     }
     return nullptr;
@@ -117,6 +126,20 @@ void summary(const content::ContentDatabase& db, content::ContentKind kind, std:
                     const std::string from = t.from == content::kAnyState ? std::string("*") : g->states.at(t.from).id;
                     ImGui::BulletText("%s → %s  (우선순위 %d)", from.c_str(), g->states.at(t.to).id.c_str(),
                                       t.priority);
+                }
+                ImGui::TreePop();
+            }
+        }
+        break;
+    case content::ContentKind::Trigger:
+        if (const content::TriggerDef* t = db.findTrigger(id)) {
+            static constexpr std::array<const char*, 6> kEvents{"게임 시작", "매 틱", "타이머",
+                                                                "영역 진입", "점수",  "죽음"};
+            if (ImGui::TreeNode("##program", "%s · 조건 %zu · 효과 %zu · 틱마다 %u%s — 실행 표현 %zu 줄",
+                                kEvents.at(static_cast<usize>(t->event.kind)), t->conditions.size(), t->effects.size(),
+                                t->perTick, t->hasSubject ? " · 대상 있음" : "", t->program.size())) {
+                for (const std::string& line : describeProgram(*t)) {
+                    ImGui::TextDisabled("%s", line.c_str());
                 }
                 ImGui::TreePop();
             }
@@ -180,6 +203,8 @@ ecs::Json contentTemplate(content::ContentKind kind, const std::string& id) {
             {"action", "act"},
             {"range", 1.0},
             {"effects", ecs::Json::array({ecs::Json{{"op", "event"}, {"name", pack + ".event"}, {"who", "target"}}})}};
+    case content::ContentKind::Trigger:
+        return triggerTemplate(id);
     case content::ContentKind::Behavior:
         return ecs::Json{
             {"id", id},
@@ -229,6 +254,8 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     kindButton("행동 (Behavior)", content::ContentKind::Behavior);
     ImGui::SameLine();
     kindButton("Prefab", content::ContentKind::Prefab);
+    ImGui::SameLine();
+    kindButton("트리거", content::ContentKind::Trigger);
     ImGui::SameLine();
     ImGui::TextDisabled("· 오버레이 %zu", db->overlay().size());
 
@@ -315,8 +342,31 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
         ImGui::TextDisabled("보기만 — 지금 역할로는 콘텐츠를 바꿀 수 없습니다");
     }
     const f32 issuesHeight = 90.f * dpi();
-    inputJson("##json", st.text, {-1, std::max(120.f * dpi(), ImGui::GetContentRegionAvail().y - issuesHeight)},
-              !editable);
+    const ImVec2 editSize{-1, std::max(120.f * dpi(), ImGui::GetContentRegionAvail().y - issuesHeight)};
+    if (st.kind == content::ContentKind::Trigger) {
+        // 트리거: 폼 (원본 JSON 을 바로 고친다 — 검사 · 적용은 아래 그대로) · JSON
+        if (ImGui::BeginTabBar("##trigger_tabs")) {
+            if (ImGui::BeginTabItem("폼")) {
+                ImGui::BeginChild("##form", {editSize.x, editSize.y - ImGui::GetFrameHeightWithSpacing()},
+                                  ImGuiChildFlags_Borders);
+                ecs::Json j = ecs::Json::parse(st.text, nullptr, false);
+                if (j.is_discarded() || !j.is_object()) {
+                    ImGui::TextColored({1.f, 0.5f, 0.4f, 1.f}, "JSON 이 깨져 있습니다 — JSON 탭에서 고치십시오");
+                } else if (drawTriggerForm(j, st.trigger, *db, !editable)) {
+                    st.text = j.dump(2);
+                }
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("JSON")) {
+                inputJson("##json", st.text, {editSize.x, editSize.y - ImGui::GetFrameHeightWithSpacing()}, !editable);
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+    } else {
+        inputJson("##json", st.text, editSize, !editable);
+    }
     const bool dirty = st.isNew || st.text != st.loaded;
     if (ImGui::Button("검사")) {
         (void)checkContentEdit(host, st.kind, st.selected, st.text, st.issues);
