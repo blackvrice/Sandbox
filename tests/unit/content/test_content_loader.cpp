@@ -629,3 +629,29 @@ TEST_SUITE("content") {
         CHECK(r.db.findPrefab("t.spawner") != nullptr);
     }
 } // TEST_SUITE
+
+// 팩의 presentation/input.json (v0.2 M3-T3, ADR-0049): 원문만 PackInfo 에, contentHash 에 들지 않는다
+TEST_SUITE("content") {
+    TEST_CASE("content: presentation/input.json 은 PackInfo.inputBindings 로 — 검사 · contentHash 밖") {
+        constexpr std::string_view kInput = R"({"format": "sandbox.input", "version": 1,
+            "actions": {"play.action.t.x": ["Q"]}})";
+        TempContent with("input_with");
+        with.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/presentation/input.json", kInput);
+        TempContent without("input_without");
+        without.file("t/pack.json", kPack).file("t/tags.json", kTags);
+        TempContent broken("input_broken");
+        broken.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/presentation/input.json", "{nope");
+        const auto a = with.load();
+        const auto b = without.load();
+        const auto c = broken.load();
+        INFO(dumpIssues(a));
+        REQUIRE(a.ok());
+        CHECK(a.issues.empty());
+        REQUIRE(a.db.packs().size() == 1);
+        CHECK(a.db.packs()[0].inputBindings == kInput);
+        CHECK(b.db.packs()[0].inputBindings.empty());
+        CHECK(a.db.contentHash() == b.db.contentHash());
+        CHECK(c.ok()); // 형식은 클라이언트가 본다 (ActionMap) — 콘텐츠 검사는 원문을 들고만 간다
+        CHECK(c.db.contentHash() == b.db.contentHash());
+    }
+} // TEST_SUITE

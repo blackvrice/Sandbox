@@ -102,6 +102,13 @@ TEST_SUITE("platform") {
         CHECK(m.find("debug.new").has_value());
         CHECK(m.conflicts().empty());
 
+        // 접두사로 고르기 (v0.2 M3-T3 — 게임 키 play.*)
+        const ActionMap cams = m.withPrefix("camera.");
+        CHECK(cams.size() == 2);
+        CHECK(cams.name(0) == "camera.drag");
+        CHECK(cams.find("camera.up").has_value());
+        CHECK(m.withPrefix("nothing.").size() == 0);
+
         auto again = ActionMap::parse(m.toJson(), "roundtrip");
         REQUIRE(again.has_value());
         CHECK(again->toJson() == m.toJson());

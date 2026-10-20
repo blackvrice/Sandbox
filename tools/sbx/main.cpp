@@ -59,6 +59,7 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     n.contentRoot = opt.contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                             : std::filesystem::path(opt.contentRoot);
     n.seed = opt.seed;
+    n.gameMode = opt.mode;
     const auto made = project::createProject(std::filesystem::path(opt.dir), n, engineVersion(), catalog);
     if (!made) {
         printErr(made.error().describe());
@@ -75,6 +76,10 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
                 opt.from.empty() ? "빈 월드" : opt.from.c_str(), packs.empty() ? "내장" : packs.c_str(),
                 made->manifest.entryWorld.c_str(), static_cast<unsigned long long>(made->worldTick),
                 made->worldEntities);
+    if (!made->manifest.gameMode.empty()) {
+        std::printf("  게임 모드 %s (Lobby 로 열린다 — 클라이언트 \"게임\" 패널의 시작 · 서버 --start-game)\n",
+                    made->manifest.gameMode.c_str());
+    }
     std::printf("  실행: SandboxClient --world %s  ·  서버: SandboxServer --world %s\n", opt.dir.c_str(),
                 opt.dir.c_str());
     return kExitOk;

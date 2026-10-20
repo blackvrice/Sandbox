@@ -1,0 +1,42 @@
+# 데모 모드 "토끼 지키기" (v0.2 M3-T3, ADR-0049): sbx new --from ecosystem_small --mode eco.protect 만으로 게임 프로젝트가
+# 되고 (매니페스트 schemaVersion 2 gameMode), sbx check 가 오류 · 경고 0, SandboxServer --start-game 이 카운트다운(3 초)을
+# 지나 --ticks 까지 간다 (그 사이에 끝 조건 — 토끼 0 · 늑대 0 · 2 분 — 이 맞지 않는다). 없는 모드는 sbx new 가 거절한다.
+#   cmake -DSBX=<sbx> -DSERVER=<SandboxServer> -DOUT=<새 프로젝트 폴더> -DTICKS=<n> -P project_demo.cmake
+foreach(v SBX SERVER OUT TICKS)
+    if(NOT DEFINED ${v})
+        message(FATAL_ERROR "${v} 가 필요합니다")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${OUT}")
+execute_process(COMMAND "${SBX}" new "${OUT}" --id ctest.demo --name "토끼 지키기" --from ecosystem_small --mode eco.nope
+    RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+if(rc EQUAL 0 OR NOT err MATCHES "eco\\.nope" OR NOT err MATCHES "eco\\.protect")
+    message(FATAL_ERROR "없는 모드로 sbx new 가 성공했거나 있는 모드를 알려 주지 않았습니다:\n${out}${err}")
+endif()
+execute_process(COMMAND "${SBX}" new "${OUT}" --id ctest.demo --name "토끼 지키기" --from ecosystem_small --mode eco.protect
+    RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+message("${out}${err}")
+if(NOT rc EQUAL 0 OR NOT out MATCHES "게임 모드 eco\\.protect")
+    message(FATAL_ERROR "sbx new --mode 실패 (종료 코드 ${rc})")
+endif()
+file(READ "${OUT}/sandbox.project.json" manifest)
+string(JSON schema GET "${manifest}" schemaVersion)
+string(JSON mode GET "${manifest}" gameMode)
+if(NOT schema EQUAL 2 OR NOT mode STREQUAL "eco.protect")
+    message(FATAL_ERROR "매니페스트가 schemaVersion 2 · gameMode eco.protect 가 아닙니다: ${manifest}")
+endif()
+if(NOT EXISTS "${OUT}/content/ecosystem/presentation/input.json")
+    message(FATAL_ERROR "팩의 게임 키 (presentation/input.json) 가 복사되지 않았습니다")
+endif()
+execute_process(COMMAND "${SBX}" check "${OUT}" RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+message("${out}${err}")
+if(NOT rc EQUAL 0 OR NOT out MATCHES "게임 모드 eco\\.protect" OR NOT out MATCHES "프로젝트 검사: 오류 0, 경고 0 [^\n]*시작 월드 열림")
+    message(FATAL_ERROR "데모 프로젝트가 검사를 통과하지 못했습니다 (종료 코드 ${rc})")
+endif()
+execute_process(COMMAND "${SERVER}" --world "${OUT}" --port 0 --start-game --ticks ${TICKS} --exit --log-level info
+    RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+message("${out}${err}")
+if(NOT rc EQUAL 0 OR NOT "${out}${err}" MATCHES "게임 모드 eco\\.protect — 바로 시작" OR NOT out MATCHES "tick ${TICKS} hash 0x")
+    message(FATAL_ERROR "서버가 데모 게임을 시작해 진행하지 못했습니다 (종료 코드 ${rc})")
+endif()
+file(REMOVE_RECURSE "${OUT}")

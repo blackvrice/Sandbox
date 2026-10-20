@@ -202,6 +202,16 @@ void ActionMap::merge(const ActionMap& overrides) {
     }
 }
 
+ActionMap ActionMap::withPrefix(std::string_view prefix) const {
+    ActionMap out;
+    for (const Action& a : m_actions) {
+        if (a.name.starts_with(prefix)) {
+            out.m_actions.push_back(a); // 이름 순서 그대로
+        }
+    }
+    return out;
+}
+
 std::optional<ActionId> ActionMap::find(std::string_view name) const noexcept {
     const auto it =
         std::ranges::lower_bound(m_actions, name, {}, [](const Action& a) -> std::string_view { return a.name; });

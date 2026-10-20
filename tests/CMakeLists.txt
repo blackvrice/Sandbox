@@ -88,6 +88,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_world_panel.cpp
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
+        unit/client/test_play_keys.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -98,6 +99,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
@@ -389,6 +391,12 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_game.cmake")
         set_tests_properties(project_game_start PROPERTIES LABELS "content" TIMEOUT 180)
+        # 데모 모드 "토끼 지키기" — sbx new --mode eco.protect → 검사 → 서버 --start-game (v0.2 M3-T3)
+        add_test(NAME project_demo_protect
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_demo"
+                    -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=150
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_demo.cmake")
+        set_tests_properties(project_demo_protect PROPERTIES LABELS "content" TIMEOUT 180)
     endif()
 endif()
 

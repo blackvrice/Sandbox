@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-20 — v0.2 M3-T3: 게임 키 · 카메라 처음 자리 · 데모 모드 "토끼 지키기" → M3 완료 (ADR-0049)
+
+**무엇을**
+
+- 게임 키: 콘텐츠 팩의 `presentation/input.json` (sandbox.input 형식) — 로더는 원문만 `PackInfo.inputBindings` 로 (contentHash ·
+  검사 밖). 클라이언트 `apps/client/PlayKeys` 가 팩 순서로 합치고 play.* 만 남기며 (다른 이름 경고) `--input` 의 play.* 가 마지막에
+  이긴다, 엔진 키와 겹치면 경고. `play.action.<id>` 를 누르면 커서 자리에 PlayerAction (Application::handlePlayKeys — 엔진 키와
+  따로 둔 ActionMap · ActionState). "행동" 패널이 키를 보인다. `ActionMap::withPrefix` 추가.
+- 카메라 처음 자리: 컴포넌트 `game.camera_start {height}` (월드에 놓는다). NetworkSession::cameraStart() (netId 가 가장 작은 것 ·
+  generation), Application 이 월드마다 한 번 · Home 으로 맞춘다 (없으면 월드 전체).
+- 데모: `content/ecosystem` 에 modes/protect.json (eco.protect "토끼 지키기"), actions.json (eco.feed · eco.trap),
+  presentation/input.json (Q · E). `createProject` 의 gameMode · `sbx new --mode` (없는 모드는 NotFound + 있는 모드 목록).
+- 시험: test_play_keys (client 4), test_game_score +1 (저장소 eco 의 데모 진행), test_game_project +1, test_content_loader +1,
+  test_action_map (withPrefix), 카탈로그 22, CTest project_demo_protect.
+- 문서: ADR-0049, 02 · 07 · 10 · 11 · 13 · 15 · 17 · 18 (M3 ✅ — 다음 M4-T1), adr/README.
+
+**왜**
+
+- 게임이 자기 키 · 처음 화면을 주고, `sbx new` 한 줄로 바로 해 볼 수 있는 미니게임이 있어야 v0.2 완료 기준("템플릿만으로
+  미니게임")에 닿는다. 키는 표현이라 팩의 클라 전용 폴더에 두어 원격 클라이언트도 받고 해시는 그대로다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 59/59 통과 (render_tests_warp 제외 — M3-T2 항목 참고, `chcp 65001` 뒤). 골든 · 리플레이 해시 그대로
+  (det_*), 프로토콜 10 · 세이브 형식 · kSimVersion 그대로.
+- 런타임: `sbx new <d> --from ecosystem_small --mode eco.protect` → `SandboxClient --headless --world <d> --frames 90` (InWorld,
+  Lobby tick 1 · 개체 301, 게임 키 경고 없음) · CTest 의 `SandboxServer --start-game --ticks 150`.
+- eco 팩 contentHash 가 바뀌었다 (actions.json · modes/ 추가) — 예전 eco 세이브 · 리플레이는 P5 경고로 열린다.
+
+**남은 일**
+
+- M4-T1 Visual Trigger 스키마.
+- 행동 말고 다른 play.* 키, 카메라 따라가기 · 이동 범위, 카메라 처음 자리 표시 아이콘 — [계획].
+- (이전 항목의 알림 그대로) `--ticks N --exit` 이 게임이 일찍 끝나면 멈추는 문제는 따로 고친다.
+
+---
+
 ## 2026-10-20 — v0.2 M3-T2: 점수 · 팀 · 스폰 지점 — game.score · 효과 score.add · 끝 조건 score · 팀 태그 · game.spawn_point (ADR-0048)
 
 **무엇을**

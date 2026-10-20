@@ -60,6 +60,8 @@ public:
 
     // overrides 에 있는 액션은 바인딩을 통째로 바꾸고(빈 배열 = 해제), 없는 액션은 추가한다.
     void merge(const ActionMap& overrides);
+    // 이름이 prefix 로 시작하는 액션만 (v0.2 M3-T3 — 팩 바인딩의 "play." · 사용자 덮어쓰기 고르기)
+    [[nodiscard]] ActionMap withPrefix(std::string_view prefix) const;
 
     [[nodiscard]] std::optional<ActionId> find(std::string_view name) const noexcept;
     [[nodiscard]] usize size() const noexcept { return m_actions.size(); }

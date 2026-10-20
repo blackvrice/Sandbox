@@ -28,7 +28,11 @@ void drawActionPanel(const ActionsInfo& info, ActionPanelState& state) {
     }
     ImGui::BeginDisabled(!info.canAct);
     for (const ActionRow& a : info.actions) {
-        const std::string label = std::format("{}  (반경 {:.1f} · {}개)##{}", a.name, a.range, a.maxTargets, a.id);
+        const auto key = state.keys.find(a.id);
+        const std::string label =
+            key != state.keys.end() && !key->second.empty()
+                ? std::format("[{}] {}  (반경 {:.1f} · {}개)##{}", key->second, a.name, a.range, a.maxTargets, a.id)
+                : std::format("{}  (반경 {:.1f} · {}개)##{}", a.name, a.range, a.maxTargets, a.id);
         if (ImGui::Selectable(label.c_str(), state.armed == a.id)) {
             state.armed = state.armed == a.id ? std::string() : a.id; // 다시 누르면 놓는다
         }
@@ -38,7 +42,8 @@ void drawActionPanel(const ActionsInfo& info, ActionPanelState& state) {
     if (!info.canAct) {
         ImGui::TextDisabled("행동은 역할 player 부터");
     } else if (state.armed.empty()) {
-        ImGui::TextDisabled("행동을 고르고 월드를 클릭하세요");
+        ImGui::TextDisabled(state.keys.empty() ? "행동을 고르고 월드를 클릭하세요"
+                                               : "행동을 고르고 월드를 클릭 · [키] = 커서 자리에");
     } else {
         ImGui::TextDisabled("월드를 클릭하면 그 자리에 · Esc 로 놓기");
     }

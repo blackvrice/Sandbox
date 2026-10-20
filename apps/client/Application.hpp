@@ -23,6 +23,7 @@
 #include <string_view>
 
 #include "apps/client/FrameRenderer.hpp"
+#include "apps/client/PlayKeys.hpp"
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
@@ -114,6 +115,7 @@ private:
     [[nodiscard]] bool pressed(const std::optional<platform::ActionId>& id) const noexcept;
     void applyPendingTransition();
     void handleWorldInput(f64 dt);
+    void handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx);  // v0.2 M3-T3
     void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
     void handleEditor(editor::IEditorHost& host, const render::Camera2D& cam, Vec2 mousePx, f64 dt);
     void applyPanelActions(const PanelActions& act);
@@ -172,7 +174,12 @@ private:
     editor::ContentPanelState m_contentPanel; // 12C "콘텐츠"
     WorldPanelState m_worldPanel;             // 12D "월드" (Ctrl+S 도 이 이름으로 저장)
     ActionPanelState m_actionPanel;           // v0.2 M3-T1 "행동" — 쥐고 있으면 왼쪽 클릭 = 그 행동
-    f64 m_editorClock = 0;                    // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
+    // v0.2 M3-T3 게임 키 (팩 presentation/input.json 의 play.action.*) — 엔진 키와 따로 (PlayKeys.hpp)
+    PlayKeys m_playKeys;
+    platform::ActionState m_playState;
+    std::string m_playSignature;                // 팩 바인딩 · 행동 목록이 바뀌면 다시 만든다
+    std::optional<u32> m_cameraStartGeneration; // game.camera_start 를 맞춘 월드 (generation)
+    f64 m_editorClock = 0;                      // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 
     // 구간 시간: 창(0.5 초)마다 평균을 m_timings 로, 전체 합은 m_total 에 (프레임 수는 frames)

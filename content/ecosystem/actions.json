@@ -1,0 +1,26 @@
+[
+  {
+    "id": "eco.feed",
+    "name": "먹이 주기",
+    "targets": { "tags": { "all": ["prey"], "none": ["dead"] } },
+    "range": 3,
+    "maxTargets": 3,
+    "conditions": [ { "field": "target.life.energy.value", "op": "<", "value": 90 } ],
+    "effects": [
+      { "op": "field.add", "who": "target", "field": "life.energy.value", "value": 25 },
+      { "op": "event",     "name": "eco.fed" }
+    ]
+  },
+  {
+    "id": "eco.trap",
+    "name": "덫 놓기",
+    "targets": { "tags": { "all": ["predator"] } },
+    "range": 1.5,
+    "maxTargets": 1,
+    "effects": [
+      { "op": "score.add", "value": 1 },
+      { "op": "event",     "name": "eco.trapped" },
+      { "op": "destroy",   "who": "target" }
+    ]
+  }
+]

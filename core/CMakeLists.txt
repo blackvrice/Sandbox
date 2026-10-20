@@ -45,6 +45,7 @@ add_library(SandboxCore STATIC
     components/core/Movement.hpp
     components/ai/Ai.hpp
     components/debug/RandomWalk.hpp
+    components/game/CameraStart.hpp
     components/game/GameScore.hpp
     components/game/GameSession.hpp
     components/game/SpawnPoint.hpp

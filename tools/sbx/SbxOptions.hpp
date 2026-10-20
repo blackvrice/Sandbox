@@ -1,7 +1,8 @@
 #pragma once
 // sbx — 게임 프로젝트 도구 명령줄 (v0.2 M1-T4, ADR-0043). docs/18-PLATFORM.md 5장, docs/15-BUILD.md 7장.
 //
-//   sbx new <폴더> --id <gameId> [--name <이름>] [--from <시나리오>] [--content-root <d>] [--seed <n>]
+//   sbx new <폴더> --id <gameId> [--name <이름>] [--from <시나리오>] [--mode <GameMode id>] [--content-root <d>]
+//           [--seed <n>]
 //   sbx check <폴더>
 //   sbx templates
 //
@@ -29,6 +30,7 @@ struct SbxOptions {
     std::string from;        // new --from <시나리오> (비면 빈 월드)
     std::string contentRoot; // new --content-root (비면 빌드 때 정한 저장소의 content/)
     u64 seed = 1;            // new --seed
+    std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
 };
 
 [[nodiscard]] Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args);

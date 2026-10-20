@@ -131,6 +131,9 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 - ActionState: pressed = 켜짐 && (지난 프레임 꺼짐 || 바인딩 키가 이번 프레임에 새로 눌림), released = 꺼짐 && 지난 프레임 켜짐.
 - 같은 바인딩이 두 액션에 있으면 conflicts() 가 보고한다 (로드는 성공 — 앱이 경고).
 - 기본 바인딩은 SandboxClient 실행 파일 안 (apps/client/DefaultInput). --input <file> 이 액션 단위로 덮어쓴다 (빈 배열 = 해제).
+- 게임 키 (v0.2 M3-T3, ADR-0049): 콘텐츠 팩의 presentation/input.json 이 play.* 만 준다 (다른 이름은 무시 · 경고). 팩 로드
+  순서로 합치고 --input 의 play.* 가 마지막에 이긴다. 엔진 키와 따로 둔 ActionMap (apps/client/PlayKeys — withPrefix 로 고른다),
+  엔진 키와 같은 바인딩은 경고만.
   [계획] 사용자 경로 platformPaths()/settings/input.json 자동 로드 · 저장 — Phase 8.
 ```
 

@@ -285,4 +285,57 @@ TEST_SUITE("core") {
         CHECK(ha == hb);
         CHECK(pa == pb);
     }
+
+    TEST_CASE("game: 데모 모드 eco.protect (저장소 콘텐츠) — 덫으로 하나뿐인 늑대를 잡으면 +1 · 승리, 먹이 주기") {
+        static const content::ContentDatabase eco = [] {
+            const std::vector<std::string> ids{"eco"};
+            auto r = content::loadContent(SBX_CONTENT_DIR, ids, catalog());
+            REQUIRE_MESSAGE(r.has_value(), r.error().describe());
+            return std::move(*r);
+        }();
+        REQUIRE(eco.findMode("eco.protect") != nullptr);
+        REQUIRE(eco.findPlayerAction("eco.feed") != nullptr);
+        REQUIRE(eco.findPlayerAction("eco.trap") != nullptr);
+        sim::SimulationWorld world{catalog(), eco, smallDesc()};
+        u32 seq = 0;
+        const auto run = [&](cmd::CommandPayload p) {
+            world.enqueue(cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, 1, ++seq}, std::move(p)});
+            world.tick();
+            REQUIRE(world.lastResults().size() == 1);
+            return world.lastResults().front();
+        };
+        REQUIRE(game::resetSession(world, "eco.protect").has_value());
+        const auto wolf = run(cmd::CreateEntity{{-12.f, -12.f}, {}, "eco.wolf"});
+        REQUIRE(wolf.accepted);
+        const auto rabbit =
+            run(cmd::CreateEntity{{12.f, 12.f},
+                                  {cmd::ComponentValue{ecs::stableIdOf<comp::Energy>, ecs::Json{{"value", 40}}}},
+                                  "eco.rabbit"});
+        REQUIRE(rabbit.accepted);
+        REQUIRE(run(cmd::GameControl{cmd::GameControlOp::Start}).accepted);
+        for (int i = 0; i < 200 && game::findSession(world.registry())->gameState() != GameState::Running; ++i) {
+            world.tick();
+        }
+        REQUIRE(game::findSession(world.registry())->gameState() == GameState::Running);
+
+        const ecs::EntityId r = world.resolve(rabbit.created.front());
+        REQUIRE(r.valid());
+        const f32 before = world.registry().read<comp::Energy>(r).value;
+        const Vec2 rabbitAt = world.registry().read<comp::Transform>(r).position;
+        const auto fed = run(cmd::PlayerAction{"eco.feed", rabbitAt});
+        INFO(fed.error.describe());
+        CHECK(fed.accepted);
+        CHECK(world.registry().read<comp::Energy>(r).value > before);
+
+        const ecs::EntityId w = world.resolve(wolf.created.front());
+        REQUIRE(w.valid());
+        const auto trapped = run(cmd::PlayerAction{"eco.trap", world.registry().read<comp::Transform>(w).position});
+        INFO(trapped.error.describe());
+        CHECK(trapped.accepted);
+        const comp::GameSession& s = *game::findSession(world.registry());
+        CHECK(game::findScore(world.registry())->points[0] == 1);
+        CHECK(s.gameState() == GameState::Finished); // 늑대 0 → 규칙 2 (win)
+        CHECK(s.outcome() == comp::GameOutcome::Win);
+        CHECK(s.rule == 2);
+    }
 }

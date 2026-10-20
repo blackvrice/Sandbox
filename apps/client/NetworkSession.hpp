@@ -16,9 +16,10 @@
 // 12B: 컴포넌트 값 = 복제 월드의 EditorVisible 값 + 선택 상세(Inspect)의 서버 전용 값, 개체 목록, 그린 위치 (ADR-0029).
 // 12C: 접속자 표 · 역할 바꾸기 요청, 역할 → EditPermissions, 서버가 보낸 월드 오버레이를 팩 콘텐츠에 얹은 DB 를
 // content() 로 (오버레이가 바뀔 때마다 다시 — 검증에 실패하면 팩 그대로 쓰고 경고), --owner-key (ADR-0030).
-// 12D: "월드" 패널의 세이브 · 로드 · 리플레이 요청 (접속하면 목록을 한 번, 받아들여진 결과마다 다시), 서버 월드가 바뀌면
-// (WorldChanged) 새 복제 월드로 — 선택 · 기다리던 명령을 비우고 worldGeneration 이 올라 에디터도 기록을 비운다. 재생 중
-// 일시정지 · 한 틱 · 속도는 재생을 다룬다 (서버 통계의 재생 상태로 판단). 로컬 서버의 세이브 폴더 = savesRoot (ADR-0031).
+// 12D: "월드" 패널의 세이브 · 로드 · 리플레이 요청 (접속하면 목록을 한 번, 받아들여진 결과마다 다시), 서버 월드가
+// 바뀌면 (WorldChanged) 새 복제 월드로 — 선택 · 기다리던 명령을 비우고 worldGeneration 이 올라 에디터도 기록을 비운다.
+// 재생 중 일시정지 · 한 틱 · 속도는 재생을 다룬다 (서버 통계의 재생 상태로 판단). 로컬 서버의 세이브 폴더 = savesRoot
+// (ADR-0031).
 //
 // 한 스레드(Main)에서 쓴다.
 
@@ -112,6 +113,7 @@ public:
     [[nodiscard]] u32 worldGeneration() const override { return m_session ? m_session->generation() : 0; }
     // ---- v0.2 M2-T3: 게임 진행 ----
     [[nodiscard]] std::optional<GameInfo> game() const override;
+    [[nodiscard]] std::optional<CameraStart> cameraStart() const override;
     void gameCommand(GameCommand c) override;
     // ---- v0.2 M3-T1: 플레이어 행동 ----
     [[nodiscard]] std::optional<ActionsInfo> playerActions() const override;

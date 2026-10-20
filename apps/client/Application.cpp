@@ -327,9 +327,19 @@ void Application::handleWorldInput(f64 dt) {
     const InputState& in = m_input.downstream();
     render::Camera2D& cam = m_renderWorld.camera;
     const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
-    if (!m_cameraFitted || pressed(m_ids.cameraReset)) {
+    // 카메라 처음 자리 (v0.2 M3-T3): 월드의 game.camera_start 가 보이면 월드마다 (generation) 한 번, Home 도 그리로.
+    // 없으면 월드 전체에 맞춘다 — 처음 맞춘 화면이 월드 전체라 관심 영역에 든 지점이 곧 복제된다
+    const std::optional<CameraStart> start = m_config.world->cameraStart();
+    if (!m_cameraFitted || (pressed(m_ids.cameraReset) && !start)) {
         cam.fit(m_config.world->bounds());
         m_cameraFitted = true;
+    }
+    if (start && (m_cameraStartGeneration != start->generation || pressed(m_ids.cameraReset))) {
+        cam.center = start->center;
+        const f32 height = std::clamp(start->height, 2.f, 512.f);
+        cam.pixelsPerUnit = std::clamp(static_cast<f32>(cam.viewportHeight) / height,
+                                       render::Camera2D::kMinPixelsPerUnit, render::Camera2D::kMaxPixelsPerUnit);
+        m_cameraStartGeneration = start->generation;
     }
     // 키보드 이동: 화면 기준 초당 뷰포트 짧은 변의 0.6 배
     const f32 speed = 0.6f * static_cast<f32>(std::min(cam.viewportWidth, cam.viewportHeight));
@@ -357,6 +367,7 @@ void Application::handleWorldInput(f64 dt) {
             m_config.world->playerAction(m_actionPanel.armed, cam.screenToWorld(mousePx));
         }
     }
+    handlePlayKeys(cam, mousePx);
     if (acting) {
         // 클릭은 행동이 가져갔다 — 카메라 · 단축키는 아래에서 그대로
     } else if (editor::IEditorHost* host = m_config.world->editorHost()) {
@@ -408,6 +419,51 @@ void Application::handleWorldInput(f64 dt) {
     // 빠른 저장 (12D): "월드" 패널의 이름으로 (권한 · 결과는 서버 — 패널의 마지막 줄)
     if (pressed(m_ids.save) && m_config.world->worldOps()) {
         m_config.world->worldOp(WorldOp::Save, m_worldPanel.name);
+    }
+}
+
+// 게임 키 (v0.2 M3-T3, ADR-0049): 팩 바인딩이 바뀌면 다시 만들고, play.action.<id> 를 누르면 커서 자리에 그 행동
+void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
+    const std::optional<ActionsInfo> acts = m_config.world->playerActions();
+    if (!acts) {
+        if (!m_playSignature.empty()) {
+            m_playKeys = {};
+            m_playSignature.clear();
+            m_actionPanel.keys.clear();
+            m_playState.reset();
+        }
+        return;
+    }
+    std::string signature;
+    for (const PackInput& p : acts->packInput) {
+        signature += p.pack + '\0' + p.text + '\0';
+    }
+    for (const ActionRow& a : acts->actions) {
+        signature += a.id + '\0';
+    }
+    if (signature != m_playSignature) {
+        m_playSignature = std::move(signature);
+        m_playKeys = buildPlayKeys(acts->packInput, m_actionMap);
+        for (const std::string& w : m_playKeys.warnings) {
+            log::warn("client", "게임 키: {}", w);
+        }
+        m_actionPanel.keys.clear();
+        for (const ActionRow& a : acts->actions) {
+            if (std::string label = playKeyLabel(m_playKeys.map, a.id); !label.empty()) {
+                m_actionPanel.keys[a.id] = std::move(label);
+            }
+        }
+        m_playState.reset();
+    }
+    m_playState.update(m_playKeys.map, m_input.downstream());
+    if (!acts->canAct) {
+        return; // 역할 player 아래 — 보내도 서버가 거절한다
+    }
+    for (const ActionRow& a : acts->actions) {
+        const auto id = m_playKeys.map.find(std::string(kPlayActionPrefix) + a.id);
+        if (id && m_playState.pressed(*id)) {
+            m_config.world->playerAction(a.id, cam.screenToWorld(mousePx));
+        }
     }
 }
 

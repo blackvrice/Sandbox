@@ -112,10 +112,23 @@ struct ActionRow {
     f32 range = 1;
     u32 maxTargets = 1;
 };
+// 팩의 presentation/input.json 원문 (v0.2 M3-T3 — 게임 키 기본값, PlayKeys.hpp)
+struct PackInput {
+    std::string pack; // 팩 폴더 (메시지용)
+    std::string text;
+};
 struct ActionsInfo {
-    std::vector<ActionRow> actions; // id 순
-    bool canAct = false;            // 역할 player 부터 (판단은 서버)
-    std::string message;            // 가장 최근 결과 · 거절 사유
+    std::vector<ActionRow> actions;   // id 순
+    bool canAct = false;              // 역할 player 부터 (판단은 서버)
+    std::string message;              // 가장 최근 결과 · 거절 사유
+    std::vector<PackInput> packInput; // 로드 순서, input.json 이 있는 팩만
+};
+
+// 카메라 처음 자리 (v0.2 M3-T3): 복제 월드의 game.camera_start. generation 이 바뀌면 (불러오기 · 재시작) 다시 맞춘다
+struct CameraStart {
+    Vec2 center{};
+    f32 height = 24.f; // 화면 세로에 보이는 월드 단위
+    u32 generation = 0;
 };
 
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
@@ -183,6 +196,8 @@ public:
     [[nodiscard]] virtual std::optional<ActionsInfo> playerActions() const { return std::nullopt; }
     // 명령 PlayerAction 을 보낸다 (결과는 playerActions().message)
     virtual void playerAction(std::string /*id*/, Vec2 /*world*/) {}
+    // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----
+    [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
 };
 
 } // namespace sbx::client

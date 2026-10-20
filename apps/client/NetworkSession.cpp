@@ -12,6 +12,8 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
+#include "core/components/core/Transform.hpp"
+#include "core/components/game/CameraStart.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/game/GameRules.hpp"
 #include "foundation/log/Log.hpp"
@@ -755,7 +757,36 @@ std::optional<ActionsInfo> NetworkSession::playerActions() const {
     }
     info.canAct = m_session->role() >= net::Role::Player;
     info.message = m_actionMessage;
+    for (const content::PackInfo& p : db->packs()) {
+        if (!p.inputBindings.empty()) {
+            info.packInput.push_back(PackInput{p.id, p.inputBindings});
+        }
+    }
     return info;
+}
+
+std::optional<CameraStart> NetworkSession::cameraStart() const {
+    const net::ClientWorld* w = clientWorld();
+    if (w == nullptr || !m_session) {
+        return std::nullopt;
+    }
+    // 복제 월드에는 saveId 가 없다 — netId 가 가장 작은 것 (순회 순서와 무관)
+    std::optional<CameraStart> best;
+    NetEntityId bestId = 0;
+    const ecs::Registry& reg = w->registry();
+    const auto* pool = reg.findPool<comp::CameraStart>();
+    if (pool == nullptr) {
+        return best;
+    }
+    for (const ecs::EntityId e : pool->entities()) {
+        const auto* tr = reg.tryRead<comp::Transform>(e);
+        const auto* id = reg.tryRead<comp::NetIdentity>(e);
+        if (tr != nullptr && id != nullptr && (!best || id->netId < bestId)) {
+            best = CameraStart{tr->position, reg.read<comp::CameraStart>(e).height, m_session->generation()};
+            bestId = id->netId;
+        }
+    }
+    return best;
 }
 
 void NetworkSession::playerAction(std::string id, Vec2 world) {

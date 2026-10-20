@@ -15,7 +15,8 @@
          core/content/ContentModel.hpp          Prefab · Rule · BehaviorGraph · PackInfo (참조는 로드 때 해석)
          core/content/TagSet.hpp                TagSet(256 비트) · TagExpr{all, any, none}
          core/content/ContentDatabase.{hpp,cpp} 조회 API (findPrefab · findBehavior · findTag · rules() …)
-팩       content/ecosystem/  (pack id "eco") — 7장 수치의 Grass/Rabbit/Wolf, 먹기 Rule 3개, Behavior 2개
+팩       content/ecosystem/  (pack id "eco") — 7장 수치의 Grass/Rabbit/Wolf, 먹기 Rule 3개, Behavior 2개,
+         (v0.2 M3-T3) 데모 모드 eco.protect · 행동 eco.feed · eco.trap · 게임 키 presentation/input.json (9장)
 검사     sbx_sim_check --validate-content eco  (CTest content_eco_validate: 오류·경고 0)
 
 초안과 달라진 점 · 구현에서 정한 것
@@ -85,6 +86,8 @@ content/<pack>/
   modes/*.json            GameMode 1파일 1개 (선택 — v0.2 M2, 9장)
   actions.json            PlayerAction 정의 (선택)
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
+    input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.
+                          "play.action.<PlayerAction id>": ["Q"] = 누르면 커서 자리에 그 행동. 로더는 원문만 PackInfo 에
 ```
 
 ```jsonc
@@ -373,4 +376,15 @@ result    win · lose · draw. team 이 있으면 그 팀의 승리 · 패배 (d
 스폰 지점 컴포넌트 game.spawn_point {prefab, count 1~64, radius 0~16} — 에디터로 월드에 놓는다 (core.transform 필요). 시작할 때
           지점을 saveId 순으로 prefab 을 count 개, 위치 ±radius 안에 만든다 (03 4장). 다시 나오기 · 주기적 생성은 [계획]
 [계획]    월드 오버레이로 고치기(EditContent), 가장 높은 팀 승리 · 점수 이벤트 (M4 Visual Trigger), 접속자별 점수
+```
+
+데모 모드 (v0.2 M3-T3, [ADR-0049](adr/0049-game-keys-pack-presentation-camera-start-demo-mode.md)) — `content/ecosystem`:
+
+```text
+modes/protect.json      eco.protect "토끼 지키기": 카운트다운 3 초, 토끼(prey) 0 → lose · 늑대(predator) 0 → win · 2 분 → win,
+                        재시작 manual
+actions.json            eco.feed "먹이 주기" (prey · 반경 3 · 3 마리 · energy < 90 → +25) · eco.trap "덫 놓기" (predator ·
+                        반경 1.5 · 1 마리 → score.add +1 · destroy)
+presentation/input.json play.action.eco.feed = Q · play.action.eco.trap = E
+만들기                  sbx new <폴더> --id <gameId> --from ecosystem_small --mode eco.protect (15 7장, CTest project_demo_protect)
 ```

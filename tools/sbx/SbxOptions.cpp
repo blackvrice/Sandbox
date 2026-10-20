@@ -37,7 +37,7 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             return args[++i];
         };
         const bool isNew = o.command == SbxCommand::New;
-        if (isNew && (a == "--id" || a == "--name" || a == "--from" || a == "--content-root")) {
+        if (isNew && (a == "--id" || a == "--name" || a == "--from" || a == "--mode" || a == "--content-root")) {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -45,6 +45,7 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             (a == "--id"     ? o.gameId
              : a == "--name" ? o.name
              : a == "--from" ? o.from
+             : a == "--mode" ? o.mode
                              : o.contentRoot) = std::string(*v);
         } else if (isNew && a == "--seed") {
             auto v = value();
@@ -77,6 +78,9 @@ std::string sbxUsage() {
            "      --name <이름>          표시 이름 (기본: gameId 의 마지막 마디)\n"
            "      --from <시나리오>      템플릿 — 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로 시작\n"
            "                             (없으면 빈 월드: 내장 콘텐츠 · 16 × 16 청크 · 일시정지)\n"
+           "      --mode <GameMode id>   게임 모드 (매니페스트 schemaVersion 2 gameMode — 템플릿 콘텐츠에 있어야 "
+           "한다)\n"
+           "                             데모: --from ecosystem_small --mode eco.protect (토끼 지키기)\n"
            "      --content-root <d>     --from 의 팩을 찾을 곳 (기본: 저장소의 content/)\n"
            "      --seed <n>             월드 시드 (기본 1)\n"
            "  check <폴더>               프로젝트 검사 (매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기)\n"

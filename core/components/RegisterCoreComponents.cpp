@@ -8,6 +8,7 @@
 #include "core/components/core/Transform.hpp"
 #include "core/components/core/Velocity.hpp"
 #include "core/components/debug/RandomWalk.hpp"
+#include "core/components/game/CameraStart.hpp"
 #include "core/components/game/GameScore.hpp"
 #include "core/components/game/GameSession.hpp"
 #include "core/components/game/SpawnPoint.hpp"
@@ -30,7 +31,7 @@ Expected<void> addAll(ecs::ComponentCatalog& catalog) {
 Expected<void> registerCoreComponents(ecs::ComponentCatalog& catalog) {
     return addAll<Transform, Velocity, Lifetime, Persistence, NetIdentity, Tags, PrefabSource, Age, Energy, Health,
                   Growth, Reproduce, RandomWalk, Movement, Collider, Sensor, Behavior, Path, GameSession, GameScore,
-                  SpawnPoint>(catalog);
+                  SpawnPoint, CameraStart>(catalog);
 }
 
 } // namespace sbx::comp

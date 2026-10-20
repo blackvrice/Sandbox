@@ -33,7 +33,8 @@ namespace sbx::project {
 inline constexpr std::string_view kManifestFile = "sandbox.project.json";
 inline constexpr u32 kManifestSchemaVersion = 2;    // 새로 쓰는 판
 inline constexpr u32 kMinManifestSchemaVersion = 1; // 읽을 수 있는 가장 옛 판
-// content.packs 상한 — 서버가 Reject 로 팩 목록을 알려 줄 수 있는 수 (network kMaxPacks 와 같다, static_assert 가 지킨다)
+// content.packs 상한 — 서버가 Reject 로 팩 목록을 알려 줄 수 있는 수 (network kMaxPacks 와 같다, static_assert 가
+// 지킨다)
 inline constexpr usize kMaxContentPacks = 16;
 
 struct GameManifest {
@@ -99,7 +100,8 @@ struct OpenedProject {
 
 // 새 프로젝트 만들기 (v0.2 M1-T4, ADR-0043). 템플릿 = 시나리오 하나 또는 빈 월드:
 //   빈 월드      내장 콘텐츠, 기본 경계 (16 × 16 청크), 일시정지로 시작 (편집하고 실행한다)
-//   시나리오     그 시나리오가 요구하는 팩(+ requires)을 contentRoot 에서 <프로젝트>/content 로 복사하고, 시나리오를 한 틱
+//   시나리오     그 시나리오가 요구하는 팩(+ requires)을 contentRoot 에서 <프로젝트>/content 로 복사하고, 시나리오를 한
+//   틱
 //                돌린 월드(초기 배치가 적용된 상태)를 시작 월드로 — 이후 시나리오의 보충 · 스크립트는 따라오지 않는다
 // 폴더는 없거나 비어 있어야 한다 (덮어쓰지 않는다 — AlreadyExists). 옆의 임시 폴더에 만들고 validateProject 를 통과하면
 // 제자리로 옮긴다. 엔진 범위는 1.0 전이면 ">=<엔진> <1.0.0", 그 뒤면 "^<major>"
@@ -109,6 +111,9 @@ struct NewProjectOptions {
     std::string fromScenario;          // 비면 빈 월드
     std::filesystem::path contentRoot; // fromScenario 의 팩을 찾을 곳
     u64 seed = 1;
+    // 비면 게임 모드 없음 (schemaVersion 1). 있으면 schemaVersion 2 + gameMode — 템플릿 콘텐츠에 있어야 한다
+    // (없으면 NotFound, 있는 모드를 알려 준다). v0.2 M3-T3 — 데모 모드 (sbx new --mode)
+    std::string gameMode;
 };
 struct NewProjectResult {
     GameManifest manifest;
@@ -125,8 +130,8 @@ struct NewProjectResult {
 // 프로젝트를 돌리는 서버 · 싱글플레이의 세이브 · 리플레이 폴더 기본값 (--saves 가 없을 때 — v0.2 M1-T5, ADR-0044):
 // <프로젝트>/worlds. 에디터 "월드" 창의 저장 · 불러오기가 프로젝트의 월드를 다룬다
 [[nodiscard]] std::filesystem::path projectSavesRoot(const std::filesystem::path& projectDir);
-// 시작 월드의 세이브 이름: entryWorld 가 "worlds/<이름>" 이면 그 이름 (Ctrl+S 기본값 — 편집한 맵이 게임의 시작 월드가 된다),
-// 아니면 nullopt (세이브 폴더 밖이다)
+// 시작 월드의 세이브 이름: entryWorld 가 "worlds/<이름>" 이면 그 이름 (Ctrl+S 기본값 — 편집한 맵이 게임의 시작 월드가
+// 된다), 아니면 nullopt (세이브 폴더 밖이다)
 [[nodiscard]] std::optional<std::string> entryWorldSaveName(const GameManifest& manifest);
 
 // dir 에 매니페스트 파일이 있나 (서버 · 클라이언트 --world 가 프로젝트와 세이브 폴더를 가른다)

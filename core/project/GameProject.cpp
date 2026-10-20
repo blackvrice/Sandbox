@@ -501,10 +501,9 @@ bool isProjectFolder(const std::filesystem::path& dir) {
     return fs::is_regular_file(dir / std::string(kManifestFile), ec);
 }
 
-
 std::string defaultEngineRange(const SemVer& engine) {
-    // 1.0 전에는 minor 마다 깨질 수 있다는 SemVer 의 뜻(^0.x)을 그대로 따르면 엔진이 0.2.0 이 되는 순간 지금 만든 프로젝트가
-    // 모두 열리지 않는다 — 1.0 까지는 하한만 두고, 1.0 부터는 major 범위
+    // 1.0 전에는 minor 마다 깨질 수 있다는 SemVer 의 뜻(^0.x)을 그대로 따르면 엔진이 0.2.0 이 되는 순간 지금 만든
+    // 프로젝트가 모두 열리지 않는다 — 1.0 까지는 하한만 두고, 1.0 부터는 major 범위
     if (engine.major == 0) {
         return std::format(">={}.{}.{} <1.0.0", engine.major, engine.minor, engine.patch);
     }
@@ -579,6 +578,10 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
         }
         m.contentPacks = sc->requiredPacks();
     }
+    if (!options.gameMode.empty()) {
+        m.schemaVersion = 2;
+        m.gameMode = options.gameMode; // 콘텐츠에 있는지는 아래 2 에서 (형식은 지금)
+    }
     const ManifestParseResult check = parseManifest(writeManifest(m));
     if (!check.ok()) {
         std::string msg = "매니페스트를 만들 수 없습니다";
@@ -594,6 +597,16 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
             return std::unexpected(loaded.error());
         }
         db = std::move(*loaded);
+    }
+    if (!options.gameMode.empty() && db.findMode(options.gameMode) == nullptr) {
+        std::string modes;
+        for (const content::GameMode& gm : db.modes()) {
+            modes += (modes.empty() ? "" : ", ") + gm.id;
+        }
+        return makeError(ErrorCode::NotFound,
+                         std::format("게임 모드 '{}' 가 템플릿 콘텐츠에 없습니다 (있는 모드: {})", options.gameMode,
+                                     modes.empty() ? "없음" : modes),
+                         where);
     }
 
     // 3. 옆의 임시 폴더에 만든다 (실패하면 지운다 — 사용자 폴더에 반쯤 만든 프로젝트를 남기지 않는다)

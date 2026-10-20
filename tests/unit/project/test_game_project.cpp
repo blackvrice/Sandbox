@@ -597,6 +597,38 @@ TEST_SUITE("project") {
         CHECK(src->runner->world().currentTick() == 2);
     }
 
+    TEST_CASE("새 프로젝트: 게임 모드 (v0.2 M3-T3 데모 — sbx new --mode) — schemaVersion 2, 없는 모드는 거절") {
+        TempDir root("new_mode");
+        const auto catalog = coreCatalog();
+        project::NewProjectOptions o;
+        o.gameId = "studio.protect";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        o.gameMode = "eco.nope";
+        const auto bad = project::createProject(root.path / "Bad", o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_FALSE(bad.has_value());
+        CHECK(bad.error().code == ErrorCode::NotFound);
+        CHECK(bad.error().describe().find("eco.protect") != std::string::npos); // 있는 모드를 알려 준다
+        CHECK_FALSE(fs::exists(root.path / "Bad"));
+        o.fromScenario.clear(); // 빈 월드 = 내장 콘텐츠 — 모드가 없다
+        CHECK(project::createProject(root.path / "Empty", o, SemVer{0, 1, 0, {}, {}}, catalog).error().code ==
+              ErrorCode::NotFound);
+
+        o.fromScenario = "ecosystem_small";
+        o.gameMode = "eco.protect";
+        const fs::path dir = root.path / "Protect";
+        const auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        CHECK(made->manifest.schemaVersion == 2);
+        CHECK(made->manifest.gameMode == "eco.protect");
+        const auto r = project::validateProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        INFO(dumpIssues(r.issues));
+        CHECK(r.ok());
+        CHECK(r.warningCount() == 0);
+        auto opened = project::openProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(opened.has_value(), opened.error().describe());
+    }
+
     TEST_CASE("새 프로젝트: 덮어쓰지 않고, 실패하면 아무것도 남기지 않는다") {
         TempDir root("new_fail");
         const auto catalog = coreCatalog();

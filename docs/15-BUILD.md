@@ -242,7 +242,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
 종료 코드: 0 정상 · 1 실행 오류 · 2 잘못된 인자 (모르는 월드 포함)
 
-sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--content-root d] [--seed n]      (v0.2 M1-T4, ADR-0043)
+sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <GameMode id>] [--content-root d] [--seed n]
+                                                                                            (v0.2 M1-T4, ADR-0043)
 sbx check <폴더>  ·  sbx templates  ·  sbx --version
     new: 빈 폴더에만 새 게임 프로젝트 (sandbox.project.json + worlds/main). --from 이 없으면 빈 월드(내장 콘텐츠 · 16 × 16 청크 ·
     일시정지), 있으면 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로. 옆의 <폴더>.sbx-new 에 만들어 검사(오류 · 경고 0)를
@@ -250,6 +251,9 @@ sbx check <폴더>  ·  sbx templates  ·  sbx --version
     check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기). "프로젝트 검사: 오류 N, 경고 M (…)".
     (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패
     실행은 SandboxServer --world <폴더> · SandboxClient --world <폴더>.
+    --mode (v0.2 M3-T3, ADR-0049): 매니페스트 schemaVersion 2 · gameMode — 템플릿 콘텐츠에 없는 모드면 종료 코드 2 와 있는 모드.
+    데모 "토끼 지키기":  sbx new Demo --id studio.demo --from ecosystem_small --mode eco.protect
+                         SandboxClient --world Demo  →  "게임" 패널 시작  →  Q 먹이 주기 · E 덫 놓기 (커서 자리)
 
 sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] [--timeout s]
               [--pause] [--resume] [--step n] [--speed x] [--create x,y]       (Phase 9 — 화면 없는 접속 확인 도구)
