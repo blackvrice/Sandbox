@@ -149,6 +149,7 @@ int main(int argc, char** argv) {
     // 색으로 쓴다
     sbx::render::MaterialLibrary materials;
     std::unique_ptr<sbx::client::NetworkSession> world;
+    const sbx::client::WorldSaveDefaults saveDefaults = sbx::client::worldSaveDefaults(*opts);
     if (opts->world || opts->connect) {
         if (auto n = materials.loadAll(assetRoot, renderer ? renderer->assets() : nullptr); !n) {
             sbx::log::warn("client", "머티리얼을 읽지 못했습니다 (색 사각형으로 그립니다): {}", n.error().describe());
@@ -162,7 +163,8 @@ int main(int argc, char** argv) {
         nd.connect = opts->connect.value_or("");
         nd.displayName = opts->name;
         nd.ownerKey = opts->ownerKey;
-        nd.savesRoot = opts->saves.value_or("saves"); // 싱글플레이 세이브 · 리플레이 (12D)
+        // 싱글플레이 세이브 · 리플레이 (12D, 게임 프로젝트면 <프로젝트>/worlds — M1-T5)
+        nd.savesRoot = saveDefaults.savesRoot;
         nd.seed = opts->seed;
         nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
@@ -204,6 +206,9 @@ int main(int argc, char** argv) {
     cfg.fixedDt = opts->headless ? 1.0 / 60.0 : 0.0; // 헤드리스는 프레임마다 1/60 초 — 같은 명령이면 같은 틱 수
     cfg.ui = ui.get();
     cfg.uiRendered = uiRendered;
+    if (opts->world) {
+        cfg.saveName = saveDefaults.saveName; // 게임 프로젝트면 시작 월드 — Ctrl+S 가 편집한 맵을 게임에 (M1-T5)
+    }
     sbx::client::Application app(*window, std::move(*actions), audio, cfg);
 
     std::unique_ptr<sbx::platform::FramePacer> pacer;

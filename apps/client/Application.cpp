@@ -125,6 +125,9 @@ std::string describeEvent(const PlatformEvent& event) {
 
 Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audio, AppConfig config)
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
+    if (!m_config.saveName.empty()) {
+        m_worldPanel.name = m_config.saveName;
+    }
     m_ids.quit = m_actionMap.find("app.quit");
     m_ids.textInput = m_actionMap.find("debug.text_input");
     m_ids.captureMouse = m_actionMap.find("debug.capture_mouse");

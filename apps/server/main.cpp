@@ -20,6 +20,7 @@
 #include "core/simulation/SimConstants.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
 #include "network/server/ServerHost.hpp"
@@ -151,7 +152,12 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.maxClients = opts.maxClients;
     desc.defaultRole = sbx::net::parseRole(opts.defaultRole).value_or(sbx::net::Role::Editor);
     desc.ownerKey = opts.ownerKey;
-    desc.savesRoot = opts.saves;
+    // 게임 프로젝트면 세이브 폴더 기본값 = <프로젝트>/worlds (v0.2 M1-T5, ADR-0044 — "월드" 창 저장이 프로젝트의 월드)
+    desc.savesRoot = world->game && !opts.savesGiven ? sbx::project::projectSavesRoot(*opts.world)
+                                                     : std::filesystem::path(opts.saves);
+    if (world->game && !opts.savesGiven) {
+        sbx::log::info("server", "세이브 폴더: {} (프로젝트의 worlds/)", sbx::io::displayPath(desc.savesRoot));
+    }
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
     if (world->game) {

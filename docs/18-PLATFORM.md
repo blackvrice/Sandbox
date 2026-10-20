@@ -9,8 +9,8 @@
 ## 0. 지금
 
 ```text
-버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 진행 중)
-다음     v0.2 M1-T5 — 에디터 저장 · 불러오기를 프로젝트 worlds/ 로 (Ctrl+S = 시작 월드)
+버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, 다음 M2)
+다음     v0.2 M2-T1 — GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — D-11 플레이어 행동 모델과 함께 설계
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -54,7 +54,7 @@
 | 멀티플레이 에디터       | Implemented | editor/ (ICommandSink · 툴 · 인스펙터 · Undo · 역할 · 콘텐츠 창 · 월드 저장/불러오기 · 리플레이), unit_editor · unit_client |
 | 렌더 · 플랫폼           | Implemented | DX12 · Vulkan (lavapipe 기준 이미지) · Metal (macOS 검증 대기), Win32 · X11 · Wayland · Cocoa(미검증)                       |
 | 성능                    | Partial     | 50k 2코어 29.6 ms — 판정 대기 (14 7.12)                                                                                     |
-| GameProject · Manifest  | Partial     | 검사 (T1), --world <프로젝트> (T2), 게임 정체성 (T3), sbx new · check (T4). 에디터 저장 위치는 M1-T5                        |
+| GameProject · Manifest  | Implemented | M1 ✅ — 검사 · 열기 · 게임 정체성 · sbx new/check · 에디터 저장 = 프로젝트 worlds/ (ADR-0040~0044)                          |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
@@ -112,7 +112,8 @@ M1 GameProject
         --content <프로젝트>/content 안내, 매니페스트 팩 ≤ 16 (ADR-0042)
   T4 ✅ 프로젝트 만들기: createProject (빈 월드 · 시나리오 템플릿 — 팩 복사 + 첫 틱의 월드, 임시 폴더에서 검사 후 rename) ·
         도구 sbx new · check · templates (검사를 sbx_sim_check 에서 옮김) (ADR-0043)
-  T5 [계획] 에디터 저장 위치: 프로젝트 서버의 세이브 폴더 = <프로젝트>/worlds, Ctrl+S 기본 이름 = 시작 월드 (편집한 맵을 게임에)
+  T5 ✅ 에디터 저장 위치: 프로젝트 서버 · 싱글플레이의 세이브 폴더 = <프로젝트>/worlds, Ctrl+S 처음 이름 = 시작 월드 (ADR-0044)
+  → M1 완료 (2026-10-20): 만들기 (sbx new) → 검사 (sbx check) → 열기 (--world) → 편집 · 저장 (Ctrl+S) → 서버로 실행
 M2 GameMode · 라이프사이클 (서버 권위)
   T1 GameMode 데이터 (참가자 수 · 팀 · 승리 조건 · 재시작 정책) — 콘텐츠 팩 스키마 확장 (11 갱신)
   T2 GameSession 상태기계 Created → Loading → Lobby → Starting → Running → Finished → Stopped (서버 · 결정적 · 복제)
@@ -205,6 +206,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 M1-T2 ✅  15 (실행 옵션), 08 (WorldSource), ADR-0041 (서버가 프로젝트를 여는 규칙)
 M1-T3 ✅  08 (핸드셰이크에 게임 정체성 · 프로토콜 8), ADR-0042
 M1-T4 ✅  15 (sbx), 17, 13, ADR-0043
+M1-T5 ✅  10 9장, 15, 13, ADR-0044
 M2 · M3   03 (GameSession Stage · 게임 System), 11 (GameMode · 게임 컴포넌트), 04 (상태기계 결정론), ADR
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
@@ -220,4 +222,5 @@ v0.2 M1-T1 뒤: 같은 구성 55/55 (+ unit_project · project_minimal_validate 
 v0.2 M1-T2 뒤: 58/58 (+ server_project_exit · server_project_invalid · client_local_project_headless)
 v0.2 M1-T3 뒤: 59/59 (+ net_server_probe_project — 실제 UDP 로 Welcome.game)
 v0.2 M1-T4 뒤: 61/61 (+ project_new_empty · project_new_from_scenario)
+v0.2 M1-T5 뒤: 62/62 (+ server_project_saves_root)
 ```

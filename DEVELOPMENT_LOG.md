@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-10-20 — v0.2 M1-T5: 프로젝트의 세이브 폴더 = worlds/, Ctrl+S = 시작 월드 → M1 완료 (ADR-0044)
+
+**무엇을**
+
+- `project::projectSavesRoot(폴더)` = <프로젝트>/worlds, `project::entryWorldSaveName(매니페스트)` = entryWorld 가
+  "worlds/<이름>" 이면 그 이름.
+- SandboxServer: --world 가 프로젝트이고 --saves 가 없으면 세이브 · 리플레이 폴더 = <프로젝트>/worlds (로그 "세이브 폴더: …").
+- SandboxClient: `worldSaveDefaults(ClientOptions)` — --saves 가 이기고, 프로젝트면 <프로젝트>/worlds 와 시작 월드 이름
+  (세이브 이름 규칙에 맞을 때), 아니면 saves · quicksave. `AppConfig.saveName` → "월드" 창 · Ctrl+S 의 처음 이름.
+- 시험: unit_client 2 케이스 (기본값 표, 프로젝트 싱글플레이에서 30 프레임 → Ctrl+S → worlds/main 이 바뀌고 프로젝트 검사
+  오류 · 경고 0 · 시작 틱이 늘었다), unit_project (이름 규칙 표), CTest server_project_saves_root.
+- 문서: ADR-0044, 18 (M1 ✅ — 다음 M2-T1), 10 9장, 15 7장 (서버 · 클라이언트 --saves), 13, adr/README.
+
+**왜**
+
+- 에디터에서 고친 맵이 작업 폴더의 saves/quicksave 로 가서 게임에 들어가지 않았다. 월드 = 세이브 폴더(ADR-0040)이므로 저장
+  위치와 처음 이름만 맞추면 "고치고 저장하면 게임이 바뀐다". 새 메시지 · 명령은 없다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 62/62 (+1). unit_client · unit_project 통과.
+- 와이어 · 세이브 · 시뮬레이션 형식 변경 없음.
+
+**남은 일**
+
+- M2 GameMode · 라이프사이클 (서버 권위 상태기계) — 먼저 D-11 (플레이어 행동 모델)을 정한다.
+- M5-T1 Test Play: 실행 상태가 Ctrl+S 로 시작 월드가 되는 것 — 편집 원본과 분리.
+
+---
+
 ## 2026-10-20 — v0.2 M1-T4: 새 프로젝트 만들기 — createProject · 도구 sbx (ADR-0043)
 
 **무엇을**

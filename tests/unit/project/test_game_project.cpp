@@ -567,4 +567,20 @@ TEST_SUITE("project") {
             CHECK_FALSE(fs::exists(root.path / "NoPacks.sbx-new"));
         }
     }
+
+    TEST_CASE("세이브 폴더 기본값 · 시작 월드 세이브 이름 (M1-T5)") {
+        CHECK(project::projectSavesRoot("G") == fs::path("G") / "worlds");
+        project::GameManifest m;
+        for (const auto& [entry, want] :
+             std::vector<std::pair<std::string, std::optional<std::string>>>{{"worlds/main", "main"},
+                                                                             {"worlds/Level-1", "Level-1"},
+                                                                             {"main", std::nullopt},
+                                                                             {"worlds/a/b", std::nullopt},
+                                                                             {"levels/x", std::nullopt},
+                                                                             {"worlds/", std::nullopt}}) {
+            CAPTURE(entry);
+            m.entryWorld = entry;
+            CHECK(project::entryWorldSaveName(m) == want);
+        }
+    }
 }

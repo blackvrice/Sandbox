@@ -446,6 +446,20 @@ Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, con
     return out;
 }
 
+std::filesystem::path projectSavesRoot(const std::filesystem::path& projectDir) {
+    return projectDir / "worlds";
+}
+
+std::optional<std::string> entryWorldSaveName(const GameManifest& manifest) {
+    constexpr std::string_view kPrefix = "worlds/";
+    const std::string_view e = manifest.entryWorld;
+    if (!e.starts_with(kPrefix) || e.size() == kPrefix.size() ||
+        e.find('/', kPrefix.size()) != std::string_view::npos) {
+        return std::nullopt;
+    }
+    return std::string(e.substr(kPrefix.size()));
+}
+
 bool isProjectFolder(const std::filesystem::path& dir) {
     std::error_code ec;
     return fs::is_regular_file(dir / std::string(kManifestFile), ec);

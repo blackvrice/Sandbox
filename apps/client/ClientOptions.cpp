@@ -4,6 +4,9 @@
 #include <charconv>
 #include <format>
 
+#include "core/project/GameProject.hpp"
+#include "foundation/io/FileIo.hpp"
+#include "network/protocol/Messages.hpp"
 #include "render/rhi/RenderDevice.hpp"
 
 namespace sbx::client {
@@ -273,6 +276,30 @@ std::string clientUsage() {
            "월드: WASD·화살표 이동, 휠 확대(커서 기준), 가운데 끌기, Home 맞춤, 왼쪽 클릭 · 끌기 선택, Space "
            "일시정지,\n"
            ". 한 틱, = / - 속도 (서버 명령 — 원격 서버는 admin 역할부터).\n";
+}
+
+WorldSaveDefaults worldSaveDefaults(const ClientOptions& options) {
+    WorldSaveDefaults d;
+    if (options.saves) {
+        d.savesRoot = *options.saves;
+    }
+    if (!options.world || !project::isProjectFolder(*options.world)) {
+        return d;
+    }
+    const std::filesystem::path dir{*options.world};
+    if (!options.saves) {
+        d.savesRoot = project::projectSavesRoot(dir);
+    }
+    // 매니페스트만 읽는다 — 검사 · 열기는 로컬 서버가 한다 (문제가 있으면 거기서 실패한다)
+    if (const auto text = io::readFile(dir / std::string(project::kManifestFile))) {
+        const auto parsed = project::parseManifest(*text);
+        if (parsed.ok()) {
+            if (auto name = project::entryWorldSaveName(parsed.manifest); name && net::isValidSaveName(*name)) {
+                d.saveName = std::move(*name);
+            }
+        }
+    }
+    return d;
 }
 
 } // namespace sbx::client

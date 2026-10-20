@@ -190,6 +190,12 @@ if(TARGET SandboxServer)
                 --log-level info)
     set_tests_properties(server_project_exit PROPERTIES LABELS "unit;server"
         PASS_REGULAR_EXPRESSION "listening udp [^\n]* world Minimal workers [0-9]+.*tick 60 hash 0x[0-9a-f]+")
+    # 프로젝트 서버의 세이브 폴더 기본값 = <프로젝트>/worlds (v0.2 M1-T5) — 로그로 확인 (저장은 unit_client 시험)
+    add_test(NAME server_project_saves_root
+        COMMAND SandboxServer --world "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal" --port 0 --ticks 5 --exit
+                --log-level info)
+    set_tests_properties(server_project_saves_root PROPERTIES LABELS "unit;server"
+        PASS_REGULAR_EXPRESSION "세이브 폴더: [^\n]*projects/minimal[/\\\\]worlds \\(프로젝트의 worlds/\\)")
     # 검사 오류가 있는 프로젝트는 열지 않는다
     add_test(NAME server_project_invalid
         COMMAND SandboxServer --world "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest" --port 0)

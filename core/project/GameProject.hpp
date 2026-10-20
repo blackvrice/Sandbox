@@ -118,6 +118,13 @@ struct NewProjectResult {
 // 새 프로젝트의 엔진 범위 문자열 (위 규칙)
 [[nodiscard]] std::string defaultEngineRange(const SemVer& engine);
 
+// 프로젝트를 돌리는 서버 · 싱글플레이의 세이브 · 리플레이 폴더 기본값 (--saves 가 없을 때 — v0.2 M1-T5, ADR-0044):
+// <프로젝트>/worlds. 에디터 "월드" 창의 저장 · 불러오기가 프로젝트의 월드를 다룬다
+[[nodiscard]] std::filesystem::path projectSavesRoot(const std::filesystem::path& projectDir);
+// 시작 월드의 세이브 이름: entryWorld 가 "worlds/<이름>" 이면 그 이름 (Ctrl+S 기본값 — 편집한 맵이 게임의 시작 월드가 된다),
+// 아니면 nullopt (세이브 폴더 밖이다)
+[[nodiscard]] std::optional<std::string> entryWorldSaveName(const GameManifest& manifest);
+
 // dir 에 매니페스트 파일이 있나 (서버 · 클라이언트 --world 가 프로젝트와 세이브 폴더를 가른다)
 [[nodiscard]] bool isProjectFolder(const std::filesystem::path& dir);
 

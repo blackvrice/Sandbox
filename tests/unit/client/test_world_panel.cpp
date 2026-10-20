@@ -15,7 +15,10 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
+#include "core/components/RegisterCoreComponents.hpp"
+#include "core/project/GameProject.hpp"
 #include "editor/Editor.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
 
@@ -55,6 +58,93 @@ std::unique_ptr<NetworkSession> local(render::MaterialLibrary& mats, const fs::p
 } // namespace
 
 TEST_SUITE("client") {
+
+    TEST_CASE("세이브 기본값 (v0.2 M1-T5): 게임 프로젝트면 <프로젝트>/worlds 와 시작 월드 이름") {
+        TempDir dir("save_defaults");
+        fs::create_directories(dir.path);
+        fs::copy(fs::path(SBX_TEST_DATA_DIR) / "projects" / "minimal", dir.path / "Game", fs::copy_options::recursive);
+        ClientOptions o;
+        CHECK(worldSaveDefaults(o).savesRoot == fs::path("saves"));
+        CHECK(worldSaveDefaults(o).saveName == "quicksave");
+        o.world = "ecosystem_small";
+        CHECK(worldSaveDefaults(o).saveName == "quicksave");
+        o.world = (dir.path / "Game").string();
+        auto d = worldSaveDefaults(o);
+        CHECK(d.savesRoot == dir.path / "Game" / "worlds");
+        CHECK(d.saveName == "main");
+        o.saves = "elsewhere"; // --saves 가 이긴다 (이름은 그대로 시작 월드)
+        d = worldSaveDefaults(o);
+        CHECK(d.savesRoot == fs::path("elsewhere"));
+        CHECK(d.saveName == "main");
+        // entryWorld 가 worlds/ 밖이면 Ctrl+S 는 quicksave (시작 월드를 덮지 않는다)
+        auto m = project::parseManifest(*io::readFile(dir.path / "Game" / "sandbox.project.json"));
+        REQUIRE(m.ok());
+        m.manifest.entryWorld = "levels/one";
+        REQUIRE(project::saveManifest(dir.path / "Game", m.manifest).has_value());
+        CHECK(worldSaveDefaults(o).saveName == "quicksave");
+        CHECK(project::entryWorldSaveName(m.manifest) == std::nullopt);
+    }
+
+    TEST_CASE("app (v0.2 M1-T5): 게임 프로젝트에서 Ctrl+S 는 편집한 월드를 프로젝트의 시작 월드로 저장한다") {
+        TempDir dir("project_ctrl_s");
+        fs::create_directories(dir.path);
+        const fs::path game = dir.path / "Game";
+        fs::copy(fs::path(SBX_TEST_DATA_DIR) / "projects" / "minimal", game, fs::copy_options::recursive);
+        ClientOptions o;
+        o.world = game.string();
+        const WorldSaveDefaults defaults = worldSaveDefaults(o);
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = game.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        nd.savesRoot = defaults.savesRoot;
+        auto made = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        auto ns = std::move(*made);
+        platform::HeadlessWindow window;
+        platform::NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.saveName = defaults.saveName;
+        auto map = platform::ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        for (int i = 0; i < 30; ++i) { // 월드를 몇 틱 진행시킨 뒤 저장
+            REQUIRE(app.frame());
+        }
+        const auto before = project::validateProject(game, SemVer{0, 1, 0, {}, {}}, [] {
+            ecs::ComponentCatalog c;
+            (void)comp::registerCoreComponents(c);
+            return c;
+        }());
+        REQUIRE(before.ok());
+        window.inject(platform::KeyDown{platform::Key::LeftCtrl, 0, {}, false});
+        window.inject(platform::KeyDown{platform::Key::S, 0, {}, false});
+        window.inject(platform::KeyUp{platform::Key::S, 0, {}});
+        REQUIRE(app.frame());
+        window.inject(platform::KeyUp{platform::Key::LeftCtrl, 0, {}});
+        for (int i = 0; i < 60 && !(ns->worldOps() && ns->worldOps()->message.find("저장 'main'") != std::string::npos);
+             ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(ns->worldOps());
+        CHECK(ns->worldOps()->message.find("저장 'main'") != std::string::npos);
+        CHECK_FALSE(fs::exists(dir.path / "saves")); // 작업 폴더의 saves/ 가 아니다
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const auto after = project::validateProject(game, SemVer{0, 1, 0, {}, {}}, catalog);
+        INFO((after.issues.empty() ? std::string() : after.issues.front().describe()));
+        CHECK(after.ok());
+        CHECK(after.warningCount() == 0);
+        CHECK(after.worldTick > before.worldTick); // 진행한 월드가 시작 월드가 됐다
+    }
 
     TEST_CASE("app: Ctrl+S saves under the world panel's name") {
         TempDir dir("client_ctrl_s");

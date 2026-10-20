@@ -4,6 +4,7 @@
 // --content · --assets. Phase 8C: --font · --no-ui. Phase 10B: --world · --connect · --name (--direct-sim 은 지웠다).
 // Phase 12C: --owner-key. Phase 12D: --saves. Phase 13A: --rhi <auto|dx12|vulkan> (14C: metal). Phase 13C: --platform.
 
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -60,5 +61,13 @@ struct ClientOptions {
 [[nodiscard]] Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args);
 
 [[nodiscard]] std::string clientUsage();
+
+// 싱글플레이(--world)의 세이브 폴더 · Ctrl+S 기본 이름 (v0.2 M1-T5, ADR-0044). --saves 가 있으면 그것, 게임 프로젝트면
+// <프로젝트>/worlds 와 시작 월드 이름(entryWorld 가 worlds/<이름> 일 때), 아니면 saves · quicksave
+struct WorldSaveDefaults {
+    std::filesystem::path savesRoot = "saves";
+    std::string saveName = "quicksave";
+};
+[[nodiscard]] WorldSaveDefaults worldSaveDefaults(const ClientOptions& options);
 
 } // namespace sbx::client

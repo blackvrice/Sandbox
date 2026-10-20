@@ -232,7 +232,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
     (12C) [--owner-key <k>]: 클라이언트가 같은 --owner-key 로 들어오면 owner — "접속자" 패널에서 다른 사람의 역할을 바꾼다
     (owner = 누구든, admin = admin 아래인 사람을 editor 이하로). 틀린 열쇠는 접속 거절. 평문이다 (LAN · 신뢰하는 환경).
-    (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준). 클라이언트 "월드" 패널의 저장 · 불러오기 ·
+    (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준, 게임 프로젝트면 <프로젝트>/worlds — v0.2
+    M1-T5, ADR-0044). 클라이언트 "월드" 패널의 저장 · 불러오기 ·
     기록 · 재생이 여기에 <이름>/ 으로 (admin 부터, 목록은 모두 — 09 4.1, ADR-0031). 기록 중에 Ctrl+C 로 끝내면 리플레이를 쓴다.
     Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
@@ -286,6 +287,7 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     일시정지 · 한 틱 · 속도는 서버 명령 — 원격 서버의 기본 역할 editor 는 거절된다 (서버 --default-role admin).
     (12C) --owner-key <k>: 서버의 --owner-key 와 같으면 owner 로 접속 (--connect 만 — 싱글플레이는 언제나 owner).
     (12D) --saves <dir>: 싱글플레이(--world)의 세이브 · 리플레이 폴더 (기본 saves — 작업 폴더 기준). --connect 는 서버의 --saves.
+    (v0.2 M1-T5) 게임 프로젝트면 기본 <프로젝트>/worlds, "월드" 창 · Ctrl+S 의 처음 이름 = 시작 월드 (ADR-0044).
     접속하고 첫 스냅숏을 받을 때까지 Connecting, 거절 · 끊김이면 오류를 남기고 종료 코드 1.
     (Phase 11) 화면에 보이는 영역 + 1 청크만 받는다 (관심 영역 — 줌 아웃해 월드 전체가 보이면 전부). --connect 에서 네트워크가
     끊기면(시간 초과) 같은 세션 토큰으로 2 초마다 다시 접속하고 60 초 넘으면 끝낸다 — 그동안 마지막 화면이 남고 상태 줄에
