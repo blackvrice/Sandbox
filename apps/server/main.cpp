@@ -137,6 +137,10 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
                        world->game->version.toString(), world->game->name, world->packs.size(),
                        world->game->entryWorld);
     }
+    if (world->package) {
+        sbx::log::info("server", "게임 패키지 digest sha256:{} — 파일 {} 개 (검증함)", world->package->digest,
+                       world->package->files.size());
+    }
     const unsigned hc = std::thread::hardware_concurrency();
     const sbx::u32 workers = opts.threads.value_or(std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
     sbx::JobSystem jobs(workers);
@@ -152,16 +156,20 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     desc.maxClients = opts.maxClients;
     desc.defaultRole = sbx::net::parseRole(opts.defaultRole).value_or(sbx::net::Role::Editor);
     desc.ownerKey = opts.ownerKey;
-    // 게임 프로젝트면 세이브 폴더 기본값 = <프로젝트>/worlds (v0.2 M1-T5, ADR-0044 — "월드" 창 저장이 프로젝트의 월드)
-    desc.savesRoot = world->game && !opts.savesGiven ? sbx::project::projectSavesRoot(*opts.world)
-                                                     : std::filesystem::path(opts.saves);
+    // 게임 프로젝트면 세이브 폴더 기본값 = <프로젝트>/worlds (v0.2 M1-T5, ADR-0044 — "월드" 창 저장이 프로젝트의 월드),
+    // 패키지면 <패키지 폴더>/<이름>-saves (v0.2 M5-T2 — 풀어 둔 캐시가 아니다)
+    desc.savesRoot = !world->game || opts.savesGiven ? std::filesystem::path(opts.saves)
+                     : world->package                ? sbx::package::packageSavesRoot(*opts.world)
+                                                     : sbx::project::projectSavesRoot(*opts.world);
     if (world->game && !opts.savesGiven) {
-        sbx::log::info("server", "세이브 폴더: {} (프로젝트의 worlds/)", sbx::io::displayPath(desc.savesRoot));
+        sbx::log::info("server", "세이브 폴더: {} ({})", sbx::io::displayPath(desc.savesRoot),
+                       world->package ? "패키지 옆" : "프로젝트의 worlds/");
     }
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
     if (world->game) {
-        sbx::net::setGameProject(desc, *world->game, *opts.world, world->runner->world().content());
+        sbx::net::setGameProject(desc, *world->game, world->projectDir, world->runner->world().content());
+        desc.packageDigest = world->package ? world->package->digest : std::string();
     }
     // 게임 진행 (v0.2 M2-T3): 모드가 있으면 세션은 Lobby — admin 이 "게임" 창에서 (또는 --start-game) 시작한다
     if (!desc.gameMode.empty()) {

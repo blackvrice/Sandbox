@@ -68,3 +68,4 @@
 | [0051](0051-trigger-execution-stage-17c-same-tick-cascade-budget.md)   | Trigger 실행 — 단계 17c (세션 Running 만), 틱 처음 스냅숏으로 이벤트, 같은 틱 이어짐, perTick · 틱 예산, 효과는 PlayerAction 과 공용 실행기 | Accepted                                  | 2026-10-20 |
 | [0052](0052-trigger-editor-form-overlay-kind-protocol-11.md)           | 트리거 편집 — 오버레이 종류 Trigger (EditContent · 세이브 overlay/triggers/, 프로토콜 11), "콘텐츠" 창의 표 기반 노드 · 연결 폼 | Accepted                                  | 2026-10-20 |
 | [0053](0053-test-play-copy-world-park-edit-world-protocol-12.md)        | 테스트 플레이 — 편집 월드 runner 를 서버 메모리에 그대로 맡기고 복사본 (임시 세이브 → 열기) 으로 플레이, 멈추면 되돌린다 (프로토콜 12) | Accepted                                  | 2026-10-20 |
+| [0054](0054-game-package-sbpkg-sha256-digest-save-binding.md)          | 게임 패키지 = 파일 하나 .sbpkg (색인 + 파일, SHA-256 digest, 압축 · 서명 없음 — D-02), 세이브는 world.json "game" 으로 게임에 묶인다 | Accepted                                  | 2026-10-20 |

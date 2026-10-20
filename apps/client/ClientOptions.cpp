@@ -4,6 +4,7 @@
 #include <charconv>
 #include <format>
 
+#include "core/package/GamePackage.hpp"
 #include "core/project/GameProject.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "network/protocol/Messages.hpp"
@@ -282,6 +283,21 @@ WorldSaveDefaults worldSaveDefaults(const ClientOptions& options) {
     WorldSaveDefaults d;
     if (options.saves) {
         d.savesRoot = *options.saves;
+    }
+    // 게임 패키지 (v0.2 M5-T2): 세이브 폴더 = 패키지 옆 <이름>-saves (풀어 둔 캐시가 아니다), 처음 이름 = 시작 월드
+    // 이름
+    if (options.world && package::isPackageFile(*options.world)) {
+        if (!options.saves) {
+            d.savesRoot = package::packageSavesRoot(*options.world);
+        }
+        if (const auto idx = package::readPackageIndex(*options.world)) {
+            project::GameManifest m;
+            m.entryWorld = idx->entryWorld;
+            if (auto name = project::entryWorldSaveName(m); name && net::isValidSaveName(*name)) {
+                d.saveName = std::move(*name);
+            }
+        }
+        return d;
     }
     if (!options.world || !project::isProjectFolder(*options.world)) {
         return d;

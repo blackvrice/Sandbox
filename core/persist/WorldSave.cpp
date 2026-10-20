@@ -183,6 +183,13 @@ Expected<SaveStats> saveWorld(const sim::SimulationWorld& world, const fs::path&
     w["schemaVersion"] = kSchemaVersion;
     w["simVersion"] = sim::kSimVersion;
     w["name"] = options.name;
+    if (options.game) {
+        ordered_json g{{"gameId", options.game->gameId}, {"version", options.game->version}};
+        if (!options.game->package.empty()) {
+            g["package"] = options.game->package;
+        }
+        w["game"] = std::move(g);
+    }
     w["seed"] = replay::formatHash(world.seed());
     w["tick"] = clock.tick();
     w["nextSaveId"] = world.nextSaveId();

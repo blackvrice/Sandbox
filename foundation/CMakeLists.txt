@@ -8,6 +8,8 @@ add_library(SandboxFoundation STATIC
     log/Log.hpp
     log/Log.cpp
     hash/Fnv1a.hpp
+    hash/Sha256.hpp
+    hash/Sha256.cpp
     handle/Handle.hpp
     container/SmallVector.hpp
     container/FixedString.hpp

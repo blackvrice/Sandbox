@@ -27,6 +27,7 @@ S5. 로드 순서·키 순서는 정렬되어 있다 (04 4.5).
 | `ReplayVersion`    | replay 헤더   | 리플레이 파일 구조                                 |
 | `kProtocolVersion` | 핸드셰이크    | 와이어 메시지 ([08](08-NETWORK.md) 5장)            |
 | `kSimVersion`      | 리플레이·골든 | 시뮬레이션 규칙 ([04](04-DETERMINISM.md) 6장)      |
+| 패키지 `format`    | .sbpkg 머리   | 게임 패키지 구조 (9장)                             |
 
 ### 이력
 
@@ -35,6 +36,7 @@ S5. 로드 순서·키 순서는 정렬되어 있다 (04 4.5).
 | WorldVersion  | 1    | 2026-10-05 (Phase 4) | 최초 |
 | SchemaVersion | 1    | 2026-10-05 (Phase 4) | 최초 |
 | ReplayVersion | 1    | (Phase 5)            | 최초 |
+| 패키지 format | 1    | 2026-10-20 (v0.2 M5-T2) | 최초 (ADR-0054). world.json 의 선택 키 "game" 도 이때 (worldVersion · schemaVersion 그대로) |
 
 ---
 
@@ -294,4 +296,38 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
 - 리플레이 기록 → 재생 divergence 0 (D3), 손상 파일 거부
 - 서버 저장 · 불러오기 · 기록 → 재생 (12D — network test_world_ops, edit_session 시나리오 det_replay_edit_session)
 - BitReader 퍼징 (무작위 바이트 → 크래시 없음)
+```
+
+---
+
+## 9. 게임 패키지 (.sbpkg — v0.2 M5-T2, [ADR-0054](adr/0054-game-package-sbpkg-sha256-digest-save-binding.md))
+
+검증된 실행 배포 단위. 결정 D-02: 자체 컨테이너 · SHA-256 · 압축 없음 · 서명 없음 (압축 · 서명은 [계획]). 구현
+`core/package/GamePackage`, 해시 `foundation/hash/Sha256`.
+
+```text
+파일      magic "SBXPKG\0\n" (8) · format u32 = 1 · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트 (index 순서, 빈틈 없음)
+          — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB
+index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}]}
+          path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음
+          offset = 파일 데이터 시작에서 (앞 파일 크기 합)
+digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시각 · 순서 · 압축이 없어 같은 프로젝트 = 같은 바이트
+담는 것   sandbox.project.json · 프로젝트 콘텐츠가 읽은 팩 (requires 포함, 폴더째 — presentation/ 포함) · 시작 월드 폴더.
+          다른 worlds/ · build/ · 그 밖의 파일은 담지 않는다. 빌드 전에 openProject 와 같은 검사 (오류면 만들지 않는다)
+열기      머리 · index 모양 → 파일마다 SHA-256 → digest 가 하나라도 다르면 거절 (고친 패키지는 열지 않는다) →
+          <임시>/sbx-packages/<digest 앞 16>/ 에 풀고 (같은 digest 가 있으면 파일마다 다시 확인하고 쓴다) openProject
+세이브    패키지를 돌리는 서버 · 싱글플레이의 세이브 폴더 기본값 = <패키지 폴더>/<이름>-saves
+```
+
+세이브 결속 (world.json 의 선택 키 — 게임 프로젝트 · 패키지 서버가 저장할 때):
+
+```jsonc
+"game": { "gameId": "studio.demo", "version": "0.1.0", "package": "<패키지 digest — 프로젝트 폴더로 돌렸으면 없음>" }
+```
+
+```text
+불러오기  다른 gameId → 거절 ("다른 게임 '…' 의 세이브")   다른 version · package → 열고 결과에 알린다   "game" 없음 → 그대로
+옛 엔진   선택 키라 무시한다 (worldVersion 1 · schemaVersion 1 그대로). 게임 버전 간 세이브 마이그레이션은 [계획]
+시험      foundation test_sha256 (FIPS 180-4 벡터 · 나눠 넣기), project test_game_package (담는 것 · 같은 바이트 · 고친 · 자른 ·
+          머리 · digest · 캐시 다시 쓰기 · --world), network test_world_ops (결속), CTest project_package (sbx build → check → 서버)
 ```

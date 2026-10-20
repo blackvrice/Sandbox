@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, M4 ✅, 다음 M5)
-다음     v0.2 M5-T2 — GamePackage 빌드 · 로드 (D-02: 형식 · 다이제스트), SaveGame 결속
+다음     v0.2 M6-T1 — 데모 미니게임 프로젝트 (samples/) — 헤드리스 서버와 로컬 플레이에서 같은 결과, 시나리오로 끝까지 (자동)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -57,7 +57,7 @@
 | GameProject · Manifest  | Implemented | M1 ✅ — 검사 · 열기 · 게임 정체성 · sbx new/check · 에디터 저장 = 프로젝트 worlds/ (ADR-0040~0044)                          |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
-| GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
+| GamePackage (.sbpkg)    | Implemented | M5-T2 ✅ — sbx build · check, --world <패키지>, 파일마다 SHA-256 · digest, 세이브 결속 (ADR-0054). 압축 · 서명은 Planned |
 | 게임 라이프사이클       | Implemented | M2 ✅ — GameMode · game.session (17b) · 시작 · 중단 · 재시작 (자동), "게임" 패널 (ADR-0045 · 0046)                          |
 | 플레이어 행동           | Partial     | 콘텐츠 PlayerAction ✅ (M3-T1 — 점에 쓰는 행동, "행동" 패널, ADR-0047). 쿨다운 · 비용 · 유닛 지시는 Planned                 |
 | Feature Bundle          | Implemented | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera(처음 자리) · Input(팩 게임 키) · 데모 모드 eco.protect (M3 ✅). Timer 노드는 M4 |
@@ -145,7 +145,10 @@ M5 Edit ↔ Test Play · GamePackage
   T1 ✅ Test Play: 서버가 편집 월드 runner 를 메모리에 그대로 맡기고 복사본 (임시 세이브 → 열기) 으로 바꾼다 — 게임이면
         시작 · 일시정지면 재개, 멈추면 원본 그대로 돌아온다. 그 동안 저장만 (불러오기 · 재생 · 재시작 · 기록 · 자동 재시작 거절),
         WorldOp TestPlay · TestStop · 프로토콜 12, "월드" 패널 단추 (ADR-0053)
-  T2 GamePackage 빌드 · 로드 (D-02: 형식 · 다이제스트), SaveGame 결속 (패키지 다이제스트 · 게임 버전)
+  T2 ✅ GamePackage: .sbpkg = 머리 + 색인(JSON) + 파일 (자체 컨테이너 — 압축 · 서명 없음), 파일마다 SHA-256 · digest (같은
+        프로젝트 = 같은 바이트), 매니페스트 · 읽은 팩 · 시작 월드만, sbx build · check, --world <패키지> (검증 → 캐시에 풀기),
+        세이브 결속 world.json "game" {gameId, version, package} — 다른 게임 거절 · 다른 버전 알림 (ADR-0054, D-02 결정)
+  → M5 완료 (2026-10-20): 편집 → 테스트 플레이 → 되돌리기 → sbx build → 패키지로 서버 · 싱글플레이 → 세이브가 게임에 묶인다
 M6 E2E · 회귀
   T1 데모 미니게임 프로젝트 (samples/) — 헤드리스 서버와 로컬 플레이에서 같은 결과, 시나리오로 끝까지 (자동)
   T2 버전 종료: 요구사항 done / deferred / removed, 제품 버전 0.2.0
@@ -206,7 +209,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | 번호 | 결정                                                              | 기한         | 상태                                       |
 |------|-------------------------------------------------------------------|--------------|--------------------------------------------|
 | D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 열림                                       |
-| D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 열림 (M5-T2)                               |
+| D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 결정 — 자체 컨테이너 · SHA-256 · 압축 · 서명 없음 (ADR-0054) |
 | D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림                                       |
 | D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 열림                                       |
 | D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                |
@@ -236,7 +239,7 @@ M4-T1 ✅  11 (1 · 8 · 10장 Trigger · V10), 03 6.4 (Trigger 와 Rule), 13, 1
 M4-T2 ✅  03 2장 (17c), 04 (simVersion 이력), 11 (0 · 10장 실행), 13, 17, ADR-0051
 M4-T3 ✅  10 8장 (트리거 폼), 08 (프로토콜 11), 09 3장 (overlay/triggers), 11 10장, 13, 17, ADR-0052
 M5-T1 ✅  08 (프로토콜 12), 10 9장 (테스트 플레이), 13, ADR-0053
-M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
+M5-T2 ✅  09 2 · 9장 (GamePackage · 세이브 결속), 15 7장 (sbx build · --world 패키지), 13, 17, ADR-0054 (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
 
@@ -261,4 +264,5 @@ v0.2 M4-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_cont
 v0.2 M4-T2 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_core +8 (test_trigger_run)
 v0.2 M4-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_editor +4 (test_trigger_form) · unit_core +1 · unit_network 갱신 (프로토콜 11)
 v0.2 M5-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_network +2 · unit_client +1 (프로토콜 12)
+v0.2 M5-T2 뒤: Windows MSVC Debug 60/60 (render_tests_warp 제외, + project_package) · unit +7 (sha256 2 · package 4 · 결속 1)
 ```

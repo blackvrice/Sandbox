@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-10-20 — v0.2 M5-T2: 게임 패키지 .sbpkg · 세이브 결속 → M5 완료 (ADR-0054, D-02 결정)
+
+**무엇을**
+
+- `foundation/hash/Sha256` (FIPS 180-4).
+- `core/package/GamePackage`: .sbpkg = magic · format 1 · index(JSON, 키 정렬) · 파일 바이트. 파일마다 SHA-256, digest =
+  SHA-256("<sha256> <size> <path>\n" path 순). buildPackage (openProject 검사 → 매니페스트 · 읽은 팩 · 시작 월드만 → 원자적
+  쓰기), readPackageIndex · verifyPackage · extractPackage (캐시 <임시>/sbx-packages/<digest 16>/, 다시 쓸 때 파일마다 확인),
+  packageSavesRoot (<이름>-saves). 압축 · 서명 없음 (D-02).
+- `openWorldSource`: .sbpkg 를 검증 · 풀어 프로젝트로 연다 (WorldSource.package · projectDir — 재시작의 시작 월드는 풀어 둔 폴더).
+  서버 · 로컬 서버 · 클라이언트 세이브 기본값이 패키지 옆.
+- 세이브 결속: persist::GameBinding · SaveOptions.game → world.json "game" {gameId, version, package?}. ServerHost 가 저장 ·
+  기록 시작 세이브에 쓰고, 불러오기에서 다른 게임 거절 · 다른 버전 · 패키지 빌드는 결과에 알린다. SaveSummary.game.
+- sbx: `build <폴더> [--out]`, `check <파일.sbpkg>`.
+- 시험: test_sha256 (2), test_game_package (4), test_world_ops +1 (결속), CTest project_package.
+- 문서: ADR-0054, 09 (2 · 9장), 15 7장, 13, 17, 18 (D-02 결정 · M5 ✅ — 다음 M6-T1), adr/README.
+
+**왜**
+
+- 게임 하나를 파일 하나로 주고받고, 고친 파일을 거절하고, 같은 프로젝트는 같은 바이트 (초안 02 7장 A · B · E). 세이브가 어느
+  게임의 것인지 알아 다른 게임 세이브를 막는다.
+
+**검증**
+
+- Windows MSVC Debug: ctest 60/60 통과 (render_tests_warp 제외). 수동: 데모 프로젝트를 두 번 빌드 → 같은 바이트, sbx check 오류 ·
+  경고 0, `SandboxServer --world <패키지> --start-game --ticks 120 --exit` 정상 · 세이브 폴더가 패키지 옆, 한 바이트를 고친
+  패키지는 sbx check · 서버 모두 "sha256 과 다르다" 로 거절.
+- 골든 · 와이어 · kSimVersion · worldVersion · schemaVersion 그대로 (world.json "game" 은 선택 키).
+
+**남은 일**
+
+- M6-T1 데모 미니게임 프로젝트 (samples/). 압축 · 서명 · 흐름 읽기, 원격 클라이언트의 패키지 받기, 캐시 지우기, 게임 버전 간
+  세이브 마이그레이션 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M5-T1: 테스트 플레이 — 편집 월드는 서버 메모리에 맡기고 복사본으로, 멈추면 되돌린다 (ADR-0053)
 
 **무엇을**

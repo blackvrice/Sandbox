@@ -244,7 +244,7 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
 
 sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <GameMode id>] [--content-root d] [--seed n]
                                                                                             (v0.2 M1-T4, ADR-0043)
-sbx check <폴더>  ·  sbx templates  ·  sbx --version
+sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg]  ·  sbx templates  ·  sbx --version
     new: 빈 폴더에만 새 게임 프로젝트 (sandbox.project.json + worlds/main). --from 이 없으면 빈 월드(내장 콘텐츠 · 16 × 16 청크 ·
     일시정지), 있으면 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로. 옆의 <폴더>.sbx-new 에 만들어 검사(오류 · 경고 0)를
     통과해야 제자리로 — 실패하면 아무것도 남기지 않는다. 엔진 범위는 ">=<이 엔진> <1.0.0".
@@ -252,6 +252,9 @@ sbx check <폴더>  ·  sbx templates  ·  sbx --version
     (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패
     실행은 SandboxServer --world <폴더> · SandboxClient --world <폴더>.
     --mode (v0.2 M3-T3, ADR-0049): 매니페스트 schemaVersion 2 · gameMode — 템플릿 콘텐츠에 없는 모드면 종료 코드 2 와 있는 모드.
+    build (v0.2 M5-T2, ADR-0054): 게임 패키지 하나 (09 9장) — 기본 <폴더>/build/<gameId>-<version>.sbpkg. 검사 오류면 만들지
+    않는다. 같은 프로젝트의 두 빌드는 같은 바이트. check <파일.sbpkg> = 파일마다 SHA-256 · digest 확인 (고친 패키지면 종료 코드 1)
+    → 풀어서 프로젝트 검사. SandboxServer · SandboxClient --world <파일.sbpkg> 도 같은 검증 뒤 연다 (세이브 = <이름>-saves).
     데모 "토끼 지키기":  sbx new Demo --id studio.demo --from ecosystem_small --mode eco.protect
                          SandboxClient --world Demo  →  "게임" 패널 시작  →  Q 먹이 주기 · E 덫 놓기 (커서 자리)
 

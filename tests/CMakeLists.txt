@@ -8,6 +8,7 @@
 add_executable(SandboxTests
     main.cpp
     unit/foundation/test_hash.cpp
+    unit/foundation/test_sha256.cpp
     unit/foundation/test_handle.cpp
     unit/foundation/test_error.cpp
     unit/foundation/test_assert.cpp
@@ -40,6 +41,7 @@ add_executable(SandboxTests
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
     unit/project/test_game_project.cpp
+    unit/project/test_game_package.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
@@ -400,6 +402,12 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=150
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_demo.cmake")
         set_tests_properties(project_demo_protect PROPERTIES LABELS "content" TIMEOUT 180)
+        # 게임 패키지 — sbx build (두 번 같은 바이트) → sbx check → 서버 --world <패키지>, 고친 패키지 거절 (v0.2 M5-T2)
+        add_test(NAME project_package
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_package"
+                    -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_package.cmake")
+        set_tests_properties(project_package PROPERTIES LABELS "content" TIMEOUT 180)
     endif()
 endif()
 

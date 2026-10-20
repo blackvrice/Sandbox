@@ -1,5 +1,5 @@
-// Phase 12D (ADR-0031): 서버의 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged), 월드가 바뀔 때 클라이언트가
-// generation 을 따라가는 것 (새 월드의 스냅숏을 WorldChanged 까지 쥐고 있기), 메시지 왕복.
+// Phase 12D (ADR-0031): 서버의 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged), 월드가 바뀔 때
+// 클라이언트가 generation 을 따라가는 것 (새 월드의 스냅숏을 WorldChanged 까지 쥐고 있기), 메시지 왕복.
 #include <doctest/doctest.h>
 
 #include <filesystem>
@@ -11,6 +11,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/replication/ReplicationWriter.hpp"
@@ -337,6 +338,59 @@ TEST_SUITE("network") {
         // 같은 이름으로 다시 저장 = 덮어쓰기 (폴더째 바꿔 넣는다)
         REQUIRE(worldOp(rig, {&owner, &ed, &late}, owner, WorldOpKind::Save, "s1").accepted);
         CHECK(listOf(rig, {&owner, &ed, &late}, late).worlds.size() == 1);
+    }
+
+    TEST_CASE(
+        "world ops (v0.2 M5-T2): 게임 서버의 세이브는 게임에 묶인다 — 다른 게임 거절, 다른 버전 · 패키지는 알린다") {
+        TempDir dir("binding");
+        ServerHostDesc d;
+        d.savesRoot = dir.path;
+        d.game = GameIdentity{"studio.a", "A", "0.2.0"};
+        d.packageDigest = std::string(64, 'a');
+        Rig rig(d);
+        Peer owner(rig, "owner", "k");
+        pump(rig, {&owner}, 10);
+        REQUIRE(owner.session.state() == ClientState::Connected);
+        REQUIRE(worldOp(rig, {&owner}, owner, WorldOpKind::Save, "s1").accepted);
+        const auto sum = scenario::readSaveSummary(dir.path / "s1");
+        REQUIRE(sum.has_value());
+        REQUIRE(sum->game);
+        CHECK(sum->game->gameId == "studio.a");
+        CHECK(sum->game->version == "0.2.0");
+        CHECK(sum->game->package == std::string(64, 'a'));
+
+        // s1 을 복사해 world.json 의 "game" 만 바꾼다
+        const auto variant = [&](const std::string& name, auto&& mutate) {
+            fs::copy(dir.path / "s1", dir.path / name, fs::copy_options::recursive);
+            auto j = ecs::Json::parse(*io::readFile(dir.path / name / "world.json"));
+            mutate(j);
+            REQUIRE(io::writeFileAtomic(dir.path / name / "world.json", j.dump(2)).has_value());
+        };
+        variant("other_game", [](ecs::Json& j) { j["game"]["gameId"] = "studio.b"; });
+        variant("old_version", [](ecs::Json& j) { j["game"]["version"] = "0.1.0"; });
+        variant("other_build", [](ecs::Json& j) { j["game"]["package"] = std::string(64, 'b'); });
+        variant("unbound", [](ecs::Json& j) { j.erase("game"); });
+
+        const WorldOpResultMsg other = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "other_game");
+        CHECK_FALSE(other.accepted);
+        CHECK(other.detail.find("다른 게임 'studio.b'") != std::string::npos);
+        const WorldOpResultMsg old = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "old_version");
+        CHECK(old.accepted);
+        CHECK(old.detail.find("버전 0.1.0 에서 저장") != std::string::npos);
+        const WorldOpResultMsg build = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "other_build");
+        CHECK(build.accepted);
+        CHECK(build.detail.find("다른 패키지 빌드") != std::string::npos);
+        CHECK(worldOp(rig, {&owner}, owner, WorldOpKind::Load, "unbound").accepted); // 게임에 묶이지 않은 세이브
+
+        // 게임이 아닌 서버의 세이브에는 "game" 이 없다
+        TempDir plainDir("binding_plain");
+        ServerHostDesc pd;
+        pd.savesRoot = plainDir.path;
+        Rig plain(pd);
+        Peer p(plain, "owner", "k");
+        pump(plain, {&p}, 10);
+        REQUIRE(worldOp(plain, {&p}, p, WorldOpKind::Save, "s").accepted);
+        CHECK_FALSE(scenario::readSaveSummary(plainDir.path / "s")->game);
     }
 
     TEST_CASE("world ops: a save made with other content is refused, no saves folder refuses everything but the list") {

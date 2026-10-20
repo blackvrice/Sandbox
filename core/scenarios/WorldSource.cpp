@@ -46,7 +46,15 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
         out.name = std::string(spec);
         return out;
     }
-    const std::filesystem::path dir{std::string(spec)};
+    std::filesystem::path dir{std::string(spec)};
+    if (package::isPackageFile(dir)) {
+        auto extracted = package::extractPackage(dir, package::defaultPackageCache());
+        if (!extracted) {
+            return std::unexpected(extracted.error());
+        }
+        out.package = std::move(extracted->index);
+        dir = extracted->dir; // 아래 프로젝트 길로
+    }
     if (project::isProjectFolder(dir)) {
         const SemVer engine{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
         auto opened = project::openProject(dir, engine, catalog);
@@ -59,6 +67,7 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
         out.name = opened->manifest.name;
         out.warnings = std::move(opened->warnings);
         out.game = std::move(opened->manifest);
+        out.projectDir = dir;
         return out;
     }
     const auto worldJson = io::readFile(dir / "world.json");
@@ -117,6 +126,15 @@ Expected<SaveSummary> readSaveSummary(const std::filesystem::path& dir) {
     }
     if (j.contains("entityCount") && j["entityCount"].is_number_unsigned()) {
         out.entities = j["entityCount"].get<u64>();
+    }
+    if (const auto g = j.find("game"); g != j.end() && g->is_object()) {
+        persist::GameBinding b;
+        b.gameId = g->value("gameId", "");
+        b.version = g->value("version", "");
+        b.package = g->value("package", "");
+        if (!b.gameId.empty()) {
+            out.game = std::move(b);
+        }
     }
     if (const auto it = j.find("content"); it != j.end() && it->is_object()) {
         if (const auto h = it->find("contentHash"); h != it->end() && h->is_string()) {

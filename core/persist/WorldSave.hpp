@@ -4,7 +4,7 @@
 //   <dir>/world.json          버전·시드·틱·경계·테이블(머티리얼 id, 컴포넌트 버전)·시계·worldHash
 //   <dir>/entities.jsonl      한 줄에 엔티티 하나, saveId 오름차순, Persistent 컴포넌트 (이름 → 리플렉션 JSON)
 //   <dir>/chunks/<x>_<y>.chunk  손댄 청크만 (terrainRevision > 0). 나머지는 fillMaterial 로 다시 만든다
-//   <dir>/overlay/<prefabs|rules|behaviors>/<id>.json  월드 오버레이 항목 (12C, ADR-0030 — 있을 때만)
+//   <dir>/overlay/<prefabs|rules|behaviors|triggers>/<id>.json  월드 오버레이 항목 (12C, ADR-0030 — 있을 때만)
 //
 // 저장은 틱 경계에서 부른다 (tick() 밖). 같은 부모 폴더의 임시 폴더에 전부 쓴 뒤 폴더째 바꿔 넣는다 —
 // 중간에 실패해도 이전 세이브가 반쯤 덮이지 않고, 지난 세이브의 남은 청크 파일도 섞이지 않는다.
@@ -20,6 +20,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,8 +32,19 @@ namespace sbx::persist {
 inline constexpr u32 kWorldVersion = 1;  // 폴더 구조·파일 집합
 inline constexpr u32 kSchemaVersion = 1; // world.json · entities.jsonl 스키마
 
+// 세이브가 어느 게임의 것인가 (v0.2 M5-T2, ADR-0054) — world.json 의 "game" {gameId, version, package?}. 게임 프로젝트 ·
+// 패키지를 돌리는 서버가 저장할 때 쓴다. 선택 키라 옛 세이브 · 옛 엔진과 그대로 호환된다 (읽는 쪽 — 서버의 불러오기 — 이
+// 다른 게임의 세이브를 거절한다)
+struct GameBinding {
+    std::string gameId;
+    std::string version; // SemVer 문자열
+    std::string package; // 게임 패키지 digest (64 글자 — 프로젝트 폴더로 돌렸으면 빈 문자열)
+    friend bool operator==(const GameBinding&, const GameBinding&) = default;
+};
+
 struct SaveOptions {
-    std::string name = "world"; // world.json 의 name (표시용)
+    std::string name = "world";      // world.json 의 name (표시용)
+    std::optional<GameBinding> game; // 있으면 world.json 의 "game"
 };
 
 struct SaveStats {

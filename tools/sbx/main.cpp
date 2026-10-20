@@ -2,6 +2,7 @@
 //
 //   sbx new MyGame --id studio.mygame --from ecosystem_small    템플릿에서 새 프로젝트
 //   sbx check MyGame                                            프로젝트 검사 (오류면 종료 코드 1)
+//   sbx build MyGame                                            게임 패키지 (v0.2 M5-T2) — check 는 .sbpkg 도
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/package/GamePackage.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
@@ -30,8 +32,20 @@ SemVer engineVersion() {
     return SemVer{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
 }
 
-int runCheck(const std::filesystem::path& dir, const ecs::ComponentCatalog& catalog) {
+int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
     const SemVer engine = engineVersion();
+    // 패키지: 파일마다 SHA-256 · digest 를 확인하고 캐시에 풀어 그 프로젝트를 검사한다 (서버가 여는 길과 같다)
+    if (package::isPackageFile(dir)) {
+        auto extracted = package::extractPackage(dir, package::defaultPackageCache());
+        if (!extracted) {
+            std::printf("패키지 검사: 실패 — %s\n", extracted.error().describe().c_str());
+            return kExitCheckFailed;
+        }
+        std::printf("패키지 %s %s (\"%s\") — 파일 %zu 개, digest sha256:%s\n", extracted->index.gameId.c_str(),
+                    extracted->index.version.c_str(), extracted->index.name.c_str(), extracted->index.files.size(),
+                    extracted->index.digest.c_str());
+        dir = extracted->dir;
+    }
     const auto r = project::validateProject(dir, engine, catalog);
     for (const content::ContentIssue& i : r.issues) {
         std::printf("%s\n", i.describe().c_str());
@@ -49,6 +63,22 @@ int runCheck(const std::filesystem::path& dir, const ecs::ComponentCatalog& cata
     std::printf("프로젝트 검사: 오류 %zu, 경고 %zu (Prefab %zu, contentHash %s, 시작 월드 %s)\n", r.errorCount(),
                 r.warningCount(), r.prefabs, replay::formatHash(r.contentHash).c_str(), world.c_str());
     return r.ok() ? kExitOk : kExitCheckFailed;
+}
+
+int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    const auto built =
+        package::buildPackage(std::filesystem::path(opt.dir), std::filesystem::path(opt.out), engineVersion(), catalog);
+    if (!built) {
+        printErr(built.error().describe());
+        return kExitError;
+    }
+    std::printf("패키지를 만들었습니다: %s — %s %s, 파일 %zu 개, %llu 바이트\n", built->file.generic_string().c_str(),
+                built->index.gameId.c_str(), built->index.version.c_str(), built->index.files.size(),
+                static_cast<unsigned long long>(built->bytes));
+    std::printf("  digest sha256:%s\n", built->index.digest.c_str());
+    std::printf("  실행: SandboxServer --world %s  ·  SandboxClient --world %s\n", built->file.generic_string().c_str(),
+                built->file.generic_string().c_str());
+    return kExitOk;
 }
 
 int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
@@ -115,6 +145,7 @@ int main(int argc, char** argv) {
         return kExitOk;
     case SbxCommand::New:
     case SbxCommand::Check:
+    case SbxCommand::Build:
         break;
     }
     ecs::ComponentCatalog catalog;
@@ -122,5 +153,12 @@ int main(int argc, char** argv) {
         printErr(r.error().describe());
         return kExitError;
     }
-    return opt.command == SbxCommand::New ? runNew(opt, catalog) : runCheck(std::filesystem::path(opt.dir), catalog);
+    switch (opt.command) {
+    case SbxCommand::New:
+        return runNew(opt, catalog);
+    case SbxCommand::Build:
+        return runBuild(opt, catalog);
+    default:
+        return runCheck(std::filesystem::path(opt.dir), catalog);
+    }
 }

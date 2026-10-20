@@ -24,8 +24,11 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Check;
     } else if (cmd == "templates") {
         o.command = SbxCommand::Templates;
+    } else if (cmd == "build") {
+        o.command = SbxCommand::Build;
     } else {
-        return makeError(ErrorCode::InvalidArgument, std::format("모르는 명령 '{}' (new · check · templates)", cmd));
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("모르는 명령 '{}' (new · check · build · templates)", cmd));
     }
     bool haveDir = false;
     for (usize i = 1; i < args.size(); ++i) {
@@ -47,6 +50,12 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
              : a == "--from" ? o.from
              : a == "--mode" ? o.mode
                              : o.contentRoot) = std::string(*v);
+        } else if (o.command == SbxCommand::Build && a == "--out") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            o.out = std::string(*v);
         } else if (isNew && a == "--seed") {
             auto v = value();
             if (!v) {
@@ -63,7 +72,8 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             return makeError(ErrorCode::InvalidArgument, std::format("'{}' 를 알 수 없습니다 ({})", a, cmd));
         }
     }
-    if ((o.command == SbxCommand::New || o.command == SbxCommand::Check) && !haveDir) {
+    if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build) &&
+        !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
     }
     if (o.command == SbxCommand::New && o.gameId.empty()) {
@@ -84,9 +94,12 @@ std::string sbxUsage() {
            "      --content-root <d>     --from 의 팩을 찾을 곳 (기본: 저장소의 content/)\n"
            "      --seed <n>             월드 시드 (기본 1)\n"
            "  check <폴더>               프로젝트 검사 (매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기)\n"
+           "  check <파일.sbpkg>         게임 패키지 검사 (파일마다 SHA-256 · digest → 풀어서 프로젝트 검사)\n"
+           "  build <폴더>               게임 패키지 만들기 (검사 오류면 만들지 않는다)\n"
+           "      --out <파일.sbpkg>     (기본: <폴더>/build/<gameId>-<version>.sbpkg)\n"
            "  templates                  --from 에 쓸 수 있는 시나리오 목록\n"
            "  --version                  버전\n"
-           "실행: SandboxServer --world <폴더> · SandboxClient --world <폴더>\n"
+           "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";
 }
 

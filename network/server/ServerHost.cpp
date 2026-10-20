@@ -1018,7 +1018,7 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
             reply("같은 이름의 리플레이가 있습니다", false);
             return;
         }
-        auto saved = persist::saveWorld(world, dir, persist::SaveOptions{req.name});
+        auto saved = persist::saveWorld(world, dir, persist::SaveOptions{req.name, gameBinding()});
         if (!saved) {
             reply(saved.error().describe(), false);
             return;
@@ -1034,6 +1034,20 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         if (!isSaveFolder(dir)) {
             reply("그런 세이브가 없습니다", false);
             return;
+        }
+        // 게임 결속 (v0.2 M5-T2): 다른 게임의 세이브는 거절, 다른 버전 · 패키지의 세이브는 열고 알린다
+        std::string bindingNote;
+        if (const auto summary = scenario::readSaveSummary(dir); summary && summary->game && !m_desc.game.empty()) {
+            const persist::GameBinding& g = *summary->game;
+            if (g.gameId != m_desc.game.gameId) {
+                reply(std::format("다른 게임 '{}' 의 세이브입니다 (이 서버는 '{}')", g.gameId, m_desc.game.gameId), false);
+                return;
+            }
+            if (g.version != m_desc.game.version) {
+                bindingNote += std::format(" · 버전 {} 에서 저장", g.version);
+            } else if (!g.package.empty() && !m_desc.packageDigest.empty() && g.package != m_desc.packageDigest) {
+                bindingNote += " · 다른 패키지 빌드에서 저장";
+            }
         }
         auto opened = scenario::openSave(dir, world.baseContent(), world.catalog());
         if (!opened) {
@@ -1052,7 +1066,7 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         const sim::Tick tick = opened->runner->world().currentTick();
         replaceWorld(std::move(opened->runner), WorldChangeReason::Load, req.name, out);
         replaced = true;
-        reply(std::format("tick {}{}", tick, recorded), true);
+        reply(std::format("tick {}{}{}", tick, bindingNote, recorded), true);
         return;
     }
     case WorldOpKind::RecordStart: {
@@ -1069,7 +1083,7 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
             reply("같은 이름의 세이브 · 리플레이가 있습니다", false);
             return;
         }
-        auto saved = persist::saveWorld(world, dir / kReplayStart, persist::SaveOptions{req.name});
+        auto saved = persist::saveWorld(world, dir / kReplayStart, persist::SaveOptions{req.name, gameBinding()});
         if (!saved) {
             reply(saved.error().describe(), false);
             return;
@@ -1197,6 +1211,13 @@ Expected<std::string> ServerHost::startTestPlay(std::vector<Outgoing>& out) {
     replaceWorld(std::move(opened->runner), WorldChangeReason::TestPlay, {}, out, &m_editRunner);
     m_finishedSteps = 0;
     return std::format("tick {} — {} (멈추면 편집 월드로 돌아갑니다)", tick, what);
+}
+
+std::optional<persist::GameBinding> ServerHost::gameBinding() const {
+    if (m_desc.game.empty()) {
+        return std::nullopt;
+    }
+    return persist::GameBinding{m_desc.game.gameId, m_desc.game.version, m_desc.packageDigest};
 }
 
 Expected<std::string> ServerHost::stopTestPlay(std::vector<Outgoing>& out) {

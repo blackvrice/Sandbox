@@ -7,6 +7,8 @@
 //   프로젝트   project::openProject (v0.2 M1-T2, 18 5.2) — 매니페스트 · 이 엔진 버전(BuildInfo) · <프로젝트>/content 팩 ·
 //              entryWorld 를 검사하고 연다 (contentRoot 인자는 쓰지 않는다). 검사 오류가 하나라도 있으면 열지 않는다.
 //              name = 매니페스트 name, game = 매니페스트. 이어 돌리기는 세이브와 같다
+//   패키지     (v0.2 M5-T2, ADR-0054) .sbpkg 파일 — 검증해 캐시에 풀고 (package::extractPackage) 프로젝트처럼 연다.
+//              고친 패키지는 열지 않는다. package = index (digest · 게임), projectDir = 풀어 둔 폴더
 //   세이브     world.json 의 content.packs 를 contentRoot 에서 읽고 (없으면 내장) persist::loadWorld →
 //              아무 명령도 넣지 않는 "save" 시나리오로 이어 돌린다. 세이브 경고는 warnings 에
 //   셋 다 아님 NotFound — 있는 시나리오 이름을 알려 준다
@@ -19,6 +21,8 @@
 #include <vector>
 
 #include "core/content/ContentDatabase.hpp"
+#include "core/package/GamePackage.hpp"
+#include "core/persist/WorldSave.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/scenarios/Scenario.hpp"
 
@@ -31,7 +35,9 @@ struct WorldSource {
     std::vector<std::string> packs; // 읽은 콘텐츠 팩 (비면 내장)
     std::string name;               // 시나리오 이름, 게임 이름(매니페스트 name) 또는 세이브 폴더 이름
     std::vector<std::string> warnings;
-    std::optional<project::GameManifest> game; // 게임 프로젝트를 열었을 때만
+    std::optional<project::GameManifest> game; // 게임 프로젝트 · 패키지를 열었을 때만
+    std::filesystem::path projectDir;          // 프로젝트 폴더 (패키지면 풀어 둔 캐시 — 재시작의 시작 월드 기준)
+    std::optional<package::PackageIndex> package; // 패키지를 열었을 때만 (digest · 게임 정체성)
 };
 
 [[nodiscard]] Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot,
@@ -54,6 +60,7 @@ struct SaveSummary {
     u64 entities = 0;
     u64 contentHash = 0;
     std::vector<std::string> packs;
+    std::optional<persist::GameBinding> game; // world.json 의 "game" (v0.2 M5-T2 — 없으면 게임에 묶이지 않은 세이브)
 };
 [[nodiscard]] Expected<SaveSummary> readSaveSummary(const std::filesystem::path& dir);
 

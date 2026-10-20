@@ -46,6 +46,7 @@
 #include <thread>
 #include <vector>
 
+#include "core/persist/WorldSave.hpp"
 #include "core/replay/Replay.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "network/protocol/Messages.hpp"
@@ -78,6 +79,7 @@ struct ServerHostDesc {
     // GameMode.restart 가 auto 면 Finished 뒤 delay 만큼 서버 단계가 지나면 스스로
     std::filesystem::path entryWorld;
     std::string gameMode;
+    std::string packageDigest; // 게임 패키지로 돌리면 그 digest (v0.2 M5-T2 — 세이브의 "game".package)
     u32 minPlayers = 0;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
     // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
@@ -226,6 +228,8 @@ private:
     // 결과 요약
     [[nodiscard]] Expected<std::string> startTestPlay(std::vector<Outgoing>& out);
     [[nodiscard]] Expected<std::string> stopTestPlay(std::vector<Outgoing>& out);
+    // 세이브에 쓸 게임 정체성 (게임 프로젝트 · 패키지 서버만, v0.2 M5-T2)
+    [[nodiscard]] std::optional<persist::GameBinding> gameBinding() const;
     [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
     // 게임 재시작 (WorldOp Restart · 자동, M2-T3): 시작 월드를 다시 열어 바꾸고 세션을 Lobby 로. 결과 요약
     [[nodiscard]] Expected<std::string> restartGame(std::vector<Outgoing>& out);
