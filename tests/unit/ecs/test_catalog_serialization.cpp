@@ -18,11 +18,11 @@ TEST_SUITE("ecs") {
     TEST_CASE("catalog: core components register and are sorted by stable id") {
         ComponentCatalog cat;
         REQUIRE(comp::registerCoreComponents(cat).has_value());
-        CHECK(cat.size() == 18);
-        for (const char* name :
-             {"core.transform", "core.velocity", "core.lifetime", "core.tags", "core.prefab", "persist.persistence",
-              "net.identity", "life.age", "life.energy", "life.health", "life.growth", "life.reproduce",
-              "debug.random_walk", "core.movement", "core.collider", "ai.sensor", "ai.behavior", "ai.path"}) {
+        CHECK(cat.size() == 19);
+        for (const char* name : {"core.transform", "core.velocity", "core.lifetime", "core.tags", "core.prefab",
+                                 "persist.persistence", "net.identity", "life.age", "life.energy", "life.health",
+                                 "life.growth", "life.reproduce", "debug.random_walk", "core.movement", "core.collider",
+                                 "ai.sensor", "ai.behavior", "ai.path", "game.session"}) {
             INFO(name);
             CHECK(cat.find(name) != nullptr);
         }

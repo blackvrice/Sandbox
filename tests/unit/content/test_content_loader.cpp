@@ -196,6 +196,7 @@ TEST_SUITE("content") {
         t.file("t/prefabs/a.json", R"([
             {"id": "t.unknown", "components": {"t.whatever": {}}},
             {"id": "t.managed", "components": {"core.tags": {}}},
+            {"id": "t.session", "components": {"game.session": {}}},
             {"id": "t.range",   "components": {"life.reproduce": {"chance": 2.0}}},
             {"id": "t.field",   "components": {"life.energy": {"valeu": 1}}},
             {"id": "t.ok",      "components": {"render.anything": {"x": 1}, "client.ui": {}}}
@@ -209,7 +210,8 @@ TEST_SUITE("content") {
         const auto r = t.load();
         INFO(dumpIssues(r));
         CHECK(hasIssue(r, "V3", "모르는 컴포넌트 't.whatever'"));
-        CHECK(hasIssue(r, "V3", "엔진이 관리한다"));
+        CHECK(hasIssue(r, "V3", "'core.tags' 는 엔진이 관리한다"));
+        CHECK(hasIssue(r, "V3", "'game.session' 는 엔진이 관리한다")); // v0.2 M2-T2
         CHECK(hasIssue(r, "V3", "허용 범위"));
         CHECK(hasIssue(r, "V3", "모르는 필드 'valeu'"));
         CHECK(hasIssue(r, "V3", "수치 필드 'nope'"));

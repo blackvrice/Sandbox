@@ -24,6 +24,7 @@
 | (이동·충돌)       | ✅ Phase 5B — Movement 조향(core.movement · ai.path), Collision(16) 원-원 분리 + 통행 불가 타일                                                                      | `core/systems/{Movement,Collision}System.*`                              |
 | (진단)            | `debug.random_walk` + RandomWalkSystem — Behavior 가 들어오기 전 파이프라인 전체를 움직이는 진단용                                                                   | `core/systems/RandomWalkSystem.*`                                        |
 | (시나리오)        | `random_walk_1k`, `random_walk_10k`, `world_save_load`(Phase 4), `eco_lifecycle`(Phase 5A, eco 팩), `ScenarioRunner`(로드한 월드로 이어 돌리기 포함)                 | `core/scenarios/*`                                                       |
+| (게임 진행)       | ✅ v0.2 M2-T2 — `game.session` 전이 GameRules(17b): 카운트다운 → Running → 끝 조건 → Finished, Lobby · Finished 는 편집 단계 (ADR-0045)                              | `core/game/GameRules.*`                                                  |
 
 **문서 초안과 달라진 점 · 구현에서 정한 것**
 
@@ -152,6 +153,14 @@ public:
 | 18 | ReplicationSystem        | (ServerHost) 클라이언트별 Delta 작성 — 읽기 전용                         | —                                   |
 | 19 | WorldHash                | N틱마다(기본 30)                                                         | —                                   |
 | 20 | EndTick                  | 메트릭, 리플레이 체크포인트, 오토세이브 스냅샷, 로그 정리                | —                                   |
+
+`17b GameRules` (v0.2 M2-T2, [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md)): System 이 아니라
+SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱의 생성 · 파괴가 반영된 수로 끝 조건을 본다. 월드에 하나인
+`game.session` (둘 이상이면 saveId 가 가장 작은 것)을 GameMode(콘텐츠 `modes/`)에 따라 바꾼다: Starting 경과 ≥ 카운트다운 →
+Running, Running 에서 `end` 를 위에서부터 처음 맞는 규칙 → Finished (result · team · rule). 세션이 Lobby · Finished 이면 그
+tick() 은 일시정지와 같은 **편집 단계**다 (틱 그대로, 명령만 — `clock.paused` 와 별개, 남은 Step 도 쓰지 않는다).
+세션이 없는 월드에서는 아무것도 하지 않는다 → 기존 월드의 결과 · 골든 해시가 그대로 (kSimVersion 그대로 — 04 6장).
+`game.session` 은 엔진이 관리한다: 사용자 명령 · Prefab 으로 붙이거나 바꿀 수 없다 (시작 · 재시작 명령은 M2-T3).
 
 ### 2.1 순서 결정의 이유
 
@@ -405,6 +414,8 @@ SimCommand ─▶ [2 Apply] ─ECB─▶ [3 Structural①] ─▶ Registry
      [12 Combat] [13 Resource] [14 Production] [15 Lifecycle] [16 Collision] ◀───────────┘
                                          │
                               [17 Structural②] ─▶ Registry, destroyedLog, EventStream
+                                         │
+                              [17b GameRules] ─▶ game.session (있을 때만)
                                          │
                  [18 Replication]   [19 WorldHash]   [20 EndTick: Replay·Autosave·Metrics]
 ```

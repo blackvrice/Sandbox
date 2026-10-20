@@ -17,6 +17,8 @@
 //   v3  2026-10-05  Phase 5B: Stage 5·6·7(Behavior)·8·10·11·16 System 추가, Movement 조향(core.movement)
 //   v4  2026-10-06  Phase 5C: life.reproduce 밀도 제한(crowdRadius·crowdMax), flee 가 통행 가능한 목표를 고른다,
 //                   감지는 색인의 태그 사본을 쓰고 태그 없는 엔티티를 건너뛴다
+//   (4) 2026-10-20  v0.2 M2-T2: 올리지 않음 — game.session 과 단계 17b GameRules 는 세션이 있는 월드에만 작용한다
+//                   (세션 없는 월드의 결과 · 기존 골든 그대로, 04 6장 이력)
 
 #include "foundation/types/Types.hpp"
 

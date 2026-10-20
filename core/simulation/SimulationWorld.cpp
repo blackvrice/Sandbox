@@ -14,6 +14,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/game/GameRules.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "foundation/log/Log.hpp"
 
@@ -27,9 +28,10 @@ bool isFinite(Vec2 v) noexcept {
     return std::isfinite(v.x) && std::isfinite(v.y);
 }
 
-// 정체성 컴포넌트는 SimulationWorld 만 붙이고 뗀다
+// 정체성 · 게임 세션 컴포넌트는 엔진만 붙이고 뗀다
 bool isProtected(ecs::StableId id) noexcept {
-    return id == ecs::stableIdOf<comp::Persistence> || id == ecs::stableIdOf<comp::NetIdentity>;
+    return id == ecs::stableIdOf<comp::Persistence> || id == ecs::stableIdOf<comp::NetIdentity> ||
+           id == ecs::stableIdOf<comp::GameSession>; // 게임 진행 상태 — 시작 · 재시작 명령만 (M2-T3)
 }
 
 std::string hexId(ecs::StableId id) {
@@ -99,7 +101,8 @@ void SimulationWorld::enqueue(cmd::SimCommand command) {
 
 void SimulationWorld::tick(ISystemProfiler* profiler) {
     // 이번 호출의 모드는 시작할 때 정한다 — 이번 틱에 적용되는 Pause/Step 은 다음 호출부터 효과가 있다.
-    const bool run = !m_clock.paused() || m_clock.consumeStep();
+    // 게임 세션이 Lobby · Finished 면 편집 단계 (Step 도 소비하지 않는다 — ADR-0045)
+    const bool run = !game::gameHoldsSimulation(m_registry) && (!m_clock.paused() || m_clock.consumeStep());
     m_editStep = !run;
 
     // --- 0 BeginTick ---------------------------------------------------------
@@ -140,6 +143,10 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_scheduler.run(base, profiler);
     m_scheduler.applyBuffers(m_registry, [this] { syncIdentityLogs(); });
     applySpawns(); // Prefab 생성 — ECB 다음, (parent saveId, 순서) 정렬
+
+    // --- 17b GameRules ---------------------------------------------------------
+    // 이번 틱의 생성 · 파괴가 반영된 뒤 세션 전이 (세션이 없으면 아무것도 안 한다)
+    (void)game::stepGameRules(m_registry, *m_content, now);
 }
 
 Expected<u64> SimulationWorld::worldHash() const {

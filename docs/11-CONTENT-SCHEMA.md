@@ -319,7 +319,7 @@ V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복, �
 
 게임 하나의 진행 규칙: 참가자 · 팀 · 시작 카운트다운 · 끝 조건 · 재시작. 프로젝트 매니페스트(schemaVersion 2)의
 `gameMode` 가 하나를 고른다 ([18-PLATFORM](18-PLATFORM.md) 5.2). 진행 상태(Lobby → Starting → Running → Finished)는
-시뮬레이션의 `game.session` 이 든다 — M2-T2 `[계획]`.
+시뮬레이션의 `game.session` 이 든다 — 전이는 단계 17b GameRules ([03](03-SIMULATION.md) 2장, M2-T2).
 
 ```jsonc
 // modes/survival.json — 파일 하나에 모드 하나

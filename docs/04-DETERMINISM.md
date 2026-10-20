@@ -194,6 +194,7 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 | (2)  | 2026-10-05 (Phase 5A) | 올리지 않음 — 새 컴포넌트(life.*, core.tags, core.prefab)와 그 규칙만 추가. 기존 컴포넌트의 동작·해시 대상은 그대로이고 기존 골든 2개가 변하지 않았다 (골든 eco_lifecycle 신규)   |
 | 3    | 2026-10-05 (Phase 5B) | Stage 5·6·8·10·11·16 System 과 Behavior(Stage 7) 추가, Movement 가 core.movement 로 조향. core.movement 가 없는 엔티티의 동작은 그대로 (random_walk_1k 는 머리의 버전만 달라졌다) |
 | 4    | 2026-10-06 (Phase 5C) | life.reproduce 밀도 제한(crowdRadius·crowdMax), flee 가 통행 가능한 목표를 고름, 감지가 색인의 태그 사본을 쓰고 태그 없는 엔티티를 건너뜀                                         |
+| (4)  | 2026-10-20 (v0.2 M2)  | 올리지 않음 — 새 컴포넌트 game.session 과 그 단계 17b GameRules 만 추가. 세션이 없는 월드는 아무것도 하지 않아 기존 골든 전부가 그대로 (5A 와 같은 근거, M2-T2)                   |
 
 ---
 

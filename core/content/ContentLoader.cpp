@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 using nlohmann::json;
 using Severity = ContentIssue::Severity;
 
-constexpr std::array kEngineManaged{"persist.persistence", "net.identity", "core.tags", "core.prefab"};
+constexpr std::array kEngineManaged{"persist.persistence", "net.identity", "core.tags", "core.prefab", "game.session"};
 
 bool isLowerIdent(std::string_view s) noexcept {
     if (s.empty()) {

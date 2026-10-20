@@ -40,6 +40,7 @@ add_executable(SandboxTests
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
     unit/project/test_game_project.cpp
+    unit/game/test_game_rules.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp

@@ -10,9 +10,11 @@
 //   4  SpatialIndex     재구성
 //   5~16 Systems        (일시정지 중에는 건너뜀)
 //   17 Structural②      System ECB 를 실행 순서대로 적용 + 정체성 부여
+//   17b GameRules       game.session 전이 (카운트다운 · 끝 조건 — core/game/GameRules, ADR-0045). 세션이 없으면 없다
 //
 // 일시정지: tick() 은 편집 단계가 된다 — 틱 번호를 올리지 않고 "다음 틱" 몫의 명령만 적용한다(편집이 바로 보이게).
 //           StepSimulation{n} 이 남아 있으면 그 수만큼은 정상 틱을 돈다.
+//           게임 세션이 Lobby · Finished 이면 일시정지와 같은 편집 단계다 (clock.paused 와 별개, Step 도 쓰지 않는다).
 // 실행 제어 명령(Pause/Resume/Step/Speed)은 **다음 tick() 호출부터** 효과가 있다. 이번 호출의 모드는 시작할 때 정한다.
 //
 // 정체성 (Identity.hpp)

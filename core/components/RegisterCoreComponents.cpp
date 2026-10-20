@@ -8,6 +8,7 @@
 #include "core/components/core/Transform.hpp"
 #include "core/components/core/Velocity.hpp"
 #include "core/components/debug/RandomWalk.hpp"
+#include "core/components/game/GameSession.hpp"
 #include "core/components/life/Age.hpp"
 #include "core/components/life/Life.hpp"
 
@@ -26,7 +27,7 @@ Expected<void> addAll(ecs::ComponentCatalog& catalog) {
 
 Expected<void> registerCoreComponents(ecs::ComponentCatalog& catalog) {
     return addAll<Transform, Velocity, Lifetime, Persistence, NetIdentity, Tags, PrefabSource, Age, Energy, Health,
-                  Growth, Reproduce, RandomWalk, Movement, Collider, Sensor, Behavior, Path>(catalog);
+                  Growth, Reproduce, RandomWalk, Movement, Collider, Sensor, Behavior, Path, GameSession>(catalog);
 }
 
 } // namespace sbx::comp

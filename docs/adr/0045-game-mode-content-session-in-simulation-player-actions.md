@@ -60,6 +60,21 @@ v0.2 M2 (GameMode · 라이프사이클)와 M3 (Feature) 앞. 지금 엔진에�
   그대로여야 한다 (바뀌면 kSimVersion · 골든 갱신). Lobby 일시정지가 기존 "일시정지 = 편집 단계" 의미와 겹친다 — 게임 중
   일시정지 · 재개 명령은 Running 에서만 허용할지 M2-T3 에서 정한다.
 
+## 구체화 (M2-T2, 2026-10-20)
+
+```text
+- "새 Stage 의 GameSystem" → System 이 아니라 SimulationWorld 의 단계 17b GameRules (core/game/GameRules). Stage 5~16 안의
+  System 이면 ECB 가 적용되기 전이라 이번 틱의 파괴 · 생성이 끝 조건 수에 한 틱 늦게 보인다. 17 (ECB · Prefab 생성) 다음이면
+  그 틱의 결과로 판정한다. 기존 System 의 순서 · 구성은 그대로다.
+- game.session: mode · state(0 Lobby · 1 Starting · 2 Running · 3 Finished) · stateTick · result(0 없음 · win · lose · draw) ·
+  team(1 부터) · rule(1 부터). 월드에 둘 이상이면 saveId 가 가장 작은 것. 엔진 관리 — 사용자 명령 · Prefab 은 붙이거나
+  바꾸거나 뗄 수 없다 (PermissionDenied · V3). 만들고 바꾸는 명령은 M2-T3.
+- Lobby · Finished 의 멈춤 = 그 tick() 을 편집 단계로 (clock.paused 와 별개라 사용자 일시정지 · 재개와 섞이지 않고, 남은
+  Step 도 쓰지 않는다). Starting 동안은 월드가 돈다 (카운트다운도 틱).
+- kSimVersion 은 올리지 않는다: 세션이 없는 월드에서는 풀도 만들지 않고 아무것도 하지 않는다 — 기존 골든 전부 그대로
+  (Phase 5A 의 "새 컴포넌트와 그 규칙만 추가"와 같은 근거, 04 6장 이력).
+```
+
 ## 대안
 
 | 대안                                      | 기각 사유                                                                    |

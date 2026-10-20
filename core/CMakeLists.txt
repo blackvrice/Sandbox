@@ -45,6 +45,7 @@ add_library(SandboxCore STATIC
     components/core/Movement.hpp
     components/ai/Ai.hpp
     components/debug/RandomWalk.hpp
+    components/game/GameSession.hpp
     components/RegisterCoreComponents.hpp
     components/RegisterCoreComponents.cpp
 
@@ -122,6 +123,9 @@ add_library(SandboxCore STATIC
 
     project/GameProject.hpp
     project/GameProject.cpp
+
+    game/GameRules.hpp
+    game/GameRules.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

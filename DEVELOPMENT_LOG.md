@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-20 — v0.2 M2-T2: game.session · 단계 17b GameRules (ADR-0045 구체화)
+
+**무엇을**
+
+- 컴포넌트 `game.session` (core/components/game/GameSession.hpp): mode · state(Lobby · Starting · Running · Finished) ·
+  stateTick · result · team · rule. Persistent · Replicated · EditorVisible. 엔진 관리 — 사용자 명령(Create · Add ·
+  Change · Remove)은 PermissionDenied, Prefab 의 components 는 V3.
+- `core/game/GameRules`: 세션 찾기 (saveId 가 가장 작은 것), `gameHoldsSimulation` (Lobby · Finished), 끝 조건 평가
+  (time · count(core.tags 태그 식) · AND), `stepGameRules` (Starting 경과 ≥ 카운트다운 → Running, Running 에서 end 를
+  위에서부터 → Finished).
+- SimulationWorld::tick: 세션이 Lobby · Finished 면 편집 단계 (clock.paused 와 별개, Step 을 쓰지 않는다), 17 (ECB ·
+  Prefab 생성) 다음에 단계 17b GameRules.
+- 시험: tests/unit/game/test_game_rules.cpp 8 케이스 (unit_core), unit_ecs 카탈로그 19, unit_content Prefab 의 game.session.
+- 문서: ADR-0045 구체화 절, 03 (0 · 2장 17b · 그림), 04 6장 이력 (4), 02 (game.session), 11 9장, 17, 18 (T2 ✅ — 다음 T3),
+  13, SimVersion.hpp 이력.
+
+**왜**
+
+- 게임의 진행 상태가 시뮬레이션 안에 있어야 세이브 · 리플레이 · WorldHash · 복제가 게임 진행을 안다 (ADR-0045 2).
+- System(Stage 5~16)이 아니라 17 다음 단계로: ECB 적용 뒤라 그 틱의 파괴 · 생성이 끝 조건 수에 바로 보이고, 기존 System
+  순서가 그대로다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 62/62. 골든 det_random_walk · det_world_save_load · det_ecosystem_small ·
+  det_eco_lifecycle 과 리플레이 det_replay_* 그대로 — 세션이 없는 월드의 결과가 같다 (kSimVersion 4 그대로).
+- 와이어 형식 변경 없음 (복제 표는 Welcome 이 stableId 로 싣는다 — 새 Replicated 컴포넌트는 같은 빌드끼리 자동).
+  세이브: 새 컴포넌트만 더해졌다 (옛 세이브는 그대로 읽힌다).
+
+**남은 일**
+
+- M2-T3 시작 · 재시작 명령 (세션 만들기 · Lobby → Starting · Finished → 재시작), 역할 권한, 클라이언트 "게임" 패널,
+  restart.auto 의 지연.
+- M3-T1 PlayerAction.
+
+---
+
 ## 2026-10-20 — v0.2 M2-T1: GameMode 콘텐츠 · 매니페스트 schemaVersion 2 gameMode — D-11 결정 (ADR-0045)
 
 **무엇을**

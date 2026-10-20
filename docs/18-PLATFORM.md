@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, 다음 M2)
-다음     v0.2 M2-T2 — game.session 컴포넌트 · GameSystem (Starting → Running → Finished, 끝 조건) — ADR-0045
+다음     v0.2 M2-T3 — 시작 · 재시작 명령 · 역할 권한 · 세션 만들기 · 클라이언트 "게임" 패널 — ADR-0045
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -58,7 +58,7 @@
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
-| 게임 라이프사이클       | Partial     | GameMode 데이터 ✅ (M2-T1, 팩 modes/). 진행 상태 game.session · GameSystem 은 M2-T2, 시작 · 재시작 명령은 T3                |
+| 게임 라이프사이클       | Partial     | GameMode ✅ (M2-T1) · game.session 진행 ✅ (M2-T2, 단계 17b). 시작 · 재시작 명령 · 세션 만들기는 T3                         |
 | 플레이어 행동           | Partial     | D-11 결정: 콘텐츠 PlayerAction 부터 (ADR-0045, M3-T1). 역할 Player · CommandClass::PlayerAction 은 예약만                   |
 | Feature Bundle          | Partial     | life.health · energy · Spawn(Prefab 생성 · Reproduce) · Camera2D · ActionMap. Score · Timer · Win/Lose 는 Planned (M3)      |
 | Visual Trigger          | Partial     | Rule(source · action · target · effects) · BehaviorGraph FSM · Effect op. 게임 이벤트 · 조건 · 효과 노드는 Planned (M4)     |
@@ -117,8 +117,8 @@ M1 GameProject
 M2 GameMode · 라이프사이클 (서버 권위 — ADR-0045: 모드는 콘텐츠, 진행 상태는 시뮬레이션 안)
   T1 ✅ GameMode 데이터: 팩의 modes/*.json (players · teams · start · end{time · count} · restart, V8), 매니페스트
         schemaVersion 2 의 gameMode (1 도 읽는다, P5 = 콘텐츠에 없음) (11 9장)
-  T2 [계획] game.session 컴포넌트 (월드에 하나 — Persistent · Replicated) · GameSystem (새 Stage): Starting 카운트다운 →
-        Running → 끝 조건 → Finished. game.session 이 없는 월드는 그대로 (골든 동일)
+  T2 ✅ game.session 컴포넌트 (월드에 하나 — Persistent · Replicated, 엔진 관리) · 단계 17b GameRules: Starting 카운트다운
+        → Running → 끝 조건 → Finished, Lobby · Finished = 편집 단계. 세션 없는 월드는 그대로 (골든 동일, 03 2장)
   T3 [계획] 시작 · 재시작 명령 · 역할 권한, Lobby = 일시정지, 재시작 = 서버가 시작 월드를 다시 연다, 클라이언트 "게임" 패널
 M3 Feature Bundle (Native)
   T1 PlayerAction (D-11 결정 — 11 6장 actions.json: 범위 안 태그 식 개체에 Rule 효과, CommandClass::PlayerAction 을 채운다)
@@ -211,7 +211,8 @@ M1-T3 ✅  08 (핸드셰이크에 게임 정체성 · 프로토콜 8), ADR-0042
 M1-T4 ✅  15 (sbx), 17, 13, ADR-0043
 M1-T5 ✅  10 9장, 15, 13, ADR-0044
 M2-T1 ✅  11 (1 · 8 · 9장 GameMode), 18 5.2 (gameMode), ADR-0045 (D-11 포함)
-M2-T2~ · M3   03 (GameSession Stage · 게임 System), 04 (상태기계 결정론), 11 (actions.json · 점수)
+M2-T2 ✅  03 2장 (17b GameRules), 04 6장 (simVersion 그대로), 02 (game.session), 17, 13, ADR-0045 구체화
+M2-T3 · M3   08 (게임 명령 · 역할), 10 (게임 패널), 11 (actions.json · 점수)
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
@@ -228,4 +229,5 @@ v0.2 M1-T3 뒤: 59/59 (+ net_server_probe_project — 실제 UDP 로 Welcome.gam
 v0.2 M1-T4 뒤: 61/61 (+ project_new_empty · project_new_from_scenario)
 v0.2 M1-T5 뒤: 62/62 (+ server_project_saves_root)
 v0.2 M2-T1 뒤: 62/62 (unit_content · unit_project 케이스 추가)
+v0.2 M2-T2 뒤: 62/62 (unit_core 에 game 8 케이스, unit_ecs · unit_content 갱신 — 골든 해시 전부 그대로)
 ```
