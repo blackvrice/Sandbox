@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-20 — v0.2 M3-T1: 플레이어 행동 — 콘텐츠 PlayerAction (actions.json) · 명령 PlayerAction · "행동" 패널 (ADR-0047)
+
+**무엇을**
+
+- 콘텐츠: 팩의 `actions.json` → `content::PlayerActionDef` (id · name · targets · range 0~32 · maxTargets 1~64 · conditions ·
+  effects). 검사 V9 (who · 조건 경로는 target 뿐, 범위, 팩 전체 64 개) + V3 · V7 · V1. Rule 의 조건 · 효과 파서를
+  `parseRuleConditions` · `parseRuleEffects` 로 떼어 Rule 과 함께 쓴다 (Rule 동작 그대로 — 기존 content 시험 통과).
+- 명령 `PlayerAction{action, position}` (와이어 태그 30, 리플레이 JSON "action"): SimulationWorld 가 명령 단계에서 대상을
+  고르고 (core.transform · 반경 · 태그 · 조건 · (거리², saveId) 순 maxTargets) 효과를 바로 적용 (field · destroy · spawn
+  (난수 Purpose::PlayerAction) · tag · event). 대상이 없으면 거절 (원자적). 게임 세션이 있으면 Running 에서만.
+  CommandClass::PlayerAction = 역할 player 부터. 프로토콜 10.
+- 클라이언트 "행동" 패널 (apps/client/ui/ActionPanel): 행동을 쥐면 월드 왼쪽 클릭 = PlayerAction (에디터 · 선택은 클릭을 받지
+  않는다), Esc = 놓기, 결과 · 거절 줄. NetworkSession::playerActions() · playerAction().
+- 시험: test_player_action (core 5), test_content_loader +2, test_action_panel (client 2), test_messages (프로토콜 10 ·
+  태그 30), test_multi_client 역할 표 +PlayerAction (player 부터).
+- 문서: ADR-0047, 11 (머리말 · 0 · 6 · 8장 V9), 03 (0 · 4장), 08 (머리말 · 5 · 5.1장), 10 7 · 9장, 13, 17, 18 (M3-T1 ✅ —
+  다음 M3-T2), adr/README.
+
+**왜**
+
+- D-11 (ADR-0045) 결정의 구현. 역할 player 가 처음으로 쓸 수 있는 명령이고, 콘텐츠만으로 플레이어 상호작용을 만든다.
+- 대상을 시뮬레이션이 위치로 고른다: 복제 지연 · 관심 영역 밖 · 치트 검사가 필요 없고 리플레이에서 같다.
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 63/63. 골든 · 리플레이 해시 그대로 (명령이 없으면 아무것도 하지 않는다).
+- 와이어: 프로토콜 9 → 10 (명령 태그 하나). 세이브 형식 · kSimVersion 그대로.
+
+**남은 일**
+
+- 행동 쿨다운 · 비용 (플레이어별 상태), 대상 직접 지정 · 인자, 행동 단축키, 월드 오버레이로 행동 고치기 — [계획].
+- M3-T2 점수 · 팀 (game.score, 효과 op score.add, 끝 조건 score), 스폰 지점.
+
+---
+
 ## 2026-10-20 — v0.2 M2-T3: 게임 시작 · 중단 · 재시작, "게임" 패널, 프로토콜 9 → M2 완료 (ADR-0046)
 
 **무엇을**

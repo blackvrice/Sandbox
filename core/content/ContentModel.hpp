@@ -102,6 +102,26 @@ struct Rule {
     bool overlay = false;
 };
 
+// --- PlayerAction (11 6장, v0.2 M3-T1, ADR-0047) -----------------------------------------------------------------
+// 플레이어(역할 player 부터)가 월드의 한 점을 골라 쓰는 행동: 그 점에서 range 안의 개체 중 targets 태그 식 · conditions 에
+// 맞는 것을 가까운 순 (거리², saveId) 으로 maxTargets 개 골라 effects 를 정의 순서로 준다. effects · conditions 의 who 는
+// target 뿐이다 (source 가 없다). 실행은 명령 PlayerAction 을 적용할 때 (03 4장).
+inline constexpr usize kMaxPlayerActions = 64; // DB 전체
+inline constexpr u32 kMaxActionTargets = 64;
+inline constexpr f32 kMaxActionRange = 32.f;
+
+struct PlayerActionDef {
+    std::string id;
+    std::string name; // 표시 이름 (없으면 id)
+    TagExpr targets;
+    f32 range = 1.f;
+    u32 maxTargets = 1;
+    std::vector<RuleCondition> conditions;
+    std::vector<RuleEffect> effects;
+    std::string file;
+    nlohmann::json raw;
+};
+
 // --- BehaviorGraph (11 4장, 03 5장) ------------------------------------------------------------------------------
 struct Condition {
     enum class Kind : u8 {

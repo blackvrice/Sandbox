@@ -24,6 +24,7 @@
 
 #include "apps/client/FrameRenderer.hpp"
 #include "apps/client/WorldSession.hpp"
+#include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
@@ -104,6 +105,8 @@ public:
     [[nodiscard]] FrameTimings totalTimings() const noexcept;
     [[nodiscard]] const editor::Editor& editor() const noexcept { return m_editor; }
     [[nodiscard]] editor::Editor& editor() noexcept { return m_editor; }
+    // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
+    [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
 
 private:
     void handleEvent(const platform::PlatformEvent& e);
@@ -168,6 +171,7 @@ private:
     editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"
     editor::ContentPanelState m_contentPanel; // 12C "콘텐츠"
     WorldPanelState m_worldPanel;             // 12D "월드" (Ctrl+S 도 이 이름으로 저장)
+    ActionPanelState m_actionPanel;           // v0.2 M3-T1 "행동" — 쥐고 있으면 왼쪽 클릭 = 그 행동
     f64 m_editorClock = 0;                    // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)
     std::chrono::steady_clock::time_point m_lastFrameTime = std::chrono::steady_clock::now();
 

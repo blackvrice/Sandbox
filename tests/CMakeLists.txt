@@ -41,6 +41,7 @@ add_executable(SandboxTests
     unit/content/test_content_overlay.cpp
     unit/project/test_game_project.cpp
     unit/game/test_game_rules.cpp
+    unit/game/test_player_action.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp
@@ -85,6 +86,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_roles_content.cpp
         unit/client/test_world_panel.cpp
         unit/client/test_game_panel.cpp
+        unit/client/test_action_panel.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -94,6 +96,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다

@@ -6,6 +6,7 @@
 #include "network/protocol/BitStream.hpp"
 #include "network/protocol/CommandCodec.hpp"
 #include "network/protocol/Messages.hpp"
+#include "network/server/CommandValidator.hpp"
 
 using namespace sbx;
 using namespace sbx::net;
@@ -54,7 +55,8 @@ std::vector<cmd::CommandPayload> everyPayload() {
             cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
             cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr},
             cmd::GameControl{cmd::GameControlOp::Start},
-            cmd::GameControl{cmd::GameControlOp::Abort}};
+            cmd::GameControl{cmd::GameControlOp::Abort},
+            cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}}};
 }
 
 } // namespace
@@ -137,8 +139,23 @@ TEST_SUITE("network") {
         }
     }
 
+    TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
+        CHECK(kProtocolVersion == 10); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M3-T1)
+        CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
+        CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
+        CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
+        BitWriter bad; // 위치가 유한하지 않다
+        bad.writeU8(static_cast<u8>(PayloadTag::PlayerAction));
+        bad.writeString("x.y");
+        bad.writeF32(std::numeric_limits<f32>::infinity());
+        bad.writeF32(0);
+        BitReader r(bad.bytes());
+        cmd::CommandPayload out;
+        CHECK_FALSE(readPayload(r, out));
+    }
+
     TEST_CASE("messages: 게임 진행 (프로토콜 9 — GameControl · WorldOp Restart · WorldChanged Restart)") {
-        CHECK(kProtocolVersion == 9); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M2-T3)
+        CHECK(kProtocolVersion >= 9); // v0.2 M2-T3 에서 9 (지금 값은 "플레이어 행동" 케이스가 고정한다)
         const WorldOpRequest op = roundTrip(WorldOpRequest{WorldOpKind::Restart, {}});
         CHECK(op.op == WorldOpKind::Restart);
         CHECK(worldOpName(WorldOpKind::Restart) == "게임 재시작");

@@ -19,6 +19,7 @@ std::string_view commandName(const CommandPayload& payload) noexcept {
         std::string_view operator()(const SetSimulationSpeed&) const noexcept { return "SetSimulationSpeed"; }
         std::string_view operator()(const EditContent&) const noexcept { return "EditContent"; }
         std::string_view operator()(const GameControl&) const noexcept { return "GameControl"; }
+        std::string_view operator()(const PlayerAction&) const noexcept { return "PlayerAction"; }
     };
     return std::visit(Namer{}, payload);
 }

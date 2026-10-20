@@ -70,7 +70,7 @@
 | `core/world/WorldGrid.{hpp,cpp}`                                                                            | `GridBounds`, `Chunk`(지형·revision·해시 캐시), `WorldGrid`(paint, 경계)                                                                                            | SandboxCore                 |
 | `core/world/SpatialIndex.{hpp,cpp}`                                                                         | 경계 안 격자 공간 색인 (카운팅 정렬, 청크 질의)                                                                                                                     | SandboxCore                 |
 | `core/content/ContentDatabase.{hpp,cpp}`                                                                    | 콘텐츠 조회: 머티리얼·태그·Prefab·Rule·Behavior (불변)                                                                                                              | SandboxCore                 |
-| `core/content/ContentLoader.{hpp,cpp}`                                                                      | 팩 로더 + 검증기 V1~V7 + contentHash                                                                                                                                | SandboxCore                 |
+| `core/content/ContentLoader.{hpp,cpp}`                                                                      | 팩 로더 + 검증기 V1~V9 + contentHash                                                                                                                                | SandboxCore                 |
 | `core/content/ContentModel.hpp`, `TagSet.hpp`                                                               | Prefab · Rule · BehaviorGraph 모델, TagSet · TagExpr                                                                                                                | SandboxCore                 |
 | `core/content/ContentOverlay.{hpp,cpp}`                                                                     | 월드 오버레이 (종류 · id → JSON, 지문) — ContentLoader::applyOverlay 가 팩 원본에 얹는다 (12C, ADR-0030)                                                            | SandboxCore                 |
 | `core/persist/WorldSave.{hpp,cpp}`                                                                          | `saveWorld`, `loadWorld` (world.json · entities.jsonl · chunks/)                                                                                                    | SandboxCore                 |
@@ -150,6 +150,7 @@
 | `apps/client/ui/PlayersPanel.{hpp,cpp}`                                                                     | "접속자" 패널 — 접속자 · 역할 표, 역할 콤보 (net::roleCanAssign) (12C, ADR-0030)                                                                                    | SandboxClient               |
 | `apps/client/ui/WorldPanel.{hpp,cpp}`                                                                       | "월드" 패널 — 저장 · 기록 · 목록 → 불러오기 · 재생, 기록 · 재생 상태 (12D, ADR-0031)                                                                                | SandboxClient               |
 | `apps/client/ui/GamePanel.{hpp,cpp}`                                                                        | "게임" 패널 — 모드 · 상태 한 줄 · 시작 · 중단 · 재시작 (v0.2 M2-T3, ADR-0046)                                                                                       | SandboxClient               |
+| `apps/client/ui/ActionPanel.{hpp,cpp}`                                                                      | "행동" 패널 — PlayerAction 목록 · 쥐기 (쥔 동안 클릭 = 행동) (v0.2 M3-T1, ADR-0047)                                                                                 | SandboxClient               |
 | `tests/render/main.cpp`, `RenderTestEnv.hpp`, `test_rhi_*.cpp`, `test_sprites.cpp`, `test_world_passes.cpp` | `sbx_render_tests` — 공유 디바이스, 기준 이미지 비교, 7A · 7B · 8A 케이스, 8B 지형 · 오버레이 · 타임스탬프, --rhi (13A)                                             | sbx_render_tests            |
 | `tests/render/test_imgui.cpp`                                                                               | 8C ImGuiRenderer — 기준 이미지 imgui_basic, 텍스처 만들기 · 갱신 · 해제, 화면 밖 창                                                                                 | sbx_render_tests            |
 | `tests/render/references/*.png`                                                                             | GPU 기준 이미지 (7A clear · upload_quadrants · region_copy, 7B 4장, 8A sprite · batch_1k, 8B terrain · overlay, 8C imgui_basic)                                     | —                           |
@@ -307,7 +308,7 @@ apps/client/
   main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)
   presentation/ InterpolationSystem, ExtractionSystem, AudioExtraction, components/(render.*, client.*, editor.*)
   ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C),
-                WorldPanel (12D), GamePanel (v0.2 M2-T3)
+                WorldPanel (12D), GamePanel (v0.2 M2-T3), ActionPanel (M3-T1)
 apps/server/
   main.cpp (인자 파싱 → ServerHost)
 ```

@@ -111,6 +111,11 @@ private:
     void loadPrefab(const PackDir& p, const SourceFile& f, const json& j, const std::string& at, bool fromOverlay);
     void loadRules(const PackDir& p, const SourceFile& f);
     void loadRule(const PackDir& p, const SourceFile& f, const json& r, const std::string& at, bool fromOverlay);
+    bool parseRuleConditions(const json& cs, const SourceFile& f, const std::string& at,
+                             std::vector<RuleCondition>& out);
+    bool parseRuleEffects(const PackDir& p, const SourceFile& f, const json& es, const std::string& at,
+                          Who spawnDefault, std::vector<RuleEffect>& out, bool& destroysTarget);
+    void loadActions(const PackDir& p, const SourceFile& f);
     void loadBehavior(const PackDir& p, const SourceFile& f);
     void loadBehaviorJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
     void loadMode(const PackDir& p, const SourceFile& f);
@@ -574,6 +579,164 @@ void ContentLoaderImpl::loadRules(const PackDir& p, const SourceFile& f) {
     }
 }
 
+// Rule · PlayerAction 의 conditions 배열 (11 3장). 문제가 있으면 false (모두 보고한다)
+bool ContentLoaderImpl::parseRuleConditions(const json& cs, const SourceFile& f, const std::string& at,
+                                            std::vector<RuleCondition>& out) {
+    bool ok = true;
+    static const std::map<std::string, CmpOp, std::less<>> kOps{
+        {"<", CmpOp::Lt}, {"<=", CmpOp::Le}, {">", CmpOp::Gt}, {">=", CmpOp::Ge}, {"==", CmpOp::Eq}, {"!=", CmpOp::Ne}};
+    if (!cs.is_array()) {
+        error(f.display, at, "V3", "conditions 는 배열");
+        ok = false;
+    } else {
+        for (usize k = 0; k < cs.size(); ++k) {
+            const std::string cat = ptr(at, k);
+            const json& c = cs[k];
+            if (!c.is_object() || !onlyKeys(c, {"field", "op", "value"}, f, cat) || !c.contains("field") ||
+                !c["field"].is_string() || !c.contains("op") || !c["op"].is_string() || !c.contains("value") ||
+                !c["value"].is_number()) {
+                error(f.display, cat, "V3", R"(조건은 {"field": "source.<컴포넌트>.<필드>", "op": "<", "value": 수})");
+                ok = false;
+                continue;
+            }
+            const std::string path = c["field"].get<std::string>();
+            RuleCondition rc;
+            if (path.starts_with("source.")) {
+                rc.who = Who::Source;
+            } else if (path.starts_with("target.")) {
+                rc.who = Who::Target;
+            } else {
+                error(f.display, ptr(cat, "field"), "V3", "조건 경로는 source. 또는 target. 으로 시작한다");
+                ok = false;
+                continue;
+            }
+            const auto ref = parseFieldRef(std::string_view(path).substr(path.find('.') + 1), f, ptr(cat, "field"));
+            const auto op = kOps.find(c["op"].get<std::string>());
+            if (op == kOps.end()) {
+                error(f.display, ptr(cat, "op"), "V3", "op 는 < <= > >= == !=");
+                ok = false;
+                continue;
+            }
+            if (!ref) {
+                ok = false;
+                continue;
+            }
+            rc.ref = *ref;
+            rc.op = op->second;
+            rc.value = c["value"].get<f64>();
+            out.push_back(std::move(rc));
+        }
+    }
+    return ok;
+}
+
+// Rule · PlayerAction 의 effects 배열 (03 6.3 의 op). spawn 의 who 가 없으면 spawnDefault (Rule = source)
+bool ContentLoaderImpl::parseRuleEffects(const PackDir& p, const SourceFile& f, const json& es, const std::string& at,
+                                         Who spawnDefault, std::vector<RuleEffect>& out, bool& destroysTarget) {
+    bool ok = true;
+    if (!es.is_array() || es.empty()) {
+        error(f.display, at, "V3", "effects 는 비어 있지 않은 배열");
+        ok = false;
+    } else {
+        for (usize k = 0; k < es.size(); ++k) {
+            const std::string eat = ptr(at, k);
+            const json& e = es[k];
+            if (!e.is_object() || !e.contains("op") || !e["op"].is_string()) {
+                error(f.display, eat, "V3", R"(효과는 {"op": ...} 객체)");
+                ok = false;
+                continue;
+            }
+            RuleEffect fx;
+            const std::string op = e["op"].get<std::string>();
+            if (e.contains("who")) {
+                const json& w = e["who"];
+                if (w == "source") {
+                    fx.who = Who::Source;
+                } else if (w == "target") {
+                    fx.who = Who::Target;
+                } else {
+                    error(f.display, ptr(eat, "who"), "V3", "who 는 source 또는 target");
+                    ok = false;
+                    continue;
+                }
+            } else if (op != "spawn" && op != "event") {
+                error(f.display, eat, "V3", "who 가 필요하다");
+                ok = false;
+                continue;
+            }
+            if (op == "field.add" || op == "field.set") {
+                fx.op = op == "field.add" ? EffectOp::FieldAdd : EffectOp::FieldSet;
+                if (!onlyKeys(e, {"op", "who", "field", "value"}, f, eat) || !e.contains("field") ||
+                    !e["field"].is_string() || !e.contains("value") || !e["value"].is_number()) {
+                    error(f.display, eat, "V3", R"({"op", "who", "field": "<컴포넌트>.<필드>", "value": 수})");
+                    ok = false;
+                    continue;
+                }
+                const auto ref = parseFieldRef(e["field"].get<std::string>(), f, ptr(eat, "field"));
+                if (!ref) {
+                    ok = false;
+                    continue;
+                }
+                fx.field = *ref;
+                fx.value = e["value"].get<f64>();
+            } else if (op == "destroy") {
+                fx.op = EffectOp::Destroy;
+                ok = onlyKeys(e, {"op", "who"}, f, eat) && ok;
+                if (fx.who == Who::Target) {
+                    destroysTarget = true; // 03 6.2: destroy(target) 이 있으면 배타 (Rule)
+                }
+            } else if (op == "spawn") {
+                fx.op = EffectOp::Spawn;
+                fx.who = e.contains("who") ? fx.who : spawnDefault;
+                if (!onlyKeys(e, {"op", "who", "prefab", "count"}, f, eat) || !e.contains("prefab") ||
+                    !e["prefab"].is_string()) {
+                    error(f.display, eat, "V3", R"({"op": "spawn", "prefab": id, "count": 1~16, "who"})");
+                    ok = false;
+                    continue;
+                }
+                fx.prefab = e["prefab"].get<std::string>();
+                noteRef(true, fx.prefab, p, f, ptr(eat, "prefab"));
+                if (e.contains("count")) {
+                    if (!e["count"].is_number_unsigned() || e["count"].get<u64>() < 1 || e["count"].get<u64>() > 16) {
+                        error(f.display, ptr(eat, "count"), "V3", "count 는 1~16");
+                        ok = false;
+                        continue;
+                    }
+                    fx.count = static_cast<u32>(e["count"].get<u64>());
+                }
+            } else if (op == "tag.add" || op == "tag.remove") {
+                fx.op = op == "tag.add" ? EffectOp::TagAdd : EffectOp::TagRemove;
+                const auto t = e.contains("tag") && e["tag"].is_string() ? m_db.findTag(e["tag"].get<std::string>())
+                                                                         : std::nullopt;
+                if (!onlyKeys(e, {"op", "who", "tag"}, f, eat) || !t) {
+                    error(f.display, ptr(eat, "tag"), "V7", "선언된 태그 이름이 필요하다");
+                    ok = false;
+                    continue;
+                }
+                fx.tag = *t;
+            } else if (op == "event") {
+                fx.op = EffectOp::Event;
+                fx.who = e.contains("who") ? fx.who : Who::Target;
+                if (!onlyKeys(e, {"op", "who", "name"}, f, eat) || !e.contains("name") || !e["name"].is_string() ||
+                    !isValidContentId(e["name"].get<std::string>())) {
+                    error(f.display, ptr(eat, "name"), "V3", "이벤트 이름은 '<pack>.<name>'");
+                    ok = false;
+                    continue;
+                }
+                fx.event = e["name"].get<std::string>();
+                fx.eventCode = fnv1a64(fx.event);
+            } else {
+                error(f.display, ptr(eat, "op"), "V3",
+                      std::format("모르는 효과 '{}' (field.add field.set destroy spawn tag.add tag.remove event)", op));
+                ok = false;
+                continue;
+            }
+            out.push_back(std::move(fx));
+        }
+    }
+    return ok;
+}
+
 void ContentLoaderImpl::loadRule(const PackDir& p, const SourceFile& f, const json& r, const std::string& at,
                                  bool fromOverlay) {
     if (!r.is_object()) {
@@ -646,154 +809,15 @@ void ContentLoaderImpl::loadRule(const PackDir& p, const SourceFile& f, const js
             rule.exclusive = r["exclusive"].get<bool>();
         }
     }
-    static const std::map<std::string, CmpOp, std::less<>> kOps{
-        {"<", CmpOp::Lt}, {"<=", CmpOp::Le}, {">", CmpOp::Gt}, {">=", CmpOp::Ge}, {"==", CmpOp::Eq}, {"!=", CmpOp::Ne}};
     if (r.contains("conditions")) {
-        const json& cs = r["conditions"];
-        if (!cs.is_array()) {
-            error(f.display, ptr(at, "conditions"), "V3", "conditions 는 배열");
-            ok = false;
-        } else {
-            for (usize k = 0; k < cs.size(); ++k) {
-                const std::string cat = ptr(ptr(at, "conditions"), k);
-                const json& c = cs[k];
-                if (!c.is_object() || !onlyKeys(c, {"field", "op", "value"}, f, cat) || !c.contains("field") ||
-                    !c["field"].is_string() || !c.contains("op") || !c["op"].is_string() || !c.contains("value") ||
-                    !c["value"].is_number()) {
-                    error(f.display, cat, "V3",
-                          R"(조건은 {"field": "source.<컴포넌트>.<필드>", "op": "<", "value": 수})");
-                    ok = false;
-                    continue;
-                }
-                const std::string path = c["field"].get<std::string>();
-                RuleCondition rc;
-                if (path.starts_with("source.")) {
-                    rc.who = Who::Source;
-                } else if (path.starts_with("target.")) {
-                    rc.who = Who::Target;
-                } else {
-                    error(f.display, ptr(cat, "field"), "V3", "조건 경로는 source. 또는 target. 으로 시작한다");
-                    ok = false;
-                    continue;
-                }
-                const auto ref = parseFieldRef(std::string_view(path).substr(path.find('.') + 1), f, ptr(cat, "field"));
-                const auto op = kOps.find(c["op"].get<std::string>());
-                if (op == kOps.end()) {
-                    error(f.display, ptr(cat, "op"), "V3", "op 는 < <= > >= == !=");
-                    ok = false;
-                    continue;
-                }
-                if (!ref) {
-                    ok = false;
-                    continue;
-                }
-                rc.ref = *ref;
-                rc.op = op->second;
-                rc.value = c["value"].get<f64>();
-                rule.conditions.push_back(std::move(rc));
-            }
-        }
+        ok = parseRuleConditions(r["conditions"], f, ptr(at, "conditions"), rule.conditions) && ok;
     }
-    if (!r.contains("effects") || !r["effects"].is_array() || r["effects"].empty()) {
-        error(f.display, ptr(at, "effects"), "V3", "effects 는 비어 있지 않은 배열");
-        ok = false;
-    } else {
-        const json& es = r["effects"];
-        for (usize k = 0; k < es.size(); ++k) {
-            const std::string eat = ptr(ptr(at, "effects"), k);
-            const json& e = es[k];
-            if (!e.is_object() || !e.contains("op") || !e["op"].is_string()) {
-                error(f.display, eat, "V3", R"(효과는 {"op": ...} 객체)");
-                ok = false;
-                continue;
-            }
-            RuleEffect fx;
-            const std::string op = e["op"].get<std::string>();
-            if (e.contains("who")) {
-                const json& w = e["who"];
-                if (w == "source") {
-                    fx.who = Who::Source;
-                } else if (w == "target") {
-                    fx.who = Who::Target;
-                } else {
-                    error(f.display, ptr(eat, "who"), "V3", "who 는 source 또는 target");
-                    ok = false;
-                    continue;
-                }
-            } else if (op != "spawn" && op != "event") {
-                error(f.display, eat, "V3", "who 가 필요하다");
-                ok = false;
-                continue;
-            }
-            if (op == "field.add" || op == "field.set") {
-                fx.op = op == "field.add" ? EffectOp::FieldAdd : EffectOp::FieldSet;
-                if (!onlyKeys(e, {"op", "who", "field", "value"}, f, eat) || !e.contains("field") ||
-                    !e["field"].is_string() || !e.contains("value") || !e["value"].is_number()) {
-                    error(f.display, eat, "V3", R"({"op", "who", "field": "<컴포넌트>.<필드>", "value": 수})");
-                    ok = false;
-                    continue;
-                }
-                const auto ref = parseFieldRef(e["field"].get<std::string>(), f, ptr(eat, "field"));
-                if (!ref) {
-                    ok = false;
-                    continue;
-                }
-                fx.field = *ref;
-                fx.value = e["value"].get<f64>();
-            } else if (op == "destroy") {
-                fx.op = EffectOp::Destroy;
-                ok = onlyKeys(e, {"op", "who"}, f, eat) && ok;
-                if (fx.who == Who::Target) {
-                    rule.exclusive = true; // 03 6.2: destroy(target) 이 있으면 배타
-                }
-            } else if (op == "spawn") {
-                fx.op = EffectOp::Spawn;
-                fx.who = e.contains("who") ? fx.who : Who::Source;
-                if (!onlyKeys(e, {"op", "who", "prefab", "count"}, f, eat) || !e.contains("prefab") ||
-                    !e["prefab"].is_string()) {
-                    error(f.display, eat, "V3", R"({"op": "spawn", "prefab": id, "count": 1~16, "who"})");
-                    ok = false;
-                    continue;
-                }
-                fx.prefab = e["prefab"].get<std::string>();
-                noteRef(true, fx.prefab, p, f, ptr(eat, "prefab"));
-                if (e.contains("count")) {
-                    if (!e["count"].is_number_unsigned() || e["count"].get<u64>() < 1 || e["count"].get<u64>() > 16) {
-                        error(f.display, ptr(eat, "count"), "V3", "count 는 1~16");
-                        ok = false;
-                        continue;
-                    }
-                    fx.count = static_cast<u32>(e["count"].get<u64>());
-                }
-            } else if (op == "tag.add" || op == "tag.remove") {
-                fx.op = op == "tag.add" ? EffectOp::TagAdd : EffectOp::TagRemove;
-                const auto t = e.contains("tag") && e["tag"].is_string() ? m_db.findTag(e["tag"].get<std::string>())
-                                                                         : std::nullopt;
-                if (!onlyKeys(e, {"op", "who", "tag"}, f, eat) || !t) {
-                    error(f.display, ptr(eat, "tag"), "V7", "선언된 태그 이름이 필요하다");
-                    ok = false;
-                    continue;
-                }
-                fx.tag = *t;
-            } else if (op == "event") {
-                fx.op = EffectOp::Event;
-                fx.who = e.contains("who") ? fx.who : Who::Target;
-                if (!onlyKeys(e, {"op", "who", "name"}, f, eat) || !e.contains("name") || !e["name"].is_string() ||
-                    !isValidContentId(e["name"].get<std::string>())) {
-                    error(f.display, ptr(eat, "name"), "V3", "이벤트 이름은 '<pack>.<name>'");
-                    ok = false;
-                    continue;
-                }
-                fx.event = e["name"].get<std::string>();
-                fx.eventCode = fnv1a64(fx.event);
-            } else {
-                error(f.display, ptr(eat, "op"), "V3",
-                      std::format("모르는 효과 '{}' (field.add field.set destroy spawn tag.add tag.remove event)", op));
-                ok = false;
-                continue;
-            }
-            rule.effects.push_back(std::move(fx));
-        }
+    bool destroysTarget = false;
+    ok = parseRuleEffects(p, f, r.contains("effects") ? r["effects"] : json(), ptr(at, "effects"), Who::Source,
+                          rule.effects, destroysTarget) &&
+         ok;
+    if (destroysTarget) {
+        rule.exclusive = true; // 03 6.2: destroy(target) 이 있으면 배타
     }
     if (ok) {
         m_db.m_rules.push_back(std::move(rule));
@@ -1155,6 +1179,95 @@ std::optional<u64> ContentLoaderImpl::secondsToTicks(const json& j, const Source
     return ticks;
 }
 
+// actions.json — PlayerAction 배열 (11 6장, v0.2 M3-T1, ADR-0047). 형식 V3 · 태그 V7 · PlayerAction 고유 규칙 V9
+// (who 는 target 뿐, range · maxTargets 범위). 문제가 있는 항목은 넣지 않는다
+void ContentLoaderImpl::loadActions(const PackDir& p, const SourceFile& f) {
+    const json j = json::parse(f.text, nullptr, false);
+    if (j.is_discarded() || !j.is_array()) {
+        error(f.display, "", "JSON", "PlayerAction 배열이어야 한다");
+        return;
+    }
+    for (usize i = 0; i < j.size(); ++i) {
+        const std::string at = ptr("", i);
+        const json& a = j[i];
+        if (!a.is_object()) {
+            error(f.display, at, "JSON", "PlayerAction 은 객체");
+            continue;
+        }
+        bool ok = onlyKeys(a, {"id", "name", "targets", "range", "maxTargets", "conditions", "effects"}, f, at);
+        PlayerActionDef def;
+        def.file = f.display;
+        def.raw = a;
+        if (!a.contains("id") || !checkId(p, f, ptr(at, "id"), a["id"], def.id)) {
+            continue;
+        }
+        def.name = def.id;
+        if (a.contains("name")) {
+            const json& n = a["name"];
+            if (!n.is_string() || n.get<std::string>().empty() || n.get<std::string>().size() > 128) {
+                error(f.display, ptr(at, "name"), "V3", "name 은 1~128 바이트 문자열");
+                ok = false;
+            } else {
+                def.name = n.get<std::string>();
+            }
+        }
+        if (a.contains("targets")) {
+            const json& t = a["targets"];
+            if (!t.is_object() || !onlyKeys(t, {"tags"}, f, ptr(at, "targets"))) {
+                ok = false;
+            } else if (t.contains("tags")) {
+                const auto e = parseTagExpr(t["tags"], f, ptr(ptr(at, "targets"), "tags"));
+                ok = ok && e.has_value();
+                if (e) {
+                    def.targets = *e;
+                }
+            }
+        }
+        if (a.contains("range")) {
+            const json& r = a["range"];
+            if (!r.is_number() || r.get<f64>() < 0 || r.get<f64>() > kMaxActionRange) {
+                error(f.display, ptr(at, "range"), "V9", std::format("range 는 0~{}", kMaxActionRange));
+                ok = false;
+            } else {
+                def.range = static_cast<f32>(r.get<f64>());
+            }
+        }
+        if (a.contains("maxTargets")) {
+            const json& m = a["maxTargets"];
+            if (!m.is_number_unsigned() || m.get<u64>() < 1 || m.get<u64>() > kMaxActionTargets) {
+                error(f.display, ptr(at, "maxTargets"), "V9", std::format("maxTargets 는 1~{}", kMaxActionTargets));
+                ok = false;
+            } else {
+                def.maxTargets = static_cast<u32>(m.get<u64>());
+            }
+        }
+        if (a.contains("conditions")) {
+            ok = parseRuleConditions(a["conditions"], f, ptr(at, "conditions"), def.conditions) && ok;
+            for (usize k = 0; k < def.conditions.size(); ++k) {
+                if (def.conditions[k].who != Who::Target) {
+                    error(f.display, ptr(ptr(at, "conditions"), k), "V9",
+                          "PlayerAction 의 조건은 target. 만 (source 가 없다)");
+                    ok = false;
+                }
+            }
+        }
+        bool destroysTarget = false;
+        ok = parseRuleEffects(p, f, a.contains("effects") ? a["effects"] : json(), ptr(at, "effects"), Who::Target,
+                              def.effects, destroysTarget) &&
+             ok;
+        for (usize k = 0; k < def.effects.size(); ++k) {
+            if (def.effects[k].who != Who::Target) {
+                error(f.display, ptr(ptr(at, "effects"), k), "V9",
+                      "PlayerAction 효과의 who 는 target 뿐 (source 가 없다)");
+                ok = false;
+            }
+        }
+        if (ok) {
+            m_db.m_playerActions.push_back(std::move(def));
+        }
+    }
+}
+
 // modes/<이름>.json — GameMode 하나 (11 9장, ADR-0045). 문제는 모두 모으고, 하나라도 있으면 모드를 넣지 않는다
 void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
     const json j = json::parse(f.text, nullptr, false);
@@ -1414,6 +1527,12 @@ void ContentLoaderImpl::crossCheck() {
     dupCheck(m_db.m_prefabs, "Prefab");
     dupCheck(m_db.m_behaviors, "Behavior");
     dupCheck(m_db.m_modes, "GameMode");
+    dupCheck(m_db.m_playerActions, "PlayerAction");
+    if (m_db.m_playerActions.size() > kMaxPlayerActions) {
+        error(m_db.m_playerActions.back().file, "", "V9",
+              std::format("PlayerAction 은 모든 팩을 합쳐 {} 개까지 ({} 개)", kMaxPlayerActions,
+                          m_db.m_playerActions.size()));
+    }
     {
         std::vector<const Rule*> rs;
         for (const Rule& r : m_db.m_rules) {
@@ -1589,7 +1708,7 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
             } else if (f.rel.starts_with("modes/") && f.rel.ends_with(".json")) {
                 loadMode(p, f);
             } else if (f.rel == "actions.json") {
-                warn(f.display, "", "V3", "actions.json (PlayerAction) 은 Phase 12 — 지금은 읽지 않는다");
+                loadActions(p, f);
             } else {
                 warn(f.display, "", "IO", "알 수 없는 파일 — 읽지 않는다");
             }

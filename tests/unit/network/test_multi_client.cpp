@@ -1,4 +1,4 @@
-// Phase 12 완료 기준 (docs/16-ROADMAP.md 12장, 10-EDITOR 7장): 역할 × 명령 권한 표를 서버 끝까지 (명령 14 종 + 월드 요청),
+// Phase 12 완료 기준 (docs/16-ROADMAP.md 12장, 10-EDITOR 7장): 역할 × 명령 권한 표를 서버 끝까지 (명령 15 종 + 월드 요청),
 // 두 클라이언트가 같은 개체 · 같은 칸을 동시에 편집해도 서버 순서 하나로 정해져 모두가 같은 월드로 모인다.
 #include <doctest/doctest.h>
 
@@ -122,7 +122,7 @@ struct Expect {
 
 TEST_SUITE("network") {
 
-    TEST_CASE("roles × commands: the 10-EDITOR 7 permission table holds end to end (14 payloads + world requests)") {
+    TEST_CASE("roles × commands: the 10-EDITOR 7 permission table holds end to end (15 payloads + world requests)") {
         const ecs::StableId transform = catalog().find("core.transform")->stableId;
         const std::vector<Expect> table{
             {"create", cmd::CreateEntity{{1.f, 1.f}, {}, {}}, Role::Editor},
@@ -141,6 +141,8 @@ TEST_SUITE("network") {
             // v0.2 M2-T3: 게임 시작 · 중단 = 실행 제어 열 (이 월드엔 세션이 없어 admin 은 NotFound 로 거절된다)
             {"game start", cmd::GameControl{cmd::GameControlOp::Start}, Role::Admin},
             {"game abort", cmd::GameControl{cmd::GameControlOp::Abort}, Role::Admin},
+            // v0.2 M3-T1: 플레이어 행동 = player 부터 (없는 행동이라 거절되지만 권한 거절은 아니다)
+            {"action", cmd::PlayerAction{"core.none", {0.f, 0.f}}, Role::Player},
         };
         for (u8 ri = 0; ri <= static_cast<u8>(Role::Owner); ++ri) {
             const Role role = static_cast<Role>(ri);

@@ -184,6 +184,12 @@ const BehaviorGraph* ContentDatabase::findBehavior(std::string_view id) const no
     return (it != m_behaviors.end() && it->id == id) ? &*it : nullptr;
 }
 
+const PlayerActionDef* ContentDatabase::findPlayerAction(std::string_view id) const noexcept {
+    const auto it = std::lower_bound(m_playerActions.begin(), m_playerActions.end(), id,
+                                     [](const PlayerActionDef& a, std::string_view k) { return a.id < k; });
+    return (it != m_playerActions.end() && it->id == id) ? &*it : nullptr;
+}
+
 const GameMode* ContentDatabase::findMode(std::string_view id) const noexcept {
     const auto it = std::lower_bound(m_modes.begin(), m_modes.end(), id,
                                      [](const GameMode& m, std::string_view k) { return m.id < k; });

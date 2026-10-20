@@ -734,6 +734,11 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         return Result{};
     }
 
+    // --- 플레이어 행동 (v0.2 M3-T1) ---------------------------------------------
+    if (const auto* c = std::get_if<cmd::PlayerAction>(&payload)) {
+        return applyPlayerAction(*c);
+    }
+
     // --- 게임 진행 (v0.2 M2-T3) -------------------------------------------------
     if (const auto* c = std::get_if<cmd::GameControl>(&payload)) {
         if (auto r = game::applyGameControl(m_registry, *m_content, c->op, tick); !r) {
@@ -743,6 +748,132 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
     }
     SBX_VERIFY(false, "처리하지 않은 명령 종류");
     return makeError(ErrorCode::Unsupported, std::string(cmd::commandName(payload)));
+}
+
+// --- 플레이어 행동 (v0.2 M3-T1, ADR-0047, 11 6장) --------------------------------------------------------------
+// 1) 검사 (바뀌는 것 없음): 행동 id · 위치(유한 · 경계 안) · 게임 세션이 있으면 Running · 대상 하나 이상
+// 2) 대상 = core.transform 이 있는 개체 중 위치에서 range 안 · targets 태그 식 · conditions 에 맞는 것, (거리², saveId)
+//    오름차순으로 maxTargets 개 — 순회 순서와 무관하다
+// 3) 대상마다 효과를 정의 순서로: field.add/set (FieldMeta 범위로 자름), destroy (바로 — 명령 단계의 구조 변경),
+//    spawn (대상 위치 ±0.5, 난수 PlayerAction 스트림 · 키 = (대상 saveId, 이번 틱 명령 순번)), tag.add/remove,
+//    event (EventStream.Custom). 앞 대상의 효과로 파괴된 대상은 건너뛴다
+Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd::PlayerAction& c) {
+    const content::PlayerActionDef* def = m_content->findPlayerAction(c.action);
+    if (def == nullptr) {
+        return makeError(ErrorCode::NotFound, std::format("PlayerAction '{}' 가 콘텐츠에 없다", c.action));
+    }
+    if (!isFinite(c.position) || !m_grid.containsPoint(c.position)) {
+        return makeError(ErrorCode::OutOfRange,
+                         std::format("위치 ({}, {}) 가 월드 경계 밖이다", c.position.x, c.position.y));
+    }
+    if (const comp::GameSession* s = game::findSession(m_registry);
+        s != nullptr && s->gameState() != comp::GameState::Running) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("게임이 진행 중일 때만 (지금 {})", game::gameStateName(s->gameState())));
+    }
+    struct Candidate {
+        f32 dist2;
+        SaveId saveId;
+        ecs::EntityId e;
+    };
+    std::vector<Candidate> found;
+    const f32 range2 = def->range * def->range;
+    for (auto [e, tr, id] : m_registry.view<ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
+        const f32 d2 = (tr.position - c.position).lengthSquared();
+        if (d2 > range2) {
+            continue;
+        }
+        const comp::Tags* tags = m_registry.tryRead<comp::Tags>(e);
+        if (!def->targets.matches(tags != nullptr ? tags->set : content::TagSet{})) {
+            continue;
+        }
+        const bool ok =
+            std::all_of(def->conditions.begin(), def->conditions.end(), [&](const content::RuleCondition& rc) {
+                const ecs::ComponentPoolBase* pool = m_registry.poolByStableId(rc.ref.component);
+                const ecs::ComponentInfo* info = m_catalog.find(rc.ref.component);
+                const void* raw = pool != nullptr ? pool->getRaw(e) : nullptr;
+                const auto v = raw != nullptr && info != nullptr && info->getNumber != nullptr
+                                   ? info->getNumber(raw, rc.ref.field)
+                                   : std::nullopt;
+                return v.has_value() && content::compare(*v, rc.op, rc.value);
+            });
+        if (ok) {
+            found.push_back(Candidate{d2, id.saveId, e});
+        }
+    }
+    if (found.empty()) {
+        return makeError(ErrorCode::NotFound, std::format("'{}' 의 대상이 없다 (반경 {})", def->name, def->range));
+    }
+    std::sort(found.begin(), found.end(), [](const Candidate& a, const Candidate& b) {
+        return a.dist2 != b.dist2 ? a.dist2 < b.dist2 : a.saveId < b.saveId;
+    });
+    if (found.size() > def->maxTargets) {
+        found.resize(def->maxTargets);
+    }
+
+    const u64 commandIndex = m_results.size(); // 이번 tick() 에서 이 명령의 순번 (결정적)
+    std::vector<NetEntityId> created;
+    std::set<SaveId> destroyed;
+    for (const Candidate& t : found) {
+        if (destroyed.contains(t.saveId)) {
+            continue;
+        }
+        for (const content::RuleEffect& fx : def->effects) {
+            if (destroyed.contains(t.saveId)) {
+                break; // 앞 효과가 대상을 지웠다
+            }
+            switch (fx.op) {
+            case content::EffectOp::FieldAdd:
+            case content::EffectOp::FieldSet: {
+                ecs::ComponentPoolBase* pool = m_registry.poolByStableId(fx.field.component);
+                const ecs::ComponentInfo* info = m_catalog.find(fx.field.component);
+                if (pool != nullptr && info != nullptr && info->applyNumber != nullptr &&
+                    pool->getRaw(t.e) != nullptr) {
+                    (void)info->applyNumber(pool->getRawForWrite(t.e, m_changeStamp), fx.field.field, fx.value,
+                                            fx.op == content::EffectOp::FieldAdd);
+                }
+                break;
+            }
+            case content::EffectOp::Destroy:
+                destroyed.insert(t.saveId);
+                m_events.push(
+                    sim::SimEvent{sim::EventKind::Died, t.e, t.saveId, static_cast<u64>(sim::DeathCause::Killed), 0});
+                (void)m_registry.destroy(t.e);
+                syncIdentityLogs();
+                break;
+            case content::EffectOp::Spawn: {
+                const content::Prefab* prefab = m_content->findPrefab(fx.prefab);
+                const comp::Transform* tr = m_registry.tryRead<comp::Transform>(t.e);
+                if (prefab == nullptr || tr == nullptr) {
+                    break;
+                }
+                const Vec2 at = tr->position;
+                auto rng = m_random.stream(rnd::Purpose::PlayerAction, (u64{t.saveId} << 16) ^ commandIndex);
+                for (u32 k = 0; k < fx.count; ++k) {
+                    const Vec2 off{rng.rangeF32(-0.5f, 0.5f), rng.rangeF32(-0.5f, 0.5f)};
+                    if (auto e = instantiate(prefab, m_grid.clampPoint(at + off), {})) {
+                        created.push_back(m_registry.read<comp::NetIdentity>(*e).netId);
+                    }
+                }
+                break;
+            }
+            case content::EffectOp::TagAdd:
+            case content::EffectOp::TagRemove:
+                if (comp::Tags* tags = m_registry.tryWrite<comp::Tags>(t.e)) {
+                    if (fx.op == content::EffectOp::TagAdd) {
+                        tags->set.set(fx.tag);
+                    } else {
+                        tags->set.reset(fx.tag);
+                    }
+                }
+                break;
+            case content::EffectOp::Event:
+                m_events.push(sim::SimEvent{sim::EventKind::Custom, t.e, t.saveId, fx.eventCode, 0});
+                break;
+            }
+        }
+    }
+    return created;
 }
 
 // --- 월드 오버레이 (ADR-0030) ---------------------------------------------------------------------------------

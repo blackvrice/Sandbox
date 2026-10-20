@@ -29,7 +29,8 @@ namespace sbx::net {
 // 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의 모드) — 12D
 // 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3
 // 9: 게임 진행 — 명령 GameControl (시작 · 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3
-inline constexpr u32 kProtocolVersion = 9;
+// 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터) — v0.2 M3-T1
+inline constexpr u32 kProtocolVersion = 10;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;

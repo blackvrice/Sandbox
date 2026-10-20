@@ -83,6 +83,9 @@ public:
     // GameMode (v0.2 M2, ADR-0045) — id 정렬
     [[nodiscard]] std::span<const GameMode> modes() const noexcept { return m_modes; }
     [[nodiscard]] const GameMode* findMode(std::string_view id) const noexcept;
+    // PlayerAction (v0.2 M3-T1 — 팩의 actions.json, ADR-0047) — id 정렬
+    [[nodiscard]] std::span<const PlayerActionDef> playerActions() const noexcept { return m_playerActions; }
+    [[nodiscard]] const PlayerActionDef* findPlayerAction(std::string_view id) const noexcept;
 
     // 콘텐츠 지문. 머티리얼만 있으면 (id·moveCost·flags) 지문, 팩을 읽었으면 매니페스트 지문 (09 7장).
     // 오버레이를 적용한 DB 도 팩의 지문 그대로다 (오버레이 지문은 overlay().hash() — WorldHash 가 먹는다)
@@ -102,6 +105,7 @@ private:
     std::vector<Rule> m_rules;
     std::vector<BehaviorGraph> m_behaviors;
     std::vector<GameMode> m_modes;
+    std::vector<PlayerActionDef> m_playerActions;
     std::vector<std::string> m_actions;            // 이름 정렬
     std::vector<std::vector<u32>> m_rulesByAction; // m_actions 와 같은 순서
     std::vector<PackInfo> m_packs;

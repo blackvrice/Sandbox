@@ -15,7 +15,7 @@
 | 2 파이프라인      | ✅ Stage 0, 2~11, 15~17 (Phase 5B). 12~14 는 enum 자리만                                                                                                             | 같은 곳, `core/simulation/System.hpp`, `core/systems/DefaultSystems.cpp` |
 | 2.2 System        | ✅ `ISystem{name, run}` + `SystemContext`(grid · catalog · saves · intents · paths 추가). `access()` 는 `[계획]` Phase 15                                            | `core/simulation/System.hpp`, `SystemScheduler.{hpp,cpp}`                |
 | 3 Clock           | ✅ tick · paused · speed(0.25~8) · Step · editSequence. 페이싱은 호출자(서버 `--realtime`)                                                                           | `core/simulation/SimulationClock.hpp`                                    |
-| 4 SimCommand      | ✅ Create/Delete/Move/Add/Remove/ChangeComponent, PaintTerrain(Phase 4), Pause/Resume/Step/SetSpeed. ChangeRule·ChangeBehavior·CreatePrefab·PlayerAction 은 `[계획]` | `core/command/*`                                                         |
+| 4 SimCommand      | ✅ Create/Delete/Move/Add/Remove/ChangeComponent, PaintTerrain(Phase 4), Pause/Resume/Step/SetSpeed. ChangeRule 등은 EditContent(12C), PlayerAction (v0.2 M3-T1 4장) | `core/command/*`                                                         |
 | 4.1 검증          | 부분 — 형식·대상·카탈로그·값(FieldMeta)·보호 컴포넌트·월드 경계(Phase 4). 권한·Interest·속도 제한은 `[계획]` Phase 9~12                                              | `SimulationWorld::applyPayload`                                          |
 | 9 Random          | ✅ `CounterRng`, `RandomService.stream(Purpose, saveId)`                                                                                                             | `core/random/*`                                                          |
 | 10 Lifecycle      | ✅ Phase 5A — `core.lifetime`, `life.age`·`energy`·`health`·`growth`·`reproduce`, Died 이벤트, SpawnQueue                                                            | `core/systems/LifecycleSystem.*`                                         |
@@ -249,7 +249,7 @@ using CommandPayload = std::variant<
     // 게임 진행 (v0.2 M2-T3 — 구현: GameControl{start | abort} → game.session, ADR-0046)
     GameControl,
     // 플레이어 행동 (콘텐츠 정의)
-    PlayerAction       // {actionId, targets[], position, args}
+    PlayerAction       // 구현 (v0.2 M3-T1): {action, position} — 대상은 시뮬레이션이 고른다, args 는 [계획]
 >;
 struct SimCommand { CommandHeader header; CommandPayload payload; };
 ```
@@ -267,7 +267,10 @@ struct SimCommand { CommandHeader header; CommandPayload payload; };
 Phase 12C 구현 (ADR-0030): `ChangeRule` · `ChangeBehavior` · `CreatePrefab` 대신 `EditContent{kind: prefab | rule | behavior, id,
 value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목을 바꾸거나 더하거나 (null) 뺀다. 적용 = 콘텐츠를 팩 원본 + 오버레이로
 다시 만들어 (검증 실패면 거절) 바꿔 끼운다 — Stage 2 에서만, 그 틱의 System 은 새 콘텐츠를 본다. BehaviorGraph 를 바꾸면 그
-그래프를 쓰는 개체의 ai.behavior.state 를 상태 id 로 옮긴다 (없어진 상태 = 처음부터). `PlayerAction` 은 `[계획]`.
+그래프를 쓰는 개체의 ai.behavior.state 를 상태 id 로 옮긴다 (없어진 상태 = 처음부터).
+v0.2 M3-T1 구현 (ADR-0047): `PlayerAction{action, position}` — 콘텐츠 PlayerAction(11 6장)의 대상을 위치에서 고르고 (range ·
+태그 · 조건 · 가까운 순 maxTargets) 효과를 Stage 2 에서 바로 적용한다 (destroy 는 바로 구조 변경, spawn 난수 =
+Purpose::PlayerAction). 대상이 없거나 게임 세션이 Running 이 아니면 거절. 역할 player 부터 (4.1).
 
 ### 4.1 검증 (CommandValidator, Stage 1 이전)
 

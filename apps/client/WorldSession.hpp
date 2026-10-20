@@ -4,7 +4,7 @@
 //   (Phase 8A 의 --direct-sim 은 지웠다 — ADR-0026)
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
 // 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030). 12D: 세이브 · 로드 · 리플레이 ("월드" 패널 — ADR-0031).
-// v0.2 M2-T3: 게임 진행 ("게임" 패널 — ADR-0045).
+// v0.2 M2-T3: 게임 진행 ("게임" 패널 — ADR-0045). v0.2 M3-T1: 플레이어 행동 ("행동" 패널 — ADR-0047).
 
 #include <optional>
 #include <string>
@@ -98,6 +98,19 @@ struct GameInfo {
 };
 enum class GameCommand : u8 { Start = 1, Abort = 2, Restart = 3 };
 
+// "행동" 패널이 보는 것 (v0.2 M3-T1): 콘텐츠의 PlayerAction (actions.json) 과 쓸 수 있는 역할인가
+struct ActionRow {
+    std::string id;
+    std::string name;
+    f32 range = 1;
+    u32 maxTargets = 1;
+};
+struct ActionsInfo {
+    std::vector<ActionRow> actions; // id 순
+    bool canAct = false;            // 역할 player 부터 (판단은 서버)
+    std::string message;            // 가장 최근 결과 · 거절 사유
+};
+
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
     std::string name;
@@ -159,6 +172,10 @@ public:
     [[nodiscard]] virtual std::optional<GameInfo> game() const { return std::nullopt; }
     // 시작 · 중단 = 명령 GameControl, 재시작 = WorldOp Restart (결과는 game().message)
     virtual void gameCommand(GameCommand /*c*/) {}
+    // ---- v0.2 M3-T1: 플레이어 행동 (콘텐츠에 PlayerAction 이 없으면 "행동" 패널을 그리지 않는다) ----
+    [[nodiscard]] virtual std::optional<ActionsInfo> playerActions() const { return std::nullopt; }
+    // 명령 PlayerAction 을 보낸다 (결과는 playerActions().message)
+    virtual void playerAction(std::string /*id*/, Vec2 /*world*/) {}
 };
 
 } // namespace sbx::client

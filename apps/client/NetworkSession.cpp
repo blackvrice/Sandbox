@@ -331,6 +331,9 @@ void NetworkSession::update(f64 dtSeconds) {
         if (name == "GameControl") {
             m_gameMessage = r.accepted ? std::string() : m_lastRejection;
         }
+        if (name == "PlayerAction") {
+            m_actionMessage = r.accepted ? std::format("적용 (tick {})", r.appliedTick) : m_lastRejection;
+        }
         if (const auto e = std::ranges::find(m_editorSequences, r.sequence); e != m_editorSequences.end()) {
             m_editorSequences.erase(e);
             m_outcomes.push_back(
@@ -734,6 +737,26 @@ void NetworkSession::gameCommand(GameCommand c) {
             m_gameMessage = "접속 전이라 요청할 수 없습니다";
         }
         return;
+    }
+}
+
+std::optional<ActionsInfo> NetworkSession::playerActions() const {
+    const content::ContentDatabase* db = content();
+    if (db == nullptr || db->playerActions().empty() || !m_session || !m_session->welcome()) {
+        return std::nullopt;
+    }
+    ActionsInfo info;
+    for (const content::PlayerActionDef& a : db->playerActions()) {
+        info.actions.push_back(ActionRow{a.id, a.name, a.range, a.maxTargets});
+    }
+    info.canAct = m_session->role() >= net::Role::Player;
+    info.message = m_actionMessage;
+    return info;
+}
+
+void NetworkSession::playerAction(std::string id, Vec2 world) {
+    if (send(cmd::PlayerAction{std::move(id), world}) == 0) {
+        m_actionMessage = "접속 전이라 보낼 수 없습니다";
     }
 }
 

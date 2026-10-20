@@ -16,7 +16,7 @@ namespace sbx::net {
 
 // 권한 표의 열
 enum class CommandClass : u8 {
-    PlayerAction = 0,      // [계획 Phase 12] — 아직 그런 명령이 없다
+    PlayerAction = 0,      // 콘텐츠 PlayerAction (v0.2 M3-T1, ADR-0047) — 역할 player 부터
     EntityEdit = 1,        // 엔티티 · 컴포넌트 편집
     TerrainEdit = 2,       // 지형 칠하기
     ContentEdit = 3,       // Rule · Behavior · Prefab (EditContent — 12C)

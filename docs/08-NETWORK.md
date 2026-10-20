@@ -14,6 +14,8 @@
 > 정체성 GameIdentity{gameId, name, version} (게임 프로젝트 서버만, [ADR-0042](adr/0042-handshake-game-identity-protocol-8.md)).
 > **v0.2 M2-T3** — 프로토콜 9: 게임 시작 · 중단 명령 GameControl (5.1 태그 24), 게임 재시작 WorldOp Restart (op 7) ·
 > WorldChanged reason Restart (3) — 시작 월드를 다시 연다 ([ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
+> **v0.2 M3-T1** — 프로토콜 10: 플레이어 행동 명령 PlayerAction (5.1 태그 30 — 역할 player 부터,
+> [ADR-0047](adr/0047-player-action-content-command-point-targets.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -181,7 +183,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 9`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 10`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -229,6 +231,7 @@ replayCalls · hashesChecked varint · mismatch · replayPaused bool · replaySp
 빈 문자열 — gameId 없이 name · version 만 있으면 형식 오류). 서버는 상한으로 자른다 (ADR-0042).
 프로토콜 9 (v0.2 M2-T3): 명령 GameControl (5.1 태그 24), WorldOp 의 op 7 Restart (이름 무시 — 게임 재시작), WorldChanged 의
 reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 늘었다.
+프로토콜 10 (v0.2 M3-T1): 명령 PlayerAction (5.1 태그 30 — action str(64), position f32 × 2) (ADR-0047).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -237,9 +240,10 @@ reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 �
 ```text
 종류 태그 u8 (값 고정): 1 CreateEntity · 2 DeleteEntity · 3 MoveEntity · 4 AddComponent · 5 RemoveComponent · 6 ChangeComponent ·
                        7 PaintTerrain · 8 EditContent (12C) · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed ·
-                       24 GameControl (프로토콜 9)
+                       24 GameControl (프로토콜 9) · 30 PlayerAction (프로토콜 10)
 EditContent  종류 u8 (0 prefab · 1 rule · 2 behavior — 그 밖은 형식 오류), id str(64), 값 JSON 텍스트 (객체 또는 null)
 GameControl  op u8 (1 start · 2 abort — 그 밖은 형식 오류). 권한 = 실행 제어 (admin 부터)
+PlayerAction action id str(64), position f32 × 2 (유한). 권한 = 플레이어 행동 (player 부터). 대상은 서버 시뮬레이션이 고른다
 엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
 컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
 개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)

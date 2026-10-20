@@ -6,6 +6,7 @@
 //   컴포넌트 값 · 패치는 JSON 텍스트 (리플렉션 JsonReader 로 적용 — SimCommand 가 JSON 을 싣는 것과 같다).
 //   EditContent (12C): 종류 u8 (0 prefab · 1 rule · 2 behavior), id str(64), 값 JSON 텍스트 (객체 또는 null).
 //   GameControl (v0.2 M2-T3): op u8 (1 start · 2 abort).
+//   PlayerAction (v0.2 M3-T1): action id str(64), position f32 × 2 (유한).
 //
 // 읽기에서 막는 것 = 형식 (03 4.1 의 1단계): 개수 · 길이 상한, 유한한 수, 알려진 태그, 파싱되는 JSON. 대상이 있는지 ·
 // 값이 범위 안인지 · 콘텐츠 id 가 있는지는 SimulationWorld 가 적용하면서 본다 (거절 → CommandResult).
@@ -28,7 +29,8 @@ enum class PayloadTag : u8 {
     ResumeSimulation = 21,
     StepSimulation = 22,
     SetSimulationSpeed = 23,
-    GameControl = 24, // 프로토콜 9 (v0.2 M2-T3): op u8 (1 start · 2 abort)
+    GameControl = 24,  // 프로토콜 9 (v0.2 M2-T3): op u8 (1 start · 2 abort)
+    PlayerAction = 30, // 프로토콜 10 (v0.2 M3-T1): action str(64), position f32 × 2
 };
 
 inline constexpr usize kMaxJsonTextBytes = 16 * 1024; // 컴포넌트 값 하나 · 패치 하나

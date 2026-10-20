@@ -456,3 +456,75 @@ TEST_SUITE("content") {
         CHECK(hasIssue(dup.load(), "V1", "GameMode id 't.m' 중복"));
     }
 }
+
+// PlayerAction — actions.json (v0.2 M3-T1, ADR-0047, 11 6장)
+TEST_SUITE("content") {
+    TEST_CASE("content: actions.json 을 읽는다 (PlayerAction)") {
+        TempContent c("actions_ok");
+        c.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/actions.json", R"([
+                {"id": "t.feed", "name": "먹이 주기", "targets": {"tags": {"all": ["a"]}}, "range": 3, "maxTargets": 2,
+                 "conditions": [{"field": "target.life.energy.value", "op": "<", "value": 90}],
+                 "effects": [{"op": "field.add", "who": "target", "field": "life.energy.value", "value": 20},
+                             {"op": "event", "name": "t.fed"}]},
+                {"id": "t.drop", "effects": [{"op": "destroy", "who": "target"}, {"op": "tag.add", "who": "target", "tag": "b"}]}
+            ])");
+        const auto r = c.load();
+        INFO(dumpIssues(r));
+        REQUIRE(r.ok());
+        CHECK(r.issues.empty());
+        REQUIRE(r.db.playerActions().size() == 2);
+        const PlayerActionDef* feed = r.db.findPlayerAction("t.feed");
+        REQUIRE(feed != nullptr);
+        CHECK(feed->name == "먹이 주기");
+        CHECK(feed->range == doctest::Approx(3));
+        CHECK(feed->maxTargets == 2);
+        CHECK(feed->targets.all.test(*r.db.findTag("a")));
+        REQUIRE(feed->conditions.size() == 1);
+        CHECK(feed->conditions[0].who == Who::Target);
+        REQUIRE(feed->effects.size() == 2);
+        CHECK(feed->effects[0].op == EffectOp::FieldAdd);
+        CHECK(feed->effects[1].who == Who::Target); // event 의 기본 = target
+        const PlayerActionDef* drop = r.db.findPlayerAction("t.drop");
+        REQUIRE(drop != nullptr);
+        CHECK(drop->name == "t.drop"); // 이름이 없으면 id
+        CHECK(drop->range == doctest::Approx(1));
+        CHECK(drop->maxTargets == 1);
+        CHECK(r.db.findPlayerAction("t.nope") == nullptr);
+
+        TempContent none("actions_hash");
+        none.file("t/pack.json", kPack).file("t/tags.json", kTags);
+        CHECK(none.load().db.contentHash() != r.db.contentHash()); // contentHash 에 든다
+    }
+
+    TEST_CASE("content: PlayerAction 검사 V9 — who 는 target 뿐, 범위, 그리고 V3 · V7 · V1") {
+        const auto bad = [](const char* tag, std::string_view action, const char* rule, const char* fragment) {
+            CAPTURE(tag);
+            TempContent c(tag);
+            c.file("t/pack.json", kPack).file("t/tags.json", kTags).file("t/actions.json", action);
+            const auto r = c.load();
+            INFO(dumpIssues(r));
+            CHECK(hasIssue(r, rule, fragment));
+            CHECK(r.db.playerActions().empty()); // 문제가 있는 항목은 넣지 않는다
+        };
+        bad("a_src", R"([{"id": "t.x", "effects": [{"op": "destroy", "who": "source"}]}])", "V9", "who 는 target 뿐");
+        bad("a_cond", R"([{"id": "t.x", "conditions": [{"field": "source.life.energy.value", "op": "<", "value": 1}],
+                           "effects": [{"op": "event", "name": "t.e"}]}])",
+            "V9", "target. 만");
+        bad("a_range", R"([{"id": "t.x", "range": 33, "effects": [{"op": "event", "name": "t.e"}]}])", "V9",
+            "range 는");
+        bad("a_max", R"([{"id": "t.x", "maxTargets": 0, "effects": [{"op": "event", "name": "t.e"}]}])", "V9",
+            "maxTargets 는");
+        bad("a_key", R"([{"id": "t.x", "cooldown": 1, "effects": [{"op": "event", "name": "t.e"}]}])", "V3",
+            "모르는 키 'cooldown'");
+        bad("a_noeff", R"([{"id": "t.x"}])", "V3", "effects 는 비어 있지 않은 배열");
+        bad("a_tag",
+            R"([{"id": "t.x", "targets": {"tags": {"all": ["zzz"]}}, "effects": [{"op": "event", "name": "t.e"}]}])",
+            "V7", "\"zzz\"");
+        TempContent dup("a_dup");
+        dup.file("t/pack.json", kPack)
+            .file("t/tags.json", kTags)
+            .file("t/actions.json", R"([{"id": "t.x", "effects": [{"op": "event", "name": "t.e"}]},
+                                        {"id": "t.x", "effects": [{"op": "event", "name": "t.e"}]}])");
+        CHECK(hasIssue(dup.load(), "V1", "PlayerAction id 't.x' 중복"));
+    }
+} // TEST_SUITE

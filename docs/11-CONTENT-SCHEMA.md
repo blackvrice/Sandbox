@@ -3,7 +3,8 @@
 > **규범 문서.** `content/<pack>/` 데이터의 모양과 검증 규칙을 정합니다.
 > 데이터 모양을 바꾸면 이 문서를 같은 커밋에서 고칩니다.
 > 상태: **Phase 5A·5B에서 구현됨** (2026-10-05) — 팩 로더·검증기(V1~V7)·Prefab·Tag·Rule·BehaviorGraph 모델·contentHash,
-> Rule·Behavior 의 실행(5B). 0장이 구현과 문서의 차이입니다. PlayerAction(actions.json)은 Phase 12 `[계획]`.
+> Rule·Behavior 의 실행(5B). 0장이 구현과 문서의 차이입니다. PlayerAction(actions.json)은 v0.2 M3-T1 에서 구현 (6장,
+> [ADR-0047](adr/0047-player-action-content-command-point-targets.md)).
 
 ---
 
@@ -39,7 +40,7 @@
 - 검증 메시지 형식: "<팩 폴더>/<파일>:<JSON 포인터>: 오류|경고 V? — 설명". 모든 문제를 모아 보고한다.
   V4(고아 Rule)·V5(도달 불가 상태)는 경고, 나머지는 오류. 경고만 있으면 로드는 성공한다.
 - contentHash = FNV(팩 (id, version) + 파일 (상대 경로, 바이트) 매니페스트 + 내장 머티리얼). 줄 끝(CRLF)은 LF 로
-  정규화한 뒤 해시한다. presentation/ 은 읽지도 해시하지도 않는다. actions.json 은 경고 후 무시.
+  정규화한 뒤 해시한다. presentation/ 은 읽지도 해시하지도 않는다. actions.json 은 v0.2 M3-T1 부터 읽는다 (6장).
 
 Phase 5B (실행 — 03 5·6·7장)
 - 로드 마지막 단계(link): action 이름 표 = Rule 의 action ∪ interact 의 name (정렬, 번호 = 인덱스 + 1),
@@ -243,8 +244,21 @@ content/<pack>/
 ["animal", "herbivore", "predator", "prey", "plant", "dead"]
 
 // actions.json — PlayerAction 정의 (플레이어 역할이 쓸 수 있는 행동)
-[ { "id": "eco.feed", "targets": { "tags": { "all": ["animal"] } }, "range": 3,
+[ { "id": "eco.feed", "name": "먹이 주기", "targets": { "tags": { "all": ["animal"] } }, "range": 3, "maxTargets": 2,
+    "conditions": [ { "field": "target.life.energy.value", "op": "<", "value": 90 } ],
     "effects": [ { "op": "field.add", "who": "target", "field": "life.energy.value", "value": 20 } ] } ]
+```
+
+PlayerAction (v0.2 M3-T1, [ADR-0047](adr/0047-player-action-content-command-point-targets.md)):
+
+```text
+- 명령 PlayerAction{action, position} — 플레이어가 월드의 한 점을 고른다. 대상 = core.transform 이 있는 개체 중 그 점에서
+  range 안 · targets 태그 식 · conditions 에 맞는 것을 (거리², saveId) 순으로 maxTargets 개. 없으면 명령 거절.
+- 키: id (<pack>.<name>) · name (표시, 1~128 바이트, 기본 id) · targets {tags} (기본 = 무엇이든) · range (0~32, 기본 1) ·
+  maxTargets (1~64, 기본 1) · conditions (Rule 과 같은 모양, target. 만) · effects (Rule 과 같은 op, 비어 있으면 안 된다).
+- source 가 없다: effects · conditions 의 who 는 target 뿐 (spawn · event 의 기본도 target — 대상 둘레 ±0.5 에 spawn).
+- 효과는 대상마다 정의 순서로 명령 단계에서 바로. 앞 효과가 지운 대상의 남은 효과는 건너뛴다.
+- 역할 player 부터, 게임 세션이 있으면 Running 에서만. 팩 전체 64 개까지. 월드 오버레이로 고치기는 [계획].
 ```
 
 TagSet 비트 인덱스는 로드 시 태그 이름 정렬 순서로 매기며, 팩 전체 태그는 최대 256개입니다.
@@ -310,6 +324,7 @@ V5  Behavior: 도달 불가 상태, initial 존재, 전이 대상 존재
 V6  Terrain: default 머티리얼 1개, moveCost 범위
 V7  태그 선언 여부 (오타 방지)
 V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복, 초 범위, 끝 규칙 ≤ 32 · when · op · result · team 참조)
+V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
 실패 메시지 형식:  <파일>:<JSON 포인터>: <규칙> — <설명>
 ```
 

@@ -183,6 +183,8 @@ private:
     // Prefab 이 붙이는 엔진 컴포넌트 (core.tags · core.prefab) · 정체성 · opaque — 두 경로 공통
     void finishPrefabEntity(ecs::EntityId e, const content::Prefab* prefab);
     Expected<void> applyEditContent(const cmd::EditContent& c);
+    // 콘텐츠 PlayerAction (v0.2 M3-T1): 대상 고르기 → 효과. 만든 엔티티의 netId
+    Expected<std::vector<NetEntityId>> applyPlayerAction(const cmd::PlayerAction& c);
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;

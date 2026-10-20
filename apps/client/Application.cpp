@@ -1,5 +1,6 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
@@ -346,7 +347,19 @@ void Application::handleWorldInput(f64 dt) {
         cam.panByScreen(in.mouseDelta * scale);
     }
     const Vec2 mousePx = in.mousePosition * scale;
-    if (editor::IEditorHost* host = m_config.world->editorHost()) {
+    // 행동을 쥐고 있으면 (v0.2 M3-T1 "행동" 패널) 왼쪽 클릭 = 그 자리에 PlayerAction, Esc = 놓기. 에디터 · 선택은 클릭을
+    // 받지 않는다 (아래에서 primary 입력을 끈다)
+    const bool acting = !m_actionPanel.armed.empty();
+    if (acting) {
+        if (pressed(m_ids.escape)) {
+            m_actionPanel.armed.clear();
+        } else if (pressed(m_ids.select) || pressed(m_ids.selectAdd)) {
+            m_config.world->playerAction(m_actionPanel.armed, cam.screenToWorld(mousePx));
+        }
+    }
+    if (acting) {
+        // 클릭은 행동이 가져갔다 — 카메라 · 단축키는 아래에서 그대로
+    } else if (editor::IEditorHost* host = m_config.world->editorHost()) {
         handleEditor(*host, cam, mousePx, dt);
         // F · 목록 두 번 클릭: 선택한 개체들의 가운데로 (줌은 그대로)
         if (m_editor.takeFocusRequest()) {
@@ -516,6 +529,11 @@ bool Application::frame() {
                 if (const auto c = drawGamePanel(*game)) { // v0.2 M2-T3 "게임"
                     m_config.world->gameCommand(*c);
                 }
+            }
+            if (const auto acts = m_config.world->playerActions(); acts && m_panels.visible) {
+                drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
+            } else if (!acts) {
+                m_actionPanel.armed.clear();
             }
         }
         ui = m_config.ui->endFrame(m_cursor);

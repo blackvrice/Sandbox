@@ -137,6 +137,8 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "step"}, {"ticks", p.ticks}};
             } else if constexpr (std::is_same_v<P, SetSimulationSpeed>) {
                 return Json{{"op", "speed"}, {"speed", static_cast<f64>(p.speed)}};
+            } else if constexpr (std::is_same_v<P, PlayerAction>) {
+                return Json{{"op", "action"}, {"action", p.action}, {"position", vec(p.position)}};
             } else if constexpr (std::is_same_v<P, GameControl>) {
                 return Json{{"op", "game"}, {"action", p.op == GameControlOp::Start ? "start" : "abort"}};
             } else {
@@ -277,6 +279,16 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
         c.id = j["id"].get<std::string>();
         c.value = j["value"];
         return CommandPayload{std::move(c)};
+    }
+    if (op == "action") {
+        PlayerAction a;
+        auto pos = readVec(j, "position");
+        if (!pos || !j.contains("action") || !j["action"].is_string()) {
+            return makeError(ErrorCode::ParseError, "action 은 {action: id, position: [x, y]}");
+        }
+        a.action = j["action"].get<std::string>();
+        a.position = *pos;
+        return CommandPayload{std::move(a)};
     }
     if (op == "game") {
         const std::string action =
