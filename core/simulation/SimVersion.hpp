@@ -19,6 +19,8 @@
 //                   감지는 색인의 태그 사본을 쓰고 태그 없는 엔티티를 건너뛴다
 //   (4) 2026-10-20  v0.2 M2-T2: 올리지 않음 — game.session 과 단계 17b GameRules 는 세션이 있는 월드에만 작용한다
 //                   (세션 없는 월드의 결과 · 기존 골든 그대로, 04 6장 이력)
+//   (4) 2026-10-20  v0.2 M3-T2: 올리지 않음 — 효과 score.add 는 세션이 없으면, game.spawn_point 는 GameControl Start 밖에서
+//                   아무것도 하지 않는다 (기존 골든 그대로)
 
 #include "foundation/types/Types.hpp"
 

@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-20 — v0.2 M3-T2: 점수 · 팀 · 스폰 지점 — game.score · 효과 score.add · 끝 조건 score · 팀 태그 · game.spawn_point (ADR-0048)
+
+**무엇을**
+
+- 컴포넌트 `game.score` (core/components/game/GameScore.hpp): points[9] — 0 공용, 1..8 GameMode.teams 순서. 세션 엔티티에
+  붙고 엔진 관리 (명령 PermissionDenied · Prefab V3). resetSession · GameControl Start 가 0 으로 (없으면 붙인다).
+- 효과 op `score.add {value 정수 ±1,000,000, team?, who 기본 target}` — Rule (Stage 11) · PlayerAction 이 `game::addScore` 를 쓴다.
+  칸 = team → who 의 팀 태그 → 공용. 세션이 Running 일 때만, ±10억 으로 자른다. 어느 모드에도 없는 team 은 V2 경고.
+- GameMode: `teams[].tag` (팀 소속 = 태그, V7 · 중복 V8), 끝 조건 `when.score {team?, op, value}` (time · count 와 AND).
+- 컴포넌트 `game.spawn_point {prefab, count 1~64, radius 0~16}` (사용자 편집): GameControl Start 를 적용하면 saveId 순으로 지점마다
+  prefab 을 ±radius 안에 만든다 (난수 Purpose::GameStart, 없는 prefab 건너뜀, 4096 개까지, 결과 created).
+- 클라이언트 "게임" 패널 점수 줄 (GameInfo.scores · scoreRows · scoreLine).
+- 시험: test_game_score (core 5), test_content_loader +3, test_game_panel +1 (+ 로컬 서버 복제 점수), 카탈로그 21.
+- 문서: ADR-0048, 11 (0 · 8 · 9장), 03 (2 · 4 · 6.3장), 02, 04 (simVersion 이력), 10 9장, 13, 17, 18 (M3-T2 ✅ — 다음 M3-T3),
+  adr/README, SimVersion.hpp 이력 주석.
+
+**왜**
+
+- "10 점 먼저" · 팀 대결 같은 미니게임을 콘텐츠만으로 (M3 Feature Bundle). 점수가 세션과 수명이 같아 재시작 = 0 점이고,
+  세이브 · 리플레이 · 복제 · 인스펙터가 그대로 다룬다. 팀을 태그로 정하면 Prefab · 태그 식 · V7 을 그대로 쓴다.
+- 스폰 지점: 시작 월드를 고치지 않고 판마다 같은 배치 (지점 saveId 로 결정적).
+
+**검증**
+
+- Windows MSVC Debug (windows-msvc 프리셋): ctest 58/58 통과 (render_tests_warp 제외). 골든 · 리플레이 해시 그대로
+  (det_* 통과 — kSimVersion 4 그대로). 와이어 (프로토콜 10) · 세이브 형식 변경 없음.
+- 런타임: `sbx new --from ecosystem_small` 프로젝트에 팀 태그 · score 끝 조건 모드와 늑대 Rule 의 score.add 를 넣고
+  `SandboxServer --world <프로젝트> --start-game --ticks 600 --exit` 두 번 — 같은 해시 0x12019dabc96ea151.
+- 알림 (이번 변경 전부터, 고치지 않음):
+  - Windows 에서 CMake 가 도구의 UTF-8 출력을 콘솔 코드 페이지(cp949)로 읽어 project_new_* · project_game_start ·
+    net_server_probe_* 가 실패한다 — `chcp 65001` 뒤 ctest 면 통과.
+  - render_tests_warp: doctest 28/28 통과지만 D3D12 Debug Layer 배리어 메시지 (imgui target · world pass target 의
+    COMMON → COPY_SOURCE) 로 "render tests OK" 를 내지 않는다.
+  - 수동 재시작 모드에서 게임이 N 틱 전에 Finished 가 되면 `--ticks N --exit` 가 끝나지 않는다 (Finished 는 틱을 멈춘다).
+
+**남은 일**
+
+- M3-T3 카메라 · 입력 바인딩 기본값, 데모 모드 (생태계 "토끼 지키기").
+- 다시 나오기 (respawn) · 주기적 스폰, 접속자별 점수, 가장 높은 팀 승리 (M4 트리거), 스폰 지점 표시 아이콘 — [계획].
+
+---
+
 ## 2026-10-20 — v0.2 M3-T1: 플레이어 행동 — 콘텐츠 PlayerAction (actions.json) · 명령 PlayerAction · "행동" 패널 (ADR-0047)
 
 **무엇을**

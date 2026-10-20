@@ -74,6 +74,7 @@
   Rule 하나만 Intent 로 만든다. 조건은 Stage 10 에서 한 번만 본다. Stage 11 은 (target saveId, priority 내림, Rule 정의 순,
   source saveId) 로 정렬해 적용하고, 이미 destroy 된 source·target 의 Intent 는 건너뛴다. destroy 는 Died{Killed} 도 낸다.
   spawn 의 위치는 who 주변 ±0.5 (Interaction 스트림). tag.add/remove 는 core.tags 가 없으면 효과 없음.
+  score.add (v0.2 M3-T2) 는 정렬된 순서로 세션의 game.score 에 — 세션이 Running 이 아니면 효과 없음 (ADR-0048).
 - (Phase 5B) 경로 (7장): 문서의 ai.path_request + ai.path_follow 를 ai.path 하나로 합쳤다 (상태 None·Pending·Submitted·
   Following·Failed — 구조 변경 없이 상태만 바꾼다). 이동 목표가 1 이상 바뀌고 직선이 막혔을 때만 요청한다.
   제출 때 시작 위치를 ai.path.start 에 남기고, 세이브 시점에 Submitted 였던 요청은 로드가 끝날 때 같은 입력으로 다시
@@ -163,6 +164,9 @@ tick() 은 일시정지와 같은 **편집 단계**다 (틱 그대로, 명령만
 `game.session` 은 엔진이 관리한다: 사용자 명령 · Prefab 으로 붙이거나 바꿀 수 없다. 바꾸는 길은 게임 프로젝트를 열 때 ·
 재시작 (Lobby 로 — `game::resetSession`)과 명령 GameControl (start = Lobby → Starting, abort = → Finished) 뿐이다 (M2-T3,
 [ADR-0046](adr/0046-game-control-command-restart-reopens-entry-world.md)).
+점수 `game.score` (v0.2 M3-T2, [ADR-0048](adr/0048-game-score-team-tags-spawn-points.md)) 는 같은 엔티티에 붙고 같은 규칙으로
+엔진이 관리한다 — 시작 · resetSession 이 0 으로, 효과 score.add (Stage 11 · PlayerAction) 가 Running 동안 더한다. 끝 조건
+`score` 는 17b 가 같은 틱의 효과 뒤에 본다.
 
 ### 2.1 순서 결정의 이유
 
@@ -271,6 +275,9 @@ value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목�
 v0.2 M3-T1 구현 (ADR-0047): `PlayerAction{action, position}` — 콘텐츠 PlayerAction(11 6장)의 대상을 위치에서 고르고 (range ·
 태그 · 조건 · 가까운 순 maxTargets) 효과를 Stage 2 에서 바로 적용한다 (destroy 는 바로 구조 변경, spawn 난수 =
 Purpose::PlayerAction). 대상이 없거나 게임 세션이 Running 이 아니면 거절. 역할 player 부터 (4.1).
+v0.2 M3-T2 (ADR-0048): `GameControl{start}` 를 적용하면 (Lobby → Starting, 점수 0) 이어서 `game.spawn_point` 를 saveId 순으로,
+지점마다 prefab 을 count 개 위치 ±radius 안에 만든다 (난수 Purpose::GameStart · 키 = 지점 saveId, 없는 prefab 은 건너뜀,
+한 번에 4096 개까지). 만든 개체는 명령 결과의 created.
 
 ### 4.1 검증 (CommandValidator, Stage 1 이전)
 
@@ -364,6 +371,7 @@ Stage 11 ResolveIntents:
 | `spawn`                  | prefab, at(who/offset), count | ECB.create                                               |
 | `tag.add` / `tag.remove` | who, tag                      | TagSet 수정                                              |
 | `event`                  | name, payload                 | EventStream.Custom (오디오·이펙트용)                     |
+| `score.add`              | value, team?, who             | game.score 칸에 더함 (Running 만 — v0.2 M3-T2)           |
 
 ### 6.4 표현력 확장 기준
 

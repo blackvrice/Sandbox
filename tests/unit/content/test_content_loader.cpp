@@ -528,3 +528,104 @@ TEST_SUITE("content") {
         CHECK(hasIssue(dup.load(), "V1", "PlayerAction id 't.x' 중복"));
     }
 } // TEST_SUITE
+
+// 점수 · 팀 (v0.2 M3-T2, ADR-0048, 11 6 · 9장): 팀 태그, 효과 score.add, 끝 조건 score
+TEST_SUITE("content") {
+    TEST_CASE("content: 팀 태그 · score.add · 끝 조건 score 를 읽는다") {
+        TempContent c("score_ok");
+        c.file("t/pack.json", kPack)
+            .file("t/tags.json", kTags)
+            .file("t/modes/m.json", R"({"id": "t.m", "name": "대결",
+                "teams": [{"id": "red", "name": "빨강", "tag": "a"}, {"id": "blue", "name": "파랑"}],
+                "end": [{"when": {"score": {"team": "red", "op": ">=", "value": 30}}, "result": "win", "team": "red"},
+                        {"when": {"score": {"op": "<", "value": -5}, "time": {"op": ">=", "seconds": 1}},
+                         "result": "lose"}]})")
+            .file("t/actions.json", R"([{"id": "t.point", "effects": [{"op": "score.add", "value": 10},
+                                         {"op": "score.add", "value": -3, "team": "blue", "who": "target"}]}])");
+        const auto r = c.load();
+        INFO(dumpIssues(r));
+        REQUIRE(r.ok());
+        CHECK(r.issues.empty());
+        const GameMode* m = r.db.findMode("t.m");
+        REQUIRE(m != nullptr);
+        REQUIRE(m->teams.size() == 2);
+        CHECK(m->teams[0].hasTag);
+        CHECK(m->teams[0].tag == *r.db.findTag("a"));
+        CHECK_FALSE(m->teams[1].hasTag);
+        TagSet tagged;
+        tagged.set(*r.db.findTag("a"));
+        CHECK(teamOf(m->teams, tagged) == 1);
+        CHECK(teamOf(m->teams, TagSet{}) == 0);
+        REQUIRE(m->end.size() == 2);
+        CHECK(m->end[0].when.hasScore);
+        CHECK(m->end[0].when.scoreSlot == 1);
+        CHECK(m->end[0].when.scoreOp == CmpOp::Ge);
+        CHECK(m->end[0].when.scoreValue == 30);
+        CHECK(m->end[1].when.hasScore);
+        CHECK(m->end[1].when.hasTime);
+        CHECK(m->end[1].when.scoreSlot == 0); // team 이 없으면 공용 칸
+        CHECK(m->end[1].when.scoreValue == -5);
+        const PlayerActionDef* a = r.db.findPlayerAction("t.point");
+        REQUIRE(a != nullptr);
+        REQUIRE(a->effects.size() == 2);
+        CHECK(a->effects[0].op == EffectOp::ScoreAdd);
+        CHECK(a->effects[0].who == Who::Target); // 기본 = target
+        CHECK(a->effects[0].value == 10);
+        CHECK(a->effects[0].team.empty());
+        CHECK(a->effects[1].team == "blue");
+        CHECK(a->effects[1].value == -3);
+    }
+
+    TEST_CASE("content: 점수 · 팀 검사 — V3 (score.add 모양) · V7 (팀 태그) · V8 (score 조건 · 태그 중복) · V2 경고") {
+        const auto bad = [](const char* tag, std::string_view mode, std::string_view actions, const char* rule,
+                            const char* fragment, ContentIssue::Severity sev = ContentIssue::Severity::Error) {
+            CAPTURE(tag);
+            TempContent c(tag);
+            c.file("t/pack.json", kPack).file("t/tags.json", kTags);
+            if (!mode.empty()) {
+                c.file("t/modes/m.json", mode);
+            }
+            if (!actions.empty()) {
+                c.file("t/actions.json", actions);
+            }
+            const auto r = c.load();
+            INFO(dumpIssues(r));
+            CHECK(hasIssue(r, rule, fragment, sev));
+        };
+        constexpr std::string_view kNoMode;
+        bad("s_float", kNoMode, R"([{"id": "t.x", "effects": [{"op": "score.add", "value": 1.5}]}])", "V3",
+            "score.add");
+        bad("s_big", kNoMode, R"([{"id": "t.x", "effects": [{"op": "score.add", "value": 1000001}]}])", "V3",
+            "score.add");
+        bad("s_key", kNoMode, R"([{"id": "t.x", "effects": [{"op": "score.add", "value": 1, "points": 2}]}])", "V3",
+            "모르는 키 'points'");
+        bad("s_ghost", kNoMode, R"([{"id": "t.x", "effects": [{"op": "score.add", "value": 1, "team": "ghost"}]}])",
+            "V2", "팀 'ghost' 가 어느 GameMode 에도 없다", ContentIssue::Severity::Warning);
+        bad("s_tag", R"({"id": "t.m", "name": "m", "teams": [{"id": "red", "name": "빨강", "tag": "zzz"}]})", kNoMode,
+            "V7", "선언된 태그");
+        bad("s_tag2",
+            R"({"id": "t.m", "name": "m", "teams": [{"id": "red", "name": "빨강", "tag": "a"},
+                                                    {"id": "blue", "name": "파랑", "tag": "a"}]})",
+            kNoMode, "V8", "팀 태그 'a' 를 두 팀이 쓴다");
+        bad("s_cteam",
+            R"({"id": "t.m", "name": "m", "end": [{"when": {"score": {"team": "red", "op": ">=", "value": 1}},
+                                                   "result": "win"}]})",
+            kNoMode, "V8", "team 은 teams 에 있는 팀 id");
+        bad("s_cval",
+            R"({"id": "t.m", "name": "m", "end": [{"when": {"score": {"op": ">=", "value": 0.5}}, "result": "win"}]})",
+            kNoMode, "V8", "value 는");
+        bad("s_cshape", R"({"id": "t.m", "name": "m", "end": [{"when": {"score": {"value": 1}}, "result": "win"}]})",
+            kNoMode, "V8", "score 는");
+    }
+
+    TEST_CASE("content: game.score 는 엔진이 관리한다, game.spawn_point 는 Prefab 에 쓸 수 있다") {
+        TempContent c("score_managed");
+        c.file("t/pack.json", kPack).file("t/prefabs/a.json", R"([{"id": "t.score", "components": {"game.score": {}}},
+                                          {"id": "t.spawner", "components": {"core.transform": {},
+                                           "game.spawn_point": {"prefab": "t.spawner", "count": 3, "radius": 2}}}])");
+        const auto r = c.load();
+        INFO(dumpIssues(r));
+        CHECK(hasIssue(r, "V3", "'game.score' 는 엔진이 관리한다"));
+        CHECK(r.db.findPrefab("t.spawner") != nullptr);
+    }
+} // TEST_SUITE

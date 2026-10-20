@@ -6,6 +6,7 @@
 #include <queue>
 #include <set>
 
+#include "core/components/game/GameScore.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "foundation/container/FixedString.hpp"
 #include "foundation/hash/Fnv1a.hpp"
@@ -18,7 +19,8 @@ namespace fs = std::filesystem;
 using nlohmann::json;
 using Severity = ContentIssue::Severity;
 
-constexpr std::array kEngineManaged{"persist.persistence", "net.identity", "core.tags", "core.prefab", "game.session"};
+constexpr std::array kEngineManaged{"persist.persistence", "net.identity", "core.tags",
+                                    "core.prefab",         "game.session", "game.score"};
 
 bool isLowerIdent(std::string_view s) noexcept {
     if (s.empty()) {
@@ -659,7 +661,7 @@ bool ContentLoaderImpl::parseRuleEffects(const PackDir& p, const SourceFile& f, 
                     ok = false;
                     continue;
                 }
-            } else if (op != "spawn" && op != "event") {
+            } else if (op != "spawn" && op != "event" && op != "score.add") {
                 error(f.display, eat, "V3", "who 가 필요하다");
                 ok = false;
                 continue;
@@ -725,9 +727,31 @@ bool ContentLoaderImpl::parseRuleEffects(const PackDir& p, const SourceFile& f, 
                 }
                 fx.event = e["name"].get<std::string>();
                 fx.eventCode = fnv1a64(fx.event);
+            } else if (op == "score.add") {
+                // v0.2 M3-T2 (ADR-0048): 게임 점수. team 이 없으면 who(기본 target) 의 팀 태그로, 팀이 없으면 공용 칸
+                fx.op = EffectOp::ScoreAdd;
+                fx.who = e.contains("who") ? fx.who : Who::Target;
+                const bool valueOk = e.contains("value") && e["value"].is_number_integer() &&
+                                     e["value"].get<i64>() >= -kMaxScoreDelta &&
+                                     e["value"].get<i64>() <= kMaxScoreDelta;
+                const bool teamOk =
+                    !e.contains("team") || (e["team"].is_string() && isLowerIdent(e["team"].get<std::string>()));
+                if (!onlyKeys(e, {"op", "who", "value", "team"}, f, eat) || !valueOk || !teamOk) {
+                    error(f.display, eat, "V3",
+                          std::format(R"({{"op": "score.add", "value": 정수 ±{}, "team": 팀 id (선택), "who"}})",
+                                      kMaxScoreDelta));
+                    ok = false;
+                    continue;
+                }
+                fx.value = static_cast<f64>(e["value"].get<i64>());
+                if (e.contains("team")) {
+                    fx.team = e["team"].get<std::string>();
+                }
             } else {
                 error(f.display, ptr(eat, "op"), "V3",
-                      std::format("모르는 효과 '{}' (field.add field.set destroy spawn tag.add tag.remove event)", op));
+                      std::format("모르는 효과 '{}' (field.add field.set destroy spawn tag.add tag.remove event "
+                                  "score.add)",
+                                  op));
                 ok = false;
                 continue;
             }
@@ -1338,15 +1362,34 @@ void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
             for (usize i = 0; i < ts.size(); ++i) {
                 const std::string at = ptr("/teams", i);
                 const json& t = ts[i];
-                if (!t.is_object() || !onlyKeys(t, {"id", "name"}, f, at) || !t.contains("id") ||
+                if (!t.is_object() || !onlyKeys(t, {"id", "name", "tag"}, f, at) || !t.contains("id") ||
                     !t["id"].is_string() || !isLowerIdent(t["id"].get<std::string>()) ||
                     t["id"].get<std::string>().size() > 32 || !t.contains("name") || !t["name"].is_string() ||
                     t["name"].get<std::string>().empty() || t["name"].get<std::string>().size() > 64) {
-                    error(f.display, at, "V8", R"(팀은 {"id": "red", "name": "빨강"} — id 는 소문자·숫자·'_')");
+                    error(f.display, at, "V8",
+                          R"(팀은 {"id": "red", "name": "빨강", "tag": "team_red"} — id 는 소문자·숫자·'_')");
                     ok = false;
                     continue;
                 }
                 GameTeam team{t["id"].get<std::string>(), t["name"].get<std::string>()};
+                // 팀 태그 (선택, v0.2 M3-T2): 이 태그가 있는 개체가 이 팀 — 효과 score.add 의 기본 팀
+                if (t.contains("tag")) {
+                    const auto tag = t["tag"].is_string() ? m_db.findTag(t["tag"].get<std::string>()) : std::nullopt;
+                    if (!tag) {
+                        error(f.display, ptr(at, "tag"), "V7", "선언된 태그 이름이 필요하다");
+                        ok = false;
+                        continue;
+                    }
+                    if (std::any_of(m.teams.begin(), m.teams.end(),
+                                    [&](const GameTeam& o) { return o.hasTag && o.tag == *tag; })) {
+                        error(f.display, ptr(at, "tag"), "V8",
+                              std::format("팀 태그 '{}' 를 두 팀이 쓴다", t["tag"].get<std::string>()));
+                        ok = false;
+                        continue;
+                    }
+                    team.hasTag = true;
+                    team.tag = *tag;
+                }
                 if (std::any_of(m.teams.begin(), m.teams.end(), [&](const GameTeam& o) { return o.id == team.id; })) {
                     error(f.display, ptr(at, "id"), "V8", std::format("팀 id '{}' 중복", team.id));
                     ok = false;
@@ -1402,8 +1445,10 @@ void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
                 // when
                 const json* w = e.contains("when") ? &e["when"] : nullptr;
                 const std::string wat = ptr(at, "when");
-                if (w == nullptr || !w->is_object() || w->empty() || !onlyKeys(*w, {"time", "count"}, f, wat)) {
-                    error(f.display, wat, "V8", R"(when 은 {"time": {...}} · {"count": {...}} 중 하나 이상)");
+                if (w == nullptr || !w->is_object() || w->empty() ||
+                    !onlyKeys(*w, {"time", "count", "score"}, f, wat)) {
+                    error(f.display, wat, "V8",
+                          R"(when 은 {"time": {...}} · {"count": {...}} · {"score": {...}} 중 하나 이상)");
                     rok = false;
                 } else {
                     if (w->contains("time")) {
@@ -1445,6 +1490,49 @@ void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
                                 rule.when.countTags = *tags;
                                 rule.when.countOp = *op;
                                 rule.when.countValue = static_cast<u32>(cn["value"].get<u64>());
+                            } else {
+                                rok = false;
+                            }
+                        }
+                    }
+                    // score {team?, op, value} — game.score 의 한 칸, team 이 없으면 공용 (v0.2 M3-T2)
+                    if (w->contains("score")) {
+                        const json& sc = (*w)["score"];
+                        const std::string sat = ptr(wat, "score");
+                        if (!sc.is_object() || !onlyKeys(sc, {"team", "op", "value"}, f, sat) || !sc.contains("op") ||
+                            !sc.contains("value")) {
+                            error(f.display, sat, "V8", R"(score 는 {"team": "red", "op": ">=", "value": 10})");
+                            rok = false;
+                        } else {
+                            const auto op = opOf(sc["op"], ptr(sat, "op"));
+                            const bool valueOk = sc["value"].is_number_integer() &&
+                                                 sc["value"].get<i64>() >= -comp::kMaxScore &&
+                                                 sc["value"].get<i64>() <= comp::kMaxScore;
+                            if (!valueOk) {
+                                error(f.display, ptr(sat, "value"), "V8",
+                                      std::format("value 는 ±{} 의 정수", comp::kMaxScore));
+                            }
+                            u8 slot = 0;
+                            bool teamOk = true;
+                            if (sc.contains("team")) {
+                                const auto tit = sc["team"].is_string()
+                                                     ? std::find_if(m.teams.begin(), m.teams.end(),
+                                                                    [&](const GameTeam& t) {
+                                                                        return t.id == sc["team"].get<std::string>();
+                                                                    })
+                                                     : m.teams.end();
+                                if (tit == m.teams.end()) {
+                                    error(f.display, ptr(sat, "team"), "V8", "team 은 teams 에 있는 팀 id");
+                                    teamOk = false;
+                                } else {
+                                    slot = static_cast<u8>(tit - m.teams.begin() + 1);
+                                }
+                            }
+                            if (op && valueOk && teamOk) {
+                                rule.when.hasScore = true;
+                                rule.when.scoreSlot = slot;
+                                rule.when.scoreOp = *op;
+                                rule.when.scoreValue = sc["value"].get<i64>();
                             } else {
                                 rok = false;
                             }
@@ -1563,6 +1651,28 @@ void ContentLoaderImpl::crossCheck() {
             warn(r.file, "", "V4",
                  std::format("Rule '{}' 의 action '{}' 을 interact 하는 Behavior 가 없다", r.id, r.action));
         }
+    }
+    // V2 (경고) score.add 의 팀 id — 어느 GameMode 에도 없으면 언제나 효과가 없다. 팀은 모드마다라 실행 때 고른다
+    const auto checkScoreTeams = [&](const std::vector<RuleEffect>& effects, const std::string& file,
+                                     const std::string& owner) {
+        for (const RuleEffect& fx : effects) {
+            if (fx.op != EffectOp::ScoreAdd || fx.team.empty()) {
+                continue;
+            }
+            const bool known = std::any_of(m_db.m_modes.begin(), m_db.m_modes.end(), [&](const GameMode& m) {
+                return std::any_of(m.teams.begin(), m.teams.end(), [&](const GameTeam& t) { return t.id == fx.team; });
+            });
+            if (!known) {
+                warn(file, "", "V2",
+                     std::format("'{}' 의 score.add 팀 '{}' 가 어느 GameMode 에도 없다", owner, fx.team));
+            }
+        }
+    };
+    for (const Rule& r : m_db.m_rules) {
+        checkScoreTeams(r.effects, r.file, r.id);
+    }
+    for (const PlayerActionDef& a : m_db.m_playerActions) {
+        checkScoreTeams(a.effects, a.file, a.id);
     }
 }
 

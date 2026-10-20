@@ -28,11 +28,12 @@
   terrain.json 은 머티리얼 배열 (Phase 4 의 {"terrainMaterials": [...]} 형식은 내장·테스트용 fromJson 에만 남는다).
 - 태그 이름은 소문자·숫자·'_' (팩 접두사 없음, 여러 팩이 같은 태그를 선언해도 된다). 비트 = 전체 태그 이름 정렬 순.
 - Prefab: "tags" 는 이름 배열 → 엔티티의 core.tags. 엔진 관리 컴포넌트(persist.persistence, net.identity, core.tags,
-  core.prefab)는 components 에 쓸 수 없다. 모르는 컴포넌트는 render.* / client.* 만 허용(Opaque), 나머지는 V3 오류.
+  core.prefab, game.session, game.score)는 components 에 쓸 수 없다 (game.spawn_point 는 쓸 수 있다 — 9장). 모르는 컴포넌트는 render.* / client.* 만 허용(Opaque), 나머지는 V3 오류.
   "inherits" 는 null 이거나 없어야 한다 (상속 [계획]). enum 필드(예: life.reproduce.mode)는 지금 정수로 쓴다.
 - Prefab 생성 시 core.prefab{id} 가 붙는다 (출처). 09 의 entities.jsonl "prefab" 필드 대신 이 컴포넌트가 저장된다.
 - Rule: source/target 은 {"tags": TagExpr}. 조건 경로 "<source|target>.<컴포넌트>.<수치 필드>", op < <= > >= == !=.
-  효과의 who 는 spawn(기본 source)·event(기본 target) 외에는 필수. spawn 의 count 1~16, event 이름은 "<pack>.<name>".
+  효과의 who 는 spawn(기본 source)·event(기본 target)·score.add(기본 target) 외에는 필수. spawn 의 count 1~16, event 이름은
+  "<pack>.<name>". score.add (v0.2 M3-T2, ADR-0048) = {value: 정수 ±1,000,000, team?: 팀 id} — 9장.
 - BehaviorGraph: 조건 노드는 {"<노드>": 인자} 하나 또는 인자 없는 문자열("targetValid", "true").
   stateTime 은 {"stateTime": {"op": ">=", "seconds": 수}} — 초 단위 (틱으로 쓰지 않는다: tick rate 와 무관하게).
   when 은 필수 (항상이면 "true"). 행동 노드: wander{radius, interval}, seek{tags, strategy:"nearest"},
@@ -323,7 +324,8 @@ V4  Rule: action 을 interact 하는 Behavior 가 하나 이상 (고아 Rule 경
 V5  Behavior: 도달 불가 상태, initial 존재, 전이 대상 존재
 V6  Terrain: default 머티리얼 1개, moveCost 범위
 V7  태그 선언 여부 (오타 방지)
-V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복, 초 범위, 끝 규칙 ≤ 32 · when · op · result · team 참조)
+V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복 · 팀 태그 중복, 초 범위, 끝 규칙 ≤ 32 · when (time · count ·
+    score) · op · result · team 참조)
 V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
 실패 메시지 형식:  <파일>:<JSON 포인터>: <규칙> — <설명>
 ```
@@ -343,13 +345,14 @@ V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~6
   "name": "토끼 지키기",                        // 필수, ≤ 256 바이트
   "description": "3 분 동안 토끼를 지켜라",     // 선택
   "players": { "min": 1, "max": 4 },           // 1 ~ 64, 기본 1 ~ 16
-  "teams": [ { "id": "red", "name": "빨강" } ], // 선택, ≤ 8. id 는 모드 안에서만 (소문자 · 숫자 · '_')
+  "teams": [ { "id": "red", "name": "빨강", "tag": "team_red" } ], // 선택, ≤ 8. id 는 모드 안에서만, tag 선택 (M3-T2)
   "start": { "countdownSeconds": 3 },          // Starting 길이 0 ~ 60 초 (기본 0)
   "end": [                                     // 위에서부터 처음 맞는 것 (Running 중 틱마다). 비면 끝나지 않는다
     { "when": { "time":  { "op": ">=", "seconds": 180 } }, "result": "win" },
     { "when": { "count": { "tags": { "all": ["prey"] }, "op": "<=", "value": 0 } }, "result": "lose" },
     { "when": { "time": { "op": ">=", "seconds": 60 },
-                "count": { "tags": { "all": ["predator"] }, "op": "==", "value": 0 } }, "result": "win", "team": "red" }
+                "count": { "tags": { "all": ["predator"] }, "op": "==", "value": 0 } }, "result": "win", "team": "red" },
+    { "when": { "score": { "team": "red", "op": ">=", "value": 10 } }, "result": "win", "team": "red" }
   ],
   "restart": { "mode": "manual", "delaySeconds": 5 }   // manual(명령) | auto(지연 뒤 서버가)
 }
@@ -358,8 +361,16 @@ V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~6
 ```text
 when      time  = Running 에 들어간 뒤 지난 시간 {op, seconds 0 ~ 86400}
           count = 태그 식(6장)에 맞는 살아 있는 개체 수 {tags, op, value 0 ~ 1,000,000}
-          둘 다 쓰면 AND. 하나는 있어야 한다. op = < <= > >= == !=
+          score = game.score 의 한 칸 {team?, op, value 정수 ±10억} — team 이 없으면 공용 칸 (v0.2 M3-T2)
+          여럿 쓰면 AND. 하나는 있어야 한다. op = < <= > >= == !=
 result    win · lose · draw. team 이 있으면 그 팀의 승리 · 패배 (draw 에는 team 없음), 없으면 모두
 시간      초는 로드할 때 틱으로 (× 30, 반올림 — 0.5 초 = 15 틱). 시뮬레이션은 틱만 본다 (04)
-[계획]    월드 오버레이로 고치기(EditContent), 점수 조건 (M3), Visual Trigger 와의 관계 (M4)
+팀 태그  teams[].tag (선택, 선언된 태그 V7, 두 팀이 같은 태그 V8): core.tags 에 그 태그가 있는 개체가 그 팀 (여럿이면 앞의
+          팀). 효과 score.add 가 team 을 안 쓰면 who 의 팀 칸에, 팀이 없는 개체면 공용 칸에 더한다
+점수      game.score (세션 엔티티 · 엔진 관리): 칸 0 = 공용, 1..8 = teams 순서. 시작 (GameControl Start) · resetSession 이 0 으로.
+          score.add 는 세션이 Running 일 때만 센다 (Rule · PlayerAction 모두). team 이 세션 모드에 없으면 효과 없음 (어느
+          모드에도 없으면 V2 경고). 값은 ±1,000,000,000 으로 자른다 (ADR-0048)
+스폰 지점 컴포넌트 game.spawn_point {prefab, count 1~64, radius 0~16} — 에디터로 월드에 놓는다 (core.transform 필요). 시작할 때
+          지점을 saveId 순으로 prefab 을 count 개, 위치 ±radius 안에 만든다 (03 4장). 다시 나오기 · 주기적 생성은 [계획]
+[계획]    월드 오버레이로 고치기(EditContent), 가장 높은 팀 승리 · 점수 이벤트 (M4 Visual Trigger), 접속자별 점수
 ```

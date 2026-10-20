@@ -71,7 +71,9 @@ struct RuleCondition {
     f64 value = 0;
 };
 
-enum class EffectOp : u8 { FieldAdd, FieldSet, Destroy, Spawn, TagAdd, TagRemove, Event };
+enum class EffectOp : u8 { FieldAdd, FieldSet, Destroy, Spawn, TagAdd, TagRemove, Event, ScoreAdd };
+
+inline constexpr i32 kMaxScoreDelta = 1'000'000; // score.add 의 |value|
 
 struct RuleEffect {
     EffectOp op = EffectOp::Event;
@@ -83,6 +85,7 @@ struct RuleEffect {
     TagIndex tag = 0;   // TagAdd · TagRemove
     std::string event;  // Event 이름
     u64 eventCode = 0;  // fnv1a64(event)
+    std::string team;   // ScoreAdd: 팀 id (비면 who 의 팀 — 팀 태그, 없으면 공용). 값은 value (정수)
 };
 
 struct Rule {
@@ -103,9 +106,9 @@ struct Rule {
 };
 
 // --- PlayerAction (11 6장, v0.2 M3-T1, ADR-0047) -----------------------------------------------------------------
-// 플레이어(역할 player 부터)가 월드의 한 점을 골라 쓰는 행동: 그 점에서 range 안의 개체 중 targets 태그 식 · conditions 에
-// 맞는 것을 가까운 순 (거리², saveId) 으로 maxTargets 개 골라 effects 를 정의 순서로 준다. effects · conditions 의 who 는
-// target 뿐이다 (source 가 없다). 실행은 명령 PlayerAction 을 적용할 때 (03 4장).
+// 플레이어(역할 player 부터)가 월드의 한 점을 골라 쓰는 행동: 그 점에서 range 안의 개체 중 targets 태그 식 · conditions
+// 에 맞는 것을 가까운 순 (거리², saveId) 으로 maxTargets 개 골라 effects 를 정의 순서로 준다. effects · conditions 의
+// who 는 target 뿐이다 (source 가 없다). 실행은 명령 PlayerAction 을 적용할 때 (03 4장).
 inline constexpr usize kMaxPlayerActions = 64; // DB 전체
 inline constexpr u32 kMaxActionTargets = 64;
 inline constexpr f32 kMaxActionRange = 32.f;
@@ -205,6 +208,10 @@ struct GameEndCondition {
     TagExpr countTags;
     CmpOp countOp = CmpOp::Le;
     u32 countValue = 0;
+    bool hasScore = false; // game.score 의 한 칸 (v0.2 M3-T2)
+    u8 scoreSlot = 0;      // 0 = 공용, 1.. = 팀 번호
+    CmpOp scoreOp = CmpOp::Ge;
+    i64 scoreValue = 0;
 };
 
 struct GameEndRule {
@@ -214,9 +221,21 @@ struct GameEndRule {
 };
 
 struct GameTeam {
-    std::string id;   // "red" (모드 안에서만 — 소문자 · 숫자 · '_')
-    std::string name; // 표시 이름
+    std::string id;      // "red" (모드 안에서만 — 소문자 · 숫자 · '_')
+    std::string name;    // 표시 이름
+    bool hasTag = false; // 팀 태그 (v0.2 M3-T2): 이 태그가 있는 개체가 이 팀 — 둘 이상이면 앞의 팀
+    TagIndex tag = 0;
 };
+
+// 개체 태그 → 팀 번호 (1 부터, 0 = 팀 없음)
+[[nodiscard]] inline u8 teamOf(const std::vector<GameTeam>& teams, const TagSet& tags) noexcept {
+    for (usize i = 0; i < teams.size(); ++i) {
+        if (teams[i].hasTag && tags.test(teams[i].tag)) {
+            return static_cast<u8>(i + 1);
+        }
+    }
+    return 0;
+}
 
 inline constexpr usize kMaxGameTeams = 8;
 inline constexpr usize kMaxGameEndRules = 32;

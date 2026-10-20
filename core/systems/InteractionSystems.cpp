@@ -8,7 +8,8 @@
 //   - 이번 틱에 이미 파괴된(destroy 효과) source·target 의 Intent 는 건너뛴다
 //   - 배타 Rule 은 target 당 첫 번째만 (destroy(target) 이 있으면 로더가 배타로 만든다)
 //   - 효과를 정의 순서로 적용: field.add/set (FieldMeta 범위로 자름), destroy (ECB + Died{Killed}),
-//     spawn (SpawnQueue — 위치는 who 주변 ±0.5, 난수 Interaction 스트림), tag.add/remove, event (EventStream.Custom)
+//     spawn (SpawnQueue — 위치는 who 주변 ±0.5, 난수 Interaction 스트림), tag.add/remove, event (EventStream.Custom),
+//     score.add (세션의 game.score — core/game/GameRules, v0.2 M3-T2)
 //   조건은 Stage 10 에서 한 번만 본다 — 같은 틱 앞선 Intent 의 효과로 조건이 바뀌어도 다시 보지 않는다.
 
 #include <algorithm>
@@ -20,6 +21,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/game/GameRules.hpp"
 #include "core/systems/AiCommon.hpp"
 #include "core/systems/AiSystems.hpp"
 
@@ -159,6 +161,9 @@ void ResolveIntentsSystem::run(sim::SystemContext& ctx) {
                 break;
             case content::EffectOp::Event:
                 ctx.events.push(sim::SimEvent{sim::EventKind::Custom, who, whoSave, fx.eventCode, 0});
+                break;
+            case content::EffectOp::ScoreAdd:
+                (void)game::addScore(ctx.reg, ctx.content, fx, who); // 정렬된 순서로 — 자르기도 결정적
                 break;
             }
         }

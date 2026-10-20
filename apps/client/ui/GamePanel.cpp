@@ -43,6 +43,29 @@ std::string gameStateLine(const GameInfo& info) {
     }
 }
 
+std::vector<ScoreRow> scoreRows(const comp::GameScore& score, const content::GameMode* mode) {
+    std::vector<ScoreRow> rows;
+    if (mode == nullptr || mode->teams.empty()) {
+        rows.push_back(ScoreRow{"점수", score.points[0]});
+        return rows;
+    }
+    for (usize i = 0; i < mode->teams.size() && i + 1 < comp::kScoreSlots; ++i) {
+        rows.push_back(ScoreRow{mode->teams[i].name, score.points[i + 1]});
+    }
+    if (score.points[0] != 0) {
+        rows.push_back(ScoreRow{"공용", score.points[0]}); // 팀 태그가 없는 개체가 얻은 점수
+    }
+    return rows;
+}
+
+std::string scoreLine(const GameInfo& info) {
+    std::string line;
+    for (const ScoreRow& r : info.scores) {
+        line += std::format("{}{} {}", line.empty() ? "" : " · ", r.name, r.points);
+    }
+    return line;
+}
+
 std::optional<GameCommand> drawGamePanel(const GameInfo& info) {
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({488.f * dpi, 160.f * dpi}, ImGuiCond_FirstUseEver);
@@ -59,6 +82,9 @@ std::optional<GameCommand> drawGamePanel(const GameInfo& info) {
                         info.autoRestart ? " · 자동 재시작" : "");
     ImGui::Separator();
     ImGui::TextUnformatted(line.c_str());
+    if (const std::string score = scoreLine(info); !score.empty()) {
+        ImGui::TextUnformatted(score.c_str());
+    }
     if (info.state == 3 && info.autoRestart) {
         ImGui::TextDisabled("%s 뒤 자동 재시작", clockOf(info.restartDelayTicks).c_str());
     }

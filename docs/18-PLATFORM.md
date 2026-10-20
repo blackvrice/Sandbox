@@ -10,7 +10,7 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, 다음 M3)
-다음     v0.2 M3-T2 — 점수 · 팀 (game.score, 효과 op score.add, 끝 조건 score), 스폰 지점
+다음     v0.2 M3-T3 — 카메라 · 입력 바인딩 기본값, 데모 모드 (생태계 "토끼 지키기")
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -60,7 +60,7 @@
 | GamePackage (.sbpkg)    | Planned     | D-02. 지금 공유 단위는 콘텐츠 팩 폴더 + 세이브 폴더                                                                         |
 | 게임 라이프사이클       | Implemented | M2 ✅ — GameMode · game.session (17b) · 시작 · 중단 · 재시작 (자동), "게임" 패널 (ADR-0045 · 0046)                          |
 | 플레이어 행동           | Partial     | 콘텐츠 PlayerAction ✅ (M3-T1 — 점에 쓰는 행동, "행동" 패널, ADR-0047). 쿨다운 · 비용 · 유닛 지시는 Planned                 |
-| Feature Bundle          | Partial     | life.health · energy · Spawn(Prefab 생성 · Reproduce) · Camera2D · ActionMap. Score · Timer · Win/Lose 는 Planned (M3)      |
+| Feature Bundle          | Partial     | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera2D · ActionMap (M3-T2 ✅). 데모 모드는 M3-T3 |
 | Visual Trigger          | Partial     | Rule(source · action · target · effects) · BehaviorGraph FSM · Effect op. 게임 이벤트 · 조건 · 효과 노드는 Planned (M4)     |
 | Edit ↔ Test Play        | Partial     | 편집 단계 · 월드 저장/불러오기 · 리플레이. 분기 세션 · 원본 보호는 Planned (M5)                                             |
 | SandboxScript · VM      | Planned     | v0.3. 지금 표현력 확장은 Rule op (03 6.4 — ADR-0039 가 언어를 TypeScript 부분집합으로 정함)                                 |
@@ -125,7 +125,8 @@ M2 GameMode · 라이프사이클 (서버 권위 — ADR-0045: 모드는 콘텐�
 M3 Feature Bundle (Native)
   T1 ✅ PlayerAction: 팩의 actions.json (V9) · 명령 PlayerAction{action, position} (태그 30, 프로토콜 10, 역할 player,
         세션이 있으면 Running 에서만) — 대상은 시뮬레이션이 위치에서 고른다, 클라이언트 "행동" 패널 (ADR-0047)
-  T2 점수 · 팀 (game.score — 효과 op score.add, 끝 조건 score), 스폰 지점
+  T2 ✅ 점수 · 팀: game.score (세션 엔티티, 공용 + 팀 8) · 효과 score.add (Running 만) · 끝 조건 score · 팀 소속 = 팀 태그
+        (teams[].tag), 스폰 지점 game.spawn_point (시작 때 saveId 순으로 Prefab), "게임" 패널 점수 줄 (ADR-0048)
   T3 카메라 · 입력 바인딩 기본값, 데모 모드 (생태계 "토끼 지키기")
 M4 Visual Trigger
   T1 트리거 스키마: 이벤트(틱 · 타이머 · 영역 진입 · 점수 · 사망) · 조건 · 효과 노드 — 원본 그래프와 실행 표현 분리, 예산 · 깊이 · 순환 검사
@@ -217,7 +218,8 @@ M2-T1 ✅  11 (1 · 8 · 9장 GameMode), 18 5.2 (gameMode), ADR-0045 (D-11 포�
 M2-T2 ✅  03 2장 (17b GameRules), 04 6장 (simVersion 그대로), 02 (game.session), 17, 13, ADR-0045 구체화
 M2-T3 ✅  08 (프로토콜 9 · 게임 진행), 10 7 · 9장 (권한 · "게임" 패널), 15 (--start-game), 03 4장, 17, 13, ADR-0046
 M3-T1 ✅  11 (6 · 8장 PlayerAction · V9), 03 4장, 08 (프로토콜 10), 10 7 · 9장 ("행동" 패널), 13, 17, ADR-0047
-M3-T2~    11 (점수 · 팀), 03 (game.score), 10 (점수 표시)
+M3-T2 ✅  11 (0 · 8 · 9장 점수 · 팀 · 스폰 지점), 03 (2 · 4 · 6.3장), 02, 04 (simVersion 이력), 10 9장 (점수 줄), 13, 17, ADR-0048
+M3-T3     10 (입력 기본값), 15 (데모 모드)
 M4        03 6.4 갱신 (Visual Trigger 와 Rule 의 관계), 10 (트리거 편집), ADR
 M5        09 (GamePackage · SaveGame 결속), ADR (D-02)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
@@ -237,4 +239,6 @@ v0.2 M2-T1 뒤: 62/62 (unit_content · unit_project 케이스 추가)
 v0.2 M2-T2 뒤: 62/62 (unit_core 에 game 8 케이스, unit_ecs · unit_content 갱신 — 골든 해시 전부 그대로)
 v0.2 M2-T3 뒤: 63/63 (+ project_game_start — sbx new → 모드 추가 → sbx check → 서버 --start-game)
 v0.2 M3-T1 뒤: 63/63 (unit_core · unit_content · unit_client · unit_network 케이스 추가)
+v0.2 M3-T2 뒤: Windows MSVC Debug 58/58 (render_tests_warp 제외 — 아래) · unit 케이스 +9 (test_game_score 5 · content 3 · client 1)
+              render_tests_warp 는 이 기계에서 D3D12 Debug Layer 배리어 메시지로 실패 (doctest 28/28 통과, M3 는 render 를 건드리지 않음)
 ```

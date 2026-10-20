@@ -77,8 +77,14 @@ struct WorldOpsInfo {
     std::string message; // 가장 최근 결과 (거절 사유 · 요약)
 };
 
+// 점수 한 줄 (v0.2 M3-T2): 팀이 있는 모드면 팀마다 (+ 공용 칸이 0 이 아니면 "공용"), 없으면 "점수" 하나
+struct ScoreRow {
+    std::string name;
+    i32 points = 0;
+};
+
 // "게임" 패널이 보는 것 (v0.2 M2-T3). state · result = comp::GameState · GameOutcome 값 (0 Lobby · 1 Starting ·
-// 2 Running · 3 Finished / 0 없음 · 1 win · 2 lose · 3 draw). 복제된 game.session + 콘텐츠의 GameMode
+// 2 Running · 3 Finished / 0 없음 · 1 win · 2 lose · 3 draw). 복제된 game.session · game.score + 콘텐츠의 GameMode
 struct GameInfo {
     std::string modeId;
     std::string modeName; // GameMode.name (콘텐츠에 없으면 id)
@@ -93,8 +99,9 @@ struct GameInfo {
     u32 maxPlayers = 16;
     bool autoRestart = false;
     u32 restartDelayTicks = 0;
-    bool canControl = false; // 시작 · 중단 · 재시작 (admin 부터 — 판단은 서버)
-    std::string message;     // 가장 최근 거절 · 결과
+    bool canControl = false;      // 시작 · 중단 · 재시작 (admin 부터 — 판단은 서버)
+    std::string message;          // 가장 최근 거절 · 결과
+    std::vector<ScoreRow> scores; // game.score 가 없으면 비어 있다
 };
 enum class GameCommand : u8 { Start = 1, Abort = 2, Restart = 3 };
 

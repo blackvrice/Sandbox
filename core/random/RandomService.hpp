@@ -20,6 +20,7 @@ enum class Purpose : u32 {
     Behavior = 5,     // ai.behavior: random 조건, wander 목표
     Interaction = 6,  // Rule spawn 효과의 위치 흩뿌리기
     PlayerAction = 7, // PlayerAction spawn 효과의 위치 (v0.2 M3-T1 — 키 = 대상 saveId 와 그 틱의 명령 순번)
+    GameStart = 8,    // 게임 시작 때 game.spawn_point 의 위치 흩뿌리기 (v0.2 M3-T2 — 키 = 지점 saveId)
 };
 
 class RandomService {

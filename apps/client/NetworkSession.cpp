@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "apps/client/presentation/SelectionOverlay.hpp"
+#include "apps/client/ui/GamePanel.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
@@ -717,6 +718,9 @@ std::optional<GameInfo> NetworkSession::game() const {
                 info.team = m->teams[s->team - 1].name;
             }
         }
+    }
+    if (const comp::GameScore* sc = game::findScore(w->registry()); sc != nullptr) {
+        info.scores = scoreRows(*sc, content() != nullptr ? content()->findMode(info.modeId) : nullptr);
     }
     info.canControl = permissions().simulation; // 실행 제어와 같은 열 (admin 부터)
     info.message = m_gameMessage;

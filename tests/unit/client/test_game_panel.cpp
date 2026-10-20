@@ -143,6 +143,10 @@ TEST_SUITE("client") {
         CHECK(g.autoRestart);
         CHECK(g.restartDelayTicks == 6);
         CHECK(g.canControl); // 싱글플레이는 owner
+        // 복제된 game.score (M3-T2): 팀이 있는 모드 → 팀 줄, 공용 칸이 0 이면 공용 줄 없음
+        REQUIRE(g.scores.size() == 1);
+        CHECK(g.scores[0].name == "빨강");
+        CHECK(scoreLine(g) == "빨강 0");
         const u64 lobbyTick = g.tick;
         frames(10);
         CHECK(ns->game()->tick == lobbyTick); // Lobby 동안 멈춤
@@ -180,6 +184,28 @@ TEST_SUITE("client") {
             frames(1);
         }
         CHECK(ns->game()->message.find("GameControl 거절") != std::string::npos);
+    }
+
+    TEST_CASE("game panel: 점수 줄 — 팀 없는 모드 · 팀 모드 · 공용 칸 (M3-T2)") {
+        comp::GameScore sc;
+        sc.points[0] = 7;
+        sc.points[1] = 3;
+        sc.points[2] = -2;
+        GameInfo info;
+        info.scores = scoreRows(sc, nullptr);
+        CHECK(scoreLine(info) == "점수 7");
+        content::GameMode solo;
+        info.scores = scoreRows(sc, &solo);
+        CHECK(scoreLine(info) == "점수 7");
+        content::GameMode match;
+        match.teams = {content::GameTeam{"red", "빨강"}, content::GameTeam{"blue", "파랑"}};
+        info.scores = scoreRows(sc, &match);
+        CHECK(scoreLine(info) == "빨강 3 · 파랑 -2 · 공용 7");
+        sc.points[0] = 0;
+        info.scores = scoreRows(sc, &match);
+        CHECK(scoreLine(info) == "빨강 3 · 파랑 -2");
+        info.scores.clear();
+        CHECK(scoreLine(info).empty());
     }
 
 } // TEST_SUITE

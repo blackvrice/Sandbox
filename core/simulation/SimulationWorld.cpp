@@ -13,6 +13,7 @@
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
+#include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/replay/WorldHash.hpp"
@@ -31,7 +32,8 @@ bool isFinite(Vec2 v) noexcept {
 // 정체성 · 게임 세션 컴포넌트는 엔진만 붙이고 뗀다
 bool isProtected(ecs::StableId id) noexcept {
     return id == ecs::stableIdOf<comp::Persistence> || id == ecs::stableIdOf<comp::NetIdentity> ||
-           id == ecs::stableIdOf<comp::GameSession>; // 게임 진행 상태 — 시작 · 재시작 명령만 (M2-T3)
+           id == ecs::stableIdOf<comp::GameSession> || // 게임 진행 상태 — 시작 · 재시작 명령만 (M2-T3)
+           id == ecs::stableIdOf<comp::GameScore>;     // 점수 — 효과 score.add · 시작만 (M3-T2)
 }
 
 std::string hexId(ecs::StableId id) {
@@ -744,6 +746,9 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         if (auto r = game::applyGameControl(m_registry, *m_content, c->op, tick); !r) {
             return std::unexpected(r.error());
         }
+        if (c->op == cmd::GameControlOp::Start) {
+            return spawnAtSpawnPoints(); // 만든 개체 = 명령 결과의 created
+        }
         return Result{};
     }
     SBX_VERIFY(false, "처리하지 않은 명령 종류");
@@ -756,7 +761,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
 //    오름차순으로 maxTargets 개 — 순회 순서와 무관하다
 // 3) 대상마다 효과를 정의 순서로: field.add/set (FieldMeta 범위로 자름), destroy (바로 — 명령 단계의 구조 변경),
 //    spawn (대상 위치 ±0.5, 난수 PlayerAction 스트림 · 키 = (대상 saveId, 이번 틱 명령 순번)), tag.add/remove,
-//    event (EventStream.Custom). 앞 대상의 효과로 파괴된 대상은 건너뛴다
+//    event (EventStream.Custom), score.add (v0.2 M3-T2). 앞 대상의 효과로 파괴된 대상은 건너뛴다
 Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd::PlayerAction& c) {
     const content::PlayerActionDef* def = m_content->findPlayerAction(c.action);
     if (def == nullptr) {
@@ -870,6 +875,49 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd:
             case content::EffectOp::Event:
                 m_events.push(sim::SimEvent{sim::EventKind::Custom, t.e, t.saveId, fx.eventCode, 0});
                 break;
+            case content::EffectOp::ScoreAdd:
+                (void)game::addScore(m_registry, *m_content, fx, t.e);
+                break;
+            }
+        }
+    }
+    return created;
+}
+
+// --- 스폰 지점 (v0.2 M3-T2, ADR-0048) -------------------------------------------------------------------------
+// game.spawn_point + core.transform 이 있는 개체를 saveId 순으로, 지점마다 prefab 을 count 개 위치 ±radius 정사각형
+// 안에 (월드 경계로 자름, 난수 GameStart · 키 = 지점 saveId). 콘텐츠에 없는 prefab 의 지점은 건너뛴다.
+// 한 번의 시작에 kMaxStartSpawns 개까지 (넘으면 거기서 멈춘다 — 순서가 정해져 있어 결정적).
+std::vector<NetEntityId> SimulationWorld::spawnAtSpawnPoints() {
+    constexpr usize kMaxStartSpawns = 4096;
+    struct Point {
+        SaveId saveId;
+        Vec2 at;
+        const content::Prefab* prefab;
+        u16 count;
+        f32 radius;
+    };
+    std::vector<Point> points; // 먼저 모은다 — 만들면서 풀이 바뀐다
+    for (auto [e, sp, tr, id] :
+         m_registry.view<ecs::Read<comp::SpawnPoint>, ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
+        const content::Prefab* prefab = m_content->findPrefab(std::string_view(sp.prefab.view()));
+        if (prefab == nullptr || sp.count == 0) {
+            continue;
+        }
+        const f32 radius = std::isfinite(sp.radius) ? std::clamp(sp.radius, 0.f, 16.f) : 0.f;
+        points.push_back(Point{id.saveId, tr.position, prefab, std::min(sp.count, comp::kMaxSpawnPointCount), radius});
+    }
+    std::sort(points.begin(), points.end(), [](const Point& a, const Point& b) { return a.saveId < b.saveId; });
+    std::vector<NetEntityId> created;
+    for (const Point& p : points) {
+        auto rng = m_random.stream(rnd::Purpose::GameStart, p.saveId);
+        for (u16 k = 0; k < p.count; ++k) {
+            if (created.size() >= kMaxStartSpawns) {
+                return created;
+            }
+            const Vec2 off{rng.rangeF32(-p.radius, p.radius), rng.rangeF32(-p.radius, p.radius)};
+            if (auto e = instantiate(p.prefab, m_grid.clampPoint(p.at + off), {})) {
+                created.push_back(m_registry.read<comp::NetIdentity>(*e).netId);
             }
         }
     }

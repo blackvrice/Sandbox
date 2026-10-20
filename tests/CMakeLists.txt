@@ -42,6 +42,7 @@ add_executable(SandboxTests
     unit/project/test_game_project.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
+    unit/game/test_game_score.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp

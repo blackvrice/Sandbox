@@ -1,5 +1,6 @@
 #include "core/game/GameRules.hpp"
 
+#include <algorithm>
 #include <format>
 
 #include "core/components/core/Identity.hpp"
@@ -20,6 +21,15 @@ comp::GameOutcome outcomeOf(content::GameResult r) noexcept {
         return comp::GameOutcome::Draw;
     }
     return comp::GameOutcome::None;
+}
+
+// 세션 엔티티의 점수를 0 으로 (없으면 붙인다 — M2 의 세이브에는 game.score 가 없다)
+void resetScore(ecs::Registry& reg, ecs::EntityId session) {
+    if (comp::GameScore* sc = reg.tryWrite<comp::GameScore>(session)) {
+        *sc = comp::GameScore{};
+    } else {
+        reg.emplace<comp::GameScore>(session, comp::GameScore{});
+    }
 }
 
 } // namespace
@@ -50,13 +60,52 @@ const comp::GameSession* findSession(const ecs::Registry& reg) noexcept {
     return e == ecs::kNullEntity ? nullptr : reg.tryRead<comp::GameSession>(e);
 }
 
+const comp::GameScore* findScore(const ecs::Registry& reg) noexcept {
+    const ecs::EntityId e = findSessionEntity(reg);
+    return e == ecs::kNullEntity ? nullptr : reg.tryRead<comp::GameScore>(e);
+}
+
+bool addScore(ecs::Registry& reg, const content::ContentDatabase& content, const content::RuleEffect& fx,
+              ecs::EntityId who) {
+    const ecs::EntityId e = findSessionEntity(reg);
+    if (e == ecs::kNullEntity || reg.tryRead<comp::GameScore>(e) == nullptr) {
+        return false;
+    }
+    const comp::GameSession& s = reg.read<comp::GameSession>(e);
+    if (s.gameState() != comp::GameState::Running) {
+        return false; // 카운트다운 · 대기 · 끝난 뒤의 점수는 세지 않는다
+    }
+    const content::GameMode* mode = content.findMode(std::string_view(s.mode.view()));
+    if (mode == nullptr) {
+        return false;
+    }
+    usize slot = 0;
+    if (!fx.team.empty()) {
+        const auto it = std::find_if(mode->teams.begin(), mode->teams.end(),
+                                     [&](const content::GameTeam& t) { return t.id == fx.team; });
+        if (it == mode->teams.end()) {
+            return false; // 이 모드에는 그 팀이 없다 (로더 V2 경고)
+        }
+        slot = static_cast<usize>(it - mode->teams.begin()) + 1;
+    } else if (const comp::Tags* tags = reg.tryRead<comp::Tags>(who)) {
+        slot = content::teamOf(mode->teams, tags->set);
+    }
+    if (slot >= comp::kScoreSlots) {
+        return false;
+    }
+    const i64 sum = i64{reg.read<comp::GameScore>(e).points[slot]} + static_cast<i64>(fx.value);
+    reg.write<comp::GameScore>(e).points[slot] =
+        static_cast<i32>(std::clamp<i64>(sum, -comp::kMaxScore, comp::kMaxScore));
+    return true;
+}
+
 bool gameHoldsSimulation(const ecs::Registry& reg) noexcept {
     const comp::GameSession* s = findSession(reg);
     return s != nullptr && (s->gameState() == comp::GameState::Lobby || s->gameState() == comp::GameState::Finished);
 }
 
 bool endConditionHolds(const content::GameEndCondition& when, sim::Tick elapsed, const ecs::Registry& reg) noexcept {
-    if (!when.hasTime && !when.hasCount) {
+    if (!when.hasTime && !when.hasCount && !when.hasScore) {
         return false; // 로더가 막는다 (V8) — 빈 조건은 맞지 않는 것으로
     }
     if (when.hasTime && !content::compare(static_cast<f64>(elapsed), when.timeOp, static_cast<f64>(when.timeTicks))) {
@@ -72,6 +121,14 @@ bool endConditionHolds(const content::GameEndCondition& when, sim::Tick elapsed,
             }
         }
         if (!content::compare(static_cast<f64>(n), when.countOp, static_cast<f64>(when.countValue))) {
+            return false;
+        }
+    }
+    if (when.hasScore) {
+        // game.score 가 없으면 모든 칸이 0 인 것으로 (i32 · 조건 값 모두 f64 로 정확하다)
+        const comp::GameScore* sc = findScore(reg);
+        const i32 v = sc != nullptr && when.scoreSlot < comp::kScoreSlots ? sc->points[when.scoreSlot] : 0;
+        if (!content::compare(static_cast<f64>(v), when.scoreOp, static_cast<f64>(when.scoreValue))) {
             return false;
         }
     }
@@ -146,6 +203,7 @@ Expected<void> applyGameControl(ecs::Registry& reg, const content::ContentDataba
         w.result = 0;
         w.team = 0;
         w.rule = 0;
+        resetScore(reg, e);
         return {};
     }
     case cmd::GameControlOp::Abort: {
@@ -180,10 +238,12 @@ Expected<void> resetSession(sim::SimulationWorld& world, std::string_view mode) 
     ecs::Registry& reg = world.registry();
     if (const ecs::EntityId e = findSessionEntity(reg); e != ecs::kNullEntity) {
         reg.write<comp::GameSession>(e) = fresh;
+        resetScore(reg, e);
         return {};
     }
     const ecs::EntityId e = reg.create();
     reg.emplace<comp::GameSession>(e, fresh);
+    reg.emplace<comp::GameScore>(e, comp::GameScore{});
     world.assignPendingIdentities();
     return {};
 }

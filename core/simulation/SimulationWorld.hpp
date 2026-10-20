@@ -185,6 +185,8 @@ private:
     Expected<void> applyEditContent(const cmd::EditContent& c);
     // 콘텐츠 PlayerAction (v0.2 M3-T1): 대상 고르기 → 효과. 만든 엔티티의 netId
     Expected<std::vector<NetEntityId>> applyPlayerAction(const cmd::PlayerAction& c);
+    // GameControl Start 를 적용한 뒤: game.spawn_point 마다 Prefab 을 만든다 (v0.2 M3-T2, ADR-0048)
+    std::vector<NetEntityId> spawnAtSpawnPoints();
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;
