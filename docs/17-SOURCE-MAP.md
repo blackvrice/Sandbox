@@ -81,7 +81,7 @@
 | `core/scenarios/EcosystemScenario.{hpp,cpp}`                                                                | `ecosystem_small` · `ecosystem_survival` · `ecosystem_10k` (5C)                                                                                                     | SandboxCore                 |
 | `core/scenarios/EditSessionScenario.{hpp,cpp}`                                                              | `edit_session` — 두 사람의 편집 명령 로그 (편집 명령 전 종류 · 일시정지 편집 · 오버레이, 12D)                                                                       | SandboxCore                 |
 | `core/scenarios/WorldSource.{hpp,cpp}`                                                                      | `openWorldSource` — 시나리오 이름 · 게임 프로젝트(v0.2, ADR-0041) · 세이브 폴더 → 월드 (서버 · 클라이언트 --world), `openSave` · `readSaveSummary` (12D)            | SandboxCore                 |
-| `core/project/GameProject.{hpp,cpp}`                                                                        | 매니페스트 `sandbox.project.json` 읽기 · 쓰기, `validateProject`(P1~P5 · 팩 · 시작 월드) · `openProject`(실행용) — ADR-0040 · 0041                                  | SandboxCore                 |
+| `core/project/GameProject.{hpp,cpp}`                                                                        | 매니페스트 읽기 · 쓰기, `validateProject` · `openProject` · `createProject`(빈 월드 · 시나리오 템플릿) — ADR-0040 · 0041 · 0043                                     | SandboxCore                 |
 | `network/CMakeLists.txt`                                                                                    | SandboxNetwork — PUBLIC Core, PRIVATE sbx_enet (Phase 9, ADR-0024)                                                                                                  | SandboxNetwork              |
 | `network/transport/Transport.{hpp,cpp}`                                                                     | `INetworkTransport`, `Endpoint`·`parseEndpoint`, `Channel`, `DisconnectReason`, `TransportEvent`·`TransportStats`                                                   | SandboxNetwork              |
 | `network/transport/LoopbackTransport.{hpp,cpp}`, `SimulatedTransport.{hpp,cpp}`                             | 같은 프로세스 Transport (+ `LoopbackNetwork` 허브, 시험용 `severAll`), 지연·지터·손실·순서 흉내 (seed · 주입 시계)                                                  | SandboxNetwork              |
@@ -169,6 +169,7 @@
 | `apps/server/ServerOptions.{hpp,cpp}`                                                                       | 명령줄 파싱                                                                                                                                                         | SandboxServer (+ Tests)     |
 | `tools/sim_check/main.cpp`, `SimCheckOptions.{hpp,cpp}`                                                     | 결정론 하네스                                                                                                                                                       | sbx_sim_check (+ Tests)     |
 | `tools/net_probe/main.cpp`, `NetProbeOptions.{hpp,cpp}`                                                     | 서버 접속 확인 도구 — 핸드셰이크 · 명령 · 결과 · 통계 (Phase 9)                                                                                                     | sbx_net_probe (+ Tests)     |
+| `tools/sbx/main.cpp`, `SbxOptions.{hpp,cpp}`                                                                | 게임 프로젝트 도구 `sbx new · check · templates` (v0.2 M1-T4, ADR-0043)                                                                                             | sbx (+ Tests)               |
 | `tests/golden/{random_walk_1k,world_save_load,eco_lifecycle,ecosystem_small}.json`                          | 골든 해시 (툴체인별, ADR-0012)                                                                                                                                      | 데이터                      |
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `tests/data/projects/minimal/`, `bad_manifest/`                                                             | 커밋된 게임 프로젝트 (내장 콘텐츠 + v1_sample 월드 · 일시정지 풂 / 깨진 매니페스트) — CTest `project_*` · `*_project_*`                                             | sbx_sim_check (CTest)       |
@@ -179,6 +180,7 @@
 | `tests/unit/platform/test_wayland_window.cpp`                                                               | 스위트 `wayland` — 실제 컴포지터(weston headless)에 창: 핸들 · 크기 · 클립보드 · 커서 · 캡처 (13C, CTest platform_wayland)                                          | SandboxTests (Wayland)      |
 | `tests/unit/platform/test_cocoa_window.mm`                                                                  | 스위트 `cocoa` — 실제 AppKit 창의 뷰에 NSEvent (14B, macOS 만, CTest platform_cocoa)                                                                                | SandboxTests (macOS)        |
 | `tests/net/net_smoke.cmake`                                                                                 | CTest net_server_probe_smoke — SandboxServer + sbx_net_probe 두 프로세스, 실제 UDP (Phase 9)                                                                        | CTest `net`                 |
+| `tests/project/project_new.cmake`                                                                           | CTest project_new_* — sbx new → check → (서버로 몇 틱) → 다시 new 거절                                                                                              | CTest                       |
 | `tests/unit/network/test_interest.cpp`                                                                      | 관심 영역 · 지연 해제 · 늘 보낼 것 · 관심 지형 · 예산 우선순위 · Subscribe (Phase 11)                                                                               | SandboxTests                |
 | `tests/unit/network/test_roles_overlay.cpp`, `tests/unit/content/test_content_overlay.cpp`                  | 메시지 · 주인 열쇠 · 역할 부여 표 · 오버레이 전달 (12C), 오버레이 검증 · EditContent · 세이브 (12C)                                                                 | SandboxTests                |
 | `tests/unit/editor/test_editor.cpp`, `tests/unit/client/test_editor_session.cpp`                            | 에디터 툴 (가짜 host), 로컬 서버까지 편집 · 앱 숫자 키 (Phase 12A)                                                                                                  | SandboxTests                |
@@ -199,7 +201,7 @@
 | `.github/workflows/ci.yml`                                                                                  | CI (Windows MSVC, Linux clang/gcc/asan + X11 · Wayland · Xvfb · weston · lavapipe, macOS)                                                                           | —                           |
 | `.clang-format`, `.clang-tidy`, `.editorconfig`, `.gitattributes`, `.gitignore`                             | 포맷·린트·줄끝 규칙                                                                                                                                                 | —                           |
 
-빌드 산출물: `build/<preset>/bin/<Config>/SandboxClient(.exe)`, `SandboxServer(.exe)`, `SandboxTests(.exe)`, `sbx_render_tests(.exe)`(Windows · Vulkan 빌드), `sbx_sim_check(.exe)`, `sbx_net_probe(.exe)`, `sbx_bench(.exe)`.
+빌드 산출물: `build/<preset>/bin/<Config>/SandboxClient(.exe)`, `SandboxServer(.exe)`, `SandboxTests(.exe)`, `sbx_render_tests(.exe)`(Windows · Vulkan 빌드), `sbx_sim_check(.exe)`, `sbx_net_probe(.exe)`, `sbx(.exe)`, `sbx_bench(.exe)`.
 
 ## 1. 최상위
 
@@ -316,6 +318,7 @@ apps/server/
 | `SandboxTests`     | `tests/main.cpp` (doctest) | 단위·속성·시나리오·네트워크              |
 | `sbx_sim_check`    | `tools/sim_check/main.cpp` | 결정론 하네스, 콘텐츠 검증               |
 | `sbx_net_probe`    | `tools/net_probe/main.cpp` | 서버 접속 · 명령 확인 (Phase 9)          |
+| `sbx`              | `tools/sbx/main.cpp`       | 게임 프로젝트 만들기 · 검사 (v0.2)       |
 | `sbx_bench`        | `bench/main.cpp`           | 벤치마크                                 |
 | `sbx_render_tests` | `tests/render/main.cpp`    | 기준 이미지                              |
 

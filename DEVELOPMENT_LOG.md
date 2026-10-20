@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-20 — v0.2 M1-T4: 새 프로젝트 만들기 — createProject · 도구 sbx (ADR-0043)
+
+**무엇을**
+
+- `project::createProject(폴더, {gameId, name?, fromScenario?, contentRoot, seed}, 엔진, 카탈로그)`:
+  - 템플릿 = 빈 월드(내장 콘텐츠 · 16 × 16 청크 · 일시정지) 또는 시나리오(requiredPacks + requires 를 content/ 로 복사, 한 틱
+    돌린 월드 = worlds/main). 매니페스트 version 0.1.0, entryWorld worlds/main, 엔진 범위 `defaultEngineRange`
+    (1.0 전 ">=<엔진> <1.0.0", 이후 "^<major>").
+  - 폴더는 없거나 비어 있어야 한다 (AlreadyExists). "<폴더>.sbx-new" 에 만들고 validateProject 오류 · 경고 0 이면 rename,
+    실패하면 임시 폴더를 지운다. 끝의 '/' 는 정규화.
+- 도구 `sbx` (tools/sbx, Core 만 — 경계 규칙 등록): `new <폴더> --id … [--name] [--from] [--content-root] [--seed]`,
+  `check <폴더>`, `templates`, `--version`. 종료 코드 0 · 1 검사 오류 · 2 인자/실패.
+- T1 의 `sbx_sim_check --validate-project` 를 지우고 `sbx check` 로 옮겼다 (sim_check 소스는 T1 전과 같아졌다).
+  CTest project_minimal_validate · project_bad_manifest_* 는 이름 그대로 명령만 sbx check.
+- 시험: unit_tools test_sbx_options (명령 · 인자 오류), unit_project 3 케이스 (빈 월드 · 시나리오 템플릿 — 서버 경로로 연다 ·
+  덮어쓰기 거절 · 실패 시 아무것도 안 남김 · 알 수 없는 시나리오 · 팩 없는 루트), CTest project_new_empty ·
+  project_new_from_scenario (tests/project/project_new.cmake — new → check → SandboxServer 30 틱 → 다시 new 거절).
+- 문서: ADR-0043, 18 (T4 ✅, T5 = 에디터 저장 위치, 5.2 검사 명령, 7 · 8장), 15 (sbx · 타깃 · 옵션 표), 17, 13, adr/README.
+
+**왜**
+
+- v0.2 "프로젝트 생성 · 빌드 · 실행"의 생성: 손으로 매니페스트를 쓰고 세이브를 복사하지 않게. 시나리오가 이미 팩 · 경계 ·
+  초기 배치를 가지므로 템플릿 형식을 따로 만들지 않았다. 만든 직후 같은 검사로 확인 — 서버가 열지 않는 프로젝트를 만들지 않는다.
+- 결정론 하네스(sbx_sim_check)와 사용자용 프로젝트 도구를 나눴다 (v0.4 패키지 관리자가 sbx 에 붙는다).
+
+**검증**
+
+- Linux clang 19 Debug -Werror: ctest 61/61 (+2). unit_project · unit_tools 통과.
+- 실행: `sbx new demo/Arena --id studio.arena --name 아레나 --from ecosystem_small` → 팩 eco, worlds/main tick 1 · 엔티티 300;
+  `sbx check demo/Arena` → 오류 0 · 경고 0; 같은 폴더에 다시 new → AlreadyExists, 종료 코드 2.
+- 세이브 · 와이어 · 시뮬레이션 형식 변경 없음.
+
+**남은 일**
+
+- M1-T5: 프로젝트 서버의 세이브 폴더 = <프로젝트>/worlds, Ctrl+S 기본 이름 = 시작 월드 (편집한 맵이 게임이 된다).
+
+---
+
 ## 2026-10-19 — v0.2 M1-T3: 핸드셰이크가 게임 정체성을 싣는다 — 프로토콜 8 (ADR-0042)
 
 **무엇을**

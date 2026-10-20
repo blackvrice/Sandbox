@@ -84,7 +84,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 |--------------------------|-------------|------------------------------------------------------------------------------------|-----------------------|
 | `SBX_BUILD_SERVER`       | ON          | SandboxServer                                                                      | 구현                  |
 | `SBX_BUILD_TESTS`        | ON          | SandboxTests + CTest 등록                                                          | 구현                  |
-| `SBX_BUILD_TOOLS`        | ON          | 개발 도구 `sbx_sim_check` (+ CTest `det_*`) · `sbx_net_probe` (9)                  | 구현 (Phase 3)        |
+| `SBX_BUILD_TOOLS`        | ON          | 개발 도구 `sbx_sim_check` · `sbx_net_probe` (9) · `sbx` (v0.2)                     | 구현 (Phase 3)        |
 | `SBX_WARNINGS_AS_ERRORS` | OFF (CI ON) | 경고 = 에러                                                                        | 구현                  |
 | `SBX_BOUNDARY_SELFTEST`  | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
 | `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
@@ -140,10 +140,11 @@ SandboxServer             EXE        Network Core
 SandboxClient             EXE        Editor Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
-SandboxTests              EXE        Foundation Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · apps/client 의 Application ·
+SandboxTests              EXE        Foundation Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
+sbx                       EXE        Core   (SBX_BUILD_TOOLS=ON, v0.2 — 게임 프로젝트 도구, ADR-0043). 정의 SBX_DEFAULT_CONTENT_DIR
 sbx_bench                 EXE        Core Network Render   (SBX_BUILD_BENCH=ON 일 때만 — 기본 OFF. Network 은 net.* 벤치, Phase 11)
 sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와 (WIN32 · SBX_ENABLE_VULKAN · SBX_ENABLE_METAL) (tests/render).
                                      CTest render_tests_warp (Windows, --rhi dx12) · render_tests_lavapipe (Linux, --rhi vulkan — 13A) ·
@@ -236,6 +237,15 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     Ctrl+C: 접속자에게 Disconnect{ServerShutdown} 을 보내고 끝낸다. 암호화 없음 — LAN · 신뢰하는 환경 전용 (R6).
     Windows 방화벽이 처음 실행 때 UDP 허용을 묻는다 (같은 PC 안 127.0.0.1 은 묻지 않아도 된다).
 종료 코드: 0 정상 · 1 실행 오류 · 2 잘못된 인자 (모르는 월드 포함)
+
+sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--content-root d] [--seed n]      (v0.2 M1-T4, ADR-0043)
+sbx check <폴더>  ·  sbx templates  ·  sbx --version
+    new: 빈 폴더에만 새 게임 프로젝트 (sandbox.project.json + worlds/main). --from 이 없으면 빈 월드(내장 콘텐츠 · 16 × 16 청크 ·
+    일시정지), 있으면 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로. 옆의 <폴더>.sbx-new 에 만들어 검사(오류 · 경고 0)를
+    통과해야 제자리로 — 실패하면 아무것도 남기지 않는다. 엔진 범위는 ">=<이 엔진> <1.0.0".
+    check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기). "프로젝트 검사: 오류 N, 경고 M (…)".
+    (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패
+    실행은 SandboxServer --world <폴더> · SandboxClient --world <폴더>.
 
 sbx_net_probe [--connect host:port] [--name n] [--content-root d] [--seconds s] [--timeout s]
               [--pause] [--resume] [--step n] [--speed x] [--create x,y]       (Phase 9 — 화면 없는 접속 확인 도구)

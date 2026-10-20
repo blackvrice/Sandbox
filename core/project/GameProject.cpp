@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <map>
 #include <set>
 
 #include "core/persist/WorldSave.hpp"
@@ -448,6 +449,178 @@ Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, con
 bool isProjectFolder(const std::filesystem::path& dir) {
     std::error_code ec;
     return fs::is_regular_file(dir / std::string(kManifestFile), ec);
+}
+
+
+std::string defaultEngineRange(const SemVer& engine) {
+    // 1.0 전에는 minor 마다 깨질 수 있다는 SemVer 의 뜻(^0.x)을 그대로 따르면 엔진이 0.2.0 이 되는 순간 지금 만든 프로젝트가
+    // 모두 열리지 않는다 — 1.0 까지는 하한만 두고, 1.0 부터는 major 범위
+    if (engine.major == 0) {
+        return std::format(">={}.{}.{} <1.0.0", engine.major, engine.minor, engine.patch);
+    }
+    return std::format("^{}", engine.major);
+}
+
+namespace {
+
+// contentRoot 아래 팩 폴더: pack.json 의 id → 폴더 (ContentLoader 와 같은 규칙 — 폴더 이름은 자유)
+std::map<std::string, fs::path, std::less<>> packFolders(const fs::path& root) {
+    std::map<std::string, fs::path, std::less<>> out;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(root, ec)) {
+        if (!e.is_directory(ec)) {
+            continue;
+        }
+        const auto text = io::readFile(e.path() / "pack.json");
+        if (!text) {
+            continue;
+        }
+        const json j = json::parse(*text, nullptr, false);
+        if (j.is_object() && j.contains("id") && j["id"].is_string()) {
+            out.emplace(j["id"].get<std::string>(), e.path());
+        }
+    }
+    return out;
+}
+
+bool isEmptyOrMissing(const fs::path& dir) {
+    std::error_code ec;
+    if (!fs::exists(dir, ec)) {
+        return true;
+    }
+    return fs::is_directory(dir, ec) && fs::is_empty(dir, ec);
+}
+
+} // namespace
+
+Expected<NewProjectResult> createProject(const std::filesystem::path& projectDirArg, const NewProjectOptions& options,
+                                         const SemVer& engine, const ecs::ComponentCatalog& catalog) {
+    // "MyGame/" 처럼 끝에 구분자가 있으면 임시 폴더가 그 안("MyGame/.sbx-new")에 생긴다 — 마지막 마디로 맞춘다
+    fs::path projectDir = projectDirArg.lexically_normal();
+    if (projectDir.filename().empty()) {
+        projectDir = projectDir.parent_path();
+    }
+    const std::string where = io::displayPath(projectDir);
+    if (!isEmptyOrMissing(projectDir)) {
+        return makeError(ErrorCode::AlreadyExists, "폴더가 비어 있지 않습니다 — 새 프로젝트는 빈 폴더에만 만든다",
+                         where);
+    }
+
+    // 1. 매니페스트 (형식 검사는 parseManifest 와 같은 규칙 — 쓰고 다시 읽어 본다)
+    GameManifest m;
+    m.gameId = options.gameId;
+    m.name = options.name.empty() ? options.gameId.substr(options.gameId.rfind('.') + 1) : options.name;
+    m.version = SemVer{0, 1, 0, {}, {}};
+    auto range = parseVersionRange(defaultEngineRange(engine));
+    if (!range) {
+        return std::unexpected(range.error());
+    }
+    m.engine = std::move(*range);
+    m.entryWorld = "worlds/main";
+
+    // 2. 템플릿: 콘텐츠와 시작 월드
+    std::unique_ptr<scenario::IScenario> sc;
+    if (!options.fromScenario.empty()) {
+        sc = scenario::makeScenario(options.fromScenario);
+        if (!sc) {
+            return makeError(ErrorCode::NotFound,
+                             std::format("그런 시나리오가 없습니다 (시나리오: {})", scenario::scenarioNames()),
+                             options.fromScenario);
+        }
+        m.contentPacks = sc->requiredPacks();
+    }
+    const ManifestParseResult check = parseManifest(writeManifest(m));
+    if (!check.ok()) {
+        std::string msg = "매니페스트를 만들 수 없습니다";
+        for (const ContentIssue& i : check.issues) {
+            msg += "\n  " + i.describe();
+        }
+        return makeError(ErrorCode::ValidationFailed, msg, where);
+    }
+    content::ContentDatabase db = content::ContentDatabase::builtin();
+    if (sc) {
+        auto loaded = scenario::loadScenarioContent(*sc, options.contentRoot, catalog);
+        if (!loaded) {
+            return std::unexpected(loaded.error());
+        }
+        db = std::move(*loaded);
+    }
+
+    // 3. 옆의 임시 폴더에 만든다 (실패하면 지운다 — 사용자 폴더에 반쯤 만든 프로젝트를 남기지 않는다)
+    fs::path staging = projectDir;
+    staging += ".sbx-new";
+    std::error_code ec;
+    fs::remove_all(staging, ec);
+    struct Cleanup {
+        fs::path dir;
+        ~Cleanup() {
+            std::error_code e;
+            fs::remove_all(dir, e);
+        }
+    } cleanup{staging};
+    if (auto r = io::createDirectories(staging); !r) {
+        return std::unexpected(r.error());
+    }
+    NewProjectResult result;
+    if (sc) {
+        const auto folders = packFolders(options.contentRoot);
+        for (const content::PackInfo& p : db.packs()) {
+            const auto it = folders.find(p.id);
+            if (it == folders.end()) {
+                return makeError(ErrorCode::NotFound, std::format("팩 '{}' 의 폴더를 찾을 수 없습니다", p.id),
+                                 io::displayPath(options.contentRoot));
+            }
+            fs::create_directories(staging / "content", ec);
+            fs::copy(it->second, staging / "content" / it->second.filename(), fs::copy_options::recursive, ec);
+            if (ec) {
+                return makeError(ErrorCode::IoError,
+                                 std::format("팩 '{}' 을 복사할 수 없습니다: {}", p.id, ec.message()),
+                                 io::displayPath(it->second));
+            }
+            result.copiedPacks.push_back(p.id);
+        }
+        scenario::ScenarioRunner runner(catalog, db, std::move(sc), options.seed);
+        runner.step(); // setup() 의 초기 명령이 첫 틱에 적용된다
+        if (auto r = persist::saveWorld(runner.world(), staging / "worlds" / "main", persist::SaveOptions{"main"});
+            !r) {
+            return std::unexpected(r.error());
+        }
+    } else {
+        sim::WorldDesc desc;
+        desc.seed = options.seed;
+        desc.startPaused = true; // 빈 월드는 편집부터
+        sim::SimulationWorld world(catalog, db, desc);
+        if (auto r = persist::saveWorld(world, staging / "worlds" / "main", persist::SaveOptions{"main"}); !r) {
+            return std::unexpected(r.error());
+        }
+    }
+    if (auto r = saveManifest(staging, m); !r) {
+        return std::unexpected(r.error());
+    }
+
+    // 4. 만든 것이 검사를 통과해야 제자리로 (경고도 없어야 한다 — 방금 만든 프로젝트다)
+    const ProjectReport report = validateProject(staging, engine, catalog);
+    if (!report.ok() || report.warningCount() != 0 || !report.worldOpened) {
+        std::string msg = "만든 프로젝트가 검사를 통과하지 못했습니다 (엔진 버그)";
+        for (const ContentIssue& i : report.issues) {
+            msg += "\n  " + i.describe();
+        }
+        return makeError(ErrorCode::ValidationFailed, msg, where);
+    }
+    if (fs::exists(projectDir, ec)) {
+        fs::remove(projectDir, ec); // 빈 폴더 (위에서 확인)
+    }
+    if (projectDir.has_parent_path()) {
+        fs::create_directories(projectDir.parent_path(), ec);
+    }
+    fs::rename(staging, projectDir, ec);
+    if (ec) {
+        return makeError(ErrorCode::IoError, std::format("프로젝트 폴더를 넣을 수 없습니다: {}", ec.message()), where);
+    }
+    result.manifest = std::move(m);
+    result.worldTick = report.worldTick;
+    result.worldEntities = report.worldEntities;
+    return result;
 }
 
 } // namespace sbx::project

@@ -42,25 +42,6 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parseSimCheckOptions(empty).has_value());
     }
 
-    TEST_CASE("sim_check options: --validate-project 는 검사만") {
-        constexpr std::array<std::string_view, 2> args{"--validate-project", "samples/arena"};
-        const auto r = parseSimCheckOptions(args);
-        REQUIRE(r.has_value());
-        CHECK(r->validateProject == "samples/arena");
-        constexpr std::array<std::string_view, 2> empty{"--validate-project", ""};
-        CHECK_FALSE(parseSimCheckOptions(empty).has_value());
-        constexpr std::array<std::string_view, 1> missing{"--validate-project"};
-        CHECK_FALSE(parseSimCheckOptions(missing).has_value());
-        // 프로젝트는 자기 content/ 를 쓴다 — 실행 · 다른 검사와 섞지 않는다
-        constexpr std::array<std::string_view, 4> withScenario{"--validate-project", "p", "--scenario",
-                                                               "ecosystem_small"};
-        CHECK_FALSE(parseSimCheckOptions(withScenario).has_value());
-        constexpr std::array<std::string_view, 4> withRoot{"--validate-project", "p", "--content-root", "/x"};
-        CHECK_FALSE(parseSimCheckOptions(withRoot).has_value());
-        constexpr std::array<std::string_view, 4> withPacks{"--validate-project", "p", "--validate-content", "eco"};
-        CHECK_FALSE(parseSimCheckOptions(withPacks).has_value());
-    }
-
     TEST_CASE("sim_check options: --threads list (D5)") {
         const auto none = parseSimCheckOptions(std::span<const std::string_view>{});
         REQUIRE(none.has_value());

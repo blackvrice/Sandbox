@@ -23,7 +23,6 @@
 #include "core/components/core/Tags.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/persist/WorldSave.hpp"
-#include "core/project/GameProject.hpp"
 #include "core/replay/Replay.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
@@ -283,24 +282,6 @@ int main(int argc, char** argv) {
     if (auto r = comp::registerCoreComponents(catalog); !r) {
         printErr(r.error().describe());
         return kExitBadArgs;
-    }
-
-    if (!opt.validateProject.empty()) {
-        const SemVer engine{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
-        const auto r = project::validateProject(std::filesystem::path(opt.validateProject), engine, catalog);
-        for (const content::ContentIssue& i : r.issues) {
-            std::printf("%s\n", i.describe().c_str());
-        }
-        if (r.manifestRead) {
-            std::printf("프로젝트 %s %s (\"%s\", 엔진 %s 범위 \"%s\")\n", r.manifest.gameId.c_str(),
-                        r.manifest.version.toString().c_str(), r.manifest.name.c_str(), engine.toString().c_str(),
-                        r.manifest.engine.text.c_str());
-        }
-        std::printf("프로젝트 검사: 오류 %zu, 경고 %zu (Prefab %zu, contentHash %s, 시작 월드 %s)\n", r.errorCount(),
-                    r.warningCount(), r.prefabs, replay::formatHash(r.contentHash).c_str(),
-                    r.worldOpened ? std::format("열림 — tick {}, 엔티티 {}", r.worldTick, r.worldEntities).c_str()
-                                  : "열지 못함");
-        return r.ok() ? kExitOk : kExitMismatch;
     }
 
     if (!opt.validatePacks.empty()) {

@@ -93,6 +93,31 @@ struct OpenedProject {
 [[nodiscard]] Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                                   const ecs::ComponentCatalog& catalog);
 
+// 새 프로젝트 만들기 (v0.2 M1-T4, ADR-0043). 템플릿 = 시나리오 하나 또는 빈 월드:
+//   빈 월드      내장 콘텐츠, 기본 경계 (16 × 16 청크), 일시정지로 시작 (편집하고 실행한다)
+//   시나리오     그 시나리오가 요구하는 팩(+ requires)을 contentRoot 에서 <프로젝트>/content 로 복사하고, 시나리오를 한 틱
+//                돌린 월드(초기 배치가 적용된 상태)를 시작 월드로 — 이후 시나리오의 보충 · 스크립트는 따라오지 않는다
+// 폴더는 없거나 비어 있어야 한다 (덮어쓰지 않는다 — AlreadyExists). 옆의 임시 폴더에 만들고 validateProject 를 통과하면
+// 제자리로 옮긴다. 엔진 범위는 1.0 전이면 ">=<엔진> <1.0.0", 그 뒤면 "^<major>"
+struct NewProjectOptions {
+    std::string gameId;
+    std::string name;                  // 비면 gameId 의 마지막 마디
+    std::string fromScenario;          // 비면 빈 월드
+    std::filesystem::path contentRoot; // fromScenario 의 팩을 찾을 곳
+    u64 seed = 1;
+};
+struct NewProjectResult {
+    GameManifest manifest;
+    std::vector<std::string> copiedPacks; // 복사한 팩 id (로드 순서)
+    u64 worldTick = 0;
+    usize worldEntities = 0;
+};
+[[nodiscard]] Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir,
+                                                       const NewProjectOptions& options, const SemVer& engine,
+                                                       const ecs::ComponentCatalog& catalog);
+// 새 프로젝트의 엔진 범위 문자열 (위 규칙)
+[[nodiscard]] std::string defaultEngineRange(const SemVer& engine);
+
 // dir 에 매니페스트 파일이 있나 (서버 · 클라이언트 --world 가 프로젝트와 세이브 폴더를 가른다)
 [[nodiscard]] bool isProjectFolder(const std::filesystem::path& dir);
 

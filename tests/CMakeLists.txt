@@ -43,6 +43,7 @@ add_executable(SandboxTests
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
     unit/tools/test_sim_check_options.cpp
+    unit/tools/test_sbx_options.cpp
     unit/tools/test_net_probe_options.cpp
     unit/platform/test_input.cpp
     unit/platform/test_action_map.cpp
@@ -70,6 +71,7 @@ add_executable(SandboxTests
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/sbx/SbxOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/net_probe/NetProbeOptions.cpp"
 )
 if(SBX_BUILD_CLIENT)
@@ -329,20 +331,6 @@ if(TARGET sbx_sim_check)
     set_tests_properties(content_eco_validate PROPERTIES LABELS "content"
         PASS_REGULAR_EXPRESSION "콘텐츠 검증: 오류 0, 경고 0")
 
-    # 게임 프로젝트 검사 (18-PLATFORM 5장, v0.2 M1) — 커밋된 최소 프로젝트는 오류 · 경고 0 이고 시작 월드가 열린다
-    add_test(NAME project_minimal_validate
-        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal")
-    set_tests_properties(project_minimal_validate PROPERTIES LABELS "content"
-        PASS_REGULAR_EXPRESSION "프로젝트 검사: 오류 0, 경고 0 [^\n]*시작 월드 열림")
-    # 깨진 매니페스트는 종료 코드 1 과 규칙 이름으로 실패해야 한다
-    add_test(NAME project_bad_manifest_rejected
-        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
-    set_tests_properties(project_bad_manifest_rejected PROPERTIES LABELS "content" WILL_FAIL TRUE)
-    add_test(NAME project_bad_manifest_message
-        COMMAND sbx_sim_check --validate-project "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
-    set_tests_properties(project_bad_manifest_message PROPERTIES LABELS "content"
-        PASS_REGULAR_EXPRESSION "sandbox\\.project\\.json:/gameId: 오류 P2[^\n]*\n.*프로젝트 검사: 오류 [1-9]")
-
     # 하네스 자체 시험: 일부러 만든 차이를 잡아 엔티티·필드까지 좁혀야 한다
     add_test(NAME det_harness_selftest
         COMMAND sbx_sim_check --ticks 90 --repeat 2 --inject-divergence 40)
@@ -351,6 +339,37 @@ if(TARGET sbx_sim_check)
     set_tests_properties(det_random_walk_repeat det_random_walk_golden det_harness_selftest
         PROPERTIES LABELS "det")
     set_tests_properties(det_random_walk_golden PROPERTIES SKIP_RETURN_CODE 3)
+endif()
+
+# ---------------------------------------------------------------------------
+# sbx — 게임 프로젝트 도구 (v0.2 M1, 18-PLATFORM 5장 · ADR-0040 · 0043)
+# ---------------------------------------------------------------------------
+if(TARGET sbx)
+    # 커밋된 최소 프로젝트는 오류 · 경고 0 이고 시작 월드가 열린다
+    add_test(NAME project_minimal_validate
+        COMMAND sbx check "${PROJECT_SOURCE_DIR}/tests/data/projects/minimal")
+    set_tests_properties(project_minimal_validate PROPERTIES LABELS "content"
+        PASS_REGULAR_EXPRESSION "프로젝트 검사: 오류 0, 경고 0 [^\n]*시작 월드 열림")
+    # 깨진 매니페스트는 종료 코드 1 과 규칙 이름으로 실패해야 한다
+    add_test(NAME project_bad_manifest_rejected
+        COMMAND sbx check "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
+    set_tests_properties(project_bad_manifest_rejected PROPERTIES LABELS "content" WILL_FAIL TRUE)
+    add_test(NAME project_bad_manifest_message
+        COMMAND sbx check "${PROJECT_SOURCE_DIR}/tests/data/projects/bad_manifest")
+    set_tests_properties(project_bad_manifest_message PROPERTIES LABELS "content"
+        PASS_REGULAR_EXPRESSION "sandbox\\.project\\.json:/gameId: 오류 P2[^\n]*\n.*프로젝트 검사: 오류 [1-9]")
+    # 새 프로젝트: 빈 월드 템플릿 · 시나리오 템플릿 (서버로 몇 틱까지) — 빌드 폴더 안에 만들고 지운다
+    add_test(NAME project_new_empty
+        COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_new_empty"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_new.cmake")
+    set_tests_properties(project_new_empty PROPERTIES LABELS "content" TIMEOUT 120)
+    if(TARGET SandboxServer)
+        add_test(NAME project_new_from_scenario
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_new_eco"
+                    -DFROM=ecosystem_small -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=30
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_new.cmake")
+        set_tests_properties(project_new_from_scenario PROPERTIES LABELS "content" TIMEOUT 180)
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------

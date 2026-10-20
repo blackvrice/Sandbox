@@ -458,4 +458,113 @@ TEST_SUITE("project") {
         CHECK(src.error().code == ErrorCode::ValidationFailed);
         CHECK(src.error().message.find("/engine: 오류 P3") != std::string::npos);
     }
+
+    TEST_CASE("새 프로젝트: 빈 월드 템플릿 (M1-T4)") {
+        TempDir root("new_empty");
+        const auto catalog = coreCatalog();
+        const fs::path dir = root.path / "MyGame";
+        project::NewProjectOptions o;
+        o.gameId = "studio.mygame";
+        const auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        CHECK(made->manifest.name == "mygame"); // 이름이 없으면 gameId 의 마지막 마디
+        CHECK(made->manifest.version.toString() == "0.1.0");
+        CHECK(made->manifest.engine.text == ">=0.1.0 <1.0.0");
+        CHECK(made->manifest.entryWorld == "worlds/main");
+        CHECK(made->manifest.contentPacks.empty());
+        CHECK(made->copiedPacks.empty());
+        CHECK(made->worldEntities == 0);
+        const auto r = project::validateProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        INFO(dumpIssues(r.issues));
+        CHECK(r.ok());
+        CHECK(r.warningCount() == 0);
+        auto opened = project::openProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE(opened.has_value());
+        CHECK(opened->world->clock().paused()); // 빈 월드는 편집부터
+        CHECK_FALSE(fs::exists(root.path / "MyGame.sbx-new"));
+        // 0.x 를 지나도 열린다 (1.0 까지 하한만)
+        CHECK(project::validateProject(dir, SemVer{0, 9, 0, {}, {}}, catalog).ok());
+        CHECK(project::defaultEngineRange(SemVer{1, 2, 3, {}, {}}) == "^1");
+    }
+
+    TEST_CASE("새 프로젝트: 시나리오 템플릿 — 팩 복사 · 첫 틱의 월드 · 서버가 연다") {
+        TempDir root("new_eco");
+        const auto catalog = coreCatalog();
+        const fs::path dir = root.path / "Eco";
+        project::NewProjectOptions o;
+        o.gameId = "studio.eco";
+        o.name = "생태계";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        o.seed = 3;
+        const auto made = project::createProject(dir.string() + "/", o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        CHECK(made->manifest.contentPacks == std::vector<std::string>{"eco"});
+        CHECK(made->copiedPacks == std::vector<std::string>{"eco"});
+        CHECK(made->worldTick == 1);
+        CHECK(made->worldEntities > 0);
+        CHECK(fs::exists(dir / "content" / "ecosystem" / "pack.json"));
+        CHECK_FALSE(fs::exists(dir / ".sbx-new")); // 끝의 '/' 가 임시 폴더를 안으로 넣지 않는다
+        const auto r = project::validateProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        INFO(dumpIssues(r.issues));
+        CHECK(r.ok());
+        CHECK(r.warningCount() == 0);
+        auto src = scenario::openWorldSource(dir.string(), "unused", 1, catalog);
+        REQUIRE_MESSAGE(src.has_value(), src.error().describe());
+        CHECK(src->name == "생태계");
+        CHECK_FALSE(src->runner->world().clock().paused());
+        src->runner->step();
+        CHECK(src->runner->world().currentTick() == 2);
+    }
+
+    TEST_CASE("새 프로젝트: 덮어쓰지 않고, 실패하면 아무것도 남기지 않는다") {
+        TempDir root("new_fail");
+        const auto catalog = coreCatalog();
+        project::NewProjectOptions o;
+        o.gameId = "studio.x";
+        {
+            const fs::path dir = root.path / "Full";
+            fs::create_directories(dir);
+            REQUIRE(io::writeFileAtomic(dir / "notes.txt", "내 파일").has_value());
+            const auto r = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().code == ErrorCode::AlreadyExists);
+            CHECK(*io::readFile(dir / "notes.txt") == "내 파일");
+        }
+        {
+            const fs::path dir = root.path / "Empty"; // 빈 폴더는 된다
+            fs::create_directories(dir);
+            CHECK(project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog).has_value());
+        }
+        {
+            const fs::path dir = root.path / "BadId";
+            project::NewProjectOptions bad = o;
+            bad.gameId = "NoNamespace";
+            const auto r = project::createProject(dir, bad, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().code == ErrorCode::ValidationFailed);
+            CHECK(r.error().message.find("P2") != std::string::npos);
+            CHECK_FALSE(fs::exists(dir));
+            CHECK_FALSE(fs::exists(root.path / "BadId.sbx-new"));
+        }
+        {
+            const fs::path dir = root.path / "NoScenario";
+            project::NewProjectOptions bad = o;
+            bad.fromScenario = "no_such_scenario";
+            const auto r = project::createProject(dir, bad, SemVer{0, 1, 0, {}, {}}, catalog);
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().code == ErrorCode::NotFound);
+            CHECK(r.error().message.find("ecosystem_small") != std::string::npos);
+            CHECK_FALSE(fs::exists(dir));
+        }
+        {
+            const fs::path dir = root.path / "NoPacks";
+            project::NewProjectOptions bad = o;
+            bad.fromScenario = "ecosystem_small";
+            bad.contentRoot = root.path / "no_content";
+            CHECK_FALSE(project::createProject(dir, bad, SemVer{0, 1, 0, {}, {}}, catalog).has_value());
+            CHECK_FALSE(fs::exists(dir));
+            CHECK_FALSE(fs::exists(root.path / "NoPacks.sbx-new"));
+        }
+    }
 }

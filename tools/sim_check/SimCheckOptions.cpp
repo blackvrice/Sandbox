@@ -140,15 +140,6 @@ Expected<SimCheckOptions> parseSimCheckOptions(std::span<const std::string_view>
             if (o.validatePacks.empty()) {
                 return makeError(ErrorCode::InvalidArgument, "--validate-content 에 팩 id 가 필요합니다");
             }
-        } else if (a == "--validate-project") {
-            auto v = value();
-            if (!v) {
-                return std::unexpected(v.error());
-            }
-            if (v->empty()) {
-                return makeError(ErrorCode::InvalidArgument, "--validate-project 에 프로젝트 폴더가 필요합니다");
-            }
-            o.validateProject = std::string(*v);
         } else if (a == "--inject-divergence") {
             sim::Tick t = 0;
             r = number(t);
@@ -226,14 +217,6 @@ Expected<SimCheckOptions> parseSimCheckOptions(std::span<const std::string_view>
     if (!o.hashAt.empty() && o.hashEvery) {
         return makeError(ErrorCode::InvalidArgument, "--hash-at 과 --hash-every 는 함께 쓸 수 없습니다");
     }
-    if (!o.validateProject.empty() &&
-        (o.scenario || !o.validatePacks.empty() || !o.replayFile.empty() || o.replayRoundtrip ||
-         !o.goldenPath.empty() || !o.recordPath.empty() || o.saveAt || o.repeat != 1 || !o.contentRoot.empty())) {
-        return makeError(
-            ErrorCode::InvalidArgument,
-            "--validate-project 는 검사만 한다 (프로젝트의 content/ 를 쓴다 — 실행 · 다른 검사 옵션과 함께 "
-            "쓸 수 없다)");
-    }
     return o;
 }
 
@@ -255,8 +238,6 @@ std::string simCheckUsage() {
            "      --profile            System 별 평균 시간\n"
            "      --content-root <dir> 콘텐츠 팩 루트 (기본: 저장소의 content/)\n"
            "      --validate-content <팩[,팩]>  콘텐츠 검증만 (V1~V7), 오류가 있으면 종료 코드 1\n"
-           "      --validate-project <폴더>     게임 프로젝트 검사만 (sandbox.project.json · 팩 · 시작 월드),\n"
-           "                                    오류가 있으면 종료 코드 1\n"
            "      --require-prefabs <id[,id..]>  끝에 이 Prefab 이 0 이면 실패 (밸런스: 세 종 공존)\n"
            "      --replay-roundtrip   D3: 리플레이를 기록하고 시작 세이브에서 재생해 해시 비교\n"
            "      --replay-dir <dir>   --replay-roundtrip 의 출력 폴더 (start/ + replay.sbxr, 기본: 임시 폴더)\n"
