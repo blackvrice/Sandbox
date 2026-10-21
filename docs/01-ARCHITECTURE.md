@@ -64,14 +64,16 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
         ▼
    SandboxServer (exe)            = Network + Core   ← 이것만
 
-   SandboxTests (exe)             = Foundation + Core + Network
+   SandboxTests (exe)             = Foundation + Script + Core + Network
    sbx_render_tests (exe)         = Render + Platform  (GPU 필요)
    sbx_sim_check / sbx_bench      = Core (+ Network)
+   SandboxScript (v0.3)           = Foundation 만 — 스크립트 컴파일러 · [계획] VM. Core 가 링크한다 [계획 M2 — core/script 바인딩]
 ```
 
 | 타깃              | 종류   | 책임                                                                           | 의존 (PUBLIC)                           | 절대 의존 금지                                    |
 |-------------------|--------|--------------------------------------------------------------------------------|-----------------------------------------|---------------------------------------------------|
 | SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 시간, 파일 IO, Job System, 메트릭 | 없음                                    | 그 외 전부                                        |
+| SandboxScript     | static | SandboxScript 컴파일러 (v0.3 — 렉서 · 파서, [계획] 검사 · IR · VM · Host 표)    | Foundation                              | Core, Network, Platform, Render, Editor, 그래픽/OS 헤더 |
 | SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random        | Foundation                              | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
 | SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
 | SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
@@ -102,8 +104,9 @@ include 루트가 저장소 루트라 링크하지 않은 모듈의 헤더도 �
 | 규칙                                                                        | 수단                                                     | 실패 시       |
 |-----------------------------------------------------------------------------|----------------------------------------------------------|---------------|
 | Server가 Platform/Render/Editor를 링크하지 않음                             | CMake 구성 시 링크 그래프 재귀 검사                      | `FATAL_ERROR` |
+| Script(SandboxScript)가 Core 이상을 링크 · include 하지 않음 (v0.3, ADR-0056 9) | 같은 검사 + `check_includes.py` (script/ → foundation · script) | `FATAL_ERROR` · 테스트 실패 |
 | Render가 Core를 링크하지 않음                                               | 같은 검사                                                | `FATAL_ERROR` |
-| foundation/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`)            | 테스트 실패   |
+| foundation/script/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`)            | 테스트 실패   |
 | 플랫폼 소스가 다른 OS에서 컴파일되지 않음                                   | CMake `if(WIN32)/APPLE/UNIX` + 백엔드 헤더 `#error` 가드 | 컴파일 에러   |
 
 금지 헤더 목록: `d3d12.h dxgi*.h d3dcompiler.h vulkan/*.h Metal/*.h QuartzCore/*.h Cocoa/*.h AppKit/*.h

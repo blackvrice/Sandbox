@@ -40,7 +40,8 @@ Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선�
 ## 4. 경계 규칙 (위반하면 리뷰에서 막힘)
 
 ```text
-- foundation/ core/ network/ 는 그래픽 API·OS 창·ImGui·오디오 헤더를 include 하지 않는다.
+- foundation/ script/ core/ network/ 는 그래픽 API·OS 창·ImGui·오디오 헤더를 include 하지 않는다.
+- script/ (SandboxScript) 는 core/ 이상을 모른다 — Foundation 만. (ADR-0056)
   (d3d12.h dxgi.h vulkan.h Metal.h Cocoa.h windows.h X11/* imgui.h)  → tools/check_includes.py 가 검사
 - SandboxServer 는 SandboxPlatform / SandboxRender / SandboxEditor 를 링크하지 않는다.  → CMake 가 검사
 - SandboxRender 는 SandboxCore(ECS)를 모른다. ECS → RenderWorld 변환은 SandboxClient/presentation 에.

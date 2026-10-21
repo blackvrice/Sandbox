@@ -17,6 +17,8 @@ add_executable(SandboxTests
     unit/foundation/test_job_system.cpp
     unit/foundation/test_utf8.cpp
     unit/foundation/test_semver.cpp
+    unit/script/test_lexer.cpp
+    unit/script/test_parser.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp
@@ -110,14 +112,14 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
-set(_sbx_suites foundation core ecs persist content project network server tools platform render editor)
+set(_sbx_suites foundation script core ecs persist content project network server tools platform render editor)
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()
@@ -443,7 +445,7 @@ if(Python3_Interpreter_FOUND)
             -X utf8
             ${CMAKE_SOURCE_DIR}/tools/check_includes.py
             --root ${CMAKE_SOURCE_DIR}/tests/arch/fixtures
-            --expect 8
+            --expect 10
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
     # 셰이더 코드 생성기 자체 검사 (손으로 만든 SPIR-V 로 리플렉션·병합 규칙) — dxc 없이 모든 OS 에서 (ADR-0019)

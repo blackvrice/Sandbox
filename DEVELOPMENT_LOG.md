@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-21 — v0.3 M1-T1: SandboxScript 렉서 · 파서 → AST · 진단, 모듈 script/, 규범 문서 19
+
+**무엇을**
+
+- 새 모듈 `script/` = 타깃 SandboxScript (Foundation 만, sbx_simulation_flags). 경계: `sbx_forbid_link(SandboxScript SandboxCore …)`,
+  `check_includes.py` (script/ → foundation · script, 그래픽 · OS 헤더 금지 — 픽스처 script/BadCore.hpp, 자체 시험 8 → 10 건).
+- `script/lang/`: Diagnostic ("파일:줄:열: 오류 Sxxx — …", 모음), Token · Lexer (예약어 · 문맥 낱말, 숫자 — 정확 반올림 (from_chars, 없으면
+  C 로케일 strtod_l) · 진법 · 구분자 · 정수 표시, 이스케이프 · 서로게이트 짝, 템플릿 중괄호 깊이 스택, 줄바꿈 표시, ASCII 밖 · UTF-8 ·
+  4 MiB 상한), Ast (평평한 마디 풀 · 자식 구간 · dump S 식), Parser (JS 의 ASI, 우선순위 · ** 오른쪽 결합 · >> 타입 인자 나누기,
+  as const, 부분집합 밖 문법 S301~S336 을 알아보고 대안을 말한다, 대입 · ++ -- 는 식 문장 맨 위에만 (S334 — 나무 전체를 한 번),
+  문장 단위 회복, 깊이 200 · 오류 64 상한).
+- 시험 unit_script: test_lexer 6 · test_parser 10 케이스 (S3xx 표 전부, 잘린 Mana 소스의 모든 앞부분 · 의사 난수 바이트열 300 개).
+- 문서: 19-SANDBOXSCRIPT (규범 — 0~9장, 타입 · VM 은 [계획]), 01 2장 (타깃 · 경계), 04 4.6, 13, 17, 18 (M1-T1 ✅), README, AGENTS 4장.
+
+**왜**
+
+- v0.3 요구 1 "언어 부분집합 규범 동결" 의 앞단. 검사기 (M1-T2) 가 받을 나무와 진단 형식을 먼저 고정한다.
+- 부분집합 밖 문법을 "알 수 없는 낱말" 이 아니라 이유 · 대안과 함께 거절해야 TS 사용자가 고칠 수 있다 (ADR-0056 2).
+- 소스는 믿지 않는 입력 (패키지로 온다) — 깊이 · 오류 · 크기 상한과 "잘린 · 아무 바이트 소스에서 죽지 않는다" 를 시험으로 묶었다.
+
+**검증**
+
+- Windows MSVC Debug (windows-msvc): 경고 없이 빌드, unit_script 16 케이스 · 1195 단언 통과, 전체 ctest 62/62 (render_tests_warp 제외),
+  arch_include_lint · _selftest (10 건) 통과, 링크 경계 검사 10 타깃.
+- clang-cl 은 이 PC 에 없어 windows-clangcl 프리셋을 돌리지 못했다 (Linux clang -Werror 는 CI 에서).
+- 시뮬레이션 변경 없음 (골든 그대로).
+
+**남은 일**
+
+- v0.3 M1-T2: 이름 · 타입 검사 (최상위 상수식 · import 순환 · number/i32 · null 좁히기 · Host 표 첫 항목), 이름 수준 금지 (any · undefined …).
+- 이름의 한글 등 ASCII 밖 글자 (S101) 는 [v0.3 뒤 검토].
+
 ## 2026-10-21 — v0.3 진입: D-01 언어 (ADR-0056) · D-04 Host API (ADR-0057) · v0.3 마일스톤
 
 **무엇을**

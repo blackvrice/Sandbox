@@ -102,7 +102,7 @@ dt 는 항상 sim::kFixedDt (1/30). 측정된 벽시계 델타를 시뮬레이�
 ```text
 빌드 플래그   MSVC  /fp:precise   (/fp:fast 금지)
               Clang/GCC  -ffp-contract=off  -fno-fast-math
-              → CMake 의 sbx_simulation_flags() 인터페이스 타깃이 Core 에 강제한다
+              → CMake 의 sbx_simulation_flags() 인터페이스 타깃이 Core 에 강제한다 (SandboxScript 에도 — v0.3, 19 7장)
 코드          시뮬레이션에서 수동 SIMD intrinsic 금지 (Phase 15 에서 결정론 테스트와 함께만)
               std::sin/cos/sqrt/pow 사용 허용 (같은 바이너리 = 같은 libm)
               double 과 float 혼합 연산은 명시적 캐스트로 (암묵 승격 순서 차이 방지)

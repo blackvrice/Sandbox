@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M1-T1 — 규범 문서 19-SANDBOXSCRIPT · 모듈 script/ (SandboxScript) · 렉서 · 파서 → AST · 진단
+다음     v0.3 M1-T2 — 타입 검사 · 이름 해석 (최상위 규칙 · import · number/i32 · null 좁히기 · Host 표 첫 항목)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -83,7 +83,7 @@
   core/project         GameProject 매니페스트 · 검사 · 열기 (M1-T1 · T2)   Core 안 — 서버가 링크한다, 그래픽 없음
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
 v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
-  script/ [계획 M1]     SandboxScript — lang (렉서 · 파서 · 검사 · IR · 바이트코드) · vm (검증기 · 인터프리터) · api (Host 표)
+  script/               SandboxScript — lang (렉서 · 파서 ✅ M1-T1, [계획] 검사 · IR · 바이트코드) · vm · api (Host 표) [계획]
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
   core/script [계획 M2]  Host 바인딩 · 동적 컴포넌트 · ScriptSystemAdapter (SandboxCore 가 SandboxScript 를 링크)
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
@@ -248,8 +248,8 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 
 ```text
 M1 언어 앞단 (실행 없음)
-  T1 [계획] 규범 문서 19-SANDBOXSCRIPT (ADR-0056 의 규칙을 옮겨 동결), 모듈 script/ = SandboxScript (Foundation 만 — 경계 검사에
-            규칙), 렉서 · 파서 → AST, 진단 "파일:줄:열: 오류 Sxxx — …" (ContentIssue 와 같은 모음)
+  T1 ✅ 규범 문서 19-SANDBOXSCRIPT (낱말 · 문법 · 부분집합 S3xx · 진단), 모듈 script/ = SandboxScript (Foundation 만 — 링크 ·
+        include 경계 검사), 렉서 · 파서 → AST (ASI = JS 규칙, 회복, 깊이 · 오류 상한), 진단 "파일:줄:열: 오류 Sxxx — …"
   T2 [계획] 타입 검사 · 이름 해석: 최상위 규칙 (선언만), import (같은 팩 · "sandbox", 순환 오류), number · i32 규칙, null 좁히기,
             Host 표 script/api (첫 항목 — 읽기 · 질의) 로 호출 검사
   T3 [계획] 타입 있는 IR → 바이트코드 .sbc (형식 1 · 표 지문) · 검증기 (불법 바이트코드 거부 — 깨뜨린 자료 시험)
@@ -303,7 +303,7 @@ M5-T2 ✅  09 2 · 9장 (GamePackage · 세이브 결속), 15 7장 (sbx build ·
 M6-T1 ✅  13 5.1 (자동 플레이), 15 7장 (--script · --exit), 17 (samples/ · PlayScript), ADR-0055
 M6-T2 ✅  releases/v0.2.0 (릴리스 노트 — 요구사항 판정), 18 (0 · 1 · 2 · 4 · 5.3장), 13 5.1, 16, 17, README (문서 지도)
 v0.3 진입 ✅  ADR-0056 (D-01 언어) · ADR-0057 (D-04 Host API), 18 (0 · 1 · 3 · 6.1 · 6.2장), 03 6.4
-v0.3 M1-T1  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경계), 17, 13
+v0.3 M1-T1 ✅  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경계), 04 4.6, 17, 13, README, AGENTS 4장
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -330,4 +330,5 @@ v0.2 M5-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_netw
 v0.2 M5-T2 뒤: Windows MSVC Debug 60/60 (render_tests_warp 제외, + project_package) · unit +7 (sha256 2 · package 4 · 결속 1)
 v0.2 M6-T1 뒤: Windows MSVC Debug 61/61 (render_tests_warp 제외, + sample_playthrough) · unit +4 (play script 3 · server options 1)
 v0.2 M6-T2 뒤 (0.2.0): Windows MSVC Debug 61/61 (render_tests_warp 제외) — sample_playthrough 가 패키지로도 (프로젝트 · 패키지 × 두 호스트)
+v0.3 M1-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외, + unit_script — 렉서 6 · 파서 10 케이스) · arch 픽스처 10 건
 ```

@@ -1,6 +1,6 @@
 # check_includes.py 자체 시험용 픽스처
 
-**컴파일되지 않습니다.** 일부러 경계를 어긴 파일들이며, `arch_include_lint_selftest`가 정확히 **8건**의 위반을 기대합니다.
+**컴파일되지 않습니다.** 일부러 경계를 어긴 파일들이며, `arch_include_lint_selftest`가 정확히 **10건**의 위반을 기대합니다.
 파일을 추가·수정하면 `tests/CMakeLists.txt`의 `--expect` 값을 함께 고칩니다.
 
 | 파일 | 기대 위반 |
@@ -13,4 +13,5 @@
 | `apps/client/BadSfml.cpp` | banned-global(SFML) = 1 |
 | `platform/common/BadImport.hpp` | objc-import(.mm 아님) + banned-header(Cocoa Foundation) = 2 |
 | `platform/windows/Win32Ok.cpp` | 0 — platform/windows 는 windows.h 허용 |
-| **합계** | **8** |
+| `script/BadCore.hpp` | module-direction(core) + banned-header(windows.h) = 2 — SandboxScript 는 ECS · OS 를 모른다 (v0.3 M1-T1) |
+| **합계** | **10** |
