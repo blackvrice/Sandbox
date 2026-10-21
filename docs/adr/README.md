@@ -70,3 +70,5 @@
 | [0053](0053-test-play-copy-world-park-edit-world-protocol-12.md)        | 테스트 플레이 — 편집 월드 runner 를 서버 메모리에 그대로 맡기고 복사본 (임시 세이브 → 열기) 으로 플레이, 멈추면 되돌린다 (프로토콜 12) | Accepted                                  | 2026-10-20 |
 | [0054](0054-game-package-sbpkg-sha256-digest-save-binding.md)          | 게임 패키지 = 파일 하나 .sbpkg (색인 + 파일, SHA-256 digest, 압축 · 서명 없음 — D-02), 세이브는 world.json "game" 으로 게임에 묶인다 | Accepted                                  | 2026-10-20 |
 | [0055](0055-sample-minigame-play-script-server-equals-local.md)         | 데모 미니게임 samples/rabbit_guard 와 자동 플레이 스크립트 — 서버 러너의 시나리오로, 헤드리스 서버 = 로컬 플레이, --exit 는 게임 끝에도 | Accepted                                  | 2026-10-21 |
+| [0056](0056-sandboxscript-language-subset-own-compiler-no-gc.md)      | SandboxScript 언어 — TypeScript 의 엄격한 부분집합, 자체 C++ 컴파일러, number(f64) · i32, 예외 · GC · 전역 상태 없음 (호출 아레나 · 트랩 = 되돌리기) — D-01 | Accepted                                  | 2026-10-21 |
+| [0057](0057-host-api-single-definition-cpp-table-sdk-generated.md)    | Host API 단일 정의 — C++ 표 하나에서 타입 검사 · 로드 묶기 · 바인딩 검사 · sandbox.d.ts, 쓰기는 호출 단위 버퍼, 질의는 saveId 순 — D-04 | Accepted                                  | 2026-10-21 |

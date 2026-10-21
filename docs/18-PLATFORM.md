@@ -10,7 +10,8 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
-다음     v0.3 진입 결정: D-01 SandboxScript 언어 부분집합 · D-04 Host API 단일 정의 (ADR) → 6장을 마일스톤으로 쪼갠다
+         v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
+다음     v0.3 M1-T1 — 규범 문서 19-SANDBOXSCRIPT · 모듈 script/ (SandboxScript) · 렉서 · 파서 → AST · 진단
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -20,7 +21,7 @@
 |------|------------------------|--------------------------------------------|-------------------------------------------------|
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
-| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | [계획] (6장)                                    |
+| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ◐ 진입 결정 ✅ (6.2)                            |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
@@ -81,9 +82,11 @@
   foundation/version   SemVer · 버전 범위                         의존 없음 (v0.4 패키지 관리자가 넓힌다)
   core/project         GameProject 매니페스트 · 검사 · 열기 (M1-T1 · T2)   Core 안 — 서버가 링크한다, 그래픽 없음
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
-나중 (v0.3~, 초안 architecture/01 3장)
-  SandboxScriptRuntime (Core 를 모름) · SandboxScriptCompilerTools (빌드 · 에디터 프로세스) · SandboxScriptBindings (Core + Runtime)
-  → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께
+v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
+  script/ [계획 M1]     SandboxScript — lang (렉서 · 파서 · 검사 · IR · 바이트코드) · vm (검증기 · 인터프리터) · api (Host 표)
+                        의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
+  core/script [계획 M2]  Host 바인딩 · 동적 컴포넌트 · ScriptSystemAdapter (SandboxCore 가 SandboxScript 를 링크)
+  → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
 ```
 
 ## 4. 버전 · 호환성 규칙
@@ -225,10 +228,10 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 
 | 번호 | 결정                                                              | 기한         | 상태                                       |
 |------|-------------------------------------------------------------------|--------------|--------------------------------------------|
-| D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 열림                                       |
+| D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 결정 — 자체 컴파일러 · number(f64) · i32 · 예외 · GC · 전역 상태 없음 (ADR-0056) |
 | D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 결정 — 자체 컨테이너 · SHA-256 · 압축 · 서명 없음 (ADR-0054) |
-| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림                                       |
-| D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 열림                                       |
+| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림 — v0.3 M3-T1 의 ADR                   |
+| D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 결정 — C++ 표 하나 → 검사 · 로드 · 바인딩 · d.ts (ADR-0057) |
 | D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                |
 | D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                       |
 | D-07 | 공개 네트워크 보안 전송 · NAT                                     | v0.7 진입 전 | 열림 (R6)                                  |
@@ -236,6 +239,46 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-09 | 판매 국가 · 수수료 · 환불 · 정산 사업자                           | v0.8 진입 전 | 열림                                       |
 | D-10 | Business 좌석 · CI 할당 · SLA                                     | v0.9 초기    | 열림                                       |
 | D-11 | 플레이어 행동 모델 (유닛 명령 · 직접 조작, 지연 체감 — 예측 없음) | v0.2 M3 전   | 결정 — 콘텐츠 PlayerAction 부터 (ADR-0045) |
+
+### 6.2 v0.3 SandboxScript — 마일스톤 · 태스크 (ADR-0056 언어 · ADR-0057 Host API)
+
+초안 roadmap/v0_3: 언어 부분집합 규범 동결, defineComponent · defineSystem · .d.ts SDK, 동적 Component 스키마 · 풀 (Inspector ·
+세이브 · 복제), IServerContext · IClientContext · Host 함수 표 · 권한, 라이프사이클 콜백, ScriptSystemAdapter → SystemScheduler
+(명령은 ECB · 승인된 API), 연료 · 메모리 · 스택 · 질의 · 이벤트 제한 · 불법 바이트코드 거부, IDE · 시험 · 프로파일 기본.
+
+```text
+M1 언어 앞단 (실행 없음)
+  T1 [계획] 규범 문서 19-SANDBOXSCRIPT (ADR-0056 의 규칙을 옮겨 동결), 모듈 script/ = SandboxScript (Foundation 만 — 경계 검사에
+            규칙), 렉서 · 파서 → AST, 진단 "파일:줄:열: 오류 Sxxx — …" (ContentIssue 와 같은 모음)
+  T2 [계획] 타입 검사 · 이름 해석: 최상위 규칙 (선언만), import (같은 팩 · "sandbox", 순환 오류), number · i32 규칙, null 좁히기,
+            Host 표 script/api (첫 항목 — 읽기 · 질의) 로 호출 검사
+  T3 [계획] 타입 있는 IR → 바이트코드 .sbc (형식 1 · 표 지문) · 검증기 (불법 바이트코드 거부 — 깨뜨린 자료 시험)
+M2 VM · Host API
+  T1 [계획] 인터프리터: 레지스터 · 연료 · 스택 · 호출 아레나 · 트랩 (ECS 없이 단위 시험 — i32 감싸기 · f64 · Math 내장)
+  T2 [계획] 바인딩 core/script: 표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼 (read-your-writes · 트랩이면 버림),
+            sandbox.d.ts 생성기 (sbx sdk) · sdk/sandbox.d.ts 골든 시험
+M3 사용자 Component (D-03)
+  T1 [계획] ADR (동적 풀): defineComponent → 스키마 (필드 종류 i32 · f32 · f64 · bool · vec2 · entityRef · enum, 기본값 · 범위 ·
+            플래그) → 카탈로그에 동적 등록 (ADR-0011 에 더한다), 콘텐츠 검사 순서 (스크립트 컴포넌트 먼저 — Prefab 이 쓴다)
+  T2 [계획] 세이브 · WorldHash · 복제 · Inspector 연결, 스키마 version 과 필드 마이그레이션 (더하기 · 기본값)
+M4 Script System
+  T1 [계획] defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick (intervalTicks),
+            스크립트 없는 월드 = 골든 그대로
+  T2 [계획] onStart · onStop · onEvent (구독 — 죽음 · 생성 · 영역 · 점수, 트리거 이벤트와 공용), 재진입 · 폭주 제한
+  T3 [계획] 예산 (연료 · 메모리 · 질의 · 이벤트 · HostCall — 호출 · 틱) · 트랩 정책 (시스템 끄기 기준) · 시스템별 통계 (메트릭 · 로그)
+M5 도구
+  T1 [계획] sbx check 의 스크립트 진단, sbx new 템플릿에 tsconfig.json · sandbox.d.ts, 에디터 "콘텐츠" 창의 스크립트 오류 줄 ·
+            적용 (오버레이 종류 Script — 프로토콜 ++)
+  T2 [계획] IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
+M6 E2E · 회귀
+  T1 [계획] 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템): Inspector · 세이브/로드 · 복제 · 로컬 = 원격 해시, 보호 시험
+            (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조), 10k 대상 벤치 (sbx_bench)
+  T2 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.3.0 · 제품 버전 0.3.0
+```
+
+v0.3 완료 기준 (초안 5장 → 자동 검증): 스크립트로 Mana Component · Regeneration System (M6-T1), 자동 완성 · Inspector ·
+세이브/로드 · 복제 (M3 · M5), 실행량 초과 · 권한 위반 · 결정론 위반 · VM 크래시 보호 (M2 · M4 · M6), VM 과 Native 의 API 스키마
+계약 자동 검사 (M2-T2 — 바인딩 등록 검사 + d.ts 골든). 기존 det_* · 골든 회귀 없음 (스크립트 없는 월드).
 
 ## 7. 문서 · ADR 계획
 
@@ -259,7 +302,8 @@ M5-T1 ✅  08 (프로토콜 12), 10 9장 (테스트 플레이), 13, ADR-0053
 M5-T2 ✅  09 2 · 9장 (GamePackage · 세이브 결속), 15 7장 (sbx build · --world 패키지), 13, 17, ADR-0054 (D-02)
 M6-T1 ✅  13 5.1 (자동 플레이), 15 7장 (--script · --exit), 17 (samples/ · PlayScript), ADR-0055
 M6-T2 ✅  releases/v0.2.0 (릴리스 노트 — 요구사항 판정), 18 (0 · 1 · 2 · 4 · 5.3장), 13 5.1, 16, 17, README (문서 지도)
-v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
+v0.3 진입 ✅  ADR-0056 (D-01 언어) · ADR-0057 (D-04 Host API), 18 (0 · 1 · 3 · 6.1 · 6.2장), 03 6.4
+v0.3 M1-T1  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경계), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)

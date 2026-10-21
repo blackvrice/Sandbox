@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-10-21 — v0.3 진입: D-01 언어 (ADR-0056) · D-04 Host API (ADR-0057) · v0.3 마일스톤
+
+**무엇을**
+
+- ADR-0056 (D-01): SandboxScript = TypeScript 의 엄격한 부분집합 (tsc --strict 도 받는 파일), 자체 C++ 컴파일러 (Node 없음),
+  number = f64 · i32 = 32 비트 감싸기 (JS 의 | 0 · Math.imul), f32 는 필드 종류, GC · 예외 · 스크립트 전역 가변 상태 없음 —
+  호출 아레나, 트랩 = 그 호출의 쓰기를 버림, 정적 import 만 (순환 오류), 소스가 패키지에 들어가고 로드 때 컴파일 · 검증기는 항상.
+  모듈 script/ = SandboxScript 하나 (Foundation 만) + 바인딩 core/script.
+- ADR-0057 (D-04): Host API 단일 정의 = C++ constexpr 표 (script/api) → 컴파일러 타입 검사 · 로드 때 이름으로 묶기 (인덱스
+  영속 없음, .sbc 에 표 지문) · 바인딩 등록 검사 · sandbox.d.ts 생성 (골든 파일). 쓰기는 호출 단위 버퍼 (read-your-writes),
+  질의는 saveId 오름차순, 엔진 관리 컴포넌트 · 범위 밖 · 죽은 개체 쓰기 = 트랩, 난수 Purpose::Script, hostApiVersion.
+- 18: 0장 (다음 = v0.3 M1-T1), 1 · 3장, 6.1 (D-01 · D-04 결정, D-03 = M3-T1), 6.2 v0.3 마일스톤 M1~M6 · 완료 기준, 7장.
+  03 6.4 (ADR 연결), 16 (버전 줄), adr/README.
+
+**왜**
+
+- v0.3 진입 조건 (18 6.1 "D-01 v0.3 진입 전"). 언어 · Host API 계약이 정해져야 컴파일러 · VM · 바인딩을 작은 태스크로 나눌 수 있다.
+- 결정의 축은 04 (결정론 최우선): 스크립트 상태가 컴포넌트 밖에 없으면 세이브 · 리플레이 · 해시 · 복제가 새 책임을 지지 않는다.
+
+**검증**
+
+- 문서만 (코드 변경 없음). Windows MSVC Debug ctest 61/61 (render_tests_warp 제외) — 아래 커밋 직전 실행.
+
+**남은 일**
+
+- v0.3 M1-T1: 규범 문서 19-SANDBOXSCRIPT · 모듈 script/ · 렉서 · 파서 · 진단.
+- D-03 (동적 풀) 은 M3-T1, 스크립트 단계는 M4-T1 의 ADR.
+
 ## 2026-10-21 — v0.2 M6-T2: 버전 종료 — 요구사항 done / deferred / removed, 제품 버전 0.2.0
 
 **무엇을**

@@ -387,6 +387,9 @@ Stage 11 ResolveIntents:
 Rule op + FSM으로 표현할 수 없는 콘텐츠 요구는 op · Native Feature 를 추가하는 것으로 대응합니다 (v0.2 Game Creator 까지).
 스크립트 언어는 v0.3 SandboxScript — TypeScript 문법 부분집합 → 자체 바이트코드 VM 으로 정했습니다 ([ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md),
 Lua · WASM 은 후보에서 뺌). 그 전까지 이 장의 원칙(새 표현력은 데이터 + Native op)은 그대로입니다.
+v0.3 진입 결정: 언어 부분집합 · 숫자 · 메모리 · 트랩은 [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md),
+Host API (단일 정의 표 · 호출 단위 버퍼 · saveId 순 질의) 는 [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md).
+스크립트 시스템의 단계는 [계획] v0.3 M4-T1 의 ADR 이 정한다 — 스크립트 없는 월드는 그대로 (골든 · kSimVersion).
 
 Visual Trigger (v0.2 M4, [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md)) 와 Rule 의 관계: Rule 은 개체 둘
 (source · target) 의 interact 에 묶인 규칙이고, Trigger 는 월드 수준 이벤트 (시작 · 틱 · 타이머 · 영역 진입 · 점수 · 죽음) 에서
