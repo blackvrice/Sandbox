@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-21 — v0.3 M1-T2: SandboxScript 이름 · 타입 검사기, Host API 표 첫 항목
+
+**무엇을**
+
+- `script/lang/Types`: TypeTable (기본 · T[] · T | null · 구조체 · enum · 불투명), 넣기 규칙 (i32 → number · enum → 수 · null → T | null,
+  배열 원소 · 구조체 필드는 양쪽 — 참조라, 재귀 구조체는 비교 중인 짝을 가정).
+- `script/lang/Checker`: checkProgram (팩의 스크립트 전부) → Program — 파일 경로 정렬 파싱, import 그래프 (resolveImportPath · 없는
+  파일 · 없는 export · 순환 S416, 파싱 오류 모듈의 이름은 Error 타입), 모듈마다 의존 순서로 이름 · interface (재귀) · type 별칭 (순환
+  S417) · 함수 서명 · enum · 최상위 const (소스 순서, 기본 타입 상수식 S415), 함수 몸 (반환 타입 추론 — 처음 부를 때, 재귀 S421).
+  식: number · i32 규칙 (정수 상수는 i32 자리에, 비트 연산은 i32, 상수 접기는 실행 규칙대로 — i32 감싸기), null 좁히기 (&& · || · ! ·
+  ? : · 빠져나가는 if, 대입 없는 이름만), 흐름 (모든 길 return · switch 떨어짐 · break/continue 자리), 객체 · 배열 리터럴 (기대 타입),
+  Math 내장, 금지 이름 (S413, 이유와 대안). 마디마다 NodeSema (타입 · 심볼/필드/Host/내장/enum 멤버/length/push) · ConstValue.
+- `script/api/HostApi`: ADR-0057 의 단일 정의 표 — ctx.tick · ctx.log, 불투명 타입 Entity · ServerContext, 정규형 · 지문 (kHostApiVersion 1).
+  계획에 적은 "읽기 · 질의" 는 컴포넌트 타입이 필요해 v0.3 M3 로 옮겼다 (18 6.2).
+- 시험 test_checker 14 케이스. 문서 19 (5 · 10 · 11장, S4xx 표), 17, 13, 18.
+
+**왜**
+
+- v0.3 요구 1 (타입 · 숫자 · 할당 · 모듈 · 결정론 규범) 의 검사 쪽. IR (M1-T3) 이 타입 · 상수 · 참조가 정해진 나무를 받게 한다.
+- "SandboxScript 가 받으면 tsc 도 받는다" 를 지키려고 TS 보다 엄격한 쪽을 골랐다: 조건은 boolean, 좁히기는 대입 없는 이름만, 배열 ·
+  필드는 양쪽으로, let 에 초기값 (19 11장의 "TS 와 다른 점").
+
+**검증**
+
+- Windows MSVC Debug: 경고 없이 빌드, unit_script 30 케이스 · 1833 단언, 전체 ctest 62/62 (render_tests_warp 제외).
+- 잘린 소스 (3 바이트마다) · 타입이 엉망인 소스에서 죽지 않는다. 시뮬레이션 변경 없음.
+
+**남은 일**
+
+- v0.3 M1-T3: 타입 있는 IR → .sbc · 검증기. 숫자 → 문자열 (JS Number#toString) 은 VM (M2).
+- 표 · 구조체 상수 (최상위), 문자열 첨자 · 메서드, 배열 pop 등은 [v0.3 뒤 검토].
+
 ## 2026-10-21 — v0.3 M1-T1: SandboxScript 렉서 · 파서 → AST · 진단, 모듈 script/, 규범 문서 19
 
 **무엇을**

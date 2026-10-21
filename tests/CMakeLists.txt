@@ -19,6 +19,7 @@ add_executable(SandboxTests
     unit/foundation/test_semver.cpp
     unit/script/test_lexer.cpp
     unit/script/test_parser.cpp
+    unit/script/test_checker.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp

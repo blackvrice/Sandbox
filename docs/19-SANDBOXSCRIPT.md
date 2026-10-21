@@ -11,7 +11,8 @@
 | 단계                                   | 상태                  | 소스 · 시험                                                            |
 |----------------------------------------|-----------------------|------------------------------------------------------------------------|
 | 낱말 (렉서) · 문법 (파서 → AST) · 진단 | 구현 (v0.3 M1-T1)     | `script/lang/` Lexer · Parser · Ast · Diagnostic, unit_script          |
-| 이름 · 타입 검사 (5장)                 | [계획] v0.3 M1-T2     |                                                                        |
+| 이름 · 타입 검사 (5 · 11장)            | 구현 (v0.3 M1-T2)     | `script/lang/` Types · Checker, unit_script (test_checker)             |
+| Host API 표 (10장)                     | 첫 항목 (v0.3 M1-T2)  | `script/api/HostApi` — ctx.tick · ctx.log, 지문                        |
 | IR · 바이트코드 · 검증기               | [계획] v0.3 M1-T3     |                                                                        |
 | VM (6장) · Host API                    | [계획] v0.3 M2        |                                                                        |
 
@@ -23,9 +24,10 @@ TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대
 ```text
 자리       콘텐츠 팩의 scripts/**/*.ts (UTF-8, BOM 있어도 됨, ≤ 4 MiB — kMaxSourceBytes). 파일 하나 = 모듈 하나
 최상위     선언만: import · export · function · const · type · interface · enum · const enum · export default 식
-           (let · 문장은 S328 — 틱을 넘는 상태는 컴포넌트에, ADR-0056 4). 상수식인지는 검사기 [계획 M1-T2]
-import     import { a, b as c } from "./상대경로" (같은 팩의 scripts/ 안) · from "sandbox" (SDK). 기본 · 이름공간 ·
-           부수 효과 · import type · 동적 import 는 없다 (S321 · S322). 순환 import 는 오류 [계획 M1-T2]
+           (let · 문장은 S328 — 틱을 넘는 상태는 컴포넌트에, ADR-0056 4). 최상위 const 는 기본 타입 상수식 (S415 — 11장)
+import     import { a, b as c } from "./상대경로" · from "sandbox" (SDK). 기본 · 이름공간 · 부수 효과 · import type ·
+           동적 import 는 없다 (S321 · S322). 경로 = 가져오는 파일의 폴더 기준, 확장자 없이 ("./b" → b.ts), "." · ".." 마디,
+           첫 폴더 (scripts/) 밖으로 나갈 수 없다. 없는 파일 · 없는 export · 순환 import 는 S416 (resolveImportPath)
 export     export 선언 · export default 식 (defineSystem — [계획 M4]). export { } · export * · export = 는 없다 (S320)
 ```
 
@@ -122,12 +124,27 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 검사기 [계획 M1-T2] 가 더하는 것: any · unknown · undefined · 타입 없는 매개변수 · 객체 키 순회 · Math.random · Date 등
 이름 수준의 금지, 상수식이 아닌 최상위 const, switch 의 빈 case 가 아닌 fallthrough.
 
-## 5. 타입 · 숫자 [계획 v0.3 M1-T2 — 규칙은 ADR-0056 3 · 6]
+## 5. 타입 · 숫자 (v0.3 M1-T2 — `script/lang/Types`, ADR-0056 3 · 6)
 
 ```text
-number  f64 (JS 와 같은 뜻)       i32  32 비트로 감싼다 (+ - | 0, * = Math.imul), / → number, % 0 은 트랩, >>> 없음
-f32     컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림     bool · string (불변 UTF-8, 바이트 순 비교)
-T[]     참조, 길이 상한           T | null  좁히기는 if (x !== null)        interface · type  구조체 (객체 리터럴)
+타입 이름   number · boolean · string · void (반환 타입만) · null · T[] · Array<T> · T | null · { x: T; … } · interface ·
+            type 별칭 (순환 S417) · enum · SDK 의 i32 · Entity · ServerContext (import { … } from "sandbox").
+            any · unknown · undefined · never · object · Record · Map · ReadonlyArray … 은 S413. bool 은 없다 (boolean)
+유니언      T | null 만 (null | T · 괄호 · 겹친 null 도 같다). 서로 다른 타입의 유니언은 S417
+number      f64 (JS 와 같은 뜻)
+i32         32 비트로 감싼다. i32 ∘ i32 (+ - * %) → i32, 비트 연산 (& | ^ << >> ~) 은 언제나 i32 (number 도 JS ToInt32),
+            / · ** → number, 섞으면 number. number → i32 는 toI32(x) 만 — 단 정수 · i32 범위의 상수식 (리터럴 · const ·
+            접은 식) 은 그대로 들어간다 (S409). idiv(a, b) = 정수 나눗셈. 상수의 i32 산술도 감싼다 (2147483647 + 1 → -2^31)
+enum        정수 값 (자동 증가 · 상수식, S418), 이름 있는 타입 — i32 · number 로 넓어지고 거꾸로는 아니다, 다른 enum 과 비교 없음
+넣기        같은 타입 · i32 → number · enum → i32 · number · null 과 T → T | null. 배열 원소 · 구조체 필드는 양쪽으로 맞아야
+            한다 (참조라 — readonly 필드만 한쪽). 구조체는 필드 이름 집합이 같아야 한다 (객체 리터럴의 빠진 · 남는 필드 S404)
+연산        조건 · && · || · ! 는 boolean 만 (S408 · S422 — x !== null · x !== 0 로 쓴다), === !== 는 맞는 타입끼리,
+            < > <= >= 는 두 수 · 두 문자열, 문자열 + 기본 타입 → string, ?? 는 T | null 의 왼쪽에만 (S422)
+f32         컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림 [계획 M3]
+string      불변 UTF-8, 비교는 바이트 순서. .length (i32)
+T[]         참조, .length (i32) · .push(x) (i32). 빈 리터럴 [] 은 타입이 필요하다 (S414). 첨자는 i32 · number
+Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · trunc · sign · sqrt · sin · cos · tan · atan2 · pow · exp ·
+            log · hypot → number, 상수 PI · E · LN2 · LN10 · LOG2E · LOG10E · SQRT2 · SQRT1_2. Math.random 은 S413
 ```
 
 ## 6. 메모리 · 실행 [계획 v0.3 M2 — ADR-0056 4 · 5, ADR-0057 5]
@@ -137,7 +154,9 @@ T[]     참조, 길이 상한           T | null  좁히기는 if (x !== null)  
 ## 7. 결정론
 
 ```text
-- 렉서 · 파서 · (이후) 컴파일러의 출력은 입력 소스만의 함수다: 로케일 · 시간 · 디렉터리 순서를 보지 않는다 (04 4.5)
+- 렉서 · 파서 · 검사기 · (이후) 컴파일러의 출력은 입력 소스만의 함수다: 로케일 · 시간 · 디렉터리 순서를 보지 않는다 (04 4.5) —
+  모듈은 경로 정렬 순, 의존이 먼저 (위상 순서)
+- 상수 접기는 실행과 같은 규칙 (f64 연산 · i32 감싸기 · fmod · pow). 숫자 → 문자열은 접지 않는다 (JS Number#toString 은 VM [계획 M2])
 - 숫자 리터럴은 정확히 반올림한다 (툴체인이 달라도 같은 f64)
 - SandboxScript 타깃은 sbx_simulation_flags (04 4.6) 를 쓴다 — VM 의 부동소수 연산 [계획 M2] 을 위해
 ```
@@ -148,7 +167,7 @@ T[]     참조, 길이 상한           T | null  좁히기는 if (x !== null)  
 형식   "<파일>:<줄>:<열>: 오류 S201 — <설명>"   줄 · 열은 1 부터, 열은 코드 포인트 단위 (ContentIssue 와 같은 "오류/경고 규칙 — 설명")
 번호   S100 소스 (UTF-8 · 크기)  S101 알 수 없는 글자  S103 문자열  S104 주석  S105 이스케이프  S106 숫자  S108 템플릿
        S201 기대한 낱말이 없다  S202 괄호가 필요한 섞기  S203 대입 대상  S204 중첩이 너무 깊다 (> 200 — kMaxParseDepth)
-       S299 오류가 너무 많다 (> 64 — kMaxParseErrors, 거기서 멈춘다)  S3xx 부분집합 밖 (4장)  S4xx 타입 [계획 M1-T2]
+       S299 오류가 너무 많다 (> 64 — kMaxParseErrors, 거기서 멈춘다)  S3xx 부분집합 밖 (4장)  S4xx 이름 · 타입 (11장)
 모음   첫 오류에서 멈추지 않는다 — 문장 단위로 회복해 나머지를 계속 본다. 믿지 않는 소스라 깊이 · 오류 수에 상한이 있다
 ```
 
@@ -158,8 +177,73 @@ T[]     참조, 길이 상한           T | null  좁히기는 if (x !== null)  
 script/                SandboxScript (정적 라이브러리) — 의존 Foundation 만 (ECS · 그래픽 · OS 를 모른다, ADR-0056 9)
   lang/Diagnostic      진단 · 목록                 lang/Token · Lexer   낱말 · 렉서
   lang/Ast             마디 풀 · dump              lang/Parser          파서 · ASI · 부분집합 검사 · 회복
+  lang/Types           타입 표 · 넣기 규칙          lang/Checker         이름 · 타입 검사 · 좁히기 · 상수 접기 → Program
+  api/HostApi          Host 함수 표 · 불투명 타입 · 정규형 · 지문 (10장)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
 시험                   tests/unit/script (unit_script) — 낱말 · 우선순위 · ASI · 선언 · 타입 · 부분집합 S3xx 전부 · 회복 · 상한 ·
-                       잘린 소스와 의사 난수 바이트열 (죽지 않는다)
+                       잘린 소스와 의사 난수 바이트열 (죽지 않는다), 검사기 (test_checker — 규칙마다 받는 · 거절하는 예, 모듈
+                       사이, Host 표 지문)
 ```
+
+## 10. Host API 표 (v0.3 M1-T2 — `script/api/HostApi`, ADR-0057)
+
+```text
+단일 정의   constexpr 표 kHostFunctions: id (영속 이름) · 주인 타입 · 멤버 · 속성/메서드 · 결과 · 매개변수 (≤ 4) · 도메인 ·
+            효과 (read · write · structural · random · log) · 연료 · 설명. 검사기는 이 표로 ctx.멤버 를 찾는다 (d.ts 를 읽지 않는다)
+지문        hostApiFingerprint = 정규형 줄 ("ctx.log ServerContext.log(string): void server log 16") 을 정렬해 FNV-1a 64,
+            kHostApiVersion 과 함께 — .sbc 머리 [계획 M1-T3]. 시험이 값을 고정한다 (표를 바꾸면 같은 커밋에서)
+지금 항목   ctx.tick: i32 (read) · ctx.log(string): void (log). 불투명 타입 Entity · ServerContext
+[계획]      컴포넌트 읽기 · 질의 (ctx.read · ctx.query) 는 컴포넌트 타입과 함께 v0.3 M3, 쓰기 · 난수는 M2 · M4
+```
+
+## 11. 이름 · 타입 검사 (v0.3 M1-T2 — `script/lang/Checker`)
+
+```text
+차례       1 파일마다 파싱 (경로 정렬)  2 import 그래프 (S416 — 없는 파일 · 순환은 그 import 를 끊는다)
+           3 모듈마다 의존 순서로: import 묶기 → 최상위 이름 (값 · 타입 이름공간 — enum 은 둘 다, 같은 이름 S402) →
+             interface 필드 (재귀 됨) → type 별칭 → 함수 서명 → enum · 최상위 const (소스 순서 — 앞 것만 쓴다, S403)
+           4 함수 몸. 반환 타입이 없으면 처음 부를 때 몸을 먼저 검사해 추론 (return 타입이 다르면 S412, 재귀면 S421)
+파싱 오류  그 모듈은 검사하지 않고, 그 모듈에서 가져온 이름은 Error 타입 — 이어지는 오류가 없다
+범위       블록마다 (for · for-of · switch 도). 함수 몸 = 매개변수와 같은 범위. 같은 블록의 뒤 선언을 앞에서 쓰면 S403,
+           안쪽 블록의 같은 이름 (가리기) 은 된다
+좁히기     if (x !== null) · x === null 의 else · && · || · ! · ? : · 한쪽이 빠져나가는 if (if (x === null) return) 뒤.
+           좁히는 것은 대입이 없는 이름 (const · 최상위 const · 몸에서 대입하지 않는 let · 매개변수) 뿐 — 보수적, 필드는 아니다.
+           좁히지 않은 T | null 의 필드 · 메서드 · 첨자 · for-of 는 S407
+흐름       return 이 모든 길에 있어야 한다 (void 아니면 S412 — if/else 양쪽 · default 있는 switch). switch 의 빈 case 가
+           아닌 떨어짐은 S420. break · continue 자리 S419
+최상위     const = number · i32 · boolean · string · enum 상수식 (리터럴 · 연산 · 앞의 const · enum 값 · NaN · Infinity ·
+           Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 [계획 M4] (S423)
+금지 이름  undefined · Date · console · eval · JSON · Map · Promise · setTimeout · parseInt … 은 S413 (이유와 대안을 말한다).
+           SDK 이름을 가져오지 않으면 import { i32 } from "sandbox" 를 안내한다
+결과       Program: 타입 표 · 심볼 · 함수 (서명 · 추론한 반환) · 모듈마다 마디 → (타입, 가리키는 것 — 심볼 · 필드 · Host 함수 ·
+           내장 · enum 멤버 · length · push), 마디 → 상수값. IR (M1-T3) 이 이것을 읽는다
+TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolean 만, x === null 은 x 가 T | null 일 때만, 반환 타입을 추론한 함수도
+           모든 길이 return, 배열 · 구조체 필드는 양쪽으로 맞아야 한다, let 에 초기값, 재귀 함수에 반환 타입
+```
+
+| 코드 | 뜻                                                                                     |
+|------|----------------------------------------------------------------------------------------|
+| S401 | 없는 이름 · 타입                                                                       |
+| S402 | 같은 범위에 같은 이름 (변수 · 매개변수 · 필드 · enum 멤버 · 객체 키 · import)           |
+| S403 | 선언하기 전에 쓴다                                                                     |
+| S404 | 타입이 맞지 않다 (넣기 · 인자 · 반환 · 객체 리터럴 필드 · case · ? : · 배열 원소)       |
+| S405 | 인자 수                                                                                |
+| S406 | 그 타입에 없는 필드 · 메서드 · 멤버                                                    |
+| S407 | null 일 수 있다 — 좁힌다                                                               |
+| S408 | 조건은 boolean                                                                         |
+| S409 | number → i32 (toI32), i32 범위 밖 · 정수 아닌 상수, i32 % 0                            |
+| S410 | 대입할 수 없다 (const · 최상위 const · readonly · Host 속성)                           |
+| S411 | 값이 아닌 것 (함수 · 타입 · enum · 내장을 값으로), 부를 수 없는 것                      |
+| S412 | 반환 (void 가 값을 · 값이 없이 · 모든 길이 아님 · 추론 타입이 다름)                     |
+| S413 | SandboxScript 에 없는 전역 · 타입 이름                                                 |
+| S414 | 타입을 적어야 한다 (매개변수 · 빈 배열 · null 초기값 · 초기값 없는 let)                 |
+| S415 | 최상위 const 는 기본 타입 상수식                                                       |
+| S416 | import (경로 · 없는 파일 · 없는 export · 순환 · 같은 경로 둘)                           |
+| S417 | 지원하지 않는 타입 모양 (T \| null 이 아닌 유니언 · 별칭 순환 · void 자리 · 타입 인자) |
+| S418 | enum 값 (i32 정수 상수만)                                                              |
+| S419 | break · continue 자리                                                                  |
+| S420 | switch 떨어짐                                                                          |
+| S421 | 재귀 함수의 반환 타입                                                                  |
+| S422 | 연산자 · 피연산자 타입 (조건 밖의 && · ! 포함)                                         |
+| S423 | [계획] 아직 없는 자리 (export default · 객체 메서드 — v0.3 M4)                          |

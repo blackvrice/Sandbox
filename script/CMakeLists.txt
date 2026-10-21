@@ -10,6 +10,12 @@ add_library(SandboxScript STATIC
     lang/Ast.cpp
     lang/Parser.hpp
     lang/Parser.cpp
+    lang/Types.hpp
+    lang/Types.cpp
+    lang/Checker.hpp
+    lang/Checker.cpp
+    api/HostApi.hpp
+    api/HostApi.cpp
 )
 add_library(Sandbox::Script ALIAS SandboxScript)
 
