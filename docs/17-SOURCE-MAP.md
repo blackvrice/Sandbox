@@ -239,7 +239,7 @@
 | `tests/`                                        | 단위·속성·시나리오·결정론·네트워크·렌더 테스트, 골든                                           | SandboxTests, sbx_render_tests |
 | `bench/`                                        | 벤치 시나리오·머신별 기준선                                                                    | sbx_bench                      |
 | `tools/`                                        | `check_includes.py`·`sim_check`·`net_probe`(구현), `sbx_atlas`(계획)                           | 도구                           |
-| `docs/`                                         | 문서                                                                                           | —                              |
+| `docs/`                                         | 문서 (`docs/releases/v<제품 버전>.md` = 버전마다 릴리스 노트, v0.2 M6-T2)                      | —                              |
 
 ## 2. 모듈별 상세
 

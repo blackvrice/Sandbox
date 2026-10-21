@@ -37,7 +37,7 @@ Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL �
 Phase 15  Optimization (측정 기반)                     ← 15A 시뮬레이션 50k · 15B 스냅숏 (2026-10-19, ADR-0038) — 결과가 같은 최적화, 50k 완료 판정은 사용자 PC 측정 대기
 ──────── Phase 0~15 = v0.1 Engine Foundation. 이후 (ADR-0039, 18-PLATFORM):
 v0.2 Game Creator → v0.3 SandboxScript → v0.4 Package Manager → v0.5 Creator Alpha → v0.6 Hub → v0.7 Multiplayer Platform
-→ v0.8 Marketplace & Hosting → v0.9 Business → v1.0 GA          ← v0.2 M1 진행 중 (2026-10-19)
+→ v0.8 Marketplace & Hosting → v0.9 Business → v1.0 GA          ← v0.2 ✅ 0.2.0 (2026-10-21, releases/v0.2.0) · 다음 v0.3 (D-01 · D-04)
 ```
 
 순서의 이유:

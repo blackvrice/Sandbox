@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.28)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.4" CACHE STRING "macOS 최소 버전")
 
 project(Sandbox
-        VERSION 0.1.0
+        VERSION 0.2.0
         DESCRIPTION "Sandbox Simulation Maker"
         LANGUAGES CXX)
 

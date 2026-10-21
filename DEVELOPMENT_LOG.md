@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-10-21 — v0.2 M6-T2: 버전 종료 — 요구사항 done / deferred / removed, 제품 버전 0.2.0
+
+**무엇을**
+
+- 제품 버전 CMake `project(Sandbox VERSION 0.2.0)` (BuildInfo → `sbx --version` · `SandboxServer --version` = 0.2.0, 새 프로젝트의
+  engine 기본 범위 ">=0.2.0 <1.0.0"). 샘플 rabbit_guard 의 ">=0.1.0 <1.0.0" 은 그대로 맞는다.
+- CTest sample_playthrough: 프로젝트로 두 호스트를 비교한 뒤 `sbx build` 로 패키지를 만들어 `--world <.sbpkg>` 로도 헤드리스 서버 ·
+  로컬 플레이가 같은 "게임 결과:" 줄을 쓰는지 본다 (작업 폴더 = 빌드 폴더의 sample_playthrough, 끝나면 지운다).
+- 릴리스 노트 `docs/releases/v0.2.0.md` (새 폴더 — 이력, 버전마다 새 파일): 들어간 것 (M1~M6 · ADR), 호환성 번호 (제품 0.2.0 ·
+  프로토콜 12 · kSimVersion 4 · 세이브 1 · 1 · 매니페스트 1 · 2 · 패키지 format 1), 초안 요구 3 · 5 · 9장의 done / deferred / removed
+  표와 근거 시험, 미룬 것의 버전 재할당, 알려진 문제.
+- 문서: 18 (0 · 1 · 2 · 4장, 5.1 M6-T2 ✅, 5.3 요구사항 검토, 7 · 8장), 13 5.1, 16 (버전 줄), 17 (docs/releases), README (문서 지도).
+
+**왜**
+
+- v0.2 DoD 4 "미구현 항목을 릴리스 노트에 명시하고 다음 버전으로 재할당". 요구 6 "하나의 GamePackage 를 헤드리스 서버와 로컬
+  플레이에서" 는 M6-T1 이 프로젝트 폴더로만 비교했다 — 패키지 경로도 자동 시험으로 묶었다.
+- 18 2장의 SaveGame · Visual Trigger · Edit ↔ Test Play 가 "Partial (M4 · M5 계획)" 으로 남아 있었다 — 구현에 맞춰 고쳤다.
+
+**검증**
+
+- Windows MSVC Debug (windows-msvc): 빌드, `chcp 65001` 뒤 ctest 61/61 통과 (render_tests_warp 제외 — 알려진 문제).
+- sample_playthrough: 프로젝트 · 패키지 × SandboxServer --script · SandboxClient --headless --script 모두
+  `게임 Finished · win · team 0 · rule 3 · 점수 -60 · tick 3691 · hash 0x02d03b52e9655a3f`.
+- 골든 det_* 그대로 (시뮬레이션 코드 변경 없음, kSimVersion 4).
+
+**남은 일**
+
+- v0.3 진입: D-01 (SandboxScript 언어 부분집합) · D-04 (Host API 단일 정의) ADR → 18 6장을 마일스톤으로.
+- v0.1 열린 항목 (실기 QA · 50k 판정 · Actions 결과) 그대로. 미룬 것 목록은 releases/v0.2.0 5장.
+
 ## 2026-10-21 — v0.2 M6-T1: 데모 미니게임 samples/rabbit_guard · 자동 플레이 스크립트 — 헤드리스 서버 = 로컬 플레이 (ADR-0055)
 
 **무엇을**

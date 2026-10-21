@@ -414,9 +414,10 @@ if(TARGET sbx)
         if(TARGET SandboxClient)
             add_test(NAME sample_playthrough
                 COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
-                        "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard"
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_playthrough"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
-            set_tests_properties(sample_playthrough PROPERTIES LABELS "content" TIMEOUT 300)
+            set_tests_properties(sample_playthrough PROPERTIES LABELS "content" TIMEOUT 600)
         endif()
     endif()
 endif()

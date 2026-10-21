@@ -236,7 +236,8 @@ command   리플레이 JSON 명령 (09 4장 — 개체 참조 없는 것), issue
 끝        게임 Finished (자동 재시작 모드 말고) 또는 시작 틱 + maxTicks
 expect    다르면 종료 코드 1. hash 는 골든처럼 툴체인 키별 — 이 툴체인 항목이 없으면 보지 않는다 (ADR-0012)
 실행      SandboxServer --world <프로젝트> --script <파일> · SandboxClient --headless --world <프로젝트> --script <파일>
-          → 둘 다 "게임 결과: …" 한 줄 (서버 월드). CTest sample_playthrough 가 두 줄이 같은지 본다
+          → 둘 다 "게임 결과: …" 한 줄 (서버 월드). CTest sample_playthrough 가 두 줄이 같은지 보고, 그 다음 sbx build 로
+          만든 패키지 (--world <.sbpkg>) 로도 두 호스트가 같은 줄을 쓰는지 본다 (v0.2 요구 6, M6-T2)
 시험      game test_play_script (읽기 · 형식 오류 · 툴체인 키 해시 · 저장소 샘플을 같은 프로세스에서 끝까지 두 번 같다 ·
           세션 없는 월드 maxTicks · expect 다름 목록 · 끝나지 않으면 OutOfRange), server test_server_options (--script)
 ```

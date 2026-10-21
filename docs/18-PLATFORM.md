@@ -2,15 +2,15 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-19 (master f4a72c1 + v0.2 M1).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-21 (v0.2 종료 — 0.2.0).
 
 ---
 
 ## 0. 지금
 
 ```text
-버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ◐ (M1 ✅, M2 ✅, M3 ✅, M4 ✅, 다음 M5)
-다음     v0.2 M6-T2 — 버전 종료: 요구사항 done / deferred / removed, 제품 버전 0.2.0
+버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
+다음     v0.3 진입 결정: D-01 SandboxScript 언어 부분집합 · D-04 Host API 단일 정의 (ADR) → 6장을 마일스톤으로 쪼갠다
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -19,7 +19,7 @@
 | 버전 | 목표                   | 제품 검증 (초안 04_RELEASE_MATRIX)         | 상태                                            |
 |------|------------------------|--------------------------------------------|-------------------------------------------------|
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
-| v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ◐ M1 진행 (5장)                                 |
+| v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | [계획] (6장)                                    |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
@@ -39,7 +39,7 @@
 - 초안 v0.1 요구 4 "LAN · 신뢰 환경 제약을 UI 에 노출": 서버 도움말 · 08 · 16 R6 에 있다. 클라이언트 접속 화면 문구는 v0.7 전에
 ```
 
-## 2. 현황 (초안 대비, 2026-10-19 소스 · 테스트 기준)
+## 2. 현황 (초안 대비, 2026-10-21 소스 · 테스트 기준 — v0.2 종료)
 
 **Implemented** = 소스와 자동 시험이 있다, **Partial** = 바탕은 있고 플랫폼 요구에 확장이 필요하다, **Planned** = 새로 만든다.
 초안(2026-10-13)이 "초기 Vulkan"으로 적은 것은 그 뒤 13A~13C · 14 · 15 로 바뀌었다.
@@ -56,13 +56,13 @@
 | 성능                    | Partial     | 50k 2코어 29.6 ms — 판정 대기 (14 7.12)                                                                                     |
 | GameProject · Manifest  | Implemented | M1 ✅ — 검사 · 열기 · 게임 정체성 · sbx new/check · 에디터 저장 = 프로젝트 worlds/ (ADR-0040~0044)                          |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
-| SaveGame                | Partial     | 세이브 = 월드 상태 전체. 게임 버전 · 패키지 다이제스트 결속은 Planned (M5)                                                  |
-| GamePackage (.sbpkg)    | Implemented | M5-T2 ✅ — sbx build · check, --world <패키지>, 파일마다 SHA-256 · digest, 세이브 결속 (ADR-0054). 압축 · 서명은 Planned |
+| SaveGame                | Implemented | 세이브 = 월드 상태 전체 + world.json "game" 결속 (M5-T2 — 다른 게임 거절 · 다른 버전 알림). 버전 간 마이그레이션은 v0.4      |
+| GamePackage (.sbpkg)    | Implemented | M5-T2 ✅ — sbx build · check, --world <패키지>, 파일마다 SHA-256 · digest, 세이브 결속 (ADR-0054). 압축 v0.4 · 서명 v0.6 |
 | 게임 라이프사이클       | Implemented | M2 ✅ — GameMode · game.session (17b) · 시작 · 중단 · 재시작 (자동), "게임" 패널 (ADR-0045 · 0046)                          |
-| 플레이어 행동           | Partial     | 콘텐츠 PlayerAction ✅ (M3-T1 — 점에 쓰는 행동, "행동" 패널, ADR-0047). 쿨다운 · 비용 · 유닛 지시는 Planned                 |
-| Feature Bundle          | Implemented | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera(처음 자리) · Input(팩 게임 키) · 데모 모드 eco.protect (M3 ✅). Timer 노드는 M4 |
-| Visual Trigger          | Partial     | Rule(source · action · target · effects) · BehaviorGraph FSM · Effect op. 게임 이벤트 · 조건 · 효과 노드는 Planned (M4)     |
-| Edit ↔ Test Play        | Partial     | 편집 단계 · 월드 저장/불러오기 · 리플레이. 분기 세션 · 원본 보호는 Planned (M5)                                             |
+| 플레이어 행동           | Partial     | 콘텐츠 PlayerAction ✅ (M3-T1 — 점에 쓰는 행동, "행동" 패널, ADR-0047). 쿨다운 · 비용 · 유닛 지시는 v0.3 · v0.5           |
+| Feature Bundle          | Implemented | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera(처음 자리) · Input(팩 게임 키) · 데모 모드 eco.protect (M3 ✅) · Timer (event.timer · cond.time, M4) |
+| Visual Trigger          | Implemented | M4 ✅ — triggers/*.json 노드 21 종 · V10 · 단계 17c · "콘텐츠" 창 폼 (ADR-0050~0052). 노드 그래프 캔버스는 v0.3 · v0.5      |
+| Edit ↔ Test Play        | Implemented | M5-T1 ✅ — 편집 월드를 서버 메모리에 맡기고 복사본으로 플레이, 멈추면 원본 그대로 (ADR-0053). 여러 사람의 테스트 플레이는 v0.7 |
 | SandboxScript · VM      | Planned     | v0.3. 지금 표현력 확장은 Rule op (03 6.4 — ADR-0039 가 언어를 TypeScript 부분집합으로 정함)                                 |
 | 사용자 Component 스키마 | Planned     | v0.3 (D-03). 콘텐츠 로더는 등록되지 않은 컴포넌트를 거절한다 (그대로 둔다)                                                  |
 | 패키지 · SemVer         | Partial     | foundation/version/SemVer (v0.2 M1-T1 — 버전 · 범위 비교만). 의존성 해석 · 잠금 파일은 v0.4                                 |
@@ -89,7 +89,8 @@
 ## 4. 버전 · 호환성 규칙
 
 ```text
-제품 버전      CMake project VERSION (지금 0.1.0) — 버전이 끝날 때 올린다 (v0.2 완료 = 0.2.0)
+제품 버전      CMake project VERSION (지금 0.2.0 — v0.2 완료, 2026-10-21) — 버전이 끝날 때 올린다 (v0.3 완료 = 0.3.0).
+               버전마다 릴리스 노트 docs/releases/v<제품 버전>.md (이력 — 바꾸지 않는다)
 엔진 범위      매니페스트 "engine" — 이 엔진이 범위 밖이면 프로젝트 검사 오류 P3
 SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 빌드). 범위 문법 (v0.2): >= > <= < = ^ 와 부분 버전 (npm 과 같은 뜻),
                공백 = AND. "||" · "~" · "*" · 하이픈 범위는 Unsupported (v0.4 D-05 에서). 프리릴리스는 우선순위 그대로 비교
@@ -153,11 +154,25 @@ M6 E2E · 회귀
   T1 ✅ 데모 미니게임 samples/rabbit_guard (sbx new --mode eco.protect 그대로 + README) · 자동 플레이 스크립트 playthrough.json
         (core/scenarios/PlayScript — 서버 러너의 시나리오, 단계마다 명령) · SandboxServer · SandboxClient --script → 같은 "게임 결과:"
         줄 (CTest sample_playthrough), expect (해시는 툴체인별), --exit 는 게임이 끝나도 끝낸다 (ADR-0055)
-  T2 버전 종료: 요구사항 done / deferred / removed, 제품 버전 0.2.0
+  T2 ✅ 버전 종료: 요구사항 done / deferred / removed (5.3 · 릴리스 노트), 제품 버전 0.2.0, sample_playthrough 가 패키지로도
+        두 호스트를 비교한다 (요구 6)
+  → M6 완료 · v0.2 완료 (2026-10-21): 0.2.0
 ```
 
 v0.2 완료 기준 (초안 5장 → 자동 검증): 템플릿만으로 미니게임을 만들어 저장 · 실행 · 종료 (M6-T1 시나리오), 종료 조건 ·
 Lobby · Restart 의 서버 권위 상태 시험 (M2 · M3), Edit / Play 분리 · Undo / Redo · 패키지 검증 시험 (M5). 기존 det_* · 골든 회귀 없음.
+
+### 5.3 요구사항 검토 (v0.2 M6-T2 — 판정과 근거는 [릴리스 노트](releases/v0.2.0.md) 4 · 5장)
+
+```text
+done      요구 1~6 (프로젝트 · 월드 · 세이브 · 패키지, 라이프사이클, Feature Bundle, Visual Trigger 최소 노드 + 폼, Edit ↔ TestPlay,
+          한 패키지 = 헤드리스 서버 · 로컬 플레이), 완료 기준 1~3 (미니게임), DoD 1 · 2 · 4
+deferred  팀 대전 템플릿 (v0.5), 노드 그래프 캔버스 (v0.3 · v0.5), 패키지 압축 · 의존 (v0.4) · 서명 (v0.6) · 원격 받기 (v0.7),
+          게임 버전 간 세이브 마이그레이션 (v0.4), 준비 · 팀 고르기 · 여러 사람의 테스트 플레이 (v0.7), 봇 자동 플레이 (v0.9) …
+removed   맵 파일 worlds/main.world (→ 세이브 폴더, ADR-0040), Loading · Stopped 게임 상태 (→ 서버, ADR-0045), 초안 매니페스트 예시의
+          scriptApi · dependencies · permissions · network 키 (→ 필요한 버전이 schemaVersion 을 올려), zip 패키지 (→ 자체 컨테이너, ADR-0054)
+골든      kSimVersion 4 그대로 — v0.2 의 기능은 세션 · 트리거가 있는 월드에서만 돈다 (det_* · 리플레이 해시 그대로)
+```
 
 ### 5.2 GameProject 매니페스트 (규범 — v0.2 M1-T1, ADR-0040)
 
@@ -243,6 +258,7 @@ M4-T3 ✅  10 8장 (트리거 폼), 08 (프로토콜 11), 09 3장 (overlay/trigg
 M5-T1 ✅  08 (프로토콜 12), 10 9장 (테스트 플레이), 13, ADR-0053
 M5-T2 ✅  09 2 · 9장 (GamePackage · 세이브 결속), 15 7장 (sbx build · --world 패키지), 13, 17, ADR-0054 (D-02)
 M6-T1 ✅  13 5.1 (자동 플레이), 15 7장 (--script · --exit), 17 (samples/ · PlayScript), ADR-0055
+M6-T2 ✅  releases/v0.2.0 (릴리스 노트 — 요구사항 판정), 18 (0 · 1 · 2 · 4 · 5.3장), 13 5.1, 16, 17, README (문서 지도)
 v0.3 전   ADR (D-01 · D-04), 01 (스크립트 모듈 경계)
 ```
 
@@ -269,4 +285,5 @@ v0.2 M4-T3 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_edit
 v0.2 M5-T1 뒤: Windows MSVC Debug 59/59 (render_tests_warp 제외) · unit_network +2 · unit_client +1 (프로토콜 12)
 v0.2 M5-T2 뒤: Windows MSVC Debug 60/60 (render_tests_warp 제외, + project_package) · unit +7 (sha256 2 · package 4 · 결속 1)
 v0.2 M6-T1 뒤: Windows MSVC Debug 61/61 (render_tests_warp 제외, + sample_playthrough) · unit +4 (play script 3 · server options 1)
+v0.2 M6-T2 뒤 (0.2.0): Windows MSVC Debug 61/61 (render_tests_warp 제외) — sample_playthrough 가 패키지로도 (프로젝트 · 패키지 × 두 호스트)
 ```
