@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-21 — v0.3 M1-T3: SandboxScript 코드 생성 · 바이트코드 .sbc · 검증기 (ADR-0058) → M1 완료
+
+**무엇을**
+
+- ADR-0058: 레지스터 기계, 레지스터마다 타입 · 0 초기화, 8 바이트 칸, 구조체 배치는 필드 이름 순, 선형 검증기, 따로 된 IR 층 없음
+  (검사기의 Program 이 타입 있는 IR), 팩 하나 = 모듈 하나, .sbc 에 체크섬 없음.
+- `script/vm/Bytecode`: 명령 68 종 (타입별 산술 · 비교 · 변환 · 문자열화, 타입을 나누지 않는 배열 · 필드 · 상자, 흐름 · 호출 · Host
+  호출), 타입 표 · 모듈 · export, serialize · deserialize (개수마다 상한 · 남은 크기 검사, 남는 바이트 거절) · disassemble.
+- `script/vm/Verifier`: verify (번호 범위 · 피연산자 타입 · 서명 · 끝 명령 · pad · 타입 표 · UTF-8 · import = Host 표 · export
+  겹침 · 머리 — 다르면 VersionMismatch), sameType (구조적, 재귀), loadModule.
+- `script/lang/Codegen`: Program → Module — 지역 변수 레지스터, 문장마다 타입별 임시 재사용, 넣는 자리 변환 (I2F · 상자 · null ·
+  좁힌 이름 UNBOX · Nullable(A) → Nullable(B)), ===/!== 의 null 가능 · 문자열 내용 비교, 짧은 회로, ??, 복합 대입 (비트 연산은
+  number 도 i32 로 계산해 되돌린다), for-of (길이를 돌 때마다), switch, 가변 Math 는 둘씩. 만든 모듈은 바로 검증 (S502).
+- `script/api/MathBuiltins`: Math 표를 검사기에서 옮겼다 (검증기 · VM 공용 — 자리 = MATHF 번호).
+- 검사기: 구조체 필드는 readonly 도 양쪽으로 맞춘다 (배치가 같아야 해서), Math.min · max 에 i32 와 정수 상수를 섞으면 i32.
+- 시험 test_bytecode 7 케이스 (+ test_checker 2 단언). 문서 19 (12장 · 5 · 8 · 9장), 18 (M1 완료), 17, 13, adr/README.
+
+**왜**
+
+- v0.3 M2 의 VM 이 돌릴 형식. 바이트코드는 파일로 올 수 있어 (믿지 않는 입력) 메모리 안전을 검증기에 모았다 — 흐름 분석 없이 한 번
+  훑기로 끝나게 레지스터 타입을 고정했다.
+- 디스어셈블이 드러낸 문제: C++ 함수 인자의 계산 순서 (MSVC 는 오른쪽부터) 에 gen(a) · gen(b) 를 맡겨 a() > b() 가 b 를 먼저
+  불렀다 — JS 순서 위반이자 툴체인마다 다른 바이트. 하나씩 지역 변수로 차례를 고정하고 시험으로 묶었다.
+
+**검증**
+
+- Windows MSVC Debug: 경고 없이 빌드, unit_script 37 케이스 · 3459 단언 (모든 바이트 × 8 비트 뒤집기 포함), 전체 ctest 62/62
+  (render_tests_warp 제외). 같은 소스 = 같은 바이트, 직렬화 왕복 = 같은 바이트.
+- 시뮬레이션 변경 없음.
+
+**남은 일**
+
+- v0.3 M2-T1: 인터프리터 (연료 · 스택 · 호출 아레나 · 트랩 · JS Number#toString · UTF-16 길이).
+- 최적화 (명령 융합 · 죽은 코드) 는 M6 벤치 뒤 [재검토 — ADR-0058].
+
 ## 2026-10-21 — v0.3 M1-T2: SandboxScript 이름 · 타입 검사기, Host API 표 첫 항목
 
 **무엇을**

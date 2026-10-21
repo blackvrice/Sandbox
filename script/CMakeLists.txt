@@ -14,8 +14,15 @@ add_library(SandboxScript STATIC
     lang/Types.cpp
     lang/Checker.hpp
     lang/Checker.cpp
+    lang/Codegen.hpp
+    lang/Codegen.cpp
+    vm/Bytecode.hpp
+    vm/Bytecode.cpp
+    vm/Verifier.hpp
+    vm/Verifier.cpp
     api/HostApi.hpp
     api/HostApi.cpp
+    api/MathBuiltins.hpp
 )
 add_library(Sandbox::Script ALIAS SandboxScript)
 

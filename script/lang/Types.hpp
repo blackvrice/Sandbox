@@ -89,7 +89,8 @@ public:
     [[nodiscard]] TypeId nonNull(TypeId t) const;
 
     // src 값을 dst 자리에 넣을 수 있나 (상수 · 리터럴의 number → i32 는 부르는 쪽이 따로 본다).
-    // i32 → number, enum → i32 · number, T · null → T | null, 구조체는 같은 필드 이름 집합 + 필드마다 넣을 수 있음
+    // i32 → number, enum → i32 · number, T · null → T | null. 배열 원소 · 구조체 필드는 양쪽으로 (참조 — 같은 실행
+    // 배치)
     [[nodiscard]] bool assignable(TypeId src, TypeId dst) const;
     [[nodiscard]] std::string name(TypeId t) const;
 

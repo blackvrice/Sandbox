@@ -199,6 +199,8 @@ TEST_SUITE("script") {
         expectOnly("const z: i32 = 0\nconst c: i32 = 7 % z", "S409");
         ok(withHead("function f(x: i32): i32 { return x * 2 + 1 }\nfunction g(x: i32): i32 { return (x << 2) | 1 }"));
         ok(withHead("function f(x: number): i32 { return x | 0 }")); // 비트 연산은 i32 (JS ToInt32)
+        ok(withHead("function f(x: i32): i32 { return Math.max(x, 0) + Math.min(x, 2, 3) }")); // 정수 상수는 i32 로
+        expectOnly("function f(x: i32): i32 { return Math.max(x, 0.5) }", "S409");
         ok(withHead("const N = 10\nfunction f(): i32 { const k = 3\n let a: i32 = N\n a = k\n return a }"));
         // i32 상수 산술은 감싼다 (ADR-0056 3)
         const Checked w = ok(withHead("export const W: i32 = 2147483647 + 1"));

@@ -2,7 +2,7 @@
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 의 낱말 · 문법 · 부분집합 · 진단.
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
-> (Host API · D-04). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -13,7 +13,7 @@
 | 낱말 (렉서) · 문법 (파서 → AST) · 진단 | 구현 (v0.3 M1-T1)     | `script/lang/` Lexer · Parser · Ast · Diagnostic, unit_script          |
 | 이름 · 타입 검사 (5 · 11장)            | 구현 (v0.3 M1-T2)     | `script/lang/` Types · Checker, unit_script (test_checker)             |
 | Host API 표 (10장)                     | 첫 항목 (v0.3 M1-T2)  | `script/api/HostApi` — ctx.tick · ctx.log, 지문                        |
-| IR · 바이트코드 · 검증기               | [계획] v0.3 M1-T3     |                                                                        |
+| 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
 | VM (6장) · Host API                    | [계획] v0.3 M2        |                                                                        |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -137,7 +137,8 @@ i32         32 비트로 감싼다. i32 ∘ i32 (+ - * %) → i32, 비트 연산
             접은 식) 은 그대로 들어간다 (S409). idiv(a, b) = 정수 나눗셈. 상수의 i32 산술도 감싼다 (2147483647 + 1 → -2^31)
 enum        정수 값 (자동 증가 · 상수식, S418), 이름 있는 타입 — i32 · number 로 넓어지고 거꾸로는 아니다, 다른 enum 과 비교 없음
 넣기        같은 타입 · i32 → number · enum → i32 · number · null 과 T → T | null. 배열 원소 · 구조체 필드는 양쪽으로 맞아야
-            한다 (참조라 — readonly 필드만 한쪽). 구조체는 필드 이름 집합이 같아야 한다 (객체 리터럴의 빠진 · 남는 필드 S404)
+            한다 (참조라 — readonly 필드도, 실행 배치가 같아야 해서 — 12장). 구조체는 필드 이름 집합이 같아야 한다 (객체
+            리터럴의 빠진 · 남는 필드 S404)
 연산        조건 · && · || · ! 는 boolean 만 (S408 · S422 — x !== null · x !== 0 로 쓴다), === !== 는 맞는 타입끼리,
             < > <= >= 는 두 수 · 두 문자열, 문자열 + 기본 타입 → string, ?? 는 T | null 의 왼쪽에만 (S422)
 f32         컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림 [계획 M3]
@@ -168,6 +169,8 @@ Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · 
 번호   S100 소스 (UTF-8 · 크기)  S101 알 수 없는 글자  S103 문자열  S104 주석  S105 이스케이프  S106 숫자  S108 템플릿
        S201 기대한 낱말이 없다  S202 괄호가 필요한 섞기  S203 대입 대상  S204 중첩이 너무 깊다 (> 200 — kMaxParseDepth)
        S299 오류가 너무 많다 (> 64 — kMaxParseErrors, 거기서 멈춘다)  S3xx 부분집합 밖 (4장)  S4xx 이름 · 타입 (11장)
+       S500 검사 오류가 있어 코드를 만들지 않는다  S501 상한 (레지스터 4096 · 상수 65535 · 명령) — 함수를 나눈다
+       S502 생성한 코드가 검증을 통과하지 못했다 (컴파일러 버그 — 보고한다)
 모음   첫 오류에서 멈추지 않는다 — 문장 단위로 회복해 나머지를 계속 본다. 믿지 않는 소스라 깊이 · 오류 수에 상한이 있다
 ```
 
@@ -179,6 +182,10 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   lang/Ast             마디 풀 · dump              lang/Parser          파서 · ASI · 부분집합 검사 · 회복
   lang/Types           타입 표 · 넣기 규칙          lang/Checker         이름 · 타입 검사 · 좁히기 · 상수 접기 → Program
   api/HostApi          Host 함수 표 · 불투명 타입 · 정규형 · 지문 (10장)
+  api/MathBuiltins     Math 함수 · 상수 표 (검사기 · 검증기 · VM 이 같이 — 자리가 MATHF 의 번호)
+  lang/Codegen         Program → bc::Module (compileScripts = 검사 + 생성 + 검증)
+  vm/Bytecode          명령 · 타입 표 · 모듈 · serialize · deserialize · disassemble
+  vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
 시험                   tests/unit/script (unit_script) — 낱말 · 우선순위 · ASI · 선언 · 타입 · 부분집합 S3xx 전부 · 회복 · 상한 ·
@@ -247,3 +254,33 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 | S421 | 재귀 함수의 반환 타입                                                                  |
 | S422 | 연산자 · 피연산자 타입 (조건 밖의 && · ! 포함)                                         |
 | S423 | [계획] 아직 없는 자리 (export default · 객체 메서드 — v0.3 M4)                          |
+
+## 12. 바이트코드 (v0.3 M1-T3 — `script/vm/Bytecode` · `Verifier`, `script/lang/Codegen`, ADR-0058)
+
+```text
+모듈        팩 하나 = 모듈 하나 (모든 스크립트 파일을 잇는다). 함수 번호 = 검사기의 함수 순서, export = (파일 경로, 이름) → 함수
+기계        레지스터 기계. 함수마다 레지스터 표 (≤ 4096, 레지스터마다 타입) + 명령열 (8 바이트 고정 {op, 0, a, b, c}).
+            매개변수 = r0 … rn-1, 호출 인자 = 연속 레지스터 c … c+n-1, 점프 대상 · 32 비트 즉시값 = b | c << 16
+값          8 바이트 칸 하나 — i32 · f64 비트 · bool · 참조 · 불투명 핸들. 프레임 시작에 모두 0 (null · false · 0)
+타입 표     Void · I32 · F64 · Bool · String · Opaque(abi) · Array(원소) · Box(안쪽) · Struct(필드 — 이름 순).
+            검사기 타입 → 표: enum = I32, T | null = (T 가 참조면) T · (기본 · 불투명이면) Box(T), 구조체는 필드 이름 (바이트)
+            순 배치 — 같은 필드 집합 + 같은 필드 타입 = 같은 배치 (그래서 5장의 구조체 필드는 양쪽으로 맞는다)
+명령        이동 · 상수 (MOV LOADI LOADB LOADF LOADS LOADNULL), i32 (ADDI … SHRI · MINI MAXI · IDIV · NEGI NOTI — 감싼다,
+            REMI · IDIV 는 0 이면 트랩), f64 (ADDF … POWF · NEGF · MATHF), 변환 (I2F · F2I = JS ToInt32 · F2IDX = 정수가
+            아니면 트랩), 비교 (EQ · LT · LE × I F S, EQB · EQR 참조 · EQO 불투명 · NOTB — > · >= 는 자리를 바꾼다), 문자열
+            (CONCAT · TOSTRI · TOSTRF · TOSTRB = JS Number#toString · STRLEN = UTF-16 단위), 배열 (NEWARR ARRLEN ARRGET ARRSET
+            ARRPUSH — 늘리기는 push 만, 범위 밖은 트랩), 구조체 · 상자 (NEWOBJ GETF SETF BOX UNBOX), 흐름 (JMP JMPT JMPF CALL
+            CALLH RET RETV TRAP). 원소 · 필드 · 상자 명령은 타입마다 나누지 않는다 (검증기가 타입을 안다)
+코드 생성   지역 변수 · 매개변수는 레지스터 하나씩, 식의 임시는 문장이 끝나면 타입별로 돌려 쓴다. 넣는 자리의 변환 (i32 → f64 ·
+            T → T | null 상자 · null 리터럴 = 그 자리 타입의 LOADNULL · 좁힌 이름의 UNBOX · Nullable(A) → Nullable(B))
+            을 명령으로. 계산 순서는 소스 순서 (JS — a() > b() 도 a 먼저, 대입은 대상 → 값), 상수는 접힌 값을 그대로.
+            가변 Math (min · max · hypot) 는 둘씩 잇는다 (hypot(a, b, c) = hypot(hypot(a, b), c), hypot(x) = abs(x)).
+            함수 끝: void 면 RET, 아니면 TRAP 1 (검사기가 막는다). 만든 모듈은 바로 검증한다 (못 지나면 S502)
+검증기      함수마다 한 번 훑기 (흐름 분석 없음): 번호 (레지스터 · 상수 · 함수 · import · 필드 · 점프) 가 범위 안, 명령마다 피연산자
+            타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
+            이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
+            다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 [계획 M2]
+파일 .sbc   "SBXC" · 형식 1 · hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 함수 · export 표 (리틀 엔디안, 개수마다
+            상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
+결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
+```

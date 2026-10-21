@@ -2133,6 +2133,24 @@ private:
                 }
                 allInt = allInt && T().kind(t) != TypeKind::Number;
             }
+            // min · max 에 i32 와 정수 상수를 섞으면 상수를 i32 로 (Math.max(hp, 0) 은 i32) — 이항 연산과 같은 규칙
+            if (f.keepsI32 && !allInt) {
+                bool anyInt = false;
+                bool coercible = true;
+                for (usize k = 1; k < kids.size(); ++k) {
+                    const TypeId t = sema(kids[k]).type;
+                    anyInt = anyInt || T().kind(t) == TypeKind::I32 || T().kind(t) == TypeKind::Enum;
+                    coercible = coercible &&
+                                (T().kind(t) != TypeKind::Number ||
+                                 (cval(kids[k]).kind == ConstValue::Kind::Number && fitsI32(cval(kids[k]).number)));
+                }
+                if (anyInt && coercible) {
+                    for (usize k = 1; k < kids.size(); ++k) {
+                        coerceToI32(kids[k]);
+                    }
+                    allInt = true;
+                }
+            }
             return set(n, f.keepsI32 && allInt ? TypeTable::kI32 : TypeTable::kNumber);
         }
         err("S406", callee, std::format("Math.{} 는 없다", member));

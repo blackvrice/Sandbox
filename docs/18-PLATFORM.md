@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M1-T3 — 타입 있는 IR → 바이트코드 .sbc (형식 1 · Host 표 지문) · 검증기 (불법 바이트코드 거부)
+다음     v0.3 M2-T1 — 인터프리터 (레지스터 · 연료 · 스택 · 호출 아레나 · 트랩, ECS 없이 단위 시험)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -83,8 +83,8 @@
   core/project         GameProject 매니페스트 · 검사 · 열기 (M1-T1 · T2)   Core 안 — 서버가 링크한다, 그래픽 없음
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
 v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
-  script/               SandboxScript — lang (렉서 · 파서 ✅ M1-T1, 검사기 ✅ M1-T2, [계획] IR · 바이트코드) · api (Host 표 ✅ 첫 항목) ·
-                        vm [계획]
+  script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
+                        vm (바이트코드 · 검증기 ✅ M1-T3, [계획 M2] 인터프리터)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
   core/script [계획 M2]  Host 바인딩 · 동적 컴포넌트 · ScriptSystemAdapter (SandboxCore 가 SandboxScript 를 링크)
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
@@ -255,7 +255,9 @@ M1 언어 앞단 (실행 없음)
         "sandbox", 없는 파일 · 순환 S416), 최상위 = 기본 타입 상수식, number · i32 · enum 규칙과 상수 접기, null 좁히기 (대입 없는
         이름만), 흐름 (모든 길 return · switch 떨어짐), 반환 타입 추론, 금지 이름. Host 표 script/api 의 첫 항목 ctx.tick ·
         ctx.log + 지문 (컴포넌트 읽기 · 질의는 컴포넌트 타입과 함께 M3 로)
-  T3 [계획] 타입 있는 IR → 바이트코드 .sbc (형식 1 · 표 지문) · 검증기 (불법 바이트코드 거부 — 깨뜨린 자료 시험)
+  T3 ✅ 코드 생성 (검사한 Program = 타입 있는 IR → bc::Module) · .sbc 형식 1 (Host 표 지문) · 검증기 (선형 — 타입 · 번호 ·
+        끝 명령 · import 서명), 비트 뒤집기 · 잘림 · 일부러 틀린 모듈 시험 (ADR-0058)
+  → M1 완료 (2026-10-21): 소스 → 파싱 → 검사 → 바이트코드 → 검증 (실행은 M2)
 M2 VM · Host API
   T1 [계획] 인터프리터: 레지스터 · 연료 · 스택 · 호출 아레나 · 트랩 (ECS 없이 단위 시험 — i32 감싸기 · f64 · Math 내장)
   T2 [계획] 바인딩 core/script: 표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼 (read-your-writes · 트랩이면 버림),
@@ -308,6 +310,7 @@ M6-T2 ✅  releases/v0.2.0 (릴리스 노트 — 요구사항 판정), 18 (0 · 
 v0.3 진입 ✅  ADR-0056 (D-01 언어) · ADR-0057 (D-04 Host API), 18 (0 · 1 · 3 · 6.1 · 6.2장), 03 6.4
 v0.3 M1-T1 ✅  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경계), 04 4.6, 17, 13, README, AGENTS 4장
 v0.3 M1-T2 ✅  19 (1 · 5 · 7 · 8 · 9 · 10 · 11장 — 타입 규칙 · Host 표 · 검사기 · S4xx), 17, 13
+v0.3 M1-T3 ✅  19 (5 · 8 · 9 · 12장 — 바이트코드 · 검증기), 17, 13, ADR-0058
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -336,4 +339,5 @@ v0.2 M6-T1 뒤: Windows MSVC Debug 61/61 (render_tests_warp 제외, + sample_pla
 v0.2 M6-T2 뒤 (0.2.0): Windows MSVC Debug 61/61 (render_tests_warp 제외) — sample_playthrough 가 패키지로도 (프로젝트 · 패키지 × 두 호스트)
 v0.3 M1-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외, + unit_script — 렉서 6 · 파서 10 케이스) · arch 픽스처 10 건
 v0.3 M1-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +14 케이스 (test_checker — Host 표 · 경로 · 규칙별)
+v0.3 M1-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 케이스 (test_bytecode — 역어셈블 기준 · 왕복 · 거절 · 비트 뒤집기)
 ```

@@ -147,11 +147,9 @@ bool TypeTable::assignableRec(TypeId src, TypeId dst, std::vector<std::pair<Type
             if (sf == nullptr) {
                 return false;
             }
-            // 필드도 참조처럼 양쪽으로 (쓰기가 있다) — 읽기 전용 필드만 한쪽으로
-            if (!assignableRec(sf->type, df.type, assumed)) {
-                return false;
-            }
-            if (!df.readonly && !assignableRec(df.type, sf->type, assumed)) {
+            // 필드는 양쪽으로 — 같은 객체를 두 타입으로 본다 (참조). readonly 필드도: 실행 표현 (i32 · f64 칸) 이
+            // 같아야 한다 (ADR-0058 — 구조체 배치는 필드 이름 순, 같은 필드 집합 + 같은 필드 타입 = 같은 배치)
+            if (!assignableRec(sf->type, df.type, assumed) || !assignableRec(df.type, sf->type, assumed)) {
                 return false;
             }
         }
