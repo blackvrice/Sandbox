@@ -203,4 +203,21 @@ std::string generateSandboxDts() {
     return out;
 }
 
+std::string generateTsconfig() {
+    // 보수적인 설정 — 모듈 해석은 상대 경로 (확장자 없이) 와 sandbox (선언 파일의 declare module) 만 쓴다
+    return R"({
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "lib": ["ES2020"],
+    "types": [],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["sdk/sandbox.d.ts", "content/*/scripts/**/*.ts"]
+}
+)";
+}
+
 } // namespace sbx::script::sdk

@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M5-T1 — sbx check 의 스크립트 진단, sbx new 템플릿 tsconfig · sandbox.d.ts, 에디터 "콘텐츠" 창의 스크립트 오류 · 적용
+다음     v0.3 M5-T2 — 에디터 "콘텐츠" 창의 스크립트 오류 줄 · 적용 (오버레이 종류 Script — 프로토콜 ++)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -209,6 +209,8 @@ MyGame/
 1 매니페스트 (P1~P4 형식)   2 엔진 범위 (P3)   3 팩 — ContentLoader V1~V7 (file 은 "content/<팩 폴더>/…"), content/ 없음 P5
 4 시작 월드 — 폴더 · world.json 요약 (P4), 월드가 쓰는 팩이 매니페스트에 없음 (P5 오류), contentHash 가 다름 (P5 경고),
   persist::loadWorld 로 실제로 연다 (실패 P4 오류, 로드 경고 P4 경고)
+5 스크립트 SDK 파일 (v0.3 M5-T1, ADR-0065 — P6 경고): sdk/sandbox.d.ts 가 이 엔진의 생성 결과와 다름 (CR 은 빼고 비교) · 스크립트가
+  있는데 없음, tsconfig.json 이 JSON 아님. 스크립트 요약 (팩 · 컴포넌트 · 시스템 수 · SDK 상태 — ProjectReport) 과 시스템마다 한 줄
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)
@@ -299,10 +301,11 @@ M4 Script System
         digest 가 다르면 다시 켠다), 시스템별 통계 + 서버 · sbx_sim_check 끝 줄
   → M4 완료 (2026-10-26): defineSystem → 단계 16b onTick · 17d onStart · onEvent (죽음 · 생성 · 영역 · 점수) · onStop, 예산 ·
     트랩 정책 · 통계 — 스크립트 상태 없이 세이브 → 로드 · 복제 · 해시가 맞다
-M5 도구
-  T1 [계획] sbx check 의 스크립트 진단, sbx new 템플릿에 tsconfig.json · sandbox.d.ts, 에디터 "콘텐츠" 창의 스크립트 오류 줄 ·
-            적용 (오버레이 종류 Script — 프로토콜 ++)
-  T2 [계획] IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
+M5 도구 (2026-10-26 — T1 을 둘로 나눴다: CLI 와 에디터)
+  T1 ✅ ADR-0065: sbx new 가 sdk/sandbox.d.ts · tsconfig.json (generateTsconfig) 을 만든다, sbx check 의 스크립트 요약 · 시스템 목록 ·
+        P6 경고 (낡은 · 없는 SDK 선언, JSON 아닌 tsconfig) — 진단 S* · V1 · V7 은 M3-T2 부터 콘텐츠 문제로 나온다
+  T2 [계획] 에디터 "콘텐츠" 창의 스크립트 오류 줄 · 적용 (오버레이 종류 Script — 프로토콜 ++)
+  T3 [계획] IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
 M6 E2E · 회귀
   T1 [계획] 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템): Inspector · 세이브/로드 · 복제 · 로컬 = 원격 해시, 보호 시험
             (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조), 10k 대상 벤치 (sbx_bench)
@@ -348,6 +351,7 @@ v0.3 M3-T4 ✅  ADR-0061, 09 6장, 19 (0 · 15장), 13
 v0.3 M4-T1 ✅  ADR-0062, 03 2장 (16b), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 1 · 9 · 11 · 12 · 14 · 17장), 17, 13
 v0.3 M4-T2 ✅  ADR-0063, 03 2장 (17d), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 9 · 11 · 12 · 13 · 17 · 18장), 17, 13
 v0.3 M4-T3 ✅  ADR-0064, 09 2장 (world.json scriptSystems), 15 (끝 줄), 19 (0 · 13 · 14 · 17 · 19장), 17, 13
+v0.3 M5-T1 ✅  ADR-0065, 18 5.2 (P6), 15 7장 (sbx new · check), 19 14장, 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -386,4 +390,5 @@ v0.3 M3-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_cont
 v0.3 M4-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 (test_script_systems)
 v0.3 M4-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +9 (test_script_callbacks)
 v0.3 M4-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +4 (test_script_budget)
+v0.3 M5-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_project +2 (test_game_project — SDK 파일 · P6)
 ```

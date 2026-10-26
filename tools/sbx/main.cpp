@@ -60,6 +60,17 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
             std::printf("게임 모드 %s\n", r.manifest.gameMode.c_str());
         }
     }
+    // 스크립트 (v0.3 M5-T1) — 진단은 위의 문제 목록 (S* · V1 · V7 · P6), 여기는 요약과 시스템 목록
+    if (r.scriptPacks > 0 || r.scriptComponents > 0 || r.sdk != project::ProjectReport::SdkState::Missing) {
+        const char* sdk = r.sdk == project::ProjectReport::SdkState::Current ? "최신"
+                          : r.sdk == project::ProjectReport::SdkState::Stale ? "다름 — sbx sdk 로 다시"
+                                                                             : "없음";
+        std::printf("스크립트: 팩 %zu · 컴포넌트 %zu · 시스템 %zu · SDK sdk/sandbox.d.ts %s\n", r.scriptPacks,
+                    r.scriptComponents, r.scriptSystems.size(), sdk);
+        for (const std::string& s : r.scriptSystems) {
+            std::printf("  시스템 %s\n", s.c_str());
+        }
+    }
     const std::string world = r.worldOpened ? std::format("열림 — tick {}, 엔티티 {}", r.worldTick, r.worldEntities)
                                             : std::string("열지 못함");
     std::printf("프로젝트 검사: 오류 %zu, 경고 %zu (Prefab %zu, contentHash %s, 시작 월드 %s)\n", r.errorCount(),
@@ -112,6 +123,7 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
         std::printf("  게임 모드 %s (Lobby 로 열린다 — 클라이언트 \"게임\" 패널의 시작 · 서버 --start-game)\n",
                     made->manifest.gameMode.c_str());
     }
+    std::printf("  스크립트 SDK: sdk/sandbox.d.ts · tsconfig.json (팩의 scripts/*.ts — IDE 자동 완성 · tsc 검사)\n");
     std::printf("  실행: SandboxClient --world %s  ·  서버: SandboxServer --world %s\n", opt.dir.c_str(),
                 opt.dir.c_str());
     return kExitOk;

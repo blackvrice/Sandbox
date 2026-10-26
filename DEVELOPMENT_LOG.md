@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-10-26 — v0.3 M5-T1: sbx new 의 스크립트 SDK 파일 · sbx check 의 스크립트 요약 · P6 (ADR-0065)
+
+**무엇을**
+
+- 18-PLATFORM 6.2 의 M5-T1 (CLI + 에디터 + 프로토콜) 을 둘로 나눴다: T1 = CLI (sbx new · check), T2 = 에디터의 스크립트 오류 줄 ·
+  적용 (오버레이 Script — 프로토콜 ++), 옛 T2 (IClientContext · 프로파일) → T3.
+- `script::sdk::generateTsconfig` (strict · noEmit, include = sdk/sandbox.d.ts · content/*/scripts/**/*.ts). `project::createProject`
+  가 sdk/sandbox.d.ts · tsconfig.json 을 만든다 (스크립트가 없어도).
+- `project::validateProject` 5 단계 (P6 경고): sdk/sandbox.d.ts 가 이 엔진의 생성 결과와 다름 (CR 은 빼고 비교) · 스크립트가 있는데
+  없음, tsconfig.json 이 JSON 아님. ProjectReport 에 스크립트 팩 · 컴포넌트 수 · 시스템 줄 · SDK 상태.
+- sbx check: "스크립트: 팩 n · 컴포넌트 n · 시스템 n · SDK … 최신|다름|없음" 과 시스템마다 한 줄. sbx new 가 SDK 파일을 알린다.
+- 시험: test_game_project +2. 문서: ADR-0065, 18 (5.2 P6 · 6.2 M5 나눔), 15 7장, 19 14장, 17, 13.
+
+**왜**
+
+- 스크립트 진단은 M3-T2 부터 sbx check 에 나오지만, 새 프로젝트에 IDE 가 읽을 SDK 선언 · tsconfig 가 없었고, 엔진을 올리면 프로젝트의
+  d.ts 가 낡아도 알 길이 없었다. 경고 (P6) 로 둔 것은 IDE 파일이 게임 실행과 무관하기 때문이다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과. unit_project +2. check_includes 위반 0.
+- 실행 (스크래치): `sbx new NewScripted --id studio.newscripted --from ecosystem_small` → sdk/ · tsconfig.json 생성 · 검사 통과,
+  M4 의 스크립트 셋을 넣고 `sbx check` → "스크립트: 팩 1 · 컴포넌트 1 · 시스템 3 · SDK sdk/sandbox.d.ts 최신" 과 시스템 셋 줄
+  (onTick (30 틱마다) · onStart · onEvent (death · spawn)), sdk/ 를 지우면 "sdk/sandbox.d.ts:/: 경고 P6 — 스크립트가 있는데 SDK
+  선언이 없다".
+- tsc 로 템플릿을 검증하지는 못했다 — 이 기계 (빌드 체인) 에 Node 가 없다. tsconfig 는 오래된 tsc 도 읽는 옵션만 썼다 (ADR-0065).
+
+**남은 일**
+
+- M5-T2: 에디터 "콘텐츠" 창의 스크립트 오류 줄 · 적용 (오버레이 Script — 프로토콜 ++). sbx sdk 가 tsconfig 를 보존하며 갱신하는 길은
+  필요해지면.
+
+---
+
 ## 2026-10-26 — v0.3 M4-T3: 스크립트 예산 · 트랩 정책 · 시스템별 통계 (ADR-0064) → M4 완료
 
 **무엇을**

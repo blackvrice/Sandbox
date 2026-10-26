@@ -77,13 +77,21 @@ struct ProjectReport {
     bool worldOpened = false;
     u64 worldTick = 0;
     usize worldEntities = 0;
+    // 스크립트 (v0.3 M5-T1, ADR-0065) — 콘텐츠를 오류 없이 읽었을 때. 시스템마다 한 줄 ("id — 파일 · 콜백")
+    usize scriptPacks = 0;
+    usize scriptComponents = 0;
+    std::vector<std::string> scriptSystems;
+    enum class SdkState : u8 { Missing, Current, Stale };
+    SdkState sdk = SdkState::Missing; // <프로젝트>/sdk/sandbox.d.ts 가 이 엔진의 SDK 와 같은가
 
     [[nodiscard]] bool ok() const noexcept;
     [[nodiscard]] usize errorCount() const noexcept;
     [[nodiscard]] usize warningCount() const noexcept;
 };
 
-// engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7) → 시작 월드 (형식 · 팩 · 열기) 순서
+// engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7 · 스크립트 S*) → 시작 월드 (형식 · 팩 ·
+// 열기) → 도구 파일 (P6 — sdk/sandbox.d.ts 가 이 엔진의 것과 다르다 · 스크립트가 있는데 없다, tsconfig.json 이 JSON 이
+// 아니다) 순서
 [[nodiscard]] ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                             const ecs::ComponentCatalog& catalog);
 

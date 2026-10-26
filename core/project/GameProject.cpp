@@ -6,12 +6,15 @@
 #include <map>
 #include <set>
 
+#include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "foundation/text/Utf8.hpp"
+#include "script/api/HostApi.hpp"
+#include "script/sdk/SdkGenerator.hpp"
 
 namespace sbx::project {
 namespace {
@@ -337,6 +340,87 @@ struct Opened {
     std::unique_ptr<sim::SimulationWorld> world;
 };
 
+// 스크립트 요약 (v0.3 M5-T1) — 팩 · 컴포넌트 수, 시스템마다 "id — content/<팩>/scripts/a.ts · onTick (n 틱마다) ·
+// onEvent …"
+void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
+    r.scriptComponents = db.scriptComponents().size();
+    const auto& programs = db.scriptPrograms();
+    if (!programs) {
+        return;
+    }
+    r.scriptPacks = programs->packs.size();
+    for (const content::ScriptPackProgram& p : programs->packs) {
+        for (const script::bc::SystemDesc& s : p.module.systems) {
+            std::string line = std::format("{} — content/{}/{}", s.id, p.folder, s.module);
+            if (s.onTick != script::api::kNoCallback) {
+                line += s.intervalTicks == 1 ? " · onTick" : std::format(" · onTick ({} 틱마다)", s.intervalTicks);
+            }
+            if (s.onStart != script::api::kNoCallback) {
+                line += " · onStart";
+            }
+            if (s.onEvent != script::api::kNoCallback) {
+                line += " · onEvent (";
+                for (usize i = 0; i < s.events.size(); ++i) {
+                    const script::api::GameEventKindInfo* k = script::api::gameEventKindInfo(s.events[i].kind);
+                    line += std::format("{}{}", i == 0 ? "" : " · ", k != nullptr ? k->key : std::string_view("?"));
+                }
+                line += ")";
+            }
+            if (s.onStop != script::api::kNoCallback) {
+                line += " · onStop";
+            }
+            r.scriptSystems.push_back(std::move(line));
+        }
+    }
+}
+
+// 줄바꿈을 \n 으로 (Git 이 CRLF 로 꺼낸 파일도 같은 것으로 본다)
+std::string withoutCarriageReturns(std::string_view text) {
+    std::string out;
+    out.reserve(text.size());
+    for (const char ch : text) {
+        if (ch != '\r') {
+            out += ch;
+        }
+    }
+    return out;
+}
+
+// P6 (v0.3 M5-T1, ADR-0065): sdk/sandbox.d.ts 가 이 엔진의 SDK 와 다르다 · 스크립트가 있는데 없다, tsconfig.json 이
+// JSON 이 아니다
+void checkSdkFiles(const fs::path& projectDir, ProjectReport& r, Collector& c) {
+    const std::string dtsRel = std::format("{}/{}", script::sdk::kProjectSdkDir, script::sdk::kDtsFileName);
+    const fs::path dts = projectDir / script::sdk::kProjectSdkDir / script::sdk::kDtsFileName;
+    const bool hasScripts =
+        r.scriptPacks > 0 || std::any_of(r.issues.begin(), r.issues.end(), [](const ContentIssue& i) {
+            return i.rule.starts_with("S") && i.file.find("/scripts/") != std::string::npos;
+        });
+    std::error_code ec;
+    if (fs::is_regular_file(dts, ec)) {
+        const auto text = io::readFile(dts);
+        const bool same = text && withoutCarriageReturns(*text) == script::sdk::generateSandboxDts();
+        r.sdk = same ? ProjectReport::SdkState::Current : ProjectReport::SdkState::Stale;
+        if (!same) {
+            c.warning(
+                dtsRel, "", "P6",
+                std::format("이 엔진의 SDK 와 다르다 (Host API 지문 {:016x}) — sbx sdk <프로젝트>/{} 로 다시 만든다",
+                            script::api::hostApiFingerprint(), script::sdk::kProjectSdkDir));
+        }
+    } else if (hasScripts) {
+        c.warning(dtsRel, "", "P6",
+                  std::format("스크립트가 있는데 SDK 선언이 없다 — IDE 자동 완성 · tsc 검사용 (sbx sdk <프로젝트>/{})",
+                              script::sdk::kProjectSdkDir));
+    }
+    const fs::path tsconfig = projectDir / script::sdk::kTsconfigFileName;
+    if (fs::is_regular_file(tsconfig, ec)) {
+        const auto text = io::readFile(tsconfig);
+        if (!text || nlohmann::json::parse(*text, nullptr, false).is_discarded()) {
+            c.warning(script::sdk::kTsconfigFileName, "", "P6",
+                      "JSON 이 아니다 — IDE 가 읽지 못한다 (sbx new 의 것을 본보기로)");
+        }
+    }
+}
+
 // validateProject · openProject 공용: 매니페스트 → 엔진 범위 → 팩 → 시작 월드. 오류가 있어도 가능한 데까지 본다
 void checkProject(const std::filesystem::path& projectDir, const SemVer& engine, const ecs::ComponentCatalog& catalog,
                   ProjectReport& r, Opened& out) {
@@ -388,7 +472,10 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     if (out.db) {
         r.contentHash = out.db->contentHash();
         r.prefabs = out.db->prefabs().size();
+        summarizeScripts(*out.db, r);
     }
+    // 5. 도구 파일 (P6 — 경고만: 게임 실행에는 쓰지 않는다). 콘텐츠 · 월드 결과와 무관하게 본다
+    checkSdkFiles(projectDir, r, c);
 
     // 3b. GameMode (schemaVersion 2) — 프로젝트 콘텐츠에 있어야 한다
     if (out.db && !m.gameMode.empty() && out.db->findMode(m.gameMode) == nullptr) {
@@ -658,6 +745,18 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
         }
     }
     if (auto r = saveManifest(staging, m); !r) {
+        return std::unexpected(r.error());
+    }
+    // SDK (v0.3 M5-T1, ADR-0065): sdk/sandbox.d.ts · tsconfig.json — 스크립트를 쓰기 시작할 때 IDE 가 바로 안다
+    if (auto r = io::createDirectories(staging / script::sdk::kProjectSdkDir); !r) {
+        return std::unexpected(r.error());
+    }
+    if (auto r = io::writeFileAtomic(staging / script::sdk::kProjectSdkDir / script::sdk::kDtsFileName,
+                                     script::sdk::generateSandboxDts());
+        !r) {
+        return std::unexpected(r.error());
+    }
+    if (auto r = io::writeFileAtomic(staging / script::sdk::kTsconfigFileName, script::sdk::generateTsconfig()); !r) {
         return std::unexpected(r.error());
     }
 

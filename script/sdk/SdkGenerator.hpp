@@ -17,4 +17,11 @@ inline constexpr const char* kDtsFileName = "sandbox.d.ts";
 // 결정적: 같은 표 = 같은 바이트 (줄바꿈 \n, 끝 줄바꿈 하나)
 [[nodiscard]] std::string generateSandboxDts();
 
+// 게임 프로젝트의 SDK 자리 (v0.3 M5-T1, ADR-0065): <프로젝트>/sdk/sandbox.d.ts · <프로젝트>/tsconfig.json
+inline constexpr const char* kProjectSdkDir = "sdk";
+inline constexpr const char* kTsconfigFileName = "tsconfig.json";
+// 프로젝트의 tsconfig.json — tsc 가 strict · noEmit 으로 sdk/sandbox.d.ts 와 팩의 scripts/ 를 본다 (IDE 자동 완성 ·
+// 타입 오류). 게임 실행 파일은 이 파일을 읽지 않는다 (컴파일은 엔진의 SandboxScript — ADR-0056 1)
+[[nodiscard]] std::string generateTsconfig();
+
 } // namespace sbx::script::sdk

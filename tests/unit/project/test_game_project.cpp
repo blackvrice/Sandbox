@@ -10,6 +10,7 @@
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
+#include "script/sdk/SdkGenerator.hpp"
 
 #ifndef SBX_CONTENT_DIR
 #error "SBX_CONTENT_DIR 가 정의되어야 한다 (tests/CMakeLists.txt)"
@@ -694,5 +695,102 @@ TEST_SUITE("project") {
             m.entryWorld = entry;
             CHECK(project::entryWorldSaveName(m) == want);
         }
+    }
+    TEST_CASE("새 프로젝트: 스크립트 SDK — sdk/sandbox.d.ts · tsconfig.json (v0.3 M5-T1), 검사가 '최신' 으로 본다") {
+        TempDir root("new_sdk");
+        const auto catalog = coreCatalog();
+        const fs::path dir = root.path / "Scripted";
+        project::NewProjectOptions o;
+        o.gameId = "studio.scripted";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        const auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const auto dts = io::readFile(dir / "sdk" / "sandbox.d.ts");
+        REQUIRE(dts.has_value());
+        CHECK(*dts == script::sdk::generateSandboxDts());
+        const auto tsconfig = io::readFile(dir / "tsconfig.json");
+        REQUIRE(tsconfig.has_value());
+        const auto j = nlohmann::json::parse(*tsconfig, nullptr, false);
+        REQUIRE_FALSE(j.is_discarded());
+        CHECK(j["compilerOptions"]["strict"] == true);
+        CHECK(j["include"] == nlohmann::json::array({"sdk/sandbox.d.ts", "content/*/scripts/**/*.ts"}));
+        const auto r = project::validateProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
+        INFO(dumpIssues(r.issues));
+        CHECK(r.ok());
+        CHECK(r.warningCount() == 0);
+        CHECK(r.sdk == project::ProjectReport::SdkState::Current);
+        CHECK(r.scriptPacks == 0);
+    }
+
+    TEST_CASE("프로젝트 검사: 스크립트 요약 · 시스템 목록, SDK 선언이 없거나 다르면 P6 경고 (CRLF 는 같은 것)") {
+        TempDir dir("eco_scripts");
+        const auto catalog = coreCatalog();
+        (void)makeEcoProject(dir.path, catalog, kValid);
+        const fs::path scripts = dir.path / "content" / "ecosystem" / "scripts";
+        fs::create_directories(scripts);
+        REQUIRE(io::writeFileAtomic(scripts / "mana.ts", R"(import { defineComponent, field } from "sandbox"
+export const Mana = defineComponent({ id: "eco.mana", fields: { current: field.f32(1) } })
+)")
+                    .has_value());
+        REQUIRE(io::writeFileAtomic(scripts / "regen.ts", R"(import { defineSystem } from "sandbox"
+export default defineSystem({ id: "eco.mana.regen", intervalTicks: 30, events: { death: {}, score: {} },
+  onTick(ctx) { }, onEvent(ctx, e) { }, onStop(ctx) { } })
+)")
+                    .has_value());
+        const SemVer engine{0, 1, 0, {}, {}};
+        auto r = project::validateProject(dir.path, engine, catalog);
+        INFO(dumpIssues(r.issues));
+        CHECK(r.ok());
+        CHECK(r.scriptPacks == 1);
+        CHECK(r.scriptComponents == 1);
+        REQUIRE(r.scriptSystems.size() == 1);
+        CHECK(r.scriptSystems[0] == "eco.mana.regen — content/ecosystem/scripts/regen.ts · onTick (30 틱마다) · "
+                                    "onEvent (death · score) · onStop");
+        CHECK(r.sdk == project::ProjectReport::SdkState::Missing);
+        CHECK(hasIssue(r.issues, "P6", "", content::ContentIssue::Severity::Warning));
+
+        // 다른 SDK (옛 엔진의 것) → 다름 · 경고
+        fs::create_directories(dir.path / "sdk");
+        REQUIRE(io::writeFileAtomic(dir.path / "sdk" / "sandbox.d.ts", "declare module \"sandbox\" {}\n").has_value());
+        r = project::validateProject(dir.path, engine, catalog);
+        CHECK(r.sdk == project::ProjectReport::SdkState::Stale);
+        bool stale = false;
+        for (const content::ContentIssue& i : r.issues) {
+            stale = stale || (i.rule == "P6" && i.file == "sdk/sandbox.d.ts" &&
+                              i.message.find("이 엔진의 SDK 와 다르다") != std::string::npos);
+        }
+        CHECK(stale);
+
+        // 같은 내용을 CRLF 로 (Git 이 꺼낸 파일) → 최신, P6 없음
+        std::string crlf;
+        for (const char ch : script::sdk::generateSandboxDts()) {
+            if (ch == '\n') {
+                crlf += '\r';
+            }
+            crlf += ch;
+        }
+        REQUIRE(io::writeFileAtomic(dir.path / "sdk" / "sandbox.d.ts", crlf).has_value());
+        r = project::validateProject(dir.path, engine, catalog);
+        CHECK(r.sdk == project::ProjectReport::SdkState::Current);
+        CHECK_FALSE(std::any_of(r.issues.begin(), r.issues.end(), [](const auto& i) { return i.rule == "P6"; }));
+
+        // tsconfig.json 이 JSON 이 아니면 P6
+        REQUIRE(io::writeFileAtomic(dir.path / "tsconfig.json", "{ compilerOptions: ").has_value());
+        r = project::validateProject(dir.path, engine, catalog);
+        CHECK(hasIssue(r.issues, "P6", "", content::ContentIssue::Severity::Warning));
+
+        // 스크립트 오류는 콘텐츠 문제 (S426 — 파일:줄:열) 로 오고 검사가 실패한다
+        REQUIRE(io::writeFileAtomic(scripts / "regen.ts", R"(import { defineSystem } from "sandbox"
+export default defineSystem({ id: "eco.mana.regen", intervalTicks: 0, onTick(ctx) { } })
+)")
+                    .has_value());
+        r = project::validateProject(dir.path, engine, catalog);
+        CHECK_FALSE(r.ok());
+        bool s426 = false;
+        for (const content::ContentIssue& i : r.issues) {
+            s426 = s426 || (i.rule == "S426" && i.file == "content/ecosystem/scripts/regen.ts" && i.pointer == "2:68");
+        }
+        CHECK_MESSAGE(s426, dumpIssues(r.issues));
     }
 }

@@ -255,8 +255,11 @@ sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg]  
   (sdk — SandboxScript SDK 선언 sandbox.d.ts 를 쓴다, v0.3 M2-T2. 저장소의 sdk/ 를 갱신: sbx sdk sdk — 19 14장)
     new: 빈 폴더에만 새 게임 프로젝트 (sandbox.project.json + worlds/main). --from 이 없으면 빈 월드(내장 콘텐츠 · 16 × 16 청크 ·
     일시정지), 있으면 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로. 옆의 <폴더>.sbx-new 에 만들어 검사(오류 · 경고 0)를
-    통과해야 제자리로 — 실패하면 아무것도 남기지 않는다. 엔진 범위는 ">=<이 엔진> <1.0.0".
-    check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기). "프로젝트 검사: 오류 N, 경고 M (…)".
+    통과해야 제자리로 — 실패하면 아무것도 남기지 않는다. 엔진 범위는 ">=<이 엔진> <1.0.0". (v0.3 M5-T1, ADR-0065) 스크립트
+    SDK sdk/sandbox.d.ts · tsconfig.json 도 만든다 (팩의 scripts/*.ts — IDE 자동 완성 · tsc 검사).
+    check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기 · SDK 파일 P6). "프로젝트 검사: 오류 N, 경고 M (…)".
+    스크립트가 있으면 "스크립트: 팩 n · 컴포넌트 n · 시스템 n · SDK sdk/sandbox.d.ts 최신|다름|없음" 과 "  시스템 <id> — <파일> ·
+    onTick (n 틱마다) · onEvent (…)" (v0.3 M5-T1). 스크립트 진단은 문제 목록 ("content/<팩>/scripts/a.ts:줄:열: 오류 S426 — …").
     (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패
     실행은 SandboxServer --world <폴더> · SandboxClient --world <폴더>.
     --mode (v0.2 M3-T3, ADR-0049): 매니페스트 schemaVersion 2 · gameMode — 템플릿 콘텐츠에 없는 모드면 종료 코드 2 와 있는 모드.

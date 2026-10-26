@@ -359,8 +359,10 @@ ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을
 SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더). declare module "sandbox" { i32 · toI32 · idiv · 불투명
             interface (__sandboxOpaque 표지 — 리터럴로 만들 수 없게) + 주인 타입의 멤버 (속성 = readonly, 메서드 = 표의 매개변수
             이름) }. 머리에 Host API 버전 · 지문. 저장소의 sdk/sandbox.d.ts 가 생성 결과와 같아야 한다 (시험) — Host 표를 바꾸면
-            같은 커밋에서 sbx sdk sdk. 컴포넌트 정의 선언 (Vec2 · Field · field · defineComponent · ComponentRef) 은 M3-T1 — 15장,
-            프로젝트 템플릿의 tsconfig 는 M5-T1 [계획]
+            같은 커밋에서 sbx sdk sdk. 컴포넌트 정의 선언 (Vec2 · Field · field · defineComponent · ComponentRef) 은 M3-T1 — 15장
+프로젝트    (v0.3 M5-T1, ADR-0065) sbx new 가 <프로젝트>/sdk/sandbox.d.ts · tsconfig.json (generateTsconfig — strict · noEmit,
+            include = sdk/sandbox.d.ts · content/*/scripts/**/*.ts) 을 만든다. sbx check 가 낡은 · 없는 d.ts · JSON 아닌 tsconfig 를 P6
+            경고로, 스크립트 요약 · 시스템 목록을 보인다. 패키지에는 넣지 않는다
 ```
 
 ## 15. 스크립트 컴포넌트 (v0.3 M3-T1 — `script/api/ComponentSchema`, 검사기, `core/script/ScriptComponents`, ADR-0059)
