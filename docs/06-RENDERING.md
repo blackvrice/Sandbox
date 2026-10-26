@@ -749,7 +749,7 @@ apps/client/ui     ImGuiLayer (PlatformEvent → ImGuiIO, I1, IME 켜기, 커서
 ```
 
 SandboxEditor 는 Phase 12A 부터 있다 ("편집" 패널 · 툴 덧그림은 SelectionPass 선) — 기본 패널(시뮬레이션 · 통계 · 네트워크)은 아직
-SandboxClient 에 있고 옮기는 것은 `[계획 12B]`. 폰트 아틀라스는 "일반 텍스처
+SandboxClient 에 있고 옮기는 것은 `[계획]` (12B 는 옮기지 않았다). 폰트 아틀라스는 "일반 텍스처
 에셋" 이 아니라 ImGui 가 요청하는 텍스처다 (1.92 — 쓰는 글자만 굽는다). UI GPU 시간은 Renderer 의 ui 콜백 뒤 타임스탬프.
 
 ---

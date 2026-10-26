@@ -2,21 +2,22 @@
 
 > **규범 문서.** 틱 파이프라인, 명령, Behavior, Rule, Pathfinding, Random을 정합니다.
 > 결정론 규칙은 [04-DETERMINISM](04-DETERMINISM.md)이 이 문서보다 우선합니다.
-> 상태: **1~7장, 9~10장이 Phase 3~5B에서 구현됨** (2026-10-05). 0장이 구현 범위와 문서와의 차이입니다.
+> 상태: **1~7장, 9~10장이 Phase 3~5B에서 구현됨** (2026-10-05). v0.2 단계 17b GameRules · 17c Triggers · PlayerAction, v0.3
+> 단계 16b Scripts · 17d Script callbacks (2장). 0장이 구현 범위와 문서와의 차이입니다 (2026-10-26).
 > Stage 12~14(Combat·Resource·Production)와 경로 캐시·HPA* 는 `[계획]`.
 
 ---
 
-## 0. 구현 상태 (Phase 3 · 4 · 5A · 5B)
+## 0. 구현 상태 (Phase 3 · 4 · 5A · 5B · v0.2 · v0.3)
 
 | 절                | 구현                                                                                                                                                                 | 파일                                                                     |
 |-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | 1 SimulationWorld | ✅ Registry · WorldGrid(Phase 4) · ContentDatabase 최소판(머티리얼) · SimulationClock · SystemScheduler · CommandQueue · SpatialIndex · RandomService · EventStream  | `core/simulation/SimulationWorld.{hpp,cpp}`                              |
-| 2 파이프라인      | ✅ Stage 0, 2~11, 15~17 (Phase 5B). 12~14 는 enum 자리만                                                                                                             | 같은 곳, `core/simulation/System.hpp`, `core/systems/DefaultSystems.cpp` |
-| 2.2 System        | ✅ `ISystem{name, run}` + `SystemContext`(grid · catalog · saves · intents · paths 추가). `access()` 는 `[계획]` Phase 15                                            | `core/simulation/System.hpp`, `SystemScheduler.{hpp,cpp}`                |
+| 2 파이프라인      | ✅ Stage 0, 2~11, 15~17 (Phase 5B), 17b · 17c (v0.2), 16b · 17d (v0.3 — 스크립트가 있을 때만). 12~14 는 enum 자리만                                                           | 같은 곳, `core/simulation/System.hpp`, `core/systems/DefaultSystems.cpp` |
+| 2.2 System        | ✅ `ISystem{name, run}` + `SystemContext`(grid · catalog · saves · intents · paths 추가). `access()` (시스템 간 병렬) 는 `[계획]`                                          | `core/simulation/System.hpp`, `SystemScheduler.{hpp,cpp}`                |
 | 3 Clock           | ✅ tick · paused · speed(0.25~8) · Step · editSequence. 페이싱은 호출자(서버 `--realtime`)                                                                           | `core/simulation/SimulationClock.hpp`                                    |
 | 4 SimCommand      | ✅ Create/Delete/Move/Add/Remove/ChangeComponent, PaintTerrain(Phase 4), Pause/Resume/Step/SetSpeed. ChangeRule 등은 EditContent(12C), PlayerAction (v0.2 M3-T1 4장) | `core/command/*`                                                         |
-| 4.1 검증          | 부분 — 형식·대상·카탈로그·값(FieldMeta)·보호 컴포넌트·월드 경계(Phase 4). 권한·Interest·속도 제한은 `[계획]` Phase 9~12                                              | `SimulationWorld::applyPayload`                                          |
+| 4.1 검증          | ✅ 형식 · 대상 · 카탈로그 · 값(FieldMeta) · 보호 컴포넌트 · 월드 경계 (SimulationWorld), 순번 · 속도 제한 · 역할 권한 (network CommandValidator — Phase 9 · 12C). 명령 대상의 Interest 검사는 `[계획]` | `SimulationWorld::applyPayload`                                          |
 | 9 Random          | ✅ `CounterRng`, `RandomService.stream(Purpose, saveId)`                                                                                                             | `core/random/*`                                                          |
 | 10 Lifecycle      | ✅ Phase 5A — `core.lifetime`, `life.age`·`energy`·`health`·`growth`·`reproduce`, Died 이벤트, SpawnQueue                                                            | `core/systems/LifecycleSystem.*`                                         |
 | 5·6 Behavior·Rule | ✅ Phase 5B — Sensor(6) · Behavior FSM(7) · Interaction(10) · ResolveIntents(11), Effect op 전부                                                                     | `core/systems/{Sensor,Behavior,Interaction}*`, `core/content/*`          |
@@ -309,7 +310,7 @@ v0.2 M3-T2 (ADR-0048): `GameControl{start}` 를 적용하면 (Lobby → Starting
 ### 4.1 검증 (CommandValidator, Stage 1 이전)
 
 구현 (Phase 9, ADR-0024): 1 · 2 · 6 은 서버 Net IO 의 `network/server/CommandValidator` (순번 · 속도 제한 · 권한 — 월드를 보지 않는다),
-3 · 4 · 5 는 SimulationWorld 가 적용하면서 (거절도 `CommandResult`). 대상의 Interest 검사는 `[계획 Phase 11]`.
+3 · 4 · 5 는 SimulationWorld 가 적용하면서 (거절도 `CommandResult`). 대상의 Interest 검사는 `[계획]` (Phase 11 은 복제 쪽만).
 
 ```text
 1. 형식: 크기·필드 범위·문자열 길이·배열 길이 상한 (DeleteEntity 최대 4096 등)
@@ -407,7 +408,8 @@ Rule op + FSM으로 표현할 수 없는 콘텐츠 요구는 op · Native Featur
 Lua · WASM 은 후보에서 뺌). 그 전까지 이 장의 원칙(새 표현력은 데이터 + Native op)은 그대로입니다.
 v0.3 진입 결정: 언어 부분집합 · 숫자 · 메모리 · 트랩은 [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md),
 Host API (단일 정의 표 · 호출 단위 버퍼 · saveId 순 질의) 는 [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md).
-스크립트 시스템의 단계는 [계획] v0.3 M4-T1 의 ADR 이 정한다 — 스크립트 없는 월드는 그대로 (골든 · kSimVersion).
+스크립트 시스템은 단계 16b (onTick) · 17d (onStart · onEvent · onStop) 에서 돈다 (2장, ADR-0062 · 0063) — 스크립트 없는 월드는
+그대로 (골든 · kSimVersion).
 
 Visual Trigger (v0.2 M4, [ADR-0050](adr/0050-visual-trigger-schema-tree-graph-flat-program.md)) 와 Rule 의 관계: Rule 은 개체 둘
 (source · target) 의 interact 에 묶인 규칙이고, Trigger 는 월드 수준 이벤트 (시작 · 틱 · 타이머 · 영역 진입 · 점수 · 죽음) 에서

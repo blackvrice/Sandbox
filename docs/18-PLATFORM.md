@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-21 (v0.2 종료 — 0.2.0).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-26 (v0.3 M5-T2).
 
 ---
 
@@ -10,7 +10,8 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
-         v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
+         v0.3 SandboxScript ◐ — M1 언어 앞단 ✅ · M2 VM · Host API ✅ · M3 사용자 Component ✅ · M4 Script System ✅ ·
+         M5 도구 (T1 ✅ · T2 ✅ · T3) · M6 E2E · 릴리스 (6.2, ADR-0056~0066)
 다음     v0.3 M5-T3 — IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
@@ -21,7 +22,7 @@
 |------|------------------------|--------------------------------------------|-------------------------------------------------|
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
-| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ◐ 진입 결정 ✅ (6.2)                            |
+| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ◐ M1~M4 ✅ · M5 진행 (6.2)                      |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
@@ -40,7 +41,7 @@
 - 초안 v0.1 요구 4 "LAN · 신뢰 환경 제약을 UI 에 노출": 서버 도움말 · 08 · 16 R6 에 있다. 클라이언트 접속 화면 문구는 v0.7 전에
 ```
 
-## 2. 현황 (초안 대비, 2026-10-21 소스 · 테스트 기준 — v0.2 종료)
+## 2. 현황 (초안 대비, 2026-10-26 소스 · 테스트 기준 — v0.3 M5-T2)
 
 **Implemented** = 소스와 자동 시험이 있다, **Partial** = 바탕은 있고 플랫폼 요구에 확장이 필요하다, **Planned** = 새로 만든다.
 초안(2026-10-13)이 "초기 Vulkan"으로 적은 것은 그 뒤 13A~13C · 14 · 15 로 바뀌었다.
@@ -64,8 +65,10 @@
 | Feature Bundle          | Implemented | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera(처음 자리) · Input(팩 게임 키) · 데모 모드 eco.protect (M3 ✅) · Timer (event.timer · cond.time, M4) |
 | Visual Trigger          | Implemented | M4 ✅ — triggers/*.json 노드 21 종 · V10 · 단계 17c · "콘텐츠" 창 폼 (ADR-0050~0052). 노드 그래프 캔버스는 v0.3 · v0.5      |
 | Edit ↔ Test Play        | Implemented | M5-T1 ✅ — 편집 월드를 서버 메모리에 맡기고 복사본으로 플레이, 멈추면 원본 그대로 (ADR-0053). 여러 사람의 테스트 플레이는 v0.7 |
-| SandboxScript · VM      | Planned     | v0.3. 지금 표현력 확장은 Rule op (03 6.4 — ADR-0039 가 언어를 TypeScript 부분집합으로 정함)                                 |
-| 사용자 Component 스키마 | Planned     | v0.3 (D-03). 콘텐츠 로더는 등록되지 않은 컴포넌트를 거절한다 (그대로 둔다)                                                  |
+| SandboxScript · VM      | Implemented | v0.3 M1 · M2 ✅ — script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 검증기 · 인터프리터 · Host 표 · sandbox.d.ts), unit_script (ADR-0056~0058) |
+| 사용자 Component 스키마 | Implemented | v0.3 M3 ✅ — defineComponent → 동적 풀 · 콘텐츠의 카탈로그 (Prefab · Inspector · 세이브 · 복제 · 해시), 읽기 · 질의 · 쓰기, 세이브 마이그레이션 (ADR-0059~0061) |
+| 사용자 System           | Implemented | v0.3 M4 ✅ — defineSystem: 단계 16b onTick · 17d onStart · onEvent · onStop, 예산 · 트랩 정책 · 통계 (ADR-0062~0064)         |
+| 스크립트 도구           | Partial     | v0.3 M5 — sbx new SDK 파일 · sbx check 요약 (ADR-0065), 에디터 스크립트 편집 · 오버레이 (ADR-0066) ✅. client 도메인 · 프로파일은 M5-T3 |
 | 패키지 · SemVer         | Partial     | foundation/version/SemVer (v0.2 M1-T1 — 버전 · 범위 비교만). 의존성 해석 · 잠금 파일은 v0.4                                 |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
 
@@ -81,12 +84,14 @@
 새로 (v0.2)
   foundation/version   SemVer · 버전 범위                         의존 없음 (v0.4 패키지 관리자가 넓힌다)
   core/project         GameProject 매니페스트 · 검사 · 열기 (M1-T1 · T2)   Core 안 — 서버가 링크한다, 그래픽 없음
-  core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
+  core/game             GameSession 상태 · 규칙 (17b) · 점수 · 스폰 지점 (v0.2 M2 · M3 ✅)  Simulation — 04 를 따른다
+  core/trigger · core/package   Trigger 스키마 · 컴파일 (M4 ✅) · GamePackage .sbpkg (M5-T2 ✅)
 v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
-  script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
-                        vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1) · sdk (d.ts 생성 ✅ M2-T2)
+  script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 · Math 표 · 컴포넌트 스키마 ·
+                        시스템 이벤트 ✅) · vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1) · sdk (d.ts · tsconfig 생성 ✅)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
-  core/script           Host 바인딩 ✅ M2-T2 · 스크립트 컴포넌트 → 카탈로그 ✅ M3-T1 (core/ecs 동적 풀) · ScriptSystemAdapter 단계 16b ✅ M4-T1 · 17d ✅ M4-T2
+  core/script           Host 바인딩 ✅ M2-T2 · 스크립트 컴포넌트 → 카탈로그 ✅ M3-T1 (core/ecs 동적 풀) · ScriptSystemAdapter 단계 16b ✅ M4-T1 ·
+                        17d ✅ M4-T2 · 예산 · 트랩 정책 ✅ M4-T3
                         — SandboxCore 가 SandboxScript 를 링크
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
 ```

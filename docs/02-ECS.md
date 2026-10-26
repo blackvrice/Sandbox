@@ -1,12 +1,13 @@
 # 02. ECS
 
 > **규범 문서.** Entity·Component·System의 저장 구조와 API 계약을 정합니다.
-> 상태: **Phase 2에서 구현됨** (2026-10-05), Phase 3에서 보강. 0장이 문서와 구현의 차이·미구현 항목입니다.
+> 상태: **Phase 2에서 구현됨** (2026-10-05), Phase 3 · 5 · 10A 에서 보강, v0.2 game.* 컴포넌트, v0.3 동적 컴포넌트 (9.6 — 스크립트
+> defineComponent). 0장이 문서와 구현의 차이 · 미구현 항목입니다 (2026-10-26).
 > 결정 근거: [ADR-0002](adr/0002-custom-sparse-set-ecs.md), [ADR-0011](adr/0011-explicit-component-registration.md).
 
 ---
 
-## 0. 구현 상태 (Phase 2 · 3)
+## 0. 구현 상태 (Phase 2 ~ v0.3)
 
 | 절              | 구현                                                                                                                                                                                                                                                                                              | 파일                                                                     |
 |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
@@ -17,10 +18,10 @@
 | 6 View          | ✅ Read/Write/Exclude, 범위 for · `each` · `count`                                                                                                                                                                                                                                                | `core/ecs/View.hpp`                                                      |
 | 7 ECB           | ✅ `createEmpty`/`destroy`/`emplace`/`remove` — `create(PrefabId)`는 Phase 5                                                                                                                                                                                                                      | `core/ecs/EntityCommandBuffer.{hpp,cpp}`                                 |
 | 8 변경 추적     | ✅ changed/added 틱, `createdThisTick()`·`destroyedThisTick()` (Phase 3), 변경 순번 (Phase 10A) — `removedLog<T>` 는 쓰지 않음 (복제는 mask 비교)                                                                                                                                                 |                                                                          |
-| 9 등록·리플렉션 | ✅ `SBX_COMPONENT`, `ComponentCatalog`(명시 등록), JSON·해시 Visitor — Binary/Bit/ImGui/Diff Visitor 와 Opaque 는 `[계획]`                                                                                                                                                                        | `core/ecs/Component*`, `core/ecs/Reflection.hpp`, `core/serialization/*` |
+| 9 등록·리플렉션 | ✅ `SBX_COMPONENT`, `ComponentCatalog`(명시 등록), JSON · 해시 · Binary(`BinaryCodec`, 10A) Visitor, 동적 컴포넌트 (9.6, v0.3). Opaque 는 컴포넌트가 아니라 월드의 표 (9.5 · 09 3.2). Bit · ImGui · Diff Visitor 는 `[계획]`                                                                                        | `core/ecs/Component*`, `core/ecs/Reflection.hpp`, `core/serialization/*` |
 | 10 Resource     | ✅ `emplaceResource/resource/tryResource`                                                                                                                                                                                                                                                         | Registry                                                                 |
 | 11 EventStream  | ✅ Phase 3 — `EntitySpawned`/`EntityDestroyed`/`Custom`, BeginTick 에 비움                                                                                                                                                                                                                        | `core/simulation/EventStream.hpp`                                        |
-| 13 Prefab       | `[계획]` Phase 5                                                                                                                                                                                                                                                                                  |                                                                          |
+| 13 Prefab       | ✅ Phase 5A — `ecb.create(prefabId)` 대신 SimulationWorld 의 instantiate · SpawnQueue (17 단계 정렬), 15A 템플릿 (13장)                                                                                                                                                                                     |                                                                          |
 | 14 카탈로그     | Phase 5A·5B (18개): `core.transform` `core.velocity` `core.lifetime` `core.tags` `core.prefab` `core.movement` `core.collider` `persist.persistence` `net.identity` `life.age` `life.energy` `life.health` `life.growth` `life.reproduce` `ai.sensor` `ai.behavior` `ai.path` `debug.random_walk` | `core/components/` — v0.2 M2-T2 에 `game.session`, M3-T2 에 `game.score` · `game.spawn_point`, M3-T3 에 `game.camera_start` 를 더해 22개 |
 
 **문서 초안과 달라진 점**
@@ -51,7 +52,9 @@
 - 해시: float 은 round(x×1024), NaN/무한대/범위 밖은 고정 표식, 시퀀스는 길이 먼저.
 - Hint::EntityRef 필드는 지금 EntityId.raw 를 그대로 JSON·해시에 쓴다 (세이브/로드 해시 동일성(D2)이 보장되지 않는다).
   그래서 Phase 5B 의 엔티티 참조(ai.behavior.target)는 EntityId 가 아니라 **saveId(u64) 필드**로 둔다 — 저장·해시·로드가
-  그대로 맞고, 쓸 때 SystemContext.saves(saveId → EntityId)로 푼다. EntityRef 의 자동 변환은 `[계획]` (복제 Phase 10).
+  그대로 맞고, 쓸 때 SystemContext.saves(saveId → EntityId)로 푼다. 복제는 Phase 10A 부터 EntityRef 를 NetEntityId 로 바꾼다
+  (ReplicationWriter · ClientWorld 의 EntityRefCodec — 08 6장). 세이브 · 해시의 자동 변환은 `[계획]` — 스크립트 컴포넌트의 entity
+  필드도 saveId 로 저장한다 (9.6).
 - (Phase 5B) 리플렉션하지 않은 필드 = 틱 캐시: 매 틱 쓰기 전에 다시 계산되는 값(ai.sensor.sensed, ai.behavior.pendingAction ·
   cacheIndex)은 reflect 에 넣지 않는다 → 저장·해시·복제되지 않는다. 다음 틱에 다시 계산되지 않는 값은 반드시 reflect 한다.
 - nlohmann/json 은 Core 의 PUBLIC 의존이다 (JsonVisitor 가 헤더 템플릿). JSON_USE_IMPLICIT_CONVERSIONS=0.
@@ -399,9 +402,13 @@ ecb.create(prefabId)
 
 Prefab 스키마: [11-CONTENT-SCHEMA](11-CONTENT-SCHEMA.md) 2장.
 
+구현 (Phase 5A · 15A): 위의 ecb.create(prefabId) 대신 `SimulationWorld::instantiate` (명령 CreateEntity · SpawnQueue — 번식 ·
+스폰 지점 · 효과 spawn) 가 같은 차례로 만든다. SpawnQueue 는 17 단계에서 (parent saveId, 넣은 순서) 로 정렬해 적용하고, 덮어쓰기 없는
+생성은 처음 한 번 만든 컴포넌트 바이트 (Prefab 템플릿) 를 다시 쓴다 (15A — 결과는 JSON 경로와 같다).
+
 ---
 
-## 14. 기본 컴포넌트 카탈로그 (Phase 5B 까지 구현 — 0장. society.* · combat.* · client.* 는 `[계획]`)
+## 14. 기본 컴포넌트 카탈로그 (Phase 5B · v0.2 까지 구현 — 0장. society.* · combat.* · client.* 는 `[계획]`, 스크립트 컴포넌트는 9.6)
 
 구현과 다른 점: `ai.path_request`·`ai.path_follow` → `ai.path` 하나(start · goal · state · submittedTick · partial · waypoints ·
 cursor). `ai.sensor` 는 radius 만 (마스크는 Behavior 그래프의 감지 질의, 11 0장) · Persistent. `ai.behavior` 는

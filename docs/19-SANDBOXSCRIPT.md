@@ -1,8 +1,10 @@
 # 19. SandboxScript (v0.3)
 
-> **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 의 낱말 · 문법 · 부분집합 · 진단.
+> **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M4 ✅, M5-T2 까지 — 2026-10-26).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
-> (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
+> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -66,7 +68,7 @@ Item        := Import | export? Decl | export default Expr ;
 Decl        := function Name ( Params ) (: Type)? Block
              | const Name (: Type)? = Expr ;          | type Name = Type ;
              | interface Name { PropSig* }           | const? enum Name { Name (= Expr)?, … }
-Params      := (Name : Type ,)*                       — 타입이 없는 매개변수는 검사기가 거절 [계획 M1-T2]
+Params      := (Name : Type ,)*                       — 타입이 없는 매개변수는 검사기가 거절 (S414 — 시스템 메서드의 ctx · e 는 문맥 타입, 17 · 18장)
 PropSig     := readonly? Name : Type  (; , 줄바꿈으로 나눈다)
 Type        := Prim ([])* (| Prim ([])*)*             Prim := Name (< Type, … >)? | null | void | { PropSig* } | ( Type )
 Stmt        := Block | ; | (const|let) Name (: Type)? (= Expr)? ; | Expr ; | if ( Expr ) Stmt (else Stmt)?
@@ -129,7 +131,7 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 | S335 | 선언 없는 for-of (for (x of xs))                          | for (const x of xs)                          |
 | S336 | 정규식 리터럴                                             | —                                            |
 
-검사기 [계획 M1-T2] 가 더하는 것: any · unknown · undefined · 타입 없는 매개변수 · 객체 키 순회 · Math.random · Date 등
+검사기 (11장) 가 더하는 것: any · unknown · undefined · 타입 없는 매개변수 · 객체 키 순회 · Math.random · Date 등
 이름 수준의 금지, 상수식이 아닌 최상위 const, switch 의 빈 case 가 아닌 fallthrough.
 
 ## 5. 타입 · 숫자 (v0.3 M1-T2 — `script/lang/Types`, ADR-0056 3 · 6)
@@ -149,7 +151,7 @@ enum        정수 값 (자동 증가 · 상수식, S418), 이름 있는 타입 
             리터럴의 빠진 · 남는 필드 S404)
 연산        조건 · && · || · ! 는 boolean 만 (S408 · S422 — x !== null · x !== 0 로 쓴다), === !== 는 맞는 타입끼리,
             < > <= >= 는 두 수 · 두 문자열, 문자열 + 기본 타입 → string, ?? 는 T | null 의 왼쪽에만 (S422)
-f32         컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림 [계획 M3]
+f32         컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림 (15 · 16장)
 string      불변 UTF-8, 비교는 바이트 순서. .length (i32)
 T[]         참조, .length (i32) · .push(x) (i32). 빈 리터럴 [] 은 타입이 필요하다 (S414). 첨자는 i32 · number
 Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · trunc · sign · sqrt · sin · cos · tan · atan2 · pow · exp ·
@@ -159,16 +161,16 @@ Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · 
 ## 6. 메모리 · 실행 (v0.3 M2-T1 — 13장, ADR-0056 4 · 5, ADR-0057 5)
 
 호출 하나 (콜백 한 번) 의 아레나, GC 없음, 스크립트 전역 가변 상태 없음. 트랩 = 그 호출을 멈춘다 — 그 호출이 쌓은 쓰기 ·
-명령을 버리는 것은 Host 바인딩 (호출 단위 버퍼 [계획 M2-T2]).
+명령을 버리는 것은 Host 바인딩 (호출 단위 쓰기 버퍼 — 16장).
 
 ## 7. 결정론
 
 ```text
-- 렉서 · 파서 · 검사기 · (이후) 컴파일러의 출력은 입력 소스만의 함수다: 로케일 · 시간 · 디렉터리 순서를 보지 않는다 (04 4.5) —
+- 렉서 · 파서 · 검사기 · 코드 생성의 출력은 입력 소스만의 함수다: 로케일 · 시간 · 디렉터리 순서를 보지 않는다 (04 4.5) —
   모듈은 경로 정렬 순, 의존이 먼저 (위상 순서)
-- 상수 접기는 실행과 같은 규칙 (f64 연산 · i32 감싸기 · fmod · pow). 숫자 → 문자열은 접지 않는다 (JS Number#toString 은 VM [계획 M2])
+- 상수 접기는 실행과 같은 규칙 (f64 연산 · i32 감싸기 · fmod · pow). 숫자 → 문자열은 접지 않는다 (JS Number#toString 은 VM — 13장)
 - 숫자 리터럴은 정확히 반올림한다 (툴체인이 달라도 같은 f64)
-- SandboxScript 타깃은 sbx_simulation_flags (04 4.6) 를 쓴다 — VM 의 부동소수 연산 [계획 M2] 을 위해
+- SandboxScript 타깃은 sbx_simulation_flags (04 4.6) 를 쓴다 — VM 의 부동소수 연산 (13장) 을 위해
 ```
 
 ## 8. 진단
@@ -219,12 +221,13 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
 단일 정의   constexpr 표 kHostFunctions: id (영속 이름) · 주인 타입 · 멤버 · 속성/메서드 · 결과 · 매개변수 (≤ 4) · 도메인 ·
             효과 (read · write · structural · random · log) · 연료 · 설명. 검사기는 이 표로 ctx.멤버 를 찾는다 (d.ts 를 읽지 않는다)
 지문        hostApiFingerprint = 정규형 줄 ("ctx.log ServerContext.log(string): void server log 16") 을 정렬해 FNV-1a 64,
-            kHostApiVersion 과 함께 — .sbc 머리 [계획 M1-T3]. 시험이 값을 고정한다 (표를 바꾸면 같은 커밋에서)
+            kHostApiVersion 과 함께 — .sbc 머리 (12장). 시험이 값을 고정한다 (표를 바꾸면 같은 커밋에서)
 지금 항목   ctx.tick: i32 (read) · ctx.log(string): void (log). 불투명 타입 Entity · ServerContext.
             (v0.3 M3-T3 — 16장) ctx.read(entity, ref): T | null · ctx.has(entity, ref): boolean (read) · ctx.query(ref): Entity[]
             (read, 16 + 개체마다 1) · ctx.write(entity, ref, value: T): void (write). 제네릭 ABI Component · ComponentData ·
             ComponentDataOrNull · EntityList — T 는 Component 인자가 정한다 (isComponentGeneric). 지문 0388e85856c3e9f3
-[계획]      난수 (ctx.random) · 생성 · 파괴 · 점수는 M4, 엔진 컴포넌트의 ComponentRef 는 권한 표와 함께
+[계획]      난수 (ctx.random) · 생성 · 파괴 · 점수 · 컴포넌트 붙이기 · 떼기, 엔진 컴포넌트의 ComponentRef (권한 표와 함께) — v0.3 에는
+            일정이 없다 (M6 데모가 요구하면 18 6.2 에 태스크로)
 ```
 
 ## 11. 이름 · 타입 검사 (v0.3 M1-T2 — `script/lang/Checker`)
@@ -309,7 +312,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 검증기      함수마다 한 번 훑기 (흐름 분석 없음): 번호 (레지스터 · 상수 · 함수 · import · 필드 · 점프) 가 범위 안, 명령마다 피연산자
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
             이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
-            다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 [계획 M2]
+            다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 4 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독 — 옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
@@ -435,7 +438,7 @@ export function regen(ctx: ServerContext): i32 {
 값         읽기 = 복사 (고쳐도 월드가 바뀌지 않는다 — write 로). f32 는 f64 로 넓혀 읽고, 쓸 때 한 번 반올림. vec2 = Vec2 구조체,
            entity 필드 = Entity | null (저장은 saveId — 없는 · 죽은 개체면 null)
 쓰기 검사  범위 (min · max — f32 는 반올림한 값으로) · 유한 (NaN · ±Infinity 는 HostError — 세이브 JSON 에 없다) · f32 범위 · 개체
-           필드는 이 호출의 핸들 (→ saveId) 이나 null. 개체에 그 컴포넌트가 없으면 HostError (붙이기 · 떼기는 [계획 M4]).
+           필드는 이 호출의 핸들 (→ saveId) 이나 null. 개체에 그 컴포넌트가 없으면 HostError (붙이기 · 떼기는 [계획] — 10장).
            enum 필드의 값이 멤버인지는 보지 않는다 (i32 — 내장 enum 과 같다)
 버퍼       (개체, 컴포넌트) 마다 마지막 값 하나 (처음 쓴 차례, 호출당 65,536). 같은 호출의 read 는 버퍼를 먼저 본다. endCall(true)
            가 차례대로 풀에 쓰고, 트랩 (endCall(false)) 이면 통째로 버린다 — 반쯤 적용된 상태가 없다
@@ -554,12 +557,12 @@ d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents,
 트랩 정책  한 시스템의 호출 (콜백 무엇이든) 이 트랩으로 3 번 이어지면 (kDisableAfterTraps) 그 시스템을 끈다 — 그 틱의 남은 호출부터
            부르지 않는다. 트랩 없이 끝난 호출이 이어짐을 0 으로, 예산 · 건너뜀은 세지 않는다. 끌 때 경고 한 줄 (마지막 트랩)
 상태       이어진 트랩 · 꺼짐은 시뮬레이션 상태 — 세이브 world.json "scriptSystems" (09 2장): 로드가 같은 id · 팩 바이트코드
-           digest 면 되살리고, 스크립트를 고쳤으면 (digest 다름) 버리고 다시 켠다 (경고). 손으로 켜고 끄는 명령은 [계획 M5]
+           digest 면 되살리고, 스크립트를 고쳤으면 (digest 다름) 버리고 다시 켠다 (경고). 손으로 켜고 끄는 명령은 [계획]
 통계       시스템마다 누적 (진단 — 세이브 · 해시에 없음): 호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 호출 하나의 최대 연료 · 마지막
            트랩 글 · 꺼짐 (ScriptSystemAdapter::counters · disabled). 틱 통계 lastStats (호출 · 트랩 · 예산 · 건너뜀 · 연료 · 버린
            로그). SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄:
              스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 12345 · 최대 2000 (꺼졌으면 " · 꺼짐")
-           시스템별 시간 프로파일 · 에디터 표시는 M5-T2 [계획]
+           시스템별 시간 프로파일 · 에디터 표시는 [계획 M5-T3]
 ```
 
 ## 20. 스크립트 오버레이 · 에디터 (v0.3 M5-T2 — `core/content/ContentOverlay` · `ContentLoader` · `editor/ui/ContentPanel`, ADR-0066)

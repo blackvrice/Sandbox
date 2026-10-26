@@ -1,11 +1,12 @@
 # 17. 소스 지도
 
 > **참조 문서.** "이 코드가 어디 있지?"에 답합니다. 모듈·폴더·진입점·타깃을 추가/이동/삭제하면 같은 커밋에서 갱신합니다.
-> 상태: Phase 9 (2026-10-08). **0장이 실제로 존재하는 파일**이고, 1장 이후는 전체 계획 구조입니다.
+> 상태: 2026-10-26 (v0.3 M5-T2). **0장 = 파일 · 묶음마다 한 줄** (태스크마다 갱신), 1장 = 최상위 폴더, 2장 = 모듈별 폴더 ·
+> 파일 (실제 트리 — `[계획]` 은 아직 없는 것), 3장 = 실행 파일, 4장 = "이 기능은 어디에?".
 
 ---
 
-## 0. 현재 존재하는 것 (Phase 9)
+## 0. 파일 · 묶음
 
 | 경로                                                                                                        | 내용                                                                                                                                                                | 타깃                        |
 |-------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
@@ -248,11 +249,11 @@
 |-------------------------------------------------|------------------------------------------------------------------------------------------------|--------------------------------|
 | `CMakeLists.txt`, `CMakePresets.json`, `cmake/` | 빌드 정의, 프리셋, 함수(`sbx_add_shader`, `sbx_check_link_boundaries`, `sbx_simulation_flags`) | —                              |
 | `external/`                                     | vendored 서드파티 (LICENSE 보존)                                                               | —                              |
-| `foundation/`                                   | 기본 타입·수학·핸들·컨테이너·로그·해시·시간·IO·Job·메트릭                                      | SandboxFoundation              |
+| `foundation/`                                   | 기본 타입·수학·핸들·컨테이너·로그·해시 (FNV · SHA-256)·IO·Job·UTF-8·SemVer                     | SandboxFoundation              |
 | `script/`                                       | SandboxScript (v0.3 — lang 컴파일러 · vm 검증기 · 인터프리터 · api Host 표 · sdk d.ts 생성)    | SandboxScript                  |
 | `sdk/`                                          | 생성한 SandboxScript SDK 선언 sandbox.d.ts (v0.3 M2-T2)                                        | 데이터                         |
-| `core/`                                         | ECS·시뮬레이션·월드·콘텐츠·명령·직렬화·리플레이·난수                                           | SandboxCore                    |
-| `network/`                                      | Transport·Protocol·Session·Snapshot·Replication·Interest·ServerHost                            | SandboxNetwork                 |
+| `core/`                                         | ECS·시뮬레이션·월드·콘텐츠·명령·직렬화·리플레이·난수·게임·트리거·프로젝트·패키지·스크립트 바인딩 | SandboxCore                    |
+| `network/`                                      | Transport·Protocol·Client (ClientSession · ClientWorld)·Replication·ServerHost                 | SandboxNetwork                 |
 | `platform/`                                     | 창·입력·오디오                                                                                 | SandboxPlatform                |
 | `render/`                                       | RHI·백엔드·Renderer·Shader·Asset·ImGui 렌더러                                                  | SandboxRender                  |
 | `editor/`                                       | 패널·툴·선택·Inspector·편집 명령                                                               | SandboxEditor                  |
@@ -263,91 +264,103 @@
 | `assets/`                                       | 텍스처·폰트·사운드                                                                             | 런타임 데이터                  |
 | `tests/`                                        | 단위·속성·시나리오·결정론·네트워크·렌더 테스트, 골든                                           | SandboxTests, sbx_render_tests |
 | `bench/`                                        | 벤치 시나리오·머신별 기준선                                                                    | sbx_bench                      |
-| `tools/`                                        | `check_includes.py`·`sim_check`·`net_probe`(구현), `sbx_atlas`(계획)                           | 도구                           |
+| `tools/`                                        | `check_includes.py`·`sim_check`·`net_probe`·`sbx`·셰이더 생성기 (구현), `sbx_atlas`(계획)       | 도구                           |
+| `samples/`                                      | 게임 프로젝트 예제 — `rabbit_guard` (v0.2 데모 · 자동 플레이 playthrough.json)                 | 데이터 (CTest sample_playthrough) |
 | `docs/`                                         | 문서 (`docs/releases/v<제품 버전>.md` = 버전마다 릴리스 노트, v0.2 M6-T2)                      | —                              |
 
 ## 2. 모듈별 상세
 
+실제 폴더 · 파일 (확장자 뺌). 한 줄 설명과 문서는 0장 · 각 규범 문서.
+
 ```text
 foundation/
-  types/        Types.hpp (정수 별칭), Error.hpp (Error, Expected<T>)          ← 구현
-  math/         Vec2, Vec2i, Vec4, Rect, Mat3, 각도
-  handle/       Handle<Tag> ← 구현, HandlePool
-  container/    SmallVector, RingBuffer, SpscQueue
-  log/          Log.hpp (레벨, 카테고리, 싱크)                                 ← 구현
-  hash/         Fnv1a64 ← 구현, hashCombine
-  time/         SteadyClock 래퍼 (시뮬레이션 사용 금지)
-  io/           파일 읽기/쓰기, 원자적 저장
-  job/          JobSystem (Phase 5 단순 큐 → Phase 15 work-stealing)
-  metrics/      카운터·히스토그램 링 버퍼
-  assert/       SBX_ASSERT, SBX_VERIFY                                        ← 구현
+  types/        Types (정수 별칭) · Error (Error, Expected<T>)        assert/    Assert (SBX_ASSERT · SBX_VERIFY)
+  math/         Vec2                                                 handle/    Handle<Tag>
+  container/    SmallVector · FixedString                            hash/      Fnv1a (Fnv1a64) · Sha256 (v0.2 패키지)
+  log/          Log (레벨 · 카테고리 · 싱크)                          io/        FileIo (원자적 저장) · Console (UTF-8 콘솔 · 인자)
+  job/          JobSystem                                            text/      Utf8
+  version/      SemVer (v0.2 — 버전 · 범위)                           BuildInfo  (생성 — 버전 · 커밋 · 컴파일러)
+  [계획]        time/ (steady_clock 래퍼) · metrics/ — 지금은 std::chrono 직접 · 앱의 통계 패널
+
+script/                     SandboxScript (v0.3 — Foundation 만 안다, ADR-0056 9)
+  lang/         Token · Lexer · Ast · Parser · Diagnostic · Types · Checker · Codegen
+  api/          HostApi (Host 함수 표 · 지문) · MathBuiltins · ComponentSchema · SystemEvents
+  vm/           Bytecode (.sbc) · Verifier · Interpreter · Numbers
+  sdk/          SdkGenerator (sandbox.d.ts · tsconfig.json)
 
 core/
-  ecs/          EntityId, EntityManager, ComponentPool, Registry, View, EntityCommandBuffer,
-                ComponentRegistry(SBX_COMPONENT), Reflection(Visitor 개념, Hint, FieldMeta), Opaque
-  components/   core/ life/ ai/ society/ combat/ net/ persist/   (02-ECS 14장)
-  simulation/   SimulationWorld, SimulationClock, SystemScheduler, ISystem, IntentBuffer, EventStream
-  systems/      Sensor, Behavior, PathRequest, Movement, Interaction, ResolveIntents, Combat, Resource,
-                Production, Lifecycle, Collision, CollectPathResults
-  world/        ChunkCoord, Chunk, WorldGrid, TerrainLayers, SpatialIndex
-  behavior/     BehaviorGraph, 노드 레지스트리 (conditions/, actions/)   ← 5B: 모델은 content/ContentModel, 실행은 systems/BehaviorSystem
-  rules/        Rule, RuleIndex, effect op 레지스트리 (ops/)            ← 5B: 색인은 ContentDatabase::rulesForAction, 실행은 systems/InteractionSystems
-  pathfinding/  PathfindingService, PathGridSnapshot, GridAStar      ← Phase 5B 구현은 core/path/ (PathGrid · Pathfinder · PathfindingService)
-  content/      ContentDatabase, Prefab, TagTable, TerrainMaterial, 로더, Validator, ContentHash, Overlay
-  command/      SimCommand, CommandQueue, CommandApplier
-  serialization/ JsonVisitor, HashVisitor, BinaryVisitor, BitWriter/BitReader   ← BinaryCodec (Phase 10A). BitStream 은 network/protocol
-  persist/      WorldSave(세이브·로드), ChunkFile, Migration              ← Phase 4 구현 (초안의 serialization/SaveGame 자리)
-  replay/       ReplayWriter, ReplayReader, WorldHash   ← Replay (ReplayRecorder · ReplayPlayer · 파일, 5C · 12D) · WorldHash
-  random/       CounterRng, RandomService
+  ecs/          EntityId · EntityManager · Component (SBX_COMPONENT) · ComponentPool · Registry · View · EntityCommandBuffer ·
+                Reflection · ComponentCatalog · DynamicComponent (v0.3 — 스크립트 컴포넌트의 바이트 배치 풀)
+  components/   core/ (Identity · Transform · Velocity · Movement · Tags · Lifetime) · life/ (Life · Age) · ai/ (Ai) ·
+                game/ (GameSession · GameScore · SpawnPoint · CameraStart — v0.2) · debug/ (RandomWalk) · RegisterCoreComponents
+  simulation/   SimulationWorld (틱 · 명령 적용 · 오버레이) · SimulationTriggers (17c) · SimulationScripts (17d) · SimulationClock ·
+                SystemScheduler · System (ISystem · SystemContext · Stage) · EventStream · Intent · SimConstants · SimVersion
+  systems/      DefaultSystems · SensorSystem · BehaviorSystem · PathSystems · MovementSystem · InteractionSystems ·
+                LifecycleSystem · CollisionSystem · RandomWalkSystem · AiCommon · AiSystems
+  world/        ChunkCoord · Terrain · WorldGrid · SpatialIndex
+  path/         PathGrid · Pathfinder (A*) · PathfindingService (Job)
+  content/      ContentDatabase · ContentLoader (팩 읽기 · 검증 V1~V11 · 오버레이 · 스크립트 컴파일 0 단계) · ContentModel ·
+                ContentOverlay · TagSet · ScriptPrograms (v0.3)
+  command/      SimCommand · CommandQueue · CommandJson (리플레이 · 자동 플레이의 명령 JSON)
+  serialization/ JsonVisitor · HashVisitor · BinaryCodec · FieldCodec · FieldAccess
+  persist/      WorldSave (세이브 · 로드) · ChunkFile · Migration (엔진 · 스크립트 컴포넌트)
+  replay/       Replay (기록 · 재생) · WorldHash
+  random/       CounterRng · RandomService
+  game/         GameRules (17b · 점수 · 끝 조건 — v0.2)
+  trigger/      TriggerSchema (노드 표) · TriggerCompiler (v0.2)
+  project/      GameProject (매니페스트 · 검사 · 열기 · 새 프로젝트 — v0.2, SDK 파일 v0.3)
+  package/      GamePackage (.sbpkg — v0.2)
+  scenarios/    Scenario (ScenarioRunner) · RandomWalk · EcoLifecycle · Ecosystem · EditSession 시나리오 · WorldSource · PlayScript
+  script/       ScriptHost (Host 바인딩) · ScriptComponents (스키마 → 카탈로그) · ScriptSystemAdapter (16b · 17d) — v0.3
 
 network/
-  transport/    INetworkTransport, EnetTransport, LoopbackTransport, SimulatedTransport   ← Phase 9 구현
-  protocol/     BitStream, Messages(kProtocolVersion · Role), CommandCodec                   ← Phase 9 구현
-  client/       ClientSession, ClientWorld, InterpolationClock                               ← Phase 9 · 10A · 10B 구현
-  session/      [계획] 초안의 ServerSession · Handshake · Roles 는 ServerHost · Messages 안에 (Phase 9)
-  snapshot/     Snapshot, SnapshotBuffer        ← Snapshot 은 protocol/Messages (10A), SnapshotBuffer [계획 10B]
-  replication/  ReplicationWriter, ReplicationReader, NetEntityMap   ← Writer 구현 (10A), Reader · NetEntityMap = client/ClientWorld
-  interest/     InterestManager
-  server/       ServerHost, CommandValidator (Phase 9), LocalServerHost (10B) · PersistenceService · ReplayRecorder 자리 =
-                ServerHost 의 월드 요청 (저장 · 불러오기 · 기록 · 재생 — 12D, ADR-0031)
+  transport/    Transport (INetworkTransport) · EnetTransport · LoopbackTransport · SimulatedTransport
+  protocol/     BitStream · Messages (kProtocolVersion · Role) · CommandCodec
+  client/       ClientSession · ClientWorld · InterpolationClock
+  replication/  ReplicationWriter · Inspect
+  server/       ServerHost (월드 요청 — 저장 · 불러오기 · 기록 · 재생 · 테스트 플레이) · LocalServerHost · CommandValidator
+  [계획]        초안의 session/ · snapshot/ · interest/ 폴더는 없다 — ServerHost · Messages · ReplicationWriter 안에
 
 platform/
-  common/       IWindow, WindowDesc, NativeWindowHandle, PlatformEvent, Key, InputSystem, ActionMap, IAudioBackend,
-                HeadlessWindow, Gamepad, Platform(FramePacer · attachConsole)
-  windows/      Win32Window, Win32Platform, Win32KeyMap(순수 표 — 모든 OS 에서 테스트)   (나머지는 WIN32 전용)
-  stub/         StubPlatform                      (창이 없는 빌드 — X11 · Wayland 둘 다 끈 Linux)
-  linux/        X11Window, LinuxPlatform (13B), X11KeyMap(순수 표 — 모든 OS 에서 테스트), WaylandWindow · WaylandInput (13C)
-  macos/        CocoaWindow.mm · MacPlatform (APPLE 전용, 14B), MacKeyMap(순수 표 — 모든 OS 에서 테스트)
-  audio/        NullAudioBackend, MiniaudioBackend
+  common/       Window (IWindow) · PlatformEvent · Key · InputSystem · ActionMap · Audio (IAudioBackend) · HeadlessWindow ·
+                Gamepad · FramePacer · Platform
+  windows/      Win32Window · Win32Platform · Win32KeyMap · Win32Common                     (WIN32)
+  linux/        X11Window · X11KeyMap · WaylandWindow · WaylandInput · LinuxPlatform · LinuxWindows
+  macos/        CocoaWindow (.mm) · MacPlatform · MacKeyMap · MacWindows                    (APPLE — 미검증)
+  stub/         StubPlatform
+  audio/        NullAudioBackend                                  [계획] MiniaudioBackend
 
 render/
-  rhi/          IRenderDevice, ICommandList, ICommandQueue, ISwapChain, RhiTypes(Desc·Caps·Handles·Formats), HandlePool,
-                DeferredDestruction, UploadRing, ShaderTypes · RangeAllocator · PipelineValidation (7B)
-  dx12/         Dx12Device, Dx12CommandList, Dx12SwapChain, Dx12Common (7A) · Dx12Pipeline (7B)  (WIN32)
-  rhi/          (13A) RenderDeviceFactory · Backends — 빌드에 든 백엔드에서 고른다 (stub/ 은 지웠다)
-  vulkan/       (13A) VulkanDevice, VulkanCommandList, VulkanSwapChain, VulkanPipeline, VulkanCommon  (SBX_ENABLE_VULKAN — ADR-0032)
-  metal/        (14C) MetalDevice(.hpp 내부 · .mm), MetalPipeline, MetalCommandList, MetalSwapChain  (SBX_ENABLE_METAL — ADR-0037)
-  renderer/     Renderer, RenderWorld, RenderQueue, Passes/, SpriteBatcher, Camera2D, DebugDraw, ImGuiRenderer
-  renderer/     (8A) Camera2D, RenderWorld, SpriteBatcher, Renderer
-  imgui/        (8C) ImGuiRenderer — 1.92 동적 텍스처, RHI 위 (ADR-0023)
-  shader/       ShaderLibrary  [계획] (7B 는 생성 헤더가 바이트코드·리플렉션을 직접 내놓는다 — ADR-0019)
-  asset/        Image(7A: PNG·비교) · AssetManager · ShelfPacker · AssetId · MaterialLibrary (8A) · FontAsset [계획 — 8C 는 ImGuiLayer 가 폰트 파일을 직접]
-  generated/    (빌드 산출 <빌드>/generated/render/generated/: <Pascal>Shader.{hpp,cpp} · *.reflect.json) — 저장소에 없음
+  rhi/          RenderDevice · RhiTypes · ShaderTypes · HandlePool · DeferredDestruction · UploadRing · RangeAllocator ·
+                PipelineValidation · RenderDeviceFactory · Backends
+  dx12/         Dx12Device · Dx12CommandList · Dx12SwapChain · Dx12Pipeline · Dx12Common     (WIN32)
+  vulkan/       VulkanDevice · VulkanCommandList · VulkanSwapChain · VulkanPipeline · VulkanCommon  (SBX_ENABLE_VULKAN)
+  metal/        MetalDevice · MetalCommandList · MetalSwapChain · MetalPipeline (.mm)     (SBX_ENABLE_METAL — 미검증)
+  renderer/     Renderer · RenderWorld · Camera2D · SpriteBatcher · TerrainPass · OverlayPasses · DebugDraw
+  asset/        AssetManager · AssetId · Image · MaterialLibrary · ShelfPacker · StbImpl
+  imgui/        ImGuiRenderer
+  generated/    (빌드 산출 <빌드>/generated/render/generated/ — 셰이더 바이트코드 · 리플렉션 헤더, 저장소에 없음)
+  [계획]        shader/ShaderLibrary (생성 헤더가 대신 — ADR-0019) · FontAsset (ImGuiLayer 가 폰트 파일을 직접)
 
 editor/
-  EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
-  Undo (UndoEntry · IdRemap · 역명령), ui/InspectorPanel (인스펙터 · 목록)                       ← Phase 12B 구현 (ADR-0029)
-  ui/ContentPanel ("콘텐츠" 창 — Rule · Behavior · Prefab JSON · 스크립트 소스 v0.3 M5-T2), EditPermissions · editContent  ← Phase 12C 구현 (ADR-0030 · 0066)
-  worldGeneration (12D — 서버 월드가 바뀌면 기록 비우기, ADR-0031)
-  panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 — 지금은 Editor 한 클래스]
+  EditorHost (ICommandSink · IEditorHost · EditPermissions) · Editor (툴 · EditPreview · editContent) · Undo
+  ui/           EditorPanel ("편집") · InspectorPanel (인스펙터 · 목록) · ContentPanel ("콘텐츠" — JSON · 트리거 폼 · 스크립트) ·
+                TriggerForm
+  [계획]        panels/ · tools/ · selection/ 로 나누기 — 지금은 Editor 한 클래스
 
 apps/client/
-  main.cpp, Application, ClientOptions, DefaultInput, SandboxClient.manifest, NetworkSession (10B — LocalServerHost 는 network/server)
-  presentation/ InterpolationSystem, ExtractionSystem, AudioExtraction, components/(render.*, client.*, editor.*)
-  ui/           (8C) ImGuiLayer (PlatformEvent → ImGuiIO · I1), DebugPanels (시뮬레이션 · 통계 · 네트워크 10B), PlayersPanel (12C),
-                WorldPanel (12D), GamePanel (v0.2 M2-T3), ActionPanel (M3-T1)
+  main · Application (앱 상태기계) · ClientOptions · NetworkSession · WorldSession · ClientRenderer · FrameRenderer ·
+  DefaultInput · PlayKeys (팩 게임 키)
+  presentation/ SpriteExtraction · SelectionOverlay
+  ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel
 apps/server/
-  main.cpp (인자 파싱 → ServerHost)
+  main · ServerOptions
+
+tools/
+  sim_check/    sbx_sim_check (결정론 하네스)       net_probe/  sbx_net_probe       sbx/   sbx (프로젝트 도구)
+  shader/       셰이더 리플렉션 · 헤더 생성 (빌드 단계)   check_includes.py (include 경계)   wayland/ · wine/ (개발 보조)
+bench/          sbx_bench — EcsBench · SimBench · NetBench · RenderBench · BenchUtil, baselines/
+tests/          unit/<모듈> · property/ · net/ · render/ · arch/ · project/ · golden/ · data/ (2 장 표는 13-TESTING)
 ```
 
 ## 3. 진입점
@@ -359,7 +372,7 @@ apps/server/
 | `SandboxTests`     | `tests/main.cpp` (doctest) | 단위·속성·시나리오·네트워크              |
 | `sbx_sim_check`    | `tools/sim_check/main.cpp` | 결정론 하네스, 콘텐츠 검증               |
 | `sbx_net_probe`    | `tools/net_probe/main.cpp` | 서버 접속 · 명령 확인 (Phase 9)          |
-| `sbx`              | `tools/sbx/main.cpp`       | 게임 프로젝트 만들기 · 검사 (v0.2)       |
+| `sbx`              | `tools/sbx/main.cpp`       | 게임 프로젝트 new · check · build · sdk  |
 | `sbx_bench`        | `bench/main.cpp`           | 벤치마크                                 |
 | `sbx_render_tests` | `tests/render/main.cpp`    | 기준 이미지                              |
 
@@ -368,7 +381,7 @@ apps/server/
 | 질문                        | 위치                                                                                                            |
 |-----------------------------|-----------------------------------------------------------------------------------------------------------------|
 | 틱 순서                     | `core/simulation/SimulationWorld.cpp` (`tick`) + `core/systems/DefaultSystems.cpp` + [03](03-SIMULATION.md) 2장 |
-| 명령 적용                   | `core/simulation/SimulationWorld.cpp` (`applyPayload`) — 커지면 `core/command/CommandApplier.cpp` 로 분리       |
+| 명령 적용                   | `core/simulation/SimulationWorld.cpp` (`applyPayload`)                                                          |
 | 명령 권한 검사              | `network/server/CommandValidator.cpp`                                                                           |
 | 해시                        | `core/replay/WorldHash.cpp`                                                                                     |
 | 세이브 포맷                 | `core/persist/WorldSave.cpp` + [09](09-SERIALIZATION.md) 3장                                                    |
@@ -380,9 +393,17 @@ apps/server/
 | Vulkan 디바이스 생성        | `render/vulkan/VulkanDevice.cpp` (백엔드 고르기는 `render/rhi/RenderDeviceFactory.cpp`)                         |
 | Metal 디바이스 생성         | `render/metal/MetalDevice.mm` (`MetalDevice::init` — 14C, macOS 검증 대기)                                      |
 | 창 메시지 처리              | `Win32Window.cpp` · `X11Window.cpp` (`handle`) · `WaylandWindow.cpp` (`Listeners`) — platform/<os>/             |
-| 콘텐츠 검증 규칙            | `core/content/Validator.cpp` + [11](11-CONTENT-SCHEMA.md) 8장                                                   |
+| 콘텐츠 검증 규칙            | `core/content/ContentLoader.cpp` (V1~V11) + [11](11-CONTENT-SCHEMA.md) 8장                                      |
 | 게임 프로젝트 검사 규칙     | `core/project/GameProject.cpp` + [18](18-PLATFORM.md) 5.2                                                       |
 | 스크립트 문법 · 진단        | `script/lang/Parser.cpp` (S2xx · S3xx) · `Lexer.cpp` (S1xx) + [19](19-SANDBOXSCRIPT.md)                          |
 | 스크립트 타입 규칙          | `script/lang/Checker.cpp` (S4xx) · `Types.cpp` (`assignable`) + [19](19-SANDBOXSCRIPT.md) 5 · 11장               |
 | 스크립트가 부르는 엔진 함수 | `script/api/HostApi.hpp` (`kHostFunctions`) + ADR-0057                                                          |
 | 스크립트 바이트코드 · 검증  | `script/vm/Bytecode.hpp` (명령 표) · `Verifier.cpp` (규칙) · `script/lang/Codegen.cpp` + ADR-0058              |
+| 스크립트 실행 (VM)          | `script/vm/Interpreter.cpp` (예산 · 트랩) ↔ `core/script/ScriptHost.cpp` (Host 바인딩 · 쓰기 버퍼) + [19](19-SANDBOXSCRIPT.md) 13 · 16장 |
+| 스크립트 시스템이 도는 곳   | `core/script/ScriptSystemAdapter.cpp` (16b · 17d · 예산 · 트랩 정책) ← `SimulationWorld.cpp` · `SimulationScripts.cpp` |
+| 스크립트 컴포넌트 저장      | `core/ecs/DynamicComponent.cpp` · `core/script/ScriptComponents.cpp` · `core/persist/Migration.cpp` + [02](02-ECS.md) 9.6 |
+| 스크립트 컴파일 (콘텐츠)    | `core/content/ContentLoader.cpp` (`compileScripts` · `applyScriptOverlay` — 로드 0 단계)                         |
+| 게임 진행 · 점수            | `core/game/GameRules.cpp` (17b) + [03](03-SIMULATION.md) 2장 · [11](11-CONTENT-SCHEMA.md) 9장                    |
+| 트리거 실행                 | `core/simulation/SimulationTriggers.cpp` (17c) · `core/trigger/TriggerSchema.cpp` (노드 표) + [11](11-CONTENT-SCHEMA.md) 10장 |
+| 게임 패키지                 | `core/package/GamePackage.cpp` + [09](09-SERIALIZATION.md) 9장                                                  |
+| 자동 플레이 스크립트        | `core/scenarios/PlayScript.cpp` + [13](13-TESTING.md) 5.1                                                       |

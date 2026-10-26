@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-26 — 문서 정리: 입구 · 상태 줄 · 소스 지도 · 남은 [계획] 표시를 코드와 맞춤
+
+**무엇을**
+
+- 입구: README.md (Phase 12 시점의 상태 문단 → 버전 표 · 핵심 기술 · 해 보기 · 스크립트 예 — 예는 sbx check 로 컴파일 확인),
+  docs/README.md (지도의 성격 · 설명 · 0장 "지금 어디인가" · 읽는 순서에 스크립트 · 게임 제작, Phase 0 문구 뺌), AGENTS.md 1장
+  ("지금" = 18-PLATFORM 0장, 스크립트 코드 → 19).
+- 상태: 16-ROADMAP 을 v0.1 Phase 이력 문서로 (머리 · 4장의 Phase 3 티켓 목록 → 남은 실기 검증), 18-PLATFORM (기준일 · 0장 v0.3
+  진행 · 1장 · 2장 표의 SandboxScript · 사용자 Component 행이 Planned → Implemented, 사용자 System · 스크립트 도구 행, 3장 모듈).
+- 17-SOURCE-MAP 2장: 설계 때의 폴더 트리 → 실제 트리 (없는 Validator · CommandApplier · time/ · metrics/ · Miniaudio 를 빼거나
+  [계획] 으로, script/ · core/game · trigger · project · package · scenarios · script 를 넣음), 4장 "이 기능은 어디에?" 줄 더함.
+- 규범 문서 머리의 상태 줄: 01 · 02 · 03 · 04 · 09 · 10 (설계 → 규범) · 11 · 13 · 15 에 v0.2 · v0.3 을. 15 4장 타깃 표에
+  SandboxScript.
+- 구현된 것에 남은 [계획]: 02 (Prefab · Binary Visitor · Opaque · EntityRef 복제), 03 (4.1 검증 · 스크립트 단계), 19 (M1~M3 에
+  구현된 9 곳 — 검사기 · f32 · 쓰기 버퍼 · VM · .sbc 머리), 11 (점수 이벤트), 13 (--replay-roundtrip), 06 ([계획 12B]),
+  14 · 16 ([계획 15] — Phase 15 가 끝났다).
+- 같은 날 따로: `script:` 커밋 — 진단 문구 · 주석의 낡은 마일스톤 (ctx.random [계획 v0.3 M2] 등).
+
+**왜**
+
+- 문서 입구 (README · 지도 · AGENTS) 가 Phase 0 · 12 시점에 머물러 지금 어디인지 · 무엇이 있는지 알 수 없었다. 버전 계획으로
+  넘어간 뒤 16 과 18 의 몫이 겹쳤다 — 16 = 이력, 18 = 지금 · 다음으로 나눴다.
+
+**검증**
+
+- 문서 안 상대 링크 전부 (README · AGENTS · docs/*.md) 가 있는 파일을 가리킨다 (스크립트 확인 — 끊긴 링크 0).
+- [계획] 표시마다 코드를 찾아 보았다 (예: --record-replay · 오토세이브 · Miniaudio · Chat · TagMask · D6 은 아직 없어 그대로).
+- `script:` 커밋: 빌드 · ctest 62/62 (render_tests_warp 제외).
+
+**남은 일**
+
+- docs/adr/README.md 의 표 다시 맞춤 (공백) 은 이 작업 전부터 작업 트리에 있던 바깥 변경이라 넣지 않았다.
+
+---
+
 ## 2026-10-26 — v0.3 M5-T2: 스크립트 오버레이 · 에디터 "콘텐츠" 창의 스크립트 편집 (ADR-0066, 프로토콜 13)
 
 **무엇을**

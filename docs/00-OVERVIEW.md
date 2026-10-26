@@ -105,8 +105,8 @@ RTS 저장소는 수정하지 않습니다. 상세 분석은 [design/SANDBOX_ARC
 - 범용 3D 게임 엔진. 2D 시뮬레이션이 1차 목표다. (RHI·좌표계는 3D 를 막지 않는다)
 - 기기 간 bit 단위 결정론. 서버 권한 구조라 필요 없다. (ADR-0004)
 - Lockstep 멀티플레이. (ADR-0003)
-- 초기 스크립팅 언어. Rule op + FSM 데이터로 시작한다 (v0.2 까지). v0.3 에서 TypeScript 부분집합 → 자체 바이트코드 VM 으로
-  넣는다 — Lua · WASM 은 쓰지 않는다 (ADR-0039).
+- 초기 스크립팅 언어. Rule op + FSM 데이터로 시작했고 (v0.2 까지), v0.3 에서 TypeScript 부분집합 → 자체 컴파일러 · 바이트코드
+  VM 으로 넣었다 (19-SANDBOXSCRIPT) — Lua · WASM · JS 런타임은 쓰지 않는다 (ADR-0039 · 0056).
 - 처음부터 Render Graph / Archetype ECS / 병렬 스케줄러. 측정 후 도입한다.
 - OpenGL, SFML.
 - 클라이언트 측 게임플레이 예측. 에디터 프리뷰만 예외 (10-EDITOR 6장).

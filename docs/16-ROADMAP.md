@@ -1,8 +1,9 @@
 # 16. 로드맵
 
-> **계획 문서.** "다음에 뭘 할지"를 정할 때 봅니다. 기준: 2026-10-07 (Phase 8A 반영).
-> **Phase 0~15 = 플랫폼 v0.1.** 그 뒤의 계획 · 진행은 [18-PLATFORM](18-PLATFORM.md) 에서 버전 · 마일스톤 · 태스크로
-> ([ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md)). 이 문서는 Phase 이력과 남은 Phase 검증을 맡는다.
+> **이력 · 계획 문서 (v0.1).** Phase 0~15 (= 플랫폼 v0.1 Engine Foundation) 의 순서 · 산출물 · 완료 기준과 남은 실기 검증을
+> 남깁니다. Phase 는 모두 구현이 끝났다 (2026-10-19). **지금 상태와 다음 태스크는 [18-PLATFORM](18-PLATFORM.md) 0장**
+> (버전 · 마일스톤 · 태스크 — [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md)). 3장의 Phase 별 기록은 그때의
+> 서술이다 — 뒤 버전이 바꾼 것은 규범 문서 (01~19) 가 맞다. 기준: 2026-10-26.
 
 ---
 
@@ -37,7 +38,7 @@ Phase 14  macOS (Cocoa → Metal)                       ← 14A 셰이더 MSL �
 Phase 15  Optimization (측정 기반)                     ← 15A 시뮬레이션 50k · 15B 스냅숏 (2026-10-19, ADR-0038) — 결과가 같은 최적화, 50k 완료 판정은 사용자 PC 측정 대기
 ──────── Phase 0~15 = v0.1 Engine Foundation. 이후 (ADR-0039, 18-PLATFORM):
 v0.2 Game Creator → v0.3 SandboxScript → v0.4 Package Manager → v0.5 Creator Alpha → v0.6 Hub → v0.7 Multiplayer Platform
-→ v0.8 Marketplace & Hosting → v0.9 Business → v1.0 GA          ← v0.2 ✅ 0.2.0 (2026-10-21, releases/v0.2.0) · v0.3 진입 결정 ✅ (ADR-0056 · 0057, 18 6.2)
+→ v0.8 Marketplace & Hosting → v0.9 Business → v1.0 GA          ← v0.2 ✅ 0.2.0 (2026-10-21, releases/v0.2.0) · v0.3 진행 중 (M1~M4 ✅, M5 — 18 6.2)
 ```
 
 순서의 이유:
@@ -368,7 +369,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
           스냅숏 간격은 실제 시간 (×8 에서도 15 Hz), 일시정지 · 한 틱 · 속도 = 서버 명령, 명령줄 인자 UTF-8 (Windows 한글)
   완료 기준 --direct-sim 코드 0줄 ✅ · SandboxClient 가 SandboxServer 에 접속해 그린다 ✅ (Wine 4.3k, 네이티브 10k 헤드리스) ·
           싱글플레이 프레임 시간 회귀 없음 ◐ — 작은 월드는 같고, 10k 는 추출 1.9 ms + 15 Hz 적용 약 8 ms (Release, 14 7.10).
-          Main 스레드 적용은 Interest(11) · Net 스레드 디코드 [계획 15] 로 줄인다
+          Main 스레드 적용은 Interest(11) · Net 스레드 디코드 [계획 — Phase 15 에서 하지 않았다] 로 줄인다
 ```
 
 ```text
@@ -409,7 +410,7 @@ kSimVersion 1 → 2 (WorldHash 에 지형, Movement 경계 자르기, 공간 색
 11.4 ✅ 세션 토큰 (60 초, ClientQuit 면 지움, 살아 있는 연결이면 옛 연결 Kicked). SandboxClient --connect 는 시간 초과면 2 초마다
         다시 (60 초까지), 그동안 옛 복제본
 완료 기준 바이트 ∝ 관심 개체 ✅ (개체당 약 19.6 B — 14 7.11) · Late Join(화면, 256 KB/s) 0.33 초 ✅.
-        14 1.4 의 "클라 16 · 50k 스냅숏 < 3 ms" 는 37 ms (사용자 PC MSVC 13.5 ms) — 바이트 재사용 · Net 스레드 인코딩 [계획 15]
+        14 1.4 의 "클라 16 · 50k 스냅숏 < 3 ms" 는 37 ms (사용자 PC MSVC 13.5 ms) — 바이트 재사용 · Net 스레드 인코딩 [계획 — Phase 15 에서 하지 않았다]
 ```
 
 ```text
@@ -683,17 +684,16 @@ CI 의 macOS 잡과 MANUAL-QA 14B · 14C 가 통과하면 ✅ 로 바꾼다.
 
 ---
 
-## 4. 지금 착수할 티켓
+## 4. 남은 일 (v0.1)
+
+Phase 의 새 구현 티켓은 없다 — 다음 태스크는 [18-PLATFORM](18-PLATFORM.md) 0장. v0.1 에 남은 것은 실기 · CI 검증뿐이다
+(18 1.1 과 같은 목록):
 
 ```text
-사용자: [1.1b] git 첫 커밋 + 원격 push → CI 첫 실행,  [1.7] windows-msvc 프리셋 빌드·ctest 1회
-1. [3.1] SimulationClock, SimulationWorld::tick(), SystemScheduler(고정 Stage, StructuralLockGuard 적용)
-2. [3.2] SimCommand variant + CommandQueue + 적용기
-3. [3.3] SpatialIndex (정렬 배열 격자) + 속성 테스트
-4. [3.4] RandomService (CounterRng)
-5. [3.5] Lifecycle/Movement 최소판, EventStream
-6. [3.6] WorldHash (poolsByStableId + forEachEntityByIndex + 카탈로그 해시) + kSimVersion = 1
-7. [3.7~3.8] sbx_sim_check --repeat/--hash-at/--threads, 시나리오 random_walk_1k
+사용자 PC   Phase 6~8 Windows 실기 QA (Win32 · D3D12 · 렌더러 · ImGui — 지금까지 Wine · WARP), Phase 13 Linux 실기 QA,
+            Phase 15 50k 판정 (sbx_bench --only sim.ecosystem --threads <코어 수 − 1> → 평균 < 10 ms · p99 < 25 ms)
+CI          GitHub Actions 첫 실행 결과 (Linux · Windows · macOS 잡)
+macOS       Phase 14 (CI macOS 잡 · MANUAL-QA 14B · 14C)
 ```
 
 ## 5. 위험

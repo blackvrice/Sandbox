@@ -4,6 +4,8 @@
 > 상태: 3장 Save 와 6장 마이그레이션이 **Phase 4에서 구현됨** (2026-10-05, 3.5 참고). 4장 Replay 는 Phase 5C, 5장 비트스트림은 **Phase 9 에서 구현됨**
 > (`network/protocol/BitStream`), 컴포넌트 값 바이트(`BinaryCodec`)는 Phase 10A — 양자화 · 위치 · 회전 압축은 `[계획 — 측정 뒤]`.
 > Phase 12D: 서버가 실행 중에 세이브 · 불러오기 · 리플레이 기록 · 재생 (4.1, [ADR-0031](adr/0031-world-ops-generation-replay-playback.md)).
+> v0.2: 게임 패키지 .sbpkg · 세이브의 게임 결속 (9장), 오버레이 트리거. v0.3: 스크립트 컴포넌트의 세이브 · 자동 마이그레이션 (6장),
+> 스크립트 시스템 상태 world.json scriptSystems (3장), 오버레이 스크립트 overlay/scripts/ (3장) — 2026-10-26.
 
 ---
 

@@ -1,7 +1,9 @@
 # 13. 테스트 전략
 
 > **규범 문서.** 변경을 검증하는 방법과 골든 해시 절차를 정합니다.
-> 상태: L1·L1′·L2(content)·L3(D1·D2·D4)·L4(짧은)·L6 가 구현됨 (Phase 1~5A). 2장 표 아래 목록이 현재 등록된 테스트입니다.
+> 상태 (2026-10-26): L1 · L1′ · L2 (content · project) · L3 (D1~D5 · 골든 · 리플레이) · L3′ · L4 (bench_quick, 옵션) · L5 (WARP) ·
+> L6 이 구현됨 — CTest 63 개 (`render_tests_warp` 포함, GPU · Debug Layer 가 없는 기계에서는 `-E render_tests_warp`). 2장 표 아래
+> 목록이 등록된 테스트, 그 아래 줄들이 태스크마다 더한 케이스입니다. 자동 플레이 (5.1) 는 v0.2.
 
 ---
 
@@ -26,7 +28,7 @@
 | L6 아키텍처          | 링크 의존성, include 린트                                                | CMake + `tools/check_includes.py` | `arch`           | 매 구성/빌드               |
 | L7 수동 QA           | 조작감, 에디터 UX, 실제 GPU·네트워크                                     | [qa/MANUAL-QA](qa/MANUAL-QA.md)   | —                | 마일스톤                   |
 
-현재 등록된 테스트 (Phase 12D). `unit_*` · `net_convergence` 는 실행한 케이스가 0 개면 실패한다 (`FAIL_REGULAR_EXPRESSION` — 실행 파일이
+등록된 테스트 (Phase 12D 의 표에 v0.2 · v0.3 의 줄을 더해 왔다 — 목록 전체는 `ctest --preset <preset> -N`). `unit_*` · `net_convergence` 는 실행한 케이스가 0 개면 실패한다 (`FAIL_REGULAR_EXPRESSION` — 실행 파일이
 옛것이면 새 스위트가 비어 "통과" 하던 문제, Phase 10A):
 
 | CTest 이름                                                                                                                                                      | 라벨        | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -156,7 +158,8 @@ sbx_sim_check [--scenario random_walk_1k] [--seed N] [--ticks N]
                실행마다 자기 JobSystem 을 가진다. 기본 0 (Worker 없음 — 그 자리에서 계산).
 ```
 
-아래는 최종 목표 인터페이스입니다 (`--world`, `--replay-roundtrip`, `--commands` 는 `[계획]` Phase 5C).
+아래는 최종 목표 인터페이스입니다. `--replay-roundtrip` 은 Phase 5C 에 구현, `--world` · `--commands` 는 `[계획]` (지금은
+`--scenario` · `--content-root` 와 리플레이 파일 `--replay`).
 
 ```text
 sbx_sim_check --world <path|scenario> [--content <pack>] --ticks N

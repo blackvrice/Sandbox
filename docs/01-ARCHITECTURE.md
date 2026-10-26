@@ -8,6 +8,9 @@
 > Phase 10B 부터 클라이언트 안의 Simulation 스레드는 LocalServerHost(같은 프로세스의 ServerHost)의 것이다 — `--direct-sim` 은
 > 지웠다 ([ADR-0026](adr/0026-network-session-local-server-inspect.md)). 클라이언트는 Main 스레드에서 스냅숏을 받아 ClientWorld 에
 > 적용하고 그린다. 클라이언트의 Main·Render 분리와 클라이언트 Network IO 스레드(디코드 · 적용)는 `[계획]`.
+> v0.2: 게임 프로젝트 · 패키지 · 게임 규칙 · 트리거는 Core 안 (core/project · package · game · trigger) — 타깃 경계는 그대로.
+> v0.3: 타깃 SandboxScript (컴파일러 · 검증기 · VM · Host 표 — Foundation 만, ADR-0056 9) 를 SandboxCore 가 링크하고, 스크립트는
+> 시뮬레이션 단계 16b · 17d 에서 Simulation 스레드가 부른다 (03 2장, 19).
 
 ---
 
@@ -67,14 +70,15 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
    SandboxTests (exe)             = Foundation + Script + Core + Network
    sbx_render_tests (exe)         = Render + Platform  (GPU 필요)
    sbx_sim_check / sbx_bench      = Core (+ Network)
-   SandboxScript (v0.3)           = Foundation 만 — 스크립트 컴파일러 · VM · Host 표. Core 가 링크한다 (core/script 바인딩 — v0.3 M2-T2)
+   SandboxScript (v0.3)           = Foundation 만 — 스크립트 컴파일러 · VM · Host 표. Core 가 링크한다 (core/script — 바인딩 · 시스템)
+   sbx (exe)                      = Core (+ Script) — 게임 프로젝트 도구 (v0.2)
 ```
 
 | 타깃              | 종류   | 책임                                                                           | 의존 (PUBLIC)                           | 절대 의존 금지                                    |
 |-------------------|--------|--------------------------------------------------------------------------------|-----------------------------------------|---------------------------------------------------|
-| SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 시간, 파일 IO, Job System, 메트릭 | 없음                                    | 그 외 전부                                        |
-| SandboxScript     | static | SandboxScript 컴파일러 (v0.3 — 렉서 · 파서, [계획] 검사 · IR · VM · Host 표)    | Foundation                              | Core, Network, Platform, Render, Editor, 그래픽/OS 헤더 |
-| SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random, 스크립트 Host 바인딩 (core/script) | Foundation, Script                      | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
+| SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 파일 IO, Job System, UTF-8, SemVer | 없음                                    | 그 외 전부                                        |
+| SandboxScript     | static | SandboxScript 컴파일러 (렉서 · 파서 · 검사기 · 코드 생성) · 바이트코드 검증기 · VM · Host 표 · SDK 생성 (v0.3) | Foundation                              | Core, Network, Platform, Render, Editor, 그래픽/OS 헤더 |
+| SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random, 게임 · 트리거 · 프로젝트 · 패키지, 스크립트 Host 바인딩 · 시스템 (core/script) | Foundation, Script                      | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
 | SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
 | SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |

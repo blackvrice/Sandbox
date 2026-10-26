@@ -1,7 +1,8 @@
 # 15. 빌드
 
 > **참조 문서.** 툴체인, CMake 구조, 의존성, 실행 옵션, CI를 설명합니다. 근거: [ADR-0009](adr/0009-msvc-toolchain.md).
-> 상태: 1~4장·7장 일부·8~9장은 **Phase 1에서 구현됨** (2026-10-05). `[계획]` 표시가 붙은 것만 아직 없습니다.
+> 상태 (2026-10-26): 1~9장 모두 현재 빌드의 설명입니다 (Phase 1 에서 시작, 7장 실행 옵션은 SandboxServer · SandboxClient ·
+> sbx_sim_check · sbx (v0.2 프로젝트 · 패키지, v0.3 SDK) · sbx_net_probe · sbx_bench 까지). `[계획]` 표시가 붙은 것만 아직 없습니다.
 
 ---
 
@@ -103,7 +104,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 
 ## 4. 타깃 구조
 
-현재 (Phase 7B):
+현재 (2026-10-26 — Phase 7B 의 표에 뒤 Phase · 버전의 타깃을 더해 왔다):
 
 ```text
 sbx_warnings              INTERFACE  경고 수준. MSVC: /W4 /permissive- /utf-8 /Zc:__cplusplus /Zc:preprocessor
@@ -112,7 +113,9 @@ sbx_simulation_flags      INTERFACE  /fp:precise · -ffp-contract=off -fno-fast-
 SandboxFoundation         STATIC     include 루트 = 저장소 루트 + build/<preset>/generated. PUBLIC Threads::Threads (JobSystem, 5B)
 sbx_nlohmann_json         INTERFACE  external/nlohmann_json (SYSTEM include, JSON_USE_IMPLICIT_CONVERSIONS=0)
 sbx_doctest               INTERFACE  external/doctest (SYSTEM include), DOCTEST_CONFIG_USE_STD_HEADERS (5A, MSVC)
-SandboxCore               STATIC     PUBLIC Foundation, PUBLIC sbx_nlohmann_json, PUBLIC sbx_simulation_flags
+SandboxScript             STATIC     PUBLIC Foundation, PUBLIC sbx_simulation_flags (v0.3 — 컴파일러 · 검증기 · VM · Host 표 · SDK 생성).
+                                     Core · Network · Render · Platform · Editor 를 모른다 (sbx_forbid_link · check_includes.py — ADR-0056 9)
+SandboxCore               STATIC     PUBLIC Foundation, PUBLIC Script (v0.3), PUBLIC sbx_nlohmann_json, PUBLIC sbx_simulation_flags
 SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_json (ActionMap). 항상 빌드 (입력·오디오 단위 테스트)
                                      WIN32: platform/windows/* + user32 imm32, UNICODE, _WIN32_WINNT=0x0A00
                                      SBX_ENABLE_X11 (Linux, 13B): platform/linux/* + X11::X11 (+ X11::Xi → SBX_HAS_XINPUT2),
@@ -140,11 +143,11 @@ SandboxServer             EXE        Network Core
 SandboxClient             EXE        Editor Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
-SandboxTests              EXE        Foundation Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·
+SandboxTests              EXE        Foundation Script Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·
                                      ClientOptions · DefaultInput 직접 컴파일), sbx_doctest
 sbx_sim_check             EXE        Core   (SBX_BUILD_TOOLS=ON)
 sbx_net_probe             EXE        Network Core   (SBX_BUILD_TOOLS=ON, Phase 9 — 서버 접속 확인)
-sbx                       EXE        Core   (SBX_BUILD_TOOLS=ON, v0.2 — 게임 프로젝트 도구, ADR-0043). 정의 SBX_DEFAULT_CONTENT_DIR
+sbx                       EXE        Core   (SBX_BUILD_TOOLS=ON, v0.2 — 게임 프로젝트 도구 new · check · build, v0.3 sdk, ADR-0043). 정의 SBX_DEFAULT_CONTENT_DIR
 sbx_bench                 EXE        Core Network Render   (SBX_BUILD_BENCH=ON 일 때만 — 기본 OFF. Network 은 net.* 벤치, Phase 11)
 sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와 (WIN32 · SBX_ENABLE_VULKAN · SBX_ENABLE_METAL) (tests/render).
                                      CTest render_tests_warp (Windows, --rhi dx12) · render_tests_lavapipe (Linux, --rhi vulkan — 13A) ·

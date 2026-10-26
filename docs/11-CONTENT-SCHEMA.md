@@ -4,7 +4,8 @@
 > 데이터 모양을 바꾸면 이 문서를 같은 커밋에서 고칩니다.
 > 상태: **Phase 5A·5B에서 구현됨** (2026-10-05) — 팩 로더·검증기(V1~V7)·Prefab·Tag·Rule·BehaviorGraph 모델·contentHash,
 > Rule·Behavior 의 실행(5B). 0장이 구현과 문서의 차이입니다. PlayerAction(actions.json)은 v0.2 M3-T1 에서 구현 (6장,
-> [ADR-0047](adr/0047-player-action-content-command-point-targets.md)).
+> [ADR-0047](adr/0047-player-action-content-command-point-targets.md)). v0.2 GameMode (9장) · Trigger (10장), v0.3 scripts/ (11장 —
+> 컴포넌트 · 시스템 · 오버레이) — 2026-10-26.
 
 ---
 
@@ -388,7 +389,8 @@ result    win · lose · draw. team 이 있으면 그 팀의 승리 · 패배 (d
           모드에도 없으면 V2 경고). 값은 ±1,000,000,000 으로 자른다 (ADR-0048)
 스폰 지점 컴포넌트 game.spawn_point {prefab, count 1~64, radius 0~16} — 에디터로 월드에 놓는다 (core.transform 필요). 시작할 때
           지점을 saveId 순으로 prefab 을 count 개, 위치 ±radius 안에 만든다 (03 4장). 다시 나오기 · 주기적 생성은 [계획]
-[계획]    월드 오버레이로 고치기(EditContent), 가장 높은 팀 승리 · 점수 이벤트 (M4 Visual Trigger), 접속자별 점수
+[계획]    월드 오버레이로 고치기(EditContent), 가장 높은 팀 승리, 접속자별 점수. (점수 이벤트는 v0.2 M4 의 트리거 event.score —
+          10장, 스크립트는 v0.3 onEvent score — 19 18장)
 ```
 
 데모 모드 (v0.2 M3-T3, [ADR-0049](adr/0049-game-keys-pack-presentation-camera-start-demo-mode.md)) — `content/ecosystem`:

@@ -1,6 +1,6 @@
 # 10. 에디터
 
-> **설계 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다. 상태: **Phase 12A 구현** — SandboxEditor(`editor/`), IEditorHost ·
+> **규범 문서.** 샌드박스 에디터의 구조와 편집 흐름을 정합니다 (Phase 12 에 구현 — 그 전에는 설계 문서였다). 상태: **Phase 12A 구현** — SandboxEditor(`editor/`), IEditorHost ·
 > ICommandSink, 툴 다섯(Select · Move · Place · TerrainBrush · Erase), EditPreview, "편집" 패널(Palette · Terrain 의 첫 모양) —
 > 2 · 3 · 6.1 · 9장의 "Phase 12A 구현" 단락. **Phase 12B 구현** — Inspector(리플렉션 필드 → ChangeComponent, 서버 전용 값은
 > 선택 상세로) · Hierarchy("목록") · Undo/Redo — 2 · 4 · 6.2 · 9 · 10장의 "Phase 12B 구현" 단락. **Phase 12C 구현** — 역할
@@ -11,6 +11,8 @@
 > [ADR-0028](adr/0028-editor-library-host-tools-preview.md), [ADR-0029](adr/0029-inspector-server-values-undo-entries.md),
 > [ADR-0030](adr/0030-roles-player-list-content-overlay.md), [ADR-0031](adr/0031-world-ops-generation-replay-playback.md).
 
+> v0.2 (2026-10-21): "게임" 패널 · 게임 키 (9장), "행동" 패널 (PlayerAction), 트리거 폼 (8장), 테스트 플레이 (9장), 프로젝트 저장 ·
+> 패키지. v0.3 (2026-10-26): "콘텐츠" 창의 스크립트 편집 · 오류 줄 · 적용 (8장 — 오버레이 Script).
 ---
 
 ## 1. 원칙

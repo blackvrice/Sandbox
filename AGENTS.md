@@ -8,9 +8,11 @@
 ## 1. 작업 전에 읽을 것
 
 ```text
-항상            docs/README.md (문서 지도) → docs/16-ROADMAP.md (지금 어느 Phase 인가)
+항상            docs/README.md (문서 지도) → docs/18-PLATFORM.md 0장 (지금 버전 · 다음 태스크 "v0.N Mk-Tn")
+                (Phase 0~15 = v0.1 의 이력 · 남은 실기 검증은 docs/16-ROADMAP.md)
 코드를 쓰기 전  docs/12-CODING-STANDARDS.md (리뷰 체크리스트 포함)
 Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선한다
+스크립트 코드   docs/19-SANDBOXSCRIPT.md (언어 · 컴파일러 · VM · Host API) — 시뮬레이션에 닿으면 04 도
 경계를 넘는 변경 docs/01-ARCHITECTURE.md 의 의존성 규칙
 ```
 

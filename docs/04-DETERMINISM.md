@@ -3,7 +3,10 @@
 > **이 문서는 시뮬레이션 코드를 건드리는 모든 작업의 전제입니다.**
 > 다른 문서와 충돌하면 이 문서가 이깁니다. 결정 근거: [ADR-0004](adr/0004-determinism-scope.md), [ADR-0012](adr/0012-golden-hash-per-toolchain.md).
 > 구현 상태 (Phase 5C, 2026-10-06): WorldHash(5장, 지형 포함), simVersion(6장, 현재 4), `sbx_sim_check` 의
-> D1(`--repeat`)·D2(`--save-at`)·D3(`--replay-roundtrip`, 5C)·D4(`--golden`)·D5(`--threads`, 5B) 와 5.3 진단이 구현됨. D6 은 `[계획]` (Phase 10).
+> D1(`--repeat`)·D2(`--save-at`)·D3(`--replay-roundtrip`, 5C)·D4(`--golden`)·D5(`--threads`, 5B) 와 5.3 진단이 구현됨. D6 (접속 수 ·
+> Interest 가 결과를 바꾸지 않는다) 은 `[계획]` — 지금의 복제 수렴 시험 (net_convergence) 은 서버 상태 = 클라이언트 복제본만 본다.
+> 뒤 버전 (2026-10-26): v0.2 의 17b · 17c, v0.3 의 스크립트 VM (16b · 17d — 연료로 끊는 예산, 19) 도 이 문서를 따른다 — 모두
+> 해당 기능이 없는 월드에서 아무것도 하지 않아 simVersion 4 · 골든 그대로 (6장 이력).
 
 ---
 
