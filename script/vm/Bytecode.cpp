@@ -131,7 +131,7 @@ bool readAbi(Reader& r, api::AbiType& out) {
     if (!r.u8v(v)) {
         return false;
     }
-    if (v > static_cast<u8>(api::AbiType::EntityList)) {
+    if (v > static_cast<u8>(api::AbiType::ClientContext)) {
         return false;
     }
     out = static_cast<api::AbiType>(v);
@@ -290,6 +290,8 @@ std::vector<u8> serialize(const Module& m) {
     for (const SystemDesc& s : m.systems) {
         w.str(s.id);
         w.str(s.module);
+        w.u8v(static_cast<u8>(s.domain));
+        w.u32v(s.onUpdate);
         w.u32v(s.onTick);
         w.u32v(s.onStart);
         w.u32v(s.onStop);
@@ -459,17 +461,22 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             return bad("export");
         }
     }
-    if (!r.count(n, kMaxSystems, 36, "시스템")) {
+    if (!r.count(n, kMaxSystems, 41, "시스템")) {
         return bad("시스템 표");
     }
     m.systems.resize(n);
     for (SystemDesc& s : m.systems) {
         u32 ne = 0;
-        if (!r.str(s.id) || !r.str(s.module) || !r.u32v(s.onTick) || !r.u32v(s.onStart) || !r.u32v(s.onStop) ||
-            !r.u32v(s.onEvent) || !r.u32v(s.intervalTicks) || !r.u32v(s.eventsPerTick) ||
-            !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
+        u8 domain = 0;
+        if (!r.str(s.id) || !r.str(s.module) || !r.u8v(domain) || !r.u32v(s.onUpdate) || !r.u32v(s.onTick) ||
+            !r.u32v(s.onStart) || !r.u32v(s.onStop) || !r.u32v(s.onEvent) || !r.u32v(s.intervalTicks) ||
+            !r.u32v(s.eventsPerTick) || !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
             return bad("시스템");
         }
+        if (domain > static_cast<u8>(api::HostDomain::Client)) {
+            return bad("시스템 도메인");
+        }
+        s.domain = static_cast<api::HostDomain>(domain);
         s.events.resize(ne);
         for (EventSubscription& e : s.events) {
             if (!r.u8v(e.kind)) {
@@ -514,6 +521,10 @@ std::string disassemble(const Module& m) {
     }
     const auto fnOf = [](u32 f) { return f == api::kNoCallback ? std::string("-") : std::format("fn {}", f); };
     for (const SystemDesc& s : m.systems) {
+        if (s.domain == api::HostDomain::Client) {
+            out += std::format("system {} {} client onUpdate {}\n", s.id, s.module, fnOf(s.onUpdate));
+            continue;
+        }
         out += std::format("system {} {} onTick {} every {} · onStart {} · onStop {} · onEvent {} ×{}\n", s.id,
                            s.module, fnOf(s.onTick), s.intervalTicks, fnOf(s.onStart), fnOf(s.onStop), fnOf(s.onEvent),
                            s.eventsPerTick);

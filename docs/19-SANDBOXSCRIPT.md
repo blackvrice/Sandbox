@@ -1,10 +1,10 @@
 # 19. SandboxScript (v0.3)
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
-> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M4 ✅, M5-T2 까지 — 2026-10-26).
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M4 ✅, M5-T3 까지 — 2026-10-26).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
 > (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
-> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 (클라이언트 스크립트). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -24,6 +24,8 @@
 | 시스템 콜백 · 이벤트 (18장)            | 구현 (v0.3 M4-T2)     | onStart · onStop · onEvent, `script/api/SystemEvents`, .sbc 형식 4, `core/simulation/SimulationScripts` (단계 17d), ADR-0063 |
 | 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
 | 스크립트 오버레이 · 에디터 (20장)      | 구현 (v0.3 M5-T2)     | 오버레이 종류 Script (프로토콜 13), 로더의 다시 컴파일 · V11, `editor/ui/ContentPanel` 스크립트, ADR-0066 |
+| 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
+| 시스템 프로파일 (연료 · 시간 표시)     | [계획 v0.3 M5-T4]     | —                                                                      |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -203,7 +205,10 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   vm/Interpreter       Interpreter (call · 아레나 · 예산 · 트랩) · Value · IHost
   sdk/SdkGenerator     sandbox.d.ts 생성 (Host 표 · 불투명 타입 · SDK 내장)
 core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
-  ScriptHost           Host 바인딩 목록 · 계약 검사 · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
+  ScriptHost           Host 바인딩 목록 · 계약 검사 (도메인마다) · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
+  ScriptValues         컴포넌트 값 바이트 → VM 칸 (서버 · 클라이언트 Host 공용)
+  ClientScriptHost     클라이언트 바인딩 목록 · ClientScriptHost (복제 월드 읽기 · 글자 · 줄 — 21장)
+  ClientScriptSystems  client 시스템을 프레임마다 (onUpdate · 프레임 연료 · 트랩이면 끔 — 21장)
   ScriptComponents     스키마 → ecs 동적 컴포넌트 설명 → 카탈로그 (15장)
   ScriptSystemAdapter  단계 16b — 팩 바이트코드마다 인터프리터, (팩 순서, id) 차례로 onTick (17장) · 17d — onStart · onEvent ·
                        onStop (18장)
@@ -219,13 +224,15 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
 
 ```text
 단일 정의   constexpr 표 kHostFunctions: id (영속 이름) · 주인 타입 · 멤버 · 속성/메서드 · 결과 · 매개변수 (≤ 4) · 도메인 ·
-            효과 (read · write · structural · random · log) · 연료 · 설명. 검사기는 이 표로 ctx.멤버 를 찾는다 (d.ts 를 읽지 않는다)
+            효과 (read · write · structural · random · log · display) · 연료 · 설명. 검사기는 이 표로 ctx.멤버 를 찾는다 (d.ts 를 읽지 않는다)
 지문        hostApiFingerprint = 정규형 줄 ("ctx.log ServerContext.log(string): void server log 16") 을 정렬해 FNV-1a 64,
             kHostApiVersion 과 함께 — .sbc 머리 (12장). 시험이 값을 고정한다 (표를 바꾸면 같은 커밋에서)
 지금 항목   ctx.tick: i32 (read) · ctx.log(string): void (log). 불투명 타입 Entity · ServerContext.
             (v0.3 M3-T3 — 16장) ctx.read(entity, ref): T | null · ctx.has(entity, ref): boolean (read) · ctx.query(ref): Entity[]
             (read, 16 + 개체마다 1) · ctx.write(entity, ref, value: T): void (write). 제네릭 ABI Component · ComponentData ·
-            ComponentDataOrNull · EntityList — T 는 Component 인자가 정한다 (isComponentGeneric). 지문 0388e85856c3e9f3
+            ComponentDataOrNull · EntityList — T 는 Component 인자가 정한다 (isComponentGeneric).
+            (v0.3 M5-T3 — 21장) 주인 ClientContext · 도메인 Client: client.tick · frame · dt · read · has · query · label · print.
+            지문 e02f109682ecb304 (더하기만이라 kHostApiVersion 1 그대로)
 [계획]      난수 (ctx.random) · 생성 · 파괴 · 점수 · 컴포넌트 붙이기 · 떼기, 엔진 컴포넌트의 ComponentRef (권한 표와 함께) — v0.3 에는
             일정이 없다 (M6 데모가 요구하면 18 6.2 에 태스크로)
 ```
@@ -313,7 +320,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
             이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
-파일 .sbc   "SBXC" · 형식 4 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독 — 옛 형식은 VersionMismatch) ·
+파일 .sbc   "SBXC" · 형식 5 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
+            도메인 · onUpdate — 옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
@@ -351,7 +359,8 @@ Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는
 
 ```text
 바인딩      hostBindings() = 엔진 구현의 명시 목록 (id · 서명 — 주인 ctx 가 첫째 · 구현 함수). checkHostBindings 가 계약을 본다:
-            표의 항목마다 구현이 정확히 하나, 서명 = 표, 표에 없는 구현 없음, 함수 포인터 있음. 단위 시험 + ScriptHost 생성 (Debug)
+            표의 Server 도메인 항목마다 구현이 정확히 하나, 서명 = 표, 표에 없는 · 다른 도메인 항목의 구현 없음, 함수 포인터 있음.
+            단위 시험 + ScriptHost 생성 (Debug). Client 도메인은 clientHostBindings · checkClientHostBindings (21장, ADR-0067)
 ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을 새로 낸다 (표지 0x5C78… + 호출 번호) → 그 값을 ctx 인자로
             넘기고, 끝나면 endCall. Host 함수는 첫 인자가 지금 열린 호출의 ctx 인지 본다 — 지난 호출의 ctx · 위조한 핸들 · 열린
             호출 없음 = HostError (ADR-0057 4)
@@ -460,7 +469,7 @@ import { defineSystem } from "sandbox";
 import { regen } from "./regen";               // 공용 코드는 최상위 function (16장의 예)
 export default defineSystem({
   id: "rpg.mana.regen",                         // 이름공간.이름 (컴포넌트 id 와 같은 규칙) — 팩들 사이에 하나
-  domain: "server",                             // 선택 — "server" 만 (client 는 M5)
+  domain: "server",                             // 선택 — 기본 "server" ("client" 는 21장)
   intervalTicks: 3,                             // 선택 — 1 ~ 65535, 기본 1
   onTick(ctx) {                                 // ctx 는 적지 않아도 ServerContext, 반환은 void
     regen(ctx);
@@ -476,7 +485,7 @@ export default defineSystem({
            있는 정의는 없다
 진단       S426 정의 (모양 · id 규칙 · 엔진 이름공간 · 겹친 id · domain · intervalTicks · onTick 서명 · 모르는 키 · export default 둘),
            S427 자리 (const · 식 · 함수 안의 defineSystem), S423 export default 의 다른 식 · 밖의 메서드
-바이트코드 모듈의 시스템 표 (.sbc 형식 3 · 4 — 12장): id 오름차순. 검증기가 id 규칙 · 순서 · 겹침 · 함수 번호 · onTick 서명
+바이트코드 모듈의 시스템 표 (.sbc 형식 3 ~ 5 — 12장): id 오름차순. 검증기가 id 규칙 · 순서 · 겹침 · 함수 번호 · onTick 서명
            ((ServerContext?) → void) · 주기 범위를 본다
 콘텐츠     로드 0 단계가 팩마다 만든 모듈을 ContentDatabase::scriptPrograms 에 둔다 (11-CONTENT-SCHEMA 11장). 팩 사이의 같은 시스템
            id 는 V1
@@ -487,7 +496,8 @@ export default defineSystem({
 트랩       그 호출의 쓰기만 버리고 다음 시스템으로 (그 시스템은 다음 주기에 다시 돈다). 로그는 시스템마다 처음 한 줄
            ("<id> t<틱>: 트랩 <종류> — <글> (<팩>/<함수> pc n)"), 그 뒤는 세기만 (ScriptSystemAdapter::trapCount · lastStats). 트랩이
            3 번 이어지면 시스템을 끈다 · 틱 연료 예산은 19장
-d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server")
+d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server" |
+           "client", onUpdate?(ctx: ClientContext): void)
 결정성     시스템 상태가 없다 (주기는 틱 번호로만) — 세이브 → 로드 · 늦은 합류 뒤에도 같은 틱에 같은 시스템이 돈다. 같은 콘텐츠 =
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
 ```
@@ -562,7 +572,7 @@ d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents,
            트랩 글 · 꺼짐 (ScriptSystemAdapter::counters · disabled). 틱 통계 lastStats (호출 · 트랩 · 예산 · 건너뜀 · 연료 · 버린
            로그). SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄:
              스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 12345 · 최대 2000 (꺼졌으면 " · 꺼짐")
-           시스템별 시간 프로파일 · 에디터 표시는 [계획 M5-T3]
+           시스템별 시간 프로파일 · 에디터 표시는 [계획 M5-T4]
 ```
 
 ## 20. 스크립트 오버레이 · 에디터 (v0.3 M5-T2 — `core/content/ContentOverlay` · `ContentLoader` · `editor/ui/ContentPanel`, ADR-0066)
@@ -577,4 +587,48 @@ d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents,
            "kind": "script"} — 클라이언트도 같은 로더로 같은 바이트코드
 에디터     "콘텐츠" 창 종류 "스크립트": 소스 편집 · 검사 (오류마다 "  12 | <그 줄>") · 적용 · 팩 값으로 · 새 파일 (시스템 틀) ·
            이 파일의 시스템 요약 (10-EDITOR 8장)
+```
+
+## 21. 클라이언트 스크립트 (v0.3 M5-T3 — `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client`, ADR-0067)
+
+```ts
+import { defineSystem } from "sandbox";
+import { Mana } from "./mana";
+export default defineSystem({
+  id: "rpg.hud.mana",
+  domain: "client",                             // 리터럴로 — ctx 의 타입을 정한다 (키 순서와 무관)
+  onUpdate(ctx) {                               // ctx 는 적지 않아도 ClientContext. 클라이언트 프레임마다
+    for (const e of ctx.query(Mana)) {          // 복제 월드 — netId 오름차순
+      const m = ctx.read(e, Mana);
+      if (m !== null) ctx.label(e, `마나 ${Math.floor(m.current)}`);
+    }
+    ctx.print(`틱 ${ctx.tick}`);
+  },
+});
+```
+
+```text
+정의       client 시스템의 콜백은 onUpdate 하나 ((ClientContext?) → void). intervalTicks · events · eventsPerTick · onTick · onStart ·
+           onStop · onEvent 는 S426 (서버의 것), server 시스템의 onUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
+           id 는 도메인과 무관하게 팩들 사이에 하나 (V1). .sbc 형식 5 의 시스템 표에 도메인 · onUpdate (12장) — 검증기가 같은 규칙
+ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ctx.log 없음 — 주인 타입이 다르다):
+             tick (복제 월드의 서버 틱) · frame (1 부터) · dt (앞 프레임 뒤 실제 초 — 표시용)
+             read · has · query — 복제 월드의 스크립트 컴포넌트 (복제되지 않는 것은 null · 빈 질의), 질의 = netId 오름차순 (개체마다
+             연료 1), 개체 참조 필드는 null [계획]
+             label(entity, text) — 이번 프레임 개체 위 글자 · print(text) — "스크립트" 칸 한 줄. 줄마다 256 바이트 (UTF-8 글자 경계
+             에서 자르고 …), 프레임마다 글자 1024 · 줄 64 (넘으면 버리고 센다 — droppedDisplay)
+서버       client 시스템을 돌리지 않는다 (ScriptSystemAdapter 가 건너뛴다). server 시스템이 없으면 어댑터도 단계도 없다 — client 시스템만
+           있는 콘텐츠의 해시 · 세이브는 스크립트 없는 콘텐츠와 같다
+클라이언트 NetworkSession 이 콘텐츠 (오버레이 포함 — 20장) 에 client 시스템이 있을 때 ClientScriptSystems 를 두고, update 마다
+           스냅숏을 적용한 뒤 (팩 순서, id) 차례로 onUpdate. 바이트코드가 바뀌면 (오버레이) 새로. 예산: 호출 연료 1,000,000 · 프레임
+           연료 2,000,000 (kFrameFuel — 넘으면 "예산" · "건너뜀"), 트랩이면 그 호출의 표시를 버리고 3 번 이어지면 그 시스템을 끈다 —
+           이 접속의 메모리에만 (세이브 · 서버와 무관, 콘텐츠가 바뀌면 다시 켠다). 첫 트랩 · 끔 · 첫 예산은 로그 한 줄
+화면       Application 이 글자를 개체의 그린 자리 (보간 위치 — 스프라이트가 없으면 복제 위치) 위에 (ImGui 배경 목록 — 패널 아래),
+           줄을 "스크립트" 칸에 그린다 — 패널을 숨겨도 (게임 화면). 칸은 줄이 있을 때만, 패널이 보이면 시스템 통계 (접기)
+헤드리스   SandboxClient 가 끝날 때 시스템마다 "클라이언트 스크립트 <id>: 호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 최대 (· 꺼짐)",
+           마지막 프레임의 글자 · 줄 수와 줄
+결정론     클라이언트 스크립트는 시뮬레이션 밖이다 — 표시는 그 화면에만 남고 서버로 아무것도 가지 않는다 (04 의 규칙이 닿지 않는다).
+           frame · dt 는 클라이언트마다 다르다
+[계획]     클라이언트 스크립트의 명령 보내기 · 입력 · 그리기 (도형 · 스프라이트) · 엔진 컴포넌트 읽기 · 개체 참조 풀기 — M6 데모가
+           요구하면 18 6.2 에 태스크로
 ```

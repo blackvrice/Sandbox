@@ -47,6 +47,8 @@ public:
             bc::SystemDesc d;
             d.id = s.id;
             d.module = s.module;
+            d.domain = s.domain;
+            d.onUpdate = s.onUpdate;
             d.onTick = s.onTick;
             d.onStart = s.onStart;
             d.onStop = s.onStop;
@@ -1077,6 +1079,7 @@ private:
             for (u8 i = 0; i < h.paramCount && i + 1u < kids.size(); ++i) {
                 // 불투명 인자는 그 식의 타입 그대로 (검사기가 같은 ABI 인지 봤다)
                 const bool opaque = h.params[i] == api::AbiType::Entity || h.params[i] == api::AbiType::ServerContext ||
+                                    h.params[i] == api::AbiType::ClientContext ||
                                     h.params[i] == api::AbiType::Component;
                 const TypeId pt = opaque                                       ? typeOf(kids[i + 1])
                                   : h.params[i] == api::AbiType::ComponentData ? data

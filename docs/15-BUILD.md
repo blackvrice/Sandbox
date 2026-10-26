@@ -346,6 +346,8 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
     Windows 는 GUI 서브시스템 실행 파일이라 PowerShell 에서 실행해도 로그가 안 보인다 → --console (부모 콘솔에 붙는다).
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
     창이 없는 빌드(macOS · SBX_ENABLE_X11 · SBX_ENABLE_WAYLAND 둘 다 OFF)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
+    (v0.3 M5-T3) 콘텐츠에 client 스크립트 시스템이 있으면 그 앞에 시스템마다 "클라이언트 스크립트 <id>: 호출 · 트랩 · 예산 · 건너뜀 ·
+    연료 합 · 최대" 와 "클라이언트 스크립트 마지막 프레임 N: 글자 n · 줄 m" · 그 줄들 (19 21장).
     창 안 단축키(수동 QA): F2 글자 입력 · F3 마우스 캡처 · F4 커서 모양 · Ctrl+C/V · Esc · Ctrl+Q (qa/MANUAL-QA Phase 6)
 종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일 · 서버 접속 실패 · 끊김) · 2 잘못된 인자 (없는 월드 포함)
 

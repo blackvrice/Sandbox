@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-10-26 — v0.3 M5-T3: 클라이언트 스크립트 최소 — domain "client" · onUpdate, 복제 월드 읽기 · 화면 글자 (ADR-0067)
+
+**무엇을**
+
+- 계획의 M5-T3 (IClientContext 최소 + 프로파일) 을 둘로 나눴다 — 이번은 클라이언트 스크립트, 프로파일은 M5-T4 (18 6.2).
+- Host 표: 주인 ClientContext · 도메인 Client 항목 8 — client.tick · frame · dt · read · has · query (복제 월드, netId 순) · label ·
+  print (새 효과 display). 더하기만이라 kHostApiVersion 1 그대로, 지문 0388e85856c3e9f3 → e02f109682ecb304. AbiType::ClientContext
+  를 검사기 · 코드 생성 · 검증기 · .sbc 읽기 · d.ts 에.
+- 검사기: defineSystem({ domain: "client", onUpdate(ctx) }) — domain 을 먼저 읽어 (리터럴, 키 순서와 무관) 메서드의 ctx 를
+  ClientContext 로. client 시스템의 onTick · onStart · onStop · onEvent · intervalTicks · events · eventsPerTick, server 시스템의
+  onUpdate, 상수 이름 domain 은 S426 (한 잘못에 진단 하나).
+- .sbc 형식 4 → 5: 시스템 표에 도메인 (u8) · onUpdate. 검증기가 client = onUpdate 하나 · (ClientContext?) → void · 주기 1 · 구독
+  없음, server = onUpdate 없음. 역어셈블 "system <id> <파일> client onUpdate fn n".
+- 바인딩 계약을 도메인마다: BasicHostBinding<Host> · HostBindingShape · checkHostBindingShapes(…, 도메인) — 서버 hostBindings 는
+  Server 항목만, 다른 도메인 항목의 구현은 문제. 컴포넌트 값 → VM 칸 변환을 ScriptValues.hpp 로 꺼내 서버 · 클라이언트가 나눈다.
+- core/script/ClientScriptHost (IHost — 복제 월드 읽기, 줄마다 256 바이트 · 프레임마다 글자 1024 · 줄 64, 트랩이면 그 호출의 표시
+  버림) · ClientScriptSystems (프레임마다 onUpdate, 프레임 연료 2,000,000, 트랩 3 번이면 끔 — 메모리에만, 통계 ·
+  describeClientScriptSystems).
+- 서버: ScriptSystemAdapter 가 client 시스템을 건너뛰고, SimulationWorld 는 server 시스템이 있을 때만 어댑터를 만든다
+  (ScriptPrograms::systemCount(도메인)). 어댑터를 다시 만들 때 새 것을 먼저 만들고 바꿔 낀다 (옛 자리를 다시 써서 "다시 만들었다"
+  시험이 우연에 기대던 것).
+- 클라이언트: NetworkSession 이 콘텐츠 (오버레이 포함) 에 client 시스템이 있을 때 ClientScriptSystems 를 두고 스냅숏 적용 뒤
+  돌린다 (바이트코드가 바뀌면 새로). IWorldSession::scriptOverlay → apps/client/ui/ScriptPanel 이 글자를 개체의 그린 자리 위에,
+  줄을 "스크립트" 칸에 (패널을 숨겨도). 헤드리스 끝 줄에 시스템 통계 · 마지막 프레임 줄.
+- d.ts: SystemDefinition.domain?: "server" | "client", onUpdate?(ctx: ClientContext), interface ClientContext.
+- 시험: test_client_scripts 5 · test_client_script_session 1, 기존 시험의 형식 5 · 지문 · 서버 바인딩 수 · S426 문구 갱신.
+  문서: ADR-0067, 19 (0 · 9 · 10 · 12 · 14 · 17 · 19 · 21장), 18 (M5-T3 ✅ · T4), 10 9장, 11 11장, 15, 17, 13.
+
+**왜**
+
+- 게임 제작자가 서버 규칙과 함께 화면 쪽 표시 (개체 위 값 · HUD 줄) 를 같은 언어로 쓰게. 읽기 · 표시만이라 서버 권위 ·
+  결정론 · 해시 · 세이브에 닿지 않는다 — 쓰기 · 명령은 서버 검증을 다시 거쳐야 해서 최소 범위 밖.
+- 도메인을 주인 타입으로 가르면 서버 항목 (ctx.write · ctx.log) 을 클라이언트 코드에서 부르는 일이 타입 검사에서 막힌다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — kSimVersion 4).
+  SandboxTests 588 케이스. check_includes 위반 0.
+- 실행 (스크래치 clientroot — 생태계 팩 + M4 의 Mana 스크립트 + client 시스템 eco.hud: 마나 있는 개체마다 글자 · 합계 줄):
+  `SandboxClient --headless --world ecosystem_small --content <clientroot> --frames 120` → "클라이언트 스크립트 eco.hud: 호출 116 ·
+  트랩 0 · … 최대 4348", "마지막 프레임 116: 글자 75 · 줄 1", "[eco.hud] tick 58 frame 116 rabbits 75 mana 3825".
+  `SandboxServer --world ecosystem_small --content-root <clientroot> --ticks 60 --exit` 의 끝 줄은 서버 시스템 둘뿐 (eco.hud 없음).
+- 성능: 서버 시뮬레이션 경로는 client 시스템을 건너뛰는 비교 하나뿐이라 벤치를 돌리지 않았다. 클라이언트 프레임 비용은 위 실행의
+  연료 (프레임 평균 약 4,300 · 토끼 75) — 시간 측정은 M5-T4 프로파일에서.
+- 창 (ImGui) 의 글자 · 칸을 눈으로 확인하지는 못했다 — 그리기 함수는 헤드리스 ImGui 시험이 부르고, 자리 계산은 카메라 변환 그대로.
+
+**남은 일**
+
+- M5-T4: 프로파일 (서버 · 클라이언트 스크립트 시스템의 연료 · 시간을 에디터 · 패널에). 클라이언트 스크립트의 명령 보내기 · 입력 ·
+  그리기 · 엔진 컴포넌트 읽기 · 개체 참조 풀기는 [계획] (M6 데모가 요구하면).
+
+---
+
 ## 2026-10-26 — 문서 정리: 입구 · 상태 줄 · 소스 지도 · 남은 [계획] 표시를 코드와 맞춤
 
 **무엇을**

@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 0388e85856c3e9f3 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 e02f109682ecb304 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -104,8 +104,8 @@ declare module "sandbox" {
   export interface SystemDefinition {
     /** "이름공간.이름" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */
     id: string;
-    /** "server" 만 (기본) */
-    domain?: "server";
+    /** "server" (기본 — 서버 시뮬레이션) 또는 "client" (클라이언트 화면 — onUpdate 만, ADR-0067) */
+    domain?: "server" | "client";
     /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */
     intervalTicks?: i32;
     /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */
@@ -119,8 +119,10 @@ declare module "sandbox" {
     onStop?(ctx: ServerContext): void;
     /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */
     onEvent?(ctx: ServerContext, e: GameEvent): void;
+    /** client 시스템만 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관) */
+    onUpdate?(ctx: ClientContext): void;
   }
-  /** 스크립트 시스템 (서버) */
+  /** 스크립트 시스템 (서버 · 클라이언트) */
   export function defineSystem(definition: SystemDefinition): SystemDefinition;
 
   /** 개체 핸들 — 같음 비교만, 틱을 넘겨 두려면 EntityRef 필드에 */
@@ -143,5 +145,26 @@ declare module "sandbox" {
     query<T>(component: ComponentRef<T>): Entity[];
     /** 컴포넌트 값을 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖 · 없는 컴포넌트는 트랩) — ctx.write */
     write<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
+  }
+
+  /** 클라이언트 콜백 (onUpdate) 의 ctx — 호출 안에서만 유효, 읽기 · 화면 표시만 */
+  export interface ClientContext {
+    readonly __sandboxOpaque: "ClientContext";
+    /** 복제 월드의 서버 틱 (마지막으로 받은 스냅숏) — client.tick */
+    readonly tick: i32;
+    /** 이 접속에서 몇 번째 onUpdate 인가 (1 부터) — client.frame */
+    readonly frame: i32;
+    /** 앞 onUpdate 뒤 지난 실제 시간 (초 — 표시용, 시뮬레이션과 무관) — client.dt */
+    readonly dt: number;
+    /** 복제 월드의 컴포넌트 값 복사 (없으면 null) — 개체 참조 필드는 null [계획] — client.read */
+    read<T>(entity: Entity, component: ComponentRef<T>): T | null;
+    /** 개체에 컴포넌트가 있나 (복제 월드) — client.has */
+    has<T>(entity: Entity, component: ComponentRef<T>): boolean;
+    /** 컴포넌트를 가진 복제 개체 (netId 오름차순 — 개체마다 연료 1) — client.query */
+    query<T>(component: ComponentRef<T>): Entity[];
+    /** 이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지) — client.label */
+    label(entity: Entity, text: string): void;
+    /** 이번 프레임 화면 왼쪽 위 "스크립트" 칸에 한 줄 (256 바이트까지) — client.print */
+    print(text: string): void;
   }
 }

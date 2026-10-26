@@ -312,6 +312,7 @@ void NetworkSession::update(f64 dtSeconds) {
 
     refreshOverlay(*world);
     updateWorldOps();
+    updateClientScripts(*world, dtSeconds);
     for (const net::SetRoleResultMsg& r : m_session->takeRoleResults()) {
         m_roleMessage = r.accepted ? std::format("#{} → {}", r.clientId, net::roleName(r.role))
                                    : std::format("역할 바꾸기 거절: {}", r.detail);
@@ -597,6 +598,52 @@ void NetworkSession::refreshOverlay(const net::ClientWorld& world) {
     }
     m_overlayError.clear();
     m_overlaid = std::make_shared<const content::ContentDatabase>(std::move(r.db));
+}
+
+void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSeconds) {
+    const content::ContentDatabase* db = content();
+    const std::shared_ptr<const content::ScriptPrograms> programs = db != nullptr ? db->scriptPrograms() : nullptr;
+    if (!programs || programs->systemCount(script::api::HostDomain::Client) == 0) {
+        m_clientScripts.reset();
+        return;
+    }
+    if (!m_clientScripts || m_clientScripts->programs() != programs) {
+        // 오버레이가 스크립트를 바꿨다 — 새로 (꺼짐 · 통계는 이 접속의 메모리에만 — ADR-0067)
+        m_clientScripts = std::make_unique<script::ClientScriptSystems>(programs);
+    }
+    m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds});
+}
+
+std::optional<ScriptOverlayInfo> NetworkSession::scriptOverlay() const {
+    const net::ClientWorld* w = clientWorld();
+    if (!m_clientScripts || w == nullptr) {
+        return std::nullopt;
+    }
+    ScriptOverlayInfo out;
+    const ecs::Registry& reg = w->registry();
+    for (const script::ClientScriptLabel& l : m_clientScripts->host().labels()) {
+        if (!reg.alive(l.entity)) {
+            continue;
+        }
+        // 그린 자리 (보간 · 미리 보기) — 스프라이트가 없는 개체는 복제된 위치
+        std::optional<Vec2> at;
+        if (const auto* id = reg.tryRead<comp::NetIdentity>(l.entity)) {
+            at = positionOf(id->netId);
+        }
+        if (!at) {
+            if (const auto* t = reg.tryRead<comp::Transform>(l.entity)) {
+                at = t->position;
+            }
+        }
+        if (at) {
+            out.labels.push_back({*at, l.text});
+        }
+    }
+    for (const script::ClientScriptLine& line : m_clientScripts->host().lines()) {
+        out.lines.push_back(line.text);
+    }
+    out.systems = script::describeClientScriptSystems(*m_clientScripts);
+    return out;
 }
 
 editor::EditPermissions NetworkSession::permissions() const {

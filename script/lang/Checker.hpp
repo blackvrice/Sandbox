@@ -141,13 +141,15 @@ struct SystemEventDecl {
     std::vector<std::string> all, any, none;
 };
 
-// export default defineSystem({ … }) 하나 (ADR-0062 · 0063). 콜백 = Program::functions 의 자리 (메서드가 함수 하나),
-// 없으면 api::kNoCallback
+// export default defineSystem({ … }) 하나 (ADR-0062 · 0063 · 0067). 콜백 = Program::functions 의 자리 (메서드가 함수
+// 하나), 없으면 api::kNoCallback. client 시스템은 onUpdate 만, server 시스템은 onUpdate 가 없다
 struct SystemDecl {
     std::string id;
     std::string module; // "scripts/regen.ts"
     u32 line = 0;
     u32 column = 0;
+    api::HostDomain domain = api::HostDomain::Server;
+    u32 onUpdate = api::kNoCallback; // client — (ClientContext?) → void, 매 프레임
     u32 intervalTicks = 1;
     u32 onTick = api::kNoCallback;
     u32 onStart = api::kNoCallback;

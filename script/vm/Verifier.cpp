@@ -81,6 +81,7 @@ TypeKind abiKind(api::AbiType a) {
         return TypeKind::String;
     case api::AbiType::Entity:
     case api::AbiType::ServerContext:
+    case api::AbiType::ClientContext:
     case api::AbiType::Component:
         return TypeKind::Opaque;
     case api::AbiType::ComponentData:
@@ -154,7 +155,7 @@ private:
             }
             case TypeKind::Opaque:
                 if (t.abi != api::AbiType::Entity && t.abi != api::AbiType::ServerContext &&
-                    t.abi != api::AbiType::Component) {
+                    t.abi != api::AbiType::ClientContext && t.abi != api::AbiType::Component) {
                     fail(std::format("타입 {}: 불투명 타입이 아닌 ABI", i));
                 }
                 break;
@@ -249,6 +250,19 @@ private:
             if (!validUtf8(s.module)) {
                 fail(std::format("시스템 {}: 모듈 경로가 UTF-8 이 아니다", i));
             }
+            if (s.domain == api::HostDomain::Client) {
+                // client 시스템 = onUpdate 하나 (ADR-0067) — 틱 · 이벤트 콜백 · 구독이 없다
+                if (s.onUpdate == api::kNoCallback || s.onTick != api::kNoCallback || s.onStart != api::kNoCallback ||
+                    s.onStop != api::kNoCallback || s.onEvent != api::kNoCallback || s.intervalTicks != 1 ||
+                    s.eventsPerTick != 0 || !s.events.empty()) {
+                    fail(std::format("시스템 {}: client 시스템은 onUpdate 하나뿐이다", s.id));
+                }
+                callback(s, "onUpdate", s.onUpdate, false, api::AbiType::ClientContext);
+                continue;
+            }
+            if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback) {
+                fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate 는 client 시스템에만)", s.id));
+            }
             if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
                 s.onEvent == api::kNoCallback) {
                 fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
@@ -330,7 +344,8 @@ private:
         }
         return true;
     }
-    void callback(const SystemDesc& s, std::string_view name, u32 fn, bool event) {
+    void callback(const SystemDesc& s, std::string_view name, u32 fn, bool event,
+                  api::AbiType ctx = api::AbiType::ServerContext) {
         if (fn == api::kNoCallback) {
             return;
         }
@@ -341,14 +356,15 @@ private:
         const Function& f = M.functions[fn];
         bool ok = kindOf(f.result) == TypeKind::Void && f.params.size() <= (event ? 2u : 1u);
         if (ok && !f.params.empty()) {
-            ok = isOpaque(f.params[0], api::AbiType::ServerContext);
+            ok = isOpaque(f.params[0], ctx);
         }
         if (ok && f.params.size() == 2) {
             ok = isGameEvent(f.params[1]);
         }
         if (!ok) {
             fail(std::format("시스템 {}: {} 의 서명은 {} → void 다", s.id, name,
-                             event ? "(ServerContext, GameEvent)" : "(ServerContext)"));
+                             event ? "(ServerContext, GameEvent)"
+                                   : (ctx == api::AbiType::ClientContext ? "(ClientContext)" : "(ServerContext)")));
         }
     }
 

@@ -33,6 +33,8 @@ std::string_view tsType(api::AbiType t) {
         return "T | null";
     case api::AbiType::EntityList:
         return "Entity[]";
+    case api::AbiType::ClientContext:
+        return "ClientContext";
     }
     return "never";
 }
@@ -156,8 +158,8 @@ std::string generateSandboxDts() {
     out += "  export interface SystemDefinition {\n";
     out += "    /** \"이름공간.이름\" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */\n";
     out += "    id: string;\n";
-    out += "    /** \"server\" 만 (기본) */\n";
-    out += "    domain?: \"server\";\n";
+    out += "    /** \"server\" (기본 — 서버 시뮬레이션) 또는 \"client\" (클라이언트 화면 — onUpdate 만, ADR-0067) */\n";
+    out += "    domain?: \"server\" | \"client\";\n";
     out += "    /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */\n";
     out += "    intervalTicks?: i32;\n";
     out += "    /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */\n";
@@ -171,8 +173,10 @@ std::string generateSandboxDts() {
     out += "    onStop?(ctx: ServerContext): void;\n";
     out += "    /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */\n";
     out += "    onEvent?(ctx: ServerContext, e: GameEvent): void;\n";
+    out += "    /** client 시스템만 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관) */\n";
+    out += "    onUpdate?(ctx: ClientContext): void;\n";
     out += "  }\n";
-    out += "  /** 스크립트 시스템 (서버) */\n";
+    out += "  /** 스크립트 시스템 (서버 · 클라이언트) */\n";
     out += "  export function defineSystem(definition: SystemDefinition): SystemDefinition;\n";
     for (const api::OpaqueTypeInfo& o : api::kOpaqueTypes) {
         out += "\n";

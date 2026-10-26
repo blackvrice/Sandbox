@@ -72,7 +72,11 @@ TEST_SUITE("script") {
             all += p + "\n";
         }
         CHECK_MESSAGE(problems.empty(), all);
-        CHECK(hostBindings().size() == api::kHostFunctions.size());
+        usize server = 0;
+        for (const api::HostFunction& f : api::kHostFunctions) {
+            server += f.domain == api::HostDomain::Server ? 1 : 0;
+        }
+        CHECK(hostBindings().size() == server); // Client 도메인은 ClientScriptHost 의 몫 (ADR-0067)
     }
 
     TEST_CASE("Host 바인딩: 계약 검사가 잡는 것 — 없음 · 둘 · 표에 없음 · 서명 · 함수 없음") {

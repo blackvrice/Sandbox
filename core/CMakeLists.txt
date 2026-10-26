@@ -149,6 +149,11 @@ add_library(SandboxCore STATIC
     script/ScriptComponents.cpp
     script/ScriptSystemAdapter.hpp
     script/ScriptSystemAdapter.cpp
+    script/ScriptValues.hpp
+    script/ClientScriptHost.hpp
+    script/ClientScriptHost.cpp
+    script/ClientScriptSystems.hpp
+    script/ClientScriptSystems.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

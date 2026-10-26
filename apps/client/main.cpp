@@ -253,6 +253,17 @@ int main(int argc, char** argv) {
                 std::format("프레임 평균 ({} 프레임, {:.1f} fps): 월드 {:.2f} ms · 추출 {:.2f} ms · 렌더 {:.2f} ms\n",
                             t.frames, 1000.0 / t.frameMs, t.worldMs, t.extractMs, t.renderMs));
         }
+        if (const sbx::script::ClientScriptSystems* cs = world->clientScripts()) {
+            // client 시스템 (v0.3 M5-T3) — 시스템마다 누적 통계, 마지막 프레임의 표시
+            for (const std::string& line : sbx::script::describeClientScriptSystems(*cs)) {
+                printText(line + "\n");
+            }
+            printText(std::format("클라이언트 스크립트 마지막 프레임 {}: 글자 {} · 줄 {}\n", cs->frames(),
+                                  cs->host().labels().size(), cs->host().lines().size()));
+            for (const sbx::script::ClientScriptLine& l : cs->host().lines()) {
+                printText(std::format("  [{}] {}\n", l.system, l.text));
+            }
+        }
         if (sbx::net::LocalServerHost* local = world->localServer(); local != nullptr && script) {
             // 서버 월드 (권위) 의 결과 — 헤드리스 서버의 "게임 결과:" 줄과 같은 형식 (같아야 한다)
             printText(std::format("게임 결과: {}\n", sbx::scenario::describePlayResult(local->serverWorld())));

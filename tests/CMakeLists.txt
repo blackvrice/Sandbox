@@ -28,6 +28,7 @@ add_executable(SandboxTests
     unit/script/test_script_systems.cpp
     unit/script/test_script_callbacks.cpp
     unit/script/test_script_budget.cpp
+    unit/script/test_client_scripts.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp
@@ -106,6 +107,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_imgui_layer.cpp
         unit/client/test_editor_session.cpp
         unit/client/test_roles_content.cpp
+        unit/client/test_client_script_session.cpp
         unit/client/test_world_panel.cpp
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
@@ -119,6 +121,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/ScriptPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"

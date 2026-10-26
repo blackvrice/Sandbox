@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "core/components/core/Identity.hpp"
+#include "core/script/ScriptValues.hpp"
 #include "core/simulation/SimulationWorld.hpp"
 #include "foundation/assert/Assert.hpp"
 #include "foundation/log/Log.hpp"
@@ -69,12 +70,6 @@ constexpr HostBinding kBindings[] = {
 };
 
 template <class F>
-F load(const std::byte* p) noexcept {
-    F v{};
-    std::memcpy(&v, p, sizeof(F));
-    return v;
-}
-template <class F>
 void store(std::byte* p, const F& v) noexcept {
     std::memcpy(p, &v, sizeof(F));
 }
@@ -91,10 +86,18 @@ std::span<const HostBinding> hostBindings() {
 }
 
 std::vector<std::string> checkHostBindings(std::span<const HostBinding> bindings) {
+    const std::vector<HostBindingShape> shapes = hostBindingShapes(bindings);
+    return checkHostBindingShapes(shapes, api::HostDomain::Server);
+}
+
+std::vector<std::string> checkHostBindingShapes(std::span<const HostBindingShape> bindings, api::HostDomain domain) {
     std::vector<std::string> problems;
     for (const api::HostFunction& f : api::kHostFunctions) {
+        if (f.domain != domain) {
+            continue;
+        }
         usize count = 0;
-        for (const HostBinding& b : bindings) {
+        for (const HostBindingShape& b : bindings) {
             if (b.id != f.id) {
                 continue;
             }
@@ -107,7 +110,7 @@ std::vector<std::string> checkHostBindings(std::span<const HostBinding> bindings
                 problems.push_back(
                     std::format("{}: 구현의 서명이 표와 다르다 (표: {})", f.id, api::canonicalSignature(f)));
             }
-            if (b.impl == nullptr) {
+            if (!b.hasImpl) {
                 problems.push_back(std::format("{}: 구현 함수가 없다", f.id));
             }
         }
@@ -117,9 +120,12 @@ std::vector<std::string> checkHostBindings(std::span<const HostBinding> bindings
             problems.push_back(std::format("{}: 구현이 {} 개다", f.id, count));
         }
     }
-    for (const HostBinding& b : bindings) {
-        if (api::findHostFunction(b.id) == nullptr) {
+    for (const HostBindingShape& b : bindings) {
+        const api::HostFunction* f = api::findHostFunction(b.id);
+        if (f == nullptr) {
             problems.push_back(std::format("{}: 표에 없는 구현", b.id));
+        } else if (f->domain != domain) {
+            problems.push_back(std::format("{}: 다른 도메인 항목의 구현", b.id));
         }
     }
     return problems;
@@ -281,38 +287,10 @@ vm::HostResult ScriptHost::read(std::span<const vm::HostArg> args) {
     }
     vm::HostResult r;
     r.value = vm::Value::boolean(true);
-    // 칸 차례 = VM 의 구조체 펼치기 (필드 이름 순, vec2 = x · y, 개체 = 핸들 · null 0)
-    for (const ecs::DynamicComponentLayout::Field& f : info->dynamicLayout->fields()) {
-        const std::byte* p = bytes + f.offset;
-        switch (f.kind) {
-        case ecs::DynamicFieldKind::I32:
-        case ecs::DynamicFieldKind::Enum:
-            r.values.push_back(vm::Value::i32v(load<i32>(p)));
-            break;
-        case ecs::DynamicFieldKind::F32:
-            r.values.push_back(vm::Value::f64v(static_cast<f64>(load<f32>(p))));
-            break;
-        case ecs::DynamicFieldKind::F64:
-            r.values.push_back(vm::Value::f64v(load<f64>(p)));
-            break;
-        case ecs::DynamicFieldKind::Bool:
-            r.values.push_back(vm::Value::boolean(load<bool>(p)));
-            break;
-        case ecs::DynamicFieldKind::Vec2: {
-            const Vec2 v = load<Vec2>(p);
-            r.values.push_back(vm::Value::f64v(static_cast<f64>(v.x)));
-            r.values.push_back(vm::Value::f64v(static_cast<f64>(v.y)));
-            break;
-        }
-        case ecs::DynamicFieldKind::EntityRef: {
-            const SaveId id = load<u64>(p);
-            const ecs::EntityId target = id == kInvalidSaveId ? ecs::kNullEntity : m_world->resolveSave(id);
-            r.values.push_back(target.valid() && m_world->registry().alive(target) ? entityHandle(target)
-                                                                                   : vm::Value::null());
-            break;
-        }
-        }
-    }
+    appendFieldValues(*info->dynamicLayout, bytes, r.values, [&](SaveId id) {
+        const ecs::EntityId target = id == kInvalidSaveId ? ecs::kNullEntity : m_world->resolveSave(id);
+        return target.valid() && m_world->registry().alive(target) ? entityHandle(target) : vm::Value::null();
+    });
     return r;
 }
 

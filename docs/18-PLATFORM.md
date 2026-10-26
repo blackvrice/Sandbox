@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-26 (v0.3 M5-T2).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-26 (v0.3 M5-T3).
 
 ---
 
@@ -11,8 +11,8 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ — M1 언어 앞단 ✅ · M2 VM · Host API ✅ · M3 사용자 Component ✅ · M4 Script System ✅ ·
-         M5 도구 (T1 ✅ · T2 ✅ · T3) · M6 E2E · 릴리스 (6.2, ADR-0056~0066)
-다음     v0.3 M5-T3 — IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
+         M5 도구 (T1 ✅ · T2 ✅ · T3 ✅ · T4) · M6 E2E · 릴리스 (6.2, ADR-0056~0067)
+다음     v0.3 M5-T4 — 스크립트 프로파일 (시스템별 연료 · 시간 — 서버 · 클라이언트 통계를 에디터 · 패널에 보이기)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -68,7 +68,7 @@
 | SandboxScript · VM      | Implemented | v0.3 M1 · M2 ✅ — script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 검증기 · 인터프리터 · Host 표 · sandbox.d.ts), unit_script (ADR-0056~0058) |
 | 사용자 Component 스키마 | Implemented | v0.3 M3 ✅ — defineComponent → 동적 풀 · 콘텐츠의 카탈로그 (Prefab · Inspector · 세이브 · 복제 · 해시), 읽기 · 질의 · 쓰기, 세이브 마이그레이션 (ADR-0059~0061) |
 | 사용자 System           | Implemented | v0.3 M4 ✅ — defineSystem: 단계 16b onTick · 17d onStart · onEvent · onStop, 예산 · 트랩 정책 · 통계 (ADR-0062~0064)         |
-| 스크립트 도구           | Partial     | v0.3 M5 — sbx new SDK 파일 · sbx check 요약 (ADR-0065), 에디터 스크립트 편집 · 오버레이 (ADR-0066) ✅. client 도메인 · 프로파일은 M5-T3 |
+| 스크립트 도구           | Partial     | v0.3 M5 — sbx new SDK 파일 · sbx check 요약 (ADR-0065), 에디터 스크립트 편집 · 오버레이 (ADR-0066), client 도메인 최소 (ADR-0067) ✅. 프로파일은 M5-T4 |
 | 패키지 · SemVer         | Partial     | foundation/version/SemVer (v0.2 M1-T1 — 버전 · 범위 비교만). 의존성 해석 · 잠금 파일은 v0.4                                 |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
 
@@ -306,13 +306,18 @@ M4 Script System
         digest 가 다르면 다시 켠다), 시스템별 통계 + 서버 · sbx_sim_check 끝 줄
   → M4 완료 (2026-10-26): defineSystem → 단계 16b onTick · 17d onStart · onEvent (죽음 · 생성 · 영역 · 점수) · onStop, 예산 ·
     트랩 정책 · 통계 — 스크립트 상태 없이 세이브 → 로드 · 복제 · 해시가 맞다
-M5 도구 (2026-10-26 — T1 을 둘로 나눴다: CLI 와 에디터)
+M5 도구 (2026-10-26 — T1 을 둘로 나눴다: CLI 와 에디터. T3 을 둘로 나눴다: 클라이언트 스크립트와 프로파일)
   T1 ✅ ADR-0065: sbx new 가 sdk/sandbox.d.ts · tsconfig.json (generateTsconfig) 을 만든다, sbx check 의 스크립트 요약 · 시스템 목록 ·
         P6 경고 (낡은 · 없는 SDK 선언, JSON 아닌 tsconfig) — 진단 S* · V1 · V7 은 M3-T2 부터 콘텐츠 문제로 나온다
   T2 ✅ ADR-0066: 오버레이 종류 Script (id = 팩.경로, 값 {id, source}, 프로토콜 13) — 로더가 팩을 다시 컴파일 (컴포넌트 정의는
         그대로 — V11), 월드가 그 틱부터 새 어댑터, 세이브 overlay/scripts/. 에디터 "콘텐츠" 창 "스크립트" — 소스 편집 · 검사 (오류
         줄) · 적용 · 새 파일 틀
-  T3 [계획] IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
+  T3 ✅ ADR-0067: defineSystem({ domain: "client", onUpdate(ctx: ClientContext) }) — Host 표 client.tick · frame · dt · read · has ·
+        query (복제 월드, netId 순) · label · print (효과 display), .sbc 형식 5 (도메인 · onUpdate), 바인딩 계약은 도메인마다, 서버는
+        client 시스템을 건너뛴다. ClientScriptSystems (프레임 연료 2,000,000 · 트랩 3 번이면 끔 — 메모리에만) ← NetworkSession,
+        개체 위 글자 · "스크립트" 칸 (apps/client/ui/ScriptPanel), 헤드리스 끝 줄
+  T4 [계획] 프로파일 — 서버 · 클라이언트 스크립트 시스템의 연료 · 시간 (호출마다 벽시계는 진단에만 — 시뮬레이션 결과와 무관),
+            에디터 · 패널에 시스템 표 (호출 · 트랩 · 예산 · 연료 · ms), sbx_bench 스크립트 단계
 M6 E2E · 회귀
   T1 [계획] 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템): Inspector · 세이브/로드 · 복제 · 로컬 = 원격 해시, 보호 시험
             (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조), 10k 대상 벤치 (sbx_bench)
@@ -360,6 +365,8 @@ v0.3 M4-T2 ✅  ADR-0063, 03 2장 (17d), 04 (simVersion 이력), 11 (8 · 11장)
 v0.3 M4-T3 ✅  ADR-0064, 09 2장 (world.json scriptSystems), 15 (끝 줄), 19 (0 · 13 · 14 · 17 · 19장), 17, 13
 v0.3 M5-T1 ✅  ADR-0065, 18 5.2 (P6), 15 7장 (sbx new · check), 19 14장, 17, 13
 v0.3 M5-T2 ✅  ADR-0066, 08 (프로토콜 13), 09 3장 (overlay/scripts), 10 8장, 11 (오버레이 · V11), 19 (0 · 20장), 17, 13
+v0.3 M5-T3 ✅  ADR-0067, 19 (0 · 9 · 10 · 12 · 14 · 17 · 19 · 21장), 10 9장 ("스크립트" 칸), 11 11장 (client 시스템), 15 (헤드리스 끝 줄),
+               17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -400,4 +407,5 @@ v0.3 M4-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M4-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +4 (test_script_budget)
 v0.3 M5-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_project +2 (test_game_project — SDK 파일 · P6)
 v0.3 M5-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +3 (test_script_overlay) · unit_editor +2 (test_script_editor) · unit_network +1 · 갱신 (프로토콜 13)
+v0.3 M5-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +5 (test_client_scripts) · unit_client +1 (test_client_script_session) · 갱신 (.sbc 형식 5 · 지문)
 ```

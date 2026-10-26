@@ -2,8 +2,9 @@
 // SandboxScript Host 바인딩 — Host API 표 (script/api) 의 항목마다 엔진 구현을 하나씩. ADR-0057 2 · 4 · 5, ADR-0060,
 // docs/19-SANDBOXSCRIPT.md 14장.
 //
-// 구현 목록 hostBindings() 는 명시 등록이다 (ADR-0011 과 같은 정신). checkHostBindings 가 "표의 모든 항목에 구현이
-// 정확히 하나, 구현의 서명 = 표" 를 본다 — 단위 시험과 ScriptHost 생성 (Debug) 이 부른다. ScriptHost 는 VM 의 IHost:
+// 구현 목록 hostBindings() 는 명시 등록이다 (ADR-0011 과 같은 정신). checkHostBindings 가 "표의 Server 도메인 항목마다
+// 구현이 정확히 하나, 구현의 서명 = 표" 를 본다 — 단위 시험과 ScriptHost 생성 (Debug) 이 부른다. Client 도메인 항목은
+// ClientScriptHost 의 몫이다 (ADR-0067). ScriptHost 는 VM 의 IHost:
 // 호출 하나 (beginCall … endCall) 마다 ctx 핸들을 새로 내고, Host 함수는 첫 인자가 지금 호출의 ctx 인지 본다 (지난
 // 호출의 ctx · 위조한 핸들 = HostError — ADR-0057 4 "핸들은 호출이 끝나면 무효").
 //
@@ -33,19 +34,43 @@ namespace sbx::script {
 
 class ScriptHost;
 
-using HostImpl = vm::HostResult (*)(ScriptHost& host, std::span<const vm::HostArg> args);
-
-struct HostBinding {
+// 구현 하나 — Host = 구현이 받는 IHost (서버 ScriptHost · 클라이언트 ClientScriptHost)
+template <class Host>
+struct BasicHostBinding {
     std::string_view id;
     api::AbiType result = api::AbiType::Void;
     std::array<api::AbiType, api::kMaxHostParams + 1> params{}; // 주인 (ctx) 이 첫째
     u8 paramCount = 0;
-    HostImpl impl = nullptr;
+    vm::HostResult (*impl)(Host& host, std::span<const vm::HostArg> args) = nullptr;
 };
+using HostImpl = vm::HostResult (*)(ScriptHost& host, std::span<const vm::HostArg> args);
+using HostBinding = BasicHostBinding<ScriptHost>;
 
-// 엔진의 구현 목록 (core/script/ScriptHost.cpp)
+// 계약 검사가 보는 모양 (구현 함수의 타입과 무관)
+struct HostBindingShape {
+    std::string_view id;
+    api::AbiType result = api::AbiType::Void;
+    std::array<api::AbiType, api::kMaxHostParams + 1> params{};
+    u8 paramCount = 0;
+    bool hasImpl = false;
+};
+template <class Host>
+[[nodiscard]] std::vector<HostBindingShape> hostBindingShapes(std::span<const BasicHostBinding<Host>> bindings) {
+    std::vector<HostBindingShape> out;
+    out.reserve(bindings.size());
+    for (const BasicHostBinding<Host>& b : bindings) {
+        out.push_back({b.id, b.result, b.params, b.paramCount, b.impl != nullptr});
+    }
+    return out;
+}
+// 도메인 하나의 계약 — 문제마다 한 줄 (비면 통과): 구현 없음 · 둘 · 표에 없는 구현 · 다른 도메인 항목의 구현 ·
+// 서명 다름 · 함수 포인터 없음
+[[nodiscard]] std::vector<std::string> checkHostBindingShapes(std::span<const HostBindingShape> bindings,
+                                                              api::HostDomain domain);
+
+// 엔진의 구현 목록 (core/script/ScriptHost.cpp) — Server 도메인
 [[nodiscard]] std::span<const HostBinding> hostBindings();
-// 계약 검사 — 문제마다 한 줄 (비면 통과): 구현 없음 · 둘 · 표에 없는 구현 · 서명 다름 · 함수 포인터 없음
+// 서버 계약 검사 (= checkHostBindingShapes(…, Server))
 [[nodiscard]] std::vector<std::string> checkHostBindings(std::span<const HostBinding> bindings);
 
 struct ScriptLogLine {

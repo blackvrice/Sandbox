@@ -35,6 +35,16 @@ struct ScriptPrograms {
         }
         return n;
     }
+    // 도메인 하나의 시스템 수 — 서버 시뮬레이션은 Server, 클라이언트 표시는 Client 만 돌린다 (ADR-0067)
+    [[nodiscard]] usize systemCount(script::api::HostDomain domain) const noexcept {
+        usize n = 0;
+        for (const ScriptPackProgram& p : packs) {
+            for (const script::bc::SystemDesc& s : p.module.systems) {
+                n += s.domain == domain ? 1 : 0;
+            }
+        }
+        return n;
+    }
 };
 
 } // namespace sbx::content

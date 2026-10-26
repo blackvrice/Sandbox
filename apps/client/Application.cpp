@@ -4,6 +4,7 @@
 #include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
+#include "apps/client/ui/ScriptPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 
 #include <algorithm>
@@ -357,8 +358,8 @@ void Application::handleWorldInput(f64 dt) {
         cam.panByScreen(in.mouseDelta * scale);
     }
     const Vec2 mousePx = in.mousePosition * scale;
-    // 행동을 쥐고 있으면 (v0.2 M3-T1 "행동" 패널) 왼쪽 클릭 = 그 자리에 PlayerAction, Esc = 놓기. 에디터 · 선택은 클릭을
-    // 받지 않는다 (아래에서 primary 입력을 끈다)
+    // 행동을 쥐고 있으면 (v0.2 M3-T1 "행동" 패널) 왼쪽 클릭 = 그 자리에 PlayerAction, Esc = 놓기. 에디터 · 선택은
+    // 클릭을 받지 않는다 (아래에서 primary 입력을 끈다)
     const bool acting = !m_actionPanel.armed.empty();
     if (acting) {
         if (pressed(m_ids.escape)) {
@@ -590,6 +591,9 @@ bool Application::frame() {
                 drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
             } else if (!acts) {
                 m_actionPanel.armed.clear();
+            }
+            if (const auto so = m_config.world->scriptOverlay()) {
+                drawScriptOverlay(*so, m_renderWorld.camera, m_panels.visible); // v0.3 M5-T3 — 게임 화면이라 늘
             }
         }
         ui = m_config.ui->endFrame(m_cursor);

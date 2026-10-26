@@ -33,6 +33,8 @@ std::string_view abiTypeName(AbiType t) noexcept {
         return "T | null";
     case AbiType::EntityList:
         return "Entity[]";
+    case AbiType::ClientContext:
+        return "ClientContext";
     }
     return "?";
 }
@@ -75,6 +77,8 @@ std::string_view effectName(HostEffect e) noexcept {
         return "random";
     case HostEffect::Log:
         return "log";
+    case HostEffect::Display:
+        return "display";
     }
     return "?";
 }

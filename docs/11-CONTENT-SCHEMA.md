@@ -495,4 +495,6 @@ DB          트리거 ≤ 256 (V10), id 중복 V1. 정의 순서 = 팩 로드 �
            단계 16b 가 (팩 순서, 시스템 id) 차례로 부른다 (03 2장). 시스템 id 가 앞 팩의 시스템과 같으면 V1 (자리는 뒤 팩의 정의).
            (M4-T2, ADR-0063) onStart · onStop · onEvent 는 단계 17d, 구독 events 의 tags 는 콘텐츠 태그 이름 — 로드 1 단계 뒤 태그
            비트로 풀어 (ScriptPackProgram::events) 없는 태그는 V7 ("시스템 'id' 의 events.death.tags.all — 선언되지 않은 태그")
+           (M5-T3, ADR-0067) domain: "client" 시스템 (onUpdate) 도 같은 모듈 · 시스템 표에 든다 — 서버는 건너뛰고 클라이언트가
+           프레임마다 돌린다 (19 21장). id 는 도메인과 무관하게 팩들 사이에 하나 (V1)
 ```

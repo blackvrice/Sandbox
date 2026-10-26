@@ -20,6 +20,8 @@
 // 바뀌면 (WorldChanged) 새 복제 월드로 — 선택 · 기다리던 명령을 비우고 worldGeneration 이 올라 에디터도 기록을 비운다.
 // 재생 중 일시정지 · 한 틱 · 속도는 재생을 다룬다 (서버 통계의 재생 상태로 판단). 로컬 서버의 세이브 폴더 = savesRoot
 // (ADR-0031).
+// v0.3 M5-T3: 콘텐츠 (오버레이 포함) 에 client 시스템이 있으면 ClientScriptSystems 를 두고, update 마다 스냅숏을 적용한
+// 뒤 복제 월드로 onUpdate 를 돌린다 — 표시는 scriptOverlay() (ADR-0067). 콘텐츠의 바이트코드가 바뀌면 다시 만든다.
 //
 // 한 스레드(Main)에서 쓴다.
 
@@ -35,6 +37,7 @@
 #include "apps/client/presentation/SpriteExtraction.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/scenarios/PlayScript.hpp"
+#include "core/script/ClientScriptSystems.hpp"
 #include "editor/EditorHost.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/client/InterpolationClock.hpp"
@@ -121,6 +124,9 @@ public:
     // ---- v0.2 M3-T1: 플레이어 행동 ----
     [[nodiscard]] std::optional<ActionsInfo> playerActions() const override;
     void playerAction(std::string id, Vec2 world) override;
+    // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
+    [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
+    [[nodiscard]] const script::ClientScriptSystems* clientScripts() const noexcept { return m_clientScripts.get(); }
     // 서버가 리플레이를 재생 중이다 (마지막 통계 기준)
     [[nodiscard]] bool playingReplay() const noexcept;
     // 오버레이를 적용하지 못했으면 그 이유 (시험 · 패널)
@@ -160,7 +166,8 @@ private:
     void applyPreview(); // 스냅숏의 그릴 위치에 EditPreview 를 더한다 (고르기 · 외곽선도 옮긴 자리로)
     void refreshOverlay(const net::ClientWorld& world); // 서버 오버레이가 바뀌었으면 콘텐츠를 다시 만든다 (12C)
     void updateWorldOps();                              // 12D: 목록 요청 · 결과
-    [[nodiscard]] bool controlPaused() const noexcept;  // 일시정지 단추가 볼 값 (재생 중이면 재생의 멈춤)
+    void updateClientScripts(const net::ClientWorld& world, f64 dtSeconds); // v0.3 M5-T3
+    [[nodiscard]] bool controlPaused() const noexcept; // 일시정지 단추가 볼 값 (재생 중이면 재생의 멈춤)
     [[nodiscard]] f32 controlSpeed() const noexcept;
 
     NetworkSessionDesc m_desc;
@@ -212,6 +219,8 @@ private:
     u64 m_overlayRevision = 0;
     std::string m_overlayError;
     std::string m_roleMessage; // 가장 최근 역할 바꾸기 결과
+    // 클라이언트 스크립트 (v0.3 M5-T3) — 콘텐츠에 client 시스템이 있을 때만
+    std::unique_ptr<script::ClientScriptSystems> m_clientScripts;
 
     // 세이브 · 로드 · 리플레이 (12D)
     const net::ClientSession* m_listSession = nullptr; // 목록을 요청한 세션 (다시 접속하면 다시)

@@ -29,6 +29,8 @@ add_executable(SandboxClient
     ui/WorldPanel.cpp
     ui/GamePanel.hpp
     ui/GamePanel.cpp
+    ui/ScriptPanel.hpp
+    ui/ScriptPanel.cpp
     ui/ActionPanel.hpp
     ui/ActionPanel.cpp
     PlayKeys.hpp

@@ -273,7 +273,7 @@ TEST_SUITE("script") {
         DiagnosticList diags;
         const std::optional<bc::Module> m = compile(kFull, diags);
         REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
-        CHECK(m->format == 4);
+        CHECK(m->format == 5);
         REQUIRE(m->systems.size() == 1);
         const bc::SystemDesc& s = m->systems[0];
         CHECK(s.onTick == api::kNoCallback);

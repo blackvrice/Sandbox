@@ -5,6 +5,7 @@
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
 // 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030). 12D: 세이브 · 로드 · 리플레이 ("월드" 패널 — ADR-0031).
 // v0.2 M2-T3: 게임 진행 ("게임" 패널 — ADR-0045). v0.2 M3-T1: 플레이어 행동 ("행동" 패널 — ADR-0047).
+// v0.3 M5-T3: 클라이언트 스크립트의 표시 (개체 위 글자 · "스크립트" 칸 — ADR-0067).
 
 #include <optional>
 #include <string>
@@ -132,6 +133,17 @@ struct CameraStart {
     u32 generation = 0;
 };
 
+// 클라이언트 스크립트 (v0.3 M5-T3, ADR-0067) 가 이번 프레임에 표시한 것
+struct ScriptLabelView {
+    Vec2 world; // 개체의 그린 자리 (보간한 위치)
+    std::string text;
+};
+struct ScriptOverlayInfo {
+    std::vector<ScriptLabelView> labels; // 부른 차례 (그린 자리가 없는 개체는 빠진다)
+    std::vector<std::string> lines;      // ctx.print — "스크립트" 칸
+    std::vector<std::string> systems;    // 시스템마다 누적 통계 한 줄
+};
+
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
     std::string name;
@@ -199,6 +211,8 @@ public:
     virtual void playerAction(std::string /*id*/, Vec2 /*world*/) {}
     // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----
     [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
+    // ---- v0.3 M5-T3: 클라이언트 스크립트 (client 시스템이 없으면 nullopt — 아무것도 그리지 않는다) ----
+    [[nodiscard]] virtual std::optional<ScriptOverlayInfo> scriptOverlay() const { return std::nullopt; }
 };
 
 } // namespace sbx::client

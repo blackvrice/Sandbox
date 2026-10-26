@@ -52,6 +52,8 @@
 | `script/sdk/SdkGenerator.{hpp,cpp}`                                                                         | `generateSandboxDts` · `generateTsconfig` (프로젝트 템플릿 — v0.3 M5-T1, ADR-0065) — Host 표 · 불투명 타입 · SDK 내장 → sandbox.d.ts (결정적) — v0.3 M2-T2                                         | SandboxScript               |
 | `core/script/ScriptHost.{hpp,cpp}`                                                                          | `hostBindings` (엔진 구현 목록) · `checkHostBindings` (계약) · `ScriptHost` (IHost — ctx · 개체 핸들, 컴포넌트 읽기 · 질의 · 쓰기 버퍼 — M3-T3, ADR-0060) — v0.3 M2-T2   | SandboxCore                 |
 | `core/script/ScriptComponents.{hpp,cpp}`                                                                    | `toDynamicDesc` · `registerScriptComponents` (스크립트 스키마 → 카탈로그, 엔진 이름공간 · 겹친 이름 거절) — v0.3 M3-T1, ADR-0059 | SandboxCore                 |
+| `core/script/ClientScriptHost.{hpp,cpp}`, `ScriptValues.hpp`                                                | `clientHostBindings` · `checkClientHostBindings` (Client 도메인 계약) · `ClientScriptHost` (IHost — 복제 월드 읽기 · netId 순 질의 · 글자 · 줄, 트랩이면 그 호출의 표시 버림), 컴포넌트 값 → VM 칸 (서버 · 클라이언트 공용) — v0.3 M5-T3, ADR-0067 | SandboxCore                 |
+| `core/script/ClientScriptSystems.{hpp,cpp}`                                                                 | client 시스템 (domain "client") 을 프레임마다 onUpdate — (팩 순서, id), 프레임 연료 · 트랩 3 번이면 끔 (메모리에만) · 통계 · describeClientScriptSystems — v0.3 M5-T3, ADR-0067 | SandboxCore                 |
 | `core/script/ScriptSystemAdapter.{hpp,cpp}`                                                                 | 단계 16b (onTick) · 17d (onStart · onEvent — 구독 거르기 · GameEvent 칸 · eventsPerTick 예산 · onStop) — 팩 바이트코드마다 인터프리터, ScriptHost 하나, (팩 순서, id) 차례, 트랩이면 그 호출만 버림 · 첫 트랩 로그, 틱 연료 예산 · 트랩 3 번이면 끄기 · 세이브 상태 (state · restoreState — digest) · 시스템별 통계 · describeScriptSystems — v0.3 M4-T1 · T2 · T3, ADR-0062 · 0063 · 0064 | SandboxCore                 |
 | `sdk/sandbox.d.ts`                                                                                          | 생성한 SDK 선언 (커밋 — test_script_host 가 생성 결과와 같은지 본다, 갱신은 `sbx sdk sdk`)                                         | 데이터                      |
 | `core/ecs/EntityId.hpp`, `EntityManager.{hpp,cpp}`                                                          | 엔티티 핸들·할당                                                                                                                                                    | SandboxCore                 |
@@ -185,6 +187,7 @@
 | `apps/client/ui/WorldPanel.{hpp,cpp}`                                                                       | "월드" 패널 — 저장 · 기록 · 목록 → 불러오기 · 재생, 기록 · 재생 상태 (12D, ADR-0031)                                                                                | SandboxClient               |
 | `apps/client/ui/GamePanel.{hpp,cpp}`                                                                        | "게임" 패널 — 모드 · 상태 한 줄 · 시작 · 중단 · 재시작 (v0.2 M2-T3, ADR-0046)                                                                                       | SandboxClient               |
 | `apps/client/PlayKeys.{hpp,cpp}`                                                                            | 게임 키 — 팩 presentation/input.json 의 play.* 합치기 · 키 표시 (v0.2 M3-T3, ADR-0049)                                    | SandboxClient               |
+| `apps/client/ui/ScriptPanel.{hpp,cpp}`                                                                      | 클라이언트 스크립트 표시 — 개체 위 글자 (배경 목록) · "스크립트" 칸 줄 · 시스템 통계 (v0.3 M5-T3, ADR-0067)                                                       | SandboxClient               |
 | `apps/client/ui/ActionPanel.{hpp,cpp}`                                                                      | "행동" 패널 — PlayerAction 목록 · 쥐기 (쥔 동안 클릭 = 행동) (v0.2 M3-T1, ADR-0047)                                                                                 | SandboxClient               |
 | `tests/render/main.cpp`, `RenderTestEnv.hpp`, `test_rhi_*.cpp`, `test_sprites.cpp`, `test_world_passes.cpp` | `sbx_render_tests` — 공유 디바이스, 기준 이미지 비교, 7A · 7B · 8A 케이스, 8B 지형 · 오버레이 · 타임스탬프, --rhi (13A)                                             | sbx_render_tests            |
 | `tests/render/test_imgui.cpp`                                                                               | 8C ImGuiRenderer — 기준 이미지 imgui_basic, 텍스처 만들기 · 갱신 · 해제, 화면 밖 창                                                                                 | sbx_render_tests            |
@@ -311,7 +314,8 @@ core/
   project/      GameProject (매니페스트 · 검사 · 열기 · 새 프로젝트 — v0.2, SDK 파일 v0.3)
   package/      GamePackage (.sbpkg — v0.2)
   scenarios/    Scenario (ScenarioRunner) · RandomWalk · EcoLifecycle · Ecosystem · EditSession 시나리오 · WorldSource · PlayScript
-  script/       ScriptHost (Host 바인딩) · ScriptComponents (스키마 → 카탈로그) · ScriptSystemAdapter (16b · 17d) — v0.3
+  script/       ScriptHost (Host 바인딩) · ScriptComponents (스키마 → 카탈로그) · ScriptSystemAdapter (16b · 17d) ·
+                ClientScriptHost · ClientScriptSystems (client 시스템 — M5-T3) · ScriptValues — v0.3
 
 network/
   transport/    Transport (INetworkTransport) · EnetTransport · LoopbackTransport · SimulatedTransport
@@ -352,7 +356,7 @@ apps/client/
   main · Application (앱 상태기계) · ClientOptions · NetworkSession · WorldSession · ClientRenderer · FrameRenderer ·
   DefaultInput · PlayKeys (팩 게임 키)
   presentation/ SpriteExtraction · SelectionOverlay
-  ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel
+  ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel · ScriptPanel
 apps/server/
   main · ServerOptions
 
@@ -401,6 +405,7 @@ tests/          unit/<모듈> · property/ · net/ · render/ · arch/ · projec
 | 스크립트 바이트코드 · 검증  | `script/vm/Bytecode.hpp` (명령 표) · `Verifier.cpp` (규칙) · `script/lang/Codegen.cpp` + ADR-0058              |
 | 스크립트 실행 (VM)          | `script/vm/Interpreter.cpp` (예산 · 트랩) ↔ `core/script/ScriptHost.cpp` (Host 바인딩 · 쓰기 버퍼) + [19](19-SANDBOXSCRIPT.md) 13 · 16장 |
 | 스크립트 시스템이 도는 곳   | `core/script/ScriptSystemAdapter.cpp` (16b · 17d · 예산 · 트랩 정책) ← `SimulationWorld.cpp` · `SimulationScripts.cpp` |
+| 클라이언트 스크립트         | `core/script/ClientScriptSystems.cpp` ← `apps/client/NetworkSession.cpp` (updateClientScripts · scriptOverlay) → `apps/client/ui/ScriptPanel.cpp` |
 | 스크립트 컴포넌트 저장      | `core/ecs/DynamicComponent.cpp` · `core/script/ScriptComponents.cpp` · `core/persist/Migration.cpp` + [02](02-ECS.md) 9.6 |
 | 스크립트 컴파일 (콘텐츠)    | `core/content/ContentLoader.cpp` (`compileScripts` · `applyScriptOverlay` — 로드 0 단계)                         |
 | 게임 진행 · 점수            | `core/game/GameRules.cpp` (17b) + [03](03-SIMULATION.md) 2장 · [11](11-CONTENT-SCHEMA.md) 9장                    |

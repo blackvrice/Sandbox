@@ -5,9 +5,12 @@
 // sandbox.d.ts 생성 (M2-T2) 이 읽는다. 항목의 id 는 영속 이름이다 (바이트코드 import 표가 이 이름으로 부른다 — 표의
 // 순서 · 인덱스는 영속하지 않는다). 항목을 지우거나 시그니처를 바꾸면 kHostApiVersion 을 올린다 (더하기만이면 그대로).
 //
-// 컴포넌트 항목 (v0.3 M3-T3, ADR-0060): ctx.read · has · query · write. 컴포넌트를 받는 항목은 제네릭이다 — 매개변수
-// Component (ComponentRef<T>) 가 T 를 정하고, ComponentData (T) · ComponentDataOrNull (T | null) 이 그 T 다 (검사기가
-// 인자의 컴포넌트 타입으로 푼다). VM 은 T 를 칸 목록으로 펼쳐 넘기고 결과 칸 목록에서 T 를 만든다 (Interpreter).
+// 클라이언트 항목 (v0.3 M5-T3, ADR-0067): 주인 ClientContext · 도메인 Client — client.tick · frame · dt · read · has ·
+// query (읽기만 — 복제 월드) · label · print (화면 글자). 서버 항목과 이름 · 주인이 달라 서로 부를 수 없다 (검사기가
+// 주인 타입으로 찾는다). 컴포넌트 항목 (v0.3 M3-T3, ADR-0060): ctx.read · has · query · write. 컴포넌트를 받는 항목은
+// 제네릭이다 — 매개변수 Component (ComponentRef<T>) 가 T 를 정하고, ComponentData (T) · ComponentDataOrNull (T | null)
+// 이 그 T 다 (검사기가 인자의 컴포넌트 타입으로 푼다). VM 은 T 를 칸 목록으로 펼쳐 넘기고 결과 칸 목록에서 T 를 만든다
+// (Interpreter).
 
 #include <array>
 #include <string>
@@ -33,12 +36,13 @@ enum class AbiType : u8 {
     ComponentData,       // T — 구조체 (필드 이름 순)
     ComponentDataOrNull, // T | null
     EntityList,          // Entity[] (질의 결과 — saveId 오름차순)
+    ClientContext,       // 클라이언트 콜백의 ctx (v0.3 M5-T3 — 값은 .sbc 에 남는다: 끝에만 더한다)
 };
 
 enum class HostDomain : u8 { Server, Client };
 
 // 효과 종류 — 권한 · 비용 검토의 단위 (ADR-0057 1)
-enum class HostEffect : u8 { Read, Write, Structural, Random, Log };
+enum class HostEffect : u8 { Read, Write, Structural, Random, Log, Display }; // Display = 화면 표시 (클라이언트)
 
 inline constexpr usize kMaxHostParams = 4;
 
@@ -132,6 +136,102 @@ inline constexpr std::array kHostFunctions{
                  HostEffect::Write,
                  16,
                  "컴포넌트 값을 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖 · 없는 컴포넌트는 트랩)"},
+    HostFunction{"client.tick",
+                 AbiType::ClientContext,
+                 "tick",
+                 true,
+                 AbiType::I32,
+                 {},
+                 {},
+                 0,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 1,
+                 "복제 월드의 서버 틱 (마지막으로 받은 스냅숏)"},
+    HostFunction{"client.frame",
+                 AbiType::ClientContext,
+                 "frame",
+                 true,
+                 AbiType::I32,
+                 {},
+                 {},
+                 0,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 1,
+                 "이 접속에서 몇 번째 onUpdate 인가 (1 부터)"},
+    HostFunction{"client.dt",
+                 AbiType::ClientContext,
+                 "dt",
+                 true,
+                 AbiType::Number,
+                 {},
+                 {},
+                 0,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 1,
+                 "앞 onUpdate 뒤 지난 실제 시간 (초 — 표시용, 시뮬레이션과 무관)"},
+    HostFunction{"client.read",
+                 AbiType::ClientContext,
+                 "read",
+                 false,
+                 AbiType::ComponentDataOrNull,
+                 {AbiType::Entity, AbiType::Component},
+                 {"entity", "component"},
+                 2,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 8,
+                 "복제 월드의 컴포넌트 값 복사 (없으면 null) — 개체 참조 필드는 null [계획]"},
+    HostFunction{"client.has",
+                 AbiType::ClientContext,
+                 "has",
+                 false,
+                 AbiType::Bool,
+                 {AbiType::Entity, AbiType::Component},
+                 {"entity", "component"},
+                 2,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 4,
+                 "개체에 컴포넌트가 있나 (복제 월드)"},
+    HostFunction{"client.query",
+                 AbiType::ClientContext,
+                 "query",
+                 false,
+                 AbiType::EntityList,
+                 {AbiType::Component},
+                 {"component"},
+                 1,
+                 HostDomain::Client,
+                 HostEffect::Read,
+                 16,
+                 "컴포넌트를 가진 복제 개체 (netId 오름차순 — 개체마다 연료 1)"},
+    HostFunction{"client.label",
+                 AbiType::ClientContext,
+                 "label",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Entity, AbiType::String},
+                 {"entity", "text"},
+                 2,
+                 HostDomain::Client,
+                 HostEffect::Display,
+                 16,
+                 "이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지)"},
+    HostFunction{"client.print",
+                 AbiType::ClientContext,
+                 "print",
+                 false,
+                 AbiType::Void,
+                 {AbiType::String},
+                 {"text"},
+                 1,
+                 HostDomain::Client,
+                 HostEffect::Display,
+                 16,
+                 "이번 프레임 화면 왼쪽 위 \"스크립트\" 칸에 한 줄 (256 바이트까지)"},
 };
 
 // 제네릭 항목 (Component 매개변수가 있다) 인가
@@ -153,6 +253,8 @@ struct OpaqueTypeInfo {
 inline constexpr std::array kOpaqueTypes{
     OpaqueTypeInfo{AbiType::Entity, "Entity", "개체 핸들 — 같음 비교만, 틱을 넘겨 두려면 EntityRef 필드에"},
     OpaqueTypeInfo{AbiType::ServerContext, "ServerContext", "서버 콜백의 ctx — 호출 안에서만 유효"},
+    OpaqueTypeInfo{AbiType::ClientContext, "ClientContext",
+                   "클라이언트 콜백 (onUpdate) 의 ctx — 호출 안에서만 유효, 읽기 · 화면 표시만"},
 };
 
 [[nodiscard]] std::string_view abiTypeName(AbiType t) noexcept;

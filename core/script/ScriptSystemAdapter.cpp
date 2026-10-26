@@ -28,6 +28,9 @@ ScriptSystemAdapter::ScriptSystemAdapter(std::shared_ptr<const content::ScriptPr
         // 모듈의 시스템 표는 id 오름차순 (검증기가 본다) — 팩 순서로 이으면 실행 순서다
         for (usize si = 0; si < module.systems.size(); ++si) {
             const bc::SystemDesc& s = module.systems[si];
+            if (s.domain != api::HostDomain::Server) {
+                continue; // client 시스템은 클라이언트가 돌린다 (ClientScriptSystems — ADR-0067)
+            }
             Entry e;
             e.pack = static_cast<u32>(pi);
             e.index = static_cast<u32>(si);

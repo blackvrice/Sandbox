@@ -731,8 +731,8 @@ private:
 
     // ---- defineSystem (ADR-0062 · 0063, 19 17 · 18장) -------------------------------------------------------------
     // export default defineSystem({ id, domain?, intervalTicks?, eventsPerTick?, events?, onTick · onStart · onStop ·
-    // onEvent }) — 값은 상수, 콜백은 메서드 하나가 함수 하나 (Program::functions). 정의에 오류가 있어도 메서드 몸은
-    // 검사한다
+    // onEvent · onUpdate }) — 값은 상수, 콜백은 메서드 하나가 함수 하나 (Program::functions). 정의에 오류가 있어도
+    // 메서드 몸은 검사한다. domain 은 메서드보다 먼저 읽는다 (ctx 의 타입을 정하므로 — 키 순서와 무관)
     void declareSystem(NodeId item) {
         const NodeId init = ast().kid(item, 0);
         if (init != kNoNode && node(init).kind == NodeKind::Call && node(ast().kid(init, 0)).kind == NodeKind::Ident &&
@@ -762,6 +762,18 @@ private:
         NodeId eventsAt = kNoNode;
         NodeId perTickAt = kNoNode;
         std::vector<std::string> seen;
+        NodeId domainAt = kNoNode;
+        for (const NodeId p : ast().kids(kids[1])) {
+            if (ast().str(p) == "domain" && node(p).kind == NodeKind::Property &&
+                (node(p).flags & NodeFlag::Shorthand) == 0) {
+                const NodeId value = ast().kid(p, 0);
+                if (node(value).kind == NodeKind::String && ast().str(value) == "client") {
+                    sd.domain = api::HostDomain::Client;
+                }
+            }
+        }
+        const bool client = sd.domain == api::HostDomain::Client;
+        bool wrongCallback = false; // 도메인에 맞지 않는 콜백을 이미 알렸다
         for (const NodeId p : ast().kids(kids[1])) {
             const std::string key(ast().str(p));
             const bool method = node(p).kind == NodeKind::Method;
@@ -771,11 +783,12 @@ private:
                 continue;
             }
             seen.push_back(key);
-            u32* const callback = key == "onTick"    ? &sd.onTick
-                                  : key == "onStart" ? &sd.onStart
-                                  : key == "onStop"  ? &sd.onStop
-                                  : key == "onEvent" ? &sd.onEvent
-                                                     : nullptr;
+            u32* const callback = key == "onTick"     ? &sd.onTick
+                                  : key == "onStart"  ? &sd.onStart
+                                  : key == "onStop"   ? &sd.onStop
+                                  : key == "onEvent"  ? &sd.onEvent
+                                  : key == "onUpdate" ? &sd.onUpdate
+                                                      : nullptr;
             if (callback != nullptr) {
                 if (!method) {
                     err("S426", p,
@@ -784,17 +797,23 @@ private:
                     ok = false;
                     continue;
                 }
-                *callback = declareSystemMethod(p, ok, key == "onEvent");
-                continue;
-            }
-            if (key == "onUpdate") {
-                err("S426", p, "onUpdate 는 client 도메인 [계획 v0.3 M5-T3] — 서버 시스템은 onTick");
-                ok = false;
+                const bool update = key == "onUpdate";
+                if (update != client) {
+                    // 몸은 그래도 검사한다 — 도메인에 맞는 ctx 로 (오류를 겹치지 않게)
+                    err("S426", p,
+                        update ? std::string("onUpdate 는 domain: \"client\" 시스템의 콜백이다 — 서버 시스템은 onTick")
+                               : std::format("client 시스템의 콜백은 onUpdate 뿐이다 — {} 는 서버 시스템에 (ADR-0067)",
+                                             key));
+                    ok = false;
+                    wrongCallback = true;
+                }
+                *callback = declareSystemMethod(p, ok, key == "onEvent", client);
                 continue;
             }
             if (method) {
                 err("S426", p,
-                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent 뿐이다 ('{}')", key));
+                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onUpdate 뿐이다 ('{}')",
+                                key));
                 ok = false;
                 continue;
             }
@@ -817,11 +836,14 @@ private:
                 }
                 const std::string& text = cval(value).string;
                 if (key == "domain") {
-                    if (text != "server") {
-                        err("S426", value,
-                            text == "client"
-                                ? std::string("domain \"client\" 는 [계획 v0.3 M5-T3] — 지금은 \"server\" 만")
-                                : std::format("domain '{}' — \"server\" 만 (기본값)", text));
+                    domainAt = p;
+                    if (text != "server" && text != "client") {
+                        err("S426", value, std::format("domain '{}' — \"server\" (기본값) 또는 \"client\"", text));
+                        ok = false;
+                    }
+                    if (text == "client" && !client) {
+                        // 메서드의 ctx 타입을 먼저 정해야 해서 리터럴만 본다
+                        err("S426", value, "domain 은 문자열 리터럴로 적는다 — domain: \"client\"");
                         ok = false;
                     }
                     continue;
@@ -871,7 +893,7 @@ private:
                 err("S426", p,
                     std::format(
                         "defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · eventsPerTick · events · "
-                        "onTick · onStart · onStop · onEvent",
+                        "onTick · onStart · onStop · onEvent · onUpdate",
                         key));
                 expr(value, kNoExpect);
                 ok = false;
@@ -882,23 +904,37 @@ private:
             ok = false;
         }
         const auto none = [](u32 f) { return f == api::kNoCallback; };
-        if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent)) {
+        if (client) {
+            // client 시스템 = 매 프레임 onUpdate 하나 — 틱 주기 · 이벤트는 서버의 것 (ADR-0067)
+            for (const NodeId at : {intervalAt, eventsAt, perTickAt}) {
+                if (at != kNoNode) {
+                    err("S426", at,
+                        std::format("{} 는 서버 시스템의 것이다 — client 시스템은 매 프레임 onUpdate", ast().str(at)));
+                    ok = false;
+                }
+            }
+            if (none(sd.onUpdate) && !wrongCallback) {
+                err("S426", domainAt != kNoNode ? domainAt : init, "client 시스템에 onUpdate(ctx) { … } 가 없다");
+                ok = false;
+            }
+        } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate)) {
             err("S426", init, "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent 중 하나 이상");
             ok = false;
         }
-        if (intervalAt != kNoNode && none(sd.onTick)) {
+        // 아래는 server 시스템의 규칙 — client 시스템은 위에서 키마다 한 번 알렸다
+        if (!client && intervalAt != kNoNode && none(sd.onTick)) {
             err("S426", intervalAt, "intervalTicks 는 onTick 의 주기다 — onTick 이 없다");
             ok = false;
         }
-        if (!none(sd.onEvent) && eventsAt == kNoNode) {
+        if (!client && !none(sd.onEvent) && eventsAt == kNoNode) {
             err("S426", init, "onEvent 가 받을 이벤트를 events: { death: {}, … } 로 적는다");
             ok = false;
         }
-        if (eventsAt != kNoNode && none(sd.onEvent)) {
+        if (!client && eventsAt != kNoNode && none(sd.onEvent)) {
             err("S426", eventsAt, "events 를 받을 onEvent(ctx, e) { … } 가 없다");
             ok = false;
         }
-        if (perTickAt != kNoNode && none(sd.onEvent)) {
+        if (!client && perTickAt != kNoNode && none(sd.onEvent)) {
             err("S426", perTickAt, "eventsPerTick 은 onEvent 의 예산이다 — onEvent 가 없다");
             ok = false;
         }
@@ -1091,8 +1127,9 @@ private:
     }
 
     // 시스템 메서드 → 함수 하나. 서명: onTick · onStart · onStop = (ctx?) — 타입을 적지 않으면 ServerContext, onEvent =
-    // (ctx?, e?) — e 는 GameEvent. 반환 void. 서명이 틀리면 ok = false (몸은 그래도 검사한다 — 적은 타입으로)
-    u32 declareSystemMethod(NodeId m, bool& ok, bool event) {
+    // (ctx?, e?) — e 는 GameEvent, client 시스템의 메서드 = (ctx?) — ClientContext. 반환 void. 서명이 틀리면 ok = false
+    // (몸은 그래도 검사한다 — 적은 타입으로)
+    u32 declareSystemMethod(NodeId m, bool& ok, bool event, bool client) {
         FunctionInfo f;
         f.name = std::string(ast().str(m));
         f.module = m_ctx.module;
@@ -1102,7 +1139,7 @@ private:
         const auto kids = ast().kids(m);
         const usize paramCount = kids.size() - 2;
         const usize maxParams = event ? 2 : 1;
-        const TypeId ctxType = T().opaque(api::AbiType::ServerContext);
+        const TypeId ctxType = T().opaque(client ? api::AbiType::ClientContext : api::AbiType::ServerContext);
         if (paramCount > maxParams) {
             err("S426", kids[maxParams],
                 event ? std::string("onEvent 의 매개변수는 (ctx, e) 둘이다")
@@ -2928,6 +2965,7 @@ private:
             return TypeTable::kString;
         case api::AbiType::Entity:
         case api::AbiType::ServerContext:
+        case api::AbiType::ClientContext:
             return T().opaque(a);
         case api::AbiType::Component: // 제네릭 — componentHostCall 이 푼다
         case api::AbiType::ComponentData:

@@ -217,12 +217,13 @@ export default defineSystem({
         expectOnly("export default defineSystem({ id: \"a.b\", intervalTicks: 0, onTick(ctx) { } })\n", "S426",
                    "1 ~ 65535");
         expectOnly("export default defineSystem({ id: \"a.b\", intervalTicks: 1.5, onTick(ctx) { } })\n", "S409");
-        expectOnly("export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "S426", "M5");
+        expectOnly("export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "S426",
+                   "client 시스템의 콜백은 onUpdate 뿐");
         expectOnly("export default defineSystem({ id: \"a.b\", stage: 3, onTick(ctx) { } })\n", "S426", "고정");
         expectOnly("export default defineSystem({ id: \"a.b\", speed: 3, onTick(ctx) { } })\n", "S426",
                    "'speed' 키는 없다");
         expectOnly("export default defineSystem({ id: \"a.b\", run(ctx) { }, onTick(ctx) { } })\n", "S426",
-                   "메서드는 onTick · onStart · onStop · onEvent 뿐");
+                   "메서드는 onTick · onStart · onStop · onEvent · onUpdate 뿐");
         expectOnly(
             "function t(ctx: ServerContext): void { }\nexport default defineSystem({ id: \"a.b\", onTick: t })\n",
             "S426", "메서드로 적는다");
@@ -259,7 +260,7 @@ export default defineSystem({
             {"scripts/a.ts", std::string(kHead) + "export default defineSystem({ id: \"g.b\", onTick() { } })\n"}};
         const std::optional<bc::Module> m = compileScripts(files, diags);
         REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
-        CHECK(m->format == 4);
+        CHECK(m->format == 5);
         REQUIRE(m->systems.size() == 2);
         CHECK(m->systems[0].id == "g.a"); // 파일 순서 (a.ts 가 먼저) 와 무관하게 id 순
         CHECK(m->systems[0].module == "scripts/z.ts");
