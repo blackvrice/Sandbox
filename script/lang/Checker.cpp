@@ -788,7 +788,7 @@ private:
                 continue;
             }
             if (key == "onUpdate") {
-                err("S426", p, "onUpdate 는 client 도메인 [계획 v0.3 M5] — 서버 시스템은 onTick");
+                err("S426", p, "onUpdate 는 client 도메인 [계획 v0.3 M5-T3] — 서버 시스템은 onTick");
                 ok = false;
                 continue;
             }
@@ -819,8 +819,9 @@ private:
                 if (key == "domain") {
                     if (text != "server") {
                         err("S426", value,
-                            text == "client" ? std::string("domain \"client\" 는 [계획 v0.3 M5] — 지금은 \"server\" 만")
-                                             : std::format("domain '{}' — \"server\" 만 (기본값)", text));
+                            text == "client"
+                                ? std::string("domain \"client\" 는 [계획 v0.3 M5-T3] — 지금은 \"server\" 만")
+                                : std::format("domain '{}' — \"server\" 만 (기본값)", text));
                         ok = false;
                     }
                     continue;
@@ -2030,7 +2031,7 @@ private:
             err("S407", iter, std::format("null 일 수 있다 ({}) — if (x !== null) 로 좁힌다", T().name(it)));
         } else if (!T().isError(it)) {
             err("S422", iter,
-                std::format("for-of 는 배열만 돈다 — {} 는 아니다 (질의는 [계획 v0.3 M3])", T().name(it)));
+                std::format("for-of 는 배열만 돈다 — {} 는 아니다 (질의는 ctx.query(…) — Entity[])", T().name(it)));
         }
         pushScope(kNoNode);
         if (decl != kNoNode) {
@@ -2675,7 +2676,7 @@ private:
                 c.string = ca.string + cb.string;
                 cval(n) = std::move(c);
             }
-            // 숫자 → 문자열은 상수로 접지 않는다 (JS 의 Number#toString 은 VM 이 — [계획 M2])
+            // 숫자 → 문자열은 상수로 접지 않는다 (JS 의 Number#toString 은 VM 이 — vm/Numbers)
             return set(n, TypeTable::kString);
         }
         if (!T().isNumeric(lt) || !T().isNumeric(rt)) {
@@ -3097,7 +3098,7 @@ private:
         const auto kids = ast().kids(n);
         const usize argc = kids.size() - 1;
         if (member == "random") {
-            err("S413", callee, "Math.random 은 없다 (결정론) — ctx.random [계획 v0.3 M2]");
+            err("S413", callee, "Math.random 은 없다 (결정론) — 결정적 난수 ctx.random 은 [계획]");
             argsLoose(n);
             return set(n, TypeTable::kError);
         }
@@ -3183,7 +3184,7 @@ private:
                     }
                 }
                 if (name == "random") {
-                    err("S413", n, "Math.random 은 없다 (결정론) — ctx.random [계획 v0.3 M2]");
+                    err("S413", n, "Math.random 은 없다 (결정론) — 결정적 난수 ctx.random 은 [계획]");
                 } else {
                     err("S411", n, std::format("Math.{} 는 값이 아니다 — 부른다", name));
                 }

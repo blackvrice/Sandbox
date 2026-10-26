@@ -122,8 +122,8 @@ struct ModuleSema {
     std::vector<std::pair<std::string, SymbolId>> exportTypes;
 };
 
-// defineComponent 하나 (ADR-0059). schema 의 필드는 이름 순, dataType = 값 구조체 (필드도 이름 순 — ctx.read 의 결과
-// [계획 M3-T3])
+// defineComponent 하나 (ADR-0059). schema 의 필드는 이름 순, dataType = 값 구조체 (필드도 이름 순 — ctx.read 의 결과,
+// ADR-0060)
 struct ComponentDecl {
     api::ComponentSchema schema;
     SymbolId symbol = kNoSymbol;

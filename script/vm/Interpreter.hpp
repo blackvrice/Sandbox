@@ -5,7 +5,7 @@
 // 호출 하나 (call) 가 실행 단위다: 그 호출의 객체는 아레나에 만들고 다음 call 이 처음에 통째로 버린다 (GC 없음 — 결과의
 // 문자열 · 배열은 다음 call 전까지 읽을 수 있다). 실행 중에만 아는 잘못은 트랩: 그 호출을 멈추고 CallResult 로 알린다
 // (예외 없음). 예산: 연료 (명령마다 1 + 무거운 명령은 더), 호출 깊이, 레지스터 칸, 아레나 바이트, 배열 길이, 문자열
-// 바이트. Host 함수 (CALLH) 는 IHost 로 — 엔진 바인딩은 core/script [계획 v0.3 M2-T2], 시험은 가짜 Host.
+// 바이트. Host 함수 (CALLH) 는 IHost 로 — 엔진 바인딩은 core/script/ScriptHost, 시험은 가짜 Host.
 
 #include <span>
 #include <string>
