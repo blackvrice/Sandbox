@@ -24,6 +24,14 @@ std::string_view tsType(api::AbiType t) {
         return "Entity";
     case api::AbiType::ServerContext:
         return "ServerContext";
+    case api::AbiType::Component:
+        return "ComponentRef<T>";
+    case api::AbiType::ComponentData:
+        return "T";
+    case api::AbiType::ComponentDataOrNull:
+        return "T | null";
+    case api::AbiType::EntityList:
+        return "Entity[]";
     }
     return "never";
 }
@@ -116,7 +124,9 @@ std::string generateSandboxDts() {
                 const std::string_view name = f.paramNames[i].empty() ? std::string_view("arg") : f.paramNames[i];
                 params += std::format("{}{}: {}", i > 0 ? ", " : "", name, tsType(f.params[i]));
             }
-            out += std::format("    {}({}): {};\n", f.member, params, tsType(f.result));
+            // 컴포넌트 항목은 제네릭 — T 는 ComponentRef<T> 인자가 정한다 (ADR-0060)
+            out += std::format("    {}{}({}): {};\n", f.member, api::isComponentGeneric(f) ? "<T>" : "", params,
+                               tsType(f.result));
         }
         out += "  }\n";
     }

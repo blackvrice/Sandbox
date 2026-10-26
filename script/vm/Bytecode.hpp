@@ -17,7 +17,7 @@
 
 namespace sbx::script::bc {
 
-inline constexpr u32 kFormatVersion = 1;
+inline constexpr u32 kFormatVersion = 2; // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3)
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -29,6 +29,7 @@ inline constexpr u32 kMaxFunctions = 0xFFFF;
 inline constexpr u32 kMaxTypes = 0xFFFF;
 inline constexpr u32 kMaxFields = 256;
 inline constexpr u32 kMaxImports = 1024;
+inline constexpr u32 kMaxComponents = 1024;
 inline constexpr u32 kMaxStringBytes = 1u << 20;
 
 enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct };
@@ -121,6 +122,7 @@ enum class Op : u8 {
     RET,   // void 함수
     RETV,  // return a
     TRAP,  // 트랩 (a = TrapCode)
+    LOADK, // a(ComponentRef) ← components[b] (v0.3 M3-T3 — 값은 fnv1a64(id) = stableId)
     Count,
 };
 
@@ -168,6 +170,7 @@ struct Module {
     std::vector<std::string> strings;
     std::vector<f64> numbers;
     std::vector<HostImport> imports;
+    std::vector<std::string> components; // 스크립트가 쓰는 컴포넌트 id ("rpg.mana") — LOADK 가 가리킨다
     std::vector<Function> functions;
     std::vector<Export> exports;
 

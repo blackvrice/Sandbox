@@ -101,14 +101,17 @@ private:
             out = bc::regClass(M, inner) == bc::RegClass::Ref ? inner : boxOf(inner);
             break;
         }
+        case TypeKind::Component:
         case TypeKind::Opaque: {
-            const auto abi = static_cast<u8>(P.types.info(t).abi);
+            // ComponentRef<T> 는 불투명 Component (값 = stableId — LOADK). T 는 검사기만 안다 (ADR-0060)
+            const auto abiT = kind(t) == TypeKind::Component ? api::AbiType::Component : P.types.info(t).abi;
+            const auto abi = static_cast<u8>(abiT);
             if (const auto it = m_opaque.find(abi); it != m_opaque.end()) {
                 out = it->second;
             } else {
                 bc::TypeDesc d;
                 d.kind = bc::TypeKind::Opaque;
-                d.abi = P.types.info(t).abi;
+                d.abi = abiT;
                 out = addType(std::move(d));
                 m_opaque[abi] = out;
             }
@@ -200,6 +203,20 @@ private:
         const auto i = static_cast<u16>(M.numbers.size() - 1);
         m_numIdx[bits] = i;
         return i;
+    }
+    // 컴포넌트 표의 자리 (LOADK) — 처음 쓰는 차례
+    u16 component(const std::string& id) {
+        for (usize i = 0; i < M.components.size(); ++i) {
+            if (M.components[i] == id) {
+                return static_cast<u16>(i);
+            }
+        }
+        if (M.components.size() >= bc::kMaxComponents) {
+            limit("컴포넌트가 너무 많다");
+            return 0;
+        }
+        M.components.push_back(id);
+        return static_cast<u16>(M.components.size() - 1);
     }
     u16 import(u32 hostIndex) {
         if (const auto it = m_importIdx.find(hostIndex); it != m_importIdx.end()) {
@@ -461,6 +478,11 @@ private:
         case NodeKind::Ident: {
             const SymbolId sid = sema(n).refIndex;
             const Symbol& s = P.symbols[sid];
+            if (s.kind == SymbolKind::Component) {
+                const u16 r = temp(tid(typeOf(n)));
+                emit(Op::LOADK, r, component(P.components[s.function].schema.id));
+                return r;
+            }
             const auto it = m_symReg.find(sid);
             const u16 r = it == m_symReg.end() ? temp(tid(typeOf(n))) : it->second;
             if (s.type != typeOf(n) && kind(s.type) == TypeKind::Nullable) {
@@ -662,6 +684,7 @@ private:
             emit(Op::EQS, dst, ra, rb);
             break;
         case TypeKind::Opaque:
+        case TypeKind::Component:
             emit(Op::EQO, dst, ra, rb);
             break;
         default:
@@ -1024,10 +1047,20 @@ private:
             const u16 recv = gen(obj);
             std::vector<u32> types{tid(typeOf(obj))};
             std::vector<u16> vals{recv};
+            // 컴포넌트 항목의 T = 컴포넌트 인자의 값 구조체 (검사기가 맞췄다)
+            TypeId data = TypeTable::kError;
+            for (u8 i = 0; i < h.paramCount && i + 1u < kids.size(); ++i) {
+                if (h.params[i] == api::AbiType::Component) {
+                    data = P.types.info(typeOf(kids[i + 1])).elem;
+                }
+            }
             for (u8 i = 0; i < h.paramCount && i + 1u < kids.size(); ++i) {
                 // 불투명 인자는 그 식의 타입 그대로 (검사기가 같은 ABI 인지 봤다)
-                const bool opaque = h.params[i] == api::AbiType::Entity || h.params[i] == api::AbiType::ServerContext;
-                const TypeId pt = opaque ? typeOf(kids[i + 1]) : hostType(h.params[i]);
+                const bool opaque = h.params[i] == api::AbiType::Entity || h.params[i] == api::AbiType::ServerContext ||
+                                    h.params[i] == api::AbiType::Component;
+                const TypeId pt = opaque                                       ? typeOf(kids[i + 1])
+                                  : h.params[i] == api::AbiType::ComponentData ? data
+                                                                               : hostType(h.params[i]);
                 types.push_back(tid(pt));
                 vals.push_back(genTo(kids[i + 1], pt));
             }

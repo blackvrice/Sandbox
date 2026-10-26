@@ -95,6 +95,14 @@ TypeId TypeTable::newEnum(std::string n) {
     return add(t);
 }
 
+TypeId TypeTable::newComponentRef(TypeId data, u32 componentIndex) {
+    TypeInfo t;
+    t.kind = TypeKind::Component;
+    t.elem = data;
+    t.index = componentIndex;
+    return add(t);
+}
+
 bool TypeTable::isNumeric(TypeId t) const {
     const TypeKind k = kind(t);
     return k == TypeKind::I32 || k == TypeKind::Number || k == TypeKind::Enum;
@@ -200,6 +208,8 @@ std::string TypeTable::name(TypeId t) const {
         return m_enums[i.index].name;
     case TypeKind::Opaque:
         return std::string(api::abiTypeName(i.abi));
+    case TypeKind::Component:
+        return "ComponentRef<" + name(i.elem) + ">";
     }
     return "?";
 }

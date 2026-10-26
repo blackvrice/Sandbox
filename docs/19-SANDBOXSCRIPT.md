@@ -17,6 +17,7 @@
 | VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
 | Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
 | 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
+| 컴포넌트 읽기 · 질의 · 쓰기 (16장)     | 구현 (v0.3 M3-T3)     | Host 표 ctx.read · has · query · write, LOADK (.sbc 형식 2), `core/script/ScriptHost`, ADR-0060 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -212,8 +213,11 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
             효과 (read · write · structural · random · log) · 연료 · 설명. 검사기는 이 표로 ctx.멤버 를 찾는다 (d.ts 를 읽지 않는다)
 지문        hostApiFingerprint = 정규형 줄 ("ctx.log ServerContext.log(string): void server log 16") 을 정렬해 FNV-1a 64,
             kHostApiVersion 과 함께 — .sbc 머리 [계획 M1-T3]. 시험이 값을 고정한다 (표를 바꾸면 같은 커밋에서)
-지금 항목   ctx.tick: i32 (read) · ctx.log(string): void (log). 불투명 타입 Entity · ServerContext
-[계획]      컴포넌트 읽기 · 질의 (ctx.read · ctx.query) 는 컴포넌트 타입과 함께 v0.3 M3, 쓰기 · 난수는 M2 · M4
+지금 항목   ctx.tick: i32 (read) · ctx.log(string): void (log). 불투명 타입 Entity · ServerContext.
+            (v0.3 M3-T3 — 16장) ctx.read(entity, ref): T | null · ctx.has(entity, ref): boolean (read) · ctx.query(ref): Entity[]
+            (read, 16 + 개체마다 1) · ctx.write(entity, ref, value: T): void (write). 제네릭 ABI Component · ComponentData ·
+            ComponentDataOrNull · EntityList — T 는 Component 인자가 정한다 (isComponentGeneric). 지문 0388e85856c3e9f3
+[계획]      난수 (ctx.random) · 생성 · 파괴 · 점수는 M4, 엔진 컴포넌트의 ComponentRef 는 권한 표와 함께
 ```
 
 ## 11. 이름 · 타입 검사 (v0.3 M1-T2 — `script/lang/Checker`)
@@ -268,7 +272,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 | S422 | 연산자 · 피연산자 타입 (조건 밖의 && · ! 포함)                                         |
 | S423 | [계획] 아직 없는 자리 (export default · 객체 메서드 — v0.3 M4)                          |
 | S424 | defineComponent 의 정의 (모양 · id · version · 필드 · 기본값 · 범위 · 플래그 — 15장)      |
-| S425 | defineComponent · field 를 최상위 const 의 정의 밖에서, 컴포넌트를 값으로 (M3-T3 전)    |
+| S425 | defineComponent · field 를 최상위 const 의 정의 밖에서                                    |
 
 ## 12. 바이트코드 (v0.3 M1-T3 — `script/vm/Bytecode` · `Verifier`, `script/lang/Codegen`, ADR-0058)
 
@@ -285,7 +289,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             아니면 트랩), 비교 (EQ · LT · LE × I F S, EQB · EQR 참조 · EQO 불투명 · NOTB — > · >= 는 자리를 바꾼다), 문자열
             (CONCAT · TOSTRI · TOSTRF · TOSTRB = JS Number#toString · STRLEN = UTF-16 단위), 배열 (NEWARR ARRLEN ARRGET ARRSET
             ARRPUSH — 늘리기는 push 만, 범위 밖은 트랩), 구조체 · 상자 (NEWOBJ GETF SETF BOX UNBOX), 흐름 (JMP JMPT JMPF CALL
-            CALLH RET RETV TRAP). 원소 · 필드 · 상자 명령은 타입마다 나누지 않는다 (검증기가 타입을 안다)
+            CALLH RET RETV TRAP), 컴포넌트 (LOADK a ← components[b] — v0.3 M3-T3, 값 = stableId). 원소 · 필드 · 상자 명령은
+            타입마다 나누지 않는다 (검증기가 타입을 안다). ComponentRef<T> = Opaque(Component) — T 는 검사기만 안다 (ADR-0060 4)
 코드 생성   지역 변수 · 매개변수는 레지스터 하나씩, 식의 임시는 문장이 끝나면 타입별로 돌려 쓴다. 넣는 자리의 변환 (i32 → f64 ·
             T → T | null 상자 · null 리터럴 = 그 자리 타입의 LOADNULL · 좁힌 이름의 UNBOX · Nullable(A) → Nullable(B))
             을 명령으로. 계산 순서는 소스 순서 (JS — a() > b() 도 a 먼저, 대입은 대상 → 값), 상수는 접힌 값을 그대로.
@@ -295,7 +300,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
             이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 [계획 M2]
-파일 .sbc   "SBXC" · 형식 1 · hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 함수 · export 표 (리틀 엔디안, 개수마다
+파일 .sbc   "SBXC" · 형식 2 (v0.3 M3-T3 — 컴포넌트 표 · LOADK, 형식 1 은 VersionMismatch) · hostApiVersion · 지문, 타입 · 문자열 ·
+            수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
 ```
@@ -321,7 +327,9 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 문자열      TOSTRF = JS Number#toString (가장 짧은 왕복 자릿수 — to_chars, 지수는 1e+21 · 1e-7 부터), TOSTRI 10 진, STRLEN = UTF-16
             단위, 비교는 UTF-8 바이트 순
 Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는 내용 (string_view) 으로, 첫 인자는 주인 (ctx). 실패하면 HostError.
-            엔진 바인딩 (Registry · ECB) 은 core/script [계획 M2-T2]
+            (v0.3 M3-T3) 구조체 T 는 칸 목록으로: 인자 ComponentData 는 펼치고 (HostArg::fields), 결과 ComponentDataOrNull ·
+            EntityList 는 HostResult::values 로 만든다 — 레지스터 타입을 따라, 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) ·
+            중첩 구조체 (깊이 4) 만, 칸 수가 다르거나 다른 모양이면 HostError (16장). HostResult::extraFuel 만큼 연료를 더 쓴다
 결정성      같은 모듈 · 같은 인자 · 같은 Host 응답 = 같은 결과 · 같은 연료 (시험이 본다)
 ```
 
@@ -335,8 +343,8 @@ ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을
             호출 없음 = HostError (ADR-0057 4)
 지금 항목   ctx.tick = 열린 호출의 틱. ctx.log = 서버 로그 "script" 범주 "<스크립트> t<틱>: <글>" + recentLogs (256 줄), 한 줄
             1024 바이트 (넘으면 UTF-8 글자 경계에서 자르고 …). 로그는 세계 상태가 아니라 바로 나간다 (트랩이어도 남는다)
-[계획]      쓰기 (필드 · 생성 · 파괴 · 점수) 의 호출 단위 버퍼 (read-your-writes · 트랩이면 버림 — ADR-0057 5) 는 첫 쓰기 항목과 함께
-            v0.3 M3. 엔진의 시스템 단계에서 부르기는 M4-T1
+컴포넌트    (v0.3 M3-T3) beginCall(tick, 이름, 월드) · endCall(commit) — 컴포넌트 항목 · 개체 핸들 · 쓰기 버퍼는 16장.
+            엔진의 시스템 단계에서 부르기는 M4-T1 [계획]
 SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더). declare module "sandbox" { i32 · toI32 · idiv · 불투명
             interface (__sandboxOpaque 표지 — 리터럴로 만들 수 없게) + 주인 타입의 멤버 (속성 = readonly, 메서드 = 표의 매개변수
             이름) }. 머리에 Host API 버전 · 지문. 저장소의 sdk/sandbox.d.ts 가 생성 결과와 같아야 한다 (시험) — Host 표를 바꾸면
@@ -372,9 +380,9 @@ export const Mana = defineComponent({
            선언 순서를 바꿔도 같은 컴포넌트) · 정의 자리. 기본값은 범위 안 · 유한, i32 기본값과 범위는 정수, f32 · vec2 는 f32 범위
            안이고 f32 로 한 번 반올림 (roundToF32 — 엔진도 같다). 한 프로그램 안에서 id 하나
 값 타입    i32 → i32, f32 · f64 → number, bool → boolean, vec2 → Vec2 { x, y: number }, entity → Entity | null, enumOf → 그 enum.
-           값 구조체 (ComponentDecl::dataType) 는 ctx.read 의 결과 타입이 된다 [계획 M3-T3]
-금지       함수 안 · 식 안의 defineComponent · field, 컴포넌트 const 를 값으로 쓰기 (S425 — ctx.read · ctx.query 의 인자는 M3-T3),
-           const 에 타입 적기 · 모르는 키 · 축약 { id } (S424)
+           값 구조체 (ComponentDecl::dataType) 는 ctx.read 의 결과 타입이다 (16장). 컴포넌트 const 의 타입 = ComponentRef<이름>
+           (지역 const 에 담고 넘길 수 있다, 같은 컴포넌트끼리 === — 최상위 const 에는 담을 수 없다 S415)
+금지       함수 안 · 식 안의 defineComponent · field (S425), const 에 타입 적기 · 모르는 키 · 축약 { id } (S424)
 엔진       core/script registerScriptComponents(카탈로그, 스키마들): 엔진 이름공간 · 이미 있는 이름 (내장 · 앞 팩) 은 거절하고
            (ScriptComponentProblem — "파일:줄: 컴포넌트 'id' — 이유"), 나머지는 ecs 동적 컴포넌트로 넣는다 (02 9.6 — 형식은 같은
            필드를 이름 순으로 가진 C++ 컴포넌트와 바이트 단위로 같다). Persistent → Hashed (내장과 같다)
@@ -383,5 +391,45 @@ export const Mana = defineComponent({
            컴포넌트를 내장처럼 다룬다
 d.ts       sandbox.d.ts 의 defineComponent<F> 가 ComponentRef<{ 필드: 값 타입 }> 를 돌려준다 (tsc 쪽 타입). enumOf<E> 는 제약 없는
            타입 매개변수라 tsc 가 enum 리터럴을 enum 타입으로 넓힌다
-[계획]     ctx.read · ctx.has · ctx.query · 쓰기 버퍼 (M3-T3), version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
+[계획]     version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
+```
+
+## 16. 컴포넌트 읽기 · 질의 · 쓰기 (v0.3 M3-T3 — Host 표 · `script/vm/Interpreter` · `core/script/ScriptHost`, ADR-0060)
+
+```ts
+import { ServerContext, i32 } from "sandbox";
+import { Mana } from "./mana";
+export function regen(ctx: ServerContext): i32 {
+  let n: i32 = 0;
+  for (const e of ctx.query(Mana)) {          // Entity[] — saveId 오름차순
+    const m = ctx.read(e, Mana);              // Mana | null — 값 복사
+    if (m !== null) {
+      m.current = Math.min(m.current + m.regen, m.max);
+      ctx.write(e, Mana, m);                  // 값 통째 — 호출이 끝나면 적용
+      n = n + 1;
+    }
+  }
+  return n;
+}
+```
+
+```text
+타입       read(e, ref) → T | null · has(e, ref) → boolean · query(ref) → Entity[] · write(e, ref, T). ref 는 ComponentRef<T>
+           (아니면 S404), T 는 구조로 맞춘다 (같은 필드의 interface 도 된다). 인자 수 S405
+값         읽기 = 복사 (고쳐도 월드가 바뀌지 않는다 — write 로). f32 는 f64 로 넓혀 읽고, 쓸 때 한 번 반올림. vec2 = Vec2 구조체,
+           entity 필드 = Entity | null (저장은 saveId — 없는 · 죽은 개체면 null)
+쓰기 검사  범위 (min · max — f32 는 반올림한 값으로) · 유한 (NaN · ±Infinity 는 HostError — 세이브 JSON 에 없다) · f32 범위 · 개체
+           필드는 이 호출의 핸들 (→ saveId) 이나 null. 개체에 그 컴포넌트가 없으면 HostError (붙이기 · 떼기는 [계획 M4]).
+           enum 필드의 값이 멤버인지는 보지 않는다 (i32 — 내장 enum 과 같다)
+버퍼       (개체, 컴포넌트) 마다 마지막 값 하나 (처음 쓴 차례, 호출당 65,536). 같은 호출의 read 는 버퍼를 먼저 본다. endCall(true)
+           가 차례대로 풀에 쓰고, 트랩 (endCall(false)) 이면 통째로 버린다 — 반쯤 적용된 상태가 없다
+질의       saveId 오름차순 (풀 순서와 무관 — 세이브 → 로드 뒤 같다), 65,536 개를 넘으면 HostError, 연료 16 + 개체마다 1.
+           여러 컴포넌트를 한 번에 묻는 질의는 [검토 M6]
+핸들       호출마다 새 표 — 표지 0x5E00 · 호출 번호 아래 16 비트 · 자리. 같은 개체 = 같은 핸들 (=== 가 된다), 지난 호출 · 위조 ·
+           죽은 개체 = HostError. ScriptHost::entityHandle 이 바깥 (시스템 단계 — M4) 의 개체를 인자로 넘긴다
+컴포넌트   LOADK 의 값 = stableId. Host 는 월드 카탈로그에서 찾고 스크립트 컴포넌트만 받는다 (모르는 컴포넌트 · 엔진 컴포넌트 =
+           HostError). 월드 없이 연 호출 (beginCall 에 월드 없음) 의 컴포넌트 항목도 HostError
+VM 경계    T 는 칸 목록 (필드 이름 순, Vec2 는 그 자리에서 x · y, 상자는 null = 0). 칸 수 · 잎 모양이 레지스터 타입과 다르면 HostError
+           — 위조한 바이트코드가 Host 값을 참조로 읽지 못한다 (13장)
+결정성     같은 월드 · 같은 호출 = 같은 결과 · 같은 WorldHash (시험), 쓰기 뒤 세이브 → 로드 해시 일치
 ```

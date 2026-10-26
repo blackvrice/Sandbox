@@ -1,6 +1,6 @@
 # ADR-0057. Host API 단일 정의 — C++ 표 하나에서 타입 검사 · 로드 묶기 · 바인딩 검사 · sandbox.d.ts 를 만든다, 쓰기는 호출 단위 버퍼
 
-- 상태: **Accepted** · 날짜: 2026-10-21 (D-04 결정)
+- 상태: **Accepted** · 날짜: 2026-10-21 (D-04 결정) — 4 의 Query 반복자 · 초안의 setField 는 [ADR-0060](0060-script-component-host-read-query-write-buffer-entity-handles.md) 이 대신한다 (Entity[] · 값 통째 쓰기)
 - 관련: [ADR-0056](0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 — D-01), [ADR-0011](0011-explicit-component-registration.md)
   (명시 등록), [ADR-0050](0050-visual-trigger-schema-tree-graph-flat-program.md) (노드 종류 표 — 같은 방식), [04-DETERMINISM](../04-DETERMINISM.md),
   [03-SIMULATION](../03-SIMULATION.md) 2 · 2.2장, [18-PLATFORM](../18-PLATFORM.md) 6.2, 초안 [architecture/04](../platform/architecture/04_SCRIPT_VM_AND_SDK.md)

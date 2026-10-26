@@ -1115,11 +1115,13 @@ private:
         d.module = m_ctx.module;
         d.decl = item;
         P.components.push_back(std::move(d));
+        const u32 index = static_cast<u32>(P.components.size() - 1);
+        const TypeId ref = T().newComponentRef(data, index); // ComponentRef<T> — ctx.read · has · query · write 의 인자
         Symbol& s = sym(id);
         s.kind = SymbolKind::Component;
-        s.function = static_cast<u32>(P.components.size() - 1);
-        s.type = TypeTable::kError; // 값으로 쓸 수 없다 (S425) — ComponentRef 타입은 M3-T3 의 ctx.read 와 함께
-        sema(item).type = TypeTable::kError;
+        s.function = index;
+        s.type = ref;
+        sema(item).type = ref;
         m_ready[id] = true;
     }
 
@@ -2052,10 +2054,7 @@ private:
             err("S411", n, std::format("'{}' 는 타입이다 — 값으로 쓸 수 없다", name));
             return set(n, TypeTable::kError);
         case SymbolKind::Component:
-            err("S425", n,
-                std::format("컴포넌트 '{}' 는 아직 값으로 쓸 수 없다 — ctx.read · ctx.query 의 인자 [계획 v0.3 M3-T3]",
-                            name));
-            return set(n, TypeTable::kError);
+            return set(n, s.type); // ComponentRef<T> (코드 생성 = LOADK)
         case SymbolKind::Builtin:
             if (s.builtin == Builtin::NaN || s.builtin == Builtin::Infinity) {
                 cval(n) = s.value;
@@ -2396,6 +2395,55 @@ private:
         return set(n, TypeTable::kVoid);
     }
 
+    // 컴포넌트 Host 항목 (ctx.read · has · query · write — ADR-0060): 컴포넌트 인자가 T 를 정하고, 나머지 매개변수 ·
+    // 결과의 T · T | null 이 그 값 구조체다
+    TypeId componentHostCall(NodeId n, const api::HostFunction& h) {
+        const auto kids = ast().kids(n);
+        const usize argc = kids.size() - 1;
+        if (argc != h.paramCount) {
+            err("S405", n, std::format("{} 는 인자 {} 개 — {} 개를 넘겼다", h.id, h.paramCount, argc));
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        u8 ci = 0;
+        while (h.params[ci] != api::AbiType::Component) {
+            ++ci;
+        }
+        const NodeId refArg = kids[ci + 1];
+        const TypeId rt = expr(refArg, kNoExpect);
+        TypeId data = TypeTable::kError;
+        if (!T().isError(rt)) {
+            if (T().kind(rt) == TypeKind::Component) {
+                data = T().info(rt).elem;
+            } else {
+                err("S404", refArg,
+                    std::format("{} 의 {} 는 컴포넌트 참조 (defineComponent 의 const) 다 — {} 를 넘겼다", h.id,
+                                h.paramNames[ci], T().name(rt)));
+            }
+        }
+        for (u8 i = 0; i < h.paramCount; ++i) {
+            if (i == ci) {
+                continue;
+            }
+            const TypeId pt = h.params[i] == api::AbiType::ComponentData ? data : abiType(h.params[i]);
+            const NodeId arg = kids[i + 1];
+            const TypeId at = expr(arg, T().isError(pt) ? kNoExpect : pt);
+            if (!T().isError(pt) && !T().isError(at)) {
+                assignTo(arg, at, pt);
+            }
+        }
+        switch (h.result) {
+        case api::AbiType::ComponentDataOrNull:
+            return T().isError(data) ? TypeTable::kError : T().nullableOf(data);
+        case api::AbiType::ComponentData:
+            return data;
+        case api::AbiType::EntityList:
+            return T().arrayOf(T().opaque(api::AbiType::Entity));
+        default:
+            return abiType(h.result);
+        }
+    }
+
     TypeId abiType(api::AbiType a) {
         switch (a) {
         case api::AbiType::Void:
@@ -2411,6 +2459,12 @@ private:
         case api::AbiType::Entity:
         case api::AbiType::ServerContext:
             return T().opaque(a);
+        case api::AbiType::Component: // 제네릭 — componentHostCall 이 푼다
+        case api::AbiType::ComponentData:
+        case api::AbiType::ComponentDataOrNull:
+            return TypeTable::kError;
+        case api::AbiType::EntityList:
+            return T().arrayOf(T().opaque(api::AbiType::Entity));
         }
         return TypeTable::kError;
     }
@@ -2508,6 +2562,12 @@ private:
             }
             if (T().kind(ot) == TypeKind::Opaque) {
                 const api::HostFunction* h = api::findHostMember(T().info(ot).abi, member);
+                if (h != nullptr && !h->property && api::isComponentGeneric(*h)) {
+                    sema(callee).ref = RefKind::HostFunction;
+                    sema(callee).refIndex = static_cast<u32>(api::hostFunctionIndex(*h));
+                    set(callee, TypeTable::kVoid);
+                    return set(n, componentHostCall(n, *h));
+                }
                 if (h != nullptr && !h->property) {
                     sema(callee).ref = RefKind::HostFunction;
                     sema(callee).refIndex = static_cast<u32>(api::hostFunctionIndex(*h));

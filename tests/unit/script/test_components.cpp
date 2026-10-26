@@ -211,13 +211,11 @@ const B = defineComponent({ id: "g.a", fields: { } })
         expectOnly(R"(const A = defineComponent({ id: "g.a", fields: { x: field.bool(1) } }))", "S404");
     }
 
-    TEST_CASE("defineComponent: 최상위 const 의 초기값 밖 · 컴포넌트를 값으로 쓰기는 S425") {
+    TEST_CASE("defineComponent: 최상위 const 의 초기값 밖은 S425, 컴포넌트 const 는 ComponentRef 값") {
         const char* const cases[] = {
             R"(function f(): void { const A = defineComponent({ id: "g.a", fields: { } }) })",
             R"(const n = 1 + field.i32())",
             R"(function f(): void { const x = field })",
-            R"(const A = defineComponent({ id: "g.a", fields: { } })
-function f(): void { const x = A })",
         };
         for (const char* src : cases) {
             const Checked c = one(src);
@@ -228,16 +226,29 @@ function f(): void { const x = A })",
                 CHECK(d.code == "S425");
             }
         }
-        // 다른 모듈이 가져온 컴포넌트도 컴포넌트다
+        // 다른 모듈이 가져온 컴포넌트도 ComponentRef<Mana> — ctx.read 의 결과가 그 값 구조체다
         const Checked m = run({
             {"scripts/a.ts",
-             std::string(kHead) + R"(export const Mana = defineComponent({ id: "rpg.mana", fields: { } }))"},
-            {"scripts/b.ts", "import { Mana } from \"./a\"\nexport function f(): void { const x = Mana }\n"},
+             std::string(kHead) +
+                 R"(export const Mana = defineComponent({ id: "rpg.mana", fields: { current: field.f32() } }))"},
+            {"scripts/b.ts", R"(import { Mana } from "./a"
+import { ServerContext, Entity } from "sandbox"
+export function f(ctx: ServerContext, e: Entity): number {
+  const ref = Mana
+  const m = ctx.read(e, ref)
+  return m === null ? -1 : m.current
+}
+)"},
         });
         CAPTURE(m.diags.describeAll());
-        REQUIRE(m.diags.items().size() == 1);
-        CHECK(m.diags.items()[0].code == "S425");
-        CHECK(m.diags.items()[0].file == "scripts/b.ts");
+        CHECK(m.diags.ok());
+        const SymbolId mana = m.program.exportedValue("scripts/a.ts", "Mana");
+        REQUIRE(mana != kNoSymbol);
+        CHECK(m.program.types.name(m.program.symbols[mana].type) == "ComponentRef<Mana>");
+        // 최상위 const 에 담을 수는 없다 (상수식이 아니다 — S415)
+        const Checked top = one(R"(const A = defineComponent({ id: "g.a", fields: { } })
+const B = A)");
+        CHECK(top.diags.describeAll().find("S415") != std::string::npos);
         // import 하지 않으면 SDK 이름을 안내한다
         const Checked n = run({{"scripts/a.ts", R"(const A = defineComponent({ id: "g.a", fields: { } }))"}});
         CHECK(n.diags.describeAll().find("import { defineComponent } from \"sandbox\"") != std::string::npos);

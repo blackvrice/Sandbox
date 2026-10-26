@@ -335,7 +335,7 @@ TEST_SUITE("script") {
         CHECK_FALSE(bc::deserialize(huge).has_value());
         // 형식 번호
         std::vector<u8> ver = bytes;
-        ver[4] = 2;
+        ver[4] = 99;
         CHECK(bc::deserialize(ver).error().code == ErrorCode::VersionMismatch);
     }
 

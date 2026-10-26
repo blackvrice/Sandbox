@@ -16,7 +16,7 @@ constexpr std::array<std::string_view, static_cast<usize>(Op::Count)> kOpNames{
     "F2I",    "F2IDX",  "EQI",    "LTI",    "LEI",     "EQF",    "LTF",      "LEF",    "EQB",    "EQS",
     "LTS",    "LES",    "EQR",    "EQO",    "NOTB",    "CONCAT", "TOSTRI",   "TOSTRF", "TOSTRB", "STRLEN",
     "NEWARR", "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH", "NEWOBJ", "GETF",     "SETF",   "BOX",    "UNBOX",
-    "JMP",    "JMPT",   "JMPF",   "CALL",   "CALLH",   "RET",    "RETV",     "TRAP",
+    "JMP",    "JMPT",   "JMPF",   "CALL",   "CALLH",   "RET",    "RETV",     "TRAP",   "LOADK",
 };
 
 constexpr std::array<u8, 4> kMagic{'S', 'B', 'X', 'C'};
@@ -131,7 +131,7 @@ bool readAbi(Reader& r, api::AbiType& out) {
     if (!r.u8v(v)) {
         return false;
     }
-    if (v > static_cast<u8>(api::AbiType::ServerContext)) {
+    if (v > static_cast<u8>(api::AbiType::EntityList)) {
         return false;
     }
     out = static_cast<api::AbiType>(v);
@@ -255,6 +255,10 @@ std::vector<u8> serialize(const Module& m) {
             w.u8v(static_cast<u8>(p));
         }
     }
+    w.u32v(static_cast<u32>(m.components.size()));
+    for (const std::string& id : m.components) {
+        w.str(id);
+    }
     w.u32v(static_cast<u32>(m.functions.size()));
     for (const Function& f : m.functions) {
         w.str(f.name);
@@ -375,6 +379,15 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             }
         }
     }
+    if (!r.count(n, kMaxComponents, 4, "컴포넌트")) {
+        return bad("컴포넌트 표");
+    }
+    m.components.resize(n);
+    for (std::string& id : m.components) {
+        if (!r.str(id)) {
+            return bad("컴포넌트");
+        }
+    }
     if (!r.count(n, kMaxFunctions, 20, "함수")) {
         return bad("함수 표");
     }
@@ -435,6 +448,9 @@ std::string disassemble(const Module& m) {
     for (usize i = 0; i < m.imports.size(); ++i) {
         out += std::format("import {} {}\n", i, m.imports[i].id);
     }
+    for (usize i = 0; i < m.components.size(); ++i) {
+        out += std::format("component {} {}\n", i, m.components[i]);
+    }
     for (usize fi = 0; fi < m.functions.size(); ++fi) {
         const Function& f = m.functions[fi];
         std::string params;
@@ -469,6 +485,9 @@ std::string disassemble(const Module& m) {
                 break;
             case Op::TRAP:
                 args = std::format("{}", in.a);
+                break;
+            case Op::LOADK:
+                args = std::format("r{}, {}", in.a, in.b < m.components.size() ? m.components[in.b] : std::string("?"));
                 break;
             case Op::JMP:
                 args = std::format("@{}", in.wide());

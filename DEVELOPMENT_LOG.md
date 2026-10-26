@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-10-26 — v0.3 M3-T3: 스크립트의 컴포넌트 읽기 · 질의 · 쓰기 + 호출 단위 쓰기 버퍼 (ADR-0060)
+
+**무엇을**
+
+- Host 표에 ctx.read(e, ref): T | null · ctx.has · ctx.query(ref): Entity[] · ctx.write(e, ref, T). 제네릭 ABI 타입 Component ·
+  ComponentData · ComponentDataOrNull · EntityList (kHostApiVersion 1 그대로 — 더하기만, 지문 0388e85856c3e9f3).
+- 검사기: TypeKind::Component (ComponentRef<T> — defineComponent 의 const 가 값이 된다), componentHostCall 이 ref 인자로 T 를 풀어
+  나머지를 검사. 코드 생성: ComponentRef = 불투명 Component, LOADK + 모듈의 컴포넌트 표 → .sbc 형식 2. 검증기: 표의 id 규칙 ·
+  겹침, LOADK, Entity[] 결과.
+- VM: ComponentData 인자를 칸 목록으로 펼치고 (HostArg::fields), ComponentDataOrNull · EntityList 결과를 칸 목록에서 만든다
+  (레지스터 타입을 따라 — 잎 모양 · 칸 수가 다르면 HostError), HostResult::extraFuel.
+- ScriptHost: beginCall(tick, 이름, 월드) · endCall(commit). 호출마다 개체 핸들 표, 질의 saveId 순 (상한 65,536 · 개체마다 연료 1),
+  읽기는 쓰기 버퍼 먼저, 쓰기는 바이트로 검사 (범위 · 유한 · f32 범위 · 개체 참조 → saveId) 해 버퍼에 — endCall(true) 가 적용,
+  트랩이면 버림. 스크립트 컴포넌트만 (엔진 컴포넌트 · 붙이기 · 떼기는 [계획]).
+- sandbox.d.ts 갱신 (read<T> … write<T>). ADR-0057 상태 줄에 "4 의 Query · 초안 setField 는 ADR-0060 이 대신" 표시.
+- 시험: test_component_host 7 케이스 (unit_script), 기존 시험 갱신 (지문 고정값 · 형식 번호 · 컴포넌트 const 가 값이 된 것).
+
+**왜**
+
+- v0.3 완료 기준 "Mana 재생 시스템" 의 몸통 — 시스템 단계에서 부르기 (M4-T1) 전에 Host 쪽 의미 (순서 · 버퍼 · 검사 · 핸들) 를 시험으로 고정한다.
+- 질의를 배열로, 쓰기를 값 통째로 한 것: 새 VM 객체 종류 · 필드 이름 문자열 없이 기존 규칙 (for-of · 구조체 맞추기 · d.ts 제네릭)
+  으로 끝난다 (ADR-0060 5 · 6). VM 쪽 잎 모양 검사는 검증기가 T 를 모르는 대신 메모리 안전을 지킨다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — 엔진은 아직 스크립트를
+  부르지 않는다, kSimVersion 그대로). unit_script 59 → 66 케이스.
+- 실행: 스크래치 프로젝트 ManaGame (M3-T2) 에 regen.ts (query → read → Math.min → write) 를 더해 `sbx check` 오류 0, 일부러 빠진
+  필드로 ctx.write 하면 "content/ecosystem/scripts/regen.ts:15:85: 오류 S404 — Mana 의 필드 'regen' 가 빠졌다" · 종료 코드 1.
+  `SandboxServer --world ManaGame --port 0 --ticks 300 --exit` → tick 300 hash 0x6a9e46df903c0e1a (스크립트를 부르는 단계는 M4).
+- `sbx sdk sdk` 로 sdk/sandbox.d.ts 를 다시 만들어 골든 시험 통과.
+
+**남은 일**
+
+- M3-T4: 스키마 version · 세이브 필드 마이그레이션. M4-T1: 시스템 단계에서 부르기 (그때 버퍼 적용이 틱 안 — 복제 changed 표시 맞음).
+- 엔진 컴포넌트의 ComponentRef (권한 표), 붙이기 · 떼기 · 생성 · 파괴 (ECB), 여러 컴포넌트 질의, 질의 정렬 비용 측정 (M6 벤치).
+
+---
+
 ## 2026-10-26 — v0.3 M3-T2: 콘텐츠 팩 scripts/ 컴파일 → 콘텐츠마다 카탈로그 → Prefab · 명령 · 세이브 · 복제
 
 **무엇을**

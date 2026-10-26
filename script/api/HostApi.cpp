@@ -25,6 +25,14 @@ std::string_view abiTypeName(AbiType t) noexcept {
         return "Entity";
     case AbiType::ServerContext:
         return "ServerContext";
+    case AbiType::Component:
+        return "ComponentRef<T>";
+    case AbiType::ComponentData:
+        return "T";
+    case AbiType::ComponentDataOrNull:
+        return "T | null";
+    case AbiType::EntityList:
+        return "Entity[]";
     }
     return "?";
 }

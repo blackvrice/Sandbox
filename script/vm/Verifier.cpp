@@ -4,6 +4,7 @@
 #include <format>
 
 #include "foundation/text/Utf8.hpp"
+#include "script/api/ComponentSchema.hpp"
 #include "script/api/MathBuiltins.hpp"
 
 namespace sbx::script::bc {
@@ -79,7 +80,13 @@ TypeKind abiKind(api::AbiType a) {
         return TypeKind::String;
     case api::AbiType::Entity:
     case api::AbiType::ServerContext:
+    case api::AbiType::Component:
         return TypeKind::Opaque;
+    case api::AbiType::ComponentData:
+    case api::AbiType::ComponentDataOrNull:
+        return TypeKind::Struct; // 구조체는 참조 — null 이 될 수 있는 것도 같은 레지스터 타입
+    case api::AbiType::EntityList:
+        return TypeKind::Array;
     }
     return TypeKind::Void;
 }
@@ -144,7 +151,8 @@ private:
                 break;
             }
             case TypeKind::Opaque:
-                if (t.abi != api::AbiType::Entity && t.abi != api::AbiType::ServerContext) {
+                if (t.abi != api::AbiType::Entity && t.abi != api::AbiType::ServerContext &&
+                    t.abi != api::AbiType::Component) {
                     fail(std::format("타입 {}: 불투명 타입이 아닌 ABI", i));
                 }
                 break;
@@ -175,6 +183,16 @@ private:
         for (usize i = 0; i < M.strings.size(); ++i) {
             if (!validUtf8(M.strings[i])) {
                 fail(std::format("문자열 {} 가 UTF-8 이 아니다", i));
+            }
+        }
+        for (usize i = 0; i < M.components.size(); ++i) {
+            if (!api::isValidComponentId(M.components[i])) {
+                fail(std::format("컴포넌트 {}: '{}' 는 컴포넌트 이름이 아니다", i, M.components[i]));
+            }
+            for (usize k = 0; k < i; ++k) {
+                if (M.components[k] == M.components[i]) {
+                    fail(std::format("컴포넌트 {}: '{}' 가 두 번 있다", i, M.components[i]));
+                }
             }
         }
     }
@@ -558,6 +576,12 @@ private:
                     M.types[F->regs[in.a]].abi != im.result) {
                     bad(std::format("r{} 는 {} 가 아니다", in.a, api::abiTypeName(im.result)));
                 }
+                if (im.result == api::AbiType::EntityList && kindOf(F->regs[in.a]) == K::Array) {
+                    const u32 e = M.types[F->regs[in.a]].elem;
+                    if (kindOf(e) != K::Opaque || M.types[e].abi != api::AbiType::Entity) {
+                        bad(std::format("r{} 는 Entity[] 가 아니다", in.a));
+                    }
+                }
             });
             break;
         }
@@ -574,6 +598,14 @@ private:
             }
             break;
         case Op::TRAP:
+            break;
+        case Op::LOADK:
+            if (regKind(in.a, K::Opaque) && M.types[F->regs[in.a]].abi != api::AbiType::Component) {
+                bad(std::format("r{} 는 ComponentRef 가 아니다", in.a));
+            }
+            if (in.b >= M.components.size()) {
+                bad(std::format("컴포넌트 {} 가 없다", in.b));
+            }
             break;
         case Op::Count:
             break;

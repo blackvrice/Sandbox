@@ -68,16 +68,21 @@ struct CallResult {
     [[nodiscard]] bool ok() const noexcept { return trap == Trap::None; }
 };
 
-// Host 함수에 넘기는 인자 — 문자열은 내용으로 (VM 의 참조를 밖으로 내보내지 않는다 — ADR-0057 4)
+// Host 함수에 넘기는 인자 — 문자열은 내용으로 (VM 의 참조를 밖으로 내보내지 않는다 — ADR-0057 4).
+// ComponentData (구조체 T) 는 칸 목록으로 펼친다: 필드 이름 순, 중첩 구조체 (Vec2) 는 그 자리에서 펼치고, 상자 (Entity
+// | null) 는 null = 0 · 아니면 안쪽 값 (ADR-0060)
 struct HostArg {
     api::AbiType type = api::AbiType::Void;
     Value value;
-    std::string_view text; // String 일 때만
+    std::string_view text;         // String 일 때만
+    std::span<const Value> fields; // ComponentData 일 때만
 };
 struct HostResult {
     bool ok = true;
-    Value value;
+    Value value; // ComponentDataOrNull 이면 0 = null, 아니면 1 (칸은 values)
     std::string error;
+    std::vector<Value> values; // ComponentDataOrNull = 펼친 칸 (HostArg::fields 와 같은 순서), EntityList = 원소
+    u64 extraFuel = 0;         // 부른 쪽이 더 낼 연료 (질의 — 결과 개체마다)
 };
 
 class IHost {
@@ -121,6 +126,11 @@ private:
 
     CallResult run(u32 function, std::span<const Value> args);
     bool alloc(Object o, usize bytes, Value& out);
+    // Host 칸 ↔ 구조체 (ADR-0060). 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) 와 중첩 구조체 (깊이 4) 만 — 그 밖의
+    // 모양 (문자열 · 배열 · 재귀) 은 BadShape: 믿지 않는 바이트코드가 Host 값을 참조로 읽게 하지 않는다
+    enum class Marshal : u8 { Ok, BadShape, OutOfMemory };
+    Marshal buildStruct(u32 type, std::span<const Value> values, usize& pos, u32 depth, Value& out);
+    [[nodiscard]] bool flattenStruct(u32 type, Value v, std::vector<Value>& out, u32 depth) const;
     [[nodiscard]] const Object* object(Value v) const;
     Object* object(Value v);
 
@@ -128,11 +138,13 @@ private:
     IHost* m_host;
     Limits m_limits;
     std::vector<u32> m_importToHost; // import 자리 → api::kHostFunctions 자리
+    std::vector<u64> m_componentIds; // components 자리 → stableId (fnv1a64(id))
     std::vector<Object> m_objects;
     usize m_heapBytes = 0;
     std::vector<Value> m_regs;
     std::vector<Frame> m_frames;
     std::vector<HostArg> m_hostArgs;
+    std::vector<Value> m_hostFields;
 };
 
 } // namespace sbx::script::vm

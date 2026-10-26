@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 8fe70a7792b22639 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 0388e85856c3e9f3 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -72,5 +72,13 @@ declare module "sandbox" {
     readonly tick: i32;
     /** 서버 로그에 한 줄 (스크립트 이름과 틱이 붙는다) — ctx.log */
     log(message: string): void;
+    /** 컴포넌트 값의 복사 (없으면 null) — 이 호출에서 쓴 값이 보인다 — ctx.read */
+    read<T>(entity: Entity, component: ComponentRef<T>): T | null;
+    /** 개체에 컴포넌트가 있나 — ctx.has */
+    has<T>(entity: Entity, component: ComponentRef<T>): boolean;
+    /** 컴포넌트를 가진 개체 (saveId 오름차순 — 개체마다 연료 1) — ctx.query */
+    query<T>(component: ComponentRef<T>): Entity[];
+    /** 컴포넌트 값을 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖 · 없는 컴포넌트는 트랩) — ctx.write */
+    write<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
   }
 }

@@ -6,6 +6,7 @@
 #include <format>
 
 #include "foundation/assert/Assert.hpp"
+#include "foundation/hash/Fnv1a.hpp"
 #include "script/api/MathBuiltins.hpp"
 #include "script/vm/Numbers.hpp"
 #include "script/vm/Verifier.hpp"
@@ -63,6 +64,9 @@ Interpreter::Interpreter(const bc::Module& module, IHost* host, Limits limits)
         const api::HostFunction* h = api::findHostFunction(im.id);
         m_importToHost.push_back(h == nullptr ? 0 : static_cast<u32>(api::hostFunctionIndex(*h)));
     }
+    for (const std::string& id : M.components) {
+        m_componentIds.push_back(fnv1a64(id));
+    }
 }
 
 const Interpreter::Object* Interpreter::object(Value v) const {
@@ -107,6 +111,98 @@ bool Interpreter::alloc(Object o, usize bytes, Value& out) {
     m_heapBytes += bytes;
     m_objects.push_back(std::move(o));
     out = Value{static_cast<u64>(m_objects.size())};
+    return true;
+}
+
+namespace {
+constexpr u32 kMaxMarshalDepth = 4;
+} // namespace
+
+Interpreter::Marshal Interpreter::buildStruct(u32 type, std::span<const Value> values, usize& pos, u32 depth,
+                                              Value& out) {
+    const bc::TypeDesc& t = M.types[type];
+    if (t.kind != bc::TypeKind::Struct || depth > kMaxMarshalDepth) {
+        return Marshal::BadShape;
+    }
+    // 안쪽 객체를 먼저 만든다 (m_objects 가 자라도 칸 값만 들고 있다)
+    std::vector<Value> slots(t.fieldTypes.size());
+    for (usize i = 0; i < t.fieldTypes.size(); ++i) {
+        const bc::TypeDesc& f = M.types[t.fieldTypes[i]];
+        switch (f.kind) {
+        case bc::TypeKind::I32:
+        case bc::TypeKind::F64:
+        case bc::TypeKind::Bool:
+        case bc::TypeKind::Opaque:
+            if (pos >= values.size()) {
+                return Marshal::BadShape;
+            }
+            slots[i] = values[pos++];
+            break;
+        case bc::TypeKind::Box: {
+            if (M.types[f.elem].kind != bc::TypeKind::Opaque || pos >= values.size()) {
+                return Marshal::BadShape;
+            }
+            const Value v = values[pos++];
+            if (!v.isNull()) {
+                Object o;
+                o.kind = Object::Kind::Box;
+                o.slots.push_back(v);
+                if (!alloc(std::move(o), kObjectHeaderBytes + 8, slots[i])) {
+                    return Marshal::OutOfMemory;
+                }
+            }
+            break;
+        }
+        case bc::TypeKind::Struct:
+            if (const Marshal m = buildStruct(t.fieldTypes[i], values, pos, depth + 1, slots[i]); m != Marshal::Ok) {
+                return m;
+            }
+            break;
+        default:
+            return Marshal::BadShape;
+        }
+    }
+    Object o;
+    o.kind = Object::Kind::Struct;
+    o.slots = std::move(slots);
+    const usize bytes = kObjectHeaderBytes + o.slots.size() * 8;
+    return alloc(std::move(o), bytes, out) ? Marshal::Ok : Marshal::OutOfMemory;
+}
+
+bool Interpreter::flattenStruct(u32 type, Value v, std::vector<Value>& out, u32 depth) const {
+    const bc::TypeDesc& t = M.types[type];
+    const Object* o = object(v);
+    if (t.kind != bc::TypeKind::Struct || depth > kMaxMarshalDepth || o == nullptr || o->kind != Object::Kind::Struct ||
+        o->slots.size() != t.fieldTypes.size()) {
+        return false;
+    }
+    for (usize i = 0; i < t.fieldTypes.size(); ++i) {
+        const bc::TypeDesc& f = M.types[t.fieldTypes[i]];
+        const Value s = o->slots[i];
+        switch (f.kind) {
+        case bc::TypeKind::I32:
+        case bc::TypeKind::F64:
+        case bc::TypeKind::Bool:
+        case bc::TypeKind::Opaque:
+            out.push_back(s);
+            break;
+        case bc::TypeKind::Box: {
+            if (M.types[f.elem].kind != bc::TypeKind::Opaque) {
+                return false;
+            }
+            const Object* b = object(s);
+            out.push_back(b == nullptr ? Value::null() : b->slots[0]);
+            break;
+        }
+        case bc::TypeKind::Struct:
+            if (!flattenStruct(t.fieldTypes[i], s, out, depth + 1)) {
+                return false;
+            }
+            break;
+        default:
+            return false;
+        }
+    }
     return true;
 }
 
@@ -537,20 +633,62 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args) {
             }
             const bc::HostImport& im = M.imports[in.b];
             m_hostArgs.clear();
+            m_hostFields.clear();
+            usize fieldsArg = im.params.size();
             for (usize i = 0; i < im.params.size(); ++i) {
                 HostArg a;
                 a.type = im.params[i];
                 a.value = R[in.c + i];
                 if (a.type == api::AbiType::String) {
                     a.text = str(a.value);
+                } else if (a.type == api::AbiType::ComponentData) {
+                    if (!flattenStruct(F->regs[in.c + i], a.value, m_hostFields, 0)) {
+                        return trap(Trap::HostError,
+                                    std::format("{}: 값의 모양이 컴포넌트가 아니다 (null 포함)", h.id));
+                    }
+                    fieldsArg = i;
                 }
                 m_hostArgs.push_back(a);
+            }
+            if (fieldsArg < m_hostArgs.size()) {
+                m_hostArgs[fieldsArg].fields = m_hostFields; // 다 펼친 뒤에 (벡터가 자라는 동안 가리키지 않게)
             }
             const HostResult hr = m_host->call(h, m_hostArgs);
             if (!hr.ok) {
                 return trap(Trap::HostError, std::format("{}: {}", h.id, hr.error));
             }
-            if (in.a != bc::kNoReg) {
+            if (!spend(hr.extraFuel)) {
+                return trap(Trap::OutOfFuel, std::format("연료를 다 썼다 ({})", h.id));
+            }
+            if (in.a == bc::kNoReg) {
+                break;
+            }
+            if (im.result == api::AbiType::ComponentDataOrNull) {
+                Value out = Value::null();
+                if (!hr.value.isNull()) {
+                    usize pos = 0;
+                    const Marshal m = buildStruct(F->regs[in.a], hr.values, pos, 0, out);
+                    if (m == Marshal::OutOfMemory) {
+                        return trap(Trap::OutOfMemory, "아레나 예산을 넘는다");
+                    }
+                    if (m != Marshal::Ok || pos != hr.values.size()) {
+                        return trap(Trap::HostError, std::format("{}: 결과의 모양이 레지스터 타입과 다르다", h.id));
+                    }
+                }
+                R[in.a] = out;
+            } else if (im.result == api::AbiType::EntityList) {
+                if (hr.values.size() > m_limits.maxArrayLength) {
+                    return trap(Trap::OutOfMemory, "배열 길이 예산을 넘는다");
+                }
+                Object o;
+                o.kind = Object::Kind::Array;
+                o.slots = hr.values;
+                Value out;
+                if (!alloc(std::move(o), kObjectHeaderBytes + hr.values.size() * 8, out)) {
+                    return trap(Trap::OutOfMemory, "아레나 예산을 넘는다");
+                }
+                R[in.a] = out;
+            } else {
                 R[in.a] = hr.value;
             }
             break;
@@ -577,6 +715,9 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args) {
         }
         case Op::TRAP:
             return trap(Trap::Unreachable, std::format("TRAP {}", in.a));
+        case Op::LOADK:
+            R[in.a] = Value::opaque(m_componentIds[in.b]);
+            break;
         case Op::Count:
             return trap(Trap::Unreachable, "모르는 명령");
         }

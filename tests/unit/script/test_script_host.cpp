@@ -106,7 +106,7 @@ TEST_SUITE("script") {
         vm::Interpreter v(m, &host);
         const Value ctx = host.beginCall(30, "scripts/a.ts:tick");
         const vm::CallResult r = v.call("scripts/a.ts", "tick", std::vector<Value>{ctx});
-        host.endCall();
+        host.endCall(true);
         REQUIRE_MESSAGE(r.ok(), r.message);
         CHECK(r.value.asI32() == 30);
         REQUIRE(host.recentLogs().size() == 1);
@@ -123,7 +123,7 @@ TEST_SUITE("script") {
         ScriptHost host;
         vm::Interpreter v(m, &host);
         const Value old = host.beginCall(1, "a");
-        host.endCall();
+        host.endCall(true);
         // 열린 호출이 없다
         CHECK(v.call("scripts/a.ts", "tick", std::vector<Value>{old}).trap == Trap::HostError);
         // 새 호출이 열렸어도 지난 ctx 는 아니다
@@ -134,7 +134,7 @@ TEST_SUITE("script") {
         CHECK(stale.message.find("ctx 가 지금 호출의 것이 아니다") != std::string::npos);
         CHECK(v.call("scripts/a.ts", "tick", std::vector<Value>{Value::opaque(12345)}).trap == Trap::HostError);
         CHECK(v.call("scripts/a.ts", "tick", std::vector<Value>{now}).ok());
-        host.endCall();
+        host.endCall(true);
     }
 
     TEST_CASE("ScriptHost: 긴 로그는 UTF-8 글자 경계에서 자른다") {
@@ -144,7 +144,7 @@ TEST_SUITE("script") {
         vm::Interpreter v(m, &host);
         const Value ctx = host.beginCall(5, "a");
         REQUIRE(v.call("scripts/a.ts", "shout", std::vector<Value>{ctx}).ok());
-        host.endCall();
+        host.endCall(true);
         REQUIRE(host.recentLogs().size() == 1);
         const std::string& line = host.recentLogs()[0].text;
         CHECK(line.size() <= ScriptHost::kMaxLogBytes + 3);

@@ -22,11 +22,12 @@ enum class TypeKind : u8 {
     I32,    // SDK 의 i32 — 32 비트로 감싼다
     Number, // f64
     String,
-    Array,    // T[] · Array<T> (elem)
-    Nullable, // T | null (elem)
-    Struct,   // interface · 객체 타입 (index → structs)
-    Enum,     // enum (index → enums)
-    Opaque,   // SDK 불투명 타입 (abi)
+    Array,     // T[] · Array<T> (elem)
+    Nullable,  // T | null (elem)
+    Struct,    // interface · 객체 타입 (index → structs)
+    Enum,      // enum (index → enums)
+    Opaque,    // SDK 불투명 타입 (abi)
+    Component, // ComponentRef<T> — defineComponent 의 const (elem = 값 구조체 T, index = Program::components 의 자리)
 };
 
 struct TypeInfo {
@@ -75,6 +76,8 @@ public:
     // 구조체 · enum 은 선언마다 새 타입 (필드는 나중에 채울 수 있다 — 재귀 interface)
     TypeId newStruct(std::string name);
     TypeId newEnum(std::string name);
+    // defineComponent 마다 하나 (v0.3 M3-T3)
+    TypeId newComponentRef(TypeId data, u32 componentIndex);
 
     [[nodiscard]] const TypeInfo& info(TypeId t) const { return m_types[t]; }
     [[nodiscard]] TypeKind kind(TypeId t) const { return m_types[t].kind; }
