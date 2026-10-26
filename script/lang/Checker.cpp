@@ -6,6 +6,7 @@
 #include <limits>
 
 #include "script/lang/Parser.hpp"
+#include "script/vm/Numbers.hpp"
 
 namespace sbx::script {
 
@@ -1648,16 +1649,7 @@ private:
         return set(n, isInt ? TypeTable::kI32 : TypeTable::kNumber);
     }
 
-    static i32 toInt32(f64 v) {
-        // JS ToInt32: NaN · ±Infinity → 0, 0 쪽으로 자르고 2^32 로 감싼다
-        if (!std::isfinite(v)) {
-            return 0;
-        }
-        const f64 t = std::trunc(v);
-        const f64 m = std::fmod(t, 4294967296.0);
-        const f64 u = m < 0 ? m + 4294967296.0 : m;
-        return static_cast<i32>(static_cast<u32>(u));
-    }
+    static i32 toInt32(f64 v) { return vm::toInt32(v); } // 실행과 같은 함수 (script/vm/Numbers)
 
     TypeId binary(NodeId n, TypeId expected) {
         const Node& x = node(n);
@@ -1839,7 +1831,7 @@ private:
             v = std::fmod(l, r);
             break;
         case Tok::StarStar:
-            v = std::pow(l, r);
+            v = vm::jsPow(l, r); // 실행과 같은 규칙 (pow(1, NaN) = NaN — C 의 pow 와 다르다)
             break;
         default:
             return true;

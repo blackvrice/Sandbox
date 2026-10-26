@@ -14,7 +14,8 @@
 | 이름 · 타입 검사 (5 · 11장)            | 구현 (v0.3 M1-T2)     | `script/lang/` Types · Checker, unit_script (test_checker)             |
 | Host API 표 (10장)                     | 첫 항목 (v0.3 M1-T2)  | `script/api/HostApi` — ctx.tick · ctx.log, 지문                        |
 | 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
-| VM (6장) · Host API                    | [계획] v0.3 M2        |                                                                        |
+| VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
+| Host 바인딩 (엔진) · d.ts               | [계획] v0.3 M2-T2     |                                                                        |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -148,9 +149,10 @@ Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · 
             log · hypot → number, 상수 PI · E · LN2 · LN10 · LOG2E · LOG10E · SQRT2 · SQRT1_2. Math.random 은 S413
 ```
 
-## 6. 메모리 · 실행 [계획 v0.3 M2 — ADR-0056 4 · 5, ADR-0057 5]
+## 6. 메모리 · 실행 (v0.3 M2-T1 — 13장, ADR-0056 4 · 5, ADR-0057 5)
 
-호출 하나 (콜백 한 번) 의 아레나, GC 없음, 스크립트 전역 가변 상태 없음. 트랩 = 그 호출을 멈추고 그 호출이 쌓은 쓰기 · 명령을 버린다.
+호출 하나 (콜백 한 번) 의 아레나, GC 없음, 스크립트 전역 가변 상태 없음. 트랩 = 그 호출을 멈춘다 — 그 호출이 쌓은 쓰기 ·
+명령을 버리는 것은 Host 바인딩 (호출 단위 버퍼 [계획 M2-T2]).
 
 ## 7. 결정론
 
@@ -186,6 +188,8 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   lang/Codegen         Program → bc::Module (compileScripts = 검사 + 생성 + 검증)
   vm/Bytecode          명령 · 타입 표 · 모듈 · serialize · deserialize · disassemble
   vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
+  vm/Numbers           JS 수 규칙 (ToInt32 · Number#toString · round · pow · min/max · UTF-16 길이) — 검사기 접기와 VM 공용
+  vm/Interpreter       Interpreter (call · 아레나 · 예산 · 트랩) · Value · IHost
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
 시험                   tests/unit/script (unit_script) — 낱말 · 우선순위 · ASI · 선언 · 타입 · 부분집합 S3xx 전부 · 회복 · 상한 ·
@@ -283,4 +287,29 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 파일 .sbc   "SBXC" · 형식 1 · hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 함수 · export 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
+```
+
+## 13. 인터프리터 (v0.3 M2-T1 — `script/vm/Interpreter` · `Numbers`)
+
+```text
+입력        검증한 Module 만 (Debug 에서 다시 검증). 부르기 = call(함수 · 또는 (파일, export)) + 인자 (기본 · 불투명 값 — 참조는
+            넘길 수 없다). 결과 CallResult {trap, value, function, pc, message, fuelUsed}
+아레나      호출마다 새로: call 처음에 앞 호출의 객체 (문자열 · 배열 · 구조체 · 상자) 를 통째로 버린다 (GC 없음). 결과의 문자열 ·
+            배열은 다음 call 전까지 stringOf · arrayAt · fieldOf 로 읽는다. 상수 문자열은 모듈의 표를 그대로 가리킨다 (복사 없음)
+참조 칸     0 = null, 1 … = 아레나 객체 (자리 + 1), 최상위 비트 = 상수 문자열. 불투명 칸은 Host 가 준 핸들 그대로 (VM 은 해석하지 않는다)
+프레임      레지스터 칸을 한 줄로 (프레임마다 그 함수의 레지스터 수, 0 으로). 호출 = 인자 칸을 새 프레임의 r0 … 로 복사
+예산        연료 (기본 1,000,000 — 명령마다 1, 문자열 잇기는 + 바이트/32, Host 함수는 + 표의 fuelBase), 호출 깊이 128, 레지스터 칸
+            합 2^18, 아레나 4 MiB (객체 머리 32 + 칸 8 + 문자열 바이트 — 어림), 배열 길이 2^20, 문자열 1 MiB (Limits — 기본값은 [계획
+            M4-T3] 에서 시스템 예산과 함께 정한다)
+트랩        Unreachable (TRAP) · NullReference · IndexOutOfRange (늘리기는 push 만) · NotAnIndex (xs[1.5]) · DivideByZero (i32 % 0 ·
+            idiv(a, 0)) · OutOfFuel · StackOverflow · OutOfMemory · HostError (Host 실패 · Host 없음) · BadCall (바깥 호출의 번호 ·
+            인자 수). 트랩은 그 호출만 멈춘다 — 같은 인터프리터로 다음 호출을 할 수 있다. 예외를 쓰지 않는다
+수 규칙     i32 감싸기 (u32 로 계산), -2^31 / -1 = -2^31 · -2^31 % -1 = 0, 시프트는 & 31. f64 는 한 번에 한 연산
+            (sbx_simulation_flags). REMF = fmod, POWF · Math.pow = jsPow (pow(1, NaN) · (-1) ** ±∞ = NaN), Math.round = 반은 +∞ 쪽 ·
+            -0 지킴, min · max 는 NaN 우선 · -0 < +0, sign 은 ±0 · NaN 그대로. F2I = ToInt32, F2IDX 는 정수 · i32 범위만
+문자열      TOSTRF = JS Number#toString (가장 짧은 왕복 자릿수 — to_chars, 지수는 1e+21 · 1e-7 부터), TOSTRI 10 진, STRLEN = UTF-16
+            단위, 비교는 UTF-8 바이트 순
+Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는 내용 (string_view) 으로, 첫 인자는 주인 (ctx). 실패하면 HostError.
+            엔진 바인딩 (Registry · ECB) 은 core/script [계획 M2-T2]
+결정성      같은 모듈 · 같은 인자 · 같은 Host 응답 = 같은 결과 · 같은 연료 (시험이 본다)
 ```

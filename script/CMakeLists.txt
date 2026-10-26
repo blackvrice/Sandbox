@@ -20,6 +20,10 @@ add_library(SandboxScript STATIC
     vm/Bytecode.cpp
     vm/Verifier.hpp
     vm/Verifier.cpp
+    vm/Numbers.hpp
+    vm/Numbers.cpp
+    vm/Interpreter.hpp
+    vm/Interpreter.cpp
     api/HostApi.hpp
     api/HostApi.cpp
     api/MathBuiltins.hpp

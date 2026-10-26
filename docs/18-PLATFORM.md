@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M2-T1 — 인터프리터 (레지스터 · 연료 · 스택 · 호출 아레나 · 트랩, ECS 없이 단위 시험)
+다음     v0.3 M2-T2 — Host 바인딩 core/script (표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼), sandbox.d.ts 생성기 · 골든
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -84,7 +84,7 @@
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
 v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
   script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
-                        vm (바이트코드 · 검증기 ✅ M1-T3, [계획 M2] 인터프리터)
+                        vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
   core/script [계획 M2]  Host 바인딩 · 동적 컴포넌트 · ScriptSystemAdapter (SandboxCore 가 SandboxScript 를 링크)
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
@@ -259,7 +259,9 @@ M1 언어 앞단 (실행 없음)
         끝 명령 · import 서명), 비트 뒤집기 · 잘림 · 일부러 틀린 모듈 시험 (ADR-0058)
   → M1 완료 (2026-10-21): 소스 → 파싱 → 검사 → 바이트코드 → 검증 (실행은 M2)
 M2 VM · Host API
-  T1 [계획] 인터프리터: 레지스터 · 연료 · 스택 · 호출 아레나 · 트랩 (ECS 없이 단위 시험 — i32 감싸기 · f64 · Math 내장)
+  T1 ✅ 인터프리터 (script/vm/Interpreter): 레지스터 프레임 · 호출마다 새 아레나 · 예산 (연료 · 깊이 · 칸 · 아레나 · 배열 ·
+        문자열) · 트랩 10 종, JS 수 규칙 (script/vm/Numbers — ToInt32 · Number#toString · round · pow · min/max · UTF-16 길이,
+        검사기 접기와 공용), IHost (가짜 Host 로 시험)
   T2 [계획] 바인딩 core/script: 표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼 (read-your-writes · 트랩이면 버림),
             sandbox.d.ts 생성기 (sbx sdk) · sdk/sandbox.d.ts 골든 시험
 M3 사용자 Component (D-03)
@@ -311,6 +313,7 @@ v0.3 진입 ✅  ADR-0056 (D-01 언어) · ADR-0057 (D-04 Host API), 18 (0 · 1 
 v0.3 M1-T1 ✅  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경계), 04 4.6, 17, 13, README, AGENTS 4장
 v0.3 M1-T2 ✅  19 (1 · 5 · 7 · 8 · 9 · 10 · 11장 — 타입 규칙 · Host 표 · 검사기 · S4xx), 17, 13
 v0.3 M1-T3 ✅  19 (5 · 8 · 9 · 12장 — 바이트코드 · 검증기), 17, 13, ADR-0058
+v0.3 M2-T1 ✅  19 (0 · 6 · 9 · 13장 — 인터프리터 · 수 규칙), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -340,4 +343,5 @@ v0.2 M6-T2 뒤 (0.2.0): Windows MSVC Debug 61/61 (render_tests_warp 제외) — 
 v0.3 M1-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외, + unit_script — 렉서 6 · 파서 10 케이스) · arch 픽스처 10 건
 v0.3 M1-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +14 케이스 (test_checker — Host 표 · 경로 · 규칙별)
 v0.3 M1-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 케이스 (test_bytecode — 역어셈블 기준 · 왕복 · 거절 · 비트 뒤집기)
+v0.3 M2-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 케이스 (test_vm — 수 규칙 · 산술 · 배열 · 트랩 · Host · 결정성)
 ```

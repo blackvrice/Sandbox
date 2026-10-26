@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-10-26 — v0.3 M2-T1: SandboxScript 인터프리터 · JS 수 규칙
+
+**무엇을**
+
+- `script/vm/Interpreter`: 검증한 모듈을 돌린다 — 레지스터 칸 한 줄 (프레임마다 0 으로), 호출마다 새 아레나 (문자열 · 배열 ·
+  구조체 · 상자, 상수 문자열은 표를 그대로), 예산 Limits (연료 · 깊이 · 칸 · 아레나 · 배열 · 문자열), 트랩 10 종 (CallResult —
+  함수 · pc · 설명 · 쓴 연료, 예외 없음, 트랩 뒤에도 다시 부를 수 있다), Value (8 바이트 칸), IHost (CALLH — 문자열 인자는 내용으로).
+- `script/vm/Numbers`: JS 수 규칙 — ToInt32, Number#toString (to_chars 의 가장 짧은 왕복 자릿수 + JS 의 지수 규칙), round (반은
+  +∞ 쪽 · -0), pow (pow(1, NaN) = NaN 등 C 와 다른 곳), min/max (NaN · -0), UTF-16 길이, Math 실행 (자리 → 함수는 consteval 이름
+  찾기라 표와 어긋나면 컴파일 오류). 검사기의 상수 접기도 같은 toInt32 · jsPow 를 쓴다 (컴파일 때 값 = 실행 때 값).
+- 시험 test_vm 8 케이스. 문서 19 (13장 · 0 · 6 · 9장), 18, 17, 13.
+
+**왜**
+
+- v0.3 요구 7 (fuel · 메모리 · 스택 제한) 과 M2 의 실행. 엔진 바인딩 (M2-T2) 없이 가짜 Host 로 VM 만 시험할 수 있게 IHost 로 나눴다.
+- JS 와 같은 뜻 (ADR-0056 3) 을 지키는 곳은 C 표준 함수와 다른 가장자리 (pow · round · min · toString) — 표로 고정했다.
+
+**검증**
+
+- Windows MSVC Debug: 경고 없이 빌드, unit_script 45 케이스 · 4193 단언, 전체 ctest 62/62 (render_tests_warp 제외).
+- 같은 호출 = 같은 결과 · 같은 연료, 200 번 불러도 아레나가 쌓이지 않음. 시뮬레이션 변경 없음.
+- 성능 벤치는 아직 없다 — 10k 대상 벤치는 v0.3 M6-T1 (sbx_bench).
+
+**남은 일**
+
+- v0.3 M2-T2: core/script Host 바인딩 (표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼), sandbox.d.ts 생성기 · 골든.
+- 예산 기본값은 M4-T3 에서 시스템 예산과 함께.
+
 ## 2026-10-21 — v0.3 M1-T3: SandboxScript 코드 생성 · 바이트코드 .sbc · 검증기 (ADR-0058) → M1 완료
 
 **무엇을**
