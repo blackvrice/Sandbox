@@ -9,6 +9,7 @@
 
 #include "core/content/ContentDatabase.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 
 namespace sbx::editor {
@@ -22,10 +23,49 @@ constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_NoSavedSettings;
 }
 
 struct Item {
-    std::string_view id;
+    std::string id;
     bool overlay = false;
-    const ecs::Json* raw = nullptr;
+    const ecs::Json* raw = nullptr; // 스크립트는 없다 (소스 — scriptSourceOf)
 };
+
+// 스크립트 오버레이 id 의 팩 파일 (v0.3 M5-T2) — 팩 폴더 · 원본 텍스트. 팩에 없는 (오버레이로 더한) 파일이면 text 가
+// 없다
+struct ScriptFile {
+    std::string display; // "<팩 폴더>/scripts/a.ts" (콘텐츠 문제의 file 과 같다)
+    const std::string* text = nullptr;
+};
+[[nodiscard]] std::optional<ScriptFile> scriptFileOf(const content::ContentDatabase& db, std::string_view id) {
+    const auto path = content::scriptOverlayPath(id);
+    if (!path || db.sources() == nullptr) {
+        return std::nullopt;
+    }
+    for (const content::ContentSourcePack& sp : db.sources()->packs) {
+        if (sp.info.id != path->pack) {
+            continue;
+        }
+        ScriptFile out{sp.folder + "/" + path->rel, nullptr};
+        for (const content::ContentSourceFile& f : sp.files) {
+            if (f.rel == path->rel) {
+                out.text = &f.text;
+            }
+        }
+        return out;
+    }
+    return std::nullopt;
+}
+
+// 지금 소스 (오버레이 → 팩 원본). 없으면 nullopt
+[[nodiscard]] std::optional<std::string> scriptSourceOf(const content::ContentDatabase& db, std::string_view id) {
+    if (const ecs::Json* v = db.overlay().find(content::ContentKind::Script, id);
+        v != nullptr && v->contains("source") && (*v)["source"].is_string()) {
+        return (*v)["source"].get<std::string>();
+    }
+    const auto file = scriptFileOf(db, id);
+    if (file && file->text != nullptr) {
+        return *file->text;
+    }
+    return std::nullopt;
+}
 
 [[nodiscard]] std::vector<Item> itemsOf(const content::ContentDatabase& db, content::ContentKind kind) {
     std::vector<Item> out;
@@ -50,9 +90,37 @@ struct Item {
             out.push_back({t.id, t.overlay, &t.raw});
         }
         break;
+    case content::ContentKind::Script: {
+        // 팩의 scripts/*.ts (오버레이 id 로 쓸 수 있는 경로만) + 오버레이로 더한 파일 — id 정렬
+        std::vector<std::string> ids;
+        if (db.sources() != nullptr) {
+            for (const content::ContentSourcePack& sp : db.sources()->packs) {
+                for (const content::ContentSourceFile& f : sp.files) {
+                    if (const auto id = content::scriptOverlayId(sp.info.id, f.rel)) {
+                        ids.push_back(*id);
+                    }
+                }
+            }
+        }
+        for (const auto& [id, value] : db.overlay().items(content::ContentKind::Script)) {
+            (void)value;
+            ids.push_back(id);
+        }
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+        for (std::string& id : ids) {
+            const bool overlaid = db.overlay().find(content::ContentKind::Script, id) != nullptr;
+            out.push_back({std::move(id), overlaid, nullptr});
+        }
+        break;
+    }
     }
     return out;
 }
+
+// 고르는 항목의 지금 값 — JSON 종류는 dump(2), 스크립트는 소스. 없으면 nullopt
+[[nodiscard]] std::optional<std::string> currentTextOf(const content::ContentDatabase& db, content::ContentKind kind,
+                                                       std::string_view id);
 
 [[nodiscard]] const ecs::Json* rawOf(const content::ContentDatabase& db, content::ContentKind kind,
                                      std::string_view id) {
@@ -73,8 +141,19 @@ struct Item {
         const content::TriggerDef* t = db.findTrigger(id);
         return t != nullptr ? &t->raw : nullptr;
     }
+    case content::ContentKind::Script:
+        return nullptr; // 소스 텍스트 — currentTextOf
     }
     return nullptr;
+}
+
+std::optional<std::string> currentTextOf(const content::ContentDatabase& db, content::ContentKind kind,
+                                         std::string_view id) {
+    if (kind == content::ContentKind::Script) {
+        return scriptSourceOf(db, id);
+    }
+    const ecs::Json* raw = rawOf(db, kind, id);
+    return raw != nullptr ? std::optional<std::string>(raw->dump(2)) : std::nullopt;
 }
 
 [[nodiscard]] bool containsIgnoreCase(std::string_view text, std::string_view needle) {
@@ -145,6 +224,33 @@ void summary(const content::ContentDatabase& db, content::ContentKind kind, std:
             }
         }
         break;
+    case content::ContentKind::Script: {
+        // 이 파일이 정의한 시스템 (콘텐츠의 바이트코드 — 마지막으로 받아들여진 소스)
+        const auto path = content::scriptOverlayPath(id);
+        const auto& programs = db.scriptPrograms();
+        if (!path || !programs) {
+            break;
+        }
+        for (const content::ScriptPackProgram& pp : programs->packs) {
+            if (pp.pack != path->pack) {
+                continue;
+            }
+            for (const script::bc::SystemDesc& s : pp.module.systems) {
+                if (s.module != path->rel) {
+                    continue;
+                }
+                std::string line = std::format("시스템 {}", s.id);
+                if (s.onTick != script::api::kNoCallback) {
+                    line += s.intervalTicks == 1 ? " · onTick" : std::format(" · onTick ({} 틱마다)", s.intervalTicks);
+                }
+                line += s.onStart != script::api::kNoCallback ? " · onStart" : "";
+                line += s.onEvent != script::api::kNoCallback ? " · onEvent" : "";
+                line += s.onStop != script::api::kNoCallback ? " · onStop" : "";
+                ImGui::TextDisabled("%s", line.c_str());
+            }
+        }
+        break;
+    }
     case content::ContentKind::Prefab:
         if (const content::Prefab* p = db.findPrefab(id)) {
             std::string names;
@@ -171,7 +277,7 @@ bool checkContentEdit(const IEditorHost& host, content::ContentKind kind, const 
         out.push_back({true, "접속 전입니다"});
         return false;
     }
-    ecs::Json value = ecs::Json::parse(text, nullptr, false);
+    ecs::Json value = contentEditValue(kind, id, text);
     if (value.is_discarded() || !value.is_object()) {
         out.push_back({true, "JSON 객체가 아닙니다 (괄호 · 따옴표 · 쉼표를 확인하십시오)"});
         return false;
@@ -179,14 +285,77 @@ bool checkContentEdit(const IEditorHost& host, content::ContentKind kind, const 
     content::ContentOverlay overlay = db->overlay();
     overlay.set(kind, id, std::move(value));
     const content::ContentLoadResult r = content::ContentLoader::applyOverlay(*db, overlay, *catalog);
-    const std::string file = std::format("overlay/{}/{}.json", content::contentKindFolder(kind), id);
+    std::string file = std::format("overlay/{}/{}.json", content::contentKindFolder(kind), id);
+    if (kind == content::ContentKind::Script) {
+        // 스크립트 진단은 팩 파일 자리로 온다 ("<팩 폴더>/scripts/a.ts" · 포인터 "줄:열")
+        const auto f = scriptFileOf(*db, id);
+        file = f ? f->display : file;
+    }
     for (const content::ContentIssue& i : r.issues) {
         const bool error = i.severity == content::ContentIssue::Severity::Error;
         if (error || i.file == file) { // 경고는 이 항목 것만 (팩의 다른 경고는 늘 있던 것)
-            out.push_back({error, i.describe()});
+            std::string line = i.describe();
+            if (kind == content::ContentKind::Script && i.file == file) {
+                line += scriptExcerpt(text, i.pointer);
+            }
+            out.push_back({error, std::move(line)});
         }
     }
     return r.ok();
+}
+
+ecs::Json contentEditValue(content::ContentKind kind, const std::string& id, const std::string& text) {
+    if (kind == content::ContentKind::Script) {
+        return ecs::Json{{"id", id}, {"source", text}}; // 스크립트 오버레이 값 (ADR-0066)
+    }
+    return ecs::Json::parse(text, nullptr, false);
+}
+
+std::string scriptExcerpt(const std::string& source, std::string_view pointer) {
+    // pointer = "줄:열" (1 부터) → "\n  12 | <그 줄>" (길면 자른다)
+    const usize colon = pointer.find(':');
+    u32 line = 0;
+    for (usize i = 0; i < (colon == std::string_view::npos ? pointer.size() : colon); ++i) {
+        if (pointer[i] < '0' || pointer[i] > '9') {
+            return {};
+        }
+        line = line * 10 + static_cast<u32>(pointer[i] - '0');
+    }
+    if (line == 0) {
+        return {};
+    }
+    usize begin = 0;
+    for (u32 l = 1; l < line; ++l) {
+        begin = source.find('\n', begin);
+        if (begin == std::string::npos) {
+            return {};
+        }
+        ++begin;
+    }
+    const usize end = source.find('\n', begin);
+    std::string text = source.substr(begin, end == std::string::npos ? std::string::npos : end - begin);
+    constexpr usize kMax = 160;
+    if (text.size() > kMax) {
+        usize cut = kMax;
+        while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80) {
+            --cut; // UTF-8 글자 가운데를 자르지 않는다
+        }
+        text = text.substr(0, cut) + "…";
+    }
+    return std::format("\n  {} | {}", line, text);
+}
+
+std::string scriptTemplate(const std::string& id) {
+    return std::format(R"(import {{ defineSystem }} from "sandbox"
+
+// 19-SANDBOXSCRIPT 17 · 18장 — ctx.query · ctx.read · ctx.write (16장)
+export default defineSystem({{
+  id: "{}",
+  onTick(ctx) {{
+  }},
+}})
+)",
+                       id);
 }
 
 ecs::Json contentTemplate(content::ContentKind kind, const std::string& id) {
@@ -205,6 +374,8 @@ ecs::Json contentTemplate(content::ContentKind kind, const std::string& id) {
             {"effects", ecs::Json::array({ecs::Json{{"op", "event"}, {"name", pack + ".event"}, {"who", "target"}}})}};
     case content::ContentKind::Trigger:
         return triggerTemplate(id);
+    case content::ContentKind::Script:
+        return ecs::Json{{"id", id}, {"source", scriptTemplate(id)}};
     case content::ContentKind::Behavior:
         return ecs::Json{
             {"id", id},
@@ -257,24 +428,27 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     ImGui::SameLine();
     kindButton("트리거", content::ContentKind::Trigger);
     ImGui::SameLine();
+    kindButton("스크립트", content::ContentKind::Script);
+    ImGui::SameLine();
     ImGui::TextDisabled("· 오버레이 %zu", db->overlay().size());
 
     // 서버 값이 바뀌면 다시 불러온다: 보낸 것이 받아들여졌거나(pendingFrom 과 달라짐), 고치지 않은 채 남이 바꿨다.
     // 없어진 항목(오버레이로 더한 것을 뺐다)은 놓는다
-    const ecs::Json* raw = st.selected.empty() ? nullptr : rawOf(*db, st.kind, st.selected);
-    const std::string current = raw != nullptr ? raw->dump(2) : std::string();
+    const std::optional<std::string> now =
+        st.selected.empty() ? std::nullopt : currentTextOf(*db, st.kind, st.selected);
+    const std::string current = now.value_or(std::string());
     if (!st.selected.empty()) {
         if (st.pendingFrom) {
             if (current != *st.pendingFrom) {
                 st.pendingFrom.reset();
                 st.isNew = false;
                 st.text = st.loaded = current;
-                if (raw == nullptr) {
+                if (!now) {
                     st.selected.clear();
                 }
             }
         } else if (!st.isNew) {
-            if (raw == nullptr) {
+            if (!now) {
                 st.selected.clear();
             } else if (st.text == st.loaded && current != st.loaded) {
                 st.text = st.loaded = current;
@@ -297,7 +471,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             st.selected = std::string(item.id);
             st.isNew = false;
             st.pendingFrom.reset();
-            st.text = st.loaded = item.raw->dump(2);
+            st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
             st.issues.clear();
             st.checked.clear();
         }
@@ -305,12 +479,16 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     if (editable) {
         ImGui::Separator();
         ImGui::SetNextItemWidth(-1);
-        ImGui::InputTextWithHint("##newid", "새 id (팩.이름)", st.newId.data(), st.newId.size());
+        ImGui::InputTextWithHint(
+            "##newid", st.kind == content::ContentKind::Script ? "새 id (팩.경로 — eco.ai.wander)" : "새 id (팩.이름)",
+            st.newId.data(), st.newId.size());
         if (ImGui::Button("새 항목") && st.newId[0] != '\0') {
             st.selected = st.newId.data();
-            st.isNew = rawOf(*db, st.kind, st.selected) == nullptr;
-            st.text =
-                st.isNew ? contentTemplate(st.kind, st.selected).dump(2) : rawOf(*db, st.kind, st.selected)->dump(2);
+            const std::optional<std::string> existing = currentTextOf(*db, st.kind, st.selected);
+            st.isNew = !existing.has_value();
+            st.text = existing                                  ? *existing
+                      : st.kind == content::ContentKind::Script ? scriptTemplate(st.selected)
+                                                                : contentTemplate(st.kind, st.selected).dump(2);
             st.loaded = st.isNew ? std::string() : st.text;
             st.issues.clear();
             st.checked.clear();
@@ -335,6 +513,12 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     ImGui::TextDisabled("%s", st.isNew    ? "새 항목 (적용하면 오버레이에 더한다)"
                               : inOverlay ? "월드 오버레이"
                                           : "팩 원본 (적용하면 오버레이로)");
+    if (st.kind == content::ContentKind::Script) {
+        if (const auto f = scriptFileOf(*db, st.selected)) {
+            ImGui::TextDisabled("%s — 적용하면 서버가 팩을 다시 컴파일한다 (컴포넌트 정의는 바꿀 수 없다)",
+                                f->display.c_str());
+        }
+    }
     if (!st.isNew) {
         summary(*db, st.kind, st.selected);
     }
@@ -381,7 +565,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
         if (ImGui::Button("적용")) {
             st.checked = st.text;
             if (checkContentEdit(host, st.kind, st.selected, st.text, st.issues)) {
-                if (editor.editContent(host, st.kind, st.selected, ecs::Json::parse(st.text, nullptr, false))) {
+                if (editor.editContent(host, st.kind, st.selected, contentEditValue(st.kind, st.selected, st.text))) {
                     st.issues.push_back({false, "보냈습니다 — 서버가 받아들이면 모두에게 적용됩니다"});
                     st.pendingFrom = current;
                 }

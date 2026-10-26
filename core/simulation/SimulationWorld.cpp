@@ -96,9 +96,7 @@ SimulationWorld::SimulationWorld(const ecs::ComponentCatalog& catalog, const con
         registerDefaultSystems(m_scheduler);
     }
     // 스크립트 시스템 (ADR-0062) — 오버레이를 적용한 콘텐츠도 같은 바이트코드를 나누므로 한 번만 만든다
-    if (const auto& programs = content.scriptPrograms(); programs && programs->systemCount() > 0) {
-        m_scriptSystems = std::make_unique<script::ScriptSystemAdapter>(programs);
-    }
+    syncScriptSystems();
 }
 
 SimulationWorld::~SimulationWorld() = default;
@@ -1001,6 +999,7 @@ Expected<void> SimulationWorld::setContentOverlay(const content::ContentOverlay&
         m_overlaid.reset();
         m_content = &m_baseContent;
         ++m_contentRevision;
+        syncScriptSystems();
         return {};
     }
     auto db = buildOverlaid(overlay);
@@ -1010,6 +1009,7 @@ Expected<void> SimulationWorld::setContentOverlay(const content::ContentOverlay&
     m_overlaid = std::move(*db);
     m_content = m_overlaid.get();
     ++m_contentRevision;
+    syncScriptSystems();
     return {};
 }
 
@@ -1083,7 +1083,30 @@ Expected<void> SimulationWorld::applyEditContent(const cmd::EditContent& c) {
     m_overlaid = std::move(db);
     m_content = m_overlaid ? m_overlaid.get() : &m_baseContent;
     ++m_contentRevision;
+    syncScriptSystems();
     return {};
+}
+
+void SimulationWorld::syncScriptSystems() {
+    // 스크립트 오버레이 (v0.3 M5-T2, ADR-0066) 가 팩 바이트코드를 바꿨으면 어댑터를 다시 만든다. 이어진 트랩 · 꺼짐은
+    // 옮긴다 — digest 가 같은 팩 (바뀌지 않은 팩) 의 시스템만 되살아난다 (ADR-0064 4 와 같은 규칙)
+    const auto& programs = m_content->scriptPrograms();
+    const bool want = programs && programs->systemCount() > 0;
+    if (want && m_scriptSystems && m_scriptSystems->programs() == programs) {
+        return;
+    }
+    std::vector<script::ScriptSystemState> carried;
+    if (m_scriptSystems) {
+        carried = m_scriptSystems->state();
+    }
+    m_scriptSystems.reset();
+    if (!want) {
+        return;
+    }
+    m_scriptSystems = std::make_unique<script::ScriptSystemAdapter>(programs);
+    for (const std::string& line : m_scriptSystems->restoreState(carried)) {
+        log::info("script", "{}", line); // 바뀐 팩의 시스템은 새로 시작한다
+    }
 }
 
 } // namespace sbx::sim

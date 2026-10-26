@@ -138,6 +138,7 @@ private:
     std::shared_ptr<const ecs::ComponentCatalog> m_catalog; // 스크립트 컴포넌트가 없으면 null
     std::vector<std::string> m_scriptComponents;
     std::shared_ptr<const ScriptPrograms> m_programs; // 스크립트가 없으면 null
+    u64 m_scriptSchemaKey = 0; // 스크립트 컴포넌트 정의 전부의 지문 — 스크립트 오버레이가 바꾸지 못하게 (ADR-0066)
 };
 
 [[nodiscard]] std::string_view terrainFlagName(world::TerrainFlags f) noexcept;

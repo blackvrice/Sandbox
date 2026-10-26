@@ -5,7 +5,9 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/content/ScriptPrograms.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/protocol/BitStream.hpp"
 #include "network/server/ServerHost.hpp"
@@ -189,7 +191,7 @@ TEST_SUITE("network") {
         badKind.writeVarU(static_cast<u8>(MessageId::ContentOverlay));
         badKind.writeBool(false);
         badKind.writeVarU(1);
-        badKind.writeU8(4); // 0~3 (3 = trigger, v0.2 M4-T3)
+        badKind.writeU8(5); // 0~4 (4 = script, v0.3 M5-T2)
         badKind.writeString("eco.x");
         badKind.writeString("");
         CHECK_FALSE(decodeMessage(badKind.bytes()).has_value());
@@ -335,5 +337,40 @@ TEST_SUITE("network") {
         pump(rig, {&a, &b, &late});
         CHECK(a.session.overlay().empty());
         CHECK(late.session.overlay().empty());
+    }
+
+    TEST_CASE(
+        "overlay (v0.3 M5-T2): a script file edit travels as kind 4, the server runs it, clients compile the same") {
+        Rig rig;
+        Peer a(rig, "a");
+        Peer b(rig, "b");
+        pump(rig, {&a, &b});
+        CHECK(rig.host->world().scriptSystems() == nullptr); // eco 팩에는 스크립트가 없다
+        const std::string source =
+            "import { defineSystem } from \"sandbox\"\n"
+            "export default defineSystem({ id: \"eco.watch\", onTick(ctx) { ctx.log(\"watch\") } })\n";
+        auto res =
+            command(rig, {&a, &b}, a,
+                    cmd::EditContent{ContentKind::Script, "eco.watch", {{"id", "eco.watch"}, {"source", source}}});
+        REQUIRE_MESSAGE(res.accepted, res.detail);
+        pump(rig, {&a, &b});
+        REQUIRE(rig.host->world().scriptSystems() != nullptr); // 서버가 새 시스템을 돌린다
+        CHECK(rig.host->world().scriptSystems()->systemId(0) == "eco.watch");
+        CHECK(b.session.overlay() == rig.host->world().contentOverlay());
+        // 클라이언트도 같은 오버레이로 콘텐츠를 다시 만든다 (같은 컴파일러 — 같은 바이트코드)
+        const content::ContentLoadResult mine =
+            content::ContentLoader::applyOverlay(eco(), b.session.overlay(), catalog());
+        REQUIRE(mine.ok());
+        REQUIRE(mine.db.scriptPrograms() != nullptr);
+        CHECK(script::bc::serialize(mine.db.scriptPrograms()->packs[0].module) ==
+              script::bc::serialize(rig.host->world().content().scriptPrograms()->packs[0].module));
+
+        // 컴파일 오류는 거절 (S423) — 오버레이 그대로
+        res = command(rig, {&a, &b}, a,
+                      cmd::EditContent{
+                          ContentKind::Script, "eco.watch", {{"id", "eco.watch"}, {"source", "export default 3\n"}}});
+        CHECK_FALSE(res.accepted);
+        CHECK(res.reason == ErrorCode::ValidationFailed);
+        CHECK(res.detail.find("S423") != std::string::npos);
     }
 }

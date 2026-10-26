@@ -21,6 +21,7 @@
 | 스크립트 시스템 (17장)                 | 구현 (v0.3 M4-T1)     | defineSystem (검사기), 시스템 표 (.sbc 형식 3), `core/script/ScriptSystemAdapter` (단계 16b), ADR-0062 |
 | 시스템 콜백 · 이벤트 (18장)            | 구현 (v0.3 M4-T2)     | onStart · onStop · onEvent, `script/api/SystemEvents`, .sbc 형식 4, `core/simulation/SimulationScripts` (단계 17d), ADR-0063 |
 | 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
+| 스크립트 오버레이 · 에디터 (20장)      | 구현 (v0.3 M5-T2)     | 오버레이 종류 Script (프로토콜 13), 로더의 다시 컴파일 · V11, `editor/ui/ContentPanel` 스크립트, ADR-0066 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -559,4 +560,18 @@ d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents,
            로그). SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄:
              스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 12345 · 최대 2000 (꺼졌으면 " · 꺼짐")
            시스템별 시간 프로파일 · 에디터 표시는 M5-T2 [계획]
+```
+
+## 20. 스크립트 오버레이 · 에디터 (v0.3 M5-T2 — `core/content/ContentOverlay` · `ContentLoader` · `editor/ui/ContentPanel`, ADR-0066)
+
+```text
+항목       오버레이 종류 Script (4) — 팩의 scripts/ 파일 하나. id = "<팩>.<경로 마디를 '.' 로, .ts 없이>" ("eco.ai.wander" =
+           eco 팩 scripts/ai/wander.ts), 값 {"id", "source"} (16 KiB). 팩에 없는 경로면 새 파일, null = 팩 파일로
+다시 만들기 오버레이 DB 를 만들 때 Script 항목이 있으면 그 소스를 팩에 넣어 팩을 다시 컴파일 — 진단은 팩 파일 자리, 하나라도 오류면
+           그 편집을 거절. 컴포넌트 정의 (지문 · id 목록) 가 팩과 다르면 V11. 카탈로그는 팩 DB 의 것
+월드       EditContent (명령 단계 2) 로 바이트코드가 바뀌면 어댑터를 다시 만든다 — 그 틱의 16b 부터. 이어진 트랩 · 꺼짐은 바뀌지 않은
+           팩의 시스템만 옮긴다. 세이브 overlay/scripts/<id>.json, 복제 ContentOverlay (프로토콜 13), 리플레이 {"op": "content",
+           "kind": "script"} — 클라이언트도 같은 로더로 같은 바이트코드
+에디터     "콘텐츠" 창 종류 "스크립트": 소스 편집 · 검사 (오류마다 "  12 | <그 줄>") · 적용 · 팩 값으로 · 새 파일 (시스템 틀) ·
+           이 파일의 시스템 요약 (10-EDITOR 8장)
 ```

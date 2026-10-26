@@ -95,7 +95,7 @@
 | `core/content/ScriptPrograms.hpp`                                                                           | 콘텐츠의 스크립트 바이트코드 — 팩마다 bc::Module (로드 순서), 시스템 수 (ContentDatabase::scriptPrograms) — v0.3 M4-T1          | SandboxCore                 |
 | `core/content/ContentLoader.{hpp,cpp}`                                                                      | 팩 로더 + 검증기 V1~V10 + contentHash, 0 단계 scripts/ 컴파일 (v0.3 M3-T2)                                                                                                      | SandboxCore                 |
 | `core/content/ContentModel.hpp`, `TagSet.hpp`                                                               | Prefab · Rule · BehaviorGraph 모델, TagSet · TagExpr                                                                                                                | SandboxCore                 |
-| `core/content/ContentOverlay.{hpp,cpp}`                                                                     | 월드 오버레이 (종류 · id → JSON, 지문) — ContentLoader::applyOverlay 가 팩 원본에 얹는다 (12C, ADR-0030)                                                            | SandboxCore                 |
+| `core/content/ContentOverlay.{hpp,cpp}`                                                                     | 월드 오버레이 (종류 · id → JSON, 지문) — ContentLoader::applyOverlay 가 팩 원본에 얹는다 (12C, ADR-0030) · (v0.3 M5-T2) 종류 Script · scriptOverlayId · scriptOverlayPath, 빈 새 종류는 지문 밖 (ADR-0066) | SandboxCore                 |
 | `core/persist/WorldSave.{hpp,cpp}`                                                                          | `saveWorld`, `loadWorld` (world.json · entities.jsonl · chunks/)                                                                                                    | SandboxCore                 |
 | `core/persist/ChunkFile.{hpp,cpp}`, `Migration.{hpp,cpp}`                                                   | 청크 바이너리 포맷, `MigrationRegistry`, `migrateScriptComponent` (스크립트 컴포넌트 자동 — ADR-0061)                                                                                                                             | SandboxCore                 |
 | `core/replay/WorldHash.{hpp,cpp}`                                                                           | WorldHash, 엔티티별 해시, 진단용 JSON                                                                                                                               | SandboxCore                 |
@@ -337,7 +337,7 @@ render/
 editor/
   EditorHost.hpp (ICommandSink · IEditorHost), Editor (툴 다섯 · EditPreview), ui/EditorPanel   ← Phase 12A 구현 (ADR-0028)
   Undo (UndoEntry · IdRemap · 역명령), ui/InspectorPanel (인스펙터 · 목록)                       ← Phase 12B 구현 (ADR-0029)
-  ui/ContentPanel ("콘텐츠" 창 — Rule · Behavior · Prefab JSON), EditPermissions · editContent  ← Phase 12C 구현 (ADR-0030)
+  ui/ContentPanel ("콘텐츠" 창 — Rule · Behavior · Prefab JSON · 스크립트 소스 v0.3 M5-T2), EditPermissions · editContent  ← Phase 12C 구현 (ADR-0030 · 0066)
   worldGeneration (12D — 서버 월드가 바뀌면 기록 비우기, ADR-0031)
   panels/ tools/ selection/ commands/(UndoStack) inspector/(ImGuiInspector)   [계획 — 지금은 Editor 한 클래스]
 

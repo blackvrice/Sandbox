@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-26 — v0.3 M5-T2: 스크립트 오버레이 · 에디터 "콘텐츠" 창의 스크립트 편집 (ADR-0066, 프로토콜 13)
+
+**무엇을**
+
+- 오버레이 종류 Script (4): 항목 = 팩의 scripts/ 파일 하나, id = "<팩>.<경로 마디를 '.' 로>" (`scriptOverlayId` ·
+  `scriptOverlayPath`), 값 {"id", "source"}. 세이브 overlay/scripts/<id>.json. 오버레이 지문은 v0.2 의 넷 다음 종류가 비어 있으면 넣지
+  않는다 (스크립트 없는 오버레이 · 세이브 해시가 그대로 — 시험이 옛 계산과 맞춘다). 프로토콜 12 → 13.
+- ContentLoader: 오버레이에 Script 항목이 있으면 0 단계에서 소스를 팩 파일 목록에 넣고 (바꾸기 · 더하기 — applyScriptOverlay) 다시
+  컴파일. 컴포넌트 정의 지문 (정의 자리 빼고) · id 목록이 팩 DB 와 다르면 V11, 카탈로그는 팩 DB 의 것을 나눈다. 구독 태그 풀기는
+  이번에 컴파일한 것에만. loadOverlay 는 Script 를 건너뛴다.
+- SimulationWorld::syncScriptSystems: 콘텐츠의 바이트코드가 바뀌면 (생성 · 오버레이) 어댑터를 다시 만들고 이어진 트랩 · 꺼짐을
+  digest 가 같은 팩만 옮긴다.
+- 에디터 "콘텐츠" 창 종류 "스크립트": 팩의 scripts/*.ts + 더한 파일, 소스 편집, 검사 (오류마다 "  12 | <그 줄>" — scriptExcerpt),
+  적용 (contentEditValue → EditContent Script), 이 파일의 시스템 요약, 새 파일 틀 (scriptTemplate).
+- CommandJson 의 content 오류 문구에 trigger · script.
+- 시험: test_script_overlay 3 · test_script_editor 2 · test_roles_overlay +1 (루프백 — kind 4), test_messages · test_roles_overlay 의
+  프로토콜 · 종류 상한 갱신. 문서: ADR-0066, 08, 09 3장, 10 8장, 11, 19 (0 · 20장), 18 (M5-T2 ✅), 17, 13.
+
+**왜**
+
+- 스크립트를 고치려면 팩 파일을 바꾸고 서버를 다시 열어야 했다. 오버레이 경로 (권한 · 서버 검증 · 복제 · 되돌리기 · 세이브 ·
+  리플레이) 를 그대로 쓰면 게임을 멈추지 않고 모두에게 같게 바뀐다.
+- 컴포넌트 정의는 살아 있는 월드의 풀 배치라 오버레이로 바꾸지 않는다 — 시스템 코드 편집이 대부분이다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로). SandboxTests 581 케이스.
+  check_includes 위반 0.
+- 실행 (스크래치 EditProj — sbx new + M4 의 Mana 스크립트): 자동 플레이 스크립트 (단계 60 에 eco.regen_system 을 intervalTicks 10 ·
+  "v2" 로그로 바꾸고, 단계 100 에 "export default 3" 으로 깨뜨린다) 를 `SandboxServer --world EditProj --script editplay.json` 과
+  `SandboxClient --world EditProj --script editplay.json --headless` 로 — 둘 다 "eco.mana.regen t90/t120/t150/t180: v2 regen …"
+  (바꾼 시스템이 그 뒤로 10 틱마다, 깨뜨린 편집은 거절되어 v2 그대로), 끝 해시가 같다 (0x2c4188b3b238866f).
+- 에디터 창 (ImGui) 을 손으로 눌러 보는 확인은 하지 못했다 — 이 기계의 화면에서 클라이언트 창을 잡지 못했다 (다른 앱이 열린
+  사용자 데스크톱). 창의 검사 · 적용 · 틀 함수는 단위 시험이, 와이어 · 서버 적용 · 클라이언트 컴파일은 루프백 시험과 위 실행이 본다.
+
+**남은 일**
+
+- M5-T3: IClientContext 최소 (onUpdate) · 프로파일. 스크립트 편집기의 줄 번호 · 구문 색 (v0.5 검토), 16 KiB 를 넘는 파일, 오버레이로
+  컴포넌트 정의 바꾸기 (월드 다시 열기와 함께) 는 [계획].
+
+---
+
 ## 2026-10-26 — v0.3 M5-T1: sbx new 의 스크립트 SDK 파일 · sbx check 의 스크립트 요약 · P6 (ADR-0065)
 
 **무엇을**

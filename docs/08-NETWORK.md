@@ -20,6 +20,8 @@
 > [ADR-0052](adr/0052-trigger-editor-form-overlay-kind-protocol-11.md)).
 > **v0.2 M5-T1** — 프로토콜 12: 테스트 플레이 WorldOp TestPlay (8) · TestStop (9), WorldChanged reason 4 · 5, ServerStats 모드 3
 > ([ADR-0053](adr/0053-test-play-copy-world-park-edit-world-protocol-12.md)).
+> **v0.3 M5-T2** — 프로토콜 13: 콘텐츠 종류 Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이,
+> [ADR-0066](adr/0066-script-overlay-kind-recompile-same-components-protocol-13.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -239,6 +241,8 @@ reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 �
 프로토콜 11 (v0.2 M4-T3): EditContent (5.1 태그 8) · ContentOverlay (42) 의 kind u8 가 0~3 (3 = trigger). 메시지 모양은 그대로 (ADR-0052).
 프로토콜 12 (v0.2 M5-T1): WorldOp op 8 TestPlay · 9 TestStop (이름 무시), WorldChanged reason 4 TestPlay · 5 TestStop, ServerStats
 mode 3 (테스트 플레이). 메시지 모양은 그대로 — 열거 값만 (ADR-0053).
+프로토콜 13 (v0.3 M5-T2): EditContent (태그 8) · ContentOverlay (42) 의 kind u8 가 0~4 (4 = script — 값 {"id", "source"}).
+메시지 모양은 그대로 (ADR-0066).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

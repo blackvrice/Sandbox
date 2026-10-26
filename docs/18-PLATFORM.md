@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M5-T2 — 에디터 "콘텐츠" 창의 스크립트 오류 줄 · 적용 (오버레이 종류 Script — 프로토콜 ++)
+다음     v0.3 M5-T3 — IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -304,7 +304,9 @@ M4 Script System
 M5 도구 (2026-10-26 — T1 을 둘로 나눴다: CLI 와 에디터)
   T1 ✅ ADR-0065: sbx new 가 sdk/sandbox.d.ts · tsconfig.json (generateTsconfig) 을 만든다, sbx check 의 스크립트 요약 · 시스템 목록 ·
         P6 경고 (낡은 · 없는 SDK 선언, JSON 아닌 tsconfig) — 진단 S* · V1 · V7 은 M3-T2 부터 콘텐츠 문제로 나온다
-  T2 [계획] 에디터 "콘텐츠" 창의 스크립트 오류 줄 · 적용 (오버레이 종류 Script — 프로토콜 ++)
+  T2 ✅ ADR-0066: 오버레이 종류 Script (id = 팩.경로, 값 {id, source}, 프로토콜 13) — 로더가 팩을 다시 컴파일 (컴포넌트 정의는
+        그대로 — V11), 월드가 그 틱부터 새 어댑터, 세이브 overlay/scripts/. 에디터 "콘텐츠" 창 "스크립트" — 소스 편집 · 검사 (오류
+        줄) · 적용 · 새 파일 틀
   T3 [계획] IClientContext 최소 (onUpdate — 읽기 · 화면 글자), 프로파일 (시스템별 연료 · 시간 오버레이)
 M6 E2E · 회귀
   T1 [계획] 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템): Inspector · 세이브/로드 · 복제 · 로컬 = 원격 해시, 보호 시험
@@ -352,6 +354,7 @@ v0.3 M4-T1 ✅  ADR-0062, 03 2장 (16b), 04 (simVersion 이력), 11 (8 · 11장)
 v0.3 M4-T2 ✅  ADR-0063, 03 2장 (17d), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 9 · 11 · 12 · 13 · 17 · 18장), 17, 13
 v0.3 M4-T3 ✅  ADR-0064, 09 2장 (world.json scriptSystems), 15 (끝 줄), 19 (0 · 13 · 14 · 17 · 19장), 17, 13
 v0.3 M5-T1 ✅  ADR-0065, 18 5.2 (P6), 15 7장 (sbx new · check), 19 14장, 17, 13
+v0.3 M5-T2 ✅  ADR-0066, 08 (프로토콜 13), 09 3장 (overlay/scripts), 10 8장, 11 (오버레이 · V11), 19 (0 · 20장), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -391,4 +394,5 @@ v0.3 M4-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M4-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +9 (test_script_callbacks)
 v0.3 M4-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +4 (test_script_budget)
 v0.3 M5-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_project +2 (test_game_project — SDK 파일 · P6)
+v0.3 M5-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +3 (test_script_overlay) · unit_editor +2 (test_script_editor) · unit_network +1 · 갱신 (프로토콜 13)
 ```

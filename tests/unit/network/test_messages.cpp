@@ -141,7 +141,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 12); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.2 M5-T1)
+        CHECK(kProtocolVersion == 13); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.3 M5-T2)
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
@@ -352,10 +352,10 @@ TEST_SUITE("network") {
             CHECK_FALSE(decode(bad));
         }
         {
-            // EditContent (12C): 종류는 0~3 (3 = trigger, v0.2 M4-T3), 값은 객체 또는 null
+            // EditContent (12C): 종류는 0~4 (4 = script, v0.3 M5-T2), 값은 객체 또는 null
             BitWriter badKind;
             badKind.writeU8(static_cast<u8>(PayloadTag::EditContent));
-            badKind.writeU8(4);
+            badKind.writeU8(5);
             badKind.writeString("eco.x");
             badKind.writeString("null");
             CHECK_FALSE(decode(badKind));

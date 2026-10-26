@@ -274,7 +274,8 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
         if (!j.contains("kind") || !j["kind"].is_string() ||
             !content::parseContentKind(j["kind"].get<std::string>(), c.kind) || !j.contains("id") ||
             !j["id"].is_string() || !j.contains("value") || !(j["value"].is_object() || j["value"].is_null())) {
-            return makeError(ErrorCode::ParseError, "content 는 {kind: prefab|rule|behavior, id, value: 객체|null}");
+            return makeError(ErrorCode::ParseError,
+                             "content 는 {kind: prefab|rule|behavior|trigger|script, id, value: 객체|null}");
         }
         c.id = j["id"].get<std::string>();
         c.value = j["value"];

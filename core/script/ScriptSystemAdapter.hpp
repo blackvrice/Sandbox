@@ -122,6 +122,7 @@ public:
     [[nodiscard]] bool disabled(usize i) const noexcept { return m_systems[i].disabled; }
     [[nodiscard]] const ScriptSystemCounters& counters(usize i) const noexcept { return m_systems[i].counters; }
     [[nodiscard]] const ScriptHost& host() const noexcept { return m_host; }
+    [[nodiscard]] const std::shared_ptr<const content::ScriptPrograms>& programs() const noexcept { return m_programs; }
 
 private:
     struct Entry {

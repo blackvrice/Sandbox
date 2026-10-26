@@ -70,6 +70,9 @@ Phase 12C 월드 오버레이 (core/content/ContentOverlay, ADR-0030)
   V1~V7 그대로, 문제 위치는 "overlay/<prefabs|rules|behaviors>/<id>.json". 태그 · 머티리얼은 바꿀 수 없다 (tags.json ·
   terrain.json 은 팩에서만 — 오버레이가 모르는 태그를 쓰면 V7). 바꾼 Rule 은 원래 정의 순서, 더한 Rule 은 맨 뒤.
 - 각 항목은 읽은 JSON 을 raw 로 갖고 overlay 표시가 있다 (에디터 "콘텐츠" 창). contentHash 는 팩 그대로.
+- (v0.3 M5-T2, ADR-0066) 종류 script — 값 {"id", "source"}, id = "<팩>.<scripts/ 아래 경로의 마디를 '.' 로, .ts 없이>" (마디는
+  소문자 · 숫자 · '_'). 로드 0 단계가 그 소스를 팩의 파일 목록에 넣고 (바꾸기 · 더하기) 팩을 다시 컴파일한다 — 진단은 팩 파일
+  자리 ("<폴더>/scripts/a.ts:줄:열"), 모양 JSON · id V1 · 팩 V2 · 16 KB V7. 컴포넌트 정의가 팩과 다르면 V11 (카탈로그는 팩 DB 의 것)
 ```
 
 ---
@@ -336,6 +339,7 @@ V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복 ·
     score) · op · result · team 참조)
 V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
 V10 Trigger: 그래프 모양 (이벤트 하나 · 나무 · 순환 · 닿음 · 깊이 16 · 노드 64 · 대상) · limits · 개수 256, 재진입 고리 경고 (v0.2 M4-T1)
+V11 스크립트 오버레이: 컴포넌트 정의 (defineComponent) 를 팩과 다르게 — 더하기 · 빼기 · 바꾸기 (v0.3 M5-T2, ADR-0066)
 S1xx~S5xx 스크립트 (scripts/*.ts — v0.3 M3-T2): 컴파일러 진단 그대로, 포인터 자리에 "줄:열" (19 8장). 스크립트 컴포넌트 id 가
     엔진 컴포넌트 · 앞 팩의 스크립트 컴포넌트와 같으면 V1, 시스템 id 가 앞 팩의 시스템과 같으면 V1 (v0.3 M4-T1), 시스템 구독의
     태그가 tags.json 에 없으면 V7 (v0.3 M4-T2)

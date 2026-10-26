@@ -51,6 +51,8 @@ worlds/<name>/
   overlay/behaviors/<id>.json   Rule 도 배열이 아니라 객체 하나. 오버레이가 있을 때만)
   overlay/prefabs/<id>.json
   overlay/triggers/<id>.json  (v0.2 M4-T3 — ADR-0052. 선택 폴더라 worldVersion 1 그대로, 옛 엔진은 해시 검증에서 실패)
+  overlay/scripts/<id>.json   (v0.3 M5-T2 — ADR-0066. {"id", "source"}, id = "<팩>.<scripts/ 아래 경로를 . 로>". 스크립트 항목이
+                              없는 오버레이의 지문은 그대로 — 빈 새 종류는 지문에 넣지 않는다)
   thumbnail.png               (클라이언트가 저장 시 생성, 선택)
 ```
 

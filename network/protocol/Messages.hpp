@@ -6,8 +6,8 @@
 // Phase 10: Snapshot · SnapshotAck · TerrainChunk (복제). 10B: Inspect · InspectResult (선택한 개체의 서버 전용 상태).
 // Phase 11: Subscribe (관심 영역 — 08 8장), Auth.token 으로 다시 접속 (11.4).
 // Phase 12C: PlayerList · SetRole · SetRoleResult (접속자 · 역할), ContentOverlay (월드 오버레이), Auth.ownerKey.
-// Phase 12D: WorldOp · WorldOpResult · WorldList (세이브 · 로드 · 리플레이 기록 · 재생), WorldChanged (월드가 바뀜 — generation).
-// [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · Chat
+// Phase 12D: WorldOp · WorldOpResult · WorldList (세이브 · 로드 · 리플레이 기록 · 재생), WorldChanged (월드가 바뀜 —
+// generation). [계획] Ready · EntityBaseline (Snapshot 이 대신한다 — ADR-0025) · Chat
 //        — id 는 예약돼 있고, 지금 받으면 "아직 없는 메시지" 로 형식 오류다.
 //
 // 상한 (11장): 모든 길이 · 개수에 상한이 있다. 넘으면 decodeMessage 가 오류 → 받는 쪽은 연결을 끊는다.
@@ -26,13 +26,13 @@ namespace sbx::net {
 
 // 2: 복제 (Snapshot · SnapshotAck · TerrainChunk, Welcome.replicated) — Phase 10A. 3: Inspect · InspectResult — 10B.
 // 4: Subscribe · 다시 접속 토큰 — Phase 11. 5: InspectResult 의 컴포넌트 값 — 12B. 6: EditContent 명령 — 12C.
-// 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의 모드) — 12D
-// 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3
-// 9: 게임 진행 — 명령 GameControl (시작 · 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3
-// 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터) — v0.2 M3-T1
-// 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3
-// 12: 테스트 플레이 — WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1
-inline constexpr u32 kProtocolVersion = 12;
+// 7: 세이브 · 로드 · 리플레이 (WorldOp · WorldList · WorldChanged, Welcome · Snapshot 의 generation, ServerStats 의
+// 모드) — 12D 8: 게임 정체성 (Welcome · Reject 의 GameIdentity) — v0.2 M1-T3 9: 게임 진행 — 명령 GameControl (시작 ·
+// 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터)
+// — v0.2 M3-T1 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3 12: 테스트 플레이 —
+// WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1 13: 콘텐츠 종류
+// Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2
+inline constexpr u32 kProtocolVersion = 13;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -322,7 +322,8 @@ enum class WorldOpKind : u8 {
     Play = 6,        // 리플레이를 재생 (시작 세이브를 불러와 한 call 씩 — 편집 명령은 거절, 실행 제어는 재생을 다룬다)
     Restart = 7,     // 게임 재시작 (프로토콜 9): 게임 프로젝트의 시작 월드를 다시 열고 세션을 Lobby 로 — 이름은 무시
     // 테스트 플레이 (프로토콜 12, v0.2 M5-T1, ADR-0053) — 이름은 무시
-    TestPlay = 8, // 지금 (편집) 월드의 복사본으로 바꾸고 원본은 서버 메모리에 그대로 둔다. 게임 모드면 시작, 일시정지를 푼다
+    TestPlay =
+        8, // 지금 (편집) 월드의 복사본으로 바꾸고 원본은 서버 메모리에 그대로 둔다. 게임 모드면 시작, 일시정지를 푼다
     TestStop = 9, // 복사본을 버리고 원본으로 되돌린다
 };
 [[nodiscard]] std::string_view worldOpName(WorldOpKind op) noexcept;
@@ -365,8 +366,8 @@ using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;
-// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk · ContentOverlay · WorldChanged =
-// Bulk, 나머지 = Control
+// 이 메시지가 가는 채널: Snapshot · SnapshotAck · InspectResult = Snapshot, TerrainChunk · ContentOverlay ·
+// WorldChanged = Bulk, 나머지 = Control
 [[nodiscard]] Channel channelOf(const Message& m) noexcept;
 
 [[nodiscard]] std::vector<std::byte> encodeMessage(const Message& m);

@@ -127,6 +127,8 @@ private:
     void compileScripts(const std::vector<std::vector<SourceFile>>& files);
     // 시스템 구독의 태그 이름 → 태그 비트 (1 단계 뒤 — ADR-0063). 없는 태그는 V7
     void resolveScriptEvents();
+    // 오버레이의 스크립트 파일을 팩 파일 목록에 넣는다 (바꾸거나 더한다 — v0.3 M5-T2, ADR-0066)
+    void applyScriptOverlay(const ContentOverlay& overlay, std::vector<std::vector<SourceFile>>& files);
     void loadTags(const PackDir& p, const SourceFile& f);
     void loadTerrain(const PackDir& p, const SourceFile& f);
     void loadPrefabs(const PackDir& p, const SourceFile& f);
@@ -2273,9 +2275,29 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
     return sources;
 }
 
+namespace {
+
+// 컴포넌트 정의의 정규형 (정의 자리 — 파일 · 줄 — 은 빼고). 스크립트 오버레이 전후가 같은지 비교한다 (ADR-0066)
+std::string canonicalSchema(const script::api::ComponentSchema& c) {
+    std::string s = std::format("{}|{}|{}{}{}{}", c.id, c.version, c.persistent ? 'p' : '-', c.replicated ? 'r' : '-',
+                                c.editorVisible ? 'e' : '-', c.serverOnly ? 's' : '-');
+    for (const script::api::ComponentFieldSchema& f : c.fields) {
+        s += std::format("|{}:{}:{}:{}:{}:{}:{}:{}", f.name, script::api::componentFieldKindName(f.kind),
+                         f.defaultValue, f.defaultY, f.hasRange, f.min, f.max, f.enumName);
+        for (const auto& [name, value] : f.enumMembers) {
+            s += std::format(",{}={}", name, value);
+        }
+    }
+    return s;
+}
+
+} // namespace
+
 void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>>& files) {
     std::shared_ptr<ecs::ComponentCatalog> ext;
     auto programs = std::make_shared<ScriptPrograms>();
+    Fnv1a64 schemaKey; // 넣은 컴포넌트 정의 (정의 자리 빼고) — 스크립트 오버레이가 같은지 본다
+    schemaKey.string("SBXSCHEMAS1");
     std::map<std::string, std::string, std::less<>> systemAt; // 시스템 id → "<폴더>/scripts/a.ts" (팩 사이 겹침 — V1)
     for (usize i = 0; i < m_order.size(); ++i) {
         const PackDir& p = m_order[i];
@@ -2331,6 +2353,7 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
                 std::any_of(problems.begin(), problems.end(), [&](const auto& x) { return x.id == c.id; });
             if (!rejected) {
                 m_db.m_scriptComponents.push_back(c.id);
+                schemaKey.string(canonicalSchema(c)).byte(0);
             }
         }
         for (const script::ScriptComponentProblem& x : problems) {
@@ -2341,6 +2364,7 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
     if (ext) {
         m_db.m_catalog = ext;
         m_catalog = ext.get();
+        m_db.m_scriptSchemaKey = schemaKey.value();
     }
     if (!programs->packs.empty()) {
         m_programs = programs;
@@ -2403,11 +2427,30 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
         m_visible[sp.info.id] = std::move(vis);
     }
 
-    // 0) 스크립트 컴포넌트 — Prefab · Rule · 트리거 검사보다 먼저 (V3 가 스크립트 컴포넌트를 안다)
-    if (scriptsFrom != nullptr) {
+    // 0) 스크립트 컴포넌트 — Prefab · Rule · 트리거 검사보다 먼저 (V3 가 스크립트 컴포넌트를 안다).
+    // 오버레이에 스크립트가 있으면 (v0.3 M5-T2, ADR-0066) 그 파일을 팩의 scripts/ 에 넣고 (바꾸거나 더하고) 다시
+    // 컴파일한다 — 컴포넌트 정의는 팩 DB 와 같아야 하고 (월드의 풀 · 카탈로그가 그대로), 카탈로그는 팩 DB 의 것을
+    // 나눈다
+    const bool scriptOverlay = overlay != nullptr && !overlay->items(ContentKind::Script).empty();
+    if (scriptsFrom != nullptr && scriptOverlay) {
+        applyScriptOverlay(*overlay, files);
+        compileScripts(files);
+        if (m_db.m_scriptSchemaKey != scriptsFrom->m_scriptSchemaKey ||
+            m_db.m_scriptComponents != scriptsFrom->m_scriptComponents) {
+            error("overlay/scripts", "", "V11",
+                  "스크립트 오버레이는 컴포넌트 정의 (defineComponent) 를 바꿀 수 없다 — 월드의 풀이 그 모양이다. "
+                  "컴포넌트를 "
+                  "바꾸려면 팩의 스크립트를 고치고 월드를 다시 연다 (세이브는 version 으로 옮긴다)");
+        }
+        m_db.m_catalog = scriptsFrom->m_catalog;
+        m_db.m_scriptComponents = scriptsFrom->m_scriptComponents;
+        m_db.m_scriptSchemaKey = scriptsFrom->m_scriptSchemaKey;
+        m_catalog = m_db.m_catalog ? m_db.m_catalog.get() : m_catalog;
+    } else if (scriptsFrom != nullptr) {
         m_db.m_catalog = scriptsFrom->m_catalog;
         m_db.m_scriptComponents = scriptsFrom->m_scriptComponents;
         m_db.m_programs = scriptsFrom->m_programs;
+        m_db.m_scriptSchemaKey = scriptsFrom->m_scriptSchemaKey;
         if (m_db.m_catalog) {
             m_catalog = m_db.m_catalog.get();
         }
@@ -2428,9 +2471,7 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
     if (m_db.m_tags.size() > kMaxTags) {
         error("tags.json", "", "V7", std::format("태그 {}개 (최대 {})", m_db.m_tags.size(), kMaxTags));
     }
-    if (scriptsFrom == nullptr) {
-        resolveScriptEvents(); // 오버레이 DB 는 태그가 같아 팩 DB 의 것을 나눈다
-    }
+    resolveScriptEvents(); // 이번에 컴파일한 것만 (m_programs) — 스크립트 오버레이가 없는 DB 는 팩 DB 의 것을 나눈다
 
     // 2) 머티리얼 — 내장 core.* + 팩
     for (const TerrainMaterial& m : ContentDatabase::builtin().terrainMaterials()) {
@@ -2503,6 +2544,48 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
     return std::move(m_db);
 }
 
+void ContentLoaderImpl::applyScriptOverlay(const ContentOverlay& overlay, std::vector<std::vector<SourceFile>>& files) {
+    for (const auto& [id, value] : overlay.items(ContentKind::Script)) {
+        const std::string at = std::format("overlay/scripts/{}.json", id);
+        const std::optional<ScriptOverlayPath> path = scriptOverlayPath(id);
+        if (!path) {
+            error(at, "/id", "V1",
+                  std::format("스크립트 오버레이 id '{}' — '<팩>.<scripts/ 아래 경로를 . 로>' (소문자 · 숫자 · _, 예: "
+                              "eco.ai.wander)",
+                              id));
+            continue;
+        }
+        if (!value.is_object() || value.size() != 2 || !value.contains("source") || !value["source"].is_string()) {
+            error(at, "", "JSON", R"(스크립트 오버레이는 {"id": "<id>", "source": "<소스>"})");
+            continue;
+        }
+        if (!value.contains("id") || !value["id"].is_string() || value["id"].get<std::string>() != id) {
+            error(at, "/id", "V1", std::format("\"id\" 가 오버레이 항목 id '{}' 와 같아야 한다", id));
+            continue;
+        }
+        if (value.dump().size() > kMaxOverlayItemBytes) {
+            error(at, "", "V7",
+                  std::format("JSON 이 {} 바이트를 넘는다 (큰 스크립트는 팩에서 고친다)", kMaxOverlayItemBytes));
+            continue;
+        }
+        const auto pack =
+            std::find_if(m_order.begin(), m_order.end(), [&](const PackDir& p) { return p.info.id == path->pack; });
+        if (pack == m_order.end()) {
+            error(at, "/id", "V2", std::format("'{}' 의 팩 '{}' 을 읽지 않았다", id, path->pack));
+            continue;
+        }
+        std::vector<SourceFile>& list = files[static_cast<usize>(pack - m_order.begin())];
+        SourceFile f{path->rel, pack->folder + "/" + path->rel, value["source"].get<std::string>()};
+        const auto it = std::lower_bound(list.begin(), list.end(), f.rel,
+                                         [](const SourceFile& a, const std::string& r) { return a.rel < r; });
+        if (it != list.end() && it->rel == f.rel) {
+            *it = std::move(f); // 팩의 파일을 바꾼다
+        } else {
+            list.insert(it, std::move(f)); // 새 파일 (rel 정렬 그대로)
+        }
+    }
+}
+
 void ContentLoaderImpl::loadOverlay(const ContentOverlay& overlay) {
     if (overlay.size() > kMaxOverlayItems) {
         error("overlay", "", "V7", std::format("오버레이 항목 {}개 (최대 {})", overlay.size(), kMaxOverlayItems));
@@ -2510,6 +2593,9 @@ void ContentLoaderImpl::loadOverlay(const ContentOverlay& overlay) {
     }
     for (u8 k = 0; k < kContentKindCount; ++k) {
         const auto kind = static_cast<ContentKind>(k);
+        if (kind == ContentKind::Script) {
+            continue; // 0 단계 (applyScriptOverlay) 가 이미 보았다
+        }
         for (const auto& [id, value] : overlay.items(kind)) {
             const SourceFile f{std::format("overlay/{}/{}.json", contentKindFolder(kind), id),
                                std::format("overlay/{}/{}.json", contentKindFolder(kind), id),
@@ -2545,6 +2631,8 @@ void ContentLoaderImpl::loadOverlay(const ContentOverlay& overlay) {
                 break;
             case ContentKind::Trigger:
                 loadTriggerJson(*pack, f, value, true);
+                break;
+            case ContentKind::Script:
                 break;
             }
         }

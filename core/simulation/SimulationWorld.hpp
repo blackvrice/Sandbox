@@ -226,6 +226,8 @@ private:
     void snapshotForTriggers();
     void runTriggers(Tick now);        // 단계 17c
     void runScriptCallbacks(Tick now); // 단계 17d (SimulationScripts.cpp)
+    // 지금 콘텐츠의 스크립트 바이트코드에 맞춰 어댑터를 만든다 · 다시 만든다 · 없앤다 (생성 · 오버레이가 바뀔 때)
+    void syncScriptSystems();
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;

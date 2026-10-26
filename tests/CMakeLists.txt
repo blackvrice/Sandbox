@@ -53,6 +53,7 @@ add_executable(SandboxTests
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
     unit/content/test_script_content.cpp
+    unit/content/test_script_overlay.cpp
     unit/project/test_game_project.cpp
     unit/project/test_game_package.cpp
     unit/game/test_game_rules.cpp
@@ -91,6 +92,7 @@ add_executable(SandboxTests
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
+    unit/editor/test_script_editor.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
