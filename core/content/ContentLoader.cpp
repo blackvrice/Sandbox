@@ -6,6 +6,7 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <tuple>
 
 #include "core/components/game/GameScore.hpp"
 #include "core/content/ScriptPrograms.hpp"
@@ -124,6 +125,8 @@ private:
     std::vector<SourceFile> readPack(const PackDir& p);
     // 0 단계 (v0.3 M3-T2, ADR-0059 6): 팩마다 scripts/**/*.ts 를 컴파일하고 정의한 컴포넌트를 카탈로그에 더한다
     void compileScripts(const std::vector<std::vector<SourceFile>>& files);
+    // 시스템 구독의 태그 이름 → 태그 비트 (1 단계 뒤 — ADR-0063). 없는 태그는 V7
+    void resolveScriptEvents();
     void loadTags(const PackDir& p, const SourceFile& f);
     void loadTerrain(const PackDir& p, const SourceFile& f);
     void loadPrefabs(const PackDir& p, const SourceFile& f);
@@ -175,7 +178,9 @@ private:
 
     fs::path m_root;
     const ecs::ComponentCatalog* m_catalog; // 검사가 쓰는 카탈로그 — 0 단계 뒤엔 스크립트 컴포넌트 포함
-    std::shared_ptr<const ecs::ComponentCatalog> m_engineCopy; // 받은 카탈로그에서 동적 컴포넌트를 뺀 것 (있을 때만)
+    std::shared_ptr<const ecs::ComponentCatalog> m_engineCopy;   // 받은 카탈로그에서 동적 컴포넌트를 뺀 것 (있을 때만)
+    std::shared_ptr<ScriptPrograms> m_programs;                  // 0 단계가 만든 것 (구독을 풀 때까지 고친다)
+    std::map<std::string, std::string, std::less<>> m_systemPos; // 시스템 id → 정의 자리 "줄:열" (진단)
     std::vector<ContentIssue>& m_issues;
     ContentDatabase m_db;
     std::vector<PackDir> m_order;
@@ -2299,6 +2304,9 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
                         systemAt.emplace(s.id, at);
                     }
                 }
+                for (const script::SystemDecl& d : program.systems) {
+                    m_systemPos.emplace(d.id, std::format("{}:{}", d.line, d.column));
+                }
                 programs->packs.push_back(ScriptPackProgram{p.info.id, p.folder, std::move(*module)});
             }
         }
@@ -2335,7 +2343,46 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
         m_catalog = ext.get();
     }
     if (!programs->packs.empty()) {
+        m_programs = programs;
         m_db.m_programs = std::move(programs);
+    }
+}
+
+void ContentLoaderImpl::resolveScriptEvents() {
+    if (!m_programs) {
+        return;
+    }
+    for (ScriptPackProgram& pp : m_programs->packs) {
+        pp.events.assign(pp.module.systems.size(), {});
+        for (usize si = 0; si < pp.module.systems.size(); ++si) {
+            const script::bc::SystemDesc& s = pp.module.systems[si];
+            const std::string file = pp.folder + "/" + s.module;
+            const auto pos = m_systemPos.find(s.id);
+            const std::string at = pos != m_systemPos.end() ? pos->second : "";
+            for (const script::bc::EventSubscription& e : s.events) {
+                const script::api::GameEventKindInfo* k = script::api::gameEventKindInfo(e.kind);
+                ScriptEventFilter f;
+                f.kind = e.kind;
+                f.minX = static_cast<f32>(e.minX);
+                f.minY = static_cast<f32>(e.minY);
+                f.maxX = static_cast<f32>(e.maxX);
+                f.maxY = static_cast<f32>(e.maxY);
+                for (const auto& [name, src, dst] :
+                     {std::tuple{"all", &e.all, &f.tags.all}, std::tuple{"any", &e.any, &f.tags.any},
+                      std::tuple{"none", &e.none, &f.tags.none}}) {
+                    for (const std::string& tag : *src) {
+                        if (const auto t = m_db.findTag(tag)) {
+                            dst->set(*t);
+                        } else {
+                            error(file, at, "V7",
+                                  std::format("시스템 '{}' 의 events.{}.tags.{} — 선언되지 않은 태그 \"{}\"", s.id,
+                                              k != nullptr ? k->key : std::string_view("?"), name, tag));
+                        }
+                    }
+                }
+                pp.events[si].push_back(f);
+            }
+        }
     }
 }
 
@@ -2380,6 +2427,9 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
     m_db.m_tags.erase(std::unique(m_db.m_tags.begin(), m_db.m_tags.end()), m_db.m_tags.end());
     if (m_db.m_tags.size() > kMaxTags) {
         error("tags.json", "", "V7", std::format("태그 {}개 (최대 {})", m_db.m_tags.size(), kMaxTags));
+    }
+    if (scriptsFrom == nullptr) {
+        resolveScriptEvents(); // 오버레이 DB 는 태그가 같아 팩 DB 의 것을 나눈다
     }
 
     // 2) 머티리얼 — 내장 core.* + 팩

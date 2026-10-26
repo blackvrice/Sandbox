@@ -3,6 +3,7 @@
 #include <format>
 
 #include "script/api/HostApi.hpp"
+#include "script/api/SystemEvents.hpp"
 
 namespace sbx::script::sdk {
 
@@ -105,17 +106,71 @@ std::string generateSandboxDts() {
     out += "  export function defineComponent<F extends { [name: string]: Field<unknown> }>(\n";
     out += "    definition: ComponentDefinition<F>,\n";
     out += "  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;\n";
-    // 시스템 정의 (ADR-0062) — export default 의 식으로만, 값은 상수 (19 17장)
+    // 시스템 정의 (ADR-0062 · 0063) — export default 의 식으로만, 값은 상수 (19 17 · 18장)
+    out += "  /** 시스템 이벤트 종류 (onEvent 의 e.kind) */\n";
+    out += "  export const enum GameEventKind {\n";
+    for (const api::GameEventKindInfo& k : api::kGameEventKinds) {
+        out += std::format("    {} = {},\n", k.member, static_cast<int>(k.kind));
+    }
+    out += "  }\n";
+    out += "  /** onEvent 의 이벤트 (단계 17d — 그 틱에 일어난 일) */\n";
+    out += "  export interface GameEvent {\n";
+    for (const api::GameEventFieldInfo& f : api::kGameEventFields) {
+        std::string_view t = "i32";
+        switch (f.type) {
+        case api::GameEventField::EntityOrNull:
+            t = "Entity | null";
+            break;
+        case api::GameEventField::Kind:
+            t = "GameEventKind";
+            break;
+        case api::GameEventField::I32:
+            t = "i32";
+            break;
+        case api::GameEventField::Number:
+            t = "number";
+            break;
+        }
+        out += std::format("    /** {} */\n", f.doc);
+        out += std::format("    readonly {}: {};\n", f.name, t);
+    }
+    out += "  }\n";
+    out += "  /** 태그 거르기 — 콘텐츠 태그 이름 (Rule · 트리거와 같은 식) */\n";
+    out += "  export interface TagFilter {\n";
+    out += "    all?: string[];\n";
+    out += "    any?: string[];\n";
+    out += "    none?: string[];\n";
+    out += "  }\n";
+    out += "  /** 구독 — 종류마다 하나 (값은 상수) */\n";
+    out += "  export interface SystemEvents {\n";
+    out += "    /** 그 틱에 죽은 개체 (태그는 틱 처음의 것) */\n";
+    out += "    death?: { tags?: TagFilter };\n";
+    out += "    /** 그 틱에 생겨 살아 있는 개체 */\n";
+    out += "    spawn?: { tags?: TagFilter };\n";
+    out += "    /** 틱 처음에 사각형 밖 (또는 없었다), 지금 안 */\n";
+    out += "    areaEnter?: { min: [number, number]; max: [number, number]; tags?: TagFilter };\n";
+    out += "    /** 점수 칸이 바뀌었다 (게임 세션이 있을 때) */\n";
+    out += "    score?: {};\n";
+    out += "  }\n";
     out += "  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
     out += "  export interface SystemDefinition {\n";
     out += "    /** \"이름공간.이름\" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */\n";
     out += "    id: string;\n";
     out += "    /** \"server\" 만 (기본) */\n";
     out += "    domain?: \"server\";\n";
-    out += "    /** n 틱마다 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */\n";
+    out += "    /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */\n";
     out += "    intervalTicks?: i32;\n";
+    out += "    /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */\n";
+    out += "    eventsPerTick?: i32;\n";
+    out += "    events?: SystemEvents;\n";
     out += "    /** 단계 16b — Native System 뒤, 구조 변경 · 게임 규칙 · 트리거 앞. 쓰기는 호출이 끝나면 적용 */\n";
-    out += "    onTick(ctx: ServerContext): void;\n";
+    out += "    onTick?(ctx: ServerContext): void;\n";
+    out += "    /** 단계 17d — 게임이 Running 이 된 틱 (세션이 없으면 틱 1) */\n";
+    out += "    onStart?(ctx: ServerContext): void;\n";
+    out += "    /** 단계 17d — 게임이 Finished 가 된 틱 (세션이 없으면 없다) */\n";
+    out += "    onStop?(ctx: ServerContext): void;\n";
+    out += "    /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */\n";
+    out += "    onEvent?(ctx: ServerContext, e: GameEvent): void;\n";
     out += "  }\n";
     out += "  /** 스크립트 시스템 (서버) */\n";
     out += "  export function defineSystem(definition: SystemDefinition): SystemDefinition;\n";

@@ -154,6 +154,7 @@ public:
 | 17 | ApplyStructuralChanges②  | ECB 일괄 적용                                                            | Registry                            |
 | 17b | GameRules (v0.2)        | game.session 전이 — 카운트다운 · 끝 조건 (세션이 있을 때만)              | game.session                        |
 | 17c | Triggers (v0.2 M4-T2)   | 콘텐츠 Trigger — 세션이 Running 일 때만, 같은 틱 이어짐 · 예산           | 효과 (바로 적용)                    |
+| 17d | Script callbacks (v0.3 M4-T2) | 스크립트 onStart · onEvent (구독 — 죽음 · 생성 · 영역 · 점수) · onStop — 그 틱의 일만 | 스크립트 컴포넌트 (호출마다 바로 적용) |
 | 18 | ReplicationSystem        | (ServerHost) 클라이언트별 Delta 작성 — 읽기 전용                         | —                                   |
 | 19 | WorldHash                | N틱마다(기본 30)                                                         | —                                   |
 | 20 | EndTick                  | 메트릭, 리플레이 체크포인트, 오토세이브 스냅샷, 로그 정리                | —                                   |
@@ -164,6 +165,15 @@ System 이 아니라 SimulationWorld 의 단계 — Native System (5 ~ 16) 이 �
 onTick 한 번씩 부른다. 호출의 쓰기 (ctx.write) 는 그 호출이 끝나면 바로 적용되어 뒤 시스템 · 17b · 17c 가 같은 틱에 본다. 트랩이면
 그 호출의 쓰기만 버리고 다음 시스템으로. System 이 도는 틱에만 (일시정지 · 세션 Lobby · Finished 의 편집 단계에는 없다). 시스템이
 없는 콘텐츠에서는 아무것도 하지 않는다 → 골든 · kSimVersion 그대로. 저장할 스크립트 상태가 없다 (주기는 틱 번호로만).
+
+`17d Script callbacks` (v0.3 M4-T2, [ADR-0063](adr/0063-script-callbacks-start-stop-event-stage-17d-same-tick.md), `SimulationScripts.cpp`):
+17c 다음 — 그 틱의 명령 · System · ECB · Prefab 생성 · 게임 규칙 · 트리거가 다 끝난 자리. System 이 도는 틱에만. 차례: ① onStart
+(세션이 있으면 그 틱에 Running 이 됐을 때 — stateTick == 틱, 없으면 틱 1) ② onEvent (시스템 순서 → 구독 종류 death · spawn ·
+areaEnter · score → 일어난 차례) ③ onStop (세션이 그 틱에 Finished 가 됐을 때). 이벤트는 그 틱 안에서만 알아낸다 — 앞 상태는
+17c 와 같은 단계 0 스냅숏 (스크립트가 death · areaEnter · score 를 구독하면 세션 없는 월드에서도 뜬다): death = 그 틱의 Died
+(위치 · 태그는 스냅숏), spawn = 그 틱의 EntitySpawned 중 살아 있는 것, areaEnter = 스냅숏에서 사각형 밖 → 지금 안 (saveId 순),
+score = 칸마다 스냅숏 ≠ 지금. 예산 — 시스템마다 eventsPerTick, 틱 전체 4096 (넘으면 건너뜀). 콜백은 이벤트를 내지 않아 이어짐이
+없다. 콜백이 없는 콘텐츠는 단계 · 스냅숏이 없다 → 골든 그대로.
 
 `17b GameRules` (v0.2 M2-T2, [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md)): System 이 아니라
 SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱의 생성 · 파괴가 반영된 수로 끝 조건을 본다. 월드에 하나인
@@ -459,6 +469,7 @@ SimCommand ─▶ [2 Apply] ─ECB─▶ [3 Structural①] ─▶ Registry
                                          │
                               [17b GameRules] ─▶ game.session (있을 때만)
                               [17c Triggers]  ─▶ 효과 (Running 일 때만, 같은 틱 이어짐 · 예산)
+                              [17d Script callbacks] ─▶ 스크립트 컴포넌트 (onStart · onEvent · onStop — 그 틱의 일)
                                          │
                  [18 Replication]   [19 WorldHash]   [20 EndTick: Replay·Autosave·Metrics]
 ```

@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-10-26 — v0.3 M4-T2: onStart · onStop · onEvent — 단계 17d, 그 틱의 이벤트 (ADR-0063)
+
+**무엇을**
+
+- `script/api/SystemEvents`: 이벤트 종류 (death · spawn · areaEnter · score — events 키 · GameEventKind 멤버), GameEvent 필드 (이름
+  순 = 칸), 예산 상한. 검사기 · 검증기 · 엔진 · d.ts 가 같이 읽는다.
+- 검사기: defineSystem 에 onStart · onStop · onEvent 메서드, `events` 구독 (종류마다 하나 — tags { all · any · none } 이름,
+  areaEnter 의 min · max [x, y] — f32 로 반올림), `eventsPerTick` (기본 256). onTick 은 선택이 됐다 (콜백이 하나는 있어야 한다).
+  SDK enum GameEventKind · 구조체 GameEvent (onEvent 의 e — 적지 않으면 그 타입). 잘못은 S426.
+- 바이트코드 .sbc 형식 4: 시스템 표에 콜백 함수 번호 (없으면 0xFFFFFFFF) · eventsPerTick · 구독. 검증기가 콜백 서명 (onEvent =
+  (ServerContext?, GameEvent?) — 구조체 모양까지) · 구독 차례 · 사각형 · 태그 · 예산을 본다.
+- VM: `Interpreter::call(함수, 인자, 칸)` — 구조체 매개변수를 칸 목록으로 이 호출의 아레나에 만든다 (Host 결과와 같은 잎 규칙,
+  칸 수가 다르면 BadCall).
+- 콘텐츠: 로드 1 단계 (태그) 뒤 구독의 태그 이름을 태그 비트로 풀어 `ScriptPackProgram::events` 에 — 없는 태그는 V7 (시스템 id ·
+  정의 자리).
+- 단계 17d (`core/simulation/SimulationScripts.cpp`, 17c 뒤): 시작 (세션이 Running 이 된 틱 · 세션 없으면 틱 1) · 끝 (Finished 가
+  된 틱) · Died · EntitySpawned · 지금 개체 · 점수 칸을 모아 `ScriptSystemAdapter::runCallbacks` 로 — ① onStart ② onEvent (시스템 →
+  종류 → 일어난 차례, eventsPerTick · 틱 4096 예산 — 넘으면 cut) ③ onStop. 단계 0 스냅숏을 트리거와 공용으로 — 스크립트가 death ·
+  areaEnter · score 를 구독하면 세션 없는 월드에서도 뜬다.
+- sandbox.d.ts: GameEventKind · GameEvent · TagFilter · SystemEvents, SystemDefinition 의 콜백 · events · eventsPerTick.
+- 시험: test_script_callbacks 9 케이스 (unit_script), M4-T1 시험의 바뀐 문구 · 형식 번호.
+- 문서: ADR-0063, 03 2장 (17d · 그림), 04 (simVersion 이력 — 올리지 않음), 11 (8 · 11장), 19 (0 · 9 · 11 · 12 · 13 · 17 · 18장),
+  18 (M4-T2 ✅, 다음 M4-T3), 17, 13.
+
+**왜**
+
+- "그 틱에 일어난 일" (죽음 · 생성 · 점수 · 세션 끝) 은 17 · 17b · 17c 가 끝나야 다 있다. 16b 에서 지난 틱의 이벤트를 받으면 사이의
+  세이브가 이벤트를 잃거나 대기열이 세이브 상태가 된다 — 17d 에서 그 틱 안에 답한다.
+- 시작 · 끝을 틱 번호 · 세션 stateTick 으로만 알아내 세이브 → 로드한 월드가 onStart 를 다시 부르지 않는다 (D2).
+- 이벤트 원천 (스냅숏 · Died · 영역 규칙) 을 트리거와 같게 — 콘텐츠의 트리거와 스크립트가 같은 일을 같은 뜻으로 본다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로). unit_script +9.
+  `tools/check_includes.py`: 477 파일 위반 0.
+- 작업 중 `tests/unit/script/test_bytecode.cpp` 1 줄 앞에 바깥에서 들어간 '+' 가 있어 빌드가 깨졌다 — 사용자에게 묻고 지웠다
+  (HEAD 와 같아져 이 커밋에는 없다).
+- 실행 (스크래치): 저장소 ecosystem 팩 복사본 (토끼에 eco.mana · M4-T1 의 재생 시스템) 에 `eco.mana.events` (onStart 로그,
+  events { death · spawn — tags all prey }, spawn 이면 그 토끼의 current = 50, death 면 위치 · 까닭 로그) 를 더해
+  `sbx_sim_check --scenario ecosystem_small --content-root sysroot --ticks 300 --repeat 2 --save-at 135 --threads 0,1,4` →
+  onStart 는 실행마다 t1 한 번 (로드한 월드는 다시 없음), D1 · D2 · D5 일치. `--ticks 1500 --save-at 700` → 늑대에게 잡힌 토끼
+  53 마리의 "rabbit died at x, y cause 3" (t637 부터), tick 700 저장 → 로드 월드가 끝까지 같은 해시.
+
+**남은 일**
+
+- M4-T3: 예산 (연료 · 메모리 · 질의 · 이벤트 · HostCall — 호출 · 틱) · 트랩 정책 (시스템 끄기) · 시스템별 통계. 스크립트의 생성 ·
+  파괴 · 점수 Host 항목이 생기면 17d 의 이어짐 (그 이벤트를 같은 틱 목록 끝에). 영역 나감 · 머묾은 트리거와 함께 [계획].
+
+---
+
 ## 2026-10-26 — v0.3 M4-T1: defineSystem · ScriptSystemAdapter · 단계 16b (ADR-0062)
 
 **무엇을**

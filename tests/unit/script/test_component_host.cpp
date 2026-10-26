@@ -253,7 +253,7 @@ TEST_SUITE("script") {
         const std::vector<SourceFile> src{{"scripts/mana.ts", std::string(kScript)}};
         auto m = compileScripts(src, diags);
         REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
-        CHECK(m->format == 3); // 3 = 시스템 표 (v0.3 M4-T1)
+        CHECK(m->format == 4); // 4 = 콜백 · 구독 (v0.3 M4-T2)
         CHECK(m->components == std::vector<std::string>{"t.mana", "t.tag"});
         const std::string dis = bc::disassemble(*m);
         CHECK(dis.find("component 0 t.mana") != std::string::npos);

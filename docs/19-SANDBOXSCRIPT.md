@@ -19,6 +19,7 @@
 | 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) · 세이브 마이그레이션 (M3-T4, ADR-0061) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
 | 컴포넌트 읽기 · 질의 · 쓰기 (16장)     | 구현 (v0.3 M3-T3)     | Host 표 ctx.read · has · query · write, LOADK (.sbc 형식 2), `core/script/ScriptHost`, ADR-0060 |
 | 스크립트 시스템 (17장)                 | 구현 (v0.3 M4-T1)     | defineSystem (검사기), 시스템 표 (.sbc 형식 3), `core/script/ScriptSystemAdapter` (단계 16b), ADR-0062 |
+| 시스템 콜백 · 이벤트 (18장)            | 구현 (v0.3 M4-T2)     | onStart · onStop · onEvent, `script/api/SystemEvents`, .sbc 형식 4, `core/simulation/SimulationScripts` (단계 17d), ADR-0063 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -190,6 +191,7 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   api/HostApi          Host 함수 표 · 불투명 타입 · 정규형 · 지문 (10장)
   api/MathBuiltins     Math 함수 · 상수 표 (검사기 · 검증기 · VM 이 같이 — 자리가 MATHF 의 번호)
   api/ComponentSchema  스크립트 컴포넌트의 정규 스키마 · 이름 규칙 · 엔진 이름공간 · f32 반올림 (15장)
+  api/SystemEvents     시스템 이벤트 종류 · GameEvent 필드 · 예산 상한 (18장)
   lang/Codegen         Program → bc::Module (compileScripts = 검사 + 생성 + 검증)
   vm/Bytecode          명령 · 타입 표 · 모듈 · serialize · deserialize · disassemble
   vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
@@ -199,7 +201,8 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
 core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
   ScriptHost           Host 바인딩 목록 · 계약 검사 · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
   ScriptComponents     스키마 → ecs 동적 컴포넌트 설명 → 카탈로그 (15장)
-  ScriptSystemAdapter  단계 16b — 팩 바이트코드마다 인터프리터, (팩 순서, id) 차례로 onTick (17장)
+  ScriptSystemAdapter  단계 16b — 팩 바이트코드마다 인터프리터, (팩 순서, id) 차례로 onTick (17장) · 17d — onStart · onEvent ·
+                       onStop (18장)
 sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과와 같은지 본다)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
@@ -275,7 +278,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 | S423 | export default 의 defineSystem 아닌 식 · defineSystem 밖의 객체 메서드                  |
 | S424 | defineComponent 의 정의 (모양 · id · version · 필드 · 기본값 · 범위 · 플래그 — 15장)      |
 | S425 | defineComponent · field 를 최상위 const 의 정의 밖에서                                    |
-| S426 | defineSystem 의 정의 (모양 · id · domain · intervalTicks · onTick 서명 · 모르는 키 · 하나 더 — 17장) |
+| S426 | defineSystem 의 정의 (모양 · id · domain · intervalTicks · 콜백 서명 · events · eventsPerTick · 모르는 키 · 하나 더 — 17 · 18장) |
 | S427 | defineSystem 을 export default 밖에서 (const · 식 · 함수 안)                              |
 
 ## 12. 바이트코드 (v0.3 M1-T3 — `script/vm/Bytecode` · `Verifier`, `script/lang/Codegen`, ADR-0058)
@@ -305,7 +308,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
             이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 [계획 M2]
-파일 .sbc   "SBXC" · 형식 3 (v0.3 M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 형식 3 = 시스템 표 — 옛 형식은 VersionMismatch) ·
+파일 .sbc   "SBXC" · 형식 4 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독 — 옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
@@ -315,7 +318,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 
 ```text
 입력        검증한 Module 만 (Debug 에서 다시 검증). 부르기 = call(함수 · 또는 (파일, export)) + 인자 (기본 · 불투명 값 — 참조는
-            넘길 수 없다). 결과 CallResult {trap, value, function, pc, message, fuelUsed}
+            넘길 수 없다). 결과 CallResult {trap, value, function, pc, message, fuelUsed}. (v0.3 M4-T2) call(함수, 인자, 칸) — 구조체
+            매개변수는 칸 목록으로 이 호출의 아레나에 만든다 (Host 결과와 같은 잎 규칙, 칸 수가 다르면 BadCall — onEvent 의 GameEvent)
 아레나      호출마다 새로: call 처음에 앞 호출의 객체 (문자열 · 배열 · 구조체 · 상자) 를 통째로 버린다 (GC 없음). 결과의 문자열 ·
             배열은 다음 call 전까지 stringOf · arrayAt · fieldOf 로 읽는다. 상수 문자열은 모듈의 표를 그대로 가리킨다 (복사 없음)
 참조 칸     0 = null, 1 … = 아레나 객체 (자리 + 1), 최상위 비트 = 상수 문자열. 불투명 칸은 Host 가 준 핸들 그대로 (VM 은 해석하지 않는다)
@@ -459,11 +463,12 @@ export default defineSystem({
 ```text
 정의       모듈 (파일) 하나에 export default defineSystem({ … }) 하나. 값은 상수식 (검사기가 실행하지 않고 읽는다 — 15장과 같다).
            onTick 은 메서드로만 (onTick: f 는 S426) — 메서드 하나 = 함수 하나 (Program::functions, 이름 onTick), 매개변수는 ctx 하나나
-           없음, 타입을 적으면 ServerContext, 반환 타입을 적으면 void. onStart · onStop · onEvent 는 M4-T2 [계획], stage 키는 없다
-           (단계는 하나). 결과 Program::systems (id · 파일 · 줄 · intervalTicks · onTick) — 오류 있는 정의는 없다
+           없음, 타입을 적으면 ServerContext, 반환 타입을 적으면 void. onStart · onStop · onEvent · events 는 18장 (onTick 도 선택 —
+           콜백이 하나는 있어야 한다), stage 키는 없다. 결과 Program::systems (id · 파일 · 줄 · intervalTicks · 콜백 · 구독) — 오류
+           있는 정의는 없다
 진단       S426 정의 (모양 · id 규칙 · 엔진 이름공간 · 겹친 id · domain · intervalTicks · onTick 서명 · 모르는 키 · export default 둘),
            S427 자리 (const · 식 · 함수 안의 defineSystem), S423 export default 의 다른 식 · 밖의 메서드
-바이트코드 모듈의 시스템 표 (.sbc 형식 3 — 12장): id 오름차순. 검증기가 id 규칙 · 순서 · 겹침 · 함수 번호 · onTick 서명
+바이트코드 모듈의 시스템 표 (.sbc 형식 3 · 4 — 12장): id 오름차순. 검증기가 id 규칙 · 순서 · 겹침 · 함수 번호 · onTick 서명
            ((ServerContext?) → void) · 주기 범위를 본다
 콘텐츠     로드 0 단계가 팩마다 만든 모듈을 ContentDatabase::scriptPrograms 에 둔다 (11-CONTENT-SCHEMA 11장). 팩 사이의 같은 시스템
            id 는 V1
@@ -477,4 +482,57 @@ export default defineSystem({
 d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server")
 결정성     시스템 상태가 없다 (주기는 틱 번호로만) — 세이브 → 로드 · 늦은 합류 뒤에도 같은 틱에 같은 시스템이 돈다. 같은 콘텐츠 =
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
+```
+
+## 18. 시스템 콜백 · 이벤트 (v0.3 M4-T2 — 검사기 · `script/api/SystemEvents` · `core/simulation/SimulationScripts`, ADR-0063)
+
+```ts
+import { defineSystem, GameEventKind } from "sandbox";
+import { Mana } from "./mana";
+export default defineSystem({
+  id: "rpg.mana.events",
+  eventsPerTick: 64,                                   // 선택 — 한 틱에 받는 onEvent (1 ~ 4096, 기본 256)
+  events: {                                            // 구독 — 종류마다 하나, 값은 상수
+    death: { tags: { all: ["prey"] } },                // tags = { all?, any?, none? } — 콘텐츠 태그 이름
+    spawn: {},
+    areaEnter: { min: [-4, -4], max: [4, 4], tags: { none: ["plant"] } },
+    score: {},
+  },
+  onStart(ctx) { ctx.log("game start"); },             // 게임이 Running 이 된 틱 (세션이 없으면 틱 1)
+  onEvent(ctx, e) {                                    // e: GameEvent
+    const who = e.entity;                              // spawn · areaEnter 만 (death · score 는 null)
+    if (e.kind === GameEventKind.Spawn && who !== null) {
+      const m = ctx.read(who, Mana);
+      if (m !== null) { m.current = m.max; ctx.write(who, Mana, m); }
+    }
+  },
+  onStop(ctx) { ctx.log("game over"); },               // 게임이 Finished 가 된 틱 (세션이 없으면 없다)
+});
+```
+
+```text
+단계       17d — 17c Triggers 다음 (그 틱의 명령 · System · ECB · Prefab 생성 · 게임 규칙 · 트리거가 끝난 뒤), System 이 도는
+           틱에만. ① onStart (시스템 순서) ② onEvent (시스템 순서 → 구독 종류 death · spawn · areaEnter · score → 일어난 차례)
+           ③ onStop (시스템 순서). 콜백이 없는 콘텐츠는 단계가 없다 (03 2장)
+시작 · 끝  onStart = 세션이 있으면 그 틱에 Running 이 됐다 (stateTick == 틱), 없으면 틱 1. onStop = 세션이 그 틱에 Finished 가
+           됐다 (끝 조건 · game.end · abort). 저장된 값으로 알아내 세이브 → 로드한 월드가 onStart 를 다시 부르지 않는다. 일시정지
+           중 abort · 스크립트를 나중에 더한 월드는 부르지 않는다
+이벤트     그 틱 안에서만 (다음 틱으로 넘기지 않는다 — 스크립트 상태가 생기지 않는다). 앞 상태 = 트리거와 같은 단계 0 스냅숏
+             death      Died (발생 순) — entity null, x · y 틱 처음의 위치 (그 틱에 생겨 죽었으면 0 · 태그 없음), value = 까닭
+             spawn      EntitySpawned 중 17d 에 살아 있는 것 (생성 순) — entity · x · y 지금
+             areaEnter  틱 처음에 사각형 밖 (또는 없었다), 지금 안 — saveId 순 (트리거 area_enter 와 같은 규칙)
+             score      점수 칸마다 틱 처음 ≠ 지금 — team = 칸 (0 공용 · 팀 + 1), value = 지금, previous = 틱 처음 (세션이 있을 때)
+           tags 거르기는 death 는 틱 처음의 태그, spawn · areaEnter 는 지금 태그 (Rule · 트리거의 TagExpr 와 같다)
+GameEvent  { entity: Entity | null, kind: GameEventKind, previous · team · value: i32, x · y: number } (읽기 전용, 칸 = 이름 순).
+           GameEventKind { Death = 1, Spawn, AreaEnter, Score } 는 SDK enum. onEvent 의 매개변수는 (ctx?, e?) — 적으면
+           ServerContext · GameEvent
+구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score (키 없음). tags 의 이름은
+           콘텐츠 로드가 태그 비트로 푼다 (없는 태그 V7). events 와 onEvent 는 함께 (S426). 바이트코드는 이름을 싣는다 (.sbc 형식 4)
+예산       시스템마다 eventsPerTick (기본 256), 틱 전체 4096 — 넘은 이벤트는 건너뛰고 센다 (ScriptSystemAdapter::lastStats().cut).
+           연료는 호출마다 (VM 기본). 이어짐 없음 — 콜백은 컴포넌트 값만 써서 새 이벤트를 내지 않는다 (생성 · 파괴 Host 항목이
+           생기면 그 이벤트를 같은 틱 17d 목록 끝에 [계획])
+트랩       그 호출의 쓰기만 버리고 다음 호출로 (17장과 같다 — 로그는 시스템마다 처음 한 줄, 콜백 이름을 붙인다)
+d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents, SystemDefinition 의 onTick? · onStart? · onStop? ·
+           onEvent? · events? · eventsPerTick?
+결정성     시뮬레이션 상태가 없다 — 같은 콘텐츠 = 같은 해시, 세이브 → 로드 뒤 이어 돌려도 같은 끝 해시 (시험)
 ```

@@ -15,6 +15,7 @@
 //   17 Structural②      System ECB 를 실행 순서대로 적용 + 정체성 부여
 //   17b GameRules       game.session 전이 (카운트다운 · 끝 조건 — core/game/GameRules, ADR-0045). 세션이 없으면 없다
 //   17c Triggers        콘텐츠 Trigger 실행 (세션이 Running 일 때만 — SimulationTriggers.cpp, v0.2 M4-T2, ADR-0051)
+//   17d Script callbacks 스크립트 onStart · onEvent · onStop (그 틱의 일 — SimulationScripts.cpp, v0.3 M4-T2, ADR-0063)
 //
 // 일시정지: tick() 은 편집 단계가 된다 — 틱 번호를 올리지 않고 "다음 틱" 몫의 명령만 적용한다(편집이 바로 보이게).
 //           StepSimulation{n} 이 남아 있으면 그 수만큼은 정상 틱을 돈다.
@@ -218,10 +219,11 @@ private:
     };
     EffectOutcome applyEffectNow(const content::RuleEffect& fx, ecs::EntityId who, SaveId whoSave,
                                  std::optional<Vec2> spawnAt, rnd::Purpose purpose, u64 rngKey);
-    // 단계 0 (v0.2 M4-T2): 트리거가 볼 틱 처음의 상태 — 점수, (영역 진입 · 죽음 트리거가 있으면) 개체 위치 · 태그.
-    // 저장된 상태에서 다시 만들 수 있는 값이라 세이브/로드와 무관하다
+    // 단계 0 (v0.2 M4-T2): 트리거 · 스크립트 이벤트가 볼 틱 처음의 상태 — 점수, (영역 진입 · 죽음을 듣는 트리거 ·
+    // 스크립트가 있으면) 개체 위치 · 태그. 저장된 상태에서 다시 만들 수 있는 값이라 세이브/로드와 무관하다
     void snapshotForTriggers();
-    void runTriggers(Tick now); // 단계 17c
+    void runTriggers(Tick now);        // 단계 17c
+    void runScriptCallbacks(Tick now); // 단계 17d (SimulationScripts.cpp)
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;

@@ -44,7 +44,19 @@ public:
         }
         // 시스템 표 — id 오름차순 (실행 순서의 둘째 열쇠 · 검증기가 본다, ADR-0062)
         for (const SystemDecl& s : P.systems) {
-            M.systems.push_back({s.id, s.module, s.onTick, s.intervalTicks});
+            bc::SystemDesc d;
+            d.id = s.id;
+            d.module = s.module;
+            d.onTick = s.onTick;
+            d.onStart = s.onStart;
+            d.onStop = s.onStop;
+            d.onEvent = s.onEvent;
+            d.intervalTicks = s.intervalTicks;
+            d.eventsPerTick = s.eventsPerTick;
+            for (const SystemEventDecl& e : s.events) {
+                d.events.push_back({e.kind, e.minX, e.minY, e.maxX, e.maxY, e.all, e.any, e.none});
+            }
+            M.systems.push_back(std::move(d));
         }
         std::sort(M.systems.begin(), M.systems.end(),
                   [](const bc::SystemDesc& a, const bc::SystemDesc& b) { return a.id < b.id; });

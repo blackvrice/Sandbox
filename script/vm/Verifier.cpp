@@ -1,6 +1,7 @@
 #include "script/vm/Verifier.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 
 #include "foundation/text/Utf8.hpp"
@@ -233,6 +234,8 @@ private:
     }
 
     // 시스템 표 (ADR-0062): id 규칙 · 오름차순 (겹침 없음), onTick = (ServerContext?) → void, 주기 1 ~ 65535
+    // 시스템 표 (ADR-0062 · 0063): id 규칙 · 오름차순 (겹침 없음), 콜백 서명, 주기 · 이벤트 예산, 구독 (종류 차례 ·
+    // 사각형 · 태그)
     void systems() {
         for (usize i = 0; i < M.systems.size(); ++i) {
             const SystemDesc& s = M.systems[i];
@@ -246,20 +249,106 @@ private:
             if (!validUtf8(s.module)) {
                 fail(std::format("시스템 {}: 모듈 경로가 UTF-8 이 아니다", i));
             }
-            if (s.intervalTicks < 1 || s.intervalTicks > kMaxIntervalTicks) {
-                fail(std::format("시스템 {}: intervalTicks {} 는 1 ~ {} 밖이다", s.id, s.intervalTicks,
-                                 kMaxIntervalTicks));
+            if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
+                s.onEvent == api::kNoCallback) {
+                fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
             }
-            if (s.onTick >= M.functions.size()) {
-                fail(std::format("시스템 {}: onTick 함수 {} 가 없다", s.id, s.onTick));
-                continue;
+            const u32 maxInterval = s.onTick == api::kNoCallback ? 1 : kMaxIntervalTicks;
+            if (s.intervalTicks < 1 || s.intervalTicks > maxInterval) {
+                fail(std::format("시스템 {}: intervalTicks {} 는 1 ~ {} 밖이다", s.id, s.intervalTicks, maxInterval));
             }
-            const Function& f = M.functions[s.onTick];
-            const bool ctxOk = f.params.empty() || (f.params.size() == 1 && kindOf(f.params[0]) == TypeKind::Opaque &&
-                                                    M.types[f.params[0]].abi == api::AbiType::ServerContext);
-            if (!ctxOk || kindOf(f.result) != TypeKind::Void) {
-                fail(std::format("시스템 {}: onTick 의 서명은 (ServerContext) → void 다", s.id));
+            callback(s, "onTick", s.onTick, false);
+            callback(s, "onStart", s.onStart, false);
+            callback(s, "onStop", s.onStop, false);
+            callback(s, "onEvent", s.onEvent, true);
+            const bool events = s.onEvent != api::kNoCallback;
+            if (events != !s.events.empty()) {
+                fail(std::format("시스템 {}: 구독과 onEvent 는 함께 있다", s.id));
             }
+            if (events ? (s.eventsPerTick < 1 || s.eventsPerTick > api::kMaxEventsPerTick) : s.eventsPerTick != 0) {
+                fail(std::format("시스템 {}: eventsPerTick {} 가 맞지 않다", s.id, s.eventsPerTick));
+            }
+            u8 last = 0;
+            for (const EventSubscription& e : s.events) {
+                const api::GameEventKindInfo* k = api::gameEventKindInfo(e.kind);
+                if (k == nullptr || e.kind <= last) {
+                    fail(std::format("시스템 {}: 구독 종류 {} — 모르는 종류 · 차례가 아니다 · 겹친다", s.id, e.kind));
+                    continue;
+                }
+                last = e.kind;
+                const bool finite =
+                    std::isfinite(e.minX) && std::isfinite(e.minY) && std::isfinite(e.maxX) && std::isfinite(e.maxY);
+                if (k->area ? !(finite && e.minX <= e.maxX && e.minY <= e.maxY)
+                            : (e.minX != 0 || e.minY != 0 || e.maxX != 0 || e.maxY != 0)) {
+                    fail(std::format("시스템 {}: {} 의 사각형이 맞지 않다", s.id, k->key));
+                }
+                if (!k->tags && !(e.all.empty() && e.any.empty() && e.none.empty())) {
+                    fail(std::format("시스템 {}: {} 는 태그를 받지 않는다", s.id, k->key));
+                }
+                for (const std::vector<std::string>* list : {&e.all, &e.any, &e.none}) {
+                    for (const std::string& t : *list) {
+                        if (t.empty() || !validUtf8(t)) {
+                            fail(std::format("시스템 {}: {} 의 태그 이름이 비었다 · UTF-8 이 아니다", s.id, k->key));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    [[nodiscard]] bool isOpaque(u32 t, api::AbiType abi) const {
+        return kindOf(t) == TypeKind::Opaque && M.types[t].abi == abi;
+    }
+    // GameEvent 구조체 (api::kGameEventFields — 이름 순 · 칸 종류) 인가
+    [[nodiscard]] bool isGameEvent(u32 t) const {
+        if (kindOf(t) != TypeKind::Struct) {
+            return false;
+        }
+        const TypeDesc& d = M.types[t];
+        if (d.fieldNames.size() != api::kGameEventFields.size() || d.fieldTypes.size() != d.fieldNames.size()) {
+            return false;
+        }
+        for (usize i = 0; i < api::kGameEventFields.size(); ++i) {
+            const api::GameEventFieldInfo& f = api::kGameEventFields[i];
+            const u32 ft = d.fieldTypes[i];
+            bool ok = d.fieldNames[i] == f.name;
+            switch (f.type) {
+            case api::GameEventField::EntityOrNull:
+                ok = ok && kindOf(ft) == TypeKind::Box && isOpaque(M.types[ft].elem, api::AbiType::Entity);
+                break;
+            case api::GameEventField::Kind:
+            case api::GameEventField::I32:
+                ok = ok && kindOf(ft) == TypeKind::I32;
+                break;
+            case api::GameEventField::Number:
+                ok = ok && kindOf(ft) == TypeKind::F64;
+                break;
+            }
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+    void callback(const SystemDesc& s, std::string_view name, u32 fn, bool event) {
+        if (fn == api::kNoCallback) {
+            return;
+        }
+        if (fn >= M.functions.size()) {
+            fail(std::format("시스템 {}: {} 함수 {} 가 없다", s.id, name, fn));
+            return;
+        }
+        const Function& f = M.functions[fn];
+        bool ok = kindOf(f.result) == TypeKind::Void && f.params.size() <= (event ? 2u : 1u);
+        if (ok && !f.params.empty()) {
+            ok = isOpaque(f.params[0], api::AbiType::ServerContext);
+        }
+        if (ok && f.params.size() == 2) {
+            ok = isGameEvent(f.params[1]);
+        }
+        if (!ok) {
+            fail(std::format("시스템 {}: {} 의 서명은 {} → void 다", s.id, name,
+                             event ? "(ServerContext, GameEvent)" : "(ServerContext)"));
         }
     }
 

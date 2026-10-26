@@ -21,6 +21,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/game/GameRules.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimulationWorld.hpp"
 
 namespace sbx::sim {
@@ -41,15 +42,24 @@ void SimulationWorld::snapshotForTriggers() {
     m_triggerSnap.taken = false;
     m_triggerSnap.entities.clear();
     const auto triggers = m_content->triggers();
-    if (triggers.empty() || game::findSession(m_registry) == nullptr) {
-        return; // 세션 없는 월드 — 트리거는 돌지 않는다 (기존 월드 · 골든 그대로)
+    // 트리거는 세션 있는 월드에서만, 스크립트 이벤트 (death · areaEnter · score — ADR-0063) 는 세션과 무관하게
+    const bool forTriggers = !triggers.empty() && game::findSession(m_registry) != nullptr;
+    using script::api::GameEventKind;
+    const script::ScriptSystemAdapter* scripts = m_scriptSystems.get();
+    const bool scriptEntities = scripts != nullptr && (scripts->subscribes(GameEventKind::Death) ||
+                                                       scripts->subscribes(GameEventKind::AreaEnter));
+    const bool forScripts = scriptEntities || (scripts != nullptr && scripts->subscribes(GameEventKind::Score));
+    if (!forTriggers && !forScripts) {
+        return; // 기존 월드 · 골든 그대로
     }
     m_triggerSnap.taken = true;
     const comp::GameScore* sc = game::findScore(m_registry);
     m_triggerSnap.score = sc != nullptr ? sc->points : std::array<i32, comp::kScoreSlots>{};
-    const bool needEntities = std::any_of(triggers.begin(), triggers.end(), [](const content::TriggerDef& t) {
-        return t.event.kind == TriggerEventKind::AreaEnter || t.event.kind == TriggerEventKind::Death;
-    });
+    const bool needEntities =
+        scriptEntities ||
+        (forTriggers && std::any_of(triggers.begin(), triggers.end(), [](const content::TriggerDef& t) {
+             return t.event.kind == TriggerEventKind::AreaEnter || t.event.kind == TriggerEventKind::Death;
+         }));
     if (!needEntities) {
         return;
     }

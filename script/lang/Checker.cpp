@@ -241,6 +241,41 @@ private:
         addBuiltin(m_sdkValues, "defineComponent", Builtin::DefineComponent, TypeTable::kError);
         addBuiltin(m_sdkValues, "field", Builtin::FieldNamespace, TypeTable::kError);
         addBuiltin(m_sdkValues, "defineSystem", Builtin::DefineSystem, TypeTable::kError);
+        // 시스템 이벤트 (ADR-0063) — enum GameEventKind (값 · 타입 이름공간) · 구조체 GameEvent (onEvent 의 e)
+        const TypeId kindType = T().newEnum("GameEventKind");
+        for (const api::GameEventKindInfo& k : api::kGameEventKinds) {
+            T().enumOf(kindType).members.push_back({std::string(k.member), static_cast<i32>(k.kind)});
+        }
+        {
+            Symbol s;
+            s.kind = SymbolKind::Enum;
+            s.name = "GameEventKind";
+            s.type = kindType;
+            const SymbolId id = newSymbol(std::move(s));
+            m_ready[id] = true;
+            m_sdkValues.push_back({"GameEventKind", id});
+            m_sdkTypes.push_back({"GameEventKind", id});
+        }
+        m_gameEvent = T().newStruct("GameEvent");
+        for (const api::GameEventFieldInfo& f : api::kGameEventFields) {
+            TypeId t = TypeTable::kI32;
+            switch (f.type) {
+            case api::GameEventField::EntityOrNull:
+                t = T().nullableOf(T().opaque(api::AbiType::Entity));
+                break;
+            case api::GameEventField::Kind:
+                t = kindType;
+                break;
+            case api::GameEventField::I32:
+                t = TypeTable::kI32;
+                break;
+            case api::GameEventField::Number:
+                t = TypeTable::kNumber;
+                break;
+            }
+            T().structOf(m_gameEvent).fields.push_back(StructField{std::string(f.name), t, true});
+        }
+        addType("GameEvent", m_gameEvent);
     }
 
     static ConstValue numberConst(f64 v) {
@@ -694,9 +729,10 @@ private:
         m_ready[id] = true;
     }
 
-    // ---- defineSystem (ADR-0062, 19 17장) --------------------------------------------------------------------------
-    // export default defineSystem({ id, domain?, intervalTicks?, onTick(ctx) { … } }) — 값은 상수, onTick 은 메서드
-    // 하나가 함수 하나 (Program::functions). 정의에 오류가 있어도 메서드 몸은 검사한다 (이어지는 진단을 위해)
+    // ---- defineSystem (ADR-0062 · 0063, 19 17 · 18장) -------------------------------------------------------------
+    // export default defineSystem({ id, domain?, intervalTicks?, eventsPerTick?, events?, onTick · onStart · onStop ·
+    // onEvent }) — 값은 상수, 콜백은 메서드 하나가 함수 하나 (Program::functions). 정의에 오류가 있어도 메서드 몸은
+    // 검사한다
     void declareSystem(NodeId item) {
         const NodeId init = ast().kid(item, 0);
         if (init != kNoNode && node(init).kind == NodeKind::Call && node(ast().kid(init, 0)).kind == NodeKind::Ident &&
@@ -722,7 +758,9 @@ private:
         sd.decl = init;
         bool ok = true;
         bool haveId = false;
-        bool haveTick = false;
+        NodeId intervalAt = kNoNode;
+        NodeId eventsAt = kNoNode;
+        NodeId perTickAt = kNoNode;
         std::vector<std::string> seen;
         for (const NodeId p : ast().kids(kids[1])) {
             const std::string key(ast().str(p));
@@ -733,20 +771,20 @@ private:
                 continue;
             }
             seen.push_back(key);
-            if (key == "onTick") {
+            u32* const callback = key == "onTick"    ? &sd.onTick
+                                  : key == "onStart" ? &sd.onStart
+                                  : key == "onStop"  ? &sd.onStop
+                                  : key == "onEvent" ? &sd.onEvent
+                                                     : nullptr;
+            if (callback != nullptr) {
                 if (!method) {
                     err("S426", p,
-                        "onTick 은 메서드로 적는다 — onTick(ctx) { … } (공용 코드는 최상위 function 을 부른다)");
+                        std::format("{} 은 메서드로 적는다 — {}(ctx) {{ … }} (공용 코드는 최상위 function 을 부른다)",
+                                    key, key));
                     ok = false;
                     continue;
                 }
-                sd.onTick = declareSystemMethod(p, ok);
-                haveTick = true;
-                continue;
-            }
-            if (key == "onStart" || key == "onStop" || key == "onEvent") {
-                err("S426", p, std::format("{} 는 [계획 v0.3 M4-T2] — 지금은 onTick 만", key));
-                ok = false;
+                *callback = declareSystemMethod(p, ok, key == "onEvent");
                 continue;
             }
             if (key == "onUpdate") {
@@ -755,7 +793,8 @@ private:
                 continue;
             }
             if (method) {
-                err("S426", p, std::format("defineSystem 의 메서드는 onTick 뿐이다 ('{}')", key));
+                err("S426", p,
+                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent 뿐이다 ('{}')", key));
                 ok = false;
                 continue;
             }
@@ -807,22 +846,32 @@ private:
                         }
                     }
                 }
-            } else if (key == "intervalTicks") {
-                const auto v = constI32Arg(value, "intervalTicks", "S426");
+            } else if (key == "intervalTicks" || key == "eventsPerTick") {
+                const bool interval = key == "intervalTicks";
+                const u32 hi = interval ? kMaxSystemIntervalTicks : api::kMaxEventsPerTick;
+                (interval ? intervalAt : perTickAt) = p;
+                const auto v = constI32Arg(value, key, "S426");
                 if (!v) {
                     ok = false;
-                } else if (*v < 1 || static_cast<u32>(*v) > kMaxSystemIntervalTicks) {
-                    err("S426", value, std::format("intervalTicks 는 1 ~ {} — {} 이다", kMaxSystemIntervalTicks, *v));
+                } else if (*v < 1 || static_cast<u32>(*v) > hi) {
+                    err("S426", value, std::format("{} 는 1 ~ {} — {} 이다", key, hi, *v));
                     ok = false;
                 } else {
-                    sd.intervalTicks = static_cast<u32>(*v);
+                    (interval ? sd.intervalTicks : sd.eventsPerTick) = static_cast<u32>(*v);
                 }
+            } else if (key == "events") {
+                eventsAt = p;
+                ok = declareSystemEvents(value, sd) && ok;
             } else if (key == "stage") {
-                err("S426", p, "단계는 하나로 고정이다 (16b — 순서는 팩 순서 · 시스템 id, ADR-0062)");
+                err("S426", p,
+                    "단계는 고정이다 (onTick 16b · 나머지 17d — 순서는 팩 순서 · 시스템 id, ADR-0062 · 0063)");
                 ok = false;
             } else {
                 err("S426", p,
-                    std::format("defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · onTick", key));
+                    std::format(
+                        "defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · eventsPerTick · events · "
+                        "onTick · onStart · onStop · onEvent",
+                        key));
                 expr(value, kNoExpect);
                 ok = false;
             }
@@ -831,18 +880,218 @@ private:
             err("S426", init, "defineSystem 에 id 가 없다 (\"rpg.mana.regen\")");
             ok = false;
         }
-        if (!haveTick) {
-            err("S426", init, "defineSystem 에 onTick(ctx) { … } 이 없다");
+        const auto none = [](u32 f) { return f == api::kNoCallback; };
+        if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent)) {
+            err("S426", init, "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent 중 하나 이상");
             ok = false;
+        }
+        if (intervalAt != kNoNode && none(sd.onTick)) {
+            err("S426", intervalAt, "intervalTicks 는 onTick 의 주기다 — onTick 이 없다");
+            ok = false;
+        }
+        if (!none(sd.onEvent) && eventsAt == kNoNode) {
+            err("S426", init, "onEvent 가 받을 이벤트를 events: { death: {}, … } 로 적는다");
+            ok = false;
+        }
+        if (eventsAt != kNoNode && none(sd.onEvent)) {
+            err("S426", eventsAt, "events 를 받을 onEvent(ctx, e) { … } 가 없다");
+            ok = false;
+        }
+        if (perTickAt != kNoNode && none(sd.onEvent)) {
+            err("S426", perTickAt, "eventsPerTick 은 onEvent 의 예산이다 — onEvent 가 없다");
+            ok = false;
+        }
+        if (!none(sd.onEvent) && sd.eventsPerTick == 0) {
+            sd.eventsPerTick = api::kDefaultEventsPerTick;
         }
         if (ok) {
             P.systems.push_back(std::move(sd));
         }
     }
 
-    // 시스템 메서드 → 함수 하나 (서명: 매개변수 0 · 1 개 — 타입을 적지 않으면 ServerContext, 반환 void). 서명이 틀리면
-    // ok = false (몸은 그래도 검사한다 — 적은 반환 타입으로)
-    u32 declareSystemMethod(NodeId m, bool& ok) {
+    // events: { death: { tags? }, spawn: { tags? }, areaEnter: { min: [x, y], max: [x, y], tags? }, score: {} } —
+    // 종류마다 하나, 결과는 종류 차례
+    bool declareSystemEvents(NodeId v, SystemDecl& sd) {
+        if (node(v).kind != NodeKind::ObjectLit) {
+            err("S426", v, "events 는 { death: {}, spawn: {}, areaEnter: { min, max }, score: {} } 객체 리터럴이다");
+            expr(v, kNoExpect);
+            return false;
+        }
+        bool ok = true;
+        std::vector<std::string> seen;
+        for (const NodeId p : ast().kids(v)) {
+            const std::string key(ast().str(p));
+            if (node(p).kind != NodeKind::Property || (node(p).flags & NodeFlag::Shorthand) != 0) {
+                err("S426", p, std::format("events 의 '{}' 는 키: {{ … }} 로 적는다", key));
+                ok = false;
+                continue;
+            }
+            const api::GameEventKindInfo* k = api::findGameEventKind(key);
+            if (k == nullptr) {
+                err("S426", p, std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score", key));
+                ok = false;
+                continue;
+            }
+            if (std::find(seen.begin(), seen.end(), key) != seen.end()) {
+                err("S402", p, std::format("키 '{}' 가 두 번 있다", key));
+                ok = false;
+                continue;
+            }
+            seen.push_back(key);
+            const NodeId obj = ast().kid(p, 0);
+            if (node(obj).kind != NodeKind::ObjectLit) {
+                err("S426", obj, std::format("{} 의 구독은 {{ … }} 객체 리터럴이다", key));
+                expr(obj, kNoExpect);
+                ok = false;
+                continue;
+            }
+            SystemEventDecl e;
+            e.kind = static_cast<u8>(k->kind);
+            bool good = true;
+            bool haveMin = false;
+            bool haveMax = false;
+            std::vector<std::string> inner;
+            for (const NodeId q : ast().kids(obj)) {
+                const std::string qk(ast().str(q));
+                if (node(q).kind != NodeKind::Property || (node(q).flags & NodeFlag::Shorthand) != 0) {
+                    err("S426", q, std::format("{} 의 '{}' 는 키: 상수 로 적는다", key, qk));
+                    good = false;
+                    continue;
+                }
+                if (std::find(inner.begin(), inner.end(), qk) != inner.end()) {
+                    err("S402", q, std::format("키 '{}' 가 두 번 있다", qk));
+                    good = false;
+                    continue;
+                }
+                inner.push_back(qk);
+                const NodeId qv = ast().kid(q, 0);
+                if (qk == "tags" && k->tags) {
+                    good = tagFilter(qv, e) && good;
+                } else if (k->area && (qk == "min" || qk == "max")) {
+                    const auto pt = constPoint(qv, std::format("{}.{}", key, qk));
+                    if (!pt) {
+                        good = false;
+                    } else if (qk == "min") {
+                        e.minX = pt->first;
+                        e.minY = pt->second;
+                        haveMin = true;
+                    } else {
+                        e.maxX = pt->first;
+                        e.maxY = pt->second;
+                        haveMax = true;
+                    }
+                } else {
+                    err("S426", q,
+                        std::format("{} 에 '{}' 는 없다 — {}", key, qk,
+                                    k->area ? "min · max · tags" : (k->tags ? "tags" : "키 없음 (score: {})")));
+                    expr(qv, kNoExpect);
+                    good = false;
+                }
+            }
+            if (k->area && good && (!haveMin || !haveMax)) {
+                err("S426", obj, std::format("{} 는 min: [x, y] · max: [x, y] 를 적는다", key));
+                good = false;
+            }
+            if (k->area && good && (e.minX > e.maxX || e.minY > e.maxY)) {
+                err("S426", obj, std::format("{} 의 min 이 max 보다 크다", key));
+                good = false;
+            }
+            if (good) {
+                sd.events.push_back(std::move(e));
+            }
+            ok = ok && good;
+        }
+        if (ok && sd.events.empty()) {
+            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score");
+            ok = false;
+        }
+        std::sort(sd.events.begin(), sd.events.end(),
+                  [](const SystemEventDecl& a, const SystemEventDecl& b) { return a.kind < b.kind; });
+        return ok;
+    }
+
+    // [x, y] — 유한한 수 상수 둘 (f32 로 반올림 — 위치가 f32 다)
+    std::optional<std::pair<f64, f64>> constPoint(NodeId v, const std::string& what) {
+        if (node(v).kind != NodeKind::ArrayLit || ast().kids(v).size() != 2) {
+            err("S426", v, std::format("{} 는 [x, y] — 수 상수 둘이다", what));
+            if (node(v).kind != NodeKind::ArrayLit) {
+                expr(v, kNoExpect);
+            }
+            return std::nullopt;
+        }
+        f64 xy[2] = {0, 0};
+        for (usize i = 0; i < 2; ++i) {
+            const auto c = constNumberArg(ast().kids(v)[i], what, "S426");
+            if (!c) {
+                return std::nullopt;
+            }
+            if (std::fabs(*c) > static_cast<f64>(std::numeric_limits<f32>::max())) {
+                err("S426", ast().kids(v)[i], std::format("{} 이 f32 범위 밖이다", what));
+                return std::nullopt;
+            }
+            xy[i] = api::roundToF32(*c);
+        }
+        return std::pair{xy[0], xy[1]};
+    }
+
+    // tags: { all?: ["a"], any?: […], none?: […] } — 문자열 상수 (콘텐츠 태그 이름 — 있는지는 콘텐츠 로드가 본다, V7)
+    bool tagFilter(NodeId v, SystemEventDecl& e) {
+        if (node(v).kind != NodeKind::ObjectLit) {
+            err("S426", v, "tags 는 { all: [\"prey\"], any: […], none: […] } 객체 리터럴이다");
+            expr(v, kNoExpect);
+            return false;
+        }
+        bool ok = true;
+        std::vector<std::string> seen;
+        for (const NodeId p : ast().kids(v)) {
+            const std::string key(ast().str(p));
+            std::vector<std::string>* list = key == "all"    ? &e.all
+                                             : key == "any"  ? &e.any
+                                             : key == "none" ? &e.none
+                                                             : nullptr;
+            if (node(p).kind != NodeKind::Property || (node(p).flags & NodeFlag::Shorthand) != 0 || list == nullptr) {
+                err("S426", p, std::format("tags 의 키는 all · any · none 뿐이다 ('{}')", key));
+                ok = false;
+                continue;
+            }
+            if (std::find(seen.begin(), seen.end(), key) != seen.end()) {
+                err("S402", p, std::format("키 '{}' 가 두 번 있다", key));
+                ok = false;
+                continue;
+            }
+            seen.push_back(key);
+            const NodeId arr = ast().kid(p, 0);
+            if (node(arr).kind != NodeKind::ArrayLit) {
+                err("S426", arr, std::format("tags.{} 는 태그 이름 배열이다 ([\"prey\"])", key));
+                expr(arr, kNoExpect);
+                ok = false;
+                continue;
+            }
+            if (ast().kids(arr).size() > api::kMaxEventTags) {
+                err("S426", arr, std::format("tags.{} 는 {} 개까지", key, api::kMaxEventTags));
+                ok = false;
+                continue;
+            }
+            for (const NodeId t : ast().kids(arr)) {
+                const TypeId tt = expr(t, TypeTable::kString);
+                if (T().isError(tt) || !assignTo(t, tt, TypeTable::kString)) {
+                    ok = false;
+                    continue;
+                }
+                if (cval(t).kind != ConstValue::Kind::String || cval(t).string.empty()) {
+                    err("S426", t, "태그 이름은 빈 문자열이 아닌 상수다");
+                    ok = false;
+                    continue;
+                }
+                list->push_back(cval(t).string);
+            }
+        }
+        return ok;
+    }
+
+    // 시스템 메서드 → 함수 하나. 서명: onTick · onStart · onStop = (ctx?) — 타입을 적지 않으면 ServerContext, onEvent =
+    // (ctx?, e?) — e 는 GameEvent. 반환 void. 서명이 틀리면 ok = false (몸은 그래도 검사한다 — 적은 타입으로)
+    u32 declareSystemMethod(NodeId m, bool& ok, bool event) {
         FunctionInfo f;
         f.name = std::string(ast().str(m));
         f.module = m_ctx.module;
@@ -851,23 +1100,29 @@ private:
         f.resultDeclared = true;
         const auto kids = ast().kids(m);
         const usize paramCount = kids.size() - 2;
+        const usize maxParams = event ? 2 : 1;
         const TypeId ctxType = T().opaque(api::AbiType::ServerContext);
-        if (paramCount > 1) {
-            err("S426", kids[1], std::format("{} 의 매개변수는 ctx 하나다", f.name));
+        if (paramCount > maxParams) {
+            err("S426", kids[maxParams],
+                event ? std::string("onEvent 의 매개변수는 (ctx, e) 둘이다")
+                      : std::format("{} 의 매개변수는 ctx 하나다", f.name));
             ok = false;
         }
         for (usize i = 0; i < paramCount; ++i) {
             const NodeId p = kids[i];
-            TypeId pt = ctxType;
+            const TypeId want = i == 0 ? ctxType : m_gameEvent;
+            TypeId pt = want;
             if (ast().kid(p, 0) != kNoNode) {
                 pt = resolveType(ast().kid(p, 0), false);
-                if (!T().isError(pt) && pt != ctxType) {
-                    err("S426", p, std::format("{} 의 ctx 는 ServerContext 다 — {} 이다", f.name, T().name(pt)));
+                if (!T().isError(pt) && pt != want && i < maxParams) {
+                    err("S426", p,
+                        std::format("{} 의 {} 는 {} 다 — {} 이다", f.name, i == 0 ? "ctx" : "e", T().name(want),
+                                    T().name(pt)));
                     pt = TypeTable::kError;
                     ok = false;
                 }
             }
-            if (i > 0) {
+            if (i >= maxParams) {
                 pt = TypeTable::kError;
             }
             Symbol s;
@@ -3090,9 +3345,10 @@ private:
     std::vector<ScopeEntry> m_sdkValues;
     std::vector<ScopeEntry> m_sdkTypes;
     std::vector<ScopeEntry> m_globals;
-    TypeId m_vec2 = TypeTable::kError; // SDK 의 Vec2 { x, y: number }
-    std::vector<bool> m_ready;         // 심볼마다 — 타입 · 값이 정해졌다
-    std::vector<bool> m_resolving;     // 타입 별칭 순환 검사
+    TypeId m_vec2 = TypeTable::kError;      // SDK 의 Vec2 { x, y: number }
+    TypeId m_gameEvent = TypeTable::kError; // SDK 의 GameEvent (onEvent 의 e — ADR-0063)
+    std::vector<bool> m_ready;              // 심볼마다 — 타입 · 값이 정해졌다
+    std::vector<bool> m_resolving;          // 타입 별칭 순환 검사
     ScopeEntry m_tmpEntry[2];
     FnCtx m_ctx;
 };

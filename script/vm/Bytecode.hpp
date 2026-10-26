@@ -14,10 +14,12 @@
 
 #include "foundation/types/Error.hpp"
 #include "script/api/HostApi.hpp"
+#include "script/api/SystemEvents.hpp"
 
 namespace sbx::script::bc {
 
-inline constexpr u32 kFormatVersion = 3; // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (v0.3 M4-T1)
+inline constexpr u32 kFormatVersion =
+    4; // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2)
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -164,12 +166,25 @@ struct Export {
     u32 function = 0;
 };
 
-// 스크립트 시스템 하나 (export default defineSystem — ADR-0062). onTick 서명 = (ServerContext?) → void
+// 이벤트 구독 하나 (ADR-0063) — 시스템마다 종류 차례 (api::kGameEventKinds), 종류마다 하나
+struct EventSubscription {
+    u8 kind = 0;                                // api::GameEventKind
+    f64 minX = 0, minY = 0, maxX = 0, maxY = 0; // AreaEnter 만 (f32 로 반올림한 값)
+    std::vector<std::string> all, any, none;    // 태그 이름 (콘텐츠 로드가 푼다) — Score 는 비어 있다
+};
+
+// 스크립트 시스템 하나 (export default defineSystem — ADR-0062 · 0063). 콜백 = 함수 번호 (없으면 api::kNoCallback):
+// onTick · onStart · onStop = (ServerContext?) → void, onEvent = (ServerContext?, GameEvent?) → void
 struct SystemDesc {
     std::string id;     // "rpg.mana.regen" — 표는 id 오름차순
     std::string module; // 정의한 파일 "scripts/regen.ts"
-    u32 onTick = 0;     // 함수 번호
-    u32 intervalTicks = 1;
+    u32 onTick = api::kNoCallback;
+    u32 onStart = api::kNoCallback;
+    u32 onStop = api::kNoCallback;
+    u32 onEvent = api::kNoCallback;
+    u32 intervalTicks = 1; // onTick 이 없으면 1
+    u32 eventsPerTick = 0; // onEvent 가 있으면 1 ~ api::kMaxEventsPerTick, 없으면 0
+    std::vector<EventSubscription> events;
 };
 
 struct Module {

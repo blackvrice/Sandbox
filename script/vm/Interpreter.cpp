@@ -210,6 +210,10 @@ CallResult Interpreter::call(u32 function, std::span<const Value> args) {
     return run(function, args);
 }
 
+CallResult Interpreter::call(u32 function, std::span<const Value> args, std::span<const Value> structFields) {
+    return run(function, args, &structFields);
+}
+
 CallResult Interpreter::call(std::string_view module, std::string_view exportName, std::span<const Value> args) {
     const bc::Export* e = M.findExport(module, exportName);
     if (e == nullptr) {
@@ -221,7 +225,7 @@ CallResult Interpreter::call(std::string_view module, std::string_view exportNam
     return run(e->function, args);
 }
 
-CallResult Interpreter::run(u32 entry, std::span<const Value> args) {
+CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::span<const Value>* structFields) {
     // 새 호출 = 새 아레나 (ADR-0056 4)
     m_objects.clear();
     m_heapBytes = 0;
@@ -256,6 +260,27 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args) {
     }
     for (usize i = 0; i < args.size(); ++i) {
         m_regs[i] = args[i];
+    }
+    if (structFields != nullptr) {
+        // 구조체 매개변수 — 새 아레나에 만든다 (프레임은 이미 잡았다: 객체는 m_objects 에, 칸에는 참조만)
+        usize pos = 0;
+        const bc::Function& fn = M.functions[entry];
+        for (usize i = 0; i < fn.params.size(); ++i) {
+            if (M.types[fn.params[i]].kind != bc::TypeKind::Struct) {
+                continue;
+            }
+            const Marshal m = buildStruct(fn.params[i], *structFields, pos, 0, m_regs[i]);
+            if (m != Marshal::Ok) {
+                res.trap = m == Marshal::OutOfMemory ? Trap::OutOfMemory : Trap::BadCall;
+                res.message = std::format("매개변수 {} 의 구조체를 만들 수 없다 (칸 모양이 다르다)", i);
+                return res;
+            }
+        }
+        if (pos != structFields->size()) {
+            res.trap = Trap::BadCall;
+            res.message = std::format("구조체 칸 {} 개 — 매개변수는 {} 개를 쓴다", structFields->size(), pos);
+            return res;
+        }
     }
 
     const bc::Function* F = &M.functions[entry];

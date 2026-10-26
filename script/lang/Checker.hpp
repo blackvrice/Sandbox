@@ -16,6 +16,7 @@
 
 #include "script/api/ComponentSchema.hpp"
 #include "script/api/MathBuiltins.hpp"
+#include "script/api/SystemEvents.hpp"
 #include "script/lang/Ast.hpp"
 #include "script/lang/Types.hpp"
 
@@ -133,14 +134,27 @@ struct ComponentDecl {
 
 inline constexpr u32 kMaxSystemIntervalTicks = 65535; // bc::kMaxIntervalTicks 와 같다
 
-// export default defineSystem({ … }) 하나 (ADR-0062). onTick = Program::functions 의 자리 (메서드가 함수 하나)
+// events 의 구독 하나 (ADR-0063) — 태그는 이름 (콘텐츠 로드가 푼다), 사각형은 f32 로 반올림한 값
+struct SystemEventDecl {
+    u8 kind = 0; // api::GameEventKind
+    f64 minX = 0, minY = 0, maxX = 0, maxY = 0;
+    std::vector<std::string> all, any, none;
+};
+
+// export default defineSystem({ … }) 하나 (ADR-0062 · 0063). 콜백 = Program::functions 의 자리 (메서드가 함수 하나),
+// 없으면 api::kNoCallback
 struct SystemDecl {
     std::string id;
     std::string module; // "scripts/regen.ts"
     u32 line = 0;
     u32 column = 0;
     u32 intervalTicks = 1;
-    u32 onTick = 0;
+    u32 onTick = api::kNoCallback;
+    u32 onStart = api::kNoCallback;
+    u32 onStop = api::kNoCallback;
+    u32 onEvent = api::kNoCallback;
+    u32 eventsPerTick = 0;               // onEvent 가 있으면 1 ~ api::kMaxEventsPerTick (기본 256)
+    std::vector<SystemEventDecl> events; // 종류 차례
     NodeId decl = kNoNode;
 };
 

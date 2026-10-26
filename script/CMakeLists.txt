@@ -29,6 +29,7 @@ add_library(SandboxScript STATIC
     api/MathBuiltins.hpp
     api/ComponentSchema.hpp
     api/ComponentSchema.cpp
+    api/SystemEvents.hpp
     sdk/SdkGenerator.hpp
     sdk/SdkGenerator.cpp
 )

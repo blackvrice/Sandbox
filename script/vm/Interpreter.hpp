@@ -99,6 +99,10 @@ public:
     // 함수 하나를 부른다 — 인자는 기본 타입 · 불투명 값 (참조는 넘길 수 없다: 이 호출의 아레나가 새로 시작한다)
     CallResult call(u32 function, std::span<const Value> args);
     CallResult call(std::string_view module, std::string_view exportName, std::span<const Value> args);
+    // 구조체 매개변수를 받는 함수 (시스템의 onEvent — ADR-0063): 구조체 자리의 args 값은 쓰지 않고, 구조체 매개변수마다
+    // structFields 에서 칸을 차례로 읽어 이 호출의 아레나에 만든다 (필드 이름 순 — Host 결과와 같은 잎 규칙). 칸이
+    // 모자라거나 남거나 모양이 다르면 BadCall
+    CallResult call(u32 function, std::span<const Value> args, std::span<const Value> structFields);
 
     // 마지막 call 의 아레나 읽기 (다음 call 전까지)
     [[nodiscard]] std::string_view stringOf(Value v) const;
@@ -124,7 +128,7 @@ private:
         u16 resultReg = bc::kNoReg; // 부른 쪽 프레임의 결과 레지스터
     };
 
-    CallResult run(u32 function, std::span<const Value> args);
+    CallResult run(u32 function, std::span<const Value> args, const std::span<const Value>* structFields = nullptr);
     bool alloc(Object o, usize bytes, Value& out);
     // Host 칸 ↔ 구조체 (ADR-0060). 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) 와 중첩 구조체 (깊이 4) 만 — 그 밖의
     // 모양 (문자열 · 배열 · 재귀) 은 BadShape: 믿지 않는 바이트코드가 Host 값을 참조로 읽게 하지 않는다

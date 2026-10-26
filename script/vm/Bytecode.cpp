@@ -291,7 +291,24 @@ std::vector<u8> serialize(const Module& m) {
         w.str(s.id);
         w.str(s.module);
         w.u32v(s.onTick);
+        w.u32v(s.onStart);
+        w.u32v(s.onStop);
+        w.u32v(s.onEvent);
         w.u32v(s.intervalTicks);
+        w.u32v(s.eventsPerTick);
+        w.u32v(static_cast<u32>(s.events.size()));
+        for (const EventSubscription& e : s.events) {
+            w.u8v(e.kind);
+            for (const f64 v : {e.minX, e.minY, e.maxX, e.maxY}) {
+                w.u64v(std::bit_cast<u64>(v));
+            }
+            for (const std::vector<std::string>* list : {&e.all, &e.any, &e.none}) {
+                w.u32v(static_cast<u32>(list->size()));
+                for (const std::string& t : *list) {
+                    w.str(t);
+                }
+            }
+        }
     }
     return w.take();
 }
@@ -442,13 +459,41 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             return bad("export");
         }
     }
-    if (!r.count(n, kMaxSystems, 16, "시스템")) {
+    if (!r.count(n, kMaxSystems, 36, "시스템")) {
         return bad("시스템 표");
     }
     m.systems.resize(n);
     for (SystemDesc& s : m.systems) {
-        if (!r.str(s.id) || !r.str(s.module) || !r.u32v(s.onTick) || !r.u32v(s.intervalTicks)) {
+        u32 ne = 0;
+        if (!r.str(s.id) || !r.str(s.module) || !r.u32v(s.onTick) || !r.u32v(s.onStart) || !r.u32v(s.onStop) ||
+            !r.u32v(s.onEvent) || !r.u32v(s.intervalTicks) || !r.u32v(s.eventsPerTick) ||
+            !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
             return bad("시스템");
+        }
+        s.events.resize(ne);
+        for (EventSubscription& e : s.events) {
+            if (!r.u8v(e.kind)) {
+                return bad("구독");
+            }
+            for (f64* v : {&e.minX, &e.minY, &e.maxX, &e.maxY}) {
+                u64 bits = 0;
+                if (!r.u64v(bits)) {
+                    return bad("구독");
+                }
+                *v = std::bit_cast<f64>(bits);
+            }
+            for (std::vector<std::string>* list : {&e.all, &e.any, &e.none}) {
+                u32 nt = 0;
+                if (!r.count(nt, api::kMaxEventTags, 4, "구독 태그")) {
+                    return bad("구독 태그");
+                }
+                list->resize(nt);
+                for (std::string& t : *list) {
+                    if (!r.str(t)) {
+                        return bad("구독 태그");
+                    }
+                }
+            }
         }
     }
     if (!r.atEnd()) {
@@ -467,8 +512,28 @@ std::string disassemble(const Module& m) {
     for (usize i = 0; i < m.components.size(); ++i) {
         out += std::format("component {} {}\n", i, m.components[i]);
     }
+    const auto fnOf = [](u32 f) { return f == api::kNoCallback ? std::string("-") : std::format("fn {}", f); };
     for (const SystemDesc& s : m.systems) {
-        out += std::format("system {} {} onTick fn {} every {}\n", s.id, s.module, s.onTick, s.intervalTicks);
+        out += std::format("system {} {} onTick {} every {} · onStart {} · onStop {} · onEvent {} ×{}\n", s.id,
+                           s.module, fnOf(s.onTick), s.intervalTicks, fnOf(s.onStart), fnOf(s.onStop), fnOf(s.onEvent),
+                           s.eventsPerTick);
+        for (const EventSubscription& e : s.events) {
+            const api::GameEventKindInfo* k = api::gameEventKindInfo(e.kind);
+            out += std::format("  on {}", k != nullptr ? k->key : std::string_view("?"));
+            if (k != nullptr && k->area) {
+                out += std::format(" [{}, {}]..[{}, {}]", e.minX, e.minY, e.maxX, e.maxY);
+            }
+            for (const auto& [name, list] :
+                 {std::pair{"all", &e.all}, std::pair{"any", &e.any}, std::pair{"none", &e.none}}) {
+                if (!list->empty()) {
+                    out += std::format(" {}:", name);
+                    for (const std::string& t : *list) {
+                        out += " " + t;
+                    }
+                }
+            }
+            out += "\n";
+        }
     }
     for (usize fi = 0; fi < m.functions.size(); ++fi) {
         const Function& f = m.functions[fi];

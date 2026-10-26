@@ -171,6 +171,12 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     // 콘텐츠 Trigger — 세션이 Running 일 때만 (Starting → Running 이 된 틱도). 효과가 낸 이벤트는 같은 틱에 이어서,
     // 예산까지
     runTriggers(now);
+
+    // --- 17d Script callbacks --------------------------------------------------------------------------------
+    // 스크립트 onStart · onEvent · onStop — 그 틱의 죽음 · 생성 · 영역 · 점수 · 세션 전이가 다 끝난 뒤 (ADR-0063)
+    if (m_scriptSystems && m_scriptSystems->hasCallbacks()) {
+        runScriptCallbacks(now);
+    }
 }
 
 Expected<u64> SimulationWorld::worldHash() const {

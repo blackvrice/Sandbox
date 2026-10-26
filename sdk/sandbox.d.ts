@@ -59,16 +59,66 @@ declare module "sandbox" {
   export function defineComponent<F extends { [name: string]: Field<unknown> }>(
     definition: ComponentDefinition<F>,
   ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
+  /** 시스템 이벤트 종류 (onEvent 의 e.kind) */
+  export const enum GameEventKind {
+    Death = 1,
+    Spawn = 2,
+    AreaEnter = 3,
+    Score = 4,
+  }
+  /** onEvent 의 이벤트 (단계 17d — 그 틱에 일어난 일) */
+  export interface GameEvent {
+    /** spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다) */
+    readonly entity: Entity | null;
+    /** 이벤트 종류 */
+    readonly kind: GameEventKind;
+    /** score: 틱 처음의 점수 */
+    readonly previous: i32;
+    /** score: 점수 칸 (0 = 공용, 팀 번호 + 1) */
+    readonly team: i32;
+    /** score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명) */
+    readonly value: i32;
+    /** 위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0) */
+    readonly x: number;
+    /** 위치 y */
+    readonly y: number;
+  }
+  /** 태그 거르기 — 콘텐츠 태그 이름 (Rule · 트리거와 같은 식) */
+  export interface TagFilter {
+    all?: string[];
+    any?: string[];
+    none?: string[];
+  }
+  /** 구독 — 종류마다 하나 (값은 상수) */
+  export interface SystemEvents {
+    /** 그 틱에 죽은 개체 (태그는 틱 처음의 것) */
+    death?: { tags?: TagFilter };
+    /** 그 틱에 생겨 살아 있는 개체 */
+    spawn?: { tags?: TagFilter };
+    /** 틱 처음에 사각형 밖 (또는 없었다), 지금 안 */
+    areaEnter?: { min: [number, number]; max: [number, number]; tags?: TagFilter };
+    /** 점수 칸이 바뀌었다 (게임 세션이 있을 때) */
+    score?: {};
+  }
   /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
   export interface SystemDefinition {
     /** "이름공간.이름" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */
     id: string;
     /** "server" 만 (기본) */
     domain?: "server";
-    /** n 틱마다 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */
+    /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */
     intervalTicks?: i32;
+    /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */
+    eventsPerTick?: i32;
+    events?: SystemEvents;
     /** 단계 16b — Native System 뒤, 구조 변경 · 게임 규칙 · 트리거 앞. 쓰기는 호출이 끝나면 적용 */
-    onTick(ctx: ServerContext): void;
+    onTick?(ctx: ServerContext): void;
+    /** 단계 17d — 게임이 Running 이 된 틱 (세션이 없으면 틱 1) */
+    onStart?(ctx: ServerContext): void;
+    /** 단계 17d — 게임이 Finished 가 된 틱 (세션이 없으면 없다) */
+    onStop?(ctx: ServerContext): void;
+    /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */
+    onEvent?(ctx: ServerContext, e: GameEvent): void;
   }
   /** 스크립트 시스템 (서버) */
   export function defineSystem(definition: SystemDefinition): SystemDefinition;
