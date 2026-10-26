@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M3-T4 — 스키마 version 과 세이브 필드 마이그레이션 (더하기 = 기본값, 빼기 · 종류 바꾸기 = 오류나 Opaque)
+다음     v0.3 M4-T1 — defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -280,7 +280,11 @@ M3 사용자 Component (D-03 — 태스크 넷으로 나눴다: 정의 · 로드
   T3 ✅ ADR-0060: Host 표 ctx.read · has · query (Entity[] — saveId 순) · write (값 통째) — 제네릭 ABI (T 는 ComponentRef 인자),
         ComponentRef<T> 타입 · LOADK · 컴포넌트 표 (.sbc 형식 2), VM 의 칸 펼치기 · 만들기 (잎 모양 검사), ScriptHost 의 호출마다
         개체 핸들 표 · 호출 단위 쓰기 버퍼 (read-your-writes · 범위 · 유한 검사 · 트랩이면 버림 — M2-T2 에서 옮김)
-  T4 [계획] 스키마 version 과 세이브 필드 마이그레이션 (더하기 = 기본값, 빼기 · 종류 바꾸기 = 오류나 Opaque)
+  T4 ✅ ADR-0061: 스키마 version 이 오른 세이브를 자동으로 옮긴다 (persist::migrateScriptComponent — 뺀 필드 버림 · 경고, 더한
+        필드 기본값, 정수인 실수만 정수로, 그 밖은 엄격한 읽기가 "마이그레이션 뒤 읽지 못했다"), 되돌린 스크립트 = VersionMismatch,
+        같은 version 에서 필드 빼기 = 실패 (version 을 올린다), 더하기만 = 기본값 + 경고. 옮기면 해시 비교를 건너뛴다
+  → M3 완료 (2026-10-26): defineComponent → 콘텐츠의 카탈로그 → Prefab · 명령 · Inspector · 세이브/로드 · 복제 · WorldHash,
+    스크립트의 읽기 · 질의 · 쓰기 (버퍼), 스키마 version 마이그레이션
 M4 Script System
   T1 [계획] defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick (intervalTicks),
             스크립트 없는 월드 = 골든 그대로
@@ -331,6 +335,7 @@ v0.3 M2-T2 ✅  19 (0 · 9 · 14장 — Host 바인딩 · SDK), 01 2장 (Core �
 v0.3 M3-T1 ✅  ADR-0059 (D-03), 19 (0 · 1 · 9 · 11 · 14 · 15장 — 컴포넌트 정의 · S424 · S425), 02 9.6 (동적 컴포넌트), 17, 13
 v0.3 M3-T2 ✅  11 (1 · 1.2 · 8 · 11장 — 팩의 scripts/), 19 (0 · 15장), 02 9.6, 17, 13
 v0.3 M3-T3 ✅  ADR-0060 (ADR-0057 4 · 초안 setField 를 대신), 19 (0 · 10 · 11 · 12 · 13 · 14 · 15 · 16장), 17, 13
+v0.3 M3-T4 ✅  ADR-0061, 09 6장, 19 (0 · 15장), 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -365,4 +370,5 @@ v0.3 M2-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M3-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 (test_components) · unit_ecs +5 (test_dynamic_component)
 v0.3 M3-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +8 (test_script_content) · unit_network +1 (복제)
 v0.3 M3-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 (test_component_host)
+v0.3 M3-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +2 (test_script_content — 마이그레이션)
 ```

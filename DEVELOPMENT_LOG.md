@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-10-26 — v0.3 M3-T4: 스크립트 컴포넌트의 세이브 자동 마이그레이션 (ADR-0061) → M3 완료
+
+**무엇을**
+
+- `persist::migrateScriptComponent` (core/persist/Migration): 저장 version < 스키마 version 이면 스키마에 없는 필드는 버리고 (이름을
+  모은다), i32 · enum 이 된 필드의 정수인 실수 (3.0) 는 정수로. 없는 필드는 그대로 (읽기가 기본값). 저장 version > 스키마 =
+  VersionMismatch ("스크립트를 되돌렸나").
+- `loadWorld`: 스크립트 컴포넌트 (dynamicLayout) 는 MigrationRegistry 없이 위 함수로. 옮긴 뒤 엄격한 읽기가 실패하면 "'id' v1 → v2
+  마이그레이션 뒤 읽지 못했다 (필드의 종류 · 범위가 바뀌었다)". 같은 version 에서 스키마에 없는 필드 = 실패 ("version 을 올린다"),
+  저장 값에 없는 필드 (더하기만) = 기본값 + 옮긴 것으로 친다. 컴포넌트마다 경고 한 줄 (개체 수 · 버린 필드).
+- 시험: test_script_content +2 케이스. 문서 09 6장, 19 (0 · 15장), 18 (M3 완료), 17, 13, ADR-0061.
+
+**왜**
+
+- 스크립트 컴포넌트는 제작자가 자주 바꾸는데 C++ 마이그레이션 함수를 줄 자리가 없다 (스크립트에 전역 실행이 없다). 더하기 · 빼기를
+  자동으로 하고, 값이 바뀌는 변환은 오류로 드러낸다 (04 — 세이브 값을 조용히 바꾸지 않는다).
+- 같은 version 의 "더하기만" 을 처음엔 그대로 읽게 했는데, 컴포넌트 바이트가 달라 로드 해시 비교 (D2) 가 "해시 불일치" 로 실패했다
+  (시험이 잡았다) — 옮긴 것으로 쳐서 해시 비교를 건너뛰고 경고하도록 고쳤다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로). unit_content +2.
+- 실행 (스크래치): 저장소 ecosystem 팩 복사본에 eco.mana v1 (current · old) 을 더하고 토끼 Prefab 에 붙여
+  `sbx_sim_check --scenario ecosystem_small --content-root migroot --ticks 120 --save-at 60 --save-dir migsave` (D2 일치) →
+  스크립트를 v2 (old 빼고 shield 더함) 로 → `SandboxServer --world migsave --content-root migroot --port 0 --ticks 90 --exit` 가
+  "세이브: 스크립트 컴포넌트 'eco.mana' 를 v1 → v2 로 옮겼다 (개체 75) — 버린 필드: old" 경고 뒤 tick 90 까지. 같은 세이브를
+  version 1 · old 없는 스크립트로 열면 "필드 'old' 가 스크립트 컴포넌트 'eco.mana' (version 1) 에 없다 — … version 을 올린다" 로 거절.
+
+**남은 일**
+
+- M4-T1: defineSystem · ScriptSystemAdapter · 단계 ADR. 이름 바꾸기 · 단위 변환 (스크립트 onMigrate) 은 v0.4 검토.
+
+---
+
 ## 2026-10-26 — v0.3 M3-T3: 스크립트의 컴포넌트 읽기 · 질의 · 쓰기 + 호출 단위 쓰기 버퍼 (ADR-0060)
 
 **무엇을**

@@ -417,6 +417,13 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
         savedOpaqueNames.emplace();
     }
     std::set<std::string> loaderOpaqueNames;
+    // 스크립트 컴포넌트의 자동 마이그레이션 — 컴포넌트마다 버린 필드 · 개체 수 (경고 한 줄씩)
+    struct ScriptMigration {
+        std::set<std::string> dropped;
+        usize entities = 0;
+        bool sameVersion = false; // version 을 올리지 않고 필드를 더했다 (저장 값에 없는 필드 — 기본값)
+    };
+    std::map<std::string, ScriptMigration, std::less<>> scriptMigrations;
     SBX_TRY_ASSIGN(savedHashText, f.str("worldHash"));
     SBX_TRY_ASSIGN(savedHash, replay::parseHash(savedHashText));
 
@@ -565,7 +572,40 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
                 return makeError(ErrorCode::ValidationFailed, "저장되지 않는 컴포넌트가 들어 있다", cctx);
             }
             json v = value;
-            if (vIt->second != info->version) {
+            bool migrated = false;
+            if (info->dynamicLayout != nullptr) {
+                // 스크립트 컴포넌트 — 마이그레이션 함수 없이 자동으로 (ADR-0061): 빠진 필드는 버리고, 더한 필드는
+                // 기본값
+                const ecs::DynamicComponentLayout& layout = *info->dynamicLayout;
+                if (vIt->second != info->version) {
+                    ScriptMigration& sm = scriptMigrations[name];
+                    if (auto r = migrateScriptComponent(layout, vIt->second, v, sm.dropped); !r) {
+                        return std::unexpected(Error{r.error().code, r.error().message, cctx});
+                    }
+                    ++sm.entities;
+                    ++result.migratedComponents;
+                    migrated = true;
+                } else if (v.is_object()) {
+                    for (const auto& [key, unused] : v.items()) {
+                        if (layout.findField(key) == nullptr) {
+                            return makeError(
+                                ErrorCode::ValidationFailed,
+                                std::format("필드 '{}' 가 스크립트 컴포넌트 '{}' (version {}) 에 없다 — 필드를 "
+                                            "빼거나 이름을 바꿨으면 defineComponent 의 version 을 올린다",
+                                            key, name, info->version),
+                                cctx);
+                        }
+                    }
+                    // 저장은 모든 필드를 쓴다 — 없는 필드 = 더한 필드. 기본값으로 채우고 옮긴 것으로 친다 (값이
+                    // 바뀌므로 해시 비교를 건너뛴다)
+                    if (v.size() < layout.fields().size()) {
+                        ScriptMigration& sm = scriptMigrations[name];
+                        sm.sameVersion = true;
+                        ++sm.entities;
+                        ++result.migratedComponents;
+                    }
+                }
+            } else if (vIt->second != info->version) {
                 if (options.migrations == nullptr) {
                     return makeError(
                         ErrorCode::VersionMismatch,
@@ -582,6 +622,14 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
             }
             void* raw = pool->emplaceDefaultRaw(e, tick);
             if (auto r = info->readJson(raw, v, cctx); !r) {
+                if (migrated) {
+                    // 종류 · 범위가 바뀐 필드 — 조용히 고치지 않는다
+                    return makeError(
+                        r.error().code,
+                        std::format("'{}' v{} → v{} 마이그레이션 뒤 읽지 못했다 (필드의 종류 · 범위가 바뀌었다): {}",
+                                    name, vIt->second, info->version, r.error().message),
+                        r.error().context);
+                }
                 return std::unexpected(r.error());
             }
             if (info->stableId == ecs::stableIdOf<comp::Tags>) {
@@ -610,6 +658,23 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
     if (count != entityCount) {
         return makeError(ErrorCode::ValidationFailed,
                          std::format("엔티티 {}개 (world.json 은 {}개)", count, entityCount), "entities.jsonl");
+    }
+    for (const auto& [name, sm] : scriptMigrations) {
+        std::string line =
+            sm.sameVersion
+                ? std::format(
+                      "스크립트 컴포넌트 '{}' (version {}) 에 저장에 없는 필드가 있어 기본값으로 채웠다 (개체 {}) — "
+                      "모양을 바꾸면 version 을 올린다",
+                      name, savedVersions.at(name), sm.entities)
+                : std::format("스크립트 컴포넌트 '{}' 를 v{} → v{} 로 옮겼다 (개체 {})", name, savedVersions.at(name),
+                              catalog.find(std::string_view(name))->version, sm.entities);
+        if (!sm.dropped.empty()) {
+            line += " — 버린 필드:";
+            for (const std::string& f : sm.dropped) {
+                line += " " + f;
+            }
+        }
+        result.warnings.push_back(std::move(line));
     }
 
     sim::RestoreState state;

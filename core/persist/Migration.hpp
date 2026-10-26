@@ -9,12 +9,14 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
+#include "core/ecs/DynamicComponent.hpp"
 #include "foundation/types/Error.hpp"
 
 namespace sbx::persist {
@@ -38,5 +40,17 @@ private:
 
 // 엔진 컴포넌트의 마이그레이션 등록. 아직 버전 2 인 컴포넌트가 없어 비어 있다.
 void registerCoreMigrations(MigrationRegistry& registry);
+
+// 스크립트 컴포넌트의 자동 마이그레이션 (v0.3 M3-T4, ADR-0061) — 저장 버전 from < 스키마 version 일 때 loadWorld 가
+// 부른다.
+//   빠진 필드 (스키마에 없다) → 버리고 dropped 에 이름을 더한다 (부른 쪽이 경고 한 줄로)
+//   더한 필드 (값에 없다)     → 그대로 둔다 — 읽기가 기본값을 쓴다
+//   i32 · enum 이 된 필드     → 정수인 실수 값 (3.0) 은 정수로. 그 밖의 종류 · 범위가 맞지 않는 값은 고치지 않는다 —
+//   다음의
+//                               엄격한 읽기 (readJson) 가 그 필드를 짚어 실패한다 (조용히 값을 바꾸지 않는다)
+// from > version 이면 VersionMismatch (더 새 스크립트로 저장한 세이브 — 되돌린 스크립트). value 가 객체가 아니면
+// ParseError.
+[[nodiscard]] Expected<void> migrateScriptComponent(const ecs::DynamicComponentLayout& layout, u16 fromVersion,
+                                                    nlohmann::json& value, std::set<std::string>& dropped);
 
 } // namespace sbx::persist

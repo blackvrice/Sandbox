@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -325,5 +326,132 @@ export const Mana = defineComponent({ id: "t.mana", fields: { current: field.f32
         auto opaque = persist::loadWorld(engine(), p.db, dir);
         REQUIRE_MESSAGE(opaque.has_value(), opaque.error().describe());
         CHECK(opaque->opaqueComponents == 1);
+    }
+    TEST_CASE("script content: 스키마 version 을 올리면 세이브를 자동으로 옮긴다 — 더한 필드 = 기본값, 뺀 필드 = 버림 "
+              "(경고)") {
+        Root root("migrate");
+        auto script = [&](int version, std::string_view fields) {
+            root.file("t/scripts/mana.ts",
+                      std::format(
+                          "import {{ defineComponent, field }} from \"sandbox\"\n"
+                          "export const Mana = defineComponent({{ id: \"t.mana\", version: {}, fields: {{ {} }} }})\n",
+                          version, fields));
+        };
+        root.file("t/pack.json", kPack)
+            .file("t/prefabs/wisp.json", R"({"id": "t.wisp", "components": {"core.transform": {}, "t.mana": {}}})");
+        // v1 — current · regen (f32) · old
+        script(1, "current: field.f32(10, { min: 0, max: 100 }), regen: field.f32(1), old: field.bool(true)");
+        const ContentLoadResult v1 = root.load();
+        REQUIRE_MESSAGE(v1.ok(), dump(v1));
+        const fs::path dir = root.root / "save";
+        {
+            World w(v1.db);
+            const NetEntityId a = w.spawn({1, 1});
+            REQUIRE(
+                w.run(cmd::ChangeComponent{a, fnv1a64("t.mana"), ecs::Json{{"current", 42}, {"regen", 3}}}).accepted);
+            REQUIRE(persist::saveWorld(w.world, dir).has_value());
+        }
+        // v2 — regen 은 i32 로, old 는 빼고, shield 를 더한다
+        script(2, "current: field.f32(10, { min: 0, max: 100 }), regen: field.i32(1), shield: field.i32(5)");
+        const ContentLoadResult v2 = root.load();
+        REQUIRE_MESSAGE(v2.ok(), dump(v2));
+        auto loaded = persist::loadWorld(engine(), v2.db, dir);
+        REQUIRE_MESSAGE(loaded.has_value(), loaded.error().describe());
+        CHECK(loaded->migratedComponents == 1);
+        CHECK_FALSE(loaded->hashVerified);
+        bool warned = false;
+        for (const std::string& line : loaded->warnings) {
+            warned = warned || line == "스크립트 컴포넌트 't.mana' 를 v1 → v2 로 옮겼다 (개체 1) — 버린 필드: old";
+        }
+        CHECK(warned);
+        const ecs::ComponentInfo* info = loaded->world->catalog().find("t.mana");
+        REQUIRE(info != nullptr);
+        const auto* pool = loaded->world->registry().poolByStableId(info->stableId);
+        REQUIRE(pool != nullptr);
+        REQUIRE(pool->size() == 1);
+        const void* raw = pool->getRaw(pool->entityAt(0));
+        CHECK(info->getNumber(raw, "current") == 42.0);
+        CHECK(info->getNumber(raw, "regen") == 3.0);  // 3.0 (f32) → 3 (i32)
+        CHECK(info->getNumber(raw, "shield") == 5.0); // 더한 필드 = 기본값
+        // 옮긴 월드를 다시 저장하면 v2 — 다음 로드는 마이그레이션 없이 해시까지 맞는다
+        const fs::path again = root.root / "save2";
+        REQUIRE(persist::saveWorld(*loaded->world, again).has_value());
+        auto reloaded = persist::loadWorld(engine(), v2.db, again);
+        REQUIRE_MESSAGE(reloaded.has_value(), reloaded.error().describe());
+        CHECK(reloaded->migratedComponents == 0);
+        CHECK(reloaded->hashVerified);
+
+        // 되돌린 스크립트 (v1) 로 v2 세이브를 열면 VersionMismatch
+        script(1, "current: field.f32(10, { min: 0, max: 100 }), regen: field.f32(1), old: field.bool(true)");
+        const ContentLoadResult back = root.load();
+        REQUIRE(back.ok());
+        auto down = persist::loadWorld(engine(), back.db, again);
+        REQUIRE_FALSE(down.has_value());
+        CHECK(down.error().code == ErrorCode::VersionMismatch);
+        CHECK(down.error().message.find("스크립트를 되돌렸나") != std::string::npos);
+    }
+
+    TEST_CASE("script content: version 을 올리지 않고 필드를 빼면 · 옮길 수 없는 값이면 로드가 실패한다 (조용히 바꾸지 "
+              "않는다)") {
+        Root root("migrate-bad");
+        auto script = [&](int version, std::string_view fields) {
+            root.file("t/scripts/mana.ts",
+                      std::format(
+                          "import {{ defineComponent, field }} from \"sandbox\"\n"
+                          "export const Mana = defineComponent({{ id: \"t.mana\", version: {}, fields: {{ {} }} }})\n",
+                          version, fields));
+        };
+        root.file("t/pack.json", kPack)
+            .file("t/prefabs/wisp.json", R"({"id": "t.wisp", "components": {"core.transform": {}, "t.mana": {}}})");
+        script(1, "current: field.f32(10), regen: field.f32(1)");
+        const ContentLoadResult v1 = root.load();
+        REQUIRE_MESSAGE(v1.ok(), dump(v1));
+        const fs::path dir = root.root / "save";
+        {
+            World w(v1.db);
+            const NetEntityId a = w.spawn({1, 1});
+            REQUIRE(w.run(cmd::ChangeComponent{a, fnv1a64("t.mana"), ecs::Json{{"regen", 2.5}}}).accepted);
+            REQUIRE(persist::saveWorld(w.world, dir).has_value());
+        }
+        // 같은 version 에서 regen 을 뺐다
+        script(1, "current: field.f32(10)");
+        const ContentLoadResult same = root.load();
+        REQUIRE(same.ok());
+        auto r1 = persist::loadWorld(engine(), same.db, dir);
+        REQUIRE_FALSE(r1.has_value());
+        CHECK(r1.error().message.find("필드 'regen' 가 스크립트 컴포넌트 't.mana' (version 1) 에 없다") !=
+              std::string::npos);
+        CHECK(r1.error().message.find("version 을 올린다") != std::string::npos);
+        // 같은 version 에서 필드를 더하기만 하면 된다 (기본값)
+        script(1, "current: field.f32(10), regen: field.f32(1), extra: field.bool(true)");
+        const ContentLoadResult added = root.load();
+        REQUIRE(added.ok());
+        auto r2 = persist::loadWorld(engine(), added.db, dir);
+        REQUIRE_MESSAGE(r2.has_value(), r2.error().describe());
+        CHECK(r2->migratedComponents == 1); // 값이 바뀌므로 해시 비교를 건너뛴다
+        CHECK_FALSE(r2->hashVerified);
+        bool hinted = false;
+        for (const std::string& line : r2->warnings) {
+            hinted =
+                hinted ||
+                line.find("저장에 없는 필드가 있어 기본값으로 채웠다 (개체 1) — 모양을 바꾸면 version 을 올린다") !=
+                    std::string::npos;
+        }
+        CHECK(hinted);
+        // version 2 에서 regen 을 i32 로 — 2.5 는 정수가 아니다
+        script(2, "current: field.f32(10), regen: field.i32(1)");
+        const ContentLoadResult v2 = root.load();
+        REQUIRE(v2.ok());
+        auto r3 = persist::loadWorld(engine(), v2.db, dir);
+        REQUIRE_FALSE(r3.has_value());
+        CHECK(r3.error().message.find("'t.mana' v1 → v2 마이그레이션 뒤 읽지 못했다") != std::string::npos);
+        CHECK(r3.error().context.find("t.mana.regen") != std::string::npos);
+        // 범위를 좁혀 저장 값이 밖이면 실패 (regen 2.5 → [0, 2])
+        script(2, "current: field.f32(10), regen: field.f32(1, { min: 0, max: 2 })");
+        const ContentLoadResult narrow = root.load();
+        REQUIRE(narrow.ok());
+        auto r4 = persist::loadWorld(engine(), narrow.db, dir);
+        REQUIRE_FALSE(r4.has_value());
+        CHECK(r4.error().message.find("마이그레이션 뒤") != std::string::npos);
     }
 }

@@ -75,3 +75,4 @@
 | [0058](0058-bytecode-register-machine-typed-registers-verifier.md)    | SandboxScript 바이트코드 — 레지스터 기계, 레지스터마다 타입 · 0 초기화, 8 바이트 칸, 구조체는 필드 이름 순 배치, 선형 검증기, 체크섬 없는 .sbc | Accepted                                  | 2026-10-21 |
 | [0059](0059-script-components-schema-dynamic-pool-name-order-catalog.md) | 스크립트 컴포넌트 — defineComponent 상수 스키마, 바이트 배치 동적 풀 (필드 이름 순), 내장과 같은 방문자 → 같은 JSON · 해시 · 복제 형식, 콘텐츠마다 카탈로그 — D-03 | Accepted                                  | 2026-10-26 |
 | [0060](0060-script-component-host-read-query-write-buffer-entity-handles.md) | 스크립트의 컴포넌트 Host 항목 — 제네릭 ABI, ComponentRef = stableId (LOADK · .sbc 형식 2), 질의 = Entity[] (saveId 순), 값 통째 쓰기 + 호출 단위 버퍼, 호출마다 개체 핸들 표 | Accepted                                  | 2026-10-26 |
+| [0061](0061-script-component-save-auto-migration-drop-default-strict.md) | 스크립트 컴포넌트의 세이브 마이그레이션 — 함수 없이 자동: 뺀 필드는 버림 (경고), 더한 필드는 기본값, 정수인 실수만 정수로, 그 밖은 엄격한 읽기가 거절 | Accepted                                  | 2026-10-26 |

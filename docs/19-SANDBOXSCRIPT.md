@@ -16,7 +16,7 @@
 | 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
 | VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
 | Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
-| 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
+| 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) · 세이브 마이그레이션 (M3-T4, ADR-0061) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
 | 컴포넌트 읽기 · 질의 · 쓰기 (16장)     | 구현 (v0.3 M3-T3)     | Host 표 ctx.read · has · query · write, LOADK (.sbc 형식 2), `core/script/ScriptHost`, ADR-0060 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -391,7 +391,9 @@ export const Mana = defineComponent({
            컴포넌트를 내장처럼 다룬다
 d.ts       sandbox.d.ts 의 defineComponent<F> 가 ComponentRef<{ 필드: 값 타입 }> 를 돌려준다 (tsc 쪽 타입). enumOf<E> 는 제약 없는
            타입 매개변수라 tsc 가 enum 리터럴을 enum 타입으로 넓힌다
-[계획]     version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
+세이브     (M3-T4, ADR-0061) version 을 올리면 세이브를 자동으로 옮긴다 — 뺀 필드는 버리고 (경고), 더한 필드는 기본값, i32 가 된
+           필드의 정수인 실수는 정수로, 그 밖의 종류 · 범위 불일치는 로드 실패. 같은 version 에서 필드를 빼면 실패, 더하기만이면
+           기본값 + 경고 (09 6장). 더 새 version 의 세이브 = VersionMismatch
 ```
 
 ## 16. 컴포넌트 읽기 · 질의 · 쓰기 (v0.3 M3-T3 — Host 표 · `script/vm/Interpreter` · `core/script/ScriptHost`, ADR-0060)

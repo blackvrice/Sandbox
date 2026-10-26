@@ -271,6 +271,10 @@ registerMigration("life.energy", /*from*/ 1, /*to*/ 2, [](nlohmann::json& j) {
 - 테스트: tests/data/saves/<버전>_sample/ 에 버전별 샘플 세이브를 커밋하고, 최신으로 로드되는지 검사.
   (구현: tests/unit/persist/test_sample_saves.cpp. 마이그레이션 체인·누락 단계는 test_world_save.cpp)
 - 리플레이는 마이그레이션하지 않는다. simVersion 이 다르면 재생은 시도하되 결과는 "규칙 차이"로 분류.
+- (v0.3 M3-T4, ADR-0061) 스크립트 컴포넌트 (defineComponent) 는 함수 없이 자동으로 옮긴다 (persist::migrateScriptComponent):
+  저장 version < 스키마 version 이면 스키마에 없는 필드는 버리고 (로드 경고에 이름), 없는 필드는 기본값, i32 · enum 이 된 필드의
+  정수인 실수는 정수로 — 그 밖의 종류 · 범위 불일치는 "마이그레이션 뒤 읽지 못했다" 로 실패. 저장 version > 스키마 = VersionMismatch.
+  같은 version 에서 필드를 빼면 실패 ("version 을 올린다"), 더하기만이면 기본값 + 경고. 옮긴 것이 있으면 해시 비교를 건너뛴다
 ```
 
 ---
