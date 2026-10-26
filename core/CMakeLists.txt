@@ -138,11 +138,15 @@ add_library(SandboxCore STATIC
     trigger/TriggerSchema.cpp
     trigger/TriggerCompiler.hpp
     trigger/TriggerCompiler.cpp
+
+    script/ScriptHost.hpp
+    script/ScriptHost.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 
 target_link_libraries(SandboxCore
     PUBLIC  SandboxFoundation
+            SandboxScript             # 스크립트 컴파일러 · VM (v0.3 — core/script 가 Host 바인딩, ADR-0056 9)
             sbx_nlohmann_json         # JsonVisitor 가 헤더 템플릿이라 소비자도 json 헤더가 필요하다
             sbx_simulation_flags      # 헤더 템플릿을 쓰는 소비자에게도 FP 규칙이 걸려야 한다
     PRIVATE sbx_warnings

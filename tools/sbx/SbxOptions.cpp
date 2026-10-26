@@ -26,9 +26,11 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Templates;
     } else if (cmd == "build") {
         o.command = SbxCommand::Build;
+    } else if (cmd == "sdk") {
+        o.command = SbxCommand::Sdk;
     } else {
         return makeError(ErrorCode::InvalidArgument,
-                         std::format("모르는 명령 '{}' (new · check · build · templates)", cmd));
+                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk)", cmd));
     }
     bool haveDir = false;
     for (usize i = 1; i < args.size(); ++i) {
@@ -79,6 +81,9 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
     if (o.command == SbxCommand::New && o.gameId.empty()) {
         return makeError(ErrorCode::InvalidArgument, "new 에 --id <gameId> 가 필요합니다 (예: studio.arena)");
     }
+    if (o.command == SbxCommand::Sdk && !haveDir) {
+        o.dir = ".";
+    }
     return o;
 }
 
@@ -98,6 +103,7 @@ std::string sbxUsage() {
            "  build <폴더>               게임 패키지 만들기 (검사 오류면 만들지 않는다)\n"
            "      --out <파일.sbpkg>     (기본: <폴더>/build/<gameId>-<version>.sbpkg)\n"
            "  templates                  --from 에 쓸 수 있는 시나리오 목록\n"
+           "  sdk [<폴더>]               SandboxScript SDK 선언 sandbox.d.ts 를 쓴다 (기본: 지금 폴더) — IDE 자동 완성\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";

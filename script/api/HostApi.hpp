@@ -43,6 +43,7 @@ struct HostFunction {
     bool property;           // true = 속성 (ctx.tick), false = 메서드 (ctx.log(…))
     AbiType result;
     std::array<AbiType, kMaxHostParams> params;
+    std::array<std::string_view, kMaxHostParams> paramNames; // d.ts 의 매개변수 이름 (정규형 · 지문에는 들어가지 않는다)
     u8 paramCount;
     HostDomain domain;
     HostEffect effect;
@@ -58,6 +59,7 @@ inline constexpr std::array kHostFunctions{
                  true,
                  AbiType::I32,
                  {},
+                 {},
                  0,
                  HostDomain::Server,
                  HostEffect::Read,
@@ -69,6 +71,7 @@ inline constexpr std::array kHostFunctions{
                  false,
                  AbiType::Void,
                  {AbiType::String},
+                 {"message"},
                  1,
                  HostDomain::Server,
                  HostEffect::Log,

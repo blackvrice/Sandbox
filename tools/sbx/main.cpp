@@ -17,6 +17,8 @@
 #include "core/scenarios/Scenario.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
+#include "foundation/io/FileIo.hpp"
+#include "script/sdk/SdkGenerator.hpp"
 #include "tools/sbx/SbxOptions.hpp"
 
 namespace {
@@ -143,6 +145,20 @@ int main(int argc, char** argv) {
                         static_cast<int>(s.description.size()), s.description.data());
         }
         return kExitOk;
+    case SbxCommand::Sdk: {
+        // SDK 선언 — Host API 표에서 만든다 (v0.3 M2-T2, ADR-0057 2). 저장소의 sdk/ 를 갱신할 때도 이것으로
+        const std::filesystem::path out = std::filesystem::path(opt.dir) / script::sdk::kDtsFileName;
+        if (auto made = io::createDirectories(out.parent_path()); !made) {
+            printErr(made.error().describe());
+            return kExitError;
+        }
+        if (auto w = io::writeFileAtomic(out, script::sdk::generateSandboxDts()); !w) {
+            printErr(w.error().describe());
+            return kExitError;
+        }
+        std::printf("SDK 선언을 썼습니다: %s\n", out.string().c_str());
+        return kExitOk;
+    }
     case SbxCommand::New:
     case SbxCommand::Check:
     case SbxCommand::Build:

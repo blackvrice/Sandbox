@@ -27,6 +27,8 @@ add_library(SandboxScript STATIC
     api/HostApi.hpp
     api/HostApi.cpp
     api/MathBuiltins.hpp
+    sdk/SdkGenerator.hpp
+    sdk/SdkGenerator.cpp
 )
 add_library(Sandbox::Script ALIAS SandboxScript)
 

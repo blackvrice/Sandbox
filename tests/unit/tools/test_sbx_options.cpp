@@ -21,6 +21,21 @@ TEST_SUITE("tools") {
         CHECK(sbxUsage().find("new <폴더> --id <gameId>") != std::string::npos);
     }
 
+    TEST_CASE("sbx options: sdk (v0.3 M2-T2) — 폴더는 하나, 비면 지금 폴더") {
+        constexpr std::array<std::string_view, 1> bare{"sdk"};
+        const auto a = parseSbxOptions(bare);
+        REQUIRE(a.has_value());
+        CHECK(a->command == SbxCommand::Sdk);
+        CHECK(a->dir == ".");
+        constexpr std::array<std::string_view, 2> dir{"sdk", "out/sdk"};
+        CHECK(parseSbxOptions(dir)->dir == "out/sdk");
+        constexpr std::array<std::string_view, 3> two{"sdk", "a", "b"};
+        CHECK_FALSE(parseSbxOptions(two).has_value());
+        constexpr std::array<std::string_view, 3> opt{"sdk", "--id", "x.y"};
+        CHECK_FALSE(parseSbxOptions(opt).has_value());
+        CHECK(sbxUsage().find("sdk [<폴더>]") != std::string::npos);
+    }
+
     TEST_CASE("sbx options: new") {
         constexpr std::array<std::string_view, 12> full{"new",
                                                         "MyGame",

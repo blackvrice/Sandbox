@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-10-26 — v0.3 M2-T2: Host 바인딩 core/script · 계약 검사 · sandbox.d.ts 생성 → M2 완료
+
+**무엇을**
+
+- `core/script/ScriptHost`: hostBindings (엔진 구현의 명시 목록 — ctx.tick · ctx.log), checkHostBindings (표의 항목마다 구현 정확히
+  하나 · 서명 = 표 · 표에 없는 구현 · 함수 없음), ScriptHost (vm::IHost — beginCall 마다 새 ctx 핸들, 지난 · 위조한 · 열리지 않은
+  ctx 는 HostError, ctx.log = 로그 "script" 범주 + recentLogs, 한 줄 1024 바이트를 UTF-8 경계에서 자른다). SandboxCore 가
+  SandboxScript 를 링크한다.
+- `script/sdk/SdkGenerator` + `sbx sdk [<폴더>]`: Host 표 · 불투명 타입 · SDK 내장 → sandbox.d.ts. Host 표에 매개변수 이름
+  (paramNames — 정규형 · 지문에는 들어가지 않는다, 지문 그대로). 저장소 `sdk/sandbox.d.ts` (생성해 커밋) = 생성 결과 (골든 시험).
+- 계획 변경: 호출 단위 쓰기 버퍼는 M3-T1 로 — 지금 Host 항목은 읽기 · 로그뿐이라 버퍼에 넣을 것이 없다 (18 6.2).
+- 시험 test_script_host 6 케이스 · test_sbx_options +1. 문서 19 (14장), 18 (M2 완료), 01, 15, 17, 13.
+
+**왜**
+
+- ADR-0057 의 "넷이 어긋나지 않게": 검사기 (M1-T2) · 검증기 (M1-T3) 에 이어 바인딩 (계약 검사) · d.ts (골든) 가 같은 표를 본다.
+- ctx 핸들을 호출마다 새로 내는 것은 "핸들은 호출이 끝나면 무효" (ADR-0057 4) — 스크립트가 전역에 ctx 를 둘 수는 없지만
+  (ADR-0056 4) 위조한 불투명 값은 VM 경계에서 막는다.
+
+**검증**
+
+- Windows MSVC Debug: 빌드, unit_script 51 케이스, unit_tools 12, 전체 ctest 62/62 (render_tests_warp 제외).
+- `sbx sdk sdk` 를 실제로 돌려 sdk/sandbox.d.ts 를 만들었다 (그 파일이 골든). 시뮬레이션 변경 없음.
+
+**남은 일**
+
+- v0.3 M3-T1: D-03 (동적 컴포넌트 풀) ADR, defineComponent → 스키마 → 카탈로그, ctx.read · ctx.query, 호출 단위 쓰기 버퍼.
+- d.ts 를 tsc --strict 로 확인하는 시험은 Node 가 있는 CI 잡에서 [계획].
+
 ## 2026-10-26 — v0.3 M2-T1: SandboxScript 인터프리터 · JS 수 규칙
 
 **무엇을**

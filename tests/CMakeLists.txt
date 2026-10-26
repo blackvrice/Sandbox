@@ -22,6 +22,7 @@ add_executable(SandboxTests
     unit/script/test_checker.cpp
     unit/script/test_bytecode.cpp
     unit/script/test_vm.cpp
+    unit/script/test_script_host.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp
@@ -119,7 +120,8 @@ target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript Sandb
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
-                                               SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples")
+                                               SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples"
+                                               SBX_SDK_DIR="${PROJECT_SOURCE_DIR}/sdk")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
 set(_sbx_suites foundation script core ecs persist content project network server tools platform render editor)

@@ -67,14 +67,14 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
    SandboxTests (exe)             = Foundation + Script + Core + Network
    sbx_render_tests (exe)         = Render + Platform  (GPU 필요)
    sbx_sim_check / sbx_bench      = Core (+ Network)
-   SandboxScript (v0.3)           = Foundation 만 — 스크립트 컴파일러 · [계획] VM. Core 가 링크한다 [계획 M2 — core/script 바인딩]
+   SandboxScript (v0.3)           = Foundation 만 — 스크립트 컴파일러 · VM · Host 표. Core 가 링크한다 (core/script 바인딩 — v0.3 M2-T2)
 ```
 
 | 타깃              | 종류   | 책임                                                                           | 의존 (PUBLIC)                           | 절대 의존 금지                                    |
 |-------------------|--------|--------------------------------------------------------------------------------|-----------------------------------------|---------------------------------------------------|
 | SandboxFoundation | static | 기본 타입, 수학, 핸들, 컨테이너, 로그, 해시, 시간, 파일 IO, Job System, 메트릭 | 없음                                    | 그 외 전부                                        |
 | SandboxScript     | static | SandboxScript 컴파일러 (v0.3 — 렉서 · 파서, [계획] 검사 · IR · VM · Host 표)    | Foundation                              | Core, Network, Platform, Render, Editor, 그래픽/OS 헤더 |
-| SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random        | Foundation                              | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
+| SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random, 스크립트 Host 바인딩 (core/script) | Foundation, Script                      | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
 | SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
 | SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |

@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M2-T2 — Host 바인딩 core/script (표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼), sandbox.d.ts 생성기 · 골든
+다음     v0.3 M3-T1 — ADR (D-03 동적 풀): defineComponent → 스키마 → 카탈로그에 동적 등록, 콘텐츠 검사 순서
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -84,9 +84,9 @@
   core/game [계획 M2]   GameSession 상태 · 규칙 컴포넌트                Simulation — 04 를 따른다
 v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
   script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
-                        vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1)
+                        vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1) · sdk (d.ts 생성 ✅ M2-T2)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
-  core/script [계획 M2]  Host 바인딩 · 동적 컴포넌트 · ScriptSystemAdapter (SandboxCore 가 SandboxScript 를 링크)
+  core/script           Host 바인딩 ✅ M2-T2 · [계획] 동적 컴포넌트 (M3) · ScriptSystemAdapter (M4) — SandboxCore 가 SandboxScript 를 링크
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
 ```
 
@@ -262,11 +262,14 @@ M2 VM · Host API
   T1 ✅ 인터프리터 (script/vm/Interpreter): 레지스터 프레임 · 호출마다 새 아레나 · 예산 (연료 · 깊이 · 칸 · 아레나 · 배열 ·
         문자열) · 트랩 10 종, JS 수 규칙 (script/vm/Numbers — ToInt32 · Number#toString · round · pow · min/max · UTF-16 길이,
         검사기 접기와 공용), IHost (가짜 Host 로 시험)
-  T2 [계획] 바인딩 core/script: 표 항목마다 구현 등록 + 계약 검사, 호출 단위 버퍼 (read-your-writes · 트랩이면 버림),
-            sandbox.d.ts 생성기 (sbx sdk) · sdk/sandbox.d.ts 골든 시험
+  T2 ✅ 바인딩 core/script (hostBindings 명시 목록 + checkHostBindings 계약 검사 · ScriptHost — 호출마다 ctx 핸들, 지난 ·
+        위조한 ctx 는 HostError), sandbox.d.ts 생성기 (script/sdk · sbx sdk) · sdk/sandbox.d.ts 골든 시험. SandboxCore 가
+        SandboxScript 를 링크한다. 호출 단위 쓰기 버퍼는 쓰기 항목이 처음 생기는 M3 로 옮겼다 (지금 항목은 읽기 · 로그뿐)
+  → M2 완료 (2026-10-26): 소스 → 바이트코드 → 검증 → VM 실행 ↔ 엔진 Host (계약 검사), IDE 용 sandbox.d.ts
 M3 사용자 Component (D-03)
   T1 [계획] ADR (동적 풀): defineComponent → 스키마 (필드 종류 i32 · f32 · f64 · bool · vec2 · entityRef · enum, 기본값 · 범위 ·
-            플래그) → 카탈로그에 동적 등록 (ADR-0011 에 더한다), 콘텐츠 검사 순서 (스크립트 컴포넌트 먼저 — Prefab 이 쓴다)
+            플래그) → 카탈로그에 동적 등록 (ADR-0011 에 더한다), 콘텐츠 검사 순서 (스크립트 컴포넌트 먼저 — Prefab 이 쓴다),
+            Host 표의 컴포넌트 읽기 · 질의 (ctx.read · ctx.query), 호출 단위 쓰기 버퍼 (M2-T2 에서 옮김)
   T2 [계획] 세이브 · WorldHash · 복제 · Inspector 연결, 스키마 version 과 필드 마이그레이션 (더하기 · 기본값)
 M4 Script System
   T1 [계획] defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick (intervalTicks),
@@ -314,6 +317,7 @@ v0.3 M1-T1 ✅  19-SANDBOXSCRIPT (규범), 01 2장 (SandboxScript 타깃 · 경�
 v0.3 M1-T2 ✅  19 (1 · 5 · 7 · 8 · 9 · 10 · 11장 — 타입 규칙 · Host 표 · 검사기 · S4xx), 17, 13
 v0.3 M1-T3 ✅  19 (5 · 8 · 9 · 12장 — 바이트코드 · 검증기), 17, 13, ADR-0058
 v0.3 M2-T1 ✅  19 (0 · 6 · 9 · 13장 — 인터프리터 · 수 규칙), 17, 13
+v0.3 M2-T2 ✅  19 (0 · 9 · 14장 — Host 바인딩 · SDK), 01 2장 (Core → Script), 15 7장 (sbx sdk), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -344,4 +348,5 @@ v0.3 M1-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외, + unit_scrip
 v0.3 M1-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +14 케이스 (test_checker — Host 표 · 경로 · 규칙별)
 v0.3 M1-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 케이스 (test_bytecode — 역어셈블 기준 · 왕복 · 거절 · 비트 뒤집기)
 v0.3 M2-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 케이스 (test_vm — 수 규칙 · 산술 · 배열 · 트랩 · Host · 결정성)
+v0.3 M2-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +6 (test_script_host — 계약 · ctx · 로그 · d.ts 골든) · unit_tools +1
 ```

@@ -15,7 +15,7 @@
 | Host API 표 (10장)                     | 첫 항목 (v0.3 M1-T2)  | `script/api/HostApi` — ctx.tick · ctx.log, 지문                        |
 | 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
 | VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
-| Host 바인딩 (엔진) · d.ts               | [계획] v0.3 M2-T2     |                                                                        |
+| Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -190,6 +190,10 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
   vm/Numbers           JS 수 규칙 (ToInt32 · Number#toString · round · pow · min/max · UTF-16 길이) — 검사기 접기와 VM 공용
   vm/Interpreter       Interpreter (call · 아레나 · 예산 · 트랩) · Value · IHost
+  sdk/SdkGenerator     sandbox.d.ts 생성 (Host 표 · 불투명 타입 · SDK 내장)
+core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
+  ScriptHost           Host 바인딩 목록 · 계약 검사 · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
+sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과와 같은지 본다)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
 시험                   tests/unit/script (unit_script) — 낱말 · 우선순위 · ASI · 선언 · 타입 · 부분집합 S3xx 전부 · 회복 · 상한 ·
@@ -312,4 +316,22 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는 내용 (string_view) 으로, 첫 인자는 주인 (ctx). 실패하면 HostError.
             엔진 바인딩 (Registry · ECB) 은 core/script [계획 M2-T2]
 결정성      같은 모듈 · 같은 인자 · 같은 Host 응답 = 같은 결과 · 같은 연료 (시험이 본다)
+```
+
+## 14. Host 바인딩 · SDK (v0.3 M2-T2 — `core/script/ScriptHost`, `script/sdk/SdkGenerator`, ADR-0057 2 · 4)
+
+```text
+바인딩      hostBindings() = 엔진 구현의 명시 목록 (id · 서명 — 주인 ctx 가 첫째 · 구현 함수). checkHostBindings 가 계약을 본다:
+            표의 항목마다 구현이 정확히 하나, 서명 = 표, 표에 없는 구현 없음, 함수 포인터 있음. 단위 시험 + ScriptHost 생성 (Debug)
+ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을 새로 낸다 (표지 0x5C78… + 호출 번호) → 그 값을 ctx 인자로
+            넘기고, 끝나면 endCall. Host 함수는 첫 인자가 지금 열린 호출의 ctx 인지 본다 — 지난 호출의 ctx · 위조한 핸들 · 열린
+            호출 없음 = HostError (ADR-0057 4)
+지금 항목   ctx.tick = 열린 호출의 틱. ctx.log = 서버 로그 "script" 범주 "<스크립트> t<틱>: <글>" + recentLogs (256 줄), 한 줄
+            1024 바이트 (넘으면 UTF-8 글자 경계에서 자르고 …). 로그는 세계 상태가 아니라 바로 나간다 (트랩이어도 남는다)
+[계획]      쓰기 (필드 · 생성 · 파괴 · 점수) 의 호출 단위 버퍼 (read-your-writes · 트랩이면 버림 — ADR-0057 5) 는 첫 쓰기 항목과 함께
+            v0.3 M3. 엔진의 시스템 단계에서 부르기는 M4-T1
+SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더). declare module "sandbox" { i32 · toI32 · idiv · 불투명
+            interface (__sandboxOpaque 표지 — 리터럴로 만들 수 없게) + 주인 타입의 멤버 (속성 = readonly, 메서드 = 표의 매개변수
+            이름) }. 머리에 Host API 버전 · 지문. 저장소의 sdk/sandbox.d.ts 가 생성 결과와 같아야 한다 (시험) — Host 표를 바꾸면
+            같은 커밋에서 sbx sdk sdk. 컴포넌트 타입은 v0.3 M3 [계획], 프로젝트 템플릿의 tsconfig 는 M5-T1 [계획]
 ```
