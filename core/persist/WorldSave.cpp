@@ -670,8 +670,8 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
                               catalog.find(std::string_view(name))->version, sm.entities);
         if (!sm.dropped.empty()) {
             line += " — 버린 필드:";
-            for (const std::string& f : sm.dropped) {
-                line += " " + f;
+            for (const std::string& dropped : sm.dropped) {
+                line += " " + dropped;
             }
         }
         result.warnings.push_back(std::move(line));
