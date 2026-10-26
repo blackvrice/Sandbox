@@ -63,6 +63,7 @@ enum class Builtin : u32 {
     Infinity,
     DefineComponent,        // defineComponent — 최상위 const 의 초기값으로만 (ADR-0059 1)
     FieldNamespace,         // field.i32 · f32 · … — defineComponent 의 fields 안에서만
+    DefineSystem,           // defineSystem — export default 의 식으로만 (ADR-0062)
     MathFunctionBase = 100, // + kMathFunctions 의 자리
     MathConstantBase = 200, // + kMathConstants 의 자리
 };
@@ -130,11 +131,25 @@ struct ComponentDecl {
     NodeId decl = kNoNode;
 };
 
+inline constexpr u32 kMaxSystemIntervalTicks = 65535; // bc::kMaxIntervalTicks 와 같다
+
+// export default defineSystem({ … }) 하나 (ADR-0062). onTick = Program::functions 의 자리 (메서드가 함수 하나)
+struct SystemDecl {
+    std::string id;
+    std::string module; // "scripts/regen.ts"
+    u32 line = 0;
+    u32 column = 0;
+    u32 intervalTicks = 1;
+    u32 onTick = 0;
+    NodeId decl = kNoNode;
+};
+
 struct Program {
     TypeTable types;
     std::vector<Symbol> symbols;
     std::vector<FunctionInfo> functions;
     std::vector<ComponentDecl> components; // 정의 차례 (모듈 위상 순서 → 소스 순서). 오류 있는 정의는 없다
+    std::vector<SystemDecl> systems;       // 정의 차례 (모듈 위상 순서). 오류 있는 정의는 없다
     std::vector<ModuleSema> modules;       // 경로 정렬 순
     std::vector<u32> order;                // 위상 순서 (의존이 먼저)
 

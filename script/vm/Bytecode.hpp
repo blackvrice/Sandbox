@@ -17,7 +17,7 @@
 
 namespace sbx::script::bc {
 
-inline constexpr u32 kFormatVersion = 2; // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3)
+inline constexpr u32 kFormatVersion = 3; // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (v0.3 M4-T1)
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -30,6 +30,8 @@ inline constexpr u32 kMaxTypes = 0xFFFF;
 inline constexpr u32 kMaxFields = 256;
 inline constexpr u32 kMaxImports = 1024;
 inline constexpr u32 kMaxComponents = 1024;
+inline constexpr u32 kMaxSystems = 1024;
+inline constexpr u32 kMaxIntervalTicks = 65535;
 inline constexpr u32 kMaxStringBytes = 1u << 20;
 
 enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct };
@@ -162,6 +164,14 @@ struct Export {
     u32 function = 0;
 };
 
+// 스크립트 시스템 하나 (export default defineSystem — ADR-0062). onTick 서명 = (ServerContext?) → void
+struct SystemDesc {
+    std::string id;     // "rpg.mana.regen" — 표는 id 오름차순
+    std::string module; // 정의한 파일 "scripts/regen.ts"
+    u32 onTick = 0;     // 함수 번호
+    u32 intervalTicks = 1;
+};
+
 struct Module {
     u32 format = kFormatVersion;
     u32 hostApiVersion = api::kHostApiVersion;
@@ -173,6 +183,7 @@ struct Module {
     std::vector<std::string> components; // 스크립트가 쓰는 컴포넌트 id ("rpg.mana") — LOADK 가 가리킨다
     std::vector<Function> functions;
     std::vector<Export> exports;
+    std::vector<SystemDesc> systems; // id 오름차순 (v0.3 M4-T1)
 
     [[nodiscard]] const Export* findExport(std::string_view module, std::string_view name) const noexcept;
 };

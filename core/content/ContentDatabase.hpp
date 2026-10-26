@@ -29,6 +29,7 @@ class ComponentCatalog;
 namespace sbx::content {
 
 class ContentLoaderImpl;
+struct ScriptPrograms; // core/content/ScriptPrograms.hpp
 
 // 팩 원본 — 로더가 읽은 파일 텍스트 (presentation/ 빼고, 줄 끝 정규화). 오버레이를 적용할 때 디스크를 다시 읽지 않고
 // 이것으로 다시 만든다 (ContentLoader::applyOverlay, ADR-0030). 불변, 오버레이를 적용한 DB 들이 함께 쓴다.
@@ -113,6 +114,8 @@ public:
     }
     // 팩 스크립트가 정의한 컴포넌트 id (팩 순서 · 정의 순서)
     [[nodiscard]] std::span<const std::string> scriptComponents() const noexcept { return m_scriptComponents; }
+    // 팩 스크립트의 바이트코드 (v0.3 M4-T1, ADR-0062) — 스크립트가 없으면 null. 시스템 단계 (16b) 가 이것으로 돈다
+    [[nodiscard]] const std::shared_ptr<const ScriptPrograms>& scriptPrograms() const noexcept { return m_programs; }
 
 private:
     friend class ContentLoaderImpl; // core/content/ContentLoader.cpp
@@ -134,6 +137,7 @@ private:
     std::shared_ptr<const ContentSources> m_sources;
     std::shared_ptr<const ecs::ComponentCatalog> m_catalog; // 스크립트 컴포넌트가 없으면 null
     std::vector<std::string> m_scriptComponents;
+    std::shared_ptr<const ScriptPrograms> m_programs; // 스크립트가 없으면 null
 };
 
 [[nodiscard]] std::string_view terrainFlagName(world::TerrainFlags f) noexcept;

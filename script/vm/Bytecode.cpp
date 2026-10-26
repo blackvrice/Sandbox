@@ -286,6 +286,13 @@ std::vector<u8> serialize(const Module& m) {
         w.str(e.name);
         w.u32v(e.function);
     }
+    w.u32v(static_cast<u32>(m.systems.size()));
+    for (const SystemDesc& s : m.systems) {
+        w.str(s.id);
+        w.str(s.module);
+        w.u32v(s.onTick);
+        w.u32v(s.intervalTicks);
+    }
     return w.take();
 }
 
@@ -435,6 +442,15 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             return bad("export");
         }
     }
+    if (!r.count(n, kMaxSystems, 16, "시스템")) {
+        return bad("시스템 표");
+    }
+    m.systems.resize(n);
+    for (SystemDesc& s : m.systems) {
+        if (!r.str(s.id) || !r.str(s.module) || !r.u32v(s.onTick) || !r.u32v(s.intervalTicks)) {
+            return bad("시스템");
+        }
+    }
     if (!r.atEnd()) {
         return makeError(ErrorCode::ParseError, std::format("끝에 남는 바이트 {} 개", bytes.size() - r.pos()),
                          std::format("sbc:{}", r.pos()));
@@ -450,6 +466,9 @@ std::string disassemble(const Module& m) {
     }
     for (usize i = 0; i < m.components.size(); ++i) {
         out += std::format("component {} {}\n", i, m.components[i]);
+    }
+    for (const SystemDesc& s : m.systems) {
+        out += std::format("system {} {} onTick fn {} every {}\n", s.id, s.module, s.onTick, s.intervalTicks);
     }
     for (usize fi = 0; fi < m.functions.size(); ++fi) {
         const Function& f = m.functions[fi];

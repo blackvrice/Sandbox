@@ -15,8 +15,10 @@
 #include "core/components/core/Transform.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "foundation/log/Log.hpp"
 
 namespace sbx::sim {
@@ -93,6 +95,10 @@ SimulationWorld::SimulationWorld(const ecs::ComponentCatalog& catalog, const con
     if (desc.registerDefaultSystems) {
         registerDefaultSystems(m_scheduler);
     }
+    // 스크립트 시스템 (ADR-0062) — 오버레이를 적용한 콘텐츠도 같은 바이트코드를 나누므로 한 번만 만든다
+    if (const auto& programs = content.scriptPrograms(); programs && programs->systemCount() > 0) {
+        m_scriptSystems = std::make_unique<script::ScriptSystemAdapter>(programs);
+    }
 }
 
 SimulationWorld::~SimulationWorld() = default;
@@ -147,6 +153,13 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
                              m_events,   m_spawns,  *m_content,          m_catalog, m_saves,
                              m_intents,  m_paths,   m_paths.jobSystem(), now,       kFixedDt};
     m_scheduler.run(base, profiler);
+
+    // --- 16b Scripts -----------------------------------------------------------
+    // 스크립트 시스템의 onTick — Native System 이 쓴 값을 보고, 쓰기는 호출마다 바로 적용 (17b · 17c 가 같은 틱에
+    // 본다). 구조 변경은 [계획] ECB 로 17 에서. 시스템이 없는 콘텐츠는 없다 (골든 그대로)
+    if (m_scriptSystems) {
+        m_scriptSystems->run(*this, now);
+    }
     m_scheduler.applyBuffers(m_registry, [this] { syncIdentityLogs(); });
     applySpawns(); // Prefab 생성 — ECB 다음, (parent saveId, 순서) 정렬
 

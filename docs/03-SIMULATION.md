@@ -150,12 +150,20 @@ public:
 | 14 | ProductionSystem         | 생산 진행 → ECB.create                                                   | Production, ECB                     |
 | 15 | LifecycleSystem          | Age·Energy·Growth·Reproduce·Lifetime → 사망/번식                         | ECB                                 |
 | 16 | CollisionSystem          | 분리(separation), 지형 충돌 보정                                         | Transform                           |
+| 16b | Scripts (v0.3 M4-T1)    | 스크립트 시스템 onTick — (팩 순서, 시스템 id), intervalTicks, 시스템이 있을 때만 | 스크립트 컴포넌트 (호출마다 바로 적용) |
 | 17 | ApplyStructuralChanges②  | ECB 일괄 적용                                                            | Registry                            |
 | 17b | GameRules (v0.2)        | game.session 전이 — 카운트다운 · 끝 조건 (세션이 있을 때만)              | game.session                        |
 | 17c | Triggers (v0.2 M4-T2)   | 콘텐츠 Trigger — 세션이 Running 일 때만, 같은 틱 이어짐 · 예산           | 효과 (바로 적용)                    |
 | 18 | ReplicationSystem        | (ServerHost) 클라이언트별 Delta 작성 — 읽기 전용                         | —                                   |
 | 19 | WorldHash                | N틱마다(기본 30)                                                         | —                                   |
 | 20 | EndTick                  | 메트릭, 리플레이 체크포인트, 오토세이브 스냅샷, 로그 정리                | —                                   |
+
+`16b Scripts` (v0.3 M4-T1, [ADR-0062](adr/0062-script-systems-define-system-stage-16b-pack-id-order.md), `core/script/ScriptSystemAdapter`):
+System 이 아니라 SimulationWorld 의 단계 — Native System (5 ~ 16) 이 끝난 뒤, 그 ECB 를 적용하기 (17) 전. 콘텐츠의 스크립트
+시스템 (`export default defineSystem` — 19 17장) 을 (팩 로드 순서, 시스템 id) 차례로, 틱 번호 % intervalTicks == 0 인 틱에
+onTick 한 번씩 부른다. 호출의 쓰기 (ctx.write) 는 그 호출이 끝나면 바로 적용되어 뒤 시스템 · 17b · 17c 가 같은 틱에 본다. 트랩이면
+그 호출의 쓰기만 버리고 다음 시스템으로. System 이 도는 틱에만 (일시정지 · 세션 Lobby · Finished 의 편집 단계에는 없다). 시스템이
+없는 콘텐츠에서는 아무것도 하지 않는다 → 골든 · kSimVersion 그대로. 저장할 스크립트 상태가 없다 (주기는 틱 번호로만).
 
 `17b GameRules` (v0.2 M2-T2, [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md)): System 이 아니라
 SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱의 생성 · 파괴가 반영된 수로 끝 조건을 본다. 월드에 하나인
@@ -444,6 +452,8 @@ SimCommand ─▶ [2 Apply] ─ECB─▶ [3 Structural①] ─▶ Registry
 [9 Movement] ──▶ Transform ──▶ [10 Interaction] ── IntentBuffer ──▶ [11 Resolve] ──▶ 필드 변경 / ECB
                                                                                          │
      [12 Combat] [13 Resource] [14 Production] [15 Lifecycle] [16 Collision] ◀───────────┘
+                                         │
+                              [16b Scripts]   ─▶ 스크립트 컴포넌트 (시스템이 있을 때만, 팩 순서 · id)
                                          │
                               [17 Structural②] ─▶ Registry, destroyedLog, EventStream
                                          │

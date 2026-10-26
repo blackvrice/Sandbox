@@ -69,6 +69,7 @@ add_library(SandboxCore STATIC
     content/ContentDatabase.hpp
     content/ContentDatabase.cpp
     content/ContentModel.hpp
+    content/ScriptPrograms.hpp
     content/ContentLoader.hpp
     content/ContentLoader.cpp
     content/ContentOverlay.hpp
@@ -145,6 +146,8 @@ add_library(SandboxCore STATIC
     script/ScriptHost.cpp
     script/ScriptComponents.hpp
     script/ScriptComponents.cpp
+    script/ScriptSystemAdapter.hpp
+    script/ScriptSystemAdapter.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

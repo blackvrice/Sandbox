@@ -9,6 +9,9 @@
 //   3  Structural①      명령이 만든 엔티티에 정체성(saveId, netId) 부여 — 명령마다 즉시
 //   4  SpatialIndex     재구성
 //   5~16 Systems        (일시정지 중에는 건너뜀)
+//   16b Scripts         스크립트 시스템 onTick (팩 순서, id) — 콘텐츠에 시스템이 있을 때만
+//   (core/script/ScriptSystemAdapter,
+//                       v0.3 M4-T1, ADR-0062)
 //   17 Structural②      System ECB 를 실행 순서대로 적용 + 정체성 부여
 //   17b GameRules       game.session 전이 (카운트다운 · 끝 조건 — core/game/GameRules, ADR-0045). 세션이 없으면 없다
 //   17c Triggers        콘텐츠 Trigger 실행 (세션이 Running 일 때만 — SimulationTriggers.cpp, v0.2 M4-T2, ADR-0051)
@@ -44,6 +47,10 @@
 #include "core/simulation/SystemScheduler.hpp"
 #include "core/world/SpatialIndex.hpp"
 #include "core/world/WorldGrid.hpp"
+
+namespace sbx::script {
+class ScriptSystemAdapter;
+} // namespace sbx::script
 
 namespace sbx::sim {
 
@@ -169,6 +176,8 @@ public:
         u32 cut = 0;
     };
     [[nodiscard]] const TriggerStats& lastTriggerStats() const noexcept { return m_triggerStats; }
+    // 단계 16b 의 스크립트 시스템 (콘텐츠에 시스템이 없으면 null — 시험 · 진단)
+    [[nodiscard]] const script::ScriptSystemAdapter* scriptSystems() const noexcept { return m_scriptSystems.get(); }
 
 private:
     struct SlotIdentity {
@@ -264,6 +273,8 @@ private:
     } m_triggerSnap;
     TriggerStats m_triggerStats;
     u64 m_changeStamp = 0;
+    std::unique_ptr<script::ScriptSystemAdapter>
+        m_scriptSystems; // 콘텐츠에 시스템이 있을 때만 (팩 바이트코드는 콘텐츠의 것)
 };
 
 // 경계·머티리얼 검사 (세이브 로드·시나리오 설정 등 외부 입력용)

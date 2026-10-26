@@ -18,6 +18,7 @@
 | Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
 | 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) · 세이브 마이그레이션 (M3-T4, ADR-0061) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
 | 컴포넌트 읽기 · 질의 · 쓰기 (16장)     | 구현 (v0.3 M3-T3)     | Host 표 ctx.read · has · query · write, LOADK (.sbc 형식 2), `core/script/ScriptHost`, ADR-0060 |
+| 스크립트 시스템 (17장)                 | 구현 (v0.3 M4-T1)     | defineSystem (검사기), 시스템 표 (.sbc 형식 3), `core/script/ScriptSystemAdapter` (단계 16b), ADR-0062 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -32,7 +33,7 @@ TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대
 import     import { a, b as c } from "./상대경로" · from "sandbox" (SDK). 기본 · 이름공간 · 부수 효과 · import type ·
            동적 import 는 없다 (S321 · S322). 경로 = 가져오는 파일의 폴더 기준, 확장자 없이 ("./b" → b.ts), "." · ".." 마디,
            첫 폴더 (scripts/) 밖으로 나갈 수 없다. 없는 파일 · 없는 export · 순환 import 는 S416 (resolveImportPath)
-export     export 선언 · export default 식 (defineSystem — [계획 M4]). export { } · export * · export = 는 없다 (S320)
+export     export 선언 · export default defineSystem({ … }) 하나 (17장 — 다른 식은 S423). export { } · export * · export = 는 없다 (S320)
 ```
 
 ## 2. 낱말 (렉서 — `script/lang/Lexer`)
@@ -198,6 +199,7 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
 core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
   ScriptHost           Host 바인딩 목록 · 계약 검사 · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
   ScriptComponents     스키마 → ecs 동적 컴포넌트 설명 → 카탈로그 (15장)
+  ScriptSystemAdapter  단계 16b — 팩 바이트코드마다 인터프리터, (팩 순서, id) 차례로 onTick (17장)
 sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과와 같은지 본다)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
@@ -236,7 +238,7 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
 흐름       return 이 모든 길에 있어야 한다 (void 아니면 S412 — if/else 양쪽 · default 있는 switch). switch 의 빈 case 가
            아닌 떨어짐은 S420. break · continue 자리 S419
 최상위     const = number · i32 · boolean · string · enum 상수식 (리터럴 · 연산 · 앞의 const · enum 값 · NaN · Infinity ·
-           Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 [계획 M4] (S423).
+           Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 defineSystem 만 (17장 — 밖은 S423).
            예외 하나: const X = defineComponent({ … }) — 상수 인자를 스키마로 읽는다 (15장, S424 · S425)
 금지 이름  undefined · Date · console · eval · JSON · Map · Promise · setTimeout · parseInt … 은 S413 (이유와 대안을 말한다).
            SDK 이름을 가져오지 않으면 import { i32 } from "sandbox" 를 안내한다
@@ -270,14 +272,17 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 | S420 | switch 떨어짐                                                                          |
 | S421 | 재귀 함수의 반환 타입                                                                  |
 | S422 | 연산자 · 피연산자 타입 (조건 밖의 && · ! 포함)                                         |
-| S423 | [계획] 아직 없는 자리 (export default · 객체 메서드 — v0.3 M4)                          |
+| S423 | export default 의 defineSystem 아닌 식 · defineSystem 밖의 객체 메서드                  |
 | S424 | defineComponent 의 정의 (모양 · id · version · 필드 · 기본값 · 범위 · 플래그 — 15장)      |
 | S425 | defineComponent · field 를 최상위 const 의 정의 밖에서                                    |
+| S426 | defineSystem 의 정의 (모양 · id · domain · intervalTicks · onTick 서명 · 모르는 키 · 하나 더 — 17장) |
+| S427 | defineSystem 을 export default 밖에서 (const · 식 · 함수 안)                              |
 
 ## 12. 바이트코드 (v0.3 M1-T3 — `script/vm/Bytecode` · `Verifier`, `script/lang/Codegen`, ADR-0058)
 
 ```text
-모듈        팩 하나 = 모듈 하나 (모든 스크립트 파일을 잇는다). 함수 번호 = 검사기의 함수 순서, export = (파일 경로, 이름) → 함수
+모듈        팩 하나 = 모듈 하나 (모든 스크립트 파일을 잇는다). 함수 번호 = 검사기의 함수 순서, export = (파일 경로, 이름) → 함수,
+            시스템 표 (v0.3 M4-T1 — id 오름차순: id · 파일 · onTick 함수 번호 · intervalTicks, 17장)
 기계        레지스터 기계. 함수마다 레지스터 표 (≤ 4096, 레지스터마다 타입) + 명령열 (8 바이트 고정 {op, 0, a, b, c}).
             매개변수 = r0 … rn-1, 호출 인자 = 연속 레지스터 c … c+n-1, 점프 대상 · 32 비트 즉시값 = b | c << 16
 값          8 바이트 칸 하나 — i32 · f64 비트 · bool · 참조 · 불투명 핸들. 프레임 시작에 모두 0 (null · false · 0)
@@ -300,8 +305,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
             이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 [계획 M2]
-파일 .sbc   "SBXC" · 형식 2 (v0.3 M3-T3 — 컴포넌트 표 · LOADK, 형식 1 은 VersionMismatch) · hostApiVersion · 지문, 타입 · 문자열 ·
-            수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export 표 (리틀 엔디안, 개수마다
+파일 .sbc   "SBXC" · 형식 3 (v0.3 M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 형식 3 = 시스템 표 — 옛 형식은 VersionMismatch) ·
+            hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
 ```
@@ -344,7 +349,7 @@ ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을
 지금 항목   ctx.tick = 열린 호출의 틱. ctx.log = 서버 로그 "script" 범주 "<스크립트> t<틱>: <글>" + recentLogs (256 줄), 한 줄
             1024 바이트 (넘으면 UTF-8 글자 경계에서 자르고 …). 로그는 세계 상태가 아니라 바로 나간다 (트랩이어도 남는다)
 컴포넌트    (v0.3 M3-T3) beginCall(tick, 이름, 월드) · endCall(commit) — 컴포넌트 항목 · 개체 핸들 · 쓰기 버퍼는 16장.
-            엔진의 시스템 단계에서 부르기는 M4-T1 [계획]
+            엔진의 시스템 단계 (16b) 에서 부르기는 17장 (v0.3 M4-T1)
 SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더). declare module "sandbox" { i32 · toI32 · idiv · 불투명
             interface (__sandboxOpaque 표지 — 리터럴로 만들 수 없게) + 주인 타입의 멤버 (속성 = readonly, 메서드 = 표의 매개변수
             이름) }. 머리에 Host API 버전 · 지문. 저장소의 sdk/sandbox.d.ts 가 생성 결과와 같아야 한다 (시험) — Host 표를 바꾸면
@@ -434,4 +439,42 @@ export function regen(ctx: ServerContext): i32 {
 VM 경계    T 는 칸 목록 (필드 이름 순, Vec2 는 그 자리에서 x · y, 상자는 null = 0). 칸 수 · 잎 모양이 레지스터 타입과 다르면 HostError
            — 위조한 바이트코드가 Host 값을 참조로 읽지 못한다 (13장)
 결정성     같은 월드 · 같은 호출 = 같은 결과 · 같은 WorldHash (시험), 쓰기 뒤 세이브 → 로드 해시 일치
+```
+
+## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
+
+```ts
+import { defineSystem } from "sandbox";
+import { regen } from "./regen";               // 공용 코드는 최상위 function (16장의 예)
+export default defineSystem({
+  id: "rpg.mana.regen",                         // 이름공간.이름 (컴포넌트 id 와 같은 규칙) — 팩들 사이에 하나
+  domain: "server",                             // 선택 — "server" 만 (client 는 M5)
+  intervalTicks: 3,                             // 선택 — 1 ~ 65535, 기본 1
+  onTick(ctx) {                                 // ctx 는 적지 않아도 ServerContext, 반환은 void
+    regen(ctx);
+  },
+});
+```
+
+```text
+정의       모듈 (파일) 하나에 export default defineSystem({ … }) 하나. 값은 상수식 (검사기가 실행하지 않고 읽는다 — 15장과 같다).
+           onTick 은 메서드로만 (onTick: f 는 S426) — 메서드 하나 = 함수 하나 (Program::functions, 이름 onTick), 매개변수는 ctx 하나나
+           없음, 타입을 적으면 ServerContext, 반환 타입을 적으면 void. onStart · onStop · onEvent 는 M4-T2 [계획], stage 키는 없다
+           (단계는 하나). 결과 Program::systems (id · 파일 · 줄 · intervalTicks · onTick) — 오류 있는 정의는 없다
+진단       S426 정의 (모양 · id 규칙 · 엔진 이름공간 · 겹친 id · domain · intervalTicks · onTick 서명 · 모르는 키 · export default 둘),
+           S427 자리 (const · 식 · 함수 안의 defineSystem), S423 export default 의 다른 식 · 밖의 메서드
+바이트코드 모듈의 시스템 표 (.sbc 형식 3 — 12장): id 오름차순. 검증기가 id 규칙 · 순서 · 겹침 · 함수 번호 · onTick 서명
+           ((ServerContext?) → void) · 주기 범위를 본다
+콘텐츠     로드 0 단계가 팩마다 만든 모듈을 ContentDatabase::scriptPrograms 에 둔다 (11-CONTENT-SCHEMA 11장). 팩 사이의 같은 시스템
+           id 는 V1
+단계       시뮬레이션 단계 16b (03 2장) — Native System (5 ~ 16) 뒤, 17 Structural② 앞. System 이 도는 틱에만 (편집 단계 없음).
+           순서 = (팩 로드 순서, 시스템 id 바이트 순), 틱 번호 % intervalTicks == 0 인 틱에. 시스템이 없는 콘텐츠는 단계가 없다
+호출       시스템마다 ScriptHost::beginCall(틱, 시스템 id, 월드) → onTick(ctx) → endCall(트랩 아님). 쓰기는 호출이 끝나면 바로 적용 —
+           뒤 시스템 · 17b · 17c 가 같은 틱에 본다. ctx.log 는 "<시스템 id> t<틱>: …"
+트랩       그 호출의 쓰기만 버리고 다음 시스템으로 (그 시스템은 다음 주기에 다시 돈다). 로그는 시스템마다 처음 한 줄
+           ("<id> t<틱>: 트랩 <종류> — <글> (<팩>/<함수> pc n)"), 그 뒤는 세기만 (ScriptSystemAdapter::trapCount · lastStats). 끄는
+           정책 · 시스템 · 틱 예산은 M4-T3 [계획]. 연료는 호출마다 VM 기본 (1,000,000)
+d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server")
+결정성     시스템 상태가 없다 (주기는 틱 번호로만) — 세이브 → 로드 · 늦은 합류 뒤에도 같은 틱에 같은 시스템이 돈다. 같은 콘텐츠 =
+           같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
 ```

@@ -240,6 +240,7 @@ private:
         addType("Vec2", m_vec2);
         addBuiltin(m_sdkValues, "defineComponent", Builtin::DefineComponent, TypeTable::kError);
         addBuiltin(m_sdkValues, "field", Builtin::FieldNamespace, TypeTable::kError);
+        addBuiltin(m_sdkValues, "defineSystem", Builtin::DefineSystem, TypeTable::kError);
     }
 
     static ConstValue numberConst(f64 v) {
@@ -410,6 +411,7 @@ private:
         std::vector<std::pair<NodeId, SymbolId>> aliases;
         std::vector<std::pair<NodeId, SymbolId>> interfaces;
         std::vector<u32> fns;
+        std::vector<NodeId> defaults;
         for (const NodeId item : ast().kids(root)) {
             const Node& n = node(item);
             const std::string name(ast().str(item));
@@ -488,8 +490,7 @@ private:
                 break;
             }
             case NodeKind::ExportDefault:
-                err("S423", item,
-                    "export default 는 [계획 v0.3 M4] defineSystem 과 함께 — 지금은 export function · const");
+                defaults.push_back(item);
                 break;
             default:
                 break;
@@ -532,6 +533,14 @@ private:
             } else if (node(item).kind == NodeKind::VarDecl) {
                 declareModuleConst(item);
             }
+        }
+        // export default defineSystem — 모듈의 함수 서명 · const 가 다 정해진 뒤 (메서드 몸은 4 에서)
+        for (usize i = 0; i < defaults.size(); ++i) {
+            if (i > 0) {
+                err("S426", defaults[i], "export default 는 모듈에 하나 — 시스템마다 파일을 나눈다");
+                continue;
+            }
+            declareSystem(defaults[i]);
         }
     }
 
@@ -685,6 +694,207 @@ private:
         m_ready[id] = true;
     }
 
+    // ---- defineSystem (ADR-0062, 19 17장) --------------------------------------------------------------------------
+    // export default defineSystem({ id, domain?, intervalTicks?, onTick(ctx) { … } }) — 값은 상수, onTick 은 메서드
+    // 하나가 함수 하나 (Program::functions). 정의에 오류가 있어도 메서드 몸은 검사한다 (이어지는 진단을 위해)
+    void declareSystem(NodeId item) {
+        const NodeId init = ast().kid(item, 0);
+        if (init != kNoNode && node(init).kind == NodeKind::Call && node(ast().kid(init, 0)).kind == NodeKind::Ident &&
+            ast().str(ast().kid(init, 0)) == "defineSystem" &&
+            !isSdkBuiltin(ast().kid(init, 0), Builtin::DefineSystem)) {
+            err("S401", ast().kid(init, 0), "없는 이름 'defineSystem' — import { defineSystem } from \"sandbox\"");
+            return;
+        }
+        if (init == kNoNode || node(init).kind != NodeKind::Call ||
+            !isSdkBuiltin(ast().kid(init, 0), Builtin::DefineSystem)) {
+            err("S423", item, "export default 는 defineSystem({ … }) 만 — 다른 것은 export function · const 로");
+            return;
+        }
+        const auto kids = ast().kids(init);
+        if (kids.size() != 2 || node(kids[1]).kind != NodeKind::ObjectLit) {
+            err("S426", init, "defineSystem({ id, onTick(ctx) { … } }) — 객체 리터럴 하나를 넘긴다");
+            return;
+        }
+        SystemDecl sd;
+        sd.module = mod().path;
+        sd.line = node(init).pos.line;
+        sd.column = node(init).pos.column;
+        sd.decl = init;
+        bool ok = true;
+        bool haveId = false;
+        bool haveTick = false;
+        std::vector<std::string> seen;
+        for (const NodeId p : ast().kids(kids[1])) {
+            const std::string key(ast().str(p));
+            const bool method = node(p).kind == NodeKind::Method;
+            if (std::find(seen.begin(), seen.end(), key) != seen.end()) {
+                err("S402", p, std::format("키 '{}' 가 두 번 있다", key));
+                ok = false;
+                continue;
+            }
+            seen.push_back(key);
+            if (key == "onTick") {
+                if (!method) {
+                    err("S426", p,
+                        "onTick 은 메서드로 적는다 — onTick(ctx) { … } (공용 코드는 최상위 function 을 부른다)");
+                    ok = false;
+                    continue;
+                }
+                sd.onTick = declareSystemMethod(p, ok);
+                haveTick = true;
+                continue;
+            }
+            if (key == "onStart" || key == "onStop" || key == "onEvent") {
+                err("S426", p, std::format("{} 는 [계획 v0.3 M4-T2] — 지금은 onTick 만", key));
+                ok = false;
+                continue;
+            }
+            if (key == "onUpdate") {
+                err("S426", p, "onUpdate 는 client 도메인 [계획 v0.3 M5] — 서버 시스템은 onTick");
+                ok = false;
+                continue;
+            }
+            if (method) {
+                err("S426", p, std::format("defineSystem 의 메서드는 onTick 뿐이다 ('{}')", key));
+                ok = false;
+                continue;
+            }
+            if (node(p).kind != NodeKind::Property || (node(p).flags & NodeFlag::Shorthand) != 0) {
+                err("S426", p, std::format("defineSystem 의 '{}' 는 키: 상수 로 적는다", key));
+                ok = false;
+                continue;
+            }
+            const NodeId value = ast().kid(p, 0);
+            if (key == "id" || key == "domain") {
+                const TypeId t = expr(value, TypeTable::kString);
+                if (T().isError(t) || !assignTo(value, t, TypeTable::kString)) {
+                    ok = false;
+                    continue;
+                }
+                if (cval(value).kind != ConstValue::Kind::String) {
+                    err("S426", value, std::format("{} 는 문자열 상수다", key));
+                    ok = false;
+                    continue;
+                }
+                const std::string& text = cval(value).string;
+                if (key == "domain") {
+                    if (text != "server") {
+                        err("S426", value,
+                            text == "client" ? std::string("domain \"client\" 는 [계획 v0.3 M5] — 지금은 \"server\" 만")
+                                             : std::format("domain '{}' — \"server\" 만 (기본값)", text));
+                        ok = false;
+                    }
+                    continue;
+                }
+                sd.id = text;
+                haveId = true;
+                if (!api::isValidComponentId(sd.id)) {
+                    err("S426", value,
+                        std::format(
+                            "id '{}' — 이름공간.이름 (소문자 · 숫자 · _ · 점, 점 하나 이상: \"rpg.mana.regen\")",
+                            sd.id));
+                    ok = false;
+                } else if (api::isEngineComponentNamespace(sd.id)) {
+                    err("S426", value,
+                        std::format("id '{}' 는 엔진 이름공간이다 — 게임 · 스튜디오 이름공간을 쓴다", sd.id));
+                    ok = false;
+                } else {
+                    for (const SystemDecl& other : P.systems) {
+                        if (other.id == sd.id) {
+                            err("S426", value,
+                                std::format("시스템 id '{}' 가 이미 {}:{} 에 있다", sd.id, other.module, other.line));
+                            ok = false;
+                        }
+                    }
+                }
+            } else if (key == "intervalTicks") {
+                const auto v = constI32Arg(value, "intervalTicks", "S426");
+                if (!v) {
+                    ok = false;
+                } else if (*v < 1 || static_cast<u32>(*v) > kMaxSystemIntervalTicks) {
+                    err("S426", value, std::format("intervalTicks 는 1 ~ {} — {} 이다", kMaxSystemIntervalTicks, *v));
+                    ok = false;
+                } else {
+                    sd.intervalTicks = static_cast<u32>(*v);
+                }
+            } else if (key == "stage") {
+                err("S426", p, "단계는 하나로 고정이다 (16b — 순서는 팩 순서 · 시스템 id, ADR-0062)");
+                ok = false;
+            } else {
+                err("S426", p,
+                    std::format("defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · onTick", key));
+                expr(value, kNoExpect);
+                ok = false;
+            }
+        }
+        if (!haveId) {
+            err("S426", init, "defineSystem 에 id 가 없다 (\"rpg.mana.regen\")");
+            ok = false;
+        }
+        if (!haveTick) {
+            err("S426", init, "defineSystem 에 onTick(ctx) { … } 이 없다");
+            ok = false;
+        }
+        if (ok) {
+            P.systems.push_back(std::move(sd));
+        }
+    }
+
+    // 시스템 메서드 → 함수 하나 (서명: 매개변수 0 · 1 개 — 타입을 적지 않으면 ServerContext, 반환 void). 서명이 틀리면
+    // ok = false (몸은 그래도 검사한다 — 적은 반환 타입으로)
+    u32 declareSystemMethod(NodeId m, bool& ok) {
+        FunctionInfo f;
+        f.name = std::string(ast().str(m));
+        f.module = m_ctx.module;
+        f.decl = m;
+        f.result = TypeTable::kVoid;
+        f.resultDeclared = true;
+        const auto kids = ast().kids(m);
+        const usize paramCount = kids.size() - 2;
+        const TypeId ctxType = T().opaque(api::AbiType::ServerContext);
+        if (paramCount > 1) {
+            err("S426", kids[1], std::format("{} 의 매개변수는 ctx 하나다", f.name));
+            ok = false;
+        }
+        for (usize i = 0; i < paramCount; ++i) {
+            const NodeId p = kids[i];
+            TypeId pt = ctxType;
+            if (ast().kid(p, 0) != kNoNode) {
+                pt = resolveType(ast().kid(p, 0), false);
+                if (!T().isError(pt) && pt != ctxType) {
+                    err("S426", p, std::format("{} 의 ctx 는 ServerContext 다 — {} 이다", f.name, T().name(pt)));
+                    pt = TypeTable::kError;
+                    ok = false;
+                }
+            }
+            if (i > 0) {
+                pt = TypeTable::kError;
+            }
+            Symbol s;
+            s.kind = SymbolKind::Param;
+            s.name = std::string(ast().str(p));
+            s.type = pt;
+            s.module = f.module;
+            s.decl = p;
+            s.mutableVar = true;
+            const SymbolId sid = newSymbol(std::move(s));
+            m_ready[sid] = true;
+            sema(p) = {pt, RefKind::Symbol, sid};
+            f.params.push_back(pt);
+            f.paramSymbols.push_back(sid);
+        }
+        if (const NodeId ret = kids[paramCount]; ret != kNoNode) {
+            const TypeId rt = resolveType(ret, true);
+            if (!T().isError(rt) && rt != TypeTable::kVoid) {
+                err("S426", ret, std::format("{} 는 값을 돌려주지 않는다 (void) — {} 이다", f.name, T().name(rt)));
+                f.result = rt; // 몸의 return 이 이어서 S412 를 내지 않게
+                ok = false;
+            }
+        }
+        P.functions.push_back(std::move(f));
+        return static_cast<u32>(P.functions.size() - 1);
+    }
+
     // ---- defineComponent (ADR-0059, 19 15장) -----------------------------------------------------------------------
     // 조용한 찾기 (최상위 문맥 — 모듈 이름공간 · 전역). 없으면 보통 길이 S401 을 낸다
     bool isSdkBuiltin(NodeId n, Builtin b) {
@@ -702,19 +912,19 @@ private:
         return node(init).kind == NodeKind::Call && isSdkBuiltin(ast().kid(init, 0), Builtin::DefineComponent);
     }
 
-    std::optional<f64> constNumberArg(NodeId v, std::string_view what) {
+    std::optional<f64> constNumberArg(NodeId v, std::string_view what, const char* code = "S424") {
         const TypeId t = expr(v, TypeTable::kNumber);
         if (T().isError(t) || !assignTo(v, t, TypeTable::kNumber)) {
             return std::nullopt;
         }
         const ConstValue& c = cval(v);
         if (!c.has() || !std::isfinite(c.asNumber())) {
-            err("S424", v, std::format("{} 는 유한한 수 상수다", what));
+            err(code, v, std::format("{} 는 유한한 수 상수다", what));
             return std::nullopt;
         }
         return c.asNumber();
     }
-    std::optional<i32> constI32Arg(NodeId v, std::string_view what) {
+    std::optional<i32> constI32Arg(NodeId v, std::string_view what, const char* code = "S424") {
         const TypeId t = expr(v, TypeTable::kI32);
         if (T().isError(t) || !assignTo(v, t, TypeTable::kI32)) {
             return std::nullopt;
@@ -726,7 +936,7 @@ private:
         if (c.kind == ConstValue::Kind::Number && fitsI32(c.number)) {
             return static_cast<i32>(c.number);
         }
-        err("S424", v, std::format("{} 는 i32 정수 상수다", what));
+        err(code, v, std::format("{} 는 i32 정수 상수다", what));
         return std::nullopt;
     }
     std::optional<bool> constBoolArg(NodeId v, std::string_view what) {
@@ -2067,6 +2277,10 @@ private:
                 err("S425", n, std::format("'{}' 는 최상위 const 의 defineComponent({{ … }}) 안에서만 쓴다", name));
                 return set(n, TypeTable::kError);
             }
+            if (s.builtin == Builtin::DefineSystem) {
+                err("S427", n, "defineSystem 은 export default defineSystem({ … }) 으로만 쓴다");
+                return set(n, TypeTable::kError);
+            }
             err("S411", n, std::format("'{}' 는 값이 아니다 — 부르거나 멤버를 쓴다", name));
             return set(n, TypeTable::kError);
         }
@@ -2539,6 +2753,11 @@ private:
                 err("S425", callee, "defineComponent 는 최상위 const 의 초기값으로만 부른다 (export const Mana = …)");
                 return set(n, TypeTable::kError);
             }
+            if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineSystem) {
+                err("S427", callee,
+                    "defineSystem 은 export default defineSystem({ … }) 으로만 부른다 (파일 하나에 하나)");
+                return set(n, TypeTable::kError); // 인자는 보지 않는다 (메서드가 S423 으로 이어지지 않게)
+            }
             err("S411", callee, std::format("'{}' 는 부를 수 없다", name));
             argsLoose(n);
             return set(n, TypeTable::kError);
@@ -2806,7 +3025,7 @@ private:
         std::vector<std::string> seen;
         for (const NodeId p : props) {
             if (node(p).kind == NodeKind::Method) {
-                err("S423", p, "객체 리터럴의 메서드는 [계획 v0.3 M4] defineSystem 안에서만");
+                err("S423", p, "객체 리터럴의 메서드는 export default defineSystem({ … }) 안에서만 (onTick)");
                 continue;
             }
             const std::string key(ast().str(p));

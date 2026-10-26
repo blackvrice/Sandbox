@@ -17,6 +17,8 @@ using bc::Op;
 
 constexpr u32 kUnset = 0xFFFF'FFFFu;
 
+static_assert(kMaxSystemIntervalTicks == bc::kMaxIntervalTicks);
+
 class Gen {
 public:
     Gen(const Program& p, DiagnosticList& d) : P(p), D(d) {}
@@ -40,6 +42,12 @@ public:
                 }
             }
         }
+        // 시스템 표 — id 오름차순 (실행 순서의 둘째 열쇠 · 검증기가 본다, ADR-0062)
+        for (const SystemDecl& s : P.systems) {
+            M.systems.push_back({s.id, s.module, s.onTick, s.intervalTicks});
+        }
+        std::sort(M.systems.begin(), M.systems.end(),
+                  [](const bc::SystemDesc& a, const bc::SystemDesc& b) { return a.id < b.id; });
         if (m_failed) {
             return std::nullopt;
         }

@@ -8,6 +8,7 @@
 #include <set>
 
 #include "core/components/game/GameScore.hpp"
+#include "core/content/ScriptPrograms.hpp"
 #include "core/script/ScriptComponents.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "core/trigger/TriggerCompiler.hpp"
@@ -2269,6 +2270,8 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
 
 void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>>& files) {
     std::shared_ptr<ecs::ComponentCatalog> ext;
+    auto programs = std::make_shared<ScriptPrograms>();
+    std::map<std::string, std::string, std::less<>> systemAt; // 시스템 id → "<폴더>/scripts/a.ts" (팩 사이 겹침 — V1)
     for (usize i = 0; i < m_order.size(); ++i) {
         const PackDir& p = m_order[i];
         std::vector<script::SourceFile> sources;
@@ -2284,7 +2287,20 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
         script::DiagnosticList diags;
         const script::Program program = script::checkProgram(sources, diags);
         if (diags.ok()) {
-            (void)script::generateBytecode(program, diags); // 바이트코드는 [계획 M4-T1] 시스템과 함께 DB 에 둔다
+            if (std::optional<script::bc::Module> module = script::generateBytecode(program, diags)) {
+                for (const script::bc::SystemDesc& s : module->systems) {
+                    const std::string at = p.folder + "/" + s.module;
+                    if (const auto it = systemAt.find(s.id); it != systemAt.end()) {
+                        const auto decl = std::find_if(program.systems.begin(), program.systems.end(),
+                                                       [&](const script::SystemDecl& d) { return d.id == s.id; });
+                        error(at, decl != program.systems.end() ? std::format("{}:{}", decl->line, decl->column) : "",
+                              "V1", std::format("시스템 id '{}' 가 이미 {} 에 있다", s.id, it->second));
+                    } else {
+                        systemAt.emplace(s.id, at);
+                    }
+                }
+                programs->packs.push_back(ScriptPackProgram{p.info.id, p.folder, std::move(*module)});
+            }
         }
         for (const script::Diagnostic& d : diags.items()) {
             issue(d.severity == script::Diagnostic::Severity::Error ? Severity::Error : Severity::Warning,
@@ -2318,6 +2334,9 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
         m_db.m_catalog = ext;
         m_catalog = ext.get();
     }
+    if (!programs->packs.empty()) {
+        m_db.m_programs = std::move(programs);
+    }
 }
 
 ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const ContentOverlay* overlay,
@@ -2341,6 +2360,7 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
     if (scriptsFrom != nullptr) {
         m_db.m_catalog = scriptsFrom->m_catalog;
         m_db.m_scriptComponents = scriptsFrom->m_scriptComponents;
+        m_db.m_programs = scriptsFrom->m_programs;
         if (m_db.m_catalog) {
             m_catalog = m_db.m_catalog.get();
         }

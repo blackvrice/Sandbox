@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M4-T1 — defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick
+다음     v0.3 M4-T2 — onStart · onStop · onEvent (구독 — 죽음 · 생성 · 영역 · 점수, 트리거 이벤트와 공용), 재진입 · 폭주 제한
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -86,7 +86,7 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
   script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
                         vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1) · sdk (d.ts 생성 ✅ M2-T2)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
-  core/script           Host 바인딩 ✅ M2-T2 · 스크립트 컴포넌트 → 카탈로그 ✅ M3-T1 (core/ecs 동적 풀) · [계획] ScriptSystemAdapter (M4)
+  core/script           Host 바인딩 ✅ M2-T2 · 스크립트 컴포넌트 → 카탈로그 ✅ M3-T1 (core/ecs 동적 풀) · ScriptSystemAdapter 단계 16b ✅ M4-T1
                         — SandboxCore 가 SandboxScript 를 링크
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
 ```
@@ -286,8 +286,10 @@ M3 사용자 Component (D-03 — 태스크 넷으로 나눴다: 정의 · 로드
   → M3 완료 (2026-10-26): defineComponent → 콘텐츠의 카탈로그 → Prefab · 명령 · Inspector · 세이브/로드 · 복제 · WorldHash,
     스크립트의 읽기 · 질의 · 쓰기 (버퍼), 스키마 version 마이그레이션
 M4 Script System
-  T1 [계획] defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick (intervalTicks),
-            스크립트 없는 월드 = 골든 그대로
+  T1 ✅ ADR-0062: export default defineSystem({ id, domain?, intervalTicks?, onTick(ctx) { } }) — 검사기 (Program::systems, 메서드 =
+        함수 하나, S426 · S427), .sbc 형식 3 시스템 표 (id 순 · 서명 검증), 콘텐츠 ScriptPrograms (팩 사이 같은 id V1), 단계 16b
+        (Native System 뒤 · 17 앞) ScriptSystemAdapter — (팩 순서, id) · 틱 % intervalTicks, 트랩이면 그 호출만 버림. 시스템 없는
+        월드 = 골든 그대로, 세이브 → 로드 해시 일치 (상태 없음)
   T2 [계획] onStart · onStop · onEvent (구독 — 죽음 · 생성 · 영역 · 점수, 트리거 이벤트와 공용), 재진입 · 폭주 제한
   T3 [계획] 예산 (연료 · 메모리 · 질의 · 이벤트 · HostCall — 호출 · 틱) · 트랩 정책 (시스템 끄기 기준) · 시스템별 통계 (메트릭 · 로그)
 M5 도구
@@ -336,6 +338,7 @@ v0.3 M3-T1 ✅  ADR-0059 (D-03), 19 (0 · 1 · 9 · 11 · 14 · 15장 — 컴포
 v0.3 M3-T2 ✅  11 (1 · 1.2 · 8 · 11장 — 팩의 scripts/), 19 (0 · 15장), 02 9.6, 17, 13
 v0.3 M3-T3 ✅  ADR-0060 (ADR-0057 4 · 초안 setField 를 대신), 19 (0 · 10 · 11 · 12 · 13 · 14 · 15 · 16장), 17, 13
 v0.3 M3-T4 ✅  ADR-0061, 09 6장, 19 (0 · 15장), 13
+v0.3 M4-T1 ✅  ADR-0062, 03 2장 (16b), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 1 · 9 · 11 · 12 · 14 · 17장), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -371,4 +374,5 @@ v0.3 M3-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M3-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +8 (test_script_content) · unit_network +1 (복제)
 v0.3 M3-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 (test_component_host)
 v0.3 M3-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +2 (test_script_content — 마이그레이션)
+v0.3 M4-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 (test_script_systems)
 ```

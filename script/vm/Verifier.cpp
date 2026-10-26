@@ -108,6 +108,7 @@ public:
                 function(static_cast<u32>(i));
             }
             exports();
+            systems();
         }
         return std::move(R);
     }
@@ -227,6 +228,37 @@ private:
                 if (M.exports[k].module == e.module && M.exports[k].name == e.name) {
                     fail(std::format("export {}:{} 가 두 번 있다", e.module, e.name));
                 }
+            }
+        }
+    }
+
+    // 시스템 표 (ADR-0062): id 규칙 · 오름차순 (겹침 없음), onTick = (ServerContext?) → void, 주기 1 ~ 65535
+    void systems() {
+        for (usize i = 0; i < M.systems.size(); ++i) {
+            const SystemDesc& s = M.systems[i];
+            if (!api::isValidComponentId(s.id) || api::isEngineComponentNamespace(s.id)) {
+                fail(
+                    std::format("시스템 {}: '{}' 는 시스템 id 가 아니다 (이름공간.이름, 엔진 이름공간 금지)", i, s.id));
+            }
+            if (i > 0 && !(M.systems[i - 1].id < s.id)) {
+                fail(std::format("시스템 {}: '{}' — 표가 id 오름차순이 아니다 · 겹친다", i, s.id));
+            }
+            if (!validUtf8(s.module)) {
+                fail(std::format("시스템 {}: 모듈 경로가 UTF-8 이 아니다", i));
+            }
+            if (s.intervalTicks < 1 || s.intervalTicks > kMaxIntervalTicks) {
+                fail(std::format("시스템 {}: intervalTicks {} 는 1 ~ {} 밖이다", s.id, s.intervalTicks,
+                                 kMaxIntervalTicks));
+            }
+            if (s.onTick >= M.functions.size()) {
+                fail(std::format("시스템 {}: onTick 함수 {} 가 없다", s.id, s.onTick));
+                continue;
+            }
+            const Function& f = M.functions[s.onTick];
+            const bool ctxOk = f.params.empty() || (f.params.size() == 1 && kindOf(f.params[0]) == TypeKind::Opaque &&
+                                                    M.types[f.params[0]].abi == api::AbiType::ServerContext);
+            if (!ctxOk || kindOf(f.result) != TypeKind::Void) {
+                fail(std::format("시스템 {}: onTick 의 서명은 (ServerContext) → void 다", s.id));
             }
         }
     }

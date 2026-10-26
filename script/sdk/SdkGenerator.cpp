@@ -105,6 +105,20 @@ std::string generateSandboxDts() {
     out += "  export function defineComponent<F extends { [name: string]: Field<unknown> }>(\n";
     out += "    definition: ComponentDefinition<F>,\n";
     out += "  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;\n";
+    // 시스템 정의 (ADR-0062) — export default 의 식으로만, 값은 상수 (19 17장)
+    out += "  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
+    out += "  export interface SystemDefinition {\n";
+    out += "    /** \"이름공간.이름\" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */\n";
+    out += "    id: string;\n";
+    out += "    /** \"server\" 만 (기본) */\n";
+    out += "    domain?: \"server\";\n";
+    out += "    /** n 틱마다 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */\n";
+    out += "    intervalTicks?: i32;\n";
+    out += "    /** 단계 16b — Native System 뒤, 구조 변경 · 게임 규칙 · 트리거 앞. 쓰기는 호출이 끝나면 적용 */\n";
+    out += "    onTick(ctx: ServerContext): void;\n";
+    out += "  }\n";
+    out += "  /** 스크립트 시스템 (서버) */\n";
+    out += "  export function defineSystem(definition: SystemDefinition): SystemDefinition;\n";
     for (const api::OpaqueTypeInfo& o : api::kOpaqueTypes) {
         out += "\n";
         out += std::format("  /** {} */\n", o.doc);

@@ -7,6 +7,51 @@
 
 ---
 
+## 2026-10-26 — v0.3 M4-T1: defineSystem · ScriptSystemAdapter · 단계 16b (ADR-0062)
+
+**무엇을**
+
+- 검사기: `export default defineSystem({ id, domain?, intervalTicks?, onTick(ctx) { … } })` — 상수 정의를 `Program::systems` 로,
+  onTick 메서드 하나 = 함수 하나 (ctx 를 적지 않으면 ServerContext, 반환 void). 진단 S426 (정의) · S427 (자리), S423 은 "export
+  default 의 다른 식 · defineSystem 밖의 메서드" 로 좁혔다. 가져오지 않은 defineSystem 은 import 를 안내하는 S401.
+- 바이트코드 .sbc 형식 3: 모듈의 시스템 표 (id 오름차순 — id · 파일 · onTick 함수 번호 · intervalTicks). 검증기가 id 규칙 · 순서 ·
+  겹침 · 함수 번호 · onTick 서명 · 주기를 본다. 코드 생성이 표를 id 순으로 쓴다.
+- 콘텐츠: 로드 0 단계가 팩마다 만든 모듈을 `ContentDatabase::scriptPrograms` (core/content/ScriptPrograms) 에 둔다 — 오버레이 DB 와
+  나눈다. 팩 사이 같은 시스템 id 는 V1.
+- `core/script/ScriptSystemAdapter`: 팩 모듈마다 인터프리터, ScriptHost 하나. 단계 16b (Native System 뒤, 17 Structural② 앞) 에서
+  (팩 순서, id) 차례로 틱 % intervalTicks == 0 인 시스템의 onTick 을 부른다 (beginCall → call → endCall(트랩 아님)). 트랩이면 그
+  호출의 쓰기만 버리고 다음 시스템으로, 로그는 시스템마다 첫 트랩 한 줄. SimulationWorld 는 콘텐츠에 시스템이 있을 때만 만든다.
+- sandbox.d.ts 에 SystemDefinition · defineSystem (sbx sdk sdk 로 다시 만듦 — Host 표 지문은 그대로).
+- 시험: test_script_systems 7 케이스 (unit_script), test_component_host 의 형식 번호 2 → 3.
+- 문서: ADR-0062, 03 2장 (16b · 그림), 04 (simVersion 이력 — 올리지 않음), 11 (8 · 11장), 19 (0 · 1 · 9 · 11 · 12 · 14 · 17장),
+  18 (M4-T1 ✅, 다음 M4-T2), 17, 13.
+
+**왜**
+
+- 스크립트가 컴포넌트를 정의 · 읽기 · 쓰기까지 하지만 시뮬레이션이 부르는 자리가 없었다. ADR-0057 7 의 조건 (단계 하나, 순서 = 팩
+  순서 · id, 스크립트 없는 월드는 그대로) 을 구체화했다.
+- 16b (17 앞) 는 앞으로의 생성 · 파괴 (ECB) 가 같은 틱에 반영될 자리이고, 17b · 17c 가 스크립트 결과를 같은 틱에 본다. 스케줄러의
+  System 으로 넣지 않아 스크립트 없는 월드의 스케줄러 목록 · 프로파일이 그대로다.
+- 주기를 틱 번호로만 정해 세이브에 스크립트 상태가 생기지 않는다 (ADR-0056 4).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — kSimVersion 4).
+  unit_script +7. `tools/check_includes.py`: 474 파일 위반 0.
+- 실행 (스크래치): ManaGame 프로젝트에 `eco.mana.regen` (intervalTicks 30 — 16장의 regen 을 부르고 90 틱마다 ctx.log) 을 더해
+  `sbx check` 통과, `SandboxServer --world ManaGame --ticks 300 --exit --port 0` 이 "[script] eco.mana.regen t90/t180/t270" 로그 뒤
+  tick 300. 저장소 ecosystem 팩 복사본 (토끼에 eco.mana) 으로 `sbx_sim_check --scenario ecosystem_small --content-root sysroot
+  --ticks 300 --repeat 2 --save-at 135 --threads 0,1,4` 가 토끼 75 마리를 재생하며 D1 · D2 · D5 일치. intervalTicks 0 · stage 키를
+  넣으면 `sbx check` 가 "content/ecosystem/scripts/regen_system.ts:5:18: 오류 S426 — …" 두 줄로 거절.
+- 벤치: 스크립트 없는 월드의 틱 경로는 포인터 검사 하나라 sbx_bench 를 다시 재지 않았다. 스크립트 시스템의 비용 (10k 대상) 은 M6-T1.
+
+**남은 일**
+
+- M4-T2: onStart · onStop · onEvent, M4-T3: 예산 · 트랩 정책 (시스템 끄기) · 시스템별 통계. 스크립트의 생성 · 파괴 (ECB) 는 Host 항목과
+  함께 [계획].
+
+---
+
 ## 2026-10-26 — v0.3 M3-T4: 스크립트 컴포넌트의 세이브 자동 마이그레이션 (ADR-0061) → M3 완료
 
 **무엇을**

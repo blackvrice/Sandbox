@@ -59,6 +59,19 @@ declare module "sandbox" {
   export function defineComponent<F extends { [name: string]: Field<unknown> }>(
     definition: ComponentDefinition<F>,
   ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
+  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
+  export interface SystemDefinition {
+    /** "이름공간.이름" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */
+    id: string;
+    /** "server" 만 (기본) */
+    domain?: "server";
+    /** n 틱마다 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */
+    intervalTicks?: i32;
+    /** 단계 16b — Native System 뒤, 구조 변경 · 게임 규칙 · 트리거 앞. 쓰기는 호출이 끝나면 적용 */
+    onTick(ctx: ServerContext): void;
+  }
+  /** 스크립트 시스템 (서버) */
+  export function defineSystem(definition: SystemDefinition): SystemDefinition;
 
   /** 개체 핸들 — 같음 비교만, 틱을 넘겨 두려면 EntityRef 필드에 */
   export interface Entity {
