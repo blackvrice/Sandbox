@@ -1,6 +1,8 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <set>
 
@@ -477,6 +479,76 @@ TEST_SUITE("net") {
 
     TEST_CASE("net convergence: 100 ms ± 20, 5 % loss both ways, 64 KB/s budget") {
         convergeOver({.latencyMs = 100, .jitterMs = 20, .lossRate = 0.05, .seed = 11}, 64 * 1024, 300);
+    }
+
+    TEST_CASE("replication: 팩 스크립트 컴포넌트도 내장과 같은 바이트로 복제된다 (v0.3 M3-T2)") {
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / "sbx-tests" / "replication-script";
+        std::error_code ec;
+        fs::remove_all(root, ec);
+        auto write = [&](const std::string& rel, std::string_view text) {
+            fs::create_directories((root / rel).parent_path());
+            std::ofstream(root / rel, std::ios::binary) << text;
+        };
+        write("t/pack.json", R"({"id": "t", "version": "1"})");
+        write("t/scripts/mana.ts", R"(import { defineComponent, field } from "sandbox"
+export const Mana = defineComponent({ id: "t.mana", fields: { current: field.f32(10), home: field.vec2(1, 2) } })
+export const Secret = defineComponent({ id: "t.secret", serverOnly: true, fields: { n: field.i32(7) } })
+)");
+        write("t/prefabs/wisp.json",
+              R"({"id": "t.wisp", "components": {"core.transform": {}, "t.mana": {"current": 3.5}, "t.secret": {}}})");
+        const std::vector<std::string> packs{"t"};
+        auto db = content::loadContent(root, packs, catalog());
+        REQUIRE_MESSAGE(db.has_value(), db.error().describe());
+
+        sim::WorldDesc desc;
+        desc.bounds = world::GridBounds{world::ChunkCoord{-1, -1}, world::ChunkCoord{0, 0}};
+        desc.fillMaterial = "core.grass";
+        sim::SimulationWorld world(catalog(), *db, desc);
+        u32 seq = 0;
+        for (int i = 0; i < 3; ++i) {
+            world.enqueue(cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, 1, ++seq},
+                                          cmd::CreateEntity{{static_cast<f32>(i), 0.f}, {}, "t.wisp"}});
+        }
+        world.tick();
+
+        ReplicationWriter writer(world.catalog(), allTerrainAtOnce());
+        const ecs::StableId mana = fnv1a64("t.mana");
+        CHECK(std::find(writer.table().begin(), writer.table().end(), mana) != writer.table().end());
+        CHECK(std::find(writer.table().begin(), writer.table().end(), fnv1a64("t.secret")) == writer.table().end());
+        writer.addClient(1);
+        auto client = ClientWorld::create(catalog(), *db, welcomeFor(world, writer));
+        REQUIRE(client.has_value());
+        CHECK(&(*client)->catalog() == db->scriptCatalog().get());
+        auto exchange = [&] {
+            std::vector<std::pair<u16, Message>> out;
+            writer.build(world, out);
+            for (auto& [id, m] : out) {
+                auto back = decodeMessage(encodeMessage(m));
+                REQUIRE(back.has_value());
+                if (auto* t = std::get_if<TerrainChunk>(&*back)) {
+                    (*client)->apply(*t);
+                } else if ((*client)->apply(std::get<Snapshot>(*back))) {
+                    const auto& snap = std::get<Snapshot>(*back);
+                    writer.onAck(1, snap.epoch, snap.snapshotId);
+                }
+            }
+        };
+        exchange();
+        requireConverged(world, **client);
+
+        // 바뀐 값이 간다
+        const NetEntityId first =
+            world.registry().read<comp::NetIdentity>(world.registry().poolByStableId(mana)->entityAt(0)).netId;
+        world.enqueue(cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, 1, ++seq},
+                                      cmd::ChangeComponent{first, mana, ecs::Json{{"current", 9.25}}}});
+        world.tick();
+        exchange();
+        requireConverged(world, **client);
+        const ecs::ComponentInfo* info = (*client)->catalog().find(mana);
+        const void* raw = (*client)->registry().poolByStableId(mana)->getRaw((*client)->find(first));
+        REQUIRE(raw != nullptr);
+        CHECK(info->getNumber(raw, "current") == 9.25);
     }
 
 } // TEST_SUITE

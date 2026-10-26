@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-26 — v0.3 M3-T2: 콘텐츠 팩 scripts/ 컴파일 → 콘텐츠마다 카탈로그 → Prefab · 명령 · 세이브 · 복제
+
+**무엇을**
+
+- `core/content/ContentLoader`: 로드 0 단계 — 팩 순서로 `scripts/**/*.ts` 를 팩마다 검사 + 코드 생성. 진단은 콘텐츠 문제
+  ("<팩 폴더>/scripts/a.ts:줄:열: 오류 S404 — …", 규칙 = 진단 코드). defineComponent 가 정의한 컴포넌트를 엔진 카탈로그의 복사에
+  넣어 그 카탈로그로 Prefab · Rule · 트리거를 검사한다 (겹치는 id = V1). 다른 함수에 오류가 있어도 오류 없는 정의는 넣는다.
+  오버레이는 스크립트를 다시 컴파일하지 않고 base 의 카탈로그를 나눈다. 동적 컴포넌트가 든 카탈로그를 받으면 그것을 빼고 시작한다.
+- `ContentDatabase::worldCatalog(엔진)` · `scriptCatalog` · `scriptComponents`. 스크립트 컴포넌트가 없으면 카탈로그를 만들지 않는다
+  (엔진 카탈로그 그대로 — 스크립트 없는 월드는 지금과 같다).
+- 월드가 그 카탈로그를 쓴다: SimulationWorld 생성자 · persist::loadWorld · ClientWorld::create · 에디터 NetworkSession::catalog
+  (복제 월드가 있으면 그 카탈로그 — Inspector · 되돌리기). ComponentCatalog::hasDynamic · withoutDynamic.
+- `core/script/ScriptComponents`: 문제를 구조체 ScriptComponentProblem 으로 (모듈 · 줄 · 열 · id · 이유).
+- 시험: test_script_content 8 케이스 (unit_content), test_replication +1 (unit_network). 문서 11 (1 · 1.2 · 8 · 11장), 19, 02, 18, 17, 13.
+
+**왜**
+
+- ADR-0059 6 의 "콘텐츠마다 카탈로그": 한 프로세스의 월드들 (에디터의 편집 · 테스트 플레이, 도구) 이 섞이지 않게 카탈로그를 콘텐츠
+  DB 가 든다. 부르는 쪽 (서버 · 클라이언트 · 도구 · 에디터) 은 엔진 카탈로그를 그대로 넘기고, 월드를 만드는 세 곳이 고른다 —
+  배선을 바꾸는 곳이 셋뿐이다.
+- 진단을 콘텐츠 문제로 내면 sbx check · 서버 로드 · 클라이언트가 같은 목록을 본다 (v0.3 M5-T1 의 "sbx check 의 스크립트 진단" 중
+  CLI 부분이 여기서 된다 — 에디터 "콘텐츠" 창 표시는 M5-T1 그대로).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — 스크립트 없는 콘텐츠는
+  카탈로그 · 순서가 같다, kSimVersion 그대로). unit_content +8, unit_network +1 (스크립트 컴포넌트가 복제 표에 · serverOnly 는
+  빠짐 · 첫 스냅숏과 바뀐 값이 같은 바이트로 수렴).
+- 실행 (스크래치 폴더): `sbx new ManaGame --id studio.mana --from ecosystem_small` → `content/ecosystem/scripts/mana.ts` 에 eco.mana,
+  토끼 Prefab 에 `"eco.mana": {"current": 5}` → `sbx check` 오류 0 (경고 2 = 시작 월드가 다른 contentHash 로 저장됨 — 예상) →
+  `SandboxServer --world ManaGame --port 0 --ticks 900 --exit` 두 번 = tick 900 hash 0x240b869605933f4e entities 548 (같다) →
+  `sbx build` · `sbx check mana.sbpkg` · 패키지로 서버 = 같은 해시 → `SandboxClient --headless --world ManaGame --frames 120` =
+  스냅숏 29 · 다시 맞춤 0. 기본값을 범위 밖 (500) 으로 바꾸면 `sbx check` 가
+  "content/ecosystem/scripts/mana.ts:4:32: 오류 S424 — 기본값 500 이 범위 [0, 100] 밖이다" + Prefab V3 로 종료 코드 1.
+
+**남은 일**
+
+- M3-T3: Host ctx.read · has · query · 필드 쓰기 + 호출 단위 쓰기 버퍼. M3-T4: 스키마 version · 필드 마이그레이션.
+- 바이트코드를 DB 에 두기 (M4-T1 — 시스템과 함께). 에디터 "콘텐츠" 창의 스크립트 오류 줄 (M5-T1).
+
+---
+
 ## 2026-10-26 — v0.3 M3-T1: 스크립트 컴포넌트 정의 → 스키마 → 동적 풀 · 카탈로그 (ADR-0059, D-03)
 
 **무엇을**

@@ -7,6 +7,9 @@
 //                 prefabs/*.json       Prefab 하나 또는 배열
 //                 rules/*.json         Rule 배열
 //                 behaviors/*.json     BehaviorGraph 하나
+//                 scripts/**/*.ts      SandboxScript — 로드 0 단계에서 팩마다 컴파일, defineComponent → 콘텐츠의
+//                 카탈로그
+//                                      (ContentDatabase::worldCatalog — v0.3 M3-T2, ADR-0059 6)
 //                 presentation/**      클라 전용 — 읽지 않고 contentHash 에서도 뺀다
 //   + 월드 오버레이 (ADR-0030): 읽은 파일 텍스트를 DB 에 남겨(ContentSources) applyOverlay 가 다시 만든다
 //
@@ -47,6 +50,7 @@ struct ContentLoadResult {
 class ContentLoader {
 public:
     // root 아래에서 packIds 와 그 requires 를 찾아 읽는다. 팩 폴더 이름은 무엇이든 되고, pack.json 의 id 로 찾는다.
+    // catalog 는 엔진 카탈로그 (동적 컴포넌트가 든 다른 콘텐츠의 월드 카탈로그를 넘겨도 동적 컴포넌트를 빼고 시작한다).
     [[nodiscard]] static ContentLoadResult load(const std::filesystem::path& root, std::span<const std::string> packIds,
                                                 const ecs::ComponentCatalog& catalog);
     // base 의 팩 원본(sources)에 오버레이를 얹어 다시 만든다 (디스크를 읽지 않는다 — ADR-0030). 오버레이 항목은 같은 id

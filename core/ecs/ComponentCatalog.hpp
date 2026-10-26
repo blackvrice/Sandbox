@@ -134,6 +134,9 @@ public:
     // stableId 오름차순
     [[nodiscard]] std::span<const ComponentInfo> all() const noexcept { return m_infos; }
     [[nodiscard]] usize size() const noexcept { return m_infos.size(); }
+    // 동적 컴포넌트가 있나 · 동적 컴포넌트를 뺀 복사 (콘텐츠 로드가 엔진 카탈로그에서 다시 시작한다 — ADR-0059 6)
+    [[nodiscard]] bool hasDynamic() const noexcept;
+    [[nodiscard]] ComponentCatalog withoutDynamic() const;
 
 private:
     Expected<void> insert(const ComponentInfo& info);

@@ -33,8 +33,8 @@
 
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/SpriteExtraction.hpp"
-#include "core/scenarios/PlayScript.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/scenarios/PlayScript.hpp"
 #include "editor/EditorHost.hpp"
 #include "network/client/ClientSession.hpp"
 #include "network/client/InterpolationClock.hpp"
@@ -101,7 +101,8 @@ public:
     void setSelection(std::vector<NetEntityId> ids) override;
     void setPreview(std::span<const editor::PreviewOffset> offsets) override;
     [[nodiscard]] u64 snapshotsApplied() const override { return m_seenSnapshots; }
-    [[nodiscard]] const ecs::ComponentCatalog* catalog() const override { return m_catalog.get(); }
+    // 복제 월드가 있으면 그 월드의 카탈로그 (팩 스크립트 컴포넌트 포함 — ADR-0059 6), 없으면 엔진 카탈로그
+    [[nodiscard]] const ecs::ComponentCatalog* catalog() const override;
     [[nodiscard]] std::vector<editor::ComponentState> components(NetEntityId id) const override;
     void listEntities(std::vector<editor::EntityRow>& out) const override;
     [[nodiscard]] std::optional<Vec2> positionOf(NetEntityId id) const override;

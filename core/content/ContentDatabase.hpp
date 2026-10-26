@@ -22,6 +22,10 @@
 #include "core/world/Terrain.hpp"
 #include "foundation/types/Error.hpp"
 
+namespace sbx::ecs {
+class ComponentCatalog;
+} // namespace sbx::ecs
+
 namespace sbx::content {
 
 class ContentLoaderImpl;
@@ -98,6 +102,18 @@ public:
     [[nodiscard]] const ContentOverlay& overlay() const noexcept { return m_overlay; }
     [[nodiscard]] const std::shared_ptr<const ContentSources>& sources() const noexcept { return m_sources; }
 
+    // 이 콘텐츠의 월드가 쓰는 컴포넌트 카탈로그 (v0.3 M3-T2, ADR-0059 6): 팩 스크립트 (scripts/**/*.ts) 가 컴포넌트를
+    // 정의했으면 엔진 + 스크립트 컴포넌트 (로드가 만든 것 — 오버레이를 적용한 DB 도 같은 것을 나눈다), 없으면 engine.
+    // SimulationWorld · loadWorld · ClientWorld 가 이것으로 고른다 — 스크립트가 없는 콘텐츠는 지금과 같다
+    [[nodiscard]] const ecs::ComponentCatalog& worldCatalog(const ecs::ComponentCatalog& engine) const noexcept {
+        return m_catalog ? *m_catalog : engine;
+    }
+    [[nodiscard]] const std::shared_ptr<const ecs::ComponentCatalog>& scriptCatalog() const noexcept {
+        return m_catalog;
+    }
+    // 팩 스크립트가 정의한 컴포넌트 id (팩 순서 · 정의 순서)
+    [[nodiscard]] std::span<const std::string> scriptComponents() const noexcept { return m_scriptComponents; }
+
 private:
     friend class ContentLoaderImpl; // core/content/ContentLoader.cpp
     friend class ContentLoader;
@@ -116,6 +132,8 @@ private:
     u64 m_hash = 0;
     ContentOverlay m_overlay;
     std::shared_ptr<const ContentSources> m_sources;
+    std::shared_ptr<const ecs::ComponentCatalog> m_catalog; // 스크립트 컴포넌트가 없으면 null
+    std::vector<std::string> m_scriptComponents;
 };
 
 [[nodiscard]] std::string_view terrainFlagName(world::TerrainFlags f) noexcept;

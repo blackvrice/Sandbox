@@ -74,7 +74,8 @@ struct RestoreState {
 
 class SimulationWorld {
 public:
-    // catalog · content 는 월드보다 오래 살아야 한다 (공유 불변 데이터).
+    // catalog · content 는 월드보다 오래 살아야 한다 (공유 불변 데이터). 월드가 쓰는 카탈로그는
+    // content.worldCatalog(catalog) — 팩 스크립트 컴포넌트가 있으면 콘텐츠의 것 (ADR-0059 6).
     // desc 가 잘못되면(경계·머티리얼) 중단한다 — 외부 입력은 validateWorldDesc 로 먼저 검사한다.
     SimulationWorld(const ecs::ComponentCatalog& catalog, const content::ContentDatabase& content,
                     const WorldDesc& desc);

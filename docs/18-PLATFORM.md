@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M3-T2 — 콘텐츠 팩 scripts/ 를 로드 때 컴파일 → 콘텐츠마다 카탈로그 → Prefab · 세이브 · 복제 · Inspector
+다음     v0.3 M3-T3 — Host 컴포넌트 항목 ctx.read · ctx.has · ctx.query · 필드 쓰기 + 호출 단위 쓰기 버퍼
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -272,9 +272,11 @@ M3 사용자 Component (D-03 — 태스크 넷으로 나눴다: 정의 · 로드
         범위 · 플래그, 이름 순, S424 · S425) → script/api/ComponentSchema → core/ecs 동적 컴포넌트 (바이트 배치 풀, 내장 방문자로
         같은 JSON · 해시 · 복제 형식 — 같은 C++ 컴포넌트와 바이트 단위 시험) → catalog.addDynamic (ComponentInfo 함수 칸 =
         std::function, 세이브 벤치 그대로). sandbox.d.ts 에 defineComponent · field · Vec2 · ComponentRef
-  T2 [계획] 콘텐츠 로드: 팩마다 scripts/ 를 컴파일 (진단 = 콘텐츠 오류), 콘텐츠마다 카탈로그 (엔진 + 스크립트 컴포넌트 — 두 팩의
-            같은 id 는 오류) 를 Prefab 검사 전에, 서버 · 클라이언트 · 에디터 · sbx check 가 그 카탈로그로 → Prefab 이 스크립트
-            컴포넌트를 쓴다, 세이브 · WorldHash · 복제 · Inspector 가 그대로 지나는지 시험
+  T2 ✅ 콘텐츠 로드 0 단계: 팩마다 scripts/ 컴파일 (진단 = 콘텐츠 문제 "팩/scripts/a.ts:줄:열: 오류 Sxxx"), 콘텐츠마다 카탈로그
+        (ContentDatabase::worldCatalog — 엔진 + 스크립트 컴포넌트, 겹치는 id 는 V1) 를 Prefab 검사 전에. SimulationWorld ·
+        loadWorld · ClientWorld · 에디터 (NetworkSession::catalog) 가 그 카탈로그로 → Prefab 생성 · 명령 편집 · WorldHash ·
+        세이브/로드 · 복제 (같은 바이트) 시험, 스크립트 없는 콘텐츠로 열면 Opaque. sbx check · 패키지 · 서버 · 헤드리스 클라이언트
+        실행 확인
   T3 [계획] Host 표의 컴포넌트 항목: ctx.read(e, Ref) · ctx.has · ctx.query(Ref …) (saveId 순) · 필드 쓰기 + 호출 단위 쓰기 버퍼
             (read-your-writes · 트랩이면 버림 — M2-T2 에서 옮김), ComponentRef 값 타입 · 바이트코드 묶기 (stableId)
   T4 [계획] 스키마 version 과 세이브 필드 마이그레이션 (더하기 = 기본값, 빼기 · 종류 바꾸기 = 오류나 Opaque)
@@ -326,6 +328,7 @@ v0.3 M1-T3 ✅  19 (5 · 8 · 9 · 12장 — 바이트코드 · 검증기), 17, 
 v0.3 M2-T1 ✅  19 (0 · 6 · 9 · 13장 — 인터프리터 · 수 규칙), 17, 13
 v0.3 M2-T2 ✅  19 (0 · 9 · 14장 — Host 바인딩 · SDK), 01 2장 (Core → Script), 15 7장 (sbx sdk), 17, 13
 v0.3 M3-T1 ✅  ADR-0059 (D-03), 19 (0 · 1 · 9 · 11 · 14 · 15장 — 컴포넌트 정의 · S424 · S425), 02 9.6 (동적 컴포넌트), 17, 13
+v0.3 M3-T2 ✅  11 (1 · 1.2 · 8 · 11장 — 팩의 scripts/), 19 (0 · 15장), 02 9.6, 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -358,4 +361,5 @@ v0.3 M1-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M2-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 케이스 (test_vm — 수 규칙 · 산술 · 배열 · 트랩 · Host · 결정성)
 v0.3 M2-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +6 (test_script_host — 계약 · ctx · 로그 · d.ts 골든) · unit_tools +1
 v0.3 M3-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 (test_components) · unit_ecs +5 (test_dynamic_component)
+v0.3 M3-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +8 (test_script_content) · unit_network +1 (복제)
 ```

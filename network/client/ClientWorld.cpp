@@ -26,9 +26,11 @@ private:
     const ClientWorld& m_world;
 };
 
-Expected<std::unique_ptr<ClientWorld>> ClientWorld::create(const ecs::ComponentCatalog& catalog,
+Expected<std::unique_ptr<ClientWorld>> ClientWorld::create(const ecs::ComponentCatalog& engineCatalog,
                                                            const content::ContentDatabase& content,
                                                            const Welcome& welcome) {
+    // 서버와 같은 팩을 읽었으면 같은 스크립트 컴포넌트 카탈로그 (ADR-0059 6 — contentHash 가 같다)
+    const ecs::ComponentCatalog& catalog = content.worldCatalog(engineCatalog);
     if (content.terrainMaterials().empty()) {
         return makeError(ErrorCode::ValidationFailed, "콘텐츠에 지형 머티리얼이 없습니다");
     }

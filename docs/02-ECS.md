@@ -347,7 +347,8 @@ FixedString<N>, std::array<T,N>, Enum(리플렉션된 enum)`. 가변 컨테이�
            field() 를 부른다 → 같은 필드를 이름 순으로 가진 C++ 컴포넌트와 바이트 단위로 같은 JSON · WorldHash · 복제 형식
            (test_dynamic_component). Hint 는 None, FieldMeta 는 범위만
 번호       ComponentTypeId = 프로세스 표 dynamicComponentTypeId(이름) — 같은 이름은 같은 번호 (영속하지 않는다)
-[계획]     월드가 쓰는 카탈로그 = 엔진 카탈로그 + 콘텐츠 팩의 스크립트 컴포넌트 (콘텐츠마다 — v0.3 M3-T2)
+월드       월드가 쓰는 카탈로그 = ContentDatabase::worldCatalog(엔진) — 엔진 카탈로그 + 콘텐츠 팩의 스크립트 컴포넌트
+           (콘텐츠마다, v0.3 M3-T2 — 11 11장). ComponentCatalog::withoutDynamic 으로 엔진 카탈로그에서 다시 시작한다
 ```
 
 ---

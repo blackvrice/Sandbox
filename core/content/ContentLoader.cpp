@@ -8,12 +8,15 @@
 #include <set>
 
 #include "core/components/game/GameScore.hpp"
+#include "core/script/ScriptComponents.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "core/trigger/TriggerCompiler.hpp"
 #include "core/trigger/TriggerSchema.hpp"
 #include "foundation/container/FixedString.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 #include "foundation/io/FileIo.hpp"
+#include "script/lang/Checker.hpp"
+#include "script/lang/Codegen.hpp"
 
 namespace sbx::content {
 namespace {
@@ -72,13 +75,21 @@ struct SourceFile {
 
 class ContentLoaderImpl {
 public:
+    // catalog 에 동적 컴포넌트가 있으면 (다른 콘텐츠의 월드 카탈로그) 그것을 뺀 엔진 카탈로그에서 시작한다
     ContentLoaderImpl(const fs::path& root, const ecs::ComponentCatalog& catalog, std::vector<ContentIssue>& issues)
-        : m_root(root), m_catalog(catalog), m_issues(issues) {}
+        : m_root(root), m_catalog(&catalog), m_issues(issues) {
+        if (catalog.hasDynamic()) {
+            m_engineCopy = std::make_shared<const ecs::ComponentCatalog>(catalog.withoutDynamic());
+            m_catalog = m_engineCopy.get();
+        }
+    }
 
     // 디스크에서 팩을 찾아 읽는다 (로드 순서, 파일 텍스트)
     std::shared_ptr<ContentSources> readSources(std::span<const std::string> packIds);
-    // 원본 (+ 오버레이) → DB. 디스크를 보지 않는다
-    ContentDatabase build(const ContentSources& sources, const ContentOverlay* overlay);
+    // 원본 (+ 오버레이) → DB. 디스크를 보지 않는다. scriptsFrom 이 있으면 스크립트를 다시 컴파일하지 않고 그 DB 의
+    // 스크립트 카탈로그를 쓴다 (오버레이는 스크립트를 바꾸지 않는다 — 같은 원본)
+    ContentDatabase build(const ContentSources& sources, const ContentOverlay* overlay,
+                          const ContentDatabase* scriptsFrom = nullptr);
 
 private:
     // --- 진단 -------------------------------------------------------------------------------------------------
@@ -110,6 +121,8 @@ private:
     std::vector<PackDir> discover();
     std::vector<PackDir> resolveOrder(std::vector<PackDir> all, std::span<const std::string> packIds);
     std::vector<SourceFile> readPack(const PackDir& p);
+    // 0 단계 (v0.3 M3-T2, ADR-0059 6): 팩마다 scripts/**/*.ts 를 컴파일하고 정의한 컴포넌트를 카탈로그에 더한다
+    void compileScripts(const std::vector<std::vector<SourceFile>>& files);
     void loadTags(const PackDir& p, const SourceFile& f);
     void loadTerrain(const PackDir& p, const SourceFile& f);
     void loadPrefabs(const PackDir& p, const SourceFile& f);
@@ -160,7 +173,8 @@ private:
     };
 
     fs::path m_root;
-    const ecs::ComponentCatalog& m_catalog;
+    const ecs::ComponentCatalog* m_catalog; // 검사가 쓰는 카탈로그 — 0 단계 뒤엔 스크립트 컴포넌트 포함
+    std::shared_ptr<const ecs::ComponentCatalog> m_engineCopy; // 받은 카탈로그에서 동적 컴포넌트를 뺀 것 (있을 때만)
     std::vector<ContentIssue>& m_issues;
     ContentDatabase m_db;
     std::vector<PackDir> m_order;
@@ -430,7 +444,7 @@ std::optional<FieldRef> ContentLoaderImpl::parseFieldRef(std::string_view path, 
     FieldRef r;
     r.componentName = std::string(path.substr(0, dot));
     r.field = std::string(path.substr(dot + 1));
-    const ecs::ComponentInfo* info = m_catalog.find(std::string_view(r.componentName));
+    const ecs::ComponentInfo* info = m_catalog->find(std::string_view(r.componentName));
     if (info == nullptr) {
         error(f.display, at, "V3", std::format("모르는 컴포넌트 '{}'", r.componentName));
         return std::nullopt;
@@ -546,7 +560,7 @@ void ContentLoaderImpl::loadPrefab(const PackDir& p, const SourceFile& f, const 
                 ok = false;
                 continue;
             }
-            const ecs::ComponentInfo* info = m_catalog.find(std::string_view(name));
+            const ecs::ComponentInfo* info = m_catalog->find(std::string_view(name));
             if (info == nullptr) {
                 if (isOpaqueAllowedComponent(name) && value.is_object()) {
                     pf.components.push_back(PrefabComponent{name, 0, true, value});
@@ -2253,7 +2267,61 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
     return sources;
 }
 
-ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const ContentOverlay* overlay) {
+void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>>& files) {
+    std::shared_ptr<ecs::ComponentCatalog> ext;
+    for (usize i = 0; i < m_order.size(); ++i) {
+        const PackDir& p = m_order[i];
+        std::vector<script::SourceFile> sources;
+        for (const SourceFile& f : files[i]) {
+            if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {
+                sources.push_back(script::SourceFile{f.rel, f.text});
+            }
+        }
+        if (sources.empty()) {
+            continue;
+        }
+        // 팩 하나 = 프로그램 하나 (ADR-0058). 진단은 콘텐츠 문제로: "<폴더>/scripts/a.ts:줄:열: 오류 S424 — …"
+        script::DiagnosticList diags;
+        const script::Program program = script::checkProgram(sources, diags);
+        if (diags.ok()) {
+            (void)script::generateBytecode(program, diags); // 바이트코드는 [계획 M4-T1] 시스템과 함께 DB 에 둔다
+        }
+        for (const script::Diagnostic& d : diags.items()) {
+            issue(d.severity == script::Diagnostic::Severity::Error ? Severity::Error : Severity::Warning,
+                  p.folder + "/" + d.file, std::format("{}:{}", d.pos.line, d.pos.column), d.code, d.message);
+        }
+        // 오류 없는 정의는 다른 함수에 오류가 있어도 넣는다 — Prefab 이 쓰는 자리에 이어지는 V3 가 나지 않게
+        if (program.components.empty()) {
+            continue;
+        }
+        if (!ext) {
+            ext = std::make_shared<ecs::ComponentCatalog>(*m_catalog);
+        }
+        std::vector<script::api::ComponentSchema> schemas;
+        for (const script::ComponentDecl& c : program.components) {
+            schemas.push_back(c.schema);
+        }
+        const std::vector<script::ScriptComponentProblem> problems = script::registerScriptComponents(*ext, schemas);
+        for (const script::api::ComponentSchema& c : schemas) {
+            const bool rejected =
+                std::any_of(problems.begin(), problems.end(), [&](const auto& x) { return x.id == c.id; });
+            if (!rejected) {
+                m_db.m_scriptComponents.push_back(c.id);
+            }
+        }
+        for (const script::ScriptComponentProblem& x : problems) {
+            error(p.folder + "/" + x.module, std::format("{}:{}", x.line, x.column), "V1",
+                  std::format("컴포넌트 '{}' — {}", x.id, x.message));
+        }
+    }
+    if (ext) {
+        m_db.m_catalog = ext;
+        m_catalog = ext.get();
+    }
+}
+
+ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const ContentOverlay* overlay,
+                                         const ContentDatabase* scriptsFrom) {
     m_overlay = overlay;
     m_order.clear();
     std::vector<std::vector<SourceFile>> files;
@@ -2267,6 +2335,17 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
         std::set<std::string> vis{sp.info.id};
         vis.insert(sp.info.dependencies.begin(), sp.info.dependencies.end());
         m_visible[sp.info.id] = std::move(vis);
+    }
+
+    // 0) 스크립트 컴포넌트 — Prefab · Rule · 트리거 검사보다 먼저 (V3 가 스크립트 컴포넌트를 안다)
+    if (scriptsFrom != nullptr) {
+        m_db.m_catalog = scriptsFrom->m_catalog;
+        m_db.m_scriptComponents = scriptsFrom->m_scriptComponents;
+        if (m_db.m_catalog) {
+            m_catalog = m_db.m_catalog.get();
+        }
+    } else {
+        compileScripts(files);
     }
 
     // 1) 태그 — 모든 팩의 선언을 합쳐 이름 정렬 (비트 인덱스)
@@ -2310,6 +2389,8 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
                 loadActions(p, f);
             } else if (f.rel.starts_with("triggers/") && f.rel.ends_with(".json")) {
                 loadTrigger(p, f);
+            } else if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {
+                // 0 단계에서 컴파일했다
             } else {
                 warn(f.display, "", "IO", "알 수 없는 파일 — 읽지 않는다");
             }
@@ -2440,7 +2521,7 @@ ContentLoadResult ContentLoader::applyOverlay(const ContentDatabase& base, const
         return result;
     }
     ContentLoaderImpl loader({}, catalog, result.issues);
-    result.db = loader.build(*base.sources(), &overlay);
+    result.db = loader.build(*base.sources(), &overlay, &base);
     result.db.m_sources = base.sources();
     return result;
 }

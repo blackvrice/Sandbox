@@ -102,6 +102,21 @@ Expected<void> ComponentCatalog::addDynamic(std::shared_ptr<const DynamicCompone
     return insert(info);
 }
 
+bool ComponentCatalog::hasDynamic() const noexcept {
+    return std::any_of(m_infos.begin(), m_infos.end(),
+                       [](const ComponentInfo& i) { return i.dynamicLayout != nullptr; });
+}
+
+ComponentCatalog ComponentCatalog::withoutDynamic() const {
+    ComponentCatalog out;
+    for (const ComponentInfo& i : m_infos) {
+        if (i.dynamicLayout == nullptr) {
+            out.m_infos.push_back(i); // 이미 stableId 순
+        }
+    }
+    return out;
+}
+
 Expected<void> ComponentCatalog::insert(const ComponentInfo& info) {
     const auto it = std::lower_bound(m_infos.begin(), m_infos.end(), info.stableId,
                                      [](const ComponentInfo& i, StableId v) { return i.stableId < v; });

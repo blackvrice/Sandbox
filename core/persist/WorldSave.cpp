@@ -279,9 +279,11 @@ Expected<SaveStats> saveWorld(const sim::SimulationWorld& world, const fs::path&
 // =====================================================================================================================
 // 로드
 // =====================================================================================================================
-Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& catalog, const content::ContentDatabase& content,
+Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const content::ContentDatabase& content,
                                const fs::path& dir, const LoadOptions& options) {
     LoadResult result;
+    // 팩 스크립트 컴포넌트가 있으면 콘텐츠의 카탈로그 (ADR-0059 6) — 없으면 받은 그대로
+    const ecs::ComponentCatalog& catalog = content.worldCatalog(engineCatalog);
 
     // --- world.json ----------------------------------------------------------
     SBX_TRY_ASSIGN(worldText, io::readFile(dir / "world.json"));

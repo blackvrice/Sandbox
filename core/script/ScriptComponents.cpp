@@ -61,22 +61,28 @@ ecs::DynamicComponentDesc toDynamicDesc(const api::ComponentSchema& schema) {
     return d;
 }
 
-std::vector<std::string> registerScriptComponents(ecs::ComponentCatalog& catalog,
-                                                  std::span<const api::ComponentSchema> schemas) {
-    std::vector<std::string> problems;
+std::string ScriptComponentProblem::describe() const {
+    return std::format("{}:{}: 컴포넌트 '{}' — {}", module, line, id, message);
+}
+
+std::vector<ScriptComponentProblem> registerScriptComponents(ecs::ComponentCatalog& catalog,
+                                                             std::span<const api::ComponentSchema> schemas) {
+    std::vector<ScriptComponentProblem> problems;
+    auto problem = [&](const api::ComponentSchema& s, std::string message) {
+        problems.push_back(ScriptComponentProblem{s.module, s.line, s.column, s.id, std::move(message)});
+    };
     for (const api::ComponentSchema& s : schemas) {
-        const std::string where = std::format("{}:{}: 컴포넌트 '{}'", s.module, s.line, s.id);
         if (api::isEngineComponentNamespace(s.id)) {
-            problems.push_back(std::format("{} — 엔진 이름공간이다", where));
+            problem(s, "엔진 이름공간이다");
             continue;
         }
         if (const ecs::ComponentInfo* existing = catalog.find(s.id)) {
-            problems.push_back(std::format("{} — 이미 있다 ({})", where,
-                                           existing->dynamicLayout ? "다른 스크립트 컴포넌트" : "엔진 컴포넌트"));
+            problem(
+                s, std::format("이미 있다 ({})", existing->dynamicLayout ? "다른 스크립트 컴포넌트" : "엔진 컴포넌트"));
             continue;
         }
         if (auto r = catalog.addDynamic(toDynamicDesc(s)); !r) {
-            problems.push_back(std::format("{} — {}", where, r.error().message));
+            problem(s, r.error().message);
         }
     }
     return problems;

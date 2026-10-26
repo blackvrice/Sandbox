@@ -294,10 +294,10 @@ function f(): void { const x = A })",
         const std::vector<api::ComponentSchema> again{schemas[0], engine, builtin};
         const auto bad = registerScriptComponents(catalog, again);
         REQUIRE(bad.size() == 3);
-        CHECK(bad[0].find("scripts/a.ts:4: 컴포넌트 'rpg.mana' — 이미 있다 (다른 스크립트 컴포넌트)") !=
+        CHECK(bad[0].describe().find("scripts/a.ts:4: 컴포넌트 'rpg.mana' — 이미 있다 (다른 스크립트 컴포넌트)") !=
               std::string::npos);
-        CHECK(bad[1].find("엔진 이름공간") != std::string::npos);
-        CHECK(bad[2].find("엔진 이름공간") != std::string::npos);
+        CHECK(bad[1].message.find("엔진 이름공간") != std::string::npos);
+        CHECK(bad[2].message.find("엔진 이름공간") != std::string::npos);
         CHECK(catalog.size() == before + 1);
     }
 

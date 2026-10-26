@@ -176,6 +176,11 @@ void NetworkSession::updateReconnect() {
     }
 }
 
+const ecs::ComponentCatalog* NetworkSession::catalog() const {
+    const net::ClientWorld* w = clientWorld();
+    return w != nullptr ? &w->catalog() : m_catalog.get();
+}
+
 const net::ClientWorld* NetworkSession::clientWorld() const noexcept {
     return m_session ? m_session->world() : nullptr;
 }

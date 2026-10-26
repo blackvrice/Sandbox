@@ -1,6 +1,6 @@
 # 11. 콘텐츠 스키마
 
-> **규범 문서.** `content/<pack>/` 데이터의 모양과 검증 규칙을 정합니다.
+> **규범 문서.** `content/<pack>/` 데이터의 모양과 검증 규칙을 정합니다. (v0.3 M3-T2) 팩의 `scripts/` 는 11장.
 > 데이터 모양을 바꾸면 이 문서를 같은 커밋에서 고칩니다.
 > 상태: **Phase 5A·5B에서 구현됨** (2026-10-05) — 팩 로더·검증기(V1~V7)·Prefab·Tag·Rule·BehaviorGraph 모델·contentHash,
 > Rule·Behavior 의 실행(5B). 0장이 구현과 문서의 차이입니다. PlayerAction(actions.json)은 v0.2 M3-T1 에서 구현 (6장,
@@ -87,6 +87,7 @@ content/<pack>/
   modes/*.json            GameMode 1파일 1개 (선택 — v0.2 M2, 9장)
   actions.json            PlayerAction 정의 (선택)
   triggers/*.json         Trigger 1파일 1개 (선택 — v0.2 M4-T1, 10장)
+  scripts/**/*.ts         SandboxScript (선택 — v0.3 M3-T2, 11장 · 19-SANDBOXSCRIPT). 팩 하나 = 프로그램 하나
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
     input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.
                           "play.action.<PlayerAction id>": ["Q"] = 누르면 커서 자리에 그 행동. 로더는 원문만 PackInfo 에
@@ -115,6 +116,8 @@ content/<pack>/
 ```text
 팩: requires 위상 정렬, 동순위는 id 정렬. 파일: 경로 문자열 정렬. (04 4.5)
 같은 id 가 두 번 정의되면 오류 (덮어쓰기는 월드 오버레이만 허용 — 12C, 0장 끝)
+단계 (v0.3 M3-T2): 0 스크립트 (팩 순서로 scripts/ 컴파일 → 스크립트 컴포넌트를 콘텐츠의 카탈로그에) → 1 태그 → 2 머티리얼 →
+     3 파일별 (Prefab · Rule · Behavior · 모드 · 행동 · 트리거 — V3 가 스크립트 컴포넌트를 안다) → 4 오버레이 → 교차 검사 · link
 ```
 
 ---
@@ -333,6 +336,8 @@ V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복 ·
     score) · op · result · team 참조)
 V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
 V10 Trigger: 그래프 모양 (이벤트 하나 · 나무 · 순환 · 닿음 · 깊이 16 · 노드 64 · 대상) · limits · 개수 256, 재진입 고리 경고 (v0.2 M4-T1)
+S1xx~S5xx 스크립트 (scripts/*.ts — v0.3 M3-T2): 컴파일러 진단 그대로, 포인터 자리에 "줄:열" (19 8장). 스크립트 컴포넌트 id 가
+    엔진 컴포넌트 · 앞 팩의 스크립트 컴포넌트와 같으면 V1
 실패 메시지 형식:  <파일>:<JSON 포인터>: <규칙> — <설명>
 ```
 
@@ -461,4 +466,21 @@ DB          트리거 ≤ 256 (V10), id 중복 V1. 정의 순서 = 팩 로드 �
 대상 규칙   죽은 대상: field · destroy · tag 는 아무것도 안 함, spawn 은 죽은 자리, score.add 는 공용 칸 (팀은 team 으로)
 오버레이    (M4-T3) EditContent{trigger} 로 월드에서 바꾸거나 더한다 — 바꾼 것은 팩의 실행 순서, 더한 것은 맨 뒤 (10 8장 "폼")
 [계획]      노드 그래프 캔버스, 합류 · 변수 · 반복 · 대기 노드, 영역 나감 · 머묾, 세션 없는 월드의 트리거
+```
+
+## 11. 스크립트 (v0.3 M3-T2 — [ADR-0059](adr/0059-script-components-schema-dynamic-pool-name-order-catalog.md) 6, [19](19-SANDBOXSCRIPT.md) 15장)
+
+```text
+파일       <팩>/scripts/**/*.ts — 경로 = 모듈 이름 ("scripts/mana.ts"), import 는 같은 팩 안만 (19 1장). 그 밖의 확장자는
+           "알 수 없는 파일" 경고. contentHash 에 들어간다 (팩의 다른 파일과 같다 — 스크립트를 바꾸면 contentHash 가 바뀐다)
+컴파일     로드 0 단계: 팩마다 검사 + 코드 생성. 진단은 콘텐츠 문제 "<팩 폴더>/scripts/a.ts:줄:열: 오류 S404 — …" (규칙 = 진단 코드).
+           오류가 있으면 로드 실패 (sbx check · 서버 · 클라이언트가 같은 목록을 본다). 바이트코드는 아직 DB 에 두지 않는다 [계획 M4-T1]
+컴포넌트   defineComponent (19 15장) 가 정의한 것을 콘텐츠의 카탈로그 = 엔진 카탈로그 + 스크립트 컴포넌트 에 넣는다 (팩 순서).
+           이 카탈로그로 Prefab 의 components · Rule 조건 · 효과의 필드 경로를 검사한다 (V3 — 모르는 필드 · 범위 · 타입은 내장과
+           같은 메시지). 다른 함수에 오류가 있어도 오류 없는 정의는 넣는다 (Prefab 에 이어지는 V3 가 나지 않게). id 가 엔진 ·
+           앞 팩과 겹치면 V1 (덮어쓰기 없음)
+월드       ContentDatabase::worldCatalog(엔진) = 그 카탈로그 (스크립트 컴포넌트가 없으면 엔진 카탈로그 그대로). SimulationWorld ·
+           loadWorld · ClientWorld 가 이것을 쓴다 → Prefab 생성 · 명령 (Add · Change · Remove — Inspector) · WorldHash · 세이브 ·
+           복제가 내장과 같은 경로. 오버레이 (12C) 는 스크립트를 다시 컴파일하지 않고 같은 카탈로그를 나눈다
+없는 정의  스크립트 컴포넌트가 든 세이브를 그 스크립트가 없는 콘텐츠로 열면 Opaque 로 보관한다 (09 · 9.5 — 해시 비교는 건너뛴다)
 ```

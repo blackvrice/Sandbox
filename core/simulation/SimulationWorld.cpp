@@ -87,8 +87,8 @@ Expected<void> validateWorldDesc(const WorldDesc& desc, const content::ContentDa
 
 SimulationWorld::SimulationWorld(const ecs::ComponentCatalog& catalog, const content::ContentDatabase& content,
                                  const WorldDesc& desc)
-    : m_catalog(catalog), m_baseContent(content), m_content(&content), m_desc(desc), m_grid(makeGrid(desc, content)),
-      m_spatial(desc.bounds), m_random(desc.seed) {
+    : m_catalog(content.worldCatalog(catalog)), m_baseContent(content), m_content(&content), m_desc(desc),
+      m_grid(makeGrid(desc, content)), m_spatial(desc.bounds), m_random(desc.seed) {
     m_clock.reset(0, desc.startPaused);
     if (desc.registerDefaultSystems) {
         registerDefaultSystems(m_scheduler);

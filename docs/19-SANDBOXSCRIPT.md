@@ -16,7 +16,7 @@
 | 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
 | VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
 | Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
-| 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (v0.3 M3-T1) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, ADR-0059 |
+| 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (M3-T1) · 콘텐츠 로드 (M3-T2) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, `core/content/ContentLoader`, ADR-0059 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -376,10 +376,12 @@ export const Mana = defineComponent({
 금지       함수 안 · 식 안의 defineComponent · field, 컴포넌트 const 를 값으로 쓰기 (S425 — ctx.read · ctx.query 의 인자는 M3-T3),
            const 에 타입 적기 · 모르는 키 · 축약 { id } (S424)
 엔진       core/script registerScriptComponents(카탈로그, 스키마들): 엔진 이름공간 · 이미 있는 이름 (내장 · 앞 팩) 은 거절하고
-           (문제마다 "파일:줄: 컴포넌트 'id' — 이유"), 나머지는 ecs 동적 컴포넌트로 넣는다 (02 9.6 — 형식은 같은 필드를 이름 순으로
-           가진 C++ 컴포넌트와 바이트 단위로 같다). Persistent → Hashed (내장과 같다)
+           (ScriptComponentProblem — "파일:줄: 컴포넌트 'id' — 이유"), 나머지는 ecs 동적 컴포넌트로 넣는다 (02 9.6 — 형식은 같은
+           필드를 이름 순으로 가진 C++ 컴포넌트와 바이트 단위로 같다). Persistent → Hashed (내장과 같다)
+콘텐츠     (M3-T2) 콘텐츠 팩의 scripts/ 를 로드 0 단계에서 팩마다 컴파일 → 콘텐츠의 카탈로그 (11-CONTENT-SCHEMA 11장). 진단은
+           콘텐츠 문제 (sbx check · 서버 · 클라이언트). Prefab · Rule · 명령 · Inspector · 세이브 · WorldHash · 복제가 스크립트
+           컴포넌트를 내장처럼 다룬다
 d.ts       sandbox.d.ts 의 defineComponent<F> 가 ComponentRef<{ 필드: 값 타입 }> 를 돌려준다 (tsc 쪽 타입). enumOf<E> 는 제약 없는
            타입 매개변수라 tsc 가 enum 리터럴을 enum 타입으로 넓힌다
-[계획]     콘텐츠 팩의 scripts/ 를 로드 때 컴파일해 콘텐츠마다 카탈로그 → Prefab · 세이브 · 복제 · Inspector (M3-T2),
-           ctx.read · ctx.has · ctx.query · 쓰기 버퍼 (M3-T3), version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
+[계획]     ctx.read · ctx.has · ctx.query · 쓰기 버퍼 (M3-T3), version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
 ```
