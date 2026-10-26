@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M3-T1 — ADR (D-03 동적 풀): defineComponent → 스키마 → 카탈로그에 동적 등록, 콘텐츠 검사 순서
+다음     v0.3 M3-T2 — 콘텐츠 팩 scripts/ 를 로드 때 컴파일 → 콘텐츠마다 카탈로그 → Prefab · 세이브 · 복제 · Inspector
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -86,7 +86,8 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
   script/               SandboxScript — lang (렉서 · 파서 · 검사기 · 코드 생성 ✅ M1) · api (Host 표 ✅ 첫 항목 · Math 표) ·
                         vm (바이트코드 · 검증기 ✅ M1-T3, 인터프리터 ✅ M2-T1) · sdk (d.ts 생성 ✅ M2-T2)
                         의존 Foundation 만, ECS 를 모른다. 서버도 링크한다 (로드 때 컴파일)
-  core/script           Host 바인딩 ✅ M2-T2 · [계획] 동적 컴포넌트 (M3) · ScriptSystemAdapter (M4) — SandboxCore 가 SandboxScript 를 링크
+  core/script           Host 바인딩 ✅ M2-T2 · 스크립트 컴포넌트 → 카탈로그 ✅ M3-T1 (core/ecs 동적 풀) · [계획] ScriptSystemAdapter (M4)
+                        — SandboxCore 가 SandboxScript 를 링크
   → 경계 검사(sbx_check_link_boundaries · check_includes.py)에 규칙을 더하는 커밋과 함께 (M1-T1)
 ```
 
@@ -231,7 +232,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 |------|-------------------------------------------------------------------|--------------|--------------------------------------------|
 | D-01 | SandboxScript 숫자 타입 · 예외 · GC · import 부분집합             | v0.3 진입 전 | 결정 — 자체 컴파일러 · number(f64) · i32 · 예외 · GC · 전역 상태 없음 (ADR-0056) |
 | D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 결정 — 자체 컨테이너 · SHA-256 · 압축 · 서명 없음 (ADR-0054) |
-| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 열림 — v0.3 M3-T1 의 ADR                   |
+| D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 결정 — 상수 스키마 · 바이트 배치 풀 · 이름 순 · 같은 방문자 · 콘텐츠마다 카탈로그 (ADR-0059) |
 | D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 결정 — C++ 표 하나 → 검사 · 로드 · 바인딩 · d.ts (ADR-0057) |
 | D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                |
 | D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                       |
@@ -266,11 +267,17 @@ M2 VM · Host API
         위조한 ctx 는 HostError), sandbox.d.ts 생성기 (script/sdk · sbx sdk) · sdk/sandbox.d.ts 골든 시험. SandboxCore 가
         SandboxScript 를 링크한다. 호출 단위 쓰기 버퍼는 쓰기 항목이 처음 생기는 M3 로 옮겼다 (지금 항목은 읽기 · 로그뿐)
   → M2 완료 (2026-10-26): 소스 → 바이트코드 → 검증 → VM 실행 ↔ 엔진 Host (계약 검사), IDE 용 sandbox.d.ts
-M3 사용자 Component (D-03)
-  T1 [계획] ADR (동적 풀): defineComponent → 스키마 (필드 종류 i32 · f32 · f64 · bool · vec2 · entityRef · enum, 기본값 · 범위 ·
-            플래그) → 카탈로그에 동적 등록 (ADR-0011 에 더한다), 콘텐츠 검사 순서 (스크립트 컴포넌트 먼저 — Prefab 이 쓴다),
-            Host 표의 컴포넌트 읽기 · 질의 (ctx.read · ctx.query), 호출 단위 쓰기 버퍼 (M2-T2 에서 옮김)
-  T2 [계획] 세이브 · WorldHash · 복제 · Inspector 연결, 스키마 version 과 필드 마이그레이션 (더하기 · 기본값)
+M3 사용자 Component (D-03 — 태스크 넷으로 나눴다: 정의 · 로드 · Host · 마이그레이션)
+  T1 ✅ ADR-0059 (D-03): defineComponent → 상수 스키마 (검사기 — 필드 종류 i32 · f32 · f64 · bool · vec2 · entity · enumOf, 기본값 ·
+        범위 · 플래그, 이름 순, S424 · S425) → script/api/ComponentSchema → core/ecs 동적 컴포넌트 (바이트 배치 풀, 내장 방문자로
+        같은 JSON · 해시 · 복제 형식 — 같은 C++ 컴포넌트와 바이트 단위 시험) → catalog.addDynamic (ComponentInfo 함수 칸 =
+        std::function, 세이브 벤치 그대로). sandbox.d.ts 에 defineComponent · field · Vec2 · ComponentRef
+  T2 [계획] 콘텐츠 로드: 팩마다 scripts/ 를 컴파일 (진단 = 콘텐츠 오류), 콘텐츠마다 카탈로그 (엔진 + 스크립트 컴포넌트 — 두 팩의
+            같은 id 는 오류) 를 Prefab 검사 전에, 서버 · 클라이언트 · 에디터 · sbx check 가 그 카탈로그로 → Prefab 이 스크립트
+            컴포넌트를 쓴다, 세이브 · WorldHash · 복제 · Inspector 가 그대로 지나는지 시험
+  T3 [계획] Host 표의 컴포넌트 항목: ctx.read(e, Ref) · ctx.has · ctx.query(Ref …) (saveId 순) · 필드 쓰기 + 호출 단위 쓰기 버퍼
+            (read-your-writes · 트랩이면 버림 — M2-T2 에서 옮김), ComponentRef 값 타입 · 바이트코드 묶기 (stableId)
+  T4 [계획] 스키마 version 과 세이브 필드 마이그레이션 (더하기 = 기본값, 빼기 · 종류 바꾸기 = 오류나 Opaque)
 M4 Script System
   T1 [계획] defineSystem · ScriptSystemAdapter · 단계 ADR (고정 단계 하나, 순서 = 팩 순서 · 시스템 id), onTick (intervalTicks),
             스크립트 없는 월드 = 골든 그대로
@@ -318,6 +325,7 @@ v0.3 M1-T2 ✅  19 (1 · 5 · 7 · 8 · 9 · 10 · 11장 — 타입 규칙 · Ho
 v0.3 M1-T3 ✅  19 (5 · 8 · 9 · 12장 — 바이트코드 · 검증기), 17, 13, ADR-0058
 v0.3 M2-T1 ✅  19 (0 · 6 · 9 · 13장 — 인터프리터 · 수 규칙), 17, 13
 v0.3 M2-T2 ✅  19 (0 · 9 · 14장 — Host 바인딩 · SDK), 01 2장 (Core → Script), 15 7장 (sbx sdk), 17, 13
+v0.3 M3-T1 ✅  ADR-0059 (D-03), 19 (0 · 1 · 9 · 11 · 14 · 15장 — 컴포넌트 정의 · S424 · S425), 02 9.6 (동적 컴포넌트), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -349,4 +357,5 @@ v0.3 M1-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M1-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 케이스 (test_bytecode — 역어셈블 기준 · 왕복 · 거절 · 비트 뒤집기)
 v0.3 M2-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 케이스 (test_vm — 수 규칙 · 산술 · 배열 · 트랩 · Host · 결정성)
 v0.3 M2-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +6 (test_script_host — 계약 · ctx · 로그 · d.ts 골든) · unit_tools +1
+v0.3 M3-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +8 (test_components) · unit_ecs +5 (test_dynamic_component)
 ```

@@ -16,6 +16,7 @@
 | 코드 생성 · 바이트코드 · 검증기 (12장) | 구현 (v0.3 M1-T3)     | `script/lang/Codegen`, `script/vm/` Bytecode · Verifier, ADR-0058      |
 | VM 인터프리터 (6 · 13장)               | 구현 (v0.3 M2-T1)     | `script/vm/` Interpreter · Numbers, unit_script (test_vm)              |
 | Host 바인딩 (엔진) · d.ts (14장)       | 구현 (v0.3 M2-T2)     | `core/script/ScriptHost`, `script/sdk/SdkGenerator`, `sdk/sandbox.d.ts` |
+| 스크립트 컴포넌트 (15장)               | 정의 · 카탈로그 (v0.3 M3-T1) | `script/api/ComponentSchema`, `core/ecs/DynamicComponent`, `core/script/ScriptComponents`, ADR-0059 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -26,6 +27,7 @@ TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대
 자리       콘텐츠 팩의 scripts/**/*.ts (UTF-8, BOM 있어도 됨, ≤ 4 MiB — kMaxSourceBytes). 파일 하나 = 모듈 하나
 최상위     선언만: import · export · function · const · type · interface · enum · const enum · export default 식
            (let · 문장은 S328 — 틱을 넘는 상태는 컴포넌트에, ADR-0056 4). 최상위 const 는 기본 타입 상수식 (S415 — 11장)
+           이나 defineComponent({ … }) (15장)
 import     import { a, b as c } from "./상대경로" · from "sandbox" (SDK). 기본 · 이름공간 · 부수 효과 · import type ·
            동적 import 는 없다 (S321 · S322). 경로 = 가져오는 파일의 폴더 기준, 확장자 없이 ("./b" → b.ts), "." · ".." 마디,
            첫 폴더 (scripts/) 밖으로 나갈 수 없다. 없는 파일 · 없는 export · 순환 import 는 S416 (resolveImportPath)
@@ -185,6 +187,7 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   lang/Types           타입 표 · 넣기 규칙          lang/Checker         이름 · 타입 검사 · 좁히기 · 상수 접기 → Program
   api/HostApi          Host 함수 표 · 불투명 타입 · 정규형 · 지문 (10장)
   api/MathBuiltins     Math 함수 · 상수 표 (검사기 · 검증기 · VM 이 같이 — 자리가 MATHF 의 번호)
+  api/ComponentSchema  스크립트 컴포넌트의 정규 스키마 · 이름 규칙 · 엔진 이름공간 · f32 반올림 (15장)
   lang/Codegen         Program → bc::Module (compileScripts = 검사 + 생성 + 검증)
   vm/Bytecode          명령 · 타입 표 · 모듈 · serialize · deserialize · disassemble
   vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
@@ -193,6 +196,7 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   sdk/SdkGenerator     sandbox.d.ts 생성 (Host 표 · 불투명 타입 · SDK 내장)
 core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
   ScriptHost           Host 바인딩 목록 · 계약 검사 · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)
+  ScriptComponents     스키마 → ecs 동적 컴포넌트 설명 → 카탈로그 (15장)
 sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과와 같은지 본다)
 경계                   cmake: sbx_forbid_link(SandboxScript SandboxCore …), tools/check_includes.py: script/ → foundation · script,
                        그래픽 · OS 헤더 금지 (픽스처 tests/arch/fixtures/script)
@@ -228,7 +232,8 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
 흐름       return 이 모든 길에 있어야 한다 (void 아니면 S412 — if/else 양쪽 · default 있는 switch). switch 의 빈 case 가
            아닌 떨어짐은 S420. break · continue 자리 S419
 최상위     const = number · i32 · boolean · string · enum 상수식 (리터럴 · 연산 · 앞의 const · enum 값 · NaN · Infinity ·
-           Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 [계획 M4] (S423)
+           Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 [계획 M4] (S423).
+           예외 하나: const X = defineComponent({ … }) — 상수 인자를 스키마로 읽는다 (15장, S424 · S425)
 금지 이름  undefined · Date · console · eval · JSON · Map · Promise · setTimeout · parseInt … 은 S413 (이유와 대안을 말한다).
            SDK 이름을 가져오지 않으면 import { i32 } from "sandbox" 를 안내한다
 결과       Program: 타입 표 · 심볼 · 함수 (서명 · 추론한 반환) · 모듈마다 마디 → (타입, 가리키는 것 — 심볼 · 필드 · Host 함수 ·
@@ -262,6 +267,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 | S421 | 재귀 함수의 반환 타입                                                                  |
 | S422 | 연산자 · 피연산자 타입 (조건 밖의 && · ! 포함)                                         |
 | S423 | [계획] 아직 없는 자리 (export default · 객체 메서드 — v0.3 M4)                          |
+| S424 | defineComponent 의 정의 (모양 · id · version · 필드 · 기본값 · 범위 · 플래그 — 15장)      |
+| S425 | defineComponent · field 를 최상위 const 의 정의 밖에서, 컴포넌트를 값으로 (M3-T3 전)    |
 
 ## 12. 바이트코드 (v0.3 M1-T3 — `script/vm/Bytecode` · `Verifier`, `script/lang/Codegen`, ADR-0058)
 
@@ -333,5 +340,46 @@ ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을
 SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더). declare module "sandbox" { i32 · toI32 · idiv · 불투명
             interface (__sandboxOpaque 표지 — 리터럴로 만들 수 없게) + 주인 타입의 멤버 (속성 = readonly, 메서드 = 표의 매개변수
             이름) }. 머리에 Host API 버전 · 지문. 저장소의 sdk/sandbox.d.ts 가 생성 결과와 같아야 한다 (시험) — Host 표를 바꾸면
-            같은 커밋에서 sbx sdk sdk. 컴포넌트 타입은 v0.3 M3 [계획], 프로젝트 템플릿의 tsconfig 는 M5-T1 [계획]
+            같은 커밋에서 sbx sdk sdk. 컴포넌트 정의 선언 (Vec2 · Field · field · defineComponent · ComponentRef) 은 M3-T1 — 15장,
+            프로젝트 템플릿의 tsconfig 는 M5-T1 [계획]
+```
+
+## 15. 스크립트 컴포넌트 (v0.3 M3-T1 — `script/api/ComponentSchema`, 검사기, `core/script/ScriptComponents`, ADR-0059)
+
+```ts
+import { defineComponent, field } from "sandbox";
+export const enum ManaState { Idle, Regen, Empty }
+export const Mana = defineComponent({
+  id: "rpg.mana",                                   // 이름공간.이름 — 엔진 이름공간 (core · ai · life · game · net · persist ·
+  version: 1,                                       //   debug · render · editor · client · server · script · sandbox · sbx) 금지
+  fields: {
+    current: field.f32(100, { min: 0, max: 1000 }), // 기본값?, { min, max }? — i32 · f32 · f64
+    maximum: field.f32(100),
+    resting: field.bool(false),                     // bool (기본값?)
+    anchor: field.vec2(0, 0),                       // vec2 (x?, y?) — f32 둘
+    caster: field.entity(),                         // 개체 참조 — saveId 로 저장, 기본 null
+    state: field.enumOf(ManaState.Idle),            // enum — 인자 = 기본 멤버이자 필드 타입
+  },
+  // persistent · replicated · editorVisible (기본 true), serverOnly (기본 false — 켜면 replicated 기본 false)
+});
+```
+
+```text
+읽기       검사기가 실행하지 않고 읽는다: 최상위 const 의 초기값이 defineComponent(객체 리터럴 하나) 일 때만. 모든 값은 상수식
+           (리터럴 · 앞의 const · enum 멤버 · 연산). 결과 = Program::components (스키마 · 심볼 · 값 구조체 타입) — 오류가 있는
+           정의는 넣지 않는다 (그 const 는 Error 타입 — 이어지는 오류 없음)
+스키마     api::ComponentSchema: id · version (1 ~ 65535, 기본 1) · 플래그 · 필드 (≤ 64, 이름 = 식별자, **이름 순으로 정렬** —
+           선언 순서를 바꿔도 같은 컴포넌트) · 정의 자리. 기본값은 범위 안 · 유한, i32 기본값과 범위는 정수, f32 · vec2 는 f32 범위
+           안이고 f32 로 한 번 반올림 (roundToF32 — 엔진도 같다). 한 프로그램 안에서 id 하나
+값 타입    i32 → i32, f32 · f64 → number, bool → boolean, vec2 → Vec2 { x, y: number }, entity → Entity | null, enumOf → 그 enum.
+           값 구조체 (ComponentDecl::dataType) 는 ctx.read 의 결과 타입이 된다 [계획 M3-T3]
+금지       함수 안 · 식 안의 defineComponent · field, 컴포넌트 const 를 값으로 쓰기 (S425 — ctx.read · ctx.query 의 인자는 M3-T3),
+           const 에 타입 적기 · 모르는 키 · 축약 { id } (S424)
+엔진       core/script registerScriptComponents(카탈로그, 스키마들): 엔진 이름공간 · 이미 있는 이름 (내장 · 앞 팩) 은 거절하고
+           (문제마다 "파일:줄: 컴포넌트 'id' — 이유"), 나머지는 ecs 동적 컴포넌트로 넣는다 (02 9.6 — 형식은 같은 필드를 이름 순으로
+           가진 C++ 컴포넌트와 바이트 단위로 같다). Persistent → Hashed (내장과 같다)
+d.ts       sandbox.d.ts 의 defineComponent<F> 가 ComponentRef<{ 필드: 값 타입 }> 를 돌려준다 (tsc 쪽 타입). enumOf<E> 는 제약 없는
+           타입 매개변수라 tsc 가 enum 리터럴을 enum 타입으로 넓힌다
+[계획]     콘텐츠 팩의 scripts/ 를 로드 때 컴파일해 콘텐츠마다 카탈로그 → Prefab · 세이브 · 복제 · Inspector (M3-T2),
+           ctx.read · ctx.has · ctx.query · 쓰기 버퍼 (M3-T3), version 을 올린 세이브의 필드 마이그레이션 (M3-T4)
 ```

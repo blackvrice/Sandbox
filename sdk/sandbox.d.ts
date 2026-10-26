@@ -8,6 +8,58 @@ declare module "sandbox" {
   /** 정수 나눗셈 (0 쪽으로 자름) — b 가 0 이면 트랩 */
   export function idiv(a: i32, b: i32): i32;
 
+  /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */
+  export interface Vec2 {
+    x: number;
+    y: number;
+  }
+  /** 필드 정의 — field.* 가 만든다 (defineComponent 의 fields 안에서만) */
+  export interface Field<T> {
+    readonly __sandboxField: T;
+  }
+  /** 필드 범위 — 기본값 · 쓰기 · 세이브 · Inspector 가 이 안이다 */
+  export interface FieldRange {
+    min: number;
+    max: number;
+  }
+  /** 필드 종류 7 — 인자는 모두 상수 */
+  export namespace field {
+    function i32(defaultValue?: i32, range?: FieldRange): Field<i32>;
+    /** f32 로 저장 — 읽으면 number, 쓰면 f32 로 반올림 */
+    function f32(defaultValue?: number, range?: FieldRange): Field<number>;
+    function f64(defaultValue?: number, range?: FieldRange): Field<number>;
+    function bool(defaultValue?: boolean): Field<boolean>;
+    function vec2(x?: number, y?: number): Field<Vec2>;
+    /** 개체 참조 (saveId 로 저장 — 세이브 · 로드 뒤에도 같은 개체), 기본 null */
+    function entity(): Field<Entity | null>;
+    /** enum 필드 — 인자 = 기본 멤버 (E.A) */
+    function enumOf<E>(defaultValue: E): Field<E>;
+  }
+  /** defineComponent 의 정의 — 최상위 const 의 초기값으로만 */
+  export interface ComponentDefinition<F> {
+    /** "이름공간.이름" (엔진 이름공간 core · game · … 은 안 된다) */
+    id: string;
+    /** 1 ~ 65535 (기본 1) — 모양을 바꾸면 올린다 */
+    version?: i32;
+    fields: F;
+    /** 세이브 · WorldHash (기본 true) */
+    persistent?: boolean;
+    /** 클라이언트로 복제 (기본 true, serverOnly 면 false) */
+    replicated?: boolean;
+    /** Inspector (기본 true) */
+    editorVisible?: boolean;
+    /** 서버에만 (기본 false) */
+    serverOnly?: boolean;
+  }
+  /** 컴포넌트 참조 — ctx.read · ctx.query 의 인자 (v0.3 M3-T3) */
+  export interface ComponentRef<T> {
+    readonly __sandboxComponent: T;
+  }
+  /** 스크립트 컴포넌트 — 필드는 이름 순으로 저장된다 (선언 순서를 바꿔도 같은 컴포넌트) */
+  export function defineComponent<F extends { [name: string]: Field<unknown> }>(
+    definition: ComponentDefinition<F>,
+  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
+
   /** 개체 핸들 — 같음 비교만, 틱을 넘겨 두려면 EntityRef 필드에 */
   export interface Entity {
     readonly __sandboxOpaque: "Entity";

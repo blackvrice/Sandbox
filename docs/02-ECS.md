@@ -34,6 +34,8 @@
   파괴된 엔티티의 saveId·netId 는 SimulationWorld 의 슬롯 장부가 기억한다 (컴포넌트는 이미 사라졌으므로).
 - 결정적 순회 도우미: forEachEntityByIndex(fn), poolsByStableId(). 해시·저장은 반드시 이것을 쓴다 (E2).
 - 동적 풀: Registry::adoptPool(info.makePool()). Registry 는 카탈로그를 모른다.
+- 동적 컴포넌트 (v0.3 M3-T1, ADR-0059): C++ 타입 없이 로드 때 모양을 아는 컴포넌트 (스크립트 defineComponent) — 9.6.
+  ComponentInfo 의 함수 칸은 std::function (동적 컴포넌트가 배치를 잡는다 — 부르는 모양은 그대로).
 - Flags 에 NotHashed 추가: Persistent 는 자동으로 Hashed 가 되고, 빼려면 NotHashed 를 명시한다 (H3 를 구조로).
 - 리플렉션 지원 필드 타입 (core/serialization/FieldCodec.hpp):
     bool · 정수 · f32/f64 · enum · Vec2 · Vec2i · EntityId · std::array<F,N> · SmallVector<F,N>
@@ -332,6 +334,21 @@ FixedString<N>, std::array<T,N>, Enum(리플렉션된 enum)`. 가변 컨테이�
 
 서버나 도구가 정의를 모르는 컴포넌트(예: `render.sprite`)를 Prefab·세이브·명령에서 만나면
 `OpaqueComponent{stableId, version, bytes}`로 보존합니다. 저장·복제·Inspector(원시 JSON 표시)는 되고, 시스템은 읽지 못합니다.
+
+### 9.6 동적 컴포넌트 (v0.3 M3-T1 — `core/ecs/DynamicComponent`, ADR-0059)
+
+```text
+쓰임       스크립트의 defineComponent (19 15장) — C++ 타입이 없고 로드 때 모양을 안다. core/script/ScriptComponents 가
+           스키마를 DynamicComponentDesc 로 옮겨 catalog.addDynamic(설명) 으로 넣는다 (넣기 규칙은 add<T>() 와 같다)
+필드 종류  i32 · f32 · f64 · bool · vec2 (f32 둘) · entityRef (saveId u64, 0 = 없음 — ADR-0015) · enum (i32). ≤ 64 개
+배치       필드 이름 순, 종류마다 자연 정렬, stride = 8 의 배수, 기본값 바이트 한 칸 (DynamicComponentLayout — 불변, shared_ptr)
+풀         DynamicComponentPool = ComponentPoolBase 의 sparse set (P1~P3 · changed · added 그대로) + 바이트 배열
+형식       reflectDynamic: 칸을 타입 있는 임시값으로 읽어 내장 방문자 (JSON · 해시 · 바이트 · 필드 목록 · 수치 읽기/쓰기) 의
+           field() 를 부른다 → 같은 필드를 이름 순으로 가진 C++ 컴포넌트와 바이트 단위로 같은 JSON · WorldHash · 복제 형식
+           (test_dynamic_component). Hint 는 None, FieldMeta 는 범위만
+번호       ComponentTypeId = 프로세스 표 dynamicComponentTypeId(이름) — 같은 이름은 같은 번호 (영속하지 않는다)
+[계획]     월드가 쓰는 카탈로그 = 엔진 카탈로그 + 콘텐츠 팩의 스크립트 컴포넌트 (콘텐츠마다 — v0.3 M3-T2)
+```
 
 ---
 

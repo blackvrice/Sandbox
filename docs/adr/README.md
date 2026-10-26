@@ -73,3 +73,4 @@
 | [0056](0056-sandboxscript-language-subset-own-compiler-no-gc.md)      | SandboxScript 언어 — TypeScript 의 엄격한 부분집합, 자체 C++ 컴파일러, number(f64) · i32, 예외 · GC · 전역 상태 없음 (호출 아레나 · 트랩 = 되돌리기) — D-01 | Accepted                                  | 2026-10-21 |
 | [0057](0057-host-api-single-definition-cpp-table-sdk-generated.md)    | Host API 단일 정의 — C++ 표 하나에서 타입 검사 · 로드 묶기 · 바인딩 검사 · sandbox.d.ts, 쓰기는 호출 단위 버퍼, 질의는 saveId 순 — D-04 | Accepted                                  | 2026-10-21 |
 | [0058](0058-bytecode-register-machine-typed-registers-verifier.md)    | SandboxScript 바이트코드 — 레지스터 기계, 레지스터마다 타입 · 0 초기화, 8 바이트 칸, 구조체는 필드 이름 순 배치, 선형 검증기, 체크섬 없는 .sbc | Accepted                                  | 2026-10-21 |
+| [0059](0059-script-components-schema-dynamic-pool-name-order-catalog.md) | 스크립트 컴포넌트 — defineComponent 상수 스키마, 바이트 배치 동적 풀 (필드 이름 순), 내장과 같은 방문자 → 같은 JSON · 해시 · 복제 형식, 콘텐츠마다 카탈로그 — D-03 | Accepted                                  | 2026-10-26 |

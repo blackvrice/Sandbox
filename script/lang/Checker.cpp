@@ -4,6 +4,7 @@
 #include <cmath>
 #include <format>
 #include <limits>
+#include <optional>
 
 #include "script/lang/Parser.hpp"
 #include "script/vm/Numbers.hpp"
@@ -232,6 +233,13 @@ private:
         sym(nan).value = numberConst(std::numeric_limits<f64>::quiet_NaN());
         const SymbolId inf = addBuiltin(m_globals, "Infinity", Builtin::Infinity, TypeTable::kNumber);
         sym(inf).value = numberConst(std::numeric_limits<f64>::infinity());
+        // 컴포넌트 정의 (ADR-0059) — Vec2 는 vec2 필드의 값 타입 (ABI Vec2 — ADR-0057 4)
+        m_vec2 = T().newStruct("Vec2");
+        T().structOf(m_vec2).fields = {StructField{"x", TypeTable::kNumber, false},
+                                       StructField{"y", TypeTable::kNumber, false}};
+        addType("Vec2", m_vec2);
+        addBuiltin(m_sdkValues, "defineComponent", Builtin::DefineComponent, TypeTable::kError);
+        addBuiltin(m_sdkValues, "field", Builtin::FieldNamespace, TypeTable::kError);
     }
 
     static ConstValue numberConst(f64 v) {
@@ -640,6 +648,10 @@ private:
         const SymbolId id = sema(item).refIndex;
         const NodeId typeNode = ast().kid(item, 0);
         const NodeId init = ast().kid(item, 1);
+        if (init != kNoNode && isDefineComponentCall(init)) {
+            declareComponent(item, id, typeNode, init);
+            return;
+        }
         TypeId declared = kNoExpect;
         if (typeNode != kNoNode) {
             declared = resolveType(typeNode, false);
@@ -670,6 +682,444 @@ private:
         }
         sym(id).type = t;
         sema(item).type = t;
+        m_ready[id] = true;
+    }
+
+    // ---- defineComponent (ADR-0059, 19 15장) -----------------------------------------------------------------------
+    // 조용한 찾기 (최상위 문맥 — 모듈 이름공간 · 전역). 없으면 보통 길이 S401 을 낸다
+    bool isSdkBuiltin(NodeId n, Builtin b) {
+        if (node(n).kind != NodeKind::Ident) {
+            return false;
+        }
+        const std::string_view name = ast().str(n);
+        const ScopeEntry* e = findEntry(m_mscopes[m_ctx.module].values, name);
+        if (e == nullptr) {
+            e = findEntry(m_globals, name);
+        }
+        return e != nullptr && sym(e->sym).kind == SymbolKind::Builtin && sym(e->sym).builtin == b;
+    }
+    bool isDefineComponentCall(NodeId init) {
+        return node(init).kind == NodeKind::Call && isSdkBuiltin(ast().kid(init, 0), Builtin::DefineComponent);
+    }
+
+    std::optional<f64> constNumberArg(NodeId v, std::string_view what) {
+        const TypeId t = expr(v, TypeTable::kNumber);
+        if (T().isError(t) || !assignTo(v, t, TypeTable::kNumber)) {
+            return std::nullopt;
+        }
+        const ConstValue& c = cval(v);
+        if (!c.has() || !std::isfinite(c.asNumber())) {
+            err("S424", v, std::format("{} 는 유한한 수 상수다", what));
+            return std::nullopt;
+        }
+        return c.asNumber();
+    }
+    std::optional<i32> constI32Arg(NodeId v, std::string_view what) {
+        const TypeId t = expr(v, TypeTable::kI32);
+        if (T().isError(t) || !assignTo(v, t, TypeTable::kI32)) {
+            return std::nullopt;
+        }
+        const ConstValue& c = cval(v);
+        if (c.kind == ConstValue::Kind::I32) {
+            return c.int32;
+        }
+        if (c.kind == ConstValue::Kind::Number && fitsI32(c.number)) {
+            return static_cast<i32>(c.number);
+        }
+        err("S424", v, std::format("{} 는 i32 정수 상수다", what));
+        return std::nullopt;
+    }
+    std::optional<bool> constBoolArg(NodeId v, std::string_view what) {
+        const TypeId t = expr(v, TypeTable::kBool);
+        if (T().isError(t) || !assignTo(v, t, TypeTable::kBool)) {
+            return std::nullopt;
+        }
+        if (cval(v).kind != ConstValue::Kind::Bool) {
+            err("S424", v, std::format("{} 는 boolean 상수다 (true · false)", what));
+            return std::nullopt;
+        }
+        return cval(v).boolean;
+    }
+
+    // { min, max } — 둘 다 적는다
+    bool rangeArg(NodeId v, bool integer, api::ComponentFieldSchema& f) {
+        if (node(v).kind != NodeKind::ObjectLit) {
+            err("S424", v, "범위는 { min: …, max: … } 객체 리터럴이다");
+            expr(v, kNoExpect);
+            return false;
+        }
+        std::optional<f64> lo;
+        std::optional<f64> hi;
+        bool ok = true;
+        for (const NodeId p : ast().kids(v)) {
+            const std::string_view key = ast().str(p);
+            if (node(p).kind != NodeKind::Property || (node(p).flags & NodeFlag::Shorthand) != 0 ||
+                (key != "min" && key != "max")) {
+                err("S424", p, std::format("범위의 키는 min · max 뿐이다 ('{}')", key));
+                ok = false;
+                continue;
+            }
+            std::optional<f64>& slot = key == "min" ? lo : hi;
+            if (slot) {
+                err("S402", p, std::format("키 '{}' 가 두 번 있다", key));
+                ok = false;
+                continue;
+            }
+            const NodeId value = ast().kid(p, 0);
+            if (integer) {
+                if (const auto x = constI32Arg(value, std::format("범위 {}", key))) {
+                    slot = static_cast<f64>(*x);
+                }
+            } else {
+                slot = constNumberArg(value, std::format("범위 {}", key));
+            }
+            ok = ok && slot.has_value();
+        }
+        if (!ok) {
+            return false;
+        }
+        if (!lo || !hi) {
+            err("S424", v, "범위는 min 과 max 를 둘 다 적는다");
+            return false;
+        }
+        if (*lo > *hi) {
+            err("S424", v, std::format("범위 min {} 이 max {} 보다 크다", *lo, *hi));
+            return false;
+        }
+        f.hasRange = true;
+        f.min = *lo;
+        f.max = *hi;
+        return true;
+    }
+
+    // field.종류(…) 하나 → 필드 스키마 (이름은 부르는 쪽이 채운다)
+    std::optional<api::ComponentFieldSchema> fieldDef(NodeId v, TypeId& valueType) {
+        using K = api::ComponentFieldKind;
+        if (node(v).kind != NodeKind::Call || node(ast().kid(v, 0)).kind != NodeKind::Member ||
+            !isSdkBuiltin(ast().kid(ast().kid(v, 0), 0), Builtin::FieldNamespace)) {
+            err("S424", v, "필드는 field.i32 · f32 · f64 · bool · vec2 · entity · enumOf (…) 로 적는다");
+            if (node(v).kind != NodeKind::Call) {
+                expr(v, kNoExpect);
+            }
+            return std::nullopt;
+        }
+        const NodeId callee = ast().kid(v, 0);
+        const std::string_view kind = ast().str(callee);
+        const auto kids = ast().kids(v);
+        const std::vector<NodeId> args(kids.begin() + 1, kids.end());
+        api::ComponentFieldSchema f;
+        auto argCount = [&](usize minArgs, usize maxArgs) {
+            if (args.size() < minArgs || args.size() > maxArgs) {
+                const std::string want =
+                    minArgs == maxArgs ? std::format("{}", maxArgs) : std::format("{} ~ {}", minArgs, maxArgs);
+                err("S405", v, std::format("field.{} 는 인자 {} 개 — {} 개를 넘겼다", kind, want, args.size()));
+                return false;
+            }
+            return true;
+        };
+        bool ok = true;
+        if (kind == "i32" || kind == "f32" || kind == "f64") {
+            const bool integer = kind == "i32";
+            f.kind = integer ? K::I32 : (kind == "f32" ? K::F32 : K::F64);
+            valueType = integer ? TypeTable::kI32 : TypeTable::kNumber;
+            if (!argCount(0, 2)) {
+                return std::nullopt;
+            }
+            if (!args.empty()) {
+                if (integer) {
+                    const auto x = constI32Arg(args[0], "기본값");
+                    ok = x.has_value();
+                    f.defaultValue = x ? static_cast<f64>(*x) : 0.0;
+                } else {
+                    const auto x = constNumberArg(args[0], "기본값");
+                    ok = x.has_value();
+                    f.defaultValue = x.value_or(0.0);
+                }
+            }
+            if (args.size() == 2) {
+                ok = rangeArg(args[1], integer, f) && ok;
+            }
+            if (!ok) {
+                return std::nullopt;
+            }
+            if (f.kind == K::F32) {
+                if (std::fabs(f.defaultValue) > static_cast<f64>(std::numeric_limits<f32>::max())) {
+                    err("S424", args[0], std::format("기본값 {} 이 f32 범위 밖이다", f.defaultValue));
+                    return std::nullopt;
+                }
+                f.defaultValue = api::roundToF32(f.defaultValue);
+            }
+            if (f.hasRange && !(f.defaultValue >= f.min && f.defaultValue <= f.max)) {
+                err("S424", args.empty() ? v : args[0],
+                    std::format("기본값 {} 이 범위 [{}, {}] 밖이다{}", f.defaultValue, f.min, f.max,
+                                args.empty() ? " — 기본값을 적는다" : ""));
+                return std::nullopt;
+            }
+        } else if (kind == "bool") {
+            f.kind = K::Bool;
+            valueType = TypeTable::kBool;
+            if (!argCount(0, 1)) {
+                return std::nullopt;
+            }
+            if (!args.empty()) {
+                const auto x = constBoolArg(args[0], "기본값");
+                ok = x.has_value();
+                f.defaultValue = x.value_or(false) ? 1.0 : 0.0;
+            }
+        } else if (kind == "vec2") {
+            f.kind = K::Vec2;
+            valueType = m_vec2;
+            if (!argCount(0, 2)) {
+                return std::nullopt;
+            }
+            f64* const slots[] = {&f.defaultValue, &f.defaultY};
+            for (usize i = 0; i < args.size(); ++i) {
+                const auto x = constNumberArg(args[i], i == 0 ? "x" : "y");
+                if (!x) {
+                    ok = false;
+                    continue;
+                }
+                if (std::fabs(*x) > static_cast<f64>(std::numeric_limits<f32>::max())) {
+                    err("S424", args[i], std::format("{} 이 f32 범위 밖이다 (vec2 = f32 둘)", *x));
+                    ok = false;
+                    continue;
+                }
+                *slots[i] = api::roundToF32(*x);
+            }
+        } else if (kind == "entity") {
+            f.kind = K::Entity;
+            valueType = T().nullableOf(T().opaque(api::AbiType::Entity));
+            if (!argCount(0, 0)) {
+                return std::nullopt;
+            }
+        } else if (kind == "enumOf") {
+            f.kind = K::Enum;
+            if (!argCount(1, 1)) {
+                return std::nullopt;
+            }
+            const TypeId t = expr(args[0], kNoExpect);
+            if (T().isError(t)) {
+                return std::nullopt;
+            }
+            if (T().kind(t) != TypeKind::Enum || cval(args[0]).kind != ConstValue::Kind::I32) {
+                err("S424", args[0], "field.enumOf 의 인자는 enum 멤버다 (E.A — 기본값이자 필드의 타입)");
+                return std::nullopt;
+            }
+            valueType = t;
+            const EnumType& e = T().enumOf(t);
+            f.enumName = e.name;
+            for (const EnumMemberInfo& m : e.members) {
+                f.enumMembers.emplace_back(m.name, m.value);
+            }
+            f.defaultValue = static_cast<f64>(cval(args[0]).int32);
+        } else {
+            err("S406", callee,
+                std::format("field 에는 '{}' 가 없다 — i32 · f32 · f64 · bool · vec2 · entity · enumOf", kind));
+            for (const NodeId a : args) {
+                expr(a, kNoExpect);
+            }
+            return std::nullopt;
+        }
+        if (!ok) {
+            return std::nullopt;
+        }
+        return f;
+    }
+
+    // 정의 모양: { id, version?, fields, persistent?, replicated?, editorVisible?, serverOnly? } — 모두 상수
+    void declareComponent(NodeId item, SymbolId id, NodeId typeNode, NodeId init) {
+        auto fail = [&] {
+            sym(id).type = TypeTable::kError;
+            sema(item).type = TypeTable::kError;
+            m_ready[id] = true;
+        };
+        if (typeNode != kNoNode) {
+            err("S424", typeNode, "defineComponent 의 const 에는 타입을 적지 않는다 (정의가 타입을 정한다)");
+        }
+        const auto kids = ast().kids(init);
+        if (kids.size() != 2 || node(kids[1]).kind != NodeKind::ObjectLit) {
+            err("S424", init, "defineComponent({ id, version, fields: { … } }) — 객체 리터럴 하나를 넘긴다");
+            for (usize i = 1; i < kids.size(); ++i) {
+                expr(kids[i], kNoExpect);
+            }
+            fail();
+            return;
+        }
+        const NodeId def = kids[1];
+        api::ComponentSchema schema;
+        schema.module = mod().path;
+        schema.line = node(init).pos.line;
+        schema.column = node(init).pos.column;
+        bool ok = typeNode == kNoNode;
+        bool haveId = false;
+        bool haveFields = false;
+        std::optional<bool> replicated;
+        std::vector<std::string> seen;
+        std::vector<std::pair<api::ComponentFieldSchema, TypeId>> fields;
+        for (const NodeId p : ast().kids(def)) {
+            const std::string key(ast().str(p));
+            if (node(p).kind != NodeKind::Property || (node(p).flags & NodeFlag::Shorthand) != 0) {
+                err("S424", p, std::format("defineComponent 의 '{}' 는 키: 상수 로 적는다", key));
+                ok = false;
+                continue;
+            }
+            if (std::find(seen.begin(), seen.end(), key) != seen.end()) {
+                err("S402", p, std::format("키 '{}' 가 두 번 있다", key));
+                ok = false;
+                continue;
+            }
+            seen.push_back(key);
+            const NodeId value = ast().kid(p, 0);
+            if (key == "id") {
+                const TypeId t = expr(value, TypeTable::kString);
+                if (T().isError(t) || !assignTo(value, t, TypeTable::kString)) {
+                    ok = false;
+                    continue;
+                }
+                if (cval(value).kind != ConstValue::Kind::String) {
+                    err("S424", value, "id 는 문자열 상수다");
+                    ok = false;
+                    continue;
+                }
+                schema.id = cval(value).string;
+                haveId = true;
+                if (!api::isValidComponentId(schema.id)) {
+                    err("S424", value,
+                        std::format("id '{}' — 이름공간.이름 (소문자 · 숫자 · _ · 점, 점 하나 이상: \"rpg.mana\")",
+                                    schema.id));
+                    ok = false;
+                } else if (api::isEngineComponentNamespace(schema.id)) {
+                    err("S424", value,
+                        std::format("id '{}' 는 엔진 이름공간이다 — 게임 · 스튜디오 이름공간을 쓴다 (\"rpg.mana\")",
+                                    schema.id));
+                    ok = false;
+                } else {
+                    for (const ComponentDecl& other : P.components) {
+                        if (other.schema.id == schema.id) {
+                            err("S424", value,
+                                std::format("컴포넌트 id '{}' 가 이미 {}:{} 에 있다", schema.id, other.schema.module,
+                                            other.schema.line));
+                            ok = false;
+                        }
+                    }
+                }
+            } else if (key == "version") {
+                const auto v = constI32Arg(value, "version");
+                if (!v) {
+                    ok = false;
+                } else if (*v < 1 || static_cast<u32>(*v) > api::kMaxComponentVersion) {
+                    err("S424", value, std::format("version 은 1 ~ {} — {} 이다", api::kMaxComponentVersion, *v));
+                    ok = false;
+                } else {
+                    schema.version = static_cast<u16>(*v);
+                }
+            } else if (key == "persistent" || key == "replicated" || key == "editorVisible" || key == "serverOnly") {
+                const auto b = constBoolArg(value, key);
+                if (!b) {
+                    ok = false;
+                    continue;
+                }
+                if (key == "persistent") {
+                    schema.persistent = *b;
+                } else if (key == "replicated") {
+                    replicated = *b;
+                } else if (key == "editorVisible") {
+                    schema.editorVisible = *b;
+                } else {
+                    schema.serverOnly = *b;
+                }
+            } else if (key == "fields") {
+                haveFields = true;
+                if (node(value).kind != NodeKind::ObjectLit) {
+                    err("S424", value, "fields 는 { 이름: field.종류(…), … } 객체 리터럴이다");
+                    expr(value, kNoExpect);
+                    ok = false;
+                    continue;
+                }
+                for (const NodeId fp : ast().kids(value)) {
+                    const std::string fname(ast().str(fp));
+                    if (node(fp).kind != NodeKind::Property || (node(fp).flags & NodeFlag::Shorthand) != 0) {
+                        err("S424", fp, std::format("필드 '{}' 는 이름: field.종류(…) 로 적는다", fname));
+                        ok = false;
+                        continue;
+                    }
+                    bool dup = false;
+                    for (const auto& entry : fields) {
+                        dup = dup || entry.first.name == fname;
+                    }
+                    if (dup) {
+                        err("S402", fp, std::format("필드 '{}' 가 두 번 있다", fname));
+                        ok = false;
+                        continue;
+                    }
+                    if (!api::isValidFieldName(fname)) {
+                        err("S424", fp, std::format("필드 이름 '{}' 는 식별자다 ([A-Za-z_][A-Za-z0-9_]*)", fname));
+                        ok = false;
+                        continue;
+                    }
+                    TypeId vt = TypeTable::kError;
+                    auto f = fieldDef(ast().kid(fp, 0), vt);
+                    if (!f) {
+                        ok = false;
+                        continue;
+                    }
+                    f->name = fname;
+                    set(fp, vt);
+                    fields.emplace_back(std::move(*f), vt);
+                }
+                if (fields.size() > api::kMaxComponentFields) {
+                    err("S424", value,
+                        std::format("필드는 {} 개까지 — {} 개다", api::kMaxComponentFields, fields.size()));
+                    ok = false;
+                }
+            } else {
+                err("S424", p,
+                    std::format("defineComponent 에 '{}' 는 없다 — id · version · fields · persistent · replicated · "
+                                "editorVisible · serverOnly",
+                                key));
+                expr(value, kNoExpect);
+                ok = false;
+            }
+        }
+        if (!haveId && std::find(seen.begin(), seen.end(), "id") == seen.end()) {
+            err("S424", def, "defineComponent 에 id 를 적는다 (\"rpg.mana\")");
+            ok = false;
+        }
+        if (!haveFields) {
+            err("S424", def, "defineComponent 에 fields 를 적는다 ({ current: field.f32(100) })");
+            ok = false;
+        }
+        if (schema.serverOnly && replicated.value_or(false)) {
+            err("S424", def, "serverOnly 컴포넌트는 복제하지 않는다 — replicated 를 빼거나 false 로");
+            ok = false;
+        }
+        schema.replicated = replicated.value_or(!schema.serverOnly);
+        if (!ok) {
+            fail();
+            return;
+        }
+        // 이름 순 (ADR-0059 2 — 선언 순서를 바꿔도 같은 컴포넌트)
+        std::sort(fields.begin(), fields.end(),
+                  [](const auto& a, const auto& b) { return a.first.name < b.first.name; });
+        const TypeId data = T().newStruct(sym(id).name);
+        std::vector<StructField> sf;
+        for (auto& entry : fields) {
+            sf.push_back(StructField{entry.first.name, entry.second, false});
+            schema.fields.push_back(std::move(entry.first));
+        }
+        T().structOf(data).fields = std::move(sf);
+        ComponentDecl d;
+        d.schema = std::move(schema);
+        d.symbol = id;
+        d.dataType = data;
+        d.module = m_ctx.module;
+        d.decl = item;
+        P.components.push_back(std::move(d));
+        Symbol& s = sym(id);
+        s.kind = SymbolKind::Component;
+        s.function = static_cast<u32>(P.components.size() - 1);
+        s.type = TypeTable::kError; // 값으로 쓸 수 없다 (S425) — ComponentRef 타입은 M3-T3 의 ctx.read 와 함께
+        sema(item).type = TypeTable::kError;
         m_ready[id] = true;
     }
 
@@ -1601,6 +2051,11 @@ private:
         case SymbolKind::Type:
             err("S411", n, std::format("'{}' 는 타입이다 — 값으로 쓸 수 없다", name));
             return set(n, TypeTable::kError);
+        case SymbolKind::Component:
+            err("S425", n,
+                std::format("컴포넌트 '{}' 는 아직 값으로 쓸 수 없다 — ctx.read · ctx.query 의 인자 [계획 v0.3 M3-T3]",
+                            name));
+            return set(n, TypeTable::kError);
         case SymbolKind::Builtin:
             if (s.builtin == Builtin::NaN || s.builtin == Builtin::Infinity) {
                 cval(n) = s.value;
@@ -1608,6 +2063,10 @@ private:
             }
             if (s.builtin == Builtin::None) {
                 return set(n, TypeTable::kError); // 가져오지 못한 이름 — 이미 보고했다
+            }
+            if (s.builtin == Builtin::DefineComponent || s.builtin == Builtin::FieldNamespace) {
+                err("S425", n, std::format("'{}' 는 최상위 const 의 defineComponent({{ … }}) 안에서만 쓴다", name));
+                return set(n, TypeTable::kError);
             }
             err("S411", n, std::format("'{}' 는 값이 아니다 — 부르거나 멤버를 쓴다", name));
             return set(n, TypeTable::kError);
@@ -2022,6 +2481,10 @@ private:
                 argsLoose(n);
                 return set(n, TypeTable::kError);
             }
+            if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineComponent) {
+                err("S425", callee, "defineComponent 는 최상위 const 의 초기값으로만 부른다 (export const Mana = …)");
+                return set(n, TypeTable::kError);
+            }
             err("S411", callee, std::format("'{}' 는 부를 수 없다", name));
             argsLoose(n);
             return set(n, TypeTable::kError);
@@ -2348,8 +2811,9 @@ private:
     std::vector<ScopeEntry> m_sdkValues;
     std::vector<ScopeEntry> m_sdkTypes;
     std::vector<ScopeEntry> m_globals;
-    std::vector<bool> m_ready;     // 심볼마다 — 타입 · 값이 정해졌다
-    std::vector<bool> m_resolving; // 타입 별칭 순환 검사
+    TypeId m_vec2 = TypeTable::kError; // SDK 의 Vec2 { x, y: number }
+    std::vector<bool> m_ready;         // 심볼마다 — 타입 · 값이 정해졌다
+    std::vector<bool> m_resolving;     // 타입 별칭 순환 검사
     ScopeEntry m_tmpEntry[2];
     FnCtx m_ctx;
 };

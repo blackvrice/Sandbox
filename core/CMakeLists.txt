@@ -22,6 +22,8 @@ add_library(SandboxCore STATIC
     ecs/Reflection.hpp
     ecs/ComponentPool.hpp
     ecs/ComponentPool.cpp
+    ecs/DynamicComponent.hpp
+    ecs/DynamicComponent.cpp
     ecs/View.hpp
     ecs/Registry.hpp
     ecs/Registry.cpp
@@ -141,6 +143,8 @@ add_library(SandboxCore STATIC
 
     script/ScriptHost.hpp
     script/ScriptHost.cpp
+    script/ScriptComponents.hpp
+    script/ScriptComponents.cpp
 )
 add_library(Sandbox::Core ALIAS SandboxCore)
 

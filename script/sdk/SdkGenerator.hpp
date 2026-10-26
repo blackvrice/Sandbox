@@ -4,7 +4,9 @@
 // 단일 정의 (script/api — Host 표 · 불투명 타입) 와 SDK 내장 (i32 · toI32 · idiv) 에서 TS 선언을 만든다. 이 파일과
 // 함께면 SandboxScript 가 받는 소스를 tsc --strict 도 받는다 (ADR-0056 2 — IDE 자동 완성 · 타입 오류). 저장소의
 // sdk/sandbox.d.ts 가 생성 결과와 같은지 시험이 본다 (골든) — 표를 바꾸면 같은 커밋에서 `sbx sdk sdk` 로 갱신한다.
-// 컴포넌트 타입 (내장 · defineComponent) 은 v0.3 M3 에서 카탈로그를 데이터로 받아 더한다 [계획].
+// 컴포넌트 정의 선언 (Vec2 · Field · field · defineComponent · ComponentRef — v0.3 M3-T1) 은 일반 선언이다: 팩의
+// 컴포넌트 타입은 그 팩의 소스 (defineComponent 의 반환 타입) 가 tsc 에 준다. 내장 컴포넌트의 ComponentRef 는 M3-T3
+// [계획].
 
 #include <string>
 

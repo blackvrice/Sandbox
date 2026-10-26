@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-10-26 — v0.3 M3-T1: 스크립트 컴포넌트 정의 → 스키마 → 동적 풀 · 카탈로그 (ADR-0059, D-03)
+
+**무엇을**
+
+- ADR-0059 (D-03 결정): defineComponent 는 최상위 const 의 상수 정의 — 검사기가 실행하지 않고 스키마로 읽는다. 필드는 이름 순,
+  저장은 바이트 배치 동적 풀, 형식은 내장 컴포넌트의 방문자를 그대로 (같은 JSON · 해시 · 복제 바이트), 카탈로그는 콘텐츠마다 [M3-T2].
+- `script/api/ComponentSchema`: 정규 스키마 (id · version · 플래그 · 필드 — 종류 i32 · f32 · f64 · bool · vec2 · entity · enumOf, 기본값 ·
+  범위 · enum 멤버), 이름 규칙 · 엔진 이름공간 · f32 반올림. Foundation 만.
+- 검사기: SDK 이름 defineComponent · field · Vec2. `const X = defineComponent({ … })` → Program::components (스키마 · 심볼 · 값 구조체).
+  새 진단 S424 (정의 모양 · id · version · 필드 · 기본값 · 범위 · 플래그) · S425 (정의 밖의 defineComponent · field, 컴포넌트를 값으로 —
+  ctx.read 는 M3-T3). 심볼 종류 Component.
+- `core/ecs/DynamicComponent`: DynamicComponentLayout (이름 순 · 자연 정렬 · stride 8 의 배수 · 기본값 바이트), reflectDynamic
+  (칸 → 타입 있는 임시값 → 방문자 field()), DynamicComponentPool (ComponentPoolBase + 바이트 배열), dynamicComponentTypeId (이름 → 번호
+  프로세스 표).
+- `core/ecs/ComponentCatalog`: ComponentInfo 의 함수 칸을 std::function 으로 (부르는 곳은 그대로), dynamicLayout, addDynamic.
+- `core/script/ScriptComponents`: 스키마 → DynamicComponentDesc → 카탈로그 (엔진 이름공간 · 겹친 이름은 "파일:줄: 컴포넌트 'id' — 이유").
+- sandbox.d.ts: Vec2 · Field · FieldRange · field 이름공간 · ComponentDefinition · ComponentRef · defineComponent (sbx sdk sdk 로 갱신).
+- 계획 변경 (18 6.2): M3 을 넷으로 — T1 정의 · 카탈로그 (이번), T2 콘텐츠 로드 · 콘텐츠마다 카탈로그 · Prefab · 세이브 · 복제 ·
+  Inspector, T3 Host ctx.read · has · query · 쓰기 버퍼, T4 version · 필드 마이그레이션. 원래 T1 의 "Host 읽기 · 질의 · 쓰기 버퍼" 는 T3 으로.
+
+**왜**
+
+- 초안의 "Native 와 사용자 컴포넌트는 같은 스키마 · 레지스트리 계약": 카탈로그 한 곳을 지나면 세이브 · WorldHash · 복제 · Rule ·
+  Inspector 경로가 이미 있다. 형식 규칙을 두 벌 쓰지 않으려고 같은 방문자를 부른다 — 어긋나면 조용히 세이브 · 복제가 달라진다.
+- 이름 순은 선언 순서를 바꾸는 흔한 편집이 세이브 · 해시를 바꾸지 않게 (VM 구조체 배치도 이름 순 — ADR-0058).
+- M3 을 나눈 것: 콘텐츠마다 카탈로그는 서버 · 클라이언트 · 에디터 · 도구의 카탈로그 배선 전체를 건드린다 — 정의 · 저장 형식을 먼저
+  시험으로 고정하고 배선을 따로 커밋한다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — 시뮬레이션 동작 변경
+  없음, kSimVersion 그대로). unit_script +8 (test_components), unit_ecs +5 (test_dynamic_component — 같은 C++ 컴포넌트와 JSON · 해시 ·
+  바이트 · 오류 메시지가 같다). check_includes 468 파일 위반 0.
+- 벤치 (ComponentInfo → std::function): 같은 기계 Windows MSVC Release `sbx_bench --only save.world` (50k 저장 · 로드 + 해시 검증).
+  바꾸기 전 (git stash) 저장 501 · 542 ms, 로드 588 · 596 ms / 바꾼 뒤 저장 493 · 484 ms, 로드 555 · 577 ms — 차이 없음 (측정값, 두 번씩.
+  바꾼 뒤 첫 실행 1319 / 1033 ms 는 빌드 직후 냉시작이라 뺐다).
+- 실행: 헤드리스 서버 `SandboxServer --scenario random_walk_1k --ticks 60` → tick 60 hash 0x0028fa3b59616a46, 종료 코드 0
+  (스크립트 없는 월드 그대로).
+
+**남은 일**
+
+- M3-T2: 콘텐츠 팩 scripts/ 컴파일 → 콘텐츠마다 카탈로그 → Prefab · 세이브 · 복제 · Inspector. M3-T3: Host 컴포넌트 항목 · 쓰기 버퍼.
+  M3-T4: 마이그레이션. enum 필드의 JSON 값이 멤버인지 보는 검사는 아직 없다 (내장 enum 과 같다 — i32 범위만).
+- tsc --strict 로 sandbox.d.ts + defineComponent 예제를 확인하는 CI 작업 (Node 있는 기계) [계획 — M2-T2 와 같다].
+
+---
+
 ## 2026-10-26 — v0.3 M2-T2: Host 바인딩 core/script · 계약 검사 · sandbox.d.ts 생성 → M2 완료
 
 **무엇을**

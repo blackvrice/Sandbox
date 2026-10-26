@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include "script/api/ComponentSchema.hpp"
 #include "script/api/MathBuiltins.hpp"
 #include "script/lang/Ast.hpp"
 #include "script/lang/Types.hpp"
@@ -48,7 +49,8 @@ enum class SymbolKind : u8 {
     Function,    // 최상위 function
     Type,        // interface · type · SDK 타입 (타입 이름공간만)
     Enum,        // enum (타입 + 값 이름공간)
-    Builtin,     // SDK · 전역 내장 (toI32 · idiv · Math · NaN · Infinity)
+    Builtin,     // SDK · 전역 내장 (toI32 · idiv · Math · NaN · Infinity · defineComponent · field)
+    Component,   // 최상위 const = defineComponent(…) (function = Program::components 의 자리)
 };
 
 // 내장 (Symbol::builtin, NodeSema::refIndex)
@@ -59,6 +61,8 @@ enum class Builtin : u32 {
     MathNamespace,
     NaN,
     Infinity,
+    DefineComponent,        // defineComponent — 최상위 const 의 초기값으로만 (ADR-0059 1)
+    FieldNamespace,         // field.i32 · f32 · … — defineComponent 의 fields 안에서만
     MathFunctionBase = 100, // + kMathFunctions 의 자리
     MathConstantBase = 200, // + kMathConstants 의 자리
 };
@@ -72,7 +76,7 @@ struct Symbol {
     bool mutableVar = false;    // let · 매개변수
     bool maybeAssigned = false; // 선언 뒤에 대입이 있을 수 있다 — null 좁히기에서 뺀다
     ConstValue value;           // const 의 상수값 (있으면)
-    u32 function = 0;           // Function: Program::functions 의 자리
+    u32 function = 0;           // Function: Program::functions 의 자리 · Component: Program::components 의 자리
     Builtin builtin = Builtin::None;
 };
 
@@ -116,12 +120,23 @@ struct ModuleSema {
     std::vector<std::pair<std::string, SymbolId>> exportTypes;
 };
 
+// defineComponent 하나 (ADR-0059). schema 의 필드는 이름 순, dataType = 값 구조체 (필드도 이름 순 — ctx.read 의 결과
+// [계획 M3-T3])
+struct ComponentDecl {
+    api::ComponentSchema schema;
+    SymbolId symbol = kNoSymbol;
+    TypeId dataType = TypeTable::kError;
+    u32 module = 0;
+    NodeId decl = kNoNode;
+};
+
 struct Program {
     TypeTable types;
     std::vector<Symbol> symbols;
     std::vector<FunctionInfo> functions;
-    std::vector<ModuleSema> modules; // 경로 정렬 순
-    std::vector<u32> order;          // 위상 순서 (의존이 먼저)
+    std::vector<ComponentDecl> components; // 정의 차례 (모듈 위상 순서 → 소스 순서). 오류 있는 정의는 없다
+    std::vector<ModuleSema> modules;       // 경로 정렬 순
+    std::vector<u32> order;                // 위상 순서 (의존이 먼저)
 
     [[nodiscard]] const ModuleSema* module(std::string_view path) const noexcept;
     [[nodiscard]] SymbolId exportedValue(std::string_view path, std::string_view name) const noexcept;
