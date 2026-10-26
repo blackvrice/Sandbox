@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-10-26 — v0.3 M4-T3: 스크립트 예산 · 트랩 정책 · 시스템별 통계 (ADR-0064) → M4 완료
+
+**무엇을**
+
+- 호출 예산에 Host 호출 상한 (`vm::Limits::maxHostCalls` 65,536 — 넘으면 HostError). ScriptHost 의 ctx.log 는 틱 256 줄
+  (넘으면 버리고 `droppedLogs` 로 센다).
+- `ScriptSystemAdapter`: 틱 연료 4,000,000 을 16b + 17d 의 모든 호출이 나눠 쓴다 — 호출마다 min(1,000,000, 남은 연료), 남은 연료로
+  멈춘 호출은 "예산" (쓰기 버림, 트랩 정책 밖), 남은 연료가 0 이면 "건너뜀". 트랩이 3 번 이어지면 시스템을 끈다 (경고 한 줄).
+  이어진 트랩 · 꺼짐 = 시뮬레이션 상태 → `state()` / `restoreState()` (팩 바이트코드 digest 가 다르면 버리고 다시 켠다).
+  시스템별 누적 통계 (호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 최대 · 마지막 트랩) 와 `describeScriptSystems`.
+- 세이브: world.json "scriptSystems" (선택 키 — 기본값이 아닌 시스템만). 로드가 되살리고, 바뀐 · 없는 시스템은 경고.
+- SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄.
+- 고친 것: 트랩 로그의 함수 이름이 깨져 나왔다 (M4-T1 부터) — 삼항의 공통 타입이 std::string 이라 string_view 가 임시값을
+  가리켰다. std::string 으로 받고 시험이 함수 이름을 본다.
+- 시험: test_script_budget 4 케이스 (unit_script). 문서: ADR-0064, 09 2장, 15, 19 (0 · 13 · 14 · 17 · 19장), 18 (M4 완료, 다음
+  M5-T1), 17, 13.
+
+**왜**
+
+- 호출 예산만으로는 시스템 수만큼 틱이 길어지고, 계속 망가진 시스템이 틱마다 연료를 태운다. 연료 (명령 수) 로 끊어 결정적이다
+  (벽시계를 보지 않는다 — 04).
+- 끈 상태를 메모리에만 두면 세이브 → 로드가 시스템을 다시 켜 두 월드가 갈린다 (D2). digest 로 고친 스크립트는 저절로 다시 켠다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로). unit_script +4.
+  `tools/check_includes.py`: 478 파일 위반 0.
+- 실행 (스크래치 sysroot — M4-T1 · T2 의 재생 · 이벤트 시스템 + 틱 1 ~ 3 에 트랩 나고 그 뒤에 값을 쓰는 `eco.mana.buggy`):
+  `sbx_sim_check --scenario ecosystem_small --content-root sysroot --ticks 300 --repeat 2 --save-at 135 --threads 0,1` →
+  "eco.mana.buggy t3: 트랩이 3 번 이어져 시스템을 껐다 (마지막: … (ecosystem/scripts/buggy_system.ts:onTick pc 7))", D1 · D2 · D5
+  일치 (꺼진 상태를 세이브가 잃으면 틱 136 부터 값을 써서 갈린다), 끝 해시가 M4-T2 실행과 같다 (꺼진 시스템은 아무것도 안 썼다),
+  끝 줄 "스크립트 eco.mana.buggy: 호출 3 · 트랩 3 · 예산 0 · 건너뜀 0 · 연료 합 27 · 최대 9 · 꺼짐" 외 둘.
+- 벤치: 스크립트 없는 월드의 경로는 그대로 (어댑터 없음). 틱 연료의 실제 시간은 M6-T1 벤치에서 맞춘다.
+
+**남은 일**
+
+- M5-T1: sbx check 스크립트 진단 · 템플릿 tsconfig · 에디터 스크립트 오류 · 적용. 시스템 켜고 끄기 명령 · 시스템별 시간 프로파일은
+  M5 [계획]. 시스템별 예산 키는 M6 벤치 뒤 검토.
+
+---
+
 ## 2026-10-26 — v0.3 M4-T2: onStart · onStop · onEvent — 단계 17d, 그 틱의 이벤트 (ADR-0063)
 
 **무엇을**

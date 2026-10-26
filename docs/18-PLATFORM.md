@@ -11,7 +11,7 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ (진입 결정 D-01 · D-04 ✅ — ADR-0056 · 0057, 마일스톤 6.2)
-다음     v0.3 M4-T3 — 예산 (연료 · 메모리 · 질의 · 이벤트 · HostCall — 호출 · 틱) · 트랩 정책 (시스템 끄기 기준) · 시스템별 통계
+다음     v0.3 M5-T1 — sbx check 의 스크립트 진단, sbx new 템플릿 tsconfig · sandbox.d.ts, 에디터 "콘텐츠" 창의 스크립트 오류 · 적용
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -294,7 +294,11 @@ M4 Script System
         구독 events { death · spawn · areaEnter (min · max) · score } + tags (콘텐츠 태그 — 로드가 풀고 없으면 V7), 이벤트는 그 틱
         안에서만 (트리거와 같은 단계 0 스냅숏 · Died · EntitySpawned), onEvent(ctx, e: GameEvent) — VM 구조체 인자, 예산 eventsPerTick
         (기본 256) · 틱 4096 (cut), 이어짐 없음 (콜백은 이벤트를 내지 않는다). .sbc 형식 4 (콜백 · 구독), onTick 은 선택
-  T3 [계획] 예산 (연료 · 메모리 · 질의 · 이벤트 · HostCall — 호출 · 틱) · 트랩 정책 (시스템 끄기 기준) · 시스템별 통계 (메트릭 · 로그)
+  T3 ✅ ADR-0064: 호출 예산 (VM + Host 호출 65,536 · 질의 · 쓰기), 틱 연료 4,000,000 (넘으면 "예산" · "건너뜀" — 트랩 정책 밖),
+        ctx.log 틱 256 줄, 트랩 3 번 이어지면 시스템을 끈다 — 이어진 트랩 · 꺼짐은 세이브 world.json scriptSystems (팩 바이트코드
+        digest 가 다르면 다시 켠다), 시스템별 통계 + 서버 · sbx_sim_check 끝 줄
+  → M4 완료 (2026-10-26): defineSystem → 단계 16b onTick · 17d onStart · onEvent (죽음 · 생성 · 영역 · 점수) · onStop, 예산 ·
+    트랩 정책 · 통계 — 스크립트 상태 없이 세이브 → 로드 · 복제 · 해시가 맞다
 M5 도구
   T1 [계획] sbx check 의 스크립트 진단, sbx new 템플릿에 tsconfig.json · sandbox.d.ts, 에디터 "콘텐츠" 창의 스크립트 오류 줄 ·
             적용 (오버레이 종류 Script — 프로토콜 ++)
@@ -343,6 +347,7 @@ v0.3 M3-T3 ✅  ADR-0060 (ADR-0057 4 · 초안 setField 를 대신), 19 (0 · 10
 v0.3 M3-T4 ✅  ADR-0061, 09 6장, 19 (0 · 15장), 13
 v0.3 M4-T1 ✅  ADR-0062, 03 2장 (16b), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 1 · 9 · 11 · 12 · 14 · 17장), 17, 13
 v0.3 M4-T2 ✅  ADR-0063, 03 2장 (17d), 04 (simVersion 이력), 11 (8 · 11장), 19 (0 · 9 · 11 · 12 · 13 · 17 · 18장), 17, 13
+v0.3 M4-T3 ✅  ADR-0064, 09 2장 (world.json scriptSystems), 15 (끝 줄), 19 (0 · 13 · 14 · 17 · 19장), 17, 13
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -380,4 +385,5 @@ v0.3 M3-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M3-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +2 (test_script_content — 마이그레이션)
 v0.3 M4-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +7 (test_script_systems)
 v0.3 M4-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +9 (test_script_callbacks)
+v0.3 M4-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +4 (test_script_budget)
 ```

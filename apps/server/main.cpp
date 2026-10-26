@@ -19,6 +19,7 @@
 #include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "core/scenarios/WorldSource.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
@@ -252,6 +253,12 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
                 host.world().registry().aliveCount(), static_cast<unsigned long long>(s.commandsAccepted),
                 static_cast<unsigned long long>(s.commandsRejected), static_cast<unsigned long long>(s.overruns),
                 s.replicationMs);
+    // 스크립트 시스템마다 한 줄 (v0.3 M4-T3 — 호출 · 트랩 · 예산 · 건너뜀 · 연료 · 꺼짐)
+    if (const sbx::script::ScriptSystemAdapter* systems = host.world().scriptSystems()) {
+        for (const std::string& line : sbx::script::describeScriptSystems(*systems)) {
+            std::printf("%s\n", line.c_str());
+        }
+    }
     if (script || sbx::game::findSession(host.world().registry()) != nullptr) {
         std::printf("게임 결과: %s\n", sbx::scenario::describePlayResult(host.world()).c_str());
     }

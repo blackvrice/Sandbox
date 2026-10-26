@@ -13,6 +13,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/persist/ChunkFile.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimVersion.hpp"
 #include "foundation/io/FileIo.hpp"
 
@@ -218,6 +219,19 @@ Expected<SaveStats> saveWorld(const sim::SimulationWorld& world, const fs::path&
                        {"speed", clock.speed()},
                        {"pendingSteps", clock.pendingSteps()},
                        {"editSequence", clock.editSequence()}};
+    // 스크립트 시스템의 이어진 트랩 · 꺼짐 (v0.3 M4-T3, ADR-0064) — 기본값이 아닌 시스템만, 없으면 키도 없다
+    if (const script::ScriptSystemAdapter* systems = world.scriptSystems()) {
+        if (const std::vector<script::ScriptSystemState> st = systems->state(); !st.empty()) {
+            ordered_json arr = ordered_json::array();
+            for (const script::ScriptSystemState& s : st) {
+                arr.push_back(ordered_json{{"id", s.id},
+                                           {"digest", replay::formatHash(s.digest)},
+                                           {"traps", s.traps},
+                                           {"disabled", s.disabled}});
+            }
+            w["scriptSystems"] = std::move(arr);
+        }
+    }
     w["worldHash"] = replay::formatHash(hash);
     // Opaque 를 가진 프로세스의 해시에는 그 컴포넌트가 빠져 있다. 로더는 자기가 모르는 이름 집합이 이것과 같을 때만
     // 해시를 비교한다 (같은 바이너리가 저장·로드하면 같다 — 예: 서버는 render.* 를 모른다)
@@ -675,6 +689,37 @@ Expected<LoadResult> loadWorld(const ecs::ComponentCatalog& engineCatalog, const
             }
         }
         result.warnings.push_back(std::move(line));
+    }
+
+    // 스크립트 시스템 상태 (v0.3 M4-T3 — 선택 키). 바이트코드가 바뀐 · 없는 시스템의 것은 버리고 경고
+    if (wj.contains("scriptSystems")) {
+        const json& arr = wj["scriptSystems"];
+        if (!arr.is_array()) {
+            return makeError(ErrorCode::ParseError, "scriptSystems 는 배열", "world.json");
+        }
+        std::vector<script::ScriptSystemState> saved;
+        for (const json& item : arr) {
+            const bool shape = item.is_object() && item.contains("id") && item["id"].is_string() &&
+                               item.contains("digest") && item["digest"].is_string() && item.contains("traps") &&
+                               item["traps"].is_number_unsigned() && item.contains("disabled") &&
+                               item["disabled"].is_boolean();
+            const auto digest = shape ? replay::parseHash(item["digest"].get<std::string>()) : Expected<u64>{0};
+            if (!shape || !digest || item["traps"].get<u64>() > 0xFFFF'FFFFull) {
+                return makeError(ErrorCode::ParseError, "scriptSystems 항목은 {id, digest, traps, disabled}",
+                                 "world.json");
+            }
+            saved.push_back(script::ScriptSystemState{item["id"].get<std::string>(), *digest,
+                                                      static_cast<u32>(item["traps"].get<u64>()),
+                                                      item["disabled"].get<bool>()});
+        }
+        if (script::ScriptSystemAdapter* systems = w->scriptSystems()) {
+            for (std::string& line : systems->restoreState(saved)) {
+                result.warnings.push_back(std::move(line));
+            }
+        } else if (!saved.empty()) {
+            result.warnings.push_back(std::format(
+                "콘텐츠에 스크립트 시스템이 없어 저장된 스크립트 시스템 상태 {} 개를 버렸다", saved.size()));
+        }
     }
 
     sim::RestoreState state;

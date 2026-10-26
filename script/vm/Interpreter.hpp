@@ -55,6 +55,7 @@ struct Limits {
     usize maxHeapBytes = 4u << 20; // 아레나 (객체 머리 + 칸 + 문자열 바이트)
     u32 maxArrayLength = 1u << 20;
     u32 maxStringBytes = 1u << 20;
+    u32 maxHostCalls = 1u << 16; // 호출 하나의 Host 함수 호출 (v0.3 M4-T3, ADR-0064 — 넘으면 HostError)
 };
 
 struct CallResult {

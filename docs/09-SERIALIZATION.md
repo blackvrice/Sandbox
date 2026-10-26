@@ -149,6 +149,10 @@ Phase 5A 추가 (schemaVersion 은 1 그대로 — 모두 선택 필드, Phase 4
 - world.json "opaqueComponents": [이름] = 저장한 프로세스가 몰랐던 컴포넌트. 로더가 모르는 이름 집합과 **같을 때만**
   해시를 비교한다 (서버는 render.* 를 모르므로 서버가 저장·로드하면 비교한다. Phase 4 의 "Opaque 가 있으면 건너뜀" 규칙을 대체 — [ADR-0014](adr/0014-content-model-spawnqueue-name-tables.md)).
 - Prefab 이 준 Opaque 컴포넌트(render.sprite 등)는 생성 때 version 1 로 붙고 세이브로 그대로 왕복한다.
+- (v0.3 M4-T3, [ADR-0064](adr/0064-script-budgets-tick-fuel-disable-after-traps-saved-state.md)) world.json "scriptSystems" (선택 —
+  기본값이 아닌 스크립트 시스템만, 없으면 키가 없다): [{"id", "digest": 팩 바이트코드의 FNV-1a 64 ("0x…"), "traps": 이어진 트랩,
+  "disabled"}]. 로드가 같은 id · digest 면 되살리고, digest 가 다르거나 (스크립트를 고쳤다) 시스템이 없으면 버리고 경고. WorldHash
+  에는 들지 않는다. schemaVersion 그대로
 
 Phase 5B 추가 (포맷 변화 없음 — 새 컴포넌트가 entities.jsonl 에 늘었을 뿐, schemaVersion 1 그대로)
 - 엔티티 참조는 saveId(u64) 필드로 저장한다 (ai.behavior.target). EntityRef 2-pass 재연결은 필요 없어졌다 — EntityRef 필드는

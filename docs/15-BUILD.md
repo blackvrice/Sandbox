@@ -222,7 +222,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
               [--threads N] [--seed N] [--content-root d] [--snapshot-kbps 256] [--ticks N --exit]  (Phase 9 · 10A)
     네트워크 서버: ServerHost (Simulation 스레드 + Net IO 스레드) + ENet UDP. 시작하면 "listening udp *:<port> world …"
     (--port 0 = 빈 포트), 끝나면 "tick N hash 0x… entities … accepted … rejected … overruns … replication X ms"
-    (replication = 스냅숏 만들기 평균, Phase 10A). 세이브 폴더는 world.json 의 팩을 읽는다.
+    (replication = 스냅숏 만들기 평균, Phase 10A). 세이브 폴더는 world.json 의 팩을 읽는다. 스크립트 시스템이 있으면 그 아래
+    시스템마다 "스크립트 <id>: 호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 최대 (· 꺼짐)" 한 줄 (v0.3 M4-T3 — sbx_sim_check 도 같다).
     (v0.2 M1-T2) 게임 프로젝트 폴더(sandbox.project.json): 프로젝트 검사(18 5.2 — 매니페스트 · 이 엔진 버전 · 팩 · 시작 월드)를
     통과해야 연다 (오류면 문제 목록과 종료 코드 2, 경고는 로그). 팩은 <프로젝트>/content (--content-root 는 쓰지 않는다),
     월드는 entryWorld 세이브 그대로 (틱 · 일시정지 포함), 월드 이름 = 매니페스트 name. 원격 클라이언트는

@@ -179,6 +179,8 @@ public:
     [[nodiscard]] const TriggerStats& lastTriggerStats() const noexcept { return m_triggerStats; }
     // 단계 16b 의 스크립트 시스템 (콘텐츠에 시스템이 없으면 null — 시험 · 진단)
     [[nodiscard]] const script::ScriptSystemAdapter* scriptSystems() const noexcept { return m_scriptSystems.get(); }
+    // 세이브 로더가 시스템 상태 (이어진 트랩 · 꺼짐 — ADR-0064) 를 되살린다
+    [[nodiscard]] script::ScriptSystemAdapter* scriptSystems() noexcept { return m_scriptSystems.get(); }
 
 private:
     struct SlotIdentity {

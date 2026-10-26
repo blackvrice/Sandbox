@@ -26,6 +26,7 @@
 #include "core/replay/Replay.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimVersion.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
@@ -546,6 +547,12 @@ int main(int argc, char** argv) {
                 line += std::format("{}{} {}", line.empty() ? "" : ", ", id, n);
             }
             std::printf("개체: %s\n", line.c_str());
+        }
+        // 스크립트 시스템마다 한 줄 (v0.3 M4-T3)
+        if (const script::ScriptSystemAdapter* systems = runners[0]->world().scriptSystems()) {
+            for (const std::string& line : script::describeScriptSystems(*systems)) {
+                std::printf("%s\n", line.c_str());
+            }
         }
         bool extinct = false;
         for (const std::string& id : opt.requirePrefabs) {

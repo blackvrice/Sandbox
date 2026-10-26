@@ -20,6 +20,7 @@
 | 컴포넌트 읽기 · 질의 · 쓰기 (16장)     | 구현 (v0.3 M3-T3)     | Host 표 ctx.read · has · query · write, LOADK (.sbc 형식 2), `core/script/ScriptHost`, ADR-0060 |
 | 스크립트 시스템 (17장)                 | 구현 (v0.3 M4-T1)     | defineSystem (검사기), 시스템 표 (.sbc 형식 3), `core/script/ScriptSystemAdapter` (단계 16b), ADR-0062 |
 | 시스템 콜백 · 이벤트 (18장)            | 구현 (v0.3 M4-T2)     | onStart · onStop · onEvent, `script/api/SystemEvents`, .sbc 형식 4, `core/simulation/SimulationScripts` (단계 17d), ADR-0063 |
+| 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -325,8 +326,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 참조 칸     0 = null, 1 … = 아레나 객체 (자리 + 1), 최상위 비트 = 상수 문자열. 불투명 칸은 Host 가 준 핸들 그대로 (VM 은 해석하지 않는다)
 프레임      레지스터 칸을 한 줄로 (프레임마다 그 함수의 레지스터 수, 0 으로). 호출 = 인자 칸을 새 프레임의 r0 … 로 복사
 예산        연료 (기본 1,000,000 — 명령마다 1, 문자열 잇기는 + 바이트/32, Host 함수는 + 표의 fuelBase), 호출 깊이 128, 레지스터 칸
-            합 2^18, 아레나 4 MiB (객체 머리 32 + 칸 8 + 문자열 바이트 — 어림), 배열 길이 2^20, 문자열 1 MiB (Limits — 기본값은 [계획
-            M4-T3] 에서 시스템 예산과 함께 정한다)
+            합 2^18, 아레나 4 MiB (객체 머리 32 + 칸 8 + 문자열 바이트 — 어림), 배열 길이 2^20, 문자열 1 MiB, Host 호출 65,536 번
+            (v0.3 M4-T3 — 넘으면 HostError). 시스템 호출의 연료는 틱 예산이 줄인다 (19장)
 트랩        Unreachable (TRAP) · NullReference · IndexOutOfRange (늘리기는 push 만) · NotAnIndex (xs[1.5]) · DivideByZero (i32 % 0 ·
             idiv(a, 0)) · OutOfFuel · StackOverflow · OutOfMemory · HostError (Host 실패 · Host 없음) · BadCall (바깥 호출의 번호 ·
             인자 수). 트랩은 그 호출만 멈춘다 — 같은 인터프리터로 다음 호출을 할 수 있다. 예외를 쓰지 않는다
@@ -350,7 +351,8 @@ Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는
 ScriptHost  VM 의 IHost. beginCall(tick, 스크립트 이름) 이 ctx 핸들을 새로 낸다 (표지 0x5C78… + 호출 번호) → 그 값을 ctx 인자로
             넘기고, 끝나면 endCall. Host 함수는 첫 인자가 지금 열린 호출의 ctx 인지 본다 — 지난 호출의 ctx · 위조한 핸들 · 열린
             호출 없음 = HostError (ADR-0057 4)
-지금 항목   ctx.tick = 열린 호출의 틱. ctx.log = 서버 로그 "script" 범주 "<스크립트> t<틱>: <글>" + recentLogs (256 줄), 한 줄
+지금 항목   ctx.tick = 열린 호출의 틱. ctx.log = 서버 로그 "script" 범주 "<스크립트> t<틱>: <글>" + recentLogs (256 줄 — 틱마다 256
+            줄까지, 넘은 줄은 버리고 droppedLogs 로 센다 — v0.3 M4-T3), 한 줄
             1024 바이트 (넘으면 UTF-8 글자 경계에서 자르고 …). 로그는 세계 상태가 아니라 바로 나간다 (트랩이어도 남는다)
 컴포넌트    (v0.3 M3-T3) beginCall(tick, 이름, 월드) · endCall(commit) — 컴포넌트 항목 · 개체 핸들 · 쓰기 버퍼는 16장.
             엔진의 시스템 단계 (16b) 에서 부르기는 17장 (v0.3 M4-T1)
@@ -477,8 +479,8 @@ export default defineSystem({
 호출       시스템마다 ScriptHost::beginCall(틱, 시스템 id, 월드) → onTick(ctx) → endCall(트랩 아님). 쓰기는 호출이 끝나면 바로 적용 —
            뒤 시스템 · 17b · 17c 가 같은 틱에 본다. ctx.log 는 "<시스템 id> t<틱>: …"
 트랩       그 호출의 쓰기만 버리고 다음 시스템으로 (그 시스템은 다음 주기에 다시 돈다). 로그는 시스템마다 처음 한 줄
-           ("<id> t<틱>: 트랩 <종류> — <글> (<팩>/<함수> pc n)"), 그 뒤는 세기만 (ScriptSystemAdapter::trapCount · lastStats). 끄는
-           정책 · 시스템 · 틱 예산은 M4-T3 [계획]. 연료는 호출마다 VM 기본 (1,000,000)
+           ("<id> t<틱>: 트랩 <종류> — <글> (<팩>/<함수> pc n)"), 그 뒤는 세기만 (ScriptSystemAdapter::trapCount · lastStats). 트랩이
+           3 번 이어지면 시스템을 끈다 · 틱 연료 예산은 19장
 d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server")
 결정성     시스템 상태가 없다 (주기는 틱 번호로만) — 세이브 → 로드 · 늦은 합류 뒤에도 같은 틱에 같은 시스템이 돈다. 같은 콘텐츠 =
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
@@ -535,4 +537,24 @@ GameEvent  { entity: Entity | null, kind: GameEventKind, previous · team · val
 d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents, SystemDefinition 의 onTick? · onStart? · onStop? ·
            onEvent? · events? · eventsPerTick?
 결정성     시뮬레이션 상태가 없다 — 같은 콘텐츠 = 같은 해시, 세이브 → 로드 뒤 이어 돌려도 같은 끝 해시 (시험)
+```
+
+## 19. 예산 · 트랩 정책 · 통계 (v0.3 M4-T3 — `core/script/ScriptSystemAdapter`, ADR-0064)
+
+```text
+호출 예산  연료 1,000,000 (kCallFuel) · 아레나 4 MiB · 깊이 128 · 칸 2^18 · 배열 2^20 · 문자열 1 MiB · Host 호출 65,536 (13장),
+           질의 하나 65,536 개체 · 쓰기 65,536 (16장). 넘으면 트랩 — 그 호출의 쓰기를 버린다
+틱 예산    16b + 17d 의 모든 스크립트 호출이 연료 4,000,000 (kTickFuel) 을 나눠 쓴다. 호출마다 min(1,000,000, 남은 연료) 로 돌고,
+           남은 연료로 멈춘 호출은 "예산" (쓰기 버림 · 트랩 정책 밖), 남은 연료가 0 이면 그 틱의 남은 호출은 "건너뜀".
+           onEvent 는 시스템마다 eventsPerTick · 틱 4,096 (18장). ctx.log 는 틱 256 줄 (넘으면 버리고 센다). 연료는 결정적이라
+           끊기는 자리도 결정적이다 (벽시계를 보지 않는다 — 04)
+트랩 정책  한 시스템의 호출 (콜백 무엇이든) 이 트랩으로 3 번 이어지면 (kDisableAfterTraps) 그 시스템을 끈다 — 그 틱의 남은 호출부터
+           부르지 않는다. 트랩 없이 끝난 호출이 이어짐을 0 으로, 예산 · 건너뜀은 세지 않는다. 끌 때 경고 한 줄 (마지막 트랩)
+상태       이어진 트랩 · 꺼짐은 시뮬레이션 상태 — 세이브 world.json "scriptSystems" (09 2장): 로드가 같은 id · 팩 바이트코드
+           digest 면 되살리고, 스크립트를 고쳤으면 (digest 다름) 버리고 다시 켠다 (경고). 손으로 켜고 끄는 명령은 [계획 M5]
+통계       시스템마다 누적 (진단 — 세이브 · 해시에 없음): 호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 호출 하나의 최대 연료 · 마지막
+           트랩 글 · 꺼짐 (ScriptSystemAdapter::counters · disabled). 틱 통계 lastStats (호출 · 트랩 · 예산 · 건너뜀 · 연료 · 버린
+           로그). SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄:
+             스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 12345 · 최대 2000 (꺼졌으면 " · 꺼짐")
+           시스템별 시간 프로파일 · 에디터 표시는 M5-T2 [계획]
 ```

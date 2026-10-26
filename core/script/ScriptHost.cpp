@@ -182,6 +182,15 @@ vm::HostResult ScriptHost::call(const api::HostFunction& fn, std::span<const vm:
 }
 
 void ScriptHost::log(std::string_view text) {
+    if (m_tick != m_logTick) {
+        m_logTick = m_tick;
+        m_logLinesThisTick = 0;
+    }
+    if (m_logLinesThisTick >= kMaxLogLinesPerTick) {
+        ++m_droppedLogs; // 로그는 시뮬레이션 상태가 아니다 — 버려도 결과가 같다
+        return;
+    }
+    ++m_logLinesThisTick;
     std::string line(text.substr(0, kMaxLogBytes));
     if (text.size() > kMaxLogBytes) {
         // UTF-8 글자 가운데를 자르지 않는다

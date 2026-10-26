@@ -286,6 +286,7 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
     const bc::Function* F = &M.functions[entry];
     Value* R = m_regs.data();
     u32 pc = 0;
+    u32 hostCalls = 0;
 
     auto trap = [&](Trap t, std::string msg) {
         res.trap = t;
@@ -650,6 +651,10 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
         }
         case Op::CALLH: {
             const api::HostFunction& h = api::kHostFunctions[m_importToHost[in.b]];
+            if (++hostCalls > m_limits.maxHostCalls) {
+                return trap(Trap::HostError,
+                            std::format("Host 호출이 {} 번을 넘었다 ({})", m_limits.maxHostCalls, h.id));
+            }
             if (!spend(h.fuelBase)) {
                 return trap(Trap::OutOfFuel, std::format("연료를 다 썼다 ({})", h.id));
             }

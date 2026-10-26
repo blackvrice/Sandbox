@@ -58,6 +58,7 @@ class ScriptHost final : public vm::IHost {
 public:
     static constexpr usize kMaxLogBytes = 1024;       // 한 줄 상한 (넘으면 자른다)
     static constexpr usize kKeptLogLines = 256;       // recentLogs 에 남기는 줄
+    static constexpr u32 kMaxLogLinesPerTick = 256;   // 틱마다 ctx.log 줄 상한 (넘으면 버리고 센다 — ADR-0064)
     static constexpr usize kMaxQueryEntities = 65536; // 질의 하나의 개체 상한 (넘으면 HostError)
     static constexpr usize kMaxPendingWrites = 65536; // 호출 하나의 쓰기 (같은 개체 · 컴포넌트는 하나로 친다)
 
@@ -73,6 +74,8 @@ public:
 
     [[nodiscard]] const std::vector<ScriptLogLine>& recentLogs() const noexcept { return m_logs; }
     [[nodiscard]] usize pendingWrites() const noexcept { return m_writes.size(); }
+    // 틱 상한으로 버린 ctx.log 줄 (처음부터 센 수)
+    [[nodiscard]] u64 droppedLogs() const noexcept { return m_droppedLogs; }
 
     // 열린 호출의 개체 핸들 (시험 · 시스템 단계가 개체를 인자로 넘길 때 — 같은 개체 = 같은 핸들)
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
@@ -104,6 +107,9 @@ private:
     sim::Tick m_tick = 0;
     std::string m_script;
     std::vector<ScriptLogLine> m_logs;
+    sim::Tick m_logTick = 0;
+    u32 m_logLinesThisTick = 0;
+    u64 m_droppedLogs = 0;
     sim::SimulationWorld* m_world = nullptr;
     std::vector<ecs::EntityId> m_handles;           // 핸들 자리 → 개체 (호출마다 새로)
     std::map<u64, u32> m_handleOf;                  // EntityId.raw → 자리 (찾기만)
