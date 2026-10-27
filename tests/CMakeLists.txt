@@ -29,6 +29,7 @@ add_executable(SandboxTests
     unit/script/test_script_callbacks.cpp
     unit/script/test_script_budget.cpp
     unit/script/test_client_scripts.cpp
+    unit/script/test_script_protection.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
     unit/ecs/test_registry.cpp

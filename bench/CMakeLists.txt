@@ -4,6 +4,7 @@ add_executable(sbx_bench
     BenchUtil.hpp
     EcsBench.cpp
     SimBench.cpp
+    ScriptBench.cpp
     RenderBench.cpp
     NetBench.cpp
 )

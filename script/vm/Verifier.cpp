@@ -191,6 +191,10 @@ private:
         for (usize i = 0; i < M.components.size(); ++i) {
             if (!api::isValidComponentId(M.components[i])) {
                 fail(std::format("컴포넌트 {}: '{}' 는 컴포넌트 이름이 아니다", i, M.components[i]));
+            } else if (api::isEngineComponentNamespace(M.components[i])) {
+                // 검사기는 엔진 이름공간의 defineComponent 를 거절한다 — 손으로 고친 모듈이 LOADK 로 엔진 컴포넌트를
+                // 가리키지 못하게 (Host 도 엔진 컴포넌트를 거절한다 — 두 겹, v0.3 M6-T2)
+                fail(std::format("컴포넌트 {}: '{}' 는 엔진 이름공간이다", i, M.components[i]));
             }
             for (usize k = 0; k < i; ++k) {
                 if (M.components[k] == M.components[i]) {
@@ -709,8 +713,12 @@ private:
                 }
             }
             result(in.a, im.result == api::AbiType::Void, [&] {
-                if (regKind(in.a, abiKind(im.result)) && abiKind(im.result) == K::Opaque &&
-                    M.types[F->regs[in.a]].abi != im.result) {
+                // regKind 가 거절하면 (없는 레지스터 포함) 더 보지 않는다 — 아래는 F->regs[in.a] 를 읽는다
+                // (v0.3 M6-T2 퍼즈가 찾은 범위 밖 읽기)
+                if (!regKind(in.a, abiKind(im.result))) {
+                    return;
+                }
+                if (abiKind(im.result) == K::Opaque && M.types[F->regs[in.a]].abi != im.result) {
                     bad(std::format("r{} 는 {} 가 아니다", in.a, api::abiTypeName(im.result)));
                 }
                 if (im.result == api::AbiType::EntityList && kindOf(F->regs[in.a]) == K::Array) {

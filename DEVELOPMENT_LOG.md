@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-27 — v0.3 M6-T2: 스크립트 보호 시험 · 바이트코드 변형 퍼즈 · script.regen 벤치 (ADR-0070)
+
+**무엇을**
+
+- tests/unit/script/test_script_protection (5): 무한 루프 · 무한 재귀 · 메모리 폭탄 시스템 (쓰기를 먼저 하고 끝나지 않는다) → 그
+  시스템만 3 번 트랩 · 꺼짐, 끝 WorldHash = 그 시스템이 없는 콘텐츠의 해시. client 무한 루프 → 그 시스템만. 엔진 컴포넌트 —
+  손으로 고친 컴포넌트 표는 검증기가, 엔진 ref 는 Host 가 거절. 무작위 개체 · ctx 위조 2,000 번 · 서버 핸들을 클라이언트 Host 에.
+  직렬화한 모듈의 결정적 변형 3,000 개 — 거절 또는 검증된 모듈, 검증된 것은 함수를 불러도 죽지 않는다.
+- 검증기: (1) 컴포넌트 표의 엔진 이름공간 거절 (새 규칙 — .sbc 형식 그대로), (2) 퍼즈가 찾은 버그 — CALLH 결과가 Entity[] 일 때
+  없는 결과 레지스터를 범위 확인 전에 F->regs[in.a] 로 읽던 것 (Debug 단언 · Release 에선 범위 밖 읽기) 을 고쳤다.
+- bench/ScriptBench — script.regen: 스크립트 컴포넌트 개체 10k (--quick 1k), 서버 시스템 하나가 매 틱 질의 · 읽기 · 쓰기, 스크립트
+  없는 같은 월드와 tick 비교, 진단 시계로 스크립트 ms/틱 · ns/개체 · 연료/개체.
+- 문서: ADR-0070, 19 (0 · 12 · 24장), 14 (2장 표 · 6장 후보 · 7.13 측정), 18 (M6-T2 ✅ · 다음 M6-T3), 13, 17.
+
+**왜**
+
+- v0.3 완료 기준의 "실행량 초과 · 권한 위반 · VM 크래시 보호" 를 끝 결과로 판정 (죽지 않는다 + 흔적이 없다). 스크립트 비용의
+  기준 수치.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과 (det_* 골든 그대로). SandboxTests 600 케이스.
+  check_includes 위반 0.
+- 퍼즈: CTest 3,000 개 (거절 2,918 · 검증 82 · 부른 함수 328), 한 번 300,000 개 (씨앗 777 — 거절 292,030 · 검증 7,970 · 부른 함수
+  31,880, 크래시 0, 약 22 초 Debug).
+- 실행: 마나 콘텐츠 + 무한 루프 · 메모리 폭탄 시스템의 `SandboxServer --world ecosystem_small --content-root <루트> --ticks 90 --exit`
+  → "eco.bad.loop … OutOfFuel" · "eco.bad.bomb … OutOfMemory" 3 번 뒤 꺼짐, 틱 90 해시 0xe7f8e361bd4eb697 = 나쁜 스크립트 없는 루트.
+- 벤치 (MSVC 19.44 RelWithDebInfo, build/bench — SBX_BUILD_BENCH=ON, 사용자 PC 28 논리 코어): `sbx_bench --only script` →
+  10k: tick 10.13 ms (스크립트 없이 0.193) · 스크립트 9.93 ms/틱 · 993 ns/개체 · 연료 59/개체, --quick 1k: 0.878 ms/틱.
+  참고 sim.random_walk 10k 1.14 ms. 머신 기준선 파일은 만들지 않았다 (전체 실행이 아니라서).
+
+**남은 일**
+
+- M6-T3: 버전 종료 (요구사항 판정 · 릴리스 노트 · 0.3.0). 스크립트 Host 경로 최적화 (핸들 · 쓰기 버퍼 · 배치) 는 14 6장 조건으로
+  [계획], 커버리지 퍼즈 (libFuzzer) 는 v0.4 검토.
+
+---
+
 ## 2026-10-27 — v0.3 M6-T1: 스크립트 데모 samples/mana_regen · E2E (ADR-0069)
 
 **무엇을**

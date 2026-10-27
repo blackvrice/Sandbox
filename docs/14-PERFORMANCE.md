@@ -70,6 +70,7 @@ Phase 11 측정 (7.11): 바이트 ∝ 관심 엔티티 ✅, 새 접속(화면 �
 | `render.sprites`      | 1k/10k/50k                                                                                                                             | CPU ms, GPU ms, Draw 수                        |
 | `render.sprite_batch` | 10k/50k 스프라이트 SpriteBatcher(컬링 · 정렬 · 묶음) CPU — **Phase 8A 구현** (`--quick` 은 10k), GPU 없이 모든 OS                      | build ms, 묶음 수                              |
 | `save.world`          | 50k 저장/로드 — **Phase 4 구현** (컴포넌트 5~6개, 칠한 청크 약 260개)                                                                  | ms, 파일 크기                                  |
+| `script.regen`        | 스크립트 컴포넌트 개체 10k (`--quick` 1k) 에 서버 시스템 하나가 틱마다 질의 · 읽기 · 쓰기, 예열 5틱 후 120틱 — **v0.3 M6-T2 구현** (ADR-0070) | tick (스크립트 없는 같은 월드와), 스크립트 ms/틱 · ns/개체 · 연료/개체 |
 
 ```text
 sbx_bench --scenario sim.ecosystem --entities 10000 --ticks 3000 --seed 1 --threads 8 --out result.json
@@ -126,6 +127,7 @@ GPU    PIX (D3D12), RenderDoc (D3D12/Vulkan), Xcode GPU Capture (Metal), Nsight
 | 스냅샷 필드 마스크·압축  | 클라당 > 256 KB/s                                                            |
 | 변경 추적 목록화         | Replication 수집 > 1 ms                                                      |
 | 스냅숏 바이트 재사용     | 클라 16 스냅숏 만들기 > 3 ms (7.11 — 화면 37 ms: 충족, Phase 15)             |
+| 스크립트 Host 경로       | 게임 스크립트의 단계 16b 가 tick 의 30 % 초과 (script.regen 10k 매 틱 ≈ 9.9 ms — 7.13: 벤치만 충족, 게임은 아직) |
 
 각 최적화 커밋은 **전후 벤치 수치 + 골든 해시 동일(또는 의도된 변경)** 을 함께 제시합니다.
 
@@ -522,3 +524,24 @@ fps 가 오른다는 보고. 원인은 그래픽이 아니라 렌더 스레드 �
   결정 · 메시지 구성(컴포넌트마다 vector)이 남아 20 ms — 1.4 의 3 ms 는 Net 스레드 · 메시지 아레나 [계획].
 ```
 
+### 7.13 v0.3 M6-T2 — 스크립트 시스템 비용 (2026-10-27)
+
+```text
+머신       사용자 PC (논리 코어 28), MSVC 19.44 RelWithDebInfo (build/bench — SBX_BUILD_BENCH=ON), master caa74da + 이 변경
+명령       sbx_bench --only script   (· --quick)
+시나리오   script.regen — Prefab bench.orb (core.transform + bench.mana {current · regen · max}) 를 128 × 128 타일에 격자로,
+           서버 시스템 bench.regen 이 매 틱 ctx.query → ctx.read → ctx.write (모든 개체), 진단 시계 (ADR-0068)
+```
+
+| 개체   | tick (스크립트 없이) | 스크립트 단계 | ns/개체 | 연료/개체 · 틱       |
+|--------|----------------------|---------------|---------|----------------------|
+| 10,000 | 10.13 ms (0.193 ms)  | 9.93 ms/틱    | 993     | 59.0 · 590,026       |
+| 1,000  | 0.898 ms (0.021 ms)  | 0.878 ms/틱   | 878     | 59.0 · 59,026        |
+
+```text
+해석
+- 개체 하나의 읽기 + 쓰기가 약 1 µs (VM 명령 약 59 + Host 호출 둘 — 값 펼치기 · 범위 검사 · 쓰기 버퍼). 10k 를 매 틱 다루면
+  시뮬레이션 예산 (10k 합 10 ms — 1.2) 의 대부분이다. 호출 하나 연료 590,026 < kCallFuel 1,000,000 (예산 안 — 트랩 0).
+- 게임 스크립트는 주기를 둔다 (데모 regen 15 틱 → 10k 라도 평균 약 0.7 ms/틱 추정). Host 경로 최적화 (핸들 · 쓰기 버퍼의 std::map,
+  호출마다 바이트 벡터, 배치 API) 는 6장 조건에 따라 [계획].
+```

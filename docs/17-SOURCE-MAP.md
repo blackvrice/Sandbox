@@ -236,6 +236,7 @@
 | `tests/unit/ecs/TestComponents.hpp`                                                                         | 테스트 전용 컴포넌트 (`test.*`)                                                                                                                                     | SandboxTests                |
 | `tests/property/**`                                                                                         | 속성 테스트 (스위트: property)                                                                                                                                      | SandboxTests                |
 | `bench/main.cpp`, `bench/{Ecs,Sim}Bench.cpp`, `bench/BenchUtil.hpp`                                         | `sbx_bench`                                                                                                                                                         | sbx_bench                   |
+| `bench/ScriptBench.cpp`                                                                                     | `script.regen` — 스크립트 컴포넌트 개체 10k 에 매 틱 질의 · 읽기 · 쓰기, 스크립트 없는 월드와 비교 · 진단 시계 (v0.3 M6-T2, ADR-0070) | sbx_bench                   |
 | `bench/NetBench.cpp`                                                                                        | `net.snapshot` · `net.late_join` — 50k random_walk 복제 비용 · 바이트 · 새 접속 시간 (Phase 11)                                                                     | sbx_bench                   |
 | `bench/baselines/*.json`                                                                                    | 머신별 벤치 기준선                                                                                                                                                  | —                           |
 | `external/CMakeLists.txt`                                                                                   | `sbx_nlohmann_json`, `sbx_doctest`, `sbx_stb`, `sbx_imgui`, `sbx_enet`, `sbx_vulkan_headers` · `sbx_volk`, `sbx_spirv_cross` 타깃                                   | —                           |
@@ -365,7 +366,7 @@ apps/server/
 tools/
   sim_check/    sbx_sim_check (결정론 하네스)       net_probe/  sbx_net_probe       sbx/   sbx (프로젝트 도구)
   shader/       셰이더 리플렉션 · 헤더 생성 (빌드 단계)   check_includes.py (include 경계)   wayland/ · wine/ (개발 보조)
-bench/          sbx_bench — EcsBench · SimBench · NetBench · RenderBench · BenchUtil, baselines/
+bench/          sbx_bench — EcsBench · SimBench · ScriptBench · NetBench · RenderBench · BenchUtil, baselines/
 tests/          unit/<모듈> · property/ · net/ · render/ · arch/ · project/ · golden/ · data/ (2 장 표는 13-TESTING)
 ```
 

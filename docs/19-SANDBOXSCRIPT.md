@@ -1,10 +1,10 @@
 # 19. SandboxScript (v0.3)
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
-> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅, M6-T1 데모 — 2026-10-27).
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅, M6-T1 데모 · T2 보호 — 2026-10-27).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
 > (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
-> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일), ADR-0069 (데모). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일), ADR-0069 · 0070 (데모 · 보호). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -25,6 +25,7 @@
 | 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
 | 스크립트 오버레이 · 에디터 (20장)      | 구현 (v0.3 M5-T2)     | 오버레이 종류 Script (프로토콜 13), 로더의 다시 컴파일 · V11, `editor/ui/ContentPanel` 스크립트, ADR-0066 |
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
+| 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
@@ -320,7 +321,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             함수 끝: void 면 RET, 아니면 TRAP 1 (검사기가 막는다). 만든 모듈은 바로 검증한다 (못 지나면 S502)
 검증기      함수마다 한 번 훑기 (흐름 분석 없음): 번호 (레지스터 · 상수 · 함수 · import · 필드 · 점프) 가 범위 안, 명령마다 피연산자
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
-            이름 순 · void 아님), 문자열 UTF-8, import = Host 표의 id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
+            이름 순 · void 아님), 문자열 UTF-8, 컴포넌트 표 (이름 규칙 · 겹침 · 엔진 이름공간 아님 — v0.3 M6-T2), import = Host 표의
+            id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 5 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
             도메인 · onUpdate — 옛 형식은 VersionMismatch) ·
@@ -654,7 +656,7 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            sbx_net_probe 는 받은 서버 표를 줄마다
 측정 예    (Windows MSVC Debug, 2026-10-27 — 스크래치 clientroot: 생태계 + Mana 스크립트) 서버 eco.mana.regen 호출 하나 약 1.3 ~
            1.5 ms · 연료 약 4,550 (토끼 약 75), 클라이언트 eco.hud 프레임 하나 약 2.2 ms (글자 75). Debug 라 Release 보다 몇 배 느리다
-[계획]     함수별 프로파일 (VM 계측 · 샘플링), 기록 그래프, 패널에서 시스템 끄고 켜기, sbx_bench 스크립트 단계 (M6-T1)
+[계획]     함수별 프로파일 (VM 계측 · 샘플링), 기록 그래프, 패널에서 시스템 끄고 켜기 (sbx_bench 스크립트 단계는 M6-T2 — 24장)
 ```
 
 ## 23. 데모 samples/mana_regen (v0.3 M6-T1 — ADR-0069, [README](../samples/mana_regen/README.md))
@@ -672,4 +674,23 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            편집 (ChangeComponent regen 7.5 → 서버 값)
 측정 예    (Windows MSVC Debug, 2026-10-27) 자동 플레이 끝: tick 1801 · hash 0x51ddbf1f7d1ab7e9, 토끼 75 → 124, eco.mana.regen 호출 120 ·
            연료 합 744,258 · 최대 7,753 · 시간 합 약 280 ms (호출 하나 최대 약 5.6 ms)
+```
+
+## 24. 보호 시험 · 벤치 (v0.3 M6-T2 — `tests/unit/script/test_script_protection`, `bench/ScriptBench`, ADR-0070)
+
+```text
+실행량     무한 루프 (OutOfFuel — 호출 연료 1,000,000) · 무한 재귀 (StackOverflow — 깊이 128) · 메모리 폭탄 (OutOfMemory — 문자열 ·
+           아레나) 시스템이 쓰기를 먼저 하고 끝나지 않아도: 그 시스템만 3 번 트랩 → 꺼짐, 건강한 시스템은 매 틱, 끝 WorldHash = 그
+           시스템이 없는 콘텐츠의 해시 (트랩난 호출의 쓰기는 하나도 남지 않는다). client 시스템도 그 시스템만 (표시 버림 · 끔).
+           실행 파일: 생태계 + 마나 스크립트 + 무한 루프 · 메모리 폭탄의 SandboxServer --ticks 90 --exit → 두 시스템 "꺼짐",
+           틱 90 해시 0xe7f8e361bd4eb697 = 나쁜 스크립트가 없는 콘텐츠 (2026-10-27 측정, MSVC Debug)
+권한       세 겹 — 검사기 (도메인 · 주인 타입), 검증기 (컴포넌트 표의 엔진 이름공간 거절 — 12장), Host (엔진 컴포넌트 ref 는 읽기 ·
+           쓰기 모두 HostError)
+위조       무작위 개체 핸들 · ctx (스크립트 함수를 거쳐 2,000 번) 는 HostError · 월드 그대로, 서버 Host 의 ctx · 개체는 클라이언트
+           Host 에서 거절 (표지가 다르다)
+바이트코드 직렬화한 모듈의 결정적 변형 3,000 개 (바이트 바꾸기 · 잘림 · 끼움) — 읽기 · 검증이 거절하거나 (측정 2,918), 검증된 변형
+           (82) 의 기본 타입 함수를 모두 거절하는 Host · 연료 20,000 으로 불러도 (328 번) 죽지 않는다. 이 퍼즈가 검증기의 범위 밖 읽기
+           (CALLH 결과가 Entity[] · 없는 결과 레지스터) 를 찾아 고쳤다. 한 번은 다른 씨앗으로 300,000 개 (크래시 0)
+벤치       sbx_bench script.regen — 10k 개체 매 틱 질의 · 읽기 · 쓰기: 스크립트 단계 약 9.9 ms/틱 · 개체당 약 1 µs · 연료 59
+           (Release — 14 7.13). 게임 스크립트는 intervalTicks 로 주기를 둔다
 ```
