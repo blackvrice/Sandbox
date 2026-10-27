@@ -12,6 +12,7 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
+#include "core/package/GitSource.hpp"
 #include "core/package/PackSource.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
@@ -20,6 +21,7 @@
 #include "foundation/io/Console.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "script/sdk/SdkGenerator.hpp"
+#include "tools/sbx/Process.hpp"
 #include "tools/sbx/SbxOptions.hpp"
 
 namespace {
@@ -187,6 +189,23 @@ int main(int argc, char** argv) {
             }
             std::printf("캐시 %s (%s)\n", io::displayPath(cached->dir).c_str(), cached->reused ? "이미 있음" : "넣음");
         }
+        return kExitOk;
+    }
+    case SbxCommand::Fetch: {
+        // Git 소스 (v0.4 M2-T2, ADR-0072) — 시스템 git 을 셸 없이 띄운다 (tools/sbx/Process)
+        const std::filesystem::path root =
+            opt.cacheDir.empty() ? package::defaultUserCache() : std::filesystem::path(opt.cacheDir);
+        auto got = package::fetchGitPack(opt.gitUrl, opt.gitRev, opt.packId, root, &runProcess);
+        if (!got) {
+            printErr(got.error().describe());
+            return kExitError;
+        }
+        const package::PackSnapshot& s = got->pack.snapshot;
+        std::printf("팩 %s %s — 파일 %zu · %llu 바이트\n", s.id.c_str(),
+                    s.version.empty() ? "(version 없음)" : s.version.c_str(), s.files.size(),
+                    static_cast<unsigned long long>(s.bytes));
+        std::printf("commit %s\ndigest %s\n", got->commit.c_str(), s.digest.c_str());
+        std::printf("캐시 %s (%s)\n", io::displayPath(got->pack.dir).c_str(), got->pack.reused ? "이미 있음" : "넣음");
         return kExitOk;
     }
     case SbxCommand::Sdk: {

@@ -3,6 +3,8 @@ add_executable(sbx
     main.cpp
     SbxOptions.hpp
     SbxOptions.cpp
+    Process.hpp
+    Process.cpp
 )
 target_link_libraries(sbx PRIVATE SandboxCore sbx_warnings)
 # new --from 의 팩을 찾을 기본 루트 = 저장소의 content/ (--content-root 로 바꾼다)

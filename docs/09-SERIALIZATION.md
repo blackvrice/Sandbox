@@ -359,7 +359,12 @@ digest    팩 폴더의 파일마다 "<sha256> <size> <path>\n" 를 path 순으�
           오프라인 = digest 로만 찾는다 (없음 NotFound, 고쳐짐 ValidationFailed — 지우지 않는다)
 사용자 캐시 SBX_CACHE_DIR, Windows %LOCALAPPDATA%\sandbox\cache, macOS ~/Library/Caches/sandbox, 그 밖 $XDG_CACHE_HOME/sandbox ·
           ~/.cache/sandbox (모두 없으면 임시 폴더). 지우기 · 크기 관리는 [계획]
-도구      sbx digest <팩 폴더> [--cache | --cache-dir <폴더>] (15 7장)
+Git 소스  (v0.4 M2-T2, ADR-0072) 시스템 git 을 셸 없이 (core/package/GitSource + tools/sbx/Process): clone --no-checkout → checkout
+          --detach <rev> → rev-parse HEAD (푼 커밋 40 글자). 줄 끝 변환을 끈다 (core.autocrlf=false · core.eol=lf — 저장소의 바이트
+          그대로라 머신과 무관한 digest). 저장소 뿌리 = 팩, 꺼낸 폴더를 로컬 소스처럼 캐시에 (.git 은 digest 밖).
+          url · rev 모양을 먼저 본다 ('-' 시작 · 공백 · "::" 원격 도우미 · ".." 거절). git 이 없으면 NotFound
+도구      sbx digest <팩 폴더> [--cache | --cache-dir <폴더>] · sbx fetch --git <URL> --rev <rev> [--id] [--cache-dir] (15 7장)
 시험      project test_pack_source (같은 내용 = 같은 digest · .git 빼기 · 바뀌면 다르다, 거절 — 없음 · pack.json · id · 경로 · 큰 파일,
-          캐시 넣기 · 그대로 · 고쳐짐 · 다시 넣기 · 오프라인 · 다른 id · 임시 폴더 안 남음)
+          캐시 넣기 · 그대로 · 고쳐짐 · 다시 넣기 · 오프라인 · 다른 id · 임시 폴더 안 남음), test_git_source (셸 없는 실행기의 따옴표 ·
+          모양 거절 · 로컬 bare 저장소의 태그 · 커밋 · 없는 rev · 다른 id)
 ```

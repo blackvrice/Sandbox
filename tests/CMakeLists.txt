@@ -60,6 +60,7 @@ add_executable(SandboxTests
     unit/project/test_game_project.cpp
     unit/project/test_game_package.cpp
     unit/project/test_pack_source.cpp
+    unit/project/test_git_source.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
@@ -102,6 +103,7 @@ add_executable(SandboxTests
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sim_check/SimCheckOptions.cpp"
     "${PROJECT_SOURCE_DIR}/tools/sbx/SbxOptions.cpp"
+    "${PROJECT_SOURCE_DIR}/tools/sbx/Process.cpp"
     "${PROJECT_SOURCE_DIR}/tools/net_probe/NetProbeOptions.cpp"
 )
 if(SBX_BUILD_CLIENT)

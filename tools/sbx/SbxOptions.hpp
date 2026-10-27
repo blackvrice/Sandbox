@@ -22,7 +22,7 @@ inline constexpr int kExitOk = 0;
 inline constexpr int kExitCheckFailed = 1; // check: 검사 오류
 inline constexpr int kExitError = 2;       // 잘못된 인자 · 만들기 실패
 
-enum class SbxCommand : u8 { Help, Version, New, Check, Templates, Build, Sdk, Digest };
+enum class SbxCommand : u8 { Help, Version, New, Check, Templates, Build, Sdk, Digest, Fetch };
 
 struct SbxOptions {
     SbxCommand command = SbxCommand::Help;
@@ -35,7 +35,10 @@ struct SbxOptions {
     std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
     std::string out;         // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
     bool cache = false;      // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
-    std::string cacheDir;    // digest --cache-dir <폴더> (비면 사용자 캐시)
+    std::string cacheDir;    // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)
+    std::string gitUrl;      // fetch --git <URL> (v0.4 M2-T2)
+    std::string gitRev;      // fetch --rev <태그 · 커밋>
+    std::string packId;      // fetch --id <팩 id> (비면 확인하지 않는다)
 };
 
 [[nodiscard]] Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args);

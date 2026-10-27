@@ -142,6 +142,8 @@ add_library(SandboxCore STATIC
     package/GamePackage.cpp
     package/PackSource.hpp
     package/PackSource.cpp
+    package/GitSource.hpp
+    package/GitSource.cpp
     trigger/TriggerSchema.hpp
     trigger/TriggerSchema.cpp
     trigger/TriggerCompiler.hpp

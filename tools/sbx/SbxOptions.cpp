@@ -30,9 +30,11 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Sdk;
     } else if (cmd == "digest") {
         o.command = SbxCommand::Digest;
+    } else if (cmd == "fetch") {
+        o.command = SbxCommand::Fetch;
     } else {
         return makeError(ErrorCode::InvalidArgument,
-                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest)", cmd));
+                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch)", cmd));
     }
     bool haveDir = false;
     for (usize i = 1; i < args.size(); ++i) {
@@ -62,7 +64,13 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             o.out = std::string(*v);
         } else if (o.command == SbxCommand::Digest && a == "--cache") {
             o.cache = true;
-        } else if (o.command == SbxCommand::Digest && a == "--cache-dir") {
+        } else if (o.command == SbxCommand::Fetch && (a == "--git" || a == "--rev" || a == "--id")) {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            (a == "--git" ? o.gitUrl : a == "--rev" ? o.gitRev : o.packId) = std::string(*v);
+        } else if ((o.command == SbxCommand::Digest || o.command == SbxCommand::Fetch) && a == "--cache-dir") {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -88,6 +96,10 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
     if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build) &&
         !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
+    }
+    if (o.command == SbxCommand::Fetch && (o.gitUrl.empty() || o.gitRev.empty() || haveDir)) {
+        return makeError(ErrorCode::InvalidArgument,
+                         "fetch 는 --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]");
     }
     if (o.command == SbxCommand::Digest && !haveDir) {
         return makeError(ErrorCode::InvalidArgument, "digest 에 팩 폴더가 필요합니다 (pack.json 이 있는 폴더)");
@@ -123,6 +135,9 @@ std::string sbxUsage() {
            "검사)\n"
            "      --cache                사용자 캐시에 넣는다 (SBX_CACHE_DIR · 플랫폼 캐시 폴더)\n"
            "      --cache-dir <폴더>     그 캐시에 넣는다\n"
+           "  fetch --git <URL> --rev <태그 · 커밋>   Git 저장소 (뿌리 = 팩) 를 받아 캐시에 — 푼 커밋 · digest (시스템 "
+           "git)\n"
+           "      --id <팩 id>           pack.json 의 id 확인   --cache-dir <폴더>  (기본: 사용자 캐시)\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";

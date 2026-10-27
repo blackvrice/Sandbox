@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-27 — v0.4 M2-T2: Git 소스 — 시스템 git 을 셸 없이, sbx fetch → M2 완료 (ADR-0072)
+
+**무엇을**
+
+- core/package/GitSource: url · rev 모양 검사 ('-' 시작 · 공백 · 제어 문자 · "::" 원격 도우미 · ".." 거절 — git 을 띄우기 전),
+  fetchGitPack (clone --no-checkout → checkout --detach <rev> → rev-parse HEAD → 꺼낸 폴더를 캐시에, 임시 폴더 지움). 실행기
+  (ProcessRunner) 는 부르는 쪽이 넣는다 — core 는 OS 헤더를 모른다.
+- tools/sbx/Process: 셸 없는 실행 (Windows CreateProcessW + CommandLineToArgvW 따옴표 규칙, 그 밖 posix_spawnp + addchdir),
+  stdout · stderr 를 합쳐 1 MiB 까지, 없는 실행 파일 NotFound.
+- sbx fetch --git <URL> --rev <rev> [--id] [--cache-dir].
+- 시험: test_git_source 3 (실행기 따옴표 왕복 · 모양 · 가짜 실행기 · 로컬 bare 저장소의 태그 · 커밋 · main · 없는 rev · 다른 id ·
+  autocrlf 와 무관한 digest). 문서: ADR-0072, 09 10장, 15 7장, 18 (0 · 6.4 · 7장), 17, 13.
+
+**왜**
+
+- ADR-0071 의 Git 소스. 다른 제작자가 쓴 URL · rev 가 셸 · 옵션 · 원격 도우미로 읽히지 않게 경계를 코드로.
+
+**검증**
+
+- 실행 (스크래치 bare 저장소 — mana_regen 의 eco 팩, 태그 v0.1.0): 처음 `sbx fetch` 의 digest (f2771ff9…, 11,746 바이트) 가 같은
+  팩의 `sbx digest` (ed163556…, 11,443 바이트) 와 달랐다 — 이 PC 의 core.autocrlf=true 가 꺼낼 때 LF 를 CRLF 로 바꿨다 (머신마다
+  digest 가 달라지는 재현성 버그). 모든 git 호출에 -c core.autocrlf=false -c core.eol=lf 를 넣고 다시 → ed163556… (같다), 시험에도
+  넣었다. `sbx fetch --git "--upload-pack=x" --rev v1` → "git URL 은 '-' 로 시작할 수 없다" (종료 2).
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과, SandboxTests 614 케이스. M2-T1 의 미뤘던 전체
+  ctest 는 63/63 통과 (이 작업 전에).
+
+**남은 일**
+
+- M3-T1: 그래프 해결. 로컬 폴더 소스의 digest 는 디스크 바이트 그대로 (autocrlf 로 꺼낸 폴더면 다르다) — M5 재현 시험에서 다시.
+
+---
+
 ## 2026-10-27 — v0.4 M2-T1: 패키지 digest · 로컬 소스 · 사용자 캐시, sbx digest (ADR-0071)
 
 **무엇을**
