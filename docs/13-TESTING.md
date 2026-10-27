@@ -253,6 +253,11 @@ expect    다르면 종료 코드 1. hash 는 골든처럼 툴체인 키별 — 
           만든 패키지 (--world <.sbpkg>) 로도 두 호스트가 같은 줄을 쓰는지 본다 (v0.2 요구 6, M6-T2)
 시험      game test_play_script (읽기 · 형식 오류 · 툴체인 키 해시 · 저장소 샘플을 같은 프로세스에서 끝까지 두 번 같다 ·
           세션 없는 월드 maxTicks · expect 다름 목록 · 끝나지 않으면 OutOfRange), server test_server_options (--script)
+스크립트  (v0.3 M6-T1, ADR-0069) samples/mana_regen/playthrough.json (게임 없음 — maxTicks 1800, expect tick · 해시).
+          CTest sample_mana_regen = 같은 cmake 스크립트 (RESULT_MATCH "게임 없음 · tick 1801", SERVER_MATCH 서버 끝 줄의 스크립트
+          시스템 · 트랩 0, CLIENT_MATCH 클라이언트 끝 줄의 client 시스템). game test_mana_regen_sample: 열기 (시스템 셋 · 토끼
+          75 · 마나 50) · 두 번 같다 · 기운 주기 받아들여짐 · 세이브 → 로드 → 이어 돌린 해시 · 로컬 세션 (복제 월드의 마나 = 서버 ·
+          client 글자 · Inspector 값 · 편집)
 ```
 
 ## 6. 시나리오 목록

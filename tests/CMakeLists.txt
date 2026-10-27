@@ -62,6 +62,7 @@ add_executable(SandboxTests
     unit/game/test_game_score.cpp
     unit/game/test_trigger_run.cpp
     unit/game/test_play_script.cpp
+    unit/game/test_mana_regen_sample.cpp
     unit/content/test_trigger.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
@@ -437,6 +438,15 @@ if(TARGET sbx)
                         "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_playthrough"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
             set_tests_properties(sample_playthrough PROPERTIES LABELS "content" TIMEOUT 600)
+            # 스크립트 데모 (v0.3 M6-T1) — 스크립트 컴포넌트 · 시스템 · client 시스템, 헤드리스 서버 = 로컬 플레이 (프로젝트 · 패키지)
+            add_test(NAME sample_mana_regen
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/mana_regen"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_mana_regen" "-DRESULT_MATCH=게임 없음 · tick 1801"
+                        "-DSERVER_MATCH=스크립트 eco.mana.regen: 호출 120 · 트랩 0"
+                        "-DCLIENT_MATCH=클라이언트 스크립트 eco.mana.hud: 호출 [0-9]+ · 트랩 0"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
+            set_tests_properties(sample_mana_regen PROPERTIES LABELS "content" TIMEOUT 600)
         endif()
     endif()
 endif()

@@ -215,6 +215,7 @@
 | `tools/sbx/main.cpp`, `SbxOptions.{hpp,cpp}`                                                                | 게임 프로젝트 도구 `sbx new · check · templates` (v0.2 M1-T4, ADR-0043)                                                                                             | sbx (+ Tests)               |
 | `tests/golden/{random_walk_1k,world_save_load,eco_lifecycle,ecosystem_small}.json`                          | 골든 해시 (툴체인별, ADR-0012)                                                                                                                                      | 데이터                      |
 | `samples/rabbit_guard/`                                                                                     | 데모 미니게임 "토끼 지키기" — 커밋한 게임 프로젝트 (eco 팩 복사본 · 시작 월드 · playthrough.json · README, v0.2 M6-T1, ADR-0055) | CTest `sample_playthrough`  |
+| `samples/mana_regen/`                                                                                       | 스크립트 데모 "마나 재생" — eco 팩 복사본 + scripts/ (eco.mana · regen · newborn · client hud) · 행동 eco.energize · 시작 월드 · playthrough.json · sdk/ · README (v0.3 M6-T1, ADR-0069) | CTest `sample_mana_regen`   |
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `tests/data/projects/minimal/`, `bad_manifest/`                                                             | 커밋된 게임 프로젝트 (내장 콘텐츠 + v1_sample 월드 · 일시정지 풂 / 깨진 매니페스트) — CTest `project_*` · `*_project_*`                                             | sbx_sim_check (CTest)       |
 | `content/ecosystem/`                                                                                        | 콘텐츠 팩 \"eco\" (tags · terrain · prefabs · rules · behaviors)                                                                                                    | 데이터                      |
@@ -269,7 +270,7 @@
 | `tests/`                                        | 단위·속성·시나리오·결정론·네트워크·렌더 테스트, 골든                                           | SandboxTests, sbx_render_tests |
 | `bench/`                                        | 벤치 시나리오·머신별 기준선                                                                    | sbx_bench                      |
 | `tools/`                                        | `check_includes.py`·`sim_check`·`net_probe`·`sbx`·셰이더 생성기 (구현), `sbx_atlas`(계획)       | 도구                           |
-| `samples/`                                      | 게임 프로젝트 예제 — `rabbit_guard` (v0.2 데모 · 자동 플레이 playthrough.json)                 | 데이터 (CTest sample_playthrough) |
+| `samples/`                                      | 게임 프로젝트 예제 — `rabbit_guard` (v0.2 데모 · 자동 플레이 playthrough.json), `mana_regen` (v0.3 스크립트 데모) | 데이터 (CTest sample_playthrough · sample_mana_regen) |
 | `docs/`                                         | 문서 (`docs/releases/v<제품 버전>.md` = 버전마다 릴리스 노트, v0.2 M6-T2)                      | —                              |
 
 ## 2. 모듈별 상세

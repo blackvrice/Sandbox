@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "gameId": "sandbox.mana_regen",
+  "name": "마나 재생",
+  "version": "0.1.0",
+  "engine": ">=0.2.0 <1.0.0",
+  "content": {
+    "packs": [
+      "eco"
+    ]
+  },
+  "entryWorld": "worlds/main"
+}

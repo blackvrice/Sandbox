@@ -1,0 +1,240 @@
+{
+  "format": 1,
+  "name": "마나 재생 — 자동 플레이 (기운 주기, 8 배속, 60 초)",
+  "maxTicks": 1800,
+  "steps": [
+    {
+      "at": 1,
+      "command": {
+        "op": "speed",
+        "speed": 8
+      }
+    },
+    {
+      "at": 30,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          8.51,
+          -27.51
+        ]
+      }
+    },
+    {
+      "at": 33,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -1.5,
+          9.51
+        ]
+      }
+    },
+    {
+      "at": 36,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -16.49,
+          -20.5
+        ]
+      }
+    },
+    {
+      "at": 39,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          21.5,
+          -6.49
+        ]
+      }
+    },
+    {
+      "at": 42,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -5.49,
+          7.49
+        ]
+      }
+    },
+    {
+      "at": 45,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          11.51,
+          -28.49
+        ]
+      }
+    },
+    {
+      "at": 48,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          8.5,
+          14.51
+        ]
+      }
+    },
+    {
+      "at": 51,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          20.51,
+          25.5
+        ]
+      }
+    },
+    {
+      "at": 54,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -22.51,
+          -31.5
+        ]
+      }
+    },
+    {
+      "at": 57,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          29.49,
+          14.5
+        ]
+      }
+    },
+    {
+      "at": 900,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          9.51,
+          -5.5
+        ]
+      }
+    },
+    {
+      "at": 903,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -31.49,
+          -4.5
+        ]
+      }
+    },
+    {
+      "at": 906,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -4.5,
+          22.49
+        ]
+      }
+    },
+    {
+      "at": 909,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          -30.5,
+          -9.51
+        ]
+      }
+    },
+    {
+      "at": 912,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          29.51,
+          29.5
+        ]
+      }
+    },
+    {
+      "at": 915,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          29.49,
+          -6.49
+        ]
+      }
+    },
+    {
+      "at": 918,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          28.49,
+          -23.49
+        ]
+      }
+    },
+    {
+      "at": 921,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          31.5,
+          -11.51
+        ]
+      }
+    },
+    {
+      "at": 924,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          3.49,
+          18.5
+        ]
+      }
+    },
+    {
+      "at": 927,
+      "command": {
+        "op": "action",
+        "action": "eco.energize",
+        "position": [
+          23.49,
+          17.5
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "tick": 1801,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0x51ddbf1f7d1ab7e9"
+    }
+  }
+}

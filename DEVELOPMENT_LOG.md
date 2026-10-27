@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-10-27 — v0.3 M6-T1: 스크립트 데모 samples/mana_regen · E2E (ADR-0069)
+
+**무엇을**
+
+- 계획의 M6-T1 (데모 + 보호 시험 + 10k 벤치) 을 셋으로 나눴다 — 이번은 데모 E2E, T2 = 보호 시험 · 벤치, T3 = 버전 종료 (18 6.2).
+- samples/mana_regen (게임 모드 없음): 생태계 팩 복사본 + scripts/ — mana.ts (컴포넌트 eco.mana {current · max · regen}),
+  regen.ts (server — 15 틱마다 채움 · 10 초마다 로그), newborn.ts (server — spawn 이벤트 → 마나 50), hud.ts (client — 토끼 위 값 ·
+  "스크립트" 칸). 토끼 Prefab 에 eco.mana, 행동 eco.energize (조건 target.eco.mana.current >= 30 → 마나 −30 · 기운 +30), 키 R.
+  스크립트를 넣은 콘텐츠 루트로 `sbx new --from ecosystem_small --content-root` — 시작 월드의 토끼 75 마리가 마나 50.
+  playthrough.json (8 배속 · 기운 주기 20 번 · 1800 틱 · expect tick · 툴체인별 해시), README.
+- CTest sample_mana_regen: sample_playthrough.cmake 에 RESULT_MATCH · SERVER_MATCH · CLIENT_MATCH 매개변수와 샘플 이름의 패키지
+  파일을 더해 같은 스크립트로 — 헤드리스 서버 = 로컬 플레이 (프로젝트 · 패키지), 서버 끝 줄의 스크립트 시스템 · 트랩 0, 클라이언트
+  끝 줄의 client 시스템.
+- unit_core test_mana_regen_sample 4: 열기 · 자동 플레이 두 번 같다 (기운 주기 받아들여진 수까지) · 세이브 → 로드 → 이어 돌린 해시 ·
+  로컬 세션 (멈춘 뒤 복제 월드의 마나 바이트 = 서버, client 글자 수, Inspector 값 · ChangeComponent 편집).
+- sbx check 의 스크립트 요약에 " · client onUpdate".
+- 문서: ADR-0069, 18 (M6 셋으로 · T1 ✅ · 다음 M6-T2), 19 (0 · 23장), 13 5.1, 15 7장, 17, README.
+
+**왜**
+
+- v0.3 완료 기준 "스크립트로 Mana Component · Regeneration System" 을 사용자가 따라 할 예제와 자동 검증으로. 컴포넌트 · 주기 ·
+  이벤트 · client · Rule 연결을 한 게임에서 다 쓴다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과 (+ sample_mana_regen 약 36 초, det_* 골든
+  그대로). SandboxTests 595 케이스. check_includes 위반 0.
+- 실행: `sbx check samples/mana_regen` 오류 0 · 경고 0 (시스템 3). `SandboxServer --world samples/mana_regen --script …` 와
+  `SandboxClient --headless --world samples/mana_regen --script …` 둘 다 "게임 결과: 게임 없음 · tick 1801 · hash
+  0x51ddbf1f7d1ab7e9", 서버 로그 "토끼 75 · 마나 합 6480" (t300) … "토끼 124 · 마나 합 12084" (t1800), 클라이언트 끝 줄
+  "[eco.mana.hud] 토끼 124 · 마나 가득 108".
+- 창 (ImGui) 에서 R 키 · 글자를 눈으로 보지는 못했다 — 행동 · 표시는 자동 플레이와 세션 시험이 본다.
+
+**남은 일**
+
+- M6-T2: 보호 시험 (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조) · 10k 대상 벤치 (sbx_bench 스크립트 단계). M6-T3: 버전 종료.
+
+---
+
 ## 2026-10-27 — v0.3 M5-T4: 스크립트 프로파일 — 주입한 진단 시계, ServerStats 스크립트 표, "스크립트 프로파일" 패널 (ADR-0068, 프로토콜 14)
 
 **무엇을**

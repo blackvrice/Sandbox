@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 M5-T4).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 M6-T1).
 
 ---
 
@@ -11,8 +11,8 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ◐ — M1 언어 앞단 ✅ · M2 VM · Host API ✅ · M3 사용자 Component ✅ · M4 Script System ✅ ·
-         M5 도구 ✅ · M6 E2E · 릴리스 (6.2, ADR-0056~0068)
-다음     v0.3 M6-T1 — 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템) E2E · 보호 시험 · 10k 대상 벤치 (sbx_bench 스크립트 단계)
+         M5 도구 ✅ · M6 E2E · 릴리스 (T1 ✅ · T2 · T3 — 6.2, ADR-0056~0069)
+다음     v0.3 M6-T2 — 보호 시험 (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조) · 10k 대상 벤치 (sbx_bench 스크립트 단계)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -321,10 +321,15 @@ M5 도구 (2026-10-26 — T1 을 둘로 나눴다: CLI 와 에디터. T3 을 둘
         "스크립트 프로파일" 패널 (서버 · 클라이언트 표), 끝 줄 · sbx_net_probe 에 시간. sbx_bench 스크립트 단계는 M6-T1 로
   → M5 완료 (2026-10-27): sbx new · check 의 SDK, 에디터에서 스크립트를 고쳐 바로 적용, client 시스템 (읽기 · 화면 글자), 서버 ·
     클라이언트 스크립트 프로파일 — 게임을 돌리면서 쓰고 · 고치고 · 재는 루프
-M6 E2E · 회귀
-  T1 [계획] 데모 samples/mana_regen (Mana 컴포넌트 + 재생 시스템): Inspector · 세이브/로드 · 복제 · 로컬 = 원격 해시, 보호 시험
-            (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조), 10k 대상 벤치 (sbx_bench 스크립트 단계 — 시계를 넣어 시스템별 시간)
-  T2 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.3.0 · 제품 버전 0.3.0
+M6 E2E · 회귀 (2026-10-27 — T1 을 셋으로 나눴다: 데모 E2E · 보호 시험과 벤치 · 버전 종료, ADR-0069)
+  T1 ✅ ADR-0069: 데모 samples/mana_regen — eco.mana 컴포넌트 · server 시스템 regen (15 틱마다) · newborn (spawn 이벤트) · client
+        시스템 hud · 마나를 쓰는 행동 eco.energize (R). 스크립트가 든 콘텐츠 루트로 sbx new (시작 월드의 토끼가 마나를 가진다),
+        playthrough.json (8 배속 · 기운 주기 · 1800 틱 · 툴체인별 해시). CTest sample_mana_regen (헤드리스 서버 = 로컬 플레이 —
+        프로젝트 · 패키지, 끝 줄의 스크립트 시스템 · 트랩 0), unit_core test_mana_regen_sample (두 번 같다 · 기운 주기 받아들여짐 ·
+        세이브 → 로드 해시 · 복제 월드의 마나 = 서버 · client 글자 · Inspector 값 · 편집)
+  T2 [계획] 보호 시험 (무한 루프 · 권한 위반 · 불법 바이트코드 · 핸들 위조 — 서버가 죽지 않고 그 시스템만), 10k 대상 벤치 (sbx_bench
+            스크립트 단계 — 시계를 넣어 시스템별 시간, baselines)
+  T3 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.3.0 · 제품 버전 0.3.0
 ```
 
 v0.3 완료 기준 (초안 5장 → 자동 검증): 스크립트로 Mana Component · Regeneration System (M6-T1), 자동 완성 · Inspector ·
@@ -372,6 +377,7 @@ v0.3 M5-T3 ✅  ADR-0067, 19 (0 · 9 · 10 · 12 · 14 · 17 · 19 · 21장), 10
                17, 13
 v0.3 M5-T4 ✅  ADR-0068, 08 (프로토콜 14 — ServerStats 스크립트 표), 19 (0 · 9 · 19 · 21 · 22장), 10 9장 ("스크립트 프로파일" 패널),
                15 (끝 줄 · net_probe), 17, 13
+v0.3 M6-T1 ✅  ADR-0069, samples/mana_regen/README, 19 (0 · 23장), 13 5.1 (sample_mana_regen), 15 7장 (데모), 17, README
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -414,4 +420,5 @@ v0.3 M5-T1 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_proj
 v0.3 M5-T2 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_content +3 (test_script_overlay) · unit_editor +2 (test_script_editor) · unit_network +1 · 갱신 (프로토콜 13)
 v0.3 M5-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +5 (test_client_scripts) · unit_client +1 (test_client_script_session) · 갱신 (.sbc 형식 5 · 지문)
 v0.3 M5-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +1 (시계 — 해시 그대로) · unit_client +1 (프로파일 세션 · 패널) · unit_network +1 (ServerStats 표 · 프로토콜 14)
+v0.3 M6-T1 뒤: Windows MSVC Debug 63/63 (render_tests_warp 제외, + sample_mana_regen) · unit_core +4 (test_mana_regen_sample) · unit_project 갱신 (요약의 client onUpdate)
 ```

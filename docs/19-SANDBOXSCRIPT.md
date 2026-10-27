@@ -1,10 +1,10 @@
 # 19. SandboxScript (v0.3)
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
-> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅ — 2026-10-27).
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅, M6-T1 데모 — 2026-10-27).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
 > (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
-> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일), ADR-0069 (데모). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -25,6 +25,7 @@
 | 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
 | 스크립트 오버레이 · 에디터 (20장)      | 구현 (v0.3 M5-T2)     | 오버레이 종류 Script (프로토콜 13), 로더의 다시 컴파일 · V11, `editor/ui/ContentPanel` 스크립트, ADR-0066 |
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
+| 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -654,4 +655,21 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 측정 예    (Windows MSVC Debug, 2026-10-27 — 스크래치 clientroot: 생태계 + Mana 스크립트) 서버 eco.mana.regen 호출 하나 약 1.3 ~
            1.5 ms · 연료 약 4,550 (토끼 약 75), 클라이언트 eco.hud 프레임 하나 약 2.2 ms (글자 75). Debug 라 Release 보다 몇 배 느리다
 [계획]     함수별 프로파일 (VM 계측 · 샘플링), 기록 그래프, 패널에서 시스템 끄고 켜기, sbx_bench 스크립트 단계 (M6-T1)
+```
+
+## 23. 데모 samples/mana_regen (v0.3 M6-T1 — ADR-0069, [README](../samples/mana_regen/README.md))
+
+```text
+게임       생태계 + 토끼마다 마나 (게임 모드 없음). content/ecosystem/scripts/ mana.ts (eco.mana {current · max · regen}) ·
+           regen.ts (server — 15 틱마다 채움, 10 초마다 로그) · newborn.ts (server — spawn 이벤트, 마나 50) · hud.ts (client — 토끼 위
+           값 · "스크립트" 칸). 행동 eco.energize (R — 조건 target.eco.mana.current >= 30, 효과 마나 −30 · 기운 +30)
+만든 길    스크립트 · Prefab 의 eco.mana 를 넣은 콘텐츠 루트로 sbx new --from ecosystem_small --content-root <루트> — 시작 월드의 토끼가
+           처음부터 마나를 가진다
+검증       CTest sample_mana_regen: 자동 플레이 (8 배속 · 기운 주기 20 번 · 1800 틱) 를 헤드리스 서버 · 로컬 플레이 · 패키지로 —
+           같은 "게임 결과:" 줄, 서버 끝 줄 "스크립트 eco.mana.regen: 호출 120 · 트랩 0", 클라이언트 끝 줄의 eco.mana.hud.
+           unit_core test_mana_regen_sample: 두 번 같다 · 기운 주기 13 번 받아들여짐 (측정 — 이 툴체인), 세이브 (틱 907) → 로드 →
+           이어 돌린 해시 = 곧장, 로컬 세션 — 멈춘 뒤 복제 월드의 마나 바이트 = 서버, client 글자 수 = 마나 개체 수, Inspector 값 ·
+           편집 (ChangeComponent regen 7.5 → 서버 값)
+측정 예    (Windows MSVC Debug, 2026-10-27) 자동 플레이 끝: tick 1801 · hash 0x51ddbf1f7d1ab7e9, 토끼 75 → 124, eco.mana.regen 호출 120 ·
+           연료 합 744,258 · 최대 7,753 · 시간 합 약 280 ms (호출 하나 최대 약 5.6 ms)
 ```

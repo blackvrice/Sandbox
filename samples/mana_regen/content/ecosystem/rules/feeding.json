@@ -1,0 +1,46 @@
+[
+  {
+    "id": "eco.rabbit_grazes",
+    "action": "eat",
+    "source": { "tags": { "all": ["herbivore"] } },
+    "target": { "tags": { "all": ["plant"], "none": ["dead"] } },
+    "range": 0.8,
+    "priority": 10,
+    "exclusive": true,
+    "conditions": [
+      { "field": "source.life.energy.value", "op": "<", "value": 95 },
+      { "field": "target.life.growth.stage", "op": ">=", "value": 1 }
+    ],
+    "effects": [
+      { "op": "field.add", "who": "source", "field": "life.energy.value",    "value": 15 },
+      { "op": "field.add", "who": "target", "field": "life.growth.stage",    "value": -1 },
+      { "op": "field.set", "who": "target", "field": "life.growth.progress", "value": 0 }
+    ]
+  },
+  {
+    "id": "eco.rabbit_finishes_grass",
+    "action": "eat",
+    "source": { "tags": { "all": ["herbivore"] } },
+    "target": { "tags": { "all": ["plant"], "none": ["dead"] } },
+    "range": 0.8,
+    "priority": 0,
+    "conditions": [ { "field": "source.life.energy.value", "op": "<", "value": 95 } ],
+    "effects": [
+      { "op": "field.add", "who": "source", "field": "life.energy.value", "value": 6 },
+      { "op": "destroy",   "who": "target" }
+    ]
+  },
+  {
+    "id": "eco.wolf_eats_rabbit",
+    "action": "eat",
+    "source": { "tags": { "all": ["predator"] } },
+    "target": { "tags": { "all": ["prey"], "none": ["dead"] } },
+    "range": 1.0,
+    "conditions": [ { "field": "source.life.energy.value", "op": "<", "value": 140 } ],
+    "effects": [
+      { "op": "field.add", "who": "source", "field": "life.energy.value", "value": 40 },
+      { "op": "destroy",   "who": "target" },
+      { "op": "event",     "name": "eco.eaten", "who": "target" }
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "id": "eco.rabbit_lost",
+  "name": "토끼를 잃으면 −1",
+  "nodes": [
+    { "id": "died", "type": "event.death", "tags": { "all": ["prey"] }, "pos": [0, 0] },
+    { "id": "minus", "type": "effect.score.add", "value": -1, "pos": [220, 0] },
+    { "id": "say", "type": "effect.event", "name": "eco.rabbit_lost", "pos": [440, 0] }
+  ],
+  "links": [
+    { "from": "died", "to": "minus" },
+    { "from": "minus", "to": "say" }
+  ]
+}

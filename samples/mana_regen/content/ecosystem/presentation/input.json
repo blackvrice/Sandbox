@@ -1,0 +1,9 @@
+{
+  "format": "sandbox.input",
+  "version": 1,
+  "actions": {
+    "play.action.eco.feed": ["Q"],
+    "play.action.eco.trap": ["E"],
+    "play.action.eco.energize": ["R"]
+  }
+}

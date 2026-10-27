@@ -341,7 +341,7 @@ struct Opened {
 };
 
 // 스크립트 요약 (v0.3 M5-T1) — 팩 · 컴포넌트 수, 시스템마다 "id — content/<팩>/scripts/a.ts · onTick (n 틱마다) ·
-// onEvent …"
+// onEvent … · client onUpdate"
 void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
     r.scriptComponents = db.scriptComponents().size();
     const auto& programs = db.scriptPrograms();
@@ -368,6 +368,9 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
             }
             if (s.onStop != script::api::kNoCallback) {
                 line += " · onStop";
+            }
+            if (s.onUpdate != script::api::kNoCallback) {
+                line += " · client onUpdate"; // 클라이언트 프레임마다 (v0.3 M5-T3)
             }
             r.scriptSystems.push_back(std::move(line));
         }

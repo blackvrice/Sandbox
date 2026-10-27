@@ -1,0 +1,18 @@
+{
+  "id": "eco.carnivore",
+  "initial": "wander",
+  "states": [
+    { "id": "wander", "onTick": [ { "action": "wander", "radius": 10, "interval": 4.0 } ] },
+    { "id": "hunt",   "onTick": [ { "action": "seek", "tags": { "all": ["prey"] } } ] },
+    { "id": "eat",    "onTick": [ { "action": "interact", "name": "eat" } ] },
+    { "id": "rest",   "onTick": [ { "action": "idle" } ] }
+  ],
+  "transitions": [
+    { "from": "wander", "to": "hunt",   "priority": 10, "when": { "and": [ { "energyBelow": 80 }, { "sensed": { "all": ["prey"] } } ] } },
+    { "from": "hunt",   "to": "eat",    "priority": 10, "when": { "targetInRange": 0.9 } },
+    { "from": "hunt",   "to": "wander", "priority": 5,  "when": { "not": "targetValid" } },
+    { "from": "eat",    "to": "rest",   "priority": 10, "when": { "energyAbove": 120 } },
+    { "from": "eat",    "to": "hunt",   "priority": 5,  "when": { "not": "targetValid" } },
+    { "from": "rest",   "to": "wander", "priority": 10, "when": { "stateTime": { "op": ">=", "seconds": 15 } } }
+  ]
+}

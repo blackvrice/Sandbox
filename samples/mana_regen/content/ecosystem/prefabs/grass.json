@@ -1,0 +1,14 @@
+{
+  "id": "eco.grass",
+  "name": "Grass",
+  "category": "Plants",
+  "tags": ["plant"],
+  "components": {
+    "core.transform": {},
+    "life.growth":    { "rate": 0.15, "maxStage": 2 },
+    "life.age":       { "maxAgeTicks": 18000 },
+    "life.reproduce": { "cooldown": 8, "cooldownLeft": 8, "chance": 0.5, "minStage": 2, "mode": 1, "offspring": "eco.grass",
+                        "crowdRadius": 3, "crowdMax": 8 },
+    "render.sprite":  { "material": "eco/grass", "size": [1.0, 1.0], "layer": 0 }
+  }
+}
