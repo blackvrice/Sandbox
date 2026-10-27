@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-10-27 — v0.4 M1-T2: 프로젝트 매니페스트 schemaVersion 3 dependencies → M1 완료 (ADR-0071)
+
+**무엇을**
+
+- GameManifest::dependencies (팩 id 순 — pack.json 과 같은 모양: 범위 | {version?, path} | {version?, git, rev}), kManifestSchemaVersion
+  3 (1 · 2 도 읽는다, 2 의 매니페스트에 dependencies 는 P1), 모양 · 팩 id · 16 개 상한 P7, 정규형 쓰기 (범위만이면 문자열 —
+  writePackDependency).
+- loadedPacks = content.packs + 거기 없는 의존 팩 — 프로젝트 검사 · 열기 (월드가 쓰는 팩 P5 검사 포함), .sbpkg 만들기, WorldSource
+  가 같이 쓴다. 검사가 범위를 적은 의존마다 불러온 팩의 version 을 확인 (P7) 하고 요약 줄 (ProjectReport::dependencies →
+  sbx check "의존:").
+- sbx new: 새 프로젝트는 지금 판 (3) — --mode 가 판을 2 로 낮추던 것을 max 로.
+- 시험: test_game_project +2 (매니페스트 3 · 프로젝트 검사의 의존), 판 숫자 기대 갱신 (test_game_project · project_demo.cmake). 문서: 18 (0 · 5.2 · 6.4 · 7장), 15, 13.
+
+**왜**
+
+- 게임 프로젝트가 쓰는 패키지와 그 범위를 매니페스트에 적어야 해결 · 잠금 (M3) 이 그것을 출발점으로 삼는다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과, SandboxTests 607 케이스. det_* 골든 그대로.
+  (첫 실행에서 project_demo_protect 가 sbx new --mode 의 판을 2 로 고정해 보고 있어 실패 — "2 이상" 으로 고치고 project_* 12 개를 다시
+  돌렸다.)
+- 실행: rabbit_guard 복사본 (schemaVersion 3, content.packs ["eco"], dependencies {"inv": {"version": "^0.1", "path":
+  "../shared/inv"}}) — `sbx check` → "의존: 1 / inv ^0.1 → 0.1.0 · MIT · path ../shared/inv (받기는 [계획 v0.4 M2] — 지금은
+  content/)", 오류 0 (종료 0). `SandboxServer --world <그 폴더> --start-game --ticks 30 --exit` → "팩 2 개" 로 열고 tick 30.
+  (처음에 --start-game 없이 돌려 게임 모드의 로비에서 틱이 오르지 않아 멈춘 것은 실행 실수 — 끝냈다.)
+
+**남은 일**
+
+- M2-T1: 패키지 digest · 로컬 폴더 소스 · 사용자 캐시 · 오프라인.
+
+---
+
 ## 2026-10-27 — v0.4 M1-T1: pack.json 의 license · dependencies, SemVer 범위 "~" · "*", 검사 V12 (ADR-0071)
 
 **무엇을**

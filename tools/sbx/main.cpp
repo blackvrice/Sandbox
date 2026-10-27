@@ -60,6 +60,13 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
             std::printf("게임 모드 %s\n", r.manifest.gameMode.c_str());
         }
     }
+    // 의존 (v0.4 M1-T2) — 매니페스트 dependencies 마다 한 줄 (진단 P7 · V2 · V12 은 위의 문제 목록)
+    if (!r.dependencies.empty()) {
+        std::printf("의존: %zu\n", r.dependencies.size());
+        for (const std::string& d : r.dependencies) {
+            std::printf("  %s\n", d.c_str());
+        }
+    }
     // 스크립트 (v0.3 M5-T1) — 진단은 위의 문제 목록 (S* · V1 · V7 · P6), 여기는 요약과 시스템 목록
     if (r.scriptPacks > 0 || r.scriptComponents > 0 || r.sdk != project::ProjectReport::SdkState::Missing) {
         const char* sdk = r.sdk == project::ProjectReport::SdkState::Current ? "최신"

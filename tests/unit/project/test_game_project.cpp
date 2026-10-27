@@ -198,7 +198,7 @@ TEST_SUITE("project") {
 
     TEST_CASE("매니페스트: schemaVersion 이 다르면 나머지를 보지 않는다 (P3)") {
         auto j = nlohmann::json::parse(kValid);
-        j["schemaVersion"] = 3;
+        j["schemaVersion"] = 4;
         j["future"] = "키";
         const auto r = project::parseManifest(j.dump());
         REQUIRE(r.issues.size() == 1);
@@ -231,7 +231,104 @@ TEST_SUITE("project") {
         CHECK(hasIssue(project::parseManifest(j.dump()).issues, "P1", "/gameMode"));
         // 새 프로젝트는 지금 판으로 쓴다
         CHECK(project::GameManifest{}.schemaVersion == project::kManifestSchemaVersion);
-        CHECK(project::kManifestSchemaVersion == 2);
+        CHECK(project::kManifestSchemaVersion == 3);
+    }
+
+    TEST_CASE("매니페스트 schemaVersion 3: dependencies (v0.4 M1-T2) — 모양 (P7) · 정규형 왕복 · 2 에는 없다") {
+        // 2 에는 dependencies 가 없다
+        auto two = nlohmann::json::parse(kValid);
+        two["schemaVersion"] = 2;
+        two["dependencies"] = {{"inv", "^1"}};
+        CHECK(hasIssue(project::parseManifest(two.dump()).issues, "P1", "/dependencies"));
+
+        auto j = nlohmann::json::parse(kValid);
+        j["schemaVersion"] = 3;
+        j["dependencies"] = {{"zeta", "~0.2"},
+                             {"inv", {{"version", "^1.2"}, {"path", "../vendor/inv"}}},
+                             {"ui", {{"git", "https://example.com/ui.git"}, {"rev", "v2.0.1"}}}};
+        const auto r = project::parseManifest(j.dump());
+        INFO(dumpIssues(r.issues));
+        REQUIRE(r.ok());
+        const auto& d = r.manifest.dependencies;
+        REQUIRE(d.size() == 3);
+        CHECK(d[0].pack == "inv"); // 팩 id 순
+        CHECK(d[0].source == content::PackSource::Path);
+        CHECK(d[1].pack == "ui");
+        CHECK(d[1].rev == "v2.0.1");
+        CHECK_FALSE(d[1].range.has_value());
+        CHECK(d[2].pack == "zeta");
+        CHECK(d[2].range->text == "~0.2");
+        CHECK(project::loadedPacks(r.manifest) == std::vector<std::string>{"eco", "inv", "ui", "zeta"});
+        const std::string text = project::writeManifest(r.manifest);
+        CHECK(text.find("\"zeta\": \"~0.2\"") != std::string::npos); // 범위만이면 문자열
+        CHECK(project::parseManifest(text).manifest == r.manifest);
+
+        const auto bad = [&](nlohmann::json deps, std::string_view pointer) {
+            auto x = nlohmann::json::parse(kValid);
+            x["schemaVersion"] = 3;
+            x["dependencies"] = std::move(deps);
+            const auto res = project::parseManifest(x.dump());
+            CAPTURE(pointer);
+            CHECK(hasIssue(res.issues, "P7", pointer));
+        };
+        bad(nlohmann::json::array({"inv"}), "/dependencies");
+        bad({{"Inv", "^1"}}, "/dependencies/Inv");
+        bad({{"core", "^1"}}, "/dependencies/core");
+        bad({{"inv", "1.0 - 2.0"}}, "/dependencies/inv");
+        bad({{"inv", {{"git", "https://x"}}}}, "/dependencies/inv/rev");
+        bad({{"inv", {{"path", "C:/x"}}}}, "/dependencies/inv/path");
+        nlohmann::json many = nlohmann::json::object();
+        for (int i = 0; i < 17; ++i) {
+            many[std::format("p{}", i)] = "*";
+        }
+        bad(many, "/dependencies");
+    }
+
+    TEST_CASE("프로젝트 검사: dependencies 의 팩은 함께 불러오고 범위를 확인한다 (P7), 요약 줄") {
+        const auto catalog = coreCatalog();
+        const auto make = [&](TempDir& dir, std::string_view range, std::string_view invVersion) {
+            auto j = nlohmann::json::parse(kValid);
+            j["schemaVersion"] = 3;
+            j["dependencies"] = {{"inv", {{"version", std::string(range)}, {"path", "../shared/inv"}}}};
+            makeEcoProject(dir.path, catalog, j.dump());
+            fs::create_directories(dir.path / "content/inv/prefabs");
+            REQUIRE(io::writeFileAtomic(dir.path / "content/inv/pack.json",
+                                        std::format(R"({{"id": "inv", "version": "{}", "license": "MIT",
+                                                        "dependencies": {{"eco": "^0.1"}}}})",
+                                                    invVersion))
+                        .has_value());
+            REQUIRE(io::writeFileAtomic(dir.path / "content/inv/prefabs/crate.json",
+                                        R"({"id": "inv.crate", "components": {"core.transform": {}}})")
+                        .has_value());
+        };
+        {
+            TempDir dir("deps_ok");
+            make(dir, "^1.2", "1.4.0");
+            const auto r = project::validateProject(dir.path, SemVer{0, 3, 0, {}, {}}, catalog);
+            INFO(dumpIssues(r.issues));
+            CHECK(r.ok());
+            CHECK(r.prefabs == 4); // eco 3 + inv 1 — content.packs 에 없어도 불러왔다
+            REQUIRE(r.dependencies.size() == 1);
+            CHECK(r.dependencies[0] ==
+                  "inv ^1.2 → 1.4.0 · MIT · path ../shared/inv (받기는 [계획 v0.4 M2] — 지금은 content/)");
+        }
+        {
+            TempDir dir("deps_out");
+            make(dir, "^1.2", "2.0.0");
+            const auto r = project::validateProject(dir.path, SemVer{0, 3, 0, {}, {}}, catalog);
+            CHECK(hasIssue(r.issues, "P7", "/dependencies/inv"));
+            CHECK_FALSE(r.ok());
+        }
+        {
+            TempDir dir("deps_missing");
+            auto j = nlohmann::json::parse(kValid);
+            j["schemaVersion"] = 3;
+            j["dependencies"] = {{"nowhere", "^1"}};
+            makeEcoProject(dir.path, catalog, j.dump());
+            const auto r = project::validateProject(dir.path, SemVer{0, 3, 0, {}, {}}, catalog);
+            CHECK_FALSE(r.ok()); // 로더의 V2 — 팩을 찾을 수 없다
+            CHECK(r.dependencies.empty());
+        }
     }
 
     TEST_CASE("프로젝트 검사: gameMode 는 프로젝트 콘텐츠에 있어야 한다 (P5)") {
@@ -622,7 +719,7 @@ TEST_SUITE("project") {
         const fs::path dir = root.path / "Protect";
         const auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
         REQUIRE_MESSAGE(made.has_value(), made.error().describe());
-        CHECK(made->manifest.schemaVersion == 2);
+        CHECK(made->manifest.schemaVersion == project::kManifestSchemaVersion); // 2 이상 (gameMode)
         CHECK(made->manifest.gameMode == "eco.protect");
         const auto r = project::validateProject(dir, SemVer{0, 1, 0, {}, {}}, catalog);
         INFO(dumpIssues(r.issues));

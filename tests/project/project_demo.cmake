@@ -1,5 +1,5 @@
 # 데모 모드 "토끼 지키기" (v0.2 M3-T3, ADR-0049): sbx new --from ecosystem_small --mode eco.protect 만으로 게임 프로젝트가
-# 되고 (매니페스트 schemaVersion 2 gameMode), sbx check 가 오류 · 경고 0, SandboxServer --start-game 이 카운트다운(3 초)을
+# 되고 (매니페스트 schemaVersion 2 이상 · gameMode), sbx check 가 오류 · 경고 0, SandboxServer --start-game 이 카운트다운(3 초)을
 # 지나 --ticks 까지 간다 (그 사이에 끝 조건 — 토끼 0 · 늑대 0 · 2 분 — 이 맞지 않는다). 없는 모드는 sbx new 가 거절한다.
 #   cmake -DSBX=<sbx> -DSERVER=<SandboxServer> -DOUT=<새 프로젝트 폴더> -DTICKS=<n> -P project_demo.cmake
 foreach(v SBX SERVER OUT TICKS)
@@ -22,8 +22,9 @@ endif()
 file(READ "${OUT}/sandbox.project.json" manifest)
 string(JSON schema GET "${manifest}" schemaVersion)
 string(JSON mode GET "${manifest}" gameMode)
-if(NOT schema EQUAL 2 OR NOT mode STREQUAL "eco.protect")
-    message(FATAL_ERROR "매니페스트가 schemaVersion 2 · gameMode eco.protect 가 아닙니다: ${manifest}")
+# gameMode 는 schemaVersion 2 부터 — 새 프로젝트는 지금 판 (v0.4 M1-T2 부터 3)
+if(schema LESS 2 OR NOT mode STREQUAL "eco.protect")
+    message(FATAL_ERROR "매니페스트가 schemaVersion 2 이상 · gameMode eco.protect 가 아닙니다: ${manifest}")
 endif()
 if(NOT EXISTS "${OUT}/content/ecosystem/presentation/input.json")
     message(FATAL_ERROR "팩의 게임 키 (presentation/input.json) 가 복사되지 않았습니다")

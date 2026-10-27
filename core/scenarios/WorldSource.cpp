@@ -61,7 +61,7 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
         if (!opened) {
             return std::unexpected(opened.error());
         }
-        out.packs = opened->manifest.contentPacks;
+        out.packs = project::loadedPacks(opened->manifest);
         out.content = std::move(opened->content);
         out.runner = std::make_unique<ScenarioRunner>(std::move(opened->world), std::make_unique<ContinueScenario>());
         out.name = opened->manifest.name;

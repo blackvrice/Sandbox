@@ -32,7 +32,8 @@ constexpr usize kMaxPathBytes = 200;
 
 constexpr std::array kManifestKeys{"schemaVersion", "gameId",      "name",    "version",
                                    "engine",        "description", "content", "entryWorld"};
-constexpr std::array kManifestKeysV2{"gameMode"}; // schemaVersion 2 에서 더한 키
+constexpr std::array kManifestKeysV2{"gameMode"};     // schemaVersion 2 에서 더한 키
+constexpr std::array kManifestKeysV3{"dependencies"}; // schemaVersion 3 (v0.4 M1-T2)
 
 bool isLowerIdentChar(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
@@ -215,6 +216,13 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
             }
             continue;
         }
+        if (std::find(kManifestKeysV3.begin(), kManifestKeysV3.end(), k) != kManifestKeysV3.end()) {
+            if (m.schemaVersion < 3) {
+                c.error(file, std::format("/{}", k), "P1",
+                        std::format("'{}' 는 schemaVersion 3 의 키 (지금 {})", k, m.schemaVersion));
+            }
+            continue;
+        }
         c.error(file, std::format("/{}", k), "P1", std::format("모르는 키 '{}'", k));
     }
     if (m.schemaVersion >= 2) {
@@ -298,6 +306,32 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
             }
         }
     }
+    if (m.schemaVersion >= 3) {
+        if (const auto deps = j.find("dependencies"); deps != j.end()) {
+            if (!deps->is_object()) {
+                c.error(file, "/dependencies", "P7",
+                        "dependencies 는 {팩 id: 범위 | {version, path | git + rev}} 객체");
+            } else if (deps->size() > kMaxContentPacks) {
+                c.error(file, "/dependencies", "P7", std::format("의존은 {} 개까지", kMaxContentPacks));
+            } else {
+                for (const auto& [id, value] : deps->items()) { // nlohmann::json 객체는 키 순 — 팩 id 순
+                    const std::string at = std::format("/dependencies/{}", id);
+                    if (!isLowerIdent(id) || id == "core") {
+                        c.error(file, at, "P7",
+                                std::format("'{}' 는 팩 id 가 아니다 (소문자 · 숫자 · '_', core 는 엔진)", id));
+                        continue;
+                    }
+                    content::PackDependency d;
+                    d.pack = id;
+                    if (auto bad = content::parsePackDependency(value, d)) {
+                        c.error(file, at + bad->pointer, "P7", bad->message);
+                        continue;
+                    }
+                    m.dependencies.push_back(std::move(d));
+                }
+            }
+        }
+    }
     if (const std::string* s = stringField(j, "entryWorld", true, c)) {
         if (const auto why = checkRelativePath(*s)) {
             c.error(file, "/entryWorld", "P4", std::format("entryWorld 경로 — {}", *why));
@@ -325,7 +359,20 @@ std::string writeManifest(const GameManifest& m) {
     if (!m.gameMode.empty()) {
         j["gameMode"] = m.gameMode;
     }
+    for (const content::PackDependency& d : m.dependencies) {
+        j["dependencies"][d.pack] = content::writePackDependency(d);
+    }
     return j.dump(2) + "\n";
+}
+
+std::vector<std::string> loadedPacks(const GameManifest& m) {
+    std::vector<std::string> out = m.contentPacks;
+    for (const content::PackDependency& d : m.dependencies) {
+        if (std::find(out.begin(), out.end(), d.pack) == out.end()) {
+            out.push_back(d.pack);
+        }
+    }
+    return out;
 }
 
 Expected<void> saveManifest(const std::filesystem::path& projectDir, const GameManifest& manifest) {
@@ -374,6 +421,45 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
             }
             r.scriptSystems.push_back(std::move(line));
         }
+    }
+}
+
+// 의존 (v0.4 M1-T2, ADR-0071) — 범위를 적은 의존은 불러온 그 팩의 version 이 SemVer · 범위 안 (P7), 요약 한 줄씩.
+// 팩을 찾지 못한 것은 로더의 V2 가 이미 말했다
+void checkDependencies(const GameManifest& m, const content::ContentDatabase& db, ProjectReport& r, Collector& c) {
+    for (const content::PackDependency& d : m.dependencies) {
+        const content::PackInfo* found = nullptr;
+        for (const content::PackInfo& p : db.packs()) {
+            if (p.id == d.pack) {
+                found = &p;
+            }
+        }
+        if (found == nullptr) {
+            continue;
+        }
+        const std::string at = std::format("/dependencies/{}", d.pack);
+        const std::string range = d.range ? d.range->text : std::string("*");
+        if (d.range) {
+            const auto v = parseSemVer(found->version);
+            if (!v) {
+                c.error(std::string(kManifestFile), at, "P7",
+                        std::format("팩 '{}' 의 version '{}' 이 SemVer 가 아니다 — 범위 '{}' 를 확인할 수 없다", d.pack,
+                                    found->version, range));
+            } else if (!d.range->contains(*v)) {
+                c.error(std::string(kManifestFile), at, "P7",
+                        std::format("프로젝트는 '{}' {} 을 요구하는데 content/ 의 그 팩은 {} 이다", d.pack, range,
+                                    found->version));
+            }
+        }
+        std::string line =
+            std::format("{} {} → {}{}", d.pack, range, found->version.empty() ? "?" : found->version,
+                        found->license.empty() ? std::string(" · 라이선스 없음") : " · " + found->license);
+        if (d.source == content::PackSource::Path) {
+            line += std::format(" · path {} (받기는 [계획 v0.4 M2] — 지금은 content/)", d.path);
+        } else if (d.source == content::PackSource::Git) {
+            line += std::format(" · git {} @ {} (받기는 [계획 v0.4 M2] — 지금은 content/)", d.git, d.rev);
+        }
+        r.dependencies.push_back(std::move(line));
     }
 }
 
@@ -453,14 +539,15 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
 
     // 3. 콘텐츠 — 팩이 없으면 내장 콘텐츠 (세이브 폴더를 여는 규칙과 같다, WorldSource)
     const fs::path contentRoot = projectDir / "content";
-    if (m.contentPacks.empty()) {
+    const std::vector<std::string> packs = loadedPacks(m);
+    if (packs.empty()) {
         out.db = std::make_unique<content::ContentDatabase>(content::ContentDatabase::builtin());
     } else {
         std::error_code ec;
         if (!fs::is_directory(contentRoot, ec)) {
             c.error("content", "", "P5", "content.packs 가 있는데 content/ 폴더가 없다");
         } else {
-            content::ContentLoadResult loaded = content::ContentLoader::load(contentRoot, m.contentPacks, catalog);
+            content::ContentLoadResult loaded = content::ContentLoader::load(contentRoot, packs, catalog);
             const std::string rootDisplay = io::displayPath(contentRoot);
             for (ContentIssue& i : loaded.issues) {
                 // 팩 파일은 "<팩 폴더>/…", 루트 자체의 문제(팩을 찾을 수 없다 등)는 루트의 전체 경로로 온다
@@ -476,6 +563,7 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
         r.contentHash = out.db->contentHash();
         r.prefabs = out.db->prefabs().size();
         summarizeScripts(*out.db, r);
+        checkDependencies(m, *out.db, r, c);
     }
     // 5. 도구 파일 (P6 — 경고만: 게임 실행에는 쓰지 않는다). 콘텐츠 · 월드 결과와 무관하게 본다
     checkSdkFiles(projectDir, r, c);
@@ -502,9 +590,9 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     bool packsOk = true;
     for (usize i = 0; i < summary->packs.size(); ++i) {
         const std::string& p = summary->packs[i];
-        if (std::find(m.contentPacks.begin(), m.contentPacks.end(), p) == m.contentPacks.end()) {
+        if (std::find(packs.begin(), packs.end(), p) == packs.end()) {
             c.error(worldFile, std::format("/content/packs/{}", i), "P5",
-                    std::format("월드가 쓰는 팩 '{}' 가 매니페스트 content.packs 에 없다", p));
+                    std::format("월드가 쓰는 팩 '{}' 가 매니페스트 content.packs · dependencies 에 없다", p));
             packsOk = false;
         }
     }
@@ -669,8 +757,8 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
         m.contentPacks = sc->requiredPacks();
     }
     if (!options.gameMode.empty()) {
-        m.schemaVersion = 2;
-        m.gameMode = options.gameMode; // 콘텐츠에 있는지는 아래 2 에서 (형식은 지금)
+        m.schemaVersion = std::max<u32>(m.schemaVersion, 2); // gameMode 는 2 부터 (새 프로젝트는 지금 판 그대로)
+        m.gameMode = options.gameMode;                       // 콘텐츠에 있는지는 아래 2 에서 (형식은 지금)
     }
     const ManifestParseResult check = parseManifest(writeManifest(m));
     if (!check.ok()) {

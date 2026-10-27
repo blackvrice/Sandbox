@@ -31,7 +31,7 @@
 namespace sbx::project {
 
 inline constexpr std::string_view kManifestFile = "sandbox.project.json";
-inline constexpr u32 kManifestSchemaVersion = 2;    // 새로 쓰는 판
+inline constexpr u32 kManifestSchemaVersion = 3;    // 읽을 수 있는 가장 새 판 (3 = dependencies — v0.4 M1-T2)
 inline constexpr u32 kMinManifestSchemaVersion = 1; // 읽을 수 있는 가장 옛 판
 // content.packs 상한 — 서버가 Reject 로 팩 목록을 알려 줄 수 있는 수 (network kMaxPacks 와 같다, static_assert 가
 // 지킨다)
@@ -47,9 +47,15 @@ struct GameManifest {
     std::vector<std::string> contentPacks; // <프로젝트>/content 에서 찾을 팩 id (비면 내장 콘텐츠만)
     std::string entryWorld;                // 시작 월드 폴더 — 프로젝트 기준 상대 경로, '/' 구분 ("worlds/main")
     std::string gameMode;                  // schemaVersion 2: GameMode id (비면 없음)
+    // schemaVersion 3 (v0.4 M1-T2, ADR-0071): 의존 팩 — 팩 id 순. content.packs 와 함께 불러온다 (loadedPacks). 소스
+    // (path · git) 는 기록만 — 받기는 M2 [계획], 지금은 <프로젝트>/content 에서 찾는다
+    std::vector<content::PackDependency> dependencies;
 
     bool operator==(const GameManifest&) const = default;
 };
+
+// 불러올 팩 = content.packs (그 차례) + 거기 없는 dependencies (팩 id 순)
+[[nodiscard]] std::vector<std::string> loadedPacks(const GameManifest& manifest);
 
 struct ManifestParseResult {
     GameManifest manifest; // ok() 일 때만 믿을 수 있다
@@ -81,6 +87,8 @@ struct ProjectReport {
     usize scriptPacks = 0;
     usize scriptComponents = 0;
     std::vector<std::string> scriptSystems;
+    // 의존 (v0.4 M1-T2) — 매니페스트 dependencies 마다 한 줄 ("inv ^0.1 → 0.1.0 · MIT (content/inv)")
+    std::vector<std::string> dependencies;
     enum class SdkState : u8 { Missing, Current, Stale };
     SdkState sdk = SdkState::Missing; // <프로젝트>/sdk/sandbox.d.ts 가 이 엔진의 SDK 와 같은가
 

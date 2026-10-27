@@ -157,6 +157,23 @@ std::optional<std::string> checkSpdxExpression(std::string_view text) {
     return SpdxParser(text).run();
 }
 
+json writePackDependency(const PackDependency& d) {
+    if (d.source == PackSource::Root && d.range) {
+        return d.range->text;
+    }
+    json o = json::object();
+    if (d.range) {
+        o["version"] = d.range->text;
+    }
+    if (d.source == PackSource::Path) {
+        o["path"] = d.path;
+    } else if (d.source == PackSource::Git) {
+        o["git"] = d.git;
+        o["rev"] = d.rev;
+    }
+    return o;
+}
+
 std::optional<PackDependencyError> parsePackDependency(const json& value, PackDependency& out) {
     const auto range = [&](const json& v, std::string_view at) -> std::optional<PackDependencyError> {
         if (!v.is_string()) {

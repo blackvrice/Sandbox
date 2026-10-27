@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 M1-T1).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 M1 완료).
 
 ---
 
@@ -11,8 +11,9 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 패키지 정체성 (T1 ✅ · T2) · M2 ~ M6 (6.4, ADR-0071)
-다음     v0.4 M1-T2 — 프로젝트 매니페스트 schemaVersion 3 dependencies (2 도 읽는다), sbx check 의 의존 요약 · P 검사, 18 5.2 규범
+         v0.4 Package Manager ◐ — M1 패키지 정체성 ✅ · M2 소스 · 캐시 (T1 · T2) · M3 ~ M6 (6.4, ADR-0071)
+다음     v0.4 M2-T1 — 패키지 digest (팩 파일 목록 — .sbpkg 와 같은 규칙), 로컬 폴더 소스, 사용자 캐시 · 오프라인 모드, 경로 탈출 ·
+         링크 · 크기 상한 거절
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -196,7 +197,7 @@ MyGame/
 
 | 키              | 필수 | 형식                                                                                                                 |
 |-----------------|------|----------------------------------------------------------------------------------------------------------------------|
-| `schemaVersion` | 예   | 2 (1 도 읽는다 — 2 의 키는 쓸 수 없다). 그 밖이면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다)              |
+| `schemaVersion` | 예   | 3 (1 · 2 도 읽는다 — 높은 판의 키는 쓸 수 없다, P1). 그 밖이면 P3 하나만 내고 멈춘다 (나머지 키의 뜻이 다를 수 있다) |
 | `gameId`        | 예   | 소문자 · 숫자 · `_` 마디 둘 이상을 `.` 로 (`studio.arena`), ≤ 64 바이트 (P2)                                         |
 | `name`          | 예   | 1~64 글자, 제어 문자 없음 (P1)                                                                                       |
 | `version`       | 예   | SemVer 2.0.0 (P3)                                                                                                    |
@@ -205,6 +206,7 @@ MyGame/
 | `content`       | 아니 | `{"packs": [팩 id …]}` — `<프로젝트>/content` 에서 찾는다. 없거나 비면 내장 콘텐츠 (중복 · `core` · 16 개 초과는 P2) |
 | `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)                   |
 | `gameMode`      | 아니 | schemaVersion 2. 콘텐츠의 GameMode id (11 9장) — 형식 P2, 프로젝트 콘텐츠에 없으면 P5. 없으면 끝 없는 샌드박스       |
+| `dependencies`  | 아니 | schemaVersion 3 (v0.4 M1-T2, ADR-0071). `{팩 id: 범위 \| {version?, path} \| {version?, git, rev}}` — 팩 의존 (11 1.3 과 같은 모양, 16 개까지). 그 팩들은 content.packs 와 함께 불러온다 (loadedPacks — 월드가 쓰는 팩 검사 P5 도). 범위를 적었으면 불러온 팩의 version 이 SemVer · 범위 안 (P7). 모양 · 팩 id 도 P7. 소스 (path · git) 는 기록만 — 지금은 `<프로젝트>/content` 에서 찾는다 (받기는 M2) |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.
@@ -212,7 +214,8 @@ MyGame/
 프로젝트 검사 (`project::validateProject`, `sbx check <폴더>` — 오류면 종료 코드 1, T1 의 sbx_sim_check --validate-project 를 옮김):
 
 ```text
-1 매니페스트 (P1~P4 형식)   2 엔진 범위 (P3)   3 팩 — ContentLoader V1~V7 (file 은 "content/<팩 폴더>/…"), content/ 없음 P5
+1 매니페스트 (P1~P4 · P7 형식)   2 엔진 범위 (P3)   3 팩 — ContentLoader V1~V12 (file 은 "content/<팩 폴더>/…"), content/ 없음 P5,
+  dependencies 의 범위 (P7 — v0.4 M1-T2)
 4 시작 월드 — 폴더 · world.json 요약 (P4), 월드가 쓰는 팩이 매니페스트에 없음 (P5 오류), contentHash 가 다름 (P5 경고),
   persist::loadWorld 로 실제로 연다 (실패 P4 오류, 로드 경고 P4 경고)
 5 스크립트 SDK 파일 (v0.3 M5-T1, ADR-0065 — P6 경고): sdk/sandbox.d.ts 가 이 엔진의 생성 결과와 다름 (CR 은 빼고 비교) · 스크립트가
@@ -365,7 +368,9 @@ M1 패키지 정체성 (패키지 = 콘텐츠 팩)
   T1 ✅ pack.json: license (SPDX 식 모양) · dependencies {팩: 범위 | {version?, path} | {version?, git, rev}} (requires 와 같은 뜻
         — 로드 순서 · 팩 경계, 소스는 기록만), 범위를 적은 의존은 찾은 팩의 version 이 SemVer · 범위 안 (V12), SemVer 범위 "~" · "*"
         (core/content/PackManifest, 11 1.3)
-  T2 [계획] 프로젝트 매니페스트 schemaVersion 3 dependencies (2 도 읽는다), sbx check 의 의존 요약 · P 검사, 11 · 18 5.2 규범
+  T2 ✅ 프로젝트 매니페스트 schemaVersion 3 dependencies (1 · 2 도 읽는다 — 새 프로젝트는 3), 의존 팩을 content.packs 와 함께
+        불러오기 (loadedPacks — 검사 · 열기 · .sbpkg · WorldSource), 범위 확인 · 모양 P7, sbx check 의 "의존:" 요약 줄 (18 5.2)
+  → M1 완료 (2026-10-27): 팩 · 프로젝트가 버전 · 라이선스 · 의존 범위를 적고 로더 · 검사가 확인한다 (소스에서 받기는 M2)
 M2 소스 · 캐시
   T1 [계획] 패키지 digest (.sbpkg 와 같은 규칙 — 팩 파일 목록), 로컬 폴더 소스, 사용자 캐시 <cache>/sandbox/packages/<digest>/ ·
             오프라인 (캐시만) 모드, 경로 탈출 · 링크 · 크기 상한 거절
@@ -436,7 +441,7 @@ v0.3 M6-T2 ✅  ADR-0070, 19 (0 · 12 · 24장), 14 (2장 script.regen · 6장 �
 v0.3 M6-T3 ✅  releases/v0.3.0, 18 (0 · 1장 · 6.2 · 6.3 · 7 · 8장), 19 머리, README · docs/README (버전 표), 16
 v0.4 계획 ✅   ADR-0071 (범위 · D-05), 18 (0 · 1 · 4장 · 6.1 · 6.4)
 v0.4 M1-T1 ✅ 11 1.3 · V12 (pack.json), 18 4장 (범위 문법), 17, 13
-v0.4 M1-T2    18 5.2 (매니페스트 3), 15 7장 (sbx), 13
+v0.4 M1-T2 ✅ 18 5.2 (매니페스트 3 · P7), 15 7장 (sbx check 의존 줄), 13
 v0.4 M2 · M3  09 (패키지 digest · 잠금 파일 · .sandbox/packages), 15 7장, 17, 13
 v0.4 M4       19 (팩 사이 import — ADR), 10 (팔레트), 15
 v0.4 M5 · M6  13, 14 (설치 · 해결 시간), releases/v0.4.0

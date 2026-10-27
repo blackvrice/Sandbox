@@ -211,7 +211,7 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     const project::GameManifest& m = opened->manifest;
     // 2. 파일: 매니페스트 · 읽은 팩 (requires 포함) · 시작 월드
     std::vector<fs::path> files{projectDir / std::string(project::kManifestFile)};
-    if (!m.contentPacks.empty()) {
+    if (!project::loadedPacks(m).empty()) {
         const auto folders = packFolders(projectDir / "content");
         for (const content::PackInfo& p : opened->content->packs()) {
             const auto it = folders.find(p.id);

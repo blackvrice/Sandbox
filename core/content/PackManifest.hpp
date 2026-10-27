@@ -28,7 +28,13 @@ struct PackDependency {
     std::string path; // Path — 그 팩 폴더에서의 상대 경로 ('/' 로)
     std::string git;  // Git — 저장소 URL
     std::string rev;  // Git — 태그 · 커밋
+
+    bool operator==(const PackDependency&) const = default;
 };
+
+// 정규형 JSON 값 — 범위만 (콘텐츠 루트 소스) 이면 문자열, 아니면 {version?, path | git + rev}. parsePackDependency 의
+// 역
+[[nodiscard]] nlohmann::json writePackDependency(const PackDependency& d);
 
 // SPDX 식의 모양 — 맞으면 nullopt, 아니면 이유
 [[nodiscard]] std::optional<std::string> checkSpdxExpression(std::string_view text);
