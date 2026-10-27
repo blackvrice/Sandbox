@@ -102,7 +102,9 @@ Expected<PartialVersion> parsePartial(std::string_view s, std::string_view token
         const usize dot = nums.find('.');
         const std::string_view n = nums.substr(0, dot);
         if (n == "*" || n == "x" || n == "X") {
-            return makeError(ErrorCode::Unsupported, "와일드카드(*, x)는 아직 지원하지 않습니다 (v0.4 패키지 관리자)",
+            // 범위 전체의 "*" 는 parseVersionRange 가 따로 받는다 — 자리 안의 와일드카드 (1.x · 1.*) 는 없다 (ADR-0071)
+            return makeError(ErrorCode::Unsupported,
+                             "자리 와일드카드 (1.x · 1.*) 는 지원하지 않습니다 — '1' · '~1.2' · '*'",
                              std::string(token));
         }
         const auto value = parseNumber(n);
@@ -243,7 +245,8 @@ Expected<VersionRange> parseVersionRange(std::string_view text) {
     VersionRange out;
     const std::string ctx(text);
     if (text.find("||") != std::string_view::npos) {
-        return makeError(ErrorCode::Unsupported, "'||' 범위는 아직 지원하지 않습니다 (v0.4 패키지 관리자)", ctx);
+        // 소스 하나 = 버전 하나라 합집합이 필요 없다 (D-05, ADR-0071)
+        return makeError(ErrorCode::Unsupported, "'||' 범위는 지원하지 않습니다 — 버전마다 범위를 따로", ctx);
     }
     std::string_view rest = text;
     while (true) {
@@ -268,8 +271,14 @@ Expected<VersionRange> parseVersionRange(std::string_view text) {
             opChar = body.front();
             body.remove_prefix(1);
         } else if (!body.empty() && body.front() == '~') {
-            return makeError(ErrorCode::Unsupported, "'~' 범위는 아직 지원하지 않습니다 (v0.4 패키지 관리자)",
-                             std::string(token));
+            opChar = '~';
+            body.remove_prefix(1);
+        } else if (token == "*") {
+            // 모든 버전 (프리릴리스 포함 — 이 범위 문법의 규칙 그대로, ADR-0071)
+            out.all.push_back({Op::Ge, SemVer{}});
+            out.text += out.text.empty() ? "" : " ";
+            out.text += token;
+            continue;
         } else if (token == "-") {
             return makeError(ErrorCode::Unsupported, "하이픈 범위(1.0 - 2.0)는 지원하지 않습니다 — '>=1.0 <=2.0'",
                              std::string(token));
@@ -287,7 +296,15 @@ Expected<VersionRange> parseVersionRange(std::string_view text) {
         const auto overflow = [&] {
             return makeError(ErrorCode::OutOfRange, "버전 숫자가 너무 큽니다", std::string(token));
         };
-        if (opChar == '^') {
+        if (opChar == '~') {
+            // ~1.2.3 = >=1.2.3 <1.3.0, ~1.2 = >=1.2.0 <1.3.0, ~1 = >=1.0.0 <2.0.0 (npm 과 같은 뜻)
+            const auto upper = nextAfter(base, std::min<u32>(parts, 2));
+            if (!upper) {
+                return overflow();
+            }
+            out.all.push_back({Op::Ge, base});
+            out.all.push_back({Op::Lt, *upper});
+        } else if (opChar == '^') {
             const auto upper = caretUpper(base, parts);
             if (!upper) {
                 return overflow();

@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-27 — v0.4 M1-T1: pack.json 의 license · dependencies, SemVer 범위 "~" · "*", 검사 V12 (ADR-0071)
+
+**무엇을**
+
+- core/content/PackManifest: SPDX 식의 모양 검사 (식별자 · "+" · LicenseRef- · AND · OR · WITH · 괄호, 연산자 대문자, 256 바이트),
+  의존 하나 (범위 문자열 | {version?, path} | {version?, git, rev} — 상대 경로만 · git 은 rev 필수 · 모르는 키 거절).
+- ContentLoader: pack.json 에 license · dependencies (키는 requires 와 같은 뜻 — 로드 순서 · 팩 경계, 자기 자신 · core 거절),
+  PackInfo::license · packages. 팩을 다 찾은 뒤 범위를 적은 의존마다 찾은 팩의 version 이 SemVer · 범위 안인지 (V12 — "팩 'a' 은
+  'b' ^1.2 을 요구하는데 'b' 은 1.1.9 이다"). 범위가 없으면 version 을 보지 않는다 (지금 팩들 그대로). 소스 (path · git) 는 기록만.
+- SemVer: "~1.2.3" (= >=1.2.3 <1.3.0) · "~1.2" · "~1" · "*" (모든 버전, 프리릴리스 포함). "||" · "1.x" · 하이픈은 계속 Unsupported.
+- 시험: test_pack_manifest 4 · test_semver +1 (기존 "~" · "*" 거절 줄을 바꿨다) · test_game_project (engine 범위 예). 문서: 11 1.3 · V12, 18 (0 · 4장 · 6.4 · 7장),
+  17, 13.
+
+**왜**
+
+- v0.4 의 패키지 = 콘텐츠 팩 (ADR-0071). 정체성 · 라이선스 · 의존 범위를 매니페스트에 적고 확인하는 것이 해결 · 잠금 (M3) 의 바닥.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과 (첫 실행에서 unit_project 의 매니페스트
+  시험이 "~0.1" 을 거절 예로 쓰고 있어 실패 — 이제 맞는 범위라 "0.x" · "^0 || ^1" 로 바꾸고 다시 돌렸다). SandboxTests 605 케이스.
+  det_* 골든 그대로 (콘텐츠 · 시뮬레이션 변경 없음). check_includes 위반 0.
+- 실행: rabbit_guard 복사본에 팩 inv ({"license": "MIT", "dependencies": {"eco": "^0.1"}}) 을 더해 `sbx check` → 오류 0 (종료 0),
+  범위를 "^0.2" 로 → "content/inv/pack.json:/dependencies/eco: 오류 V12 — 팩 'inv' 은 'eco' ^0.2 을 요구하는데 'eco' 은 0.1.0 이다"
+  (종료 1).
+
+**남은 일**
+
+- M1-T2: 프로젝트 매니페스트 schemaVersion 3 dependencies · sbx check 의 의존 요약. 소스에서 받기는 M2.
+
+---
+
 ## 2026-10-27 — v0.4 Package Manager 계획 · D-05 결정 (ADR-0071)
 
 **무엇을**

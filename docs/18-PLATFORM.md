@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 계획).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 M1-T1).
 
 ---
 
@@ -11,9 +11,8 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — 계획 (6.4, ADR-0071 — D-05 결정)
-다음     v0.4 M1-T1 — 팩 매니페스트 넓히기: pack.json version · license (SPDX) · dependencies (범위 + 소스), SemVer 범위 "~" · "*",
-         검사 V12 (팩 매니페스트) — 콘텐츠 로더 · sbx check
+         v0.4 Package Manager ◐ — M1 패키지 정체성 (T1 ✅ · T2) · M2 ~ M6 (6.4, ADR-0071)
+다음     v0.4 M1-T2 — 프로젝트 매니페스트 schemaVersion 3 dependencies (2 도 읽는다), sbx check 의 의존 요약 · P 검사, 18 5.2 규범
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -104,8 +103,8 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
                버전마다 릴리스 노트 docs/releases/v<제품 버전>.md (이력 — 바꾸지 않는다)
 엔진 범위      매니페스트 "engine" — 이 엔진이 범위 밖이면 프로젝트 검사 오류 P3
 SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 빌드). 범위 문법 (v0.2): >= > <= < = ^ 와 부분 버전 (npm 과 같은 뜻),
-               공백 = AND. "||" · "~" · "*" · 하이픈 범위는 Unsupported — v0.4 M1 이 "~" · "*" 를 더한다 (D-05, ADR-0071 — "||" ·
-               하이픈은 계속 Unsupported). 프리릴리스는 우선순위 그대로 비교
+               공백 = AND. v0.4 M1-T1: "~" (~1.2.3 = >=1.2.3 <1.3.0, ~1 = >=1.0.0 <2.0.0) · "*" (모든 버전) (D-05, ADR-0071).
+               "||" · 자리 와일드카드 (1.x) · 하이픈 범위는 Unsupported. 프리릴리스는 우선순위 그대로 비교 ("*" 도 포함)
 그 밖의 축       kSimVersion · 세이브 worldVersion/schemaVersion · 프로토콜 버전 · 매니페스트 schemaVersion — 서로 독립 (ADR-0039 6)
 ```
 
@@ -363,8 +362,9 @@ removed   따로 된 Typed IR 층 (→ 검사한 Program, ADR-0058), SystemSched
 
 ```text
 M1 패키지 정체성 (패키지 = 콘텐츠 팩)
-  T1 [계획] pack.json: version (의존에 쓰이면 필수) · license (SPDX 식) · dependencies {팩: {version 범위, path | git + rev}}
-            (requires 와 같은 뜻으로 합친다), SemVer 범위 "~" · "*", 팩 매니페스트 검사 (모르는 키 · 범위 · 소스 모양 — 새 코드 V12)
+  T1 ✅ pack.json: license (SPDX 식 모양) · dependencies {팩: 범위 | {version?, path} | {version?, git, rev}} (requires 와 같은 뜻
+        — 로드 순서 · 팩 경계, 소스는 기록만), 범위를 적은 의존은 찾은 팩의 version 이 SemVer · 범위 안 (V12), SemVer 범위 "~" · "*"
+        (core/content/PackManifest, 11 1.3)
   T2 [계획] 프로젝트 매니페스트 schemaVersion 3 dependencies (2 도 읽는다), sbx check 의 의존 요약 · P 검사, 11 · 18 5.2 규범
 M2 소스 · 캐시
   T1 [계획] 패키지 digest (.sbpkg 와 같은 규칙 — 팩 파일 목록), 로컬 폴더 소스, 사용자 캐시 <cache>/sandbox/packages/<digest>/ ·
@@ -435,7 +435,8 @@ v0.3 M6-T1 ✅  ADR-0069, samples/mana_regen/README, 19 (0 · 23장), 13 5.1 (sa
 v0.3 M6-T2 ✅  ADR-0070, 19 (0 · 12 · 24장), 14 (2장 script.regen · 6장 · 7.13), 13, 17
 v0.3 M6-T3 ✅  releases/v0.3.0, 18 (0 · 1장 · 6.2 · 6.3 · 7 · 8장), 19 머리, README · docs/README (버전 표), 16
 v0.4 계획 ✅   ADR-0071 (범위 · D-05), 18 (0 · 1 · 4장 · 6.1 · 6.4)
-v0.4 M1       11 1장 (pack.json), 18 4장 (범위 문법) · 5.2 (매니페스트 3), 15 7장 (sbx), 13
+v0.4 M1-T1 ✅ 11 1.3 · V12 (pack.json), 18 4장 (범위 문법), 17, 13
+v0.4 M1-T2    18 5.2 (매니페스트 3), 15 7장 (sbx), 13
 v0.4 M2 · M3  09 (패키지 digest · 잠금 파일 · .sandbox/packages), 15 7장, 17, 13
 v0.4 M4       19 (팩 사이 import — ADR), 10 (팔레트), 15
 v0.4 M5 · M6  13, 14 (설치 · 해결 시간), releases/v0.4.0

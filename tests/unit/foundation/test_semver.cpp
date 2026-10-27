@@ -102,6 +102,31 @@ TEST_SUITE("foundation") {
         CHECK(in("^1.0.0-beta", "1.0.0-beta.2"));
     }
 
+    TEST_CASE("VersionRange: ~ (같은 minor) · * (모든 버전) — v0.4 M1-T1, ADR-0071") {
+        const auto in = [](std::string_view r, std::string_view v) {
+            const auto range = parseVersionRange(r);
+            REQUIRE_MESSAGE(range.has_value(), range.error().describe());
+            return range->contains(*parseSemVer(v));
+        };
+        CHECK(in("~1.2.3", "1.2.3"));
+        CHECK(in("~1.2.3", "1.2.9"));
+        CHECK_FALSE(in("~1.2.3", "1.2.2"));
+        CHECK_FALSE(in("~1.2.3", "1.3.0"));
+        CHECK(in("~1.2", "1.2.0"));
+        CHECK_FALSE(in("~1.2", "1.3.0"));
+        CHECK(in("~1", "1.9.9"));
+        CHECK_FALSE(in("~1", "2.0.0"));
+        CHECK(in("~0.2.3", "0.2.5"));
+        CHECK_FALSE(in("~0.2.3", "0.3.0"));
+        CHECK(in("~1.2.3-beta", "1.2.3-beta.2"));
+        CHECK(in("*", "0.0.0"));
+        CHECK(in("*", "99.1.0-rc.1"));
+        CHECK(in("* <2", "1.5.0"));
+        CHECK_FALSE(in("* <2", "2.0.0"));
+        CHECK(parseVersionRange("~1.2").value().text == "~1.2");
+        CHECK(parseVersionRange("~1.4294967295").error().code == ErrorCode::OutOfRange); // 다음 minor 가 넘친다
+    }
+
     TEST_CASE("VersionRange: 지원하지 않는 문법은 이유와 함께 거절") {
         const auto code = [](std::string_view s) { return parseVersionRange(s).error().code; };
         CHECK(code("") == ErrorCode::ParseError);
@@ -110,9 +135,10 @@ TEST_SUITE("foundation") {
         CHECK(code("1.2-beta") == ErrorCode::ParseError); // 부분 버전 + 프리릴리스
         CHECK(code("1.2.3.4") == ErrorCode::ParseError);
         CHECK(code("abc") == ErrorCode::ParseError);
-        CHECK(code("~1.2.3") == ErrorCode::Unsupported);
         CHECK(code("1.x") == ErrorCode::Unsupported);
-        CHECK(code("*") == ErrorCode::Unsupported);
+        CHECK(code("1.*") == ErrorCode::Unsupported);
+        CHECK(code("~") == ErrorCode::ParseError);
+        CHECK(code("~ 1.2") == ErrorCode::ParseError);
         CHECK(code("^1 || ^2") == ErrorCode::Unsupported);
         CHECK(code("1.0.0 - 2.0.0") == ErrorCode::Unsupported);
         CHECK(code(">4294967295") == ErrorCode::OutOfRange); // 다음 major 가 넘친다

@@ -54,6 +54,7 @@ add_executable(SandboxTests
     unit/persist/test_sample_saves.cpp
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
+    unit/content/test_pack_manifest.cpp
     unit/content/test_script_content.cpp
     unit/content/test_script_overlay.cpp
     unit/project/test_game_project.cpp

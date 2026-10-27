@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "core/content/PackManifest.hpp"
 #include "core/content/TagSet.hpp"
 #include "core/ecs/Component.hpp"
 
@@ -329,7 +330,11 @@ struct PackInfo {
     std::string id;
     std::string version;
     std::string description;
-    std::vector<std::string> dependencies; // pack.json 의 "requires"
+    std::vector<std::string>
+        dependencies; // pack.json 의 "requires" + "dependencies" 의 키 (요구 팩 id, 처음 적은 차례)
+    // v0.4 M1-T1 (ADR-0071): 라이선스 (SPDX 식 — 없으면 빈 문자열) · 의존의 범위 · 소스 (dependencies 에 적은 것만)
+    std::string license;
+    std::vector<PackDependency> packages;
     // presentation/input.json 원문 (없으면 빈 문자열) — 클라이언트 키 바인딩 기본값 (v0.2 M3-T3, ADR-0049).
     // 시뮬레이션 · 검사는 읽지 않고 contentHash 에 들지 않는다 (presentation/ 은 클라 전용)
     std::string inputBindings;

@@ -124,6 +124,28 @@ content/<pack>/
      3 파일별 (Prefab · Rule · Behavior · 모드 · 행동 · 트리거 — V3 가 스크립트 컴포넌트를 안다) → 4 오버레이 → 교차 검사 · link
 ```
 
+### 1.3 패키지 키 (v0.4 M1-T1 — [ADR-0071](adr/0071-v0-4-package-manager-scope-pack-as-package-single-version-resolution.md), `core/content/PackManifest`)
+
+팩 하나가 곧 패키지다. pack.json 에 선택 키 둘을 더한다 (모르는 키는 그대로 V1):
+
+```jsonc
+{ "id": "inv", "version": "1.2.0", "license": "MIT OR Apache-2.0",
+  "dependencies": { "eco":   "^0.1",                                         // 범위만 — 소스는 이 콘텐츠 루트
+                    "items": { "version": "~1.4", "path": "../vendor/items" }, // 로컬 폴더
+                    "ui":    { "git": "https://example.com/ui.git", "rev": "v2.0.1" } } }  // Git 태그 · 커밋
+```
+
+```text
+license       SPDX 식의 모양 — 식별자 ([A-Za-z0-9.-], 끝에 "+" 가능 · LicenseRef-<이름>) 를 AND · OR · WITH <예외> · 괄호로
+              (연산자는 대문자, 256 바이트까지). SPDX 목록에 있는 식별자인지는 보지 않는다. 배포하는 팩은 필수 — 판정은 M5 [계획]
+dependencies  {팩 id: 범위 | {version?, path} | {version?, git, rev}}. 키는 requires 와 같은 뜻 (로드 순서 · 팩 경계 — 둘 다 적어도
+              하나), 자기 자신 · core 는 안 된다. 범위 문법은 18 4장 (^ ~ * 와 비교자 — "||" · 하이픈 없음). path 는 상대 경로
+              ('/', 절대 · 드라이브 · '\' 없이), git 은 rev (태그 · 커밋) 가 필수 (브랜치 끝은 재현되지 않는다).
+              path · git 은 지금 기록만 — 팩은 여전히 콘텐츠 루트에서 찾는다 (소스에서 받기는 M2 [계획])
+범위 확인     범위를 적은 의존은 찾은 팩의 version 이 SemVer 이고 범위 안이어야 한다 — 소스가 곧 버전, 범위는 고르지 않고
+              확인한다 (D-05). 범위가 없으면 version 을 보지 않는다 (지금의 requires · "version": "1" 같은 팩 그대로)
+```
+
 ---
 
 ## 2. Prefab
@@ -341,6 +363,8 @@ V8  GameMode: 필수 키 · 범위 (플레이어 1~64, 팀 ≤ 8 · id 중복 ·
 V9  PlayerAction: who · 조건 경로는 target 뿐, range 0~32, maxTargets 1~64, 팩 전체 64 개까지 (v0.2 M3-T1)
 V10 Trigger: 그래프 모양 (이벤트 하나 · 나무 · 순환 · 닿음 · 깊이 16 · 노드 64 · 대상) · limits · 개수 256, 재진입 고리 경고 (v0.2 M4-T1)
 V11 스크립트 오버레이: 컴포넌트 정의 (defineComponent) 를 팩과 다르게 — 더하기 · 빼기 · 바꾸기 (v0.3 M5-T2, ADR-0066)
+V12 팩 매니페스트의 패키지 키 (1.3): license 가 SPDX 식이 아니다, dependencies 의 모양 · 팩 id · 자기 자신, 범위를 만족하지 않는다 ·
+    요구한 팩의 version 이 SemVer 가 아니다 — "팩 'a' 은 'b' ^1.2 을 요구하는데 'b' 은 1.1.9 이다" (v0.4 M1-T1, ADR-0071)
 S1xx~S5xx 스크립트 (scripts/*.ts — v0.3 M3-T2): 컴파일러 진단 그대로, 포인터 자리에 "줄:열" (19 8장). 스크립트 컴포넌트 id 가
     엔진 컴포넌트 · 앞 팩의 스크립트 컴포넌트와 같으면 V1, 시스템 id 가 앞 팩의 시스템과 같으면 V1 (v0.3 M4-T1), 시스템 구독의
     태그가 tags.json 에 없으면 V7 (v0.3 M4-T2)

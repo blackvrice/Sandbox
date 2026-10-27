@@ -232,7 +232,8 @@ std::vector<PackDir> ContentLoaderImpl::discover() {
         PackDir p{{}, d, folder};
         bool ok = true;
         for (const auto& [k, _] : j.items()) {
-            if (k != "id" && k != "version" && k != "requires" && k != "description") {
+            if (k != "id" && k != "version" && k != "requires" && k != "description" && k != "license" &&
+                k != "dependencies") {
                 error(display, ptr("", k), "V1", std::format("모르는 키 '{}'", k));
                 ok = false;
             }
@@ -269,9 +270,55 @@ std::vector<PackDir> ContentLoaderImpl::discover() {
                 }
             }
         }
+        // 패키지 키 (v0.4 M1-T1, ADR-0071) — 라이선스 (SPDX 식) · 의존 (범위 + 소스)
+        if (j.contains("license")) {
+            if (!j["license"].is_string()) {
+                error(display, "/license", "V12", "license 는 SPDX 식 문자열 (예: \"MIT\")");
+                ok = false;
+            } else if (auto bad = checkSpdxExpression(j["license"].get<std::string>())) {
+                error(display, "/license", "V12",
+                      std::format("license '{}' — {}", j["license"].get<std::string>(), *bad));
+                ok = false;
+            } else {
+                p.info.license = j["license"].get<std::string>();
+            }
+        }
+        if (j.contains("dependencies")) {
+            if (!j["dependencies"].is_object()) {
+                error(display, "/dependencies", "V12",
+                      "dependencies 는 {팩 id: 범위 | {version, path | git + rev}} 객체");
+                ok = false;
+            } else {
+                for (const auto& [dep, value] : j["dependencies"].items()) {
+                    const std::string at = ptr("/dependencies", dep);
+                    if (!isLowerIdent(dep) || dep == "core") {
+                        error(display, at, "V12",
+                              std::format("'{}' 는 팩 id 가 아니다 (소문자 · 숫자 · '_', core 는 엔진)", dep));
+                        ok = false;
+                        continue;
+                    }
+                    PackDependency d;
+                    d.pack = dep;
+                    if (auto bad = parsePackDependency(value, d)) {
+                        error(display, at + bad->pointer, "V12", bad->message);
+                        ok = false;
+                        continue;
+                    }
+                    if (std::find(p.info.dependencies.begin(), p.info.dependencies.end(), dep) ==
+                        p.info.dependencies.end()) {
+                        p.info.dependencies.push_back(dep); // requires 와 같은 뜻 (팩 경계 · 로드 순서)
+                    }
+                    p.info.packages.push_back(std::move(d));
+                }
+            }
+        }
         if (p.info.id == "core") {
             error(display, "/id", "V1", "'core' 는 엔진 예약 팩이다");
             continue;
+        }
+        if (std::find(p.info.dependencies.begin(), p.info.dependencies.end(), p.info.id) != p.info.dependencies.end()) {
+            error(display, "/dependencies", "V12", std::format("팩 '{}' 가 자기 자신을 요구한다", p.info.id));
+            ok = false;
         }
         if (!seen.insert(p.info.id).second) {
             error(display, "/id", "V1", std::format("팩 id '{}' 가 두 폴더에 있다", p.info.id));
@@ -305,6 +352,34 @@ std::vector<PackDir> ContentLoaderImpl::resolveOrder(std::vector<PackDir> all, s
         }
         for (const std::string& r : it->second->info.dependencies) {
             stack.push_back(r);
+        }
+    }
+    // 의존 범위 확인 (V12 — ADR-0071 4: 소스가 곧 버전, 범위는 확인). 찾지 못한 팩은 위의 V2 가 말했다
+    for (const std::string& id : needed) {
+        const auto it = byId.find(id);
+        if (it == byId.end()) {
+            continue;
+        }
+        const PackDir& user = *it->second;
+        for (const PackDependency& d : user.info.packages) {
+            const auto target = byId.find(d.pack);
+            if (!d.range || target == byId.end()) {
+                continue;
+            }
+            const std::string display = user.folder + "/pack.json";
+            const std::string at = ptr("/dependencies", d.pack);
+            const std::string& version = target->second->info.version;
+            const auto v = parseSemVer(version);
+            if (!v) {
+                error(display, at, "V12",
+                      std::format(
+                          "팩 '{}' 의 version '{}' 이 SemVer 가 아니다 — 범위 '{}' 를 확인할 수 없다 ({}/pack.json)",
+                          d.pack, version, d.range->text, target->second->folder));
+            } else if (!d.range->contains(*v)) {
+                error(display, at, "V12",
+                      std::format("팩 '{}' 은 '{}' {} 을 요구하는데 '{}' 은 {} 이다", user.info.id, d.pack,
+                                  d.range->text, d.pack, version));
+            }
         }
     }
     // Kahn 위상 정렬, 동순위는 id 오름차순

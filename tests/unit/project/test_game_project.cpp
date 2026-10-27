@@ -323,8 +323,10 @@ TEST_SUITE("project") {
         CHECK(hasIssue(project::parseManifest(withField("version", "\"1.0\"")).issues, "P3", "/version"));
         CHECK(hasIssue(project::parseManifest(withField("version", "\"01.0.0\"")).issues, "P3", "/version"));
         CHECK(hasIssue(project::parseManifest(withField("engine", "\"\"")).issues, "P3", "/engine"));
-        CHECK(hasIssue(project::parseManifest(withField("engine", "\"~0.1\"")).issues, "P3", "/engine"));
+        CHECK(hasIssue(project::parseManifest(withField("engine", "\"0.x\"")).issues, "P3", "/engine"));
+        CHECK(hasIssue(project::parseManifest(withField("engine", "\"^0 || ^1\"")).issues, "P3", "/engine"));
         CHECK(project::parseManifest(withField("engine", "\"^0.1\"")).ok());
+        CHECK(project::parseManifest(withField("engine", "\"~0.1\"")).ok()); // v0.4 M1-T1 부터 (ADR-0071)
     }
 
     TEST_CASE("경로: entryWorld 는 프로젝트 안 상대 경로 (P4)") {

@@ -70,6 +70,8 @@ add_library(SandboxCore STATIC
     content/ContentDatabase.hpp
     content/ContentDatabase.cpp
     content/ContentModel.hpp
+    content/PackManifest.hpp
+    content/PackManifest.cpp
     content/ScriptPrograms.hpp
     content/ContentLoader.hpp
     content/ContentLoader.cpp
