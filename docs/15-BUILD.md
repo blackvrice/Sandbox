@@ -347,7 +347,9 @@ sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [-
     CLion 실행 창·CTest 처럼 출력이 이미 연결된 곳에서는 그대로 보인다.
     창이 없는 빌드(macOS · SBX_ENABLE_X11 · SBX_ENABLE_WAYLAND 둘 다 OFF)에서는 --headless 로만 돈다. 끝날 때 "SandboxClient 끝: frames N state Shutdown".
     (v0.3 M5-T3) 콘텐츠에 client 스크립트 시스템이 있으면 그 앞에 시스템마다 "클라이언트 스크립트 <id>: 호출 · 트랩 · 예산 · 건너뜀 ·
-    연료 합 · 최대" 와 "클라이언트 스크립트 마지막 프레임 N: 글자 n · 줄 m" · 그 줄들 (19 21장).
+    연료 합 · 최대 · 시간 · 최대 ms" 와 "클라이언트 스크립트 마지막 프레임 N: 글자 n · 줄 m" · 그 줄들 (19 21 · 22장).
+    (v0.3 M5-T4) SandboxServer 끝의 "스크립트 <id>: …" 줄에도 " · 시간 <합> ms · 최대 <호출 하나> ms" (서버의 진단 시계 —
+    sbx_sim_check 의 끝 줄에는 없다). sbx_net_probe 는 1 초마다 받은 서버 스크립트 표를 "  스크립트 <id>: 창 … | 누적 …" 으로.
     창 안 단축키(수동 QA): F2 글자 입력 · F3 마우스 캡처 · F4 커서 모양 · Ctrl+C/V · Esc · Ctrl+Q (qa/MANUAL-QA Phase 6)
 종료 코드: 0 정상 · 1 실행 오류(창 생성·설정 파일 · 서버 접속 실패 · 끊김) · 2 잘못된 인자 (없는 월드 포함)
 

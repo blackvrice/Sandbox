@@ -9,6 +9,7 @@
 
 #include "apps/client/presentation/SelectionOverlay.hpp"
 #include "apps/client/ui/GamePanel.hpp"
+#include "apps/client/ui/ScriptPanel.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
@@ -28,6 +29,12 @@ constexpr u16 kDefaultPort = 7777;
 // "Arena — studio.arena 0.1.0" (게임이 아니면 빈 문자열)
 std::string describeGame(const net::GameIdentity& g) {
     return g.empty() ? std::string{} : std::format("{} — {} {}", g.name, g.gameId, g.version);
+}
+
+// client 스크립트 프로파일의 진단 시계 (ADR-0068) — 화면 표시에만
+u64 diagnosticNanos() noexcept {
+    using namespace std::chrono;
+    return static_cast<u64>(duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count());
 }
 } // namespace
 
@@ -605,13 +612,62 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
     const std::shared_ptr<const content::ScriptPrograms> programs = db != nullptr ? db->scriptPrograms() : nullptr;
     if (!programs || programs->systemCount(script::api::HostDomain::Client) == 0) {
         m_clientScripts.reset();
+        m_clientProfile.clear();
         return;
     }
     if (!m_clientScripts || m_clientScripts->programs() != programs) {
         // 오버레이가 스크립트를 바꿨다 — 새로 (꺼짐 · 통계는 이 접속의 메모리에만 — ADR-0067)
         m_clientScripts = std::make_unique<script::ClientScriptSystems>(programs);
+        m_clientScripts->setClock(&diagnosticNanos);
+        m_clientProfileBase.assign(m_clientScripts->systemCount(), {});
+        m_clientProfile.clear();
+        m_clientProfileStart = m_now;
     }
     m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds});
+
+    // 프로파일 창 (실제 1 초) — 누적의 차이
+    const f64 span = m_now - m_clientProfileStart;
+    if (span < kClientProfileWindow) {
+        return;
+    }
+    const script::ClientScriptSystems& cs = *m_clientScripts;
+    m_clientProfile.clear();
+    for (usize i = 0; i < cs.systemCount(); ++i) {
+        const script::ScriptSystemCounters& c = cs.counters(i);
+        ClientProfileBase& base = m_clientProfileBase[i];
+        m_clientProfile.push_back(scriptProfileRow(std::string(cs.systemId(i)), c.calls - base.calls,
+                                                   c.fuel - base.fuel, c.nanos - base.nanos, span, c.maxNanos,
+                                                   c.maxFuel, c.traps, c.budget, c.cut, cs.disabled(i)));
+        base = {c.calls, c.fuel, c.nanos};
+    }
+    m_clientProfileStart = m_now;
+}
+
+std::optional<ScriptProfileInfo> NetworkSession::scriptProfile() const {
+    ScriptProfileInfo out;
+    if (m_session) {
+        if (const auto& st = m_session->lastStats(); st && !st->scripts.empty()) {
+            const f64 span = st->windowSeconds > 0 ? static_cast<f64>(st->windowSeconds) : 1.0;
+            for (const net::ScriptSystemStatRow& r : st->scripts) {
+                out.server.push_back(scriptProfileRow(r.id, r.calls, r.fuel, r.nanos, span, r.maxNanos, r.maxFuel,
+                                                      r.traps, r.budget, r.cut, r.disabled));
+            }
+            out.serverOmitted = st->scriptsOmitted;
+        }
+    }
+    if (m_clientScripts) {
+        out.client = m_clientProfile;
+        if (out.client.empty()) {
+            // 첫 창이 아직 — 시스템 이름만 (값 0)
+            for (usize i = 0; i < m_clientScripts->systemCount(); ++i) {
+                out.client.push_back({.id = std::string(m_clientScripts->systemId(i))});
+            }
+        }
+    }
+    if (out.server.empty() && out.client.empty() && out.serverOmitted == 0) {
+        return std::nullopt;
+    }
+    return out;
 }
 
 std::optional<ScriptOverlayInfo> NetworkSession::scriptOverlay() const {
@@ -642,7 +698,6 @@ std::optional<ScriptOverlayInfo> NetworkSession::scriptOverlay() const {
     for (const script::ClientScriptLine& line : m_clientScripts->host().lines()) {
         out.lines.push_back(line.text);
     }
-    out.systems = script::describeClientScriptSystems(*m_clientScripts);
     return out;
 }
 

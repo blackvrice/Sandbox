@@ -150,6 +150,7 @@ add_library(SandboxCore STATIC
     script/ScriptSystemAdapter.hpp
     script/ScriptSystemAdapter.cpp
     script/ScriptValues.hpp
+    script/ScriptClock.hpp
     script/ClientScriptHost.hpp
     script/ClientScriptHost.cpp
     script/ClientScriptSystems.hpp

@@ -22,6 +22,8 @@
 > ([ADR-0053](adr/0053-test-play-copy-world-park-edit-world-protocol-12.md)).
 > **v0.3 M5-T2** — 프로토콜 13: 콘텐츠 종류 Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이,
 > [ADR-0066](adr/0066-script-overlay-kind-recompile-same-components-protocol-13.md)).
+> **v0.3 M5-T4** — 프로토콜 14: ServerStats 끝에 스크립트 시스템 표 (프로파일 —
+> [ADR-0068](adr/0068-script-profile-injected-diagnostic-clock-serverstats-protocol-14.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -189,7 +191,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 12`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 14`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -207,7 +209,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 40 | TerrainChunk   | S→C    | Bulk     | x · y zigzag, revision varint, runs[] {count, material} varint (길이 부호화, 머티리얼 번호 kTilesPerChunk 개)                                                         |
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
 | 42 | ContentOverlay | S→C    | Bulk     | reset bool, items[] {kind u8 (0 prefab · 1 rule · 2 behavior), id str(64), json str(16 KB — "" = 지움)} × ≤ 1024 (12C, 16 MB 까지)                                    |
-| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz), 기록 · 재생 상태 (12D) [계획] systemTimes[] |
+| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz), 기록 · 재생 상태 (12D), 스크립트 시스템 표 (프로토콜 14). Native 시스템별 시간은 [계획] |
 | 51 | Inspect        | C→S    | Control  | ids[] NetEntityId varint × ≤ 32 (빈 목록 = 그만, 10B)                                                                                                                 |
 | 52 | InspectResult  | S→C    | Snapshot | serverTick, entries[] {netId, state str(64), sensorRadius f32, path[] Vec2 × ≤ 64, goal?, target netId} (10B)                                                         |
 | 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
@@ -243,6 +245,8 @@ reason 3 Restart (ADR-0046). 메시지 모양은 그대로이고 열거 값만 �
 mode 3 (테스트 플레이). 메시지 모양은 그대로 — 열거 값만 (ADR-0053).
 프로토콜 13 (v0.3 M5-T2): EditContent (태그 8) · ContentOverlay (42) 의 kind u8 가 0~4 (4 = script — 값 {"id", "source"}).
 메시지 모양은 그대로 (ADR-0066).
+프로토콜 14 (v0.3 M5-T4): ServerStats 끝에 windowSeconds f32 · scripts varint (≤ 64) × {id str(128) · calls · fuel · nanos (창) ·
+traps · budget · cut · maxFuel · maxNanos (누적) varint · disabled bool} · scriptsOmitted varint (ADR-0068).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

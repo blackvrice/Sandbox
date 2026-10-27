@@ -11,6 +11,7 @@
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "foundation/assert/Assert.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
@@ -25,6 +26,12 @@ constexpr usize kMaxCreatedInResult = 4096;
 f64 steadySeconds() {
     using namespace std::chrono;
     return duration<f64>(steady_clock::now().time_since_epoch()).count();
+}
+
+// 스크립트 프로파일의 진단 시계 (ADR-0068) — 시뮬레이션 결과에 닿지 않는다
+u64 steadyNanos() noexcept {
+    using namespace std::chrono;
+    return static_cast<u64>(duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
 // 바이트 상한 안에서 코드 포인트 경계로 자른다
@@ -697,6 +704,7 @@ void ServerHost::simStep(f64 now) {
         commands.clear();
     }
     auto& world = m_runner->world();
+    world.setScriptClock(&steadyNanos); // 월드가 바뀌어도 (불러오기 · 재시작 · 테스트 플레이) 이번 단계의 월드에
     if (reachedStop(world)) {
         // 멈춘 뒤 온 명령은 적용하지 않는다 — 말없이 버리지 않고 거절을 알린다 (M6)
         for (auto& c : commands) {
@@ -831,6 +839,8 @@ void ServerHost::simStep(f64 now) {
         } else if (m_editRunner) {
             s.mode = 3; // 테스트 플레이 (프로토콜 12)
         }
+        s.windowSeconds = static_cast<f32>(span);
+        fillScriptRows(world.scriptSystems(), s);
         statsMsg = s;
         m_statsWindowStart = now;
         m_tickMsSum = 0;
@@ -1212,6 +1222,38 @@ Expected<std::string> ServerHost::startTestPlay(std::vector<Outgoing>& out) {
     replaceWorld(std::move(opened->runner), WorldChangeReason::TestPlay, {}, out, &m_editRunner);
     m_finishedSteps = 0;
     return std::format("tick {} — {} (멈추면 편집 월드로 돌아갑니다)", tick, what);
+}
+
+void ServerHost::fillScriptRows(const script::ScriptSystemAdapter* systems, ServerStats& s) {
+    std::map<std::string, ScriptWindowBase> next;
+    if (systems != nullptr) {
+        for (usize i = 0; i < systems->systemCount(); ++i) {
+            const script::ScriptSystemCounters& c = systems->counters(i);
+            const std::string id(systems->systemId(i));
+            ScriptWindowBase base;
+            if (const auto it = m_scriptBase.find(id); it != m_scriptBase.end() && it->second.calls <= c.calls) {
+                base = it->second; // 누적이 줄었으면 어댑터를 다시 만든 것 — 0 부터
+            }
+            next[id] = ScriptWindowBase{c.calls, c.fuel, c.nanos};
+            if (s.scripts.size() >= kMaxScriptStatRows) {
+                ++s.scriptsOmitted;
+                continue;
+            }
+            ScriptSystemStatRow row;
+            row.id = clampUtf8(id, kMaxScriptIdBytes);
+            row.calls = static_cast<u32>(std::min<u64>(c.calls - base.calls, 0xFFFF'FFFFull));
+            row.fuel = c.fuel - std::min(base.fuel, c.fuel);
+            row.nanos = c.nanos - std::min(base.nanos, c.nanos);
+            row.traps = c.traps;
+            row.budget = c.budget;
+            row.cut = c.cut;
+            row.maxFuel = c.maxFuel;
+            row.maxNanos = c.maxNanos;
+            row.disabled = systems->disabled(i);
+            s.scripts.push_back(std::move(row));
+        }
+    }
+    m_scriptBase = std::move(next);
 }
 
 bool ServerHost::reachedStop(const sim::SimulationWorld& world) const {

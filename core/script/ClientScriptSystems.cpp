@@ -38,6 +38,8 @@ void ClientScriptSystems::run(ClientScriptFrame frame) {
     frame.frame = ++m_frames;
     m_host.beginFrame(frame);
     for (Entry& s : m_systems) {
+        s.lastFuel = 0;
+        s.lastNanos = 0;
         invoke(s);
     }
 }
@@ -58,10 +60,19 @@ void ClientScriptSystems::invoke(Entry& s) {
     vm::Limits lim = vmi.limits();
     lim.fuel = limit;
     vmi.setLimits(lim);
+    const u64 t0 = m_clock != nullptr ? m_clock() : 0;
     const vm::Value ctx = m_host.beginCall(s.desc->id);
     // (ctx) 나 () — 검증기가 서명을 보았다
     const vm::CallResult r = vmi.call(s.desc->onUpdate, std::span(&ctx, f.params.size()));
     m_host.endCall(r.ok());
+    if (m_clock != nullptr) {
+        const u64 ns = m_clock() - t0;
+        m_last.nanos += ns;
+        s.lastNanos = ns;
+        s.counters.nanos += ns;
+        s.counters.maxNanos = std::max(s.counters.maxNanos, ns);
+    }
+    s.lastFuel = r.fuelUsed;
     m_frameFuelLeft -= std::min(r.fuelUsed, m_frameFuelLeft);
     ++m_last.calls;
     m_last.fuel += r.fuelUsed;
@@ -109,8 +120,9 @@ std::vector<std::string> describeClientScriptSystems(const ClientScriptSystems& 
     for (usize i = 0; i < systems.systemCount(); ++i) {
         const ScriptSystemCounters& c = systems.counters(i);
         out.push_back(
-            std::format("클라이언트 스크립트 {}: 호출 {} · 트랩 {} · 예산 {} · 건너뜀 {} · 연료 합 {} · 최대 {}{}",
+            std::format("클라이언트 스크립트 {}: 호출 {} · 트랩 {} · 예산 {} · 건너뜀 {} · 연료 합 {} · 최대 {}{}{}",
                         systems.systemId(i), c.calls, c.traps, c.budget, c.cut, c.fuel, c.maxFuel,
+                        systems.timed() ? describeNanos(c.nanos, c.maxNanos) : std::string(),
                         systems.disabled(i) ? " · 꺼짐" : ""));
     }
     return out;

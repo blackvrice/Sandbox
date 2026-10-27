@@ -5,7 +5,8 @@
 // 단위 테스트는 가짜 세션을 끼운다. 8B: 선택 · 디버그 오버레이 (ADR-0022). 12A: 에디터 호스트 (ADR-0028).
 // 12C: 접속자 · 역할 ("접속자" 패널 — ADR-0030). 12D: 세이브 · 로드 · 리플레이 ("월드" 패널 — ADR-0031).
 // v0.2 M2-T3: 게임 진행 ("게임" 패널 — ADR-0045). v0.2 M3-T1: 플레이어 행동 ("행동" 패널 — ADR-0047).
-// v0.3 M5-T3: 클라이언트 스크립트의 표시 (개체 위 글자 · "스크립트" 칸 — ADR-0067).
+// v0.3 M5-T3: 클라이언트 스크립트의 표시 (개체 위 글자 · "스크립트" 칸 — ADR-0067). v0.3 M5-T4: 스크립트 프로파일
+// (ADR-0068).
 
 #include <optional>
 #include <string>
@@ -141,7 +142,27 @@ struct ScriptLabelView {
 struct ScriptOverlayInfo {
     std::vector<ScriptLabelView> labels; // 부른 차례 (그린 자리가 없는 개체는 빠진다)
     std::vector<std::string> lines;      // ctx.print — "스크립트" 칸
-    std::vector<std::string> systems;    // 시스템마다 누적 통계 한 줄
+};
+
+// 스크립트 시스템 하나의 프로파일 (v0.3 M5-T4, ADR-0068). 창 = 서버는 ServerStats 의 창 (약 1 초), 클라이언트는 최근 1
+// 초. 시간은 진단 시계 (서버 · 이 클라이언트의 것) — 시뮬레이션 결과와 무관
+struct ScriptProfileRow {
+    std::string id;
+    f64 callsPerSecond = 0; // 창
+    f64 fuelPerCall = 0;    // 창 평균 (부르지 않았으면 0)
+    f64 msPerSecond = 0;    // 창 — 1 초에 쓴 시간
+    f64 msPerCall = 0;      // 창 평균
+    f64 maxMs = 0;          // 누적 — 호출 하나의 최대
+    u64 maxFuel = 0;        // 누적
+    u64 traps = 0;          // 누적
+    u64 budget = 0;         // 누적 (예산으로 멈춤)
+    u64 cut = 0;            // 누적 (건너뜀)
+    bool disabled = false;
+};
+struct ScriptProfileInfo {
+    std::vector<ScriptProfileRow> server; // 실행 순서 (서버가 보낸 표 — 프로토콜 14)
+    u32 serverOmitted = 0;                // 표 상한으로 빠진 서버 시스템
+    std::vector<ScriptProfileRow> client; // 이 클라이언트의 client 시스템
 };
 
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
@@ -213,6 +234,9 @@ public:
     [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 (client 시스템이 없으면 nullopt — 아무것도 그리지 않는다) ----
     [[nodiscard]] virtual std::optional<ScriptOverlayInfo> scriptOverlay() const { return std::nullopt; }
+    // ---- v0.3 M5-T4: 스크립트 프로파일 (서버 · 클라이언트 둘 다 시스템이 없으면 nullopt — "스크립트 프로파일" 패널)
+    // ----
+    [[nodiscard]] virtual std::optional<ScriptProfileInfo> scriptProfile() const { return std::nullopt; }
 };
 
 } // namespace sbx::client

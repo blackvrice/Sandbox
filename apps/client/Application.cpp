@@ -593,7 +593,10 @@ bool Application::frame() {
                 m_actionPanel.armed.clear();
             }
             if (const auto so = m_config.world->scriptOverlay()) {
-                drawScriptOverlay(*so, m_renderWorld.camera, m_panels.visible); // v0.3 M5-T3 — 게임 화면이라 늘
+                drawScriptOverlay(*so, m_renderWorld.camera); // v0.3 M5-T3 — 게임 화면이라 늘
+            }
+            if (const auto sp = m_config.world->scriptProfile(); sp && m_panels.visible) {
+                drawScriptProfilePanel(*sp); // v0.3 M5-T4 "스크립트 프로파일"
             }
         }
         ui = m_config.ui->endFrame(m_cursor);

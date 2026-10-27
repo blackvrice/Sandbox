@@ -28,6 +28,7 @@ struct ClientScriptStats {
     u32 budget = 0; // 프레임 연료로 멈춘 호출
     u32 cut = 0;    // 프레임 연료를 다 써 건너뛴 호출
     u64 fuel = 0;
+    u64 nanos = 0; // 진단 시계가 있을 때 (ADR-0068)
 };
 
 class ClientScriptSystems {
@@ -47,6 +48,12 @@ public:
     [[nodiscard]] std::string_view systemId(usize i) const noexcept { return m_systems[i].desc->id; }
     [[nodiscard]] bool disabled(usize i) const noexcept { return m_systems[i].disabled; }
     [[nodiscard]] const ScriptSystemCounters& counters(usize i) const noexcept { return m_systems[i].counters; }
+    // 지난 run 에서 그 시스템이 쓴 연료 · 시간 (부르지 않았으면 0)
+    [[nodiscard]] u64 lastFuel(usize i) const noexcept { return m_systems[i].lastFuel; }
+    [[nodiscard]] u64 lastNanos(usize i) const noexcept { return m_systems[i].lastNanos; }
+    // 진단 시계 (null = 재지 않는다 — ScriptClock.hpp)
+    void setClock(ScriptClock clock) noexcept { m_clock = clock; }
+    [[nodiscard]] bool timed() const noexcept { return m_clock != nullptr; }
     [[nodiscard]] const ClientScriptHost& host() const noexcept { return m_host; }
     [[nodiscard]] const std::shared_ptr<const content::ScriptPrograms>& programs() const noexcept { return m_programs; }
 
@@ -57,10 +64,13 @@ private:
         u32 consecutive = 0; // 이어진 트랩
         bool disabled = false;
         ScriptSystemCounters counters;
+        u64 lastFuel = 0;
+        u64 lastNanos = 0;
     };
     void invoke(Entry& s);
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
+    ScriptClock m_clock = nullptr;
     ClientScriptHost m_host;                             // 인터프리터보다 먼저 만들고 나중에 없앤다
     std::vector<std::unique_ptr<vm::Interpreter>> m_vms; // packs 차례 (client 시스템이 없는 팩은 null)
     std::vector<Entry> m_systems;                        // 실행 순서 (팩 순서, id)

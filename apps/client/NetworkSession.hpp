@@ -22,6 +22,8 @@
 // (ADR-0031).
 // v0.3 M5-T3: 콘텐츠 (오버레이 포함) 에 client 시스템이 있으면 ClientScriptSystems 를 두고, update 마다 스냅숏을 적용한
 // 뒤 복제 월드로 onUpdate 를 돌린다 — 표시는 scriptOverlay() (ADR-0067). 콘텐츠의 바이트코드가 바뀌면 다시 만든다.
+// v0.3 M5-T4: scriptProfile() = 서버가 보낸 스크립트 시스템 표 (ServerStats — 프로토콜 14) + client 시스템의 최근 1 초
+// (진단 시계로 잰 시간 — ADR-0068).
 //
 // 한 스레드(Main)에서 쓴다.
 
@@ -126,6 +128,8 @@ public:
     void playerAction(std::string id, Vec2 world) override;
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
+    [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;
+    static constexpr f64 kClientProfileWindow = 1.0; // client 시스템 프로파일의 창 (실제 초)
     [[nodiscard]] const script::ClientScriptSystems* clientScripts() const noexcept { return m_clientScripts.get(); }
     // 서버가 리플레이를 재생 중이다 (마지막 통계 기준)
     [[nodiscard]] bool playingReplay() const noexcept;
@@ -221,6 +225,15 @@ private:
     std::string m_roleMessage; // 가장 최근 역할 바꾸기 결과
     // 클라이언트 스크립트 (v0.3 M5-T3) — 콘텐츠에 client 시스템이 있을 때만
     std::unique_ptr<script::ClientScriptSystems> m_clientScripts;
+    // client 시스템 프로파일 (M5-T4): 창이 시작할 때의 누적 (시스템 차례) · 지난 창의 줄
+    struct ClientProfileBase {
+        u64 calls = 0;
+        u64 fuel = 0;
+        u64 nanos = 0;
+    };
+    std::vector<ClientProfileBase> m_clientProfileBase;
+    std::vector<ScriptProfileRow> m_clientProfile;
+    f64 m_clientProfileStart = 0;
 
     // 세이브 · 로드 · 리플레이 (12D)
     const net::ClientSession* m_listSession = nullptr; // 목록을 요청한 세션 (다시 접속하면 다시)

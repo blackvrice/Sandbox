@@ -30,10 +30,10 @@
 // 월드 오버레이 (12C): 들어온 클라이언트에 ContentOverlay{reset} 로 전체, 월드의 오버레이가 바뀌면 (EditContent) 바뀐
 //   항목만 모두에게 — Sim 절반이 contentRevision 으로 알아챈다.
 // 세이브 · 로드 · 리플레이 (12D, ADR-0031): WorldOp 을 Net 절반이 권한(목록 = 모두, 나머지 = admin 부터)으로 거르고 Sim
-//   절반이 틱 사이에 한다 — <savesRoot>/<이름>. 로드 · 재생은 월드를 통째로 바꾼다 (같은 콘텐츠의 세이브만): generation++,
-//   복제를 새 epoch 로, 모두에게 WorldChanged · 오버레이 전체, 그 배치의 명령은 거절. 기록 = 시작 세이브 + ReplayRecorder
-//   (tick() 마다), 재생 = ReplayPlayer 로 한 call 씩 (편집 명령 거절, 실행 제어는 재생을 멈추고 · 한 call 씩 · 빠르게),
-//   끝나면 보통 월드로 돌아와 일시정지. 서버를 멈추면 기록 중인 리플레이를 쓴다.
+//   절반이 틱 사이에 한다 — <savesRoot>/<이름>. 로드 · 재생은 월드를 통째로 바꾼다 (같은 콘텐츠의 세이브만):
+//   generation++, 복제를 새 epoch 로, 모두에게 WorldChanged · 오버레이 전체, 그 배치의 명령은 거절. 기록 = 시작 세이브
+//   + ReplayRecorder (tick() 마다), 재생 = ReplayPlayer 로 한 call 씩 (편집 명령 거절, 실행 제어는 재생을 멈추고 · 한
+//   call 씩 · 빠르게), 끝나면 보통 월드로 돌아와 일시정지. 서버를 멈추면 기록 중인 리플레이를 쓴다.
 
 #include <atomic>
 #include <filesystem>
@@ -53,6 +53,10 @@
 #include "network/replication/ReplicationWriter.hpp"
 #include "network/server/CommandValidator.hpp"
 #include "network/transport/Transport.hpp"
+
+namespace sbx::script {
+class ScriptSystemAdapter;
+} // namespace sbx::script
 
 namespace sbx::net {
 
@@ -82,8 +86,8 @@ struct ServerHostDesc {
     std::string packageDigest; // 게임 패키지로 돌리면 그 digest (v0.2 M5-T2 — 세이브의 "game".package)
     u32 minPlayers = 0;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
-    // 게임 세션이 Finished (자동 재시작이 없는 모드) 가 되면 진행을 멈춘다 (--exit · --script, v0.2 M6-T1) — Finished 는
-    // 틱을 멈추므로 stopAtTick 만으로는 끝나지 않는다
+    // 게임 세션이 Finished (자동 재시작이 없는 모드) 가 되면 진행을 멈춘다 (--exit · --script, v0.2 M6-T1) — Finished
+    // 는 틱을 멈추므로 stopAtTick 만으로는 끝나지 않는다
     bool stopWhenGameFinished = false;
     // 복제 (Phase 10, ADR-0025): 스냅숏 간격(30 TPS 틱 수로 센 실제 시간 — 2 = 15 Hz, 속도 배율과 무관 · 10B) ·
     // 클라이언트당 초당 바이트 예산 (0 = 제한 없음 — Loopback 싱글플레이). 08 6.3: 원격 기본 256 KB/s
@@ -235,6 +239,8 @@ private:
     [[nodiscard]] std::optional<persist::GameBinding> gameBinding() const;
     // stopAtTick 에 닿았거나 (stopWhenGameFinished 면) 게임이 끝났다
     [[nodiscard]] bool reachedStop(const sim::SimulationWorld& world) const;
+    // ServerStats 의 스크립트 시스템 표 (프로토콜 14 — 창 = 앞 통계 뒤의 누적 차이)
+    void fillScriptRows(const script::ScriptSystemAdapter* systems, ServerStats& s);
     [[nodiscard]] Expected<std::string> stopRecording(); // 기록을 끝내 replay.sbxr 로 쓴다 — 요약
     // 게임 재시작 (WorldOp Restart · 자동, M2-T3): 시작 월드를 다시 열어 바꾸고 세션을 Lobby 로. 결과 요약
     [[nodiscard]] Expected<std::string> restartGame(std::vector<Outgoing>& out);
@@ -283,6 +289,13 @@ private:
     f64 m_tickMsSum = 0;
     f64 m_tickMsMax = 0;
     u32 m_ticksInWindow = 0;
+    // 스크립트 시스템 표의 창 (프로토콜 14): 시스템 id → 앞 ServerStats 때의 누적 (호출 · 연료 · 시간)
+    struct ScriptWindowBase {
+        u64 calls = 0;
+        u64 fuel = 0;
+        u64 nanos = 0;
+    };
+    std::map<std::string, ScriptWindowBase> m_scriptBase;
 
     // 스레드 사이
     mutable std::mutex m_mutex;

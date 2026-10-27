@@ -13,6 +13,8 @@
 // 정책에 넣지 않는다. onEvent 는 시스템마다 eventsPerTick · 틱 kMaxEventsPerTick. 트랩 정책: 한 시스템의 호출이
 // 트랩으로 kDisableAfterTraps 번 이어지면 그 시스템을 끈다. 이어진 트랩 수 · 꺼짐은 시뮬레이션 상태 — state() /
 // restoreState() 로 세이브에 (팩 바이트코드 digest 가 다르면 되살리지 않는다). 통계는 진단 (세이브에 없다).
+// 프로파일 (v0.3 M5-T4, ADR-0068): setClock 으로 진단 시계를 넣으면 호출마다 시간을 재어 통계에만 더한다
+// (ScriptClock.hpp).
 
 #include <memory>
 #include <span>
@@ -22,6 +24,7 @@
 
 #include "core/components/core/Identity.hpp"
 #include "core/content/ScriptPrograms.hpp"
+#include "core/script/ScriptClock.hpp"
 #include "core/script/ScriptHost.hpp"
 #include "foundation/math/Vec2.hpp"
 
@@ -38,6 +41,7 @@ struct ScriptSystemStats {
     u32 cut = 0;    // 건너뛴 호출 · 이벤트 (onEvent 예산 · 틱 연료를 다 썼다)
     u64 fuel = 0;
     u64 droppedLogs = 0; // 틱 상한으로 버린 ctx.log
+    u64 nanos = 0;       // 진단 시계가 있을 때 (ADR-0068)
 };
 
 // 시스템 하나의 누적 통계 (진단 — 세이브 · 해시에 없다, 로드하면 0 부터)
@@ -48,6 +52,8 @@ struct ScriptSystemCounters {
     u64 cut = 0;
     u64 fuel = 0;
     u64 maxFuel = 0; // 호출 하나의 최대
+    u64 nanos = 0;   // 진단 시계로 잰 시간 합 · 호출 하나의 최대 (시계가 없으면 0 — ADR-0068)
+    u64 maxNanos = 0;
     std::string lastTrap;
 };
 
@@ -123,6 +129,9 @@ public:
     [[nodiscard]] const ScriptSystemCounters& counters(usize i) const noexcept { return m_systems[i].counters; }
     [[nodiscard]] const ScriptHost& host() const noexcept { return m_host; }
     [[nodiscard]] const std::shared_ptr<const content::ScriptPrograms>& programs() const noexcept { return m_programs; }
+    // 진단 시계 (null = 재지 않는다). 결과에 닿지 않는다 — 통계의 nanos 만
+    void setClock(ScriptClock clock) noexcept { m_clock = clock; }
+    [[nodiscard]] bool timed() const noexcept { return m_clock != nullptr; }
 
 private:
     struct Entry {
@@ -148,6 +157,7 @@ private:
     void finishTick();
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
+    ScriptClock m_clock = nullptr;
     ScriptHost m_host;                                   // 인터프리터보다 먼저 만들고 나중에 없앤다
     std::vector<std::unique_ptr<vm::Interpreter>> m_vms; // packs 차례
     std::vector<u64> m_digests;                          // packs 차례 — 바이트코드의 FNV-1a 64
@@ -162,7 +172,9 @@ private:
 };
 
 // 시스템마다 한 줄 — "스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 1234 · 최대 200"
-// (꺼졌으면 " · 꺼짐")
+// (시계가 있으면 " · 시간 0.52 ms · 최대 0.081 ms", 꺼졌으면 " · 꺼짐")
 [[nodiscard]] std::vector<std::string> describeScriptSystems(const ScriptSystemAdapter& systems);
+// " · 시간 0.52 ms · 최대 0.081 ms" (나노초 → ms — 끝 줄 · 클라이언트 줄이 같이 쓴다)
+[[nodiscard]] std::string describeNanos(u64 total, u64 max);
 
 } // namespace sbx::script

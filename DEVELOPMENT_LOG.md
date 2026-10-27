@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-10-27 — v0.3 M5-T4: 스크립트 프로파일 — 주입한 진단 시계, ServerStats 스크립트 표, "스크립트 프로파일" 패널 (ADR-0068, 프로토콜 14)
+
+**무엇을**
+
+- core/script/ScriptClock (u64 (*)() noexcept — 단조 나노초): ScriptSystemAdapter · ClientScriptSystems 의 setClock,
+  SimulationWorld::setScriptClock (다시 만든 어댑터에도). 시계가 있으면 호출마다 앞뒤를 재어 통계에만 (ScriptSystemCounters::nanos ·
+  maxNanos, 틱 · 프레임 통계 nanos, 클라이언트 시스템별 지난 연료 · 시간). describeScriptSystems · describeClientScriptSystems 에
+  " · 시간 <합> ms · 최대 <호출 하나> ms" (시계가 있을 때만 — sbx_sim_check 끝 줄은 그대로).
+- ServerHost: 단계마다 그 월드에 steady_clock 시계를 넣고, ServerStats (1 초) 끝에 windowSeconds · 스크립트 시스템 표 (창의 호출 ·
+  연료 · 시간 = 누적 차이, 누적 트랩 · 예산 · 건너뜀 · 최대 연료 · 최대 시간 · 꺼짐, 64 줄 · scriptsOmitted). 프로토콜 13 → 14.
+- 클라이언트: IWorldSession::scriptProfile — 서버 표 + client 시스템의 최근 1 초. apps/client/ui/ScriptPanel 의 "스크립트 프로파일"
+  패널 (서버 · 클라이언트 표 — 호출/초 · 연료/호출 · ms/초 · ms/호출 · 최대 ms · 최대 연료 · 트랩 · 예산 · 건너뜀 · 상태,
+  scriptProfileRow). M5-T3 의 "스크립트" 칸 안 통계 접기는 이 패널로 옮겼다 (ScriptOverlayInfo::systems 없앰).
+- sbx_net_probe: 받은 서버 스크립트 표를 줄마다.
+- 시험: test_client_scripts +1 (시계 — 해시 그대로), test_client_script_session +1 (프로파일 세션 · 패널 · 줄 계산),
+  test_messages +1 (표 왕복 · 상한), 프로토콜 14. 문서: ADR-0068, 08, 19 (0 · 9 · 19 · 21 · 22장), 18 (M5-T4 ✅ · M5 완료 · 다음
+  M6-T1), 10 9장, 15, 17, 13.
+
+**왜**
+
+- 통계에 시간이 없어 "어느 스크립트가 느린가" 를 볼 수 없었고, 끝 줄로만 보였다. 게임을 돌리면서 서버 · 클라이언트 표를 본다.
+- 04 (시뮬레이션은 벽시계를 보지 않는다) 를 약속이 아니라 경계로: core 는 시계를 모르고, 부르는 쪽이 넣은 값이 통계로만 흐른다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 62/62 통과 (det_* 골든 그대로 — kSimVersion 4).
+  SandboxTests 591 케이스. check_includes 위반 0.
+- 실행 (스크래치 clientroot — 생태계 + Mana 스크립트 + client 시스템 eco.hud):
+  `SandboxServer --world ecosystem_small --content-root <clientroot> --port 7791 --ticks 240 --exit` 에
+  `sbx_net_probe --connect 127.0.0.1:7791 --content-root <clientroot> --seconds 3` → 1 초마다 "스크립트 eco.mana.regen: 창 1.03 초
+  호출 1 · 연료 4564 · 1.289 ms | … 최대 1.430 ms", 서버 끝 줄 "스크립트 eco.mana.regen: 호출 8 · … · 시간 10.68 ms · 최대 1.510 ms".
+  `SandboxClient --headless … --frames 120` 끝 줄 "클라이언트 스크립트 eco.hud: 호출 116 · … · 시간 259.15 ms · 최대 6.030 ms"
+  (Debug — 프레임 하나 약 2.2 ms, 글자 75).
+- 성능: 시뮬레이션 경로는 호출마다 시계 포인터 확인 하나 (시계를 넣으면 steady_clock 두 번) — 벤치는 돌리지 않았다. sbx_bench
+  스크립트 단계는 M6-T1 (저장소 콘텐츠에 스크립트가 아직 없다).
+- 패널을 창에서 눈으로 보지는 못했다 — 그리기는 헤드리스 ImGui 시험이 부른다.
+
+**남은 일**
+
+- M6-T1: 데모 samples/mana_regen · 보호 시험 · 10k 대상 벤치 (스크립트 단계 — 시계를 넣어 시스템별 시간). 함수별 프로파일 · 기록
+  그래프 · 패널에서 시스템 끄고 켜기 · Native 시스템별 시간 (ServerStats) 은 [계획].
+
+---
+
 ## 2026-10-26 — v0.3 M5-T3: 클라이언트 스크립트 최소 — domain "client" · onUpdate, 복제 월드 읽기 · 화면 글자 (ADR-0067)
 
 **무엇을**

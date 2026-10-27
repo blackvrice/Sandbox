@@ -129,6 +129,13 @@ sim::WorldDesc smallWorld() {
     return d;
 }
 
+// 시험 시계 — 부를 때마다 1 µs (진단 값이 결과에 닿지 않는지 보려고)
+u64 g_fakeNanos = 0;
+u64 fakeClock() noexcept {
+    g_fakeNanos += 1000;
+    return g_fakeNanos;
+}
+
 NetEntityId spawn(sim::SimulationWorld& w, Vec2 pos, u32 seq) {
     w.enqueue(cmd::SimCommand{cmd::CommandHeader{w.currentTick() + 1, 1, seq}, cmd::CreateEntity{pos, {}, "t.wisp"}});
     w.tick();
@@ -342,5 +349,51 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         systems.run({&w.registry(), &w.catalog(), w.currentTick(), 0, 0});
         CHECK(systems.lastStats().calls == 0);
         CHECK(describeClientScriptSystems(systems)[0].ends_with(" · 꺼짐"));
+    }
+
+    TEST_CASE("스크립트 프로파일: 진단 시계를 넣으면 시간을 재고, 결과 · 해시는 시계가 없을 때와 같다 (ADR-0068)") {
+        Root root("profile");
+        root.file("t/pack.json", kPack)
+            .file("t/scripts/mana.ts", kMana)
+            .file("t/scripts/regen.ts", kServer)
+            .file("t/scripts/hud.ts", clientFile(false))
+            .file("t/prefabs/wisp.json", kWisp);
+        const content::ContentLoadResult r = root.load();
+        REQUIRE_MESSAGE(r.ok(), dump(r));
+
+        sim::SimulationWorld plain(engine(), r.db, smallWorld());
+        sim::SimulationWorld timed(engine(), r.db, smallWorld());
+        timed.setScriptClock(&fakeClock);
+        for (u32 i = 1; i <= 3; ++i) {
+            (void)spawn(plain, {static_cast<f32>(i), 1}, i);
+            (void)spawn(timed, {static_cast<f32>(i), 1}, i);
+        }
+        CHECK(plain.worldHash().value() == timed.worldHash().value());
+        REQUIRE(plain.scriptSystems() != nullptr);
+        REQUIRE(timed.scriptSystems() != nullptr);
+        const ScriptSystemCounters& p0 = plain.scriptSystems()->counters(0);
+        const ScriptSystemCounters& t0 = timed.scriptSystems()->counters(0);
+        CHECK(p0.calls == t0.calls);
+        CHECK(p0.fuel == t0.fuel);
+        CHECK(p0.nanos == 0);
+        CHECK_FALSE(plain.scriptSystems()->timed());
+        CHECK(t0.nanos == 1000 * t0.calls); // 시험 시계는 호출마다 두 번 — 차이 1 µs
+        CHECK(t0.maxNanos == 1000);
+        CHECK(timed.scriptSystems()->lastStats().nanos == 1000);
+        CHECK(describeScriptSystems(*timed.scriptSystems())[0].find(" · 시간 0.00 ms · 최대 0.001 ms") !=
+              std::string::npos);
+        CHECK(describeScriptSystems(*plain.scriptSystems())[0].find("시간") == std::string::npos);
+
+        // 클라이언트 실행기도 같은 시계 — 시스템마다 지난 프레임의 연료 · 시간
+        ClientScriptSystems client(r.db.scriptPrograms());
+        client.run({&timed.registry(), &timed.catalog(), timed.currentTick(), 0, 0});
+        CHECK(client.lastNanos(0) == 0);
+        CHECK(client.lastFuel(0) > 0);
+        client.setClock(&fakeClock);
+        client.run({&timed.registry(), &timed.catalog(), timed.currentTick(), 0, 0});
+        CHECK(client.lastNanos(0) == 1000);
+        CHECK(client.lastStats().nanos == 1000);
+        CHECK(client.counters(0).maxNanos == 1000);
+        CHECK(describeClientScriptSystems(client)[0].find(" · 시간 ") != std::string::npos);
     }
 }

@@ -42,6 +42,7 @@
 #include "core/ecs/Registry.hpp"
 #include "core/path/PathfindingService.hpp"
 #include "core/random/RandomService.hpp"
+#include "core/script/ScriptClock.hpp"
 #include "core/simulation/EventStream.hpp"
 #include "core/simulation/Intent.hpp"
 #include "core/simulation/SimulationClock.hpp"
@@ -181,6 +182,9 @@ public:
     [[nodiscard]] const script::ScriptSystemAdapter* scriptSystems() const noexcept { return m_scriptSystems.get(); }
     // 세이브 로더가 시스템 상태 (이어진 트랩 · 꺼짐 — ADR-0064) 를 되살린다
     [[nodiscard]] script::ScriptSystemAdapter* scriptSystems() noexcept { return m_scriptSystems.get(); }
+    // 스크립트 프로파일의 진단 시계 (v0.3 M5-T4, ADR-0068 — 서버가 넣는다). 다시 만든 어댑터에도 옮긴다. 결과에 닿지
+    // 않는다
+    void setScriptClock(script::ScriptClock clock) noexcept;
 
 private:
     struct SlotIdentity {
@@ -281,6 +285,7 @@ private:
     u64 m_changeStamp = 0;
     std::unique_ptr<script::ScriptSystemAdapter>
         m_scriptSystems; // 콘텐츠에 시스템이 있을 때만 (팩 바이트코드는 콘텐츠의 것)
+    script::ScriptClock m_scriptClock = nullptr;
 };
 
 // 경계·머티리얼 검사 (세이브 로드·시나리오 설정 등 외부 입력용)

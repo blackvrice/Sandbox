@@ -372,6 +372,21 @@ void encodeBody(BitWriter& w, const ServerStats& m) {
     w.writeBool(m.mismatch);
     w.writeBool(m.replayPaused);
     w.writeF32(m.replaySpeed);
+    w.writeF32(m.windowSeconds);
+    w.writeVarU(m.scripts.size());
+    for (const ScriptSystemStatRow& s : m.scripts) {
+        w.writeString(s.id);
+        w.writeVarU(s.calls);
+        w.writeVarU(s.fuel);
+        w.writeVarU(s.nanos);
+        w.writeVarU(s.traps);
+        w.writeVarU(s.budget);
+        w.writeVarU(s.cut);
+        w.writeVarU(s.maxFuel);
+        w.writeVarU(s.maxNanos);
+        w.writeBool(s.disabled);
+    }
+    w.writeVarU(m.scriptsOmitted);
 }
 void encodeBody(BitWriter& w, const DisconnectMsg& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -664,6 +679,23 @@ ServerStats decodeServerStats(BitReader& r) {
     m.mismatch = r.readBool();
     m.replayPaused = r.readBool();
     m.replaySpeed = readFiniteF32(r);
+    m.windowSeconds = readFiniteF32(r);
+    const u64 n = r.readVarU(kMaxScriptStatRows);
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        ScriptSystemStatRow s;
+        s.id = r.readString(kMaxScriptIdBytes);
+        s.calls = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+        s.fuel = r.readVarU();
+        s.nanos = r.readVarU();
+        s.traps = r.readVarU();
+        s.budget = r.readVarU();
+        s.cut = r.readVarU();
+        s.maxFuel = r.readVarU();
+        s.maxNanos = r.readVarU();
+        s.disabled = r.readBool();
+        m.scripts.push_back(std::move(s));
+    }
+    m.scriptsOmitted = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     return m;
 }
 Snapshot decodeSnapshot(BitReader& r) {

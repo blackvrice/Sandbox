@@ -31,8 +31,9 @@ namespace sbx::net {
 // 중단), WorldOp Restart · WorldChanged 의 Restart — v0.2 M2-T3 10: 명령 PlayerAction (콘텐츠 행동 — 역할 player 부터)
 // — v0.2 M3-T1 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3 12: 테스트 플레이 —
 // WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1 13: 콘텐츠 종류
-// Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2
-inline constexpr u32 kProtocolVersion = 13;
+// Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2 14: ServerStats 의 스크립트
+// 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4
+inline constexpr u32 kProtocolVersion = 14;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -60,6 +61,9 @@ inline constexpr usize kMaxOwnerKeyBytes = 64;      // Auth.ownerKey (12C)
 inline constexpr usize kMaxPlayers = 256;           // PlayerList (12C)
 inline constexpr usize kMaxSaveNameBytes = 48;      // 세이브 · 리플레이 이름 (12D — isValidSaveName)
 inline constexpr usize kMaxSavedWorlds = 256;       // WorldList
+inline constexpr usize kMaxScriptStatRows =
+    64; // ServerStats.scripts (넘는 시스템은 scriptsOmitted 로 센다 — 프로토콜 14)
+inline constexpr usize kMaxScriptIdBytes = 128; // 그 시스템 id
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -178,6 +182,21 @@ struct CommandResultMsg {
     u64 appliedTick = 0;              // 적용된 틱 (거절이면 0 — 형식 · 권한 · 속도 제한은 틱 전에 거절된다)
     std::vector<NetEntityId> created; // CreateEntity 가 만든 엔티티
 };
+// 서버 스크립트 시스템 하나의 프로파일 (프로토콜 14 — ADR-0068). 창 = 앞 ServerStats 뒤 (약 1 초), 누적 = 어댑터를 만든
+// 뒤
+struct ScriptSystemStatRow {
+    std::string id;   // 실행 순서 (팩 순서, id)
+    u32 calls = 0;    // 창
+    u64 fuel = 0;     // 창
+    u64 nanos = 0;    // 창 — 서버의 진단 시계
+    u64 traps = 0;    // 누적
+    u64 budget = 0;   // 누적 (틱 연료로 멈춤)
+    u64 cut = 0;      // 누적 (건너뜀)
+    u64 maxFuel = 0;  // 누적 — 호출 하나의 최대
+    u64 maxNanos = 0; // 누적
+    bool disabled = false;
+    friend bool operator==(const ScriptSystemStatRow&, const ScriptSystemStatRow&) = default;
+};
 struct ServerStats {
     u64 serverTick = 0;
     u32 entities = 0;
@@ -196,6 +215,10 @@ struct ServerStats {
     bool mismatch = false; // 재생: 기록과 다른 해시가 나왔다
     bool replayPaused = false;
     f32 replaySpeed = 1.0f;
+    // 프로토콜 14 (v0.3 M5-T4): 서버 스크립트 시스템 (실행 순서, kMaxScriptStatRows 까지). 시스템이 없으면 비어 있다
+    f32 windowSeconds = 0; // 창의 길이 (실제 초)
+    std::vector<ScriptSystemStatRow> scripts;
+    u32 scriptsOmitted = 0;
 };
 struct DisconnectMsg {
     DisconnectReason reason = DisconnectReason::None;

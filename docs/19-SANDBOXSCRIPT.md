@@ -1,10 +1,10 @@
 # 19. SandboxScript (v0.3)
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
-> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M4 ✅, M5-T3 까지 — 2026-10-26).
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅ — 2026-10-27).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
 > (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
-> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 (클라이언트 스크립트). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
+> ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
 
 ---
 
@@ -25,7 +25,7 @@
 | 예산 · 트랩 정책 · 통계 (19장)         | 구현 (v0.3 M4-T3)     | `core/script/ScriptSystemAdapter` (틱 연료 · 끄기 · 상태 · 통계), vm::Limits::maxHostCalls, ScriptHost 로그 상한, ADR-0064 |
 | 스크립트 오버레이 · 에디터 (20장)      | 구현 (v0.3 M5-T2)     | 오버레이 종류 Script (프로토콜 13), 로더의 다시 컴파일 · V11, `editor/ui/ContentPanel` 스크립트, ADR-0066 |
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
-| 시스템 프로파일 (연료 · 시간 표시)     | [계획 v0.3 M5-T4]     | —                                                                      |
+| 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
 TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대안을 말한다 (4장).
@@ -209,6 +209,7 @@ core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다
   ScriptValues         컴포넌트 값 바이트 → VM 칸 (서버 · 클라이언트 Host 공용)
   ClientScriptHost     클라이언트 바인딩 목록 · ClientScriptHost (복제 월드 읽기 · 글자 · 줄 — 21장)
   ClientScriptSystems  client 시스템을 프레임마다 (onUpdate · 프레임 연료 · 트랩이면 끔 — 21장)
+  ScriptClock          진단 시계의 타입 (부르는 쪽이 넣는다 — 22장)
   ScriptComponents     스키마 → ecs 동적 컴포넌트 설명 → 카탈로그 (15장)
   ScriptSystemAdapter  단계 16b — 팩 바이트코드마다 인터프리터, (팩 순서, id) 차례로 onTick (17장) · 17d — onStart · onEvent ·
                        onStop (18장)
@@ -572,7 +573,7 @@ d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents,
            트랩 글 · 꺼짐 (ScriptSystemAdapter::counters · disabled). 틱 통계 lastStats (호출 · 트랩 · 예산 · 건너뜀 · 연료 · 버린
            로그). SandboxServer · sbx_sim_check 가 끝날 때 시스템마다 한 줄:
              스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 12345 · 최대 2000 (꺼졌으면 " · 꺼짐")
-           시스템별 시간 프로파일 · 에디터 표시는 [계획 M5-T4]
+           시간 (진단 시계) · 패널 표시는 22장 (v0.3 M5-T4)
 ```
 
 ## 20. 스크립트 오버레이 · 에디터 (v0.3 M5-T2 — `core/content/ContentOverlay` · `ContentLoader` · `editor/ui/ContentPanel`, ADR-0066)
@@ -624,11 +625,33 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            연료 2,000,000 (kFrameFuel — 넘으면 "예산" · "건너뜀"), 트랩이면 그 호출의 표시를 버리고 3 번 이어지면 그 시스템을 끈다 —
            이 접속의 메모리에만 (세이브 · 서버와 무관, 콘텐츠가 바뀌면 다시 켠다). 첫 트랩 · 끔 · 첫 예산은 로그 한 줄
 화면       Application 이 글자를 개체의 그린 자리 (보간 위치 — 스프라이트가 없으면 복제 위치) 위에 (ImGui 배경 목록 — 패널 아래),
-           줄을 "스크립트" 칸에 그린다 — 패널을 숨겨도 (게임 화면). 칸은 줄이 있을 때만, 패널이 보이면 시스템 통계 (접기)
+           줄을 "스크립트" 칸에 그린다 — 패널을 숨겨도 (게임 화면). 칸은 줄이 있을 때만. 시스템 통계는 "스크립트 프로파일"
+           패널 (22장 — M5-T4 에 옮겼다)
 헤드리스   SandboxClient 가 끝날 때 시스템마다 "클라이언트 스크립트 <id>: 호출 · 트랩 · 예산 · 건너뜀 · 연료 합 · 최대 (· 꺼짐)",
            마지막 프레임의 글자 · 줄 수와 줄
 결정론     클라이언트 스크립트는 시뮬레이션 밖이다 — 표시는 그 화면에만 남고 서버로 아무것도 가지 않는다 (04 의 규칙이 닿지 않는다).
            frame · dt 는 클라이언트마다 다르다
 [계획]     클라이언트 스크립트의 명령 보내기 · 입력 · 그리기 (도형 · 스프라이트) · 엔진 컴포넌트 읽기 · 개체 참조 풀기 — M6 데모가
            요구하면 18 6.2 에 태스크로
+```
+
+## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
+
+```text
+시계       ScriptClock = u64 (*)() noexcept (단조 나노초). 엔진 (core) 은 시계를 모른다 — 부르는 쪽이 넣는다: SandboxServer · 로컬 서버
+           (ServerHost 가 단계마다 그 월드에 — SimulationWorld::setScriptClock, 다시 만든 어댑터에도), 클라이언트 (NetworkSession →
+           ClientScriptSystems::setClock). sbx_sim_check · 시험 · 리플레이는 넣지 않는다. 시계가 있으면 호출마다 앞뒤를 재어
+           통계에만 더한다 (nanos · maxNanos, 틱 · 프레임 통계의 nanos) — 어떤 분기도 시간을 보지 않는다 (04): 결과 · WorldHash ·
+           세이브 · 복제는 시계가 있든 없든 같다 (시험이 본다)
+서버 표    ServerStats (1 초마다 — 08 5장, 프로토콜 14) 끝에 windowSeconds · 시스템마다 (실행 순서, 64 줄까지 · 넘으면 scriptsOmitted):
+           id · 창의 호출 · 연료 · 시간 (앞 통계 뒤의 누적 차이 — 어댑터를 다시 만들어 누적이 줄면 0 부터) · 누적 트랩 · 예산 ·
+           건너뜀 · 최대 연료 · 최대 시간 · 꺼짐. 모든 접속자에게
+클라이언트 IWorldSession::scriptProfile = 서버 표 + client 시스템의 최근 1 초 (실제 시간 창 — kClientProfileWindow). 줄 =
+           호출/초 · 연료/호출 · ms/초 · ms/호출 · 최대 ms · 최대 연료 · 트랩 · 예산 · 건너뜀 · 꺼짐 (scriptProfileRow)
+패널       "스크립트 프로파일" (패널이 보일 때만, 서버 · 클라이언트 표 — 10 9장). 스크립트 시스템이 없으면 그리지 않는다
+끝 줄      시계가 있으면 시스템마다 " · 시간 <합> ms · 최대 <호출 하나> ms" (SandboxServer · SandboxClient 헤드리스).
+           sbx_net_probe 는 받은 서버 표를 줄마다
+측정 예    (Windows MSVC Debug, 2026-10-27 — 스크래치 clientroot: 생태계 + Mana 스크립트) 서버 eco.mana.regen 호출 하나 약 1.3 ~
+           1.5 ms · 연료 약 4,550 (토끼 약 75), 클라이언트 eco.hud 프레임 하나 약 2.2 ms (글자 75). Debug 라 Release 보다 몇 배 느리다
+[계획]     함수별 프로파일 (VM 계측 · 샘플링), 기록 그래프, 패널에서 시스템 끄고 켜기, sbx_bench 스크립트 단계 (M6-T1)
 ```

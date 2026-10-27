@@ -15,6 +15,11 @@ namespace {
 
 } // namespace
 
+std::string describeNanos(u64 total, u64 max) {
+    return std::format(" · 시간 {:.2f} ms · 최대 {:.3f} ms", static_cast<f64>(total) / 1e6,
+                       static_cast<f64>(max) / 1e6);
+}
+
 ScriptSystemAdapter::ScriptSystemAdapter(std::shared_ptr<const content::ScriptPrograms> programs)
     : m_programs(std::move(programs)) {
     if (!m_programs) {
@@ -65,6 +70,7 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     vm::Limits lim = vmi.limits();
     lim.fuel = limit;
     vmi.setLimits(lim);
+    const u64 t0 = m_clock != nullptr ? m_clock() : 0; // 진단만 — 아래 어디에도 시간으로 갈라지지 않는다
     const vm::Value args[2] = {m_host.beginCall(tick, s.desc->id, &world), vm::Value::null()};
     vm::CallResult r;
     if (ev != nullptr && f.params.size() == 2) {
@@ -96,6 +102,12 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
         r = vmi.call(fn, std::span(args, f.params.size()));
     }
     m_host.endCall(r.ok());
+    if (m_clock != nullptr) {
+        const u64 ns = m_clock() - t0;
+        m_last.nanos += ns;
+        s.counters.nanos += ns;
+        s.counters.maxNanos = std::max(s.counters.maxNanos, ns);
+    }
     m_tickFuelLeft -= std::min(r.fuelUsed, m_tickFuelLeft);
     ++m_last.calls;
     m_last.fuel += r.fuelUsed;
@@ -272,8 +284,9 @@ std::vector<std::string> describeScriptSystems(const ScriptSystemAdapter& system
     std::vector<std::string> out;
     for (usize i = 0; i < systems.systemCount(); ++i) {
         const ScriptSystemCounters& c = systems.counters(i);
-        out.push_back(std::format("스크립트 {}: 호출 {} · 트랩 {} · 예산 {} · 건너뜀 {} · 연료 합 {} · 최대 {}{}",
+        out.push_back(std::format("스크립트 {}: 호출 {} · 트랩 {} · 예산 {} · 건너뜀 {} · 연료 합 {} · 최대 {}{}{}",
                                   systems.systemId(i), c.calls, c.traps, c.budget, c.cut, c.fuel, c.maxFuel,
+                                  systems.timed() ? describeNanos(c.nanos, c.maxNanos) : std::string(),
                                   systems.disabled(i) ? " · 꺼짐" : ""));
     }
     return out;

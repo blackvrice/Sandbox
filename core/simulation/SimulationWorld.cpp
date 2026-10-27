@@ -1087,6 +1087,13 @@ Expected<void> SimulationWorld::applyEditContent(const cmd::EditContent& c) {
     return {};
 }
 
+void SimulationWorld::setScriptClock(script::ScriptClock clock) noexcept {
+    m_scriptClock = clock;
+    if (m_scriptSystems) {
+        m_scriptSystems->setClock(clock);
+    }
+}
+
 void SimulationWorld::syncScriptSystems() {
     // 스크립트 오버레이 (v0.3 M5-T2, ADR-0066) 가 팩 바이트코드를 바꿨으면 어댑터를 다시 만든다. 이어진 트랩 · 꺼짐은
     // 옮긴다 — digest 가 같은 팩 (바뀌지 않은 팩) 의 시스템만 되살아난다 (ADR-0064 4 와 같은 규칙)
@@ -1105,6 +1112,7 @@ void SimulationWorld::syncScriptSystems() {
     }
     // 새 것을 먼저 만들고 바꿔 낀다 — 옛 어댑터의 자리를 다시 쓰지 않아 "다시 만들었다" 가 포인터로도 보인다
     m_scriptSystems = std::make_unique<script::ScriptSystemAdapter>(programs);
+    m_scriptSystems->setClock(m_scriptClock);
     for (const std::string& line : m_scriptSystems->restoreState(carried)) {
         log::info("script", "{}", line); // 바뀐 팩의 시스템은 새로 시작한다
     }

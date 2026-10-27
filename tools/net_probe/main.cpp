@@ -40,6 +40,20 @@ void printStats(const sbx::net::ServerStats& s) {
                 static_cast<unsigned long long>(s.serverTick), s.entities, static_cast<double>(s.tickMsAvg),
                 static_cast<double>(s.tickMsMax), static_cast<double>(s.ticksPerSecond), static_cast<double>(s.speed),
                 s.paused ? " · 일시정지" : "", static_cast<unsigned>(s.clients));
+    // 스크립트 시스템 표 (프로토콜 14 — 창 값 · 누적 트랩 · 최대)
+    for (const sbx::net::ScriptSystemStatRow& r : s.scripts) {
+        std::printf("  스크립트 %s: 창 %.2f 초 호출 %u · 연료 %llu · %.3f ms | 트랩 %llu · 예산 %llu · 건너뜀 %llu · "
+                    "최대 연료 %llu · "
+                    "최대 %.3f ms%s\n",
+                    r.id.c_str(), static_cast<double>(s.windowSeconds), r.calls,
+                    static_cast<unsigned long long>(r.fuel), static_cast<double>(r.nanos) / 1e6,
+                    static_cast<unsigned long long>(r.traps), static_cast<unsigned long long>(r.budget),
+                    static_cast<unsigned long long>(r.cut), static_cast<unsigned long long>(r.maxFuel),
+                    static_cast<double>(r.maxNanos) / 1e6, r.disabled ? " · 꺼짐" : "");
+    }
+    if (s.scriptsOmitted > 0) {
+        std::printf("  스크립트 … 빠진 시스템 %u\n", s.scriptsOmitted);
+    }
     std::fflush(stdout);
 }
 

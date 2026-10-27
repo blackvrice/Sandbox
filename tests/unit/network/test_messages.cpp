@@ -129,6 +129,27 @@ TEST_SUITE("network") {
         CHECK(roundTrip(DisconnectMsg{DisconnectReason::ServerShutdown}).reason == DisconnectReason::ServerShutdown);
     }
 
+    TEST_CASE("messages: ServerStats 의 스크립트 시스템 표 (프로토콜 14 — 왕복 · 상한)") {
+        ServerStats st;
+        st.windowSeconds = 1.25f;
+        st.scripts.push_back({"rpg.mana.regen", 30, 12345, 456789, 2, 1, 3, 900, 70000, false});
+        st.scripts.push_back({"rpg.hud", 0, 0, 0, 3, 0, 0, 10, 20, true});
+        st.scriptsOmitted = 7;
+        const ServerStats back = roundTrip(st);
+        CHECK(back.windowSeconds == 1.25f);
+        CHECK(back.scripts == st.scripts);
+        CHECK(back.scriptsOmitted == 7);
+        CHECK(roundTrip(ServerStats{}).scripts.empty());
+
+        // 표 상한을 넘는 개수 · 긴 id 는 읽기 오류
+        ServerStats many;
+        many.scripts.resize(kMaxScriptStatRows + 1, ScriptSystemStatRow{"a.b"});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{many})).has_value());
+        ServerStats longId;
+        longId.scripts.push_back({std::string(kMaxScriptIdBytes + 1, 'a')});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longId})).has_value());
+    }
+
     TEST_CASE("messages: every command payload kind round-trips (compared through the replay JSON form)") {
         u32 seq = 1;
         for (const auto& p : everyPayload()) {
@@ -141,7 +162,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 13); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.3 M5-T2)
+        CHECK(kProtocolVersion == 14); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.3 M5-T4)
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
