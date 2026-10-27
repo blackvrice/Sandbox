@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 계획).
 
 ---
 
@@ -11,8 +11,9 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-다음     v0.4 Package Manager 계획 — 6장의 v0.4 를 마일스톤 · 태스크로 쪼개고 (6.4 [계획]), 열린 결정 D-05 (SemVer 충돌 해결 · 범위
-         문법 확장) 를 ADR 로. 첫 태스크는 그 계획 커밋 (문서 · ADR) — 코드는 그 다음부터
+         v0.4 Package Manager ◐ — 계획 (6.4, ADR-0071 — D-05 결정)
+다음     v0.4 M1-T1 — 팩 매니페스트 넓히기: pack.json version · license (SPDX) · dependencies (범위 + 소스), SemVer 범위 "~" · "*",
+         검사 V12 (팩 매니페스트) — 콘텐츠 로더 · sbx check
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -23,7 +24,7 @@
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
-| v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
+| v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ◐ 계획 (6.4, ADR-0071)                           |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
 | v0.7 | Multiplayer Platform   | 인증된 방 · 자체 서버 · 무료 세션          | [계획] — 보안 전송 ADR 먼저 (R6)                |
@@ -99,11 +100,12 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
 ## 4. 버전 · 호환성 규칙
 
 ```text
-제품 버전      CMake project VERSION (지금 0.2.0 — v0.2 완료, 2026-10-21) — 버전이 끝날 때 올린다 (v0.3 완료 = 0.3.0).
+제품 버전      CMake project VERSION (지금 0.3.0 — v0.3 완료, 2026-10-27) — 버전이 끝날 때 올린다 (v0.4 완료 = 0.4.0).
                버전마다 릴리스 노트 docs/releases/v<제품 버전>.md (이력 — 바꾸지 않는다)
 엔진 범위      매니페스트 "engine" — 이 엔진이 범위 밖이면 프로젝트 검사 오류 P3
 SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 빌드). 범위 문법 (v0.2): >= > <= < = ^ 와 부분 버전 (npm 과 같은 뜻),
-               공백 = AND. "||" · "~" · "*" · 하이픈 범위는 Unsupported (v0.4 D-05 에서). 프리릴리스는 우선순위 그대로 비교
+               공백 = AND. "||" · "~" · "*" · 하이픈 범위는 Unsupported — v0.4 M1 이 "~" · "*" 를 더한다 (D-05, ADR-0071 — "||" ·
+               하이픈은 계속 Unsupported). 프리릴리스는 우선순위 그대로 비교
 그 밖의 축       kSimVersion · 세이브 worldVersion/schemaVersion · 프로토콜 버전 · 매니페스트 schemaVersion — 서로 독립 (ADR-0039 6)
 ```
 
@@ -241,7 +243,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-02 | GamePackage 직렬화 · 서명 · 압축                                  | v0.2 종료 전 | 결정 — 자체 컨테이너 · SHA-256 · 압축 · 서명 없음 (ADR-0054) |
 | D-03 | 사용자 Component 스키마의 동적 풀                                 | v0.3 초기    | 결정 — 상수 스키마 · 바이트 배치 풀 · 이름 순 · 같은 방문자 · 콘텐츠마다 카탈로그 (ADR-0059) |
 | D-04 | Script SDK / Host API 단일 정의 (IDL)                             | v0.3 초기    | 결정 — C++ 표 하나 → 검사 · 로드 · 바인딩 · d.ts (ADR-0057) |
-| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 일부 — v0.2 범위 문법 (4장)                |
+| D-05 | SemVer 충돌 해결 · 범위 문법 확장 · 유료 패키지 EULA              | v0.4 초기    | 결정 — 팩 id 마다 한 버전 · 소스 = 버전 · 범위는 확인 · "~" "*" 추가 · EULA 는 v0.8 (ADR-0071) |
 | D-06 | GitHub 연동 범위 · 서비스(Hub · Cloud)를 둘 저장소                | v0.6 초기    | 열림                                       |
 | D-07 | 공개 네트워크 보안 전송 · NAT                                     | v0.7 진입 전 | 열림 (R6)                                  |
 | D-08 | 무료 세션 자원 · 릴레이 비용 한도                                 | v0.7 초기    | 열림                                       |
@@ -352,6 +354,42 @@ removed   따로 된 Typed IR 층 (→ 검사한 Program, ADR-0058), SystemSched
 골든      kSimVersion 4 그대로 — 스크립트는 콘텐츠에 스크립트가 있을 때만 돈다 (det_* · 리플레이 · v0.2 데모 해시 그대로)
 ```
 
+### 6.4 v0.4 Package Manager — 마일스톤 · 태스크 (ADR-0071)
+
+초안 roadmap/v0_4: 매니페스트 · SemVer · 이름공간 stableId · 라이선스, sbx init/add/remove/update/build/test, 로컬 · Git · 오프라인 캐시
+소스, 의존 그래프 · 충돌 · 잠금 파일 · digest, Feature Bundle Export/Import, 설치 뒤 자동 완성 · 에디터 팔레트, 해시 · 바이트코드 검사 ·
+설치 훅 금지. 완료 기준: 남의 Inventory Feature 설치 → 빌드 → 테스트 플레이, 깨끗한 머신에서 같은 잠금 파일 = 같은 game digest,
+충돌 · 악성 매니페스트 · 깨진 파일 거부와 설치 되돌리기.
+
+```text
+M1 패키지 정체성 (패키지 = 콘텐츠 팩)
+  T1 [계획] pack.json: version (의존에 쓰이면 필수) · license (SPDX 식) · dependencies {팩: {version 범위, path | git + rev}}
+            (requires 와 같은 뜻으로 합친다), SemVer 범위 "~" · "*", 팩 매니페스트 검사 (모르는 키 · 범위 · 소스 모양 — 새 코드 V12)
+  T2 [계획] 프로젝트 매니페스트 schemaVersion 3 dependencies (2 도 읽는다), sbx check 의 의존 요약 · P 검사, 11 · 18 5.2 규범
+M2 소스 · 캐시
+  T1 [계획] 패키지 digest (.sbpkg 와 같은 규칙 — 팩 파일 목록), 로컬 폴더 소스, 사용자 캐시 <cache>/sandbox/packages/<digest>/ ·
+            오프라인 (캐시만) 모드, 경로 탈출 · 링크 · 크기 상한 거절
+  T2 [계획] Git 소스 — 시스템 git 으로 태그 · 커밋을 받아 푼 커밋을 기록 (git 이 없으면 그 소스만 오류), 시험은 로컬 bare 저장소
+M3 해결 · 잠금 · 설치
+  T1 [계획] 그래프 해결 (팩마다 한 버전 · 범위 확인 · 충돌 · 순환 · 프로젝트 고정이 이긴다) — 오류는 누가 무엇을 요구했는지
+  T2 [계획] sandbox.lock (팩 id 순 — version · 소스 · digest · license · dependencies), 설치 트랜잭션 (임시 → 검사 → 바꿔 끼우기,
+            실패면 그대로), 로더 · 열기 · .sbpkg 가 <프로젝트>/.sandbox/packages 의 팩을 읽는다 (잠금과 다른 digest 거절)
+  T3 [계획] sbx add · remove · update · install, 프로젝트 열기 (서버 · 클라이언트) 가 잠금 파일을 확인
+M4 Feature Export / Import
+  T1 [계획] 팩 사이 스크립트 import (링크 모델 — ADR), 의존 팩의 컴포넌트 · 함수를 쓰는 스크립트, sandbox.d.ts · tsconfig 갱신
+  T2 [계획] 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음, sbx test (검사 + 프로젝트의 자동 플레이 스크립트), sbx new --pack (패키지 틀)
+M5 보안 · 재현
+  T1 [계획] 거부 시험 (충돌 · 악성 매니페스트 · 깨진 · 고친 파일 · 큰 파일 · 경로 탈출 — 설치 되돌리기), 라이선스 요약 (SBOM —
+            패키지 index 에 팩마다 license · digest), 깨끗한 머신 재현 (빈 캐시 · 다른 폴더에서 같은 잠금 → 같은 game digest — CTest)
+M6 E2E · 릴리스
+  T1 [계획] 데모: samples/packages/inventory (Feature 팩 — 컴포넌트 · 시스템 · Prefab) 를 다른 게임 프로젝트가 설치 → 빌드 →
+            테스트 플레이 (자동 플레이 · 헤드리스 서버 = 로컬 플레이)
+  T2 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.4.0 · 제품 버전 0.4.0
+```
+
+v0.4 밖 (ADR-0071 9): Registry · 검색 · publish · 서명 (v0.6), 권한 선언 · 심사 (v0.7 이후), 원격 클라이언트의 패키지 받기 (v0.7),
+여러 버전 공존 (하지 않는다), 유료 패키지 EULA (v0.8).
+
 ## 7. 문서 · ADR 계획
 
 ```text
@@ -396,6 +434,11 @@ v0.3 M5-T4 ✅  ADR-0068, 08 (프로토콜 14 — ServerStats 스크립트 표),
 v0.3 M6-T1 ✅  ADR-0069, samples/mana_regen/README, 19 (0 · 23장), 13 5.1 (sample_mana_regen), 15 7장 (데모), 17, README
 v0.3 M6-T2 ✅  ADR-0070, 19 (0 · 12 · 24장), 14 (2장 script.regen · 6장 · 7.13), 13, 17
 v0.3 M6-T3 ✅  releases/v0.3.0, 18 (0 · 1장 · 6.2 · 6.3 · 7 · 8장), 19 머리, README · docs/README (버전 표), 16
+v0.4 계획 ✅   ADR-0071 (범위 · D-05), 18 (0 · 1 · 4장 · 6.1 · 6.4)
+v0.4 M1       11 1장 (pack.json), 18 4장 (범위 문법) · 5.2 (매니페스트 3), 15 7장 (sbx), 13
+v0.4 M2 · M3  09 (패키지 digest · 잠금 파일 · .sandbox/packages), 15 7장, 17, 13
+v0.4 M4       19 (팩 사이 import — ADR), 10 (팔레트), 15
+v0.4 M5 · M6  13, 14 (설치 · 해결 시간), releases/v0.4.0
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
