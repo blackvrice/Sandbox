@@ -406,13 +406,20 @@ sandbox.lock   <프로젝트>/sandbox.lock — 정규형 JSON (키 순서 고정
 읽기           로더 (ContentLoader 의 루트 여럿) 가 content/ 다음 설치 폴더에서 팩 id 로 찾는다 (같은 id 가 두 곳이면 V1). 문제 · 스크립트
                로그의 팩 폴더는 "content/<팩>" · ".sandbox/packages/<팩>" (contentHash 와 무관)
 확인 (P8)      열기 · 검사 (18 5.2) 가 잠금 모양, 잠금의 설치 팩마다 폴더가 있고 pack.json id · digest 가 같은가, 잠금에 없는 설치 폴더,
-               잠금 없는 설치를 본다. 하나라도 어긋나면 설치 폴더를 읽지 않는다 (열기 실패 — 다시 설치한다)
+               잠금 없는 설치를 본다. (M3-T3 — ADR-0074) 잠금이 매니페스트와 맞는가 (의존마다 잠금에 있고 소스가 같다, 잠금의
+               팩은 모두 매니페스트에서 닿는다), 잠금이 없는데 path · git 의존이 있는가 (content/ 에서 찾지 않는다). 하나라도
+               어긋나면 설치 폴더를 읽지 않는다 (열기 실패 — sbx install · update)
 설치 단계      1 해결 결과의 path · git 팩을 캐시에서 .sandbox/packages.staging/<팩> 으로 복사 → 다시 훑어 digest 확인
                2 콘텐츠 검사 — 매니페스트가 불러올 팩을 content/ + staging 에서 (V* · 스크립트 검증)
                3 packages → packages.old, staging → packages, sandbox.lock 원자적 쓰기, packages.old 지우기
                어느 단계든 실패하면 프로젝트는 그대로 (staging 지우기 · 이름 되돌리기). 중간에 죽어 남은 packages.* 는 다음 설치가
                지운다 — 그 사이 열기는 P8 로 거절한다
 .sbpkg         sandbox.lock 과 설치 폴더의 읽은 팩을 담는다 (9장 — 파일 목록에 ".sandbox/packages/<팩>/…"). 푼 쪽도 같은 P8 확인
-아직           설치 명령 (sbx add · remove · update · install) · 매니페스트와 잠금의 일치 확인은 M3-T3 [계획]
-시험           project test_install (잠금 왕복 · 모양 오류, 설치 → 열기 · 요약 줄 · .sbpkg 왕복, P8 다섯 가지, 실패한 설치는 그대로)
+명령 (M3-T3)   install — 잠금 그대로: 매니페스트와 맞아야 하고, 팩마다 캐시에서 digest 로 (오프라인) → 없으면 소스를 다시 받아
+               digest 가 잠금과 같을 때만 (잠금 파일은 같은 바이트). 잠금이 없으면 해결해서 만든다. update [팩] — 다시 해결, 팩을
+               주면 잠금의 다른 설치 팩은 그대로여야 한다. add · remove — 매니페스트를 고쳐 update 처럼 (add 는 그 팩만, remove 는
+               아무것도 바뀌면 안 된다), 매니페스트는 설치가 성공한 뒤에 쓴다 (15 7장, ADR-0074)
+시험           project test_install (잠금 왕복 · 모양 오류, 설치 → 열기 · 요약 줄 · .sbpkg 왕복, P8 다섯 가지, 실패한 설치는 그대로,
+               잠금 그대로 · 오프라인 · 바뀐 소스 거절 · Refresh None · One · 어긋난 잠금), CTest project_install (sbx add →
+               check · 서버 → install 오프라인 → 고친 설치 거절 → 잘못된 add 는 그대로 → remove)
 ```

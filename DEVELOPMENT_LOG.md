@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-10-27 — v0.4 M3-T3: sbx install · update · add · remove, 매니페스트와 잠금의 일치 → M3 완료 (ADR-0074)
+
+**무엇을**
+
+- core/package/Install: installProject (잠금이 없으면 해결해서 만든다, 있으면 잠금 그대로 — 매니페스트와 맞아야 하고 팩마다
+  캐시 digest → 없으면 소스를 다시 받아 digest 가 같을 때만), updateProject (Refresh All · One · None — 바뀌면 안 되는 잠긴
+  팩이 바뀌면 거절). Lockfile: checkLockMatches (의존마다 잠금에 있고 소스가 같다, 잠금의 팩은 모두 매니페스트에서 닿는다).
+- GameProject P8 에 더함: 잠금이 매니페스트와 어긋남, 잠금 없이 path · git 의존. M1-T2 의 "path · git 의존도 content/ 에서
+  찾는다" 를 끝냈다 (소스 없는 의존만 content/ — ADR-0074 6).
+- sbx install · update [팩] · add <팩> (--path | --git --rev, --version) · remove <팩> (모두 --cache-dir). add · remove 는
+  설치가 성공한 뒤에 매니페스트를 쓴다.
+- 시험: test_install "명령의 바탕", test_game_project (소스 없는 의존 · 설치 안 한 path 의존 P8), test_sbx_options (새 명령),
+  CTest project_install (실제 sbx · 서버). 문서: ADR-0074, 09 12장, 15 7장, 18 (0 · 5.2 · 6.4 · 7장), 17, 13.
+
+**왜**
+
+- ADR-0071 7 의 CLI 와 ADR-0073 7 이 남긴 매니페스트 ↔ 잠금 일치. 잠금 하나로 같은 설치를 재현하고, 한 팩 명령이 다른 팩을
+  몰래 바꾸지 않게 한다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 64/64 통과 (+ project_install), SandboxTests 624
+  케이스 (+2). det_* 골든 그대로. check_includes 0 위반.
+  중간 실행 한 번에서 det_eco_lifecycle 이 1.2 초 만에 실패했다 (보통 16 초 — 출력을 남기지 못했다). 엔진 코드는 그 앞 실행과
+  같았고, 따로 세 번 (ctest --repeat until-fail:3) · 직접 실행 · 마지막 전체 실행에서 모두 통과 (D1 · D2 · D5 일치, 골든 그대로) —
+  세이브 폴더 입출력이 잠깐 막힌 것으로 보지만 원인은 확인하지 못했다.
+- 실행: CTest project_install 이 실제 sbx · SandboxServer 로 — sbx add inv --path ../shared/inv --version ^1 → 매니페스트
+  schemaVersion 3 · 잠금 팩 2 · check 의 "(.sandbox/packages/inv)" · 서버 30 틱 → 원본 · 설치 폴더를 지우고 sbx install (캐시에서,
+  같은 잠금 바이트) → 고친 설치를 check (종료 1, P8) · 서버 (실패) 가 거절 → install 로 고쳐짐 → 없는 소스의 add 는 매니페스트 ·
+  잠금 그대로 → remove 뒤 설치 폴더에서 빠짐 · check 통과.
+- 처음 빌드에서 test_install 의 "바뀐 원본" 이 core.transform 에 없는 필드를 써서 설치의 콘텐츠 검사에 걸렸다 (설치 트랜잭션은
+  맞게 거절) — 올바른 Prefab 을 더하는 것으로 시험을 고쳤다.
+
+**남은 일**
+
+- M4-T1: 팩 사이 스크립트 import (링크 모델 — 먼저 ADR), sandbox.d.ts · tsconfig 갱신.
+- 매니페스트 쓰기가 설치 뒤에 실패하면 잠금과 어긋난다 — 열기가 P8 로 알린다 (ADR-0074 위험).
+
+---
+
 ## 2026-10-27 — v0.4 M3-T2: sandbox.lock · 설치 트랜잭션 · 로더가 .sandbox/packages 를 읽기, 열기의 P8 (ADR-0073)
 
 **무엇을**

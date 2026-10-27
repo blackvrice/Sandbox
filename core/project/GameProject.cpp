@@ -519,23 +519,33 @@ void checkSdkFiles(const fs::path& projectDir, ProjectReport& r, Collector& c) {
     }
 }
 
-// 설치한 패키지 (v0.4 M3-T2, ADR-0071 5): sandbox.lock 이 있으면 모양 · 설치 폴더 (.sandbox/packages) 와 같은가, 없는데
-// 설치 폴더에 팩이 있으면 오류 (P8). 설치 폴더를 콘텐츠 루트로 써도 되면 true
-bool checkInstalled(const fs::path& projectDir, Collector& c) {
+// 설치한 패키지 (v0.4 M3-T2 · T3, ADR-0071 5): sandbox.lock 이 있으면 모양 · 매니페스트 dependencies 와 맞는가 · 설치
+// 폴더 (.sandbox/packages) 와 같은가. 없으면 path · git 의존이 없어야 하고 설치 폴더도 비어야 한다 (P8). 설치 폴더를
+// 콘텐츠 루트로 써도 되면 true
+bool checkInstalled(const fs::path& projectDir, const GameManifest& m, Collector& c) {
     const std::string lockName(package::kLockFile);
     const fs::path installDir = projectDir / fs::path(std::string(package::kInstallDir));
     std::error_code ec;
     if (!fs::exists(projectDir / lockName, ec)) {
+        bool ok = true;
+        for (const content::PackDependency& d : m.dependencies) {
+            if (d.source != content::PackSource::Root) {
+                c.error(std::string(kManifestFile), std::format("/dependencies/{}", d.pack), "P8",
+                        std::format("'{}' ({}) 를 설치하지 않았다 — sbx install", d.pack,
+                                    d.source == content::PackSource::Path ? "path" : "git"));
+                ok = false;
+            }
+        }
         bool any = false;
         for (const auto& e : fs::directory_iterator(installDir, ec)) {
             any = any || e.is_directory(ec);
         }
         if (any) {
             c.error(std::string(package::kInstallDir), "", "P8",
-                    "설치한 패키지가 있는데 sandbox.lock 이 없다 — 잠금 파일과 함께 다시 설치한다");
-            return false;
+                    "설치한 패키지가 있는데 sandbox.lock 이 없다 — sbx install 로 다시 설치한다");
+            ok = false;
         }
-        return true;
+        return ok;
     }
     const auto text = io::readFile(projectDir / lockName);
     if (!text) {
@@ -549,11 +559,15 @@ bool checkInstalled(const fs::path& projectDir, Collector& c) {
     if (!lock.ok()) {
         return false;
     }
+    const std::vector<std::string> stale = package::checkLockMatches(lock.lock, m.dependencies);
+    for (const std::string& e : stale) {
+        c.error(lockName, "", "P8", e + " — 잠금이 낡았다 (sbx install · sbx update)");
+    }
     const std::vector<std::string> bad = package::verifyInstalled(projectDir, lock.lock);
     for (const std::string& e : bad) {
         c.error(lockName, "", "P8", e);
     }
-    return bad.empty();
+    return stale.empty() && bad.empty();
 }
 
 // validateProject · openProject 공용: 매니페스트 → 엔진 범위 → 팩 → 시작 월드. 오류가 있어도 가능한 데까지 본다
@@ -587,7 +601,7 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     // 패키지 (.sandbox/packages — 잠금과 같을 때만, v0.4 M3-T2)
     const fs::path contentRoot = projectDir / "content";
     const fs::path installDir = projectDir / fs::path(std::string(package::kInstallDir));
-    const bool installedOk = checkInstalled(projectDir, c);
+    const bool installedOk = checkInstalled(projectDir, m, c);
     const std::vector<std::string> packs = loadedPacks(m);
     if (packs.empty()) {
         out.db = std::make_unique<content::ContentDatabase>(content::ContentDatabase::builtin());

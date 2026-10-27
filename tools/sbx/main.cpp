@@ -3,6 +3,7 @@
 //   sbx new MyGame --id studio.mygame --from ecosystem_small    템플릿에서 새 프로젝트
 //   sbx check MyGame                                            프로젝트 검사 (오류면 종료 코드 1)
 //   sbx build MyGame                                            게임 패키지 (v0.2 M5-T2) — check 는 .sbpkg 도
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -13,6 +14,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
 #include "core/package/GitSource.hpp"
+#include "core/package/Install.hpp"
 #include "core/package/PackSource.hpp"
 #include "core/package/Resolve.hpp"
 #include "core/project/GameProject.hpp"
@@ -102,6 +104,119 @@ int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     std::printf("  digest sha256:%s\n", built->index.digest.c_str());
     std::printf("  실행: SandboxServer --world %s  ·  SandboxClient --world %s\n", built->file.generic_string().c_str(),
                 built->file.generic_string().c_str());
+    return kExitOk;
+}
+
+// 패키지 명령 (v0.4 M3-T3, ADR-0071 7): 매니페스트 → (add · remove 는 고친 매니페스트로) 해결 · 설치 → 성공하면 그때
+// 매니페스트를 쓴다 (설치가 실패하면 프로젝트는 그대로 — Install 의 트랜잭션)
+int runPackages(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    const std::filesystem::path dir(opt.dir);
+    const auto text = io::readFile(dir / std::string(project::kManifestFile));
+    if (!text) {
+        printErr(text.error().describe());
+        return kExitError;
+    }
+    const project::ManifestParseResult parsed = project::parseManifest(*text);
+    if (!parsed.ok()) {
+        for (const auto& i : parsed.issues) {
+            printErr(i.describe());
+        }
+        return kExitCheckFailed;
+    }
+    project::GameManifest m = parsed.manifest;
+    const package::ResolveOptions resolve{
+        opt.cacheDir.empty() ? package::defaultUserCache() : std::filesystem::path(opt.cacheDir), &runProcess};
+    const auto findDep = [&](std::string_view id) {
+        return std::find_if(m.dependencies.begin(), m.dependencies.end(),
+                            [&](const content::PackDependency& d) { return d.pack == id; });
+    };
+    bool manifestChanged = false;
+    Expected<package::InstallResult> done = makeError(ErrorCode::Unknown, "명령 없음");
+    switch (opt.command) {
+    case SbxCommand::Install:
+        done = package::installProject(dir, m, resolve, catalog);
+        break;
+    case SbxCommand::Update:
+        done = package::updateProject(dir, m, opt.packId.empty() ? package::Refresh::All : package::Refresh::One,
+                                      opt.packId, resolve, catalog);
+        break;
+    case SbxCommand::Add: {
+        if (findDep(opt.packId) != m.dependencies.end()) {
+            printErr(std::format("'{}' 는 이미 의존에 있다 — sbx update <폴더> {} 또는 remove 뒤 add", opt.packId,
+                                 opt.packId));
+            return kExitError;
+        }
+        content::PackDependency d;
+        d.pack = opt.packId;
+        if (!opt.depVersion.empty()) {
+            auto range = parseVersionRange(opt.depVersion);
+            if (!range) {
+                printErr(std::format("--version '{}': {}", opt.depVersion, range.error().describe()));
+                return kExitError;
+            }
+            d.range = std::move(*range);
+        }
+        if (!opt.depPath.empty()) {
+            d.source = content::PackSource::Path;
+            d.path = opt.depPath;
+        } else if (!opt.gitUrl.empty()) {
+            d.source = content::PackSource::Git;
+            d.git = opt.gitUrl;
+            d.rev = opt.gitRev;
+        }
+        m.dependencies.push_back(std::move(d));
+        std::sort(m.dependencies.begin(), m.dependencies.end(),
+                  [](const content::PackDependency& a, const content::PackDependency& b) { return a.pack < b.pack; });
+        m.schemaVersion = std::max(m.schemaVersion, u32{3}); // dependencies 는 schemaVersion 3 의 키
+        // 매니페스트 규칙 (팩 id · 경로 · url · rev 모양 — P7) 은 다시 읽어서 본다
+        const project::ManifestParseResult again = project::parseManifest(project::writeManifest(m));
+        if (!again.ok()) {
+            for (const auto& i : again.issues) {
+                printErr(i.describe());
+            }
+            return kExitError;
+        }
+        m = again.manifest;
+        manifestChanged = true;
+        done = package::updateProject(dir, m, package::Refresh::One, opt.packId, resolve, catalog);
+        break;
+    }
+    case SbxCommand::Remove: {
+        const auto it = findDep(opt.packId);
+        if (it == m.dependencies.end()) {
+            printErr(std::format("'{}' 는 매니페스트 dependencies 에 없다", opt.packId));
+            return kExitError;
+        }
+        m.dependencies.erase(it);
+        manifestChanged = true;
+        done = package::updateProject(dir, m, package::Refresh::None, {}, resolve, catalog);
+        break;
+    }
+    default:
+        break;
+    }
+    if (!done) {
+        printErr(done.error().describe());
+        return kExitError;
+    }
+    if (manifestChanged) {
+        if (auto w = project::saveManifest(dir, m); !w) {
+            printErr(std::format("설치는 끝났지만 매니페스트를 쓰지 못했다 — {}", w.error().describe()));
+            return kExitError;
+        }
+    }
+    std::printf("설치: .sandbox/packages 에 팩 %zu · 잠금 sandbox.lock 팩 %zu%s\n", done->installed,
+                done->lock.packs.size(), manifestChanged ? " · 매니페스트 갱신" : "");
+    for (const package::LockedPack& p : done->lock.packs) {
+        const std::string source =
+            p.source.kind == content::PackSource::Root ? std::string("content/")
+            : p.source.kind == content::PackSource::Path
+                ? "path " + p.source.path
+                : std::format("git {} @ {} ({:.12})", p.source.git, p.source.rev, p.source.commit);
+        std::printf("  %s %s · %s · %s%s\n", p.id.c_str(), p.version.empty() ? "?" : p.version.c_str(),
+                    p.license.empty() ? "라이선스 없음" : p.license.c_str(), source.c_str(),
+                    p.installed() ? std::format(" · digest {:.16}…", p.digest).c_str() : "");
+    }
     return kExitOk;
 }
 
@@ -266,6 +381,10 @@ int main(int argc, char** argv) {
     case SbxCommand::New:
     case SbxCommand::Check:
     case SbxCommand::Build:
+    case SbxCommand::Install:
+    case SbxCommand::Update:
+    case SbxCommand::Add:
+    case SbxCommand::Remove:
         break;
     }
     ecs::ComponentCatalog catalog;
@@ -278,6 +397,11 @@ int main(int argc, char** argv) {
         return runNew(opt, catalog);
     case SbxCommand::Build:
         return runBuild(opt, catalog);
+    case SbxCommand::Install:
+    case SbxCommand::Update:
+    case SbxCommand::Add:
+    case SbxCommand::Remove:
+        return runPackages(opt, catalog);
     default:
         return runCheck(std::filesystem::path(opt.dir), catalog);
     }

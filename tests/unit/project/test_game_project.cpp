@@ -286,10 +286,15 @@ TEST_SUITE("project") {
 
     TEST_CASE("프로젝트 검사: dependencies 의 팩은 함께 불러오고 범위를 확인한다 (P7), 요약 줄") {
         const auto catalog = coreCatalog();
-        const auto make = [&](TempDir& dir, std::string_view range, std::string_view invVersion) {
+        // inv 는 content/ 의 팩 (소스 없음) — path · git 의존은 설치해야 한다 (test_install, v0.4 M3-T3)
+        const auto make = [&](TempDir& dir, std::string_view range, std::string_view invVersion,
+                              std::string_view path = {}) {
             auto j = nlohmann::json::parse(kValid);
             j["schemaVersion"] = 3;
-            j["dependencies"] = {{"inv", {{"version", std::string(range)}, {"path", "../shared/inv"}}}};
+            j["dependencies"] = {{"inv", std::string(range)}};
+            if (!path.empty()) {
+                j["dependencies"]["inv"] = {{"version", std::string(range)}, {"path", std::string(path)}};
+            }
             makeEcoProject(dir.path, catalog, j.dump());
             fs::create_directories(dir.path / "content/inv/prefabs");
             REQUIRE(io::writeFileAtomic(dir.path / "content/inv/pack.json",
@@ -309,7 +314,15 @@ TEST_SUITE("project") {
             CHECK(r.ok());
             CHECK(r.prefabs == 4); // eco 3 + inv 1 — content.packs 에 없어도 불러왔다
             REQUIRE(r.dependencies.size() == 1);
-            CHECK(r.dependencies[0] == "inv ^1.2 → 1.4.0 · MIT · path ../shared/inv (content/inv)");
+            CHECK(r.dependencies[0] == "inv ^1.2 → 1.4.0 · MIT (content/inv)");
+        }
+        {
+            // path 의존인데 잠금 · 설치가 없다 — content/ 에 같은 팩이 있어도 P8 (v0.4 M3-T3)
+            TempDir dir("deps_uninstalled");
+            make(dir, "^1.2", "1.4.0", "../shared/inv");
+            const auto r = project::validateProject(dir.path, SemVer{0, 3, 0, {}, {}}, catalog);
+            CHECK(hasIssue(r.issues, "P8", "/dependencies/inv"));
+            CHECK_FALSE(r.ok());
         }
         {
             TempDir dir("deps_out");

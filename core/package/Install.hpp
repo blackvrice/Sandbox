@@ -11,6 +11,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/ecs/ComponentCatalog.hpp"
@@ -31,5 +32,25 @@ struct InstallResult {
                                                       const project::GameManifest& manifest,
                                                       const Resolution& resolution,
                                                       const ecs::ComponentCatalog& catalog);
+
+// --- 프로젝트 명령 (v0.4 M3-T3 — sbx install · update · add · remove) ------------------------------------------
+
+// sbx install: 잠금이 없으면 해결해서 만든다. 있으면 잠금 그대로 — 매니페스트와 맞아야 하고 (아니면 ValidationFailed
+// "sbx update"), 팩마다 캐시에서 digest 로 찾는다 (오프라인). 캐시에 없으면 소스를 다시 받아 digest 가 잠금과 같을 때만
+[[nodiscard]] Expected<InstallResult> installProject(const std::filesystem::path& projectDir,
+                                                     const project::GameManifest& manifest,
+                                                     const ResolveOptions& options,
+                                                     const ecs::ComponentCatalog& catalog);
+
+// 다시 해결할 때 잠금에 있던 팩이 바뀌어도 되나 — All (sbx update), One (update <팩> · add <팩> — 그 팩만), None
+// (remove — 남는 팩은 그대로). 새로 생긴 팩 · 빠진 팩은 언제나 된다
+enum class Refresh : u8 { All, One, None };
+
+// 매니페스트 (add · remove 가 고친 것일 수 있다) 로 다시 해결해 설치한다. 바뀌면 안 되는 팩의 digest 가 달라지면
+// ValidationFailed (어느 팩이 어떻게) — 프로젝트는 그대로. 매니페스트는 쓰지 않는다 (부르는 쪽이 성공 뒤에)
+[[nodiscard]] Expected<InstallResult> updateProject(const std::filesystem::path& projectDir,
+                                                    const project::GameManifest& manifest, Refresh refresh,
+                                                    std::string_view pack, const ResolveOptions& options,
+                                                    const ecs::ComponentCatalog& catalog);
 
 } // namespace sbx::package

@@ -1,7 +1,8 @@
 // 잠금 파일 · 설치 트랜잭션 (v0.4 M3-T2, ADR-0071 5 · 6): sandbox.lock 정규형 왕복 · 모양 오류, 설치 →
 // .sandbox/packages
 // + 잠금 → 열기가 설치한 팩을 읽는다 (요약 줄 · .sbpkg 왕복), 고친 · 남는 · 잠금 없는 설치 폴더는 P8, 실패한 설치는
-// 프로젝트를 그대로 둔다 (콘텐츠 검사 실패 · 해결 오류).
+// 프로젝트를 그대로 둔다 (콘텐츠 검사 실패 · 해결 오류). 명령의 바탕 (v0.4 M3-T3 — installProject · updateProject):
+// 잠금 그대로 · 오프라인 (캐시), 바뀐 소스 거절, Refresh None · One, 매니페스트와 어긋난 잠금 P8.
 #include <doctest/doctest.h>
 
 #include <algorithm>
@@ -268,5 +269,67 @@ TEST_SUITE("project") {
         REQUIRE_FALSE(failed.has_value());
         CHECK(failed.error().message.find("의존 그래프") != std::string::npos);
         CHECK(read(game / "sandbox.lock") == lockBefore);
+    }
+
+    TEST_CASE("명령의 바탕: 잠금 그대로 · 오프라인, 바뀐 소스 거절, Refresh None · One, 어긋난 잠금 P8 (v0.4 M3-T3)") {
+        Dir d("commands");
+        const auto catalog = coreCatalog();
+        const project::GameManifest m = makeProject(d.path, catalog);
+        const fs::path game = d.path / "game";
+        const ResolveOptions opt{d.path / "cache", {}};
+        const fs::path lockFile = game / "sandbox.lock";
+        const auto has = [](const Expected<InstallResult>& r, std::string_view f) {
+            return !r.has_value() && r.error().message.find(f) != std::string::npos;
+        };
+
+        // 잠금 없음 → 해결해서 만든다
+        REQUIRE(installProject(game, m, opt, catalog).has_value());
+        const std::string lockText = read(lockFile);
+
+        // 잠금 그대로 · 오프라인: 원본 폴더 · 설치 폴더가 없어도 캐시의 digest 로 같은 잠금
+        fs::remove_all(d.path / "shared/inv");
+        fs::remove_all(game / ".sandbox");
+        auto again = installProject(game, m, opt, catalog);
+        REQUIRE_MESSAGE(again.has_value(), again.error().describe());
+        CHECK(read(lockFile) == lockText);
+        CHECK(project::validateProject(game, kEngine, catalog).ok());
+
+        // 캐시가 없으면 소스에서 — 원본이 바뀌었으면 거절 (잠금 · 설치 그대로)
+        fs::remove_all(d.path / "cache");
+        writeInv(d.path, R"({"id": "inv.crate", "components": {"core.transform": {}}})");
+        write(d.path / "shared/inv/prefabs/barrel.json",
+              R"({"id": "inv.barrel", "components": {"core.transform": {}}})");
+        CHECK(has(installProject(game, m, opt, catalog), "'inv': 소스 (path) 가 잠금과 다르다"));
+        CHECK(read(lockFile) == lockText);
+
+        // Refresh::None (remove 의 길) 은 남는 팩이 바뀌면 거절, One "inv" (update inv) 는 된다
+        CHECK(has(updateProject(game, m, Refresh::None, {}, opt, catalog), "'inv' 도 바뀐다"));
+        auto updated = updateProject(game, m, Refresh::One, "inv", opt, catalog);
+        REQUIRE_MESSAGE(updated.has_value(), updated.error().describe());
+        CHECK(read(lockFile) != lockText);
+        CHECK(project::validateProject(game, kEngine, catalog).ok());
+
+        // 매니페스트와 어긋난 잠금 — 소스가 다르다 · 아무도 안 쓰는 팩 → 열기 P8, install 은 "sbx update"
+        project::GameManifest moved = m;
+        moved.dependencies[0].path = "../other/inv";
+        REQUIRE(project::saveManifest(game, moved).has_value());
+        auto r = project::validateProject(game, kEngine, catalog);
+        CHECK(hasP8(r, "'inv' 의 소스가 매니페스트 (path ../other/inv) 와 잠금 (path ../shared/inv) 에서 다르다"));
+        project::GameManifest without = m;
+        without.dependencies.clear();
+        REQUIRE(project::saveManifest(game, without).has_value());
+        r = project::validateProject(game, kEngine, catalog);
+        CHECK(hasP8(r, "잠금의 'inv' 를 매니페스트의 의존이 쓰지 않는다"));
+        CHECK_FALSE(r.ok());
+        CHECK(has(installProject(game, without, opt, catalog), "sbx update"));
+
+        // remove 의 길: 뺀 매니페스트로 Refresh::None → 설치 폴더 · 잠금에서 빠진다
+        auto removed = updateProject(game, without, Refresh::None, {}, opt, catalog);
+        REQUIRE_MESSAGE(removed.has_value(), removed.error().describe());
+        CHECK(removed->lock.packs.empty());
+        CHECK_FALSE(fs::exists(game / ".sandbox/packages/inv"));
+        r = project::validateProject(game, kEngine, catalog);
+        INFO(dumpIssues(r));
+        CHECK(r.ok());
     }
 }

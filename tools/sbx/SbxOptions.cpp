@@ -34,12 +34,28 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Fetch;
     } else if (cmd == "resolve") {
         o.command = SbxCommand::Resolve;
+    } else if (cmd == "install") {
+        o.command = SbxCommand::Install;
+    } else if (cmd == "update") {
+        o.command = SbxCommand::Update;
+    } else if (cmd == "add") {
+        o.command = SbxCommand::Add;
+    } else if (cmd == "remove") {
+        o.command = SbxCommand::Remove;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
-            std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch · resolve)", cmd));
+            std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch · resolve · "
+                        "install · update · add · remove)",
+                        cmd));
     }
+    // 패키지 명령 (v0.4 M3-T3) — <폴더> 다음에 <팩> 을 받는다 (add · remove 는 필수, update 는 선택)
+    const bool packCommand = o.command == SbxCommand::Install || o.command == SbxCommand::Update ||
+                             o.command == SbxCommand::Add || o.command == SbxCommand::Remove;
+    const bool takesPack =
+        o.command == SbxCommand::Update || o.command == SbxCommand::Add || o.command == SbxCommand::Remove;
     bool haveDir = false;
+    bool havePack = false;
     for (usize i = 1; i < args.size(); ++i) {
         const std::string_view a = args[i];
         const auto value = [&]() -> Expected<std::string_view> {
@@ -73,8 +89,18 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                 return std::unexpected(v.error());
             }
             (a == "--git" ? o.gitUrl : a == "--rev" ? o.gitRev : o.packId) = std::string(*v);
+        } else if (o.command == SbxCommand::Add &&
+                   (a == "--git" || a == "--rev" || a == "--path" || a == "--version")) {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            (a == "--git"    ? o.gitUrl
+             : a == "--rev"  ? o.gitRev
+             : a == "--path" ? o.depPath
+                             : o.depVersion) = std::string(*v);
         } else if ((o.command == SbxCommand::Digest || o.command == SbxCommand::Fetch ||
-                    o.command == SbxCommand::Resolve) &&
+                    o.command == SbxCommand::Resolve || packCommand) &&
                    a == "--cache-dir") {
             auto v = value();
             if (!v) {
@@ -94,6 +120,9 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         } else if (!a.starts_with("-") && !haveDir && o.command != SbxCommand::Templates) {
             o.dir = std::string(a);
             haveDir = true;
+        } else if (!a.starts_with("-") && haveDir && takesPack && !havePack) {
+            o.packId = std::string(a);
+            havePack = true;
         } else {
             return makeError(ErrorCode::InvalidArgument, std::format("'{}' 를 알 수 없습니다 ({})", a, cmd));
         }
@@ -106,8 +135,20 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         return makeError(ErrorCode::InvalidArgument,
                          "fetch 는 --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]");
     }
-    if (o.command == SbxCommand::Resolve && !haveDir) {
-        return makeError(ErrorCode::InvalidArgument, "resolve 에 프로젝트 폴더가 필요합니다");
+    if ((o.command == SbxCommand::Resolve || packCommand) && !haveDir) {
+        return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
+    }
+    if ((o.command == SbxCommand::Add || o.command == SbxCommand::Remove) && !havePack) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("{} 에 <팩 id> 가 필요합니다 (sbx {} <폴더> <팩>)", cmd, cmd));
+    }
+    if (o.command == SbxCommand::Add) {
+        if (!o.depPath.empty() && !o.gitUrl.empty()) {
+            return makeError(ErrorCode::InvalidArgument, "add 는 --path 와 --git 중 하나만");
+        }
+        if (o.gitUrl.empty() != o.gitRev.empty()) {
+            return makeError(ErrorCode::InvalidArgument, "add --git 에는 --rev <태그 · 커밋> 이 함께 필요합니다");
+        }
     }
     if (o.command == SbxCommand::Digest && !haveDir) {
         return makeError(ErrorCode::InvalidArgument, "digest 에 팩 폴더가 필요합니다 (pack.json 이 있는 폴더)");
@@ -149,6 +190,14 @@ std::string sbxUsage() {
            "  fetch --git <URL> --rev <태그 · 커밋>   Git 저장소 (뿌리 = 팩) 를 받아 캐시에 — 푼 커밋 · digest (시스템 "
            "git)\n"
            "      --id <팩 id>           pack.json 의 id 확인   --cache-dir <폴더>  (기본: 사용자 캐시)\n"
+           "  install <프로젝트>          의존 설치 — 잠금 sandbox.lock 그대로 (없으면 해결해서 만든다) → "
+           ".sandbox/packages\n"
+           "  update <프로젝트> [<팩>]    다시 해결해 설치 · 잠금 갱신 (팩을 주면 그 팩만 바뀔 수 있다)\n"
+           "  add <프로젝트> <팩>         매니페스트 dependencies 에 더하고 설치 (없으면 content/ 의 팩)\n"
+           "      --path <폴더>          로컬 팩 (프로젝트 기준 상대 경로)   --git <URL> --rev <태그 · 커밋>  Git 팩\n"
+           "      --version <범위>       SemVer 범위 (^1.2 · ~0.3 · >=1 <2 · *)\n"
+           "  remove <프로젝트> <팩>      dependencies 에서 빼고 다시 설치\n"
+           "      (install · update · add · remove 모두 --cache-dir <폴더> — 기본: 사용자 캐시)\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";

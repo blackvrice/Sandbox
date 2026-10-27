@@ -263,6 +263,13 @@ sbx digest <팩 폴더> [--cache | --cache-dir <폴더>]   (v0.4 M2-T1, ADR-0071
 sbx resolve <프로젝트> [--cache-dir <폴더>]   (v0.4 M3-T1 — 09 11장)
   매니페스트 dependencies 에서 출발해 소스를 받아 그래프를 푼다: "의존 그래프: 팩 n · 오류 m" · 팩마다 "  <id> <version> · <license>
   · <소스> · digest <앞 16>… ← <요구자들>" · "  오류: …" (충돌 · 범위 · 순환 — 있으면 종료 코드 1)
+sbx install <프로젝트> · update <프로젝트> [<팩>] · add <프로젝트> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
+    · remove <프로젝트> <팩>   (모두 [--cache-dir <폴더>] — v0.4 M3-T3, ADR-0074 · 09 12장)
+  install 은 잠금 sandbox.lock 그대로 (캐시의 digest → 없으면 소스가 잠금과 같을 때만, 잠금이 없으면 해결해서 만든다), update 는
+  다시 해결 (팩을 주면 그 팩만 바뀔 수 있다), add 는 매니페스트 dependencies 에 더하고 설치 (소스가 없으면 content/ 의 팩), remove 는
+  빼고 다시 설치. 설치는 트랜잭션 — 실패하면 매니페스트 · 잠금 · .sandbox/packages 모두 그대로. 출력 "설치: .sandbox/packages 에
+  팩 n · 잠금 sandbox.lock 팩 m [· 매니페스트 갱신]" 과 팩마다 "  <id> <version> · <license> · <소스> [· digest <앞 16>…]".
+  실패는 종료 코드 2 (매니페스트 형식 오류는 1)
 sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]   (v0.4 M2-T2, ADR-0072)
   시스템 git 으로 저장소 (뿌리 = 팩) 를 받아 rev 를 꺼내 캐시에 — "팩 …" · "commit <40 글자>" · "digest …" · "캐시 …". git 이 없거나
   받기 · 꺼내기가 실패하면 종료 코드 2 (git 의 말을 붙인다)
@@ -273,7 +280,7 @@ sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더
     check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기 · SDK 파일 P6). "프로젝트 검사: 오류 N, 경고 M (…)".
     (v0.4 M1-T2) 매니페스트 dependencies 가 있으면 "의존: n" 과 "  <팩> <범위> → <찾은 version> · <license> [· path … | · git …@…]"
     줄 끝에 읽은 폴더 "(content/<팩>)" 또는 "(.sandbox/packages/<팩>)" (v0.4 M3-T2). 범위 밖이면 P7, 설치가 잠금
-    sandbox.lock 과 다르면 P8 오류 (18 5.2 — 설치 명령 sbx install 은 M3-T3 [계획]).
+    sandbox.lock 과 다르면 · 잠금이 매니페스트와 어긋나면 · path · git 의존을 설치하지 않았으면 P8 오류 (18 5.2 — sbx install).
     스크립트가 있으면 "스크립트: 팩 n · 컴포넌트 n · 시스템 n · SDK sdk/sandbox.d.ts 최신|다름|없음" 과 "  시스템 <id> — <파일> ·
     onTick (n 틱마다) · onEvent (…)" (v0.3 M5-T1). 스크립트 진단은 문제 목록 ("content/<팩>/scripts/a.ts:줄:열: 오류 S426 — …").
     (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패

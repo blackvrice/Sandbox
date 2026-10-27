@@ -437,6 +437,12 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_package.cmake")
         set_tests_properties(project_package PROPERTIES LABELS "content" TIMEOUT 180)
+        # 패키지 설치 — sbx add · install (잠금 그대로) · remove, 고친 설치 거절 (v0.4 M3-T3, ADR-0073)
+        add_test(NAME project_install
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_install"
+                    -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=30
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_install.cmake")
+        set_tests_properties(project_install PROPERTIES LABELS "content" TIMEOUT 180)
         # 데모 미니게임 자동 플레이 — 헤드리스 서버 = 로컬 플레이, expect 그대로 (v0.2 M6-T1)
         if(TARGET SandboxClient)
             add_test(NAME sample_playthrough

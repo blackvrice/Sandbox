@@ -1,6 +1,9 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <initializer_list>
+#include <string_view>
+#include <vector>
 
 #include "tools/sbx/SbxOptions.hpp"
 
@@ -87,5 +90,37 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parseSbxOptions(withId).has_value());
         constexpr std::array<std::string_view, 2> templatesDir{"templates", "x"};
         CHECK_FALSE(parseSbxOptions(templatesDir).has_value());
+    }
+
+    TEST_CASE("sbx options: install · update · add · remove (v0.4 M3-T3) — <폴더> [<팩>], add 의 소스는 하나") {
+        const auto parse = [](std::initializer_list<std::string_view> args) {
+            const std::vector<std::string_view> v(args);
+            return parseSbxOptions(v);
+        };
+        const auto add = parse({"add", "G", "inv", "--path", "../shared/inv", "--version", "^1", "--cache-dir", "c"});
+        REQUIRE(add.has_value());
+        CHECK(add->command == SbxCommand::Add);
+        CHECK(add->dir == "G");
+        CHECK(add->packId == "inv");
+        CHECK(add->depPath == "../shared/inv");
+        CHECK(add->depVersion == "^1");
+        CHECK(add->cacheDir == "c");
+        const auto git = parse({"add", "G", "ui", "--git", "https://x/ui.git", "--rev", "v2"});
+        REQUIRE(git.has_value());
+        CHECK(git->gitUrl == "https://x/ui.git");
+        CHECK(git->gitRev == "v2");
+        CHECK(parse({"add", "G", "eco"}).has_value()); // 소스 없음 = content/ 의 팩
+        CHECK_FALSE(parse({"add", "G"}).has_value());
+        CHECK_FALSE(parse({"add", "G", "ui", "--git", "u"}).has_value());                              // --rev 없음
+        CHECK_FALSE(parse({"add", "G", "ui", "--path", "p", "--git", "u", "--rev", "r"}).has_value()); // 둘 다
+        CHECK_FALSE(parse({"add", "G", "a", "b"}).has_value());
+        CHECK(parse({"remove", "G", "inv"})->command == SbxCommand::Remove);
+        CHECK_FALSE(parse({"remove", "G"}).has_value());
+        CHECK(parse({"update", "G"})->packId.empty());
+        CHECK(parse({"update", "G", "inv"})->packId == "inv");
+        CHECK(parse({"install", "G"})->command == SbxCommand::Install);
+        CHECK_FALSE(parse({"install", "G", "inv"}).has_value());
+        CHECK_FALSE(parse({"install"}).has_value());
+        CHECK_FALSE(parse({"install", "G", "--path", "p"}).has_value()); // add 의 옵션
     }
 }

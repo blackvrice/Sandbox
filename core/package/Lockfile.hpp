@@ -11,6 +11,7 @@
 // 잠금에 없는 폴더가 없다. 다르면 열지 않는다 (누가 고쳤다 — 다시 설치한다)
 
 #include <filesystem>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,5 +60,10 @@ struct LockParseResult {
 
 // 설치 폴더를 잠금과 견준다 — 오류 문장들 (비면 같다)
 [[nodiscard]] std::vector<std::string> verifyInstalled(const std::filesystem::path& projectDir, const LockFile& lock);
+
+// 잠금이 매니페스트 dependencies 와 맞는가 (v0.4 M3-T3) — 의존마다 잠금에 있고 소스 (종류 · path · git · rev) 가 같다,
+// 잠금의 팩은 모두 매니페스트에서 (잠금의 dependencies 를 따라) 닿는다. 오류 문장들 (비면 맞다)
+[[nodiscard]] std::vector<std::string> checkLockMatches(const LockFile& lock,
+                                                        std::span<const content::PackDependency> dependencies);
 
 } // namespace sbx::package

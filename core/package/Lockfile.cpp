@@ -24,6 +24,19 @@ bool isPackId(std::string_view s) noexcept {
     });
 }
 
+// 소스를 사람이 읽는 글로 (매니페스트와 잠금을 견줄 때)
+std::string sourceText(PackSource kind, std::string_view path, std::string_view git, std::string_view rev) {
+    switch (kind) {
+    case PackSource::Root:
+        return "content/";
+    case PackSource::Path:
+        return std::format("path {}", path);
+    case PackSource::Git:
+        return std::format("git {} @ {}", git, rev);
+    }
+    return "?";
+}
+
 bool isCommit(std::string_view s) noexcept {
     return s.size() == 40 &&
            std::all_of(s.begin(), s.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
@@ -235,6 +248,42 @@ LockParseResult parseLockFile(std::string_view text) {
         }
     }
     return r;
+}
+
+std::vector<std::string> checkLockMatches(const LockFile& lock, std::span<const content::PackDependency> dependencies) {
+    std::vector<std::string> errors;
+    std::set<std::string> reached;
+    std::vector<std::string> stack;
+    for (const content::PackDependency& d : dependencies) {
+        const LockedPack* p = lock.find(d.pack);
+        if (p == nullptr) {
+            errors.push_back(std::format("매니페스트의 의존 '{}' 가 잠금에 없다", d.pack));
+            continue;
+        }
+        const std::string want = sourceText(d.source, d.path, d.git, d.rev);
+        const std::string have = sourceText(p->source.kind, p->source.path, p->source.git, p->source.rev);
+        if (want != have) {
+            errors.push_back(
+                std::format("'{}' 의 소스가 매니페스트 ({}) 와 잠금 ({}) 에서 다르다", d.pack, want, have));
+        }
+        stack.push_back(d.pack);
+    }
+    while (!stack.empty()) {
+        const std::string id = std::move(stack.back());
+        stack.pop_back();
+        if (!reached.insert(id).second) {
+            continue;
+        }
+        if (const LockedPack* p = lock.find(id)) {
+            stack.insert(stack.end(), p->dependencies.begin(), p->dependencies.end());
+        }
+    }
+    for (const LockedPack& p : lock.packs) {
+        if (!reached.contains(p.id)) {
+            errors.push_back(std::format("잠금의 '{}' 를 매니페스트의 의존이 쓰지 않는다", p.id));
+        }
+    }
+    return errors;
 }
 
 std::vector<std::string> verifyInstalled(const fs::path& projectDir, const LockFile& lock) {
