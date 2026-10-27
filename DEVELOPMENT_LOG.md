@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-10-27 — v0.3 종료: 요구사항 done / deferred / removed, 릴리스 노트, 제품 버전 0.3.0 (v0.3 M6-T3)
+
+**무엇을**
+
+- CMake project VERSION 0.3.0 (sbx · SandboxServer · SandboxClient --version = 0.3.0, sbx new 의 engine 범위 기본값 ">=0.3.0 <1.0.0").
+- 릴리스 노트 docs/releases/v0.3.0.md: M1~M6 · 호환성 번호 (프로토콜 14 · kSimVersion 4 · .sbc 형식 5 · Host API 1 · 지문 · 세이브
+  1 · 1 그대로) · 초안 요구 (3장 8 · 5장 4 · 6장 데모 · 9장 DoD) 의 done / deferred / removed · 미룬 것의 버전 재할당 · 알려진 문제 ·
+  데모 재현 명령과 실패 시 기대 오류.
+- 18 (0장 v0.3 ✅ · 다음 = v0.4 계획, 1장, 6.2 T3 ✅ · M6 · v0.3 완료, 6.3 요구사항 검토, 7 · 8장), 19 머리, README · docs/README ·
+  16 의 버전 표시.
+
+**왜**
+
+- v0.3 완료 기준 (초안 5장) 이 모두 자동 시험으로 섰다 — 버전을 닫고, 못 한 것을 다음 버전에 이름으로 남긴다 (DoD 9-4).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과 (det_* 골든 · v0.2 데모 해시 · v0.3 데모 해시
+  그대로 — 시뮬레이션 변경 없음, kSimVersion 4). SandboxTests 600 케이스. `sbx --version` → 0.3.0.
+
+**남은 일**
+
+- v0.4 Package Manager 계획: 18 6장을 마일스톤 · 태스크로 (새 6.4), 열린 결정 D-05 를 ADR 로. v0.1 실기 검증 (18 1.1) 그대로.
+
+---
+
 ## 2026-10-27 — v0.3 M6-T2: 스크립트 보호 시험 · 바이트코드 변형 퍼즈 · script.regen 벤치 (ADR-0070)
 
 **무엇을**

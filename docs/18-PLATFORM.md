@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 M6-T2).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0).
 
 ---
 
@@ -10,9 +10,9 @@
 
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
-         v0.3 SandboxScript ◐ — M1 언어 앞단 ✅ · M2 VM · Host API ✅ · M3 사용자 Component ✅ · M4 Script System ✅ ·
-         M5 도구 ✅ · M6 E2E · 릴리스 (T1 ✅ · T2 ✅ · T3 — 6.2, ADR-0056~0070)
-다음     v0.3 M6-T3 — 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.3.0 · 제품 버전 0.3.0
+         v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
+다음     v0.4 Package Manager 계획 — 6장의 v0.4 를 마일스톤 · 태스크로 쪼개고 (6.4 [계획]), 열린 결정 D-05 (SemVer 충돌 해결 · 범위
+         문법 확장) 를 ADR 로. 첫 태스크는 그 계획 커밋 (문서 · ADR) — 코드는 그 다음부터
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -22,7 +22,7 @@
 |------|------------------------|--------------------------------------------|-------------------------------------------------|
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
-| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ◐ M1~M4 ✅ · M5 진행 (6.2)                      |
+| v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | [계획]                                          |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
@@ -330,12 +330,27 @@ M6 E2E · 회귀 (2026-10-27 — T1 을 셋으로 나눴다: 데모 E2E · 보�
   T2 ✅ ADR-0070: 보호 시험 — 무한 루프 · 무한 재귀 · 메모리 폭탄이 그 시스템만 끄고 끝 해시 = 그 시스템이 없는 콘텐츠 (server ·
         client), 권한 세 겹 (검사기 · 검증기의 엔진 이름공간 거절 (새 규칙) · Host), 핸들 · ctx 위조 퍼즈, 바이트코드 변형 퍼즈 3,000
         (찾은 검증기 범위 밖 읽기를 고침). sbx_bench script.regen (10k 매 틱 읽기 · 쓰기 ≈ 9.9 ms/틱 — 14 7.13)
-  T3 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.3.0 · 제품 버전 0.3.0
+  T3 ✅ 버전 종료: 요구사항 done / deferred / removed (6.3 · 릴리스 노트), 제품 버전 0.3.0, 미룬 것의 버전 재할당
+  → M6 완료 · v0.3 완료 (2026-10-27): 0.3.0
 ```
 
 v0.3 완료 기준 (초안 5장 → 자동 검증): 스크립트로 Mana Component · Regeneration System (M6-T1), 자동 완성 · Inspector ·
 세이브/로드 · 복제 (M3 · M5), 실행량 초과 · 권한 위반 · 결정론 위반 · VM 크래시 보호 (M2 · M4 · M6), VM 과 Native 의 API 스키마
 계약 자동 검사 (M2-T2 — 바인딩 등록 검사 + d.ts 골든). 기존 det_* · 골든 회귀 없음 (스크립트 없는 월드).
+
+### 6.3 요구사항 검토 (v0.3 M6-T3 — 판정과 근거는 [릴리스 노트](releases/v0.3.0.md) 4 · 5장)
+
+```text
+done      요구 1 · 3 · 4 · 5 · 7 (언어 규범, 동적 컴포넌트 · Inspector · 세이브 · 복제, Server · Client 컨텍스트 · Host 표 · 권한,
+          라이프사이클 다섯, 예산 · 불법 바이트코드 거부), 요구 2 · 8 의 대부분 (defineComponent · defineSystem · d.ts, tsc IDE ·
+          프로파일), 완료 기준 1~4, 데모 (samples/mana_regen), DoD 1~4
+deferred  스크립트의 생성 · 파괴 · 붙이기 (ECB) · 엔진 컴포넌트 · ctx.random (v0.5), client 명령 · 입력 · 그리기 (v0.5), 엔진
+          컴포넌트 d.ts (v0.5), 디버거 · 스크립트 시험 실행기 · 언어 서버 (v0.5), 함수별 프로파일 (v0.5), Host 경로 최적화 (조건),
+          바이트코드 배포 · 커버리지 퍼즈 · 스크립트 의존 (v0.4), 스크립트 GameMode (v0.5) …
+removed   따로 된 Typed IR 층 (→ 검사한 Program, ADR-0058), SystemScheduler 의 System 으로 (→ 고정 단계 16b · 17d, ADR-0062),
+          매니페스트 scriptApi 키 (→ .sbc 머리의 Host API 버전 · 지문), Native JIT (이 버전 밖)
+골든      kSimVersion 4 그대로 — 스크립트는 콘텐츠에 스크립트가 있을 때만 돈다 (det_* · 리플레이 · v0.2 데모 해시 그대로)
+```
 
 ## 7. 문서 · ADR 계획
 
@@ -380,6 +395,7 @@ v0.3 M5-T4 ✅  ADR-0068, 08 (프로토콜 14 — ServerStats 스크립트 표),
                15 (끝 줄 · net_probe), 17, 13
 v0.3 M6-T1 ✅  ADR-0069, samples/mana_regen/README, 19 (0 · 23장), 13 5.1 (sample_mana_regen), 15 7장 (데모), 17, README
 v0.3 M6-T2 ✅  ADR-0070, 19 (0 · 12 · 24장), 14 (2장 script.regen · 6장 · 7.13), 13, 17
+v0.3 M6-T3 ✅  releases/v0.3.0, 18 (0 · 1장 · 6.2 · 6.3 · 7 · 8장), 19 머리, README · docs/README (버전 표), 16
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -424,4 +440,5 @@ v0.3 M5-T3 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M5-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_script +1 (시계 — 해시 그대로) · unit_client +1 (프로파일 세션 · 패널) · unit_network +1 (ServerStats 표 · 프로토콜 14)
 v0.3 M6-T1 뒤: Windows MSVC Debug 63/63 (render_tests_warp 제외, + sample_mana_regen) · unit_core +4 (test_mana_regen_sample) · unit_project 갱신 (요약의 client onUpdate)
 v0.3 M6-T2 뒤: Windows MSVC Debug 63/63 (render_tests_warp 제외) · unit_script +5 (test_script_protection)
+v0.3 M6-T3 뒤 (0.3.0): Windows MSVC Debug 63/63 (render_tests_warp 제외) · SandboxTests 600 케이스 — 제품 버전만 바뀌었다
 ```

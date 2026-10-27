@@ -1,7 +1,7 @@
 # 19. SandboxScript (v0.3)
 
 > **규범 문서.** 게임 스크립트 언어 SandboxScript — TypeScript 의 엄격한 부분집합 — 와 그 컴파일러 · 바이트코드 · VM · Host API ·
-> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 M1~M5 ✅, M6-T1 데모 · T2 보호 — 2026-10-27).
+> 스크립트 컴포넌트 · 시스템 · 도구. 상태는 0장 (v0.3 ✅ 0.3.0 — 2026-10-27, [릴리스 노트](releases/v0.3.0.md)).
 > 결정: [ADR-0056](adr/0056-sandboxscript-language-subset-own-compiler-no-gc.md) (언어 · D-01), [ADR-0057](adr/0057-host-api-single-definition-cpp-table-sdk-generated.md)
 > (Host API · D-04), [ADR-0058](adr/0058-bytecode-register-machine-typed-registers-verifier.md) (바이트코드), ADR-0059~0061 (컴포넌트),
 > ADR-0062~0064 (시스템), ADR-0065 · 0066 (도구 · 오버레이), ADR-0067 · 0068 (클라이언트 스크립트 · 프로파일), ADR-0069 · 0070 (데모 · 보호). 계획: [18-PLATFORM](18-PLATFORM.md) 6.2. 결정론은 [04-DETERMINISM](04-DETERMINISM.md) 이 이 문서보다 우선한다.
