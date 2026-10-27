@@ -28,9 +28,11 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Build;
     } else if (cmd == "sdk") {
         o.command = SbxCommand::Sdk;
+    } else if (cmd == "digest") {
+        o.command = SbxCommand::Digest;
     } else {
         return makeError(ErrorCode::InvalidArgument,
-                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk)", cmd));
+                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest)", cmd));
     }
     bool haveDir = false;
     for (usize i = 1; i < args.size(); ++i) {
@@ -58,6 +60,15 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                 return std::unexpected(v.error());
             }
             o.out = std::string(*v);
+        } else if (o.command == SbxCommand::Digest && a == "--cache") {
+            o.cache = true;
+        } else if (o.command == SbxCommand::Digest && a == "--cache-dir") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            o.cache = true;
+            o.cacheDir = std::string(*v);
         } else if (isNew && a == "--seed") {
             auto v = value();
             if (!v) {
@@ -77,6 +88,9 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
     if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build) &&
         !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
+    }
+    if (o.command == SbxCommand::Digest && !haveDir) {
+        return makeError(ErrorCode::InvalidArgument, "digest 에 팩 폴더가 필요합니다 (pack.json 이 있는 폴더)");
     }
     if (o.command == SbxCommand::New && o.gameId.empty()) {
         return makeError(ErrorCode::InvalidArgument, "new 에 --id <gameId> 가 필요합니다 (예: studio.arena)");
@@ -103,7 +117,12 @@ std::string sbxUsage() {
            "  build <폴더>               게임 패키지 만들기 (검사 오류면 만들지 않는다)\n"
            "      --out <파일.sbpkg>     (기본: <폴더>/build/<gameId>-<version>.sbpkg)\n"
            "  templates                  --from 에 쓸 수 있는 시나리오 목록\n"
-           "  sdk [<폴더>]               SandboxScript SDK 선언 sandbox.d.ts 를 쓴다 (기본: 지금 폴더) — IDE 자동 완성\n"
+           "  sdk [<폴더>]               SandboxScript SDK 선언 sandbox.d.ts 를 쓴다 (기본: 지금 폴더) — IDE 자동 "
+           "완성\n"
+           "  digest <팩 폴더>           패키지 (팩) digest — 파일마다 SHA-256 → digest (v0.4, 링크 · 경로 · 크기 "
+           "검사)\n"
+           "      --cache                사용자 캐시에 넣는다 (SBX_CACHE_DIR · 플랫폼 캐시 폴더)\n"
+           "      --cache-dir <폴더>     그 캐시에 넣는다\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";

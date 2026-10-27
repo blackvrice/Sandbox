@@ -343,3 +343,23 @@ digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시�
 시험      foundation test_sha256 (FIPS 180-4 벡터 · 나눠 넣기), project test_game_package (담는 것 · 같은 바이트 · 고친 · 자른 ·
           머리 · digest · 캐시 다시 쓰기 · --world), network test_world_ops (결속), CTest project_package (sbx build → check → 서버)
 ```
+
+## 10. 패키지 (팩) digest · 로컬 소스 · 캐시 (v0.4 M2-T1 — [ADR-0071](adr/0071-v0-4-package-manager-scope-pack-as-package-single-version-resolution.md) 3, `core/package/PackSource`)
+
+```text
+digest    팩 폴더의 파일마다 "<sha256> <size> <path>\n" 를 path 순으로 이은 SHA-256 (9장의 packageDigest 그대로). path 는 팩 폴더
+          기준 '/' 구분 — 폴더 이름 · 위치 · 시각과 무관 (같은 내용 = 같은 digest). 잠금 파일 (M3) 이 이 값을 고정한다
+훑기      일반 파일 · 폴더만 — 심볼릭 링크 · 장치 · 그 밖은 거절. 경로는 9장의 규칙 (project::checkRelativePath — '..' · 역슬래시 ·
+          예약 이름 금지). 파일 4,096 개 · 하나 16 MiB · 합 256 MiB 까지 (kMaxPackFiles · kMaxPackFileBytes · kMaxPackBytes).
+          버전 관리 폴더 (.git · .svn · .hg) 와 캐시 표시 파일 (.sbx-pack-digest) 은 빼고 센다. pack.json 의 id 가 있어야 한다
+로컬 소스 의존의 path (11 1.3 · 18 5.2) 는 그것을 적은 팩 · 프로젝트 폴더 기준 (resolveLocalSource). 의존 키와 pack.json 의 id 가
+          다르면 거절
+캐시      <cache>/packages/<digest 앞 16>/ — 임시 폴더에 복사 → 다시 훑어 digest 가 같을 때만 이름 바꾸기 (원자적 — 반쯤 들어간
+          캐시가 없다, 복사 중에 소스가 바뀌면 거절). 있던 것은 다시 훑어 같으면 그대로, 다르면 (누가 고쳤다) 다시 넣는다.
+          오프라인 = digest 로만 찾는다 (없음 NotFound, 고쳐짐 ValidationFailed — 지우지 않는다)
+사용자 캐시 SBX_CACHE_DIR, Windows %LOCALAPPDATA%\sandbox\cache, macOS ~/Library/Caches/sandbox, 그 밖 $XDG_CACHE_HOME/sandbox ·
+          ~/.cache/sandbox (모두 없으면 임시 폴더). 지우기 · 크기 관리는 [계획]
+도구      sbx digest <팩 폴더> [--cache | --cache-dir <폴더>] (15 7장)
+시험      project test_pack_source (같은 내용 = 같은 digest · .git 빼기 · 바뀌면 다르다, 거절 — 없음 · pack.json · id · 경로 · 큰 파일,
+          캐시 넣기 · 그대로 · 고쳐짐 · 다시 넣기 · 오프라인 · 다른 id · 임시 폴더 안 남음)
+```

@@ -140,6 +140,8 @@ add_library(SandboxCore STATIC
     game/GameRules.cpp
     package/GamePackage.hpp
     package/GamePackage.cpp
+    package/PackSource.hpp
+    package/PackSource.cpp
     trigger/TriggerSchema.hpp
     trigger/TriggerSchema.cpp
     trigger/TriggerCompiler.hpp

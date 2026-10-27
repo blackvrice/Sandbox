@@ -12,6 +12,7 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
+#include "core/package/PackSource.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
@@ -164,6 +165,30 @@ int main(int argc, char** argv) {
                         static_cast<int>(s.description.size()), s.description.data());
         }
         return kExitOk;
+    case SbxCommand::Digest: {
+        // 패키지 (팩) digest · 캐시 (v0.4 M2-T1, ADR-0071) — 해결 · 설치 (M3) 가 쓰는 것과 같은 함수
+        const std::filesystem::path dir(opt.dir);
+        auto snap = package::snapshotPack(dir);
+        if (!snap) {
+            printErr(snap.error().describe());
+            return kExitError;
+        }
+        std::printf("팩 %s %s — 파일 %zu · %llu 바이트\n", snap->id.c_str(),
+                    snap->version.empty() ? "(version 없음)" : snap->version.c_str(), snap->files.size(),
+                    static_cast<unsigned long long>(snap->bytes));
+        std::printf("digest %s\n", snap->digest.c_str());
+        if (opt.cache) {
+            const std::filesystem::path root =
+                opt.cacheDir.empty() ? package::defaultUserCache() : std::filesystem::path(opt.cacheDir);
+            auto cached = package::cacheLocalPack(dir, snap->id, root);
+            if (!cached) {
+                printErr(cached.error().describe());
+                return kExitError;
+            }
+            std::printf("캐시 %s (%s)\n", io::displayPath(cached->dir).c_str(), cached->reused ? "이미 있음" : "넣음");
+        }
+        return kExitOk;
+    }
     case SbxCommand::Sdk: {
         // SDK 선언 — Host API 표에서 만든다 (v0.3 M2-T2, ADR-0057 2). 저장소의 sdk/ 를 갱신할 때도 이것으로
         const std::filesystem::path out = std::filesystem::path(opt.dir) / script::sdk::kDtsFileName;

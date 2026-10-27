@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-10-27 — v0.4 M2-T1: 패키지 digest · 로컬 소스 · 사용자 캐시, sbx digest (ADR-0071)
+
+**무엇을**
+
+- core/package/PackSource: snapshotPack (팩 폴더 → 파일마다 SHA-256 → packageDigest, 팩 기준 경로 · .git · .svn · .hg 와 캐시 표시
+  파일은 뺀다, 링크 · 장치 · 경로 규칙 · 4,096 개 · 16 MiB · 256 MiB 거절, pack.json id 필수), cacheLocalPack (임시 폴더에 복사 →
+  다시 훑기 → 이름 바꾸기, 이미 있으면 그대로, 고쳐졌으면 다시, 의존 키와 다른 id 거절), findCachedPack (오프라인 — digest 로만),
+  defaultUserCache (SBX_CACHE_DIR · 플랫폼 캐시 폴더), resolveLocalSource.
+- sbx digest <팩 폴더> [--cache | --cache-dir].
+- 시험: test_pack_source 4. 문서: 09 10장, 15 7장, 18 (0 · 6.4 · 7장), 17, 13.
+
+**검증**
+
+- 빌드 OK (중단된 세션이 남긴 손상된 .obj · vc140.pdb 때문에 다섯 대상의 중간 폴더를 지우고 다시 빌드했다).
+- SandboxTests project · tools 스위트 통과 (593 단언). **전체 ctest 는 이 커밋에서 다시 돌리지 않았다** (사용 한도 — 바뀐 것은 새 모듈 ·
+  sbx 명령 · 시험뿐, 다음 작업에서 전체를 돌린다). check_includes 위반 0.
+- 실행: `sbx digest samples/mana_regen/content/ecosystem --cache-dir <임시>` → "팩 eco 0.1.0 — 파일 17 · 11443 바이트", digest
+  ed163556…, "캐시 …/packages/ed163556bc4c75d0 (넣음)", 다시 돌리면 "(이미 있음)".
+
+**남은 일**
+
+- 전체 ctest 확인. M2-T2: Git 소스 (시스템 git · 태그 · 커밋 · 로컬 bare 저장소 시험).
+
+---
+
 ## 2026-10-27 — v0.4 M1-T2: 프로젝트 매니페스트 schemaVersion 3 dependencies → M1 완료 (ADR-0071)
 
 **무엇을**
