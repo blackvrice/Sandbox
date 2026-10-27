@@ -9,6 +9,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "core/package/Lockfile.hpp"
 #include "core/project/GameProject.hpp"
 #include "foundation/hash/Sha256.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -209,10 +210,14 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
         return std::unexpected(opened.error());
     }
     const project::GameManifest& m = opened->manifest;
-    // 2. 파일: 매니페스트 · 읽은 팩 (requires 포함) · 시작 월드
+    // 2. 파일: 매니페스트 · 읽은 팩 (requires 포함 — content/ 와 설치한 패키지) · 잠금 파일 · 시작 월드
     std::vector<fs::path> files{projectDir / std::string(project::kManifestFile)};
+    if (const fs::path lock = projectDir / std::string(kLockFile); fs::is_regular_file(lock)) {
+        files.push_back(lock); // 연 쪽이 설치 폴더를 다시 확인한다 (verifyInstalled)
+    }
     if (!project::loadedPacks(m).empty()) {
-        const auto folders = packFolders(projectDir / "content");
+        auto folders = packFolders(projectDir / "content");
+        folders.merge(packFolders(projectDir / fs::path(std::string(kInstallDir)))); // 열기가 이미 겹침을 거절했다
         for (const content::PackInfo& p : opened->content->packs()) {
             const auto it = folders.find(p.id);
             if (it == folders.end()) {

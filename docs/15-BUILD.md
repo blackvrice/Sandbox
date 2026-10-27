@@ -272,7 +272,8 @@ sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더
     SDK sdk/sandbox.d.ts · tsconfig.json 도 만든다 (팩의 scripts/*.ts — IDE 자동 완성 · tsc 검사).
     check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기 · SDK 파일 P6). "프로젝트 검사: 오류 N, 경고 M (…)".
     (v0.4 M1-T2) 매니페스트 dependencies 가 있으면 "의존: n" 과 "  <팩> <범위> → <찾은 version> · <license> [· path … | · git …@…]"
-    줄 (소스에서 받기는 v0.4 M2 [계획] — 지금은 content/). 범위 밖이면 P7 오류 (18 5.2).
+    줄 끝에 읽은 폴더 "(content/<팩>)" 또는 "(.sandbox/packages/<팩>)" (v0.4 M3-T2). 범위 밖이면 P7, 설치가 잠금
+    sandbox.lock 과 다르면 P8 오류 (18 5.2 — 설치 명령 sbx install 은 M3-T3 [계획]).
     스크립트가 있으면 "스크립트: 팩 n · 컴포넌트 n · 시스템 n · SDK sdk/sandbox.d.ts 최신|다름|없음" 과 "  시스템 <id> — <파일> ·
     onTick (n 틱마다) · onEvent (…)" (v0.3 M5-T1). 스크립트 진단은 문제 목록 ("content/<팩>/scripts/a.ts:줄:열: 오류 S426 — …").
     (T1 의 sbx_sim_check --validate-project 를 옮겼다.) 종료 코드: 0 · 1 검사 오류 · 2 잘못된 인자 · 만들기 실패

@@ -146,6 +146,10 @@ add_library(SandboxCore STATIC
     package/GitSource.cpp
     package/Resolve.hpp
     package/Resolve.cpp
+    package/Lockfile.hpp
+    package/Lockfile.cpp
+    package/Install.hpp
+    package/Install.cpp
     trigger/TriggerSchema.hpp
     trigger/TriggerSchema.cpp
     trigger/TriggerCompiler.hpp

@@ -383,8 +383,36 @@ Git 소스  (v0.4 M2-T2, ADR-0072) 시스템 git 을 셸 없이 (core/package/Gi
 그 밖     순환 ("의존에 순환이 있다: x → y → x"), content/ 에 없는 팩, Git 실행기 없음, Git 패키지의 path 의존 (저장소 밖), pack.json
           모양, 자기 자신 — 오류를 모두 모은다 (처음 하나에서 멈추지 않는다)
 결과      팩 id 순: id · version · license · digest · 소스 (path · git URL · rev · 푼 커밋) · 읽을 폴더 · dependencies · requiredBy
-          ("project" 또는 팩 id). 잠금 파일 (M3-T2) 이 이것을 쓴다. 지금은 매번 소스를 받는다 (Git 은 네트워크) — 오프라인 재현은 M3-T2
+          ("project" 또는 팩 id). 잠금 파일 (12장) 이 이것을 쓴다. 해결은 매번 소스를 받는다 (Git 은 네트워크) — 잠금 그대로
+          설치 (오프라인 재현) 는 M3-T3 [계획]
 도구      sbx resolve <프로젝트> [--cache-dir] (15 7장 — 오류가 있으면 종료 코드 1)
 시험      project test_resolve (content/ · path · 이어지는 의존 · requires, 범위 밖 · SemVer 아님 · 모두 모음, 같은 digest = 하나 ·
           충돌 · 고정이 이김 + 범위, 순환 · 없는 팩 · 실행기 없음 · 모양 · 자기 자신)
+```
+
+## 12. 잠금 파일 · 설치 폴더 (v0.4 M3-T2 — [ADR-0073](adr/0073-lockfile-format-install-folder-content-packs-unlocked.md), `core/package/Lockfile` · `Install`)
+
+```text
+sandbox.lock   <프로젝트>/sandbox.lock — 정규형 JSON (키 순서 고정, 들여쓰기 2, 끝 줄바꿈 — 다시 쓰면 같은 바이트)
+  {"lockVersion": 1,
+   "packs": {"eco": {"version": "0.1.0", "license": "", "source": {"content": true}, "dependencies": []},
+             "inv": {"version": "1.2.0", "license": "MIT", "source": {"path": "../shared/inv"},
+                     "digest": "<64 글자>", "dependencies": ["eco"]},
+             "ui":  {…, "source": {"git": "<URL>", "rev": "v2.0.0", "commit": "<40 글자>"}, "digest": …}}}
+  packs = 해결 결과 (11장) 의 팩 id 순. dependencies 는 팩 id 순. digest 는 path · git 팩만 — content/ 팩은 제작자가 고치는 원본이라
+  잠그지 않는다 (있으면 오류). 모르는 키 · lockVersion ≠ 1 · 팩 id · digest · source 모양 (git url · rev 는 GitSource 와 같은 검사,
+  commit 40 글자) · 잠금에 없는 의존 — 오류를 모두 모은다
+설치 폴더      <프로젝트>/.sandbox/packages/<팩 id>/ — 잠금의 path · git 팩만 (훑기 파일 그대로 — 캐시 표시 파일 없음, digest = 잠금)
+읽기           로더 (ContentLoader 의 루트 여럿) 가 content/ 다음 설치 폴더에서 팩 id 로 찾는다 (같은 id 가 두 곳이면 V1). 문제 · 스크립트
+               로그의 팩 폴더는 "content/<팩>" · ".sandbox/packages/<팩>" (contentHash 와 무관)
+확인 (P8)      열기 · 검사 (18 5.2) 가 잠금 모양, 잠금의 설치 팩마다 폴더가 있고 pack.json id · digest 가 같은가, 잠금에 없는 설치 폴더,
+               잠금 없는 설치를 본다. 하나라도 어긋나면 설치 폴더를 읽지 않는다 (열기 실패 — 다시 설치한다)
+설치 단계      1 해결 결과의 path · git 팩을 캐시에서 .sandbox/packages.staging/<팩> 으로 복사 → 다시 훑어 digest 확인
+               2 콘텐츠 검사 — 매니페스트가 불러올 팩을 content/ + staging 에서 (V* · 스크립트 검증)
+               3 packages → packages.old, staging → packages, sandbox.lock 원자적 쓰기, packages.old 지우기
+               어느 단계든 실패하면 프로젝트는 그대로 (staging 지우기 · 이름 되돌리기). 중간에 죽어 남은 packages.* 는 다음 설치가
+               지운다 — 그 사이 열기는 P8 로 거절한다
+.sbpkg         sandbox.lock 과 설치 폴더의 읽은 팩을 담는다 (9장 — 파일 목록에 ".sandbox/packages/<팩>/…"). 푼 쪽도 같은 P8 확인
+아직           설치 명령 (sbx add · remove · update · install) · 매니페스트와 잠금의 일치 확인은 M3-T3 [계획]
+시험           project test_install (잠금 왕복 · 모양 오류, 설치 → 열기 · 요약 줄 · .sbpkg 왕복, P8 다섯 가지, 실패한 설치는 그대로)
 ```

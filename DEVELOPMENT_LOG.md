@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-10-27 — v0.4 M3-T2: sandbox.lock · 설치 트랜잭션 · 로더가 .sandbox/packages 를 읽기, 열기의 P8 (ADR-0073)
+
+**무엇을**
+
+- core/package/Lockfile: sandbox.lock (lockVersion 1, 팩 id 순 — version · license · 소스 · digest · dependencies) 의 정규형
+  쓰기 · 읽기 (모양 오류 모두), lockFromResolution, verifyInstalled (설치 폴더 ↔ 잠금 — 없음 · id · digest · 남는 폴더).
+  content/ 팩은 digest 로 잠그지 않는다 (제작자가 고치는 원본 — ADR-0073 2).
+- core/package/Install: installPackages — staging 에 캐시의 팩을 훑기 파일만 복사 → digest 확인 → 콘텐츠 검사 (content/ +
+  staging) → packages ↔ staging 이름 바꿔 끼우기 + 잠금 원자적 쓰기. 실패하면 프로젝트 그대로.
+- ContentLoader: 루트 여럿 (ContentRoot — dir · 표시 접두사). 프로젝트 열기는 content/ 다음 .sandbox/packages 를 읽고, 팩 폴더
+  표시가 "content/<팩>" · ".sandbox/packages/<팩>" 이 된다 (contentHash 와 무관 — 골든 그대로).
+- GameProject: P8 (잠금 모양 · 고친 · 빠진 · 남는 · 잠금 없는 설치 → 설치 폴더를 읽지 않는다), 의존 요약 줄 끝에 읽은 폴더.
+  GamePackage: .sbpkg 가 sandbox.lock 과 설치 팩을 담는다.
+- 시험: test_install 4 (잠금 왕복 · 모양, 설치 → 열기 · .sbpkg, P8, 실패한 설치는 그대로). test_game_project 요약 줄 기대값.
+- 문서: ADR-0073, 09 12장, 18 (0 · 5.2 · 6.4 · 7장), 15 7장, 17, 13.
+
+**왜**
+
+- ADR-0071 5 · 6 — 받은 남의 팩을 digest 로 고정하고, 고쳐진 팩은 열기 전에 거절한다. 설치는 중간 상태의 프로젝트를 남기지 않는다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과, SandboxTests 622 케이스 (+4).
+  det_* 골든 그대로. check_includes 0 위반.
+  SandboxTests 를 직접 한 번 돌렸을 때 1 케이스가 실패했으나 (어느 케이스인지 출력을 남기지 못함) 이어서 세 번 · ctest 에서는
+  재현되지 않았다.
+- 실행 (sbx install 은 T3 라 손으로 설치 — 팩 복사 + `sbx digest` 값으로 잠금): sbx new --from ecosystem_small + 의존 inv
+  (path ../shared/inv, eco 를 요구) → 원본 폴더를 지워도 `sbx check` 오류 0, "inv ^1 → 1.2.0 · MIT · path ../shared/inv
+  (.sandbox/packages/inv)", Prefab 4 → `SandboxServer --world <프로젝트> --ticks 60 --exit` 종료 0 → `sbx build` → .sbpkg 의 check ·
+  서버 30 틱 종료 0. 설치 파일을 고치면 sbx check 종료 1 "P8 — .sandbox/packages/inv: digest a5f48c2a… 가 잠금의 296ce0e6… 와
+  다르다", 서버는 ValidationFailed 종료 2. 잠금을 지우면 P8 "설치한 패키지가 있는데 sandbox.lock 이 없다".
+
+**남은 일**
+
+- M3-T3: sbx add · remove · update · install (잠금 그대로), 매니페스트 dependencies 와 잠금의 일치, 열기가 잠금을 확인.
+- 열 때마다 설치 팩 전체를 SHA-256 으로 훑는다 — 큰 팩이 늘면 캐시 ([계획], ADR-0073 위험).
+
+---
+
 ## 2026-10-27 — v0.4 M3-T1: 의존 그래프 해결 — 팩마다 한 버전 · 범위 확인 · 충돌 · 고정 · 순환, sbx resolve (ADR-0071)
 
 **무엇을**

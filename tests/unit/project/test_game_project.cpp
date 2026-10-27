@@ -309,8 +309,7 @@ TEST_SUITE("project") {
             CHECK(r.ok());
             CHECK(r.prefabs == 4); // eco 3 + inv 1 — content.packs 에 없어도 불러왔다
             REQUIRE(r.dependencies.size() == 1);
-            CHECK(r.dependencies[0] ==
-                  "inv ^1.2 → 1.4.0 · MIT · path ../shared/inv (받기는 [계획 v0.4 M2] — 지금은 content/)");
+            CHECK(r.dependencies[0] == "inv ^1.2 → 1.4.0 · MIT · path ../shared/inv (content/inv)");
         }
         {
             TempDir dir("deps_out");

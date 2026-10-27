@@ -15,7 +15,9 @@
 // 문제는 ContentLoader 와 같은 ContentIssue 로 모두 모은다 (첫 오류에서 멈추지 않는다). 규칙 이름:
 //   P1 형식 (JSON · 모르는 키 · 타입 · 필수 키)   P2 식별자 (gameId · 팩 id)   P3 버전 (schemaVersion · version ·
 //   engine 범위 · 이 엔진이 범위 밖)   P4 경로 (entryWorld 형식 · 폴더 · 월드 열기)   P5 콘텐츠 참조 (팩 폴더 ·
-//   월드가 쓰는 팩 · contentHash · gameMode 가 콘텐츠에 없음)   + 팩의 V1~V7 (file 은 "content/<팩 폴더>/…")
+//   월드가 쓰는 팩 · contentHash · gameMode 가 콘텐츠에 없음)   P7 의존 범위 (v0.4 M1-T2)   P8 잠금 · 설치
+//   (sandbox.lock 모양, .sandbox/packages 가 잠금과 다름 — v0.4 M3-T2)   + 팩의 V1~V7 (file 은 팩을 찾은 곳 —
+//   "content/<팩 폴더>/…" 또는 ".sandbox/packages/<팩>/…")
 
 #include <filesystem>
 #include <memory>

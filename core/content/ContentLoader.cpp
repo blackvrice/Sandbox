@@ -78,8 +78,12 @@ struct SourceFile {
 class ContentLoaderImpl {
 public:
     // catalog 에 동적 컴포넌트가 있으면 (다른 콘텐츠의 월드 카탈로그) 그것을 뺀 엔진 카탈로그에서 시작한다
-    ContentLoaderImpl(const fs::path& root, const ecs::ComponentCatalog& catalog, std::vector<ContentIssue>& issues)
-        : m_root(root), m_catalog(&catalog), m_issues(issues) {
+    ContentLoaderImpl(std::vector<ContentRoot> roots, const ecs::ComponentCatalog& catalog,
+                      std::vector<ContentIssue>& issues)
+        : m_roots(std::move(roots)), m_catalog(&catalog), m_issues(issues) {
+        if (!m_roots.empty()) {
+            m_root = m_roots.front().dir;
+        }
         if (catalog.hasDynamic()) {
             m_engineCopy = std::make_shared<const ecs::ComponentCatalog>(catalog.withoutDynamic());
             m_catalog = m_engineCopy.get();
@@ -178,7 +182,8 @@ private:
         std::string pointer;
     };
 
-    fs::path m_root;
+    std::vector<ContentRoot> m_roots;
+    fs::path m_root;                        // 첫 루트 — 루트 자체의 문제 (팩을 찾을 수 없다 · 순환) 를 이 경로로
     const ecs::ComponentCatalog* m_catalog; // 검사가 쓰는 카탈로그 — 0 단계 뒤엔 스크립트 컴포넌트 포함
     std::shared_ptr<const ecs::ComponentCatalog> m_engineCopy;   // 받은 카탈로그에서 동적 컴포넌트를 뺀 것 (있을 때만)
     std::shared_ptr<ScriptPrograms> m_programs;                  // 0 단계가 만든 것 (구독을 풀 때까지 고친다)
@@ -200,24 +205,34 @@ private:
 std::vector<PackDir> ContentLoaderImpl::discover() {
     std::vector<PackDir> out;
     std::error_code ec;
-    std::vector<fs::path> dirs;
-    for (const auto& e : fs::directory_iterator(m_root, ec)) {
-        if (e.is_directory(ec)) {
-            dirs.push_back(e.path());
+    std::vector<std::pair<fs::path, const ContentRoot*>> dirs; // 루트 차례, 루트 안에서는 이름 순
+    for (usize r = 0; r < m_roots.size(); ++r) {
+        const ContentRoot& root = m_roots[r];
+        if (r > 0 && !fs::exists(root.dir, ec)) {
+            continue; // 설치한 패키지가 없는 프로젝트
+        }
+        std::vector<fs::path> found;
+        for (const auto& e : fs::directory_iterator(root.dir, ec)) {
+            if (e.is_directory(ec)) {
+                found.push_back(e.path());
+            }
+        }
+        if (ec) {
+            error(io::displayPath(root.dir), "", "IO", std::format("콘텐츠 폴더를 읽을 수 없다: {}", ec.message()));
+            return out;
+        }
+        std::sort(found.begin(), found.end());
+        for (fs::path& d : found) {
+            dirs.emplace_back(std::move(d), &root);
         }
     }
-    if (ec) {
-        error(io::displayPath(m_root), "", "IO", std::format("콘텐츠 폴더를 읽을 수 없다: {}", ec.message()));
-        return out;
-    }
-    std::sort(dirs.begin(), dirs.end());
     std::set<std::string> seen;
-    for (const fs::path& d : dirs) {
-        const fs::path packFile = d / "pack.json";
+    for (const auto& [packDir, root] : dirs) {
+        const fs::path packFile = packDir / "pack.json";
         if (!fs::exists(packFile, ec)) {
             continue;
         }
-        const std::string folder = d.filename().string();
+        const std::string folder = root->prefix + packDir.filename().string();
         const std::string display = folder + "/pack.json";
         auto text = io::readFile(packFile);
         if (!text) {
@@ -229,7 +244,7 @@ std::vector<PackDir> ContentLoaderImpl::discover() {
             error(display, "", "JSON", "JSON 객체가 아니다");
             continue;
         }
-        PackDir p{{}, d, folder};
+        PackDir p{{}, packDir, folder};
         bool ok = true;
         for (const auto& [k, _] : j.items()) {
             if (k != "id" && k != "version" && k != "requires" && k != "description" && k != "license" &&
@@ -2733,8 +2748,14 @@ usize ContentLoadResult::warningCount() const noexcept {
 
 ContentLoadResult ContentLoader::load(const std::filesystem::path& root, std::span<const std::string> packIds,
                                       const ecs::ComponentCatalog& catalog) {
+    const ContentRoot one{root, {}};
+    return load(std::span<const ContentRoot>(&one, 1), packIds, catalog);
+}
+
+ContentLoadResult ContentLoader::load(std::span<const ContentRoot> roots, std::span<const std::string> packIds,
+                                      const ecs::ComponentCatalog& catalog) {
     ContentLoadResult result;
-    ContentLoaderImpl loader(root, catalog, result.issues);
+    ContentLoaderImpl loader(std::vector<ContentRoot>(roots.begin(), roots.end()), catalog, result.issues);
     std::shared_ptr<ContentSources> sources = loader.readSources(packIds);
     result.db = loader.build(*sources, nullptr);
     result.db.m_sources = std::move(sources);

@@ -47,11 +47,23 @@ struct ContentLoadResult {
     [[nodiscard]] usize warningCount() const noexcept;
 };
 
+// 팩을 찾을 폴더 하나 (v0.4 M3-T2 — 프로젝트의 content/ 와 설치한 패키지 .sandbox/packages/). prefix 는 그 루트의 팩
+// 폴더 이름 앞에 붙는다 (문제의 file · 스크립트 로그 — 표시뿐, contentHash 와 무관)
+struct ContentRoot {
+    std::filesystem::path dir;
+    std::string prefix;
+};
+
 class ContentLoader {
 public:
     // root 아래에서 packIds 와 그 requires 를 찾아 읽는다. 팩 폴더 이름은 무엇이든 되고, pack.json 의 id 로 찾는다.
     // catalog 는 엔진 카탈로그 (동적 컴포넌트가 든 다른 콘텐츠의 월드 카탈로그를 넘겨도 동적 컴포넌트를 빼고 시작한다).
     [[nodiscard]] static ContentLoadResult load(const std::filesystem::path& root, std::span<const std::string> packIds,
+                                                const ecs::ComponentCatalog& catalog);
+    // 여러 루트 — 차례로 훑고, 같은 팩 id 가 두 루트 (또는 두 폴더) 에 있으면 V1 오류. 루트 자체의 문제는 첫 루트의
+    // 경로로 온다. 없는 루트 폴더는 첫 루트가 아니면 건너뛴다
+    [[nodiscard]] static ContentLoadResult load(std::span<const ContentRoot> roots,
+                                                std::span<const std::string> packIds,
                                                 const ecs::ComponentCatalog& catalog);
     // base 의 팩 원본(sources)에 오버레이를 얹어 다시 만든다 (디스크를 읽지 않는다 — ADR-0030). 오버레이 항목은 같은 id
     // 의 팩 항목을 바꾸거나 새로 더한다. 검증은 팩과 같다 (V1~V7 — 문제는 "overlay/<종류>/<id>.json" 이름으로). 결과 DB

@@ -8,6 +8,7 @@
 
 #include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
+#include "core/package/Lockfile.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
@@ -398,7 +399,8 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
     r.scriptPacks = programs->packs.size();
     for (const content::ScriptPackProgram& p : programs->packs) {
         for (const script::bc::SystemDesc& s : p.module.systems) {
-            std::string line = std::format("{} — content/{}/{}", s.id, p.folder, s.module);
+            std::string line =
+                std::format("{} — {}/{}", s.id, p.folder, s.module); // folder = "content/<팩>" · 설치 폴더
             if (s.onTick != script::api::kNoCallback) {
                 line += s.intervalTicks == 1 ? " · onTick" : std::format(" · onTick ({} 틱마다)", s.intervalTicks);
             }
@@ -447,17 +449,24 @@ void checkDependencies(const GameManifest& m, const content::ContentDatabase& db
                                     found->version, range));
             } else if (!d.range->contains(*v)) {
                 c.error(std::string(kManifestFile), at, "P7",
-                        std::format("프로젝트는 '{}' {} 을 요구하는데 content/ 의 그 팩은 {} 이다", d.pack, range,
-                                    found->version));
+                        std::format("프로젝트는 '{}' {} 을 요구하는데 그 팩은 {} 이다", d.pack, range, found->version));
             }
         }
         std::string line =
             std::format("{} {} → {}{}", d.pack, range, found->version.empty() ? "?" : found->version,
                         found->license.empty() ? std::string(" · 라이선스 없음") : " · " + found->license);
         if (d.source == content::PackSource::Path) {
-            line += std::format(" · path {} (받기는 [계획 v0.4 M2] — 지금은 content/)", d.path);
+            line += std::format(" · path {}", d.path);
         } else if (d.source == content::PackSource::Git) {
-            line += std::format(" · git {} @ {} (받기는 [계획 v0.4 M2] — 지금은 content/)", d.git, d.rev);
+            line += std::format(" · git {} @ {}", d.git, d.rev);
+        }
+        // 읽은 폴더 — content/<팩> 또는 .sandbox/packages/<팩> (설치 — v0.4 M3-T2)
+        if (const auto& sources = db.sources()) {
+            for (const content::ContentSourcePack& sp : sources->packs) {
+                if (sp.info.id == d.pack) {
+                    line += std::format(" ({})", sp.folder);
+                }
+            }
         }
         r.dependencies.push_back(std::move(line));
     }
@@ -510,6 +519,43 @@ void checkSdkFiles(const fs::path& projectDir, ProjectReport& r, Collector& c) {
     }
 }
 
+// 설치한 패키지 (v0.4 M3-T2, ADR-0071 5): sandbox.lock 이 있으면 모양 · 설치 폴더 (.sandbox/packages) 와 같은가, 없는데
+// 설치 폴더에 팩이 있으면 오류 (P8). 설치 폴더를 콘텐츠 루트로 써도 되면 true
+bool checkInstalled(const fs::path& projectDir, Collector& c) {
+    const std::string lockName(package::kLockFile);
+    const fs::path installDir = projectDir / fs::path(std::string(package::kInstallDir));
+    std::error_code ec;
+    if (!fs::exists(projectDir / lockName, ec)) {
+        bool any = false;
+        for (const auto& e : fs::directory_iterator(installDir, ec)) {
+            any = any || e.is_directory(ec);
+        }
+        if (any) {
+            c.error(std::string(package::kInstallDir), "", "P8",
+                    "설치한 패키지가 있는데 sandbox.lock 이 없다 — 잠금 파일과 함께 다시 설치한다");
+            return false;
+        }
+        return true;
+    }
+    const auto text = io::readFile(projectDir / lockName);
+    if (!text) {
+        c.error(lockName, "", "P8", std::format("잠금 파일을 읽을 수 없다 — {}", text.error().describe()));
+        return false;
+    }
+    const package::LockParseResult lock = package::parseLockFile(*text);
+    for (const std::string& e : lock.errors) {
+        c.error(lockName, "", "P8", e);
+    }
+    if (!lock.ok()) {
+        return false;
+    }
+    const std::vector<std::string> bad = package::verifyInstalled(projectDir, lock.lock);
+    for (const std::string& e : bad) {
+        c.error(lockName, "", "P8", e);
+    }
+    return bad.empty();
+}
+
 // validateProject · openProject 공용: 매니페스트 → 엔진 범위 → 팩 → 시작 월드. 오류가 있어도 가능한 데까지 본다
 void checkProject(const std::filesystem::path& projectDir, const SemVer& engine, const ecs::ComponentCatalog& catalog,
                   ProjectReport& r, Opened& out) {
@@ -537,21 +583,33 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
                 std::format("이 엔진 {} 는 범위 \"{}\" 밖이다", engine.toString(), m.engine.text));
     }
 
-    // 3. 콘텐츠 — 팩이 없으면 내장 콘텐츠 (세이브 폴더를 여는 규칙과 같다, WorldSource)
+    // 3. 콘텐츠 — 팩이 없으면 내장 콘텐츠 (세이브 폴더를 여는 규칙과 같다, WorldSource). 루트는 content/ 다음 설치한
+    // 패키지 (.sandbox/packages — 잠금과 같을 때만, v0.4 M3-T2)
     const fs::path contentRoot = projectDir / "content";
+    const fs::path installDir = projectDir / fs::path(std::string(package::kInstallDir));
+    const bool installedOk = checkInstalled(projectDir, c);
     const std::vector<std::string> packs = loadedPacks(m);
     if (packs.empty()) {
         out.db = std::make_unique<content::ContentDatabase>(content::ContentDatabase::builtin());
     } else {
         std::error_code ec;
-        if (!fs::is_directory(contentRoot, ec)) {
-            c.error("content", "", "P5", "content.packs 가 있는데 content/ 폴더가 없다");
+        std::vector<content::ContentRoot> roots;
+        if (fs::is_directory(contentRoot, ec)) {
+            roots.push_back({contentRoot, "content/"});
+        }
+        if (installedOk && fs::is_directory(installDir, ec)) {
+            roots.push_back({installDir, std::string(package::kInstallDir) + "/"});
+        }
+        if (roots.empty()) {
+            c.error("content", "", "P5", "content.packs · dependencies 가 있는데 content/ 폴더 · 설치한 패키지가 없다");
         } else {
-            content::ContentLoadResult loaded = content::ContentLoader::load(contentRoot, packs, catalog);
-            const std::string rootDisplay = io::displayPath(contentRoot);
+            content::ContentLoadResult loaded = content::ContentLoader::load(roots, packs, catalog);
+            const std::string rootDisplay = io::displayPath(roots.front().dir);
             for (ContentIssue& i : loaded.issues) {
-                // 팩 파일은 "<팩 폴더>/…", 루트 자체의 문제(팩을 찾을 수 없다 등)는 루트의 전체 경로로 온다
-                i.file = i.file == rootDisplay ? std::string("content") : "content/" + i.file;
+                // 팩 파일은 "<루트 prefix><팩 폴더>/…", 루트 자체의 문제(팩을 찾을 수 없다 등)는 첫 루트의 전체 경로로
+                if (i.file == rootDisplay) {
+                    i.file = roots.front().prefix.substr(0, roots.front().prefix.size() - 1);
+                }
                 r.issues.push_back(std::move(i));
             }
             if (loaded.ok()) {

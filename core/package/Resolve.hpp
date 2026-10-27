@@ -26,6 +26,8 @@ struct ResolvedSource {
     std::string git;    // Git — URL
     std::string rev;    // Git — 적은 rev
     std::string commit; // Git — 푼 커밋
+
+    bool operator==(const ResolvedSource&) const = default;
 };
 
 struct ResolvedPack {
