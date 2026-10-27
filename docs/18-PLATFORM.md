@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 M2 완료).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-27 (v0.3 완료 — 0.3.0, v0.4 M3-T1).
 
 ---
 
@@ -11,9 +11,9 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 패키지 정체성 ✅ · M2 소스 · 캐시 ✅ · M3 해결 · 잠금 · 설치 · M4 ~ M6 (6.4, ADR-0071 · 0072)
-다음     v0.4 M3-T1 — 그래프 해결: 팩마다 한 버전 · 범위 확인 · 충돌 (다른 소스 · digest) · 순환 · 프로젝트 고정이 이긴다, 오류는 누가
-         무엇을 요구했는지
+         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 해결 · 잠금 · 설치 (T1 ✅ · T2 · T3) · M4 ~ M6 (6.4, ADR-0071 · 0072)
+다음     v0.4 M3-T2 — sandbox.lock (팩 id 순 — version · 소스 · digest · license · dependencies), 설치 트랜잭션 (임시 → 검사 → 바꿔
+         끼우기), 로더 · 열기 · .sbpkg 가 <프로젝트>/.sandbox/packages 의 팩을 읽는다 (잠금과 다른 digest 거절)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -380,7 +380,9 @@ M2 소스 · 캐시
         sbx fetch. 시험은 로컬 bare 저장소 (태그 · 커밋 · 없는 rev · 다른 id)
   → M2 완료 (2026-10-27): 로컬 폴더 · Git 태그 · 커밋 · 캐시 (오프라인) 에서 팩을 받아 digest 로 고정할 수 있다
 M3 해결 · 잠금 · 설치
-  T1 [계획] 그래프 해결 (팩마다 한 버전 · 범위 확인 · 충돌 · 순환 · 프로젝트 고정이 이긴다) — 오류는 누가 무엇을 요구했는지
+  T1 ✅ core/package/Resolve — 매니페스트 dependencies 에서 너비 우선 (content/ · path · git 소스, pack.json 의 dependencies ·
+        requires), 팩마다 한 버전 (같은 digest 면 하나 · 다르면 충돌 · 프로젝트 고정이 이긴다), 모든 범위 확인, 순환 · 모양 · Git
+        패키지의 path 의존 거절, 오류는 모두 모은다 (누가 무엇을), sbx resolve (09 11장)
   T2 [계획] sandbox.lock (팩 id 순 — version · 소스 · digest · license · dependencies), 설치 트랜잭션 (임시 → 검사 → 바꿔 끼우기,
             실패면 그대로), 로더 · 열기 · .sbpkg 가 <프로젝트>/.sandbox/packages 의 팩을 읽는다 (잠금과 다른 digest 거절)
   T3 [계획] sbx add · remove · update · install, 프로젝트 열기 (서버 · 클라이언트) 가 잠금 파일을 확인
@@ -448,7 +450,8 @@ v0.4 M1-T1 ✅ 11 1.3 · V12 (pack.json), 18 4장 (범위 문법), 17, 13
 v0.4 M1-T2 ✅ 18 5.2 (매니페스트 3 · P7), 15 7장 (sbx check 의존 줄), 13
 v0.4 M2-T1 ✅ 09 10장 (digest · 캐시), 15 7장 (sbx digest), 17, 13
 v0.4 M2-T2 ✅ ADR-0072, 09 10장 (Git), 15 7장 (sbx fetch), 17, 13
-v0.4 M3        09 (잠금 파일 · .sandbox/packages), 15 7장, 17, 13
+v0.4 M3-T1 ✅ 09 11장 (해결), 15 7장 (sbx resolve), 17, 13
+v0.4 M3-T2 · T3 09 (잠금 파일 · .sandbox/packages), 15 7장, 17, 13
 v0.4 M4       19 (팩 사이 import — ADR), 10 (팔레트), 15
 v0.4 M5 · M6  13, 14 (설치 · 해결 시간), releases/v0.4.0
 ```

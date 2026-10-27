@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-10-27 — v0.4 M3-T1: 의존 그래프 해결 — 팩마다 한 버전 · 범위 확인 · 충돌 · 고정 · 순환, sbx resolve (ADR-0071)
+
+**무엇을**
+
+- core/package/Resolve: 매니페스트 dependencies 에서 너비 우선으로 소스를 받아 (content/ · path → 캐시 · git → 캐시) pack.json 의
+  dependencies · requires 를 따라간다. 팩 id 마다 한 버전 — 같은 id 를 다른 소스로 가리키면 받아서 digest 를 견주고 (같으면 하나,
+  다르면 충돌), 프로젝트가 직접 적은 팩은 고정 (다른 소스를 받지 않는다). 모든 범위 확인 (고정한 팩도), 순환, content/ 에 없는 팩,
+  Git 실행기 없음, Git 패키지의 path 의존, 모양, 자기 자신 — 오류는 모두 모은다. 결과는 팩 id 순 (version · license · digest ·
+  소스 · 읽을 폴더 · dependencies · requiredBy). readPackDependencies.
+- sbx resolve <프로젝트> [--cache-dir].
+- 시험: test_resolve 4. 문서: 09 11장, 15 7장, 18 (0 · 6.4 · 7장), 17, 13.
+
+**왜**
+
+- D-05 (ADR-0071 4) 의 해결 규칙을 코드로 — 잠금 파일 (M3-T2) 과 설치 (M3-T3) 가 이 결과를 쓴다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 63/63 통과, SandboxTests 618 케이스. det_* 골든 그대로.
+- 실행: 스크래치 프로젝트 (dependencies {"inv": {"version": "^0.1", "path": "../shared/inv"}}, inv 의 pack.json 이 eco 를 git
+  bare 저장소 태그 v0.1.0 으로) → `sbx resolve` "의존 그래프: 팩 2 · 오류 0", eco 0.1.0 · git … @ v0.1.0 · digest ed163556… ← inv,
+  inv 0.1.0 · MIT · path ../shared/inv ← project (종료 0).
+
+**남은 일**
+
+- M3-T2: sandbox.lock · 설치 트랜잭션 · 로더가 .sandbox/packages 를 읽기.
+
+---
+
 ## 2026-10-27 — v0.4 M2-T2: Git 소스 — 시스템 git 을 셸 없이, sbx fetch → M2 완료 (ADR-0072)
 
 **무엇을**

@@ -22,7 +22,7 @@ inline constexpr int kExitOk = 0;
 inline constexpr int kExitCheckFailed = 1; // check: 검사 오류
 inline constexpr int kExitError = 2;       // 잘못된 인자 · 만들기 실패
 
-enum class SbxCommand : u8 { Help, Version, New, Check, Templates, Build, Sdk, Digest, Fetch };
+enum class SbxCommand : u8 { Help, Version, New, Check, Templates, Build, Sdk, Digest, Fetch, Resolve };
 
 struct SbxOptions {
     SbxCommand command = SbxCommand::Help;

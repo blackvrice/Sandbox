@@ -61,6 +61,7 @@ add_executable(SandboxTests
     unit/project/test_game_package.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
+    unit/project/test_resolve.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp

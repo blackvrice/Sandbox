@@ -368,3 +368,23 @@ Git 소스  (v0.4 M2-T2, ADR-0072) 시스템 git 을 셸 없이 (core/package/Gi
           캐시 넣기 · 그대로 · 고쳐짐 · 다시 넣기 · 오프라인 · 다른 id · 임시 폴더 안 남음), test_git_source (셸 없는 실행기의 따옴표 ·
           모양 거절 · 로컬 bare 저장소의 태그 · 커밋 · 없는 rev · 다른 id)
 ```
+
+## 11. 의존 그래프 해결 (v0.4 M3-T1 — [ADR-0071](adr/0071-v0-4-package-manager-scope-pack-as-package-single-version-resolution.md) 4 · D-05, `core/package/Resolve`)
+
+```text
+출발      프로젝트 매니페스트의 dependencies (18 5.2). 의존마다 소스를 받고 (Root = <프로젝트>/content 의 팩 — 캐시하지 않는다 ·
+          Path = 적은 쪽 폴더 기준 → 캐시 · Git → 캐시), 그 pack.json 의 dependencies 와 requires (범위 · 소스 없는 의존) 를 너비
+          우선으로 따라간다
+한 버전   팩 id 마다 하나. 같은 id 를 다른 소스로 다시 가리키면 그 소스를 받아 digest 를 견준다 — 같으면 하나 (requiredBy 에 더한다),
+          다르면 충돌 ("팩 'items' 충돌: a 는 path ../items_a (1.0.0), b 는 path ../items_b (1.1.0) — …"). 프로젝트가 그 id 를 직접
+          적었으면 그 소스가 이긴다 (고정 — 다른 소스는 받지 않는다)
+범위      소스가 곧 버전 — 범위는 고르지 않고 확인한다. 그 팩을 가리킨 모든 범위 (고정한 팩도) 를 version 이 만족해야 한다:
+          "<요구자> 는 '<팩>' <범위> 을 요구하는데 <팩> 는 <version> 이다 (<소스>)", SemVer 가 아니면 그 뜻의 오류
+그 밖     순환 ("의존에 순환이 있다: x → y → x"), content/ 에 없는 팩, Git 실행기 없음, Git 패키지의 path 의존 (저장소 밖), pack.json
+          모양, 자기 자신 — 오류를 모두 모은다 (처음 하나에서 멈추지 않는다)
+결과      팩 id 순: id · version · license · digest · 소스 (path · git URL · rev · 푼 커밋) · 읽을 폴더 · dependencies · requiredBy
+          ("project" 또는 팩 id). 잠금 파일 (M3-T2) 이 이것을 쓴다. 지금은 매번 소스를 받는다 (Git 은 네트워크) — 오프라인 재현은 M3-T2
+도구      sbx resolve <프로젝트> [--cache-dir] (15 7장 — 오류가 있으면 종료 코드 1)
+시험      project test_resolve (content/ · path · 이어지는 의존 · requires, 범위 밖 · SemVer 아님 · 모두 모음, 같은 digest = 하나 ·
+          충돌 · 고정이 이김 + 범위, 순환 · 없는 팩 · 실행기 없음 · 모양 · 자기 자신)
+```

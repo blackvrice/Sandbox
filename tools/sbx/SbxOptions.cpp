@@ -32,9 +32,12 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Digest;
     } else if (cmd == "fetch") {
         o.command = SbxCommand::Fetch;
+    } else if (cmd == "resolve") {
+        o.command = SbxCommand::Resolve;
     } else {
-        return makeError(ErrorCode::InvalidArgument,
-                         std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch)", cmd));
+        return makeError(
+            ErrorCode::InvalidArgument,
+            std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch · resolve)", cmd));
     }
     bool haveDir = false;
     for (usize i = 1; i < args.size(); ++i) {
@@ -70,7 +73,9 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                 return std::unexpected(v.error());
             }
             (a == "--git" ? o.gitUrl : a == "--rev" ? o.gitRev : o.packId) = std::string(*v);
-        } else if ((o.command == SbxCommand::Digest || o.command == SbxCommand::Fetch) && a == "--cache-dir") {
+        } else if ((o.command == SbxCommand::Digest || o.command == SbxCommand::Fetch ||
+                    o.command == SbxCommand::Resolve) &&
+                   a == "--cache-dir") {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -100,6 +105,9 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
     if (o.command == SbxCommand::Fetch && (o.gitUrl.empty() || o.gitRev.empty() || haveDir)) {
         return makeError(ErrorCode::InvalidArgument,
                          "fetch 는 --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]");
+    }
+    if (o.command == SbxCommand::Resolve && !haveDir) {
+        return makeError(ErrorCode::InvalidArgument, "resolve 에 프로젝트 폴더가 필요합니다");
     }
     if (o.command == SbxCommand::Digest && !haveDir) {
         return makeError(ErrorCode::InvalidArgument, "digest 에 팩 폴더가 필요합니다 (pack.json 이 있는 폴더)");
@@ -135,6 +143,9 @@ std::string sbxUsage() {
            "검사)\n"
            "      --cache                사용자 캐시에 넣는다 (SBX_CACHE_DIR · 플랫폼 캐시 폴더)\n"
            "      --cache-dir <폴더>     그 캐시에 넣는다\n"
+           "  resolve <프로젝트>          의존 그래프 해결 — 팩마다 한 버전 · 범위 · 충돌 · 순환 (소스를 받아 캐시에, "
+           "v0.4)\n"
+           "      --cache-dir <폴더>     (기본: 사용자 캐시)\n"
            "  fetch --git <URL> --rev <태그 · 커밋>   Git 저장소 (뿌리 = 팩) 를 받아 캐시에 — 푼 커밋 · digest (시스템 "
            "git)\n"
            "      --id <팩 id>           pack.json 의 id 확인   --cache-dir <폴더>  (기본: 사용자 캐시)\n"

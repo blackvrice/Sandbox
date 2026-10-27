@@ -14,6 +14,7 @@
 #include "core/package/GamePackage.hpp"
 #include "core/package/GitSource.hpp"
 #include "core/package/PackSource.hpp"
+#include "core/package/Resolve.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
@@ -190,6 +191,46 @@ int main(int argc, char** argv) {
             std::printf("캐시 %s (%s)\n", io::displayPath(cached->dir).c_str(), cached->reused ? "이미 있음" : "넣음");
         }
         return kExitOk;
+    }
+    case SbxCommand::Resolve: {
+        // 의존 그래프 (v0.4 M3-T1, ADR-0071 4) — 매니페스트 dependencies 에서 출발해 소스를 받는다
+        const std::filesystem::path dir(opt.dir);
+        const auto text = io::readFile(dir / std::string(project::kManifestFile));
+        if (!text) {
+            printErr(text.error().describe());
+            return kExitError;
+        }
+        const project::ManifestParseResult m = project::parseManifest(*text);
+        if (!m.ok()) {
+            for (const auto& i : m.issues) {
+                printErr(i.describe());
+            }
+            return kExitCheckFailed;
+        }
+        const std::filesystem::path root =
+            opt.cacheDir.empty() ? package::defaultUserCache() : std::filesystem::path(opt.cacheDir);
+        const package::Resolution r = package::resolveDependencies(dir, m.manifest.dependencies, {root, &runProcess});
+        std::printf("의존 그래프: 팩 %zu · 오류 %zu\n", r.packs.size(), r.errors.size());
+        for (const package::ResolvedPack& p : r.packs) {
+            std::string by;
+            for (const std::string& b : p.requiredBy) {
+                by += (by.empty() ? "" : ", ") + b;
+            }
+            const char* kind = p.source.kind == content::PackSource::Root   ? "content/"
+                               : p.source.kind == content::PackSource::Path ? "path"
+                                                                            : "git";
+            std::printf(
+                "  %s %s · %s · %s%s · digest %.16s… ← %s\n", p.id.c_str(), p.version.empty() ? "?" : p.version.c_str(),
+                p.license.empty() ? "라이선스 없음" : p.license.c_str(), kind,
+                p.source.kind == content::PackSource::Path  ? (" " + p.source.path).c_str()
+                : p.source.kind == content::PackSource::Git ? (" " + p.source.git + " @ " + p.source.rev).c_str()
+                                                            : "",
+                p.digest.c_str(), by.c_str());
+        }
+        for (const std::string& e : r.errors) {
+            std::printf("  오류: %s\n", e.c_str());
+        }
+        return r.ok() ? kExitOk : kExitCheckFailed;
     }
     case SbxCommand::Fetch: {
         // Git 소스 (v0.4 M2-T2, ADR-0072) — 시스템 git 을 셸 없이 띄운다 (tools/sbx/Process)

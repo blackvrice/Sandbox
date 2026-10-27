@@ -260,6 +260,9 @@ sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg]  
 sbx digest <팩 폴더> [--cache | --cache-dir <폴더>]   (v0.4 M2-T1, ADR-0071 — 09 10장)
   "팩 <id> <version> — 파일 n · m 바이트" · "digest <64 글자>" (링크 · 경로 · 크기 거절은 종료 코드 2). --cache 는 사용자 캐시에,
   --cache-dir 는 그 폴더에 넣고 "캐시 <폴더> (넣음 | 이미 있음)"
+sbx resolve <프로젝트> [--cache-dir <폴더>]   (v0.4 M3-T1 — 09 11장)
+  매니페스트 dependencies 에서 출발해 소스를 받아 그래프를 푼다: "의존 그래프: 팩 n · 오류 m" · 팩마다 "  <id> <version> · <license>
+  · <소스> · digest <앞 16>… ← <요구자들>" · "  오류: …" (충돌 · 범위 · 순환 — 있으면 종료 코드 1)
 sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]   (v0.4 M2-T2, ADR-0072)
   시스템 git 으로 저장소 (뿌리 = 팩) 를 받아 rev 를 꺼내 캐시에 — "팩 …" · "commit <40 글자>" · "digest …" · "캐시 …". git 이 없거나
   받기 · 꺼내기가 실패하면 종료 코드 2 (git 의 말을 붙인다)
