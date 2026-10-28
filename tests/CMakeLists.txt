@@ -64,6 +64,7 @@ add_executable(SandboxTests
     unit/project/test_git_source.cpp
     unit/project/test_resolve.cpp
     unit/project/test_install.cpp
+    unit/project/test_pack_template.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
@@ -444,6 +445,12 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=30
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_install.cmake")
         set_tests_properties(project_install PROPERTIES LABELS "content" TIMEOUT 180)
+        # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
+        add_test(NAME project_pack
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_pack"
+                    "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_pack.cmake")
+        set_tests_properties(project_pack PROPERTIES LABELS "content" TIMEOUT 600)
         # 데모 미니게임 자동 플레이 — 헤드리스 서버 = 로컬 플레이, expect 그대로 (v0.2 M6-T1)
         if(TARGET SandboxClient)
             add_test(NAME sample_playthrough

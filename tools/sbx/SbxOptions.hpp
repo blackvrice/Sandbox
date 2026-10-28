@@ -10,8 +10,8 @@
 //   sbx digest · fetch · resolve                     (v0.4 M2 · M3-T1)
 //   sbx install <폴더> · update <폴더> [<팩>] · add <폴더> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
 //       · remove <폴더> <팩>   (모두 [--cache-dir <d>] — v0.4 M3-T3, ADR-0071 7)
-//
-// v0.4 M4 가 test · new --pack 을 더한다 [계획].
+//   sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2 — 패키지 틀)
+//   sbx test <폴더>                                      (v0.4 M4-T2 — 검사 + 자동 플레이 스크립트 전부)
 
 #include <span>
 #include <string>
@@ -39,7 +39,8 @@ enum class SbxCommand : u8 {
     Install,
     Update,
     Add,
-    Remove
+    Remove,
+    Test
 };
 
 struct SbxOptions {
@@ -59,6 +60,8 @@ struct SbxOptions {
     std::string packId;      // fetch --id <팩 id> (비면 확인하지 않는다) · add · remove · update 의 <팩> (v0.4 M3-T3)
     std::string depPath;     // add --path <팩 폴더> (프로젝트 기준 상대 경로, '/' 구분)
     std::string depVersion;  // add --version <범위> (비면 범위 없음)
+    bool pack = false;       // new --pack (v0.4 M4-T2 — gameId 자리에 팩 id)
+    std::string license;     // new --pack --license <SPDX> (비면 LicenseRef-proprietary)
 };
 
 [[nodiscard]] Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args);

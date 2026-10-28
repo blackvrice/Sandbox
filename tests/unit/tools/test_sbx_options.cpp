@@ -123,4 +123,25 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parse({"install"}).has_value());
         CHECK_FALSE(parse({"install", "G", "--path", "p"}).has_value()); // add 의 옵션
     }
+
+    TEST_CASE("sbx options: new --pack (v0.4 M4-T2) — --id · --license 만, test <폴더>") {
+        const auto parse = [](std::initializer_list<std::string_view> args) {
+            const std::vector<std::string_view> v(args);
+            return parseSbxOptions(v);
+        };
+        const auto pack = parse({"new", "kit", "--pack", "--id", "kit", "--license", "MIT"});
+        REQUIRE(pack.has_value());
+        CHECK(pack->command == SbxCommand::New);
+        CHECK(pack->pack);
+        CHECK(pack->gameId == "kit");
+        CHECK(pack->license == "MIT");
+        CHECK(parse({"new", "kit", "--pack", "--id", "kit"})->license.empty());
+        CHECK_FALSE(parse({"new", "kit", "--pack"}).has_value());                               // --id 없음
+        CHECK_FALSE(parse({"new", "kit", "--pack", "--id", "kit", "--from", "x"}).has_value()); // 게임의 옵션
+        CHECK_FALSE(parse({"new", "kit", "--pack", "--id", "kit", "--seed", "3"}).has_value());
+        CHECK_FALSE(parse({"new", "G", "--id", "a.b", "--license", "MIT"}).has_value()); // --pack 없이
+        CHECK(parse({"test", "G"})->command == SbxCommand::Test);
+        CHECK_FALSE(parse({"test"}).has_value());
+        CHECK_FALSE(parse({"test", "G", "x"}).has_value());
+    }
 }

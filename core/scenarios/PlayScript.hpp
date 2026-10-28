@@ -73,4 +73,10 @@ void attachPlayScript(ScenarioRunner& runner, PlayScript script);
 // 시험 · 도구용: 같은 프로세스에서 러너를 끝날 때까지 (maxSteps 단계 안에) — 끝나지 않으면 OutOfRange
 [[nodiscard]] Expected<void> runPlayScript(ScenarioRunner& runner, const PlayScript& script, u64 maxSteps);
 
+// 게임 프로젝트의 자동 플레이 스크립트 (v0.4 M4-T2 — sbx test): <프로젝트>/playthrough.json (있으면) 다음
+// <프로젝트>/tests/ 의 *.json (이름 순, 하위 폴더는 보지 않는다)
+[[nodiscard]] std::vector<std::filesystem::path> projectPlayScripts(const std::filesystem::path& projectDir);
+// runPlayScript 의 단계 상한 — maxTicks 가 있으면 그 두 배 + 1,000 (Lobby · 편집 단계 몫), 없으면 2,000,000
+[[nodiscard]] u64 playStepLimit(const PlayScript& script) noexcept;
+
 } // namespace sbx::scenario

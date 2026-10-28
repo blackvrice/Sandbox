@@ -150,6 +150,8 @@ add_library(SandboxCore STATIC
     package/Lockfile.cpp
     package/Install.hpp
     package/Install.cpp
+    package/PackTemplate.hpp
+    package/PackTemplate.cpp
     trigger/TriggerSchema.hpp
     trigger/TriggerSchema.cpp
     trigger/TriggerCompiler.hpp

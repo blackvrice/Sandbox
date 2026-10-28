@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-10-28 — v0.4 M4-T2: sbx test · sbx new --pack (ADR-0076), 에디터 묶음은 M4-T3 으로
+
+**무엇을**
+
+- sbx test <프로젝트>: 프로젝트 검사 → playthrough.json · tests/*.json (scenario::projectPlayScripts) 을 스크립트마다 새로 연
+  월드에서 같은 프로세스로 끝까지 (runPlayScript · playStepLimit) → expect. 실패가 하나라도 있으면 종료 1.
+- sbx new --pack <폴더> --id <팩> [--license]: core/package/PackTemplate createPack — pack.json · scripts/main.ts (컴포넌트 ·
+  export 함수) · scripts/tick.ts (시스템) · prefabs/thing.json, 임시 폴더에서 콘텐츠 검사 · 훑기를 통과해야 제자리로. 기본 라이선스
+  LicenseRef-proprietary.
+- 로드맵: 원래 M4-T2 의 "에디터 팔레트 · 콘텐츠 창의 패키지별 묶음" 을 M4-T3 으로 나눴다 (도구와 에디터를 한 커밋에 섞지 않는다).
+- 시험: test_pack_template 3, test_sbx_options 1, CTest project_pack. 문서: ADR-0076, 13 (5.1 · 표), 15 7장, 18 (0 · 6.4 · 7장), 17.
+
+**왜**
+
+- ADR-0071 7 의 남은 CLI — 패키지 제작 (new --pack) → 설치 (add) → 시험 (test) 을 sbx 로 잇는다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 65/65 통과 (+ project_pack). det_* 골든 그대로.
+- 실행: CTest project_pack 이 실제 sbx 로 — new --pack kit --license MIT ("… 팩 kit 0.1.0 · MIT · 파일 4") → 같은 폴더에 다시 new
+  --pack 은 종료 2 → sbx new 게임 → add kit --path ../kit → check "시스템 kit.tick — .sandbox/packages/kit/scripts/tick.ts · onTick
+  (30 틱마다)" → test "자동 플레이 0 개" · "시험: 통과 0 · 실패 0" → tests/smoke.json (maxTicks 30, expect tick 31) "통과
+  tests/smoke.json — 게임 없음 · tick 31" → tests/wrong.json (expect tick 99) 종료 1 "시험: 통과 1 · 실패 1" → samples/rabbit_guard
+  "통과 playthrough.json — 게임 Finished …".
+- 첫 빌드에서 test_pack_template 의 게임 팩 id 를 "game" 으로 써서 시스템 id "game.twice" 가 엔진 이름공간으로 거절됐다 (S426 —
+  검사기가 맞게 거절) — 시험의 팩 id 를 arena 로 고쳤다.
+
+**남은 일**
+
+- M4-T3: 에디터 팔레트 · 콘텐츠 창에서 설치한 팩 · 프로젝트 팩을 나눠 보이기.
+
+---
+
 ## 2026-10-28 — v0.4 M4-T1: 팩 사이 스크립트 import "@<팩>/<경로>" — 정적 링크, tsconfig paths (ADR-0075)
 
 **무엇을**

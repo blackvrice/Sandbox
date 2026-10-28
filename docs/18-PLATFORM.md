@@ -11,9 +11,8 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 Feature Export / Import (T1 ✅ · T2) · M5 · M6 (6.4, ADR-0071 ~ 0075)
-다음     v0.4 M4-T2 — 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음, sbx test (검사 + 프로젝트의 자동 플레이 스크립트),
-         sbx new --pack (패키지 틀)
+         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 Feature Export / Import (T1 ✅ · T2 ✅ · T3) · M5 · M6 (6.4, ADR-0071 ~ 0076)
+다음     v0.4 M4-T3 — 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음 (설치한 팩 · 프로젝트 팩을 나눠 보이기)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -402,7 +401,11 @@ M4 Feature Export / Import
         스크립트를 "@<팩>/…" 로 함께 넣고 검사기는 import 로 닿는 파일만 링크 — 함수는 가져오는 팩의 모듈로, 컴포넌트 등록 ·
         시스템 실행 · export 는 정의한 팩의 것, 의존 팩의 진단은 한 번), tsconfig.json paths "@<팩>/*" (sbx install · add 가 만든
         그대로의 파일만 갱신 — refreshTsconfig, sandbox.d.ts 는 그대로) (19 5 · 14장)
-  T2 [계획] 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음, sbx test (검사 + 프로젝트의 자동 플레이 스크립트), sbx new --pack (패키지 틀)
+  T2 ✅ ADR-0076: sbx test <프로젝트> (검사 → playthrough.json · tests/*.json 을 같은 프로세스에서 끝까지 · expect, 실패면 종료 1),
+        sbx new --pack <폴더> --id <팩> [--license] (컴포넌트 · 함수 · 시스템 · Prefab 틀 — 검사를 통과해야 제자리로, 기본 라이선스
+        LicenseRef-proprietary), CTest project_pack (new --pack → add → check → test · 틀린 expect · 샘플 rabbit_guard)
+        (2026-10-28 다시 나눔: 에디터 묶음은 T3 로 — 도구와 에디터를 한 커밋에 섞지 않는다)
+  T3 [계획] 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음 (설치한 팩 · 프로젝트 팩을 나눠 보이기)
 M5 보안 · 재현
   T1 [계획] 거부 시험 (충돌 · 악성 매니페스트 · 깨진 · 고친 파일 · 큰 파일 · 경로 탈출 — 설치 되돌리기), 라이선스 요약 (SBOM —
             패키지 index 에 팩마다 license · digest), 깨끗한 머신 재현 (빈 캐시 · 다른 폴더에서 같은 잠금 → 같은 game digest — CTest)
@@ -468,7 +471,8 @@ v0.4 M3-T1 ✅ 09 11장 (해결), 15 7장 (sbx resolve), 17, 13
 v0.4 M3-T2 ✅ ADR-0073, 09 12장 (잠금 · 설치), 18 5.2 (P8), 15 7장 (sbx check 의존 줄), 17, 13
 v0.4 M3-T3 ✅ ADR-0074, 15 7장 (sbx install · update · add · remove), 09 12장 (명령), 18 5.2 (P8), 17, 13
 v0.4 M4-T1 ✅ ADR-0075, 19 (5 · 14장 — "@<팩>/…" import · tsconfig paths), 15 7장, 17, 13
-v0.4 M4-T2    10 (팔레트), 15 (sbx test · new --pack)
+v0.4 M4-T2 ✅ ADR-0076, 15 7장 (sbx test · new --pack), 13 5장 (자동 플레이 자리), 17, 13
+v0.4 M4-T3    10 (팔레트 · 콘텐츠 창 — 패키지별 묶음)
 v0.4 M5 · M6  13, 14 (설치 · 해결 시간), releases/v0.4.0
 ```
 

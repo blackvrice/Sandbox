@@ -42,13 +42,16 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Add;
     } else if (cmd == "remove") {
         o.command = SbxCommand::Remove;
+    } else if (cmd == "test") {
+        o.command = SbxCommand::Test;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
-            std::format("모르는 명령 '{}' (new · check · build · templates · sdk · digest · fetch · resolve · "
+            std::format("모르는 명령 '{}' (new · check · build · test · templates · sdk · digest · fetch · resolve · "
                         "install · update · add · remove)",
                         cmd));
     }
+    bool sawProjectOnly = false; // new 의 게임 프로젝트 옵션 (--pack 과 같이 쓸 수 없다)
     // 패키지 명령 (v0.4 M3-T3) — <폴더> 다음에 <팩> 을 받는다 (add · remove 는 필수, update 는 선택)
     const bool packCommand = o.command == SbxCommand::Install || o.command == SbxCommand::Update ||
                              o.command == SbxCommand::Add || o.command == SbxCommand::Remove;
@@ -75,6 +78,15 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
              : a == "--from" ? o.from
              : a == "--mode" ? o.mode
                              : o.contentRoot) = std::string(*v);
+            sawProjectOnly = sawProjectOnly || a != "--id";
+        } else if (isNew && a == "--pack") {
+            o.pack = true;
+        } else if (isNew && a == "--license") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            o.license = std::string(*v);
         } else if (o.command == SbxCommand::Build && a == "--out") {
             auto v = value();
             if (!v) {
@@ -109,6 +121,7 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             o.cache = true;
             o.cacheDir = std::string(*v);
         } else if (isNew && a == "--seed") {
+            sawProjectOnly = true;
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
@@ -127,7 +140,16 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             return makeError(ErrorCode::InvalidArgument, std::format("'{}' 를 알 수 없습니다 ({})", a, cmd));
         }
     }
-    if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build) &&
+    if (o.pack && sawProjectOnly) {
+        return makeError(ErrorCode::InvalidArgument,
+                         "new --pack 은 --id <팩 id> [--license <SPDX>] 만 받는다 (--name · --from · --mode · "
+                         "--content-root · --seed 는 게임 프로젝트의 것)");
+    }
+    if (!o.pack && !o.license.empty()) {
+        return makeError(ErrorCode::InvalidArgument, "--license 는 new --pack 의 것");
+    }
+    if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build ||
+         o.command == SbxCommand::Test) &&
         !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
     }
@@ -154,7 +176,8 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         return makeError(ErrorCode::InvalidArgument, "digest 에 팩 폴더가 필요합니다 (pack.json 이 있는 폴더)");
     }
     if (o.command == SbxCommand::New && o.gameId.empty()) {
-        return makeError(ErrorCode::InvalidArgument, "new 에 --id <gameId> 가 필요합니다 (예: studio.arena)");
+        return makeError(ErrorCode::InvalidArgument, o.pack ? "new --pack 에 --id <팩 id> 가 필요합니다 (예: inventory)"
+                                                            : "new 에 --id <gameId> 가 필요합니다 (예: studio.arena)");
     }
     if (o.command == SbxCommand::Sdk && !haveDir) {
         o.dir = ".";
@@ -173,7 +196,10 @@ std::string sbxUsage() {
            "                             데모: --from ecosystem_small --mode eco.protect (토끼 지키기)\n"
            "      --content-root <d>     --from 의 팩을 찾을 곳 (기본: 저장소의 content/)\n"
            "      --seed <n>             월드 시드 (기본 1)\n"
+           "  new --pack <폴더> --id <팩 id> [--license <SPDX>]   패키지 (팩) 틀 — 컴포넌트 · 함수 · 시스템 · Prefab\n"
            "  check <폴더>               프로젝트 검사 (매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기)\n"
+           "  test <폴더>                검사 + 자동 플레이 스크립트 (playthrough.json · tests/*.json) 를 끝까지 · "
+           "expect\n"
            "  check <파일.sbpkg>         게임 패키지 검사 (파일마다 SHA-256 · digest → 풀어서 프로젝트 검사)\n"
            "  build <폴더>               게임 패키지 만들기 (검사 오류면 만들지 않는다)\n"
            "      --out <파일.sbpkg>     (기본: <폴더>/build/<gameId>-<version>.sbpkg)\n"

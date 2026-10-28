@@ -16,10 +16,13 @@
 #include "core/package/GitSource.hpp"
 #include "core/package/Install.hpp"
 #include "core/package/PackSource.hpp"
+#include "core/package/PackTemplate.hpp"
 #include "core/package/Resolve.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -226,7 +229,84 @@ int runPackages(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     return kExitOk;
 }
 
+// sbx test (v0.4 M4-T2): 프로젝트 검사 → 자동 플레이 스크립트마다 새로 연 월드에서 끝까지 · expect (같은 프로세스 —
+// 헤드리스 서버 --script 와 같은 러너 · 단계)
+int runTest(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    const std::filesystem::path dir(opt.dir);
+    const auto r = project::validateProject(dir, engineVersion(), catalog);
+    for (const content::ContentIssue& i : r.issues) {
+        if (i.severity == content::ContentIssue::Severity::Error) {
+            std::printf("%s\n", i.describe().c_str());
+        }
+    }
+    std::printf("프로젝트 검사: 오류 %zu, 경고 %zu\n", r.errorCount(), r.warningCount());
+    if (!r.ok()) {
+        std::printf("시험: 실패 — 검사 오류 (자동 플레이를 돌리지 않았다)\n");
+        return kExitCheckFailed;
+    }
+    const auto scripts = scenario::projectPlayScripts(dir);
+    std::printf("자동 플레이 %zu 개 (playthrough.json · tests/*.json)\n", scripts.size());
+    usize passed = 0;
+    for (const std::filesystem::path& file : scripts) {
+        const std::string name = std::filesystem::relative(file, dir).generic_string();
+        const auto fail = [&](const std::string& why) { std::printf("  실패 %s — %s\n", name.c_str(), why.c_str()); };
+        auto script = scenario::loadPlayScript(file);
+        if (!script) {
+            fail(script.error().describe());
+            continue;
+        }
+        auto src = scenario::openWorldSource(dir.string(), {}, 1, catalog);
+        if (!src) {
+            fail(src.error().describe());
+            continue;
+        }
+        if (auto ran = scenario::runPlayScript(*src->runner, *script, scenario::playStepLimit(*script)); !ran) {
+            fail(ran.error().describe());
+            continue;
+        }
+        const auto diff = scenario::checkPlayExpectation(src->runner->world(), script->expect);
+        const std::string result = scenario::describePlayResult(src->runner->world());
+        if (!diff.empty()) {
+            std::string why = result;
+            for (const std::string& d : diff) {
+                why += " · " + d;
+            }
+            fail(why);
+            continue;
+        }
+        ++passed;
+        std::printf("  통과 %s — %s\n", name.c_str(), result.c_str());
+    }
+    std::printf("시험: 통과 %zu · 실패 %zu\n", passed, scripts.size() - passed);
+    return passed == scripts.size() ? kExitOk : kExitCheckFailed;
+}
+
+// sbx new --pack (v0.4 M4-T2) — 패키지 틀
+int runNewPack(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    const auto made = package::createPack(std::filesystem::path(opt.dir), opt.gameId, opt.license, catalog);
+    if (!made) {
+        printErr(made.error().describe());
+        return kExitError;
+    }
+    std::printf("패키지 틀을 만들었습니다: %s — 팩 %s 0.1.0 · %s · 파일 %zu · digest %.16s…\n", opt.dir.c_str(),
+                made->id.c_str(), made->license.c_str(), made->files, made->digest.c_str());
+    std::printf(
+        "  scripts/main.ts (컴포넌트 %s.counter · bump) · scripts/tick.ts (시스템 %s.tick) · prefabs/thing.json\n",
+        made->id.c_str(), made->id.c_str());
+    std::printf("  게임에서 쓰기: sbx add <게임 프로젝트> %s --path <이 폴더> · 스크립트는 import { Counter } from "
+                "\"@%s/main\"\n",
+                made->id.c_str(), made->id.c_str());
+    if (opt.license.empty()) {
+        std::printf("  라이선스 %.*s — 배포 전에 pack.json 의 license 를 SPDX 식으로 바꾼다 (예: MIT)\n",
+                    static_cast<int>(package::kDefaultPackLicense.size()), package::kDefaultPackLicense.data());
+    }
+    return kExitOk;
+}
+
 int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    if (opt.pack) {
+        return runNewPack(opt, catalog);
+    }
     project::NewProjectOptions n;
     n.gameId = opt.gameId;
     n.name = opt.name;
@@ -391,6 +471,7 @@ int main(int argc, char** argv) {
     case SbxCommand::Update:
     case SbxCommand::Add:
     case SbxCommand::Remove:
+    case SbxCommand::Test:
         break;
     }
     ecs::ComponentCatalog catalog;
@@ -408,6 +489,8 @@ int main(int argc, char** argv) {
     case SbxCommand::Add:
     case SbxCommand::Remove:
         return runPackages(opt, catalog);
+    case SbxCommand::Test:
+        return runTest(opt, catalog);
     default:
         return runCheck(std::filesystem::path(opt.dir), catalog);
     }

@@ -1,5 +1,6 @@
 #include "core/scenarios/PlayScript.hpp"
 
+#include <algorithm>
 #include <format>
 
 #include "core/command/CommandJson.hpp"
@@ -221,6 +222,28 @@ Expected<void> runPlayScript(ScenarioRunner& runner, const PlayScript& script, u
     }
     return makeError(ErrorCode::OutOfRange,
                      std::format("{} 단계 안에 끝나지 않았다 — {}", maxSteps, describePlayResult(runner.world())));
+}
+
+std::vector<std::filesystem::path> projectPlayScripts(const std::filesystem::path& projectDir) {
+    namespace fs = std::filesystem;
+    std::vector<fs::path> out;
+    std::error_code ec;
+    if (fs::is_regular_file(projectDir / "playthrough.json", ec)) {
+        out.push_back(projectDir / "playthrough.json");
+    }
+    std::vector<fs::path> tests;
+    for (const auto& e : fs::directory_iterator(projectDir / "tests", ec)) {
+        if (e.is_regular_file(ec) && e.path().extension() == ".json") {
+            tests.push_back(e.path());
+        }
+    }
+    std::sort(tests.begin(), tests.end());
+    out.insert(out.end(), tests.begin(), tests.end());
+    return out;
+}
+
+u64 playStepLimit(const PlayScript& script) noexcept {
+    return script.maxTicks == 0 ? u64{2'000'000} : static_cast<u64>(script.maxTicks) * 2 + 1'000;
 }
 
 } // namespace sbx::scenario

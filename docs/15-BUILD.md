@@ -263,6 +263,13 @@ sbx digest <팩 폴더> [--cache | --cache-dir <폴더>]   (v0.4 M2-T1, ADR-0071
 sbx resolve <프로젝트> [--cache-dir <폴더>]   (v0.4 M3-T1 — 09 11장)
   매니페스트 dependencies 에서 출발해 소스를 받아 그래프를 푼다: "의존 그래프: 팩 n · 오류 m" · 팩마다 "  <id> <version> · <license>
   · <소스> · digest <앞 16>… ← <요구자들>" · "  오류: …" (충돌 · 범위 · 순환 — 있으면 종료 코드 1)
+sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2, ADR-0076)
+  패키지 (팩) 틀 — pack.json (0.1.0 · license — 없으면 LicenseRef-proprietary) · scripts/main.ts (컴포넌트 <팩>.counter · export
+  function bump) · scripts/tick.ts (시스템 <팩>.tick) · prefabs/thing.json. 검사를 통과해야 제자리로 (비지 않은 폴더는 종료 2).
+  게임에서: sbx add <게임> <팩> --path <폴더>, 스크립트는 import { Counter } from "@<팩>/main"
+sbx test <프로젝트>   (v0.4 M4-T2, ADR-0076 — 13 5.1)
+  검사 → playthrough.json · tests/*.json 을 같은 프로세스에서 끝까지 · expect. "통과 | 실패 <파일> — <결과>" · "시험: 통과 n ·
+  실패 m". 검사 오류 · 실패가 하나라도 있으면 종료 1
 sbx install <프로젝트> · update <프로젝트> [<팩>] · add <프로젝트> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
     · remove <프로젝트> <팩>   (모두 [--cache-dir <폴더>] — v0.4 M3-T3, ADR-0074 · 09 12장)
   install 은 잠금 sandbox.lock 그대로 (캐시의 digest → 없으면 소스가 잠금과 같을 때만, 잠금이 없으면 해결해서 만든다), update 는
