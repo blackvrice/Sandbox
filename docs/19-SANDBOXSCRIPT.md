@@ -240,8 +240,8 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
             ComponentDataOrNull · EntityList — T 는 Component 인자가 정한다 (isComponentGeneric).
             (v0.3 M5-T3 — 21장) 주인 ClientContext · 도메인 Client: client.tick · frame · dt · read · has · query · label · print.
             지문 e02f109682ecb304 (더하기만이라 kHostApiVersion 1 그대로)
-[계획]      난수 (ctx.random) · 생성 · 파괴 · 점수 · 컴포넌트 붙이기 · 떼기, 엔진 컴포넌트의 ComponentRef (권한 표와 함께) — v0.3 에는
-            일정이 없다 (M6 데모가 요구하면 18 6.2 에 태스크로)
+[계획]      난수 (ctx.random) · 생성 · 파괴 · 점수 · 컴포넌트 붙이기 · 떼기, 엔진 컴포넌트의 ComponentRef (권한 표와 함께) — v0.5 M2
+            (20 3장, ADR-0080)
 ```
 
 ## 11. 이름 · 타입 검사 (v0.3 M1-T2 — `script/lang/Checker`)
@@ -642,8 +642,8 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            마지막 프레임의 글자 · 줄 수와 줄
 결정론     클라이언트 스크립트는 시뮬레이션 밖이다 — 표시는 그 화면에만 남고 서버로 아무것도 가지 않는다 (04 의 규칙이 닿지 않는다).
            frame · dt 는 클라이언트마다 다르다
-[계획]     클라이언트 스크립트의 명령 보내기 · 입력 · 그리기 (도형 · 스프라이트) · 엔진 컴포넌트 읽기 · 개체 참조 풀기 — M6 데모가
-           요구하면 18 6.2 에 태스크로
+[계획]     클라이언트 스크립트의 명령 보내기 (ctx.send) · 입력 · 소리 이벤트 · 엔진 컴포넌트 읽기 · 게임 UI (ctx.ui) — v0.5 M2-T6 · M3
+           (20 2.5 · 3.8). 도형 · 스프라이트 그리기 · 개체 참조 풀기는 v0.6
 ```
 
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)

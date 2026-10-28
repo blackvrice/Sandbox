@@ -1,9 +1,11 @@
 # 13. 테스트 전략
 
 > **규범 문서.** 변경을 검증하는 방법과 골든 해시 절차를 정합니다.
-> 상태 (2026-10-26): L1 · L1′ · L2 (content · project) · L3 (D1~D5 · 골든 · 리플레이) · L3′ · L4 (bench_quick, 옵션) · L5 (WARP) ·
-> L6 이 구현됨 — CTest 63 개 (`render_tests_warp` 포함, GPU · Debug Layer 가 없는 기계에서는 `-E render_tests_warp`). 2장 표 아래
+> 상태 (2026-10-28): L1 · L1′ · L2 (content · project) · L3 (D1~D5 · 골든 · 리플레이) · L3′ · L4 (bench_quick, 옵션) · L5 (WARP) ·
+> L6 이 구현됨 — CTest 68 개 (`render_tests_warp` 포함, GPU · Debug Layer 가 없는 기계에서는 `-E render_tests_warp`). 2장 표 아래
 > 목록이 등록된 테스트, 그 아래 줄들이 태스크마다 더한 케이스입니다. 자동 플레이 (5.1) 는 v0.2.
+> v0.5 의 시험 계획 (단위 · 통합 · 보안 · 호환성 — 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 · 진단) 은
+> [20-CREATOR-ALPHA](20-CREATOR-ALPHA.md) 12장 [계획] — 태스크마다 이 문서의 표로 옮긴다.
 
 ---
 

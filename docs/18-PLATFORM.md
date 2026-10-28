@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.4 완료 — 0.4.0).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.4 완료 — 0.4.0, v0.5 계획).
 
 ---
 
@@ -12,8 +12,9 @@
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
-다음     v0.5 Creator Alpha — 계획 커밋 (v0.4 를 시작한 방식 그대로: 진입 조건 · 먼저 정할 결정 → ADR, 6.6 마일스톤 · 태스크).
-         v0.4 에서 v0.5 로 미룬 것 (패키지 에셋 · 커버리지 퍼즈) 과 v0.3 에서 미룬 스크립트 항목 (노트 5장) 이 입력이다
+         v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
+다음     v0.5 M1-T1 — 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 (20 10장 Phase 1). M2-T1 (엔진 컴포넌트 접근 표) 도 선행이
+         없어 바로 할 수 있다
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -25,7 +26,7 @@
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ✅ 0.4.0 (6.4 · [노트](releases/v0.4.0.md))      |
-| v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
+| v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | ◐ 계획 (6.6 · [20](20-CREATOR-ALPHA.md), ADR-0078) |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
 | v0.7 | Multiplayer Platform   | 인증된 방 · 자체 서버 · 무료 세션          | [계획] — 보안 전송 ADR 먼저 (R6)                |
 | v0.8 | Marketplace & Hosting  | 결제 · 정산 · 상시 서버                    | [계획] — 실제 사용자 노출은 보안 · 운영 조건 뒤 |
@@ -60,18 +61,19 @@
 | GameProject · Manifest  | Implemented | M1 ✅ — 검사 · 열기 · 게임 정체성 · sbx new/check · 에디터 저장 = 프로젝트 worlds/ (ADR-0040~0044)                          |
 | World / Map             | Implemented | 세이브 폴더 형식이 곧 월드 (ADR-0040) — 지형 · Prefab 인스턴스 · 오버레이                                                   |
 | SaveGame                | Implemented | 세이브 = 월드 상태 전체 + world.json "game" 결속 (M5-T2 — 다른 게임 거절 · 다른 버전 알림). 버전 간 마이그레이션은 v0.4      |
-| GamePackage (.sbpkg)    | Implemented | M5-T2 ✅ — sbx build · check, --world <패키지>, 파일마다 SHA-256 · digest, 세이브 결속 (ADR-0054). 압축 v0.4 · 서명 v0.6 |
+| GamePackage (.sbpkg)    | Implemented | M5-T2 ✅ — sbx build · check, --world <패키지>, 파일마다 SHA-256 · digest, 세이브 결속 (ADR-0054), 형식 2 라이선스 요약 (v0.4). 압축 · 서명 v0.6 |
 | 게임 라이프사이클       | Implemented | M2 ✅ — GameMode · game.session (17b) · 시작 · 중단 · 재시작 (자동), "게임" 패널 (ADR-0045 · 0046)                          |
 | 플레이어 행동           | Partial     | 콘텐츠 PlayerAction ✅ (M3-T1 — 점에 쓰는 행동, "행동" 패널, ADR-0047). 쿨다운 · 비용 · 유닛 지시는 v0.3 · v0.5           |
 | Feature Bundle          | Implemented | life.health · energy · Spawn(Prefab 생성 · Reproduce · 스폰 지점) · Score(팀 · 공용) · Win/Lose(끝 조건) · Camera(처음 자리) · Input(팩 게임 키) · 데모 모드 eco.protect (M3 ✅) · Timer (event.timer · cond.time, M4) |
-| Visual Trigger          | Implemented | M4 ✅ — triggers/*.json 노드 21 종 · V10 · 단계 17c · "콘텐츠" 창 폼 (ADR-0050~0052). 노드 그래프 캔버스는 v0.3 · v0.5      |
+| Visual Trigger          | Implemented | M4 ✅ — triggers/*.json 노드 21 종 · V10 · 단계 17c · "콘텐츠" 창 폼 (ADR-0050~0052). 노드 그래프 캔버스는 v0.6 (21 1장)    |
 | Edit ↔ Test Play        | Implemented | M5-T1 ✅ — 편집 월드를 서버 메모리에 맡기고 복사본으로 플레이, 멈추면 원본 그대로 (ADR-0053). 여러 사람의 테스트 플레이는 v0.7 |
 | SandboxScript · VM      | Implemented | v0.3 M1 · M2 ✅ — script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 검증기 · 인터프리터 · Host 표 · sandbox.d.ts), unit_script (ADR-0056~0058) |
 | 사용자 Component 스키마 | Implemented | v0.3 M3 ✅ — defineComponent → 동적 풀 · 콘텐츠의 카탈로그 (Prefab · Inspector · 세이브 · 복제 · 해시), 읽기 · 질의 · 쓰기, 세이브 마이그레이션 (ADR-0059~0061) |
 | 사용자 System           | Implemented | v0.3 M4 ✅ — defineSystem: 단계 16b onTick · 17d onStart · onEvent · onStop, 예산 · 트랩 정책 · 통계 (ADR-0062~0064)         |
 | 스크립트 도구           | Implemented | v0.3 M5 ✅ — sbx new SDK 파일 · sbx check 요약 (ADR-0065), 에디터 스크립트 편집 · 오버레이 (ADR-0066), client 도메인 최소 (ADR-0067), 프로파일 패널 (ADR-0068) |
-| 패키지 · SemVer         | Partial     | foundation/version/SemVer (v0.2 M1-T1 — 버전 · 범위 비교만). 의존성 해석 · 잠금 파일은 v0.4                                 |
+| 패키지 · SemVer         | Implemented | v0.4 ✅ — SemVer (~ · *), 의존 해석 · sandbox.lock · 트랜잭션 설치 · 팩 사이 import · 라이선스 요약 (ADR-0071~0077)         |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
+| 게임 UI · 다국어 · 진단  | Missing     | v0.5 계획 (6.6 · 20) — 영역별 근거 · 빠진 것은 21 1장                                                                        |
 
 ## 3. 모듈 계획 (C++ 의존 방향은 01 2장 그대로)
 
@@ -233,11 +235,17 @@ v0.3 SandboxScript   D-01 언어 부분집합(숫자 i32/f32/f64 · 예외 · GC
                      · 파서/타입 검사기를 직접 쓸지 TS 컴파일러(Node, 빌드 체인만)를 쓸지는 D-01 에서 (게임 실행 파일에 JS 런타임 없음)
 v0.4 Package Manager  매니페스트 dependencies · 잠금 파일 · 로컬/Git 소스 · 충돌 · 순환 · 다이제스트, sbx CLI (init/add/remove/update/build/test)
 v0.5 Creator Alpha    템플릿 3종 · 패키지 빌드 · 설치 UX · 오류 보고 · A 제작 → B 실행 E2E
+                      + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 · 키 설정 기반 · 충돌 로그 · 안전 모드 (6.6, ADR-0078)
 v0.6 Hub              계정 · 레지스트리 · 불변 릴리스 · GitHub 연동 (D-06 저장소 경계)
+                      + 게임 검색 · 목록 · 프로필 · 패키지 · 게임 신고 · 차단 · 패키지 분석 · UI 시각 편집 · 물리 · 경로 API
 v0.7 Multiplayer      보안 전송 (D-07) · Directory · Room · JoinTicket · 자체 서버 등록 · 무료 세션 (D-08)
+                      + 플레이어 데이터 (서버 API) · 친구 · 초대 · 파티 · 등급전 · 순위표 · 원격 관전 · 방 안 신고 · 음소거
 v0.8 Marketplace       Entitlement · 결제 대행 · 정산 장부 · 상시 호스팅 (D-09) — 테스트 모드로만
+                      + 업적 · 통계 API · 플레이 분석 (동의) · 추천 · 리플레이 공유
 v0.9 Business          팀 ACL · CI/CD · 승인 · 감사 (D-10)
-v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 감사 · 데모 3종
+                      + 서명 자동 업데이트 · 되돌리기 · 운영 콘솔 · 도구 다국어
+v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 감사 · 데모 3종 + 접근성 점검 · 게임플레이 API 동결
+배치 근거   21 2 · 4장, ADR-0082 (계정 · 신뢰할 서버가 필요한 기능은 그 뒤에). JIT/AOT 는 v1.x 검토 (ADR-0081)
 ```
 
 ### 6.1 열린 결정 (초안 04 3장 + 이 저장소)
@@ -255,6 +263,11 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-09 | 판매 국가 · 수수료 · 환불 · 정산 사업자                           | v0.8 진입 전 | 열림                                       |
 | D-10 | Business 좌석 · CI 할당 · SLA                                     | v0.9 초기    | 열림                                       |
 | D-11 | 플레이어 행동 모델 (유닛 명령 · 직접 조작, 지연 체감 — 예측 없음) | v0.2 M3 전   | 결정 — 콘텐츠 PlayerAction 부터 (ADR-0045) |
+| D-12 | 게임 UI 런타임 · 렌더 백엔드 · GraphicsUI 의존                    | v0.5 진입    | 결정 — 팩의 선언형 문서 · 독립 타깃 · ImGui 그리기 목록 백엔드 · GraphicsUI 기다리지 않음 (ADR-0079) |
+| D-13 | 스크립트의 엔진 컴포넌트 · 구조 변경 권한                         | v0.5 진입    | 결정 — 접근 표 · 호출 버퍼 → ECB · 상한 · 신호 선언 (ADR-0080) |
+| D-14 | 오디오 출력 백엔드 (직접 · 서드파티)                              | v0.5 M2-T6   | 열림 — 못 정하면 소리 이벤트 · Null 만, 출력은 v0.6 |
+| D-15 | 서비스 데이터 (영구 저장 · 순위 · 업적) 의 신뢰 경계               | v0.5 계획    | 결정 — 계정 · 신뢰할 서버 뒤 (v0.7), 자체 서버 결과는 공식에 안 넣음 (ADR-0082) |
+| D-16 | 스크립트 실행 방식 (Interpreter · JIT · AOT)                      | v0.5 계획    | 결정 — Interpreter 유지 · IScriptExecutor 계약 · 프로파일 먼저, JIT/AOT v1.x (ADR-0081) |
 
 ### 6.2 v0.3 SandboxScript — 마일스톤 · 태스크 (ADR-0056 언어 · ADR-0057 Host API)
 
@@ -452,6 +465,51 @@ removed   따로 된 sbx init (→ new · new --pack), 여러 버전 공존 (→
 골든      kSimVersion 4 그대로 — 패키지는 콘텐츠 로드의 일 (det_* · 리플레이 · rabbit_guard · mana_regen 해시 그대로)
 ```
 
+### 6.6 v0.5 Creator Alpha — 마일스톤 · 태스크 (ADR-0078 — 상세는 [20-CREATOR-ALPHA](20-CREATOR-ALPHA.md) 10장)
+
+초안 roadmap/v0_5 의 요구 R1~R6 · 완료 기준 C1~C4 그대로 + 확장 X1 게임 UI (ADR-0079) · X2 게임플레이 API (ADR-0080) · X3 리플레이
+뷰어 · X4 다국어 · 접근성 기반 (ADR-0083) · X5 실행 경계 · 함수별 프로파일 (ADR-0081). 현재 상태 · 근거는 21 1장.
+
+```text
+M1 진단 · 채널
+  T1 [계획] 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 (platform)
+  T2 [계획] sbx report · sbx doctor (진단 묶음 — 엔진 범위 · 설치 · 패키지 · 콘텐츠 · GPU)
+  T3 [계획] 안전 모드 · 새 버전 알림 (알림만 — 받기는 사용자)
+  T4 [계획] CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 (zip · SHA-256)
+M2 게임플레이 API
+  T1 [계획] 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
+  T2 [계획] 엔진 컴포넌트 쓰기 규칙
+  T3 [계획] spawn · destroy · add · remove (호출 버퍼 → ECB) · 상한
+  T4 [계획] random (시스템마다 흐름) · near · time
+  T5 [계획] 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) — 골든 영향 측정
+  T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14)
+M3 게임 UI
+  T1 [계획] ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1~U8 · sbx check
+  T2 [계획] 배치 엔진 (앵커 · 크기 · 쌓기 · 목록 — 헤드리스 골든)
+  T3 [계획] ImGui 그리기 목록 백엔드 · 클라이언트 층 · 입력 라우팅
+  T4 [계획] 바인딩 (var · session · component@owned) · ctx.ui
+  T5 [계획] 이벤트 (버튼 → 신호 · 행동 · 보이기)
+  T6 [계획] 스타일 · 테마 · 배율
+  T7 [계획] 에디터 UI 미리보기 · 편집
+M4 다국어 · 접근성 기반
+  T1 [계획] 문자열 표 · 로케일 대체 · 인자 · "@키"   T2 [계획] 폰트 대체 · 글자 늘어남
+  T3 [계획] 키 다시 묶기 (설정 · 패널)              T4 [계획] UI 배율
+M5 리플레이 뷰어
+  T1 [계획] SandboxClient --replay · 로컬 재생 · 결속   T2 [계획] 재생 · 멈춤 · 속도 · seek · 타임라인
+  T3 [계획] --record (테스트 · 자동 플레이) · 보고 묶음에
+M6 제작 UX · 템플릿 · 스크립트 개선
+  T1 [계획] 첫 화면 새 프로젝트 · 열기 · 최근        T2 [계획] 템플릿 3종 (노코드 미니게임 + HUD · 스크립트 보드게임 · 생존)
+  T3 [계획] 에디터 "패키지" 패널 · 설치 단추        T4 [계획] 오류 메시지 · 트랩 위치 · 함수별 프로파일 · IScriptExecutor
+  T5 [계획] 튜토리얼 (docs/tutorials)
+M7 데모 · 릴리스
+  T1 [계획] samples/omok (스크립트 규칙 · UI · 세이브)   T2 [계획] samples/hud_guard (노코드 + HUD)
+  T3 [계획] A → B E2E (패키지 전달 · 빈 캐시 · 진단)     T4 [계획] 공개 Alpha 채널 · 외부 테스트 · 차단 목록
+  T5 [계획] 버전 종료 0.5.0
+순서      M1 ∥ M2 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프). 늦으면 미루는 순서는 ADR-0078 6
+```
+
+v0.5 완료 기준: 20 13.1 (C1~C4 · X1~X5 · R1~R6), 릴리스 차단: 20 13.2.
+
 ## 7. 문서 · ADR 계획
 
 ```text
@@ -511,6 +569,8 @@ v0.4 M5-T1 ✅ 13 (거부 시험 · 재현), 09 12장, 17
 v0.4 M5-T2 ✅ ADR-0077, 09 9장 (.sbpkg 형식 2 — packs), 15 7장, 17, 13
 v0.4 M6-T1 ✅ 13 5.1 (패키지 데모), 15 (실행), 17, README
 v0.4 M6-T2 ✅ releases/v0.4.0, 14 7.14 (패키지 명령 시간), 18 (0 · 1 · 4장 · 6.4 · 6.5 · 7 · 8장), README · docs/README (버전 표)
+v0.5 계획 ✅  20 (요구 · 설계 · 계획 · 시험 · 완료 기준), 21 (구현 상태 · 기능 12 종 · 배치), 18 (0 · 1장 · 6 · 6.1 · 6.6), ADR-0078~0083
+v0.5 M1~M7    태스크마다 20 의 해당 장 + 규범 문서 (02 · 03 · 07 · 08 · 09 · 10 · 11 · 13 · 14 · 15 · 19) — 20 10장의 표
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)

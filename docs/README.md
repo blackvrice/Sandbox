@@ -28,7 +28,7 @@
 | 05 | [월드](05-WORLD.md)                           | Chunk, Terrain, Spatial Index                                              | 규범          |
 | 06 | [렌더링](06-RENDERING.md)                     | RHI, DX12 / Vulkan / Metal, 셰이더, 에셋, 프레임                           | 규범          |
 | 07 | [플랫폼](07-PLATFORM.md)                      | 창, 입력, 오디오, 네이티브 핸들                                            | 규범          |
-| 08 | [네트워크](08-NETWORK.md)                     | Transport, 프로토콜 (지금 13), 복제, Interest, 역할                        | 규범          |
+| 08 | [네트워크](08-NETWORK.md)                     | Transport, 프로토콜 (지금 14), 복제, Interest, 역할                        | 규범          |
 | 09 | [직렬화](09-SERIALIZATION.md)                 | 세이브, 리플레이, 게임 패키지, 비트스트림, 버전 · 마이그레이션             | 규범          |
 | 10 | [에디터](10-EDITOR.md)                        | 패널, 툴, 편집 명령, Undo, 권한, 콘텐츠 · 트리거 · 스크립트 편집           | 규범          |
 | 11 | [콘텐츠 스키마](11-CONTENT-SCHEMA.md)         | Prefab · Rule · Behavior · GameMode · PlayerAction · Trigger · scripts/    | 규범          |
@@ -40,6 +40,8 @@
 | 17 | [소스 지도](17-SOURCE-MAP.md)                 | "이 코드가 어디 있지?"                                                     | 참조          |
 | 18 | [플랫폼 계획](18-PLATFORM.md)                 | **지금 상태 · 다음 태스크**, v0.1~v1.0 버전 · 마일스톤, 게임 프로젝트 계약 | 계획 · 규범   |
 | 19 | [SandboxScript](19-SANDBOXSCRIPT.md)          | 스크립트 언어 · 컴파일러 · VM · Host API · 컴포넌트 · 시스템 (v0.3)        | 규범          |
+| 20 | [Creator Alpha (v0.5)](20-CREATOR-ALPHA.md)   | v0.5 요구 · 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 · 계획 · 완료 기준 | 계획 · 규범   |
+| 21 | [플랫폼 기능 분석](21-PLATFORM-FEATURES.md)   | 구현 상태 (Gap) · 신규 기능 12 종 · v0.5~v1.0 배치                          | 분석          |
 | —  | [릴리스 노트](releases/v0.4.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 · 0.3.0 · 0.4.0)         | 이력          |
 | —  | [수동 QA 체크리스트](qa/MANUAL-QA.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
 | —  | [결정 기록 (ADR)](adr/README.md)              | "왜 이렇게 했지?"                                                          | 이력          |
@@ -57,7 +59,8 @@
 ## 2. 급할 때 읽을 순서
 
 ```text
-처음 온 사람          00 → 18 (0 · 1 · 2장) → 01 → 17
+처음 온 사람          00 → 18 (0 · 1 · 2장) → 21 (1장) → 01 → 17
+v0.5 작업             18 (6.6) → 20 → 해당 규범 문서 (ADR-0078~0083)
 ECS / 시뮬레이션 수정  04 → 02 → 03 → 12 → 13
 스크립트 (VM · 언어)   19 → 04 → 02 (9.6) → 03 (16b · 17d) → 13
 렌더러 작업           01 → 06 → 07 → 12
