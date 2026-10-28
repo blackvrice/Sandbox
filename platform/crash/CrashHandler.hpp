@@ -30,6 +30,10 @@ struct CrashConfig {
 // 프로세스에 한 번. 다시 부르면 설정만 바꾼다
 void install(CrashConfig config);
 
+// 문맥 한 쌍을 더하거나 바꾼다 (같은 키면 값만) — 월드를 연 뒤 게임 · 패키지 digest 를 묶음에 남긴다 (v0.5 M1-T2).
+// 아무 스레드에서나 부른다
+void setContext(std::string key, std::string value);
+
 // 시험용 — 일부러 잘못된 메모리에 쓴다 (--crash-test). 돌아오지 않는다
 [[noreturn]] void crashForTest();
 

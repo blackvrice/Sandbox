@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
                          "SandboxClient",
                          argStore,
                          opts->ownerKey.empty() ? std::vector<std::string>{} : std::vector<std::string>{opts->ownerKey},
-                         {}});
+                         {{opts->connect ? "connect" : "world", opts->connect.value_or(opts->world.value_or(""))}}});
     if (opts->crashTest) {
         sbx::crash::crashForTest();
     }

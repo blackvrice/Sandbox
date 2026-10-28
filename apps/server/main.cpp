@@ -146,6 +146,21 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::log::info("server", "게임 패키지 digest sha256:{} — 파일 {} 개 (검증함)", world->package->digest,
                        world->package->files.size());
     }
+    // 충돌 보고 묶음의 문맥 (v0.5 M1-T2) — 어떤 게임 · 패키지 · 팩이었나
+    if (world->game) {
+        sbx::crash::setContext("game", world->game->gameId + " " + world->game->version.toString());
+    }
+    if (world->package) {
+        sbx::crash::setContext("package", "sha256:" + world->package->digest);
+    }
+    std::string packs;
+    for (const std::string& p : world->packs) {
+        packs += (packs.empty() ? "" : ", ") + p;
+    }
+    sbx::crash::setContext("packs", packs.empty() ? std::string("(내장)") : packs);
+    if (opts.crashTest) {
+        sbx::crash::crashForTest();
+    }
     const unsigned hc = std::thread::hardware_concurrency();
     const sbx::u32 workers = opts.threads.value_or(std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
     sbx::JobSystem jobs(workers);
@@ -300,8 +315,8 @@ int main(int argc, char** argv) {
                          argStore,
                          opts->ownerKey.empty() ? std::vector<std::string>{} : std::vector<std::string>{opts->ownerKey},
                          {{"world", opts->world.value_or(opts->scenario.value_or(""))}}});
-    if (opts->crashTest) {
-        sbx::crash::crashForTest();
+    if (opts->crashTest && !opts->world) {
+        sbx::crash::crashForTest(); // --world 면 월드를 연 뒤 (묶음의 game · packs 문맥까지 — runWorldServer)
     }
     if (opts->showHelp) {
         std::fputs(sbx::server::serverUsage().c_str(), stdout);

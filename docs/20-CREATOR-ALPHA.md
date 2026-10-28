@@ -261,11 +261,21 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 256 줄), 보고 묶음 (foundation/diag — <보고 폴더>/<UTC 시각>-<앱>/ report.json · log.txt · crash.dmp), 보고 폴더 =
                 SBX_REPORTS_DIR · %LOCALAPPDATA%\sandbox\reports · $XDG_STATE_HOME/sandbox/reports. 민감정보 제거 (diag::scrub): 비밀
                 (소유자 열쇠) → <SECRET>, 사용자 폴더 → <HOME>, 사용자 이름 → <USER>, IPv4 → <IP> (127.0.0.1 · 0.0.0.0 그대로), 전자우편 →
-                <EMAIL>. 덤프는 거르지 않는다 (메모리가 든다 — M1-T2 의 sbx report 가 알린다). 게임 · 패키지 digest · 리플레이를 묶음에
-                넣는 것은 M1-T2 · M5-T3
-7.2 보기        sbx report <묶음> (요약 · 마지막 로그 · 콜스택) — "에러 대시보드" 의 v0.5 몫 (로컬). 호스팅 대시보드는 v0.6 · v0.9
-7.3 진단        sbx doctor <프로젝트 | 패키지> — 엔진 버전 · 범위, 패키지 형식 · digest, 잠금 · 설치 (P8), 콘텐츠 검사 요약, GPU · 드라이버 ·
-                OS (클라이언트), 지원 매트릭스 판정. 클라이언트가 열기에 실패하면 같은 내용을 오류 화면에 (복사 단추)
+                <EMAIL>. 덤프는 거르지 않는다 (메모리가 든다 — sbx report 가 알린다). M1-T2: 콜스택 (report.json "stack" —
+                Windows 는 예외 문맥에서 StackWalk64 · 실행 파일 옆 PDB 가 있으면 기호 · 줄 (파일은 이름만), POSIX 는 backtrace),
+                문맥 crash::setContext (서버는 월드를 연 뒤 game · package digest · packs, 클라이언트는 connect · world). 리플레이를
+                묶음에 넣는 것은 M5-T3
+7.2 보기        ✅ M1-T2. sbx report [<묶음 | 이름>] [--lines n] [--reports-dir d] — 없으면 보고 폴더의 묶음 목록 (새것부터), 있으면
+                요약 (앱 · 시각 · 버전 · 커밋 · 툴체인 · 이유 · 명령줄 · 문맥) · 콜스택 · 마지막 로그 · 파일 · 거름 알림 · 덤프 알림
+                ("crash.dmp 에는 프로세스 메모리가 걸러지지 않고 든다 — 믿는 사람에게만") · 여는 법 · sbx 와 묶음의 버전 차이. 더 새
+                보고 형식은 읽지 않는다. "에러 대시보드" 의 v0.5 몫 (로컬). 호스팅 대시보드는 v0.6 · v0.9
+7.3 진단        ✅ M1-T2. sbx doctor <프로젝트 | 패키지> (core/project/Diagnostics — DiagnosticReport): 영역마다 "[영역] 수준 문장" +
+                "→ 고치는 법". 엔진 (버전 · 커밋 · 툴체인) · 환경 (지원 매트릭스 7.8 — Windows 통과, Linux · macOS 경고 "검증 안 됨") ·
+                패키지 (머리 · 목록을 못 읽음 "잘렸거나 .sbpkg 가 아니다", 내용이 목록과 다름 "깨졌거나 바뀌었다" — 그래도 목록의 엔진
+                범위는 본다, 형식 1 · 라이선스 없는 팩 경고) · 매니페스트 · 엔진 범위 (더 새 엔진이 필요 "엔진 X 이상을 받는다" · 옛
+                엔진용) · 의존 · 설치 (P7 · P8 → "sbx install <폴더>") · 콘텐츠 (처음 8 개 + 나머지 수 → sbx check) · 시작 월드 · 도구
+                (P6 → sbx sdk). 검사 자체는 validateProject · extractPackage 그대로. 오류면 종료 1. GPU · 드라이버 (클라이언트) 와 오류
+                화면 (같은 문장 · 복사 단추) 은 [계획] — 클라이언트 오류 화면 태스크 (M1-T3 안전 모드와 함께 정한다)
 7.4 오디오      D-14: v0.5 에 실제 출력 백엔드를 넣을지 (Windows WASAPI 직접 · miniaudio 류 서드파티) — M2-T6 에서 결정. 정하지 못하면
                 소리 API 는 이벤트 · Null (센다) 로 두고 출력은 v0.6
 7.5 안전 모드   SandboxClient --safe-mode: 사용자 설정 · 키 설정 · UI 배율 · 캐시를 쓰지 않고 시작, 깨진 설정 파일은 옆으로 옮기고 알림
@@ -317,7 +327,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
 | M1-T1 ✅ | 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 | platform/crash (새 타깃 SandboxCrash — platform/common 은 OS 헤더 금지 · 서버는 SandboxPlatform 을 링크하지 않으므로 따로), foundation/log (고리), foundation/diag (Scrub · Report), apps/client · server main (--crash-test) | crash::install · CrashConfig, diag::scrub · ScrubRules, createReportDir · writeReport | — | test_diag (scrub 고정 문자열 · 고리 · 묶음), CTest crash_report_server · client (일부러 충돌 → 묶음 · 덤프 · 열쇠 없음) | 서버 · 클라이언트가 충돌하면 묶음이 남고 민감정보 시험 통과 |
-| M1-T2 | sbx report · sbx doctor (진단 묶음) | tools/sbx, core/project (진단 보고) | DiagnosticReport | M1-T1 | 진단 항목 (엔진 범위 · P8 · 패키지 형식) unit, CTest doctor | 다른 엔진 · 빠진 설치 · 깨진 패키지를 문장으로 |
+| M1-T2 ✅ | sbx report · sbx doctor (진단 묶음) · 콜스택 · 문맥 | tools/sbx, core/project/Diagnostics, platform/crash (StackWalk64 · backtrace · setContext) | DiagnosticReport · diagnose · readReportBundle · formatReportBundle, crash::setContext | M1-T1 | test_diagnostics (영역 · 엔진 범위 새 · 옛 · P8 · 깨진 패키지 · 묶음 읽기 · 보기), CTest project_doctor, crash_report (콜스택 · 문맥 · sbx report) | 다른 엔진 · 빠진 설치 · 깨진 패키지를 문장으로 |
 | M1-T3 | 안전 모드 · 새 버전 알림 | apps/client (ClientOptions · 설정), foundation/version | ReleaseFeed (읽기만) | — | 깨진 설정 → 옮김 · 시작, 버전 비교 unit (네트워크 없음 — 파일 입력) | --safe-mode 로 깨진 설정에서도 시작 |
 | M1-T4 | CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 스크립트 | .github/workflows, tools/release (zip · SHA-256), docs (15 · 20 7.8) | — | — | CI 녹색 (ctest -E render_tests_warp) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |
 

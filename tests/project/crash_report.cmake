@@ -1,7 +1,10 @@
 # 충돌 보고 (v0.5 M1-T1 — docs/20-CREATOR-ALPHA.md 7.1): 실행 파일을 --crash-test 로 일부러 충돌시키고 (SBX_REPORTS_DIR 아래)
 # 보고 묶음 하나가 남는지 — report.json (이유 · 버전) · log.txt (마지막 로그 — "--crash-test" 줄), Windows 는 crash.dmp,
 # 소유자 열쇠 · 사용자 폴더가 묶음 어디에도 없다. 종료 코드는 0 이 아니어야 한다.
-#   cmake -DEXE=<SandboxServer | SandboxClient> -DAPP=<이름> -DOUT=<작업 폴더> "-DARGS=a;b;…" -P crash_report.cmake
+# v0.5 M1-T2: 콜스택 (Windows Debug — 기호 crashForTest), CONTEXT 의 문맥 키, SBX 를 주면 sbx report 목록 · 보기
+# (요약 · 콜스택 · 마지막 로그 · 덤프 알림).
+#   cmake -DEXE=<SandboxServer | SandboxClient> -DAPP=<이름> -DOUT=<작업 폴더> "-DARGS=a;b;…" [-DSBX=<sbx>]
+#         ["-DCONTEXT=키;…"] -P crash_report.cmake
 foreach(v EXE APP OUT)
     if(NOT DEFINED ${v})
         message(FATAL_ERROR "${v} 가 필요합니다")
@@ -59,5 +62,33 @@ foreach(text IN ITEMS "${report}" "${log}")
 endforeach()
 if(NOT report MATCHES "<SECRET>")
     message(FATAL_ERROR "소유자 열쇠 자리에 <SECRET> 이 없다")
+endif()
+# 콜스택 (M1-T2) — Windows 는 예외 문맥에서 걷고 PDB 로 기호를 단다 (Debug), POSIX 는 backtrace (있으면)
+if(WIN32 AND NOT report MATCHES "\"stack\": \\[\n    \"#0 [^\n]*crashForTest") # 0 번 프레임 = 잘못 쓴 곳
+    message(FATAL_ERROR "Windows: 콜스택에 crashForTest 가 없다")
+endif()
+foreach(key IN LISTS CONTEXT)
+    if(NOT report MATCHES "\"${key}\": ")
+        message(FATAL_ERROR "report.json 문맥에 ${key} 가 없다")
+    endif()
+endforeach()
+if(DEFINED SBX)
+    execute_process(COMMAND "${SBX}" report --reports-dir "${OUT}/reports"
+        RESULT_VARIABLE rc OUTPUT_VARIABLE list ERROR_VARIABLE err)
+    message("sbx report:\n${list}${err}")
+    get_filename_component(name "${dir}" NAME)
+    if(NOT rc EQUAL 0 OR NOT list MATCHES "묶음 1" OR NOT list MATCHES "${name}")
+        message(FATAL_ERROR "sbx report 목록에 묶음이 없다")
+    endif()
+    execute_process(COMMAND "${SBX}" report "${name}" --reports-dir "${OUT}/reports" --lines 3
+        RESULT_VARIABLE rc OUTPUT_VARIABLE view ERROR_VARIABLE err)
+    message("sbx report ${name}:\n${view}${err}")
+    if(NOT rc EQUAL 0 OR NOT view MATCHES "앱 ${APP}" OR NOT view MATCHES "콜스택" OR NOT view MATCHES "마지막 로그 \\([1-3] / [0-9]+ 줄\\)"
+       OR NOT view MATCHES "--crash-test: 일부러" OR NOT view MATCHES "민감정보")
+        message(FATAL_ERROR "sbx report 보기에 요약 · 콜스택 · 마지막 로그가 없다")
+    endif()
+    if(WIN32 AND NOT view MATCHES "주의: crash\\.dmp 에는 프로세스 메모리")
+        message(FATAL_ERROR "sbx report 가 덤프의 메모리를 알리지 않았다")
+    endif()
 endif()
 file(REMOVE_RECURSE "${OUT}")

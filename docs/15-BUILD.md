@@ -237,7 +237,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.5 M1-T1) 충돌하면 보고 묶음을 남긴다 — <보고 폴더>/<UTC 시각>-SandboxServer/ (report.json · log.txt · Windows crash.dmp),
     stderr 에 "충돌 보고: <폴더>". 보고 폴더 = SBX_REPORTS_DIR, 아니면 %LOCALAPPDATA%/sandbox/reports (Windows) ·
     $XDG_STATE_HOME/sandbox/reports. 소유자 열쇠 · 사용자 폴더 · 사용자 이름 · IP 주소는 거른다 (덤프는 거르지 않는다).
-    [--crash-test] (시험용): 처리기를 단 뒤 일부러 충돌 — 클라이언트도 같다 (20-CREATOR-ALPHA 7.1).
+    [--crash-test] (시험용): 일부러 충돌 — --world 면 월드를 연 뒤 (묶음 문맥 game · package · packs, M1-T2), 클라이언트는
+    처리기를 단 뒤 (20-CREATOR-ALPHA 7.1). 묶음은 sbx report 로 본다 (콜스택 · 마지막 로그).
     (12C) [--owner-key <k>]: 클라이언트가 같은 --owner-key 로 들어오면 owner — "접속자" 패널에서 다른 사람의 역할을 바꾼다
     (owner = 누구든, admin = admin 아래인 사람을 editor 이하로). 틀린 열쇠는 접속 거절. 평문이다 (LAN · 신뢰하는 환경).
     (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준, 게임 프로젝트면 <프로젝트>/worlds — v0.2
@@ -278,6 +279,12 @@ sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2, ADR-0076
 sbx test <프로젝트>   (v0.4 M4-T2, ADR-0076 — 13 5.1)
   검사 → playthrough.json · tests/*.json 을 같은 프로세스에서 끝까지 · expect. "통과 | 실패 <파일> — <결과>" · "시험: 통과 n ·
   실패 m". 검사 오류 · 실패가 하나라도 있으면 종료 1
+sbx doctor <프로젝트 | 패키지.sbpkg>   (v0.5 M1-T2 — 20 7.3)
+  진단 — "[영역] 수준 문장" 줄마다 "→ 고치는 법": 엔진 · 환경 (지원 매트릭스) · 패키지 (깨짐 · 형식 · 라이선스) · 매니페스트 ·
+  엔진 범위 (새 엔진 · 옛 엔진) · 의존 · 설치 (→ sbx install) · 콘텐츠 · 시작 월드 · 도구. 끝 줄 "진단: 오류 n · 경고 m",
+  오류가 있으면 종료 1
+sbx report [<묶음 | 이름>] [--lines <n>] [--reports-dir <d>]   (v0.5 M1-T2 — 20 7.2)
+  충돌 보고 묶음 — 없으면 보고 폴더의 목록 (새것부터), 있으면 요약 · 콜스택 · 마지막 로그 (기본 40 줄) · 파일 · 덤프 알림
 sbx install <프로젝트> · update <프로젝트> [<팩>] · add <프로젝트> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
     · remove <프로젝트> <팩>   (모두 [--cache-dir <폴더>] — v0.4 M3-T3, ADR-0074 · 09 12장)
   install 은 잠금 sandbox.lock 그대로 (캐시의 digest → 없으면 소스가 잠금과 같을 때만, 잠금이 없으면 해결해서 만든다), update 는

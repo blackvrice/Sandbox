@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-28 — v0.5 M1-T2: sbx doctor · sbx report · 충돌 콜스택 · 문맥
+
+**무엇을**
+
+- core/project/Diagnostics: `diagnose` → DiagnosticReport — 영역 (엔진 · 환경 · 패키지 · 매니페스트 · 엔진 범위 · 의존 · 설치 ·
+  콘텐츠 · 시작 월드 · 도구) 마다 수준 · 한 줄 문장 · 고치는 법. 검사는 validateProject · readPackageIndex · extractPackage 그대로
+  쓰고 결과를 묶어 문장을 붙인다. 엔진 범위는 범위의 비교자로 "더 새 엔진 (엔진 X 이상을 받는다)" · "옛 엔진용" 을 가른다. 깨진
+  패키지는 머리 · 목록 (잘렸거나 .sbpkg 가 아님) 과 내용 (목록과 다름) 을 가르고, 풀지 못해도 목록의 엔진 범위를 본다. 지원
+  매트릭스 (Windows 통과, Linux · macOS "검증 안 됨" 경고).
+- 보고 묶음 읽기 `readReportBundle` · `listReportBundles` · `formatReportBundle` (덤프 알림 · 여는 법 · 버전 차이, 더 새 형식 거절).
+- sbx doctor <폴더 | .sbpkg> (오류면 종료 1) · sbx report [<묶음 | 이름>] [--lines] [--reports-dir] (없으면 목록).
+- 충돌 처리기: 콜스택 (report.json "stack" — Windows 예외 문맥 StackWalk64 + PDB 기호 · 줄, 파일은 이름만 / POSIX backtrace),
+  `crash::setContext` (잠금 — 처리기는 try_lock). 서버는 월드를 연 뒤 game · package · packs 를 문맥에, --crash-test 도 --world
+  면 연 뒤. 클라이언트 문맥 connect · world.
+- 시험: test_diagnostics 6, CTest project_doctor, crash_report (콜스택 · 문맥 · sbx report). 문서: 20 (7.1 · 7.2 · 7.3 · M1-T2),
+  18 (0 · 6.6), 15 (sbx doctor · report · --crash-test), 07 8장, 17, 13.
+
+**왜**
+
+- 20 7.2 · 7.3 · 완료 기준 C2 ("일부러 만든 호환성 문제를 doctor 가 문장으로") 와 초안 요구 4 (에러 대시보드의 로컬 몫).
+- 콜스택이 없으면 묶음이 "access violation at 0x…" 뿐이라 덤프를 열 줄 아는 사람만 원인을 본다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 70/70 통과 (+ project_doctor) · SandboxTests 645
+  케이스, check_includes 0 위반. det_* 골든 그대로 (시뮬레이션 무관).
+- 실행: `sbx doctor samples/rabbit_guard` · `samples/stash` → 영역마다 통과 · "진단: 오류 0 · 경고 0". crash_report_server 묶음을
+  `sbx report` 로 — 콜스택 9 프레임 (#0 crashForTest (CrashHandlerWin.cpp:177) · #1 runWorldServer (main.cpp:162) · #2 main …),
+  문맥 packs = eco · world, 덤프 알림.
+- POSIX backtrace 경로는 이 환경에서 컴파일 · 실행하지 않았다.
+
+**남은 일**
+
+- 클라이언트 오류 화면 (같은 문장 · 복사 단추) · GPU · 드라이버 항목 — [계획] (M1-T3 안전 모드와 함께).
+- Release 빌드의 PDB 배포 여부 (기호 없는 콜스택은 모듈+오프셋만) — M1-T4 배포 묶음에서 정한다.
+
+---
+
 ## 2026-10-28 — v0.5 M1-T1: 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 (새 타깃 SandboxCrash)
 
 **무엇을**

@@ -67,6 +67,7 @@ add_executable(SandboxTests
     unit/project/test_install.cpp
     unit/project/test_pack_template.cpp
     unit/project/test_package_rejects.cpp
+    unit/project/test_diagnostics.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
@@ -225,10 +226,16 @@ if(TARGET SandboxServer)
     set_tests_properties(server_rejects_unknown_option PROPERTIES LABELS "unit;server" WILL_FAIL TRUE)
 
     # 충돌 보고 (v0.5 M1-T1) — 일부러 충돌 → 보고 묶음 · 덤프 · 민감정보 제거
+    # v0.5 M1-T2: 콜스택 · 문맥 (월드를 연 뒤 충돌 — packs) · sbx report 목록 · 보기 (sbx 가 있으면)
+    set(_sbx_report_arg "")
+    if(TARGET sbx)
+        set(_sbx_report_arg "-DSBX=$<TARGET_FILE:sbx>")
+    endif()
     add_test(NAME crash_report_server
         COMMAND "${CMAKE_COMMAND}" -DEXE=$<TARGET_FILE:SandboxServer> -DAPP=SandboxServer
                 "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/crash_report_server"
                 "-DARGS=--world;ecosystem_small;--port;0;--owner-key;SECRETKEY123"
+                "-DCONTEXT=world;packs" ${_sbx_report_arg}
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/project/crash_report.cmake")
     set_tests_properties(crash_report_server PROPERTIES LABELS "unit;server" TIMEOUT 120)
 
@@ -288,6 +295,7 @@ if(TARGET SandboxClient)
         COMMAND "${CMAKE_COMMAND}" -DEXE=$<TARGET_FILE:SandboxClient> -DAPP=SandboxClient
                 "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/crash_report_client"
                 "-DARGS=--headless;--connect;127.0.0.1:1;--owner-key;SECRETKEY123"
+                "-DCONTEXT=connect" ${_sbx_report_arg}
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/project/crash_report.cmake")
     set_tests_properties(crash_report_client PROPERTIES LABELS "unit;client" TIMEOUT 120)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
@@ -462,6 +470,13 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=30
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_install.cmake")
         set_tests_properties(project_install PROPERTIES LABELS "content" TIMEOUT 180)
+        # 진단 — sbx doctor 가 다른 엔진 범위 · 빠진 설치 · 깨진 패키지를 문장으로 (v0.5 M1-T2)
+        add_test(NAME project_doctor
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_doctor"
+                    "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard" "-DSTASH=${PROJECT_SOURCE_DIR}/samples/stash"
+                    "-DPACKAGES=${PROJECT_SOURCE_DIR}/samples/packages"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_doctor.cmake")
+        set_tests_properties(project_doctor PROPERTIES LABELS "content" TIMEOUT 300)
         # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
         add_test(NAME project_pack
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_pack"

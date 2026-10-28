@@ -45,7 +45,7 @@ struct ServerOptions {
     // --script <파일>: 자동 플레이 스크립트 (v0.2 M6-T1, ADR-0055) — 게임이 끝나거나 maxTicks 면 결과 한 줄을 쓰고
     // 끝낸다, expect 가 다르면 종료 코드 1
     std::optional<std::string> script;
-    bool crashTest = false; // --crash-test: 충돌 처리기를 단 뒤 일부러 충돌한다 (v0.5 M1-T1 — 보고 묶음 시험)
+    bool crashTest = false; // --crash-test: 일부러 충돌한다 (--world 면 월드를 연 뒤 — 보고 묶음 시험, v0.5 M1-T1 · T2)
     bool startGame = false; // --start-game: 게임 세션을 바로 시작 (서버가 GameControl Start 를 넣는다, M2-T3)
 };
 

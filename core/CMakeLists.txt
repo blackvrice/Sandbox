@@ -135,6 +135,8 @@ add_library(SandboxCore STATIC
 
     project/GameProject.hpp
     project/GameProject.cpp
+    project/Diagnostics.hpp
+    project/Diagnostics.cpp
 
     game/GameRules.hpp
     game/GameRules.cpp

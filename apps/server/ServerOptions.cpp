@@ -206,7 +206,7 @@ std::string serverUsage() {
            "      --start-game         게임 모드가 있는 프로젝트를 Lobby 에서 바로 시작 (없으면 admin 이 \"게임\" "
            "창에서)\n"
            "      Ctrl+C               접속자에게 서버 종료를 알리고 끝낸다\n"
-           "      --crash-test         (시험용) 충돌 처리기를 단 뒤 일부러 충돌 — 보고 묶음 (SBX_REPORTS_DIR, v0.5)\n"
+           "      --crash-test         (시험용) 일부러 충돌 (--world 면 연 뒤) — 보고 묶음 (SBX_REPORTS_DIR, v0.5)\n"
            "\n"
            "헤드리스 시나리오 (Phase 3 — 네트워크 없이 최대 속도로)\n"
            "      --scenario <name>    시나리오 실행 (sbx_sim_check --list-scenarios)\n"

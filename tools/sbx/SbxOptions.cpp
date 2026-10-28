@@ -44,11 +44,15 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Remove;
     } else if (cmd == "test") {
         o.command = SbxCommand::Test;
+    } else if (cmd == "doctor") {
+        o.command = SbxCommand::Doctor;
+    } else if (cmd == "report") {
+        o.command = SbxCommand::Report;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
             std::format("모르는 명령 '{}' (new · check · build · test · templates · sdk · digest · fetch · resolve · "
-                        "install · update · add · remove)",
+                        "install · update · add · remove · doctor · report)",
                         cmd));
     }
     bool sawProjectOnly = false; // new 의 게임 프로젝트 옵션 (--pack 과 같이 쓸 수 없다)
@@ -120,6 +124,21 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             }
             o.cache = true;
             o.cacheDir = std::string(*v);
+        } else if (o.command == SbxCommand::Report && a == "--reports-dir") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            o.reportsDir = std::string(*v);
+        } else if (o.command == SbxCommand::Report && a == "--lines") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const auto [p, ec] = std::from_chars(v->data(), v->data() + v->size(), o.lines);
+            if (ec != std::errc{} || p != v->data() + v->size()) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--lines 는 0 이상의 정수: '{}'", *v));
+            }
         } else if (isNew && a == "--seed") {
             sawProjectOnly = true;
             auto v = value();
@@ -149,7 +168,7 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         return makeError(ErrorCode::InvalidArgument, "--license 는 new --pack 의 것");
     }
     if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build ||
-         o.command == SbxCommand::Test) &&
+         o.command == SbxCommand::Test || o.command == SbxCommand::Doctor) &&
         !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
     }
@@ -224,9 +243,15 @@ std::string sbxUsage() {
            "      --version <범위>       SemVer 범위 (^1.2 · ~0.3 · >=1 <2 · *)\n"
            "  remove <프로젝트> <팩>      dependencies 에서 빼고 다시 설치\n"
            "      (install · update · add · remove 모두 --cache-dir <폴더> — 기본: 사용자 캐시)\n"
+           "  doctor <폴더 | 파일.sbpkg>  진단 — 엔진 범위 · 패키지 (깨짐 · 형식 · 라이선스) · 의존 · 설치 · 콘텐츠 · "
+           "시작 월드 · 환경,\n"
+           "                             항목마다 문장과 고치는 법 (오류면 종료 코드 1)\n"
+           "  report [<묶음>]            충돌 보고 묶음 보기 — 요약 · 콜스택 · 마지막 로그 · 파일 (없으면 묶음 목록)\n"
+           "      --lines <n>            마지막 로그 줄 수 (기본 40)\n"
+           "      --reports-dir <d>      보고 폴더 (기본: SBX_REPORTS_DIR · %LOCALAPPDATA%\\sandbox\\reports · XDG)\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
-           "종료 코드: 0 성공, 1 검사 오류 (check), 2 잘못된 인자 · 실패\n";
+           "종료 코드: 0 성공, 1 검사 오류 (check · test · doctor), 2 잘못된 인자 · 실패\n";
 }
 
 } // namespace sbx::tool

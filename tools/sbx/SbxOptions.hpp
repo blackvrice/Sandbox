@@ -12,6 +12,8 @@
 //       · remove <폴더> <팩>   (모두 [--cache-dir <d>] — v0.4 M3-T3, ADR-0071 7)
 //   sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2 — 패키지 틀)
 //   sbx test <폴더>                                      (v0.4 M4-T2 — 검사 + 자동 플레이 스크립트 전부)
+//   sbx doctor <폴더 | 패키지.sbpkg>                     (v0.5 M1-T2 — 진단: 엔진 범위 · 패키지 · 설치 · 콘텐츠 · 환경)
+//   sbx report [<묶음>] [--lines <n>] [--reports-dir <d>] (v0.5 M1-T2 — 충돌 보고 묶음 보기, 없으면 목록)
 
 #include <span>
 #include <string>
@@ -40,7 +42,9 @@ enum class SbxCommand : u8 {
     Update,
     Add,
     Remove,
-    Test
+    Test,
+    Doctor,
+    Report
 };
 
 struct SbxOptions {
@@ -62,6 +66,8 @@ struct SbxOptions {
     std::string depVersion;  // add --version <범위> (비면 범위 없음)
     bool pack = false;       // new --pack (v0.4 M4-T2 — gameId 자리에 팩 id)
     std::string license;     // new --pack --license <SPDX> (비면 LicenseRef-proprietary)
+    usize lines = 40;        // report --lines <n> (마지막 로그 줄 — v0.5 M1-T2)
+    std::string reportsDir;  // report --reports-dir <d> (비면 diag::defaultReportsRoot — 목록 · 이름만 준 묶음)
 };
 
 [[nodiscard]] Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args);

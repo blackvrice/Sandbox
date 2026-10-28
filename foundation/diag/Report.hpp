@@ -3,7 +3,8 @@
 //
 //   <보고 폴더>/<UTC yyyyMMdd-HHmmss>-<앱>[-n]/
 //     report.json   {"format": 1, "app", "reason", "time" (UTC ISO 8601), "version", "commit", "toolchain", "system",
-//                    "args": [...], "context": {키: 값}, "files": [이 폴더의 다른 파일 이름]}
+//                    "args": [...], "context": {키: 값}, "stack": [프레임 — M1-T2],
+//                    "files": [이 폴더의 다른 파일 이름]}
 //     log.txt       마지막 로그 줄 (log::recentLines — 최대 256)
 //     crash.dmp     (충돌 처리기가 쓴 미니덤프 — 있을 때만, Windows)
 //   report.json · log.txt 의 모든 문자열은 scrub (Scrub.hpp) 을 거친다. 덤프는 바이너리라 거르지 않는다 — 덤프에는
@@ -29,7 +30,10 @@ struct ReportInfo {
     std::string app;    // "SandboxServer" · "SandboxClient" · "sbx"
     std::string reason; // "exception 0xC0000005 (access violation)" · "signal 11 (SIGSEGV)" · "std::terminate" …
     std::vector<std::string> args;
-    std::vector<std::pair<std::string, std::string>> context; // "world" · "package" · "tick" …
+    std::vector<std::pair<std::string, std::string>> context; // "world" · "game" · "package" …
+    // 콜스택 — 프레임마다 한 줄 ("#0 SandboxServer.exe+0x1a2b sbx::crash::crashForTest+0x2a
+    // (CrashHandlerWin.cpp:121)"). 충돌 처리기가 채운다 (v0.5 M1-T2). 비면 []
+    std::vector<std::string> stack;
 };
 
 [[nodiscard]] std::filesystem::path defaultReportsRoot();

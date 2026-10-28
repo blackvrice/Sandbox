@@ -124,6 +124,11 @@ Expected<void> writeReport(const fs::path& dir, const ReportInfo& info, std::spa
         json += std::format("{}\n    {}: {}", i == 0 ? "" : ",", s(info.context[i].first), s(info.context[i].second));
     }
     json += info.context.empty() ? "},\n" : "\n  },\n";
+    json += "  \"stack\": [";
+    for (std::size_t i = 0; i < info.stack.size(); ++i) {
+        json += std::format("{}\n    {}", i == 0 ? "" : ",", s(info.stack[i]));
+    }
+    json += info.stack.empty() ? "],\n" : "\n  ],\n";
     json += "  \"files\": [\"log.txt\"";
     for (const std::string& f : extraFiles) {
         json += ", " + quote(f);

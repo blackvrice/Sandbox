@@ -3,6 +3,7 @@
 //   sbx new MyGame --id studio.mygame --from ecosystem_small    템플릿에서 새 프로젝트
 //   sbx check MyGame                                            프로젝트 검사 (오류면 종료 코드 1)
 //   sbx build MyGame                                            게임 패키지 (v0.2 M5-T2) — check 는 .sbpkg 도
+//   sbx doctor MyGame · sbx report                              진단 · 충돌 보고 묶음 보기 (v0.5 M1-T2)
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -19,12 +20,14 @@
 #include "core/package/PackSource.hpp"
 #include "core/package/PackTemplate.hpp"
 #include "core/package/Resolve.hpp"
+#include "core/project/Diagnostics.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/BuildInfo.hpp"
+#include "foundation/diag/Report.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "script/sdk/SdkGenerator.hpp"
@@ -361,6 +364,50 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     return kExitOk;
 }
 
+// 진단 (v0.5 M1-T2) — 검사는 check 와 같고 항목마다 문장 · 고치는 법으로 묶는다
+int runDoctor(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    project::DiagnoseOptions o;
+    o.engine = engineVersion();
+    o.engineBuild = std::format("commit {} · {}", build::kGitCommit, build::kToolchainKey);
+    o.system = std::string(build::kSystemName);
+    o.packageCache = package::defaultPackageCache();
+    const project::DiagnosticReport r = project::diagnose(std::filesystem::path(opt.dir), o, catalog);
+    std::fputs(project::formatDiagnosticReport(r).c_str(), stdout);
+    return r.ok() ? kExitOk : kExitCheckFailed;
+}
+
+// 충돌 보고 묶음 (v0.5 M1-T2): 묶음을 주면 보고, 없으면 보고 폴더의 목록 (새것부터). 이름만 주면 보고 폴더 안에서
+// 찾는다
+int runReport(const SbxOptions& opt) {
+    const std::filesystem::path root =
+        opt.reportsDir.empty() ? diag::defaultReportsRoot() : std::filesystem::path(opt.reportsDir);
+    if (opt.dir.empty()) {
+        const auto bundles = project::listReportBundles(root);
+        std::printf("보고 폴더 %s — 묶음 %zu\n", io::displayPath(root).c_str(), bundles.size());
+        for (const auto& dir : bundles) {
+            const auto b = project::readReportBundle(dir);
+            std::printf("  %s  %s\n", dir.filename().string().c_str(),
+                        b ? b->reason.c_str() : b.error().message.c_str());
+        }
+        if (!bundles.empty()) {
+            std::printf("보기: sbx report <묶음 이름>\n");
+        }
+        return kExitOk;
+    }
+    std::filesystem::path dir(opt.dir);
+    std::error_code ec;
+    if (!std::filesystem::is_directory(dir, ec) && std::filesystem::is_directory(root / dir, ec)) {
+        dir = root / dir;
+    }
+    const auto b = project::readReportBundle(dir);
+    if (!b) {
+        printErr(b.error().describe());
+        return kExitError;
+    }
+    std::fputs(project::formatReportBundle(*b, opt.lines, build::kVersionString).c_str(), stdout);
+    return kExitOk;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -484,6 +531,8 @@ int main(int argc, char** argv) {
         std::printf("SDK 선언을 썼습니다: %s\n", out.string().c_str());
         return kExitOk;
     }
+    case SbxCommand::Report:
+        return runReport(opt);
     case SbxCommand::New:
     case SbxCommand::Check:
     case SbxCommand::Build:
@@ -492,6 +541,7 @@ int main(int argc, char** argv) {
     case SbxCommand::Add:
     case SbxCommand::Remove:
     case SbxCommand::Test:
+    case SbxCommand::Doctor:
         break;
     }
     ecs::ComponentCatalog catalog;
@@ -511,6 +561,8 @@ int main(int argc, char** argv) {
         return runPackages(opt, catalog);
     case SbxCommand::Test:
         return runTest(opt, catalog);
+    case SbxCommand::Doctor:
+        return runDoctor(opt, catalog);
     default:
         return runCheck(std::filesystem::path(opt.dir), catalog);
     }
