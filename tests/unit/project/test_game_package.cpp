@@ -9,8 +9,11 @@
 #include <fstream>
 #include <random>
 
+#include <nlohmann/json.hpp>
+
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
+#include "core/package/PackSource.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -140,7 +143,9 @@ TEST_SUITE("project") {
         CHECK(package::readPackageIndex(variant("magic", [](std::string& b) { b[0] = 'X'; }))
                   .error()
                   .message.find("게임 패키지") != std::string::npos);
-        CHECK(package::readPackageIndex(variant("format", [](std::string& b) { b[8] = 2; })).error().code ==
+        CHECK(package::readPackageIndex(variant("format", [](std::string& b) { b[8] = 3; })).error().code ==
+              ErrorCode::VersionMismatch);
+        CHECK(package::readPackageIndex(variant("format0", [](std::string& b) { b[8] = 0; })).error().code ==
               ErrorCode::VersionMismatch);
         // index 의 digest 를 바꾸면 (파일은 그대로) — digest 가 목록과 다르다
         const fs::path digest = variant("digest", [](std::string& b) {
@@ -149,6 +154,77 @@ TEST_SUITE("project") {
         });
         CHECK(package::readPackageIndex(digest).error().message.find("digest") != std::string::npos);
         CHECK_FALSE(package::readPackageIndex(root.path / "nope.sbpkg").has_value());
+    }
+
+    TEST_CASE("package: 라이선스 요약 (형식 2 — v0.4 M5-T2) — 팩마다 version · license · 팩 digest, 고친 요약은 거절, "
+              "형식 1 도 읽는다") {
+        TempDir root("sbom");
+        const fs::path dir = makeDemo(root.path);
+        const auto built = package::buildPackage(dir, root.path / "g.sbpkg", kEngine, catalog());
+        REQUIRE(built.has_value());
+        CHECK(built->index.format == 2);
+        REQUIRE(built->index.packs.size() == 1);
+        const package::PackageIndex::Pack& eco = built->index.packs[0];
+        CHECK(eco.id == "eco");
+        CHECK(eco.version == "0.1.0");
+        CHECK(eco.license.empty()); // 저장소의 eco 팩은 라이선스를 적지 않았다
+        CHECK(eco.path == "content/ecosystem");
+        CHECK(eco.digest == package::snapshotPack(dir / "content/ecosystem")->digest); // PackSource 와 같은 규칙
+        const auto read = package::verifyPackage(built->file);
+        REQUIRE(read.has_value());
+        CHECK(read->packs == built->index.packs);
+
+        const std::string good = *io::readFile(built->file);
+        const auto variant = [&](std::string_view tag, auto&& mutate) {
+            const fs::path f = root.path / std::format("{}.sbpkg", tag);
+            std::string bytes = good;
+            mutate(bytes);
+            std::ofstream(f, std::ios::binary | std::ios::trunc) << bytes;
+            return f;
+        };
+        // 요약의 version 만 고친다 (파일은 그대로) — 모양은 맞지만 pack.json 과 다르다
+        const fs::path lied = variant("lied", [](std::string& b) {
+            const std::string key = R"("path":"content/ecosystem","version":"0.1.0")";
+            const usize at = b.find(key);
+            REQUIRE(at != std::string::npos);
+            b[at + key.size() - 2] = '9';
+        });
+        CHECK(package::readPackageIndex(lied).has_value());
+        CHECK(package::verifyPackage(lied).error().message.find("라이선스 요약") != std::string::npos);
+        CHECK_FALSE(package::extractPackage(lied, root.path / "cache").has_value());
+        // 요약의 팩 digest 를 고친다 — 파일 목록에서 다시 계산한 것과 다르다
+        const fs::path badDigest = variant("pack-digest", [&](std::string& b) {
+            const usize at = b.find(eco.digest);
+            REQUIRE(at != std::string::npos);
+            b[at] = b[at] == 'a' ? 'b' : 'a';
+        });
+        CHECK(package::readPackageIndex(badDigest).error().message.find("팩 'eco' 의 digest") != std::string::npos);
+
+        // 형식 1 (v0.2 · v0.3 이 만든 패키지 — packs 없음) 도 읽고 푼다
+        const fs::path v1 = variant("v1", [](std::string& b) {
+            u64 n = 0;
+            for (int i = 0; i < 8; ++i) {
+                n |= static_cast<u64>(static_cast<u8>(b[12 + i])) << (8 * i);
+            }
+            auto j = nlohmann::json::parse(b.substr(20, static_cast<usize>(n)));
+            j.erase("packs");
+            j["format"] = 1;
+            const std::string index = j.dump();
+            std::string out = b.substr(0, 8);
+            for (int i = 0; i < 4; ++i) {
+                out += static_cast<char>((1u >> (8 * i)) & 0xFF);
+            }
+            for (int i = 0; i < 8; ++i) {
+                out += static_cast<char>((static_cast<u64>(index.size()) >> (8 * i)) & 0xFF);
+            }
+            b = out + index + b.substr(20 + static_cast<usize>(n));
+        });
+        const auto old = package::verifyPackage(v1);
+        REQUIRE_MESSAGE(old.has_value(), old.error().describe());
+        CHECK(old->format == 1);
+        CHECK(old->packs.empty());
+        CHECK(old->digest == built->index.digest);
+        CHECK(package::extractPackage(v1, root.path / "cache-v1").has_value());
     }
 
     TEST_CASE("package: 캐시에 풀기 — 같은 digest 는 다시 쓴다, 캐시를 고치면 다시 푼다, --world <패키지>") {

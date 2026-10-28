@@ -257,6 +257,8 @@ sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <
                                                                                             (v0.2 M1-T4, ADR-0043)
 sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg]  ·  sbx templates  ·  sbx sdk [<폴더>]  ·  sbx --version
   (sdk — SandboxScript SDK 선언 sandbox.d.ts 를 쓴다, v0.3 M2-T2. 저장소의 sdk/ 를 갱신: sbx sdk sdk — 19 14장)
+  (v0.4 M5-T2, ADR-0077 — 라이선스 요약) build 는 "  팩 n — <라이선스> <수> · …" 한 줄 (라이선스가 없는 팩은 "라이선스 없음"),
+  check <파일.sbpkg> 는 팩마다 "  팩 <id> <version> · <license> · <폴더> · digest <앞 16>…" (형식 1 패키지면 요약이 없다고)
 sbx digest <팩 폴더> [--cache | --cache-dir <폴더>]   (v0.4 M2-T1, ADR-0071 — 09 10장)
   "팩 <id> <version> — 파일 n · m 바이트" · "digest <64 글자>" (링크 · 경로 · 크기 거절은 종료 코드 2). --cache 는 사용자 캐시에,
   --cache-dir 는 그 폴더에 넣고 "캐시 <폴더> (넣음 | 이미 있음)"

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <format>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,6 +56,15 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         std::printf("패키지 %s %s (\"%s\") — 파일 %zu 개, digest sha256:%s\n", extracted->index.gameId.c_str(),
                     extracted->index.version.c_str(), extracted->index.name.c_str(), extracted->index.files.size(),
                     extracted->index.digest.c_str());
+        // 라이선스 요약 (v0.4 M5-T2 — 형식 2, 풀 때 pack.json 과 견줬다)
+        for (const auto& p : extracted->index.packs) {
+            std::printf("  팩 %s %s · %s · %s · digest %.16s…\n", p.id.c_str(),
+                        p.version.empty() ? "?" : p.version.c_str(),
+                        p.license.empty() ? "라이선스 없음" : p.license.c_str(), p.path.c_str(), p.digest.c_str());
+        }
+        if (extracted->index.format < 2) {
+            std::printf("  (형식 %u 패키지 — 라이선스 요약이 없다)\n", extracted->index.format);
+        }
         dir = extracted->dir;
     }
     const auto r = project::validateProject(dir, engine, catalog);
@@ -105,6 +115,16 @@ int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
                 built->index.gameId.c_str(), built->index.version.c_str(), built->index.files.size(),
                 static_cast<unsigned long long>(built->bytes));
     std::printf("  digest sha256:%s\n", built->index.digest.c_str());
+    // 라이선스 요약 (v0.4 M5-T2) — 라이선스마다 팩 수
+    std::map<std::string, usize> licenses;
+    for (const auto& p : built->index.packs) {
+        ++licenses[p.license.empty() ? std::string("라이선스 없음") : p.license];
+    }
+    std::string summary;
+    for (const auto& [license, n] : licenses) {
+        summary += std::format("{}{} {}", summary.empty() ? "" : " · ", license, n);
+    }
+    std::printf("  팩 %zu%s%s\n", built->index.packs.size(), summary.empty() ? "" : " — ", summary.c_str());
     std::printf("  실행: SandboxServer --world %s  ·  SandboxClient --world %s\n", built->file.generic_string().c_str(),
                 built->file.generic_string().c_str());
     return kExitOk;

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <format>
 #include <map>
+#include <optional>
 
 #include <nlohmann/json.hpp>
 
@@ -88,14 +89,84 @@ Expected<void> addTree(const fs::path& dir, std::vector<fs::path>& files) {
     return {};
 }
 
+// 팩 폴더 하나의 digest — files 중 "<folder>/" 아래 것을 팩 폴더 기준 경로로 (PackSource 의 팩 digest 와 같은 규칙).
+// 그 아래 파일이 없으면 빈 문자열
+std::string packDigestOf(const std::vector<PackageEntry>& files, std::string_view folder) {
+    const std::string prefix = std::string(folder) + "/";
+    std::vector<PackageEntry> inside;
+    for (const PackageEntry& e : files) {
+        if (e.path.starts_with(prefix)) {
+            inside.push_back(PackageEntry{e.path.substr(prefix.size()), e.size, e.sha256, 0});
+        }
+    }
+    return inside.empty() ? std::string() : packageDigest(inside); // files 가 path 순이라 팩 안 경로도 순서대로
+}
+
 json indexJson(const PackageIndex& idx) {
     json files = json::array();
     for (const PackageEntry& e : idx.files) {
         files.push_back(json{{"path", e.path}, {"size", e.size}, {"sha256", e.sha256}, {"offset", e.offset}});
     }
+    json packs = json::array();
+    for (const PackageIndex::Pack& p : idx.packs) {
+        packs.push_back(
+            json{{"id", p.id}, {"version", p.version}, {"license", p.license}, {"digest", p.digest}, {"path", p.path}});
+    }
     return json{{"format", idx.format},     {"gameId", idx.gameId}, {"name", idx.name},
                 {"version", idx.version},   {"engine", idx.engine}, {"entryWorld", idx.entryWorld},
-                {"gameMode", idx.gameMode}, {"digest", idx.digest}, {"files", std::move(files)}};
+                {"gameMode", idx.gameMode}, {"digest", idx.digest}, {"files", std::move(files)},
+                {"packs", std::move(packs)}};
+}
+
+// 형식 2 의 packs — 모양 · 팩 id 순 · 폴더 규칙 · files 에서 다시 계산한 digest. 문제면 그 이유
+std::optional<std::string> parsePacks(const json& j, PackageIndex& idx) {
+    if (!j.contains("packs") || !j["packs"].is_array() || j["packs"].size() > kMaxSbomPacks) {
+        return std::format("packs 는 {} 개까지의 배열 (형식 2)", kMaxSbomPacks);
+    }
+    for (const json& p : j["packs"]) {
+        PackageIndex::Pack e;
+        for (const auto& [key, out] :
+             {std::pair{"id", &e.id}, std::pair{"version", &e.version}, std::pair{"license", &e.license},
+              std::pair{"digest", &e.digest}, std::pair{"path", &e.path}}) {
+            if (!p.is_object() || !p.contains(key) || !p[key].is_string()) {
+                return "팩 항목은 {id, version, license, digest, path} 문자열";
+            }
+            *out = p[key].get<std::string>();
+        }
+        if (!idx.packs.empty() && !(idx.packs.back().id < e.id)) {
+            return std::format("팩 '{}' — 팩 id 가 정렬되지 않았거나 겹친다", e.id);
+        }
+        if (project::checkRelativePath(e.path) ||
+            !(e.path.starts_with("content/") || e.path.starts_with(".sandbox/packages/"))) {
+            return std::format("팩 '{}' 의 path '{}' — content/<폴더> 또는 .sandbox/packages/<팩>", e.id, e.path);
+        }
+        if (!isSha256Hex(e.digest) || packDigestOf(idx.files, e.path) != e.digest) {
+            return std::format("팩 '{}' 의 digest 가 그 폴더의 파일 목록과 다르다", e.id);
+        }
+        idx.packs.push_back(std::move(e));
+    }
+    return std::nullopt;
+}
+
+// 파일 바이트를 본 뒤 (검증 · 풀기): packs 가 그 팩의 pack.json 과 같은가 (id · version · license). 문제면 그 이유
+std::optional<std::string> checkPackClaims(const PackageIndex& idx, std::string_view data) {
+    for (const PackageIndex::Pack& p : idx.packs) {
+        const std::string file = p.path + "/pack.json";
+        const auto it = std::lower_bound(idx.files.begin(), idx.files.end(), file,
+                                         [](const PackageEntry& a, const std::string& b) { return a.path < b; });
+        if (it == idx.files.end() || it->path != file) {
+            return std::format("팩 '{}' 의 {} 가 패키지에 없다", p.id, file);
+        }
+        const json j =
+            json::parse(data.substr(static_cast<usize>(it->offset), static_cast<usize>(it->size)), nullptr, false);
+        const auto field = [&](const char* key) {
+            return j.is_object() && j.contains(key) && j[key].is_string() ? j[key].get<std::string>() : std::string();
+        };
+        if (field("id") != p.id || field("version") != p.version || field("license") != p.license) {
+            return std::format("팩 '{}' 의 라이선스 요약 (id · version · license) 이 {} 와 다르다", p.id, file);
+        }
+    }
+    return std::nullopt;
 }
 
 Expected<std::string> readAll(const fs::path& file) {
@@ -119,9 +190,10 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
         return bad("게임 패키지(.sbpkg)가 아니다 (머리 글자가 다르다)");
     }
     const u32 format = static_cast<u32>(getLE(bytes, 8, 4));
-    if (format != kFormatVersion) {
+    if (format < kMinFormatVersion || format > kFormatVersion) {
         return makeError(ErrorCode::VersionMismatch,
-                         std::format("패키지 형식 {} (이 엔진은 {})", format, kFormatVersion), where);
+                         std::format("패키지 형식 {} (이 엔진은 {} ~ {})", format, kMinFormatVersion, kFormatVersion),
+                         where);
     }
     const u64 indexBytes = getLE(bytes, 12, 8);
     if (indexBytes > kMaxIndexBytes || kHeaderBytes + indexBytes > bytes.size()) {
@@ -133,6 +205,7 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
         return bad("index 가 JSON 객체가 아니다");
     }
     PackageIndex idx;
+    idx.format = format;
     const auto text = [&](const char* key, std::string& out) {
         if (!j.contains(key) || !j[key].is_string()) {
             return false;
@@ -189,6 +262,11 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
     if (!has(std::string(project::kManifestFile)) || !has(idx.entryWorld + "/world.json")) {
         return bad("매니페스트 · 시작 월드(world.json)가 패키지에 없다");
     }
+    if (format >= 2) {
+        if (auto why = parsePacks(j, idx)) {
+            return bad(std::move(*why));
+        }
+    }
     return idx;
 }
 
@@ -215,6 +293,7 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     if (const fs::path lock = projectDir / std::string(kLockFile); fs::is_regular_file(lock)) {
         files.push_back(lock); // 연 쪽이 설치 폴더를 다시 확인한다 (verifyInstalled)
     }
+    std::vector<PackageIndex::Pack> packs; // 라이선스 요약 (v0.4 M5-T2) — digest 는 파일 목록을 만든 뒤에
     if (!project::loadedPacks(m).empty()) {
         auto folders = packFolders(projectDir / "content");
         folders.merge(packFolders(projectDir / fs::path(std::string(kInstallDir)))); // 열기가 이미 겹침을 거절했다
@@ -227,6 +306,7 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
             if (auto r = addTree(it->second, files); !r) {
                 return std::unexpected(r.error());
             }
+            packs.push_back({p.id, p.version, p.license, {}, relativeOf(projectDir, it->second)});
         }
     }
     if (auto r = addTree(projectDir / m.entryWorld, files); !r) {
@@ -265,6 +345,11 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
         offset += bytes.size();
     }
     idx.digest = packageDigest(idx.files);
+    std::sort(packs.begin(), packs.end(), [](const auto& a, const auto& b) { return a.id < b.id; });
+    for (PackageIndex::Pack& p : packs) {
+        p.digest = packDigestOf(idx.files, p.path);
+    }
+    idx.packs = std::move(packs);
     const std::string index = indexJson(idx).dump();
     std::string blob(kMagic.begin(), kMagic.end());
     putU32(blob, kFormatVersion);
@@ -317,6 +402,9 @@ Expected<PackageIndex> verifyPackage(const fs::path& file) {
                 io::displayPath(file));
         }
     }
+    if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
     return idx;
 }
 
@@ -338,6 +426,9 @@ Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& 
                 std::format("'{}' 의 내용이 index 의 sha256 과 다르다 (고친 패키지는 열지 않는다)", e.path),
                 io::displayPath(file));
         }
+    }
+    if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
     const fs::path dir = cacheRoot / idx->digest.substr(0, 16);
     std::error_code ec;

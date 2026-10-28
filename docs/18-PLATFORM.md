@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.3 완료 — 0.3.0, v0.4 M5-T1).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.3 완료 — 0.3.0, v0.4 M5 완료).
 
 ---
 
@@ -11,9 +11,9 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 ✅ · M5 보안 · 재현 (T1 ✅ · T2) · M6 E2E · 릴리스 (6.4, ADR-0071 ~ 0076)
-다음     v0.4 M5-T2 — 라이선스 요약 (SBOM): .sbpkg index 형식 2 — 팩마다 id · version · license · 팩 digest · 출처 (열 때
-         파일에서 다시 계산해 확인), sbx build · check 의 라이선스 줄
+         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 ✅ · M5 ✅ · M6 E2E · 릴리스 (6.4, ADR-0071 ~ 0077)
+다음     v0.4 M6-T1 — 데모 samples/packages/inventory (Feature 팩 — 컴포넌트 · 시스템 · Prefab) 를 다른 게임 프로젝트가 설치 →
+         빌드 → 테스트 플레이 (자동 플레이 · 헤드리스 서버 = 로컬 플레이)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -415,8 +415,11 @@ M5 보안 · 재현
         Git 원격 도우미 (git 을 띄우지 않는다) · 심볼릭 링크 — 거절되고 매니페스트 · 잠금 · 설치 폴더의 바이트 그대로 · 임시 폴더
         없음, 고친 캐시는 소스에서 회복), 깨끗한 머신 재현 CTest project_reproduce (다른 폴더 · 빈 캐시 · 같은 잠금 → 같은 game
         digest · 패키지 · 잠금 바이트, 바뀐 소스는 거절) (2026-10-28 다시 나눔: SBOM 은 패키지 형식을 바꾸므로 T2 로)
-  T2 [계획] 라이선스 요약 (SBOM) — .sbpkg index 형식 2: 팩마다 id · version · license · 팩 digest · 출처 (열 때 파일 목록에서 다시
-            계산 · pack.json 과 견줘 확인), sbx build · check 의 라이선스 줄
+  T2 ✅ ADR-0077: 라이선스 요약 (SBOM) — .sbpkg 형식 2 index packs (팩마다 id · version · license · 팩 digest · 폴더, 팩 id 순).
+        읽을 때 팩 digest 를 files 에서 다시 계산, 검증 · 풀기는 pack.json 과 견준다 (고친 요약은 열지 않는다), 형식 1 도 읽는다.
+        sbx build "팩 n — <라이선스> <수>", sbx check <패키지> 팩마다 한 줄 (09 9장)
+  → M5 완료 (2026-10-28): 나쁜 패키지는 설치 전에 거절되고 프로젝트는 그대로, 같은 잠금 = 같은 game digest (다른 폴더 · 빈 캐시),
+    배포 패키지가 팩마다 라이선스 · 버전 · digest 를 확인할 수 있게 담는다
 M6 E2E · 릴리스
   T1 [계획] 데모: samples/packages/inventory (Feature 팩 — 컴포넌트 · 시스템 · Prefab) 를 다른 게임 프로젝트가 설치 → 빌드 →
             테스트 플레이 (자동 플레이 · 헤드리스 서버 = 로컬 플레이)
@@ -482,7 +485,7 @@ v0.4 M4-T1 ✅ ADR-0075, 19 (5 · 14장 — "@<팩>/…" import · tsconfig path
 v0.4 M4-T2 ✅ ADR-0076, 15 7장 (sbx test · new --pack), 13 5장 (자동 플레이 자리), 17, 13
 v0.4 M4-T3 ✅ 10 2장 (팔레트 · 콘텐츠 창 — 팩별 묶음), 17, 13
 v0.4 M5-T1 ✅ 13 (거부 시험 · 재현), 09 12장, 17
-v0.4 M5-T2    09 9장 (.sbpkg 형식 2 — packs), 15 7장, 13
+v0.4 M5-T2 ✅ ADR-0077, 09 9장 (.sbpkg 형식 2 — packs), 15 7장, 17, 13
 v0.4 M6       13, 14 (설치 · 해결 시간), releases/v0.4.0
 ```
 

@@ -318,11 +318,16 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
 `core/package/GamePackage`, 해시 `foundation/hash/Sha256`.
 
 ```text
-파일      magic "SBXPKG\0\n" (8) · format u32 = 1 · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트 (index 순서, 빈틈 없음)
-          — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB
-index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}]}
+파일      magic "SBXPKG\0\n" (8) · format u32 = 2 (1 도 읽는다) · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트
+          (index 순서, 빈틈 없음) — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB · packs 256
+index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}],
+           packs: [{id, version, license, digest, path}]}
           path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음
           offset = 파일 데이터 시작에서 (앞 파일 크기 합)
+packs     (형식 2 — v0.4 M5-T2, ADR-0077 — 라이선스 요약 SBOM) 읽은 팩마다, 팩 id 순: pack.json 의 version · license (없으면 빈
+          문자열), 팩 폴더 path ("content/<폴더>" · ".sandbox/packages/<팩>"), 팩 digest (그 폴더의 파일을 팩 기준 경로로 — 설치한
+          팩이면 잠금의 digest 와 같다). index 를 읽을 때 팩 digest 를 files 에서 다시 계산하고, 파일을 볼 때 (검증 · 풀기)
+          pack.json 의 id · version · license 와 견준다 — 다르면 열지 않는다. game digest 에는 들지 않는다 (파일에서 나온 값)
 digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시각 · 순서 · 압축이 없어 같은 프로젝트 = 같은 바이트
 담는 것   sandbox.project.json · 프로젝트 콘텐츠가 읽은 팩 (requires 포함, 폴더째 — presentation/ 포함) · 시작 월드 폴더.
           다른 worlds/ · build/ · 그 밖의 파일은 담지 않는다. 빌드 전에 openProject 와 같은 검사 (오류면 만들지 않는다)
@@ -341,7 +346,8 @@ digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시�
 불러오기  다른 gameId → 거절 ("다른 게임 '…' 의 세이브")   다른 version · package → 열고 결과에 알린다   "game" 없음 → 그대로
 옛 엔진   선택 키라 무시한다 (worldVersion 1 · schemaVersion 1 그대로). 게임 버전 간 세이브 마이그레이션은 [계획]
 시험      foundation test_sha256 (FIPS 180-4 벡터 · 나눠 넣기), project test_game_package (담는 것 · 같은 바이트 · 고친 · 자른 ·
-          머리 · digest · 캐시 다시 쓰기 · --world), network test_world_ops (결속), CTest project_package (sbx build → check → 서버)
+          머리 · digest · 캐시 다시 쓰기 · --world · 라이선스 요약 — 내용 · 고친 version · 팩 digest · 형식 1), network
+          test_world_ops (결속), CTest project_package (sbx build → check → 서버)
 ```
 
 ## 10. 패키지 (팩) digest · 로컬 소스 · 캐시 (v0.4 M2-T1 — [ADR-0071](adr/0071-v0-4-package-manager-scope-pack-as-package-single-version-resolution.md) 3, `core/package/PackSource`)

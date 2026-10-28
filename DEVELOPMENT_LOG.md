@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-10-28 — v0.4 M5-T2: 라이선스 요약 (SBOM) — .sbpkg 형식 2 → M5 완료 (ADR-0077)
+
+**무엇을**
+
+- core/package/GamePackage: 형식 2 (kFormatVersion 2, 1 도 읽는다). index packs = 읽은 팩마다 (팩 id 순) id · version · license ·
+  팩 digest · 폴더. 빌드가 파일 목록에서 팩 digest 를 만들고 (packDigestOf — PackSource 와 같은 규칙), readPackageIndex 가 다시
+  계산해 견주며 (모양 · 순서 · 폴더 규칙 포함), verifyPackage · extractPackage 가 pack.json 의 id · version · license 와 견준다
+  (checkPackClaims). game digest 는 그대로 (파일 목록만).
+- sbx build "팩 n — <라이선스> <수> · …", sbx check <패키지> 팩마다 "팩 <id> <version> · <license> · <폴더> · digest …".
+- 시험: test_game_package 1 (+ 형식 번호 0 · 3 거절). 문서: ADR-0077, 09 9장, 15 7장, 18 (0 · 6.4 · 7장), 17, 13.
+
+**왜**
+
+- ADR-0071 의 M5 — 배포한 게임에 든 남의 팩과 그 라이선스 · 버전을 패키지만으로, 고칠 수 없게 확인한다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 66/66 통과, 첫 실행에서. det_* 골든 그대로.
+- 실행: 프로젝트 팩 eco + 설치한 inv (MIT) 프로젝트 → `sbx build` "팩 2 — MIT 1 · 라이선스 없음 1" → `sbx check <패키지>`
+  "팩 eco 0.1.0 · 라이선스 없음 · content/ecosystem · digest a27f8180…", "팩 inv 0.1.0 · MIT · .sandbox/packages/inv · digest
+  2f5485be…" (sandbox.lock 의 inv digest 와 같다), 검사 오류 0 → `SandboxServer --world <패키지> --ticks 30 --exit` 종료 0
+  (스크립트 inv.tick 호출 1 · 트랩 0).
+
+**남은 일**
+
+- M6-T1: 데모 samples/packages/inventory 를 다른 게임이 설치 → 빌드 → 자동 플레이.
+
+---
+
 ## 2026-10-28 — v0.4 M5-T1: 패키지 거부 시험 · 깨끗한 머신 재현 (SBOM 은 M5-T2 로)
 
 **무엇을**

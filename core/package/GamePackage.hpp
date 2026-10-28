@@ -4,7 +4,12 @@
 // 파일 하나 (작은 끝 little-endian):
 //   magic "SBXPKG\0\n" (8) · format u32 (= 1) · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트를 index 순서로
 //   이어서
-// index = {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}]}
+// index = {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}],
+//          packs: [{id, version, license, digest, path}]}   ← packs 는 형식 2 (v0.4 M5-T2 — 라이선스 요약 SBOM)
+//   packs  읽은 팩마다 (팩 id 순): pack.json 의 version · license, 그 팩 폴더 (path — "content/<폴더>" ·
+//          ".sandbox/packages/<팩>") 의 파일로 만든 팩 digest (같은 규칙 — 팩 폴더 기준 경로, PackSource 와 같다). 읽는
+//          쪽이 files 에서 다시 계산하고 (readPackageIndex), 파일을 보는 검증 · 풀기는 pack.json 의 id · version ·
+//          license 와도 견준다 — index 만 고쳐 라이선스를 속일 수 없다. 형식 1 (packs 없음) 도 읽는다
 //   path   프로젝트 기준 상대 경로 ('/' 구분 — project::checkRelativePath 규칙), 바이트 순 정렬 · 겹침 없음
 //   offset 파일 데이터 시작에서 (앞 파일들의 크기 합 — 빈틈 없음)
 // digest = SHA-256 ( 파일마다 "<sha256> <size> <path>\n" 를 path 순으로 ) — 파일 내용 · 경로만의 지문이라 같은
@@ -29,7 +34,9 @@
 namespace sbx::package {
 
 inline constexpr std::string_view kExtension = ".sbpkg";
-inline constexpr u32 kFormatVersion = 1;
+inline constexpr u32 kFormatVersion = 2;    // 쓰는 판 (2 = packs — v0.4 M5-T2)
+inline constexpr u32 kMinFormatVersion = 1; // 읽는 가장 옛 판
+inline constexpr usize kMaxSbomPacks = 256;
 inline constexpr usize kMaxFiles = 65'536;
 inline constexpr u64 kMaxPackageBytes = u64{2} << 30; // 2 GiB (파일을 한 번에 읽는다 — 큰 패키지의 흐름 읽기는 [계획])
 inline constexpr u64 kMaxIndexBytes = u64{16} << 20;
@@ -51,6 +58,16 @@ struct PackageIndex {
     std::string gameMode;            // 없으면 빈 문자열
     std::string digest;              // 64 글자 소문자
     std::vector<PackageEntry> files; // path 순
+    // 형식 2 — 라이선스 요약 (SBOM). 팩 id 순. 형식 1 패키지는 비었다
+    struct Pack {
+        std::string id;
+        std::string version; // pack.json 에 없으면 빈 문자열
+        std::string license; // pack.json 에 없으면 빈 문자열
+        std::string digest;  // 팩 digest (64 글자 소문자 — 설치한 팩이면 잠금의 것과 같다)
+        std::string path;    // 패키지 안의 팩 폴더
+        bool operator==(const Pack&) const = default;
+    };
+    std::vector<Pack> packs;
 };
 
 // 파일 목록의 지문 (위 규칙) — 64 글자 소문자

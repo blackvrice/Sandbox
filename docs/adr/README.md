@@ -91,3 +91,4 @@
 | [0074](0074-package-commands-install-from-lock-refresh-policy.md) | 패키지 명령 — install 은 잠금 그대로 (캐시 → 소스 확인), update · add · remove 의 바뀌어도 되는 팩, 매니페스트는 설치 뒤에, path · git 의존은 설치해야 연다 (P8) | Accepted                                  | 2026-10-27 |
 | [0075](0075-cross-pack-script-import-static-link.md) | 팩 사이 스크립트 import — "@<팩>/<경로>", 직접 의존만, 정적 링크 (쓰는 파일만 가져오는 팩의 모듈로), 컴포넌트 · 시스템 · export 는 정의한 팩의 것, tsconfig paths | Accepted                                  | 2026-10-28 |
 | [0076](0076-sbx-test-play-script-location-pack-template.md) | sbx test 의 자동 플레이 자리 (playthrough.json · tests/*.json, 같은 프로세스) · 패키지 틀 sbx new --pack · 기본 라이선스 LicenseRef-proprietary | Accepted                                  | 2026-10-28 |
+| [0077](0077-package-format-2-license-summary-sbom.md) | 게임 패키지 형식 2 — 라이선스 요약 (SBOM): 팩마다 version · license · 팩 digest · 폴더, 여는 쪽이 files 에서 다시 계산 · pack.json 과 견준다, 형식 1 도 읽는다 | Accepted                                  | 2026-10-28 |
