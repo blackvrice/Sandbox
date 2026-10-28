@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-10-28 — v0.4 M6-T2: 버전 종료 — 요구사항 판정 · 릴리스 노트 · 제품 버전 0.4.0 → v0.4 완료
+
+**무엇을**
+
+- docs/releases/v0.4.0.md: 들어간 것 (M1~M6 · ADR-0071~0077), 호환성 번호 (제품 0.4.0 · 프로토콜 14 · kSimVersion 4 · 세이브 1 · 1 ·
+  .sbc 5 · Host API 1 그대로, 매니페스트 3 · pack.json license · dependencies · sandbox.lock 1 · 패키지 형식 2 새것), 초안의 요구마다
+  done / deferred / removed 와 근거, 미룬 것의 버전 재할당, 알려진 문제 (심볼릭 링크 시험을 이 PC 에서 건너뜀 · 재현되지 않은 실패
+  둘 포함), 데모 · 실패 시 기대 오류.
+- CMake project VERSION 0.4.0. 14 7.14 (패키지 명령 시간 — sbx RelWithDebInfo 로 resolve · install · check · build · check <패키지>).
+- 18 (0 · 1 · 4장 · 6.4 M6 · 6.5 요구사항 검토 · 7 · 8장), README · docs/README 의 버전 표.
+
+**왜**
+
+- v0.4 의 끝 (ADR-0039 2 — 버전마다 요구사항 판정 · 노트 · 제품 버전).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 67/67 통과, SandboxTests 636 케이스. 골든 · 데모
+  해시 그대로 (rabbit_guard 0x02d03b52e9655a3f · mana_regen 0x51ddbf1f7d1ab7e9 · stash 0xaf95ab21bf58d0cb).
+- 실행: sbx --version "sbx 0.4.0", sbx new 의 엔진 범위 ">=0.4.0 <1.0.0". 패키지 명령 시간 (5 번 중앙값): resolve 87 · 68 ms,
+  install 193 · 104 ms (빈 캐시 · 캐시), check 61 ms, build 95 ms, check <패키지> 97 ms.
+
+**남은 일**
+
+- v0.5 Creator Alpha 계획 커밋 (진입 조건 · 열린 결정 → ADR · 마일스톤 · 태스크).
+
+---
+
 ## 2026-10-28 — v0.4 M6-T1: 패키지 데모 — samples/packages/inventory 를 설치하는 samples/stash, CTest sample_stash
 
 **무엇을**

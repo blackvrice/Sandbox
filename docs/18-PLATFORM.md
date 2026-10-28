@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.3 완료 — 0.3.0, v0.4 M6-T1).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.4 완료 — 0.4.0).
 
 ---
 
@@ -11,8 +11,9 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 ✅ · M5 ✅ · M6 E2E · 릴리스 (T1 ✅ · T2) (6.4, ADR-0071 ~ 0077)
-다음     v0.4 M6-T2 — 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.4.0 · 제품 버전 0.4.0
+         v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
+다음     v0.5 Creator Alpha — 계획 커밋 (v0.4 를 시작한 방식 그대로: 진입 조건 · 먼저 정할 결정 → ADR, 6.6 마일스톤 · 태스크).
+         v0.4 에서 v0.5 로 미룬 것 (패키지 에셋 · 커버리지 퍼즈) 과 v0.3 에서 미룬 스크립트 항목 (노트 5장) 이 입력이다
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -23,7 +24,7 @@
 | v0.1 | Engine Foundation      | ECS · 서버 · 에디터 회귀 없는 기준선       | ◐ = Phase 0~15. 남은 것은 실기 검증 (1.1)       |
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
-| v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ◐ 계획 (6.4, ADR-0071)                           |
+| v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ✅ 0.4.0 (6.4 · [노트](releases/v0.4.0.md))      |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | [계획]                                          |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
 | v0.7 | Multiplayer Platform   | 인증된 방 · 자체 서버 · 무료 세션          | [계획] — 보안 전송 ADR 먼저 (R6)                |
@@ -99,7 +100,7 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
 ## 4. 버전 · 호환성 규칙
 
 ```text
-제품 버전      CMake project VERSION (지금 0.3.0 — v0.3 완료, 2026-10-27) — 버전이 끝날 때 올린다 (v0.4 완료 = 0.4.0).
+제품 버전      CMake project VERSION (지금 0.4.0 — v0.4 완료, 2026-10-28) — 버전이 끝날 때 올린다 (v0.5 완료 = 0.5.0).
                버전마다 릴리스 노트 docs/releases/v<제품 버전>.md (이력 — 바꾸지 않는다)
 엔진 범위      매니페스트 "engine" — 이 엔진이 범위 밖이면 프로젝트 검사 오류 P3
 SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 빌드). 범위 문법 (v0.2): >= > <= < = ^ 와 부분 버전 (npm 과 같은 뜻),
@@ -425,11 +426,31 @@ M6 E2E · 릴리스
         는 밖 — .gitignore), 게임 팩 stash 가 Prefab (stash.cart) · 스크립트 (stash.bonus — "@inventory/bag") 로 쓴다. 시작 월드는
         설치 뒤 클라이언트 Ctrl+S (검사 경고 0). playthrough.json (tick 900 · 해시). CTest sample_stash — 다른 폴더 · 빈 캐시
         install → sbx test → 헤드리스 서버 = 로컬 플레이 (프로젝트 · 게임 패키지)
-  T2 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.4.0 · 제품 버전 0.4.0
+  T2 ✅ 버전 종료: 요구사항 done / deferred / removed (6.5 · 릴리스 노트), 제품 버전 0.4.0, 패키지 명령 시간 (14 7.14)
+  → M6 완료 · v0.4 완료 (2026-10-28): 0.4.0
 ```
 
 v0.4 밖 (ADR-0071 9): Registry · 검색 · publish · 서명 (v0.6), 권한 선언 · 심사 (v0.7 이후), 원격 클라이언트의 패키지 받기 (v0.7),
 여러 버전 공존 (하지 않는다), 유료 패키지 EULA (v0.8).
+
+v0.4 완료 기준 (초안 5장 → 자동 검증): 남의 Inventory Feature 설치 → 빌드 → 테스트 플레이 (M6-T1 — sample_stash), 깨끗한 머신에서
+같은 잠금 = 같은 game digest (M5-T1 — project_reproduce), 충돌 · 악성 매니페스트 · 깨진 파일 거부와 설치 되돌리기 (M3 · M5-T1 —
+test_install · test_package_rejects). 기존 det_* · 골든 · v0.2 · v0.3 데모 해시 회귀 없음.
+
+### 6.5 요구사항 검토 (v0.4 M6-T2 — 판정과 근거는 [릴리스 노트](releases/v0.4.0.md) 4 · 5장)
+
+```text
+done      요구 1 · 2 · 3 · 4 · 6 (매니페스트 · SemVer · 라이선스 · SBOM, sbx new · new --pack · add · remove · update · install ·
+          build · test, 로컬 · Git · 캐시 소스, 그래프 · 충돌 · 잠금 · digest, tsconfig paths · 에디터 팩별 목록), 요구 5 · 7 의
+          대부분 (컴포넌트 · 시스템 · 스크립트 · Prefab 의 Export / Import, 해시 · 바이트코드 검사 · 설치 훅 없음), 완료 기준 1~3,
+          데모 (samples/stash + samples/packages/inventory), 위험 7-1 (팩마다 한 버전), DoD 1~4
+deferred  패키지 에셋 (v0.5), 커버리지 퍼즈 (v0.5), 레지스트리 · publish · 서명 · 범위로 고르기 · .sbc 배포 (v0.6), Git monorepo ·
+          얕은 받기 (v0.6), 외부 SBOM · 라이선스 호환 판정 (v0.6), 권한 선언 · 심사 · 원격 클라이언트의 패키지 받기 (v0.7), 설치
+          확인 캐시 (조건)
+removed   따로 된 sbx init (→ new · new --pack), 여러 버전 공존 (→ 한 버전), 범위로 고르기 (→ 소스 = 버전, v0.6 레지스트리와),
+          VM 의 모듈 사이 호출 (→ 정적 링크, ADR-0075), path · git 의존을 content/ 에서 찾기 (→ 설치해야 연다, ADR-0074)
+골든      kSimVersion 4 그대로 — 패키지는 콘텐츠 로드의 일 (det_* · 리플레이 · rabbit_guard · mana_regen 해시 그대로)
+```
 
 ## 7. 문서 · ADR 계획
 
@@ -489,7 +510,7 @@ v0.4 M4-T3 ✅ 10 2장 (팔레트 · 콘텐츠 창 — 팩별 묶음), 17, 13
 v0.4 M5-T1 ✅ 13 (거부 시험 · 재현), 09 12장, 17
 v0.4 M5-T2 ✅ ADR-0077, 09 9장 (.sbpkg 형식 2 — packs), 15 7장, 17, 13
 v0.4 M6-T1 ✅ 13 5.1 (패키지 데모), 15 (실행), 17, README
-v0.4 M6-T2    releases/v0.4.0, 14 (설치 · 해결 시간), 18 (버전 줄)
+v0.4 M6-T2 ✅ releases/v0.4.0, 14 7.14 (패키지 명령 시간), 18 (0 · 1 · 4장 · 6.4 · 6.5 · 7 · 8장), README · docs/README (버전 표)
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)
@@ -535,4 +556,5 @@ v0.3 M5-T4 뒤: Windows MSVC Debug 62/62 (render_tests_warp 제외) · unit_scri
 v0.3 M6-T1 뒤: Windows MSVC Debug 63/63 (render_tests_warp 제외, + sample_mana_regen) · unit_core +4 (test_mana_regen_sample) · unit_project 갱신 (요약의 client onUpdate)
 v0.3 M6-T2 뒤: Windows MSVC Debug 63/63 (render_tests_warp 제외) · unit_script +5 (test_script_protection)
 v0.3 M6-T3 뒤 (0.3.0): Windows MSVC Debug 63/63 (render_tests_warp 제외) · SandboxTests 600 케이스 — 제품 버전만 바뀌었다
+v0.4 M6-T2 뒤 (0.4.0): Windows MSVC Debug 67/67 (render_tests_warp 제외) · SandboxTests 636 케이스 — 제품 버전만 바뀌었다
 ```

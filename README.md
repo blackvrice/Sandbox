@@ -13,7 +13,8 @@ C++23 로 처음부터 만드는 **Sandbox Simulation Engine · 게임 제작 �
 | v0.1 | Engine Foundation — ECS · 30 TPS 결정론 시뮬레이션 · 청크 월드 · 서버 권위 네트워크 · 멀티플레이 에디터 · DX12 / Vulkan / Metal | 구현 끝 (Phase 0~15) — 실기 · CI · macOS 검증 대기         |
 | v0.2 | Game Creator — 게임 프로젝트 · GameMode · 플레이어 행동 · Visual Trigger · 테스트 플레이 · 게임 패키지 | ✅ 0.2.0 ([릴리스 노트](docs/releases/v0.2.0.md))          |
 | v0.3 | SandboxScript — TypeScript 부분집합 · 자체 컴파일러 · 바이트코드 VM · 스크립트 컴포넌트 · 시스템 | ✅ 0.3.0 ([릴리스 노트](docs/releases/v0.3.0.md)) |
-| v0.4~ | 패키지 관리자 · Creator Alpha · Hub · 방 · 마켓 · Business · GA                            | [계획] ([18-PLATFORM](docs/18-PLATFORM.md))               |
+| v0.4 | Package Manager — 콘텐츠 팩 = 패키지 · 로컬 · Git · 캐시 소스 · 잠금 파일 · 트랜잭션 설치 · 팩 사이 스크립트 import · 라이선스 요약 | ✅ 0.4.0 ([릴리스 노트](docs/releases/v0.4.0.md)) |
+| v0.5~ | Creator Alpha · Hub · 방 · 마켓 · Business · GA                                            | [계획] ([18-PLATFORM](docs/18-PLATFORM.md))               |
 
 지금 무엇을 하고 다음에 무엇을 하는지는 **[docs/18-PLATFORM.md](docs/18-PLATFORM.md) 0장**에 있습니다 (Phase 0~15 이력은
 [docs/16-ROADMAP.md](docs/16-ROADMAP.md)). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다.
