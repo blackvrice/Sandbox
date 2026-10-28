@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-10-28 — v0.4 M4-T3: 에디터의 팩별 목록 (배치 Prefab · 콘텐츠 창) → M4 완료
+
+**무엇을**
+
+- editor/PackGroups groupByPack: 항목 id 의 첫 마디 = 팩, 출처는 그 팩을 읽은 자리 (ContentSourcePack::folder — "content/…"
+  프로젝트 · ".sandbox/packages/…" 설치한 패키지 · 그 밖 팩), 차례 프로젝트 → 설치 → 팩 → 기타, 머리 글 ("eco · 프로젝트",
+  "inv 0.1.0 · MIT · 설치한 패키지"). ImGui 를 모른다.
+- "편집" 패널의 배치 Prefab 목록과 "콘텐츠" 창의 목록이 묶음마다 SeparatorText 머리를 단다 — 묶음이 하나면 머리 없이 지금처럼.
+- 시험: test_pack_groups 1. 문서: 10 2장, 18 (0 · 6.4 · 7장), 17, 13.
+
+**왜**
+
+- ADR-0071 8 — 설치한 Feature 팩의 Prefab · 스크립트를 프로젝트의 것과 나눠 찾게 한다 (어느 패키지 · 버전 · 라이선스인지).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 65/65 통과. det_* 골든 그대로 (에디터만).
+- 실행 (화면): sbx new --from ecosystem_small + sbx new --pack inv --license MIT + sbx add → SandboxClient --world <프로젝트> (로컬
+  플레이) → "편집" 패널 배치 툴 (3) — "eco · 프로젝트" (eco.grass · eco.rabbit · eco.wolf) 와 "inv 0.1.0 · MIT · 설치한 패키지"
+  (inv.thing) 두 묶음. "콘텐츠" 창 Prefab 탭도 같은 두 묶음, 규칙 탭 (eco 만) · 스크립트 탭 (inv 만) 은 머리 없는 한 목록.
+  콘텐츠 창의 좁은 목록에서 긴 머리는 잘린다 ("설치한 패키…" — 배치 목록에는 다 보인다).
+- 확인 중 스크래치 폴더의 파일 하나 (앞 태스크의 m4t1/game/content/ecosystem/pack.json) 가 0 바이트들로 지워져 있었다 — 이번
+  명령이 쓴 파일이 아니고, 저장소는 git fsck · git status 모두 깨끗했다. 같은 무렵 스크래치의 빌드 스크립트가 사라진 일도 있어
+  스크래치 (임시 폴더) 쪽 문제로 보고 새 폴더 (m4t3) 에서 다시 했다. 원인은 확인하지 못했다.
+
+**남은 일**
+
+- M5-T1: 거부 시험 (충돌 · 악성 매니페스트 · 깨진 · 고친 파일 · 큰 파일 · 경로 탈출), 라이선스 요약 (SBOM), 깨끗한 머신 재현.
+
+---
+
 ## 2026-10-28 — v0.4 M4-T2: sbx test · sbx new --pack (ADR-0076), 에디터 묶음은 M4-T3 으로
 
 **무엇을**

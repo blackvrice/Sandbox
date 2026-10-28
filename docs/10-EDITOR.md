@@ -63,6 +63,10 @@ Play / Edit             나누지 않는다 — InWorld 에서 늘 툴, 기본 �
                         listEntities · positionOf · catalog 가 더해졌다
 (12C) ui/ContentPanel   "콘텐츠" 창 = Rules · Behaviors (+ Prefab) 패널의 첫 모양 (8장) — "편집" 패널의 "콘텐츠 창" 단추로 연다.
 (v0.2 M4-T3) ui/TriggerForm  "콘텐츠" 창의 트리거 폼 — 노드 · 연결 양식 (8장)
+(v0.4 M4-T3) editor/PackGroups  배치 Prefab 목록 · "콘텐츠" 창의 목록을 팩별로 묶는다 — 항목 id 의 첫 마디 = 팩, 출처는 그 팩을
+                        읽은 자리 ("content/…" 프로젝트 · ".sandbox/packages/…" 설치한 패키지 · 그 밖 팩), 차례 프로젝트 → 설치 →
+                        팩 → 기타 (읽은 팩에 없는 id), 같은 출처는 팩 id 순. 머리 글 "eco · 프로젝트" · "inv 1.0.0 · MIT · 설치한
+                        패키지". 묶음이 하나면 머리 없이 v0.3 과 같은 목록 (ImGui::SeparatorText)
                         IEditorHost::permissions() = 지금 역할로 할 수 있는 것 (7장), content() 는 월드 오버레이까지 적용한 것
 (12C) Players           apps/client/ui/PlayersPanel "접속자" — 접속자 · 역할 표, 바꿀 수 있는 사람에게 역할 콤보 (7장).
                         에디터가 아니라 클라이언트에 둔다 (역할 · 접속은 Network 의 것 — 에디터는 permissions 만 안다)

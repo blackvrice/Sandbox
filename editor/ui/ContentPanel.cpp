@@ -11,6 +11,7 @@
 #include "core/content/ContentLoader.hpp"
 #include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "editor/PackGroups.hpp"
 
 namespace sbx::editor {
 
@@ -462,18 +463,33 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     ImGui::SetNextItemWidth(-1);
     ImGui::InputTextWithHint("##filter", "거르기", st.filter.data(), st.filter.size());
     const std::string_view filter(st.filter.data());
-    for (const Item& item : itemsOf(*db, st.kind)) {
-        if (!containsIgnoreCase(item.id, filter)) {
-            continue;
+    // 팩별 묶음 (v0.4 M4-T3) — 프로젝트 팩 · 설치한 패키지 · 그 밖. 팩이 하나면 머리 없이
+    std::vector<Item> items;
+    std::vector<std::string_view> ids;
+    for (Item& item : itemsOf(*db, st.kind)) {
+        if (containsIgnoreCase(item.id, filter)) {
+            items.push_back(std::move(item));
         }
-        const std::string label = std::format("{}{}", item.overlay ? "● " : "   ", item.id);
-        if (ImGui::Selectable(label.c_str(), st.selected == item.id && !st.isNew)) {
-            st.selected = std::string(item.id);
-            st.isNew = false;
-            st.pendingFrom.reset();
-            st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
-            st.issues.clear();
-            st.checked.clear();
+    }
+    for (const Item& item : items) {
+        ids.push_back(item.id);
+    }
+    const std::vector<PackGroup> groups = groupByPack(*db, ids);
+    for (const PackGroup& g : groups) {
+        if (groups.size() > 1) {
+            ImGui::SeparatorText(g.label.c_str());
+        }
+        for (const usize i : g.items) {
+            const Item& item = items[i];
+            const std::string label = std::format("{}{}", item.overlay ? "● " : "   ", item.id);
+            if (ImGui::Selectable(label.c_str(), st.selected == item.id && !st.isNew)) {
+                st.selected = std::string(item.id);
+                st.isNew = false;
+                st.pendingFrom.reset();
+                st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
+                st.issues.clear();
+                st.checked.clear();
+            }
         }
     }
     if (editable) {

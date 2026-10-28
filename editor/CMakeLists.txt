@@ -6,6 +6,8 @@ add_library(SandboxEditor STATIC
     Editor.cpp
     Undo.hpp
     Undo.cpp
+    PackGroups.hpp
+    PackGroups.cpp
     ui/EditorPanel.hpp
     ui/EditorPanel.cpp
     ui/InspectorPanel.hpp

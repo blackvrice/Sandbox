@@ -4,10 +4,12 @@
 #include <format>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <imgui.h>
 
 #include "core/content/ContentDatabase.hpp"
+#include "editor/PackGroups.hpp"
 
 namespace sbx::editor {
 
@@ -30,15 +32,25 @@ void prefabList(Editor& editor, EditorPanelState& state, const content::ContentD
     ImGui::SetNextItemWidth(220.f * ImGui::GetStyle().FontScaleDpi);
     ImGui::InputTextWithHint("##filter", "거르기", state.filter.data(), state.filter.size());
     const std::string_view filter(state.filter.data());
+    // 팩별 묶음 (v0.4 M4-T3) — 프로젝트 팩 · 설치한 패키지를 나눠 보인다. 팩이 하나면 머리 없이 지금처럼
+    std::vector<std::string_view> ids;
+    for (const content::Prefab& p : content.prefabs()) {
+        if (containsIgnoreCase(p.id, filter)) {
+            ids.push_back(p.id);
+        }
+    }
+    const std::vector<PackGroup> groups = groupByPack(content, ids);
     if (ImGui::BeginListBox("##prefabs",
                             {220.f * ImGui::GetStyle().FontScaleDpi, 140.f * ImGui::GetStyle().FontScaleDpi})) {
-        for (const content::Prefab& p : content.prefabs()) {
-            if (!containsIgnoreCase(p.id, filter)) {
-                continue;
+        for (const PackGroup& g : groups) {
+            if (groups.size() > 1) {
+                ImGui::SeparatorText(g.label.c_str());
             }
-            const bool selected = editor.settings().prefab == p.id;
-            if (ImGui::Selectable(p.id.c_str(), selected)) {
-                editor.settings().prefab = p.id;
+            for (const usize i : g.items) {
+                const std::string id(ids[i]);
+                if (ImGui::Selectable(id.c_str(), editor.settings().prefab == id)) {
+                    editor.settings().prefab = id;
+                }
             }
         }
         ImGui::EndListBox();
