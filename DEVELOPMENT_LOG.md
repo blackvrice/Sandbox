@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-28 — v0.5 M1-T1: 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 (새 타깃 SandboxCrash)
+
+**무엇을**
+
+- foundation/log: 최근 줄 고리 (마지막 256 줄 · 줄마다 1,024 바이트 — 싱크와 무관), recentLines · recentLinesForCrash (잠금을 못
+  잡아도 읽는다).
+- foundation/diag: scrub (비밀 → <SECRET> · 사용자 폴더 — '\' · '/' · 대소문자 → <HOME> · 사용자 이름 낱말 → <USER> · IPv4 → <IP>
+  (127.0.0.1 · 0.0.0.0 그대로) · 전자우편 → <EMAIL>), 보고 묶음 createReportDir (<UTC 시각>-<앱>, 같은 초 -2) · writeReport
+  (report.json — 앱 · 이유 · 시각 · 버전 · 커밋 · 툴체인 · 명령줄 · 문맥 · 파일 목록, log.txt — 모두 거른다), 보고 폴더
+  (SBX_REPORTS_DIR · %LOCALAPPDATA% · XDG).
+- platform/crash — 새 타깃 SandboxCrash (의존 Foundation 만 — 서버는 SandboxPlatform 을 링크하지 않고 platform/common 은 OS 헤더
+  금지라 따로): Windows SEH → 미니덤프 crash.dmp (dbghelp) · std::terminate · SIGABRT, POSIX 시그널 (대체 스택 · 다시 올림).
+  경계 규칙 (SandboxCrash 는 Core · Network · Platform · Render · Editor · ImGui 를 링크하지 않는다).
+- SandboxServer · SandboxClient: 시작할 때 처리기 (소유자 열쇠를 비밀로), --crash-test (시험용 — 일부러 충돌).
+- 시험: test_diag 3, CTest crash_report_server · crash_report_client. 문서: 20 (7.1 · M1-T1 — 자리를 platform/crash 로 고침),
+  01 (타깃 표), 07 8장, 15 (서버 · 클라이언트), 17, 13, 18 (0 · 6.6).
+
+**왜**
+
+- 초안 v0.5 요구 4 (버그 리포트 · 충돌 로그 — 민감정보 제거) 와 완료 기준 C2 (다른 환경의 원인 진단) 의 바탕.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 69/69 통과 (+ crash_report_server · client), 첫
+  실행에서. check_includes 0 위반. det_* 골든 그대로 (시뮬레이션 무관).
+- 실행: `SBX_REPORTS_DIR=… SandboxServer --world ecosystem_small --port 0 --owner-key HUNTER2SECRET --crash-test` → stderr "충돌
+  보고: …/20261028-094757-SandboxServer", 묶음 crash.dmp · log.txt · report.json ("exception 0xC0000005 (access violation) at …",
+  version 0.4.0 · commit · toolchain, 명령줄의 열쇠는 "<SECRET>", files [log.txt, crash.dmp]), log.txt 에 마지막 줄 "[error] [crash]
+  --crash-test: 일부러 잘못된 메모리에 쓴다".
+- Linux · macOS 의 POSIX 처리기는 이 환경에서 컴파일 · 실행하지 않았다 (지원 매트릭스 — 검증 안 됨).
+
+**남은 일**
+
+- M1-T2: sbx report (묶음 읽기 — 덤프에 메모리가 든다는 알림) · sbx doctor. 묶음에 게임 · 패키지 digest 넣기.
+- 스택 넘침의 덤프 (별도 스레드에서 쓰기) 는 [계획].
+
+---
+
 ## 2026-10-28 — v0.5 계획: Creator Alpha 확장 설계 · 구현 상태 분석 · v0.6~v1.0 배치 (ADR-0078~0083) — 문서만
 
 **무엇을**

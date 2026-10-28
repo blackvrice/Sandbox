@@ -139,8 +139,8 @@ sbx_msl                   EXECUTABLE tools/shader/sbx_msl.cpp — 빌드 때 SPI
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
 SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
-SandboxServer             EXE        Network Core
-SandboxClient             EXE        Editor Network Render Platform Core (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
+SandboxServer             EXE        Network Core Crash (v0.5 M1-T1 — 충돌 처리기)
+SandboxClient             EXE        Editor Network Render Platform Core Crash (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
 SandboxTests              EXE        Foundation Script Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·
@@ -234,6 +234,10 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     --snapshot-kbps: 클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음 — 08 6.3, ADR-0025). 넘는 엔티티는 다음 스냅숏으로.
     0 은 측정용 — 10k 월드의 스냅숏이 1 MB 를 넘어 UDP 받기 버퍼에서 조각을 잃고 클라이언트가 거의 못 받는다 (10B 측정).
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
+    (v0.5 M1-T1) 충돌하면 보고 묶음을 남긴다 — <보고 폴더>/<UTC 시각>-SandboxServer/ (report.json · log.txt · Windows crash.dmp),
+    stderr 에 "충돌 보고: <폴더>". 보고 폴더 = SBX_REPORTS_DIR, 아니면 %LOCALAPPDATA%/sandbox/reports (Windows) ·
+    $XDG_STATE_HOME/sandbox/reports. 소유자 열쇠 · 사용자 폴더 · 사용자 이름 · IP 주소는 거른다 (덤프는 거르지 않는다).
+    [--crash-test] (시험용): 처리기를 단 뒤 일부러 충돌 — 클라이언트도 같다 (20-CREATOR-ALPHA 7.1).
     (12C) [--owner-key <k>]: 클라이언트가 같은 --owner-key 로 들어오면 owner — "접속자" 패널에서 다른 사람의 역할을 바꾼다
     (owner = 누구든, admin = admin 아래인 사람을 editor 이하로). 틀린 열쇠는 접속 거절. 평문이다 (LAN · 신뢰하는 환경).
     (12D) [--saves <dir>]: 세이브 · 리플레이 폴더 (기본 saves — 서버 작업 폴더 기준, 게임 프로젝트면 <프로젝트>/worlds — v0.2

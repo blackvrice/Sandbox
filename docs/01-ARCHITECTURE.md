@@ -81,10 +81,11 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
 | SandboxCore       | static | ECS, Simulation, World, Content, Command, Serialization, Replay, Random, 게임 · 트리거 · 프로젝트 · 패키지, 스크립트 Host 바인딩 · 시스템 (core/script) | Foundation, Script                      | Platform, Render, Editor, Network, 그래픽/OS 헤더 |
 | SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
 | SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
+| SandboxCrash      | static | 충돌 처리기 (SEH 미니덤프 · POSIX 시그널 → 보고 묶음, v0.5 M1-T1 — platform/crash) | Foundation                              | Core, Network, Platform, Render, Editor, ImGui    |
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |
 | SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render                            | Network (ICommandSink로 분리)                     |
-| SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core | —                                                 |
-| SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core                           | Platform, Render, Editor, ImGui                   |
+| SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core, Crash | —                                          |
+| SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core, Crash                    | Platform, Render, Editor, ImGui                   |
 
 ### 2.1 원본 요구와 다른 점: Render는 Core를 모른다
 

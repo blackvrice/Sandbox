@@ -13,6 +13,7 @@ add_executable(SandboxTests
     unit/foundation/test_error.cpp
     unit/foundation/test_assert.cpp
     unit/foundation/test_log.cpp
+    unit/foundation/test_diag.cpp
     unit/foundation/test_small_vector.cpp
     unit/foundation/test_job_system.cpp
     unit/foundation/test_utf8.cpp
@@ -223,6 +224,14 @@ if(TARGET SandboxServer)
     add_test(NAME server_rejects_unknown_option COMMAND SandboxServer --no-such-option)
     set_tests_properties(server_rejects_unknown_option PROPERTIES LABELS "unit;server" WILL_FAIL TRUE)
 
+    # 충돌 보고 (v0.5 M1-T1) — 일부러 충돌 → 보고 묶음 · 덤프 · 민감정보 제거
+    add_test(NAME crash_report_server
+        COMMAND "${CMAKE_COMMAND}" -DEXE=$<TARGET_FILE:SandboxServer> -DAPP=SandboxServer
+                "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/crash_report_server"
+                "-DARGS=--world;ecosystem_small;--port;0;--owner-key;SECRETKEY123"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/project/crash_report.cmake")
+    set_tests_properties(crash_report_server PROPERTIES LABELS "unit;server" TIMEOUT 120)
+
     add_test(NAME server_scenario_smoke COMMAND SandboxServer --scenario random_walk_1k --ticks 60)
     set_tests_properties(server_scenario_smoke PROPERTIES LABELS "unit;server"
         PASS_REGULAR_EXPRESSION "tick 60 hash 0x[0-9a-f]+ entities [0-9]+")
@@ -275,6 +284,12 @@ if(TARGET SandboxClient)
         PASS_REGULAR_EXPRESSION "SandboxClient ${PROJECT_VERSION} .*window (Win32|X11|Wayland|Wayland · X11|Cocoa|none), render (D3D12|Vulkan|Metal|none)")
     add_test(NAME client_rejects_unknown_option COMMAND SandboxClient --no-such-option)
     set_tests_properties(client_rejects_unknown_option PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
+    add_test(NAME crash_report_client
+        COMMAND "${CMAKE_COMMAND}" -DEXE=$<TARGET_FILE:SandboxClient> -DAPP=SandboxClient
+                "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/crash_report_client"
+                "-DARGS=--headless;--connect;127.0.0.1:1;--owner-key;SECRETKEY123"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/project/crash_report.cmake")
+    set_tests_properties(crash_report_client PROPERTIES LABELS "unit;client" TIMEOUT 120)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
     set_tests_properties(client_headless_smoke PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "SandboxClient 끝: frames 30 state Shutdown")

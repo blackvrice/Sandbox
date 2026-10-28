@@ -312,7 +312,7 @@ SFML Audio 는 거치지 않는다 (요구사항상 임시 허용이지만 minia
 | 콘솔               | `platform::attachConsole()`              | Phase 6 구현 (Windows GUI 실행 파일)                                                                       |
 | 파일 대화상자      | `IFileDialog` `[후속]`                   | 초기에는 ImGui 내부 파일 브라우저                                                                          |
 | 사용자 데이터 경로 | `platformPaths()` `[계획]` Phase 8       | Windows `%APPDATA%/Sandbox`, Linux `$XDG_DATA_HOME/sandbox`, macOS `~/Library/Application Support/Sandbox` |
-| 크래시 덤프        | `[후속]`                                 | Windows MiniDumpWriteDump                                                                                  |
+| 크래시 덤프 · 보고 | `crash::install` (SandboxCrash — platform/crash) | v0.5 M1-T1 구현: Windows SEH → MiniDumpWriteDump (crash.dmp) · std::terminate · SIGABRT, POSIX 시그널 (대체 스택). 보고 묶음 · 민감정보 제거는 foundation/diag (docs/20-CREATOR-ALPHA.md 7.1). SandboxPlatform 과 따로 — 서버도 링크한다 |
 
 ## 9. 필수 테스트
 

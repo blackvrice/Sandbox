@@ -5,5 +5,5 @@ add_executable(SandboxServer
     ServerOptions.hpp
     ServerOptions.cpp
 )
-target_link_libraries(SandboxServer PRIVATE SandboxNetwork SandboxCore sbx_warnings)
+target_link_libraries(SandboxServer PRIVATE SandboxNetwork SandboxCore SandboxCrash sbx_warnings)
 target_compile_definitions(SandboxServer PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")

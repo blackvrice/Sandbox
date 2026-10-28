@@ -256,9 +256,13 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
 ## 7. 진단 · 오류 보고 · 배포 (R4 · R5 · C2 · 12번 기능의 v0.5 몫)
 
 ```text
-7.1 충돌 보고   foundation 밖 (platform — OS 헤더): Windows SEH 처리기 (미니덤프 — dbghelp) · POSIX 시그널 (backtrace), 로그 고리 버퍼
-                (마지막 N 줄), 보고 묶음 <사용자 데이터>/sandbox/reports/<시각>/ (덤프 · 로그 · 빌드 정보 · 게임 · 패키지 digest · 리플레이
-                기록 있으면). 민감정보 제거: 사용자 이름 · 홈 경로 → <HOME>, 접속 주소 마스크, 소유자 키 · 토큰 제거 (시험이 고정 문자열로)
+7.1 충돌 보고   ✅ M1-T1. 처리기 = 새 타깃 SandboxCrash (platform/crash — 의존 Foundation 만, 서버도 링크: Windows SEH 처리기 ·
+                미니덤프 (dbghelp MiniDumpNormal) · std::terminate · SIGABRT, POSIX 시그널 (대체 스택)). 로그 고리 (foundation/log — 마지막
+                256 줄), 보고 묶음 (foundation/diag — <보고 폴더>/<UTC 시각>-<앱>/ report.json · log.txt · crash.dmp), 보고 폴더 =
+                SBX_REPORTS_DIR · %LOCALAPPDATA%\sandbox\reports · $XDG_STATE_HOME/sandbox/reports. 민감정보 제거 (diag::scrub): 비밀
+                (소유자 열쇠) → <SECRET>, 사용자 폴더 → <HOME>, 사용자 이름 → <USER>, IPv4 → <IP> (127.0.0.1 · 0.0.0.0 그대로), 전자우편 →
+                <EMAIL>. 덤프는 거르지 않는다 (메모리가 든다 — M1-T2 의 sbx report 가 알린다). 게임 · 패키지 digest · 리플레이를 묶음에
+                넣는 것은 M1-T2 · M5-T3
 7.2 보기        sbx report <묶음> (요약 · 마지막 로그 · 콜스택) — "에러 대시보드" 의 v0.5 몫 (로컬). 호스팅 대시보드는 v0.6 · v0.9
 7.3 진단        sbx doctor <프로젝트 | 패키지> — 엔진 버전 · 범위, 패키지 형식 · digest, 잠금 · 설치 (P8), 콘텐츠 검사 요약, GPU · 드라이버 ·
                 OS (클라이언트), 지원 매트릭스 판정. 클라이언트가 열기에 실패하면 같은 내용을 오류 화면에 (복사 단추)
@@ -312,7 +316,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
-| M1-T1 | 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 | platform/common/CrashReporter (+ windows · linux), foundation/log (고리 버퍼), apps/client · server main | ICrashReporter, ReportBundle, scrubSensitive() | — | scrub 고정 문자열 · 묶음 형식 (unit_platform), 일부러 충돌 (CTest — 덤프 파일 생김) | 서버 · 클라이언트가 충돌하면 묶음이 남고 민감정보 시험 통과 |
+| M1-T1 ✅ | 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 | platform/crash (새 타깃 SandboxCrash — platform/common 은 OS 헤더 금지 · 서버는 SandboxPlatform 을 링크하지 않으므로 따로), foundation/log (고리), foundation/diag (Scrub · Report), apps/client · server main (--crash-test) | crash::install · CrashConfig, diag::scrub · ScrubRules, createReportDir · writeReport | — | test_diag (scrub 고정 문자열 · 고리 · 묶음), CTest crash_report_server · client (일부러 충돌 → 묶음 · 덤프 · 열쇠 없음) | 서버 · 클라이언트가 충돌하면 묶음이 남고 민감정보 시험 통과 |
 | M1-T2 | sbx report · sbx doctor (진단 묶음) | tools/sbx, core/project (진단 보고) | DiagnosticReport | M1-T1 | 진단 항목 (엔진 범위 · P8 · 패키지 형식) unit, CTest doctor | 다른 엔진 · 빠진 설치 · 깨진 패키지를 문장으로 |
 | M1-T3 | 안전 모드 · 새 버전 알림 | apps/client (ClientOptions · 설정), foundation/version | ReleaseFeed (읽기만) | — | 깨진 설정 → 옮김 · 시작, 버전 비교 unit (네트워크 없음 — 파일 입력) | --safe-mode 로 깨진 설정에서도 시작 |
 | M1-T4 | CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 스크립트 | .github/workflows, tools/release (zip · SHA-256), docs (15 · 20 7.8) | — | — | CI 녹색 (ctest -E render_tests_warp) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |

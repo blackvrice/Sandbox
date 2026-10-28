@@ -7,6 +7,10 @@ add_library(SandboxFoundation STATIC
     assert/Assert.cpp
     log/Log.hpp
     log/Log.cpp
+    diag/Scrub.hpp
+    diag/Scrub.cpp
+    diag/Report.hpp
+    diag/Report.cpp
     hash/Fnv1a.hpp
     hash/Sha256.hpp
     hash/Sha256.cpp

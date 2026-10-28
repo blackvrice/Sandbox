@@ -24,6 +24,7 @@ struct ClientOptions {
 
     bool console = false;      // Windows: 콘솔을 붙인다 (GUI 서브시스템 실행 파일)
     bool headless = false;     // OS 창 없이 HeadlessWindow 로 (CI·창 없는 OS)
+    bool crashTest = false;    // --crash-test: 충돌 처리기를 단 뒤 일부러 충돌 (v0.5 M1-T1 — 보고 묶음 시험)
     std::optional<u64> frames; // 이만큼 돌고 끝 (없으면 창을 닫을 때까지)
     std::optional<double> fps; // 프레임 페이싱 Hz. 0 = 페이싱 없음. 기본: 창 60, --headless 0
     std::string inputFile;     // 기본 바인딩 위에 덮어쓸 settings/input.json
@@ -48,12 +49,13 @@ struct ClientOptions {
     std::string name = "player";        // --name: 접속 이름
     std::string ownerKey;               // --owner-key: 서버 열쇠와 같으면 owner (12C, --connect 만)
     std::optional<std::string> saves;   // --saves: 싱글플레이 세이브 · 리플레이 폴더 (12D, 기본 saves)
-    // --script <파일>: 자동 플레이 (v0.2 M6-T1 — 로컬 서버가 스크립트로 돈다. 헤드리스면 게임이 끝날 때 결과 한 줄을 쓰고 끝)
+    // --script <파일>: 자동 플레이 (v0.2 M6-T1 — 로컬 서버가 스크립트로 돈다. 헤드리스면 게임이 끝날 때 결과 한 줄을
+    // 쓰고 끝)
     std::optional<std::string> script;
-    u64 seed = 1;                       // --seed (--world)
-    std::optional<u32> simThreads;      // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
-    std::string contentRoot;            // --content (비면 빌드 때 정한 저장소의 content/)
-    std::string assetRoot;              // --assets (비면 저장소의 assets/)
+    u64 seed = 1;                  // --seed (--world)
+    std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
+    std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
+    std::string assetRoot;         // --assets (비면 저장소의 assets/)
 
     // UI (Phase 8C)
     std::string font;  // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)

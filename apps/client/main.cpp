@@ -17,11 +17,13 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "foundation/BuildInfo.hpp"
+#include "foundation/diag/Report.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
+#include "platform/crash/CrashHandler.hpp"
 #include "render/asset/MaterialLibrary.hpp"
 #include "render/rhi/RenderDevice.hpp"
 
@@ -76,6 +78,16 @@ int main(int argc, char** argv) {
     }
     if (opts->logLevel) {
         sbx::log::setLevel(*opts->logLevel);
+    }
+    // 충돌 보고 (v0.5 M1-T1 — docs/20-CREATOR-ALPHA.md 7.1): 덤프 · 마지막 로그 · 빌드 정보, 소유자 열쇠 · 사용자
+    // 폴더는 거른다
+    sbx::crash::install({sbx::diag::defaultReportsRoot(),
+                         "SandboxClient",
+                         argStore,
+                         opts->ownerKey.empty() ? std::vector<std::string>{} : std::vector<std::string>{opts->ownerKey},
+                         {}});
+    if (opts->crashTest) {
+        sbx::crash::crashForTest();
     }
 
     // 키 바인딩: 기본값 위에 사용자 파일

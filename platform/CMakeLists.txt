@@ -98,3 +98,6 @@ endif()
 target_link_libraries(SandboxPlatform
     PUBLIC SandboxFoundation
     PRIVATE sbx_nlohmann_json sbx_warnings)
+
+# 충돌 처리기 — 따로 된 타깃 (서버도 링크한다, v0.5 M1-T1)
+add_subdirectory(crash)

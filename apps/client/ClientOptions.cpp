@@ -54,6 +54,8 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.console = true;
         } else if (a == "--headless") {
             opts.headless = true;
+        } else if (a == "--crash-test") {
+            opts.crashTest = true;
         } else if (a == "--log-input") {
             opts.logInput = true;
         } else if (a == "--no-render") {
@@ -244,6 +246,7 @@ std::string clientUsage() {
            "      --log-level <lvl>  trace|debug|info|warn|error|off (기본 info)\n"
            "      --console          (Windows) 콘솔 창에 로그를 낸다\n"
            "      --headless         OS 창 없이 실행 (CI, 창이 아직 없는 OS)\n"
+           "      --crash-test       (시험용) 충돌 처리기를 단 뒤 일부러 충돌 — 보고 묶음 (SBX_REPORTS_DIR, v0.5)\n"
            "      --frames <n>       n 프레임 뒤 끝낸다\n"
            "      --fps <hz>         프레임 페이싱 (기본: 렌더러 없는 창 60, 렌더러·--headless 0 = 페이싱 없음)\n"
            "      --width <w>        창 너비 (논리 단위, 기본 1600)\n"
