@@ -2389,20 +2389,44 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
     Fnv1a64 schemaKey; // 넣은 컴포넌트 정의 (정의 자리 빼고) — 스크립트 오버레이가 같은지 본다
     schemaKey.string("SBXSCHEMAS1");
     std::map<std::string, std::string, std::less<>> systemAt; // 시스템 id → "<폴더>/scripts/a.ts" (팩 사이 겹침 — V1)
+    std::map<std::string, usize, std::less<>> orderOf;        // 팩 id → m_order 의 자리
+    for (usize i = 0; i < m_order.size(); ++i) {
+        orderOf.emplace(m_order[i].info.id, i);
+    }
+    const auto addScripts = [&](usize pack, std::string_view prefix, std::vector<script::SourceFile>& out) {
+        for (const SourceFile& f : files[pack]) {
+            if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {
+                out.push_back(script::SourceFile{std::string(prefix) + f.rel, f.text});
+            }
+        }
+    };
     for (usize i = 0; i < m_order.size(); ++i) {
         const PackDir& p = m_order[i];
         std::vector<script::SourceFile> sources;
-        for (const SourceFile& f : files[i]) {
-            if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {
-                sources.push_back(script::SourceFile{f.rel, f.text});
-            }
-        }
+        addScripts(i, {}, sources);
         if (sources.empty()) {
             continue;
         }
+        // 팩 사이 import (v0.4 M4-T1, ADR-0075 — 정적 링크): 의존 팩 (이어지는 의존까지) 의 스크립트를 "@<팩>/…" 로
+        // 함께 넣고, 팩마다 "@" 로 가져올 수 있는 팩 = 그 팩의 직접 의존. 쓰지 않는 파일은 검사기가 링크하지 않는다
+        std::vector<script::PackImports> imports{{std::string(), p.info.dependencies}};
+        std::vector<std::string> pending = p.info.dependencies;
+        std::set<std::string> seen;
+        while (!pending.empty()) {
+            const std::string id = std::move(pending.back());
+            pending.pop_back();
+            const auto at = orderOf.find(id);
+            if (!seen.insert(id).second || at == orderOf.end()) {
+                continue;
+            }
+            const PackDir& dep = m_order[at->second];
+            addScripts(at->second, std::format("@{}/", id), sources);
+            imports.push_back({id, dep.info.dependencies});
+            pending.insert(pending.end(), dep.info.dependencies.begin(), dep.info.dependencies.end());
+        }
         // 팩 하나 = 프로그램 하나 (ADR-0058). 진단은 콘텐츠 문제로: "<폴더>/scripts/a.ts:줄:열: 오류 S424 — …"
         script::DiagnosticList diags;
-        const script::Program program = script::checkProgram(sources, diags);
+        const script::Program program = script::checkProgram(sources, diags, imports);
         if (diags.ok()) {
             if (std::optional<script::bc::Module> module = script::generateBytecode(program, diags)) {
                 for (const script::bc::SystemDesc& s : module->systems) {
@@ -2423,19 +2447,25 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
             }
         }
         for (const script::Diagnostic& d : diags.items()) {
+            if (!script::foreignPackOf(d.file).empty()) {
+                continue; // 의존 팩의 파일 — 그 팩을 컴파일할 때 이미 알렸다 (같은 소스 · 같은 의존)
+            }
             issue(d.severity == script::Diagnostic::Severity::Error ? Severity::Error : Severity::Warning,
                   p.folder + "/" + d.file, std::format("{}:{}", d.pos.line, d.pos.column), d.code, d.message);
         }
-        // 오류 없는 정의는 다른 함수에 오류가 있어도 넣는다 — Prefab 이 쓰는 자리에 이어지는 V3 가 나지 않게
-        if (program.components.empty()) {
+        // 오류 없는 정의는 다른 함수에 오류가 있어도 넣는다 — Prefab 이 쓰는 자리에 이어지는 V3 가 나지 않게.
+        // 의존 팩에서 가져온 정의는 그 팩이 이미 넣었다 (ADR-0075)
+        std::vector<script::api::ComponentSchema> schemas;
+        for (const script::ComponentDecl& c : program.components) {
+            if (script::foreignPackOf(program.modules[c.module].path).empty()) {
+                schemas.push_back(c.schema);
+            }
+        }
+        if (schemas.empty()) {
             continue;
         }
         if (!ext) {
             ext = std::make_shared<ecs::ComponentCatalog>(*m_catalog);
-        }
-        std::vector<script::api::ComponentSchema> schemas;
-        for (const script::ComponentDecl& c : program.components) {
-            schemas.push_back(c.schema);
         }
         const std::vector<script::ScriptComponentProblem> problems = script::registerScriptComponents(*ext, schemas);
         for (const script::api::ComponentSchema& c : schemas) {

@@ -1,6 +1,8 @@
 #include "script/sdk/SdkGenerator.hpp"
 
+#include <algorithm>
 #include <format>
+#include <vector>
 
 #include "script/api/HostApi.hpp"
 #include "script/api/SystemEvents.hpp"
@@ -207,9 +209,15 @@ std::string generateSandboxDts() {
     return out;
 }
 
-std::string generateTsconfig() {
-    // 보수적인 설정 — 모듈 해석은 상대 경로 (확장자 없이) 와 sandbox (선언 파일의 declare module) 만 쓴다
-    return R"({
+std::string generateTsconfig(std::span<const TsPackPath> packs) {
+    // 보수적인 설정 — 모듈 해석은 상대 경로 (확장자 없이) 와 sandbox (선언 파일의 declare module) 만 쓴다.
+    // 다른 팩은 "@<팩>/…" — paths 가 그 팩의 scripts/ 로 (ADR-0075)
+    std::vector<const TsPackPath*> sorted;
+    for (const TsPackPath& p : packs) {
+        sorted.push_back(&p);
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const TsPackPath* a, const TsPackPath* b) { return a->pack < b->pack; });
+    std::string out = R"({
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2020",
@@ -217,11 +225,21 @@ std::string generateTsconfig() {
     "lib": ["ES2020"],
     "types": [],
     "strict": true,
-    "noEmit": true
-  },
-  "include": ["sdk/sandbox.d.ts", "content/*/scripts/**/*.ts"]
-}
-)";
+    "noEmit": true)";
+    if (!sorted.empty()) {
+        out += ",\n    \"baseUrl\": \".\",\n    \"paths\": {";
+        for (usize i = 0; i < sorted.size(); ++i) {
+            out += std::format("{}\n      \"@{}/*\": [\"{}/scripts/*\"]", i == 0 ? "" : ",", sorted[i]->pack,
+                               sorted[i]->dir);
+        }
+        out += "\n    }";
+    }
+    out += "\n  },\n  \"include\": [\"sdk/sandbox.d.ts\", \"content/*/scripts/**/*.ts\"";
+    if (!sorted.empty()) {
+        out += std::format(", \"{}\"", kInstalledScriptsInclude);
+    }
+    out += "]\n}\n";
+    return out;
 }
 
 } // namespace sbx::script::sdk

@@ -126,20 +126,21 @@ i32 wrapI32(i64 v) {
 
 class Checker {
 public:
-    Checker(Program& p, DiagnosticList& d) : P(p), D(d) {}
+    Checker(Program& p, DiagnosticList& d, std::span<const PackImports> imports) : P(p), D(d), m_imports(imports) {}
 
     void run(std::span<const SourceFile> files) {
         parseAll(files);
         setupSdk();
         resolveImports();
         topoOrder();
+        markLinked();
         for (const u32 mi : P.order) {
-            if (P.modules[mi].parsed) {
+            if (P.modules[mi].parsed && m_linked[mi]) {
                 declareModule(mi);
             }
         }
         for (const u32 mi : P.order) {
-            if (!P.modules[mi].parsed) {
+            if (!P.modules[mi].parsed || !m_linked[mi]) {
                 continue;
             }
             for (u32 fi = 0; fi < P.functions.size(); ++fi) {
@@ -316,8 +317,16 @@ private:
                 i32 target = kNoTarget;
                 if (spec == "sandbox") {
                     target = kSdkTarget;
+                } else if (spec.starts_with("@")) {
+                    target = packImport(item, spec);
                 } else {
-                    const std::string path = resolveImportPath(mod().path, spec);
+                    // 의존 팩의 모듈 안의 상대 경로는 그 팩 안에서 푼다 ("@inv/scripts/a.ts" 의 "./b")
+                    const std::string_view pack = foreignPackOf(mod().path);
+                    const std::string prefix = pack.empty() ? std::string() : std::format("@{}/", pack);
+                    std::string path = resolveImportPath(std::string_view(mod().path).substr(prefix.size()), spec);
+                    if (!path.empty()) {
+                        path = prefix + path;
+                    }
                     if (path.empty()) {
                         err("S416", item,
                             std::format("import 경로 \"{}\" 를 쓸 수 없다 — \"./이름\" · \"../이름\" (확장자 없이, "
@@ -331,6 +340,69 @@ private:
                     }
                 }
                 m_importTargets[mi].emplace_back(item, target);
+            }
+        }
+    }
+
+    // "@<팩>/<경로>" (v0.4 M4-T1, ADR-0075) — 가져오는 모듈의 팩이 그 팩에 직접 의존해야 한다
+    i32 packImport(NodeId item, std::string_view spec) {
+        const usize slash = spec.find('/');
+        const std::string_view pack =
+            spec.substr(1, slash == std::string_view::npos ? std::string_view::npos : slash - 1);
+        const std::string_view rest = slash == std::string_view::npos ? std::string_view() : spec.substr(slash + 1);
+        const std::string local =
+            rest.empty() ? std::string() : resolveImportPath("scripts/index.ts", std::format("./{}", rest));
+        const bool packOk = !pack.empty() && std::all_of(pack.begin(), pack.end(), [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+        });
+        if (!packOk || local.empty()) {
+            err("S416", item,
+                std::format("import 경로 \"{}\" 를 쓸 수 없다 — 다른 팩은 \"@<팩 id>/<scripts 안 경로>\" (확장자 없이)",
+                            spec));
+            return kNoTarget;
+        }
+        const std::string_view from = foreignPackOf(mod().path);
+        const auto scope =
+            std::find_if(m_imports.begin(), m_imports.end(), [&](const PackImports& s) { return s.pack == from; });
+        const bool allowed = scope != m_imports.end() &&
+                             std::find(scope->allowed.begin(), scope->allowed.end(), pack) != scope->allowed.end();
+        if (!allowed) {
+            err("S416", item,
+                std::format(
+                    "팩 '{}' 는 {}의 의존이 아니다 — pack.json 의 dependencies · requires 에 적은 팩만 가져온다", pack,
+                    from.empty() ? std::string("이 팩") : std::format("팩 '{}'", from)));
+            return kNoTarget;
+        }
+        const std::string path = std::format("@{}/{}", pack, local);
+        const i32 t = findModule(path);
+        if (t == kNoTarget) {
+            err("S416", item, std::format("\"{}\" 에 해당하는 팩 '{}' 의 스크립트 {} 가 없다", spec, pack, local));
+            return kNoTarget;
+        }
+        return P.modules[static_cast<usize>(t)].parsed ? t : kBrokenTarget;
+    }
+
+    // 링크할 모듈: 이 팩의 모듈 전부 + 거기서 import 로 닿는 의존 팩의 모듈 (ADR-0075 — 쓰지 않는 의존 코드는 넣지
+    // 않는다)
+    void markLinked() {
+        m_linked.assign(P.modules.size(), false);
+        std::vector<u32> stack;
+        for (u32 mi = 0; mi < P.modules.size(); ++mi) {
+            if (foreignPackOf(P.modules[mi].path).empty()) {
+                stack.push_back(mi);
+            }
+        }
+        while (!stack.empty()) {
+            const u32 mi = stack.back();
+            stack.pop_back();
+            if (m_linked[mi]) {
+                continue;
+            }
+            m_linked[mi] = true;
+            for (const auto& [item, target] : m_importTargets[mi]) {
+                if (target >= 0) {
+                    stack.push_back(static_cast<u32>(target));
+                }
             }
         }
     }
@@ -941,7 +1013,8 @@ private:
         if (!none(sd.onEvent) && sd.eventsPerTick == 0) {
             sd.eventsPerTick = api::kDefaultEventsPerTick;
         }
-        if (ok) {
+        // 의존 팩의 시스템은 그 팩이 돌린다 — 여기서 링크한 모듈의 것은 시스템 표에 넣지 않는다 (ADR-0075)
+        if (ok && foreignPackOf(mod().path).empty()) {
             P.systems.push_back(std::move(sd));
         }
     }
@@ -3381,6 +3454,8 @@ private:
     DiagnosticList& D;
     std::vector<ModuleScope> m_mscopes;
     std::vector<std::vector<std::pair<NodeId, i32>>> m_importTargets; // 모듈마다 (Import 마디, 대상)
+    std::span<const PackImports> m_imports;                           // 팩마다 "@" 로 가져올 수 있는 팩 (ADR-0075)
+    std::vector<bool> m_linked;                                       // 모듈마다 — 검사 · 코드 생성에 넣는가
     std::vector<ScopeEntry> m_sdkValues;
     std::vector<ScopeEntry> m_sdkTypes;
     std::vector<ScopeEntry> m_globals;
@@ -3416,10 +3491,18 @@ SymbolId Program::exportedValue(std::string_view path, std::string_view name) co
     return kNoSymbol;
 }
 
-Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags) {
+Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags, std::span<const PackImports> imports) {
     Program p;
-    Checker(p, diags).run(files);
+    Checker(p, diags, imports).run(files);
     return p;
+}
+
+std::string_view foreignPackOf(std::string_view path) noexcept {
+    if (!path.starts_with("@")) {
+        return {};
+    }
+    const usize slash = path.find('/');
+    return slash == std::string_view::npos ? std::string_view() : path.substr(1, slash - 1);
 }
 
 std::string resolveImportPath(std::string_view from, std::string_view spec) {

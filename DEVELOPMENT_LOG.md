@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-28 — v0.4 M4-T1: 팩 사이 스크립트 import "@<팩>/<경로>" — 정적 링크, tsconfig paths (ADR-0075)
+
+**무엇을**
+
+- script/lang/Checker: import "@<팩>/<경로>" → 그 팩의 "@<팩>/scripts/<경로>.ts" (PackImports — 팩마다 직접 의존만, 아니면 ·
+  모양 · 없는 파일 S416). 의존 팩 모듈 안의 상대 경로는 그 팩 안에서. 이 팩의 모듈에서 import 로 닿는 모듈만 링크 (검사 · 코드
+  생성), 의존 팩의 defineSystem 은 시스템 표에 넣지 않는다. Codegen: 의존 팩 모듈의 export 는 넣지 않는다.
+- ContentLoader: 팩마다 컴파일할 때 의존 팩 (이어지는 의존까지) 의 scripts 를 "@<팩>/…" 로 함께, 의존 팩의 진단은 버리고
+  (그 팩이 이미 냈다), 의존 팩의 컴포넌트는 등록하지 않는다 (정의한 팩이 한 번).
+- script/sdk: generateTsconfig(팩들) — "@<팩>/*" paths · baseUrl · 설치 폴더 include (팩이 없으면 v0.3 바이트 그대로).
+  project::refreshTsconfig — 만든 그대로의 tsconfig.json 만 고친다. sbx install · update · add · remove 가 부른다.
+- 시험: test_pack_import 2 (링크 · 소유 · 월드에서 도는 함수, S416 넷 · 진단 한 번), test_game_project tsconfig 1.
+  문서: ADR-0075, 19 (5 · 14장), 18 (0 · 6.4 · 7장), 15 7장, 17, 13.
+
+**왜**
+
+- ADR-0071 8 — 설치한 Feature 팩의 컴포넌트 · 함수를 게임 팩이 쓴다. VM · 바이트코드 · 세이브 · 복제를 바꾸지 않는 가장 작은
+  모델이 정적 링크 (최상위에 상태가 없어 같은 함수를 두 팩이 따로 가져도 뜻이 같다).
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 64/64 통과. det_* 골든 그대로 (import 가 없는
+  팩의 바이트코드 · 해시는 그대로 — 의존 팩 파일은 링크하지 않는다).
+- 실행: sbx new --from ecosystem_small + content/rpg (requires inv · eco, scripts/regen.ts 가 import { Mana, refill } from
+  "@inv/mana") → `sbx add <프로젝트> inv --path ../shared/inv --version ^1` "… · tsconfig.json paths 갱신" (paths "@inv/*" →
+  .sandbox/packages/inv/scripts/*, "@rpg/*" → content/rpg/scripts/*) → `sbx check` 오류 0 · "스크립트: 팩 2 · 컴포넌트 1 · 시스템 1"
+  "시스템 rpg.regen — content/rpg/scripts/regen.ts · onTick" → `SandboxServer --world … --ticks 61 --exit` 종료 0, 로그
+  "[script] rpg.regen t30: mana 0" · "t60" (시작 월드에 inv.mana 개체가 없어 0 — 값이 채워지는 것은 test_pack_import 의 월드가 본다).
+
+**남은 일**
+
+- M4-T2: 에디터 팔레트 · 콘텐츠 창의 패키지별 묶음, sbx test, sbx new --pack.
+
+---
+
 ## 2026-10-27 — v0.4 M3-T3: sbx install · update · add · remove, 매니페스트와 잠금의 일치 → M3 완료 (ADR-0074)
 
 **무엇을**

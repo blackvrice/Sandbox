@@ -268,7 +268,8 @@ sbx install <프로젝트> · update <프로젝트> [<팩>] · add <프로젝트
   install 은 잠금 sandbox.lock 그대로 (캐시의 digest → 없으면 소스가 잠금과 같을 때만, 잠금이 없으면 해결해서 만든다), update 는
   다시 해결 (팩을 주면 그 팩만 바뀔 수 있다), add 는 매니페스트 dependencies 에 더하고 설치 (소스가 없으면 content/ 의 팩), remove 는
   빼고 다시 설치. 설치는 트랜잭션 — 실패하면 매니페스트 · 잠금 · .sandbox/packages 모두 그대로. 출력 "설치: .sandbox/packages 에
-  팩 n · 잠금 sandbox.lock 팩 m [· 매니페스트 갱신]" 과 팩마다 "  <id> <version> · <license> · <소스> [· digest <앞 16>…]".
+  팩 n · 잠금 sandbox.lock 팩 m [· 매니페스트 갱신] [· tsconfig.json paths 갱신]" 과 팩마다 "  <id> <version> · <license> ·
+  <소스> [· digest <앞 16>…]". (v0.4 M4-T1, ADR-0075) 만든 그대로의 tsconfig.json 이면 스크립트 팩마다 "@<팩>/*" paths 를 맞춘다.
   실패는 종료 코드 2 (매니페스트 형식 오류는 1)
 sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더>]   (v0.4 M2-T2, ADR-0072)
   시스템 git 으로 저장소 (뿌리 = 팩) 를 받아 rev 를 꺼내 캐시에 — "팩 …" · "commit <40 글자>" · "digest …" · "캐시 …". git 이 없거나

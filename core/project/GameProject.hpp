@@ -116,6 +116,13 @@ struct OpenedProject {
 [[nodiscard]] Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                                   const ecs::ComponentCatalog& catalog);
 
+// tsconfig.json 의 paths 를 프로젝트의 스크립트 팩 (content/ · .sandbox/packages 의 scripts/ 가 있는 팩) 에 맞춘다 —
+// IDE 가
+// "@<팩>/…" import 를 푼다 (v0.4 M4-T1, ADR-0075). 만든 그대로의 모양 (compilerOptions · include 가 생성 결과와 같고
+// paths · baseUrl 만 다를 수 있다) 일 때만 고쳐 쓴다. 고쳐 썼으면 true, 이미 같거나 · 없거나 · 사용자가 고친 파일이면
+// false
+[[nodiscard]] Expected<bool> refreshTsconfig(const std::filesystem::path& projectDir);
+
 // 새 프로젝트 만들기 (v0.2 M1-T4, ADR-0043). 템플릿 = 시나리오 하나 또는 빈 월드:
 //   빈 월드      내장 콘텐츠, 기본 경계 (16 × 16 청크), 일시정지로 시작 (편집하고 실행한다)
 //   시나리오     그 시나리오가 요구하는 팩(+ requires)을 contentRoot 에서 <프로젝트>/content 로 복사하고, 시나리오를 한

@@ -23,9 +23,23 @@
 namespace sbx::script {
 
 struct SourceFile {
-    std::string path; // 팩 기준 상대, '/' 구분 ("scripts/mana.ts")
+    std::string path; // 팩 기준 상대, '/' 구분 ("scripts/mana.ts"). 의존 팩의 파일은 "@<팩>/scripts/mana.ts" (아래)
     std::string text;
 };
+
+// 팩 사이 import (v0.4 M4-T1, ADR-0075 — 정적 링크). import { X } from "@<팩>/<경로>" 는 그 팩의
+// "@<팩>/scripts/<경로>.ts" 를 가리킨다 — 그 파일은 files 에 "@<팩>/…" 경로로 함께 들어온다. 팩마다 "@" 로 가져올 수
+// 있는 팩 (그 팩의 직접 의존 — pack.json dependencies · requires). 이 프로그램의 팩은 pack = "". 의존 팩의 모듈은 이
+// 팩의 모듈에서 (import 를 따라) 닿는 것만 검사 · 코드 생성에 들어가고, 그 안의 defineSystem 은 시스템 표에 넣지 않는다
+// (그 팩이 돌린다). defineComponent 는 타입 · 컴포넌트 표에는 쓰되 등록은 그 팩의 몫이다 (부르는 쪽이 모듈 경로의 '@'
+// 로 가린다)
+struct PackImports {
+    std::string pack;
+    std::vector<std::string> allowed;
+};
+
+// 경로가 의존 팩의 파일이면 그 팩 id ("@inv/scripts/a.ts" → "inv"), 아니면 빈 문자열
+[[nodiscard]] std::string_view foreignPackOf(std::string_view path) noexcept;
 
 // 컴파일 때 아는 값 (상수식 — 최상위 const · enum 값 · i32 자리의 정수 리터럴)
 struct ConstValue {
@@ -173,7 +187,8 @@ struct Program {
     [[nodiscard]] SymbolId exportedValue(std::string_view path, std::string_view name) const noexcept;
 };
 
-[[nodiscard]] Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags);
+[[nodiscard]] Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags,
+                                   std::span<const PackImports> imports = {});
 
 // import 경로 풀기: from = "scripts/x/a.ts", spec = "../b" → "scripts/b.ts". 팩 밖 · 빈 마디 · 확장자 있음이면 빈
 // 문자열

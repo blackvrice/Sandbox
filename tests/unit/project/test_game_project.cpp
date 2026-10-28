@@ -904,4 +904,44 @@ export default defineSystem({ id: "eco.mana.regen", intervalTicks: 0, onTick(ctx
         }
         CHECK_MESSAGE(s426, dumpIssues(r.issues));
     }
+
+    TEST_CASE("tsconfig.json: 스크립트 팩마다 \"@<팩>/*\" paths (v0.4 M4-T1) — 만든 그대로의 파일만 고친다") {
+        // 팩이 없으면 v0.3 과 같은 바이트
+        const std::string plain = script::sdk::generateTsconfig();
+        CHECK(plain.find("paths") == std::string::npos);
+        const std::vector<script::sdk::TsPackPath> two{{"inv", ".sandbox/packages/inv"}, {"eco", "content/ecosystem"}};
+        const auto j = nlohmann::json::parse(script::sdk::generateTsconfig(two));
+        CHECK(j["compilerOptions"]["baseUrl"] == ".");
+        CHECK(j["compilerOptions"]["paths"]["@eco/*"] == nlohmann::json::array({"content/ecosystem/scripts/*"}));
+        CHECK(j["compilerOptions"]["paths"]["@inv/*"] == nlohmann::json::array({".sandbox/packages/inv/scripts/*"}));
+        CHECK(j["include"].size() == 3);
+
+        TempDir dir("tsconfig_paths");
+        const auto write = [&](const fs::path& rel, std::string_view text) {
+            fs::create_directories((dir.path / rel).parent_path());
+            REQUIRE(io::writeFileAtomic(dir.path / rel, text).has_value());
+        };
+        write("tsconfig.json", plain);
+        write("content/ecosystem/pack.json", R"({"id": "eco"})");
+        write("content/ecosystem/scripts/a.ts", "");
+        write("content/plain/pack.json", R"({"id": "plain"})"); // 스크립트 없음 — paths 에 넣지 않는다
+        write(".sandbox/packages/inv/pack.json", R"({"id": "inv"})");
+        write(".sandbox/packages/inv/scripts/b.ts", "");
+        auto r = project::refreshTsconfig(dir.path);
+        REQUIRE(r.has_value());
+        CHECK(*r);
+        CHECK(io::readFile(dir.path / "tsconfig.json").value() == script::sdk::generateTsconfig(two));
+        r = project::refreshTsconfig(dir.path);
+        CHECK_FALSE(*r); // 이미 같다
+
+        // 사용자가 고친 설정은 그대로 둔다
+        auto edited = nlohmann::json::parse(plain);
+        edited["compilerOptions"]["strict"] = false;
+        write("tsconfig.json", edited.dump(2));
+        r = project::refreshTsconfig(dir.path);
+        CHECK_FALSE(*r);
+        CHECK(io::readFile(dir.path / "tsconfig.json").value() == edited.dump(2));
+        fs::remove(dir.path / "tsconfig.json");
+        CHECK_FALSE(*project::refreshTsconfig(dir.path)); // 없으면 만들지 않는다
+    }
 }

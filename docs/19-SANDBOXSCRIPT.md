@@ -42,6 +42,10 @@ TS 가 받지만 SandboxScript 가 거절하는 문법은 S3xx 로 이유와 대
 import     import { a, b as c } from "./상대경로" · from "sandbox" (SDK). 기본 · 이름공간 · 부수 효과 · import type ·
            동적 import 는 없다 (S321 · S322). 경로 = 가져오는 파일의 폴더 기준, 확장자 없이 ("./b" → b.ts), "." · ".." 마디,
            첫 폴더 (scripts/) 밖으로 나갈 수 없다. 없는 파일 · 없는 export · 순환 import 는 S416 (resolveImportPath)
+           (v0.4 M4-T1, ADR-0075) 다른 팩: from "@<팩 id>/<scripts 안 경로>" → 그 팩의 scripts/<경로>.ts. 그 팩이 이 팩의 직접
+           의존 (pack.json dependencies · requires) 이어야 한다 — 아니면 · 모양이 틀리면 · 없는 파일이면 S416. 정적 링크:
+           가져온 함수는 이 팩의 모듈로 컴파일되고 (쓰는 파일만), 의존 팩의 컴포넌트 · 시스템 · export 는 그 팩의 것이다
+           (등록 · 실행은 한 번). IDE 는 tsconfig.json paths "@<팩>/*" (sbx install · add 가 갱신 — 14장)
 export     export 선언 · export default defineSystem({ … }) 하나 (17장 — 다른 식은 S423). export { } · export * · export = 는 없다 (S320)
 ```
 
@@ -380,6 +384,10 @@ SDK         sbx sdk [<폴더>] 가 sandbox.d.ts 를 쓴다 (기본 지금 폴더
 프로젝트    (v0.3 M5-T1, ADR-0065) sbx new 가 <프로젝트>/sdk/sandbox.d.ts · tsconfig.json (generateTsconfig — strict · noEmit,
             include = sdk/sandbox.d.ts · content/*/scripts/**/*.ts) 을 만든다. sbx check 가 낡은 · 없는 d.ts · JSON 아닌 tsconfig 를 P6
             경고로, 스크립트 요약 · 시스템 목록을 보인다. 패키지에는 넣지 않는다
+            (v0.4 M4-T1, ADR-0075) 팩 사이 import 용 paths: sbx install · update · add · remove 가 스크립트가 있는 팩 (content/ ·
+            .sandbox/packages) 마다 "@<팩>/*" → "<팩 폴더>/scripts/*" (baseUrl ".") 와 include ".sandbox/packages/*/scripts/**/*.ts"
+            를 넣는다 (project::refreshTsconfig). 만든 그대로의 파일만 고친다 — compilerOptions · include 를 사용자가 고쳤으면 둔다.
+            팩이 없으면 v0.3 의 바이트 그대로. sandbox.d.ts 는 그대로 (다른 팩의 타입은 그 팩의 소스가 준다)
 ```
 
 ## 15. 스크립트 컴포넌트 (v0.3 M3-T1 — `script/api/ComponentSchema`, 검사기, `core/script/ScriptComponents`, ADR-0059)

@@ -35,6 +35,9 @@ public:
             function(fi);
         }
         for (const ModuleSema& ms : P.modules) {
+            if (!foreignPackOf(ms.path).empty()) {
+                continue; // 의존 팩의 모듈 — 그 팩의 export (정적 링크로 함수만 들어왔다, ADR-0075)
+            }
             for (const auto& [name, sym] : ms.exportValues) {
                 const Symbol& s = P.symbols[sym];
                 if (s.kind == SymbolKind::Function) {

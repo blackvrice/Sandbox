@@ -205,8 +205,14 @@ int runPackages(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
             return kExitError;
         }
     }
-    std::printf("설치: .sandbox/packages 에 팩 %zu · 잠금 sandbox.lock 팩 %zu%s\n", done->installed,
-                done->lock.packs.size(), manifestChanged ? " · 매니페스트 갱신" : "");
+    // IDE 의 "@<팩>/…" import (v0.4 M4-T1) — 만든 그대로의 tsconfig.json 만 고친다. 실패해도 설치는 끝났다 (경고)
+    const auto ts = project::refreshTsconfig(dir);
+    if (!ts) {
+        printErr(std::format("tsconfig.json 을 고치지 못했다 — {}", ts.error().describe()));
+    }
+    std::printf("설치: .sandbox/packages 에 팩 %zu · 잠금 sandbox.lock 팩 %zu%s%s\n", done->installed,
+                done->lock.packs.size(), manifestChanged ? " · 매니페스트 갱신" : "",
+                ts && *ts ? " · tsconfig.json paths 갱신" : "");
     for (const package::LockedPack& p : done->lock.packs) {
         const std::string source =
             p.source.kind == content::PackSource::Root ? std::string("content/")

@@ -700,6 +700,65 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     return r;
 }
 
+Expected<bool> refreshTsconfig(const std::filesystem::path& projectDir) {
+    const fs::path file = projectDir / script::sdk::kTsconfigFileName;
+    std::error_code ec;
+    if (!fs::is_regular_file(file, ec)) {
+        return false;
+    }
+    const auto text = io::readFile(file);
+    if (!text) {
+        return std::unexpected(text.error());
+    }
+    // 만든 그대로인가 — paths · baseUrl 을 빼면 생성 결과와 같다 (include 는 설치 폴더 줄이 있거나 없거나)
+    json have = json::parse(*text, nullptr, false);
+    const json base = json::parse(script::sdk::generateTsconfig());
+    if (!have.is_object() || have.size() != 2 || !have.contains("compilerOptions") || !have.contains("include") ||
+        !have["compilerOptions"].is_object()) {
+        return false;
+    }
+    have["compilerOptions"].erase("baseUrl");
+    have["compilerOptions"].erase("paths");
+    json withInstalled = base["include"];
+    withInstalled.push_back(script::sdk::kInstalledScriptsInclude);
+    if (have["compilerOptions"] != base["compilerOptions"] ||
+        (have["include"] != base["include"] && have["include"] != withInstalled)) {
+        return false;
+    }
+    // 스크립트가 있는 팩 — content/ 먼저, 같은 id 는 처음 것 (열기는 둘 다 있으면 V1 로 거절한다)
+    std::vector<script::sdk::TsPackPath> packs;
+    for (const auto& [root, prefix] : {std::pair{projectDir / "content", std::string("content/")},
+                                       std::pair{projectDir / fs::path(std::string(package::kInstallDir)),
+                                                 std::string(package::kInstallDir) + "/"}}) {
+        std::vector<fs::path> dirs;
+        for (const auto& e : fs::directory_iterator(root, ec)) {
+            if (e.is_directory(ec) && fs::is_directory(e.path() / "scripts", ec)) {
+                dirs.push_back(e.path());
+            }
+        }
+        std::sort(dirs.begin(), dirs.end());
+        for (const fs::path& d : dirs) {
+            const auto pj = io::readFile(d / "pack.json");
+            const json j = pj ? json::parse(*pj, nullptr, false) : json();
+            if (!j.is_object() || !j.contains("id") || !j["id"].is_string()) {
+                continue;
+            }
+            const std::string id = j["id"].get<std::string>();
+            if (std::none_of(packs.begin(), packs.end(), [&](const auto& p) { return p.pack == id; })) {
+                packs.push_back({id, prefix + d.filename().generic_string()});
+            }
+        }
+    }
+    const std::string next = script::sdk::generateTsconfig(packs);
+    if (next == withoutCarriageReturns(*text)) {
+        return false;
+    }
+    if (auto w = io::writeFileAtomic(file, next); !w) {
+        return std::unexpected(w.error());
+    }
+    return true;
+}
+
 Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                     const ecs::ComponentCatalog& catalog) {
     ProjectReport r;

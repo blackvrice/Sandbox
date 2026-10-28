@@ -89,3 +89,4 @@
 | [0072](0072-git-source-system-git-shell-free-runner-injected.md) | Git 소스 — 시스템 git 을 셸 없이, 실행기는 도구가 넣는다 (core 는 OS 를 모른다), url · rev 모양 거절, clone · checkout · rev-parse, 저장소 뿌리 = 팩 | Accepted                                  | 2026-10-27 |
 | [0073](0073-lockfile-format-install-folder-content-packs-unlocked.md) | 잠금 파일 형식 (lockVersion 1, 팩 id 순) · content/ 팩은 잠그지 않는다 · 설치 폴더 .sandbox/packages 와 로더의 여러 루트 · 열기의 P8 · 바꿔 끼우기 단계 | Accepted                                  | 2026-10-27 |
 | [0074](0074-package-commands-install-from-lock-refresh-policy.md) | 패키지 명령 — install 은 잠금 그대로 (캐시 → 소스 확인), update · add · remove 의 바뀌어도 되는 팩, 매니페스트는 설치 뒤에, path · git 의존은 설치해야 연다 (P8) | Accepted                                  | 2026-10-27 |
+| [0075](0075-cross-pack-script-import-static-link.md) | 팩 사이 스크립트 import — "@<팩>/<경로>", 직접 의존만, 정적 링크 (쓰는 파일만 가져오는 팩의 모듈로), 컴포넌트 · 시스템 · export 는 정의한 팩의 것, tsconfig paths | Accepted                                  | 2026-10-28 |
