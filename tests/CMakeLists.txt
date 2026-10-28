@@ -65,6 +65,7 @@ add_executable(SandboxTests
     unit/project/test_resolve.cpp
     unit/project/test_install.cpp
     unit/project/test_pack_template.cpp
+    unit/project/test_package_rejects.cpp
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_game_score.cpp
@@ -452,6 +453,11 @@ if(TARGET sbx)
                     "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/rabbit_guard"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_pack.cmake")
         set_tests_properties(project_pack PROPERTIES LABELS "content" TIMEOUT 600)
+        # 깨끗한 머신 재현 — 다른 폴더 · 빈 캐시 · 같은 잠금 → 같은 game digest (v0.4 M5-T1)
+        add_test(NAME project_reproduce
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_reproduce"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_reproduce.cmake")
+        set_tests_properties(project_reproduce PROPERTIES LABELS "content" TIMEOUT 300)
         # 데모 미니게임 자동 플레이 — 헤드리스 서버 = 로컬 플레이, expect 그대로 (v0.2 M6-T1)
         if(TARGET SandboxClient)
             add_test(NAME sample_playthrough

@@ -422,4 +422,7 @@ sandbox.lock   <프로젝트>/sandbox.lock — 정규형 JSON (키 순서 고정
 시험           project test_install (잠금 왕복 · 모양 오류, 설치 → 열기 · 요약 줄 · .sbpkg 왕복, P8 다섯 가지, 실패한 설치는 그대로,
                잠금 그대로 · 오프라인 · 바뀐 소스 거절 · Refresh None · One · 어긋난 잠금), CTest project_install (sbx add →
                check · 서버 → install 오프라인 → 고친 설치 거절 → 잘못된 add 는 그대로 → remove)
+거부 · 재현    (v0.4 M5-T1) test_package_rejects — 나쁜 소스 (충돌 · 모르는 키 · id 바꿔치기 · 깨진 JSON · 스크립트 오류 · 큰 파일 ·
+               경로 탈출 · Git 원격 도우미 · 심볼릭 링크) 마다 거절하고 프로젝트의 바이트 그대로. CTest project_reproduce — 다른
+               폴더 · 빈 캐시 · 같은 잠금 → 같은 game digest (09 9장) · 같은 패키지 · 잠금 바이트 (13 표)
 ```

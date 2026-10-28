@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-28 — v0.4 M5-T1: 패키지 거부 시험 · 깨끗한 머신 재현 (SBOM 은 M5-T2 로)
+
+**무엇을**
+
+- tests/unit/project/test_package_rejects: 좋은 설치 뒤 나쁜 소스마다 updateProject (sbx update · add 의 길) 가 거절하고,
+  매니페스트 · sandbox.lock · .sandbox/packages 의 모든 바이트가 그대로이며 임시 폴더가 남지 않는다 — 충돌 · 설치 훅 (모르는 키
+  "postinstall") · id 바꿔치기 · 깨진 JSON · 스크립트 오류 · 16 MiB 넘는 파일 · 절대 경로 · 위로 나가는 path 의존 · Git
+  "ext::" · '-' rev (git 실행 0 번) · 심볼릭 링크. 고친 캐시는 소스가 그대로면 잠금 그대로 다시 설치 (캐시도 회복).
+- tests/project/project_reproduce.cmake (CTest project_reproduce): 기계 A 에서 new --pack · new · add · build, 다른 폴더 B 에
+  저장소에 둘 파일만 복사 · 빈 캐시로 install · build — game digest · .sbpkg · 잠금 바이트가 같다. B 에서 공유 팩을 고치면
+  install 이 거절.
+- 엔진 코드 변경 없음 (시험이 찾은 결함 없음). 로드맵: SBOM (패키지 형식 2) 을 M5-T2 로 나눴다.
+- 문서: 13 표, 09 12장, 18 (0 · 6.4 · 7장), 17.
+
+**왜**
+
+- ADR-0071 의 v0.4 목표 — "깨끗한 머신에서 같은 잠금 파일로 같은 game digest, 충돌 · 악성 패키지는 설치 전에 거절".
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 66/66 통과 (+ project_reproduce), 첫 실행에서.
+- project_reproduce: A · B 모두 game digest 3e0e450044a6d280…, 패키지 · 잠금 바이트 같음. B 의 바뀐 소스는 "'kit': 소스 (path)
+  가 잠금과 다르다 (digest ede93ddd… → 71fb120a…) — sbx update" 로 종료 2.
+- 심볼릭 링크 경우는 이 기계에서 건너뛰었다 ("A required privilege is not held by the client" — 링크를 만들 권한 없음). 링크
+  거절 자체는 이 기계에서 확인되지 않았다 (개발자 모드 · 관리자 · Linux CI 에서 돈다).
+
+**남은 일**
+
+- M5-T2: SBOM — .sbpkg index 형식 2 (팩마다 id · version · license · 팩 digest · 출처), sbx build · check 의 라이선스 줄.
+
+---
+
 ## 2026-10-28 — v0.4 M4-T3: 에디터의 팩별 목록 (배치 Prefab · 콘텐츠 창) → M4 완료
 
 **무엇을**

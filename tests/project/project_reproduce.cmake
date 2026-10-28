@@ -1,0 +1,72 @@
+# 깨끗한 머신 재현 (v0.4 M5-T1, ADR-0071 — "깨끗한 머신에서 같은 잠금 파일로 같은 game digest"):
+#   기계 A: sbx new --pack (공유 팩) · sbx new (게임) · sbx add --path → sbx build → digest A
+#   기계 B: 다른 폴더에 저장소에 둘 것만 복사 (매니페스트 · sandbox.lock · content/ · worlds/ — .sandbox · 캐시 · build 없이,
+#           공유 팩은 같은 상대 자리에) → 빈 캐시로 sbx install (잠금 그대로) → sbx build → digest B
+#   digest A = digest B, .sbpkg 바이트 · 잠금 바이트도 같다. B 에서 공유 팩을 고치면 install 이 거절한다 (잠금과 다른 소스)
+#   cmake -DSBX=<sbx> -DOUT=<작업 폴더> -P project_reproduce.cmake
+foreach(v SBX OUT)
+    if(NOT DEFINED ${v})
+        message(FATAL_ERROR "${v} 가 필요합니다")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${OUT}")
+
+function(run expect what)
+    execute_process(COMMAND ${ARGN} RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 300)
+    message("${out}${err}")
+    if(NOT rc EQUAL ${expect})
+        message(FATAL_ERROR "${what}: 종료 코드 ${rc} (기대 ${expect})")
+    endif()
+    set(last "${out}${err}" PARENT_SCOPE)
+endfunction()
+
+function(digest_of text var)
+    if(NOT text MATCHES "digest sha256:([0-9a-f]+)")
+        message(FATAL_ERROR "digest 줄이 없다")
+    endif()
+    set(${var} "${CMAKE_MATCH_1}" PARENT_SCOPE)
+endfunction()
+
+# 기계 A
+set(A "${OUT}/machine-a")
+run(0 "A: new --pack" "${SBX}" new "${A}/shared/kit" --pack --id kit --license MIT)
+run(0 "A: new" "${SBX}" new "${A}/game" --id ctest.repro --from ecosystem_small)
+run(0 "A: add" "${SBX}" add "${A}/game" kit --path ../shared/kit --version ^0.1 --cache-dir "${A}/cache")
+run(0 "A: build" "${SBX}" build "${A}/game" --out "${OUT}/a.sbpkg")
+digest_of("${last}" digestA)
+
+# 기계 B — 저장소에 둘 것만, 다른 폴더 · 빈 캐시
+set(B "${OUT}/somewhere/else/machine-b")
+file(MAKE_DIRECTORY "${B}/game")
+file(COPY "${A}/shared" DESTINATION "${B}")
+file(COPY "${A}/game/sandbox.project.json" "${A}/game/sandbox.lock" DESTINATION "${B}/game")
+file(COPY "${A}/game/content" "${A}/game/worlds" DESTINATION "${B}/game")
+if(EXISTS "${B}/game/.sandbox" OR EXISTS "${B}/cache")
+    message(FATAL_ERROR "B 에 설치 폴더 · 캐시가 있다")
+endif()
+run(0 "B: install (빈 캐시)" "${SBX}" install "${B}/game" --cache-dir "${B}/cache")
+run(0 "B: build" "${SBX}" build "${B}/game" --out "${OUT}/b.sbpkg")
+digest_of("${last}" digestB)
+if(NOT digestA STREQUAL digestB)
+    message(FATAL_ERROR "같은 잠금인데 game digest 가 다르다 (A ${digestA} · B ${digestB})")
+endif()
+file(SHA256 "${OUT}/a.sbpkg" pkgA)
+file(SHA256 "${OUT}/b.sbpkg" pkgB)
+file(READ "${A}/game/sandbox.lock" lockA)
+file(READ "${B}/game/sandbox.lock" lockB)
+if(NOT pkgA STREQUAL pkgB OR NOT lockA STREQUAL lockB)
+    message(FATAL_ERROR "패키지 · 잠금 바이트가 다르다")
+endif()
+message("재현: game digest ${digestA} (A = B), 패키지 · 잠금 바이트 같음")
+
+# B 에서 공유 팩이 바뀌었다 (잠금과 다른 소스) — 빈 캐시면 install 이 거절하고 설치 폴더는 그대로
+file(REMOVE_RECURSE "${B}/game/.sandbox" "${B}/cache")
+file(APPEND "${B}/shared/kit/prefabs/thing.json" "\n")
+run(2 "B: install (바뀐 소스)" "${SBX}" install "${B}/game" --cache-dir "${B}/cache")
+if(NOT last MATCHES "'kit': 소스 \\(path\\) 가 잠금과 다르다")
+    message(FATAL_ERROR "바뀐 소스를 거절한 이유가 다르다")
+endif()
+if(EXISTS "${B}/game/.sandbox/packages/kit")
+    message(FATAL_ERROR "거절했는데 설치 폴더가 생겼다")
+endif()
+file(REMOVE_RECURSE "${OUT}")
