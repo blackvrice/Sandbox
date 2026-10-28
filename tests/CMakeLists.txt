@@ -475,6 +475,14 @@ if(TARGET sbx)
                         "-DCLIENT_MATCH=클라이언트 스크립트 eco.mana.hud: 호출 [0-9]+ · 트랩 0"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
             set_tests_properties(sample_mana_regen PROPERTIES LABELS "content" TIMEOUT 600)
+            # 패키지 데모 (v0.4 M6-T1) — 다른 폴더 · 빈 캐시에서 sbx install → sbx test → 서버 = 로컬 플레이 (프로젝트 · 패키지)
+            add_test(NAME sample_stash
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLES=${PROJECT_SOURCE_DIR}/samples"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_stash"
+                        "-DPLAYTHROUGH=${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_package.cmake")
+            set_tests_properties(sample_stash PROPERTIES LABELS "content" TIMEOUT 600)
         endif()
     endif()
 endif()

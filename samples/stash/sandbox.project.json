@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "gameId": "sandbox.stash",
+  "name": "보관함",
+  "version": "0.1.0",
+  "engine": ">=0.3.0 <1.0.0",
+  "content": {
+    "packs": [
+      "stash"
+    ]
+  },
+  "entryWorld": "worlds/main",
+  "dependencies": {
+    "inventory": {
+      "path": "../packages/inventory",
+      "version": "^1"
+    }
+  }
+}

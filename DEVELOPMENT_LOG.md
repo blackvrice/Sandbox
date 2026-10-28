@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-28 — v0.4 M6-T1: 패키지 데모 — samples/packages/inventory 를 설치하는 samples/stash, CTest sample_stash
+
+**무엇을**
+
+- samples/packages/inventory (Feature 패키지 1.0.0 · MIT): 컴포넌트 inventory.bag {items · capacity} + export function store ·
+  isFull, 서버 시스템 inventory.collect (30 틱마다 하나씩), Prefab inventory.crate.
+- samples/stash (게임 sandbox.stash): sbx new (빈 월드) → content/stash (requires inventory — Prefab stash.cart 가 패키지의
+  컴포넌트를, 스크립트 stash.bonus 가 "@inventory/bag" 의 함수를 쓴다) → sbx add inventory --path ../packages/inventory --version
+  ^1 (sandbox.lock · tsconfig paths) → 클라이언트에서 Ctrl+S 로 시작 월드를 지금 콘텐츠로 저장 (검사 경고 0). playthrough.json
+  (상자 넷 · 수레 둘 · 300 단계에 상자 하나, 900 틱 — expect tick · 해시), README.
+- .gitignore 에 .sandbox/ (설치 폴더는 잠금에서 다시 만든다). README.md · 15 · 13 5.1 · 17 · 18 (0 · 6.4 · 7장).
+- CTest sample_stash (tests/project/sample_package.cmake): 다른 폴더에 저장소 파일만 복사 → 설치 전 check P8 ("설치되지
+  않았다") → 빈 캐시 sbx install → sbx test (오류 · 경고 0, 통과) → sample_playthrough.cmake (헤드리스 서버 = 로컬 플레이 · 게임
+  패키지로도 같은 결과 줄).
+
+**왜**
+
+- v0.4 의 끝-끝 목표 (ADR-0071 — "다른 제작자의 Feature 를 설치 → 빌드 → 테스트 플레이") 를 저장소의 데모 하나와 CTest 로.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 67/67 통과 (+ sample_stash). det_* 골든 그대로.
+- 실행: sbx check samples/stash 오류 0 · 경고 0 (시스템 inventory.collect — .sandbox/packages/inventory/… · stash.bonus —
+  content/stash/…), sbx test "통과 playthrough.json — 게임 없음 · tick 900 · hash 0xaf95ab21bf58d0cb", 헤드리스 서버 로그
+  "inventory.collect t300: 보관함 7 · 가득 4" · "stash.bonus t450: 아이템 합 100" (상자 5 × 10 + 수레 2 × 25), 스크립트 트랩 0.
+  sample_stash: "같은 결과: 게임 결과: 게임 없음 · tick 900 · hash 0xaf95ab21bf58d0cb" · "패키지도 같은 결과".
+- 처음 sample_stash 는 설치 전 check 의 기대 문구를 "잠금 없음" 쪽 (P8 "설치하지 않았다") 으로 써서 실패했다 — 샘플은 잠금을
+  담으므로 맞는 P8 은 "설치되지 않았다" 다 (엔진은 맞게 동작) — 시험의 기대값을 고쳤다.
+- 시작 월드 저장 (Ctrl+S) 은 클라이언트 창에 키 입력이 가야 해서, 다른 알림 창이 포커스를 잡고 있을 때 바탕화면 셸의 클릭
+  권한을 받아 창 제목을 눌러 포커스를 옮긴 뒤 했다 (세이브 로그 "월드 저장 'main' (#1): tick 0 · 엔티티 0").
+
+**남은 일**
+
+- M6-T2: 버전 종료 — 요구사항 done / deferred / removed, releases/v0.4.0, 제품 버전 0.4.0.
+
+---
+
 ## 2026-10-28 — v0.4 M5-T2: 라이선스 요약 (SBOM) — .sbpkg 형식 2 → M5 완료 (ADR-0077)
 
 **무엇을**

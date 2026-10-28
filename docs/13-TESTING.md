@@ -271,6 +271,10 @@ expect    다르면 종료 코드 1. hash 는 골든처럼 툴체인 키별 — 
           시스템 · 트랩 0, CLIENT_MATCH 클라이언트 끝 줄의 client 시스템). game test_mana_regen_sample: 열기 (시스템 셋 · 토끼
           75 · 마나 50) · 두 번 같다 · 기운 주기 받아들여짐 · 세이브 → 로드 → 이어 돌린 해시 · 로컬 세션 (복제 월드의 마나 = 서버 ·
           client 글자 · Inspector 값 · 편집)
+패키지    (v0.4 M6-T1) samples/stash (설치한 samples/packages/inventory 를 쓰는 게임) 의 playthrough.json — 상자 넷 · 수레 둘 ·
+          300 단계에 상자 하나, maxTicks 900, expect tick · 해시. CTest sample_stash = 다른 폴더에 저장소 파일만 (.sandbox 없이) →
+          설치 전 check P8 → 빈 캐시 sbx install → sbx test (경고 0 · 통과) → sample_playthrough.cmake (RESULT_MATCH "게임 없음 ·
+          tick 900", SERVER_MATCH "스크립트 stash.bonus: 호출 10 · 트랩 0" — 서버 = 로컬 플레이 · 게임 패키지로도)
 프로젝트  (v0.4 M4-T2, ADR-0076) sbx test <프로젝트> — 검사 → <프로젝트>/playthrough.json 다음 tests/*.json (이름 순) 을 스크립트마다
           새로 연 월드에서 같은 프로세스로 끝까지 (헤드리스 서버와 같은 러너) → expect. "통과 | 실패 <파일> — …" · "시험: 통과 n ·
           실패 m", 하나라도 실패하면 종료 1. CTest project_pack 이 smoke · 틀린 expect · 샘플 rabbit_guard 를 본다

@@ -1,0 +1,72 @@
+{
+  "worldVersion": 1,
+  "schemaVersion": 1,
+  "simVersion": 4,
+  "name": "main",
+  "game": {
+    "gameId": "sandbox.stash",
+    "version": "0.1.0"
+  },
+  "seed": "0x0000000000000001",
+  "tick": 0,
+  "nextSaveId": 1,
+  "entityCount": 0,
+  "chunkSize": 32,
+  "bounds": {
+    "minChunk": [
+      -8,
+      -8
+    ],
+    "maxChunk": [
+      7,
+      7
+    ]
+  },
+  "fillMaterial": "core.grass",
+  "content": {
+    "packs": [
+      "inventory",
+      "stash"
+    ],
+    "contentHash": "0x99b32a77ec774f4a"
+  },
+  "tags": [],
+  "terrainMaterials": [
+    "core.grass",
+    "core.rock",
+    "core.sand",
+    "core.water"
+  ],
+  "components": {
+    "ai.behavior": 1,
+    "ai.path": 1,
+    "ai.sensor": 1,
+    "core.collider": 1,
+    "core.lifetime": 1,
+    "core.movement": 1,
+    "core.prefab": 1,
+    "core.tags": 1,
+    "core.transform": 1,
+    "core.velocity": 1,
+    "debug.random_walk": 1,
+    "game.camera_start": 1,
+    "game.score": 1,
+    "game.session": 1,
+    "game.spawn_point": 1,
+    "inventory.bag": 1,
+    "life.age": 1,
+    "life.energy": 1,
+    "life.growth": 1,
+    "life.health": 1,
+    "life.reproduce": 1
+  },
+  "simulation": {
+    "paused": true,
+    "speed": 1.0,
+    "pendingSteps": 0,
+    "editSequence": 0
+  },
+  "worldHash": "0xf2e04a37e925c02b",
+  "opaqueEntities": 0,
+  "opaqueComponents": []
+}

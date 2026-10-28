@@ -1,0 +1,14 @@
+{
+  "lockVersion": 1,
+  "packs": {
+    "inventory": {
+      "version": "1.0.0",
+      "license": "MIT",
+      "source": {
+        "path": "../packages/inventory"
+      },
+      "digest": "b9827f38143d81ef20520ad995f25aec68c3ccfbba662f8253bb7339dcf59969",
+      "dependencies": []
+    }
+  }
+}

@@ -15,6 +15,9 @@ compile_commands.json
 # 도구 캐시
 .cache/
 
+# 게임 프로젝트의 설치한 패키지 — sandbox.lock 에서 다시 만든다 (sbx install, v0.4 ADR-0073)
+.sandbox/
+
 # 커밋 전달용 git bundle (AGENTS.md 5장 — 가져온 뒤 지운다)
 *.bundle
 __pycache__/

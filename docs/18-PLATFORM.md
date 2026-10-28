@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.3 완료 — 0.3.0, v0.4 M5 완료).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.3 완료 — 0.3.0, v0.4 M6-T1).
 
 ---
 
@@ -11,9 +11,8 @@
 ```text
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
-         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 ✅ · M5 ✅ · M6 E2E · 릴리스 (6.4, ADR-0071 ~ 0077)
-다음     v0.4 M6-T1 — 데모 samples/packages/inventory (Feature 팩 — 컴포넌트 · 시스템 · Prefab) 를 다른 게임 프로젝트가 설치 →
-         빌드 → 테스트 플레이 (자동 플레이 · 헤드리스 서버 = 로컬 플레이)
+         v0.4 Package Manager ◐ — M1 ✅ · M2 ✅ · M3 ✅ · M4 ✅ · M5 ✅ · M6 E2E · 릴리스 (T1 ✅ · T2) (6.4, ADR-0071 ~ 0077)
+다음     v0.4 M6-T2 — 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.4.0 · 제품 버전 0.4.0
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -421,8 +420,11 @@ M5 보안 · 재현
   → M5 완료 (2026-10-28): 나쁜 패키지는 설치 전에 거절되고 프로젝트는 그대로, 같은 잠금 = 같은 game digest (다른 폴더 · 빈 캐시),
     배포 패키지가 팩마다 라이선스 · 버전 · digest 를 확인할 수 있게 담는다
 M6 E2E · 릴리스
-  T1 [계획] 데모: samples/packages/inventory (Feature 팩 — 컴포넌트 · 시스템 · Prefab) 를 다른 게임 프로젝트가 설치 → 빌드 →
-            테스트 플레이 (자동 플레이 · 헤드리스 서버 = 로컬 플레이)
+  T1 ✅ 데모: samples/packages/inventory (Feature 패키지 1.0.0 MIT — 컴포넌트 inventory.bag · 함수 store · isFull · 시스템
+        inventory.collect · Prefab inventory.crate) 를 samples/stash 가 sbx add --path 로 설치 (sandbox.lock 을 저장소에, .sandbox
+        는 밖 — .gitignore), 게임 팩 stash 가 Prefab (stash.cart) · 스크립트 (stash.bonus — "@inventory/bag") 로 쓴다. 시작 월드는
+        설치 뒤 클라이언트 Ctrl+S (검사 경고 0). playthrough.json (tick 900 · 해시). CTest sample_stash — 다른 폴더 · 빈 캐시
+        install → sbx test → 헤드리스 서버 = 로컬 플레이 (프로젝트 · 게임 패키지)
   T2 [계획] 버전 종료: 요구사항 done / deferred / removed · 릴리스 노트 releases/v0.4.0 · 제품 버전 0.4.0
 ```
 
@@ -486,7 +488,8 @@ v0.4 M4-T2 ✅ ADR-0076, 15 7장 (sbx test · new --pack), 13 5장 (자동 플�
 v0.4 M4-T3 ✅ 10 2장 (팔레트 · 콘텐츠 창 — 팩별 묶음), 17, 13
 v0.4 M5-T1 ✅ 13 (거부 시험 · 재현), 09 12장, 17
 v0.4 M5-T2 ✅ ADR-0077, 09 9장 (.sbpkg 형식 2 — packs), 15 7장, 17, 13
-v0.4 M6       13, 14 (설치 · 해결 시간), releases/v0.4.0
+v0.4 M6-T1 ✅ 13 5.1 (패키지 데모), 15 (실행), 17, README
+v0.4 M6-T2    releases/v0.4.0, 14 (설치 · 해결 시간), 18 (버전 줄)
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)

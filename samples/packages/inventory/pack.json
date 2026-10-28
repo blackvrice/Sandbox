@@ -1,0 +1,6 @@
+{
+  "id": "inventory",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "보관함 Feature 패키지 — 컴포넌트 inventory.bag · 함수 store · isFull · 시스템 inventory.collect · Prefab inventory.crate (v0.4 데모)"
+}

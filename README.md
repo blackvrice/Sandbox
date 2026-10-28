@@ -71,6 +71,7 @@ Windows 첫 구성은 셰이더 컴파일러 DXC (NuGet, 약 53 MB) 를 `.cache\
 SandboxClient --world ecosystem_survival                 싱글플레이 생태계 (WASD · 휠 · Space · 클릭 선택 · 1~5 편집 툴)
 SandboxClient --world samples/rabbit_guard               v0.2 데모 미니게임 "토끼 지키기" ("게임" 패널의 시작 → Q · E)
 SandboxClient --world samples/mana_regen                 v0.3 스크립트 데모 "마나 재생" (토끼 위 마나 · R 기운 주기 · F1 프로파일)
+sbx install samples/stash && SandboxClient --world samples/stash   v0.4 패키지 데모 "보관함" (설치한 inventory 패키지를 쓰는 게임)
 SandboxServer --world ecosystem_survival                 헤드리스 전용 서버
 SandboxClient --connect 127.0.0.1:7777 --name 철수       서버 접속 (함께 편집)
 

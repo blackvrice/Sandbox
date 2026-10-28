@@ -1,0 +1,7 @@
+{
+  "id": "stash",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "보관함 게임의 팩 — 설치한 inventory 패키지의 컴포넌트 (Prefab) · 함수 (스크립트) 를 쓴다",
+  "requires": ["inventory"]
+}

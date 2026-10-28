@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "name": "보관함 — 자동 플레이 (상자 넷 · 수레 둘 · 10 초 뒤 상자 하나 더, 30 초)",
+  "maxTicks": 900,
+  "steps": [
+    { "at": 1, "command": { "op": "resume" } },
+    { "at": 2, "command": { "op": "create", "position": [-6.5, -2.5], "prefab": "inventory.crate" } },
+    { "at": 2, "command": { "op": "create", "position": [-2.5, -2.5], "prefab": "inventory.crate" } },
+    { "at": 2, "command": { "op": "create", "position": [2.5, -2.5], "prefab": "inventory.crate" } },
+    { "at": 2, "command": { "op": "create", "position": [6.5, -2.5], "prefab": "inventory.crate" } },
+    { "at": 3, "command": { "op": "create", "position": [-3.5, 3.5], "prefab": "stash.cart" } },
+    { "at": 3, "command": { "op": "create", "position": [3.5, 3.5], "prefab": "stash.cart" } },
+    { "at": 300, "command": { "op": "create", "position": [0.5, 0.5], "prefab": "inventory.crate" } }
+  ],
+  "expect": {
+    "tick": 900,
+    "hash": { "Windows-x86_64-MSVC-19.44": "0xaf95ab21bf58d0cb" }
+  }
+}

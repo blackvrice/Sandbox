@@ -1,0 +1,10 @@
+{
+  "id": "stash.cart",
+  "name": "Cart",
+  "category": "Inventory",
+  "components": {
+    "core.transform": {},
+    "inventory.bag": { "capacity": 25 },
+    "render.sprite": { "material": "debug/entity", "size": [1.4, 0.9], "layer": 5 }
+  }
+}
