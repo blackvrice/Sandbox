@@ -6,6 +6,7 @@
 
 #include "foundation/text/Utf8.hpp"
 #include "script/api/ComponentSchema.hpp"
+#include "script/api/EngineComponents.hpp"
 #include "script/api/MathBuiltins.hpp"
 
 namespace sbx::script::bc {
@@ -191,10 +192,11 @@ private:
         for (usize i = 0; i < M.components.size(); ++i) {
             if (!api::isValidComponentId(M.components[i])) {
                 fail(std::format("컴포넌트 {}: '{}' 는 컴포넌트 이름이 아니다", i, M.components[i]));
-            } else if (api::isEngineComponentNamespace(M.components[i])) {
-                // 검사기는 엔진 이름공간의 defineComponent 를 거절한다 — 손으로 고친 모듈이 LOADK 로 엔진 컴포넌트를
-                // 가리키지 못하게 (Host 도 엔진 컴포넌트를 거절한다 — 두 겹, v0.3 M6-T2)
-                fail(std::format("컴포넌트 {}: '{}' 는 엔진 이름공간이다", i, M.components[i]));
+            } else if (api::isEngineComponentNamespace(M.components[i]) &&
+                       api::findEngineComponent(M.components[i]) == nullptr) {
+                // 엔진 이름공간은 접근 표의 것만 (v0.5 M2-T1 — import { Transform } from "sandbox"). 손으로 고친 모듈이
+                // LOADK 로 표에 없는 엔진 컴포넌트를 가리키지 못하게 (Host 도 거절한다 — 두 겹, v0.3 M6-T2)
+                fail(std::format("컴포넌트 {}: '{}' 는 엔진 이름공간이고 접근 표에 없다", i, M.components[i]));
             }
             for (usize k = 0; k < i; ++k) {
                 if (M.components[k] == M.components[i]) {

@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 
+#include "script/api/EngineComponents.hpp"
 #include "script/api/MathBuiltins.hpp"
 #include "script/vm/Verifier.hpp"
 
@@ -511,7 +512,11 @@ private:
             const Symbol& s = P.symbols[sid];
             if (s.kind == SymbolKind::Component) {
                 const u16 r = temp(tid(typeOf(n)));
-                emit(Op::LOADK, r, component(P.components[s.function].schema.id));
+                // 엔진 컴포넌트 (v0.5 M2-T1) 는 접근 표의 id — stableId 가 같은 규칙 (fnv1a64)
+                emit(Op::LOADK, r,
+                     component((s.function & kEngineComponentFlag) != 0
+                                   ? std::string(api::kEngineComponents[s.function & ~kEngineComponentFlag].id)
+                                   : P.components[s.function].schema.id));
                 return r;
             }
             const auto it = m_symReg.find(sid);

@@ -4,6 +4,7 @@
 #include <format>
 
 #include "core/components/core/Identity.hpp"
+#include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
 #include "foundation/assert/Assert.hpp"
 
@@ -168,9 +169,14 @@ const ecs::ComponentInfo* ClientScriptHost::componentOf(vm::Value ref, std::stri
         error = std::format("모르는 컴포넌트 ({:016x}) — 이 월드의 콘텐츠가 정의하지 않았다", ref.bits);
         return nullptr;
     }
+    // 엔진 컴포넌트는 접근 표에서 클라이언트 읽기 (Both) 인 것만 (v0.5 M2-T1 — 복제하는 것)
     if (info->dynamicLayout == nullptr) {
-        error = std::format("엔진 컴포넌트 '{}' 는 스크립트에서 다루지 않는다 [계획]", info->name);
-        return nullptr;
+        const api::EngineComponentAccess* engine = engineAccessOf(*info);
+        if (engine == nullptr || engine->read != api::EngineRead::Both) {
+            error = std::format("엔진 컴포넌트 '{}' 는 클라이언트 스크립트가 읽지 않는다 (접근 표 — 서버만 · 없음)",
+                                info->name);
+            return nullptr;
+        }
     }
     return info;
 }
@@ -192,6 +198,13 @@ vm::HostResult ClientScriptHost::read(std::span<const vm::HostArg> args) {
     }
     vm::HostResult r;
     r.value = vm::Value::boolean(true);
+    if (const api::EngineComponentAccess* engine = engineAccessOf(*info)) {
+        std::string why;
+        if (!appendEngineFieldValues(*engine, *info, bytes, r.values, why)) {
+            return fail(std::move(why));
+        }
+        return r;
+    }
     // 개체 참조 필드는 null — 복제 월드의 saveId → 개체 풀이는 [계획]
     appendFieldValues(*info->dynamicLayout, bytes, r.values, [](SaveId) { return vm::Value::null(); });
     return r;

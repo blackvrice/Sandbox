@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 e02f109682ecb304 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 d03bc50223a4ef73 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -59,6 +59,72 @@ declare module "sandbox" {
   export function defineComponent<F extends { [name: string]: Field<unknown> }>(
     definition: ComponentDefinition<F>,
   ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
+  /** 충돌체 (서버만 — 복제하지 않는다) — 엔진 컴포넌트 core.collider (읽기 server) */
+  export interface Collider {
+    /** 충돌 반지름 */
+    readonly radius: number;
+  }
+  export const Collider: ComponentRef<Collider>;
+  /** 이동 (속도 상한 · 목표 — 서버만, 복제하지 않는다) — 엔진 컴포넌트 core.movement (읽기 server) */
+  export interface Movement {
+    /** 월드 단위/초² */
+    readonly accel: number;
+    /** 도착으로 보는 거리 */
+    readonly arriveRadius: number;
+    /** 목표 (월드 좌표) */
+    readonly goal: Vec2;
+    /** 목표가 있나 */
+    readonly hasGoal: boolean;
+    /** 월드 단위/초 */
+    readonly maxSpeed: number;
+  }
+  export const Movement: ComponentRef<Movement>;
+  /** 위치 · 회전 — 엔진 컴포넌트 core.transform (읽기 server · client) */
+  export interface Transform {
+    /** 월드 좌표 */
+    readonly position: Vec2;
+    /** 라디안 */
+    readonly rotation: number;
+  }
+  export const Transform: ComponentRef<Transform>;
+  /** 속도 — 엔진 컴포넌트 core.velocity (읽기 server · client) */
+  export interface Velocity {
+    /** 월드 단위/초 */
+    readonly value: Vec2;
+  }
+  export const Velocity: ComponentRef<Velocity>;
+  /** 게임 세션 (상태 · 결과 — 바꾸는 길은 GameControl 명령) — 엔진 컴포넌트 game.session (읽기 server · client) */
+  export interface GameSession {
+    /** GameOutcome (0 진행 · 1 승 · 2 패 · 3 비김) */
+    readonly result: i32;
+    /** 끝낸 규칙의 번호 */
+    readonly rule: i32;
+    /** GameState (0 Lobby · 1 Running · 2 Paused · 3 Ended) */
+    readonly state: i32;
+    /** 지금 상태가 된 틱 */
+    readonly stateTick: i32;
+    /** 이긴 팀 (끝났을 때) */
+    readonly team: i32;
+  }
+  export const GameSession: ComponentRef<GameSession>;
+  /** 에너지 — 엔진 컴포넌트 life.energy (읽기 server · client) */
+  export interface Energy {
+    /** 초당 줄어드는 양 */
+    readonly drainPerSecond: number;
+    /** 최대 */
+    readonly max: number;
+    /** 지금 (0 이하면 굶어 죽는다) */
+    readonly value: number;
+  }
+  export const Energy: ComponentRef<Energy>;
+  /** 체력 — 엔진 컴포넌트 life.health (읽기 server · client) */
+  export interface Health {
+    /** 최대 */
+    readonly max: number;
+    /** 지금 (0 이하면 죽는다) */
+    readonly value: number;
+  }
+  export const Health: ComponentRef<Health>;
   /** 시스템 이벤트 종류 (onEvent 의 e.kind) */
   export const enum GameEventKind {
     Death = 1,

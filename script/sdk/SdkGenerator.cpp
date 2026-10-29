@@ -4,6 +4,7 @@
 #include <format>
 #include <vector>
 
+#include "script/api/EngineComponents.hpp"
 #include "script/api/HostApi.hpp"
 #include "script/api/SystemEvents.hpp"
 
@@ -110,6 +111,35 @@ std::string generateSandboxDts() {
     out += "  export function defineComponent<F extends { [name: string]: Field<unknown> }>(\n";
     out += "    definition: ComponentDefinition<F>,\n";
     out += "  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;\n";
+    // 엔진 컴포넌트 (v0.5 M2-T1, ADR-0080 1) — 접근 표 그대로, 읽기만 (쓰기 규칙은 M2-T2)
+    for (const api::EngineComponentAccess& e : api::kEngineComponents) {
+        out += std::format("  /** {} — 엔진 컴포넌트 {} (읽기 {}) */\n", e.doc, e.id, api::engineReadName(e.read));
+        out += std::format("  export interface {} {{\n", e.scriptName);
+        for (const api::EngineFieldAccess& f : e.fields) {
+            std::string_view t = "number";
+            switch (f.kind) {
+            case api::ComponentFieldKind::I32:
+            case api::ComponentFieldKind::Enum:
+                t = "i32";
+                break;
+            case api::ComponentFieldKind::Bool:
+                t = "boolean";
+                break;
+            case api::ComponentFieldKind::Vec2:
+                t = "Vec2";
+                break;
+            case api::ComponentFieldKind::Entity:
+                t = "Entity | null";
+                break;
+            case api::ComponentFieldKind::F32:
+            case api::ComponentFieldKind::F64:
+                break;
+            }
+            out += std::format("    /** {} */\n    readonly {}: {};\n", f.doc, f.name, t);
+        }
+        out += "  }\n";
+        out += std::format("  export const {}: ComponentRef<{}>;\n", e.scriptName, e.scriptName);
+    }
     // 시스템 정의 (ADR-0062 · 0063) — export default 의 식으로만, 값은 상수 (19 17 · 18장)
     out += "  /** 시스템 이벤트 종류 (onEvent 의 e.kind) */\n";
     out += "  export const enum GameEventKind {\n";

@@ -467,11 +467,41 @@ export function regen(ctx: ServerContext): i32 {
            여러 컴포넌트를 한 번에 묻는 질의는 [검토 M6]
 핸들       호출마다 새 표 — 표지 0x5E00 · 호출 번호 아래 16 비트 · 자리. 같은 개체 = 같은 핸들 (=== 가 된다), 지난 호출 · 위조 ·
            죽은 개체 = HostError. ScriptHost::entityHandle 이 바깥 (시스템 단계 — M4) 의 개체를 인자로 넘긴다
-컴포넌트   LOADK 의 값 = stableId. Host 는 월드 카탈로그에서 찾고 스크립트 컴포넌트만 받는다 (모르는 컴포넌트 · 엔진 컴포넌트 =
-           HostError). 월드 없이 연 호출 (beginCall 에 월드 없음) 의 컴포넌트 항목도 HostError
+컴포넌트   LOADK 의 값 = stableId. Host 는 월드 카탈로그에서 찾고 스크립트 컴포넌트와 엔진 접근 표의 컴포넌트만 받는다 (모르는
+           컴포넌트 · 표에 없는 엔진 컴포넌트 = HostError — 16.1). 월드 없이 연 호출 (beginCall 에 월드 없음) 의 컴포넌트 항목도
+           HostError
 VM 경계    T 는 칸 목록 (필드 이름 순, Vec2 는 그 자리에서 x · y, 상자는 null = 0). 칸 수 · 잎 모양이 레지스터 타입과 다르면 HostError
            — 위조한 바이트코드가 Host 값을 참조로 읽지 못한다 (13장)
 결정성     같은 월드 · 같은 호출 = 같은 결과 · 같은 WorldHash (시험), 쓰기 뒤 세이브 → 로드 해시 일치
+```
+
+### 16.1 엔진 컴포넌트 읽기 (v0.5 M2-T1 — `script/api/EngineComponents` · `core/script/EngineComponentAccess`, ADR-0080 1)
+
+```ts
+import { ServerContext, ClientContext, Entity, Transform, Health } from "sandbox";
+export function hp(ctx: ServerContext, e: Entity): number {
+  const h = ctx.read(e, Health);     // Health | null — { max, value: number }
+  const t = ctx.read(e, Transform);  // Transform | null — { position: Vec2, rotation: number }
+  return h === null ? 0 : h.value;
+}
+```
+
+```text
+표         script/api/EngineComponents — 항목 (id · 스크립트 이름 · 읽기 도메인 · 필드 이름 순 · 종류) 하나가 검사기 · d.ts ·
+           Host 바인딩 · Host API 지문의 근거. v0.5 M2-T1 표: Collider (core.collider — radius, 서버만) · Energy (life.energy —
+           drainPerSecond · max · value) · GameSession (game.session — result · rule · state · stateTick · team, i32) · Health
+           (life.health — max · value) · Movement (core.movement — accel · arriveRadius · goal · hasGoal · maxSpeed, 서버만) ·
+           Transform (core.transform — position · rotation) · Velocity (core.velocity — value). 서버만 = 복제하지 않는 컴포넌트
+검사기     import 하면 값 = ComponentRef<이름> (LOADK 의 id = 표의 id), 타입 = 데이터 구조체 (읽기 전용으로 쓰지 않아도 — 값 복사).
+           ctx.write 에 넘기면 S404 "읽기만" (쓰기 규칙은 M2-T2), 클라이언트 함수 (client.read …) 에 서버만 항목이면 S404, 표에
+           없는 이름 (Identity …) 은 S416. 심볼 · 타입 인덱스에 kEngineComponentFlag — P.components (카탈로그에 넣는 스크립트
+           정의) 와 섞지 않는다
+값         카탈로그의 writeJson (reflect) 에서 표의 필드만 같은 칸 규칙으로 (I32 — u8 · u32 · Tick 은 i32 범위만, F32 → f64, Bool,
+           Vec2 → x · y). 쓰기 버퍼 · read-your-writes 는 스크립트 컴포넌트만 (엔진은 쓰기가 없다)
+검증기     LOADK 의 컴포넌트 표에 엔진 이름공간 id 는 접근 표에 있을 때만 (위조 모듈 — 표에 없는 엔진 컴포넌트는 거절)
+지문       항목 · 필드 · 읽기 도메인이 Host API 지문에 든다 (더하기만이면 kHostApiVersion 1 그대로 — 0xd03bc50223a4ef73)
+[계획]     game.score (배열) · core.tags (비트 — 이름으로 has · add · remove) · core.prefab (문자열) · 개체 참조 필드 — 칸 종류가
+           따로 필요하다. 쓰기 (M2-T2) · 붙이기 · 떼기 (M2-T3)
 ```
 
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)

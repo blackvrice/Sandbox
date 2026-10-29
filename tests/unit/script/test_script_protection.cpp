@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/core/Lifetime.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/script/ClientScriptSystems.hpp"
@@ -243,7 +244,9 @@ export function poke(ctx: ServerContext, e: Entity): void {
         REQUIRE(bc::verify(m).ok());
         REQUIRE(m.components.size() == 1);
         bc::Module forged = m;
-        forged.components[0] = "core.transform"; // 모양이 다른 엔진 컴포넌트를 스크립트 값으로 쓰려 한다
+        // 접근 표에 없는 엔진 컴포넌트를 스크립트 값으로 쓰려 한다 (표의 것 — core.transform — 은 v0.5 M2-T1 부터 읽기
+        // 허용)
+        forged.components[0] = "core.lifetime";
         const bc::VerifyResult v = bc::verify(forged);
         REQUIRE_FALSE(v.ok());
         CHECK(v.errors[0].find("엔진 이름공간") != std::string::npos);
@@ -260,7 +263,7 @@ export function poke(ctx: ServerContext, e: Entity): void {
         const Value ctx = host.beginCall(w.currentTick(), "forged", &w);
         const ecs::EntityId target = firstWisp(w);
         const Value e = host.entityHandle(target);
-        const Value engineRef = Value::opaque(ecs::stableIdOf<comp::Transform>);
+        const Value engineRef = Value::opaque(ecs::stableIdOf<comp::Lifetime>); // 접근 표에 없다
         const api::HostFunction* read = api::findHostFunction("ctx.read");
         const api::HostFunction* write = api::findHostFunction("ctx.write");
         REQUIRE(read != nullptr);
@@ -277,6 +280,16 @@ export function poke(ctx: ServerContext, e: Entity): void {
                                          {api::AbiType::Component, engineRef, {}, {}},
                                          {api::AbiType::ComponentData, {}, {}, fields}};
         CHECK_FALSE(host.call(*write, writeArgs).ok);
+        // 접근 표의 엔진 컴포넌트도 쓰기는 거절 (읽기만 — v0.5 M2-T1)
+        const Value transformRef = Value::opaque(ecs::stableIdOf<comp::Transform>);
+        const Value transformFields[] = {Value::f64v(1), Value::f64v(1), Value::f64v(0)};
+        const vm::HostArg writeTransform[] = {{api::AbiType::ServerContext, ctx, {}, {}},
+                                              {api::AbiType::Entity, e, {}, {}},
+                                              {api::AbiType::Component, transformRef, {}, {}},
+                                              {api::AbiType::ComponentData, {}, {}, transformFields}};
+        const vm::HostResult wt = host.call(*write, writeTransform);
+        CHECK_FALSE(wt.ok);
+        CHECK(wt.error.find("읽기만") != std::string::npos);
         host.endCall(true);
         CHECK(w.worldHash().value() == before);
     }

@@ -141,6 +141,10 @@ v0.5 표    core.transform (pos · rot — 읽기 both · 쓰기 server: 경계 
            game.session (읽기 both — 쓰기 none, 바꾸는 길은 GameControl 명령뿐) · game.owner (3.6 — 읽기 both)
 없음       ai.* · core.identity · core.lifetime 내부 · debug.* (엔진 관리 — 접근 표에 없으면 S404 · 실행 때 HostError)
 버전       표를 더하면 Host API 지문이 바뀐다 (kHostApiVersion 1 그대로 — 더하기만). 필드를 빼거나 쓰기를 거두면 버전 ++
+M2-T1 ✅   읽기 (server · client) · d.ts · 지문 — 19 16.1. 표는 script/api/EngineComponents (검사기 · d.ts 가 Foundation 만 알아서
+           core/script 가 아니라 script/api 에 — 엔진 바인딩은 core/script/EngineComponentAccess). 들어간 것: Collider · Energy ·
+           GameSession · Health · Movement · Transform · Velocity (Collider · Movement 는 복제하지 않아 서버만). 위 목록과 다른 점:
+           core.tags · core.prefab · game.score 는 칸 종류 (비트 · 문자열 · 배열) 가 없어 [계획], game.owner 는 M2-T5
 ```
 
 ### 3.2 구조 변경 — 명령 버퍼
@@ -355,7 +359,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
-| M2-T1 | 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts | core/script (EngineAccess 표 · 바인딩), script/api (ComponentRef 내장), script/sdk | EngineAccess, kEngineComponents | — | 표 = 카탈로그 (모든 항목이 있다), 읽기 값 = 엔진 값, d.ts 골든 | 스크립트가 Transform · Health 를 읽는다 |
+| M2-T1 ✅ | 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts | script/api/EngineComponents (표 — 검사기 · d.ts · 지문), core/script/EngineComponentAccess (바인딩 · 표 = 카탈로그 검사), script/lang (검사기 · 코드 생성), script/vm (검증기), script/sdk | EngineComponentAccess, kEngineComponents, appendEngineFieldValues, checkEngineAccessTable | — | test_engine_components (표 = 카탈로그, 검사기, 서버 · 클라이언트 읽기 = 엔진 값, d.ts · 지문), 보호 시험 (표에 없는 엔진 id) | 스크립트가 Transform · Health 를 읽는다 |
 | M2-T2 | 엔진 컴포넌트 쓰기 규칙 | core/script (쓰기 버퍼 → 엔진 쓰기 · 범위 · 공간 색인) | EngineWriteRule | M2-T1 | 경계 자름 · 범위 · 엔진 관리 거절, 두 월드 같은 해시 | 접근 표가 허락한 것만 쓴다 |
 | M2-T3 | spawn · destroy · add · remove (ECB) · 상한 | core/script (StructuralBuffer), core/simulation (16b · 17d 적용) | StructuralOp | M2-T2 | 결정적 id · 순서, 트랩이면 버림, 상한 셈, 세이브 → 로드, 리플레이 | 스크립트가 개체를 만들고 지운다 — 골든 그대로 |
 | M2-T4 | random · near · time | core/script, foundation/random (흐름 seed) | — | M2-T1 | 같은 seed = 같은 수열, 시스템마다 다른 흐름, near = 공간 색인 결과 | — |

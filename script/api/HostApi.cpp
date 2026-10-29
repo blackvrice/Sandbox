@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "foundation/hash/Fnv1a.hpp"
+#include "script/api/EngineComponents.hpp"
 
 namespace sbx::script::api {
 
@@ -105,6 +106,14 @@ u64 hostApiFingerprint() {
     lines.reserve(kHostFunctions.size());
     for (const HostFunction& f : kHostFunctions) {
         lines.push_back(canonicalSignature(f));
+    }
+    // 엔진 컴포넌트 접근 표 (v0.5 M2-T1, ADR-0080 9) — 항목 · 필드 · 읽기 도메인이 바뀌면 지문이 바뀐다
+    for (const EngineComponentAccess& e : kEngineComponents) {
+        std::string l = std::format("engine {} {} {}", e.id, e.scriptName, engineReadName(e.read));
+        for (const EngineFieldAccess& f : e.fields) {
+            l += std::format(" {}:{}", f.name, componentFieldKindName(f.kind));
+        }
+        lines.push_back(std::move(l));
     }
     std::sort(lines.begin(), lines.end());
     Fnv1a64 h;

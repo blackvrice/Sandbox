@@ -161,6 +161,8 @@ add_library(SandboxCore STATIC
 
     script/ScriptHost.hpp
     script/ScriptHost.cpp
+    script/EngineComponentAccess.hpp
+    script/EngineComponentAccess.cpp
     script/ScriptComponents.hpp
     script/ScriptComponents.cpp
     script/ScriptSystemAdapter.hpp

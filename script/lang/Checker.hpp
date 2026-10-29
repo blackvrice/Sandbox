@@ -136,6 +136,10 @@ struct ModuleSema {
     std::vector<std::pair<std::string, SymbolId>> exportTypes;
 };
 
+// 엔진 컴포넌트 (v0.5 M2-T1 — script/api/EngineComponents) 의 심볼 · ComponentRef 타입 인덱스 표시: index =
+// kEngineComponentFlag | 접근 표의 자리. 그 밖의 인덱스는 P.components 의 자리 (스크립트가 정의한 것)
+inline constexpr u32 kEngineComponentFlag = 0x8000'0000u;
+
 // defineComponent 하나 (ADR-0059). schema 의 필드는 이름 순, dataType = 값 구조체 (필드도 이름 순 — ctx.read 의 결과,
 // ADR-0060)
 struct ComponentDecl {

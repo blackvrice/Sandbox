@@ -6,6 +6,7 @@
 #include <limits>
 #include <optional>
 
+#include "script/api/EngineComponents.hpp"
 #include "script/lang/Parser.hpp"
 #include "script/vm/Numbers.hpp"
 
@@ -277,6 +278,50 @@ private:
             T().structOf(m_gameEvent).fields.push_back(StructField{std::string(f.name), t, true});
         }
         addType("GameEvent", m_gameEvent);
+
+        // 엔진 컴포넌트 (v0.5 M2-T1, ADR-0080 1 — script/api/EngineComponents 의 표): import { Transform } from
+        // "sandbox" → 값 = ComponentRef<Transform> (LOADK 의 id 는 표의 id), 타입 = 데이터 구조체 (이름 순 필드).
+        // P.components (스크립트가 정의한 것 — 카탈로그에 넣는다) 에는 넣지 않는다 — 심볼 · 타입의 인덱스에
+        // kEngineComponentFlag
+        for (usize i = 0; i < api::kEngineComponents.size(); ++i) {
+            const api::EngineComponentAccess& e = api::kEngineComponents[i];
+            const std::string name(e.scriptName);
+            const TypeId data = T().newStruct(name);
+            std::vector<StructField> fields;
+            for (const api::ComponentFieldSchema& f : api::engineComponentSchema(e).fields) {
+                fields.push_back(StructField{f.name, engineFieldType(f.kind), false});
+            }
+            T().structOf(data).fields = std::move(fields);
+            const u32 index = kEngineComponentFlag | static_cast<u32>(i);
+            Symbol s;
+            s.kind = SymbolKind::Component;
+            s.name = name;
+            s.function = index;
+            s.type = T().newComponentRef(data, index);
+            const SymbolId id = newSymbol(std::move(s));
+            m_ready[id] = true;
+            m_sdkValues.push_back({name, id});
+            addType(name, data);
+        }
+    }
+
+    // 엔진 컴포넌트 필드의 스크립트 타입 (defineComponent 의 field.* 와 같은 대응)
+    [[nodiscard]] TypeId engineFieldType(api::ComponentFieldKind k) const {
+        switch (k) {
+        case api::ComponentFieldKind::I32:
+        case api::ComponentFieldKind::Enum:
+            return TypeTable::kI32;
+        case api::ComponentFieldKind::F32:
+        case api::ComponentFieldKind::F64:
+            return TypeTable::kNumber;
+        case api::ComponentFieldKind::Bool:
+            return TypeTable::kBool;
+        case api::ComponentFieldKind::Vec2:
+            return m_vec2;
+        case api::ComponentFieldKind::Entity:
+            break;
+        }
+        return TypeTable::kError; // 표에 Entity 필드는 없다 (시험이 지킨다)
     }
 
     static ConstValue numberConst(f64 v) {
@@ -2995,6 +3040,21 @@ private:
         if (!T().isError(rt)) {
             if (T().kind(rt) == TypeKind::Component) {
                 data = T().info(rt).elem;
+                // 엔진 컴포넌트 (v0.5 M2-T1): 읽기만, 클라이언트는 복제하는 것만 (접근 표의 읽기 도메인)
+                if (const u32 index = T().info(rt).index; (index & kEngineComponentFlag) != 0) {
+                    const api::EngineComponentAccess& e = api::kEngineComponents[index & ~kEngineComponentFlag];
+                    if (h.effect == api::HostEffect::Write) {
+                        err("S404", refArg,
+                            std::format("엔진 컴포넌트 {} ({}) 는 아직 읽기만 한다 — 쓰기 규칙은 v0.5 M2-T2",
+                                        e.scriptName, e.id));
+                        data = TypeTable::kError;
+                    } else if (h.domain == api::HostDomain::Client && e.read == api::EngineRead::Server) {
+                        err("S404", refArg,
+                            std::format("엔진 컴포넌트 {} ({}) 는 서버에서만 읽는다 (클라이언트에 복제하지 않는다)",
+                                        e.scriptName, e.id));
+                        data = TypeTable::kError;
+                    }
+                }
             } else {
                 err("S404", refArg,
                     std::format("{} 의 {} 는 컴포넌트 참조 (defineComponent 의 const) 다 — {} 를 넘겼다", h.id,

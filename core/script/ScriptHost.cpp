@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "core/components/core/Identity.hpp"
+#include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
 #include "core/simulation/SimulationWorld.hpp"
 #include "foundation/assert/Assert.hpp"
@@ -256,8 +257,9 @@ const ecs::ComponentInfo* ScriptHost::componentOf(vm::Value ref, std::string& er
         error = std::format("모르는 컴포넌트 ({:016x}) — 이 월드의 콘텐츠가 정의하지 않았다", ref.bits);
         return nullptr;
     }
-    if (info->dynamicLayout == nullptr) {
-        error = std::format("엔진 컴포넌트 '{}' 는 스크립트에서 다루지 않는다 [계획]", info->name);
+    // 엔진 컴포넌트는 접근 표에 있는 것만 (v0.5 M2-T1 — 읽기 · has · query, 쓰기는 write 가 막는다)
+    if (info->dynamicLayout == nullptr && engineAccessOf(*info) == nullptr) {
+        error = std::format("엔진 컴포넌트 '{}' 는 스크립트 접근 표에 없다 (docs/20-CREATOR-ALPHA.md 3.1)", info->name);
         return nullptr;
     }
     return info;
@@ -287,6 +289,13 @@ vm::HostResult ScriptHost::read(std::span<const vm::HostArg> args) {
     }
     vm::HostResult r;
     r.value = vm::Value::boolean(true);
+    if (const api::EngineComponentAccess* engine = engineAccessOf(*info)) {
+        std::string why;
+        if (!appendEngineFieldValues(*engine, *info, bytes, r.values, why)) {
+            return fail(std::move(why));
+        }
+        return r;
+    }
     appendFieldValues(*info->dynamicLayout, bytes, r.values, [&](SaveId id) {
         const ecs::EntityId target = id == kInvalidSaveId ? ecs::kNullEntity : m_world->resolveSave(id);
         return target.valid() && m_world->registry().alive(target) ? entityHandle(target) : vm::Value::null();
@@ -350,6 +359,9 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     const ecs::EntityId e = entityOf(args[1].value);
     if (!e.valid()) {
         return fail("개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)");
+    }
+    if (info->dynamicLayout == nullptr) { // 검사기가 S404 로 막는다 — 손으로 만든 바이트코드를 위해 한 번 더
+        return fail(std::format("엔진 컴포넌트 '{}' 는 아직 읽기만 한다 (쓰기 규칙은 v0.5 M2-T2)", info->name));
     }
     const std::byte* current = currentBytes(e, *info);
     if (current == nullptr) {

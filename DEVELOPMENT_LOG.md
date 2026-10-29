@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-29 — v0.5 M2-T1: 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
+
+**무엇을**
+
+- script/api/EngineComponents: 접근 표 kEngineComponents — Collider · Energy · GameSession · Health · Movement · Transform ·
+  Velocity (id · 스크립트 이름 · 읽기 도메인 · 필드 이름 순 · 종류). Collider · Movement 는 복제하지 않아 서버만.
+- 검사기: import { Transform } from "sandbox" → ComponentRef<Transform> + 데이터 타입. ctx.write 에 엔진 컴포넌트 = S404 "읽기만",
+  클라이언트 함수에 서버만 항목 = S404, 표에 없는 이름 = S416. 심볼 · 타입 인덱스에 kEngineComponentFlag (P.components 와 따로 —
+  카탈로그에 넣는 스크립트 정의와 섞지 않는다). 코드 생성은 LOADK 의 id = 표의 id (stableId 규칙이 같다 — fnv1a64).
+- 검증기: 엔진 이름공간 id 는 접근 표에 있을 때만 (v0.3 의 "엔진 이름공간 전부 거절" 을 좁힘).
+- core/script/EngineComponentAccess: 카탈로그의 writeJson 에서 표의 필드만 칸으로 (I32 · F32 → f64 · Bool · Vec2 두 칸 —
+  스크립트 컴포넌트와 같은 칸 규칙), checkEngineAccessTable (표 = 카탈로그). ScriptHost · ClientScriptHost 의 read · has ·
+  query 가 받는다 (클라이언트는 Both 만), write 는 엔진 컴포넌트를 거절 ("읽기만").
+- SDK: 항목마다 interface · const (readonly 필드). Host API 지문에 표 (0xe02f… → 0xd03bc50223a4ef73, kHostApiVersion 1 그대로
+  — 더하기만, ADR-0080 9). 커밋된 sandbox.d.ts 셋 (sdk · samples/mana_regen · samples/stash) 을 다시 만들었다.
+- 시험: test_engine_components 5, test_script_protection (위조 id 를 표에 없는 core.lifetime 으로 — core.transform 은 이제 읽기
+  허용, Transform 쓰기 거절 추가), test_checker (지문 고정값). 문서: 19 16 · 16.1, 20 (3.1 · M2-T1), 18 (0 · 6.6), 17, 13.
+
+**왜**
+
+- 20 3.1 · ADR-0080 1 — 스크립트가 HUD · 규칙에서 위치 · 체력을 본다 (X2 게임플레이 API 의 첫 단계). 쓰기는 M2-T2.
+- 20 3.1 과 다른 점: 표를 core/script 가 아니라 script/api 에 (검사기 · d.ts 가 Foundation 만 안다), tags · prefab · score 는
+  칸 종류가 없어 [계획].
+
+**검증**
+
+- Windows MSVC Debug 빌드 · 전체 ctest 73/73 · SandboxTests 655 케이스, check_includes 0 위반. 시뮬레이션은 바뀌지 않았다 — 엔진
+  컴포넌트 읽기만 (det_* 골든 그대로).
+
+**남은 일**
+
+- M2-T2 쓰기 규칙 (경계 자름 · 범위 · 공간 색인 갱신은 엔진이), M2-T3 구조 변경, game.owner (M2-T5).
+
+---
+
 ## 2026-10-29 — v0.5 M1-T4 (4): 릴리스 피드 URL — 시스템 curl (ADR-0084) · SandboxProcess → M1 끝
 
 **무엇을**
