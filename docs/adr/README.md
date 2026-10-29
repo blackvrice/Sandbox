@@ -98,3 +98,4 @@
 | [0081](0081-script-execution-backend-boundary-interpreter-first.md) | 스크립트 실행 경계 — Interpreter 유지 · IScriptExecutor 계약 (결정론 · 연료), 함수별 프로파일 v0.5, JIT/AOT v1.x 검토, 네이티브 코드 받지 않음 | Accepted                                  | 2026-10-28 |
 | [0082](0082-v06-v10-feature-placement.md) | v0.6 ~ v1.0 신규 기능 배치 — 계정 · 신뢰할 서버가 필요한 기능은 그 뒤에, 순위표 · 신고 나눔, 충돌 로그 v0.5 로 | Accepted                                  | 2026-10-28 |
 | [0083](0083-i18n-accessibility-foundation.md) | 다국어 · 접근성 기반 — 팩 문자열 표 · 이름공간 키 · 로케일 대체 · 폰트 대체 · 키 다시 묶기 · UI 배율 | Accepted                                  | 2026-10-28 |
+| [0084](0084-release-feed-https-via-system-curl.md) | 릴리스 피드의 HTTPS — 시스템 curl 을 셸 없이 (https 만 · 5 초 · 1 MiB · 백그라운드), 프로세스 실행기 SandboxProcess, 기본 URL 은 M7-T4 | Accepted                                  | 2026-10-29 |

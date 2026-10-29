@@ -157,12 +157,53 @@ TEST_SUITE("client") {
         TempDir t("feed");
         REQUIRE(io::writeFileAtomic(t.path / "feed.json", kFeed).has_value());
         const std::string file = (t.path / "feed.json").generic_string();
-        const auto n = checkReleaseFeed(file, v050);
-        REQUIRE(n.has_value());
-        CHECK(n->starts_with("새 버전 0.5.2"));
-        CHECK_FALSE(checkReleaseFeed(file, SemVer{0, 6, 0, {}, {}}).has_value());
-        CHECK_FALSE(checkReleaseFeed((t.path / "missing.json").generic_string(), v050).has_value()); // 조용히
-        CHECK_FALSE(checkReleaseFeed("https://example.invalid/releases", v050).has_value());         // [계획]
+        const FeedCheck n = checkReleaseFeed(file, v050);
+        REQUIRE(n.notice.has_value());
+        CHECK(n.notice->starts_with("새 버전 0.5.2"));
+        CHECK(n.detail == *n.notice);
+        const FeedCheck same = checkReleaseFeed(file, SemVer{0, 6, 0, {}, {}});
+        CHECK_FALSE(same.notice.has_value());
+        CHECK(same.detail == "새 버전 없음 (지금 0.6.0, 피드 2 개)");
+        const FeedCheck missing = checkReleaseFeed((t.path / "missing.json").generic_string(), v050); // 조용히
+        CHECK_FALSE(missing.notice.has_value());
+        CHECK(missing.detail.starts_with("릴리스 피드를 읽지 못했다"));
+    }
+
+    TEST_CASE("릴리스 피드 URL: https 만 · curl 인자 (셸 없음 · -- 뒤 URL · 시간 · 크기 상한)") {
+        CHECK(isUrlFeed("https://api.github.com/repos/o/r/releases"));
+        CHECK(isUrlFeed("http://x"));
+        CHECK_FALSE(isUrlFeed("C:/feeds/feed.json"));
+        CHECK_FALSE(isUrlFeed("feed.json"));
+
+        const auto args = curlArguments("https://api.github.com/repos/o/r/releases", "SandboxClient/0.5.0");
+        REQUIRE(args.has_value());
+        CHECK(args->front() == "curl");
+        CHECK(args->back() == "https://api.github.com/repos/o/r/releases");
+        CHECK((*args)[args->size() - 2] == "--"); // URL 이 옵션으로 읽히지 않는다
+        const auto has = [&](std::string_view a, std::string_view b) {
+            for (usize i = 0; i + 1 < args->size(); ++i) {
+                if ((*args)[i] == a && (*args)[i + 1] == b) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        CHECK(has("--proto", "=https"));
+        CHECK(has("--proto-redir", "=https"));
+        CHECK(has("--max-time", std::to_string(kFeedTimeoutSeconds)));
+        CHECK(has("--max-filesize", std::to_string(kMaxFeedBytes)));
+        CHECK(has("-A", "SandboxClient/0.5.0"));
+
+        CHECK_FALSE(curlArguments("http://example.invalid/r", "ua").has_value()); // 평문 HTTP 거절
+        CHECK_FALSE(curlArguments("ftp://example.invalid/r", "ua").has_value());
+        CHECK_FALSE(curlArguments("https://example.invalid/a b", "ua").has_value());
+        CHECK_FALSE(curlArguments("https://example.invalid/\n-o/x", "ua").has_value());
+        CHECK_FALSE(curlArguments("https://" + std::string(kMaxFeedUrlBytes, 'a'), "ua").has_value());
+
+        // 거절한 스킴은 curl 을 띄우지 않고 조용히 (detail 만)
+        const FeedCheck c = checkReleaseFeed("http://example.invalid/releases", SemVer{0, 5, 0, {}, {}});
+        CHECK_FALSE(c.notice.has_value());
+        CHECK(c.detail.find("https:// 만") != std::string::npos);
     }
 
     TEST_CASE("명령줄: --safe-mode · --update-feed") {

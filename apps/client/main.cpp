@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <format>
+#include <future>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -114,11 +115,23 @@ int main(int argc, char** argv) {
     // 새 버전 알림 (7.6) — --update-feed 가 이긴다, 설정의 피드는 updateCheck 가 켜져 있을 때만
     const std::string feed =
         !opts->updateFeed.empty() ? opts->updateFeed : (user.settings.updateCheck ? user.settings.updateFeed : "");
+    std::shared_future<sbx::client::FeedCheck> lateFeed;
     if (!feed.empty()) {
         const sbx::SemVer current{
             sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}};
-        if (auto n = sbx::client::checkReleaseFeed(feed, current)) {
-            notices.push_back(std::move(*n));
+        if (sbx::client::isUrlFeed(feed)) {
+            // URL (curl — 몇 초) 은 백그라운드에서. std::async 의 future 는 소멸에서 기다리므로 packaged_task + 떼어 낸
+            // 스레드 — 끝나기 전에 클라이언트가 끝나면 결과를 버린다 (checkReleaseFeed 는 로그를 쓰지 않는다)
+            std::packaged_task<sbx::client::FeedCheck()> task(
+                [feed, current] { return sbx::client::checkReleaseFeed(feed, current); });
+            lateFeed = task.get_future().share();
+            std::thread(std::move(task)).detach();
+        } else {
+            sbx::client::FeedCheck c = sbx::client::checkReleaseFeed(feed, current);
+            sbx::log::info("update", "{}", c.detail);
+            if (c.notice) {
+                notices.push_back(std::move(*c.notice));
+            }
         }
     }
     for (const std::string& n : notices) {
@@ -272,6 +285,7 @@ int main(int argc, char** argv) {
     cfg.ui = ui.get();
     cfg.uiRendered = uiRendered;
     cfg.notices = std::move(notices);
+    cfg.lateFeed = lateFeed;
     if (opts->world) {
         cfg.saveName = saveDefaults.saveName; // 게임 프로젝트면 시작 월드 — Ctrl+S 가 편집한 맵을 게임에 (M1-T5)
     }

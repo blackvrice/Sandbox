@@ -13,8 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M1-T4 — CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 (zip · SHA-256) · 피드 URL. M2-T1 (엔진 컴포넌트
-         접근 표) 도 선행이 없어 바로 할 수 있다
+다음     v0.5 M2-T1 — 엔진 컴포넌트 접근 표 (스크립트가 읽고 쓰는 엔진 컴포넌트 · 필드 — ADR-0080). M1 (진단 · 채널) 은 끝났다
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -479,8 +478,9 @@ M1 진단 · 채널
   T3 ✅ 사용자 설정 폴더 (client.json — uiScale · updateCheck · updateFeed, input.json) — 깨지면 옆으로 옮기고 알림, --safe-mode
         (설정 · 키 설정 · UI 배율 · 패키지 캐시 없이), 새 버전 알림 (GitHub Releases 형식 피드 파일 — URL 은 T4), "알림" 창,
         CTest client_safe_mode (20 7.5 · 7.6)
-  T4 ◐ CI 녹색 (경고 = 오류 고침 · render_tests_warp · macOS from_chars — 13 8장), 배포 묶음 sbx_release (zip · 기호 ·
-        SHA-256, 실행 파일 옆 content/ · assets/ — io::dataDir), CI 아티팩트, CTest release_bundle. 남음: 릴리스 피드 URL (7.6)
+  T4 ✅ CI 녹색 (경고 = 오류 고침 · render_tests_warp · macOS from_chars — 다섯 잡 첫 통과, 13 8장), 배포 묶음 sbx_release
+        (zip · 기호 · SHA-256, 실행 파일 옆 content/ · assets/ — io::dataDir), CI 아티팩트, 릴리스 피드 URL (시스템 curl —
+        ADR-0084), CTest release_bundle
 M2 게임플레이 API
   T1 [계획] 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
   T2 [계획] 엔진 컴포넌트 쓰기 규칙

@@ -87,5 +87,10 @@ run_client(out)
 expect_not("${out}" "새 버전")
 run_client(out --update-feed "${OUT}/missing.json") # 없는 피드는 조용히
 expect_not("${out}" "알림:")
+# URL 피드 (v0.5 M1-T4 — curl, 백그라운드): 닿지 않는 주소 · 평문 http 도 시작을 막지 않고 알림이 없다
+run_client(out --update-feed "https://127.0.0.1:9/releases")
+expect_not("${out}" "알림:")
+run_client(out --update-feed "http://127.0.0.1:9/releases")
+expect_not("${out}" "알림:")
 
 file(REMOVE_RECURSE "${OUT}")

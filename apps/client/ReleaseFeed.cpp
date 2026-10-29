@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "foundation/io/FileIo.hpp"
-#include "foundation/log/Log.hpp"
+#include "platform/process/Process.hpp"
 
 namespace sbx::client {
 
@@ -62,27 +62,87 @@ std::optional<ReleaseInfo> newestRelease(const std::vector<ReleaseInfo>& release
     return best;
 }
 
-std::optional<std::string> checkReleaseFeed(std::string_view feed, const SemVer& current) {
-    if (feed.starts_with("http://") || feed.starts_with("https://")) {
-        log::info("update", "URL 피드는 아직 읽지 않는다 ([계획] — v0.5 M1-T4 공개 채널과 함께): {}", feed);
-        return std::nullopt;
+bool isUrlFeed(std::string_view feed) {
+    return feed.find("://") != std::string_view::npos;
+}
+
+Expected<std::vector<std::string>> curlArguments(std::string_view url, std::string_view userAgent) {
+    if (!url.starts_with("https://")) {
+        return makeError(ErrorCode::InvalidArgument, "피드 URL 은 https:// 만 읽는다");
     }
-    const auto text = io::readFile(std::filesystem::path(std::u8string(feed.begin(), feed.end())));
-    if (!text) {
-        log::debug("update", "릴리스 피드를 읽지 못했다 (조용히 건너뛴다): {}", text.error().describe());
-        return std::nullopt;
+    if (url.size() > kMaxFeedUrlBytes) {
+        return makeError(ErrorCode::InvalidArgument, "피드 URL 이 너무 길다");
     }
-    const auto releases = parseReleaseFeed(*text);
+    for (const char c : url) {
+        if (static_cast<unsigned char>(c) <= 0x20 || c == 0x7F) {
+            return makeError(ErrorCode::InvalidArgument, "피드 URL 에 공백 · 제어 문자가 있다");
+        }
+    }
+    // 셸 없이 띄운다 (proc::runProcess). "--" 뒤라 URL 이 옵션으로 읽히지 않는다. https 만 (리디렉트도)
+    return std::vector<std::string>{"curl",
+                                    "--fail",
+                                    "--silent",
+                                    "--show-error",
+                                    "--location",
+                                    "--proto",
+                                    "=https",
+                                    "--proto-redir",
+                                    "=https",
+                                    "--max-time",
+                                    std::to_string(kFeedTimeoutSeconds),
+                                    "--max-filesize",
+                                    std::to_string(kMaxFeedBytes),
+                                    "-H",
+                                    "Accept: application/vnd.github+json",
+                                    "-A",
+                                    std::string(userAgent),
+                                    "--",
+                                    std::string(url)};
+}
+
+FeedCheck checkReleaseFeed(std::string_view feed, const SemVer& current) {
+    FeedCheck out;
+    std::string text;
+    if (isUrlFeed(feed)) {
+        auto args = curlArguments(feed, "SandboxClient/" + current.toString());
+        if (!args) {
+            out.detail = std::format("릴리스 피드 {}: {}", feed, args.error().message);
+            return out;
+        }
+        auto r = proc::runProcess(*args, {}, kMaxFeedBytes + 4096);
+        if (!r) {
+            out.detail = std::format("릴리스 피드를 읽지 못했다 (curl — 조용히 건너뛴다): {}", r.error().message);
+            return out;
+        }
+        if (r->exitCode != 0) {
+            // 오프라인 · 시간 초과 · HTTP 오류 — 조용히 (curl 의 한 줄만 로그로)
+            const std::string first = r->output.substr(0, r->output.find('\n'));
+            out.detail =
+                std::format("릴리스 피드를 읽지 못했다 (curl 종료 {} — 조용히 건너뛴다): {}", r->exitCode, first);
+            return out;
+        }
+        text = std::move(r->output);
+    } else {
+        auto file = io::readFile(std::filesystem::path(std::u8string(feed.begin(), feed.end())));
+        if (!file) {
+            out.detail = std::format("릴리스 피드를 읽지 못했다 (조용히 건너뛴다): {}", file.error().describe());
+            return out;
+        }
+        text = std::move(*file);
+    }
+    const auto releases = parseReleaseFeed(text);
     if (!releases) {
-        log::warn("update", "릴리스 피드 {}: {}", feed, releases.error().message);
-        return std::nullopt;
+        out.detail = std::format("릴리스 피드 {}: {}", feed, releases.error().message);
+        return out;
     }
     const auto newest = newestRelease(*releases, current);
     if (!newest) {
-        log::info("update", "새 버전 없음 (지금 {}, 피드 {} 개)", current.toString(), releases->size());
-        return std::nullopt;
+        out.detail = std::format("새 버전 없음 (지금 {}, 피드 {} 개)", current.toString(), releases->size());
+        return out;
     }
-    return updateNotice(*newest, current);
+    out.notice = updateNotice(*newest, current);
+    out.detail = *out.notice;
+    return out;
 }
 
 std::string updateNotice(const ReleaseInfo& release, const SemVer& current) {

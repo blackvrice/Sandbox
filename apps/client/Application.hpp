@@ -19,12 +19,14 @@
 #include <array>
 #include <chrono>
 #include <functional>
+#include <future>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "apps/client/FrameRenderer.hpp"
 #include "apps/client/PlayKeys.hpp"
+#include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
@@ -67,6 +69,8 @@ struct AppConfig {
     std::function<bool()> quitWhen;
     // 시작할 때의 알림 (v0.5 M1-T3 — 안전 모드 · 깨진 설정을 옮김 · 새 버전). UI 가 있으면 "알림" 창
     std::vector<std::string> notices;
+    // 백그라운드 릴리스 피드 (URL — v0.5 M1-T4). 끝나면 프레임에서 받아 로그 · 알림 (새 버전이면)
+    std::shared_future<FeedCheck> lateFeed;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -117,6 +121,7 @@ public:
 private:
     void handleEvent(const platform::PlatformEvent& e);
     void handleDebugActions();
+    void pollLateFeed(); // v0.5 M1-T4
     [[nodiscard]] bool pressed(const std::optional<platform::ActionId>& id) const noexcept;
     void applyPendingTransition();
     void handleWorldInput(f64 dt);

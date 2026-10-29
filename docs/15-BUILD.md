@@ -388,8 +388,9 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>"} · input.json (키 바인딩 — 기본 위,
     --input 아래). 깨진 파일은 "<이름>.broken-<UTC>" 로 옮기고 "알림" 창 · 로그 "알림: …" 에 알린 뒤 기본값으로 시작한다.
     [--safe-mode]: 두 파일 · UI 배율 · 패키지 캐시 (임시 폴더 sbx-packages-safe — 매번 빈 것) 를 쓰지 않는다.
-    [--update-feed <파일>]: 릴리스 피드 (GitHub Releases "List releases" JSON) — 이 클라이언트보다 새 버전이면 알림만 (받기 ·
-    설치는 직접). 피드가 없거나 깨졌으면 조용히. URL 피드는 [계획] (M1-T4) (20 7.5 · 7.6)
+    [--update-feed <파일 | https://URL>]: 릴리스 피드 (GitHub Releases "List releases" JSON) — 이 클라이언트보다 새 버전이면
+    알림만 (받기 · 설치는 직접). URL 은 시스템 curl 로 백그라운드에서 (https 만 · 5 초 — M1-T4, ADR-0084). 예:
+    --update-feed https://api.github.com/repos/<소유자>/<저장소>/releases. 피드가 없거나 · 오프라인 · 깨졌으면 조용히 (20 7.5 · 7.6)
 
 sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>]
                  [--out <dir>] [doctest 옵션]

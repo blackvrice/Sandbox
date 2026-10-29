@@ -145,7 +145,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"

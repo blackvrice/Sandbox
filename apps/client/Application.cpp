@@ -217,6 +217,21 @@ void Application::handleEvent(const PlatformEvent& e) {
     }
 }
 
+void Application::pollLateFeed() {
+    if (!m_config.lateFeed.valid() ||
+        m_config.lateFeed.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+        return;
+    }
+    const FeedCheck c = m_config.lateFeed.get();
+    m_config.lateFeed = {}; // 한 번만
+    log::info("update", "{}", c.detail);
+    if (c.notice) {
+        log::warn("client", "알림: {}", *c.notice);
+        m_config.notices.push_back(*c.notice);
+        m_noticesOpen = true;
+    }
+}
+
 void Application::handleDebugActions() {
     if (pressed(m_ids.quit)) {
         (void)request(AppState::Shutdown);
@@ -508,6 +523,7 @@ bool Application::frame() {
     m_actionState.update(m_actionMap, m_input.downstream());
 
     handleDebugActions();
+    pollLateFeed();
     m_text += m_input.downstream().text;
     m_text = std::string(utf8::tail(m_text, kTextKeep));
 

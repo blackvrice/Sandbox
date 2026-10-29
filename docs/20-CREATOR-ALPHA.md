@@ -289,8 +289,9 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 — draft 빼고 "v" 뗀 SemVer, 프리릴리스 포함: Alpha 채널) → 지금보다 높은 것 중 가장 높은 것이면 알림만. 읽는 곳 =
                 --update-feed <파일> · client.json updateFeed (updateCheck false 면 설정의 피드는 읽지 않는다). 없는 파일 · 깨진
                 피드는 조용히 (로그만). ReleaseFeed 는 apps/client 에 (JSON 이 필요해 foundation/version 이 아니라 — 10장 표의 자리를
-                고침). 공개 Alpha 채널 (GitHub Releases — 7.7) 을 네트워크로 읽기 (HTTPS 클라이언트 선택) 는 [계획] — 채널을 만드는
-                M1-T4. 받기 · 설치는 사용자
+                고침). M1-T4 (ADR-0084): https:// URL 도 — 시스템 curl 을 셸 없이 (SandboxProcess, https 만 · 리디렉트도 ·
+                5 초 · 1 MiB), 클라이언트 백그라운드 스레드 → 프레임에서 알림 창 · 로그. 기본 피드 URL 은 아직 없다 (사용자가 줄
+                때만) — 공개 Alpha 채널이 생기는 M7-T4 에서 정한다. 받기 · 설치는 사용자
 7.7 채널        GitHub Releases: Windows x64 zip (실행 파일 · samples · 문서), SHA-256 목록. CI (GitHub Actions — Windows 빌드 · ctest)
                 결과를 릴리스의 조건으로 (v0.1 열린 항목을 이 마일스톤에서 닫는다)
                 M1-T4 구현: CI 녹색 (13 8장 — 첫 실행부터 실패이던 것을 고침). 배포 묶음 = 타깃 sbx_release
@@ -348,7 +349,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 | M1-T1 ✅ | 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 | platform/crash (새 타깃 SandboxCrash — platform/common 은 OS 헤더 금지 · 서버는 SandboxPlatform 을 링크하지 않으므로 따로), foundation/log (고리), foundation/diag (Scrub · Report), apps/client · server main (--crash-test) | crash::install · CrashConfig, diag::scrub · ScrubRules, createReportDir · writeReport | — | test_diag (scrub 고정 문자열 · 고리 · 묶음), CTest crash_report_server · client (일부러 충돌 → 묶음 · 덤프 · 열쇠 없음) | 서버 · 클라이언트가 충돌하면 묶음이 남고 민감정보 시험 통과 |
 | M1-T2 ✅ | sbx report · sbx doctor (진단 묶음) · 콜스택 · 문맥 | tools/sbx, core/project/Diagnostics, platform/crash (StackWalk64 · backtrace · setContext) | DiagnosticReport · diagnose · readReportBundle · formatReportBundle, crash::setContext | M1-T1 | test_diagnostics (영역 · 엔진 범위 새 · 옛 · P8 · 깨진 패키지 · 묶음 읽기 · 보기), CTest project_doctor, crash_report (콜스택 · 문맥 · sbx report) | 다른 엔진 · 빠진 설치 · 깨진 패키지를 문장으로 |
 | M1-T3 ✅ | 안전 모드 · 새 버전 알림 | apps/client (ClientOptions · UserSettings · ReleaseFeed · 알림 창), core/scenarios WorldSource · network LocalServerHost (패키지 캐시 자리) | UserSettings · ClientSettings · loadUserSettings · moveAside, ReleaseInfo · parseReleaseFeed · newestRelease · checkReleaseFeed | — | test_user_settings (client.json · 옮김 · 더 새 판 · 피드 · 명령줄), CTest client_safe_mode (배율 적용 · 안전 모드 · 깨진 파일 옮김 · 피드 알림 · updateCheck false) | --safe-mode 로 깨진 설정에서도 시작 |
-| M1-T4 | CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 스크립트 · 피드 URL (7.6) | .github/workflows, tools/release (zip · SHA-256), docs (15 · 20 7.8) | — | — | CI 녹색 (ctest -E render_tests_warp) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |
+| M1-T4 ✅ | CI · 지원 매트릭스 · 배포 묶음 스크립트 · 피드 URL (7.6) | .github/workflows (경고 = 오류 고침 · -k 0 · 아티팩트), tools/release (sbx_release — zip · 기호 · SHA-256), foundation/io/AppPaths (실행 파일 옆 데이터), platform/process (SandboxProcess — ADR-0084), docs (13 8장 · 15 · 20 7.7 · 7.8) | io::dataDir, proc::runProcess, curlArguments · FeedCheck | — | CI 녹색 (다섯 잡 — render_tests_warp 포함, 첫 녹색), CTest release_bundle, test_user_settings (URL 인자 · 거절) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |
 
 ### Phase 2 — 게임플레이 API (M2)
 

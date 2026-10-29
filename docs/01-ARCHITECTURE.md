@@ -82,9 +82,10 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
 | SandboxNetwork    | static | Transport, Protocol, Session, Snapshot, Replication, Interest, ServerHost      | Core                                    | Platform, Render, Editor                          |
 | SandboxPlatform   | static | IWindow, Input, IAudioBackend, 플랫폼 구현                                     | Foundation                              | Core, Render, Network                             |
 | SandboxCrash      | static | 충돌 처리기 (SEH 미니덤프 · POSIX 시그널 → 보고 묶음, v0.5 M1-T1 — platform/crash) | Foundation                              | Core, Network, Platform, Render, Editor, ImGui    |
+| SandboxProcess    | static | 셸 없는 프로세스 실행 (sbx 의 git · 클라이언트의 curl, v0.5 M1-T4 — platform/process, ADR-0084) | Foundation                              | Core, Network, Platform, Render, Editor, ImGui    |
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |
 | SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render                            | Network (ICommandSink로 분리)                     |
-| SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core, Crash | —                                          |
+| SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core, Crash, Process | —                                          |
 | SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core, Crash                    | Platform, Render, Editor, ImGui                   |
 
 ### 2.1 원본 요구와 다른 점: Render는 Core를 모른다

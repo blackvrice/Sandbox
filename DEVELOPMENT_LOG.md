@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-10-29 — v0.5 M1-T4 (4): 릴리스 피드 URL — 시스템 curl (ADR-0084) · SandboxProcess → M1 끝
+
+**무엇을**
+
+- 프로세스 실행기를 tools/sbx/Process 에서 새 타깃 SandboxProcess (platform/process — 의존 Foundation 만) 로 옮겼다
+  (git mv). sbx 는 package::ProcessResult 로 바꾸는 어댑터만. 경계: SandboxProcess 는 Core · Network · Platform · Render ·
+  Editor · ImGui 를 링크하지 않는다.
+- ReleaseFeed: https:// URL 은 시스템 curl 을 셸 없이 (curlArguments — https 만 · 리디렉트도 · 5 초 · 1 MiB · "--" 뒤 URL,
+  평문 http 등 거절). checkReleaseFeed 는 로그를 쓰지 않고 FeedCheck (알림 · 이유 한 줄) — 클라이언트는 URL 을 떼어 낸
+  스레드 (packaged_task) 에서 읽고 Application::pollLateFeed 가 프레임에서 받아 로그 · "알림" 창.
+- 기본 피드 URL 은 넣지 않았다 (공개 채널이 생기는 M7-T4 에서) — 사용자가 줄 때만 외부로 요청한다.
+- ADR-0084. 문서: 20 (7.6 · M1-T4 ✅), 18 (0 — 다음 M2-T1 · 6.6), 01 (타깃 표), 15, 17, 13.
+
+**왜**
+
+- 20 7.6 의 공개 채널 읽기. 새 서드파티 없이 (ADR-0072 의 git 과 같은 길) — 대안 (OS API 셋 · libcurl) 은 ADR-0084.
+
+**검증**
+
+- test_user_settings +1 (URL 인자 · 거절 · 거절한 스킴은 curl 을 띄우지 않음), client_safe_mode 에 닿지 않는 https · 평문 http.
+- 실행: `SandboxClient --headless --frames 400 --update-feed https://api.github.com/repos/blackvrice/Sandbox/releases` → "새 버전
+  없음 (지금 0.4.0, 피드 0 개)", 릴리스가 있는 공개 저장소 피드 (cli/cli) → "새 버전 2.103.3 이 있다 … 받기 · 설치는 직접" 알림.
+- 전체 ctest 73/73 · SandboxTests 650 케이스, check_includes 0 위반. CI 는 push 뒤.
+
+**남은 일**
+
+- M7-T4: 공개 채널 · 기본 피드 URL · GitHub Releases 에 묶음 올리기.
+
+---
+
 ## 2026-10-29 — v0.5 M1-T4 (3): 배포 묶음 — sbx_release (zip · 기호 · SHA-256) · 실행 파일 옆 데이터 폴더 · CI 아티팩트
 
 **무엇을**

@@ -98,6 +98,7 @@ sbx_forbid_link(SandboxCore       SandboxNetwork SandboxPlatform SandboxRender S
 sbx_forbid_link(SandboxNetwork    SandboxPlatform SandboxRender SandboxEditor)
 sbx_forbid_link(SandboxPlatform   SandboxCore SandboxNetwork SandboxRender SandboxEditor)
 sbx_forbid_link(SandboxCrash      SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor imgui)
+sbx_forbid_link(SandboxProcess    SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor imgui)
 sbx_forbid_link(SandboxRender     SandboxCore SandboxNetwork SandboxEditor)
 sbx_forbid_link(SandboxEditor     SandboxNetwork)
 sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui)
