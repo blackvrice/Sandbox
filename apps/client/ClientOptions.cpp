@@ -214,6 +214,14 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.font = std::string(*v);
         } else if (a == "--no-ui") {
             opts.noUi = true;
+        } else if (a == "--safe-mode") {
+            opts.safeMode = true;
+        } else if (a == "--update-feed") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            opts.updateFeed = std::string(*v);
         } else if (a == "--input") {
             auto v = value();
             if (!v) {
@@ -247,6 +255,10 @@ std::string clientUsage() {
            "      --console          (Windows) 콘솔 창에 로그를 낸다\n"
            "      --headless         OS 창 없이 실행 (CI, 창이 아직 없는 OS)\n"
            "      --crash-test       (시험용) 충돌 처리기를 단 뒤 일부러 충돌 — 보고 묶음 (SBX_REPORTS_DIR, v0.5)\n"
+           "      --safe-mode        안전 모드 — 사용자 설정 (client.json) · 키 설정 (input.json) · UI 배율 · 패키지\n"
+           "                         캐시를 쓰지 않고 시작 (설정 폴더: SBX_CONFIG_DIR · %APPDATA%\\sandbox · XDG, "
+           "v0.5)\n"
+           "      --update-feed <f>  릴리스 피드 파일 (GitHub Releases JSON) — 새 버전이면 알림만 (v0.5)\n"
            "      --frames <n>       n 프레임 뒤 끝낸다\n"
            "      --fps <hz>         프레임 페이싱 (기본: 렌더러 없는 창 60, 렌더러·--headless 0 = 페이싱 없음)\n"
            "      --width <w>        창 너비 (논리 단위, 기본 1600)\n"

@@ -20,8 +20,9 @@
 namespace sbx::net {
 
 struct LocalServerDesc {
-    std::string world;                 // 시나리오 이름 또는 세이브 폴더
-    std::filesystem::path contentRoot; // 콘텐츠 팩 루트
+    std::string world;                  // 시나리오 이름 또는 세이브 폴더
+    std::filesystem::path contentRoot;  // 콘텐츠 팩 루트
+    std::filesystem::path packageCache; // .sbpkg 를 풀 곳 (비면 package::defaultPackageCache — v0.5 M1-T3 safe mode)
     u64 seed = 1;
     u32 workers = 0; // 시뮬레이션 Job Worker 수 (0 = 없음 — 결과는 같다, D5)
     ServerMode mode = ServerMode::Threaded;

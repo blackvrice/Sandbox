@@ -55,6 +55,7 @@ struct NetworkSessionDesc {
     std::string connect; // Remote: host[:port] (기본 포트 7777)
     std::string displayName = "player";
     std::filesystem::path contentRoot;
+    std::filesystem::path packageCache; // Local: .sbpkg 를 풀 곳 (비면 기본 — v0.5 M1-T3)
     u64 seed = 1;
     u32 workers = 0;           // Local: 시뮬레이션 Job Worker 수
     bool inlineServer = false; // Local: update(dt) 안에서 서버를 돌린다 (헤드리스 · 시험)

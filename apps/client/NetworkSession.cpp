@@ -49,6 +49,7 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         net::LocalServerDesc ld;
         ld.world = desc.world;
         ld.contentRoot = desc.contentRoot;
+        ld.packageCache = desc.packageCache;
         ld.seed = desc.seed;
         ld.workers = desc.workers;
         ld.mode = desc.inlineServer ? net::ServerMode::Inline : net::ServerMode::Threaded;

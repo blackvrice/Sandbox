@@ -13,7 +13,8 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M1-T3 — 안전 모드 · 새 버전 알림 (알림만). M2-T1 (엔진 컴포넌트 접근 표) 도 선행이 없어 바로 할 수 있다
+다음     v0.5 M1-T4 — CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 (zip · SHA-256) · 피드 URL. M2-T1 (엔진 컴포넌트
+         접근 표) 도 선행이 없어 바로 할 수 있다
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -475,7 +476,9 @@ M1 진단 · 채널
         민감정보 제거 (foundation/diag), --crash-test · SBX_REPORTS_DIR, CTest crash_report_server · client (20 7.1)
   T2 ✅ sbx doctor (진단 — 영역마다 문장 · 고치는 법: 엔진 범위 · 패키지 · 의존 · 설치 · 콘텐츠 · 환경) · sbx report (묶음 목록 ·
         보기 — 덤프 알림), 충돌 콜스택 · 문맥 (setContext), CTest project_doctor (20 7.2 · 7.3). GPU · 오류 화면은 [계획]
-  T3 [계획] 안전 모드 · 새 버전 알림 (알림만 — 받기는 사용자)
+  T3 ✅ 사용자 설정 폴더 (client.json — uiScale · updateCheck · updateFeed, input.json) — 깨지면 옆으로 옮기고 알림, --safe-mode
+        (설정 · 키 설정 · UI 배율 · 패키지 캐시 없이), 새 버전 알림 (GitHub Releases 형식 피드 파일 — URL 은 T4), "알림" 창,
+        CTest client_safe_mode (20 7.5 · 7.6)
   T4 [계획] CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 (zip · SHA-256)
 M2 게임플레이 API
   T1 [계획] 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
@@ -620,4 +623,5 @@ v0.3 M6-T3 뒤 (0.3.0): Windows MSVC Debug 63/63 (render_tests_warp 제외) · S
 v0.4 M6-T2 뒤 (0.4.0): Windows MSVC Debug 67/67 (render_tests_warp 제외) · SandboxTests 636 케이스 — 제품 버전만 바뀌었다
 v0.5 M1-T1 뒤: Windows MSVC Debug 69/69 (+ crash_report_server · client) · unit_foundation +3 (test_diag)
 v0.5 M1-T2 뒤: Windows MSVC Debug 70/70 (+ project_doctor) · SandboxTests 645 케이스 (+6 test_diagnostics)
+v0.5 M1-T3 뒤: Windows MSVC Debug 71/71 (+ client_safe_mode) · SandboxTests 649 케이스 (+4 test_user_settings)
 ```

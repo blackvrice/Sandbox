@@ -126,6 +126,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
         unit/client/test_play_keys.cpp
+        unit/client/test_user_settings.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -138,6 +139,8 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ScriptPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/UserSettings.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ReleaseFeed.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ClientOptions.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
@@ -298,6 +301,12 @@ if(TARGET SandboxClient)
                 "-DCONTEXT=connect" ${_sbx_report_arg}
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/project/crash_report.cmake")
     set_tests_properties(crash_report_client PROPERTIES LABELS "unit;client" TIMEOUT 120)
+    # 안전 모드 · 사용자 설정 (깨지면 옮김) · 새 버전 알림 (피드 파일) — v0.5 M1-T3
+    add_test(NAME client_safe_mode
+        COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient>
+                "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/client_safe_mode"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/project/client_safe_mode.cmake")
+    set_tests_properties(client_safe_mode PROPERTIES LABELS "unit;client" TIMEOUT 300)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
     set_tests_properties(client_headless_smoke PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "SandboxClient 끝: frames 30 state Shutdown")

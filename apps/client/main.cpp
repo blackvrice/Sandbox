@@ -15,6 +15,8 @@
 #include "apps/client/ClientOptions.hpp"
 #include "apps/client/DefaultInput.hpp"
 #include "apps/client/NetworkSession.hpp"
+#include "apps/client/ReleaseFeed.hpp"
+#include "apps/client/UserSettings.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
@@ -90,19 +92,56 @@ int main(int argc, char** argv) {
         sbx::crash::crashForTest();
     }
 
-    // 키 바인딩: 기본값 위에 사용자 파일
+    // 사용자 설정 · 안전 모드 (v0.5 M1-T3 — docs/20-CREATOR-ALPHA.md 7.5). 깨진 설정은 옆으로 옮기고 기본값으로
+    // 시작한다
+    std::vector<std::string> notices;
+    sbx::client::UserSettings user;
+    const std::filesystem::path configRoot = sbx::client::defaultConfigRoot();
+    std::filesystem::path packageCache; // 비면 기본 (임시 폴더의 sbx-packages)
+    if (opts->safeMode) {
+        std::error_code ec;
+        packageCache = std::filesystem::temp_directory_path(ec) / "sbx-packages-safe";
+        std::filesystem::remove_all(packageCache, ec); // 안전 모드 전용 폴더 — 매번 빈 캐시로
+        notices.push_back(
+            std::format("안전 모드 — 사용자 설정 ({}) · 키 설정 ({}) · UI 배율 · 패키지 캐시를 쓰지 않는다 "
+                        "(설정 폴더 {})",
+                        sbx::client::kClientSettingsFile, sbx::client::kUserInputFile, configRoot.generic_string()));
+    } else {
+        user = sbx::client::loadUserSettings(configRoot);
+        notices = user.notices;
+    }
+    // 새 버전 알림 (7.6) — --update-feed 가 이긴다, 설정의 피드는 updateCheck 가 켜져 있을 때만
+    const std::string feed =
+        !opts->updateFeed.empty() ? opts->updateFeed : (user.settings.updateCheck ? user.settings.updateFeed : "");
+    if (!feed.empty()) {
+        const sbx::SemVer current{
+            sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}};
+        if (auto n = sbx::client::checkReleaseFeed(feed, current)) {
+            notices.push_back(std::move(*n));
+        }
+    }
+    for (const std::string& n : notices) {
+        sbx::log::warn("client", "알림: {}", n);
+    }
+
+    // 키 바인딩: 기본값 위에 설정 폴더의 input.json, 그 위에 --input
     auto actions = sbx::platform::ActionMap::parse(sbx::client::defaultInputJson(), "<기본 바인딩>");
     if (!actions) {
         sbx::log::error("client", "{}", actions.error().describe());
         return kExitError;
     }
+    if (user.input) {
+        actions->merge(*user.input);
+        sbx::log::info("client", "키 바인딩 {} 적용",
+                       (configRoot / std::string(sbx::client::kUserInputFile)).generic_string());
+    }
     if (!opts->inputFile.empty()) {
-        auto user = sbx::platform::ActionMap::loadFile(opts->inputFile);
-        if (!user) {
-            sbx::log::error("client", "{}", user.error().describe());
+        auto fromFile = sbx::platform::ActionMap::loadFile(opts->inputFile);
+        if (!fromFile) {
+            sbx::log::error("client", "{}", fromFile.error().describe());
             return kExitError;
         }
-        actions->merge(*user);
+        actions->merge(*fromFile);
         sbx::log::info("client", "키 바인딩 {} 적용", opts->inputFile);
     }
     for (const auto& c : actions->conflicts()) {
@@ -188,6 +227,7 @@ int main(int argc, char** argv) {
             nd.script = std::move(*loaded);
         }
         nd.seed = opts->seed;
+        nd.packageCache = packageCache;
         nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
         // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
@@ -210,6 +250,7 @@ int main(int argc, char** argv) {
     if (!opts->noUi) {
         sbx::client::ImGuiLayerDesc ud;
         ud.font = opts->font;
+        ud.uiScale = user.settings.uiScale; // 안전 모드면 기본값 1
         ui = std::make_unique<sbx::client::ImGuiLayer>(*window, ud);
         uiRendered = renderer != nullptr && renderer->attachImGui(ui->io(), ui->platformIo());
     }
@@ -228,6 +269,7 @@ int main(int argc, char** argv) {
     cfg.fixedDt = opts->headless ? 1.0 / 60.0 : 0.0; // 헤드리스는 프레임마다 1/60 초 — 같은 명령이면 같은 틱 수
     cfg.ui = ui.get();
     cfg.uiRendered = uiRendered;
+    cfg.notices = std::move(notices);
     if (opts->world) {
         cfg.saveName = saveDefaults.saveName; // 게임 프로젝트면 시작 월드 — Ctrl+S 가 편집한 맵을 게임에 (M1-T5)
     }

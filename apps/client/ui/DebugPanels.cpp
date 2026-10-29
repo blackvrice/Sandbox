@@ -227,4 +227,19 @@ PanelActions drawDebugPanels(PanelState& state, const PanelInputs& in) {
     return act;
 }
 
+void drawNotices(std::span<const std::string> notices, bool& open) {
+    if (notices.empty() || !open) {
+        return;
+    }
+    ImGui::SetNextWindowPos(ImVec2(320.f, 16.f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(520.f, 0.f), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("알림", &open)) {
+        for (const std::string& n : notices) {
+            ImGui::Bullet();
+            ImGui::TextWrapped("%s", n.c_str());
+        }
+    }
+    ImGui::End();
+}
+
 } // namespace sbx::client

@@ -564,6 +564,7 @@ bool Application::frame() {
         pin.zoom = m_renderWorld.camera.pixelsPerUnit;
         pin.font = m_config.ui->fontName();
         const PanelActions act = drawDebugPanels(m_panels, pin);
+        drawNotices(m_config.notices, m_noticesOpen);
         if (inWorld) {
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {

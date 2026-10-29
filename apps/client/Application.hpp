@@ -18,8 +18,8 @@
 
 #include <array>
 #include <chrono>
-#include <optional>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -65,6 +65,8 @@ struct AppConfig {
     std::string saveName; // "월드" 창 · Ctrl+S 의 처음 이름 (비면 quicksave — 게임 프로젝트는 시작 월드, M1-T5)
     // 프레임마다 묻는다 — true 면 끝낸다 (자동 플레이가 끝났다 — v0.2 M6-T1 --script 헤드리스)
     std::function<bool()> quitWhen;
+    // 시작할 때의 알림 (v0.5 M1-T3 — 안전 모드 · 깨진 설정을 옮김 · 새 버전). UI 가 있으면 "알림" 창
+    std::vector<std::string> notices;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -169,7 +171,8 @@ private:
     Vec2 m_selectStart{}; // 프레임버퍼 픽셀
     Vec2 m_selectNow{};
     bool m_detailOverlay = true;
-    PanelState m_panels; // 8C (F1)
+    PanelState m_panels;       // 8C (F1)
+    bool m_noticesOpen = true; // "알림" 창 (v0.5 M1-T3)
     // 12A 에디터 (세션이 editorHost 를 줄 때만 쓴다)
     editor::Editor m_editor;
     editor::EditorPanelState m_editorPanel;

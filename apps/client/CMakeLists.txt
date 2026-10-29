@@ -35,6 +35,10 @@ add_executable(SandboxClient
     ui/ActionPanel.cpp
     PlayKeys.hpp
     PlayKeys.cpp
+    UserSettings.hpp
+    UserSettings.cpp
+    ReleaseFeed.hpp
+    ReleaseFeed.cpp
 )
 target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxCrash sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"

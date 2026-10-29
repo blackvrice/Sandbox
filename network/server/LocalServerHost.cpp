@@ -6,7 +6,7 @@ namespace sbx::net {
 
 Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::ComponentCatalog& catalog,
                                                                    const LocalServerDesc& desc) {
-    auto src = scenario::openWorldSource(desc.world, desc.contentRoot, desc.seed, catalog);
+    auto src = scenario::openWorldSource(desc.world, desc.contentRoot, desc.seed, catalog, desc.packageCache);
     if (!src) {
         return std::unexpected(src.error());
     }

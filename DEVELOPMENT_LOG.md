@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-29 — v0.5 M1-T3: 사용자 설정 · 안전 모드 · 새 버전 알림
+
+**무엇을**
+
+- apps/client/UserSettings: 사용자 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox · macOS Application Support · XDG) 의
+  client.json (schemaVersion 1 — uiScale · updateCheck · updateFeed) · input.json (키 바인딩). 클라이언트에 저장되는 사용자 설정이
+  처음 생겼다 (그전엔 --input 뿐). 깨진 파일은 "<이름>.broken-<UTC>" 로 옮기고 알림 · 기본값, 더 새 판은 그대로 두고 읽지 않는다.
+- --safe-mode: 두 파일 · UI 배율 · 패키지 캐시 (매번 빈 sbx-packages-safe — openWorldSource · LocalServerDesc ·
+  NetworkSessionDesc 에 packageCache 자리) 없이 시작.
+- apps/client/ReleaseFeed: GitHub Releases "List releases" 형식 피드 (파일) → 새 버전이면 알림만. --update-feed · client.json
+  updateFeed (updateCheck false 면 끔). URL 은 [계획] (M1-T4 — 채널 · HTTPS 클라이언트와 함께).
+- 알림: 로그 "알림: …" + ImGui "알림" 창 (F1 과 무관, 닫기). ImGuiLayerDesc.uiScale (DPI 배율에 곱한다).
+- 시험: test_user_settings 4, CTest client_safe_mode. 문서: 20 (7.5 · 7.6 · M1-T3 · M1-T4 에 피드 URL), 18 (0 · 6.6), 15
+  (클라이언트 옵션), 07 8장 (설정 폴더), 17, 13.
+
+**왜**
+
+- 20 7.5 · 7.6, 초안 요구 4 와 21 의 12번 기능 (업데이트 · 복구) 중 v0.5 몫 — 깨진 설정이 시작을 막지 않게, 새 버전을 알게.
+- 피드를 파일로 먼저: 공개 Alpha 채널이 아직 없다 (M1-T4) — 없는 URL 을 읽는 코드는 검증할 수 없다.
+
+**검증**
+
+- Windows MSVC Debug `ctest --preset windows-msvc-debug -E render_tests_warp`: 71/71 통과 (+ client_safe_mode) · SandboxTests 649
+  케이스, check_includes 0 위반. 새 경고 없음 (test_client_view.cpp:150 C4702 는 그 파일이 다시 컴파일되며 보인 기존 경고 —
+  이번 변경과 무관). det_* 골든 그대로 (시뮬레이션 무관).
+- 실행: CTest 출력 — "× 2.00" (uiScale 2) · "알림: 안전 모드 …" · "× 1.00" · "설정 파일 input.json 이 깨져 input.json.broken-
+  20261029-032032 로 옮겼다 (JSON 구문 오류)" · "새 버전 99.0.0 이 있다 (지금 0.4.0) — https://example.invalid/v99". 창 모드
+  (D3D12) `SandboxClient --console --frames 90 --safe-mode` → 알림 창과 함께 90 프레임 · Shutdown.
+- macOS · Linux 의 설정 폴더 경로는 이 환경에서 실행하지 않았다.
+
+**남은 일**
+
+- M1-T4: 피드 URL (HTTPS) · CI · 배포 묶음. 클라이언트 오류 화면 (doctor 문장 · 복사 단추) 은 여전히 [계획].
+- 설정을 바꾸는 UI (배율 · 업데이트 확인 끄기) 는 없다 — 파일을 고친다 (M4 다국어 · 접근성 설정과 함께).
+
+---
+
 ## 2026-10-28 — v0.5 M1-T2: sbx doctor · sbx report · 충돌 콜스택 · 문맥
 
 **무엇을**

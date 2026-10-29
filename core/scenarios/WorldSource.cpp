@@ -33,7 +33,7 @@ std::string scenarioNames() {
 }
 
 Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot, u64 seed,
-                                      const ecs::ComponentCatalog& catalog) {
+                                      const ecs::ComponentCatalog& catalog, const std::filesystem::path& packageCache) {
     WorldSource out;
     if (auto sc = makeScenario(spec)) {
         auto db = loadScenarioContent(*sc, contentRoot, catalog);
@@ -48,7 +48,8 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
     }
     std::filesystem::path dir{std::string(spec)};
     if (package::isPackageFile(dir)) {
-        auto extracted = package::extractPackage(dir, package::defaultPackageCache());
+        auto extracted =
+            package::extractPackage(dir, packageCache.empty() ? package::defaultPackageCache() : packageCache);
         if (!extracted) {
             return std::unexpected(extracted.error());
         }

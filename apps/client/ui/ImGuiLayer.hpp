@@ -30,6 +30,7 @@ namespace sbx::client {
 struct ImGuiLayerDesc {
     std::filesystem::path font; // 비면 OS 기본 한글 폰트 → 내장 폰트
     f32 fontSize = 16.f;        // 논리 픽셀 (DPI 배율은 따로 곱한다)
+    f32 uiScale = 1.f;          // 사용자 UI 배율 (client.json uiScale — v0.5 M1-T3). DPI 배율에 곱한다
 };
 
 class ImGuiLayer {

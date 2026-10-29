@@ -35,13 +35,14 @@ struct WorldSource {
     std::vector<std::string> packs; // 읽은 콘텐츠 팩 (비면 내장)
     std::string name;               // 시나리오 이름, 게임 이름(매니페스트 name) 또는 세이브 폴더 이름
     std::vector<std::string> warnings;
-    std::optional<project::GameManifest> game; // 게임 프로젝트 · 패키지를 열었을 때만
-    std::filesystem::path projectDir;          // 프로젝트 폴더 (패키지면 풀어 둔 캐시 — 재시작의 시작 월드 기준)
+    std::optional<project::GameManifest> game;    // 게임 프로젝트 · 패키지를 열었을 때만
+    std::filesystem::path projectDir;             // 프로젝트 폴더 (패키지면 풀어 둔 캐시 — 재시작의 시작 월드 기준)
     std::optional<package::PackageIndex> package; // 패키지를 열었을 때만 (digest · 게임 정체성)
 };
 
 [[nodiscard]] Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot,
-                                                    u64 seed, const ecs::ComponentCatalog& catalog);
+                                                    u64 seed, const ecs::ComponentCatalog& catalog,
+                                                    const std::filesystem::path& packageCache = {});
 
 // 이미 읽은 콘텐츠로 세이브 폴더를 연다 — 서버가 실행 중에 불러오기 (Phase 12D). 접속한 클라이언트가 그 콘텐츠를 가지고
 // 있으므로 world.json 의 contentHash 가 content 의 것과 다르면 거절한다 (InvalidArgument). runner 의 월드가 content 를

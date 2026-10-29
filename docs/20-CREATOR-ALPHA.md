@@ -278,8 +278,19 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 화면 (같은 문장 · 복사 단추) 은 [계획] — 클라이언트 오류 화면 태스크 (M1-T3 안전 모드와 함께 정한다)
 7.4 오디오      D-14: v0.5 에 실제 출력 백엔드를 넣을지 (Windows WASAPI 직접 · miniaudio 류 서드파티) — M2-T6 에서 결정. 정하지 못하면
                 소리 API 는 이벤트 · Null (센다) 로 두고 출력은 v0.6
-7.5 안전 모드   SandboxClient --safe-mode: 사용자 설정 · 키 설정 · UI 배율 · 캐시를 쓰지 않고 시작, 깨진 설정 파일은 옆으로 옮기고 알림
-7.6 새 버전     공개 Alpha 채널 (GitHub Releases — 7.7) 의 최신 버전을 읽어 알림만 (설정으로 끔, 오프라인이면 조용히). 받기 · 설치는 사용자
+7.5 안전 모드   ✅ M1-T3. 사용자 설정은 이번에 처음 생긴다 (그전엔 --input 뿐): 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox ·
+                macOS ~/Library/Application Support/sandbox · XDG — 07 8장) 의 client.json (schemaVersion 1 — uiScale 0.5~3 ·
+                updateCheck · updateFeed, 모르는 키는 경고) · input.json (키 바인딩 — 기본 위 · --input 아래). 깨진 파일 (JSON ·
+                타입 · 범위) 은 "<이름>.broken-<UTC>" 로 옮기고 알림 · 기본값으로 시작 (안전 모드가 아니어도 — 깨진 설정이 시작을 막지
+                않는다), 더 새 schemaVersion 은 옮기지 않고 읽지도 않는다. SandboxClient --safe-mode: 두 파일을 읽지도 옮기지도
+                않고 UI 배율 1, 패키지 캐시는 매번 빈 임시 폴더 (sbx-packages-safe). 알림은 로그 "알림: …" 과 ImGui "알림" 창 (F1 과
+                무관). 명시한 --input · --font 는 안전 모드에서도 따른다 (사람이 지금 고른 것)
+7.6 새 버전     ✅ M1-T3 (피드 파일까지). 피드 = GitHub REST "List releases" 응답 형식 (tag_name · html_url · draft · prerelease 만 읽음
+                — draft 빼고 "v" 뗀 SemVer, 프리릴리스 포함: Alpha 채널) → 지금보다 높은 것 중 가장 높은 것이면 알림만. 읽는 곳 =
+                --update-feed <파일> · client.json updateFeed (updateCheck false 면 설정의 피드는 읽지 않는다). 없는 파일 · 깨진
+                피드는 조용히 (로그만). ReleaseFeed 는 apps/client 에 (JSON 이 필요해 foundation/version 이 아니라 — 10장 표의 자리를
+                고침). 공개 Alpha 채널 (GitHub Releases — 7.7) 을 네트워크로 읽기 (HTTPS 클라이언트 선택) 는 [계획] — 채널을 만드는
+                M1-T4. 받기 · 설치는 사용자
 7.7 채널        GitHub Releases: Windows x64 zip (실행 파일 · samples · 문서), SHA-256 목록. CI (GitHub Actions — Windows 빌드 · ctest)
                 결과를 릴리스의 조건으로 (v0.1 열린 항목을 이 마일스톤에서 닫는다)
 7.8 지원 매트릭스  Windows 10 · 11 x64 + D3D12 = 지원 (이 개발 PC 에서 시험). Linux (Vulkan) · macOS (Metal) = "검증 안 됨" — 빌드 경로는
@@ -328,8 +339,8 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 |--------|------|------------------|---------------|------|------|------|
 | M1-T1 ✅ | 충돌 처리 · 로그 고리 · 보고 묶음 · 민감정보 제거 | platform/crash (새 타깃 SandboxCrash — platform/common 은 OS 헤더 금지 · 서버는 SandboxPlatform 을 링크하지 않으므로 따로), foundation/log (고리), foundation/diag (Scrub · Report), apps/client · server main (--crash-test) | crash::install · CrashConfig, diag::scrub · ScrubRules, createReportDir · writeReport | — | test_diag (scrub 고정 문자열 · 고리 · 묶음), CTest crash_report_server · client (일부러 충돌 → 묶음 · 덤프 · 열쇠 없음) | 서버 · 클라이언트가 충돌하면 묶음이 남고 민감정보 시험 통과 |
 | M1-T2 ✅ | sbx report · sbx doctor (진단 묶음) · 콜스택 · 문맥 | tools/sbx, core/project/Diagnostics, platform/crash (StackWalk64 · backtrace · setContext) | DiagnosticReport · diagnose · readReportBundle · formatReportBundle, crash::setContext | M1-T1 | test_diagnostics (영역 · 엔진 범위 새 · 옛 · P8 · 깨진 패키지 · 묶음 읽기 · 보기), CTest project_doctor, crash_report (콜스택 · 문맥 · sbx report) | 다른 엔진 · 빠진 설치 · 깨진 패키지를 문장으로 |
-| M1-T3 | 안전 모드 · 새 버전 알림 | apps/client (ClientOptions · 설정), foundation/version | ReleaseFeed (읽기만) | — | 깨진 설정 → 옮김 · 시작, 버전 비교 unit (네트워크 없음 — 파일 입력) | --safe-mode 로 깨진 설정에서도 시작 |
-| M1-T4 | CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 스크립트 | .github/workflows, tools/release (zip · SHA-256), docs (15 · 20 7.8) | — | — | CI 녹색 (ctest -E render_tests_warp) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |
+| M1-T3 ✅ | 안전 모드 · 새 버전 알림 | apps/client (ClientOptions · UserSettings · ReleaseFeed · 알림 창), core/scenarios WorldSource · network LocalServerHost (패키지 캐시 자리) | UserSettings · ClientSettings · loadUserSettings · moveAside, ReleaseInfo · parseReleaseFeed · newestRelease · checkReleaseFeed | — | test_user_settings (client.json · 옮김 · 더 새 판 · 피드 · 명령줄), CTest client_safe_mode (배율 적용 · 안전 모드 · 깨진 파일 옮김 · 피드 알림 · updateCheck false) | --safe-mode 로 깨진 설정에서도 시작 |
+| M1-T4 | CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 스크립트 · 피드 URL (7.6) | .github/workflows, tools/release (zip · SHA-256), docs (15 · 20 7.8) | — | — | CI 녹색 (ctest -E render_tests_warp) | 릴리스 zip 을 만들고 CI 결과를 남긴다 |
 
 ### Phase 2 — 게임플레이 API (M2)
 

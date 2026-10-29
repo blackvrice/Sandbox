@@ -6,6 +6,7 @@
 // 접속자는 PlayersPanel (12C). 12C: 실행 제어 단추는 WorldInfo::canControl 이 false 면 끈다. 도킹 레이아웃 [계획].
 
 #include <array>
+#include <span>
 #include <string>
 
 #include "apps/client/FrameRenderer.hpp"
@@ -48,5 +49,8 @@ struct PanelActions {
 
 // 패널을 그린다 (ImGui::NewFrame 과 Render 사이). visible 이 false 면 아무것도 안 그리고 입력을 그대로 돌려준다
 [[nodiscard]] PanelActions drawDebugPanels(PanelState& state, const PanelInputs& in);
+
+// "알림" 창 (v0.5 M1-T3 — 안전 모드 · 깨진 설정 · 새 버전). F1 로 패널을 숨겨도 보인다. 닫으면 open = false
+void drawNotices(std::span<const std::string> notices, bool& open);
 
 } // namespace sbx::client

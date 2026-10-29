@@ -271,7 +271,7 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
     style.WindowRounding = 4.f;
     style.FrameRounding = 3.f;
     style.FontSizeBase = desc.fontSize;
-    const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
+    const f32 scale = (m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f) * desc.uiScale;
     style.ScaleAllSizes(scale);
     style.FontScaleDpi = scale;
     log::info("client", "ImGui {} (docking) · 폰트 {} {} px × {:.2f}", IMGUI_VERSION, m_fontName, desc.fontSize, scale);

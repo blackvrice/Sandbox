@@ -380,6 +380,12 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (10B) 패널 "네트워크": 서버 · 역할 · RTT · 스냅숏(epoch · 다시 맞춤) · 받은 KB/s · 적용 ms · 보간 지연 · 거절된 명령.
     (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
+    (v0.5 M1-T3) 사용자 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox · macOS ~/Library/Application Support/sandbox · XDG —
+    07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>"} · input.json (키 바인딩 — 기본 위,
+    --input 아래). 깨진 파일은 "<이름>.broken-<UTC>" 로 옮기고 "알림" 창 · 로그 "알림: …" 에 알린 뒤 기본값으로 시작한다.
+    [--safe-mode]: 두 파일 · UI 배율 · 패키지 캐시 (임시 폴더 sbx-packages-safe — 매번 빈 것) 를 쓰지 않는다.
+    [--update-feed <파일>]: 릴리스 피드 (GitHub Releases "List releases" JSON) — 이 클라이언트보다 새 버전이면 알림만 (받기 ·
+    설치는 직접). 피드가 없거나 깨졌으면 조용히. URL 피드는 [계획] (M1-T4) (20 7.5 · 7.6)
 
 sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>]
                  [--out <dir>] [doctest 옵션]
