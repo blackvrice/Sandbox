@@ -82,7 +82,7 @@ struct HostResult {
     bool ok = true;
     Value value; // ComponentDataOrNull 이면 0 = null, 아니면 1 (칸은 values)
     std::string error;
-    std::vector<Value> values; // ComponentDataOrNull = 펼친 칸 (HostArg::fields 와 같은 순서), EntityList = 원소
+    std::vector<Value> values{}; // ComponentDataOrNull = 펼친 칸 (HostArg::fields 와 같은 순서), EntityList = 원소
     u64 extraFuel = 0;         // 부른 쪽이 더 낼 연료 (질의 — 결과 개체마다)
 };
 

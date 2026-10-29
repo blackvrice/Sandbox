@@ -25,11 +25,17 @@ public:
 
     std::optional<bc::Module> run() {
         M.hostApiFingerprint = api::hostApiFingerprint();
-        m_void = addType({bc::TypeKind::Void});
-        m_i32 = addType({bc::TypeKind::I32});
-        m_f64 = addType({bc::TypeKind::F64});
-        m_bool = addType({bc::TypeKind::Bool});
-        m_string = addType({bc::TypeKind::String});
+        // 집합 초기화 {kind} 는 GCC · Clang -Wmissing-field-initializers (CI -Werror) 에 걸린다
+        const auto scalar = [](bc::TypeKind k) {
+            bc::TypeDesc t;
+            t.kind = k;
+            return t;
+        };
+        m_void = addType(scalar(bc::TypeKind::Void));
+        m_i32 = addType(scalar(bc::TypeKind::I32));
+        m_f64 = addType(scalar(bc::TypeKind::F64));
+        m_bool = addType(scalar(bc::TypeKind::Bool));
+        m_string = addType(scalar(bc::TypeKind::String));
         M.functions.resize(P.functions.size());
         for (u32 fi = 0; fi < P.functions.size(); ++fi) {
             function(fi);

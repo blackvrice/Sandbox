@@ -26,6 +26,8 @@ struct UiRig {
     ImGuiContext* ctx = nullptr;
     ImGuiRenderer renderer;
     rhi::RhiTexture target;
+    // 다음 프레임 배리어의 "이전" 상태 — 같은 대상에 두 번 그리면 Undefined 가 아니다 (D3D12 Debug Layer 가 잡는다)
+    rhi::ResourceState targetState = rhi::ResourceState::Undefined;
 
     UiRig() : dev(device()), renderer(dev) {
         ctx = ImGui::CreateContext();
@@ -58,7 +60,7 @@ struct UiRig {
         ui();
         ImGui::Render();
         submitAndWait(dev, [&](rhi::ICommandList& cl) {
-            const rhi::ResourceBarrier toRt{target, rhi::ResourceState::Undefined, rhi::ResourceState::RenderTarget};
+            const rhi::ResourceBarrier toRt{target, targetState, rhi::ResourceState::RenderTarget};
             cl.barrier({&toRt, 1});
             rhi::RenderPassDesc clear;
             clear.colorCount = 1;
@@ -69,6 +71,7 @@ struct UiRig {
             const rhi::ResourceBarrier toCopy{target, rhi::ResourceState::RenderTarget, rhi::ResourceState::CopySrc};
             cl.barrier({&toCopy, 1});
         });
+        targetState = rhi::ResourceState::CopySrc; // readback 이 CopySrc 로 돌려놓는다
         return readback(dev, target, rhi::ResourceState::CopySrc);
     }
 };

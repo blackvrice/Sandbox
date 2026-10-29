@@ -37,7 +37,13 @@ endfunction()
 
 # 좋은 프로젝트
 file(COPY "${SAMPLE}/" DESTINATION "${OUT}/good")
-doctor("${OUT}/good" 0 "\\[환경\\] 통과" "\\[엔진 범위\\] 통과" "\\[시작 월드\\] 통과" "진단: 오류 0")
+# 환경: Windows 는 지원 (통과), 그 밖은 지원 매트릭스상 "검증 안 됨" (경고 — 오류가 아니다, 20 7.8)
+if(WIN32)
+    set(env_level "통과")
+else()
+    set(env_level "경고")
+endif()
+doctor("${OUT}/good" 0 "\\[환경\\] ${env_level}" "\\[엔진 범위\\] 통과" "\\[시작 월드\\] 통과" "진단: 오류 0")
 
 # 더 새 엔진이 필요한 게임
 file(COPY "${SAMPLE}/" DESTINATION "${OUT}/newer")

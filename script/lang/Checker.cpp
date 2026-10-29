@@ -2946,7 +2946,7 @@ private:
         }
         if (op == Tok::QuestionQuestionAssign) {
             if (T().kind(tt) != TypeKind::Nullable) {
-                err("S422", n, std::format("??= 의 왼쪽이 null 일 수 없다 ({})", T().name(tt)));
+                err("S422", n, std::format("?\?= 의 왼쪽이 null 일 수 없다 ({})", T().name(tt)));
             } else if (!T().assignable(vt, tt) && !(T().nonNull(tt) == TypeTable::kI32 && coerceToI32(value))) {
                 assignTo(value, vt, tt);
             }

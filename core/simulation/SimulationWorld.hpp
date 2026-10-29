@@ -184,7 +184,7 @@ public:
     [[nodiscard]] script::ScriptSystemAdapter* scriptSystems() noexcept { return m_scriptSystems.get(); }
     // 스크립트 프로파일의 진단 시계 (v0.3 M5-T4, ADR-0068 — 서버가 넣는다). 다시 만든 어댑터에도 옮긴다. 결과에 닿지
     // 않는다
-    void setScriptClock(script::ScriptClock clock) noexcept;
+    void setScriptClock(script::ScriptClock scriptClock) noexcept;
 
 private:
     struct SlotIdentity {

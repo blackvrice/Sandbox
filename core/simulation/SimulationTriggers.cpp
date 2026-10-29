@@ -105,7 +105,7 @@ void SimulationWorld::runTriggers(Tick now) {
         SaveId subjectSave = kInvalidSaveId;
         bool hasPos = false; // 대상이 죽었을 때 쓸 위치 · 태그 (death)
         Vec2 pos{};
-        content::TagSet tags;
+        content::TagSet tags{};
     };
     std::vector<Firing> queue;
     std::array<i32, comp::kScoreSlots> lastScore = m_triggerSnap.score; // 점수 가장자리의 "앞" 값

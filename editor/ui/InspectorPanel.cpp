@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <format>
 #include <numbers>
 
@@ -131,8 +130,9 @@ void fieldWidget(Editor& editor, InspectorState& st, IEditorHost& host, const ec
         }
         // 쓰는 중이면 편집 버퍼의 글자, 아니면 저장된 값
         std::array<char, 256> local{};
-        std::strncpy(local.data(), (matches(st, c, f.name) ? st.edit->value.get<std::string>() : s).c_str(),
-                     local.size() - 1);
+        // std::string::copy — strncpy 는 MSVC C4996 (CI 경고 = 오류). local 이 0 으로 채워져 끝 NUL 이 남는다
+        const std::string current = matches(st, c, f.name) ? st.edit->value.get<std::string>() : s;
+        current.copy(local.data(), local.size() - 1);
         const bool changed = ImGui::InputText(label.c_str(), local.data(), local.size());
         settle(editor, st, host, c, f.name, changed, ecs::Json(std::string(local.data())), false);
         return;

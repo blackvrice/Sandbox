@@ -25,7 +25,6 @@ Expected<void> ComponentCatalog::addDynamic(DynamicComponentDesc desc) {
 }
 
 Expected<void> ComponentCatalog::addDynamic(std::shared_ptr<const DynamicComponentLayout> layout) {
-    using L = std::shared_ptr<const DynamicComponentLayout>;
     const DynamicComponentLayout& lay = *layout;
     ComponentInfo info;
     info.name = lay.name();

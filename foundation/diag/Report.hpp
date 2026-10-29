@@ -33,7 +33,7 @@ struct ReportInfo {
     std::vector<std::pair<std::string, std::string>> context; // "world" · "game" · "package" …
     // 콜스택 — 프레임마다 한 줄 ("#0 SandboxServer.exe+0x1a2b sbx::crash::crashForTest+0x2a
     // (CrashHandlerWin.cpp:121)"). 충돌 처리기가 채운다 (v0.5 M1-T2). 비면 []
-    std::vector<std::string> stack;
+    std::vector<std::string> stack{};
 };
 
 [[nodiscard]] std::filesystem::path defaultReportsRoot();

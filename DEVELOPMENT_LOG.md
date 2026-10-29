@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-10-29 — v0.5 M1-T4 (1): CI 를 처음으로 녹색으로 — 경고 = 오류 고침 · render_tests_warp 배리어
+
+**무엇을**
+
+- CI (`.github/workflows/ci.yml` — Windows MSVC · Linux GCC · Clang · Clang ASan · macOS) 가 첫 실행 (2026-10-14) 부터 59 번
+  모두 실패 · 취소였다 (gh run view --log-failed 로 확인). 원인은 CI 만 켜는 경고 = 오류 — 로컬 빌드는 꺼져 있어 쌓였다:
+  - MSVC: C4702 (JsonVisitor decode 의 가지가 바로 돌려줌 · 시험의 break 루프), C4996 (InspectorPanel strncpy · 시험 getenv),
+    C4127 (test_assert 상수 조건)
+  - GCC · Clang: -Wmissing-field-initializers (집합 초기화에서 기본값 없는 필드 — ScriptPackProgram::events ·
+    SaveOptions::game · Firing::tags · ReportInfo::stack · HostResult::values 에 기본 초기화자 {}, Codegen 의 TypeDesc 는
+    도우미로), -Wtrigraphs (Checker 메시지의 "??=" → "?\?="), -Wshadow (setScriptClock 의 clock), -Wunused-local-typedef
+- render_tests_warp: 시험 (world passes · imgui · sprites) 이 같은 대상에 두 번 그리며 배리어 "이전 상태" 를 늘 Undefined 로
+  줬다 — 실제는 readback 뒤 CopySrc. D3D12 Debug Layer 가 오류로 막아 v0.2 부터 로컬에서 빼고 돌렸다 (18 의 "이 기계에서
+  실패") — 엔진이 아니라 시험 버그. 대상 상태를 기억한다.
+- project_doctor: 환경 줄 기대값이 Windows 전용이었다 (Linux 는 지원 매트릭스상 경고가 맞다).
+- ci.yml 빌드에 `-- -k 0` (실패해도 끝까지 컴파일). 13 8장을 실제 잡 · 현황 · 로컬 재현 방법으로 고침.
+
+**왜**
+
+- M1-T4 완료 기준 "CI 녹색" — 그리고 이식성 문제를 CI 가 잡게 (13 8장의 원래 목적).
+
+**검증**
+
+- Windows MSVC 경고 = 오류 (build/ci-werror): Debug 빌드 · ctest 72/72 (render_tests_warp 포함), RelWithDebInfo 빌드 ·
+  ctest 75/75. 정식 프리셋 빌드 · 전체 ctest 72/72 (render_tests_warp 포함 — 다시 넣었다), check_includes 0 위반, det_* 골든
+  그대로 (기본 초기화자 · 이름 바꾸기 — 시뮬레이션 동작 무관).
+- Linux (Docker ubuntu:24.04 + ci.yml 의 패키지): GCC 13 · Clang 19 Debug 경고 = 오류 빌드 통과, ctest 76/77 — 남은 하나가
+  project_doctor 환경 줄 (위에서 고침). Linux ASan · RelWithDebInfo 와 macOS 는 로컬에서 끝내지 못했다 (Docker VM 이 동시
+  빌드 넷에 내려갔다) — push 뒤 CI 결과로 본다 (끝에 적는다).
+
+**남은 일**
+
+- M1-T4 나머지: 배포 묶음 (zip · SHA-256) · 릴리스 피드 URL · 지원 매트릭스 문서.
+- 로컬 기본 빌드도 경고 = 오류로 할지 (다시 쌓이지 않게) — 정하지 않았다.
+
+---
+
 ## 2026-10-29 — v0.5 M1-T3: 사용자 설정 · 안전 모드 · 새 버전 알림
 
 **무엇을**

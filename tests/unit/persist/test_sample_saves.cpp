@@ -73,7 +73,15 @@ void writeSample() {
 TEST_SUITE("persist") {
 
     TEST_CASE("persist: committed v1 sample save loads with expected values") {
-        if (std::getenv("SBX_WRITE_SAMPLE_SAVES") != nullptr) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996) // getenv — 읽기만 (CI 경고 = 오류)
+#endif
+        const bool write = std::getenv("SBX_WRITE_SAMPLE_SAVES") != nullptr;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+        if (write) {
             writeSample();
         }
         const auto cat = catalog();

@@ -147,11 +147,13 @@ TEST_SUITE("network") {
         sim::SimulationWorld& sw = rig.local->host().world();
         NetEntityId pick = kInvalidNetEntityId;
         f32 radius = 0;
+        // 첫 개체 — break 로 끝내면 MSVC C4702 (닿지 않는 증가식, CI 경고 = 오류)
         for (auto [e, s, ni] : sw.registry().view<ecs::Read<comp::Sensor>, ecs::Read<comp::NetIdentity>>()) {
             (void)e;
-            pick = ni.netId;
-            radius = s.radius;
-            break;
+            if (pick == kInvalidNetEntityId) {
+                pick = ni.netId;
+                radius = s.radius;
+            }
         }
         REQUIRE(pick != kInvalidNetEntityId);
         CHECK_FALSE(rig.session.inspect().has_value());

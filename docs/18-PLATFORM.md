@@ -624,4 +624,6 @@ v0.4 M6-T2 뒤 (0.4.0): Windows MSVC Debug 67/67 (render_tests_warp 제외) · S
 v0.5 M1-T1 뒤: Windows MSVC Debug 69/69 (+ crash_report_server · client) · unit_foundation +3 (test_diag)
 v0.5 M1-T2 뒤: Windows MSVC Debug 70/70 (+ project_doctor) · SandboxTests 645 케이스 (+6 test_diagnostics)
 v0.5 M1-T3 뒤: Windows MSVC Debug 71/71 (+ client_safe_mode) · SandboxTests 649 케이스 (+4 test_user_settings)
+v0.5 M1-T4 (1) 뒤: Windows MSVC Debug 72/72 — render_tests_warp 를 다시 넣었다 (시험의 배리어 상태를 고침, v0.2 M3-T2 의
+              "이 기계에서 실패" 는 시험 버그였다). CI 경고 = 오류 · Linux GCC · Clang (Docker) — 13 8장
 ```

@@ -1087,10 +1087,10 @@ Expected<void> SimulationWorld::applyEditContent(const cmd::EditContent& c) {
     return {};
 }
 
-void SimulationWorld::setScriptClock(script::ScriptClock clock) noexcept {
-    m_scriptClock = clock;
+void SimulationWorld::setScriptClock(script::ScriptClock scriptClock) noexcept {
+    m_scriptClock = scriptClock;
     if (m_scriptSystems) {
-        m_scriptSystems->setClock(clock);
+        m_scriptSystems->setClock(scriptClock);
     }
 }
 

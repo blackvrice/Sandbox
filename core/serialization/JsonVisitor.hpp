@@ -107,7 +107,10 @@ Expected<void> decode(const Json& j, F& out, std::string_view ctx) {
         }
         out = static_cast<F>(raw);
     } else if constexpr (std::is_integral_v<F>) {
-        return decodeInteger(j, out, ctx);
+        // 가지마다 끝의 return {} 로 모은다 — 여기서 바로 돌려주면 MSVC C4702 (닿지 않는 코드, CI 경고 = 오류)
+        if (auto r = decodeInteger(j, out, ctx); !r) {
+            return r;
+        }
     } else if constexpr (std::is_same_v<F, Vec2> || std::is_same_v<F, Vec2i>) {
         if (!j.is_array() || j.size() != 2) {
             return typeError(ctx, "[x, y] 배열", j);
@@ -115,7 +118,9 @@ Expected<void> decode(const Json& j, F& out, std::string_view ctx) {
         if (auto r = decode(j[0], out.x, ctx); !r) {
             return r;
         }
-        return decode(j[1], out.y, ctx);
+        if (auto r = decode(j[1], out.y, ctx); !r) {
+            return r;
+        }
     } else if constexpr (std::is_same_v<F, EntityId>) {
         u64 raw = 0;
         if (auto r = decodeInteger(j, raw, ctx); !r) {

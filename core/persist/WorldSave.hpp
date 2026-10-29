@@ -44,7 +44,7 @@ struct GameBinding {
 
 struct SaveOptions {
     std::string name = "world";      // world.json 의 name (표시용)
-    std::optional<GameBinding> game; // 있으면 world.json 의 "game"
+    std::optional<GameBinding> game{}; // 있으면 world.json 의 "game"
 };
 
 struct SaveStats {

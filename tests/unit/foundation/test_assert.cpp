@@ -27,7 +27,7 @@ TEST_SUITE("foundation") {
 
     TEST_CASE("assert: verify fires on false condition regardless of build type") {
         ScopedHandler scope;
-        const int x = 3;
+        int x = 3; // const 면 상수 조건식 — MSVC C4127 (CI 경고 = 오류)
         SBX_VERIFY(x == 4, "x must be 4");
         CHECK(g_fired == 1);
         CHECK(g_lastFatal);
@@ -36,7 +36,9 @@ TEST_SUITE("foundation") {
 
     TEST_CASE("assert: verify does not fire on true condition") {
         ScopedHandler scope;
-        SBX_VERIFY(1 + 1 == 2, "math");
+        int two = 1;
+        two += 1;
+        SBX_VERIFY(two == 2, "math");
         CHECK(g_fired == 0);
     }
 

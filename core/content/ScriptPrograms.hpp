@@ -22,7 +22,7 @@ struct ScriptPackProgram {
     std::string pack;   // 팩 id
     std::string folder; // 진단 · 로그 ("<폴더>/scripts/a.ts")
     script::bc::Module module;
-    std::vector<std::vector<ScriptEventFilter>> events; // module.systems 와 같은 차례 — 시스템마다 구독 (종류 차례)
+    std::vector<std::vector<ScriptEventFilter>> events{}; // module.systems 와 같은 차례 — 시스템마다 구독 (종류 차례)
 };
 
 struct ScriptPrograms {

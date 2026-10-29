@@ -320,15 +320,35 @@ sbx_render_tests [--rhi auto|dx12|vulkan|metal] [--warp] [--debug] [--gbv] [--fl
 CI: Windows WARP, Linux lavapipe, macOS Apple Silicon 러너
 ```
 
-## 8. CI 매트릭스 (Phase 1부터 단계적으로)
+## 8. CI 매트릭스
 
-| 잡               | OS          | 빌드               | 테스트                                           |
-|------------------|-------------|--------------------|--------------------------------------------------|
-| win-msvc-debug   | Windows     | Debug              | unit property sim det arch content               |
-| win-msvc-release | Windows     | RelWithDebInfo     | det bench(quick) render(WARP, Phase 7+)          |
-| linux-clang      | Ubuntu      | Debug + ASan/UBSan | unit property sim det arch net                   |
-| linux-clang-tsan | Ubuntu      | TSan               | 스레드 관련 테스트                               |
-| linux-render     | Ubuntu      | Release            | render(lavapipe) · 창(Xvfb · weston) — 13C       |
-| macos            | macOS arm64 | Debug              | unit det (Phase 1부터 Core만), render(Phase 14+) |
+`.github/workflows/ci.yml` (push master · PR). 모든 잡이 경고 = 오류 (`-D SBX_WARNINGS_AS_ERRORS=ON`) 로 구성하고, 빌드는
+`-- -k 0` (실패해도 끝까지 컴파일 — 오류를 한 번에 본다, v0.5 M1-T4).
+
+| 잡                         | OS                     | 빌드 · 시험                                                         |
+|----------------------------|------------------------|---------------------------------------------------------------------|
+| windows-msvc               | windows-latest         | Debug · RelWithDebInfo, 각각 전체 ctest (render_tests_warp 포함)    |
+| linux (linux-clang)        | ubuntu-24.04 clang 19  | Debug · RelWithDebInfo, 전체 ctest (Xvfb · weston · lavapipe — 13C) |
+| linux (linux-gcc)          | ubuntu-24.04 GCC 13    | 같음                                                                |
+| linux (linux-clang-asan)   | ubuntu-24.04 clang 19  | ASan · UBSan, 같음                                                  |
+| macos                      | macos-15 (arm64)       | Debug, 전체 ctest                                                   |
+
+TSan 프리셋 (linux-clang-tsan) 은 CI 에 없다 [계획].
+
+**현황 (v0.5 M1-T4 에서 확인).** 첫 실행 (2026-10-14) 부터 59 번 모두 실패 · 취소였다 — 로컬 빌드는 경고를 오류로 다루지
+않아 MSVC C4702 · C4996 · C4127, GCC · Clang -Wmissing-field-initializers · -Wtrigraphs · -Wshadow · -Wunused-local-typedef
+가 쌓였고, render_tests_warp 는 시험 코드의 배리어 "이전 상태" 가 틀려 (같은 대상에 두 번 그리기) D3D12 Debug Layer 가
+막았다. M1-T4 에서 고치고 로컬로 확인한 범위: Windows MSVC Debug · RelWithDebInfo (경고 = 오류, ctest 72 · 75 전부),
+Linux GCC 13 · Clang 19 Debug (Docker ubuntu:24.04 — CI 와 같은 패키지, ctest 77 전부). macOS 는 CI 에서만 본다.
+
+로컬 재현:
+
+```text
+Windows   cmake --preset windows-msvc -B build/ci-werror -D SBX_WARNINGS_AS_ERRORS=ON
+          cmake --build build/ci-werror --config Debug -- -k 0 ; ctest --test-dir build/ci-werror -C Debug
+Linux     Docker ubuntu:24.04 + ci.yml 의 apt 패키지 (libclang-rt-19-dev 는 ASan 에 필요), 저장소를 컨테이너 안으로
+          복사해 (Windows 마운트 위의 빌드는 느리다) cmake --preset linux-gcc -D SBX_WARNINGS_AS_ERRORS=ON … 
+CI 로그   gh run view <run> --log-failed  (로그는 로그인이 필요하다 — 공개 API 의 annotations 에는 오류 줄이 없다)
+```
 
 Core·Server는 **Phase 1부터** 세 OS에서 빌드합니다. 플랫폼 이식성 문제를 Phase 13·14까지 숨기지 않기 위해서입니다.

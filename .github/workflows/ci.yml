@@ -1,4 +1,5 @@
-# CI — docs/13-TESTING.md 8장. 세 OS 에서 빌드 · 테스트한다.
+# CI — docs/13-TESTING.md 8장. 세 OS 에서 빌드 · 테스트한다. 빌드는 -k 0 (Ninja — 실패해도 끝까지 컴파일해 오류를
+# 한 번에 모은다, v0.5 M1-T4). 로컬 재현: 경고 = 오류 (-D SBX_WARNINGS_AS_ERRORS=ON) — 13 8장.
 # Linux 는 창(X11 · Wayland)과 Vulkan 까지: Xvfb(xvfb-run) · weston headless(tools/wayland/run_headless.sh) · lavapipe 로
 # 화면 없이 platform_x11 · platform_wayland · client_*_world_smoke · render_tests_lavapipe 가 돈다 (Phase 13, ADR-0033 · 0034).
 name: ci
@@ -23,11 +24,11 @@ jobs:
       - name: Configure
         run: cmake --preset windows-msvc -D SBX_WARNINGS_AS_ERRORS=ON
       - name: Build (Debug)
-        run: cmake --build --preset windows-msvc-debug
+        run: cmake --build --preset windows-msvc-debug -- -k 0
       - name: Test (Debug)
         run: ctest --preset windows-msvc-debug
       - name: Build (RelWithDebInfo)
-        run: cmake --build --preset windows-msvc-relwithdebinfo
+        run: cmake --build --preset windows-msvc-relwithdebinfo -- -k 0
       - name: Test (RelWithDebInfo)
         run: ctest --preset windows-msvc-relwithdebinfo
 
@@ -57,11 +58,11 @@ jobs:
       - name: Configure
         run: cmake --preset ${{ matrix.preset }} -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} -D SBX_WARNINGS_AS_ERRORS=ON -D SBX_BUILD_BENCH=ON
       - name: Build (Debug)
-        run: cmake --build --preset ${{ matrix.preset }}-debug
+        run: cmake --build --preset ${{ matrix.preset }}-debug -- -k 0
       - name: Test (Debug)
         run: ctest --preset ${{ matrix.preset }}-debug
       - name: Build (RelWithDebInfo)
-        run: cmake --build --preset ${{ matrix.preset }}-relwithdebinfo
+        run: cmake --build --preset ${{ matrix.preset }}-relwithdebinfo -- -k 0
       - name: Test (RelWithDebInfo)
         run: ctest --preset ${{ matrix.preset }}-relwithdebinfo
 
@@ -74,6 +75,6 @@ jobs:
       - name: Configure
         run: cmake --preset macos -D SBX_WARNINGS_AS_ERRORS=ON
       - name: Build (Debug)
-        run: cmake --build --preset macos-debug
+        run: cmake --build --preset macos-debug -- -k 0
       - name: Test (Debug)
         run: ctest --preset macos-debug
