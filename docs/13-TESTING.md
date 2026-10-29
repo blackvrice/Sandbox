@@ -339,7 +339,10 @@ TSan 프리셋 (linux-clang-tsan) 은 CI 에 없다 [계획].
 않아 MSVC C4702 · C4996 · C4127, GCC · Clang -Wmissing-field-initializers · -Wtrigraphs · -Wshadow · -Wunused-local-typedef
 가 쌓였고, render_tests_warp 는 시험 코드의 배리어 "이전 상태" 가 틀려 (같은 대상에 두 번 그리기) D3D12 Debug Layer 가
 막았다. M1-T4 에서 고치고 로컬로 확인한 범위: Windows MSVC Debug · RelWithDebInfo (경고 = 오류, ctest 72 · 75 전부),
-Linux GCC 13 · Clang 19 Debug (Docker ubuntu:24.04 — CI 와 같은 패키지, ctest 77 전부). macOS 는 CI 에서만 본다.
+Linux GCC 13 · Clang 19 Debug (Docker ubuntu:24.04 — CI 와 같은 패키지, ctest 77 중 76 — 남은 하나는 같은 커밋에서 고침).
+CI 결과: 9ee17fa 에서 windows-msvc · linux-gcc · linux-clang · linux-clang-asan 이 처음으로 통과 (run 40823345024), macOS 는
+Apple libc++ 에 부동소수 `std::from_chars` 가 없어 (sbx_net_probe) 실패 → 다음 커밋에서 strtod_l (script/lang/Lexer 와 같은
+길). macOS 는 CI 에서만 본다.
 
 로컬 재현:
 

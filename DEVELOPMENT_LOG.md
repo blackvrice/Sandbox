@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-10-29 — v0.5 M1-T4 (2): macOS CI — sbx_net_probe 의 부동소수 from_chars
+
+**무엇을**
+
+- 9ee17fa 의 CI (run 40823345024): windows-msvc · linux-gcc · linux-clang · linux-clang-asan 은 처음으로 통과 (Debug ·
+  RelWithDebInfo 빌드 + 전체 ctest — Windows 는 render_tests_warp 포함). macOS 하나만 실패 —
+  `tools/net_probe/NetProbeOptions.cpp:24: call to deleted function 'from_chars'` (Apple libc++ 에는 부동소수 from_chars 가
+  없다). `__cpp_lib_to_chars` 가 없으면 C 로케일에 묶은 strtod_l (script/lang/Lexer.cpp 가 이미 쓰는 길).
+
+**검증**
+
+- Windows MSVC Debug 빌드 · 전체 ctest 72/72, test_net_probe_options 2 통과. macOS 는 push 뒤 CI (끝에 적는다).
+
+---
+
 ## 2026-10-29 — v0.5 M1-T4 (1): CI 를 처음으로 녹색으로 — 경고 = 오류 고침 · render_tests_warp 배리어
 
 **무엇을**

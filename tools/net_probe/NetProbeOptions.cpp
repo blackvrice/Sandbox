@@ -4,6 +4,16 @@
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <string>
+
+#if !defined(__cpp_lib_to_chars)
+// libc++ (macOS) 는 부동소수 from_chars 가 없다 → C 로케일에 묶은 strtod_l (script/lang/Lexer.cpp 와 같다)
+#include <cstdlib>
+#include <locale.h>
+#if defined(__APPLE__)
+#include <xlocale.h>
+#endif
+#endif
 
 namespace sbx::probe {
 namespace {
@@ -21,8 +31,17 @@ std::optional<log::Level> parseLevel(std::string_view s) {
 
 Expected<f64> parseNumber(std::string_view option, std::string_view text) {
     f64 v = 0;
+#if defined(__cpp_lib_to_chars)
     const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
-    if (text.empty() || ec != std::errc{} || ptr != text.data() + text.size() || !std::isfinite(v)) {
+    const bool parsed = ec == std::errc{} && ptr == text.data() + text.size();
+#else
+    static const locale_t cLocale = newlocale(LC_ALL_MASK, "C", locale_t{});
+    const std::string copy(text);
+    char* end = nullptr;
+    v = strtod_l(copy.c_str(), &end, cLocale);
+    const bool parsed = end == copy.c_str() + copy.size();
+#endif
+    if (text.empty() || !parsed || !std::isfinite(v)) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에는 수가 필요합니다: '{}'", option, text));
     }
     return v;
