@@ -28,6 +28,7 @@
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
+#include "foundation/io/AppPaths.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "script/sdk/SdkGenerator.hpp"
@@ -334,7 +335,7 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     n.gameId = opt.gameId;
     n.name = opt.name;
     n.fromScenario = opt.from;
-    n.contentRoot = opt.contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
+    n.contentRoot = opt.contentRoot.empty() ? io::dataDir("content", SBX_DEFAULT_CONTENT_DIR) // 배포 묶음 — M1-T4
                                             : std::filesystem::path(opt.contentRoot);
     n.seed = opt.seed;
     n.gameMode = opt.mode;

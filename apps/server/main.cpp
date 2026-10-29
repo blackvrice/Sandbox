@@ -23,6 +23,7 @@
 #include "core/simulation/SimConstants.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
+#include "foundation/io/AppPaths.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "foundation/job/JobSystem.hpp"
@@ -48,7 +49,8 @@ extern "C" void onInterrupt(int) {
 }
 
 std::filesystem::path contentRootOf(const sbx::server::ServerOptions& opts) {
-    return opts.contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
+    // 배포 묶음이면 실행 파일 옆 content/ (v0.5 M1-T4), 개발 빌드면 저장소의 content/
+    return opts.contentRoot.empty() ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
                                     : std::filesystem::path(opts.contentRoot);
 }
 
@@ -129,6 +131,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::log::error("server", "{}", r.error().describe());
         return kExitNotImplemented;
     }
+    sbx::log::info("server", "콘텐츠 루트 {}", contentRootOf(opts).generic_string());
     auto world = sbx::scenario::openWorldSource(*opts.world, contentRootOf(opts), opts.seed, catalog);
     if (!world) {
         sbx::log::error("server", "{}", world.error().describe());

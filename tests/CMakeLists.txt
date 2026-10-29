@@ -486,6 +486,17 @@ if(TARGET sbx)
                     "-DPACKAGES=${PROJECT_SOURCE_DIR}/samples/packages"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_doctor.cmake")
         set_tests_properties(project_doctor PROPERTIES LABELS "content" TIMEOUT 300)
+        # 배포 묶음 — zip · SHA-256 → 다른 폴더에 풀어 서버 · sbx · 클라이언트가 옆의 content/ 로 돈다 (v0.5 M1-T4)
+        set(_sbx_release_client_arg "")
+        if(TARGET SandboxClient)
+            set(_sbx_release_client_arg "-DCLIENT=$<TARGET_FILE:SandboxClient>")
+        endif()
+        add_test(NAME release_bundle
+            COMMAND "${CMAKE_COMMAND}" "-DSOURCE=${PROJECT_SOURCE_DIR}" "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/release_bundle"
+                    "-DVERSION=${PROJECT_VERSION}" -DSERVER=$<TARGET_FILE:SandboxServer> -DSBX=$<TARGET_FILE:sbx>
+                    ${_sbx_release_client_arg}
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/release_bundle.cmake")
+        set_tests_properties(release_bundle PROPERTIES LABELS "content" TIMEOUT 600)
         # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
         add_test(NAME project_pack
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_pack"

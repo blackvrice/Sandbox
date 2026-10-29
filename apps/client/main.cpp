@@ -20,6 +20,7 @@
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
+#include "foundation/io/AppPaths.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
@@ -171,7 +172,8 @@ int main(int argc, char** argv) {
 #else
     constexpr const char* kRendererName = "Clear (셰이더 없는 빌드)";
 #endif
-    const std::filesystem::path assetRoot = opts->assetRoot.empty() ? std::filesystem::path(SBX_DEFAULT_ASSETS_DIR)
+    // 배포 묶음이면 실행 파일 옆 assets/ · content/ (v0.5 M1-T4), 개발 빌드면 저장소의 것
+    const std::filesystem::path assetRoot = opts->assetRoot.empty() ? sbx::io::dataDir("assets", SBX_DEFAULT_ASSETS_DIR)
                                                                     : std::filesystem::path(opts->assetRoot);
     // 에셋 디코드 Worker (렌더러가 있을 때만 쓴다). 렌더러보다 먼저 만들고 나중에 사라진다
     sbx::JobSystem jobs(opts->headless ? 0u : 2u);
@@ -228,7 +230,7 @@ int main(int argc, char** argv) {
         }
         nd.seed = opts->seed;
         nd.packageCache = packageCache;
-        nd.contentRoot = opts->contentRoot.empty() ? std::filesystem::path(SBX_DEFAULT_CONTENT_DIR)
+        nd.contentRoot = opts->contentRoot.empty() ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
         // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
         // (틱 수가 고정된다)

@@ -293,8 +293,16 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 M1-T4. 받기 · 설치는 사용자
 7.7 채널        GitHub Releases: Windows x64 zip (실행 파일 · samples · 문서), SHA-256 목록. CI (GitHub Actions — Windows 빌드 · ctest)
                 결과를 릴리스의 조건으로 (v0.1 열린 항목을 이 마일스톤에서 닫는다)
+                M1-T4 구현: CI 녹색 (13 8장 — 첫 실행부터 실패이던 것을 고침). 배포 묶음 = 타깃 sbx_release
+                (tools/release/make_release.cmake) → sandbox-<버전>-<플랫폼>.zip (실행 파일 · content · assets · samples · sdk ·
+                docs · BUILD.txt, .sandbox 설치 폴더 빼고) · -symbols.zip (PDB — 콜스택 기호, M1-T2) · SHA256SUMS.txt. 실행 파일은
+                옆의 content/ · assets/ 를 먼저 찾는다 (foundation/io/AppPaths dataDir — 그전엔 빌드한 저장소의 절대 경로만 알아서
+                zip 을 옮기면 콘텐츠를 못 찾았다). CI windows 잡이 시험을 통과한 RelWithDebInfo 로 묶어 아티팩트로 올린다 (14 일).
+                GitHub Releases 에 올리기 (공개 Alpha 채널) 는 M7-T4
 7.8 지원 매트릭스  Windows 10 · 11 x64 + D3D12 = 지원 (이 개발 PC 에서 시험). Linux (Vulkan) · macOS (Metal) = "검증 안 됨" — 빌드 경로는
-                있지만 이 환경에서 돌리지 않았다. 성능 수치는 측정한 것만 (14)
+                있지만 이 환경에서 돌리지 않았다. 성능 수치는 측정한 것만 (14). M1-T4 부터 CI 가 Linux (GCC · Clang · ASan —
+                Xvfb · weston · lavapipe) 와 macOS 에서 빌드 · 전체 ctest 를 돌린다 — 그래도 실기 (GPU · 창 · 입력) 검증이 아니라 "검증
+                안 됨" 은 그대로 (sbx doctor 의 환경 줄)
 ```
 
 ## 8. 제작 UX · 템플릿 (R1 · R2)

@@ -279,6 +279,10 @@ sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2, ADR-0076
 sbx test <프로젝트>   (v0.4 M4-T2, ADR-0076 — 13 5.1)
   검사 → playthrough.json · tests/*.json 을 같은 프로세스에서 끝까지 · expect. "통과 | 실패 <파일> — <결과>" · "시험: 통과 n ·
   실패 m". 검사 오류 · 실패가 하나라도 있으면 종료 1
+cmake --build --preset <구성> --target sbx_release   (v0.5 M1-T4 — 배포 묶음, 20 7.7)
+  <빌드>/release/<구성>/ 에 sandbox-<버전>-<플랫폼>.zip (실행 파일 · content · assets · samples · sdk · docs · BUILD.txt) ·
+  -symbols.zip (PDB) · SHA256SUMS.txt (sha256sum -c 형식). 실행 파일은 옆의 content/ · assets/ 를 먼저 찾고, 없으면 빌드한
+  저장소의 것 (개발 빌드). 서버 로그 "콘텐츠 루트 <폴더>" 가 고른 곳. CI windows 잡이 RelWithDebInfo 로 만들어 아티팩트로 올린다
 sbx doctor <프로젝트 | 패키지.sbpkg>   (v0.5 M1-T2 — 20 7.3)
   진단 — "[영역] 수준 문장" 줄마다 "→ 고치는 법": 엔진 · 환경 (지원 매트릭스) · 패키지 (깨짐 · 형식 · 라이선스) · 매니페스트 ·
   엔진 범위 (새 엔진 · 옛 엔진) · 의존 · 설치 (→ sbx install) · 콘텐츠 · 시작 월드 · 도구. 끝 줄 "진단: 오류 n · 경고 m",

@@ -22,6 +22,8 @@ add_library(SandboxFoundation STATIC
     io/FileIo.cpp
     io/Console.hpp
     io/Console.cpp
+    io/AppPaths.hpp
+    io/AppPaths.cpp
     job/JobSystem.hpp
     job/JobSystem.cpp
     version/SemVer.hpp

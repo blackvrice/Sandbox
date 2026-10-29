@@ -479,7 +479,8 @@ M1 진단 · 채널
   T3 ✅ 사용자 설정 폴더 (client.json — uiScale · updateCheck · updateFeed, input.json) — 깨지면 옆으로 옮기고 알림, --safe-mode
         (설정 · 키 설정 · UI 배율 · 패키지 캐시 없이), 새 버전 알림 (GitHub Releases 형식 피드 파일 — URL 은 T4), "알림" 창,
         CTest client_safe_mode (20 7.5 · 7.6)
-  T4 [계획] CI (GitHub Actions Windows) · 지원 매트릭스 · 배포 묶음 (zip · SHA-256)
+  T4 ◐ CI 녹색 (경고 = 오류 고침 · render_tests_warp · macOS from_chars — 13 8장), 배포 묶음 sbx_release (zip · 기호 ·
+        SHA-256, 실행 파일 옆 content/ · assets/ — io::dataDir), CI 아티팩트, CTest release_bundle. 남음: 릴리스 피드 URL (7.6)
 M2 게임플레이 API
   T1 [계획] 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
   T2 [계획] 엔진 컴포넌트 쓰기 규칙

@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-10-29 — v0.5 M1-T4 (3): 배포 묶음 — sbx_release (zip · 기호 · SHA-256) · 실행 파일 옆 데이터 폴더 · CI 아티팩트
+
+**무엇을**
+
+- foundation/io/AppPaths: executablePath (Windows GetModuleFileNameW 선언만 — Console.cpp 처럼 windows.h 없이, Linux
+  /proc/self/exe, macOS _NSGetExecutablePath), dataDir(이름, 빌드 때 경로) — 실행 파일 옆 폴더가 있으면 그것.
+  SandboxServer · SandboxClient · sbx (new --from) 가 content/ · assets/ 를 이것으로 찾는다. 서버 로그 "콘텐츠 루트 …".
+- tools/release: 타깃 sbx_release → make_release.cmake — sandbox-<버전>-<플랫폼>.zip (실행 파일 · content · assets ·
+  samples · sdk · docs · README · BUILD.txt, .sandbox · *-saves 빼고) · -symbols.zip (PDB) · SHA256SUMS.txt. cmake -E tar
+  --format=zip (세 OS 같은 길, 추가 도구 없음).
+- CI windows 잡: 시험을 통과한 RelWithDebInfo 로 sbx_release → actions/upload-artifact (14 일).
+- CTest release_bundle. 문서: 20 7.7 · 7.8, 15, 17, 13, 18.
+
+**왜**
+
+- 빌드가 저장소의 절대 경로를 실행 파일에 넣어서, 그대로 zip 으로 옮기면 다른 PC 에서 콘텐츠 · 에셋을 찾지 못했다 — 배포
+  묶음 (7.7 · C1 "패키지만 옮겨 실행") 의 바탕.
+
+**검증**
+
+- release_bundle: 묶음을 build/…/unpacked 에 풀어 SandboxServer 가 "콘텐츠 루트 …/unpacked/sandbox-0.4.0-test-x/content",
+  ecosystem_small · samples/rabbit_guard (--start-game) 30 틱, sbx doctor 오류 0, SandboxClient --headless 30 프레임.
+- `cmake --build --preset windows-msvc-debug --target sbx_release` → zip 9,869,360 바이트 (287 파일) · 기호 zip ·
+  SHA256SUMS.txt. 전체 ctest 73/73 (+ release_bundle), check_includes 0 위반. CI 아티팩트는 push 뒤 확인.
+- 다른 PC (깨끗한 Windows) 에서 푸는 것은 하지 않았다 — 같은 PC 의 무관한 폴더까지 (M7-T4 수동 QA).
+
+**남은 일**
+
+- M1-T4 마지막: 릴리스 피드 URL (7.6). GitHub Releases 에 올리기는 M7-T4.
+
+---
+
 ## 2026-10-29 — v0.5 M1-T4 (2): macOS CI — sbx_net_probe 의 부동소수 from_chars
 
 **무엇을**

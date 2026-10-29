@@ -31,6 +31,17 @@ jobs:
         run: cmake --build --preset windows-msvc-relwithdebinfo -- -k 0
       - name: Test (RelWithDebInfo)
         run: ctest --preset windows-msvc-relwithdebinfo
+      # 배포 묶음 (v0.5 M1-T4 — tools/release): 시험을 통과한 빌드만 — zip · 기호 zip · SHA256SUMS.txt
+      - name: Package (RelWithDebInfo)
+        run: cmake --build --preset windows-msvc-relwithdebinfo --target sbx_release
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-windows-x64
+          path: |
+            build/windows-msvc/release/RelWithDebInfo/*.zip
+            build/windows-msvc/release/RelWithDebInfo/SHA256SUMS.txt
+          retention-days: 14
 
   linux:
     runs-on: ubuntu-24.04
