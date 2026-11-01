@@ -360,12 +360,38 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     if (!e.valid()) {
         return fail("개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)");
     }
-    if (info->dynamicLayout == nullptr) { // 검사기가 S404 로 막는다 — 손으로 만든 바이트코드를 위해 한 번 더
-        return fail(std::format("엔진 컴포넌트 '{}' 는 아직 읽기만 한다 (쓰기 규칙은 v0.5 M2-T2)", info->name));
+    // 엔진 관리 컴포넌트 (접근 표의 쓰기 None) 는 개체에 있든 없든 거절 — 권한이 먼저 (v0.5 M2-T2)
+    if (const api::EngineComponentAccess* engine = engineAccessOf(*info);
+        engine != nullptr && engine->write != api::EngineWrite::Server) {
+        return fail(std::format("엔진 컴포넌트 '{}' 는 스크립트가 쓰지 않는다 (엔진 관리 — 접근 표)", info->name));
     }
     const std::byte* current = currentBytes(e, *info);
     if (current == nullptr) {
         return fail(std::format("개체에 '{}' 가 없다 — 쓰기는 있는 컴포넌트의 값만 (붙이기는 [계획])", info->name));
+    }
+    // 쓰기 버퍼 — (개체, 컴포넌트) 마다 마지막 값 하나, 호출이 끝나면 적용 (트랩이면 버림)
+    const auto buffer = [&](std::vector<std::byte>&& bytes) -> vm::HostResult {
+        const std::pair<u64, u64> key{e.raw, info->stableId};
+        if (const auto it = m_writeOf.find(key); it != m_writeOf.end()) {
+            m_writes[it->second].bytes = std::move(bytes);
+            return {};
+        }
+        if (m_writes.size() >= kMaxPendingWrites) {
+            return fail(std::format("호출 하나의 쓰기가 {} 개를 넘는다", kMaxPendingWrites));
+        }
+        m_writeOf.emplace(key, m_writes.size());
+        m_writes.push_back(PendingWrite{e, info, std::move(bytes)});
+        return {};
+    };
+    // 엔진 컴포넌트 (v0.5 M2-T2): 접근 표가 쓰기를 허락한 것만 — 범위 · 경계 자름 (EngineComponentAccess). 바이트
+    // 복사로 버퍼에 둔다 (쓸 수 있는 내장 컴포넌트는 trivially copyable — EngineComponentAccess.cpp 의 static_assert)
+    if (const api::EngineComponentAccess* engine = engineAccessOf(*info)) {
+        std::vector<std::byte> bytes(current, current + info->size);
+        std::string why;
+        if (!applyEngineFieldValues(*engine, *info, bytes.data(), args[3].fields, &m_world->grid(), why)) {
+            return fail(std::move(why));
+        }
+        return buffer(std::move(bytes));
     }
     const ecs::DynamicComponentLayout& layout = *info->dynamicLayout;
     std::vector<std::byte> bytes(current, current + layout.stride());
@@ -450,17 +476,7 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     if (k != v.size()) {
         return fail(std::format("{}: 값의 칸이 남는다 (모양이 컴포넌트와 다르다)", info->name));
     }
-    const std::pair<u64, u64> key{e.raw, info->stableId};
-    if (const auto it = m_writeOf.find(key); it != m_writeOf.end()) {
-        m_writes[it->second].bytes = std::move(bytes);
-        return {};
-    }
-    if (m_writes.size() >= kMaxPendingWrites) {
-        return fail(std::format("호출 하나의 쓰기가 {} 개를 넘는다", kMaxPendingWrites));
-    }
-    m_writeOf.emplace(key, m_writes.size());
-    m_writes.push_back(PendingWrite{e, info, std::move(bytes)});
-    return {};
+    return buffer(std::move(bytes));
 }
 
 } // namespace sbx::script

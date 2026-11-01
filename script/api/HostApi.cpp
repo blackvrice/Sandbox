@@ -109,9 +109,11 @@ u64 hostApiFingerprint() {
     }
     // 엔진 컴포넌트 접근 표 (v0.5 M2-T1, ADR-0080 9) — 항목 · 필드 · 읽기 도메인이 바뀌면 지문이 바뀐다
     for (const EngineComponentAccess& e : kEngineComponents) {
-        std::string l = std::format("engine {} {} {}", e.id, e.scriptName, engineReadName(e.read));
+        std::string l = std::format("engine {} {} read {} write {}", e.id, e.scriptName, engineReadName(e.read),
+                                    engineWriteName(e.write));
         for (const EngineFieldAccess& f : e.fields) {
-            l += std::format(" {}:{}", f.name, componentFieldKindName(f.kind));
+            l += std::format(" {}:{}{}", f.name, componentFieldKindName(f.kind),
+                             f.rule == EngineFieldRule::ClampToWorld ? ":clamp" : "");
         }
         lines.push_back(std::move(l));
     }

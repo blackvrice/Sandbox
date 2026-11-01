@@ -3040,12 +3040,12 @@ private:
         if (!T().isError(rt)) {
             if (T().kind(rt) == TypeKind::Component) {
                 data = T().info(rt).elem;
-                // 엔진 컴포넌트 (v0.5 M2-T1): 읽기만, 클라이언트는 복제하는 것만 (접근 표의 읽기 도메인)
+                // 엔진 컴포넌트 (v0.5 M2-T1 · T2): 쓰기는 접근 표가 허락한 것만, 클라이언트는 복제하는 것만 읽는다
                 if (const u32 index = T().info(rt).index; (index & kEngineComponentFlag) != 0) {
                     const api::EngineComponentAccess& e = api::kEngineComponents[index & ~kEngineComponentFlag];
-                    if (h.effect == api::HostEffect::Write) {
+                    if (h.effect == api::HostEffect::Write && e.write != api::EngineWrite::Server) {
                         err("S404", refArg,
-                            std::format("엔진 컴포넌트 {} ({}) 는 아직 읽기만 한다 — 쓰기 규칙은 v0.5 M2-T2",
+                            std::format("엔진 컴포넌트 {} ({}) 는 스크립트가 쓰지 않는다 — 엔진 관리 (접근 표)",
                                         e.scriptName, e.id));
                         data = TypeTable::kError;
                     } else if (h.domain == api::HostDomain::Client && e.read == api::EngineRead::Server) {

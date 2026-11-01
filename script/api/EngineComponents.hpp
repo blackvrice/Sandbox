@@ -7,7 +7,9 @@
 //         필드 (이름 순 — 스크립트 컴포넌트의 칸 순서와 같은 규칙, ADR-0059 2)
 //   읽기  Server = 서버 시스템만 (ctx.read · has · query), Both = 클라이언트 시스템도 (client.read … — 복제 월드).
 //         복제하지 않는 컴포넌트는 Both 가 될 수 없다 (시험이 카탈로그의 Replicated 와 맞춘다)
-//   쓰기  M2-T1 은 읽기만 — ctx.write 에 엔진 컴포넌트를 넘기면 검사 S404 (쓰기 규칙은 M2-T2)
+//   쓰기  (M2-T2) Server 인 컴포넌트만 ctx.write — 값은 쓰기 버퍼 → 호출 끝에 적용 (스크립트 컴포넌트와 같다). 범위 =
+//         카탈로그 FieldMeta (밖이면 HostError — 그 호출의 쓰기를 버린다), 유한 · f32, ClampToWorld 필드는 경계 안으로
+//         자른다. 공간 색인은 다음 틱 단계 4 가 다시 만든다, 체력 · 에너지 0 이하는 엔진의 죽음 규칙 (LifecycleSystem)
 //   없음  표에 없는 엔진 컴포넌트 (ai.* · core.identity · core.lifetime · debug.* …) 와 표에 없는 필드는 보이지 않는다.
 //         import 하면 S416, 실행 때 표에 없는 엔진 stableId 는 HostError. 칸 종류로 나타낼 수 없는 것 (game.score 의
 //         배열 · core.tags 의 비트 · core.prefab 의 문자열) 은 [계획] — 따로 API (태그 이름 · 점수 칸) 로
@@ -22,10 +24,18 @@
 namespace sbx::script::api {
 
 enum class EngineRead : u8 { Server, Both };
+// 쓰기 (v0.5 M2-T2): None = 엔진 관리 (ctx.write 에 넘기면 S404 · HostError), Server = 서버 시스템이 ctx.write 로
+enum class EngineWrite : u8 { None, Server };
+// 필드의 쓰기 규칙 (v0.5 M2-T2). 범위는 카탈로그의 FieldMeta 그대로 (엔진 명령과 같은 검사 — 표에 다시 적지 않는다)
+enum class EngineFieldRule : u8 {
+    None,
+    ClampToWorld, // Vec2 위치 — 월드 경계 안으로 자른다 (오류가 아니다, WorldGrid::clampPoint)
+};
 
 struct EngineFieldAccess {
     std::string_view name;
     ComponentFieldKind kind; // I32 · F32 · Bool · Vec2 (엔진의 u8 · u32 · Tick 은 I32 로 읽는다)
+    EngineFieldRule rule;
     std::string_view doc;
 };
 
@@ -33,58 +43,65 @@ struct EngineComponentAccess {
     std::string_view id;         // "core.transform"
     std::string_view scriptName; // "Transform" — import 이름 · 데이터 타입 이름
     EngineRead read;
+    EngineWrite write;
     std::span<const EngineFieldAccess> fields; // 이름 순
     std::string_view doc;
 };
 
 namespace detail {
 inline constexpr std::array kTransformFields{
-    EngineFieldAccess{"position", ComponentFieldKind::Vec2, "월드 좌표"},
-    EngineFieldAccess{"rotation", ComponentFieldKind::F32, "라디안"},
+    EngineFieldAccess{"position", ComponentFieldKind::Vec2, EngineFieldRule::ClampToWorld, "월드 좌표"},
+    EngineFieldAccess{"rotation", ComponentFieldKind::F32, EngineFieldRule::None, "라디안"},
 };
 inline constexpr std::array kVelocityFields{
-    EngineFieldAccess{"value", ComponentFieldKind::Vec2, "월드 단위/초"},
+    EngineFieldAccess{"value", ComponentFieldKind::Vec2, EngineFieldRule::None, "월드 단위/초"},
 };
 inline constexpr std::array kMovementFields{
-    EngineFieldAccess{"accel", ComponentFieldKind::F32, "월드 단위/초²"},
-    EngineFieldAccess{"arriveRadius", ComponentFieldKind::F32, "도착으로 보는 거리"},
-    EngineFieldAccess{"goal", ComponentFieldKind::Vec2, "목표 (월드 좌표)"},
-    EngineFieldAccess{"hasGoal", ComponentFieldKind::Bool, "목표가 있나"},
-    EngineFieldAccess{"maxSpeed", ComponentFieldKind::F32, "월드 단위/초"},
+    EngineFieldAccess{"accel", ComponentFieldKind::F32, EngineFieldRule::None, "월드 단위/초²"},
+    EngineFieldAccess{"arriveRadius", ComponentFieldKind::F32, EngineFieldRule::None, "도착으로 보는 거리"},
+    EngineFieldAccess{"goal", ComponentFieldKind::Vec2, EngineFieldRule::ClampToWorld, "목표 (월드 좌표)"},
+    EngineFieldAccess{"hasGoal", ComponentFieldKind::Bool, EngineFieldRule::None, "목표가 있나"},
+    EngineFieldAccess{"maxSpeed", ComponentFieldKind::F32, EngineFieldRule::None, "월드 단위/초"},
 };
 inline constexpr std::array kColliderFields{
-    EngineFieldAccess{"radius", ComponentFieldKind::F32, "충돌 반지름"},
+    EngineFieldAccess{"radius", ComponentFieldKind::F32, EngineFieldRule::None, "충돌 반지름"},
 };
 inline constexpr std::array kHealthFields{
-    EngineFieldAccess{"max", ComponentFieldKind::F32, "최대"},
-    EngineFieldAccess{"value", ComponentFieldKind::F32, "지금 (0 이하면 죽는다)"},
+    EngineFieldAccess{"max", ComponentFieldKind::F32, EngineFieldRule::None, "최대"},
+    EngineFieldAccess{"value", ComponentFieldKind::F32, EngineFieldRule::None, "지금 (0 이하면 죽는다)"},
 };
 inline constexpr std::array kEnergyFields{
-    EngineFieldAccess{"drainPerSecond", ComponentFieldKind::F32, "초당 줄어드는 양"},
-    EngineFieldAccess{"max", ComponentFieldKind::F32, "최대"},
-    EngineFieldAccess{"value", ComponentFieldKind::F32, "지금 (0 이하면 굶어 죽는다)"},
+    EngineFieldAccess{"drainPerSecond", ComponentFieldKind::F32, EngineFieldRule::None, "초당 줄어드는 양"},
+    EngineFieldAccess{"max", ComponentFieldKind::F32, EngineFieldRule::None, "최대"},
+    EngineFieldAccess{"value", ComponentFieldKind::F32, EngineFieldRule::None, "지금 (0 이하면 굶어 죽는다)"},
 };
 inline constexpr std::array kGameSessionFields{
-    EngineFieldAccess{"result", ComponentFieldKind::I32, "GameOutcome (0 진행 · 1 승 · 2 패 · 3 비김)"},
-    EngineFieldAccess{"rule", ComponentFieldKind::I32, "끝낸 규칙의 번호"},
-    EngineFieldAccess{"state", ComponentFieldKind::I32, "GameState (0 Lobby · 1 Running · 2 Paused · 3 Ended)"},
-    EngineFieldAccess{"stateTick", ComponentFieldKind::I32, "지금 상태가 된 틱"},
-    EngineFieldAccess{"team", ComponentFieldKind::I32, "이긴 팀 (끝났을 때)"},
+    EngineFieldAccess{"result", ComponentFieldKind::I32, EngineFieldRule::None,
+                      "GameOutcome (0 진행 · 1 승 · 2 패 · 3 비김)"},
+    EngineFieldAccess{"rule", ComponentFieldKind::I32, EngineFieldRule::None, "끝낸 규칙의 번호"},
+    EngineFieldAccess{"state", ComponentFieldKind::I32, EngineFieldRule::None,
+                      "GameState (0 Lobby · 1 Running · 2 Paused · 3 Ended)"},
+    EngineFieldAccess{"stateTick", ComponentFieldKind::I32, EngineFieldRule::None, "지금 상태가 된 틱"},
+    EngineFieldAccess{"team", ComponentFieldKind::I32, EngineFieldRule::None, "이긴 팀 (끝났을 때)"},
 };
 } // namespace detail
 
 // 표 — id 순 (찾기는 id · 스크립트 이름으로)
 inline constexpr std::array kEngineComponents{
-    EngineComponentAccess{"core.collider", "Collider", EngineRead::Server, detail::kColliderFields,
+    EngineComponentAccess{"core.collider", "Collider", EngineRead::Server, EngineWrite::None, detail::kColliderFields,
                           "충돌체 (서버만 — 복제하지 않는다)"},
-    EngineComponentAccess{"core.movement", "Movement", EngineRead::Server, detail::kMovementFields,
+    EngineComponentAccess{"core.movement", "Movement", EngineRead::Server, EngineWrite::Server, detail::kMovementFields,
                           "이동 (속도 상한 · 목표 — 서버만, 복제하지 않는다)"},
-    EngineComponentAccess{"core.transform", "Transform", EngineRead::Both, detail::kTransformFields, "위치 · 회전"},
-    EngineComponentAccess{"core.velocity", "Velocity", EngineRead::Both, detail::kVelocityFields, "속도"},
-    EngineComponentAccess{"game.session", "GameSession", EngineRead::Both, detail::kGameSessionFields,
-                          "게임 세션 (상태 · 결과 — 바꾸는 길은 GameControl 명령)"},
-    EngineComponentAccess{"life.energy", "Energy", EngineRead::Both, detail::kEnergyFields, "에너지"},
-    EngineComponentAccess{"life.health", "Health", EngineRead::Both, detail::kHealthFields, "체력"},
+    EngineComponentAccess{"core.transform", "Transform", EngineRead::Both, EngineWrite::Server,
+                          detail::kTransformFields, "위치 · 회전"},
+    EngineComponentAccess{"core.velocity", "Velocity", EngineRead::Both, EngineWrite::Server, detail::kVelocityFields,
+                          "속도"},
+    EngineComponentAccess{"game.session", "GameSession", EngineRead::Both, EngineWrite::None,
+                          detail::kGameSessionFields, "게임 세션 (상태 · 결과 — 바꾸는 길은 GameControl 명령)"},
+    EngineComponentAccess{"life.energy", "Energy", EngineRead::Both, EngineWrite::Server, detail::kEnergyFields,
+                          "에너지"},
+    EngineComponentAccess{"life.health", "Health", EngineRead::Both, EngineWrite::Server, detail::kHealthFields,
+                          "체력"},
 };
 
 [[nodiscard]] const EngineComponentAccess* findEngineComponent(std::string_view id) noexcept;
@@ -94,5 +111,6 @@ inline constexpr std::array kEngineComponents{
 [[nodiscard]] ComponentSchema engineComponentSchema(const EngineComponentAccess& entry);
 
 [[nodiscard]] std::string_view engineReadName(EngineRead r) noexcept;
+[[nodiscard]] std::string_view engineWriteName(EngineWrite w) noexcept;
 
 } // namespace sbx::script::api

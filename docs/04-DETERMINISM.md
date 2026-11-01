@@ -202,6 +202,7 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 | (4)  | 2026-10-20 (v0.2 M4)  | 올리지 않음 — 단계 17c Triggers · Purpose::Trigger · PlayerAction 효과를 공용 실행기로 (같은 동작 · 난수 키). 트리거는 세션이 Running 인 월드에서만 — 골든 그대로 (M4-T2, ADR-0051) |
 | (4)  | 2026-10-26 (v0.3 M4)  | 올리지 않음 — 단계 16b Scripts (스크립트 시스템 onTick, ADR-0062) 추가. 시스템이 없는 콘텐츠 (골든 전부) 에서는 아무것도 하지 않는다. 주기는 틱 번호로만 — 세이브에 스크립트 상태 없음 (M4-T1) |
 | (4)  | 2026-10-26 (v0.3 M4)  | 올리지 않음 — 단계 17d Script callbacks (onStart · onEvent · onStop, ADR-0063). 콜백이 없는 콘텐츠는 단계 · 스냅숏이 없다 (골든 전부 그대로). 이벤트는 그 틱 안에서만 — 시작 · 끝은 틱 번호 · 세션 stateTick 으로 알아내 세이브에 스크립트 상태 없음 (M4-T2) |
+| (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트가 엔진 컴포넌트를 읽고 (M2-T1) 쓴다 (M2-T2, ADR-0080 1 — Transform · Velocity · Movement · Health · Energy). 쓰기는 호출 단위 버퍼 → 호출 끝에 쓴 차례로 적용 (스크립트 컴포넌트와 같은 길 — 시스템 차례 · 호출 순으로 결정적), 위치는 WorldGrid::clampPoint, 범위는 FieldMeta. 스크립트가 없는 콘텐츠 (골든 전부) 는 그대로 |
 
 ---
 

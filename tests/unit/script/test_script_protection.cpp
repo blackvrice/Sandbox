@@ -16,6 +16,7 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/components/core/Lifetime.hpp"
+#include "core/components/core/Movement.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/script/ClientScriptSystems.hpp"
@@ -280,16 +281,16 @@ export function poke(ctx: ServerContext, e: Entity): void {
                                          {api::AbiType::Component, engineRef, {}, {}},
                                          {api::AbiType::ComponentData, {}, {}, fields}};
         CHECK_FALSE(host.call(*write, writeArgs).ok);
-        // 접근 표의 엔진 컴포넌트도 쓰기는 거절 (읽기만 — v0.5 M2-T1)
-        const Value transformRef = Value::opaque(ecs::stableIdOf<comp::Transform>);
-        const Value transformFields[] = {Value::f64v(1), Value::f64v(1), Value::f64v(0)};
-        const vm::HostArg writeTransform[] = {{api::AbiType::ServerContext, ctx, {}, {}},
-                                              {api::AbiType::Entity, e, {}, {}},
-                                              {api::AbiType::Component, transformRef, {}, {}},
-                                              {api::AbiType::ComponentData, {}, {}, transformFields}};
-        const vm::HostResult wt = host.call(*write, writeTransform);
-        CHECK_FALSE(wt.ok);
-        CHECK(wt.error.find("읽기만") != std::string::npos);
+        // 접근 표에서 쓰기가 없는 엔진 컴포넌트 (엔진 관리 — Collider) 는 개체에 없어도 권한에서 거절 (v0.5 M2-T2)
+        const Value colliderRef = Value::opaque(ecs::stableIdOf<comp::Collider>);
+        const Value colliderFields[] = {Value::f64v(1)};
+        const vm::HostArg writeCollider[] = {{api::AbiType::ServerContext, ctx, {}, {}},
+                                             {api::AbiType::Entity, e, {}, {}},
+                                             {api::AbiType::Component, colliderRef, {}, {}},
+                                             {api::AbiType::ComponentData, {}, {}, colliderFields}};
+        const vm::HostResult wc = host.call(*write, writeCollider);
+        CHECK_FALSE(wc.ok);
+        CHECK(wc.error.find("엔진 관리") != std::string::npos);
         host.endCall(true);
         CHECK(w.worldHash().value() == before);
     }

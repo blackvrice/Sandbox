@@ -475,7 +475,7 @@ VM 경계    T 는 칸 목록 (필드 이름 순, Vec2 는 그 자리에서 x ·
 결정성     같은 월드 · 같은 호출 = 같은 결과 · 같은 WorldHash (시험), 쓰기 뒤 세이브 → 로드 해시 일치
 ```
 
-### 16.1 엔진 컴포넌트 읽기 (v0.5 M2-T1 — `script/api/EngineComponents` · `core/script/EngineComponentAccess`, ADR-0080 1)
+### 16.1 엔진 컴포넌트 읽기 · 쓰기 (v0.5 M2-T1 · T2 — `script/api/EngineComponents` · `core/script/EngineComponentAccess`, ADR-0080 1)
 
 ```ts
 import { ServerContext, ClientContext, Entity, Transform, Health } from "sandbox";
@@ -493,15 +493,24 @@ export function hp(ctx: ServerContext, e: Entity): number {
            (life.health — max · value) · Movement (core.movement — accel · arriveRadius · goal · hasGoal · maxSpeed, 서버만) ·
            Transform (core.transform — position · rotation) · Velocity (core.velocity — value). 서버만 = 복제하지 않는 컴포넌트
 검사기     import 하면 값 = ComponentRef<이름> (LOADK 의 id = 표의 id), 타입 = 데이터 구조체 (읽기 전용으로 쓰지 않아도 — 값 복사).
-           ctx.write 에 넘기면 S404 "읽기만" (쓰기 규칙은 M2-T2), 클라이언트 함수 (client.read …) 에 서버만 항목이면 S404, 표에
+           ctx.write 에 쓰기 None 항목 (Collider · GameSession — 엔진 관리) 을 넘기면 S404, 클라이언트 함수 (client.read …) 에
+           서버만 항목이면 S404, 표에
            없는 이름 (Identity …) 은 S416. 심볼 · 타입 인덱스에 kEngineComponentFlag — P.components (카탈로그에 넣는 스크립트
            정의) 와 섞지 않는다
 값         카탈로그의 writeJson (reflect) 에서 표의 필드만 같은 칸 규칙으로 (I32 — u8 · u32 · Tick 은 i32 범위만, F32 → f64, Bool,
-           Vec2 → x · y). 쓰기 버퍼 · read-your-writes 는 스크립트 컴포넌트만 (엔진은 쓰기가 없다)
+           Vec2 → x · y). 쓰기 버퍼의 값이 있으면 그것 (read-your-writes)
+쓰기       (M2-T2) 쓰기 Server 항목 — Transform · Velocity · Movement · Health · Energy. ctx.write 의 값을 칸 → JSON patch →
+           카탈로그 patchJson (FieldMeta 범위 · 타입 — 엔진 명령과 같은 검사, 복사본에 적용해 전부 맞을 때만) → 쓰기 버퍼
+           (스크립트 컴포넌트와 같다 — 호출 끝에 쓴 차례로, 트랩이면 버림). 유한 · f32 범위가 아니면 HostError. ClampToWorld
+           필드 (Transform.position · Movement.goal) 는 WorldGrid::clampPoint 로 자른다 (오류 아님). 권한 (쓰기 None) 이 먼저 —
+           개체에 그 컴포넌트가 없어도 "엔진 관리". 공간 색인은 다음 틱 단계 4 가 다시 만든다, 체력 · 에너지 0 이하는
+           LifecycleSystem 의 죽음 규칙. 버퍼는 바이트 복사 — 쓸 수 있는 내장 컴포넌트는 trivially copyable (static_assert ·
+           표 검사가 지킨다)
 검증기     LOADK 의 컴포넌트 표에 엔진 이름공간 id 는 접근 표에 있을 때만 (위조 모듈 — 표에 없는 엔진 컴포넌트는 거절)
-지문       항목 · 필드 · 읽기 도메인이 Host API 지문에 든다 (더하기만이면 kHostApiVersion 1 그대로 — 0xd03bc50223a4ef73)
+지문       항목 · 필드 · 읽기 · 쓰기 · 필드 규칙이 Host API 지문에 든다 (더하기만이면 kHostApiVersion 1 그대로 — M2-T2 뒤
+           0x873db25651702f35)
 [계획]     game.score (배열) · core.tags (비트 — 이름으로 has · add · remove) · core.prefab (문자열) · 개체 참조 필드 — 칸 종류가
-           따로 필요하다. 쓰기 (M2-T2) · 붙이기 · 떼기 (M2-T3)
+           따로 필요하다. 붙이기 · 떼기 · spawn · destroy (M2-T3)
 ```
 
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)

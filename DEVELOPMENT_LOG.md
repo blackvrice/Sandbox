@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T2: 엔진 컴포넌트 쓰기 규칙
+
+**무엇을**
+
+- 접근 표에 쓰기 (EngineWrite None · Server) 와 필드 규칙 (EngineFieldRule ClampToWorld) — 쓰기 Server: Transform · Velocity ·
+  Movement · Health · Energy, 엔진 관리 (None): Collider · GameSession. ClampToWorld: Transform.position · Movement.goal.
+- core/script/EngineComponentAccess::applyEngineFieldValues: 칸 → 유한 · f32 확인 → ClampToWorld 는 WorldGrid::clampPoint →
+  JSON patch → 카탈로그 patchJson (FieldMeta 범위 · 타입, 원자적 — 엔진 명령과 같은 검사). 표 검사에 ClampToWorld 는 Vec2 만 ·
+  쓰기 Server 항목은 trivially copyable 목록 (static_assert) 안.
+- ScriptHost::write: 권한 먼저 (쓰기 None 이면 개체에 없어도 "엔진 관리"), 그다음 현재 바이트 복사 → apply → 쓰기 버퍼 (스크립트
+  컴포넌트와 같은 람다 — 호출 끝에 쓴 차례로, 트랩이면 버림, read-your-writes).
+- 검사기: ctx.write 는 쓰기 None 항목만 S404 ("엔진 관리"). d.ts: 쓰기 None 항목만 readonly, 머리 줄에 쓰기 도메인. 지문에 쓰기 ·
+  필드 규칙 (0xd03b… → 0x873db25651702f35, kHostApiVersion 1 그대로), 커밋된 sandbox.d.ts 셋 다시 만듦.
+- 시험: test_engine_components +3 (버퍼 · 범위 · NaN · 트랩이면 앞 쓰기도 버림 / 경계 자름 · 다음 틱 공간 색인 / 체력 0 → 죽음 ·
+  같은 WorldHash), 검사기 · d.ts 갱신, 보호 시험 (Transform 쓰기 거절 → Collider "엔진 관리"). 문서: 19 16.1, 20 (3.1 ·
+  M2-T2), 04 6장 (simVersion 그대로 — 이유), 18, 17, 13.
+
+**왜**
+
+- 20 3.1 · ADR-0080 1 — 스크립트로 이동 · 체력 규칙을 쓴다. 범위를 표에 다시 적지 않고 카탈로그 FieldMeta 를 쓴다 (엔진 명령과
+  한 규칙 — 어긋날 수 없다).
+
+**검증**
+
+- 스크립트 suite 105 케이스 통과, Windows MSVC Debug 전체 ctest 73/73 · SandboxTests 658 케이스, check_includes 0 위반.
+  kSimVersion 그대로 — 스크립트 없는 골든 그대로 (det_* 통과).
+
+**남은 일**
+
+- M2-T3 구조 변경 (spawn · destroy · add · remove — 호출 버퍼 → ECB · 상한), M2-T4 random · near · time.
+
+---
+
 ## 2026-10-29 — v0.5 M2-T1: 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts
 
 **무엇을**

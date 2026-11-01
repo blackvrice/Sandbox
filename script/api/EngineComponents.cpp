@@ -45,4 +45,8 @@ std::string_view engineReadName(EngineRead r) noexcept {
     return r == EngineRead::Both ? "server · client" : "server";
 }
 
+std::string_view engineWriteName(EngineWrite w) noexcept {
+    return w == EngineWrite::Server ? "server" : "none";
+}
+
 } // namespace sbx::script::api

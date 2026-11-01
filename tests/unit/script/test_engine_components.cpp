@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/core/Movement.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/core/Velocity.hpp"
 #include "core/components/life/Life.hpp"
@@ -56,6 +57,35 @@ export function hp(ctx: ServerContext, e: Entity): number { const h = ctx.read(e
 export function speed(ctx: ServerContext, e: Entity): number { const m = ctx.read(e, Movement); return m === null ? -1 : m.maxSpeed }
 export function hasHealth(ctx: ServerContext, e: Entity): boolean { return ctx.has(e, Health) }
 export function healthy(ctx: ServerContext): i32 { return ctx.query(Health).length }
+export function heal(ctx: ServerContext, e: Entity): void { const h = ctx.read(e, Health); if (h !== null) { h.value = 11; ctx.write(e, Health, h) } }
+export function healAndRead(ctx: ServerContext, e: Entity): number {
+  const h = ctx.read(e, Health)
+  if (h === null) { return -1 }
+  h.value = 9.5
+  ctx.write(e, Health, h)
+  h.value = 1
+  const again = ctx.read(e, Health)
+  return again === null ? -2 : again.value
+}
+export function badMax(ctx: ServerContext, e: Entity): void { const h = ctx.read(e, Health); if (h !== null) { h.max = -1; ctx.write(e, Health, h) } }
+export function nanHp(ctx: ServerContext, e: Entity): void { const h = ctx.read(e, Health); if (h !== null) { h.value = NaN; ctx.write(e, Health, h) } }
+export function healThenTooFast(ctx: ServerContext, e: Entity): void {
+  const h = ctx.read(e, Health)
+  if (h !== null) { h.value = 11; ctx.write(e, Health, h) }
+  const m = ctx.read(e, Movement)
+  if (m !== null) { m.maxSpeed = 100; ctx.write(e, Movement, m) }
+}
+export function teleport(ctx: ServerContext, e: Entity): void {
+  const t = ctx.read(e, Transform)
+  if (t !== null) { t.position = { x: 100000, y: -100000 }; t.rotation = 1.5; ctx.write(e, Transform, t) }
+}
+export function stop(ctx: ServerContext, e: Entity): void {
+  const v = ctx.read(e, Velocity)
+  if (v !== null) { v.value = { x: 0, y: 0 }; ctx.write(e, Velocity, v) }
+  const m = ctx.read(e, Movement)
+  if (m !== null) { m.goal = { x: -100000, y: 3 }; m.hasGoal = false; m.maxSpeed = 1; ctx.write(e, Movement, m) }
+}
+export function kill(ctx: ServerContext, e: Entity): void { const h = ctx.read(e, Health); if (h !== null) { h.value = 0; ctx.write(e, Health, h) } }
 export function clientHp(ctx: ClientContext): number {
   let s = 0
   for (const e of ctx.query(Health)) { const h = ctx.read(e, Health); if (h !== null) { s = s + h.value } }
@@ -172,11 +202,15 @@ TEST_SUITE("script") {
         CHECK(diagnose(head + "export function a(ctx: ServerContext, e: Entity): string { const t = ctx.read(e, "
                               "Transform); return t === null ? \"\" : t.position }\n")
                   .find("S4") != std::string::npos);
-        // 쓰기는 M2-T2
-        const std::string write = diagnose(head + "export function a(ctx: ServerContext, e: Entity): void { "
-                                                  "ctx.write(e, Health, { max: 1, value: 1 }) }\n");
+        // 쓰기 (M2-T2): 접근 표가 허락한 것만 — Health 는 된다, GameSession · Collider 는 엔진 관리
+        CHECK(diagnose(head + "export function a(ctx: ServerContext, e: Entity): void { "
+                              "ctx.write(e, Health, { max: 1, value: 1 }) }\n") == "");
+        const std::string write =
+            diagnose(head + "export function a(ctx: ServerContext, e: Entity): void { const s = "
+                            "ctx.read(e, GameSession); if (s !== null) { ctx.write(e, GameSession, "
+                            "s) } }\n");
         CHECK(write.find("S404") != std::string::npos);
-        CHECK(write.find("읽기만") != std::string::npos);
+        CHECK(write.find("엔진 관리") != std::string::npos);
         // 클라이언트는 복제하는 것만
         const std::string client = diagnose(head + "export function a(ctx: ClientContext, e: Entity): void { "
                                                    "ctx.read(e, Movement) }\n");
@@ -233,9 +267,84 @@ TEST_SUITE("script") {
             CHECK(dts.find(std::format("export const {}: ComponentRef<{}>;", e.scriptName, e.scriptName)) !=
                   std::string::npos);
         }
-        CHECK(dts.find("    readonly position: Vec2;") != std::string::npos);
-        CHECK(dts.find("    readonly hasGoal: boolean;") != std::string::npos);
-        CHECK(dts.find("    readonly state: i32;") != std::string::npos);
+        CHECK(dts.find("    position: Vec2;") != std::string::npos); // 쓸 수 있다 (M2-T2)
+        CHECK(dts.find("    hasGoal: boolean;") != std::string::npos);
+        CHECK(dts.find("    readonly state: i32;") != std::string::npos); // GameSession — 엔진 관리
+        CHECK(dts.find("    readonly radius: number;") != std::string::npos);
+        CHECK(dts.find("(읽기 server · client · 쓰기 server)") != std::string::npos);
         CHECK(api::kHostApiVersion == 1); // 더하기만 — 버전 그대로 (ADR-0080 9)
+    }
+
+    TEST_CASE("엔진 쓰기 (M2-T2): 버퍼 → 호출 끝에 적용 · read-your-writes, 범위 · NaN 은 HostError — 그 호출의 쓰기를 "
+              "버린다") {
+        Fixture f;
+        const ecs::EntityId e = f.world->resolve(f.hero);
+        REQUIRE(f.call("heal", f.hero).ok());
+        CHECK(f.world->registry().read<comp::Health>(e).value == 11.f);
+        CHECK(f.number("healAndRead", f.hero) ==
+              9.5); // 같은 호출의 read 는 버퍼를 본다 (값 복사 — 뒤의 h.value = 1 무관)
+        CHECK(f.world->registry().read<comp::Health>(e).value == 9.5f);
+
+        // 범위 (카탈로그 FieldMeta — max 는 [0, 1e6]) · NaN 은 HostError → 트랩, 월드 그대로
+        const comp::Health before = f.world->registry().read<comp::Health>(e);
+        vm::CallResult r = f.call("badMax", f.hero);
+        CHECK_FALSE(r.ok());
+        CHECK(r.message.find("max") != std::string::npos);
+        r = f.call("nanHp", f.hero);
+        CHECK_FALSE(r.ok());
+        CHECK(r.message.find("유한") != std::string::npos);
+        // Health 를 쓴 뒤 Movement 범위 밖 (maxSpeed ≤ 64) — 트랩이면 앞의 쓰기까지 버린다
+        r = f.call("healThenTooFast", f.hero);
+        CHECK_FALSE(r.ok());
+        CHECK(f.world->registry().read<comp::Health>(e).value == before.value);
+        CHECK(f.world->registry().read<comp::Health>(e).max == before.max);
+        CHECK(f.world->registry().read<comp::Movement>(e).maxSpeed == 3.5f);
+    }
+
+    TEST_CASE("엔진 쓰기 (M2-T2): 위치 · 목표는 월드 경계 안으로 자른다, 속도 · 이동 · 회전, 공간 색인은 다음 틱") {
+        Fixture f;
+        const ecs::EntityId e = f.world->resolve(f.hero);
+        REQUIRE(f.call("teleport", f.hero).ok());
+        const Vec2 expected = f.world->grid().clampPoint(Vec2{100000.f, -100000.f});
+        const comp::Transform t = f.world->registry().read<comp::Transform>(e);
+        CHECK(t.position.x == expected.x);
+        CHECK(t.position.y == expected.y);
+        CHECK(t.rotation == 1.5f);
+        REQUIRE(f.call("stop", f.hero).ok());
+        CHECK(f.world->registry().read<comp::Velocity>(e).value.x == 0.f);
+        const comp::Movement m = f.world->registry().read<comp::Movement>(e);
+        CHECK(m.goal.x == f.world->grid().clampPoint(Vec2{-100000.f, 3.f}).x);
+        CHECK_FALSE(m.hasGoal);
+        CHECK(m.maxSpeed == 1.f);
+        // 공간 색인은 다음 틱 (단계 4) 이 다시 만든다 — 한 틱 뒤 그 자리에서 찾힌다
+        f.world->tick();
+        const Vec2 now = f.world->registry().read<comp::Transform>(e).position;
+        bool found = false;
+        f.world->spatial().forEachInRadius(now, 0.5f,
+                                           [&](const world::SpatialEntry& x) { found = found || x.entity == e; });
+        CHECK(found);
+    }
+
+    TEST_CASE("엔진 쓰기 (M2-T2): 체력 0 은 엔진의 죽음 규칙 · 같은 스크립트 = 같은 WorldHash") {
+        {
+            Fixture f;
+            REQUIRE(f.call("kill", f.hero).ok());
+            f.world->tick();
+            f.world->tick();
+            const ecs::EntityId e = f.world->resolve(f.hero);
+            CHECK((!e.valid() || !f.world->registry().alive(e)));
+        }
+        const auto run = [] {
+            Fixture f;
+            REQUIRE(f.call("teleport", f.hero).ok());
+            REQUIRE(f.call("heal", f.hero).ok());
+            for (int i = 0; i < 5; ++i) {
+                f.world->tick();
+            }
+            REQUIRE(f.call("stop", f.hero).ok());
+            f.world->tick();
+            return f.world->worldHash().value();
+        };
+        CHECK(run() == run());
     }
 }

@@ -5,10 +5,12 @@
 // writeJson (reflect) 으로 꺼낸다 — 컴포넌트마다 손으로 쓴 복사 코드가 없다. 서버 Host (ScriptHost) 와 클라이언트 Host
 // (ClientScriptHost) 가 같이 쓴다.
 
+#include <span>
 #include <string>
 #include <vector>
 
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/world/WorldGrid.hpp"
 #include "script/api/EngineComponents.hpp"
 #include "script/vm/Interpreter.hpp"
 
@@ -21,6 +23,14 @@ namespace sbx::script {
 // 막는다
 [[nodiscard]] bool appendEngineFieldValues(const api::EngineComponentAccess& entry, const ecs::ComponentInfo& info,
                                            const void* component, std::vector<vm::Value>& out, std::string& error);
+
+// 칸 (표 필드 이름 순 — appendEngineFieldValues 와 같은 모양) 을 component 에 쓴다 (v0.5 M2-T2). 값마다 유한 · f32
+// 범위, ClampToWorld 필드는 clampToWorld 로 자른 뒤 (null 이면 자르지 않는다), 카탈로그의 patchJson 이 FieldMeta 범위를
+// 보고 원자적으로 적용한다 (엔진 명령과 같은 검사). 실패면 component 는 그대로 · false + error. 쓰기가 None 인 항목은
+// 늘 실패
+[[nodiscard]] bool applyEngineFieldValues(const api::EngineComponentAccess& entry, const ecs::ComponentInfo& info,
+                                          void* component, std::span<const vm::Value> slots,
+                                          const world::WorldGrid* clampToWorld, std::string& error);
 
 // 표 = 카탈로그: 항목마다 카탈로그에 내장 컴포넌트가 있고, stableId = fnv1a64(id), 필드가 그 종류로 읽힌다 (기본값으로
 // 만든 값에서), 클라이언트 읽기 (Both) 면 Replicated. 문제마다 한 줄 (비면 맞다)

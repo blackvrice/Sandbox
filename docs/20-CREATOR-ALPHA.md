@@ -145,6 +145,9 @@ M2-T1 ✅   읽기 (server · client) · d.ts · 지문 — 19 16.1. 표는 scri
            core/script 가 아니라 script/api 에 — 엔진 바인딩은 core/script/EngineComponentAccess). 들어간 것: Collider · Energy ·
            GameSession · Health · Movement · Transform · Velocity (Collider · Movement 는 복제하지 않아 서버만). 위 목록과 다른 점:
            core.tags · core.prefab · game.score 는 칸 종류 (비트 · 문자열 · 배열) 가 없어 [계획], game.owner 는 M2-T5
+M2-T2 ✅   쓰기 — Transform (position 은 경계 안으로 자름) · Velocity · Movement (goal 자름) · Health · Energy. Collider ·
+           GameSession 은 쓰기 None (엔진 관리). 범위 = 카탈로그 FieldMeta (밖이면 HostError — 그 호출의 쓰기 버림), 쓰기 버퍼 →
+           호출 끝 (스크립트 컴포넌트와 같은 길), 공간 색인 다음 틱, 체력 0 이하 엔진의 죽음 규칙 — 19 16.1
 ```
 
 ### 3.2 구조 변경 — 명령 버퍼
@@ -360,7 +363,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
 | M2-T1 ✅ | 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts | script/api/EngineComponents (표 — 검사기 · d.ts · 지문), core/script/EngineComponentAccess (바인딩 · 표 = 카탈로그 검사), script/lang (검사기 · 코드 생성), script/vm (검증기), script/sdk | EngineComponentAccess, kEngineComponents, appendEngineFieldValues, checkEngineAccessTable | — | test_engine_components (표 = 카탈로그, 검사기, 서버 · 클라이언트 읽기 = 엔진 값, d.ts · 지문), 보호 시험 (표에 없는 엔진 id) | 스크립트가 Transform · Health 를 읽는다 |
-| M2-T2 | 엔진 컴포넌트 쓰기 규칙 | core/script (쓰기 버퍼 → 엔진 쓰기 · 범위 · 공간 색인) | EngineWriteRule | M2-T1 | 경계 자름 · 범위 · 엔진 관리 거절, 두 월드 같은 해시 | 접근 표가 허락한 것만 쓴다 |
+| M2-T2 ✅ | 엔진 컴포넌트 쓰기 규칙 | script/api/EngineComponents (쓰기 · 필드 규칙), core/script/EngineComponentAccess (applyEngineFieldValues — patchJson · clampPoint), core/script/ScriptHost (write — 권한 먼저 · 버퍼), 검사기 · d.ts | EngineWrite · EngineFieldRule | M2-T1 | 경계 자름 · 범위 · NaN · 엔진 관리 거절 · 트랩이면 앞 쓰기도 버림 · read-your-writes · 체력 0 → 죽음 · 두 월드 같은 해시 (test_engine_components) | 접근 표가 허락한 것만 쓴다 |
 | M2-T3 | spawn · destroy · add · remove (ECB) · 상한 | core/script (StructuralBuffer), core/simulation (16b · 17d 적용) | StructuralOp | M2-T2 | 결정적 id · 순서, 트랩이면 버림, 상한 셈, 세이브 → 로드, 리플레이 | 스크립트가 개체를 만들고 지운다 — 골든 그대로 |
 | M2-T4 | random · near · time | core/script, foundation/random (흐름 seed) | — | M2-T1 | 같은 seed = 같은 수열, 시스템마다 다른 흐름, near = 공간 색인 결과 | — |
 | M2-T5 | 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) | core/game (owner), core/content (signals.json · V 규칙), core/command (PlayerSignal), network (15), core/simulation | PlayerSignal, ScriptEvent action · signal | M2-T3 | 위조 신호 거절 · 속도, 이벤트 순서, 골든 영향 측정 (3.6), net 수렴 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
