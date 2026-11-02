@@ -3,6 +3,9 @@
 > **문서 상태:** 설계 초안 v0.1 | **기준일:** 2026-10-13 | **대상:** Sandbox C++23 기반 게임 제작·배포 플랫폼
 > **범례:** [현행] GitHub `blackvrice/Sandbox`에서 확인한 구현, [신규] 새로 설계·구현할 기능, [결정 필요] 제품 정책 확정 전
 
+> **현행 계획 (2026-11-02)**: 이 초안 위의 실행 구조 · 콜백 · 보안 출시 기준은 [22-RUNTIME-V2](../../22-RUNTIME-V2.md) ·
+> [24-SECURITY-GATES](../../24-SECURITY-GATES.md) · [ADR-0086](../../adr/0086-runtime-architecture-v2.md) 이 정한다. 이 문서의 본문은 동결 (초안 그대로).
+
 ## 1. 핵심 결정
 **TypeScript 문법의 제한된 부분집합**을 공식 게임 스크립트 언어로 사용한다. TS Compiler API는 편집/빌드 시 Parsing·AST·Type Checking을 돕는다. 최종 실행은 JavaScript가 아니라 자체 Typed IR → Sandbox Bytecode `.sbc` → C++ SandboxVM. Node.js는 편집/빌드 체인에서 필요할 수 있지만 게임 플레이어에서 JavaScript 런타임을 필수로 하지 않는다.
 

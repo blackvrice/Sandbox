@@ -7,6 +7,49 @@
 
 ---
 
+## 2026-11-02 — Runtime v2 · 통합 로드맵 v0.5 ~ v1.0 · 보안 출시 기준 (문서 — 22 · 23 · 24, ADR-0086 ~ 0088)
+
+**무엇을**
+
+- 새 문서 22-RUNTIME-V2: 실행 도메인 9 개 (Server · Network · Client · Physics · Render Prep · Render Submit · Worker · Asset I/O ·
+  NetworkModule) 의 소유 · 공유 · 큐 · 주기 · 블로킹 · 동기화 · 종료 · 오류 · 예산 · OS 스레드 표, 규칙 T7 ~ T10, 콜백 표 (server ·
+  client · network · worker — 상태 · 버전), Capability 모델 (세 겹 검사), Client 고정 Tick · 예측, 물리 단계, 입력, NetworkModule ·
+  이벤트 · 비동기 계약, ECS 병렬화 순서, 상태 · 타이머, 렌더 · UI · 애니 · 오디오 · 에셋, 프로파일 · 권장 사양, 외부 엔진 비교 18 항목
+  (출처 7 · 확인 못 한 것 표시).
+- 새 문서 23-ROADMAP: 우선순위 P0 ~ P3, 14 칸 태스크 카드 (v0.5 의 M2-T5 (2) · (3) · (4) · M2-T7 · M2-T6), v0.6 ~ v0.9 의 RT-* 태스크,
+  v1.0 동결, DAG · 병렬 가능 · 미룰 순서.
+- 새 문서 24-SECURITY-GATES: 위협 표 (VM · ENet · NetworkModule SSRF · DNS 재바인딩 · TLS · 패키지 · 세이브 · 클라이언트 · 큐 · 운영 ·
+  Worker) 와 버전별 릴리스 차단.
+- ADR-0086 (Runtime v2), ADR-0087 (Client 고정 Tick · 예측 — 게임마다), ADR-0088 (배치 갱신 — 등급전 · 순위표 v0.8, ADR-0082 상태 줄에
+  "일부 Superseded").
+- 규범 문서에 [계획] 절: 01 5.4 · 03 2.x · 04 7.x · 07 5.x · 08 9.x · 19 26장. 20 10장 (M2-T5 를 네 조각, M2-T7 추가, 진행 차례),
+  18 (0 · 6 · 6.6 · 7장), 21 3 · 4장, ADR README, docs/README 지도, platform 초안 (architecture 01 · 04 · 05 · 11 · 12, roadmap v0_5 ~
+  v1_0) 머리에 현행 계획 링크 — 초안 본문은 그대로.
+
+**왜**
+
+- 통합 개발 계획 재설계 요청 — v0.6 ~ v1.0 의 콜백 · 물리 · 예측 · 외부 네트워크를 스레드 · Context 를 늘리지 않고 넣을 계약, 그리고
+  버전마다 보안 · 안정성 출시 기준. v0.5 목표 (Creator Alpha) 는 그대로, 호환이 걸린 이름 · 자리만 v0.5 (M2-T7) 에 고정.
+
+**결정 요지**
+
+- onTick 은 16b 그대로 (이미 물리 뒤) — server onPostPhysics 는 두지 않고 onPrePhysics (8b) 만 더한다.
+- ABI Context 는 둘 그대로, 단계는 호출 토큰 · Capability 로 — .sbc 형식 영향 없음.
+- 예측은 게임마다 (network.model), 자기 개체만, 권위 아님. 입력은 고정 Tick 프레임으로 묶는다.
+- NetworkModule 은 v0.8 서버만 · 응답은 명령 (리플레이) · SSRF · DNS 재바인딩 · TLS 차단이 릴리스 조건.
+
+**검증**
+
+- 문서만 — 코드 · 형식 · 번호 변경 없음. 새 · 고친 문서의 상대 링크가 실제 파일을 가리키는지 스크립트로 확인. Windows MSVC Debug
+  빌드 · 전체 ctest 74 / 74 통과 (59eebc9 와 같은 빌드 — 이 커밋은 문서만).
+
+**남은 일**
+
+- 다음 구현: v0.5 M2-T5 (2) onEvent "action" (23 1장 카드). 열린 결정: 리플레이 명령 종류 추가가 kReplayVersion 을 올리는지
+  (M2-T5 (3) 첫 단계), D-14 오디오 백엔드 (M2-T6), 권장 사양 기준 기기 등급 (v0.9).
+
+---
+
 ## 2026-11-02 — 문서 상태 동기화: 21 1장 · 18 (1.1 · 2 · 8장) · README — v0.5 M8 뒤의 실제 값
 
 **무엇을**

@@ -185,7 +185,7 @@ M2-T4 ✅   19 16.3. 위와 다른 점 — 흐름 = RandomService.stream(Purpose
 ```text
 ctx.players(): PlayerInfo[]  { id: i32, name: string, role, team: i32 }   // 접속 차례가 아니라 id 순 (결정적 — 서버 세션 표의 것)
 ctx.session: { state, tick, winner, teams } (읽기)
-주의        접속 · 이름은 리플레이에 기록된 것만 (재생 때 같은 값) — 플레이어 표 변경은 명령 스트림에 남는다 [계획 M2-T5 — 확인 필요]
+주의        접속 · 이름은 리플레이에 기록된 것만 (재생 때 같은 값) — 플레이어 표 변경은 명령 스트림에 남는다 [계획 M2-T5 (4) — 거기서 확인]
 ```
 
 ### 3.5 이벤트 (onEvent 의 새 종류)
@@ -361,7 +361,10 @@ M2 게임플레이 API ──┬──> M3 게임 UI ──> M4 다국어 · 접
 M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ─────────────┘
 ```
 
-진행 차례 (2026-11-02 다시 정함 — M8 을 넣으며): M2-T5 (1) ✅ → **M8-T1 ~ T9** → M2-T5 나머지 · M2-T6 → M3 → M4 · M5 → M6 → M7.
+진행 차례 (2026-11-02 다시 정함 — M8 을 넣으며): M2-T5 (1) ✅ → **M8-T1 ~ T9** ✅ → M2-T5 나머지 · M2-T6 → M3 → M4 · M5 → M6 → M7.
+갱신 (2026-11-02 — Runtime v2 계획, [23](23-ROADMAP.md) 1장 · [ADR-0086](adr/0086-runtime-architecture-v2.md)): M2-T5 나머지를 (2) action ·
+(3) PlayerSignal · 프로토콜 15 · (4) players · session · owner 로 나누고, M2-T6 앞에 **M2-T7 Runtime v2 계약 동결** (P0 — 콜백 이름
+예약 · Host capability 열 · network.model 자리) 을 끼운다: M2-T5 (2) → (3) → (4) → M2-T7 → M2-T6 → M3 … (나머지 차례 그대로).
 M8 을 M2-T5 의 나머지보다 먼저 하는 이유: M7 의 데모 (오목 판정 · 템플릿 AI) 와 M6-T2 템플릿이 컬렉션 · 콜백 · 그래프를 쓰고, M8 은
 네트워크 · 콘텐츠 형식을 건드리지 않아 (바이트코드 형식만) 다른 마일스톤과 파일이 겹치지 않는다. 충돌 · 의존:
 
@@ -392,8 +395,12 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T2 ✅ | 엔진 컴포넌트 쓰기 규칙 | script/api/EngineComponents (쓰기 · 필드 규칙), core/script/EngineComponentAccess (applyEngineFieldValues — patchJson · clampPoint), core/script/ScriptHost (write — 권한 먼저 · 버퍼), 검사기 · d.ts | EngineWrite · EngineFieldRule | M2-T1 | 경계 자름 · 범위 · NaN · 엔진 관리 거절 · 트랩이면 앞 쓰기도 버림 · read-your-writes · 체력 0 → 죽음 · 두 월드 같은 해시 (test_engine_components) | 접근 표가 허락한 것만 쓴다 |
 | M2-T3 ✅ | spawn · destroy · add · remove · 상한 | script/api (Host 표 · ABI EntityOrNull), script/vm · lang (상자 결과 · 검증), core/script/ScriptHost (호출 버퍼 · 새 개체 핸들 · 상한), core/simulation (ScriptStructural 큐 · 16b · 17d 끝 적용) | ScriptStructuralOp · ScriptStructuralBatch · ScriptStructuralStats | M2-T2 | 이 호출의 새 개체 = 핸들만, 상한 64 · 1,024, 없는 Prefab · 경계 밖 · NaN, 이미 없는 대상 · 이미 붙은 것, 트랩이면 버림, saveId = 부른 차례, 틱 안의 시스템 · 같은 WorldHash (test_script_structural) | 스크립트가 개체를 만들고 지운다 — 골든 그대로 |
 | M2-T4 ✅ | random · near · time | core/random (Purpose::Script), core/script/ScriptHost (흐름 · near), script/api (Host 표) | — | M2-T1 | 같은 월드 · 틱 · 시스템 = 같은 수열 · 다른 시스템과 무관 · 이어 씀 · 틱마다 다름, randomInt 범위, near = 색인 · saveId 순 · 거르기 · 연료, 틱 안의 시스템 = 같은 해시 (test_script_random) | — |
-| M2-T5 | 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) | core/game (owner), core/content (signals.json · V 규칙), core/command (PlayerSignal), network (15), core/simulation | PlayerSignal, ScriptEvent action · signal | M2-T3 | 위조 신호 거절 · 속도, 이벤트 순서, 골든 영향 측정 (3.6), net 수렴 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
-| M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent | M2-T5 | 입력 → send → 서버 이벤트 (로컬 세션), 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
+| M2-T5 (1) ✅ | game.owner 엔진 컴포넌트 · 접근 표 · 골든 영향 측정 | core/components, script/api/EngineComponents | — | M2-T3 | 골든 · 리플레이 해시 그대로 (3.6) | kSimVersion 4 유지 |
+| M2-T5 (2) | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
+| M2-T5 (3) | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
+| M2-T5 (4) | ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 | core/game (플레이어 표 — 기록된 것만), core/script/ScriptHost, script/api · sdk | PlayerInfo · SessionInfo | M2-T5 (3) | id 순 · 재생 같은 값 · 골든 측정 (바뀌면 kSimVersion 5) | 스크립트가 "누구의 돌" 을 안다 |
+| M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
+| M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
 
 ### Phase 3 — 게임 UI (M3)
 

@@ -911,3 +911,17 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 연료        내장이 원소 · 비교 · 이동 · 해시 탐색 · 방문마다 낸다, 콜백은 자기 명령 연료 — 내장으로 연료를 피할 수 없다
 트랩        내장 안의 트랩 (콜백 트랩 · 연료 · 메모리) = 그 호출의 트랩 — 쓰기 버림 (ADR-0064)
 ```
+
+## 26. 다음 콜백 · Capability [계획] (Runtime v2 — [22](22-RUNTIME-V2.md) 3장, [ADR-0086](adr/0086-runtime-architecture-v2.md))
+
+```text
+지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다
+[계획 v0.5]   M2-T7: 새 콜백 이름 예약 (onPrePhysics · onAction · onLateUpdate · onRender · client onStart · onStop · onEvent · onTick —
+              지금 쓰면 진단), Host 표 capability 열 (지문 변경 · kHostApiVersion 1), 매니페스트 network.model ("snapshot" 만)
+[계획 v0.6]   server onPrePhysics (8b) · client 수명주기 · onAction · onLateUpdate · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
+              실행 HostError (호출 토큰). 타이머 (ctx.after · every → onEvent "timer") · defineState
+[계획 v0.7]   client onTick (고정 Tick — predicted 게임만, ADR-0087)
+[계획 v0.8]   onEvent "response" · "socket" (NetworkModule — 서버만)
+Context 타입   콜백마다 TS 타입 하나 (ServerPrePhysicsContext · ClientActionContext · ClientRenderContext · ClientTickContext) =
+              Capability 조합. ABI 타입은 ServerContext · ClientContext 둘 그대로 — .sbc 형식 영향 없음
+```

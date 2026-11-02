@@ -3,6 +3,9 @@
 > **문서 상태:** 설계 초안 v0.1 | **기준일:** 2026-10-13 | **대상:** Sandbox C++23 기반 게임 제작·배포 플랫폼
 > **범례:** [현행] GitHub `blackvrice/Sandbox`에서 확인한 구현, [신규] 새로 설계·구현할 기능, [결정 필요] 제품 정책 확정 전
 
+> **현행 계획 (2026-11-02)**: 이 초안 위의 실행 구조 · 콜백 · 보안 출시 기준은 [22-RUNTIME-V2](../../22-RUNTIME-V2.md) ·
+> [24-SECURITY-GATES](../../24-SECURITY-GATES.md) · [ADR-0086](../../adr/0086-runtime-architecture-v2.md) 이 정한다. 이 문서의 본문은 동결 (초안 그대로).
+
 ## 1. 현행 기반 [현행]
 2026-10-13 GitHub 기준: SandboxFoundation → SandboxCore(ECS/Simulation) → SandboxNetwork, 별도의 SandboxRender 및 SandboxEditor, 헤드리스 SandboxServer, SandboxClient가 있다. `ComponentCatalog`/Reflection, Sparse Set, 30 TPS, 서버 권위 `SimCommand`, WorldHash/Replay, ENet 및 Delta Replication, Phase 12 멀티플레이 Editor, Windows DX12, 초기 Vulkan RHI가 존재한다. **SandboxScript, Hub, 범용 패키지 Registry, 상용 호스팅은 미구현 설계 대상**이다. 현재 문서 `docs/00-OVERVIEW.md`의 초기 비목표(스크립트, UGC 공유 등)는 제품 범위 변경 ADR로 갱신해야 한다.
 

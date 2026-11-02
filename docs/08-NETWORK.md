@@ -484,6 +484,13 @@ SandboxClient: 프레임마다 SpriteExtraction 이 renderTick 으로 위치를 
 
 ---
 
+### 9.x 클라이언트 예측 (게임마다 선택) [계획 v0.7]
+
+기본은 이 장의 보간 그대로 (network.model = "snapshot"). "predicted" 게임은 자기 개체만 Client 고정 Tick 에서 예측하고 스냅숏의 ack 로
+맞춘다 (다시 돌리는 틱 상한 · 오차 계측). 프로토콜은 PlayerSignal (15, v0.5) 다음 번호에서 InputFrame · ack 를 더한다.
+[22](22-RUNTIME-V2.md) 4장, [ADR-0087](adr/0087-client-fixed-tick-prediction-opt-in.md). 외부 서비스용 NetworkModule (v0.8 — 서버만) 은 이
+Transport 와 다른 모듈 · 스레드다 (22 7장).
+
 ## 10. 데이터 흐름
 
 ```text

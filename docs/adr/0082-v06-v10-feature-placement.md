@@ -1,6 +1,6 @@
 # ADR-0082. v0.6 ~ v1.0 신규 기능 배치 — 신원 · 신뢰할 서버가 필요한 기능은 그 뒤에, 버전마다 핵심 목표는 그대로
 
-- 상태: **Accepted** · 날짜: 2026-10-28
+- 상태: **Accepted — 일부 Superseded** (3 의 등급전 · 순위표 버전 → [ADR-0088](0088-v06-v10-placement-update-runtime-v2.md)) · 날짜: 2026-10-28
 - 관련: [21-PLATFORM-FEATURES](../21-PLATFORM-FEATURES.md) 2 · 4장, [18-PLATFORM](../18-PLATFORM.md) 6장, [ADR-0078](0078-v05-creator-alpha-scope-expansion.md),
   초안 [roadmap/v0_6 ~ v1_0](../platform/roadmap/)
 

@@ -145,6 +145,12 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 | I4   | 텍스트 입력은 KeyDown과 별개 이벤트 (IME 조합 지원)                                                                                                                                          |
 | I5   | Gamepad: 인터페이스만 Phase 6에 정의 (`platform/common/Gamepad.hpp` — IGamepadSource, GamepadState). 구현은 콘텐츠가 요구할 때 (Windows XInput→GameInput, Linux evdev, macOS GameController) |
 
+### 5.x 입력의 다음 단계 [계획]
+
+v0.5 M2-T6: client 스크립트 입력 읽기 (pressed · released · held · axis — 프레임 입력을 행동 이벤트 큐로, 잃음 없음) · send. v0.6: onAction ·
+입력 Context 스택 (메뉴 > UI > 게임) · 소비 · 게임패드 · Hold · Double Tap · Combo. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
+키 이벤트마다 패킷을 보내지 않는다. [22-RUNTIME-V2](22-RUNTIME-V2.md) 6장, [ADR-0087](adr/0087-client-fixed-tick-prediction-opt-in.md).
+
 ## 6. 플랫폼별 구현
 
 ### 6.1 Windows (Phase 6 — 구현: `platform/windows/Win32Window.cpp`, `Win32Platform.cpp`)

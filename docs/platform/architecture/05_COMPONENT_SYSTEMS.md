@@ -3,6 +3,9 @@
 > **문서 상태:** 설계 초안 v0.1 | **기준일:** 2026-10-13 | **대상:** Sandbox C++23 기반 게임 제작·배포 플랫폼
 > **범례:** [현행] GitHub `blackvrice/Sandbox`에서 확인한 구현, [신규] 새로 설계·구현할 기능, [결정 필요] 제품 정책 확정 전
 
+> **현행 계획 (2026-11-02)**: 이 초안 위의 실행 구조 · 콜백 · 보안 출시 기준은 [22-RUNTIME-V2](../../22-RUNTIME-V2.md) ·
+> [24-SECURITY-GATES](../../24-SECURITY-GATES.md) · [ADR-0086](../../adr/0086-runtime-architecture-v2.md) 이 정한다. 이 문서의 본문은 동결 (초안 그대로).
+
 ## 1. 기본 원칙
 Native와 사용자 정의 Component는 저장 방식은 달라도 **동일한 Component Schema/Registry 계약**을 사용한다. 기본 Component는 C++ 실제 타입, Custom Component는 로드 시 등록되는 Schema 기반 동적 저장소로 구현한다. ECS Component는 데이터 구성이므로 OOP 클래스 상속을 요구하지 않는다.
 

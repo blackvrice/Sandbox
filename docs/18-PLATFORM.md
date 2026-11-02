@@ -13,7 +13,9 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T5 나머지 — action · signal 이벤트 · PlayerSignal (signals.json · 프로토콜 15) · ctx.players · session (M8 끝 — 20 10장 진행 차례)
+다음     v0.5 M2-T5 (2) — server onEvent "action" → (3) PlayerSignal · signals.json · 프로토콜 15 → (4) ctx.players · session → M2-T7
+         Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
+계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -242,14 +244,21 @@ v0.5 Creator Alpha    템플릿 3종 · 패키지 빌드 · 설치 UX · 오류 
                       + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 · 키 설정 기반 · 충돌 로그 · 안전 모드 (6.6, ADR-0078)
 v0.6 Hub              계정 · 레지스트리 · 불변 릴리스 · GitHub 연동 (D-06 저장소 경계)
                       + 게임 검색 · 목록 · 프로필 · 패키지 · 게임 신고 · 차단 · 패키지 분석 · UI 시각 편집 · 물리 · 경로 API
+                      + Runtime v2: onPrePhysics (8b) · PhysicsCommand · layer · mask · 충돌 · 트리거 이벤트 · client 수명주기 · onAction ·
+                        onRender (Draw) · 타이머 · defineState · Capability 실행 검사 (23 2장)
 v0.7 Multiplayer      보안 전송 (D-07) · Directory · Room · JoinTicket · 자체 서버 등록 · 무료 세션 (D-08)
-                      + 플레이어 데이터 (서버 API) · 친구 · 초대 · 파티 · 등급전 · 순위표 · 원격 관전 · 방 안 신고 · 음소거
+                      + 플레이어 데이터 (서버 API) · 친구 · 초대 · 파티 · 원격 관전 · 방 안 신고 · 음소거 · 공식 세션 결과 기록
+                      + Runtime v2: Client 고정 Tick · InputFrame · 예측 · 맞춤 (게임마다 선택 — ADR-0087, 23 3장)
 v0.8 Marketplace       Entitlement · 결제 대행 · 정산 장부 · 상시 호스팅 (D-09) — 테스트 모드로만
-                      + 업적 · 통계 API · 플레이 분석 (동의) · 추천 · 리플레이 공유
+                      + 업적 · 통계 API · 플레이 분석 (동의) · 추천 · 리플레이 공유 · 등급전 · 레이팅 · 순위표 (v0.7 에서 옮김 — ADR-0088)
+                      + Runtime v2: NetworkModule (서버만 — 24 X1 ~ X5) · Substep · CCD · 재질 · 에셋 스트리밍 (23 4장)
 v0.9 Business          팀 ACL · CI/CD · 승인 · 감사 (D-10)
                       + 서명 자동 업데이트 · 되돌리기 · 운영 콘솔 · 도구 다국어
+                      + 성능 회귀 CI · 권장 사양 자동 분석 · (측정 조건부) ECS 단계 안 병렬 · 스크립트 Worker (23 5장)
 v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 감사 · 데모 3종 + 접근성 점검 · 게임플레이 API 동결
-배치 근거   21 2 · 4장, ADR-0082 (계정 · 신뢰할 서버가 필요한 기능은 그 뒤에). JIT/AOT 는 v1.x 검토 (ADR-0081)
+                      + 콜백 · Capability · Context 동결, 플랫폼 매트릭스 판정 (실제로 돈 환경만 "지원")
+배치 근거   21 2 · 4장, ADR-0082 · ADR-0088 (계정 · 신뢰할 서버가 필요한 기능은 그 뒤에, 등급전 · 순위표 v0.8). JIT/AOT 는 v1.x 검토
+            (ADR-0081). 작업 단위 · 의존 · 출시 기준은 23 · 24
 ```
 
 ### 6.1 열린 결정 (초안 04 3장 + 이 저장소)
@@ -495,9 +504,11 @@ M2 게임플레이 API
         EntityOrNull) (19 16.2)
   T4 ✅ ctx.random · randomInt (Purpose::Script — 시스템 id 마다 흐름, 한 틱 이어 씀) · ctx.near · nearWith (단계 4 색인 ·
         saveId 순) · ctx.time (19 16.3)
-  T5 ◐ (1) game.owner (엔진 컴포넌트 · 접근 표 Owner — 골든 그대로 쟀다, kSimVersion 4). 남음: action · signal 이벤트 ·
-        PlayerSignal (signals.json · 프로토콜 15) · ctx.players · session · 행동 · spawn 이 owner 를 적기
-  T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14)
+  T5 ◐ (1) ✅ game.owner (엔진 컴포넌트 · 접근 표 Owner — 골든 그대로 쟀다, kSimVersion 4). 남음 (조각마다 커밋):
+        (2) [계획] onEvent "action"  (3) [계획] PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal"
+        (4) [계획] ctx.players · session · 행동 · 신호 · spawn 이 owner 를 적기
+  T7 [계획] Runtime v2 계약 동결 — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model (23 1장 · ADR-0086 6)
+  T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) — T7 뒤 (Capability 를 단 함수로)
 M3 게임 UI
   T1 [계획] ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1~U8 · sbx check
   T2 [계획] 배치 엔진 (앵커 · 크기 · 쌓기 · 목록 — 헤드리스 골든)
@@ -536,7 +547,7 @@ M8 스크립트 표준 라이브러리 (ADR-0085 — 지원 매트릭스 19 25�
         단계 8 제출 · 다음 틱 결과), ctx.raycast · overlap (core.collider 원) (19 25.7)
   T9 ✅ 예제 samples/stdlib_tour (인벤토리 · RTS AI · 보드 AI — sbx test · tsc) · 벤치 script.stdlib (14 7.15) ·
         안내 docs/tutorials/stdlib.md
-순서      M1 ∥ M2 → M8 → M2-T5 나머지 · T6 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프 · 진행 차례). 늦으면 미루는
+순서      M1 ∥ M2 → M8 → M2-T5 (2) · (3) · (4) → T7 → T6 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프 · 진행 차례). 늦으면 미루는
           순서는 ADR-0078 6 (M8-T7 · T8 의 raycast 가 먼저 미뤄진다)
 ```
 
@@ -603,6 +614,8 @@ v0.4 M6-T1 ✅ 13 5.1 (패키지 데모), 15 (실행), 17, README
 v0.4 M6-T2 ✅ releases/v0.4.0, 14 7.14 (패키지 명령 시간), 18 (0 · 1 · 4장 · 6.4 · 6.5 · 7 · 8장), README · docs/README (버전 표)
 v0.5 계획 ✅  20 (요구 · 설계 · 계획 · 시험 · 완료 기준), 21 (구현 상태 · 기능 12 종 · 배치), 18 (0 · 1장 · 6 · 6.1 · 6.6), ADR-0078~0083
 v0.5 M1~M7    태스크마다 20 의 해당 장 + 규범 문서 (02 · 03 · 07 · 08 · 09 · 10 · 11 · 13 · 14 · 15 · 19) — 20 10장의 표
+Runtime v2 계획 ✅  22 (설계) · 23 (로드맵) · 24 (보안 출시 기준), ADR-0086 ~ 0088, 01 5.4 · 03 2.x · 04 7.x · 07 5.x · 08 9.x · 19 26장 ([계획]),
+              18 (0 · 6 · 6.6), 20 10장, 21 3 · 4장, platform 초안 머리 (현행 계획 링크)
 ```
 
 ## 8. 기준선 (2026-10-19, master f4a72c1)

@@ -225,6 +225,13 @@ Sim/Main → Worker     Job (값 캡처)
 
 ---
 
+### 5.4 Runtime v2 — 논리 실행 도메인 [계획]
+
+T1 ~ T6 은 그대로다. 그 위에 실행 도메인 아홉 (Server · Network · Client · Physics Execution · Render Preparation · Render Submission ·
+Worker · Asset I/O · NetworkModule) 을 소유 데이터 · 큐 · 주기 · 동기화 지점으로 정의하고 OS 스레드는 늘리지 않는다 — 규칙 T7 ~ T10
+(복사본만 넘김 · 비결정적 결과는 명령으로 · 큐마다 순서 키 하나 · 새 스레드는 측정 + ADR). 표 · 상세는 [22-RUNTIME-V2](22-RUNTIME-V2.md) 2장,
+결정은 [ADR-0086](adr/0086-runtime-architecture-v2.md). 예정된 새 스레드: NetworkModule I/O 하나 (v0.8 서버), Render (5.1 의 6 ms 조건).
+
 ## 6. 데이터 흐름 요약
 
 ```text
