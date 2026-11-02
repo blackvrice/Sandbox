@@ -36,6 +36,8 @@ std::string_view abiTypeName(AbiType t) noexcept {
         return "Entity[]";
     case AbiType::ClientContext:
         return "ClientContext";
+    case AbiType::EntityOrNull:
+        return "Entity | null";
     }
     return "?";
 }

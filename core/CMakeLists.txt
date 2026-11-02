@@ -11,6 +11,7 @@ add_library(SandboxCore STATIC
     simulation/SystemScheduler.hpp
     simulation/SystemScheduler.cpp
     simulation/SimulationWorld.hpp
+    simulation/ScriptStructural.hpp
     simulation/SimulationWorld.cpp
     simulation/SimulationTriggers.cpp
     simulation/SimulationScripts.cpp

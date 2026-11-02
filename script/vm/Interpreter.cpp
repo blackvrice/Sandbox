@@ -706,6 +706,18 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
                     }
                 }
                 R[in.a] = out;
+            } else if (im.result == api::AbiType::EntityOrNull) {
+                // Entity | null — 레지스터는 상자 (null 이면 null, 아니면 핸들을 담은 상자 — BOX 와 같은 모양)
+                Value out = Value::null();
+                if (!hr.value.isNull()) {
+                    Object o;
+                    o.kind = Object::Kind::Box;
+                    o.slots.push_back(hr.value);
+                    if (!alloc(std::move(o), kObjectHeaderBytes + 8, out)) {
+                        return trap(Trap::OutOfMemory, "아레나 예산을 넘는다");
+                    }
+                }
+                R[in.a] = out;
             } else if (im.result == api::AbiType::EntityList) {
                 if (hr.values.size() > m_limits.maxArrayLength) {
                     return trap(Trap::OutOfMemory, "배열 길이 예산을 넘는다");

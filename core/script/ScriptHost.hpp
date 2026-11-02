@@ -18,11 +18,13 @@
 #include <array>
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/simulation/ScriptStructural.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "script/vm/Interpreter.hpp"
 
@@ -86,13 +88,19 @@ public:
     static constexpr u32 kMaxLogLinesPerTick = 256;   // 틱마다 ctx.log 줄 상한 (넘으면 버리고 센다 — ADR-0064)
     static constexpr usize kMaxQueryEntities = 65536; // 질의 하나의 개체 상한 (넘으면 HostError)
     static constexpr usize kMaxPendingWrites = 65536; // 호출 하나의 쓰기 (같은 개체 · 컴포넌트는 하나로 친다)
+    // 구조 변경 상한 (v0.5 M2-T3, ADR-0080 3) — 넘으면 그 연산을 버리고 센다 (트랩 아님 — spawn 은 null)
+    static constexpr u32 kMaxSpawnsPerCall = 64;
+    static constexpr u32 kMaxDestroysPerCall = 256;
+    static constexpr u32 kMaxAddRemovesPerCall = 256;
+    static constexpr u32 kMaxSpawnsPerTick = 1024; // 월드 하나의 모든 스크립트 호출 합
 
     ScriptHost();
 
     // 호출 하나를 연다 — 돌려준 값을 ctx 인자로 넘긴다. script = 로그에 붙는 이름 ("scripts/a.ts:tick").
     // world 가 없으면 컴포넌트 항목은 HostError. world 는 endCall 까지 살아야 하고, 그동안 구조를 바꾸지 않는다
     vm::Value beginCall(sim::Tick tick, std::string script, sim::SimulationWorld* world = nullptr);
-    // commit = 호출이 트랩 없이 끝났다 → 쓰기 버퍼를 쓴 차례대로 적용. false 면 버린다 (ADR-0057 5)
+    // commit = 호출이 트랩 없이 끝났다 → 쓰기 버퍼를 쓴 차례대로 적용, 구조 변경은 월드 큐로 (v0.5 M2-T3 — 단계 끝에
+    // 적용). false 면 둘 다 버린다 (ADR-0057 5)
     void endCall(bool commit);
 
     vm::HostResult call(const api::HostFunction& fn, std::span<const vm::HostArg> args) override;
@@ -112,6 +120,11 @@ public:
     vm::HostResult has(std::span<const vm::HostArg> args);
     vm::HostResult query(std::span<const vm::HostArg> args);
     vm::HostResult write(std::span<const vm::HostArg> args);
+    // 구조 변경 (v0.5 M2-T3)
+    vm::HostResult spawn(std::span<const vm::HostArg> args);
+    vm::HostResult destroy(std::span<const vm::HostArg> args);
+    vm::HostResult add(std::span<const vm::HostArg> args);
+    vm::HostResult remove(std::span<const vm::HostArg> args);
 
 private:
     struct PendingWrite {
@@ -125,6 +138,12 @@ private:
     const ecs::ComponentInfo* componentOf(vm::Value ref, std::string& error) const;
     // 지금 값 (쓰기 버퍼 → 풀). 없으면 nullptr
     [[nodiscard]] const std::byte* currentBytes(ecs::EntityId e, const ecs::ComponentInfo& info) const;
+    // 스크립트 컴포넌트 값의 칸 → 배치 바이트 (범위 · 유한 · 핸들 검사). 문제면 그 설명
+    [[nodiscard]] std::optional<std::string> encodeDynamic(const ecs::ComponentInfo& info, std::byte* bytes,
+                                                           std::span<const vm::Value> v) const;
+    // 이 호출에서 spawn 한 개체의 핸들 (읽기 null · add · destroy 의 대상) — 번호는 1 부터. 다른 핸들이면 0
+    [[nodiscard]] vm::Value newEntityHandle(u32 newIndex) const;
+    [[nodiscard]] u32 newIndexOf(vm::Value handle) const;
 
     std::vector<const HostBinding*> m_byHostIndex; // api::kHostFunctions 자리 → 구현
     u64 m_nextToken = 1;
@@ -140,6 +159,12 @@ private:
     std::map<u64, u32> m_handleOf;                  // EntityId.raw → 자리 (찾기만)
     std::vector<PendingWrite> m_writes;             // 쓴 차례
     std::map<std::pair<u64, u64>, usize> m_writeOf; // (EntityId.raw, stableId) → m_writes 자리 (찾기만)
+    // 구조 변경 (v0.5 M2-T3) — 이 호출의 것
+    sim::ScriptStructuralBatch m_ops;
+    u32 m_newEntities = 0; // spawn 한 수 (newIndex 의 끝)
+    u32 m_destroysThisCall = 0;
+    u32 m_addRemovesThisCall = 0;
+    u64 m_droppedThisCall = 0; // 상한 · 잘못된 연산으로 버린 수 (commit 이면 월드 통계에)
 };
 
 } // namespace sbx::script

@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T3: 스크립트의 구조 변경 — spawn · destroy · add · remove · 상한
+
+**무엇을**
+
+- Host 표 +4 (서버, 효과 Structural): ctx.spawn(prefab, x, y): Entity | null · destroy(e) · add(e, Comp, value) · remove(e, Comp).
+  ABI EntityOrNull 을 끝에 더함 (검사기 = nullable Entity, 레지스터 = 상자, 인터프리터가 결과를 상자로, 검증기 · 로더 범위).
+- core/script/ScriptHost: 호출마다 ScriptStructuralBatch 에 모은다. 같은 호출의 새 개체는 표지 0x5E01 핸들 (read null · has false ·
+  write HostError · add · destroy · remove 의 대상). 상한 (호출마다 spawn 64 · destroy 256 · add/remove 256, 틱마다 spawn 1,024) ·
+  없는 Prefab · 경계 밖 · NaN · 죽은 핸들 · 엔진 컴포넌트는 버리고 센다. add 의 값은 write 와 같은 검사 (encodeDynamic — write 에서
+  나눔). endCall(true) 가 월드 큐로, 트랩이면 버림.
+- core/simulation: ScriptStructural.hpp (Op · Batch · Stats), SimulationWorld::queueScriptStructural · applyScriptStructural — 16b 는
+  17 의 Native ECB · Prefab 생성 다음, 17d 는 그 끝에 넣은 차례로 (instantiate · registry.destroy · emplaceDefaultRaw + 값 · pool
+  remove → syncIdentityLogs — 정체성 = 만든 차례). 통계 scriptStructuralStats (세이브 · 해시 밖).
+- 검사기: add · remove 에 엔진 컴포넌트 = S404 (붙이기 권한이 표에 없다 — [계획]).
+- 지문 0x873d… → 0x02fafbb0c03cb29b (kHostApiVersion 1 그대로), sandbox.d.ts 셋 다시 만듦.
+- 시험: test_script_structural 6. 문서: 19 16.2, 20 (3.2 · M2-T3), 03 2장, 04 6장, 18, 17, 13.
+
+**왜**
+
+- 20 3.2 · ADR-0080 2 · 3 — 보드 · 수집 · 생성 규칙 (오목의 돌 놓기). 20 과 다른 점: spawn 은 (x, y) — Vec2 ABI 를 새로 두지
+  않으려고, add 의 값은 필수, 엔진 컴포넌트 붙이기는 [계획].
+
+**검증**
+
+- 스크립트 suite 111 케이스, Windows MSVC Debug 전체 ctest 73/73 · SandboxTests 664 케이스, check_includes 0 위반.
+  kSimVersion 그대로 — 스크립트 없는 골든 그대로 (det_* 통과).
+
+**남은 일**
+
+- M2-T4 random · near · time. 엔진 컴포넌트 붙이기 권한 (표에 attach), spawn 결과의 세이브 → 로드 · 리플레이 시험은 M5 (리플레이
+  뷰어) 와 함께.
+
+---
+
 ## 2026-11-02 — v0.5 M2-T2: 엔진 컴포넌트 쓰기 규칙
 
 **무엇을**

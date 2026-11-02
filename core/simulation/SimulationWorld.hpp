@@ -9,7 +9,8 @@
 //   3  Structural①      명령이 만든 엔티티에 정체성(saveId, netId) 부여 — 명령마다 즉시
 //   4  SpatialIndex     재구성
 //   5~16 Systems        (일시정지 중에는 건너뜀)
-//   16b Scripts         스크립트 시스템 onTick (팩 순서, id) — 콘텐츠에 시스템이 있을 때만
+//   16b Scripts         스크립트 시스템 onTick (팩 순서, id) — 콘텐츠에 시스템이 있을 때만. 구조 변경은 17 의 Native
+//                       ECB · Prefab 생성 다음에 (v0.5 M2-T3)
 //   (core/script/ScriptSystemAdapter,
 //                       v0.3 M4-T1, ADR-0062)
 //   17 Structural②      System ECB 를 실행 순서대로 적용 + 정체성 부여
@@ -45,6 +46,7 @@
 #include "core/script/ScriptClock.hpp"
 #include "core/simulation/EventStream.hpp"
 #include "core/simulation/Intent.hpp"
+#include "core/simulation/ScriptStructural.hpp"
 #include "core/simulation/SimulationClock.hpp"
 #include "core/simulation/SystemScheduler.hpp"
 #include "core/world/SpatialIndex.hpp"
@@ -186,6 +188,17 @@ public:
     // 않는다
     void setScriptClock(script::ScriptClock scriptClock) noexcept;
 
+    // 스크립트의 구조 변경 (v0.5 M2-T3 — ScriptStructural.hpp). ScriptHost::endCall(true) 가 호출 하나의 것을 넣고,
+    // 월드는 단계 16b · 17d 끝에 넣은 차례로 적용한다. 틱마다 spawn 상한을 위해 이번 틱에 넣은 spawn 수를 센다
+    void queueScriptStructural(ScriptStructuralBatch batch);
+    [[nodiscard]] u32 scriptSpawnsThisTick() const noexcept;
+    void countScriptStructuralDropped(u64 n) noexcept { m_scriptStructuralStats.dropped += n; }
+    [[nodiscard]] const ScriptStructuralStats& scriptStructuralStats() const noexcept {
+        return m_scriptStructuralStats;
+    }
+    // 시험 · 도구용: 큐를 지금 적용한다 (tick 안에서는 단계가 부른다)
+    void applyScriptStructural();
+
 private:
     struct SlotIdentity {
         ecs::EntityId entity{};
@@ -236,6 +249,11 @@ private:
     Expected<std::shared_ptr<const content::ContentDatabase>>
     buildOverlaid(const content::ContentOverlay& overlay) const;
     void applySpawns();
+
+    std::vector<ScriptStructuralBatch> m_scriptOps; // 적용 전 (넣은 차례)
+    ScriptStructuralStats m_scriptStructuralStats;
+    Tick m_scriptSpawnTick = 0; // m_scriptSpawns 를 센 틱
+    u32 m_scriptSpawns = 0;
 
     const ecs::ComponentCatalog& m_catalog;
     const content::ContentDatabase& m_baseContent;

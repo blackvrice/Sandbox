@@ -37,6 +37,7 @@ enum class AbiType : u8 {
     ComponentDataOrNull, // T | null
     EntityList,          // Entity[] (질의 결과 — saveId 오름차순)
     ClientContext,       // 클라이언트 콜백의 ctx (v0.3 M5-T3 — 값은 .sbc 에 남는다: 끝에만 더한다)
+    EntityOrNull,        // Entity | null (v0.5 M2-T3 — ctx.spawn 의 결과, 레지스터는 상자)
 };
 
 enum class HostDomain : u8 { Server, Client };
@@ -136,6 +137,58 @@ inline constexpr std::array kHostFunctions{
                  HostEffect::Write,
                  16,
                  "컴포넌트 값을 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖 · 없는 컴포넌트는 트랩)"},
+    // 구조 변경 (v0.5 M2-T3, ADR-0080 2 · 3) — 호출마다 모아 시스템 차례로 단계 16b · 17d 끝에 적용. 상한 · 잘못된
+    // 연산은 트랩 없이 버리고 센다 (spawn 은 null)
+    HostFunction{
+        "ctx.spawn",
+        AbiType::ServerContext,
+        "spawn",
+        false,
+        AbiType::EntityOrNull,
+        {AbiType::String, AbiType::Number, AbiType::Number},
+        {"prefab", "x", "y"},
+        3,
+        HostDomain::Server,
+        HostEffect::Structural,
+        32,
+        "Prefab 으로 새 개체 (이 틱 끝에 생긴다 — 이 호출에서는 핸들만: 읽기 null · add · destroy 가 된다). 없는 "
+        "Prefab · 경계 밖 · 상한이면 null"},
+    HostFunction{"ctx.destroy",
+                 AbiType::ServerContext,
+                 "destroy",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Entity},
+                 {"entity"},
+                 1,
+                 HostDomain::Server,
+                 HostEffect::Structural,
+                 8,
+                 "개체를 지운다 (이 틱 끝에)"},
+    HostFunction{"ctx.add",
+                 AbiType::ServerContext,
+                 "add",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Entity, AbiType::Component, AbiType::ComponentData},
+                 {"entity", "component", "value"},
+                 3,
+                 HostDomain::Server,
+                 HostEffect::Structural,
+                 16,
+                 "스크립트 컴포넌트를 붙인다 (이 틱 끝에 — 이미 있으면 버린다, 엔진 컴포넌트는 [계획])"},
+    HostFunction{"ctx.remove",
+                 AbiType::ServerContext,
+                 "remove",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Entity, AbiType::Component},
+                 {"entity", "component"},
+                 2,
+                 HostDomain::Server,
+                 HostEffect::Structural,
+                 8,
+                 "스크립트 컴포넌트를 뗀다 (이 틱 끝에)"},
     HostFunction{"client.tick",
                  AbiType::ClientContext,
                  "tick",

@@ -25,6 +25,8 @@ using api::AbiType;
 constexpr u64 kCtxTag = 0x5C78'0000'0000'0000ull;
 // 개체 핸들: 위쪽 16 비트 표지 + 호출 번호 아래 16 비트 + 자리 + 1 (0 = null 과 섞이지 않게)
 constexpr u64 kEntityTag = 0x5E00'0000'0000'0000ull;
+// 이 호출에서 spawn 한 개체의 핸들 (v0.5 M2-T3): 다른 표지 + 호출 번호 아래 16 비트 + 새 개체 번호
+constexpr u64 kNewEntityTag = 0x5E01'0000'0000'0000ull;
 
 vm::HostResult fail(std::string message) {
     return {false, {}, std::move(message), {}, 0};
@@ -51,6 +53,18 @@ vm::HostResult ctxQuery(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxWrite(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.write(args);
 }
+vm::HostResult ctxSpawn(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.spawn(args);
+}
+vm::HostResult ctxDestroy(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.destroy(args);
+}
+vm::HostResult ctxAdd(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.add(args);
+}
+vm::HostResult ctxRemove(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.remove(args);
+}
 
 // 표 (script/api/HostApi) 의 항목마다 하나 — 순서는 표와 같지 않아도 된다 (id 로 찾는다)
 constexpr HostBinding kBindings[] = {
@@ -68,6 +82,18 @@ constexpr HostBinding kBindings[] = {
      {AbiType::ServerContext, AbiType::Entity, AbiType::Component, AbiType::ComponentData},
      4,
      &ctxWrite},
+    {"ctx.spawn",
+     AbiType::EntityOrNull,
+     {AbiType::ServerContext, AbiType::String, AbiType::Number, AbiType::Number},
+     4,
+     &ctxSpawn},
+    {"ctx.destroy", AbiType::Void, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxDestroy},
+    {"ctx.add",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Component, AbiType::ComponentData},
+     4,
+     &ctxAdd},
+    {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
 };
 
 template <class F>
@@ -152,6 +178,11 @@ vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::Simulat
     m_handleOf.clear();
     m_writes.clear();
     m_writeOf.clear();
+    m_ops = {};
+    m_newEntities = 0;
+    m_destroysThisCall = 0;
+    m_addRemovesThisCall = 0;
+    m_droppedThisCall = 0;
     return vm::Value::opaque(m_token);
 }
 
@@ -166,7 +197,11 @@ void ScriptHost::endCall(bool commit) {
                 std::memcpy(raw, w.bytes.data(), w.bytes.size());
             }
         }
+        // 구조 변경은 월드 큐로 — 단계 끝에 넣은 차례로 적용 (v0.5 M2-T3). 트랩이면 아래에서 버린다
+        m_world->countScriptStructuralDropped(m_droppedThisCall);
+        m_world->queueScriptStructural(std::move(m_ops));
     }
+    m_ops = {};
     m_token = 0;
     m_world = nullptr;
     m_handles.clear();
@@ -279,6 +314,9 @@ vm::HostResult ScriptHost::read(std::span<const vm::HostArg> args) {
     if (info == nullptr) {
         return fail(std::move(error));
     }
+    if (newIndexOf(args[1].value) != 0) {
+        return {true, vm::Value::null(), {}, {}, 0}; // 이 호출에서 spawn 한 개체 — 이 틱 끝에 생긴다 (v0.5 M2-T3)
+    }
     const ecs::EntityId e = entityOf(args[1].value);
     if (!e.valid()) {
         return fail("개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)");
@@ -308,6 +346,9 @@ vm::HostResult ScriptHost::has(std::span<const vm::HostArg> args) {
     const ecs::ComponentInfo* info = componentOf(args[2].value, error);
     if (info == nullptr) {
         return fail(std::move(error));
+    }
+    if (newIndexOf(args[1].value) != 0) {
+        return {true, vm::Value::boolean(false), {}, {}, 0}; // 이 호출에서 spawn 한 개체 (v0.5 M2-T3)
     }
     const ecs::EntityId e = entityOf(args[1].value);
     if (!e.valid()) {
@@ -350,11 +391,101 @@ vm::HostResult ScriptHost::query(std::span<const vm::HostArg> args) {
     return r;
 }
 
+// 스크립트 컴포넌트 값 (칸 — 필드 이름 순) 을 bytes (배치 그대로) 에 쓴다. 범위 · 유한 · f32 · 개체 핸들 검사 — 문제면
+// 그 설명 (write · add 가 같이 쓴다, v0.5 M2-T3 에 write 에서 나눔)
+std::optional<std::string> ScriptHost::encodeDynamic(const ecs::ComponentInfo& info, std::byte* bytes,
+                                                     std::span<const vm::Value> v) const {
+    const ecs::DynamicComponentLayout& layout = *info.dynamicLayout;
+    usize k = 0;
+    auto next = [&]() -> std::optional<vm::Value> {
+        if (k >= v.size()) {
+            return std::nullopt;
+        }
+        return v[k++];
+    };
+    auto inRange = [](const ecs::DynamicComponentLayout::Field& f, f64 x) {
+        return !f.meta.hasRange || (x >= f.meta.min && x <= f.meta.max);
+    };
+    for (const ecs::DynamicComponentLayout::Field& f : layout.fields()) {
+        std::byte* p = bytes + f.offset;
+        const std::string where = std::format("{}.{}", info.name, f.name);
+        const auto a = next();
+        if (!a) {
+            return (std::format("{}: 값의 칸이 모자란다", info.name));
+        }
+        switch (f.kind) {
+        case ecs::DynamicFieldKind::I32:
+        case ecs::DynamicFieldKind::Enum: {
+            const i32 x = a->asI32();
+            if (!inRange(f, static_cast<f64>(x))) {
+                return (std::format("{} = {} 이 범위 [{}, {}] 밖이다", where, x, f.meta.min, f.meta.max));
+            }
+            store(p, x);
+            break;
+        }
+        case ecs::DynamicFieldKind::F32:
+        case ecs::DynamicFieldKind::F64: {
+            const f64 x = a->asF64();
+            const bool f32Kind = f.kind == ecs::DynamicFieldKind::F32;
+            if (f32Kind ? !fitsF32(x) : !std::isfinite(x)) {
+                return (std::format("{} = {} — 유한한 {} 값이 아니다", where, x, f32Kind ? "f32" : "f64"));
+            }
+            const f64 stored = f32Kind ? static_cast<f64>(static_cast<f32>(x)) : x; // f32 는 한 번 반올림 (ADR-0059 2)
+            if (!inRange(f, stored)) {
+                return (std::format("{} = {} 이 범위 [{}, {}] 밖이다", where, stored, f.meta.min, f.meta.max));
+            }
+            if (f32Kind) {
+                store(p, static_cast<f32>(stored));
+            } else {
+                store(p, stored);
+            }
+            break;
+        }
+        case ecs::DynamicFieldKind::Bool:
+            store(p, a->asBool());
+            break;
+        case ecs::DynamicFieldKind::Vec2: {
+            const auto b = next();
+            if (!b) {
+                return (std::format("{}: 값의 칸이 모자란다", info.name));
+            }
+            const f64 x = a->asF64();
+            const f64 y = b->asF64();
+            if (!fitsF32(x) || !fitsF32(y)) {
+                return (std::format("{} = ({}, {}) — 유한한 f32 값이 아니다", where, x, y));
+            }
+            store(p, Vec2{static_cast<f32>(x), static_cast<f32>(y)});
+            break;
+        }
+        case ecs::DynamicFieldKind::EntityRef: {
+            SaveId id = kInvalidSaveId;
+            if (!a->isNull()) {
+                const ecs::EntityId target = entityOf(*a);
+                const auto* pid = target.valid() ? m_world->registry().tryRead<comp::Persistence>(target) : nullptr;
+                if (pid == nullptr) {
+                    return (std::format("{}: 개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)", where));
+                }
+                id = pid->saveId;
+            }
+            store(p, id);
+            break;
+        }
+        }
+    }
+    if (k != v.size()) {
+        return (std::format("{}: 값의 칸이 남는다 (모양이 컴포넌트와 다르다)", info.name));
+    }
+    return std::nullopt;
+}
+
 vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     std::string error;
     const ecs::ComponentInfo* info = componentOf(args[2].value, error);
     if (info == nullptr) {
         return fail(std::move(error));
+    }
+    if (newIndexOf(args[1].value) != 0) {
+        return fail("이 호출에서 spawn 한 개체는 아직 없다 — 값은 ctx.add 로 (v0.5 M2-T3)");
     }
     const ecs::EntityId e = entityOf(args[1].value);
     if (!e.valid()) {
@@ -393,90 +524,141 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
         }
         return buffer(std::move(bytes));
     }
-    const ecs::DynamicComponentLayout& layout = *info->dynamicLayout;
-    std::vector<std::byte> bytes(current, current + layout.stride());
-    const std::span<const vm::Value> v = args[3].fields;
-    usize k = 0;
-    auto next = [&]() -> std::optional<vm::Value> {
-        if (k >= v.size()) {
-            return std::nullopt;
-        }
-        return v[k++];
-    };
-    auto inRange = [](const ecs::DynamicComponentLayout::Field& f, f64 x) {
-        return !f.meta.hasRange || (x >= f.meta.min && x <= f.meta.max);
-    };
-    for (const ecs::DynamicComponentLayout::Field& f : layout.fields()) {
-        std::byte* p = bytes.data() + f.offset;
-        const std::string where = std::format("{}.{}", info->name, f.name);
-        const auto a = next();
-        if (!a) {
-            return fail(std::format("{}: 값의 칸이 모자란다", info->name));
-        }
-        switch (f.kind) {
-        case ecs::DynamicFieldKind::I32:
-        case ecs::DynamicFieldKind::Enum: {
-            const i32 x = a->asI32();
-            if (!inRange(f, static_cast<f64>(x))) {
-                return fail(std::format("{} = {} 이 범위 [{}, {}] 밖이다", where, x, f.meta.min, f.meta.max));
-            }
-            store(p, x);
-            break;
-        }
-        case ecs::DynamicFieldKind::F32:
-        case ecs::DynamicFieldKind::F64: {
-            const f64 x = a->asF64();
-            const bool f32Kind = f.kind == ecs::DynamicFieldKind::F32;
-            if (f32Kind ? !fitsF32(x) : !std::isfinite(x)) {
-                return fail(std::format("{} = {} — 유한한 {} 값이 아니다", where, x, f32Kind ? "f32" : "f64"));
-            }
-            const f64 stored = f32Kind ? static_cast<f64>(static_cast<f32>(x)) : x; // f32 는 한 번 반올림 (ADR-0059 2)
-            if (!inRange(f, stored)) {
-                return fail(std::format("{} = {} 이 범위 [{}, {}] 밖이다", where, stored, f.meta.min, f.meta.max));
-            }
-            if (f32Kind) {
-                store(p, static_cast<f32>(stored));
-            } else {
-                store(p, stored);
-            }
-            break;
-        }
-        case ecs::DynamicFieldKind::Bool:
-            store(p, a->asBool());
-            break;
-        case ecs::DynamicFieldKind::Vec2: {
-            const auto b = next();
-            if (!b) {
-                return fail(std::format("{}: 값의 칸이 모자란다", info->name));
-            }
-            const f64 x = a->asF64();
-            const f64 y = b->asF64();
-            if (!fitsF32(x) || !fitsF32(y)) {
-                return fail(std::format("{} = ({}, {}) — 유한한 f32 값이 아니다", where, x, y));
-            }
-            store(p, Vec2{static_cast<f32>(x), static_cast<f32>(y)});
-            break;
-        }
-        case ecs::DynamicFieldKind::EntityRef: {
-            SaveId id = kInvalidSaveId;
-            if (!a->isNull()) {
-                const ecs::EntityId target = entityOf(*a);
-                const auto* pid = target.valid() ? m_world->registry().tryRead<comp::Persistence>(target) : nullptr;
-                if (pid == nullptr) {
-                    return fail(
-                        std::format("{}: 개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)", where));
-                }
-                id = pid->saveId;
-            }
-            store(p, id);
-            break;
-        }
-        }
-    }
-    if (k != v.size()) {
-        return fail(std::format("{}: 값의 칸이 남는다 (모양이 컴포넌트와 다르다)", info->name));
+    std::vector<std::byte> bytes(current, current + info->dynamicLayout->stride());
+    if (auto bad = encodeDynamic(*info, bytes.data(), args[3].fields)) {
+        return fail(std::move(*bad));
     }
     return buffer(std::move(bytes));
+}
+
+// ---- 구조 변경 (v0.5 M2-T3, ADR-0080 2 · 3)
+// -------------------------------------------------------------------------- 호출마다 m_ops 에 모으고 endCall(true) 가
+// 월드 큐로 넘긴다. 상한 · 잘못된 연산은 트랩 없이 버리고 센다 (spawn 은 null). 값의 문제 (add 의 범위 · 유한) 는 write
+// 와 같이 HostError
+
+vm::Value ScriptHost::newEntityHandle(u32 newIndex) const {
+    return vm::Value::opaque(kNewEntityTag | ((m_token & 0xFFFFull) << 32) | newIndex);
+}
+
+u32 ScriptHost::newIndexOf(vm::Value handle) const {
+    const u64 h = handle.bits;
+    if ((h & 0xFFFF'0000'0000'0000ull) != kNewEntityTag || ((h >> 32) & 0xFFFFull) != (m_token & 0xFFFFull)) {
+        return 0;
+    }
+    const u64 index = h & 0xFFFF'FFFFull;
+    return index >= 1 && index <= m_newEntities ? static_cast<u32>(index) : 0u;
+}
+
+vm::HostResult ScriptHost::spawn(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const auto drop = [&] {
+        ++m_droppedThisCall;
+        return vm::HostResult{true, vm::Value::null(), {}, {}, 0};
+    };
+    if (m_newEntities >= kMaxSpawnsPerCall || m_world->scriptSpawnsThisTick() + m_newEntities >= kMaxSpawnsPerTick) {
+        return drop();
+    }
+    const content::Prefab* prefab = m_world->content().findPrefab(args[1].text);
+    const f64 x = args[2].value.asF64();
+    const f64 y = args[3].value.asF64();
+    if (prefab == nullptr || !std::isfinite(x) || !std::isfinite(y)) {
+        return drop();
+    }
+    const Vec2 pos{static_cast<f32>(x), static_cast<f32>(y)};
+    if (!m_world->grid().containsPoint(pos)) {
+        return drop(); // 경계 밖 — 자르지 않는다 (만들 자리를 잘못 고른 것)
+    }
+    const u32 index = ++m_newEntities;
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::Spawn;
+    op.newIndex = index;
+    op.prefab = prefab;
+    op.position = pos;
+    m_ops.ops.push_back(std::move(op));
+    return {true, newEntityHandle(index), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::destroy(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    if (m_destroysThisCall >= kMaxDestroysPerCall) {
+        ++m_droppedThisCall;
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::Destroy;
+    op.newIndex = newIndexOf(args[1].value);
+    if (op.newIndex == 0) {
+        op.target = entityOf(args[1].value);
+        if (!op.target.valid()) {
+            ++m_droppedThisCall; // 지난 호출 · 위조 · 이미 죽은 개체 — 버리고 센다
+            return {};
+        }
+    }
+    ++m_destroysThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
+}
+
+vm::HostResult ScriptHost::add(std::span<const vm::HostArg> args) {
+    std::string error;
+    const ecs::ComponentInfo* info = componentOf(args[2].value, error);
+    if (info == nullptr) {
+        return fail(std::move(error));
+    }
+    if (info->dynamicLayout == nullptr || m_addRemovesThisCall >= kMaxAddRemovesPerCall) {
+        ++m_droppedThisCall; // 엔진 컴포넌트 붙이기는 [계획] (검사기 S404) · 상한
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::Add;
+    op.newIndex = newIndexOf(args[1].value);
+    if (op.newIndex == 0) {
+        op.target = entityOf(args[1].value);
+        if (!op.target.valid()) {
+            ++m_droppedThisCall;
+            return {};
+        }
+    }
+    // 기본값 칸 위에 값 — 모든 필드를 넘긴다 (T 통째)
+    const ecs::DynamicComponentLayout& layout = *info->dynamicLayout;
+    op.bytes.assign(layout.defaults(), layout.defaults() + layout.stride());
+    if (auto bad = encodeDynamic(*info, op.bytes.data(), args[3].fields)) {
+        return fail(std::move(*bad));
+    }
+    op.component = info;
+    ++m_addRemovesThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
+}
+
+vm::HostResult ScriptHost::remove(std::span<const vm::HostArg> args) {
+    std::string error;
+    const ecs::ComponentInfo* info = componentOf(args[2].value, error);
+    if (info == nullptr) {
+        return fail(std::move(error));
+    }
+    if (info->dynamicLayout == nullptr || m_addRemovesThisCall >= kMaxAddRemovesPerCall) {
+        ++m_droppedThisCall; // 엔진 컴포넌트 떼기는 [계획] · 상한
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::Remove;
+    op.newIndex = newIndexOf(args[1].value);
+    if (op.newIndex == 0) {
+        op.target = entityOf(args[1].value);
+        if (!op.target.valid()) {
+            ++m_droppedThisCall;
+            return {};
+        }
+    }
+    op.component = info;
+    ++m_addRemovesThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
 }
 
 } // namespace sbx::script

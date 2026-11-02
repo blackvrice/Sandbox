@@ -513,6 +513,32 @@ export function hp(ctx: ServerContext, e: Entity): number {
            따로 필요하다. 붙이기 · 떼기 · spawn · destroy (M2-T3)
 ```
 
+### 16.2 구조 변경 (v0.5 M2-T3 — Host 표 · `core/script/ScriptHost` · `core/simulation/ScriptStructural`, ADR-0080 2 · 3)
+
+```ts
+import { ServerContext, Entity, defineComponent, field } from "sandbox";
+export const Mark = defineComponent({ id: "t.mark", fields: { n: field.i32() } });
+export function make(ctx: ServerContext): void {
+  const e = ctx.spawn("t.rock", 1.5, 2.5);   // Entity | null — 이 틱 끝에 생긴다
+  if (e !== null) { ctx.add(e, Mark, { n: 7 }); }
+}
+```
+
+```text
+함수       ctx.spawn(prefab, x, y): Entity | null · ctx.destroy(e) · ctx.add(e, Comp, value: T) · ctx.remove(e, Comp) — 서버만
+           (효과 Structural). spawn 의 결과 ABI = EntityOrNull (새 값 — .sbc 의 ABI 값은 끝에 더한다, 레지스터는 상자)
+버퍼       호출마다 모은다 (부른 차례). 트랩 없이 끝나면 월드 큐로, 트랩이면 버린다. 월드는 16b (17 의 Native ECB · Prefab
+           생성 다음) 와 17d 끝에 넣은 차례로 적용 — 새 개체의 saveId · netId 가 그 차례 (결정적)
+새 개체    같은 호출에서 spawn 한 개체는 핸들만 (표지 0x5E01): read → null, has → false, write → HostError, add · destroy ·
+           remove 는 그 개체를 가리킨다 (적용 때 만든 개체로). 다음 호출부터는 보통 개체
+add        스크립트 컴포넌트만 — 기본값 칸 위에 T 를 쓴다 (write 와 같은 검사 — 범위 · 유한 · 핸들은 HostError). 엔진 컴포넌트
+           붙이기 · 떼기는 S404 [계획] (접근 표에 붙이기 권한이 없다)
+상한       호출마다 spawn 64 · destroy 256 · add/remove 256, 월드 틱마다 spawn 1,024 (넣은 것 + 이 호출의 것)
+버림       상한 · 없는 Prefab · 경계 밖 · NaN 위치 (spawn → null) · 지난 · 위조 · 죽은 핸들 (destroy · add · remove) · 엔진
+           컴포넌트 (실행 때) · 적용 때 대상이 없거나 이미 붙어 있음 — 트랩 없이 세기만 (SimulationWorld::scriptStructuralStats
+           — spawned · destroyed · added · removed · dropped, 세이브 · 해시 밖)
+```
+
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts

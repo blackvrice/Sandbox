@@ -3043,7 +3043,13 @@ private:
                 // 엔진 컴포넌트 (v0.5 M2-T1 · T2): 쓰기는 접근 표가 허락한 것만, 클라이언트는 복제하는 것만 읽는다
                 if (const u32 index = T().info(rt).index; (index & kEngineComponentFlag) != 0) {
                     const api::EngineComponentAccess& e = api::kEngineComponents[index & ~kEngineComponentFlag];
-                    if (h.effect == api::HostEffect::Write && e.write != api::EngineWrite::Server) {
+                    if (h.effect == api::HostEffect::Structural) {
+                        // 붙이기 · 떼기 (v0.5 M2-T3) 는 스크립트 컴포넌트만 — 엔진 컴포넌트는 접근 표에 권한이 없다
+                        err("S404", refArg,
+                            std::format("엔진 컴포넌트 {} ({}) 는 붙이거나 떼지 않는다 — 스크립트 컴포넌트만 ([계획])",
+                                        e.scriptName, e.id));
+                        data = TypeTable::kError;
+                    } else if (h.effect == api::HostEffect::Write && e.write != api::EngineWrite::Server) {
                         err("S404", refArg,
                             std::format("엔진 컴포넌트 {} ({}) 는 스크립트가 쓰지 않는다 — 엔진 관리 (접근 표)",
                                         e.scriptName, e.id));
@@ -3106,6 +3112,8 @@ private:
             return TypeTable::kError;
         case api::AbiType::EntityList:
             return T().arrayOf(T().opaque(api::AbiType::Entity));
+        case api::AbiType::EntityOrNull:
+            return T().nullableOf(T().opaque(api::AbiType::Entity));
         }
         return TypeTable::kError;
     }

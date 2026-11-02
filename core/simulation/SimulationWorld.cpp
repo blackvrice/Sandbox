@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <limits>
 #include <set>
@@ -154,12 +155,14 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
 
     // --- 16b Scripts -----------------------------------------------------------
     // 스크립트 시스템의 onTick — Native System 이 쓴 값을 보고, 쓰기는 호출마다 바로 적용 (17b · 17c 가 같은 틱에
-    // 본다). 구조 변경은 [계획] ECB 로 17 에서. 시스템이 없는 콘텐츠는 없다 (골든 그대로)
+    // 본다). 구조 변경 (spawn · destroy · add · remove — v0.5 M2-T3) 은 Native ECB · Prefab 생성 다음에 넣은 차례로.
+    // 시스템이 없는 콘텐츠는 없다 (골든 그대로)
     if (m_scriptSystems) {
         m_scriptSystems->run(*this, now);
     }
     m_scheduler.applyBuffers(m_registry, [this] { syncIdentityLogs(); });
-    applySpawns(); // Prefab 생성 — ECB 다음, (parent saveId, 순서) 정렬
+    applySpawns();           // Prefab 생성 — ECB 다음, (parent saveId, 순서) 정렬
+    applyScriptStructural(); // 스크립트 구조 변경 — 넣은 차례 (시스템 차례 · 호출 순)
 
     // --- 17b GameRules ---------------------------------------------------------
     // 이번 틱의 생성 · 파괴가 반영된 뒤 세션 전이 (세션이 없으면 아무것도 안 한다)
@@ -174,6 +177,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     // 스크립트 onStart · onEvent · onStop — 그 틱의 죽음 · 생성 · 영역 · 점수 · 세션 전이가 다 끝난 뒤 (ADR-0063)
     if (m_scriptSystems && m_scriptSystems->hasCallbacks()) {
         runScriptCallbacks(now);
+        applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
     }
 }
 
@@ -484,6 +488,80 @@ void SimulationWorld::applySpawns() {
                       e.error().describe());
         }
     }
+}
+
+void SimulationWorld::queueScriptStructural(ScriptStructuralBatch batch) {
+    if (batch.ops.empty()) {
+        return;
+    }
+    if (m_scriptSpawnTick != m_clock.tick()) {
+        m_scriptSpawnTick = m_clock.tick();
+        m_scriptSpawns = 0;
+    }
+    for (const ScriptStructuralOp& op : batch.ops) {
+        m_scriptSpawns += op.kind == ScriptStructuralOp::Kind::Spawn ? 1u : 0u;
+    }
+    m_scriptOps.push_back(std::move(batch));
+}
+
+u32 SimulationWorld::scriptSpawnsThisTick() const noexcept {
+    return m_scriptSpawnTick == m_clock.tick() ? m_scriptSpawns : 0u;
+}
+
+void SimulationWorld::applyScriptStructural() {
+    if (m_scriptOps.empty()) {
+        return;
+    }
+    std::vector<ScriptStructuralBatch> batches = std::move(m_scriptOps);
+    m_scriptOps.clear();
+    ScriptStructuralStats& s = m_scriptStructuralStats;
+    const Tick tick = m_registry.currentTick();
+    for (ScriptStructuralBatch& b : batches) {
+        std::vector<ecs::EntityId> made; // newIndex - 1 → 만든 개체 (실패면 null)
+        for (ScriptStructuralOp& op : b.ops) {
+            const ecs::EntityId target = op.newIndex == 0             ? op.target
+                                         : op.newIndex <= made.size() ? made[op.newIndex - 1]
+                                                                      : ecs::kNullEntity;
+            const bool alive = target.valid() && m_registry.alive(target);
+            switch (op.kind) {
+            case ScriptStructuralOp::Kind::Spawn: {
+                auto e = instantiate(op.prefab, op.position, {});
+                made.push_back(e ? *e : ecs::kNullEntity);
+                ++(e ? s.spawned : s.dropped);
+                break;
+            }
+            case ScriptStructuralOp::Kind::Destroy:
+                if (alive) {
+                    m_registry.destroy(target);
+                    ++s.destroyed;
+                } else {
+                    ++s.dropped; // 이미 없다 (같은 틱에 다른 시스템이 지웠다)
+                }
+                break;
+            case ScriptStructuralOp::Kind::Add: {
+                ecs::ComponentPoolBase& pool = poolFor(*op.component);
+                if (alive && !pool.contains(target)) {
+                    void* raw = pool.emplaceDefaultRaw(target, tick);
+                    std::memcpy(raw, op.bytes.data(), op.bytes.size());
+                    ++s.added;
+                } else {
+                    ++s.dropped; // 개체가 없거나 이미 붙어 있다
+                }
+                break;
+            }
+            case ScriptStructuralOp::Kind::Remove: {
+                ecs::ComponentPoolBase* pool = m_registry.poolByStableId(op.component->stableId);
+                if (alive && pool != nullptr && pool->remove(target)) {
+                    ++s.removed;
+                } else {
+                    ++s.dropped;
+                }
+                break;
+            }
+            }
+        }
+    }
+    syncIdentityLogs(); // 만든 차례로 saveId · netId, 파괴 이벤트
 }
 
 SaveId SimulationWorld::saveIdOfNet(NetEntityId id) const noexcept {

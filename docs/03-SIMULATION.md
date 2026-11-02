@@ -166,6 +166,9 @@ System 이 아니라 SimulationWorld 의 단계 — Native System (5 ~ 16) 이 �
 onTick 한 번씩 부른다. 호출의 쓰기 (ctx.write) 는 그 호출이 끝나면 바로 적용되어 뒤 시스템 · 17b · 17c 가 같은 틱에 본다. 트랩이면
 그 호출의 쓰기만 버리고 다음 시스템으로. System 이 도는 틱에만 (일시정지 · 세션 Lobby · Finished 의 편집 단계에는 없다). 시스템이
 없는 콘텐츠에서는 아무것도 하지 않는다 → 골든 · kSimVersion 그대로. 저장할 스크립트 상태가 없다 (주기는 틱 번호로만).
+구조 변경 (v0.5 M2-T3 — ctx.spawn · destroy · add · remove, 19 16.2) 은 호출마다 모아 월드 큐로 → 17 의 Native ECB · Prefab 생성
+다음에 넣은 차례 (시스템 차례 · 호출 순) 로 적용 — 새 개체의 saveId · netId 가 그 차례. 17d 의 것은 17d 끝에 (그 생성 · 파괴
+이벤트는 다음 틱의 콜백이 보지 않는다 — 이벤트는 틱 안에서만).
 
 `17d Script callbacks` (v0.3 M4-T2, [ADR-0063](adr/0063-script-callbacks-start-stop-event-stage-17d-same-tick.md), `SimulationScripts.cpp`):
 17c 다음 — 그 틱의 명령 · System · ECB · Prefab 생성 · 게임 규칙 · 트리거가 다 끝난 자리. System 이 도는 틱에만. 차례: ① onStart

@@ -136,8 +136,8 @@ TEST_SUITE("script") {
         CHECK(api::findHostFunction("ctx.nope") == nullptr);
         // 지문은 표가 바뀔 때만 바뀐다 — 바꾸면 이 값과 kHostApiVersion 규칙 (ADR-0057 3) 을 같은 커밋에서
         CHECK(api::hostApiFingerprint() == api::hostApiFingerprint());
-        CHECK(api::hostApiFingerprint() ==
-              0x873db25651702f35ull); // v0.5 M2-T2: 엔진 컴포넌트 접근 표 · 쓰기 (ADR-0080 9)
+        // v0.5 M2-T3: 구조 변경 (spawn · destroy · add · remove — ADR-0080 9)
+        CHECK(api::hostApiFingerprint() == 0x02fafbb0c03cb29bull);
     }
 
     TEST_CASE("import 경로 풀기") {

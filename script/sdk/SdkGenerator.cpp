@@ -38,6 +38,8 @@ std::string_view tsType(api::AbiType t) {
         return "Entity[]";
     case api::AbiType::ClientContext:
         return "ClientContext";
+    case api::AbiType::EntityOrNull:
+        return "Entity | null";
     }
     return "never";
 }

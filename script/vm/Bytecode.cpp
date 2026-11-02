@@ -131,7 +131,7 @@ bool readAbi(Reader& r, api::AbiType& out) {
     if (!r.u8v(v)) {
         return false;
     }
-    if (v > static_cast<u8>(api::AbiType::ClientContext)) {
+    if (v > static_cast<u8>(api::AbiType::EntityOrNull)) { // 끝 값 — 새 ABI 는 끝에 더한다
         return false;
     }
     out = static_cast<api::AbiType>(v);
