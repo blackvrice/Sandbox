@@ -51,6 +51,12 @@ enum class IntrinsicPat : u8 {
     Coll,    // 컬렉션 (허락된 종류만)
     NewColl, // 결과: 아무 컬렉션 (종류 · 원소는 결과 레지스터의 타입)
     OptF64,  // 결과: number | undefined (Box(f64))
+    // v0.5 M8-T6 — 알고리즘 · 수학 · vec2
+    ArrayNumeric,   // i32 · f64 원소의 배열
+    ArrayOrderable, // i32 · f64 · string 원소의 배열 (< 순서)
+    ArrayKey,       // i32 · f64 · bool · string 원소의 배열 (Set 의 키와 같은 같음)
+    F64Array,       // 결과: f64 배열
+    Vec2,           // 구조체 { x: f64, y: f64 } (필드 이름 순 — x · y)
 };
 
 struct Intrinsic {
@@ -131,6 +137,46 @@ enum class IntrinsicId : u16 {
     BitSetClear,
     BitSetTest,
     BitSetCount,
+    AlgoSortNumbers, // v0.5 M8-T6 — 배열 알고리즘 (받는 쪽 = 배열)
+    AlgoBinarySearch,
+    AlgoLowerBound,
+    AlgoUpperBound,
+    AlgoSum,
+    AlgoAverage,
+    AlgoMinOf,
+    AlgoMaxOf,
+    AlgoCountIf,
+    AlgoPrefixSum,
+    AlgoRotate,
+    AlgoUnique,
+    AlgoPartition,
+    AlgoShuffle,
+    MathClamp, // 여기부터 값 내장 (받는 쪽이 없다 — 수학 · vec2)
+    MathClampI,
+    MathLerp,
+    MathInverseLerp,
+    MathSmoothstep,
+    MathSmootherstep,
+    MathRepeat,
+    MathPingPong,
+    MathApproximately,
+    MathDegToRad,
+    MathRadToDeg,
+    V2Add,
+    V2Sub,
+    V2Mul,
+    V2Div,
+    V2Dot,
+    V2Cross,
+    V2Length,
+    V2LengthSq,
+    V2Distance,
+    V2DistanceSq,
+    V2Normalize,
+    V2Lerp,
+    V2Angle,
+    V2Rotate,
+    V2Reflect,
 };
 
 // "sandbox" 컬렉션의 종류 (bc::TypeDesc::sub — 순서는 .sbc 에 남는다, 더하기만)
@@ -210,6 +256,46 @@ inline constexpr Intrinsic kIntrinsics[] = {
     {"BitSet.clear", 2, {detail::P::Coll, detail::P::I32}, detail::P::None, 1},
     {"BitSet.test", 2, {detail::P::Coll, detail::P::I32}, detail::P::Bool, 1},
     {"BitSet.count", 1, {detail::P::Coll}, detail::P::I32, 2},
+    {"sortNumbers", 1, {detail::P::ArrayNumeric}, detail::P::Same0, 2},
+    {"binarySearch", 2, {detail::P::ArrayOrderable, detail::P::Elem}, detail::P::I32, 2},
+    {"lowerBound", 2, {detail::P::ArrayOrderable, detail::P::Elem}, detail::P::I32, 2},
+    {"upperBound", 2, {detail::P::ArrayOrderable, detail::P::Elem}, detail::P::I32, 2},
+    {"sum", 1, {detail::P::ArrayNumeric}, detail::P::F64, 2},
+    {"average", 1, {detail::P::ArrayNumeric}, detail::P::F64, 2},
+    {"minOf", 1, {detail::P::ArrayNumeric}, detail::P::OptElem, 2},
+    {"maxOf", 1, {detail::P::ArrayNumeric}, detail::P::OptElem, 2},
+    {"countIf", 2, {detail::P::Array, detail::P::FnPred}, detail::P::I32, 2},
+    {"prefixSum", 1, {detail::P::ArrayNumeric}, detail::P::F64Array, 2},
+    {"rotate", 2, {detail::P::Array, detail::P::I32}, detail::P::Same0, 2},
+    {"unique", 1, {detail::P::ArrayKey}, detail::P::Same0, 2},
+    {"partition", 2, {detail::P::Array, detail::P::FnPred}, detail::P::I32, 2},
+    {"shuffle", 2, {detail::P::Array, detail::P::I32}, detail::P::Same0, 2},
+    {"clamp", 3, {detail::P::F64, detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"clamp(i32)", 3, {detail::P::I32, detail::P::I32, detail::P::I32}, detail::P::I32, 1},
+    {"lerp", 3, {detail::P::F64, detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"inverseLerp", 3, {detail::P::F64, detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"smoothstep", 3, {detail::P::F64, detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"smootherstep", 3, {detail::P::F64, detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"repeat", 2, {detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"pingPong", 2, {detail::P::F64, detail::P::F64}, detail::P::F64, 1},
+    {"approximately", 2, {detail::P::F64, detail::P::F64}, detail::P::Bool, 1},
+    {"degToRad", 1, {detail::P::F64}, detail::P::F64, 1},
+    {"radToDeg", 1, {detail::P::F64}, detail::P::F64, 1},
+    {"vec2.add", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::Vec2, 1},
+    {"vec2.sub", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::Vec2, 1},
+    {"vec2.mul", 2, {detail::P::Vec2, detail::P::F64}, detail::P::Vec2, 1},
+    {"vec2.div", 2, {detail::P::Vec2, detail::P::F64}, detail::P::Vec2, 1},
+    {"vec2.dot", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.cross", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.length", 1, {detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.lengthSq", 1, {detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.distance", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.distanceSq", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.normalize", 1, {detail::P::Vec2}, detail::P::Vec2, 1},
+    {"vec2.lerp", 3, {detail::P::Vec2, detail::P::Vec2, detail::P::F64}, detail::P::Vec2, 1},
+    {"vec2.angle", 1, {detail::P::Vec2}, detail::P::F64, 1},
+    {"vec2.rotate", 2, {detail::P::Vec2, detail::P::F64}, detail::P::Vec2, 1},
+    {"vec2.reflect", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::Vec2, 1},
 };
 
 // 컬렉션 내장의 받는 쪽으로 허락된 종류 (비트 1 << CollKind) — 검증기가 본다. 0 = 컬렉션 내장이 아니다
@@ -253,9 +339,13 @@ inline constexpr Intrinsic kIntrinsics[] = {
     return id >= static_cast<u16>(IntrinsicId::CollNew);
 }
 
-// Map · Set 내장인가 (받는 쪽이 배열이 아니다 — VM 이 따로 나눈다)
+// Map · Set · "sandbox" 컬렉션 내장인가 (받는 쪽이 배열이 아니다 — VM 이 따로 나눈다)
 [[nodiscard]] constexpr bool isCollectionIntrinsic(u16 id) noexcept {
-    return id >= static_cast<u16>(IntrinsicId::MapNew);
+    return id >= static_cast<u16>(IntrinsicId::MapNew) && id <= static_cast<u16>(IntrinsicId::BitSetCount);
+}
+// 값 내장인가 (수학 · vec2 — 받는 쪽이 없다, v0.5 M8-T6)
+[[nodiscard]] constexpr bool isValueIntrinsic(u16 id) noexcept {
+    return id >= static_cast<u16>(IntrinsicId::MathClamp);
 }
 
 [[nodiscard]] constexpr const Intrinsic& intrinsic(IntrinsicId id) noexcept {

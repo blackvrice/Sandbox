@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T6: 알고리즘 · 수학 · vec2
+
+**무엇을**
+
+- 내장 40 ("sandbox" 이름 내보내기): sortNumbers · binarySearch · lowerBound · upperBound · sum · average · minOf · maxOf ·
+  countIf · prefixSum · rotate · unique · partition · shuffle (배열 경로), clamp (i32 판 따로) · lerp · inverseLerp ·
+  smoothstep · smootherstep · repeat · pingPong · approximately · degToRad · radToDeg · vec2.* 15 (값 내장 — 받는 쪽 없음).
+  서명 틀 ArrayNumeric · ArrayOrderable · ArrayKey · F64Array · Vec2 ({ x: f64, y: f64 } 모양).
+- 코드 생성: 내장 인자의 자리 0 도 틀대로 바꾼다 (값 내장의 number 자리에 i32). 검사기: SdkFunction (Symbol::function =
+  내장 번호) · vec2 이름공간, clamp 는 셋 다 i32 · 정수 상수면 i32. d.ts 선언 (오버로드 · 제네릭 · namespace vec2).
+- 결정론: sum · prefixSum 은 차례대로, sortNumbers 는 안정 전순서, shuffle = SplitMix64 → Fisher–Yates (씨앗 = i32 —
+  ctx.randomInt 로).
+
+**왜**
+
+- ADR-0085 · 19 25.5 — 게임 수학 · 집계 · 결정적 섞기.
+
+**검증**
+
+- test_stdlib_algo 7 케이스 — 기대값은 같은 프로그램을 tsc 5.6 --strict 로 옮겨 node:22 에서 같은 뜻의 JS 구현 (BigInt
+  SplitMix64 포함) 으로 돌린 값과 모두 같다 (셔플 차례도). unit_script 149 케이스. Windows MSVC Debug 전체 ctest 73 / 73 통과 (골든 · 리플레이 그대로).
+
+**남은 일**
+
+- M8-T7 Graph.
+
+---
+
 ## 2026-11-02 — v0.5 M8-T5: Stack · Queue · Deque · PriorityQueue · MinHeap · MaxHeap · BitSet
 
 **무엇을**

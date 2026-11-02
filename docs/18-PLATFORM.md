@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M8-T6 — 알고리즘 · 수학 · vec2 (20 10장 Phase 8 · 19 25.5)
+다음     v0.5 M8-T7 — Graph (BFS · DFS · Dijkstra · A* · 위상 정렬 · 연결 성분) (20 10장 Phase 8 · 19 25.6)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -524,7 +524,9 @@ M8 스크립트 표준 라이브러리 (ADR-0085 — 지원 매트릭스 19 25�
         .sbc 형식 8) (19 25.3)
   T5 ✅ Stack · Queue · Deque (고리) · PriorityQueue (같은 우선순위 = 넣은 차례) · MinHeap · MaxHeap (전순서) · BitSet
         ("sandbox" 이름 내보내기 · d.ts class — .sbc 형식 9) (19 25.4)
-  T6 [계획] 알고리즘 · 수학 · vec2                              T7 [계획] Graph (BFS · DFS · Dijkstra · A* · 위상 · 성분)
+  T6 ✅ 알고리즘 (sortNumbers · 이분 탐색 · 집계 · rotate · unique · partition · shuffle(씨앗)) · 수학 (clamp · lerp ·
+        smoothstep …) · vec2 (19 25.5)
+  T7 [계획] Graph (BFS · DFS · Dijkstra · A* · 위상 · 성분)
   T8 [계획] 엔진 API — nearest · kNearest · inBox · 비동기 경로 요청 · 가능한 raycast · overlap
   T9 [계획] 예제 (인벤토리 · RTS AI · 보드 AI) · 벤치 script.stdlib · 안내
 순서      M1 ∥ M2 → M8 → M2-T5 나머지 · T6 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프 · 진행 차례). 늦으면 미루는

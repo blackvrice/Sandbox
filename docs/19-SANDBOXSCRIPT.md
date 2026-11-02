@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2 — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -869,16 +869,16 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 
 ### 25.5 알고리즘 · 수학 · vec2 ("sandbox")
 
-| 기능                                                                                                                                            | 상태   | 비고                                                                                   |
-|-------------------------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------------|
-| sortNumbers(xs) (오름차순, NaN 끝, -0 < +0)                                                                                                     | M8-T6  | 안정. 내림차순은 sortNumbers 뒤 reverse                                                 |
-| binarySearch · lowerBound · upperBound (정렬된 number · i32 · string 배열)                                                                      | M8-T6  | 없으면 binarySearch = -1. 비교마다 1                                                    |
-| sum · average (빈 = NaN) · minOf · maxOf (빈 = undefined) · countIf(xs, f) · prefixSum                                                         | M8-T6  | sum 은 차례대로 더한다 (f64 결합 순서 고정)                                             |
-| rotate(xs, k) · unique(xs) (첫 차례 유지) · partition(xs, f) (안정 — 앞 개수 반환)                                                              | M8-T6  |                                                                                        |
-| shuffle(xs, seed: i32)                                                                                                                          | M8-T6  | 고정 PRNG (SplitMix64 → Fisher–Yates). 씨앗은 ctx.randomInt — Math.random 없음          |
-| clamp · lerp · inverseLerp · smoothstep · smootherstep · repeat · pingPong · approximately · degToRad · radToDeg                                | M8-T6  | f64. approximately = 상대 1e-6 · 절대 1e-12                                            |
-| vec2.add · sub · mul(a, s) · div(a, s) · dot · cross · length · lengthSq · distance · distanceSq · normalize · lerp · angle · rotate · reflect   | M8-T6  | 새 Vec2 값. 0 벡터 normalize = (0, 0), div 0 = JS (±Infinity · NaN), angle = atan2       |
-| quick · heap · insertion 정렬을 이름으로 고르기                                                                                                 | [계획] | 기본 sort 가 안정 · 최악 O(n log n) — 따로 고를 이유가 측정으로 보이면                  |
+| 기능                                                                                                                                            | 상태      | 비고                                                                                                                       |
+|-------------------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------|
+| sortNumbers(xs) (number · i32 배열 — 같은 배열을 돌려준다)                                                                                       | M8-T6 ✅  | 안정, 전순서 (-0 < +0, NaN 은 끝 — MinHeap 과 같다). 내림차순은 sortNumbers 뒤 reverse                                       |
+| binarySearch · lowerBound · upperBound (오름차순 number · i32 · string 배열)                                                                   | M8-T6 ✅  | `<` 순서 (문자열은 UTF-8 바이트), 없으면 binarySearch = -1, 비교마다 연료 1                                                 |
+| sum · average (빈 = NaN) · minOf · maxOf (빈 = undefined, NaN 이 있으면 NaN, min(-0, +0) = -0) · countIf(xs, f) · prefixSum                     | M8-T6 ✅  | sum 은 차례대로 더한다 (f64 결합 순서 고정), i32 배열도 number 로 더한다. minOf · maxOf 는 원소 타입 그대로 (i32 배열 → i32) |
+| rotate(xs, k) (왼쪽 k — 음수는 오른쪽, 길이로 나눈 나머지) · unique(xs) (첫 차례 유지 · Set 과 같은 같음) · partition(xs, f) (안정 — 참의 수)     | M8-T6 ✅  | rotate · partition 은 그 배열을 바꾼다, unique 는 새 배열 (키 타입 원소만)                                                    |
+| shuffle(xs, seed: i32)                                                                                                                          | M8-T6 ✅  | SplitMix64 (씨앗 = u32) → Fisher–Yates (j = next mod (i + 1)) — 같은 씨앗 = 같은 차례. 씨앗은 ctx.randomInt (Math.random 없음) |
+| clamp (셋 다 i32 · 정수 상수면 i32) · lerp (t 를 자르지 않는다) · inverseLerp (a = b 면 0) · smoothstep · smootherstep (GLSL, 가장자리가 같으면 계단) · repeat · pingPong (Unity) · approximately · degToRad · radToDeg | M8-T6 ✅ | f64. approximately = 같거나 |a − b| ≤ max(1e-12, 1e-6 · max(|a|, |b|)), NaN 은 거짓 |
+| vec2.add · sub · mul(a, s) · div(a, s) · dot · cross · length · lengthSq · distance · distanceSq · normalize · lerp · angle · rotate · reflect   | M8-T6 ✅  | 새 Vec2 값 ({ x, y } 모양이면 사용자 interface 도). 0 벡터 normalize = (0, 0), div 0 = JS (±Infinity · NaN), angle = atan2(y, x), rotate = 반시계 라디안, reflect 의 n 은 단위 벡터로 |
+| quick · heap · insertion 정렬을 이름으로 고르기                                                                                                 | [계획]    | 기본 sort 가 안정 · 최악 O(n log n) — 따로 고를 이유가 측정으로 보이면                                                      |
 
 ### 25.6 그래프 ("sandbox")
 

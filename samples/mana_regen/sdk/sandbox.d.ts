@@ -80,6 +80,79 @@ declare module "sandbox" {
     count(): i32;
     readonly size: number;
   }
+  /** 수 배열을 오름차순으로 (안정 — -0 < +0, NaN 은 끝). 같은 배열을 돌려준다 */
+  export function sortNumbers(xs: number[]): number[];
+  /** 오름차순 배열에서 x 의 자리 (없으면 -1) */
+  export function binarySearch(xs: number[], x: number): i32;
+  export function binarySearch(xs: string[], x: string): i32;
+  /** x 보다 작지 않은 첫 자리 (오름차순 배열) */
+  export function lowerBound(xs: number[], x: number): i32;
+  export function lowerBound(xs: string[], x: string): i32;
+  /** x 보다 큰 첫 자리 (오름차순 배열) */
+  export function upperBound(xs: number[], x: number): i32;
+  export function upperBound(xs: string[], x: string): i32;
+  /** 합 — 차례대로 더한다 */
+  export function sum(xs: number[]): number;
+  /** 평균 — 빈 배열은 NaN */
+  export function average(xs: number[]): number;
+  /** 가장 작은 값 (Math.min 과 같다 — NaN 이 있으면 NaN), 빈 배열은 undefined */
+  export function minOf(xs: number[]): number | undefined;
+  /** 가장 큰 값 (Math.max 와 같다), 빈 배열은 undefined */
+  export function maxOf(xs: number[]): number | undefined;
+  /** 조건이 참인 원소 수 */
+  export function countIf<T>(xs: T[], f: (x: T, i: number) => boolean): i32;
+  /** 누적 합 (새 배열) */
+  export function prefixSum(xs: number[]): number[];
+  /** 왼쪽으로 k 칸 돌린다 (음수면 오른쪽). 같은 배열을 돌려준다 */
+  export function rotate<T>(xs: T[], k: i32): T[];
+  /** 겹침을 뺀 새 배열 (첫 차례를 지킨다 — Set 과 같은 같음) */
+  export function unique<T extends number | string | boolean>(xs: T[]): T[];
+  /** 조건이 참인 원소를 앞으로 (안정). 참의 개수를 돌려준다 */
+  export function partition<T>(xs: T[], f: (x: T, i: number) => boolean): i32;
+  /** 씨앗으로 섞는다 (Fisher–Yates · SplitMix64 — 같은 씨앗 = 같은 차례). 씨앗은 ctx.randomInt 로 */
+  export function shuffle<T>(xs: T[], seed: i32): T[];
+  /** min ~ max 로 자른다 (셋 다 i32 면 i32) */
+  export function clamp(x: number, min: number, max: number): number;
+  /** a + (b - a) t — t 를 자르지 않는다 */
+  export function lerp(a: number, b: number, t: number): number;
+  /** (v - a) / (b - a) — a = b 면 0 */
+  export function inverseLerp(a: number, b: number, v: number): number;
+  /** 3t² - 2t³ (t = x 를 e0 ~ e1 에서 0 ~ 1 로 자른 값) */
+  export function smoothstep(e0: number, e1: number, x: number): number;
+  /** 6t⁵ - 15t⁴ + 10t³ */
+  export function smootherstep(e0: number, e1: number, x: number): number;
+  /** t 를 0 ~ length 로 되풀이 */
+  export function repeat(t: number, length: number): number;
+  /** t 를 0 ~ length 사이에서 왕복 */
+  export function pingPong(t: number, length: number): number;
+  /** 거의 같다 — |a - b| ≤ max(1e-12, 1e-6 · max(|a|, |b|)) */
+  export function approximately(a: number, b: number): boolean;
+  export function degToRad(deg: number): number;
+  export function radToDeg(rad: number): number;
+  /** 2 차원 벡터 함수 — 결과는 새 Vec2 */
+  export namespace vec2 {
+    function add(a: Vec2, b: Vec2): Vec2;
+    function sub(a: Vec2, b: Vec2): Vec2;
+    function mul(a: Vec2, s: number): Vec2;
+    /** 0 으로 나누면 JS 와 같다 (±Infinity · NaN) */
+    function div(a: Vec2, s: number): Vec2;
+    function dot(a: Vec2, b: Vec2): number;
+    /** 2 차원 외적 (z 성분) */
+    function cross(a: Vec2, b: Vec2): number;
+    function length(a: Vec2): number;
+    function lengthSq(a: Vec2): number;
+    function distance(a: Vec2, b: Vec2): number;
+    function distanceSq(a: Vec2, b: Vec2): number;
+    /** 0 벡터는 (0, 0) */
+    function normalize(a: Vec2): Vec2;
+    function lerp(a: Vec2, b: Vec2, t: number): Vec2;
+    /** atan2(y, x) — 라디안 */
+    function angle(a: Vec2): number;
+    /** 라디안만큼 돌린다 (반시계) */
+    function rotate(a: Vec2, rad: number): Vec2;
+    /** v - 2 (v · n) n — n 은 단위 벡터 */
+    function reflect(v: Vec2, n: Vec2): Vec2;
+  }
 
   /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */
   export interface Vec2 {

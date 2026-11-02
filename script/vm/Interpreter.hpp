@@ -174,6 +174,8 @@ private:
     bool collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                              std::string& msg);
     bool seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
+    // 수학 · vec2 (v0.5 M8-T6 — 받는 쪽이 없다)
+    bool valueIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
     [[nodiscard]] u64 keyHash(bc::TypeKind kind, Value v) const;
     [[nodiscard]] bool keyEqual(bc::TypeKind kind, Value a, Value b) const;
     // 배열 원소 같음 — indexOf 는 === (NaN 은 무엇과도 다르다), includes 는 SameValueZero (NaN = NaN)

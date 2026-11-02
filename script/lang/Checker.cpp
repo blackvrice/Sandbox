@@ -254,6 +254,38 @@ private:
             addBuiltin(m_sdkValues, std::string(cname), b, TypeTable::kError);
             addBuiltin(m_sdkTypes, std::string(cname), b, TypeTable::kError);
         }
+        // 알고리즘 · 수학 (v0.5 M8-T6 — 19 25.5): 이름 → 내장 (clamp 의 i32 판은 검사기가 고른다)
+        static constexpr std::pair<std::string_view, IntrinsicId> kFns[] = {
+            {"sortNumbers", IntrinsicId::AlgoSortNumbers},
+            {"binarySearch", IntrinsicId::AlgoBinarySearch},
+            {"lowerBound", IntrinsicId::AlgoLowerBound},
+            {"upperBound", IntrinsicId::AlgoUpperBound},
+            {"sum", IntrinsicId::AlgoSum},
+            {"average", IntrinsicId::AlgoAverage},
+            {"minOf", IntrinsicId::AlgoMinOf},
+            {"maxOf", IntrinsicId::AlgoMaxOf},
+            {"countIf", IntrinsicId::AlgoCountIf},
+            {"prefixSum", IntrinsicId::AlgoPrefixSum},
+            {"rotate", IntrinsicId::AlgoRotate},
+            {"unique", IntrinsicId::AlgoUnique},
+            {"partition", IntrinsicId::AlgoPartition},
+            {"shuffle", IntrinsicId::AlgoShuffle},
+            {"clamp", IntrinsicId::MathClamp},
+            {"lerp", IntrinsicId::MathLerp},
+            {"inverseLerp", IntrinsicId::MathInverseLerp},
+            {"smoothstep", IntrinsicId::MathSmoothstep},
+            {"smootherstep", IntrinsicId::MathSmootherstep},
+            {"repeat", IntrinsicId::MathRepeat},
+            {"pingPong", IntrinsicId::MathPingPong},
+            {"approximately", IntrinsicId::MathApproximately},
+            {"degToRad", IntrinsicId::MathDegToRad},
+            {"radToDeg", IntrinsicId::MathRadToDeg},
+        };
+        for (const auto& [fname, id] : kFns) {
+            const SymbolId s = addBuiltin(m_sdkValues, std::string(fname), Builtin::SdkFunction, TypeTable::kError);
+            sym(s).function = static_cast<u32>(id);
+        }
+        addBuiltin(m_sdkValues, "vec2", Builtin::Vec2Namespace, TypeTable::kError);
         // 시스템 이벤트 (ADR-0063) — enum GameEventKind (값 · 타입 이름공간) · 구조체 GameEvent (onEvent 의 e)
         const TypeId kindType = T().newEnum("GameEventKind");
         for (const api::GameEventKindInfo& k : api::kGameEventKinds) {
@@ -3426,6 +3458,151 @@ private:
         m_arrowOuter.pop_back();
     }
 
+    // ---- 알고리즘 · 수학 · vec2 (v0.5 M8-T6 — 19 25.5) ---------------------------------------------------------
+    TypeId sdkFunctionCall(NodeId n, NodeId callee, IntrinsicId id, std::string_view name) {
+        sema(callee).ref = RefKind::Intrinsic;
+        sema(callee).refIndex = static_cast<u32>(id);
+        const auto kids = ast().kids(n);
+        const usize argc = kids.size() - 1;
+        const Intrinsic& k = intrinsic(id);
+        if (isValueIntrinsic(static_cast<u16>(id))) {
+            // 수학 — 모두 number (clamp 는 셋 다 i32 · 정수 상수면 i32 판)
+            if (argc != k.argc) {
+                err("S405", n, std::format("{} 는 인자 {} 개 — {} 개를 넘겼다", name, k.argc, argc));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            bool allInt = true;
+            for (usize i = 1; i < kids.size(); ++i) {
+                const TypeId t = expr(kids[i], kNoExpect);
+                if (!T().isError(t) && !T().isNumeric(t)) {
+                    err("S404", kids[i], std::format("{} 의 인자는 i32 · number — {} 는 아니다", name, T().name(t)));
+                }
+                allInt = allInt && (T().kind(t) == TypeKind::I32 || T().kind(t) == TypeKind::Enum ||
+                                    (cval(kids[i]).kind == ConstValue::Kind::Number && fitsI32(cval(kids[i]).number)));
+            }
+            if (id == IntrinsicId::MathClamp && allInt) {
+                bool anyInt = false;
+                for (usize i = 1; i < kids.size(); ++i) {
+                    anyInt = anyInt || T().kind(sema(kids[i]).type) != TypeKind::Number;
+                }
+                if (anyInt) {
+                    for (usize i = 1; i < kids.size(); ++i) {
+                        coerceToI32(kids[i]);
+                    }
+                    sema(callee).refIndex = static_cast<u32>(IntrinsicId::MathClampI);
+                    return TypeTable::kI32;
+                }
+            }
+            return id == IntrinsicId::MathApproximately ? TypeTable::kBool : TypeTable::kNumber;
+        }
+        if (argc != k.argc) {
+            err("S405", n, std::format("{} 는 인자 {} 개 — {} 개를 넘겼다", name, k.argc, argc));
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        const TypeId at = expr(kids[1], kNoExpect);
+        if (T().isError(at)) {
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        if (T().kind(at) != TypeKind::Array) {
+            err("S404", kids[1], std::format("{} 의 첫 인자는 배열 — {} 는 아니다", name, T().name(at)));
+            for (usize i = 2; i < kids.size(); ++i) {
+                expr(kids[i], kNoExpect);
+            }
+            return TypeTable::kError;
+        }
+        const TypeId elem = T().info(at).elem;
+        const TypeKind ek = T().kind(elem);
+        const bool numeric = ek == TypeKind::I32 || ek == TypeKind::Number || ek == TypeKind::Enum;
+        auto need = [&](bool ok, std::string_view what) {
+            if (!ok) {
+                err("S404", kids[1], std::format("{} 는 {} 배열에만 — {} 는 아니다", name, what, T().name(at)));
+            }
+            return ok;
+        };
+        switch (id) {
+        case IntrinsicId::AlgoSortNumbers:
+            return need(numeric, "number · i32") ? at : TypeTable::kError;
+        case IntrinsicId::AlgoBinarySearch:
+        case IntrinsicId::AlgoLowerBound:
+        case IntrinsicId::AlgoUpperBound: {
+            if (!need(numeric || ek == TypeKind::String, "number · i32 · string")) {
+                expr(kids[2], kNoExpect);
+                return TypeTable::kError;
+            }
+            const TypeId xt = expr(kids[2], elem);
+            assignTo(kids[2], xt, elem);
+            return TypeTable::kI32;
+        }
+        case IntrinsicId::AlgoSum:
+        case IntrinsicId::AlgoAverage:
+            return need(numeric, "number · i32") ? TypeTable::kNumber : TypeTable::kError;
+        case IntrinsicId::AlgoMinOf:
+        case IntrinsicId::AlgoMaxOf:
+            return need(numeric, "number · i32") ? T().optionalOf(elem) : TypeTable::kError;
+        case IntrinsicId::AlgoPrefixSum:
+            return need(numeric, "number · i32") ? T().arrayOf(TypeTable::kNumber) : TypeTable::kError;
+        case IntrinsicId::AlgoUnique:
+            return need(T().isKeyType(elem), "number · i32 · string · boolean · enum") ? at : TypeTable::kError;
+        case IntrinsicId::AlgoRotate:
+        case IntrinsicId::AlgoShuffle: {
+            const TypeId kt = expr(kids[2], TypeTable::kI32);
+            assignTo(kids[2], kt, TypeTable::kI32);
+            return at;
+        }
+        case IntrinsicId::AlgoCountIf:
+        case IntrinsicId::AlgoPartition: {
+            const TypeId lead[] = {elem};
+            const std::optional<u32> fi = callbackArg(kids[2], lead, true, TypeTable::kBool, name);
+            if (fi && P.functions[*fi].result != TypeTable::kBool && !T().isError(P.functions[*fi].result)) {
+                err("S404", kids[2], std::format("{} 의 콜백은 boolean 을 돌려준다", name));
+            }
+            return TypeTable::kI32;
+        }
+        default:
+            return TypeTable::kError;
+        }
+    }
+
+    TypeId vec2Call(NodeId n, NodeId callee, std::string_view member) {
+        static constexpr std::pair<std::string_view, IntrinsicId> kVec[] = {
+            {"add", IntrinsicId::V2Add},
+            {"sub", IntrinsicId::V2Sub},
+            {"mul", IntrinsicId::V2Mul},
+            {"div", IntrinsicId::V2Div},
+            {"dot", IntrinsicId::V2Dot},
+            {"cross", IntrinsicId::V2Cross},
+            {"length", IntrinsicId::V2Length},
+            {"lengthSq", IntrinsicId::V2LengthSq},
+            {"distance", IntrinsicId::V2Distance},
+            {"distanceSq", IntrinsicId::V2DistanceSq},
+            {"normalize", IntrinsicId::V2Normalize},
+            {"lerp", IntrinsicId::V2Lerp},
+            {"angle", IntrinsicId::V2Angle},
+            {"rotate", IntrinsicId::V2Rotate},
+            {"reflect", IntrinsicId::V2Reflect},
+        };
+        for (const auto& [fname, id] : kVec) {
+            if (fname != member) {
+                continue;
+            }
+            sema(callee).ref = RefKind::Intrinsic;
+            sema(callee).refIndex = static_cast<u32>(id);
+            const Intrinsic& k = intrinsic(id);
+            std::vector<TypeId> params;
+            for (u32 i = 0; i < k.argc; ++i) {
+                params.push_back(k.params[i] == IntrinsicPat::Vec2 ? m_vec2 : TypeTable::kNumber);
+            }
+            checkArgs(n, params, std::format("vec2.{}", member));
+            return k.result == IntrinsicPat::Vec2 ? m_vec2 : TypeTable::kNumber;
+        }
+        err("S406", callee, std::format("vec2.{} 는 없다", member));
+        argsLoose(n);
+        return TypeTable::kError;
+    }
+
     // ---- "sandbox" 컬렉션 (v0.5 M8-T5 — 19 25.4) ------------------------------------------------------------------
     static u32 collKindOf(Builtin b) {
         return static_cast<u32>(b) - static_cast<u32>(Builtin::CollStack) + static_cast<u32>(CollKind::Stack);
@@ -4102,6 +4279,9 @@ private:
                 argsLoose(n);
                 return set(n, TypeTable::kError);
             }
+            if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::SdkFunction) {
+                return set(n, sdkFunctionCall(n, callee, static_cast<IntrinsicId>(s.function), name));
+            }
             if (s.kind == SymbolKind::Builtin &&
                 (s.builtin == Builtin::SetUnion || s.builtin == Builtin::SetIntersection ||
                  s.builtin == Builtin::SetDifference)) {
@@ -4145,6 +4325,17 @@ private:
             // Math.f(…)
             if (isMathNamespace(objNode)) {
                 return mathCall(n, callee, member);
+            }
+            // vec2.f(…) (v0.5 M8-T6)
+            if (node(objNode).kind == NodeKind::Ident && ast().str(objNode) == "vec2") {
+                bool reported = false;
+                const SymbolId vid = lookupValue(objNode, "vec2", reported);
+                if (vid != kNoSymbol && sym(vid).kind == SymbolKind::Builtin &&
+                    sym(vid).builtin == Builtin::Vec2Namespace) {
+                    sema(objNode).ref = RefKind::Builtin;
+                    sema(objNode).refIndex = static_cast<u32>(Builtin::Vec2Namespace);
+                    return set(n, vec2Call(n, callee, member));
+                }
             }
             // Array.from(…) (v0.5 M8-T4) — Set · m.keys() · m.values() · 배열 복사
             if (node(objNode).kind == NodeKind::Ident && ast().str(objNode) == "Array" && member == "from") {

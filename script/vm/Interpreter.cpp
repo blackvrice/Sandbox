@@ -5,6 +5,8 @@
 #include <bit>
 #include <cmath>
 #include <format>
+#include <limits>
+#include <unordered_map>
 
 #include "foundation/assert/Assert.hpp"
 #include "foundation/hash/Fnv1a.hpp"
@@ -840,6 +842,24 @@ usize relIndex(f64 v, usize len) {
     return t >= n ? len : static_cast<usize>(t);
 }
 
+// MinHeap 의 전순서 — -0 < +0, NaN 은 가장 크다 (sortNumbers 와 같다). MaxHeap 은 거꾸로
+int totalCompare(f64 a, f64 b) {
+    const bool na = std::isnan(a);
+    const bool nb = std::isnan(b);
+    if (na || nb) {
+        return na == nb ? 0 : (na ? 1 : -1);
+    }
+    if (a < b) {
+        return -1;
+    }
+    if (a > b) {
+        return 1;
+    }
+    const bool sa = std::signbit(a);
+    const bool sb = std::signbit(b);
+    return sa == sb ? 0 : (sa ? -1 : 1);
+}
+
 // 정렬의 연료 — 비교 횟수의 위 한계 n · ⌈log2 n⌉ (실제 비교 수는 표준 라이브러리마다 달라 쓰지 않는다 — 결정론)
 u64 sortFuel(usize n) {
     u64 log = 0;
@@ -877,6 +897,9 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
                             std::string& msg) {
     if (isCollectionIntrinsic(in.c)) {
         return collectionIntrinsic(in, fn, R, fuel, trap, msg);
+    }
+    if (isValueIntrinsic(in.c)) {
+        return valueIntrinsic(in, fn, R, fuel, trap, msg);
     }
     const Intrinsic& k = kIntrinsics[in.c];
     const auto id = static_cast<IntrinsicId>(in.c);
@@ -1329,6 +1352,218 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
         result(acc);
         return true;
     }
+    case IntrinsicId::AlgoSortNumbers: {
+        if (!spend(sortFuel(len))) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        // 안정 · 전순서 (-0 < +0, NaN 은 끝 — MinHeap 과 같다)
+        const bool isF64 = M.types[elemType].kind == bc::TypeKind::F64;
+        std::stable_sort(arr().slots.begin(), arr().slots.end(), [&](Value a, Value b) {
+            return isF64 ? totalCompare(a.asF64(), b.asF64()) < 0 : a.asI32() < b.asI32();
+        });
+        result(args[0]);
+        return true;
+    }
+    case IntrinsicId::AlgoBinarySearch:
+    case IntrinsicId::AlgoLowerBound:
+    case IntrinsicId::AlgoUpperBound: {
+        // 오름차순 배열 (`<` 순서 — 수는 수, 문자열은 UTF-8 바이트). lowerBound = x 보다 작지 않은 첫 자리,
+        // upperBound = x 보다 큰 첫 자리, binarySearch = lowerBound 의 원소가 x 와 같으면 그 자리 아니면 -1
+        const bc::TypeKind ek = M.types[elemType].kind;
+        auto less = [&](Value a, Value b) {
+            switch (ek) {
+            case bc::TypeKind::F64:
+                return a.asF64() < b.asF64();
+            case bc::TypeKind::String:
+                return stringOf(a) < stringOf(b);
+            default:
+                return a.asI32() < b.asI32();
+            }
+        };
+        const Value x = args[1];
+        usize lo = 0;
+        usize hi = len;
+        const bool upper = id == IntrinsicId::AlgoUpperBound;
+        while (lo < hi) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const usize mid = lo + (hi - lo) / 2;
+            const Value v = arr().slots[mid];
+            if (upper ? !less(x, v) : less(v, x)) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        i32 out = static_cast<i32>(lo);
+        if (id == IntrinsicId::AlgoBinarySearch && (lo >= len || !elemEqual(elemType, arr().slots[lo], x, false))) {
+            out = -1;
+        }
+        result(Value::i32v(out));
+        return true;
+    }
+    case IntrinsicId::AlgoSum:
+    case IntrinsicId::AlgoAverage:
+    case IntrinsicId::AlgoPrefixSum: {
+        if (!spend(len)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        // 차례대로 더한다 (f64 결합 순서 고정 — 같은 입력 = 같은 비트)
+        const bool isF64 = M.types[elemType].kind == bc::TypeKind::F64;
+        f64 acc = 0.0;
+        std::vector<Value> sums;
+        if (id == IntrinsicId::AlgoPrefixSum) {
+            sums.reserve(len);
+        }
+        for (usize i = 0; i < len; ++i) {
+            const Value v = arr().slots[i];
+            acc += isF64 ? v.asF64() : static_cast<f64>(v.asI32());
+            if (id == IntrinsicId::AlgoPrefixSum) {
+                sums.push_back(Value::f64v(acc));
+            }
+        }
+        if (id == IntrinsicId::AlgoPrefixSum) {
+            Value out;
+            if (!newArray(std::move(sums), out)) {
+                return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+            }
+            result(out);
+            return true;
+        }
+        result(Value::f64v(id == IntrinsicId::AlgoSum
+                               ? acc
+                               : (len == 0 ? std::numeric_limits<f64>::quiet_NaN() : acc / static_cast<f64>(len))));
+        return true;
+    }
+    case IntrinsicId::AlgoMinOf:
+    case IntrinsicId::AlgoMaxOf: {
+        if (len == 0) {
+            return optResult(false, {}) || fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        if (!spend(len)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        // Math.min · max 와 같다 — NaN 이 있으면 NaN, min(-0, +0) = -0
+        const bool isF64 = M.types[elemType].kind == bc::TypeKind::F64;
+        const bool isMin = id == IntrinsicId::AlgoMinOf;
+        Value best = arr().slots[0];
+        for (usize i = 1; i < len; ++i) {
+            const Value v = arr().slots[i];
+            if (isF64) {
+                best = Value::f64v(isMin ? jsMin(best.asF64(), v.asF64()) : jsMax(best.asF64(), v.asF64()));
+            } else if (isMin ? v.asI32() < best.asI32() : v.asI32() > best.asI32()) {
+                best = v;
+            }
+        }
+        return optResult(true, best) || fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+    }
+    case IntrinsicId::AlgoCountIf:
+    case IntrinsicId::AlgoPartition: {
+        // partition 은 안정 — 참인 것을 앞에 (차례 그대로), 거짓을 뒤에. 결과 = 참의 개수
+        std::vector<Value> yes;
+        std::vector<Value> no;
+        i32 count = 0;
+        for (usize i = 0; i < len && i < arr().slots.size(); ++i) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const Value v = arr().slots[i];
+            const std::array<Value, 1> lead{v};
+            Value o;
+            if (!callback(args[1], lead, i, o)) {
+                return false;
+            }
+            if (o.asBool()) {
+                ++count;
+            }
+            if (id == IntrinsicId::AlgoPartition) {
+                (o.asBool() ? yes : no).push_back(v);
+            }
+        }
+        if (id == IntrinsicId::AlgoPartition) {
+            auto& slots = arr().slots;
+            usize w = 0;
+            for (const Value v : yes) {
+                if (w < slots.size()) {
+                    slots[w++] = v;
+                }
+            }
+            for (const Value v : no) {
+                if (w < slots.size()) {
+                    slots[w++] = v;
+                }
+            }
+        }
+        result(Value::i32v(count));
+        return true;
+    }
+    case IntrinsicId::AlgoRotate: {
+        // 왼쪽으로 k (음수면 오른쪽) — k 는 길이로 나눈 나머지
+        if (!spend(len)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        if (len > 0) {
+            const i64 n = static_cast<i64>(len);
+            const i64 shift = ((static_cast<i64>(args[1].asI32()) % n) + n) % n;
+            std::rotate(arr().slots.begin(), arr().slots.begin() + static_cast<std::ptrdiff_t>(shift),
+                        arr().slots.end());
+        }
+        result(args[0]);
+        return true;
+    }
+    case IntrinsicId::AlgoUnique: {
+        // 첫 차례를 지키는 새 배열 — 같음은 Set 의 키와 같다 (SameValueZero, -0 은 +0 으로)
+        if (!spend(len)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        const bc::TypeKind ek = M.types[elemType].kind;
+        std::unordered_multimap<u64, usize> seen; // 해시 → out 의 자리 (찾기만 — 차례는 out 이 정한다)
+        std::vector<Value> out;
+        for (usize i = 0; i < len; ++i) {
+            Value v = arr().slots[i];
+            if (ek == bc::TypeKind::F64 && v.asF64() == 0.0) {
+                v = Value::f64v(0.0);
+            }
+            const u64 h = keyHash(ek, v);
+            bool dup = false;
+            const auto range = seen.equal_range(h);
+            for (auto it = range.first; it != range.second && !dup; ++it) {
+                dup = keyEqual(ek, out[it->second], v);
+            }
+            if (!dup) {
+                seen.emplace(h, out.size());
+                out.push_back(v);
+            }
+        }
+        Value arrOut;
+        if (!newArray(std::move(out), arrOut)) {
+            return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+        }
+        result(arrOut);
+        return true;
+    }
+    case IntrinsicId::AlgoShuffle: {
+        // Fisher–Yates — SplitMix64 (씨앗 = i32, 고정 알고리즘 · 결정적). 씨앗은 ctx.randomInt 로 (Math.random 없음)
+        if (!spend(len)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        u64 state = static_cast<u64>(static_cast<u32>(args[1].asI32()));
+        auto next = [&state]() {
+            state += 0x9E3779B97F4A7C15ULL;
+            u64 z = state;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+            return z ^ (z >> 31);
+        };
+        auto& slots = arr().slots;
+        for (usize i = len; i > 1; --i) {
+            const usize j = static_cast<usize>(next() % static_cast<u64>(i));
+            std::swap(slots[i - 1], slots[j]);
+        }
+        result(args[0]);
+        return true;
+    }
     case IntrinsicId::ArraySortStrings: {
         if (!spend(sortFuel(len))) {
             return fail(Trap::OutOfFuel, "연료를 다 썼다");
@@ -1751,28 +1986,6 @@ bool Interpreter::collectionIntrinsic(const bc::Insn& in, const bc::Function& fn
     return fail(Trap::Unreachable, "모르는 내장");
 }
 
-namespace {
-
-// MinHeap 의 전순서 — -0 < +0, NaN 은 가장 크다 (sortNumbers 와 같다). MaxHeap 은 거꾸로
-int totalCompare(f64 a, f64 b) {
-    const bool na = std::isnan(a);
-    const bool nb = std::isnan(b);
-    if (na || nb) {
-        return na == nb ? 0 : (na ? 1 : -1);
-    }
-    if (a < b) {
-        return -1;
-    }
-    if (a > b) {
-        return 1;
-    }
-    const bool sa = std::signbit(a);
-    const bool sb = std::signbit(b);
-    return sa == sb ? 0 : (sa ? -1 : 1);
-}
-
-} // namespace
-
 bool Interpreter::seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                                std::string& msg) {
     const Intrinsic& k = kIntrinsics[in.c];
@@ -2104,6 +2317,160 @@ bool Interpreter::seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value
     default:
         break;
     }
+    return fail(Trap::Unreachable, "모르는 내장");
+}
+
+bool Interpreter::valueIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
+                                 std::string& msg) {
+    const Intrinsic& k = kIntrinsics[in.c];
+    const auto id = static_cast<IntrinsicId>(in.c);
+    auto fail = [&](Trap t, std::string m) {
+        trap = t;
+        msg = std::format("{}: {}", k.name, std::move(m));
+        return false;
+    };
+    if (fuel < k.fuelBase) {
+        fuel = 0;
+        return fail(Trap::OutOfFuel, "연료를 다 썼다");
+    }
+    fuel -= k.fuelBase;
+    const Value* args = R + in.b;
+    auto f = [&](usize i) { return args[i].asF64(); };
+    auto result = [&](Value v) {
+        if (in.a != bc::kNoReg) {
+            R[in.a] = v;
+        }
+        return true;
+    };
+    // vec2 — 구조체 칸 0 = x, 1 = y (검증기가 모양을 봤다), null 은 트랩
+    auto vec = [&](usize i, f64& x, f64& y) {
+        const Object* o = object(args[i]);
+        if (o == nullptr) {
+            return fail(Trap::NullReference, "null 의 Vec2");
+        }
+        x = o->slots[0].asF64();
+        y = o->slots[1].asF64();
+        return true;
+    };
+    auto newVec = [&](f64 x, f64 y) {
+        Object o;
+        o.kind = Object::Kind::Struct;
+        o.slots = {Value::f64v(x), Value::f64v(y)};
+        Value out;
+        if (!alloc(std::move(o), kObjectHeaderBytes + 16, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        return result(out);
+    };
+    constexpr f64 kPi = 3.141592653589793;
+    // 0 ~ 1 로 자르기 (NaN 은 NaN — JS 의 Math.min(Math.max(x, 0), 1))
+    auto clamp01 = [](f64 t) { return jsMin(jsMax(t, 0.0), 1.0); };
+    auto repeat = [](f64 t, f64 length) { return t - std::floor(t / length) * length; };
+
+    switch (id) {
+    case IntrinsicId::MathClamp:
+        return result(Value::f64v(jsMin(jsMax(f(0), f(1)), f(2))));
+    case IntrinsicId::MathClampI:
+        return result(Value::i32v(std::min(std::max(args[0].asI32(), args[1].asI32()), args[2].asI32())));
+    case IntrinsicId::MathLerp:
+        return result(Value::f64v(f(0) + (f(1) - f(0)) * f(2)));
+    case IntrinsicId::MathInverseLerp:
+        // a = b 면 0 (0 나눗셈의 NaN 대신 — Unity 와 같다)
+        return result(Value::f64v(f(0) == f(1) ? 0.0 : (f(2) - f(0)) / (f(1) - f(0))));
+    case IntrinsicId::MathSmoothstep:
+    case IntrinsicId::MathSmootherstep: {
+        // GLSL — 가장자리가 같으면 계단 (x < e0 이면 0, 아니면 1)
+        const f64 e0 = f(0);
+        const f64 e1 = f(1);
+        const f64 x = f(2);
+        const f64 t = e0 == e1 ? (x < e0 ? 0.0 : 1.0) : clamp01((x - e0) / (e1 - e0));
+        return result(Value::f64v(id == IntrinsicId::MathSmoothstep ? t * t * (3.0 - 2.0 * t)
+                                                                    : t * t * t * (t * (t * 6.0 - 15.0) + 10.0)));
+    }
+    case IntrinsicId::MathRepeat:
+        return result(Value::f64v(repeat(f(0), f(1))));
+    case IntrinsicId::MathPingPong: {
+        const f64 len = f(1);
+        return result(Value::f64v(len - std::abs(repeat(f(0), len * 2.0) - len)));
+    }
+    case IntrinsicId::MathApproximately: {
+        // 같으면 참 (무한 포함), NaN 은 거짓, 아니면 |a − b| ≤ max(1e-12, 1e-6 · max(|a|, |b|))
+        const f64 a = f(0);
+        const f64 b = f(1);
+        const bool eq = a == b || std::abs(a - b) <= std::max(1e-12, 1e-6 * std::max(std::abs(a), std::abs(b)));
+        return result(Value::boolean(eq));
+    }
+    case IntrinsicId::MathDegToRad:
+        return result(Value::f64v(f(0) * (kPi / 180.0)));
+    case IntrinsicId::MathRadToDeg:
+        return result(Value::f64v(f(0) * (180.0 / kPi)));
+    default:
+        break;
+    }
+    f64 ax = 0;
+    f64 ay = 0;
+    if (!vec(0, ax, ay)) {
+        return false;
+    }
+    switch (id) {
+    case IntrinsicId::V2Length:
+    case IntrinsicId::V2LengthSq: {
+        const f64 sq = ax * ax + ay * ay;
+        return result(Value::f64v(id == IntrinsicId::V2LengthSq ? sq : std::sqrt(sq)));
+    }
+    case IntrinsicId::V2Normalize: {
+        // 0 벡터 (길이 0) 는 (0, 0) — NaN 을 만들지 않는다
+        const f64 l = std::sqrt(ax * ax + ay * ay);
+        return l == 0.0 ? newVec(0.0, 0.0) : newVec(ax / l, ay / l);
+    }
+    case IntrinsicId::V2Angle:
+        return result(Value::f64v(std::atan2(ay, ax)));
+    case IntrinsicId::V2Mul:
+        return newVec(ax * f(1), ay * f(1));
+    case IntrinsicId::V2Div:
+        return newVec(ax / f(1), ay / f(1)); // 0 나눗셈 = JS (±Infinity · NaN)
+    case IntrinsicId::V2Rotate: {
+        const f64 c = std::cos(f(1));
+        const f64 s = std::sin(f(1));
+        return newVec(ax * c - ay * s, ax * s + ay * c);
+    }
+    default:
+        break;
+    }
+    f64 bx = 0;
+    f64 by = 0;
+    if (!vec(1, bx, by)) {
+        return false;
+    }
+    switch (id) {
+    case IntrinsicId::V2Add:
+        return newVec(ax + bx, ay + by);
+    case IntrinsicId::V2Sub:
+        return newVec(ax - bx, ay - by);
+    case IntrinsicId::V2Dot:
+        return result(Value::f64v(ax * bx + ay * by));
+    case IntrinsicId::V2Cross:
+        return result(Value::f64v(ax * by - ay * bx));
+    case IntrinsicId::V2Distance:
+    case IntrinsicId::V2DistanceSq: {
+        const f64 dx = bx - ax;
+        const f64 dy = by - ay;
+        const f64 sq = dx * dx + dy * dy;
+        return result(Value::f64v(id == IntrinsicId::V2DistanceSq ? sq : std::sqrt(sq)));
+    }
+    case IntrinsicId::V2Lerp: {
+        const f64 t = f(2);
+        return newVec(ax + (bx - ax) * t, ay + (by - ay) * t);
+    }
+    case IntrinsicId::V2Reflect: {
+        // v − 2 (v · n) n — n 은 단위 벡터로 넘긴다 (정규화하지 않는다)
+        const f64 d = 2.0 * (ax * bx + ay * by);
+        return newVec(ax - d * bx, ay - d * by);
+    }
+    default:
+        break;
+    }
+    (void)fn;
     return fail(Trap::Unreachable, "모르는 내장");
 }
 

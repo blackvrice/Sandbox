@@ -631,6 +631,28 @@ private:
             case IntrinsicPat::OptF64:
                 ok = kindOf(t) == TypeKind::Box && kindOf(M.types[t].elem) == TypeKind::F64;
                 break;
+            case IntrinsicPat::ArrayNumeric:
+                ok = kindOf(t) == TypeKind::Array && (ek == TypeKind::I32 || ek == TypeKind::F64);
+                break;
+            case IntrinsicPat::ArrayOrderable:
+                ok = kindOf(t) == TypeKind::Array &&
+                     (ek == TypeKind::I32 || ek == TypeKind::F64 || ek == TypeKind::String);
+                break;
+            case IntrinsicPat::ArrayKey:
+                ok = kindOf(t) == TypeKind::Array &&
+                     (ek == TypeKind::I32 || ek == TypeKind::F64 || ek == TypeKind::Bool || ek == TypeKind::String);
+                break;
+            case IntrinsicPat::F64Array:
+                ok = kindOf(t) == TypeKind::Array && kindOf(M.types[t].elem) == TypeKind::F64;
+                break;
+            case IntrinsicPat::Vec2: {
+                // { x: f64, y: f64 } — 이름 순 배치라 칸 0 = x, 1 = y (VM 이 그 자리를 읽는다)
+                const TypeDesc& d = M.types[t];
+                ok = d.kind == TypeKind::Struct && d.fieldNames.size() == 2 && d.fieldNames[0] == "x" &&
+                     d.fieldNames[1] == "y" && kindOf(d.fieldTypes[0]) == TypeKind::F64 &&
+                     kindOf(d.fieldTypes[1]) == TypeKind::F64;
+                break;
+            }
             }
             if (!ok) {
                 bad(std::format("{}: r{} 의 타입 {} 이 서명에 맞지 않다", k.name, r, typeName(M, t)));

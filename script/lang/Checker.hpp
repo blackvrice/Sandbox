@@ -89,6 +89,8 @@ enum class Builtin : u32 {
     CollMinHeap,            // MinHeap
     CollMaxHeap,            // MaxHeap
     CollBitSet,             // BitSet
+    SdkFunction,            // "sandbox" 의 알고리즘 · 수학 함수 (v0.5 M8-T6) — Symbol::function = IntrinsicId
+    Vec2Namespace,          // vec2.add · … (v0.5 M8-T6)
     MathFunctionBase = 100, // + kMathFunctions 의 자리
     MathConstantBase = 200, // + kMathConstants 의 자리
 };

@@ -1211,7 +1211,8 @@ private:
             kids.push_back(arg);
             return intrinsicArgs(kids, id, rt);
         }
-        if (ast().node(callee).kind == NodeKind::Member) {
+        // vec2.f(…) (v0.5 M8-T6) 는 이름공간의 함수 — 받는 쪽이 없다
+        if (ast().node(callee).kind == NodeKind::Member && sema(ast().kid(callee, 0)).ref != RefKind::Builtin) {
             kids.push_back(ast().kid(callee, 0));
         }
         kids.insert(kids.end(), callKids.begin() + 1, callKids.end());
@@ -1287,10 +1288,11 @@ private:
                 return kInf; // end · deleteCount · lastIndexOf 의 fromIndex
             }
         };
-        std::vector<u32> types{tid(recvType)};
-        std::vector<u16> vals{gen(obj)};
+        std::vector<u32> types;
+        std::vector<u16> vals;
         u32 cbFunction = 0;
-        for (u32 i = 1; i < k.argc; ++i) {
+        // 자리 0 도 틀대로 (값 내장 — clamp · vec2 — 은 받는 쪽이 없다: number 자리에 i32 가 오면 바꾼다)
+        for (u32 i = 0; i < k.argc; ++i) {
             const bool given = i < kids.size();
             switch (k.params[i]) {
             case IntrinsicPat::Elem:
@@ -1343,7 +1345,7 @@ private:
                 types.push_back(m_i32);
                 vals.push_back(genTo(kids[i], TypeTable::kI32));
                 break;
-            default: // F64
+            case IntrinsicPat::F64:
                 types.push_back(m_f64);
                 if (given) {
                     vals.push_back(genTo(kids[i], TypeTable::kNumber));
@@ -1352,6 +1354,10 @@ private:
                     emit(Op::LOADF, r, num(numDefault(i)));
                     vals.push_back(r);
                 }
+                break;
+            default: // 받는 쪽 (배열 · 컬렉션 · Map · Set) · Vec2 — 식의 타입 그대로 (검증기가 모양을 본다)
+                types.push_back(tid(typeOf(kids[i])));
+                vals.push_back(gen(kids[i]));
                 break;
             }
         }
