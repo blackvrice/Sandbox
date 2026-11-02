@@ -1580,6 +1580,8 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
         result(args[0]);
         return true;
     }
+    default:
+        break; // Map · Set · 컬렉션 · 값 · 그래프 내장은 위에서 나눴다
     }
     return fail(Trap::Unreachable, "모르는 내장");
 }
