@@ -156,6 +156,10 @@ void writePayload(BitWriter& w, const cmd::CommandPayload& payload) {
                 w.writeU8(static_cast<u8>(PayloadTag::PlayerAction));
                 w.writeString(p.action);
                 writeVec2(w, p.position);
+            } else if constexpr (std::is_same_v<T, cmd::PlayerSignal>) {
+                w.writeU8(static_cast<u8>(PayloadTag::PlayerSignal));
+                w.writeString(p.name);
+                w.writeU32(static_cast<u32>(p.value));
             } else {
                 static_assert(sizeof(T) == 0, "새 명령의 와이어 형식을 정하십시오 (PayloadTag 에 새 값)");
             }
@@ -283,6 +287,13 @@ bool readPayload(BitReader& r, cmd::CommandPayload& out) {
         cmd::PlayerAction p;
         p.action = r.readString(kMaxContentIdBytes);
         p.position = readVec2(r);
+        out = std::move(p);
+        break;
+    }
+    case PayloadTag::PlayerSignal: {
+        cmd::PlayerSignal p;
+        p.name = r.readString(kMaxContentIdBytes);
+        p.value = static_cast<i32>(r.readU32());
         out = std::move(p);
         break;
     }

@@ -10,8 +10,8 @@ CommandClass classifyCommand(const cmd::CommandPayload& payload) noexcept {
     return std::visit(
         [](const auto& p) {
             using T = std::decay_t<decltype(p)>;
-            if constexpr (std::is_same_v<T, cmd::PlayerAction>) {
-                return CommandClass::PlayerAction; // v0.2 M3-T1 — 역할 player 부터
+            if constexpr (std::is_same_v<T, cmd::PlayerAction> || std::is_same_v<T, cmd::PlayerSignal>) {
+                return CommandClass::PlayerAction; // v0.2 M3-T1 · 신호 v0.5 M2-T5 (3) — 역할 player 부터
             } else if constexpr (std::is_same_v<T, cmd::PaintTerrain>) {
                 return CommandClass::TerrainEdit;
             } else if constexpr (std::is_same_v<T, cmd::EditContent>) {

@@ -24,6 +24,8 @@
 > [ADR-0066](adr/0066-script-overlay-kind-recompile-same-components-protocol-13.md)).
 > **v0.3 M5-T4** — 프로토콜 14: ServerStats 끝에 스크립트 시스템 표 (프로파일 —
 > [ADR-0068](adr/0068-script-profile-injected-diagnostic-clock-serverstats-protocol-14.md)).
+> **v0.5 M2-T5 (3)** — 프로토콜 15: 플레이어 신호 명령 PlayerSignal (5.1 태그 31 — 팩 signals.json 의 이름 · i32 값, 역할 player 부터,
+> [11](11-CONTENT-SCHEMA.md) 6.1장).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -191,7 +193,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 14`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 15`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -247,6 +249,7 @@ mode 3 (테스트 플레이). 메시지 모양은 그대로 — 열거 값만 (A
 메시지 모양은 그대로 (ADR-0066).
 프로토콜 14 (v0.3 M5-T4): ServerStats 끝에 windowSeconds f32 · scripts varint (≤ 64) × {id str(128) · calls · fuel · nanos (창) ·
 traps · budget · cut · maxFuel · maxNanos (누적) varint · disabled bool} · scriptsOmitted varint (ADR-0068).
+프로토콜 15 (v0.5 M2-T5 (3)): 명령 PlayerSignal (5.1 태그 31 — name str(64), value i32 (u32 비트)). 메시지 모양은 그대로 — 명령 종류만.
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 
@@ -255,10 +258,11 @@ traps · budget · cut · maxFuel · maxNanos (누적) varint · disabled bool} 
 ```text
 종류 태그 u8 (값 고정): 1 CreateEntity · 2 DeleteEntity · 3 MoveEntity · 4 AddComponent · 5 RemoveComponent · 6 ChangeComponent ·
                        7 PaintTerrain · 8 EditContent (12C) · 20 Pause · 21 Resume · 22 Step · 23 SetSimulationSpeed ·
-                       24 GameControl (프로토콜 9) · 30 PlayerAction (프로토콜 10)
+                       24 GameControl (프로토콜 9) · 30 PlayerAction (프로토콜 10) · 31 PlayerSignal (프로토콜 15)
 EditContent  종류 u8 (0 prefab · 1 rule · 2 behavior — 그 밖은 형식 오류), id str(64), 값 JSON 텍스트 (객체 또는 null)
 GameControl  op u8 (1 start · 2 abort — 그 밖은 형식 오류). 권한 = 실행 제어 (admin 부터)
 PlayerAction action id str(64), position f32 × 2 (유한). 권한 = 플레이어 행동 (player 부터). 대상은 서버 시뮬레이션이 고른다
+PlayerSignal name str(64), value i32. 권한 = 플레이어 행동 (player 부터). 선언 · 범위 · perTick 은 서버 시뮬레이션이 본다 (11 6.1장)
 엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
 컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
 개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)

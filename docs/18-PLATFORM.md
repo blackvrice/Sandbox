@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T5 (3) — PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" → (4) ctx.players · session → M2-T7
+다음     v0.5 M2-T5 (4) — ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 → M2-T7
          Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
 계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
@@ -506,7 +506,7 @@ M2 게임플레이 API
         saveId 순) · ctx.time (19 16.3)
   T5 ◐ (1) ✅ game.owner (엔진 컴포넌트 · 접근 표 Owner — 골든 그대로 쟀다, kSimVersion 4). 남음 (조각마다 커밋):
         (2) ✅ onEvent "action" (GameEvent action · player · targets — 지문에 이벤트 표, 19 18장)
-        (3) [계획] PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal"
+        (3) ✅ PlayerSignal · signals.json (perTick · V13) · 프로토콜 15 · onEvent "signal" (11 6.1장)
         (4) [계획] ctx.players · session · 행동 · 신호 · spawn 이 owner 를 적기
   T7 [계획] Runtime v2 계약 동결 — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model (23 1장 · ADR-0086 6)
   T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) — T7 뒤 (Capability 를 단 함수로)

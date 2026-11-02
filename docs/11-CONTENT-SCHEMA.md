@@ -90,6 +90,7 @@ content/<pack>/
   behaviors/*.json        BehaviorGraph 1파일 1개
   modes/*.json            GameMode 1파일 1개 (선택 — v0.2 M2, 9장)
   actions.json            PlayerAction 정의 (선택)
+  signals.json            PlayerSignal 정의 (선택 — v0.5 M2-T5 (3), 6.1장)
   triggers/*.json         Trigger 1파일 1개 (선택 — v0.2 M4-T1, 10장)
   scripts/**/*.ts         SandboxScript (선택 — v0.3 M3-T2, 11장 · 19-SANDBOXSCRIPT). 팩 하나 = 프로그램 하나
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
@@ -296,6 +297,26 @@ PlayerAction (v0.2 M3-T1, [ADR-0047](adr/0047-player-action-content-command-poin
 - 역할 player 부터, 게임 세션이 있으면 Running 에서만. 팩 전체 64 개까지. 월드 오버레이로 고치기는 [계획].
 ```
 
+### 6.1 PlayerSignal — signals.json (v0.5 M2-T5 (3))
+
+```jsonc
+// signals.json — 클라이언트 (UI 버튼 · client 스크립트 ctx.send [계획 M2-T6]) 가 서버 규칙을 부르는 이름 붙은 신호
+[ { "id": "omok.place", "min": 0, "max": 224 },          // 값 = 칸 번호
+  { "id": "omok.ready" },                                // 값 없음 (min = max = 0)
+  { "id": "omok.emote", "min": 1, "max": 8, "perTick": 2 } ]
+```
+
+```text
+- 명령 PlayerSignal{name, value: i32} (프로토콜 15 — 08 5.1 태그 31). 받아들이는 조건: 선언된 id · min ≤ value ≤ max · 게임
+  세션이 있으면 Running · 이 틱에 같은 보내는 쪽 (issuer) 의 같은 id 가 perTick 개 미만. 하나라도 어기면 거절 (CommandResult).
+- 키: id (<pack>.<name>) · min · max (i32, 기본 0 · 0) · perTick (1~8, 기본 1). 팩 전체 64 개까지.
+- 월드를 바꾸지 않는다 — 받아들인 신호는 서버 스크립트의 onEvent "signal" { signal, player, value } 가 같은 틱 17d 에 받는다
+  (19 18장). 구독이 없으면 받아들이기만 한다. 명령이므로 리플레이에 남는다 ({"op": "signal", "name", "value"}).
+- 속도: 클라이언트마다의 명령 토큰 버킷 (08 · 03 4.1 — 초당 120) 위에 perTick (틱마다 새로 센다 — 틱을 넘는 상태가 없어 세이브
+  → 로드 · 리플레이가 같은 판정). 처음 설계의 "초당 rate" 는 틱을 넘는 상태가 생겨 perTick 으로 바꿨다 (20 3.7).
+- 역할 player 부터 (PlayerAction 과 같은 권한 열). 월드 오버레이로 고치기는 [계획].
+```
+
 TagSet 비트 인덱스는 로드 시 태그 이름 정렬 순서로 매기며, 팩 전체 태그는 최대 256개입니다.
 
 ---
@@ -365,6 +386,7 @@ V10 Trigger: 그래프 모양 (이벤트 하나 · 나무 · 순환 · 닿음 ·
 V11 스크립트 오버레이: 컴포넌트 정의 (defineComponent) 를 팩과 다르게 — 더하기 · 빼기 · 바꾸기 (v0.3 M5-T2, ADR-0066)
 V12 팩 매니페스트의 패키지 키 (1.3): license 가 SPDX 식이 아니다, dependencies 의 모양 · 팩 id · 자기 자신, 범위를 만족하지 않는다 ·
     요구한 팩의 version 이 SemVer 가 아니다 — "팩 'a' 은 'b' ^1.2 을 요구하는데 'b' 은 1.1.9 이다" (v0.4 M1-T1, ADR-0071)
+V13 PlayerSignal: min · max 는 i32 · min ≤ max, perTick 1~8, 팩 전체 64 개까지 (v0.5 M2-T5 (3)) — 중복 id 는 V1
 S1xx~S5xx 스크립트 (scripts/*.ts — v0.3 M3-T2): 컴파일러 진단 그대로, 포인터 자리에 "줄:열" (19 8장). 스크립트 컴포넌트 id 가
     엔진 컴포넌트 · 앞 팩의 스크립트 컴포넌트와 같으면 V1, 시스템 id 가 앞 팩의 시스템과 같으면 V1 (v0.3 M4-T1), 시스템 구독의
     태그가 tags.json 에 없으면 V7 (v0.3 M4-T2)

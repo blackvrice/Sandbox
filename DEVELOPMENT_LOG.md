@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T5 (3): PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal"
+
+**무엇을**
+
+- 콘텐츠 signals.json (팩마다, 선택): [{ id, min?, max?, perTick? }] — i32 범위 (기본 0 · 0), perTick 1~8 (기본 1), 팩 전체 64 개.
+  새 규칙 V13 (범위 · perTick · 개수), 중복 · 이름공간 V1, 모르는 키 V3. ContentDatabase::signals · findSignal.
+- 명령 PlayerSignal { name, value: i32 } — CommandJson {"op": "signal"}, 와이어 태그 31 (프로토콜 14 → 15), 권한 = 플레이어 행동 열
+  (player 부터). 적용: 선언 · 범위 · 세션이 있으면 Running · 그 틱의 (issuer, id) 마다 perTick — 셈은 단계 0 에서 비운다. 월드는
+  바꾸지 않는다.
+- 스크립트: 구독 종류 signal (GameEventKind.Signal = 6), GameEvent 칸 signal (string) — player · value 를 같이 쓴다. Host API 지문
+  0xaf93f2870c649b98 → 0xf5e11716b49e9a6e (Host API 1 · .sbc 9 그대로), sandbox.d.ts 넷 다시 만듦.
+
+**왜**
+
+- 20 3.7 · 23 1장 카드 — UI 버튼 (M3-T5) · client 스크립트 send (M2-T6) 가 서버 규칙을 부르는 유일한 길.
+- 설계를 바꾼 것: 이름마다 "초당 rate" → "틱마다 perTick". 초 단위 창은 틱을 넘는 상태가 되어 세이브 → 로드 · 리플레이와 이어
+  돌린 실행의 판정이 갈릴 수 있다 (04). 클라이언트마다의 초당 120 토큰 버킷은 그대로 (08).
+- kReplayVersion 1 그대로 — 리플레이는 명령 JSON 줄이고 op 집합은 열려 있다 (옛 리플레이는 그대로 읽힌다, 새 리플레이의 signal
+  줄은 옛 엔진이 거절).
+
+**검증**
+
+- 새 test_player_signal (로드 · V13 · V1 · V3 · 적용 차례 · perTick 의 issuer 별 셈 · 다음 틱 · 해시 그대로 · 세션 · JSON 왕복),
+  test_messages (프로토콜 15 · 태그 31 왕복 — i32 끝값 · 분류), test_script_callbacks (signal 이벤트 · 거절된 신호 없음 · 칸 배치),
+  test_checker 지문 고정.
+- 명령 적용 차례 = (executeTick, issuer, sequence) — 시험의 기대값을 처음에 넣은 차례로 적어 틀렸고 고쳤다.
+- kSimVersion 4 그대로 (det_* 골든 · 리플레이 해시 통과). Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과, check_includes 0 위반.
+
+**남은 일**
+
+- M2-T5 (4) ctx.players · session · owner 적기. 클라이언트에서 신호를 보내는 길 (ctx.send · UI 버튼) 은 M2-T6 · M3-T5. 변형 퍼즈에
+  PlayerSignal 넣기는 [계획] (24 N1).
+
+---
+
 ## 2026-11-02 — v0.5 M2-T5 (2): server onEvent "action" — 받아들여진 PlayerAction 을 스크립트로
 
 **무엇을**

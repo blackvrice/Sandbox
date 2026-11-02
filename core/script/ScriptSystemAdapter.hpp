@@ -94,6 +94,11 @@ struct ScriptEventFacts {
         Vec2 pos{};                         // 고른 점
         std::vector<ecs::EntityId> targets; // 고른 대상 ((거리², saveId) 차례) — 17d 에 살아 있는 것만
     };
+    struct Signal {
+        std::string name; // PlayerSignal id
+        i32 player = 0;   // 명령을 낸 쪽 (issuer)
+        i32 value = 0;
+    };
     bool starting = false;
     bool stopping = false;
     std::vector<Death> deaths;    // 발생 순 (Died)
@@ -101,6 +106,7 @@ struct ScriptEventFacts {
     std::vector<Present> current; // 지금 개체 — saveId 순 (areaEnter)
     std::vector<Score> scores;    // 바뀐 칸 — 칸 순
     std::vector<Action> actions;  // 받아들여진 차례 (명령 적용 차례 — executeTick · issuer · sequence)
+    std::vector<Signal> signals;  // 받아들여진 차례 (명령 적용 차례)
 };
 
 class ScriptSystemAdapter {
@@ -158,6 +164,7 @@ private:
         i32 value = 0;
         i32 previous = 0;
         const ScriptEventFacts::Action* action = nullptr; // action 종류일 때만
+        const ScriptEventFacts::Signal* signal = nullptr; // signal 종류일 때만
     };
     // 콜백 하나를 부른다 (ev 가 있으면 onEvent 의 e). 꺼졌거나 틱 연료가 없으면 부르지 않는다
     void invoke(sim::SimulationWorld& world, sim::Tick tick, Entry& s, u32 fn, std::string_view callback,

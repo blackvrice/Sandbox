@@ -91,6 +91,9 @@ public:
     // PlayerAction (v0.2 M3-T1 — 팩의 actions.json, ADR-0047) — id 정렬
     [[nodiscard]] std::span<const PlayerActionDef> playerActions() const noexcept { return m_playerActions; }
     [[nodiscard]] const PlayerActionDef* findPlayerAction(std::string_view id) const noexcept;
+    // PlayerSignal (v0.5 M2-T5 (3) — 팩의 signals.json) — id 정렬
+    [[nodiscard]] std::span<const SignalDef> signals() const noexcept { return m_signals; }
+    [[nodiscard]] const SignalDef* findSignal(std::string_view id) const noexcept;
     // Trigger (v0.2 M4-T1 — 팩의 triggers/*.json, ADR-0050) — 정의 순서 (order)
     [[nodiscard]] std::span<const TriggerDef> triggers() const noexcept { return m_triggers; }
     [[nodiscard]] const TriggerDef* findTrigger(std::string_view id) const noexcept;
@@ -128,6 +131,7 @@ private:
     std::vector<BehaviorGraph> m_behaviors;
     std::vector<GameMode> m_modes;
     std::vector<PlayerActionDef> m_playerActions;
+    std::vector<SignalDef> m_signals;
     std::vector<TriggerDef> m_triggers;
     std::vector<std::string> m_actions;            // 이름 정렬
     std::vector<std::vector<u32>> m_rulesByAction; // m_actions 와 같은 순서

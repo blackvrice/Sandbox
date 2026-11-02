@@ -1,7 +1,7 @@
 // 스크립트 콜백 onStart · onStop · onEvent (v0.3 M4-T2, ADR-0063): 검사기 (events 구독 · GameEvent · GameEventKind,
 // S426), 바이트코드 형식 4 (콜백 · 구독 표 · 검증기), VM 의 구조체 인자, 콘텐츠의 태그 풀기 (V7), 단계 17d — 시작 (틱 1
-// · Running 이 된 틱) · 끝 (Finished 가 된 틱) · death · spawn · areaEnter · score · action (v0.5 M2-T5 (2)), 예산
-// (eventsPerTick · cut), 세이브 → 로드 해시.
+// · Running 이 된 틱) · 끝 (Finished 가 된 틱) · death · spawn · areaEnter · score · action (v0.5 M2-T5 (2)) · signal
+// (M2-T5 (3)), 예산 (eventsPerTick · cut), 세이브 → 로드 해시.
 #include <doctest/doctest.h>
 
 #include <filesystem>
@@ -340,26 +340,28 @@ export default defineSystem({ id: "a.b", events: { spawn: {} }, onEvent(ctx, e) 
         vm::Interpreter vmi(*m, nullptr);
         const bc::Export* k = m->findExport("scripts/a.ts", "k");
         REQUIRE(k != nullptr);
-        // 칸 = action (글 자리) · entity · kind · player · previous · targets (개수 + 원소) · team · value · x · y
-        // (이름 순)
+        // 칸 = action (글 자리) · entity · kind · player · previous · signal (글 자리) · targets (개수 + 원소) · team ·
+        // value · x · y (이름 순)
         const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
         const std::vector<std::string> noText{""};
-        const vm::Value fields[10] = {vm::Value::i32v(0),   vm::Value::opaque(0x5E00'0000'0000'0001ull),
-                                      vm::Value::i32v(2),   vm::Value::i32v(0),
-                                      vm::Value::i32v(0),   vm::Value::i32v(0),
-                                      vm::Value::i32v(0),   vm::Value::i32v(5),
-                                      vm::Value::f64v(1.5), vm::Value::f64v(2.5)};
+        const vm::Value fields[11] = {vm::Value::i32v(0),  vm::Value::opaque(0x5E00'0000'0000'0001ull),
+                                      vm::Value::i32v(2),  vm::Value::i32v(0),
+                                      vm::Value::i32v(0),  vm::Value::i32v(0),
+                                      vm::Value::i32v(0),  vm::Value::i32v(0),
+                                      vm::Value::i32v(5),  vm::Value::f64v(1.5),
+                                      vm::Value::f64v(2.5)};
         const vm::CallResult r = vmi.call(k->function, args, fields, noText);
         REQUIRE_MESSAGE(r.ok(), r.message);
         CHECK(r.value.asI32() == 2012);
-        const vm::Value nullEntity[10] = {
-            vm::Value::i32v(0), vm::Value::null(),  vm::Value::i32v(1), vm::Value::i32v(0), vm::Value::i32v(0),
-            vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(4), vm::Value::f64v(0), vm::Value::f64v(0)};
+        const vm::Value nullEntity[11] = {vm::Value::i32v(0), vm::Value::null(),  vm::Value::i32v(1),
+                                          vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(0),
+                                          vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(4),
+                                          vm::Value::f64v(0), vm::Value::f64v(0)};
         CHECK(vmi.call(k->function, args, nullEntity, noText).value.asI32() == 1004);
-        CHECK(vmi.call(k->function, args, std::span(fields).first(9), noText).trap == vm::Trap::BadCall);
+        CHECK(vmi.call(k->function, args, std::span(fields).first(10), noText).trap == vm::Trap::BadCall);
         CHECK(vmi.call(k->function, args, fields).trap == vm::Trap::BadCall); // 글 자리가 목록 밖
-        const vm::Value eleven[11] = {};
-        CHECK(vmi.call(k->function, args, eleven, noText).trap == vm::Trap::BadCall);
+        const vm::Value twelve[12] = {};
+        CHECK(vmi.call(k->function, args, twelve, noText).trap == vm::Trap::BadCall);
     }
 
     TEST_CASE("onEvent: action 의 글 · 개체 목록 칸 (v0.5 M2-T5 (2)) — 모양이 다르면 BadCall") {
@@ -381,11 +383,12 @@ export default defineSystem({ id: "a.b", events: { action: {} }, onEvent(ctx, e)
         REQUIRE(k != nullptr);
         const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
         const std::vector<std::string> texts{"t.go"};
-        const vm::Value fields[12] = {vm::Value::i32v(0),
+        const vm::Value fields[13] = {vm::Value::i32v(0),
                                       vm::Value::null(),
                                       vm::Value::i32v(5),
                                       vm::Value::i32v(3),
                                       vm::Value::i32v(0),
+                                      vm::Value::i32v(0), // signal — 글 자리
                                       vm::Value::i32v(2),
                                       vm::Value::opaque(0x5E00'0000'0000'0001ull),
                                       vm::Value::opaque(0x5E00'0000'0000'0002ull),
@@ -400,11 +403,11 @@ export default defineSystem({ id: "a.b", events: { action: {} }, onEvent(ctx, e)
         CHECK(vmi.call(k->function, args, fields, other).value.asI32() == 322);
         // 개수가 남은 칸보다 크다 · 음수 · 글 자리가 목록 밖
         std::vector<vm::Value> bad(std::begin(fields), std::end(fields));
-        bad[5] = vm::Value::i32v(9);
+        bad[6] = vm::Value::i32v(9);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
-        bad[5] = vm::Value::i32v(-1);
+        bad[6] = vm::Value::i32v(-1);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
-        bad[5] = vm::Value::i32v(2);
+        bad[6] = vm::Value::i32v(2);
         bad[0] = vm::Value::i32v(1);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
     }
@@ -547,6 +550,39 @@ export default defineSystem({
             std::format("t{} 5 t.poke 1 1 1 2 false", first),
             std::format("t{} 5 t.eat 1 1 1 0 false", first + 1),
         };
+        CHECK(logs == want);
+    }
+
+    TEST_CASE("17d: signal — 받아들여진 PlayerSignal 만, 적용 차례 (id · player · value), 거절된 신호는 없다") {
+        Root root = basePack("signal");
+        root.file("t/signals.json", R"([{"id": "t.place", "min": 0, "max": 99}, {"id": "t.ready"}])")
+            .file("t/scripts/sig.ts", R"(import { defineSystem, GameEventKind } from "sandbox"
+export default defineSystem({
+  id: "t.sig",
+  events: { signal: {} },
+  onEvent(ctx, e) {
+    if (e.kind === GameEventKind.Signal) {
+      ctx.log(`${e.signal} ${e.player} ${e.value} ${e.action === ""} ${e.targets.length}`)
+    }
+  },
+})
+)");
+        const content::ContentLoadResult r = root.load();
+        REQUIRE_MESSAGE(r.ok(), dump(r));
+        World w(r.db);
+        REQUIRE(w.world.scriptSystems() != nullptr);
+        CHECK(w.world.scriptSystems()->subscribes(api::GameEventKind::Signal));
+        w.push(cmd::PlayerSignal{"t.place", 42});
+        w.push(cmd::PlayerSignal{"t.place", 100}); // 범위 밖 — 이벤트 없음
+        w.push(cmd::PlayerSignal{"t.ready", 0});
+        w.world.tick();
+        const sim::Tick at = w.world.currentTick();
+        REQUIRE(w.world.lastResults().size() == 3);
+        CHECK_FALSE(w.world.lastResults()[1].accepted);
+        const std::vector<std::string> logs = w.logs();
+        CAPTURE(logs);
+        const std::vector<std::string> want{std::format("t{} t.place 1 42 true 0", at),
+                                            std::format("t{} t.ready 1 0 true 0", at)};
         CHECK(logs == want);
     }
 

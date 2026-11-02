@@ -14,7 +14,7 @@
 namespace sbx::script::api {
 
 // ★ 값은 바이트코드 (.sbc 구독 표) 와 스크립트 (GameEventKind.Death …) 에 남는다 — 바꾸지 않고 추가만
-enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4, Action = 5 };
+enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4, Action = 5, Signal = 6 };
 
 struct GameEventKindInfo {
     GameEventKind kind;
@@ -25,12 +25,13 @@ struct GameEventKindInfo {
 };
 
 // 종류 차례 = 한 시스템이 이벤트를 받는 차례 (ADR-0063 3)
-inline constexpr std::array<GameEventKindInfo, 5> kGameEventKinds{{
+inline constexpr std::array<GameEventKindInfo, 6> kGameEventKinds{{
     {GameEventKind::Death, "death", "Death", false, true},
     {GameEventKind::Spawn, "spawn", "Spawn", false, true},
     {GameEventKind::AreaEnter, "areaEnter", "AreaEnter", true, true},
     {GameEventKind::Score, "score", "Score", false, false},
     {GameEventKind::Action, "action", "Action", false, false},
+    {GameEventKind::Signal, "signal", "Signal", false, false},
 }};
 
 [[nodiscard]] constexpr const GameEventKindInfo* findGameEventKind(std::string_view key) noexcept {
@@ -58,16 +59,18 @@ struct GameEventFieldInfo {
     GameEventField type;
     std::string_view doc;
 };
-inline constexpr std::array<GameEventFieldInfo, 10> kGameEventFields{{
+inline constexpr std::array<GameEventFieldInfo, 11> kGameEventFields{{
     {"action", GameEventField::String, "action: 받아들여진 PlayerAction 의 id (다른 종류는 빈 문자열)"},
     {"entity", GameEventField::EntityOrNull, "spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다)"},
     {"kind", GameEventField::Kind, "이벤트 종류"},
-    {"player", GameEventField::I32, "action: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이)"},
+    {"player", GameEventField::I32, "action · signal: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이)"},
     {"previous", GameEventField::I32, "score: 틱 처음의 점수"},
+    {"signal", GameEventField::String, "signal: 받아들여진 PlayerSignal 의 id (다른 종류는 빈 문자열)"},
     {"targets", GameEventField::EntityList,
      "action: 고른 대상 중 17d 에 살아 있는 것 ((거리², saveId) 차례 — 효과가 지운 대상은 빠진다)"},
     {"team", GameEventField::I32, "score: 점수 칸 (0 = 공용, 팀 번호 + 1)"},
-    {"value", GameEventField::I32, "score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명)"},
+    {"value", GameEventField::I32,
+     "score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명), signal: 보낸 값"},
     {"x", GameEventField::Number, "위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0, action 은 고른 점)"},
     {"y", GameEventField::Number, "위치 y"},
 }};

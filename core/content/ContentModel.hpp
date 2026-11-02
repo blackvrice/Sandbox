@@ -126,6 +126,22 @@ struct PlayerActionDef {
     nlohmann::json raw;
 };
 
+// --- PlayerSignal (11 6.1장, v0.5 M2-T5 (3)) ----------------------------------------------------------------------
+// 클라이언트 (UI 버튼 · client 스크립트 ctx.send) 가 서버 규칙을 부르는 이름 붙은 신호. 팩 signals.json 에 선언한 것만
+// — 값 범위 [min, max] (i32), 한 틱에 보내는 쪽 (issuer) 마다 perTick 개까지. 서버 스크립트가 onEvent "signal" 로
+// 받는다
+inline constexpr usize kMaxSignals = 64; // DB 전체
+inline constexpr u32 kMaxSignalPerTick = 8;
+
+struct SignalDef {
+    std::string id;
+    i32 min = 0;
+    i32 max = 0;
+    u32 perTick = 1;
+    std::string file;
+    nlohmann::json raw;
+};
+
 // --- BehaviorGraph (11 4장, 03 5장) ------------------------------------------------------------------------------
 struct Condition {
     enum class Kind : u8 {

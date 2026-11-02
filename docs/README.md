@@ -28,7 +28,7 @@
 | 05 | [월드](05-WORLD.md)                           | Chunk, Terrain, Spatial Index                                              | 규범          |
 | 06 | [렌더링](06-RENDERING.md)                     | RHI, DX12 / Vulkan / Metal, 셰이더, 에셋, 프레임                           | 규범          |
 | 07 | [플랫폼](07-PLATFORM.md)                      | 창, 입력, 오디오, 네이티브 핸들                                            | 규범          |
-| 08 | [네트워크](08-NETWORK.md)                     | Transport, 프로토콜 (지금 14), 복제, Interest, 역할                        | 규범          |
+| 08 | [네트워크](08-NETWORK.md)                     | Transport, 프로토콜 (지금 15), 복제, Interest, 역할                        | 규범          |
 | 09 | [직렬화](09-SERIALIZATION.md)                 | 세이브, 리플레이, 게임 패키지, 비트스트림, 버전 · 마이그레이션             | 규범          |
 | 10 | [에디터](10-EDITOR.md)                        | 패널, 툴, 편집 명령, Undo, 권한, 콘텐츠 · 트리거 · 스크립트 편집           | 규범          |
 | 11 | [콘텐츠 스키마](11-CONTENT-SCHEMA.md)         | Prefab · Rule · Behavior · GameMode · PlayerAction · Trigger · scripts/    | 규범          |

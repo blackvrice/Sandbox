@@ -321,6 +321,8 @@ std::string generateSandboxDts() {
     out += "    score?: {};\n";
     out += "    /** 그 틱에 받아들여진 PlayerAction (콘텐츠 효과 뒤 — e.action · player · x · y · targets) */\n";
     out += "    action?: {};\n";
+    out += "    /** 그 틱에 받아들여진 PlayerSignal (팩 signals.json — e.signal · player · value) */\n";
+    out += "    signal?: {};\n";
     out += "  }\n";
     out += "  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
     out += "  export interface SystemDefinition {\n";

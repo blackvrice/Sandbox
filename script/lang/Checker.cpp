@@ -1113,12 +1113,13 @@ private:
         }
     }
 
-    // events: { death: { tags? }, spawn: { tags? }, areaEnter: { min: [x, y], max: [x, y], tags? }, score: {}, action:
-    // {} } — 종류마다 하나, 결과는 종류 차례
+    // events: { death: { tags? }, spawn: { tags? }, areaEnter: { min: [x, y], max: [x, y], tags? }, score: {},
+    // action: {}, signal: {} } — 종류마다 하나, 결과는 종류 차례
     bool declareSystemEvents(NodeId v, SystemDecl& sd) {
         if (node(v).kind != NodeKind::ObjectLit) {
             err("S426", v,
-                "events 는 { death: {}, spawn: {}, areaEnter: { min, max }, score: {}, action: {} } 객체 리터럴이다");
+                "events 는 { death: {}, spawn: {}, areaEnter: { min, max }, score: {}, action: {}, signal: {} } 객체 "
+                "리터럴이다");
             expr(v, kNoExpect);
             return false;
         }
@@ -1133,7 +1134,8 @@ private:
             }
             const api::GameEventKindInfo* k = api::findGameEventKind(key);
             if (k == nullptr) {
-                err("S426", p, std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action", key));
+                err("S426", p,
+                    std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action · signal", key));
                 ok = false;
                 continue;
             }
@@ -1208,7 +1210,7 @@ private:
             ok = ok && good;
         }
         if (ok && sd.events.empty()) {
-            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score · action");
+            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score · action · signal");
             ok = false;
         }
         std::sort(sd.events.begin(), sd.events.end(),

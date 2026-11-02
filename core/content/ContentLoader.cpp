@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <limits>
 #include <map>
 #include <queue>
 #include <set>
@@ -144,6 +145,7 @@ private:
     bool parseRuleEffects(const PackDir& p, const SourceFile& f, const json& es, const std::string& at,
                           Who spawnDefault, std::vector<RuleEffect>& out, bool& destroysTarget);
     void loadActions(const PackDir& p, const SourceFile& f);
+    void loadSignals(const PackDir& p, const SourceFile& f);
     void loadBehavior(const PackDir& p, const SourceFile& f);
     void loadBehaviorJson(const PackDir& p, const SourceFile& f, const json& j, bool fromOverlay);
     void loadMode(const PackDir& p, const SourceFile& f);
@@ -1414,6 +1416,62 @@ void ContentLoaderImpl::loadActions(const PackDir& p, const SourceFile& f) {
     }
 }
 
+// signals.json — PlayerSignal 배열 (11 6.1장, v0.5 M2-T5 (3)). 형식 V3 · 고유 규칙 V13 (min ≤ max, perTick 1~8, 팩 전체
+// 64 개). 문제가 있는 항목은 넣지 않는다
+void ContentLoaderImpl::loadSignals(const PackDir& p, const SourceFile& f) {
+    const json j = json::parse(f.text, nullptr, false);
+    if (j.is_discarded() || !j.is_array()) {
+        error(f.display, "", "JSON", "PlayerSignal 배열이어야 한다");
+        return;
+    }
+    const auto i32Of = [&](const json& v, const std::string& at, const char* key, i32& out) {
+        if (!v.is_number_integer() || v.get<i64>() < std::numeric_limits<i32>::min() ||
+            v.get<i64>() > std::numeric_limits<i32>::max()) {
+            error(f.display, ptr(at, key), "V13", std::format("{} 는 32 비트 정수", key));
+            return false;
+        }
+        out = static_cast<i32>(v.get<i64>());
+        return true;
+    };
+    for (usize i = 0; i < j.size(); ++i) {
+        const std::string at = ptr("", i);
+        const json& a = j[i];
+        if (!a.is_object()) {
+            error(f.display, at, "JSON", "PlayerSignal 은 객체");
+            continue;
+        }
+        bool ok = onlyKeys(a, {"id", "min", "max", "perTick"}, f, at);
+        SignalDef def;
+        def.file = f.display;
+        def.raw = a;
+        if (!a.contains("id") || !checkId(p, f, ptr(at, "id"), a["id"], def.id)) {
+            continue;
+        }
+        if (a.contains("min")) {
+            ok = i32Of(a["min"], at, "min", def.min) && ok;
+        }
+        if (a.contains("max")) {
+            ok = i32Of(a["max"], at, "max", def.max) && ok;
+        }
+        if (ok && def.min > def.max) {
+            error(f.display, at, "V13", std::format("min {} 이 max {} 보다 크다", def.min, def.max));
+            ok = false;
+        }
+        if (a.contains("perTick")) {
+            const json& m = a["perTick"];
+            if (!m.is_number_unsigned() || m.get<u64>() < 1 || m.get<u64>() > kMaxSignalPerTick) {
+                error(f.display, ptr(at, "perTick"), "V13", std::format("perTick 은 1~{}", kMaxSignalPerTick));
+                ok = false;
+            } else {
+                def.perTick = static_cast<u32>(m.get<u64>());
+            }
+        }
+        if (ok) {
+            m_db.m_signals.push_back(std::move(def));
+        }
+    }
+}
+
 // modes/<이름>.json — GameMode 하나 (11 9장, ADR-0045). 문제는 모두 모으고, 하나라도 있으면 모드를 넣지 않는다
 void ContentLoaderImpl::loadMode(const PackDir& p, const SourceFile& f) {
     const json j = json::parse(f.text, nullptr, false);
@@ -2122,6 +2180,7 @@ void ContentLoaderImpl::crossCheck() {
     dupCheck(m_db.m_behaviors, "Behavior");
     dupCheck(m_db.m_modes, "GameMode");
     dupCheck(m_db.m_playerActions, "PlayerAction");
+    dupCheck(m_db.m_signals, "PlayerSignal");
     {
         // Trigger 는 정의 순서를 지킨다 (실행 순서) — 복사본으로 중복만 본다
         std::vector<std::pair<std::string, std::string>> ids;
@@ -2139,6 +2198,10 @@ void ContentLoaderImpl::crossCheck() {
             error(m_db.m_triggers.back().file, "", "V10",
                   std::format("Trigger 는 모든 팩을 합쳐 {} 개까지 ({} 개)", kMaxTriggers, m_db.m_triggers.size()));
         }
+    }
+    if (m_db.m_signals.size() > kMaxSignals) {
+        error(m_db.m_signals.back().file, "", "V13",
+              std::format("PlayerSignal 은 모든 팩을 합쳐 {} 개까지 ({} 개)", kMaxSignals, m_db.m_signals.size()));
     }
     if (m_db.m_playerActions.size() > kMaxPlayerActions) {
         error(m_db.m_playerActions.back().file, "", "V9",
@@ -2618,6 +2681,8 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
                 loadMode(p, f);
             } else if (f.rel == "actions.json") {
                 loadActions(p, f);
+            } else if (f.rel == "signals.json") {
+                loadSignals(p, f);
             } else if (f.rel.starts_with("triggers/") && f.rel.ends_with(".json")) {
                 loadTrigger(p, f);
             } else if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {

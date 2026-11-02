@@ -120,6 +120,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_events.clear();
     m_results.clear();
     m_scriptActions.clear();
+    m_scriptSignals.clear();
+    m_signalCounts.clear();
     m_intents.clear();
     if (run) {
         m_clock.advance();
@@ -281,6 +283,8 @@ void SimulationWorld::finishRestore(const RestoreState& state) {
     m_events.clear();
     m_results.clear();
     m_scriptActions.clear();
+    m_scriptSignals.clear();
+    m_signalCounts.clear();
     m_intents.clear();
     m_spatial.rebuild(m_registry);
 
@@ -581,6 +585,7 @@ void SimulationWorld::applyCommand(const cmd::SimCommand& command) {
     result.issuer = command.header.issuer;
     result.sequence = command.header.sequence;
     result.appliedTick = m_clock.tick();
+    m_applyingIssuer = command.header.issuer;
     auto applied = applyPayload(command.payload);
     syncIdentityLogs();
     if (applied) {
@@ -848,9 +853,12 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         return Result{};
     }
 
-    // --- 플레이어 행동 (v0.2 M3-T1) ---------------------------------------------
+    // --- 플레이어 행동 (v0.2 M3-T1) · 신호 (v0.5 M2-T5 (3)) -----------------------
     if (const auto* c = std::get_if<cmd::PlayerAction>(&payload)) {
         return applyPlayerAction(*c);
+    }
+    if (const auto* c = std::get_if<cmd::PlayerSignal>(&payload)) {
+        return applyPlayerSignal(*c);
     }
 
     // --- 게임 진행 (v0.2 M2-T3) -------------------------------------------------
@@ -955,6 +963,36 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd:
         }
     }
     return created;
+}
+
+// --- 플레이어 신호 (v0.5 M2-T5 (3), 11 6.1장) -------------------------------------------------------------------
+// 선언된 id · 값 범위 · 게임 세션이 있으면 Running · 이 틱에 같은 issuer 의 같은 id 가 perTick 개 미만. 월드는 바꾸지
+// 않는다 — 받아들인 신호는 (구독이 있으면) 같은 틱 17d 의 onEvent "signal" 로. 상한 셈은 틱마다 새로 (틱을 넘는 상태
+// 없음)
+Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerSignal(const cmd::PlayerSignal& c) {
+    const content::SignalDef* def = m_content->findSignal(c.name);
+    if (def == nullptr) {
+        return makeError(ErrorCode::NotFound, std::format("PlayerSignal '{}' 가 콘텐츠에 없다 (signals.json)", c.name));
+    }
+    if (c.value < def->min || c.value > def->max) {
+        return makeError(ErrorCode::OutOfRange,
+                         std::format("'{}' 의 값 {} 이 범위 [{}, {}] 밖이다", c.name, c.value, def->min, def->max));
+    }
+    if (const comp::GameSession* s = game::findSession(m_registry);
+        s != nullptr && s->gameState() != comp::GameState::Running) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("게임이 진행 중일 때만 (지금 {})", game::gameStateName(s->gameState())));
+    }
+    u32& sent = m_signalCounts[{m_applyingIssuer, c.name}];
+    if (sent >= def->perTick) {
+        return makeError(ErrorCode::RateLimited,
+                         std::format("'{}' 는 한 틱에 {} 번까지 (보낸 쪽 {})", c.name, def->perTick, m_applyingIssuer));
+    }
+    ++sent;
+    if (m_scriptSystems && m_scriptSystems->subscribes(script::api::GameEventKind::Signal)) {
+        m_scriptSignals.push_back(ScriptSignal{c.name, static_cast<i32>(m_applyingIssuer), c.value});
+    }
+    return std::vector<NetEntityId>{};
 }
 
 // --- 효과 바로 적용 (PlayerAction · Trigger 공용) -----------------------------------------------------------------

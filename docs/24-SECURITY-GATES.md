@@ -27,7 +27,7 @@ S4  "통과" 는 실제로 돈 시험만. CI 와 로컬을 나눠 적고, 돌리
 | V3 | VM | 단계 밖 Host 호출 (onRender 에서 write · onPrePhysics 에서 spawn) | Capability 세 겹 (검사기 · Host 표 · 호출 토큰) | [계획 v0.5 M2-T7] 표 · 검사기, [계획 v0.6] 실행 검사 + 변조 .sbc 시험 | v0.5 (계약) · v0.6 (실행) | v0.6 부터 예 |
 | V4 | VM | 가짜 · 옛 개체 핸들 · 다른 월드 핸들 | 핸들 = (saveId, 세대) · 호출마다 확인 · 없는 개체 = null (ADR-0060) | 현행: test_component_host · test_script_structural | v0.3 ~ | 예 |
 | V5 | VM | 예외 · 트랩이 서버를 죽임 | 트랩 = 그 호출 버림 · N 번 뒤 시스템 끔 (ADR-0064) · 충돌 보고 (M1) | 현행: test_script_budget · crash_report_* | v0.3 ~ | 예 |
-| N1 | 네트워크 (ENet) | 위조 · 범위 밖 · 폭주 명령 · PlayerSignal | 서버 검증 (역할 · 범위 · signals.json 선언 · 속도 제한) | 현행: unit_network 속도 제한, [계획 v0.5 M2-T5 (3)] 위조 신호 · 이름마다 rate 시험 · 변형 퍼즈 | v0.5 | 예 |
+| N1 | 네트워크 (ENet) | 위조 · 범위 밖 · 폭주 명령 · PlayerSignal | 서버 검증 (역할 · 범위 · signals.json 선언 · 속도 제한) | 현행: unit_network 속도 제한, v0.5 M2-T5 (3) ✅ 선언 없음 · 범위 밖 · perTick · 세션 거절 (test_player_signal), 역할 분류 (test_messages) — 변형 퍼즈에 PlayerSignal 은 [계획] | v0.5 | 예 |
 | N2 | 네트워크 | 평문 · 인증 없는 인터넷 접속 (R6) | 보안 전송 · JoinTicket (D-07) | [계획 v0.7] 핸드셰이크 · 재전송 · 위조 티켓 시험 | v0.7 | 예 (v0.7 이전은 LAN 만 — UI 경고) |
 | N3 | 네트워크 | 위조 InputFrame (미래 · 옛 tick · 너무 많은 프레임 · 축 범위) | tick 창 · 속도 · 양자화 범위 검사 (ADR-0087) | [계획 v0.7] 단위 · 퍼즈 | v0.7 | 예 |
 | N4 | 네트워크 | 클라이언트 예측 결과 주입 | 예측 값은 서버로 보내지 않는다 (프로토콜에 자리가 없다) | [계획 v0.7] 프로토콜 표 시험 | v0.7 | 예 |

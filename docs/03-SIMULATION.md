@@ -238,7 +238,7 @@ System은 다른 System을 직접 호출하지 않습니다. 소통은 컴포넌
 
 - 8b server onPrePhysics (Path 제출 8 뒤 · Movement 9 앞) — [계획 v0.6]. 스크립트 시스템이 없으면 단계가 없다 (골든 그대로).
 - 16a 물리 이벤트 (Collision 16 뒤 — 겹침 쌍 Enter · Exit → GameEvent) — [계획 v0.6], 구독이 없으면 만들지 않는다.
-- 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action (v0.5 M2-T5 (2) ✅) · signal (M2-T5 (3)),
+- 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action (v0.5 M2-T5 (2) ✅) · signal (M2-T5 (3) ✅),
   timer · collision · trigger (v0.6), response · socket (v0.8) 이 더해진다.
 - 상세: [22-RUNTIME-V2](22-RUNTIME-V2.md) 3 · 5장, [ADR-0086](adr/0086-runtime-architecture-v2.md).
 
@@ -292,7 +292,8 @@ using CommandPayload = std::variant<
     // 게임 진행 (v0.2 M2-T3 — 구현: GameControl{start | abort} → game.session, ADR-0046)
     GameControl,
     // 플레이어 행동 (콘텐츠 정의)
-    PlayerAction       // 구현 (v0.2 M3-T1): {action, position} — 대상은 시뮬레이션이 고른다, args 는 [계획]
+    PlayerAction,      // 구현 (v0.2 M3-T1): {action, position} — 대상은 시뮬레이션이 고른다, args 는 [계획]
+    PlayerSignal       // 구현 (v0.5 M2-T5 (3)): {name, value} — 선언 · 범위 · perTick 확인, 월드는 바뀌지 않고 17d 의 onEvent "signal"
 >;
 struct SimCommand { CommandHeader header; CommandPayload payload; };
 ```
@@ -314,6 +315,9 @@ value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목�
 v0.2 M3-T1 구현 (ADR-0047): `PlayerAction{action, position}` — 콘텐츠 PlayerAction(11 6장)의 대상을 위치에서 고르고 (range ·
 태그 · 조건 · 가까운 순 maxTargets) 효과를 Stage 2 에서 바로 적용한다 (destroy 는 바로 구조 변경, spawn 난수 =
 Purpose::PlayerAction). 대상이 없거나 게임 세션이 Running 이 아니면 거절. 역할 player 부터 (4.1).
+v0.5 M2-T5 (3): `PlayerSignal{name, value}` — 콘텐츠 signals.json (11 6.1장) 에 선언된 이름 · 값 범위 · 그 틱의 (issuer, 이름) 마다
+perTick 개까지 (셈은 단계 0 에서 비운다 — 틱을 넘는 상태 없음). 게임 세션이 Running 이 아니면 거절. 받아들이면 월드는 그대로,
+스크립트 구독이 있으면 같은 틱 17d 에 onEvent "signal".
 v0.2 M3-T2 (ADR-0048): `GameControl{start}` 를 적용하면 (Lobby → Starting, 점수 0) 이어서 `game.spawn_point` 를 saveId 순으로,
 지점마다 prefab 을 count 개 위치 ±radius 안에 만든다 (난수 Purpose::GameStart · 키 = 지점 saveId, 없는 prefab 은 건너뜀,
 한 번에 4096 개까지). 만든 개체는 명령 결과의 created.

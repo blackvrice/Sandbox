@@ -31,6 +31,7 @@ enum class PayloadTag : u8 {
     SetSimulationSpeed = 23,
     GameControl = 24,  // 프로토콜 9 (v0.2 M2-T3): op u8 (1 start · 2 abort)
     PlayerAction = 30, // 프로토콜 10 (v0.2 M3-T1): action str(64), position f32 × 2
+    PlayerSignal = 31, // 프로토콜 15 (v0.5 M2-T5 (3)): name str(64), value i32
 };
 
 inline constexpr usize kMaxJsonTextBytes = 16 * 1024; // 컴포넌트 값 하나 · 패치 하나

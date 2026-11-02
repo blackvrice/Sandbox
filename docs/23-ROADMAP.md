@@ -11,9 +11,9 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) ✅
-다음      v0.5 M2-T5 (3) — PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" (1장 카드)
-그다음    M2-T5 (4) ctx.players · session · owner 적기 → M2-T7 계약 동결 → M2-T6 →
+지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) · (3) ✅
+다음      v0.5 M2-T5 (4) — ctx.players · session · owner 적기 (1장 카드)
+그다음    M2-T7 계약 동결 → M2-T6 →
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
 
@@ -57,7 +57,7 @@ M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 �
 ⑬ 19 18장 (이벤트 표), 20 3.5 (✅ 표시), 03 2장 17d 설명, 13, DEVELOPMENT_LOG
 ⑭ 오목형 시험 팩이 스크립트로 수를 판정 — 병렬: M2-T7 과 파일이 겹친다 (script/api) → 순서대로
 
-① M2-T5 (3) PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal"     ② P0   ③ v0.5 M2
+① M2-T5 (3) PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" ✅ (2026-11-02 — 11 6.1장, rate → perTick)  ② P0
 ④ UI 버튼 · ctx.send 가 서버 규칙을 부르는 유일한 길 (20 3.7) — M3-T5 · M2-T6 의 선행
 ⑤ M2-T5 (2)
 ⑥ core/command (PlayerSignal), core/content (signals.json · 새 V 규칙 · contentHash), network/protocol (15), core/simulation, core/script,

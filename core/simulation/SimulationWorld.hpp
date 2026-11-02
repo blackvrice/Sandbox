@@ -229,6 +229,7 @@ private:
     Expected<void> applyEditContent(const cmd::EditContent& c);
     // 콘텐츠 PlayerAction (v0.2 M3-T1): 대상 고르기 → 효과. 만든 엔티티의 netId
     Expected<std::vector<NetEntityId>> applyPlayerAction(const cmd::PlayerAction& c);
+    Expected<std::vector<NetEntityId>> applyPlayerSignal(const cmd::PlayerSignal& c);
     // GameControl Start 를 적용한 뒤: game.spawn_point 마다 Prefab 을 만든다 (v0.2 M3-T2, ADR-0048)
     std::vector<NetEntityId> spawnAtSpawnPoints();
     // 효과 하나를 바로 적용한다 (명령 단계 · 단계 17c — PlayerAction · Trigger 공용). who 가 없거나 죽었으면 대상 효과
@@ -291,6 +292,16 @@ private:
     };
     std::vector<ScriptAction> m_scriptActions;
     std::vector<ecs::EntityId> m_actionTargets;
+    // PlayerSignal (v0.5 M2-T5 (3)) — 이번 틱에 받아들인 신호 (17d signal 이벤트, 구독이 있을 때만) · (issuer, id) 마다
+    // 받은 수 (perTick 상한). 틱마다 비운다 — 틱을 넘는 속도 상태가 없어 세이브 → 로드 뒤에도 같은 판정
+    struct ScriptSignal {
+        std::string name;
+        i32 player = 0;
+        i32 value = 0;
+    };
+    std::vector<ScriptSignal> m_scriptSignals;
+    std::map<std::pair<cmd::ClientId, std::string>, u32> m_signalCounts;
+    cmd::ClientId m_applyingIssuer = cmd::kServerIssuer; // applyCommand 가 적용 중인 명령의 issuer
 
     SaveId m_nextSaveId = 1;
     NetEntityId m_nextNetId = 1;

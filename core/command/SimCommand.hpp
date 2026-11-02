@@ -116,16 +116,24 @@ struct GameControl {
 };
 
 // --- 플레이어 행동 (v0.2 M3-T1, ADR-0047) ---------------------------------------------------------------------------
-// 콘텐츠 PlayerAction(actions.json) 하나를 월드의 한 점에 쓴다 (11 6장). 대상 고르기 · 효과는 SimulationWorld 가 적용할 때
-// (03 4장). 게임 세션이 있으면 Running 일 때만. 대상이 하나도 없으면 거절 (아무것도 바뀌지 않는다)
+// 콘텐츠 PlayerAction(actions.json) 하나를 월드의 한 점에 쓴다 (11 6장). 대상 고르기 · 효과는 SimulationWorld 가 적용할
+// 때 (03 4장). 게임 세션이 있으면 Running 일 때만. 대상이 하나도 없으면 거절 (아무것도 바뀌지 않는다)
 struct PlayerAction {
     std::string action; // PlayerAction id
     Vec2 position{};
 };
 
+// 콘텐츠 PlayerSignal(signals.json) 하나를 보낸다 (v0.5 M2-T5 (3), 11 6.1장) — UI 버튼 · client 스크립트가 서버 규칙을
+// 부르는 길. 선언된 이름 · 값 범위 · 한 틱의 보내는 쪽마다 perTick 개까지만 받는다. 게임 세션이 있으면 Running 일 때만.
+// 받아들이면 월드는 바뀌지 않고 서버 스크립트의 onEvent "signal" 이 같은 틱 17d 에 받는다
+struct PlayerSignal {
+    std::string name; // PlayerSignal id ("<팩>.<이름>")
+    i32 value = 0;
+};
+
 using CommandPayload = std::variant<CreateEntity, DeleteEntity, MoveEntity, AddComponent, RemoveComponent,
                                     ChangeComponent, PaintTerrain, PauseSimulation, ResumeSimulation, StepSimulation,
-                                    SetSimulationSpeed, EditContent, GameControl, PlayerAction>;
+                                    SetSimulationSpeed, EditContent, GameControl, PlayerAction, PlayerSignal>;
 
 struct SimCommand {
     CommandHeader header;

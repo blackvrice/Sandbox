@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <format>
+#include <limits>
 #include <type_traits>
 
 namespace sbx::cmd {
@@ -139,6 +140,8 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "speed"}, {"speed", static_cast<f64>(p.speed)}};
             } else if constexpr (std::is_same_v<P, PlayerAction>) {
                 return Json{{"op", "action"}, {"action", p.action}, {"position", vec(p.position)}};
+            } else if constexpr (std::is_same_v<P, PlayerSignal>) {
+                return Json{{"op", "signal"}, {"name", p.name}, {"value", p.value}};
             } else if constexpr (std::is_same_v<P, GameControl>) {
                 return Json{{"op", "game"}, {"action", p.op == GameControlOp::Start ? "start" : "abort"}};
             } else {
@@ -290,6 +293,21 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
         a.action = j["action"].get<std::string>();
         a.position = *pos;
         return CommandPayload{std::move(a)};
+    }
+    if (op == "signal") {
+        PlayerSignal s;
+        if (!j.contains("name") || !j["name"].is_string() || (j.contains("value") && !j["value"].is_number_integer())) {
+            return makeError(ErrorCode::ParseError, "signal 은 {name: id, value?: 정수}");
+        }
+        s.name = j["name"].get<std::string>();
+        if (j.contains("value")) {
+            const i64 v = j["value"].get<i64>();
+            if (v < std::numeric_limits<i32>::min() || v > std::numeric_limits<i32>::max()) {
+                return makeError(ErrorCode::ParseError, "signal 의 value 는 32 비트 정수");
+            }
+            s.value = static_cast<i32>(v);
+        }
+        return CommandPayload{std::move(s)};
     }
     if (op == "game") {
         const std::string action =

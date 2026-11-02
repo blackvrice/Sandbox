@@ -9,6 +9,7 @@
 //   area   지금 개체 (saveId 순) + 스냅숏 위치 — 사각형 판정은 구독마다 어댑터가 한다
 //   score  점수 칸마다 스냅숏 ≠ 지금 (세션이 있을 때)
 //   action 그 틱에 받아들여진 PlayerAction (명령 적용 차례) — 대상은 지금 살아 있는 것만 (v0.5 M2-T5 (2))
+//   signal 그 틱에 받아들여진 PlayerSignal (명령 적용 차례) — v0.5 M2-T5 (3)
 
 #include <algorithm>
 
@@ -104,6 +105,11 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
                 }
             }
             facts.actions.push_back(std::move(x));
+        }
+    }
+    if (scripts.subscribes(GameEventKind::Signal)) {
+        for (const ScriptSignal& g : m_scriptSignals) {
+            facts.signals.push_back(script::ScriptEventFacts::Signal{g.name, g.player, g.value});
         }
     }
     scripts.runCallbacks(*this, now, facts);

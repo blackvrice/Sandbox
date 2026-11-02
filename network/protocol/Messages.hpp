@@ -32,8 +32,9 @@ namespace sbx::net {
 // — v0.2 M3-T1 11: 콘텐츠 종류 Trigger (EditContent · ContentOverlay 의 kind 3) — v0.2 M4-T3 12: 테스트 플레이 —
 // WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1 13: 콘텐츠 종류
 // Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2 14: ServerStats 의 스크립트
-// 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4
-inline constexpr u32 kProtocolVersion = 14;
+// 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4 15: 명령
+// PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3)
+inline constexpr u32 kProtocolVersion = 15;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;

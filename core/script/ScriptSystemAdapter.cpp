@@ -84,8 +84,13 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
                 // 문자열 칸 = m_texts 의 자리
                 v = vm::Value::i32v(static_cast<i32>(m_texts.size()));
                 m_texts.push_back(ev->action != nullptr ? ev->action->action : std::string());
+            } else if (n == "signal") {
+                v = vm::Value::i32v(static_cast<i32>(m_texts.size()));
+                m_texts.push_back(ev->signal != nullptr ? ev->signal->name : std::string());
             } else if (n == "player") {
-                v = vm::Value::i32v(ev->action != nullptr ? ev->action->player : 0);
+                v = vm::Value::i32v(ev->action != nullptr   ? ev->action->player
+                                    : ev->signal != nullptr ? ev->signal->player
+                                                            : 0);
             } else if (n == "targets") {
                 // 개수 다음 원소 (Interpreter::call 의 개체 목록 칸)
                 const usize count = ev->action != nullptr ? ev->action->targets.size() : 0;
@@ -252,6 +257,11 @@ void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick ti
             case GameEventKind::Action:
                 for (const ScriptEventFacts::Action& a : facts.actions) {
                     deliver(EventValues{GameEventKind::Action, {}, a.pos.x, a.pos.y, 0, 0, 0, &a});
+                }
+                break;
+            case GameEventKind::Signal:
+                for (const ScriptEventFacts::Signal& g : facts.signals) {
+                    deliver(EventValues{GameEventKind::Signal, {}, 0.0, 0.0, 0, g.value, 0, nullptr, &g});
                 }
                 break;
             }

@@ -235,7 +235,8 @@ v0.2 M3-T1 (ADR-0047):
 
 ```text
 플레이어 행동 위 표의 "플레이어 행동" 열 = 명령 PlayerAction (CommandClass::PlayerAction — Player 부터). 콘텐츠 actions.json 의
-             행동을 월드의 한 점에 쓴다. 게임 세션이 있으면 Running 에서만 (Lobby 의 편집 단계에서는 거절)
+             행동을 월드의 한 점에 쓴다. 게임 세션이 있으면 Running 에서만 (Lobby 의 편집 단계에서는 거절). 명령 PlayerSignal
+             (v0.5 M2-T5 (3) — signals.json) 도 같은 열
 시험         역할 표 시험이 명령 15 종 (+ PlayerAction — Player 부터)
 ```
 

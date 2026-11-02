@@ -214,6 +214,8 @@ M2-T5 (1) ✅ 쟀다: 카탈로그에 더해도 det_* 골든 · 리플레이 해
 ```text
 SimCommand PlayerSignal { name (팩 이름공간), value: i32 } — 프로토콜 15. 속도 제한은 명령 속도 제한 그대로 + 이름마다 초당 상한
            (signals.json 의 rate — 기본 10). 리플레이에 기록된다 (명령이다)
+✅ M2-T5 (3) — 바꾼 것: 이름마다 "초당 rate" 대신 "틱마다 perTick (1~8, 기본 1)" — 초 단위 창은 틱을 넘는 상태라 세이브 → 로드
+           뒤 판정이 달라질 수 있다 (04). signals.json 은 actions.json 과 같은 배열 모양 (id · min · max · perTick, 11 6.1장 · V13)
 ```
 
 ### 3.8 client 도메인 (표시 · 입력 — 시뮬레이션 밖)
@@ -398,7 +400,7 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T4 ✅ | random · near · time | core/random (Purpose::Script), core/script/ScriptHost (흐름 · near), script/api (Host 표) | — | M2-T1 | 같은 월드 · 틱 · 시스템 = 같은 수열 · 다른 시스템과 무관 · 이어 씀 · 틱마다 다름, randomInt 범위, near = 색인 · saveId 순 · 거르기 · 연료, 틱 안의 시스템 = 같은 해시 (test_script_random) | — |
 | M2-T5 (1) ✅ | game.owner 엔진 컴포넌트 · 접근 표 · 골든 영향 측정 | core/components, script/api/EngineComponents | — | M2-T3 | 골든 · 리플레이 해시 그대로 (3.6) | kSimVersion 4 유지 |
 | M2-T5 (2) ✅ | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
-| M2-T5 (3) | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
+| M2-T5 (3) ✅ | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
 | M2-T5 (4) | ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 | core/game (플레이어 표 — 기록된 것만), core/script/ScriptHost, script/api · sdk | PlayerInfo · SessionInfo | M2-T5 (3) | id 순 · 재생 같은 값 · 골든 측정 (바뀌면 kSimVersion 5) | 스크립트가 "누구의 돌" 을 안다 |
 | M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
 | M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |

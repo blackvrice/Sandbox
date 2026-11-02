@@ -57,7 +57,8 @@ std::vector<cmd::CommandPayload> everyPayload() {
             cmd::EditContent{content::ContentKind::Trigger, "eco.lost", ecs::Json{{"id", "eco.lost"}}}, // v0.2 M4-T3
             cmd::GameControl{cmd::GameControlOp::Start},
             cmd::GameControl{cmd::GameControlOp::Abort},
-            cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}}};
+            cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}},
+            cmd::PlayerSignal{"eco.place", -2147483647 - 1}}; // 프로토콜 15 (v0.5 M2-T5 (3)) — i32 끝값
 }
 
 } // namespace
@@ -162,7 +163,8 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 14); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.3 M5-T4)
+        CHECK(kProtocolVersion == 15); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.5 M2-T5 (3))
+        CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
         CHECK_FALSE(roleAllows(Role::Observer, CommandClass::PlayerAction));
