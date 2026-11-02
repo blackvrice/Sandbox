@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-11-02 — 조사: 간헐적 서버 충돌 (ReplicationWriter::collect) — 코드 결함이 아니라 CPU 불안정으로 판단, 코드 변경 없음
+
+**무엇을**
+
+- M2-T4 검증 중 net_server_probe_smoke 가 한 번 서버 access violation 으로 실패한 것 (보고 묶음
+  `20261102-011744-SandboxServer`, commit 4838850 + 작업 트리, Windows MSVC Debug) 을 조사했다. 코드는 바꾸지 않았다.
+- 덤프 (`crash.dmp`, MiniDumpNormal) 를 dbghelp 로 직접 읽었다 (cdb 없음 — 스레드 목록 · 예외 문맥 · 스택 메모리를 파이썬으로
+  풀고 같은 빌드의 PDB 로 기호화. 실행 파일 TimeDateStamp 0x6ae7e44b 가 덤프의 모듈과 같다).
+
+**무엇을 봤나**
+
+- 예외: 0xC0000005 실행 위반 (DEP) — RIP = 0x2bcedc0d2a8 = `&m_current._Mylast` (힙의 ReplicationWriter 안). RDI =
+  `&m_current` (this), RSP = 0x…cf90.
+- `vector<Current>::_Emplace_one_at_back` 의 디스어셈블 (dumpbin): 들어갈 때 RSP = 0x…cf98 (돌아갈 주소), `push rdi` → 0x…cf90,
+  `sub rsp,30h` → 0x…cf60, 지역 [rsp+20h] = this · [rsp+28h] = &_Mylast. `_Emplace_back_with_unused_capacity` 를 부르고
+  (스택에 돌아올 주소 _Emplace_one_at_back+0x49 가 그대로 남아 있다) 끝 `add rsp,30h; pop rdi; ret`.
+- 레지스터는 정확히 "RSP 가 0x10 모자란 채로 `pop rdi; ret` 를 실행한" 상태다: RDI ← [0x…cf80] = this, RIP ← [0x…cf88] =
+  &_Mylast, RSP = 0x…cf90. **스택 메모리는 멀쩡하다** (저장된 rdi · 돌아갈 주소 · 지역 · 그 위 collect · build · simStep 프레임
+  모두 일관). 메모리를 덮어쓴 것 (경쟁 · 범위 밖 쓰기 · 힙 손상) 이면 메모리가 틀리고 레지스터는 그 값을 따른다 — 여기서는 반대로
+  메모리가 맞고 RSP 레지스터만 틀리다. 같은 프로세스에서 다른 스레드가 레지스터를 바꾸는 길 (SetThreadContext · SuspendThread ·
+  APC) 은 저장소에 없다 (충돌 처리기는 SetUnhandledExceptionFilter 뿐).
+- 충돌 순간 다른 스레드: 메인 (sleep_for — main.cpp:250), Net IO (enet_socket_wait), Job worker 4 개 모두 빈 큐에서 대기
+  (JobSystem::workerLoop) — 아무도 ReplicationWriter 근처에 없다.
+- 스레드 모델 (코드): ReplicationWriter 는 Sim 절반 소유 — addClient · removeClient · onAck · setInterest · setAlwaysRelevant ·
+  build 모두 simStep 안 (Net → Sim 은 m_mutex 아래 m_roster · m_acks · m_subscribes · m_inspectRequests 를 바꿔 넘긴다). Net
+  스레드는 생성 뒤 바뀌지 않는 table() 만 읽는다. stop() 은 Sim · Net 스레드를 join 한 뒤에 정리한다. JobGroup (parallelFor 가
+  스택에 둔다) 은 done() 이 잠금 안에서 줄이고 알린다 — wait() 는 그 잠금을 다시 얻어야 돌아오므로 파괴 뒤 접근이 없다.
+- 기계 전체 (Windows 이벤트 로그 Application Error, 최근 60 일): **CL.exe 가 10-21 ~ 10-27 에 access violation 으로 8 번** 죽었다
+  (c2.dll · c1xx.dll · ucrtbase.dll 의 서로 다른 오프셋, 한 번은 "unknown" 0x000000d071dfafa0 = 스택 주소를 실행 — 이번과 같은
+  "데이터로 뛰기"). CEF 의 0xC000001D (잘못된 명령) 10 번 (서로 다른 오프셋), SearchIndexer · WerFault · InventorySvc AV 도.
+  결정적인 컴파일러가 무작위 위치에서 죽는 것은 소프트웨어 결함으로 설명되지 않는다.
+- CPU: Intel Core i7-14700K (Raptor Lake Refresh — Vmin shift 불안정이 알려진 세대), 마이크로코드 0x12F (Intel 완화판 — 더 나빠지는
+  것은 막지만 이미 나빠진 칩을 고치지는 않는다), BIOS F10a (Gigabyte Z790 AORUS ELITE AX ICE). WHEA 이벤트는 없다 (이 종류의
+  오류는 흔히 WHEA 에 남지 않는다).
+
+**결론**
+
+- 레지스터만 틀린 상태 + 같은 기계의 무작위 컴파일러 충돌 → 하드웨어 (CPU) 불안정으로 판단. 복제 · ServerHost 의 경쟁이나 힙 손상의
+  근거는 찾지 못했다. 코드는 바꾸지 않는다 (없는 결함을 "고치는" 변경은 하지 않는다).
+
+**검증 (소프트웨어 쪽을 배제하려고)**
+
+- 이 작업 트리 (13c9f42) Windows MSVC Debug 빌드 + 전체 ctest: 73/73 통과.
+- net_server_probe_smoke `--repeat until-fail:100`: 100 번 모두 통과 (TSan 빌드와 동시에 돌려 부하를 준 상태 포함).
+- Linux clang-19 ThreadSanitizer (Docker sbx-ci-linux 이미지, linux-clang-tsan RelWithDebInfo, SandboxServer + sbx_net_probe 를 시험과
+  같은 명령으로 20 번): 20/20 서버 종료 코드 0, TSan 경고 0, probe 모두 "명령 3 수락 3 거절 0". 주의: Docker 기본 seccomp 는 TSan
+  런타임의 personality(ADDR_NO_RANDOMIZE) 를 막아 TSan 이 CHECK 실패로 죽는다 — `--security-opt seccomp=unconfined` 가 필요하다.
+
+**남은 일**
+
+- (사람) 기계 점검: Intel Processor Diagnostic Tool, BIOS 를 "Intel Default Settings" 전력 프로필로, 그래도 무작위 충돌
+  (특히 CL.exe) 이 이어지면 Intel 보증 (13 · 14 세대 연장 보증) 상담. 그 전까지 이 기계의 간헐적 충돌은 CI (GitHub 러너) 에서도
+  재현되는지로 먼저 가른다.
+- 같은 증상이 CI 나 다른 기계에서 나오면 이 판단을 다시 연다 — 그때는 덤프의 레지스터 · 스택을 이번처럼 대조한다.
+
+---
+
 ## 2026-11-02 — v0.5 M2-T4: ctx.time · random · randomInt · near · nearWith
 
 **무엇을**
