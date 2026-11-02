@@ -1993,6 +1993,20 @@ private:
                 return kNoSymbol;
             }
         }
+        // 화살표 몸 (v0.5 M8-T3): 바깥 함수의 지역 이름은 캡처 — 없다 (S304). 모듈 이름보다 먼저 본다 (JS 는 가까운
+        // 지역 이름을 잡는다)
+        for (auto outer = m_arrowOuter.rbegin(); outer != m_arrowOuter.rend(); ++outer) {
+            for (const Scope& sc : (*outer)->scopes) {
+                if (findEntry(sc.names, name) != nullptr) {
+                    err("S304", at,
+                        std::format("화살표 함수는 바깥 지역 이름 '{}' 를 쓸 수 없다 (캡처 없음 — 클로저는 [계획]) — "
+                                    "최상위 const · 함수를 쓰거나 최상위 function 으로 옮긴다",
+                                    name));
+                    reported = true;
+                    return kNoSymbol;
+                }
+            }
+        }
         if (const ScopeEntry* e = findEntry(m_mscopes[m_ctx.module].values, name)) {
             if (m_ctx.function < 0 && !m_ready[e->sym]) {
                 err("S403", at, std::format("'{}' 를 선언하기 전에 쓴다 (최상위 const 는 위에서부터)", name));
@@ -2578,6 +2592,11 @@ private:
         }
         case NodeKind::Ident:
             return identValue(n);
+        case NodeKind::Arrow:
+            err("S304", n,
+                "화살표 함수는 내장 메서드의 콜백 인자로만 (xs.map(x => …)) — 그 밖은 최상위 function (함수 값 · "
+                "클로저는 [계획])");
+            return set(n, TypeTable::kError);
         case NodeKind::Paren: {
             const NodeId inner = ast().kid(n, 0);
             const NodeKind ik = inner == kNoNode ? NodeKind::Null : node(inner).kind;
@@ -3166,6 +3185,188 @@ private:
         return ok;
     }
 
+    // ---- 콜백 (v0.5 M8-T3 — ADR-0085 6) -------------------------------------------------------------------------
+    // 콜백 인자 하나: 최상위 함수 이름 · 캡처 없는 화살표. lead = 앞 매개변수의 타입 (원소 · 누적 · 비교 짝),
+    // allowIndex = 뒤에 첨자 (i32 · number) 하나를 더 받을 수 있다, resultHint = 화살표의 반환 타입 문맥 (없으면
+    // kNoExpect — 추론). 매개변수는 실행 배치가 같아야 한다 (양쪽으로 넣을 수 있다 — i32 와 number 는 다르다). 함수
+    // 번호 · 없으면 nullopt
+    std::optional<u32> callbackArg(NodeId arg, std::span<const TypeId> lead, bool allowIndex, TypeId resultHint,
+                                   std::string_view what) {
+        const Node& a = node(arg);
+        auto sameLayout = [&](TypeId x, TypeId y) {
+            return T().isError(x) || T().isError(y) || (T().assignable(x, y) && T().assignable(y, x));
+        };
+        auto isIndexType = [&](TypeId t) {
+            return T().isError(t) || T().kind(t) == TypeKind::I32 || T().kind(t) == TypeKind::Number;
+        };
+        auto checkParams = [&](NodeId at, std::span<const TypeId> params) {
+            const usize maxN = lead.size() + (allowIndex ? 1u : 0u);
+            if (params.size() < lead.size() || params.size() > maxN) {
+                err("S405", at,
+                    std::format("{} 의 콜백은 매개변수 {} 개{} — {} 개다", what, lead.size(),
+                                allowIndex ? std::format(" (또는 첨자까지 {} 개)", maxN) : std::string(),
+                                params.size()));
+                return false;
+            }
+            for (usize i = 0; i < params.size(); ++i) {
+                const bool ok = i < lead.size() ? sameLayout(params[i], lead[i]) : isIndexType(params[i]);
+                if (!ok) {
+                    err("S404", at,
+                        std::format("{} 의 콜백 매개변수 {} 는 {} 여야 한다 — {} 다", what, i + 1,
+                                    i < lead.size() ? T().name(lead[i]) : std::string("i32 · number (첨자)"),
+                                    T().name(params[i])));
+                    return false;
+                }
+            }
+            return true;
+        };
+        if (a.kind == NodeKind::Ident) {
+            bool reported = false;
+            const SymbolId id = lookupValue(arg, ast().str(arg), reported);
+            if (reported) {
+                return std::nullopt;
+            }
+            if (id == kNoSymbol || sym(id).kind != SymbolKind::Function) {
+                if (id == kNoSymbol) {
+                    unknownValue(arg, ast().str(arg));
+                } else {
+                    err("S411", arg,
+                        std::format("{} 의 콜백은 최상위 함수 이름이나 화살표 함수 — '{}' 는 함수가 아니다", what,
+                                    ast().str(arg)));
+                }
+                return std::nullopt;
+            }
+            const u32 fi = sym(id).function;
+            if (!P.functions[fi].resultDeclared && P.functions[fi].state == FunctionInfo::State::Pending) {
+                ensureFunction(fi);
+            }
+            if (!P.functions[fi].resultDeclared && P.functions[fi].state == FunctionInfo::State::Checking) {
+                err("S421", arg, std::format("'{}' 는 재귀 · 서로 부르는 함수다 — 반환 타입을 적는다", ast().str(arg)));
+                return std::nullopt;
+            }
+            const std::vector<TypeId> params = P.functions[fi].params;
+            if (!checkParams(arg, params)) {
+                return std::nullopt;
+            }
+            sema(arg) = {TypeTable::kVoid, RefKind::Callback, fi};
+            return fi;
+        }
+        if (a.kind != NodeKind::Arrow) {
+            expr(arg, kNoExpect);
+            err("S411", arg, std::format("{} 의 콜백은 최상위 함수 이름이나 화살표 함수 (함수 값은 [계획])", what));
+            return std::nullopt;
+        }
+        // 화살표 — 숨은 최상위 함수 (몸은 바깥 이름을 캡처하지 않는다)
+        const auto kids = ast().kids(arg);
+        const usize paramCount = kids.size() - 2;
+        FunctionInfo f;
+        f.name = std::format("<화살표 {}:{}>", a.pos.line, a.pos.column);
+        f.module = m_ctx.module;
+        f.decl = arg;
+        std::vector<TypeId> params;
+        for (usize i = 0; i < paramCount; ++i) {
+            const NodeId pn = kids[i];
+            const std::string pname(ast().str(pn));
+            TypeId pt = TypeTable::kError;
+            if (ast().kid(pn, 0) != kNoNode) {
+                pt = resolveType(ast().kid(pn, 0), false);
+            } else if (i < lead.size()) {
+                pt = lead[i];
+            } else if (i == lead.size() && allowIndex) {
+                pt = TypeTable::kNumber; // TS 의 첨자 number
+            }
+            for (const SymbolId s : f.paramSymbols) {
+                if (sym(s).name == pname) {
+                    err("S402", pn, std::format("매개변수 '{}' 가 두 번 있다", pname));
+                }
+            }
+            Symbol s;
+            s.kind = SymbolKind::Param;
+            s.name = pname;
+            s.type = pt;
+            s.module = f.module;
+            s.decl = pn;
+            s.mutableVar = true;
+            const SymbolId sid = newSymbol(std::move(s));
+            m_ready[sid] = true;
+            sema(pn) = {pt, RefKind::Symbol, sid};
+            params.push_back(pt);
+            f.paramSymbols.push_back(sid);
+        }
+        f.params = params;
+        if (const NodeId ret = kids[paramCount]; ret != kNoNode) {
+            f.result = resolveType(ret, true);
+            f.resultDeclared = true;
+        } else if (resultHint != kNoExpect) {
+            f.result = resultHint; // 문맥의 반환 타입 (find 의 boolean · reduce 의 누적)
+            f.resultDeclared = true;
+        }
+        P.functions.push_back(std::move(f));
+        const u32 fi = static_cast<u32>(P.functions.size() - 1);
+        sema(arg) = {TypeTable::kVoid, RefKind::Callback, fi};
+        const bool paramsOk = checkParams(arg, params);
+        arrowBody(fi);
+        return paramsOk ? std::optional<u32>(fi) : std::nullopt;
+    }
+
+    // 화살표 몸 — ensureFunction 과 같지만 몸이 식일 수 있고, 바깥 함수의 지역 이름을 잡지 않는다 (m_arrowOuter)
+    void arrowBody(u32 fi) {
+        P.functions[fi].state = FunctionInfo::State::Checking;
+        FnCtx saved = std::move(m_ctx);
+        m_arrowOuter.push_back(&saved);
+        m_ctx = FnCtx{};
+        m_ctx.module = P.functions[fi].module;
+        m_ctx.function = static_cast<i32>(fi);
+        m_ctx.inferring = !P.functions[fi].resultDeclared;
+        m_ctx.result = P.functions[fi].resultDeclared ? P.functions[fi].result : TypeTable::kVoid;
+        const NodeId decl = P.functions[fi].decl;
+        const NodeId body = ast().kids(decl).back();
+        collectAssigned(body);
+        Scope fnScope;
+        for (const SymbolId p : P.functions[fi].paramSymbols) {
+            Symbol& s = sym(p);
+            s.maybeAssigned = isAssignedName(s.name);
+            fnScope.names.push_back({s.name, p});
+        }
+        m_ctx.scopes.push_back(std::move(fnScope));
+        Flow flow;
+        if (node(body).kind == NodeKind::Block) {
+            flow = blockStatements(body, /*newScope=*/false);
+        } else {
+            // 식 몸 = return 식 (void 식이면 void 함수)
+            const TypeId want = m_ctx.inferring ? kNoExpect : m_ctx.result;
+            const TypeId t = expr(body, want);
+            if (m_ctx.inferring) {
+                m_ctx.returns.push_back(T().isNullLiteral(t) ? TypeTable::kError : t);
+                if (T().isNullLiteral(t)) {
+                    err("S414", body, "null 을 돌려주는 화살표는 반환 타입을 적는다 ((x): T | null => …)");
+                }
+            } else if (m_ctx.result != TypeTable::kVoid) {
+                assignTo(body, t, m_ctx.result);
+            }
+            flow.returns = true;
+        }
+        if (m_ctx.inferring) {
+            TypeId r = TypeTable::kVoid;
+            bool bad = false;
+            for (usize i = 0; i < m_ctx.returns.size(); ++i) {
+                r = i == 0 ? m_ctx.returns[0] : unify(r, m_ctx.returns[i], bad);
+            }
+            if (bad) {
+                err("S412", decl, "화살표의 return 타입이 서로 다르다 — 반환 타입을 적는다");
+                r = TypeTable::kError;
+            }
+            P.functions[fi].result = r;
+        }
+        const TypeId result = P.functions[fi].result;
+        if (result != TypeTable::kVoid && !T().isError(result) && !flow.returns) {
+            err("S412", decl, std::format("화살표가 모든 길에서 값을 돌려주지 않는다 ({})", T().name(result)));
+        }
+        P.functions[fi].state = FunctionInfo::State::Done;
+        m_ctx = std::move(saved);
+        m_arrowOuter.pop_back();
+    }
+
     // 배열 메서드 (v0.5 M8-T2 — 내장 표, 19 25.2). 이름을 모르면 nullopt (부르는 쪽이 S406)
     std::optional<TypeId> arrayMethod(NodeId n, NodeId callee, TypeId at, std::string_view member) {
         const TypeId elem = T().info(at).elem;
@@ -3241,19 +3442,144 @@ private:
             }
             return method(IntrinsicId::ArrayJoin, {TypeTable::kString}, 1, TypeTable::kString);
         }
+        const auto kids = ast().kids(n);
+        const usize argc = kids.size() - 1;
         if (member == "sort") {
-            if (ast().kids(n).size() - 1 == 0 && T().kind(elem) == TypeKind::String) {
+            if (argc == 0 && T().kind(elem) == TypeKind::String) {
                 return method(IntrinsicId::ArraySortStrings, {}, 0, at);
             }
-            if (ast().kids(n).size() - 1 == 0 && T().isNumeric(elem)) {
+            if (argc == 0) {
                 err("S404", n,
-                    "수 배열의 sort() 는 JS 에서 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — 비교자 "
-                    "sort((a, b) => a - b) 를 쓴다 [M8-T3]");
-            } else {
-                err("S406", n, std::format("{} 의 sort(비교자) 는 [계획 — v0.5 M8-T3]", T().name(at)));
+                    T().isNumeric(elem)
+                        ? std::string(
+                              "수 배열의 sort() 는 JS 에서 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — 비교자 "
+                              "sort((a, b) => a - b) 를 쓴다")
+                        : std::format("{} 의 sort() 는 비교자가 필요하다 — sort((a, b) => …)", T().name(at)));
+                return TypeTable::kError;
             }
-            argsLoose(n);
-            return TypeTable::kError;
+            use(IntrinsicId::ArraySortBy);
+            if (argc != 1) {
+                err("S405", n, "sort 는 비교자 하나");
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            const TypeId lead[] = {elem, elem};
+            const std::optional<u32> fi = callbackArg(kids[1], lead, false, kNoExpect, "sort");
+            if (fi) {
+                const TypeId r = P.functions[*fi].result;
+                if (!T().isError(r) && T().kind(r) != TypeKind::I32 && T().kind(r) != TypeKind::Number &&
+                    T().kind(r) != TypeKind::Enum) {
+                    err("S404", kids[1], std::format("sort 의 비교자는 수를 돌려준다 — {} 다", T().name(r)));
+                }
+            }
+            return at;
+        }
+        // 콜백 하나 (원소[, 첨자]) 의 메서드
+        struct CbMethod {
+            std::string_view name;
+            IntrinsicId id;
+            bool predicate; // 콜백이 boolean 을 돌려준다
+        };
+        static constexpr CbMethod kCb[] = {
+            {"find", IntrinsicId::ArrayFind, true},        {"findIndex", IntrinsicId::ArrayFindIndex, true},
+            {"some", IntrinsicId::ArraySome, true},        {"every", IntrinsicId::ArrayEvery, true},
+            {"filter", IntrinsicId::ArrayFilter, true},    {"map", IntrinsicId::ArrayMap, false},
+            {"forEach", IntrinsicId::ArrayForEach, false},
+        };
+        for (const CbMethod& m : kCb) {
+            if (m.name != member) {
+                continue;
+            }
+            use(m.id);
+            if (m.id == IntrinsicId::ArrayFind && T().kind(elem) == TypeKind::Nullable) {
+                err("S404", n,
+                    std::format("{} 의 find 는 없다 — T | null 원소는 결과가 null 과 undefined 를 섞는다 "
+                                "(findIndex 를 쓴다)",
+                                T().name(at)));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            if (argc != 1) {
+                err("S405", n, std::format("{} 는 콜백 하나 (thisArg 는 없다)", member));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            const TypeId lead[] = {elem};
+            const std::optional<u32> fi =
+                callbackArg(kids[1], lead, true, m.predicate ? TypeTable::kBool : kNoExpect, member);
+            TypeId r = fi ? P.functions[*fi].result : TypeTable::kError;
+            if (fi && m.predicate && r != TypeTable::kBool && !T().isError(r)) {
+                err("S404", kids[1], std::format("{} 의 콜백은 boolean 을 돌려준다 — {} 다", member, T().name(r)));
+                r = TypeTable::kError;
+            }
+            if (fi && m.id == IntrinsicId::ArrayMap && (r == TypeTable::kVoid || T().isNullLiteral(r))) {
+                err("S404", kids[1], "map 의 콜백은 값을 돌려준다 (void · null 만은 안 된다 — forEach 를 쓴다)");
+                r = TypeTable::kError;
+            }
+            switch (m.id) {
+            case IntrinsicId::ArrayFind:
+                return T().optionalOf(elem);
+            case IntrinsicId::ArrayFindIndex:
+                return TypeTable::kI32;
+            case IntrinsicId::ArraySome:
+            case IntrinsicId::ArrayEvery:
+                return TypeTable::kBool;
+            case IntrinsicId::ArrayFilter:
+                return at;
+            case IntrinsicId::ArrayMap:
+                return T().isError(r) ? TypeTable::kError : T().arrayOf(r);
+            default:
+                return TypeTable::kVoid;
+            }
+        }
+        if (member == "reduce") {
+            use(IntrinsicId::ArrayReduce);
+            if (argc != 2) {
+                err("S405", n,
+                    "reduce 는 콜백과 초기값 둘 — 초기값 없는 reduce 는 빈 배열에서 TypeError 라 받지 않는다");
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            // 누적 타입 U = 함수 이름의 첫 매개변수 · 화살표가 적은 첫 매개변수 타입 · 그 밖은 초기값의 타입
+            TypeId acc = kNoExpect;
+            const NodeId cb = kids[1];
+            if (node(cb).kind == NodeKind::Ident) {
+                bool reported = false;
+                const SymbolId id = lookupValue(cb, ast().str(cb), reported);
+                if (id != kNoSymbol && sym(id).kind == SymbolKind::Function &&
+                    !P.functions[sym(id).function].params.empty()) {
+                    acc = P.functions[sym(id).function].params[0];
+                }
+            } else if (node(cb).kind == NodeKind::Arrow && ast().kids(cb).size() > 2) {
+                const NodeId p0 = ast().kid(cb, 0);
+                if (ast().kid(p0, 0) != kNoNode) {
+                    acc = resolveType(ast().kid(p0, 0), false);
+                }
+            }
+            const TypeId it = expr(kids[2], acc);
+            if (acc == kNoExpect) {
+                acc = it;
+                if (T().isNullLiteral(it)) {
+                    err("S414", kids[2],
+                        "null 로 시작하는 reduce 는 누적 매개변수에 타입을 적는다 ((acc: T | null, x) => …)");
+                    return TypeTable::kError;
+                }
+            } else {
+                assignTo(kids[2], it, acc);
+            }
+            if (T().isError(acc)) {
+                return TypeTable::kError;
+            }
+            const TypeId lead[] = {acc, elem};
+            const std::optional<u32> fi = callbackArg(cb, lead, true, acc, "reduce");
+            if (fi) {
+                const TypeId r = P.functions[*fi].result;
+                if (!T().isError(r) && !(T().assignable(r, acc) && T().assignable(acc, r))) {
+                    err("S404", cb,
+                        std::format("reduce 의 콜백은 누적 타입 {} 를 돌려준다 — {} 다", T().name(acc), T().name(r)));
+                }
+            }
+            return acc;
         }
         return std::nullopt;
     }
@@ -3680,6 +4006,7 @@ private:
     std::vector<bool> m_resolving;          // 타입 별칭 순환 검사
     ScopeEntry m_tmpEntry[2];
     FnCtx m_ctx;
+    std::vector<const FnCtx*> m_arrowOuter; // 검사 중인 화살표 몸들의 바깥 함수 문맥 (캡처 검사 — 안쪽이 끝)
 };
 
 } // namespace

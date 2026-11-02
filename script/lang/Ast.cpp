@@ -187,6 +187,8 @@ std::string_view nodeKindName(NodeKind k) noexcept {
         return "AsConst";
     case NodeKind::Paren:
         return "Paren";
+    case NodeKind::Arrow:
+        return "Arrow";
     }
     return "?";
 }

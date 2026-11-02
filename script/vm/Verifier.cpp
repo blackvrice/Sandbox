@@ -50,6 +50,16 @@ bool sameRec(const Module& m, u32 a, u32 b, std::vector<std::pair<u32, u32>>& as
     case TypeKind::Array:
     case TypeKind::Box:
         return sameRec(m, x.elem, y.elem, assumed);
+    case TypeKind::Func:
+        if (x.fieldTypes.size() != y.fieldTypes.size() || !sameRec(m, x.elem, y.elem, assumed)) {
+            return false;
+        }
+        for (usize i = 0; i < x.fieldTypes.size(); ++i) {
+            if (!sameRec(m, x.fieldTypes[i], y.fieldTypes[i], assumed)) {
+                return false;
+            }
+        }
+        return true;
     case TypeKind::Struct: {
         if (std::find(assumed.begin(), assumed.end(), std::pair{a, b}) != assumed.end()) {
             return true;
@@ -145,8 +155,20 @@ private:
             const TypeDesc& t = M.types[i];
             switch (t.kind) {
             case TypeKind::Array:
-                if (!validType(t.elem) || kindOf(t.elem) == TypeKind::Void) {
-                    fail(std::format("타입 {}: 배열 원소 타입 {} 가 없다 · void", i, t.elem));
+                if (!validType(t.elem) || kindOf(t.elem) == TypeKind::Void || kindOf(t.elem) == TypeKind::Func) {
+                    fail(std::format("타입 {}: 배열 원소 타입 {} 가 없다 · void · 함수", i, t.elem));
+                }
+                break;
+            case TypeKind::Func:
+                // 함수 참조 — 매개변수 ≤ 3 (콜백), void · 함수 아님. 결과는 void 가 될 수 있다
+                if (t.fieldTypes.size() > 3 || !validType(t.elem) || kindOf(t.elem) == TypeKind::Func) {
+                    fail(std::format("타입 {}: 함수 타입의 결과 · 매개변수 수가 맞지 않다", i));
+                    break;
+                }
+                for (const u32 p : t.fieldTypes) {
+                    if (!validType(p) || kindOf(p) == TypeKind::Void || kindOf(p) == TypeKind::Func) {
+                        fail(std::format("타입 {}: 함수 타입의 매개변수 {} 가 없다 · void · 함수", i, p));
+                    }
                 }
                 break;
             case TypeKind::Box: {
@@ -169,8 +191,9 @@ private:
                     break;
                 }
                 for (usize k = 0; k < t.fieldNames.size(); ++k) {
-                    if (!validType(t.fieldTypes[k]) || kindOf(t.fieldTypes[k]) == TypeKind::Void) {
-                        fail(std::format("타입 {}: 필드 '{}' 의 타입이 없다 · void", i, t.fieldNames[k]));
+                    if (!validType(t.fieldTypes[k]) || kindOf(t.fieldTypes[k]) == TypeKind::Void ||
+                        kindOf(t.fieldTypes[k]) == TypeKind::Func) {
+                        fail(std::format("타입 {}: 필드 '{}' 의 타입이 없다 · void · 함수", i, t.fieldNames[k]));
                     }
                     if (k > 0 && !(t.fieldNames[k - 1] < t.fieldNames[k])) {
                         fail(std::format("타입 {}: 필드가 이름 순이 아니다 · 겹친다 ('{}')", i, t.fieldNames[k]));
@@ -432,6 +455,25 @@ private:
         const u32 t0 = F->regs[in.b];
         const bool isArray = kindOf(t0) == TypeKind::Array;
         const u32 elem = isArray ? M.types[t0].elem : 0;
+        auto argType = [&](u32 i) { return i < k.argc ? F->regs[in.b + i] : 0u; };
+        auto isIndex = [&](u32 t) { return kindOf(t) == TypeKind::I32 || kindOf(t) == TypeKind::F64; };
+        // 콜백 서명 (lead = 앞 매개변수들, 뒤에 첨자 하나를 더 받을 수 있다)
+        auto fnShape = [&](u32 t, std::initializer_list<u32> lead) {
+            if (kindOf(t) != TypeKind::Func) {
+                return false;
+            }
+            const TypeDesc& f = M.types[t];
+            if (f.fieldTypes.size() < lead.size() || f.fieldTypes.size() > lead.size() + 1) {
+                return false;
+            }
+            usize i = 0;
+            for (const u32 want : lead) {
+                if (!sameType(M, f.fieldTypes[i++], want)) {
+                    return false;
+                }
+            }
+            return i == f.fieldTypes.size() || isIndex(f.fieldTypes[i]);
+        };
         auto check = [&](IntrinsicPat p, u16 r) {
             u32 t = 0;
             if (!reg(r, t)) {
@@ -477,6 +519,32 @@ private:
             case IntrinsicPat::String:
                 ok = kindOf(t) == TypeKind::String;
                 break;
+            case IntrinsicPat::FnPred:
+                ok = isArray && fnShape(t, {elem}) && kindOf(M.types[t].elem) == TypeKind::Bool;
+                break;
+            case IntrinsicPat::FnEach:
+                ok = isArray && fnShape(t, {elem});
+                break;
+            case IntrinsicPat::FnMap:
+                ok = isArray && fnShape(t, {elem}) && kindOf(M.types[t].elem) != TypeKind::Void;
+                break;
+            case IntrinsicPat::FnCmp:
+                ok = isArray && kindOf(t) == TypeKind::Func && M.types[t].fieldTypes.size() == 2 &&
+                     fnShape(t, {elem, elem}) && isIndex(M.types[t].elem);
+                break;
+            case IntrinsicPat::FnReduce:
+                ok = isArray && fnShape(t, {argType(2), elem}) && sameType(M, M.types[t].elem, argType(2));
+                break;
+            case IntrinsicPat::Any:
+                ok = kindOf(t) != TypeKind::Func;
+                break;
+            case IntrinsicPat::MapResult:
+                ok = kindOf(t) == TypeKind::Array && kindOf(argType(1)) == TypeKind::Func &&
+                     sameType(M, M.types[t].elem, M.types[argType(1)].elem);
+                break;
+            case IntrinsicPat::Same2:
+                ok = sameType(M, t, argType(2));
+                break;
             }
             if (!ok) {
                 bad(std::format("{}: r{} 의 타입 {} 이 서명에 맞지 않다", k.name, r, typeName(M, t)));
@@ -510,9 +578,15 @@ private:
             fnFail("상한을 넘는다");
             return;
         }
-        if (!validType(f.result)) {
-            fnFail("반환 타입이 없다");
+        if (!validType(f.result) || kindOf(f.result) == TypeKind::Func) {
+            fnFail("반환 타입이 없다 · 함수 참조다");
             return;
+        }
+        for (const u32 p : f.params) {
+            if (kindOf(p) == TypeKind::Func) {
+                fnFail("매개변수가 함수 참조다 (함수 참조는 레지스터에만 — LOADFN)");
+                return;
+            }
         }
         if (f.params.size() > f.regs.size()) {
             fnFail("매개변수가 레지스터보다 많다");
@@ -837,6 +911,24 @@ private:
             break;
         case Op::INTR:
             intrinsicInsn(in);
+            break;
+        case Op::LOADFN:
+            if (regKind(in.a, K::Func)) {
+                const TypeDesc& ft = M.types[F->regs[in.a]];
+                if (in.b >= M.functions.size()) {
+                    bad(std::format("함수 {} 가 없다", in.b));
+                    break;
+                }
+                const Function& g = M.functions[in.b];
+                bool same = g.params.size() == ft.fieldTypes.size() && sameType(M, g.result, ft.elem);
+                for (usize i = 0; same && i < g.params.size(); ++i) {
+                    same = sameType(M, g.params[i], ft.fieldTypes[i]);
+                }
+                if (!same) {
+                    bad(std::format("함수 {} 의 서명이 r{} 의 타입 {} 와 다르다", in.b, in.a,
+                                    typeName(M, F->regs[in.a])));
+                }
+            }
             break;
         case Op::Count:
             break;

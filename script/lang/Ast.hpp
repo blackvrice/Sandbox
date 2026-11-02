@@ -54,6 +54,7 @@
 //   Method         Param… , 반환 타입|kNoNode, Block   str = 이름 (객체 리터럴의 onTick(ctx) { … })
 //   AsConst        식                                 (식 as const)
 //   Paren          식                                 (괄호 — 대입 대상 검사 · 출력용)
+//   Arrow          Param… , 반환 타입|kNoNode, 몸     (화살표 — 몸 = Block · 식, v0.5 M8-T3: 콜백 인자만)
 
 #include <span>
 #include <string>
@@ -119,6 +120,7 @@ enum class NodeKind : u8 {
     Method,
     AsConst,
     Paren,
+    Arrow,
 };
 
 namespace NodeFlag {

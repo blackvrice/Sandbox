@@ -193,6 +193,24 @@ private:
         m_arrayOf[elem] = out;
         return out;
     }
+    // 함수 참조 타입 (v0.5 M8-T3) — 함수 fi 의 서명
+    u32 funcTypeOf(u32 fi) {
+        const FunctionInfo& info = P.functions[fi];
+        std::vector<u32> key{tid(info.result)};
+        for (const TypeId p : info.params) {
+            key.push_back(tid(p));
+        }
+        if (const auto it = m_funcOf.find(key); it != m_funcOf.end()) {
+            return it->second;
+        }
+        bc::TypeDesc d;
+        d.kind = bc::TypeKind::Func;
+        d.elem = key[0];
+        d.fieldTypes.assign(key.begin() + 1, key.end());
+        const u32 out = addType(std::move(d));
+        m_funcOf[key] = out;
+        return out;
+    }
     u32 boxOf(u32 inner) {
         if (const auto it = m_boxOf.find(inner); it != m_boxOf.end()) {
             return it->second;
@@ -1150,6 +1168,7 @@ private:
         };
         std::vector<u32> types{tid(recvType)};
         std::vector<u16> vals{gen(obj)};
+        u32 cbFunction = 0;
         for (u32 i = 1; i < k.argc; ++i) {
             const bool given = i < kids.size();
             switch (k.params[i]) {
@@ -1161,6 +1180,29 @@ private:
                 types.push_back(tid(recvType));
                 vals.push_back(genTo(kids[i], recvType));
                 break;
+            case IntrinsicPat::FnPred:
+            case IntrinsicPat::FnEach:
+            case IntrinsicPat::FnMap:
+            case IntrinsicPat::FnCmp:
+            case IntrinsicPat::FnReduce: {
+                // 콜백 = 함수 참조 (검사기가 함수 번호를 적었다 — 이름이든 화살표든)
+                cbFunction = ast().node(kids[i]).kind == NodeKind::Ident || ast().node(kids[i]).kind == NodeKind::Arrow
+                                 ? sema(kids[i]).refIndex
+                                 : 0;
+                const u32 ft = funcTypeOf(cbFunction);
+                const u16 r = temp(ft);
+                emit(Op::LOADFN, r, static_cast<u16>(cbFunction));
+                types.push_back(ft);
+                vals.push_back(r);
+                break;
+            }
+            case IntrinsicPat::Any: {
+                // reduce 의 초기값 — 콜백의 누적 매개변수 타입으로
+                const TypeId acc = P.functions[cbFunction].params[0];
+                types.push_back(tid(acc));
+                vals.push_back(genTo(kids[i], acc));
+                break;
+            }
             case IntrinsicPat::String:
                 types.push_back(m_string);
                 if (given) {
@@ -1187,7 +1229,7 @@ private:
         for (usize i = 0; i < vals.size(); ++i) {
             emit(Op::MOV, static_cast<u16>(base + i), vals[i]);
         }
-        const u16 dst = temp(tid(rt));
+        const u16 dst = k.result == IntrinsicPat::None ? bc::kNoReg : temp(tid(rt));
         emit(Op::INTR, dst, base, static_cast<u16>(id));
         return dst;
     }
@@ -1510,6 +1552,16 @@ private:
         }
         F->result = tid(info.result);
         const NodeId body = MS->ast.kids(info.decl).back();
+        if (MS->ast.node(info.decl).kind == NodeKind::Arrow && MS->ast.node(body).kind != NodeKind::Block) {
+            // 화살표의 식 몸 (v0.5 M8-T3) — 값을 돌려준다 (void 면 식만 계산)
+            if (kind(info.result) == TypeKind::Void) {
+                gen(body);
+                emit(Op::RET);
+            } else {
+                emit(Op::RETV, genTo(body, info.result));
+            }
+            return;
+        }
         for (const NodeId s : MS->ast.kids(body)) {
             statement(s);
         }
@@ -1533,6 +1585,7 @@ private:
     std::unordered_map<TypeId, std::vector<u16>> m_slots;
     std::map<u32, u32> m_arrayOf;
     std::map<u32, u32> m_boxOf;
+    std::map<std::vector<u32>, u32> m_funcOf;
     std::map<u8, u32> m_opaque;
     std::map<std::string, u16> m_strIdx;
     std::map<u64, u16> m_numIdx;

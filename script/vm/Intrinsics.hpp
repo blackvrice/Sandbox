@@ -6,6 +6,9 @@
 // 서명 틀은 레지스터 타입으로 본다 (검증기): Array = 아무 배열, Elem = 인자 0 (배열) 의 원소와 같은 타입, OptElem =
 // 원소 | undefined 의 레지스터 (원소가 참조면 그 타입, 아니면 Box(원소)), Same0 = 인자 0 과 같은 타입. 선택 인자의
 // 기본값은 코드 생성이 채운다 (JS 와 같은 뜻 — slice 의 end = +Infinity 는 length 로 잘린다).
+//
+// 콜백 (v0.5 M8-T3) 은 함수 참조 (Func) 인자: Fn* 틀은 그 서명을 본다 — 첨자 매개변수는 i32 · f64 (TS 의 number).
+// 콜백은 VM 이 같은 실행 루프로 부른다 (연료 · 깊이 · 칸 예산 그대로, 콜백의 트랩 = 이 호출의 트랩).
 
 #include <string_view>
 
@@ -25,6 +28,14 @@ enum class IntrinsicPat : u8 {
     F64,
     Bool,
     String,
+    FnPred,    // Func (원소[, 첨자]) → bool
+    FnEach,    // Func (원소[, 첨자]) → 아무 것 (void 포함)
+    FnMap,     // Func (원소[, 첨자]) → U (void 아님)
+    FnCmp,     // Func (원소, 원소) → i32 · f64
+    FnReduce,  // Func (U, 원소[, 첨자]) → U, U = 인자 2 의 타입
+    Any,       // 아무 타입 (reduce 의 초기값 — FnReduce 가 맞춘다)
+    MapResult, // 결과: 인자 1 (FnMap) 의 결과 U 의 배열
+    Same2,     // 인자 2 와 같은 타입
 };
 
 struct Intrinsic {
@@ -50,6 +61,15 @@ enum class IntrinsicId : u16 {
     ArrayIncludes,
     ArrayJoin,
     ArraySortStrings,
+    ArraySortBy, // v0.5 M8-T3 — 콜백
+    ArrayFind,
+    ArrayFindIndex,
+    ArraySome,
+    ArrayEvery,
+    ArrayFilter,
+    ArrayMap,
+    ArrayForEach,
+    ArrayReduce,
 };
 
 namespace detail {
@@ -71,6 +91,15 @@ inline constexpr Intrinsic kIntrinsics[] = {
     {"Array.includes", 3, {detail::P::Array, detail::P::Elem, detail::P::F64}, detail::P::Bool, 2},
     {"Array.join", 2, {detail::P::ArrayJoinable, detail::P::String}, detail::P::String, 2},
     {"Array.sort", 1, {detail::P::ArrayString}, detail::P::Same0, 2},
+    {"Array.sort(cmp)", 2, {detail::P::Array, detail::P::FnCmp}, detail::P::Same0, 2},
+    {"Array.find", 2, {detail::P::Array, detail::P::FnPred}, detail::P::OptElem, 2},
+    {"Array.findIndex", 2, {detail::P::Array, detail::P::FnPred}, detail::P::I32, 2},
+    {"Array.some", 2, {detail::P::Array, detail::P::FnPred}, detail::P::Bool, 2},
+    {"Array.every", 2, {detail::P::Array, detail::P::FnPred}, detail::P::Bool, 2},
+    {"Array.filter", 2, {detail::P::Array, detail::P::FnPred}, detail::P::Same0, 2},
+    {"Array.map", 2, {detail::P::Array, detail::P::FnMap}, detail::P::MapResult, 2},
+    {"Array.forEach", 2, {detail::P::Array, detail::P::FnEach}, detail::P::None, 2},
+    {"Array.reduce", 3, {detail::P::Array, detail::P::FnReduce, detail::P::Any}, detail::P::Same2, 2},
 };
 
 [[nodiscard]] constexpr const Intrinsic& intrinsic(IntrinsicId id) noexcept {

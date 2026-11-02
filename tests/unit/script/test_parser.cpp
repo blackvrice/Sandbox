@@ -181,8 +181,8 @@ TEST_SUITE("script") {
             {"try { a() } catch (e) { b() }", "S302"},
             {"throw x", "S302"},
             {"var a = 1", "S303"},
-            {"const f = (x: i32) => x", "S304"},
-            {"const g = x => 1", "S304"},
+            // 화살표는 v0.5 M8-T3 부터 파서가 Arrow 마디로 읽는다 — 자리 (콜백 인자만) 는 검사기의 S304
+            {"const a = async (x: i32) => x", "S305"},
             {"const h = function () {}", "S304"},
             {"function inner(): void {}", "S304"},
             {"await x", "S305"},

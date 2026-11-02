@@ -130,6 +130,12 @@ private:
     };
 
     CallResult run(u32 function, std::span<const Value> args, const std::span<const Value>* structFields = nullptr);
+    // 실행 루프 — 프레임 깊이가 stopDepth 로 돌아올 때까지 (그 RET 의 값 = out). 트랩이면 m_res 를 채우고 false.
+    // run 은 0 으로, 콜백 (invoke — v0.5 M8-T3) 은 그 때의 깊이로 부른다 (같은 연료 · 깊이 · 칸 예산)
+    bool loop(usize stopDepth, Value& retOut);
+    bool enterFrame(u32 function, u16 resultReg);
+    // 함수 fn 을 args 로 끝까지 (내장의 콜백). 트랩이면 m_res 가 채워지고 false
+    bool invoke(u32 fn, std::span<const Value> args, Value& out);
     bool alloc(Object o, usize bytes, Value& out);
     bool newString(std::string s, Value& out);
     bool newArray(std::vector<Value> slots, Value& out);
@@ -157,6 +163,11 @@ private:
     std::vector<Frame> m_frames;
     std::vector<HostArg> m_hostArgs;
     std::vector<Value> m_hostFields;
+    // 호출 하나의 실행 상태 (loop 가 중첩되어도 하나 — 콜백은 같은 예산)
+    CallResult m_res;
+    u64 m_budget = 0;
+    u64 m_fuel = 0;
+    u32 m_hostCalls = 0;
 };
 
 } // namespace sbx::script::vm

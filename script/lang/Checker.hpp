@@ -119,6 +119,7 @@ enum class RefKind : u8 {
     StringLength, // s.length
     ArrayPush,    // xs.push(…) 의 대상
     Intrinsic,    // 내장 메서드 호출의 대상 → refIndex = IntrinsicId (v0.5 M8-T2, script/vm/Intrinsics)
+    Callback,     // 내장의 콜백 인자 (함수 이름 · 화살표) → refIndex = Program::functions 의 자리 (v0.5 M8-T3)
 };
 
 struct NodeSema {

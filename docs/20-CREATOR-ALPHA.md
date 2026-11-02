@@ -366,7 +366,7 @@ M8 을 M2-T5 의 나머지보다 먼저 하는 이유: M7 의 데모 (오목 판
 네트워크 · 콘텐츠 형식을 건드리지 않아 (바이트코드 형식만) 다른 마일스톤과 파일이 겹치지 않는다. 충돌 · 의존:
 
 ```text
-M8 ↔ M6-T4   둘 다 .sbc 형식을 올린다 — M8-T2 가 6 (INTR · LOADFN · Func · 컬렉션 타입), M6-T4 의 줄 표는 7
+M8 ↔ M6-T4   둘 다 .sbc 형식을 올린다 — M8-T2 가 6 (INTR), M8-T3 이 7 (Func · LOADFN), M6-T4 의 줄 표는 그다음 번호
 M8 ↔ M2-T5   ctx.players · session 은 M8 과 따로 (Host 표 더하기만 — 지문이 두 번 바뀐다)
 M8-T8 → M2-T6 · M3   경로 요청 · 공간 질의가 RTS 템플릿 (M6-T2) 과 데모 (M7) 의 입력
 M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴다. 보드게임 AI 예제는 M8-T7 (그래프 · BFS)
@@ -442,7 +442,7 @@ M8 은 Phase 번호와 달리 M2 바로 뒤에 한다 (위 진행 차례). 태�
 |--------|------|------------------|---------------|------|------|------|
 | M8-T1 ✅ | 분석 · 지원 매트릭스 · ADR · 계획 다시 쓰기 | docs (19 25장 · 20 · 18 · ADR-0085) | — | M2-T4 | (문서) | 무엇이 있고 무엇을 언제 만드는지가 한 표에 |
 | M8-T2 ✅ | 내장 표 · INTR · T \| undefined · Array (콜백 없는 메서드) | script/vm (Intrinsics · Bytecode 형식 6 · Verifier · Interpreter), script/lang (Types · Checker · Codegen), script/sdk | Intrinsic, Op::INTR, TypeKind Undefined 맛 | M8-T1 | 메서드마다 JS 와 같은 결과 (음수 첨자 · 빈 배열 · NaN), 연료 · 상한 · 아레나, 검증기 (서명 틀 위조), tsc 와 같은 오류 자리 | pop · slice · indexOf · join … 가 돈다 |
-| M8-T3 | 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (sort · find · map · filter · reduce …) | script/lang (Parser 화살표 · Checker 캡처 검사 · Codegen 숨은 함수), script/vm (LOADFN · Func · 내장 안의 콜백 호출) | Op::LOADFN, TypeKind::Func | M8-T2 | 안정 정렬 · 비교 횟수 고정, 콜백 트랩 · 연료 · 깊이, 캡처 S304, 함수 값 저장 S411, 나쁜 LOADFN 서명 | xs.sort((a, b) => a.hp - b.hp) |
+| M8-T3 ✅ | 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (sort · find · map · filter · reduce …) | script/lang (Parser 화살표 · Checker 캡처 검사 · Codegen 숨은 함수), script/vm (LOADFN · Func · 내장 안의 콜백 호출) | Op::LOADFN, TypeKind::Func | M8-T2 | 안정 정렬 · 비교 횟수 고정, 콜백 트랩 · 연료 · 깊이, 캡처 S304, 함수 값 저장 S411, 나쁜 LOADFN 서명 | xs.sort((a, b) => a.hp - b.hp) |
 | M8-T4 | Map · Set · new · 타입 인자 · for-of · Set 연산 | script/vm (객체 종류 Map · Set — 넣은 차례 해시), script/lang (new · 제네릭 타입 참조) | — | M8-T2 | 넣은 차례 · 다시 넣기 · 지웠다 넣기 · NaN · -0 · 반복 중 바꾸기 · 상한 · 같은 해시 (두 월드) | 인벤토리 예제가 Map · Set 으로 |
 | M8-T5 | Stack · Queue · Deque · PriorityQueue · MinHeap · MaxHeap · BitSet | script/vm (객체 종류), "sandbox" d.ts (declare class) | — | M8-T4 | 고리 버퍼 감싸기 · 안정 동점 · 힙 차례 · 비트 범위 · 연료 | RTS AI 가 PriorityQueue 로 |
 | M8-T6 | 알고리즘 · 수학 · vec2 | script/vm (내장), d.ts | — | M8-T3 | 정렬된 입력 · 역순 · 중복 · NaN · 빈 배열, shuffle 결정성 (씨앗), vec2 0 벡터 · 0 나눗셈 | — |
@@ -514,7 +514,7 @@ replay       9,000 틱 기록의 seek 시간 (처음부터 · 체크포인트)
 ```text
 v0.4 패키지 · 프로젝트가 그대로 열린다 (presentation/ui · strings · signals.json 이 없는 팩), 골든 det_* · 데모 해시 그대로 (바뀌면
 kSimVersion 5 와 이유 — 3.6), 프로토콜 15 (0.4 클라이언트와 접속하지 않는다 — 노트에), Host API 지문 바뀜 · 버전 1 그대로 (더하기만),
-.sbc 형식 — M8-T2 가 6 (내장 · 함수 참조 · 컬렉션), 줄 표 (M6-T4) 가 7 (다시 컴파일 — 세이브 · 패키지에 없다)
+.sbc 형식 — M8-T2 가 6 (내장), M8-T3 이 7 (함수 참조), 줄 표 (M6-T4) 가 그다음 (다시 컴파일 — 세이브 · 패키지에 없다)
 ```
 
 ## 13. 완료 기준 · 릴리스 차단

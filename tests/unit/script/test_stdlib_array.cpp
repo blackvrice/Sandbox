@@ -242,8 +242,8 @@ TEST_SUITE("script") {
         CHECK(rejects("export function f(): string { const xs: P[] = []; return xs.join() }", "S404"));
         CHECK(rejects("export function f(): void { const xs: i32[] = [1]; xs.slice(\"a\") }", "S404"));
         CHECK(rejects("export function f(): void { const xs: i32[] = [1]; xs.indexOf(1, 2, 3) }", "S405"));
-        // 콜백 메서드는 다음 태스크 (M8-T3) — 아직 없다고 말한다
-        CHECK(rejects("function g(x: i32): i32 { return x }\nexport function f(): void { [1].map(g) }", "S406"));
+        // 콜백 메서드 (M8-T3) — 콜백 매개변수의 배치가 원소와 다르면 거절한다 (i32 ≠ number)
+        CHECK(rejects("function g(x: i32): i32 { return x }\nexport function f(): void { [1.5].map(g) }", "S404"));
         // 좁히지 않은 T | undefined 는 쓸 수 없다
         CHECK(rejects("export function f(): i32 { const xs: i32[] = [1]; const v = xs.pop(); return v + 1 }", "S422"));
         // undefined 는 이제 이름이 아니라 값 — 나머지 금지 이름은 그대로

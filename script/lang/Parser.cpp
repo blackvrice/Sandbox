@@ -704,7 +704,7 @@ private:
                 parseArrayType();
             }
         }
-        if (at(Tok::Arrow)) {
+        if (at(Tok::Arrow) && !m_arrowReturnType) {
             error("S331", cur().pos, "함수 타입 ((x) => T) 은 없다 — 함수 값은 최상위 함수 이름만");
             advance();
             parseType();
@@ -1188,7 +1188,7 @@ private:
         if (!guard.ok) {
             return errorNode(cur().pos);
         }
-        if (const NodeId arrow = rejectArrow(); arrow != kNoNode) {
+        if (const NodeId arrow = parseArrow(); arrow != kNoNode) {
             return arrow;
         }
         const NodeId lhs = parseConditional();
@@ -1215,12 +1215,15 @@ private:
         return k == NodeKind::Ident || k == NodeKind::Member || k == NodeKind::Index;
     }
 
-    // 화살표 함수 (x => … · (a, b) => …) 를 알아보고 먹어 치운다. 아니면 kNoNode
-    NodeId rejectArrow() {
+    // 화살표 함수 (x => … · (a, b) => … · (a: T): R => { … }) 를 Arrow 마디로 (v0.5 M8-T3 — 검사기가 자리를 본다:
+    // 내장의 콜백 인자만, 캡처 없음). async 화살표는 S305. 화살표가 아니면 kNoNode
+    NodeId parseArrow() {
         const SourcePos pos = cur().pos;
         usize arrowAt = 0;
+        bool isAsync = false;
         if (atWord("async") && !ahead(1).newlineBefore &&
             (ahead(1).kind == Tok::LParen || ahead(1).kind == Tok::Identifier)) {
+            isAsync = true;
             // async (…) => · async x =>
             if (ahead(1).kind == Tok::Identifier && ahead(2).kind == Tok::Arrow) {
                 arrowAt = 2;
@@ -1251,16 +1254,33 @@ private:
         if (arrowAt == 0) {
             return kNoNode;
         }
-        error("S304", pos, "화살표 함수 · 함수 식은 없다 (클로저 없음) — 모듈 최상위 function 으로 옮긴다");
-        for (usize i = 0; i <= arrowAt; ++i) {
+        if (isAsync) {
+            error("S305", pos, "async 화살표는 없다 — 시뮬레이션은 기다리지 않는다");
+            for (usize i = 0; i <= arrowAt; ++i) {
+                advance();
+            }
+            if (at(Tok::LBrace)) {
+                skipBalanced();
+            } else {
+                parseAssignment();
+            }
+            return errorNode(pos);
+        }
+        Kids kids;
+        if (at(Tok::Identifier)) { // x => …
+            const NodeId noType[] = {kNoNode};
+            kids.push_back(named(NodeKind::Param, pos, cur().value, noType));
             advance();
-        }
-        if (at(Tok::LBrace)) {
-            skipBalanced();
+            kids.push_back(kNoNode);
         } else {
-            parseAssignment();
+            kids = parseParams();
+            m_arrowReturnType = true; // (a): T => … 의 => 는 함수 타입이 아니다
+            kids.push_back(parseReturnType());
+            m_arrowReturnType = false;
         }
-        return errorNode(pos);
+        expect(Tok::Arrow);
+        kids.push_back(at(Tok::LBrace) ? parseBlock() : parseAssignment());
+        return node(NodeKind::Arrow, pos, kids);
     }
 
     // m_toks[open] 이 ( 일 때 짝 ) 의 자리 (없으면 0)
@@ -1763,6 +1783,7 @@ private:
 
     std::vector<Token> m_toks;
     usize m_i = 0;
+    bool m_arrowReturnType = false; // 화살표의 반환 타입을 읽는 중 (v0.5 M8-T3)
     std::string_view m_file;
     DiagnosticList& m_diags;
     usize m_errorBase;

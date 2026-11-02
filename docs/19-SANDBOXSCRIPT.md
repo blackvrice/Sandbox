@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR (.sbc 형식 6) · T \| undefined · Array 메서드 — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (.sbc 형식 7) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -108,7 +108,7 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 | S301 | class                                                     | interface + 최상위 function, 상태는 컴포넌트 |
 | S302 | try · catch · finally · throw                             | 반환값, 실행 중 오류는 트랩 (ADR-0056 5)     |
 | S303 | var                                                       | const · let                                  |
-| S304 | 화살표 함수 · 함수 식 · 함수 안의 함수 (클로저)           | 최상위 function                              |
+| S304 | 함수 식 · 함수 안의 함수 · 콜백 인자가 아닌 자리의 화살표 · 바깥 지역 이름을 잡는 화살표 (클로저) | 최상위 function · 내장의 콜백 인자 자리의 캡처 없는 화살표 (v0.5 M8-T3, 25.1) |
 | S305 | async · await · 제너레이터 · for await                    | 시뮬레이션은 기다리지 않는다                 |
 | S306 | for-in                                                    | 배열 · 질의를 for-of                         |
 | S307 | 레이블 문장 · 레이블 break / continue                     | —                                            |
@@ -322,7 +322,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             (CONCAT · TOSTRI · TOSTRF · TOSTRB = JS Number#toString · STRLEN = UTF-16 단위), 배열 (NEWARR ARRLEN ARRGET ARRSET
             ARRPUSH — 늘리기는 push 만, 범위 밖은 트랩), 구조체 · 상자 (NEWOBJ GETF SETF BOX UNBOX), 흐름 (JMP JMPT JMPF CALL
             CALLH RET RETV TRAP), 컴포넌트 (LOADK a ← components[b] — v0.3 M3-T3, 값 = stableId), 내장 (INTR a ←
-            kIntrinsics[c](b …) — v0.5 M8-T2, script/vm/Intrinsics, 25장). 원소 · 필드 · 상자 명령은
+            kIntrinsics[c](b …) — v0.5 M8-T2, script/vm/Intrinsics, 25장), 함수 참조 (LOADFN a ← functions[b] — M8-T3,
+            타입 Func(매개변수 → 결과), 값 = 번호 + 1). 원소 · 필드 · 상자 명령은
             타입마다 나누지 않는다 (검증기가 타입을 안다). ComponentRef<T> = Opaque(Component) — T 는 검사기만 안다 (ADR-0060 4)
 코드 생성   지역 변수 · 매개변수는 레지스터 하나씩, 식의 임시는 문장이 끝나면 타입별로 돌려 쓴다. 넣는 자리의 변환 (i32 → f64 ·
             T → T | null 상자 · null 리터럴 = 그 자리 타입의 LOADNULL · 좁힌 이름의 UNBOX · Nullable(A) → Nullable(B))
@@ -331,12 +332,14 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             함수 끝: void 면 RET, 아니면 TRAP 1 (검사기가 막는다). 만든 모듈은 바로 검증한다 (못 지나면 S502)
 검증기      함수마다 한 번 훑기 (흐름 분석 없음): 번호 (레지스터 · 상수 · 함수 · import · 필드 · 점프) 가 범위 안, 명령마다 피연산자
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
-            이름 순 · void 아님), INTR 의 서명 틀 (배열 · 원소 · 원소 | undefined · 같은 타입 · 기본 타입 — 없는 내장 번호 거절),
+            이름 순 · void 아님), INTR 의 서명 틀 (배열 · 원소 · 원소 | undefined · 같은 타입 · 기본 타입 · 콜백 서명 — 없는 내장
+            번호 거절), Func 는 레지스터에만 (배열 원소 · 필드 · 상자 · 함수 매개변수 · 결과 거절 — 그래서 바깥에서 함수 번호를
+            넣을 길이 없다), LOADFN 의 함수 서명 = 레지스터 타입,
             문자열 UTF-8, 컴포넌트 표 (이름 규칙 · 겹침 · 엔진 이름공간 아님 — v0.3 M6-T2), import = Host 표의
             id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 6 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
-            도메인 · onUpdate, v0.5 M8-T2 6 = INTR — 옛 형식은 VersionMismatch) ·
+            도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN — 옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
@@ -807,8 +810,8 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 | T[] · Array<T> · 첨자 · length · push · for-of         | 있음 (v0.3)  | 범위 밖 첨자 트랩                                                                  |
 | T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2 ✅     | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
 | 내장 컬렉션의 new · 타입 인자                          | M8-T4 · T5   | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
-| 최상위 함수 참조 (콜백 인자)                           | M8-T3        | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
-| 캡처 없는 화살표 (콜백 인자)                           | M8-T3        | 바깥 지역 이름을 쓰면 S304. 몸 = 식 또는 블록                                      |
+| 최상위 함수 참조 (콜백 인자)                           | M8-T3 ✅     | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
+| 캡처 없는 화살표 (콜백 인자)                           | M8-T3 ✅     | 바깥 함수 · 바깥 화살표의 지역 이름을 쓰면 S304 (최상위 const · 함수 · enum 은 된다). 몸 = 식 또는 블록, 매개변수 타입은 문맥 (원소 · 누적 · 첨자 number) 이나 적은 타입, 반환 타입은 문맥 (predicate = boolean · reduce = 누적) 이나 추론. 숨은 최상위 함수 "<화살표 줄:칸>" 로 컴파일 |
 | for-of 의 Map · Set · keys() · values()                | M8-T4        | 넣은 차례                                                                          |
 | entries() · [k, v] 구조 분해 · 튜플                    | [계획]       | 튜플 타입 (S331) · 구조 분해 (S317) 가 먼저 — keys() + get 을 쓴다                  |
 | 사용자 제네릭 · 클로저 · class · 함수 값 변수          | [계획]       | 새 ADR (아레나 수명 · 캡처 복사)                                                   |
@@ -827,8 +830,8 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 | join(sep?)                                                                              | M8-T2 ✅ | 원소 = String(x) 규칙 (number · i32 · boolean · string · enum 만 — 그 밖은 S404)                                                               |
 | sort() — string[]                                                                       | M8-T2 ✅ | 안정. 순서 = `<` 와 같은 UTF-8 바이트 (= 코드 포인트) 순 (5장) — JS 의 UTF-16 단위 순과는 U+10000 이상 대 U+E000 ~ U+FFFF 에서만 다르다 |
 | sort() — number[] · i32[] (비교자 없음)                                                 | 거절  | JS 는 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — S404 로 비교자 · sortNumbers 를 요구                                                         |
-| sort(cmp) · find · findIndex · some · every · map · filter · reduce(f, init) · forEach  | M8-T3 | 콜백 = 함수 참조 · 캡처 없는 화살표. 콜백 매개변수는 (x) 또는 (x, i) — 세 번째 (배열) 는 [계획]. reduce 는 초기값 필수 (없으면 S405 — 빈 배열 TypeError 를 없앤다) |
-| sort 의 알고리즘                                                                        | M8-T3 | 안정 병합 + 삽입 (16 이하), 최악 O(n log n), 비교마다 1 + 콜백 연료. 비교자 NaN = 0                                                             |
+| sort(cmp) · find · findIndex · some · every · map · filter · reduce(f, init) · forEach  | M8-T3 ✅ | 콜백 = 함수 참조 · 캡처 없는 화살표. 콜백 매개변수는 (x) 또는 (x, i) — 세 번째 (배열) 는 [계획]. reduce 는 초기값 필수 (없으면 S405 — 빈 배열 TypeError 를 없앤다) |
+| sort 의 알고리즘                                                                        | M8-T3 ✅ | 안정 병합 + 삽입 (16 이하), 최악 O(n log n), 비교마다 1 + 콜백 연료. 비교자 NaN = 0. 복사본을 정렬해 다시 쓴다. 콜백 매개변수 타입은 원소와 같은 배치 (i32 원소에 number 매개변수는 S404 — TS 보다 엄격). predicate 는 boolean 만 (TS 는 아무 값), thisArg 없음. 콜백이 배열을 줄이면 거기서 멈춘다 |
 
 ### 25.3 Map · Set (TS 전역)
 

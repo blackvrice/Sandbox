@@ -19,8 +19,8 @@
 namespace sbx::script::bc {
 
 // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
-// 6 = INTR (v0.5 M8-T2 — ADR-0085)
-inline constexpr u32 kFormatVersion = 6;
+// 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3)
+inline constexpr u32 kFormatVersion = 7;
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -37,14 +37,16 @@ inline constexpr u32 kMaxSystems = 1024;
 inline constexpr u32 kMaxIntervalTicks = 65535;
 inline constexpr u32 kMaxStringBytes = 1u << 20;
 
-enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct };
+// Func (v0.5 M8-T3) = 함수 참조 — fieldTypes = 매개변수, elem = 결과. 레지스터에만 둔다 (원소 · 필드 · 상자 ·
+// 매개변수 · 결과는 검증기가 거절). 값 = 함수 번호 + 1 (0 = 없음), LOADFN 만 만든다
+enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct, Func };
 
 struct TypeDesc {
     TypeKind kind = TypeKind::Void;
-    u32 elem = 0;                          // Array 원소 · Box 안쪽
+    u32 elem = 0;                          // Array 원소 · Box 안쪽 · Func 결과
     api::AbiType abi = api::AbiType::Void; // Opaque
     std::vector<std::string> fieldNames;   // Struct — 이름 (바이트) 순으로 오름차순 (배치 — ADR-0058 4)
-    std::vector<u32> fieldTypes;
+    std::vector<u32> fieldTypes;           // Struct 필드 · Func 매개변수
 };
 
 // 레지스터 칸의 해석
@@ -119,16 +121,17 @@ enum class Op : u8 {
     BOX,    // a(Box X) ← b(X)
     UNBOX,  // a(X) ← b(Box X) (null 이면 트랩)
     // 흐름
-    JMP,   // → b|c<<16
-    JMPT,  // a 가 참이면 → b|c<<16
-    JMPF,  // a 가 거짓이면 → b|c<<16
-    CALL,  // a(결과 · kNoReg) ← functions[b](c …)
-    CALLH, // a(결과 · kNoReg) ← imports[b](c …) — Host 함수, 주인 (ctx) 이 첫 인자
-    RET,   // void 함수
-    RETV,  // return a
-    TRAP,  // 트랩 (a = TrapCode)
-    LOADK, // a(ComponentRef) ← components[b] (v0.3 M3-T3 — 값은 fnv1a64(id) = stableId)
-    INTR,  // a(결과 · kNoReg) ← kIntrinsics[c](b …) — VM 내장 (v0.5 M8-T2, script/vm/Intrinsics)
+    JMP,    // → b|c<<16
+    JMPT,   // a 가 참이면 → b|c<<16
+    JMPF,   // a 가 거짓이면 → b|c<<16
+    CALL,   // a(결과 · kNoReg) ← functions[b](c …)
+    CALLH,  // a(결과 · kNoReg) ← imports[b](c …) — Host 함수, 주인 (ctx) 이 첫 인자
+    RET,    // void 함수
+    RETV,   // return a
+    TRAP,   // 트랩 (a = TrapCode)
+    LOADK,  // a(ComponentRef) ← components[b] (v0.3 M3-T3 — 값은 fnv1a64(id) = stableId)
+    INTR,   // a(결과 · kNoReg) ← kIntrinsics[c](b …) — VM 내장 (v0.5 M8-T2, script/vm/Intrinsics)
+    LOADFN, // a(Func) ← functions[b] 의 참조 (v0.5 M8-T3 — 서명 = a 의 타입)
     Count,
 };
 

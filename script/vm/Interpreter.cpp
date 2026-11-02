@@ -1,6 +1,7 @@
 #include "script/vm/Interpreter.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <format>
@@ -257,8 +258,6 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
     m_regs.reserve(m_limits.maxStackSlots); // 프레임 칸의 포인터가 호출 동안 그대로이도록 (재할당 없음)
 
     CallResult res;
-    const u64 budget = m_limits.fuel;
-    u64 fuel = budget;
     if (entry >= M.functions.size() || args.size() != M.functions[entry].params.size()) {
         res.trap = Trap::BadCall;
         res.message = entry >= M.functions.size() ? std::format("함수 {} 가 없다", entry)
@@ -267,16 +266,7 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
         return res;
     }
 
-    auto enter = [&](u32 f, u16 resultReg) {
-        const bc::Function& fn = M.functions[f];
-        if (m_frames.size() >= m_limits.maxDepth || m_regs.size() + fn.regs.size() > m_limits.maxStackSlots) {
-            return false;
-        }
-        m_frames.push_back({f, 0, static_cast<u32>(m_regs.size()), resultReg});
-        m_regs.resize(m_regs.size() + fn.regs.size(), Value{});
-        return true;
-    };
-    if (!enter(entry, bc::kNoReg)) {
+    if (!enterFrame(entry, bc::kNoReg)) {
         res.trap = Trap::StackOverflow;
         res.message = "첫 프레임이 레지스터 칸 예산을 넘는다";
         return res;
@@ -306,18 +296,60 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
         }
     }
 
-    const bc::Function* F = &M.functions[entry];
-    Value* R = m_regs.data();
-    u32 pc = 0;
-    u32 hostCalls = 0;
+    m_res = CallResult{};
+    m_budget = m_limits.fuel;
+    m_fuel = m_budget;
+    m_hostCalls = 0;
+    Value out;
+    if (loop(0, out)) {
+        m_res.value = out;
+        m_res.fuelUsed = m_budget - m_fuel;
+    }
+    return m_res;
+}
+
+bool Interpreter::enterFrame(u32 f, u16 resultReg) {
+    const bc::Function& fn = M.functions[f];
+    if (m_frames.size() >= m_limits.maxDepth || m_regs.size() + fn.regs.size() > m_limits.maxStackSlots) {
+        return false;
+    }
+    m_frames.push_back({f, 0, static_cast<u32>(m_regs.size()), resultReg});
+    m_regs.resize(m_regs.size() + fn.regs.size(), Value{});
+    return true;
+}
+
+bool Interpreter::invoke(u32 fn, std::span<const Value> args, Value& out) {
+    const usize depth = m_frames.size();
+    if (!enterFrame(fn, bc::kNoReg)) {
+        m_res.trap = Trap::StackOverflow;
+        m_res.function = m_frames.back().function;
+        m_res.message = std::format("호출 깊이 {} · 레지스터 칸 예산을 넘는다 (콜백)", m_frames.size());
+        m_res.fuelUsed = m_budget - m_fuel;
+        return false;
+    }
+    Value* regs = m_regs.data() + m_frames.back().base;
+    for (usize i = 0; i < args.size(); ++i) {
+        regs[i] = args[i];
+    }
+    return loop(depth, out);
+}
+
+bool Interpreter::loop(usize stopDepth, Value& retOut) {
+    // m_regs 는 run 이 maxStackSlots 로 잡아 두었다 — 중첩된 루프가 프레임을 더해도 R 은 그대로 (재할당 없음)
+    const bc::Function* F = &M.functions[m_frames.back().function];
+    Value* R = m_regs.data() + m_frames.back().base;
+    u32 pc = m_frames.back().pc;
+    u64& fuel = m_fuel;
+    const u64 budget = m_budget;
+    u32& hostCalls = m_hostCalls;
 
     auto trap = [&](Trap t, std::string msg) {
-        res.trap = t;
-        res.function = m_frames.back().function;
-        res.pc = pc;
-        res.message = std::move(msg);
-        res.fuelUsed = budget - fuel;
-        return res;
+        m_res.trap = t;
+        m_res.function = m_frames.back().function;
+        m_res.pc = pc;
+        m_res.message = std::move(msg);
+        m_res.fuelUsed = budget - fuel;
+        return false;
     };
     auto str = [&](Value v) { return stringOf(v); };
     auto spend = [&](u64 extra) {
@@ -649,7 +681,7 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
             const usize argc = M.functions[callee].params.size();
             m_frames.back().pc = pc + 1;
             const u32 argBase = m_frames.back().base + in.c;
-            if (!enter(callee, in.a)) {
+            if (!enterFrame(callee, in.a)) {
                 return trap(Trap::StackOverflow,
                             std::format("호출 깊이 {} · 레지스터 칸 예산을 넘는다", m_frames.size()));
             }
@@ -754,10 +786,9 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
             const Frame done = m_frames.back();
             m_frames.pop_back();
             m_regs.resize(done.base);
-            if (m_frames.empty()) {
-                res.value = result;
-                res.fuelUsed = budget - fuel;
-                return res;
+            if (m_frames.size() == stopDepth) {
+                retOut = result;
+                return true;
             }
             const Frame& caller = m_frames.back();
             F = &M.functions[caller.function];
@@ -777,10 +808,14 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
             Trap t = Trap::None;
             std::string msg;
             if (!intrinsic(in, *F, R, fuel, t, msg)) {
-                return trap(t, std::move(msg));
+                // Trap::None = 콜백 안의 트랩 (m_res 에 그 자리가 이미 있다)
+                return t == Trap::None ? false : trap(t, std::move(msg));
             }
             break;
         }
+        case Op::LOADFN:
+            R[in.a] = Value{static_cast<u64>(in.b) + 1}; // 0 = 없음 (검증기가 서명을 봤다)
+            break;
         case Op::Count:
             return trap(Trap::Unreachable, "모르는 명령");
         }
@@ -896,6 +931,33 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
     };
     auto grow = [&](usize by) {
         return len + by <= m_limits.maxArrayLength && m_heapBytes + by * 8 <= m_limits.maxHeapBytes;
+    };
+    // 콜백 (v0.5 M8-T3) — 함수 참조 값 = 함수 번호 + 1 (0 = 없음). 그 함수의 매개변수 수만큼 넘긴다: lead (원소 ·
+    // 누적 · 비교 짝) 다음에 자리가 남으면 첨자 (그 매개변수의 타입 — i32 · f64). 콜백 안의 트랩은 m_res 에 그 자리가
+    // 남고 trap = None 으로 돌아간다 (부른 쪽이 덮어쓰지 않는다)
+    auto callback = [&](Value fnv, std::span<const Value> lead, usize index, Value& cbOut) {
+        if (fnv.bits == 0 || fnv.bits > M.functions.size()) {
+            return fail(Trap::NullReference, "콜백이 없다");
+        }
+        const u32 f = static_cast<u32>(fnv.bits - 1);
+        const bc::Function& cf = M.functions[f];
+        std::array<Value, 3> a{};
+        usize n = 0;
+        for (const Value v : lead) {
+            if (n < cf.params.size() && n < a.size()) {
+                a[n++] = v;
+            }
+        }
+        if (n < cf.params.size() && n < a.size()) {
+            a[n] = M.types[cf.params[n]].kind == bc::TypeKind::F64 ? Value::f64v(static_cast<f64>(index))
+                                                                   : Value::i32v(static_cast<i32>(index));
+            ++n;
+        }
+        if (!invoke(f, std::span<const Value>(a.data(), n), cbOut)) {
+            trap = Trap::None;
+            return false;
+        }
+        return true;
     };
 
     switch (id) {
@@ -1099,6 +1161,168 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
             return fail(Trap::OutOfMemory, "문자열 · 아레나 예산을 넘는다");
         }
         result(out);
+        return true;
+    }
+    case IntrinsicId::ArraySortBy: {
+        // 안정 정렬 — 길이 16 덩어리의 삽입 정렬 + 아래에서 위로 병합 (고정 알고리즘: 같은 입력 · 같은 비교자 = 같은
+        // 비교 차례). 비교자 결과 < 0 이면 앞, NaN = 0 (JS). 복사본을 정렬해 다시 쓴다 (비교자가 배열을 바꿔도 결정적)
+        const Value fnv = args[1];
+        const bool f64Result = M.types[M.types[fn.regs[in.b + 1u]].elem].kind == bc::TypeKind::F64;
+        std::vector<Value> a = arr().slots;
+        auto cmp = [&](Value x, Value y, f64& r) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const std::array<Value, 2> lead{x, y};
+            Value o;
+            if (!callback(fnv, lead, 0, o)) {
+                return false;
+            }
+            r = f64Result ? o.asF64() : static_cast<f64>(o.asI32());
+            if (std::isnan(r)) {
+                r = 0.0;
+            }
+            return true;
+        };
+        constexpr usize kRun = 16;
+        const usize n = a.size();
+        for (usize lo = 0; lo < n; lo += kRun) {
+            const usize hi = std::min(lo + kRun, n);
+            for (usize i = lo + 1; i < hi; ++i) {
+                const Value key = a[i];
+                usize j = i;
+                while (j > lo) {
+                    f64 r = 0;
+                    if (!cmp(a[j - 1], key, r)) {
+                        return false;
+                    }
+                    if (r <= 0) {
+                        break;
+                    }
+                    a[j] = a[j - 1];
+                    --j;
+                }
+                a[j] = key;
+            }
+        }
+        std::vector<Value> tmp(n);
+        for (usize width = kRun; width < n; width *= 2) {
+            for (usize lo = 0; lo < n; lo += 2 * width) {
+                const usize mid = std::min(lo + width, n);
+                const usize hi = std::min(lo + 2 * width, n);
+                usize i = lo;
+                usize j = mid;
+                usize w = lo;
+                while (i < mid && j < hi) {
+                    f64 r = 0;
+                    if (!cmp(a[i], a[j], r)) {
+                        return false;
+                    }
+                    tmp[w++] = r <= 0 ? a[i++] : a[j++]; // 같으면 왼쪽 먼저 (안정)
+                }
+                while (i < mid) {
+                    tmp[w++] = a[i++];
+                }
+                while (j < hi) {
+                    tmp[w++] = a[j++];
+                }
+            }
+            a.swap(tmp);
+        }
+        auto& slots = arr().slots;
+        std::copy_n(a.begin(), std::min(slots.size(), a.size()), slots.begin());
+        result(args[0]);
+        return true;
+    }
+    case IntrinsicId::ArrayFind:
+    case IntrinsicId::ArrayFindIndex:
+    case IntrinsicId::ArraySome:
+    case IntrinsicId::ArrayEvery:
+    case IntrinsicId::ArrayFilter:
+    case IntrinsicId::ArrayMap:
+    case IntrinsicId::ArrayForEach: {
+        // 처음 길이까지, 콜백이 배열을 줄였으면 거기서 멈춘다 (빈 칸이 없는 배열 — JS 의 HasProperty 건너뛰기와 같다)
+        std::vector<Value> kept;
+        for (usize i = 0; i < len && i < arr().slots.size(); ++i) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const Value v = arr().slots[i];
+            const std::array<Value, 1> lead{v};
+            Value o;
+            if (!callback(args[1], lead, i, o)) {
+                return false;
+            }
+            switch (id) {
+            case IntrinsicId::ArrayFind:
+                if (o.asBool()) {
+                    return optResult(true, v) || fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+                }
+                break;
+            case IntrinsicId::ArrayFindIndex:
+            case IntrinsicId::ArraySome:
+                if (o.asBool()) {
+                    result(id == IntrinsicId::ArraySome ? Value::boolean(true) : Value::i32v(static_cast<i32>(i)));
+                    return true;
+                }
+                break;
+            case IntrinsicId::ArrayEvery:
+                if (!o.asBool()) {
+                    result(Value::boolean(false));
+                    return true;
+                }
+                break;
+            case IntrinsicId::ArrayFilter:
+                if (o.asBool()) {
+                    kept.push_back(v);
+                }
+                break;
+            case IntrinsicId::ArrayMap:
+                kept.push_back(o);
+                break;
+            default:
+                break;
+            }
+        }
+        switch (id) {
+        case IntrinsicId::ArrayFind:
+            return optResult(false, {}) || fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        case IntrinsicId::ArrayFindIndex:
+            result(Value::i32v(-1));
+            return true;
+        case IntrinsicId::ArraySome:
+            result(Value::boolean(false));
+            return true;
+        case IntrinsicId::ArrayEvery:
+            result(Value::boolean(true));
+            return true;
+        case IntrinsicId::ArrayFilter:
+        case IntrinsicId::ArrayMap: {
+            Value out;
+            if (!newArray(std::move(kept), out)) {
+                return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+            }
+            result(out);
+            return true;
+        }
+        default:
+            return true; // forEach
+        }
+    }
+    case IntrinsicId::ArrayReduce: {
+        Value acc = args[2];
+        for (usize i = 0; i < len && i < arr().slots.size(); ++i) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const std::array<Value, 2> lead{acc, arr().slots[i]};
+            Value o;
+            if (!callback(args[1], lead, i, o)) {
+                return false;
+            }
+            acc = o;
+        }
+        result(acc);
         return true;
     }
     case IntrinsicId::ArraySortStrings: {

@@ -19,7 +19,7 @@ constexpr std::array<std::string_view, static_cast<usize>(Op::Count)> kOpNames{
     "LTS",    "LES",    "EQR",    "EQO",    "NOTB",    "CONCAT", "TOSTRI",   "TOSTRF", "TOSTRB", "STRLEN",
     "NEWARR", "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH", "NEWOBJ", "GETF",     "SETF",   "BOX",    "UNBOX",
     "JMP",    "JMPT",   "JMPF",   "CALL",   "CALLH",   "RET",    "RETV",     "TRAP",   "LOADK",
-    "INTR",
+    "INTR",   "LOADFN",
 };
 
 constexpr std::array<u8, 4> kMagic{'S', 'B', 'X', 'C'};
@@ -171,7 +171,8 @@ RegClass regClass(const Module& m, u32 type) noexcept {
     case TypeKind::Bool:
         return RegClass::Bool;
     case TypeKind::Opaque:
-        return RegClass::Opaque;
+    case TypeKind::Func:
+        return RegClass::Opaque; // 함수 참조는 null 이 없는 값 (LOADNULL 이 쓸 수 없다)
     case TypeKind::String:
     case TypeKind::Array:
     case TypeKind::Box:
@@ -209,6 +210,13 @@ std::string typeNameRec(const Module& m, u32 type, u32 depth) {
         return "box<" + typeNameRec(m, t.elem, depth + 1) + ">";
     case TypeKind::Struct:
         return std::format("struct#{}", type);
+    case TypeKind::Func: {
+        std::string s = "fn(";
+        for (usize i = 0; i < t.fieldTypes.size(); ++i) {
+            s += (i > 0 ? ", " : "") + typeNameRec(m, t.fieldTypes[i], depth + 1);
+        }
+        return s + ") -> " + typeNameRec(m, t.elem, depth + 1);
+    }
     }
     return "?";
 }
@@ -238,6 +246,12 @@ std::vector<u8> serialize(const Module& m) {
             for (usize i = 0; i < t.fieldNames.size(); ++i) {
                 w.str(t.fieldNames[i]);
                 w.u32v(i < t.fieldTypes.size() ? t.fieldTypes[i] : 0);
+            }
+        } else if (t.kind == TypeKind::Func) {
+            w.u32v(t.elem);
+            w.u32v(static_cast<u32>(t.fieldTypes.size()));
+            for (const u32 p : t.fieldTypes) {
+                w.u32v(p);
             }
         }
     }
@@ -346,7 +360,7 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
     m.types.resize(n);
     for (TypeDesc& t : m.types) {
         u8 k = 0;
-        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Struct)) {
+        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Func)) {
             return bad("타입 종류");
         }
         t.kind = static_cast<TypeKind>(k);
@@ -368,6 +382,17 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             for (u32 i = 0; i < nf; ++i) {
                 if (!r.str(t.fieldNames[i]) || !r.u32v(t.fieldTypes[i])) {
                     return bad("필드");
+                }
+            }
+        } else if (t.kind == TypeKind::Func) {
+            u32 np = 0;
+            if (!r.u32v(t.elem) || !r.count(np, kMaxParams, 4, "매개변수")) {
+                return bad("함수 타입");
+            }
+            t.fieldTypes.resize(np);
+            for (u32& p : t.fieldTypes) {
+                if (!r.u32v(p)) {
+                    return bad("함수 타입");
                 }
             }
         }
@@ -629,6 +654,9 @@ std::string disassemble(const Module& m) {
             case Op::ARRPUSH:
                 args = std::format("{}, r{}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a), in.b,
                                    in.c);
+                break;
+            case Op::LOADFN:
+                args = std::format("r{}, fn {}", in.a, in.b);
                 break;
             case Op::INTR:
                 args = std::format("{}, {}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a),
