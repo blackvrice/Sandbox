@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2, M8-T7 ✅ Graph, M8-T8 ✅ 엔진 질의 · 경로 요청 — raycast · overlap · 예제 · 벤치는 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2, M8-T7 ✅ Graph, M8-T8 ✅ 엔진 질의 · 경로 요청, M8-T9 ✅ 예제 samples/stdlib_tour · 벤치 script.stdlib · 안내 docs/tutorials/stdlib.md — raycast · overlap 은 계획 | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -795,7 +795,7 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 벤치       sbx_bench script.regen — 10k 개체 매 틱 질의 · 읽기 · 쓰기: 스크립트 단계 약 9.9 ms/틱 · 개체당 약 1 µs · 연료 59
            (Release — 14 7.13). 게임 스크립트는 intervalTicks 로 주기를 둔다
 ```
-## 25. 표준 라이브러리 — 지원 매트릭스 · 의미 (v0.5 M8 — ADR-0085, `script/vm/Intrinsics`, `tests/unit/script/test_stdlib_array`)
+## 25. 표준 라이브러리 — 지원 매트릭스 · 의미 (v0.5 M8 — ADR-0085, `script/vm/Intrinsics`, 시험 `tests/unit/script/test_stdlib_*` · `test_script_engine_queries`, 예제 `samples/stdlib_tour`, 안내 [tutorials/stdlib](tutorials/stdlib.md), 측정 14 7.15)
 
 상태:
 

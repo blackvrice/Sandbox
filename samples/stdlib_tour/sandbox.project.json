@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 3,
+  "gameId": "sandbox.stdlib_tour",
+  "name": "표준 라이브러리 둘러보기",
+  "version": "0.1.0",
+  "engine": ">=0.4.0 <1.0.0",
+  "content": {
+    "packs": [
+      "tour"
+    ]
+  },
+  "entryWorld": "worlds/main"
+}

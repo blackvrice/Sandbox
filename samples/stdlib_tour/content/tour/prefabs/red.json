@@ -1,0 +1,13 @@
+{
+  "id": "tour.red",
+  "name": "Soldier (red)",
+  "category": "Tour",
+  "components": {
+    "core.transform": {},
+    "core.velocity": {},
+    "core.movement": { "maxSpeed": 3.0, "accel": 10.0, "arriveRadius": 0.3 },
+    "ai.path": {},
+    "tour.soldier": { "team": 0, "hp": 10 },
+    "render.sprite": { "material": "debug/entity", "size": [0.8, 0.8], "layer": 10 }
+  }
+}

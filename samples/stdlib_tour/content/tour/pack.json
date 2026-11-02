@@ -1,0 +1,6 @@
+{
+  "id": "tour",
+  "version": "0.1.0",
+  "requires": [],
+  "description": "표준 라이브러리 둘러보기 (v0.5 M8-T9) — 인벤토리 (Map · Set · Array) · RTS 유닛 AI (kNearest · PriorityQueue · 경로 요청) · 보드게임 AI (Graph · BFS)"
+}

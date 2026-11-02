@@ -449,7 +449,7 @@ M8 은 Phase 번호와 달리 M2 바로 뒤에 한다 (위 진행 차례). 태�
 | M8-T6 ✅ | 알고리즘 · 수학 · vec2 | script/vm (내장), d.ts | — | M8-T3 | 정렬된 입력 · 역순 · 중복 · NaN · 빈 배열, shuffle 결정성 (씨앗), vec2 0 벡터 · 0 나눗셈 | — |
 | M8-T7 ✅ | Graph (BFS · DFS · Dijkstra · A* · 위상 정렬 · 연결 성분) | script/vm (객체 종류 Graph) | — | M8-T5 | 순환 · 닿지 않음 · 같은 거리 동점 · 음수 가중치 거절 · 상한 · 연료 비례 | 보드게임 AI 예제 |
 | M8-T8 ◐ | 엔진 API — nearest · kNearest · inBox ✅, 경로 요청 ✅ (ai.path 위 — 요청 id = 개체, 상태 · 결과 · 취소, 결과는 덮어쓸 때까지 컴포넌트에 — 만료 대신), raycast · overlap [다음 조각] | script/api (Host 표), core/script/ScriptHost, core/path (요청 표), core/simulation | ScriptPathRequests | M8-T4 | 요청 → 다음 틱 결과 · 만료 · 취소 · 틱 상한, 세이브 → 로드 · 리플레이 같은 해시, k 동점 saveId | RTS AI 가 경로를 받는다 |
-| M8-T9 | 예제 셋 · 벤치 · 사용자 안내 | samples (inventory · rts_ai · board_ai 스크립트 — sbx check · test), bench (script.stdlib — 100 · 1k · 10k · 100k), docs/tutorials | — | M8-T2 ~ T8 | 예제 sbx check 경고 0 · sbx test, 벤치 기록 (14) | 19 25장 전부 ✅ 또는 [계획] |
+| M8-T9 ✅ | 예제 셋 · 벤치 · 사용자 안내 | samples (inventory · rts_ai · board_ai 스크립트 — sbx check · test), bench (script.stdlib — 100 · 1k · 10k · 100k), docs/tutorials | — | M8-T2 ~ T8 | 예제 sbx check 경고 0 · sbx test, 벤치 기록 (14) | 19 25장 전부 ✅ 또는 [계획] |
 
 ### Phase 7 — 데모 · 릴리스 (M7)
 

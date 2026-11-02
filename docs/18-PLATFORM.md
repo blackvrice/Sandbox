@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M8-T9 — 예제 셋 (인벤토리 · RTS AI · 보드 AI) · 벤치 script.stdlib · 안내 (20 10장 Phase 8), 그다음 M8-T8 의 raycast · overlap
+다음     v0.5 M8-T8 (2) raycast · overlap → M2-T5 나머지 (action · signal 이벤트 · PlayerSignal · 프로토콜 15) — 20 10장 진행 차례
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -529,7 +529,8 @@ M8 스크립트 표준 라이브러리 (ADR-0085 — 지원 매트릭스 19 25�
   T7 ✅ Graph (BFS · DFS · Dijkstra · pathTo · A* · 위상 정렬 · 연결 성분 — 고정 동점 · 일에 비례한 연료) (19 25.6)
   T8 ◐ 엔진 API — ctx.nearest · kNearest · inBox ✅, ctx.requestPath · pathState · pathPoints · cancelPath ✅ (ai.path 위 —
         단계 8 제출 · 다음 틱 결과), raycast · overlap [계획] (19 25.7)
-  T9 [계획] 예제 (인벤토리 · RTS AI · 보드 AI) · 벤치 script.stdlib · 안내
+  T9 ✅ 예제 samples/stdlib_tour (인벤토리 · RTS AI · 보드 AI — sbx test · tsc) · 벤치 script.stdlib (14 7.15) ·
+        안내 docs/tutorials/stdlib.md
 순서      M1 ∥ M2 → M8 → M2-T5 나머지 · T6 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프 · 진행 차례). 늦으면 미루는
           순서는 ADR-0078 6 (M8-T7 · T8 의 raycast 가 먼저 미뤄진다)
 ```

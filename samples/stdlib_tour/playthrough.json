@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "name": "표준 라이브러리 둘러보기 — 물건 다섯 · 빨강 셋 · 파랑 둘, 10 초 (300 틱)",
+  "maxTicks": 300,
+  "steps": [
+    { "at": 1, "command": { "op": "resume" } },
+    { "at": 2, "command": { "op": "create", "position": [-4.5, 6.5], "prefab": "tour.potion" } },
+    { "at": 2, "command": { "op": "create", "position": [-3.5, 6.5], "prefab": "tour.arrows" } },
+    { "at": 2, "command": { "op": "create", "position": [-2.5, 6.5], "prefab": "tour.potion" } },
+    { "at": 2, "command": { "op": "create", "position": [-1.5, 6.5], "prefab": "tour.gem" } },
+    { "at": 2, "command": { "op": "create", "position": [-0.5, 6.5], "prefab": "tour.arrows" } },
+    { "at": 3, "command": { "op": "create", "position": [-10.5, -2.5], "prefab": "tour.red" } },
+    { "at": 3, "command": { "op": "create", "position": [-10.5, 0.5], "prefab": "tour.red" } },
+    { "at": 3, "command": { "op": "create", "position": [-10.5, 3.5], "prefab": "tour.red" } },
+    { "at": 3, "command": { "op": "create", "position": [10.5, -1.5], "prefab": "tour.blue" } },
+    { "at": 3, "command": { "op": "create", "position": [10.5, 2.5], "prefab": "tour.blue" } }
+  ],
+  "expect": {
+    "tick": 300,
+    "hash": { "Windows-x86_64-MSVC-19.44": "0x5c11cde6edb4b5dd" }
+  }
+}

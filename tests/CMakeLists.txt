@@ -544,6 +544,12 @@ if(TARGET sbx)
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_package.cmake")
             set_tests_properties(sample_stash PROPERTIES LABELS "content" TIMEOUT 600)
         endif()
+        # 표준 라이브러리 예제 (v0.5 M8-T9) — 인벤토리 · RTS 유닛 AI · 보드게임 AI 스크립트, sbx test (검사 경고 0 · 자동 플레이)
+        add_test(NAME sample_stdlib_tour
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DPROJECT=${PROJECT_SOURCE_DIR}/samples/stdlib_tour"
+                    "-DMATCHES=오류 0, 경고 0;판 6x6: 닿는 칸 28 · 최소 수 10;기술 차례 0>1>2>4>3;가방 t300: 물약 6 · 보석 1 · 화살 24;RTS t300: 경로 요청 5 · 적 없음 0;시험: 통과 1 · 실패 0"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sbx_test_sample.cmake")
+        set_tests_properties(sample_stdlib_tour PROPERTIES LABELS "content" TIMEOUT 300)
     endif()
 endif()
 

@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T9: 표준 라이브러리 예제 · 벤치 · 안내
+
+**무엇을**
+
+- 예제 프로젝트 samples/stdlib_tour (sbx new + 팩 tour): 인벤토리 (Map<Kind, i32> · Set · sortNumbers · unique · sum), RTS 유닛
+  AI (ctx.kNearest · PriorityQueue · vec2.distance · ctx.requestPath / pathState), 보드게임 AI (Graph 6 × 6 · bfs · pathTo ·
+  topoSort). Prefab 다섯, playthrough.json (300 틱 · Windows 해시), README. 빈 시작 월드는 world.json 의 content ·
+  components 를 지금 콘텐츠로 맞췄다 (엔티티 0 — 다시 저장과 같은 결과, sbx check 경고 0).
+- CTest sample_stdlib_tour (tests/project/sbx_test_sample.cmake — sbx test 의 종료 코드 · 출력 줄, UTF-8 로 읽는다).
+- 벤치 script.stdlib (bench/ScriptBench.cpp): 내장 대 스크립트 반복문, n 100 · 1k · 10k · 100k (그래프는 노드 상한 밖이면
+  건너뜀). 측정 14 7.15.
+- 안내 docs/tutorials/stdlib.md (제작자용).
+
+**왜**
+
+- 20 10장 M8-T9 · 제작자 요청의 예제 셋 (인벤토리 · RTS AI · 보드 AI) 과 실측 성능.
+
+**검증**
+
+- sbx check samples/stdlib_tour 오류 0 · 경고 0, sbx test 통과 (두 번 — 같은 해시 0x5c11cde6edb4b5dd), 스크립트를 tsc 5.6
+  --strict (node:22 컨테이너) 가 받는다, 보드 결과 (닿는 칸 28 · 최소 수 10 · 기술 차례) 는 손으로 센 값과 같다.
+- 벤치는 i7-14700K · MSVC 19.44 RelWithDebInfo 실측 (5 번 중앙값). Windows MSVC Debug 전체 ctest 74 / 74 통과 (새 sample_stdlib_tour).
+
+**남은 일**
+
+- M8-T8 (2) raycast · overlap, 그다음 M2-T5 나머지. 비교자 콜백 호출 비용 (sort(cmp) 가 스크립트 병합 정렬과 비슷) 은 측정 근거로
+  [계획].
+
+---
+
 ## 2026-11-02 — v0.5 M8-T8 (1): 엔진 질의 · 스크립트 경로 요청
 
 **무엇을**
