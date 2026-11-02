@@ -27,6 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
+| 표준 라이브러리 (25장)                 | 계획 (v0.5 M8 — 지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -781,4 +782,114 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            (CALLH 결과가 Entity[] · 없는 결과 레지스터) 를 찾아 고쳤다. 한 번은 다른 씨앗으로 300,000 개 (크래시 0)
 벤치       sbx_bench script.regen — 10k 개체 매 틱 질의 · 읽기 · 쓰기: 스크립트 단계 약 9.9 ms/틱 · 개체당 약 1 µs · 연료 59
            (Release — 14 7.13). 게임 스크립트는 intervalTicks 로 주기를 둔다
+```
+## 25. 표준 라이브러리 — 지원 매트릭스 · 의미 (v0.5 M8 — ADR-0085, `script/vm/Intrinsics`)
+
+상태:
+
+- **있음** = 소스 · 시험이 있다 (v0.3 ~ v0.5 M2).
+- **M8-Tn** = 그 태스크가 만든다. 끝나면 ✅ 를 붙인다.
+- **Host** = 엔진 API (Host 표).
+- **[계획]** = v0.5 에 넣지 않는다 (이유를 같이 적는다).
+
+✅ 가 없는 줄은 아직 쓸 수 없고 d.ts 에도 선언하지 않는다.
+
+### 25.1 언어 · 타입
+
+| 기능                                                   | 상태         | 비고                                                                               |
+|--------------------------------------------------------|--------------|------------------------------------------------------------------------------------|
+| T[] · Array<T> · 첨자 · length · push · for-of         | 있음 (v0.3)  | 범위 밖 첨자 트랩                                                                  |
+| T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2        | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
+| 내장 컬렉션의 new · 타입 인자                          | M8-T4 · T5   | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
+| 최상위 함수 참조 (콜백 인자)                           | M8-T3        | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
+| 캡처 없는 화살표 (콜백 인자)                           | M8-T3        | 바깥 지역 이름을 쓰면 S304. 몸 = 식 또는 블록                                      |
+| for-of 의 Map · Set · keys() · values()                | M8-T4        | 넣은 차례                                                                          |
+| entries() · [k, v] 구조 분해 · 튜플                    | [계획]       | 튜플 타입 (S331) · 구조 분해 (S317) 가 먼저 — keys() + get 을 쓴다                  |
+| 사용자 제네릭 · 클로저 · class · 함수 값 변수          | [계획]       | 새 ADR (아레나 수명 · 캡처 복사)                                                   |
+
+### 25.2 Array (TS 전역)
+
+바꾸는 메서드는 그 배열을 고치고, 새 배열은 이 호출의 아레나에 만든다.
+
+| 메서드                                                                                  | 상태  | 의미 · 연료 (기본 2 + 아래)                                                                                                                    |
+|-----------------------------------------------------------------------------------------|-------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| length · push · 첨자 · for-of                                                           | 있음  | push 는 상한 maxArrayLength                                                                                                                    |
+| pop · shift → T \| undefined, unshift(x) → 새 길이                                      | M8-T2 | 빈 배열 = undefined. shift · unshift 는 원소마다 1 (옮김)                                                                                       |
+| slice(start?, end?) · concat(ys) · reverse() · fill(x, s?, e?) · copyWithin(t, s, e?)   | M8-T2 | JS 의 음수 · 범위 자르기 그대로, 원소마다 1                                                                                                     |
+| splice(start, deleteCount?) → 지운 것                                                   | M8-T2 | 넣기 인자 (splice(i, n, …xs)) 는 [계획] (나머지 인자 S313) — 대신 splice + 반복                                                                 |
+| indexOf · lastIndexOf · includes (x, from?)                                             | M8-T2 | indexOf = ===, includes = SameValueZero (NaN 을 찾는다 — JS), 원소마다 1                                                                        |
+| join(sep?)                                                                              | M8-T2 | 원소 = String(x) 규칙 (number · i32 · boolean · string · enum 만 — 그 밖은 S404)                                                               |
+| sort() — string[]                                                                       | M8-T2 | UTF-16 단위 순서, 안정                                                                                                                         |
+| sort() — number[] · i32[] (비교자 없음)                                                 | 거절  | JS 는 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — S404 로 비교자 · sortNumbers 를 요구                                                         |
+| sort(cmp) · find · findIndex · some · every · map · filter · reduce(f, init) · forEach  | M8-T3 | 콜백 = 함수 참조 · 캡처 없는 화살표. 콜백 매개변수는 (x) 또는 (x, i) — 세 번째 (배열) 는 [계획]. reduce 는 초기값 필수 (없으면 S405 — 빈 배열 TypeError 를 없앤다) |
+| sort 의 알고리즘                                                                        | M8-T3 | 안정 병합 + 삽입 (16 이하), 최악 O(n log n), 비교마다 1 + 콜백 연료. 비교자 NaN = 0                                                             |
+
+### 25.3 Map · Set (TS 전역)
+
+| 기능                                                                                                                         | 상태   | 의미                                                                                                       |
+|------------------------------------------------------------------------------------------------------------------------------|--------|------------------------------------------------------------------------------------------------------------|
+| Map: set (→ 같은 Map) · get → V \| undefined · has · delete → boolean · clear · size · keys() · values() · for-of (keys)     | M8-T4  | 키 i32 · number · string · boolean · enum. 넣은 차례 반복, 다시 넣기 = 자리 그대로 · 지웠다 넣기 = 끝       |
+| Set: add · has · delete · clear · size · values() · for-of · new Set(xs)                                                     | M8-T4  | 같은 규칙                                                                                                  |
+| Set 연산 union · intersection · difference                                                                                   | M8-T4  | "sandbox" 함수 setUnion(a, b) · setIntersection · setDifference — 새 Set, 왼쪽 차례 다음 오른쪽 (ES2025 의 Set 메서드는 lib ES2020 에 없다) |
+| 키 같음                                                                                                                      | M8-T4  | SameValueZero — NaN = NaN, -0 = +0 (+0 으로 저장). 해시 고정 (주소 · 씨앗 없음)                             |
+| 반복 중 바꾸기                                                                                                               | M8-T4  | 넣기 = 끝에 보인다, 지우기 = 건너뜀, clear = 끝 (JS)                                                       |
+| 연료                                                                                                                         | M8-T4  | 탐색 · 넣기 · 지우기 = 2 + 충돌 칸마다 1, 반복 원소마다 1, 늘릴 때 원소마다 1                                |
+| Entity · 구조체 키, WeakMap                                                                                                  | [계획] | 핸들 수명 · 구조 같음 규칙이 먼저                                                                          |
+
+### 25.4 "sandbox" 컬렉션 (import { Queue } from "sandbox")
+
+빈 컬렉션에서 꺼내거나 보면 undefined 를 돌려준다.
+
+| 타입                                  | 상태  | 메서드                                                                                                                                       |
+|---------------------------------------|-------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| Stack<T>                              | M8-T5 | push · pop · peek · size · clear                                                                                                             |
+| Queue<T> (고리 버퍼)                  | M8-T5 | enqueue · dequeue · peek · size · clear                                                                                                      |
+| Deque<T> (고리 버퍼)                  | M8-T5 | pushFront · pushBack · popFront · popBack · peekFront · peekBack · size · clear                                                               |
+| PriorityQueue<T>                      | M8-T5 | push(x, priority: number) → boolean · pop · peek · peekPriority · size · clear — 작은 우선순위 먼저, 같으면 넣은 차례 (안정), NaN 우선순위는 false (넣지 않는다) |
+| MinHeap · MaxHeap (number · i32 원소) | M8-T5 | insert · extractMin / extractMax · peek · size · clear                                                                                       |
+| BitSet                                | M8-T5 | new BitSet(n) · set · clear · test · count · size — 범위 밖 트랩 IndexOutOfRange                                                              |
+| 연료                                  | M8-T5 | 넣기 · 꺼내기 1 (+ 힙은 log n 단계마다 1), 늘릴 때 원소마다 1                                                                                 |
+
+### 25.5 알고리즘 · 수학 · vec2 ("sandbox")
+
+| 기능                                                                                                                                            | 상태   | 비고                                                                                   |
+|-------------------------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------------|
+| sortNumbers(xs) (오름차순, NaN 끝, -0 < +0)                                                                                                     | M8-T6  | 안정. 내림차순은 sortNumbers 뒤 reverse                                                 |
+| binarySearch · lowerBound · upperBound (정렬된 number · i32 · string 배열)                                                                      | M8-T6  | 없으면 binarySearch = -1. 비교마다 1                                                    |
+| sum · average (빈 = NaN) · minOf · maxOf (빈 = undefined) · countIf(xs, f) · prefixSum                                                         | M8-T6  | sum 은 차례대로 더한다 (f64 결합 순서 고정)                                             |
+| rotate(xs, k) · unique(xs) (첫 차례 유지) · partition(xs, f) (안정 — 앞 개수 반환)                                                              | M8-T6  |                                                                                        |
+| shuffle(xs, seed: i32)                                                                                                                          | M8-T6  | 고정 PRNG (SplitMix64 → Fisher–Yates). 씨앗은 ctx.randomInt — Math.random 없음          |
+| clamp · lerp · inverseLerp · smoothstep · smootherstep · repeat · pingPong · approximately · degToRad · radToDeg                                | M8-T6  | f64. approximately = 상대 1e-6 · 절대 1e-12                                            |
+| vec2.add · sub · mul(a, s) · div(a, s) · dot · cross · length · lengthSq · distance · distanceSq · normalize · lerp · angle · rotate · reflect   | M8-T6  | 새 Vec2 값. 0 벡터 normalize = (0, 0), div 0 = JS (±Infinity · NaN), angle = atan2       |
+| quick · heap · insertion 정렬을 이름으로 고르기                                                                                                 | [계획] | 기본 sort 가 안정 · 최악 O(n log n) — 따로 고를 이유가 측정으로 보이면                  |
+
+### 25.6 그래프 ("sandbox")
+
+스크립트 안의 그래프다. 월드 경로 탐색 (core/path) 과는 따로다.
+
+| 기능                                                                                              | 상태  | 비고                                                                              |
+|---------------------------------------------------------------------------------------------------|-------|-----------------------------------------------------------------------------------|
+| new Graph(n, directed) · addEdge(a, b, w = 1) → boolean · neighbors(a) · size                     | M8-T7 | 음수 · NaN · 무한 가중치 = false (넣지 않음), 없는 노드 트랩. 이웃 = 넣은 차례     |
+| bfs(start) · dfs(start) → 방문 순서                                                               | M8-T7 | 이웃 차례                                                                         |
+| dijkstra(start) → 거리 배열 (닿지 않음 = Infinity) · pathTo(start, goal) → 노드 배열 \| undefined | M8-T7 | 같은 거리 = 작은 노드 번호                                                        |
+| astar(start, goal, xs, ys) (노드 자리 → 유클리드 휴리스틱)                                        | M8-T7 | 같은 f = 작은 h, 그다음 작은 노드 번호                                             |
+| topoSort() → 배열 \| undefined (순환) · components() → 노드마다 성분 번호                         | M8-T7 | Kahn (작은 번호 먼저) · 무방향 연결 성분                                           |
+| 연료 · 상한                                                                                       | M8-T7 | 방문 · 간선 · 큐 연산마다 1, 노드 ≤ 65,536 · 간선 ≤ 1,048,576 (아레나 바이트도)     |
+
+### 25.7 엔진 API (Host 표 — 서버만)
+
+| 기능                                                                                                    | 상태                     | 비고                                                                                              |
+|---------------------------------------------------------------------------------------------------------|--------------------------|---------------------------------------------------------------------------------------------------|
+| ctx.near · nearWith (반경)                                                                              | 있음 (M2-T4)             | saveId 순, 반경 ≤ 128, ≤ 1,024                                                                    |
+| ctx.nearest(x, y, r) → Entity \| null · kNearest(x, y, r, k) · inBox(minX, minY, maxX, maxY)            | M8-T8 Host               | 같은 색인 · 거리가 같으면 saveId 작은 것                                                          |
+| ctx.requestPath(e, x, y) → 요청 id · pathStatus(id) · pathPoints(id) → number[] · cancelPath(id)        | M8-T8 Host               | core/path PathfindingService 를 다시 쓴다. 틱마다 요청 상한, 결과는 다음 틱 이후 · N 틱 뒤 만료    |
+| raycast · overlap (core.collider · SpatialIndex)                                                        | M8-T8 Host (가능한 만큼) | 지금 충돌 구조가 받치는 원 · AABB 만. 연속 충돌 · 물리 반응은 [계획]                              |
+
+### 25.8 결정론 · 예산 (모든 줄에 — ADR-0085 7 · 8 · 9)
+
+```text
+같은 입력 = 같은 WorldHash · 세이브 → 로드 · 리플레이 · 워커 수와 무관. 반복 · 동점 · 해시 고정, OS 시간 · 주소 · 무작위 씨앗 없음
+아레나      컬렉션 · 새 배열은 이 호출의 아레나 (다음 호출이 버린다) — 틱을 넘는 상태는 컴포넌트에. 늘린 용량을 바이트로 센다
+연료        내장이 원소 · 비교 · 이동 · 해시 탐색 · 방문마다 낸다, 콜백은 자기 명령 연료 — 내장으로 연료를 피할 수 없다
+트랩        내장 안의 트랩 (콜백 트랩 · 연료 · 메모리) = 그 호출의 트랩 — 쓰기 버림 (ADR-0064)
 ```

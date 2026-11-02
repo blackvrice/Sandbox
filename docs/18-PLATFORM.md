@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T5 — 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) — 골든 영향 측정
+다음     v0.5 M8-T2 — 스크립트 표준 라이브러리: 내장 표 · INTR · T | undefined · Array 메서드 (20 10장 Phase 8 · 19 25장 · ADR-0085)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -515,7 +515,16 @@ M7 데모 · 릴리스
   T1 [계획] samples/omok (스크립트 규칙 · UI · 세이브)   T2 [계획] samples/hud_guard (노코드 + HUD)
   T3 [계획] A → B E2E (패키지 전달 · 빈 캐시 · 진단)     T4 [계획] 공개 Alpha 채널 · 외부 테스트 · 차단 목록
   T5 [계획] 버전 종료 0.5.0
-순서      M1 ∥ M2 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프). 늦으면 미루는 순서는 ADR-0078 6
+M8 스크립트 표준 라이브러리 (ADR-0085 — 지원 매트릭스 19 25장, 상세 20 10장 Phase 8)
+  T1 ✅ 분석 · 지원 매트릭스 · ADR-0085 · 계획 다시 쓰기
+  T2 [계획] 내장 표 · INTR (.sbc 형식 6) · T | undefined · Array 의 콜백 없는 메서드
+  T3 [계획] 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (sort · find · map · filter · reduce …)
+  T4 [계획] Map · Set (new · 타입 인자 · 넣은 차례 · Set 연산)   T5 [계획] Stack · Queue · Deque · PriorityQueue · 힙 · BitSet
+  T6 [계획] 알고리즘 · 수학 · vec2                              T7 [계획] Graph (BFS · DFS · Dijkstra · A* · 위상 · 성분)
+  T8 [계획] 엔진 API — nearest · kNearest · inBox · 비동기 경로 요청 · 가능한 raycast · overlap
+  T9 [계획] 예제 (인벤토리 · RTS AI · 보드 AI) · 벤치 script.stdlib · 안내
+순서      M1 ∥ M2 → M8 → M2-T5 나머지 · T6 → M3 → M4 → M6 → M7, M5 는 M1 뒤 (20 10장 의존 그래프 · 진행 차례). 늦으면 미루는
+          순서는 ADR-0078 6 (M8-T7 · T8 의 raycast 가 먼저 미뤄진다)
 ```
 
 v0.5 완료 기준: 20 13.1 (C1~C4 · X1~X5 · R1~R6), 릴리스 차단: 20 13.2.
