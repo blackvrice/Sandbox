@@ -75,6 +75,10 @@ inline constexpr std::array kEnergyFields{
     EngineFieldAccess{"max", ComponentFieldKind::F32, EngineFieldRule::None, "최대"},
     EngineFieldAccess{"value", ComponentFieldKind::F32, EngineFieldRule::None, "지금 (0 이하면 굶어 죽는다)"},
 };
+inline constexpr std::array kOwnerFields{
+    EngineFieldAccess{"player", ComponentFieldKind::I32, EngineFieldRule::None,
+                      "주인 플레이어 (명령의 issuer — 0 = 없음)"},
+};
 inline constexpr std::array kGameSessionFields{
     EngineFieldAccess{"result", ComponentFieldKind::I32, EngineFieldRule::None,
                       "GameOutcome (0 진행 · 1 승 · 2 패 · 3 비김)"},
@@ -96,6 +100,8 @@ inline constexpr std::array kEngineComponents{
                           detail::kTransformFields, "위치 · 회전"},
     EngineComponentAccess{"core.velocity", "Velocity", EngineRead::Both, EngineWrite::Server, detail::kVelocityFields,
                           "속도"},
+    EngineComponentAccess{"game.owner", "Owner", EngineRead::Both, EngineWrite::Server, detail::kOwnerFields,
+                          "주인 플레이어 (v0.5 M2-T5)"},
     EngineComponentAccess{"game.session", "GameSession", EngineRead::Both, EngineWrite::None,
                           detail::kGameSessionFields, "게임 세션 (상태 · 결과 — 바꾸는 길은 GameControl 명령)"},
     EngineComponentAccess{"life.energy", "Energy", EngineRead::Both, EngineWrite::Server, detail::kEnergyFields,

@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 10737afc6916fb38 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 bc0adcf8244e2bca — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -93,6 +93,12 @@ declare module "sandbox" {
     value: Vec2;
   }
   export const Velocity: ComponentRef<Velocity>;
+  /** 주인 플레이어 (v0.5 M2-T5) — 엔진 컴포넌트 game.owner (읽기 server · client · 쓰기 server) */
+  export interface Owner {
+    /** 주인 플레이어 (명령의 issuer — 0 = 없음) */
+    player: i32;
+  }
+  export const Owner: ComponentRef<Owner>;
   /** 게임 세션 (상태 · 결과 — 바꾸는 길은 GameControl 명령) — 엔진 컴포넌트 game.session (읽기 server · client · 쓰기 none) */
   export interface GameSession {
     /** GameOutcome (0 진행 · 1 승 · 2 패 · 3 비김) */

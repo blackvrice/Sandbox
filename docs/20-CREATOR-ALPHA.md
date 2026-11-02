@@ -203,6 +203,9 @@ signal     클라이언트가 보낸 신호 (UI 버튼 · ctx.send) — { name, 
 game.owner { player: i32 }   행동 · 신호 · 스크립트 spawn 이 player 를 적을 수 있다. 클라이언트 바인딩 "@owned" = 내 player 의 개체
 호환        새 컴포넌트를 카탈로그에 더하면 세이브의 components 표 · WorldHash 에 영향이 있는지 M2-T5 첫 단계에서 잰다 —
             골든이 바뀌면 kSimVersion 5 로 올리고 이유를 커밋에 (AGENTS 5장). 안 바뀌면 그대로
+M2-T5 (1) ✅ 쟀다: 카탈로그에 더해도 det_* 골든 · 리플레이 해시 그대로 (WorldHash 는 풀이 있는 컴포넌트만 — 붙은 개체가 없으면
+            풀이 없다), 세이브 world.json 의 components 표에만 "game.owner": 1 이 더해진다 (읽기는 없는 이름을 받는다) →
+            kSimVersion 4 그대로. 접근 표에 Owner (player — 읽기 both · 쓰기 server). 행동 · 신호 · spawn 이 적는 것은 다음 조각
 ```
 
 ### 3.7 신호 명령 (네트워크)

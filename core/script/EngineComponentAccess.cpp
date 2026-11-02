@@ -10,6 +10,7 @@
 #include "core/components/core/Movement.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/core/Velocity.hpp"
+#include "core/components/game/GameOwner.hpp"
 #include "core/components/life/Life.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 
@@ -18,9 +19,9 @@ namespace sbx::script {
 // 쓰기 버퍼는 컴포넌트를 바이트로 복사한다 (ScriptHost::write) — 표에서 쓰기를 허락한 내장 컴포넌트는 그래도 된다
 static_assert(std::is_trivially_copyable_v<comp::Transform> && std::is_trivially_copyable_v<comp::Velocity> &&
               std::is_trivially_copyable_v<comp::Movement> && std::is_trivially_copyable_v<comp::Health> &&
-              std::is_trivially_copyable_v<comp::Energy>);
-constexpr std::array<std::string_view, 5> kCopyableWritable{"core.movement", "core.transform", "core.velocity",
-                                                            "life.energy", "life.health"};
+              std::is_trivially_copyable_v<comp::Energy> && std::is_trivially_copyable_v<comp::GameOwner>);
+constexpr std::array<std::string_view, 6> kCopyableWritable{"core.movement", "core.transform", "core.velocity",
+                                                            "game.owner",    "life.energy",    "life.health"};
 
 namespace {
 

@@ -205,6 +205,7 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트가 엔진 컴포넌트를 읽고 (M2-T1) 쓴다 (M2-T2, ADR-0080 1 — Transform · Velocity · Movement · Health · Energy). 쓰기는 호출 단위 버퍼 → 호출 끝에 쓴 차례로 적용 (스크립트 컴포넌트와 같은 길 — 시스템 차례 · 호출 순으로 결정적), 위치는 WorldGrid::clampPoint, 범위는 FieldMeta. 스크립트가 없는 콘텐츠 (골든 전부) 는 그대로 |
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트의 구조 변경 (ctx.spawn · destroy · add · remove, M2-T3). 호출마다 모아 월드 큐 → 16b 는 17 의 ECB · Prefab 생성 다음, 17d 는 그 끝에 넣은 차례로 — 새 개체의 정체성은 그 차례 (syncIdentityLogs). 스크립트 없는 콘텐츠 (골든 전부) 는 그대로 |
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트 ctx.random · randomInt (Purpose::Script = 10 추가 — 키 = 시스템 id 해시, 흐름은 틱 안에서만 — 세이브할 상태 없음) · ctx.near (단계 4 색인 · saveId 순) · ctx.time (M2-T4). 스크립트 없는 콘텐츠 (골든 전부) 는 그대로 |
+| (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 새 엔진 컴포넌트 game.owner (M2-T5). 쟀다: det_* 골든 · 리플레이 해시 그대로 (WorldHash 는 풀이 있는 Hashed 컴포넌트만 — 붙은 개체가 없다), 세이브의 components 버전 표에 한 줄 (읽기는 그대로) |
 
 ---
 

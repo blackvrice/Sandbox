@@ -491,6 +491,7 @@ export function hp(ctx: ServerContext, e: Entity): number {
            Host 바인딩 · Host API 지문의 근거. v0.5 M2-T1 표: Collider (core.collider — radius, 서버만) · Energy (life.energy —
            drainPerSecond · max · value) · GameSession (game.session — result · rule · state · stateTick · team, i32) · Health
            (life.health — max · value) · Movement (core.movement — accel · arriveRadius · goal · hasGoal · maxSpeed, 서버만) ·
+           Owner (game.owner — player, M2-T5) ·
            Transform (core.transform — position · rotation) · Velocity (core.velocity — value). 서버만 = 복제하지 않는 컴포넌트
 검사기     import 하면 값 = ComponentRef<이름> (LOADK 의 id = 표의 id), 타입 = 데이터 구조체 (읽기 전용으로 쓰지 않아도 — 값 복사).
            ctx.write 에 쓰기 None 항목 (Collider · GameSession — 엔진 관리) 을 넘기면 S404, 클라이언트 함수 (client.read …) 에

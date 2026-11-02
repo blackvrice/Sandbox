@@ -490,7 +490,8 @@ M2 게임플레이 API
         EntityOrNull) (19 16.2)
   T4 ✅ ctx.random · randomInt (Purpose::Script — 시스템 id 마다 흐름, 한 틱 이어 씀) · ctx.near · nearWith (단계 4 색인 ·
         saveId 순) · ctx.time (19 16.3)
-  T5 [계획] 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) — 골든 영향 측정
+  T5 ◐ (1) game.owner (엔진 컴포넌트 · 접근 표 Owner — 골든 그대로 쟀다, kSimVersion 4). 남음: action · signal 이벤트 ·
+        PlayerSignal (signals.json · 프로토콜 15) · ctx.players · session · 행동 · spawn 이 owner 를 적기
   T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14)
 M3 게임 UI
   T1 [계획] ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1~U8 · sbx check

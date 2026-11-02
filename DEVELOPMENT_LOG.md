@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T5 (1): game.owner — 엔진 컴포넌트 · 접근 표 · 골든 영향 측정
+
+**무엇을**
+
+- 새 엔진 컴포넌트 game.owner { player: u32 } (Persistent · Replicated · EditorVisible — 해시에 든다), 카탈로그 23 개.
+- 스크립트 접근 표에 Owner (player I32 — 읽기 server · client, 쓰기 server). static_assert · 쓰기 목록에 GameOwner.
+- 지문 → 0xbc0adcf8244e2bca, sandbox.d.ts 셋 다시 만듦. 시험: 카탈로그 수 23 (test_catalog_serialization), 표 = 카탈로그 시험이
+  Owner 를 본다.
+
+**왜**
+
+- 20 3.6 · ADR-0080 7 — 행동 · 신호 · spawn 의 "누구의 것" 과 클라이언트 "@owned" 의 근거. 첫 단계에서 골든 영향을 잰다 (20 의 약속).
+
+**검증 (골든 영향)**
+
+- Windows MSVC Debug 전체 ctest — det_* (random_walk · world_save_load · eco_lifecycle · 리플레이 넷) 모두 통과 = 해시 그대로. WorldHash
+  는 풀이 있는 Hashed 컴포넌트만 센다 (붙은 개체가 없으면 풀이 없다). 세이브는 components 버전 표에 "game.owner": 1 이 더해질 뿐
+  (읽기는 그대로) → kSimVersion 4 그대로 (04 6장에 줄).
+- 그 실행에서 실패는 unit_ecs 하나 — 카탈로그 수 22 를 센 시험 (고쳤다). 고친 뒤 전체 ctest 72 / 73 — 실패한
+  net_server_probe_smoke 는 포트 47791 충돌 (같은 시각 다른 작업 트리에서 이 시험을 100 번 돌리던 서버에 client #2 로 붙었다 —
+  stderr "UDP 포트를 열지 못했습니다"). 혼자 다시 10 번 = 10 / 10 통과.
+
+**남은 일**
+
+- M2-T5 나머지: 행동 · 신호 · spawn 이 owner 를 적기, action · signal 이벤트, PlayerSignal (signals.json · 프로토콜 15), ctx.players ·
+  session.
+
+---
+
 ## 2026-11-02 — v0.5 M2-T4: ctx.time · random · randomInt · near · nearWith
 
 **무엇을**
