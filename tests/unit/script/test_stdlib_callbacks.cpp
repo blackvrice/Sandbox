@@ -349,6 +349,6 @@ TEST_SUITE("script") {
         REQUIRE(back.has_value());
         CHECK(bc::disassemble(*back) == bc::disassemble(m));
         CHECK(bc::disassemble(m).find("LOADFN") != std::string::npos);
-        CHECK(back->format == 7);
+        CHECK(back->format == bc::kFormatVersion);
     }
 }

@@ -28,6 +28,8 @@ enum class TypeKind : u8 {
     Enum,      // enum (index → enums)
     Opaque,    // SDK 불투명 타입 (abi)
     Component, // ComponentRef<T> — defineComponent 의 const (elem = 값 구조체 T, index = Program::components 의 자리)
+    Map,       // Map<K, V> (elem = K, index = V) — v0.5 M8-T4
+    Set,       // Set<T> (elem = T)
 };
 
 struct TypeInfo {
@@ -87,6 +89,11 @@ public:
     TypeId newEnum(std::string name);
     // defineComponent 마다 하나 (v0.3 M3-T3)
     TypeId newComponentRef(TypeId data, u32 componentIndex);
+    // Map<K, V> · Set<T> (v0.5 M8-T4) — 같은 인자 = 같은 TypeId
+    [[nodiscard]] TypeId mapOf(TypeId key, TypeId value);
+    [[nodiscard]] TypeId setOf(TypeId key);
+    // Map · Set 의 키가 될 수 있다 (i32 · number · string · boolean · enum — ADR-0085 4)
+    [[nodiscard]] bool isKeyType(TypeId t) const;
 
     [[nodiscard]] const TypeInfo& info(TypeId t) const { return m_types[t]; }
     [[nodiscard]] TypeKind kind(TypeId t) const { return m_types[t].kind; }

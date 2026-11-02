@@ -79,8 +79,8 @@ constexpr ForbiddenName kForbiddenValues[] = {
     {"String", "String 은 없다 — 템플릿 문자열을 쓴다"},
     {"Boolean", "Boolean 은 없다"},
     {"Symbol", "Symbol 은 없다"},
-    {"Map", "Map 은 없다 [v0.4 뒤 검토] — 배열을 쓴다"},
-    {"Set", "Set 은 없다 [v0.4 뒤 검토] — 배열을 쓴다"},
+    {"Map", "Map 은 값이 아니다 — new Map<K, V>() 로 만든다"},
+    {"Set", "Set 은 값이 아니다 — new Set<T>() 로 만든다"},
     {"Promise", "Promise 는 없다 — 시뮬레이션은 기다리지 않는다"},
     {"setTimeout", "타이머는 없다 — intervalTicks · ctx.tick 을 쓴다"},
     {"setInterval", "타이머는 없다 — intervalTicks · ctx.tick 을 쓴다"},
@@ -101,8 +101,6 @@ constexpr ForbiddenName kForbiddenTypes[] = {
     {"ReadonlyArray", "ReadonlyArray 는 없다 [v0.3 뒤 검토]"},
     {"Readonly", "Readonly 는 없다 — 필드에 readonly 를 적는다"},
     {"Record", "Record 는 없다 — interface 를 쓴다"},
-    {"Map", "Map 은 없다 [v0.4 뒤 검토]"},
-    {"Set", "Set 은 없다 [v0.4 뒤 검토]"},
     {"Promise", "Promise 는 없다"},
 };
 
@@ -242,6 +240,9 @@ private:
         addBuiltin(m_sdkValues, "defineComponent", Builtin::DefineComponent, TypeTable::kError);
         addBuiltin(m_sdkValues, "field", Builtin::FieldNamespace, TypeTable::kError);
         addBuiltin(m_sdkValues, "defineSystem", Builtin::DefineSystem, TypeTable::kError);
+        addBuiltin(m_sdkValues, "setUnion", Builtin::SetUnion, TypeTable::kError);
+        addBuiltin(m_sdkValues, "setIntersection", Builtin::SetIntersection, TypeTable::kError);
+        addBuiltin(m_sdkValues, "setDifference", Builtin::SetDifference, TypeTable::kError);
         // 시스템 이벤트 (ADR-0063) — enum GameEventKind (값 · 타입 이름공간) · 구조체 GameEvent (onEvent 의 e)
         const TypeId kindType = T().newEnum("GameEventKind");
         for (const api::GameEventKindInfo& k : api::kGameEventKinds) {
@@ -1850,6 +1851,31 @@ private:
             }
             return set(n, T().arrayOf(resolveType(args[0], false)));
         }
+        if (name == "Map" || name == "Set") {
+            const usize want = name == "Map" ? 2 : 1;
+            if (args.size() != want) {
+                err("S417", n, name == "Map" ? "Map 은 타입 인자 둘 (Map<K, V>)" : "Set 은 타입 인자 하나 (Set<T>)");
+                return set(n, TypeTable::kError);
+            }
+            const TypeId key = resolveType(args[0], false);
+            if (!T().isKeyType(key)) {
+                err("S404", args[0],
+                    std::format(
+                        "{} 의 키는 i32 · number · string · boolean · enum — {} 는 아니다 (Entity · 구조체 키는 "
+                        "[계획])",
+                        name, T().name(key)));
+                return set(n, TypeTable::kError);
+            }
+            if (name == "Set") {
+                return set(n, T().setOf(key));
+            }
+            const TypeId value = resolveType(args[1], false);
+            if (T().isNullLiteral(value)) {
+                err("S414", args[1], "Map 의 값 타입이 null · undefined 만이다");
+                return set(n, TypeTable::kError);
+            }
+            return set(n, T().mapOf(key, value));
+        }
         if (name == "bool") {
             err("S401", n, "타입 'bool' 은 없다 — TS 이름은 boolean");
             return set(n, TypeTable::kError);
@@ -2202,10 +2228,27 @@ private:
     Flow forOfStatement(NodeId s) {
         const NodeId decl = ast().kid(s, 0);
         const NodeId iter = ast().kid(s, 1);
-        const TypeId it = expr(iter, kNoExpect);
         TypeId elem = TypeTable::kError;
+        // Map · Set 의 반복 (v0.5 M8-T4): for (const x of set) · for (const k of m.keys()) · for (const v of
+        // m.values()) — 커서로 살아 있는 항목을 돈다 (넣은 차례, 반복 중 넣은 것은 보이고 지운 것은 건너뛴다 — JS)
+        if (const std::optional<std::pair<TypeId, u32>> c = collectionIter(iter)) {
+            sema(s).ref = RefKind::CollLoop;
+            sema(s).refIndex = c->second;
+            pushScope(kNoNode);
+            if (decl != kNoNode) {
+                localVar(decl, c->first);
+            }
+            loopBody(ast().kid(s, 2));
+            popScope();
+            return {};
+        }
+        const TypeId it = expr(iter, kNoExpect);
         if (T().kind(it) == TypeKind::Array) {
             elem = T().info(it).elem;
+        } else if (T().kind(it) == TypeKind::Map) {
+            err("S404", iter,
+                "Map 의 for-of 는 [k, v] 쌍을 돈다 (튜플 · 구조 분해는 [계획]) — for (const k of m.keys()) 와 "
+                "m.get(k)");
         } else if (T().kind(it) == TypeKind::Nullable) {
             err("S407", iter,
                 std::format("{} 일 수 있다 ({}) — if (x !== {}) 로 좁힌다", nullWord(it), T().name(it), nullWord(it)));
@@ -2592,6 +2635,8 @@ private:
         }
         case NodeKind::Ident:
             return identValue(n);
+        case NodeKind::New:
+            return set(n, newExpr(n, expected));
         case NodeKind::Arrow:
             err("S304", n,
                 "화살표 함수는 내장 메서드의 콜백 인자로만 (xs.map(x => …)) — 그 밖은 최상위 function (함수 값 · "
@@ -3367,6 +3412,209 @@ private:
         m_arrowOuter.pop_back();
     }
 
+    // ---- Map · Set (v0.5 M8-T4 — 19 25.3) ---------------------------------------------------------------------
+    // new Map<K, V>() · new Set<T>() · new Set(xs) — 타입 인자는 적거나 선언의 타입 (expected) 에서
+    TypeId newExpr(NodeId n, TypeId expected) {
+        const std::string_view name = ast().str(n);
+        const auto kids = ast().kids(n);
+        const usize typeArgs = static_cast<usize>(node(n).number);
+        const usize argc = kids.size() - typeArgs;
+        if (name != "Map" && name != "Set") {
+            err("S315", n,
+                std::format("new 는 내장 컬렉션 (Map · Set) 에만 — {} 는 아니다 (사용자 class 는 S301)", name));
+            for (usize i = typeArgs; i < kids.size(); ++i) {
+                expr(kids[i], kNoExpect);
+            }
+            return TypeTable::kError;
+        }
+        const bool isMap = name == "Map";
+        TypeId t = kNoExpect;
+        if (typeArgs > 0) {
+            if (typeArgs != (isMap ? 2u : 1u)) {
+                err("S417", n,
+                    isMap ? "Map 은 타입 인자 둘 (new Map<K, V>())" : "Set 은 타입 인자 하나 (new Set<T>())");
+                return TypeTable::kError;
+            }
+            const TypeId key = resolveType(kids[0], false);
+            if (!T().isKeyType(key)) {
+                err("S404", kids[0],
+                    std::format("{} 의 키는 i32 · number · string · boolean · enum — {} 는 아니다", name,
+                                T().name(key)));
+                return TypeTable::kError;
+            }
+            t = isMap ? T().mapOf(key, resolveType(kids[1], false)) : T().setOf(key);
+        } else if (expected != kNoExpect &&
+                   T().kind(T().nonNull(expected)) == (isMap ? TypeKind::Map : TypeKind::Set)) {
+            t = T().nonNull(expected);
+        }
+        if (isMap) {
+            sema(n).ref = RefKind::Intrinsic;
+            sema(n).refIndex = static_cast<u32>(IntrinsicId::MapNew);
+            if (argc > 0) {
+                err("S405", n, "new Map 의 [k, v] 쌍 배열은 [계획] (튜플) — 빈 Map 에 set 한다");
+                for (usize i = typeArgs; i < kids.size(); ++i) {
+                    expr(kids[i], kNoExpect);
+                }
+                return TypeTable::kError;
+            }
+        } else {
+            sema(n).ref = RefKind::Intrinsic;
+            sema(n).refIndex = static_cast<u32>(argc == 0 ? IntrinsicId::SetNew : IntrinsicId::SetFromArray);
+            if (argc > 1) {
+                err("S405", n, "new Set 은 배열 하나까지");
+                return TypeTable::kError;
+            }
+            if (argc == 1) {
+                const NodeId arg = kids[typeArgs];
+                const TypeId want = t == kNoExpect ? kNoExpect : T().arrayOf(T().info(t).elem);
+                const TypeId at = expr(arg, want);
+                if (t == kNoExpect && T().kind(at) == TypeKind::Array && T().isKeyType(T().info(at).elem)) {
+                    t = T().setOf(T().info(at).elem);
+                } else if (t != kNoExpect) {
+                    assignTo(arg, at, T().arrayOf(T().info(t).elem));
+                } else if (!T().isError(at)) {
+                    err("S404", arg,
+                        std::format("new Set(xs) 의 xs 는 키 타입 (i32 · number · string · boolean · enum) 의 배열 — "
+                                    "{} 는 아니다",
+                                    T().name(at)));
+                    return TypeTable::kError;
+                }
+            }
+        }
+        if (t == kNoExpect) {
+            err("S414", n,
+                std::format("{} 의 타입을 적는다 — new {}<…>() 나 const x: {}<…> = new {}()", name, name, name, name));
+            return TypeTable::kError;
+        }
+        return t;
+    }
+
+    // Map · Set 메서드 (이름을 모르면 nullopt — 부르는 쪽이 S406)
+    std::optional<TypeId> collectionMethod(NodeId n, NodeId callee, TypeId ct, std::string_view member) {
+        const bool isMap = T().kind(ct) == TypeKind::Map;
+        const TypeId key = T().info(ct).elem;
+        const TypeId value = isMap ? static_cast<TypeId>(T().info(ct).index) : TypeTable::kError;
+        auto method = [&](IntrinsicId id, std::initializer_list<TypeId> params, TypeId result) -> TypeId {
+            sema(callee).ref = RefKind::Intrinsic;
+            sema(callee).refIndex = static_cast<u32>(id);
+            const std::vector<TypeId> ps(params);
+            checkArgs(n, ps, member);
+            return result;
+        };
+        if (member == "has") {
+            return method(isMap ? IntrinsicId::MapHas : IntrinsicId::SetHas, {key}, TypeTable::kBool);
+        }
+        if (member == "delete") {
+            return method(isMap ? IntrinsicId::MapDelete : IntrinsicId::SetDelete, {key}, TypeTable::kBool);
+        }
+        if (member == "clear") {
+            return method(isMap ? IntrinsicId::MapClear : IntrinsicId::SetClear, {}, TypeTable::kVoid);
+        }
+        if (isMap && member == "set") {
+            return method(IntrinsicId::MapSet, {key, value}, ct);
+        }
+        if (isMap && member == "get") {
+            if (T().kind(value) == TypeKind::Nullable) {
+                err("S404", n,
+                    std::format("{} 의 get 은 없다 — T | null 값은 결과가 null 과 undefined 를 섞는다 (has 뒤에 값 "
+                                "타입을 T 로 두거나 Map<K, T> 를 쓴다)",
+                                T().name(ct)));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            return method(IntrinsicId::MapGet, {key}, T().optionalOf(value));
+        }
+        if (!isMap && member == "add") {
+            return method(IntrinsicId::SetAdd, {key}, ct);
+        }
+        if (member == "keys" || member == "values" || member == "entries") {
+            err("S404", n,
+                std::format("{}() 는 for-of 와 Array.from(…) 에서만 (반복자 값은 [계획]){}", member,
+                            member == "entries" ? " — entries 는 튜플이 필요하다 [계획]" : ""));
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        if (member == "forEach") {
+            err("S406", n, std::format("{} 의 forEach 는 [계획] — for (const k of m.keys()) 를 쓴다", T().name(ct)));
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        return std::nullopt;
+    }
+
+    // for-of · Array.from 의 반복 대상: Set · m.keys() · m.values() · s.values() · s.keys() → (원소 타입, 1 키 · 2 값).
+    // 아니면 nullopt (그 식은 아직 검사하지 않았다)
+    std::optional<std::pair<TypeId, u32>> collectionIter(NodeId iter) {
+        const Node& x = node(iter);
+        if (x.kind == NodeKind::Call && ast().kids(iter).size() == 1 &&
+            node(ast().kid(iter, 0)).kind == NodeKind::Member) {
+            const NodeId callee = ast().kid(iter, 0);
+            const std::string_view m = ast().str(callee);
+            if (m == "keys" || m == "values") {
+                const TypeId ct = expr(ast().kid(callee, 0), kNoExpect);
+                if (T().kind(ct) == TypeKind::Map || T().kind(ct) == TypeKind::Set) {
+                    const bool values = T().kind(ct) == TypeKind::Map && m == "values";
+                    set(callee, TypeTable::kVoid);
+                    set(iter, ct);
+                    return std::pair{values ? static_cast<TypeId>(T().info(ct).index) : T().info(ct).elem,
+                                     values ? 2u : 1u};
+                }
+                // 받는 쪽을 이미 검사했다 — 같은 식을 다시 검사하지 않게 여기서 끝낸다
+                if (!T().isError(ct)) {
+                    err("S406", callee, std::format("{} 에는 메서드 '{}' 가 없다", T().name(ct), m));
+                }
+                set(iter, TypeTable::kError);
+                return std::pair{TypeTable::kError, 1u};
+            }
+        }
+        if (x.kind == NodeKind::Ident) {
+            bool reported = false;
+            const SymbolId id = lookupValue(iter, ast().str(iter), reported);
+            if (reported) {
+                set(iter, TypeTable::kError);
+                return std::pair{TypeTable::kError, 1u};
+            }
+            if (id != kNoSymbol && T().kind(sym(id).type) == TypeKind::Set) {
+                const TypeId ct = expr(iter, kNoExpect);
+                return std::pair{T().info(ct).elem, 1u};
+            }
+        }
+        return std::nullopt;
+    }
+
+    // Array.from(x) — x = Set · m.keys() · m.values() · 배열 (복사)
+    TypeId arrayFrom(NodeId n, NodeId callee) {
+        const auto kids = ast().kids(n);
+        if (kids.size() != 2) {
+            err("S405", n, "Array.from 은 인자 하나 (매핑 함수는 [계획] — .map 을 잇는다)");
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        const NodeId arg = kids[1];
+        sema(callee).ref = RefKind::Intrinsic;
+        if (const std::optional<std::pair<TypeId, u32>> c = collectionIter(arg)) {
+            const TypeId ct = sema(arg).type;
+            const bool isMap = T().kind(ct) == TypeKind::Map;
+            sema(callee).refIndex = static_cast<u32>(
+                !isMap ? IntrinsicId::SetValues : (c->second == 2 ? IntrinsicId::MapValues : IntrinsicId::MapKeys));
+            return T().arrayOf(c->first);
+        }
+        const TypeId t = expr(arg, kNoExpect);
+        if (T().kind(t) == TypeKind::Array) {
+            sema(callee).refIndex = static_cast<u32>(IntrinsicId::ArraySlice);
+            return t;
+        }
+        if (T().kind(t) == TypeKind::Set) {
+            sema(callee).refIndex = static_cast<u32>(IntrinsicId::SetValues);
+            return T().arrayOf(T().info(t).elem);
+        }
+        if (!T().isError(t)) {
+            err("S404", arg,
+                std::format("Array.from 은 배열 · Set · m.keys() · m.values() 에만 — {} 는 아니다", T().name(t)));
+        }
+        return TypeTable::kError;
+    }
+
     // 배열 메서드 (v0.5 M8-T2 — 내장 표, 19 25.2). 이름을 모르면 nullopt (부르는 쪽이 S406)
     std::optional<TypeId> arrayMethod(NodeId n, NodeId callee, TypeId at, std::string_view member) {
         const TypeId elem = T().info(at).elem;
@@ -3649,6 +3897,30 @@ private:
                 argsLoose(n);
                 return set(n, TypeTable::kError);
             }
+            if (s.kind == SymbolKind::Builtin &&
+                (s.builtin == Builtin::SetUnion || s.builtin == Builtin::SetIntersection ||
+                 s.builtin == Builtin::SetDifference)) {
+                // 집합 연산 (v0.5 M8-T4) — 같은 Set<T> 둘 → 새 Set<T>
+                sema(callee).ref = RefKind::Intrinsic;
+                sema(callee).refIndex =
+                    static_cast<u32>(s.builtin == Builtin::SetUnion          ? IntrinsicId::SetUnion
+                                     : s.builtin == Builtin::SetIntersection ? IntrinsicId::SetIntersection
+                                                                             : IntrinsicId::SetDifference);
+                if (kids.size() != 3) {
+                    err("S405", n, std::format("{} 는 Set 둘", name));
+                    argsLoose(n);
+                    return set(n, TypeTable::kError);
+                }
+                const TypeId a = expr(kids[1], kNoExpect);
+                if (!T().isError(a) && T().kind(a) != TypeKind::Set) {
+                    err("S404", kids[1], std::format("{} 의 인자는 Set — {} 는 아니다", name, T().name(a)));
+                    expr(kids[2], kNoExpect);
+                    return set(n, TypeTable::kError);
+                }
+                const TypeId b = expr(kids[2], a);
+                assignTo(kids[2], b, a);
+                return set(n, a);
+            }
             if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineComponent) {
                 err("S425", callee, "defineComponent 는 최상위 const 의 초기값으로만 부른다 (export const Mana = …)");
                 return set(n, TypeTable::kError);
@@ -3668,6 +3940,13 @@ private:
             // Math.f(…)
             if (isMathNamespace(objNode)) {
                 return mathCall(n, callee, member);
+            }
+            // Array.from(…) (v0.5 M8-T4) — Set · m.keys() · m.values() · 배열 복사
+            if (node(objNode).kind == NodeKind::Ident && ast().str(objNode) == "Array" && member == "from") {
+                bool reported = false;
+                if (lookupValue(objNode, "Array", reported) == kNoSymbol && !reported) {
+                    return set(n, arrayFrom(n, callee));
+                }
             }
             const TypeId ot = expr(objNode, kNoExpect);
             if (T().isError(ot)) {
@@ -3709,6 +3988,11 @@ private:
             }
             if (T().kind(ot) == TypeKind::Array) {
                 if (const std::optional<TypeId> r = arrayMethod(n, callee, ot, member)) {
+                    return set(n, *r);
+                }
+            }
+            if (T().kind(ot) == TypeKind::Map || T().kind(ot) == TypeKind::Set) {
+                if (const std::optional<TypeId> r = collectionMethod(n, callee, ot, member)) {
                     return set(n, *r);
                 }
             }
@@ -3866,6 +4150,15 @@ private:
         case TypeKind::String:
             if (name == "length") {
                 sema(n).ref = RefKind::StringLength;
+                return set(n, TypeTable::kI32);
+            }
+            break;
+        case TypeKind::Map:
+        case TypeKind::Set:
+            if (name == "size") {
+                sema(n).ref = RefKind::Intrinsic;
+                sema(n).refIndex =
+                    static_cast<u32>(T().kind(ot) == TypeKind::Map ? IntrinsicId::MapSize : IntrinsicId::SetSize);
                 return set(n, TypeTable::kI32);
             }
             break;

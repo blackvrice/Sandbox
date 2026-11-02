@@ -1597,10 +1597,45 @@ private:
                 skipBalanced();
             }
             return errorNode(pos);
-        case Tok::KwNew:
-            error("S315", pos, "new 는 없다 — 객체 리터럴 { … } 과 Host 함수를 쓴다");
+        case Tok::KwNew: {
+            // new 이름<타입 인자>(인자) — 이름이 무엇인지 (내장 컬렉션만) 는 검사기가 본다 (v0.5 M8-T4)
             advance();
-            return parsePostfix(parsePrimary());
+            if (!at(Tok::Identifier)) {
+                error("S315", pos, "new 는 내장 컬렉션 이름에만 (new Map<K, V>() · new Set<T>())");
+                return parsePostfix(parsePrimary());
+            }
+            std::string name = cur().value;
+            advance();
+            Kids kids;
+            usize typeArgs = 0;
+            if (at(Tok::Less) && !cur().newlineBefore) {
+                advance();
+                while (!at(Tok::EndOfFile)) {
+                    kids.push_back(parseType());
+                    ++typeArgs;
+                    if (!accept(Tok::Comma)) {
+                        break;
+                    }
+                }
+                closeTypeArgs();
+            }
+            if (expect(Tok::LParen, "new 의 인자 목록")) {
+                while (!at(Tok::RParen) && !at(Tok::EndOfFile)) {
+                    if (at(Tok::Ellipsis)) {
+                        error("S313", cur().pos, "펼침 (...xs) 은 없다");
+                        advance();
+                    }
+                    kids.push_back(parseAssignment());
+                    if (!accept(Tok::Comma)) {
+                        break;
+                    }
+                }
+                expect(Tok::RParen);
+            }
+            const NodeId n = named(NodeKind::New, pos, std::move(name), kids);
+            m_ast.node(n).number = static_cast<f64>(typeArgs);
+            return n;
+        }
         case Tok::KwThis:
         case Tok::KwSuper:
             error("S315", pos, std::format("{} 는 없다 — 콜백은 ctx 를 매개변수로 받는다", tokName(t.kind)));

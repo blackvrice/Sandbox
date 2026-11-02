@@ -7,6 +7,7 @@
 // (예외 없음). 예산: 연료 (명령마다 1 + 무거운 명령은 더), 호출 깊이, 레지스터 칸, 아레나 바이트, 배열 길이, 문자열
 // 바이트. Host 함수 (CALLH) 는 IHost 로 — 엔진 바인딩은 core/script/ScriptHost, 시험은 가짜 Host.
 
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -83,7 +84,7 @@ struct HostResult {
     Value value; // ComponentDataOrNull 이면 0 = null, 아니면 1 (칸은 values)
     std::string error;
     std::vector<Value> values{}; // ComponentDataOrNull = 펼친 칸 (HostArg::fields 와 같은 순서), EntityList = 원소
-    u64 extraFuel = 0;         // 부른 쪽이 더 낼 연료 (질의 — 결과 개체마다)
+    u64 extraFuel = 0;           // 부른 쪽이 더 낼 연료 (질의 — 결과 개체마다)
 };
 
 class IHost {
@@ -117,10 +118,22 @@ public:
     void setLimits(const Limits& l) noexcept { m_limits = l; }
 
 private:
+    // Map · Set (v0.5 M8-T4) — 넣은 차례의 항목 (지운 것은 alive = 0 으로 남는다 — 반복 커서가 그대로) + 선형 탐사 색인
+    // (0 = 빈 칸, 아니면 항목 + 1). 해시는 고정 (keyHash — 주소 · 씨앗 없음)
+    struct HashData {
+        std::vector<Value> keys;
+        std::vector<Value> values; // Map 만
+        std::vector<u8> alive;
+        std::vector<u32> index; // 크기 2^k
+        usize live = 0;
+        usize used = 0; // 색인에서 차 있는 칸
+        bc::TypeKind keyKind = bc::TypeKind::I32;
+    };
     struct Object {
-        enum class Kind : u8 { String, Array, Struct, Box } kind = Kind::String;
+        enum class Kind : u8 { String, Array, Struct, Box, Map, Set } kind = Kind::String;
         std::string text;
         std::vector<Value> slots;
+        std::unique_ptr<HashData> hash; // Map · Set 만
     };
     struct Frame {
         u32 function = 0;
@@ -139,9 +152,14 @@ private:
     bool alloc(Object o, usize bytes, Value& out);
     bool newString(std::string s, Value& out);
     bool newArray(std::vector<Value> slots, Value& out);
-    // INTR (ADR-0085 — script/vm/Intrinsics). 실패면 trap · msg 를 채우고 false. fuel = run 의 남은 연료 (원소 · 비교마다
-    // 여기서 뺀다)
+    // INTR (ADR-0085 — script/vm/Intrinsics). 실패면 trap · msg 를 채우고 false. fuel = run 의 남은 연료 (원소 ·
+    // 비교마다 여기서 뺀다)
     bool intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
+    // Map · Set 내장 (v0.5 M8-T4)
+    bool collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
+                             std::string& msg);
+    [[nodiscard]] u64 keyHash(bc::TypeKind kind, Value v) const;
+    [[nodiscard]] bool keyEqual(bc::TypeKind kind, Value a, Value b) const;
     // 배열 원소 같음 — indexOf 는 === (NaN 은 무엇과도 다르다), includes 는 SameValueZero (NaN = NaN)
     [[nodiscard]] bool elemEqual(u32 elemType, Value a, Value b, bool sameValueZero) const;
     // Host 칸 ↔ 구조체 (ADR-0060). 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) 와 중첩 구조체 (깊이 4) 만 — 그 밖의

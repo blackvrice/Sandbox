@@ -36,6 +36,17 @@ enum class IntrinsicPat : u8 {
     Any,       // 아무 타입 (reduce 의 초기값 — FnReduce 가 맞춘다)
     MapResult, // 결과: 인자 1 (FnMap) 의 결과 U 의 배열
     Same2,     // 인자 2 와 같은 타입
+    // v0.5 M8-T4 — Map · Set (인자 0 이 받는 쪽)
+    Map,       // 아무 Map
+    Set,       // 아무 Set
+    Key,       // 인자 0 (Map · Set) 의 키 타입
+    MapVal,    // 인자 0 (Map) 의 값 타입
+    OptMapVal, // 인자 0 (Map) 의 값 | undefined (결과만 — 값이 참조면 그 타입, 아니면 Box(값))
+    NewMap,    // 결과: 아무 Map
+    NewSet,    // 결과: 아무 Set
+    SetOfElem, // 결과: 인자 0 (배열) 의 원소를 키로 하는 Set
+    KeyArray,  // 결과: 인자 0 의 키 배열
+    ValArray,  // 결과: 인자 0 (Map) 의 값 배열
 };
 
 struct Intrinsic {
@@ -70,6 +81,31 @@ enum class IntrinsicId : u16 {
     ArrayMap,
     ArrayForEach,
     ArrayReduce,
+    MapNew, // v0.5 M8-T4 — 여기부터 Map · Set (받는 쪽이 배열이 아니다)
+    MapSet,
+    MapGet,
+    MapHas,
+    MapDelete,
+    MapClear,
+    MapSize,
+    MapKeys,
+    MapValues,
+    MapNext,
+    MapKeyAt,
+    MapValueAt,
+    SetNew,
+    SetFromArray,
+    SetAdd,
+    SetHas,
+    SetDelete,
+    SetClear,
+    SetSize,
+    SetValues,
+    SetNext,
+    SetValueAt,
+    SetUnion,
+    SetIntersection,
+    SetDifference,
 };
 
 namespace detail {
@@ -100,7 +136,37 @@ inline constexpr Intrinsic kIntrinsics[] = {
     {"Array.map", 2, {detail::P::Array, detail::P::FnMap}, detail::P::MapResult, 2},
     {"Array.forEach", 2, {detail::P::Array, detail::P::FnEach}, detail::P::None, 2},
     {"Array.reduce", 3, {detail::P::Array, detail::P::FnReduce, detail::P::Any}, detail::P::Same2, 2},
+    {"Map.new", 0, {}, detail::P::NewMap, 2},
+    {"Map.set", 3, {detail::P::Map, detail::P::Key, detail::P::MapVal}, detail::P::Same0, 2},
+    {"Map.get", 2, {detail::P::Map, detail::P::Key}, detail::P::OptMapVal, 2},
+    {"Map.has", 2, {detail::P::Map, detail::P::Key}, detail::P::Bool, 2},
+    {"Map.delete", 2, {detail::P::Map, detail::P::Key}, detail::P::Bool, 2},
+    {"Map.clear", 1, {detail::P::Map}, detail::P::None, 2},
+    {"Map.size", 1, {detail::P::Map}, detail::P::I32, 1},
+    {"Map.keys", 1, {detail::P::Map}, detail::P::KeyArray, 2},
+    {"Map.values", 1, {detail::P::Map}, detail::P::ValArray, 2},
+    {"Map.next", 2, {detail::P::Map, detail::P::I32}, detail::P::I32, 1},
+    {"Map.keyAt", 2, {detail::P::Map, detail::P::I32}, detail::P::Key, 1},
+    {"Map.valueAt", 2, {detail::P::Map, detail::P::I32}, detail::P::MapVal, 1},
+    {"Set.new", 0, {}, detail::P::NewSet, 2},
+    {"Set.from", 1, {detail::P::Array}, detail::P::SetOfElem, 2},
+    {"Set.add", 2, {detail::P::Set, detail::P::Key}, detail::P::Same0, 2},
+    {"Set.has", 2, {detail::P::Set, detail::P::Key}, detail::P::Bool, 2},
+    {"Set.delete", 2, {detail::P::Set, detail::P::Key}, detail::P::Bool, 2},
+    {"Set.clear", 1, {detail::P::Set}, detail::P::None, 2},
+    {"Set.size", 1, {detail::P::Set}, detail::P::I32, 1},
+    {"Set.values", 1, {detail::P::Set}, detail::P::KeyArray, 2},
+    {"Set.next", 2, {detail::P::Set, detail::P::I32}, detail::P::I32, 1},
+    {"Set.valueAt", 2, {detail::P::Set, detail::P::I32}, detail::P::Key, 1},
+    {"setUnion", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
+    {"setIntersection", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
+    {"setDifference", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
 };
+
+// Map · Set 내장인가 (받는 쪽이 배열이 아니다 — VM 이 따로 나눈다)
+[[nodiscard]] constexpr bool isCollectionIntrinsic(u16 id) noexcept {
+    return id >= static_cast<u16>(IntrinsicId::MapNew);
+}
 
 [[nodiscard]] constexpr const Intrinsic& intrinsic(IntrinsicId id) noexcept {
     return kIntrinsics[static_cast<u16>(id)];

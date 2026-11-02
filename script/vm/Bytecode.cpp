@@ -12,14 +12,13 @@ namespace sbx::script::bc {
 namespace {
 
 constexpr std::array<std::string_view, static_cast<usize>(Op::Count)> kOpNames{
-    "NOP",    "MOV",    "LOADI",  "LOADB",  "LOADF",   "LOADS",  "LOADNULL", "ADDI",   "SUBI",   "MULI",
-    "REMI",   "IDIV",   "ANDI",   "ORI",    "XORI",    "SHLI",   "SHRI",     "MINI",   "MAXI",   "NEGI",
-    "NOTI",   "ADDF",   "SUBF",   "MULF",   "DIVF",    "REMF",   "POWF",     "NEGF",   "MATHF",  "I2F",
-    "F2I",    "F2IDX",  "EQI",    "LTI",    "LEI",     "EQF",    "LTF",      "LEF",    "EQB",    "EQS",
-    "LTS",    "LES",    "EQR",    "EQO",    "NOTB",    "CONCAT", "TOSTRI",   "TOSTRF", "TOSTRB", "STRLEN",
-    "NEWARR", "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH", "NEWOBJ", "GETF",     "SETF",   "BOX",    "UNBOX",
-    "JMP",    "JMPT",   "JMPF",   "CALL",   "CALLH",   "RET",    "RETV",     "TRAP",   "LOADK",
-    "INTR",   "LOADFN",
+    "NOP",    "MOV",    "LOADI",  "LOADB",  "LOADF",  "LOADS",  "LOADNULL", "ADDI",   "SUBI",   "MULI",   "REMI",
+    "IDIV",   "ANDI",   "ORI",    "XORI",   "SHLI",   "SHRI",   "MINI",     "MAXI",   "NEGI",   "NOTI",   "ADDF",
+    "SUBF",   "MULF",   "DIVF",   "REMF",   "POWF",   "NEGF",   "MATHF",    "I2F",    "F2I",    "F2IDX",  "EQI",
+    "LTI",    "LEI",    "EQF",    "LTF",    "LEF",    "EQB",    "EQS",      "LTS",    "LES",    "EQR",    "EQO",
+    "NOTB",   "CONCAT", "TOSTRI", "TOSTRF", "TOSTRB", "STRLEN", "NEWARR",   "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH",
+    "NEWOBJ", "GETF",   "SETF",   "BOX",    "UNBOX",  "JMP",    "JMPT",     "JMPF",   "CALL",   "CALLH",  "RET",
+    "RETV",   "TRAP",   "LOADK",  "INTR",   "LOADFN",
 };
 
 constexpr std::array<u8, 4> kMagic{'S', 'B', 'X', 'C'};
@@ -177,6 +176,8 @@ RegClass regClass(const Module& m, u32 type) noexcept {
     case TypeKind::Array:
     case TypeKind::Box:
     case TypeKind::Struct:
+    case TypeKind::Map:
+    case TypeKind::Set:
         return RegClass::Ref;
     }
     return RegClass::Void;
@@ -217,6 +218,11 @@ std::string typeNameRec(const Module& m, u32 type, u32 depth) {
         }
         return s + ") -> " + typeNameRec(m, t.elem, depth + 1);
     }
+    case TypeKind::Map:
+        return "map<" + typeNameRec(m, t.elem, depth + 1) + ", " +
+               (t.fieldTypes.empty() ? std::string("?") : typeNameRec(m, t.fieldTypes[0], depth + 1)) + ">";
+    case TypeKind::Set:
+        return "set<" + typeNameRec(m, t.elem, depth + 1) + ">";
     }
     return "?";
 }
@@ -237,8 +243,11 @@ std::vector<u8> serialize(const Module& m) {
     w.u32v(static_cast<u32>(m.types.size()));
     for (const TypeDesc& t : m.types) {
         w.u8v(static_cast<u8>(t.kind));
-        if (t.kind == TypeKind::Array || t.kind == TypeKind::Box) {
+        if (t.kind == TypeKind::Array || t.kind == TypeKind::Box || t.kind == TypeKind::Set) {
             w.u32v(t.elem);
+        } else if (t.kind == TypeKind::Map) {
+            w.u32v(t.elem);
+            w.u32v(t.fieldTypes.empty() ? 0 : t.fieldTypes[0]);
         } else if (t.kind == TypeKind::Opaque) {
             w.u8v(static_cast<u8>(t.abi));
         } else if (t.kind == TypeKind::Struct) {
@@ -360,13 +369,18 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
     m.types.resize(n);
     for (TypeDesc& t : m.types) {
         u8 k = 0;
-        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Func)) {
+        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Set)) {
             return bad("타입 종류");
         }
         t.kind = static_cast<TypeKind>(k);
-        if (t.kind == TypeKind::Array || t.kind == TypeKind::Box) {
+        if (t.kind == TypeKind::Array || t.kind == TypeKind::Box || t.kind == TypeKind::Set) {
             if (!r.u32v(t.elem)) {
                 return bad("타입 원소");
+            }
+        } else if (t.kind == TypeKind::Map) {
+            t.fieldTypes.resize(1);
+            if (!r.u32v(t.elem) || !r.u32v(t.fieldTypes[0])) {
+                return bad("Map 타입");
             }
         } else if (t.kind == TypeKind::Opaque) {
             if (!readAbi(r, t.abi)) {
@@ -659,8 +673,9 @@ std::string disassemble(const Module& m) {
                 args = std::format("r{}, fn {}", in.a, in.b);
                 break;
             case Op::INTR:
-                args = std::format("{}, {}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a),
-                                   in.c < std::size(kIntrinsics) ? kIntrinsics[in.c].name : std::string_view("?"), in.b);
+                args =
+                    std::format("{}, {}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a),
+                                in.c < std::size(kIntrinsics) ? kIntrinsics[in.c].name : std::string_view("?"), in.b);
                 break;
             default:
                 args = std::format("r{}, r{}, r{}", in.a, in.b, in.c);

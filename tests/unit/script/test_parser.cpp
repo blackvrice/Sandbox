@@ -198,7 +198,7 @@ TEST_SUITE("script") {
             {"f(...xs)", "S313"},
             {"const v = [...xs]", "S313"},
             {"const w = a?.b", "S314"},
-            {"const n = new Foo()", "S315"},
+            {"const n = new 1", "S315"}, // new 이름 (내장 컬렉션 — v0.5 M8-T4, 이름은 검사기가 본다) 이 아니다
             {"this.x = 1", "S315"},
             {"const { a } = o", "S317"},
             {"let i = 0, j = 1", "S318"},

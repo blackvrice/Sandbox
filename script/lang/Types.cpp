@@ -122,6 +122,43 @@ TypeId TypeTable::newComponentRef(TypeId data, u32 componentIndex) {
     return add(t);
 }
 
+TypeId TypeTable::mapOf(TypeId key, TypeId value) {
+    if (key == kError || value == kError) {
+        return kError;
+    }
+    for (usize i = 0; i < m_types.size(); ++i) {
+        if (m_types[i].kind == TypeKind::Map && m_types[i].elem == key && m_types[i].index == value) {
+            return static_cast<TypeId>(i);
+        }
+    }
+    TypeInfo t;
+    t.kind = TypeKind::Map;
+    t.elem = key;
+    t.index = value;
+    return add(t);
+}
+
+TypeId TypeTable::setOf(TypeId key) {
+    if (key == kError) {
+        return kError;
+    }
+    for (usize i = 0; i < m_types.size(); ++i) {
+        if (m_types[i].kind == TypeKind::Set && m_types[i].elem == key) {
+            return static_cast<TypeId>(i);
+        }
+    }
+    TypeInfo t;
+    t.kind = TypeKind::Set;
+    t.elem = key;
+    return add(t);
+}
+
+bool TypeTable::isKeyType(TypeId t) const {
+    const TypeKind k = kind(t);
+    return k == TypeKind::I32 || k == TypeKind::Number || k == TypeKind::String || k == TypeKind::Bool ||
+           k == TypeKind::Enum || k == TypeKind::Error;
+}
+
 bool TypeTable::isNumeric(TypeId t) const {
     const TypeKind k = kind(t);
     return k == TypeKind::I32 || k == TypeKind::Number || k == TypeKind::Enum;
@@ -232,6 +269,10 @@ std::string TypeTable::name(TypeId t) const {
         return std::string(api::abiTypeName(i.abi));
     case TypeKind::Component:
         return "ComponentRef<" + name(i.elem) + ">";
+    case TypeKind::Map:
+        return "Map<" + name(i.elem) + ", " + name(i.index) + ">";
+    case TypeKind::Set:
+        return "Set<" + name(i.elem) + ">";
     }
     return "?";
 }

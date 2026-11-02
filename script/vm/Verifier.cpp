@@ -49,7 +49,11 @@ bool sameRec(const Module& m, u32 a, u32 b, std::vector<std::pair<u32, u32>>& as
         return x.abi == y.abi;
     case TypeKind::Array:
     case TypeKind::Box:
+    case TypeKind::Set:
         return sameRec(m, x.elem, y.elem, assumed);
+    case TypeKind::Map:
+        return x.fieldTypes.size() == 1 && y.fieldTypes.size() == 1 && sameRec(m, x.elem, y.elem, assumed) &&
+               sameRec(m, x.fieldTypes[0], y.fieldTypes[0], assumed);
     case TypeKind::Func:
         if (x.fieldTypes.size() != y.fieldTypes.size() || !sameRec(m, x.elem, y.elem, assumed)) {
             return false;
@@ -159,6 +163,22 @@ private:
                     fail(std::format("타입 {}: 배열 원소 타입 {} 가 없다 · void · 함수", i, t.elem));
                 }
                 break;
+            case TypeKind::Map:
+            case TypeKind::Set: {
+                // 키는 i32 · f64 · bool · string 만 (해시 · 같음이 값으로 정해진다 — ADR-0085 4).
+                // Map 의 값은 void · 함수가 아니다
+                const TypeKind kk = kindOf(t.elem);
+                if (!validType(t.elem) ||
+                    !(kk == TypeKind::I32 || kk == TypeKind::F64 || kk == TypeKind::Bool || kk == TypeKind::String)) {
+                    fail(std::format("타입 {}: Map · Set 의 키는 i32 · f64 · bool · string 만", i));
+                }
+                if (t.kind == TypeKind::Map &&
+                    (t.fieldTypes.size() != 1 || !validType(t.fieldTypes[0]) ||
+                     kindOf(t.fieldTypes[0]) == TypeKind::Void || kindOf(t.fieldTypes[0]) == TypeKind::Func)) {
+                    fail(std::format("타입 {}: Map 의 값 타입이 없다 · void · 함수", i));
+                }
+                break;
+            }
             case TypeKind::Func:
                 // 함수 참조 — 매개변수 ≤ 3 (콜백), void · 함수 아님. 결과는 void 가 될 수 있다
                 if (t.fieldTypes.size() > 3 || !validType(t.elem) || kindOf(t.elem) == TypeKind::Func) {
@@ -452,9 +472,14 @@ private:
             bad(std::format("{} 의 인자 r{} … 가 함수 밖이다 ({} 개)", k.name, in.b, F->regs.size()));
             return;
         }
-        const u32 t0 = F->regs[in.b];
-        const bool isArray = kindOf(t0) == TypeKind::Array;
+        const u32 t0 = k.argc > 0 ? F->regs[in.b] : 0u;
+        const bool isArray = k.argc > 0 && kindOf(t0) == TypeKind::Array;
         const u32 elem = isArray ? M.types[t0].elem : 0;
+        // Map · Set 받는 쪽 (v0.5 M8-T4)
+        const bool isColl = k.argc > 0 && (kindOf(t0) == TypeKind::Map || kindOf(t0) == TypeKind::Set);
+        const u32 key = isColl ? M.types[t0].elem : 0;
+        const bool isMap = k.argc > 0 && kindOf(t0) == TypeKind::Map && M.types[t0].fieldTypes.size() == 1;
+        const u32 val = isMap ? M.types[t0].fieldTypes[0] : 0;
         auto argType = [&](u32 i) { return i < k.argc ? F->regs[in.b + i] : 0u; };
         auto isIndex = [&](u32 t) { return kindOf(t) == TypeKind::I32 || kindOf(t) == TypeKind::F64; };
         // 콜백 서명 (lead = 앞 매개변수들, 뒤에 첨자 하나를 더 받을 수 있다)
@@ -544,6 +569,38 @@ private:
                 break;
             case IntrinsicPat::Same2:
                 ok = sameType(M, t, argType(2));
+                break;
+            case IntrinsicPat::Map:
+                ok = kindOf(t) == TypeKind::Map;
+                break;
+            case IntrinsicPat::Set:
+                ok = kindOf(t) == TypeKind::Set;
+                break;
+            case IntrinsicPat::Key:
+                ok = isColl && sameType(M, t, key);
+                break;
+            case IntrinsicPat::MapVal:
+                ok = isMap && sameType(M, t, val);
+                break;
+            case IntrinsicPat::OptMapVal:
+                ok = isMap && (regClass(M, val) == RegClass::Ref
+                                   ? sameType(M, t, val)
+                                   : kindOf(t) == TypeKind::Box && sameType(M, M.types[t].elem, val));
+                break;
+            case IntrinsicPat::NewMap:
+                ok = kindOf(t) == TypeKind::Map;
+                break;
+            case IntrinsicPat::NewSet:
+                ok = kindOf(t) == TypeKind::Set;
+                break;
+            case IntrinsicPat::SetOfElem:
+                ok = isArray && kindOf(t) == TypeKind::Set && sameType(M, M.types[t].elem, elem);
+                break;
+            case IntrinsicPat::KeyArray:
+                ok = isColl && kindOf(t) == TypeKind::Array && sameType(M, M.types[t].elem, key);
+                break;
+            case IntrinsicPat::ValArray:
+                ok = isMap && kindOf(t) == TypeKind::Array && sameType(M, M.types[t].elem, val);
                 break;
             }
             if (!ok) {

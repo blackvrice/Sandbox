@@ -55,6 +55,7 @@
 //   AsConst        식                                 (식 as const)
 //   Paren          식                                 (괄호 — 대입 대상 검사 · 출력용)
 //   Arrow          Param… , 반환 타입|kNoNode, 몸     (화살표 — 몸 = Block · 식, v0.5 M8-T3: 콜백 인자만)
+//   New            타입 인자… , 인자…                 str = 이름, number = 타입 인자 수 (v0.5 M8-T4: 내장 컬렉션만)
 
 #include <span>
 #include <string>
@@ -121,6 +122,7 @@ enum class NodeKind : u8 {
     AsConst,
     Paren,
     Arrow,
+    New,
 };
 
 namespace NodeFlag {

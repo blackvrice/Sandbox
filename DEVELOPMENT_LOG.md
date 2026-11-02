@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T4: Map · Set
+
+**무엇을**
+
+- 바이트코드 형식 8: 타입 Map (키 · 값) · Set (키) — 키는 i32 · f64 · bool · string (검증기). 내장 25 (Map.new · set · get ·
+  has · delete · clear · size · keys · values · next · keyAt · valueAt, Set.new · from · add · has · delete · clear · size ·
+  values · next · valueAt, setUnion · setIntersection · setDifference) 과 서명 틀 (Map · Set · Key · MapVal · OptMapVal · …).
+- VM: 객체 종류 Map · Set — 넣은 차례의 항목 (지운 것은 자리를 지킨다) + 선형 탐사 색인. 지운 키를 다시 넣으면 그 키의 칸을
+  다시 쓴다 (키마다 칸 하나). 해시 고정 (섞기 · FNV-1a), SameValueZero, -0 은 +0 으로 저장. 연료 = 탐사 칸 · 건너뛴 항목 ·
+  다시 만들기, 아레나 = 항목 · 색인 바이트, 항목 상한 = maxArrayLength.
+- 언어: Map<K, V> · Set<T> 타입, new Map · new Set (타입 인자 · 선언의 타입 · 배열에서), 메서드 · size 속성, for-of 의 Set ·
+  m.keys() · m.values() (커서 — 반복 중 바꾸기가 JS 와 같다), Array.from (Set · keys · values · 배열), "sandbox" 의 집합 연산 셋
+  (d.ts 다시 만듦). keys() 값 · entries · forEach · [k, v] for-of 는 S404 · S406 (튜플 · 반복자 값 [계획]).
+
+**왜**
+
+- ADR-0085 4 · 7 — 인벤토리 · 소유 목록 · 방문 집합. 보드게임 판정 (M7-T1) 의 바탕.
+
+**검증**
+
+- test_stdlib_collections 6 케이스 — 기대값은 같은 프로그램을 tsc 5.6 --strict 로 JS 로 옮겨 node:22 에서 돌린 값과 모두 같다
+  (반복 중 지우기 · 넣기 · clear 포함). unit_script 136 케이스. Windows MSVC Debug 전체 ctest 73 / 73 통과 (골든 · 리플레이 그대로).
+
+**남은 일**
+
+- M8-T5 컬렉션 (Stack · Queue · Deque · PriorityQueue · 힙 · BitSet). Map · Set 의 forEach · entries · Entity 키는 [계획].
+
+---
+
 ## 2026-11-02 — v0.5 M8-T3: 함수 참조 · 캡처 없는 화살표 · 콜백 메서드
 
 **무엇을**

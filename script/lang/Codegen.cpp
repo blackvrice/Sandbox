@@ -151,6 +151,26 @@ private:
             }
             break;
         }
+        case TypeKind::Map:
+        case TypeKind::Set: {
+            // Map<K, V> · Set<K> (v0.5 M8-T4) — 같은 (키, 값) = 같은 타입
+            const u32 keyT = tid(P.types.info(t).elem);
+            const u32 valT = kind(t) == TypeKind::Map ? tid(static_cast<TypeId>(P.types.info(t).index)) : 0;
+            const std::vector<u32> key{static_cast<u32>(kind(t) == TypeKind::Map ? 1 : 0), keyT, valT};
+            if (const auto it = m_collOf.find(key); it != m_collOf.end()) {
+                out = it->second;
+            } else {
+                bc::TypeDesc d;
+                d.kind = kind(t) == TypeKind::Map ? bc::TypeKind::Map : bc::TypeKind::Set;
+                d.elem = keyT;
+                if (kind(t) == TypeKind::Map) {
+                    d.fieldTypes = {valT};
+                }
+                out = addType(std::move(d));
+                m_collOf[key] = out;
+            }
+            break;
+        }
         case TypeKind::Struct: {
             // 먼저 자리를 잡는다 (재귀 구조체)
             bc::TypeDesc d;
@@ -549,6 +569,22 @@ private:
         case NodeKind::Paren:
         case NodeKind::AsConst:
             return convert(gen(ast().kid(n, 0)), typeOf(ast().kid(n, 0)), typeOf(n));
+        case NodeKind::New: {
+            // new Map · new Set · new Set(xs) (v0.5 M8-T4)
+            const auto id = static_cast<IntrinsicId>(sema(n).refIndex);
+            const u16 dst = temp(tid(typeOf(n)));
+            if (id == IntrinsicId::SetFromArray) {
+                const NodeId arg = ast().kid(n, static_cast<u32>(ast().node(n).number));
+                const TypeId at = typeOf(arg); // 검사기가 Set 의 키 배열과 같은 배치임을 봤다
+                const u32 one[] = {tid(at)};
+                const u16 base = block(one);
+                emit(Op::MOV, base, gen(arg));
+                emit(Op::INTR, dst, base, static_cast<u16>(id));
+            } else {
+                emit(Op::INTR, dst, 0, static_cast<u16>(id));
+            }
+            return dst;
+        }
         case NodeKind::Unary:
             return unary(n);
         case NodeKind::Binary:
@@ -1146,11 +1182,80 @@ private:
 
     // 내장 메서드 (v0.5 M8-T2 — ADR-0085). 받는 쪽 + 인자 (빠진 선택 인자는 JS 의 기본값) 를 연속 레지스터에
     u16 intrinsicCall(NodeId n, NodeId callee, IntrinsicId id, TypeId rt) {
-        const auto kids = ast().kids(n);
+        // 인자 마디: xs.m(a, b) = {xs, a, b}, setUnion(a, b) = {a, b} (v0.5 M8-T4)
+        std::vector<NodeId> kids;
+        const auto callKids = ast().kids(n);
+        if (ast().node(callee).kind == NodeKind::Member && ast().node(ast().kid(callee, 0)).kind == NodeKind::Ident &&
+            ast().str(ast().kid(callee, 0)) == "Array" && sema(ast().kid(callee, 0)).ref == RefKind::None) {
+            // Array.from(x) — 받는 쪽 = Set 이나 m.keys() · m.values() 의 대상, 배열이면 slice()
+            NodeId arg = callKids[1];
+            if (ast().node(arg).kind == NodeKind::Call) {
+                arg = ast().kid(ast().kid(arg, 0), 0);
+            }
+            kids.push_back(arg);
+            return intrinsicArgs(kids, id, rt);
+        }
+        if (ast().node(callee).kind == NodeKind::Member) {
+            kids.push_back(ast().kid(callee, 0));
+        }
+        kids.insert(kids.end(), callKids.begin() + 1, callKids.end());
+        return intrinsicArgs(kids, id, rt);
+    }
+
+    // for-of 의 Map · Set (v0.5 M8-T4) — 커서로 살아 있는 항목을 돈다: e = next(c, 커서), e < 0 이면 끝, x = keyAt ·
+    // valueAt(c, e), 커서 = e + 1 (몸 전에 — continue 가 그대로 다음으로). 반복 중 넣은 것은 보이고 지운 것은 건너뛴다
+    void collectionLoop(NodeId s) {
+        const NodeId decl = ast().kid(s, 0);
+        const NodeId iter = ast().kid(s, 1);
+        const NodeId collNode = ast().node(iter).kind == NodeKind::Call ? ast().kid(ast().kid(iter, 0), 0) : iter;
+        const TypeId ct = typeOf(collNode);
+        const bool isMap = kind(ct) == TypeKind::Map;
+        const bool values = sema(s).refIndex == 2;
+        const IntrinsicId nextId = isMap ? IntrinsicId::MapNext : IntrinsicId::SetNext;
+        const IntrinsicId atId =
+            !isMap ? IntrinsicId::SetValueAt : (values ? IntrinsicId::MapValueAt : IntrinsicId::MapKeyAt);
+        const u16 coll = newReg(tid(ct));
+        emit(Op::MOV, coll, gen(collNode));
+        const u16 cursor = newReg(m_i32);
+        emitWide(Op::LOADI, cursor, 0);
+        const SymbolId vs = sema(decl).refIndex;
+        const u16 var = newReg(tid(P.symbols[vs].type));
+        m_symReg[vs] = var;
+        const u32 pair[] = {tid(ct), m_i32};
+        const u16 base = block(pair);
+        const u16 e = temp(m_i32);
+        const u16 zero = temp(m_i32);
+        const u16 one = temp(m_i32);
+        const u16 c = temp(m_bool);
+        const usize top = here();
+        emit(Op::MOV, base, coll);
+        emit(Op::MOV, static_cast<u16>(base + 1), cursor);
+        emit(Op::INTR, e, base, static_cast<u16>(nextId));
+        emitWide(Op::LOADI, zero, 0);
+        emit(Op::LTI, c, e, zero);
+        const usize jEnd = jump(Op::JMPT, c);
+        emit(Op::MOV, static_cast<u16>(base + 1), e);
+        emit(Op::INTR, var, base, static_cast<u16>(atId));
+        emitWide(Op::LOADI, one, 1);
+        emit(Op::ADDI, cursor, e, one);
+        m_loops.push_back({});
+        statement(ast().kid(s, 2));
+        const usize cont = here();
+        jumpTo(Op::JMP, 0, top);
+        closeLoop(cont, here());
+        patch(jEnd, here());
+    }
+
+    u16 intrinsicArgs(std::span<const NodeId> kids, IntrinsicId id, TypeId rt) {
         const Intrinsic& k = intrinsic(id);
-        const NodeId obj = ast().kid(callee, 0);
+        const NodeId obj = kids[0];
         const TypeId recvType = typeOf(obj);
-        const TypeId elem = kind(recvType) == TypeKind::Array ? P.types.info(recvType).elem : TypeTable::kError;
+        const TypeKind rk = kind(recvType);
+        const TypeId elem = rk == TypeKind::Array || rk == TypeKind::Map || rk == TypeKind::Set
+                                ? P.types.info(recvType).elem
+                                : TypeTable::kError; // 배열의 원소 · Map · Set 의 키
+        const TypeId mapValue =
+            rk == TypeKind::Map ? static_cast<TypeId>(P.types.info(recvType).index) : TypeTable::kError;
         constexpr f64 kInf = std::numeric_limits<f64>::infinity();
         // 선택 인자의 기본값 (자리 1 … — 받는 쪽 다음)
         auto numDefault = [&](u32 slot) -> f64 {
@@ -1173,8 +1278,13 @@ private:
             const bool given = i < kids.size();
             switch (k.params[i]) {
             case IntrinsicPat::Elem:
+            case IntrinsicPat::Key:
                 types.push_back(tid(elem));
                 vals.push_back(genTo(kids[i], elem));
+                break;
+            case IntrinsicPat::MapVal:
+                types.push_back(tid(mapValue));
+                vals.push_back(genTo(kids[i], mapValue));
                 break;
             case IntrinsicPat::Same0:
                 types.push_back(tid(recvType));
@@ -1321,6 +1431,11 @@ private:
             emit(Op::CALLH, dst, import(s.refIndex), base);
             return dst;
         }
+        case RefKind::Intrinsic: {
+            // Map · Set 의 size (v0.5 M8-T4)
+            const NodeId recv[] = {obj};
+            return intrinsicArgs(recv, static_cast<IntrinsicId>(s.refIndex), TypeTable::kI32);
+        }
         case RefKind::ArrayLength:
         case RefKind::StringLength: {
             const u16 o = gen(obj);
@@ -1418,6 +1533,10 @@ private:
             break;
         }
         case NodeKind::ForOf: {
+            if (sema(s).ref == RefKind::CollLoop) {
+                collectionLoop(s);
+                break;
+            }
             const NodeId decl = ast().kid(s, 0);
             const NodeId iter = ast().kid(s, 1);
             const TypeId at = typeOf(iter);
@@ -1586,6 +1705,7 @@ private:
     std::map<u32, u32> m_arrayOf;
     std::map<u32, u32> m_boxOf;
     std::map<std::vector<u32>, u32> m_funcOf;
+    std::map<std::vector<u32>, u32> m_collOf;
     std::map<u8, u32> m_opaque;
     std::map<std::string, u16> m_strIdx;
     std::map<u64, u16> m_numIdx;

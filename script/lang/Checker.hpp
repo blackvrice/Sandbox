@@ -79,6 +79,9 @@ enum class Builtin : u32 {
     DefineComponent,        // defineComponent — 최상위 const 의 초기값으로만 (ADR-0059 1)
     FieldNamespace,         // field.i32 · f32 · … — defineComponent 의 fields 안에서만
     DefineSystem,           // defineSystem — export default 의 식으로만 (ADR-0062)
+    SetUnion,               // setUnion — 집합 연산 (v0.5 M8-T4 — "sandbox")
+    SetIntersection,        // setIntersection
+    SetDifference,          // setDifference
     MathFunctionBase = 100, // + kMathFunctions 의 자리
     MathConstantBase = 200, // + kMathConstants 의 자리
 };
@@ -120,6 +123,7 @@ enum class RefKind : u8 {
     ArrayPush,    // xs.push(…) 의 대상
     Intrinsic,    // 내장 메서드 호출의 대상 → refIndex = IntrinsicId (v0.5 M8-T2, script/vm/Intrinsics)
     Callback,     // 내장의 콜백 인자 (함수 이름 · 화살표) → refIndex = Program::functions 의 자리 (v0.5 M8-T3)
+    CollLoop,     // for-of 마디: Map · Set 을 커서로 돈다 → refIndex = 1 키 (Set 의 값) · 2 Map 의 값 (v0.5 M8-T4)
 };
 
 struct NodeSema {

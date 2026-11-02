@@ -874,6 +874,9 @@ bool Interpreter::elemEqual(u32 elemType, Value a, Value b, bool sameValueZero) 
 
 bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                             std::string& msg) {
+    if (isCollectionIntrinsic(in.c)) {
+        return collectionIntrinsic(in, fn, R, fuel, trap, msg);
+    }
     const Intrinsic& k = kIntrinsics[in.c];
     const auto id = static_cast<IntrinsicId>(in.c);
     auto fail = [&](Trap t, std::string m) {
@@ -1335,6 +1338,411 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
         result(args[0]);
         return true;
     }
+    }
+    return fail(Trap::Unreachable, "모르는 내장");
+}
+
+namespace {
+
+// 고정 섞기 (splitmix64 의 끝 — 주소 · 무작위 씨앗 없음, ADR-0085 7)
+u64 mix64(u64 x) {
+    x ^= x >> 30;
+    x *= 0xbf58476d1ce4e5b9ULL;
+    x ^= x >> 27;
+    x *= 0x94d049bb133111ebULL;
+    x ^= x >> 31;
+    return x;
+}
+
+} // namespace
+
+u64 Interpreter::keyHash(bc::TypeKind kind, Value v) const {
+    switch (kind) {
+    case bc::TypeKind::F64: {
+        const f64 f = v.asF64();
+        // SameValueZero — -0 = +0, NaN 은 모두 같다
+        const u64 bits = f == 0.0 ? 0u : (std::isnan(f) ? 0x7FF8'0000'0000'0000ULL : v.bits);
+        return mix64(bits);
+    }
+    case bc::TypeKind::String:
+        return fnv1a64(stringOf(v));
+    default:
+        return mix64(v.bits & 0xFFFF'FFFFu); // i32 · bool
+    }
+}
+
+bool Interpreter::keyEqual(bc::TypeKind kind, Value a, Value b) const {
+    switch (kind) {
+    case bc::TypeKind::F64: {
+        const f64 x = a.asF64();
+        const f64 y = b.asF64();
+        return x == y || (std::isnan(x) && std::isnan(y));
+    }
+    case bc::TypeKind::String:
+        return stringOf(a) == stringOf(b);
+    default:
+        return static_cast<u32>(a.bits) == static_cast<u32>(b.bits);
+    }
+}
+
+bool Interpreter::collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
+                                      std::string& msg) {
+    const Intrinsic& k = kIntrinsics[in.c];
+    const auto id = static_cast<IntrinsicId>(in.c);
+    auto fail = [&](Trap t, std::string m) {
+        trap = t;
+        msg = std::format("{}: {}", k.name, std::move(m));
+        return false;
+    };
+    auto spend = [&](u64 extra) {
+        if (fuel < extra) {
+            fuel = 0;
+            return false;
+        }
+        fuel -= extra;
+        return true;
+    };
+    auto result = [&](Value v) {
+        if (in.a != bc::kNoReg) {
+            R[in.a] = v;
+        }
+    };
+    if (!spend(k.fuelBase)) {
+        return fail(Trap::OutOfFuel, "연료를 다 썼다");
+    }
+    // 새 컬렉션 (Map.new · Set.new · Set.from · 집합 연산의 결과) — 키 종류는 결과 레지스터의 타입
+    auto newCollection = [&](bool isMap, bc::TypeKind keyKind, Value& out) {
+        Object o;
+        o.kind = isMap ? Object::Kind::Map : Object::Kind::Set;
+        o.hash = std::make_unique<HashData>();
+        o.hash->keyKind = keyKind;
+        return alloc(std::move(o), kObjectHeaderBytes + 64, out);
+    };
+    auto keyKindOf = [&](u32 collType) { return M.types[M.types[collType].elem].kind; };
+
+    if (id == IntrinsicId::MapNew || id == IntrinsicId::SetNew) {
+        Value out;
+        if (!newCollection(id == IntrinsicId::MapNew, keyKindOf(fn.regs[in.a]), out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        result(out);
+        return true;
+    }
+    const Value* args = R + in.b;
+    if (object(args[0]) == nullptr) {
+        return fail(Trap::NullReference, "null 의 메서드");
+    }
+    auto coll = [&](Value v) -> HashData& { return *object(v)->hash; }; // alloc 뒤에는 다시 찾는다
+
+    // 찾기 — 선형 탐사. 지운 항목도 자기 키의 칸을 지킨다 (같은 키를 다시 넣으면 그 칸을 다시 쓴다 — 키마다 칸 하나)
+    struct Found {
+        usize slot = 0;
+        i64 entry = -1; // 살아 있는 항목 (없으면 -1)
+        bool occupied = false;
+    };
+    auto find = [&](HashData& h, Value key, Found& f) {
+        if (h.index.empty()) {
+            return true;
+        }
+        const usize mask = h.index.size() - 1;
+        usize i = static_cast<usize>(keyHash(h.keyKind, key)) & mask;
+        while (h.index[i] != 0) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            const u32 e = h.index[i] - 1;
+            if (keyEqual(h.keyKind, h.keys[e], key)) {
+                f.slot = i;
+                f.occupied = true;
+                f.entry = h.alive[e] != 0 ? static_cast<i64>(e) : -1;
+                return true;
+            }
+            i = (i + 1) & mask;
+        }
+        f.slot = i;
+        return true;
+    };
+    // 색인 다시 만들기 — 살아 있는 항목만 (지운 항목의 칸은 여기서 사라진다)
+    auto rebuild = [&](HashData& h, usize want) {
+        usize size = 8;
+        while (size < want * 2) {
+            size *= 2;
+        }
+        const usize extra = size > h.index.size() ? (size - h.index.size()) * 4 : 0;
+        if (m_heapBytes + extra > m_limits.maxHeapBytes) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        if (!spend(h.live)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        m_heapBytes += extra;
+        h.index.assign(size, 0);
+        h.used = 0;
+        const usize mask = size - 1;
+        for (usize e = 0; e < h.keys.size(); ++e) {
+            if (h.alive[e] == 0) {
+                continue;
+            }
+            usize i = static_cast<usize>(keyHash(h.keyKind, h.keys[e])) & mask;
+            while (h.index[i] != 0) {
+                i = (i + 1) & mask;
+            }
+            h.index[i] = static_cast<u32>(e + 1);
+            ++h.used;
+        }
+        return true;
+    };
+    // 넣기 — 있으면 값만 바꾼다 (자리 그대로), 없으면 끝에 (넣은 차례). Map 이 아니면 value 는 쓰지 않는다
+    auto insert = [&](HashData& h, Value key, Value value, bool isMap) {
+        if (h.keyKind == bc::TypeKind::F64 && key.asF64() == 0.0) {
+            key = Value::f64v(0.0); // -0 은 +0 으로 저장 (JS 의 Map · Set)
+        }
+        Found f;
+        if (!find(h, key, f)) {
+            return false;
+        }
+        if (f.entry >= 0) {
+            if (isMap) {
+                h.values[static_cast<usize>(f.entry)] = value;
+            }
+            return true;
+        }
+        if (h.keys.size() >= m_limits.maxArrayLength) {
+            return fail(Trap::OutOfMemory, std::format("항목 상한 {} 을 넘는다", m_limits.maxArrayLength));
+        }
+        const usize bytes = isMap ? 17 : 9;
+        if (m_heapBytes + bytes > m_limits.maxHeapBytes) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        if (!f.occupied && (h.used + 1) * 2 > h.index.size()) {
+            if (!rebuild(h, h.live + 1)) {
+                return false;
+            }
+            if (!find(h, key, f)) {
+                return false;
+            }
+        }
+        m_heapBytes += bytes;
+        h.keys.push_back(key);
+        if (isMap) {
+            h.values.push_back(value);
+        }
+        h.alive.push_back(1);
+        ++h.live;
+        if (!f.occupied) {
+            ++h.used;
+        }
+        h.index[f.slot] = static_cast<u32>(h.keys.size()); // 항목 + 1
+        return true;
+    };
+    auto erase = [&](HashData& h, Value key, bool& removed) {
+        Found f;
+        if (!find(h, key, f)) {
+            return false;
+        }
+        removed = f.entry >= 0;
+        if (removed) {
+            h.alive[static_cast<usize>(f.entry)] = 0; // 항목 자리는 남는다 (반복 중의 커서가 그대로)
+            --h.live;
+        }
+        return true;
+    };
+    // 커서 이후의 첫 살아 있는 항목 (없으면 -1) — 지운 항목을 건너뛰는 만큼 연료
+    auto next = [&](HashData& h, i32 cursor) {
+        usize i = cursor < 0 ? 0 : static_cast<usize>(cursor);
+        while (i < h.keys.size() && h.alive[i] == 0) {
+            ++i;
+        }
+        return i < h.keys.size() ? static_cast<i32>(i) : -1;
+    };
+    auto toArray = [&](HashData& h, bool values, Value& out) {
+        if (!spend(h.keys.size())) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        std::vector<Value> slots;
+        slots.reserve(h.live);
+        for (usize e = 0; e < h.keys.size(); ++e) {
+            if (h.alive[e] != 0) {
+                slots.push_back(values ? h.values[e] : h.keys[e]);
+            }
+        }
+        if (!newArray(std::move(slots), out)) {
+            return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+        }
+        return true;
+    };
+
+    switch (id) {
+    case IntrinsicId::MapSet:
+        if (!insert(coll(args[0]), args[1], args[2], true)) {
+            return false;
+        }
+        result(args[0]);
+        return true;
+    case IntrinsicId::SetAdd:
+        if (!insert(coll(args[0]), args[1], {}, false)) {
+            return false;
+        }
+        result(args[0]);
+        return true;
+    case IntrinsicId::MapGet: {
+        HashData& h = coll(args[0]);
+        Found f;
+        if (!find(h, args[1], f)) {
+            return false;
+        }
+        if (in.a == bc::kNoReg) {
+            return true;
+        }
+        if (f.entry < 0) {
+            R[in.a] = Value::null();
+            return true;
+        }
+        const Value v = h.values[static_cast<usize>(f.entry)];
+        if (M.types[fn.regs[in.a]].kind != bc::TypeKind::Box) {
+            R[in.a] = v;
+            return true;
+        }
+        Object o;
+        o.kind = Object::Kind::Box;
+        o.slots.push_back(v);
+        Value out;
+        if (!alloc(std::move(o), kObjectHeaderBytes + 8, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        R[in.a] = out;
+        return true;
+    }
+    case IntrinsicId::MapHas:
+    case IntrinsicId::SetHas: {
+        Found f;
+        if (!find(coll(args[0]), args[1], f)) {
+            return false;
+        }
+        result(Value::boolean(f.entry >= 0));
+        return true;
+    }
+    case IntrinsicId::MapDelete:
+    case IntrinsicId::SetDelete: {
+        bool removed = false;
+        if (!erase(coll(args[0]), args[1], removed)) {
+            return false;
+        }
+        result(Value::boolean(removed));
+        return true;
+    }
+    case IntrinsicId::MapClear:
+    case IntrinsicId::SetClear: {
+        // 항목을 비운다 — 반복 중의 커서는 길이를 넘어 끝난다 (JS 의 clear 와 같다)
+        HashData& h = coll(args[0]);
+        if (!spend(h.index.size() / 64)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        h.keys.clear();
+        h.values.clear();
+        h.alive.clear();
+        std::fill(h.index.begin(), h.index.end(), 0u);
+        h.live = 0;
+        h.used = 0;
+        return true;
+    }
+    case IntrinsicId::MapSize:
+    case IntrinsicId::SetSize:
+        result(Value::i32v(static_cast<i32>(coll(args[0]).live)));
+        return true;
+    case IntrinsicId::MapKeys:
+    case IntrinsicId::MapValues:
+    case IntrinsicId::SetValues: {
+        Value out;
+        if (!toArray(coll(args[0]), id == IntrinsicId::MapValues, out)) {
+            return false;
+        }
+        result(out);
+        return true;
+    }
+    case IntrinsicId::MapNext:
+    case IntrinsicId::SetNext: {
+        HashData& h = coll(args[0]);
+        const i32 cursor = args[1].asI32();
+        const i32 n = next(h, cursor);
+        const usize from = cursor < 0 ? 0 : static_cast<usize>(cursor);
+        const usize to = n < 0 ? h.keys.size() : static_cast<usize>(n);
+        if (!spend(to > from ? to - from : 0)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        result(Value::i32v(n));
+        return true;
+    }
+    case IntrinsicId::MapKeyAt:
+    case IntrinsicId::MapValueAt:
+    case IntrinsicId::SetValueAt: {
+        HashData& h = coll(args[0]);
+        const i32 e = args[1].asI32();
+        if (e < 0 || static_cast<usize>(e) >= h.keys.size()) {
+            return fail(Trap::IndexOutOfRange, std::format("항목 {} — {} 개", e, h.keys.size()));
+        }
+        result(id == IntrinsicId::MapValueAt ? h.values[static_cast<usize>(e)] : h.keys[static_cast<usize>(e)]);
+        return true;
+    }
+    case IntrinsicId::SetFromArray: {
+        Value out;
+        if (!newCollection(false, M.types[M.types[fn.regs[in.b]].elem].kind, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        const usize n = object(args[0])->slots.size();
+        for (usize i = 0; i < n; ++i) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            if (!insert(coll(out), object(args[0])->slots[i], {}, false)) {
+                return false;
+            }
+        }
+        result(out);
+        return true;
+    }
+    case IntrinsicId::SetUnion:
+    case IntrinsicId::SetIntersection:
+    case IntrinsicId::SetDifference: {
+        if (object(args[1]) == nullptr) {
+            return fail(Trap::NullReference, "null 과의 집합 연산");
+        }
+        Value out;
+        if (!newCollection(false, coll(args[0]).keyKind, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        // 왼쪽 차례, 합집합은 그다음 오른쪽에만 있는 것 (넣은 차례 — 결정적)
+        const usize na = coll(args[0]).keys.size();
+        for (usize e = 0; e < na; ++e) {
+            if (coll(args[0]).alive[e] == 0) {
+                continue;
+            }
+            const Value key = coll(args[0]).keys[e];
+            bool keep = true;
+            if (id != IntrinsicId::SetUnion) {
+                Found f;
+                if (!find(coll(args[1]), key, f)) {
+                    return false;
+                }
+                keep = (f.entry >= 0) == (id == IntrinsicId::SetIntersection);
+            }
+            if (keep && !insert(coll(out), key, {}, false)) {
+                return false;
+            }
+        }
+        if (id == IntrinsicId::SetUnion) {
+            const usize nb = coll(args[1]).keys.size();
+            for (usize e = 0; e < nb; ++e) {
+                if (coll(args[1]).alive[e] != 0 && !insert(coll(out), coll(args[1]).keys[e], {}, false)) {
+                    return false;
+                }
+            }
+        }
+        result(out);
+        return true;
+    }
+    default:
+        break;
     }
     return fail(Trap::Unreachable, "모르는 내장");
 }

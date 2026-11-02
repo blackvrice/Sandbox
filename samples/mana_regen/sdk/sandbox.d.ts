@@ -7,6 +7,12 @@ declare module "sandbox" {
   export function toI32(x: number): i32;
   /** 정수 나눗셈 (0 쪽으로 자름) — b 가 0 이면 트랩 */
   export function idiv(a: i32, b: i32): i32;
+  /** 합집합 — 새 Set (a 의 넣은 차례 다음 b 에만 있는 것) */
+  export function setUnion<T>(a: Set<T>, b: Set<T>): Set<T>;
+  /** 교집합 — 새 Set (a 의 넣은 차례) */
+  export function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T>;
+  /** 차집합 a - b — 새 Set (a 의 넣은 차례) */
+  export function setDifference<T>(a: Set<T>, b: Set<T>): Set<T>;
 
   /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */
   export interface Vec2 {

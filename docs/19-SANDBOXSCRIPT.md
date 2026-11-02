@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (.sbc 형식 7) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set (.sbc 형식 8) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -119,7 +119,7 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 | S312 | >>> · >>>=                                                | >> (i32 — ADR-0056 3)                        |
 | S313 | 펼침 · 나머지 (...)                                       | 배열을 넘긴다                                |
 | S314 | 선택 연결 ?.                                              | if (x !== null) 로 좁힌다                    |
-| S315 | new · this · super                                        | 객체 리터럴 · ctx 매개변수                   |
+| S315 | new (내장 컬렉션 밖) · this · super                       | 객체 리터럴 · ctx 매개변수, new Map · Set (v0.5 M8-T4) |
 | S316 | 데코레이터 @ · 비공개 이름 #x                             | —                                            |
 | S317 | 구조 분해 (선언 · 매개변수)                               | 이름 하나씩                                  |
 | S318 | 쉼표 연산자 · 여러 선언 (let a, b)                        | 문장을 나눈다                                |
@@ -148,7 +148,8 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 ```text
 타입 이름   number · boolean · string · void (반환 타입만) · null · T[] · Array<T> · T | null · { x: T; … } · interface ·
             type 별칭 (순환 S417) · enum · SDK 의 i32 · Entity · ServerContext (import { … } from "sandbox").
-            any · unknown · never · object · Record · Map · ReadonlyArray … 은 S413. bool 은 없다 (boolean)
+            any · unknown · never · object · Record · ReadonlyArray … 은 S413. bool 은 없다 (boolean). Map<K, V> · Set<T>
+            (v0.5 M8-T4 — 25.3) 의 키는 i32 · number · string · boolean · enum
 유니언      T | null 과 T | undefined (v0.5 M8-T2 — ADR-0085 5) 만 (null | T · 괄호 · 겹친 null 도 같다). 서로 다른 타입의
             유니언은 S417, T | null | undefined 는 S331. T | undefined 는 Array.pop · shift (25장) 같은 "없음" 결과의 타입 —
             T | null 과 서로 넣을 수 없다 (tsc 와 같다, 표현은 같다). undefined 값은 비교 · 대입 · 반환에, x !== undefined 가 좁힌다
@@ -339,7 +340,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 6 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
-            도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN — 옛 형식은 VersionMismatch) ·
+            도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN, M8-T4 8 = Map · Set 타입 —
+            옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
@@ -809,10 +811,10 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 |--------------------------------------------------------|--------------|------------------------------------------------------------------------------------|
 | T[] · Array<T> · 첨자 · length · push · for-of         | 있음 (v0.3)  | 범위 밖 첨자 트랩                                                                  |
 | T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2 ✅     | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
-| 내장 컬렉션의 new · 타입 인자                          | M8-T4 · T5   | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
+| 내장 컬렉션의 new · 타입 인자                          | M8-T4 ✅ (Map · Set) · T5 | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
 | 최상위 함수 참조 (콜백 인자)                           | M8-T3 ✅     | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
 | 캡처 없는 화살표 (콜백 인자)                           | M8-T3 ✅     | 바깥 함수 · 바깥 화살표의 지역 이름을 쓰면 S304 (최상위 const · 함수 · enum 은 된다). 몸 = 식 또는 블록, 매개변수 타입은 문맥 (원소 · 누적 · 첨자 number) 이나 적은 타입, 반환 타입은 문맥 (predicate = boolean · reduce = 누적) 이나 추론. 숨은 최상위 함수 "<화살표 줄:칸>" 로 컴파일 |
-| for-of 의 Map · Set · keys() · values()                | M8-T4        | 넣은 차례                                                                          |
+| for-of 의 Map · Set · keys() · values()                | M8-T4 ✅     | 넣은 차례 · 살아 있는 항목을 커서로 (반복 중 넣은 것 보임 · 지운 것 건너뜀 · clear = 끝 — JS). Map 자체의 for-of ([k, v]) 는 S404 (튜플 [계획]) |
 | entries() · [k, v] 구조 분해 · 튜플                    | [계획]       | 튜플 타입 (S331) · 구조 분해 (S317) 가 먼저 — keys() + get 을 쓴다                  |
 | 사용자 제네릭 · 클로저 · class · 함수 값 변수          | [계획]       | 새 ADR (아레나 수명 · 캡처 복사)                                                   |
 
@@ -837,13 +839,16 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 
 | 기능                                                                                                                         | 상태   | 의미                                                                                                       |
 |------------------------------------------------------------------------------------------------------------------------------|--------|------------------------------------------------------------------------------------------------------------|
-| Map: set (→ 같은 Map) · get → V \| undefined · has · delete → boolean · clear · size · keys() · values() · for-of (keys)     | M8-T4  | 키 i32 · number · string · boolean · enum. 넣은 차례 반복, 다시 넣기 = 자리 그대로 · 지웠다 넣기 = 끝       |
-| Set: add · has · delete · clear · size · values() · for-of · new Set(xs)                                                     | M8-T4  | 같은 규칙                                                                                                  |
-| Set 연산 union · intersection · difference                                                                                   | M8-T4  | "sandbox" 함수 setUnion(a, b) · setIntersection · setDifference — 새 Set, 왼쪽 차례 다음 오른쪽 (ES2025 의 Set 메서드는 lib ES2020 에 없다) |
-| 키 같음                                                                                                                      | M8-T4  | SameValueZero — NaN = NaN, -0 = +0 (+0 으로 저장). 해시 고정 (주소 · 씨앗 없음)                             |
-| 반복 중 바꾸기                                                                                                               | M8-T4  | 넣기 = 끝에 보인다, 지우기 = 건너뜀, clear = 끝 (JS)                                                       |
-| 연료                                                                                                                         | M8-T4  | 탐색 · 넣기 · 지우기 = 2 + 충돌 칸마다 1, 반복 원소마다 1, 늘릴 때 원소마다 1                                |
+| Map: set (→ 같은 Map) · get → V \| undefined · has · delete → boolean · clear · size · keys() · values() · for-of (keys)     | M8-T4 ✅ | 키 i32 · number · string · boolean · enum. 넣은 차례 반복, 다시 넣기 = 자리 그대로 · 지웠다 넣기 = 끝       |
+| Set: add · has · delete · clear · size · values() · for-of · new Set(xs)                                                     | M8-T4 ✅ | 같은 규칙                                                                                                  |
+| Set 연산 union · intersection · difference                                                                                   | M8-T4 ✅ | "sandbox" 함수 setUnion(a, b) · setIntersection · setDifference — 새 Set, 왼쪽 차례 다음 오른쪽 (ES2025 의 Set 메서드는 lib ES2020 에 없다) |
+| 키 같음                                                                                                                      | M8-T4 ✅ | SameValueZero — NaN = NaN, -0 = +0 (+0 으로 저장). 해시 고정 (주소 · 씨앗 없음)                             |
+| 반복 중 바꾸기                                                                                                               | M8-T4 ✅ | 넣기 = 끝에 보인다, 지우기 = 건너뜀, clear = 끝 (JS)                                                       |
+| 연료                                                                                                                         | M8-T4 ✅ | 탐색 · 넣기 · 지우기 = 2 + 충돌 칸마다 1, 반복 원소마다 1, 늘릴 때 원소마다 1                                |
 | Entity · 구조체 키, WeakMap                                                                                                  | [계획] | 핸들 수명 · 구조 같음 규칙이 먼저                                                                          |
+| keys() · values() 의 쓰임                                                                                                    | M8-T4 ✅ | for-of 와 Array.from(…) 에서만 (반복자 값 · entries · forEach 는 [계획] — S404 · S406). Array.from 은 Set · m.keys() · m.values() · 배열 (복사) |
+| T \| null 값의 Map.get                                                                                                       | 거절   | 결과가 null 과 undefined 를 섞는다 — S404 (값 타입을 T 로)                                                  |
+| 구현                                                                                                                         | M8-T4 ✅ | 항목 (넣은 차례 · 지운 것은 자리를 지킨다) + 선형 탐사 색인 (크기 2^k, 채움 ≤ 1/2 — 넘으면 살아 있는 것으로 다시 만든다). 해시 = 고정 섞기 (i32 · bool · f64 비트 — -0 · NaN 정규화) · FNV-1a (문자열). 항목 상한 = maxArrayLength, 아레나 바이트 = 항목 17 (Map) · 9 (Set) + 색인 4 |
 
 ### 25.4 "sandbox" 컬렉션 (import { Queue } from "sandbox")
 

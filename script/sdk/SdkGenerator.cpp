@@ -60,6 +60,13 @@ std::string generateSandboxDts() {
     out += "  export function toI32(x: number): i32;\n";
     out += "  /** 정수 나눗셈 (0 쪽으로 자름) — b 가 0 이면 트랩 */\n";
     out += "  export function idiv(a: i32, b: i32): i32;\n";
+    // 집합 연산 (v0.5 M8-T4 — ADR-0085, 19 25.3). Map · Set 자체는 TS 전역 (lib ES2020)
+    out += "  /** 합집합 — 새 Set (a 의 넣은 차례 다음 b 에만 있는 것) */\n";
+    out += "  export function setUnion<T>(a: Set<T>, b: Set<T>): Set<T>;\n";
+    out += "  /** 교집합 — 새 Set (a 의 넣은 차례) */\n";
+    out += "  export function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T>;\n";
+    out += "  /** 차집합 a - b — 새 Set (a 의 넣은 차례) */\n";
+    out += "  export function setDifference<T>(a: Set<T>, b: Set<T>): Set<T>;\n";
     // 컴포넌트 정의 (ADR-0059) — 검사기는 defineComponent 를 실행하지 않고 상수 인자를 스키마로 읽는다 (19 15장)
     out += "\n";
     out += "  /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */\n";
