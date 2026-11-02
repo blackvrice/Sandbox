@@ -260,7 +260,7 @@ export default defineSystem({
             {"scripts/a.ts", std::string(kHead) + "export default defineSystem({ id: \"g.b\", onTick() { } })\n"}};
         const std::optional<bc::Module> m = compileScripts(files, diags);
         REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
-        CHECK(m->format == 5);
+        CHECK(m->format == bc::kFormatVersion);
         REQUIRE(m->systems.size() == 2);
         CHECK(m->systems[0].id == "g.a"); // 파일 순서 (a.ts 가 먼저) 와 무관하게 id 순
         CHECK(m->systems[0].module == "scripts/z.ts");

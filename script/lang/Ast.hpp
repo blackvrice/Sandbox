@@ -129,6 +129,7 @@ inline constexpr u8 Integer = 1u << 3;
 inline constexpr u8 True = 1u << 4;
 inline constexpr u8 Prefix = 1u << 5;
 inline constexpr u8 Shorthand = 1u << 6;
+inline constexpr u8 Undefined = 1u << 7; // Null · NullType 마디가 undefined (v0.5 M8-T2 — ADR-0085 5)
 } // namespace NodeFlag
 
 struct Node {

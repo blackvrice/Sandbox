@@ -5,6 +5,8 @@
 #include <cstring>
 #include <format>
 
+#include "script/vm/Intrinsics.hpp"
+
 namespace sbx::script::bc {
 
 namespace {
@@ -17,6 +19,7 @@ constexpr std::array<std::string_view, static_cast<usize>(Op::Count)> kOpNames{
     "LTS",    "LES",    "EQR",    "EQO",    "NOTB",    "CONCAT", "TOSTRI",   "TOSTRF", "TOSTRB", "STRLEN",
     "NEWARR", "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH", "NEWOBJ", "GETF",     "SETF",   "BOX",    "UNBOX",
     "JMP",    "JMPT",   "JMPF",   "CALL",   "CALLH",   "RET",    "RETV",     "TRAP",   "LOADK",
+    "INTR",
 };
 
 constexpr std::array<u8, 4> kMagic{'S', 'B', 'X', 'C'};
@@ -626,6 +629,10 @@ std::string disassemble(const Module& m) {
             case Op::ARRPUSH:
                 args = std::format("{}, r{}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a), in.b,
                                    in.c);
+                break;
+            case Op::INTR:
+                args = std::format("{}, {}, r{}", in.a == kNoReg ? std::string("_") : std::format("r{}", in.a),
+                                   in.c < std::size(kIntrinsics) ? kIntrinsics[in.c].name : std::string_view("?"), in.b);
                 break;
             default:
                 args = std::format("r{}, r{}, r{}", in.a, in.b, in.c);

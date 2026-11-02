@@ -760,6 +760,12 @@ private:
                 advance();
                 return parsePrimaryType();
             }
+            if (t.value == "undefined") {
+                advance();
+                const NodeId u = node(NodeKind::NullType, pos);
+                m_ast.node(u).flags = NodeFlag::Undefined;
+                return u;
+            }
             std::string name = t.value;
             advance();
             if (at(Tok::Dot)) {
@@ -1531,6 +1537,12 @@ private:
             advance();
             return node(NodeKind::Null, pos);
         case Tok::Identifier: {
+            if (t.value == "undefined") {
+                advance();
+                const NodeId u = node(NodeKind::Null, pos);
+                m_ast.node(u).flags = NodeFlag::Undefined;
+                return u;
+            }
             const NodeId n = named(NodeKind::Ident, pos, t.value);
             advance();
             return n;

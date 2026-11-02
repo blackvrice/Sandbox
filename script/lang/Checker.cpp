@@ -8,6 +8,7 @@
 
 #include "script/api/EngineComponents.hpp"
 #include "script/lang/Parser.hpp"
+#include "script/vm/Intrinsics.hpp"
 #include "script/vm/Numbers.hpp"
 
 namespace sbx::script {
@@ -61,7 +62,6 @@ struct ForbiddenName {
     std::string_view message;
 };
 constexpr ForbiddenName kForbiddenValues[] = {
-    {"undefined", "undefined 는 없다 — null 을 쓴다"},
     {"Date", "벽시계는 없다 (결정론 — 04) — ctx.tick 을 쓴다"},
     {"performance", "벽시계는 없다 (결정론 — 04) — ctx.tick 을 쓴다"},
     {"console", "console 은 없다 — ctx.log 를 쓴다"},
@@ -92,7 +92,6 @@ constexpr ForbiddenName kForbiddenValues[] = {
 constexpr ForbiddenName kForbiddenTypes[] = {
     {"any", "any 는 없다 — 타입을 적는다"},
     {"unknown", "unknown 은 없다 — 타입을 적는다"},
-    {"undefined", "undefined 는 없다 — T | null 을 쓴다"},
     {"never", "never 는 없다"},
     {"object", "object 는 없다 — interface 를 쓴다"},
     {"Object", "Object 는 없다 — interface 를 쓴다"},
@@ -1754,7 +1753,7 @@ private:
         const Node& tn = node(n);
         switch (tn.kind) {
         case NodeKind::NullType:
-            return set(n, TypeTable::kNull);
+            return set(n, (tn.flags & NodeFlag::Undefined) != 0 ? TypeTable::kUndefined : TypeTable::kNull);
         case NodeKind::ArrayType: {
             const TypeId e = resolveType(ast().kid(n, 0), false);
             return set(n, T().arrayOf(e));
@@ -1762,13 +1761,14 @@ private:
         case NodeKind::UnionType: {
             TypeId inner = kNoExpect;
             bool hasNull = false;
+            bool hasUndefined = false;
             bool bad = false;
             for (const NodeId k : ast().kids(n)) {
                 const TypeId t = resolveType(k, false);
-                if (t == TypeTable::kNull) {
-                    hasNull = true;
+                if (T().isNullLiteral(t)) {
+                    (T().isUndefinedFlavor(t) ? hasUndefined : hasNull) = true;
                 } else if (T().kind(t) == TypeKind::Nullable) {
-                    hasNull = true;
+                    (T().isUndefinedFlavor(t) ? hasUndefined : hasNull) = true;
                     bad = bad || (inner != kNoExpect && inner != T().nonNull(t));
                     inner = T().nonNull(t);
                 } else if (inner == kNoExpect || inner == t) {
@@ -1781,8 +1781,15 @@ private:
                 err("S417", n, "유니언은 T | null 만 — 서로 다른 타입의 유니언은 없다 (enum · 구조체로)");
                 return set(n, TypeTable::kError);
             }
+            if (hasNull && hasUndefined) {
+                err("S331", n, "T | null | undefined 는 없다 — null 과 undefined 중 하나만 (ADR-0085 5)");
+                return set(n, TypeTable::kError);
+            }
             if (inner == kNoExpect) {
-                return set(n, TypeTable::kNull);
+                return set(n, hasUndefined ? TypeTable::kUndefined : TypeTable::kNull);
+            }
+            if (hasUndefined) {
+                return set(n, T().optionalOf(inner));
             }
             return set(n, hasNull ? T().nullableOf(inner) : inner);
         }
@@ -2017,6 +2024,9 @@ private:
         }
     }
 
+    // 좁히기 안내의 낱말 — T | undefined 는 undefined, 그 밖은 null
+    [[nodiscard]] std::string_view nullWord(TypeId t) { return T().isUndefinedFlavor(t) ? "undefined" : "null"; }
+
     [[nodiscard]] bool isNarrowed(SymbolId s) const {
         return std::find(m_ctx.narrowed.begin(), m_ctx.narrowed.end(), s) != m_ctx.narrowed.end();
     }
@@ -2183,7 +2193,8 @@ private:
         if (T().kind(it) == TypeKind::Array) {
             elem = T().info(it).elem;
         } else if (T().kind(it) == TypeKind::Nullable) {
-            err("S407", iter, std::format("null 일 수 있다 ({}) — if (x !== null) 로 좁힌다", T().name(it)));
+            err("S407", iter,
+                std::format("{} 일 수 있다 ({}) — if (x !== {}) 로 좁힌다", nullWord(it), T().name(it), nullWord(it)));
         } else if (!T().isError(it)) {
             err("S422", iter,
                 std::format("for-of 는 배열만 돈다 — {} 는 아니다 (질의는 ctx.query(…) — Entity[])", T().name(it)));
@@ -2210,8 +2221,8 @@ private:
                 if (t == TypeTable::kVoid) {
                     err("S412", value, "값이 없는 식을 돌려준다");
                 }
-                m_ctx.returns.push_back(t == TypeTable::kNull ? TypeTable::kError : t);
-                if (t == TypeTable::kNull) {
+                m_ctx.returns.push_back(T().isNullLiteral(t) ? TypeTable::kError : t);
+                if (T().isNullLiteral(t)) {
                     err("S414", value, "null 을 돌려주는 함수는 반환 타입을 적는다 (T | null)");
                 }
             }
@@ -2309,7 +2320,7 @@ private:
                 if (declared != kNoExpect) {
                     assignTo(init, it, declared);
                     t = declared;
-                } else if (it == TypeTable::kNull) {
+                } else if (T().isNullLiteral(it)) {
                     err("S414", init,
                         std::format("null 로 시작하는 '{}' 는 타입을 적는다 (let x: T | null = null)", name));
                 } else if (it == TypeTable::kVoid) {
@@ -2470,11 +2481,15 @@ private:
         if (T().isError(a) || T().isError(b)) {
             return TypeTable::kError;
         }
-        if (a == TypeTable::kNull) {
-            return T().nullableOf(b);
-        }
-        if (b == TypeTable::kNull) {
-            return T().nullableOf(a);
+        if (T().isNullLiteral(a) || T().isNullLiteral(b)) {
+            const TypeId lit = T().isNullLiteral(a) ? a : b;
+            const TypeId other = T().isNullLiteral(a) ? b : a;
+            if (T().isNullLiteral(other) ||
+                (T().kind(other) == TypeKind::Nullable && T().isUndefinedFlavor(other) != T().isUndefinedFlavor(lit))) {
+                bad = true; // null 과 undefined 를 섞는다
+                return TypeTable::kError;
+            }
+            return T().isUndefinedFlavor(lit) ? T().optionalOf(other) : T().nullableOf(other);
         }
         if (T().isNumeric(a) && T().isNumeric(b)) {
             const bool ai = T().kind(a) != TypeKind::Number;
@@ -2482,8 +2497,16 @@ private:
             return ai && bi ? TypeTable::kI32 : TypeTable::kNumber;
         }
         if (T().kind(a) == TypeKind::Nullable || T().kind(b) == TypeKind::Nullable) {
+            const bool ua = T().kind(a) == TypeKind::Nullable && T().isUndefinedFlavor(a);
+            const bool ub = T().kind(b) == TypeKind::Nullable && T().isUndefinedFlavor(b);
+            const bool na = T().kind(a) == TypeKind::Nullable && !ua;
+            const bool nb = T().kind(b) == TypeKind::Nullable && !ub;
+            if ((ua || ub) && (na || nb)) {
+                bad = true;
+                return TypeTable::kError;
+            }
             const TypeId inner = unify(T().nonNull(a), T().nonNull(b), bad);
-            return T().nullableOf(inner);
+            return ua || ub ? T().optionalOf(inner) : T().nullableOf(inner);
         }
         if (T().assignable(a, b)) {
             return b;
@@ -2538,7 +2561,7 @@ private:
             return set(n, TypeTable::kBool);
         }
         case NodeKind::Null:
-            return set(n, TypeTable::kNull);
+            return set(n, (x.flags & NodeFlag::Undefined) != 0 ? TypeTable::kUndefined : TypeTable::kNull);
         case NodeKind::Template: {
             for (const NodeId k : ast().kids(n)) {
                 if (node(k).kind == NodeKind::String) {
@@ -2620,7 +2643,9 @@ private:
                 return set(n, T().info(ot).elem);
             }
             if (T().kind(ot) == TypeKind::Nullable) {
-                err("S407", n, std::format("null 일 수 있다 ({}) — if (x !== null) 로 좁힌다", T().name(ot)));
+                err("S407", n,
+                    std::format("{} 일 수 있다 ({}) — if (x !== {}) 로 좁힌다", nullWord(ot), T().name(ot),
+                                nullWord(ot)));
             } else if (!T().isError(ot)) {
                 err("S406", n,
                     std::format("{} 에는 [ ] 가 없다 (배열만 — 문자열 첨자는 [v0.3 뒤 검토])", T().name(ot)));
@@ -3119,6 +3144,120 @@ private:
     }
 
     // 인자 목록 검사 (호출 마디의 kids[1..])
+    // 뒤의 optional 개는 빠져도 된다 (기본값은 코드 생성이 채운다)
+    bool checkArgsOptional(NodeId callNode, std::span<const TypeId> params, usize optional, std::string_view what) {
+        const auto kids = ast().kids(callNode);
+        const usize argc = kids.size() - 1;
+        const usize min = params.size() - optional;
+        if (argc < min || argc > params.size()) {
+            err("S405", callNode,
+                min == params.size()
+                    ? std::format("{} 는 인자 {} 개 — {} 개를 넘겼다", what, params.size(), argc)
+                    : std::format("{} 는 인자 {} ~ {} 개 — {} 개를 넘겼다", what, min, params.size(), argc));
+            argsLoose(callNode);
+            return false;
+        }
+        bool ok = true;
+        for (usize i = 0; i < argc; ++i) {
+            const NodeId arg = kids[i + 1];
+            const TypeId at = expr(arg, params[i]);
+            ok = assignTo(arg, at, params[i]) && ok;
+        }
+        return ok;
+    }
+
+    // 배열 메서드 (v0.5 M8-T2 — 내장 표, 19 25.2). 이름을 모르면 nullopt (부르는 쪽이 S406)
+    std::optional<TypeId> arrayMethod(NodeId n, NodeId callee, TypeId at, std::string_view member) {
+        const TypeId elem = T().info(at).elem;
+        const TypeId num = TypeTable::kNumber;
+        auto use = [&](IntrinsicId id) {
+            sema(callee).ref = RefKind::Intrinsic;
+            sema(callee).refIndex = static_cast<u32>(id);
+        };
+        auto method = [&](IntrinsicId id, std::initializer_list<TypeId> params, usize optional,
+                          TypeId result) -> TypeId {
+            use(id);
+            const std::vector<TypeId> ps(params);
+            checkArgsOptional(n, ps, optional, std::format("{}", member));
+            return result;
+        };
+        if (member == "pop" || member == "shift") {
+            if (T().kind(elem) == TypeKind::Nullable) {
+                // (T | null) | undefined 는 표현할 수 없다 (ADR-0085 5)
+                err("S404", n,
+                    std::format("{} 의 {} 은 없다 — T | null 원소의 꺼내기는 결과가 null 과 undefined 를 섞는다 "
+                                "(첨자 xs[xs.length - 1] 와 length 를 쓴다)",
+                                T().name(at), member));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            return method(member == "pop" ? IntrinsicId::ArrayPop : IntrinsicId::ArrayShift, {}, 0,
+                          T().optionalOf(elem));
+        }
+        if (member == "unshift") {
+            return method(IntrinsicId::ArrayUnshift, {elem}, 0, TypeTable::kI32);
+        }
+        if (member == "slice") {
+            return method(IntrinsicId::ArraySlice, {num, num}, 2, at);
+        }
+        if (member == "concat") {
+            return method(IntrinsicId::ArrayConcat, {at}, 0, at);
+        }
+        if (member == "reverse") {
+            return method(IntrinsicId::ArrayReverse, {}, 0, at);
+        }
+        if (member == "fill") {
+            return method(IntrinsicId::ArrayFill, {elem, num, num}, 2, at);
+        }
+        if (member == "copyWithin") {
+            return method(IntrinsicId::ArrayCopyWithin, {num, num, num}, 1, at);
+        }
+        if (member == "splice") {
+            if (ast().kids(n).size() - 1 > 2) {
+                err("S405", n, "splice 의 넣을 원소 (splice(i, n, …xs)) 는 [계획] — splice 뒤에 반복문으로 넣는다");
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            return method(IntrinsicId::ArraySplice, {num, num}, 1, at);
+        }
+        if (member == "indexOf") {
+            return method(IntrinsicId::ArrayIndexOf, {elem, num}, 1, TypeTable::kI32);
+        }
+        if (member == "lastIndexOf") {
+            return method(IntrinsicId::ArrayLastIndexOf, {elem, num}, 1, TypeTable::kI32);
+        }
+        if (member == "includes") {
+            return method(IntrinsicId::ArrayIncludes, {elem, num}, 1, TypeTable::kBool);
+        }
+        if (member == "join") {
+            const TypeKind ek = T().kind(elem);
+            if (ek != TypeKind::I32 && ek != TypeKind::Number && ek != TypeKind::Bool && ek != TypeKind::String &&
+                ek != TypeKind::Enum && !T().isError(elem)) {
+                err("S404", n,
+                    std::format("join 은 number · i32 · boolean · string · enum 원소에만 — {} 는 아니다",
+                                T().name(at)));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            return method(IntrinsicId::ArrayJoin, {TypeTable::kString}, 1, TypeTable::kString);
+        }
+        if (member == "sort") {
+            if (ast().kids(n).size() - 1 == 0 && T().kind(elem) == TypeKind::String) {
+                return method(IntrinsicId::ArraySortStrings, {}, 0, at);
+            }
+            if (ast().kids(n).size() - 1 == 0 && T().isNumeric(elem)) {
+                err("S404", n,
+                    "수 배열의 sort() 는 JS 에서 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — 비교자 "
+                    "sort((a, b) => a - b) 를 쓴다 [M8-T3]");
+            } else {
+                err("S406", n, std::format("{} 의 sort(비교자) 는 [계획 — v0.5 M8-T3]", T().name(at)));
+            }
+            argsLoose(n);
+            return TypeTable::kError;
+        }
+        return std::nullopt;
+    }
+
     void checkArgs(NodeId callNode, std::span<const TypeId> params, std::string_view what) {
         const auto kids = ast().kids(callNode);
         const usize argc = kids.size() - 1;
@@ -3210,7 +3349,9 @@ private:
                 return set(n, TypeTable::kError);
             }
             if (T().kind(ot) == TypeKind::Nullable) {
-                err("S407", callee, std::format("null 일 수 있다 ({}) — if (x !== null) 로 좁힌다", T().name(ot)));
+                err("S407", callee,
+                    std::format("{} 일 수 있다 ({}) — if (x !== {}) 로 좁힌다", nullWord(ot), T().name(ot),
+                                nullWord(ot)));
                 argsLoose(n);
                 return set(n, TypeTable::kError);
             }
@@ -3239,6 +3380,11 @@ private:
                 const TypeId p[] = {T().info(ot).elem};
                 checkArgs(n, p, "push");
                 return set(n, TypeTable::kI32);
+            }
+            if (T().kind(ot) == TypeKind::Array) {
+                if (const std::optional<TypeId> r = arrayMethod(n, callee, ot, member)) {
+                    return set(n, *r);
+                }
             }
             err("S406", callee, std::format("{} 에는 메서드 '{}' 가 없다", T().name(ot), member));
             argsLoose(n);
@@ -3411,7 +3557,8 @@ private:
             break;
         }
         case TypeKind::Nullable:
-            err("S407", n, std::format("null 일 수 있다 ({}) — if (x !== null) 로 좁힌다", T().name(ot)));
+            err("S407", n,
+                std::format("{} 일 수 있다 ({}) — if (x !== {}) 로 좁힌다", nullWord(ot), T().name(ot), nullWord(ot)));
             return set(n, TypeTable::kError);
         default:
             break;
@@ -3447,7 +3594,7 @@ private:
             err("S404", n, "배열 원소의 타입이 서로 다르다 — 타입을 적는다");
             return set(n, TypeTable::kError);
         }
-        if (t == TypeTable::kNull) {
+        if (T().isNullLiteral(t)) {
             err("S414", n, "null 만 든 배열은 타입을 적는다");
             return set(n, TypeTable::kError);
         }
@@ -3506,10 +3653,10 @@ private:
             StructField f;
             f.name = std::string(ast().str(p));
             const TypeId vt = expr(ast().kid(p, 0), kNoExpect);
-            if (vt == TypeTable::kNull) {
+            if (T().isNullLiteral(vt)) {
                 err("S414", p, std::format("null 인 필드 '{}' 는 타입을 적는다 (interface 로)", f.name));
             }
-            f.type = vt == TypeTable::kNull ? TypeTable::kError : vt;
+            f.type = T().isNullLiteral(vt) ? TypeTable::kError : vt;
             set(p, f.type);
             fields.push_back(std::move(f));
         }

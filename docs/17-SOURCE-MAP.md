@@ -61,6 +61,7 @@
 | `script/vm/Verifier.{hpp,cpp}`                                                                              | `bc::verify` · `sameType` · `loadModule` (읽기 + 검증 — VersionMismatch 면 소스에서 다시)                                        | SandboxScript               |
 | `script/vm/Numbers.{hpp,cpp}`                                                                               | JS 수 규칙 `toInt32` · `numberToString` · `jsRound` · `jsPow` · `jsMin/Max` · `mathCall` · `utf16Length` — 검사기 접기와 VM 공용 | SandboxScript               |
 | `script/vm/Interpreter.{hpp,cpp}`                                                                           | `vm::Interpreter` (call · 아레나 · 예산 `Limits` · 트랩 `Trap`), `Value`, `IHost` — v0.3 M2-T1, [19](19-SANDBOXSCRIPT.md) 13장     | SandboxScript               |
+| `script/vm/Intrinsics.hpp`                                                                                   | VM 내장 표 (INTR — 이름 · 서명 틀 · 연료) — 검사기 · 코드 생성 · 검증기 · VM 이 같이 읽는다 (v0.5 M8-T2, ADR-0085)                                                     | SandboxScript               |
 | `script/sdk/SdkGenerator.{hpp,cpp}`                                                                         | `generateSandboxDts` · `generateTsconfig` (프로젝트 템플릿 — v0.3 M5-T1, ADR-0065 · 팩마다 "@<팩>/*" paths — v0.4 M4-T1) — Host 표 · 불투명 타입 · SDK 내장 → sandbox.d.ts (결정적) — v0.3 M2-T2                                         | SandboxScript               |
 | `core/script/ScriptHost.{hpp,cpp}`                                                                          | `hostBindings` (엔진 구현 목록) · `checkHostBindings` (계약) · `ScriptHost` (IHost — ctx · 개체 핸들, 컴포넌트 읽기 · 질의 · 쓰기 버퍼 — M3-T3, ADR-0060) — v0.3 M2-T2   | SandboxCore                 |
 | `core/script/ScriptComponents.{hpp,cpp}`                                                                    | `toDynamicDesc` · `registerScriptComponents` (스크립트 스키마 → 카탈로그, 엔진 이름공간 · 겹친 이름 거절) — v0.3 M3-T1, ADR-0059 | SandboxCore                 |
@@ -322,7 +323,7 @@ foundation/
 script/                     SandboxScript (v0.3 — Foundation 만 안다, ADR-0056 9)
   lang/         Token · Lexer · Ast · Parser · Diagnostic · Types · Checker · Codegen
   api/          HostApi (Host 함수 표 · 지문) · MathBuiltins · ComponentSchema · SystemEvents
-  vm/           Bytecode (.sbc) · Verifier · Interpreter · Numbers
+  vm/           Bytecode (.sbc) · Verifier · Interpreter · Numbers · Intrinsics (내장 표)
   sdk/          SdkGenerator (sandbox.d.ts · tsconfig.json)
 
 core/

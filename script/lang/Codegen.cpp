@@ -3,11 +3,13 @@
 #include <algorithm>
 #include <bit>
 #include <format>
+#include <limits>
 #include <map>
 #include <unordered_map>
 
 #include "script/api/EngineComponents.hpp"
 #include "script/api/MathBuiltins.hpp"
+#include "script/vm/Intrinsics.hpp"
 #include "script/vm/Verifier.hpp"
 
 namespace sbx::script {
@@ -402,7 +404,7 @@ private:
         }
         if (kind(to) == TypeKind::Nullable) {
             const TypeId inner = P.types.nonNull(to);
-            if (from == TypeTable::kNull) {
+            if (P.types.isNullLiteral(from)) {
                 const u16 n = temp(tid(to));
                 emit(Op::LOADNULL, n);
                 return n;
@@ -445,7 +447,7 @@ private:
 
     // 마디 n 의 값을 target 자리로 (null 리터럴은 그 자리의 타입으로)
     u16 genTo(NodeId n, TypeId target) {
-        if (typeOf(n) == TypeTable::kNull) {
+        if (P.types.isNullLiteral(typeOf(n))) {
             const u16 r = temp(tid(target));
             emit(Op::LOADNULL, r);
             return r;
@@ -731,11 +733,11 @@ private:
     }
 
     u16 equal(NodeId a, NodeId b) {
-        if (typeOf(a) == TypeTable::kNull) {
+        if (P.types.isNullLiteral(typeOf(a))) {
             std::swap(a, b);
         }
-        if (typeOf(b) == TypeTable::kNull) {
-            if (typeOf(a) == TypeTable::kNull) {
+        if (P.types.isNullLiteral(typeOf(b))) {
+            if (P.types.isNullLiteral(typeOf(a))) {
                 const u16 r = temp(m_bool);
                 emit(Op::LOADB, r, 1);
                 return r;
@@ -1118,7 +1120,76 @@ private:
             emit(Op::ARRPUSH, dst, arr, v);
             return dst;
         }
+        if (cs.ref == RefKind::Intrinsic) {
+            return intrinsicCall(n, callee, static_cast<IntrinsicId>(cs.refIndex), rt);
+        }
         return temp(tid(rt));
+    }
+
+    // 내장 메서드 (v0.5 M8-T2 — ADR-0085). 받는 쪽 + 인자 (빠진 선택 인자는 JS 의 기본값) 를 연속 레지스터에
+    u16 intrinsicCall(NodeId n, NodeId callee, IntrinsicId id, TypeId rt) {
+        const auto kids = ast().kids(n);
+        const Intrinsic& k = intrinsic(id);
+        const NodeId obj = ast().kid(callee, 0);
+        const TypeId recvType = typeOf(obj);
+        const TypeId elem = kind(recvType) == TypeKind::Array ? P.types.info(recvType).elem : TypeTable::kError;
+        constexpr f64 kInf = std::numeric_limits<f64>::infinity();
+        // 선택 인자의 기본값 (자리 1 … — 받는 쪽 다음)
+        auto numDefault = [&](u32 slot) -> f64 {
+            switch (id) {
+            case IntrinsicId::ArraySlice:
+                return slot == 1 ? 0.0 : kInf;
+            case IntrinsicId::ArrayFill:
+                return slot == 2 ? 0.0 : kInf;
+            case IntrinsicId::ArrayIndexOf:
+            case IntrinsicId::ArrayIncludes:
+                return 0.0;
+            default:
+                return kInf; // end · deleteCount · lastIndexOf 의 fromIndex
+            }
+        };
+        std::vector<u32> types{tid(recvType)};
+        std::vector<u16> vals{gen(obj)};
+        for (u32 i = 1; i < k.argc; ++i) {
+            const bool given = i < kids.size();
+            switch (k.params[i]) {
+            case IntrinsicPat::Elem:
+                types.push_back(tid(elem));
+                vals.push_back(genTo(kids[i], elem));
+                break;
+            case IntrinsicPat::Same0:
+                types.push_back(tid(recvType));
+                vals.push_back(genTo(kids[i], recvType));
+                break;
+            case IntrinsicPat::String:
+                types.push_back(m_string);
+                if (given) {
+                    vals.push_back(genTo(kids[i], TypeTable::kString));
+                } else {
+                    const u16 r = temp(m_string);
+                    emit(Op::LOADS, r, str(","));
+                    vals.push_back(r);
+                }
+                break;
+            default: // F64
+                types.push_back(m_f64);
+                if (given) {
+                    vals.push_back(genTo(kids[i], TypeTable::kNumber));
+                } else {
+                    const u16 r = temp(m_f64);
+                    emit(Op::LOADF, r, num(numDefault(i)));
+                    vals.push_back(r);
+                }
+                break;
+            }
+        }
+        const u16 base = block(types);
+        for (usize i = 0; i < vals.size(); ++i) {
+            emit(Op::MOV, static_cast<u16>(base + i), vals[i]);
+        }
+        const u16 dst = temp(tid(rt));
+        emit(Op::INTR, dst, base, static_cast<u16>(id));
+        return dst;
     }
 
     static TypeId hostType(api::AbiType a) {

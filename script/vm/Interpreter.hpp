@@ -131,6 +131,13 @@ private:
 
     CallResult run(u32 function, std::span<const Value> args, const std::span<const Value>* structFields = nullptr);
     bool alloc(Object o, usize bytes, Value& out);
+    bool newString(std::string s, Value& out);
+    bool newArray(std::vector<Value> slots, Value& out);
+    // INTR (ADR-0085 — script/vm/Intrinsics). 실패면 trap · msg 를 채우고 false. fuel = run 의 남은 연료 (원소 · 비교마다
+    // 여기서 뺀다)
+    bool intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
+    // 배열 원소 같음 — indexOf 는 === (NaN 은 무엇과도 다르다), includes 는 SameValueZero (NaN = NaN)
+    [[nodiscard]] bool elemEqual(u32 elemType, Value a, Value b, bool sameValueZero) const;
     // Host 칸 ↔ 구조체 (ADR-0060). 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) 와 중첩 구조체 (깊이 4) 만 — 그 밖의
     // 모양 (문자열 · 배열 · 재귀) 은 BadShape: 믿지 않는 바이트코드가 Host 값을 참조로 읽게 하지 않는다
     enum class Marshal : u8 { Ok, BadShape, OutOfMemory };

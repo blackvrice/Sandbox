@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | 계획 (v0.5 M8 — 지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR (.sbc 형식 6) · T \| undefined · Array 메서드 — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -148,21 +148,24 @@ AST        평평한 풀 + 자식 구간, 마디 종류마다 자식 자리가 �
 ```text
 타입 이름   number · boolean · string · void (반환 타입만) · null · T[] · Array<T> · T | null · { x: T; … } · interface ·
             type 별칭 (순환 S417) · enum · SDK 의 i32 · Entity · ServerContext (import { … } from "sandbox").
-            any · unknown · undefined · never · object · Record · Map · ReadonlyArray … 은 S413. bool 은 없다 (boolean)
-유니언      T | null 만 (null | T · 괄호 · 겹친 null 도 같다). 서로 다른 타입의 유니언은 S417
+            any · unknown · never · object · Record · Map · ReadonlyArray … 은 S413. bool 은 없다 (boolean)
+유니언      T | null 과 T | undefined (v0.5 M8-T2 — ADR-0085 5) 만 (null | T · 괄호 · 겹친 null 도 같다). 서로 다른 타입의
+            유니언은 S417, T | null | undefined 는 S331. T | undefined 는 Array.pop · shift (25장) 같은 "없음" 결과의 타입 —
+            T | null 과 서로 넣을 수 없다 (tsc 와 같다, 표현은 같다). undefined 값은 비교 · 대입 · 반환에, x !== undefined 가 좁힌다
 number      f64 (JS 와 같은 뜻)
 i32         32 비트로 감싼다. i32 ∘ i32 (+ - * %) → i32, 비트 연산 (& | ^ << >> ~) 은 언제나 i32 (number 도 JS ToInt32),
             / · ** → number, 섞으면 number. number → i32 는 toI32(x) 만 — 단 정수 · i32 범위의 상수식 (리터럴 · const ·
             접은 식) 은 그대로 들어간다 (S409). idiv(a, b) = 정수 나눗셈. 상수의 i32 산술도 감싼다 (2147483647 + 1 → -2^31)
 enum        정수 값 (자동 증가 · 상수식, S418), 이름 있는 타입 — i32 · number 로 넓어지고 거꾸로는 아니다, 다른 enum 과 비교 없음
-넣기        같은 타입 · i32 → number · enum → i32 · number · null 과 T → T | null. 배열 원소 · 구조체 필드는 양쪽으로 맞아야
+넣기        같은 타입 · i32 → number · enum → i32 · number · null 과 T → T | null · undefined 와 T → T | undefined. 배열 원소 · 구조체 필드는 양쪽으로 맞아야
             한다 (참조라 — readonly 필드도, 실행 배치가 같아야 해서 — 12장). 구조체는 필드 이름 집합이 같아야 한다 (객체
             리터럴의 빠진 · 남는 필드 S404)
 연산        조건 · && · || · ! 는 boolean 만 (S408 · S422 — x !== null · x !== 0 로 쓴다), === !== 는 맞는 타입끼리,
             < > <= >= 는 두 수 · 두 문자열, 문자열 + 기본 타입 → string, ?? 는 T | null 의 왼쪽에만 (S422)
 f32         컴포넌트 필드 종류 — 읽으면 f64, 쓰면 f32 로 반올림 (15 · 16장)
 string      불변 UTF-8, 비교는 바이트 순서. .length (i32)
-T[]         참조, .length (i32) · .push(x) (i32). 빈 리터럴 [] 은 타입이 필요하다 (S414). 첨자는 i32 · number
+T[]         참조, .length (i32) · .push(x) (i32) · 내장 메서드 (25.2 — v0.5 M8-T2). 빈 리터럴 [] 은 타입이 필요하다 (S414).
+            첨자는 i32 · number
 Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · trunc · sign · sqrt · sin · cos · tan · atan2 · pow · exp ·
             log · hypot → number, 상수 PI · E · LN2 · LN10 · LOG2E · LOG10E · SQRT2 · SQRT1_2. Math.random 은 S413
 ```
@@ -263,7 +266,8 @@ sdk/sandbox.d.ts      생성한 SDK 선언 (커밋 — 시험이 생성 결과�
 최상위     const = number · i32 · boolean · string · enum 상수식 (리터럴 · 연산 · 앞의 const · enum 값 · NaN · Infinity ·
            Math 상수). 함수 호출 · 배열 · 구조체는 S415 (표 상수는 [v0.3 뒤 검토]). export default · 객체 메서드는 defineSystem 만 (17장 — 밖은 S423).
            예외 하나: const X = defineComponent({ … }) — 상수 인자를 스키마로 읽는다 (15장, S424 · S425)
-금지 이름  undefined · Date · console · eval · JSON · Map · Promise · setTimeout · parseInt … 은 S413 (이유와 대안을 말한다).
+금지 이름  Date · console · eval · JSON · Map · Promise · setTimeout · parseInt … 은 S413 (이유와 대안을 말한다 — undefined 는
+           v0.5 M8-T2 부터 값 · 타입, 5장).
            SDK 이름을 가져오지 않으면 import { i32 } from "sandbox" 를 안내한다
 결과       Program: 타입 표 · 심볼 · 함수 (서명 · 추론한 반환) · 모듈마다 마디 → (타입, 가리키는 것 — 심볼 · 필드 · Host 함수 ·
            내장 · enum 멤버 · length · push), 마디 → 상수값. IR (M1-T3) 이 이것을 읽는다
@@ -317,7 +321,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             아니면 트랩), 비교 (EQ · LT · LE × I F S, EQB · EQR 참조 · EQO 불투명 · NOTB — > · >= 는 자리를 바꾼다), 문자열
             (CONCAT · TOSTRI · TOSTRF · TOSTRB = JS Number#toString · STRLEN = UTF-16 단위), 배열 (NEWARR ARRLEN ARRGET ARRSET
             ARRPUSH — 늘리기는 push 만, 범위 밖은 트랩), 구조체 · 상자 (NEWOBJ GETF SETF BOX UNBOX), 흐름 (JMP JMPT JMPF CALL
-            CALLH RET RETV TRAP), 컴포넌트 (LOADK a ← components[b] — v0.3 M3-T3, 값 = stableId). 원소 · 필드 · 상자 명령은
+            CALLH RET RETV TRAP), 컴포넌트 (LOADK a ← components[b] — v0.3 M3-T3, 값 = stableId), 내장 (INTR a ←
+            kIntrinsics[c](b …) — v0.5 M8-T2, script/vm/Intrinsics, 25장). 원소 · 필드 · 상자 명령은
             타입마다 나누지 않는다 (검증기가 타입을 안다). ComponentRef<T> = Opaque(Component) — T 는 검사기만 안다 (ADR-0060 4)
 코드 생성   지역 변수 · 매개변수는 레지스터 하나씩, 식의 임시는 문장이 끝나면 타입별로 돌려 쓴다. 넣는 자리의 변환 (i32 → f64 ·
             T → T | null 상자 · null 리터럴 = 그 자리 타입의 LOADNULL · 좁힌 이름의 UNBOX · Nullable(A) → Nullable(B))
@@ -326,11 +331,12 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             함수 끝: void 면 RET, 아니면 TRAP 1 (검사기가 막는다). 만든 모듈은 바로 검증한다 (못 지나면 S502)
 검증기      함수마다 한 번 훑기 (흐름 분석 없음): 번호 (레지스터 · 상수 · 함수 · import · 필드 · 점프) 가 범위 안, 명령마다 피연산자
             타입, 호출 인자 · 결과 = 서명, 마지막 명령은 RET · RETV · JMP · TRAP, pad = 0, 타입 표 (원소 · 상자 안쪽 · 필드
-            이름 순 · void 아님), 문자열 UTF-8, 컴포넌트 표 (이름 규칙 · 겹침 · 엔진 이름공간 아님 — v0.3 M6-T2), import = Host 표의
+            이름 순 · void 아님), INTR 의 서명 틀 (배열 · 원소 · 원소 | undefined · 같은 타입 · 기본 타입 — 없는 내장 번호 거절),
+            문자열 UTF-8, 컴포넌트 표 (이름 규칙 · 겹침 · 엔진 이름공간 아님 — v0.3 M6-T2), import = Host 표의
             id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
-파일 .sbc   "SBXC" · 형식 5 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
-            도메인 · onUpdate — 옛 형식은 VersionMismatch) ·
+파일 .sbc   "SBXC" · 형식 6 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
+            도메인 · onUpdate, v0.5 M8-T2 6 = INTR — 옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
 결정성      같은 소스 = 같은 바이트 (상수 표 · 타입 표의 순서는 처음 쓴 순서, 계산 순서를 C++ 인자 순서에 맡기지 않는다)
@@ -783,7 +789,7 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 벤치       sbx_bench script.regen — 10k 개체 매 틱 질의 · 읽기 · 쓰기: 스크립트 단계 약 9.9 ms/틱 · 개체당 약 1 µs · 연료 59
            (Release — 14 7.13). 게임 스크립트는 intervalTicks 로 주기를 둔다
 ```
-## 25. 표준 라이브러리 — 지원 매트릭스 · 의미 (v0.5 M8 — ADR-0085, `script/vm/Intrinsics`)
+## 25. 표준 라이브러리 — 지원 매트릭스 · 의미 (v0.5 M8 — ADR-0085, `script/vm/Intrinsics`, `tests/unit/script/test_stdlib_array`)
 
 상태:
 
@@ -799,7 +805,7 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 | 기능                                                   | 상태         | 비고                                                                               |
 |--------------------------------------------------------|--------------|------------------------------------------------------------------------------------|
 | T[] · Array<T> · 첨자 · length · push · for-of         | 있음 (v0.3)  | 범위 밖 첨자 트랩                                                                  |
-| T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2        | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
+| T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2 ✅     | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
 | 내장 컬렉션의 new · 타입 인자                          | M8-T4 · T5   | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
 | 최상위 함수 참조 (콜백 인자)                           | M8-T3        | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
 | 캡처 없는 화살표 (콜백 인자)                           | M8-T3        | 바깥 지역 이름을 쓰면 S304. 몸 = 식 또는 블록                                      |
@@ -814,12 +820,12 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 | 메서드                                                                                  | 상태  | 의미 · 연료 (기본 2 + 아래)                                                                                                                    |
 |-----------------------------------------------------------------------------------------|-------|------------------------------------------------------------------------------------------------------------------------------------------------|
 | length · push · 첨자 · for-of                                                           | 있음  | push 는 상한 maxArrayLength                                                                                                                    |
-| pop · shift → T \| undefined, unshift(x) → 새 길이                                      | M8-T2 | 빈 배열 = undefined. shift · unshift 는 원소마다 1 (옮김)                                                                                       |
-| slice(start?, end?) · concat(ys) · reverse() · fill(x, s?, e?) · copyWithin(t, s, e?)   | M8-T2 | JS 의 음수 · 범위 자르기 그대로, 원소마다 1                                                                                                     |
-| splice(start, deleteCount?) → 지운 것                                                   | M8-T2 | 넣기 인자 (splice(i, n, …xs)) 는 [계획] (나머지 인자 S313) — 대신 splice + 반복                                                                 |
-| indexOf · lastIndexOf · includes (x, from?)                                             | M8-T2 | indexOf = ===, includes = SameValueZero (NaN 을 찾는다 — JS), 원소마다 1                                                                        |
-| join(sep?)                                                                              | M8-T2 | 원소 = String(x) 규칙 (number · i32 · boolean · string · enum 만 — 그 밖은 S404)                                                               |
-| sort() — string[]                                                                       | M8-T2 | UTF-16 단위 순서, 안정                                                                                                                         |
+| pop · shift → T \| undefined, unshift(x) → 새 길이                                      | M8-T2 ✅ | 빈 배열 = undefined. shift · unshift 는 원소마다 1 (옮김). (T \| null)[] 의 pop · shift 는 S404 (null 과 undefined 를 섞는다) |
+| slice(start?, end?) · concat(ys) · reverse() · fill(x, s?, e?) · copyWithin(t, s, e?)   | M8-T2 ✅ | JS 의 음수 · 범위 자르기 그대로, 원소마다 1                                                                                                     |
+| splice(start, deleteCount?) → 지운 것                                                   | M8-T2 ✅ | 넣기 인자 (splice(i, n, …xs)) 는 [계획] (나머지 인자 S313) — 대신 splice + 반복                                                                 |
+| indexOf · lastIndexOf · includes (x, from?)                                             | M8-T2 ✅ | indexOf = ===, includes = SameValueZero (NaN 을 찾는다 — JS), 원소마다 1                                                                        |
+| join(sep?)                                                                              | M8-T2 ✅ | 원소 = String(x) 규칙 (number · i32 · boolean · string · enum 만 — 그 밖은 S404)                                                               |
+| sort() — string[]                                                                       | M8-T2 ✅ | 안정. 순서 = `<` 와 같은 UTF-8 바이트 (= 코드 포인트) 순 (5장) — JS 의 UTF-16 단위 순과는 U+10000 이상 대 U+E000 ~ U+FFFF 에서만 다르다 |
 | sort() — number[] · i32[] (비교자 없음)                                                 | 거절  | JS 는 문자열로 비교한다 ([10, 9, 1] → [1, 10, 9]) — S404 로 비교자 · sortNumbers 를 요구                                                         |
 | sort(cmp) · find · findIndex · some · every · map · filter · reduce(f, init) · forEach  | M8-T3 | 콜백 = 함수 참조 · 캡처 없는 화살표. 콜백 매개변수는 (x) 또는 (x, i) — 세 번째 (배열) 는 [계획]. reduce 는 초기값 필수 (없으면 S405 — 빈 배열 TypeError 를 없앤다) |
 | sort 의 알고리즘                                                                        | M8-T3 | 안정 병합 + 삽입 (16 이하), 최악 O(n log n), 비교마다 1 + 콜백 연료. 비교자 NaN = 0                                                             |

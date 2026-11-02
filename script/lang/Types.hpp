@@ -17,13 +17,13 @@ using TypeId = u32;
 enum class TypeKind : u8 {
     Error,
     Void,
-    Null,   // null 리터럴의 타입
+    Null,   // null 리터럴의 타입 (index 1 = undefined — v0.5 M8-T2, ADR-0085 5)
     Bool,   // TS boolean
     I32,    // SDK 의 i32 — 32 비트로 감싼다
     Number, // f64
     String,
     Array,     // T[] · Array<T> (elem)
-    Nullable,  // T | null (elem)
+    Nullable,  // T | null (elem) — index 1 = T | undefined (같은 표현, 서로 넣을 수 없다 — ADR-0085 5)
     Struct,    // interface · 객체 타입 (index → structs)
     Enum,      // enum (index → enums)
     Opaque,    // SDK 불투명 타입 (abi)
@@ -66,12 +66,21 @@ public:
     static constexpr TypeId kI32 = 4;
     static constexpr TypeId kNumber = 5;
     static constexpr TypeId kString = 6;
+    static constexpr TypeId kUndefined = 7; // undefined 값 (Null 의 index 1)
 
     TypeTable();
 
     [[nodiscard]] TypeId arrayOf(TypeId elem);
     // T | null — T 가 이미 널 가능 · null 이면 그대로
     [[nodiscard]] TypeId nullableOf(TypeId elem);
+    // T | undefined (Array.pop · Map.get … 의 결과) — T 가 이미 널 가능 · null 이면 그대로 (부르는 쪽이 섞임을 본다)
+    [[nodiscard]] TypeId optionalOf(TypeId elem);
+    // null · undefined 리터럴의 타입
+    [[nodiscard]] bool isNullLiteral(TypeId t) const { return m_types[t].kind == TypeKind::Null; }
+    // undefined 맛 (undefined 리터럴 · T | undefined)
+    [[nodiscard]] bool isUndefinedFlavor(TypeId t) const {
+        return (m_types[t].kind == TypeKind::Null || m_types[t].kind == TypeKind::Nullable) && m_types[t].index == 1;
+    }
     [[nodiscard]] TypeId opaque(api::AbiType abi);
     // 구조체 · enum 은 선언마다 새 타입 (필드는 나중에 채울 수 있다 — 재귀 interface)
     TypeId newStruct(std::string name);

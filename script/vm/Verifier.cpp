@@ -8,6 +8,7 @@
 #include "script/api/ComponentSchema.hpp"
 #include "script/api/EngineComponents.hpp"
 #include "script/api/MathBuiltins.hpp"
+#include "script/vm/Intrinsics.hpp"
 
 namespace sbx::script::bc {
 
@@ -417,6 +418,78 @@ private:
         }
         return true;
     }
+    // INTR (ADR-0085) — 내장 표의 서명 틀을 레지스터 타입으로 본다. 원소 = 인자 0 (배열) 의 원소
+    void intrinsicInsn(const Insn& in) {
+        if (in.c >= std::size(kIntrinsics)) {
+            bad(std::format("내장 {} 가 없다", in.c));
+            return;
+        }
+        const Intrinsic& k = kIntrinsics[in.c];
+        if (static_cast<u32>(in.b) + k.argc > F->regs.size()) {
+            bad(std::format("{} 의 인자 r{} … 가 함수 밖이다 ({} 개)", k.name, in.b, F->regs.size()));
+            return;
+        }
+        const u32 t0 = F->regs[in.b];
+        const bool isArray = kindOf(t0) == TypeKind::Array;
+        const u32 elem = isArray ? M.types[t0].elem : 0;
+        auto check = [&](IntrinsicPat p, u16 r) {
+            u32 t = 0;
+            if (!reg(r, t)) {
+                return;
+            }
+            const TypeKind ek = isArray ? kindOf(elem) : TypeKind::Void;
+            bool ok = true;
+            switch (p) {
+            case IntrinsicPat::None:
+                ok = false;
+                break;
+            case IntrinsicPat::Array:
+                ok = kindOf(t) == TypeKind::Array;
+                break;
+            case IntrinsicPat::ArrayString:
+                ok = kindOf(t) == TypeKind::Array && ek == TypeKind::String;
+                break;
+            case IntrinsicPat::ArrayJoinable:
+                ok = kindOf(t) == TypeKind::Array &&
+                     (ek == TypeKind::I32 || ek == TypeKind::F64 || ek == TypeKind::Bool || ek == TypeKind::String);
+                break;
+            case IntrinsicPat::Elem:
+                ok = isArray && sameType(M, t, elem);
+                break;
+            case IntrinsicPat::OptElem:
+                // 원소 | undefined — 참조 원소는 그 타입 (null = 없음), 아니면 Box(원소)
+                ok = isArray && (regClass(M, elem) == RegClass::Ref
+                                     ? sameType(M, t, elem)
+                                     : kindOf(t) == TypeKind::Box && sameType(M, M.types[t].elem, elem));
+                break;
+            case IntrinsicPat::Same0:
+                ok = sameType(M, t, t0);
+                break;
+            case IntrinsicPat::I32:
+                ok = kindOf(t) == TypeKind::I32;
+                break;
+            case IntrinsicPat::F64:
+                ok = kindOf(t) == TypeKind::F64;
+                break;
+            case IntrinsicPat::Bool:
+                ok = kindOf(t) == TypeKind::Bool;
+                break;
+            case IntrinsicPat::String:
+                ok = kindOf(t) == TypeKind::String;
+                break;
+            }
+            if (!ok) {
+                bad(std::format("{}: r{} 의 타입 {} 이 서명에 맞지 않다", k.name, r, typeName(M, t)));
+            }
+        };
+        for (u32 i = 0; i < k.argc; ++i) {
+            check(k.params[i], static_cast<u16>(in.b + i));
+        }
+        if (in.a != kNoReg) {
+            check(k.result, in.a);
+        }
+    }
+
     void three(TypeKind a, TypeKind b, TypeKind c, const Insn& in) {
         regKind(in.a, a);
         regKind(in.b, b);
@@ -761,6 +834,9 @@ private:
             if (in.b >= M.components.size()) {
                 bad(std::format("컴포넌트 {} 가 없다", in.b));
             }
+            break;
+        case Op::INTR:
+            intrinsicInsn(in);
             break;
         case Op::Count:
             break;

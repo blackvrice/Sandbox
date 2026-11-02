@@ -208,7 +208,7 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
              std::string(kHead) + "export default defineSystem({ id: \"g.tick\", onTick() { } })\n"}};
         const std::optional<bc::Module> m = compileScripts(files, diags);
         REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
-        CHECK(m->format == 5);
+        CHECK(m->format == bc::kFormatVersion);
         REQUIRE(m->systems.size() == 2);
         CHECK(m->systems[0].id == "g.hud");
         CHECK(m->systems[0].domain == api::HostDomain::Client);

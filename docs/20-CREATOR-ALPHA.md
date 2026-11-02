@@ -441,7 +441,7 @@ M8 은 Phase 번호와 달리 M2 바로 뒤에 한다 (위 진행 차례). 태�
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
 | M8-T1 ✅ | 분석 · 지원 매트릭스 · ADR · 계획 다시 쓰기 | docs (19 25장 · 20 · 18 · ADR-0085) | — | M2-T4 | (문서) | 무엇이 있고 무엇을 언제 만드는지가 한 표에 |
-| M8-T2 | 내장 표 · INTR · T \| undefined · Array (콜백 없는 메서드) | script/vm (Intrinsics · Bytecode 형식 6 · Verifier · Interpreter), script/lang (Types · Checker · Codegen), script/sdk | Intrinsic, Op::INTR, TypeKind Undefined 맛 | M8-T1 | 메서드마다 JS 와 같은 결과 (음수 첨자 · 빈 배열 · NaN), 연료 · 상한 · 아레나, 검증기 (서명 틀 위조), tsc 와 같은 오류 자리 | pop · slice · indexOf · join … 가 돈다 |
+| M8-T2 ✅ | 내장 표 · INTR · T \| undefined · Array (콜백 없는 메서드) | script/vm (Intrinsics · Bytecode 형식 6 · Verifier · Interpreter), script/lang (Types · Checker · Codegen), script/sdk | Intrinsic, Op::INTR, TypeKind Undefined 맛 | M8-T1 | 메서드마다 JS 와 같은 결과 (음수 첨자 · 빈 배열 · NaN), 연료 · 상한 · 아레나, 검증기 (서명 틀 위조), tsc 와 같은 오류 자리 | pop · slice · indexOf · join … 가 돈다 |
 | M8-T3 | 함수 참조 · 캡처 없는 화살표 · 콜백 메서드 (sort · find · map · filter · reduce …) | script/lang (Parser 화살표 · Checker 캡처 검사 · Codegen 숨은 함수), script/vm (LOADFN · Func · 내장 안의 콜백 호출) | Op::LOADFN, TypeKind::Func | M8-T2 | 안정 정렬 · 비교 횟수 고정, 콜백 트랩 · 연료 · 깊이, 캡처 S304, 함수 값 저장 S411, 나쁜 LOADFN 서명 | xs.sort((a, b) => a.hp - b.hp) |
 | M8-T4 | Map · Set · new · 타입 인자 · for-of · Set 연산 | script/vm (객체 종류 Map · Set — 넣은 차례 해시), script/lang (new · 제네릭 타입 참조) | — | M8-T2 | 넣은 차례 · 다시 넣기 · 지웠다 넣기 · NaN · -0 · 반복 중 바꾸기 · 상한 · 같은 해시 (두 월드) | 인벤토리 예제가 Map · Set 으로 |
 | M8-T5 | Stack · Queue · Deque · PriorityQueue · MinHeap · MaxHeap · BitSet | script/vm (객체 종류), "sandbox" d.ts (declare class) | — | M8-T4 | 고리 버퍼 감싸기 · 안정 동점 · 힙 차례 · 비트 범위 · 연료 | RTS AI 가 PriorityQueue 로 |

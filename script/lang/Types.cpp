@@ -30,6 +30,10 @@ TypeTable::TypeTable() {
         t.kind = k;
         m_types.push_back(t);
     }
+    TypeInfo undef; // kUndefined
+    undef.kind = TypeKind::Null;
+    undef.index = 1;
+    m_types.push_back(undef);
 }
 
 TypeId TypeTable::add(TypeInfo t) {
@@ -52,19 +56,34 @@ TypeId TypeTable::arrayOf(TypeId elem) {
     return add(t);
 }
 
-TypeId TypeTable::nullableOf(TypeId elem) {
-    if (elem == kError || elem == kNull || kind(elem) == TypeKind::Nullable) {
-        return elem;
-    }
-    for (usize i = 0; i < m_types.size(); ++i) {
-        if (m_types[i].kind == TypeKind::Nullable && m_types[i].elem == elem) {
+namespace {
+TypeId findOrAddNullable(std::vector<TypeInfo>& types, TypeId elem, u32 flavor) {
+    for (usize i = 0; i < types.size(); ++i) {
+        if (types[i].kind == TypeKind::Nullable && types[i].elem == elem && types[i].index == flavor) {
             return static_cast<TypeId>(i);
         }
     }
     TypeInfo t;
     t.kind = TypeKind::Nullable;
     t.elem = elem;
-    return add(t);
+    t.index = flavor;
+    types.push_back(t);
+    return static_cast<TypeId>(types.size() - 1);
+}
+} // namespace
+
+TypeId TypeTable::nullableOf(TypeId elem) {
+    if (elem == kError || kind(elem) == TypeKind::Null || kind(elem) == TypeKind::Nullable) {
+        return elem;
+    }
+    return findOrAddNullable(m_types, elem, 0);
+}
+
+TypeId TypeTable::optionalOf(TypeId elem) {
+    if (elem == kError || kind(elem) == TypeKind::Null || kind(elem) == TypeKind::Nullable) {
+        return elem;
+    }
+    return findOrAddNullable(m_types, elem, 1);
 }
 
 TypeId TypeTable::opaque(api::AbiType abi) {
@@ -124,8 +143,11 @@ bool TypeTable::assignableRec(TypeId src, TypeId dst, std::vector<std::pair<Type
     const TypeKind sk = kind(src);
     const TypeKind dk = kind(dst);
     if (dk == TypeKind::Nullable) {
-        return sk == TypeKind::Null || assignableRec(src, m_types[dst].elem, assumed) ||
-               (sk == TypeKind::Nullable && assignableRec(m_types[src].elem, m_types[dst].elem, assumed));
+        // null 과 undefined 는 맛이 같아야 한다 (T | null 자리에 undefined 를 넣을 수 없다 — tsc 와 같다)
+        const bool sameFlavor = m_types[src].index == m_types[dst].index;
+        return (sk == TypeKind::Null && sameFlavor) ||
+               (sk != TypeKind::Null && sk != TypeKind::Nullable && assignableRec(src, m_types[dst].elem, assumed)) ||
+               (sk == TypeKind::Nullable && sameFlavor && assignableRec(m_types[src].elem, m_types[dst].elem, assumed));
     }
     if (dk == TypeKind::Number) {
         return sk == TypeKind::I32 || sk == TypeKind::Enum;
@@ -174,7 +196,7 @@ std::string TypeTable::name(TypeId t) const {
     case TypeKind::Void:
         return "void";
     case TypeKind::Null:
-        return "null";
+        return i.index == 1 ? "undefined" : "null";
     case TypeKind::Bool:
         return "boolean";
     case TypeKind::I32:
@@ -189,7 +211,7 @@ std::string TypeTable::name(TypeId t) const {
         return ek == TypeKind::Nullable ? "(" + e + ")[]" : e + "[]";
     }
     case TypeKind::Nullable:
-        return name(i.elem) + " | null";
+        return name(i.elem) + (i.index == 1 ? " | undefined" : " | null");
     case TypeKind::Struct: {
         const StructType& s = m_structs[i.index];
         if (!s.name.empty()) {

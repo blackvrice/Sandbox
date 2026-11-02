@@ -252,7 +252,8 @@ TEST_SUITE("script") {
         expectOnly("function f(): void { let a = 1\n let a = 2 }", "S402");
         expectOnly("function f(a: i32): void { let a = 1 }", "S402");
         ok(withHead("function f(): i32 { const a: i32 = 1\n { const a: i32 = 2 }\n return a }"));
-        expectOnly("function f(): void { const x = undefined }", "S413");
+        // undefined 는 v0.5 M8-T2 부터 값 (ADR-0085 5) — null 처럼 타입을 적어야 한다
+        expectOnly("function f(): void { const x = undefined }", "S414");
         expectOnly("function f(): void { const t = Date.now() }", "S413");
         expectOnly("function f(): number { return Math.random() }", "S413");
         expectOnly("function f(): void { console.log(\"x\") }", "S413");

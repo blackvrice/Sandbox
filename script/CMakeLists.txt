@@ -24,6 +24,7 @@ add_library(SandboxScript STATIC
     vm/Numbers.cpp
     vm/Interpreter.hpp
     vm/Interpreter.cpp
+    vm/Intrinsics.hpp
     api/HostApi.hpp
     api/HostApi.cpp
     api/MathBuiltins.hpp

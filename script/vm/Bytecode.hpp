@@ -18,8 +18,9 @@
 
 namespace sbx::script::bc {
 
-// 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3)
-inline constexpr u32 kFormatVersion = 5;
+// 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
+// 6 = INTR (v0.5 M8-T2 — ADR-0085)
+inline constexpr u32 kFormatVersion = 6;
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -127,6 +128,7 @@ enum class Op : u8 {
     RETV,  // return a
     TRAP,  // 트랩 (a = TrapCode)
     LOADK, // a(ComponentRef) ← components[b] (v0.3 M3-T3 — 값은 fnv1a64(id) = stableId)
+    INTR,  // a(결과 · kNoReg) ← kIntrinsics[c](b …) — VM 내장 (v0.5 M8-T2, script/vm/Intrinsics)
     Count,
 };
 

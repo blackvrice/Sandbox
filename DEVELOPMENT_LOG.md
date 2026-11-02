@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T2: 내장 표 · INTR · T | undefined · Array 메서드
+
+**무엇을**
+
+- script/vm/Intrinsics.hpp: VM 내장 표 (이름 · 인자 수 · 서명 틀 · 결과 틀 · 기본 연료) — 검사기 · 코드 생성 · 검증기 · VM 이
+  같이 읽는다. 명령 INTR a b c (.sbc 형식 5 → 6), 검증기는 서명 틀 (배열 · 원소 · 원소 | undefined · 같은 타입 · 기본 타입) 을
+  레지스터 타입으로 본다.
+- 타입 T | undefined: TypeTable 의 Null · Nullable 에 맛 (index 1), kUndefined, optionalOf. null 맛과 서로 넣을 수 없고 섞으면
+  S331 (T | null | undefined) · S404 · S422. 파서는 undefined 를 Null · NullType 마디 (Undefined 표지) 로, 금지 이름 표에서 뺐다.
+  좁히기 안내 낱말 (null · undefined).
+- Array 메서드 14: pop · shift (T | undefined) · unshift · slice · concat · reverse · fill · copyWithin · splice (지우기만) ·
+  indexOf · lastIndexOf · includes · join · sort() (string[]). JS 의 상대 첨자 · NaN · -0 · SameValueZero 그대로, 선택 인자의
+  기본값은 코드 생성이 채운다. 수 배열의 sort() 는 S404 (JS 는 문자열 비교), (T | null)[] 의 pop 은 S404.
+- 연료: 내장마다 기본 2 + 원소 (옮김 · 찾기 · 복사) 마다 1, 정렬은 n·⌈log2 n⌉ (실제 비교 수는 표준 라이브러리마다 달라 쓰지
+  않는다). 새 배열 · 문자열은 아레나 바이트, 길이 · 문자열 상한은 OutOfMemory.
+
+**왜**
+
+- ADR-0085 · 19 25.2 — 콜백 (M8-T3) · 컬렉션 (M8-T4) 의 바탕 (표 · 명령 · undefined).
+
+**검증**
+
+- test_stdlib_array 7 케이스 58 단언. 기대값은 같은 식을 node:22 (Docker node:22-alpine) 에서 돌린 값과 모두 같다, 시험 프로그램을
+  tsc 5.6 --strict (sandbox.d.ts · lib ES2020) 가 받는다. Windows MSVC Debug 전체 ctest 72 / 73 — unit_script 의 옛 기대 다섯
+  (.sbc 형식 == 5 넷, const x = undefined 가 S413) 을 새 규칙 (형식 = bc::kFormatVersion, S414) 으로 고친 뒤 unit_script 통과
+  (124 케이스). 골든 · 리플레이 그대로 (스크립트 없는 콘텐츠 · 샘플 스크립트 모두).
+
+**남은 일**
+
+- M8-T3 (함수 참조 · 캡처 없는 화살표 · 콜백 메서드), splice 의 넣기 인자 · 세 번째 콜백 인자는 [계획].
+
+---
+
 ## 2026-11-02 — v0.5 M8-T1: 스크립트 표준 라이브러리 — 분석 · 지원 매트릭스 · ADR-0085 · 계획 다시 쓰기
 
 **무엇을**
