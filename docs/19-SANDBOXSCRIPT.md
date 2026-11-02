@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set (.sbc 형식 8) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9) — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -340,7 +340,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             id · 서명, export 겹침, 머리 (형식 · Host 버전 · 지문 —
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 6 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
-            도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN, M8-T4 8 = Map · Set 타입 —
+            도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN, M8-T4 8 = Map · Set 타입, M8-T5
+            9 = 컬렉션 Coll —
             옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
@@ -811,7 +812,7 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 |--------------------------------------------------------|--------------|------------------------------------------------------------------------------------|
 | T[] · Array<T> · 첨자 · length · push · for-of         | 있음 (v0.3)  | 범위 밖 첨자 트랩                                                                  |
 | T \| undefined · undefined 값 · x !== undefined 좁히기 | M8-T2 ✅     | null 과 다른 타입 (서로 넣을 수 없다), 표현은 같다. T \| null \| undefined 는 S331 |
-| 내장 컬렉션의 new · 타입 인자                          | M8-T4 ✅ (Map · Set) · T5 | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
+| 내장 컬렉션의 new · 타입 인자                          | M8-T4 ✅ (Map · Set) · M8-T5 ✅ ("sandbox" 컬렉션) | new Map<K, V>() · new Set<T>(xs?) · new Queue<T>() … 사용자 타입의 new 는 S315      |
 | 최상위 함수 참조 (콜백 인자)                           | M8-T3 ✅     | 함수 값은 내장의 콜백 인자로만 — 변수 · 필드 · 반환은 S411                         |
 | 캡처 없는 화살표 (콜백 인자)                           | M8-T3 ✅     | 바깥 함수 · 바깥 화살표의 지역 이름을 쓰면 S304 (최상위 const · 함수 · enum 은 된다). 몸 = 식 또는 블록, 매개변수 타입은 문맥 (원소 · 누적 · 첨자 number) 이나 적은 타입, 반환 타입은 문맥 (predicate = boolean · reduce = 누적) 이나 추론. 숨은 최상위 함수 "<화살표 줄:칸>" 로 컴파일 |
 | for-of 의 Map · Set · keys() · values()                | M8-T4 ✅     | 넣은 차례 · 살아 있는 항목을 커서로 (반복 중 넣은 것 보임 · 지운 것 건너뜀 · clear = 끝 — JS). Map 자체의 for-of ([k, v]) 는 S404 (튜플 [계획]) |
@@ -856,13 +857,15 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 
 | 타입                                  | 상태  | 메서드                                                                                                                                       |
 |---------------------------------------|-------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| Stack<T>                              | M8-T5 | push · pop · peek · size · clear                                                                                                             |
-| Queue<T> (고리 버퍼)                  | M8-T5 | enqueue · dequeue · peek · size · clear                                                                                                      |
-| Deque<T> (고리 버퍼)                  | M8-T5 | pushFront · pushBack · popFront · popBack · peekFront · peekBack · size · clear                                                               |
-| PriorityQueue<T>                      | M8-T5 | push(x, priority: number) → boolean · pop · peek · peekPriority · size · clear — 작은 우선순위 먼저, 같으면 넣은 차례 (안정), NaN 우선순위는 false (넣지 않는다) |
-| MinHeap · MaxHeap (number · i32 원소) | M8-T5 | insert · extractMin / extractMax · peek · size · clear                                                                                       |
-| BitSet                                | M8-T5 | new BitSet(n) · set · clear · test · count · size — 범위 밖 트랩 IndexOutOfRange                                                              |
-| 연료                                  | M8-T5 | 넣기 · 꺼내기 1 (+ 힙은 log n 단계마다 1), 늘릴 때 원소마다 1                                                                                 |
+| Stack<T>                              | M8-T5 ✅ | push · pop · peek · size · clear                                                                                                             |
+| Queue<T> (고리 버퍼)                  | M8-T5 ✅ | enqueue · dequeue · peek · size · clear                                                                                                      |
+| Deque<T> (고리 버퍼)                  | M8-T5 ✅ | pushFront · pushBack · popFront · popBack · peekFront · peekBack · size · clear                                                               |
+| PriorityQueue<T>                      | M8-T5 ✅ | push(x, priority: number) → boolean · pop · peek · peekPriority · size · clear — 작은 우선순위 먼저, 같으면 넣은 차례 (안정), NaN 우선순위는 false (넣지 않는다) |
+| MinHeap · MaxHeap (number · i32 원소) | M8-T5 ✅ | insert · extractMin / extractMax · peek · size · clear                                                                                       |
+| BitSet                                | M8-T5 ✅ | new BitSet(n) · set · clear · test · count · size — 범위 밖 트랩 IndexOutOfRange                                                              |
+| 연료                                  | M8-T5 ✅ | 넣기 · 꺼내기 1 (+ 힙은 log n 단계마다 1), 늘릴 때 원소마다 1                                                                                 |
+| 구현                                  | M8-T5 ✅ | 바이트코드 타입 Coll (종류 · 원소 — 힙 f64 · BitSet bool), 내장 21 (연산별 — 검증기가 받는 쪽의 종류를 본다). Stack · 힙 = 배열 · 이진 힙, Queue · Deque = 고리 (2^k), PriorityQueue = (원소 · 우선순위 · 넣은 차례) 힙. 늘림은 논리 용량으로 (표준 라이브러리마다 다른 vector 용량을 쓰지 않는다 — 연료 · 아레나가 플랫폼과 무관). BitSet 크기 ≤ 2^24 |
+| 힙의 전순서                           | M8-T5 ✅ | MinHeap: -0 < +0, NaN 은 가장 크다 (MaxHeap 은 거꾸로 — NaN 먼저). i32 를 넣으면 number |
 
 ### 25.5 알고리즘 · 수학 · vec2 ("sandbox")
 

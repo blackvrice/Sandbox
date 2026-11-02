@@ -67,6 +67,39 @@ std::string generateSandboxDts() {
     out += "  export function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T>;\n";
     out += "  /** 차집합 a - b — 새 Set (a 의 넣은 차례) */\n";
     out += "  export function setDifference<T>(a: Set<T>, b: Set<T>): Set<T>;\n";
+    // 컬렉션 (v0.5 M8-T5 — 19 25.4). 꺼내기 · 보기는 비어 있으면 undefined
+    out += "  /** 스택 — 뒤에서 넣고 뺀다 */\n";
+    out += "  export class Stack<T> {\n";
+    out += "    constructor();\n    push(x: T): void;\n    pop(): T | undefined;\n    peek(): T | undefined;\n";
+    out += "    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 큐 (고리 버퍼) — 뒤에 넣고 앞에서 뺀다 */\n";
+    out += "  export class Queue<T> {\n";
+    out += "    constructor();\n    enqueue(x: T): void;\n    dequeue(): T | undefined;\n    peek(): T | undefined;\n";
+    out += "    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 덱 (고리 버퍼) — 양쪽에서 넣고 뺀다 */\n";
+    out += "  export class Deque<T> {\n";
+    out += "    constructor();\n    pushFront(x: T): void;\n    pushBack(x: T): void;\n";
+    out += "    popFront(): T | undefined;\n    popBack(): T | undefined;\n";
+    out += "    peekFront(): T | undefined;\n    peekBack(): T | undefined;\n";
+    out += "    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 우선순위 큐 — 작은 우선순위 먼저, 같으면 넣은 차례. NaN 우선순위는 넣지 않는다 (false) */\n";
+    out += "  export class PriorityQueue<T> {\n";
+    out += "    constructor();\n    push(x: T, priority: number): boolean;\n    pop(): T | undefined;\n";
+    out += "    peek(): T | undefined;\n    peekPriority(): number | undefined;\n";
+    out += "    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 최소 힙 (number — -0 < +0, NaN 은 가장 크다) */\n";
+    out += "  export class MinHeap {\n";
+    out += "    constructor();\n    insert(x: number): void;\n    extractMin(): number | undefined;\n";
+    out += "    peek(): number | undefined;\n    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 최대 힙 (number — MinHeap 의 거꾸로) */\n";
+    out += "  export class MaxHeap {\n";
+    out += "    constructor();\n    insert(x: number): void;\n    extractMax(): number | undefined;\n";
+    out += "    peek(): number | undefined;\n    clear(): void;\n    readonly size: number;\n  }\n";
+    out += "  /** 비트 집합 — 크기는 만들 때 정한다 (범위 밖 첨자는 트랩) */\n";
+    out += "  export class BitSet {\n";
+    out +=
+        "    constructor(size: i32);\n    set(i: i32): void;\n    clear(i: i32): void;\n    test(i: i32): boolean;\n";
+    out += "    count(): i32;\n    readonly size: number;\n  }\n";
     // 컴포넌트 정의 (ADR-0059) — 검사기는 defineComponent 를 실행하지 않고 상수 인자를 스키마로 읽는다 (19 15장)
     out += "\n";
     out += "  /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */\n";

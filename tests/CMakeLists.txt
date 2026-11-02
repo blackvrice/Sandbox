@@ -32,6 +32,7 @@ add_executable(SandboxTests
     unit/script/test_stdlib_array.cpp
     unit/script/test_stdlib_callbacks.cpp
     unit/script/test_stdlib_collections.cpp
+    unit/script/test_stdlib_seq.cpp
     unit/script/test_script_systems.cpp
     unit/script/test_script_callbacks.cpp
     unit/script/test_script_budget.cpp

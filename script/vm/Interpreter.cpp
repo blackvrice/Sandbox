@@ -21,6 +21,7 @@ namespace {
 constexpr u32 kConstStringBit = 0x8000'0000u;
 
 constexpr usize kObjectHeaderBytes = 32; // 아레나 계산용 어림 (객체 머리)
+constexpr i32 kMaxBitSetBits = 1 << 24;  // BitSet 크기 상한 (2 MiB — 아레나 바이트로도 센다)
 
 } // namespace
 
@@ -1387,6 +1388,9 @@ bool Interpreter::keyEqual(bc::TypeKind kind, Value a, Value b) const {
 
 bool Interpreter::collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                                       std::string& msg) {
+    if (isSeqIntrinsic(in.c)) {
+        return seqIntrinsic(in, fn, R, fuel, trap, msg);
+    }
     const Intrinsic& k = kIntrinsics[in.c];
     const auto id = static_cast<IntrinsicId>(in.c);
     auto fail = [&](Trap t, std::string m) {
@@ -1739,6 +1743,362 @@ bool Interpreter::collectionIntrinsic(const bc::Insn& in, const bc::Function& fn
             }
         }
         result(out);
+        return true;
+    }
+    default:
+        break;
+    }
+    return fail(Trap::Unreachable, "모르는 내장");
+}
+
+namespace {
+
+// MinHeap 의 전순서 — -0 < +0, NaN 은 가장 크다 (sortNumbers 와 같다). MaxHeap 은 거꾸로
+int totalCompare(f64 a, f64 b) {
+    const bool na = std::isnan(a);
+    const bool nb = std::isnan(b);
+    if (na || nb) {
+        return na == nb ? 0 : (na ? 1 : -1);
+    }
+    if (a < b) {
+        return -1;
+    }
+    if (a > b) {
+        return 1;
+    }
+    const bool sa = std::signbit(a);
+    const bool sb = std::signbit(b);
+    return sa == sb ? 0 : (sa ? -1 : 1);
+}
+
+} // namespace
+
+bool Interpreter::seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
+                               std::string& msg) {
+    const Intrinsic& k = kIntrinsics[in.c];
+    const auto id = static_cast<IntrinsicId>(in.c);
+    auto fail = [&](Trap t, std::string m) {
+        trap = t;
+        msg = std::format("{}: {}", k.name, std::move(m));
+        return false;
+    };
+    auto spend = [&](u64 extra) {
+        if (fuel < extra) {
+            fuel = 0;
+            return false;
+        }
+        fuel -= extra;
+        return true;
+    };
+    auto result = [&](Value v) {
+        if (in.a != bc::kNoReg) {
+            R[in.a] = v;
+        }
+    };
+    if (!spend(k.fuelBase)) {
+        return fail(Trap::OutOfFuel, "연료를 다 썼다");
+    }
+    // 원소 | undefined 결과 (Box 레지스터면 싼다 — 없음 = null)
+    auto optResult = [&](bool present, Value v) {
+        if (in.a == bc::kNoReg) {
+            return true;
+        }
+        if (!present) {
+            R[in.a] = Value::null();
+            return true;
+        }
+        if (M.types[fn.regs[in.a]].kind != bc::TypeKind::Box) {
+            R[in.a] = v;
+            return true;
+        }
+        Object o;
+        o.kind = Object::Kind::Box;
+        o.slots.push_back(v);
+        Value out;
+        if (!alloc(std::move(o), kObjectHeaderBytes + 8, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        R[in.a] = out;
+        return true;
+    };
+
+    if (id == IntrinsicId::CollNew || id == IntrinsicId::BitSetNew) {
+        const bc::TypeDesc& t = M.types[fn.regs[in.a]];
+        Object o;
+        o.kind = Object::Kind::Coll;
+        o.seq = std::make_unique<SeqData>();
+        o.seq->sub = t.sub;
+        usize bytes = kObjectHeaderBytes + 32;
+        if (id == IntrinsicId::BitSetNew) {
+            const i32 n = R[in.b].asI32();
+            if (n < 0 || n > kMaxBitSetBits) {
+                return fail(Trap::IndexOutOfRange, std::format("크기 {} — 0 ~ {}", n, kMaxBitSetBits));
+            }
+            o.seq->bits = static_cast<usize>(n);
+            o.seq->buf.assign((o.seq->bits + 63) / 64, Value{});
+            bytes += o.seq->buf.size() * 8;
+            if (!spend(o.seq->buf.size() / 64)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+        }
+        Value out;
+        if (!alloc(std::move(o), bytes, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        result(out);
+        return true;
+    }
+    const Value* args = R + in.b;
+    if (object(args[0]) == nullptr) {
+        return fail(Trap::NullReference, "null 의 메서드");
+    }
+    auto data = [&]() -> SeqData& { return *object(args[0])->seq; }; // alloc 뒤에는 다시 찾는다
+    const auto kind = static_cast<CollKind>(data().sub);
+    const bool ring = kind == CollKind::Queue || kind == CollKind::Deque;
+    // 원소 하나를 더 둘 자리 — 고리는 2 배로 늘려 차례대로 다시 놓는다 (늘린 칸만큼 아레나 · 연료)
+    auto reserveOne = [&]() {
+        SeqData& d = data();
+        if (d.count >= m_limits.maxArrayLength) {
+            return fail(Trap::OutOfMemory, std::format("원소 상한 {} 을 넘는다", m_limits.maxArrayLength));
+        }
+        const usize cap = ring ? d.buf.size() : d.cap; // 논리 용량 — vector::capacity 는 표준 라이브러리마다 다르다
+        if (d.count < cap) {
+            return true;
+        }
+        const usize next = std::max<usize>(8, cap * 2);
+        const usize extra = (next - cap) * (kind == CollKind::PriorityQueue ? 24 : 8);
+        if (m_heapBytes + extra > m_limits.maxHeapBytes) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        if (!spend(d.count)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        m_heapBytes += extra;
+        if (ring) {
+            std::vector<Value> grown(next);
+            for (usize i = 0; i < d.count; ++i) {
+                grown[i] = d.buf[(d.head + i) & (d.buf.size() - 1)];
+            }
+            d.buf.swap(grown);
+            d.head = 0;
+        } else {
+            d.cap = next;
+            d.buf.reserve(next);
+            if (kind == CollKind::PriorityQueue) {
+                d.prio.reserve(next);
+                d.order.reserve(next);
+            }
+        }
+        return true;
+    };
+    // 힙의 앞섬 — 우선순위 큐: 작은 우선순위, 같으면 먼저 넣은 것. MinHeap · MaxHeap: 전순서
+    auto before = [&](const SeqData& d, usize a, usize b) {
+        if (kind == CollKind::PriorityQueue) {
+            return d.prio[a] < d.prio[b] || (d.prio[a] == d.prio[b] && d.order[a] < d.order[b]);
+        }
+        const int c = totalCompare(d.buf[a].asF64(), d.buf[b].asF64());
+        return kind == CollKind::MinHeap ? c < 0 : c > 0;
+    };
+    auto swapAt = [&](SeqData& d, usize a, usize b) {
+        std::swap(d.buf[a], d.buf[b]);
+        if (kind == CollKind::PriorityQueue) {
+            std::swap(d.prio[a], d.prio[b]);
+            std::swap(d.order[a], d.order[b]);
+        }
+    };
+    auto siftUp = [&](SeqData& d, usize i) {
+        while (i > 0) {
+            const usize parent = (i - 1) / 2;
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            if (!before(d, i, parent)) {
+                break;
+            }
+            swapAt(d, i, parent);
+            i = parent;
+        }
+        return true;
+    };
+    auto siftDown = [&](SeqData& d, usize i) {
+        while (true) {
+            const usize l = 2 * i + 1;
+            if (l >= d.count) {
+                return true;
+            }
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            usize best = l;
+            if (l + 1 < d.count && before(d, l + 1, l)) {
+                best = l + 1;
+            }
+            if (!before(d, best, i)) {
+                return true;
+            }
+            swapAt(d, i, best);
+            i = best;
+        }
+    };
+    // 힙 뿌리를 꺼낸다 (끝 원소를 뿌리로 → 내려 보낸다)
+    auto popRoot = [&](SeqData& d) {
+        const usize last = d.count - 1;
+        swapAt(d, 0, last);
+        d.buf.pop_back();
+        if (kind == CollKind::PriorityQueue) {
+            d.prio.pop_back();
+            d.order.pop_back();
+        }
+        --d.count;
+        return siftDown(d, 0);
+    };
+    auto bitIndex = [&](i32 i, usize& word, u64& mask) {
+        if (i < 0 || static_cast<usize>(i) >= data().bits) {
+            return fail(Trap::IndexOutOfRange, std::format("비트 {} — 크기 {}", i, data().bits));
+        }
+        word = static_cast<usize>(i) / 64;
+        mask = u64{1} << (static_cast<u32>(i) % 64);
+        return true;
+    };
+
+    switch (id) {
+    case IntrinsicId::CollSize:
+        result(Value::i32v(static_cast<i32>(kind == CollKind::BitSet ? data().bits : data().count)));
+        return true;
+    case IntrinsicId::CollClear: {
+        SeqData& d = data();
+        if (kind == CollKind::BitSet) {
+            if (!spend(d.buf.size() / 64)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            std::fill(d.buf.begin(), d.buf.end(), Value{});
+            return true;
+        }
+        if (!ring) {
+            d.buf.clear();
+        }
+        d.prio.clear();
+        d.order.clear();
+        d.head = 0;
+        d.count = 0;
+        return true;
+    }
+    case IntrinsicId::SeqPushBack:
+    case IntrinsicId::SeqPushFront: {
+        if (!reserveOne()) {
+            return false;
+        }
+        SeqData& d = data();
+        if (!ring) {
+            d.buf.push_back(args[1]);
+        } else if (id == IntrinsicId::SeqPushBack) {
+            d.buf[(d.head + d.count) & (d.buf.size() - 1)] = args[1];
+        } else {
+            d.head = (d.head + d.buf.size() - 1) & (d.buf.size() - 1);
+            d.buf[d.head] = args[1];
+        }
+        ++d.count;
+        return true;
+    }
+    case IntrinsicId::SeqPopBack:
+    case IntrinsicId::SeqPopFront:
+    case IntrinsicId::SeqPeekBack:
+    case IntrinsicId::SeqPeekFront: {
+        SeqData& d = data();
+        if (d.count == 0) {
+            return optResult(false, {});
+        }
+        const bool back = id == IntrinsicId::SeqPopBack || id == IntrinsicId::SeqPeekBack;
+        const bool pop = id == IntrinsicId::SeqPopBack || id == IntrinsicId::SeqPopFront;
+        Value v;
+        if (!ring) {
+            v = d.buf.back(); // 스택 — 뒤만
+            if (pop) {
+                d.buf.pop_back();
+            }
+        } else {
+            const usize mask = d.buf.size() - 1;
+            const usize at = back ? (d.head + d.count - 1) & mask : d.head;
+            v = d.buf[at];
+            if (pop) {
+                d.buf[at] = Value{}; // 꺼낸 칸은 비운다 (참조를 들고 있지 않게)
+                if (!back) {
+                    d.head = (d.head + 1) & mask;
+                }
+            }
+        }
+        if (pop) {
+            --d.count;
+        }
+        return optResult(true, v);
+    }
+    case IntrinsicId::PqPush:
+    case IntrinsicId::HeapInsert: {
+        const f64 p = id == IntrinsicId::PqPush ? args[2].asF64() : 0.0;
+        if (id == IntrinsicId::PqPush && std::isnan(p)) {
+            result(Value::boolean(false)); // NaN 우선순위는 넣지 않는다 (차례를 정할 수 없다)
+            return true;
+        }
+        if (!reserveOne()) {
+            return false;
+        }
+        SeqData& d = data();
+        d.buf.push_back(args[1]);
+        if (kind == CollKind::PriorityQueue) {
+            d.prio.push_back(p == 0.0 ? 0.0 : p); // -0 = +0
+            d.order.push_back(d.nextOrder++);
+        }
+        ++d.count;
+        if (!siftUp(d, d.count - 1)) {
+            return false;
+        }
+        result(Value::boolean(true));
+        return true;
+    }
+    case IntrinsicId::PqPop:
+    case IntrinsicId::HeapExtract: {
+        SeqData& d = data();
+        if (d.count == 0) {
+            return optResult(false, {});
+        }
+        const Value v = d.buf[0];
+        if (!popRoot(d)) {
+            return false;
+        }
+        return optResult(true, v);
+    }
+    case IntrinsicId::PqPeek:
+    case IntrinsicId::HeapPeek:
+        return data().count == 0 ? optResult(false, {}) : optResult(true, data().buf[0]);
+    case IntrinsicId::PqPeekPriority:
+        return data().count == 0 ? optResult(false, {}) : optResult(true, Value::f64v(data().prio[0]));
+    case IntrinsicId::BitSetSet:
+    case IntrinsicId::BitSetClear:
+    case IntrinsicId::BitSetTest: {
+        usize word = 0;
+        u64 mask = 0;
+        if (!bitIndex(args[1].asI32(), word, mask)) {
+            return false;
+        }
+        Value& w = data().buf[word];
+        if (id == IntrinsicId::BitSetSet) {
+            w.bits |= mask;
+        } else if (id == IntrinsicId::BitSetClear) {
+            w.bits &= ~mask;
+        } else {
+            result(Value::boolean((w.bits & mask) != 0));
+        }
+        return true;
+    }
+    case IntrinsicId::BitSetCount: {
+        if (!spend(data().buf.size() / 16)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        usize n = 0;
+        for (const Value w : data().buf) {
+            n += static_cast<usize>(std::popcount(w.bits));
+        }
+        result(Value::i32v(static_cast<i32>(n)));
         return true;
     }
     default:

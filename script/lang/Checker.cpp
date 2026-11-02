@@ -243,6 +243,17 @@ private:
         addBuiltin(m_sdkValues, "setUnion", Builtin::SetUnion, TypeTable::kError);
         addBuiltin(m_sdkValues, "setIntersection", Builtin::SetIntersection, TypeTable::kError);
         addBuiltin(m_sdkValues, "setDifference", Builtin::SetDifference, TypeTable::kError);
+        // "sandbox" 컬렉션 (v0.5 M8-T5) — 값 (new Queue<T>()) · 타입 (Queue<T>) 이 같은 이름
+        static constexpr std::pair<std::string_view, Builtin> kColls[] = {
+            {"Stack", Builtin::CollStack},     {"Queue", Builtin::CollQueue},
+            {"Deque", Builtin::CollDeque},     {"PriorityQueue", Builtin::CollPriorityQueue},
+            {"MinHeap", Builtin::CollMinHeap}, {"MaxHeap", Builtin::CollMaxHeap},
+            {"BitSet", Builtin::CollBitSet},
+        };
+        for (const auto& [cname, b] : kColls) {
+            addBuiltin(m_sdkValues, std::string(cname), b, TypeTable::kError);
+            addBuiltin(m_sdkTypes, std::string(cname), b, TypeTable::kError);
+        }
         // 시스템 이벤트 (ADR-0063) — enum GameEventKind (값 · 타입 이름공간) · 구조체 GameEvent (onEvent 의 e)
         const TypeId kindType = T().newEnum("GameEventKind");
         for (const api::GameEventKindInfo& k : api::kGameEventKinds) {
@@ -1881,6 +1892,9 @@ private:
             return set(n, TypeTable::kError);
         }
         if (const ScopeEntry* e = findEntry(m_mscopes[m_ctx.module].types, name)) {
+            if (const Builtin b = sym(e->sym).builtin; b >= Builtin::CollStack && b <= Builtin::CollBitSet) {
+                return set(n, collType(n, b, args));
+            }
             const Symbol& s = sym(e->sym);
             TypeId t = s.type;
             if (s.kind == SymbolKind::Type && s.decl != kNoNode && node0Kind(s) == NodeKind::TypeAlias) {
@@ -3412,6 +3426,191 @@ private:
         m_arrowOuter.pop_back();
     }
 
+    // ---- "sandbox" 컬렉션 (v0.5 M8-T5 — 19 25.4) ------------------------------------------------------------------
+    static u32 collKindOf(Builtin b) {
+        return static_cast<u32>(b) - static_cast<u32>(Builtin::CollStack) + static_cast<u32>(CollKind::Stack);
+    }
+    // 컬렉션 타입: Stack · Queue · Deque · PriorityQueue 는 타입 인자 하나, MinHeap · MaxHeap (number) · BitSet 은 없다
+    TypeId collType(NodeId at, Builtin b, std::span<const NodeId> args) {
+        const u32 kind = collKindOf(b);
+        const std::string_view name = ast().str(at);
+        if (kind >= static_cast<u32>(CollKind::MinHeap)) {
+            if (!args.empty()) {
+                err("S417", at, std::format("{} 는 타입 인자가 없다", name));
+                return TypeTable::kError;
+            }
+            return T().collOf(kind, kind == static_cast<u32>(CollKind::BitSet) ? TypeTable::kBool : TypeTable::kNumber);
+        }
+        if (args.size() != 1) {
+            err("S417", at, std::format("{} 는 타입 인자 하나 ({}<T>)", name, name));
+            return TypeTable::kError;
+        }
+        const TypeId elem = resolveType(args[0], false);
+        if (T().isNullLiteral(elem) || elem == TypeTable::kVoid) {
+            err("S414", args[0], std::format("{} 의 원소 타입이 null · undefined · void 만이다", name));
+            return TypeTable::kError;
+        }
+        return T().collOf(kind, elem);
+    }
+
+    // new Stack<T>() · new BitSet(n) … — 이름은 "sandbox" 에서 가져온 것
+    std::optional<TypeId> newColl(NodeId n, TypeId expected) {
+        const std::string_view name = ast().str(n);
+        bool reported = false;
+        const SymbolId id = lookupValue(n, name, reported);
+        if (reported) {
+            return TypeTable::kError;
+        }
+        if (id == kNoSymbol) {
+            if (findEntry(m_sdkValues, name) != nullptr) {
+                unknownValue(n, name); // "sandbox" 에서 가져오지 않았다 — import 를 안내한다
+                return TypeTable::kError;
+            }
+            return std::nullopt;
+        }
+        const Builtin b = sym(id).builtin;
+        if (sym(id).kind != SymbolKind::Builtin || b < Builtin::CollStack || b > Builtin::CollBitSet) {
+            return std::nullopt;
+        }
+        const auto kids = ast().kids(n);
+        const usize typeArgs = static_cast<usize>(node(n).number);
+        const usize argc = kids.size() - typeArgs;
+        const u32 kind = collKindOf(b);
+        TypeId t = TypeTable::kError;
+        if (typeArgs > 0 || kind >= static_cast<u32>(CollKind::MinHeap)) {
+            t = collType(n, b, kids.subspan(0, typeArgs));
+        } else if (expected != kNoExpect && T().kind(T().nonNull(expected)) == TypeKind::Coll &&
+                   T().info(T().nonNull(expected)).index == kind) {
+            t = T().nonNull(expected);
+        } else {
+            err("S414", n,
+                std::format("{} 의 타입을 적는다 — new {}<T>() 나 const x: {}<T> = new {}()", name, name, name, name));
+            t = TypeTable::kError;
+        }
+        sema(n).ref = RefKind::Intrinsic;
+        if (kind == static_cast<u32>(CollKind::BitSet)) {
+            sema(n).refIndex = static_cast<u32>(IntrinsicId::BitSetNew);
+            if (argc != 1) {
+                err("S405", n, "new BitSet(크기) — 크기 하나");
+                return TypeTable::kError;
+            }
+            const TypeId at = expr(kids[typeArgs], TypeTable::kI32);
+            assignTo(kids[typeArgs], at, TypeTable::kI32);
+            return t;
+        }
+        sema(n).refIndex = static_cast<u32>(IntrinsicId::CollNew);
+        if (argc != 0) {
+            err("S405", n, std::format("new {}() 는 인자가 없다", name));
+            for (usize i = typeArgs; i < kids.size(); ++i) {
+                expr(kids[i], kNoExpect);
+            }
+            return TypeTable::kError;
+        }
+        return t;
+    }
+
+    // 컬렉션 메서드 (모르면 nullopt — S406)
+    std::optional<TypeId> collMethod(NodeId n, NodeId callee, TypeId ct, std::string_view member) {
+        const auto kind = static_cast<CollKind>(T().info(ct).index);
+        const TypeId elem = T().info(ct).elem;
+        auto method = [&](IntrinsicId id, std::initializer_list<TypeId> params, TypeId result) -> TypeId {
+            sema(callee).ref = RefKind::Intrinsic;
+            sema(callee).refIndex = static_cast<u32>(id);
+            const std::vector<TypeId> ps(params);
+            checkArgs(n, ps, member);
+            return result;
+        };
+        // 원소 | undefined 결과 — 원소가 T | null 이면 null 과 undefined 를 섞는다
+        auto opt = [&](IntrinsicId id) -> TypeId {
+            if (T().kind(elem) == TypeKind::Nullable) {
+                err("S404", n,
+                    std::format("{} 의 {} 은 없다 — T | null 원소는 결과가 null 과 undefined 를 섞는다", T().name(ct),
+                                member));
+                argsLoose(n);
+                return TypeTable::kError;
+            }
+            return method(id, {}, T().optionalOf(elem));
+        };
+        const bool bits = kind == CollKind::BitSet;
+        if (member == "clear" && !bits) {
+            return method(IntrinsicId::CollClear, {}, TypeTable::kVoid);
+        }
+        switch (kind) {
+        case CollKind::Stack:
+            if (member == "push") {
+                return method(IntrinsicId::SeqPushBack, {elem}, TypeTable::kVoid);
+            }
+            if (member == "pop") {
+                return opt(IntrinsicId::SeqPopBack);
+            }
+            if (member == "peek") {
+                return opt(IntrinsicId::SeqPeekBack);
+            }
+            break;
+        case CollKind::Queue:
+            if (member == "enqueue") {
+                return method(IntrinsicId::SeqPushBack, {elem}, TypeTable::kVoid);
+            }
+            if (member == "dequeue") {
+                return opt(IntrinsicId::SeqPopFront);
+            }
+            if (member == "peek") {
+                return opt(IntrinsicId::SeqPeekFront);
+            }
+            break;
+        case CollKind::Deque:
+            if (member == "pushBack" || member == "pushFront") {
+                return method(member == "pushBack" ? IntrinsicId::SeqPushBack : IntrinsicId::SeqPushFront, {elem},
+                              TypeTable::kVoid);
+            }
+            if (member == "popBack" || member == "popFront" || member == "peekBack" || member == "peekFront") {
+                return opt(member == "popBack"    ? IntrinsicId::SeqPopBack
+                           : member == "popFront" ? IntrinsicId::SeqPopFront
+                           : member == "peekBack" ? IntrinsicId::SeqPeekBack
+                                                  : IntrinsicId::SeqPeekFront);
+            }
+            break;
+        case CollKind::PriorityQueue:
+            if (member == "push") {
+                return method(IntrinsicId::PqPush, {elem, TypeTable::kNumber}, TypeTable::kBool);
+            }
+            if (member == "pop") {
+                return opt(IntrinsicId::PqPop);
+            }
+            if (member == "peek") {
+                return opt(IntrinsicId::PqPeek);
+            }
+            if (member == "peekPriority") {
+                return method(IntrinsicId::PqPeekPriority, {}, T().optionalOf(TypeTable::kNumber));
+            }
+            break;
+        case CollKind::MinHeap:
+        case CollKind::MaxHeap:
+            if (member == "insert") {
+                return method(IntrinsicId::HeapInsert, {TypeTable::kNumber}, TypeTable::kVoid);
+            }
+            if (member == (kind == CollKind::MinHeap ? "extractMin" : "extractMax")) {
+                return opt(IntrinsicId::HeapExtract);
+            }
+            if (member == "peek") {
+                return opt(IntrinsicId::HeapPeek);
+            }
+            break;
+        case CollKind::BitSet:
+            if (member == "set" || member == "clear" || member == "test") {
+                return method(member == "set"     ? IntrinsicId::BitSetSet
+                              : member == "clear" ? IntrinsicId::BitSetClear
+                                                  : IntrinsicId::BitSetTest,
+                              {TypeTable::kI32}, member == "test" ? TypeTable::kBool : TypeTable::kVoid);
+            }
+            if (member == "count") {
+                return method(IntrinsicId::BitSetCount, {}, TypeTable::kI32);
+            }
+            break;
+        }
+        return std::nullopt;
+    }
+
     // ---- Map · Set (v0.5 M8-T4 — 19 25.3) ---------------------------------------------------------------------
     // new Map<K, V>() · new Set<T>() · new Set(xs) — 타입 인자는 적거나 선언의 타입 (expected) 에서
     TypeId newExpr(NodeId n, TypeId expected) {
@@ -3420,8 +3619,14 @@ private:
         const usize typeArgs = static_cast<usize>(node(n).number);
         const usize argc = kids.size() - typeArgs;
         if (name != "Map" && name != "Set") {
+            if (const std::optional<TypeId> c = newColl(n, expected)) {
+                return *c;
+            }
             err("S315", n,
-                std::format("new 는 내장 컬렉션 (Map · Set) 에만 — {} 는 아니다 (사용자 class 는 S301)", name));
+                std::format(
+                    "new 는 내장 컬렉션 (Map · Set · \"sandbox\" 의 Stack · Queue …) 에만 — {} 는 아니다 (사용자 "
+                    "class 는 S301)",
+                    name));
             for (usize i = typeArgs; i < kids.size(); ++i) {
                 expr(kids[i], kNoExpect);
             }
@@ -3996,6 +4201,11 @@ private:
                     return set(n, *r);
                 }
             }
+            if (T().kind(ot) == TypeKind::Coll) {
+                if (const std::optional<TypeId> r = collMethod(n, callee, ot, member)) {
+                    return set(n, *r);
+                }
+            }
             err("S406", callee, std::format("{} 에는 메서드 '{}' 가 없다", T().name(ot), member));
             argsLoose(n);
             return set(n, TypeTable::kError);
@@ -4150,6 +4360,13 @@ private:
         case TypeKind::String:
             if (name == "length") {
                 sema(n).ref = RefKind::StringLength;
+                return set(n, TypeTable::kI32);
+            }
+            break;
+        case TypeKind::Coll:
+            if (name == "size") {
+                sema(n).ref = RefKind::Intrinsic;
+                sema(n).refIndex = static_cast<u32>(IntrinsicId::CollSize);
                 return set(n, TypeTable::kI32);
             }
             break;

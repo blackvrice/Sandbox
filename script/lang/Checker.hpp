@@ -82,6 +82,13 @@ enum class Builtin : u32 {
     SetUnion,               // setUnion — 집합 연산 (v0.5 M8-T4 — "sandbox")
     SetIntersection,        // setIntersection
     SetDifference,          // setDifference
+    CollStack,              // "sandbox" 컬렉션 (v0.5 M8-T5) — 값 (new) · 타입 둘 다. CollKind 차례
+    CollQueue,              // Queue
+    CollDeque,              // Deque
+    CollPriorityQueue,      // PriorityQueue
+    CollMinHeap,            // MinHeap
+    CollMaxHeap,            // MaxHeap
+    CollBitSet,             // BitSet
     MathFunctionBase = 100, // + kMathFunctions 의 자리
     MathConstantBase = 200, // + kMathConstants 의 자리
 };

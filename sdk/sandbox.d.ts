@@ -13,6 +13,73 @@ declare module "sandbox" {
   export function setIntersection<T>(a: Set<T>, b: Set<T>): Set<T>;
   /** 차집합 a - b — 새 Set (a 의 넣은 차례) */
   export function setDifference<T>(a: Set<T>, b: Set<T>): Set<T>;
+  /** 스택 — 뒤에서 넣고 뺀다 */
+  export class Stack<T> {
+    constructor();
+    push(x: T): void;
+    pop(): T | undefined;
+    peek(): T | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 큐 (고리 버퍼) — 뒤에 넣고 앞에서 뺀다 */
+  export class Queue<T> {
+    constructor();
+    enqueue(x: T): void;
+    dequeue(): T | undefined;
+    peek(): T | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 덱 (고리 버퍼) — 양쪽에서 넣고 뺀다 */
+  export class Deque<T> {
+    constructor();
+    pushFront(x: T): void;
+    pushBack(x: T): void;
+    popFront(): T | undefined;
+    popBack(): T | undefined;
+    peekFront(): T | undefined;
+    peekBack(): T | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 우선순위 큐 — 작은 우선순위 먼저, 같으면 넣은 차례. NaN 우선순위는 넣지 않는다 (false) */
+  export class PriorityQueue<T> {
+    constructor();
+    push(x: T, priority: number): boolean;
+    pop(): T | undefined;
+    peek(): T | undefined;
+    peekPriority(): number | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 최소 힙 (number — -0 < +0, NaN 은 가장 크다) */
+  export class MinHeap {
+    constructor();
+    insert(x: number): void;
+    extractMin(): number | undefined;
+    peek(): number | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 최대 힙 (number — MinHeap 의 거꾸로) */
+  export class MaxHeap {
+    constructor();
+    insert(x: number): void;
+    extractMax(): number | undefined;
+    peek(): number | undefined;
+    clear(): void;
+    readonly size: number;
+  }
+  /** 비트 집합 — 크기는 만들 때 정한다 (범위 밖 첨자는 트랩) */
+  export class BitSet {
+    constructor(size: i32);
+    set(i: i32): void;
+    clear(i: i32): void;
+    test(i: i32): boolean;
+    count(): i32;
+    readonly size: number;
+  }
 
   /** 2 차원 값 — vec2 필드의 값 (f32 둘로 저장) */
   export interface Vec2 {

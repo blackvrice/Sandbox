@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T5: Stack · Queue · Deque · PriorityQueue · MinHeap · MaxHeap · BitSet
+
+**무엇을**
+
+- 바이트코드 형식 9: 타입 Coll (종류 CollKind · 원소 — 힙은 f64, BitSet 은 bool, 검증기), 내장 21 (Coll.new · BitSet.new ·
+  size · clear, Seq.pushBack · pushFront · popBack · popFront · peekBack · peekFront, PriorityQueue.push · pop · peek ·
+  peekPriority, Heap.insert · extract · peek, BitSet.set · clear · test · count). 검증기는 내장마다 받는 쪽으로 허락된 종류
+  (collMask) 를 본다.
+- VM: SeqData — Stack · 힙 = 배열 · 이진 힙, Queue · Deque = 고리 버퍼 (2^k), PriorityQueue = (원소 · 우선순위 · 넣은 차례) 힙
+  (같은 우선순위 = 넣은 차례, -0 = 0, NaN 은 넣지 않고 false), MinHeap · MaxHeap = 전순서 (-0 < +0, NaN 가장 큼). 늘림은 논리
+  용량 (vector::capacity 를 쓰지 않는다 — 플랫폼마다 늘림 시점 · 연료 · 아레나가 같게). 연료 = 연산 1 + 힙 단계 · 늘림 원소.
+- 언어: "sandbox" 의 Stack · Queue · Deque · PriorityQueue · MinHeap · MaxHeap · BitSet (값 = new, 타입 = 같은 이름, d.ts
+  class 선언). 꺼내기 · 보기 = T | undefined, size 속성. 가져오지 않고 new 하면 S401 (import 안내).
+
+**왜**
+
+- ADR-0085 · 19 25.4 — RTS AI (우선순위 큐 · 큐 BFS), 보드 판정 (비트셋).
+
+**검증**
+
+- test_stdlib_seq 6 케이스 — 기대값은 같은 프로그램을 tsc 5.6 --strict 로 옮겨 node:22 에서 같은 뜻의 JS 구현 (정렬 배열) 으로
+  돌린 값과 모두 같다. unit_script 142 케이스. Windows MSVC Debug 전체 ctest 73 / 73 통과 (골든 · 리플레이 그대로).
+
+**남은 일**
+
+- M8-T6 알고리즘 · 수학 · vec2.
+
+---
+
 ## 2026-11-02 — v0.5 M8-T4: Map · Set
 
 **무엇을**

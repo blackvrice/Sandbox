@@ -129,11 +129,26 @@ private:
         usize used = 0; // 색인에서 차 있는 칸
         bc::TypeKind keyKind = bc::TypeKind::I32;
     };
+    // "sandbox" 컬렉션 (v0.5 M8-T5) — sub = CollKind. Stack · 힙 · PriorityQueue = buf 를 배열 · 이진 힙으로 (cap =
+    // 논리 용량), Queue · Deque = buf 가 고리 (크기 2^k, head · count), PriorityQueue 는 prio · order (같은 우선순위 =
+    // 넣은 차례), BitSet = buf 가 64 비트 낱말 (bits = 크기)
+    struct SeqData {
+        std::vector<Value> buf;
+        std::vector<f64> prio;
+        std::vector<u64> order;
+        u64 nextOrder = 0;
+        usize head = 0;
+        usize count = 0;
+        usize cap = 0;
+        usize bits = 0;
+        u8 sub = 0;
+    };
     struct Object {
-        enum class Kind : u8 { String, Array, Struct, Box, Map, Set } kind = Kind::String;
+        enum class Kind : u8 { String, Array, Struct, Box, Map, Set, Coll } kind = Kind::String;
         std::string text;
         std::vector<Value> slots;
         std::unique_ptr<HashData> hash; // Map · Set 만
+        std::unique_ptr<SeqData> seq;   // 컬렉션만
     };
     struct Frame {
         u32 function = 0;
@@ -158,6 +173,7 @@ private:
     // Map · Set 내장 (v0.5 M8-T4)
     bool collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                              std::string& msg);
+    bool seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
     [[nodiscard]] u64 keyHash(bc::TypeKind kind, Value v) const;
     [[nodiscard]] bool keyEqual(bc::TypeKind kind, Value a, Value b) const;
     // 배열 원소 같음 — indexOf 는 === (NaN 은 무엇과도 다르다), includes 는 SameValueZero (NaN = NaN)

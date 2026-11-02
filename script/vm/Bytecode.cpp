@@ -178,6 +178,7 @@ RegClass regClass(const Module& m, u32 type) noexcept {
     case TypeKind::Struct:
     case TypeKind::Map:
     case TypeKind::Set:
+    case TypeKind::Coll:
         return RegClass::Ref;
     }
     return RegClass::Void;
@@ -223,6 +224,8 @@ std::string typeNameRec(const Module& m, u32 type, u32 depth) {
                (t.fieldTypes.empty() ? std::string("?") : typeNameRec(m, t.fieldTypes[0], depth + 1)) + ">";
     case TypeKind::Set:
         return "set<" + typeNameRec(m, t.elem, depth + 1) + ">";
+    case TypeKind::Coll:
+        return std::format("coll{}<{}>", t.sub, typeNameRec(m, t.elem, depth + 1));
     }
     return "?";
 }
@@ -248,6 +251,9 @@ std::vector<u8> serialize(const Module& m) {
         } else if (t.kind == TypeKind::Map) {
             w.u32v(t.elem);
             w.u32v(t.fieldTypes.empty() ? 0 : t.fieldTypes[0]);
+        } else if (t.kind == TypeKind::Coll) {
+            w.u8v(t.sub);
+            w.u32v(t.elem);
         } else if (t.kind == TypeKind::Opaque) {
             w.u8v(static_cast<u8>(t.abi));
         } else if (t.kind == TypeKind::Struct) {
@@ -369,7 +375,7 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
     m.types.resize(n);
     for (TypeDesc& t : m.types) {
         u8 k = 0;
-        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Set)) {
+        if (!r.u8v(k) || k > static_cast<u8>(TypeKind::Coll)) {
             return bad("타입 종류");
         }
         t.kind = static_cast<TypeKind>(k);
@@ -381,6 +387,10 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             t.fieldTypes.resize(1);
             if (!r.u32v(t.elem) || !r.u32v(t.fieldTypes[0])) {
                 return bad("Map 타입");
+            }
+        } else if (t.kind == TypeKind::Coll) {
+            if (!r.u8v(t.sub) || !r.u32v(t.elem)) {
+                return bad("컬렉션 타입");
             }
         } else if (t.kind == TypeKind::Opaque) {
             if (!readAbi(r, t.abi)) {

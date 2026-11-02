@@ -19,8 +19,8 @@
 namespace sbx::script::bc {
 
 // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
-// 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4)
-inline constexpr u32 kFormatVersion = 8;
+// 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4), 9 = 컬렉션 Coll (M8-T5)
+inline constexpr u32 kFormatVersion = 9;
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -40,8 +40,8 @@ inline constexpr u32 kMaxStringBytes = 1u << 20;
 // Func (v0.5 M8-T3) = 함수 참조 — fieldTypes = 매개변수, elem = 결과. 레지스터에만 둔다 (원소 · 필드 · 상자 ·
 // 매개변수 · 결과는 검증기가 거절). 값 = 함수 번호 + 1 (0 = 없음), LOADFN 만 만든다.
 // Map · Set (v0.5 M8-T4) = 넣은 차례의 해시 컬렉션 (참조) — elem = 키 (i32 · f64 · bool · string),
-// Map 의 값 = fieldTypes[0]
-enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct, Func, Map, Set };
+// Map 의 값 = fieldTypes[0]. Coll (v0.5 M8-T5) = "sandbox" 컬렉션 — sub = CollKind (script/vm/Intrinsics), elem = 원소
+enum class TypeKind : u8 { Void, I32, F64, Bool, String, Opaque, Array, Box, Struct, Func, Map, Set, Coll };
 
 struct TypeDesc {
     TypeKind kind = TypeKind::Void;
@@ -49,6 +49,7 @@ struct TypeDesc {
     api::AbiType abi = api::AbiType::Void; // Opaque
     std::vector<std::string> fieldNames;   // Struct — 이름 (바이트) 순으로 오름차순 (배치 — ADR-0058 4)
     std::vector<u32> fieldTypes;           // Struct 필드 · Func 매개변수
+    u8 sub = 0;                            // Coll 의 종류 (CollKind)
 };
 
 // 레지스터 칸의 해석

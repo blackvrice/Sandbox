@@ -153,6 +153,22 @@ TypeId TypeTable::setOf(TypeId key) {
     return add(t);
 }
 
+TypeId TypeTable::collOf(u32 collKind, TypeId elem) {
+    if (elem == kError) {
+        return kError;
+    }
+    for (usize i = 0; i < m_types.size(); ++i) {
+        if (m_types[i].kind == TypeKind::Coll && m_types[i].index == collKind && m_types[i].elem == elem) {
+            return static_cast<TypeId>(i);
+        }
+    }
+    TypeInfo t;
+    t.kind = TypeKind::Coll;
+    t.index = collKind;
+    t.elem = elem;
+    return add(t);
+}
+
 bool TypeTable::isKeyType(TypeId t) const {
     const TypeKind k = kind(t);
     return k == TypeKind::I32 || k == TypeKind::Number || k == TypeKind::String || k == TypeKind::Bool ||
@@ -273,6 +289,12 @@ std::string TypeTable::name(TypeId t) const {
         return "Map<" + name(i.elem) + ", " + name(i.index) + ">";
     case TypeKind::Set:
         return "Set<" + name(i.elem) + ">";
+    case TypeKind::Coll: {
+        static constexpr const char* kNames[] = {"?",       "Stack",   "Queue", "Deque", "PriorityQueue",
+                                                 "MinHeap", "MaxHeap", "BitSet"};
+        const std::string base = i.index < std::size(kNames) ? kNames[i.index] : "?";
+        return i.index >= 5 ? base : base + "<" + name(i.elem) + ">";
+    }
     }
     return "?";
 }

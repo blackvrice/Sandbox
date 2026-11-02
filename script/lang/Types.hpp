@@ -30,6 +30,7 @@ enum class TypeKind : u8 {
     Component, // ComponentRef<T> — defineComponent 의 const (elem = 값 구조체 T, index = Program::components 의 자리)
     Map,       // Map<K, V> (elem = K, index = V) — v0.5 M8-T4
     Set,       // Set<T> (elem = T)
+    Coll,      // "sandbox" 컬렉션 (index = CollKind, elem = 원소 — 힙은 number, BitSet 은 boolean) — v0.5 M8-T5
 };
 
 struct TypeInfo {
@@ -92,6 +93,8 @@ public:
     // Map<K, V> · Set<T> (v0.5 M8-T4) — 같은 인자 = 같은 TypeId
     [[nodiscard]] TypeId mapOf(TypeId key, TypeId value);
     [[nodiscard]] TypeId setOf(TypeId key);
+    // "sandbox" 컬렉션 (v0.5 M8-T5) — kind = CollKind (script/vm/Intrinsics)
+    [[nodiscard]] TypeId collOf(u32 kind, TypeId elem);
     // Map · Set 의 키가 될 수 있다 (i32 · number · string · boolean · enum — ADR-0085 4)
     [[nodiscard]] bool isKeyType(TypeId t) const;
 

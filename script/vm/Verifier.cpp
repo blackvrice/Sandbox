@@ -54,6 +54,8 @@ bool sameRec(const Module& m, u32 a, u32 b, std::vector<std::pair<u32, u32>>& as
     case TypeKind::Map:
         return x.fieldTypes.size() == 1 && y.fieldTypes.size() == 1 && sameRec(m, x.elem, y.elem, assumed) &&
                sameRec(m, x.fieldTypes[0], y.fieldTypes[0], assumed);
+    case TypeKind::Coll:
+        return x.sub == y.sub && sameRec(m, x.elem, y.elem, assumed);
     case TypeKind::Func:
         if (x.fieldTypes.size() != y.fieldTypes.size() || !sameRec(m, x.elem, y.elem, assumed)) {
             return false;
@@ -176,6 +178,20 @@ private:
                     (t.fieldTypes.size() != 1 || !validType(t.fieldTypes[0]) ||
                      kindOf(t.fieldTypes[0]) == TypeKind::Void || kindOf(t.fieldTypes[0]) == TypeKind::Func)) {
                     fail(std::format("타입 {}: Map 의 값 타입이 없다 · void · 함수", i));
+                }
+                break;
+            }
+            case TypeKind::Coll: {
+                // "sandbox" 컬렉션 (v0.5 M8-T5) — 종류 1 ~ 7, 원소는 void · 함수 아님, 힙은 f64, BitSet 은 bool
+                const TypeKind ek = kindOf(t.elem);
+                const bool kindOk =
+                    t.sub >= static_cast<u8>(CollKind::Stack) && t.sub <= static_cast<u8>(CollKind::BitSet);
+                const bool heap =
+                    t.sub == static_cast<u8>(CollKind::MinHeap) || t.sub == static_cast<u8>(CollKind::MaxHeap);
+                const bool bits = t.sub == static_cast<u8>(CollKind::BitSet);
+                if (!kindOk || !validType(t.elem) || ek == TypeKind::Void || ek == TypeKind::Func ||
+                    (heap && ek != TypeKind::F64) || (bits && ek != TypeKind::Bool)) {
+                    fail(std::format("타입 {}: 컬렉션의 종류 · 원소가 맞지 않다", i));
                 }
                 break;
             }
@@ -473,7 +489,9 @@ private:
             return;
         }
         const u32 t0 = k.argc > 0 ? F->regs[in.b] : 0u;
-        const bool isArray = k.argc > 0 && kindOf(t0) == TypeKind::Array;
+        const bool isCollT = k.argc > 0 && kindOf(t0) == TypeKind::Coll; // "sandbox" 컬렉션 (v0.5 M8-T5)
+        // 원소가 있는 받는 쪽 — 배열 · 컬렉션 (Elem · OptElem 틀)
+        const bool isArray = k.argc > 0 && (kindOf(t0) == TypeKind::Array || isCollT);
         const u32 elem = isArray ? M.types[t0].elem : 0;
         // Map · Set 받는 쪽 (v0.5 M8-T4)
         const bool isColl = k.argc > 0 && (kindOf(t0) == TypeKind::Map || kindOf(t0) == TypeKind::Set);
@@ -601,6 +619,17 @@ private:
                 break;
             case IntrinsicPat::ValArray:
                 ok = isMap && kindOf(t) == TypeKind::Array && sameType(M, M.types[t].elem, val);
+                break;
+            case IntrinsicPat::Coll:
+                ok = kindOf(t) == TypeKind::Coll &&
+                     (collMask(static_cast<IntrinsicId>(in.c)) & (1u << M.types[t].sub)) != 0;
+                break;
+            case IntrinsicPat::NewColl:
+                ok = kindOf(t) == TypeKind::Coll && ((in.c == static_cast<u16>(IntrinsicId::BitSetNew)) ==
+                                                     (M.types[t].sub == static_cast<u8>(CollKind::BitSet)));
+                break;
+            case IntrinsicPat::OptF64:
+                ok = kindOf(t) == TypeKind::Box && kindOf(M.types[t].elem) == TypeKind::F64;
                 break;
             }
             if (!ok) {

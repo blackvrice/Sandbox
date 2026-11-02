@@ -171,6 +171,22 @@ private:
             }
             break;
         }
+        case TypeKind::Coll: {
+            // "sandbox" 컬렉션 (v0.5 M8-T5) — 같은 (종류, 원소) = 같은 타입
+            const u32 elemT = tid(P.types.info(t).elem);
+            const std::vector<u32> key{2u + P.types.info(t).index, elemT};
+            if (const auto it = m_collOf.find(key); it != m_collOf.end()) {
+                out = it->second;
+            } else {
+                bc::TypeDesc d;
+                d.kind = bc::TypeKind::Coll;
+                d.sub = static_cast<u8>(P.types.info(t).index);
+                d.elem = elemT;
+                out = addType(std::move(d));
+                m_collOf[key] = out;
+            }
+            break;
+        }
         case TypeKind::Struct: {
             // 먼저 자리를 잡는다 (재귀 구조체)
             bc::TypeDesc d;
@@ -573,7 +589,7 @@ private:
             // new Map · new Set · new Set(xs) (v0.5 M8-T4)
             const auto id = static_cast<IntrinsicId>(sema(n).refIndex);
             const u16 dst = temp(tid(typeOf(n)));
-            if (id == IntrinsicId::SetFromArray) {
+            if (id == IntrinsicId::SetFromArray || id == IntrinsicId::BitSetNew) {
                 const NodeId arg = ast().kid(n, static_cast<u32>(ast().node(n).number));
                 const TypeId at = typeOf(arg); // 검사기가 Set 의 키 배열과 같은 배치임을 봤다
                 const u32 one[] = {tid(at)};
@@ -1251,9 +1267,9 @@ private:
         const NodeId obj = kids[0];
         const TypeId recvType = typeOf(obj);
         const TypeKind rk = kind(recvType);
-        const TypeId elem = rk == TypeKind::Array || rk == TypeKind::Map || rk == TypeKind::Set
+        const TypeId elem = rk == TypeKind::Array || rk == TypeKind::Map || rk == TypeKind::Set || rk == TypeKind::Coll
                                 ? P.types.info(recvType).elem
-                                : TypeTable::kError; // 배열의 원소 · Map · Set 의 키
+                                : TypeTable::kError; // 배열 · 컬렉션의 원소 · Map · Set 의 키
         const TypeId mapValue =
             rk == TypeKind::Map ? static_cast<TypeId>(P.types.info(recvType).index) : TypeTable::kError;
         constexpr f64 kInf = std::numeric_limits<f64>::infinity();
@@ -1322,6 +1338,10 @@ private:
                     emit(Op::LOADS, r, str(","));
                     vals.push_back(r);
                 }
+                break;
+            case IntrinsicPat::I32:
+                types.push_back(m_i32);
+                vals.push_back(genTo(kids[i], TypeTable::kI32));
                 break;
             default: // F64
                 types.push_back(m_f64);

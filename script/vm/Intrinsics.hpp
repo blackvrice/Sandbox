@@ -47,6 +47,10 @@ enum class IntrinsicPat : u8 {
     SetOfElem, // 결과: 인자 0 (배열) 의 원소를 키로 하는 Set
     KeyArray,  // 결과: 인자 0 의 키 배열
     ValArray,  // 결과: 인자 0 (Map) 의 값 배열
+    // v0.5 M8-T5 — "sandbox" 컬렉션 (인자 0 의 종류는 collMask 가 정한다)
+    Coll,    // 컬렉션 (허락된 종류만)
+    NewColl, // 결과: 아무 컬렉션 (종류 · 원소는 결과 레지스터의 타입)
+    OptF64,  // 결과: number | undefined (Box(f64))
 };
 
 struct Intrinsic {
@@ -106,7 +110,31 @@ enum class IntrinsicId : u16 {
     SetUnion,
     SetIntersection,
     SetDifference,
+    CollNew, // v0.5 M8-T5 — 여기부터 "sandbox" 컬렉션
+    BitSetNew,
+    CollSize,
+    CollClear,
+    SeqPushBack,
+    SeqPushFront,
+    SeqPopBack,
+    SeqPopFront,
+    SeqPeekBack,
+    SeqPeekFront,
+    PqPush,
+    PqPop,
+    PqPeek,
+    PqPeekPriority,
+    HeapInsert,
+    HeapExtract,
+    HeapPeek,
+    BitSetSet,
+    BitSetClear,
+    BitSetTest,
+    BitSetCount,
 };
+
+// "sandbox" 컬렉션의 종류 (bc::TypeDesc::sub — 순서는 .sbc 에 남는다, 더하기만)
+enum class CollKind : u8 { Stack = 1, Queue, Deque, PriorityQueue, MinHeap, MaxHeap, BitSet };
 
 namespace detail {
 using P = IntrinsicPat;
@@ -161,7 +189,69 @@ inline constexpr Intrinsic kIntrinsics[] = {
     {"setUnion", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
     {"setIntersection", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
     {"setDifference", 2, {detail::P::Set, detail::P::Same0}, detail::P::Same0, 2},
+    {"Coll.new", 0, {}, detail::P::NewColl, 2},
+    {"BitSet.new", 1, {detail::P::I32}, detail::P::NewColl, 2},
+    {"Coll.size", 1, {detail::P::Coll}, detail::P::I32, 1},
+    {"Coll.clear", 1, {detail::P::Coll}, detail::P::None, 2},
+    {"Seq.pushBack", 2, {detail::P::Coll, detail::P::Elem}, detail::P::None, 1},
+    {"Seq.pushFront", 2, {detail::P::Coll, detail::P::Elem}, detail::P::None, 1},
+    {"Seq.popBack", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"Seq.popFront", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"Seq.peekBack", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"Seq.peekFront", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"PriorityQueue.push", 3, {detail::P::Coll, detail::P::Elem, detail::P::F64}, detail::P::Bool, 1},
+    {"PriorityQueue.pop", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"PriorityQueue.peek", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"PriorityQueue.peekPriority", 1, {detail::P::Coll}, detail::P::OptF64, 1},
+    {"Heap.insert", 2, {detail::P::Coll, detail::P::F64}, detail::P::None, 1},
+    {"Heap.extract", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"Heap.peek", 1, {detail::P::Coll}, detail::P::OptElem, 1},
+    {"BitSet.set", 2, {detail::P::Coll, detail::P::I32}, detail::P::None, 1},
+    {"BitSet.clear", 2, {detail::P::Coll, detail::P::I32}, detail::P::None, 1},
+    {"BitSet.test", 2, {detail::P::Coll, detail::P::I32}, detail::P::Bool, 1},
+    {"BitSet.count", 1, {detail::P::Coll}, detail::P::I32, 2},
 };
+
+// 컬렉션 내장의 받는 쪽으로 허락된 종류 (비트 1 << CollKind) — 검증기가 본다. 0 = 컬렉션 내장이 아니다
+[[nodiscard]] constexpr u8 collMask(IntrinsicId id) noexcept {
+    constexpr auto bit = [](CollKind k) { return static_cast<u8>(1u << static_cast<u8>(k)); };
+    switch (id) {
+    case IntrinsicId::CollSize:
+    case IntrinsicId::CollClear:
+        return 0xFE; // 모든 종류
+    case IntrinsicId::SeqPushBack:
+        return static_cast<u8>(bit(CollKind::Stack) | bit(CollKind::Queue) | bit(CollKind::Deque));
+    case IntrinsicId::SeqPushFront:
+        return bit(CollKind::Deque);
+    case IntrinsicId::SeqPopBack:
+    case IntrinsicId::SeqPeekBack:
+        return static_cast<u8>(bit(CollKind::Stack) | bit(CollKind::Deque));
+    case IntrinsicId::SeqPopFront:
+    case IntrinsicId::SeqPeekFront:
+        return static_cast<u8>(bit(CollKind::Queue) | bit(CollKind::Deque));
+    case IntrinsicId::PqPush:
+    case IntrinsicId::PqPop:
+    case IntrinsicId::PqPeek:
+    case IntrinsicId::PqPeekPriority:
+        return bit(CollKind::PriorityQueue);
+    case IntrinsicId::HeapInsert:
+    case IntrinsicId::HeapExtract:
+    case IntrinsicId::HeapPeek:
+        return static_cast<u8>(bit(CollKind::MinHeap) | bit(CollKind::MaxHeap));
+    case IntrinsicId::BitSetSet:
+    case IntrinsicId::BitSetClear:
+    case IntrinsicId::BitSetTest:
+    case IntrinsicId::BitSetCount:
+        return bit(CollKind::BitSet);
+    default:
+        return 0;
+    }
+}
+
+// "sandbox" 컬렉션 내장인가 (Map · Set 다음 — VM 이 따로 나눈다)
+[[nodiscard]] constexpr bool isSeqIntrinsic(u16 id) noexcept {
+    return id >= static_cast<u16>(IntrinsicId::CollNew);
+}
 
 // Map · Set 내장인가 (받는 쪽이 배열이 아니다 — VM 이 따로 나눈다)
 [[nodiscard]] constexpr bool isCollectionIntrinsic(u16 id) noexcept {
