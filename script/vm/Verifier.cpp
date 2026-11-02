@@ -182,15 +182,17 @@ private:
                 break;
             }
             case TypeKind::Coll: {
-                // "sandbox" 컬렉션 (v0.5 M8-T5) — 종류 1 ~ 7, 원소는 void · 함수 아님, 힙은 f64, BitSet 은 bool
+                // "sandbox" 컬렉션 (v0.5 M8-T5 · T7) — 종류 1 ~ 8, 원소는 void · 함수 아님, 힙은 f64, BitSet 은 bool,
+                // Graph 는 i32 (노드 번호 — 원소 칸을 쓰지 않는다)
                 const TypeKind ek = kindOf(t.elem);
                 const bool kindOk =
-                    t.sub >= static_cast<u8>(CollKind::Stack) && t.sub <= static_cast<u8>(CollKind::BitSet);
+                    t.sub >= static_cast<u8>(CollKind::Stack) && t.sub <= static_cast<u8>(CollKind::Graph);
                 const bool heap =
                     t.sub == static_cast<u8>(CollKind::MinHeap) || t.sub == static_cast<u8>(CollKind::MaxHeap);
                 const bool bits = t.sub == static_cast<u8>(CollKind::BitSet);
+                const bool graph = t.sub == static_cast<u8>(CollKind::Graph);
                 if (!kindOk || !validType(t.elem) || ek == TypeKind::Void || ek == TypeKind::Func ||
-                    (heap && ek != TypeKind::F64) || (bits && ek != TypeKind::Bool)) {
+                    (heap && ek != TypeKind::F64) || (bits && ek != TypeKind::Bool) || (graph && ek != TypeKind::I32)) {
                     fail(std::format("타입 {}: 컬렉션의 종류 · 원소가 맞지 않다", i));
                 }
                 break;
@@ -624,10 +626,15 @@ private:
                 ok = kindOf(t) == TypeKind::Coll &&
                      (collMask(static_cast<IntrinsicId>(in.c)) & (1u << M.types[t].sub)) != 0;
                 break;
-            case IntrinsicPat::NewColl:
-                ok = kindOf(t) == TypeKind::Coll && ((in.c == static_cast<u16>(IntrinsicId::BitSetNew)) ==
-                                                     (M.types[t].sub == static_cast<u8>(CollKind::BitSet)));
+            case IntrinsicPat::NewColl: {
+                // 만드는 내장마다 종류가 정해진다 (BitSet.new · Graph.new) — Coll.new 는 그 둘이 아닌 종류
+                const u8 sub = kindOf(t) == TypeKind::Coll ? M.types[t].sub : 0;
+                const bool bitsNew = in.c == static_cast<u16>(IntrinsicId::BitSetNew);
+                const bool graphNew = in.c == static_cast<u16>(IntrinsicId::GraphNew);
+                ok = kindOf(t) == TypeKind::Coll && bitsNew == (sub == static_cast<u8>(CollKind::BitSet)) &&
+                     graphNew == (sub == static_cast<u8>(CollKind::Graph));
                 break;
+            }
             case IntrinsicPat::OptF64:
                 ok = kindOf(t) == TypeKind::Box && kindOf(M.types[t].elem) == TypeKind::F64;
                 break;
@@ -644,6 +651,9 @@ private:
                 break;
             case IntrinsicPat::F64Array:
                 ok = kindOf(t) == TypeKind::Array && kindOf(M.types[t].elem) == TypeKind::F64;
+                break;
+            case IntrinsicPat::I32Array:
+                ok = kindOf(t) == TypeKind::Array && kindOf(M.types[t].elem) == TypeKind::I32;
                 break;
             case IntrinsicPat::Vec2: {
                 // { x: f64, y: f64 } — 이름 순 배치라 칸 0 = x, 1 = y (VM 이 그 자리를 읽는다)

@@ -248,7 +248,7 @@ private:
             {"Stack", Builtin::CollStack},     {"Queue", Builtin::CollQueue},
             {"Deque", Builtin::CollDeque},     {"PriorityQueue", Builtin::CollPriorityQueue},
             {"MinHeap", Builtin::CollMinHeap}, {"MaxHeap", Builtin::CollMaxHeap},
-            {"BitSet", Builtin::CollBitSet},
+            {"BitSet", Builtin::CollBitSet},   {"Graph", Builtin::CollGraph},
         };
         for (const auto& [cname, b] : kColls) {
             addBuiltin(m_sdkValues, std::string(cname), b, TypeTable::kError);
@@ -1924,7 +1924,7 @@ private:
             return set(n, TypeTable::kError);
         }
         if (const ScopeEntry* e = findEntry(m_mscopes[m_ctx.module].types, name)) {
-            if (const Builtin b = sym(e->sym).builtin; b >= Builtin::CollStack && b <= Builtin::CollBitSet) {
+            if (const Builtin b = sym(e->sym).builtin; b >= Builtin::CollStack && b <= Builtin::CollGraph) {
                 return set(n, collType(n, b, args));
             }
             const Symbol& s = sym(e->sym);
@@ -3616,7 +3616,11 @@ private:
                 err("S417", at, std::format("{} 는 타입 인자가 없다", name));
                 return TypeTable::kError;
             }
-            return T().collOf(kind, kind == static_cast<u32>(CollKind::BitSet) ? TypeTable::kBool : TypeTable::kNumber);
+            // 원소: BitSet = boolean, Graph = i32 (노드 번호), 힙 = number
+            const TypeId elem = kind == static_cast<u32>(CollKind::BitSet)  ? TypeTable::kBool
+                                : kind == static_cast<u32>(CollKind::Graph) ? TypeTable::kI32
+                                                                            : TypeTable::kNumber;
+            return T().collOf(kind, elem);
         }
         if (args.size() != 1) {
             err("S417", at, std::format("{} 는 타입 인자 하나 ({}<T>)", name, name));
@@ -3646,7 +3650,7 @@ private:
             return std::nullopt;
         }
         const Builtin b = sym(id).builtin;
-        if (sym(id).kind != SymbolKind::Builtin || b < Builtin::CollStack || b > Builtin::CollBitSet) {
+        if (sym(id).kind != SymbolKind::Builtin || b < Builtin::CollStack || b > Builtin::CollGraph) {
             return std::nullopt;
         }
         const auto kids = ast().kids(n);
@@ -3665,6 +3669,21 @@ private:
             t = TypeTable::kError;
         }
         sema(n).ref = RefKind::Intrinsic;
+        if (kind == static_cast<u32>(CollKind::Graph)) {
+            sema(n).refIndex = static_cast<u32>(IntrinsicId::GraphNew);
+            if (argc != 2) {
+                err("S405", n, "new Graph(노드 수, 방향 있음) — 인자 둘");
+                for (usize i = typeArgs; i < kids.size(); ++i) {
+                    expr(kids[i], kNoExpect);
+                }
+                return TypeTable::kError;
+            }
+            const TypeId nt = expr(kids[typeArgs], TypeTable::kI32);
+            assignTo(kids[typeArgs], nt, TypeTable::kI32);
+            const TypeId dt = expr(kids[typeArgs + 1], TypeTable::kBool);
+            assignTo(kids[typeArgs + 1], dt, TypeTable::kBool);
+            return t;
+        }
         if (kind == static_cast<u32>(CollKind::BitSet)) {
             sema(n).refIndex = static_cast<u32>(IntrinsicId::BitSetNew);
             if (argc != 1) {
@@ -3709,7 +3728,7 @@ private:
             return method(id, {}, T().optionalOf(elem));
         };
         const bool bits = kind == CollKind::BitSet;
-        if (member == "clear" && !bits) {
+        if (member == "clear" && !bits && kind != CollKind::Graph) {
             return method(IntrinsicId::CollClear, {}, TypeTable::kVoid);
         }
         switch (kind) {
@@ -3773,6 +3792,41 @@ private:
                 return opt(IntrinsicId::HeapPeek);
             }
             break;
+        case CollKind::Graph: {
+            // v0.5 M8-T7 — 노드 = 0 … n-1 (i32), 결과 배열은 새 배열, 경로 · 위상 정렬은 없으면 undefined
+            const TypeId ints = T().arrayOf(TypeTable::kI32);
+            const TypeId i = TypeTable::kI32;
+            if (member == "addEdge") {
+                sema(callee).ref = RefKind::Intrinsic;
+                sema(callee).refIndex = static_cast<u32>(IntrinsicId::GraphAddEdge);
+                const TypeId ps[] = {i, i, TypeTable::kNumber};
+                checkArgsOptional(n, ps, 1, "addEdge");
+                return TypeTable::kBool;
+            }
+            if (member == "neighbors" || member == "bfs" || member == "dfs") {
+                return method(member == "neighbors" ? IntrinsicId::GraphNeighbors
+                              : member == "bfs"     ? IntrinsicId::GraphBfs
+                                                    : IntrinsicId::GraphDfs,
+                              {i}, ints);
+            }
+            if (member == "dijkstra") {
+                return method(IntrinsicId::GraphDijkstra, {i}, T().arrayOf(TypeTable::kNumber));
+            }
+            if (member == "pathTo") {
+                return method(IntrinsicId::GraphPathTo, {i, i}, T().optionalOf(ints));
+            }
+            if (member == "astar") {
+                const TypeId nums = T().arrayOf(TypeTable::kNumber);
+                return method(IntrinsicId::GraphAstar, {i, i, nums, nums}, T().optionalOf(ints));
+            }
+            if (member == "topoSort") {
+                return method(IntrinsicId::GraphTopoSort, {}, T().optionalOf(ints));
+            }
+            if (member == "components") {
+                return method(IntrinsicId::GraphComponents, {}, ints);
+            }
+            break;
+        }
         case CollKind::BitSet:
             if (member == "set" || member == "clear" || member == "test") {
                 return method(member == "set"     ? IntrinsicId::BitSetSet

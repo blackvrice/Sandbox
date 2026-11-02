@@ -5,6 +5,7 @@
 #include <bit>
 #include <cmath>
 #include <format>
+#include <functional>
 #include <limits>
 #include <unordered_map>
 
@@ -22,8 +23,10 @@ namespace {
 // 참조 칸: 0 = null, 1 … = 아레나 객체 (자리 + 1), 최상위 비트 = 상수 문자열 (자리)
 constexpr u32 kConstStringBit = 0x8000'0000u;
 
-constexpr usize kObjectHeaderBytes = 32; // 아레나 계산용 어림 (객체 머리)
-constexpr i32 kMaxBitSetBits = 1 << 24;  // BitSet 크기 상한 (2 MiB — 아레나 바이트로도 센다)
+constexpr usize kObjectHeaderBytes = 32;  // 아레나 계산용 어림 (객체 머리)
+constexpr i32 kMaxBitSetBits = 1 << 24;   // BitSet 크기 상한 (2 MiB — 아레나 바이트로도 센다)
+constexpr i32 kMaxGraphNodes = 1 << 16;   // Graph 노드 상한 (19 25.6)
+constexpr usize kMaxGraphEdges = 1 << 20; // Graph 간선 칸 상한 (무방향 간선 하나 = 둘)
 
 } // namespace
 
@@ -900,6 +903,9 @@ bool Interpreter::intrinsic(const bc::Insn& in, const bc::Function& fn, Value* R
     }
     if (isValueIntrinsic(in.c)) {
         return valueIntrinsic(in, fn, R, fuel, trap, msg);
+    }
+    if (isGraphIntrinsic(in.c)) {
+        return graphIntrinsic(in, fn, R, fuel, trap, msg);
     }
     const Intrinsic& k = kIntrinsics[in.c];
     const auto id = static_cast<IntrinsicId>(in.c);
@@ -2466,6 +2472,383 @@ bool Interpreter::valueIntrinsic(const bc::Insn& in, const bc::Function& fn, Val
         // v − 2 (v · n) n — n 은 단위 벡터로 넘긴다 (정규화하지 않는다)
         const f64 d = 2.0 * (ax * bx + ay * by);
         return newVec(ax - d * bx, ay - d * by);
+    }
+    default:
+        break;
+    }
+    (void)fn;
+    return fail(Trap::Unreachable, "모르는 내장");
+}
+
+bool Interpreter::graphIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
+                                 std::string& msg) {
+    const Intrinsic& k = kIntrinsics[in.c];
+    const auto id = static_cast<IntrinsicId>(in.c);
+    auto fail = [&](Trap t, std::string m) {
+        trap = t;
+        msg = std::format("{}: {}", k.name, std::move(m));
+        return false;
+    };
+    auto spend = [&](u64 extra) {
+        if (fuel < extra) {
+            fuel = 0;
+            return false;
+        }
+        fuel -= extra;
+        return true;
+    };
+    auto result = [&](Value v) {
+        if (in.a != bc::kNoReg) {
+            R[in.a] = v;
+        }
+        return true;
+    };
+    if (!spend(k.fuelBase)) {
+        return fail(Trap::OutOfFuel, "연료를 다 썼다");
+    }
+    const Value* args = R + in.b;
+    if (id == IntrinsicId::GraphNew) {
+        const i32 n = args[0].asI32();
+        if (n < 0 || n > kMaxGraphNodes) {
+            return fail(Trap::IndexOutOfRange, std::format("노드 {} — 0 ~ {}", n, kMaxGraphNodes));
+        }
+        if (!spend(static_cast<u64>(n) / 16)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        Object o;
+        o.kind = Object::Kind::Coll;
+        o.seq = std::make_unique<SeqData>();
+        o.seq->sub = static_cast<u8>(CollKind::Graph);
+        o.seq->count = static_cast<usize>(n);
+        o.seq->directed = args[1].asBool();
+        o.seq->adj.resize(static_cast<usize>(n));
+        Value out;
+        if (!alloc(std::move(o), kObjectHeaderBytes + 32 + static_cast<usize>(n) * 24, out)) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        return result(out);
+    }
+    if (object(args[0]) == nullptr) {
+        return fail(Trap::NullReference, "null 의 메서드");
+    }
+    auto g = [&]() -> SeqData& { return *object(args[0])->seq; }; // alloc 뒤에는 다시 찾는다
+    const usize n = g().count;
+    auto node = [&](usize argIndex, u32& out) {
+        const i32 v = args[argIndex].asI32();
+        if (v < 0 || static_cast<usize>(v) >= n) {
+            return fail(Trap::IndexOutOfRange, std::format("노드 {} — {} 개", v, n));
+        }
+        out = static_cast<u32>(v);
+        return true;
+    };
+    auto i32Array = [&](const std::vector<u32>& xs) {
+        std::vector<Value> slots;
+        slots.reserve(xs.size());
+        for (const u32 x : xs) {
+            slots.push_back(Value::i32v(static_cast<i32>(x)));
+        }
+        Value out;
+        if (!newArray(std::move(slots), out)) {
+            return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+        }
+        return result(out);
+    };
+    // 최단 경로 (Dijkstra · A*) — (점수, 둘째 열쇠, 노드) 가 작은 것 먼저 (같은 점수 = 둘째 열쇠 · 작은 노드 번호).
+    // 낡은 항목은 꺼낼 때 버린다. pred = 처음으로 더 짧아진 간선 (같은 길이는 바꾸지 않는다 — 결정적)
+    struct Open {
+        f64 f;
+        f64 h;
+        u32 node;
+    };
+    auto worse = [](const Open& a, const Open& b) {
+        if (a.f != b.f) {
+            return a.f > b.f;
+        }
+        if (a.h != b.h) {
+            return a.h > b.h;
+        }
+        return a.node > b.node;
+    };
+    constexpr f64 kInf = std::numeric_limits<f64>::infinity();
+    constexpr u32 kNone = 0xFFFF'FFFFu;
+    auto shortest = [&](u32 start, u32 goal, const std::vector<f64>* xs, const std::vector<f64>* ys,
+                        std::vector<f64>& dist, std::vector<u32>& pred) {
+        dist.assign(n, kInf);
+        pred.assign(n, kNone);
+        std::vector<u8> done(n, 0);
+        auto heuristic = [&](u32 v) {
+            if (xs == nullptr) {
+                return 0.0;
+            }
+            const f64 dx = (*xs)[v] - (*xs)[goal];
+            const f64 dy = (*ys)[v] - (*ys)[goal];
+            return std::sqrt(dx * dx + dy * dy);
+        };
+        std::vector<Open> open;
+        dist[start] = 0.0;
+        open.push_back({heuristic(start), heuristic(start), start});
+        while (!open.empty()) {
+            std::pop_heap(open.begin(), open.end(), worse);
+            const Open cur = open.back();
+            open.pop_back();
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            if (done[cur.node] != 0) {
+                continue;
+            }
+            done[cur.node] = 1;
+            if (cur.node == goal) {
+                break;
+            }
+            for (const auto& [to, w] : g().adj[cur.node]) {
+                if (!spend(1)) {
+                    return fail(Trap::OutOfFuel, "연료를 다 썼다");
+                }
+                const f64 nd = dist[cur.node] + w;
+                if (done[to] == 0 && nd < dist[to]) {
+                    dist[to] = nd;
+                    pred[to] = cur.node;
+                    const f64 h = heuristic(to);
+                    open.push_back({nd + h, h, to});
+                    std::push_heap(open.begin(), open.end(), worse);
+                }
+            }
+        }
+        return true;
+    };
+    auto pathResult = [&](u32 start, u32 goal, const std::vector<f64>& dist, const std::vector<u32>& pred) {
+        if (dist[goal] == kInf) {
+            return result(Value::null()); // 닿지 않는다 = undefined
+        }
+        std::vector<u32> path;
+        for (u32 v = goal; v != kNone; v = pred[v]) {
+            path.push_back(v);
+            if (v == start) {
+                break;
+            }
+        }
+        std::reverse(path.begin(), path.end());
+        return i32Array(path);
+    };
+
+    switch (id) {
+    case IntrinsicId::GraphAddEdge: {
+        u32 a = 0;
+        u32 b = 0;
+        if (!node(1, a) || !node(2, b)) {
+            return false;
+        }
+        const f64 w = args[3].asF64();
+        // 음수 · NaN · 무한 가중치는 넣지 않는다 (Dijkstra · A* 가 음수 간선을 만나지 않게 — ADR-0085 10)
+        if (!(w >= 0.0) || w == kInf) {
+            return result(Value::boolean(false));
+        }
+        const usize add = g().directed || a == b ? 1 : 2;
+        if (g().edges + add > kMaxGraphEdges) {
+            return fail(Trap::OutOfMemory, std::format("간선 상한 {} 을 넘는다", kMaxGraphEdges));
+        }
+        if (m_heapBytes + add * 16 > m_limits.maxHeapBytes) {
+            return fail(Trap::OutOfMemory, "아레나 예산을 넘는다");
+        }
+        m_heapBytes += add * 16;
+        g().adj[a].emplace_back(b, w);
+        if (add == 2) {
+            g().adj[b].emplace_back(a, w);
+        }
+        g().edges += add;
+        return result(Value::boolean(true));
+    }
+    case IntrinsicId::GraphNeighbors: {
+        u32 a = 0;
+        if (!node(1, a)) {
+            return false;
+        }
+        std::vector<u32> out;
+        for (const auto& [to, w] : g().adj[a]) {
+            out.push_back(to);
+        }
+        if (!spend(out.size())) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        return i32Array(out);
+    }
+    case IntrinsicId::GraphBfs:
+    case IntrinsicId::GraphDfs: {
+        u32 start = 0;
+        if (!node(1, start)) {
+            return false;
+        }
+        // 이웃은 넣은 차례 — BFS 는 큐, DFS 는 재귀 앞 순서와 같게 이웃을 거꾸로 스택에 (꺼낼 때 방문 표시)
+        std::vector<u8> seen(n, 0);
+        std::vector<u32> order;
+        std::vector<u32> work{start};
+        usize head = 0;
+        if (id == IntrinsicId::GraphBfs) {
+            seen[start] = 1;
+        }
+        while (id == IntrinsicId::GraphBfs ? head < work.size() : !work.empty()) {
+            if (!spend(1)) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            u32 v = 0;
+            if (id == IntrinsicId::GraphBfs) {
+                v = work[head++];
+            } else {
+                v = work.back();
+                work.pop_back();
+                if (seen[v] != 0) {
+                    continue;
+                }
+                seen[v] = 1;
+            }
+            order.push_back(v);
+            const auto& adj = g().adj[v];
+            if (!spend(adj.size())) {
+                return fail(Trap::OutOfFuel, "연료를 다 썼다");
+            }
+            if (id == IntrinsicId::GraphBfs) {
+                for (const auto& [to, w] : adj) {
+                    if (seen[to] == 0) {
+                        seen[to] = 1;
+                        work.push_back(to);
+                    }
+                }
+            } else {
+                for (auto it = adj.rbegin(); it != adj.rend(); ++it) {
+                    if (seen[it->first] == 0) {
+                        work.push_back(it->first);
+                    }
+                }
+            }
+        }
+        return i32Array(order);
+    }
+    case IntrinsicId::GraphDijkstra: {
+        u32 start = 0;
+        if (!node(1, start)) {
+            return false;
+        }
+        std::vector<f64> dist;
+        std::vector<u32> pred;
+        if (!shortest(start, kNone, nullptr, nullptr, dist, pred)) {
+            return false;
+        }
+        std::vector<Value> slots;
+        slots.reserve(n);
+        for (const f64 d : dist) {
+            slots.push_back(Value::f64v(d));
+        }
+        Value out;
+        if (!newArray(std::move(slots), out)) {
+            return fail(Trap::OutOfMemory, "배열 길이 · 아레나 예산을 넘는다");
+        }
+        return result(out);
+    }
+    case IntrinsicId::GraphPathTo:
+    case IntrinsicId::GraphAstar: {
+        u32 start = 0;
+        u32 goal = 0;
+        if (!node(1, start) || !node(2, goal)) {
+            return false;
+        }
+        std::vector<f64> xs;
+        std::vector<f64> ys;
+        if (id == IntrinsicId::GraphAstar) {
+            // 노드 자리 (휴리스틱 = 유클리드 — 간선 가중치가 거리 이상이어야 최단이 보장된다)
+            const Object* ox = object(args[3]);
+            const Object* oy = object(args[4]);
+            if (ox == nullptr || oy == nullptr) {
+                return fail(Trap::NullReference, "null 의 자리 배열");
+            }
+            if (ox->slots.size() < n || oy->slots.size() < n) {
+                return fail(Trap::IndexOutOfRange, std::format("자리 배열 길이가 노드 {} 개보다 짧다", n));
+            }
+            for (usize i = 0; i < n; ++i) {
+                xs.push_back(ox->slots[i].asF64());
+                ys.push_back(oy->slots[i].asF64());
+            }
+        }
+        std::vector<f64> dist;
+        std::vector<u32> pred;
+        const bool astar = id == IntrinsicId::GraphAstar;
+        if (!shortest(start, goal, astar ? &xs : nullptr, astar ? &ys : nullptr, dist, pred)) {
+            return false;
+        }
+        return pathResult(start, goal, dist, pred);
+    }
+    case IntrinsicId::GraphTopoSort: {
+        // Kahn — 들어오는 간선이 없는 노드 중 작은 번호 먼저 (최소 힙). 순환이 있으면 null (undefined)
+        std::vector<u32> indeg(n, 0);
+        for (usize v = 0; v < n; ++v) {
+            for (const auto& [to, w] : g().adj[v]) {
+                ++indeg[to];
+            }
+        }
+        if (!spend(n + g().edges)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        std::vector<u32> ready;
+        for (u32 v = 0; v < n; ++v) {
+            if (indeg[v] == 0) {
+                ready.push_back(v);
+            }
+        }
+        std::make_heap(ready.begin(), ready.end(), std::greater<>());
+        std::vector<u32> order;
+        while (!ready.empty()) {
+            std::pop_heap(ready.begin(), ready.end(), std::greater<>());
+            const u32 v = ready.back();
+            ready.pop_back();
+            order.push_back(v);
+            for (const auto& [to, w] : g().adj[v]) {
+                if (--indeg[to] == 0) {
+                    ready.push_back(to);
+                    std::push_heap(ready.begin(), ready.end(), std::greater<>());
+                }
+            }
+        }
+        if (order.size() != n) {
+            return result(Value::null());
+        }
+        return i32Array(order);
+    }
+    case IntrinsicId::GraphComponents: {
+        // 연결 성분 (방향 그래프는 방향을 무시 — 약한 연결). 번호 = 가장 작은 노드가 처음 나온 차례
+        std::vector<u32> parent(n);
+        for (u32 v = 0; v < n; ++v) {
+            parent[v] = v;
+        }
+        auto findRoot = [&](u32 v) {
+            while (parent[v] != v) {
+                parent[v] = parent[parent[v]];
+                v = parent[v];
+            }
+            return v;
+        };
+        if (!spend(n + g().edges)) {
+            return fail(Trap::OutOfFuel, "연료를 다 썼다");
+        }
+        for (u32 v = 0; v < n; ++v) {
+            for (const auto& [to, w] : g().adj[v]) {
+                const u32 a = findRoot(v);
+                const u32 b = findRoot(to);
+                if (a != b) {
+                    parent[std::max(a, b)] = std::min(a, b);
+                }
+            }
+        }
+        std::vector<u32> ids(n);
+        std::vector<u32> label(n, kNone);
+        u32 next = 0;
+        for (u32 v = 0; v < n; ++v) {
+            const u32 r = findRoot(v);
+            if (label[r] == kNone) {
+                label[r] = next++;
+            }
+            ids[v] = label[r];
+        }
+        return i32Array(ids);
     }
     default:
         break;

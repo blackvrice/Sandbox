@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2 — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2, M8-T7 ✅ Graph — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -882,16 +882,17 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 
 ### 25.6 그래프 ("sandbox")
 
-스크립트 안의 그래프다. 월드 경로 탐색 (core/path) 과는 따로다.
+스크립트 안의 그래프다. 월드 경로 탐색 (core/path) 과는 따로다. 바이트코드는 컬렉션 Coll 의 종류 Graph (원소 칸 = i32).
 
-| 기능                                                                                              | 상태  | 비고                                                                              |
-|---------------------------------------------------------------------------------------------------|-------|-----------------------------------------------------------------------------------|
-| new Graph(n, directed) · addEdge(a, b, w = 1) → boolean · neighbors(a) · size                     | M8-T7 | 음수 · NaN · 무한 가중치 = false (넣지 않음), 없는 노드 트랩. 이웃 = 넣은 차례     |
-| bfs(start) · dfs(start) → 방문 순서                                                               | M8-T7 | 이웃 차례                                                                         |
-| dijkstra(start) → 거리 배열 (닿지 않음 = Infinity) · pathTo(start, goal) → 노드 배열 \| undefined | M8-T7 | 같은 거리 = 작은 노드 번호                                                        |
-| astar(start, goal, xs, ys) (노드 자리 → 유클리드 휴리스틱)                                        | M8-T7 | 같은 f = 작은 h, 그다음 작은 노드 번호                                             |
-| topoSort() → 배열 \| undefined (순환) · components() → 노드마다 성분 번호                         | M8-T7 | Kahn (작은 번호 먼저) · 무방향 연결 성분                                           |
-| 연료 · 상한                                                                                       | M8-T7 | 방문 · 간선 · 큐 연산마다 1, 노드 ≤ 65,536 · 간선 ≤ 1,048,576 (아레나 바이트도)     |
+| 기능                                                                                              | 상태     | 비고                                                                                                     |
+|---------------------------------------------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------|
+| new Graph(n, directed) · addEdge(a, b, w = 1) → boolean · neighbors(a) · size                     | M8-T7 ✅ | 음수 · NaN · 무한 가중치 = false (넣지 않음), 없는 노드 트랩 IndexOutOfRange. 이웃 = 넣은 차례 (무방향은 양쪽에) |
+| bfs(start) · dfs(start) → 방문 순서                                                               | M8-T7 ✅ | 이웃 차례 — dfs 는 재귀 앞 순서와 같다 (스택에 이웃을 거꾸로, 꺼낼 때 방문)                                 |
+| dijkstra(start) → 거리 배열 (닿지 않음 = Infinity) · pathTo(start, goal) → 노드 배열 \| undefined | M8-T7 ✅ | (거리, 노드) 가 작은 것부터 꺼낸다, 처음으로 짧아진 간선을 지킨다 (같은 거리는 바꾸지 않는다)              |
+| astar(start, goal, xs, ys) (노드 자리 → 유클리드 휴리스틱)                                        | M8-T7 ✅ | (f, h, 노드) 가 작은 것부터. 자리 배열이 노드 수보다 짧으면 트랩. 최단은 간선 가중치 ≥ 유클리드 거리일 때    |
+| topoSort() → 배열 \| undefined (순환) · components() → 노드마다 성분 번호                         | M8-T7 ✅ | Kahn (작은 번호 먼저), 성분은 약한 연결 (방향 무시) — 번호 = 가장 작은 노드가 처음 나온 차례                  |
+| 연료 · 상한                                                                                       | M8-T7 ✅ | 방문 · 간선 · 큐 연산마다 1 (일의 양에 비례), 노드 ≤ 65,536 · 간선 칸 ≤ 1,048,576, 아레나 = 노드 24 · 간선 16 바이트 |
+| 가중치 바꾸기 · 간선 지우기 · 사용자 휴리스틱 콜백                                                   | [계획]   | 필요가 보이면 (콜백 휴리스틱은 함수 참조로 된다 — 연료 규칙 그대로)                                         |
 
 ### 25.7 엔진 API (Host 표 — 서버만)
 

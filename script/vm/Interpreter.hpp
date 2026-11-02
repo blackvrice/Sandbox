@@ -142,6 +142,10 @@ private:
         usize cap = 0;
         usize bits = 0;
         u8 sub = 0;
+        // Graph (v0.5 M8-T7) — count = 노드 수, adj = 노드마다 (끝, 가중치) 넣은 차례, edges = 칸 수 (무방향은 둘)
+        std::vector<std::vector<std::pair<u32, f64>>> adj;
+        usize edges = 0;
+        bool directed = false;
     };
     struct Object {
         enum class Kind : u8 { String, Array, Struct, Box, Map, Set, Coll } kind = Kind::String;
@@ -174,6 +178,7 @@ private:
     bool collectionIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap,
                              std::string& msg);
     bool seqIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
+    bool graphIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
     // 수학 · vec2 (v0.5 M8-T6 — 받는 쪽이 없다)
     bool valueIntrinsic(const bc::Insn& in, const bc::Function& fn, Value* R, u64& fuel, Trap& trap, std::string& msg);
     [[nodiscard]] u64 keyHash(bc::TypeKind kind, Value v) const;

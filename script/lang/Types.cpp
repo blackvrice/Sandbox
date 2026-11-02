@@ -290,8 +290,8 @@ std::string TypeTable::name(TypeId t) const {
     case TypeKind::Set:
         return "Set<" + name(i.elem) + ">";
     case TypeKind::Coll: {
-        static constexpr const char* kNames[] = {"?",       "Stack",   "Queue", "Deque", "PriorityQueue",
-                                                 "MinHeap", "MaxHeap", "BitSet"};
+        static constexpr const char* kNames[] = {"?",       "Stack",   "Queue",  "Deque", "PriorityQueue",
+                                                 "MinHeap", "MaxHeap", "BitSet", "Graph"};
         const std::string base = i.index < std::size(kNames) ? kNames[i.index] : "?";
         return i.index >= 5 ? base : base + "<" + name(i.elem) + ">";
     }

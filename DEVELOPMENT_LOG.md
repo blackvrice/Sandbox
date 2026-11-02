@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T7: Graph — BFS · DFS · Dijkstra · A* · 위상 정렬 · 연결 성분
+
+**무엇을**
+
+- 컬렉션 종류 Graph (Coll — 원소 칸 i32), 내장 10 (Graph.new · addEdge · neighbors · bfs · dfs · dijkstra · pathTo · astar ·
+  topoSort · components). 내장 표의 인자 칸 4 → 6 (astar 다섯), collMask 를 u16 으로 (종류 8).
+- VM: 노드마다 (끝, 가중치) 넣은 차례. 음수 · NaN · 무한 가중치는 넣지 않는다 (false). 최단 경로는 지연 삭제 힙 —
+  (점수, h, 노드) 가 작은 것부터, 처음으로 짧아진 간선을 지킨다. DFS 는 재귀 앞 순서, Kahn 은 작은 번호 먼저, 성분은
+  union-find (작은 뿌리). 연료 = 방문 · 간선 · 큐 연산마다 1, 상한 노드 65,536 · 간선 칸 1,048,576.
+- 언어: "sandbox" 의 Graph (값 · 타입), 메서드 · size, addEdge 의 가중치 기본 1, pathTo · astar · topoSort = i32[] | undefined.
+  d.ts class.
+
+**왜**
+
+- ADR-0085 10 · 19 25.6 — 보드게임 AI (BFS · 최소 수), 퍼즐 · 기술 트리 (위상 정렬), 지도 위 경로 (A*).
+
+**검증**
+
+- test_stdlib_graph 5 케이스 — 기대값은 같은 프로그램을 tsc 5.6 --strict 로 옮겨 node:22 에서 같은 동점 규칙의 JS 구현
+  (선택 정렬 · 재귀 DFS) 으로 돌린 값과 모두 같다. unit_script 154 케이스. Windows MSVC Debug 전체 ctest 73 / 73 통과 (골든 · 리플레이 그대로).
+
+**남은 일**
+
+- M8-T8 엔진 API (nearest · kNearest · inBox · 비동기 경로 요청).
+
+---
+
 ## 2026-11-02 — v0.5 M8-T6: 알고리즘 · 수학 · vec2
 
 **무엇을**

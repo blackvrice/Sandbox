@@ -57,12 +57,13 @@ enum class IntrinsicPat : u8 {
     ArrayKey,       // i32 · f64 · bool · string 원소의 배열 (Set 의 키와 같은 같음)
     F64Array,       // 결과: f64 배열
     Vec2,           // 구조체 { x: f64, y: f64 } (필드 이름 순 — x · y)
+    I32Array,       // i32 배열 (Graph 의 결과 — 없음 = null 인 참조)
 };
 
 struct Intrinsic {
     std::string_view name; // 받는 쪽 · 메서드 ("Array.pop") — 진단 · 역어셈블
     u8 argc;
-    IntrinsicPat params[4];
+    IntrinsicPat params[6];
     IntrinsicPat result;
     u8 fuelBase; // 명령 하나의 1 위에 더 낸다. 원소 · 비교마다의 연료는 VM 이 실행하며 더한다 (19 25장)
 };
@@ -177,10 +178,20 @@ enum class IntrinsicId : u16 {
     V2Angle,
     V2Rotate,
     V2Reflect,
+    GraphNew, // v0.5 M8-T7 — Graph (컬렉션 Coll 의 종류 Graph, 받는 쪽 = 그래프)
+    GraphAddEdge,
+    GraphNeighbors,
+    GraphBfs,
+    GraphDfs,
+    GraphDijkstra,
+    GraphPathTo,
+    GraphAstar,
+    GraphTopoSort,
+    GraphComponents,
 };
 
 // "sandbox" 컬렉션의 종류 (bc::TypeDesc::sub — 순서는 .sbc 에 남는다, 더하기만)
-enum class CollKind : u8 { Stack = 1, Queue, Deque, PriorityQueue, MinHeap, MaxHeap, BitSet };
+enum class CollKind : u8 { Stack = 1, Queue, Deque, PriorityQueue, MinHeap, MaxHeap, BitSet, Graph };
 
 namespace detail {
 using P = IntrinsicPat;
@@ -296,25 +307,50 @@ inline constexpr Intrinsic kIntrinsics[] = {
     {"vec2.angle", 1, {detail::P::Vec2}, detail::P::F64, 1},
     {"vec2.rotate", 2, {detail::P::Vec2, detail::P::F64}, detail::P::Vec2, 1},
     {"vec2.reflect", 2, {detail::P::Vec2, detail::P::Vec2}, detail::P::Vec2, 1},
+    {"Graph.new", 2, {detail::P::I32, detail::P::Bool}, detail::P::NewColl, 2},
+    {"Graph.addEdge", 4, {detail::P::Coll, detail::P::I32, detail::P::I32, detail::P::F64}, detail::P::Bool, 1},
+    {"Graph.neighbors", 2, {detail::P::Coll, detail::P::I32}, detail::P::I32Array, 2},
+    {"Graph.bfs", 2, {detail::P::Coll, detail::P::I32}, detail::P::I32Array, 2},
+    {"Graph.dfs", 2, {detail::P::Coll, detail::P::I32}, detail::P::I32Array, 2},
+    {"Graph.dijkstra", 2, {detail::P::Coll, detail::P::I32}, detail::P::F64Array, 2},
+    {"Graph.pathTo", 3, {detail::P::Coll, detail::P::I32, detail::P::I32}, detail::P::I32Array, 2},
+    {"Graph.astar",
+     5,
+     {detail::P::Coll, detail::P::I32, detail::P::I32, detail::P::F64Array, detail::P::F64Array},
+     detail::P::I32Array,
+     2},
+    {"Graph.topoSort", 1, {detail::P::Coll}, detail::P::I32Array, 2},
+    {"Graph.components", 1, {detail::P::Coll}, detail::P::I32Array, 2},
 };
 
 // 컬렉션 내장의 받는 쪽으로 허락된 종류 (비트 1 << CollKind) — 검증기가 본다. 0 = 컬렉션 내장이 아니다
-[[nodiscard]] constexpr u8 collMask(IntrinsicId id) noexcept {
-    constexpr auto bit = [](CollKind k) { return static_cast<u8>(1u << static_cast<u8>(k)); };
+[[nodiscard]] constexpr u16 collMask(IntrinsicId id) noexcept {
+    constexpr auto bit = [](CollKind k) { return static_cast<u16>(1u << static_cast<u8>(k)); };
     switch (id) {
     case IntrinsicId::CollSize:
+        return 0x1FE; // 모든 종류 (Graph = 노드 수)
     case IntrinsicId::CollClear:
-        return 0xFE; // 모든 종류
+        return 0xFE; // Graph 는 비우지 않는다 (노드 수가 정해져 있다)
+    case IntrinsicId::GraphAddEdge:
+    case IntrinsicId::GraphNeighbors:
+    case IntrinsicId::GraphBfs:
+    case IntrinsicId::GraphDfs:
+    case IntrinsicId::GraphDijkstra:
+    case IntrinsicId::GraphPathTo:
+    case IntrinsicId::GraphAstar:
+    case IntrinsicId::GraphTopoSort:
+    case IntrinsicId::GraphComponents:
+        return bit(CollKind::Graph);
     case IntrinsicId::SeqPushBack:
-        return static_cast<u8>(bit(CollKind::Stack) | bit(CollKind::Queue) | bit(CollKind::Deque));
+        return static_cast<u16>(bit(CollKind::Stack) | bit(CollKind::Queue) | bit(CollKind::Deque));
     case IntrinsicId::SeqPushFront:
         return bit(CollKind::Deque);
     case IntrinsicId::SeqPopBack:
     case IntrinsicId::SeqPeekBack:
-        return static_cast<u8>(bit(CollKind::Stack) | bit(CollKind::Deque));
+        return static_cast<u16>(bit(CollKind::Stack) | bit(CollKind::Deque));
     case IntrinsicId::SeqPopFront:
     case IntrinsicId::SeqPeekFront:
-        return static_cast<u8>(bit(CollKind::Queue) | bit(CollKind::Deque));
+        return static_cast<u16>(bit(CollKind::Queue) | bit(CollKind::Deque));
     case IntrinsicId::PqPush:
     case IntrinsicId::PqPop:
     case IntrinsicId::PqPeek:
@@ -323,7 +359,7 @@ inline constexpr Intrinsic kIntrinsics[] = {
     case IntrinsicId::HeapInsert:
     case IntrinsicId::HeapExtract:
     case IntrinsicId::HeapPeek:
-        return static_cast<u8>(bit(CollKind::MinHeap) | bit(CollKind::MaxHeap));
+        return static_cast<u16>(bit(CollKind::MinHeap) | bit(CollKind::MaxHeap));
     case IntrinsicId::BitSetSet:
     case IntrinsicId::BitSetClear:
     case IntrinsicId::BitSetTest:
@@ -345,7 +381,11 @@ inline constexpr Intrinsic kIntrinsics[] = {
 }
 // 값 내장인가 (수학 · vec2 — 받는 쪽이 없다, v0.5 M8-T6)
 [[nodiscard]] constexpr bool isValueIntrinsic(u16 id) noexcept {
-    return id >= static_cast<u16>(IntrinsicId::MathClamp);
+    return id >= static_cast<u16>(IntrinsicId::MathClamp) && id <= static_cast<u16>(IntrinsicId::V2Reflect);
+}
+// Graph 내장인가 (v0.5 M8-T7)
+[[nodiscard]] constexpr bool isGraphIntrinsic(u16 id) noexcept {
+    return id >= static_cast<u16>(IntrinsicId::GraphNew);
 }
 
 [[nodiscard]] constexpr const Intrinsic& intrinsic(IntrinsicId id) noexcept {

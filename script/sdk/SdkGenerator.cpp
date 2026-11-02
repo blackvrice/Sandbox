@@ -100,6 +100,22 @@ std::string generateSandboxDts() {
     out +=
         "    constructor(size: i32);\n    set(i: i32): void;\n    clear(i: i32): void;\n    test(i: i32): boolean;\n";
     out += "    count(): i32;\n    readonly size: number;\n  }\n";
+    out += "  /** 그래프 — 노드 0 … n-1, 이웃은 넣은 차례 (v0.5 M8-T7 — 19 25.6). 월드 길찾기와 따로 */\n";
+    out += "  export class Graph {\n";
+    out += "    constructor(nodes: i32, directed: boolean);\n";
+    out += "    /** 간선 (무방향이면 양쪽). 음수 · NaN · 무한 가중치는 넣지 않는다 (false) */\n";
+    out += "    addEdge(a: i32, b: i32, weight?: number): boolean;\n";
+    out += "    neighbors(a: i32): i32[];\n";
+    out += "    /** 너비 우선 방문 차례 */\n    bfs(start: i32): i32[];\n";
+    out += "    /** 깊이 우선 방문 차례 (재귀 앞 순서와 같다) */\n    dfs(start: i32): i32[];\n";
+    out += "    /** 최단 거리 (닿지 않으면 Infinity) */\n    dijkstra(start: i32): number[];\n";
+    out += "    /** 최단 경로 (같은 거리 = 작은 노드 번호), 없으면 undefined */\n";
+    out += "    pathTo(start: i32, goal: i32): i32[] | undefined;\n";
+    out += "    /** A* — 노드 자리 (xs · ys) 의 유클리드 휴리스틱 */\n";
+    out += "    astar(start: i32, goal: i32, xs: number[], ys: number[]): i32[] | undefined;\n";
+    out += "    /** 위상 정렬 (Kahn — 작은 번호 먼저), 순환이면 undefined */\n    topoSort(): i32[] | undefined;\n";
+    out += "    /** 노드마다 연결 성분 번호 (방향은 무시) */\n    components(): i32[];\n";
+    out += "    readonly size: number;\n  }\n";
     // 알고리즘 · 수학 · vec2 (v0.5 M8-T6 — 19 25.5)
     out += "  /** 수 배열을 오름차순으로 (안정 — -0 < +0, NaN 은 끝). 같은 배열을 돌려준다 */\n";
     out += "  export function sortNumbers(xs: number[]): number[];\n";

@@ -588,17 +588,15 @@ private:
         case NodeKind::New: {
             // new Map · new Set · new Set(xs) (v0.5 M8-T4)
             const auto id = static_cast<IntrinsicId>(sema(n).refIndex);
-            const u16 dst = temp(tid(typeOf(n)));
-            if (id == IntrinsicId::SetFromArray || id == IntrinsicId::BitSetNew) {
-                const NodeId arg = ast().kid(n, static_cast<u32>(ast().node(n).number));
-                const TypeId at = typeOf(arg); // 검사기가 Set 의 키 배열과 같은 배치임을 봤다
-                const u32 one[] = {tid(at)};
-                const u16 base = block(one);
-                emit(Op::MOV, base, gen(arg));
-                emit(Op::INTR, dst, base, static_cast<u16>(id));
-            } else {
-                emit(Op::INTR, dst, 0, static_cast<u16>(id));
+            if (id == IntrinsicId::SetFromArray || id == IntrinsicId::BitSetNew || id == IntrinsicId::GraphNew) {
+                // 인자가 있는 new — 내장 틀대로 (new Set(xs) · new BitSet(n) · new Graph(n, directed))
+                const auto all = ast().kids(n);
+                const std::vector<NodeId> args(all.begin() + static_cast<std::ptrdiff_t>(ast().node(n).number),
+                                               all.end());
+                return intrinsicArgs(args, id, typeOf(n));
             }
+            const u16 dst = temp(tid(typeOf(n)));
+            emit(Op::INTR, dst, 0, static_cast<u16>(id));
             return dst;
         }
         case NodeKind::Unary:
@@ -1284,6 +1282,8 @@ private:
             case IntrinsicId::ArrayIndexOf:
             case IntrinsicId::ArrayIncludes:
                 return 0.0;
+            case IntrinsicId::GraphAddEdge:
+                return 1.0; // 가중치 기본 1
             default:
                 return kInf; // end · deleteCount · lastIndexOf 의 fromIndex
             }

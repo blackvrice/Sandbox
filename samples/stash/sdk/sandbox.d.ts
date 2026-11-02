@@ -80,6 +80,28 @@ declare module "sandbox" {
     count(): i32;
     readonly size: number;
   }
+  /** 그래프 — 노드 0 … n-1, 이웃은 넣은 차례 (v0.5 M8-T7 — 19 25.6). 월드 길찾기와 따로 */
+  export class Graph {
+    constructor(nodes: i32, directed: boolean);
+    /** 간선 (무방향이면 양쪽). 음수 · NaN · 무한 가중치는 넣지 않는다 (false) */
+    addEdge(a: i32, b: i32, weight?: number): boolean;
+    neighbors(a: i32): i32[];
+    /** 너비 우선 방문 차례 */
+    bfs(start: i32): i32[];
+    /** 깊이 우선 방문 차례 (재귀 앞 순서와 같다) */
+    dfs(start: i32): i32[];
+    /** 최단 거리 (닿지 않으면 Infinity) */
+    dijkstra(start: i32): number[];
+    /** 최단 경로 (같은 거리 = 작은 노드 번호), 없으면 undefined */
+    pathTo(start: i32, goal: i32): i32[] | undefined;
+    /** A* — 노드 자리 (xs · ys) 의 유클리드 휴리스틱 */
+    astar(start: i32, goal: i32, xs: number[], ys: number[]): i32[] | undefined;
+    /** 위상 정렬 (Kahn — 작은 번호 먼저), 순환이면 undefined */
+    topoSort(): i32[] | undefined;
+    /** 노드마다 연결 성분 번호 (방향은 무시) */
+    components(): i32[];
+    readonly size: number;
+  }
   /** 수 배열을 오름차순으로 (안정 — -0 < +0, NaN 은 끝). 같은 배열을 돌려준다 */
   export function sortNumbers(xs: number[]): number[];
   /** 오름차순 배열에서 x 의 자리 (없으면 -1) */
