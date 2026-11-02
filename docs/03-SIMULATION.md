@@ -494,6 +494,7 @@ RandomService::stream(Purpose, saveId) → CounterRng
 | 전역 RNG 상태 없음                                             | 세이브·리플레이가 RNG 상태를 저장할 필요가 없다 |
 | 키에 EntityId 대신 saveId                                      | 로드 후 EntityId가 달라져도 같은 수열           |
 | Purpose는 enum 상수 (`Wander`, `Spread`, `Behavior`, `Spawn`…) | 같은 엔티티의 다른 용도가 수열을 공유하지 않게  |
+| Purpose::Script (10, v0.5 M2-T4) 의 키 = fnv1a64(시스템 id) | 스크립트 ctx.random — 시스템마다 흐름, 한 틱의 호출들이 이어 쓴다 (ScriptHost) |
 | `std::rand`, `std::random_device`, `<random>` 분포 금지        | 분포 구현이 표준 라이브러리마다 다름            |
 | 정수→실수 변환은 엔진 함수 `toUnitFloat(u64)` 하나만           |                                                 |
 

@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 02fafbb0c03cb29b — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 10737afc6916fb38 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -219,6 +219,16 @@ declare module "sandbox" {
     add<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
     /** 스크립트 컴포넌트를 뗀다 (이 틱 끝에) — ctx.remove */
     remove<T>(entity: Entity, component: ComponentRef<T>): void;
+    /** 시뮬레이션 시간 (초 = tick / 30) — ctx.time */
+    readonly time: number;
+    /** 0 이상 1 미만 — 시스템마다 흐름 (같은 월드 · 같은 틱 = 같은 수열, 시스템 차례와 무관) — ctx.random */
+    random(): number;
+    /** lo 이상 hi 이하의 정수 (lo > hi 면 HostError) — 흐름은 ctx.random 과 같다 — ctx.randomInt */
+    randomInt(lo: i32, hi: i32): i32;
+    /** (x, y) 에서 반경 안의 개체 — 틱 처음 (단계 4) 의 위치, saveId 오름차순, 개체마다 연료 1, 1,024 개 · 반경 128 까지 — ctx.near */
+    near(x: number, y: number, radius: number): Entity[];
+    /** ctx.near 중 컴포넌트를 가진 개체 — ctx.nearWith */
+    nearWith<T>(x: number, y: number, radius: number, component: ComponentRef<T>): Entity[];
   }
 
   /** 클라이언트 콜백 (onUpdate) 의 ctx — 호출 안에서만 유효, 읽기 · 화면 표시만 */

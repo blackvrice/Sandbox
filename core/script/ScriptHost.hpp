@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/random/CounterRng.hpp"
 #include "core/simulation/ScriptStructural.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "script/vm/Interpreter.hpp"
@@ -125,6 +126,14 @@ public:
     vm::HostResult destroy(std::span<const vm::HostArg> args);
     vm::HostResult add(std::span<const vm::HostArg> args);
     vm::HostResult remove(std::span<const vm::HostArg> args);
+    // 시간 · 난수 · 반경 질의 (v0.5 M2-T4)
+    static constexpr usize kMaxNearEntities = 1024;
+    static constexpr f64 kMaxNearRadius = 128.0;
+    vm::HostResult time(std::span<const vm::HostArg> args);
+    vm::HostResult random(std::span<const vm::HostArg> args);
+    vm::HostResult randomInt(std::span<const vm::HostArg> args);
+    vm::HostResult near(std::span<const vm::HostArg> args, const ecs::ComponentInfo* with);
+    vm::HostResult nearWithArgs(std::span<const vm::HostArg> args);
 
 private:
     struct PendingWrite {
@@ -165,6 +174,10 @@ private:
     u32 m_destroysThisCall = 0;
     u32 m_addRemovesThisCall = 0;
     u64 m_droppedThisCall = 0; // 상한 · 잘못된 연산으로 버린 수 (commit 이면 월드 통계에)
+    // ctx.random 흐름 (v0.5 M2-T4) — 틱마다 (시스템 id 해시 → 흐름). 같은 시스템의 호출들이 한 틱에 이어 쓴다
+    std::map<u64, rnd::CounterRng> m_streams;
+    sim::Tick m_streamTick = 0;
+    [[nodiscard]] rnd::CounterRng* stream();
 };
 
 } // namespace sbx::script

@@ -65,6 +65,21 @@ vm::HostResult ctxAdd(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxRemove(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.remove(args);
 }
+vm::HostResult ctxTime(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.time(args);
+}
+vm::HostResult ctxRandom(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.random(args);
+}
+vm::HostResult ctxRandomInt(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.randomInt(args);
+}
+vm::HostResult ctxNear(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.near(args, nullptr);
+}
+vm::HostResult ctxNearWith(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.nearWithArgs(args);
+}
 
 // 표 (script/api/HostApi) 의 항목마다 하나 — 순서는 표와 같지 않아도 된다 (id 로 찾는다)
 constexpr HostBinding kBindings[] = {
@@ -94,6 +109,19 @@ constexpr HostBinding kBindings[] = {
      4,
      &ctxAdd},
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
+    {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
+    {"ctx.random", AbiType::Number, {AbiType::ServerContext}, 1, &ctxRandom},
+    {"ctx.randomInt", AbiType::I32, {AbiType::ServerContext, AbiType::I32, AbiType::I32}, 3, &ctxRandomInt},
+    {"ctx.near",
+     AbiType::EntityList,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number},
+     4,
+     &ctxNear},
+    {"ctx.nearWith",
+     AbiType::EntityList,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Component},
+     5,
+     &ctxNearWith},
 };
 
 template <class F>
@@ -659,6 +687,107 @@ vm::HostResult ScriptHost::remove(std::span<const vm::HostArg> args) {
     ++m_addRemovesThisCall;
     m_ops.ops.push_back(std::move(op));
     return {};
+}
+
+// ---- 시간 · 난수 · 반경 질의 (v0.5 M2-T4, ADR-0080 4 · 5)
+// -------------------------------------------------------------
+
+vm::HostResult ScriptHost::time(std::span<const vm::HostArg>) {
+    return {true, vm::Value::f64v(static_cast<f64>(m_tick) / static_cast<f64>(sim::kTickRate)), {}, {}, 0};
+}
+
+rnd::CounterRng* ScriptHost::stream() {
+    if (m_world == nullptr) {
+        return nullptr;
+    }
+    if (m_streamTick != m_tick) {
+        m_streams.clear(); // 틱마다 새 흐름 — 세이브할 상태가 없다
+        m_streamTick = m_tick;
+    }
+    // 키 = 시스템 id (beginCall 의 script — ScriptSystemAdapter 가 시스템 id 를 넘긴다). 시스템을 더하거나 빼도 다른
+    // 시스템의 수열은 그대로
+    const u64 key = fnv1a64(m_script);
+    auto it = m_streams.find(key);
+    if (it == m_streams.end()) {
+        it = m_streams.emplace(key, m_world->random().stream(rnd::Purpose::Script, key)).first;
+    }
+    return &it->second;
+}
+
+vm::HostResult ScriptHost::random(std::span<const vm::HostArg>) {
+    rnd::CounterRng* rng = stream();
+    if (rng == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    // 53 비트 → [0, 1) 의 f64 (정확히 나타낼 수 있는 값만)
+    const f64 x = static_cast<f64>(rng->nextU64() >> 11) * (1.0 / 9007199254740992.0);
+    return {true, vm::Value::f64v(x), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::randomInt(std::span<const vm::HostArg> args) {
+    const i32 lo = args[1].value.asI32();
+    const i32 hi = args[2].value.asI32();
+    if (lo > hi) {
+        return fail(std::format("randomInt({}, {}) — lo 가 hi 보다 크다", lo, hi));
+    }
+    rnd::CounterRng* rng = stream();
+    if (rng == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const u64 span = static_cast<u64>(static_cast<i64>(hi) - static_cast<i64>(lo)) + 1; // 1 ~ 2^32
+    const u64 offset = span > 0xFFFFFFFFull ? rng->nextU32() : rng->below(static_cast<u32>(span));
+    return {true, vm::Value::i32v(static_cast<i32>(static_cast<i64>(lo) + static_cast<i64>(offset))), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::nearWithArgs(std::span<const vm::HostArg> args) {
+    std::string error;
+    const ecs::ComponentInfo* info = componentOf(args[4].value, error);
+    if (info == nullptr) {
+        return fail(std::move(error));
+    }
+    return near(args, info);
+}
+
+vm::HostResult ScriptHost::near(std::span<const vm::HostArg> args, const ecs::ComponentInfo* with) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const f64 x = args[1].value.asF64();
+    const f64 y = args[2].value.asF64();
+    const f64 r = args[3].value.asF64();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(r) || r < 0 || r > kMaxNearRadius) {
+        return fail(std::format("near({}, {}, {}) — 유한한 위치 · 반경 0 ~ {}", x, y, r, kMaxNearRadius));
+    }
+    const ecs::ComponentPoolBase* pool = with != nullptr ? m_world->registry().poolByStableId(with->stableId) : nullptr;
+    if (with != nullptr && pool == nullptr) {
+        return {}; // 그 컴포넌트를 가진 개체가 없다
+    }
+    // 단계 4 의 공간 색인 — 틱 처음의 위치 (이 틱에 쓴 위치 · 만든 개체는 다음 틱부터). saveId 오름차순 (세이브 → 로드
+    // 뒤에도 같다 — query 와 같다)
+    std::vector<std::pair<SaveId, ecs::EntityId>> found;
+    bool tooMany = false;
+    m_world->spatial().forEachInRadius(
+        Vec2{static_cast<f32>(x), static_cast<f32>(y)}, static_cast<f32>(r), [&](const world::SpatialEntry& e) {
+            if (!m_world->registry().alive(e.entity) || (pool != nullptr && !pool->contains(e.entity))) {
+                return;
+            }
+            if (found.size() >= kMaxNearEntities) {
+                tooMany = true;
+                return;
+            }
+            found.emplace_back(e.saveId, e.entity);
+        });
+    if (tooMany) {
+        return fail(std::format("near 결과가 {} 개를 넘는다 — 반경을 줄인다", kMaxNearEntities));
+    }
+    std::ranges::sort(found);
+    vm::HostResult out;
+    out.values.reserve(found.size());
+    for (const auto& [id, e] : found) {
+        out.values.push_back(entityHandle(e));
+    }
+    out.extraFuel = found.size(); // 개체마다 연료 1 (질의와 같다)
+    return out;
 }
 
 } // namespace sbx::script

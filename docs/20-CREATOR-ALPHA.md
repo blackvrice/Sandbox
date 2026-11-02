@@ -173,6 +173,11 @@ M2-T3 ✅   19 16.2. 위와 다른 점 — ctx.spawn(prefab, x, y) (Vec2 ABI 를
 ctx.random(): number (0 ≤ x < 1) · ctx.randomInt(lo, hi): i32   // 시스템마다 흐름: seed = mix(worldSeed, 시스템 id 해시, tick) — 04 9장의 Pcg
 ctx.near(pos, radius, Comp?): Entity[]                          // 공간 색인 (05) — netId 오름차순, 개체마다 연료 1, 결과 상한 1,024
 ctx.time: number (초 = tick / 30)
+M2-T4 ✅   19 16.3. 위와 다른 점 — 흐름 = RandomService.stream(Purpose::Script, fnv1a64(시스템 id)) (엔진의 CounterRng —
+           seed = mix(worldSeed, tick, 목적, 키)), 같은 시스템이 한 틱에 여러 번 불리면 (onTick · onEvent) 흐름을 이어 쓴다.
+           randomInt 는 양 끝 포함. near 는 ctx.near(x, y, r) · ctx.nearWith(x, y, r, Comp) (Vec2 ABI 없이 — 3.2 와 같은 이유),
+           순서는 netId 가 아니라 saveId 오름차순 (세이브 → 로드 뒤에도 같다 — ctx.query 와 같다), 반경 128 까지, 1,024 를 넘으면
+           HostError (query 와 같다), 위치는 단계 4 색인 (틱 처음)
 ```
 
 ### 3.4 플레이어 · 세션 (server)
@@ -370,7 +375,7 @@ M5 리플레이 뷰어 (M1-T1 뒤 — 기록을 보고 묶음에) ────�
 | M2-T1 ✅ | 엔진 컴포넌트 접근 표 · 읽기 (server · client) · d.ts | script/api/EngineComponents (표 — 검사기 · d.ts · 지문), core/script/EngineComponentAccess (바인딩 · 표 = 카탈로그 검사), script/lang (검사기 · 코드 생성), script/vm (검증기), script/sdk | EngineComponentAccess, kEngineComponents, appendEngineFieldValues, checkEngineAccessTable | — | test_engine_components (표 = 카탈로그, 검사기, 서버 · 클라이언트 읽기 = 엔진 값, d.ts · 지문), 보호 시험 (표에 없는 엔진 id) | 스크립트가 Transform · Health 를 읽는다 |
 | M2-T2 ✅ | 엔진 컴포넌트 쓰기 규칙 | script/api/EngineComponents (쓰기 · 필드 규칙), core/script/EngineComponentAccess (applyEngineFieldValues — patchJson · clampPoint), core/script/ScriptHost (write — 권한 먼저 · 버퍼), 검사기 · d.ts | EngineWrite · EngineFieldRule | M2-T1 | 경계 자름 · 범위 · NaN · 엔진 관리 거절 · 트랩이면 앞 쓰기도 버림 · read-your-writes · 체력 0 → 죽음 · 두 월드 같은 해시 (test_engine_components) | 접근 표가 허락한 것만 쓴다 |
 | M2-T3 ✅ | spawn · destroy · add · remove · 상한 | script/api (Host 표 · ABI EntityOrNull), script/vm · lang (상자 결과 · 검증), core/script/ScriptHost (호출 버퍼 · 새 개체 핸들 · 상한), core/simulation (ScriptStructural 큐 · 16b · 17d 끝 적용) | ScriptStructuralOp · ScriptStructuralBatch · ScriptStructuralStats | M2-T2 | 이 호출의 새 개체 = 핸들만, 상한 64 · 1,024, 없는 Prefab · 경계 밖 · NaN, 이미 없는 대상 · 이미 붙은 것, 트랩이면 버림, saveId = 부른 차례, 틱 안의 시스템 · 같은 WorldHash (test_script_structural) | 스크립트가 개체를 만들고 지운다 — 골든 그대로 |
-| M2-T4 | random · near · time | core/script, foundation/random (흐름 seed) | — | M2-T1 | 같은 seed = 같은 수열, 시스템마다 다른 흐름, near = 공간 색인 결과 | — |
+| M2-T4 ✅ | random · near · time | core/random (Purpose::Script), core/script/ScriptHost (흐름 · near), script/api (Host 표) | — | M2-T1 | 같은 월드 · 틱 · 시스템 = 같은 수열 · 다른 시스템과 무관 · 이어 씀 · 틱마다 다름, randomInt 범위, near = 색인 · saveId 순 · 거르기 · 연료, 틱 안의 시스템 = 같은 해시 (test_script_random) | — |
 | M2-T5 | 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) | core/game (owner), core/content (signals.json · V 규칙), core/command (PlayerSignal), network (15), core/simulation | PlayerSignal, ScriptEvent action · signal | M2-T3 | 위조 신호 거절 · 속도, 이벤트 순서, 골든 영향 측정 (3.6), net 수렴 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
 | M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent | M2-T5 | 입력 → send → 서버 이벤트 (로컬 세션), 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
 

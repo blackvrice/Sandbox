@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T4: ctx.time · random · randomInt · near · nearWith
+
+**무엇을**
+
+- Host 표 +5 (서버): ctx.time (속성 — tick / 30) · random () · randomInt (lo, hi — 양 끝 포함) · near (x, y, r) · nearWith (x, y, r,
+  Comp). ABI 는 그대로 (Vec2 없이 x, y).
+- 난수 흐름: RandomService 에 Purpose::Script (= 10, 뒤에 더함), 키 = fnv1a64(시스템 id). ScriptHost 가 틱마다 (키 → CounterRng) 를
+  두고 같은 시스템의 호출들이 이어 쓴다 — 시스템을 더하거나 빼도 다른 시스템의 수열은 그대로, 세이브할 상태 없음.
+  SimulationWorld::random() 접근자.
+- near: 단계 4 공간 색인 (forEachInRadius) → saveId 오름차순, nearWith 는 풀 소속으로 거름, 반경 0 ~ 128 · 1,024 개 상한
+  (HostError), 연료 개체마다 1.
+- 지문 → 0x10737afc6916fb38 (kHostApiVersion 1 그대로), sandbox.d.ts 셋 다시 만듦.
+- 시험: test_script_random 6. 문서: 19 16.3, 20 (3.3 · M2-T4), 03 9장 (Purpose 표), 04 6장, 18, 13.
+
+**왜**
+
+- 20 3.3 · ADR-0080 4 · 5. 20 과 다른 점: near 의 순서를 netId 가 아니라 saveId 로 (세이브 → 로드 뒤에도 같게 — query 와 같다),
+  위치는 (x, y).
+
+**검증**
+
+- 스크립트 suite 117 케이스, SandboxTests 670 케이스, check_includes 0 위반. kSimVersion 그대로 — 스크립트 없는 골든 그대로.
+- Windows MSVC Debug 전체 ctest 72/73 — net_server_probe_smoke 가 한 번 서버 충돌 (access violation). 충돌 보고 (M1) 의 콜스택:
+  ServerHost::simStep → ReplicationWriter::build → collect → vector<Current>::push_back (ReplicationWriter.cpp:256) — 스크립트가
+  없는 random_walk_1k (이번 변경의 길이 아니다). 같은 시험 20 번 되풀이는 모두 통과 — 간헐적. 복제 쪽의 경쟁 · 힙 손상이 의심되어
+  따로 조사한다 (남은 일).
+
+**남은 일**
+
+- M2-T5 플레이어 · 세션 · game.owner · action · signal (프로토콜 15 — 골든 영향 측정).
+- 간헐적 서버 충돌 (ReplicationWriter::collect — 위) 조사.
+
+---
+
 ## 2026-11-02 — v0.5 M2-T3: 스크립트의 구조 변경 — spawn · destroy · add · remove · 상한
 
 **무엇을**

@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T4 — ctx.random · randomInt (시스템마다 흐름) · ctx.near (공간 색인) · ctx.time (ADR-0080 4 · 5)
+다음     v0.5 M2-T5 — 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) — 골든 영향 측정
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -488,7 +488,8 @@ M2 게임플레이 API
         자름, 쓰기 버퍼 → 호출 끝, 엔진 관리 거절) (19 16.1)
   T3 ✅ ctx.spawn · destroy · add · remove (호출 버퍼 → 월드 큐 → 16b · 17d 끝, 상한 64 · 256 · 1,024 — 버리고 셈, ABI
         EntityOrNull) (19 16.2)
-  T4 [계획] random (시스템마다 흐름) · near · time
+  T4 ✅ ctx.random · randomInt (Purpose::Script — 시스템 id 마다 흐름, 한 틱 이어 씀) · ctx.near · nearWith (단계 4 색인 ·
+        saveId 순) · ctx.time (19 16.3)
   T5 [계획] 플레이어 · 세션 · game.owner · 이벤트 action · signal (signals.json · 프로토콜 15) — 골든 영향 측정
   T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14)
 M3 게임 UI

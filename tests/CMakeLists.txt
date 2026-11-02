@@ -28,6 +28,7 @@ add_executable(SandboxTests
     unit/script/test_component_host.cpp
     unit/script/test_engine_components.cpp
     unit/script/test_script_structural.cpp
+    unit/script/test_script_random.cpp
     unit/script/test_script_systems.cpp
     unit/script/test_script_callbacks.cpp
     unit/script/test_script_budget.cpp

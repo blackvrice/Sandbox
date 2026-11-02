@@ -539,6 +539,20 @@ add        스크립트 컴포넌트만 — 기본값 칸 위에 T 를 쓴다 (w
            — spawned · destroyed · added · removed · dropped, 세이브 · 해시 밖)
 ```
 
+### 16.3 시간 · 난수 · 반경 질의 (v0.5 M2-T4 — Host 표 · `core/script/ScriptHost`, ADR-0080 4 · 5)
+
+```text
+ctx.time          초 = tick / 30 (속성)
+ctx.random()      0 이상 1 미만 (53 비트 f64). ctx.randomInt(lo, hi) — lo 이상 hi 이하 (lo > hi HostError, i32 전체 가능)
+흐름              RandomService.stream(Purpose::Script, fnv1a64(시스템 id)) — 시스템 id = beginCall 의 이름 (ScriptSystemAdapter 가
+                  넘긴다). 틱마다 새로 열고, 같은 시스템이 그 틱에 여러 번 불리면 (onTick · onEvent) 이어 쓴다. 같은 월드 · 틱 · 시스템
+                  = 같은 수열, 다른 시스템을 더하거나 빼도 그대로. 세이브할 상태가 없다 (틱 안에서만)
+ctx.near(x, y, r) · ctx.nearWith(x, y, r, Comp)   반경 안의 개체 — 단계 4 의 공간 색인 (틱 처음의 위치 — 이 틱에 옮기거나 만든
+                  것은 다음 틱부터), saveId 오름차순 (query 와 같다), nearWith 는 그 컴포넌트를 가진 것만 (스크립트 · 접근 표의 엔진
+                  컴포넌트). 반경 0 ~ 128 · 유한 (아니면 HostError), 1,024 개를 넘으면 HostError, 연료 16 + 개체마다 1
+도메인            모두 서버만 (클라이언트에는 client.dt · frame 이 있다)
+```
+
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts

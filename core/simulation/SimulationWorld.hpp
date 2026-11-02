@@ -112,6 +112,8 @@ public:
     [[nodiscard]] u64 changeStamp() const noexcept { return m_changeStamp; }
     [[nodiscard]] const SimulationClock& clock() const noexcept { return m_clock; }
     [[nodiscard]] u64 seed() const noexcept { return m_random.worldSeed(); }
+    // 난수 서비스 (그 틱에 맞춰져 있다 — 스크립트 ctx.random 이 Purpose::Script 흐름을 연다, v0.5 M2-T4)
+    [[nodiscard]] const rnd::RandomService& random() const noexcept { return m_random; }
     // 마지막 tick() 이 System 을 돌렸는가 (일시정지 편집 단계면 false)
     [[nodiscard]] bool lastTickRanSystems() const noexcept { return m_lastRanSystems; }
 
