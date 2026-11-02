@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-02 — 문서 상태 동기화: 21 1장 · 18 (1.1 · 2 · 8장) · README — v0.5 M8 뒤의 실제 값
+
+**무엇을**
+
+- 21 1장: v0.4.0 시점 (637be03) 의 표를 c651339 의 소스로 다시 맞춤 — Host API 지문 e02f109682ecb304 → 0x6f75b0cc967a534f,
+  .sbc 5 → 9, ctest 67 → 74, 오류 보고 Missing → Implemented (M1-T1 · T2), 진단 Partial → Implemented (sbx doctor), 자동 업데이트
+  Missing → Partial (알림 · 안전 모드 · 피드), Host API 의 v0.5 함수, 새 줄 (표준 라이브러리 · 물리 · 충돌 · 실행 구조). 버전 번호
+  한 줄 (.sbc 9 · Host API 1 · kSimVersion 4 · 프로토콜 14 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 — 각 헤더 값).
+- 18: 1.1 의 "CI 를 읽을 수 없다" → 다섯 잡 녹색 (gh 로 읽음), macOS CI 잡 ✅ · 실기 QA 남음. 2장 날짜 · 줄 (진단 · 게임플레이 API ·
+  표준 라이브러리 · 실행 구조 v2 · 게임 UI). 8장 기준선에 M1-T4 (3) ~ M8 줄 + CI 줄 (로컬과 따로).
+- docs/README 0장 버전 줄에 v0.5 ◐.
+
+**왜**
+
+- 통합 계획 재설계 요청의 Phase A — 문서가 코드보다 늦은 곳 (21 의 옛 지문 · v0.4 상태, 18 의 CI 문장) 을 먼저 고친다.
+
+**검증**
+
+- 값은 헤더 (script/vm/Bytecode.hpp kFormatVersion · script/api/HostApi.hpp · core/simulation kSimVersion · network kProtocolVersion) 와
+  test_checker 의 지문 고정, DEVELOPMENT_LOG 의 ctest 줄, `gh run list` (11e11fe · de65518 success, 3322110 failure → 0e1adab) 로 대조.
+- 문서만. Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과 (render_tests_warp 포함, 로컬).
+
+**남은 일**
+
+- 22 · 23 · 24 · ADR-0086 ~ 0088 (다음 커밋 — 설계 · 로드맵).
+
+---
+
 ## 2026-11-02 — v0.5 M8-T8 (2): 충돌 질의 raycast · overlap
 
 **무엇을**

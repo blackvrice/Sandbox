@@ -1,6 +1,7 @@
 # 21. 플랫폼 기능 분석 — 구현 상태 (Gap Analysis) · 신규 기능 12 종 · 버전 배치
 
-> **분석 문서** (2026-10-28, master 637be03 — v0.4.0 직후). 현재 코드 · 시험 · 문서를 직접 대조한 구현 상태 (1장), 신규 기능
+> **분석 문서** (2026-10-28, master 637be03 — v0.4.0 직후. **1장 갱신 2026-11-02, master c651339 — v0.5 M1 · M2-T1~T5 (1) · M8 뒤**).
+> 현재 코드 · 시험 · 문서를 직접 대조한 구현 상태 (1장), 신규 기능
 > 12 종의 분석 (2 · 3장), v0.5 ~ v1.0 배치 (4장). v0.5 의 실행 계획은 [20-CREATOR-ALPHA](20-CREATOR-ALPHA.md), 버전 줄 · 다음 태스크는
 > [18-PLATFORM](18-PLATFORM.md) 0 · 1 · 6장, 배치 결정은 [ADR-0082](adr/0082-v06-v10-feature-placement.md).
 > 상태 용어: **Implemented** = 코드 + 자동 시험이 있다 · **Partial** = 일부만 (빠진 것을 적는다) · **Planned** = 18-PLATFORM 또는 ADR 에
@@ -8,40 +9,47 @@
 
 ---
 
-## 1. 현재 구현 상태 (v0.1 ~ v0.4)
+## 1. 현재 구현 상태 (v0.1 ~ v0.5 M8)
 
-18-PLATFORM 2장의 표 (게임 제작 영역) 를 v0.4 까지로 넓히고, 이번 요청의 영역을 더했다. 근거는 경로 · 시험 이름 · 문서 장.
+18-PLATFORM 2장의 표 (게임 제작 영역) 를 넓히고, 이번 요청의 영역을 더했다. 근거는 경로 · 시험 이름 · 문서 장.
+버전 번호 (2026-11-02 헤더 값): .sbc kFormatVersion 9 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0x6f75b0cc967a534f
+(script/api/HostApi.hpp · test_checker 고정) · kSimVersion 4 (core/simulation) · 프로토콜 14 (network/protocol) · .sbpkg 형식 2 · 리플레이 1 ·
+세이브 kWorldVersion 1 / kSchemaVersion 1. 실행 구조 (스레드 · 콜백) 의 다음 설계는 [22-RUNTIME-V2](22-RUNTIME-V2.md).
 
 | 영역 | 상태 | 근거 (코드 · 시험 · 문서) | 빠진 것 |
 |------|------|---------------------------|---------|
 | ECS · 리플렉션 · 동적 컴포넌트 | Implemented | core/ecs (Sparse-Set · stableId · ComponentCatalog · DynamicComponent), unit_ecs · property_ecs, 02 | — |
-| 기본 엔진 컴포넌트 | Implemented | core/components (core.transform · velocity · movement · collider · tags · lifetime · prefab · identity, life.* · ai.* · game.session · score · spawn_point · camera_start), RegisterCoreComponents | 스크립트에서의 접근 (아래) |
+| 기본 엔진 컴포넌트 | Implemented | core/components (core.transform · velocity · movement · collider · tags · lifetime · prefab · identity, life.* · ai.* · game.session · score · spawn_point · camera_start · game.owner (v0.5 M2-T5 (1))), RegisterCoreComponents | 스크립트 접근 표 밖의 것 (19 16.1 — 표에 더할 때마다) |
 | SystemScheduler · 틱 파이프라인 | Implemented | core/simulation/SystemScheduler · SimulationWorld (17b · 17c · 16b · 17d), det_* 16 개, 03 2장 | — |
-| SimCommand · ECB | Implemented | core/command (CreateEntity · delete · move · add · remove · change · paint · speed · action · game · content), CommandJson, 02 · 03 4장 | 스크립트가 쓰는 길 (아래) |
+| SimCommand · ECB | Implemented | core/command (CreateEntity · delete · move · add · remove · change · paint · speed · action · game · content), CommandJson, 02 · 03 4장. 스크립트의 쓰기 · 구조 변경은 호출 버퍼 → 월드 큐 (v0.5 M2-T2 · T3, 19 16.1 · 16.2) | 플레이어 신호 명령 PlayerSignal (v0.5 M2-T5 나머지) |
 | 결정론 · WorldHash · Replay | Implemented | core/replay (Replay · WorldHash), replay.sbxr (09 4장), det_replay_* · D1~D5 | — |
 | 리플레이 보기 | Partial | 서버가 기록 · 재생 (WorldOp — ADR-0031), 클라이언트 "월드" 패널의 재생 단추 · 상태 줄 (apps/client/ui/WorldPanel) | 혼자 여는 뷰어 · 타임라인 · 되감기 (seek) · 파일 열기 |
 | 관전 | Partial | 역할 observer (08 · 10 7장 — 편집 못 하는 접속자), LAN 접속 | 인증된 원격 관전 · 관전 전용 지연 · 시점 고정 |
 | 월드 · 세이브 | Implemented | core/persist (world.json · entities.jsonl · chunks, 마이그레이션), unit_persist, 09 | 게임 버전 사이 세이브 마이그레이션 (v0.2 노트에서 미룸) |
 | 네트워크 · 복제 | Implemented (LAN) | network/ (ENet · ServerHost · 차분 스냅숏 · Interest · 역할 · 속도 제한), net_convergence, 08 | 암호화 · 인증 (R6 → v0.7 D-07) |
-| 입력 | Partial | platform/common/ActionMap · apps/client/DefaultInput · PlayKeys, 팩 presentation/input.json 의 게임 키 (11) | 사용자 키 다시 묶기 UI · 저장, 게임 패드, 스크립트의 입력 |
+| 입력 | Partial | platform/common/ActionMap · apps/client/DefaultInput · PlayKeys, 팩 presentation/input.json 의 게임 키 (11) | 스크립트의 입력 · send (v0.5 M2-T6), 키 다시 묶기 UI (M4-T3), 게임 패드 · 입력 Context (22 6장 — v0.6) |
 | 오디오 | Missing (Null 만) | platform/audio/NullAudioBackend (07 7장 — IAudioBackend 인터페이스만) | 실제 출력 백엔드 · 믹서 · 소리 에셋 |
 | 게임 UI · HUD | Missing | 게임 화면의 것은 ImGui 디버그 · 게임 패널 (apps/client/ui — GamePanel 점수 줄 · ActionPanel) 과 클라이언트 스크립트의 label · print (19 21장) 뿐 | 게임 제작자가 만드는 UI 문서 · 배치 · 바인딩 · 이벤트 |
 | 에디터 UI | Implemented (도구용) | editor/ui (ImGui — 편집 · 인스펙터 · 콘텐츠 · 트리거 폼 · 팩별 목록), unit_editor, 10 | 게임 UI 편집기 (게임 UI 가 없다) |
 | 다국어 · 접근성 | Missing | 문자열이 코드 · 콘텐츠에 한국어로 박혀 있다. 폰트 malgun.ttf (Windows) · ImGui FontScaleDpi (배율 — DPI 만) | 문자열 표 · 로케일 · 폰트 대체 · UI 배율 설정 · 키 설정 |
-| SandboxScript 컴파일러 · VM | Implemented | script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 5 · 검증기 · 인터프리터), unit_script · 보호 시험 · 퍼즈, 19 | JIT/AOT (계획 없음 — 5장), 함수별 프로파일 |
-| Host API | Partial | script/api/HostApi (지문 e02f109682ecb304): ctx.tick · log · read · has · query · write (server), client.tick · frame · dt · read · has · query · label · print, 19 10장 | 엔진 컴포넌트 · 생성 · 파괴 · 붙이기 · 떼기 · random · 입력 · 소리 · 플레이어 · 세션 (v0.3 노트 5장 — v0.5) |
+| SandboxScript 컴파일러 · VM | Implemented | script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 형식 9 · 검증기 · 인터프리터 — 내장 INTR · Func · LOADFN · Map · Set · Coll), unit_script (test_stdlib_* 포함) · 보호 시험 · 퍼즈, 19 | JIT/AOT (ADR-0081 — 측정 뒤 v1.x), 함수별 프로파일 · 트랩 줄 (v0.5 M6-T4) |
+| Host API | Partial | script/api/HostApi (kHostApiVersion 1, 지문 0x6f75b0cc967a534f): v0.3 ctx.tick · log · read · has · query · write + v0.5 M2 엔진 컴포넌트 접근 표 · 쓰기 · spawn · destroy · add · remove · random · randomInt · near · nearWith · time + M8 nearest · kNearest · inBox · requestPath · pathState · pathPoints · cancelPath · raycast · overlap, client.tick · frame · dt · read · has · query · label · print, 19 16 · 25장 | action · signal 이벤트 · ctx.players · session (M2-T5 나머지), 입력 · send · 소리 (M2-T6), ctx.ui (M3-T4), 단계별 Capability (22 3.2 — [계획]) |
+| 스크립트 표준 라이브러리 | Implemented | v0.5 M8 (ADR-0085): script/vm/Intrinsics (Array · 콜백 메서드 · Map · Set · Stack · Queue · Deque · PriorityQueue · Heap · BitSet · 알고리즘 · 수학 · vec2 · Graph), unit_script test_stdlib_* · test_script_engine_queries, samples/stdlib_tour (CTest sample_stdlib_tour), 벤치 script.stdlib (14 7.15), 19 25장 | 19 25장의 [계획] 줄 (예: 틱을 넘는 컬렉션 — 상태는 ECS, 22 9장) |
+| 물리 · 충돌 | Partial | MovementSystem (단계 9) · CollisionSystem (16 — 원 분리), core.collider { radius ≤ 2 · layer · mask }, 스크립트 질의 raycast · overlap (M8-T8), 03 2장 | layer · mask 거르기 · Enter/Exit 이벤트 · ShapeCast · 힘 · 충격 명령 (v0.6) · Substep · CCD · 재질 (v0.8) — 22 5장 |
+| 실행 구조 (스레드 · 콜백) | Partial | 스레드 넷 (Main · Simulation · Network IO · Worker Pool — 01 5장), server onStart · onTick · onEvent · onStop · client onUpdate (19 17 · 18 · 21장) | onPrePhysics · client 수명주기 · onAction · onRender · client 고정 Tick · 예측 · NetworkModule · Capability (22 — [계획 v0.5 계약 · v0.6 ~ v0.8]) |
 | 스크립트 시스템 · 예산 · 프로파일 | Implemented | core/script (ScriptSystemAdapter 16b · 17d, ClientScriptSystems, 예산 · 트랩 정책, 시스템별 프로파일), 19 17~22장 | 함수별 프로파일 · 디버거 |
 | 게임 규칙 (노코드) | Implemented | Rule · Behavior · Trigger (노드 21 종) · GameMode · PlayerAction, 11 · ADR-0045~0052 | 노드 그래프 캔버스 · 쿨다운 · 비용 |
 | GameProject · GamePackage | Implemented | core/project · core/package (.sbpkg 형식 2 · 라이선스 요약), sbx new · check · build · test, 09 9장 | 에디터 안의 새 프로젝트 · 빌드 마법사, 압축 |
 | 패키지 관리자 | Implemented | core/package (Resolve · Lockfile · Install · GitSource · PackTemplate), sbx add · remove · update · install, ADR-0071~0077 | 레지스트리 · 서명 (v0.6) |
 | 템플릿 | Partial | sbx new --from <시나리오> · --mode (빈 월드 · ecosystem_small · eco.protect 데모), samples (rabbit_guard · mana_regen · stash) | 초안의 "템플릿 3종" (미니게임 · RTS · 생존) 으로 고른 틀, 에디터 안 고르기 |
-| 오류 보고 · 충돌 로그 | Missing | 로그는 콘솔 · 파일 (foundation/log). 충돌 처리기 · 덤프 · 보고 묶음 없음 | 충돌 처리 · 민감정보 제거 · 보고 묶음 · 보기 |
-| 진단 (호환성) | Partial | sbx check (P1~P8 · V1~V12 · S 진단), 서버 · 클라이언트의 열기 오류 문장 | 다른 PC 사용자가 보는 진단 화면 · 묶음 (엔진 · 패키지 · 콘텐츠 · 드라이버) |
-| 자동 업데이트 · 복구 | Missing | — | 버전 확인 · 받기 · 되돌리기 · 안전 모드 |
-| 시험 · 벤치 | Implemented | ctest 67 (render_tests_warp 제외) · doctest 636, sbx_bench (50k · script.regen), 13 · 14 | CI 결과 (v0.1 열린 항목), Linux · macOS 실기 |
+| 오류 보고 · 충돌 로그 | Implemented | v0.5 M1-T1 · T2: foundation/diag (로그 고리 · 민감정보 제거 · 보고 묶음) · 새 타깃 SandboxCrash (SEH 미니덤프 · terminate · POSIX 시그널 · 콜스택 · 문맥), sbx report, CTest crash_report_server · crash_report_client | GPU 정보 · 오류 화면 (20 7.2 [계획]), 보고 보내기 (계획 없음 — 로컬 묶음만) |
+| 진단 (호환성) | Implemented | sbx check (P1~P8 · V1~V12 · S 진단), v0.5 M1-T2 sbx doctor (엔진 범위 · 패키지 · 의존 · 설치 · 콘텐츠 · 환경), CTest project_doctor | 드라이버 · GPU 진단 · 클라이언트 안의 진단 화면 (20 7.2 [계획]) |
+| 자동 업데이트 · 복구 | Partial | v0.5 M1-T3 · T4: 사용자 설정 · 안전 모드 (--safe-mode) · 새 버전 알림 (릴리스 피드 — 시스템 curl, ADR-0084) · 배포 묶음 sbx_release, CTest client_safe_mode · release_bundle | 받기 · 바꾸기 · 되돌리기 (서명 — v0.9) |
+| 시험 · 벤치 | Implemented | Windows MSVC Debug ctest 74/74 (render_tests_warp 포함 — 2026-11-02 M8-T8 (2) 로컬), sbx_bench (50k · script.regen · script.stdlib), CI 다섯 잡 (Linux GCC 13 · Clang 19 · Clang 19 ASan · Windows MSVC · macOS) 녹색 — 11e11fe · de65518 (Actions run 41420046654 · 41425715934), 13 · 14 | Linux · macOS 실기 (창 · GPU — CI 는 헤드리스), 50k 판정 (14 7.12) |
 
-v0.1 의 열린 항목 (18 1.1 — 실기 QA · 50k 판정 · CI) 은 그대로다. **Linux · macOS 는 빌드 · 시험을 이 환경에서 돌리지 않았다** —
-지원 매트릭스 (20 7장) 에서 "검증 안 됨" 으로 둔다.
+v0.1 의 열린 항목 (18 1.1 — 실기 QA · 50k 판정) 은 그대로다. CI 는 v0.5 M1-T4 부터 녹색이다. **Linux · macOS 는 CI 잡 (헤드리스 빌드 ·
+시험) 과 Linux Docker 로컬 빌드 (13 8장) 로만 확인했고, 실기 (창 · GPU · 입력) 는 돌리지 않았다** — 지원 매트릭스 (20 7장) 에서 "CI 만"
+으로 둔다.
 
 ## 2. 신규 기능 12 종 — 분석
 

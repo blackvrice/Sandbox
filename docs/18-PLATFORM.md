@@ -2,7 +2,7 @@
 
 > **계획 문서** (5.2 의 매니페스트 계약은 규범). Simulation Maker 를 게임 제작 · 배포 플랫폼으로 넓히는 버전 계획과 지금 상태.
 > 결정: [ADR-0039](adr/0039-platform-scope-version-line-after-phase-15.md). 요구사항의 출처: [플랫폼 설계 초안](platform/START_HERE.md)
-> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.4 완료 — 0.4.0, v0.5 계획).
+> (2026-10-13, 동결 — 거기의 "현행 구현" 서술은 이 문서 2장이 고친다). 기준: 2026-10-28 (v0.4 완료 — 0.4.0, v0.5 계획). 1.1 · 2 · 8장 갱신 2026-11-02 (master c651339 — v0.5 M8 뒤).
 
 ---
 
@@ -37,12 +37,13 @@
 ```text
 - 사용자 PC: Phase 6~8 Windows 실기 QA (Win32 · D3D12 · 렌더러 · ImGui — 지금까지 Wine · WARP 로만), Phase 13 Linux 실기 QA,
   Phase 15 50k 판정 (sbx_bench --only sim.ecosystem --threads <코어 수 − 1> → 평균 < 10 ms · p99 < 25 ms)
-- CI: GitHub Actions 첫 실행 결과 (Linux · Windows · macOS 잡) — 이 개발 환경은 Actions 를 읽을 수 없다
-- macOS: Phase 14 (CI macOS 잡 · MANUAL-QA 14B · 14C)
+- CI: ✅ v0.5 M1-T4 (1) 부터 다섯 잡 (Linux GCC 13 · Clang 19 · Clang 19 ASan · Windows MSVC · macOS) 녹색 — gh 로 결과를 읽는다 (13 8장).
+  CI 는 헤드리스 빌드 · 시험이다 — 실기 (창 · GPU · 입력) 를 대신하지 않는다
+- macOS: Phase 14 의 CI macOS 잡 ✅ (빌드 · 시험). 남음: MANUAL-QA 14B · 14C (실기 · Metal 창)
 - 초안 v0.1 요구 4 "LAN · 신뢰 환경 제약을 UI 에 노출": 서버 도움말 · 08 · 16 R6 에 있다. 클라이언트 접속 화면 문구는 v0.7 전에
 ```
 
-## 2. 현황 (초안 대비, 2026-10-26 소스 · 테스트 기준 — v0.3 M5-T2)
+## 2. 현황 (초안 대비, 2026-11-02 소스 · 테스트 기준 — v0.5 M8 뒤. 영역별 상세 · 빠진 것은 21 1장)
 
 **Implemented** = 소스와 자동 시험이 있다, **Partial** = 바탕은 있고 플랫폼 요구에 확장이 필요하다, **Planned** = 새로 만든다.
 초안(2026-10-13)이 "초기 Vulkan"으로 적은 것은 그 뒤 13A~13C · 14 · 15 로 바뀌었다.
@@ -72,7 +73,11 @@
 | 스크립트 도구           | Implemented | v0.3 M5 ✅ — sbx new SDK 파일 · sbx check 요약 (ADR-0065), 에디터 스크립트 편집 · 오버레이 (ADR-0066), client 도메인 최소 (ADR-0067), 프로파일 패널 (ADR-0068) |
 | 패키지 · SemVer         | Implemented | v0.4 ✅ — SemVer (~ · *), 의존 해석 · sandbox.lock · 트랜잭션 설치 · 팩 사이 import · 라이선스 요약 (ADR-0071~0077)         |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
-| 게임 UI · 다국어 · 진단  | Missing     | v0.5 계획 (6.6 · 20) — 영역별 근거 · 빠진 것은 21 1장                                                                        |
+| 진단 · 충돌 보고        | Implemented | v0.5 M1 ✅ — SandboxCrash · 보고 묶음 · sbx doctor · report · 안전 모드 · 새 버전 알림 · 배포 묶음 (20 7장, ADR-0084)      |
+| 게임플레이 API          | Partial     | v0.5 M2-T1~T4 ✅ · T5 ◐ — 엔진 컴포넌트 읽기 · 쓰기 · 구조 변경 · random · near · time · game.owner (19 16장). 남음: 6.6 M2 |
+| 스크립트 표준 라이브러리 | Implemented | v0.5 M8 ✅ — 내장 · 컬렉션 · 알고리즘 · Graph · 엔진 질의 · 경로 요청 · raycast · overlap (19 25장, ADR-0085)            |
+| 실행 구조 v2            | Planned     | 콜백 단계 · Capability · Client 고정 Tick · 예측 · NetworkModule — [22](22-RUNTIME-V2.md) (v0.5 는 계약만)              |
+| 게임 UI · 다국어         | Missing     | v0.5 M3 · M4 [계획] (6.6 · 20)                                                                                             |
 
 ## 3. 모듈 계획 (C++ 의존 방향은 01 2장 그대로)
 
@@ -649,4 +654,10 @@ v0.5 M1-T2 뒤: Windows MSVC Debug 70/70 (+ project_doctor) · SandboxTests 645 
 v0.5 M1-T3 뒤: Windows MSVC Debug 71/71 (+ client_safe_mode) · SandboxTests 649 케이스 (+4 test_user_settings)
 v0.5 M1-T4 (1) 뒤: Windows MSVC Debug 72/72 — render_tests_warp 를 다시 넣었다 (시험의 배리어 상태를 고침, v0.2 M3-T2 의
               "이 기계에서 실패" 는 시험 버그였다). CI 경고 = 오류 · Linux GCC · Clang (Docker) — 13 8장
+v0.5 M1-T4 (3) 뒤: Windows MSVC Debug 73/73 (+ release_bundle). M1-T4 (4) 뒤 SandboxTests 650 케이스
+v0.5 M2-T1 ~ T3 뒤: Windows MSVC Debug 73/73 · SandboxTests 655 → 658 → 664 케이스 (골든 해시 그대로)
+v0.5 M2-T5 (1) 뒤: Windows MSVC Debug 72/73 — det_* 골든 그대로 (kSimVersion 4 유지), 실패 하나는 net_server_probe_smoke 포트 충돌 (혼자 다시 10/10)
+v0.5 M8-T9 뒤: Windows MSVC Debug 74/74 (+ sample_stdlib_tour) — M8-T8 (2) (c651339) 뒤에도 74/74
+CI (GitHub Actions — 로컬과 따로 적는다): 다섯 잡 녹색 11e11fe (run 41420046654) · de65518 (run 41425715934). 3322110 은 GCC · Clang
+              -Wswitch 로 실패 → 0e1adab 에서 고침. c651339 (run 41430591689) 는 이 줄을 쓸 때 진행 중 (macOS 잡 통과)
 ```

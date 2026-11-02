@@ -11,7 +11,7 @@
 
 ```text
 버전      v0.1 Engine Foundation (Phase 0~15) 구현 끝 · 실기 검증 대기, v0.2 Game Creator ✅ 0.2.0, v0.3 SandboxScript ✅ 0.3.0,
-          v0.4 Package Manager ✅ 0.4.0
+          v0.4 Package Manager ✅ 0.4.0, v0.5 Creator Alpha ◐ (M1 · M8 ✅, M2 ◐, M3 ~ M7 [계획] — 18 6.6)
 지금 · 다음  18-PLATFORM 0장 (버전 · 마일스톤 · 태스크 "v0.N Mk-Tn")      Phase 0~15 이력 · 남은 검증  16-ROADMAP
 작업 이력    ../DEVELOPMENT_LOG.md (위가 최신)                            결정 이유      adr/README.md (0001~)
 ```
