@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T8 (2): 충돌 질의 raycast · overlap
+
+**무엇을**
+
+- Host 표 +2 (서버): ctx.raycast(x0, y0, x1, y1) → Entity | null — 선분이 처음 닿는 core.collider 원 (매개변수 t 가 작은 것,
+  같으면 saveId, 시작점이 원 안이면 t = 0, 길이 256 까지), ctx.overlap(x, y, r) → Entity[] — 거리 ≤ r + 반지름, saveId 순
+  (r 128 · 1,024 개까지). 후보는 단계 4 색인을 충돌 반지름 상한 (2) 만큼 넓혀서, 후보마다 연료 1.
+- 지문 → 0x6f75b0cc967a534f (Host API 1 그대로), sandbox.d.ts 넷 (sdk · 샘플 셋) 다시 만듦.
+
+**왜**
+
+- ADR-0085 11 · 20 M8-T8 — 지금 충돌 구조 (원) 가 받치는 만큼. layer · mask 거르기 · 연속 충돌 · 물리 반응은 [계획].
+
+**검증**
+
+- test_script_engine_queries 에 충돌 질의 케이스 (raycast 8 경우 · overlap 5 경우). unit_script 전체 통과. Windows MSVC Debug 전체
+  ctest 74 / 74 통과.
+
+**남은 일**
+
+- M8 끝. 다음은 M2-T5 나머지 (20 10장 진행 차례).
+
+---
+
 ## 2026-11-02 — v0.5 M8-T9: 표준 라이브러리 예제 · 벤치 · 안내
 
 **무엇을**

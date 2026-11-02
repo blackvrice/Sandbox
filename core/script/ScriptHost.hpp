@@ -142,6 +142,10 @@ public:
     vm::HostResult pathState(std::span<const vm::HostArg> args);
     vm::HostResult pathPoints(std::span<const vm::HostArg> args);
     vm::HostResult cancelPath(std::span<const vm::HostArg> args);
+    // 충돌 질의 (v0.5 M8-T8 (2)) — core.collider 원
+    static constexpr f64 kMaxRayLength = 256.0;
+    vm::HostResult raycast(std::span<const vm::HostArg> args);
+    vm::HostResult overlap(std::span<const vm::HostArg> args);
     vm::HostResult nearWithArgs(std::span<const vm::HostArg> args);
 
 private:

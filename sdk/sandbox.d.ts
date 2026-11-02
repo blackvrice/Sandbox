@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 3b37e380f77eddfd — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 6f75b0cc967a534f — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -417,6 +417,10 @@ declare module "sandbox" {
     pathPoints(entity: Entity): number[];
     /** 경로를 지운다 (상태 0 — 호출 끝에 반영) — ctx.cancelPath */
     cancelPath(entity: Entity): void;
+    /** 선분이 처음 닿는 충돌 원 (core.collider) 의 개체 — 같은 자리면 saveId 작은 것, 시작점이 원 안이면 그 개체, 길이 256 까지, 없으면 null — ctx.raycast */
+    raycast(x0: number, y0: number, x1: number, y1: number): Entity | null;
+    /** 원 (x, y, radius) 과 겹치는 충돌 원의 개체 — saveId 순, 반경 128 · 1,024 개까지 — ctx.overlap */
+    overlap(x: number, y: number, radius: number): Entity[];
   }
 
   /** 클라이언트 콜백 (onUpdate) 의 ctx — 호출 안에서만 유효, 읽기 · 화면 표시만 */

@@ -64,6 +64,13 @@ export function points(ctx: ServerContext): i32 {
 export function cancelAll(ctx: ServerContext): void {
   for (const e of ctx.inBox(-40, -40, 40, 40)) { ctx.cancelPath(e) }
 }
+export function ray(ctx: ServerContext, x0: number, y0: number, x1: number, y1: number): number {
+  const e = ctx.raycast(x0, y0, x1, y1)
+  if (e === null) { return -99 }
+  const t = ctx.read(e, Transform)
+  return t !== null ? t.position.x : -98
+}
+export function overlapCount(ctx: ServerContext, x: number, y: number, r: number): i32 { return ctx.overlap(x, y, r).length }
 export function requestThenTrap(ctx: ServerContext): void {
   for (const e of ctx.inBox(-40, -40, 40, 40)) { ctx.requestPath(e, 5, 5) }
   const xs: i32[] = []
@@ -79,6 +86,8 @@ struct Fixture {
         write("t/pack.json", R"({"id": "t", "version": "1"})");
         write("t/prefabs/walker.json", R"({"id": "t.walker", "components": {"core.transform": {}, "ai.path": {}}})");
         write("t/prefabs/rock.json", R"({"id": "t.rock", "components": {"core.transform": {}}})");
+        write("t/prefabs/post.json",
+              R"({"id": "t.post", "components": {"core.transform": {}, "core.collider": {"radius": 0.5}}})");
         const std::vector<std::string> packs{"t"};
         auto loaded = content::loadContent(root, packs, engine());
         REQUIRE_MESSAGE(loaded.has_value(), loaded.error().describe());
@@ -191,6 +200,35 @@ TEST_SUITE("script") {
         // 트랩난 호출의 요청은 남지 않는다
         CHECK_FALSE(f.call("requestThenTrap").ok());
         CHECK(f.str("states") == "0,-1,");
+    }
+
+    TEST_CASE(
+        "충돌 질의: raycast (처음 닿는 원 · 같은 자리 saveId · 시작점 안 · 놓침 · 상한) · overlap (원 + 반지름)") {
+        Fixture f("collide");
+        f.spawn({5.f, 0.f}, "t.post");  // saveId 1 (반지름 0.5)
+        f.spawn({2.f, 0.f}, "t.post");  // 2
+        f.spawn({2.f, 3.f}, "t.post");  // 3 — 선 밖
+        f.spawn({8.f, 0.f}, "t.rock");  // 4 — 충돌 없음 (무시)
+        f.spawn({-3.f, 0.f}, "t.post"); // 5
+        f.world->tick();
+        const auto ray = [&](f64 x0, f64 y0, f64 x1, f64 y1) {
+            const vm::CallResult r = f.call("ray", {F(x0), F(y0), F(x1), F(y1)});
+            REQUIRE_MESSAGE(r.ok(), r.message);
+            return r.value.asF64();
+        };
+        CHECK(ray(0, 0, 10, 0) == 2.0);     // x = 2 의 원이 먼저 (1.5 에서 닿는다)
+        CHECK(ray(10, 0, 0, 0) == 5.0);     // 거꾸로 — x = 5 먼저
+        CHECK(ray(2, 0, 10, 0) == 2.0);     // 시작점이 원 안 — 그 개체 (t = 0)
+        CHECK(ray(0, 1, 10, 1) == -99.0);   // 놓침 (원의 위 0.5 를 지난다)
+        CHECK(ray(0, 0, 1, 0) == -99.0);    // 닿기 전에 끝난다
+        CHECK(ray(0, 0.5, 10, 0.5) == 2.0); // 원에 스친다 (접선)
+        CHECK_FALSE(f.call("ray", {F(0), F(0), F(300), F(0)}).ok());
+        CHECK_FALSE(f.call("ray", {F(std::nan("")), F(0), F(1), F(0)}).ok());
+        CHECK(f.i("overlapCount", {F(2), F(0), F(0)}) == 1);   // 점이 원 안
+        CHECK(f.i("overlapCount", {F(3.4), F(0), F(1)}) == 1); // x 2 의 원만 (1.4 ≤ 1.5, x 5 는 1.6)
+        CHECK(f.i("overlapCount", {F(3.5), F(0), F(1)}) == 2); // 둘 다 경계에 (1.5 = 1 + 0.5)
+        CHECK(f.i("overlapCount", {F(0), F(0), F(20)}) == 4);  // rock 은 충돌이 없다
+        CHECK_FALSE(f.call("overlapCount", {F(0), F(0), F(500)}).ok());
     }
 
     TEST_CASE("경로 요청 · 질의: 두 월드 같은 차례 = 같은 WorldHash") {

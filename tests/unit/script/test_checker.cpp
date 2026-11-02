@@ -137,8 +137,8 @@ TEST_SUITE("script") {
         // 지문은 표가 바뀔 때만 바뀐다 — 바꾸면 이 값과 kHostApiVersion 규칙 (ADR-0057 3) 을 같은 커밋에서
         CHECK(api::hostApiFingerprint() == api::hostApiFingerprint());
         // v0.5 M8-T8: 엔진 질의 · 경로 요청 7 (nearest · kNearest · inBox · requestPath · pathState · pathPoints ·
-        // cancelPath — ADR-0085 11), ABI NumberList
-        CHECK(api::hostApiFingerprint() == 0x3b37e380f77eddfdull);
+        // cancelPath — ADR-0085 11), ABI NumberList. M8-T8 (2): 충돌 질의 raycast · overlap
+        CHECK(api::hostApiFingerprint() == 0x6f75b0cc967a534full);
     }
 
     TEST_CASE("import 경로 풀기") {

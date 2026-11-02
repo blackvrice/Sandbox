@@ -9,6 +9,7 @@
 
 #include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
+#include "core/components/core/Movement.hpp"
 #include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
 #include "core/simulation/SimulationWorld.hpp"
@@ -102,6 +103,12 @@ vm::HostResult ctxPathPoints(ScriptHost& host, std::span<const vm::HostArg> args
 vm::HostResult ctxCancelPath(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.cancelPath(args);
 }
+vm::HostResult ctxRaycast(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.raycast(args);
+}
+vm::HostResult ctxOverlap(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.overlap(args);
+}
 
 // 표 (script/api/HostApi) 의 항목마다 하나 — 순서는 표와 같지 않아도 된다 (id 로 찾는다)
 constexpr HostBinding kBindings[] = {
@@ -167,6 +174,16 @@ constexpr HostBinding kBindings[] = {
     {"ctx.pathState", AbiType::I32, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxPathState},
     {"ctx.pathPoints", AbiType::NumberList, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxPathPoints},
     {"ctx.cancelPath", AbiType::Void, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxCancelPath},
+    {"ctx.raycast",
+     AbiType::EntityOrNull,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+     5,
+     &ctxRaycast},
+    {"ctx.overlap",
+     AbiType::EntityList,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number},
+     4,
+     &ctxOverlap},
 };
 
 template <class F>
@@ -1003,6 +1020,119 @@ vm::HostResult ScriptHost::cancelPath(std::span<const vm::HostArg> args) {
     }
     m_pathOps.push_back({e, true, {}});
     return {};
+}
+
+// 선분 (x0, y0) → (x1, y1) 이 처음 닿는 충돌 원. 후보 = 선분의 사각형을 충돌 반지름 상한만큼 넓힌 색인 칸, 위치는
+// 단계 4 색인 (틱 처음), 반지름은 지금 값. 매개변수 t (0 ~ 1) 가 작은 것, 같으면 saveId 작은 것 (결정적)
+vm::HostResult ScriptHost::raycast(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const f64 x0 = args[1].value.asF64();
+    const f64 y0 = args[2].value.asF64();
+    const f64 x1 = args[3].value.asF64();
+    const f64 y1 = args[4].value.asF64();
+    const f64 dx = x1 - x0;
+    const f64 dy = y1 - y0;
+    if (!std::isfinite(x0) || !std::isfinite(y0) || !std::isfinite(x1) || !std::isfinite(y1) ||
+        dx * dx + dy * dy > kMaxRayLength * kMaxRayLength) {
+        return fail(std::format("raycast({}, {}, {}, {}) — 유한하고 길이 {} 까지", x0, y0, x1, y1, kMaxRayLength));
+    }
+    const f64 pad = comp::kMaxColliderRadius;
+    const Vec2 lo{static_cast<f32>(std::min(x0, x1) - pad), static_cast<f32>(std::min(y0, y1) - pad)};
+    const Vec2 hi{static_cast<f32>(std::max(x0, x1) + pad), static_cast<f32>(std::max(y0, y1) + pad)};
+    const ecs::Registry& reg = m_world->registry();
+    f64 bestT = 2.0;
+    SaveId bestId = kInvalidSaveId;
+    ecs::EntityId best{};
+    u64 candidates = 0;
+    m_world->spatial().forEachInAABB(lo, hi, [&](const world::SpatialEntry& e) {
+        if (!reg.alive(e.entity)) {
+            return;
+        }
+        const comp::Collider* c = reg.tryRead<comp::Collider>(e.entity);
+        if (c == nullptr) {
+            return;
+        }
+        ++candidates;
+        // |p0 + t·d − c|² = r² 의 작은 근 (시작점이 원 안이면 t = 0)
+        const f64 fx = x0 - static_cast<f64>(e.position.x);
+        const f64 fy = y0 - static_cast<f64>(e.position.y);
+        const f64 r = static_cast<f64>(c->radius);
+        const f64 cc = fx * fx + fy * fy - r * r;
+        f64 t = 0.0;
+        if (cc > 0.0) {
+            const f64 a = dx * dx + dy * dy;
+            const f64 b = 2.0 * (fx * dx + fy * dy);
+            const f64 disc = b * b - 4.0 * a * cc;
+            if (a == 0.0 || disc < 0.0) {
+                return;
+            }
+            t = (-b - std::sqrt(disc)) / (2.0 * a);
+            if (t < 0.0 || t > 1.0) {
+                return;
+            }
+        }
+        if (t < bestT || (t == bestT && e.saveId < bestId)) {
+            bestT = t;
+            bestId = e.saveId;
+            best = e.entity;
+        }
+    });
+    vm::HostResult out;
+    out.extraFuel = candidates;
+    out.value = bestT <= 1.0 ? entityHandle(best) : vm::Value::null();
+    return out;
+}
+
+vm::HostResult ScriptHost::overlap(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const f64 x = args[1].value.asF64();
+    const f64 y = args[2].value.asF64();
+    const f64 r = args[3].value.asF64();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(r) || r < 0 || r > kMaxNearRadius) {
+        return fail(std::format("overlap({}, {}, {}) — 유한한 위치 · 반경 0 ~ {}", x, y, r, kMaxNearRadius));
+    }
+    const ecs::Registry& reg = m_world->registry();
+    const f32 reach = static_cast<f32>(r + comp::kMaxColliderRadius);
+    std::vector<std::pair<SaveId, ecs::EntityId>> found;
+    bool tooMany = false;
+    u64 candidates = 0;
+    m_world->spatial().forEachInRadius(Vec2{static_cast<f32>(x), static_cast<f32>(y)}, reach,
+                                       [&](const world::SpatialEntry& e) {
+                                           if (!reg.alive(e.entity)) {
+                                               return;
+                                           }
+                                           const comp::Collider* c = reg.tryRead<comp::Collider>(e.entity);
+                                           if (c == nullptr) {
+                                               return;
+                                           }
+                                           ++candidates;
+                                           const f64 dx = static_cast<f64>(e.position.x) - x;
+                                           const f64 dy = static_cast<f64>(e.position.y) - y;
+                                           const f64 rr = r + static_cast<f64>(c->radius);
+                                           if (dx * dx + dy * dy > rr * rr) {
+                                               return;
+                                           }
+                                           if (found.size() >= kMaxNearEntities) {
+                                               tooMany = true;
+                                               return;
+                                           }
+                                           found.emplace_back(e.saveId, e.entity);
+                                       });
+    if (tooMany) {
+        return fail(std::format("overlap 결과가 {} 개를 넘는다 — 반경을 줄인다", kMaxNearEntities));
+    }
+    std::ranges::sort(found);
+    vm::HostResult out;
+    out.values.reserve(found.size());
+    for (const auto& [id, e] : found) {
+        out.values.push_back(entityHandle(e));
+    }
+    out.extraFuel = candidates;
+    return out;
 }
 
 } // namespace sbx::script
