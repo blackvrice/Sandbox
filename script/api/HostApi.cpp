@@ -7,6 +7,7 @@
 
 #include "foundation/hash/Fnv1a.hpp"
 #include "script/api/EngineComponents.hpp"
+#include "script/api/SystemEvents.hpp"
 
 namespace sbx::script::api {
 
@@ -120,6 +121,14 @@ u64 hostApiFingerprint() {
                              f.rule == EngineFieldRule::ClampToWorld ? ":clamp" : "");
         }
         lines.push_back(std::move(l));
+    }
+    // 시스템 이벤트 (v0.5 M2-T5 (2)) — 종류 · GameEvent 필드가 바뀌면 onEvent 의 구조체 배치가 바뀐다
+    for (const GameEventKindInfo& k : kGameEventKinds) {
+        lines.push_back(std::format("event {} {} {}{}{}", k.key, k.member, static_cast<int>(k.kind),
+                                    k.area ? " area" : "", k.tags ? " tags" : ""));
+    }
+    for (const GameEventFieldInfo& f : kGameEventFields) {
+        lines.push_back(std::format("eventfield {} {}", f.name, static_cast<int>(f.type)));
     }
     std::sort(lines.begin(), lines.end());
     Fnv1a64 h;

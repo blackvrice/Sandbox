@@ -238,7 +238,7 @@ System은 다른 System을 직접 호출하지 않습니다. 소통은 컴포넌
 
 - 8b server onPrePhysics (Path 제출 8 뒤 · Movement 9 앞) — [계획 v0.6]. 스크립트 시스템이 없으면 단계가 없다 (골든 그대로).
 - 16a 물리 이벤트 (Collision 16 뒤 — 겹침 쌍 Enter · Exit → GameEvent) — [계획 v0.6], 구독이 없으면 만들지 않는다.
-- 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action · signal (v0.5 M2-T5),
+- 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action (v0.5 M2-T5 (2) ✅) · signal (M2-T5 (3)),
   timer · collision · trigger (v0.6), response · socket (v0.8) 이 더해진다.
 - 상세: [22-RUNTIME-V2](22-RUNTIME-V2.md) 3 · 5장, [ADR-0086](adr/0086-runtime-architecture-v2.md).
 

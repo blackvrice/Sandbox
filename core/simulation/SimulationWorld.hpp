@@ -280,6 +280,17 @@ private:
     ecs::EntityCommandBuffer m_baseEcb; // SystemContext 의 자리 채우기 — System 은 각자 전용 ECB 를 받는다
     std::vector<cmd::CommandResult> m_results;
     CommandObserver m_commandObserver;
+    // 단계 17d 의 action 이벤트 (v0.5 M2-T5 (2)) — 이번 틱에 받아들여진 PlayerAction, 적용 차례. 틱마다 비운다 (세이브
+    // 안 함 — 명령과 17d 가 같은 틱이다). m_actionTargets = applyPlayerAction 이 고른 대상 (applyCommand 가 옮겨
+    // 담는다)
+    struct ScriptAction {
+        std::string action;
+        i32 player = 0;
+        Vec2 pos{};
+        std::vector<ecs::EntityId> targets;
+    };
+    std::vector<ScriptAction> m_scriptActions;
+    std::vector<ecs::EntityId> m_actionTargets;
 
     SaveId m_nextSaveId = 1;
     NetEntityId m_nextNetId = 1;

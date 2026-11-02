@@ -292,6 +292,12 @@ std::string generateSandboxDts() {
         case api::GameEventField::Number:
             t = "number";
             break;
+        case api::GameEventField::String:
+            t = "string";
+            break;
+        case api::GameEventField::EntityList:
+            t = "Entity[]";
+            break;
         }
         out += std::format("    /** {} */\n", f.doc);
         out += std::format("    readonly {}: {};\n", f.name, t);
@@ -313,6 +319,8 @@ std::string generateSandboxDts() {
     out += "    areaEnter?: { min: [number, number]; max: [number, number]; tags?: TagFilter };\n";
     out += "    /** 점수 칸이 바뀌었다 (게임 세션이 있을 때) */\n";
     out += "    score?: {};\n";
+    out += "    /** 그 틱에 받아들여진 PlayerAction (콘텐츠 효과 뒤 — e.action · player · x · y · targets) */\n";
+    out += "    action?: {};\n";
     out += "  }\n";
     out += "  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
     out += "  export interface SystemDefinition {\n";

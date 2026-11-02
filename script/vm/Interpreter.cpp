@@ -148,8 +148,8 @@ namespace {
 constexpr u32 kMaxMarshalDepth = 4;
 } // namespace
 
-Interpreter::Marshal Interpreter::buildStruct(u32 type, std::span<const Value> values, usize& pos, u32 depth,
-                                              Value& out) {
+Interpreter::Marshal Interpreter::buildStruct(u32 type, std::span<const Value> values,
+                                              std::span<const std::string> texts, usize& pos, u32 depth, Value& out) {
     const bc::TypeDesc& t = M.types[type];
     if (t.kind != bc::TypeKind::Struct || depth > kMaxMarshalDepth) {
         return Marshal::BadShape;
@@ -183,8 +183,40 @@ Interpreter::Marshal Interpreter::buildStruct(u32 type, std::span<const Value> v
             }
             break;
         }
+        case bc::TypeKind::String: {
+            // 칸 = texts 의 자리
+            if (pos >= values.size()) {
+                return Marshal::BadShape;
+            }
+            const i32 at = values[pos++].asI32();
+            if (at < 0 || static_cast<usize>(at) >= texts.size()) {
+                return Marshal::BadShape;
+            }
+            if (!newString(texts[static_cast<usize>(at)], slots[i])) {
+                return Marshal::OutOfMemory;
+            }
+            break;
+        }
+        case bc::TypeKind::Array: {
+            // 칸 = 개수 n, 그다음 원소 n 칸 (불투명 값만 — 개체 목록)
+            if (M.types[f.elem].kind != bc::TypeKind::Opaque || pos >= values.size()) {
+                return Marshal::BadShape;
+            }
+            const i32 n = values[pos++].asI32();
+            if (n < 0 || static_cast<usize>(n) > values.size() - pos) {
+                return Marshal::BadShape;
+            }
+            std::vector<Value> elems(values.begin() + static_cast<std::ptrdiff_t>(pos),
+                                     values.begin() + static_cast<std::ptrdiff_t>(pos + static_cast<usize>(n)));
+            pos += static_cast<usize>(n);
+            if (!newArray(std::move(elems), slots[i])) {
+                return Marshal::OutOfMemory;
+            }
+            break;
+        }
         case bc::TypeKind::Struct:
-            if (const Marshal m = buildStruct(t.fieldTypes[i], values, pos, depth + 1, slots[i]); m != Marshal::Ok) {
+            if (const Marshal m = buildStruct(t.fieldTypes[i], values, texts, pos, depth + 1, slots[i]);
+                m != Marshal::Ok) {
                 return m;
             }
             break;
@@ -240,8 +272,9 @@ CallResult Interpreter::call(u32 function, std::span<const Value> args) {
     return run(function, args);
 }
 
-CallResult Interpreter::call(u32 function, std::span<const Value> args, std::span<const Value> structFields) {
-    return run(function, args, &structFields);
+CallResult Interpreter::call(u32 function, std::span<const Value> args, std::span<const Value> structFields,
+                             std::span<const std::string> structTexts) {
+    return run(function, args, &structFields, structTexts);
 }
 
 CallResult Interpreter::call(std::string_view module, std::string_view exportName, std::span<const Value> args) {
@@ -255,7 +288,8 @@ CallResult Interpreter::call(std::string_view module, std::string_view exportNam
     return run(e->function, args);
 }
 
-CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::span<const Value>* structFields) {
+CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::span<const Value>* structFields,
+                            std::span<const std::string> structTexts) {
     // 새 호출 = 새 아레나 (ADR-0056 4)
     m_objects.clear();
     m_heapBytes = 0;
@@ -288,7 +322,7 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
             if (M.types[fn.params[i]].kind != bc::TypeKind::Struct) {
                 continue;
             }
-            const Marshal m = buildStruct(fn.params[i], *structFields, pos, 0, m_regs[i]);
+            const Marshal m = buildStruct(fn.params[i], *structFields, structTexts, pos, 0, m_regs[i]);
             if (m != Marshal::Ok) {
                 res.trap = m == Marshal::OutOfMemory ? Trap::OutOfMemory : Trap::BadCall;
                 res.message = std::format("매개변수 {} 의 구조체를 만들 수 없다 (칸 모양이 다르다)", i);
@@ -748,7 +782,7 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
                 Value out = Value::null();
                 if (!hr.value.isNull()) {
                     usize pos = 0;
-                    const Marshal m = buildStruct(F->regs[in.a], hr.values, pos, 0, out);
+                    const Marshal m = buildStruct(F->regs[in.a], hr.values, {}, pos, 0, out);
                     if (m == Marshal::OutOfMemory) {
                         return trap(Trap::OutOfMemory, "아레나 예산을 넘는다");
                     }

@@ -103,8 +103,10 @@ public:
     CallResult call(std::string_view module, std::string_view exportName, std::span<const Value> args);
     // 구조체 매개변수를 받는 함수 (시스템의 onEvent — ADR-0063): 구조체 자리의 args 값은 쓰지 않고, 구조체 매개변수마다
     // structFields 에서 칸을 차례로 읽어 이 호출의 아레나에 만든다 (필드 이름 순 — Host 결과와 같은 잎 규칙). 칸이
-    // 모자라거나 남거나 모양이 다르면 BadCall
-    CallResult call(u32 function, std::span<const Value> args, std::span<const Value> structFields);
+    // 모자라거나 남거나 모양이 다르면 BadCall. 잎이 string 이면 칸 = structTexts 의 자리 (i32), 잎이 불투명 값의
+    // 배열이면 칸 = 개수 n 다음 원소 n 칸 (GameEvent 의 action · targets — v0.5 M2-T5 (2))
+    CallResult call(u32 function, std::span<const Value> args, std::span<const Value> structFields,
+                    std::span<const std::string> structTexts = {});
 
     // 마지막 call 의 아레나 읽기 (다음 call 전까지)
     [[nodiscard]] std::string_view stringOf(Value v) const;
@@ -161,7 +163,8 @@ private:
         u16 resultReg = bc::kNoReg; // 부른 쪽 프레임의 결과 레지스터
     };
 
-    CallResult run(u32 function, std::span<const Value> args, const std::span<const Value>* structFields = nullptr);
+    CallResult run(u32 function, std::span<const Value> args, const std::span<const Value>* structFields = nullptr,
+                   std::span<const std::string> structTexts = {});
     // 실행 루프 — 프레임 깊이가 stopDepth 로 돌아올 때까지 (그 RET 의 값 = out). 트랩이면 m_res 를 채우고 false.
     // run 은 0 으로, 콜백 (invoke — v0.5 M8-T3) 은 그 때의 깊이로 부른다 (같은 연료 · 깊이 · 칸 예산)
     bool loop(usize stopDepth, Value& retOut);
@@ -188,7 +191,8 @@ private:
     // Host 칸 ↔ 구조체 (ADR-0060). 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) 와 중첩 구조체 (깊이 4) 만 — 그 밖의
     // 모양 (문자열 · 배열 · 재귀) 은 BadShape: 믿지 않는 바이트코드가 Host 값을 참조로 읽게 하지 않는다
     enum class Marshal : u8 { Ok, BadShape, OutOfMemory };
-    Marshal buildStruct(u32 type, std::span<const Value> values, usize& pos, u32 depth, Value& out);
+    Marshal buildStruct(u32 type, std::span<const Value> values, std::span<const std::string> texts, usize& pos,
+                        u32 depth, Value& out);
     [[nodiscard]] bool flattenStruct(u32 type, Value v, std::vector<Value>& out, u32 depth) const;
     [[nodiscard]] const Object* object(Value v) const;
     Object* object(Value v);

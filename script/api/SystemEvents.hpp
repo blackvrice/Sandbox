@@ -1,9 +1,10 @@
 #pragma once
-// 스크립트 시스템의 이벤트 구독 · GameEvent (v0.3 M4-T2, ADR-0063). docs/19-SANDBOXSCRIPT.md 18장.
+// 스크립트 시스템의 이벤트 구독 · GameEvent (v0.3 M4-T2, ADR-0063 — action 은 v0.5 M2-T5 (2)). docs/19-SANDBOXSCRIPT.md
+// 18장.
 //
 // 한 곳의 정의를 검사기 (events 키 · SDK enum GameEventKind · 구조체 GameEvent), 검증기 (onEvent 서명 · 구독), 엔진
 // (단계 17d 가 넘기는 칸 목록), d.ts 생성기가 같이 읽는다. GameEvent 의 칸 = 필드 이름 순 (바이트코드 구조체 배치 —
-// ADR-0058).
+// ADR-0058). 종류 · 필드는 Host API 지문에 든다 (hostApiFingerprint — 옛 바이트코드는 다시 컴파일).
 
 #include <array>
 #include <string_view>
@@ -13,7 +14,7 @@
 namespace sbx::script::api {
 
 // ★ 값은 바이트코드 (.sbc 구독 표) 와 스크립트 (GameEventKind.Death …) 에 남는다 — 바꾸지 않고 추가만
-enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4 };
+enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4, Action = 5 };
 
 struct GameEventKindInfo {
     GameEventKind kind;
@@ -24,11 +25,12 @@ struct GameEventKindInfo {
 };
 
 // 종류 차례 = 한 시스템이 이벤트를 받는 차례 (ADR-0063 3)
-inline constexpr std::array<GameEventKindInfo, 4> kGameEventKinds{{
+inline constexpr std::array<GameEventKindInfo, 5> kGameEventKinds{{
     {GameEventKind::Death, "death", "Death", false, true},
     {GameEventKind::Spawn, "spawn", "Spawn", false, true},
     {GameEventKind::AreaEnter, "areaEnter", "AreaEnter", true, true},
     {GameEventKind::Score, "score", "Score", false, false},
+    {GameEventKind::Action, "action", "Action", false, false},
 }};
 
 [[nodiscard]] constexpr const GameEventKindInfo* findGameEventKind(std::string_view key) noexcept {
@@ -49,19 +51,24 @@ inline constexpr std::array<GameEventKindInfo, 4> kGameEventKinds{{
 }
 
 // GameEvent 구조체의 필드 — 이름 순 (= 칸 차례)
-enum class GameEventField : u8 { EntityOrNull, Kind, I32, Number };
+// String = 값 칸이 텍스트 목록의 자리 (i32), EntityList = 칸 하나 (개수 n) + 개체 n 칸 (Interpreter::call 의 구조체 칸)
+enum class GameEventField : u8 { EntityOrNull, Kind, I32, Number, String, EntityList };
 struct GameEventFieldInfo {
     std::string_view name;
     GameEventField type;
     std::string_view doc;
 };
-inline constexpr std::array<GameEventFieldInfo, 7> kGameEventFields{{
+inline constexpr std::array<GameEventFieldInfo, 10> kGameEventFields{{
+    {"action", GameEventField::String, "action: 받아들여진 PlayerAction 의 id (다른 종류는 빈 문자열)"},
     {"entity", GameEventField::EntityOrNull, "spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다)"},
     {"kind", GameEventField::Kind, "이벤트 종류"},
+    {"player", GameEventField::I32, "action: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이)"},
     {"previous", GameEventField::I32, "score: 틱 처음의 점수"},
+    {"targets", GameEventField::EntityList,
+     "action: 고른 대상 중 17d 에 살아 있는 것 ((거리², saveId) 차례 — 효과가 지운 대상은 빠진다)"},
     {"team", GameEventField::I32, "score: 점수 칸 (0 = 공용, 팀 번호 + 1)"},
     {"value", GameEventField::I32, "score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명)"},
-    {"x", GameEventField::Number, "위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0)"},
+    {"x", GameEventField::Number, "위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0, action 은 고른 점)"},
     {"y", GameEventField::Number, "위치 y"},
 }};
 

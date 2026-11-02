@@ -119,6 +119,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_destroyedCursor = 0;
     m_events.clear();
     m_results.clear();
+    m_scriptActions.clear();
     m_intents.clear();
     if (run) {
         m_clock.advance();
@@ -279,6 +280,7 @@ void SimulationWorld::finishRestore(const RestoreState& state) {
     m_destroyedCursor = 0;
     m_events.clear();
     m_results.clear();
+    m_scriptActions.clear();
     m_intents.clear();
     m_spatial.rebuild(m_registry);
 
@@ -584,6 +586,12 @@ void SimulationWorld::applyCommand(const cmd::SimCommand& command) {
     if (applied) {
         result.accepted = true;
         result.created = std::move(*applied);
+        // 스크립트 action 이벤트 (17d) — 구독이 있을 때만 모은다 (없으면 아무것도 바뀌지 않는다)
+        if (const auto* pa = std::get_if<cmd::PlayerAction>(&command.payload);
+            pa != nullptr && m_scriptSystems && m_scriptSystems->subscribes(script::api::GameEventKind::Action)) {
+            m_scriptActions.push_back(ScriptAction{pa->action, static_cast<i32>(command.header.issuer), pa->position,
+                                                   std::move(m_actionTargets)});
+        }
         if (m_commandObserver) {
             m_commandObserver(recorded);
         }
@@ -918,6 +926,10 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd:
     });
     if (found.size() > def->maxTargets) {
         found.resize(def->maxTargets);
+    }
+    m_actionTargets.clear();
+    for (const Candidate& t : found) {
+        m_actionTargets.push_back(t.e); // 스크립트 action 이벤트의 targets (applyCommand 가 받아들임 뒤 옮긴다)
     }
 
     const u64 commandIndex = m_results.size(); // 이번 tick() 에서 이 명령의 순번 (결정적)

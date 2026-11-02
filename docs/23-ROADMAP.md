@@ -11,9 +11,9 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) ✅
-다음      v0.5 M2-T5 (2) — server onEvent "action" (PlayerAction 이 받아들여졌을 때 { action, player, pos, targets }) (1장 카드)
-그다음    M2-T5 (3) PlayerSignal · signals.json · 프로토콜 15 → M2-T5 (4) ctx.players · session · owner 적기 → M2-T7 계약 동결 → M2-T6 →
+지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) ✅
+다음      v0.5 M2-T5 (3) — PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" (1장 카드)
+그다음    M2-T5 (4) ctx.players · session · owner 적기 → M2-T7 계약 동결 → M2-T6 →
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
 
@@ -43,7 +43,7 @@ M6-T5 = P2 (미룰 순서는 ADR-0078 6).
 M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 · 전체 CTest.
 
 ```text
-① M2-T5 (2) onEvent "action"                                              ② P0   ③ v0.5 M2
+① M2-T5 (2) onEvent "action" ✅ (2026-11-02 — 19 18장)                    ② P0   ③ v0.5 M2
 ④ 오목의 "돌 놓기" 를 스크립트가 판정 (20 3.5) — PlayerAction 효과 뒤 스크립트 규칙
 ⑤ M2-T5 (1) ✅
 ⑥ core/simulation (17d 이벤트 수집 — 받아들여진 행동), core/script (SystemEvents 표에 action), script/api (GameEvent 필드), script/sdk

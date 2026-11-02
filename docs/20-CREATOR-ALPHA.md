@@ -192,6 +192,7 @@ ctx.session: { state, tick, winner, teams } (읽기)
 
 ```text
 action     PlayerAction 이 받아들여졌을 때 — { action, player, pos, targets[] } (콘텐츠 효과 뒤). 스크립트가 행동의 규칙을 쓴다 (오목)
+           ✅ M2-T5 (2): GameEvent 칸 action · player · targets (+ x · y = 점), 대상은 17d 에 살아 있는 것만 (19 18장)
 signal     클라이언트가 보낸 신호 (UI 버튼 · ctx.send) — { name, player, value }. 이름은 팩 signals.json 에 선언 (값 범위) — 아니면
            서버가 명령을 거절 (스크립트까지 오지 않는다)
 기존       death · spawn · areaEnter · score 그대로
@@ -396,7 +397,7 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T3 ✅ | spawn · destroy · add · remove · 상한 | script/api (Host 표 · ABI EntityOrNull), script/vm · lang (상자 결과 · 검증), core/script/ScriptHost (호출 버퍼 · 새 개체 핸들 · 상한), core/simulation (ScriptStructural 큐 · 16b · 17d 끝 적용) | ScriptStructuralOp · ScriptStructuralBatch · ScriptStructuralStats | M2-T2 | 이 호출의 새 개체 = 핸들만, 상한 64 · 1,024, 없는 Prefab · 경계 밖 · NaN, 이미 없는 대상 · 이미 붙은 것, 트랩이면 버림, saveId = 부른 차례, 틱 안의 시스템 · 같은 WorldHash (test_script_structural) | 스크립트가 개체를 만들고 지운다 — 골든 그대로 |
 | M2-T4 ✅ | random · near · time | core/random (Purpose::Script), core/script/ScriptHost (흐름 · near), script/api (Host 표) | — | M2-T1 | 같은 월드 · 틱 · 시스템 = 같은 수열 · 다른 시스템과 무관 · 이어 씀 · 틱마다 다름, randomInt 범위, near = 색인 · saveId 순 · 거르기 · 연료, 틱 안의 시스템 = 같은 해시 (test_script_random) | — |
 | M2-T5 (1) ✅ | game.owner 엔진 컴포넌트 · 접근 표 · 골든 영향 측정 | core/components, script/api/EngineComponents | — | M2-T3 | 골든 · 리플레이 해시 그대로 (3.6) | kSimVersion 4 유지 |
-| M2-T5 (2) | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
+| M2-T5 (2) ✅ | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
 | M2-T5 (3) | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
 | M2-T5 (4) | ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 | core/game (플레이어 표 — 기록된 것만), core/script/ScriptHost, script/api · sdk | PlayerInfo · SessionInfo | M2-T5 (3) | id 순 · 재생 같은 값 · 골든 측정 (바뀌면 kSimVersion 5) | 스크립트가 "누구의 돌" 을 안다 |
 | M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |

@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-02 — v0.5 M2-T5 (2): server onEvent "action" — 받아들여진 PlayerAction 을 스크립트로
+
+**무엇을**
+
+- 구독 종류 action (GameEventKind.Action = 5, 종류 차례 맨 끝 — 기존 종류의 전달 차례 그대로). GameEvent 에 칸 셋: action (string —
+  PlayerAction id), player (i32 — 명령의 issuer, 0 = 서버), targets (Entity[] — 고른 대상 중 17d 에 살아 있는 것, (거리², saveId)
+  차례). x · y = 고른 점, entity null. 다른 종류는 action "" · player 0 · targets [].
+- 엔진: applyCommand 가 받아들인 PlayerAction 을 (구독이 있을 때만) 이번 틱 목록에 — 적용 차례, 대상은 applyPlayerAction 이 고른 것.
+  17d 가 산 대상만 넘긴다. 틱마다 비운다 (명령과 17d 가 같은 틱 — 세이브할 것 없음).
+- VM: Interpreter::call 의 구조체 칸에 string (글 목록의 자리) · 불투명 값 배열 (개수 + 원소) 잎. 검사기 · 검증기 · d.ts 가 새 칸
+  종류 (GameEventField String · EntityList) 를 안다.
+- Host API 지문에 이벤트 종류 · GameEvent 필드를 넣었다 — onEvent 의 구조체 배치가 바뀌면 옛 바이트코드가 지문으로 거절된다 (전에는
+  지문 밖이라 검증기의 "GameEvent 모양" 오류로만 걸렸다). 지문 0x6f75b0cc967a534f → 0xaf93f2870c649b98 (kHostApiVersion 1, .sbc 9
+  그대로). sandbox.d.ts 넷 다시 만듦.
+
+**왜**
+
+- 20 3.5 · 23 1장 카드 — 오목의 "돌 놓기" 처럼 콘텐츠 행동 뒤의 규칙을 스크립트가 쓴다 (M7-T1 · M6-T2 의 선행).
+
+**검증**
+
+- test_script_callbacks: 글 · 개체 목록 칸 (값 · 자리 밖 · 개수 넘침 · 음수 = BadCall), 17d action (한 틱의 받아들임 · 거절 ·
+  지운 대상 — 로그 차례 · 값, 대상 핸들로 쓰기), 구독 없는 월드와 같은 해시. 기존 칸 시험은 새 배치로. test_checker 지문 고정.
+- kSimVersion 4 그대로 — 구독이 없으면 모으지 않고, 모아도 상태를 바꾸지 않는다 (det_* 골든 · 리플레이 해시 통과).
+- Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과 (det_* · 리플레이 골든 포함), check_includes 0 위반. clang-format 은 고친 줄만.
+
+**남은 일**
+
+- M2-T5 (3) PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" (23 1장). action 구독 거르기 (id 목록) 는 넣지 않았다 —
+  스크립트가 e.action 으로 가른다 (필요하면 바이트코드 구독 표에 [계획]).
+
+---
+
 ## 2026-11-02 — Runtime v2 · 통합 로드맵 v0.5 ~ v1.0 · 보안 출시 기준 (문서 — 22 · 23 · 24, ADR-0086 ~ 0088)
 
 **무엇을**

@@ -317,6 +317,12 @@ private:
             case api::GameEventField::Number:
                 t = TypeTable::kNumber;
                 break;
+            case api::GameEventField::String:
+                t = TypeTable::kString;
+                break;
+            case api::GameEventField::EntityList:
+                t = T().arrayOf(T().opaque(api::AbiType::Entity));
+                break;
             }
             T().structOf(m_gameEvent).fields.push_back(StructField{std::string(f.name), t, true});
         }
@@ -1107,11 +1113,12 @@ private:
         }
     }
 
-    // events: { death: { tags? }, spawn: { tags? }, areaEnter: { min: [x, y], max: [x, y], tags? }, score: {} } —
-    // 종류마다 하나, 결과는 종류 차례
+    // events: { death: { tags? }, spawn: { tags? }, areaEnter: { min: [x, y], max: [x, y], tags? }, score: {}, action:
+    // {} } — 종류마다 하나, 결과는 종류 차례
     bool declareSystemEvents(NodeId v, SystemDecl& sd) {
         if (node(v).kind != NodeKind::ObjectLit) {
-            err("S426", v, "events 는 { death: {}, spawn: {}, areaEnter: { min, max }, score: {} } 객체 리터럴이다");
+            err("S426", v,
+                "events 는 { death: {}, spawn: {}, areaEnter: { min, max }, score: {}, action: {} } 객체 리터럴이다");
             expr(v, kNoExpect);
             return false;
         }
@@ -1126,7 +1133,7 @@ private:
             }
             const api::GameEventKindInfo* k = api::findGameEventKind(key);
             if (k == nullptr) {
-                err("S426", p, std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score", key));
+                err("S426", p, std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action", key));
                 ok = false;
                 continue;
             }
@@ -1181,7 +1188,8 @@ private:
                 } else {
                     err("S426", q,
                         std::format("{} 에 '{}' 는 없다 — {}", key, qk,
-                                    k->area ? "min · max · tags" : (k->tags ? "tags" : "키 없음 (score: {})")));
+                                    k->area ? "min · max · tags"
+                                            : (k->tags ? "tags" : std::format("키 없음 ({}: {{}})", key))));
                     expr(qv, kNoExpect);
                     good = false;
                 }
@@ -1200,7 +1208,7 @@ private:
             ok = ok && good;
         }
         if (ok && sd.events.empty()) {
-            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score");
+            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score · action");
             ok = false;
         }
         std::sort(sd.events.begin(), sd.events.end(),

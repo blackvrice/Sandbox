@@ -36,7 +36,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 9 · Host API 1 (지문 0x6f75b0cc967a534f) · kSimVersion 4 · 프로토콜 14 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 9 · Host API 1 (지문 0xaf93f2870c649b98 — M2-T5 (2) 뒤) · kSimVersion 4 · 프로토콜 14 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -76,7 +76,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | server | onPrePhysics | 새 단계 8b — Path 요청 (8) 뒤 · Movement (9) 앞 | ServerPrePhysicsContext | [계획 v0.6] |
 | server | onTick | 16b — Collision (16) 뒤 · ECB (17) 앞 | ServerContext (= ServerTickContext) | 현행 — **단계를 옮기지 않는다** (이미 물리 뒤라 "post-physics" 몫을 한다) |
 | server | onPostPhysics | — | — | **두지 않는다** — onTick 과 같은 자리라 이름만 둘이 된다 (ADR-0086 3) |
-| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, [계획] action · signal · timer · trigger · collision · response) | ServerContext + GameEvent | 현행 (종류는 늘어남) |
+| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, [계획] action · signal · timer · trigger · collision · response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
 | server | onStop | 17d — 시스템이 꺼질 때 | ServerContext | 현행 |
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
 | client | onStart · onStop | 세션 시작 · 끝 (프레임) | ClientContext | [계획 v0.6] |

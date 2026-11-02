@@ -76,10 +76,25 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     if (ev != nullptr && f.params.size() == 2) {
         // GameEvent 의 칸 — 필드 이름 순 (api::kGameEventFields)
         m_fields.clear();
+        m_texts.clear();
         for (const api::GameEventFieldInfo& field : api::kGameEventFields) {
             const std::string_view n = field.name;
             vm::Value v;
-            if (n == "entity") {
+            if (n == "action") {
+                // 문자열 칸 = m_texts 의 자리
+                v = vm::Value::i32v(static_cast<i32>(m_texts.size()));
+                m_texts.push_back(ev->action != nullptr ? ev->action->action : std::string());
+            } else if (n == "player") {
+                v = vm::Value::i32v(ev->action != nullptr ? ev->action->player : 0);
+            } else if (n == "targets") {
+                // 개수 다음 원소 (Interpreter::call 의 개체 목록 칸)
+                const usize count = ev->action != nullptr ? ev->action->targets.size() : 0;
+                m_fields.push_back(vm::Value::i32v(static_cast<i32>(count)));
+                for (usize i = 0; i < count; ++i) {
+                    m_fields.push_back(m_host.entityHandle(ev->action->targets[i]));
+                }
+                continue;
+            } else if (n == "entity") {
                 v = ev->entity.valid() ? m_host.entityHandle(ev->entity) : vm::Value::null();
             } else if (n == "kind") {
                 v = vm::Value::i32v(static_cast<i32>(ev->kind));
@@ -96,7 +111,7 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
             }
             m_fields.push_back(v);
         }
-        r = vmi.call(fn, std::span(args, 2), m_fields);
+        r = vmi.call(fn, std::span(args, 2), m_fields, m_texts);
     } else {
         // (ctx) 나 () — 검증기가 서명을 보았다
         r = vmi.call(fn, std::span(args, f.params.size()));
@@ -232,6 +247,11 @@ void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick ti
             case GameEventKind::Score:
                 for (const ScriptEventFacts::Score& c : facts.scores) {
                     deliver(EventValues{GameEventKind::Score, {}, 0.0, 0.0, c.slot, c.after, c.before});
+                }
+                break;
+            case GameEventKind::Action:
+                for (const ScriptEventFacts::Action& a : facts.actions) {
+                    deliver(EventValues{GameEventKind::Action, {}, a.pos.x, a.pos.y, 0, 0, 0, &a});
                 }
                 break;
             }

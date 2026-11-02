@@ -408,6 +408,12 @@ private:
             case api::GameEventField::Number:
                 ok = ok && kindOf(ft) == TypeKind::F64;
                 break;
+            case api::GameEventField::String:
+                ok = ok && kindOf(ft) == TypeKind::String;
+                break;
+            case api::GameEventField::EntityList:
+                ok = ok && kindOf(ft) == TypeKind::Array && isOpaque(M.types[ft].elem, api::AbiType::Entity);
+                break;
             }
             if (!ok) {
                 return false;

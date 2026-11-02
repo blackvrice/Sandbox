@@ -1,7 +1,7 @@
 // 스크립트 콜백 onStart · onStop · onEvent (v0.3 M4-T2, ADR-0063): 검사기 (events 구독 · GameEvent · GameEventKind,
 // S426), 바이트코드 형식 4 (콜백 · 구독 표 · 검증기), VM 의 구조체 인자, 콘텐츠의 태그 풀기 (V7), 단계 17d — 시작 (틱 1
-// · Running 이 된 틱) · 끝 (Finished 가 된 틱) · death · spawn · areaEnter · score, 예산 (eventsPerTick · cut), 세이브
-// → 로드 해시.
+// · Running 이 된 틱) · 끝 (Finished 가 된 틱) · death · spawn · areaEnter · score · action (v0.5 M2-T5 (2)), 예산
+// (eventsPerTick · cut), 세이브 → 로드 해시.
 #include <doctest/doctest.h>
 
 #include <filesystem>
@@ -340,24 +340,73 @@ export default defineSystem({ id: "a.b", events: { spawn: {} }, onEvent(ctx, e) 
         vm::Interpreter vmi(*m, nullptr);
         const bc::Export* k = m->findExport("scripts/a.ts", "k");
         REQUIRE(k != nullptr);
-        // 칸 = entity · kind · previous · team · value · x · y (이름 순)
+        // 칸 = action (글 자리) · entity · kind · player · previous · targets (개수 + 원소) · team · value · x · y
+        // (이름 순)
         const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
-        const vm::Value fields[7] = {vm::Value::opaque(0x5E00'0000'0000'0001ull),
-                                     vm::Value::i32v(2),
-                                     vm::Value::i32v(0),
-                                     vm::Value::i32v(0),
-                                     vm::Value::i32v(5),
-                                     vm::Value::f64v(1.5),
-                                     vm::Value::f64v(2.5)};
-        const vm::CallResult r = vmi.call(k->function, args, fields);
+        const std::vector<std::string> noText{""};
+        const vm::Value fields[10] = {vm::Value::i32v(0),   vm::Value::opaque(0x5E00'0000'0000'0001ull),
+                                      vm::Value::i32v(2),   vm::Value::i32v(0),
+                                      vm::Value::i32v(0),   vm::Value::i32v(0),
+                                      vm::Value::i32v(0),   vm::Value::i32v(5),
+                                      vm::Value::f64v(1.5), vm::Value::f64v(2.5)};
+        const vm::CallResult r = vmi.call(k->function, args, fields, noText);
         REQUIRE_MESSAGE(r.ok(), r.message);
         CHECK(r.value.asI32() == 2012);
-        const vm::Value nullEntity[7] = {vm::Value::null(),  vm::Value::i32v(1), vm::Value::i32v(0), vm::Value::i32v(0),
-                                         vm::Value::i32v(4), vm::Value::f64v(0), vm::Value::f64v(0)};
-        CHECK(vmi.call(k->function, args, nullEntity).value.asI32() == 1004);
-        CHECK(vmi.call(k->function, args, std::span(fields).first(6)).trap == vm::Trap::BadCall);
-        const vm::Value eight[8] = {};
-        CHECK(vmi.call(k->function, args, eight).trap == vm::Trap::BadCall);
+        const vm::Value nullEntity[10] = {
+            vm::Value::i32v(0), vm::Value::null(),  vm::Value::i32v(1), vm::Value::i32v(0), vm::Value::i32v(0),
+            vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(4), vm::Value::f64v(0), vm::Value::f64v(0)};
+        CHECK(vmi.call(k->function, args, nullEntity, noText).value.asI32() == 1004);
+        CHECK(vmi.call(k->function, args, std::span(fields).first(9), noText).trap == vm::Trap::BadCall);
+        CHECK(vmi.call(k->function, args, fields).trap == vm::Trap::BadCall); // 글 자리가 목록 밖
+        const vm::Value eleven[11] = {};
+        CHECK(vmi.call(k->function, args, eleven, noText).trap == vm::Trap::BadCall);
+    }
+
+    TEST_CASE("onEvent: action 의 글 · 개체 목록 칸 (v0.5 M2-T5 (2)) — 모양이 다르면 BadCall") {
+        DiagnosticList diags;
+        const std::optional<bc::Module> m = compile(R"(
+export function k(ctx: ServerContext, e: GameEvent): i32 {
+  let n: i32 = 0
+  for (const t of e.targets) { n = n + 1 }
+  let go: i32 = 0
+  if (e.action === "t.go") { go = 1000 }
+  return e.player * 100 + e.targets.length * 10 + n + go
+}
+export default defineSystem({ id: "a.b", events: { action: {} }, onEvent(ctx, e) { } })
+)",
+                                                    diags);
+        REQUIRE_MESSAGE(m.has_value(), diags.describeAll());
+        vm::Interpreter vmi(*m, nullptr);
+        const bc::Export* k = m->findExport("scripts/a.ts", "k");
+        REQUIRE(k != nullptr);
+        const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
+        const std::vector<std::string> texts{"t.go"};
+        const vm::Value fields[12] = {vm::Value::i32v(0),
+                                      vm::Value::null(),
+                                      vm::Value::i32v(5),
+                                      vm::Value::i32v(3),
+                                      vm::Value::i32v(0),
+                                      vm::Value::i32v(2),
+                                      vm::Value::opaque(0x5E00'0000'0000'0001ull),
+                                      vm::Value::opaque(0x5E00'0000'0000'0002ull),
+                                      vm::Value::i32v(0),
+                                      vm::Value::i32v(0),
+                                      vm::Value::f64v(1),
+                                      vm::Value::f64v(2)};
+        const vm::CallResult r = vmi.call(k->function, args, fields, texts);
+        REQUIRE_MESSAGE(r.ok(), r.message);
+        CHECK(r.value.asI32() == 1322);
+        const std::vector<std::string> other{"t.stop"};
+        CHECK(vmi.call(k->function, args, fields, other).value.asI32() == 322);
+        // 개수가 남은 칸보다 크다 · 음수 · 글 자리가 목록 밖
+        std::vector<vm::Value> bad(std::begin(fields), std::end(fields));
+        bad[5] = vm::Value::i32v(9);
+        CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
+        bad[5] = vm::Value::i32v(-1);
+        CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
+        bad[5] = vm::Value::i32v(2);
+        bad[0] = vm::Value::i32v(1);
+        CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
     }
 
     TEST_CASE("onEvent: 콘텐츠가 구독의 태그를 푼다 — 없는 태그는 V7 (시스템 id · 자리)") {
@@ -446,6 +495,88 @@ export default defineSystem({ id: "t.w", events: { death: { tags: { all: ["prey"
         };
         CHECK(logs == want);
         CHECK(stopped == started + 2);
+    }
+
+    TEST_CASE(
+        "17d: action — 받아들여진 PlayerAction 만, 적용 차례 (id · player · 점 · 대상 — 효과가 지운 대상은 빠진다)") {
+        Root root = basePack("action");
+        root.file("t/actions.json",
+                  R"([{"id": "t.poke", "targets": {"tags": {"all": ["prey"]}}, "range": 3, "maxTargets": 2,
+                        "effects": [{"op": "tag.add", "who": "target", "tag": "mark"}]},
+                       {"id": "t.eat", "targets": {"tags": {"all": ["animal"]}}, "range": 3, "maxTargets": 2,
+                        "effects": [{"op": "destroy", "who": "target"}]}])")
+            .file("t/scripts/act.ts", R"(import { defineSystem } from "sandbox"
+import { Mana } from "./mana"
+export default defineSystem({
+  id: "t.act",
+  events: { action: {} },
+  onEvent(ctx, e) {
+    ctx.log(`${e.kind} ${e.action} ${e.player} ${e.x} ${e.y} ${e.targets.length} ${e.entity !== null}`)
+    for (const t of e.targets) {
+      const m = ctx.read(t, Mana)
+      if (m !== null) { m.marks = m.marks + 100; ctx.write(t, Mana, m) }
+    }
+  },
+})
+)");
+        const content::ContentLoadResult r = root.load();
+        REQUIRE_MESSAGE(r.ok(), dump(r));
+        World w(r.db);
+        REQUIRE(w.world.scriptSystems() != nullptr);
+        CHECK(w.world.scriptSystems()->subscribes(api::GameEventKind::Action));
+        const NetEntityId a = w.spawn("t.prey", {1, 1});
+        const NetEntityId b = w.spawn("t.prey", {2, 1});
+        (void)w.spawn("t.thing", {1, 2});
+        // 한 틱에 셋: 받아들임 · 거절 (대상 없음 — 이벤트 없음) · 받아들임 (대상을 지운다)
+        w.push(cmd::PlayerAction{"t.poke", {1, 1}});
+        w.push(cmd::PlayerAction{"t.poke", {20, 20}});
+        w.world.tick();
+        const sim::Tick first = w.world.currentTick();
+        REQUIRE(w.world.lastResults().size() == 2);
+        CHECK(w.world.lastResults()[0].accepted);
+        CHECK_FALSE(w.world.lastResults()[1].accepted);
+        CHECK(w.marks(a) == 100.0); // 대상 핸들이 산 개체를 가리킨다
+        CHECK(w.marks(b) == 100.0);
+        w.push(cmd::PlayerAction{"t.eat", {1, 1}}); // a (거리 0) · b (거리² 1, saveId 가 t.thing 보다 앞) 를 지운다
+        w.world.tick();
+        REQUIRE(w.world.lastResults().size() == 1);
+        CHECK(w.world.lastResults()[0].accepted);
+        const std::vector<std::string> logs = w.logs();
+        CAPTURE(logs);
+        const std::vector<std::string> want{
+            std::format("t{} 5 t.poke 1 1 1 2 false", first),
+            std::format("t{} 5 t.eat 1 1 1 0 false", first + 1),
+        };
+        CHECK(logs == want);
+    }
+
+    TEST_CASE(
+        "17d: action 구독이 없으면 행동을 모으지 않는다 — 같은 명령의 두 월드 (구독 없음 · 다른 종류 구독) 같은 해시") {
+        Root plain = basePack("action_none");
+        plain.file("t/actions.json", R"([{"id": "t.poke", "targets": {"tags": {"all": ["prey"]}}, "range": 3,
+                        "effects": [{"op": "tag.add", "who": "target", "tag": "mark"}]}])");
+        Root watched = basePack("action_watch");
+        watched
+            .file("t/actions.json", R"([{"id": "t.poke", "targets": {"tags": {"all": ["prey"]}}, "range": 3,
+                        "effects": [{"op": "tag.add", "who": "target", "tag": "mark"}]}])")
+            .file("t/scripts/act.ts", R"(import { defineSystem } from "sandbox"
+export default defineSystem({ id: "t.act", events: { action: {} }, onEvent(ctx, e) { ctx.log(e.action) } })
+)");
+        const content::ContentLoadResult r1 = plain.load();
+        const content::ContentLoadResult r2 = watched.load();
+        REQUIRE_MESSAGE(r1.ok(), dump(r1));
+        REQUIRE_MESSAGE(r2.ok(), dump(r2));
+        World w1(r1.db);
+        World w2(r2.db);
+        for (World* w : {&w1, &w2}) {
+            (void)w->spawn("t.prey", {1, 1});
+            w->push(cmd::PlayerAction{"t.poke", {1, 1}});
+            w->world.tick();
+            w->world.tick();
+        }
+        // 스크립트가 쓰지 않으면 시뮬레이션은 같다 (이벤트를 모으는 일이 상태를 바꾸지 않는다)
+        CHECK(w1.world.worldHash().value() == w2.world.worldHash().value());
+        CHECK(w2.logs() == std::vector<std::string>{std::format("t{} t.poke", w2.world.currentTick() - 1)});
     }
 
     TEST_CASE("17d: 예산 — eventsPerTick 을 넘은 이벤트는 건너뛰고 센다, 트랩은 그 호출의 쓰기만 버린다") {

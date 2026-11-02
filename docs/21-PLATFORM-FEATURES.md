@@ -12,7 +12,7 @@
 ## 1. 현재 구현 상태 (v0.1 ~ v0.5 M8)
 
 18-PLATFORM 2장의 표 (게임 제작 영역) 를 넓히고, 이번 요청의 영역을 더했다. 근거는 경로 · 시험 이름 · 문서 장.
-버전 번호 (2026-11-02 헤더 값): .sbc kFormatVersion 9 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0x6f75b0cc967a534f
+버전 번호 (2026-11-02 헤더 값): .sbc kFormatVersion 9 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0xaf93f2870c649b98
 (script/api/HostApi.hpp · test_checker 고정) · kSimVersion 4 (core/simulation) · 프로토콜 14 (network/protocol) · .sbpkg 형식 2 · 리플레이 1 ·
 세이브 kWorldVersion 1 / kSchemaVersion 1. 실행 구조 (스레드 · 콜백) 의 다음 설계는 [22-RUNTIME-V2](22-RUNTIME-V2.md).
 
@@ -33,7 +33,7 @@
 | 에디터 UI | Implemented (도구용) | editor/ui (ImGui — 편집 · 인스펙터 · 콘텐츠 · 트리거 폼 · 팩별 목록), unit_editor, 10 | 게임 UI 편집기 (게임 UI 가 없다) |
 | 다국어 · 접근성 | Missing | 문자열이 코드 · 콘텐츠에 한국어로 박혀 있다. 폰트 malgun.ttf (Windows) · ImGui FontScaleDpi (배율 — DPI 만) | 문자열 표 · 로케일 · 폰트 대체 · UI 배율 설정 · 키 설정 |
 | SandboxScript 컴파일러 · VM | Implemented | script/ (렉서 · 파서 · 검사기 · 코드 생성 · .sbc 형식 9 · 검증기 · 인터프리터 — 내장 INTR · Func · LOADFN · Map · Set · Coll), unit_script (test_stdlib_* 포함) · 보호 시험 · 퍼즈, 19 | JIT/AOT (ADR-0081 — 측정 뒤 v1.x), 함수별 프로파일 · 트랩 줄 (v0.5 M6-T4) |
-| Host API | Partial | script/api/HostApi (kHostApiVersion 1, 지문 0x6f75b0cc967a534f): v0.3 ctx.tick · log · read · has · query · write + v0.5 M2 엔진 컴포넌트 접근 표 · 쓰기 · spawn · destroy · add · remove · random · randomInt · near · nearWith · time + M8 nearest · kNearest · inBox · requestPath · pathState · pathPoints · cancelPath · raycast · overlap, client.tick · frame · dt · read · has · query · label · print, 19 16 · 25장 | action · signal 이벤트 · ctx.players · session (M2-T5 나머지), 입력 · send · 소리 (M2-T6), ctx.ui (M3-T4), 단계별 Capability (22 3.2 — [계획]) |
+| Host API | Partial | script/api/HostApi (kHostApiVersion 1, 지문 0xaf93f2870c649b98 — M2-T5 (2) 뒤): v0.3 ctx.tick · log · read · has · query · write + v0.5 M2 엔진 컴포넌트 접근 표 · 쓰기 · spawn · destroy · add · remove · random · randomInt · near · nearWith · time + M8 nearest · kNearest · inBox · requestPath · pathState · pathPoints · cancelPath · raycast · overlap, client.tick · frame · dt · read · has · query · label · print, 19 16 · 25장 | signal 이벤트 · ctx.players · session (M2-T5 (3) · (4)) — action 이벤트는 ✅ M2-T5 (2), 입력 · send · 소리 (M2-T6), ctx.ui (M3-T4), 단계별 Capability (22 3.2 — [계획]) |
 | 스크립트 표준 라이브러리 | Implemented | v0.5 M8 (ADR-0085): script/vm/Intrinsics (Array · 콜백 메서드 · Map · Set · Stack · Queue · Deque · PriorityQueue · Heap · BitSet · 알고리즘 · 수학 · vec2 · Graph), unit_script test_stdlib_* · test_script_engine_queries, samples/stdlib_tour (CTest sample_stdlib_tour), 벤치 script.stdlib (14 7.15), 19 25장 | 19 25장의 [계획] 줄 (예: 틱을 넘는 컬렉션 — 상태는 ECS, 22 9장) |
 | 물리 · 충돌 | Partial | MovementSystem (단계 9) · CollisionSystem (16 — 원 분리), core.collider { radius ≤ 2 · layer · mask }, 스크립트 질의 raycast · overlap (M8-T8), 03 2장 | layer · mask 거르기 · Enter/Exit 이벤트 · ShapeCast · 힘 · 충격 명령 (v0.6) · Substep · CCD · 재질 (v0.8) — 22 5장 |
 | 실행 구조 (스레드 · 콜백) | Partial | 스레드 넷 (Main · Simulation · Network IO · Worker Pool — 01 5장), server onStart · onTick · onEvent · onStop · client onUpdate (19 17 · 18 · 21장) | onPrePhysics · client 수명주기 · onAction · onRender · client 고정 Tick · 예측 · NetworkModule · Capability (22 — [계획 v0.5 계약 · v0.6 ~ v0.8]) |

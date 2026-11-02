@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 6f75b0cc967a534f — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 af93f2870c649b98 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -305,20 +305,27 @@ declare module "sandbox" {
     Spawn = 2,
     AreaEnter = 3,
     Score = 4,
+    Action = 5,
   }
   /** onEvent 의 이벤트 (단계 17d — 그 틱에 일어난 일) */
   export interface GameEvent {
+    /** action: 받아들여진 PlayerAction 의 id (다른 종류는 빈 문자열) */
+    readonly action: string;
     /** spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다) */
     readonly entity: Entity | null;
     /** 이벤트 종류 */
     readonly kind: GameEventKind;
+    /** action: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이) */
+    readonly player: i32;
     /** score: 틱 처음의 점수 */
     readonly previous: i32;
+    /** action: 고른 대상 중 17d 에 살아 있는 것 ((거리², saveId) 차례 — 효과가 지운 대상은 빠진다) */
+    readonly targets: Entity[];
     /** score: 점수 칸 (0 = 공용, 팀 번호 + 1) */
     readonly team: i32;
     /** score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명) */
     readonly value: i32;
-    /** 위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0) */
+    /** 위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0, action 은 고른 점) */
     readonly x: number;
     /** 위치 y */
     readonly y: number;
@@ -339,6 +346,8 @@ declare module "sandbox" {
     areaEnter?: { min: [number, number]; max: [number, number]; tags?: TagFilter };
     /** 점수 칸이 바뀌었다 (게임 세션이 있을 때) */
     score?: {};
+    /** 그 틱에 받아들여진 PlayerAction (콘텐츠 효과 뒤 — e.action · player · x · y · targets) */
+    action?: {};
   }
   /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
   export interface SystemDefinition {

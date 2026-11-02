@@ -607,7 +607,7 @@ d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 —
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
 ```
 
-## 18. 시스템 콜백 · 이벤트 (v0.3 M4-T2 — 검사기 · `script/api/SystemEvents` · `core/simulation/SimulationScripts`, ADR-0063)
+## 18. 시스템 콜백 · 이벤트 (v0.3 M4-T2 — 검사기 · `script/api/SystemEvents` · `core/simulation/SimulationScripts`, ADR-0063 · action 은 v0.5 M2-T5 (2))
 
 ```ts
 import { defineSystem, GameEventKind } from "sandbox";
@@ -620,6 +620,7 @@ export default defineSystem({
     spawn: {},
     areaEnter: { min: [-4, -4], max: [4, 4], tags: { none: ["plant"] } },
     score: {},
+    action: {},                                        // 받아들여진 PlayerAction (v0.5 M2-T5 (2))
   },
   onStart(ctx) { ctx.log("game start"); },             // 게임이 Running 이 된 틱 (세션이 없으면 틱 1)
   onEvent(ctx, e) {                                    // e: GameEvent
@@ -635,7 +636,7 @@ export default defineSystem({
 
 ```text
 단계       17d — 17c Triggers 다음 (그 틱의 명령 · System · ECB · Prefab 생성 · 게임 규칙 · 트리거가 끝난 뒤), System 이 도는
-           틱에만. ① onStart (시스템 순서) ② onEvent (시스템 순서 → 구독 종류 death · spawn · areaEnter · score → 일어난 차례)
+           틱에만. ① onStart (시스템 순서) ② onEvent (시스템 순서 → 구독 종류 death · spawn · areaEnter · score · action → 일어난 차례)
            ③ onStop (시스템 순서). 콜백이 없는 콘텐츠는 단계가 없다 (03 2장)
 시작 · 끝  onStart = 세션이 있으면 그 틱에 Running 이 됐다 (stateTick == 틱), 없으면 틱 1. onStop = 세션이 그 틱에 Finished 가
            됐다 (끝 조건 · game.end · abort). 저장된 값으로 알아내 세이브 → 로드한 월드가 onStart 를 다시 부르지 않는다. 일시정지
@@ -645,11 +646,17 @@ export default defineSystem({
              spawn      EntitySpawned 중 17d 에 살아 있는 것 (생성 순) — entity · x · y 지금
              areaEnter  틱 처음에 사각형 밖 (또는 없었다), 지금 안 — saveId 순 (트리거 area_enter 와 같은 규칙)
              score      점수 칸마다 틱 처음 ≠ 지금 — team = 칸 (0 공용 · 팀 + 1), value = 지금, previous = 틱 처음 (세션이 있을 때)
+             action     그 틱 명령 단계에서 받아들여진 PlayerAction (명령 적용 차례 = executeTick · issuer · sequence) — action = id,
+                        player = 명령을 낸 쪽 (issuer, 0 = 서버), x · y = 고른 점, targets = 고른 대상 ((거리², saveId) 차례) 중
+                        17d 에 살아 있는 것 (효과가 지운 대상은 빠진다), entity null. 콘텐츠 효과가 먼저 — 스크립트는 그 뒤의 규칙
+                        (오목 판정). 거절된 명령 · 일시정지 편집 단계 (17d 가 없다) 의 행동은 오지 않는다. 구독이 없으면 모으지 않는다
            tags 거르기는 death 는 틱 처음의 태그, spawn · areaEnter 는 지금 태그 (Rule · 트리거의 TagExpr 와 같다)
-GameEvent  { entity: Entity | null, kind: GameEventKind, previous · team · value: i32, x · y: number } (읽기 전용, 칸 = 이름 순).
-           GameEventKind { Death = 1, Spawn, AreaEnter, Score } 는 SDK enum. onEvent 의 매개변수는 (ctx?, e?) — 적으면
-           ServerContext · GameEvent
-구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score (키 없음). tags 의 이름은
+GameEvent  { action: string, entity: Entity | null, kind: GameEventKind, player · previous: i32, targets: Entity[], team ·
+           value: i32, x · y: number } (읽기 전용, 칸 = 이름 순 — 다른 종류의 action 은 "" · targets 는 []).
+           GameEventKind { Death = 1, Spawn, AreaEnter, Score, Action } 는 SDK enum. onEvent 의 매개변수는 (ctx?, e?) — 적으면
+           ServerContext · GameEvent. 종류 · 필드는 Host API 지문에 든다 (v0.5 M2-T5 (2) — 배치가 바뀐 옛 .sbc 는 지문으로 거절 →
+           소스에서 다시 컴파일). 엔진은 문자열 칸을 글 목록의 자리로, 개체 목록 칸을 개수 + 원소로 넘긴다 (Interpreter::call)
+구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score · action (키 없음). tags 의 이름은
            콘텐츠 로드가 태그 비트로 푼다 (없는 태그 V7). events 와 onEvent 는 함께 (S426). 바이트코드는 이름을 싣는다 (.sbc 형식 4)
 예산       시스템마다 eventsPerTick (기본 256), 틱 전체 4096 — 넘은 이벤트는 건너뛰고 센다 (ScriptSystemAdapter::lastStats().cut).
            연료는 호출마다 (VM 기본). 이어짐 없음 — 콜백은 컴포넌트 값만 써서 새 이벤트를 내지 않는다 (생성 · 파괴 Host 항목이
