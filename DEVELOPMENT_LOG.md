@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-02 — v0.5 M8-T8 (1): 엔진 질의 · 스크립트 경로 요청
+
+**무엇을**
+
+- Host 표 +7 (서버): ctx.nearest · kNearest · inBox (단계 4 색인 — (거리², saveId) · saveId 순, 상한 k 1,024 · 한 변 256 ·
+  결과 1,024), ctx.requestPath · pathState · pathPoints · cancelPath. ABI NumberList (number[] — 끝에 더함: 검증기 ·
+  검사기 · 인터프리터 · d.ts). 지문 → 0x3b37e380f77eddfd (kHostApiVersion 1 그대로), sandbox.d.ts 셋 다시 만듦.
+- 경로 요청은 새 요청 표 없이 개체의 ai.path 를 쓴다: ScriptHost 가 호출 동안 모았다가 endCall(commit) 에 Pending (goal ·
+  경유점 비움) · 취소는 None — 트랩이면 버린다. 제출 (단계 8, saveId 순 · 틱 예산) · 결과 (다음 틱 단계 5) · 세이브의
+  Submitted 다시 계산은 엔진 흐름 그대로 (03 7.1). 요청 id = 개체 (개체마다 하나), 결과는 덮어쓸 때까지 컴포넌트에 남는다.
+
+**왜**
+
+- ADR-0085 11 — RTS AI (가까운 적 · 사각형 선택 · 이동 명령). "틱 안의 무제한 동기 A*" 없이 엔진의 예산 · 결정성을 쓴다.
+  비동기 요청 표 (id · 만료) 를 따로 두지 않은 이유: 세이브 · 리플레이에 새 상태가 생기지 않게 (영속 상태는 ECS).
+
+**검증**
+
+- test_script_engine_queries 3 케이스 76 단언 (질의 동점 · 상한, 요청 → Pending → Submitted → Following · 경유점 · 취소 ·
+  ai.path 없음 · 트랩 버림, 두 월드 같은 해시). unit_script 지문 고정 갱신. Windows MSVC Debug 전체 ctest 73 / 73 통과.
+- 같이 고침 (따로 커밋 0e1adab): M8-T2 ~ T7 의 배열 내장 switch 에 default — CI (GCC · Clang -Wswitch) 실패. Docker CI 재현
+  (sbx-ci-linux) 으로 linux-gcc debug 78 / 78 · relwithdebinfo 81 / 81, linux-clang debug 78 / 78 확인.
+
+**남은 일**
+
+- M8-T8 의 raycast · overlap (core.collider · 색인 위), M8-T9 예제 · 벤치 · 안내.
+
+---
+
 ## 2026-11-02 — v0.5 M8-T7: Graph — BFS · DFS · Dijkstra · A* · 위상 정렬 · 연결 성분
 
 **무엇을**

@@ -106,6 +106,7 @@ TypeKind abiKind(api::AbiType a) {
     case api::AbiType::ComponentDataOrNull:
         return TypeKind::Struct; // 구조체는 참조 — null 이 될 수 있는 것도 같은 레지스터 타입
     case api::AbiType::EntityList:
+    case api::AbiType::NumberList:
         return TypeKind::Array;
     case api::AbiType::EntityOrNull:
         return TypeKind::Box; // Entity | null — 상자 (불투명은 레지스터에 null 을 담지 못한다)
@@ -1001,6 +1002,10 @@ private:
                     if (kindOf(e) != K::Opaque || M.types[e].abi != api::AbiType::Entity) {
                         bad(std::format("r{} 는 Entity[] 가 아니다", in.a));
                     }
+                }
+                if (im.result == api::AbiType::NumberList && kindOf(F->regs[in.a]) == K::Array &&
+                    kindOf(M.types[F->regs[in.a]].elem) != K::F64) {
+                    bad(std::format("r{} 는 number[] 가 아니다", in.a));
                 }
             });
             break;

@@ -27,7 +27,7 @@
 | 클라이언트 스크립트 (21장)             | 최소 (v0.3 M5-T3)     | domain "client" · onUpdate, Host 표 client.*, .sbc 형식 5, `core/script/ClientScriptHost` · `ClientScriptSystems`, `apps/client/ui/ScriptPanel`, ADR-0067 |
 | 보호 시험 · 벤치 (24장)                | 구현 (v0.3 M6-T2)     | 나쁜 스크립트 = 흔적 없음 (해시), 바이트코드 변형 퍼즈, 검증기의 엔진 이름공간 거절, sbx_bench script.regen, ADR-0070 |
 | 데모 samples/mana_regen (23장)         | 구현 (v0.3 M6-T1)     | 컴포넌트 · server 시스템 둘 · client 시스템 · 행동 eco.energize, CTest sample_mana_regen, unit_core test_mana_regen_sample, ADR-0069 |
-| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2, M8-T7 ✅ Graph — 나머지 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
+| 표준 라이브러리 (25장)                 | M8-T2 ✅ 내장 표 · INTR · T \| undefined · Array 메서드, M8-T3 ✅ 함수 참조 · 캡처 없는 화살표 · 콜백 메서드, M8-T4 ✅ Map · Set, M8-T5 ✅ "sandbox" 컬렉션 (.sbc 형식 9), M8-T6 ✅ 알고리즘 · 수학 · vec2, M8-T7 ✅ Graph, M8-T8 ✅ 엔진 질의 · 경로 요청 — raycast · overlap · 예제 · 벤치는 계획 (지원 매트릭스) | ADR-0085 — VM 내장 표 · 컬렉션 · 콜백 · 그래프 · 엔진 API, 태스크마다 25장에 ✅ |
 | 스크립트 프로파일 (22장)               | 구현 (v0.3 M5-T4)     | `core/script/ScriptClock` (주입한 진단 시계), ServerStats 스크립트 표 (프로토콜 14), "스크립트 프로파일" 패널, ADR-0068 |
 
 규칙 하나: **SandboxScript 가 받는 파일은 SDK 의 `sandbox.d.ts` 와 함께 `tsc --strict` 도 받고, 뜻이 같다.** 거꾸로는 아니다 —
@@ -896,12 +896,12 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
 
 ### 25.7 엔진 API (Host 표 — 서버만)
 
-| 기능                                                                                                    | 상태                     | 비고                                                                                              |
-|---------------------------------------------------------------------------------------------------------|--------------------------|---------------------------------------------------------------------------------------------------|
-| ctx.near · nearWith (반경)                                                                              | 있음 (M2-T4)             | saveId 순, 반경 ≤ 128, ≤ 1,024                                                                    |
-| ctx.nearest(x, y, r) → Entity \| null · kNearest(x, y, r, k) · inBox(minX, minY, maxX, maxY)            | M8-T8 Host               | 같은 색인 · 거리가 같으면 saveId 작은 것                                                          |
-| ctx.requestPath(e, x, y) → 요청 id · pathStatus(id) · pathPoints(id) → number[] · cancelPath(id)        | M8-T8 Host               | core/path PathfindingService 를 다시 쓴다. 틱마다 요청 상한, 결과는 다음 틱 이후 · N 틱 뒤 만료    |
-| raycast · overlap (core.collider · SpatialIndex)                                                        | M8-T8 Host (가능한 만큼) | 지금 충돌 구조가 받치는 원 · AABB 만. 연속 충돌 · 물리 반응은 [계획]                              |
+| 기능                                                                                                     | 상태                  | 비고                                                                                                                                   |
+|----------------------------------------------------------------------------------------------------------|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| ctx.near · nearWith (반경)                                                                               | 있음 (M2-T4)          | saveId 순, 반경 ≤ 128, ≤ 1,024                                                                                                         |
+| ctx.nearest(x, y, r) → Entity \| null · kNearest(x, y, r, k) → Entity[] · inBox(minX, minY, maxX, maxY) | M8-T8 ✅ Host          | 같은 단계 4 색인 (틱 처음의 위치). nearest · kNearest = (거리², saveId) 가 작은 차례 (거리² 는 색인 위치로 f64 에서), k 0 ~ 1,024. inBox = 경계 포함 · saveId 순 · 한 변 ≤ 256 · ≤ 1,024 개. 후보마다 연료 1 |
+| ctx.requestPath(e, x, y) → boolean · pathState(e) → i32 · pathPoints(e) → number[] · cancelPath(e)      | M8-T8 ✅ Host          | 개체의 ai.path 를 쓴다 (새 요청 표를 두지 않는다 — 세이브 · 로드 · 리플레이 · 틱 예산을 엔진 경로 흐름 그대로, 03 7.1): 호출 끝에 Pending (트랩이면 버림) → 다음 틱 단계 8 이 saveId 순 · 틱 예산 (64) 으로 제출 → 그다음 틱 단계 5 결과 (Following 3 · 길 없음 4). 요청 "id" = 개체 (개체마다 하나 — 새 요청이 옛것을 바꾼다). ai.path 가 없으면 false, 상태 -1. pathPoints = [x0, y0, …] (새 배열, ABI NumberList). 호출마다 요청 · 취소 256 개까지 |
+| raycast · overlap (core.collider · SpatialIndex)                                                         | [계획] (다음 조각)    | 지금 충돌 구조 (원 · AABB) 위에서 — 연속 충돌 · 물리 반응은 v0.5 밖 (20 10장 M8-T8 남은 일)                                          |
 
 ### 25.8 결정론 · 예산 (모든 줄에 — ADR-0085 7 · 8 · 9)
 

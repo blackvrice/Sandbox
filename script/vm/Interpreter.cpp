@@ -769,7 +769,7 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
                     }
                 }
                 R[in.a] = out;
-            } else if (im.result == api::AbiType::EntityList) {
+            } else if (im.result == api::AbiType::EntityList || im.result == api::AbiType::NumberList) {
                 if (hr.values.size() > m_limits.maxArrayLength) {
                     return trap(Trap::OutOfMemory, "배열 길이 예산을 넘는다");
                 }

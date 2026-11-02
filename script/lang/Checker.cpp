@@ -3249,6 +3249,8 @@ private:
             return T().arrayOf(T().opaque(api::AbiType::Entity));
         case api::AbiType::EntityOrNull:
             return T().nullableOf(T().opaque(api::AbiType::Entity));
+        case api::AbiType::NumberList:
+            return T().arrayOf(TypeTable::kNumber);
         }
         return TypeTable::kError;
     }

@@ -7,6 +7,7 @@
 #include <limits>
 #include <optional>
 
+#include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
@@ -80,6 +81,27 @@ vm::HostResult ctxNear(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxNearWith(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.nearWithArgs(args);
 }
+vm::HostResult ctxNearest(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.nearest(args, false);
+}
+vm::HostResult ctxKNearest(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.nearest(args, true);
+}
+vm::HostResult ctxInBox(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.inBox(args);
+}
+vm::HostResult ctxRequestPath(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.requestPath(args);
+}
+vm::HostResult ctxPathState(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.pathState(args);
+}
+vm::HostResult ctxPathPoints(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.pathPoints(args);
+}
+vm::HostResult ctxCancelPath(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.cancelPath(args);
+}
 
 // 표 (script/api/HostApi) 의 항목마다 하나 — 순서는 표와 같지 않아도 된다 (id 로 찾는다)
 constexpr HostBinding kBindings[] = {
@@ -122,6 +144,29 @@ constexpr HostBinding kBindings[] = {
      {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Component},
      5,
      &ctxNearWith},
+    {"ctx.nearest",
+     AbiType::EntityOrNull,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number},
+     4,
+     &ctxNearest},
+    {"ctx.kNearest",
+     AbiType::EntityList,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::I32},
+     5,
+     &ctxKNearest},
+    {"ctx.inBox",
+     AbiType::EntityList,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+     5,
+     &ctxInBox},
+    {"ctx.requestPath",
+     AbiType::Bool,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Number, AbiType::Number},
+     4,
+     &ctxRequestPath},
+    {"ctx.pathState", AbiType::I32, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxPathState},
+    {"ctx.pathPoints", AbiType::NumberList, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxPathPoints},
+    {"ctx.cancelPath", AbiType::Void, {AbiType::ServerContext, AbiType::Entity}, 2, &ctxCancelPath},
 };
 
 template <class F>
@@ -206,6 +251,7 @@ vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::Simulat
     m_handleOf.clear();
     m_writes.clear();
     m_writeOf.clear();
+    m_pathOps.clear();
     m_ops = {};
     m_newEntities = 0;
     m_destroysThisCall = 0;
@@ -225,11 +271,27 @@ void ScriptHost::endCall(bool commit) {
                 std::memcpy(raw, w.bytes.data(), w.bytes.size());
             }
         }
+        // 경로 요청 · 취소 (v0.5 M8-T8) — ai.path 를 직접. 요청은 Pending (다음 틱 단계 8 이 saveId 순 · 예산으로
+        // 제출), 취소는 None. 경유점은 비운다 (옛 경로를 따라가지 않게). 개체 · ai.path 가 없어졌으면 건너뛴다
+        for (const PathOp& op : m_pathOps) {
+            if (!reg.alive(op.entity) || reg.tryRead<comp::Path>(op.entity) == nullptr) {
+                continue;
+            }
+            comp::Path& path = reg.write<comp::Path>(op.entity);
+            path.state = op.cancel ? comp::PathState::None : comp::PathState::Pending;
+            if (!op.cancel) {
+                path.goal = op.goal;
+            }
+            path.waypoints.clear();
+            path.cursor = 0;
+            path.partial = false;
+        }
         // 구조 변경은 월드 큐로 — 단계 끝에 넣은 차례로 적용 (v0.5 M2-T3). 트랩이면 아래에서 버린다
         m_world->countScriptStructuralDropped(m_droppedThisCall);
         m_world->queueScriptStructural(std::move(m_ops));
     }
     m_ops = {};
+    m_pathOps.clear();
     m_token = 0;
     m_world = nullptr;
     m_handles.clear();
@@ -788,6 +850,159 @@ vm::HostResult ScriptHost::near(std::span<const vm::HostArg> args, const ecs::Co
     }
     out.extraFuel = found.size(); // 개체마다 연료 1 (질의와 같다)
     return out;
+}
+
+// 가까운 차례 — (거리², saveId) 가 작은 것부터. 거리² 는 색인의 위치 (f32) 와 (x, y) 로 f64 에서 셈한다 (결정적)
+vm::HostResult ScriptHost::nearest(std::span<const vm::HostArg> args, bool many) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const f64 x = args[1].value.asF64();
+    const f64 y = args[2].value.asF64();
+    const f64 r = args[3].value.asF64();
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(r) || r < 0 || r > kMaxNearRadius) {
+        return fail(std::format("nearest({}, {}, {}) — 유한한 위치 · 반경 0 ~ {}", x, y, r, kMaxNearRadius));
+    }
+    const i32 k = many ? args[4].value.asI32() : 1;
+    if (k < 0 || static_cast<usize>(k) > kMaxNearEntities) {
+        return fail(std::format("kNearest 의 k {} — 0 ~ {}", k, kMaxNearEntities));
+    }
+    struct Hit {
+        f64 d2;
+        SaveId saveId;
+        ecs::EntityId entity;
+    };
+    std::vector<Hit> hits;
+    m_world->spatial().forEachInRadius(Vec2{static_cast<f32>(x), static_cast<f32>(y)}, static_cast<f32>(r),
+                                       [&](const world::SpatialEntry& e) {
+                                           if (!m_world->registry().alive(e.entity)) {
+                                               return;
+                                           }
+                                           const f64 dx = static_cast<f64>(e.position.x) - x;
+                                           const f64 dy = static_cast<f64>(e.position.y) - y;
+                                           hits.push_back({dx * dx + dy * dy, e.saveId, e.entity});
+                                       });
+    const usize take = std::min(hits.size(), static_cast<usize>(k));
+    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(take), hits.end(),
+                      [](const Hit& a, const Hit& b) { return a.d2 != b.d2 ? a.d2 < b.d2 : a.saveId < b.saveId; });
+    vm::HostResult out;
+    out.extraFuel = hits.size(); // 후보마다 연료 1
+    if (!many) {
+        out.value = take == 0 ? vm::Value::null() : entityHandle(hits[0].entity);
+        return out;
+    }
+    out.values.reserve(take);
+    for (usize i = 0; i < take; ++i) {
+        out.values.push_back(entityHandle(hits[i].entity));
+    }
+    return out;
+}
+
+vm::HostResult ScriptHost::inBox(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const f64 x0 = args[1].value.asF64();
+    const f64 y0 = args[2].value.asF64();
+    const f64 x1 = args[3].value.asF64();
+    const f64 y1 = args[4].value.asF64();
+    if (!std::isfinite(x0) || !std::isfinite(y0) || !std::isfinite(x1) || !std::isfinite(y1) || x1 < x0 || y1 < y0 ||
+        x1 - x0 > kMaxBoxExtent || y1 - y0 > kMaxBoxExtent) {
+        return fail(
+            std::format("inBox({}, {}, {}, {}) — 유한하고 min ≤ max, 한 변 {} 까지", x0, y0, x1, y1, kMaxBoxExtent));
+    }
+    std::vector<std::pair<SaveId, ecs::EntityId>> found;
+    bool tooMany = false;
+    m_world->spatial().forEachInAABB(Vec2{static_cast<f32>(x0), static_cast<f32>(y0)},
+                                     Vec2{static_cast<f32>(x1), static_cast<f32>(y1)},
+                                     [&](const world::SpatialEntry& e) {
+                                         if (!m_world->registry().alive(e.entity)) {
+                                             return;
+                                         }
+                                         if (found.size() >= kMaxNearEntities) {
+                                             tooMany = true;
+                                             return;
+                                         }
+                                         found.emplace_back(e.saveId, e.entity);
+                                     });
+    if (tooMany) {
+        return fail(std::format("inBox 결과가 {} 개를 넘는다 — 사각형을 줄인다", kMaxNearEntities));
+    }
+    std::ranges::sort(found);
+    vm::HostResult out;
+    out.values.reserve(found.size());
+    for (const auto& [id, e] : found) {
+        out.values.push_back(entityHandle(e));
+    }
+    out.extraFuel = found.size();
+    return out;
+}
+
+vm::HostResult ScriptHost::requestPath(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail("개체 핸들이 이 호출의 것이 아니다 (이 호출에서 spawn 한 개체는 다음 틱부터)");
+    }
+    const f64 x = args[2].value.asF64();
+    const f64 y = args[3].value.asF64();
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        return fail(std::format("requestPath 의 목표 ({}, {}) 가 유한하지 않다", x, y));
+    }
+    if (m_world->registry().tryRead<comp::Path>(e) == nullptr) {
+        return {true, vm::Value::boolean(false), {}, {}, 0}; // ai.path 가 없다 (Prefab 에 붙인다)
+    }
+    if (m_pathOps.size() >= kMaxPathOpsPerCall) {
+        return fail(std::format("경로 요청 · 취소가 호출마다 {} 개를 넘는다", kMaxPathOpsPerCall));
+    }
+    m_pathOps.push_back({e, false, Vec2{static_cast<f32>(x), static_cast<f32>(y)}});
+    return {true, vm::Value::boolean(true), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::pathState(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail("개체 핸들이 이 호출의 것이 아니다");
+    }
+    const comp::Path* p = m_world->registry().tryRead<comp::Path>(e);
+    // 지금 월드의 상태 (이 호출의 requestPath 는 호출 끝에 반영 — 다음 호출부터 보인다)
+    return {true, vm::Value::i32v(p == nullptr ? -1 : static_cast<i32>(p->state)), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::pathPoints(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail("개체 핸들이 이 호출의 것이 아니다");
+    }
+    vm::HostResult out;
+    if (const comp::Path* p = m_world->registry().tryRead<comp::Path>(e)) {
+        for (const Vec2 w : p->waypoints) {
+            out.values.push_back(vm::Value::f64v(static_cast<f64>(w.x)));
+            out.values.push_back(vm::Value::f64v(static_cast<f64>(w.y)));
+        }
+    }
+    out.extraFuel = out.values.size() / 2;
+    return out;
+}
+
+vm::HostResult ScriptHost::cancelPath(std::span<const vm::HostArg> args) {
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail("개체 핸들이 이 호출의 것이 아니다");
+    }
+    if (m_pathOps.size() >= kMaxPathOpsPerCall) {
+        return fail(std::format("경로 요청 · 취소가 호출마다 {} 개를 넘는다", kMaxPathOpsPerCall));
+    }
+    m_pathOps.push_back({e, true, {}});
+    return {};
 }
 
 } // namespace sbx::script

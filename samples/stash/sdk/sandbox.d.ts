@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 bc0adcf8244e2bca — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 3b37e380f77eddfd — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -403,6 +403,20 @@ declare module "sandbox" {
     near(x: number, y: number, radius: number): Entity[];
     /** ctx.near 중 컴포넌트를 가진 개체 — ctx.nearWith */
     nearWith<T>(x: number, y: number, radius: number, component: ComponentRef<T>): Entity[];
+    /** 반경 안에서 가장 가까운 개체 (거리가 같으면 saveId 작은 것) — ctx.near 와 같은 색인 · 반경 상한, 없으면 null — ctx.nearest */
+    nearest(x: number, y: number, radius: number): Entity | null;
+    /** 반경 안의 가까운 개체 k 개 (가까운 차례, 같은 거리 = saveId 순) — k 는 0 ~ 1,024 — ctx.kNearest */
+    kNearest(x: number, y: number, radius: number, k: i32): Entity[];
+    /** 사각형 (경계 포함) 안의 개체 — saveId 순, 한 변 256 까지 · 1,024 개까지 — ctx.inBox */
+    inBox(minX: number, minY: number, maxX: number, maxY: number): Entity[];
+    /** 개체의 경로를 요청한다 (ai.path — 호출 끝에 반영, 다음 틱 단계 8 에 제출 · 그다음 틱 단계 5 에 결과, 틱 예산을 넘으면 기다린다). ai.path 가 없으면 false — ctx.requestPath */
+    requestPath(entity: Entity, x: number, y: number): boolean;
+    /** 경로 상태 — 0 없음 · 1 요청됨 · 2 제출됨 · 3 따라가는 중 · 4 길 없음, ai.path 가 없으면 -1 — ctx.pathState */
+    pathState(entity: Entity): i32;
+    /** 경유점 [x0, y0, x1, y1, …] (새 배열 — 경로가 없으면 빈 배열) — ctx.pathPoints */
+    pathPoints(entity: Entity): number[];
+    /** 경로를 지운다 (상태 0 — 호출 끝에 반영) — ctx.cancelPath */
+    cancelPath(entity: Entity): void;
   }
 
   /** 클라이언트 콜백 (onUpdate) 의 ctx — 호출 안에서만 유효, 읽기 · 화면 표시만 */

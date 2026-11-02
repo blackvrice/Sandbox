@@ -206,6 +206,7 @@ namespace sbx::sim { inline constexpr std::uint32_t kSimVersion = 1; }
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트의 구조 변경 (ctx.spawn · destroy · add · remove, M2-T3). 호출마다 모아 월드 큐 → 16b 는 17 의 ECB · Prefab 생성 다음, 17d 는 그 끝에 넣은 차례로 — 새 개체의 정체성은 그 차례 (syncIdentityLogs). 스크립트 없는 콘텐츠 (골든 전부) 는 그대로 |
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 스크립트 ctx.random · randomInt (Purpose::Script = 10 추가 — 키 = 시스템 id 해시, 흐름은 틱 안에서만 — 세이브할 상태 없음) · ctx.near (단계 4 색인 · saveId 순) · ctx.time (M2-T4). 스크립트 없는 콘텐츠 (골든 전부) 는 그대로 |
 | (4)  | 2026-11-02 (v0.5 M2)  | 올리지 않음 — 새 엔진 컴포넌트 game.owner (M2-T5). 쟀다: det_* 골든 · 리플레이 해시 그대로 (WorldHash 는 풀이 있는 Hashed 컴포넌트만 — 붙은 개체가 없다), 세이브의 components 버전 표에 한 줄 (읽기는 그대로) |
+| (4)  | 2026-11-02 (v0.5 M8)  | 올리지 않음 — 스크립트 표준 라이브러리 (M8-T2 ~ T7 — VM 안의 계산, 반복 · 동점 · 해시 · 정렬 고정) · 엔진 질의 nearest · kNearest · inBox (단계 4 색인 · (거리², saveId)) · 스크립트 경로 요청 (M8-T8 — ai.path 를 호출 끝에 Pending 으로, 제출 · 결과는 엔진 경로 흐름 그대로). 스크립트 없는 콘텐츠 (골든 전부) 는 그대로 |
 
 ---
 

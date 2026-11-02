@@ -35,6 +35,7 @@ add_executable(SandboxTests
     unit/script/test_stdlib_seq.cpp
     unit/script/test_stdlib_algo.cpp
     unit/script/test_stdlib_graph.cpp
+    unit/script/test_script_engine_queries.cpp
     unit/script/test_script_systems.cpp
     unit/script/test_script_callbacks.cpp
     unit/script/test_script_budget.cpp

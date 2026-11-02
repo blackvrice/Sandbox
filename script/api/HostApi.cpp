@@ -38,6 +38,8 @@ std::string_view abiTypeName(AbiType t) noexcept {
         return "ClientContext";
     case AbiType::EntityOrNull:
         return "Entity | null";
+    case AbiType::NumberList:
+        return "number[]";
     }
     return "?";
 }

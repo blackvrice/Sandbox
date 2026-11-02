@@ -133,6 +133,15 @@ public:
     vm::HostResult random(std::span<const vm::HostArg> args);
     vm::HostResult randomInt(std::span<const vm::HostArg> args);
     vm::HostResult near(std::span<const vm::HostArg> args, const ecs::ComponentInfo* with);
+    // 엔진 질의 · 경로 요청 (v0.5 M8-T8 — 19 25.7)
+    static constexpr f64 kMaxBoxExtent = 256.0;
+    static constexpr usize kMaxPathOpsPerCall = 256;
+    vm::HostResult nearest(std::span<const vm::HostArg> args, bool many);
+    vm::HostResult inBox(std::span<const vm::HostArg> args);
+    vm::HostResult requestPath(std::span<const vm::HostArg> args);
+    vm::HostResult pathState(std::span<const vm::HostArg> args);
+    vm::HostResult pathPoints(std::span<const vm::HostArg> args);
+    vm::HostResult cancelPath(std::span<const vm::HostArg> args);
     vm::HostResult nearWithArgs(std::span<const vm::HostArg> args);
 
 private:
@@ -168,6 +177,13 @@ private:
     std::map<u64, u32> m_handleOf;                  // EntityId.raw → 자리 (찾기만)
     std::vector<PendingWrite> m_writes;             // 쓴 차례
     std::map<std::pair<u64, u64>, usize> m_writeOf; // (EntityId.raw, stableId) → m_writes 자리 (찾기만)
+    // 경로 요청 · 취소 (v0.5 M8-T8) — 호출 끝 (commit) 에 ai.path 로, 트랩이면 버린다
+    struct PathOp {
+        ecs::EntityId entity{};
+        bool cancel = false;
+        Vec2 goal{};
+    };
+    std::vector<PathOp> m_pathOps;
     // 구조 변경 (v0.5 M2-T3) — 이 호출의 것
     sim::ScriptStructuralBatch m_ops;
     u32 m_newEntities = 0; // spawn 한 수 (newIndex 의 끝)
