@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 ad8eea732d7a8f8b — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 1dfa888c39154dde — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -460,6 +460,20 @@ declare module "sandbox" {
     has<T>(entity: Entity, component: ComponentRef<T>): boolean;
     /** 컴포넌트를 가진 복제 개체 (netId 오름차순 — 개체마다 연료 1) — client.query */
     query<T>(component: ComponentRef<T>): Entity[];
+    /** 그 게임 키를 누르고 있나 ("play.<name>" — 없는 이름은 false, UI 가 입력을 먹은 프레임은 false) — client.keyDown */
+    keyDown(name: string): boolean;
+    /** 이번 프레임에 눌렀나 (한 번 — 같은 프레임의 누르기를 잃지 않는다) — client.keyPressed */
+    keyPressed(name: string): boolean;
+    /** 이번 프레임에 뗐나 — client.keyReleased */
+    keyReleased(name: string): boolean;
+    /** 마우스 커서의 월드 x (커서가 월드 위에 없으면 0) — client.pointerX */
+    pointerX(): number;
+    /** 마우스 커서의 월드 y — client.pointerY */
+    pointerY(): number;
+    /** 서버에 신호 (PlayerSignal 명령 — 팩 signals.json 의 이름 · 범위, 서버가 판정). 프레임마다 8 개까지 (넘으면 버리고 센다) — client.send */
+    send(signal: string, value: i32): void;
+    /** 소리 이벤트 (v0.5 는 이벤트만 — 실제 출력은 v0.6, ADR-0095). 프레임마다 32 개까지 — client.playSound */
+    playSound(id: string): void;
     /** 이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지) — client.label */
     label(entity: Entity, text: string): void;
     /** 이번 프레임 화면 왼쪽 위 "스크립트" 칸에 한 줄 (256 바이트까지) — client.print */

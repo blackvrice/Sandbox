@@ -85,6 +85,8 @@ std::string_view effectName(HostEffect e) noexcept {
         return "log";
     case HostEffect::Display:
         return "display";
+    case HostEffect::Output:
+        return "output";
     }
     return "?";
 }

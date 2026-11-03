@@ -188,6 +188,7 @@ private:
     // v0.2 M3-T3 게임 키 (팩 presentation/input.json 의 play.action.*) — 엔진 키와 따로 (PlayKeys.hpp)
     PlayKeys m_playKeys;
     platform::ActionState m_playState;
+    u64 m_scriptSoundEvents = 0;                // client 스크립트의 소리 이벤트 수 (v0.5 M2-T6 — 출력은 v0.6)
     std::string m_playSignature;                // 팩 바인딩 · 행동 목록이 바뀌면 다시 만든다
     std::optional<u32> m_cameraStartGeneration; // game.camera_start 를 맞춘 월드 (generation)
     f64 m_editorClock = 0;                      // 월드 진행 시간 합 (preview 시간 초과 — fixedDt 시험에서도 결정적)

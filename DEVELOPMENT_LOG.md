@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-03 — v0.5 M2-T6: client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) — M2 끝
+
+**무엇을**
+
+- Host 표 Client 항목 일곱 (평평한 이름 — VM 에 중첩 객체가 없다): keyDown · keyPressed · keyReleased(name) (팩 input.json 의 "play.<name>"),
+  pointerX · pointerY (커서의 월드 좌표, UI 위면 0), send(signal, value: i32) (PlayerSignal), playSound(id). 새 효과 HostEffect::Output.
+  Capability InputRead · ClientSend · Sound — onUpdate 의 허락 묶음에 더함. 지문 → 0x1dfa888c39154dde.
+- ClientScriptHost: 프레임 입력 (ClientScriptInput — 게임 키 이름 정렬 · 커서), 내보낸 신호 · 소리 (프레임마다 8 · 32, 넘으면 버리고 셈 —
+  droppedOutputs), 트랩난 호출의 것은 버림.
+- 앱: Application 이 게임 키 (ActionState — ActionId 가 이름 순) · 커서로 입력을 만들어 setScriptInput, NetworkSession 이 client 시스템을 돌린 뒤
+  신호를 PlayerSignal 명령으로 보내고 소리 이벤트를 모은다 (takeScriptSounds — 앱이 세고 debug 로그).
+- D-14 정함 (ADR-0095): v0.5 = 소리 이벤트 · Null 백엔드 (센다), 실제 출력 · sound importer · sounds.json 은 v0.6.
+
+**왜**
+
+- 20 3.8 · 23 1장 카드 (P0) — client 스크립트가 클릭 · 키를 신호로 보내고 서버 스크립트가 판정하는 길 (UI 버튼 M3-T5 · 템플릿 · 오목의 바탕).
+  20 3.8 의 ctx.input.down 같은 중첩 이름은 평평하게 바꿨다.
+
+**검증**
+
+- test_client_scripts: 입력 없음 · 키 down · pressed · released · 없는 이름 · 커서 (UI 위면 0), send · playSound 값 · 시스템, 다음 프레임은 새로,
+  프레임 상한 8 (2 개 버림), 트랩난 호출의 신호 · 소리 버림, Client 항목 15.
+- test_client_script_session (로컬 세션 끝까지): 키 누름 → client.send → PlayerSignal → 서버 onEvent "signal" 로그 (값 · 보낸 쪽 = 서버 플레이어 표의
+  id), 소리 이벤트를 가져가면 비운다.
+- Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과, check_includes 0 위반.
+
+**남은 일**
+
+- M2 끝. 다음 M3-T1 (게임 UI — ui/ 타깃 · 문서 모델 · 검사), 트랙 B 는 M6-T9. 오디오 출력 · sounds.json 은 v0.6.
+
+---
+
 ## 2026-11-03 — v0.5 M2-T7: Runtime v2 계약 동결 — 콜백 표 · 예약 콜백 · Host capability 열 · 매니페스트 network.model
 
 **무엇을**

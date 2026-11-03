@@ -14,6 +14,10 @@
 
 #include "render/renderer/RenderWorld.hpp"
 
+namespace sbx::script {
+struct ClientScriptInput;
+}
+
 namespace sbx::editor {
 class IEditorHost;
 }
@@ -237,6 +241,10 @@ public:
     // ---- v0.3 M5-T4: 스크립트 프로파일 (서버 · 클라이언트 둘 다 시스템이 없으면 nullopt — "스크립트 프로파일" 패널)
     // ----
     [[nodiscard]] virtual std::optional<ScriptProfileInfo> scriptProfile() const { return std::nullopt; }
+    // client 스크립트의 입력 (v0.5 M2-T6) — update 앞에 그 프레임의 게임 키 · 커서. 소리 이벤트 (id, 부른 차례) 는
+    // update 뒤에 가져간다
+    virtual void setScriptInput(const script::ClientScriptInput& /*input*/) {}
+    [[nodiscard]] virtual std::vector<std::string> takeScriptSounds() { return {}; }
 };
 
 } // namespace sbx::client

@@ -3,6 +3,8 @@
 // onUpdate — scriptOverlay() 의 줄, 되돌리면 사라진다. "스크립트" 칸 · 개체 위 글자 그리기.
 #include <doctest/doctest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 
@@ -11,6 +13,7 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/ScriptPanel.hpp"
+#include "core/script/ClientScriptHost.hpp"
 #include "core/script/ScriptSystemAdapter.hpp"
 #include "editor/Editor.hpp"
 #include "platform/common/HeadlessWindow.hpp"
@@ -196,5 +199,88 @@ export default defineSystem({
         const ScriptProfileRow idle = scriptProfileRow("a.c", 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
         CHECK(idle.callsPerSecond == 0);
         CHECK(idle.fuelPerCall == 0);
+    }
+
+    TEST_CASE("client 입력 → send → 서버 onEvent \"signal\" (로컬 세션, v0.5 M2-T6) · 소리 이벤트는 앱이 가져간다") {
+        // eco 팩 사본에 signals.json (eco.ping 0~9)
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / "sbx-tests" / "client-script-session" / "signal";
+        std::error_code ec;
+        fs::remove_all(root, ec);
+        fs::create_directories(root);
+        fs::copy(fs::path(SBX_CONTENT_DIR) / "ecosystem", root / "ecosystem", fs::copy_options::recursive);
+        std::ofstream(root / "ecosystem" / "signals.json", std::ios::binary)
+            << R"([{"id": "eco.ping", "min": 0, "max": 9}])";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc d;
+        d.world = "ecosystem_small";
+        d.contentRoot = root;
+        d.inlineServer = true;
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        NetworkSession& ns = **made;
+        editor::Editor ed;
+        f64 now = 0;
+        const auto frame = [&] {
+            ns.update(kDt);
+            render::RenderWorld w;
+            ns.extract(w);
+            editor::EditorInput in;
+            in.now = (now += kDt);
+            in.cursor = {1e4f, 1e4f};
+            ed.update(in, ns);
+        };
+        for (int i = 0; i < 120 && !ns.ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns.ready());
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.ping",
+                               nlohmann::json{{"id", "eco.ping"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.ping",
+  domain: "client",
+  onUpdate(ctx) {
+    if (ctx.keyPressed("ping")) { ctx.send("eco.ping", 5); ctx.playSound("eco.pop") }
+  },
+})
+)"}}));
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.pong",
+                               nlohmann::json{{"id", "eco.pong"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.pong",
+  events: { signal: {} },
+  onEvent(ctx, e) { ctx.log(`signal ${e.signal} ${e.value} ${e.player}`) },
+})
+)"}}));
+        for (int i = 0;
+             i < 60 && (ns.clientScripts() == nullptr || ns.localServer()->host().world().scriptSystems() == nullptr);
+             ++i) {
+            frame();
+        }
+        REQUIRE_MESSAGE(ns.overlayError().empty(), ns.overlayError());
+        REQUIRE(ns.clientScripts() != nullptr);
+        REQUIRE(ns.localServer()->host().world().scriptSystems() != nullptr);
+
+        script::ClientScriptInput in;
+        in.keys = {{"ping", true, true, false}};
+        ns.setScriptInput(in);
+        frame(); // 이 프레임에 누름 → 신호 · 소리
+        in.keys = {{"ping", true, false, false}};
+        ns.setScriptInput(in);
+        for (int i = 0; i < 30; ++i) {
+            frame();
+        }
+        CHECK(ns.scriptSignalsSent() == 1);
+        CHECK(ns.takeScriptSounds() == std::vector<std::string>{"eco.pop"});
+        CHECK(ns.takeScriptSounds().empty()); // 가져가면 비운다
+        std::vector<std::string> logs;
+        for (const script::ScriptLogLine& l : ns.localServer()->host().world().scriptSystems()->host().recentLogs()) {
+            logs.push_back(l.text);
+        }
+        // 보낸 쪽 = 이 클라이언트 (서버의 플레이어 표 — 로컬 세션은 하나)
+        const auto& players = ns.localServer()->host().world().players();
+        REQUIRE(players.size() == 1);
+        CHECK(logs == std::vector<std::string>{std::format("signal eco.ping 5 {}", players.begin()->first)});
     }
 }

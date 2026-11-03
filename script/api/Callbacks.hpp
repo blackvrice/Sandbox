@@ -91,7 +91,9 @@ inline constexpr std::array kCallbacks{
                  capBit(HostCapability::EcsRead) | capBit(HostCapability::Time) | capBit(HostCapability::InputRead) |
                      capBit(HostCapability::ClientSend),
                  "Client 고정 Tick — network.model \"predicted\" 게임만 (ADR-0087)"},
-    CallbackInfo{"onUpdate", true, CallbackStatus::Active, "v0.3", detail::kClientDisplay,
+    CallbackInfo{"onUpdate", true, CallbackStatus::Active, "v0.3",
+                 detail::kClientDisplay | capBit(HostCapability::InputRead) | capBit(HostCapability::ClientSend) |
+                     capBit(HostCapability::Sound),
                  "프레임 — 스냅숏 적용 · 보간 뒤 (표시만)"},
 };
 

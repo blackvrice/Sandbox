@@ -58,6 +58,29 @@ vm::HostResult clientLabel(ClientScriptHost& host, std::span<const vm::HostArg> 
 vm::HostResult clientPrint(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.print(args);
 }
+vm::HostResult clientKeyDown(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.key(args, 0);
+}
+vm::HostResult clientKeyPressed(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.key(args, 1);
+}
+vm::HostResult clientKeyReleased(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.key(args, 2);
+}
+vm::HostResult clientPointerX(ClientScriptHost& host, std::span<const vm::HostArg>) {
+    const ClientScriptInput* in = host.frame().input;
+    return {true, vm::Value::f64v(in != nullptr && in->hasPointer ? in->pointer.x : 0.0), {}, {}, 0};
+}
+vm::HostResult clientPointerY(ClientScriptHost& host, std::span<const vm::HostArg>) {
+    const ClientScriptInput* in = host.frame().input;
+    return {true, vm::Value::f64v(in != nullptr && in->hasPointer ? in->pointer.y : 0.0), {}, {}, 0};
+}
+vm::HostResult clientSend(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.send(args);
+}
+vm::HostResult clientPlaySound(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.playSound(args);
+}
 
 constexpr ClientHostBinding kBindings[] = {
     {"client.tick", AbiType::I32, {AbiType::ClientContext}, 1, &clientTick},
@@ -72,6 +95,13 @@ constexpr ClientHostBinding kBindings[] = {
     {"client.query", AbiType::EntityList, {AbiType::ClientContext, AbiType::Component}, 2, &clientQuery},
     {"client.label", AbiType::Void, {AbiType::ClientContext, AbiType::Entity, AbiType::String}, 3, &clientLabel},
     {"client.print", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPrint},
+    {"client.keyDown", AbiType::Bool, {AbiType::ClientContext, AbiType::String}, 2, &clientKeyDown},
+    {"client.keyPressed", AbiType::Bool, {AbiType::ClientContext, AbiType::String}, 2, &clientKeyPressed},
+    {"client.keyReleased", AbiType::Bool, {AbiType::ClientContext, AbiType::String}, 2, &clientKeyReleased},
+    {"client.pointerX", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerX},
+    {"client.pointerY", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerY},
+    {"client.send", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::I32}, 3, &clientSend},
+    {"client.playSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPlaySound},
 };
 
 } // namespace
@@ -100,6 +130,8 @@ void ClientScriptHost::beginFrame(const ClientScriptFrame& frame) {
     m_frame = frame;
     m_labels.clear();
     m_lines.clear();
+    m_sends.clear();
+    m_sounds.clear();
 }
 
 vm::Value ClientScriptHost::beginCall(std::string system) {
@@ -107,6 +139,8 @@ vm::Value ClientScriptHost::beginCall(std::string system) {
     m_system = std::move(system);
     m_labelsAtCall = m_labels.size();
     m_linesAtCall = m_lines.size();
+    m_sendsAtCall = m_sends.size();
+    m_soundsAtCall = m_sounds.size();
     m_handles.clear();
     m_handleOf.clear();
     return vm::Value::opaque(m_token);
@@ -116,6 +150,8 @@ void ClientScriptHost::endCall(bool ok) {
     if (!ok) {
         m_labels.resize(m_labelsAtCall);
         m_lines.resize(m_linesAtCall);
+        m_sends.resize(m_sendsAtCall); // 트랩난 호출은 아무것도 내보내지 않는다
+        m_sounds.resize(m_soundsAtCall);
     }
     m_token = 0;
     m_handles.clear();
@@ -276,6 +312,39 @@ vm::HostResult ClientScriptHost::print(std::span<const vm::HostArg> args) {
         return {};
     }
     m_lines.push_back({m_system, clip(args[1].text, kMaxTextBytes)});
+    return {};
+}
+
+vm::HostResult ClientScriptHost::key(std::span<const vm::HostArg> args, int which) {
+    const ClientScriptInput* in = m_frame.input;
+    if (in == nullptr) {
+        return {true, vm::Value::boolean(false), {}, {}, 0};
+    }
+    const std::string_view name = args[1].text;
+    const auto it = std::lower_bound(in->keys.begin(), in->keys.end(), name,
+                                     [](const ClientScriptKey& k, std::string_view n) { return k.name < n; });
+    if (it == in->keys.end() || it->name != name) {
+        return {true, vm::Value::boolean(false), {}, {}, 0};
+    }
+    const bool v = which == 0 ? it->down : which == 1 ? it->pressed : it->released;
+    return {true, vm::Value::boolean(v), {}, {}, 0};
+}
+
+vm::HostResult ClientScriptHost::send(std::span<const vm::HostArg> args) {
+    if (m_sends.size() >= kMaxSendsPerFrame) {
+        ++m_droppedOutputs;
+        return {};
+    }
+    m_sends.push_back({m_system, clip(args[1].text, 64), args[2].value.asI32()});
+    return {};
+}
+
+vm::HostResult ClientScriptHost::playSound(std::span<const vm::HostArg> args) {
+    if (m_sounds.size() >= kMaxSoundsPerFrame) {
+        ++m_droppedOutputs;
+        return {};
+    }
+    m_sounds.push_back({m_system, clip(args[1].text, 64)});
     return {};
 }
 

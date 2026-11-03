@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T6 — client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) (M2-T7 ✅)
+다음     v0.5 M3-T1 — 게임 UI ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1 ~ U8 (M2 끝 — 20 10장 진행 차례), 트랙 B 는 M6-T9
          Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
 계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG · 세 트랙), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088),
          Studio 25 · 에셋 26 · 스크립트 IDE 27 · 제작자 흐름 기준 28 (ADR-0089 ~ 0092), 감사 audit/ (2026-11-03 — 알파 준비 안 됨: ALPHA-READINESS)
@@ -282,7 +282,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-11 | 플레이어 행동 모델 (유닛 명령 · 직접 조작, 지연 체감 — 예측 없음) | v0.2 M3 전   | 결정 — 콘텐츠 PlayerAction 부터 (ADR-0045) |
 | D-12 | 게임 UI 런타임 · 렌더 백엔드 · GraphicsUI 의존                    | v0.5 진입    | 결정 — 팩의 선언형 문서 · 독립 타깃 · ImGui 그리기 목록 백엔드 · GraphicsUI 기다리지 않음 (ADR-0079) |
 | D-13 | 스크립트의 엔진 컴포넌트 · 구조 변경 권한                         | v0.5 진입    | 결정 — 접근 표 · 호출 버퍼 → ECB · 상한 · 신호 선언 (ADR-0080) |
-| D-14 | 오디오 출력 백엔드 (직접 · 서드파티)                              | v0.5 M2-T6   | 열림 — 못 정하면 소리 이벤트 · Null 만, 출력은 v0.6 |
+| D-14 | 오디오 출력 백엔드 (직접 · 서드파티)                              | v0.5 M2-T6   | 닫힘 — v0.5 소리 이벤트 · Null, 출력 · sounds.json 은 v0.6 (ADR-0095) |
 | D-15 | 서비스 데이터 (영구 저장 · 순위 · 업적) 의 신뢰 경계               | v0.5 계획    | 결정 — 계정 · 신뢰할 서버 뒤 (v0.7), 자체 서버 결과는 공식에 안 넣음 (ADR-0082) |
 | D-16 | 스크립트 실행 방식 (Interpreter · JIT · AOT)                      | v0.5 계획    | 결정 — Interpreter 유지 · IScriptExecutor 계약 · 프로파일 먼저, JIT/AOT v1.x (ADR-0081) |
 
@@ -515,7 +515,8 @@ M2 게임플레이 API
         (4b) ✅ 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (ADR-0094 — kSimVersion 그대로) → M2-T5 끝
   T7 ✅ Runtime v2 계약 동결 — 콜백 표 script/api/Callbacks (예약 이름 → S426 [계획 vX]) · Host 표 capability 열 (지문) · 매니페스트
         network.model ("snapshot" 만) (23 1장 · ADR-0086 6, 19 26장)
-  T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) — T7 뒤 (Capability 를 단 함수로)
+  T6 ✅ client 입력 (keyDown · keyPressed · keyReleased · pointerX · pointerY) · send (PlayerSignal) · playSound (이벤트) — D-14 정함
+        (ADR-0095: v0.5 이벤트 · Null, 출력 v0.6) → M2 끝
 M3 게임 UI
   T1 [계획] ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1~U8 · sbx check
   T2 [계획] 배치 엔진 (앵커 · 크기 · 쌓기 · 목록 — 헤드리스 골든)

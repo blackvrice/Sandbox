@@ -147,7 +147,7 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 
 ### 5.x 입력의 다음 단계 [계획]
 
-v0.5 M2-T6: client 스크립트 입력 읽기 (pressed · released · held · axis — 프레임 입력을 행동 이벤트 큐로, 잃음 없음) · send. v0.6: onAction ·
+v0.5 M2-T6 ✅: client 스크립트 입력 읽기 (keyDown · keyPressed · keyReleased — 게임 키 "play.<이름>", 커서 월드 좌표 — 19 21.1) · send. v0.6: onAction ·
 입력 Context 스택 (메뉴 > UI > 게임) · 소비 · 게임패드 · Hold · Double Tap · Combo. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
 키 이벤트마다 패킷을 보내지 않는다. [22-RUNTIME-V2](22-RUNTIME-V2.md) 6장, [ADR-0087](adr/0087-client-fixed-tick-prediction-opt-in.md).
 
@@ -282,6 +282,8 @@ v0.5 M2-T6: client 스크립트 입력 읽기 (pressed · released · held · ax
 ```
 
 ## 7. Audio
+
+> v0.5 M2-T6 (D-14 — [ADR-0095](adr/0095-audio-v05-events-null-output-v06.md)): client 스크립트의 playSound 는 소리 이벤트 — 앱이 세고 (NullAudioBackend 그대로) 소리는 나지 않는다. 실제 출력 백엔드 · sound importer · presentation/sounds.json 은 v0.6.
 
 ```cpp
 class IAudioBackend {

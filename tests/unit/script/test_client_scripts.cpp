@@ -261,7 +261,7 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
             client += f.domain == api::HostDomain::Client ? 1 : 0;
         }
         CHECK(clientHostBindings().size() == client);
-        CHECK(client == 8);
+        CHECK(client == 15); // v0.3 8 + v0.5 M2-T6 입력 다섯 · send · playSound
         std::vector<ClientHostBinding> withServer(clientHostBindings().begin(), clientHostBindings().end());
         withServer.push_back({"ctx.tick", api::AbiType::I32, {api::AbiType::ServerContext}, 1, nullptr});
         const std::vector<std::string> p = checkClientHostBindings(withServer);
@@ -323,6 +323,79 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         empty.run({nullptr, nullptr, 0, 0, 0});
         CHECK(empty.lastStats().traps == 1);
         CHECK(empty.host().lines().empty());
+    }
+
+    TEST_CASE("client 입력 · send · playSound (v0.5 M2-T6): 게임 키 · 커서를 읽고, 신호 · 소리를 내보낸다 — 상한 · "
+              "트랩은 버린다") {
+        Root root("input");
+        root.file("t/pack.json", kPack).file("t/scripts/play.ts", R"(import { defineSystem, i32 } from "sandbox"
+export default defineSystem({
+  id: "t.play",
+  domain: "client",
+  onUpdate(ctx) {
+    ctx.print(`${ctx.keyDown("jump")} ${ctx.keyPressed("jump")} ${ctx.keyReleased("jump")} ${ctx.keyDown("fire")} ${ctx.keyDown("none")} ${ctx.pointerX()} ${ctx.pointerY()}`)
+    if (ctx.keyPressed("jump")) {
+      ctx.send("t.jump", 3)
+      ctx.playSound("t.boing")
+    }
+    if (ctx.keyDown("fire")) {
+      for (let i: i32 = 0; i < 10; i = i + 1) { ctx.send("t.fire", i) }
+    }
+    if (ctx.keyDown("crash")) {
+      ctx.send("t.lost", 1)
+      ctx.playSound("t.lost")
+      const z: i32[] = []
+      ctx.print(`${z[3]}`)
+    }
+  },
+})
+)");
+        const content::ContentLoadResult r = root.load();
+        REQUIRE_MESSAGE(r.ok(), dump(r));
+        sim::SimulationWorld w(engine(), r.db, smallWorld());
+        ClientScriptSystems systems(r.db.scriptPrograms());
+        const auto frame = [&](ClientScriptInput* in) {
+            systems.run({&w.registry(), &w.catalog(), w.currentTick(), 0, 0.016, in});
+            return systems.host().lines().empty() ? std::string() : systems.host().lines().back().text;
+        };
+        // 입력 없음 — 모두 false · 커서 0
+        CHECK(frame(nullptr) == "false false false false false 0 0");
+        CHECK(systems.host().sends().empty());
+
+        ClientScriptInput in;
+        in.keys = {
+            {"crash", false, false, false}, {"fire", false, false, false}, {"jump", true, true, false}}; // 이름 순
+        in.pointer = {2.5f, -1.f};
+        in.hasPointer = true;
+        CHECK(frame(&in) == "true true false false false 2.5 -1");
+        REQUIRE(systems.host().sends().size() == 1);
+        CHECK(systems.host().sends()[0].system == "t.play");
+        CHECK(systems.host().sends()[0].signal == "t.jump");
+        CHECK(systems.host().sends()[0].value == 3);
+        REQUIRE(systems.host().sounds().size() == 1);
+        CHECK(systems.host().sounds()[0].id == "t.boing");
+
+        // 떼기 · 커서가 UI 위 (hasPointer false) · 다음 프레임은 새로 (지난 프레임의 신호가 남지 않는다)
+        in.keys[2] = {"jump", false, false, true};
+        in.hasPointer = false;
+        CHECK(frame(&in) == "false false true false false 0 0");
+        CHECK(systems.host().sends().empty());
+
+        // 프레임 상한 8 — 넘은 2 개는 버리고 센다
+        in.keys[1].down = true;
+        in.keys[2].released = false;
+        (void)frame(&in);
+        CHECK(systems.host().sends().size() == ClientScriptHost::kMaxSendsPerFrame);
+        CHECK(systems.host().sends().back().value == 7);
+        CHECK(systems.host().droppedOutputs() == 2);
+
+        // 트랩난 호출의 신호 · 소리는 버린다
+        in.keys[1].down = false;
+        in.keys[0].down = true;
+        (void)frame(&in);
+        CHECK(systems.lastStats().traps == 1);
+        CHECK(systems.host().sends().empty());
+        CHECK(systems.host().sounds().empty());
     }
 
     TEST_CASE("client 시스템: 트랩난 호출의 표시를 버리고, 3 번 이어지면 끈다 · client 만 있으면 서버 단계가 없다") {

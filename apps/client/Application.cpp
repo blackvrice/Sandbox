@@ -1,5 +1,7 @@
 #include "apps/client/Application.hpp"
 
+#include "core/script/ClientScriptHost.hpp"
+
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
@@ -472,6 +474,19 @@ void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
         m_playState.reset();
     }
     m_playState.update(m_playKeys.map, m_input.downstream());
+    // client 스크립트의 입력 (v0.5 M2-T6) — 게임 키 ("play.<이름>" 의 <이름> — ActionId 가 이름 순이라 정렬 그대로) ·
+    // 커서
+    script::ClientScriptInput scriptInput;
+    for (platform::ActionId id = 0; id < m_playKeys.map.size(); ++id) {
+        const std::string_view name = m_playKeys.map.name(id);
+        if (name.starts_with(kPlayPrefix)) {
+            scriptInput.keys.push_back({std::string(name.substr(kPlayPrefix.size())), m_playState.down(id),
+                                        m_playState.pressed(id), m_playState.released(id)});
+        }
+    }
+    scriptInput.hasPointer = m_config.ui == nullptr || !m_config.ui->wantMouse();
+    scriptInput.pointer = cam.screenToWorld(mousePx);
+    m_config.world->setScriptInput(scriptInput);
     if (!acts->canAct) {
         return; // 역할 player 아래 — 보내도 서버가 거절한다
     }
@@ -547,6 +562,11 @@ bool Application::frame() {
         m_config.world->setView(m_renderWorld.camera.visibleRect()); // 관심 영역 (Phase 11)
         t0 = Clock::now();
         m_config.world->update(worldDt);
+        // client 스크립트의 소리 이벤트 (v0.5 M2-T6) — v0.5 는 세기만 한다 (실제 출력 · sounds.json 은 v0.6, ADR-0095)
+        for (const std::string& id : m_config.world->takeScriptSounds()) {
+            ++m_scriptSoundEvents;
+            log::debug("client", "스크립트 소리 이벤트 '{}'", id);
+        }
         t1 = Clock::now();
         m_renderWorld.reset();
         m_config.world->extract(m_renderWorld);

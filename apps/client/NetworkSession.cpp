@@ -624,7 +624,19 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
         m_clientProfile.clear();
         m_clientProfileStart = m_now;
     }
-    m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds});
+    m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput});
+    // 내보낸 것 (v0.5 M2-T6): 신호 = PlayerSignal 명령 (서버가 선언 · 범위 · perTick · 역할로 판정), 소리 = 앱이 가져갈
+    // 이벤트
+    for (const script::ClientScriptSend& s : m_clientScripts->host().sends()) {
+        if (send(cmd::PlayerSignal{s.signal, s.value}) != 0) {
+            ++m_scriptSignalsSent;
+        }
+    }
+    for (const script::ClientScriptSound& s : m_clientScripts->host().sounds()) {
+        if (m_scriptSounds.size() < 256) {
+            m_scriptSounds.push_back(s.id);
+        }
+    }
 
     // 프로파일 창 (실제 1 초) — 누적의 차이
     const f64 span = m_now - m_clientProfileStart;

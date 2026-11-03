@@ -21,6 +21,7 @@
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/ecs/Registry.hpp"
 #include "core/script/ScriptHost.hpp"
+#include "foundation/math/Vec2.hpp"
 
 namespace sbx::script {
 
@@ -32,13 +33,38 @@ using ClientHostBinding = BasicHostBinding<ClientScriptHost>;
 // 클라이언트 계약 검사 (= checkHostBindingShapes(…, Client))
 [[nodiscard]] std::vector<std::string> checkClientHostBindings(std::span<const ClientHostBinding> bindings);
 
+// 이번 프레임의 입력 (v0.5 M2-T6) — 게임 키 ("play.<이름>" 의 <이름>, 이름 정렬) · 커서의 월드 자리. Application 이
+// 만든다
+struct ClientScriptKey {
+    std::string name;
+    bool down = false;
+    bool pressed = false;
+    bool released = false;
+};
+struct ClientScriptInput {
+    std::vector<ClientScriptKey> keys; // name 오름차순 (찾기는 이분)
+    Vec2 pointer{};
+    bool hasPointer = false;
+};
+// 스크립트가 내보낸 것 (부른 차례) — 트랩난 호출의 것은 버린다
+struct ClientScriptSend {
+    std::string system;
+    std::string signal;
+    i32 value = 0;
+};
+struct ClientScriptSound {
+    std::string system;
+    std::string id;
+};
+
 // 프레임 하나에 스크립트가 보는 것 — registry · catalog 는 그 프레임의 호출이 끝날 때까지 살아야 한다
 struct ClientScriptFrame {
     const ecs::Registry* registry = nullptr;
     const ecs::ComponentCatalog* catalog = nullptr;
-    u64 tick = 0;  // 복제 월드의 서버 틱
-    u32 frame = 0; // 몇 번째 프레임인가 (1 부터)
-    f64 dt = 0;    // 앞 프레임 뒤 지난 실제 시간 (초)
+    u64 tick = 0;                             // 복제 월드의 서버 틱
+    u32 frame = 0;                            // 몇 번째 프레임인가 (1 부터)
+    f64 dt = 0;                               // 앞 프레임 뒤 지난 실제 시간 (초)
+    const ClientScriptInput* input = nullptr; // 없으면 키는 모두 false · 커서 (0, 0) (v0.5 M2-T6)
 };
 
 struct ClientScriptLabel {
@@ -56,6 +82,8 @@ public:
     static constexpr usize kMaxLabels = 1024;         // 프레임마다
     static constexpr usize kMaxLines = 64;            // 프레임마다
     static constexpr usize kMaxQueryEntities = 65536; // 질의 하나 (넘으면 HostError)
+    static constexpr usize kMaxSendsPerFrame = 8;     // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
+    static constexpr usize kMaxSoundsPerFrame = 32;   // client.playSound
 
     ClientScriptHost();
 
@@ -73,6 +101,10 @@ public:
     [[nodiscard]] const std::vector<ClientScriptLine>& lines() const noexcept { return m_lines; }
     // 프레임 상한으로 버린 label · print (처음부터 센 수)
     [[nodiscard]] u64 droppedDisplay() const noexcept { return m_dropped; }
+    // 이번 프레임에 내보낸 신호 · 소리 (부른 차례), 상한으로 버린 수 (처음부터)
+    [[nodiscard]] const std::vector<ClientScriptSend>& sends() const noexcept { return m_sends; }
+    [[nodiscard]] const std::vector<ClientScriptSound>& sounds() const noexcept { return m_sounds; }
+    [[nodiscard]] u64 droppedOutputs() const noexcept { return m_droppedOutputs; }
 
     // 바인딩이 쓰는 지금 호출의 상태 · 구현 (core/script/ClientScriptHost.cpp 의 표가 부른다)
     [[nodiscard]] const ClientScriptFrame& frame() const noexcept { return m_frame; }
@@ -81,6 +113,9 @@ public:
     vm::HostResult query(std::span<const vm::HostArg> args);
     vm::HostResult label(std::span<const vm::HostArg> args);
     vm::HostResult print(std::span<const vm::HostArg> args);
+    vm::HostResult key(std::span<const vm::HostArg> args, int which); // 0 down · 1 pressed · 2 released
+    vm::HostResult send(std::span<const vm::HostArg> args);
+    vm::HostResult playSound(std::span<const vm::HostArg> args);
 
 private:
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
@@ -94,11 +129,16 @@ private:
     std::string m_system;
     usize m_labelsAtCall = 0;
     usize m_linesAtCall = 0;
+    usize m_sendsAtCall = 0;
+    usize m_soundsAtCall = 0;
     std::vector<ecs::EntityId> m_handles; // 핸들 자리 → 개체 (호출마다 새로)
     std::map<u64, u32> m_handleOf;        // EntityId.raw → 자리 (찾기만)
     std::vector<ClientScriptLabel> m_labels;
     std::vector<ClientScriptLine> m_lines;
     u64 m_dropped = 0;
+    std::vector<ClientScriptSend> m_sends;
+    std::vector<ClientScriptSound> m_sounds;
+    u64 m_droppedOutputs = 0;
 };
 
 } // namespace sbx::script

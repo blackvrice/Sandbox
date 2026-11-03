@@ -236,6 +236,7 @@ ctx.sound.play(id, opts?)                                           // 소리 �
 ctx.ui.*                                                            // 2.5
 ctx.read 의 대상에 엔진 컴포넌트 (접근 표의 client 읽기)
 ```
+✅ M2-T6 — 이름을 평평하게 (VM 에 중첩 객체가 없다): ctx.keyDown · keyPressed · keyReleased(name) (팩 input.json 의 "play.<name>"), ctx.pointerX · pointerY (커서의 월드 좌표, UI 위면 0), ctx.send(signal, value) (PlayerSignal — 프레임마다 8), ctx.playSound(id) (이벤트 — 프레임마다 32, 출력은 v0.6 ADR-0095). 트랩난 호출의 신호 · 소리는 버린다 (19 21장)
 
 ### 3.9 시험 · 보안
 
@@ -310,6 +311,8 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 화면 (같은 문장 · 복사 단추) 은 [계획] — 클라이언트 오류 화면 태스크 (M1-T3 안전 모드와 함께 정한다)
 7.4 오디오      D-14: v0.5 에 실제 출력 백엔드를 넣을지 (Windows WASAPI 직접 · miniaudio 류 서드파티) — M2-T6 에서 결정. 정하지 못하면
                 소리 API 는 이벤트 · Null (센다) 로 두고 출력은 v0.6
+                ✅ 정함 (M2-T6, [ADR-0095](adr/0095-audio-v05-events-null-output-v06.md)): v0.5 = 소리 이벤트 (client.playSound) · Null 백엔드가 센다, 실제 출력 · sound importer ·
+                presentation/sounds.json 은 v0.6 (후보 miniaudio — 도입 ADR 에서 라이선스 원문 확인)
 7.5 안전 모드   ✅ M1-T3. 사용자 설정은 이번에 처음 생긴다 (그전엔 --input 뿐): 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox ·
                 macOS ~/Library/Application Support/sandbox · XDG — 07 8장) 의 client.json (schemaVersion 1 — uiScale 0.5~3 ·
                 updateCheck · updateFeed, 모르는 키는 경고) · input.json (키 바인딩 — 기본 위 · --input 아래). 깨진 파일 (JSON ·
@@ -413,7 +416,7 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T5 (4a) ✅ | 플레이어 표 — 시뮬레이션 안 표 · 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole (ADR-0093) | core/command, core/simulation, network/server/ServerHost, script/api/HostApi, core/script/ScriptHost | PlayerJoin · PlayerLeave | M2-T5 (3) | 넣기 · 바꾸기 · 빼기 · 서버만 · JSON 왕복 · 해시 · 개체 그대로 · 스크립트 (test_player_table), 접속 · 역할 · 나감 (test_roles_overlay) | 스크립트가 플레이어를 안다 |
 | M2-T5 (4b) ✅ | 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (ADR-0094 — kSimVersion 그대로) | core/content (RuleEffect.owner · V3), core/simulation (applyPlayerAction · SetOwner 구조 변경), script/api/HostApi, core/script/ScriptHost | — | M2-T5 (4a) | owner = issuer · 서버 행동 없음 · 끈 효과 없음 · bool 아님 · Rule 오류 · setOwner 새 핸들 · 바꾸기 · 범위 밖 트랩 (test_player_table) | "누구의 돌" 을 owner 로 안다 |
 | M2-T7 ✅ | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4b) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
-| M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
+| M2-T6 ✅ | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
 
 ### Phase 3 — 게임 UI (M3)
 

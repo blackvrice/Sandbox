@@ -765,6 +765,22 @@ ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ct
            (20 2.5 · 3.8). 도형 · 스프라이트 그리기 · 개체 참조 풀기는 v0.6
 ```
 
+### 21.1 입력 · 신호 · 소리 (v0.5 M2-T6 — `core/script/ClientScriptHost`, `apps/client`, ADR-0095)
+
+```text
+ctx.keyDown(name) · keyPressed(name) · keyReleased(name): boolean   팩 presentation/input.json 의 "play.<name>" 게임 키 — 이번 프레임
+                                                                    (keyPressed 는 한 번, 같은 프레임의 누르기를 잃지 않는다). 없는 이름 ·
+                                                                    UI 가 입력을 먹은 프레임 = false. "play.action.<id>" 는 그대로 PlayerAction
+ctx.pointerX() · pointerY(): number                                  커서의 월드 좌표 (커서가 UI 위면 0)
+ctx.send(signal: string, value: i32): void                           서버에 PlayerSignal 명령 — 선언 · 범위 · perTick · 역할은 서버가 판정 (11
+                                                                    6.1장). 프레임마다 8 개 (넘으면 버리고 센다 — droppedOutputs)
+ctx.playSound(id: string): void                                      소리 이벤트 — 앱이 가져가 센다 (v0.5 는 소리 없음 · 출력은 v0.6, ADR-0095).
+                                                                    프레임마다 32 개
+Capability                                                           InputRead · ClientSend · Sound (onUpdate 가 허락 — 26장)
+트랩                                                                 트랩난 호출의 신호 · 소리는 내보내지 않는다 (표시와 같은 규칙)
+결정성                                                               시뮬레이션 밖 — 서버에 닿는 것은 PlayerSignal 명령뿐 (리플레이에 남는다)
+```
+
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
 
 ```text

@@ -33,6 +33,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "apps/client/WorldSession.hpp"
@@ -130,6 +131,10 @@ public:
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
     [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;
+    void setScriptInput(const script::ClientScriptInput& input) override { m_scriptInput = input; }
+    [[nodiscard]] std::vector<std::string> takeScriptSounds() override { return std::exchange(m_scriptSounds, {}); }
+    // client 스크립트가 보낸 신호 (PlayerSignal 명령 — 처음부터 센 수, 시험 · 진단)
+    [[nodiscard]] u64 scriptSignalsSent() const noexcept { return m_scriptSignalsSent; }
     static constexpr f64 kClientProfileWindow = 1.0; // client 시스템 프로파일의 창 (실제 초)
     [[nodiscard]] const script::ClientScriptSystems* clientScripts() const noexcept { return m_clientScripts.get(); }
     // 서버가 리플레이를 재생 중이다 (마지막 통계 기준)
@@ -226,6 +231,9 @@ private:
     std::string m_roleMessage; // 가장 최근 역할 바꾸기 결과
     // 클라이언트 스크립트 (v0.3 M5-T3) — 콘텐츠에 client 시스템이 있을 때만
     std::unique_ptr<script::ClientScriptSystems> m_clientScripts;
+    script::ClientScriptInput m_scriptInput; // 이번 프레임 (setScriptInput — v0.5 M2-T6)
+    std::vector<std::string> m_scriptSounds; // 가져가지 않은 소리 이벤트 (256 개까지)
+    u64 m_scriptSignalsSent = 0;
     // client 시스템 프로파일 (M5-T4): 창이 시작할 때의 누적 (시스템 차례) · 지난 창의 줄
     struct ClientProfileBase {
         u64 calls = 0;

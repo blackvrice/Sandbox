@@ -13,10 +13,10 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T5 · T7 ✅
-다음      v0.5 M2-T6 — client 입력 · send · 소리 이벤트 · 오디오 결정 (1장 카드)
+지금      v0.5 Creator Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅
+다음      v0.5 M3-T1 — 게임 UI ui/ 타깃 · 문서 모델 · 검사 (20 10장 Phase 3)
 트랙 B    v0.5 M6-T9 (프로젝트 에셋 · .sbpkg 3 — C1 차단 해소) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) — 트랙 A 와 병렬 (1.1장)
-그다음    M2-T6 →
+그다음   
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
 
@@ -115,7 +115,7 @@ M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 �
 ⑬ 19 26장 (새 — 예약 콜백 · Capability), 18 5.2 (network.model), 22 3장 상태, 13
 ⑭ 예약 · 열 · 매니페스트 시험 통과, 기존 샘플 그대로 — M2-T6 이 Capability 를 단 새 함수로 태어난다 (그래서 M2-T6 앞)
 
-① M2-T6 client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14)               ② P0   ③ v0.5 M2
+① M2-T6 client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) ✅ (2026-11-03 — 평평한 이름 keyDown · … · send · playSound, ADR-0095)  ② P0   ③ v0.5 M2
 ④ client 스크립트가 입력을 읽고 신호를 보낸다 (20 3.8) — 템플릿 · 데모의 조작
 ⑤ M2-T5 (3) (PlayerSignal), M2-T7 (Capability)
 ⑥ core/script (ClientScriptHost — 입력 스냅숏 · send 버퍼), apps/client (프레임 입력 → 행동 이벤트 큐), platform/audio (결정에 따라)
