@@ -204,7 +204,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 - 플러그인이 하는 일은 CommandService 명령 · 패널 (선언형 UI 문서 — 8장의 런타임) · 검사기 확장 (진단만)
 - 보안 기준은 24 (P5 · P6 — 이번 감사에서 더함)
 - 버전 계약 (2026-11-03 2차 감사 — NG-10, ADR-0098): Editor Plugin API = 정수 major + 기능 표 지문, plugin.json 의 editorApi 범위 ·
-  permissions · extensionPoints, 범위 밖 = 불러오지 않음, 지원 중단 = 한 MINOR 경고 뒤 제거 — [계획 v0.19]
+  permissions · extensionPoints, 범위 밖 = 불러오지 않음, 지원 중단 = 한 MINOR 경고 뒤 제거 — [계획 v0.21]
 ```
 
 ## 10. 성능 · 측정 (숫자는 측정 뒤에만 적는다 — 14)
@@ -234,7 +234,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 ## 12. Player 모드 — 받는 사람의 실행 경로 (NG-03, [ADR-0098](adr/0098-distribution-lifecycle-player-savegame-channels-plugin-api.md)) [계획 v0.8]
 
 ```text
-결정    SandboxClient 의 모드 — --play <패키지.sbpkg> · 파일 연결 (더블클릭) · 최근 게임 목록. 별도 실행 파일은 서명 배포 (v0.13) 때 다시
+결정    SandboxClient 의 모드 — --play <패키지.sbpkg> · 파일 연결 (더블클릭) · 최근 게임 목록. 별도 실행 파일은 서명 배포 (v0.15) 때 다시
 흐름    검증 (digest · 형식 · engine 범위 · Export Profile) → 사용자 캐시 (패키지 digest 폴더) 에 풀기 → 로컬 서버 + 클라이언트 → 플레이
 오류    형식 · 범위 · 손상 · 엔진 낮음마다 문장 화면 + "보고 묶음 만들기" (M1) — 20 7.2 의 클라이언트 오류 화면이 이것
 숨김    편집 · 콘솔 · 개발 패널 (Player 모드에서는 Studio 기능을 켜지 않는다)

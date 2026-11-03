@@ -1,6 +1,6 @@
 # ADR-0096. 로드맵 버전 체계 — 작은 MINOR 마일스톤 (v0.5 ~ v0.21+), 성숙 단계와 버전 분리, v0.5 = Technical Alpha, 태스크 등록부
 
-- 상태: **Accepted** · 날짜: 2026-11-03
+- 상태: **Accepted — 일부 Superseded** (4 · 결과의 v0.10 이후 버전 배치 → [ADR-0099](0099-roadmap-v010-split-stabilization-versions.md)) · 날짜: 2026-11-03
 - 관련: [roadmap/versioning](../roadmap/versioning.md) · [roadmap/task-registry](../roadmap/task-registry.md) · [roadmap/releases](../roadmap/releases.md) ·
   [roadmap/release-gates](../roadmap/release-gates.md), [audit/SECOND-PASS-GAP-ANALYSIS](../audit/SECOND-PASS-GAP-ANALYSIS.md),
   [ADR-0039](0039-platform-scope-version-line-after-phase-15.md) (버전 줄 v0.1 ~ v1.0), [ADR-0078](0078-v05-creator-alpha-scope-expansion.md) (v0.5 범위),

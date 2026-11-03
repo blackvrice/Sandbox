@@ -18,7 +18,7 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅ (2026-11-03 재구성 — ADR-0096, 아래 줄은 roadmap/README 1장과 같다)
+지금      v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅ (2026-11-03 재구성 — ADR-0096 · ADR-0099, 아래 줄은 roadmap/README 1장과 같다)
 다음      트랙 A  M7-T6 Technical Alpha E2E → M7-T5 0.5.0 · M3-T1 게임 UI (v0.7, 20 10장 Phase 3)
 트랙 B    NG-12 · NG-13 → M6-T9 (프로젝트 에셋 · .sbpkg 3, v0.6) → NG-01 → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) (v0.8)
 그다음   

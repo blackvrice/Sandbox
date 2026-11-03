@@ -5,6 +5,8 @@
 > 로드맵 재구성 (ADR-0096 ~ 0098) 의 근거를 적는다. 1차 감사의 행은 지우지 않는다 — 이 문서 2 · 3장이 해결 여부 · 증거 · 새 목표를 잇는다.
 > 목표 버전 · 상태의 정본은 [roadmap/task-registry](../roadmap/task-registry.md). "확인" = 이 커밋의 소스를 직접 읽음, "실행" = 명령을 돌림.
 
+> **2026-11-03 2차 배치 ([ADR-0099](../adr/0099-roadmap-v010-split-stabilization-versions.md)):** 이 문서의 v0.10 이후 버전 (v0.10 · v0.11 Closed Creator Alpha · v0.12 Hub …) 은
+> 1차 배치 기준이다 — 감사 기록이라 고쳐 쓰지 않고 [versioning 4.1](../roadmap/versioning.md) 표로 읽는다. 지금 목표는 등록부.
 ---
 
 ## 0. 요약

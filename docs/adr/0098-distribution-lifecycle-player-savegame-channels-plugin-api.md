@@ -1,6 +1,6 @@
 # ADR-0098. 배포 수명주기 — Player 모드 (SandboxClient), SaveGame 게임 버전 마이그레이션, 출시 채널 · 단계 배포 · 롤백, Editor Plugin API 버전
 
-- 상태: **Accepted** (설계 — 구현은 v0.6 ~ v0.19 태스크) · 날짜: 2026-11-03
+- 상태: **Accepted — 일부 Superseded** (버전 표기만 — v0.13 → v0.15 · v0.19 → v0.21, [ADR-0099](0099-roadmap-v010-split-stabilization-versions.md)) (설계 — 구현은 v0.6 ~ v0.21 태스크) · 날짜: 2026-11-03
 - 관련: [audit/SECOND-PASS-GAP-ANALYSIS](../audit/SECOND-PASS-GAP-ANALYSIS.md) 4.3 · 4.4 · 4.9 · 4.10, [25-STUDIO-ARCHITECTURE](../25-STUDIO-ARCHITECTURE.md) 9 · 12장,
   [26-ASSET-PIPELINE](../26-ASSET-PIPELINE.md) 8장, [ADR-0054](0054-game-package-sbpkg-sha256-digest-save-binding.md) (세이브 결속), [ADR-0061](0061-script-component-save-auto-migration-drop-default-strict.md) (스크립트 컴포넌트 마이그레이션),
   [24-SECURITY-GATES](../24-SECURITY-GATES.md) P5 · O2

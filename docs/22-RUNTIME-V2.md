@@ -8,7 +8,7 @@
 > 2장 (틱 파이프라인), [04](04-DETERMINISM.md), [19](19-SANDBOXSCRIPT.md) — 이 문서는 그 위에 더하는 설계이고, 바꾸는 규범은 없다.
 
 > **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
-> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로. Runtime v2 의 RT-06-* 는 대부분 v0.10, RT-07-* 는 v0.15, RT-08-* 는 v0.16.
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로. Runtime v2 의 RT-06-* 는 v0.10 · v0.11 · v0.12 (태스크마다 — 2차 배치 [ADR-0099](adr/0099-roadmap-v010-split-stabilization-versions.md)), RT-07-* 는 v0.17, RT-08-* 는 v0.18, RT-09-* 는 v0.22.
 
 ---
 
@@ -193,7 +193,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 | 항목 | 상태 · 버전 | 메모 |
 |------|-------------|------|
 | ActionMap · 게임 키 (팩 presentation/input.json) · PlayKeys | 현행 | `platform/common/ActionMap`, 07 5장 |
-| 클라이언트 스크립트의 입력 읽기 (pressed · released · held · axis) · send → PlayerSignal | ✅ v0.5 M2-T6 (keyDown · keyPressed · keyReleased — 축은 [계획 v0.10 RT-06-13]) | 프레임 입력을 행동 이벤트 큐로 모아 같은 프레임의 onUpdate 가 읽는다 (잃음 없음) |
+| 클라이언트 스크립트의 입력 읽기 (pressed · released · held · axis) · send → PlayerSignal | ✅ v0.5 M2-T6 (keyDown · keyPressed · keyReleased — 축은 [계획 v0.12 RT-06-13]) | 프레임 입력을 행동 이벤트 큐로 모아 같은 프레임의 onUpdate 가 읽는다 (잃음 없음) |
 | 키 다시 묶기 · UI 배율 | [계획 v0.5 M4-T3 · T4] | 사용자 설정 파일 |
 | UI 입력 막기 (UI 가 먼저) | [계획 v0.5 M3-T3] | UiInputRouter |
 | onAction · 입력 Context (우선순위 스택: 메뉴 > UI > 게임) · 소비 | [계획 v0.6] | Enhanced Input 의 Mapping Context 와 비슷 (공식 문서 확인 못 함 — 일반 지식) |
@@ -254,7 +254,7 @@ NetworkModule [계획 v0.8 — 서버만]
             이미 맞다)
 시스템 상태  defineState({ id, fields }) → 세션 개체 (월드에 하나 — 엔진이 만든다) 의 스크립트 컴포넌트, ctx.state 로 읽고 쓰기 [계획 v0.6]
 플레이어 상태 ✅ M2-T5 플레이어 표 (시뮬레이션 안 · ECS · 세이브 · 해시 밖 — ADR-0093, ctx.playerCount · playerId · playerRole),
-            게임 값 저장은 [계획 v0.14 PS-14-5] 플레이어 데이터
+            게임 값 저장은 [계획 v0.16 PS-14-5] 플레이어 데이터
 개체 상태    컴포넌트 (현행)
 타이머       ctx.after(ticks, key) · ctx.every(ticks, key) · ctx.cancelTimer(id) → 엔진 컴포넌트 script.timer (세이브 · 해시), 만기는 17d 의
             onEvent "timer" (dueTick, 시스템 id, 만든 차례) [계획 v0.6]
@@ -274,7 +274,7 @@ Worker       [검토 v0.9] 순수 함수 (컴포넌트 값 복사 입력 → 결
 | 렌더 층 · ECS 렌더 컴포넌트 | render.sprite (현행) · 층 번호 (현행) — 스크립트 쓰기는 접근 표로 (M2-T1 ✅ 방식) | 현행 + [계획 v0.6] 접근 표 |
 | 게임 UI | 선언형 문서 · 바인딩 · 이벤트 · 입력 라우팅 · 스타일 · 다국어 (ADR-0079 · 0083) — 바꾸지 않는다 | [계획 v0.5 M3 · M4] |
 | 애니메이션 | 2D 프레임 클립 · 상태 기계 (표시만 — 클라이언트) · 애니메이션 이벤트 (client onEvent) | [계획 v0.6] (P2), 블렌드 · 루트 모션 · 물리 연동 [검토 v1.x] |
-| 오디오 | 백엔드 결정 D-14 (v0.5 M2-T6), 소리 이벤트 (client), 믹서 · 2D 위치 | ✅ v0.5 M2-T6 이벤트 · Null 백엔드 (ADR-0095), [계획 v0.10] 출력 NG-17 · 믹서 · 2D RT-06-15, 3D [검토 v1.x] |
+| 오디오 | 백엔드 결정 D-14 (v0.5 M2-T6), 소리 이벤트 (client), 믹서 · 2D 위치 | ✅ v0.5 M2-T6 이벤트 · Null 백엔드 (ADR-0095), [계획 v0.11] 출력 NG-17 · [계획 v0.12] 믹서 · 2D RT-06-15, 3D [검토 v1.x] |
 | 에셋 | 핸들 (현행 — 렌더 리소스 핸들) · 비동기 로드 (Asset I/O Job) · 캐시 · 내리기 · 의존 추적 | [계획 v0.6] 비동기 · 캐시, [계획 v0.8] 스트리밍 · 메모리 예산 (호스팅) |
 
 ---

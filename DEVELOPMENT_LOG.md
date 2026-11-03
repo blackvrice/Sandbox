@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-03 — 로드맵 2차 배치 (v0.10 나눔 · Closed Creator Alpha v0.13 · 안정화 v0.22 · v0.23 · RC v0.24 · GA 승인, ADR-0099 · ADR-0100)
+
+**무엇을**
+
+- 1차 배치 (ADR-0096) 의 v0.10 22 태스크를 v0.10 Creator Foundation (7) · v0.11 Gameplay Runtime (6) · v0.12 Advanced Creator Tools (9) 로 나누고
+  버전마다 통합 시험 태스크 (NG-18 ~ 20) 를 더함. Closed Creator Alpha v0.11 → v0.13, 뒤 버전을 순서대로 다시 매김 (v0.14 계정 ~ v0.21 팀 · 플러그인).
+- 1차 v0.20 안정화를 v0.22 Reliability & Performance · v0.23 Security & Release Hardening 으로 나누고, 빠졌던 검증 태스크 RH-22-1 ~ 7 (Soak ·
+  Sanitizer · 누수 · 성능 기준선 · 네트워크 조건 · 교차 툴체인 결정론) · RH-23-1 ~ 8 (퍼저 · 탈출 · 네트워크 · 계정 · 공급망 · 복구 · 런북 · 실기 ·
+  개인정보) · RH-24-1 ~ 5 (RC 정책 · 회귀 · 감사 조치 · 문서 · GA 승인) 를 더함. 런북 · 개인정보는 정의가 없어 상태 Missing.
+- v0.12 의 NG-15 Tilemap · RT-06-14 애니메이션 P2 → P1 (통합 시험이 쓴다). 병렬화 Review 넷은 측정이 예산 초과일 때만, 아니면 v1.x.
+- 새 문서 roadmap/stabilization (v0.22 ~ GA 검증 방법 · 지금 상태 — CI 에 TSan · 퍼저 · Soak · SBOM · Actions SHA 고정이 없음을 소스 · 워크플로로 확인),
+  release-gates 를 다시 씀 (버전 행 · 성숙 단계 · 안정화 · RC · GA 차단 조건 · 기록 기반 최종 승인). ADR-0096 · 0098 은 버전 표기만 일부 Superseded.
+- check_docs: D (선행이 같거나 앞 버전) · R (끝나지 않은 태스크는 releases 한 버전에만, 그 버전 = 등록부 목표) · RH ID · --expect,
+  CTest docs_consistency_selftest (tests/docs/fixtures — 정확히 9 건).
+
+**왜**
+
+- v0.10 한 버전에 사용자 목표 셋 · 22 태스크 — ADR-0096 자신의 기준 (목표 하나 · P0 대략 10 개 이하) 을 어겼다. GA 기준은 목록만 있고 그것을
+  만드는 태스크 · 방법 · 기록 형식이 없었다.
+
+**검증**
+
+- `python -X utf8 tools/check_docs.py --root .` → 181 files, 0 problem(s) (첫 실행 142 건 — 1차 배치 그대로인 releases · 버전 목록 · 아직 없던 ADR).
+  자체 시험 `--root tests/docs/fixtures --expect 9` 통과 (L · A · T 2 · S · V · D · R 2).
+- 버전별 태스크 수를 등록부에서 셈: v0.10 8 · v0.11 7 · v0.12 10 (통합 시험 포함), 상태 Done 21 · Planned 93 · Proposed 42 · Review 4 · Missing 2.
+- Windows MSVC Debug 빌드 · 전체 ctest 76 / 76 통과 (docs_consistency · docs_consistency_selftest 포함).
+- 안 한 것: 새 태스크의 구현 (CI 워크플로 · 퍼저 · Soak 는 각 태스크에서), 측정 (예산 수치는 14 그대로 — 새 수치는 [추정] 또는 "확정: 태스크").
+
+**남은 일**
+
+- 다음 P0 은 그대로 M7-T6 → M7-T5, 병렬 NG-12 · NG-13 → M6-T9 · M3-T1 · NG-04. 서비스 없이 일찍 시작할 수 있는 안정화: RH-22-3 (TSan 잡) ·
+  RH-22-5 (기준선) · RH-23-4 (Actions SHA 고정 · SBOM).
+
+---
+
 ## 2026-11-03 — 2차 공백 분석 · 로드맵 재구성 (작은 MINOR v0.5 ~ v0.21+, ADR-0096 ~ 0098) · 문서 일관성 검사기
 
 **무엇을**

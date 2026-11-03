@@ -45,3 +45,17 @@ python -X utf8 tools/check_docs.py --root .   → check_docs: 177 files, 18 prob
 - v0.1 ~ v0.4 의 태스크 ID 가 v0.5 ID 와 같은 모양일 때 (예: 18 7장 "M2-T1 ✅") — 앞에 "v0.N" 이 없으면 v0.5 의 것으로 본다. 걸리면 KNOWN
 - 문서 밖 (코드 주석) 의 태스크 ID
 ```
+
+## 5. 2차 배치 점검 (ADR-0099 · ADR-0100 — v0.10 나눔 · 안정화 · RC)
+
+```text
+검사기 보강   D (선행이 같거나 앞 버전 — 정수 비교) · R (끝나지 않은 태스크는 releases 의 한 버전 "태스크" 줄에만, 그 버전 = 등록부 목표) ·
+              RH-NN-n ID · --expect (자체 시험 docs_consistency_selftest — tests/docs/fixtures 에서 정확히 9 건)
+첫 실행       등록부 목표만 고친 상태에서 142 건 — R (releases 가 1차 배치 그대로 · 새 RH 태스크가 어느 절에도 없음) · V (v0.22 ~ v0.24 가
+              버전 목록에 없음) · L · A (아직 쓰지 않은 ADR-0099 · 0100 · stabilization.md). D 는 0 건 (선행 순서가 새 배치에서도 맞았다)
+고친 뒤       releases 를 다시 씀 (버전마다 "태스크" 줄 하나) · 버전 목록에 v0.22 ~ v0.25 · ADR 둘 · stabilization → 181 files, 0 problem(s)
+손으로 고친 것  검사기가 보지 않는 버전 표기 15 곳 (18 · 20 · 22 · 25 · 26 · 27 · 28 · VERSION-MIGRATION-MATRIX) 을 2차 배치로 —
+              grep "v0\.1[0-9]\|v0\.2[0-9]" 로 찾음. 1차 배치로 쓴 감사 기록 (SECOND-PASS) 은 머리말에 versioning 4.1 안내만
+한계 (더함)   "[계획 vX] ID" 의 버전이 등록부 목표와 같은지는 보지 않는다 — 옛 문서가 일부러 옛 표기를 쓰기 때문 (versioning 4장).
+              새 문서에서 이 표기를 쓰면 등록부를 함께 본다
+```

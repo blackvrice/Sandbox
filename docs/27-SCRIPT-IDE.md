@@ -125,7 +125,7 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 ```text
 저장 · 컴파일러 · 줄 표  UTF-8 바이트 offset + (줄, 열 = 코드 포인트) — 현행 script/lang/Diagnostic.hpp 그대로 (.sbc 10 줄 표도 이 단위, M6-T4)
 편집기 (ImGui)           UTF-8 바이트 offset — 언어 서비스 경계에서 한곳 (TextPosition 변환) 으로 바꾼다
-LSP (v0.19)              UTF-16 code unit (LSP 기본 positionEncoding) — 같은 변환 함수
+LSP (v0.21)              UTF-16 code unit (LSP 기본 positionEncoding) — 같은 변환 함수
 화면 열                  글리프 폭 (한글 · 전각 2 칸, 결합 문자 0 칸) — 표시에만, 저장 · 진단에 쓰지 않는다
 IME                      조합 중 문자열은 문서에 넣지 않는다 (미리보기) — 자동 완성 · 진단 · Undo 는 조합이 끝난 뒤. 조합 중 커서 = 조합 시작
 줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음), 위치 계산은 LF 기준 (CR 은 앞 줄 끝)

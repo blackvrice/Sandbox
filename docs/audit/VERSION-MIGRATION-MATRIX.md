@@ -21,7 +21,7 @@
 | Manifest schemaVersion | 3 | 1 ~ 3 | 더 새 것 거절 | test_game_project | — |
 | Replay | 1 | 1 | 거절 | test_replay | — |
 | Studio Document | 없음 | — | 깨지면 옆으로 옮기고 기본 (M1-T3 규칙) | test_user_settings (사용자 설정만) | 레이아웃 · 복구본 (M6-T6 · T7 — 1 부터) |
-| Editor Plugin API | 없음 | — | 플러그인을 불러오지 않는다 | — | NG-10 (v0.19) |
+| Editor Plugin API | 없음 | — | 플러그인을 불러오지 않는다 | — | NG-10 (v0.21 — ADR-0099) |
 | 제작자 게임 version | 제작자 것 | — | 기록만 | — | NG-04 · NG-09 |
 
 ## 2. 번호를 올릴 때 (체크리스트 — AGENTS 5 · 6장)

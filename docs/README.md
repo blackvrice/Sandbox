@@ -50,7 +50,7 @@
 | 27 | [스크립트 IDE](27-SCRIPT-IDE.md)              | 언어 서비스 · 자동 완성 · 재생 디버거 · LSP                                 | 설계 · 계획   |
 | 28 | [제작자 흐름 기준](28-CREATOR-UX-GATES.md)    | 알파 G1 ~ G9 (CLI 없이) · 사용성 시험 계획 · 양식                           | 계획 · 규범   |
 | —  | [감사 (audit/)](audit/SANDBOX-GAP-MATRIX.md)  | 벤치마크 · Gap Matrix · 구조 위험 · 알파 준비 · 검증 결과 (2026-11-03)      | 감사          |
-| —  | [로드맵 (roadmap/)](roadmap/README.md)        | **로드맵 정본** — 버전 체계 (v0.10 > v0.9) · 태스크 등록부 · 버전별 목표 · 출시 기준 (2026-11-03, ADR-0096) | 계획 · 규범   |
+| —  | [로드맵 (roadmap/)](roadmap/README.md)        | **로드맵 정본** — 버전 체계 (v0.10 > v0.9) · 태스크 등록부 · 버전별 목표 · 출시 기준 · 안정화 · RC · GA (ADR-0096 · 0099 · 0100) | 계획 · 규범   |
 | —  | [릴리스 노트](releases/v0.4.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 · 0.3.0 · 0.4.0)         | 이력          |
 | —  | [수동 QA 체크리스트](qa/MANUAL-QA.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
 | —  | [결정 기록 (ADR)](adr/README.md)              | "왜 이렇게 했지?"                                                          | 이력          |
@@ -72,7 +72,7 @@
 v0.5 작업             18 (6.6) → 20 → 해당 규범 문서 (ADR-0078~0083)
 v0.6 이후 · 실행 구조  23 → 22 → 24 → ADR-0086 ~ 0088
 Studio · 제작 도구     audit/ALPHA-READINESS → 28 → 25 → 26 · 27 → ADR-0089 ~ 0092
-로드맵 · 버전          roadmap/README → versioning → task-registry → releases · release-gates → audit/SECOND-PASS-GAP-ANALYSIS → ADR-0096 ~ 0098
+로드맵 · 버전          roadmap/README → versioning → task-registry → releases · release-gates · stabilization → audit/SECOND-PASS-GAP-ANALYSIS → ADR-0096 ~ 0100
 ECS / 시뮬레이션 수정  04 → 02 → 03 → 12 → 13
 스크립트 (VM · 언어)   19 → 04 → 02 (9.6) → 03 (16b · 17d) → 13
 렌더러 작업           01 → 06 → 07 → 12

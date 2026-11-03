@@ -108,7 +108,7 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 | .meta 안정 id · 에셋 DB 색인 · Asset Browser 기본 (가져오기 · 썸네일 · 끌어다 놓기) | [계획 v0.5 M6-T9 최소 — 이번 감사가 추가] · v0.6 (참조 찾기 · 옮기기 · 지우기 안전) |
 | 빌드 때 누락 에셋 검사 | [계획 v0.5 M6-T3] |
 | 캐시 분리 · 다시 가져오기 · Hot Reload | [계획 v0.6] |
-| 사운드 · 글꼴 importer | 사운드: M2-T6 ✅ 결정 (ADR-0095) → [계획 v0.10] NG-17, 글꼴: [계획 v0.7] M4-T2 |
+| 사운드 · 글꼴 importer | 사운드: M2-T6 ✅ 결정 (ADR-0095) → [계획 v0.11] NG-17, 글꼴: [계획 v0.7] M4-T2 |
 | 압축 · 플랫폼 형식 · 스트리밍 · 메모리 예산 | [계획 v0.8] (22 10장) |
 
 ## 8. 패키지 · 데이터 무결성 (2차 감사 — [ADR-0097](adr/0097-package-data-integrity-snapshot-ids-paths-digests.md) · [ADR-0098](adr/0098-distribution-lifecycle-player-savegame-channels-plugin-api.md)) [계획 v0.6]
@@ -118,7 +118,7 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 ```text
 NG-01 빌드 스냅숏     시작 때 입력 목록 (경로 · 크기 · SHA-256), 읽은 내용이 다르면 실패 "빌드 중 바뀐 파일", 출력은 임시 → 원자적 이름 바꾸기 (4.1)
 NG-02 Asset Group     assets/groups.json {name, include: [glob · 라벨]} — 동적 참조 (스크립트가 이름으로 부르는 에셋) 는 그룹째 포함,
-                      그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.16] (4.2)
+                      그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.18] RT-08-4 (4.2)
 NG-12 id 충돌         같은 id · 같은 내용 = 하나, 같은 id · 다른 내용 = 오류 (고르지 않음), 복제된 .meta = 새 id, .meta 없음 = 새 id + 경고,
                       의존 패키지 에셋 = pkg:<name>/ 이름공간 (4.11)
 NG-13 경로 정책       "/" · UTF-8 · NFC, 대소문자 · NFC 충돌 = 오류, Windows 예약 이름 · 금지 문자 · 끝 공백 · 점 · .. · 절대 · 링크 거절,
