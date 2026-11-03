@@ -102,7 +102,8 @@ std::string canonicalSignature(const HostFunction& f) {
         }
         s += ')';
     }
-    s += std::format(": {} {} {} {}", abiTypeName(f.result), domainName(f.domain), effectName(f.effect), f.fuelBase);
+    s += std::format(": {} {} {} {} {}", abiTypeName(f.result), domainName(f.domain), effectName(f.effect),
+                     capabilityName(f.capability), f.fuelBase);
     return s;
 }
 

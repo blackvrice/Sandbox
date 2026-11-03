@@ -164,6 +164,28 @@ TEST_SUITE("project") {
         CHECK_FALSE(project::saveManifest(dir.path / "nope", r.manifest).has_value());
     }
 
+    TEST_CASE("매니페스트: network.model (v0.5 M2-T7) — \"snapshot\" 만, \"predicted\" 는 [계획 v0.7], schemaVersion 3 "
+              "부터") {
+        const auto v3 = [](std::string_view network) {
+            auto j = nlohmann::json::parse(kValid);
+            j["schemaVersion"] = 3;
+            j["network"] = nlohmann::json::parse(network);
+            return project::parseManifest(j.dump());
+        };
+        const auto ok = v3(R"({"model": "snapshot"})");
+        CHECK(ok.ok());
+        CHECK(ok.manifest.networkModel == "snapshot");
+        CHECK(project::parseManifest(kValid).manifest.networkModel == "snapshot"); // 없으면 기본
+        CHECK(v3("{}").ok());
+        CHECK(hasIssue(v3(R"({"model": "predicted"})").issues, "P2", "/network/model"));
+        CHECK(hasIssue(v3(R"({"model": "lockstep"})").issues, "P2", "/network/model"));
+        CHECK(hasIssue(v3(R"({"model": 1})").issues, "P1", "/network/model"));
+        CHECK(hasIssue(v3(R"({"tick": 30})").issues, "P1", "/network/tick"));
+        CHECK(hasIssue(v3(R"("snapshot")").issues, "P1", "/network"));
+        CHECK(hasIssue(project::parseManifest(withField("network", R"({"model": "snapshot"})")).issues, "P1",
+                       "/network"));
+    }
+
     TEST_CASE("매니페스트: 형식 오류를 모두 모은다 (P1)") {
         CHECK(hasIssue(project::parseManifest("[1,2]").issues, "P1", ""));
         CHECK(hasIssue(project::parseManifest("{\"schemaVersion\": 1,").issues, "P1", ""));

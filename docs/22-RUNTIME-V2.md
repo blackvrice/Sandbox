@@ -36,7 +36,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 9 · Host API 1 (지문 0xf2ff39fd63bfbaf9 — M2-T5 (4b) 뒤) · kSimVersion 4 · 프로토콜 15 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 9 · Host API 1 (지문 0xad8eea732d7a8f8b — M2-T7 뒤) · kSimVersion 4 · 프로토콜 15 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -131,8 +131,9 @@ interface ClientTickContext extends ClientReadOnly, InputRead, ClientSend, Predi
 defineSystem({ onPrePhysics(ctx) {} })  → ctx 의 타입이 콜백마다 정해진다 (지금의 onTick(ctx) 처럼 — 매개변수 타입 생략 가능)
 ```
 
-**호환성**: 기존 `defineSystem` 의 키 · 타입 · 단계는 그대로다. v0.5 M2-T7 이 새 콜백 이름을 검사기에 "예약" (지금 쓰면 S4xx "[계획
-v0.6]") 해 두어, 나중에 이름이 생겨도 기존 스크립트의 뜻이 바뀌지 않게 한다 (23 — v0.5 M2-T7).
+**호환성**: 기존 `defineSystem` 의 키 · 타입 · 단계는 그대로다. v0.5 M2-T7 ✅ 이 새 콜백 이름을 검사기에 "예약" (지금 쓰면 S426 "[계획
+vX]") 해 두어, 나중에 이름이 생겨도 기존 스크립트의 뜻이 바뀌지 않게 한다 — 표는 script/api/Callbacks (콜백 → 허락 Capability), Host 표의
+capability 열은 정규 서명 · 지문에 든다 (19 26장).
 
 ---
 
@@ -157,7 +158,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 
 | 항목 | 상태 · 버전 |
 |------|-------------|
-| 매니페스트 network.model 자리 (기본 snapshot) | 확정 — v0.5 M2-T7 에서 예약 (값은 snapshot 만 받는다) |
+| 매니페스트 network.model 자리 (기본 snapshot) | 현행 — v0.5 M2-T7 ✅ ("snapshot" 만, "predicted" 는 P2 [계획 v0.7] — 18 5.2) |
 | InputFrame · ack · 프로토콜 | [계획 v0.7] (프로토콜 15 는 v0.5 의 PlayerSignal — 이것은 그다음 번호) |
 | Client 고정 Tick 스케줄러 · client onTick | [계획 v0.7] |
 | PredictedWorld · 맞춤 · 오차 계측 | [계획 v0.7] |

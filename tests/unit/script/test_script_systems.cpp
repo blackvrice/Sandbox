@@ -217,8 +217,9 @@ export default defineSystem({
         expectOnly("export default defineSystem({ id: \"a.b\", intervalTicks: 0, onTick(ctx) { } })\n", "S426",
                    "1 ~ 65535");
         expectOnly("export default defineSystem({ id: \"a.b\", intervalTicks: 1.5, onTick(ctx) { } })\n", "S409");
+        // client onTick 은 v0.7 의 예약 이름 (M2-T7 — Client 고정 Tick, ADR-0087)
         expectOnly("export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "S426",
-                   "client 시스템의 콜백은 onUpdate 뿐");
+                   "onTick 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.7]");
         expectOnly("export default defineSystem({ id: \"a.b\", stage: 3, onTick(ctx) { } })\n", "S426", "고정");
         expectOnly("export default defineSystem({ id: \"a.b\", speed: 3, onTick(ctx) { } })\n", "S426",
                    "'speed' 키는 없다");

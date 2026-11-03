@@ -13,7 +13,7 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M2-T7 — Runtime v2 계약 동결 (예약 콜백 이름 · Host 표 capability 열 · network.model) → M2-T6
+다음     v0.5 M2-T6 — client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) (M2-T7 ✅)
          Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
 계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG · 세 트랙), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088),
          Studio 25 · 에셋 26 · 스크립트 IDE 27 · 제작자 흐름 기준 28 (ADR-0089 ~ 0092), 감사 audit/ (2026-11-03 — 알파 준비 안 됨: ALPHA-READINESS)
@@ -216,6 +216,7 @@ MyGame/
 | `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)                   |
 | `gameMode`      | 아니 | schemaVersion 2. 콘텐츠의 GameMode id (11 9장) — 형식 P2, 프로젝트 콘텐츠에 없으면 P5. 없으면 끝 없는 샌드박스       |
 | `dependencies`  | 아니 | schemaVersion 3 (v0.4 M1-T2, ADR-0071). `{팩 id: 범위 \| {version?, path} \| {version?, git, rev}}` — 팩 의존 (11 1.3 과 같은 모양, 16 개까지). 그 팩들은 content.packs 와 함께 불러온다 (loadedPacks — 월드가 쓰는 팩 검사 P5 도). 범위를 적었으면 불러온 팩의 version 이 SemVer · 범위 안 (P7). 모양 · 팩 id 도 P7. 팩은 `<프로젝트>/content` 와 설치 폴더 `.sandbox/packages` (잠금 sandbox.lock 과 같을 때 — P8, v0.4 M3-T2 · ADR-0073) 에서 찾는다. path · git 의존은 설치해야 연다 (sbx add · install — v0.4 M3-T3, ADR-0074) |
+| `network`       | 아니 | schemaVersion 3 에 더한 키 (v0.5 M2-T7 — Runtime v2 계약, ADR-0087). `{"model": "snapshot"}` — 없으면 snapshot (지금 그대로: 스냅숏 · 보간). "predicted" (클라이언트 예측) 는 [계획 v0.7] → P2, 다른 값 P2, 모르는 키 · 객체 아님 P1 |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.
@@ -512,7 +513,8 @@ M2 게임플레이 API
         (3) ✅ PlayerSignal · signals.json (perTick · V13) · 프로토콜 15 · onEvent "signal" (11 6.1장)
         (4a) ✅ 플레이어 표 (시뮬레이션 안 — 세이브 · 해시 밖) · 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole (ADR-0093)
         (4b) ✅ 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (ADR-0094 — kSimVersion 그대로) → M2-T5 끝
-  T7 [계획] Runtime v2 계약 동결 — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model (23 1장 · ADR-0086 6)
+  T7 ✅ Runtime v2 계약 동결 — 콜백 표 script/api/Callbacks (예약 이름 → S426 [계획 vX]) · Host 표 capability 열 (지문) · 매니페스트
+        network.model ("snapshot" 만) (23 1장 · ADR-0086 6, 19 26장)
   T6 [계획] client 입력 · send · 소리 이벤트 · 오디오 백엔드 결정 (D-14) — T7 뒤 (Capability 를 단 함수로)
 M3 게임 UI
   T1 [계획] ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1~U8 · sbx check

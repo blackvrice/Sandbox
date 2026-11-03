@@ -129,16 +129,16 @@ TEST_SUITE("script") {
         }
         const api::HostFunction* log = api::findHostFunction("ctx.log");
         REQUIRE(log != nullptr);
-        CHECK(api::canonicalSignature(*log) == "ctx.log ServerContext.log(string): void server log 16");
+        CHECK(api::canonicalSignature(*log) == "ctx.log ServerContext.log(string): void server log Log 16");
         CHECK(api::canonicalSignature(*api::findHostFunction("ctx.tick")) ==
-              "ctx.tick ServerContext.tick: i32 server read 1");
+              "ctx.tick ServerContext.tick: i32 server read Time 1");
         CHECK(api::findHostMember(api::AbiType::ServerContext, "tick") == api::findHostFunction("ctx.tick"));
         CHECK(api::findHostFunction("ctx.nope") == nullptr);
         // 지문은 표가 바뀔 때만 바뀐다 — 바꾸면 이 값과 kHostApiVersion 규칙 (ADR-0057 3) 을 같은 커밋에서
         CHECK(api::hostApiFingerprint() == api::hostApiFingerprint());
         // v0.5 M8-T8: 엔진 질의 · 경로 요청 7 (nearest · kNearest · inBox · requestPath · pathState · pathPoints ·
         // cancelPath — ADR-0085 11), ABI NumberList. M8-T8 (2): 충돌 질의 raycast · overlap
-        CHECK(api::hostApiFingerprint() == 0xf2ff39fd63bfbaf9ull);
+        CHECK(api::hostApiFingerprint() == 0xad8eea732d7a8f8bull);
     }
 
     TEST_CASE("import 경로 풀기") {

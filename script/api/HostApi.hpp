@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "foundation/types/Types.hpp"
+#include "script/api/Callbacks.hpp"
 
 namespace sbx::script::api {
 
@@ -60,7 +61,8 @@ struct HostFunction {
     u8 paramCount;
     HostDomain domain;
     HostEffect effect;
-    u32 fuelBase; // 연료 비용 — 부를 때마다. 질의는 결과 개체마다 더 (HostResult::extraFuel)
+    HostCapability capability; // 권한 묶음 (v0.5 M2-T7 — Callbacks.hpp, 22 3.2). 지문에 든다
+    u32 fuelBase;              // 연료 비용 — 부를 때마다. 질의는 결과 개체마다 더 (HostResult::extraFuel)
     std::string_view doc;
 };
 
@@ -76,6 +78,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::Time,
                  1,
                  "지금 시뮬레이션 틱 (30 TPS)"},
     HostFunction{"ctx.log",
@@ -88,6 +91,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Log,
+                 HostCapability::Log,
                  16,
                  "서버 로그에 한 줄 (스크립트 이름과 틱이 붙는다)"},
     HostFunction{"ctx.read",
@@ -100,6 +104,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  8,
                  "컴포넌트 값의 복사 (없으면 null) — 이 호출에서 쓴 값이 보인다"},
     HostFunction{"ctx.has",
@@ -112,6 +117,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  4,
                  "개체에 컴포넌트가 있나"},
     HostFunction{"ctx.query",
@@ -124,6 +130,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "컴포넌트를 가진 개체 (saveId 오름차순 — 개체마다 연료 1)"},
     HostFunction{"ctx.write",
@@ -136,6 +143,7 @@ inline constexpr std::array kHostFunctions{
                  3,
                  HostDomain::Server,
                  HostEffect::Write,
+                 HostCapability::EcsWrite,
                  16,
                  "컴포넌트 값을 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖 · 없는 컴포넌트는 트랩)"},
     // 구조 변경 (v0.5 M2-T3, ADR-0080 2 · 3) — 호출마다 모아 시스템 차례로 단계 16b · 17d 끝에 적용. 상한 · 잘못된
@@ -151,6 +159,7 @@ inline constexpr std::array kHostFunctions{
         3,
         HostDomain::Server,
         HostEffect::Structural,
+        HostCapability::Structural,
         32,
         "Prefab 으로 새 개체 (이 틱 끝에 생긴다 — 이 호출에서는 핸들만: 읽기 null · add · destroy 가 된다). 없는 "
         "Prefab · 경계 밖 · 상한이면 null"},
@@ -164,6 +173,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Structural,
+                 HostCapability::Structural,
                  8,
                  "개체를 지운다 (이 틱 끝에)"},
     HostFunction{"ctx.add",
@@ -176,6 +186,7 @@ inline constexpr std::array kHostFunctions{
                  3,
                  HostDomain::Server,
                  HostEffect::Structural,
+                 HostCapability::Structural,
                  16,
                  "스크립트 컴포넌트를 붙인다 (이 틱 끝에 — 이미 있으면 버린다, 엔진 컴포넌트는 [계획])"},
     HostFunction{"ctx.remove",
@@ -188,6 +199,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Server,
                  HostEffect::Structural,
+                 HostCapability::Structural,
                  8,
                  "스크립트 컴포넌트를 뗀다 (이 틱 끝에)"},
     // 주인 (v0.5 M2-T5 (4b)) — game.owner 를 붙이거나 바꾼다 (구조 변경과 같은 버퍼 — 호출 끝 적용, 새 개체 핸들도
@@ -202,6 +214,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Server,
                  HostEffect::Structural,
+                 HostCapability::Structural,
                  4,
                  "개체의 주인 플레이어를 정한다 (game.owner — 없으면 붙인다, 0 = 주인 없음, 0 ~ 65535 밖이면 "
                  "HostError). 이 호출이 끝나면 "
@@ -217,6 +230,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  1,
                  "접속한 플레이어 수 (리플레이에 기록된 접속 · 나감 — 재생 때 같은 값)"},
     HostFunction{
@@ -230,6 +244,7 @@ inline constexpr std::array kHostFunctions{
         1,
         HostDomain::Server,
         HostEffect::Read,
+        HostCapability::EcsRead,
         1,
         "index 번째 플레이어의 번호 (id 순, 0 부터 — 범위 밖이면 -1). 번호 = 명령의 issuer = game.owner.player"},
     HostFunction{"ctx.playerRole",
@@ -242,6 +257,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  1,
                  "그 플레이어의 역할 (0 observer · 1 player · 2 editor · 3 admin · 4 owner — 없으면 -1)"},
     // 시간 · 난수 · 반경 질의 (v0.5 M2-T4, ADR-0080 4 · 5)
@@ -255,6 +271,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::Time,
                  1,
                  "시뮬레이션 시간 (초 = tick / 30)"},
     HostFunction{"ctx.random",
@@ -267,6 +284,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Server,
                  HostEffect::Random,
+                 HostCapability::Random,
                  2,
                  "0 이상 1 미만 — 시스템마다 흐름 (같은 월드 · 같은 틱 = 같은 수열, 시스템 차례와 무관)"},
     HostFunction{"ctx.randomInt",
@@ -279,6 +297,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Server,
                  HostEffect::Random,
+                 HostCapability::Random,
                  2,
                  "lo 이상 hi 이하의 정수 (lo > hi 면 HostError) — 흐름은 ctx.random 과 같다"},
     HostFunction{"ctx.near",
@@ -291,6 +310,7 @@ inline constexpr std::array kHostFunctions{
                  3,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "(x, y) 에서 반경 안의 개체 — 틱 처음 (단계 4) 의 위치, saveId 오름차순, 개체마다 연료 1, 1,024 개 · "
                  "반경 128 까지"},
@@ -304,6 +324,7 @@ inline constexpr std::array kHostFunctions{
                  4,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "ctx.near 중 컴포넌트를 가진 개체"},
     // 엔진 질의 · 경로 요청 (v0.5 M8-T8 — ADR-0085 11, 19 25.7)
@@ -318,6 +339,7 @@ inline constexpr std::array kHostFunctions{
         3,
         HostDomain::Server,
         HostEffect::Read,
+        HostCapability::EcsRead,
         16,
         "반경 안에서 가장 가까운 개체 (거리가 같으면 saveId 작은 것) — ctx.near 와 같은 색인 · 반경 상한, 없으면 null"},
     HostFunction{"ctx.kNearest",
@@ -330,6 +352,7 @@ inline constexpr std::array kHostFunctions{
                  4,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "반경 안의 가까운 개체 k 개 (가까운 차례, 같은 거리 = saveId 순) — k 는 0 ~ 1,024"},
     HostFunction{"ctx.inBox",
@@ -342,6 +365,7 @@ inline constexpr std::array kHostFunctions{
                  4,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "사각형 (경계 포함) 안의 개체 — saveId 순, 한 변 256 까지 · 1,024 개까지"},
     HostFunction{
@@ -355,6 +379,7 @@ inline constexpr std::array kHostFunctions{
         3,
         HostDomain::Server,
         HostEffect::Write,
+        HostCapability::EcsWrite,
         8,
         "개체의 경로를 요청한다 (ai.path — 호출 끝에 반영, 다음 틱 단계 8 에 제출 · 그다음 틱 단계 5 에 결과, 틱 "
         "예산을 넘으면 기다린다). ai.path 가 없으면 false"},
@@ -368,6 +393,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  2,
                  "경로 상태 — 0 없음 · 1 요청됨 · 2 제출됨 · 3 따라가는 중 · 4 길 없음, ai.path 가 없으면 -1"},
     HostFunction{"ctx.pathPoints",
@@ -380,6 +406,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  4,
                  "경유점 [x0, y0, x1, y1, …] (새 배열 — 경로가 없으면 빈 배열)"},
     HostFunction{"ctx.cancelPath",
@@ -392,6 +419,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Server,
                  HostEffect::Write,
+                 HostCapability::EcsWrite,
                  2,
                  "경로를 지운다 (상태 0 — 호출 끝에 반영)"},
     // 충돌 질의 (v0.5 M8-T8 (2) — core.collider 원 · 단계 4 색인)
@@ -406,6 +434,7 @@ inline constexpr std::array kHostFunctions{
         4,
         HostDomain::Server,
         HostEffect::Read,
+        HostCapability::EcsRead,
         16,
         "선분이 처음 닿는 충돌 원 (core.collider) 의 개체 — 같은 자리면 saveId 작은 것, 시작점이 원 안이면 그 개체, "
         "길이 256 까지, 없으면 null"},
@@ -419,6 +448,7 @@ inline constexpr std::array kHostFunctions{
                  3,
                  HostDomain::Server,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "원 (x, y, radius) 과 겹치는 충돌 원의 개체 — saveId 순, 반경 128 · 1,024 개까지"},
     HostFunction{"client.tick",
@@ -431,6 +461,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::Time,
                  1,
                  "복제 월드의 서버 틱 (마지막으로 받은 스냅숏)"},
     HostFunction{"client.frame",
@@ -443,6 +474,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::Time,
                  1,
                  "이 접속에서 몇 번째 onUpdate 인가 (1 부터)"},
     HostFunction{"client.dt",
@@ -455,6 +487,7 @@ inline constexpr std::array kHostFunctions{
                  0,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::Time,
                  1,
                  "앞 onUpdate 뒤 지난 실제 시간 (초 — 표시용, 시뮬레이션과 무관)"},
     HostFunction{"client.read",
@@ -467,6 +500,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  8,
                  "복제 월드의 컴포넌트 값 복사 (없으면 null) — 개체 참조 필드는 null [계획]"},
     HostFunction{"client.has",
@@ -479,6 +513,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  4,
                  "개체에 컴포넌트가 있나 (복제 월드)"},
     HostFunction{"client.query",
@@ -491,6 +526,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Client,
                  HostEffect::Read,
+                 HostCapability::EcsRead,
                  16,
                  "컴포넌트를 가진 복제 개체 (netId 오름차순 — 개체마다 연료 1)"},
     HostFunction{"client.label",
@@ -503,6 +539,7 @@ inline constexpr std::array kHostFunctions{
                  2,
                  HostDomain::Client,
                  HostEffect::Display,
+                 HostCapability::Display,
                  16,
                  "이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지)"},
     HostFunction{"client.print",
@@ -515,6 +552,7 @@ inline constexpr std::array kHostFunctions{
                  1,
                  HostDomain::Client,
                  HostEffect::Display,
+                 HostCapability::Display,
                  16,
                  "이번 프레임 화면 왼쪽 위 \"스크립트\" 칸에 한 줄 (256 바이트까지)"},
 };

@@ -172,7 +172,7 @@ TEST_SUITE("script") {
         expectError(R"(export default defineSystem({ id: "a.b", onUpdate(ctx) { } }))", "S426",
                     "onUpdate 는 domain: \"client\" 시스템의 콜백");
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client", onTick(ctx) { } }))", "S426",
-                    "client 시스템의 콜백은 onUpdate 뿐");
+                    "onTick 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.7]"); // M2-T7 — Client 고정 Tick
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client" }))", "S426",
                     "client 시스템에 onUpdate");
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client", intervalTicks: 2, onUpdate() { } }))",

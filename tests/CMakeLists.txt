@@ -22,6 +22,7 @@ add_executable(SandboxTests
     unit/script/test_parser.cpp
     unit/script/test_checker.cpp
     unit/script/test_language_service.cpp
+    unit/script/test_runtime_contract.cpp
     unit/script/test_bytecode.cpp
     unit/script/test_vm.cpp
     unit/script/test_script_host.cpp

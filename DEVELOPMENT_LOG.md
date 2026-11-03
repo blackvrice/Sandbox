@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-03 — v0.5 M2-T7: Runtime v2 계약 동결 — 콜백 표 · 예약 콜백 · Host capability 열 · 매니페스트 network.model
+
+**무엇을**
+
+- script/api/Callbacks.hpp — kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability) 와 HostCapability (지금 쓰는 일곱 +
+  예약 여덟). Active = server onTick · onStart · onStop · onEvent, client onUpdate. Planned = server onPrePhysics (v0.6), client onAction ·
+  onEvent · onLateUpdate · onRender · onStart · onStop (v0.6) · onTick (v0.7).
+- 검사기: 예약 이름 → S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics → S426
+  "두지 않는다 (onTick 이 물리 뒤)". 빠진 콜백 오류를 겹치지 않게 했다. client onTick 의 진단이 "onUpdate 뿐" 에서 예약 문장으로 바뀌었다
+  (시험 둘의 기대값 고침).
+- Host 표: HostFunction::capability 열 (36 항목 — Read → EcsRead, tick · time · frame · dt → Time, Write · Structural · Random · Log · Display 는 같은 이름).
+  정규 서명 · 지문에 든다 → 0xad8eea732d7a8f8b (kHostApiVersion 1 · .sbc 9 그대로). 실행 경로는 이 열을 읽지 않는다 (grep — 지문 계산만).
+- 매니페스트: network { model } — schemaVersion 3 의 키, "snapshot" 만 (없으면 snapshot), "predicted" 는 P2 [계획 v0.7], 다른 값 P2, 모르는 키 ·
+  객체 아님 P1. GameManifest::networkModel.
+
+**왜**
+
+- ADR-0086 6 · 23 1장 카드 (P0) — v0.6 ~ v0.8 의 콜백 · Capability · 예측 모델을 나중에 넣어도 v0.5 게임 · SDK 의 뜻이 바뀌지 않게 이름 · 자리를
+  지금 고정. M2-T6 의 client 함수가 처음부터 Capability 를 단 채로 생기게 (T6 앞).
+
+**검증**
+
+- 새 test_runtime_contract (예약 이름 9 경우 · 지금 콜백 그대로 · 표 일관 · Host 함수의 capability ⊂ 그 도메인 Active 콜백 허락 · 정규 서명),
+  test_game_project 에 network.model 7 경우, test_checker 지문 · 정규 서명 문자열, test_client_scripts · test_script_systems 의 client onTick 문장.
+- 벤치 (script.regen · script.stdlib 회귀 < 2 % — 카드의 완료 기준) 는 돌리지 않았다: 같은 기계의 이전 빌드 기준선이 따로 필요하고, 이 변경은
+  실행 경로에 닿지 않는다 (capability 를 읽는 곳은 HostApi.cpp 의 정규 서명뿐 — grep). 측정은 v0.6 RT-06-1 (실행 검사 — 호출 토큰) 에서.
+- Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과, check_includes 0 위반.
+
+**남은 일**
+
+- 다음 M2-T6 (client 입력 · send · 소리 · D-14). 콜백 단계별 Capability 실행 검사는 v0.6 RT-06-1.
+
+---
+
 ## 2026-11-03 — v0.5 M2-T5 (4b): 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (M2-T5 끝)
 
 **무엇을**

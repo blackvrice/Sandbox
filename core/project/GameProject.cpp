@@ -33,8 +33,8 @@ constexpr usize kMaxPathBytes = 200;
 
 constexpr std::array kManifestKeys{"schemaVersion", "gameId",      "name",    "version",
                                    "engine",        "description", "content", "entryWorld"};
-constexpr std::array kManifestKeysV2{"gameMode"};     // schemaVersion 2 에서 더한 키
-constexpr std::array kManifestKeysV3{"dependencies"}; // schemaVersion 3 (v0.4 M1-T2)
+constexpr std::array kManifestKeysV2{"gameMode"};                // schemaVersion 2 에서 더한 키
+constexpr std::array kManifestKeysV3{"dependencies", "network"}; // schemaVersion 3 (v0.4 M1-T2 · network = v0.5 M2-T7)
 
 bool isLowerIdentChar(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
@@ -225,6 +225,33 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
             continue;
         }
         c.error(file, std::format("/{}", k), "P1", std::format("모르는 키 '{}'", k));
+    }
+    // network (v0.5 M2-T7 — Runtime v2 계약, ADR-0087): { "model": "snapshot" } 만 — "predicted" 는 v0.7 (예약), 없으면
+    // snapshot
+    if (const auto net = j.find("network"); net != j.end() && m.schemaVersion >= 3) {
+        if (!net->is_object()) {
+            c.error(file, "/network", "P1", "network 는 객체 {\"model\": \"snapshot\"}");
+        } else {
+            for (const auto& [k, _] : net->items()) {
+                if (k != "model") {
+                    c.error(file, std::format("/network/{}", k), "P1", std::format("모르는 키 '{}'", k));
+                }
+            }
+            if (const auto model = net->find("model"); model != net->end()) {
+                if (!model->is_string()) {
+                    c.error(file, "/network/model", "P1", "model 은 문자열");
+                } else if (model->get<std::string>() == "predicted") {
+                    c.error(file, "/network/model", "P2",
+                            "\"predicted\" (클라이언트 예측) 는 [계획 v0.7] — 지금은 \"snapshot\" 만 (ADR-0087)");
+                } else if (model->get<std::string>() != "snapshot") {
+                    c.error(file, "/network/model", "P2",
+                            std::format("model '{}' — \"snapshot\" (기본) 만 (\"predicted\" 는 v0.7)",
+                                        model->get<std::string>()));
+                } else {
+                    m.networkModel = "snapshot";
+                }
+            }
+        }
     }
     if (m.schemaVersion >= 2) {
         if (const std::string* s = stringField(j, "gameMode", false, c)) {

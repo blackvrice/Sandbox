@@ -1,4 +1,5 @@
 #include "script/lang/Checker.hpp"
+#include "script/api/Callbacks.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -949,6 +950,35 @@ private:
                 continue;
             }
             seen.push_back(key);
+            // Runtime v2 의 예약 콜백 (v0.5 M2-T7 — api::kCallbacks, ADR-0086 6): 이 도메인에서 아직 없는 이름은 지금
+            // 쓰지 못한다 — 나중에 생길 때 기존 스크립트의 뜻이 바뀌지 않게
+            if (key == "onPostPhysics") {
+                err("S426", p,
+                    "onPostPhysics 는 두지 않는다 — onTick 이 이미 물리 뒤 (단계 16b, docs/22-RUNTIME-V2.md 3.1)");
+                ok = false;
+                wrongCallback = true; // 빠진 콜백 오류를 겹치지 않게
+                continue;
+            }
+            if (const api::CallbackInfo* cb = api::findCallback(key, client);
+                cb != nullptr && cb->status == api::CallbackStatus::Planned) {
+                err("S426", p,
+                    std::format("{} 는 {} 시스템의 예약된 콜백 이름이다 — [계획 {}] {} (docs/22-RUNTIME-V2.md 3.1)",
+                                key, client ? "client" : "server", cb->since, cb->doc));
+                ok = false;
+                wrongCallback = true; // 빠진 콜백 오류를 겹치지 않게
+                continue;
+            }
+            if (api::findCallback(key, client) == nullptr && api::isCallbackName(key)) {
+                const api::CallbackInfo* other = api::findCallback(key, !client);
+                if (other != nullptr && other->status == api::CallbackStatus::Planned) {
+                    err("S426", p,
+                        std::format("{} 는 {} 시스템의 예약된 콜백 이름이다 — [계획 {}] (docs/22-RUNTIME-V2.md 3.1)",
+                                    key, client ? "server" : "client", other->since));
+                    ok = false;
+                    wrongCallback = true;
+                    continue;
+                }
+            }
             u32* const callback = key == "onTick"     ? &sd.onTick
                                   : key == "onStart"  ? &sd.onStart
                                   : key == "onStop"   ? &sd.onStop

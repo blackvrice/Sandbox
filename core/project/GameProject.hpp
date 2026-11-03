@@ -49,6 +49,7 @@ struct GameManifest {
     std::vector<std::string> contentPacks; // <프로젝트>/content 에서 찾을 팩 id (비면 내장 콘텐츠만)
     std::string entryWorld;                // 시작 월드 폴더 — 프로젝트 기준 상대 경로, '/' 구분 ("worlds/main")
     std::string gameMode;                  // schemaVersion 2: GameMode id (비면 없음)
+    std::string networkModel = "snapshot"; // network.model (v0.5 M2-T7 — "snapshot" 만, "predicted" 는 v0.7 ADR-0087)
     // schemaVersion 3 (v0.4 M1-T2, ADR-0071): 의존 팩 — 팩 id 순. content.packs 와 함께 불러온다 (loadedPacks). 소스
     // (path · git) 는 기록만 — 받기는 M2 [계획], 지금은 <프로젝트>/content 에서 찾는다
     std::vector<content::PackDependency> dependencies;

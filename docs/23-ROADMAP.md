@@ -13,8 +13,8 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T5 ✅
-다음      v0.5 M2-T7 — Runtime v2 계약 동결 (1장 카드)
+지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T5 · T7 ✅
+다음      v0.5 M2-T6 — client 입력 · send · 소리 이벤트 · 오디오 결정 (1장 카드)
 트랙 B    v0.5 M6-T9 (프로젝트 에셋 · .sbpkg 3 — C1 차단 해소) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) — 트랙 A 와 병렬 (1.1장)
 그다음    M2-T6 →
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
@@ -100,7 +100,7 @@ M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 �
 ⑬ 19 16장, 20 3.4 · 3.6, 04 (kSimVersion 이력 — 바뀌면), 13
 ⑭ 오목 판정이 "누구의 돌" 을 owner 로 안다
 
-① M2-T7 Runtime v2 계약 동결 (새 태스크)                                    ② P0   ③ v0.5 M2
+① M2-T7 Runtime v2 계약 동결 ✅ (2026-11-03 — script/api/Callbacks · capability 열 · network.model, 19 26장)  ② P0   ③ v0.5 M2
 ④ v0.6 ~ v0.8 의 콜백 · Capability · 예측 모델을 나중에 넣어도 v0.5 게임 · SDK 의 뜻이 바뀌지 않게 이름 · 자리를 지금 고정 (ADR-0086 6)
 ⑤ M2-T5 (4) (Host 표를 같은 파일에서 고친다)
 ⑥ script/api/HostApi (HostFunction.capability 열), script/lang/Checker (콜백 이름 예약 · 콜백 → 허락 Capability 표), core/project
