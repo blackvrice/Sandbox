@@ -190,6 +190,22 @@ inline constexpr std::array kHostFunctions{
                  HostEffect::Structural,
                  8,
                  "스크립트 컴포넌트를 뗀다 (이 틱 끝에)"},
+    // 주인 (v0.5 M2-T5 (4b)) — game.owner 를 붙이거나 바꾼다 (구조 변경과 같은 버퍼 — 호출 끝 적용, 새 개체 핸들도
+    // 된다)
+    HostFunction{"ctx.setOwner",
+                 AbiType::ServerContext,
+                 "setOwner",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Entity, AbiType::I32},
+                 {"e", "player"},
+                 2,
+                 HostDomain::Server,
+                 HostEffect::Structural,
+                 4,
+                 "개체의 주인 플레이어를 정한다 (game.owner — 없으면 붙인다, 0 = 주인 없음, 0 ~ 65535 밖이면 "
+                 "HostError). 이 호출이 끝나면 "
+                 "적용"},
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — 서버 명령 PlayerJoin · PlayerLeave 로 바뀌는 시뮬레이션의 표, id 순
     HostFunction{"ctx.playerCount",
                  AbiType::ServerContext,

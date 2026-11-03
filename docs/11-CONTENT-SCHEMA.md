@@ -295,6 +295,8 @@ PlayerAction (v0.2 M3-T1, [ADR-0047](adr/0047-player-action-content-command-poin
 - source 가 없다: effects · conditions 의 who 는 target 뿐 (spawn · event 의 기본도 target — 대상 둘레 ±0.5 에 spawn).
 - 효과는 대상마다 정의 순서로 명령 단계에서 바로. 앞 효과가 지운 대상의 남은 효과는 건너뛴다.
 - 역할 player 부터, 게임 세션이 있으면 Running 에서만. 팩 전체 64 개까지. 월드 오버레이로 고치기는 [계획].
+- spawn 효과의 "owner": true (v0.5 M2-T5 (4b), ADR-0094) — 만든 개체에 game.owner = 명령을 낸 쪽 (서버가 낸 행동은 주인 없음). 기본 false.
+  Rule 의 spawn 에 쓰면 V3 (명령을 낸 쪽이 없다).
 ```
 
 ### 6.1 PlayerSignal — signals.json (v0.5 M2-T5 (3))

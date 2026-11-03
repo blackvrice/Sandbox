@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 d3dc282f66cc8820 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 f2ff39fd63bfbaf9 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -407,6 +407,8 @@ declare module "sandbox" {
     add<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
     /** 스크립트 컴포넌트를 뗀다 (이 틱 끝에) — ctx.remove */
     remove<T>(entity: Entity, component: ComponentRef<T>): void;
+    /** 개체의 주인 플레이어를 정한다 (game.owner — 없으면 붙인다, 0 = 주인 없음, 0 ~ 65535 밖이면 HostError). 이 호출이 끝나면 적용 — ctx.setOwner */
+    setOwner(e: Entity, player: i32): void;
     /** 접속한 플레이어 수 (리플레이에 기록된 접속 · 나감 — 재생 때 같은 값) — ctx.playerCount */
     playerCount(): i32;
     /** index 번째 플레이어의 번호 (id 순, 0 부터 — 범위 밖이면 -1). 번호 = 명령의 issuer = game.owner.player — ctx.playerId */

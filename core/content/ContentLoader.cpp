@@ -814,9 +814,10 @@ bool ContentLoaderImpl::parseRuleEffects(const PackDir& p, const SourceFile& f, 
             } else if (op == "spawn") {
                 fx.op = EffectOp::Spawn;
                 fx.who = e.contains("who") ? fx.who : spawnDefault;
-                if (!onlyKeys(e, {"op", "who", "prefab", "count"}, f, eat) || !e.contains("prefab") ||
+                if (!onlyKeys(e, {"op", "who", "prefab", "count", "owner"}, f, eat) || !e.contains("prefab") ||
                     !e["prefab"].is_string()) {
-                    error(f.display, eat, "V3", R"({"op": "spawn", "prefab": id, "count": 1~16, "who"})");
+                    error(f.display, eat, "V3",
+                          R"({"op": "spawn", "prefab": id, "count": 1~16, "who", "owner": bool})");
                     ok = false;
                     continue;
                 }
@@ -829,6 +830,14 @@ bool ContentLoaderImpl::parseRuleEffects(const PackDir& p, const SourceFile& f, 
                         continue;
                     }
                     fx.count = static_cast<u32>(e["count"].get<u64>());
+                }
+                if (e.contains("owner")) {
+                    if (!e["owner"].is_boolean()) {
+                        error(f.display, ptr(eat, "owner"), "V3", "owner 는 true · false");
+                        ok = false;
+                        continue;
+                    }
+                    fx.owner = e["owner"].get<bool>();
                 }
             } else if (op == "tag.add" || op == "tag.remove") {
                 fx.op = op == "tag.add" ? EffectOp::TagAdd : EffectOp::TagRemove;
@@ -964,6 +973,13 @@ void ContentLoaderImpl::loadRule(const PackDir& p, const SourceFile& f, const js
     ok = parseRuleEffects(p, f, r.contains("effects") ? r["effects"] : json(), ptr(at, "effects"), Who::Source,
                           rule.effects, destroysTarget) &&
          ok;
+    for (usize k = 0; k < rule.effects.size(); ++k) {
+        if (rule.effects[k].owner) {
+            error(f.display, ptr(ptr(ptr(at, "effects"), k), "owner"), "V3",
+                  "owner 는 PlayerAction (actions.json) 의 spawn 에서만 — Rule 에는 명령을 낸 쪽이 없다");
+            ok = false;
+        }
+    }
     if (destroysTarget) {
         rule.exclusive = true; // 03 6.2: destroy(target) 이 있으면 배타
     }

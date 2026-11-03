@@ -131,6 +131,7 @@ public:
     static constexpr f64 kMaxNearRadius = 128.0;
     vm::HostResult time(std::span<const vm::HostArg> args);
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — SimulationWorld::players() 를 id 순으로
+    vm::HostResult setOwner(std::span<const vm::HostArg> args);
     vm::HostResult playerCount(std::span<const vm::HostArg> args);
     vm::HostResult playerId(std::span<const vm::HostArg> args);
     vm::HostResult playerRole(std::span<const vm::HostArg> args);

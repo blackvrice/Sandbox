@@ -14,6 +14,7 @@
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
+#include "core/components/game/GameOwner.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/content/ScriptPrograms.hpp"
@@ -555,6 +556,19 @@ void SimulationWorld::applyScriptStructural() {
                 }
                 break;
             }
+            case ScriptStructuralOp::Kind::SetOwner:
+                // 있으면 바꾸고 없으면 붙인다 (M2-T5 (4b) — ctx.setOwner)
+                if (alive) {
+                    if (comp::GameOwner* o = m_registry.tryWrite<comp::GameOwner>(target)) {
+                        o->player = op.player;
+                    } else {
+                        m_registry.emplace<comp::GameOwner>(target, comp::GameOwner{op.player});
+                    }
+                    ++s.added;
+                } else {
+                    ++s.dropped;
+                }
+                break;
             case ScriptStructuralOp::Kind::Remove: {
                 ecs::ComponentPoolBase* pool = m_registry.poolByStableId(op.component->stableId);
                 if (alive && pool != nullptr && pool->remove(target)) {
@@ -962,6 +976,10 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerAction(const cmd:
                                                      (u64{t.saveId} << 16) ^ commandIndex);
             for (const ecs::EntityId e : out.spawned) {
                 created.push_back(m_registry.read<comp::NetIdentity>(e).netId);
+                // "owner": true (M2-T5 (4b)) — 만든 개체의 주인 = 명령을 낸 쪽. 서버 (0) 가 낸 행동은 주인 없음
+                if (fx.owner && m_applyingIssuer != cmd::kServerIssuer) {
+                    m_registry.emplace<comp::GameOwner>(e, comp::GameOwner{m_applyingIssuer});
+                }
             }
             if (out.destroyed) {
                 destroyed.insert(t.saveId);

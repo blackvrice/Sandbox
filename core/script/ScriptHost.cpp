@@ -70,6 +70,9 @@ vm::HostResult ctxRemove(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxTime(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.time(args);
 }
+vm::HostResult ctxSetOwner(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.setOwner(args);
+}
 vm::HostResult ctxPlayerCount(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.playerCount(args);
 }
@@ -148,6 +151,7 @@ constexpr HostBinding kBindings[] = {
      &ctxAdd},
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
     {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
+    {"ctx.setOwner", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::I32}, 3, &ctxSetOwner},
     {"ctx.playerCount", AbiType::I32, {AbiType::ServerContext}, 1, &ctxPlayerCount},
     {"ctx.playerId", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerId},
     {"ctx.playerRole", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerRole},
@@ -785,6 +789,31 @@ vm::HostResult ScriptHost::remove(std::span<const vm::HostArg> args) {
 
 vm::HostResult ScriptHost::time(std::span<const vm::HostArg>) {
     return {true, vm::Value::f64v(static_cast<f64>(m_tick) / static_cast<f64>(sim::kTickRate)), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::setOwner(std::span<const vm::HostArg> args) {
+    const i32 player = args[2].value.asI32();
+    if (player < 0 || player > 0xFFFF) {
+        return fail(std::format("setOwner — player {} 는 0 ~ 65535", player));
+    }
+    if (m_addRemovesThisCall >= kMaxAddRemovesPerCall) {
+        ++m_droppedThisCall; // 붙이기 · 떼기와 같은 상한
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::SetOwner;
+    op.newIndex = newIndexOf(args[1].value);
+    if (op.newIndex == 0) {
+        op.target = entityOf(args[1].value);
+        if (!op.target.valid()) {
+            ++m_droppedThisCall;
+            return {};
+        }
+    }
+    op.player = static_cast<u32>(player);
+    ++m_addRemovesThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
 }
 
 vm::HostResult ScriptHost::playerCount(std::span<const vm::HostArg>) {

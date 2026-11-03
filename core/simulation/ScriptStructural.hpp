@@ -20,7 +20,7 @@
 namespace sbx::sim {
 
 struct ScriptStructuralOp {
-    enum class Kind : u8 { Spawn, Destroy, Add, Remove };
+    enum class Kind : u8 { Spawn, Destroy, Add, Remove, SetOwner };
     Kind kind = Kind::Spawn;
     u32 newIndex = 0;       // Spawn: 이 호출의 새 개체 번호 (1 부터). 그 밖: 대상이 새 개체면 그 번호, 아니면 0
     ecs::EntityId target{}; // 기존 개체 (newIndex == 0)
@@ -28,6 +28,7 @@ struct ScriptStructuralOp {
     Vec2 position{};
     const ecs::ComponentInfo* component = nullptr; // Add · Remove
     std::vector<std::byte> bytes;                  // Add — 동적 컴포넌트의 값 (배치 그대로)
+    u32 player = 0;                                // SetOwner — game.owner.player (v0.5 M2-T5 (4b))
 };
 
 struct ScriptStructuralBatch {

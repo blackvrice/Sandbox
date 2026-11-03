@@ -87,6 +87,7 @@ struct RuleEffect {
     std::string event;  // Event 이름
     u64 eventCode = 0;  // fnv1a64(event)
     std::string team;   // ScoreAdd: 팀 id (비면 who 의 팀 — 팀 태그, 없으면 공용). 값은 value (정수)
+    bool owner = false; // Spawn — PlayerAction 에서만: 만든 개체에 game.owner = 명령의 issuer (v0.5 M2-T5 (4b))
 };
 
 struct Rule {

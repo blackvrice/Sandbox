@@ -317,6 +317,7 @@ value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목�
 v0.2 M3-T1 구현 (ADR-0047): `PlayerAction{action, position}` — 콘텐츠 PlayerAction(11 6장)의 대상을 위치에서 고르고 (range ·
 태그 · 조건 · 가까운 순 maxTargets) 효과를 Stage 2 에서 바로 적용한다 (destroy 는 바로 구조 변경, spawn 난수 =
 Purpose::PlayerAction). 대상이 없거나 게임 세션이 Running 이 아니면 거절. 역할 player 부터 (4.1).
+v0.5 M2-T5 (4b): spawn 효과에 "owner": true 면 만든 개체에 game.owner = 명령 issuer (서버 issuer 는 주인 없음 — ADR-0094).
 v0.5 M2-T5 (3): `PlayerSignal{name, value}` — 콘텐츠 signals.json (11 6.1장) 에 선언된 이름 · 값 범위 · 그 틱의 (issuer, 이름) 마다
 perTick 개까지 (셈은 단계 0 에서 비운다 — 틱을 넘는 상태 없음). 게임 세션이 Running 이 아니면 거절. 받아들이면 월드는 그대로,
 스크립트 구독이 있으면 같은 틱 17d 에 onEvent "signal".

@@ -577,6 +577,12 @@ ctx.playerRole(id: i32): i32    0 observer · 1 player · 2 editor · 3 admin ·
 도메인 · 비용                    서버만 · 연료 1 · 읽기 (Host 표 effect Read). 이름 · 팀 · 클라이언트 쪽은 [계획] (Host 결과에 문자열이 없다)
 결정성                          표는 세이브 · WorldHash 밖 — 서버가 월드를 열면 첫 틱 명령 단계에서 지금 접속으로 다시 채운다 (스크립트 16b 보다 먼저)
 ```
+
+```text
+ctx.setOwner(e: Entity, player: i32): void   (v0.5 M2-T5 (4b) — ADR-0094) 주인 플레이어 — game.owner 가 없으면 붙이고 있으면 바꾼다. 서버만 ·
+                                             Structural · 연료 4, 16.2 의 구조 변경 버퍼 (호출 끝 적용 · 같은 호출의 새 개체 핸들 · 붙이기 · 떼기와
+                                             같은 상한). 0 = 주인 없음, 0 ~ 65535 밖이면 HostError (그 호출의 쓰기를 버린다)
+```
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts

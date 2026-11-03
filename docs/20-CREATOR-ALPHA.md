@@ -210,6 +210,9 @@ signal     클라이언트가 보낸 신호 (UI 버튼 · ctx.send) — { name, 
 game.owner { player: i32 }   행동 · 신호 · 스크립트 spawn 이 player 를 적을 수 있다. 클라이언트 바인딩 "@owned" = 내 player 의 개체
 호환        새 컴포넌트를 카탈로그에 더하면 세이브의 components 표 · WorldHash 에 영향이 있는지 M2-T5 첫 단계에서 잰다 —
             골든이 바뀌면 kSimVersion 5 로 올리고 이유를 커밋에 (AGENTS 5장). 안 바뀌면 그대로
+✅ M2-T5 (4b) ([ADR-0094](adr/0094-owner-opt-in-content-and-script.md)): 엔진이 늘 적지 않고 콘텐츠 · 스크립트가 켠다 — actions.json spawn 효과의 "owner": true
+            (만든 개체의 주인 = 명령 issuer, 서버가 낸 행동은 없음, Rule 에 쓰면 V3) · ctx.setOwner(e, player) (구조 변경 버퍼 — 새 개체 핸들도).
+            신호는 개체를 만들지 않는다 — 받은 스크립트가 e.player 로 setOwner. kSimVersion 4 그대로 (기존 콘텐츠 · 리플레이 결과 그대로)
 M2-T5 (1) ✅ 쟀다: 카탈로그에 더해도 det_* 골든 · 리플레이 해시 그대로 (WorldHash 는 풀이 있는 컴포넌트만 — 붙은 개체가 없으면
             풀이 없다), 세이브 world.json 의 components 표에만 "game.owner": 1 이 더해진다 (읽기는 없는 이름을 받는다) →
             kSimVersion 4 그대로. 접근 표에 Owner (player — 읽기 both · 쓰기 server). 행동 · 신호 · spawn 이 적는 것은 다음 조각
@@ -408,7 +411,7 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T5 (2) ✅ | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
 | M2-T5 (3) ✅ | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
 | M2-T5 (4a) ✅ | 플레이어 표 — 시뮬레이션 안 표 · 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole (ADR-0093) | core/command, core/simulation, network/server/ServerHost, script/api/HostApi, core/script/ScriptHost | PlayerJoin · PlayerLeave | M2-T5 (3) | 넣기 · 바꾸기 · 빼기 · 서버만 · JSON 왕복 · 해시 · 개체 그대로 · 스크립트 (test_player_table), 접속 · 역할 · 나감 (test_roles_overlay) | 스크립트가 플레이어를 안다 |
-| M2-T5 (4b) | 행동 · 신호 · 스크립트 spawn 이 game.owner 를 적기 — kSimVersion 5 (기존 리플레이의 spawn 효과 결과가 바뀐다) | core/simulation (applyEffectNow · 구조 변경), core/script | — | M2-T5 (4a) | 골든 · 리플레이 해시 다시 · owner 값 | "누구의 돌" 을 owner 로 안다 |
+| M2-T5 (4b) ✅ | 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (ADR-0094 — kSimVersion 그대로) | core/content (RuleEffect.owner · V3), core/simulation (applyPlayerAction · SetOwner 구조 변경), script/api/HostApi, core/script/ScriptHost | — | M2-T5 (4a) | owner = issuer · 서버 행동 없음 · 끈 효과 없음 · bool 아님 · Rule 오류 · setOwner 새 핸들 · 바꾸기 · 범위 밖 트랩 (test_player_table) | "누구의 돌" 을 owner 로 안다 |
 | M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4b) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
 | M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
 

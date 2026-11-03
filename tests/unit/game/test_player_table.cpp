@@ -11,6 +11,8 @@
 
 #include "core/command/CommandJson.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/core/Transform.hpp"
+#include "core/components/game/GameOwner.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimulationWorld.hpp"
@@ -57,6 +59,29 @@ struct World {
     u32 seq = 0;
 };
 
+// 팩 t 를 임시 폴더에 쓴다 (파일 이름 → 내용)
+fs::path writePack(std::string_view name, std::initializer_list<std::pair<std::string, std::string>> files) {
+    const fs::path root = fs::temp_directory_path() / "sbx-tests" / "player-table" / name;
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    for (const auto& [rel, text] : files) {
+        const fs::path f = root / "t" / rel;
+        fs::create_directories(f.parent_path());
+        std::ofstream(f, std::ios::binary) << text;
+    }
+    return root;
+}
+
+std::string issues(const content::ContentLoadResult& r) {
+    std::string out;
+    for (const content::ContentIssue& i : r.issues) {
+        out += i.describe() + "\n";
+    }
+    return out;
+}
+
+constexpr std::string_view kOwnerPrefabs =
+    R"([{"id": "t.board", "components": {"core.transform": {}}}, {"id": "t.stone", "components": {"core.transform": {}}}])";
 } // namespace
 
 TEST_SUITE("core") {
@@ -147,6 +172,91 @@ export default defineSystem({
         const auto& logs = w.world.scriptSystems()->host().recentLogs();
         REQUIRE_FALSE(logs.empty());
         CHECK(logs.back().text == "2 4 3 9 -1 -1 -1 -1");
+    }
+
+    TEST_CASE("owner: PlayerAction spawn 의 \"owner\": true — 만든 개체의 주인 = 명령의 issuer, 서버 · owner 없음은 "
+              "주인 없음") {
+        const fs::path root = writePack(
+            "owner_action",
+            {{"pack.json", R"({"id": "t", "version": "1"})"},
+             {"prefabs/p.json", std::string(kOwnerPrefabs)},
+             {"actions.json",
+              R"([{"id": "t.place", "range": 2, "effects": [{"op": "spawn", "prefab": "t.stone", "owner": true}]},
+                  {"id": "t.drop", "range": 2, "effects": [{"op": "spawn", "prefab": "t.stone"}]}])"}});
+        const content::ContentLoadResult r =
+            content::ContentLoader::load(root, std::vector<std::string>{"t"}, catalog());
+        REQUIRE_MESSAGE(r.ok(), issues(r));
+        CHECK(r.db.findPlayerAction("t.place")->effects.at(0).owner);
+        CHECK_FALSE(r.db.findPlayerAction("t.drop")->effects.at(0).owner);
+        World w(r.db);
+        REQUIRE(w.run(cmd::kServerIssuer, cmd::CreateEntity{{1, 1}, {}, "t.board"}).accepted);
+        const auto ownerOf = [&](const cmd::CommandResult& res) -> i64 {
+            REQUIRE_MESSAGE(res.accepted, res.error.describe());
+            REQUIRE(res.created.size() == 1);
+            const comp::GameOwner* o = w.world.registry().tryRead<comp::GameOwner>(w.world.resolve(res.created[0]));
+            return o != nullptr ? i64{o->player} : -1;
+        };
+        CHECK(ownerOf(w.run(5, cmd::PlayerAction{"t.place", {1, 1}})) == 5);
+        CHECK(ownerOf(w.run(cmd::kServerIssuer, cmd::PlayerAction{"t.place", {1, 1}})) == -1); // 서버 = 주인 없음
+        CHECK(ownerOf(w.run(5, cmd::PlayerAction{"t.drop", {1, 1}})) == -1);                   // owner 를 켜지 않았다
+    }
+
+    TEST_CASE("owner: \"owner\" 는 bool · Rule 의 spawn 에서는 오류 (명령을 낸 쪽이 없다)") {
+        const auto bad = [](std::string_view name, std::string file, std::string text, std::string_view part) {
+            const fs::path root = writePack(name, {{"pack.json", R"({"id": "t", "version": "1"})"},
+                                                   {"prefabs/p.json", std::string(kOwnerPrefabs)},
+                                                   {std::move(file), std::move(text)}});
+            const content::ContentLoadResult r =
+                content::ContentLoader::load(root, std::vector<std::string>{"t"}, catalog());
+            CHECK_FALSE(r.ok());
+            CHECK_MESSAGE(issues(r).find(part) != std::string::npos, issues(r));
+        };
+        bad("owner_type", "actions.json",
+            R"([{"id": "t.place", "effects": [{"op": "spawn", "prefab": "t.stone", "owner": "yes"}]}])",
+            "owner 는 true · false");
+        bad("owner_rule", "rules/r.json",
+            R"([{"id": "t.r", "action": "t.act", "effects": [{"op": "spawn", "prefab": "t.stone", "owner": true}]}])",
+            "owner 는 PlayerAction (actions.json) 의 spawn 에서만");
+    }
+
+    TEST_CASE("owner: 스크립트 ctx.setOwner — 새 개체 핸들 · 있는 주인 바꾸기 · 범위 밖은 트랩 (쓰기 버림)") {
+        const fs::path root =
+            writePack("owner_script", {{"pack.json", R"({"id": "t", "version": "1"})"},
+                                       {"prefabs/p.json", std::string(kOwnerPrefabs)},
+                                       {"scripts/o.ts", R"(import { defineSystem, Owner } from "sandbox"
+export default defineSystem({
+  id: "t.o",
+  onTick(ctx) {
+    if (ctx.tick === 2) {
+      const s = ctx.spawn("t.stone", 3, 3)
+      if (s !== null) { ctx.setOwner(s, 7) }
+    } else if (ctx.tick === 3) {
+      for (const e of ctx.query(Owner)) { ctx.setOwner(e, 9) }
+    } else if (ctx.tick === 4) {
+      for (const e of ctx.query(Owner)) { ctx.setOwner(e, 70000) }
+    }
+  },
+})
+)"}});
+        const content::ContentLoadResult r =
+            content::ContentLoader::load(root, std::vector<std::string>{"t"}, catalog());
+        REQUIRE_MESSAGE(r.ok(), issues(r));
+        World w(r.db);
+        const auto owners = [&] {
+            std::vector<u32> out;
+            for (auto [e, o] : w.world.registry().view<ecs::Read<comp::GameOwner>>()) {
+                out.push_back(o.player);
+            }
+            return out;
+        };
+        w.world.tick();
+        w.world.tick(); // 틱 2: 만들고 주인 7 (같은 호출의 새 개체 핸들)
+        CHECK(owners() == std::vector<u32>{7});
+        w.world.tick(); // 틱 3: 있는 주인을 9 로
+        CHECK(owners() == std::vector<u32>{9});
+        w.world.tick(); // 틱 4: 70000 — HostError 트랩, 그 호출의 쓰기를 버린다
+        CHECK(owners() == std::vector<u32>{9});
+        CHECK(w.world.scriptSystems()->trapCount(0) == 1);
     }
 
 } // TEST_SUITE

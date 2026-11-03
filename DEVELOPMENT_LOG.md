@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-03 — v0.5 M2-T5 (4b): 주인 적기 — actions.json spawn "owner": true · ctx.setOwner (M2-T5 끝)
+
+**무엇을**
+
+- 콘텐츠: spawn 효과에 "owner" (bool, 기본 false) — PlayerAction 에서 true 면 만든 개체에 game.owner = 명령 issuer (서버가 낸 행동은 주인 없음).
+  Rule 의 spawn 에 쓰면 V3 오류, bool 이 아니면 V3.
+- 스크립트: ctx.setOwner(e, player: i32) — 서버만 · Structural (구조 변경 버퍼 — 호출 끝 적용, 같은 호출의 새 개체 핸들, 붙이기 · 떼기와 같은 상한).
+  없으면 붙이고 있으면 바꾼다, 0 ~ 65535 밖이면 HostError. 구조 변경 종류 SetOwner. Host API 지문 → 0xf2ff39fd63bfbaf9, sandbox.d.ts 넷.
+
+**왜 · 바꾼 계획**
+
+- 20 3.6 · 23 카드는 "엔진이 늘 적기 + kSimVersion 5" 였다. kSimVersion 은 WorldHash 머리에 들어가 모든 골든 (Windows · Linux GCC · Clang) 과 샘플
+  기대 해시를 다시 찍어야 하고, 옛 리플레이는 "규칙 차이" 가 된다. 콘텐츠 키 · 스크립트 함수로 켜면 기존 결과는 그대로다 (04 6장 — 콘텐츠 데이터 변경은
+  contentHash 가 구분) → ADR-0094, kSimVersion 4 그대로.
+- 신호는 개체를 만들지 않는다 — 받은 스크립트가 e.player 로 setOwner.
+
+**검증**
+
+- test_player_table: "owner": true → owner = issuer 5 · 서버 행동 = 없음 · 켜지 않은 효과 = 없음, "owner": "yes" · Rule 의 owner = V3, ctx.setOwner 새
+  핸들 (7) → 바꾸기 (9) → 70000 트랩 (그대로 9 · 트랩 1). test_checker 지문.
+- Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과 (det_* 골든 · 샘플 자동 플레이 그대로), check_includes 0 위반.
+
+**남은 일**
+
+- M2-T5 끝. 다음 M2-T7 Runtime v2 계약 동결 → M2-T6.
+
+---
+
 ## 2026-11-03 — v0.5 M2-T5 (4a): 플레이어 표 — 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole
 
 **무엇을**

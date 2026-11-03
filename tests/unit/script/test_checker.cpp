@@ -138,7 +138,7 @@ TEST_SUITE("script") {
         CHECK(api::hostApiFingerprint() == api::hostApiFingerprint());
         // v0.5 M8-T8: 엔진 질의 · 경로 요청 7 (nearest · kNearest · inBox · requestPath · pathState · pathPoints ·
         // cancelPath — ADR-0085 11), ABI NumberList. M8-T8 (2): 충돌 질의 raycast · overlap
-        CHECK(api::hostApiFingerprint() == 0xd3dc282f66cc8820ull);
+        CHECK(api::hostApiFingerprint() == 0xf2ff39fd63bfbaf9ull);
     }
 
     TEST_CASE("import 경로 풀기") {
