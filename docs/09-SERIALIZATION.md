@@ -39,6 +39,8 @@ S5. 로드 순서·키 순서는 정렬되어 있다 (04 4.5).
 | SchemaVersion | 1    | 2026-10-05 (Phase 4) | 최초 |
 | ReplayVersion | 1    | (Phase 5)            | 최초 |
 | 패키지 format | 1    | 2026-10-20 (v0.2 M5-T2) | 최초 (ADR-0054). world.json 의 선택 키 "game" 도 이때 (worldVersion · schemaVersion 그대로) |
+| 패키지 format | 2    | 2026-10-28 (v0.4 M5-T2) | packs — 라이선스 요약 (ADR-0077) |
+| 패키지 format | 3    | 2026-11-03 (v0.6 M6-T9) | assets — 프로젝트 에셋 (원본 · .meta, ADR-0090). 에셋이 없는 게임은 2 그대로 쓴다 (0.5 엔진도 열고 바이트가 같다) |
 
 ---
 
@@ -318,10 +320,10 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
 `core/package/GamePackage`, 해시 `foundation/hash/Sha256`.
 
 ```text
-파일      magic "SBXPKG\0\n" (8) · format u32 = 2 (1 도 읽는다) · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트
+파일      magic "SBXPKG\0\n" (8) · format u32 = 3 (에셋이 있을 때) · 2 (없을 때 — 1 도 읽는다) · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트
           (index 순서, 빈틈 없음) — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB · packs 256
 index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}],
-           packs: [{id, version, license, digest, path}]}
+           packs: [{id, version, license, digest, path}], assets: [{path, id, sha256}] (형식 3)}
           path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음 ·
           대소문자만 다른 파일 · 폴더 없음 (project::findCaseConflict — v0.6 NG-13, 읽을 때도 거절). 빌드는 심볼릭 링크를 담지 않는다
           offset = 파일 데이터 시작에서 (앞 파일 크기 합)
@@ -329,8 +331,14 @@ packs     (형식 2 — v0.4 M5-T2, ADR-0077 — 라이선스 요약 SBOM) 읽�
           문자열), 팩 폴더 path ("content/<폴더>" · ".sandbox/packages/<팩>"), 팩 digest (그 폴더의 파일을 팩 기준 경로로 — 설치한
           팩이면 잠금의 digest 와 같다). index 를 읽을 때 팩 digest 를 files 에서 다시 계산하고, 파일을 볼 때 (검증 · 풀기)
           pack.json 의 id · version · license 와 견준다 — 다르면 열지 않는다. game digest 에는 들지 않는다 (파일에서 나온 값)
+assets    (형식 3 — v0.6 M6-T9, ADR-0090 5) 프로젝트 assets/ 의 원본마다 (같은 id 사본도 따로), 경로 순: id (.meta 의 것) · sha256
+          (원본 — files 의 것과 같다). 원본 · <경로>.meta 는 files 에 있다. 읽을 때: assets/ 아래 원본, id 모양, files 에 있고 sha256 같음,
+          .meta 있음, 같은 id = 같은 내용, assets/ 아래 파일은 모두 목록의 원본 · .meta (몰래 실은 것 없음). 파일을 볼 때 .meta 의 id 와
+          견준다 — 다르면 열지 않는다. 빌드: 에셋 훑기 (core/asset) 오류 (A3 · A5) 나 id 없는 원본 (A1 · A2) 이 있으면 만들지 않는다
+          ("sbx asset import"), 짝 없는 .meta (A4) 는 싣지 않는다
 digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시각 · 순서 · 압축이 없어 같은 프로젝트 = 같은 바이트
-담는 것   sandbox.project.json · 프로젝트 콘텐츠가 읽은 팩 (requires 포함, 폴더째 — presentation/ 포함) · 시작 월드 폴더.
+담는 것   sandbox.project.json · 프로젝트 콘텐츠가 읽은 팩 (requires 포함, 폴더째 — presentation/ 포함) · 시작 월드 폴더 ·
+          프로젝트 에셋 (assets/ — 형식 3).
           다른 worlds/ · build/ · 그 밖의 파일은 담지 않는다. 빌드 전에 openProject 와 같은 검사 (오류면 만들지 않는다)
 열기      머리 · index 모양 → 파일마다 SHA-256 → digest 가 하나라도 다르면 거절 (고친 패키지는 열지 않는다) →
           <임시>/sbx-packages/<digest 앞 16>/ 에 풀고 (같은 digest 가 있으면 파일마다 다시 확인하고 쓴다) openProject

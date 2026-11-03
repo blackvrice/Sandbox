@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include "core/asset/AssetDatabase.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
 #include "core/package/GitSource.hpp"
@@ -310,6 +311,36 @@ int runTest(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     return passed == scripts.size() ? kExitOk : kExitCheckFailed;
 }
 
+// sbx asset (v0.6 M6-T9, ADR-0090) — import: id 없는 원본마다 .meta, newid: 복제본에 새 id. 끝에 훑기 요약
+int runAsset(const SbxOptions& opt) {
+    const std::filesystem::path dir(opt.dir);
+    if (!project::isProjectFolder(dir)) {
+        printErr(std::format("{} 는 게임 프로젝트가 아니다 ({} 이 없다)", opt.dir, project::kManifestFile));
+        return kExitError;
+    }
+    if (opt.assetAction == "import") {
+        const auto written = asset::importAssets(dir);
+        if (!written) {
+            printErr(written.error().describe());
+            return kExitError;
+        }
+        std::printf("에셋 .meta 를 썼습니다: %zu 개\n", *written);
+    } else {
+        const auto id = asset::assignNewAssetId(dir, opt.assetPath);
+        if (!id) {
+            printErr(id.error().describe());
+            return kExitError;
+        }
+        std::printf("새 id %s — %s.meta\n", id->c_str(), opt.assetPath.c_str());
+    }
+    const asset::AssetScan scan = asset::scanProjectAssets(dir);
+    for (const content::ContentIssue& i : scan.issues) {
+        std::printf("%s\n", i.describe().c_str());
+    }
+    std::printf("에셋: id %zu · id 없음 %zu\n", scan.assets.size(), scan.unidentified.size());
+    return scan.ok() ? kExitOk : kExitCheckFailed;
+}
+
 // sbx new --pack (v0.4 M4-T2) — 패키지 틀
 int runNewPack(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     const auto made = package::createPack(std::filesystem::path(opt.dir), opt.gameId, opt.license, catalog);
@@ -539,6 +570,8 @@ int main(int argc, char** argv) {
     }
     case SbxCommand::Report:
         return runReport(opt);
+    case SbxCommand::Asset:
+        return runAsset(opt);
     case SbxCommand::New:
     case SbxCommand::Check:
     case SbxCommand::Build:

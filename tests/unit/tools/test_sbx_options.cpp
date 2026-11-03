@@ -144,4 +144,28 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parse({"test"}).has_value());
         CHECK_FALSE(parse({"test", "G", "x"}).has_value());
     }
+
+    TEST_CASE("sbx options: asset import · newid (v0.6 M6-T9)") {
+        const auto parse = [](std::initializer_list<std::string_view> args) {
+            const std::vector<std::string_view> v(args);
+            return parseSbxOptions(v);
+        };
+        const auto imp = parse({"asset", "import", "G"});
+        REQUIRE(imp.has_value());
+        CHECK(imp->command == SbxCommand::Asset);
+        CHECK(imp->assetAction == "import");
+        CHECK(imp->dir == "G");
+        CHECK(imp->assetPath.empty());
+        const auto nid = parse({"asset", "newid", "G", "assets/hero.png"});
+        REQUIRE(nid.has_value());
+        CHECK(nid->assetAction == "newid");
+        CHECK(nid->assetPath == "assets/hero.png");
+        CHECK_FALSE(parse({"asset"}).has_value());
+        CHECK_FALSE(parse({"asset", "import"}).has_value());                      // 프로젝트 없음
+        CHECK_FALSE(parse({"asset", "import", "G", "assets/x.png"}).has_value()); // import 는 경로를 받지 않는다
+        CHECK_FALSE(parse({"asset", "newid", "G"}).has_value());                  // 경로 없음
+        CHECK_FALSE(parse({"asset", "remove", "G"}).has_value());                 // 모르는 하위 명령
+        CHECK_FALSE(parse({"asset", "newid", "G", "a", "b"}).has_value());
+        CHECK(sbxUsage().find("asset import <프로젝트>") != std::string::npos);
+    }
 }

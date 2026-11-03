@@ -488,6 +488,12 @@ if(TARGET sbx)
                     -DSERVER=$<TARGET_FILE:SandboxServer> -DTICKS=60
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_package.cmake")
         set_tests_properties(project_package PROPERTIES LABELS "content" TIMEOUT 180)
+        # 프로젝트 에셋 — sbx asset import · newid, build 형식 3, A2 · A3 (v0.6 M6-T9 · NG-12)
+        add_test(NAME project_assets
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_assets"
+                    -DSERVER=$<TARGET_FILE:SandboxServer>
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_assets.cmake")
+        set_tests_properties(project_assets PROPERTIES LABELS "content" TIMEOUT 180)
         # 패키지 설치 — sbx add · install (잠금 그대로) · remove, 고친 설치 거절 (v0.4 M3-T3, ADR-0073)
         add_test(NAME project_install
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_install"

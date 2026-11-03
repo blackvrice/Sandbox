@@ -48,11 +48,13 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Doctor;
     } else if (cmd == "report") {
         o.command = SbxCommand::Report;
+    } else if (cmd == "asset") {
+        o.command = SbxCommand::Asset;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
             std::format("모르는 명령 '{}' (new · check · build · test · templates · sdk · digest · fetch · resolve · "
-                        "install · update · add · remove · doctor · report)",
+                        "install · update · add · remove · doctor · report · asset)",
                         cmd));
     }
     bool sawProjectOnly = false; // new 의 게임 프로젝트 옵션 (--pack 과 같이 쓸 수 없다)
@@ -149,6 +151,10 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             if (ec != std::errc{} || p != v->data() + v->size()) {
                 return makeError(ErrorCode::InvalidArgument, std::format("--seed 는 0 이상의 정수: '{}'", *v));
             }
+        } else if (o.command == SbxCommand::Asset && !a.starts_with("-") && o.assetAction.empty()) {
+            o.assetAction = std::string(a); // asset 다음 첫 낱말은 하위 명령
+        } else if (o.command == SbxCommand::Asset && !a.starts_with("-") && haveDir && o.assetPath.empty()) {
+            o.assetPath = std::string(a);
         } else if (!a.starts_with("-") && !haveDir && o.command != SbxCommand::Templates) {
             o.dir = std::string(a);
             haveDir = true;
@@ -201,6 +207,20 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
     if (o.command == SbxCommand::Sdk && !haveDir) {
         o.dir = ".";
     }
+    if (o.command == SbxCommand::Asset) {
+        if (o.assetAction != "import" && o.assetAction != "newid") {
+            return makeError(ErrorCode::InvalidArgument,
+                             "asset 은 import <프로젝트> 또는 newid <프로젝트> <assets/경로>");
+        }
+        if (!haveDir) {
+            return makeError(ErrorCode::InvalidArgument, "asset 에 프로젝트 폴더가 필요합니다");
+        }
+        if ((o.assetAction == "newid") == o.assetPath.empty()) {
+            return makeError(ErrorCode::InvalidArgument, o.assetAction == "newid"
+                                                             ? "asset newid 에 <assets/경로> 가 필요합니다"
+                                                             : "asset import 는 프로젝트 폴더 하나만 받는다");
+        }
+    }
     return o;
 }
 
@@ -249,6 +269,8 @@ std::string sbxUsage() {
            "  report [<묶음>]            충돌 보고 묶음 보기 — 요약 · 콜스택 · 마지막 로그 · 파일 (없으면 묶음 목록)\n"
            "      --lines <n>            마지막 로그 줄 수 (기본 40)\n"
            "      --reports-dir <d>      보고 폴더 (기본: SBX_REPORTS_DIR · %LOCALAPPDATA%\\sandbox\\reports · XDG)\n"
+           "  asset import <프로젝트>     assets/ 의 id 없는 원본마다 .meta (새 id) 를 쓴다\n"
+           "  asset newid <프로젝트> <assets/경로>  복사한 파일에 새 id (같은 id 다른 내용 A3 을 고친다)\n"
            "  --version                  버전\n"
            "실행: SandboxServer --world <폴더 | 파일.sbpkg> · SandboxClient --world <폴더 | 파일.sbpkg>\n"
            "종료 코드: 0 성공, 1 검사 오류 (check · test · doctor), 2 잘못된 인자 · 실패\n";

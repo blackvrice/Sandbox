@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-03 — v0.6 M6-T9 (1): sbx asset import · newid · 게임 패키지 형식 3 (프로젝트 에셋 싣기)
+
+**무엇을**
+
+- sbx asset import <프로젝트> (id 없는 원본마다 .meta — 겹치지 않는 새 id) · sbx asset newid <프로젝트> <assets/경로> (복제본에 새 id — A3 고침).
+  끝에 훑기 요약 · 문제.
+- .sbpkg 형식 3: index "assets" [{path, id, sha256}] (원본마다 — 같은 id 사본도, 경로 순), 원본 · .meta 를 files 에 싣는다. 에셋이 없는 게임은 형식 2 그대로
+  (0.5 엔진도 열고 바이트 · digest 같음 — 샘플 · tech_alpha_e2e 그대로). 읽을 때 목록 모양 · files 와 sha256 · .meta 있음 · 같은 id = 같은 내용 ·
+  assets/ 아래 몰래 실은 파일 없음, 파일을 볼 때 (검증 · 풀기) .meta 의 id 와 목록을 견줌. 빌드는 훑기 오류 (A3 · A5) · id 없는 원본 (A1 · A2) 이면 거절,
+  짝 없는 .meta (A4) 는 싣지 않는다.
+
+**왜**
+
+- M6-T9 의 첫 조각 — A 가 그린 그림이 패키지로 B 에게 간다 (ADR-0090 5). 받는 쪽이 id 로 찾으려면 실린 에셋마다 id 가 있어야 한다.
+
+**검증**
+
+- test_game_package (형식 2 · 3, 거절 · 사본 · 짝 없음 · 읽기 · 검증 · 풀기 · 같은 바이트 · 목록 id 변조 · A3, 형식 4 = VersionMismatch) ·
+  test_sbx_options (asset 인자) · CTest project_assets (sbx 흐름 끝까지 — 서버가 형식 3 패키지로 돈다). 처음 판은 빈 프로젝트로 서버를 돌려
+  (일시정지라 틱이 안 감) 시간 초과 → ecosystem_small 템플릿으로.
+- Windows MSVC Debug 빌드 (경고 0 줄) · 전체 ctest 78 / 78 통과. 앞 커밋 2db7335 의 CI: Windows (링크 갈래가 실제로 도는 러너) · macOS · Linux GCC · Clang · ASan 다섯 잡 모두 통과.
+
+**남은 일**
+
+- M6-T9 (2): 클라이언트 에셋 루트 차례 (패키지 → 프로젝트 → 엔진) · "asset:<id>" 참조 · 콘텐츠가 부르는 에셋 누락 검사 · 자기 PNG 게임 E2E.
+
+---
+
 ## 2026-11-03 — v0.6 NG-12 고침: 에셋 훑기가 링크를 경로로 풀던 것 · 시험의 복사 루프 (CI 8c1e11a 실패)
 
 **무엇을**

@@ -34,8 +34,11 @@
 namespace sbx::package {
 
 inline constexpr std::string_view kExtension = ".sbpkg";
-inline constexpr u32 kFormatVersion = 2;    // 쓰는 판 (2 = packs — v0.4 M5-T2)
-inline constexpr u32 kMinFormatVersion = 1; // 읽는 가장 옛 판
+// 쓰는 판: 프로젝트 에셋 (assets/) 이 있으면 3 (v0.6 M6-T9 — assets 목록), 없으면 2 (packs — v0.4 M5-T2) 그대로 —
+// 에셋이 없는 게임은 0.5 엔진도 열고 바이트 · digest 가 바뀌지 않는다
+inline constexpr u32 kFormatVersion = 3;       // 읽는 가장 새 판 · 에셋을 실을 때 쓰는 판
+inline constexpr u32 kFormatWithoutAssets = 2; // 에셋이 없을 때 쓰는 판
+inline constexpr u32 kMinFormatVersion = 1;    // 읽는 가장 옛 판
 inline constexpr usize kMaxSbomPacks = 256;
 inline constexpr usize kMaxFiles = 65'536;
 inline constexpr u64 kMaxPackageBytes = u64{2} << 30; // 2 GiB (파일을 한 번에 읽는다 — 큰 패키지의 흐름 읽기는 [계획])
@@ -49,7 +52,7 @@ struct PackageEntry {
 };
 
 struct PackageIndex {
-    u32 format = kFormatVersion;
+    u32 format = kFormatWithoutAssets;
     std::string gameId;
     std::string name;
     std::string version; // SemVer 문자열
@@ -68,6 +71,14 @@ struct PackageIndex {
         bool operator==(const Pack&) const = default;
     };
     std::vector<Pack> packs;
+    // 형식 3 — 프로젝트 에셋 (원본마다 — 같은 id 의 사본도 따로, 경로 순). 원본 · <경로>.meta 는 files 에 있다
+    struct Asset {
+        std::string path;   // "assets/…"
+        std::string id;     // .meta 의 id (32 글자 소문자 16 진수)
+        std::string sha256; // 원본 (files 의 것과 같다)
+        bool operator==(const Asset&) const = default;
+    };
+    std::vector<Asset> assets;
 };
 
 // 파일 목록의 지문 (위 규칙) — 64 글자 소문자

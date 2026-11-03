@@ -7,9 +7,11 @@
 #include <format>
 #include <map>
 #include <optional>
+#include <set>
 
 #include <nlohmann/json.hpp>
 
+#include "core/asset/AssetDatabase.hpp"
 #include "core/package/Lockfile.hpp"
 #include "core/project/GameProject.hpp"
 #include "foundation/hash/Sha256.hpp"
@@ -118,10 +120,72 @@ json indexJson(const PackageIndex& idx) {
         packs.push_back(
             json{{"id", p.id}, {"version", p.version}, {"license", p.license}, {"digest", p.digest}, {"path", p.path}});
     }
-    return json{{"format", idx.format},     {"gameId", idx.gameId}, {"name", idx.name},
-                {"version", idx.version},   {"engine", idx.engine}, {"entryWorld", idx.entryWorld},
-                {"gameMode", idx.gameMode}, {"digest", idx.digest}, {"files", std::move(files)},
-                {"packs", std::move(packs)}};
+    json out{{"format", idx.format},     {"gameId", idx.gameId}, {"name", idx.name},
+             {"version", idx.version},   {"engine", idx.engine}, {"entryWorld", idx.entryWorld},
+             {"gameMode", idx.gameMode}, {"digest", idx.digest}, {"files", std::move(files)},
+             {"packs", std::move(packs)}};
+    if (idx.format >= 3) {
+        json assets = json::array();
+        for (const PackageIndex::Asset& a : idx.assets) {
+            assets.push_back(json{{"path", a.path}, {"id", a.id}, {"sha256", a.sha256}});
+        }
+        out["assets"] = std::move(assets);
+    }
+    return out;
+}
+
+const PackageEntry* findFile(const PackageIndex& idx, std::string_view path) {
+    const auto it = std::lower_bound(idx.files.begin(), idx.files.end(), path,
+                                     [](const PackageEntry& a, std::string_view b) { return a.path < b; });
+    return it != idx.files.end() && it->path == path ? &*it : nullptr;
+}
+
+// 형식 3 의 assets — 모양 · 경로 순 · 원본과 .meta 가 files 에 있고 sha256 이 같다 · 같은 id 는 같은 내용 · assets/
+// 아래 파일은 모두 목록의 원본이나 그 .meta 다 (몰래 실은 파일 없음). 문제면 그 이유
+std::optional<std::string> parseAssets(const json& j, PackageIndex& idx) {
+    if (!j.contains("assets") || !j["assets"].is_array() || j["assets"].size() > kMaxFiles) {
+        return "assets 는 배열 (형식 3)";
+    }
+    std::map<std::string, std::string> shaById;
+    std::set<std::string> listed;
+    for (const json& a : j["assets"]) {
+        PackageIndex::Asset e;
+        for (const auto& [key, out] :
+             {std::pair{"path", &e.path}, std::pair{"id", &e.id}, std::pair{"sha256", &e.sha256}}) {
+            if (!a.is_object() || !a.contains(key) || !a[key].is_string()) {
+                return "에셋 항목은 {path, id, sha256} 문자열";
+            }
+            *out = a[key].get<std::string>();
+        }
+        if (!idx.assets.empty() && !(idx.assets.back().path < e.path)) {
+            return std::format("에셋 '{}' — 경로가 정렬되지 않았거나 겹친다", e.path);
+        }
+        if (!e.path.starts_with(std::string(asset::kAssetDir) + "/") || e.path.ends_with(asset::kMetaSuffix)) {
+            return std::format("에셋 '{}' — assets/ 아래의 원본이어야 한다", e.path);
+        }
+        if (!asset::isAssetId(e.id)) {
+            return std::format("에셋 '{}' 의 id 모양", e.path);
+        }
+        const PackageEntry* source = findFile(idx, e.path);
+        if (source == nullptr || source->sha256 != e.sha256) {
+            return std::format("에셋 '{}' 가 파일 목록에 없거나 sha256 이 다르다", e.path);
+        }
+        if (findFile(idx, e.path + std::string(asset::kMetaSuffix)) == nullptr) {
+            return std::format("에셋 '{}' 의 .meta 가 패키지에 없다", e.path);
+        }
+        if (const auto [it, inserted] = shaById.emplace(e.id, e.sha256); !inserted && it->second != e.sha256) {
+            return std::format("id {} 가 내용이 다른 두 에셋에 있다", e.id);
+        }
+        listed.insert(e.path);
+        listed.insert(e.path + std::string(asset::kMetaSuffix));
+        idx.assets.push_back(std::move(e));
+    }
+    for (const PackageEntry& f : idx.files) {
+        if (f.path.starts_with(std::string(asset::kAssetDir) + "/") && !listed.contains(f.path)) {
+            return std::format("'{}' — assets/ 아래인데 에셋 목록에 없다", f.path);
+        }
+    }
+    return std::nullopt;
 }
 
 // 형식 2 의 packs — 모양 · 팩 id 순 · 폴더 규칙 · files 에서 다시 계산한 digest. 문제면 그 이유
@@ -170,6 +234,22 @@ std::optional<std::string> checkPackClaims(const PackageIndex& idx, std::string_
         };
         if (field("id") != p.id || field("version") != p.version || field("license") != p.license) {
             return std::format("팩 '{}' 의 라이선스 요약 (id · version · license) 이 {} 와 다르다", p.id, file);
+        }
+    }
+    return std::nullopt;
+}
+
+// 파일 바이트를 본 뒤 (검증 · 풀기): 에셋 목록의 id 가 그 .meta 의 id 와 같은가. 문제면 그 이유
+std::optional<std::string> checkAssetClaims(const PackageIndex& idx, std::string_view data) {
+    for (const PackageIndex::Asset& a : idx.assets) {
+        const PackageEntry* meta = findFile(idx, a.path + std::string(asset::kMetaSuffix));
+        if (meta == nullptr) {
+            return std::format("에셋 '{}' 의 .meta 가 패키지에 없다", a.path);
+        }
+        const auto parsed =
+            asset::parseAssetMeta(data.substr(static_cast<usize>(meta->offset), static_cast<usize>(meta->size)));
+        if (!parsed || parsed->id != a.id) {
+            return std::format("에셋 '{}' 의 id 가 .meta 와 다르다", a.path);
         }
     }
     return std::nullopt;
@@ -283,6 +363,11 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
             return bad(std::move(*why));
         }
     }
+    if (format >= 3) {
+        if (auto why = parseAssets(j, idx)) {
+            return bad(std::move(*why));
+        }
+    }
     return idx;
 }
 
@@ -328,7 +413,44 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     if (auto r = addTree(projectDir / m.entryWorld, files); !r) {
         return std::unexpected(r.error());
     }
+    // 3. 프로젝트 에셋 (v0.6 M6-T9, ADR-0090 5) — 훑기 오류 (A3 충돌 · A5 경로 …) 나 id 없는 원본이 있으면 만들지
+    // 않는다:
+    //    받는 쪽은 id 로 찾는다. 같은 id 의 사본도 싣는다 (경로로 부를 수 있다), 짝 없는 .meta (A4) 는 싣지 않는다
+    std::vector<PackageIndex::Asset> assets;
+    {
+        std::error_code ec;
+        if (fs::is_directory(projectDir / std::string(asset::kAssetDir), ec)) {
+            const asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+            for (const content::ContentIssue& i : scan.issues) {
+                if (i.severity == content::ContentIssue::Severity::Error) {
+                    return makeError(ErrorCode::ValidationFailed, std::format("에셋 문제 — {}", i.describe()),
+                                     io::displayPath(projectDir));
+                }
+            }
+            if (!scan.unidentified.empty()) {
+                return makeError(
+                    ErrorCode::ValidationFailed,
+                    std::format("id 없는 에셋 {} 개 (첫째 '{}') — sbx asset import <프로젝트> 로 .meta 를 쓴다",
+                                scan.unidentified.size(), scan.unidentified.front()),
+                    io::displayPath(projectDir));
+            }
+            const auto addAsset = [&](const std::string& path, const asset::AssetEntry& e) {
+                assets.push_back({path, e.id, e.sha256});
+                files.push_back(projectDir / fs::path(path));
+                files.push_back(projectDir / fs::path(path + std::string(asset::kMetaSuffix)));
+            };
+            for (const asset::AssetEntry& e : scan.assets) {
+                addAsset(e.path, e);
+                for (const std::string& copy : e.copies) {
+                    addAsset(copy, e);
+                }
+            }
+            std::sort(assets.begin(), assets.end(), [](const auto& a, const auto& b) { return a.path < b.path; });
+        }
+    }
     PackageIndex idx;
+    idx.format = assets.empty() ? kFormatWithoutAssets : kFormatVersion;
+    idx.assets = std::move(assets);
     idx.gameId = m.gameId;
     idx.name = m.name;
     idx.version = m.version.toString();
@@ -380,7 +502,7 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     idx.packs = std::move(packs);
     const std::string index = indexJson(idx).dump();
     std::string blob(kMagic.begin(), kMagic.end());
-    putU32(blob, kFormatVersion);
+    putU32(blob, idx.format);
     putU64(blob, index.size());
     blob += index;
     for (const auto& [path, bytes] : contents) {
@@ -433,6 +555,9 @@ Expected<PackageIndex> verifyPackage(const fs::path& file) {
     if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
         return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
+    if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
     return idx;
 }
 
@@ -456,6 +581,9 @@ Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& 
         }
     }
     if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
+    if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
         return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
     const fs::path dir = cacheRoot / idx->digest.substr(0, 16);

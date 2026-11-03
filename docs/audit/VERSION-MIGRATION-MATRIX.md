@@ -17,7 +17,7 @@
 | Simulation | 4 | 어느 값이든 읽음 | 리플레이 · 세이브 모두 진행하되 해시 비교를 건너뛰고 "규칙 차이" 로 알림 (core/replay/Replay.cpp simVersionDiffers · WorldSave.cpp hashSkippedReason) | det_* · test_replay | 툴체인 간 재생 (SG-06) |
 | World/Save | 1 · 1 | ≤ 지금 | 더 새 것 거절 · 스크립트 컴포넌트 자동 마이그레이션 (ADR-0061) | test_world_save (스크립트 마이그레이션) · test_sample_saves | 게임 버전 마이그레이션 (NG-04) |
 | Game 결속 | world.json "game" | 같은 gameId | 다른 게임 거절 · 다른 version · 패키지는 알림 | test_world_ops ("세이브는 게임에 묶인다") | 같은 게임 · 다른 version (NG-04) |
-| Package .sbpkg | 2 (최소 1) | 1 · 2 | 범위 밖 거절 · digest 불일치 거절 | test_game_package · test_package_rejects | 3 (M6-T9 에셋 · NG-01 · NG-12) |
+| Package .sbpkg | 3 (에셋이 있을 때 — 없으면 2, v0.6 M6-T9) · 최소 1 | 1 · 2 · 3 | 범위 밖 거절 · digest 불일치 거절 | test_game_package · test_package_rejects | 0.5 엔진은 형식 3 (에셋 있는 게임) 을 열지 않는다 (VersionMismatch) — NG-01 스냅숏 해시 |
 | Manifest schemaVersion | 3 | 1 ~ 3 | 더 새 것 거절 | test_game_project | — |
 | Replay | 1 | 1 | 거절 | test_replay | — |
 | Studio Document | 없음 | — | 깨지면 옆으로 옮기고 기본 (M1-T3 규칙) | test_user_settings (사용자 설정만) | 레이아웃 · 복구본 (M6-T6 · T7 — 1 부터) |

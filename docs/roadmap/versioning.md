@@ -89,7 +89,7 @@ v0.9 Business · v1.0 GA) 기준이다. 문서마다 고쳐 쓰지 않고 이 �
 | Protocol | network/protocol/Messages.hpp kProtocolVersion | 15 | 메시지 · 명령 와이어 바꿈 | 핸드셰이크에서 거절 (08) |
 | Simulation | core/simulation/SimVersion.hpp kSimVersion | 4 | 규칙 바꿈 (04 6장) — 골든 갱신 | 리플레이 "규칙 차이" |
 | World/Save | core/persist kWorldVersion · kSchemaVersion | 1 · 1 | 세이브 모양 바꿈 | 마이그레이션 (09, ADR-0013 · 0061) |
-| Package (.sbpkg) | core/package kFormatVersion | 2 (M6-T9 = 3) | 패키지 모양 바꿈 | 1 · 2 · (3) 읽기 |
+| Package (.sbpkg) | core/package kFormatVersion | 3 (에셋이 있을 때 — 없으면 2 를 쓴다, M6-T9) | 패키지 모양 바꿈 | 1 · 2 · 3 읽기 |
 | Project Manifest schemaVersion | core/project kManifestSchemaVersion | 3 | 키 더함 · 바꿈 | 1 ~ 3 읽기 |
 | Replay | core/replay kReplayVersion | 1 | 리플레이 파일 모양 바꿈 | — |
 | Studio Document | (studio.json · 레이아웃 · editor.json) | 없음 — [계획 v0.8] 1 부터 | 모양 바꿈 | 깨지면 옆으로 옮기고 기본 (M1-T3 규칙) |

@@ -11,6 +11,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "core/asset/AssetDatabase.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
 #include "core/package/PackSource.hpp"
@@ -143,8 +144,8 @@ TEST_SUITE("project") {
         CHECK(package::readPackageIndex(variant("magic", [](std::string& b) { b[0] = 'X'; }))
                   .error()
                   .message.find("게임 패키지") != std::string::npos);
-        CHECK(package::readPackageIndex(variant("format", [](std::string& b) { b[8] = 3; })).error().code ==
-              ErrorCode::VersionMismatch);
+        CHECK(package::readPackageIndex(variant("format", [](std::string& b) { b[8] = 4; })).error().code ==
+              ErrorCode::VersionMismatch); // 3 은 v0.6 부터 읽는다 (에셋)
         CHECK(package::readPackageIndex(variant("format0", [](std::string& b) { b[8] = 0; })).error().code ==
               ErrorCode::VersionMismatch);
         // index 의 digest 를 바꾸면 (파일은 그대로) — digest 가 목록과 다르다
@@ -309,5 +310,80 @@ TEST_SUITE("project") {
             fs::remove(presentation / "link.txt");
         }
         CHECK(package::buildPackage(dir, root.path / "ok.sbpkg", kEngine, catalog()).has_value());
+    }
+
+    TEST_CASE("package: 형식 3 — 프로젝트 에셋 (원본 · .meta · 목록), 에셋이 없으면 형식 2 그대로 (v0.6 M6-T9)") {
+        TempDir root("assets");
+        const fs::path dir = makeDemo(root.path);
+        const auto put = [](const fs::path& f, std::string_view bytes) {
+            fs::create_directories(f.parent_path());
+            std::ofstream(f, std::ios::binary | std::ios::trunc) << bytes;
+        };
+        const auto counter = [n = 1u]() mutable { return std::format("{:032x}", n++); };
+
+        // 에셋이 없으면 형식 2 (0.5 엔진도 연다)
+        const auto plain = package::buildPackage(dir, root.path / "plain.sbpkg", kEngine, catalog());
+        REQUIRE(plain.has_value());
+        CHECK(plain->index.format == 2);
+        CHECK(plain->index.assets.empty());
+
+        // id 없는 원본은 싣지 않고 멈춘다 — 받는 쪽이 id 로 찾는다
+        put(dir / "assets/art/hero.png", "PNG-hero");
+        const auto noId = package::buildPackage(dir, root.path / "noid.sbpkg", kEngine, catalog());
+        REQUIRE_FALSE(noId.has_value());
+        CHECK(noId.error().message.find("sbx asset import") != std::string::npos);
+        REQUIRE(asset::importAssets(dir, counter).has_value());
+        // 같은 id · 같은 내용의 사본 (실는다) · 짝 없는 .meta (싣지 않는다)
+        put(dir / "assets/backup/hero.png", "PNG-hero");
+        fs::copy_file(dir / "assets/art/hero.png.meta", dir / "assets/backup/hero.png.meta");
+        put(dir / "assets/gone.png.meta", std::format(R"({{"id": "{:032x}", "importer": "image@1"}})", 99));
+        const std::string id = asset::scanProjectAssets(dir).assets.at(0).id;
+
+        const auto built = package::buildPackage(dir, root.path / "g.sbpkg", kEngine, catalog());
+        REQUIRE_MESSAGE(built.has_value(), built.error().describe());
+        const package::PackageIndex& idx = built->index;
+        CHECK(idx.format == 3);
+        REQUIRE(idx.assets.size() == 2);
+        CHECK(idx.assets[0].path == "assets/art/hero.png");
+        CHECK(idx.assets[1].path == "assets/backup/hero.png");
+        CHECK(idx.assets[0].id == id);
+        CHECK(idx.assets[1].id == id);
+        CHECK(hasFile(idx, "assets/art/hero.png.meta"));
+        CHECK(hasFile(idx, "assets/backup/hero.png.meta"));
+        CHECK_FALSE(hasFile(idx, "assets/gone.png.meta"));
+
+        const auto read = package::readPackageIndex(built->file);
+        REQUIRE(read.has_value());
+        CHECK(read->format == 3);
+        CHECK(read->assets == idx.assets);
+        CHECK(package::verifyPackage(built->file).has_value());
+        const auto extracted = package::extractPackage(built->file, root.path / "cache");
+        REQUIRE(extracted.has_value());
+        const auto scan = asset::scanProjectAssets(extracted->dir);
+        CHECK(scan.ok());
+        REQUIRE(scan.find(id) != nullptr);
+        CHECK(scan.find(id)->copies.size() == 1);
+        // 같은 프로젝트 → 같은 바이트
+        const auto again = package::buildPackage(dir, root.path / "again.sbpkg", kEngine, catalog());
+        REQUIRE(again.has_value());
+        CHECK(*io::readFile(built->file) == *io::readFile(again->file));
+
+        // 목록의 id 를 바꾼 패키지 (같은 길이 — 파일 목록 digest 는 그대로) 는 .meta 와 달라 열지 않는다
+        std::string bytes = *io::readFile(built->file);
+        const usize at = bytes.find("\"id\":\"") + 6 + 31; // index 의 첫 "id" = 첫 에셋 (키 순 — assets 가 packs 앞)
+        REQUIRE(at < bytes.size());
+        bytes[at] = bytes[at] == 'f' ? 'e' : 'f';
+        std::ofstream(root.path / "tampered.sbpkg", std::ios::binary | std::ios::trunc) << bytes;
+        CHECK(package::readPackageIndex(root.path / "tampered.sbpkg").has_value()); // 모양은 맞다
+        const auto v = package::verifyPackage(root.path / "tampered.sbpkg");
+        REQUIRE_FALSE(v.has_value());
+        CHECK(v.error().message.find(".meta 와 다르다") != std::string::npos);
+        CHECK_FALSE(package::extractPackage(root.path / "tampered.sbpkg", root.path / "cache2").has_value());
+
+        // 같은 id · 다른 내용 (A3) 이면 만들지 않는다
+        put(dir / "assets/backup/hero.png", "PNG-red");
+        const auto clash = package::buildPackage(dir, root.path / "clash.sbpkg", kEngine, catalog());
+        REQUIRE_FALSE(clash.has_value());
+        CHECK(clash.error().message.find("A3") != std::string::npos);
     }
 }
