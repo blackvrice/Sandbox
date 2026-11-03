@@ -476,6 +476,23 @@ TEST_SUITE("project") {
         CHECK(hasIssue(project::parseManifest(withField("entryWorld", "\"../outside\"")).issues, "P4", "/entryWorld"));
     }
 
+    TEST_CASE("경로: 대소문자만 다른 파일 · 폴더는 충돌 (v0.6 NG-13 — Windows · macOS 에서 한 이름)") {
+        const auto clash = [](std::initializer_list<std::string> list) {
+            const std::vector<std::string> paths(list);
+            return project::findCaseConflict(paths);
+        };
+        CHECK_FALSE(clash({}).has_value());
+        CHECK_FALSE(clash({"a/b.png", "a/c.png", "ab", "a/B2.png"}).has_value());
+        CHECK_FALSE(clash({"Data/a.png", "Data/b.png"}).has_value()); // 같은 철자면 괜찮다
+        const auto file = clash({"art/Hero.png", "art/hero.png"});
+        REQUIRE(file.has_value());
+        CHECK(*file == "'art/Hero.png' · 'art/hero.png'");
+        const auto folder = clash({"Data/a.png", "data/b.png"}); // 파일 이름은 달라도 폴더가 합쳐진다
+        REQUIRE(folder.has_value());
+        CHECK(*folder == "'Data' · 'data'");
+        CHECK(clash({"x/README", "x/readme/y"}).has_value()); // 파일과 폴더가 한 이름
+    }
+
     TEST_CASE("프로젝트 검사: 매니페스트가 없으면 P1") {
         TempDir dir("missing");
         const auto catalog = coreCatalog();

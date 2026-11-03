@@ -76,6 +76,12 @@ Expected<void> addTree(const fs::path& dir, std::vector<fs::path>& files) {
     std::error_code ec;
     for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator();
          it.increment(ec)) {
+        // 링크는 따라가지 않는다 — 프로젝트 안의 링크가 밖의 파일 (열쇠 · 개인 파일) 을 패키지에 싣지 않게 (NG-13, 24
+        // P6)
+        if (it->is_symlink(ec)) {
+            return makeError(ErrorCode::InvalidArgument, "심볼릭 링크는 패키지에 담지 않는다 (밖을 가리킬 수 있다)",
+                             io::displayPath(it->path()));
+        }
         if (it->is_regular_file(ec)) {
             files.push_back(it->path());
         } else if (!it->is_directory(ec)) {
@@ -248,6 +254,16 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
         offset += e.size;
         idx.files.push_back(std::move(e));
     }
+    {
+        std::vector<std::string> paths;
+        paths.reserve(idx.files.size());
+        for (const PackageEntry& e : idx.files) {
+            paths.push_back(e.path);
+        }
+        if (const auto clash = project::findCaseConflict(paths)) {
+            return bad(std::format("대소문자만 다른 경로 {}", *clash));
+        }
+    }
     if (dataStart + offset != bytes.size()) {
         return bad("파일 데이터의 길이가 index 와 다르다 (잘렸거나 덧붙었다)");
     }
@@ -333,6 +349,18 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
         contents.emplace_back(rel, std::move(*bytes));
     }
     std::sort(contents.begin(), contents.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    {
+        std::vector<std::string> paths;
+        paths.reserve(contents.size());
+        for (const auto& [rel, bytes] : contents) {
+            paths.push_back(rel);
+        }
+        if (const auto clash = project::findCaseConflict(paths)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("대소문자만 다른 경로 {} — Windows · macOS 에서 한 파일이 된다", *clash),
+                             io::displayPath(projectDir));
+        }
+    }
     contents.erase(
         std::unique(contents.begin(), contents.end(), [](const auto& a, const auto& b) { return a.first == b.first; }),
         contents.end());

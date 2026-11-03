@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-03 — v0.6 NG-13: 경로 정책 — 대소문자만 다른 경로 거절 · sbx build 의 심볼릭 링크 거절
+
+**무엇을**
+
+- project::findCaseConflict (core/project/GameProject): 경로의 앞 마디마다 ASCII 소문자로 견줘 대소문자만 다른 파일 · 폴더 (파일과 폴더가 한 이름도)
+  를 찾는다. sbx build (buildPackage) · 팩 스냅숏 (snapshotPack — 설치 · digest) · 패키지 index 읽기 (readPackageIndex) 가 거절한다.
+- buildPackage 의 addTree: 심볼릭 링크를 따라가지 않고 거절 — 프로젝트 안의 링크가 밖의 파일을 패키지에 싣지 않게 (24 P6). 팩 스냅숏은 전부터 거절했다.
+- 조사로 확인한 것 (바꾸지 않음): 기존 P4 (checkRelativePath) 가 이미 ASCII [A-Za-z0-9_.-] · "/" · 200 바이트 · ".." · 끝 "." · Windows 예약 이름을
+  거절한다 — ASCII 만 받으니 NFC 문제는 생기지 않는다 (비 ASCII 이름을 받을 때 NFC 를 함께 [계획]). 길이는 2차 감사 4.12 의 240 대신 기존 200 그대로.
+
+**왜**
+
+- 2차 감사 SG-11 · NG-13 (ADR-0097 4): Linux 에서 만든 패키지 · 팩이 Windows · macOS 에서 파일을 잃거나 폴더가 합쳐진다. M6-T9 (프로젝트 에셋) 이
+  제작자 파일을 패키지에 담기 전에 막아야 한다.
+
+**검증**
+
+- test_game_project: findCaseConflict — 같은 철자 · 다른 이름 괜찮음, 파일 · 폴더 · 파일과 폴더 충돌, 보여 주는 문장.
+- test_game_package: 대소문자 두 파일 · 밖을 가리키는 링크로 빌드 실패 → 고치면 빌드. Windows (NTFS — 대소문자 안 가름, 링크 권한 없음) 에서는 두 갈래가
+  건너뛰고 MESSAGE 를 남겼다 (실행 확인) — Linux CI 가 실제로 돈다.
+- Windows MSVC Debug 빌드 · 전체 ctest 77 / 77 통과.
+- 덧붙여 찾은 것: doctest --success 로 돌리면 시험 도우미의 REQUIRE_MESSAGE(x.has_value(), x.error().describe()) 가 성공일 때도 메시지를 만들어
+  std::expected 단언에 걸린다 (기존 — ctest 는 --success 를 쓰지 않아 영향 없음). 이번에 고치지 않았다.
+
+**남은 일**
+
+- NG-12 에셋 id 충돌 정책 → M6-T9.
+
+---
+
 ## 2026-11-03 — v0.5 M7-T5: 버전 종료 0.5.0 (Technical Alpha) — 기준 판정 · 릴리스 노트 · 제품 버전
 
 **무엇을**

@@ -124,6 +124,18 @@ Expected<PackSnapshot> snapshotPack(const fs::path& dir) {
     }
     std::sort(snap.files.begin(), snap.files.end(),
               [](const PackageEntry& a, const PackageEntry& b) { return a.path < b.path; });
+    {
+        std::vector<std::string> paths;
+        paths.reserve(snap.files.size());
+        for (const PackageEntry& e : snap.files) {
+            paths.push_back(e.path);
+        }
+        if (const auto clash = project::findCaseConflict(paths)) {
+            return makeError(ErrorCode::ValidationFailed,
+                             std::format("대소문자만 다른 경로 {} — Windows · macOS 에서 한 파일이 된다", *clash),
+                             where);
+        }
+    }
     snap.digest = packageDigest(snap.files);
 
     const auto manifest = io::readFile(dir / "pack.json");

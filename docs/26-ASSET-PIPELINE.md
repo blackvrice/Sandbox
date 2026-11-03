@@ -121,8 +121,10 @@ NG-02 Asset Group     assets/groups.json {name, include: [glob · 라벨]} — �
                       그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.18] RT-08-4 (4.2)
 NG-12 id 충돌         같은 id · 같은 내용 = 하나, 같은 id · 다른 내용 = 오류 (고르지 않음), 복제된 .meta = 새 id, .meta 없음 = 새 id + 경고,
                       의존 패키지 에셋 = pkg:<name>/ 이름공간 (4.11)
-NG-13 경로 정책       "/" · UTF-8 · NFC, 대소문자 · NFC 충돌 = 오류, Windows 예약 이름 · 금지 문자 · 끝 공백 · 점 · .. · 절대 · 링크 거절,
-                      경로 240 · 구성 요소 120 바이트 — 어느 OS 에서도 같은 검사 (4.12)
+NG-13 경로 정책       ✅ (v0.6 — 2026-11-03) 경로는 ASCII [A-Za-z0-9_.-] · "/" · 200 바이트 · ".." · 끝 "." · Windows 예약 이름 거절 (기존 P4
+                      project::checkRelativePath — 그대로), 대소문자만 다른 파일 · 폴더 = 오류 (project::findCaseConflict — sbx build ·
+                      팩 스냅숏 · 패키지 index 읽기), sbx build 의 심볼릭 링크 거절 (팩 스냅숏은 전부터). ASCII 만 받으므로 NFC 문제는
+                      생기지 않는다 — 비 ASCII 파일 이름을 받을 때 NFC 정규화를 함께 [계획]. 길이는 4.12 의 240 대신 기존 200 (더 엄격) (4.12)
 NG-14 해시 분리       contentHash (시뮬레이션 — presentation 제외, 현행 core/content/ContentLoader.hpp) + presentationDigest (presentation · 에셋),
                       핸드셰이크에 둘 다 (프로토콜 16): 규칙 다름 = 거절, 표시만 다름 = 접속 + 경고 (4.13)
 NG-08 Export Profile  export/<이름>.json (플랫폼 · 아키텍처 · 렌더 백엔드 · 그룹) 검증, 미검증 플랫폼 = 경고 — v0.6 은 windows-x64 (4.8)

@@ -322,7 +322,8 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
           (index 순서, 빈틈 없음) — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB · packs 256
 index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}],
            packs: [{id, version, license, digest, path}]}
-          path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음
+          path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음 ·
+          대소문자만 다른 파일 · 폴더 없음 (project::findCaseConflict — v0.6 NG-13, 읽을 때도 거절). 빌드는 심볼릭 링크를 담지 않는다
           offset = 파일 데이터 시작에서 (앞 파일 크기 합)
 packs     (형식 2 — v0.4 M5-T2, ADR-0077 — 라이선스 요약 SBOM) 읽은 팩마다, 팩 id 순: pack.json 의 version · license (없으면 빈
           문자열), 팩 폴더 path ("content/<폴더>" · ".sandbox/packages/<팩>"), 팩 digest (그 폴더의 파일을 팩 기준 경로로 — 설치한
@@ -355,7 +356,7 @@ digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시�
 ```text
 digest    팩 폴더의 파일마다 "<sha256> <size> <path>\n" 를 path 순으로 이은 SHA-256 (9장의 packageDigest 그대로). path 는 팩 폴더
           기준 '/' 구분 — 폴더 이름 · 위치 · 시각과 무관 (같은 내용 = 같은 digest). 잠금 파일 (M3) 이 이 값을 고정한다
-훑기      일반 파일 · 폴더만 — 심볼릭 링크 · 장치 · 그 밖은 거절. 경로는 9장의 규칙 (project::checkRelativePath — '..' · 역슬래시 ·
+훑기      일반 파일 · 폴더만 — 심볼릭 링크 · 장치 · 그 밖은 거절. 대소문자만 다른 경로 거절 (NG-13). 경로는 9장의 규칙 (project::checkRelativePath — '..' · 역슬래시 ·
           예약 이름 금지). 파일 4,096 개 · 하나 16 MiB · 합 256 MiB 까지 (kMaxPackFiles · kMaxPackFileBytes · kMaxPackBytes).
           버전 관리 폴더 (.git · .svn · .hg) 와 캐시 표시 파일 (.sbx-pack-digest) 은 빼고 센다. pack.json 의 id 가 있어야 한다
 로컬 소스 의존의 path (11 1.3 · 18 5.2) 는 그것을 적은 팩 · 프로젝트 폴더 기준 (resolveLocalSource). 의존 키와 pack.json 의 id 가

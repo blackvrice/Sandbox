@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -173,5 +174,10 @@ struct NewProjectResult {
 // 경로 형식 검사 (P4): 비지 않은 상대 경로, '/' 구분, 마디는 [A-Za-z0-9_.-] 이고 "." · ".." · '.' 로 끝남 ·
 // Windows 예약 이름(con, nul, com1 …)이 아니다. 문제가 없으면 빈 optional, 있으면 이유
 [[nodiscard]] std::optional<std::string> checkRelativePath(std::string_view path);
+
+// 대소문자만 다른 경로 · 폴더 (v0.6 NG-13, ADR-0097): Windows · macOS 의 기본 파일 시스템은 같은 이름으로 본다 —
+// 리눅스에서 만든 패키지 · 팩을 거기서 풀면 파일이 겹치거나 폴더가 합쳐진다. paths (checkRelativePath 를 지난 ASCII
+// 경로) 의 앞 마디마다 철자를 견줘 대소문자만 다른 둘을 찾으면 "'<a>' · '<b>'", 없으면 빈 optional
+[[nodiscard]] std::optional<std::string> findCaseConflict(std::span<const std::string> paths);
 
 } // namespace sbx::project

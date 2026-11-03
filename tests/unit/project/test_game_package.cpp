@@ -275,4 +275,39 @@ TEST_SUITE("project") {
         CHECK(r.error().code == ErrorCode::ValidationFailed);
         CHECK_FALSE(fs::exists(dir / "build"));
     }
+
+    TEST_CASE("package: 대소문자만 다른 경로 · 심볼릭 링크는 담지 않는다 (v0.6 NG-13)") {
+        TempDir root("paths");
+        const fs::path dir = makeDemo(root.path);
+        const fs::path presentation = dir / "content" / "ecosystem" / "presentation";
+
+        // 대소문자: 대소문자를 가르는 파일 시스템 (Linux 기본) 에서만 두 파일을 만들 수 있다
+        std::ofstream(presentation / "Notes.txt") << "a";
+        std::ofstream(presentation / "notes.txt") << "b";
+        if (fs::exists(presentation / "Notes.txt") && fs::exists(presentation / "notes.txt") &&
+            *io::readFile(presentation / "Notes.txt") != *io::readFile(presentation / "notes.txt")) {
+            const auto r = package::buildPackage(dir, root.path / "case.sbpkg", kEngine, catalog());
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().message.find("대소문자만 다른 경로") != std::string::npos);
+            CHECK_FALSE(fs::exists(root.path / "case.sbpkg"));
+        } else {
+            MESSAGE("대소문자를 가르지 않는 파일 시스템 — 빌드 쪽은 건너뛴다 (findCaseConflict 단위 시험이 본다)");
+        }
+        fs::remove(presentation / "Notes.txt");
+        fs::remove(presentation / "notes.txt");
+
+        // 심볼릭 링크 — 프로젝트 밖 파일을 가리켜도 담지 않는다 (만들 권한이 없는 기계에서는 건너뛴다)
+        std::ofstream(root.path / "secret.txt") << "열쇠";
+        std::error_code ec;
+        fs::create_symlink(root.path / "secret.txt", presentation / "link.txt", ec);
+        if (ec) {
+            MESSAGE("심볼릭 링크를 만들 수 없어 건너뛴다: " << ec.message());
+        } else {
+            const auto r = package::buildPackage(dir, root.path / "link.sbpkg", kEngine, catalog());
+            REQUIRE_FALSE(r.has_value());
+            CHECK(r.error().message.find("심볼릭 링크") != std::string::npos);
+            fs::remove(presentation / "link.txt");
+        }
+        CHECK(package::buildPackage(dir, root.path / "ok.sbpkg", kEngine, catalog()).has_value());
+    }
 }

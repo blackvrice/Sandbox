@@ -181,6 +181,27 @@ std::optional<std::string> checkRelativePath(std::string_view path) {
     }
 }
 
+std::optional<std::string> findCaseConflict(std::span<const std::string> paths) {
+    // 앞 마디 (폴더) 까지 본다 — "Data/a.png" · "data/b.png" 도 한 폴더로 합쳐져 경로 철자가 달라진다
+    std::map<std::string, std::string_view> seen; // 소문자 → 처음 본 철자
+    for (const std::string& path : paths) {
+        for (usize end = path.find('/');; end = path.find('/', end + 1)) {
+            const std::string_view prefix = std::string_view(path).substr(0, end);
+            std::string lower(prefix);
+            std::transform(lower.begin(), lower.end(), lower.begin(),
+                           [](char ch) { return ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch - 'A' + 'a') : ch; });
+            const auto [it, inserted] = seen.emplace(std::move(lower), prefix);
+            if (!inserted && it->second != prefix) {
+                return std::format("'{}' · '{}'", it->second, prefix);
+            }
+            if (end == std::string::npos) {
+                break;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 ManifestParseResult parseManifest(std::string_view jsonText) {
     ManifestParseResult out;
     Collector c(out.issues);

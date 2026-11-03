@@ -38,7 +38,7 @@
 | M7-T5 | 버전 종료 0.5.0 (Technical Alpha) | A | Done | v0.5 | v0.5 | P0 | M7-T6 | releases/v0.5.0 (기준 판정 · 호환 번호) · VERSION 0.5.0 |
 | M6-T9 | 프로젝트 에셋 · .meta 안정 id · PNG 가져오기 · .sbpkg 3 · 루트 차례 | B | Planned | v0.5 | v0.6 | P0 | NG-12 · NG-13 | 자기 PNG 게임이 다른 폴더 · 빈 캐시에서 보인다 |
 | NG-12 | 에셋 id 충돌 정책 (같은 id · 다른 내용 = 오류, 복제 = 새 id) | B | Proposed | — | v0.6 | P0 | — | 충돌 픽스처 4 경우 시험 |
-| NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Proposed | — | v0.6 | P0 | — | 경로 픽스처 시험 (세 OS 규칙을 한 검사로) |
+| NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Done | — | v0.6 | P0 | — | test_game_project (findCaseConflict · P4 경로) · test_game_package (대소문자 · 링크 — Linux CI) |
 | NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Proposed | — | v0.6 | P0 | M6-T9 | 빌드 중 소스 수정 시험 · 같은 입력 = 같은 digest |
 | NG-02 | 동적 에셋 참조 — Asset Group · 라벨 (정적 참조 + 선언) | B | Proposed | — | v0.6 | P1 | M6-T9 | 그룹 포함 · 누락 경고 · 크기 보고 시험 |
 | NG-14 | 시뮬레이션 해시 · 표시 digest 분리 (핸드셰이크 경고) | A | Proposed | — | v0.6 | P1 | M6-T9 | 다른 PNG · 같은 규칙 = 접속 + 경고, 다른 규칙 = 거절 |
