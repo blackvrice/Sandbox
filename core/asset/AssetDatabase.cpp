@@ -50,7 +50,9 @@ Scanned scanImpl(const fs::path& projectDir) {
     for (auto it = fs::recursive_directory_iterator(root, ec); !ec && it != fs::recursive_directory_iterator();
          it.increment(ec)) {
         const fs::directory_entry& e = *it;
-        const std::string rel = std::string(kAssetDir) + "/" + fs::relative(e.path(), root, ec).generic_string();
+        // 글자로만 상대 경로를 만든다 — fs::relative 는 링크를 풀어 밖의 경로가 되고, 반복자의 ec 를 덮어 훑기를 멈출
+        // 수 있다
+        const std::string rel = std::string(kAssetDir) + "/" + e.path().lexically_relative(root).generic_string();
         // 링크는 따라가지 않는다 — 프로젝트 밖 파일이 에셋이 되지 않게 (NG-13 · 24 P6)
         if (e.is_symlink(ec)) {
             add(r.issues, Severity::Error, "A5", rel, "심볼릭 링크는 에셋이 될 수 없다 (밖을 가리킬 수 있다)");

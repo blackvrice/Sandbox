@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-03 — v0.6 NG-12 고침: 에셋 훑기가 링크를 경로로 풀던 것 · 시험의 복사 루프 (CI 8c1e11a 실패)
+
+**무엇을**
+
+- core/asset/AssetDatabase: 상대 경로를 fs::relative 대신 lexically_relative 로. fs::relative 는 심볼릭 링크를 풀어 "assets/../secret.txt" 가 됐고
+  (A5 가 "assets/link.png" 로 나오지 않음), 반복자와 같은 error_code 를 덮어 훑기를 조용히 멈출 수 있었다.
+- test_asset_database: `for (const std::string bad : {...})` → `const std::string&` (GCC · Clang -Wrange-loop-construct, CI -Werror).
+
+**왜**
+
+- CI run 41619619020 (8c1e11a) 다섯 잡 실패 — Linux · macOS 는 컴파일 (-Werror), Windows 는 링크 갈래 (CI 러너는 링크를 만들 수 있다 — 로컬은 권한이 없어
+  건너뛰었다). 로컬 빌드는 경고를 오류로 다루지 않아 잡지 못했다.
+
+**검증**
+
+- Windows MSVC Debug 빌드 · unit_project 통과 (로컬은 링크 갈래가 여전히 건너뜀 — CI 가 본다).
+
+**남은 일**
+
+- 로컬에서도 경고 = 오류로 빌드하는 길 (프리셋 · 스크립트) — 같은 실수를 미리 잡게.
+
+---
+
 ## 2026-11-03 — v0.6 NG-12: 에셋 id 충돌 정책 — core/asset/AssetDatabase (.meta · 훑기 · 가져오기 · 새 id)
 
 **무엇을**

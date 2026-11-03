@@ -80,7 +80,7 @@ TEST_SUITE("project") {
         const auto again = asset::parseAssetMeta(text);
         REQUIRE(again.has_value());
         CHECK(asset::writeAssetMeta(*again) == text);
-        for (const std::string bad :
+        for (const std::string& bad :
              {std::string("[]"), std::string("{"), meta("xyz"), std::format(R"({{"id": "{}"}})", kIdA),
               std::format(R"({{"id": "{}", "importer": "image@1", "settings": []}})", kIdA),
               std::format(R"({{"id": "{}", "importer": "image@1", "guid": 1}})", kIdA)}) {
