@@ -304,7 +304,8 @@ sbx fetch --git <URL> --rev <태그 · 커밋> [--id <팩>] [--cache-dir <폴더
     일시정지), 있으면 그 시나리오의 팩을 content/ 로 복사하고 첫 틱의 월드로. 옆의 <폴더>.sbx-new 에 만들어 검사(오류 · 경고 0)를
     통과해야 제자리로 — 실패하면 아무것도 남기지 않는다. 엔진 범위는 ">=<이 엔진> <1.0.0". (v0.3 M5-T1, ADR-0065) 스크립트
     SDK sdk/sandbox.d.ts · tsconfig.json 도 만든다 (팩의 scripts/*.ts — IDE 자동 완성 · tsc 검사).
-    check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기 · SDK 파일 P6 — .sbpkg 이면 P6 없음). "프로젝트 검사: 오류 N, 경고 M (…)".
+    check: 프로젝트 검사 (18 5.2 — 매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기 · SDK 파일 P6 — .sbpkg 이면 P6 없음 · 에셋 A1 ~ A5 — assets/ 가 있으면
+    "에셋: id N · id 없음 M"). "프로젝트 검사: 오류 N, 경고 M (…)".
     (v0.4 M1-T2) 매니페스트 dependencies 가 있으면 "의존: n" 과 "  <팩> <범위> → <찾은 version> · <license> [· path … | · git …@…]"
     줄 끝에 읽은 폴더 "(content/<팩>)" 또는 "(.sandbox/packages/<팩>)" (v0.4 M3-T2). 범위 밖이면 P7, 설치가 잠금
     sandbox.lock 과 다르면 · 잠금이 매니페스트와 어긋나면 · path · git 의존을 설치하지 않았으면 P8 오류 (18 5.2 — sbx install).

@@ -73,6 +73,7 @@ add_executable(SandboxTests
     unit/content/test_script_overlay.cpp
     unit/project/test_game_project.cpp
     unit/project/test_game_package.cpp
+    unit/project/test_asset_database.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
     unit/project/test_resolve.cpp

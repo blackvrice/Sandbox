@@ -119,8 +119,12 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 NG-01 빌드 스냅숏     시작 때 입력 목록 (경로 · 크기 · SHA-256), 읽은 내용이 다르면 실패 "빌드 중 바뀐 파일", 출력은 임시 → 원자적 이름 바꾸기 (4.1)
 NG-02 Asset Group     assets/groups.json {name, include: [glob · 라벨]} — 동적 참조 (스크립트가 이름으로 부르는 에셋) 는 그룹째 포함,
                       그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.18] RT-08-4 (4.2)
-NG-12 id 충돌         같은 id · 같은 내용 = 하나, 같은 id · 다른 내용 = 오류 (고르지 않음), 복제된 .meta = 새 id, .meta 없음 = 새 id + 경고,
-                      의존 패키지 에셋 = pkg:<name>/ 이름공간 (4.11)
+NG-12 id 충돌         ✅ (v0.6 — core/asset/AssetDatabase) .meta = {"id": 32 hex, "importer": "image@1", "settings": {}} (정규형 쓰기).
+                      훑기 (scanProjectAssets — 읽기만): 같은 id · 같은 내용 = 하나 (사본 목록), 같은 id · 다른 내용 = 오류 A3 (둘을 보여 주고
+                      고르지 않음), .meta 없음 A2 · 깨짐 A1 = id 없는 에셋 (경고 — 경로 해시로 돌아가지 않음), 짝 없는 .meta A4, 경로 · 크기
+                      (64 MiB) · 링크 · 개수 · 대소문자 A5. importAssets = id 없는 원본마다 겹치지 않는 새 id, assignNewAssetId = 복제본에 새 id
+                      (importer · settings 그대로). 프로젝트 검사 (sbx check · doctor) 가 assets/ 가 있으면 붙인다.
+                      [계획 M6-T9] 가져오기 명령 · 복제 자동 감지 (원본이 남아 있으면 복제본에 새 id) · 패키지 간 pkg:<name>/ 이름공간 (.sbpkg 3) (4.11)
 NG-13 경로 정책       ✅ (v0.6 — 2026-11-03) 경로는 ASCII [A-Za-z0-9_.-] · "/" · 200 바이트 · ".." · 끝 "." · Windows 예약 이름 거절 (기존 P4
                       project::checkRelativePath — 그대로), 대소문자만 다른 파일 · 폴더 = 오류 (project::findCaseConflict — sbx build ·
                       팩 스냅숏 · 패키지 index 읽기), sbx build 의 심볼릭 링크 거절 (팩 스냅숏은 전부터). ASCII 만 받으므로 NFC 문제는

@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 
+#include "core/asset/AssetDatabase.hpp"
 #include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/package/Lockfile.hpp"
@@ -688,6 +689,18 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     // 5. 도구 파일 (P6 — 경고만: 게임 실행에는 쓰지 않는다). 콘텐츠 · 월드 결과와 무관하게 본다
     if (options.toolFiles) {
         checkSdkFiles(projectDir, r, c);
+    }
+    // 6. 프로젝트 에셋 (v0.6 NG-12) — 표시 전용이라 콘텐츠 · 월드 결과와 무관하게 본다
+    {
+        std::error_code ec;
+        r.hasAssets = fs::is_directory(projectDir / std::string(asset::kAssetDir), ec);
+        if (r.hasAssets) {
+            asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+            r.assets = scan.assets.size();
+            r.unidentifiedAssets = scan.unidentified.size();
+            r.issues.insert(r.issues.end(), std::make_move_iterator(scan.issues.begin()),
+                            std::make_move_iterator(scan.issues.end()));
+        }
     }
 
     // 3b. GameMode (schemaVersion 2) — 프로젝트 콘텐츠에 있어야 한다

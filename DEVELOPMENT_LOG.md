@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-03 — v0.6 NG-12: 에셋 id 충돌 정책 — core/asset/AssetDatabase (.meta · 훑기 · 가져오기 · 새 id)
+
+**무엇을**
+
+- 새 모듈 core/asset/AssetDatabase (ADR-0090 3 의 자리 — UI · 렌더 모름, 시뮬레이션 밖):
+  - .meta = {"id": 32 hex (128 비트), "importer", "settings"} — 읽기 (모르는 키 · 모양 거절) · 정규형 쓰기 (같은 meta = 같은 바이트).
+  - scanProjectAssets (읽기만): <프로젝트>/assets 를 훑어 id → 경로 · SHA-256 · 크기 색인. 같은 id · 같은 내용 = 하나 (사본 목록), 같은 id · 다른
+    내용 = 오류 A3 (두 경로를 보여 주고 고르지 않음), .meta 없음 A2 · 깨짐 A1 = id 없는 에셋 (경고 — 경로 해시 id 로 돌아가지 않음), 짝 없는 .meta A4,
+    경로 (P4 규칙) · 64 MiB · 링크 · 개수 · 대소문자 A5.
+  - importAssets: id 없는 원본마다 겹치지 않는 새 id (이미 쓰인 · 짝 없는 .meta 의 id 를 피함). assignNewAssetId: 복제본에 새 id (importer · settings 그대로).
+- 프로젝트 검사 (validateProject — sbx check · doctor) 가 assets/ 가 있으면 A1 ~ A5 를 붙이고, sbx check 가 "에셋: id N · id 없음 M".
+
+**왜**
+
+- 2차 감사 4.11 · ADR-0097 3 — M6-T9 가 제작자 에셋을 패키지에 담기 전에, 복사한 .meta 로 생긴 같은 id 를 빌드 순서가 조용히 고르지 않게.
+
+**검증**
+
+- test_asset_database 6 케이스 (78 단언): 형식 왕복 · 거절, 사본, 충돌 → 새 id 로 고침, 없음 · 깨짐 → 가져오기, 짝 없음 · 경로 · 대소문자 · 링크
+  (Windows 에서는 대소문자 · 링크 갈래가 건너뜀 — MESSAGE), 프로젝트 검사.
+- check_includes 0 위반 (core/asset 은 render · UI 를 include 하지 않는다). Windows MSVC Debug 빌드 · 전체 ctest 77 / 77 통과.
+
+**남은 일**
+
+- M6-T9 — 가져오기 명령 (sbx · Studio) · 복제 자동 감지 · .sbpkg 형식 3 (에셋 싣기 · pkg:<name>/ 이름공간) · 클라이언트 에셋 루트 차례 · "asset:<id>" 참조.
+
+---
+
 ## 2026-11-03 — v0.6 NG-13: 경로 정책 — 대소문자만 다른 경로 거절 · sbx build 의 심볼릭 링크 거절
 
 **무엇을**

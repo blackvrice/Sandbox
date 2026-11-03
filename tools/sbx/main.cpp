@@ -103,6 +103,9 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
             std::printf("  시스템 %s\n", s.c_str());
         }
     }
+    if (r.hasAssets) {
+        std::printf("에셋: id %zu · id 없음 %zu (assets/ — .meta)\n", r.assets, r.unidentifiedAssets);
+    }
     const std::string world = r.worldOpened ? std::format("열림 — tick {}, 엔티티 {}", r.worldTick, r.worldEntities)
                                             : std::string("열지 못함");
     std::printf("프로젝트 검사: 오류 %zu, 경고 %zu (Prefab %zu, contentHash %s, 시작 월드 %s)\n", r.errorCount(),

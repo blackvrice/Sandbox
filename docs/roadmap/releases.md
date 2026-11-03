@@ -24,7 +24,7 @@
 ```text
 목표      자기 PNG 를 넣은 게임이 다른 폴더 · 빈 캐시에서 보인다. 같은 프로젝트 → 같은 패키지 digest. 에셋 id · 경로 충돌은 조용히 넘기지 않는다.
           게임 버전이 바뀐 세이브를 옮기는 계약
-태스크    NG-12 에셋 id 충돌 · NG-13 ✅ 경로 정책 · M6-T9 프로젝트 에셋 (.meta · .sbpkg 3) · NG-01 빌드 스냅숏 · NG-02 Asset Group ·
+태스크    NG-12 ✅ 에셋 id 충돌 · NG-13 ✅ 경로 정책 · M6-T9 프로젝트 에셋 (.meta · .sbpkg 3) · NG-01 빌드 스냅숏 · NG-02 Asset Group ·
           NG-14 해시 · digest 분리 · NG-08 Export Profile (Windows) · RT-06-12 비동기 로드 · NG-04 SaveGame 마이그레이션 계약
 ```
 

@@ -243,6 +243,8 @@ MyGame/
 5 스크립트 SDK 파일 (v0.3 M5-T1, ADR-0065 — P6 경고): sdk/sandbox.d.ts 가 이 엔진의 생성 결과와 다름 (CR 은 빼고 비교) · 스크립트가
   있는데 없음, tsconfig.json 이 JSON 아님 — 게임 패키지 (.sbpkg) 를 검사 · 열 때는 보지 않는다 (패키지는 sdk/ 를 싣지 않는다 —
   ValidateOptions.toolFiles, v0.5 M7-T6). 스크립트 요약 (팩 · 컴포넌트 · 시스템 수 · SDK 상태 — ProjectReport) 과 시스템마다 한 줄
+6 프로젝트 에셋 (v0.6 NG-12 — assets/ 가 있을 때, core/asset/AssetDatabase): A1 .meta 깨짐 · A2 .meta 없음 (경고 — id 없는 에셋),
+  A3 같은 id · 다른 내용 (오류 — 고르지 않음), A4 짝 없는 .meta (경고), A5 경로 · 크기 · 링크 · 개수 · 대소문자 (오류). 요약 "에셋: id N · id 없음 M"
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)
