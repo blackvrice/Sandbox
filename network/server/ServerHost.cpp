@@ -266,7 +266,7 @@ void ServerHost::netStep(f64 now) {
                 m_byClientId.erase(it->second.clientId);
                 {
                     const std::lock_guard lock(m_mutex);
-                    m_roster.push_back(RosterEvent{it->second.clientId, false});
+                    m_roster.push_back(RosterEvent{it->second.clientId, false, false, Role::Observer, {}});
                 }
                 m_clients.erase(it);
                 broadcastPlayers();
@@ -522,7 +522,7 @@ void ServerHost::dropConnection(ConnectionId conn, DisconnectReason reason) {
             releaseTicket(it->second, reason);
             m_byClientId.erase(it->second.clientId);
             const std::lock_guard lock(m_mutex);
-            m_roster.push_back(RosterEvent{it->second.clientId, false});
+            m_roster.push_back(RosterEvent{it->second.clientId, false, false, Role::Observer, {}});
         }
         m_clients.erase(it);
         if (active) {
