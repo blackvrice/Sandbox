@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-03 — v0.5 M7-T5: 버전 종료 0.5.0 (Technical Alpha) — 기준 판정 · 릴리스 노트 · 제품 버전
+
+**무엇을**
+
+- docs/releases/v0.5.0.md: 들어간 것 (M1 · M2 · M8 · M7-T6 · 문서 · 계획), 호환 번호 (프로토콜 14 → 15 — 0.4 와 접속 안 함, .sbc 5 → 9, Host API 지문,
+  kSimVersion · 세이브 · 패키지 · 잠금 · 리플레이 그대로), release-gates v0.5 행 판정 (항목마다 시험 이름), 처음 계획 (20 13.1) 의 done · deferred ·
+  removed 와 새 목표 버전, 알려진 문제, 데모 · 재현 명령.
+- CMake project VERSION 0.5.0. README · docs/README · 18 · 23 · roadmap (README · releases · task-registry · versioning) · VERSION-MIGRATION-MATRIX 의
+  지금 · 다음 줄.
+
+**왜**
+
+- ADR-0096 으로 v0.5 를 Technical Alpha 로 줄였고, 그 목표 (CLI 게임이 다른 환경에서 같은 해시) 를 M7-T6 이 시험으로 보였다.
+
+**검증**
+
+- 판정의 근거 시험 이름은 tests/ 에 파일이 있는지 확인. 골든 · 콘텐츠: `git diff 637be03..HEAD -- tests/golden content` 비어 있음 (데모 해시 그대로).
+- Windows MSVC Debug 빌드 · 전체 ctest 77 / 77 통과 (server_version · client_version 이 "0.5.0", release_bundle · tech_alpha_e2e 의 zip 이름).
+- CI: 앞 커밋 (564c8d5 · f40558c) run 41606261977 — 이 커밋 시점에 macOS · Linux GCC 통과, 나머지 셋은 진행 중 (push 는 그 결과 뒤).
+
+**남은 일**
+
+- 다음 버전 v0.6 (에셋 · 패키지 · SaveGame 기반) — NG-12 · NG-13 → M6-T9, NG-04. 트랙 A 병렬 M3-T1 (v0.7).
+
+---
+
 ## 2026-11-03 — v0.5 M7-T6: Technical Alpha A → B E2E (CTest tech_alpha_e2e) · 패키지 검사에서 P6 끔
 
 **무엇을**

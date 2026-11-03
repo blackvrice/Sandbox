@@ -9,13 +9,13 @@
 
 ---
 
-## v0.5 — Technical Alpha: 엔진 핵심 · CLI 로 만든 게임이 다른 폴더에서 같은 결과
+## v0.5 — Technical Alpha: 엔진 핵심 · CLI 로 만든 게임이 다른 폴더에서 같은 결과 ✅ 0.5.0 ([노트](../releases/v0.5.0.md))
 
 ```text
 단계      Technical Alpha (versioning 2장) — 내부 개발자 · CLI 허용
 목표      A 가 sbx 로 만든 엔진 에셋 게임을 B 가 다른 폴더 · 빈 캐시에서 열어 같은 자동 플레이 해시를 얻는다. 충돌 보고 · 진단이 남는다
 끝난 것   M1 (진단 · 배포) · M2 (게임플레이 API · Runtime v2 계약) · M8 (표준 라이브러리) · NG-11 (문서 검사기) — 등록부 Done
-태스크    M7-T6 ✅ Technical Alpha A → B (CTest tech_alpha_e2e) · M7-T5 버전 종료 0.5.0
+태스크    M7-T6 ✅ Technical Alpha A → B (CTest tech_alpha_e2e) · M7-T5 ✅ 버전 종료 0.5.0
 빠진 것   제작자 GUI 흐름 (28 G1 ~ G9) · 게임 UI · 자기 PNG — Closed Creator Alpha (v0.13) 몫
 ```
 
