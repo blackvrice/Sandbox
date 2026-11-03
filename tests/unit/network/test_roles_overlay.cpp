@@ -1,5 +1,7 @@
 // Phase 12C (ADR-0030): 접속자 표 · 역할 바꾸기 (10-EDITOR 7장 권한 표) · 주인 열쇠 · 월드 오버레이 전달.
+#include <algorithm>
 #include <doctest/doctest.h>
+#include <format>
 
 #include <memory>
 
@@ -223,6 +225,37 @@ TEST_SUITE("network") {
         Peer claims(noKey, "주장", "무엇이든");
         pump(noKey, {&claims});
         CHECK(claims.session.state() == ClientState::Rejected);
+    }
+
+    TEST_CASE(
+        "roles: 플레이어 표 — 접속 · 역할 바꿈 · 나감이 서버 명령으로 시뮬레이션의 표에 (v0.5 M2-T5 (4a), ADR-0093)") {
+        ServerHostDesc desc;
+        desc.ownerKey = "k";
+        Rig rig(desc);
+        Peer owner(rig, "owner", "k");
+        auto a = std::make_unique<Peer>(rig, "에이");
+        pump(rig, {&owner, a.get()});
+        const auto table = [&] {
+            std::vector<std::string> out; // id 순 (std::map)
+            for (const auto& [id, row] : rig.host->world().players()) {
+                out.push_back(std::format("{} {} {}", id, row.role, row.name));
+            }
+            return out;
+        };
+        const u16 aId = a->id();
+        std::vector<std::string> want{std::format("{} 4 owner", owner.id()), std::format("{} 2 에이", aId)};
+        std::sort(want.begin(), want.end());
+        CHECK(table() == want);
+        // 역할 바꿈 → 같은 줄의 역할
+        CHECK(setRole(rig, {&owner, a.get()}, owner, aId, Role::Player).accepted);
+        pump(rig, {&owner, a.get()});
+        want = {std::format("{} 4 owner", owner.id()), std::format("{} 1 에이", aId)};
+        std::sort(want.begin(), want.end());
+        CHECK(table() == want);
+        // 나감 → 표에서 빠진다
+        a->session.disconnect();
+        pump(rig, {&owner}, 6);
+        CHECK(table() == std::vector<std::string>{std::format("{} 4 owner", owner.id())});
     }
 
     TEST_CASE("roles: the permission matrix for role changes (10-EDITOR 7)") {

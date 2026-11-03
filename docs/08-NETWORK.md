@@ -263,6 +263,8 @@ EditContent  종류 u8 (0 prefab · 1 rule · 2 behavior — 그 밖은 형식 �
 GameControl  op u8 (1 start · 2 abort — 그 밖은 형식 오류). 권한 = 실행 제어 (admin 부터)
 PlayerAction action id str(64), position f32 × 2 (유한). 권한 = 플레이어 행동 (player 부터). 대상은 서버 시뮬레이션이 고른다
 PlayerSignal name str(64), value i32. 권한 = 플레이어 행동 (player 부터). 선언 · 범위 · perTick 은 서버 시뮬레이션이 본다 (11 6.1장)
+(태그 없음) PlayerJoin · PlayerLeave — 서버 내부 명령 (v0.5 M2-T5 (4a), ADR-0093). ServerHost 가 접속 · 역할 바꿈 · 나감 · 월드 바꿈 뒤 맞추기 때
+             시뮬레이션의 플레이어 표에 넣는다. 와이어 형식이 없다 — 프로토콜 번호 그대로 (15)
 엔티티 참조  NetEntityId varint          좌표 · 속도  f32 (유한해야 한다)          타일  zigzag varint (i32 범위)
 컴포넌트 값 · 패치  JSON 텍스트 (≤ 16 KB, 파싱되어야 한다 — 리플렉션 JsonReader 가 적용)   prefab · material id  str(64)
 개수 상한   대상 4096 · 컴포넌트 64 · 칠할 타일 4096 · 브러시 반지름 31 · 한 틱 3600 (03 4.1 · SimulationWorld 상수)

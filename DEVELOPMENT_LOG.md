@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-03 — v0.5 M2-T5 (4a): 플레이어 표 — 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole
+
+**무엇을**
+
+- SimulationWorld 안의 플레이어 표 (players() — std::map<ClientId, { role, name }>, id 순). ECS 개체가 아니고 세이브 · WorldHash 밖.
+- 서버 명령 PlayerJoin { player, role, name (64 바이트) } (같은 id = 바꾸기) · PlayerLeave { player } — issuer 가 서버가 아니면 거절. 리플레이 JSON
+  op "player.join" · "player.leave". 와이어 형식 없음 (코덱은 쓰려 하면 단언, 읽는 쪽은 태그가 없어 형식 오류) — 프로토콜 15 그대로.
+- ServerHost: roster 이벤트에 이름 · 역할 · 역할만 바뀜을 싣고, Sim 절반이 서버 명령으로 넣는다 (issuer 0 — 같은 틱의 클라이언트 명령 · 스크립트보다
+  먼저). 월드를 바꾼 뒤 (처음 · 불러오기 · 재시작 · 테스트 플레이 · 재생 끝) 한 번 맞추기. 재생 중에는 표만 고치고 명령은 넣지 않는다.
+- 스크립트 (서버): ctx.playerCount() · ctx.playerId(index) (범위 밖 -1) · ctx.playerRole(id) (없으면 -1). Host API 지문 0xf5e11716b49e9a6e →
+  0xd3dc282f66cc8820 (Host API 1 · .sbc 9 그대로), sandbox.d.ts 넷 다시 만듦.
+
+**왜 · 바꾼 설계**
+
+- 20 3.4 · 23 카드 — 스크립트가 플레이어를 알아야 하고, 결정론을 지키려면 명령으로 들어와야 한다.
+- 처음 구현은 플레이어 = ECS 개체 (game.player 컴포넌트) 였다. 전체 ctest 에서 sample_playthrough · sample_mana_regen · sample_stash 가 실패 —
+  클라이언트 호스트의 로컬 플레이어 개체가 뒤 개체의 saveId 를 밀어 (saveId 키 난수) **같은 게임이 헤드리스 서버 (점수 −60) 와 클라이언트 (−74)
+  에서 달랐다**. 접속이 게임 결과를 바꾸면 안 되므로 버리고 ECS 밖 표로 바꿨다 (ADR-0093 — 측정 근거 포함). 그 구현에서 고쳤던 개체 수 시험들은
+  되돌렸다.
+- 20 3.4 의 ctx.players(): PlayerInfo[] 는 구조체 배열 결과가 필요해 스칼라 함수 셋으로. 이름 · 팀 · 클라이언트 쪽은 [계획].
+- 행동 · 신호 · spawn 의 owner 자동 적기는 기존 리플레이 결과를 바꾸므로 kSimVersion 을 올리는 따로 조각 (4b).
+
+**검증**
+
+- 새 test_player_table (넣기 · 바꾸기 · 빼기 · 서버만 · 잘못된 값 · 개체 수 · WorldHash 그대로 (뒤 개체 saveId 그대로) · JSON 왕복 · 스크립트 세 함수),
+  test_roles_overlay 에 접속 둘 → 표 둘 · 역할 바꿈 · 나감. test_checker 지문 고정.
+- kSimVersion 4 그대로. Windows MSVC Debug 빌드 · 전체 ctest 74 / 74 통과 (sample_playthrough · mana_regen · stash 포함), check_includes 0 위반.
+
+**남은 일**
+
+- M2-T5 (4b) owner 적기 (kSimVersion 5) → M2-T7 → M2-T6. 이름을 스크립트에서 읽기 (Host 문자열 결과) 는 [계획].
+
+---
+
 ## 2026-11-03 — Studio 감사: 벤치마크 · Gap Matrix · Studio · 에셋 · 스크립트 IDE 설계 · 로드맵 세 트랙 (+ 언어 서비스 프로토타입)
 
 **무엇을**

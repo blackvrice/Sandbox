@@ -82,6 +82,7 @@ add_executable(SandboxTests
     unit/game/test_game_rules.cpp
     unit/game/test_player_action.cpp
     unit/game/test_player_signal.cpp
+    unit/game/test_player_table.cpp
     unit/game/test_game_score.cpp
     unit/game/test_trigger_run.cpp
     unit/game/test_play_script.cpp

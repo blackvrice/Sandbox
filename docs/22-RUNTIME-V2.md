@@ -36,7 +36,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 9 · Host API 1 (지문 0xf5e11716b49e9a6e — M2-T5 (3) 뒤) · kSimVersion 4 · 프로토콜 15 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 9 · Host API 1 (지문 0xd3dc282f66cc8820 — M2-T5 (4a) 뒤) · kSimVersion 4 · 프로토콜 15 · .sbpkg 2 · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 

@@ -131,9 +131,22 @@ struct PlayerSignal {
     i32 value = 0;
 };
 
-using CommandPayload = std::variant<CreateEntity, DeleteEntity, MoveEntity, AddComponent, RemoveComponent,
-                                    ChangeComponent, PaintTerrain, PauseSimulation, ResumeSimulation, StepSimulation,
-                                    SetSimulationSpeed, EditContent, GameControl, PlayerAction, PlayerSignal>;
+// 플레이어 표 (v0.5 M2-T5 (4), ADR-0093) — 서버만 낸다 (issuer = kServerIssuer, 와이어 형식 없음 — 클라이언트가 보낼 수
+// 없다). Join = game.player 개체를 만들거나 (같은 id 가 있으면) 이름 · 역할을 바꾼다, Leave = 그 개체를 지운다. 접속 ·
+// 나감 · 역할 바꿈 · 월드 바꿈 (맞추기) 때 ServerHost 가 넣는다 — 명령이라 리플레이가 같은 플레이어 표를 다시 만든다
+struct PlayerJoin {
+    ClientId player = 0;
+    u8 role = 0; // net::Role 값
+    std::string name;
+};
+struct PlayerLeave {
+    ClientId player = 0;
+};
+
+using CommandPayload =
+    std::variant<CreateEntity, DeleteEntity, MoveEntity, AddComponent, RemoveComponent, ChangeComponent, PaintTerrain,
+                 PauseSimulation, ResumeSimulation, StepSimulation, SetSimulationSpeed, EditContent, GameControl,
+                 PlayerAction, PlayerSignal, PlayerJoin, PlayerLeave>;
 
 struct SimCommand {
     CommandHeader header;

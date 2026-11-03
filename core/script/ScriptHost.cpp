@@ -70,6 +70,15 @@ vm::HostResult ctxRemove(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxTime(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.time(args);
 }
+vm::HostResult ctxPlayerCount(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.playerCount(args);
+}
+vm::HostResult ctxPlayerId(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.playerId(args);
+}
+vm::HostResult ctxPlayerRole(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.playerRole(args);
+}
 vm::HostResult ctxRandom(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.random(args);
 }
@@ -139,6 +148,9 @@ constexpr HostBinding kBindings[] = {
      &ctxAdd},
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
     {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
+    {"ctx.playerCount", AbiType::I32, {AbiType::ServerContext}, 1, &ctxPlayerCount},
+    {"ctx.playerId", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerId},
+    {"ctx.playerRole", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerRole},
     {"ctx.random", AbiType::Number, {AbiType::ServerContext}, 1, &ctxRandom},
     {"ctx.randomInt", AbiType::I32, {AbiType::ServerContext, AbiType::I32, AbiType::I32}, 3, &ctxRandomInt},
     {"ctx.near",
@@ -773,6 +785,38 @@ vm::HostResult ScriptHost::remove(std::span<const vm::HostArg> args) {
 
 vm::HostResult ScriptHost::time(std::span<const vm::HostArg>) {
     return {true, vm::Value::f64v(static_cast<f64>(m_tick) / static_cast<f64>(sim::kTickRate)), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::playerCount(std::span<const vm::HostArg>) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    return {true, vm::Value::i32v(static_cast<i32>(m_world->players().size())), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::playerId(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const i32 index = args[1].value.asI32();
+    const auto& players = m_world->players(); // std::map — id 순
+    if (index < 0 || static_cast<usize>(index) >= players.size()) {
+        return {true, vm::Value::i32v(-1), {}, {}, 0};
+    }
+    return {true, vm::Value::i32v(static_cast<i32>(std::next(players.begin(), index)->first)), {}, {}, 0};
+}
+
+vm::HostResult ScriptHost::playerRole(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const i32 id = args[1].value.asI32();
+    if (id <= 0 || id > 0xFFFF) {
+        return {true, vm::Value::i32v(-1), {}, {}, 0};
+    }
+    const auto& players = m_world->players();
+    const auto it = players.find(static_cast<cmd::ClientId>(id));
+    return {true, vm::Value::i32v(it == players.end() ? -1 : static_cast<i32>(it->second.role)), {}, {}, 0};
 }
 
 rnd::CounterRng* ScriptHost::stream() {

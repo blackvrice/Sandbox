@@ -3,6 +3,7 @@
 #include <charconv>
 #include <format>
 #include <limits>
+#include <optional>
 #include <type_traits>
 
 namespace sbx::cmd {
@@ -142,6 +143,10 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "action"}, {"action", p.action}, {"position", vec(p.position)}};
             } else if constexpr (std::is_same_v<P, PlayerSignal>) {
                 return Json{{"op", "signal"}, {"name", p.name}, {"value", p.value}};
+            } else if constexpr (std::is_same_v<P, PlayerJoin>) {
+                return Json{{"op", "player.join"}, {"player", p.player}, {"role", p.role}, {"name", p.name}};
+            } else if constexpr (std::is_same_v<P, PlayerLeave>) {
+                return Json{{"op", "player.leave"}, {"player", p.player}};
             } else if constexpr (std::is_same_v<P, GameControl>) {
                 return Json{{"op", "game"}, {"action", p.op == GameControlOp::Start ? "start" : "abort"}};
             } else {
@@ -308,6 +313,27 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
             s.value = static_cast<i32>(v);
         }
         return CommandPayload{std::move(s)};
+    }
+    if (op == "player.join" || op == "player.leave") {
+        const auto u = [&](const char* key, u64 max) -> std::optional<u64> {
+            if (!j.contains(key) || !j[key].is_number_unsigned() || j[key].get<u64>() > max) {
+                return std::nullopt;
+            }
+            return j[key].get<u64>();
+        };
+        const auto player = u("player", 0xFFFF);
+        if (!player || *player == 0) {
+            return makeError(ErrorCode::ParseError, std::format("{} 은 {{player: 1~65535 …}}", op));
+        }
+        if (op == "player.leave") {
+            return CommandPayload{PlayerLeave{static_cast<ClientId>(*player)}};
+        }
+        const auto role = u("role", 4);
+        if (!role || !j.contains("name") || !j["name"].is_string()) {
+            return makeError(ErrorCode::ParseError, "player.join 은 {player, role: 0~4, name}");
+        }
+        return CommandPayload{
+            PlayerJoin{static_cast<ClientId>(*player), static_cast<u8>(*role), j["name"].get<std::string>()}};
     }
     if (op == "game") {
         const std::string action =

@@ -5,6 +5,7 @@
 #include <type_traits>
 
 #include "core/simulation/SimulationWorld.hpp"
+#include "foundation/assert/Assert.hpp"
 
 namespace sbx::net {
 
@@ -156,6 +157,10 @@ void writePayload(BitWriter& w, const cmd::CommandPayload& payload) {
                 w.writeU8(static_cast<u8>(PayloadTag::PlayerAction));
                 w.writeString(p.action);
                 writeVec2(w, p.position);
+            } else if constexpr (std::is_same_v<T, cmd::PlayerJoin> || std::is_same_v<T, cmd::PlayerLeave>) {
+                // 서버 내부 명령 (플레이어 표 — ADR-0093) — 클라이언트는 보내지 않고 서버는 명령을 내보내지 않는다.
+                // 읽는 쪽은 이 종류의 태그가 없어 형식 오류로 끊는다
+                SBX_VERIFY(false, "PlayerJoin · PlayerLeave 는 와이어 형식이 없다 (서버 내부 명령)");
             } else if constexpr (std::is_same_v<T, cmd::PlayerSignal>) {
                 w.writeU8(static_cast<u8>(PayloadTag::PlayerSignal));
                 w.writeString(p.name);

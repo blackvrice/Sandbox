@@ -411,7 +411,7 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
         sendTo(conn, w);
         {
             const std::lock_guard lock(m_mutex);
-            m_roster.push_back(RosterEvent{client.clientId, true});
+            m_roster.push_back(RosterEvent{client.clientId, true, false, client.role, client.name});
         }
         log::info("net", "{}: {} (#{}, {}) — 연결 {}", resumed ? "다시 들어옴" : "들어옴", client.name, client.clientId,
                   roleName(client.role), conn);
@@ -574,6 +574,10 @@ void ServerHost::onSetRole(ConnectionId conn, Client& client, const SetRoleReque
                 log::info("net", "역할: {} (#{}) {} → {} (바꾼 사람 {} #{})", who.name, who.clientId,
                           roleName(who.role), roleName(request.role), client.name, client.clientId);
                 who.role = request.role;
+                {
+                    const std::lock_guard lock(m_mutex);
+                    m_roster.push_back(RosterEvent{who.clientId, true, true, who.role, who.name}); // 플레이어 표의 역할
+                }
                 if (const auto t = m_tickets.find(who.token); t != m_tickets.end()) {
                     t->second.role = who.role; // 다시 접속해도 바뀐 역할
                 }
@@ -650,6 +654,14 @@ void ServerHost::simStep(f64 now) {
     }
     std::vector<Outgoing> overlayOut; // 월드 오버레이 (12C) — 스냅숏보다 먼저 내보낸다
     for (const RosterEvent& r : roster) {
+        if (r.joined) { // 플레이어 표 (ADR-0093) — 재생 중에도 고친다 (명령은 재생이 끝난 뒤 맞추기로)
+            m_simPlayers[r.clientId] = SimPlayer{r.name, r.role};
+        } else {
+            m_simPlayers.erase(r.clientId);
+        }
+        if (r.roleOnly) {
+            continue;
+        }
         if (!r.joined) {
             m_inspect.erase(r.clientId);
         } else {
@@ -665,7 +677,9 @@ void ServerHost::simStep(f64 now) {
     }
     if (m_replication) {
         for (const RosterEvent& r : roster) {
-            r.joined ? m_replication->addClient(r.clientId) : m_replication->removeClient(r.clientId);
+            if (!r.roleOnly) {
+                r.joined ? m_replication->addClient(r.clientId) : m_replication->removeClient(r.clientId);
+            }
         }
         for (const auto& [id, a] : acks) {
             m_replication->onAck(id, a.epoch, a.snapshotId);
@@ -757,12 +771,19 @@ void ServerHost::simStep(f64 now) {
             worldOut.push_back(
                 Outgoing{0, WorldOpResultMsg{WorldOpKind::Play, m_playback->name, !res.mismatch.has_value(), detail}});
             m_playback.reset();
+            m_reconcilePlayers = true; // 재생한 월드의 플레이어 표를 지금 접속에 맞춘다 (다음 단계)
             // 보통 월드로 돌아와 멈춰 둔다 (살펴보고 이어서 편집)
             world.enqueue(
                 cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, cmd::kServerIssuer, ++m_serverSequence},
                                 cmd::PauseSimulation{}});
         }
     } else {
+        // 플레이어 표 (ADR-0093): 월드가 바뀌었으면 새 월드의 game.player 를 접속한 클라이언트에 맞추고, 이번 배치의
+        // 접속 · 나감 · 역할 바꿈을 서버 명령으로 — 명령이라 리플레이 · 세이브가 같은 표를 다시 만든다
+        for (cmd::CommandPayload& p : playerCommands(world, roster)) {
+            world.enqueue(cmd::SimCommand{
+                cmd::CommandHeader{world.currentTick() + 1, cmd::kServerIssuer, ++m_serverSequence}, std::move(p)});
+        }
         // M4: executeTick 은 서버가 정한다 — 다음 tick() 이 적용할 틱 (일시정지 편집 단계도 "다음 틱" 몫을 적용한다)
         for (auto& c : commands) {
             m_awaitingResult.emplace(c.issuer, c.sequence);
@@ -1353,6 +1374,34 @@ u32 ServerHost::playerCount() const {
     return n;
 }
 
+std::vector<cmd::CommandPayload> ServerHost::playerCommands(sim::SimulationWorld& world,
+                                                            const std::vector<RosterEvent>& roster) {
+    std::vector<cmd::CommandPayload> out;
+    const auto join = [](u16 id, const SimPlayer& p) { return cmd::PlayerJoin{id, static_cast<u8>(p.role), p.name}; };
+    if (m_reconcilePlayers) {
+        m_reconcilePlayers = false;
+        // 새 월드의 표 (불러온 월드는 비어 있다, 테스트 플레이를 멈춰 돌아온 편집 월드는 그때의 표) 를 지금 접속에
+        // 맞춘다 — 없는 쪽은 나가고 (id 순), 접속한 쪽은 넣는다
+        for (const auto& [id, row] : world.players()) {
+            if (!m_simPlayers.contains(id)) {
+                out.push_back(cmd::PlayerLeave{id});
+            }
+        }
+        for (const auto& [id, p] : m_simPlayers) {
+            out.push_back(join(id, p));
+        }
+        return out; // 이번 배치의 roster 는 위 표에 이미 들어 있다
+    }
+    for (const RosterEvent& r : roster) {
+        if (r.joined) {
+            out.push_back(join(r.clientId, m_simPlayers[r.clientId]));
+        } else {
+            out.push_back(cmd::PlayerLeave{r.clientId});
+        }
+    }
+    return out;
+}
+
 void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, WorldChangeReason reason,
                               const std::string& name, std::vector<Outgoing>& out,
                               std::unique_ptr<scenario::ScenarioRunner>* keepOld) {
@@ -1365,6 +1414,7 @@ void ServerHost::replaceWorld(std::unique_ptr<scenario::ScenarioRunner> runner, 
     }
     auto& world = m_runner->world();
     ++m_generation;
+    m_reconcilePlayers = true; // 새 월드의 game.player 를 접속에 맞춘다 (다음 단계 — playerCommands)
     m_inspect.clear();
     m_awaitingResult.clear();
     m_meta.minChunkX = world.desc().bounds.minChunk.x;

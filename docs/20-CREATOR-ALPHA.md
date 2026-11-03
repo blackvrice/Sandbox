@@ -188,6 +188,12 @@ ctx.session: { state, tick, winner, teams } (읽기)
 주의        접속 · 이름은 리플레이에 기록된 것만 (재생 때 같은 값) — 플레이어 표 변경은 명령 스트림에 남는다 [계획 M2-T5 (4) — 거기서 확인]
 ```
 
+✅ M2-T5 (4a) — **위 설계를 바꿨다** ([ADR-0093](adr/0093-player-table-server-commands.md)): 플레이어 표는 시뮬레이션 안의 표 (ECS 개체가 아니다 — 개체로 두었더니
+saveId 가 밀려 같은 게임이 헤드리스 서버와 클라이언트 호스트에서 달랐다, 쟀다), 세이브 · WorldHash 밖. 바꾸는 길은 서버 명령 PlayerJoin ·
+PlayerLeave (와이어 형식 없음 — ServerHost 가 접속 · 역할 바꿈 · 나감 · 월드 바꿈 뒤 맞추기 때 넣는다, 리플레이에 남는다 — 위 "확인" 을 닫는다).
+스크립트 (서버): `ctx.playerCount()` · `ctx.playerId(index)` (id 순, 범위 밖 -1) · `ctx.playerRole(id)` (없으면 -1). 세션은
+`ctx.query(GameSession)` (기존 접근 표). 이름 · 팀 · 클라이언트 쪽 API 는 [계획].
+
 ### 3.5 이벤트 (onEvent 의 새 종류)
 
 ```text
@@ -401,8 +407,9 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 | M2-T5 (1) ✅ | game.owner 엔진 컴포넌트 · 접근 표 · 골든 영향 측정 | core/components, script/api/EngineComponents | — | M2-T3 | 골든 · 리플레이 해시 그대로 (3.6) | kSimVersion 4 유지 |
 | M2-T5 (2) ✅ | server onEvent "action" (받아들여진 PlayerAction — { action, player, pos, targets }) | core/simulation (17d 수집), core/script (SystemEvents), script/api · sdk | ScriptEvent action | M2-T5 (1) | 행동 → 이벤트 순서 · 필드 · 거절된 행동 없음 · 두 월드 해시 | 오목의 "돌 놓기" 가 스크립트로 판정된다 |
 | M2-T5 (3) ✅ | PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal" | core/command (PlayerSignal), core/content (signals.json · V 규칙), network (15), core/simulation, core/script | PlayerSignal, ScriptEvent signal | M2-T5 (2) | 위조 신호 거절 (선언 · 범위 · rate · 역할) · 왕복 · net 수렴 · 퍼즈 | 시험 명령이 서버 규칙을 부른다 |
-| M2-T5 (4) | ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 | core/game (플레이어 표 — 기록된 것만), core/script/ScriptHost, script/api · sdk | PlayerInfo · SessionInfo | M2-T5 (3) | id 순 · 재생 같은 값 · 골든 측정 (바뀌면 kSimVersion 5) | 스크립트가 "누구의 돌" 을 안다 |
-| M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
+| M2-T5 (4a) ✅ | 플레이어 표 — 시뮬레이션 안 표 · 서버 명령 PlayerJoin · PlayerLeave · ctx.playerCount · playerId · playerRole (ADR-0093) | core/command, core/simulation, network/server/ServerHost, script/api/HostApi, core/script/ScriptHost | PlayerJoin · PlayerLeave | M2-T5 (3) | 넣기 · 바꾸기 · 빼기 · 서버만 · JSON 왕복 · 해시 · 개체 그대로 · 스크립트 (test_player_table), 접속 · 역할 · 나감 (test_roles_overlay) | 스크립트가 플레이어를 안다 |
+| M2-T5 (4b) | 행동 · 신호 · 스크립트 spawn 이 game.owner 를 적기 — kSimVersion 5 (기존 리플레이의 spawn 효과 결과가 바뀐다) | core/simulation (applyEffectNow · 구조 변경), core/script | — | M2-T5 (4a) | 골든 · 리플레이 해시 다시 · owner 값 | "누구의 돌" 을 owner 로 안다 |
+| M2-T7 | Runtime v2 계약 동결 (23 1장 · ADR-0086 6) — 예약 콜백 이름 · Host 표 capability 열 · 매니페스트 network.model ("snapshot" 만) | script/api/HostApi, script/lang/Checker, core/project, script/sdk | HostFunction.capability | M2-T5 (4b) | 예약 이름 진단 · 지문 고정 · network.model 거절 · 벤치 회귀 < 2 % | v0.6 콜백을 넣어도 v0.5 게임 · SDK 의 뜻이 그대로 |
 | M2-T6 | client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) | core/script (ClientScriptHost), apps/client, platform/audio | ClientInput, SoundEvent (Capability InputRead · ClientSend · Sound — 22 3.2) | M2-T5 (3), M2-T7 | 입력 → send → 서버 이벤트 (로컬 세션), 같은 프레임 행동 잃음 없음, 소리 이벤트 수 (Null) | client 스크립트가 클릭을 신호로 보낸다 |
 
 ### Phase 3 — 게임 UI (M3)

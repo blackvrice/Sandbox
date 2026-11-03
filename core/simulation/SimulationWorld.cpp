@@ -860,6 +860,12 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
     if (const auto* c = std::get_if<cmd::PlayerSignal>(&payload)) {
         return applyPlayerSignal(*c);
     }
+    if (const auto* c = std::get_if<cmd::PlayerJoin>(&payload)) {
+        return applyPlayerJoin(*c);
+    }
+    if (const auto* c = std::get_if<cmd::PlayerLeave>(&payload)) {
+        return applyPlayerLeave(*c);
+    }
 
     // --- 게임 진행 (v0.2 M2-T3) -------------------------------------------------
     if (const auto* c = std::get_if<cmd::GameControl>(&payload)) {
@@ -991,6 +997,35 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerSignal(const cmd:
     ++sent;
     if (m_scriptSystems && m_scriptSystems->subscribes(script::api::GameEventKind::Signal)) {
         m_scriptSignals.push_back(ScriptSignal{c.name, static_cast<i32>(m_applyingIssuer), c.value});
+    }
+    return std::vector<NetEntityId>{};
+}
+
+// --- 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) ---------------------------------------------------------------------
+// 서버 명령만 (issuer = 서버). ECS 개체가 아니다 — 개체로 두면 saveId 가 밀려 (saveId 를 키로 쓰는 난수 흐름이 바뀌어)
+// 같은 게임이 헤드리스 서버와 클라이언트 호스트에서 달라진다 (쟀다 — ADR-0093). 표는 세이브 · WorldHash 밖이고 명령
+// (리플레이) 으로만 바뀐다. Join = 같은 id 면 역할 · 이름을 바꾸고 없으면 더한다, Leave = 뺀다 (없으면 거절)
+Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerJoin(const cmd::PlayerJoin& c) {
+    if (m_applyingIssuer != cmd::kServerIssuer) {
+        return makeError(ErrorCode::PermissionDenied, "PlayerJoin 은 서버만 낸다");
+    }
+    if (c.player == cmd::kServerIssuer || c.role > 4) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("플레이어 {} · 역할 {} 가 맞지 않다", c.player, c.role));
+    }
+    if (c.name.size() > kMaxPlayerNameBytes) {
+        return makeError(ErrorCode::InvalidArgument, std::format("이름이 {} 바이트를 넘는다", kMaxPlayerNameBytes));
+    }
+    m_players[c.player] = PlayerRow{c.role, c.name};
+    return std::vector<NetEntityId>{};
+}
+
+Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerLeave(const cmd::PlayerLeave& c) {
+    if (m_applyingIssuer != cmd::kServerIssuer) {
+        return makeError(ErrorCode::PermissionDenied, "PlayerLeave 는 서버만 낸다");
+    }
+    if (m_players.erase(c.player) == 0) {
+        return makeError(ErrorCode::NotFound, std::format("플레이어 {} 가 없다", c.player));
     }
     return std::vector<NetEntityId>{};
 }

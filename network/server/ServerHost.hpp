@@ -277,8 +277,16 @@ private:
     u32 m_generation = 0; // 월드가 바뀐 횟수 (12D)
     std::optional<Recording> m_recording;
     std::unique_ptr<Playback> m_playback;
-    u32 m_serverSequence = 0; // 서버가 넣는 명령 (재생 끝 일시정지)
-    u64 m_finishedSteps = 0;  // 게임이 Finished 로 머문 서버 단계 수 (자동 재시작, M2-T3)
+    u32 m_serverSequence = 0; // 서버가 넣는 명령 (재생 끝 일시정지 · 플레이어 표)
+    // 플레이어 표 (v0.5 M2-T5 (4), ADR-0093) — Sim 스레드만. 접속한 클라이언트 → (이름, 역할). 월드를 바꾸면 (불러오기
+    // · 재시작 · 테스트 플레이 · 재생 끝) 새 월드의 game.player 를 이 표에 맞추는 명령을 한 번 넣는다
+    struct SimPlayer {
+        std::string name;
+        Role role = Role::Observer;
+    };
+    std::map<u16, SimPlayer> m_simPlayers;
+    bool m_reconcilePlayers = true;
+    u64 m_finishedSteps = 0; // 게임이 Finished 로 머문 서버 단계 수 (자동 재시작, M2-T3)
     // 테스트 플레이 중 맡겨 둔 편집 월드 (v0.2 M5-T1) — 돌리지 않는다, 멈추면 그대로 돌아온다
     std::unique_ptr<scenario::ScenarioRunner> m_editRunner;
     // 네트워크에서 온 명령 (issuer, sequence) — 결과를 돌려줄 것. 시나리오가 넣은 명령도 issuer 가 0 이 아닐 수 있어
@@ -304,8 +312,15 @@ private:
     struct RosterEvent {
         u16 clientId = 0;
         bool joined = false;
+        bool roleOnly = false; // 이미 들어온 클라이언트의 역할 바꿈 (복제 · 오버레이는 그대로 — 플레이어 표만)
+        Role role = Role::Observer;
+        std::string name;
     };
-    std::vector<RosterEvent> m_roster;               // Net → Sim: 복제 대상 추가 · 제거
+    std::vector<RosterEvent> m_roster; // Net → Sim: 복제 대상 추가 · 제거 · 플레이어 표
+    // 플레이어 표 명령 (ADR-0093) — 월드가 바뀌었으면 맞추기 명령, 아니면 이번 배치 (roster) 의 변경. m_simPlayers 는
+    // 이미 고친 뒤
+    std::vector<cmd::CommandPayload> playerCommands(sim::SimulationWorld& world,
+                                                    const std::vector<RosterEvent>& roster);
     std::vector<std::pair<u16, SnapshotAck>> m_acks; // Net → Sim
     // Net → Sim: 선택 상세 요청 (10B) · 관심 영역 (11)
     std::vector<std::pair<u16, InspectRequest>> m_inspectRequests;

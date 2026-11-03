@@ -293,7 +293,9 @@ using CommandPayload = std::variant<
     GameControl,
     // 플레이어 행동 (콘텐츠 정의)
     PlayerAction,      // 구현 (v0.2 M3-T1): {action, position} — 대상은 시뮬레이션이 고른다, args 는 [계획]
-    PlayerSignal       // 구현 (v0.5 M2-T5 (3)): {name, value} — 선언 · 범위 · perTick 확인, 월드는 바뀌지 않고 17d 의 onEvent "signal"
+    PlayerSignal,      // 구현 (v0.5 M2-T5 (3)): {name, value} — 선언 · 범위 · perTick 확인, 월드는 바뀌지 않고 17d 의 onEvent "signal"
+    PlayerJoin,        // 구현 (v0.5 M2-T5 (4a)): 서버만 — 플레이어 표 (SimulationWorld::players — ECS 밖) 에 넣거나 바꾼다 (ADR-0093)
+    PlayerLeave        // 구현 (v0.5 M2-T5 (4a)): 서버만 — 표에서 뺀다. 둘 다 와이어 형식 없음, 리플레이 op player.join · player.leave
 >;
 struct SimCommand { CommandHeader header; CommandPayload payload; };
 ```

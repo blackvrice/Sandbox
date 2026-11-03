@@ -13,8 +13,8 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) · (3) ✅
-다음      v0.5 M2-T5 (4) — ctx.players · session · owner 적기 (1장 카드)
+지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) · (3) · (4a) ✅
+다음      v0.5 M2-T5 (4b) — 행동 · 신호 · 스크립트 spawn 이 owner 적기 (kSimVersion 5 — 1장 카드)
 트랙 B    v0.5 M6-T9 (프로젝트 에셋 · .sbpkg 3 — C1 차단 해소) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) — 트랙 A 와 병렬 (1.1장)
 그다음    M2-T7 계약 동결 → M2-T6 →
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
@@ -86,7 +86,7 @@ M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 �
 ⑬ 08 (프로토콜 15), 11 (signals.json), 09 4장 (명령 종류), 19 18장, 20 3.7, 13, 17
 ⑭ 로컬 세션에서 시험 명령 → 서버 이벤트 → 스크립트 판정, 위조 거절 시험 통과 — 병렬 불가 (network · content · command 를 넓게 건드림)
 
-① M2-T5 (4) ctx.players · ctx.session · owner 적기                         ② P1   ③ v0.5 M2
+① M2-T5 (4) 플레이어 · 세션 · owner 적기 — (4a) ✅ 플레이어 표 · 서버 명령 · ctx.playerCount · playerId · playerRole (ADR-0093), (4b) owner 적기  ② P1
 ④ 스크립트가 플레이어 · 세션을 알고 행동 · 신호 · spawn 이 game.owner 를 적는다 (20 3.4 · 3.6) — "@owned" 바인딩 (M3-T4) 의 바탕
 ⑤ M2-T5 (3)
 ⑥ core/game (플레이어 표 — 리플레이에 기록된 것만), core/script/ScriptHost, script/api, script/sdk

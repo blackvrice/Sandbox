@@ -567,6 +567,16 @@ ctx.near(x, y, r) · ctx.nearWith(x, y, r, Comp)   반경 안의 개체 — 단�
 도메인            모두 서버만 (클라이언트에는 client.dt · frame 이 있다)
 ```
 
+
+### 16.4 플레이어 표 (v0.5 M2-T5 (4a) — ADR-0093)
+
+```text
+ctx.playerCount(): i32          접속한 플레이어 수 (서버 명령 PlayerJoin · PlayerLeave 로 바뀌는 시뮬레이션의 표 — 리플레이에 기록, 재생 때 같은 값)
+ctx.playerId(index: i32): i32   id 순 index 번째 플레이어의 번호 (범위 밖 -1). 번호 = 명령의 issuer = game.owner.player
+ctx.playerRole(id: i32): i32    0 observer · 1 player · 2 editor · 3 admin · 4 owner, 없으면 -1
+도메인 · 비용                    서버만 · 연료 1 · 읽기 (Host 표 effect Read). 이름 · 팀 · 클라이언트 쪽은 [계획] (Host 결과에 문자열이 없다)
+결정성                          표는 세이브 · WorldHash 밖 — 서버가 월드를 열면 첫 틱 명령 단계에서 지금 접속으로 다시 채운다 (스크립트 16b 보다 먼저)
+```
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts

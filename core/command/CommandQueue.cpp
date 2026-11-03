@@ -21,6 +21,8 @@ std::string_view commandName(const CommandPayload& payload) noexcept {
         std::string_view operator()(const GameControl&) const noexcept { return "GameControl"; }
         std::string_view operator()(const PlayerAction&) const noexcept { return "PlayerAction"; }
         std::string_view operator()(const PlayerSignal&) const noexcept { return "PlayerSignal"; }
+        std::string_view operator()(const PlayerJoin&) const noexcept { return "PlayerJoin"; }
+        std::string_view operator()(const PlayerLeave&) const noexcept { return "PlayerLeave"; }
     };
     return std::visit(Namer{}, payload);
 }
