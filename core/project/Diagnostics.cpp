@@ -113,7 +113,7 @@ Area areaOf(const content::ContentIssue& i) {
 
 void diagnoseProject(Builder& b, const fs::path& dir, bool fromPackage, const DiagnoseOptions& o,
                      const ecs::ComponentCatalog& catalog) {
-    const ProjectReport r = validateProject(dir, o.engine, catalog);
+    const ProjectReport r = validateProject(dir, o.engine, catalog, {.toolFiles = !fromPackage});
     std::vector<const content::ContentIssue*> manifest;
     std::vector<const content::ContentIssue*> deps;
     std::vector<const content::ContentIssue*> contentIssues;
@@ -201,7 +201,7 @@ void diagnoseProject(Builder& b, const fs::path& dir, bool fromPackage, const Di
     // 도구
     for (const content::ContentIssue* i : tools) {
         b.add("도구", levelOf(*i), i->describe(),
-              fromPackage ? "" : std::format("sbx sdk {} 로 SDK 선언을 다시 쓴다", dir.generic_string()));
+              std::format("sbx sdk {} 로 SDK 선언을 다시 쓴다", dir.generic_string()));
     }
 }
 

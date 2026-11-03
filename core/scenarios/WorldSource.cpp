@@ -58,7 +58,7 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
     }
     if (project::isProjectFolder(dir)) {
         const SemVer engine{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
-        auto opened = project::openProject(dir, engine, catalog);
+        auto opened = project::openProject(dir, engine, catalog, {.toolFiles = !out.package});
         if (!opened) {
             return std::unexpected(opened.error());
         }

@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-03 — v0.5 M7-T6: Technical Alpha A → B E2E (CTest tech_alpha_e2e) · 패키지 검사에서 P6 끔
+
+**무엇을**
+
+- CTest tech_alpha_e2e (tests/project/tech_alpha_e2e.cmake): 만든 사람 A 의 프로젝트 (samples/stash — 스크립트 + 의존 패키지 inventory) 를 빈 사용자
+  폴더로 복사 · sbx install · sbx test · 헤드리스 서버 자동 플레이 (결과 줄 = 기준, WorldHash 포함) · sbx build → .sbpkg 와 자동 플레이 대본만 건네고
+  A 를 지운다. B 는 배포 묶음 (make_release zip) 의 엔진을 다른 폴더에 풀고 설정 · 캐시 · 보고 · 임시 폴더를 새로, 작업 폴더도 따로 →
+  sbx check (digest = A, 오류 · 경고 0) · 서버 · 로컬 플레이가 같은 결과 줄 · 패키지는 B 의 임시 폴더에 풀림 · B 의 팩 캐시는 비어 있음 ·
+  한 바이트 덧붙인 패키지 거절.
+- 시험이 찾은 결함: 패키지를 검사 · 열면 P6 ("스크립트가 있는데 SDK 선언이 없다 — IDE 자동 완성용") 가 늘 나왔다 — 패키지는 sdk/ 를 싣지 않으니
+  받는 사람이 고칠 수 없는 경고. project::ValidateOptions{toolFiles} 를 validateProject · openProject 에 더하고, sbx check (.sbpkg) ·
+  sbx doctor (패키지) · 서버 · 클라이언트의 패키지 열기 (WorldSource) 가 끈다. 프로젝트 폴더는 그대로.
+
+**왜**
+
+- v0.5 Technical Alpha 의 목표 (roadmap/releases v0.5) — 기존 시험은 조각만 봤다 (sample_stash: 같은 엔진 · 같은 PC 의 다른 폴더,
+  release_bundle: 저장소 샘플, project_reproduce: digest). "패키지 파일 하나 + 배포 엔진 + 빈 사용자 환경 → 같은 해시" 를 한 번에 보는 시험이 없었다.
+
+**검증**
+
+- tech_alpha_e2e 통과 (결과 줄 "게임 없음 · tick 900 · hash 0xaf95ab21bf58d0cb" 가 A 프로젝트 = B 서버 = B 로컬 플레이). 첫 실행은 P6 로 실패 → 위 고침.
+- test_game_project: toolFiles = false 면 P6 없음 · 경고가 정확히 하나 (P6) 줄어듦 (P4 · P5 해시 경고는 그대로).
+- Windows MSVC Debug 빌드 · 전체 ctest 77 / 77 통과 (tech_alpha_e2e 141 초).
+
+**남은 일**
+
+- M7-T5 0.5.0 — release-gates v0.5 행 판정 · 릴리스 노트 · VERSION 0.5.0. 실제 다른 PC 한 번 (수동 QA) 은 Closed Creator Alpha (v0.13 M7-T3) 몫.
+
+---
+
 ## 2026-11-03 — 로드맵 2차 배치 (v0.10 나눔 · Closed Creator Alpha v0.13 · 안정화 v0.22 · v0.23 · RC v0.24 · GA 승인, ADR-0099 · ADR-0100)
 
 **무엇을**

@@ -882,6 +882,14 @@ export default defineSystem({ id: "eco.mana.regen", intervalTicks: 30, events: {
                                     "onEvent (death · score) · onStop");
         CHECK(r.sdk == project::ProjectReport::SdkState::Missing);
         CHECK(hasIssue(r.issues, "P6", "", content::ContentIssue::Severity::Warning));
+        // 게임 패키지를 푼 폴더 (sdk/ 를 싣지 않는다) 는 도구 파일을 보지 않는다 — P6 없음 (v0.5 M7-T6)
+        {
+            const auto pkg = project::validateProject(dir.path, engine, catalog, {.toolFiles = false});
+            CHECK(pkg.ok());
+            CHECK(pkg.warningCount() + 1 == r.warningCount()); // P6 하나만 빠진다 (P4 · P5 해시 경고는 그대로)
+            CHECK_FALSE(
+                std::any_of(pkg.issues.begin(), pkg.issues.end(), [](const auto& i) { return i.rule == "P6"; }));
+        }
 
         // 다른 SDK (옛 엔진의 것) → 다름 · 경고
         fs::create_directories(dir.path / "sdk");

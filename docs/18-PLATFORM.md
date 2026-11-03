@@ -12,8 +12,8 @@
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
-         v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅, 남은 것 M7-T6 (CLI 게임의 다른 폴더 · 빈 캐시 E2E) → M7-T5 0.5.0 (ADR-0096)
-다음     roadmap/README 1장 — 트랙 A M7-T6 · M3-T1 (v0.7), 트랙 B NG-12 · NG-13 → M6-T9 (v0.6)
+         v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅, 남은 것 M7-T5 0.5.0 (M7-T6 ✅ CLI 게임의 다른 폴더 · 빈 캐시 E2E) (ADR-0096)
+다음     roadmap/README 1장 — 트랙 A M7-T5 · M3-T1 (v0.7), 트랙 B NG-12 · NG-13 → M6-T9 (v0.6)
 로드맵   2026-11-03 재구성 (ADR-0096 · 2차 배치 ADR-0099 · 출시 강화 ADR-0100): 작은 MINOR v0.5 ~ v0.24 RC · v1.0 GA · 성숙 단계 분리 ·
          태스크 등록부 — 정본 roadmap/ (versioning · task-registry · releases · release-gates · stabilization), 근거 audit/SECOND-PASS-GAP-ANALYSIS.
          아래 1장 표는 옛 줄 (이력)
@@ -241,7 +241,8 @@ MyGame/
 4 시작 월드 — 폴더 · world.json 요약 (P4), 월드가 쓰는 팩이 매니페스트에 없음 (P5 오류), contentHash 가 다름 (P5 경고),
   persist::loadWorld 로 실제로 연다 (실패 P4 오류, 로드 경고 P4 경고)
 5 스크립트 SDK 파일 (v0.3 M5-T1, ADR-0065 — P6 경고): sdk/sandbox.d.ts 가 이 엔진의 생성 결과와 다름 (CR 은 빼고 비교) · 스크립트가
-  있는데 없음, tsconfig.json 이 JSON 아님. 스크립트 요약 (팩 · 컴포넌트 · 시스템 수 · SDK 상태 — ProjectReport) 과 시스템마다 한 줄
+  있는데 없음, tsconfig.json 이 JSON 아님 — 게임 패키지 (.sbpkg) 를 검사 · 열 때는 보지 않는다 (패키지는 sdk/ 를 싣지 않는다 —
+  ValidateOptions.toolFiles, v0.5 M7-T6). 스크립트 요약 (팩 · 컴포넌트 · 시스템 수 · SDK 상태 — ProjectReport) 과 시스템마다 한 줄
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)

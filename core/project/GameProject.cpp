@@ -599,7 +599,7 @@ bool checkInstalled(const fs::path& projectDir, const GameManifest& m, Collector
 
 // validateProject · openProject 공용: 매니페스트 → 엔진 범위 → 팩 → 시작 월드. 오류가 있어도 가능한 데까지 본다
 void checkProject(const std::filesystem::path& projectDir, const SemVer& engine, const ecs::ComponentCatalog& catalog,
-                  ProjectReport& r, Opened& out) {
+                  const ValidateOptions& options, ProjectReport& r, Opened& out) {
     Collector c(r.issues);
     const std::string file(kManifestFile);
 
@@ -665,7 +665,9 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
         checkDependencies(m, *out.db, r, c);
     }
     // 5. 도구 파일 (P6 — 경고만: 게임 실행에는 쓰지 않는다). 콘텐츠 · 월드 결과와 무관하게 본다
-    checkSdkFiles(projectDir, r, c);
+    if (options.toolFiles) {
+        checkSdkFiles(projectDir, r, c);
+    }
 
     // 3b. GameMode (schemaVersion 2) — 프로젝트 콘텐츠에 있어야 한다
     if (out.db && !m.gameMode.empty() && out.db->findMode(m.gameMode) == nullptr) {
@@ -720,10 +722,10 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
 } // namespace
 
 ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
-                              const ecs::ComponentCatalog& catalog) {
+                              const ecs::ComponentCatalog& catalog, const ValidateOptions& options) {
     ProjectReport r;
     Opened opened;
-    checkProject(projectDir, engine, catalog, r, opened);
+    checkProject(projectDir, engine, catalog, options, r, opened);
     return r;
 }
 
@@ -787,10 +789,10 @@ Expected<bool> refreshTsconfig(const std::filesystem::path& projectDir) {
 }
 
 Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
-                                    const ecs::ComponentCatalog& catalog) {
+                                    const ecs::ComponentCatalog& catalog, const ValidateOptions& options) {
     ProjectReport r;
     Opened opened;
-    checkProject(projectDir, engine, catalog, r, opened);
+    checkProject(projectDir, engine, catalog, options, r, opened);
     if (!r.ok() || !opened.world) {
         std::string msg = std::format("게임 프로젝트 오류 {}개", r.errorCount());
         usize shown = 0;

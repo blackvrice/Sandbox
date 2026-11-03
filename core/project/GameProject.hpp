@@ -100,11 +100,17 @@ struct ProjectReport {
     [[nodiscard]] usize warningCount() const noexcept;
 };
 
+// 검사 범위. 게임 패키지를 푼 폴더는 도구 파일 (sdk/ · tsconfig.json) 을 싣지 않는다 — 받는 사람에게 P6 는 고칠 수 없는
+// 경고라 끈다 (v0.5 M7-T6)
+struct ValidateOptions {
+    bool toolFiles = true; // P6
+};
+
 // engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7 · 스크립트 S*) → 시작 월드 (형식 · 팩 ·
 // 열기) → 도구 파일 (P6 — sdk/sandbox.d.ts 가 이 엔진의 것과 다르다 · 스크립트가 있는데 없다, tsconfig.json 이 JSON 이
 // 아니다) 순서
 [[nodiscard]] ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
-                                            const ecs::ComponentCatalog& catalog);
+                                            const ecs::ComponentCatalog& catalog, const ValidateOptions& options = {});
 
 // 프로젝트를 실행용으로 연다 (v0.2 M1-T2): validateProject 와 같은 검사를 하고, 오류가 하나라도 있으면 ValidationFailed
 // (처음 5 개의 문제를 메시지에). 성공하면 콘텐츠와 시작 월드 (세이브 그대로 — 틱 · 일시정지 상태 포함)
@@ -115,7 +121,8 @@ struct OpenedProject {
     std::vector<std::string> warnings; // 검사 경고 (P5 해시 · 로드 경고)를 describe() 로
 };
 [[nodiscard]] Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, const SemVer& engine,
-                                                  const ecs::ComponentCatalog& catalog);
+                                                  const ecs::ComponentCatalog& catalog,
+                                                  const ValidateOptions& options = {});
 
 // tsconfig.json 의 paths 를 프로젝트의 스크립트 팩 (content/ · .sandbox/packages 의 scripts/ 가 있는 팩) 에 맞춘다 —
 // IDE 가

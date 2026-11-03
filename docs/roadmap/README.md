@@ -13,8 +13,8 @@
 
 ```text
 제품      0.4.0 (v0.4 Package Manager). v0.5 는 Technical Alpha — M1 ✅ · M2 ✅ · M8 ✅
-다음      트랙 A  M7-T6 Technical Alpha A → B (CLI 빌드 → 다른 폴더 · 빈 캐시 → 같은 해시) → M7-T5 0.5.0
-          트랙 A  M3-T1 게임 UI (v0.7) · NG-04 SaveGame 계약 (v0.6) — M7-T6 과 독립, 병렬
+다음      트랙 A  M7-T5 0.5.0 (release-gates v0.5 행 판정 · 릴리스 노트) — M7-T6 ✅ (CTest tech_alpha_e2e)
+          트랙 A  M3-T1 게임 UI (v0.7) · NG-04 SaveGame 계약 (v0.6) — 병렬
           트랙 B  NG-12 · NG-13 (에셋 id · 경로 정책) → M6-T9 프로젝트 에셋 (v0.6)
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```
@@ -58,7 +58,7 @@
 
 ```mermaid
 graph LR
-  M2T7[M2-T7 ✅] --> M7T6[M7-T6 Tech Alpha E2E] --> M7T5[M7-T5 0.5.0]
+  M2T7[M2-T7 ✅] --> M7T6[M7-T6 ✅ Tech Alpha E2E] --> M7T5[M7-T5 0.5.0]
   NG12[NG-12 id 충돌] --> M6T9[M6-T9 프로젝트 에셋]
   NG13[NG-13 경로] --> M6T9
   M6T9 --> NG01[NG-01 빌드 스냅숏] --> M6T3[M6-T3 빌드 화면]
@@ -101,7 +101,7 @@ graph LR
   NG-05 · M6-T4 → M6-T8                                                                               (트랙 B, 병렬)
 임계 경로 (GA 까지)
   PS-14-2 → RH-22-1 Soak → RH-24-2 RC 회귀 → RH-24-5 GA 승인, 그리고 PS-20-3 → RH-24-3 · RH-23-7 실기 → RH-24-2
-병렬 가능  M7-T6 (A) ∥ NG-12 · NG-13 (B) ∥ M3-T1 (A) ∥ NG-04 (A) ∥ ST-06-1 (B), 안정화의 RH-22-3 · RH-22-5 · RH-23-4 는 서비스 없이 일찍 시작할 수 있다
+병렬 가능  M7-T5 (A) ∥ NG-12 · NG-13 (B) ∥ M3-T1 (A) ∥ NG-04 (A) ∥ ST-06-1 (B), 안정화의 RH-22-3 · RH-22-5 · RH-23-4 는 서비스 없이 일찍 시작할 수 있다
           (목표 버전보다 일찍 끝내도 된다 — 목표는 "늦어도")
 ```
 

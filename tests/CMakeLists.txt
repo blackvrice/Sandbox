@@ -511,6 +511,14 @@ if(TARGET sbx)
                     ${_sbx_release_client_arg}
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/release_bundle.cmake")
         set_tests_properties(release_bundle PROPERTIES LABELS "content" TIMEOUT 600)
+        # Technical Alpha A → B (v0.5 M7-T6) — A 의 프로젝트 (스크립트 + 의존 패키지) 에서 .sbpkg 하나만 B 에게, B 는 배포 묶음 엔진 ·
+        # 빈 사용자 폴더 · 다른 작업 폴더로 같은 게임 결과 (WorldHash)
+        add_test(NAME tech_alpha_e2e
+            COMMAND "${CMAKE_COMMAND}" "-DSOURCE=${PROJECT_SOURCE_DIR}" "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/tech_alpha_e2e"
+                    "-DVERSION=${PROJECT_VERSION}" -DSERVER=$<TARGET_FILE:SandboxServer> -DSBX=$<TARGET_FILE:sbx>
+                    ${_sbx_release_client_arg}
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/tech_alpha_e2e.cmake")
+        set_tests_properties(tech_alpha_e2e PROPERTIES LABELS "content" TIMEOUT 600)
         # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
         add_test(NAME project_pack
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_pack"

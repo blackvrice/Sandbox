@@ -51,7 +51,8 @@ SemVer engineVersion() {
 int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
     const SemVer engine = engineVersion();
     // 패키지: 파일마다 SHA-256 · digest 를 확인하고 캐시에 풀어 그 프로젝트를 검사한다 (서버가 여는 길과 같다)
-    if (package::isPackageFile(dir)) {
+    const bool fromPackage = package::isPackageFile(dir);
+    if (fromPackage) {
         auto extracted = package::extractPackage(dir, package::defaultPackageCache());
         if (!extracted) {
             std::printf("패키지 검사: 실패 — %s\n", extracted.error().describe().c_str());
@@ -71,7 +72,8 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         }
         dir = extracted->dir;
     }
-    const auto r = project::validateProject(dir, engine, catalog);
+    // 패키지는 도구 파일 (sdk/ · tsconfig.json) 을 싣지 않는다 — P6 를 보지 않는다
+    const auto r = project::validateProject(dir, engine, catalog, {.toolFiles = !fromPackage});
     for (const content::ContentIssue& i : r.issues) {
         std::printf("%s\n", i.describe().c_str());
     }
