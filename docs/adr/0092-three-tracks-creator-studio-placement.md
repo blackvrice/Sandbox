@@ -1,6 +1,6 @@
 # ADR-0092. 세 트랙 (Engine Runtime · Creator Studio · Platform Services) 과 Studio 기능 배치 — v0.5 에 CLI 없는 기본 흐름
 
-- 상태: **Accepted** · 날짜: 2026-11-03
+- 상태: **Accepted — 일부 Superseded** (버전 배치 — 버전 이름 유지 · M6 를 v0.5 에 — 트랙은 유지 → [ADR-0096](0096-roadmap-versioning-small-milestones.md)) · 날짜: 2026-11-03
 - 관련: [23-ROADMAP](../23-ROADMAP.md), [ADR-0078](0078-v05-creator-alpha-scope-expansion.md) (v0.5 범위 — 이 ADR 이 M6 에 태스크를 더한다),
   [ADR-0082](0082-v06-v10-feature-placement.md) · [ADR-0088](0088-v06-v10-placement-update-runtime-v2.md) (배치 — 유지), [ADR-0089](0089-studio-editor-services-layer-imgui-first.md) ~
   [ADR-0091](0091-script-language-service-in-sandboxscript.md), [28-CREATOR-UX-GATES](../28-CREATOR-UX-GATES.md)

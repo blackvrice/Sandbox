@@ -5,6 +5,9 @@
 > 문서는 사용 흐름의 기준), 기능 설계는 [25](25-STUDIO-ARCHITECTURE.md) · [26](26-ASSET-PIPELINE.md) · [27](27-SCRIPT-IDE.md), 작업은
 > [23](23-ROADMAP.md). **이 문서의 시험 결과 칸은 비어 있다 — 실제 외부 사용자 시험을 하지 않았다.**
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로. 2차 감사의 새 설계 (NG) 는 [audit/SECOND-PASS-GAP-ANALYSIS](audit/SECOND-PASS-GAP-ANALYSIS.md) 4장.
+
 ---
 
 ## 1. 흐름 단계별 기준 (G1 ~ G9) — 지금 CLI · 외부 도구가 필요한가
@@ -57,4 +60,20 @@ G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 [�
 G8  CTest studio_build [계획 M6-T3] — 명령 studio.build → 패키지 → 빈 캐시에서 열기 (기존 project_package 시험 확장) · 누락 에셋 경고
 G9  M7-T3 A → B E2E (기존 계획)
 복구 CTest studio_recovery [계획 M6-T7] — 자동 저장 → 강제 종료 → 다시 시작 → 복구 제안 → 같은 WorldHash
+```
+
+### 3.1 Studio 시험 층 (NG-07 — 2차 감사 4.7) [계획 v0.8]
+
+```text
+층 1  Editor Services 단위 시험 (ImGui 없음) — 명령 · Undo · 문서 · 빌드 · 테스트 실행 (ST-06-1 이 가능하게 한다)
+층 2  헤드리스 Studio 흐름 — 서비스만으로 "새 프로젝트 → 에셋 가져오기 → 빌드 → --play" (위 G1 · G2 · G8 의 CTest 가 이 층)
+층 3  GUI smoke — 창을 열고 N 프레임 · 패널마다 그리기 오류 없음. CI 에 GPU · 디스플레이가 없으면 건너뛰고 "건너뜀" 으로 적는다 (통과로 적지 않는다)
+층 4  실기 QA (16 형식 — 명령 · OS · GPU · 결과 · 커밋) · 외부 사용성 시험 (2장, ST-06-12)
+규칙  G1 ~ G9 마다 증거 층을 적는다 — 층 3 · 4 만 있는 기준은 Closed Creator Alpha 진입 (roadmap/release-gates 3장) 때 수동 기록이 있어야 한다
+```
+
+### 3.2 G10 Studio 접근성 (2차 감사 SG-08) [계획 v0.11 전]
+
+```text
+G10  키보드만으로 G1 ~ G3 (홈 · 가져오기 · 배치) 를 끝낼 수 있다 · 글자 크기 배율 · 고대비 테마 — 게임 UI 접근성 (20 5장) 과 별개로 도구 자체
 ```

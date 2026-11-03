@@ -3,6 +3,10 @@
 > **감사 문서**. 알파 목표 (28): 처음 쓰는 제작자가 Studio 에서 CLI 없이 2D 게임을 만들고 · 편집 · 스크립트 · 테스트 · 빌드해 다른 PC 에서
 > 실행. 판정은 28 의 G1 ~ G9 기준. **외부 사용자 시험은 하지 않았다 — 아래는 코드 · 시험 근거의 판정이다.**
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](../adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](../roadmap/task-registry.md), 읽는 법은 [versioning 4장](../roadmap/versioning.md). 태스크 ID 는 그대로.
+> 이 문서는 지우지 않는다 — 2차 재확인 (해결 여부 · 증거 · 새 목표) 은 [SECOND-PASS-GAP-ANALYSIS](SECOND-PASS-GAP-ANALYSIS.md) 2 · 3장.
+
 ---
 
 ## 1. 판정 (2026-11-03, master a1307fc + 감사 커밋)

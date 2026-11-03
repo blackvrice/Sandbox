@@ -581,6 +581,10 @@ if(Python3_Interpreter_FOUND)
             --expect 10
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
+    # 문서 · 로드맵 일관성 (링크 · ADR · 태스크 ID · 목표 버전 · 상태 — docs/roadmap/README.md 5장, ADR-0096)
+    add_test(NAME docs_consistency
+        COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/check_docs.py --root ${CMAKE_SOURCE_DIR})
+    set_tests_properties(docs_consistency PROPERTIES LABELS "arch")
     # 셰이더 코드 생성기 자체 검사 (손으로 만든 SPIR-V 로 리플렉션·병합 규칙) — dxc 없이 모든 OS 에서 (ADR-0019)
     add_test(NAME shader_gen_selftest
         COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/shader/sbx_shader_gen.py --self-test)

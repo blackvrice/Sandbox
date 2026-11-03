@@ -1,6 +1,6 @@
 # ADR-0088. v0.6 ~ v1.0 배치 갱신 — Runtime v2 항목 배치 · 등급전 · 순위표를 v0.8 로 (ADR-0082 3 의 일부를 대신)
 
-- 상태: **Accepted** · 날짜: 2026-11-02
+- 상태: **Accepted — 일부 Superseded** (버전 배치 — 기능의 버전 배치 → [ADR-0096](0096-roadmap-versioning-small-milestones.md)) · 날짜: 2026-11-02
 - 관련: [ADR-0082](0082-v06-v10-feature-placement.md) (이 ADR 이 3 의 순위표 · 등급전 배치를 대신 — 나머지는 그대로),
   [ADR-0086](0086-runtime-architecture-v2.md), [ADR-0087](0087-client-fixed-tick-prediction-opt-in.md), [23-ROADMAP](../23-ROADMAP.md),
   [21-PLATFORM-FEATURES](../21-PLATFORM-FEATURES.md) 4장, [24-SECURITY-GATES](../24-SECURITY-GATES.md)

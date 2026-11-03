@@ -7,6 +7,9 @@
 > 상태 용어: **Implemented** = 코드 + 자동 시험이 있다 · **Partial** = 일부만 (빠진 것을 적는다) · **Planned** = 18-PLATFORM 또는 ADR 에
 > 계획이 있고 코드는 없다 · **Missing** = 계획도 코드도 없다.
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로. 4장의 배치는 [roadmap/releases](roadmap/releases.md) 가 대신한다.
+
 ---
 
 ## 1. 현재 구현 상태 (v0.1 ~ v0.5 M8)

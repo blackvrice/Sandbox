@@ -4,6 +4,9 @@
 > VM 의 규범은 [19-SANDBOXSCRIPT](19-SANDBOXSCRIPT.md) 그대로. 근거: [audit/ENGINE-BENCHMARK](audit/ENGINE-BENCHMARK.md) C1 ~ C4 (Roblox
 > Script Editor · Godot LSP/DAP). 상태: **현행** · **프로토타입** (코드 · 시험 있음, 기능은 일부) · **[계획 vX]**.
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로. 2차 감사의 새 설계 (NG) 는 [audit/SECOND-PASS-GAP-ANALYSIS](audit/SECOND-PASS-GAP-ANALYSIS.md) 4장.
+
 ---
 
 ## 0. 지금 (2026-11-03 소스)
@@ -54,9 +57,9 @@ Script Editor (Studio — ImGui 위젯)        sbx lsp (표준 입출력 JSON-RP
 |------|------|--------|------|
 | `ctx.` | Host 표의 그 Context 멤버 | 콜백의 도메인 (server · client) — [계획 v0.6] 콜백 단계의 Capability (22 3.2: onRender 에는 Draw 만) | 프로토타입 (도메인만, 수신자 이름이 ctx 일 때만) |
 | 식의 타입 뒤 `.` | 그 타입의 필드 · 메서드 (구조체 · 컴포넌트 데이터 · 배열 · Map · 내장 컬렉션) | 검사기의 타입 | [계획 v0.5 M6-T8] |
-| `ctx.read(e, |)` · `import { | } from "sandbox"` | 컴포넌트 (스크립트 정의 · 엔진 접근 표) · SDK 이름 | 도메인 (클라이언트는 복제되는 것만 — M2-T1) | [계획 v0.5 M6-T8] |
+| `ctx.read(e, |)` · `import { | } from "sandbox"` | 컴포넌트 (스크립트 정의 · 엔진 접근 표) · SDK 이름 | 도메인 (클라이언트는 복제되는 것만 — M2-T1 ✅) | [계획 v0.5 M6-T8] |
 | `import … from "|"` | 팩 안 경로 · "@<팩>/…" (직접 의존만 — ADR-0075) | 매니페스트 의존 | [계획 v0.6] |
-| `defineSystem({ |` | 키 (id · domain · events · 콜백 이름 — 예약 이름은 "[계획 vX]" 표시, M2-T7) | — | [계획 v0.6] |
+| `defineSystem({ |` | 키 (id · domain · events · 콜백 이름 — 예약 이름은 "[계획 vX]" 표시, M2-T7 ✅) | — | [계획 v0.6] |
 | `events: { |` | death · spawn · areaEnter · score · action · signal (api::kGameEventKinds) | — | [계획 v0.6] |
 
 ## 4. 진단 · 빠른 수정
@@ -116,3 +119,15 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 | 재생 디버거 (중단점 · 단계 · 스택 · 지역 · 감시 · logpoint) | [계획 v0.6] |
 | LSP · 포맷터 · 클라이언트 라이브 디버그 | [계획 v0.7] |
 | DAP | [계획 v0.8+] |
+
+## 9. 텍스트 위치 계약 — UTF-8 · 코드 포인트 · UTF-16 · 화면 열 · IME (NG-05) [계획 v0.9]
+
+```text
+저장 · 컴파일러 · 줄 표  UTF-8 바이트 offset + (줄, 열 = 코드 포인트) — 현행 script/lang/Diagnostic.hpp 그대로 (.sbc 10 줄 표도 이 단위, M6-T4)
+편집기 (ImGui)           UTF-8 바이트 offset — 언어 서비스 경계에서 한곳 (TextPosition 변환) 으로 바꾼다
+LSP (v0.19)              UTF-16 code unit (LSP 기본 positionEncoding) — 같은 변환 함수
+화면 열                  글리프 폭 (한글 · 전각 2 칸, 결합 문자 0 칸) — 표시에만, 저장 · 진단에 쓰지 않는다
+IME                      조합 중 문자열은 문서에 넣지 않는다 (미리보기) — 자동 완성 · 진단 · Undo 는 조합이 끝난 뒤. 조합 중 커서 = 조합 시작
+줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음), 위치 계산은 LF 기준 (CR 은 앞 줄 끝)
+시험                     "가나다" 뒤 → 바이트 9 · 코드 포인트 3 · UTF-16 3, 서로게이트 쌍 (U+1F600) 왕복, CRLF 저장 왕복, 조합 중 자동 완성 없음
+```

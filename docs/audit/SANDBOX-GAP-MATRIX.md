@@ -6,6 +6,10 @@
 > **⟂불일치** = 설계와 구현 · 데이터 모델이 어긋난다. "실행해 확인" 은 [VERIFICATION-RESULTS](VERIFICATION-RESULTS.md) 에 있는 것만.
 > 근거 표기: U · G · E · R = 벤치마크 출처, [일반] = 공식 문서 미확인.
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](../adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](../roadmap/task-registry.md), 읽는 법은 [versioning 4장](../roadmap/versioning.md). 태스크 ID 는 그대로.
+> 이 문서는 지우지 않는다 — 2차 재확인 (해결 여부 · 증거 · 새 목표) 은 [SECOND-PASS-GAP-ANALYSIS](SECOND-PASS-GAP-ANALYSIS.md) 2 · 3장.
+
 ---
 
 ## 1. Creator Studio (Track B)

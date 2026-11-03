@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-11-03 — 2차 공백 분석 · 로드맵 재구성 (작은 MINOR v0.5 ~ v0.21+, ADR-0096 ~ 0098) · 문서 일관성 검사기
+
+**무엇을**
+
+- 1차 Studio 감사 (GM-01 ~ 44 · R1 ~ R10) 를 M2 다섯 커밋 뒤의 소스로 다시 확인 — 트랙 B 공백은 그대로, GM-35 만 넓어짐 (client.send),
+  R7 은 조금 나빠짐 (Application 828 · NetworkSession 1,099 줄). 지우지 않고 audit/SECOND-PASS-GAP-ANALYSIS 2 · 3장에 해결 여부 · 새 목표를 이음.
+- 새 설계 NG-01 ~ NG-17 (빌드 스냅숏 · Asset Group · Player 모드 · SaveGame 마이그레이션 · 텍스트 위치 · UI 입력 컨트롤 · Studio 시험 층 ·
+  Export Profile · 출시 채널 · 롤백 · Plugin API 버전 · 에셋 id 충돌 · 경로 정책 · 해시 분리 · 1.0 전환 · 타일맵 · 오디오 출력) — 감사 4장,
+  요지는 20 2.6 · 25 9 · 12장 · 26 8장 · 27 9장 · 28 3.1 · 3.2.
+- 로드맵 재구성 (ADR-0096): 제품 버전은 정수 SemVer (v0.10 > v0.9), MINOR 하나 = 목표 하나, 성숙 단계는 기준으로 따로 붙임, v1.0 = GA 기준 통과.
+  v0.5 = Technical Alpha (M1 · M2 · M8 + M7-T6 E2E), Closed Creator Alpha = v0.11. 정본 docs/roadmap/ (README · versioning · task-registry ·
+  releases · release-gates). 태스크 ID 는 그대로 (원래 · 목표 두 칸), 옛 번호 표 (ADR-0090 · 0091 의 재사용 번호).
+- ADR-0097 (패키지 · 데이터 무결성) · ADR-0098 (배포 수명주기). ADR-0039 · 0078 · 0082 · 0088 · 0092 · 0095 는 버전 배치만 "일부 Superseded".
+- tools/check_docs.py + CTest docs_consistency (arch): 링크 · ADR 참조 · 태스크 ID · 목표 버전 · Done 태스크의 [계획] 잔재.
+  첫 실행 18 건 → 낡은 줄 10 개 고침 · 근거 줄 5 개에 ✅ · v0.2 이력 1 건 KNOWN → 0 건 (audit/ROADMAP-CONSISTENCY).
+- 시험 더함: test_semver "0.x 의 자리는 정수" (0.10 > 0.9 · 0.20 > 0.19 · 프리릴리스 · 1.0 > 0.99 · 범위 <1.0.0 이 0.21 을 받고 1.0 을 거절),
+  test_user_settings 피드에서 v0.10.0 > v0.9.3.
+
+**왜**
+
+- 옛 v0.5 한 칸에 M3 ~ M7 · Studio 감사 몫 · 2차 감사의 NG 가 몰려 끝낼 수 없는 크기였다. 버전이 진척을 보여 주지 못하고, "v1.0 = v0.9 다음"
+  은 기준과 무관하게 번호를 1.0 으로 보낸다. 문서 사이의 태스크 번호 · 상태 어긋남은 사람이 찾기 어렵다 — 검사기로 고정.
+
+**검증**
+
+- `python -X utf8 tools/check_docs.py --root .` → 178 files, 0 problem(s). 음성 시험 (복사본에 잘못된 ID · ADR · 링크 · 목표 · 상태를 넣음) → 다섯 종류 모두 검출, 종료 코드 1.
+- 감사의 시험 이름 · 소스 근거 (상수 · 줄) 는 이 커밋에서 grep · 직접 읽기로 확인 (VERSION-MIGRATION-MATRIX 의 시뮬레이션 행은 Replay.cpp ·
+  WorldSave.cpp 를 읽고 "거절" 을 "해시 비교 건너뜀" 으로 고침).
+- Windows MSVC Debug 빌드 · 전체 ctest 75 / 75 통과 (docs_consistency 포함 — 문서를 마저 고친 뒤 docs_consistency · unit_foundation · unit_client 를 다시 돌려 통과).
+- 안 한 것: NG 설계의 구현 · 시험 (모두 [계획]), GUI · 실기 QA, 벤치 (코드 경로를 바꾸지 않음).
+
+**남은 일**
+
+- 다음 P0: M7-T6 (Technical Alpha E2E) → M7-T5 0.5.0, 병렬로 NG-12 · NG-13 → M6-T9 (v0.6), M3-T1 (v0.7), NG-04.
+- 옛 문서의 "[계획 v0.x]" 표기는 고쳐 쓰지 않았다 — versioning 4장 변환표로 읽는다.
+
+---
+
 ## 2026-11-03 — v0.5 M2-T6: client 입력 · send · 소리 이벤트 · 오디오 결정 (D-14) — M2 끝
 
 **무엇을**

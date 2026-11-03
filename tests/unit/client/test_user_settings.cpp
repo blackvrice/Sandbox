@@ -152,6 +152,13 @@ TEST_SUITE("client") {
             "새 버전 0.5.2 (프리릴리스) 이 있다 (지금 0.5.0) — https://example.invalid/r/v0.5.2 — 받기 · 설치는 직접");
         CHECK_FALSE(newestRelease(*releases, SemVer{0, 5, 2, {}, {}}).has_value());
         CHECK_FALSE(newestRelease(*releases, SemVer{1, 0, 0, {}, {}}).has_value());
+        // 정수 비교 — 0.10 이 0.9 보다 새것 (ADR-0096)
+        const auto tens = parseReleaseFeed(R"([{"tag_name": "v0.9.3", "html_url": "https://example.invalid/a"},
+                                                {"tag_name": "v0.10.0", "html_url": "https://example.invalid/b"}])");
+        REQUIRE(tens.has_value());
+        const auto newestTen = newestRelease(*tens, SemVer{0, 9, 0, {}, {}});
+        REQUIRE(newestTen.has_value());
+        CHECK(newestTen->version.toString() == "0.10.0");
         CHECK_FALSE(parseReleaseFeed(R"({"tag_name": "v1.0.0"})").has_value()); // 배열이 아니다
 
         TempDir t("feed");

@@ -143,4 +143,22 @@ TEST_SUITE("foundation") {
         CHECK(code("1.0.0 - 2.0.0") == ErrorCode::Unsupported);
         CHECK(code(">4294967295") == ErrorCode::OutOfRange); // 다음 major 가 넘친다
     }
+
+    TEST_CASE("semver: 0.x 의 자리는 정수 — v0.10 은 v0.9 보다 새것, v0.20 · v0.21 도 (ADR-0096 버전 체계)") {
+        CHECK((compareSemVer(v("0.10.0"), v("0.9.0")) > 0));
+        CHECK((compareSemVer(v("0.10.0"), v("0.9.99")) > 0));
+        CHECK((compareSemVer(v("0.20.0"), v("0.19.3")) > 0));
+        CHECK((compareSemVer(v("0.21.0"), v("0.3.0")) > 0));
+        CHECK((compareSemVer(v("0.10.0-alpha.1"), v("0.9.0")) > 0));  // 프리릴리스도 마이너가 먼저
+        CHECK((compareSemVer(v("0.10.0-alpha.1"), v("0.10.0")) < 0)); // 같은 판의 정식보다 앞
+        CHECK((compareSemVer(v("1.0.0"), v("0.99.0")) > 0));
+        // 새 프로젝트의 엔진 범위 (createProject — ">=x.y.z <1.0.0") 는 0.x 를 몇 번 나눠도 그대로 열린다
+        CHECK(in(">=0.5.0 <1.0.0", "0.10.0"));
+        CHECK(in(">=0.5.0 <1.0.0", "0.21.4"));
+        CHECK_FALSE(in(">=0.5.0 <1.0.0", "1.0.0")); // GA 전환 때 범위 정책이 따로 필요하다 (NG-16)
+        CHECK_FALSE(in(">=0.10.0 <1.0.0", "0.9.0"));
+        // ^0.x 는 마이너를 묶는다 — 제작자가 손으로 쓰면 다음 마이너에서 열리지 않는다 (경고 대상)
+        CHECK(in("^0.10", "0.10.3"));
+        CHECK_FALSE(in("^0.10", "0.11.0"));
+    }
 }

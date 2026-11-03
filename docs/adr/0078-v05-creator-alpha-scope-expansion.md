@@ -1,6 +1,6 @@
 # ADR-0078. v0.5 Creator Alpha 범위 — 초안의 요구 그대로 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반, 데모 오목 · HUD
 
-- 상태: **Accepted** · 날짜: 2026-10-28
+- 상태: **Accepted — 일부 Superseded** (버전 배치 — v0.5 = Creator Alpha 의 범위 — v0.5 는 Technical Alpha, 사용자 목표는 v0.11 → [ADR-0096](0096-roadmap-versioning-small-milestones.md)) · 날짜: 2026-10-28
 - 관련: [20-CREATOR-ALPHA](../20-CREATOR-ALPHA.md), [21-PLATFORM-FEATURES](../21-PLATFORM-FEATURES.md), [18-PLATFORM](../18-PLATFORM.md)
   6.6, 초안 [roadmap/v0_5](../platform/roadmap/v0_5_CREATOR_ALPHA.md), [ADR-0079](0079-game-ui-runtime-declarative-documents-renderer-adapter.md) ·
   [0080](0080-gameplay-api-engine-component-access-structural-ops.md) · [0081](0081-script-execution-backend-boundary-interpreter-first.md) ·

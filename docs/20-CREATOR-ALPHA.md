@@ -9,6 +9,11 @@
 > [0081](adr/0081-script-execution-backend-boundary-interpreter-first.md) (실행 경계 · JIT/AOT), [0083](adr/0083-i18n-accessibility-foundation.md)
 > (다국어 · 접근성).
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로.
+> v0.5 는 Technical Alpha 로 줄었다 — 10장의 M3 ~ M7 은 v0.7 ~ v0.11 로 나뉘고, 13장 완료 기준은 Closed Creator Alpha (v0.11) 의 기준이다
+> ([release-gates](roadmap/release-gates.md) 3장). v0.5 의 남은 일은 M7-T6 · M7-T5 ([releases](roadmap/releases.md) v0.5).
+
 ---
 
 ## 0. 한 줄
@@ -125,6 +130,16 @@ core/content                            presentation/ui · strings 는 원문만
 `ctx.ui.set(key, value)` (var 바인딩), `ctx.ui.show(docId, bool)`, `ctx.ui.text(key, args)` (문자열 키 · 인자 — 5장). 서버
 스크립트는 UI 를 모른다 — 서버가 클라이언트 UI 를 바꾸려면 컴포넌트 (복제) 를 바꾸고 바인딩이 그것을 본다.
 
+### 2.6 입력 컨트롤 (NG-06 — 2차 감사 4.6) [계획 v0.7]
+
+```text
+컨트롤  TextInput (한 줄 · 여러 줄 · 최대 길이 · IME — 27 9장의 조합 규칙) · Slider · Checkbox · Toggle · Dropdown · ScrollView · Tab
+공통    포커스 순서 (문서 순 · tabIndex) · 키보드 · 게임패드 탐색 (방향 → 가까운 컨트롤) · 비활성 · 값 바인딩 (2.5 ctx.ui)
+보안    값은 클라이언트 상태 — 서버에 닿는 것은 client.send 신호뿐 (서버 판정 — N1). 신호 값은 i32 라 TextInput 문자열은 보내지 못한다 —
+        채팅 · 이름 입력은 문자열 신호 (길이 상한 · 서버 필터) 를 따로 결정 [계획]
+시험    컨트롤마다 상태 · 이벤트 · 포커스 이동 · 비활성 무시, 헤드리스 배치 골든 (M3-T2 틀)
+```
+
 ## 3. 게임플레이 API (X2 — ADR-0080)
 
 v0.3 의 ctx.read · has · query · write 와 같은 모양으로 넓힌다. **쓰기와 구조 변경은 server 도메인만**, 결정론은 04 를 따른다.
@@ -144,7 +159,7 @@ v0.5 표    core.transform (pos · rot — 읽기 both · 쓰기 server: 경계 
 M2-T1 ✅   읽기 (server · client) · d.ts · 지문 — 19 16.1. 표는 script/api/EngineComponents (검사기 · d.ts 가 Foundation 만 알아서
            core/script 가 아니라 script/api 에 — 엔진 바인딩은 core/script/EngineComponentAccess). 들어간 것: Collider · Energy ·
            GameSession · Health · Movement · Transform · Velocity (Collider · Movement 는 복제하지 않아 서버만). 위 목록과 다른 점:
-           core.tags · core.prefab · game.score 는 칸 종류 (비트 · 문자열 · 배열) 가 없어 [계획], game.owner 는 M2-T5
+           core.tags · core.prefab · game.score 는 칸 종류 (비트 · 문자열 · 배열) 가 없어 [계획], game.owner 는 M2-T5 ✅ (ADR-0094)
 M2-T2 ✅   쓰기 — Transform (position 은 경계 안으로 자름) · Velocity · Movement (goal 자름) · Health · Energy. Collider ·
            GameSession 은 쓰기 None (엔진 관리). 범위 = 카탈로그 FieldMeta (밖이면 HostError — 그 호출의 쓰기 버림), 쓰기 버퍼 →
            호출 끝 (스크립트 컴포넌트와 같은 길), 공간 색인 다음 틱, 체력 0 이하 엔진의 죽음 규칙 — 19 16.1
@@ -185,7 +200,7 @@ M2-T4 ✅   19 16.3. 위와 다른 점 — 흐름 = RandomService.stream(Purpose
 ```text
 ctx.players(): PlayerInfo[]  { id: i32, name: string, role, team: i32 }   // 접속 차례가 아니라 id 순 (결정적 — 서버 세션 표의 것)
 ctx.session: { state, tick, winner, teams } (읽기)
-주의        접속 · 이름은 리플레이에 기록된 것만 (재생 때 같은 값) — 플레이어 표 변경은 명령 스트림에 남는다 [계획 M2-T5 (4) — 거기서 확인]
+주의        접속 · 이름은 리플레이에 기록된 것만 (재생 때 같은 값) — 플레이어 표 변경은 명령 스트림에 남는다 ✅ M2-T5 (4a) — PlayerJoin · PlayerLeave 서버 명령 (ADR-0093)
 ```
 
 ✅ M2-T5 (4a) — **위 설계를 바꿨다** ([ADR-0093](adr/0093-player-table-server-commands.md)): 플레이어 표는 시뮬레이션 안의 표 (ECS 개체가 아니다 — 개체로 두었더니
@@ -308,7 +323,7 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 범위는 본다, 형식 1 · 라이선스 없는 팩 경고) · 매니페스트 · 엔진 범위 (더 새 엔진이 필요 "엔진 X 이상을 받는다" · 옛
                 엔진용) · 의존 · 설치 (P7 · P8 → "sbx install <폴더>") · 콘텐츠 (처음 8 개 + 나머지 수 → sbx check) · 시작 월드 · 도구
                 (P6 → sbx sdk). 검사 자체는 validateProject · extractPackage 그대로. 오류면 종료 1. GPU · 드라이버 (클라이언트) 와 오류
-                화면 (같은 문장 · 복사 단추) 은 [계획] — 클라이언트 오류 화면 태스크 (M1-T3 안전 모드와 함께 정한다)
+                화면 (같은 문장 · 복사 단추) 은 [계획 v0.8] — NG-03 Player 모드의 오류 화면 (M1-T3 ✅ 안전 모드와 별개, ADR-0098)
 7.4 오디오      D-14: v0.5 에 실제 출력 백엔드를 넣을지 (Windows WASAPI 직접 · miniaudio 류 서드파티) — M2-T6 에서 결정. 정하지 못하면
                 소리 API 는 이벤트 · Null (센다) 로 두고 출력은 v0.6
                 ✅ 정함 (M2-T6, [ADR-0095](adr/0095-audio-v05-events-null-output-v06.md)): v0.5 = 소리 이벤트 (client.playSound) · Null 백엔드가 센다, 실제 출력 · sound importer ·

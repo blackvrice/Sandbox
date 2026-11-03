@@ -1,6 +1,6 @@
 # ADR-0039. 제품 범위를 게임 제작 · 배포 플랫폼으로 넓힌다 — Phase 0~15 = v0.1, 이후는 버전 · 마일스톤 · 태스크
 
-- 상태: **Accepted** · 날짜: 2026-10-19
+- 상태: **Accepted — 일부 Superseded** (버전 배치 — 버전 줄 표의 v0.6 ~ v1.0 칸 → [ADR-0096](0096-roadmap-versioning-small-milestones.md)) · 날짜: 2026-10-19
 - 관련: [00-OVERVIEW](../00-OVERVIEW.md) 1 · 7장, [03-SIMULATION](../03-SIMULATION.md) 6.4, [16-ROADMAP](../16-ROADMAP.md) 2 · 6장,
   [18-PLATFORM](../18-PLATFORM.md), [플랫폼 설계 초안](../platform/START_HERE.md) (2026-10-13), [ADR-0011](0011-explicit-component-registration.md),
   [ADR-0024](0024-network-foundation-enet-serverhost-two-halves.md)

@@ -3,6 +3,10 @@
 > **감사 문서** (master a1307fc). 근거는 소스 경로 · 시험 이름 ([SANDBOX-GAP-MATRIX](SANDBOX-GAP-MATRIX.md) 의 ID). 대응 설계는 25 ~ 28 ·
 > ADR-0089 ~ 0091, 작업은 23. 위험 순서 = 알파 목표 (CLI 없이 만들어 다른 PC 에서 실행) 에 대한 영향.
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](../adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](../roadmap/task-registry.md), 읽는 법은 [versioning 4장](../roadmap/versioning.md). 태스크 ID 는 그대로.
+> 이 문서는 지우지 않는다 — 2차 재확인 (해결 여부 · 증거 · 새 목표) 은 [SECOND-PASS-GAP-ANALYSIS](SECOND-PASS-GAP-ANALYSIS.md) 2 · 3장.
+
 ---
 
 ## 1. 구조적 위험 10

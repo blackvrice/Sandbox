@@ -1,6 +1,6 @@
 # ADR-0095. 오디오 (D-14) — v0.5 는 소리 이벤트 · Null 백엔드 (센다), 실제 출력 · sounds.json 은 v0.6
 
-- 상태: **Accepted** · 날짜: 2026-11-03
+- 상태: **Accepted — 일부 Superseded** (버전 배치 — 오디오 출력 "v0.6" → NG-17 v0.10 → [ADR-0096](0096-roadmap-versioning-small-milestones.md)) · 날짜: 2026-11-03
 - 관련: [20-CREATOR-ALPHA](../20-CREATOR-ALPHA.md) 7.4 (D-14 — "정하지 못하면 이벤트 · Null, 출력 v0.6"), [07-PLATFORM](../07-PLATFORM.md) 7장
   (IAudioBackend — 핸들 · 목소리 · 버스, NullAudioBackend 현행), [18-PLATFORM](../18-PLATFORM.md) 6.1 (D-14), [26-ASSET-PIPELINE](../26-ASSET-PIPELINE.md) 3장 (sound importer)
 

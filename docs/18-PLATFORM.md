@@ -12,9 +12,10 @@
 버전     v0.1 Engine Foundation ◐ (구현 끝, 실기 검증 대기)   v0.2 Game Creator ✅ 0.2.0 (2026-10-21 — 릴리스 노트 releases/v0.2.0)
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
-         v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
-다음     v0.5 M3-T1 — 게임 UI ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1 ~ U8 (M2 끝 — 20 10장 진행 차례), 트랙 B 는 M6-T9
-         Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
+         v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅, 남은 것 M7-T6 (CLI 게임의 다른 폴더 · 빈 캐시 E2E) → M7-T5 0.5.0 (ADR-0096)
+다음     roadmap/README 1장 — 트랙 A M7-T6 · M3-T1 (v0.7), 트랙 B NG-12 · NG-13 → M6-T9 (v0.6)
+로드맵   2026-11-03 재구성 (ADR-0096): 작은 MINOR v0.5 ~ v0.21+ · 성숙 단계 분리 · 태스크 등록부 — 정본 roadmap/ (versioning · task-registry ·
+         releases · release-gates), 근거 audit/SECOND-PASS-GAP-ANALYSIS. 아래 1장 표는 옛 줄 (이력)
 계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG · 세 트랙), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088),
          Studio 25 · 에셋 26 · 스크립트 IDE 27 · 제작자 흐름 기준 28 (ADR-0089 ~ 0092), 감사 audit/ (2026-11-03 — 알파 준비 안 됨: ALPHA-READINESS)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
@@ -28,12 +29,15 @@
 | v0.2 | Game Creator           | 비개발자가 미니게임을 만들어 끝까지 플레이 | ✅ 0.2.0 (5장 · [노트](releases/v0.2.0.md))       |
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ✅ 0.4.0 (6.4 · [노트](releases/v0.4.0.md))      |
-| v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | ◐ 계획 (6.6 · [20](20-CREATOR-ALPHA.md), ADR-0078) |
+| v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | ◐ → Technical Alpha 로 줄임 (ADR-0096), 목표는 v0.11 |
 | v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
 | v0.7 | Multiplayer Platform   | 인증된 방 · 자체 서버 · 무료 세션          | [계획] — 보안 전송 ADR 먼저 (R6)                |
 | v0.8 | Marketplace & Hosting  | 결제 · 정산 · 상시 서버                    | [계획] — 실제 사용자 노출은 보안 · 운영 조건 뒤 |
 | v0.9 | Business & Stability   | 팀 리뷰 → 자동 빌드 → 승인 → 배포          | [계획]                                          |
 | v1.0 | Sandbox Platform GA    | 사용자 · 운영 · 보안 · 호환성 기준         | [계획]                                          |
+
+> 2026-11-03 부터 v0.6 이후의 줄은 [roadmap/README](roadmap/README.md) 3장 (v0.6 ~ v0.21 · GA — 버전 비교는 정수, v0.10 > v0.9). 위 표의
+> v0.6 ~ v1.0 은 옛 이름이다 — 읽는 법은 [roadmap/versioning](roadmap/versioning.md) 4장.
 
 ### 1.1 v0.1 의 열린 항목 (v0.2 를 막지 않는다)
 
@@ -116,6 +120,10 @@ SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 
                공백 = AND. v0.4 M1-T1: "~" (~1.2.3 = >=1.2.3 <1.3.0, ~1 = >=1.0.0 <2.0.0) · "*" (모든 버전) (D-05, ADR-0071).
                "||" · 자리 와일드카드 (1.x) · 하이픈 범위는 Unsupported. 프리릴리스는 우선순위 그대로 비교 ("*" 도 포함)
 그 밖의 축       kSimVersion · 세이브 worldVersion/schemaVersion · 프로토콜 버전 · 매니페스트 schemaVersion — 서로 독립 (ADR-0039 6)
+                 한곳의 표 · 지금 값: roadmap/versioning 5장, 읽기 범위 · 시험: audit/VERSION-MIGRATION-MATRIX
+버전 비교      MINOR · PATCH 는 정수 — 0.10.0 > 0.9.x (test_semver). 0.x minor 를 잘게 나눠도 새 프로젝트의 engine 범위 (">=x.y.z <1.0.0") 는
+               안 깨진다. 1.0 전환은 [계획 v0.20] NG-16
+출시 채널      [계획 v0.13] NG-09 — 불변 릴리스 · 채널 포인터 · 단계 배포 · 롤백 (ADR-0098, 2차 감사 4.9)
 ```
 
 ## 5. v0.2 Game Creator
@@ -216,7 +224,7 @@ MyGame/
 | `entryWorld`    | 예   | 프로젝트 기준 상대 경로, `/` 구분, 마디 `[A-Za-z0-9_.-]`, `.` · `..` · Windows 예약 이름 금지 (P4)                   |
 | `gameMode`      | 아니 | schemaVersion 2. 콘텐츠의 GameMode id (11 9장) — 형식 P2, 프로젝트 콘텐츠에 없으면 P5. 없으면 끝 없는 샌드박스       |
 | `dependencies`  | 아니 | schemaVersion 3 (v0.4 M1-T2, ADR-0071). `{팩 id: 범위 \| {version?, path} \| {version?, git, rev}}` — 팩 의존 (11 1.3 과 같은 모양, 16 개까지). 그 팩들은 content.packs 와 함께 불러온다 (loadedPacks — 월드가 쓰는 팩 검사 P5 도). 범위를 적었으면 불러온 팩의 version 이 SemVer · 범위 안 (P7). 모양 · 팩 id 도 P7. 팩은 `<프로젝트>/content` 와 설치 폴더 `.sandbox/packages` (잠금 sandbox.lock 과 같을 때 — P8, v0.4 M3-T2 · ADR-0073) 에서 찾는다. path · git 의존은 설치해야 연다 (sbx add · install — v0.4 M3-T3, ADR-0074) |
-| `network`       | 아니 | schemaVersion 3 에 더한 키 (v0.5 M2-T7 — Runtime v2 계약, ADR-0087). `{"model": "snapshot"}` — 없으면 snapshot (지금 그대로: 스냅숏 · 보간). "predicted" (클라이언트 예측) 는 [계획 v0.7] → P2, 다른 값 P2, 모르는 키 · 객체 아님 P1 |
+| `network`       | 아니 | schemaVersion 3 에 더한 키 (v0.5 M2-T7 ✅ — Runtime v2 계약, ADR-0087). `{"model": "snapshot"}` — 없으면 snapshot (지금 그대로: 스냅숏 · 보간). "predicted" (클라이언트 예측) 는 [계획 v0.7] → P2, 다른 값 P2, 모르는 키 · 객체 아님 P1 |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.

@@ -8,14 +8,19 @@
 > **2026-11-03 Studio 감사로 갱신** ([ADR-0092](adr/0092-three-tracks-creator-studio-placement.md)): 세 트랙 (A Engine Runtime · B Creator Studio ·
 > C Platform Services — 0.1장), v0.5 M6 에 Studio 기본 흐름 태스크 (1.1장), v0.6 트랙 B (2.1장). 근거 [audit/](audit/SANDBOX-GAP-MATRIX.md).
 
+> **2026-11-03 로드맵 재구성 ([ADR-0096](adr/0096-roadmap-versioning-small-milestones.md)):** 이 문서의 버전 표기 ("[계획 v0.x]" · "v0.5 M6" …) 는 옛 줄이다 —
+> 목표 버전 · 상태의 정본은 [roadmap/task-registry](roadmap/task-registry.md), 읽는 법은 [versioning 4장](roadmap/versioning.md). 태스크 ID 는 그대로.
+> **로드맵의 정본은 [roadmap/](roadmap/README.md) 이다** — 이 문서는 태스크 카드의 상세 (모듈 · API · 시험) 와 2026-11-03 까지의 이력으로 남는다.
+> 0장 "지금 · 다음" 은 [roadmap/README](roadmap/README.md) 1장, 6 ~ 8장 (GA · DAG · 미룰 순서) 은 roadmap 의 release-gates 4장 · README 4장.
+
 ---
 
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.5 Creator Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅
-다음      v0.5 M3-T1 — 게임 UI ui/ 타깃 · 문서 모델 · 검사 (20 10장 Phase 3)
-트랙 B    v0.5 M6-T9 (프로젝트 에셋 · .sbpkg 3 — C1 차단 해소) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) — 트랙 A 와 병렬 (1.1장)
+지금      v0.5 Technical Alpha ◐ — M1 ✅ · M2 ✅ · M8 ✅ (2026-11-03 재구성 — ADR-0096, 아래 줄은 roadmap/README 1장과 같다)
+다음      트랙 A  M7-T6 Technical Alpha E2E → M7-T5 0.5.0 · M3-T1 게임 UI (v0.7, 20 10장 Phase 3)
+트랙 B    NG-12 · NG-13 → M6-T9 (프로젝트 에셋 · .sbpkg 3, v0.6) → NG-01 → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) (v0.8)
 그다음   
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
