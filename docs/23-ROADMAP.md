@@ -5,6 +5,8 @@
 > 보안 · 안정성 출시 기준은 [24](24-SECURITY-GATES.md), 배치 결정은 [ADR-0082](adr/0082-v06-v10-feature-placement.md) ·
 > [ADR-0088](adr/0088-v06-v10-placement-update-runtime-v2.md). 초안 [platform/roadmap](platform/roadmap/) 의 요구는 줄이지 않는다 —
 > 이 문서는 그 위에 Runtime v2 를 얹고 작업 단위로 나눈다. 모든 줄은 **[계획]** 이다 (✅ 표시가 있는 것만 끝난 일).
+> **2026-11-03 Studio 감사로 갱신** ([ADR-0092](adr/0092-three-tracks-creator-studio-placement.md)): 세 트랙 (A Engine Runtime · B Creator Studio ·
+> C Platform Services — 0.1장), v0.5 M6 에 Studio 기본 흐름 태스크 (1.1장), v0.6 트랙 B (2.1장). 근거 [audit/](audit/SANDBOX-GAP-MATRIX.md).
 
 ---
 
@@ -13,6 +15,7 @@
 ```text
 지금      v0.5 Creator Alpha ◐ — M1 ✅ · M8 ✅ · M2-T1 ~ T4 ✅ · M2-T5 (1) · (2) · (3) ✅
 다음      v0.5 M2-T5 (4) — ctx.players · session · owner 적기 (1장 카드)
+트랙 B    v0.5 M6-T9 (프로젝트 에셋 · .sbpkg 3 — C1 차단 해소) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) — 트랙 A 와 병렬 (1.1장)
 그다음    M2-T7 계약 동결 → M2-T6 →
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
@@ -24,6 +27,16 @@ P0  그 버전의 출시 차단 또는 호환 계약 (나중에 바꾸면 기존
 P1  그 버전 목표의 핵심 기능 (빠지면 버전 목표를 못 이룬다)
 P2  가치가 크지만 다음 버전으로 미룰 수 있다 (미룰 순서의 앞)
 P3  측정 · 수요 근거가 생기면 (검토 항목 — 근거 없이 만들지 않는다)
+```
+
+### 0.1 세 트랙 (ADR-0092)
+
+```text
+A Engine Runtime   ECS · VM · 물리 · 네트워크 · 렌더 · 저장 · 결정론 · 성능 — 22, RT-* 태스크, M2 · M8
+B Creator Studio    Studio Shell · 장면 · 에셋 · 스크립트 IDE · UI 디자이너 · 시각 스크립팅 · 제작자 디버깅 — 25 ~ 28, M3 · M4 · M5 · M6, ST-* 태스크
+C Platform Services Hub · 계정 · 배포 · 마켓 · 호스팅 · 운영 · 보안 — 21 · 초안 roadmap, v0.6 ~ v0.9
+병렬                트랙끼리 병렬. 맞닿는 계약 (명령 · 형식 번호 · 패키지 · Host 표) 을 바꾸는 태스크만 순서를 맞춘다 (7장)
+단계 이름            v0.5 = 트랙 B "기본 흐름 (Technical Alpha)", v0.6 = 트랙 B "Closed Creator Alpha" — 버전 이름 · 목표는 그대로
 ```
 
 태스크 카드의 14 칸: ① ID · 제목 ② 우선순위 ③ 버전 · 마일스톤 ④ 목적 ⑤ 선행 ⑥ 변경 모듈 ⑦ API · 인터페이스 (타입 · Capability · 단계 ·
@@ -120,7 +133,59 @@ M2-T5 를 네 조각으로 나눈다 ((1) 은 ✅). 조각마다 커밋 하나 �
 M2-T7 을 끼운 이유: M2-T6 이 client 함수를 더하는데, Capability 열이 그 뒤에 오면 같은 함수를 두 번 고친다. 둘 다 Host 지문을 바꾸므로
 같은 버전 안에서 한 번 더 바뀌는 것뿐 — 호환 영향 없음 (kHostApiVersion 1).
 
-v0.5 출시 기준 = 20 13.1 · 13.2 + 24 2장의 v0.5 줄.
+v0.5 출시 기준 = 20 13.1 · 13.2 + 24 2장의 v0.5 줄 + 28 1장 (G1 ~ G4 · G6 · G8 · G9).
+
+### 1.1 트랙 B — v0.5 Studio 기본 흐름 (Studio 감사 2026-11-03 — ADR-0089 ~ 0092)
+
+기존 M6-T1 (홈) · T3 ("패키지" 패널 — 검사 · 시험 · 빌드) 는 그대로 두고 범위만 적는다. 새 태스크는 T6 ~ T9 (번호는 20 10장 Phase 6 표와 같다).
+
+```text
+① M6-T1 Studio 홈 · 새 프로젝트 · 열기 · 최근 (기존 — P1 → P0)          ② P0   ③ v0.5 M6 (트랙 B)
+④ G1 — CLI 없이 시작 (core::createProject 재사용 — 로직은 있다)
+⑤ — (M6-T2 템플릿이 나오면 고르기에 더함)
+⑥ apps/client/studio (홈 화면), editor/services/ProjectService [새], 사용자 폴더 studio.json (최근)
+⑦ ProjectService::create(dir, id, template) · open · recent — UI 없음 (헤드리스 시험)
+⑧ 형식 영향 없음 (프로젝트 매니페스트 그대로)   ⑨ 없음   ⑩ 경로 = 사용자가 고른 폴더만 · 빈 폴더 확인 (createProject 규칙 그대로)
+⑪ CTest studio_new_project (28 3장)   ⑫ 없음   ⑬ 25 5장 · 10 · 15   ⑭ G1 통과 — 병렬: T6 · T8 과 가능 (파일 겹침 없음)
+
+① M6-T3 "패키지" 패널 — 검사 · 시험 · 빌드 (기존) + 누락 에셋 검사 · Build 화면 (확장)   ② P0   ③ v0.5 M6
+④ G8 — core::buildPackage 재사용, 에셋 참조 닫힘의 누락을 빌드 전에
+⑤ M6-T9 (에셋을 패키지에 — 형식 3)   ⑥ editor/services/BuildService [새], editor/ui (Build 화면)
+⑦ BuildService::build(project, out) → { 경로, 경고 · 오류[] } — Worker Job, 결과는 메인 큐
+⑧ 없음 (형식은 T9)   ⑨ 없음   ⑩ 출력 경로 확인 · 덮어쓰기 확인   ⑪ CTest studio_build (빈 캐시에서 열기)
+⑫ 빌드 시간 (14 7.14 패키지 명령 시간과 비교)   ⑬ 25 5장 ⑩ · 15 7장   ⑭ G8 통과
+
+① M6-T6 레이아웃 저장 · Studio 설정 분리 (새)                              ② P1   ③ v0.5 M6
+④ 벤치마크 A2 (Godot 레이아웃) · GM-08 (ImGuiLayer.cpp:198 의 낡은 [계획])
+⑤ —   ⑥ apps/client/ui/ImGuiLayer (IniFilename → 사용자 폴더 studio/layouts/), apps/client/UserSettings (studio.json)
+⑦ 레이아웃 이름 셋 (장면 · 스크립트 · 테스트) · 저장 · 복원 · 기본으로   ⑧ 사용자 설정 파일 하나 더 (안전 모드는 건너뛴다 — M1-T3)
+⑨ 없음   ⑩ 깨진 ini = 옆으로 옮기고 기본 (M1-T3 규칙)   ⑪ unit (경로 · 깨진 파일 · 안전 모드)   ⑫ 없음
+⑬ 25 4장 · 15 (설정 폴더)   ⑭ 다시 열면 같은 배치 — 병렬 가능
+
+① M6-T7 자동 저장 · 크래시 복구 (새)                                         ② P0   ③ v0.5 M6
+④ GM-10 · R6 — 충돌 · 강제 종료 때 작업 손실 방지 (Roblox 5 분 자동 저장 — 벤치마크 F1)
+⑤ M1-T1 (충돌 보고 — 비정상 종료 표시)   ⑥ editor/services/AutosaveService [새], 세이브 (core/persist 재사용 — 형식 그대로)
+⑦ 주기 (기본 3 분) · 플레이 시작 전 · 저장 안 한 문서 텍스트 → 사용자 폴더 recovery/<프로젝트 해시>/, 다음 시작 때 복구 제안
+⑧ 세이브 형식 그대로 (09)   ⑨ 세이브 → 로드가 같은 WorldHash (기존 규칙)   ⑩ 복구본은 사용자 폴더만 · 프로젝트를 덮어쓰지 않는다 · 크기 상한
+⑪ CTest studio_recovery (강제 종료 → 복구 → 같은 해시)   ⑫ 50k 개체 월드 한 번 저장 시간 (14 에 기록 — 측정 뒤)
+⑬ 25 7장 · 09   ⑭ 복구 성공 — 병렬 가능
+
+① M6-T8 스크립트 편집기 — 자동 완성 · hover · 오류 밑줄 · 저장 위치 구분 (새)  ② P0   ③ v0.5 M6
+④ G4 · GM-12 · GM-13 · GM-29 (편집이 오버레이에만)
+⑤ 프로토타입 script/lang/LanguageService ✅ (이번 감사), M6-T4 (줄 표 — 오류 줄로 이동)
+⑥ script/lang/LanguageService (타입 기반 · 컴포넌트 · import 이름), editor/ui (편집기 위젯), editor/services/DocumentService [새]
+⑦ completeAt 확장 · hover(symbol) · [적용 (오버레이)] / [저장 (팩 파일 — 원자적)]   ⑧ 없음 (컴파일러 · 형식 그대로)
+⑨ 없음   ⑩ 저장 = 프로젝트 content/ 안만   ⑪ unit (후보 표 · hover · 저장 왕복 — 저장 → 다시 열기 = 같은 내용)
+⑫ 자동 완성 응답 시간 (파일 1k · 5k 줄 — 측정해 14 에)   ⑬ 27 · 10 8장   ⑭ G4 통과 — 병렬: T1 · T6 과 가능
+
+① M6-T9 프로젝트 에셋 · .meta 안정 id · 가져오기 (PNG) · .sbpkg 형식 3 · 에셋 루트 차례 (새)  ② P0   ③ v0.5 M6
+④ R1 · R2 · GM-03 · GM-04 — **v0.5 C1 (A → B) 차단 해소**
+⑤ —   ⑥ core/asset [새 — AssetDatabase], core/package (형식 3 · assets 항목), apps/client (루트 차례), editor/ui (가져오기 최소)
+⑦ AssetDatabase::scan(project) · importFile(src) → id · resolve(id | 경로) → 경로   ⑧ .sbpkg 2 → 3 (1 · 2 도 읽는다 — 09 · 18 4장),
+   프로젝트 폴더 assets/ (매니페스트 키 없음 — 폴더 규칙)   ⑨ 없음 (에셋은 표시 전용 — ADR-0090 6)
+⑩ 24 P7 (크기 · 디코드 상한 · 경로 · 압축 폭탄)   ⑪ unit (가져오기 · 옮기기 → 참조 그대로 · 패키지 왕복 · digest), M7-T3 E2E
+⑫ 1k 에셋 훑기 시간 (측정 뒤)   ⑬ 26 · 09 9장 · 06 7.2   ⑭ 자기 PNG 를 쓴 게임이 빈 캐시 다른 폴더에서 보인다 — 병렬 불가 (패키지 형식)
+```
 
 ---
 
@@ -151,6 +216,25 @@ v0.6 출시 기준: 초안 v0_6 완료 기준 + 24 2장 v0.6 줄 (V3 · C1 · Q1
 
 ---
 
+### 2.1 트랙 B — v0.6 Closed Creator Alpha (Studio 감사 — ADR-0089 ~ 0092)
+
+| ID | 제목 | P | 선행 | 변경 모듈 | 완료 · 시험 |
+|----|------|---|------|-----------|-------------|
+| ST-06-1 | Editor Services 층 정리 — Command · Selection · Undo 통합 (월드 + 문서) · check_includes 규칙 | P0 | M6-T3 · T7 · T8 | editor/services, tools/check_includes.py | 규칙 시험 · Undo 왕복 unit |
+| ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | P2 | ST-06-1 | editor/services · ui | 충돌 진단 unit |
+| ST-06-3 | Asset Browser 완성 — 썸네일 · 참조 찾기 · 옮기기 · 안전 지우기 · 캐시 · 다시 가져오기 · Hot Reload | P1 | M6-T9 | core/asset, render/asset (다시 업로드), editor/ui | unit · 렌더 시험 |
+| ST-06-4 | Game UI Designer (v0.5 문서 그대로 편집) | P1 | M3 · ST-06-1 | editor/ui (designer), ui/ (배치 미리보기) | 문서 왕복 unit · 수동 QA |
+| ST-06-5 | Prefab 인스턴스 오버라이드 · 변형 (설계 ADR 먼저 — 결정론 측정) | P1 | — | core/content · core/command · editor/ui | det 시험 (전파 순서 · 해시) |
+| ST-06-6 | 편집기 그룹 (worlds/<w>/editor.json) · Hierarchy 검색 · 접기 | P2 | ST-06-1 | editor/services · ui | unit · 10k 개체 측정 |
+| ST-06-7 | 재생 디버거 (중단점 · 단계 · 스택 · 지역 · 감시 · logpoint) | P1 | M6-T4 | script/vm (훅), tools (디버그 재생), editor/ui | 재생 중단 · 같은 해시, 훅 비용 < 2 % |
+| ST-06-8 | 언어 서비스 색인 — 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | P2 | M6-T8 | script/lang | unit · 응답 측정 |
+| ST-06-9 | TestService — 서버 + N 클라이언트 단추 · 지연 · 손실 모의 (SimulatedTransport 노출) | P1 | — | editor/services, network (옵션), platform/process | CTest (서버 + 2 헤드리스) |
+| ST-06-10 | 데이터 폼 (콘텐츠 JSON 일반 — FieldMeta) · 트리거 그래프 캔버스 | P2 | ST-06-1 | editor/ui | 스키마 → 폼 왕복 unit |
+| ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 (다중 모니터) | P3 | ST-06-1 | apps/client · platform | 수동 QA |
+| ST-06-12 | 제작자 사용성 시험 (28 2장) — 결과를 ALPHA-READINESS 에 | P0 | v0.5 끝 | docs · qa | 시험 기록 |
+
+v0.6 출시 기준 (트랙 B): 28 G5 (시각 UI) · G6 (멀티) · G7 (디버거) 통과 + 사용성 시험 합격 (28 2장).
+
 ## 3. v0.7 Multiplayer Platform (목표 그대로: "인증된 방 · 자체 서버 · 무료 세션")
 
 보안 전송 (D-07) · Directory · Room · JoinTicket · 자체 서버 등록 · 무료 세션 · 플레이어 데이터 · 친구 · 초대 · 파티 · 원격 관전 · 방 안 신고 ·
@@ -167,6 +251,9 @@ v0.6 출시 기준: 초안 v0_6 완료 기준 + 24 2장 v0.6 줄 (V3 · C1 · Q1
 | RT-07-7 | 시간 동기 (클라이언트 tick 앞서기 · ±1 % 조정) | P1 | RT-07-3 | apps/client | — | — | — | — | 지터 시뮬레이션 | — |
 
 v0.7 출시 기준: 초안 v0_7 + 24 v0.7 줄 (N2 · N3 · N4 — 보안 전송 없이 인터넷 방 없음).
+
+트랙 B (v0.7 Multiplayer Creator): 스크립트 초안 · 커밋 (Roblox Drafts 와 같은 사용 모양 — 벤치마크 F1) · 파일 문서 동시 편집 (잠금 또는 3-way —
+결정 D-17) · sbx lsp (27 5장) · 포맷터 · 클라이언트 라이브 디버그 · UI 애니메이션 · UI 템플릿 import. 번호는 그 버전에 들어갈 때 ST-07-* 로.
 
 ---
 
@@ -228,14 +315,45 @@ v0.7   D-07 (보안 전송) → 방 · 티켓 …
        RT-07-1 → RT-07-2 → RT-07-3 → { RT-07-4 → RT-07-5 , RT-07-7 } ; RT-07-6 (RT-06-3 뒤)
 v0.8   D-09 (호스팅) + RT-06-10 → RT-08-1 ;  RT-06-3 → RT-08-2 → RT-08-3 ;  RT-06-12 → RT-08-4 ; 측정 → RT-08-5
 v0.9   RT-06-11 측정 → RT-09-3 ;  RT-09-1 → RT-09-2 ;  RT-09-4 · RT-09-5 (측정 조건)
+트랙 B v0.5   M6-T1 ∥ M6-T6 ∥ M6-T8 ∥ M6-T7 (서로 병렬 — editor/services 의 다른 파일),  M6-T9 → M6-T3 (빌드가 에셋 형식을 쓴다) → M7-T3,
+              M6-T4 (줄 표) → M6-T8 의 "오류 줄로 이동"
+트랙 B v0.6   ST-06-1 → { ST-06-2 · ST-06-6 · ST-06-10 · ST-06-11 } ;  M6-T9 → ST-06-3 ;  M3 → ST-06-4 ;  M6-T4 → ST-06-7 ;  M6-T8 → ST-06-8 ;
+              ST-06-5 · ST-06-9 독립 ;  끝 → ST-06-12
+형식 번호 순서  .sbc 10 = M6-T4 (줄 표). .sbpkg 3 = M6-T9. 둘은 서로 다른 형식이라 병렬 가능
 순차가 꼭 필요한 것  Host 표 (script/api/HostApi.cpp) 를 고치는 태스크끼리 — 지문 고정 시험이 한 번에 하나를 기대한다.
                     프로토콜 번호를 올리는 태스크끼리 (15 → 16 …)
+```
+
+### 7.1 트랙 B 의존 (Mermaid)
+
+```mermaid
+graph LR
+  M2T5[M2-T5 4] --> M2T7[M2-T7 계약] --> M2T6[M2-T6 입력]
+  M6T1[M6-T1 홈] --> G1((G1))
+  M6T9[M6-T9 에셋 형식 3] --> M6T3[M6-T3 빌드] --> M7T3[M7-T3 A to B]
+  M6T4[M6-T4 줄 표] --> M6T8[M6-T8 편집기]
+  M6T7[M6-T7 자동 저장]
+  M6T6[M6-T6 레이아웃]
+  M3[M3 게임 UI] --> ST4[ST-06-4 UI Designer]
+  M6T9 --> ST3[ST-06-3 Asset Browser]
+  M6T4 --> ST7[ST-06-7 재생 디버거]
+  M6T8 --> ST8[ST-06-8 색인]
+  M6T3 --> ST1[ST-06-1 Services]
+  M6T7 --> ST1
+  ST1 --> ST2[ST-06-2 팔레트]
+  ST1 --> ST6[ST-06-6 그룹]
+  ST1 --> ST10[ST-06-10 데이터 폼]
+  ST4 --> ST12[ST-06-12 사용성 시험]
+  ST7 --> ST12
+  ST3 --> ST12
 ```
 
 ## 8. 미룰 순서 (버전 목표가 위험할 때 — 위부터 미룬다)
 
 ```text
 v0.5   ADR-0078 6 그대로 (M8 은 끝) → M2-T7 은 미루지 않는다 (P0 — 호환 계약)
+       트랙 B: M6-T6 → M6-T8 의 hover · 밑줄 (자동 완성 · 저장 구분은 남긴다) 순으로 민다. M6-T1 · T3 · T7 · T9 는 밀지 않는다 (G1 · G8 · 데이터 손실 · C1)
+v0.6 B ST-06-11 → ST-06-2 → ST-06-10 → ST-06-6 → ST-06-8 (P2 · P3 부터 v0.7 로)
 v0.6   RT-06-15 → RT-06-14 → RT-06-13 → RT-06-12 → RT-06-6 → RT-06-11  (P2 부터. Hub P0 은 미루지 않는다)
 v0.7   RT-07-6 → RT-07-5 의 패널 (계측 데이터는 남긴다)
 v0.8   RT-08-5 → RT-08-3 → RT-08-2 → 등급전 시즌

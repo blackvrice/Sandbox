@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-11-03 — Studio 감사: 벤치마크 · Gap Matrix · Studio · 에셋 · 스크립트 IDE 설계 · 로드맵 세 트랙 (+ 언어 서비스 프로토타입)
+
+**무엇을**
+
+- 감사 문서 docs/audit/: ENGINE-BENCHMARK (Roblox · Unity · Unreal · Godot 공식 문서 13 건 — 확인 · 일반 지식 구분), SANDBOX-GAP-MATRIX (44 행 —
+  Implemented ~ Missing, ⟂접근 · ⟂낡음 · ⟂불일치 표시), ARCHITECTURE-REVIEW (구조적 위험 10 · 재사용 · 새 설계 · 문서 충돌), ALPHA-READINESS
+  (G1 ~ G9 판정 — 알파 준비 안 됨), VERIFICATION-RESULTS (실행한 것 · 안 한 것과 이유).
+- 설계 문서 25 (Studio — Client 모드 + editor/services 층 · 화면 10 와이어프레임 · UI 기술 대안), 26 (에셋 — .meta 안정 id · 데이터 수명주기),
+  27 (스크립트 IDE — 언어 서비스 · 재생 디버거 · LSP), 28 (제작자 흐름 기준 G1 ~ G9 · 사용성 시험 계획 · 양식 — 결과 없음).
+- ADR-0089 (Studio 층) · 0090 (에셋 DB · .sbpkg 형식 3) · 0091 (언어 서비스) · 0092 (세 트랙 · v0.5 M6 +T6 ~ T9 · T3 확장).
+- 로드맵: 23 (0.1 세 트랙 · 1.1 v0.5 트랙 B 카드 · 2.1 v0.6 ST-06-* · 7 DAG + Mermaid · 8 미룰 순서), 20 10장 Phase 6, 18 (0 · 6 · 6.6 · 7),
+  21 1장, 24 (P5 ~ P8 · D3 · C3 · v0.5 차단 줄), README 지도, 17.
+- 코드 (프로토타입 — 엔진 동작 바꾸지 않음): script/lang/LanguageService — contextMembers(domain) · completeAt(source, offset, domain) ("ctx."
+  후보를 Host 표에서 도메인으로 거른다), 시험 test_language_service.
+
+**왜 · 찾은 것**
+
+- 알파 목표 (CLI 없이 만들어 다른 PC 에서) 대조: 프로젝트 생성 · 빌드 로직은 core 에 있으나 UI 가 없고 (CLI 만), **패키지가 에셋을 싣지 않으며
+  클라이언트는 전역 에셋 루트 하나** (core/package/GamePackage.cpp · apps/client/main.cpp:189) → 자기 그림을 쓴 게임은 v0.5 C1 (A → B) 을 통과할
+  수 없다. 에셋 id 는 경로 해시라 이름 바꾸기가 참조를 끊는다. Studio 의 콘텐츠 "적용" 은 월드 오버레이에만 (팩 파일 저장 경로 없음). 자동 저장 ·
+  레이아웃 저장 없음 (ImGuiLayer 의 "[계획] … (Phase 12)" 는 낡았다).
+- 버전 이름 · 목표는 그대로 두고 (참조 안정), 요청의 Technical Alpha · Closed Creator Alpha 는 트랙 B 단계 이름으로 (ADR-0092).
+- 기존 M6-T3 이 이미 "검사 · 시험 · 빌드" 패널이어서 GUI 빌드를 새 태스크로 만들지 않고 T3 에 누락 검사를 더했다 (중복 방지).
+
+**검증**
+
+- 프로토타입: 빌드 · unit_* 14 / 14 통과 (test_language_service — 서버에 label 없음 · 클라이언트에 write · spawn 없음 · 이름 순 · 설명 있음 ·
+  접두 · 수신자 검사). 문서 상대 링크 0 깨짐 (스크립트 — 기존 ADR-0085 의 0057 링크 깨짐은 기존 ADR 이라 고치지 않았다).
+- Windows MSVC Debug 전체 ctest 74 / 74 통과, check_includes 562 파일 · 0 위반.
+- 실행하지 않은 것: Studio 화면 프로토타입 (와이어프레임만), 다른 PC A → B, 외부 사용성 시험, 성능 측정 — 이유는 VERIFICATION-RESULTS 4장.
+
+**남은 일**
+
+- 트랙 A 다음: M2-T5 (4). 트랙 B 다음: M6-T9 (에셋 · .sbpkg 3) → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장). 결정 필요: D-15 (편집기 위젯 —
+  자체 · 외부 라이브러리), D-16 (3D 범위), D-17 (문서 동시 편집 — 잠금 · 3-way).
+
+---
+
 ## 2026-11-02 — v0.5 M2-T5 (3): PlayerSignal · signals.json · 프로토콜 15 · onEvent "signal"
 
 **무엇을**

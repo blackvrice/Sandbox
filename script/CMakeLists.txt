@@ -16,6 +16,8 @@ add_library(SandboxScript STATIC
     lang/Checker.cpp
     lang/Codegen.hpp
     lang/Codegen.cpp
+    lang/LanguageService.hpp
+    lang/LanguageService.cpp
     vm/Bytecode.hpp
     vm/Bytecode.cpp
     vm/Verifier.hpp

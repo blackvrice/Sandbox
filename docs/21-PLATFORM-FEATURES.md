@@ -15,6 +15,8 @@
 버전 번호 (2026-11-02 헤더 값): .sbc kFormatVersion 9 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0xf5e11716b49e9a6e
 (script/api/HostApi.hpp · test_checker 고정) · kSimVersion 4 (core/simulation) · 프로토콜 15 (network/protocol — M2-T5 (3)) · .sbpkg 형식 2 · 리플레이 1 ·
 세이브 kWorldVersion 1 / kSchemaVersion 1. 실행 구조 (스레드 · 콜백) 의 다음 설계는 [22-RUNTIME-V2](22-RUNTIME-V2.md).
+제작 도구 (Studio · 에셋 · 스크립트 IDE) 의 상세 상태 · 부족은 [audit/SANDBOX-GAP-MATRIX](audit/SANDBOX-GAP-MATRIX.md) (2026-11-03 — 이 표보다 자세하다). 이 표의
+"에디터 UI" 행은 "도구용으로는 Implemented, 일반 제작자용 Studio 로는 Partial" — 홈 · 빌드 화면 · 자동 저장 · 에셋 가져오기 · 자동 완성이 없다.
 
 | 영역 | 상태 | 근거 (코드 · 시험 · 문서) | 빠진 것 |
 |------|------|---------------------------|---------|
@@ -39,7 +41,7 @@
 | 실행 구조 (스레드 · 콜백) | Partial | 스레드 넷 (Main · Simulation · Network IO · Worker Pool — 01 5장), server onStart · onTick · onEvent · onStop · client onUpdate (19 17 · 18 · 21장) | onPrePhysics · client 수명주기 · onAction · onRender · client 고정 Tick · 예측 · NetworkModule · Capability (22 — [계획 v0.5 계약 · v0.6 ~ v0.8]) |
 | 스크립트 시스템 · 예산 · 프로파일 | Implemented | core/script (ScriptSystemAdapter 16b · 17d, ClientScriptSystems, 예산 · 트랩 정책, 시스템별 프로파일), 19 17~22장 | 함수별 프로파일 · 디버거 |
 | 게임 규칙 (노코드) | Implemented | Rule · Behavior · Trigger (노드 21 종) · GameMode · PlayerAction, 11 · ADR-0045~0052 | 노드 그래프 캔버스 · 쿨다운 · 비용 |
-| GameProject · GamePackage | Implemented | core/project · core/package (.sbpkg 형식 2 · 라이선스 요약), sbx new · check · build · test, 09 9장 | 에디터 안의 새 프로젝트 · 빌드 마법사, 압축 |
+| GameProject · GamePackage | Implemented (CLI) | core/project · core/package (.sbpkg 형식 2 · 라이선스 요약), sbx new · check · build · test, 09 9장 | 에디터 안의 새 프로젝트 · 빌드 마법사, 압축 |
 | 패키지 관리자 | Implemented | core/package (Resolve · Lockfile · Install · GitSource · PackTemplate), sbx add · remove · update · install, ADR-0071~0077 | 레지스트리 · 서명 (v0.6) |
 | 템플릿 | Partial | sbx new --from <시나리오> · --mode (빈 월드 · ecosystem_small · eco.protect 데모), samples (rabbit_guard · mana_regen · stash) | 초안의 "템플릿 3종" (미니게임 · RTS · 생존) 으로 고른 틀, 에디터 안 고르기 |
 | 오류 보고 · 충돌 로그 | Implemented | v0.5 M1-T1 · T2: foundation/diag (로그 고리 · 민감정보 제거 · 보고 묶음) · 새 타깃 SandboxCrash (SEH 미니덤프 · terminate · POSIX 시그널 · 콜스택 · 문맥), sbx report, CTest crash_report_server · crash_report_client | GPU 정보 · 오류 화면 (20 7.2 [계획]), 보고 보내기 (계획 없음 — 로컬 묶음만) |

@@ -15,7 +15,8 @@
          v0.5 Creator Alpha ◐ 계획 — 초안 요구 + 게임 UI · 게임플레이 API · 리플레이 뷰어 · 다국어 기반 (6.6 · 20, ADR-0078~0083)
 다음     v0.5 M2-T5 (4) — ctx.players · ctx.session · 행동 · 신호 · spawn 이 owner 적기 → M2-T7
          Runtime v2 계약 동결 → M2-T6 (20 10장 진행 차례 · 23 1장)
-계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088)
+계획     v0.5 ~ v1.0 통합 로드맵 23 (태스크 카드 · P0 ~ P3 · DAG · 세 트랙), 실행 구조 22 (Runtime v2), 보안 · 안정성 출시 기준 24 (ADR-0086 ~ 0088),
+         Studio 25 · 에셋 26 · 스크립트 IDE 27 · 제작자 흐름 기준 28 (ADR-0089 ~ 0092), 감사 audit/ (2026-11-03 — 알파 준비 안 됨: ALPHA-READINESS)
 작업 단위 "v0.N Mk-Tn" (ADR-0039 2). 태스크마다 빌드 · 전체 CTest 통과 커밋, 미래 버전 기능은 미리 만들지 않는다
 ```
 
@@ -246,6 +247,8 @@ v0.6 Hub              계정 · 레지스트리 · 불변 릴리스 · GitHub �
                       + 게임 검색 · 목록 · 프로필 · 패키지 · 게임 신고 · 차단 · 패키지 분석 · UI 시각 편집 · 물리 · 경로 API
                       + Runtime v2: onPrePhysics (8b) · PhysicsCommand · layer · mask · 충돌 · 트리거 이벤트 · client 수명주기 · onAction ·
                         onRender (Draw) · 타이머 · defineState · Capability 실행 검사 (23 2장)
+                      + 트랙 B Closed Creator Alpha: Editor Services · Asset Browser · UI Designer · Prefab 오버라이드 · 재생 디버거 ·
+                        서버 + N 테스트 · 지연 모의 · 사용성 시험 (23 2.1장, ADR-0092)
 v0.7 Multiplayer      보안 전송 (D-07) · Directory · Room · JoinTicket · 자체 서버 등록 · 무료 세션 (D-08)
                       + 플레이어 데이터 (서버 API) · 친구 · 초대 · 파티 · 원격 관전 · 방 안 신고 · 음소거 · 공식 세션 결과 기록
                       + Runtime v2: Client 고정 Tick · InputFrame · 예측 · 맞춤 (게임마다 선택 — ADR-0087, 23 3장)
@@ -528,6 +531,10 @@ M6 제작 UX · 템플릿 · 스크립트 개선
   T1 [계획] 첫 화면 새 프로젝트 · 열기 · 최근        T2 [계획] 템플릿 3종 (노코드 미니게임 + HUD · 스크립트 보드게임 · 생존)
   T3 [계획] 에디터 "패키지" 패널 · 설치 단추        T4 [계획] 오류 메시지 · 트랩 위치 · 함수별 프로파일 · IScriptExecutor
   T5 [계획] 튜토리얼 (docs/tutorials)
+  (Studio 감사 2026-11-03 — ADR-0092: T1 P0, T3 에 누락 에셋 검사 · Build 화면)
+  T6 [계획] 레이아웃 저장 · Studio 설정                T7 [계획] 자동 저장 · 크래시 복구 (P0)
+  T8 [계획] 스크립트 편집기 자동 완성 · hover · 저장 위치 구분 (P0 — 프로토타입 script/lang/LanguageService ✅)
+  T9 [계획] 프로젝트 에셋 · .meta · 가져오기 · .sbpkg 형식 3 (P0 — C1 차단 해소, ADR-0090)
 M7 데모 · 릴리스
   T1 [계획] samples/omok (스크립트 규칙 · UI · 세이브)   T2 [계획] samples/hud_guard (노코드 + HUD)
   T3 [계획] A → B E2E (패키지 전달 · 빈 캐시 · 진단)     T4 [계획] 공개 Alpha 채널 · 외부 테스트 · 차단 목록
@@ -615,6 +622,8 @@ v0.4 M6-T1 ✅ 13 5.1 (패키지 데모), 15 (실행), 17, README
 v0.4 M6-T2 ✅ releases/v0.4.0, 14 7.14 (패키지 명령 시간), 18 (0 · 1 · 4장 · 6.4 · 6.5 · 7 · 8장), README · docs/README (버전 표)
 v0.5 계획 ✅  20 (요구 · 설계 · 계획 · 시험 · 완료 기준), 21 (구현 상태 · 기능 12 종 · 배치), 18 (0 · 1장 · 6 · 6.1 · 6.6), ADR-0078~0083
 v0.5 M1~M7    태스크마다 20 의 해당 장 + 규범 문서 (02 · 03 · 07 · 08 · 09 · 10 · 11 · 13 · 14 · 15 · 19) — 20 10장의 표
+Studio 감사 ✅  25 · 26 · 27 · 28, audit/ (ENGINE-BENCHMARK · SANDBOX-GAP-MATRIX · ARCHITECTURE-REVIEW · ALPHA-READINESS · VERIFICATION-RESULTS),
+              ADR-0089 ~ 0092, 18 (0 · 6 · 6.6 · 7), 20 10장 Phase 6, 21 1장, 23 (0.1 · 1.1 · 2.1 · 7 · 8), 24 (P5 ~ P8 · D3 · C3), 17, README
 Runtime v2 계획 ✅  22 (설계) · 23 (로드맵) · 24 (보안 출시 기준), ADR-0086 ~ 0088, 01 5.4 · 03 2.x · 04 7.x · 07 5.x · 08 9.x · 19 26장 ([계획]),
               18 (0 · 6 · 6.6), 20 10장, 21 3 · 4장, platform 초안 머리 (현행 계획 링크)
 ```

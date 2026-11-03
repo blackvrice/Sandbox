@@ -438,11 +438,15 @@ M8 → M7-T1   오목 판정 (보드 Map · 줄 세기) 은 M8-T2 ~ T4 를 쓴�
 
 | 태스크 | 내용 | 변경 모듈 · 파일 | 새 인터페이스 | 선행 | 시험 | 완료 |
 |--------|------|------------------|---------------|------|------|------|
-| M6-T1 | 첫 화면 새 프로젝트 · 열기 · 최근 (템플릿 고르기) | apps/client (MainMenu), core/project (createProject 재사용) | — | — | 헤드리스 메뉴 → 프로젝트 생김 | 에디터에서 프로젝트를 만든다 (흐름 1) |
+| M6-T1 | 첫 화면 새 프로젝트 · 열기 · 최근 (템플릿 고르기) — P0 (Studio 감사: G1) | apps/client (Studio 홈), editor/services/ProjectService [새], core/project (createProject 재사용) | ProjectService | — | 헤드리스 명령 → 프로젝트 생김 (CTest studio_new_project) | 에디터에서 프로젝트를 만든다 (흐름 1) |
 | M6-T2 | 템플릿 3종 (노코드 미니게임 + HUD · 스크립트 보드게임 · 생존) | content/templates (또는 samples/templates), sbx new --template | — | M3-T5, M2-T5 | 템플릿마다 new → check 경고 0 → test 통과 (CTest) | 세 틀이 바로 돈다 |
-| M6-T3 | 에디터 "패키지" 패널 (검사 · 시험 · 빌드) · 설치 단추 | editor/ui (PackagePanel), core/package (재사용) | — | — | 헤드리스 패널 → 패키지 생김, P8 → 설치 | 흐름 5 를 에디터 안에서 |
+| M6-T3 | 에디터 "패키지" 패널 (검사 · 시험 · 빌드) · 설치 단추 + 누락 에셋 검사 · Build 화면 (Studio 감사 — G8) | editor/ui (PackagePanel · Build), editor/services/BuildService [새], core/package (재사용) | BuildService | M6-T9 | 헤드리스 패널 → 패키지 생김, P8 → 설치, 누락 에셋 경고 (CTest studio_build) | 흐름 5 를 에디터 안에서 |
 | M6-T4 | 스크립트 오류 메시지 · 트랩 위치 (줄 표) · 함수별 프로파일 · 실행 경계 (IScriptExecutor) | script/lang (진단), script/vm (줄 표 · 계수기 · 실행자 인터페이스), core/script, apps/client/ui | IScriptExecutor, FunctionProfile | — | 진단 문구 골든, 트랩 줄, 프로파일 합 = 시스템 연료, Interpreter 결과 그대로 (골든) | 흐름 8 의 스크립트 쪽 |
 | M6-T5 | 튜토리얼 (docs/tutorials) | docs/tutorials | — | M6-T2 | 문서의 명령을 CTest 가 돌린다 (가능한 것) | 처음부터 따라 할 수 있다 |
+| M6-T6 | 레이아웃 저장 · Studio 설정 분리 (Studio 감사 — 새) | apps/client/ui/ImGuiLayer, apps/client/UserSettings | — | — | 경로 · 깨진 파일 · 안전 모드 unit | 다시 열면 같은 배치 |
+| M6-T7 | 자동 저장 · 크래시 복구 (새 — P0) | editor/services/AutosaveService [새], core/persist (재사용) | AutosaveService | M1-T1 | 강제 종료 → 복구 → 같은 WorldHash (CTest studio_recovery) | 충돌해도 작업이 남는다 |
+| M6-T8 | 스크립트 편집기 — 자동 완성 · hover · 밑줄 · [적용 (오버레이)] / [저장 (팩 파일)] 구분 (새 — P0) | script/lang/LanguageService (프로토타입 ✅ 확장), editor/ui, editor/services/DocumentService [새] | LanguageService · DocumentService | M6-T4 (줄 이동) | 후보 표 · hover · 저장 왕복 unit, 응답 시간 측정 | 흐름 8 · G4 |
+| M6-T9 | 프로젝트 에셋 · .meta 안정 id · PNG 가져오기 · .sbpkg 형식 3 · 에셋 루트 차례 (새 — P0, ADR-0090) | core/asset [새], core/package, apps/client, editor/ui | AssetDatabase | — | 가져오기 · 옮기기 → 참조 그대로 · 패키지 왕복 · digest unit, M7-T3 E2E | 자기 그림을 쓴 게임이 B 에서 보인다 (C1) |
 
 ### Phase 8 — 스크립트 표준 라이브러리 (M8 — ADR-0085, 19 25장)
 
