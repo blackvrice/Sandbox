@@ -568,6 +568,51 @@ void checkSdkFiles(const fs::path& projectDir, ProjectReport& r, Collector& c) {
     }
 }
 
+// 팩의 presentation/materials.json 의 sprite 중 프로젝트 에셋 참조 ("asset:<id>" · "assets/…") 가 있는가 (v0.6 M6-T9,
+// 규칙 A6). 읽지 못하는 문서는 경고 (클라이언트도 경고하고 건너뛴다), 없는 에셋은 오류 (빌드를 막는다 — 받는 쪽은
+// 마젠타)
+void checkMaterialRefs(const content::ContentDatabase& db, const asset::AssetScan& scan, Collector& c) {
+    const auto hasPath = [&](std::string_view path) {
+        for (const asset::AssetEntry& e : scan.assets) {
+            if (e.path == path || std::find(e.copies.begin(), e.copies.end(), path) != e.copies.end()) {
+                return true;
+            }
+        }
+        return std::find(scan.unidentified.begin(), scan.unidentified.end(), path) != scan.unidentified.end();
+    };
+    for (const content::PackInfo& p : db.packs()) {
+        if (p.materials.empty()) {
+            continue;
+        }
+        const std::string file = std::format("{}/presentation/materials.json", p.id);
+        const json doc = json::parse(p.materials, nullptr, false);
+        if (doc.is_discarded() || !doc.is_object() || !doc.contains("materials") || !doc["materials"].is_object()) {
+            c.warning(file, "", "A6", "읽지 못한다 — {\"materials\": {이름: {sprite, color}}} (클라이언트가 건너뛴다)");
+            continue;
+        }
+        for (const auto& [name, m] : doc["materials"].items()) {
+            if (!m.is_object() || !m.contains("sprite") || !m["sprite"].is_string()) {
+                continue; // 모양은 클라이언트의 MaterialLibrary 가 본다
+            }
+            const std::string sprite = m["sprite"].get<std::string>();
+            const std::string pointer = std::format("/materials/{}/sprite", name);
+            if (sprite.starts_with("asset:")) {
+                if (scan.find(std::string_view(sprite).substr(6)) == nullptr) {
+                    c.error(
+                        file, pointer, "A6",
+                        std::format("에셋 id '{}' 가 프로젝트 assets/ 에 없다 (sbx asset import · .meta 의 id 확인)",
+                                    sprite.substr(6)));
+                }
+            } else if (sprite.starts_with(std::string(asset::kAssetDir) + "/")) {
+                if (checkRelativePath(sprite) || !hasPath(sprite)) {
+                    c.error(file, pointer, "A6",
+                            std::format("'{}' 가 프로젝트 assets/ 에 없다 (대소문자까지 같아야 한다)", sprite));
+                }
+            }
+        }
+    }
+}
+
 // 설치한 패키지 (v0.4 M3-T2 · T3, ADR-0071 5): sandbox.lock 이 있으면 모양 · 매니페스트 dependencies 와 맞는가 · 설치
 // 폴더 (.sandbox/packages) 와 같은가. 없으면 path · git 의존이 없어야 하고 설치 폴더도 비어야 한다 (P8). 설치 폴더를
 // 콘텐츠 루트로 써도 되면 true
@@ -694,12 +739,18 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
     {
         std::error_code ec;
         r.hasAssets = fs::is_directory(projectDir / std::string(asset::kAssetDir), ec);
+        asset::AssetScan scan;
         if (r.hasAssets) {
-            asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+            scan = asset::scanProjectAssets(projectDir);
             r.assets = scan.assets.size();
             r.unidentifiedAssets = scan.unidentified.size();
             r.issues.insert(r.issues.end(), std::make_move_iterator(scan.issues.begin()),
                             std::make_move_iterator(scan.issues.end()));
+        }
+        // 6b. 팩 presentation/materials.json 이 부르는 프로젝트 에셋 (v0.6 M6-T9 — A6): 없는 id · 파일은 받는 쪽에서
+        // 마젠타
+        if (out.db) {
+            checkMaterialRefs(*out.db, scan, c);
         }
     }
 

@@ -2436,6 +2436,14 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                 warn(p.folder + "/presentation/input.json", "", "IO", text.error().describe());
             }
         }
+        // 클라 전용 머티리얼 (v0.6 M6-T9) — 원문만 (형식 검사는 클라이언트의 MaterialLibrary)
+        if (const fs::path mats = p.dir / "presentation" / "materials.json"; fs::is_regular_file(mats)) {
+            if (auto text = io::readFile(mats)) {
+                sp.info.materials = std::move(*text);
+            } else {
+                warn(p.folder + "/presentation/materials.json", "", "IO", text.error().describe());
+            }
+        }
         for (SourceFile& f : readPack(p)) {
             sp.files.push_back(ContentSourceFile{std::move(f.rel), std::move(f.display), std::move(f.text)});
         }

@@ -243,6 +243,7 @@ int main(int argc, char** argv) {
         }
         nd.seed = opts->seed;
         nd.packageCache = packageCache;
+        nd.assets = renderer ? renderer->assets() : nullptr;
         nd.contentRoot = opts->contentRoot.empty() ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
                                                    : std::filesystem::path(opts->contentRoot);
         // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
@@ -354,6 +355,12 @@ int main(int argc, char** argv) {
         }
     }
     world.reset();
+    // 에셋 (v0.6 M6-T9 — 프로젝트 · 패키지 파일이 실제로 올라갔나, 스모크 시험이 읽는다)
+    if (renderer && renderer->assets() != nullptr) {
+        const sbx::render::AssetStats& as = renderer->assets()->stats();
+        printText(std::format("에셋: 스프라이트 {} · 준비 {} · 실패 {} · 프로젝트 파일 {} (준비 {} · 실패 {})\n",
+                              as.sprites, as.ready, as.failed, as.files, as.filesReady, as.filesFailed));
+    }
     if (renderer && ui) {
         renderer->detachImGui(ui->platformIo()); // ImGui 컨텍스트보다 먼저 UI 텍스처를 놓는다
     }

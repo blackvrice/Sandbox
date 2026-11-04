@@ -17,6 +17,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     h->m_content = std::move(src->content);
     h->m_name = src->name;
     h->m_warnings = std::move(src->warnings);
+    h->m_projectDir = src->projectDir;
     src->runner->world().setJobSystem(h->m_jobs.get());
 
     ServerHostDesc sd;

@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-04 — v0.6 M6-T9 (2): 게임의 자기 머티리얼 · 에셋을 클라이언트가 그린다 — asset:<id> · 팩 materials.json · A6 (M6-T9 끝)
+
+**무엇을**
+
+- 팩 presentation/materials.json (클라 전용 — 로더가 원문만 PackInfo.materials 에, contentHash 밖): 엔진 머티리얼 위에 팩 로드 차례로 (같은 이름은
+  뒤가 이긴다). sprite = "asset:<id>" (core/asset 색인 → 프로젝트 파일, 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) · 그 밖 (엔진 루트).
+- render: AssetManager::requestSpriteFile(key, 파일) — 루트 밖 파일을 대소문자 그대로 연다 (requestSprite 는 정규화한 소문자 경로 — 06 9장, Linux 에서
+  대소문자 섞인 이름을 못 찾는다). "project:" 이름공간, 빈 파일 = 실패 (마젠타), stats files · filesReady · filesFailed. MaterialLibrary 에 SpriteResolver.
+  render 는 core 를 모른다 — 풀이는 apps/client/presentation/PackMaterials.
+- LocalServerHost::projectDir (패키지면 푼 폴더) → NetworkSession (로컬) 이 팩 머티리얼을 읽는다. 창 클라이언트가 끝날 때 "에셋: … 프로젝트 파일 N
+  (준비 · 실패)".
+- 프로젝트 검사 A6: 팩 materials.json 이 부르는 없는 id · 파일 (대소문자 다름 · 밖 포함) = 오류 (빌드를 막는다 — 받는 쪽은 마젠타), 읽지 못하는 문서 = 경고.
+
+**왜**
+
+- M6-T9 완료 기준 "자기 PNG 를 넣은 게임이 다른 폴더 · 빈 캐시에서 보인다" (v0.6, ADR-0090 4 · 5).
+
+**검증**
+
+- test_pack_materials: 풀이 (id · 경로 · 없는 id · 밖 · 엔진 · 프로젝트 없음 · 이름 바꾼 뒤 id 그대로), 팩이 엔진 것을 덮음, 깨진 문서 경고, 로컬 세션
+  (프로젝트 · 형식 3 패키지). test_sprites "project file" (WARP — 대소문자 섞인 파일 Ready · 같은 key · 이름공간 · 빈 경로 Failed · 머티리얼 풀이로 빨간 픽셀).
+  test_asset_database A6. 처음 판은 시험 프로젝트를 엔진 0.6 범위로 만들어 (지금 엔진 0.5) 세션이 열리지 않았다 → 0.1.
+- 실제 창 (이 PC — Win32 · D3D12): tests/project/project_own_png.cmake 를 SandboxClient 를 직접 주어 돌림 — A 프로젝트 → 패키지만 다른 폴더 → 빈 설정 ·
+  캐시 · 임시 폴더로 열어 "에셋: 스프라이트 6 · 준비 6 · 실패 0 · 프로젝트 파일 1 (준비 1 · 실패 0)", "팩 머티리얼 1 개". CTest project_own_png 는 Linux
+  (Xvfb + lavapipe) 에서만 등록 — Windows CI 는 창 시험이 없다.
+- check_includes 0 위반. Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- v0.6 의 나머지: NG-01 빌드 스냅숏 · NG-02 Asset Group · NG-14 해시 분리 · NG-08 Export Profile · NG-04 SaveGame · RT-06-12 비동기 로드.
+- 원격 접속 (--connect) 은 프로젝트 파일이 없어 asset: 참조가 마젠타 — 표시 digest (NG-14) · 패키지 받기와 함께.
+- PNG 디코드 크기 상한 (4096²) 은 아직 없다 — 24 P7 [계획 v0.23 RH-23-1].
+
+---
+
 ## 2026-11-03 — v0.6 M6-T9 (1): sbx asset import · newid · 게임 패키지 형식 3 (프로젝트 에셋 싣기)
 
 **무엇을**

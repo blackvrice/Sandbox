@@ -78,6 +78,35 @@ SpriteId AssetManager::requestSprite(std::string_view path) {
     return id;
 }
 
+SpriteId AssetManager::requestSpriteFile(std::string_view key, const std::filesystem::path& file) {
+    const AssetId aid = assetIdOf("project:" + normalizeAssetPath(key));
+    if (const auto it = m_byId.find(aid); it != m_byId.end()) {
+        return it->second;
+    }
+    const SpriteId id = newEntry(std::string(key));
+    m_byId.emplace(aid, id);
+    m_entries[id].file = true;
+    ++m_stats.files;
+    if (!m_atlas.valid()) {
+        fail(id, "아틀라스가 없다");
+        return id;
+    }
+    if (file.empty()) {
+        fail(id, "에셋을 찾지 못했다");
+        return id;
+    }
+    if (m_jobs == nullptr) {
+        m_done.push_back({id, loadPng(file)});
+        return id;
+    }
+    m_jobs->submit(m_group, [this, id, file] {
+        Expected<Image> img = loadPng(file);
+        const std::scoped_lock lock(m_doneMutex);
+        m_done.push_back({id, std::move(img)});
+    });
+    return id;
+}
+
 SpriteId AssetManager::addSprite(std::string_view name, Image image) {
     const AssetId aid = assetIdOf(std::string("mem:") + std::string(name));
     if (const auto it = m_byId.find(aid); it != m_byId.end()) {
@@ -154,6 +183,9 @@ void AssetManager::fail(SpriteId id, std::string_view why) {
     }
     e.state = AssetState::Failed;
     ++m_stats.failed;
+    if (e.file) {
+        ++m_stats.filesFailed;
+    }
     m_regions[id] = m_magenta;
     log::warn("render", "스프라이트 '{}' 실패: {}", e.name, why);
 }
@@ -227,6 +259,9 @@ void AssetManager::update(rhi::ICommandList& cl) {
             e.state = AssetState::Ready;
             --m_stats.queued;
             ++m_stats.ready;
+            if (e.file) {
+                ++m_stats.filesReady;
+            }
             m_regions[u.id] = e.final; // 이 복사가 같은 리스트의 그리기보다 앞이라 이번 프레임부터 쓸 수 있다
         }
     }

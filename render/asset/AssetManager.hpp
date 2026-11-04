@@ -52,6 +52,10 @@ struct AssetStats {
     u64 uploadedBytesLastFrame = 0;
     u64 uploadedBytesTotal = 0;
     u32 framesOverBudget = 0; // 예산 · 업로드 링 때문에 다음 프레임으로 미룬 횟수
+    // 루트 밖 파일 (requestSpriteFile — 프로젝트 · 패키지 에셋, v0.6 M6-T9). 위 sprites · ready · failed 에도 든다
+    u32 files = 0;
+    u32 filesReady = 0;
+    u32 filesFailed = 0;
 };
 
 class AssetManager {
@@ -67,6 +71,10 @@ public:
 
     // 같은 경로(정규화 후)는 같은 id
     [[nodiscard]] SpriteId requestSprite(std::string_view path);
+    // 루트 밖의 파일 — 프로젝트 · 패키지 에셋 (v0.6 M6-T9). key 가 같으면 같은 id ("project:" 이름공간 — requestSprite
+    // 와 겹치지 않는다). file 은 대소문자 그대로 연다 (requestSprite 는 정규화한 소문자 경로로 연다 — 06 9장). 빈 file
+    // = 실패 (마젠타)
+    [[nodiscard]] SpriteId requestSpriteFile(std::string_view key, const std::filesystem::path& file);
     // 메모리의 이미지 (절차적 텍스처 · 테스트). name 이 같으면 같은 id (두 번째 이미지는 무시)
     [[nodiscard]] SpriteId addSprite(std::string_view name, Image image);
 
@@ -87,6 +95,7 @@ private:
         std::string name; // 정규화한 경로 또는 addSprite 이름
         AssetState state = AssetState::Queued;
         SpriteRegion final{}; // Ready 가 되면 regions 에 들어갈 자리
+        bool file = false;    // requestSpriteFile (stats 의 files 칸)
     };
     struct Decoded {
         SpriteId id;

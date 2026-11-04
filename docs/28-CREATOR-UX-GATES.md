@@ -56,7 +56,8 @@
 
 ```text
 G1  CTest studio_new_project [계획 M6-T1] — 헤드리스 Studio 명령 (CommandService 의 studio.newProject) → 프로젝트 → sbx check 경고 0
-G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 [계획 M6-T9]
+G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 ✅ M6-T9 (test_asset_database · test_pack_materials · project_assets — CLI).
+    Studio 화면 (끌어다 놓기 · 이름 바꾸기 UI) 은 [계획 v0.10 ST-06-3]
 G8  CTest studio_build [계획 M6-T3] — 명령 studio.build → 패키지 → 빈 캐시에서 열기 (기존 project_package 시험 확장) · 누락 에셋 경고
 G9  M7-T3 A → B E2E (기존 계획)
 복구 CTest studio_recovery [계획 M6-T7] — 자동 저장 → 강제 종료 → 다시 시작 → 복구 제안 → 같은 WorldHash

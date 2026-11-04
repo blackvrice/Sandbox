@@ -64,6 +64,9 @@ struct NetworkSessionDesc {
     std::string ownerKey;            // Remote: 서버 --owner-key 와 같으면 Owner (12C)
     std::filesystem::path savesRoot; // Local: 세이브 · 리플레이 폴더 (12D, --saves). 비면 저장 · 불러오기를 서버가 거절
     std::optional<scenario::PlayScript> script; // Local: 자동 플레이 (v0.2 M6-T1 — --script)
+    // Local: 팩의 presentation/materials.json · 프로젝트 에셋의 스프라이트를 요청할 곳 (v0.6 M6-T9). nullptr 이면 색만
+    // (헤드리스)
+    render::AssetManager* assets = nullptr;
     // Remote: Transport 를 만든다 (없으면 ENet). 시험은 Loopback 을 넣는다
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };

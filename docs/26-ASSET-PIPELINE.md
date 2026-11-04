@@ -43,7 +43,7 @@ A5 런타임 형식 · 결정론 — 에셋은 표시 (클라이언트) 만. 시
 | 종류 | 자리 | 만드는 것 · 고치는 것 | 저장 · 로드 | 패키징 | 복구 |
 |------|------|------------------------|-------------|--------|------|
 | Editor Source Data (팩 JSON · 스크립트 · UI 문서) | 프로젝트 content/<팩>/ | Studio DocumentService (원자적 저장) · 텍스트 편집기 | 콘텐츠 로더 (V1 ~ V13 · S 진단) | 그대로 (.sbpkg 파일 목록 · digest) | 버전 관리 · 자동 저장의 저장 안 한 문서 (25 7장) |
-| 에셋 원본 + .meta | 프로젝트 assets/ [제안 — 지금 저장소 assets/] | 가져오기 (복사 + .meta) | 에셋 DB 훑기 | 참조된 원본 (또는 결과 — 4장) + .meta | 버전 관리 |
+| 에셋 원본 + .meta | 프로젝트 assets/ (v0.6 — 엔진 내장은 저장소 assets/) | 가져오기 (복사 + .meta) | 에셋 DB 훑기 | 참조된 원본 (또는 결과 — 4장) + .meta | 버전 관리 |
 | Imported Asset Cache | .sandbox/cache/imported/ | 가져오기 Job | 런타임 로더 | 싣지 않는다 (받는 쪽이 원본에서 다시 — 또는 v0.8 플랫폼 형식 미리 만들기) | 지우면 다시 만든다 |
 | Runtime Data | 메모리 (아틀라스 · 레지스트리) | 로더 · 시뮬레이션 | — | — | — |
 | Script Overlay · World Overlay | 월드 세이브 overlay/ (09 3장) | EditContent (테스트 · 실행 중 편집) | 세이브 로드 | 월드와 같이 | 세이브 |
@@ -57,6 +57,8 @@ A5 런타임 형식 · 결정론 — 에셋은 표시 (클라이언트) 만. 시
 가져오기 (Asset Browser 끌어다 놓기 · 메뉴) → 원본 복사 → .meta { id, importer, settings } 생성 → 가져오기 Job (디코드 · 검사 —
   크기 · 형식 · 압축 폭탄 상한 4장) → 캐시 결과 → 색인 갱신 → 브라우저 썸네일
 참조 (Prefab render.sprite 에 끌어다 놓기) → 문서에 "asset:<id>" → 색인의 역참조 갱신
+  ✅ v0.6 M6-T9: 지금 참조 자리는 팩 presentation/materials.json 의 sprite ("asset:<id>" · "assets/…" — 11 · 클라이언트가 풀어 연다),
+  Prefab 은 그 머티리얼 이름을 부른다 (render.sprite.material). 없는 참조 = 프로젝트 검사 A6 오류 (빌드를 막는다)
 이름 바꾸기 · 옮기기 (Studio) → 파일 + .meta 같이 이동 → id 그대로 → 참조 그대로
 지우기 → 역참조가 있으면 목록 보여 주고 확인 (Unreal 의 redirector · 참조 경고와 같은 목적) → 휴지통 폴더 (.sandbox/trash — 되돌리기 가능)
 바뀜 감지 (밖에서 고침) → 파일 해시가 바뀌면 다시 가져오기 Job → 런타임 Hot Reload (아틀라스 칸 다시 업로드) [계획 v0.6]
@@ -105,8 +107,9 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 |------|------|
 | PNG 디코드 · 아틀라스 · 업로드 예산 | 현행 (06 7장) |
 | 경로 해시 id | 현행 (대체로 남긴다) |
-| .meta 안정 id · 에셋 DB 색인 · Asset Browser 기본 (가져오기 · 썸네일 · 끌어다 놓기) | [계획 v0.5 M6-T9 최소 — 이번 감사가 추가] · v0.6 (참조 찾기 · 옮기기 · 지우기 안전) |
-| 빌드 때 누락 에셋 검사 | id 없는 원본 · 충돌이면 빌드 거절 ✅ (v0.6 M6-T9 (1)) — 콘텐츠가 부르는 에셋이 없음은 [계획 M6-T9 (2)] |
+| .meta 안정 id · 에셋 DB 색인 · Asset Browser 기본 (가져오기 · 썸네일 · 끌어다 놓기) | .meta · 색인 ✅ v0.6 M6-T9 (sbx asset import · newid), Asset Browser (가져오기 화면 · 썸네일 · 끌어다 놓기 · 참조 찾기 · 지우기 안전) [계획 v0.10 ST-06-3] |
+| 빌드 때 누락 에셋 검사 | ✅ v0.6 M6-T9 — id 없는 원본 · 충돌 (A1 ~ A5) · 머티리얼이 부르는 없는 에셋 (A6) 이면 빌드 거절 |
+| 패키지에 에셋 · 클라이언트 루트 차례 | ✅ v0.6 M6-T9 — .sbpkg 3, 팩 materials.json 이 엔진 위, "asset:<id>" · "assets/…" 는 프로젝트 (푼 패키지) 파일 |
 | 캐시 분리 · 다시 가져오기 · Hot Reload | [계획 v0.6] |
 | 사운드 · 글꼴 importer | 사운드: M2-T6 ✅ 결정 (ADR-0095) → [계획 v0.11] NG-17, 글꼴: [계획 v0.7] M4-T2 |
 | 압축 · 플랫폼 형식 · 스트리밍 · 메모리 예산 | [계획 v0.8] (22 10장) |
@@ -124,7 +127,8 @@ NG-12 id 충돌         ✅ (v0.6 — core/asset/AssetDatabase) .meta = {"id": 3
                       고르지 않음), .meta 없음 A2 · 깨짐 A1 = id 없는 에셋 (경고 — 경로 해시로 돌아가지 않음), 짝 없는 .meta A4, 경로 · 크기
                       (64 MiB) · 링크 · 개수 · 대소문자 A5. importAssets = id 없는 원본마다 겹치지 않는 새 id, assignNewAssetId = 복제본에 새 id
                       (importer · settings 그대로). 프로젝트 검사 (sbx check · doctor) 가 assets/ 가 있으면 붙인다.
-                      [계획 M6-T9] 가져오기 명령 · 복제 자동 감지 (원본이 남아 있으면 복제본에 새 id) · 패키지 간 pkg:<name>/ 이름공간 (.sbpkg 3) (4.11)
+                      ✅ M6-T9 가져오기 명령 (sbx asset import · newid) · .sbpkg 3. [계획 v0.10 ST-06-3] 복제 자동 감지 (원본이 남아 있으면
+                      복제본에 새 id) · [계획] 설치한 패키지의 에셋 · pkg:<name>/ 이름공간 (팩이 에셋을 싣는 길이 아직 없다) (4.11)
 NG-13 경로 정책       ✅ (v0.6 — 2026-11-03) 경로는 ASCII [A-Za-z0-9_.-] · "/" · 200 바이트 · ".." · 끝 "." · Windows 예약 이름 거절 (기존 P4
                       project::checkRelativePath — 그대로), 대소문자만 다른 파일 · 폴더 = 오류 (project::findCaseConflict — sbx build ·
                       팩 스냅숏 · 패키지 index 읽기), sbx build 의 심볼릭 링크 거절 (팩 스냅숏은 전부터). ASCII 만 받으므로 NFC 문제는

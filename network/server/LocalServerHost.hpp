@@ -28,8 +28,8 @@ struct LocalServerDesc {
     ServerMode mode = ServerMode::Threaded;
     u32 snapshotIntervalSteps = 2;
     std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D — 비면 저장 · 불러오기 · 기록을 거절)
-    // 자동 플레이 (v0.2 M6-T1, ADR-0055): 서버 러너의 시나리오로 (헤드리스 서버와 같은 단계에 같은 명령). 게임이 끝나거나
-    // maxTicks 면 서버가 멈춘다 (stats().reachedStopTick)
+    // 자동 플레이 (v0.2 M6-T1, ADR-0055): 서버 러너의 시나리오로 (헤드리스 서버와 같은 단계에 같은 명령). 게임이
+    // 끝나거나 maxTicks 면 서버가 멈춘다 (stats().reachedStopTick)
     std::optional<scenario::PlayScript> script;
 };
 
@@ -51,6 +51,8 @@ public:
     [[nodiscard]] const content::ContentDatabase& content() const noexcept { return *m_content; }
     [[nodiscard]] const std::string& name() const noexcept { return m_name; }
     [[nodiscard]] const std::vector<std::string>& warnings() const noexcept { return m_warnings; }
+    // 게임 프로젝트 폴더 (패키지면 푼 폴더 — 프로젝트 에셋을 찾는 곳, v0.6 M6-T9). 시나리오 · 세이브면 빈 경로
+    [[nodiscard]] const std::filesystem::path& projectDir() const noexcept { return m_projectDir; }
     // Inline 전용
     void update(f64 dtSeconds);
     [[nodiscard]] ServerHostStats stats() const { return m_host->stats(); }
@@ -68,6 +70,7 @@ private:
     std::unique_ptr<content::ContentDatabase> m_content; // 월드보다 오래 산다
     std::string m_name;
     std::vector<std::string> m_warnings;
+    std::filesystem::path m_projectDir;
     std::unique_ptr<ServerHost> m_host; // 마지막에 — 먼저 사라진다
 };
 

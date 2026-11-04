@@ -546,6 +546,9 @@ UserSemantic 장식에서 semantic 이름·번호를 읽는다 (D3D12 입력 레
 
 ```text
 AssetId          경로 정규화(소문자, '/', assets/ 상대) 후 FNV-1a64. 후속: .meta GUID
+루트 밖 파일      requestSpriteFile(key, 파일) (v0.6 M6-T9) — 프로젝트 · 패키지 에셋. "project:" + key 로 id (requestSprite 와 겹치지
+                 않음), 파일은 대소문자 그대로 연다, 빈 파일 = 실패 (마젠타). stats 의 files · filesReady · filesFailed. 풀이는 앱이
+                 (apps/client/presentation/PackMaterials — "asset:<id>" 는 core/asset 의 색인) — render 는 core 를 모른다
 AssetHandle<T>   { index, generation }
 상태             Unloaded → Queued → Decoding(Worker) → Uploading(Render) → Ready | Failed
 참조             refcount. 0 → 지연 해제 (4.3)

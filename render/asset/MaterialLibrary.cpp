@@ -20,7 +20,8 @@ Expected<void> MaterialLibrary::loadFile(const std::filesystem::path& file, Asse
     return loadJson(*text, file.generic_string(), assets);
 }
 
-Expected<void> MaterialLibrary::loadJson(std::string_view json, std::string_view origin, AssetManager* assets) {
+Expected<void> MaterialLibrary::loadJson(std::string_view json, std::string_view origin, AssetManager* assets,
+                                         const SpriteResolver& resolve) {
     const nlohmann::json doc = nlohmann::json::parse(json, nullptr, false);
     if (doc.is_discarded() || !doc.is_object() || !doc.contains("materials") || !doc["materials"].is_object()) {
         return makeError(ErrorCode::InvalidArgument, std::format("{}: {{\"materials\": {{…}}}} 객체가 아니다", origin));
@@ -36,7 +37,9 @@ Expected<void> MaterialLibrary::loadJson(std::string_view json, std::string_view
                 return makeError(ErrorCode::InvalidArgument, std::format("{}: '{}'.sprite 는 문자열", origin, name));
             }
             if (assets != nullptr) {
-                m.sprite = assets->requestSprite(v["sprite"].get<std::string>());
+                const std::string sprite = v["sprite"].get<std::string>();
+                const std::optional<std::filesystem::path> file = resolve ? resolve(sprite) : std::nullopt;
+                m.sprite = file ? assets->requestSpriteFile(sprite, *file) : assets->requestSprite(sprite);
             }
         }
         if (v.contains("color")) {

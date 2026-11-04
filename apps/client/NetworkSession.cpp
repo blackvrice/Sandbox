@@ -7,6 +7,7 @@
 #include <iterator>
 #include <utility>
 
+#include "apps/client/presentation/PackMaterials.hpp"
 #include "apps/client/presentation/SelectionOverlay.hpp"
 #include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ScriptPanel.hpp"
@@ -65,6 +66,15 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         }
         s->m_name = s->m_local->name();
         s->m_target = s->m_local->endpoint();
+        // 게임의 자기 머티리얼 · 에셋 (v0.6 M6-T9) — 엔진 머티리얼 위에 팩 차례로
+        const PackMaterialsResult pm =
+            loadPackMaterials(materials, s->m_local->content(), s->m_local->projectDir(), desc.assets);
+        for (const std::string& w : pm.warnings) {
+            log::warn("client", "머티리얼: {}", w);
+        }
+        if (pm.packs > 0) {
+            log::info("client", "팩 머티리얼 {} 개 (팩 {} 개 — presentation/materials.json)", pm.materials, pm.packs);
+        }
     } else {
         auto target = net::parseEndpoint(desc.connect, kDefaultPort);
         if (!target) {

@@ -36,7 +36,7 @@
 | NG-11 | 문서 · 로드맵 일관성 검사 (링크 · ADR · 태스크 ID · 목표 버전 · 상태) | A | Done | — | v0.5 | P1 | — | CTest docs_consistency |
 | M7-T6 | Technical Alpha A → B — CLI 빌드 · 엔진 에셋 게임 · 다른 폴더 · 빈 캐시 | A | Done | — | v0.5 | P0 | M2-T7 | CTest tech_alpha_e2e |
 | M7-T5 | 버전 종료 0.5.0 (Technical Alpha) | A | Done | v0.5 | v0.5 | P0 | M7-T6 | releases/v0.5.0 (기준 판정 · 호환 번호) · VERSION 0.5.0 |
-| M6-T9 | 프로젝트 에셋 · .meta 안정 id · PNG 가져오기 · .sbpkg 3 · 루트 차례 | B | Planned | v0.5 | v0.6 | P0 | NG-12 · NG-13 | (1) ✅ sbx asset · .sbpkg 3 (project_assets) · (2) 클라이언트 루트 차례 · asset:<id> 참조 → 자기 PNG 게임이 다른 폴더 · 빈 캐시에서 보인다 |
+| M6-T9 | 프로젝트 에셋 · .meta 안정 id · PNG 가져오기 · .sbpkg 3 · 루트 차례 | B | Done | v0.5 | v0.6 | P0 | NG-12 · NG-13 | project_assets · project_own_png (자기 PNG 를 넣은 게임이 다른 폴더 · 빈 캐시에서 올라간다) · test_pack_materials |
 | NG-12 | 에셋 id 충돌 정책 (같은 id · 다른 내용 = 오류, 복제 = 새 id) | B | Done | — | v0.6 | P0 | — | test_asset_database (사본 · 충돌 · .meta 없음 · 깨짐 · 짝 없음 · 경로 · 프로젝트 검사) |
 | NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Done | — | v0.6 | P0 | — | test_game_project (findCaseConflict · P4 경로) · test_game_package (대소문자 · 링크 — Linux CI) |
 | NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Proposed | — | v0.6 | P0 | M6-T9 | 빌드 중 소스 수정 시험 · 같은 입력 = 같은 digest |

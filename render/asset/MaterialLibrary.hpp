@@ -8,6 +8,8 @@
 // 콘텐츠(서버)와 달리 contentHash 에 들어가지 않는다 (7.1 — 표현 전용).
 
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -23,12 +25,17 @@ struct Material {
     u32 color = 0xFFFF'FFFFu;
 };
 
+// sprite 문자열 → 루트 밖 파일 (v0.6 M6-T9 — 프로젝트 에셋). nullopt = 엔진 에셋 루트 상대 (requestSprite), 빈 경로 =
+// 찾지 못함 (마젠타)
+using SpriteResolver = std::function<std::optional<std::filesystem::path>(std::string_view sprite)>;
+
 class MaterialLibrary {
 public:
     // json 하나를 읽어 더한다 (같은 이름은 뒤 파일이 이긴다). 스프라이트 요청은 assets 로 — nullptr 이면(렌더러 없는
     // 헤드리스) 스프라이트는 무시하고 색만 쓴다
     Expected<void> loadFile(const std::filesystem::path& file, AssetManager* assets);
-    Expected<void> loadJson(std::string_view json, std::string_view origin, AssetManager* assets);
+    Expected<void> loadJson(std::string_view json, std::string_view origin, AssetManager* assets,
+                            const SpriteResolver& resolve = {});
     // dir 아래 */materials.json 을 이름 순으로 모두 (없는 폴더면 0개, 오류는 첫 실패)
     Expected<usize> loadAll(const std::filesystem::path& dir, AssetManager* assets);
     void set(std::string name, Material m) { m_materials[std::move(name)] = m; }

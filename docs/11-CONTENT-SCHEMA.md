@@ -94,6 +94,11 @@ content/<pack>/
   triggers/*.json         Trigger 1파일 1개 (선택 — v0.2 M4-T1, 10장)
   scripts/**/*.ts         SandboxScript (선택 — v0.3 M3-T2, 11장 · 19-SANDBOXSCRIPT). 팩 하나 = 프로그램 하나
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
+    materials.json        머티리얼 (v0.6 M6-T9) — {"materials": {"<이름>": {"sprite": "<s>", "color": [r, g, b(, a)]}}}, 엔진
+                          에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =
+                          "asset:<id>" (프로젝트 에셋 .meta 의 id — 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) ·
+                          그 밖 (엔진 루트 상대). 로더는 원문만 PackInfo.materials 에 (클라 전용 — contentHash 밖). 프로젝트 검사 A6:
+                          없는 id · 파일 = 오류, 읽지 못하는 문서 = 경고 (18 5.2)
     input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.
                           "play.action.<PlayerAction id>": ["Q"] = 누르면 커서 자리에 그 행동. 로더는 원문만 PackInfo 에
 ```

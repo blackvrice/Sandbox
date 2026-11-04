@@ -19,6 +19,8 @@ add_executable(SandboxClient
     presentation/SpriteExtraction.cpp
     presentation/SelectionOverlay.hpp
     presentation/SelectionOverlay.cpp
+    presentation/PackMaterials.hpp
+    presentation/PackMaterials.cpp
     ui/ImGuiLayer.hpp
     ui/ImGuiLayer.cpp
     ui/DebugPanels.hpp

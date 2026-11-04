@@ -256,4 +256,49 @@ TEST_SUITE("project") {
         r = project::validateProject(game, SemVer{0, 1, 0, {}, {}}, catalog);
         CHECK_FALSE(r.ok());
     }
+
+    TEST_CASE(
+        "asset: 팩 머티리얼이 부르는 에셋 (A6, v0.6 M6-T9) — 없는 id · 파일 · 대소문자 다름은 오류, 깨진 문서는 경고") {
+        TempDir dir("refs");
+        const ecs::ComponentCatalog catalog = [] {
+            ecs::ComponentCatalog c;
+            (void)comp::registerCoreComponents(c);
+            return c;
+        }();
+        project::NewProjectOptions o;
+        o.gameId = "studio.refs";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        const SemVer engine{0, 1, 0, {}, {}};
+        REQUIRE(project::createProject(dir.path / "Game", o, engine, catalog).has_value());
+        const fs::path game = dir.path / "Game";
+        write(game / "assets/art/Hero.png", "PNG");
+        write(game / "assets/art/Hero.png.meta", meta(kIdA));
+        const fs::path mats = game / "content/ecosystem/presentation/materials.json";
+        const auto a6 = [&](std::string_view text) {
+            write(mats, text);
+            const auto r = project::validateProject(game, engine, catalog);
+            usize errors = 0;
+            usize warnings = 0;
+            for (const auto& i : r.issues) {
+                if (i.rule == "A6") {
+                    (i.severity == content::ContentIssue::Severity::Error ? errors : warnings) += 1;
+                }
+            }
+            return std::pair{errors, warnings};
+        };
+        CHECK(
+            a6(std::format(R"({{"materials": {{"a": {{"sprite": "asset:{}"}}, "b": {{"sprite": "assets/art/Hero.png"}},
+                                 "c": {{"sprite": "ecosystem/rabbit.png"}}, "d": {{"color": [1, 2, 3]}}}}}})",
+                           kIdA)) == std::pair<usize, usize>{0, 0});
+        CHECK(a6(std::format(R"({{"materials": {{"a": {{"sprite": "asset:{}"}}}}}})", kIdB)) ==
+              std::pair<usize, usize>{1, 0});
+        CHECK(a6(R"({"materials": {"a": {"sprite": "assets/art/hero.png"}}})") ==
+              std::pair<usize, usize>{1, 0}); // 대소문자
+        CHECK(a6(R"({"materials": {"a": {"sprite": "assets/../sandbox.project.json"}}})") ==
+              std::pair<usize, usize>{1, 0});
+        CHECK(a6(R"({"materials": 3})") == std::pair<usize, usize>{0, 1});
+        fs::remove(mats);
+        CHECK(a6("") == std::pair<usize, usize>{0, 0}); // 빈 파일 = 원문 없음 (머티리얼 없음과 같다)
+    }
 }

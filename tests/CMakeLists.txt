@@ -141,11 +141,13 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
         unit/client/test_play_keys.cpp
+        unit/client/test_pack_materials.cpp
         unit/client/test_user_settings.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/PackMaterials.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
@@ -346,6 +348,16 @@ if(TARGET SandboxClient)
             PASS_REGULAR_EXPRESSION "창 X11.*SandboxClient 끝: frames 90 state Shutdown")
         if(SBX_LAVAPIPE_ICD)
             set_tests_properties(client_x11_world_smoke PROPERTIES
+                ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
+            # 자기 PNG 게임 (v0.6 M6-T9) — 패키지만 다른 폴더 · 빈 캐시로, 창 클라이언트 (렌더러) 가 그 그림을 올린다.
+            # 렌더러가 있어야 하므로 lavapipe 가 있을 때만
+            add_test(NAME project_own_png
+                COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx>
+                        "-DCLIENT_CMD=${SBX_XVFB_RUN};-a;-s;-screen 0 1280x800x24 -noreset;$<TARGET_FILE:SandboxClient>"
+                        "-DPNG=${PROJECT_SOURCE_DIR}/tests/data/assets/Hero_red_8x8.png"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_own_png"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_own_png.cmake")
+            set_tests_properties(project_own_png PROPERTIES LABELS "client" RUN_SERIAL TRUE TIMEOUT 400
                 ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
         endif()
     endif()

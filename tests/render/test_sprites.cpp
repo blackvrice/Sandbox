@@ -256,6 +256,41 @@ TEST_SUITE("render.gpu") {
         std::filesystem::remove_all(dir);
     }
 
+    TEST_CASE("assets: project file (v0.6 M6-T9) — exact-case path outside the root, resolver via materials") {
+        const auto dir = std::filesystem::temp_directory_path() / "sbx_render_tests_project_assets";
+        std::filesystem::create_directories(dir / "assets" / "Art");
+        // 대소문자 섞인 이름 — requestSprite (소문자로 연다) 와 달리 그대로 연다 (Linux 에서도 찾는다)
+        REQUIRE(savePng(dir / "assets" / "Art" / "Hero.png", Image::filled(6, 6, 255, 0, 0)));
+        Rig rig(64, 64, atlasDesc(64, 1), nullptr);
+        const SpriteId hero = rig.assets->requestSpriteFile("assets/Art/Hero.png", dir / "assets" / "Art" / "Hero.png");
+        CHECK(rig.assets->requestSpriteFile("assets/Art/Hero.png", dir / "elsewhere.png") ==
+              hero);                                                           // 같은 key = 같은 id
+        CHECK(rig.assets->requestSprite("assets/Art/Hero.png") != hero);       // 엔진 루트 이름공간과 겹치지 않는다
+        const SpriteId lost = rig.assets->requestSpriteFile("asset:ffff", {}); // 찾지 못한 id
+        // 머티리얼의 sprite 를 풀이로 — "asset:" 은 파일, 그 밖은 엔진 루트
+        MaterialLibrary lib;
+        const SpriteResolver resolve = [&](std::string_view s) -> std::optional<std::filesystem::path> {
+            if (s == "asset:hero") {
+                return dir / "assets" / "Art" / "Hero.png";
+            }
+            return std::nullopt;
+        };
+        REQUIRE(
+            lib.loadJson(R"({"materials": {"game/hero": {"sprite": "asset:hero"}}})", "t", rig.assets.get(), resolve));
+        const SpriteId viaLib = lib.find("game/hero").sprite;
+        for (int frame = 0; frame < 4; ++frame) {
+            rig.uploadFrame();
+        }
+        CHECK(rig.assets->state(hero) == AssetState::Ready);
+        CHECK(rig.assets->state(viaLib) == AssetState::Ready);
+        CHECK(rig.assets->state(lost) == AssetState::Failed);
+        RenderWorld w = blackWorld(16);
+        w.sprites.push_back({.position = {0, 0}, .size = {1, 1}, .sprite = viaLib});
+        const Image img = rig.draw(w);
+        CHECK(near(img.pixel(32, 32), 255, 0, 0));
+        std::filesystem::remove_all(dir);
+    }
+
     TEST_CASE("materials: json → sprite + color, unknown name → stable fallback color") {
         Rig rig(16, 16, atlasDesc(64, 1));
         MaterialLibrary lib;
