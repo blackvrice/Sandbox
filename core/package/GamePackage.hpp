@@ -118,9 +118,9 @@ struct BuildResult {
 struct BuildOptions {
     // Export Profile 이름 (v0.6 NG-08 — export/<이름>.json). 비면 프로필 없이. 없는 · 오류 있는 프로필 = 만들지 않는다,
     // 미검증 대상 = 경고 (BuildResult.profileIssues). 프로필 파일을 싣고 index 에 profile 을 적는다
-    std::string profile;
-    std::function<void()> beforeRead; // 첫 검사 · 에셋 훑기 뒤, 입력을 읽기 전 (시험 — 그 사이의 편집 흉내)
-    std::function<void()> afterRead;  // 입력을 다 읽은 뒤 (시험 — 빌드 중 저장 흉내 · Studio 진행 표시)
+    std::string profile{};
+    std::function<void()> beforeRead{}; // 첫 검사 · 에셋 훑기 뒤, 입력을 읽기 전 (시험 — 그 사이의 편집 흉내)
+    std::function<void()> afterRead{};  // 입력을 다 읽은 뒤 (시험 — 빌드 중 저장 흉내 · Studio 진행 표시)
 };
 [[nodiscard]] Expected<BuildResult> buildPackage(const std::filesystem::path& projectDir,
                                                  const std::filesystem::path& out, const SemVer& engine,

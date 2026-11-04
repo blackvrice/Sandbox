@@ -131,6 +131,7 @@ Sanitizer     Linux CI 에서 ASan+UBSan 빌드로 SandboxTests, TSan 빌드로 
 [ ] 시뮬레이션: 04-DETERMINISM 8장 체크리스트 통과
 [ ] 구조 변경은 ECB 로, 순회 중 create/destroy/emplace/remove 없음
 [ ] 외부 입력은 검증 후 Error, assert 로 처리하지 않음
+[ ] 지정 초기화 ({.a = 1}) 로 일부만 채우는 구조체는 멤버마다 기본값 — GCC · Clang -Wextra -Werror 가 빠진 멤버를 막는다 (MSVC 는 조용하다)
 [ ] 핫 루프 힙 할당 없음
 [ ] 스레드 소유 주석, 공유 가변 상태 없음
 [ ] 테스트 추가 (13-TESTING 의 해당 레벨)

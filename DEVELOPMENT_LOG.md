@@ -7,6 +7,18 @@
 
 ---
 
+## 2026-11-04 — CI 고침: BuildOptions 의 지정 초기화 경고 (GCC · Clang -Werror)
+
+**무엇을** package::BuildOptions 의 멤버에 기본 초기화 ({}) — `{.profile = "win"}` 처럼 일부만 지정하면 GCC
+-Wmissing-field-initializers · Clang -Wmissing-designated-field-initializers 가 나머지 (std::function) 를 경고했다.
+
+**왜** 6fd3cc4 (NG-08) 의 CI 가 Linux 세 잡에서 빌드 실패 — Windows MSVC 는 이 경고가 없어 로컬에서 놓쳤다.
+
+**검증** VS 의 clang-tidy (LLVM 19) 로 바뀐 .cpp 14 개를 -Wall -Wextra -Wpedantic -Wshadow 로 돌려 그 경고 0 (같은 모양의 시험 파일로
+잡히는 것을 먼저 확인), Windows MSVC Debug unit_project · unit_tools · project_assets · project_package 통과.
+
+**남은 일** 로컬에서 GCC · Clang 경고를 보는 길 (지금은 clang-tidy 로 대신). 규칙은 12 리뷰 체크리스트에 한 줄 더했다.
+
 ## 2026-11-04 — v0.6 24 P7: 악성 PNG — 디코드 전 파일 64 MiB · 헤더 가로 · 세로 4096
 
 **무엇을**
