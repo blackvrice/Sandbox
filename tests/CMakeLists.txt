@@ -353,11 +353,12 @@ if(TARGET SandboxClient)
             # 렌더러가 있어야 하므로 lavapipe 가 있을 때만
             add_test(NAME project_own_png
                 COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx>
-                        "-DCLIENT_CMD=${SBX_XVFB_RUN};-a;-s;-screen 0 1280x800x24 -noreset;$<TARGET_FILE:SandboxClient>"
+                        "-DXVFB=${SBX_XVFB_RUN}" -DCLIENT=$<TARGET_FILE:SandboxClient>
                         "-DPNG=${PROJECT_SOURCE_DIR}/tests/data/assets/Hero_red_8x8.png"
                         "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_own_png"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_own_png.cmake")
             set_tests_properties(project_own_png PROPERTIES LABELS "client" RUN_SERIAL TRUE TIMEOUT 400
+                PASS_REGULAR_EXPRESSION "project_own_png OK"
                 ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
         endif()
     endif()
@@ -505,7 +506,7 @@ if(TARGET sbx)
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_assets"
                     -DSERVER=$<TARGET_FILE:SandboxServer>
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_assets.cmake")
-        set_tests_properties(project_assets PROPERTIES LABELS "content" TIMEOUT 180)
+        set_tests_properties(project_assets PROPERTIES LABELS "content" TIMEOUT 180 PASS_REGULAR_EXPRESSION "project_assets OK")
         # 패키지 설치 — sbx add · install (잠금 그대로) · remove, 고친 설치 거절 (v0.4 M3-T3, ADR-0073)
         add_test(NAME project_install
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_install"

@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-04 — 시험 고침: project_own_png 가 Linux CI 에서 실제로 돌지 않았다 (명령줄 목록이 갈라짐) · 통과 = "OK" 줄
+
+**무엇을**
+
+- project_own_png: CLIENT_CMD 를 세미콜론 목록 (`xvfb-run;-a;-s;…;SandboxClient`) 으로 -D 에 넘겼더니 add_test 가 목록을 따로 인자로 갈라
+  cmake 가 스크립트를 돌리지 않고 0 으로 끝났다 — CI 에서 "통과 0.26 · 0.82 초" (만들기 + 빌드 + 150 프레임 창이 그 시간에 될 수 없다).
+  XVFB · CLIENT 를 따로 받고 명령 목록은 스크립트 안에서 만든다. 스크립트 끝에 "project_own_png OK", CTest 는 PASS_REGULAR_EXPRESSION 으로 그 줄만 통과로.
+- project_assets 에도 같은 "OK" 줄 · 통과 조건 (보험 — CI 의 0.32 · 1.49 초는 Release 에서 그럴 만하지만).
+
+**왜**
+
+- 57a3cb5 의 CI 기록을 읽다가 시간이 맞지 않아 찾았다. 실행하지 않은 시험이 통과로 보였다 — 고치기 전까지 Linux 의 자기 PNG E2E 는 확인된 적이 없다.
+
+**검증**
+
+- 고친 스크립트를 이 PC 의 실제 창으로: "에셋: … 프로젝트 파일 1 (준비 1 · 실패 0)" · "project_own_png OK". project_assets 통과 (5.7 초).
+- Linux 에서의 실제 실행은 이 커밋의 CI 에서 처음 — 결과를 다음 항목에 적는다.
+
+**남은 일**
+
+- 다른 cmake -P 시험에도 "OK" 줄을 둘지 — 지금 CI 시간으로는 모두 실제로 돈다 (tech_alpha_e2e 72 초 · release_bundle 13 초 …).
+
+---
+
 ## 2026-11-04 — v0.6 NG-01: 빌드 스냅숏 — 검사한 것 = 실은 것, 빌드 중 바뀐 파일 거절, 옛 출력 · 임시 정리
 
 **무엇을**

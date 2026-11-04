@@ -61,3 +61,4 @@ if(NOT last MATCHES "에셋: id 2 · id 없음 0" OR NOT last MATCHES "오류 0,
     message(FATAL_ERROR "newid 뒤에도 문제가 있다")
 endif()
 file(REMOVE_RECURSE "${OUT}")
+message("project_assets OK")
