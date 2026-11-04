@@ -93,12 +93,12 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                 return std::unexpected(v.error());
             }
             o.license = std::string(*v);
-        } else if (o.command == SbxCommand::Build && a == "--out") {
+        } else if (o.command == SbxCommand::Build && (a == "--out" || a == "--profile")) {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
             }
-            o.out = std::string(*v);
+            (a == "--out" ? o.out : o.profile) = std::string(*v);
         } else if (o.command == SbxCommand::Digest && a == "--cache") {
             o.cache = true;
         } else if (o.command == SbxCommand::Fetch && (a == "--git" || a == "--rev" || a == "--id")) {
@@ -242,6 +242,7 @@ std::string sbxUsage() {
            "  check <파일.sbpkg>         게임 패키지 검사 (파일마다 SHA-256 · digest → 풀어서 프로젝트 검사)\n"
            "  build <폴더>               게임 패키지 만들기 (검사 오류면 만들지 않는다)\n"
            "      --out <파일.sbpkg>     (기본: <폴더>/build/<gameId>-<version>.sbpkg)\n"
+           "      --profile <이름>       Export Profile export/<이름>.json 을 검사해 싣는다 (대상 플랫폼 · 백엔드)\n"
            "  templates                  --from 에 쓸 수 있는 시나리오 목록\n"
            "  sdk [<폴더>]               SandboxScript SDK 선언 sandbox.d.ts 를 쓴다 (기본: 지금 폴더) — IDE 자동 "
            "완성\n"

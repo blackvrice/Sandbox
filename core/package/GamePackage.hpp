@@ -12,6 +12,9 @@
 //          license 와도 견준다 — index 만 고쳐 라이선스를 속일 수 없다. 형식 1 (packs 없음) 도 읽는다
 //   path   프로젝트 기준 상대 경로 ('/' 구분 — project::checkRelativePath 규칙), 바이트 순 정렬 · 겹침 없음
 //   offset 파일 데이터 시작에서 (앞 파일들의 크기 합 — 빈틈 없음)
+//   profile 선택 키 (v0.6 NG-08 — sbx build --profile 일 때만, 형식 번호와 무관: 옛 엔진은 모르는 키를 지나친다)
+//          {name, platform, arch, renderBackends} — 그 프로필 파일 export/<name>.json 이 files 에 있고, 파일을 보는 검증 ·
+//          풀기가 그 바이트와 견준다 (index 만 고쳐 대상을 속일 수 없다)
 // digest = SHA-256 ( 파일마다 "<sha256> <size> <path>\n" 를 path 순으로 ) — 파일 내용 · 경로만의 지문이라 같은
 // 프로젝트를
 //          두 번 빌드하면 같다 (시각 · 압축 · 순서가 들어가지 않는다). 압축 · 서명 · 증분 다운로드는 [계획].
@@ -24,10 +27,12 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "core/content/ContentLoader.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "foundation/types/Error.hpp"
 #include "foundation/version/SemVer.hpp"
@@ -80,6 +85,15 @@ struct PackageIndex {
         bool operator==(const Asset&) const = default;
     };
     std::vector<Asset> assets;
+    // 선택 — Export Profile (v0.6 NG-08). sbx build --profile 로 만든 패키지만
+    struct Profile {
+        std::string name;
+        std::string platform;
+        std::string arch;
+        std::vector<std::string> renderBackends;
+        bool operator==(const Profile&) const = default;
+    };
+    std::optional<Profile> profile;
 };
 
 // 파일 목록의 지문 (위 규칙) — 64 글자 소문자
@@ -91,18 +105,27 @@ struct BuildResult {
     std::filesystem::path file;
     PackageIndex index;
     u64 bytes = 0;
+    std::vector<content::ContentIssue> profileIssues; // --profile 의 경고 (P10 미검증 대상 — 오류면 만들지 않았다)
 };
 // 빌드 스냅숏 (v0.6 NG-01, ADR-0097 1): 입력 파일을 한 번 읽은 바이트가 이 빌드의 입력이다 — 그 바이트로 패키지를
 // 만들어 읽는 쪽 규칙 (verify) 으로 보고, 그 바이트만 푼 임시 폴더를 openProject 로 연다 (검사한 것 = 실은 것). 쓰기
 // 직전에 원본을 다시 해시해 바뀌었으면 ValidationFailed "빌드 중 바뀐 파일" (옛 출력은 그대로). 같은 입력 = 같은
 // 바이트. 쓰기는 원자적 (임시 → 이름 바꾸기)
-struct BuildHooks {
+struct BuildOptions {
+    // Export Profile 이름 (v0.6 NG-08 — export/<이름>.json). 비면 프로필 없이. 없는 · 오류 있는 프로필 = 만들지 않는다,
+    // 미검증 대상 = 경고 (BuildResult.profileIssues). 프로필 파일을 싣고 index 에 profile 을 적는다
+    std::string profile;
     std::function<void()> beforeRead; // 첫 검사 · 에셋 훑기 뒤, 입력을 읽기 전 (시험 — 그 사이의 편집 흉내)
     std::function<void()> afterRead;  // 입력을 다 읽은 뒤 (시험 — 빌드 중 저장 흉내 · Studio 진행 표시)
 };
 [[nodiscard]] Expected<BuildResult> buildPackage(const std::filesystem::path& projectDir,
                                                  const std::filesystem::path& out, const SemVer& engine,
-                                                 const ecs::ComponentCatalog& catalog, const BuildHooks& hooks = {});
+                                                 const ecs::ComponentCatalog& catalog,
+                                                 const BuildOptions& options = {});
+
+// 패키지의 프로필이 이 실행 파일의 플랫폼 · 아키텍처 (project::hostTarget) 와 다르면 그 경고 문장. 프로필이 없거나 같으면
+// 빈 문자열 — 막지 않는다 (데이터는 어디서나 열린다 — 제작자가 의도한 대상이 아닐 뿐)
+[[nodiscard]] std::string profileHostWarning(const PackageIndex& index);
 
 // 헤더 · index 만 (모양 · digest 다시 계산 — 파일 내용은 보지 않는다)
 [[nodiscard]] Expected<PackageIndex> readPackageIndex(const std::filesystem::path& file);

@@ -14,7 +14,7 @@
 ```text
 제품      0.5.0 (v0.5 Technical Alpha — [릴리스 노트](../releases/v0.5.0.md)). 지금 버전 v0.6
 다음      트랙 A  M3-T1 게임 UI (v0.7) — NG-04 ✅ SaveGame 계약 (v0.6)
-          트랙 B  NG-02 Asset Group · NG-08 Export Profile (v0.6) — NG-14 ✅ 해시 분리 · NG-01 ✅ 빌드 스냅숏 · M6-T9 ✅ 프로젝트 에셋
+          트랙 B  NG-02 Asset Group (v0.6) — NG-08 ✅ Export Profile · NG-14 ✅ 해시 분리 · NG-01 ✅ 빌드 스냅숏 · M6-T9 ✅ 프로젝트 에셋
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```
 

@@ -4,7 +4,7 @@
 //   sbx new <폴더> --id <gameId> [--name <이름>] [--from <시나리오>] [--mode <GameMode id>] [--content-root <d>]
 //           [--seed <n>]
 //   sbx check <폴더 | 패키지.sbpkg>
-//   sbx build <폴더> [--out <파일.sbpkg>]          (v0.2 M5-T2 — 게임 패키지, ADR-0054)
+//   sbx build <폴더> [--out <파일.sbpkg>] [--profile <이름>]   (v0.2 M5-T2 — 게임 패키지, ADR-0054 · --profile = v0.6 NG-08)
 //   sbx templates
 //   sbx sdk [<폴더>]                               (v0.3 M2-T2 — SandboxScript SDK sandbox.d.ts 쓰기)
 //   sbx digest · fetch · resolve                     (v0.4 M2 · M3-T1)
@@ -60,6 +60,7 @@ struct SbxOptions {
     u64 seed = 1;            // new --seed
     std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
     std::string out;         // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
+    std::string profile;     // build --profile <이름> (export/<이름>.json — v0.6 NG-08)
     bool cache = false;      // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
     std::string cacheDir;    // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)
     std::string gitUrl;      // fetch · add --git <URL> (v0.4 M2-T2)

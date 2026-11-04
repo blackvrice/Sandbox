@@ -249,6 +249,14 @@ MyGame/
   A6 (v0.6 M6-T9): 팩 presentation/materials.json 이 부르는 "asset:<id>" · "assets/…" 가 없음 (오류) · 문서를 읽지 못함 (경고)
 7 세이브 마이그레이션 단계 (v0.6 NG-04 — P9): migrations 의 system 이 콘텐츠에 없거나 onMigrate 가 없음 (오류), to 가 게임 version
   보다 뒤 (경고 — 아직 쓰이지 않는 단계)
+8 Export Profile (v0.6 NG-08 — P10, core/project/ExportProfile — 검사 (validateProject) 에만, openProject 는 보지 않는다 — 내보내기
+  설정이 게임 실행을 막지 않게): export/<이름>.json {"platform": windows | linux | macos, "arch": x64 | arm64, "renderBackends":
+  [d3d12 | vulkan | metal — 하나 이상 · 겹침 없음 · 앞 = 먼저 시도], "assetGroups"?: [..]}. 이름 [A-Za-z0-9_-] 1 ~ 64, 프로필 32 개 ·
+  64 KiB 까지. 오류: 모양 · 모르는 키 · 값 · 플랫폼이 낼 수 없는 백엔드 (windows = d3d12 · vulkan, linux = vulkan, macos = metal) ·
+  없는 Asset Group (NG-02 전이라 모든 이름). 경고: 실기 기록 (docs/qa/MANUAL-QA.md) 이 없는 (platform, arch, backend) "미검증" —
+  v0.6 은 기록이 없어 모든 대상 (ExportTarget verifiedTargets 가 비었다), .json 이 아닌 파일 · 하위 폴더. 요약 "Export Profile: N".
+  sbx build --profile <이름> 은 그 프로필만 (없음 NotFound · 오류 = 만들지 않음 · 미검증 = 경고 출력) [계획] textureMaxSize ·
+  플랫폼별 텍스처 변환 · 압축 (측정 뒤)
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)

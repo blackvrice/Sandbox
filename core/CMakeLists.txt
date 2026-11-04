@@ -141,6 +141,8 @@ add_library(SandboxCore STATIC
     project/GameProject.cpp
     project/Diagnostics.hpp
     project/Diagnostics.cpp
+    project/ExportProfile.hpp
+    project/ExportProfile.cpp
     asset/AssetDatabase.hpp
     asset/AssetDatabase.cpp
 

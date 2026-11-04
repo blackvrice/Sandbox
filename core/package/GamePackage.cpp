@@ -14,6 +14,7 @@
 
 #include "core/asset/AssetDatabase.hpp"
 #include "core/package/Lockfile.hpp"
+#include "core/project/ExportProfile.hpp"
 #include "core/project/GameProject.hpp"
 #include "foundation/hash/Sha256.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -131,6 +132,12 @@ json indexJson(const PackageIndex& idx) {
             assets.push_back(json{{"path", a.path}, {"id", a.id}, {"sha256", a.sha256}});
         }
         out["assets"] = std::move(assets);
+    }
+    if (idx.profile) {
+        out["profile"] = json{{"name", idx.profile->name},
+                              {"platform", idx.profile->platform},
+                              {"arch", idx.profile->arch},
+                              {"renderBackends", idx.profile->renderBackends}};
     }
     return out;
 }
@@ -256,6 +263,52 @@ std::optional<std::string> checkAssetClaims(const PackageIndex& idx, std::string
     return std::nullopt;
 }
 
+// 선택 키 profile (NG-08) — 모양 · 그 프로필 파일이 files 에 있다. 문제면 그 이유
+std::optional<std::string> parseProfile(const json& j, PackageIndex& idx) {
+    if (!j.contains("profile")) {
+        return std::nullopt;
+    }
+    const json& p = j["profile"];
+    PackageIndex::Profile e;
+    for (const auto& [key, out] :
+         {std::pair{"name", &e.name}, std::pair{"platform", &e.platform}, std::pair{"arch", &e.arch}}) {
+        if (!p.is_object() || !p.contains(key) || !p[key].is_string()) {
+            return "profile 은 {name, platform, arch, renderBackends}";
+        }
+        *out = p[key].get<std::string>();
+    }
+    if (!p.contains("renderBackends") || !p["renderBackends"].is_array() || p["renderBackends"].size() > 3) {
+        return "profile.renderBackends 는 문자열 배열";
+    }
+    for (const json& b : p["renderBackends"]) {
+        if (!b.is_string()) {
+            return "profile.renderBackends 는 문자열 배열";
+        }
+        e.renderBackends.push_back(b.get<std::string>());
+    }
+    if (findFile(idx, project::exportProfilePath(e.name)) == nullptr) {
+        return std::format("프로필 '{}' 의 {} 가 패키지에 없다", e.name, project::exportProfilePath(e.name));
+    }
+    idx.profile = std::move(e);
+    return std::nullopt;
+}
+
+// 파일 바이트를 본 뒤 (검증 · 풀기): profile 이 그 프로필 파일과 같은가 (오류 없는 프로필 · 같은 대상). 문제면 그 이유
+std::optional<std::string> checkProfileClaims(const PackageIndex& idx, std::string_view data) {
+    if (!idx.profile) {
+        return std::nullopt;
+    }
+    const PackageEntry* f = findFile(idx, project::exportProfilePath(idx.profile->name)); // parseProfile 이 확인했다
+    const auto parsed = project::parseExportProfile(
+        idx.profile->name, data.substr(static_cast<usize>(f->offset), static_cast<usize>(f->size)));
+    if (!parsed.ok() || parsed.profile.platform != idx.profile->platform || parsed.profile.arch != idx.profile->arch ||
+        parsed.profile.renderBackends != idx.profile->renderBackends) {
+        return std::format("profile '{}' 이 {} 와 다르다", idx.profile->name,
+                           project::exportProfilePath(idx.profile->name));
+    }
+    return std::nullopt;
+}
+
 Expected<std::string> readAll(const fs::path& file) {
     std::error_code ec;
     const auto size = fs::file_size(file, ec);
@@ -369,6 +422,9 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
             return bad(std::move(*why));
         }
     }
+    if (auto why = parseProfile(j, idx)) {
+        return bad(std::move(*why));
+    }
     return idx;
 }
 
@@ -393,6 +449,9 @@ Expected<PackageIndex> verifyBytes(const std::string& bytesIn, const fs::path& f
         return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
     if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
+    if (auto why = checkProfileClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
         return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
     return idx;
@@ -424,7 +483,7 @@ std::string packageDigest(const std::vector<PackageEntry>& files) {
 }
 
 Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& out, const SemVer& engine,
-                                   const ecs::ComponentCatalog& catalog, const BuildHooks& hooks) {
+                                   const ecs::ComponentCatalog& catalog, const BuildOptions& options) {
     // 1. 실행할 수 있는 프로젝트인가 (열기와 같은 검사 — 오류면 만들지 않는다)
     auto opened = project::openProject(projectDir, engine, catalog);
     if (!opened) {
@@ -490,8 +549,36 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
             std::sort(assets.begin(), assets.end(), [](const auto& a, const auto& b) { return a.path < b.path; });
         }
     }
+    // 3b. Export Profile (v0.6 NG-08) — 고른 프로필만 본다 (다른 export/ 파일은 싣지 않는다 · 모두 보는 검사는 sbx check)
+    std::vector<content::ContentIssue> profileIssues;
+    std::optional<PackageIndex::Profile> profile;
+    if (!options.profile.empty()) {
+        const std::string rel = project::exportProfilePath(options.profile);
+        const fs::path pf = projectDir / fs::path(rel);
+        std::error_code ec;
+        if (!fs::is_regular_file(fs::symlink_status(pf, ec))) {
+            return makeError(ErrorCode::NotFound, std::format("Export Profile '{}' 이 없다 ({})", options.profile, rel),
+                             io::displayPath(projectDir));
+        }
+        const auto text = io::readFile(pf);
+        if (!text) {
+            return std::unexpected(text.error());
+        }
+        project::ExportProfileParse parsed = project::parseExportProfile(options.profile, *text);
+        for (const content::ContentIssue& i : parsed.issues) {
+            if (i.severity == content::ContentIssue::Severity::Error) {
+                return makeError(ErrorCode::ValidationFailed, std::format("Export Profile 문제 — {}", i.describe()),
+                                 io::displayPath(projectDir));
+            }
+        }
+        profileIssues = std::move(parsed.issues);
+        profile = PackageIndex::Profile{options.profile, parsed.profile.platform, parsed.profile.arch,
+                                        parsed.profile.renderBackends};
+        files.push_back(pf); // 스냅숏에 든다 — 읽는 쪽이 index 의 profile 과 견준다
+    }
     PackageIndex idx;
     idx.format = assets.empty() ? kFormatWithoutAssets : kFormatVersion;
+    idx.profile = std::move(profile);
     idx.assets = std::move(assets);
     idx.gameId = m.gameId;
     idx.name = m.name;
@@ -500,8 +587,8 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     idx.entryWorld = m.entryWorld;
     idx.gameMode = m.gameMode;
     std::vector<std::pair<std::string, std::string>> contents; // (path, bytes)
-    if (hooks.beforeRead) {
-        hooks.beforeRead();
+    if (options.beforeRead) {
+        options.beforeRead();
     }
     for (const fs::path& f : files) {
         const std::string rel = relativeOf(projectDir, f);
@@ -517,8 +604,8 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     }
     // 4. 스냅숏 (NG-01, ADR-0097 1) — 위에서 한 번 읽은 바이트가 이 빌드의 입력이다. 아래 검증 · 실기는 모두 이
     // 바이트로
-    if (hooks.afterRead) {
-        hooks.afterRead();
+    if (options.afterRead) {
+        options.afterRead();
     }
     std::sort(contents.begin(), contents.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     {
@@ -615,7 +702,7 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     if (auto r = io::writeFileAtomic(file, blob); !r) {
         return std::unexpected(r.error());
     }
-    return BuildResult{file, std::move(idx), blob.size()};
+    return BuildResult{file, std::move(idx), blob.size(), std::move(profileIssues)};
 }
 
 Expected<PackageIndex> readPackageIndex(const fs::path& file) {
@@ -694,6 +781,20 @@ Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& 
                          io::displayPath(dir));
     }
     return ExtractedPackage{dir, std::move(*idx), false};
+}
+
+std::string profileHostWarning(const PackageIndex& index) {
+    if (!index.profile) {
+        return {};
+    }
+    const project::ExportTarget host = project::hostTarget();
+    if (host.platform == index.profile->platform && host.arch == index.profile->arch) {
+        return {};
+    }
+    return std::format("이 패키지는 {} 용으로 내보냈다 (프로필 '{}') — 지금 {} 에서 연다",
+                       project::describeTarget(index.profile->platform, index.profile->arch), index.profile->name,
+                       project::describeTarget(host.platform.empty() ? "?" : host.platform,
+                                               host.arch.empty() ? "?" : host.arch));
 }
 
 fs::path defaultPackageCache() {

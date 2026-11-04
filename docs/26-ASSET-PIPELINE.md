@@ -138,7 +138,10 @@ NG-13 경로 정책       ✅ (v0.6 — 2026-11-03) 경로는 ASCII [A-Za-z0-9_.
 NG-14 해시 분리       ✅ (v0.6) contentHash (시뮬레이션 — presentation 제외, 그대로) + 표시 digest (scenario::presentationDigest — 팩마다
                       presentation/** 지문 (PackInfo.presentationDigest) + 프로젝트 에셋 경로 · id · SHA-256). 프로토콜 16 — Auth · Welcome 에 실어
                       규칙 다름 = 거절 (그대로), 표시만 다름 = 접속 + 경고 (NetworkSession::presentationMismatch) (4.13)
-NG-08 Export Profile  export/<이름>.json (플랫폼 · 아키텍처 · 렌더 백엔드 · 그룹) 검증, 미검증 플랫폼 = 경고 — v0.6 은 windows-x64 (4.8)
+NG-08 Export Profile  ✅ (v0.6 — core/project/ExportProfile) export/<이름>.json {platform, arch, renderBackends, assetGroups?} 검사 P10
+                      (플랫폼 ↔ 백엔드 · 없는 그룹 = 오류, 실기 기록 없는 대상 = "미검증" 경고 — v0.6 은 기록이 없어 모두), sbx build
+                      --profile = 그 파일을 싣고 index profile (형식 무관 선택 키 — 파일과 견준다), 다른 플랫폼에서 열면 경고.
+                      [계획] textureMaxSize · 플랫폼별 텍스처 변환 · 압축 (측정 뒤) (4.8)
 NG-04 SaveGame        ✅ (v0.6) 매니페스트 migrations [{from, to, system}] · 스크립트 onMigrate (.sbc 10) · core/scenarios/SaveMigration —
                       같은 버전 그대로 · 더 새 세이브 거절 · 단계 없으면 알림 · 체인 (빠진 · 넘어가는 단계 거절) · 적용 전 백업 <이름>.bak-<버전> ·
                       실패 = 연 월드를 버림 (세이브 · 지금 월드 그대로) · 같은 세이브 + 같은 체인 = 같은 해시 (09 9장 · 19 18장) (4.4)

@@ -145,6 +145,21 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parse({"test", "G", "x"}).has_value());
     }
 
+    TEST_CASE("sbx options: build --out · --profile (v0.6 NG-08)") {
+        constexpr std::array<std::string_view, 6> full{"build", "Game", "--out", "g.sbpkg", "--profile", "win"};
+        const auto r = parseSbxOptions(full);
+        REQUIRE_MESSAGE(r.has_value(), r.error().describe());
+        CHECK(r->command == SbxCommand::Build);
+        CHECK(r->dir == "Game");
+        CHECK(r->out == "g.sbpkg");
+        CHECK(r->profile == "win");
+        constexpr std::array<std::string_view, 3> noValue{"build", "Game", "--profile"};
+        CHECK_FALSE(parseSbxOptions(noValue).has_value());
+        constexpr std::array<std::string_view, 4> notBuild{"check", "Game", "--profile", "win"};
+        CHECK_FALSE(parseSbxOptions(notBuild).has_value());
+        CHECK(sbxUsage().find("--profile <이름>") != std::string::npos);
+    }
+
     TEST_CASE("sbx options: asset import · newid (v0.6 M6-T9)") {
         const auto parse = [](std::initializer_list<std::string_view> args) {
             const std::vector<std::string_view> v(args);

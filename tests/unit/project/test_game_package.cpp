@@ -15,6 +15,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
 #include "core/package/PackSource.hpp"
+#include "core/project/ExportProfile.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -408,7 +409,7 @@ TEST_SUITE("project") {
         const std::string worldText = *io::readFile(world);
 
         // 읽은 뒤 저장 (편집기가 빌드 중에 저장) → 실패, 옛 출력 바이트 그대로 · 임시 파일 없음
-        package::BuildHooks save;
+        package::BuildOptions save;
         save.afterRead = [&] { std::ofstream(world, std::ios::binary | std::ios::trunc) << worldText << " "; };
         const auto changed = package::buildPackage(dir, out, kEngine, catalog(), save);
         REQUIRE_FALSE(changed.has_value());
@@ -420,7 +421,7 @@ TEST_SUITE("project") {
         // 검사와 읽기 사이에 콘텐츠를 깨뜨림 → 실을 바이트로 다시 연 검사가 잡는다 (첫 검사는 옛 내용을 봤다)
         const fs::path prefab = dir / "content/ecosystem/prefabs/rabbit.json";
         const std::string prefabText = *io::readFile(prefab);
-        package::BuildHooks broke;
+        package::BuildOptions broke;
         broke.beforeRead = [&] { std::ofstream(prefab, std::ios::binary | std::ios::trunc) << "{ broken"; };
         const auto invalid = package::buildPackage(dir, out, kEngine, catalog(), broke);
         REQUIRE_FALSE(invalid.has_value());
@@ -432,7 +433,7 @@ TEST_SUITE("project") {
         fs::create_directories(dir / "assets");
         std::ofstream(dir / "assets/a.png", std::ios::binary) << "A";
         REQUIRE(asset::importAssets(dir, [] { return std::string(32, 'c'); }).has_value());
-        package::BuildHooks swap;
+        package::BuildOptions swap;
         swap.beforeRead = [&] { std::ofstream(dir / "assets/a.png", std::ios::binary | std::ios::trunc) << "B"; };
         const auto swapped = package::buildPackage(dir, out, kEngine, catalog(), swap);
         REQUIRE_FALSE(swapped.has_value());
@@ -442,5 +443,91 @@ TEST_SUITE("project") {
         // 바뀌지 않으면 그대로 만든다 · 잠깐 만든 폴더는 남지 않는다
         CHECK(package::buildPackage(dir, root.path / "ok.sbpkg", kEngine, catalog()).has_value());
         CHECK(stagingDirs() == stagingBefore);
+    }
+
+    TEST_CASE("package: Export Profile (v0.6 NG-08) — --profile 은 그 파일만 싣고 index 에 대상, 고친 대상 · 없는 · "
+              "오류 프로필은 거절, 다른 플랫폼은 경고") {
+        TempDir root("profile");
+        const fs::path dir = makeDemo(root.path);
+        const auto plain = package::buildPackage(dir, root.path / "plain.sbpkg", kEngine, catalog());
+        REQUIRE(plain.has_value());
+        CHECK_FALSE(plain->index.profile.has_value());
+        fs::create_directories(dir / "export");
+        std::ofstream(dir / "export" / "win.json")
+            << R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12", "vulkan"]})";
+        std::ofstream(dir / "export" / "broken.json")
+            << R"({"platform": "linux", "arch": "x64", "renderBackends": ["d3d12"]})";
+        // 프로필 없이 — export/ 는 싣지 않는다 (같은 바이트)
+        const auto again = package::buildPackage(dir, root.path / "again.sbpkg", kEngine, catalog());
+        REQUIRE(again.has_value());
+        CHECK(again->index.digest == plain->index.digest);
+        // 프로젝트 검사는 export/ 를 모두 본다 (P10) — 여는 길은 보지 않는다
+        const project::ProjectReport report = project::validateProject(dir, kEngine, catalog());
+        CHECK(report.exportProfiles == 1);
+        CHECK(std::any_of(report.issues.begin(), report.issues.end(), [](const content::ContentIssue& i) {
+            return i.rule == "P10" && i.file == "export/broken.json" &&
+                   i.severity == content::ContentIssue::Severity::Error;
+        }));
+        CHECK(project::openProject(dir, kEngine, catalog()).has_value());
+
+        const auto built = package::buildPackage(dir, root.path / "win.sbpkg", kEngine, catalog(), {.profile = "win"});
+        REQUIRE_MESSAGE(built.has_value(), built.error().describe());
+        CHECK(built->index.format == 2); // 프로필은 형식 번호와 무관한 선택 키
+        REQUIRE(built->index.profile.has_value());
+        CHECK(built->index.profile->name == "win");
+        CHECK(built->index.profile->platform == "windows");
+        CHECK(built->index.profile->renderBackends == std::vector<std::string>{"d3d12", "vulkan"});
+        CHECK(hasFile(built->index, "export/win.json"));
+        CHECK_FALSE(hasFile(built->index, "export/broken.json"));
+        CHECK(built->profileIssues.size() == 2); // 미검증 경고 (백엔드마다)
+        const auto read = package::verifyPackage(built->file);
+        REQUIRE(read.has_value());
+        CHECK(read->profile == built->index.profile);
+        CHECK(package::extractPackage(built->file, root.path / "cache").has_value());
+
+        // index 의 대상만 고친다 — 파일을 보는 검증 · 풀기가 거절한다
+        const std::string good = *io::readFile(built->file);
+        const auto rewriteIndex = [&](std::string_view tag, auto&& mutate) {
+            u64 n = 0;
+            for (int i = 0; i < 8; ++i) {
+                n |= static_cast<u64>(static_cast<u8>(good[12 + i])) << (8 * i);
+            }
+            auto j = nlohmann::json::parse(good.substr(20, static_cast<usize>(n)));
+            mutate(j);
+            const std::string index = j.dump();
+            std::string out = good.substr(0, 12);
+            for (int i = 0; i < 8; ++i) {
+                out += static_cast<char>((static_cast<u64>(index.size()) >> (8 * i)) & 0xFF);
+            }
+            const fs::path f = root.path / std::format("{}.sbpkg", tag);
+            std::ofstream(f, std::ios::binary | std::ios::trunc) << out + index + good.substr(20 + static_cast<usize>(n));
+            return f;
+        };
+        const fs::path lied = rewriteIndex("lied", [](nlohmann::json& j) { j["profile"]["platform"] = "linux"; });
+        CHECK(package::readPackageIndex(lied).has_value());
+        CHECK(package::verifyPackage(lied).error().message.find("profile 'win' 이 export/win.json 와 다르다") !=
+              std::string::npos);
+        CHECK_FALSE(package::extractPackage(lied, root.path / "cache-lied").has_value());
+        const fs::path missing = rewriteIndex("missing", [](nlohmann::json& j) { j["profile"]["name"] = "other"; });
+        CHECK(package::readPackageIndex(missing).error().message.find("export/other.json 가 패키지에 없다") !=
+              std::string::npos);
+
+        // 없는 · 오류 있는 프로필 — 만들지 않는다
+        const auto none = package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog(), {.profile = "mac"});
+        REQUIRE_FALSE(none.has_value());
+        CHECK(none.error().code == ErrorCode::NotFound);
+        const auto broken = package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog(), {.profile = "broken"});
+        REQUIRE_FALSE(broken.has_value());
+        CHECK(broken.error().message.find("Export Profile 문제") != std::string::npos);
+        CHECK_FALSE(fs::exists(root.path / "x.sbpkg"));
+
+        // 이 실행 파일의 대상과 다르면 경고 (막지 않는다)
+        package::PackageIndex idx;
+        CHECK(package::profileHostWarning(idx).empty());
+        const project::ExportTarget host = project::hostTarget();
+        idx.profile = package::PackageIndex::Profile{"here", host.platform, host.arch, {"vulkan"}};
+        CHECK(package::profileHostWarning(idx).empty());
+        idx.profile->platform = host.platform == "macos" ? "linux" : "macos";
+        CHECK(package::profileHostWarning(idx).find("프로필 'here'") != std::string::npos);
     }
 }

@@ -72,6 +72,11 @@ Expected<WorldSource> openWorldSourceImpl(std::string_view spec, const std::file
         out.runner = std::make_unique<ScenarioRunner>(std::move(opened->world), std::make_unique<ContinueScenario>());
         out.name = opened->manifest.name;
         out.warnings = std::move(opened->warnings);
+        if (out.package) { // Export Profile 의 대상이 아닌 플랫폼 (v0.6 NG-08) — 막지 않는다
+            if (std::string w = package::profileHostWarning(*out.package); !w.empty()) {
+                out.warnings.push_back(std::move(w));
+            }
+        }
         out.game = std::move(opened->manifest);
         out.projectDir = dir;
         return out;

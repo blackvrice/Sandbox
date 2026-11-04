@@ -110,6 +110,7 @@ struct ProjectReport {
     bool hasAssets = false;
     usize assets = 0;             // id 가 있는 에셋 (같은 내용의 사본은 하나)
     usize unidentifiedAssets = 0; // .meta 가 없거나 깨진 원본
+    usize exportProfiles = 0;     // 오류 없는 export/<이름>.json (v0.6 NG-08 — 문제는 P10)
 
     [[nodiscard]] bool ok() const noexcept;
     [[nodiscard]] usize errorCount() const noexcept;
@@ -124,7 +125,8 @@ struct ValidateOptions {
 
 // engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7 · 스크립트 S*) → 시작 월드 (형식 · 팩 ·
 // 열기) → 도구 파일 (P6 — sdk/sandbox.d.ts 가 이 엔진의 것과 다르다 · 스크립트가 있는데 없다, tsconfig.json 이 JSON 이
-// 아니다) → 에셋 (A1 ~ A5 — assets/ 가 있으면, core/asset/AssetDatabase) 순서
+// 아니다) → 에셋 (A1 ~ A5 — assets/ 가 있으면, core/asset/AssetDatabase) → Export Profile (P10 — export/ 가 있으면,
+// ExportProfile.hpp — 검사에만, openProject 는 보지 않는다) 순서
 [[nodiscard]] ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                             const ecs::ComponentCatalog& catalog, const ValidateOptions& options = {});
 

@@ -323,7 +323,8 @@ ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문
 파일      magic "SBXPKG\0\n" (8) · format u32 = 3 (에셋이 있을 때) · 2 (없을 때 — 1 도 읽는다) · indexBytes u64 · index (JSON, 키 정렬) · 파일 바이트
           (index 순서, 빈틈 없음) — 작은 끝. 상한: 파일 65536 개 · 패키지 2 GiB · index 16 MiB · packs 256
 index     {format, gameId, name, version, engine, entryWorld, gameMode, digest, files: [{path, size, sha256, offset}],
-           packs: [{id, version, license, digest, path}], assets: [{path, id, sha256}] (형식 3)}
+           packs: [{id, version, license, digest, path}], assets: [{path, id, sha256}] (형식 3),
+           profile?: {name, platform, arch, renderBackends} (v0.6 NG-08 — 형식 번호와 무관한 선택 키)}
           path = 프로젝트 기준 상대 ('/' · [A-Za-z0-9_.-] · "." ".." 없음 — project::checkRelativePath), 바이트 순 · 겹침 없음 ·
           대소문자만 다른 파일 · 폴더 없음 (project::findCaseConflict — v0.6 NG-13, 읽을 때도 거절). 빌드는 심볼릭 링크를 담지 않는다
           offset = 파일 데이터 시작에서 (앞 파일 크기 합)
@@ -336,6 +337,11 @@ assets    (형식 3 — v0.6 M6-T9, ADR-0090 5) 프로젝트 assets/ 의 원본�
           .meta 있음, 같은 id = 같은 내용, assets/ 아래 파일은 모두 목록의 원본 · .meta (몰래 실은 것 없음). 파일을 볼 때 .meta 의 id 와
           견준다 — 다르면 열지 않는다. 빌드: 에셋 훑기 (core/asset) 오류 (A3 · A5) 나 id 없는 원본 (A1 · A2) 이 있으면 만들지 않는다
           ("sbx asset import"), 짝 없는 .meta (A4) 는 싣지 않는다
+profile   (선택 — v0.6 NG-08, ADR-0097 6) sbx build --profile <이름> 일 때만: 그 프로필 파일 export/<이름>.json 을 files 에 싣고 대상을
+          index 에 적는다 (다른 export/ 파일 · 프로필 없는 빌드는 export/ 를 싣지 않는다 — 바이트 그대로). 형식 번호를 올리지 않는다 —
+          옛 엔진은 모르는 키를 지나친다 (형식 2 패키지에도 실린다). 읽을 때: 모양 · 그 파일이 files 에 있음, 파일을 볼 때 프로필 파일을
+          다시 검사해 (오류 없음) platform · arch · renderBackends 가 같아야 한다 — 다르면 열지 않는다. 연 쪽 (sbx check · 서버 · 클라이언트
+          — WorldSource 경고) 의 플랫폼 · 아키텍처가 다르면 "이 패키지는 <대상> 용으로 내보냈다" 경고 — 막지 않는다 (데이터는 어디서나 열린다)
 digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시각 · 순서 · 압축이 없어 같은 프로젝트 = 같은 바이트
 담는 것   sandbox.project.json · 프로젝트 콘텐츠가 읽은 팩 (requires 포함, 폴더째 — presentation/ 포함) · 시작 월드 폴더 ·
           프로젝트 에셋 (assets/ — 형식 3).

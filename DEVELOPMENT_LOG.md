@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-08: Export Profile — export/<이름>.json 검사 P10 · sbx build --profile · 다른 플랫폼 경고
+
+**무엇을**
+
+- core/project/ExportProfile: export/<이름>.json {platform (windows · linux · macos), arch (x64 · arm64), renderBackends (d3d12 · vulkan ·
+  metal — 하나 이상, 앞 = 먼저), assetGroups?}. 오류 = 모양 · 모르는 키 · 플랫폼이 낼 수 없는 백엔드 · 없는 Asset Group (NG-02 전), 경고 =
+  실기 기록 없는 대상 "미검증" (verifiedTargets — docs/qa/MANUAL-QA.md 에 통과 기록이 없어 비었다) · .json 아닌 파일. hostTarget (전처리기).
+- 프로젝트 검사 (validateProject — sbx check · doctor) 가 export/ 를 모두 본다 (P10, "Export Profile: N"). openProject 는 보지 않는다 —
+  내보내기 설정이 게임 실행을 막지 않게.
+- 패키지: BuildHooks → BuildOptions {profile, beforeRead, afterRead}. --profile = 그 프로필만 검사 (없음 NotFound · 오류 = 만들지 않음),
+  파일을 스냅숏에 싣고 index 선택 키 profile {name, platform, arch, renderBackends}. 형식 번호와 무관 (옛 엔진은 모르는 키를 지나친다 —
+  형식 2 그대로). 읽을 때 그 파일이 있어야 하고, 파일을 볼 때 프로필을 다시 검사해 대상이 같아야 한다 (index 만 고친 패키지 거절).
+- 다른 플랫폼 · 아키텍처에서 열면 경고 (package::profileHostWarning — sbx check <패키지> · WorldSource → 서버 · 클라이언트 로그). 막지 않는다.
+
+**왜**
+
+- 등록부 NG-08 (ADR-0097 6, 2차 감사 4.8) — 제작자가 어느 대상을 내보내는지 적을 곳이 없었고, 검증되지 않은 플랫폼을 알 길이 없었다.
+
+**검증**
+
+- test_export_profile 4 (대상 · 미검증 경고 · 오류 17 · 왕복 · 폴더 · hostTarget), test_game_package "Export Profile" (프로필 없는 빌드 = 같은
+  digest · P10 · --profile · 고친 대상 · 없는 파일 · 없는 · 오류 프로필 · 다른 플랫폼 경고), test_sbx_options build.
+- 실행: sbx new → export/win.json · mac.json (vulkan — P10 오류 rc 1) → mac 을 metal 로 → build --profile win · mac (미검증 경고) · nope
+  (NotFound rc 2) → sbx check mac.sbpkg "이 패키지는 macos-arm64 용으로 내보냈다 … 지금 windows-x64" → SandboxServer --world mac.sbpkg
+  --ticks 2 --exit 가 같은 경고 (warn) 로 tick 2.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- textureMaxSize · 플랫폼별 텍스처 변환 · 압축 (측정 뒤), Studio 빌드 화면의 프로필 고르기 (v0.8), 실기 QA 기록이 생기면 verifiedTargets.
+- 0.6.0 출시 노트에: .sbpkg index profile 선택 키.
+
 ## 2026-11-04 — v0.6 RT-06-12: 비동기 에셋 로드 — 로드 순서 무관 표시 확인
 
 **무엇을**

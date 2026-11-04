@@ -22,6 +22,7 @@
 #include "core/package/PackTemplate.hpp"
 #include "core/package/Resolve.hpp"
 #include "core/project/Diagnostics.hpp"
+#include "core/project/ExportProfile.hpp"
 #include "core/project/GameProject.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/PlayScript.hpp"
@@ -71,6 +72,13 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         if (extracted->index.format < 2) {
             std::printf("  (형식 %u 패키지 — 라이선스 요약이 없다)\n", extracted->index.format);
         }
+        // Export Profile (v0.6 NG-08 — 풀 때 프로필 파일과 견줬다). 다른 플랫폼이면 경고 (막지 않는다)
+        if (const auto& p = extracted->index.profile) {
+            std::printf("  프로필 %s — %s\n", p->name.c_str(), project::describeTarget(p->platform, p->arch).c_str());
+            if (const std::string w = package::profileHostWarning(extracted->index); !w.empty()) {
+                std::printf("  경고: %s\n", w.c_str());
+            }
+        }
         dir = extracted->dir;
     }
     // 패키지는 도구 파일 (sdk/ · tsconfig.json) 을 싣지 않는다 — P6 를 보지 않는다
@@ -107,6 +115,9 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
     if (r.hasAssets) {
         std::printf("에셋: id %zu · id 없음 %zu (assets/ — .meta)\n", r.assets, r.unidentifiedAssets);
     }
+    if (r.exportProfiles > 0) {
+        std::printf("Export Profile: %zu (export/ — sbx build --profile <이름>)\n", r.exportProfiles);
+    }
     const std::string world = r.worldOpened ? std::format("열림 — tick {}, 엔티티 {}", r.worldTick, r.worldEntities)
                                             : std::string("열지 못함");
     std::printf("프로젝트 검사: 오류 %zu, 경고 %zu (Prefab %zu, contentHash %s, 시작 월드 %s)\n", r.errorCount(),
@@ -115,8 +126,8 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
 }
 
 int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
-    const auto built =
-        package::buildPackage(std::filesystem::path(opt.dir), std::filesystem::path(opt.out), engineVersion(), catalog);
+    const auto built = package::buildPackage(std::filesystem::path(opt.dir), std::filesystem::path(opt.out),
+                                             engineVersion(), catalog, {.profile = opt.profile});
     if (!built) {
         printErr(built.error().describe());
         return kExitError;
@@ -125,6 +136,18 @@ int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
                 built->index.gameId.c_str(), built->index.version.c_str(), built->index.files.size(),
                 static_cast<unsigned long long>(built->bytes));
     std::printf("  digest sha256:%s\n", built->index.digest.c_str());
+    // Export Profile (v0.6 NG-08) — 대상과 미검증 경고
+    if (const auto& p = built->index.profile) {
+        std::string backends;
+        for (const std::string& b : p->renderBackends) {
+            backends += (backends.empty() ? "" : " · ") + b;
+        }
+        std::printf("  프로필 %s — %s · %s\n", p->name.c_str(), project::describeTarget(p->platform, p->arch).c_str(),
+                    backends.c_str());
+        for (const content::ContentIssue& i : built->profileIssues) {
+            std::printf("  %s\n", i.describe().c_str());
+        }
+    }
     // 라이선스 요약 (v0.4 M5-T2) — 라이선스마다 팩 수
     std::map<std::string, usize> licenses;
     for (const auto& p : built->index.packs) {

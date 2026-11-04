@@ -11,6 +11,7 @@
 #include "core/game/GameRules.hpp"
 #include "core/package/Lockfile.hpp"
 #include "core/persist/WorldSave.hpp"
+#include "core/project/ExportProfile.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -921,6 +922,11 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     ProjectReport r;
     Opened opened;
     checkProject(projectDir, engine, catalog, options, r, opened);
+    // Export Profile (v0.6 NG-08 — P10): 검사에만. 여는 길 (openProject) 은 내보내기 설정으로 막지 않는다
+    ExportProfiles exports = loadExportProfiles(projectDir);
+    r.exportProfiles = exports.profiles.size();
+    r.issues.insert(r.issues.end(), std::make_move_iterator(exports.issues.begin()),
+                    std::make_move_iterator(exports.issues.end()));
     return r;
 }
 
