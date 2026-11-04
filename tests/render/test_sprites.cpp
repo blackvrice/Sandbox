@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <memory>
 #include <numbers>
+#include <vector>
 
 #include "foundation/job/JobSystem.hpp"
 #include "render/asset/AssetManager.hpp"
@@ -288,6 +289,46 @@ TEST_SUITE("render.gpu") {
         w.sprites.push_back({.position = {0, 0}, .size = {1, 1}, .sprite = viaLib});
         const Image img = rig.draw(w);
         CHECK(near(img.pixel(32, 32), 255, 0, 0));
+        std::filesystem::remove_all(dir);
+    }
+
+    TEST_CASE("assets: load order does not change the picture (v0.6 RT-06-12 — placeholder first, worker decode)") {
+        const auto dir = std::filesystem::temp_directory_path() / "sbx_render_tests_order";
+        std::filesystem::create_directories(dir / "pack");
+        REQUIRE(savePng(dir / "pack" / "r.png", Image::filled(6, 6, 255, 0, 0)));
+        REQUIRE(savePng(dir / "pack" / "g.png", Image::filled(8, 8, 0, 255, 0)));
+        REQUIRE(savePng(dir / "pack" / "b.png", Image::filled(4, 4, 0, 0, 255)));
+        const auto render = [&](std::initializer_list<std::string_view> order) {
+            JobSystem jobs(2);
+            AssetManagerDesc ad = atlasDesc(64, 1);
+            ad.root = dir;
+            ad.uploadBudgetBytes = 1; // 프레임마다 하나 — 올라가는 차례도 요청 차례를 따른다
+            Rig rig(64, 64, ad, &jobs);
+            std::vector<SpriteId> ids;
+            for (const std::string_view path : order) {
+                ids.push_back(rig.assets->requestSprite(path)); // 바로 id (흰색 자리) — 디코드는 Worker
+            }
+            rig.assets->waitDecodes();
+            for (int frame = 0; frame < 10 && rig.assets->stats().queued > 0; ++frame) {
+                rig.uploadFrame();
+            }
+            for (const SpriteId id : ids) {
+                REQUIRE(rig.assets->state(id) == AssetState::Ready);
+            }
+            RenderWorld w = blackWorld(16);
+            w.sprites.push_back(
+                {.position = {-1, 0}, .size = {1, 1}, .sprite = rig.assets->requestSprite("pack/r.png")});
+            w.sprites.push_back(
+                {.position = {0, 1}, .size = {1, 1}, .sprite = rig.assets->requestSprite("pack/g.png")});
+            w.sprites.push_back(
+                {.position = {1, 0}, .size = {1, 1}, .sprite = rig.assets->requestSprite("pack/b.png")});
+            return rig.draw(w);
+        };
+        const Image forward = render({"pack/r.png", "pack/g.png", "pack/b.png"});
+        const Image backward = render({"pack/b.png", "pack/g.png", "pack/r.png"});
+        CHECK(forward.rgba == backward.rgba); // 아틀라스 자리는 달라도 화면은 같다
+        CHECK(near(forward.pixel(16, 32), 255, 0, 0));
+        CHECK(near(forward.pixel(48, 32), 0, 0, 255));
         std::filesystem::remove_all(dir);
     }
 

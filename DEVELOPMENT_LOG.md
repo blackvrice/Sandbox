@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-04 — v0.6 RT-06-12: 비동기 에셋 로드 — 로드 순서 무관 표시 확인
+
+**무엇을**
+
+- AssetManager 의 비동기 로드 (requestSprite → 바로 SpriteId · 흰색 자리, Worker 디코드, 프레임 예산 업로드, 같은 경로 = 같은 id) 는
+  Phase 8A 에 있었다. 등록부의 완료 조건 "로드 순서 무관 표시" 를 GPU 테스트로 묶었다 — 코드 변경 없음.
+- test_sprites "load order does not change the picture": 빨강 6×6 · 초록 8×8 · 파랑 4×4 PNG 를 앞 · 뒤 차례로 요청 (JobSystem 2 · 업로드
+  예산 1 바이트 = 프레임마다 하나라 아틀라스 자리가 다르다) → 셋 다 Ready → 같은 RenderWorld 의 두 그림이 바이트까지 같다.
+
+**왜**
+
+- 등록부 RT-06-12 (v0.6, P2) — RT-08-4 (스트리밍 · 메모리 예산) 의 앞 단계. 순서에 따라 그림이 바뀌면 스트리밍이 결정적 화면을 깬다.
+
+**검증**
+
+- Windows MSVC Debug 빌드 · 전체 ctest 통과 (render_tests_warp 포함). 처음 판은 stats().ready 가 내장 자리 (흰색 · 마젠타) 를 세어 5 ≠ 3
+  — 요청한 id 마다 state == Ready 로 바꿨다.
+
+**남은 일**
+
+- 해제 · refcount · 핫 리로드 · 디스크 캐시는 RT-08-4 (v0.8) 와 06 7.4 의 [계획].
+
 ## 2026-11-04 — v0.6 NG-04 (2): 세이브 게임 버전 마이그레이션 — migrations · 체인 · 백업 · 더 새 세이브 거절 (NG-04 끝)
 
 **무엇을**

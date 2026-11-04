@@ -578,6 +578,8 @@ AssetManager   requestSprite(경로) → SpriteId (바로 — 준비 전 흰색 
                (그 영역만), 프레임 예산 8 MB (최소 하나), 그리기보다 먼저 기록되어 그 프레임부터 보인다
                아틀라스 = Texture2DArray 하나, 고정 크기 (기본 1024² × 4 층, RGBA8Unorm). 다시 만들지 않는다
                실패(파일 없음 · 디코드 · 가득) = 마젠타 + 경고. [계획] 해제 · refcount · 핫 리로드 · 밉 · sbx_atlas
+               로드 순서 무관 (v0.6 RT-06-12): 요청 차례가 달라 아틀라스 자리가 달라도 그림은 같다 — 인스턴스가 SpriteId 로
+               (page, uvRect) 를 그때 찾는다. 같은 경로 = 같은 id (캐시 — 다시 읽지 않는다)
 MaterialLibrary assets/<팩>/materials.json: {"materials": {"eco/rabbit": {"sprite": "ecosystem/rabbit.png",
                "color": [r, g, b, a]}}} — 둘 다 선택. 없는 이름 = 흰 사각형 + 이름 해시 색 (경고 한 번)
                loadAll(assets/) 은 */materials.json 을 이름 순으로. 렌더러가 없으면(헤드리스) 색만
@@ -838,7 +840,7 @@ SandboxTests `render`(DebugDrawList 도형 · 선 컬링 · TerrainCache), `clie
 Phase 8A 구현 (`tests/render/test_sprites.cpp`): sprite(아틀라스 텍스처 방향 · 좌우 뒤집기 · 45° 회전 · 색 곱 — 기준 이미지) ·
 camera(worldToScreen 이 예측한 픽셀 · 컬링) · order(레이어 > 제출 순서, 같은 레이어는 depth, 반투명 α 128) · batch_1k(1,000개 ·
 층 3개 · Draw 1 — 기준 이미지. 픽셀 경계 정렬 · 무회전 · 완만한 텍스처라 구현과 무관) · assets(Worker 디코드 · 예산 1 바이트로
-프레임마다 하나 · 없는 파일 마젠타 · 경로 정규화) · materials(JSON · 오류 · 대체 색). 순수 로직은 SandboxTests `render`
+프레임마다 하나 · 없는 파일 마젠타 · 경로 정규화 · 로드 순서 무관 — v0.6 RT-06-12) · materials(JSON · 오류 · 대체 색). 순수 로직은 SandboxTests `render`
 (Camera2D · 정렬 키 · SpriteBatcher · ShelfPacker · AssetId), 클라이언트 흐름은 `client`(8A DirectSim → 10B NetworkSession · Extraction · 앱 InWorld).
 
 Phase 7B 구현 (`tests/render/test_rhi_draw.cpp`, 셰이더가 내장된 빌드만): triangle(정점 색) · coord_convention(NDC 사분면에
