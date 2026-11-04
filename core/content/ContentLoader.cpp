@@ -2479,6 +2479,30 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                 warn(p.folder + "/presentation/materials.json", "", "IO", text.error().describe());
             }
         }
+        // 게임 UI (v0.7 M3-T1) — 원문만 (검사는 ui/model — 프로젝트 검사). 문서 32 개까지 (20 2.4 예산), 이름 순
+        if (const fs::path uiDir = p.dir / "presentation" / "ui"; fs::is_directory(uiDir)) {
+            std::vector<fs::path> files;
+            std::error_code ec;
+            for (fs::directory_iterator it(uiDir, ec), end; !ec && it != end; it.increment(ec)) {
+                if (it->is_regular_file(ec) && it->path().extension() == ".json") {
+                    files.push_back(it->path());
+                }
+            }
+            std::sort(files.begin(), files.end());
+            for (const fs::path& f : files) {
+                const std::string display = p.folder + "/presentation/ui/" + f.filename().generic_string();
+                auto text = io::readFile(f);
+                if (!text) {
+                    warn(display, "", "IO", text.error().describe());
+                } else if (f.stem() == "styles") {
+                    sp.info.uiStyles = std::move(*text);
+                } else if (sp.info.uiDocuments.size() >= 32) {
+                    warn(display, "", "U7", "게임 UI 문서는 팩마다 32 개까지 — 읽지 않았다");
+                } else {
+                    sp.info.uiDocuments.emplace_back(f.stem().generic_string(), std::move(*text));
+                }
+            }
+        }
         for (SourceFile& f : readPack(p)) {
             sp.files.push_back(ContentSourceFile{std::move(f.rel), std::move(f.display), std::move(f.text)});
         }

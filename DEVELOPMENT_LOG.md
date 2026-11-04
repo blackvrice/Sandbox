@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-04 — v0.7 M3-T1: 게임 UI 타깃 SandboxGameUI — 문서 모델 · 검사 U1 ~ U8 · sbx check 연결
+
+**무엇을**
+
+- 새 타깃 SandboxGameUI (ui/ — Foundation 만, check_includes 규칙 · 픽스처 ui/BadCore): ui/model UiDocument — 팩의 presentation/ui/<이름>.json
+  (panel · text · image · button · progress · list, 앵커 · offset · size · stack · gap · padding · align, 값 = 수 | bind, 이벤트 = signal ·
+  action · ui) 와 styles.json 을 읽고 U1 ~ U8 을 낸다. 콘텐츠는 UiCheckContext (nullptr = 그 검사를 건너뜀).
+- core/content 로더는 원문만 (PackInfo.uiDocuments · uiStyles — 팩마다 32). core/project validateProject 가 검사를 부른다 — 신호 (signals) ·
+  행동 (playerActions) · 스타일 · material (팩 materials.json + ValidateOptions.engineAssets), 문서 사이 ui 대상 (U6), 게임 예산 (문서 32 ·
+  노드 4,096 — U7). openProject 는 보지 않는다. sbx check 는 실행 파일 옆 assets/ 를 엔진 에셋으로 주고 "게임 UI: 문서 N · 노드 M" 줄.
+- ADR-0101 (Core 가 GameUI 를 링크 — 검사의 단일 진입점), 데모 HUD samples/rabbit_guard/content/ecosystem/presentation/ui (eco.hud ·
+  styles — 점수 · 기운 · 먹이 · 덫 · 도움말 토글).
+
+**왜**
+
+- 등록부 M3-T1 (v0.7 P0, 20 10장 Phase 3) — 제작자가 HUD · 메뉴 · 버튼을 만드는 첫 단계. 배치 (M3-T2) · 백엔드 (M3-T3) 가 이 모델 위에 선다.
+
+**검증**
+
+- test_ui_document 7 (모양 · U1 ~ U8 규칙마다 · 스타일 · 바인딩 식 20 · 퍼즈 3,000 · 데모 HUD 통과 · 문제 문서는 검사만 막음),
+  arch_include_lint (582 → 0 위반) · selftest 12.
+- 처음 판의 결함 (시험이 잡음): U6 행동을 db.actions() (Rule 의 action 이름) 로 모아 데모의 eco.feed · eco.trap 이 "없다" 였다 →
+  playerActions () 의 id.
+- 실행: sbx check samples/rabbit_guard → "게임 UI: 문서 1 · 노드 8" · 오류 0 · 경고 0, 복사본에 없는 스타일 · material → U5 · U8 경고.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (unit_ui 더함, 경고 0 줄). clang-tidy (LLVM 19) 로 바뀐 .cpp 5 개 -Wall -Wextra -Wpedantic -Wshadow — 새 경고 없음.
+
+**남은 일**
+
+- 컴포넌트 칸 존재 (M3-T4 — 바인딩 데이터 소스와 함께) · 문자열 키 존재 (M4-T1) · 노드 visible · theme. 배치 M3-T2 다음.
+
 ## 2026-11-04 — v0.6 종료: 0.6.0 — 릴리스 노트 · 기준 판정 · 제품 버전
 
 **무엇을**

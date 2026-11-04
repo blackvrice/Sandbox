@@ -94,6 +94,15 @@ content/<pack>/
   triggers/*.json         Trigger 1파일 1개 (선택 — v0.2 M4-T1, 10장)
   scripts/**/*.ts         SandboxScript (선택 — v0.3 M3-T2, 11장 · 19-SANDBOXSCRIPT). 팩 하나 = 프로그램 하나
   presentation/           클라이언트 전용: sounds.json(이벤트→사운드), 아이콘 등  ← contentHash 제외
+    ui/<이름>.json        게임 UI 문서 (v0.7 M3-T1 — 20 2.3, ADR-0079): {"id": "<팩>.<이름>", "layer": hud | menu | modal,
+                          "visible"?, "root": 노드}. 노드 {"kind": panel | text | image | button | progress | list, "id"?, "anchor"?
+                          {min, max — 0 ~ 1}, "offset"? [왼, 위, 오른, 아래], "size"? [w, h], "style"?, + 요소마다 (panel: stack ·
+                          gap · padding · align · children, text: text · args, image: material, button: text · args · on.click,
+                          progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸>" |
+                          "component:<컴포넌트>.<칸>@owned|selected"}, 이벤트 = {"signal", "value"?} | {"action"} | {"ui": show | hide |
+                          toggle, "target": "<문서>.<노드>"}. 팩마다 32 개까지 (로더가 원문만 PackInfo.uiDocuments 에)
+    ui/styles.json        {"styles": {"<팩>.<이름>": {color [r, g, b, a] · border {color, width} · fontSize · padding}}} (PackInfo.uiStyles)
+                          검사 U1 ~ U8 은 프로젝트 검사 (sbx check — ui/model, 18 5.2 9) 가 본다
     materials.json        머티리얼 (v0.6 M6-T9) — {"materials": {"<이름>": {"sprite": "<s>", "color": [r, g, b(, a)]}}}, 엔진
                           에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =
                           "asset:<id>" (프로젝트 에셋 .meta 의 id — 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) ·

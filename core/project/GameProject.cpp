@@ -19,6 +19,7 @@
 #include "foundation/text/Utf8.hpp"
 #include "script/api/HostApi.hpp"
 #include "script/sdk/SdkGenerator.hpp"
+#include "ui/model/UiDocument.hpp"
 
 namespace sbx::project {
 namespace {
@@ -694,6 +695,100 @@ void checkMaterialRefs(const content::ContentDatabase& db, const asset::AssetSca
     }
 }
 
+// 게임 UI (v0.7 M3-T1 — ui/model, U1 ~ U8): 팩마다 presentation/ui/styles.json 과 문서. 신호 · 행동은 콘텐츠, material
+// 은 팩 materials.json + 엔진 에셋 (engineAssets — 비면 U8 을 보지 않는다), 컴포넌트 칸 · 문자열 키는 [계획] (M3-T4 ·
+// M4-T1)
+void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAssets, ProjectReport& r) {
+    using Names = std::set<std::string, std::less<>>;
+    Names signals;
+    Names actions;
+    Names styles;
+    Names materials;
+    for (const content::SignalDef& s : db.signals()) {
+        signals.insert(s.id);
+    }
+    for (const content::PlayerActionDef& a : db.playerActions()) { // 팩의 actions.json (Rule 의 action 이름이 아니다)
+        actions.insert(a.id);
+    }
+    const auto addMaterials = [&](std::string_view text) {
+        const json doc = json::parse(text, nullptr, false);
+        if (doc.is_object() && doc.contains("materials") && doc["materials"].is_object()) {
+            for (const auto& [name, m] : doc["materials"].items()) {
+                materials.insert(name);
+            }
+        }
+    };
+    std::error_code ec;
+    const bool knowMaterials = !engineAssets.empty() && fs::is_directory(engineAssets, ec);
+    if (knowMaterials) {
+        for (fs::directory_iterator it(engineAssets, ec), end; !ec && it != end; it.increment(ec)) {
+            if (const auto text = io::readFile(it->path() / "materials.json")) {
+                addMaterials(*text);
+            }
+        }
+    }
+    const auto issue = [](std::string file, const ui::UiIssue& i) {
+        return ContentIssue{i.severity == ui::UiIssue::Severity::Error ? Severity::Error : Severity::Warning, i.rule,
+                            std::move(file), i.pointer, i.message};
+    };
+    // 스타일 · material 먼저 (모든 팩) — 문서는 다른 팩의 스타일 · material 도 부를 수 있다
+    for (const content::PackInfo& p : db.packs()) {
+        if (!p.materials.empty()) {
+            addMaterials(p.materials);
+        }
+        if (p.uiStyles.empty()) {
+            continue;
+        }
+        const ui::UiStylesResult st = ui::parseUiStyles(p.uiStyles, p.id);
+        for (const ui::UiIssue& i : st.issues) {
+            r.issues.push_back(issue(std::format("{}/presentation/ui/styles.json", p.id), i));
+        }
+        for (const auto& [name, s] : st.styles) {
+            styles.insert(name);
+        }
+    }
+    std::vector<std::pair<std::string, ui::UiDocument>> docs; // (파일, 문서)
+    Names targets;                                            // 문서 id · "<문서>.<노드>"
+    usize nodes = 0;
+    for (const content::PackInfo& p : db.packs()) {
+        const ui::UiCheckContext context{p.id,    &signals, &actions, &styles, knowMaterials ? &materials : nullptr,
+                                         nullptr, nullptr};
+        for (const auto& [stem, text] : p.uiDocuments) {
+            const std::string file = std::format("{}/presentation/ui/{}.json", p.id, stem);
+            ui::UiParseResult parsed = ui::parseUiDocument(stem, text, context);
+            for (const ui::UiIssue& i : parsed.issues) {
+                r.issues.push_back(issue(file, i));
+            }
+            if (parsed.document) {
+                targets.insert(parsed.document->id);
+                for (std::string& id : ui::nodeIds(*parsed.document)) {
+                    targets.insert(std::move(id));
+                }
+                nodes += parsed.document->nodeCount;
+                docs.emplace_back(file, std::move(*parsed.document));
+            }
+        }
+    }
+    for (const auto& [file, doc] : docs) {
+        for (const ui::UiTargetRef& t : ui::uiTargets(doc)) {
+            if (!targets.contains(t.target)) {
+                r.issues.push_back(ContentIssue{Severity::Error, "U6", file, t.pointer,
+                                                std::format("ui 대상 '{}' — 그런 문서 · 노드가 없다", t.target)});
+            }
+        }
+    }
+    if (docs.size() > 32) { // 20 2.4 예산 — 게임의 문서 수 (팩마다 32 는 로더가 자른다)
+        r.issues.push_back(ContentIssue{Severity::Error, "U7", "presentation/ui", "",
+                                        std::format("게임 UI 문서 {} 개 — 게임마다 32 개까지", docs.size())});
+    }
+    if (nodes > 4096) { // 20 2.4 예산 — 게임의 노드 합
+        r.issues.push_back(ContentIssue{Severity::Error, "U7", "presentation/ui", "",
+                                        std::format("게임 UI 노드 합 {} 이 4096 을 넘는다", nodes)});
+    }
+    r.uiDocuments = docs.size();
+    r.uiNodes = nodes;
+}
+
 // 설치한 패키지 (v0.4 M3-T2 · T3, ADR-0071 5): sandbox.lock 이 있으면 모양 · 매니페스트 dependencies 와 맞는가 · 설치
 // 폴더 (.sandbox/packages) 와 같은가. 없으면 path · git 의존이 없어야 하고 설치 폴더도 비어야 한다 (P8). 설치 폴더를
 // 콘텐츠 루트로 써도 되면 true
@@ -946,6 +1041,9 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     // 패키지를 푼 폴더 (toolFiles = false) 에는 groups.json 이 없다 — 빌드 쪽 선언이라 그룹 · A8 을 보지 않는다
     ExportProfiles exports = loadExportProfiles(projectDir, {.groups = options.toolFiles ? &groupNames : nullptr});
     r.exportProfiles = exports.profiles.size();
+    if (opened.db) {
+        checkGameUi(*opened.db, options.engineAssets, r);
+    }
     r.issues.insert(r.issues.end(), std::make_move_iterator(exports.issues.begin()),
                     std::make_move_iterator(exports.issues.end()));
     return r;

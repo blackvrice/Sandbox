@@ -82,7 +82,10 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         dir = extracted->dir;
     }
     // 패키지는 도구 파일 (sdk/ · tsconfig.json) 을 싣지 않는다 — P6 를 보지 않는다
-    const auto r = project::validateProject(dir, engine, catalog, {.toolFiles = !fromPackage});
+    // 엔진 에셋 루트 — 게임 UI 의 material 검사 (U8, v0.7 M3-T1). 배포 묶음은 실행 파일 옆 assets/ (M1-T4)
+    const auto r = project::validateProject(
+        dir, engine, catalog,
+        {.toolFiles = !fromPackage, .engineAssets = io::dataDir("assets", SBX_DEFAULT_ASSETS_DIR)});
     for (const content::ContentIssue& i : r.issues) {
         std::printf("%s\n", i.describe().c_str());
     }
@@ -117,6 +120,9 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         for (const std::string& g : r.assetGroups) {
             std::printf("  그룹 %s\n", g.c_str());
         }
+    }
+    if (r.uiDocuments > 0) {
+        std::printf("게임 UI: 문서 %zu · 노드 %zu (presentation/ui)\n", r.uiDocuments, r.uiNodes);
     }
     if (r.exportProfiles > 0) {
         std::printf("Export Profile: %zu (export/ — sbx build --profile <이름>)\n", r.exportProfiles);

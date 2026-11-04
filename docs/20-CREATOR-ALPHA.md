@@ -113,6 +113,10 @@ core/content                            presentation/ui · strings 는 원문만
            행동은 v0.5 에 더한다) · { "ui": "show|hide|toggle", "target": "<문서>.<노드>" } (클라이언트 안)
 검사       U1 형식 · U2 id 규칙 · U3 모르는 요소 · 키 · U4 바인딩 식 · U5 없는 스타일 · 문자열 키 (경고) · U6 신호 · 행동이 콘텐츠에 없다 ·
            U7 상한 (문서마다 노드 512 · 깊이 16 · 문자열 1 KiB) · U8 material 이 없다 (경고). sbx check · 콘텐츠 로드가 같은 검사
+M3-T1 ✅   (v0.7) ui/model UiDocument — 위 모양 그대로 + list 는 item (반복할 노드 하나) · styles.json {"styles": {이름: {color ·
+           border {color, width} · fontSize · padding}}}. 검사는 프로젝트 검사 (validateProject — sbx check · doctor) 가 부른다 (로더는
+           원문만, openProject 는 보지 않는다 — ADR-0101). component 바인딩 대상은 owned · selected (식 모양만 — 칸 존재는 M3-T4),
+           문자열 키 존재 (U5) 는 M4-T1, 노드 visible · theme 은 [계획]. 데모: samples/rabbit_guard 의 eco.hud (점수 · 기운 · 행동 버튼)
 ```
 
 ### 2.4 런타임 · 입력

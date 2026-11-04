@@ -261,6 +261,10 @@ MyGame/
   v0.6 은 기록이 없어 모든 대상 (ExportTarget verifiedTargets 가 비었다), .json 이 아닌 파일 · 하위 폴더. 요약 "Export Profile: N".
   sbx build --profile <이름> 은 그 프로필만 (없음 NotFound · 오류 = 만들지 않음 · 미검증 = 경고 출력) [계획] textureMaxSize ·
   플랫폼별 텍스처 변환 · 압축 (측정 뒤)
+9 게임 UI (v0.7 M3-T1 — U1 ~ U8, ui/model · ADR-0101, 검사에만): 팩 presentation/ui 의 styles.json · 문서. U1 형식 · U2 id (문서 =
+  "<팩>.<파일 이름>", 노드 id · 겹침) · U3 모르는 요소 · 키 · U4 바인딩 식 · U5 없는 스타일 · 문자열 키 (경고) · U6 없는 신호 · 행동 ·
+  ui 대상 · U7 상한 (노드 512 · 깊이 16 · 문자열 1 KiB, 게임마다 문서 32 · 노드 4,096) · U8 없는 material (경고 — 팩 materials.json ·
+  엔진 에셋 루트, sbx 는 실행 파일 옆 assets/). 요약 "게임 UI: 문서 N · 노드 M". [계획] 컴포넌트 칸 (M3-T4) · 문자열 키 (M4-T1) 존재
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)

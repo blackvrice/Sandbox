@@ -1,0 +1,139 @@
+#pragma once
+// 게임 UI 문서 모델 · 검사 (v0.7 M3-T1 — ADR-0079, docs/20-CREATOR-ALPHA.md 2.3).
+//
+//   팩의 presentation/ui/<이름>.json   문서 하나 {id: "<팩>.<이름>", layer, visible?, root: 노드}
+//   팩의 presentation/ui/styles.json   {"styles": {"<팩>.<이름>": {color?, border?, fontSize?, padding?}}}
+//
+// 검사 규칙 (문제는 UiIssue — rule 은 "U1" ~ "U8"):
+//   U1 형식 (JSON · 값의 모양 · 빠진 키)              U2 id 규칙 (문서 id = "<팩>.<파일 이름>", 노드 id · 겹침)
+//   U3 모르는 요소 (kind) · 키                         U4 바인딩 식 (var · session · component)
+//   U5 없는 스타일 · 문자열 키 (경고)                  U6 신호 · 행동이 콘텐츠에 없다 · ui 대상 노드가 없다
+//   U7 상한 (문서마다 노드 512 · 깊이 16 · 문자열 1 KiB) U8 material 이 없다 (경고)
+// 콘텐츠를 모른다 (Foundation 만) — 신호 · 행동 · 스타일 · material · 컴포넌트 칸 · 문자열 키는 UiCheckContext 로
+// 받는다 (nullptr = 그 검사를 건너뛴다). 서버는 UI 를 읽지 않는다 — contentHash 밖 (presentation/)
+
+#include <array>
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "foundation/types/Types.hpp"
+
+namespace sbx::ui {
+
+inline constexpr usize kMaxNodes = 512;
+inline constexpr usize kMaxDepth = 16;
+inline constexpr usize kMaxStringBytes = 1024;
+inline constexpr usize kMaxDocumentBytes = 256 * 1024;
+
+struct UiIssue {
+    enum class Severity : u8 { Error, Warning };
+    Severity severity = Severity::Error;
+    std::string rule;    // "U1" … "U8"
+    std::string pointer; // JSON 포인터 ("/root/children/2/on/click/signal")
+    std::string message;
+};
+
+enum class UiLayer : u8 { Hud, Menu, Modal };
+enum class UiKind : u8 { Panel, Text, Image, Button, Progress, List };
+enum class UiStack : u8 { None, Row, Column };
+enum class UiAlign : u8 { Start, Center, End, Stretch };
+
+// 값 — 고정 수 또는 바인딩 ("var:…" · "session:…" · "component:…")
+struct UiValue {
+    f32 number = 0;
+    std::string bind; // 비면 number
+};
+
+struct UiAction {
+    enum class Kind : u8 { None, Signal, Action, Ui };
+    Kind kind = Kind::None;
+    std::string target;       // 신호 id · 행동 id · "<문서>.<노드>"
+    std::optional<i32> value; // signal 의 값
+    std::string op;           // ui: show · hide · toggle
+};
+
+struct UiNode {
+    UiKind kind = UiKind::Panel;
+    std::string id; // 선택 — 문서 안에서 겹치지 않음
+    f32 anchorMin[2] = {0, 0};
+    f32 anchorMax[2] = {0, 0};
+    f32 offset[4] = {0, 0, 0, 0};           // 왼 · 위 · 오른 · 아래 (픽셀)
+    std::optional<std::array<f32, 2>> size; // 없으면 내용에 맞춤
+    std::string style;
+    UiStack stack = UiStack::None;
+    f32 gap = 0;
+    f32 padding = 0;
+    UiAlign align = UiAlign::Start;
+    std::string text;             // text · button — 고정 문자열 또는 "@<문자열 키>"
+    std::vector<UiValue> args;    // text 인자
+    UiValue value;                // progress
+    UiValue max{1, {}};           // progress
+    std::string material;         // image
+    UiAction click;               // button
+    std::string items;            // list — 바인딩 (목록)
+    std::vector<UiNode> children; // panel · list (list 는 item 하나 — 반복할 틀)
+};
+
+struct UiDocument {
+    std::string id; // "<팩>.<이름>"
+    UiLayer layer = UiLayer::Hud;
+    bool visible = true;
+    UiNode root;
+    usize nodeCount = 0;
+};
+
+struct UiStyle {
+    std::optional<std::array<u8, 4>> color;
+    std::optional<std::array<u8, 4>> borderColor;
+    f32 borderWidth = 0;
+    f32 fontSize = 0; // 0 = 기본
+    f32 padding = 0;
+};
+
+// 검사가 콘텐츠에서 받는 것. nullptr 이면 그 검사를 건너뛴다
+struct UiCheckContext {
+    std::string_view packId; // 문서 id 앞 ("<팩>.")
+    const std::set<std::string, std::less<>>* signals = nullptr;
+    const std::set<std::string, std::less<>>* actions = nullptr;
+    const std::set<std::string, std::less<>>* styles = nullptr;
+    const std::set<std::string, std::less<>>* materials = nullptr;
+    const std::set<std::string, std::less<>>* componentFields = nullptr; // "<컴포넌트 id>.<칸>"
+    const std::set<std::string, std::less<>>* strings = nullptr;         // 문자열 키 (M4-T1 전에는 nullptr)
+};
+
+struct UiParseResult {
+    std::optional<UiDocument> document; // U1 · U3 · U7 오류가 없으면 (다른 규칙의 오류가 있어도 모양은 있다)
+    std::vector<UiIssue> issues;
+    [[nodiscard]] bool ok() const noexcept; // 오류 없음
+};
+
+// fileStem = presentation/ui/ 의 파일 이름 (.json 앞 — 문서 id 의 뒤와 같아야 한다)
+[[nodiscard]] UiParseResult parseUiDocument(std::string_view fileStem, std::string_view jsonText,
+                                            const UiCheckContext& context);
+
+struct UiStylesResult {
+    std::map<std::string, UiStyle, std::less<>> styles;
+    std::vector<UiIssue> issues;
+    [[nodiscard]] bool ok() const noexcept;
+};
+// styles.json — 이름은 "<팩>.<이름>" (U2), 키 · 값 (U1 · U3)
+[[nodiscard]] UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId);
+
+// 바인딩 식 하나 — 문제면 그 이유 (U4). componentFields 가 있으면 칸도 본다
+[[nodiscard]] std::optional<std::string> checkBinding(std::string_view bind,
+                                                      const std::set<std::string, std::less<>>* componentFields);
+
+// 문서들 사이: ui 이벤트 대상 "<문서>.<노드>" 가 있는가 (U6) — 문서 · 노드 id 를 모은 뒤 부른다
+struct UiTargetRef {
+    std::string documentId;
+    std::string pointer;
+    std::string target;
+};
+[[nodiscard]] std::vector<UiTargetRef> uiTargets(const UiDocument& document);
+[[nodiscard]] std::vector<std::string> nodeIds(const UiDocument& document); // "<문서>.<노드>" (id 있는 노드만)
+
+} // namespace sbx::ui

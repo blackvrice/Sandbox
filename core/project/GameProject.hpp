@@ -114,6 +114,8 @@ struct ProjectReport {
         assetGroups;              // 그룹마다 "이름 — N 개 · B 바이트" (v0.6 NG-02 — assets/groups.json, 문제는 A7)
     usize unreferencedAssets = 0; // 정적 참조도 그룹도 아닌 에셋 (A8 경고)
     usize exportProfiles = 0;     // 오류 없는 export/<이름>.json (v0.6 NG-08 — 문제는 P10)
+    usize uiDocuments = 0;        // 모양이 맞는 게임 UI 문서 (v0.7 M3-T1 — 팩 presentation/ui, 문제는 U1 ~ U8)
+    usize uiNodes = 0;
 
     [[nodiscard]] bool ok() const noexcept;
     [[nodiscard]] usize errorCount() const noexcept;
@@ -124,13 +126,16 @@ struct ProjectReport {
 // 경고라 끈다 (v0.5 M7-T6)
 struct ValidateOptions {
     bool toolFiles = true; // P6
+    // 엔진 에셋 루트 (assets/ — <팩>/materials.json). 게임 UI 의 image material 검사 (U8) 에 — 비면 U8 을 보지 않는다
+    std::filesystem::path engineAssets{};
 };
 
 // engine = 지금 엔진의 버전 (BuildInfo). 매니페스트 → 엔진 범위 → 팩 (V1~V7 · 스크립트 S*) → 시작 월드 (형식 · 팩 ·
 // 열기) → 도구 파일 (P6 — sdk/sandbox.d.ts 가 이 엔진의 것과 다르다 · 스크립트가 있는데 없다, tsconfig.json 이 JSON 이
 // 아니다) → 에셋 (A1 ~ A5 — assets/ 가 있으면, core/asset/AssetDatabase) → Asset Group · 미참조 (A7 · A8 —
-// AssetGroups.hpp) → Export Profile (P10 — export/ 가 있으면, ExportProfile.hpp) 순서. A7 · A8 · P10 은 검사에만 —
-// openProject 는 보지 않는다
+// AssetGroups.hpp) → Export Profile (P10 — export/ 가 있으면, ExportProfile.hpp) → 게임 UI (U1 ~ U8 — 팩
+// presentation/ui, ui/model) 순서. A7 · A8 · P10 · U* 는 검사에만 — openProject 는 보지 않는다 (서버는 UI 를 읽지
+// 않는다)
 [[nodiscard]] ProjectReport validateProject(const std::filesystem::path& projectDir, const SemVer& engine,
                                             const ecs::ComponentCatalog& catalog, const ValidateOptions& options = {});
 

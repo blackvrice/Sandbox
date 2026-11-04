@@ -22,13 +22,14 @@ from pathlib import Path
 SOURCE_SUFFIXES = {".hpp", ".h", ".cpp", ".cc", ".inl", ".ipp", ".mm"}
 SKIP_DIRS = {"external", "build", "out", "docs", ".git", "fixtures", "cmake-build-debug", "cmake-build-release"}
 
-ALL = {"foundation", "script", "core", "network", "platform", "render", "editor", "apps", "tests", "bench", "tools"}
+ALL = {"foundation", "script", "ui", "core", "network", "platform", "render", "editor", "apps", "tests", "bench", "tools"}
 
 # 모듈 → include 해도 되는 모듈 (docs/01-ARCHITECTURE.md 2장 의존 방향)
 ALLOWED_MODULES = {
     "foundation": {"foundation"},
     "script": {"foundation", "script"},  # SandboxScript — ECS 를 모른다 (ADR-0056 9)
-    "core": {"foundation", "script", "core"},
+    "ui": {"foundation", "ui"},  # SandboxGameUI — core · render · ImGui 를 모른다 (v0.7 M3-T1, ADR-0079)
+    "core": {"foundation", "script", "ui", "core"},  # ui = 프로젝트 검사가 게임 UI 문서를 본다
     "network": {"foundation", "script", "core", "network"},
     "platform": {"foundation", "platform"},
     "render": {"foundation", "platform", "render"},
@@ -53,6 +54,7 @@ GLOBALLY_BANNED = [r"sfml/", r"gl/", r"opengl/", r"glad/", r"glfw"]
 RESTRICTED = [
     ("foundation/", set()),
     ("script/", set()),
+    ("ui/", set()),
     ("core/", set()),
     ("network/", set()),
     ("network/transport/", {r"enet/"}),

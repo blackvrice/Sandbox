@@ -76,6 +76,7 @@ add_executable(SandboxTests
     unit/project/test_game_package.cpp
     unit/project/test_asset_database.cpp
     unit/project/test_asset_groups.cpp
+    unit/ui/test_ui_document.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
@@ -165,15 +166,16 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples"
-                                               SBX_SDK_DIR="${PROJECT_SOURCE_DIR}/sdk")
+                                               SBX_SDK_DIR="${PROJECT_SOURCE_DIR}/sdk"
+                                               SBX_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
-set(_sbx_suites foundation script core ecs persist content project network server tools platform render editor)
+set(_sbx_suites foundation script ui core ecs persist content project network server tools platform render editor)
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()
@@ -609,7 +611,7 @@ if(Python3_Interpreter_FOUND)
             -X utf8
             ${CMAKE_SOURCE_DIR}/tools/check_includes.py
             --root ${CMAKE_SOURCE_DIR}/tests/arch/fixtures
-            --expect 10
+            --expect 12
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
     # 문서 · 로드맵 일관성 (링크 · ADR · 태스크 ID · 목표 버전 · 상태 — docs/roadmap/README.md 5장, ADR-0096)

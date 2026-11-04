@@ -6,6 +6,7 @@
 // 시뮬레이션이 문자열을 비교하지 않게 하려는 것이다 (Prefab id 는 ContentId 필드로 남는다 — 사람이 읽는 참조).
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -358,6 +359,10 @@ struct PackInfo {
     // presentation/materials.json 원문 (없으면 빈 문자열) — 클라이언트 머티리얼 (v0.6 M6-T9). sprite 는 "asset:<id>" ·
     // 프로젝트 기준 "assets/…" · 엔진 에셋 루트 상대. input.json 과 같이 클라 전용 — contentHash 밖
     std::string materials;
+    // presentation/ui/ 원문 (v0.7 M3-T1 — 게임 UI, ADR-0079): 문서마다 (파일 이름 — .json 앞, 텍스트) 이름 순 ·
+    // styles.json 은 따로. 검사는 ui/model (프로젝트 검사가 부른다), 클라 전용 — contentHash 밖
+    std::vector<std::pair<std::string, std::string>> uiDocuments;
+    std::string uiStyles;
     // presentation/** 전부의 지문 (FNV-1a64 — 상대 경로 순, "경로\0크기\0바이트") — 표시 digest 의 재료 (v0.6 NG-14).
     // 없으면 0. contentHash 와 따로: 그림 · 키 · 머티리얼이 달라도 시뮬레이션은 같다
     u64 presentationDigest = 0;
