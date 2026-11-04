@@ -139,7 +139,8 @@ NG-14 해시 분리       ✅ (v0.6) contentHash (시뮬레이션 — presentati
                       presentation/** 지문 (PackInfo.presentationDigest) + 프로젝트 에셋 경로 · id · SHA-256). 프로토콜 16 — Auth · Welcome 에 실어
                       규칙 다름 = 거절 (그대로), 표시만 다름 = 접속 + 경고 (NetworkSession::presentationMismatch) (4.13)
 NG-08 Export Profile  export/<이름>.json (플랫폼 · 아키텍처 · 렌더 백엔드 · 그룹) 검증, 미검증 플랫폼 = 경고 — v0.6 은 windows-x64 (4.8)
-NG-04 SaveGame        world.json "game".version ↔ 게임 version, migrations/ 의 onMigrate(from, to) 체인 · 백업 world.bak-<from> · 실패 = 원본
-                      그대로 · 더 새 게임의 세이브 = 거절 (4.4)
+NG-04 SaveGame        ✅ (v0.6) 매니페스트 migrations [{from, to, system}] · 스크립트 onMigrate (.sbc 10) · core/scenarios/SaveMigration —
+                      같은 버전 그대로 · 더 새 세이브 거절 · 단계 없으면 알림 · 체인 (빠진 · 넘어가는 단계 거절) · 적용 전 백업 <이름>.bak-<버전> ·
+                      실패 = 연 월드를 버림 (세이브 · 지금 월드 그대로) · 같은 세이브 + 같은 체인 = 같은 해시 (09 9장 · 19 18장) (4.4)
 순서                  NG-12 · NG-13 → M6-T9 (.sbpkg 3 에 스냅숏 해시 · 그룹 · 이름공간을 같이 — 형식을 두 번 올리지 않게) → NG-01 · NG-02 · NG-14 · NG-08
 ```

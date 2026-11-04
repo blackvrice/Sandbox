@@ -226,6 +226,7 @@ MyGame/
 | `gameMode`      | 아니 | schemaVersion 2. 콘텐츠의 GameMode id (11 9장) — 형식 P2, 프로젝트 콘텐츠에 없으면 P5. 없으면 끝 없는 샌드박스       |
 | `dependencies`  | 아니 | schemaVersion 3 (v0.4 M1-T2, ADR-0071). `{팩 id: 범위 \| {version?, path} \| {version?, git, rev}}` — 팩 의존 (11 1.3 과 같은 모양, 16 개까지). 그 팩들은 content.packs 와 함께 불러온다 (loadedPacks — 월드가 쓰는 팩 검사 P5 도). 범위를 적었으면 불러온 팩의 version 이 SemVer · 범위 안 (P7). 모양 · 팩 id 도 P7. 팩은 `<프로젝트>/content` 와 설치 폴더 `.sandbox/packages` (잠금 sandbox.lock 과 같을 때 — P8, v0.4 M3-T2 · ADR-0073) 에서 찾는다. path · git 의존은 설치해야 연다 (sbx add · install — v0.4 M3-T3, ADR-0074) |
 | `network`       | 아니 | schemaVersion 3 에 더한 키 (v0.5 M2-T7 ✅ — Runtime v2 계약, ADR-0087). `{"model": "snapshot"}` — 없으면 snapshot (지금 그대로: 스냅숏 · 보간). "predicted" (클라이언트 예측) 는 [계획 v0.7] → P2, 다른 값 P2, 모르는 키 · 객체 아님 P1 |
+| `migrations`    | 아니 | schemaVersion 3 의 선택 키 (v0.6 NG-04 — network 처럼 번호를 올리지 않음). [{from, to, system}] — SemVer from < to, 같은 from 없음 (체인이 하나), system = onMigrate 가 있는 스크립트 시스템 id (P9). 모양 P1 · 버전 P3. from 순으로 정렬해 기록 |
 
 모르는 키는 P1 오류 (pack.json 과 같은 엄격함 — 새 키는 schemaVersion 을 올려 더한다). 문제는 `ContentIssue` 로 모두 모은다
 (`sandbox.project.json:/gameId: 오류 P2 — …`). 정규형 쓰기(키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈)는 다시 읽으면 같은 값이다.
@@ -246,6 +247,8 @@ MyGame/
 6 프로젝트 에셋 (v0.6 NG-12 — assets/ 가 있을 때, core/asset/AssetDatabase): A1 .meta 깨짐 · A2 .meta 없음 (경고 — id 없는 에셋),
   A3 같은 id · 다른 내용 (오류 — 고르지 않음), A4 짝 없는 .meta (경고), A5 경로 · 크기 · 링크 · 개수 · 대소문자 (오류). 요약 "에셋: id N · id 없음 M".
   A6 (v0.6 M6-T9): 팩 presentation/materials.json 이 부르는 "asset:<id>" · "assets/…" 가 없음 (오류) · 문서를 읽지 못함 (경고)
+7 세이브 마이그레이션 단계 (v0.6 NG-04 — P9): migrations 의 system 이 콘텐츠에 없거나 onMigrate 가 없음 (오류), to 가 게임 version
+  보다 뒤 (경고 — 아직 쓰이지 않는 단계)
 ```
 
 ## 6. v0.3 ~ v1.0 (요약 — 들어갈 때 이 장을 마일스톤으로 쪼갠다)

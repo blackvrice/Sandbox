@@ -991,4 +991,79 @@ export default defineSystem({ id: "eco.mana.regen", intervalTicks: 0, onTick(ctx
         fs::remove(dir.path / "tsconfig.json");
         CHECK_FALSE(*project::refreshTsconfig(dir.path)); // 없으면 만들지 않는다
     }
+
+    TEST_CASE(
+        "매니페스트: migrations (v0.6 NG-04) — from 순 · 왕복, 모양 · 버전 · 겹친 from 오류, schemaVersion 3 의 키") {
+        const auto v3 = [](std::string_view migrations) {
+            auto j = nlohmann::json::parse(kValid);
+            j["schemaVersion"] = 3;
+            j["version"] = "0.3.0";
+            j["migrations"] = nlohmann::json::parse(migrations);
+            return j.dump();
+        };
+        const auto ok = project::parseManifest(v3(
+            R"([{"from": "0.2.0", "to": "0.3.0", "system": "eco.m3"}, {"from": "0.1.0", "to": "0.2.0", "system": "eco.m2"}])"));
+        INFO(dumpIssues(ok.issues));
+        REQUIRE(ok.ok());
+        REQUIRE(ok.manifest.migrations.size() == 2);
+        CHECK(ok.manifest.migrations[0].system == "eco.m2"); // from 순
+        CHECK(ok.manifest.migrations[1].from.toString() == "0.2.0");
+        const auto again = project::parseManifest(project::writeManifest(ok.manifest));
+        REQUIRE(again.ok());
+        CHECK(again.manifest == ok.manifest);
+        CHECK(project::writeManifest(ok.manifest).find("\"migrations\"") != std::string::npos);
+
+        CHECK(hasIssue(project::parseManifest(v3(R"({"from": "0.1.0"})")).issues, "P1", "/migrations"));
+        CHECK(hasIssue(project::parseManifest(v3(R"([{"from": "0.2.0", "to": "0.2.0", "system": "eco.m"}])")).issues,
+                       "P3", "/migrations/0"));
+        CHECK(hasIssue(project::parseManifest(v3(R"([{"from": "0.2.0", "to": "0.1.0", "system": "eco.m"}])")).issues,
+                       "P3", "/migrations/0"));
+        CHECK(hasIssue(project::parseManifest(v3(R"([{"from": "0.1.0", "to": "0.2.0", "system": "eco.a"},
+                                                     {"from": "0.1.0", "to": "0.3.0", "system": "eco.b"}])"))
+                           .issues,
+                       "P3", "/migrations/1"));
+        CHECK(hasIssue(project::parseManifest(v3(R"([{"from": "x", "to": "0.2.0", "system": "eco.m"}])")).issues, "P3",
+                       "/migrations/0/from"));
+        CHECK(hasIssue(project::parseManifest(v3(R"([{"from": "0.1.0", "to": "0.2.0", "system": "Bad Id"}])")).issues,
+                       "P1", "/migrations/0/system"));
+        CHECK(hasIssue(
+            project::parseManifest(v3(R"([{"from": "0.1.0", "to": "0.2.0", "system": "eco.m", "run": 1}])")).issues,
+            "P1", "/migrations/0/run"));
+        // schemaVersion 1 · 2 에는 없는 키
+        CHECK(hasIssue(project::parseManifest(withField("migrations", "[]")).issues, "P1", "/migrations"));
+    }
+
+    TEST_CASE(
+        "프로젝트 검사: migrations 의 시스템 (P9 — v0.6 NG-04) — 없음 · onMigrate 없음은 오류, 게임 버전 너머는 경고") {
+        TempDir dir("migrations_p9");
+        const auto catalog = coreCatalog();
+        (void)makeEcoProject(dir.path, catalog, kValid);
+        const fs::path scripts = dir.path / "content" / "ecosystem" / "scripts";
+        fs::create_directories(scripts);
+        REQUIRE(io::writeFileAtomic(scripts / "mig.ts", R"(import { defineSystem } from "sandbox"
+export default defineSystem({ id: "eco.mig", onMigrate(ctx) { ctx.log("mig") } })
+)")
+                    .has_value());
+        REQUIRE(io::writeFileAtomic(scripts / "tick.ts", R"(import { defineSystem } from "sandbox"
+export default defineSystem({ id: "eco.tick", onTick(ctx) { } })
+)")
+                    .has_value());
+        const auto manifestWith = [&](std::string_view migrations) {
+            auto j = nlohmann::json::parse(kValid);
+            j["schemaVersion"] = 3;
+            j["version"] = "0.3.0";
+            j["migrations"] = nlohmann::json::parse(migrations);
+            REQUIRE(io::writeFileAtomic(dir.path / std::string(project::kManifestFile), j.dump()).has_value());
+            return project::validateProject(dir.path, SemVer{0, 1, 0, {}, {}}, catalog);
+        };
+        auto r = manifestWith(R"([{"from": "0.1.0", "to": "0.3.0", "system": "eco.mig"}])");
+        INFO(dumpIssues(r.issues));
+        CHECK_FALSE(std::any_of(r.issues.begin(), r.issues.end(), [](const auto& i) { return i.rule == "P9"; }));
+        r = manifestWith(R"([{"from": "0.1.0", "to": "0.3.0", "system": "eco.none"}])");
+        CHECK(hasIssue(r.issues, "P9", "/migrations/0/system"));
+        r = manifestWith(R"([{"from": "0.1.0", "to": "0.3.0", "system": "eco.tick"}])");
+        CHECK(hasIssue(r.issues, "P9", "/migrations/0/system"));
+        r = manifestWith(R"([{"from": "0.1.0", "to": "0.9.0", "system": "eco.mig"}])");
+        CHECK(hasIssue(r.issues, "P9", "/migrations/0", content::ContentIssue::Severity::Warning));
+    }
 }

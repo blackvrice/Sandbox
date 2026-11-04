@@ -15,14 +15,14 @@
 | Bytecode .sbc | 10 (v0.6 NG-04 — onMigrate) | 10 | 다시 컴파일 (소스는 패키지에) | test_bytecode · test_script_callbacks (onMigrate 왕복) | 11 (M6-T4 — 줄 표) |
 | Protocol | 16 (v0.6 NG-14 — 표시 digest) | 같은 값만 | 핸드셰이크 거절 (문장) — 0.5 (15) 와 접속하지 않는다 | unit_network (핸드셰이크 · Auth · Welcome 왕복) | 표시 digest 만 다르면 접속 + 경고 (test_network_session) |
 | Simulation | 4 | 어느 값이든 읽음 | 리플레이 · 세이브 모두 진행하되 해시 비교를 건너뛰고 "규칙 차이" 로 알림 (core/replay/Replay.cpp simVersionDiffers · WorldSave.cpp hashSkippedReason) | det_* · test_replay | 툴체인 간 재생 (SG-06) |
-| World/Save | 1 · 1 | ≤ 지금 | 더 새 것 거절 · 스크립트 컴포넌트 자동 마이그레이션 (ADR-0061) | test_world_save (스크립트 마이그레이션) · test_sample_saves | 게임 버전 마이그레이션 (NG-04) |
-| Game 결속 | world.json "game" | 같은 gameId | 다른 게임 거절 · 다른 version · 패키지는 알림 | test_world_ops ("세이브는 게임에 묶인다") | 같은 게임 · 다른 version (NG-04) |
+| World/Save | 1 · 1 | ≤ 지금 | 더 새 것 거절 · 스크립트 컴포넌트 자동 마이그레이션 (ADR-0061) | test_world_save (스크립트 마이그레이션) · test_sample_saves | 게임 버전 마이그레이션 ✅ NG-04 (매니페스트 migrations · onMigrate — test_save_migration) |
+| Game 결속 | world.json "game" | 같은 gameId | 다른 게임 · 더 새 version 거절, 옛 version · 다른 패키지는 알림 (migrations 가 있으면 체인 적용 — NG-04) | test_world_ops ("세이브는 게임에 묶인다") | 더 새 version 거절 · 옛 version 은 migrations 체인 ✅ (NG-04 — test_world_ops) |
 | Package .sbpkg | 3 (에셋이 있을 때 — 없으면 2, v0.6 M6-T9) · 최소 1 | 1 · 2 · 3 | 범위 밖 거절 · digest 불일치 거절 | test_game_package · test_package_rejects | 0.5 엔진은 형식 3 (에셋 있는 게임) 을 열지 않는다 (VersionMismatch) — NG-01 스냅숏 해시 |
 | Manifest schemaVersion | 3 | 1 ~ 3 | 더 새 것 거절 | test_game_project | — |
 | Replay | 1 | 1 | 거절 | test_replay | — |
 | Studio Document | 없음 | — | 깨지면 옆으로 옮기고 기본 (M1-T3 규칙) | test_user_settings (사용자 설정만) | 레이아웃 · 복구본 (M6-T6 · T7 — 1 부터) |
 | Editor Plugin API | 없음 | — | 플러그인을 불러오지 않는다 | — | NG-10 (v0.21 — ADR-0099) |
-| 제작자 게임 version | 제작자 것 | — | 기록만 | — | NG-04 · NG-09 |
+| 제작자 게임 version | 제작자 것 | 세이브 ≤ 게임 | 더 새 세이브 거절 · 옛 세이브 = migrations 체인 · 백업 (NG-04) | test_save_migration · test_world_ops | NG-09 (채널 롤백) |
 
 ## 2. 번호를 올릴 때 (체크리스트 — AGENTS 5 · 6장)
 

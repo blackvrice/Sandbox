@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-04 (2): 세이브 게임 버전 마이그레이션 — migrations · 체인 · 백업 · 더 새 세이브 거절 (NG-04 끝)
+
+**무엇을**
+
+- 매니페스트 migrations [{from, to, system}] (schemaVersion 3 의 선택 키 — network 처럼 번호를 올리지 않음): SemVer from < to, 같은 from 없음,
+  system = 스크립트 시스템 id, from 순으로 기록 (모양 P1 · 버전 P3). 프로젝트 검사 P9: 시스템이 없거나 onMigrate 가 없음 (오류) · to 가 게임 버전 뒤 (경고).
+- core/scenarios/SaveMigration: planSaveMigration (같음 · 더 새 세이브 VersionMismatch · 옛 세이브 + 단계 없음 = 알림 (지금까지) · 체인 — 빠진 ·
+  넘어가는 단계 NotFound) · backupSave (<이름>.bak-<세이브 버전> 재귀 복사 · 처음 것을 덮지 않음) · applyMigration (단계마다 onMigrate).
+- 서버의 세이브 불러오기 (ServerHost WorldOp Load): 게임 버전이 다르면 계획 → (단계가 있으면) 백업 → 열기 → 단계 적용 → 바꿔 끼우기. 실패하면 연 월드를
+  버린다 (지금 월드 · 세이브 파일 그대로). 버전이 SemVer 가 아닌 옛 세이브는 지금까지처럼 열고 알린다. ServerHostDesc.migrations (setGameProject).
+
+**왜**
+
+- ADR-0098 2 · 2차 감사 SG-09 — 게임이 0.1 → 0.2 로 바뀌면 세이브를 옮기는 길이 없었고, 더 새 게임의 세이브를 옛 게임이 조용히 열었다.
+
+**검증**
+
+- test_save_migration (계획 7 경우 · 백업 3 경우), test_game_project (migrations 왕복 · 오류 8 · P9 4), test_script_callbacks (체인 · 실패 단계 이름 ·
+  같은 세이브 두 번 + 같은 체인 = 같은 해시, 10 틱 뒤도), test_world_ops (더 새 세이브 거절 · 빠진 단계 = 세이브 파일 · 백업 없음).
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+- 바로잡기: 앞 항목 (project_own_png 가 "돌지 않았다") 은 CI 시간만 보고 한 추정이었다 — 고친 판도 "OK" 줄과 함께 0.21 ~ 0.55 초로 통과한다 (Linux
+  Release + lavapipe 는 그만큼 빠르다). 앞 판이 돌았는지는 확인할 수 없다. "OK" 줄 통과 조건은 그대로 둔다 (실제로 돈 것을 보장).
+
+**남은 일**
+
+- 서버 시작 (--world <프로젝트>) 의 시작 월드는 프로젝트의 것이라 마이그레이션하지 않는다. 클라이언트 단독 (로컬) 세션의 불러오기도 같은 ServerHost 길.
+- 0.6.0 출시 노트에: 프로토콜 16 · .sbc 10 · .sbpkg 3 · 더 새 게임의 세이브 거절.
+
+---
+
 ## 2026-11-04 — v0.6 NG-04 (1): 스크립트 onMigrate — 세이브 마이그레이션 콜백 (.sbc 형식 10)
 
 **무엇을**

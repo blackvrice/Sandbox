@@ -15,6 +15,7 @@
 #include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
+#include "core/scenarios/SaveMigration.hpp"
 #include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimulationWorld.hpp"
 #include "script/lang/Codegen.hpp"
@@ -713,7 +714,8 @@ export default defineSystem({
                    "client 시스템의 콜백은 onUpdate 뿐");
 
         Root r = basePack("migrate");
-        r.file("t/scripts/watch.ts", kWatch).file("t/scripts/mig.ts", R"(import { defineSystem } from "sandbox"
+        r.file("t/scripts/watch.ts", kWatch)
+            .file("t/scripts/mig.ts", R"(import { defineSystem } from "sandbox"
 import { Mana } from "./mana"
 export default defineSystem({
   id: "t.mig",
@@ -747,8 +749,8 @@ export default defineSystem({
         const auto& programs = *loaded.db.scriptPrograms();
         REQUIRE_FALSE(programs.packs.empty());
         const bc::Module& mod = programs.packs.front().module;
-        const auto sys = std::find_if(mod.systems.begin(), mod.systems.end(), [](const auto& s) {
-            return s.id == "t.mig"; });
+        const auto sys =
+            std::find_if(mod.systems.begin(), mod.systems.end(), [](const auto& s) { return s.id == "t.mig"; });
         REQUIRE(sys != mod.systems.end());
         CHECK(sys->onMigrate != script::api::kNoCallback);
         CHECK(sys->onTick == script::api::kNoCallback);
@@ -756,7 +758,7 @@ export default defineSystem({
         REQUIRE(back.has_value());
         CHECK(back->format == 10);
         CHECK(std::find_if(back->systems.begin(), back->systems.end(), [&](const auto& s) {
-            return s.id == "t.mig" && s.onMigrate == sys->onMigrate;
+                  return s.id == "t.mig" && s.onMigrate == sys->onMigrate;
               }) != back->systems.end());
 
         World w(loaded.db);
@@ -781,5 +783,35 @@ export default defineSystem({
         // 없는 시스템 · onMigrate 없는 시스템
         CHECK_FALSE(w.world.runScriptMigration("t.none").has_value());
         CHECK_FALSE(w.world.runScriptMigration("t.watch").has_value());
+
+        // 단계 체인 (scenario::applyMigration — v0.6 NG-04 (2)): 차례대로, 실패하면 그 단계 이름을 붙이고 멈춘다
+        const auto sv = [](std::string_view s) { return parseSemVer(s).value(); };
+        const std::vector<project::MigrationStep> chain{{sv("0.1.0"), sv("0.2.0"), "t.mig"},
+                                                        {sv("0.2.0"), sv("0.3.0"), "t.mig"}};
+        REQUIRE(scenario::applyMigration(w.world, chain).has_value());
+        CHECK(w.marks(prey) == before + 300.0);
+        const std::vector<project::MigrationStep> broken{{sv("0.3.0"), sv("0.4.0"), "t.mig"},
+                                                         {sv("0.4.0"), sv("0.5.0"), "t.bad"},
+                                                         {sv("0.5.0"), sv("0.6.0"), "t.mig"}};
+        const auto failed = scenario::applyMigration(w.world, broken);
+        REQUIRE_FALSE(failed.has_value());
+        CHECK(failed.error().message.find("0.4.0 → 0.5.0 (t.bad)") != std::string::npos);
+        CHECK(w.marks(prey) == before + 400.0); // 첫 단계는 됐고, 실패 뒤 단계는 하지 않았다 (부른 쪽이 월드를 버린다)
+
+        // 결정성: 같은 세이브를 두 번 열어 같은 체인 → 같은 WorldHash, 그 뒤 같은 틱 수 → 같은 해시
+        const fs::path saved = r.root / "save";
+        REQUIRE(persist::saveWorld(w.world, saved).has_value());
+        auto one = persist::loadWorld(engine(), loaded.db, saved);
+        auto two = persist::loadWorld(engine(), loaded.db, saved);
+        REQUIRE(one.has_value());
+        REQUIRE(two.has_value());
+        REQUIRE(scenario::applyMigration(*one->world, chain).has_value());
+        REQUIRE(scenario::applyMigration(*two->world, chain).has_value());
+        CHECK(one->world->worldHash().value() == two->world->worldHash().value());
+        for (int i = 0; i < 10; ++i) {
+            one->world->tick();
+            two->world->tick();
+        }
+        CHECK(one->world->worldHash().value() == two->world->worldHash().value());
     }
 }

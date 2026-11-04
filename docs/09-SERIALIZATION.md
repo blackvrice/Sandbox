@@ -356,7 +356,13 @@ digest    SHA-256( 파일마다 "<sha256> <size> <path>\n", path 순 ) — 시�
 
 ```text
 불러오기  다른 gameId → 거절 ("다른 게임 '…' 의 세이브")   다른 version · package → 열고 결과에 알린다   "game" 없음 → 그대로
-옛 엔진   선택 키라 무시한다 (worldVersion 1 · schemaVersion 1 그대로). 게임 버전 간 세이브 마이그레이션은 [계획]
+옛 엔진   선택 키라 무시한다 (worldVersion 1 · schemaVersion 1 그대로)
+게임 버전 (v0.6 NG-04, ADR-0098 2 — core/scenarios/SaveMigration, 서버의 세이브 불러오기) 세이브 version ↔ 지금 게임 version:
+          같다 = 그대로 · 세이브가 더 새것 = 거절 ("더 새 게임 버전 … 의 세이브") · 옛것 + 매니페스트 migrations 없음 = 열고 알린다 (지금까지) ·
+          옛것 + migrations 있음 = 세이브 버전에서 시작하는 단계를 to 를 따라 지금 버전까지 (빠진 · 넘어가는 단계 = 거절, 백업도 안 만든다).
+          적용 전 <이름>.bak-<세이브 버전> 으로 폴더 복사 (이미 있으면 그대로 — 처음 것이 가장 옛것), 단계마다 스크립트 onMigrate (19 18장 —
+          결정적: 같은 세이브 + 같은 단계 = 같은 WorldHash). 실패하면 연 월드를 버린다 — 지금 월드 · 세이브 파일 그대로.
+          세이브 버전이 SemVer 가 아니면 지금까지처럼 열고 알린다. 세이브 형식 번호 (worldVersion · schemaVersion) 는 그대로
 시험      foundation test_sha256 (FIPS 180-4 벡터 · 나눠 넣기), project test_game_package (담는 것 · 같은 바이트 · 고친 · 자른 ·
           머리 · digest · 캐시 다시 쓰기 · --world · 라이선스 요약 — 내용 · 고친 version · 팩 digest · 형식 1), network
           test_world_ops (결속), CTest project_package (sbx build → check → 서버)

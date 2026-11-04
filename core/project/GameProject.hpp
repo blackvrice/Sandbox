@@ -40,6 +40,15 @@ inline constexpr u32 kMinManifestSchemaVersion = 1; // 읽을 수 있는 가장 
 // 지킨다)
 inline constexpr usize kMaxContentPacks = 16;
 
+// 세이브 마이그레이션 단계 (v0.6 NG-04, ADR-0098 2) — 매니페스트 "migrations" 의 한 줄. from 게임 버전으로 저장한
+// 세이브를 to 로: 스크립트 시스템 system 의 onMigrate 를 한 번. from < to, 같은 from 은 하나 (체인이 하나로 정해진다)
+struct MigrationStep {
+    SemVer from;
+    SemVer to;
+    std::string system;
+    bool operator==(const MigrationStep&) const = default;
+};
+
 struct GameManifest {
     u32 schemaVersion = kManifestSchemaVersion;
     std::string gameId;                    // "studio.arena" — 소문자·숫자·'_' 마디 둘 이상을 '.' 로 (≤ 64 바이트)
@@ -54,6 +63,8 @@ struct GameManifest {
     // schemaVersion 3 (v0.4 M1-T2, ADR-0071): 의존 팩 — 팩 id 순. content.packs 와 함께 불러온다 (loadedPacks). 소스
     // (path · git) 는 기록만 — 받기는 M2 [계획], 지금은 <프로젝트>/content 에서 찾는다
     std::vector<content::PackDependency> dependencies;
+    // schemaVersion 3 의 선택 키 "migrations" (v0.6 NG-04 — network 처럼 3 에 더함): 세이브 마이그레이션 단계 (from 순)
+    std::vector<MigrationStep> migrations;
 
     bool operator==(const GameManifest&) const = default;
 };

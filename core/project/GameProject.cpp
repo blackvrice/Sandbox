@@ -34,8 +34,10 @@ constexpr usize kMaxPathBytes = 200;
 
 constexpr std::array kManifestKeys{"schemaVersion", "gameId",      "name",    "version",
                                    "engine",        "description", "content", "entryWorld"};
-constexpr std::array kManifestKeysV2{"gameMode"};                // schemaVersion 2 에서 더한 키
-constexpr std::array kManifestKeysV3{"dependencies", "network"}; // schemaVersion 3 (v0.4 M1-T2 · network = v0.5 M2-T7)
+constexpr std::array kManifestKeysV2{"gameMode"}; // schemaVersion 2 에서 더한 키
+// schemaVersion 3 (v0.4 M1-T2 · network = v0.5 M2-T7 · migrations = v0.6 NG-04 — 선택 키라 번호를 올리지 않았다)
+constexpr std::array kManifestKeysV3{"dependencies", "network", "migrations"};
+constexpr usize kMaxMigrationSteps = 64;
 
 bool isLowerIdentChar(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
@@ -275,6 +277,73 @@ ManifestParseResult parseManifest(std::string_view jsonText) {
             }
         }
     }
+    // migrations (v0.6 NG-04): [{ "from": "0.1.0", "to": "0.2.0", "system": "<스크립트 시스템 id>" }] — from 순, 같은
+    // from 없음
+    if (const auto mig = j.find("migrations"); mig != j.end() && m.schemaVersion >= 3) {
+        if (!mig->is_array() || mig->size() > kMaxMigrationSteps) {
+            c.error(file, "/migrations", "P1",
+                    std::format("migrations 는 {{from, to, system}} 의 배열 ({} 개까지)", kMaxMigrationSteps));
+        } else {
+            for (usize i = 0; i < mig->size(); ++i) {
+                const json& e = (*mig)[i];
+                const std::string where = std::format("/migrations/{}", i);
+                if (!e.is_object()) {
+                    c.error(file, where, "P1", "단계는 객체 {from, to, system}");
+                    continue;
+                }
+                bool shapeOk = true;
+                for (const auto& [k, _] : e.items()) {
+                    if (k != "from" && k != "to" && k != "system") {
+                        c.error(file, std::format("{}/{}", where, k), "P1", std::format("모르는 키 '{}'", k));
+                        shapeOk = false;
+                    }
+                }
+                MigrationStep step;
+                for (const char* key : {"from", "to"}) {
+                    if (!e.contains(key) || !e[key].is_string()) {
+                        c.error(file, std::format("{}/{}", where, key), "P1",
+                                std::format("'{}' 는 SemVer 문자열", key));
+                        shapeOk = false;
+                        continue;
+                    }
+                    auto v = parseSemVer(e[key].get<std::string>());
+                    if (!v) {
+                        c.error(file, std::format("{}/{}", where, key), "P3",
+                                std::format("SemVer 가 아니다 — {}", v.error().message));
+                        shapeOk = false;
+                        continue;
+                    }
+                    (std::string_view(key) == "from" ? step.from : step.to) = *v;
+                }
+                if (!e.contains("system") || !e["system"].is_string() ||
+                    !content::isValidContentId(e["system"].get<std::string>())) {
+                    c.error(file, where + "/system", "P1", "system 은 스크립트 시스템 id (\"<팩>.<이름>\")");
+                    shapeOk = false;
+                } else {
+                    step.system = e["system"].get<std::string>();
+                }
+                if (!shapeOk) {
+                    continue;
+                }
+                if (compareSemVer(step.from, step.to) >= 0) {
+                    c.error(
+                        file, where, "P3",
+                        std::format("from {} 이 to {} 보다 앞이어야 한다", step.from.toString(), step.to.toString()));
+                    continue;
+                }
+                if (std::any_of(m.migrations.begin(), m.migrations.end(),
+                                [&](const MigrationStep& o) { return o.from == step.from; })) {
+                    c.error(
+                        file, where, "P3",
+                        std::format("from {} 인 단계가 둘이다 — 체인이 하나로 정해지지 않는다", step.from.toString()));
+                    continue;
+                }
+                m.migrations.push_back(std::move(step));
+            }
+            std::sort(m.migrations.begin(), m.migrations.end(),
+                      [](const MigrationStep& a, const MigrationStep& b) { return compareSemVer(a.from, b.from) < 0; });
+        }
+    }
     if (m.schemaVersion >= 2) {
         if (const std::string* s = stringField(j, "gameMode", false, c)) {
             if (content::isValidContentId(*s)) {
@@ -411,6 +480,13 @@ std::string writeManifest(const GameManifest& m) {
     }
     for (const content::PackDependency& d : m.dependencies) {
         j["dependencies"][d.pack] = content::writePackDependency(d);
+    }
+    for (const MigrationStep& s : m.migrations) {
+        ordered_json e;
+        e["from"] = s.from.toString();
+        e["to"] = s.to.toString();
+        e["system"] = s.system;
+        j["migrations"].push_back(std::move(e));
     }
     return j.dump(2) + "\n";
 }
@@ -754,6 +830,37 @@ void checkProject(const std::filesystem::path& projectDir, const SemVer& engine,
         // 마젠타
         if (out.db) {
             checkMaterialRefs(*out.db, scan, c);
+        }
+    }
+    // 7. 세이브 마이그레이션 단계 (v0.6 NG-04 — P9): 단계의 시스템이 있고 onMigrate 가 있다, to 가 게임 버전을 넘지
+    // 않는다
+    for (usize i = 0; i < m.migrations.size(); ++i) {
+        const MigrationStep& step = m.migrations[i];
+        const std::string where = std::format("/migrations/{}", i);
+        if (compareSemVer(step.to, m.version) > 0) {
+            c.warning(file, where, "P9",
+                      std::format("to {} 이 게임 버전 {} 보다 뒤 — 이 단계는 아직 쓰이지 않는다", step.to.toString(),
+                                  m.version.toString()));
+        }
+        if (!out.db) {
+            continue; // 콘텐츠 오류가 먼저
+        }
+        bool found = false;
+        bool migrates = false;
+        if (const auto& programs = out.db->scriptPrograms()) {
+            for (const content::ScriptPackProgram& p : programs->packs) {
+                for (const script::bc::SystemDesc& sd : p.module.systems) {
+                    if (sd.id == step.system) {
+                        found = true;
+                        migrates = sd.onMigrate != script::api::kNoCallback;
+                    }
+                }
+            }
+        }
+        if (!found || !migrates) {
+            c.error(file, where + "/system", "P9",
+                    found ? std::format("시스템 '{}' 에 onMigrate 가 없다", step.system)
+                          : std::format("스크립트 시스템 '{}' 이 콘텐츠에 없다", step.system));
         }
     }
 

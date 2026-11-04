@@ -65,6 +65,7 @@ add_executable(SandboxTests
     unit/core/test_replay.cpp
     unit/persist/test_world_save.cpp
     unit/persist/test_sample_saves.cpp
+    unit/persist/test_save_migration.cpp
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
     unit/content/test_pack_manifest.cpp

@@ -370,6 +370,7 @@ TEST_SUITE("network") {
         variant("old_version", [](ecs::Json& j) { j["game"]["version"] = "0.1.0"; });
         variant("other_build", [](ecs::Json& j) { j["game"]["package"] = std::string(64, 'b'); });
         variant("unbound", [](ecs::Json& j) { j.erase("game"); });
+        variant("new_version", [](ecs::Json& j) { j["game"]["version"] = "0.3.0"; });
 
         const WorldOpResultMsg other = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "other_game");
         CHECK_FALSE(other.accepted);
@@ -381,6 +382,10 @@ TEST_SUITE("network") {
         CHECK(build.accepted);
         CHECK(build.detail.find("다른 패키지 빌드") != std::string::npos);
         CHECK(worldOp(rig, {&owner}, owner, WorldOpKind::Load, "unbound").accepted); // 게임에 묶이지 않은 세이브
+        // 더 새 게임 버전의 세이브 (v0.6 NG-04) — 옛 게임으로 열지 않는다
+        const WorldOpResultMsg newer = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "new_version");
+        CHECK_FALSE(newer.accepted);
+        CHECK(newer.detail.find("더 새 게임 버전 0.3.0") != std::string::npos);
 
         // 게임이 아닌 서버의 세이브에는 "game" 이 없다
         TempDir plainDir("binding_plain");
@@ -647,5 +652,28 @@ TEST_SUITE("network") {
         send(next);
         round();
         CHECK(client.worldChanges() == 2);
+    }
+
+    TEST_CASE(
+        "world ops (v0.6 NG-04): migrations 가 있는 게임 — 빠진 단계면 세이브를 열지 않고 지금 월드 · 세이브 그대로") {
+        TempDir dir("migration");
+        ServerHostDesc d;
+        d.savesRoot = dir.path;
+        d.game = GameIdentity{"studio.a", "A", "0.2.0"};
+        // 0.1.0 → 0.1.5 → (0.1.5 에서 시작하는 단계가 없다) — 체인이 0.2.0 에 닿지 않는다
+        d.migrations.push_back({parseSemVer("0.1.0").value(), parseSemVer("0.1.5").value(), "t.mig"});
+        Rig rig(d);
+        Peer owner(rig, "owner", "k");
+        pump(rig, {&owner}, 10);
+        REQUIRE(worldOp(rig, {&owner}, owner, WorldOpKind::Save, "s1").accepted);
+        auto j = ecs::Json::parse(*io::readFile(dir.path / "s1" / "world.json"));
+        j["game"]["version"] = "0.1.0";
+        REQUIRE(io::writeFileAtomic(dir.path / "s1" / "world.json", j.dump(2)).has_value());
+        const std::string before = *io::readFile(dir.path / "s1" / "world.json");
+        const WorldOpResultMsg r = worldOp(rig, {&owner}, owner, WorldOpKind::Load, "s1");
+        CHECK_FALSE(r.accepted);
+        CHECK(r.detail.find("0.1.5 에서 시작하는 마이그레이션 단계가 없다") != std::string::npos);
+        CHECK(*io::readFile(dir.path / "s1" / "world.json") == before); // 세이브 파일 그대로
+        CHECK_FALSE(fs::exists(dir.path / "s1.bak-0.1.0"));             // 계획이 틀리면 백업도 만들지 않는다
     }
 }

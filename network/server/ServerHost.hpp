@@ -47,6 +47,7 @@
 #include <vector>
 
 #include "core/persist/WorldSave.hpp"
+#include "core/project/GameProject.hpp"
 #include "core/replay/Replay.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "network/protocol/Messages.hpp"
@@ -79,6 +80,8 @@ struct ServerHostDesc {
     ServerMode mode = ServerMode::Inline;
     // 게임 프로젝트면 그 정체성 (Welcome · Reject 에 — v0.2 M1-T3, ADR-0042). 서버가 사는 동안 같다
     GameIdentity game;
+    // 세이브 마이그레이션 단계 (매니페스트 migrations — v0.6 NG-04). 세이브 불러오기가 게임 버전을 견줘 적용한다
+    std::vector<project::MigrationStep> migrations;
     // 게임 진행 (v0.2 M2-T3, ADR-0045): 시작 월드 폴더 (비면 재시작 없음) · 게임 모드 id · 시작에 필요한 참가자 수
     // (역할 player 이상으로 접속한 사람 — GameMode.players.min). 재시작 = 시작 월드를 다시 열고 세션을 Lobby 로,
     // GameMode.restart 가 auto 면 Finished 뒤 delay 만큼 서버 단계가 지나면 스스로

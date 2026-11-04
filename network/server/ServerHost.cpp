@@ -10,6 +10,7 @@
 #include "core/game/GameRules.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
+#include "core/scenarios/SaveMigration.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "core/script/ScriptSystemAdapter.hpp"
 #include "foundation/assert/Assert.hpp"
@@ -1072,8 +1073,11 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
             reply("그런 세이브가 없습니다", false);
             return;
         }
-        // 게임 결속 (v0.2 M5-T2): 다른 게임의 세이브는 거절, 다른 버전 · 패키지의 세이브는 열고 알린다
+        // 게임 결속 (v0.2 M5-T2): 다른 게임의 세이브는 거절, 다른 버전 · 패키지의 세이브는 열고 알린다.
+        // 게임 버전 (v0.6 NG-04): 더 새 세이브는 거절, 옛 세이브는 migrations 의 단계를 적용 (없으면 열고 알린다)
         std::string bindingNote;
+        scenario::MigrationPlan migration;
+        std::string savedVersion;
         if (const auto summary = scenario::readSaveSummary(dir); summary && summary->game && !m_desc.game.empty()) {
             const persist::GameBinding& g = *summary->game;
             if (g.gameId != m_desc.game.gameId) {
@@ -1082,7 +1086,22 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
                 return;
             }
             if (g.version != m_desc.game.version) {
-                bindingNote += std::format(" · 버전 {} 에서 저장", g.version);
+                const auto current = parseSemVer(m_desc.game.version);
+                auto plan = current ? scenario::planSaveMigration(g.version, *current, m_desc.migrations)
+                                    : Expected<scenario::MigrationPlan>(scenario::MigrationPlan{{}, true});
+                if (!plan && plan.error().code == ErrorCode::InvalidArgument) {
+                    plan =
+                        scenario::MigrationPlan{{}, true}; // 버전이 SemVer 가 아닌 옛 세이브 — 지금까지처럼 열고 알린다
+                }
+                if (!plan) {
+                    reply(plan.error().message, false); // 더 새 세이브 · 빠진 단계
+                    return;
+                }
+                migration = std::move(*plan);
+                savedVersion = g.version;
+                if (migration.undeclared) {
+                    bindingNote += std::format(" · 버전 {} 에서 저장", g.version);
+                }
             } else if (!g.package.empty() && !m_desc.packageDigest.empty() && g.package != m_desc.packageDigest) {
                 bindingNote += " · 다른 패키지 빌드에서 저장";
             }
@@ -1094,6 +1113,20 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         }
         for (const auto& w : opened->warnings) {
             log::warn("net", "세이브 {}: {}", req.name, w);
+        }
+        if (!migration.steps.empty()) {
+            // 적용 전 백업 (세이브 파일은 바꾸지 않지만, 고친 월드를 같은 이름으로 저장하면 옛것이 사라진다)
+            auto backup = scenario::backupSave(dir, savedVersion);
+            if (!backup) {
+                reply(backup.error().describe(), false);
+                return;
+            }
+            if (auto applied = scenario::applyMigration(opened->runner->world(), migration.steps); !applied) {
+                reply(applied.error().message, false); // 연 월드는 버린다 — 지금 월드 · 세이브 파일 그대로
+                return;
+            }
+            bindingNote += std::format(" · 마이그레이션 {} → {} (단계 {} · 백업 {})", savedVersion, m_desc.game.version,
+                                       migration.steps.size(), backup->filename().string());
         }
         std::string recorded;
         if (m_recording) { // 기록하던 월드가 사라진다 — 거기까지 쓴다
@@ -1318,6 +1351,7 @@ Expected<std::string> ServerHost::stopTestPlay(std::vector<Outgoing>& out) {
 void setGameProject(ServerHostDesc& desc, const project::GameManifest& manifest,
                     const std::filesystem::path& projectDir, const content::ContentDatabase& content) {
     desc.game = gameIdentityOf(manifest);
+    desc.migrations = manifest.migrations;
     if (manifest.gameMode.empty()) {
         return;
     }
