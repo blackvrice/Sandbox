@@ -224,7 +224,7 @@ export default defineSystem({
         expectOnly("export default defineSystem({ id: \"a.b\", speed: 3, onTick(ctx) { } })\n", "S426",
                    "'speed' 키는 없다");
         expectOnly("export default defineSystem({ id: \"a.b\", run(ctx) { }, onTick(ctx) { } })\n", "S426",
-                   "메서드는 onTick · onStart · onStop · onEvent · onUpdate 뿐");
+                   "메서드는 onTick · onStart · onStop · onEvent · onMigrate · onUpdate 뿐");
         expectOnly(
             "function t(ctx: ServerContext): void { }\nexport default defineSystem({ id: \"a.b\", onTick: t })\n",
             "S426", "메서드로 적는다");

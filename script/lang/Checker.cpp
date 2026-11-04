@@ -979,12 +979,13 @@ private:
                     continue;
                 }
             }
-            u32* const callback = key == "onTick"     ? &sd.onTick
-                                  : key == "onStart"  ? &sd.onStart
-                                  : key == "onStop"   ? &sd.onStop
-                                  : key == "onEvent"  ? &sd.onEvent
-                                  : key == "onUpdate" ? &sd.onUpdate
-                                                      : nullptr;
+            u32* const callback = key == "onTick"      ? &sd.onTick
+                                  : key == "onStart"   ? &sd.onStart
+                                  : key == "onStop"    ? &sd.onStop
+                                  : key == "onMigrate" ? &sd.onMigrate
+                                  : key == "onEvent"   ? &sd.onEvent
+                                  : key == "onUpdate"  ? &sd.onUpdate
+                                                       : nullptr;
             if (callback != nullptr) {
                 if (!method) {
                     err("S426", p,
@@ -1008,7 +1009,8 @@ private:
             }
             if (method) {
                 err("S426", p,
-                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onUpdate 뿐이다 ('{}')",
+                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onMigrate · onUpdate "
+                                "뿐이다 ('{}')",
                                 key));
                 ok = false;
                 continue;
@@ -1089,7 +1091,7 @@ private:
                 err("S426", p,
                     std::format(
                         "defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · eventsPerTick · events · "
-                        "onTick · onStart · onStop · onEvent · onUpdate",
+                        "onTick · onStart · onStop · onEvent · onMigrate · onUpdate",
                         key));
                 expr(value, kNoExpect);
                 ok = false;
@@ -1113,8 +1115,10 @@ private:
                 err("S426", domainAt != kNoNode ? domainAt : init, "client 시스템에 onUpdate(ctx) { … } 가 없다");
                 ok = false;
             }
-        } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate)) {
-            err("S426", init, "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent 중 하나 이상");
+        } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
+                   none(sd.onMigrate)) {
+            err("S426", init,
+                "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent · onMigrate 중 하나 이상");
             ok = false;
         }
         // 아래는 server 시스템의 규칙 — client 시스템은 위에서 키마다 한 번 알렸다

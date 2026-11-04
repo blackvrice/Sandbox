@@ -20,7 +20,7 @@ namespace sbx::script::bc {
 
 // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
 // 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4), 9 = 컬렉션 Coll (M8-T5)
-inline constexpr u32 kFormatVersion = 9;
+inline constexpr u32 kFormatVersion = 10;
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -192,6 +192,7 @@ struct SystemDesc {
     u32 onTick = api::kNoCallback;
     u32 onStart = api::kNoCallback;
     u32 onStop = api::kNoCallback;
+    u32 onMigrate = api::kNoCallback; // 형식 10 (v0.6 NG-04) — 세이브 마이그레이션 (단계 밖, (ServerContext?) → void)
     u32 onEvent = api::kNoCallback;
     u32 intervalTicks = 1; // onTick 이 없으면 1
     u32 eventsPerTick = 0; // onEvent 가 있으면 1 ~ api::kMaxEventsPerTick, 없으면 0

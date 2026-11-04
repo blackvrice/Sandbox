@@ -64,6 +64,7 @@ public:
             d.onTick = s.onTick;
             d.onStart = s.onStart;
             d.onStop = s.onStop;
+            d.onMigrate = s.onMigrate;
             d.onEvent = s.onEvent;
             d.intervalTicks = s.intervalTicks;
             d.eventsPerTick = s.eventsPerTick;

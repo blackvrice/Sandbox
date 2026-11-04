@@ -515,6 +515,18 @@ u32 SimulationWorld::scriptSpawnsThisTick() const noexcept {
     return m_scriptSpawnTick == m_clock.tick() ? m_scriptSpawns : 0u;
 }
 
+Expected<void> SimulationWorld::runScriptMigration(std::string_view systemId) {
+    if (m_scriptSystems == nullptr) {
+        return makeError(ErrorCode::NotFound,
+                         std::format("스크립트 시스템이 없다 — 마이그레이션 '{}' 을 돌릴 수 없다", systemId));
+    }
+    if (auto why = m_scriptSystems->runMigration(*this, currentTick(), systemId)) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why));
+    }
+    applyScriptStructural();
+    return {};
+}
+
 void SimulationWorld::applyScriptStructural() {
     if (m_scriptOps.empty()) {
         return;

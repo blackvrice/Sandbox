@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-04 (1): 스크립트 onMigrate — 세이브 마이그레이션 콜백 (.sbc 형식 10)
+
+**무엇을**
+
+- defineSystem 의 새 콜백 onMigrate(ctx) (server 도메인): 콜백 표 (Active, v0.6, 서버 Capability 묶음) · 검사기 (onMigrate 만 있는 시스템도 된다 ·
+  client 시스템은 S426) · 코드 생성 · 바이트코드 시스템 표 (형식 9 → 10 — 옛 형식은 다시 컴파일) · 검증기 · 덤프 (있을 때만) · SDK d.ts · sbx check 요약.
+- ScriptSystemAdapter::runMigration(world, tick, id) · SimulationWorld::runScriptMigration(id) — 단계 밖에서 한 번 (틱 연료 하나 · 트랩 정책 그대로 —
+  트랩 · 연료면 쓰기를 버리고 오류), 구조 변경까지 적용, 틱은 진행하지 않는다. 틱 · 17d 에서는 부르지 않는다.
+- SDK 다시 만듦 (sdk/ · samples 셋 — onMigrate 두 줄).
+
+**왜**
+
+- NG-04 (ADR-0098 2) 의 실행 길 — 게임 버전이 바뀐 세이브를 게임 스크립트가 결정적으로 고친다. 어느 세이브에 언제 부르나는 (2) 에서.
+
+**검증**
+
+- test_script_callbacks "onMigrate": 검사기 · 형식 10 왕복 · 틱에는 부르지 않음 (다른 콜백이 더한 값 그대로) · 한 번 (+100 · 틱 그대로) · 트랩이면 오류와 쓰기
+  버림 · 없는 · onMigrate 없는 시스템 오류. test_runtime_contract (Active 여섯) · test_script_systems (메서드 목록 문장) 갱신.
+- 처음 판의 실수: 시험 스크립트에 i32 타입 (S401 — 쓸 수 없는 이름), 같은 팩의 다른 시스템이 값을 더한 것을 기준선 없이 비교 → 고침.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- NG-04 (2): 매니페스트 migrations [{from, to, system}] · 세이브의 게임 버전과 견줘 체인 · 빠진 단계 거절 · 더 새 게임의 세이브 거절 · 적용 전 백업 ·
+  실패면 원본 그대로 — 서버의 세이브 불러오기에. (3) E2E.
+- .sbc 형식 번호: M6-T4 (줄 표) 는 이제 11.
+
+---
+
 ## 2026-11-04 — v0.6 NG-14: 시뮬레이션 해시 · 표시 digest 분리 — 프로토콜 16, 표시만 다르면 접속 + 경고
 
 **무엇을**

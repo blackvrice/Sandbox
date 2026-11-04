@@ -704,4 +704,82 @@ export default defineSystem({
             CHECK(line.text != "start");
         }
     }
+
+    TEST_CASE("onMigrate (v0.6 NG-04): 검사기 · 형식 10 왕복 · 틱에는 부르지 않는다 · runScriptMigration 이 한 번 · "
+              "트랩이면 오류와 쓰기 버림") {
+        // 검사기: onMigrate 만 있는 시스템도 된다, client 시스템에는 안 된다
+        CHECK(one("export default defineSystem({ id: \"a.mig\", onMigrate(ctx) { } })\n").diags.items().empty());
+        expectOnly("export default defineSystem({ id: \"a.c\", domain: \"client\", onMigrate(ctx) { } })\n", "S426",
+                   "client 시스템의 콜백은 onUpdate 뿐");
+
+        Root r = basePack("migrate");
+        r.file("t/scripts/watch.ts", kWatch).file("t/scripts/mig.ts", R"(import { defineSystem } from "sandbox"
+import { Mana } from "./mana"
+export default defineSystem({
+  id: "t.mig",
+  onMigrate(ctx) {
+    ctx.log("migrate")
+    for (const e of ctx.query(Mana)) {
+      const m = ctx.read(e, Mana)
+      if (m !== null) { m.marks = m.marks + 100; ctx.write(e, Mana, m) }
+    }
+  },
+})
+)")
+            .file("t/scripts/bad.ts", R"(import { defineSystem } from "sandbox"
+import { Mana } from "./mana"
+export default defineSystem({
+  id: "t.bad",
+  onMigrate(ctx) {
+    for (const e of ctx.query(Mana)) {
+      const m = ctx.read(e, Mana)
+      if (m !== null) { m.marks = 999; ctx.write(e, Mana, m) }
+    }
+    let n = 0
+    while (true) { n = n + 1 } // 호출 연료를 다 쓴다 — 트랩 (OutOfFuel)
+  },
+})
+)");
+        const content::ContentLoadResult loaded = r.load();
+        INFO(dump(loaded));
+        REQUIRE(loaded.ok());
+        // 바이트코드 형식 10 — 왕복에 onMigrate 가 남는다
+        const auto& programs = *loaded.db.scriptPrograms();
+        REQUIRE_FALSE(programs.packs.empty());
+        const bc::Module& mod = programs.packs.front().module;
+        const auto sys = std::find_if(mod.systems.begin(), mod.systems.end(), [](const auto& s) {
+            return s.id == "t.mig"; });
+        REQUIRE(sys != mod.systems.end());
+        CHECK(sys->onMigrate != script::api::kNoCallback);
+        CHECK(sys->onTick == script::api::kNoCallback);
+        const auto back = bc::deserialize(bc::serialize(mod));
+        REQUIRE(back.has_value());
+        CHECK(back->format == 10);
+        CHECK(std::find_if(back->systems.begin(), back->systems.end(), [&](const auto& s) {
+            return s.id == "t.mig" && s.onMigrate == sys->onMigrate;
+              }) != back->systems.end());
+
+        World w(loaded.db);
+        const NetEntityId prey = w.spawn("t.prey", {1, 1});
+        for (int i = 0; i < 5; ++i) {
+            w.world.tick(); // 틱에는 onMigrate 를 부르지 않는다
+        }
+        const f64 before = w.marks(prey); // t.watch 가 시작 · 생성에 더한 값 (onMigrate 는 아직 0 번)
+        for (int i = 0; i < 3; ++i) {
+            w.world.tick();
+        }
+        CHECK(w.marks(prey) == before); // 틱이 더 가도 onMigrate 는 불리지 않는다
+        const sim::Tick tick = w.world.currentTick();
+        REQUIRE(w.world.runScriptMigration("t.mig").has_value());
+        CHECK(w.marks(prey) == before + 100.0);
+        CHECK(w.world.currentTick() == tick); // 틱을 진행하지 않는다
+        // 트랩 — 오류, 쓰기 버림
+        const auto bad = w.world.runScriptMigration("t.bad");
+        REQUIRE_FALSE(bad.has_value());
+        CHECK(bad.error().message.find("멈췄다") != std::string::npos);
+        CHECK(w.marks(prey) == before + 100.0);
+        // 없는 시스템 · onMigrate 없는 시스템
+        CHECK_FALSE(w.world.runScriptMigration("t.none").has_value());
+        CHECK_FALSE(w.world.runScriptMigration("t.watch").has_value());
+    }
 }

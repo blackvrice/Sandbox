@@ -84,9 +84,10 @@ TEST_SUITE("script") {
                 active.insert({c.name, c.client});
             }
         }
-        const std::set<std::pair<std::string_view, bool>> want{
-            {"onTick", false}, {"onStart", false}, {"onStop", false}, {"onEvent", false}, {"onUpdate", true}};
-        CHECK(active == want); // 검사기 (Checker::declareSystem) 가 콜백으로 받는 다섯
+        const std::set<std::pair<std::string_view, bool>> want{{"onTick", false},    {"onStart", false},
+                                                               {"onStop", false},    {"onEvent", false},
+                                                               {"onMigrate", false}, {"onUpdate", true}};
+        CHECK(active == want); // 검사기 (Checker::declareSystem) 가 콜백으로 받는 여섯 (onMigrate — v0.6 NG-04)
         CHECK(api::findCallback("onRender", true)->status == api::CallbackStatus::Planned);
         CHECK(api::findCallback("onRender", false) == nullptr);
         CHECK(api::isCallbackName("onPrePhysics"));

@@ -467,6 +467,9 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
             if (s.onStop != script::api::kNoCallback) {
                 line += " · onStop";
             }
+            if (s.onMigrate != script::api::kNoCallback) {
+                line += " · onMigrate";
+            }
             if (s.onUpdate != script::api::kNoCallback) {
                 line += " · client onUpdate"; // 클라이언트 프레임마다 (v0.3 M5-T3)
             }

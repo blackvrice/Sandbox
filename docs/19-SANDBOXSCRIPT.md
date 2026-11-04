@@ -341,7 +341,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
             다르면 VersionMismatch: 소스에서 다시 컴파일). 실행 중 확인 (null · 범위 · 0 · 연료 · 스택) 은 VM 의 트랩 (13장)
 파일 .sbc   "SBXC" · 형식 6 (M3-T3 형식 2 = 컴포넌트 표 · LOADK, M4-T1 3 = 시스템 표, M4-T2 4 = 콜백 · 구독, M5-T3 5 = 시스템의
             도메인 · onUpdate, v0.5 M8-T2 6 = INTR, M8-T3 7 = 함수 참조 Func · LOADFN, M8-T4 8 = Map · Set 타입, M8-T5
-            9 = 컬렉션 Coll —
+            9 = 컬렉션 Coll, v0.6 NG-04 10 = 시스템의 onMigrate —
             옛 형식은 VersionMismatch) ·
             hostApiVersion · 지문, 타입 · 문자열 · 수 · import · 컴포넌트 (id — 이름 규칙 · 겹침 없음) · 함수 · export · 시스템 표 (리틀 엔디안, 개수마다
             상한과 남은 크기 검사 — 거대한 개수에 할당하지 않는다). 남는 바이트 · 잘림은 ParseError. 체크섬 없음 (ADR-0058 8)
@@ -648,6 +648,7 @@ export default defineSystem({
     }
   },
   onStop(ctx) { ctx.log("game over"); },               // 게임이 Finished 가 된 틱 (세션이 없으면 없다)
+  onMigrate(ctx) { /* 옛 세이브 고치기 */ },             // v0.6 NG-04 — 단계 밖, 세이브 마이그레이션 단계가 부를 때만
 });
 ```
 
@@ -682,7 +683,11 @@ GameEvent  { action: string, entity: Entity | null, kind: GameEventKind, player 
            생기면 그 이벤트를 같은 틱 17d 목록 끝에 [계획])
 트랩       그 호출의 쓰기만 버리고 다음 호출로 (17장과 같다 — 로그는 시스템마다 처음 한 줄, 콜백 이름을 붙인다)
 d.ts       GameEventKind (const enum) · GameEvent · TagFilter · SystemEvents, SystemDefinition 의 onTick? · onStart? · onStop? ·
-           onEvent? · events? · eventsPerTick?
+           onEvent? · onMigrate? · events? · eventsPerTick?
+onMigrate  (v0.6 NG-04, ADR-0098 2) 세이브 마이그레이션 — 틱 · 단계 17d 에서는 부르지 않는다. SimulationWorld::runScriptMigration(id) 가
+           지금 틱으로 한 번 (ServerContext — 읽기 · 쓰기 · 구조 변경, 틱 연료 하나, 트랩 정책 그대로 — 트랩 · 연료면 쓰기를 버리고 오류),
+           구조 변경까지 적용하고 틱은 진행하지 않는다. onMigrate 만 있는 시스템도 된다 (S426 의 "콜백 없음" 에 들지 않는다), client 시스템은
+           안 된다. 바이트코드 시스템 표에 onMigrate (.sbc 형식 10). 어느 세이브에 언제 부르나 (게임 버전 · 단계 표) 는 [계획 NG-04 (2)]
 결정성     시뮬레이션 상태가 없다 — 같은 콘텐츠 = 같은 해시, 세이브 → 로드 뒤 이어 돌려도 같은 끝 해시 (시험)
 ```
 

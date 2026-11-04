@@ -85,7 +85,7 @@ v0.9 Business · v1.0 GA) 기준이다. 문서마다 고쳐 쓰지 않고 이 �
 | Product Version | CMake project VERSION · sbx --version | 0.5.0 (2026-11-03) | 마일스톤 출시 | — |
 | Engine API (프로젝트 engine 범위) | sandbox.project.json "engine" · GameProject P3 | 새 프로젝트 ">=x.y.z <1.0.0" | — (범위는 제작자 것) | 0.x 는 모두 열림, 1.0 전환은 NG-16 |
 | Host API Version · 지문 | script/api/HostApi.hpp kHostApiVersion · hostApiFingerprint | 1 · 0x1dfa888c39154dde | 빼기 · 바꾸기 = 버전++, 더하기 = 지문만 | 지문이 다르면 다시 컴파일 (소스는 패키지에 있다) |
-| Bytecode (.sbc) | script/vm/Bytecode.hpp kFormatVersion | 9 | 형식 바꿈 (M6-T4 = 10) | 다시 컴파일 |
+| Bytecode (.sbc) | script/vm/Bytecode.hpp kFormatVersion | 10 (v0.6 NG-04 — onMigrate) | 형식 바꿈 (M6-T4 = 11) | 다시 컴파일 |
 | Protocol | network/protocol/Messages.hpp kProtocolVersion | 16 (v0.6 NG-14 — 표시 digest) | 메시지 · 명령 와이어 바꿈 | 핸드셰이크에서 거절 (08) |
 | Simulation | core/simulation/SimVersion.hpp kSimVersion | 4 | 규칙 바꿈 (04 6장) — 골든 갱신 | 리플레이 "규칙 차이" |
 | World/Save | core/persist kWorldVersion · kSchemaVersion | 1 · 1 | 세이브 모양 바꿈 | 마이그레이션 (09, ADR-0013 · 0061) |

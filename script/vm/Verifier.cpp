@@ -324,8 +324,8 @@ private:
             if (s.domain == api::HostDomain::Client) {
                 // client 시스템 = onUpdate 하나 (ADR-0067) — 틱 · 이벤트 콜백 · 구독이 없다
                 if (s.onUpdate == api::kNoCallback || s.onTick != api::kNoCallback || s.onStart != api::kNoCallback ||
-                    s.onStop != api::kNoCallback || s.onEvent != api::kNoCallback || s.intervalTicks != 1 ||
-                    s.eventsPerTick != 0 || !s.events.empty()) {
+                    s.onStop != api::kNoCallback || s.onEvent != api::kNoCallback || s.onMigrate != api::kNoCallback ||
+                    s.intervalTicks != 1 || s.eventsPerTick != 0 || !s.events.empty()) {
                     fail(std::format("시스템 {}: client 시스템은 onUpdate 하나뿐이다", s.id));
                 }
                 callback(s, "onUpdate", s.onUpdate, false, api::AbiType::ClientContext);
@@ -335,7 +335,7 @@ private:
                 fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate 는 client 시스템에만)", s.id));
             }
             if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
-                s.onEvent == api::kNoCallback) {
+                s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {
                 fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
             }
             const u32 maxInterval = s.onTick == api::kNoCallback ? 1 : kMaxIntervalTicks;
@@ -345,6 +345,7 @@ private:
             callback(s, "onTick", s.onTick, false);
             callback(s, "onStart", s.onStart, false);
             callback(s, "onStop", s.onStop, false);
+            callback(s, "onMigrate", s.onMigrate, false);
             callback(s, "onEvent", s.onEvent, true);
             const bool events = s.onEvent != api::kNoCallback;
             if (events != !s.events.empty()) {

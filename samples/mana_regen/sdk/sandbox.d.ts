@@ -371,6 +371,8 @@ declare module "sandbox" {
     onStart?(ctx: ServerContext): void;
     /** 단계 17d — 게임이 Finished 가 된 틱 (세션이 없으면 없다) */
     onStop?(ctx: ServerContext): void;
+    /** 단계 밖 — 게임 버전이 바뀐 세이브를 열 때, sandbox.project.json 의 migrations 단계가 이 시스템을 부르면 한 번 */
+    onMigrate?(ctx: ServerContext): void;
     /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */
     onEvent?(ctx: ServerContext, e: GameEvent): void;
     /** client 시스템만 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관) */

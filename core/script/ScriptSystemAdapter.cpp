@@ -190,6 +190,36 @@ void ScriptSystemAdapter::run(sim::SimulationWorld& world, sim::Tick tick) {
     finishTick();
 }
 
+std::optional<std::string> ScriptSystemAdapter::runMigration(sim::SimulationWorld& world, sim::Tick tick,
+                                                             std::string_view systemId) {
+    const auto it =
+        std::find_if(m_systems.begin(), m_systems.end(), [&](const Entry& e) { return e.desc->id == systemId; });
+    if (it == m_systems.end()) {
+        return std::format("스크립트 시스템 '{}' 이 없다", systemId);
+    }
+    Entry& s = *it;
+    if (s.desc->onMigrate == api::kNoCallback) {
+        return std::format("시스템 '{}' 에 onMigrate 가 없다", systemId);
+    }
+    if (s.disabled) {
+        return std::format("시스템 '{}' 이 꺼져 있다 (이어진 트랩)", systemId);
+    }
+    m_last = {};
+    m_tickFuelLeft = kTickFuel;
+    m_droppedAtTickStart = m_host.droppedLogs();
+    const u64 traps = s.counters.traps;
+    const u64 budget = s.counters.budget;
+    invoke(world, tick, s, s.desc->onMigrate, "onMigrate", nullptr);
+    finishTick();
+    if (s.counters.traps != traps) {
+        return std::format("시스템 '{}' 의 onMigrate 가 멈췄다 — {}", systemId, s.counters.lastTrap);
+    }
+    if (s.counters.budget != budget) {
+        return std::format("시스템 '{}' 의 onMigrate 가 연료 {} 를 다 썼다", systemId, kTickFuel);
+    }
+    return std::nullopt;
+}
+
 void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick tick, const ScriptEventFacts& facts) {
     using api::GameEventKind;
     // ① 시작

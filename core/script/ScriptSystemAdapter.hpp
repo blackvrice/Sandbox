@@ -17,6 +17,7 @@
 // (ScriptClock.hpp).
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -121,6 +122,12 @@ public:
     void run(sim::SimulationWorld& world, sim::Tick tick);
     // 단계 17d — 17c 다음 (통계 · 틱 연료는 run 에 이어서)
     void runCallbacks(sim::SimulationWorld& world, sim::Tick tick, const ScriptEventFacts& facts);
+
+    // 세이브 마이그레이션 (v0.6 NG-04, ADR-0098 2) — systemId 의 onMigrate 를 한 번 (단계 밖 · 틱 연료 하나 · 트랩 정책
+    // 그대로). 쓰기는 호출이 끝나면 적용, 구조 변경은 월드 큐로 (부른 쪽이 SimulationWorld::applyScriptStructural).
+    // 성공이면 빈 optional, 아니면 이유 (시스템 · onMigrate 없음 · 꺼짐 · 트랩 · 연료 — 트랩 · 연료면 쓰기를 버렸다)
+    [[nodiscard]] std::optional<std::string> runMigration(sim::SimulationWorld& world, sim::Tick tick,
+                                                          std::string_view systemId);
 
     // onStart · onStop · onEvent 가 있는 시스템이 있다 (17d 가 필요하다)
     [[nodiscard]] bool hasCallbacks() const noexcept { return m_hasCallbacks; }

@@ -188,6 +188,7 @@ struct SystemDecl {
     u32 onTick = api::kNoCallback;
     u32 onStart = api::kNoCallback;
     u32 onStop = api::kNoCallback;
+    u32 onMigrate = api::kNoCallback; // v0.6 NG-04 — 세이브 마이그레이션 (단계 밖, 한 번)
     u32 onEvent = api::kNoCallback;
     u32 eventsPerTick = 0;               // onEvent 가 있으면 1 ~ api::kMaxEventsPerTick (기본 256)
     std::vector<SystemEventDecl> events; // 종류 차례

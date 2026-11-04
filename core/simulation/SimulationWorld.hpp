@@ -33,6 +33,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -208,6 +209,9 @@ public:
     }
     // 시험 · 도구용: 큐를 지금 적용한다 (tick 안에서는 단계가 부른다)
     void applyScriptStructural();
+    // 세이브 마이그레이션 한 단계 (v0.6 NG-04) — 스크립트 시스템 systemId 의 onMigrate 를 지금 틱으로 한 번, 구조
+    // 변경까지 적용. 틱을 진행하지 않는다 (결정적 — 같은 세이브 + 같은 단계 = 같은 월드)
+    [[nodiscard]] Expected<void> runScriptMigration(std::string_view systemId);
 
 private:
     struct SlotIdentity {

@@ -66,6 +66,8 @@ inline constexpr u32 kClientDisplay =
 // 이름 · 도메인 순. 같은 이름이 도메인마다 따로 있다 (onStart · onStop · onEvent · onTick)
 inline constexpr std::array kCallbacks{
     CallbackInfo{"onEvent", false, CallbackStatus::Active, "v0.3", detail::kServerAll, "단계 17d — 구독한 이벤트"},
+    CallbackInfo{"onMigrate", false, CallbackStatus::Active, "v0.6", detail::kServerAll,
+                 "단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (NG-04, ADR-0098 2)"},
     CallbackInfo{"onPrePhysics", false, CallbackStatus::Planned, "v0.6",
                  capBit(HostCapability::EcsRead) | capBit(HostCapability::PhysicsCommand) |
                      capBit(HostCapability::Random) | capBit(HostCapability::Time) | capBit(HostCapability::Log),
