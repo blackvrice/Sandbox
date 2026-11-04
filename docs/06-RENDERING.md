@@ -560,6 +560,8 @@ Placeholder      Ready 전: 1×1 마젠타/흰색 텍스처, 기본 머티리얼
 
 ```text
 Worker   파일 읽기 + stb_image 디코드 → ImageAsset{RGBA8, w, h}  (밉은 후속: 빌드 타임 생성)
+         디코드 전 (v0.6 — 24 P7): 파일 64 MiB · 헤더의 가로 · 세로 4096 을 넘으면 OutOfRange (압축 폭탄 — 메모리를 잡기 전에),
+         깨진 바이트 = ParseError. 둘 다 그 스프라이트만 마젠타 (render/asset/Image loadPng)
 Render   UploadQueue.pop (프레임 예산 8 MB) → createTexture → 업로드 링 복사
          → copyBufferToTexture → barrier(CopyDst→ShaderRead) → 펜스 도달 시 Ready, CPU 픽셀 해제
 ```

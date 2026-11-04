@@ -23,6 +23,11 @@ struct Image {
     void setPixel(u32 x, u32 y, u8 r, u8 g, u8 b, u8 a = 255) noexcept;
 };
 
+// 악성 PNG (docs/24-SECURITY P7 — v0.6): 파일 64 MiB · 헤더의 가로 · 세로 4096 을 넘으면 디코드하지 않고 OutOfRange
+// (압축 폭탄 — 작은 파일이 거대한 크기를 적는다). 4096² × RGBA = 64 MiB 가 한 이미지의 최대 메모리. 깨진 바이트 =
+// ParseError
+inline constexpr u64 kMaxPngFileBytes = u64{64} << 20;
+inline constexpr u32 kMaxImageDimension = 4096;
 [[nodiscard]] Expected<Image> loadPng(const std::filesystem::path& path);
 [[nodiscard]] Expected<void> savePng(const std::filesystem::path& path, const Image& image);
 

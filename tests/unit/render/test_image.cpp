@@ -2,6 +2,7 @@
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "foundation/io/FileIo.hpp"
@@ -41,6 +42,40 @@ TEST_SUITE("render") {
         REQUIRE_FALSE(r.has_value());
         CHECK(r.error().code == ErrorCode::ParseError);
         std::filesystem::remove(path);
+    }
+
+    TEST_CASE("image: a header claiming a huge size is refused before decode (v0.6 P7 — decompression bomb)") {
+        const auto dir = std::filesystem::temp_directory_path() / "sbx_png_p7";
+        REQUIRE(io::createDirectories(dir).has_value());
+        // PNG 머리 + IHDR + 빈 IDAT (stb 의 머리 훑기는 첫 IDAT 에서 멈춘다) — 16000 × 16000 RGBA 라고 적는다.
+        // 디코드하면 1 GB — stb 자신은 1 GiB 넘는 것만 막는다
+        const auto be32 = [](u32 v) {
+            return std::string{static_cast<char>(v >> 24), static_cast<char>((v >> 16) & 0xFF),
+                               static_cast<char>((v >> 8) & 0xFF), static_cast<char>(v & 0xFF)};
+        };
+        std::string bomb("\x89PNG\r\n\x1a\n", 8);
+        bomb += be32(13) + "IHDR" + be32(16000) + be32(16000) + std::string("\x08\x06\x00\x00\x00", 5) + be32(0) +
+                be32(0) + "IDAT" + be32(0);
+        REQUIRE(io::writeFileAtomic(dir / "bomb.png", bomb).has_value());
+        auto r = loadPng(dir / "bomb.png");
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error().code == ErrorCode::OutOfRange);
+        CHECK(r.error().message.find("16000×16000") != std::string::npos);
+        // 경계: 4096 은 받고 4097 은 거절 (진짜 PNG — 한 줄짜리라 작다)
+        REQUIRE(savePng(dir / "edge.png", Image::filled(kMaxImageDimension, 1, 1, 2, 3)).has_value());
+        auto edge = loadPng(dir / "edge.png");
+        REQUIRE(edge.has_value());
+        CHECK(edge->width == kMaxImageDimension);
+        REQUIRE(savePng(dir / "over.png", Image::filled(kMaxImageDimension + 1, 1, 1, 2, 3)).has_value());
+        CHECK(loadPng(dir / "over.png").error().code == ErrorCode::OutOfRange);
+        // 파일 크기 상한 — 읽기 전에
+        {
+            std::ofstream big(dir / "big.png", std::ios::binary | std::ios::trunc);
+            big.seekp(static_cast<std::streamoff>(kMaxPngFileBytes));
+            big.put('\0');
+        }
+        CHECK(loadPng(dir / "big.png").error().code == ErrorCode::OutOfRange);
+        std::filesystem::remove_all(dir);
     }
 
     TEST_CASE("image compare: tolerance, size mismatch, diff picture") {

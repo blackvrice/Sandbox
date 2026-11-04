@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-04 — v0.6 24 P7: 악성 PNG — 디코드 전 파일 64 MiB · 헤더 가로 · 세로 4096
+
+**무엇을**
+
+- render loadPng: 읽기 전 파일 크기 (64 MiB — stb 는 int 길이), 디코드 전 stbi_info 로 헤더의 가로 · 세로 (4096) — 넘으면 OutOfRange.
+  4096² × RGBA = 64 MiB 가 한 이미지의 최대 메모리. 실패는 지금처럼 그 스프라이트만 마젠타 (AssetManager).
+
+**왜**
+
+- release-gates v0.6 행의 P7 (악성 PNG). 작은 파일이 거대한 크기를 적는 압축 폭탄: stb 자신은 1 GiB 넘는 것만 막아, 16000² (1 GB) 를
+  적은 PNG 하나가 Worker 에서 1 GB 를 잡을 수 있었다. 24 P7 의 "디코드 4096² 상한" 은 [계획 v0.23] 이었다 — 출시 기준이라 당겼다 (퍼즈는 그대로 RH-23-1).
+
+**검증**
+
+- test_image "huge size is refused before decode": IHDR + 빈 IDAT 의 16000² PNG = OutOfRange (처음 판은 IDAT 이 없어 stb 의 머리 훑기가
+  실패해 디코드 쪽 ParseError 로 갔다 — stb 는 첫 IDAT 까지 훑는다), 4096 × 1 받음 · 4097 × 1 거절, 64 MiB 넘는 파일은 읽기 전 거절.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- 퍼즈 · 픽스처 말뭉치 (RH-23-1 v0.23). 아틀라스보다 큰 스프라이트는 지금처럼 "가득" 마젠타.
+
 ## 2026-11-04 — v0.6 NG-02: Asset Group — assets/groups.json · .meta labels · 빌드 보고 (A7 · A8)
 
 **무엇을**

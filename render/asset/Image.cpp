@@ -6,6 +6,7 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <string>
+#include <system_error>
 
 #include "foundation/io/FileIo.hpp"
 
@@ -34,14 +35,32 @@ void Image::setPixel(u32 x, u32 y, u8 r, u8 g, u8 b, u8 a) noexcept {
 }
 
 Expected<Image> loadPng(const std::filesystem::path& path) {
-    // 파일은 우리 IO 로 읽는다 (Windows 의 한글 경로 — stb 의 fopen 은 ANSI)
+    // 파일은 우리 IO 로 읽는다 (Windows 의 한글 경로 — stb 의 fopen 은 ANSI). 크기를 먼저 본다 (stb 는 int 길이)
+    std::error_code ec;
+    if (const auto size = std::filesystem::file_size(path, ec); !ec && size > kMaxPngFileBytes) {
+        return makeError(ErrorCode::OutOfRange,
+                         std::format("이미지 파일이 {} MiB 를 넘는다 ({} 바이트)", kMaxPngFileBytes >> 20, size),
+                         io::displayPath(path));
+    }
     auto bytes = io::readFile(path);
     if (!bytes) {
         return std::unexpected(bytes.error());
     }
+    if (bytes->size() > kMaxPngFileBytes) { // 크기를 본 뒤 자란 파일
+        return makeError(ErrorCode::OutOfRange, "이미지 파일이 너무 크다", io::displayPath(path));
+    }
     int w = 0;
     int h = 0;
     int channels = 0;
+    // 디코드 전 헤더만 — 작은 파일이 거대한 크기를 적는 압축 폭탄은 메모리를 잡기 전에 거절한다 (P7)
+    if (stbi_info_from_memory(reinterpret_cast<const stbi_uc*>(bytes->data()), static_cast<int>(bytes->size()), &w, &h,
+                              &channels) != 0 &&
+        (w <= 0 || h <= 0 || static_cast<u32>(w) > kMaxImageDimension || static_cast<u32>(h) > kMaxImageDimension)) {
+        return makeError(ErrorCode::OutOfRange,
+                         std::format("이미지 크기 {}×{} 가 {}×{} 를 넘는다 — 디코드하지 않는다", w, h,
+                                     kMaxImageDimension, kMaxImageDimension),
+                         io::displayPath(path));
+    }
     stbi_uc* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes->data()),
                                           static_cast<int>(bytes->size()), &w, &h, &channels, 4);
     if (data == nullptr) {
