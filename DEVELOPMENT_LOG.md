@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-04 — v0.7 M3-T3: 게임 UI 그리기 · 입력 — ImGui 배경 그리기 목록 · 라우팅 · 버튼 이벤트 (화면 확인)
+
+**무엇을**
+
+- ui/render drawLayout → IUiRenderer (panel · list 색 · 테두리, 버튼 채움 · 누름 밝게 · 글자, progress 바탕 + 채움 0 ~ 1, image).
+  ui/input routePointer — modal (보이면 전부) → menu (root 안) → 도구 패널 (ImGui wantMouse) → hud 버튼 → 게임, 같은 층은 뒤 문서가 위.
+  배치에 숨긴 노드 (UiLayoutOptions.hidden — 자리도 빠짐), UiLayoutNode.padding (배율 곱한 여백).
+- 클라이언트: IWorldSession gameUi() (팩 presentation/ui 원문) · playerSignal(), GameUiLayer (원문 지문으로 다시 읽음 · 읽지 못한 문서
+  경고 한 번 · 배치 · 라우팅 · 버튼 이벤트 · show / hide / toggle · 누름 표시 · "{n}" 자리), ImGuiUiRenderer · ImGuiTextMeasure (배경
+  그리기 목록 — 게임 화면 위 · 도구 패널 아래, 논리 좌표). Application: ImGui beginFrame 뒤 routeGameUi — 잡으면 게임 입력에서 마우스를
+  뺀다, signal → PlayerSignal 명령 · action → 화면 가운데 PlayerAction.
+
+**왜**
+
+- 등록부 M3-T3 (v0.7 P0) — 완료 조건 "데모 HUD 가 게임 화면에 보인다".
+
+**검증**
+
+- test_ui_render 3 · test_game_ui_layer 3 (앱: 로컬 서버 + ImGui 헤드리스 — HUD 버튼 클릭이 PlayerAction "적용", 배치 툴이어도 배치 0).
+- 시험이 찾은 것: 앱 시험의 첫 판은 클릭이 가지 않았다 — 진단해 보니 그 자리에 ImGui "행동" 창이 있어 ImGui wantMouse = 참,
+  차례 (도구 패널이 hud 보다 먼저) 대로 동작한 것이었다. 시험은 F1 로 도구 패널을 감추고 누른다 (라우팅 자체는 ui 시험이 본다).
+  ImGui 1.92.8 의 AddRect 인자 차례 (thickness · flags 바뀜 — 옛 차례는 delete) 도 빌드가 잡았다.
+- 화면 (MANUAL-QA v0.7 M3-T3): SandboxClient --world samples/rabbit_guard → F1 — 위쪽 띠 (그림 · "토끼 - · 점수 -" · 기운 막대 · 두 버튼 ·
+  ? · 도움말) 가 보이고, ? 로 도움말이 사라졌다 다시 보이고, 먹이 주기 → 서버가 "게임이 진행 중일 때만 (지금 Lobby)" 로 거절 (로그).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄 — 처음 돌림에서 docs_consistency 가 22 의 [계획 v0.5 M3-T3] 줄을 잡아 고쳤다). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- 바인딩 평가 · 데이터 소스 (M3-T4 — "-" 대신 값), image 텍스처, 위치 없는 행동, 창 크기 · DPI 확인 (MANUAL-QA 두 줄), menu 와 ImGui 창이
+  겹칠 때 둘 다 반응 (ImGui 가 이벤트를 먼저 받는다).
+
 ## 2026-11-04 — v0.7 M3-T2: 게임 UI 배치 엔진 — 앵커 · 쌓기 · 맞춤 · 배율 · 자름 (헤드리스 골든)
 
 **무엇을**

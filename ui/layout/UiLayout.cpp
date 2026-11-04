@@ -39,7 +39,7 @@ public:
         : m_opt(options), m_measure(measure), m_out(out), m_scale(std::clamp(options.scale, 0.5f, 4.0f)) {}
 
     void place(const UiNode& n, const Box& parent, const UiRect& clip, u32 depth, i32 listIndex, const Box* fixed) {
-        if (m_out.size() >= kMaxLayoutNodes) {
+        if (m_out.size() >= kMaxLayoutNodes || !shown(n)) {
             return;
         }
         Box b;
@@ -53,7 +53,7 @@ public:
                  n.size ? std::optional<f32>((*n.size)[1]) : std::nullopt, fit[1], b.y0, b.y1);
         }
         const UiRect rect = toRect(b);
-        m_out.push_back({&n, rect, clip, depth, listIndex, fontSize(n)});
+        m_out.push_back({&n, rect, clip, depth, listIndex, fontSize(n), padding(n)});
         const UiRect inner = intersect(clip, rect);
         // 자식의 부모 사각형 = 반올림한 사각형에서 여백만큼 안쪽 (반올림 전 값을 쓰면 자식이 1 픽셀씩 어긋난다)
         const f32 pad = padding(n);
@@ -99,6 +99,9 @@ private:
         const f32 cross0 = row ? content.y0 : content.x0;
         const f32 cross1 = row ? content.y1 : content.x1;
         const auto one = [&](const UiNode& c, i32 index) {
+            if (!shown(c)) {
+                return;
+            }
             const std::array<f32, 2> s = outerSize(c, index);
             const f32 along = row ? s[0] : s[1];
             const f32 cross = row ? s[1] : s[0];
@@ -164,6 +167,9 @@ private:
         f32 cross = 0;
         usize k = 0;
         const auto add = [&](const UiNode& c, i32 index) {
+            if (!shown(c)) {
+                return;
+            }
             const std::array<f32, 2> s = outerSize(c, index);
             if (n.stack == UiStack::None && n.kind != UiKind::List) { // 겹쳐 놓는 panel — 가장 큰 자식
                 along = std::max(along, s[0]);
@@ -189,6 +195,7 @@ private:
         return row ? std::array<f32, 2>{along + pad, cross + pad} : std::array<f32, 2>{cross + pad, along + pad};
     }
 
+    [[nodiscard]] bool shown(const UiNode& n) const { return !m_opt.hidden || !m_opt.hidden(n); }
     [[nodiscard]] const UiStyle* style(const UiNode& n) const {
         if (m_opt.styles == nullptr || n.style.empty()) {
             return nullptr;

@@ -196,7 +196,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 | ActionMap · 게임 키 (팩 presentation/input.json) · PlayKeys | 현행 | `platform/common/ActionMap`, 07 5장 |
 | 클라이언트 스크립트의 입력 읽기 (pressed · released · held · axis) · send → PlayerSignal | ✅ v0.5 M2-T6 (keyDown · keyPressed · keyReleased — 축은 [계획 v0.12 RT-06-13]) | 프레임 입력을 행동 이벤트 큐로 모아 같은 프레임의 onUpdate 가 읽는다 (잃음 없음) |
 | 키 다시 묶기 · UI 배율 | [계획 v0.5 M4-T3 · T4] | 사용자 설정 파일 |
-| UI 입력 막기 (UI 가 먼저) | [계획 v0.5 M3-T3] | UiInputRouter |
+| UI 입력 막기 (UI 가 먼저) | ✅ v0.7 M3-T3 (modal → menu → 도구 패널 → hud 버튼 → 게임) | ui/input UiInputRouter · GameUiLayer — 잡은 포인터는 게임 입력에서 뺀다 |
 | onAction · 입력 Context (우선순위 스택: 메뉴 > UI > 게임) · 소비 | [계획 v0.6] | Enhanced Input 의 Mapping Context 와 비슷 (공식 문서 확인 못 함 — 일반 지식) |
 | 게임패드 · Double Tap · Hold · Combo 트리거 | [계획 v0.6] (P2) | 플랫폼 층에서 표준화 (07) |
 | 고정 Tick 입력 프레임 (예측 모델) | [계획 v0.7] | 4장 InputFrame |

@@ -4,6 +4,7 @@
 
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/GamePanel.hpp"
+#include "apps/client/ui/GameUiImGui.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
 #include "apps/client/ui/ScriptPanel.hpp"
@@ -440,6 +441,34 @@ void Application::handleWorldInput(f64 dt) {
     }
 }
 
+// 게임 UI (v0.7 M3-T3, ADR-0079): 원문이 바뀌면 다시 읽고, 창 크기 (논리 단위 — ImGui 와 같다) 로 배치, 포인터를 modal
+// → menu → 도구 패널 → hud 차례로. 버튼 이벤트: signal = PlayerSignal 명령, action = 화면 가운데의 PlayerAction (위치
+// 없는 행동은 [계획]), ui = 층 안에서 보이기 · 숨기기
+bool Application::routeGameUi() {
+    m_gameUi.setSources(m_config.world->gameUi());
+    for (const std::string& w : m_gameUi.takeWarnings()) {
+        log::warn("client", "{}", w);
+    }
+    if (m_gameUi.documentCount() == 0) {
+        return false;
+    }
+    const platform::Extent2D logical = m_window.windowSize();
+    m_gameUi.layout(static_cast<i32>(logical.width), static_cast<i32>(logical.height), 1.0f, ImGuiTextMeasure{});
+    const InputState& raw = m_input.raw();
+    std::vector<ui::UiAction> events;
+    const ui::UiPointerRoute route = m_gameUi.route(
+        static_cast<i32>(raw.mousePosition.x), static_cast<i32>(raw.mousePosition.y), m_config.ui->wantMouse(),
+        raw.pressed(platform::MouseButton::Left), raw.down(platform::MouseButton::Left), events);
+    for (const ui::UiAction& e : events) {
+        if (e.kind == ui::UiAction::Kind::Signal) {
+            m_config.world->playerSignal(e.target, e.value.value_or(0));
+        } else if (e.kind == ui::UiAction::Kind::Action) {
+            m_config.world->playerAction(e.target, m_renderWorld.camera.center);
+        }
+    }
+    return route.captured;
+}
+
 // 게임 키 (v0.2 M3-T3, ADR-0049): 팩 바인딩이 바뀌면 다시 만들고, play.action.<id> 를 누르면 커서 자리에 그 행동
 void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
     const std::optional<ActionsInfo> acts = m_config.world->playerActions();
@@ -531,7 +560,9 @@ bool Application::frame() {
     if (m_config.ui != nullptr) {
         m_config.ui->feed(m_events);
         m_config.ui->beginFrame(m_config.fixedDt > 0 ? m_config.fixedDt : realDt);
-        m_input.setCapture(m_config.ui->wantMouse(), m_config.ui->wantKeyboard());
+        // 게임 UI (v0.7 M3-T3): modal · menu · hud 버튼 위면 게임 (카메라 · 선택 · 행동) 에 마우스를 주지 않는다
+        const bool gameUiMouse = m_state == AppState::InWorld && m_config.world != nullptr && routeGameUi();
+        m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse, m_config.ui->wantKeyboard());
     } else {
         m_input.setCapture(false, false);
     }
@@ -628,6 +659,10 @@ bool Application::frame() {
                 drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
             } else if (!acts) {
                 m_actionPanel.armed.clear();
+            }
+            if (m_gameUi.documentCount() > 0) { // v0.7 M3-T3 — 배경 목록: 게임 화면 위 · 도구 패널 아래
+                ImGuiUiRenderer renderer(ImGui::GetBackgroundDrawList());
+                m_gameUi.draw(renderer);
             }
             if (const auto so = m_config.world->scriptOverlay()) {
                 drawScriptOverlay(*so, m_renderWorld.camera); // v0.3 M5-T3 — 게임 화면이라 늘

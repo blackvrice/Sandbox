@@ -133,6 +133,8 @@ public:
     // ---- v0.2 M3-T1: 플레이어 행동 ----
     [[nodiscard]] std::optional<ActionsInfo> playerActions() const override;
     void playerAction(std::string id, Vec2 world) override;
+    [[nodiscard]] std::optional<GameUiInfo> gameUi() const override;
+    void playerSignal(std::string id, i32 value) override;
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
     [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;

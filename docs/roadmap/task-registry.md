@@ -47,7 +47,7 @@
 | RT-06-12 | 비동기 에셋 로드 · 캐시 | A | Done | v0.6 | v0.6 | P2 | M6-T9 | test_sprites "load order does not change the picture" (render_tests_*) |
 | M3-T1 | ui/ 타깃 (SandboxGameUI) · 문서 모델 · 검사 U1 ~ U8 | A | Done | v0.5 | v0.7 | P0 | — | test_ui_document (규칙마다 · 퍼즈 · 데모 HUD 통과) · arch_include_lint_selftest (ui/) |
 | M3-T2 | 배치 엔진 (헤드리스 골든) | A | Done | v0.5 | v0.7 | P0 | M3-T1 | test_ui_layout (손 계산 사각형 · 배율 · 반올림 · clip · list · 데모 HUD 골든) |
-| M3-T3 | ImGui 그리기 목록 백엔드 · 입력 라우팅 | A | Planned | v0.5 | v0.7 | P0 | M3-T2 | 20 10장 |
+| M3-T3 | ImGui 그리기 목록 백엔드 · 입력 라우팅 | A | Done | v0.5 | v0.7 | P0 | M3-T2 | test_ui_render · test_game_ui_layer (앱 클릭 → PlayerAction) · MANUAL-QA v0.7 M3-T3 (화면) |
 | M3-T4 | 바인딩 · ctx.ui | A | Planned | v0.5 | v0.7 | P0 | M3-T3 | 20 10장 |
 | M3-T5 | 이벤트 (버튼 → 신호) | A | Planned | v0.5 | v0.7 | P0 | M3-T4 | 20 10장 (신호는 M2-T5 ✅) |
 | M3-T6 | 스타일 · 테마 · 배율 | A | Planned | v0.5 | v0.7 | P1 | M3-T3 | 20 10장 |

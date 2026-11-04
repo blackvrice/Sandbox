@@ -132,6 +132,14 @@ M3-T2 ✅   (v0.7) ui/layout layoutDocument — 가장자리 = 부모 앵커 위
 입력 순서   modal → menu → 도구 패널 (ImGui 가 잡으면) → hud 의 버튼 → 게임 키 · 월드 클릭. hud 는 버튼 위가 아니면 통과
 서버        UI 를 모른다. 버튼의 결과는 명령 (신호 · 행동) — 서버의 규칙 · 스크립트가 판정 (위조 클릭 = 거절되는 명령일 뿐)
 예산        문서 32 · 노드 합 4,096 · 바인딩 1,024 (넘으면 로드 경고 · 그리지 않음). 성능 목표는 측정 후 14 에 (12.3)
+M3-T3 ✅    (v0.7) ui/render drawLayout → IUiRenderer (panel · list 색 · 테두리, 버튼 채움 · 누름 밝게 · 글자, progress 바탕 + 채움,
+            image) · ui/input routePointer (modal 전부 → menu root 안 → 도구 패널 → hud 버튼, 같은 층은 뒤 문서가 위) · 배치의 숨긴
+            노드 (자리도 빠짐). 클라이언트 GameUiLayer (원문 지문이 바뀌면 다시 읽음 · 읽지 못한 문서 경고 한 번) · ImGui 배경 그리기
+            목록 백엔드 · ImGui 글꼴로 재기. 좌표는 논리 단위 (창 크기 — ImGui · 마우스와 같다). 버튼: signal = PlayerSignal 명령,
+            action = 화면 가운데의 PlayerAction (위치 없는 행동 [계획]), ui = 층 안 보이기 · 숨기기. 게임 UI 가 잡은 포인터는
+            게임 입력 (카메라 · 선택 · 에디터) 에서 뺀다. 다른 점: menu · modal 이 도구 패널보다 먼저지만 ImGui 는 이미 같은 이벤트를
+            받았다 (겹치면 둘 다 반응 — 도구 패널을 F1 로 감추면 없다). image 는 material 이름의 고정 색 (텍스처 [계획]), 글자는
+            바인딩 평가 전 (M3-T4) — "{n}" 에 고정 수, 바인딩은 "-"
 ```
 
 ### 2.5 스크립트 연동 (client 도메인 — 3.8)

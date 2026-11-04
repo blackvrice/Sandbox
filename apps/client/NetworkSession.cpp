@@ -946,6 +946,33 @@ void NetworkSession::playerAction(std::string id, Vec2 world) {
     }
 }
 
+std::optional<GameUiInfo> NetworkSession::gameUi() const {
+    const content::ContentDatabase* db = content();
+    if (db == nullptr) {
+        return std::nullopt;
+    }
+    GameUiInfo info;
+    for (const content::PackInfo& p : db->packs()) {
+        for (const auto& [stem, text] : p.uiDocuments) {
+            info.documents.push_back(GameUiSource{p.id, stem, text});
+        }
+        if (!p.uiStyles.empty()) {
+            info.styles.push_back(GameUiSource{p.id, "styles", p.uiStyles});
+        }
+    }
+    if (info.documents.empty()) {
+        return std::nullopt;
+    }
+    return info;
+}
+
+void NetworkSession::playerSignal(std::string id, i32 value) {
+    // 게임 UI 버튼 (v0.7 M3-T3) — client 스크립트의 send 와 같은 명령 (서버가 선언 · 범위 · perTick · 역할로 판정)
+    if (send(cmd::PlayerSignal{std::move(id), value}) == 0) {
+        m_actionMessage = "접속 전이라 보낼 수 없습니다";
+    }
+}
+
 void NetworkSession::worldOp(WorldOp op, std::string name) {
     if (!m_session || !m_session->requestWorldOp(static_cast<net::WorldOpKind>(op), std::move(name))) {
         m_worldMessage = "접속 전이라 요청할 수 없습니다";

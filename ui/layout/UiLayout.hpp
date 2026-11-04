@@ -59,6 +59,9 @@ struct UiLayoutOptions {
     std::function<std::string(const UiNode& node, i32 listIndex)> textOf{};
     // list 의 항목 수 (바인딩 결과). 없으면 0
     std::function<usize(const UiNode& list)> listCount{};
+    // 숨긴 노드 (ui hide · toggle — v0.7 M3-T3). 참이면 그 노드와 아래를 배치하지 않는다 (쌓기에서 자리도 차지하지
+    // 않는다)
+    std::function<bool(const UiNode& node)> hidden{};
 };
 
 struct UiLayoutNode {
@@ -68,6 +71,7 @@ struct UiLayoutNode {
     u32 depth = 0;                   // root = 0
     i32 listIndex = -1;              // list 항목 안이면 그 번호
     f32 fontSize = kDefaultFontSize; // 배율을 곱한 값 (text · button)
+    f32 padding = 0;                 // 배율을 곱한 안쪽 여백 (panel padding · 스타일 padding 중 큰 쪽)
 };
 
 // 문서를 배치한다 — 앞 순서 (부모 먼저, 자식은 문서 차례). list 는 item 을 항목마다 한 벌. 상한: 결과 4,096 노드

@@ -169,6 +169,17 @@ struct ScriptProfileInfo {
     std::vector<ScriptProfileRow> client; // 이 클라이언트의 client 시스템
 };
 
+// 게임 UI 원문 (v0.7 M3-T3 — 팩의 presentation/ui, ADR-0079). 클라이언트의 GameUiLayer 가 읽는다 (검사는 sbx check)
+struct GameUiSource {
+    std::string pack;
+    std::string stem; // 파일 이름 (.json 앞)
+    std::string text;
+};
+struct GameUiInfo {
+    std::vector<GameUiSource> documents; // 팩 로드 차례 · 이름 순
+    std::vector<GameUiSource> styles;    // 팩마다 styles.json (stem = "styles")
+};
+
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)
 struct WorldInfo {
     std::string name;
@@ -234,6 +245,9 @@ public:
     [[nodiscard]] virtual std::optional<ActionsInfo> playerActions() const { return std::nullopt; }
     // 명령 PlayerAction 을 보낸다 (결과는 playerActions().message)
     virtual void playerAction(std::string /*id*/, Vec2 /*world*/) {}
+    // 게임 UI (v0.7 M3-T3) — 콘텐츠의 presentation/ui 원문, 버튼의 신호 (PlayerSignal — 서버가 판정)
+    [[nodiscard]] virtual std::optional<GameUiInfo> gameUi() const { return std::nullopt; }
+    virtual void playerSignal(std::string /*id*/, i32 /*value*/) {}
     // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----
     [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 (client 시스템이 없으면 nullopt — 아무것도 그리지 않는다) ----

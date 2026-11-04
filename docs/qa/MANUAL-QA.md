@@ -573,3 +573,15 @@ ctest --preset macos-debug -R render_tests_metal --output-on-failure      # Meta
 [ ] Linux X11·Wayland 각각 입력·리사이즈
 [ ] macOS Retina 배율, 메뉴 바, Cmd 단축키
 ```
+
+## v0.7 M3-T3 — 게임 UI (HUD) 가 게임 화면에 보인다
+
+```text
+SandboxClient --world samples/rabbit_guard → F1 (도구 패널 감춤)
+[x] 위쪽 띠: 그림 자리 · "토끼 - · 점수 -" · 기운 막대 · 먹이 주기 · 덫 놓기 · ? · 도움말 (2026-11-04, Windows 11 · GTX 1660 SUPER ·
+    D3D12, 커밋은 DEVELOPMENT_LOG v0.7 M3-T3)
+[x] ? 를 누르면 도움말이 사라지고 다시 누르면 보인다
+[x] 먹이 주기 → PlayerAction 이 간다 (Lobby 라 서버가 "게임이 진행 중일 때만" 으로 거절 — 서버 판정 그대로)
+[ ] 창 크기 바꾸기 · 높은 DPI 배율에서 띠가 늘고 글자 크기가 맞다
+[ ] 도구 패널을 켠 채 HUD 버튼 위 ImGui 창 — 도구가 클릭을 가져간다
+```

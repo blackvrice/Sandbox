@@ -78,6 +78,7 @@ add_executable(SandboxTests
     unit/project/test_asset_groups.cpp
     unit/ui/test_ui_document.cpp
     unit/ui/test_ui_layout.cpp
+    unit/ui/test_ui_render.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
@@ -145,6 +146,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_world_panel.cpp
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
+        unit/client/test_game_ui_layer.cpp
         unit/client/test_play_keys.cpp
         unit/client/test_pack_materials.cpp
         unit/client/test_user_settings.cpp
@@ -153,6 +155,8 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/PackMaterials.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/GameUiLayer.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/GameUiImGui.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"

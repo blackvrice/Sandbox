@@ -21,6 +21,10 @@ add_executable(SandboxClient
     presentation/SelectionOverlay.cpp
     presentation/PackMaterials.hpp
     presentation/PackMaterials.cpp
+    presentation/GameUiLayer.hpp
+    presentation/GameUiLayer.cpp
+    ui/GameUiImGui.hpp
+    ui/GameUiImGui.cpp
     ui/ImGuiLayer.hpp
     ui/ImGuiLayer.cpp
     ui/DebugPanels.hpp
@@ -42,7 +46,7 @@ add_executable(SandboxClient
     ReleaseFeed.hpp
     ReleaseFeed.cpp
 )
-target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxCrash SandboxProcess sbx_imgui sbx_warnings)
+target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxGameUI SandboxCrash SandboxProcess sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                  SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
 
