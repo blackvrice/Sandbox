@@ -14,6 +14,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/package/GamePackage.hpp"
 #include "core/project/GameProject.hpp"
+#include "core/scenarios/WorldSource.hpp"
 
 using namespace sbx;
 using namespace sbx::client;
@@ -151,5 +152,31 @@ TEST_SUITE("client") {
             REQUIRE(s.has_value());
             CHECK(sessionMats.contains("game/hero"));
         }
+    }
+
+    TEST_CASE(
+        "presentation digest (v0.6 NG-14) — 팩 presentation · 프로젝트 에셋이 바뀌면 바뀌고, contentHash 는 그대로") {
+        TempDir root("digest");
+        std::string id;
+        const fs::path dir = makeGame(root.path, id);
+        const auto digestOf = [&] {
+            auto opened = project::openProject(dir, kEngine, catalog());
+            REQUIRE(opened.has_value());
+            return std::pair{scenario::presentationDigest(*opened->content, dir), opened->content->contentHash()};
+        };
+        const auto [d0, h0] = digestOf();
+        CHECK(d0 == digestOf().first);                                   // 같은 입력 = 같은 값
+        put(dir / "content/ecosystem/presentation/extra/note.txt", "x"); // presentation 의 아무 파일
+        const auto [d1, h1] = digestOf();
+        CHECK(d1 != d0);
+        CHECK(h1 == h0);
+        put(dir / "assets/art/Hero.png", "PNG-other"); // 같은 id · 다른 그림
+        const auto [d2, h2] = digestOf();
+        CHECK(d2 != d1);
+        CHECK(h2 == h0);
+        // 프로젝트가 없으면 (원격 클라이언트) 에셋은 빠진다 — 팩 presentation 만
+        auto opened = project::openProject(dir, kEngine, catalog());
+        REQUIRE(opened.has_value());
+        CHECK(scenario::presentationDigest(*opened->content, {}) != d2);
     }
 }

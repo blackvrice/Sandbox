@@ -2422,6 +2422,40 @@ void ContentLoaderImpl::link() {
     }
 }
 
+namespace {
+
+// 팩의 presentation/ 폴더 지문 (v0.6 NG-14) — 파일 (링크는 건너뛴다) 을 상대 경로 순으로. 없거나 비면 0
+u64 presentationDigestOf(const fs::path& dir) {
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec)) {
+        return 0;
+    }
+    std::vector<std::pair<std::string, fs::path>> files;
+    for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator();
+         it.increment(ec)) {
+        if (!it->is_symlink(ec) && it->is_regular_file(ec)) {
+            files.emplace_back(it->path().lexically_relative(dir).generic_string(), it->path());
+        }
+    }
+    if (files.empty()) {
+        return 0;
+    }
+    std::sort(files.begin(), files.end());
+    Fnv1a64 h;
+    for (const auto& [rel, path] : files) {
+        const auto bytes = io::readFile(path);
+        const std::string_view data = bytes ? std::string_view(*bytes) : std::string_view();
+        h.string(rel)
+            .string(std::string_view("\0", 1))
+            .string(std::to_string(data.size()))
+            .string(std::string_view("\0", 1))
+            .string(data);
+    }
+    return h.value();
+}
+
+} // namespace
+
 std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const std::string> packIds) {
     auto sources = std::make_shared<ContentSources>();
     for (const PackDir& p : resolveOrder(discover(), packIds)) {
@@ -2436,6 +2470,7 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                 warn(p.folder + "/presentation/input.json", "", "IO", text.error().describe());
             }
         }
+        sp.info.presentationDigest = presentationDigestOf(p.dir / "presentation");
         // 클라 전용 머티리얼 (v0.6 M6-T9) — 원문만 (형식 검사는 클라이언트의 MaterialLibrary)
         if (const fs::path mats = p.dir / "presentation" / "materials.json"; fs::is_regular_file(mats)) {
             if (auto text = io::readFile(mats)) {

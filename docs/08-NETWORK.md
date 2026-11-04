@@ -26,6 +26,8 @@
 > [ADR-0068](adr/0068-script-profile-injected-diagnostic-clock-serverstats-protocol-14.md)).
 > **v0.5 M2-T5 (3)** — 프로토콜 15: 플레이어 신호 명령 PlayerSignal (5.1 태그 31 — 팩 signals.json 의 이름 · i32 값, 역할 player 부터,
 > [11](11-CONTENT-SCHEMA.md) 6.1장).
+> **v0.6 NG-14** — 프로토콜 16: 표시 digest (Auth · Welcome 끝 u64 — 그림 · 키 · 머티리얼. contentHash 와 따로, 다르면 접속하고 경고 —
+> [ADR-0097](adr/0097-package-data-integrity-snapshot-ids-paths-digests.md) 5).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -193,14 +195,14 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 
 ---
 
-## 5. 메시지 카탈로그 (`kProtocolVersion = 15`)
+## 5. 메시지 카탈로그 (`kProtocolVersion = 16`)
 
 | id | 이름           | 방향   | 채널     | 필드                                                                                                                                                                  |
 |----|----------------|--------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1  | Hello          | C→S    | Control  | protocolVersion u32, buildId u64, caps u32                                                                                                                            |
 | 2  | Challenge      | S→C    | Control  | nonce u64                                                                                                                                                             |
-| 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64, ownerKey str(64, 12C)            |
-| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, world{name, 경계 4×i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken(16), generation (12D), game (8)   |
+| 3  | Auth           | C→S    | Control  | token bytes(≤32, 빈 것 = 새 접속 — 4장 다시 접속), displayName str(32 글자 · 64 바이트, 제어 문자 없음), contentHash u64, nonce u64, ownerKey str(64, 12C), presentationDigest u64 (16) |
+| 4  | Welcome        | S→C    | Control  | clientId u16, role u8, epoch u8, world{name, 경계 4×i32, paused, speed}, serverTick u64, tickRate u8, snapshotRate u8, sessionToken(16), generation (12D), game (8), presentationDigest u64 (16) |
 | 5  | Reject         | S→C    | Control  | reason u8 (1 버전 · 2 콘텐츠 · 3 가득 참 · 4 핸드셰이크 · 5 이름 · 6 종료), detail str(256), serverProtocolVersion u32, contentHash u64, packs[≤16] str(64), game (8) |
 | 10 | Subscribe      | C→S    | Control  | all bool, (all 이 아니면) 청크 사각형 minX · minY · maxX · maxY zigzag (양끝 포함, 뒤집힘 · 축마다 128 이상 = 형식 오류)                                              |
 | 11 | Ready          | C→S    | Control  | baselineTick u64 `[계획 — 쓰지 않는다: Welcome 뒤 Snapshot 이 바로 시작, ADR-0025]`                                                                                   |
@@ -250,6 +252,10 @@ mode 3 (테스트 플레이). 메시지 모양은 그대로 — 열거 값만 (A
 프로토콜 14 (v0.3 M5-T4): ServerStats 끝에 windowSeconds f32 · scripts varint (≤ 64) × {id str(128) · calls · fuel · nanos (창) ·
 traps · budget · cut · maxFuel · maxNanos (누적) varint · disabled bool} · scriptsOmitted varint (ADR-0068).
 프로토콜 15 (v0.5 M2-T5 (3)): 명령 PlayerSignal (5.1 태그 31 — name str(64), value i32 (u32 비트)). 메시지 모양은 그대로 — 명령 종류만.
+프로토콜 16 (v0.6 NG-14): Auth · Welcome 끝에 presentationDigest u64 — 읽은 팩마다 (로드 순) presentation/** 지문 + 프로젝트 에셋 (경로 ·
+id · SHA-256) 의 FNV-1a64 (scenario::presentationDigest). contentHash (시뮬레이션) 가 다르면 지금처럼 Reject{ContentMismatch}, 표시
+digest 만 다르면 들여보내고 (서버 로그 info) 클라이언트가 Welcome 의 값과 견줘 경고 "보이는 것이 서버와 다를 수 있습니다" (원격 클라이언트에
+게임 패키지의 그림이 없을 때 — asset: 참조는 마젠타).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

@@ -111,6 +111,8 @@ public:
     void setSelection(std::vector<NetEntityId> ids) override;
     void setPreview(std::span<const editor::PreviewOffset> offsets) override;
     [[nodiscard]] u64 snapshotsApplied() const override { return m_seenSnapshots; }
+    // 서버의 표시 digest 가 내 것과 다르다 (v0.6 NG-14 — 접속은 됐다, 그림 · 머티리얼이 다를 수 있다)
+    [[nodiscard]] bool presentationMismatch() const noexcept { return m_presentationMismatch; }
     // 복제 월드가 있으면 그 월드의 카탈로그 (팩 스크립트 컴포넌트 포함 — ADR-0059 6), 없으면 엔진 카탈로그
     [[nodiscard]] const ecs::ComponentCatalog* catalog() const override;
     [[nodiscard]] std::vector<editor::ComponentState> components(NetEntityId id) const override;
@@ -199,6 +201,10 @@ private:
     u32 m_reconnects = 0;
     net::Endpoint m_target;
     bool m_retriedContent = false;
+    // 표시 digest (v0.6 NG-14): 내 것 · 견준 세션 · 결과
+    u64 m_myPresentationDigest = 0;
+    const void* m_presentationCheckedFor = nullptr;
+    bool m_presentationMismatch = false;
     std::optional<std::string> m_failure;
 
     SpriteExtraction m_extraction;

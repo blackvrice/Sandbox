@@ -4,10 +4,10 @@
 // Phase 10B: 선택 상세 (setInspect → InspectResult). Phase 11: 관심 영역 (subscribe), 다시 접속 토큰.
 // Phase 12C: 접속자 표 (PlayerList · 지금 내 역할), 역할 바꾸기 요청 (requestRole → SetRoleResult), 월드 오버레이
 // (ContentOverlay 를 모아 overlay() — 바뀔 때마다 overlayRevision 이 오른다).
-// Phase 12D: 세이브 · 로드 · 리플레이 요청 (requestWorldOp → WorldOpResult · WorldList). 서버 월드가 바뀌면 (WorldChanged)
-// 복제 월드를 새 경계로 다시 만들고 generation 을 따라간다 — 새 generation 의 Snapshot 이 WorldChanged 보다 먼저 오면
-// (채널이 다르다) 쥐고 있다가 그 뒤에 적용한다. 옛 generation 의 것은 버린다.
-// SandboxClient 의 NetworkSession 이 쓴다.
+// Phase 12D: 세이브 · 로드 · 리플레이 요청 (requestWorldOp → WorldOpResult · WorldList). 서버 월드가 바뀌면
+// (WorldChanged) 복제 월드를 새 경계로 다시 만들고 generation 을 따라간다 — 새 generation 의 Snapshot 이 WorldChanged
+// 보다 먼저 오면 (채널이 다르다) 쥐고 있다가 그 뒤에 적용한다. 옛 generation 의 것은 버린다. SandboxClient 의
+// NetworkSession 이 쓴다.
 //
 // 한 스레드에서 쓴다 (Transport 계약). 시간은 호출자가 준다 (초) — 핸드셰이크 시간 초과에만 쓴다.
 
@@ -35,6 +35,7 @@ enum class ClientState : u8 {
 struct ClientSessionDesc {
     std::string displayName = "player";
     u64 contentHash = 0;
+    u64 presentationDigest = 0; // 이 클라이언트의 표시 digest (v0.6 NG-14 — Auth 에)
     u64 buildId = 0;
     f64 handshakeTimeoutSeconds = 10;
     // 다시 접속 (11.4): 지난 Welcome.sessionToken. 서버가 알아보면 같은 clientId · 역할 (모르면 새 클라이언트로)

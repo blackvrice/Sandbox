@@ -18,6 +18,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     h->m_name = src->name;
     h->m_warnings = std::move(src->warnings);
     h->m_projectDir = src->projectDir;
+    h->m_presentationDigest = src->presentationDigest;
     src->runner->world().setJobSystem(h->m_jobs.get());
 
     ServerHostDesc sd;
@@ -26,6 +27,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.defaultRole = Role::Owner; // 혼자 하는 게임 — 일시정지 · 속도 · 편집 모두
     sd.buildId = localBuildId();
     sd.packs = src->packs;
+    sd.presentationDigest = src->presentationDigest;
     if (src->game) {
         setGameProject(sd, *src->game, src->projectDir, *h->m_content);         // 재시작 · 참가자 수 (v0.2 M2-T3)
         sd.packageDigest = src->package ? src->package->digest : std::string(); // 세이브 결속 (v0.2 M5-T2)

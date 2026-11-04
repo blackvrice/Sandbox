@@ -135,8 +135,9 @@ NG-13 경로 정책       ✅ (v0.6 — 2026-11-03) 경로는 ASCII [A-Za-z0-9_.
                       project::checkRelativePath — 그대로), 대소문자만 다른 파일 · 폴더 = 오류 (project::findCaseConflict — sbx build ·
                       팩 스냅숏 · 패키지 index 읽기), sbx build 의 심볼릭 링크 거절 (팩 스냅숏은 전부터). ASCII 만 받으므로 NFC 문제는
                       생기지 않는다 — 비 ASCII 파일 이름을 받을 때 NFC 정규화를 함께 [계획]. 길이는 4.12 의 240 대신 기존 200 (더 엄격) (4.12)
-NG-14 해시 분리       contentHash (시뮬레이션 — presentation 제외, 현행 core/content/ContentLoader.hpp) + presentationDigest (presentation · 에셋),
-                      핸드셰이크에 둘 다 (프로토콜 16): 규칙 다름 = 거절, 표시만 다름 = 접속 + 경고 (4.13)
+NG-14 해시 분리       ✅ (v0.6) contentHash (시뮬레이션 — presentation 제외, 그대로) + 표시 digest (scenario::presentationDigest — 팩마다
+                      presentation/** 지문 (PackInfo.presentationDigest) + 프로젝트 에셋 경로 · id · SHA-256). 프로토콜 16 — Auth · Welcome 에 실어
+                      규칙 다름 = 거절 (그대로), 표시만 다름 = 접속 + 경고 (NetworkSession::presentationMismatch) (4.13)
 NG-08 Export Profile  export/<이름>.json (플랫폼 · 아키텍처 · 렌더 백엔드 · 그룹) 검증, 미검증 플랫폼 = 경고 — v0.6 은 windows-x64 (4.8)
 NG-04 SaveGame        world.json "game".version ↔ 게임 version, migrations/ 의 onMigrate(from, to) 체인 · 백업 world.bak-<from> · 실패 = 원본
                       그대로 · 더 새 게임의 세이브 = 거절 (4.4)

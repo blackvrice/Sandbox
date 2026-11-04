@@ -18,6 +18,7 @@
 #include "core/components/game/CameraStart.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/game/GameRules.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "foundation/log/Log.hpp"
 #include "network/server/CommandValidator.hpp"
 #include "network/transport/EnetTransport.hpp"
@@ -119,6 +120,7 @@ net::ClientSessionDesc NetworkSession::sessionDesc(const content::ContentDatabas
     net::ClientSessionDesc cd;
     cd.displayName = m_desc.displayName;
     cd.contentHash = content.contentHash();
+    cd.presentationDigest = m_myPresentationDigest;
     cd.buildId = net::localBuildId();
     cd.handshakeTimeoutSeconds = m_desc.connectTimeoutSeconds;
     cd.catalog = m_catalog.get();
@@ -129,6 +131,10 @@ net::ClientSessionDesc NetworkSession::sessionDesc(const content::ContentDatabas
 
 Expected<void> NetworkSession::connect() {
     m_session.reset();
+    // 로컬은 서버와 같은 값, 원격은 내 콘텐츠의 것 (프로젝트 파일이 없다 — 서버 게임에 자기 그림이 있으면 다르다)
+    m_myPresentationDigest = m_local        ? m_local->presentationDigest()
+                             : m_ownContent ? scenario::presentationDigest(*m_ownContent, {})
+                                            : 0;
     net::INetworkTransport* transport = nullptr;
     const content::ContentDatabase* content = nullptr;
     if (m_local) {
@@ -301,6 +307,18 @@ void NetworkSession::update(f64 dtSeconds) {
         break;
     default:
         return; // 접속 중
+    }
+    // 표시 digest (v0.6 NG-14) — 접속마다 한 번. 시뮬레이션은 contentHash 로 같다, 그림 · 키 · 머티리얼만 다를 수 있다
+    if (m_presentationCheckedFor != m_session.get() && m_session->welcome()) {
+        m_presentationCheckedFor = m_session.get();
+        m_presentationMismatch = m_session->welcome()->presentationDigest != m_myPresentationDigest;
+        if (m_presentationMismatch) {
+            log::warn("client",
+                      "보이는 것이 서버와 다를 수 있습니다 — 표시 digest 서버 {:016x}, 이 컴퓨터 {:016x} (게임 "
+                      "패키지의 그림 · "
+                      "머티리얼이 없거나 다르다)",
+                      m_session->welcome()->presentationDigest, m_myPresentationDigest);
+        }
     }
 
     const net::ClientWorld* world = m_session->world();

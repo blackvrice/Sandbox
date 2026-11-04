@@ -2,10 +2,12 @@
 
 #include <format>
 
+#include "core/asset/AssetDatabase.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/persist/WorldSave.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "foundation/BuildInfo.hpp"
+#include "foundation/hash/Fnv1a.hpp"
 #include "foundation/io/FileIo.hpp"
 
 namespace sbx::scenario {
@@ -32,8 +34,11 @@ std::string scenarioNames() {
     return names;
 }
 
-Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot, u64 seed,
-                                      const ecs::ComponentCatalog& catalog, const std::filesystem::path& packageCache) {
+namespace {
+
+Expected<WorldSource> openWorldSourceImpl(std::string_view spec, const std::filesystem::path& contentRoot, u64 seed,
+                                          const ecs::ComponentCatalog& catalog,
+                                          const std::filesystem::path& packageCache) {
     WorldSource out;
     if (auto sc = makeScenario(spec)) {
         auto db = loadScenarioContent(*sc, contentRoot, catalog);
@@ -109,6 +114,41 @@ Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesyst
     out.warnings = std::move(loaded->warnings);
     out.runner = std::make_unique<ScenarioRunner>(std::move(loaded->world), std::make_unique<ContinueScenario>());
     out.name = dir.filename().empty() ? dir.parent_path().filename().string() : dir.filename().string();
+    return out;
+}
+
+} // namespace
+
+u64 presentationDigest(const content::ContentDatabase& content, const std::filesystem::path& projectDir) {
+    Fnv1a64 h;
+    for (const content::PackInfo& p : content.packs()) {
+        h.string(p.id)
+            .string(std::string_view("\0", 1))
+            .string(std::format("{:016x}", p.presentationDigest))
+            .string("\n");
+    }
+    std::error_code ec;
+    if (!projectDir.empty() && std::filesystem::is_directory(projectDir / std::string(asset::kAssetDir), ec)) {
+        const asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+        for (const asset::AssetEntry& e : scan.assets) {
+            h.string(e.path).string(" ").string(e.id).string(" ").string(e.sha256).string("\n");
+            for (const std::string& copy : e.copies) {
+                h.string(copy).string(" ").string(e.id).string(" ").string(e.sha256).string("\n");
+            }
+        }
+        for (const std::string& u : scan.unidentified) {
+            h.string(u).string(" ?\n");
+        }
+    }
+    return h.value();
+}
+
+Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot, u64 seed,
+                                      const ecs::ComponentCatalog& catalog, const std::filesystem::path& packageCache) {
+    auto out = openWorldSourceImpl(spec, contentRoot, seed, catalog, packageCache);
+    if (out) {
+        out->presentationDigest = presentationDigest(*out->content, out->projectDir);
+    }
     return out;
 }
 

@@ -408,6 +408,12 @@ void ServerHost::onReceived(ConnectionId conn, Client& client, std::span<const s
             w.snapshotRate = 0;
         }
         w.game = m_desc.game;
+        w.presentationDigest = m_desc.presentationDigest;
+        if (auth->presentationDigest != m_desc.presentationDigest) {
+            // 표시만 다르다 — 들여보낸다 (그림 · 키 · 머티리얼이 다를 수 있다, 시뮬레이션은 contentHash 로 같다)
+            log::info("net", "#{} 표시 digest 가 다르다 (서버 {:016x}, 클라이언트 {:016x}) — 접속은 그대로",
+                      client.clientId, m_desc.presentationDigest, auth->presentationDigest);
+        }
         sendTo(conn, w);
         {
             const std::lock_guard lock(m_mutex);

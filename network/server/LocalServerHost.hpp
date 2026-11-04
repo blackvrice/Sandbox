@@ -53,6 +53,7 @@ public:
     [[nodiscard]] const std::vector<std::string>& warnings() const noexcept { return m_warnings; }
     // 게임 프로젝트 폴더 (패키지면 푼 폴더 — 프로젝트 에셋을 찾는 곳, v0.6 M6-T9). 시나리오 · 세이브면 빈 경로
     [[nodiscard]] const std::filesystem::path& projectDir() const noexcept { return m_projectDir; }
+    [[nodiscard]] u64 presentationDigest() const noexcept { return m_presentationDigest; } // 서버와 같은 값 (NG-14)
     // Inline 전용
     void update(f64 dtSeconds);
     [[nodiscard]] ServerHostStats stats() const { return m_host->stats(); }
@@ -71,6 +72,7 @@ private:
     std::string m_name;
     std::vector<std::string> m_warnings;
     std::filesystem::path m_projectDir;
+    u64 m_presentationDigest = 0;
     std::unique_ptr<ServerHost> m_host; // 마지막에 — 먼저 사라진다
 };
 

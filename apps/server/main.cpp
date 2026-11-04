@@ -190,6 +190,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     }
     desc.buildId = sbx::net::localBuildId();
     desc.packs = world->packs;
+    desc.presentationDigest = world->presentationDigest;
     if (world->game) {
         sbx::net::setGameProject(desc, *world->game, world->projectDir, world->runner->world().content());
         desc.packageDigest = world->package ? world->package->digest : std::string();

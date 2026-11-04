@@ -358,6 +358,9 @@ struct PackInfo {
     // presentation/materials.json 원문 (없으면 빈 문자열) — 클라이언트 머티리얼 (v0.6 M6-T9). sprite 는 "asset:<id>" ·
     // 프로젝트 기준 "assets/…" · 엔진 에셋 루트 상대. input.json 과 같이 클라 전용 — contentHash 밖
     std::string materials;
+    // presentation/** 전부의 지문 (FNV-1a64 — 상대 경로 순, "경로\0크기\0바이트") — 표시 digest 의 재료 (v0.6 NG-14).
+    // 없으면 0. contentHash 와 따로: 그림 · 키 · 머티리얼이 달라도 시뮬레이션은 같다
+    u64 presentationDigest = 0;
 };
 
 } // namespace sbx::content

@@ -306,6 +306,7 @@ void encodeBody(BitWriter& w, const Auth& m) {
     w.writeU64(m.contentHash);
     w.writeU64(m.nonce);
     w.writeString(m.ownerKey);
+    w.writeU64(m.presentationDigest);
 }
 void encodeBody(BitWriter& w, const Welcome& m) {
     w.writeVarU(m.clientId);
@@ -328,6 +329,7 @@ void encodeBody(BitWriter& w, const Welcome& m) {
     }
     w.writeVarU(m.generation);
     writeGame(w, m.game);
+    w.writeU64(m.presentationDigest);
 }
 void encodeBody(BitWriter& w, const Reject& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -582,6 +584,7 @@ Auth decodeAuth(BitReader& r) {
     m.contentHash = r.readU64();
     m.nonce = r.readU64();
     m.ownerKey = r.readString(kMaxOwnerKeyBytes);
+    m.presentationDigest = r.readU64();
     return m;
 }
 Welcome decodeWelcome(BitReader& r) {
@@ -610,6 +613,7 @@ Welcome decodeWelcome(BitReader& r) {
     }
     m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
     m.game = readGame(r);
+    m.presentationDigest = r.readU64();
     return m;
 }
 Reject decodeReject(BitReader& r) {

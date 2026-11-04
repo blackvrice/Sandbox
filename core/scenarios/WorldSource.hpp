@@ -1,10 +1,11 @@
 #pragma once
-// 서버가 돌릴 월드를 이름으로 연다: 시나리오 이름(ecosystem_small …), 게임 프로젝트 폴더(sandbox.project.json 이 있는 곳)
-// 또는 세이브 폴더(world.json 이 있는 곳). SandboxServer --world 와 SandboxClient --world(LocalServerHost, Phase 10B)가 같은
-// 규칙을 쓴다. docs/15-BUILD.md 7장.
+// 서버가 돌릴 월드를 이름으로 연다: 시나리오 이름(ecosystem_small …), 게임 프로젝트 폴더(sandbox.project.json 이 있는
+// 곳) 또는 세이브 폴더(world.json 이 있는 곳). SandboxServer --world 와 SandboxClient --world(LocalServerHost, Phase
+// 10B)가 같은 규칙을 쓴다. docs/15-BUILD.md 7장.
 //
 //   시나리오   loadScenarioContent 로 팩을 읽고 ScenarioRunner(catalog, content, 시나리오, seed)
-//   프로젝트   project::openProject (v0.2 M1-T2, 18 5.2) — 매니페스트 · 이 엔진 버전(BuildInfo) · <프로젝트>/content 팩 ·
+//   프로젝트   project::openProject (v0.2 M1-T2, 18 5.2) — 매니페스트 · 이 엔진 버전(BuildInfo) · <프로젝트>/content 팩
+//   ·
 //              entryWorld 를 검사하고 연다 (contentRoot 인자는 쓰지 않는다). 검사 오류가 하나라도 있으면 열지 않는다.
 //              name = 매니페스트 name, game = 매니페스트. 이어 돌리기는 세이브와 같다
 //   패키지     (v0.2 M5-T2, ADR-0054) .sbpkg 파일 — 검증해 캐시에 풀고 (package::extractPackage) 프로젝트처럼 연다.
@@ -38,7 +39,13 @@ struct WorldSource {
     std::optional<project::GameManifest> game;    // 게임 프로젝트 · 패키지를 열었을 때만
     std::filesystem::path projectDir;             // 프로젝트 폴더 (패키지면 풀어 둔 캐시 — 재시작의 시작 월드 기준)
     std::optional<package::PackageIndex> package; // 패키지를 열었을 때만 (digest · 게임 정체성)
+    u64 presentationDigest = 0;                   // 표시 digest (v0.6 NG-14 — 아래 함수, 핸드셰이크에 실린다)
 };
+
+// 표시 digest (v0.6 NG-14, ADR-0097 5): 읽은 팩마다 (로드 순) id · presentation/** 지문 + projectDir 의 에셋 (경로 · id
+// · SHA-256 — core/asset 훑기). contentHash 와 따로 — 이것만 다르면 접속은 되고 "보이는 것이 다를 수 있다" (그림 · 키 ·
+// 머티리얼)
+[[nodiscard]] u64 presentationDigest(const content::ContentDatabase& content, const std::filesystem::path& projectDir);
 
 [[nodiscard]] Expected<WorldSource> openWorldSource(std::string_view spec, const std::filesystem::path& contentRoot,
                                                     u64 seed, const ecs::ComponentCatalog& catalog,

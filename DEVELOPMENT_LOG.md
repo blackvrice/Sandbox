@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-14: 시뮬레이션 해시 · 표시 digest 분리 — 프로토콜 16, 표시만 다르면 접속 + 경고
+
+**무엇을**
+
+- 콘텐츠 로더가 팩마다 presentation/** 의 지문 (PackInfo.presentationDigest — FNV-1a64, 상대 경로 순 · 링크 건너뜀) 을 남긴다 (contentHash 밖 그대로).
+- scenario::presentationDigest(content, projectDir) — 팩마다 (로드 순) id · 지문 + 프로젝트 에셋 (경로 · id · SHA-256 · id 없는 원본). openWorldSource 가
+  WorldSource.presentationDigest 로.
+- 프로토콜 15 → 16: Auth · Welcome 끝에 presentationDigest u64. 서버 (SandboxServer · LocalServerHost) 는 ServerHostDesc 로 받아 Welcome 에 싣고, Auth 의
+  값이 다르면 기록만 (info) 하고 들여보낸다. 클라이언트 (NetworkSession) 는 로컬이면 서버와 같은 값, 원격이면 자기 콘텐츠 (프로젝트 없음) 의 값을 보내고,
+  Welcome 과 다르면 경고 "보이는 것이 서버와 다를 수 있습니다" · presentationMismatch(). contentHash 가 다르면 지금처럼 거절.
+
+**왜**
+
+- 2차 감사 SG-05 · ADR-0097 5 — 다른 그림 · 머티리얼을 가진 클라이언트가 조용히 다른 화면을 봤다 (M6-T9 로 게임이 자기 그림을 갖게 되어 원격 클라이언트는
+  asset: 참조가 마젠타). 시뮬레이션이 같으면 막을 이유는 없고, 알려야 한다.
+
+**검증**
+
+- test_messages: 프로토콜 16 · Auth · Welcome 왕복. test_network_session: 원격 — 서버와 같은 digest = 경고 없음, 다른 digest = 들어가고 플래그.
+  test_pack_materials: digest 가 presentation 의 아무 파일 · 같은 id 다른 그림에 바뀌고 contentHash 는 그대로, 프로젝트 없는 값은 다르다.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- 원격 클라이언트가 게임 패키지 (그림) 를 받는 길 — 지금은 경고만 (패키지 배포 · Player 는 v0.8 NG-03 · v0.15).
+- 0.5 (프로토콜 15) 와는 접속하지 않는다 — 다음 출시 노트 (0.6.0) 에 적는다.
+
+---
+
 ## 2026-11-04 — 시험 고침: project_own_png 가 Linux CI 에서 실제로 돌지 않았다 (명령줄 목록이 갈라짐) · 통과 = "OK" 줄
 
 **무엇을**

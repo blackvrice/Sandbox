@@ -77,7 +77,9 @@ TEST_SUITE("network") {
         a.contentHash = 42;
         a.nonce = 7;
         a.token = {std::byte{1}, std::byte{2}};
+        a.presentationDigest = 0xABCD'EF01'2345'6789ull; // 프로토콜 16 (v0.6 NG-14)
         const Auth a2 = roundTrip(a);
+        CHECK(a2.presentationDigest == a.presentationDigest);
         CHECK(a2.displayName == "관찰자");
         CHECK(a2.token.size() == 2);
         CHECK(a2.nonce == 7);
@@ -92,7 +94,9 @@ TEST_SUITE("network") {
         w.world.speed = 0.5f;
         w.serverTick = 123456789;
         w.sessionToken.assign(kSessionTokenBytes, std::byte{9});
+        w.presentationDigest = 0xFFFF'0000'FFFF'0000ull;
         const Welcome w2 = roundTrip(w);
+        CHECK(w2.presentationDigest == w.presentationDigest);
         CHECK(w2.clientId == 65535);
         CHECK(w2.role == Role::Admin);
         CHECK(w2.world.minChunkX == -8);
@@ -163,7 +167,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 15); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.5 M2-T5 (3))
+        CHECK(kProtocolVersion == 16); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.6 NG-14 — 표시 digest)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));

@@ -114,6 +114,7 @@ void ClientSession::onMessage(Message& m) {
             a.contentHash = m_desc.contentHash;
             a.nonce = ch->nonce;
             a.ownerKey = m_desc.ownerKey;
+            a.presentationDigest = m_desc.presentationDigest;
             send(a);
             return;
         }

@@ -69,6 +69,7 @@ struct ServerHostDesc {
     u64 buildId = 0;
     std::vector<std::string> packs;  // 콘텐츠 팩 id (Reject{ContentMismatch} 로 알려 준다)
     std::string ownerKey;            // 비지 않으면 Auth.ownerKey 가 같은 사람이 Owner (--owner-key, 12C)
+    u64 presentationDigest = 0;      // 표시 digest (v0.6 NG-14 — Welcome 에 실어 클라이언트가 견준다)
     std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D, --saves). 비면 목록만 (빈 목록)
     f64 handshakeTimeoutSeconds = 10;
     f64 statsIntervalSeconds = 1;

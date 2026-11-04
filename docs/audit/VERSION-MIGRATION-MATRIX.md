@@ -13,7 +13,7 @@
 | Engine API 범위 | 새 프로젝트 ">=x.y.z <1.0.0" | 프로젝트가 정함 | 범위 밖 엔진 = 열기 거절 (문장) | test_game_project · test_semver | 1.0 전환 (NG-16) |
 | Host API | 1 · 0x1dfa888c39154dde | 같은 버전 + 같은 지문 | 지문 다름 = 패키지의 소스로 다시 컴파일 · 버전 다름 = 거절 | test_bytecode (지문) · test_runtime_contract | — |
 | Bytecode .sbc | 9 | 9 | 다시 컴파일 (소스는 패키지에) | test_bytecode | 10 (M6-T4 — 줄 표) 때 9 읽기 여부 결정 |
-| Protocol | 15 | 같은 값만 | 핸드셰이크 거절 (문장) | unit_network (핸드셰이크) | 16 (NG-14 presentationDigest) |
+| Protocol | 16 (v0.6 NG-14 — 표시 digest) | 같은 값만 | 핸드셰이크 거절 (문장) — 0.5 (15) 와 접속하지 않는다 | unit_network (핸드셰이크 · Auth · Welcome 왕복) | 표시 digest 만 다르면 접속 + 경고 (test_network_session) |
 | Simulation | 4 | 어느 값이든 읽음 | 리플레이 · 세이브 모두 진행하되 해시 비교를 건너뛰고 "규칙 차이" 로 알림 (core/replay/Replay.cpp simVersionDiffers · WorldSave.cpp hashSkippedReason) | det_* · test_replay | 툴체인 간 재생 (SG-06) |
 | World/Save | 1 · 1 | ≤ 지금 | 더 새 것 거절 · 스크립트 컴포넌트 자동 마이그레이션 (ADR-0061) | test_world_save (스크립트 마이그레이션) · test_sample_saves | 게임 버전 마이그레이션 (NG-04) |
 | Game 결속 | world.json "game" | 같은 gameId | 다른 게임 거절 · 다른 version · 패키지는 알림 | test_world_ops ("세이브는 게임에 묶인다") | 같은 게임 · 다른 version (NG-04) |

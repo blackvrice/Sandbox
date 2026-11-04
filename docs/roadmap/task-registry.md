@@ -41,7 +41,7 @@
 | NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Done | — | v0.6 | P0 | — | test_game_project (findCaseConflict · P4 경로) · test_game_package (대소문자 · 링크 — Linux CI) |
 | NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Done | — | v0.6 | P0 | M6-T9 | test_game_package "빌드 스냅숏" (읽은 뒤 저장 · 검사와 읽기 사이 고침 · 에셋 바뀜 · 옛 출력 그대로 · 임시 정리) |
 | NG-02 | 동적 에셋 참조 — Asset Group · 라벨 (정적 참조 + 선언) | B | Proposed | — | v0.6 | P1 | M6-T9 | 그룹 포함 · 누락 경고 · 크기 보고 시험 |
-| NG-14 | 시뮬레이션 해시 · 표시 digest 분리 (핸드셰이크 경고) | A | Proposed | — | v0.6 | P1 | M6-T9 | 다른 PNG · 같은 규칙 = 접속 + 경고, 다른 규칙 = 거절 |
+| NG-14 | 시뮬레이션 해시 · 표시 digest 분리 (핸드셰이크 경고) | A | Done | — | v0.6 | P1 | M6-T9 | test_network_session (다른 표시 digest = 접속 + 경고, 같으면 없음) · test_pack_materials (digest 가 presentation · 에셋에 따라 바뀌고 contentHash 그대로) · test_messages (프로토콜 16 왕복) |
 | NG-08 | Export Profile (대상 OS · 아키텍처 · 백엔드 · 검증 — Windows 먼저) | B | Proposed | — | v0.6 | P1 | M6-T9 | 프로필 검증 · 미검증 플랫폼 표시 시험 |
 | NG-04 | SaveGame 마이그레이션 계약 (게임 버전 · 체인 · 백업 · 실패 복구) | A | Proposed | — | v0.6 | P1 | — | 옛 세이브 → 체인 → 같은 해시 · 실패 = 백업 그대로 |
 | RT-06-12 | 비동기 에셋 로드 · 캐시 | A | Planned | v0.6 | v0.6 | P2 | M6-T9 | 로드 순서 무관 표시 |

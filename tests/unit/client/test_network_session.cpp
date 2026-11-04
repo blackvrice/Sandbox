@@ -352,6 +352,7 @@ TEST_SUITE("client") {
         hd.packs = src->packs;
         hd.defaultRole = net::Role::Editor; // 일시정지는 admin 부터 → 거절
         hd.randomSeed = 5;
+        hd.presentationDigest = src->presentationDigest; // 같은 팩 · 프로젝트 없음 — 원격 클라이언트도 같은 값 (NG-14)
         net::ServerHost host(serverT, std::move(src->runner), hd);
         REQUIRE(host.start({"srv", 7777}).has_value());
 
@@ -378,6 +379,7 @@ TEST_SUITE("client") {
         }
         REQUIRE_FALSE(ns->failure().has_value());
         REQUIRE(ns->ready()); // 내장 콘텐츠로 거절 → eco 팩을 읽어 다시 접속
+        CHECK_FALSE(ns->presentationMismatch());
         const WorldInfo info = ns->info();
         REQUIRE(info.net.has_value());
         CHECK_FALSE(info.net->local);
@@ -404,6 +406,44 @@ TEST_SUITE("client") {
         }
         REQUIRE(ns->failure().has_value());
         CHECK(ns->failure()->find("끊겼습니다") != std::string::npos);
+    }
+
+    TEST_CASE("network session (remote): presentation digest differs → still connects, flags it (v0.6 NG-14)") {
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        auto src = scenario::openWorldSource("ecosystem_small", SBX_CONTENT_DIR, 1, catalog);
+        REQUIRE(src.has_value());
+        CHECK(src->presentationDigest != 0); // eco 팩에 presentation/input.json 이 있다
+        net::LoopbackNetwork hub;
+        net::LoopbackTransport serverT(hub);
+        net::ServerHostDesc hd;
+        hd.worldName = src->name;
+        hd.packs = src->packs;
+        hd.randomSeed = 6;
+        hd.presentationDigest = src->presentationDigest ^ 1; // 서버 게임에 자기 그림이 있다고 치자
+        net::ServerHost host(serverT, std::move(src->runner), hd);
+        REQUIRE(host.start({"srv", 7777}).has_value());
+        auto mats = materials();
+        NetworkSessionDesc d;
+        d.mode = NetworkSessionMode::Remote;
+        d.connect = "srv:7777";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.transportFactory = [&]() -> Expected<std::unique_ptr<net::INetworkTransport>> {
+            return std::unique_ptr<net::INetworkTransport>(std::make_unique<net::LoopbackTransport>(hub));
+        };
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        auto ns = std::move(*made);
+        for (int i = 0; i < 200 && !ns->ready() && !ns->failure(); ++i) {
+            ns->update(kDt);
+            host.update(kDt);
+            render::RenderWorld w;
+            ns->extract(w);
+        }
+        REQUIRE_FALSE(ns->failure().has_value());
+        CHECK(ns->ready());                // 시뮬레이션은 같다 (contentHash) — 들어간다
+        CHECK(ns->presentationMismatch()); // 보이는 것만 다를 수 있다
+        host.stop();
     }
 
     TEST_CASE("network session (remote): a dropped network reconnects with the session token, a gone server fails") {

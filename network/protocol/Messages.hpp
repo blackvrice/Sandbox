@@ -34,7 +34,7 @@ namespace sbx::net {
 // Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2 14: ServerStats 의 스크립트
 // 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4 15: 명령
 // PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3)
-inline constexpr u32 kProtocolVersion = 15;
+inline constexpr u32 kProtocolVersion = 16;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -130,6 +130,7 @@ struct Auth {
     u64 nonce = 0; // Challenge 의 값을 그대로
     // 프로토콜 6 (12C): 서버의 --owner-key 와 같으면 Owner 로 들어온다. 비면 없음 (다르면 Reject{BadHandshake})
     std::string ownerKey;
+    u64 presentationDigest = 0; // 프로토콜 16 (v0.6 NG-14): 클라이언트의 표시 digest — 달라도 접속 (서버는 기록만)
 };
 // 서버가 돌리는 게임 프로젝트의 정체성 (프로토콜 8, v0.2 M1-T3 — 18 5장). 시나리오 · 세이브 폴더면 모두 빈 문자열
 struct GameIdentity {
@@ -160,8 +161,9 @@ struct Welcome {
     // 복제되는 컴포넌트 표 (stableId, 서버 순서). Snapshot 의 컴포넌트 번호 = 이 표의 칸. 클라이언트가 모르는 것은
     // 건너뛴다
     std::vector<u64> replicated;
-    u32 generation = 0; // 프로토콜 7: 서버 월드가 바뀐 횟수 (로드 · 리플레이 재생 — WorldChanged)
-    GameIdentity game;  // 프로토콜 8
+    u32 generation = 0;         // 프로토콜 7: 서버 월드가 바뀐 횟수 (로드 · 리플레이 재생 — WorldChanged)
+    GameIdentity game;          // 프로토콜 8
+    u64 presentationDigest = 0; // 프로토콜 16 (v0.6 NG-14): 서버의 표시 digest — 클라이언트가 자기 것과 견줘 경고
 };
 struct Reject {
     RejectReason reason = RejectReason::BadHandshake;
