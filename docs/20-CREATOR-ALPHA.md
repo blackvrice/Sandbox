@@ -117,6 +117,11 @@ M3-T1 ✅   (v0.7) ui/model UiDocument — 위 모양 그대로 + list 는 item 
            border {color, width} · fontSize · padding}}}. 검사는 프로젝트 검사 (validateProject — sbx check · doctor) 가 부른다 (로더는
            원문만, openProject 는 보지 않는다 — ADR-0101). component 바인딩 대상은 owned · selected (식 모양만 — 칸 존재는 M3-T4),
            문자열 키 존재 (U5) 는 M4-T1, 노드 visible · theme 은 [계획]. 데모: samples/rabbit_guard 의 eco.hud (점수 · 기운 · 행동 버튼)
+M3-T2 ✅   (v0.7) ui/layout layoutDocument — 가장자리 = 부모 앵커 위치 + offset · 배율 (왼 · 위 · 오른 · 아래 모두 같은 식), size 가
+           있으면 먼 가장자리 대신, 둘 다 없으면 내용에 맞춤 (ITextMeasure — 헤드리스는 FixedTextMeasure). 쌓는 부모의 자식은
+           앵커 · offset 대신 차례 · align. 여백 = panel padding · 스타일 padding 중 큰 쪽, 글꼴 = 스타일 fontSize (없으면 16) · 배율.
+           가장자리마다 floor(v + 0.5) 반올림 (이웃 사이 틈 · 겹침 없음), clip = 조상 사각형의 교집합, 결과 4,096 노드까지.
+           글자 · list 항목 수는 콜백 (바인딩 평가는 M3-T4)
 ```
 
 ### 2.4 런타임 · 입력

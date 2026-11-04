@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-04 — v0.7 M3-T2: 게임 UI 배치 엔진 — 앵커 · 쌓기 · 맞춤 · 배율 · 자름 (헤드리스 골든)
+
+**무엇을**
+
+- ui/layout layoutDocument: 가장자리 = 부모 앵커 위치 + offset · 배율 (네 가장자리 같은 식 — 20 2.3 의 예 [8, 8, -8, 48] = 늘린 띠 높이 40),
+  size 는 먼 가장자리 대신, 없으면 내용 (ITextMeasure — 글자, 쌓은 자식, list 항목). 쌓는 부모 (row · column · list) 는 차례 + gap +
+  align (start · center · end · stretch). 여백 = panel · 스타일 padding 중 큰 쪽, 글꼴 = 스타일 fontSize (16) · 배율 (0.5 ~ 4 로 자름).
+  가장자리마다 floor(v + 0.5), clip = 조상 사각형의 교집합, 결과 4,096 노드까지. 글자 · list 항목 수는 콜백 (바인딩은 M3-T4).
+- FixedTextMeasure (코드 포인트 × advance × 글꼴 — 헤드리스 · 시험).
+
+**왜**
+
+- 등록부 M3-T2 (v0.7 P0) — 그리기 백엔드 (M3-T3) · 입력 판정이 같은 사각형을 쓴다. 같은 입력 = 같은 사각형 (헤드리스 시험 · 서버 없음).
+
+**검증**
+
+- test_ui_layout 6 — 기대 사각형은 모두 손으로 계산했다 (글꼴 16 = 글자 8 × 20): 위쪽 띠 · align 넷 · 배율 2 · 창 크기 · 점 앵커 둘 ·
+  반올림 (101 → 51 + 50) · 긴 글자 clip · 겹친 panel 맞춤 · 한글 · list · 상한 · 데모 HUD 1280 × 720 8 사각형. 첫 실행에 모두 맞았다.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) -Wall -Wextra -Wpedantic -Wshadow — 새 경고 없음.
+
+**남은 일**
+
+- 스크롤 (list), 줄 바꿈 (글자는 한 줄), 노드 visible. 그리기 · 입력 라우팅 M3-T3, 바인딩 평가 M3-T4.
+
 ## 2026-11-04 — v0.7 M3-T1: 게임 UI 타깃 SandboxGameUI — 문서 모델 · 검사 U1 ~ U8 · sbx check 연결
 
 **무엇을**

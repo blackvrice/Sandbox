@@ -77,6 +77,7 @@ add_executable(SandboxTests
     unit/project/test_asset_database.cpp
     unit/project/test_asset_groups.cpp
     unit/ui/test_ui_document.cpp
+    unit/ui/test_ui_layout.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
