@@ -7,6 +7,7 @@
 #include <format>
 #include <map>
 #include <optional>
+#include <random>
 #include <set>
 
 #include <nlohmann/json.hpp>
@@ -371,6 +372,47 @@ Expected<PackageIndex> parse(const std::string& bytes, const fs::path& file, usi
     return idx;
 }
 
+// 머리 · index (parse) + 파일마다 SHA-256 + 팩 · 에셋 요약을 파일 바이트와 견준다 — 검증 · 풀기 · 빌드 (만든 바이트를
+// 읽는 쪽 규칙으로 — NG-01)
+Expected<PackageIndex> verifyBytes(const std::string& bytesIn, const fs::path& file, usize& dataStart) {
+    const std::string* bytes = &bytesIn;
+    auto idx = parse(*bytes, file, dataStart);
+    if (!idx) {
+        return idx;
+    }
+    for (const PackageEntry& e : idx->files) {
+        const std::string_view data(bytes->data() + dataStart + e.offset, static_cast<usize>(e.size));
+        if (hexOf(data) != e.sha256) {
+            return makeError(
+                ErrorCode::ValidationFailed,
+                std::format("'{}' 의 내용이 index 의 sha256 과 다르다 (고친 패키지는 열지 않는다)", e.path),
+                io::displayPath(file));
+        }
+    }
+    if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
+    if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
+        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
+    }
+    return idx;
+}
+
+// 빌드가 잠깐 만드는 폴더 — 범위를 벗어나면 지운다 (실패 · 예외 경로 모두)
+struct StagingDir {
+    fs::path path;
+    explicit StagingDir(const fs::path& near) {
+        std::random_device rd;
+        path = near / std::format(".sbx-build-{:08x}{:08x}", rd(), rd());
+    }
+    ~StagingDir() {
+        std::error_code ec;
+        fs::remove_all(path, ec);
+    }
+    StagingDir(const StagingDir&) = delete;
+    StagingDir& operator=(const StagingDir&) = delete;
+};
+
 } // namespace
 
 std::string packageDigest(const std::vector<PackageEntry>& files) {
@@ -382,7 +424,7 @@ std::string packageDigest(const std::vector<PackageEntry>& files) {
 }
 
 Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& out, const SemVer& engine,
-                                   const ecs::ComponentCatalog& catalog) {
+                                   const ecs::ComponentCatalog& catalog, const BuildHooks& hooks) {
     // 1. 실행할 수 있는 프로젝트인가 (열기와 같은 검사 — 오류면 만들지 않는다)
     auto opened = project::openProject(projectDir, engine, catalog);
     if (!opened) {
@@ -458,6 +500,9 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     idx.entryWorld = m.entryWorld;
     idx.gameMode = m.gameMode;
     std::vector<std::pair<std::string, std::string>> contents; // (path, bytes)
+    if (hooks.beforeRead) {
+        hooks.beforeRead();
+    }
     for (const fs::path& f : files) {
         const std::string rel = relativeOf(projectDir, f);
         if (const auto why = project::checkRelativePath(rel)) {
@@ -469,6 +514,11 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
             return std::unexpected(bytes.error());
         }
         contents.emplace_back(rel, std::move(*bytes));
+    }
+    // 4. 스냅숏 (NG-01, ADR-0097 1) — 위에서 한 번 읽은 바이트가 이 빌드의 입력이다. 아래 검증 · 실기는 모두 이
+    // 바이트로
+    if (hooks.afterRead) {
+        hooks.afterRead();
     }
     std::sort(contents.begin(), contents.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     {
@@ -513,6 +563,50 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     }
     const fs::path file =
         out.empty() ? projectDir / "build" / std::format("{}-{}{}", m.gameId, idx.version, kExtension) : out;
+    // 5. 만든 바이트를 읽는 쪽 규칙으로 (index · SHA-256 · 팩 · 에셋 요약) — 훑기와 읽기 사이에 바뀐 에셋도 여기서
+    // 걸린다
+    {
+        usize dataStart = 0;
+        if (auto v = verifyBytes(blob, file, dataStart); !v) {
+            return makeError(
+                ErrorCode::ValidationFailed,
+                std::format("만든 패키지가 검증을 지나지 못했다 — 빌드 중 바뀐 파일일 수 있다 ({})", v.error().message),
+                io::displayPath(projectDir));
+        }
+    }
+    // 6. 실은 바이트 그대로를 푼 폴더 (받는 쪽이 여는 것) 로 연다 — 검사한 것 = 실은 것 (첫 검사는 디스크에서 따로
+    // 읽었다)
+    {
+        std::error_code ec;
+        const StagingDir staging(fs::temp_directory_path(ec));
+        for (const auto& [path, bytes] : contents) {
+            const fs::path dst = staging.path / fs::path(path);
+            if (auto d = io::createDirectories(dst.parent_path()); !d) {
+                return std::unexpected(d.error());
+            }
+            if (auto w = io::writeFileAtomic(dst, bytes); !w) {
+                return std::unexpected(w.error());
+            }
+        }
+        if (auto again = project::openProject(staging.path, engine, catalog, {.toolFiles = false}); !again) {
+            return makeError(ErrorCode::ValidationFailed,
+                             std::format("실을 내용이 검사를 지나지 못했다 — 빌드 중 바뀐 파일일 수 있다 ({})",
+                                         again.error().message),
+                             io::displayPath(projectDir));
+        }
+    }
+    // 7. 바뀜 감지 — 읽은 뒤 디스크의 원본이 바뀌었으면 만들지 않는다 (옛 출력은 그대로 — 아직 쓰지 않았다)
+    for (const fs::path& f : files) {
+        const std::string rel = relativeOf(projectDir, f);
+        const auto it = std::lower_bound(contents.begin(), contents.end(), rel,
+                                         [](const auto& a, const std::string& b) { return a.first < b; });
+        const auto now = io::readFile(f);
+        if (it == contents.end() || it->first != rel || !now || hexOf(*now) != hexOf(it->second)) {
+            return makeError(ErrorCode::ValidationFailed,
+                             std::format("빌드 중 바뀐 파일 '{}' — 저장이 끝난 뒤 다시 빌드한다", rel),
+                             io::displayPath(f));
+        }
+    }
     if (file.has_parent_path()) {
         if (auto r = io::createDirectories(file.parent_path()); !r) {
             return std::unexpected(r.error());
@@ -539,26 +633,7 @@ Expected<PackageIndex> verifyPackage(const fs::path& file) {
         return std::unexpected(bytes.error());
     }
     usize dataStart = 0;
-    auto idx = parse(*bytes, file, dataStart);
-    if (!idx) {
-        return idx;
-    }
-    for (const PackageEntry& e : idx->files) {
-        const std::string_view data(bytes->data() + dataStart + e.offset, static_cast<usize>(e.size));
-        if (hexOf(data) != e.sha256) {
-            return makeError(
-                ErrorCode::ValidationFailed,
-                std::format("'{}' 의 내용이 index 의 sha256 과 다르다 (고친 패키지는 열지 않는다)", e.path),
-                io::displayPath(file));
-        }
-    }
-    if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
-        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
-    }
-    if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
-        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
-    }
-    return idx;
+    return verifyBytes(*bytes, file, dataStart);
 }
 
 Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& cacheRoot) {
@@ -567,24 +642,9 @@ Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& 
         return std::unexpected(bytes.error());
     }
     usize dataStart = 0;
-    auto idx = parse(*bytes, file, dataStart);
+    auto idx = verifyBytes(*bytes, file, dataStart);
     if (!idx) {
         return std::unexpected(idx.error());
-    }
-    for (const PackageEntry& e : idx->files) {
-        const std::string_view data(bytes->data() + dataStart + e.offset, static_cast<usize>(e.size));
-        if (hexOf(data) != e.sha256) {
-            return makeError(
-                ErrorCode::ValidationFailed,
-                std::format("'{}' 의 내용이 index 의 sha256 과 다르다 (고친 패키지는 열지 않는다)", e.path),
-                io::displayPath(file));
-        }
-    }
-    if (auto why = checkPackClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
-        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
-    }
-    if (auto why = checkAssetClaims(*idx, std::string_view(*bytes).substr(dataStart))) {
-        return makeError(ErrorCode::ValidationFailed, std::move(*why), io::displayPath(file));
     }
     const fs::path dir = cacheRoot / idx->digest.substr(0, 16);
     std::error_code ec;

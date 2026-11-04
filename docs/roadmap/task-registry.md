@@ -39,7 +39,7 @@
 | M6-T9 | 프로젝트 에셋 · .meta 안정 id · PNG 가져오기 · .sbpkg 3 · 루트 차례 | B | Done | v0.5 | v0.6 | P0 | NG-12 · NG-13 | project_assets · project_own_png (자기 PNG 를 넣은 게임이 다른 폴더 · 빈 캐시에서 올라간다) · test_pack_materials |
 | NG-12 | 에셋 id 충돌 정책 (같은 id · 다른 내용 = 오류, 복제 = 새 id) | B | Done | — | v0.6 | P0 | — | test_asset_database (사본 · 충돌 · .meta 없음 · 깨짐 · 짝 없음 · 경로 · 프로젝트 검사) |
 | NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Done | — | v0.6 | P0 | — | test_game_project (findCaseConflict · P4 경로) · test_game_package (대소문자 · 링크 — Linux CI) |
-| NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Proposed | — | v0.6 | P0 | M6-T9 | 빌드 중 소스 수정 시험 · 같은 입력 = 같은 digest |
+| NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Done | — | v0.6 | P0 | M6-T9 | test_game_package "빌드 스냅숏" (읽은 뒤 저장 · 검사와 읽기 사이 고침 · 에셋 바뀜 · 옛 출력 그대로 · 임시 정리) |
 | NG-02 | 동적 에셋 참조 — Asset Group · 라벨 (정적 참조 + 선언) | B | Proposed | — | v0.6 | P1 | M6-T9 | 그룹 포함 · 누락 경고 · 크기 보고 시험 |
 | NG-14 | 시뮬레이션 해시 · 표시 digest 분리 (핸드셰이크 경고) | A | Proposed | — | v0.6 | P1 | M6-T9 | 다른 PNG · 같은 규칙 = 접속 + 경고, 다른 규칙 = 거절 |
 | NG-08 | Export Profile (대상 OS · 아키텍처 · 백엔드 · 검증 — Windows 먼저) | B | Proposed | — | v0.6 | P1 | M6-T9 | 프로필 검증 · 미검증 플랫폼 표시 시험 |

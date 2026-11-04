@@ -23,6 +23,7 @@
 //          쓴다).
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -91,9 +92,17 @@ struct BuildResult {
     PackageIndex index;
     u64 bytes = 0;
 };
+// 빌드 스냅숏 (v0.6 NG-01, ADR-0097 1): 입력 파일을 한 번 읽은 바이트가 이 빌드의 입력이다 — 그 바이트로 패키지를
+// 만들어 읽는 쪽 규칙 (verify) 으로 보고, 그 바이트만 푼 임시 폴더를 openProject 로 연다 (검사한 것 = 실은 것). 쓰기
+// 직전에 원본을 다시 해시해 바뀌었으면 ValidationFailed "빌드 중 바뀐 파일" (옛 출력은 그대로). 같은 입력 = 같은
+// 바이트. 쓰기는 원자적 (임시 → 이름 바꾸기)
+struct BuildHooks {
+    std::function<void()> beforeRead; // 첫 검사 · 에셋 훑기 뒤, 입력을 읽기 전 (시험 — 그 사이의 편집 흉내)
+    std::function<void()> afterRead;  // 입력을 다 읽은 뒤 (시험 — 빌드 중 저장 흉내 · Studio 진행 표시)
+};
 [[nodiscard]] Expected<BuildResult> buildPackage(const std::filesystem::path& projectDir,
                                                  const std::filesystem::path& out, const SemVer& engine,
-                                                 const ecs::ComponentCatalog& catalog);
+                                                 const ecs::ComponentCatalog& catalog, const BuildHooks& hooks = {});
 
 // 헤더 · index 만 (모양 · digest 다시 계산 — 파일 내용은 보지 않는다)
 [[nodiscard]] Expected<PackageIndex> readPackageIndex(const std::filesystem::path& file);

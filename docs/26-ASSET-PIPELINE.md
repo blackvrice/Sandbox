@@ -119,7 +119,9 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 계약의 자세한 줄은 [audit/SECOND-PASS-GAP-ANALYSIS](audit/SECOND-PASS-GAP-ANALYSIS.md) 4장 — 여기는 요지와 태스크.
 
 ```text
-NG-01 빌드 스냅숏     시작 때 입력 목록 (경로 · 크기 · SHA-256), 읽은 내용이 다르면 실패 "빌드 중 바뀐 파일", 출력은 임시 → 원자적 이름 바꾸기 (4.1)
+NG-01 빌드 스냅숏     ✅ (v0.6 — core/package buildPackage) 한 번 읽은 바이트가 입력: 만든 바이트를 읽는 쪽 규칙으로 검증 · 그 바이트만 푼
+                      임시 폴더를 openProject (검사한 것 = 실은 것), 쓰기 직전 원본 다시 해시 → 다르면 "빌드 중 바뀐 파일", 원자적 출력 ·
+                      임시 정리 (writeFileAtomic 이 쓰기 실패에도 .tmp 를 지운다). 같은 입력 = 같은 바이트 (4.1)
 NG-02 Asset Group     assets/groups.json {name, include: [glob · 라벨]} — 동적 참조 (스크립트가 이름으로 부르는 에셋) 는 그룹째 포함,
                       그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.18] RT-08-4 (4.2)
 NG-12 id 충돌         ✅ (v0.6 — core/asset/AssetDatabase) .meta = {"id": 32 hex, "importer": "image@1", "settings": {}} (정규형 쓰기).

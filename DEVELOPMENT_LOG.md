@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-01: 빌드 스냅숏 — 검사한 것 = 실은 것, 빌드 중 바뀐 파일 거절, 옛 출력 · 임시 정리
+
+**무엇을**
+
+- buildPackage (core/package): 입력 파일을 한 번 읽은 바이트가 이 빌드의 입력 (스냅숏).
+  1. 그 바이트로 만든 패키지를 읽는 쪽 규칙으로 검증 (verifyBytes — index · SHA-256 · 팩 · 에셋 요약; verifyPackage · extractPackage 와 같은 함수로
+     합침) — 훑은 뒤 · 읽기 전에 바뀐 에셋도 여기서 걸린다.
+  2. 그 바이트만 임시 폴더 (.sbx-build-* — 범위를 벗어나면 지운다) 에 풀어 openProject (toolFiles 끔) — 첫 검사는 디스크에서 따로 읽었으므로,
+     검사와 읽기 사이의 고침이 검사 안 된 채 실리던 틈을 막는다.
+  3. 쓰기 직전 원본을 다시 해시 — 다르면 "빌드 중 바뀐 파일 '<경로>'" (옛 출력은 그대로 — 아직 쓰지 않았다).
+- BuildHooks {beforeRead, afterRead} (시험 — 그 사이의 편집 흉내 · Studio 진행 표시).
+- io::writeFileAtomic: 쓰기 실패에도 반쯤 쓴 .tmp 를 지운다 (지금까지는 이름 바꾸기 실패 때만).
+
+**왜**
+
+- 2차 감사 4.1 · ADR-0097 1 — 빌드가 파일을 두 번 (검사 · 싣기) 따로 읽어 그 사이의 저장이 검사 안 된 내용으로 실릴 수 있었다.
+
+**검증**
+
+- test_game_package "빌드 스냅숏": 읽은 뒤 저장 → 바뀐 파일 이름 · 옛 출력 바이트 그대로 · .tmp 없음, 검사와 읽기 사이 콘텐츠 깨뜨림 → 실을 내용 검사 실패,
+  훑은 뒤 에셋 바꿈 → 만든 패키지 검증 실패, 바뀌지 않으면 만든다 · 임시 폴더 안 남음. 같은 바이트 (기존 시험) · tech_alpha_e2e · sample_stash ·
+  project_reproduce 그대로.
+- 비용 (14 7.16): sbx build 가 검사 한 번만큼 늘었다 (Debug — stdlib_tour ~ 120 ms, mana_regen ~ 400 ms). 바꾸기 전 실행 파일은 남기지 않아 sbx check 로 추정.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- v0.6: NG-02 Asset Group · NG-14 해시 분리 · NG-08 Export Profile · NG-04 SaveGame · RT-06-12.
+- 큰 프로젝트 · Release 의 빌드 시간은 M6-T3 (빌드 화면) 전에 다시 잰다.
+
+---
+
 ## 2026-11-04 — v0.6 M6-T9 (2): 게임의 자기 머티리얼 · 에셋을 클라이언트가 그린다 — asset:<id> · 팩 materials.json · A6 (M6-T9 끝)
 
 **무엇을**

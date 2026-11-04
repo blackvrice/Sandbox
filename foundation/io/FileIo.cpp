@@ -41,6 +41,9 @@ Expected<void> writeFileAtomic(const std::filesystem::path& path, std::string_vi
         out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
         out.flush();
         if (!out) {
+            out.close();
+            std::error_code ec;
+            std::filesystem::remove(tmp, ec); // 반쯤 쓴 임시 파일을 남기지 않는다 (옛 파일은 그대로)
             return makeError(ErrorCode::IoError, "쓰기 실패", displayPath(tmp));
         }
     }

@@ -386,4 +386,61 @@ TEST_SUITE("project") {
         REQUIRE_FALSE(clash.has_value());
         CHECK(clash.error().message.find("A3") != std::string::npos);
     }
+
+    TEST_CASE("package: 빌드 스냅숏 (v0.6 NG-01) — 읽은 뒤 바뀐 원본 · 검사와 읽기 사이의 고침은 만들지 않고, 옛 "
+              "출력은 그대로") {
+        TempDir root("snapshot");
+        const fs::path dir = makeDemo(root.path);
+        const fs::path out = root.path / "g.sbpkg";
+        const auto first = package::buildPackage(dir, out, kEngine, catalog());
+        REQUIRE(first.has_value());
+        const std::string good = *io::readFile(out);
+        const auto stagingDirs = [] {
+            usize n = 0;
+            std::error_code ec;
+            for (const auto& e : fs::directory_iterator(fs::temp_directory_path(), ec)) {
+                n += e.path().filename().string().starts_with(".sbx-build-") ? 1 : 0;
+            }
+            return n;
+        };
+        const usize stagingBefore = stagingDirs();
+        const fs::path world = dir / "worlds/main/world.json";
+        const std::string worldText = *io::readFile(world);
+
+        // 읽은 뒤 저장 (편집기가 빌드 중에 저장) → 실패, 옛 출력 바이트 그대로 · 임시 파일 없음
+        package::BuildHooks save;
+        save.afterRead = [&] { std::ofstream(world, std::ios::binary | std::ios::trunc) << worldText << " "; };
+        const auto changed = package::buildPackage(dir, out, kEngine, catalog(), save);
+        REQUIRE_FALSE(changed.has_value());
+        CHECK(changed.error().message.find("빌드 중 바뀐 파일 'worlds/main/world.json'") != std::string::npos);
+        CHECK(*io::readFile(out) == good);
+        CHECK_FALSE(fs::exists(fs::path(out.string() + ".tmp")));
+        std::ofstream(world, std::ios::binary | std::ios::trunc) << worldText;
+
+        // 검사와 읽기 사이에 콘텐츠를 깨뜨림 → 실을 바이트로 다시 연 검사가 잡는다 (첫 검사는 옛 내용을 봤다)
+        const fs::path prefab = dir / "content/ecosystem/prefabs/rabbit.json";
+        const std::string prefabText = *io::readFile(prefab);
+        package::BuildHooks broke;
+        broke.beforeRead = [&] { std::ofstream(prefab, std::ios::binary | std::ios::trunc) << "{ broken"; };
+        const auto invalid = package::buildPackage(dir, out, kEngine, catalog(), broke);
+        REQUIRE_FALSE(invalid.has_value());
+        CHECK(invalid.error().message.find("실을 내용이 검사를 지나지 못했다") != std::string::npos);
+        CHECK(*io::readFile(out) == good);
+        std::ofstream(prefab, std::ios::binary | std::ios::trunc) << prefabText;
+
+        // 에셋을 훑은 뒤 · 읽기 전에 바꿈 → 만든 바이트의 검증 (목록 sha256 ≠ 파일) 이 잡는다
+        fs::create_directories(dir / "assets");
+        std::ofstream(dir / "assets/a.png", std::ios::binary) << "A";
+        REQUIRE(asset::importAssets(dir, [] { return std::string(32, 'c'); }).has_value());
+        package::BuildHooks swap;
+        swap.beforeRead = [&] { std::ofstream(dir / "assets/a.png", std::ios::binary | std::ios::trunc) << "B"; };
+        const auto swapped = package::buildPackage(dir, out, kEngine, catalog(), swap);
+        REQUIRE_FALSE(swapped.has_value());
+        CHECK(swapped.error().message.find("만든 패키지가 검증을 지나지 못했다") != std::string::npos);
+        CHECK(*io::readFile(out) == good);
+
+        // 바뀌지 않으면 그대로 만든다 · 잠깐 만든 폴더는 남지 않는다
+        CHECK(package::buildPackage(dir, root.path / "ok.sbpkg", kEngine, catalog()).has_value());
+        CHECK(stagingDirs() == stagingBefore);
+    }
 }
