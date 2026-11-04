@@ -4,11 +4,10 @@
 //   sbx new <폴더> --id <gameId> [--name <이름>] [--from <시나리오>] [--mode <GameMode id>] [--content-root <d>]
 //           [--seed <n>]
 //   sbx check <폴더 | 패키지.sbpkg>
-//   sbx build <폴더> [--out <파일.sbpkg>] [--profile <이름>]   (v0.2 M5-T2 — 게임 패키지, ADR-0054 · --profile = v0.6 NG-08)
-//   sbx templates
-//   sbx sdk [<폴더>]                               (v0.3 M2-T2 — SandboxScript SDK sandbox.d.ts 쓰기)
-//   sbx digest · fetch · resolve                     (v0.4 M2 · M3-T1)
-//   sbx install <폴더> · update <폴더> [<팩>] · add <폴더> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
+//   sbx build <폴더> [--out <파일.sbpkg>] [--profile <이름>]   (v0.2 M5-T2 — 게임 패키지, ADR-0054 · --profile = v0.6
+//   NG-08) sbx templates sbx sdk [<폴더>]                               (v0.3 M2-T2 — SandboxScript SDK sandbox.d.ts
+//   쓰기) sbx digest · fetch · resolve                     (v0.4 M2 · M3-T1) sbx install <폴더> · update <폴더> [<팩>]
+//   · add <폴더> <팩> [--path <p> | --git <URL> --rev <r>] [--version <범위>]
 //       · remove <폴더> <팩>   (모두 [--cache-dir <d>] — v0.4 M3-T3, ADR-0071 7)
 //   sbx new --pack <폴더> --id <팩 id> [--license <SPDX>]   (v0.4 M4-T2 — 패키지 틀)
 //   sbx test <폴더>                                      (v0.4 M4-T2 — 검사 + 자동 플레이 스크립트 전부)

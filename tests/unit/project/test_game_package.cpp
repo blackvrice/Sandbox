@@ -500,7 +500,8 @@ TEST_SUITE("project") {
                 out += static_cast<char>((static_cast<u64>(index.size()) >> (8 * i)) & 0xFF);
             }
             const fs::path f = root.path / std::format("{}.sbpkg", tag);
-            std::ofstream(f, std::ios::binary | std::ios::trunc) << out + index + good.substr(20 + static_cast<usize>(n));
+            std::ofstream(f, std::ios::binary | std::ios::trunc)
+                << out + index + good.substr(20 + static_cast<usize>(n));
             return f;
         };
         const fs::path lied = rewriteIndex("lied", [](nlohmann::json& j) { j["profile"]["platform"] = "linux"; });
@@ -516,7 +517,8 @@ TEST_SUITE("project") {
         const auto none = package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog(), {.profile = "mac"});
         REQUIRE_FALSE(none.has_value());
         CHECK(none.error().code == ErrorCode::NotFound);
-        const auto broken = package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog(), {.profile = "broken"});
+        const auto broken =
+            package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog(), {.profile = "broken"});
         REQUIRE_FALSE(broken.has_value());
         CHECK(broken.error().message.find("Export Profile 문제") != std::string::npos);
         CHECK_FALSE(fs::exists(root.path / "x.sbpkg"));
@@ -529,5 +531,66 @@ TEST_SUITE("project") {
         CHECK(package::profileHostWarning(idx).empty());
         idx.profile->platform = host.platform == "macos" ? "linux" : "macos";
         CHECK(package::profileHostWarning(idx).find("프로필 'here'") != std::string::npos);
+    }
+
+    TEST_CASE(
+        "package: Asset Group (v0.6 NG-02) — 빌드 보고 (그룹 · 부르지 않는 에셋), groups.json 은 싣지 않는다, 그룹 "
+        "오류면 만들지 않는다, 프로필의 그룹") {
+        TempDir root("groups");
+        const fs::path dir = makeDemo(root.path);
+        const auto put = [](const fs::path& f, std::string_view bytes) {
+            fs::create_directories(f.parent_path());
+            std::ofstream(f, std::ios::binary | std::ios::trunc) << bytes;
+        };
+        put(dir / "assets/enemies/a.png", "AAAA");
+        put(dir / "assets/enemies/a.png.meta", std::format(R"({{"id": "{:032x}", "importer": "image@1"}})", 1));
+        put(dir / "assets/misc/x.png", "X");
+        put(dir / "assets/misc/x.png.meta", std::format(R"({{"id": "{:032x}", "importer": "image@1"}})", 2));
+        put(dir / "assets/groups.json", R"({"groups": [{"name": "enemies", "include": ["enemies/*.png"]}]})");
+        const auto built = package::buildPackage(dir, root.path / "g.sbpkg", kEngine, catalog());
+        REQUIRE_MESSAGE(built.has_value(), built.error().describe());
+        REQUIRE(built->assetGroups.size() == 1);
+        CHECK(built->assetGroups[0].name == "enemies");
+        CHECK(built->assetGroups[0].bytes == 4);
+        CHECK(built->unreferencedAssets == std::vector<std::string>{"assets/misc/x.png"});
+        CHECK(hasFile(built->index, "assets/misc/x.png")); // 부르지 않아도 싣는다
+        CHECK_FALSE(hasFile(built->index, "assets/groups.json"));
+        CHECK(package::verifyPackage(built->file).has_value());
+        // 프로젝트 검사: 그룹 한 줄 · A8 경고
+        const project::ProjectReport report = project::validateProject(dir, kEngine, catalog());
+        CHECK(report.assetGroups == std::vector<std::string>{"enemies — 1 개 · 4 바이트"});
+        CHECK(report.unreferencedAssets == 1);
+        CHECK(std::any_of(report.issues.begin(), report.issues.end(),
+                          [](const content::ContentIssue& i) { return i.rule == "A8"; }));
+        // 프로필은 있는 그룹만 부를 수 있다
+        fs::create_directories(dir / "export");
+        std::ofstream(dir / "export" / "win.json")
+            << R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12"], "assetGroups": ["enemies"]})";
+        std::ofstream(dir / "export" / "bad.json")
+            << R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12"], "assetGroups": ["ui"]})";
+        const auto withProfile =
+            package::buildPackage(dir, root.path / "w.sbpkg", kEngine, catalog(), {.profile = "win"});
+        REQUIRE_MESSAGE(withProfile.has_value(), withProfile.error().describe());
+        CHECK(package::verifyPackage(withProfile->file).has_value()); // 받는 쪽은 그룹을 보지 않고 견준다
+        // 푼 패키지의 검사 (sbx check <패키지>) — groups.json 은 싣지 않았다: 그룹 · A8 을 보지 않고, 프로필의 그룹도
+        // 묻지 않는다
+        const auto opened = package::extractPackage(withProfile->file, root.path / "cache");
+        REQUIRE(opened.has_value());
+        const project::ProjectReport fromPackage =
+            project::validateProject(opened->dir, kEngine, catalog(), {.toolFiles = false});
+        CHECK_MESSAGE(fromPackage.ok(),
+                      (fromPackage.issues.empty() ? std::string() : fromPackage.issues.front().describe()));
+        CHECK(fromPackage.warningCount() == 1); // P10 미검증만
+        CHECK(fromPackage.unreferencedAssets == 0);
+        const auto badProfile =
+            package::buildPackage(dir, root.path / "b.sbpkg", kEngine, catalog(), {.profile = "bad"});
+        REQUIRE_FALSE(badProfile.has_value());
+        CHECK(badProfile.error().message.find("Asset Group 'ui' 이 없다") != std::string::npos);
+        // 깨진 groups.json — 만들지 않는다 (게임을 여는 길은 막지 않는다)
+        put(dir / "assets/groups.json", R"({"groups": [{"name": "Bad", "include": ["*"]}]})");
+        const auto broken = package::buildPackage(dir, root.path / "x.sbpkg", kEngine, catalog());
+        REQUIRE_FALSE(broken.has_value());
+        CHECK(broken.error().message.find("Asset Group 문제") != std::string::npos);
+        CHECK(project::openProject(dir, kEngine, catalog()).has_value());
     }
 }

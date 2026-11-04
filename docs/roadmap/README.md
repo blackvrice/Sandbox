@@ -14,7 +14,7 @@
 ```text
 제품      0.5.0 (v0.5 Technical Alpha — [릴리스 노트](../releases/v0.5.0.md)). 지금 버전 v0.6
 다음      트랙 A  M3-T1 게임 UI (v0.7) — NG-04 ✅ SaveGame 계약 (v0.6)
-          트랙 B  NG-02 Asset Group (v0.6) — NG-08 ✅ Export Profile · NG-14 ✅ 해시 분리 · NG-01 ✅ 빌드 스냅숏 · M6-T9 ✅ 프로젝트 에셋
+          트랙 B  ST-06-1 Editor Services (v0.8) — v0.6 태스크 끝: NG-02 ✅ Asset Group · NG-08 ✅ Export Profile · NG-14 ✅ 해시 분리 · NG-01 ✅ 빌드 스냅숏 · M6-T9 ✅ 프로젝트 에셋
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```
 
@@ -100,7 +100,7 @@ graph LR
   NG-05 · M6-T4 → M6-T8                                                                               (트랙 B, 병렬)
 임계 경로 (GA 까지)
   PS-14-2 → RH-22-1 Soak → RH-24-2 RC 회귀 → RH-24-5 GA 승인, 그리고 PS-20-3 → RH-24-3 · RH-23-7 실기 → RH-24-2
-병렬 가능  M3-T1 (A) ∥ NG-02 (B) ∥ ST-06-1 (B), 안정화의 RH-22-3 · RH-22-5 · RH-23-4 는 서비스 없이 일찍 시작할 수 있다
+병렬 가능  M3-T1 (A) ∥ ST-06-1 (B), 안정화의 RH-22-3 · RH-22-5 · RH-23-4 는 서비스 없이 일찍 시작할 수 있다
           (목표 버전보다 일찍 끝내도 된다 — 목표는 "늦어도")
 ```
 

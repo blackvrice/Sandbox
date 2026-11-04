@@ -75,6 +75,9 @@ Scanned scanImpl(const fs::path& projectDir) {
             continue;
         }
         all.push_back(rel);
+        if (rel == kGroupsFile) {
+            continue; // 그룹 선언 (NG-02) — 에셋이 아니다 (대소문자 겹침은 위 목록으로 본다)
+        }
         if (endsWithMeta(rel)) {
             metas.insert(rel);
         } else {
@@ -95,6 +98,7 @@ Scanned scanImpl(const fs::path& projectDir) {
         std::string path;
         std::string sha256;
         u64 size = 0;
+        std::vector<std::string> labels;
     };
     std::map<std::string, std::vector<Found>> byId;
     for (const std::string& rel : sources) {
@@ -131,7 +135,7 @@ Scanned scanImpl(const fs::path& projectDir) {
             continue;
         }
         out.usedIds.insert(meta->id);
-        byId[meta->id].push_back({rel, toHex(sha256(*bytes)), size});
+        byId[meta->id].push_back({rel, toHex(sha256(*bytes)), size, std::move(meta->labels)});
     }
     // 짝 없는 .meta — 원본을 밖에서 옮기거나 지우면서 남은 것
     for (const std::string& m : metas) {
@@ -159,10 +163,15 @@ Scanned scanImpl(const fs::path& projectDir) {
                     id, found.front().path, other->path));
             continue;
         }
-        AssetEntry entry{id, found.front().path, found.front().sha256, found.front().size, {}};
-        for (usize i = 1; i < found.size(); ++i) {
-            entry.copies.push_back(found[i].path);
+        AssetEntry entry{id, found.front().path, found.front().sha256, found.front().size, {}, {}};
+        std::set<std::string> labels;
+        for (usize i = 0; i < found.size(); ++i) {
+            if (i > 0) {
+                entry.copies.push_back(found[i].path);
+            }
+            labels.insert(found[i].labels.begin(), found[i].labels.end());
         }
+        entry.labels.assign(labels.begin(), labels.end());
         r.assets.push_back(std::move(entry));
     }
     return out;
@@ -185,6 +194,12 @@ Expected<std::string> freshId(const IdGenerator& newId, std::set<std::string>& u
 
 } // namespace
 
+bool isAssetLabel(std::string_view text) noexcept {
+    return !text.empty() && text.size() <= 32 && std::all_of(text.begin(), text.end(), [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+    });
+}
+
 bool isAssetId(std::string_view text) noexcept {
     return text.size() == 32 && std::all_of(text.begin(), text.end(),
                                             [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
@@ -196,7 +211,7 @@ Expected<AssetMeta> parseAssetMeta(std::string_view jsonText) {
         return makeError(ErrorCode::ParseError, "JSON 객체가 아니다");
     }
     for (const auto& [key, value] : j.items()) {
-        if (key != "id" && key != "importer" && key != "settings") {
+        if (key != "id" && key != "importer" && key != "settings" && key != "labels") {
             return makeError(ErrorCode::ValidationFailed, std::format("모르는 키 '{}'", key));
         }
     }
@@ -213,12 +228,35 @@ Expected<AssetMeta> parseAssetMeta(std::string_view jsonText) {
         return makeError(ErrorCode::ValidationFailed, "\"settings\" 는 객체");
     }
     m.settings = j.contains("settings") ? j["settings"].dump() : "{}"; // nlohmann 객체는 키 순 — 정규형
+    if (j.contains("labels")) {
+        const json& l = j["labels"];
+        if (!l.is_array() || l.size() > kMaxLabels) {
+            return makeError(ErrorCode::ValidationFailed,
+                             std::format("\"labels\" 는 {} 개까지의 문자열 배열", kMaxLabels));
+        }
+        for (const json& v : l) {
+            if (!v.is_string() || !isAssetLabel(v.get<std::string>())) {
+                return makeError(ErrorCode::ValidationFailed, "라벨은 [a-z0-9_-] 1 ~ 32 글자");
+            }
+            m.labels.push_back(v.get<std::string>());
+        }
+        std::sort(m.labels.begin(), m.labels.end());
+        if (std::adjacent_find(m.labels.begin(), m.labels.end()) != m.labels.end()) {
+            return makeError(ErrorCode::ValidationFailed, "같은 라벨이 두 번 있다");
+        }
+    }
     return m;
 }
 
 std::string writeAssetMeta(const AssetMeta& meta) {
-    return std::format("{{\n  \"id\": {},\n  \"importer\": {},\n  \"settings\": {}\n}}\n", json(meta.id).dump(),
-                       json(meta.importer).dump(), meta.settings.empty() ? std::string("{}") : meta.settings);
+    std::string labels;
+    if (!meta.labels.empty()) {
+        std::vector<std::string> sorted = meta.labels;
+        std::sort(sorted.begin(), sorted.end());
+        labels = std::format("  \"labels\": {},\n", json(sorted).dump());
+    }
+    return std::format("{{\n  \"id\": {},\n  \"importer\": {},\n{}  \"settings\": {}\n}}\n", json(meta.id).dump(),
+                       json(meta.importer).dump(), labels, meta.settings.empty() ? std::string("{}") : meta.settings);
 }
 
 std::string randomAssetId() {
@@ -267,7 +305,7 @@ Expected<usize> importAssets(const fs::path& projectDir, const IdGenerator& newI
         if (!id) {
             return std::unexpected(id.error());
         }
-        const AssetMeta meta{*id, importerFor(rel), "{}"};
+        const AssetMeta meta{*id, importerFor(rel), "{}", {}};
         if (auto w = io::writeFileAtomic(projectDir / fs::path(rel + std::string(kMetaSuffix)), writeAssetMeta(meta));
             !w) {
             return std::unexpected(w.error());
@@ -282,8 +320,9 @@ Expected<std::string> assignNewAssetId(const fs::path& projectDir, std::string_v
     if (const auto why = project::checkRelativePath(rel)) {
         return makeError(ErrorCode::InvalidArgument, std::format("에셋 경로: {}", *why), rel);
     }
-    if (!rel.starts_with(std::string(kAssetDir) + "/") || endsWithMeta(rel)) {
-        return makeError(ErrorCode::InvalidArgument, "assets/ 아래의 원본 파일 (.meta 아님) 을 준다", rel);
+    if (!rel.starts_with(std::string(kAssetDir) + "/") || endsWithMeta(rel) || rel == kGroupsFile) {
+        return makeError(ErrorCode::InvalidArgument, "assets/ 아래의 원본 파일 (.meta · groups.json 아님) 을 준다",
+                         rel);
     }
     std::error_code ec;
     const fs::path file = projectDir / fs::path(rel);
@@ -292,7 +331,7 @@ Expected<std::string> assignNewAssetId(const fs::path& projectDir, std::string_v
     }
     Scanned s = scanImpl(projectDir);
     const fs::path metaFile = projectDir / fs::path(rel + std::string(kMetaSuffix));
-    AssetMeta meta{"", importerFor(rel), "{}"};
+    AssetMeta meta{"", importerFor(rel), "{}", {}};
     if (const auto text = io::readFile(metaFile)) {
         if (auto old = parseAssetMeta(*text)) {
             meta = std::move(*old); // importer · settings 는 그대로

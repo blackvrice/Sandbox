@@ -40,8 +40,7 @@ bool oneOf(std::string_view v, const std::array<const char*, N>& set) {
 bool platformHasBackend(std::string_view platform, std::string_view backend) {
     for (const PlatformBackends& p : kBackendsByPlatform) {
         if (p.platform == platform) {
-            return !backend.empty() &&
-                   std::find(p.backends.begin(), p.backends.end(), backend) != p.backends.end();
+            return !backend.empty() && std::find(p.backends.begin(), p.backends.end(), backend) != p.backends.end();
         }
     }
     return false;
@@ -70,8 +69,8 @@ bool stringArray(const json& j, const char* key, usize max, std::vector<std::str
         }
         std::string v = a[i].get<std::string>();
         if (std::find(out.begin(), out.end(), v) != out.end()) {
-            issues.push_back({Severity::Error, "P10", file, std::format("{}/{}", where, i),
-                              std::format("'{}' 가 두 번 있다", v)});
+            issues.push_back(
+                {Severity::Error, "P10", file, std::format("{}/{}", where, i), std::format("'{}' 가 두 번 있다", v)});
             return false;
         }
         out.push_back(std::move(v));
@@ -107,15 +106,16 @@ std::string describeTarget(std::string_view platform, std::string_view arch) {
 }
 
 bool ExportProfileParse::ok() const noexcept {
-    return std::none_of(issues.begin(), issues.end(), [](const ContentIssue& i) { return i.severity == Severity::Error; });
+    return std::none_of(issues.begin(), issues.end(),
+                        [](const ContentIssue& i) { return i.severity == Severity::Error; });
 }
 
 std::string exportProfilePath(std::string_view name) {
     return std::format("{}/{}.json", kExportDir, name);
 }
 
-ExportProfileParse parseExportProfile(std::string_view name, std::string_view jsonText,
-                                      std::span<const ExportTarget> verified) {
+ExportProfileParse parseExportProfile(std::string_view name, std::string_view jsonText, const ExportCheck& check) {
+    const std::span<const ExportTarget> verified = check.verified;
     ExportProfileParse r;
     r.profile.name = std::string(name);
     const std::string file = exportProfilePath(name);
@@ -168,11 +168,14 @@ ExportProfileParse parseExportProfile(std::string_view name, std::string_view js
             }
         }
     }
-    if (j.contains("assetGroups") && stringArray(j, "assetGroups", kMaxGroups, r.profile.assetGroups, file, r.issues)) {
-        // Asset Group (NG-02) 은 아직 없다 — 어떤 이름도 찾을 수 없다
+    if (j.contains("assetGroups") && stringArray(j, "assetGroups", kMaxGroups, r.profile.assetGroups, file, r.issues) &&
+        check.groups != nullptr) {
         for (usize i = 0; i < r.profile.assetGroups.size(); ++i) {
-            error(std::format("/assetGroups/{}", i),
-                  std::format("Asset Group '{}' 이 없다 (그룹은 NG-02 — 아직 만들 수 없다)", r.profile.assetGroups[i]));
+            const std::string& g = r.profile.assetGroups[i];
+            if (std::find(check.groups->begin(), check.groups->end(), g) == check.groups->end()) {
+                error(std::format("/assetGroups/{}", i),
+                      std::format("Asset Group '{}' 이 없다 (assets/groups.json — NG-02)", g));
+            }
         }
     }
     if (!r.ok()) {
@@ -181,9 +184,10 @@ ExportProfileParse parseExportProfile(std::string_view name, std::string_view js
     for (usize i = 0; i < r.profile.renderBackends.size(); ++i) {
         const ExportTarget t{r.profile.platform, r.profile.arch, r.profile.renderBackends[i]};
         if (std::find(verified.begin(), verified.end(), t) == verified.end()) {
-            r.issues.push_back({Severity::Warning, "P10", file, std::format("/renderBackends/{}", i),
-                                std::format("미검증 대상 {} · {} — 실기 기록이 없다 (docs/qa/MANUAL-QA.md). 막지 않는다",
-                                            describeTarget(t.platform, t.arch), t.backend)});
+            r.issues.push_back(
+                {Severity::Warning, "P10", file, std::format("/renderBackends/{}", i),
+                 std::format("미검증 대상 {} · {} — 실기 기록이 없다 (docs/qa/MANUAL-QA.md). 막지 않는다",
+                             describeTarget(t.platform, t.arch), t.backend)});
         }
     }
     return r;
@@ -197,7 +201,7 @@ std::string writeExportProfile(const ExportProfile& profile) {
     return j.dump(2) + "\n";
 }
 
-ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir, std::span<const ExportTarget> verified) {
+ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir, const ExportCheck& check) {
     ExportProfiles out;
     const fs::path dir = projectDir / std::string(kExportDir);
     std::error_code ec;
@@ -209,8 +213,8 @@ ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir, std::
         entries.push_back(it->path());
     }
     if (ec) {
-        out.issues.push_back(
-            {Severity::Error, "P10", std::string(kExportDir), "", std::format("폴더를 읽을 수 없다 — {}", ec.message())});
+        out.issues.push_back({Severity::Error, "P10", std::string(kExportDir), "",
+                              std::format("폴더를 읽을 수 없다 — {}", ec.message())});
         return out;
     }
     std::sort(entries.begin(), entries.end());
@@ -234,7 +238,7 @@ ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir, std::
                 {Severity::Error, "P10", file, "", std::format("읽을 수 없다 — {}", text.error().describe())});
             continue;
         }
-        ExportProfileParse parsed = parseExportProfile(p.stem().generic_string(), *text, verified);
+        ExportProfileParse parsed = parseExportProfile(p.stem().generic_string(), *text, check);
         if (parsed.ok()) {
             out.profiles.push_back(parsed.profile);
         }

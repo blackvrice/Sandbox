@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-04 — v0.6 NG-02: Asset Group — assets/groups.json · .meta labels · 빌드 보고 (A7 · A8)
+
+**무엇을**
+
+- .meta 선택 키 labels ([a-z0-9_-] 1 ~ 32, 16 개, 정렬 · 겹침 없음 — 없으면 .meta 바이트 그대로). AssetEntry.labels = 사본들의 라벨 합.
+- core/asset/AssetGroups: assets/groups.json {"groups": [{name, include: [glob · "label:<라벨>"]}]} (A7 — 모양 · 이름 · 겹침 · include),
+  assets/ 기준 glob (* 폴더 안 · ** 폴더 여럿 · ?), materialAssetIds (정적 참조), summarizeAssetUsage (그룹마다 개수 · 크기, 고르는 것
+  없는 include 경고, A8 어디서도 부르지 않는 에셋 — 경고 하나). groups.json 은 에셋이 아니다 (훑기 · 가져오기 · 패키지가 건너뛴다).
+- 프로젝트 검사 (validateProject 만 — 게임 열기는 막지 않는다): A7 · A8 · 그룹 줄. sbx build: groups.json 오류면 멈춤, 보고 (그룹마다 ·
+  부르지 않는 에셋 — 그래도 싣는다). Export Profile 의 assetGroups 는 있는 그룹만 (ExportCheck.groups — 패키지 프로필을 파일과 견줄
+  때는 groups.json 이 없어 보지 않는다). 푼 패키지의 검사 (toolFiles = false — sbx check <패키지>) 는 groups.json 을 싣지 않았으므로
+  그룹 · A8 · 프로필의 그룹 이름을 보지 않는다 (처음 판은 패키지 검사에 A8 · P10 이 섞였다 — project_assets 가 잡았다).
+- 이 커밋에 NG-08 (6fd3cc4) 파일의 clang-format 정리도 들었다 (동작 변화 없음).
+
+**왜**
+
+- 등록부 NG-02 (ADR-0097 2, 2차 감사 4.2) — 스크립트가 이름으로 만드는 참조는 따라갈 수 없어 선언이 필요하고, 쓰지 않는 에셋을 알 길이
+  없었다. v0.6 범위는 그룹 · 라벨 · 보고 — 패키지는 지금처럼 모든 에셋을 싣는다 (그룹만 싣기 · 원격 묶음은 RT-08-4).
+
+**검증**
+
+- test_asset_groups 4 (labels · glob 9 · A7 12 · 프로젝트 그룹 · 크기 · A8 · groups.json 은 에셋 아님), test_game_package "Asset Group"
+  (보고 · 싣기 · 검증 · validateProject · 푼 패키지 검사는 그룹 · A8 없음 · 프로필 그룹 · 깨진 groups.json 은 빌드만 멈춤),
+  test_export_profile (있는 · 없는 · 보지 않는 그룹), project_assets (가져온 뒤 A8 경고 하나 → groups.json → 경고 0 · 그룹 줄 · 빌드 보고 ·
+  패키지 검사 경고 0).
+- 실행: sbx new → assets/enemies/slime.png · misc/old.png · groups.json → sbx asset import (2) → sbx check "그룹 enemies — 1 개 · 75 바이트"
+  + A8 (old.png) rc 0 → sbx build 보고 "에셋 그룹 enemies — 1 개 · 75 바이트" · 부르지 않는 에셋 1 경고.
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄).
+
+**남은 일**
+
+- 그룹으로 고른 것만 싣기 · 원격 묶음 · 실행 중 그룹 밖 이름 진단 (스크립트 에셋 API) — RT-08-4. Asset Browser 의 라벨 편집 (ST-06-3).
+- v0.6 의 태스크는 끝났다 — 0.6.0 출시 (버전 · 출시 노트: 프로토콜 16 · .sbc 10 · .sbpkg 3 · index profile · 더 새 세이브 거절).
+
 ## 2026-11-04 — v0.6 NG-08: Export Profile — export/<이름>.json 검사 P10 · sbx build --profile · 다른 플랫폼 경고
 
 **무엇을**

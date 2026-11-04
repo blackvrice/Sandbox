@@ -1,6 +1,8 @@
 # 프로젝트 에셋 (v0.6 M6-T9 · NG-12, ADR-0090 · 0097): sbx new (ecosystem_small — 서버가 틱을 돈다) → assets/ 에 파일 → sbx check (A2 경고 — id 없음) → sbx build 거절 →
 # sbx asset import (.meta) → sbx build (형식 3 — 에셋 실음) → sbx check <패키지> (에셋 id 1) → 서버가 패키지로 돈다 → .meta 째 복사하고
-# 내용을 고치면 sbx check 오류 A3 (고르지 않음) → sbx asset newid 로 고침 → 경고 · 오류 0
+# 내용을 고치면 sbx check 오류 A3 (고르지 않음) → sbx asset newid 로 고침 → 경고 · 오류 0.
+# v0.6 NG-02: 가져온 뒤 어디서도 부르지 않는 에셋 = A8 경고 → assets/groups.json 그룹에 넣으면 경고 0 · 그룹 줄, 패키지에는 그룹을 싣지
+# 않는다 (그 검사는 그룹 · A8 을 보지 않는다)
 #   cmake -DSBX=<sbx> -DSERVER=<SandboxServer> -DOUT=<작업 폴더> -P project_assets.cmake
 foreach(v SBX SERVER OUT)
     if(NOT DEFINED ${v})
@@ -33,11 +35,19 @@ run(0 "sbx asset import" "${SBX}" asset import "${game}")
 if(NOT last MATCHES "\\.meta 를 썼습니다: 1 개" OR NOT EXISTS "${game}/assets/art/hero.png.meta")
     message(FATAL_ERROR ".meta 를 쓰지 않았다")
 endif()
-run(0 "sbx check (에셋 id 1)" "${SBX}" check "${game}")
-if(NOT last MATCHES "에셋: id 1 · id 없음 0" OR NOT last MATCHES "오류 0, 경고 0")
-    message(FATAL_ERROR "가져온 뒤에도 경고가 있다")
+run(0 "sbx check (에셋 id 1 — 부르지 않음)" "${SBX}" check "${game}")
+if(NOT last MATCHES "에셋: id 1 · id 없음 0" OR NOT last MATCHES "A8" OR NOT last MATCHES "오류 0, 경고 1")
+    message(FATAL_ERROR "가져온 뒤 A8 (어디서도 부르지 않는 에셋) 경고 하나가 아니다")
+endif()
+file(WRITE "${game}/assets/groups.json" [=[{"groups": [{"name": "art", "include": ["art/*.png"]}]}]=])
+run(0 "sbx check (그룹)" "${SBX}" check "${game}")
+if(NOT last MATCHES "그룹 art — 1 개 · 8 바이트" OR NOT last MATCHES "오류 0, 경고 0")
+    message(FATAL_ERROR "그룹에 넣은 뒤에도 경고가 있거나 그룹 줄이 없다")
 endif()
 run(0 "sbx build (형식 3)" "${SBX}" build "${game}" --out "${OUT}/art.sbpkg")
+if(NOT last MATCHES "에셋 그룹 art — 1 개 · 8 바이트")
+    message(FATAL_ERROR "빌드 보고에 그룹이 없다")
+endif()
 run(0 "sbx check <패키지>" "${SBX}" check "${OUT}/art.sbpkg")
 if(NOT last MATCHES "에셋: id 1 · id 없음 0" OR NOT last MATCHES "오류 0, 경고 0")
     message(FATAL_ERROR "패키지의 에셋이 그대로가 아니다")

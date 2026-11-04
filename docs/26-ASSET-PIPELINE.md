@@ -122,9 +122,14 @@ contentHash · 리플레이 · 오버레이가 모두 JSON (nlohmann) 위이고,
 NG-01 빌드 스냅숏     ✅ (v0.6 — core/package buildPackage) 한 번 읽은 바이트가 입력: 만든 바이트를 읽는 쪽 규칙으로 검증 · 그 바이트만 푼
                       임시 폴더를 openProject (검사한 것 = 실은 것), 쓰기 직전 원본 다시 해시 → 다르면 "빌드 중 바뀐 파일", 원자적 출력 ·
                       임시 정리 (writeFileAtomic 이 쓰기 실패에도 .tmp 를 지운다). 같은 입력 = 같은 바이트 (4.1)
-NG-02 Asset Group     assets/groups.json {name, include: [glob · 라벨]} — 동적 참조 (스크립트가 이름으로 부르는 에셋) 는 그룹째 포함,
-                      그룹 밖 이름 = 진단, 빌드 보고 (개수 · 크기 · 미참조 경고). 원격 번들은 [계획 v0.18] RT-08-4 (4.2)
-NG-12 id 충돌         ✅ (v0.6 — core/asset/AssetDatabase) .meta = {"id": 32 hex, "importer": "image@1", "settings": {}} (정규형 쓰기).
+NG-02 Asset Group     ✅ (v0.6 — core/asset/AssetGroups) assets/groups.json {"groups": [{name, include: [glob · "label:<라벨>"]}]} —
+                      glob 은 assets/ 기준 (* 폴더 안 · ** 폴더 여럿 · ?), 라벨은 .meta 의 선택 키 labels ([a-z0-9_-] 1 ~ 32, 16 개, 정렬 —
+                      없으면 .meta 바이트 그대로). groups.json 은 에셋이 아니다 (훑기 · 가져오기 · 패키지가 건너뛴다). 검사 (sbx check · 빌드):
+                      A7 모양 · 이름 · 겹침 = 오류 (빌드를 멈춘다 · 게임 열기는 막지 않는다), 고르는 것 없는 include = 경고. 빌드 보고 = 그룹마다
+                      개수 · 크기 + A8 어디서도 부르지 않는 에셋 (정적 참조 materials.json 도 그룹도 아님 — 경고, 그래도 싣는다). Export Profile
+                      의 assetGroups 는 있는 그룹만 (P10). [계획] 그룹으로 고른 것만 싣기 · 원격 묶음 · 실행 중 그룹 밖 이름 진단 (스크립트
+                      에셋 API) 은 RT-08-4 (4.2)
+NG-12 id 충돌         ✅ (v0.6 — core/asset/AssetDatabase) .meta = {"id": 32 hex, "importer": "image@1", "labels"?: [..] (NG-02), "settings": {}} (정규형 쓰기).
                       훑기 (scanProjectAssets — 읽기만): 같은 id · 같은 내용 = 하나 (사본 목록), 같은 id · 다른 내용 = 오류 A3 (둘을 보여 주고
                       고르지 않음), .meta 없음 A2 · 깨짐 A1 = id 없는 에셋 (경고 — 경로 해시로 돌아가지 않음), 짝 없는 .meta A4, 경로 · 크기
                       (64 MiB) · 링크 · 개수 · 대소문자 A5. importAssets = id 없는 원본마다 겹치지 않는 새 id, assignNewAssetId = 복제본에 새 id

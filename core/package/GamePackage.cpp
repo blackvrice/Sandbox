@@ -518,10 +518,24 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     // 않는다:
     //    받는 쪽은 id 로 찾는다. 같은 id 의 사본도 싣는다 (경로로 부를 수 있다), 짝 없는 .meta (A4) 는 싣지 않는다
     std::vector<PackageIndex::Asset> assets;
+    // Asset Group (v0.6 NG-02) — groups.json 오류 (A7) 면 만들지 않는다. 그룹 · 미참조는 보고만 (모든 에셋을 싣는다)
+    const asset::AssetGroupsFile groups = asset::loadAssetGroups(projectDir);
+    for (const content::ContentIssue& i : groups.issues) {
+        if (i.severity == content::ContentIssue::Severity::Error) {
+            return makeError(ErrorCode::ValidationFailed, std::format("Asset Group 문제 — {}", i.describe()),
+                             io::displayPath(projectDir));
+        }
+    }
+    std::vector<std::string> groupNames;
+    for (const asset::AssetGroup& g : groups.groups) {
+        groupNames.push_back(g.name);
+    }
+    asset::AssetUsage usage;
     {
         std::error_code ec;
         if (fs::is_directory(projectDir / std::string(asset::kAssetDir), ec)) {
             const asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+            usage = asset::summarizeAssetUsage(scan, groups.groups, asset::materialAssetIds(*opened->content, scan));
             for (const content::ContentIssue& i : scan.issues) {
                 if (i.severity == content::ContentIssue::Severity::Error) {
                     return makeError(ErrorCode::ValidationFailed, std::format("에셋 문제 — {}", i.describe()),
@@ -549,7 +563,8 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
             std::sort(assets.begin(), assets.end(), [](const auto& a, const auto& b) { return a.path < b.path; });
         }
     }
-    // 3b. Export Profile (v0.6 NG-08) — 고른 프로필만 본다 (다른 export/ 파일은 싣지 않는다 · 모두 보는 검사는 sbx check)
+    // 3b. Export Profile (v0.6 NG-08) — 고른 프로필만 본다 (다른 export/ 파일은 싣지 않는다 · 모두 보는 검사는 sbx
+    // check)
     std::vector<content::ContentIssue> profileIssues;
     std::optional<PackageIndex::Profile> profile;
     if (!options.profile.empty()) {
@@ -564,7 +579,8 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
         if (!text) {
             return std::unexpected(text.error());
         }
-        project::ExportProfileParse parsed = project::parseExportProfile(options.profile, *text);
+        project::ExportProfileParse parsed =
+            project::parseExportProfile(options.profile, *text, {.groups = &groupNames});
         for (const content::ContentIssue& i : parsed.issues) {
             if (i.severity == content::ContentIssue::Severity::Error) {
                 return makeError(ErrorCode::ValidationFailed, std::format("Export Profile 문제 — {}", i.describe()),
@@ -702,7 +718,12 @@ Expected<BuildResult> buildPackage(const fs::path& projectDir, const fs::path& o
     if (auto r = io::writeFileAtomic(file, blob); !r) {
         return std::unexpected(r.error());
     }
-    return BuildResult{file, std::move(idx), blob.size(), std::move(profileIssues)};
+    return BuildResult{file,
+                       std::move(idx),
+                       blob.size(),
+                       std::move(profileIssues),
+                       std::move(usage.groups),
+                       std::move(usage.unreferenced)};
 }
 
 Expected<PackageIndex> readPackageIndex(const fs::path& file) {
@@ -791,10 +812,10 @@ std::string profileHostWarning(const PackageIndex& index) {
     if (host.platform == index.profile->platform && host.arch == index.profile->arch) {
         return {};
     }
-    return std::format("이 패키지는 {} 용으로 내보냈다 (프로필 '{}') — 지금 {} 에서 연다",
-                       project::describeTarget(index.profile->platform, index.profile->arch), index.profile->name,
-                       project::describeTarget(host.platform.empty() ? "?" : host.platform,
-                                               host.arch.empty() ? "?" : host.arch));
+    return std::format(
+        "이 패키지는 {} 용으로 내보냈다 (프로필 '{}') — 지금 {} 에서 연다",
+        project::describeTarget(index.profile->platform, index.profile->arch), index.profile->name,
+        project::describeTarget(host.platform.empty() ? "?" : host.platform, host.arch.empty() ? "?" : host.arch));
 }
 
 fs::path defaultPackageCache() {

@@ -13,8 +13,8 @@
 //   path   프로젝트 기준 상대 경로 ('/' 구분 — project::checkRelativePath 규칙), 바이트 순 정렬 · 겹침 없음
 //   offset 파일 데이터 시작에서 (앞 파일들의 크기 합 — 빈틈 없음)
 //   profile 선택 키 (v0.6 NG-08 — sbx build --profile 일 때만, 형식 번호와 무관: 옛 엔진은 모르는 키를 지나친다)
-//          {name, platform, arch, renderBackends} — 그 프로필 파일 export/<name>.json 이 files 에 있고, 파일을 보는 검증 ·
-//          풀기가 그 바이트와 견준다 (index 만 고쳐 대상을 속일 수 없다)
+//          {name, platform, arch, renderBackends} — 그 프로필 파일 export/<name>.json 이 files 에 있고, 파일을 보는
+//          검증 · 풀기가 그 바이트와 견준다 (index 만 고쳐 대상을 속일 수 없다)
 // digest = SHA-256 ( 파일마다 "<sha256> <size> <path>\n" 를 path 순으로 ) — 파일 내용 · 경로만의 지문이라 같은
 // 프로젝트를
 //          두 번 빌드하면 같다 (시각 · 압축 · 순서가 들어가지 않는다). 압축 · 서명 · 증분 다운로드는 [계획].
@@ -32,6 +32,7 @@
 #include <string_view>
 #include <vector>
 
+#include "core/asset/AssetGroups.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "foundation/types/Error.hpp"
@@ -106,6 +107,9 @@ struct BuildResult {
     PackageIndex index;
     u64 bytes = 0;
     std::vector<content::ContentIssue> profileIssues; // --profile 의 경고 (P10 미검증 대상 — 오류면 만들지 않았다)
+    // 빌드 보고 (v0.6 NG-02): Asset Group 마다 개수 · 크기, 어디서도 부르지 않는 에셋 (A8 — 그래도 싣는다)
+    std::vector<asset::GroupSummary> assetGroups;
+    std::vector<std::string> unreferencedAssets;
 };
 // 빌드 스냅숏 (v0.6 NG-01, ADR-0097 1): 입력 파일을 한 번 읽은 바이트가 이 빌드의 입력이다 — 그 바이트로 패키지를
 // 만들어 읽는 쪽 규칙 (verify) 으로 보고, 그 바이트만 푼 임시 폴더를 openProject 로 연다 (검사한 것 = 실은 것). 쓰기
@@ -123,8 +127,8 @@ struct BuildOptions {
                                                  const ecs::ComponentCatalog& catalog,
                                                  const BuildOptions& options = {});
 
-// 패키지의 프로필이 이 실행 파일의 플랫폼 · 아키텍처 (project::hostTarget) 와 다르면 그 경고 문장. 프로필이 없거나 같으면
-// 빈 문자열 — 막지 않는다 (데이터는 어디서나 열린다 — 제작자가 의도한 대상이 아닐 뿐)
+// 패키지의 프로필이 이 실행 파일의 플랫폼 · 아키텍처 (project::hostTarget) 와 다르면 그 경고 문장. 프로필이 없거나
+// 같으면 빈 문자열 — 막지 않는다 (데이터는 어디서나 열린다 — 제작자가 의도한 대상이 아닐 뿐)
 [[nodiscard]] std::string profileHostWarning(const PackageIndex& index);
 
 // 헤더 · index 만 (모양 · digest 다시 계산 — 파일 내용은 보지 않는다)

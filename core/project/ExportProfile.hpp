@@ -6,7 +6,8 @@
 //
 // 내보낼 대상의 선언이다 — 패키지 (.sbpkg) 의 바이트는 대상과 무관하다 (데이터만). 검사 규칙 P10:
 //   모양 (키 · 값 · 겹침) · 플랫폼이 낼 수 없는 백엔드 (windows = d3d12 · vulkan, linux = vulkan, macos = metal) ·
-//   없는 Asset Group = 오류. 실기 기록 (docs/qa/MANUAL-QA.md 통과) 이 없는 대상 = "미검증" 경고 — 막지 않는다.
+//   없는 Asset Group (assets/groups.json — NG-02) = 오류. 실기 기록 (docs/qa/MANUAL-QA.md 통과) 이 없는 대상 = "미검증"
+//   경고 — 막지 않는다.
 // 프로젝트 검사 (validateProject — sbx check · doctor) 가 export/ 를 모두 본다. 게임을 여는 길 (openProject) 은 보지
 // 않는다 — 내보내기 설정이 실행을 막지 않게. sbx build --profile 은 고른 프로필만 (오류면 만들지 않는다)
 
@@ -51,16 +52,23 @@ struct ExportProfile {
 // "windows-x64"
 [[nodiscard]] std::string describeTarget(std::string_view platform, std::string_view arch);
 
+// 검사 범위. groups = 프로젝트의 Asset Group 이름 (nullptr = 그룹을 보지 않는다 — 패키지의 프로필을 파일과 견줄 때.
+// groups.json 은 패키지에 싣지 않는다)
+struct ExportCheck {
+    std::span<const ExportTarget> verified = verifiedTargets();
+    const std::vector<std::string>* groups = nullptr;
+};
+
 struct ExportProfileParse {
     ExportProfile profile;
     std::vector<content::ContentIssue> issues; // P10 (file = 주어진 file)
     [[nodiscard]] bool ok() const noexcept;    // 오류 없음
 };
 
-// 텍스트 → 모양 · 대상 검사. name = 파일 이름 (.json 앞 — [A-Za-z0-9_-] 1 ~ 64 바이트). verified 에 없는 (platform,
-// arch, backend) 는 경고
+// 텍스트 → 모양 · 대상 검사. name = 파일 이름 (.json 앞 — [A-Za-z0-9_-] 1 ~ 64 바이트). check.verified 에 없는
+// (platform, arch, backend) 는 경고
 [[nodiscard]] ExportProfileParse parseExportProfile(std::string_view name, std::string_view jsonText,
-                                                    std::span<const ExportTarget> verified = verifiedTargets());
+                                                    const ExportCheck& check = {});
 
 // 정규형 (키 순 · 2 칸 들여쓰기 · 끝 줄바꿈)
 [[nodiscard]] std::string writeExportProfile(const ExportProfile& profile);
@@ -70,8 +78,7 @@ struct ExportProfiles {
     std::vector<ExportProfile> profiles; // 오류 없는 것만
     std::vector<content::ContentIssue> issues;
 };
-[[nodiscard]] ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir,
-                                                std::span<const ExportTarget> verified = verifiedTargets());
+[[nodiscard]] ExportProfiles loadExportProfiles(const std::filesystem::path& projectDir, const ExportCheck& check = {});
 
 // 프로필 파일의 프로젝트 기준 경로 — "export/<이름>.json"
 [[nodiscard]] std::string exportProfilePath(std::string_view name);

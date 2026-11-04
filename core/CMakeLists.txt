@@ -145,6 +145,8 @@ add_library(SandboxCore STATIC
     project/ExportProfile.cpp
     asset/AssetDatabase.hpp
     asset/AssetDatabase.cpp
+    asset/AssetGroups.hpp
+    asset/AssetGroups.cpp
 
     game/GameRules.hpp
     game/GameRules.cpp

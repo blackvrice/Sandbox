@@ -28,6 +28,9 @@ namespace sbx::asset {
 
 inline constexpr std::string_view kAssetDir = "assets";
 inline constexpr std::string_view kMetaSuffix = ".meta";
+// 그룹 선언 (v0.6 NG-02 — AssetGroups.hpp). 에셋이 아니다 — 훑기 · 가져오기가 건너뛴다
+inline constexpr std::string_view kGroupsFile = "assets/groups.json";
+inline constexpr usize kMaxLabels = 16;
 inline constexpr u64 kMaxAssetBytes = 64ull << 20; // 원본 하나 (24 P7)
 inline constexpr usize kMaxAssets = 16384;
 
@@ -35,13 +38,17 @@ struct AssetMeta {
     std::string id;       // 32 글자 소문자 16 진수
     std::string importer; // "image@1" · "file@1"
     std::string settings; // 정규형 JSON 객체 텍스트 ("{}")
+    std::vector<std::string>
+        labels; // 선택 (v0.6 NG-02) — [a-z0-9_-] 1 ~ 32, 16 개까지, 정렬 · 겹침 없음. 그룹이 고른다
 };
 
 // "{...}" → AssetMeta. 모르는 키 · 모양이 틀리면 이유
 [[nodiscard]] Expected<AssetMeta> parseAssetMeta(std::string_view jsonText);
-// 정규형 (키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈) — 같은 meta 는 같은 바이트 (버전 관리 diff 가 작게)
+// 정규형 (키 순서 고정 · 들여쓰기 2 · 끝 줄바꿈) — 같은 meta 는 같은 바이트 (버전 관리 diff 가 작게). labels 는 있을
+// 때만 (라벨 없는 .meta 의 바이트는 v0.6 M6-T9 그대로)
 [[nodiscard]] std::string writeAssetMeta(const AssetMeta& meta);
 [[nodiscard]] bool isAssetId(std::string_view text) noexcept;
+[[nodiscard]] bool isAssetLabel(std::string_view text) noexcept; // [a-z0-9_-] 1 ~ 32
 
 // 새 id 를 만드는 것 — 기본은 std::random_device (128 비트), 시험은 고정 차례를 준다
 using IdGenerator = std::function<std::string()>;
@@ -56,6 +63,7 @@ struct AssetEntry {
     std::string sha256; // 원본 내용
     u64 size = 0;
     std::vector<std::string> copies; // 같은 id · 같은 내용의 다른 경로
+    std::vector<std::string> labels; // 사본들의 .meta 라벨을 합친 것 (정렬 · 겹침 없음 — v0.6 NG-02)
 };
 
 struct AssetScan {

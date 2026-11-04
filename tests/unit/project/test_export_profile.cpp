@@ -1,5 +1,5 @@
 // Export Profile (v0.6 NG-08 — core/project/ExportProfile): 모양 · 플랫폼 ↔ 백엔드 · 그룹 · 미검증 경고 · 정규형 ·
-// export/ 폴더 읽기
+// export/ 폴더 읽기 · 그룹 이름 (NG-02)
 #include <doctest/doctest.h>
 
 #include <algorithm>
@@ -49,20 +49,24 @@ TEST_SUITE("project") {
         // 기록이 있는 대상은 경고하지 않는다
         const std::array verified{project::ExportTarget{"windows", "x64", "d3d12"}};
         const auto some = project::parseExportProfile(
-            "win", R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12", "vulkan"]})", verified);
+            "win", R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12", "vulkan"]})",
+            {.verified = verified});
         REQUIRE(some.ok());
         REQUIRE(count(some.issues, Severity::Warning) == 1);
         CHECK(some.issues[0].message.find("vulkan") != std::string::npos);
         // 다른 플랫폼 — 모양이 맞으면 오류 없음
-        CHECK(project::parseExportProfile("lin", R"({"platform": "linux", "arch": "arm64", "renderBackends": ["vulkan"]})")
+        CHECK(project::parseExportProfile("lin",
+                                          R"({"platform": "linux", "arch": "arm64", "renderBackends": ["vulkan"]})")
                   .ok());
-        CHECK(project::parseExportProfile("mac", R"({"platform": "macos", "arch": "arm64", "renderBackends": ["metal"]})")
-                  .ok());
+        CHECK(
+            project::parseExportProfile("mac", R"({"platform": "macos", "arch": "arm64", "renderBackends": ["metal"]})")
+                .ok());
     }
 
     TEST_CASE("export profile: 오류 — 이름 · JSON · 모르는 키 · 값 · 겹침 · 낼 수 없는 백엔드 · 없는 Asset Group") {
-        const auto bad = [](std::string_view name, std::string_view text, std::string_view expect) {
-            const auto r = project::parseExportProfile(name, text);
+        const std::vector<std::string> noGroups;
+        const auto bad = [&](std::string_view name, std::string_view text, std::string_view expect) {
+            const auto r = project::parseExportProfile(name, text, {.groups = &noGroups});
             CHECK_FALSE(r.ok());
             CHECK_MESSAGE(mentions(r.issues, expect), text);
             CHECK(count(r.issues, Severity::Warning) == 0); // 오류가 있으면 미검증 경고는 붙이지 않는다
@@ -76,7 +80,8 @@ TEST_SUITE("project") {
         bad("p", R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12"], "textureMaxSize": 1024})",
             "모르는 키 'textureMaxSize'");
         bad("p", R"({"arch": "x64", "renderBackends": ["d3d12"]})", "platform 문자열이 필요하다");
-        bad("p", R"({"platform": "android", "arch": "x64", "renderBackends": ["vulkan"]})", "모르는 platform 'android'");
+        bad("p", R"({"platform": "android", "arch": "x64", "renderBackends": ["vulkan"]})",
+            "모르는 platform 'android'");
         bad("p", R"({"platform": "windows", "arch": "x86", "renderBackends": ["d3d12"]})", "모르는 arch 'x86'");
         bad("p", R"({"platform": "windows", "arch": "x64"})", "renderBackends 배열이 필요하다");
         bad("p", R"({"platform": "windows", "arch": "x64", "renderBackends": []})", "하나 이상");
@@ -87,6 +92,14 @@ TEST_SUITE("project") {
         bad("p", R"({"platform": "windows", "arch": "x64", "renderBackends": ["metal"]})", "windows 는 'metal'");
         bad("p", R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12"], "assetGroups": ["ui"]})",
             "Asset Group 'ui' 이 없다");
+        // 프로젝트에 있는 그룹은 받는다 · groups 를 주지 않으면 (패키지의 프로필을 견줄 때) 보지 않는다
+        const std::string_view grouped =
+            R"({"platform": "windows", "arch": "x64", "renderBackends": ["d3d12"], "assetGroups": ["ui"]})";
+        const std::vector<std::string> ui{"ui"};
+        const auto withGroup = project::parseExportProfile("p", grouped, {.groups = &ui});
+        REQUIRE(withGroup.ok());
+        CHECK(withGroup.profile.assetGroups == ui);
+        CHECK(project::parseExportProfile("p", grouped).ok());
     }
 
     TEST_CASE("export profile: 정규형 왕복 · export/ 폴더 (이름 순 · 오류 · .json 아닌 파일)") {
@@ -104,7 +117,8 @@ TEST_SUITE("project") {
         CHECK(project::loadExportProfiles(dir).issues.empty());
         fs::create_directories(dir / "export" / "sub");
         std::ofstream(dir / "export" / "win.json") << text;
-        std::ofstream(dir / "export" / "linux.json") << R"({"platform": "linux", "arch": "x64", "renderBackends": ["d3d12"]})";
+        std::ofstream(dir / "export" / "linux.json")
+            << R"({"platform": "linux", "arch": "x64", "renderBackends": ["d3d12"]})";
         std::ofstream(dir / "export" / "notes.txt") << "x";
         const auto loaded = project::loadExportProfiles(dir);
         REQUIRE(loaded.profiles.size() == 1);

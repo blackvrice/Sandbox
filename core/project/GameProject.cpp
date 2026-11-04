@@ -7,6 +7,7 @@
 #include <set>
 
 #include "core/asset/AssetDatabase.hpp"
+#include "core/asset/AssetGroups.hpp"
 #include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/package/Lockfile.hpp"
@@ -922,8 +923,28 @@ ProjectReport validateProject(const std::filesystem::path& projectDir, const Sem
     ProjectReport r;
     Opened opened;
     checkProject(projectDir, engine, catalog, options, r, opened);
-    // Export Profile (v0.6 NG-08 — P10): 검사에만. 여는 길 (openProject) 은 내보내기 설정으로 막지 않는다
-    ExportProfiles exports = loadExportProfiles(projectDir);
+    // Asset Group (v0.6 NG-02 — A7 · A8) · Export Profile (v0.6 NG-08 — P10): 검사에만. 여는 길 (openProject) 은
+    // 빌드 · 내보내기 설정으로 막지 않는다
+    asset::AssetGroupsFile groups = asset::loadAssetGroups(projectDir);
+    r.issues.insert(r.issues.end(), std::make_move_iterator(groups.issues.begin()),
+                    std::make_move_iterator(groups.issues.end()));
+    std::vector<std::string> groupNames;
+    for (const asset::AssetGroup& g : groups.groups) {
+        groupNames.push_back(g.name);
+    }
+    if (options.toolFiles && r.hasAssets && groups.ok() && opened.db) { // 정적 참조는 콘텐츠가 있어야 안다
+        const asset::AssetScan scan = asset::scanProjectAssets(projectDir);
+        asset::AssetUsage usage =
+            asset::summarizeAssetUsage(scan, groups.groups, asset::materialAssetIds(*opened.db, scan));
+        for (const asset::GroupSummary& g : usage.groups) {
+            r.assetGroups.push_back(std::format("{} — {} 개 · {} 바이트", g.name, g.ids.size(), g.bytes));
+        }
+        r.unreferencedAssets = usage.unreferenced.size();
+        r.issues.insert(r.issues.end(), std::make_move_iterator(usage.issues.begin()),
+                        std::make_move_iterator(usage.issues.end()));
+    }
+    // 패키지를 푼 폴더 (toolFiles = false) 에는 groups.json 이 없다 — 빌드 쪽 선언이라 그룹 · A8 을 보지 않는다
+    ExportProfiles exports = loadExportProfiles(projectDir, {.groups = options.toolFiles ? &groupNames : nullptr});
     r.exportProfiles = exports.profiles.size();
     r.issues.insert(r.issues.end(), std::make_move_iterator(exports.issues.begin()),
                     std::make_move_iterator(exports.issues.end()));

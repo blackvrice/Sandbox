@@ -40,7 +40,7 @@
 | NG-12 | 에셋 id 충돌 정책 (같은 id · 다른 내용 = 오류, 복제 = 새 id) | B | Done | — | v0.6 | P0 | — | test_asset_database (사본 · 충돌 · .meta 없음 · 깨짐 · 짝 없음 · 경로 · 프로젝트 검사) |
 | NG-13 | 경로 정책 (대소문자 · Unicode NFC · 예약 이름 · 링크 · 길이 · 탈출) | B | Done | — | v0.6 | P0 | — | test_game_project (findCaseConflict · P4 경로) · test_game_package (대소문자 · 링크 — Linux CI) |
 | NG-01 | 빌드 스냅숏 일관성 (리비전 고정 · 바뀜 감지 · 재현 · 정리) | B | Done | — | v0.6 | P0 | M6-T9 | test_game_package "빌드 스냅숏" (읽은 뒤 저장 · 검사와 읽기 사이 고침 · 에셋 바뀜 · 옛 출력 그대로 · 임시 정리) |
-| NG-02 | 동적 에셋 참조 — Asset Group · 라벨 (정적 참조 + 선언) | B | Proposed | — | v0.6 | P1 | M6-T9 | 그룹 포함 · 누락 경고 · 크기 보고 시험 |
+| NG-02 | 동적 에셋 참조 — Asset Group · 라벨 (정적 참조 + 선언) | B | Done | — | v0.6 | P1 | M6-T9 | test_asset_groups (모양 · glob · 라벨 · 크기 · A8) · test_game_package "Asset Group" (빌드 보고 · 오류면 멈춤). 그룹만 싣기 · 원격 묶음은 RT-08-4 |
 | NG-14 | 시뮬레이션 해시 · 표시 digest 분리 (핸드셰이크 경고) | A | Done | — | v0.6 | P1 | M6-T9 | test_network_session (다른 표시 digest = 접속 + 경고, 같으면 없음) · test_pack_materials (digest 가 presentation · 에셋에 따라 바뀌고 contentHash 그대로) · test_messages (프로토콜 16 왕복) |
 | NG-08 | Export Profile (대상 OS · 아키텍처 · 백엔드 · 검증 — Windows 먼저) | B | Done | — | v0.6 | P1 | M6-T9 | test_export_profile (모양 · 대상 · 미검증 경고) · test_game_package "Export Profile" (--profile · 고친 대상 거절 · 다른 플랫폼 경고) |
 | NG-04 | SaveGame 마이그레이션 계약 (게임 버전 · 체인 · 백업 · 실패 복구) | A | Done | — | v0.6 | P1 | — | test_save_migration · test_script_callbacks (onMigrate · 체인 · 같은 해시) · test_world_ops (더 새 거절 · 빠진 단계) · test_game_project (migrations · P9) |

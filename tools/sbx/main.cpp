@@ -114,6 +114,9 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
     }
     if (r.hasAssets) {
         std::printf("에셋: id %zu · id 없음 %zu (assets/ — .meta)\n", r.assets, r.unidentifiedAssets);
+        for (const std::string& g : r.assetGroups) {
+            std::printf("  그룹 %s\n", g.c_str());
+        }
     }
     if (r.exportProfiles > 0) {
         std::printf("Export Profile: %zu (export/ — sbx build --profile <이름>)\n", r.exportProfiles);
@@ -147,6 +150,16 @@ int runBuild(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
         for (const content::ContentIssue& i : built->profileIssues) {
             std::printf("  %s\n", i.describe().c_str());
         }
+    }
+    // 빌드 보고 (v0.6 NG-02) — Asset Group 마다 개수 · 크기, 어디서도 부르지 않는 에셋 (그래도 실었다)
+    for (const asset::GroupSummary& g : built->assetGroups) {
+        std::printf("  에셋 그룹 %s — %zu 개 · %llu 바이트\n", g.name.c_str(), g.ids.size(),
+                    static_cast<unsigned long long>(g.bytes));
+    }
+    if (!built->unreferencedAssets.empty()) {
+        std::printf("  경고: 어디서도 부르지 않는 에셋 %zu 개 (첫째 '%s') — 실었다. 스크립트가 이름으로 부르면 "
+                    "assets/groups.json 그룹에\n",
+                    built->unreferencedAssets.size(), built->unreferencedAssets.front().c_str());
     }
     // 라이선스 요약 (v0.4 M5-T2) — 라이선스마다 팩 수
     std::map<std::string, usize> licenses;
