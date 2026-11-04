@@ -19,7 +19,7 @@
 빠진 것   제작자 GUI 흐름 (28 G1 ~ G9) · 게임 UI · 자기 PNG — Closed Creator Alpha (v0.13) 몫
 ```
 
-## v0.6 — 에셋 · 패키지 · SaveGame 기반
+## v0.6 — 에셋 · 패키지 · SaveGame 기반 ✅ 0.6.0 ([노트](../releases/v0.6.0.md))
 
 ```text
 목표      자기 PNG 를 넣은 게임이 다른 폴더 · 빈 캐시에서 보인다. 같은 프로젝트 → 같은 패키지 digest. 에셋 id · 경로 충돌은 조용히 넘기지 않는다.

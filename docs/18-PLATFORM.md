@@ -13,7 +13,8 @@
          v0.3 SandboxScript ✅ 0.3.0 (2026-10-27 — 릴리스 노트 releases/v0.3.0, 6.2 · 6.3, ADR-0056~0070)
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Technical Alpha ✅ 0.5.0 (2026-11-03 — 릴리스 노트 releases/v0.5.0, M1 · M2 · M8 · M7-T6, ADR-0078~0100)
-다음     roadmap/README 1장 — 트랙 A M3-T1 (v0.7) · NG-04 (v0.6), 트랙 B NG-12 · NG-13 → M6-T9 (v0.6)
+         v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (2026-11-04 — 릴리스 노트 releases/v0.6.0, NG-01 · 02 · 04 · 08 · 12 · 13 · 14 · M6-T9 · RT-06-12)
+다음     roadmap/README 1장 — 트랙 A M3-T1 게임 UI (v0.7), 트랙 B ST-06-1 Editor Services (v0.8)
 로드맵   2026-11-03 재구성 (ADR-0096 · 2차 배치 ADR-0099 · 출시 강화 ADR-0100): 작은 MINOR v0.5 ~ v0.24 RC · v1.0 GA · 성숙 단계 분리 ·
          태스크 등록부 — 정본 roadmap/ (versioning · task-registry · releases · release-gates · stabilization), 근거 audit/SECOND-PASS-GAP-ANALYSIS.
          아래 1장 표는 옛 줄 (이력)
@@ -31,7 +32,7 @@
 | v0.3 | SandboxScript VM / SDK | 사용자 Component / System · 격리           | ✅ 0.3.0 (6.2 · [노트](releases/v0.3.0.md))      |
 | v0.4 | Package Manager        | 남의 Feature 설치 · 잠금 파일 재현         | ✅ 0.4.0 (6.4 · [노트](releases/v0.4.0.md))      |
 | v0.5 | Creator Alpha          | A 가 만든 게임을 B 가 다른 환경에서 실행   | ✅ 0.5.0 Technical Alpha ([노트](releases/v0.5.0.md)) — 처음 목표는 v0.13 (ADR-0096 · 0099) |
-| v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | [계획] — 저장소 경계 D-06 먼저                  |
+| v0.6 | Sandbox Hub            | 공개 → 기여 PR → 릴리스 → 설치             | ✅ 0.6.0 에셋 · 패키지 · SaveGame ([노트](releases/v0.6.0.md)) — Hub 는 v0.14 PS-12-* (ADR-0096 · 0099, 저장소 경계 D-06 먼저) |
 | v0.7 | Multiplayer Platform   | 인증된 방 · 자체 서버 · 무료 세션          | [계획] — 보안 전송 ADR 먼저 (R6)                |
 | v0.8 | Marketplace & Hosting  | 결제 · 정산 · 상시 서버                    | [계획] — 실제 사용자 노출은 보안 · 운영 조건 뒤 |
 | v0.9 | Business & Stability   | 팀 리뷰 → 자동 빌드 → 승인 → 배포          | [계획]                                          |
@@ -114,7 +115,7 @@ v0.3 (ADR-0056 9 — 초안의 세 타깃을 둘로)
 ## 4. 버전 · 호환성 규칙
 
 ```text
-제품 버전      CMake project VERSION (지금 0.5.0 — v0.5 완료, 2026-11-03) — 버전이 끝날 때 올린다 (v0.6 완료 = 0.6.0).
+제품 버전      CMake project VERSION (지금 0.6.0 — v0.6 완료, 2026-11-04) — 버전이 끝날 때 올린다 (v0.7 완료 = 0.7.0).
                버전마다 릴리스 노트 docs/releases/v<제품 버전>.md (이력 — 바꾸지 않는다)
 엔진 범위      매니페스트 "engine" — 이 엔진이 범위 밖이면 프로젝트 검사 오류 P3
 SemVer         2.0.0 엄격 (세 숫자, 앞자리 0 금지, 프리릴리스 · 빌드). 범위 문법 (v0.2): >= > <= < = ^ 와 부분 버전 (npm 과 같은 뜻),

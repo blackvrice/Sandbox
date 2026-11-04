@@ -11,7 +11,7 @@
 
 ```text
 버전      v0.1 Engine Foundation (Phase 0~15) 구현 끝 · 실기 검증 대기, v0.2 Game Creator ✅ 0.2.0, v0.3 SandboxScript ✅ 0.3.0,
-          v0.4 Package Manager ✅ 0.4.0, v0.5 Technical Alpha ✅ 0.5.0 (다음 v0.6 — roadmap/README 1장)
+          v0.4 Package Manager ✅ 0.4.0, v0.5 Technical Alpha ✅ 0.5.0, v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (다음 v0.7 — roadmap/README 1장)
 지금 · 다음  18-PLATFORM 0장 (버전 · 마일스톤 · 태스크 "v0.N Mk-Tn")      Phase 0~15 이력 · 남은 검증  16-ROADMAP
 작업 이력    ../DEVELOPMENT_LOG.md (위가 최신)                            결정 이유      adr/README.md (0001~)
 ```
@@ -51,7 +51,7 @@
 | 28 | [제작자 흐름 기준](28-CREATOR-UX-GATES.md)    | 알파 G1 ~ G9 (CLI 없이) · 사용성 시험 계획 · 양식                           | 계획 · 규범   |
 | —  | [감사 (audit/)](audit/SANDBOX-GAP-MATRIX.md)  | 벤치마크 · Gap Matrix · 구조 위험 · 알파 준비 · 검증 결과 (2026-11-03)      | 감사          |
 | —  | [로드맵 (roadmap/)](roadmap/README.md)        | **로드맵 정본** — 버전 체계 (v0.10 > v0.9) · 태스크 등록부 · 버전별 목표 · 출시 기준 · 안정화 · RC · GA (ADR-0096 · 0099 · 0100) | 계획 · 규범   |
-| —  | [릴리스 노트](releases/v0.5.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 ~ 0.5.0)                 | 이력          |
+| —  | [릴리스 노트](releases/v0.6.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 ~ 0.6.0)                 | 이력          |
 | —  | [수동 QA 체크리스트](qa/MANUAL-QA.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
 | —  | [결정 기록 (ADR)](adr/README.md)              | "왜 이렇게 했지?"                                                          | 이력          |
 | —  | [원본 설계서](design/SANDBOX_ARCHITECTURE.md) | RTS 분석 결과, v0.1 설계의 출처                                            | 이력 (동결)   |

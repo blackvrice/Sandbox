@@ -15,7 +15,8 @@ C++23 로 처음부터 만드는 **Sandbox Simulation Engine · 게임 제작 �
 | v0.3 | SandboxScript — TypeScript 부분집합 · 자체 컴파일러 · 바이트코드 VM · 스크립트 컴포넌트 · 시스템 | ✅ 0.3.0 ([릴리스 노트](docs/releases/v0.3.0.md)) |
 | v0.4 | Package Manager — 콘텐츠 팩 = 패키지 · 로컬 · Git · 캐시 소스 · 잠금 파일 · 트랜잭션 설치 · 팩 사이 스크립트 import · 라이선스 요약 | ✅ 0.4.0 ([릴리스 노트](docs/releases/v0.4.0.md)) |
 | v0.5 | Technical Alpha — 게임플레이 API · Runtime v2 계약 · 표준 라이브러리 · 충돌 보고 · 진단 · 배포 묶음 · 패키지 하나로 다른 환경에서 같은 해시 | ✅ 0.5.0 ([릴리스 노트](docs/releases/v0.5.0.md)) |
-| v0.6~ | 에셋 · Game UI · Studio · Script IDE · Creator Alpha (v0.13) · Hub · 멀티플레이 · 안정화 · RC · GA | [계획] ([roadmap/](docs/roadmap/README.md))               |
+| v0.6 | 에셋 · 패키지 · SaveGame — 프로젝트 PNG (안정 id) · 패키지 형식 3 · 빌드 스냅숏 · 표시 digest 분리 · 세이브 마이그레이션 · Asset Group · Export Profile | ✅ 0.6.0 ([릴리스 노트](docs/releases/v0.6.0.md)) |
+| v0.7~ | Game UI · Studio · Script IDE · Creator Alpha (v0.13) · Hub · 멀티플레이 · 안정화 · RC · GA | [계획] ([roadmap/](docs/roadmap/README.md))               |
 
 지금 무엇을 하고 다음에 무엇을 하는지는 **[docs/18-PLATFORM.md](docs/18-PLATFORM.md) 0장**에 있습니다 (Phase 0~15 이력은
 [docs/16-ROADMAP.md](docs/16-ROADMAP.md)). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다.

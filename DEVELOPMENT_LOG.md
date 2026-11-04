@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-04 — v0.6 종료: 0.6.0 — 릴리스 노트 · 기준 판정 · 제품 버전
+
+**무엇을**
+
+- docs/releases/v0.6.0.md: 들어간 것 (NG-12 · NG-13 · M6-T9 · NG-01 · NG-14 · NG-04 · RT-06-12 · NG-08 · NG-02 · 24 P7), 호환 번호 (프로토콜
+  15 → 16 · .sbc 9 → 10 · .sbpkg 2 → 3 (에셋 있을 때) · 매니페스트 migrations 선택 키, 시뮬레이션 · 세이브 · Host API · 잠금 · 리플레이 그대로),
+  release-gates v0.6 행 판정 (항목마다 시험 이름), 계획 대비, 알려진 문제, 데모 · 재현.
+- CMake project VERSION 0.6.0, README · docs/README · 18 · 23 · roadmap 의 지금 · 다음 줄, versioning · 버전 매트릭스, 21 · 22 의 낡은 번호.
+
+**왜**
+
+- releases.md v0.6 "태스크" 줄이 모두 ✅ (등록부 목표 v0.6 인 미완료 태스크 없음) — 버전이 끝날 때 제품 버전을 올린다 (18 4장).
+
+**검증**
+
+- 골든 · 콘텐츠 그대로 (`git diff 8613d9e -- tests/golden content` 비어 있음) — 시뮬레이션 동작 그대로, 제품 버전만 바뀌었다.
+- 판정 중 바로잡음: 0.5 엔진은 migrations 를 쓴 매니페스트를 모르는 키 (P1) 로 거절한다 (처음 초안은 "거절하지 않는다" 였다 — 코드로 확인).
+- Windows MSVC Debug 빌드 · 전체 ctest 78 / 78 통과 (경고 0 줄), sbx --version = 0.6.0.
+
+**남은 일**
+
+- 태그 · GitHub 릴리스 (배포 묶음 업로드) 는 하지 않았다 — 사용자가 정한다. NG-04 의 서버 수준 적용 중 트랩 시험, 실기 QA (verifiedTargets).
+
 ## 2026-11-04 — CI 고침: BuildOptions 의 지정 초기화 경고 (GCC · Clang -Werror)
 
 **무엇을** package::BuildOptions 의 멤버에 기본 초기화 ({}) — `{.profile = "win"}` 처럼 일부만 지정하면 GCC

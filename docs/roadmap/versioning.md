@@ -82,7 +82,7 @@ v0.9 Business · v1.0 GA) 기준이다. 문서마다 고쳐 쓰지 않고 이 �
 
 | 번호 | 정의 자리 | 지금 (2026-11-03) | 올리는 때 | 옛 것 읽기 |
 |------|-----------|-------------------|-----------|-----------|
-| Product Version | CMake project VERSION · sbx --version | 0.5.0 (2026-11-03) | 마일스톤 출시 | — |
+| Product Version | CMake project VERSION · sbx --version | 0.6.0 (2026-11-04) | 마일스톤 출시 | — |
 | Engine API (프로젝트 engine 범위) | sandbox.project.json "engine" · GameProject P3 | 새 프로젝트 ">=x.y.z <1.0.0" | — (범위는 제작자 것) | 0.x 는 모두 열림, 1.0 전환은 NG-16 |
 | Host API Version · 지문 | script/api/HostApi.hpp kHostApiVersion · hostApiFingerprint | 1 · 0x1dfa888c39154dde | 빼기 · 바꾸기 = 버전++, 더하기 = 지문만 | 지문이 다르면 다시 컴파일 (소스는 패키지에 있다) |
 | Bytecode (.sbc) | script/vm/Bytecode.hpp kFormatVersion | 10 (v0.6 NG-04 — onMigrate) | 형식 바꿈 (M6-T4 = 11) | 다시 컴파일 |

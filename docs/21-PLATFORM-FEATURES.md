@@ -15,7 +15,7 @@
 ## 1. 현재 구현 상태 (v0.1 ~ v0.5 M8)
 
 18-PLATFORM 2장의 표 (게임 제작 영역) 를 넓히고, 이번 요청의 영역을 더했다. 근거는 경로 · 시험 이름 · 문서 장.
-버전 번호 (2026-11-02 헤더 값): .sbc kFormatVersion 9 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0x1dfa888c39154dde
+버전 번호 (2026-11-04 헤더 값 — 0.6.0): .sbc kFormatVersion 10 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0x1dfa888c39154dde
 (script/api/HostApi.hpp · test_checker 고정) · kSimVersion 4 (core/simulation) · 프로토콜 15 (network/protocol — M2-T5 (3)) · .sbpkg 형식 2 · 리플레이 1 ·
 세이브 kWorldVersion 1 / kSchemaVersion 1. 실행 구조 (스레드 · 콜백) 의 다음 설계는 [22-RUNTIME-V2](22-RUNTIME-V2.md).
 제작 도구 (Studio · 에셋 · 스크립트 IDE) 의 상세 상태 · 부족은 [audit/SANDBOX-GAP-MATRIX](audit/SANDBOX-GAP-MATRIX.md) (2026-11-03 — 이 표보다 자세하다). 이 표의

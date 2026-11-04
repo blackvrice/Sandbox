@@ -12,9 +12,9 @@
 ## 1. 지금 · 다음
 
 ```text
-제품      0.5.0 (v0.5 Technical Alpha — [릴리스 노트](../releases/v0.5.0.md)). 지금 버전 v0.6
-다음      트랙 A  M3-T1 게임 UI (v0.7) — NG-04 ✅ SaveGame 계약 (v0.6)
-          트랙 B  ST-06-1 Editor Services (v0.8) — v0.6 태스크 끝: NG-02 ✅ Asset Group · NG-08 ✅ Export Profile · NG-14 ✅ 해시 분리 · NG-01 ✅ 빌드 스냅숏 · M6-T9 ✅ 프로젝트 에셋
+제품      0.6.0 (v0.6 에셋 · 패키지 · SaveGame — [릴리스 노트](../releases/v0.6.0.md)). 지금 버전 v0.7
+다음      트랙 A  M3-T1 게임 UI (v0.7)
+          트랙 B  ST-06-1 Editor Services (v0.8) — v0.6 ✅ 0.6.0
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```
 

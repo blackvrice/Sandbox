@@ -9,7 +9,7 @@
 
 | 번호 | 지금 | 읽는 범위 | 다를 때 | 지키는 시험 | 빈 곳 |
 |------|------|-----------|---------|-------------|-------|
-| Product | 0.5.0 (2026-11-03) | — | 릴리스 피드가 더 새 것을 알림 (바꾸지 않음) | test_user_settings (정수 비교 — v0.10 > v0.9.3) | — |
+| Product | 0.6.0 (2026-11-04) | — | 릴리스 피드가 더 새 것을 알림 (바꾸지 않음) | test_user_settings (정수 비교 — v0.10 > v0.9.3) | — |
 | Engine API 범위 | 새 프로젝트 ">=x.y.z <1.0.0" | 프로젝트가 정함 | 범위 밖 엔진 = 열기 거절 (문장) | test_game_project · test_semver | 1.0 전환 (NG-16) |
 | Host API | 1 · 0x1dfa888c39154dde | 같은 버전 + 같은 지문 | 지문 다름 = 패키지의 소스로 다시 컴파일 · 버전 다름 = 거절 | test_bytecode (지문) · test_runtime_contract | — |
 | Bytecode .sbc | 10 (v0.6 NG-04 — onMigrate) | 10 | 다시 컴파일 (소스는 패키지에) | test_bytecode · test_script_callbacks (onMigrate 왕복) | 11 (M6-T4 — 줄 표) |
