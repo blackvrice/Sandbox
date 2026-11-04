@@ -283,4 +283,81 @@ export default defineSystem({
         REQUIRE(players.size() == 1);
         CHECK(logs == std::vector<std::string>{std::format("signal eco.ping 5 {}", players.begin()->first)});
     }
+    TEST_CASE("client script (local server): ctx.setUi · setUiText · showUi (v0.7 M3-T4) — var 바인딩 · 문서 보이기, "
+              "트랩난 호출의 것은 버린다") {
+        render::MaterialLibrary mats;
+        NetworkSessionDesc d;
+        d.world = "ecosystem_small";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.inlineServer = true;
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        NetworkSession& ns = **made;
+        editor::Editor ed;
+        f64 now = 0;
+        const auto frame = [&] {
+            ns.update(kDt);
+            render::RenderWorld w;
+            ns.extract(w);
+            editor::EditorInput in;
+            in.now = (now += kDt);
+            in.cursor = {1e4f, 1e4f};
+            ed.update(in, ns);
+        };
+        for (int i = 0; i < 120 && !ns.ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns.ready());
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.ui",
+                               nlohmann::json{{"id", "eco.ui"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.ui",
+  domain: "client",
+  onUpdate(ctx) {
+    ctx.setUi("eco.frame", ctx.frame)
+    ctx.setUiText("eco.name", "토끼 왕")
+    if (ctx.frame === 3) { ctx.showUi("eco.hud", false) }
+  },
+})
+)"}}));
+        for (int i = 0; i < 60 && ns.clientScripts() == nullptr && ns.overlayError().empty(); ++i) {
+            frame();
+        }
+        REQUIRE_MESSAGE(ns.overlayError().empty(), ns.overlayError());
+        REQUIRE(ns.clientScripts() != nullptr);
+        REQUIRE(
+            ed.editContent(ns, ContentKind::Script, "eco.zz_trap",
+                           nlohmann::json{{"id", "eco.zz_trap"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.zz_trap",
+  domain: "client",
+  onUpdate(ctx) {
+    ctx.setUi("eco.bad", 1)
+    while (true) {}
+  },
+})
+)"}}));
+        for (int i = 0; i < 60 && ns.clientScripts() == nullptr; ++i) {
+            frame();
+        }
+        REQUIRE_MESSAGE(ns.overlayError().empty(), ns.overlayError());
+        REQUIRE(ns.clientScripts() != nullptr);
+        std::vector<std::pair<std::string, bool>> shows;
+        for (int i = 0; i < 6; ++i) {
+            frame();
+            for (auto& s : ns.takeUiShows()) {
+                shows.push_back(std::move(s));
+            }
+        }
+        const ui::IUiDataSource* data = ns.uiData();
+        REQUIRE(data != nullptr);
+        const ui::UiScalar f = ui::evaluate("var:eco.frame", *data);
+        CHECK(f.known());
+        CHECK(f.number >= 6);
+        CHECK(ui::evaluate("var:eco.name", *data).text == "토끼 왕");
+        // eco.zz_trap 은 id 순으로 뒤 — 앞 시스템의 값은 남고, 연료가 다해 트랩난 호출의 것은 버렸다
+        CHECK_FALSE(ui::evaluate("var:eco.bad", *data).known());
+        CHECK(shows == std::vector<std::pair<std::string, bool>>{{"eco.hud", false}});
+        CHECK(ns.takeUiShows().empty());
+    }
 }

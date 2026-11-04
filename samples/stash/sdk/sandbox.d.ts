@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 1dfa888c39154dde — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 43ee8d9ef79b762a — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -480,5 +480,11 @@ declare module "sandbox" {
     label(entity: Entity, text: string): void;
     /** 이번 프레임 화면 왼쪽 위 "스크립트" 칸에 한 줄 (256 바이트까지) — client.print */
     print(text: string): void;
+    /** 게임 UI 의 "var:<key>" 바인딩에 수 (프레임마다 64 개까지 — 값은 다음 set 까지 남는다) — client.setUi */
+    setUi(key: string, value: number): void;
+    /** 게임 UI 의 "var:<key>" 바인딩에 글자 (256 바이트까지) — client.setUiText */
+    setUiText(key: string, text: string): void;
+    /** 게임 UI 문서 ("<팩>.<이름>") 를 보이거나 숨긴다 — client.showUi */
+    showUi(document: string, visible: boolean): void;
   }
 }

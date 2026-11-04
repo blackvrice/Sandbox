@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-04 — v0.7 M3-T4 (2): client 스크립트 ctx.setUi · setUiText · showUi — Host API 더하기 (M3-T4 끝)
+
+**무엇을**
+
+- Host 표 끝에 client.setUi(key, number) · client.setUiText(key, text) · client.showUi(doc, visible) (Capability Ui — onUpdate 의 허락에
+  더함). 2.5 의 ctx.ui.set · show 를 평평한 이름으로 (Host ABI 에 중첩 객체가 없다). ClientScriptHost 가 프레임마다 64 개까지 모으고
+  트랩난 호출의 것은 버린다 (신호 · 소리와 같은 규칙). NetworkSession 이 var 값을 세션 표에, 문서 보이기를 takeUiShows 로 앱에 →
+  GameUiLayer.apply.
+- Host API 지문 0x1dfa888c39154dde → 0x43ee8d9ef79b762a (더하기만 — 버전 1 그대로), sdk/ · samples 셋의 sdk/sandbox.d.ts 다시 생성 (sbx sdk).
+
+**왜**
+
+- 등록부 M3-T4 의 나머지 — client 스크립트가 HUD 값을 정한다 (2.5).
+
+**검증**
+
+- test_client_script_session "ctx.setUi" (오버레이로 더한 client 시스템 — var 수 · 글자 · 보이기 하나, 뒤 시스템의 트랩 호출 값은 버림),
+  test_checker (지문) · test_client_scripts (항목 18) · test_runtime_contract (Ui 허락) · test_script_host (커밋된 SDK = 생성).
+- 시험이 찾은 것: 시험 스크립트의 == (S311 — === 를 쓴다) 로 시스템이 실리지 않았는데 ns.overlayError() 는 비어 있었다 — sbx check 로
+  찾았다. client 스크립트 컴파일 오류가 오버레이 오류 줄에 보이지 않는 것은 따로 남은 일.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- 오버레이로 더한 client 스크립트의 컴파일 오류를 overlayError · 콘텐츠 패널에 (지금은 조용히 실리지 않는다).
+- ctx.ui.text (문자열 표 — M4-T1), 0.7.0 출시 노트에 Host API 지문 · 새 함수.
+
 ## 2026-11-04 — v0.7 M3-T4 (1): 게임 UI 바인딩 평가 · 클라이언트 데이터 — var · session · component@owned|selected
 
 **무엇을**

@@ -138,6 +138,7 @@ public:
     [[nodiscard]] const ui::IUiDataSource* uiData() const override { return &m_uiData; }
     // var 바인딩 값 (v0.7 M3-T4 — client 스크립트 ctx.ui.set 이 쓴다 · 시험). 키 256 개까지 (넘으면 버린다)
     void setUiVar(std::string key, ui::UiScalar value);
+    [[nodiscard]] std::vector<std::pair<std::string, bool>> takeUiShows() override;
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
     [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;
@@ -245,6 +246,7 @@ private:
         const NetworkSession& m_session;
     };
     UiData m_uiData{*this};
+    std::vector<std::pair<std::string, bool>> m_uiShows; // client.showUi — 앱이 꺼낸다 (64 개까지)
     // 에디터가 보낸 명령 (결과를 IEditorHost::takeOutcomes 로) · EditPreview (netId 오름차순) — 12A
     std::vector<u32> m_editorSequences;
     std::vector<editor::CommandOutcome> m_outcomes;

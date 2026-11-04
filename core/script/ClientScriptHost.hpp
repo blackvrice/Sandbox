@@ -56,6 +56,15 @@ struct ClientScriptSound {
     std::string system;
     std::string id;
 };
+// 게임 UI (v0.7 M3-T4) — var 바인딩 값 (수 · 글자) 또는 문서 보이기
+struct ClientScriptUi {
+    enum class Kind : u8 { Number, Text, Show };
+    Kind kind = Kind::Number;
+    std::string key; // var 키 · 문서 id
+    f64 number = 0;
+    std::string text;
+    bool visible = false;
+};
 
 // 프레임 하나에 스크립트가 보는 것 — registry · catalog 는 그 프레임의 호출이 끝날 때까지 살아야 한다
 struct ClientScriptFrame {
@@ -84,6 +93,7 @@ public:
     static constexpr usize kMaxQueryEntities = 65536; // 질의 하나 (넘으면 HostError)
     static constexpr usize kMaxSendsPerFrame = 8;     // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
     static constexpr usize kMaxSoundsPerFrame = 32;   // client.playSound
+    static constexpr usize kMaxUiPerFrame = 64;       // client.setUi · setUiText · showUi (v0.7 M3-T4)
 
     ClientScriptHost();
 
@@ -105,6 +115,8 @@ public:
     [[nodiscard]] const std::vector<ClientScriptSend>& sends() const noexcept { return m_sends; }
     [[nodiscard]] const std::vector<ClientScriptSound>& sounds() const noexcept { return m_sounds; }
     [[nodiscard]] u64 droppedOutputs() const noexcept { return m_droppedOutputs; }
+    // 이번 프레임의 게임 UI 값 · 보이기 (부른 차례 — 트랩난 호출의 것은 버렸다)
+    [[nodiscard]] const std::vector<ClientScriptUi>& uiOutputs() const noexcept { return m_ui; }
 
     // 바인딩이 쓰는 지금 호출의 상태 · 구현 (core/script/ClientScriptHost.cpp 의 표가 부른다)
     [[nodiscard]] const ClientScriptFrame& frame() const noexcept { return m_frame; }
@@ -116,6 +128,7 @@ public:
     vm::HostResult key(std::span<const vm::HostArg> args, int which); // 0 down · 1 pressed · 2 released
     vm::HostResult send(std::span<const vm::HostArg> args);
     vm::HostResult playSound(std::span<const vm::HostArg> args);
+    vm::HostResult ui(std::span<const vm::HostArg> args, ClientScriptUi::Kind kind);
 
 private:
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
@@ -131,6 +144,7 @@ private:
     usize m_linesAtCall = 0;
     usize m_sendsAtCall = 0;
     usize m_soundsAtCall = 0;
+    usize m_uiAtCall = 0;
     std::vector<ecs::EntityId> m_handles; // 핸들 자리 → 개체 (호출마다 새로)
     std::map<u64, u32> m_handleOf;        // EntityId.raw → 자리 (찾기만)
     std::vector<ClientScriptLabel> m_labels;
@@ -138,6 +152,7 @@ private:
     u64 m_dropped = 0;
     std::vector<ClientScriptSend> m_sends;
     std::vector<ClientScriptSound> m_sounds;
+    std::vector<ClientScriptUi> m_ui;
     u64 m_droppedOutputs = 0;
 };
 

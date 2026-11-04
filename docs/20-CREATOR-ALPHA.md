@@ -146,6 +146,10 @@ M3-T4 (1) ✅ (v0.7) ui/binding evaluate · formatText · progressOf · listCoun
             없다), @selected = 첫째 선택, 값은 카탈로그 getNumber (수 칸만). var = setUiVar (ctx.ui.set 은 (2)). 모르는 값 = "-" ·
             progress 0. list 는 항목 수만 바인딩 (0 ~ 256) — 항목마다 다른 글자는 [계획]. 프레임마다 다시 평가 (바뀐 것만은
             [계획] — 측정 뒤)
+M3-T4 (2) ✅ (v0.7) client 스크립트 ctx.setUi(key, number) · ctx.setUiText(key, text) · ctx.showUi(doc, visible) — 2.5 의
+            ctx.ui.set · show 를 평평한 이름으로 (Host ABI 에 중첩 객체가 없다). Capability Ui (onUpdate 가 허락), 프레임마다 64 개,
+            트랩난 호출의 것은 버린다. Host API 지문 0x43ee8d9ef79b762a (더하기만 — 버전 1 그대로), SDK sandbox.d.ts 다시 생성.
+            ctx.ui.text (문자열 표 — 5장) 는 M4-T1
 ```
 
 ### 2.5 스크립트 연동 (client 도메인 — 3.8)

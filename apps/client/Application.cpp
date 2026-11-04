@@ -447,6 +447,9 @@ void Application::handleWorldInput(f64 dt) {
 bool Application::routeGameUi() {
     m_gameUi.setSources(m_config.world->gameUi());
     m_gameUi.setData(m_config.world->uiData());
+    for (auto& [doc, visible] : m_config.world->takeUiShows()) { // client.showUi (v0.7 M3-T4)
+        m_gameUi.apply(ui::UiAction{ui::UiAction::Kind::Ui, std::move(doc), std::nullopt, visible ? "show" : "hide"});
+    }
     for (const std::string& w : m_gameUi.takeWarnings()) {
         log::warn("client", "{}", w);
     }

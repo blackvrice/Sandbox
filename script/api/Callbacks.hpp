@@ -25,7 +25,7 @@ enum class HostCapability : u8 {
     PhysicsCommand, // [계획 v0.6] 힘 · 충격 · 순간 이동
     InputRead,      // [계획 v0.5 M2-T6] 행동 · 축
     ClientSend,     // [계획 v0.5 M2-T6] 신호 보내기
-    Ui,             // [계획 v0.5 M3-T4] UI 값
+    Ui,             // 게임 UI 값 · 보이기 (v0.7 M3-T4 — client.setUi · setUiText · showUi)
     Draw,           // [계획 v0.6] onRender 의 그리기 명령
     Sound,          // [계획 v0.5 M2-T6] 소리 이벤트
     NetworkIo,      // [계획 v0.8] 외부 요청 (서버만 · 허락 목록)
@@ -95,7 +95,7 @@ inline constexpr std::array kCallbacks{
                  "Client 고정 Tick — network.model \"predicted\" 게임만 (ADR-0087)"},
     CallbackInfo{"onUpdate", true, CallbackStatus::Active, "v0.3",
                  detail::kClientDisplay | capBit(HostCapability::InputRead) | capBit(HostCapability::ClientSend) |
-                     capBit(HostCapability::Sound),
+                     capBit(HostCapability::Sound) | capBit(HostCapability::Ui), // Ui = v0.7 M3-T4
                  "프레임 — 스냅숏 적용 · 보간 뒤 (표시만)"},
 };
 

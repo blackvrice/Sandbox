@@ -261,7 +261,7 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
             client += f.domain == api::HostDomain::Client ? 1 : 0;
         }
         CHECK(clientHostBindings().size() == client);
-        CHECK(client == 15); // v0.3 8 + v0.5 M2-T6 입력 다섯 · send · playSound
+        CHECK(client == 18); // v0.3 8 + v0.5 M2-T6 입력 다섯 · send · playSound + v0.7 M3-T4 setUi · setUiText · showUi
         std::vector<ClientHostBinding> withServer(clientHostBindings().begin(), clientHostBindings().end());
         withServer.push_back({"ctx.tick", api::AbiType::I32, {api::AbiType::ServerContext}, 1, nullptr});
         const std::vector<std::string> p = checkClientHostBindings(withServer);

@@ -81,6 +81,15 @@ vm::HostResult clientSend(ClientScriptHost& host, std::span<const vm::HostArg> a
 vm::HostResult clientPlaySound(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.playSound(args);
 }
+vm::HostResult clientSetUi(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.ui(args, ClientScriptUi::Kind::Number);
+}
+vm::HostResult clientSetUiText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.ui(args, ClientScriptUi::Kind::Text);
+}
+vm::HostResult clientShowUi(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.ui(args, ClientScriptUi::Kind::Show);
+}
 
 constexpr ClientHostBinding kBindings[] = {
     {"client.tick", AbiType::I32, {AbiType::ClientContext}, 1, &clientTick},
@@ -102,6 +111,13 @@ constexpr ClientHostBinding kBindings[] = {
     {"client.pointerY", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerY},
     {"client.send", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::I32}, 3, &clientSend},
     {"client.playSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPlaySound},
+    {"client.setUi", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::Number}, 3, &clientSetUi},
+    {"client.setUiText",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::String, AbiType::String},
+     3,
+     &clientSetUiText},
+    {"client.showUi", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::Bool}, 3, &clientShowUi},
 };
 
 } // namespace
@@ -132,6 +148,7 @@ void ClientScriptHost::beginFrame(const ClientScriptFrame& frame) {
     m_lines.clear();
     m_sends.clear();
     m_sounds.clear();
+    m_ui.clear();
 }
 
 vm::Value ClientScriptHost::beginCall(std::string system) {
@@ -141,6 +158,7 @@ vm::Value ClientScriptHost::beginCall(std::string system) {
     m_linesAtCall = m_lines.size();
     m_sendsAtCall = m_sends.size();
     m_soundsAtCall = m_sounds.size();
+    m_uiAtCall = m_ui.size();
     m_handles.clear();
     m_handleOf.clear();
     return vm::Value::opaque(m_token);
@@ -152,6 +170,7 @@ void ClientScriptHost::endCall(bool ok) {
         m_lines.resize(m_linesAtCall);
         m_sends.resize(m_sendsAtCall); // 트랩난 호출은 아무것도 내보내지 않는다
         m_sounds.resize(m_soundsAtCall);
+        m_ui.resize(m_uiAtCall);
     }
     m_token = 0;
     m_handles.clear();
@@ -345,6 +364,29 @@ vm::HostResult ClientScriptHost::playSound(std::span<const vm::HostArg> args) {
         return {};
     }
     m_sounds.push_back({m_system, clip(args[1].text, 64)});
+    return {};
+}
+
+vm::HostResult ClientScriptHost::ui(std::span<const vm::HostArg> args, ClientScriptUi::Kind kind) {
+    if (m_ui.size() >= kMaxUiPerFrame) {
+        ++m_droppedOutputs;
+        return {};
+    }
+    ClientScriptUi u;
+    u.kind = kind;
+    u.key = clip(args[1].text, 64);
+    switch (kind) {
+    case ClientScriptUi::Kind::Number:
+        u.number = args[2].value.asF64();
+        break;
+    case ClientScriptUi::Kind::Text:
+        u.text = clip(args[2].text, kMaxTextBytes);
+        break;
+    case ClientScriptUi::Kind::Show:
+        u.visible = args[2].value.asBool();
+        break;
+    }
+    m_ui.push_back(std::move(u));
     return {};
 }
 

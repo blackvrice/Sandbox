@@ -662,6 +662,16 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
             ++m_scriptSignalsSent;
         }
     }
+    // 게임 UI (v0.7 M3-T4): var 값은 세션의 표에, 문서 보이기는 앱이 꺼내 GameUiLayer 에
+    for (const script::ClientScriptUi& u : m_clientScripts->host().uiOutputs()) {
+        if (u.kind == script::ClientScriptUi::Kind::Number) {
+            setUiVar(u.key, ui::UiScalar::of(u.number));
+        } else if (u.kind == script::ClientScriptUi::Kind::Text) {
+            setUiVar(u.key, ui::UiScalar::of(u.text));
+        } else if (m_uiShows.size() < 64) {
+            m_uiShows.emplace_back(u.key, u.visible);
+        }
+    }
     for (const script::ClientScriptSound& s : m_clientScripts->host().sounds()) {
         if (m_scriptSounds.size() < 256) {
             m_scriptSounds.push_back(s.id);
@@ -973,6 +983,12 @@ void NetworkSession::playerSignal(std::string id, i32 value) {
     if (send(cmd::PlayerSignal{std::move(id), value}) == 0) {
         m_actionMessage = "접속 전이라 보낼 수 없습니다";
     }
+}
+
+std::vector<std::pair<std::string, bool>> NetworkSession::takeUiShows() {
+    std::vector<std::pair<std::string, bool>> out;
+    out.swap(m_uiShows);
+    return out;
 }
 
 void NetworkSession::setUiVar(std::string key, ui::UiScalar value) {
