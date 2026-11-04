@@ -135,6 +135,9 @@ public:
     void playerAction(std::string id, Vec2 world) override;
     [[nodiscard]] std::optional<GameUiInfo> gameUi() const override;
     void playerSignal(std::string id, i32 value) override;
+    [[nodiscard]] const ui::IUiDataSource* uiData() const override { return &m_uiData; }
+    // var 바인딩 값 (v0.7 M3-T4 — client 스크립트 ctx.ui.set 이 쓴다 · 시험). 키 256 개까지 (넘으면 버린다)
+    void setUiVar(std::string key, ui::UiScalar value);
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
     [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;
@@ -229,6 +232,19 @@ private:
     std::string m_lastRejection;
     std::string m_gameMessage;   // "게임" 패널 (GameControl 거절 · 재시작 결과)
     std::string m_actionMessage; // "행동" 패널 (PlayerAction 결과 · 거절)
+    // 게임 UI 바인딩의 데이터 (v0.7 M3-T4): 복제 월드 · 세션 · 선택 · var — 표시 값 = 복제된 값
+    class UiData final : public ui::IUiDataSource {
+    public:
+        explicit UiData(const NetworkSession& session) : m_session(session) {}
+        [[nodiscard]] ui::UiScalar var(std::string_view key) const override;
+        [[nodiscard]] ui::UiScalar session(std::string_view field) const override;
+        [[nodiscard]] ui::UiScalar component(std::string_view componentField, ui::UiTarget target) const override;
+        std::map<std::string, ui::UiScalar, std::less<>> vars;
+
+    private:
+        const NetworkSession& m_session;
+    };
+    UiData m_uiData{*this};
     // 에디터가 보낸 명령 (결과를 IEditorHost::takeOutcomes 로) · EditPreview (netId 오름차순) — 12A
     std::vector<u32> m_editorSequences;
     std::vector<editor::CommandOutcome> m_outcomes;

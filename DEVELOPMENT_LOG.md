@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-04 — v0.7 M3-T4 (1): 게임 UI 바인딩 평가 · 클라이언트 데이터 — var · session · component@owned|selected
+
+**무엇을**
+
+- ui/binding: UiScalar (수 · 글자 · 참거짓 · 모름 — 표시 글자: 정수면 정수, 아니면 최단 십진, 모름 "-"), IUiDataSource, evaluate ·
+  formatText ("{n}" → 인자 값) · progressOf (value / max, 0 ~ 1) · listCountOf (0 ~ 256).
+- 클라이언트: IWorldSession uiData() — NetworkSession 의 UiData: session tick · time · state · team · score[i] (게임 세션 · 복제 틱),
+  component@owned (game.owner == 내 clientId — 명령 issuer 와 같다, netId 가 가장 작은 개체) · @selected (첫째 선택) — 카탈로그 getNumber,
+  var (setUiVar — 256 키). GameUiLayer.setData — 글자 · progress · list 수가 데이터를 쓴다 (M3-T3 의 "-" 대신).
+
+**왜**
+
+- 등록부 M3-T4 (v0.7 P0) — "HUD 가 점수 · 보관함 값을 따라간다". (2) 는 client 스크립트 ctx.ui.set · show (Host API).
+
+**검증**
+
+- test_ui_binding 3 · test_game_ui_layer "ui data (local server)" — 행동 (spawn owner: true) 으로 만든 내 토끼의 기운이 @owned 로 보이고,
+  @selected 가 복제 월드에서 직접 읽은 값과 같다. 첫 실행에 모두 맞았다.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- (2) client 스크립트 ctx.ui.set(key, value) · ctx.ui.show(docId, bool) — Host API 더하기 (지문 · SDK · 샘플 sdk/ 다시 생성).
+- list 항목마다 다른 글자, 바뀐 것만 평가 (측정 뒤), entity:<netId> 대상.
+
 ## 2026-11-04 — v0.7 M3-T3: 게임 UI 그리기 · 입력 — ImGui 배경 그리기 목록 · 라우팅 · 버튼 이벤트 (화면 확인)
 
 **무엇을**

@@ -51,7 +51,8 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
     for (usize i = 0; i < m_docs.size(); ++i) {
         const ui::UiDocument& d = m_docs[i];
         ui::UiLayoutOptions o{.width = width, .height = height, .scale = scale, .styles = &m_styles};
-        o.textOf = [](const ui::UiNode& n, i32) { return displayText(n); };
+        o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
+        o.listCount = [this](const ui::UiNode& n) { return ui::listCountOf(n, m_data); };
         o.hidden = [this, &d](const ui::UiNode& n) { return !n.id.empty() && nodeHidden(d.id, n.id); };
         // 숨긴 문서는 배치하지 않는다 (라우팅 · 그리기 모두 건너뛴다)
         m_layouts.push_back(ui::UiDocumentLayout{
@@ -81,7 +82,8 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
 
 void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
     ui::UiDrawOptions o{.styles = &m_styles, .pressed = m_pressed, .pressedIndex = m_pressedIndex};
-    o.textOf = [](const ui::UiNode& n, i32) { return displayText(n); };
+    o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
+    o.progressOf = [this](const ui::UiNode& n, i32) { return ui::progressOf(n, m_data); };
     for (const ui::UiDocumentLayout& l : m_layouts) {
         if (l.visible) {
             ui::drawLayout(l.nodes, o, renderer);
@@ -129,26 +131,6 @@ bool GameUiLayer::nodeHidden(std::string_view documentId, std::string_view nodeI
 std::vector<std::string> GameUiLayer::takeWarnings() {
     std::vector<std::string> out;
     out.swap(m_warnings);
-    return out;
-}
-
-std::string GameUiLayer::displayText(const ui::UiNode& node) {
-    const std::string& t = node.text;
-    std::string out;
-    out.reserve(t.size());
-    for (usize i = 0; i < t.size(); ++i) {
-        // "{0}" ~ "{9}" — 고정 수 인자는 그 수, 바인딩 인자는 "-" (평가는 M3-T4), 없는 인자는 빈 글자
-        if (t[i] == '{' && i + 2 < t.size() && t[i + 1] >= '0' && t[i + 1] <= '9' && t[i + 2] == '}') {
-            const usize index = static_cast<usize>(t[i + 1] - '0');
-            if (index < node.args.size()) {
-                const ui::UiValue& v = node.args[index];
-                out += v.bind.empty() ? std::format("{}", v.number) : std::string("-");
-            }
-            i += 2;
-            continue;
-        }
-        out += t[i];
-    }
     return out;
 }
 

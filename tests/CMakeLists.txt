@@ -79,6 +79,7 @@ add_executable(SandboxTests
     unit/ui/test_ui_document.cpp
     unit/ui/test_ui_layout.cpp
     unit/ui/test_ui_render.cpp
+    unit/ui/test_ui_binding.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp

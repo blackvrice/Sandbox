@@ -446,6 +446,7 @@ void Application::handleWorldInput(f64 dt) {
 // 없는 행동은 [계획]), ui = 층 안에서 보이기 · 숨기기
 bool Application::routeGameUi() {
     m_gameUi.setSources(m_config.world->gameUi());
+    m_gameUi.setData(m_config.world->uiData());
     for (const std::string& w : m_gameUi.takeWarnings()) {
         log::warn("client", "{}", w);
     }

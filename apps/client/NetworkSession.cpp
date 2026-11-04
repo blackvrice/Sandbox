@@ -1,6 +1,7 @@
 #include "apps/client/NetworkSession.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <format>
@@ -16,6 +17,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/game/CameraStart.hpp"
+#include "core/components/game/GameOwner.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/scenarios/WorldSource.hpp"
@@ -971,6 +973,93 @@ void NetworkSession::playerSignal(std::string id, i32 value) {
     if (send(cmd::PlayerSignal{std::move(id), value}) == 0) {
         m_actionMessage = "접속 전이라 보낼 수 없습니다";
     }
+}
+
+void NetworkSession::setUiVar(std::string key, ui::UiScalar value) {
+    if (m_uiData.vars.size() >= 256 && !m_uiData.vars.contains(key)) {
+        return;
+    }
+    m_uiData.vars.insert_or_assign(std::move(key), std::move(value));
+}
+
+ui::UiScalar NetworkSession::UiData::var(std::string_view key) const {
+    const auto it = vars.find(key);
+    return it == vars.end() ? ui::UiScalar{} : it->second;
+}
+
+ui::UiScalar NetworkSession::UiData::session(std::string_view field) const {
+    const net::ClientWorld* w = m_session.clientWorld();
+    if (w == nullptr) {
+        return {};
+    }
+    if (field == "tick") {
+        return ui::UiScalar::of(static_cast<f64>(w->serverTick()));
+    }
+    if (field == "time") {
+        return ui::UiScalar::of(static_cast<f64>(w->serverTick()) / 30.0); // 30 TPS (04)
+    }
+    const std::optional<GameInfo> g = m_session.game();
+    if (!g) {
+        return {};
+    }
+    if (field == "state") {
+        static constexpr std::array<std::string_view, 4> kStates{"Lobby", "Starting", "Running", "Finished"};
+        return g->state < kStates.size() ? ui::UiScalar::of(std::string(kStates[g->state])) : ui::UiScalar{};
+    }
+    if (field == "team") {
+        return g->team.empty() ? ui::UiScalar{} : ui::UiScalar::of(g->team);
+    }
+    if (field.starts_with("score[") && field.ends_with(']')) {
+        const std::string digits(field.substr(6, field.size() - 7));
+        const usize i = digits.empty() || digits.size() > 2 ? usize{99} : static_cast<usize>(std::stoul(digits));
+        return i < g->scores.size() ? ui::UiScalar::of(static_cast<f64>(g->scores[i].points)) : ui::UiScalar{};
+    }
+    return {};
+}
+
+ui::UiScalar NetworkSession::UiData::component(std::string_view componentField, ui::UiTarget target) const {
+    const net::ClientWorld* w = m_session.clientWorld();
+    if (w == nullptr || !m_session.m_session || !m_session.m_session->welcome()) {
+        return {};
+    }
+    const usize dot = componentField.rfind('.');
+    if (dot == std::string_view::npos) {
+        return {};
+    }
+    const ecs::ComponentInfo* info = w->catalog().find(componentField.substr(0, dot));
+    if (info == nullptr || !info->getNumber) {
+        return {};
+    }
+    const ecs::Registry& reg = w->registry();
+    const ecs::ComponentPoolBase* pool = reg.poolByStableId(info->stableId);
+    if (pool == nullptr) {
+        return {};
+    }
+    ecs::EntityId e = ecs::kNullEntity;
+    if (target == ui::UiTarget::Selected) {
+        if (!m_session.m_selection.empty()) {
+            e = w->find(m_session.m_selection.front());
+        }
+    } else if (const auto* owners = reg.findPool<comp::GameOwner>()) {
+        // 내 플레이어 (game.owner == 내 clientId — 명령의 issuer) 의 개체 중 netId 가 가장 작은 것 (복제 월드에는
+        // saveId 가 없다 — cameraStart 와 같은 규칙, 순회 순서와 무관)
+        const u32 me = m_session.m_session->welcome()->clientId;
+        NetEntityId best = 0;
+        for (const ecs::EntityId owned : owners->entities()) {
+            const auto* id = reg.tryRead<comp::NetIdentity>(owned);
+            if (reg.read<comp::GameOwner>(owned).player == me && id != nullptr &&
+                (e == ecs::kNullEntity || id->netId < best)) {
+                e = owned;
+                best = id->netId;
+            }
+        }
+    }
+    const void* raw = e == ecs::kNullEntity ? nullptr : pool->getRaw(e);
+    if (raw == nullptr) {
+        return {};
+    }
+    const std::optional<f64> v = info->getNumber(raw, componentField.substr(dot + 1));
+    return v ? ui::UiScalar::of(*v) : ui::UiScalar{};
 }
 
 void NetworkSession::worldOp(WorldOp op, std::string name) {

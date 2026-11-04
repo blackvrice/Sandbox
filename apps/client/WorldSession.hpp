@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "render/renderer/RenderWorld.hpp"
+#include "ui/binding/UiBinding.hpp"
 
 namespace sbx::script {
 struct ClientScriptInput;
@@ -248,6 +249,8 @@ public:
     // 게임 UI (v0.7 M3-T3) — 콘텐츠의 presentation/ui 원문, 버튼의 신호 (PlayerSignal — 서버가 판정)
     [[nodiscard]] virtual std::optional<GameUiInfo> gameUi() const { return std::nullopt; }
     virtual void playerSignal(std::string /*id*/, i32 /*value*/) {}
+    // 게임 UI 바인딩의 데이터 (v0.7 M3-T4 — var · session · component@owned|selected). 없으면 바인딩은 모두 "-"
+    [[nodiscard]] virtual const ui::IUiDataSource* uiData() const { return nullptr; }
     // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----
     [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 (client 시스템이 없으면 nullopt — 아무것도 그리지 않는다) ----

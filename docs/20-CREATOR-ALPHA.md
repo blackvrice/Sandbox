@@ -140,6 +140,12 @@ M3-T3 ✅    (v0.7) ui/render drawLayout → IUiRenderer (panel · list 색 · �
             게임 입력 (카메라 · 선택 · 에디터) 에서 뺀다. 다른 점: menu · modal 이 도구 패널보다 먼저지만 ImGui 는 이미 같은 이벤트를
             받았다 (겹치면 둘 다 반응 — 도구 패널을 F1 로 감추면 없다). image 는 material 이름의 고정 색 (텍스처 [계획]), 글자는
             바인딩 평가 전 (M3-T4) — "{n}" 에 고정 수, 바인딩은 "-"
+M3-T4 (1) ✅ (v0.7) ui/binding evaluate · formatText · progressOf · listCountOf → IUiDataSource. 클라이언트 (NetworkSession 의
+            데이터): session tick · time (= tick / 30) · state (Lobby · Starting · Running · Finished) · team (결과 팀) · score[i],
+            component:<컴포넌트>.<칸>@owned = game.owner == 내 clientId 인 개체 중 netId 가 가장 작은 것 (복제 월드에는 saveId 가
+            없다), @selected = 첫째 선택, 값은 카탈로그 getNumber (수 칸만). var = setUiVar (ctx.ui.set 은 (2)). 모르는 값 = "-" ·
+            progress 0. list 는 항목 수만 바인딩 (0 ~ 256) — 항목마다 다른 글자는 [계획]. 프레임마다 다시 평가 (바뀐 것만은
+            [계획] — 측정 뒤)
 ```
 
 ### 2.5 스크립트 연동 (client 도메인 — 3.8)

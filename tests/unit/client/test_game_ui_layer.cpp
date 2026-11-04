@@ -15,6 +15,7 @@
 #include "apps/client/presentation/GameUiLayer.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/life/Life.hpp"
 #include "core/project/GameProject.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
@@ -149,7 +150,7 @@ TEST_SUITE("client") {
         ui::UiNode n;
         n.text = "토끼 {0} · 점수 {1} · {2} · {9}";
         n.args = {ui::UiValue{3, {}}, ui::UiValue{0, "session:score[0]"}, ui::UiValue{2.5f, {}}};
-        CHECK(GameUiLayer::displayText(n) == "토끼 3 · 점수 - · 2.5 · ");
+        CHECK(ui::formatText(n, nullptr) == "토끼 3 · 점수 - · 2.5 · "); // 데이터가 없으면 바인딩은 "-"
 
         GameUiInfo info;
         info.documents.push_back(
@@ -247,5 +248,88 @@ TEST_SUITE("client") {
         CHECK_MESSAGE(ns->playerActions()->message.find("적용") != std::string::npos, ns->playerActions()->message);
         CHECK(app.gameUi().buttonPresses() == 1);
         CHECK(app.editor().stats().sent == 0);
+    }
+
+    TEST_CASE(
+        "ui data (local server): session tick · var · component@owned (행동 spawn owner) · @selected = 복제된 값") {
+        TempDir root("game_ui_data");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Data";
+        project::NewProjectOptions o;
+        o.gameId = "studio.data";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        std::ofstream(dir / "content" / "ecosystem" / "actions.json", std::ios::binary)
+            << R"([{"id": "eco.claim", "targets": {"tags": {"all": ["animal"]}}, "range": 32, "maxTargets": 1,
+                   "effects": [{"op": "spawn", "prefab": "eco.rabbit", "owner": true}]}])";
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        const auto frames = [&](int n) {
+            for (int i = 0; i < n; ++i) {
+                ns->update(kDt);
+                render::RenderWorld w;
+                ns->extract(w);
+            }
+        };
+        for (int i = 0; i < 200 && !ns->ready(); ++i) {
+            frames(1);
+        }
+        REQUIRE(ns->ready());
+        frames(5);
+        const ui::IUiDataSource* data = ns->uiData();
+        REQUIRE(data != nullptr);
+        const ui::UiScalar tick = ui::evaluate("session:tick", *data);
+        CHECK(tick.number == static_cast<f64>(ns->clientWorld()->serverTick()));
+        CHECK_FALSE(ui::evaluate("session:state", *data).known());                     // 게임 모드 없음
+        CHECK_FALSE(ui::evaluate("component:life.energy.value@owned", *data).known()); // 아직 내 개체가 없다
+
+        ns->setUiVar("eco.rabbits", ui::UiScalar::of(5.0));
+        CHECK(ui::evaluate("var:eco.rabbits", *data).number == 5.0);
+
+        // 행동이 내 주인의 토끼를 만든다 → @owned 가 그 개체의 복제된 기운
+        const render::WorldRect b = ns->bounds();
+        ns->playerAction("eco.claim", {(b.min.x + b.max.x) * 0.5f, (b.min.y + b.max.y) * 0.5f});
+        for (int i = 0; i < 120 && !ui::evaluate("component:life.energy.value@owned", *data).known(); ++i) {
+            frames(1);
+        }
+        const ui::UiScalar owned = ui::evaluate("component:life.energy.value@owned", *data);
+        REQUIRE_MESSAGE(owned.known(), ns->playerActions()->message);
+        CHECK(owned.number > 0);
+        CHECK_FALSE(ui::evaluate("component:life.nothing.value@owned", *data).known());
+        CHECK_FALSE(ui::evaluate("component:life.energy.nope@owned", *data).known());
+
+        // @selected — 첫째 선택 개체의 값 (없는 컴포넌트면 모름) = 복제 월드에서 직접 읽은 값
+        ns->selectBox(b, false);
+        REQUIRE_FALSE(ns->selection().empty());
+        const net::ClientWorld& w = *ns->clientWorld();
+        const auto* energy = w.registry().tryRead<comp::Energy>(w.find(ns->selection().front()));
+        const ui::UiScalar selected = ui::evaluate("component:life.energy.value@selected", *data);
+        if (energy != nullptr) {
+            CHECK(selected.number == static_cast<f64>(energy->value));
+        } else {
+            CHECK_FALSE(selected.known());
+        }
+
+        // 층이 데이터로 글자를 만든다
+        GameUiInfo info;
+        info.documents.push_back(
+            {"eco", "hud", R"({"id": "eco.hud", "root": {"kind": "text", "id": "t", "text": "토끼 {0} · 틱 {1}",
+            "args": [{"bind": "var:eco.rabbits"}, {"bind": "session:tick"}]}})"});
+        GameUiLayer layer;
+        layer.setSources(info);
+        layer.setData(data);
+        CountingRenderer r;
+        layer.layout(800, 600, 1.0f, ui::FixedTextMeasure{});
+        CHECK(ui::formatText(*layer.layouts()[0].nodes[0].node, data) ==
+              std::format("토끼 5 · 틱 {}", ui::evaluate("session:tick", *data).display()));
     }
 }
