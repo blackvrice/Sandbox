@@ -98,7 +98,7 @@ content/<pack>/
                           "visible"?, "root": 노드}. 노드 {"kind": panel | text | image | button | progress | list, "id"?, "anchor"?
                           {min, max — 0 ~ 1}, "offset"? [왼, 위, 오른, 아래], "size"? [w, h], "style"?, + 요소마다 (panel: stack ·
                           gap · padding · align · children, text: text · args, image: material, button: text · args · on.click,
-                          progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸>" |
+                          progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸> (state · tick · time · team · message · score[i])" |
                           "component:<컴포넌트>.<칸>@owned|selected"}, 이벤트 = {"signal", "value"?} | {"action"} | {"ui": show | hide |
                           toggle, "target": "<문서>.<노드>"}. 팩마다 32 개까지 (로더가 원문만 PackInfo.uiDocuments 에)
     ui/styles.json        {"styles": {"<팩>.<이름>": {color [r, g, b, a] · border {color, width} · fontSize · padding}}} (PackInfo.uiStyles)

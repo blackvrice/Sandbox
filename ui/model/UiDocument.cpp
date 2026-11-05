@@ -448,7 +448,7 @@ std::optional<std::string> checkBinding(std::string_view bind,
     }
     if (bind.starts_with("session:")) {
         const std::string_view f = bind.substr(8);
-        if (f == "state" || f == "tick" || f == "time" || f == "team") {
+        if (f == "state" || f == "tick" || f == "time" || f == "team" || f == "message") {
             return std::nullopt;
         }
         if (f.starts_with("score[") && f.ends_with(']') && f.size() > 7 && f.size() <= 9) {
@@ -458,7 +458,7 @@ std::optional<std::string> checkBinding(std::string_view bind,
                 return std::nullopt;
             }
         }
-        return std::format("'{}' — session:state · tick · time · team · score[0~15]", bind);
+        return std::format("'{}' — session:state · tick · time · team · message · score[0~15]", bind);
     }
     if (bind.starts_with("component:")) {
         const std::string_view rest = bind.substr(10);

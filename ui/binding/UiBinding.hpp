@@ -2,10 +2,11 @@
 // 게임 UI 바인딩 평가 (v0.7 M3-T4 — ADR-0079 5, docs/20-CREATOR-ALPHA.md 2.3).
 //
 // "var:<키>" = client 스크립트 ctx.ui.set 의 값 (수 · 글자 · 참거짓). "session:<칸>" = state (Lobby · Starting ·
-// Running · Finished — 글자) · tick · time (초) · team · score[i]. "component:<컴포넌트>.<칸>@owned" = 내 플레이어
-// (game.owner == 내 clientId) 의 개체 중 netId 가 가장 작은 것의 수, "…@selected" = 선택한 개체 (여럿이면 첫째) 의 수.
-// 값을 모르면 (없는 키 · 개체 · 칸) None — 글자 자리는 "-", progress 는 0. 데이터는 IUiDataSource 로 받는다 (Foundation
-// 만 — 클라이언트가 복제 월드 · 세션 · 스크립트 값으로 구현한다). 표시 값 = 복제된 값 (서버의 것을 바꾸지 않는다)
+// Running · Finished — 글자) · tick · time (초) · team · score[i] · message (이 클라이언트가 보낸 행동 · 신호의 마지막
+// 결과 — v0.7 M3-T5). "component:<컴포넌트>.<칸>@owned" = 내 플레이어 (game.owner == 내 clientId) 의 개체 중 netId 가
+// 가장 작은 것의 수, "…@selected" = 선택한 개체 (여럿이면 첫째) 의 수. 값을 모르면 (없는 키 · 개체 · 칸) None — 글자
+// 자리는 "-", progress 는 0. 데이터는 IUiDataSource 로 받는다 (Foundation 만 — 클라이언트가 복제 월드 · 세션 · 스크립트
+// 값으로 구현한다). 표시 값 = 복제된 값 (서버의 것을 바꾸지 않는다)
 
 #include <optional>
 #include <string>

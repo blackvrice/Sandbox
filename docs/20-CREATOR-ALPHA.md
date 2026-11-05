@@ -107,7 +107,7 @@ core/content                            presentation/ui · strings 는 원문만
 배치       anchor min/max (0~1 부모 비율) + offset (픽셀 — UI 배율을 곱한다), size (고정 · 글자에 맞춤), stack row/column · gap ·
            padding · align, 넘치면 자름 (scroll 은 list 만). 결과는 정수 픽셀 사각형 — 같은 입력이면 같은 사각형 (시험)
 스타일     styles 표 (팩 presentation/ui/styles.json — 이름 → 색 · 테두리 · 폰트 크기 · 여백), theme 은 스타일 이름의 묶음 (교체)
-바인딩     "var:<키>" (client 스크립트 ctx.ui.set) · "session:<필드>" (state · tick · time · score[i] · team) · "component:<id>.<필드>@<대상>"
+바인딩     "var:<키>" (client 스크립트 ctx.ui.set) · "session:<필드>" (state · tick · time · score[i] · team · message — M3-T5) · "component:<id>.<필드>@<대상>"
            (대상 = owned (내 플레이어가 가진 개체 — 3.6) · selected · entity:<netId> 는 없음 — 참조 풀기는 v0.6), 문자열 "@<키>" (5장)
 이벤트     on.click → { "signal": "<팩>.<이름>", "value": i32? } (3.7 — 서버가 판정) · { "action": "<PlayerAction id>" } (위치 없는
            행동은 v0.5 에 더한다) · { "ui": "show|hide|toggle", "target": "<문서>.<노드>" } (클라이언트 안)
@@ -150,6 +150,10 @@ M3-T4 (2) ✅ (v0.7) client 스크립트 ctx.setUi(key, number) · ctx.setUiText
             ctx.ui.set · show 를 평평한 이름으로 (Host ABI 에 중첩 객체가 없다). Capability Ui (onUpdate 가 허락), 프레임마다 64 개,
             트랩난 호출의 것은 버린다. Host API 지문 0x43ee8d9ef79b762a (더하기만 — 버전 1 그대로), SDK sandbox.d.ts 다시 생성.
             ctx.ui.text (문자열 표 — 5장) 는 M4-T1
+M3-T5 ✅    (v0.7) 버튼 이벤트 마무리 — signal = PlayerSignal 명령 (서버가 선언 · 범위 · perTick · 역할로 판정 → 서버 스크립트
+            onEvent "signal"), action = PlayerAction 의 자리: 첫째 선택 개체 → 내 개체 (game.owner) → 화면 가운데 (위치 없는
+            행동 대신 — 시뮬레이션은 그대로), ui = 층 안 보이기 · 숨기기 (M3-T3). 결과 · 거절 문장 = 바인딩 "session:message"
+            (이 클라이언트가 보낸 행동 · 신호의 마지막 결과 — client 스크립트의 send 도 든다). UiEvent 는 UiAction (ui/model) 그대로
 ```
 
 ### 2.5 스크립트 연동 (client 도메인 — 3.8)

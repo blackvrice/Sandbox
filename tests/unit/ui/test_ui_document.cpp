@@ -150,7 +150,7 @@ TEST_SUITE("ui") {
     TEST_CASE("ui document: U4 바인딩 식 · U5 스타일 · 문자열 키 (경고) · U6 신호 · 행동 · U8 material (경고)") {
         for (const std::string_view ok :
              {"var:eco.rabbits", "var:x", "session:state", "session:tick", "session:time", "session:team",
-              "session:score[0]", "session:score[15]", "component:life.energy.value@owned",
+              "session:message", "session:score[0]", "session:score[15]", "component:life.energy.value@owned",
               "component:inventory.bag.items@selected"}) {
             CHECK_MESSAGE(!checkBinding(ok, nullptr).has_value(), std::string(ok));
         }

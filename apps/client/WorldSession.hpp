@@ -251,6 +251,9 @@ public:
     virtual void playerSignal(std::string /*id*/, i32 /*value*/) {}
     // 게임 UI 바인딩의 데이터 (v0.7 M3-T4 — var · session · component@owned|selected). 없으면 바인딩은 모두 "-"
     [[nodiscard]] virtual const ui::IUiDataSource* uiData() const { return nullptr; }
+    // 게임 UI 버튼의 행동 자리 (v0.7 M3-T5): 첫째 선택 개체 → 내 개체 (game.owner) 의 자리. 없으면 nullopt (앱은 화면
+    // 가운데)
+    [[nodiscard]] virtual std::optional<Vec2> uiActionPoint() const { return std::nullopt; }
     // client 스크립트의 문서 보이기 (client.showUi — v0.7 M3-T4): (문서 id, 보이기) 부른 차례. 꺼내면 비운다
     [[nodiscard]] virtual std::vector<std::pair<std::string, bool>> takeUiShows() { return {}; }
     // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----

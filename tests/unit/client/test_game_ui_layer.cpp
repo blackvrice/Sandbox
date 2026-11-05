@@ -15,8 +15,11 @@
 #include "apps/client/presentation/GameUiLayer.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/components/core/Transform.hpp"
 #include "core/components/life/Life.hpp"
 #include "core/project/GameProject.hpp"
+#include "core/script/ScriptHost.hpp"
+#include "core/script/ScriptSystemAdapter.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
@@ -331,5 +334,125 @@ TEST_SUITE("client") {
         layer.layout(800, 600, 1.0f, ui::FixedTextMeasure{});
         CHECK(ui::formatText(*layer.layouts()[0].nodes[0].node, data) ==
               std::format("토끼 5 · 틱 {}", ui::evaluate("session:tick", *data).display()));
+    }
+
+    TEST_CASE("app (local server + ImGui 헤드리스): 버튼 → PlayerSignal → 서버 스크립트 onEvent, 선언 없는 신호는 거절 "
+              "(session:message), 버튼 행동은 선택한 개체 자리에 (v0.7 M3-T5)") {
+        TempDir root("game_ui_events");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Ev";
+        project::NewProjectOptions o;
+        o.gameId = "studio.ev";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const fs::path pack = dir / "content" / "ecosystem";
+        std::ofstream(pack / "signals.json", std::ios::binary) << R"([{"id": "eco.ring", "min": 0, "max": 10}])";
+        std::ofstream(pack / "actions.json", std::ios::binary)
+            << R"([{"id": "eco.poke", "range": 0.25, "maxTargets": 1, "effects": [{"op": "event", "name": "eco.poked"}]}])";
+        fs::create_directories(pack / "scripts");
+        std::ofstream(pack / "scripts" / "pong.ts", std::ios::binary) << R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.pong",
+  events: { signal: {} },
+  onEvent(ctx, e) { ctx.log(`signal ${e.signal} ${e.value} ${e.player}`) },
+})
+)";
+        fs::create_directories(pack / "presentation" / "ui");
+        std::ofstream(pack / "presentation" / "ui" / "hud.json", std::ios::binary)
+            << R"({"id": "eco.hud", "root": {"kind": "panel", "anchor": {"min": [1, 1], "max": [1, 1]}, "offset": [-420, -80, -20, -20],
+                  "stack": "row", "gap": 10, "children": [
+                  {"kind": "button", "id": "ring", "text": "ring", "size": [120, 40], "on": {"click": {"signal": "eco.ring", "value": 3}}},
+                  {"kind": "button", "id": "bad", "text": "bad", "size": [120, 40], "on": {"click": {"signal": "eco.nope"}}},
+                  {"kind": "button", "id": "poke", "text": "poke", "size": [120, 40], "on": {"click": {"action": "eco.poke"}}}]}})";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window;
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.ui = &imgui;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        window.inject(KeyDown{Key::F1, 0, {}, false}); // 도구 패널을 감춘다 (ImGui 창이 버튼 위에 오지 않게)
+        window.inject(KeyUp{Key::F1, 0, {}});
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        const auto click = [&](std::string_view id) {
+            const ui::UiLayoutNode* b = find(app.gameUi(), id);
+            REQUIRE(b != nullptr);
+            const auto [x, y] = centerOf(*b);
+            const Vec2 at{static_cast<f32>(x), static_cast<f32>(y)};
+            window.inject(MouseMove{at, {0, 0}});
+            REQUIRE(app.frame());
+            window.inject(MouseButtonDown{MouseButton::Left, at});
+            REQUIRE(app.frame());
+            window.inject(MouseButtonUp{MouseButton::Left, at});
+            REQUIRE(app.frame());
+        };
+        const auto message = [&] { return ui::evaluate("session:message", *ns->uiData()).display(); };
+        const auto serverLogs = [&] {
+            std::vector<std::string> out;
+            if (const auto* sys = ns->localServer()->host().world().scriptSystems()) {
+                for (const script::ScriptLogLine& l : sys->host().recentLogs()) {
+                    out.push_back(l.text);
+                }
+            }
+            return out;
+        };
+
+        // 신호 — 서버 스크립트가 같은 틱에 받는다, session:message = 적용
+        click("ring");
+        for (int i = 0; i < 60 && serverLogs().empty(); ++i) {
+            REQUIRE(app.frame());
+        }
+        const auto& players = ns->localServer()->host().world().players();
+        REQUIRE(players.size() == 1);
+        CHECK(serverLogs() == std::vector<std::string>{std::format("signal eco.ring 3 {}", players.begin()->first)});
+        for (int i = 0; i < 60 && message().find("PlayerSignal") == std::string::npos; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(message().starts_with("PlayerSignal 적용"));
+
+        // 선언 없는 신호 — 서버가 거절, 그 문장이 session:message 로
+        click("bad");
+        for (int i = 0; i < 60 && message().find("거절") == std::string::npos; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK_MESSAGE(message().find("PlayerSignal 거절") != std::string::npos, message());
+        CHECK(serverLogs().size() == 1);
+
+        // 행동 — 선택한 개체 자리 (range 0.25 — 그 개체만), 선택이 없으면 내 개체 → 화면 가운데
+        CHECK_FALSE(ns->uiActionPoint().has_value()); // 선택 · 내 개체 없음
+        ns->selectBox(ns->bounds(), false);
+        REQUIRE_FALSE(ns->selection().empty());
+        const net::ClientWorld& w = *ns->clientWorld();
+        const auto* tr = w.registry().tryRead<comp::Transform>(w.find(ns->selection().front()));
+        REQUIRE(tr != nullptr);
+        REQUIRE(ns->uiActionPoint().has_value());
+        CHECK(ns->uiActionPoint()->x == tr->position.x);
+        CHECK(ns->uiActionPoint()->y == tr->position.y);
+        click("poke");
+        for (int i = 0; i < 60 && message().find("PlayerAction") == std::string::npos; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK_MESSAGE(message().starts_with("PlayerAction 적용"), message());
     }
 }

@@ -136,6 +136,7 @@ public:
     [[nodiscard]] std::optional<GameUiInfo> gameUi() const override;
     void playerSignal(std::string id, i32 value) override;
     [[nodiscard]] const ui::IUiDataSource* uiData() const override { return &m_uiData; }
+    [[nodiscard]] std::optional<Vec2> uiActionPoint() const override;
     // var 바인딩 값 (v0.7 M3-T4 — client 스크립트 ctx.ui.set 이 쓴다 · 시험). 키 256 개까지 (넘으면 버린다)
     void setUiVar(std::string key, ui::UiScalar value);
     [[nodiscard]] std::vector<std::pair<std::string, bool>> takeUiShows() override;
@@ -233,6 +234,9 @@ private:
     std::string m_lastRejection;
     std::string m_gameMessage;   // "게임" 패널 (GameControl 거절 · 재시작 결과)
     std::string m_actionMessage; // "행동" 패널 (PlayerAction 결과 · 거절)
+    std::string m_playMessage;   // 행동 · 신호의 마지막 결과 (게임 UI session:message — v0.7 M3-T5)
+    // 내 플레이어 (game.owner == 내 clientId) 의 개체 중 netId 가 가장 작은 것 (없으면 null)
+    [[nodiscard]] ecs::EntityId ownedEntity() const;
     // 게임 UI 바인딩의 데이터 (v0.7 M3-T4): 복제 월드 · 세션 · 선택 · var — 표시 값 = 복제된 값
     class UiData final : public ui::IUiDataSource {
     public:

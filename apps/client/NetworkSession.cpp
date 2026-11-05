@@ -382,6 +382,9 @@ void NetworkSession::update(f64 dtSeconds) {
         if (name == "PlayerAction") {
             m_actionMessage = r.accepted ? std::format("적용 (tick {})", r.appliedTick) : m_lastRejection;
         }
+        if (name == "PlayerAction" || name == "PlayerSignal") { // 게임 UI 의 session:message (v0.7 M3-T5)
+            m_playMessage = r.accepted ? std::format("{} 적용 (tick {})", name, r.appliedTick) : m_lastRejection;
+        }
         if (const auto e = std::ranges::find(m_editorSequences, r.sequence); e != m_editorSequences.end()) {
             m_editorSequences.erase(e);
             m_outcomes.push_back(
@@ -998,6 +1001,44 @@ void NetworkSession::setUiVar(std::string key, ui::UiScalar value) {
     m_uiData.vars.insert_or_assign(std::move(key), std::move(value));
 }
 
+ecs::EntityId NetworkSession::ownedEntity() const {
+    const net::ClientWorld* w = clientWorld();
+    if (w == nullptr || !m_session || !m_session->welcome()) {
+        return ecs::kNullEntity;
+    }
+    const ecs::Registry& reg = w->registry();
+    const auto* owners = reg.findPool<comp::GameOwner>();
+    if (owners == nullptr) {
+        return ecs::kNullEntity;
+    }
+    // 복제 월드에는 saveId 가 없다 — netId 가 가장 작은 것 (cameraStart 와 같은 규칙, 순회 순서와 무관)
+    const u32 me = m_session->welcome()->clientId;
+    ecs::EntityId best = ecs::kNullEntity;
+    NetEntityId bestId = 0;
+    for (const ecs::EntityId owned : owners->entities()) {
+        const auto* id = reg.tryRead<comp::NetIdentity>(owned);
+        if (reg.read<comp::GameOwner>(owned).player == me && id != nullptr &&
+            (best == ecs::kNullEntity || id->netId < bestId)) {
+            best = owned;
+            bestId = id->netId;
+        }
+    }
+    return best;
+}
+
+std::optional<Vec2> NetworkSession::uiActionPoint() const {
+    const net::ClientWorld* w = clientWorld();
+    if (w == nullptr) {
+        return std::nullopt;
+    }
+    ecs::EntityId e = m_selection.empty() ? ecs::kNullEntity : w->find(m_selection.front());
+    if (e == ecs::kNullEntity) {
+        e = ownedEntity();
+    }
+    const auto* tr = e == ecs::kNullEntity ? nullptr : w->registry().tryRead<comp::Transform>(e);
+    return tr != nullptr ? std::optional<Vec2>(tr->position) : std::nullopt;
+}
+
 ui::UiScalar NetworkSession::UiData::var(std::string_view key) const {
     const auto it = vars.find(key);
     return it == vars.end() ? ui::UiScalar{} : it->second;
@@ -1013,6 +1054,9 @@ ui::UiScalar NetworkSession::UiData::session(std::string_view field) const {
     }
     if (field == "time") {
         return ui::UiScalar::of(static_cast<f64>(w->serverTick()) / 30.0); // 30 TPS (04)
+    }
+    if (field == "message") {
+        return m_session.m_playMessage.empty() ? ui::UiScalar{} : ui::UiScalar::of(m_session.m_playMessage);
     }
     const std::optional<GameInfo> g = m_session.game();
     if (!g) {
@@ -1056,19 +1100,8 @@ ui::UiScalar NetworkSession::UiData::component(std::string_view componentField, 
         if (!m_session.m_selection.empty()) {
             e = w->find(m_session.m_selection.front());
         }
-    } else if (const auto* owners = reg.findPool<comp::GameOwner>()) {
-        // 내 플레이어 (game.owner == 내 clientId — 명령의 issuer) 의 개체 중 netId 가 가장 작은 것 (복제 월드에는
-        // saveId 가 없다 — cameraStart 와 같은 규칙, 순회 순서와 무관)
-        const u32 me = m_session.m_session->welcome()->clientId;
-        NetEntityId best = 0;
-        for (const ecs::EntityId owned : owners->entities()) {
-            const auto* id = reg.tryRead<comp::NetIdentity>(owned);
-            if (reg.read<comp::GameOwner>(owned).player == me && id != nullptr &&
-                (e == ecs::kNullEntity || id->netId < best)) {
-                e = owned;
-                best = id->netId;
-            }
-        }
+    } else {
+        e = m_session.ownedEntity();
     }
     const void* raw = e == ecs::kNullEntity ? nullptr : pool->getRaw(e);
     if (raw == nullptr) {

@@ -442,8 +442,8 @@ void Application::handleWorldInput(f64 dt) {
 }
 
 // 게임 UI (v0.7 M3-T3, ADR-0079): 원문이 바뀌면 다시 읽고, 창 크기 (논리 단위 — ImGui 와 같다) 로 배치, 포인터를 modal
-// → menu → 도구 패널 → hud 차례로. 버튼 이벤트: signal = PlayerSignal 명령, action = 화면 가운데의 PlayerAction (위치
-// 없는 행동은 [계획]), ui = 층 안에서 보이기 · 숨기기
+// → menu → 도구 패널 → hud 차례로. 버튼 이벤트: signal = PlayerSignal 명령, action = PlayerAction (자리 = 선택한 개체 →
+// 내 개체 → 화면 가운데 — v0.7 M3-T5), ui = 층 안에서 보이기 · 숨기기
 bool Application::routeGameUi() {
     m_gameUi.setSources(m_config.world->gameUi());
     m_gameUi.setData(m_config.world->uiData());
@@ -467,7 +467,9 @@ bool Application::routeGameUi() {
         if (e.kind == ui::UiAction::Kind::Signal) {
             m_config.world->playerSignal(e.target, e.value.value_or(0));
         } else if (e.kind == ui::UiAction::Kind::Action) {
-            m_config.world->playerAction(e.target, m_renderWorld.camera.center);
+            // 위치 없는 버튼 행동 (v0.7 M3-T5): 선택한 개체 → 내 개체 → 화면 가운데
+            m_config.world->playerAction(e.target,
+                                         m_config.world->uiActionPoint().value_or(m_renderWorld.camera.center));
         }
     }
     return route.captured;

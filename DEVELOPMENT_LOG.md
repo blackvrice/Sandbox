@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-05 — v0.7 M3-T5: 게임 UI 버튼 이벤트 마무리 — 행동 자리 · session:message · 서버까지 E2E
+
+**무엇을**
+
+- 버튼 행동의 자리: 첫째 선택 개체 → 내 개체 (game.owner — ownedEntity 로 묶음) → 화면 가운데 (IWorldSession uiActionPoint).
+  위치 없는 행동을 시뮬레이션에 더하지 않고 클라이언트가 자리를 고른다 (kSimVersion · 골든 그대로).
+- 바인딩 "session:message" — 이 클라이언트가 보낸 PlayerAction · PlayerSignal 의 마지막 결과 ("<명령> 적용 (tick N)" · 거절 문장).
+  U4 검사가 받는 session 칸에 더함.
+- M3-T3 의 signal · action · ui 이벤트를 서버 스크립트까지 잇는 시험.
+
+**왜**
+
+- 등록부 M3-T5 (v0.7 P0) — "버튼이 게임 규칙을 부른다": 버튼 → PlayerSignal → 서버 이벤트 · 거절이 화면에 보이는 길.
+
+**검증**
+
+- test_game_ui_layer "버튼 → PlayerSignal" (앱 + 로컬 서버 + ImGui 헤드리스): signal 버튼 → 서버 스크립트 onEvent 로그
+  "signal eco.ring 3 <플레이어>" · session:message 적용, 선언 없는 신호 → "PlayerSignal 거절" · 서버 이벤트 없음, 선택한 개체의 자리 =
+  uiActionPoint · range 0.25 행동 적용. 첫 실행에 모두 맞았다.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- 진짜 위치 없는 행동 (대상 = 내 개체 · 선택 — 시뮬레이션 계약, 필요해지면 ADR), 버튼 누름 뒤 결과를 기다리는 동안의 표시 (끄기 · 다시 누름 막기).
+
 ## 2026-11-04 — v0.7 M3-T4 (2): client 스크립트 ctx.setUi · setUiText · showUi — Host API 더하기 (M3-T4 끝)
 
 **무엇을**
