@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-09 — v0.7 NG-06 (1): 게임 UI 입력 컨트롤 — checkbox · toggle · slider · 키보드 포커스 (ADR-0103)
+
+**무엇을**
+
+- ui/model: 요소 checkbox · toggle · slider (value = "var:<키>" — U4, on.change = 신호만, slider min · max · step), 버튼 · 컨트롤의
+  disabled (참거짓 · 바인딩) · tabIndex. ui/layout 크기 (상자 = 글꼴 × 1.25 — controlBox), ui/render 그리기 (켬 · 끔 · 채움 · 손잡이 ·
+  흐림 · 포커스 고리), ui/input 라우팅이 컨트롤도 잡는다 (UiPointerRoute::button → control), focusOrder · nearestFocus · UiKey.
+- GameUiLayer: checkbox · toggle 누르기 · slider 끌기 (놓을 때 신호 하나) → var 쓰기 (setVarWriter → 세션 setUiVar — IWorldSession 에
+  더함) · on.change 신호, key (Tab 차례 · 방향 · 누르기 · 놓기), 포커스는 menu · modal 클릭 · Tab 에서만.
+- Application: 도구 패널이 키보드를 원하지 않을 때 Tab · 방향 · Enter · Space · Esc 를 게임 UI 에, 포커스가 있으면 키보드를
+  게임에서 뺀다 (setCapture).
+
+**왜**
+
+- 등록부 NG-06 (v0.7 의 남은 태스크 — 2차 감사 4.6). 결정 (값 · 바뀜 · 포커스 규칙) 은 ADR-0103, 남은 컨트롤은 (2) · (3).
+
+**검증**
+
+- test_ui_controls 4 개 (문서 · 배치 · 그리기 · 라우팅 · 포커스 · 방향) · test_game_ui_layer "입력 컨트롤" (층) · 앱 "Tab 이 HUD
+  checkbox 에" (로컬 서버 — Space 가 checkbox · 서버 onEvent, 일시정지 아님, Esc 뒤 Space 는 일시정지). 시험 기대값 둘을 손 계산으로
+  고쳤다 (slider 길 y = 40 + 15 / 2 = 47, a 의 아래는 b 가 아니라 c — 점수 144 < 340).
+- 창 눈 확인은 MANUAL-QA [ ] (다른 전체 화면 창). 옛 시험 하나 (test_ui_document — 모르는 요소의 보기로 "slider") 를 "knob" 으로.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19, -Wall · -Wshadow — -Wswitch 포함) — 새 경고 없음.
+
+**남은 일**
+
+- NG-06 (2) TextInput (한 줄 · 여러 줄 · 최대 길이 · IME — 문자열 신호 결정), (3) Dropdown · ScrollView · Tab · 게임패드 탐색 (I5).
+
 ## 2026-11-09 — v0.7 M4-T4: 게임 UI 배율 설정 — client.json gameUiScale · --game-ui-scale (0.75 ~ 2)
 
 **무엇을**

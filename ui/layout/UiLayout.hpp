@@ -82,6 +82,12 @@ struct UiLayoutNode {
 };
 
 inline constexpr f32 kMinFitScale = 0.5f; // overflow fit — 글꼴을 원래의 절반까지 줄인다
+inline constexpr f32 kSliderWidth = 160;  // slider 의 기본 너비 (size 가 없으면 — 배율을 곱한다, v0.7 NG-06 (1))
+
+// checkbox · toggle 의 상자 · slider 의 높이 = 글꼴 × 1.25 (반올림 — 배치와 그리기가 같은 값, 글자 재기와 무관)
+[[nodiscard]] inline f32 controlBox(f32 fontSize) noexcept {
+    return static_cast<f32>(static_cast<i32>(fontSize * 1.25f + 0.5f));
+}
 
 // 글자를 너비 maxWidth 안의 줄로 (빈칸에서, 한 낱말이 넘치면 코드 포인트마다 — '\n' 은 늘 나눈다). 결정적
 [[nodiscard]] std::vector<std::string> wrapText(std::string_view text, f32 fontSize, f32 maxWidth,

@@ -566,4 +566,222 @@ export default defineSystem({
         CHECK(layer.displayName("@eco.gone") == "eco.gone");
         CHECK(layer.displayName("").empty());
     }
+    TEST_CASE(
+        "game ui layer (v0.7 NG-06 (1)): 입력 컨트롤 — checkbox 누르기 · slider 끌기 (놓을 때 신호 하나) · var 쓰기, "
+        "포커스 (hud 클릭은 아님 · menu 클릭 · Tab 차례 · 꺼진 것 건너뛰기 · 방향 · Esc)") {
+        class Vars final : public ui::IUiDataSource {
+        public:
+            std::map<std::string, ui::UiScalar, std::less<>> values;
+            ui::UiScalar var(std::string_view key) const override {
+                const auto it = values.find(key);
+                return it == values.end() ? ui::UiScalar{} : it->second;
+            }
+            ui::UiScalar session(std::string_view) const override { return {}; }
+            ui::UiScalar component(std::string_view, ui::UiTarget) const override { return {}; }
+        } vars;
+        GameUiInfo info;
+        info.documents.push_back(
+            {"eco", "hud", R"({"id": "eco.hud", "root": {"kind": "panel", "stack": "row", "gap": 20, "children": [
+            {"kind": "checkbox", "id": "chk", "text": "chk", "value": {"bind": "var:eco.chk"}, "on": {"change": {"signal": "eco.chk"}}},
+            {"kind": "slider", "id": "vol", "value": {"bind": "var:eco.vol"}, "min": 0, "max": 10, "step": 2, "on": {"change": {"signal": "eco.vol"}}},
+            {"kind": "toggle", "id": "off", "value": {"bind": "var:eco.off"}, "disabled": true}]}})"});
+        info.documents.push_back(
+            {"eco", "menu",
+             R"({"id": "eco.menu", "layer": "menu", "root": {"kind": "panel", "anchor": {"min": [0, 1], "max": [0, 1]},
+            "offset": [0, -40, 0, 0], "stack": "row", "children": [
+            {"kind": "toggle", "id": "m", "value": {"bind": "var:eco.m"}, "tabIndex": 5}]}})"});
+        GameUiLayer layer;
+        layer.setSources(info);
+        REQUIRE(layer.documentCount() == 2);
+        layer.setData(&vars);
+        std::vector<std::pair<std::string, ui::UiScalar>> writes;
+        layer.setVarWriter([&](std::string_view key, const ui::UiScalar& v) {
+            writes.emplace_back(key, v);
+            vars.values.insert_or_assign(std::string(key), v);
+        });
+        const ui::FixedTextMeasure measure;
+        layer.layout(800, 600, 1.0f, measure);
+        const auto clickAt = [&](i32 x, i32 y) {
+            std::vector<ui::UiAction> ev;
+            (void)layer.route(x, y, false, true, true, ev);
+            (void)layer.route(x, y, false, false, false, ev);
+            return ev;
+        };
+
+        // checkbox — 켬 (var · 신호 1), 다시 누르면 끔 (0). hud 클릭은 포커스를 주지 않는다
+        const auto [cx, cy] = centerOf(*find(layer, "chk"));
+        std::vector<ui::UiAction> ev = clickAt(cx, cy);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].kind == ui::UiAction::Kind::Signal);
+        CHECK(ev[0].target == "eco.chk");
+        CHECK(ev[0].value == 1);
+        CHECK(vars.values.at("eco.chk").flag);
+        CHECK_FALSE(layer.hasFocus());
+        CHECK(clickAt(cx, cy)[0].value == 0);
+
+        // slider — 끄는 동안 var 만 (step 2 로 맞춤), 놓을 때 신호 하나 (반올림 i32)
+        const ui::UiLayoutNode* vol = find(layer, "vol");
+        REQUIRE(vol != nullptr);
+        CHECK(vol->rect.w == 160);
+        writes.clear();
+        ev.clear();
+        (void)layer.route(vol->rect.x + 40, vol->rect.y + 5, false, true, true, ev); // 1/4 → 2.5 → step 2 = 2
+        CHECK(ev.empty());
+        CHECK(vars.values.at("eco.vol").number == 2.0);
+        (void)layer.route(vol->rect.x + 1000, vol->rect.y + 500, false, false, true, ev); // 밖으로 끌어도 → 10
+        CHECK(vars.values.at("eco.vol").number == 10.0);
+        CHECK(ev.empty());
+        (void)layer.route(vol->rect.x + 1000, vol->rect.y + 500, false, false, false, ev);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].target == "eco.vol");
+        CHECK(ev[0].value == 10);
+        CHECK(writes.size() == 2);
+
+        // 꺼진 toggle — 누르기 무시
+        const auto [ox, oy] = centerOf(*find(layer, "off"));
+        CHECK(clickAt(ox, oy).empty());
+        CHECK_FALSE(vars.values.contains("eco.off"));
+
+        // menu 의 컨트롤을 누르면 포커스, Esc 가 놓는다
+        const auto [mx, my] = centerOf(*find(layer, "m"));
+        (void)clickAt(mx, my);
+        CHECK(layer.hasFocus());
+        CHECK(layer.focused()->id == "m");
+        CHECK(vars.values.at("eco.m").flag);
+        CHECK(layer.key(ui::UiKey::Release, ev));
+        CHECK_FALSE(layer.hasFocus());
+        CHECK_FALSE(layer.key(ui::UiKey::Activate, ev)); // 포커스가 없으면 게임의 키
+        CHECK_FALSE(layer.key(ui::UiKey::Left, ev));
+
+        // Tab 차례 — tabIndex 0 (chk → vol, 꺼진 off 는 빠짐) 다음 m (5), 끝에서 처음으로, Shift+Tab 은 뒤로
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK(layer.focused()->id == "chk");
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK(layer.focused()->id == "vol");
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK(layer.focused()->id == "m");
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK(layer.focused()->id == "chk");
+        CHECK(layer.key(ui::UiKey::Previous, ev));
+        CHECK(layer.focused()->id == "m");
+
+        // 키로 누르기 · slider 한 칸 (신호 바로), 방향 = 가장 가까운 컨트롤
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Previous, ev)); // m → vol
+        CHECK(layer.focused()->id == "vol");
+        CHECK(layer.key(ui::UiKey::Left, ev));
+        CHECK(vars.values.at("eco.vol").number == 8.0);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].value == 8);
+        CHECK(layer.key(ui::UiKey::Up, ev)); // 위에 아무것도 없다 — 그대로
+        CHECK(layer.focused()->id == "vol");
+        CHECK(layer.key(ui::UiKey::Down, ev)); // 아래 (menu 의 m)
+        CHECK(layer.focused()->id == "m");
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        CHECK_FALSE(vars.values.at("eco.m").flag); // toggle 끔 (신호 없음 — on.change 없다)
+        CHECK(ev.empty());
+
+        // 그리기 — 포커스 고리 (m), checkbox 값은 var 에서
+        CountingRenderer r;
+        layer.draw(r);
+        CHECK(r.fills > 0);
+        // 원문이 바뀌면 포커스를 놓는다
+        info.documents[1].text += " ";
+        layer.setSources(info);
+        CHECK_FALSE(layer.hasFocus());
+    }
+    TEST_CASE("app (local server + ImGui 헤드리스, v0.7 NG-06 (1)): Tab 이 HUD checkbox 에 포커스 — Space 는 checkbox "
+              "를 바꾸고 "
+              "(신호 → 서버 onEvent) 일시정지는 아니다, Esc 로 놓으면 Space 가 다시 게임 키") {
+        TempDir root("game_ui_focus");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Focus";
+        project::NewProjectOptions o;
+        o.gameId = "studio.focus";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const fs::path pack = dir / "content" / "ecosystem";
+        std::ofstream(pack / "signals.json", std::ios::binary) << R"([{"id": "eco.snd", "min": 0, "max": 1}])";
+        fs::create_directories(pack / "scripts");
+        std::ofstream(pack / "scripts" / "snd.ts", std::ios::binary) << R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.snd",
+  events: { signal: {} },
+  onEvent(ctx, e) { ctx.log(`signal ${e.signal} ${e.value}`) },
+})
+)";
+        fs::create_directories(pack / "presentation" / "ui");
+        std::ofstream(pack / "presentation" / "ui" / "hud.json", std::ios::binary)
+            << R"({"id": "eco.hud", "root": {"kind": "panel", "anchor": {"min": [1, 1], "max": [1, 1]}, "offset": [-200, -60, -20, -20],
+                  "children": [{"kind": "checkbox", "id": "snd", "text": "sound", "value": {"bind": "var:eco.snd"},
+                  "on": {"change": {"signal": "eco.snd"}}}]}})";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window;
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.ui = &imgui;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        const auto tap = [&](Key k) {
+            window.inject(KeyDown{k, 0, {}, false});
+            window.inject(KeyUp{k, 0, {}});
+            REQUIRE(app.frame());
+        };
+        tap(Key::F1); // 도구 패널을 감춘다 (ImGui 가 키보드를 원하지 않게)
+        REQUIRE(app.frame());
+        const auto serverLogs = [&] {
+            std::vector<std::string> out;
+            if (const auto* sys = ns->localServer()->host().world().scriptSystems()) {
+                for (const script::ScriptLogLine& l : sys->host().recentLogs()) {
+                    out.push_back(l.text);
+                }
+            }
+            return out;
+        };
+        const bool pausedBefore = ns->paused();
+
+        tap(Key::Tab);
+        REQUIRE(app.gameUi().hasFocus());
+        CHECK(app.gameUi().focused()->id == "snd");
+        tap(Key::Space); // checkbox 켬 — 게임의 Space (일시정지) 는 아니다
+        for (int i = 0; i < 60 && serverLogs().empty(); ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(serverLogs() == std::vector<std::string>{"signal eco.snd 1"});
+        CHECK(ui::evaluate("var:eco.snd", *ns->uiData()).flag);
+        for (int i = 0; i < 10; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(ns->paused() == pausedBefore);
+
+        tap(Key::Escape); // 포커스를 놓는다 — 이제 Space 는 게임 키
+        CHECK_FALSE(app.gameUi().hasFocus());
+        tap(Key::Space);
+        for (int i = 0; i < 60 && ns->paused() == pausedBefore; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(ns->paused() != pausedBefore);
+        CHECK(serverLogs().size() == 1);
+    }
 }

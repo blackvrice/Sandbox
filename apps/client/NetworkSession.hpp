@@ -138,7 +138,7 @@ public:
     [[nodiscard]] const ui::IUiDataSource* uiData() const override { return &m_uiData; }
     [[nodiscard]] std::optional<Vec2> uiActionPoint() const override;
     // var 바인딩 값 (v0.7 M3-T4 — client 스크립트 ctx.ui.set 이 쓴다 · 시험). 키 256 개까지 (넘으면 버린다)
-    void setUiVar(std::string key, ui::UiScalar value);
+    void setUiVar(std::string key, ui::UiScalar value) override;
     [[nodiscard]] std::vector<std::pair<std::string, bool>> takeUiShows() override;
     void setUiStrings(const ui::StringTable* strings) override { m_uiStrings = strings; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----

@@ -137,6 +137,12 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     }
     m_gameUi.setLocale(m_config.locale);
     m_keys = KeyBindingEditor(m_config.defaultActions ? *m_config.defaultActions : m_actionMap, m_actionMap);
+    // 게임 UI 입력 컨트롤이 바꾼 값 → 세션의 var 표 (v0.7 NG-06 (1))
+    m_gameUi.setVarWriter([this](std::string_view key, const ui::UiScalar& v) {
+        if (m_config.world != nullptr) {
+            m_config.world->setUiVar(std::string(key), v);
+        }
+    });
     lookupActionIds();
     m_pending = AppState::MainMenu; // 부팅은 첫 프레임 하나 — 이후 Phase 8 의 에셋 로드가 여기 들어간다
 }
@@ -570,6 +576,26 @@ bool Application::routeGameUi() {
     const ui::UiPointerRoute route = m_gameUi.route(
         static_cast<i32>(raw.mousePosition.x), static_cast<i32>(raw.mousePosition.y), m_config.ui->wantMouse(),
         raw.pressed(platform::MouseButton::Left), raw.down(platform::MouseButton::Left), events);
+    // 키보드 포커스 (v0.7 NG-06 (1) — ADR-0103 4 · 5): 도구 패널이 키보드를 원하지 않을 때 Tab 이 포커스를 주고,
+    // 포커스가 있으면 방향 · Enter · Space · Esc 를 게임 UI 가 쓴다 (앱은 그 프레임 키보드를 게임에서 뺀다 — frame)
+    if (!m_config.ui->wantKeyboard()) {
+        const auto keyPress = [&](platform::Key k) { return raw.pressed(k) || raw.repeated(k); };
+        if (keyPress(platform::Key::Tab)) {
+            (void)m_gameUi.key(raw.modifiers().shift() ? ui::UiKey::Previous : ui::UiKey::Next, events);
+        }
+        if (m_gameUi.hasFocus()) {
+            const std::pair<platform::Key, ui::UiKey> keys[] = {
+                {platform::Key::Up, ui::UiKey::Up},          {platform::Key::Down, ui::UiKey::Down},
+                {platform::Key::Left, ui::UiKey::Left},      {platform::Key::Right, ui::UiKey::Right},
+                {platform::Key::Enter, ui::UiKey::Activate}, {platform::Key::Space, ui::UiKey::Activate},
+                {platform::Key::Escape, ui::UiKey::Release}};
+            for (const auto& [k, u] : keys) {
+                if (keyPress(k)) {
+                    (void)m_gameUi.key(u, events);
+                }
+            }
+        }
+    }
     for (const ui::UiAction& e : events) {
         if (e.kind == ui::UiAction::Kind::Signal) {
             m_config.world->playerSignal(e.target, e.value.value_or(0));
@@ -675,7 +701,8 @@ bool Application::frame() {
         m_config.ui->beginFrame(m_config.fixedDt > 0 ? m_config.fixedDt : realDt);
         // 게임 UI (v0.7 M3-T3): modal · menu · hud 버튼 위면 게임 (카메라 · 선택 · 행동) 에 마우스를 주지 않는다
         const bool gameUiMouse = m_state == AppState::InWorld && m_config.world != nullptr && routeGameUi();
-        m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse, m_config.ui->wantKeyboard());
+        // 게임 UI 에 키보드 포커스가 있으면 키는 게임 · 엔진 키에 가지 않는다 (v0.7 NG-06 (1) — Esc 가 놓는다)
+        m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse, m_config.ui->wantKeyboard() || m_gameUi.hasFocus());
     } else {
         m_input.setCapture(false, false);
     }

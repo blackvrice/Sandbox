@@ -173,6 +173,12 @@ M3-T6 ✅    (v0.7) 테마 = styles.json "themes" {"<팩>.<테마>": {"<스타�
 보안    값은 클라이언트 상태 — 서버에 닿는 것은 client.send 신호뿐 (서버 판정 — N1). 신호 값은 i32 라 TextInput 문자열은 보내지 못한다 —
         채팅 · 이름 입력은 문자열 신호 (길이 상한 · 서버 필터) 를 따로 결정 [계획]
 시험    컨트롤마다 상태 · 이벤트 · 포커스 이동 · 비활성 무시, 헤드리스 배치 골든 (M3-T2 틀)
+NG-06 (1) ✅ (v0.7, ADR-0103) checkbox · toggle · slider — value = "var:<키>" (U4 — 컨트롤이 클라이언트 var 표에 쓴다, client
+        스크립트와 같은 표), on.change = 신호만 (값은 컨트롤 — 0 · 1 · 반올림 i32, slider 는 놓을 때 · 키로 바꿀 때 한 번), disabled ·
+        tabIndex. 배치: 상자 = 글꼴 × 1.25 (toggle 2 칸) + 글꼴 절반 + 이름, slider 160 × 상자. 키보드 포커스: Tab · Shift+Tab (tabIndex →
+        문서 차례, 꺼진 것 빼기), menu · modal 의 컨트롤 클릭 — hud 클릭은 포커스를 주지 않는다. 포커스가 있으면 키보드는 게임 UI 가
+        (Enter · Space 누르기, 왼 · 오른 slider 한 칸, 방향 = 가장 가까운 컨트롤, Esc 놓기). (2) [계획] TextInput · IME, (3) [계획]
+        Dropdown · ScrollView · Tab · 게임패드 (I5)
 ```
 
 ## 3. 게임플레이 API (X2 — ADR-0080)

@@ -99,6 +99,9 @@ content/<pack>/
                           {min, max — 0 ~ 1}, "offset"? [왼, 위, 오른, 아래], "size"? [w, h], "style"?, + 요소마다 (panel: stack ·
                           gap · padding · align · children, text: text · args · overflow?, image: material, button: text · args ·
                           overflow? · on.click (overflow = "clip" 기본 · "wrap" 줄 바꿈 · "fit" 글꼴 줄이기 — v0.7 M4-T2),
+                          checkbox · toggle: text? · args? · value {"bind": "var:<키>"} · on.change {"signal"}, slider: value
+                          (var) · min? · max? · step? · on.change (v0.7 NG-06 (1), ADR-0103 — 값은 컨트롤이), 버튼 · 컨트롤
+                          공통 disabled? (참거짓 · 바인딩) · tabIndex? (0 ~ 1000),
                           progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸> (state · tick · time · team · message · score[i])" |
                           "component:<컴포넌트>.<칸>@owned|selected"}, 이벤트 = {"signal", "value"?} | {"action"} | {"ui": show | hide |
                           toggle, "target": "<문서>.<노드>"}. 팩마다 32 개까지 (로더가 원문만 PackInfo.uiDocuments 에)

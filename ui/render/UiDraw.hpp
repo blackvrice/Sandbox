@@ -7,6 +7,9 @@
 //   text           글자 (왼쪽 위 — 여백만큼 안쪽)
 //   progress       바탕 (스타일 color 의 어두운 판) + 채움 (value / max — 0 ~ 1 로 자름)
 //   image          material 이름 그대로 (백엔드가 텍스처 · 대체 색으로)
+//   checkbox       상자 (테두리) + 켜면 안쪽 채움 · 이름 (v0.7 NG-06 (1)), toggle = 2 칸 길 (켜면 밝게) + 손잡이 (켜면
+//   오른쪽) slider         가는 길 + 채움 (value 의 min ~ max 비율) + 손잡이. 꺼진 컨트롤 (disabled) 은 흐리게,
+//   포커스는 테두리 고리
 // 모든 호출에 clip (UiLayoutNode.clip) — 넘친 부분은 백엔드가 자른다
 
 #include <functional>
@@ -33,6 +36,9 @@ public:
 inline constexpr UiColor kTextColor{235, 235, 235, 255};
 inline constexpr UiColor kButtonColor{70, 70, 78, 230};
 inline constexpr UiColor kProgressColor{90, 170, 90, 255};
+inline constexpr UiColor kControlColor{55, 55, 62, 230};  // 상자 · 길 바탕
+inline constexpr UiColor kCheckColor{110, 170, 230, 255}; // 켬 · 채움
+inline constexpr UiColor kFocusColor{250, 210, 90, 255};  // 포커스 고리
 
 struct UiDrawOptions {
     const std::map<std::string, UiStyle, std::less<>>* styles = nullptr;
@@ -44,6 +50,12 @@ struct UiDrawOptions {
     const UiNode* pressed = nullptr;
     i32 pressedIndex = -1;
     f32 scale = 1; // UI 배율 — 테두리 두께에 곱한다 (사각형 · 글꼴은 배치가 이미 곱했다 — v0.7 M3-T6)
+    // 입력 컨트롤 (v0.7 NG-06 (1)): 지금 값 (checkbox · toggle 0 이 아니면 켬, slider 의 값), 꺼짐, 포커스. 없으면
+    // value 의 고정 수 · 켜짐 · 포커스 없음
+    std::function<f32(const UiNode& node, i32 listIndex)> valueOf{};
+    std::function<bool(const UiNode& node, i32 listIndex)> disabledOf{};
+    const UiNode* focused = nullptr;
+    i32 focusedIndex = -1;
 };
 
 // 배치 결과를 차례대로 그린다 (부모 먼저 — 자식이 위에)

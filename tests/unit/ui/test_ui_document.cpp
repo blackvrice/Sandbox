@@ -133,8 +133,8 @@ TEST_SUITE("ui") {
                       context()),
                   "U2"));
         // U3 — 모르는 요소는 문서 모양이 없다 (구조 오류)
-        const UiParseResult unknownKind = parseUiDocument("hud", withRoot(R"({"kind": "slider"})"), context());
-        CHECK(has(unknownKind, "U3", "'slider'"));
+        const UiParseResult unknownKind = parseUiDocument("hud", withRoot(R"({"kind": "knob"})"), context());
+        CHECK(has(unknownKind, "U3", "'knob'"));
         CHECK_FALSE(unknownKind.document.has_value());
         CHECK(has(parseUiDocument("hud", withRoot(R"({"kind": "text", "text": "a", "material": "x"})"), context()),
                   "U3", "'material'"));

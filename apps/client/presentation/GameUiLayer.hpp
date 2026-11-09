@@ -10,6 +10,7 @@
 // (v0.7 M4-T1 — ui/strings, 로케일은 setLocale). 검사: 문서 · 표의 모양이 틀리면 (U1 · U3 · U7) 그것을 건너뛰고 경고
 // 한 번, 표에 없는 키도 경고 한 번 — 규칙 검사는 sbx check 의 몫
 
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -29,14 +30,25 @@ public:
     void setSources(const std::optional<GameUiInfo>& info);
     // 바인딩의 데이터 (v0.7 M3-T4 — 세션이 가진다, 프레임마다 그대로). nullptr 이면 바인딩은 "-"
     void setData(const ui::IUiDataSource* data) noexcept { m_data = data; }
+    // 컨트롤이 바꾼 var 값을 쓰는 곳 (v0.7 NG-06 (1) — ADR-0103 1: 세션의 var 표, client 스크립트와 같은 표). 없으면
+    // 버린다
+    using VarWriter = std::function<void(std::string_view key, const ui::UiScalar& value)>;
+    void setVarWriter(VarWriter writer) { m_writeVar = std::move(writer); }
     // 이번 프레임의 배치 (논리 단위 — 창 크기)
     void layout(i32 width, i32 height, f32 scale, const ui::ITextMeasure& measure);
     // 포인터 (논리 단위) 를 라우팅한다. pressed = 이 프레임에 왼쪽 단추를 눌렀다, down = 누르고 있다. 누른 버튼의
-    // signal · action 이벤트를 out 에 (ui 이벤트는 여기서 적용 — 다음 배치부터 보인다)
+    // signal · action 이벤트를 out 에 (ui 이벤트는 여기서 적용 — 다음 배치부터 보인다). 입력 컨트롤 (NG-06 (1)):
+    // checkbox · toggle 은 누르면 바꾸고, slider 는 끄는 동안 값을 쓰고 놓을 때 on.change 신호 하나. menu · modal 의
+    // 컨트롤을 누르면 키보드 포커스 (hud 는 주지 않는다 — ADR-0103 4)
     ui::UiPointerRoute route(i32 x, i32 y, bool toolsWantMouse, bool pressed, bool down,
                              std::vector<ui::UiAction>& out);
     void draw(ui::IUiRenderer& renderer) const;
-
+    // 키 (v0.7 NG-06 (1) — ADR-0103 5): Next · Previous = 포커스 차례, 방향 = 가까운 컨트롤 (slider 면 왼 · 오른 = 한
+    // 칸), Activate = 누르기, Release = 포커스 놓기. 키를 썼으면 true (앱은 게임에 주지 않는다). 포커스가 없으면 Next ·
+    // Previous 만 (보이는 컨트롤이 있으면 첫째 · 끝에)
+    bool key(ui::UiKey key, std::vector<ui::UiAction>& out);
+    [[nodiscard]] bool hasFocus() const noexcept { return m_focus != nullptr; } // 키보드는 게임 UI 가 갖는다
+    [[nodiscard]] const ui::UiNode* focused() const noexcept { return m_focus; }
     void apply(const ui::UiAction& action); // ui show · hide · toggle · theme
     // 지금 테마 (v0.7 M3-T6 — 비면 없음). 없는 테마 이름이면 false (그대로)
     bool setTheme(std::string_view theme);
@@ -74,6 +86,20 @@ private:
     u64 m_presses = 0;
     std::vector<std::string> m_warnings;
     const ui::IUiDataSource* m_data = nullptr;
+    // 입력 컨트롤 (v0.7 NG-06 (1))
+    [[nodiscard]] bool disabled(const ui::UiNode& n) const;
+    [[nodiscard]] f32 controlValue(const ui::UiNode& n) const;
+    void setControlValue(const ui::UiNode& n, f32 value);                  // var 에 쓴다 (checkbox · toggle 은 참거짓)
+    void press(const ui::UiLayoutNode& n, std::vector<ui::UiAction>& out); // 클릭 · Activate 의 같은 길
+    void sliderTo(const ui::UiNode& n, const ui::UiRect& rect, i32 x);
+    void emitChange(const ui::UiNode& n, std::vector<ui::UiAction>& out) const;
+    [[nodiscard]] const ui::UiLayoutNode* layoutOf(const ui::UiNode* n, i32 listIndex) const;
+    VarWriter m_writeVar;
+    std::map<std::string, ui::UiScalar, std::less<>> m_written; // 이 층이 쓴 값 (세션이 없을 때 · 같은 프레임 읽기)
+    const ui::UiNode* m_focus = nullptr;
+    i32 m_focusIndex = -1;
+    const ui::UiNode* m_drag = nullptr; // 끌고 있는 slider
+    i32 m_dragIndex = -1;
 };
 
 } // namespace sbx::client

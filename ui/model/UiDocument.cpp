@@ -209,12 +209,15 @@ public:
             return n;
         }
         const std::string kind = j["kind"].get<std::string>();
-        static constexpr std::array<std::pair<std::string_view, UiKind>, 6> kKinds{{{"panel", UiKind::Panel},
+        static constexpr std::array<std::pair<std::string_view, UiKind>, 9> kKinds{{{"panel", UiKind::Panel},
                                                                                     {"text", UiKind::Text},
                                                                                     {"image", UiKind::Image},
                                                                                     {"button", UiKind::Button},
                                                                                     {"progress", UiKind::Progress},
-                                                                                    {"list", UiKind::List}}};
+                                                                                    {"list", UiKind::List},
+                                                                                    {"checkbox", UiKind::Checkbox},
+                                                                                    {"toggle", UiKind::Toggle},
+                                                                                    {"slider", UiKind::Slider}}};
         const auto k = std::find_if(kKinds.begin(), kKinds.end(), [&](const auto& p) { return p.first == kind; });
         if (k == kKinds.end()) {
             error("U3", pointer + "/kind",
@@ -235,7 +238,15 @@ public:
             case UiKind::Image:
                 return key == "material";
             case UiKind::Button:
-                return key == "text" || key == "args" || key == "on" || key == "overflow";
+                return key == "text" || key == "args" || key == "on" || key == "overflow" || key == "disabled" ||
+                       key == "tabIndex";
+            case UiKind::Checkbox:
+            case UiKind::Toggle:
+                return key == "text" || key == "args" || key == "value" || key == "on" || key == "disabled" ||
+                       key == "tabIndex";
+            case UiKind::Slider:
+                return key == "value" || key == "min" || key == "max" || key == "step" || key == "on" ||
+                       key == "disabled" || key == "tabIndex";
             case UiKind::Progress:
                 return key == "value" || key == "max";
             case UiKind::List:
@@ -374,10 +385,62 @@ public:
         }
         if (j.contains("on")) {
             const json& on = j["on"];
-            if (!on.is_object() || on.size() != 1 || !on.contains("click")) {
-                error("U3", pointer + "/on", R"(이벤트는 {"click": …} 하나)");
+            const bool control = n.kind == UiKind::Checkbox || n.kind == UiKind::Toggle || n.kind == UiKind::Slider;
+            const char* event = control ? "change" : "click";
+            if (!on.is_object() || on.size() != 1 || !on.contains(event)) {
+                error("U3", pointer + "/on", std::format(R"(이벤트는 {{"{}": …}} 하나)", event));
+            } else if (control) {
+                // 바뀜 = 신호만, 값은 컨트롤이 (ADR-0103 2)
+                const json& c = on["change"];
+                if (!c.is_object() || !c.contains("signal") || c.contains("value")) {
+                    error("U1", pointer + "/on/change", R"(바뀜은 {"signal": "<팩>.<이름>"} — 값은 컨트롤이 정한다)");
+                } else {
+                    n.change = action(c, pointer + "/on/change");
+                }
             } else {
                 n.click = action(on["click"], pointer + "/on/click");
+            }
+        }
+        if (n.kind == UiKind::Checkbox || n.kind == UiKind::Toggle || n.kind == UiKind::Slider) {
+            // 값 = "var:<키>" 하나 (ADR-0103 1 — 컨트롤이 쓴다)
+            if (!j.contains("value")) {
+                error("U1", pointer, std::format(R"({} 에 value {{"bind": "var:<키>"}} 가 필요하다)", kind));
+            } else {
+                n.value = value(j["value"], pointer + "/value");
+                if (!n.value.bind.starts_with("var:")) {
+                    error("U4", pointer + "/value", "컨트롤의 value 는 \"var:<키>\" 바인딩이어야 한다 (컨트롤이 쓴다)");
+                }
+            }
+        }
+        if (n.kind == UiKind::Slider) {
+            n.max = UiValue{1, {}};
+            if (j.contains("min")) {
+                n.min = number(j["min"], pointer + "/min", -1e9f, 1e9f).value_or(0);
+            }
+            if (j.contains("max")) {
+                n.max.number = number(j["max"], pointer + "/max", -1e9f, 1e9f).value_or(1);
+            }
+            if (j.contains("step")) {
+                n.step = number(j["step"], pointer + "/step", 0, 1e9f).value_or(0);
+            }
+            if (!(n.max.number > n.min)) {
+                error("U1", pointer + "/max", "slider 의 max 는 min 보다 커야 한다");
+            }
+        }
+        if (j.contains("disabled")) {
+            const json& d = j["disabled"];
+            if (d.is_boolean()) {
+                n.disabled.number = d.get<bool>() ? 1.0f : 0.0f;
+            } else {
+                n.disabled = value(d, pointer + "/disabled");
+            }
+        }
+        if (j.contains("tabIndex")) {
+            const json& t = j["tabIndex"];
+            if (!t.is_number_integer() || t.get<i64>() < 0 || t.get<i64>() > 1000) {
+                error("U1", pointer + "/tabIndex", "0 ~ 1000 정수");
+            } else {
+                n.tabIndex = static_cast<i32>(t.get<i64>());
             }
         }
         if (n.kind == UiKind::List) {

@@ -103,8 +103,8 @@ TEST_SUITE("ui") {
         UiPointerRoute r = routePointer(docs, 5, 5, false);
         CHECK(r.owner == Owner::Hud);
         CHECK(r.captured);
-        REQUIRE(r.button != nullptr);
-        CHECK(r.button->node->id == "a");
+        REQUIRE(r.control != nullptr);
+        CHECK(r.control->node->id == "a");
         CHECK(routePointer(docs, 40, 5, false).owner == Owner::Game);
         CHECK_FALSE(routePointer(docs, 300, 5, false).captured);
         // 도구 패널이 마우스를 원하면 hud 는 받지 않는다 (menu · modal 은 그보다 먼저)
@@ -114,22 +114,22 @@ TEST_SUITE("ui") {
         r = routePointer(docs, 200, 160, true);
         CHECK(r.owner == Owner::Menu);
         CHECK(r.document == 1);
-        CHECK(r.button == nullptr);
+        CHECK(r.control == nullptr);
         r = routePointer(docs, 152, 102, false);
-        REQUIRE(r.button != nullptr);
-        CHECK(r.button->node->id == "ok");
+        REQUIRE(r.control != nullptr);
+        CHECK(r.control->node->id == "ok");
         // modal 이 보이면 어디든 잡는다
         docs[2].visible = true;
         r = routePointer(docs, 5, 5, true);
         CHECK(r.owner == Owner::Modal);
         CHECK(r.captured);
-        CHECK(r.button == nullptr);
+        CHECK(r.control == nullptr);
         // 같은 층 — 뒤 문서가 위
         const UiDocument hud2 = parse("hud2", "hud", R"({"kind": "button", "id": "b", "text": "BBBB"})");
         std::vector<UiDocumentLayout> twoHuds{lay(hud, true), lay(hud2, true)};
-        CHECK(routePointer(twoHuds, 5, 5, false).button->node->id == "b");
+        CHECK(routePointer(twoHuds, 5, 5, false).control->node->id == "b");
         twoHuds[1].visible = false;
-        CHECK(routePointer(twoHuds, 5, 5, false).button->node->id == "a");
+        CHECK(routePointer(twoHuds, 5, 5, false).control->node->id == "a");
     }
 
     TEST_CASE("ui layout: 숨긴 노드 — 그 아래까지 빠지고 쌓기에서 자리도 차지하지 않는다") {

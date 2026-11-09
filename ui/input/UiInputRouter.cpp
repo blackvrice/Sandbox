@@ -1,5 +1,8 @@
 #include "ui/input/UiInputRouter.hpp"
 
+#include <algorithm>
+#include <array>
+
 namespace sbx::ui {
 namespace {
 
@@ -7,10 +10,10 @@ bool hits(const UiLayoutNode& n, i32 x, i32 y) {
     return contains(n.rect, x, y) && contains(n.clip, x, y);
 }
 
-// 포인터 아래 가장 위의 버튼 (나중 노드가 위)
-const UiLayoutNode* buttonAt(const UiDocumentLayout& d, i32 x, i32 y) {
+// 포인터 아래 가장 위의 컨트롤 (나중 노드가 위)
+const UiLayoutNode* controlAt(const UiDocumentLayout& d, i32 x, i32 y) {
     for (auto it = d.nodes.rbegin(); it != d.nodes.rend(); ++it) {
-        if (it->node->kind == UiKind::Button && hits(*it, x, y)) {
+        if (isControl(it->node->kind) && hits(*it, x, y)) {
             return &*it;
         }
     }
@@ -36,7 +39,7 @@ UiPointerRoute routePointer(std::span<const UiDocumentLayout> docs, i32 x, i32 y
     };
     // modal — 보이면 전부 잡는다 (가장 위 modal 의 버튼만)
     if (topFirst(UiLayer::Modal, [&](usize i, const UiDocumentLayout& d) {
-            r = {UiPointerRoute::Owner::Modal, true, i, buttonAt(d, x, y)};
+            r = {UiPointerRoute::Owner::Modal, true, i, controlAt(d, x, y)};
             return true;
         })) {
         return r;
@@ -45,7 +48,7 @@ UiPointerRoute routePointer(std::span<const UiDocumentLayout> docs, i32 x, i32 y
             if (!hits(d.nodes.front(), x, y)) {
                 return false;
             }
-            r = {UiPointerRoute::Owner::Menu, true, i, buttonAt(d, x, y)};
+            r = {UiPointerRoute::Owner::Menu, true, i, controlAt(d, x, y)};
             return true;
         })) {
         return r;
@@ -55,7 +58,7 @@ UiPointerRoute routePointer(std::span<const UiDocumentLayout> docs, i32 x, i32 y
         return r;
     }
     topFirst(UiLayer::Hud, [&](usize i, const UiDocumentLayout& d) {
-        const UiLayoutNode* b = buttonAt(d, x, y);
+        const UiLayoutNode* b = controlAt(d, x, y);
         if (b == nullptr) {
             return false;
         }
@@ -63,6 +66,77 @@ UiPointerRoute routePointer(std::span<const UiDocumentLayout> docs, i32 x, i32 y
         return true;
     });
     return r;
+}
+
+std::vector<UiFocusable> focusOrder(std::span<const UiDocumentLayout> docs,
+                                    const std::function<bool(const UiNode& node, i32 listIndex)>& disabled) {
+    std::vector<UiFocusable> out;
+    for (usize d = 0; d < docs.size(); ++d) {
+        if (!docs[d].visible) {
+            continue;
+        }
+        for (const UiLayoutNode& n : docs[d].nodes) {
+            if (isControl(n.node->kind) && n.rect.w > 0 && n.rect.h > 0 &&
+                !(disabled && disabled(*n.node, n.listIndex))) {
+                out.push_back({&n, d});
+            }
+        }
+    }
+    std::stable_sort(out.begin(), out.end(), [](const UiFocusable& a, const UiFocusable& b) {
+        return a.node->node->tabIndex < b.node->node->tabIndex;
+    });
+    return out;
+}
+
+i32 nearestFocus(std::span<const UiFocusable> order, usize from, UiKey direction) {
+    if (from >= order.size()) {
+        return -1;
+    }
+    const auto center = [](const UiRect& r) {
+        return std::array<i64, 2>{2 * static_cast<i64>(r.x) + r.w, 2 * static_cast<i64>(r.y) + r.h}; // 두 배 (정수)
+    };
+    const std::array<i64, 2> c0 = center(order[from].node->rect);
+    i32 best = -1;
+    i64 bestScore = 0;
+    for (usize i = 0; i < order.size(); ++i) {
+        if (i == from) {
+            continue;
+        }
+        const std::array<i64, 2> c = center(order[i].node->rect);
+        const i64 dx = c[0] - c0[0];
+        const i64 dy = c[1] - c0[1];
+        i64 along = 0;
+        i64 side = 0;
+        switch (direction) {
+        case UiKey::Up:
+            along = -dy;
+            side = dx;
+            break;
+        case UiKey::Down:
+            along = dy;
+            side = dx;
+            break;
+        case UiKey::Left:
+            along = -dx;
+            side = dy;
+            break;
+        case UiKey::Right:
+            along = dx;
+            side = dy;
+            break;
+        default:
+            return -1;
+        }
+        if (along <= 0) {
+            continue; // 그 방향이 아니다
+        }
+        const i64 score = along + 2 * (side < 0 ? -side : side);
+        if (best < 0 || score < bestScore) {
+            best = static_cast<i32>(i);
+            bestScore = score;
+        }
+    }
+    return best;
 }
 
 } // namespace sbx::ui

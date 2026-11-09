@@ -216,6 +216,23 @@ private:
         case UiKind::Image:
         case UiKind::Progress:
             return {pad, pad};
+        case UiKind::Checkbox:
+        case UiKind::Toggle: {
+            // 상자 (toggle 은 2 칸) + 글꼴 절반의 틈 + 이름 (v0.7 NG-06 (1))
+            const f32 fs = fontSize(n);
+            const f32 box = controlBox(fs);
+            f32 w = n.kind == UiKind::Toggle ? box * 2 : box;
+            f32 h = box;
+            const std::string label = m_opt.textOf ? m_opt.textOf(n, listIndex) : n.text;
+            if (!label.empty()) {
+                const std::array<f32, 2> m = m_measure.measure(label, fs);
+                w += std::ceil(fs * 0.5f) + std::ceil(m[0]);
+                h = std::max(h, std::ceil(m[1]));
+            }
+            return {w + pad, h + pad};
+        }
+        case UiKind::Slider:
+            return {kSliderWidth * m_scale + pad, controlBox(fontSize(n)) + pad};
         case UiKind::Panel:
         case UiKind::List:
             break;
