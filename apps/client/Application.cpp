@@ -133,6 +133,7 @@ std::string describeEvent(const PlatformEvent& event) {
 Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audio, AppConfig config)
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
+    registerStudioCommands();
     if (!m_config.saveName.empty()) {
         m_worldPanel.name = m_config.saveName;
     }
@@ -869,6 +870,25 @@ bool Application::frame() {
         pin.font = m_config.ui->fontName();
         const PanelActions act = drawDebugPanels(m_panels, pin);
         drawNotices(m_config.notices, m_noticesOpen);
+        // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
+        if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.projects != nullptr) {
+            if (const auto a = drawStudioHome(m_home, *m_config.projects)) {
+                switch (a->kind) {
+                case StudioHomeAction::Kind::NewProject:
+                    (void)m_commands.run("studio.new-project");
+                    break;
+                case StudioHomeAction::Kind::OpenProject:
+                    (void)m_commands.run("studio.open-project");
+                    break;
+                case StudioHomeAction::Kind::OpenRecent:
+                    studioOpen(a->dir);
+                    break;
+                case StudioHomeAction::Kind::ForgetRecent:
+                    m_config.projects->forget(a->dir);
+                    break;
+                }
+            }
+        }
         if (m_panels.visible) { // v0.7 M4-T3 "키"
             KeysView view = buildKeysView(m_keys, m_playKeys.map);
             view.canSave = !m_config.userInputFile.empty();
@@ -935,8 +955,11 @@ bool Application::frame() {
         accumulateTimings(realDt, seconds(t0, t1), seconds(t1, t2), seconds(t3, t4));
     }
 
-    // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (메뉴 UI [계획]). Connecting 은 세션이 준비될 때까지
-    // (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
+    if (m_state == AppState::MainMenu && m_config.world == nullptr) {
+        studioHome(); // --new-project (v0.8 M6-T1)
+    }
+    // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (없으면 Studio 홈 — v0.8 M6-T1). Connecting 은 세션이 준비될
+    // 때까지 (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
         if (m_state == AppState::Connecting || m_state == AppState::InWorld) {
             if (const auto failure = m_config.world->failure()) {
@@ -1105,6 +1128,108 @@ std::string Application::statusLine() const {
         s += " | " + m_config.renderer->status();
     }
     return s;
+}
+
+// ---- Studio 홈 (v0.8 M6-T1 — ADR-0111) ----
+
+void Application::registerStudioCommands() {
+    const auto home = [this] { return m_config.projects != nullptr && m_config.world == nullptr; };
+    // 등록이 실패하는 것은 프로그램 잘못 (고정 id · 단축키) — 로그로 알린다
+    const auto add = [this](editor::services::CommandSpec spec) {
+        if (const Expected<void> r = m_commands.add(std::move(spec)); !r) {
+            log::error("client", "명령 등록: {}", r.error().describe());
+        }
+    };
+    add({"studio.new-project", "새 프로젝트", "Ctrl+N", "home", [this, home] { return home() && canCreate(m_home); },
+         [this] { studioCreate(); }});
+    add({"studio.open-project", "프로젝트 열기", "Ctrl+O", "home", [this, home] { return home() && canOpen(m_home); },
+         [this] { studioOpen(openProjectDir(m_home)); }});
+}
+
+void Application::studioHome() {
+    if (m_config.projects != nullptr) {
+        for (const std::string& w : m_config.projects->takeWarnings()) {
+            log::warn("studio", "{}", w);
+            m_config.notices.push_back(w);
+            m_noticesOpen = true;
+        }
+    }
+    if (m_newProjectTried || !m_config.newProject || m_config.projects == nullptr) {
+        return;
+    }
+    // 시작하자마자 새 프로젝트 (--new-project): 홈의 폼을 채우고 홈 단추와 같은 명령으로
+    m_newProjectTried = true;
+    const editor::services::NewProjectRequest& r = *m_config.newProject;
+    const auto fill = [](auto& buf, const std::string& text) {
+        const usize n = std::min(text.size(), buf.size() - 1);
+        std::copy_n(text.begin(), n, buf.begin());
+        buf[n] = '\0';
+    };
+    const std::u8string dir = r.dir.generic_u8string();
+    fill(m_home.newDir, std::string(dir.begin(), dir.end()));
+    fill(m_home.newGameId, r.gameId);
+    fill(m_home.newName, r.name);
+    const auto& t = m_config.projects->templates();
+    const auto it = std::ranges::find(t, r.templateId, &editor::services::ProjectTemplate::id);
+    if (it == t.end()) {
+        log::error("studio", "템플릿 '{}' 가 없다", r.templateId);
+        m_exitCode = 1;
+        (void)request(AppState::Shutdown);
+        return;
+    }
+    m_home.templateIndex = static_cast<int>(it - t.begin());
+    if (m_commands.run("studio.new-project") != editor::services::RunResult::Ran || m_home.failed) {
+        m_exitCode = 1; // 자동화 — 실패면 끝낸다
+        (void)request(AppState::Shutdown);
+    }
+}
+
+void Application::studioCreate() {
+    const editor::services::NewProjectRequest req = newProjectRequest(m_home, *m_config.projects);
+    const Expected<editor::services::ProjectSummary> made = m_config.projects->create(req);
+    if (!made) {
+        m_home.failed = true;
+        m_home.message = made.error().describe();
+        log::error("studio", "새 프로젝트: {}", m_home.message);
+        return;
+    }
+    m_home.failed = false;
+    m_home.message = std::format("만들었다: {} — {} (검사 오류 {} · 경고 {})", made->dir.generic_string(), made->gameId,
+                                 made->errors, made->warnings);
+    log::info("studio", "프로젝트를 만들었다: {} — {} \"{}\" (검사 오류 {} · 경고 {})", made->dir.generic_string(),
+              made->gameId, made->name, made->errors, made->warnings);
+    m_home.failed = !enterProject(made->dir);
+}
+
+void Application::studioOpen(const std::filesystem::path& dir) {
+    const Expected<editor::services::ProjectSummary> opened = m_config.projects->open(dir);
+    if (!opened) {
+        m_home.failed = true;
+        m_home.message = opened.error().describe();
+        log::warn("studio", "프로젝트 열기: {}", m_home.message);
+        return;
+    }
+    m_home.failed = !enterProject(opened->dir);
+}
+
+bool Application::enterProject(const std::filesystem::path& dir) {
+    if (!m_config.openWorld) {
+        m_home.message = "이 실행은 프로젝트에 들어갈 수 없다 (세션을 만들 길이 없다)";
+        return false;
+    }
+    Expected<OpenedWorld> w = m_config.openWorld(dir);
+    if (!w) {
+        m_home.message = w.error().describe();
+        log::error("studio", "프로젝트에 들어가지 못했다: {}", m_home.message);
+        return false;
+    }
+    m_ownedWorld = std::move(w->session);
+    m_config.world = m_ownedWorld.get();
+    if (!w->saveName.empty()) {
+        m_worldPanel.name = w->saveName;
+    }
+    log::info("studio", "프로젝트에 들어간다: {}", dir.generic_string());
+    return true;
 }
 
 } // namespace sbx::client

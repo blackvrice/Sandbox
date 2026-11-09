@@ -595,6 +595,8 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
     multiline 줄 바꿈 · Esc 뒤 게임 키 (Windows · X11 · Wayland 창)
 [ ] (NG-06 (3)) dropdown 목록이 다른 HUD · 메뉴 위에 보이고 화면 아래에서는 위로 열린다, tabs 머리 칸 · 밑줄 (창)
 [ ] (NG-06 (3b)) scroll 을 휠 · Tab 으로 — 막대 손잡이 자리, 가려진 자식이 잘린다, 휠이 카메라를 확대하지 않는다 (창 · 터치패드)
+[ ] (v0.8 M6-T1) 창에서 --world 없이 열면 Studio 홈 — 폴더 · id 를 쳐서 새 프로젝트 (1 분 안 — 28 G1) · 열기 · 최근 (다시 시작해도 남는다 · 빼기 ·
+    없어진 폴더는 흐림) · 오류 있는 프로젝트는 문제를 보이고 열지 않는다
 [ ] (NG-06 (4)) 실제 Xbox 패드 — 연결 · 끊김 로그, 십자 · 스틱 · A · B · LB · RB 로 HUD · 메뉴 조작, 스틱 죽은 영역, 두 패드, 다른 창에
     포커스가 있을 때 무시 (Windows — 패드가 없어 시험은 가짜 소스)
 ```

@@ -56,6 +56,13 @@ struct ClientOptions {
     // --script <파일>: 자동 플레이 (v0.2 M6-T1 — 로컬 서버가 스크립트로 돈다. 헤드리스면 게임이 끝날 때 결과 한 줄을
     // 쓰고 끝)
     std::optional<std::string> script;
+    // Studio 홈의 "새 프로젝트" 명령을 시작하자마자 (v0.8 M6-T1 — 헤드리스 시험 studio_new_project · 자동화):
+    // --new-project <폴더> --game-id <id> [--template <id> (기본 empty)] [--project-name <이름>]. 만들고 그 프로젝트로
+    // 들어간다
+    std::optional<std::string> newProject;
+    std::string newGameId;
+    std::string newTemplate = "empty";
+    std::string newName;
     u64 seed = 1;                  // --seed (--world)
     std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)

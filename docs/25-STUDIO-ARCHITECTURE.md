@@ -52,13 +52,13 @@ S6 "Core 에 꼭 들어가야 하나?" — 시뮬레이션 · 저장 · 복제�
 ```text
 SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)          ← 새 실행 파일을 만들지 않는다 (ADR-0089 1)
 │
-├─ Studio Shell        apps/client/studio/  [제안]  ImGui
+├─ Studio Shell        apps/client/studio/  ✅ 홈 (v0.8 M6-T1 — StudioHome)  ImGui
 │    Home (새 · 열기 · 최근 · 템플릿) · Workspace (레이아웃 프리셋) · Dock · Command Palette · Settings · 알림 (기존)
 ├─ Creator Tools       editor/ui/  (현행 패널 + [계획] 패널)  ImGui
 │    Scene (월드 뷰 · 툴) · Hierarchy · Inspector · Content (기존) · Asset Browser · Script Editor · UI Designer (v0.6) ·
 │    Trigger Graph (v0.6) · Data Editor · Test · Profiler · Build
 ├─ Editor Services     editor/services/  ✅ 타깃 SandboxEditorServices (v0.8 ST-06-1, ADR-0108)  UI 없음 — check_includes 대상
-│    ProjectService     열기 · 새로 만들기 (core::createProject) · 최근 · 매니페스트 · 진단 (core::diagnose)
+│    ProjectService     열기 · 새로 만들기 (core::createProject) · 최근 · 매니페스트 · 진단 (core::diagnose) ✅ 만들기 · 열기 (검사) · 최근 (v0.8 M6-T1, ADR-0111)
 │    DocumentService    파일 문서 (팩 JSON · 스크립트 · UI 문서 · 에셋 메타) — 열기 · 고침 · 원자적 저장 · 되돌리기 · 바깥 변경 감지 ✅ (ST-06-1 (2), ADR-0109)
 │    CommandService     명령 표 { id, 이름, 단축키, 실행 가능 조건, 실행 } — 메뉴 · 팔레트 · 단축키가 같은 표 ✅ (ST-06-1)
 │    SelectionService   선택 (개체 netId · 에셋 id · 파일) — 지금 Editor 안의 선택을 옮긴다
@@ -220,7 +220,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 항목 | 상태 |
 |------|------|
 | 월드 편집 · 툴 · Inspector · 목록 · Undo · 권한 · 테스트 플레이 · 스크립트 오버레이 편집 | 현행 (10, ADR-0028 ~ 0031 · 0053 · 0066) |
-| 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | [계획 v0.5 M6-T1] (코드: createProject 현행) |
+| 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | ✅ v0.8 M6-T1 (ProjectService · StudioHome — ADR-0111) |
 | 레이아웃 저장 · 설정 분리 | [계획 v0.5 M6-T6 — 이번 감사가 추가] |
 | GUI 빌드 · 누락 검사 | [계획 v0.5 M6-T3 — 누락 검사를 더함] (코드: buildPackage 현행) |
 | 자동 저장 · 복구 | [계획 v0.5 M6-T7 — 추가] |

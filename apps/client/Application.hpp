@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <functional>
 #include <future>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -30,12 +31,15 @@
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/GameUiLayer.hpp"
+#include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "apps/client/ui/FontFallback.hpp"
 #include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
+#include "editor/services/CommandService.hpp"
+#include "editor/services/ProjectService.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
@@ -57,6 +61,12 @@ enum class WorldMode : u8 { Play = 0, Edit };
 // 허용된 전이: Boot→MainMenu · MainMenu→Connecting · Connecting→InWorld|MainMenu · InWorld→MainMenu,
 // 그리고 Shutdown 이 아닌 모든 상태 → Shutdown. 같은 상태로의 전이는 없다.
 [[nodiscard]] bool transitionAllowed(AppState from, AppState to) noexcept;
+
+// Studio 홈에서 들어간 프로젝트의 세션 (v0.8 M6-T1) — main 이 --world 와 같은 길로 만든다
+struct OpenedWorld {
+    std::unique_ptr<IWorldSession> session;
+    std::string saveName; // "월드" 창 · Ctrl+S 의 처음 이름 (프로젝트의 시작 월드)
+};
 
 struct AppConfig {
     u64 maxFrames = 0; // 0 = 창을 닫을 때까지
@@ -84,6 +94,11 @@ struct AppConfig {
     f32 gameUiScale = 1.f; // 게임 UI 배율 (v0.7 M4-T4 — 0.75 ~ 2, main 이 --game-ui-scale → client.json 으로 정한다)
     // 게임패드 (v0.7 NG-06 (4) — ADR-0107): 프레임마다 묻는다 (Application 보다 오래 산다). 없으면 패드 없음
     platform::IGamepadSource* gamepads = nullptr;
+    // Studio 홈 (v0.8 M6-T1 — ADR-0111): 프로젝트 서비스 (Application 보다 오래 산다 — 없으면 홈 없음), 프로젝트 폴더 →
+    // 세션, 시작하자마자 할 새 프로젝트 (--new-project — 명령 studio.new-project 로)
+    editor::services::ProjectService* projects = nullptr;
+    std::function<Expected<OpenedWorld>(const std::filesystem::path& dir)> openWorld;
+    std::optional<editor::services::NewProjectRequest> newProject;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -129,6 +144,9 @@ public:
     [[nodiscard]] const editor::Editor& editor() const noexcept { return m_editor; }
     [[nodiscard]] editor::Editor& editor() noexcept { return m_editor; }
     [[nodiscard]] editor::services::UndoService& undoLine() noexcept { return m_undoLine; }
+    [[nodiscard]] const editor::services::CommandService& commands() const noexcept { return m_commands; }
+    [[nodiscard]] StudioHomeState& studioHomeState() noexcept { return m_home; }
+    [[nodiscard]] IWorldSession* world() const noexcept { return m_config.world; } // 지금 세션 (홈에서 들어간 것 포함)
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
     [[nodiscard]] const KeyBindingEditor& keyBindings() const noexcept { return m_keys; } // v0.7 M4-T3 (시험)
@@ -148,7 +166,13 @@ private:
     void handleKeyCapture(); // "키" 패널의 바꾸기 — 다음에 누른 키 (v0.7 M4-T3)
     void applyKeysRequest(const KeysPanelRequest& r);
     void applyKeyBindings(); // 편집한 맵을 쓴다 (ActionId · 게임 키 다시)
-    bool routeGameUi();      // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
+    // Studio 홈 (v0.8 M6-T1)
+    void registerStudioCommands();
+    void studioHome(); // MainMenu · 월드 없음 — --new-project 를 한 번
+    void studioCreate();
+    void studioOpen(const std::filesystem::path& dir);
+    bool enterProject(const std::filesystem::path& dir);
+    bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
     void routeGamepads(std::vector<ui::UiAction>& events);           // v0.7 NG-06 (4) — 패드 → 게임 UI 키
     void localizeNames(GameInfo& game) const;                        // "@<키>" 표시 이름 (v0.7 M4-T1)
     void localizeNames(ActionsInfo& actions) const;                  // 행동 이름
@@ -162,6 +186,12 @@ private:
     platform::ActionState m_actionState;
     platform::IAudioBackend& m_audio;
     AppConfig m_config;
+    // Studio 홈에서 들어간 프로젝트의 세션 (v0.8 M6-T1) — m_config.world 가 가리킨다. 게임 UI 층 · 패널보다 오래 산다
+    // (먼저 선언)
+    std::unique_ptr<IWorldSession> m_ownedWorld;
+    editor::services::CommandService m_commands; // Studio 명령 표 (ADR-0108) — 지금은 홈의 명령
+    StudioHomeState m_home;
+    bool m_newProjectTried = false;
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

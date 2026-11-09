@@ -133,6 +133,7 @@ add_executable(SandboxTests
     unit/editor/test_command_service.cpp
     unit/editor/test_document_service.cpp
     unit/editor/test_editor_undo_line.cpp
+    unit/editor/test_project_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -176,6 +177,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ScriptPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
@@ -501,6 +503,14 @@ if(TARGET sbx)
         COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_new_empty"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_new.cmake")
     set_tests_properties(project_new_empty PROPERTIES LABELS "content" TIMEOUT 120)
+    # Studio 홈의 새 프로젝트 (v0.8 M6-T1 — 28 3장 G1): 헤드리스 클라이언트의 명령 studio.new-project → InWorld → sbx check 0 · 0
+    if(TARGET SandboxClient)
+        add_test(NAME studio_new_project
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_new_project"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_new_project.cmake")
+        set_tests_properties(studio_new_project PROPERTIES LABELS "content;client" TIMEOUT 300)
+    endif()
     if(TARGET SandboxServer)
         add_test(NAME project_new_from_scenario
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_new_eco"

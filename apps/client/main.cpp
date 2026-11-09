@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "apps/client/Application.hpp"
@@ -19,6 +20,9 @@
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/UserSettings.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
+#include "core/components/RegisterCoreComponents.hpp"
+#include "core/ecs/ComponentCatalog.hpp"
+#include "editor/services/ProjectService.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
 #include "foundation/io/AppPaths.hpp"
@@ -219,48 +223,75 @@ int main(int argc, char** argv) {
     std::unique_ptr<sbx::client::NetworkSession> world;
     std::optional<sbx::scenario::PlayScript> script;
     const sbx::client::WorldSaveDefaults saveDefaults = sbx::client::worldSaveDefaults(*opts);
-    if (opts->world || opts->connect) {
+    bool materialsLoaded = false;
+    const auto loadMaterials = [&] {
+        if (std::exchange(materialsLoaded, true)) {
+            return;
+        }
         if (auto n = materials.loadAll(assetRoot, renderer ? renderer->assets() : nullptr); !n) {
             sbx::log::warn("client", "머티리얼을 읽지 못했습니다 (색 사각형으로 그립니다): {}", n.error().describe());
         } else {
             sbx::log::info("client", "머티리얼 {}개 ({} 의 */materials.json {}개)", materials.size(),
                            assetRoot.generic_string(), *n);
         }
+    };
+    const std::filesystem::path contentRoot = opts->contentRoot.empty()
+                                                  ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
+                                                  : std::filesystem::path(opts->contentRoot);
+    // 세션 하나 — 시작할 때 (--world · --connect) 와 Studio 홈에서 들어갈 때 (v0.8 M6-T1) 같은 길
+    const auto makeSession = [&](const sbx::client::ClientOptions& o, const sbx::client::WorldSaveDefaults& saves)
+        -> sbx::Expected<std::unique_ptr<sbx::client::NetworkSession>> {
+        loadMaterials();
         sbx::client::NetworkSessionDesc nd;
-        nd.mode = opts->world ? sbx::client::NetworkSessionMode::Local : sbx::client::NetworkSessionMode::Remote;
-        nd.world = opts->world.value_or("");
-        nd.connect = opts->connect.value_or("");
-        nd.displayName = opts->name;
-        nd.ownerKey = opts->ownerKey;
+        nd.mode = o.world ? sbx::client::NetworkSessionMode::Local : sbx::client::NetworkSessionMode::Remote;
+        nd.world = o.world.value_or("");
+        nd.connect = o.connect.value_or("");
+        nd.displayName = o.name;
+        nd.ownerKey = o.ownerKey;
         // 싱글플레이 세이브 · 리플레이 (12D, 게임 프로젝트면 <프로젝트>/worlds — M1-T5)
-        nd.savesRoot = saveDefaults.savesRoot;
-        if (opts->script) { // 자동 플레이 (v0.2 M6-T1) — 로컬 서버가 헤드리스 서버와 같은 단계에 같은 명령
+        nd.savesRoot = saves.savesRoot;
+        if (script) { // 자동 플레이 (v0.2 M6-T1) — 로컬 서버가 헤드리스 서버와 같은 단계에 같은 명령
+            nd.script = *script;
+        }
+        nd.seed = o.seed;
+        nd.packageCache = packageCache;
+        nd.assets = renderer ? renderer->assets() : nullptr;
+        nd.contentRoot = contentRoot;
+        // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
+        // (틱 수가 고정된다)
+        nd.inlineServer = o.headless;
+        // Worker: 메인 · Simulation · Net 스레드 몫을 남기고 1~4 (결과는 Worker 수와 무관 — D5). 헤드리스는 0
+        const unsigned hc = std::thread::hardware_concurrency();
+        nd.workers = o.simThreads.value_or(o.headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
+        return sbx::client::NetworkSession::create(nd, materials);
+    };
+    if (opts->world || opts->connect) {
+        if (opts->script) {
             auto loaded = sbx::scenario::loadPlayScript(*opts->script);
             if (!loaded) {
                 sbx::log::error("client", "{}", loaded.error().describe());
                 return kExitBadArgs;
             }
-            script = *loaded;
-            nd.script = std::move(*loaded);
+            script = std::move(*loaded);
         }
-        nd.seed = opts->seed;
-        nd.packageCache = packageCache;
-        nd.assets = renderer ? renderer->assets() : nullptr;
-        nd.contentRoot = opts->contentRoot.empty() ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
-                                                   : std::filesystem::path(opts->contentRoot);
-        // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
-        // (틱 수가 고정된다)
-        nd.inlineServer = opts->headless;
-        // Worker: 메인 · Simulation · Net 스레드 몫을 남기고 1~4 (결과는 Worker 수와 무관 — D5). 헤드리스는 0
-        const unsigned hc = std::thread::hardware_concurrency();
-        nd.workers = opts->simThreads.value_or(opts->headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
-        auto ns = sbx::client::NetworkSession::create(nd, materials);
+        auto ns = makeSession(*opts, saveDefaults);
         if (!ns) {
             sbx::log::error("client", "{}", ns.error().describe());
             return kExitBadArgs;
         }
         world = std::move(*ns);
     }
+    // Studio 홈 (v0.8 M6-T1 — ADR-0111): 프로젝트 서비스 — 최근 목록은 설정 폴더의 studio.json (안전 모드면 저장하지
+    // 않는다)
+    sbx::ecs::ComponentCatalog studioCatalog;
+    if (auto r = sbx::comp::registerCoreComponents(studioCatalog); !r) {
+        sbx::log::error("client", "{}", r.error().describe());
+        return kExitError;
+    }
+    sbx::editor::services::ProjectService projects(
+        studioCatalog,
+        sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
+        contentRoot, opts->safeMode ? std::filesystem::path() : configRoot / "studio.json", assetRoot);
 
     // UI (Phase 8C): ImGui 레이어 — 렌더러가 있으면 UIPass 를 붙인다. 헤드리스도 돈다 (텍스처 요청은 레이어가 받는다)
     std::unique_ptr<sbx::client::ImGuiLayer> ui;
@@ -285,6 +316,28 @@ int main(int argc, char** argv) {
     const std::unique_ptr<sbx::platform::IGamepadSource> gamepads = sbx::platform::createGamepadSource();
     sbx::client::AppConfig cfg;
     cfg.gamepads = gamepads.get();
+    // Studio 홈 (v0.8 M6-T1): --world · --connect 가 없으면 홈 — 만들거나 연 프로젝트는 --world <프로젝트> 와 같은
+    // 세션으로
+    if (!opts->world && !opts->connect) {
+        cfg.projects = &projects;
+        cfg.openWorld = [&](const std::filesystem::path& dir) -> sbx::Expected<sbx::client::OpenedWorld> {
+            sbx::client::ClientOptions o = *opts;
+            const std::u8string d = dir.generic_u8string();
+            o.world = std::string(d.begin(), d.end());
+            const sbx::client::WorldSaveDefaults saves = sbx::client::worldSaveDefaults(o);
+            auto ns = makeSession(o, saves);
+            if (!ns) {
+                return std::unexpected(ns.error());
+            }
+            return sbx::client::OpenedWorld{std::move(*ns), saves.saveName};
+        };
+        if (opts->newProject) {
+            const std::string& d = *opts->newProject;
+            cfg.newProject =
+                sbx::editor::services::NewProjectRequest{std::filesystem::path(std::u8string(d.begin(), d.end())),
+                                                         opts->newGameId, opts->newName, opts->newTemplate};
+        }
+    }
     cfg.maxFrames = opts->frames.value_or(0);
     cfg.logInput = opts->logInput;
     cfg.fps = fps > 0 ? fps : 60.0; // 오디오·애니메이션의 명목 dt

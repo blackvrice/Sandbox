@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-09 — v0.8 M6-T1: Studio 홈 — 새 프로젝트 · 열기 · 최근 (ADR-0111)
+
+**무엇을**
+
+- editor/services/ProjectService: 템플릿 (빈 월드 + 등록된 시나리오), create (core::createProject + validateProject 요약), open (검사 — 오류면
+  ValidationFailed, 최근 그대로), inspect, 최근 (studio.json — 맨 앞 · 같은 경로 하나 · 10 개 · missing · 깨지면 .broken + 경고 · 파일 없음 =
+  저장 안 함), forget.
+- apps/client/studio/StudioHome: 홈 화면 (새 프로젝트 폼 · 템플릿 · 열기 · 최근 열기 · 빼기 · 결과 줄). Application: 명령 studio.new-project ·
+  studio.open-project (명령 표 — when = 홈 · 폼), 월드가 없는 MainMenu 에서 홈, enterProject (AppConfig.openWorld → m_ownedWorld → 기존
+  MainMenu → Connecting → InWorld), --new-project 는 폼을 채워 같은 명령 (실패 = 종료 코드 1).
+- main: 세션 만들기를 makeSession 하나로 (--world · --connect 와 홈이 같은 길 — 머티리얼은 처음 한 번), ProjectService (설정 폴더 studio.json —
+  안전 모드면 저장 안 함), --new-project · --game-id · --template · --project-name (ClientOptions).
+- 문서: ADR-0111, 28 G1 ✅ (명령 id 를 ADR-0108 꼴로 — studio.new-project), 25 · 17 · 15 · 13 · MANUAL-QA, 등록부 M6-T1 Done.
+
+**왜**
+
+- v0.8 트랙 B 의 둘째 태스크 — 알파의 첫 막힘 G1 (CLI 없이 만들고 연다). 로직 (createProject · validateProject · --world 세션) 은 있었다.
+
+**검증**
+
+- test_project_service 3 개 · CTest studio_new_project (헤드리스 --new-project → 만들었다 (검사 0 · 0) → InWorld → studio.json → sbx check 0 · 0,
+  같은 폴더 · 모르는 템플릿 실패) · client_* 7 개 (홈이 있어도 그대로). 손 실행: --new-project 로그 · sbx check "오류 0, 경고 0".
+- 처음 실행에서 명령 등록이 거절됐다 (studio.newProject — 내 명령 id 규칙은 소문자) — id 를 studio.new-project 로 고치고 28 을 맞췄다.
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음. 창 화면은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 80 / 80 통과 (경고 0 줄 — studio_new_project 하나 더).
+
+**남은 일**
+
+- OS 폴더 대화 상자, 홈으로 돌아가기 (세션 닫기), 템플릿 셋 (M6-T2), 키 단축키 (Ctrl+N · Ctrl+O 는 표에만 — ST-06-2), 다음 태스크 M6-T3 빌드 화면.
+
 ## 2026-11-09 — v0.8 ST-06-1 (3): 에디터가 되돌리기 줄의 World 참여자 — 월드 · 문서 하나의 Ctrl+Z (ADR-0110, ST-06-1 끝)
 
 **무엇을**
