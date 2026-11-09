@@ -7,6 +7,13 @@
 
 ---
 
+## 2026-11-09 — CI 고침: test_ui_document 의 람다 매개변수가 지역 변수를 가린다 (-Wshadow, e6e5d46)
+
+- 무엇을 · 왜: Linux GCC 빌드가 -Werror=shadow 로 멈췄다 — v0.7 M4-T1 (2) 의 표시 이름 시험에서 람다 매개변수 `text` 가 같은
+  범위의 `std::string text` 를 가렸다. 매개변수를 `needle` 로. 커밋 전에 clang-tidy 를 그 시험 파일에 돌리지 않았다 — 바꾼 파일
+  모두에 돌린다 (12-CODING-STANDARDS 체크리스트 그대로).
+- 검증: clang-tidy (-Wshadow 포함) — 새 경고 없음, M4 시험 통과. 남은 일: 없음.
+
 ## 2026-11-09 — v0.7 M4-T2 (1): 게임 UI 글자 늘어남 — overflow clip · wrap · fit
 
 **무엇을**

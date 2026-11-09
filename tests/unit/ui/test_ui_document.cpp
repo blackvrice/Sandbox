@@ -417,9 +417,9 @@ TEST_SUITE("ui") {
         std::ofstream(mode, std::ios::trunc | std::ios::binary) << text;
         const project::ProjectReport names =
             project::validateProject(dir, engine, catalog(), {.toolFiles = true, .engineAssets = SBX_ASSETS_DIR});
-        const auto named = [&](std::string_view text) {
+        const auto named = [&](std::string_view needle) {
             return std::count_if(names.issues.begin(), names.issues.end(), [&](const content::ContentIssue& i) {
-                return i.rule == "U5" && i.message.find(text) != std::string::npos;
+                return i.rule == "U5" && i.message.find(needle) != std::string::npos;
             });
         };
         CHECK(named("eco.hud.feed") == 0);
