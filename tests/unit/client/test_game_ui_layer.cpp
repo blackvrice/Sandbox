@@ -232,6 +232,7 @@ TEST_SUITE("client") {
         cfg.world = ns.get();
         cfg.fixedDt = kDt;
         cfg.ui = &imgui;
+        cfg.gameUiScale = 1.5f; // v0.7 M4-T4 — 배율을 곱한 버튼을 눌러도 같은 길
         auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
         REQUIRE(map.has_value());
         Application app(window, std::move(*map), audio, cfg);
@@ -244,7 +245,8 @@ TEST_SUITE("client") {
         const ui::UiLayoutNode* feed = find(app.gameUi(), "feed");
         REQUIRE(feed != nullptr);
         const auto [bx, by] = centerOf(*feed);
-        CHECK(feed->rect.w == 120);
+        CHECK(feed->rect.w == 180); // size 120 × 1.5
+        CHECK(feed->rect.h == 60);
 
         // 도구 패널 (F1) 을 감춘다 — ImGui 창이 버튼 위에 있으면 차례대로 도구가 먼저 가져간다 (라우팅 시험은 ui 쪽에)
         window.inject(KeyDown{Key::F1, 0, {}, false});

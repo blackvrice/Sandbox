@@ -85,6 +85,17 @@ ClientSettingsParse parseClientSettings(std::string_view jsonText) {
                 continue;
             }
             r.settings.locale = v.get<std::string>();
+        } else if (key == "gameUiScale") {
+            if (!v.is_number()) {
+                r.errors.emplace_back("gameUiScale 은 수");
+                continue;
+            }
+            const f64 s = v.get<f64>();
+            if (!(s >= kMinGameUiScale && s <= kMaxGameUiScale)) {
+                r.errors.push_back(std::format("gameUiScale {} 는 {} ~ {} 밖", s, kMinGameUiScale, kMaxGameUiScale));
+                continue;
+            }
+            r.settings.gameUiScale = static_cast<f32>(s);
         } else if (key == "fonts") {
             const bool shape =
                 v.is_array() && v.size() <= 8 && std::all_of(v.begin(), v.end(), [](const nlohmann::json& f) {

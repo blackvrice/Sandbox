@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T4: 게임 UI 배율 설정 — client.json gameUiScale · --game-ui-scale (0.75 ~ 2)
+
+**무엇을**
+
+- client.json "gameUiScale" (0.75 ~ 2, 범위 밖 · 수 아님 = 깨진 설정), --game-ui-scale (strtod — 부동소수 from_chars 가 없는
+  macOS libc++ 를 피한다), AppConfig.gameUiScale → GameUiLayer::layout 의 배율 (M3-T6 의 배치 · 테두리 길 그대로). 안전 모드는 1.
+
+**왜**
+
+- 등록부 M4-T4 (ADR-0083 5 — UI 배율 0.75 ~ 2.0). 배율 계산은 M3-T6 에 있었고 클라이언트가 1 로 고정했다.
+
+**검증**
+
+- test_ui_layout 데모 HUD 골든 0.75 · 1.5 (손 계산 — 첫 실행에 맞았다), test_user_settings "게임 UI 배율", test_game_ui_layer 앱 HUD
+  클릭을 배율 1.5 로 (버튼 180 × 60 · 가운데 클릭 → PlayerAction). SandboxClient --headless --game-ui-scale 1.5 · 3 (거절).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19, -Wshadow 포함) — 새 경고 없음.
+
+**남은 일**
+
+- 창에서 배율 · 높은 DPI 눈 확인 (MANUAL-QA [ ]), 실행 중 배율 바꾸기 (설정 UI — 로케일과 함께).
+
 ## 2026-11-09 — v0.7 M4-T3: 키 다시 묶기 — "키" 패널 · 바꾸기 · 되돌리기 · 겹침 · 저장 (ADR-0102)
 
 **무엇을**

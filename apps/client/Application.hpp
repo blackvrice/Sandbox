@@ -81,6 +81,7 @@ struct AppConfig {
     // (<설정 폴더>/input.json — 비면 저장하지 않는다: 안전 모드)
     std::optional<platform::ActionMap> defaultActions;
     std::filesystem::path userInputFile;
+    f32 gameUiScale = 1.f; // 게임 UI 배율 (v0.7 M4-T4 — 0.75 ~ 2, main 이 --game-ui-scale → client.json 으로 정한다)
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)

@@ -389,7 +389,7 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
     (v0.5 M1-T3) 사용자 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox · macOS ~/Library/Application Support/sandbox · XDG —
-    07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>", "locale": "<BCP 47>" (v0.7), "fonts": ["<파일>", …] (v0.7 M4-T2 — 대체 폰트, --font 뒤 · OS 기본 앞)} · input.json (키 바인딩 — 기본 위,
+    07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>", "locale": "<BCP 47>" (v0.7), "fonts": ["<파일>", …] (v0.7 M4-T2 — 대체 폰트, --font 뒤 · OS 기본 앞), "gameUiScale": 0.75~2 (v0.7 M4-T4 — 게임 UI 배율, [--game-ui-scale <s>] 가 이긴다)} · input.json (키 바인딩 — 기본 위,
     --input 아래 — "키" 패널이 기본과 다른 것만 저장, v0.7 M4-T3). 깨진 파일은 "<이름>.broken-<UTC>" 로 옮기고 "알림" 창 · 로그 "알림: …" 에 알린 뒤 기본값으로 시작한다.
     [--safe-mode]: 두 파일 · UI 배율 · 패키지 캐시 (임시 폴더 sbx-packages-safe — 매번 빈 것) 를 쓰지 않는다.
     [--update-feed <파일 | https://URL>]: 릴리스 피드 (GitHub Releases "List releases" JSON) — 이 클라이언트보다 새 버전이면

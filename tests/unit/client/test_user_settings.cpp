@@ -260,4 +260,22 @@ TEST_SUITE("client") {
         CHECK(parseClientSettings(R"({"fonts": [""]})").errors.size() == 1);
         CHECK(parseClientSettings(R"({"fonts": ["1","2","3","4","5","6","7","8","9"]})").errors.size() == 1);
     }
+    TEST_CASE("게임 UI 배율 (v0.7 M4-T4): client.json gameUiScale 0.75 ~ 2 · --game-ui-scale (범위 · 수 아님 거절)") {
+        CHECK(parseClientSettings("{}").settings.gameUiScale == 1.0f);
+        ClientSettingsParse p = parseClientSettings(R"({"gameUiScale": 1.5})");
+        CHECK(p.errors.empty());
+        CHECK(p.settings.gameUiScale == 1.5f);
+        CHECK(parseClientSettings(R"({"gameUiScale": 0.5})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"gameUiScale": 2.5})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"gameUiScale": "big"})").errors.size() == 1);
+        const std::vector<std::string_view> args{"--game-ui-scale", "0.75"};
+        const auto o = parseClientOptions(args);
+        REQUIRE(o.has_value());
+        CHECK(o->gameUiScale == 0.75f);
+        CHECK_FALSE(parseClientOptions({}).value().gameUiScale.has_value());
+        for (const char* bad : {"0.7", "2.01", "x", "1.5x", ""}) {
+            const std::vector<std::string_view> b{"--game-ui-scale", bad};
+            CHECK_MESSAGE(!parseClientOptions(b).has_value(), bad);
+        }
+    }
 }

@@ -559,7 +559,7 @@ bool Application::routeGameUi() {
         const auto inFont = [font](char32_t c) { return c <= 0xFFFF && font->IsGlyphInFont(static_cast<ImWchar>(c)); };
         m_glyphs.emplace(inFont, inFont(kMissingGlyph) ? kMissingGlyph : U'?');
     }
-    m_gameUi.layout(static_cast<i32>(logical.width), static_cast<i32>(logical.height), 1.0f,
+    m_gameUi.layout(static_cast<i32>(logical.width), static_cast<i32>(logical.height), m_config.gameUiScale,
                     ImGuiTextMeasure{&*m_glyphs});
     for (const char32_t cp : m_glyphs->takeMissing()) {
         log::warn("client", "게임 UI 글자 {} 가 어느 폰트에도 없다 — {} 로 그린다 (client.json fonts 에 폰트를 더한다)",

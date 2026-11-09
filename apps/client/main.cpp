@@ -293,6 +293,8 @@ int main(int argc, char** argv) {
     cfg.notices = std::move(notices);
     cfg.lateFeed = lateFeed;
     cfg.defaultActions = defaultActions;
+    // 게임 UI 배율 (v0.7 M4-T4) — --game-ui-scale → client.json gameUiScale (안전 모드면 1)
+    cfg.gameUiScale = opts->gameUiScale.value_or(user.settings.gameUiScale);
     if (!opts->safeMode) { // 안전 모드는 사용자 설정을 쓰지 않는다 — 키 패널은 이 실행에만
         cfg.userInputFile = configRoot / std::string(sbx::client::kUserInputFile);
     }

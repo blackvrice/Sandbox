@@ -283,4 +283,35 @@ TEST_SUITE("ui") {
                   (std::string_view(locale) == "en" ? doctest::Approx(16.0f * 434 / 792) : doctest::Approx(16.0f)));
         }
     }
+    TEST_CASE("ui layout (v0.7 M4-T4): 데모 HUD 배율 0.75 · 1.5 — 1280 × 720 사각형 골든 (손 계산)") {
+        const std::filesystem::path ui =
+            std::filesystem::path(SBX_SAMPLES_DIR) / "rabbit_guard/content/ecosystem/presentation/ui";
+        const UiStylesResult styles = parseUiStyles(*io::readFile(ui / "styles.json"), "eco");
+        REQUIRE(styles.ok());
+        const UiParseResult hud = parseUiDocument("hud", *io::readFile(ui / "hud.json"), UiCheckContext{"eco"});
+        REQUIRE(hud.ok());
+        // 1.5: 띠 12 ~ 1268 · 높이 60, 여백 6 → 내용 18 ~ 1262 × 18 ~ 66 (48), gap 12. 버튼 글꼴 21 · 여백 9 — 먹이
+        // 주기 52.5 → 53 + 18 = 71, 높이 26.25 → 27 + 18 = 45, 위 18 + 1.5 = 19.5 → 20 (가장자리 반올림)
+        CHECK(rects(layoutDocument(*hud.document, demoOptions(1.5f, &styles.styles), kMeasure)) ==
+              std::vector<UiRect>{{12, 12, 1256, 60},
+                                  {18, 24, 36, 36},
+                                  {66, 27, 180, 30},
+                                  {258, 30, 240, 24},
+                                  {510, 20, 71, 45},
+                                  {593, 20, 60, 45},
+                                  {665, 27, 12, 30},
+                                  {689, 27, 324, 30}});
+        // 0.75: 띠 6 ~ 1274 · 높이 30, 여백 3 → 내용 9 ~ 1271 × 9 ~ 33 (24), gap 6. 글꼴 12 (글자 6), 버튼 글꼴 10.5 ·
+        // 여백 4.5 — 먹이 주기 26.25 → 27 + 9 = 36, 높이 13.125 → 14 + 9 = 23, 위 9.5 → 10. 점수 · ? · 도움말 위 13.5 →
+        // 14
+        CHECK(rects(layoutDocument(*hud.document, demoOptions(0.75f, &styles.styles), kMeasure)) ==
+              std::vector<UiRect>{{6, 6, 1268, 30},
+                                  {9, 12, 18, 18},
+                                  {33, 14, 90, 15},
+                                  {129, 15, 120, 12},
+                                  {255, 10, 36, 23},
+                                  {297, 10, 30, 23},
+                                  {333, 14, 6, 15},
+                                  {345, 14, 162, 15}});
+    }
 }

@@ -22,17 +22,18 @@ struct ClientOptions {
     bool showVersion = false;
     std::optional<log::Level> logLevel;
 
-    bool console = false;      // Windows: 콘솔을 붙인다 (GUI 서브시스템 실행 파일)
-    bool headless = false;     // OS 창 없이 HeadlessWindow 로 (CI·창 없는 OS)
-    bool crashTest = false;    // --crash-test: 충돌 처리기를 단 뒤 일부러 충돌 (v0.5 M1-T1 — 보고 묶음 시험)
-    bool safeMode = false;     // --safe-mode: 사용자 설정 · 키 설정 · UI 배율 · 패키지 캐시 없이 (v0.5 M1-T3)
-    std::string updateFeed;    // --update-feed <파일>: 릴리스 피드 (client.json updateFeed 보다 먼저 — v0.5 M1-T3)
-    std::string locale;        // --locale <BCP 47>: 게임 UI 문자열 표 (client.json locale · OS 보다 먼저 — v0.7 M4-T1)
-    std::optional<u64> frames; // 이만큼 돌고 끝 (없으면 창을 닫을 때까지)
-    std::optional<double> fps; // 프레임 페이싱 Hz. 0 = 페이싱 없음. 기본: 창 60, --headless 0
-    std::string inputFile;     // 기본 바인딩 위에 덮어쓸 settings/input.json
-    bool logInput = false;     // 입력 이벤트를 로그로 (QA)
-    u32 width = 1600;          // 논리 단위
+    bool console = false;   // Windows: 콘솔을 붙인다 (GUI 서브시스템 실행 파일)
+    bool headless = false;  // OS 창 없이 HeadlessWindow 로 (CI·창 없는 OS)
+    bool crashTest = false; // --crash-test: 충돌 처리기를 단 뒤 일부러 충돌 (v0.5 M1-T1 — 보고 묶음 시험)
+    bool safeMode = false;  // --safe-mode: 사용자 설정 · 키 설정 · UI 배율 · 패키지 캐시 없이 (v0.5 M1-T3)
+    std::string updateFeed; // --update-feed <파일>: 릴리스 피드 (client.json updateFeed 보다 먼저 — v0.5 M1-T3)
+    std::string locale;     // --locale <BCP 47>: 게임 UI 문자열 표 (client.json locale · OS 보다 먼저 — v0.7 M4-T1)
+    std::optional<f32> gameUiScale; // --game-ui-scale 0.75~2: 게임 UI 배율 (client.json gameUiScale 보다 먼저 — M4-T4)
+    std::optional<u64> frames;      // 이만큼 돌고 끝 (없으면 창을 닫을 때까지)
+    std::optional<double> fps;      // 프레임 페이싱 Hz. 0 = 페이싱 없음. 기본: 창 60, --headless 0
+    std::string inputFile;          // 기본 바인딩 위에 덮어쓸 settings/input.json
+    bool logInput = false;          // 입력 이벤트를 로그로 (QA)
+    u32 width = 1600;               // 논리 단위
     u32 height = 900;
 
     // 렌더링 (Phase 7A, docs/06-RENDERING.md 13장)

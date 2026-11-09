@@ -2,6 +2,7 @@
 
 #include <array>
 #include <charconv>
+#include <cstdlib>
 #include <format>
 
 #include "core/package/GamePackage.hpp"
@@ -223,6 +224,19 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return std::unexpected(v.error());
             }
             opts.updateFeed = std::string(*v);
+        } else if (a == "--game-ui-scale") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            // strtod — 부동소수 from_chars 가 없는 표준 라이브러리 (macOS libc++) 가 있다
+            const std::string text(*v);
+            char* end = nullptr;
+            const f64 s = std::strtod(text.c_str(), &end);
+            if (text.empty() || end != text.c_str() + text.size() || !(s >= 0.75 && s <= 2.0)) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--game-ui-scale 은 0.75 ~ 2: '{}'", *v));
+            }
+            opts.gameUiScale = static_cast<f32>(s);
         } else if (a == "--locale") {
             auto v = value();
             if (!v) {
@@ -270,6 +284,7 @@ std::string clientUsage() {
            "                         캐시를 쓰지 않고 시작 (설정 폴더: SBX_CONFIG_DIR · %APPDATA%\\sandbox · XDG, "
            "v0.5)\n"
            "      --update-feed <f>  릴리스 피드 파일 (GitHub Releases JSON) — 새 버전이면 알림만 (v0.5)\n"
+           "      --game-ui-scale <s> 게임 UI 배율 0.75 ~ 2 (기본: client.json gameUiScale → 1, v0.7)\n"
            "      --locale <로케일>  게임 UI 문자열 표의 로케일 (ko · en · en-US … — 기본: client.json locale → OS, "
            "v0.7)\n"
            "      --frames <n>       n 프레임 뒤 끝낸다\n"
