@@ -86,7 +86,8 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
 | SandboxCrash      | static | 충돌 처리기 (SEH 미니덤프 · POSIX 시그널 → 보고 묶음, v0.5 M1-T1 — platform/crash) | Foundation                              | Core, Network, Platform, Render, Editor, ImGui    |
 | SandboxProcess    | static | 셸 없는 프로세스 실행 (sbx 의 git · 클라이언트의 curl, v0.5 M1-T4 — platform/process, ADR-0084) | Foundation                              | Core, Network, Platform, Render, Editor, ImGui    |
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |
-| SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render                            | Network (ICommandSink로 분리)                     |
+| SandboxEditorServices | static | UI 를 모르는 Studio 서비스 (editor/services — v0.8 ST-06-1, ADR-0089 · 0108): 명령 표 (CommandService) · [계획] Document · Undo 통합 | Core                                    | Network, Platform, Render, Editor, ImGui, 그래픽/OS 헤더 |
+| SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render, EditorServices            | Network (ICommandSink로 분리)                     |
 | SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core, Crash, Process | —                                          |
 | SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core, Crash                    | Platform, Render, Editor, ImGui                   |
 
@@ -114,6 +115,7 @@ include 루트가 저장소 루트라 링크하지 않은 모듈의 헤더도 �
 | Server가 Platform/Render/Editor를 링크하지 않음                             | CMake 구성 시 링크 그래프 재귀 검사                      | `FATAL_ERROR` |
 | Script(SandboxScript)가 Core 이상을 링크 · include 하지 않음 (v0.3, ADR-0056 9) | 같은 검사 + `check_includes.py` (script/ → foundation · script) | `FATAL_ERROR` · 테스트 실패 |
 | GameUI(SandboxGameUI)가 Core · Render · ImGui 를 include 하지 않음 (v0.7, ADR-0079 3) | `check_includes.py` (ui/ → foundation · ui, ui/ 아래 그래픽 · ImGui 헤더 금지) | 테스트 실패                 |
+| EditorServices 가 Render · Platform · ImGui · 나머지 editor/ 를 모름 (v0.8 ST-06-1, ADR-0108) | 링크 경계 (sbx_forbid_link) + `check_includes.py` 하위 경로 규칙 (editor/services/ → foundation · script · core · editor/services) | 구성 오류 · 테스트 실패 |
 | Render가 Core를 링크하지 않음                                               | 같은 검사                                                | `FATAL_ERROR` |
 | foundation/script/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`)            | 테스트 실패   |
 | 플랫폼 소스가 다른 OS에서 컴파일되지 않음                                   | CMake `if(WIN32)/APPLE/UNIX` + 백엔드 헤더 `#error` 가드 | 컴파일 에러   |

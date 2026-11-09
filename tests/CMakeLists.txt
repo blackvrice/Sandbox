@@ -130,6 +130,7 @@ add_executable(SandboxTests
     unit/network/test_multi_client.cpp
     unit/editor/test_editor.cpp
     unit/editor/test_undo.cpp
+    unit/editor/test_command_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -627,7 +628,7 @@ if(Python3_Interpreter_FOUND)
             -X utf8
             ${CMAKE_SOURCE_DIR}/tools/check_includes.py
             --root ${CMAKE_SOURCE_DIR}/tests/arch/fixtures
-            --expect 12
+            --expect 15
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
     # 문서 · 로드맵 일관성 (링크 · ADR · 태스크 ID · 목표 버전 · 상태 — docs/roadmap/README.md 5장, ADR-0096)

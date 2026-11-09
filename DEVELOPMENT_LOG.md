@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-09 — v0.8 ST-06-1 (1): Editor Services 타깃 · include 규칙 · 명령 표 (ADR-0108)
+
+**무엇을**
+
+- editor/services/ — 새 정적 타깃 SandboxEditorServices (Core 만, 이름공간 sbx::editor::services). SandboxEditor 가 PUBLIC 으로 링크.
+  루트 링크 경계: Network · Platform · Render · SandboxEditor · sbx_imgui 금지.
+- tools/check_includes.py: 하위 경로 방향 규칙 SUBPATH_ALLOWED (editor/services/ → foundation · script · core · editor/services),
+  editor/services/ 아래 금지 헤더 모두. 자체 시험 픽스처 (나쁜 서비스 1 · 허용 서비스 · 허용 툴) — 12 → 15 건.
+- CommandService: 명령 {id · 제목 · 단축키 · context · when · run}, normalizeShortcut (수정자 차례 · 별칭 · F 키 · 이름 키), 등록 거절,
+  run · runShortcut (그 곳 먼저 · global), search (제목 앞 → 안 → id), conflicts (겹치는 곳의 같은 단축키).
+- 문서: 01 (타깃 표 · 검사 표) · AGENTS.md 경계 규칙 · 17 · 25 · 13 · ADR-0108.
+
+**왜**
+
+- v0.8 의 첫 태스크 ST-06-1 (Editor Services 층 · Command · Undo 통합 · check_includes 규칙). 이번은 층 · 규칙 · 명령 표 — 문서 서비스 ·
+  Undo 통합은 (2) · (3).
+
+**검증**
+
+- test_command_service 3 개 · arch_include_lint_selftest 15 · arch_include_lint (실제 트리 0 건). clang-tidy (-Wall -Wextra -Wpedantic
+  -Wshadow) 바뀐 파일 모두 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- ST-06-1 (2) DocumentService (열기 · 고침 · 원자적 저장 · 바깥 변경 감지) · UndoService (문서), (3) 월드 편집 Undo (Editor) 를 같은 기록 줄로 ·
+  ICommandSink 를 render 없는 헤더로. 앱의 단축키를 명령 표로 (ST-06-2).
+
 ## 2026-11-09 — v0.7 종료: 0.7.0 게임 UI Runtime · 다국어 — 기준 판정 · 릴리스 노트 · 제품 버전 0.7.0
 
 **무엇을**
