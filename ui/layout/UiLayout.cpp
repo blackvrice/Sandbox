@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <string>
 
 namespace sbx::ui {
 namespace {
@@ -46,14 +48,27 @@ public:
         if (fixed != nullptr) {
             b = *fixed; // 쌓는 부모가 정한 자리
         } else {
-            const std::array<f32, 2> fit = outerSize(n, listIndex);
+            std::array<f32, 2> fit = outerSize(n, listIndex, std::nullopt);
             axis(parent.x0, parent.x1, n.anchorMin[0], n.anchorMax[0], n.offset[0], n.offset[2],
                  n.size ? std::optional<f32>((*n.size)[0]) : std::nullopt, fit[0], b.x0, b.x1);
+            if (textual(n) && n.overflow != UiOverflow::Clip) {
+                // 쓸 수 있는 너비 = 정해진 가로, 내용에 맞춘 가로면 부모 안쪽 오른 끝까지 (v0.7 M4-T2)
+                b.x1 = std::min(b.x1, std::max(b.x0, parent.x1));
+                fit = outerSize(n, listIndex, b.x1 - b.x0);
+            }
             axis(parent.y0, parent.y1, n.anchorMin[1], n.anchorMax[1], n.offset[1], n.offset[3],
                  n.size ? std::optional<f32>((*n.size)[1]) : std::nullopt, fit[1], b.y0, b.y1);
         }
         const UiRect rect = toRect(b);
-        m_out.push_back({&n, rect, clip, depth, listIndex, fontSize(n), padding(n)});
+        UiLayoutNode out{&n, rect, clip, depth, listIndex, fontSize(n), padding(n), {}, 0};
+        if (textual(n) && n.overflow != UiOverflow::Clip) {
+            // 넘침은 확정된 사각형의 안쪽 너비로 (재기에서 같은 너비를 썼으면 같은 결과)
+            const Shaped t = shape(n, listIndex, static_cast<f32>(rect.w) - 2 * padding(n));
+            out.fontSize = t.fontSize;
+            out.lines = t.lines;
+            out.lineHeight = t.lineHeight;
+        }
+        m_out.push_back(std::move(out));
         const UiRect inner = intersect(clip, rect);
         // 자식의 부모 사각형 = 반올림한 사각형에서 여백만큼 안쪽 (반올림 전 값을 쓰면 자식이 1 픽셀씩 어긋난다)
         const f32 pad = padding(n);
@@ -102,7 +117,11 @@ private:
             if (!shown(c)) {
                 return;
             }
-            const std::array<f32, 2> s = outerSize(c, index);
+            std::optional<f32> limit;
+            if (textual(c) && c.overflow != UiOverflow::Clip) { // v0.7 M4-T2 — row 는 남은 자리, column 은 안쪽 너비
+                limit = std::max(0.0f, row ? content.x1 - cursor : cross1 - cross0);
+            }
+            const std::array<f32, 2> s = outerSize(c, index, limit);
             const f32 along = row ? s[0] : s[1];
             const f32 cross = row ? s[1] : s[0];
             f32 c0 = cross0;
@@ -138,21 +157,61 @@ private:
     }
 
     // 노드의 바깥 크기 — size 가 있으면 그것, 없으면 내용
-    std::array<f32, 2> outerSize(const UiNode& n, i32 listIndex) const {
+    // maxWidth = 넘침 글자가 쓸 수 있는 바깥 너비 (v0.7 M4-T2 — 없으면 자연 크기)
+    std::array<f32, 2> outerSize(const UiNode& n, i32 listIndex, std::optional<f32> maxWidth) const {
         if (n.size) {
-            return {(*n.size)[0] * m_scale, (*n.size)[1] * m_scale};
+            const std::array<f32, 2> fixed{(*n.size)[0] * m_scale, (*n.size)[1] * m_scale};
+            return fixed;
         }
-        return contentSize(n, listIndex);
+        return contentSize(n, listIndex, maxWidth);
     }
 
-    std::array<f32, 2> contentSize(const UiNode& n, i32 listIndex) const {
+    struct Shaped {
+        f32 width = 0;
+        f32 height = 0;
+        f32 fontSize = 0;
+        std::vector<std::string> lines; // wrap 만
+        f32 lineHeight = 0;
+    };
+
+    // 글자 노드의 모양 — innerWidth = 여백을 뺀 쓸 수 있는 너비 (없으면 자연 크기)
+    Shaped shape(const UiNode& n, i32 listIndex, std::optional<f32> innerWidth) const {
+        const std::string text = m_opt.textOf ? m_opt.textOf(n, listIndex) : n.text;
+        Shaped out;
+        out.fontSize = fontSize(n);
+        const std::array<f32, 2> natural = m_measure.measure(text, out.fontSize);
+        out.width = natural[0];
+        out.height = natural[1];
+        if (!innerWidth || n.overflow == UiOverflow::Clip) {
+            return out;
+        }
+        const f32 limit = std::max(0.0f, *innerWidth);
+        if (n.overflow == UiOverflow::Fit) {
+            if (natural[0] > limit && natural[0] > 0) {
+                out.fontSize = out.fontSize * std::max(kMinFitScale, limit / natural[0]);
+                const std::array<f32, 2> m = m_measure.measure(text, out.fontSize);
+                out.width = m[0];
+                out.height = m[1];
+            }
+            return out;
+        }
+        out.lines = wrapText(text, out.fontSize, limit, m_measure);
+        out.lineHeight = m_measure.measure("", out.fontSize)[1];
+        out.width = 0;
+        for (const std::string& line : out.lines) {
+            out.width = std::max(out.width, m_measure.measure(line, out.fontSize)[0]);
+        }
+        out.height = out.lineHeight * static_cast<f32>(std::max<usize>(1, out.lines.size()));
+        return out;
+    }
+
+    std::array<f32, 2> contentSize(const UiNode& n, i32 listIndex, std::optional<f32> maxWidth) const {
         const f32 pad = padding(n) * 2;
         switch (n.kind) {
         case UiKind::Text:
         case UiKind::Button: {
-            const std::string text = m_opt.textOf ? m_opt.textOf(n, listIndex) : n.text;
-            const std::array<f32, 2> m = m_measure.measure(text, fontSize(n));
-            return {std::ceil(m[0]) + pad, std::ceil(m[1]) + pad};
+            const Shaped t = shape(n, listIndex, maxWidth ? std::optional<f32>(*maxWidth - pad) : std::nullopt);
+            return {std::ceil(t.width) + pad, std::ceil(t.height) + pad};
         }
         case UiKind::Image:
         case UiKind::Progress:
@@ -170,7 +229,7 @@ private:
             if (!shown(c)) {
                 return;
             }
-            const std::array<f32, 2> s = outerSize(c, index);
+            const std::array<f32, 2> s = outerSize(c, index, std::nullopt);
             if (n.stack == UiStack::None && n.kind != UiKind::List) { // 겹쳐 놓는 panel — 가장 큰 자식
                 along = std::max(along, s[0]);
                 cross = std::max(cross, s[1]);
@@ -196,6 +255,7 @@ private:
     }
 
     [[nodiscard]] bool shown(const UiNode& n) const { return !m_opt.hidden || !m_opt.hidden(n); }
+    [[nodiscard]] static bool textual(const UiNode& n) { return n.kind == UiKind::Text || n.kind == UiKind::Button; }
     [[nodiscard]] const UiStyle* style(const UiNode& n) const {
         if (m_opt.styles == nullptr || n.style.empty()) {
             return nullptr;
@@ -226,6 +286,65 @@ std::array<f32, 2> FixedTextMeasure::measure(std::string_view text, f32 fontSize
         codePoints += (static_cast<unsigned char>(c) & 0xC0u) != 0x80u ? 1 : 0; // UTF-8 이어지는 바이트가 아닌 것
     }
     return {static_cast<f32>(codePoints) * m_advance * fontSize, m_lineHeight * fontSize};
+}
+
+std::vector<std::string> wrapText(std::string_view text, f32 fontSize, f32 maxWidth, const ITextMeasure& measure) {
+    std::vector<std::string> lines;
+    const auto width = [&](std::string_view s) { return measure.measure(s, fontSize)[0]; };
+    // 코드 포인트 경계 (UTF-8 이어지는 바이트가 아닌 자리)
+    const auto nextCp = [](std::string_view s, usize i) {
+        ++i;
+        while (i < s.size() && (static_cast<unsigned char>(s[i]) & 0xC0u) == 0x80u) {
+            ++i;
+        }
+        return i;
+    };
+    usize start = 0;
+    while (start <= text.size()) {
+        usize end = text.find('\n', start);
+        if (end == std::string_view::npos) {
+            end = text.size();
+        }
+        const std::string_view paragraph = text.substr(start, end - start);
+        std::string line;
+        usize i = 0;
+        while (i < paragraph.size()) {
+            usize sp = paragraph.find(' ', i);
+            if (sp == std::string_view::npos) {
+                sp = paragraph.size();
+            }
+            const std::string_view word = paragraph.substr(i, sp - i);
+            const std::string candidate = line.empty() ? std::string(word) : line + ' ' + std::string(word);
+            if (width(candidate) <= maxWidth || (line.empty() && word.empty())) {
+                line = candidate;
+            } else if (!line.empty() && width(word) <= maxWidth) {
+                lines.push_back(std::move(line));
+                line = std::string(word);
+            } else {
+                // 한 낱말이 한 줄보다 길다 — 코드 포인트마다 (앞 줄을 먼저 닫는다)
+                if (!line.empty()) {
+                    lines.push_back(std::move(line));
+                    line.clear();
+                }
+                usize c = 0;
+                while (c < word.size()) {
+                    const usize next = nextCp(word, c);
+                    const std::string more = line + std::string(word.substr(c, next - c));
+                    if (!line.empty() && width(more) > maxWidth) {
+                        lines.push_back(std::move(line));
+                        line = std::string(word.substr(c, next - c));
+                    } else {
+                        line = more;
+                    }
+                    c = next;
+                }
+            }
+            i = sp + 1;
+        }
+        lines.push_back(std::move(line));
+        start = end + 1;
+    }
+    return lines;
 }
 
 std::vector<UiLayoutNode> layoutDocument(const UiDocument& document, const UiLayoutOptions& options,

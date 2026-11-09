@@ -1,6 +1,7 @@
 #include "ui/render/UiDraw.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace sbx::ui {
 namespace {
@@ -41,6 +42,19 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
         };
         const auto label = [&]() -> std::string { return options.textOf ? options.textOf(n, ln.listIndex) : n.text; };
         const i32 pad = static_cast<i32>(ln.padding + 0.5f);
+        // overflow wrap 이면 배치가 나눈 줄을 줄마다 (v0.7 M4-T2), 아니면 한 줄
+        const auto drawText = [&](i32 inner) {
+            const UiRect r = inset(ln.rect, inner);
+            if (ln.lines.empty()) {
+                renderer.text(r, label(), ln.fontSize, kTextColor, ln.clip);
+                return;
+            }
+            for (usize i = 0; i < ln.lines.size(); ++i) {
+                const i32 y = r.y + static_cast<i32>(std::floor(static_cast<f32>(i) * ln.lineHeight + 0.5f));
+                const i32 h = static_cast<i32>(std::ceil(ln.lineHeight));
+                renderer.text({r.x, y, r.w, h}, ln.lines[i], ln.fontSize, kTextColor, ln.clip);
+            }
+        };
         switch (n.kind) {
         case UiKind::Panel:
         case UiKind::List:
@@ -56,11 +70,11 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
             }
             renderer.fillRect(ln.rect, fill, ln.clip);
             border();
-            renderer.text(inset(ln.rect, pad), label(), ln.fontSize, kTextColor, ln.clip);
+            drawText(pad);
             break;
         }
         case UiKind::Text:
-            renderer.text(inset(ln.rect, pad), label(), ln.fontSize, kTextColor, ln.clip);
+            drawText(pad);
             break;
         case UiKind::Progress: {
             const UiColor fill = style != nullptr && style->color ? *style->color : kProgressColor;

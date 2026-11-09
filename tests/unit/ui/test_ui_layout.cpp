@@ -3,6 +3,7 @@
 // (FixedTextMeasure 0.5 · 1.25 — 글꼴 16 이면 글자 8 × 20)
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <format>
 #include <string>
@@ -185,7 +186,8 @@ TEST_SUITE("ui") {
         REQUIRE(hud.ok());
         const auto nodes = layoutDocument(*hud.document, demoOptions(2, &styles.styles), kMeasure);
         // 띠 16 ~ 1264 · 높이 80 (여백 8) → 내용 24 ~ 88 (64). 버튼: 글꼴 28 · 여백 12 — 높이 35 + 24 = 59, 위 24 + 2.5
-        // = 26.5 → 27
+        // = 26.5 → 27. 도움말 (overflow fit — v0.7 M4-T2): 자연 432 > 남은 1256 - 918 = 338 → 글꼴 32 · 338/432
+        // = 25.04, 높이 31.3 → 32, 가운데 24 + 16 = 40 (M3-T6 의 골든 {918, 36, 432, 40} 은 띠 밖으로 잘렸다)
         CHECK(rects(nodes) == std::vector<UiRect>{{16, 16, 1248, 80},
                                                   {24, 32, 48, 48},
                                                   {88, 36, 240, 40},
@@ -193,8 +195,92 @@ TEST_SUITE("ui") {
                                                   {680, 27, 94, 59},
                                                   {790, 27, 80, 59},
                                                   {886, 36, 16, 40},
-                                                  {918, 36, 432, 40}});
+                                                  {918, 40, 338, 32}});
         CHECK(nodes[4].fontSize == 28.0f);
         CHECK(nodes[4].padding == 12.0f);
+    }
+    TEST_CASE("ui layout (v0.7 M4-T2): wrapText — 빈칸에서 줄 바꿈, 긴 낱말은 글자마다, '\\n', 한글 (코드 포인트)") {
+        // 글꼴 16 = 글자 8 픽셀
+        CHECK(wrapText("aaa bbb ccc", 16, 60, kMeasure) == std::vector<std::string>{"aaa bbb", "ccc"});
+        CHECK(wrapText("aaa bbb ccc", 16, 1000, kMeasure) == std::vector<std::string>{"aaa bbb ccc"});
+        CHECK(wrapText("abcdefghij", 16, 40, kMeasure) == std::vector<std::string>{"abcde", "fghij"});
+        CHECK(wrapText("ab abcdefghij", 16, 40, kMeasure) == std::vector<std::string>{"ab", "abcde", "fghij"});
+        CHECK(wrapText("a\nb c", 16, 1000, kMeasure) == std::vector<std::string>{"a", "b c"});
+        CHECK(wrapText("가나다 라마", 16, 24, kMeasure) == std::vector<std::string>{"가나다", "라마"});
+        CHECK(wrapText("가나다라", 16, 16, kMeasure) == std::vector<std::string>{"가나", "다라"});
+        CHECK(wrapText("", 16, 10, kMeasure) == std::vector<std::string>{""});
+        CHECK(wrapText("abc", 16, 0, kMeasure) == std::vector<std::string>{"a", "b", "c"}); // 너비 0 — 줄마다 한 글자
+    }
+
+    TEST_CASE("ui layout (v0.7 M4-T2): overflow — column 의 wrap (높이가 는다) · row 남은 자리의 fit (절반까지) · clip "
+              "그대로") {
+        const UiDocument col = parse(R"({"kind": "panel", "size": [100, 200], "stack": "column", "children": [
+            {"kind": "text", "id": "w", "text": "aaa bbb ccc ddd eee", "overflow": "wrap"},
+            {"kind": "text", "id": "c", "text": "aaa bbb ccc ddd eee"}]})");
+        const auto a = layoutDocument(col, {.width = 800, .height = 600}, kMeasure);
+        REQUIRE(a.size() == 3);
+        // 100 픽셀 = 12 글자 → "aaa bbb ccc" · "ddd eee" — 두 줄 (20 × 2)
+        CHECK(a[1].rect == UiRect{0, 0, 88, 40});
+        CHECK(a[1].lines == std::vector<std::string>{"aaa bbb ccc", "ddd eee"});
+        CHECK(a[1].lineHeight == 20.0f);
+        CHECK(a[2].rect == UiRect{0, 40, 152, 20}); // clip — 한 줄 그대로 (부모 clip 이 자른다)
+        CHECK(a[2].lines.empty());
+
+        const UiDocument row = parse(R"({"kind": "panel", "size": [100, 40], "stack": "row", "children": [
+            {"kind": "text", "text": "abcd"},
+            {"kind": "text", "id": "f", "text": "abcdefghij", "overflow": "fit"}]})");
+        const auto b = layoutDocument(row, {.width = 800, .height = 600}, kMeasure);
+        REQUIRE(b.size() == 3);
+        // 남은 100 - 32 = 68 < 자연 80 → 글꼴 16 · 68/80 = 13.6, 너비 68 · 높이 17
+        CHECK(b[2].rect == UiRect{32, 0, 68, 17});
+        CHECK(b[2].fontSize == doctest::Approx(13.6f));
+        // 남은 자리가 절반보다 적으면 절반에서 멈추고 (그 너머는 자른다)
+        const UiDocument tight = parse(R"({"kind": "panel", "size": [60, 40], "stack": "row", "children": [
+            {"kind": "text", "text": "abcd"},
+            {"kind": "text", "text": "abcdefghij", "overflow": "fit"}]})");
+        const auto t = layoutDocument(tight, {.width = 800, .height = 600}, kMeasure);
+        CHECK(t[2].fontSize == 8.0f);
+        CHECK(t[2].rect == UiRect{32, 0, 40, 10});
+
+        // 쌓지 않는 자리: 내용에 맞춘 가로는 부모 안쪽 오른 끝까지가 한도
+        const UiDocument free = parse(R"({"kind": "panel", "size": [50, 100], "children": [
+            {"kind": "text", "text": "aaa bbb ccc", "overflow": "wrap"}]})");
+        const auto f = layoutDocument(free, {.width = 800, .height = 600}, kMeasure);
+        CHECK(f[1].lines == std::vector<std::string>{"aaa", "bbb", "ccc"});
+        CHECK(f[1].rect == UiRect{0, 0, 50, 60});
+    }
+
+    TEST_CASE(
+        "ui layout (v0.7 M4-T2): 데모 HUD — 번역이 2 배로 길어도 1280 × 720 에서 잘리는 노드가 없다 (도움말 fit)") {
+        const std::filesystem::path root =
+            std::filesystem::path(SBX_SAMPLES_DIR) / "rabbit_guard/content/ecosystem/presentation";
+        const UiStylesResult styles = parseUiStyles(*io::readFile(root / "ui/styles.json"), "eco");
+        const UiParseResult hud = parseUiDocument("hud", *io::readFile(root / "ui/hud.json"), UiCheckContext{"eco"});
+        REQUIRE(hud.ok());
+        for (const char* locale : {"ko", "en"}) {
+            StringEntries doubled =
+                parseStringTable(*io::readFile(root / "strings" / std::format("{}.json", locale)), "eco").entries;
+            for (auto& [key, text] : doubled) {
+                text = text + " " + text;
+            }
+            StringTable table;
+            table.addPack({{locale, doubled}});
+            table.setLocale(locale);
+            UiLayoutOptions o{.width = 1280, .height = 720, .styles = &styles.styles};
+            o.textOf = [&](const UiNode& n, i32) { return resolveText(n.text, &table); };
+            const auto nodes = layoutDocument(*hud.document, o, kMeasure);
+            for (const UiLayoutNode& n : nodes) {
+                const UiRect inside{std::max(n.rect.x, n.clip.x), std::max(n.rect.y, n.clip.y), 0, 0};
+                CHECK_MESSAGE(n.rect.x + n.rect.w <= n.clip.x + n.clip.w, locale, " ", n.node->id);
+                CHECK_MESSAGE(n.rect.y + n.rect.h <= n.clip.y + n.clip.h, locale, " ", n.node->id);
+                CHECK(inside.x == n.rect.x);
+            }
+            const auto help =
+                std::find_if(nodes.begin(), nodes.end(), [](const UiLayoutNode& n) { return n.node->id == "help"; });
+            REQUIRE(help != nodes.end());
+            // en: 남은 1268 - 834 = 434 < 자연 792 → 글꼴 16 · 434/792 ≈ 8.8 (절반 위). ko 는 자리가 남아 그대로
+            CHECK(help->fontSize ==
+                  (std::string_view(locale) == "en" ? doctest::Approx(16.0f * 434 / 792) : doctest::Approx(16.0f)));
+        }
     }
 }

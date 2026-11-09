@@ -181,4 +181,15 @@ TEST_SUITE("ui") {
         drawLayout(base, {.styles = &st.styles, .scale = 2}, widths);
         CHECK(widths.width == 2.0f);
     }
+    TEST_CASE("ui draw (v0.7 M4-T2): wrap 글자는 배치가 나눈 줄마다 — 줄 높이만큼 아래로") {
+        const UiDocument d =
+            parse("hud", "hud", R"({"kind": "panel", "size": [60, 100], "stack": "column", "children": [
+            {"kind": "text", "text": "aaa bbb ccc", "overflow": "wrap"}]})");
+        const auto nodes = layoutDocument(d, {.width = 400, .height = 300}, kMeasure);
+        Recorder rec;
+        drawLayout(nodes, {}, rec);
+        REQUIRE(rec.calls.size() == 2);
+        CHECK(rec.calls[0] == Call{"text", {0, 0, 56, 20}, kTextColor, "aaa bbb"});
+        CHECK(rec.calls[1] == Call{"text", {0, 20, 56, 20}, kTextColor, "ccc"});
+    }
 }

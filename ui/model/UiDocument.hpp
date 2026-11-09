@@ -41,6 +41,8 @@ enum class UiLayer : u8 { Hud, Menu, Modal };
 enum class UiKind : u8 { Panel, Text, Image, Button, Progress, List };
 enum class UiStack : u8 { None, Row, Column };
 enum class UiAlign : u8 { Start, Center, End, Stretch };
+// 글자가 쓸 수 있는 너비를 넘을 때 (v0.7 M4-T2 — 번역이 길어진다): 자름 (기본) · 줄 바꿈 · 글꼴 줄이기 (절반까지)
+enum class UiOverflow : u8 { Clip, Wrap, Fit };
 
 // 값 — 고정 수 또는 바인딩 ("var:…" · "session:…" · "component:…")
 struct UiValue {
@@ -68,14 +70,15 @@ struct UiNode {
     f32 gap = 0;
     f32 padding = 0;
     UiAlign align = UiAlign::Start;
-    std::string text;             // text · button — 고정 문자열 또는 "@<문자열 키>"
-    std::vector<UiValue> args;    // text 인자
-    UiValue value;                // progress
-    UiValue max{1, {}};           // progress
-    std::string material;         // image
-    UiAction click;               // button
-    std::string items;            // list — 바인딩 (목록)
-    std::vector<UiNode> children; // panel · list (list 는 item 하나 — 반복할 틀)
+    std::string text;                       // text · button — 고정 문자열 또는 "@<문자열 키>"
+    std::vector<UiValue> args;              // text 인자
+    UiOverflow overflow = UiOverflow::Clip; // text · button (v0.7 M4-T2)
+    UiValue value;                          // progress
+    UiValue max{1, {}};                     // progress
+    std::string material;                   // image
+    UiAction click;                         // button
+    std::string items;                      // list — 바인딩 (목록)
+    std::vector<UiNode> children;           // panel · list (list 는 item 하나 — 반복할 틀)
 };
 
 struct UiDocument {

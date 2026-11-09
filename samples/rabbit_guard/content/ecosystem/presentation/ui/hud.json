@@ -13,7 +13,7 @@
       { "kind": "button", "id": "feed", "text": "@eco.hud.feed", "style": "eco.button", "on": { "click": { "action": "eco.feed" } } },
       { "kind": "button", "id": "trap", "text": "@eco.hud.trap", "style": "eco.button", "on": { "click": { "action": "eco.trap" } } },
       { "kind": "button", "id": "help-toggle", "text": "?", "on": { "click": { "ui": "toggle", "target": "eco.hud.help" } } },
-      { "kind": "text", "id": "help", "text": "@eco.hud.help" }
+      { "kind": "text", "id": "help", "text": "@eco.hud.help", "overflow": "fit" }
     ]
   }
 }

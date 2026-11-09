@@ -231,11 +231,11 @@ public:
             case UiKind::Panel:
                 return key == "stack" || key == "gap" || key == "padding" || key == "align" || key == "children";
             case UiKind::Text:
-                return key == "text" || key == "args";
+                return key == "text" || key == "args" || key == "overflow";
             case UiKind::Image:
                 return key == "material";
             case UiKind::Button:
-                return key == "text" || key == "args" || key == "on";
+                return key == "text" || key == "args" || key == "on" || key == "overflow";
             case UiKind::Progress:
                 return key == "value" || key == "max";
             case UiKind::List:
@@ -304,6 +304,19 @@ public:
         }
         if (j.contains("padding")) {
             n.padding = number(j["padding"], pointer + "/padding", 0, 4096).value_or(0);
+        }
+        if (j.contains("overflow")) { // v0.7 M4-T2
+            if (const auto s = string(j["overflow"], pointer + "/overflow")) {
+                if (*s == "clip") {
+                    n.overflow = UiOverflow::Clip;
+                } else if (*s == "wrap") {
+                    n.overflow = UiOverflow::Wrap;
+                } else if (*s == "fit") {
+                    n.overflow = UiOverflow::Fit;
+                } else {
+                    error("U1", pointer + "/overflow", std::format("'{}' — clip · wrap · fit", *s));
+                }
+            }
         }
         if (j.contains("align")) {
             if (const auto s = string(j["align"], pointer + "/align")) {

@@ -428,4 +428,17 @@ TEST_SUITE("ui") {
         std::error_code ec;
         fs::remove_all(dir, ec);
     }
+    TEST_CASE("ui document (v0.7 M4-T2): overflow — text · button 의 clip · wrap · fit, 모르는 값 U1, 다른 요소 U3") {
+        const UiParseResult ok = parseUiDocument(
+            "hud", withRoot(R"({"kind": "panel", "children": [{"kind": "text", "text": "a", "overflow": "wrap"},
+                {"kind": "button", "text": "b", "overflow": "fit"}, {"kind": "text", "text": "c", "overflow": "clip"}]})"),
+            context());
+        REQUIRE(ok.ok());
+        CHECK(ok.document->root.children[0].overflow == UiOverflow::Wrap);
+        CHECK(ok.document->root.children[1].overflow == UiOverflow::Fit);
+        CHECK(ok.document->root.children[2].overflow == UiOverflow::Clip);
+        CHECK(has(parseUiDocument("hud", withRoot(R"({"kind": "text", "text": "a", "overflow": "scroll"})"), context()),
+                  "U1", "clip · wrap · fit"));
+        CHECK(has(parseUiDocument("hud", withRoot(R"({"kind": "panel", "overflow": "wrap"})"), context()), "U3"));
+    }
 }

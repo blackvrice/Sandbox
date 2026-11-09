@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T2 (1): 게임 UI 글자 늘어남 — overflow clip · wrap · fit
+
+**무엇을**
+
+- ui/model: text · button 의 "overflow" (clip 기본 · wrap · fit — 모르는 값 U1, 다른 요소 U3).
+- ui/layout: 넘침 글자가 쓸 수 있는 너비 (size · row 의 남은 자리 · column 의 안쪽 너비 · 부모 안쪽 오른 끝) 를 재기에 넘기고,
+  wrap 은 wrapText (빈칸 · 긴 낱말은 코드 포인트 · '\n') 로 줄을 나눠 UiLayoutNode.lines · lineHeight 에, fit 은 글꼴을 너비에
+  맞게 (kMinFitScale 0.5 까지) UiLayoutNode.fontSize 에. ui/render 는 줄마다 그린다.
+- 데모 rabbit_guard 도움말에 "overflow": "fit".
+
+**왜**
+
+- 등록부 M4-T2 (ADR-0083 4 — 글자 늘어남은 배치가 감당, "긴 번역 배치 (잘림 없음)"). 폰트 대체 목록은 ImGui 글꼴 합치기 ·
+  없는 글자 경고라 (2) 로 나눴다.
+
+**검증**
+
+- test_ui_layout (wrapText · overflow · 번역 2 배 · 배율 2 골든) · test_ui_document "overflow" · test_ui_render "wrap". 배율 2
+  골든의 도움말은 M3-T6 때 띠 밖으로 잘렸고 (432 픽셀 — 남은 자리 338) 이제 fit 으로 든다 (손 계산 {918, 40, 338, 32}). 번역 2 배
+  시험을 처음 1024 너비로 적었다가 en 이 절반 글꼴로도 넘쳐 (자르는 것이 맞다) 데모의 기준 크기 1280 으로 고쳤다.
+- SandboxClient --headless --locale en --width 1000 · sbx check samples/rabbit_guard (오류 · 경고 0). 창 확인은 이번에 하지 못했다
+  (다른 전체 화면 창이 앞에 있었다 — MANUAL-QA 에 [ ] 로 남김).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- M4-T2 (2): 폰트 대체 목록 (설정 · OS 의 라틴 · 한국어 · 기호 — ImGui 글꼴 합치기), 끝까지 없는 글자 □ 와 경고 한 번.
+- list 항목 · 버튼의 wrap 은 배치가 하지만 버튼 높이가 커지는 디자인은 제작자 몫 (fit 을 권한다).
+
 ## 2026-11-09 — v0.7 M4-T1 (2): client 스크립트 ctx.uiText · uiFormat · 표시 이름 "@<키>" — Host 결과 String (M4-T1 끝)
 
 **무엇을**

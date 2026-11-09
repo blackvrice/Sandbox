@@ -584,6 +584,7 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [x] (M4-T1 (2)) 행동 이름을 "@eco.hud.feed" · "@eco.hud.trap" 로 바꾼 복사본 + --locale en → "행동" 패널 "[Q] Feed" · "[E] Set trap"
     (2026-11-09)
 [ ] Linux · macOS 에서 OS 로케일 (LANG · CFLocale [계획])
+[ ] (M4-T2 (1)) --locale en --width 1000 — 도움말이 글꼴을 줄여 띠 안에 든다 (ImGui 글꼴로 — 시험은 고정 재기)
 ```
 
 ## v0.7 M3-T3 — 게임 UI (HUD) 가 게임 화면에 보인다
