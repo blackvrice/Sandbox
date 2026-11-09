@@ -305,4 +305,68 @@ TEST_SUITE("ui") {
         std::error_code ec;
         fs::remove_all(dir, ec);
     }
+    TEST_CASE("ui themes (v0.7 M3-T6): styles.json themes — 적은 칸만 덮는다, 이름 · 모양 · theme 이벤트 · 없는 스타일 "
+              "· 테마 "
+              "(프로젝트 검사)") {
+        const UiStylesResult r =
+            parseUiStyles(R"({"styles": {"eco.bar": {"color": [1, 2, 3, 4], "padding": 4, "fontSize": 12}},
+            "themes": {"eco.night": {"eco.bar": {"color": [9, 9, 9, 255], "border": {"width": 2}}}, "eco.empty": {}}})",
+                          "eco");
+        REQUIRE(r.ok());
+        REQUIRE(r.themes.size() == 2);
+        const UiStyleTable night = applyTheme(r.styles, &r.themes.at("eco.night"));
+        const UiStyle& s = night.at("eco.bar");
+        CHECK(s.color == std::array<u8, 4>{9, 9, 9, 255});
+        CHECK(s.borderWidth == 2.0f);
+        CHECK(s.padding == 4.0f); // 적지 않은 칸은 바탕 그대로
+        CHECK(s.fontSize == 12.0f);
+        CHECK(applyTheme(r.styles, nullptr).at("eco.bar").color == std::array<u8, 4>{1, 2, 3, 4});
+        UiTheme ghost{{"eco.none", UiStylePatch{}}};
+        CHECK(applyTheme(r.styles, &ghost).size() == 1); // 없는 스타일은 건너뛴다 (만들지 않는다)
+        for (const std::string_view bad :
+             {R"({"styles": {}, "themes": []})", R"({"styles": {}, "themes": {"night": {}}})",
+              R"({"styles": {}, "themes": {"eco.n": {"eco.bar": {"colour": 1}}}})",
+              R"({"styles": {}, "themes": {"eco.n": {"bar": {}}}})", R"({"styles": {}, "x": {}})"}) {
+            CHECK_MESSAGE(!parseUiStyles(bad, "eco").ok(), std::string(bad));
+        }
+        // ui theme 이벤트 — target 은 테마 이름 또는 "none"
+        const UiParseResult ok = parseUiDocument(
+            "hud", withRoot(R"({"kind": "button", "text": "x", "on": {"click": {"ui": "theme", "target": "none"}}})"),
+            context());
+        CHECK(ok.ok());
+        const auto refs = uiTargets(*ok.document);
+        REQUIRE(refs.size() == 1);
+        CHECK(refs[0].theme);
+        CHECK(has(parseUiDocument(
+                      "hud",
+                      withRoot(R"({"kind": "button", "text": "x", "on": {"click": {"ui": "paint", "target": "a.b"}}})"),
+                      context()),
+                  "U1", "theme"));
+
+        // 프로젝트 검사: 없는 스타일을 덮는 테마 = U5 경고, 없는 테마로 바꾸는 버튼 = U6
+        const fs::path dir = fs::temp_directory_path() / std::format("sbx_ui_theme_{:x}", std::random_device{}());
+        fs::remove_all(dir);
+        fs::copy(fs::path(SBX_SAMPLES_DIR) / "rabbit_guard", dir, fs::copy_options::recursive);
+        const fs::path ui = dir / "content/ecosystem/presentation/ui";
+        std::ofstream(ui / "styles.json", std::ios::trunc) << R"({"styles": {"eco.bar": {"color": [1, 1, 1, 255]}},
+            "themes": {"eco.night": {"eco.bar": {"color": [0, 0, 0, 255]}, "eco.gone": {"padding": 1}}}})";
+        std::ofstream(ui / "hud.json", std::ios::trunc)
+            << R"({"id": "eco.hud", "root": {"kind": "panel", "style": "eco.bar", "children": [
+            {"kind": "button", "text": "n", "on": {"click": {"ui": "theme", "target": "eco.night"}}},
+            {"kind": "button", "text": "d", "on": {"click": {"ui": "theme", "target": "none"}}},
+            {"kind": "button", "text": "x", "on": {"click": {"ui": "theme", "target": "eco.dawn"}}}]}})";
+        const project::ProjectReport report = project::validateProject(
+            dir, SemVer{0, 7, 0, {}, {}}, catalog(), {.toolFiles = true, .engineAssets = SBX_ASSETS_DIR});
+        const auto count = [&](std::string_view rule) {
+            return std::count_if(report.issues.begin(), report.issues.end(),
+                                 [&](const content::ContentIssue& i) { return i.rule == rule; });
+        };
+        CHECK(count("U5") == 1);
+        CHECK(count("U6") == 1);
+        CHECK(std::any_of(report.issues.begin(), report.issues.end(), [](const content::ContentIssue& i) {
+            return i.message.find("eco.dawn") != std::string::npos;
+        }));
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    }
 }

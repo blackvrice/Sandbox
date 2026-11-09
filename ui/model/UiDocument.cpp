@@ -171,16 +171,17 @@ public:
                 }
             }
             if (const auto op = string(v["ui"], pointer + "/ui")) {
-                if (*op != "show" && *op != "hide" && *op != "toggle") {
-                    error("U1", pointer + "/ui", std::format("'{}' — show · hide · toggle", *op));
+                if (*op != "show" && *op != "hide" && *op != "toggle" && *op != "theme") {
+                    error("U1", pointer + "/ui", std::format("'{}' — show · hide · toggle · theme", *op));
                 }
                 a.op = *op;
             }
             if (!v.contains("target")) {
                 error("U1", pointer, "ui 이벤트에 target \"<문서>.<노드>\" 이 필요하다");
             } else if (const auto t = string(v["target"], pointer + "/target")) {
-                if (!dottedId(*t)) {
-                    error("U2", pointer + "/target", std::format("'{}' — \"<문서 id>.<노드 id>\"", *t));
+                if (!dottedId(*t) && !(a.op == "theme" && *t == kNoTheme)) {
+                    error("U2", pointer + "/target",
+                          std::format("'{}' — \"<문서 id>.<노드 id>\" (theme 이면 \"<팩>.<테마>\" · \"none\")", *t));
                 }
                 a.target = *t;
             }
@@ -409,7 +410,7 @@ bool noErrors(const std::vector<UiIssue>& issues) {
 void collectTargets(const UiNode& n, const std::string& documentId, const std::string& pointer,
                     std::vector<UiTargetRef>& out) {
     if (n.click.kind == UiAction::Kind::Ui) {
-        out.push_back({documentId, pointer + "/on/click/target", n.click.target});
+        out.push_back({documentId, pointer + "/on/click/target", n.click.target, n.click.op == "theme"});
     }
     for (usize i = 0; i < n.children.size(); ++i) {
         const std::string child =
@@ -541,6 +542,36 @@ UiParseResult parseUiDocument(std::string_view fileStem, std::string_view jsonTe
     return r;
 }
 
+void UiStylePatch::applyTo(UiStyle& style) const {
+    if (color) {
+        style.color = color;
+    }
+    if (borderColor) {
+        style.borderColor = borderColor;
+    }
+    if (borderWidth) {
+        style.borderWidth = *borderWidth;
+    }
+    if (fontSize) {
+        style.fontSize = *fontSize;
+    }
+    if (padding) {
+        style.padding = *padding;
+    }
+}
+
+UiStyleTable applyTheme(const UiStyleTable& styles, const UiTheme* theme) {
+    UiStyleTable out = styles;
+    if (theme != nullptr) {
+        for (const auto& [name, patch] : *theme) {
+            if (const auto it = out.find(name); it != out.end()) {
+                patch.applyTo(it->second);
+            }
+        }
+    }
+    return out;
+}
+
 UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId) {
     UiStylesResult r;
     const auto error = [&](std::string rule, std::string pointer, std::string message) {
@@ -551,8 +582,13 @@ UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId)
         return r;
     }
     const json j = json::parse(jsonText, nullptr, false);
-    if (!j.is_object() || j.size() != 1 || !j.contains("styles") || !j["styles"].is_object()) {
-        error("U1", "", R"({"styles": {"<팩>.<이름>": {color?, border?, fontSize?, padding?}}})");
+    const bool shape = j.is_object() && j.contains("styles") && j["styles"].is_object() &&
+                       (!j.contains("themes") || j["themes"].is_object()) &&
+                       j.size() == (j.contains("themes") ? 2u : 1u);
+    if (!shape) {
+        error(
+            "U1", "",
+            R"({"styles": {"<팩>.<이름>": {color?, border?, fontSize?, padding?}}, "themes"?: {"<팩>.<테마>": {"<스타일>": {…}}}})");
         return r;
     }
     const auto rgba = [&](const json& v, const std::string& pointer) -> std::optional<std::array<u8, 4>> {
@@ -572,21 +608,17 @@ UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId)
         }
         return static_cast<f32>(v.get<double>());
     };
-    for (const auto& [name, s] : j["styles"].items()) {
-        const std::string where = "/styles/" + name;
-        if (!dottedId(name) || (!packId.empty() && !name.starts_with(std::string(packId) + "."))) {
-            error("U2", where, std::format("스타일 이름 '{}' — \"{}.<이름>\"", name, packId));
-            continue;
-        }
+    // 스타일 객체 하나 → 덮기 (적은 칸만). 스타일 · 테마가 같은 모양을 쓴다
+    const auto patchOf = [&](const json& s, const std::string& where) -> std::optional<UiStylePatch> {
         if (!s.is_object()) {
             error("U1", where, "스타일은 객체");
-            continue;
+            return std::nullopt;
         }
-        UiStyle style;
+        UiStylePatch p;
         for (const auto& [key, v] : s.items()) {
             const std::string at = where + "/" + key;
             if (key == "color") {
-                style.color = rgba(v, at);
+                p.color = rgba(v, at);
             } else if (key == "border") {
                 if (!v.is_object()) {
                     error("U1", at, R"({"color": [r, g, b, a], "width": n})");
@@ -594,22 +626,59 @@ UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId)
                 }
                 for (const auto& [bk, bv] : v.items()) {
                     if (bk == "color") {
-                        style.borderColor = rgba(bv, at + "/color");
+                        p.borderColor = rgba(bv, at + "/color");
                     } else if (bk == "width") {
-                        style.borderWidth = num(bv, at + "/width", 0, 64).value_or(0);
+                        p.borderWidth = num(bv, at + "/width", 0, 64);
                     } else {
                         error("U3", at + "/" + bk, std::format("모르는 키 '{}' (color · width)", bk));
                     }
                 }
             } else if (key == "fontSize") {
-                style.fontSize = num(v, at, 1, 256).value_or(0);
+                p.fontSize = num(v, at, 1, 256);
             } else if (key == "padding") {
-                style.padding = num(v, at, 0, 4096).value_or(0);
+                p.padding = num(v, at, 0, 4096);
             } else {
                 error("U3", at, std::format("모르는 키 '{}' (color · border · fontSize · padding)", key));
             }
         }
-        r.styles.emplace(name, style);
+        return p;
+    };
+    const auto ownName = [&](const std::string& name) {
+        return dottedId(name) && (packId.empty() || name.starts_with(std::string(packId) + "."));
+    };
+    for (const auto& [name, s] : j["styles"].items()) {
+        const std::string where = "/styles/" + name;
+        if (!ownName(name)) {
+            error("U2", where, std::format("스타일 이름 '{}' — \"{}.<이름>\"", name, packId));
+            continue;
+        }
+        if (const auto p = patchOf(s, where)) {
+            UiStyle style;
+            p->applyTo(style);
+            r.styles.emplace(name, style);
+        }
+    }
+    if (j.contains("themes")) {
+        for (const auto& [name, t] : j["themes"].items()) {
+            const std::string where = "/themes/" + name;
+            if (!ownName(name)) {
+                error("U2", where, std::format("테마 이름 '{}' — \"{}.<이름>\"", name, packId));
+                continue;
+            }
+            if (!t.is_object()) {
+                error("U1", where, R"(테마는 {"<스타일>": {덮을 칸}})");
+                continue;
+            }
+            UiTheme theme;
+            for (const auto& [style, s] : t.items()) {
+                if (!dottedId(style)) {
+                    error("U2", where + "/" + style, std::format("스타일 이름 '{}' — \"<팩>.<이름>\"", style));
+                } else if (const auto p = patchOf(s, where + "/" + style)) {
+                    theme.emplace(style, *p);
+                }
+            }
+            r.themes.emplace(name, std::move(theme));
+        }
     }
     return r;
 }

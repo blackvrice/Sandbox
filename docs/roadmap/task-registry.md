@@ -50,7 +50,7 @@
 | M3-T3 | ImGui 그리기 목록 백엔드 · 입력 라우팅 | A | Done | v0.5 | v0.7 | P0 | M3-T2 | test_ui_render · test_game_ui_layer (앱 클릭 → PlayerAction) · MANUAL-QA v0.7 M3-T3 (화면) |
 | M3-T4 | 바인딩 · ctx.ui | A | Done | v0.5 | v0.7 | P0 | M3-T3 | test_ui_binding · test_game_ui_layer "ui data" · test_client_script_session "ctx.setUi" |
 | M3-T5 | 이벤트 (버튼 → 신호) | A | Done | v0.5 | v0.7 | P0 | M3-T4 | test_game_ui_layer "버튼 → PlayerSignal" (서버 onEvent · 거절 · 선택 자리 행동) |
-| M3-T6 | 스타일 · 테마 · 배율 | A | Planned | v0.5 | v0.7 | P1 | M3-T3 | 20 10장 |
+| M3-T6 | 스타일 · 테마 · 배율 | A | Done | v0.5 | v0.7 | P1 | M3-T2 | test_ui_document · test_ui_render · test_ui_layout (배율 2 골든) · test_game_ui_layer (테마 버튼) |
 | NG-06 | 게임 UI 입력 컨트롤 (TextInput · Slider · Checkbox · Dropdown · Scroll · 포커스 · 게임패드 · IME) | A | Proposed | — | v0.7 | P1 | M3-T3 | 컨트롤마다 상태 · 이벤트 · 포커스 시험 |
 | M4-T1 | 문자열 표 · 로케일 대체 | A | Planned | v0.5 | v0.7 | P1 | — | 20 10장 |
 | M4-T2 | 폰트 대체 | A | Planned | v0.5 | v0.7 | P1 | M4-T1 | 20 10장 |

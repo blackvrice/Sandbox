@@ -101,7 +101,9 @@ content/<pack>/
                           progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸> (state · tick · time · team · message · score[i])" |
                           "component:<컴포넌트>.<칸>@owned|selected"}, 이벤트 = {"signal", "value"?} | {"action"} | {"ui": show | hide |
                           toggle, "target": "<문서>.<노드>"}. 팩마다 32 개까지 (로더가 원문만 PackInfo.uiDocuments 에)
-    ui/styles.json        {"styles": {"<팩>.<이름>": {color [r, g, b, a] · border {color, width} · fontSize · padding}}} (PackInfo.uiStyles)
+    ui/styles.json        {"styles": {"<팩>.<이름>": {color [r, g, b, a] · border {color, width} · fontSize · padding}},
+                          "themes"?: {"<팩>.<테마>": {"<스타일>": {적은 칸만 덮는다}}}} (PackInfo.uiStyles — 테마는 v0.7 M3-T6).
+                          버튼 이벤트 {"ui": "theme", "target": "<팩>.<테마>" | "none"} 가 테마를 바꾼다
                           검사 U1 ~ U8 은 프로젝트 검사 (sbx check — ui/model, 18 5.2 9) 가 본다
     materials.json        머티리얼 (v0.6 M6-T9) — {"materials": {"<이름>": {"sprite": "<s>", "color": [r, g, b(, a)]}}}, 엔진
                           에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =

@@ -36,7 +36,7 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
         }
         const auto border = [&] {
             if (style != nullptr && style->borderColor && style->borderWidth > 0) {
-                renderer.strokeRect(ln.rect, *style->borderColor, style->borderWidth, ln.clip);
+                renderer.strokeRect(ln.rect, *style->borderColor, style->borderWidth * options.scale, ln.clip);
             }
         };
         const auto label = [&]() -> std::string { return options.textOf ? options.textOf(n, ln.listIndex) : n.text; };

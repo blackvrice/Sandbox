@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-09 — v0.7 M3-T6: 게임 UI 테마 · 배율 — styles.json themes · theme 버튼 · 테두리 배율 · 배율 2 골든
+
+**무엇을**
+
+- ui/model: UiStylePatch (적은 칸만 — color · border · fontSize · padding) · UiTheme · applyTheme. styles.json 에 선택 키 "themes"
+  {"<팩>.<테마>": {"<스타일>": 덮기}} (이름 U2 · 모양 U1 · 키 U3). 버튼 이벤트 ui "theme" (target = 테마 · "none").
+- 클라이언트 GameUiLayer: 바탕 스타일 + 테마 표, setTheme / theme 이벤트 → 테마를 씌운 표로 다음 배치 · 그리기. ui/render 테두리 두께 × 배율.
+- 프로젝트 검사: 없는 스타일을 덮는 테마 = U5 경고, 없는 테마로 바꾸는 버튼 = U6. 데모 rabbit_guard styles.json 에 eco.night.
+
+**왜**
+
+- 등록부 M3-T6 (v0.7 P1) — "테마를 바꾸면 같은 배치에 다른 색", 배율 배치 골든.
+
+**검증**
+
+- test_ui_document "ui themes" · test_ui_render "ui theme" (같은 사각형 · 다른 색 · 테두리 × 2) · test_ui_layout "배율 2" (데모 HUD 8 사각형 —
+  손 계산, 버튼 위 · 아래 26.5 → 27 반올림) · test_game_ui_layer "테마 버튼". 첫 실행에 모두 맞았다. sbx check samples/rabbit_guard — 오류 · 경고 0.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19) — 새 경고 없음.
+
+**남은 일**
+
+- 사용자 UI 배율 설정 (M4-T4 — 지금 클라이언트는 1), 테마를 고르는 사용자 설정 · client 스크립트 (필요해지면 Host API).
+
 ## 2026-11-05 — v0.7 M3-T5: 게임 UI 버튼 이벤트 마무리 — 행동 자리 · session:message · 서버까지 E2E
 
 **무엇을**

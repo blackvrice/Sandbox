@@ -3,5 +3,12 @@
     "eco.bar": { "color": [20, 28, 22, 200], "padding": 4 },
     "eco.meter": { "color": [120, 200, 90, 255], "border": { "color": [10, 10, 10, 255], "width": 1 } },
     "eco.button": { "color": [60, 90, 60, 255], "fontSize": 14, "padding": 6 }
+  },
+  "themes": {
+    "eco.night": {
+      "eco.bar": { "color": [8, 10, 24, 220] },
+      "eco.meter": { "color": [90, 140, 230, 255] },
+      "eco.button": { "color": [40, 50, 90, 255] }
+    }
   }
 }

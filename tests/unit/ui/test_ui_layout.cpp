@@ -156,4 +156,27 @@ TEST_SUITE("ui") {
                                                   {459, 18, 216, 20}});
         CHECK(nodes[4].fontSize == 14.0f);
     }
+    TEST_CASE("ui layout (v0.7 M3-T6): 데모 HUD 배율 2 — 1280 × 720 사각형 골든 (손 계산 — 가장자리 반올림은 버튼 위 · "
+              "아래만)") {
+        const std::filesystem::path ui =
+            std::filesystem::path(SBX_SAMPLES_DIR) / "rabbit_guard/content/ecosystem/presentation/ui";
+        const UiStylesResult styles = parseUiStyles(*io::readFile(ui / "styles.json"), "eco");
+        REQUIRE(styles.ok());
+        const UiParseResult hud = parseUiDocument("hud", *io::readFile(ui / "hud.json"), UiCheckContext{"eco"});
+        REQUIRE(hud.ok());
+        const auto nodes = layoutDocument(
+            *hud.document, {.width = 1280, .height = 720, .scale = 2, .styles = &styles.styles}, kMeasure);
+        // 띠 16 ~ 1264 · 높이 80 (여백 8) → 내용 24 ~ 88 (64). 버튼: 글꼴 28 · 여백 12 — 높이 35 + 24 = 59, 위 24 + 2.5
+        // = 26.5 → 27
+        CHECK(rects(nodes) == std::vector<UiRect>{{16, 16, 1248, 80},
+                                                  {24, 32, 48, 48},
+                                                  {88, 36, 240, 40},
+                                                  {344, 40, 320, 32},
+                                                  {680, 27, 94, 59},
+                                                  {790, 27, 80, 59},
+                                                  {886, 36, 16, 40},
+                                                  {918, 36, 432, 40}});
+        CHECK(nodes[4].fontSize == 28.0f);
+        CHECK(nodes[4].padding == 12.0f);
+    }
 }

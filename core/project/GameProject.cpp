@@ -5,6 +5,7 @@
 #include <format>
 #include <map>
 #include <set>
+#include <tuple>
 
 #include "core/asset/AssetDatabase.hpp"
 #include "core/asset/AssetGroups.hpp"
@@ -731,6 +732,7 @@ void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAsset
         return ContentIssue{i.severity == ui::UiIssue::Severity::Error ? Severity::Error : Severity::Warning, i.rule,
                             std::move(file), i.pointer, i.message};
     };
+    std::vector<std::tuple<std::string, std::string, ui::UiTheme>> themes; // (파일, 이름, 덮기)
     // 스타일 · material 먼저 (모든 팩) — 문서는 다른 팩의 스타일 · material 도 부를 수 있다
     for (const content::PackInfo& p : db.packs()) {
         if (!p.materials.empty()) {
@@ -745,6 +747,21 @@ void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAsset
         }
         for (const auto& [name, s] : st.styles) {
             styles.insert(name);
+        }
+        for (const auto& [name, theme] : st.themes) {
+            themes.emplace_back(std::format("{}/presentation/ui/styles.json", p.id), name, theme);
+        }
+    }
+    // 테마 (v0.7 M3-T6): 덮는 스타일이 없으면 경고 (그 칸은 쓰이지 않는다), 이름 표는 ui theme 이벤트가 본다
+    Names themeNames{std::string(ui::kNoTheme)};
+    for (const auto& [file, name, theme] : themes) {
+        themeNames.insert(name);
+        for (const auto& [style, patch] : theme) {
+            if (!styles.contains(style)) {
+                r.issues.push_back(ContentIssue{Severity::Warning, "U5", file,
+                                                std::format("/themes/{}/{}", name, style),
+                                                std::format("테마 '{}' 가 덮는 스타일 '{}' 이 없다", name, style)});
+            }
         }
     }
     std::vector<std::pair<std::string, ui::UiDocument>> docs; // (파일, 문서)
@@ -771,7 +788,11 @@ void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAsset
     }
     for (const auto& [file, doc] : docs) {
         for (const ui::UiTargetRef& t : ui::uiTargets(doc)) {
-            if (!targets.contains(t.target)) {
+            if (t.theme && !themeNames.contains(t.target)) {
+                r.issues.push_back(
+                    ContentIssue{Severity::Error, "U6", file, t.pointer,
+                                 std::format("테마 '{}' 가 없다 (styles.json 의 themes · \"none\")", t.target)});
+            } else if (!t.theme && !targets.contains(t.target)) {
                 r.issues.push_back(ContentIssue{Severity::Error, "U6", file, t.pointer,
                                                 std::format("ui 대상 '{}' — 그런 문서 · 노드가 없다", t.target)});
             }

@@ -53,7 +53,7 @@ struct UiAction {
     Kind kind = Kind::None;
     std::string target;       // 신호 id · 행동 id · "<문서>.<노드>"
     std::optional<i32> value; // signal 의 값
-    std::string op;           // ui: show · hide · toggle
+    std::string op;           // ui: show · hide · toggle · theme (v0.7 M3-T6 — target = 테마 이름 · "none")
 };
 
 struct UiNode {
@@ -94,6 +94,18 @@ struct UiStyle {
     f32 padding = 0;
 };
 
+// 스타일 덮기 (v0.7 M3-T6 — 테마) — 적은 칸만 바꾼다, 적지 않은 칸은 바탕 스타일 그대로
+struct UiStylePatch {
+    std::optional<std::array<u8, 4>> color;
+    std::optional<std::array<u8, 4>> borderColor;
+    std::optional<f32> borderWidth;
+    std::optional<f32> fontSize;
+    std::optional<f32> padding;
+    void applyTo(UiStyle& style) const;
+};
+using UiStyleTable = std::map<std::string, UiStyle, std::less<>>;
+using UiTheme = std::map<std::string, UiStylePatch, std::less<>>; // 스타일 이름 → 덮기
+
 // 검사가 콘텐츠에서 받는 것. nullptr 이면 그 검사를 건너뛴다
 struct UiCheckContext {
     std::string_view packId; // 문서 id 앞 ("<팩>.")
@@ -116,12 +128,18 @@ struct UiParseResult {
                                             const UiCheckContext& context);
 
 struct UiStylesResult {
-    std::map<std::string, UiStyle, std::less<>> styles;
+    UiStyleTable styles;
+    std::map<std::string, UiTheme, std::less<>> themes; // v0.7 M3-T6 — "<팩>.<테마>" → 스타일마다 덮기
     std::vector<UiIssue> issues;
     [[nodiscard]] bool ok() const noexcept;
 };
-// styles.json — 이름은 "<팩>.<이름>" (U2), 키 · 값 (U1 · U3)
+// styles.json {"styles": {...}, "themes"?: {"<팩>.<테마>": {"<스타일>": {덮을 칸}}}} — 이름은 "<팩>.<이름>" (U2), 키 ·
+// 값 (U1 · U3). 테마가 부르는 스타일이 있는지는 팩을 모두 모은 쪽 (프로젝트 검사 — U5 경고) 이 본다
 [[nodiscard]] UiStylesResult parseUiStyles(std::string_view jsonText, std::string_view packId);
+
+// 테마를 씌운 스타일 표 (theme 이 nullptr 이면 그대로). 테마의 없는 스타일은 건너뛴다
+[[nodiscard]] UiStyleTable applyTheme(const UiStyleTable& styles, const UiTheme* theme);
+inline constexpr std::string_view kNoTheme = "none"; // ui theme 이벤트의 "테마 없음"
 
 // 바인딩 식 하나 — 문제면 그 이유 (U4). componentFields 가 있으면 칸도 본다
 [[nodiscard]] std::optional<std::string> checkBinding(std::string_view bind,
@@ -132,6 +150,7 @@ struct UiTargetRef {
     std::string documentId;
     std::string pointer;
     std::string target;
+    bool theme = false; // ui theme 이벤트 — target 은 테마 이름 (v0.7 M3-T6)
 };
 [[nodiscard]] std::vector<UiTargetRef> uiTargets(const UiDocument& document);
 [[nodiscard]] std::vector<std::string> nodeIds(const UiDocument& document); // "<문서>.<노드>" (id 있는 노드만)

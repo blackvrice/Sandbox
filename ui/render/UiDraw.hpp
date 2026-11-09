@@ -43,6 +43,7 @@ struct UiDrawOptions {
     // 누르는 중인 노드 (버튼을 밝게) — 없으면 nullptr
     const UiNode* pressed = nullptr;
     i32 pressedIndex = -1;
+    f32 scale = 1; // UI 배율 — 테두리 두께에 곱한다 (사각형 · 글꼴은 배치가 이미 곱했다 — v0.7 M3-T6)
 };
 
 // 배치 결과를 차례대로 그린다 (부모 먼저 — 자식이 위에)

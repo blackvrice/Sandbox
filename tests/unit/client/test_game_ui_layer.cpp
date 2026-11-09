@@ -455,4 +455,35 @@ export default defineSystem({
         }
         CHECK_MESSAGE(message().starts_with("PlayerAction 적용"), message());
     }
+    TEST_CASE("game ui layer (v0.7 M3-T6): 테마 버튼 — 같은 배치 · 다른 색, none 이면 바탕, 없는 테마는 그대로") {
+        GameUiInfo info = demoSources();
+        info.documents[0].text =
+            R"({"id": "eco.hud", "root": {"kind": "panel", "style": "eco.bar", "stack": "row", "children": [
+            {"kind": "button", "id": "night", "text": "n", "on": {"click": {"ui": "theme", "target": "eco.night"}}},
+            {"kind": "button", "id": "day", "text": "d", "on": {"click": {"ui": "theme", "target": "none"}}}]}})";
+        GameUiLayer layer;
+        layer.setSources(info);
+        const ui::FixedTextMeasure measure;
+        layer.layout(800, 600, 1.0f, measure);
+        const std::vector<ui::UiLayoutNode> before = layer.layouts()[0].nodes;
+        CountingRenderer day;
+        layer.draw(day);
+        const auto [nx, ny] = centerOf(*find(layer, "night"));
+        std::vector<ui::UiAction> events;
+        (void)layer.route(nx, ny, false, true, true, events);
+        CHECK(layer.theme() == "eco.night");
+        layer.layout(800, 600, 1.0f, measure);
+        for (usize i = 0; i < before.size(); ++i) {
+            CHECK(before[i].rect == layer.layouts()[0].nodes[i].rect);
+        }
+        CountingRenderer night;
+        layer.draw(night);
+        CHECK(night.colors.front() == ui::UiColor{8, 10, 24, 220}); // samples/rabbit_guard styles.json 의 eco.night
+        CHECK(day.colors.front() != night.colors.front());
+        CHECK_FALSE(layer.setTheme("eco.dawn"));
+        CHECK(layer.theme() == "eco.night");
+        const auto [dx, dy] = centerOf(*find(layer, "day"));
+        (void)layer.route(dx, dy, false, true, true, events);
+        CHECK(layer.theme().empty());
+    }
 }

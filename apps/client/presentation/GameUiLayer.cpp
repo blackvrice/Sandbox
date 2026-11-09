@@ -17,6 +17,9 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
         return;
     }
     m_signature = std::move(signature);
+    m_baseStyles.clear();
+    m_themes.clear();
+    m_theme.clear();
     m_styles.clear();
     m_docs.clear();
     m_visible.clear();
@@ -29,9 +32,13 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
     for (const GameUiSource& s : info->styles) {
         ui::UiStylesResult st = ui::parseUiStyles(s.text, s.pack);
         for (auto& [name, style] : st.styles) {
-            m_styles.insert_or_assign(name, style); // 뒤 팩이 이긴다 (materials.json 과 같다)
+            m_baseStyles.insert_or_assign(name, style); // 뒤 팩이 이긴다 (materials.json 과 같다)
+        }
+        for (auto& [name, theme] : st.themes) {
+            m_themes.insert_or_assign(name, std::move(theme));
         }
     }
+    m_styles = m_baseStyles;
     for (const GameUiSource& s : info->documents) {
         ui::UiParseResult parsed = ui::parseUiDocument(s.stem, s.text, ui::UiCheckContext{s.pack});
         if (!parsed.document) {
@@ -50,6 +57,7 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
     m_layouts.reserve(m_docs.size());
     for (usize i = 0; i < m_docs.size(); ++i) {
         const ui::UiDocument& d = m_docs[i];
+        m_scale = scale;
         ui::UiLayoutOptions o{.width = width, .height = height, .scale = scale, .styles = &m_styles};
         o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
         o.listCount = [this](const ui::UiNode& n) { return ui::listCountOf(n, m_data); };
@@ -81,7 +89,7 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
 }
 
 void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
-    ui::UiDrawOptions o{.styles = &m_styles, .pressed = m_pressed, .pressedIndex = m_pressedIndex};
+    ui::UiDrawOptions o{.styles = &m_styles, .pressed = m_pressed, .pressedIndex = m_pressedIndex, .scale = m_scale};
     o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
     o.progressOf = [this](const ui::UiNode& n, i32) { return ui::progressOf(n, m_data); };
     for (const ui::UiDocumentLayout& l : m_layouts) {
@@ -91,8 +99,27 @@ void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
     }
 }
 
+bool GameUiLayer::setTheme(std::string_view theme) {
+    if (theme.empty() || theme == ui::kNoTheme) {
+        m_theme.clear();
+        m_styles = m_baseStyles;
+        return true;
+    }
+    const auto it = m_themes.find(theme);
+    if (it == m_themes.end()) {
+        return false;
+    }
+    m_theme = std::string(theme);
+    m_styles = ui::applyTheme(m_baseStyles, &it->second); // 다음 배치부터 — 색만 바꾼 테마면 사각형은 그대로
+    return true;
+}
+
 void GameUiLayer::apply(const ui::UiAction& action) {
     if (action.kind != ui::UiAction::Kind::Ui) {
+        return;
+    }
+    if (action.op == "theme") {
+        (void)setTheme(action.target);
         return;
     }
     // 대상이 문서 id 와 같으면 문서, 아니면 "<문서>.<노드>" (문서 id 에도 점이 있다 — 문서 id 로 앞을 맞춘다)

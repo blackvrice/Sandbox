@@ -146,4 +146,39 @@ TEST_SUITE("ui") {
         CHECK(some[2].rect.x == 20); // aa (16) + gap 4 — b 의 자리 없음
         CHECK(some[0].rect.w == 36); // 맞춤 너비도 b 를 빼고
     }
+    TEST_CASE("ui theme (v0.7 M3-T6): 테마를 바꾸면 같은 배치에 다른 색, 테두리 두께는 배율을 곱한다") {
+        const UiStylesResult st = parseUiStyles(
+            R"({"styles": {"eco.bar": {"color": [10, 20, 30, 255], "border": {"color": [1, 1, 1, 255], "width": 1}}},
+            "themes": {"eco.night": {"eco.bar": {"color": [0, 0, 80, 255]}}}})",
+            "eco");
+        REQUIRE(st.ok());
+        const UiDocument d = parse(
+            "hud", "hud",
+            R"({"kind": "panel", "style": "eco.bar", "size": [100, 30], "children": [{"kind": "text", "text": "ab"}]})");
+        const UiStyleTable night = applyTheme(st.styles, &st.themes.at("eco.night"));
+        const auto base = layoutDocument(d, {.width = 400, .height = 300, .styles = &st.styles}, kMeasure);
+        const auto themed = layoutDocument(d, {.width = 400, .height = 300, .styles = &night}, kMeasure);
+        REQUIRE(base.size() == themed.size());
+        for (usize i = 0; i < base.size(); ++i) {
+            CHECK(base[i].rect == themed[i].rect);
+        }
+        Recorder a;
+        Recorder b;
+        drawLayout(base, {.styles = &st.styles}, a);
+        drawLayout(themed, {.styles = &night}, b);
+        CHECK(a.calls[0].color == UiColor{10, 20, 30, 255});
+        CHECK(b.calls[0].color == UiColor{0, 0, 80, 255});
+        CHECK(a.calls[1] == b.calls[1]); // 테두리는 테마가 덮지 않았다
+
+        class WidthRecorder final : public IUiRenderer {
+        public:
+            f32 width = 0;
+            void fillRect(const UiRect&, UiColor, const UiRect&) override {}
+            void strokeRect(const UiRect&, UiColor, f32 w, const UiRect&) override { width = w; }
+            void text(const UiRect&, std::string_view, f32, UiColor, const UiRect&) override {}
+            void image(const UiRect&, std::string_view, const UiRect&) override {}
+        } widths;
+        drawLayout(base, {.styles = &st.styles, .scale = 2}, widths);
+        CHECK(widths.width == 2.0f);
+    }
 }

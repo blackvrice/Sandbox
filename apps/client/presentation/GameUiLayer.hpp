@@ -36,7 +36,10 @@ public:
                              std::vector<ui::UiAction>& out);
     void draw(ui::IUiRenderer& renderer) const;
 
-    void apply(const ui::UiAction& action); // ui show · hide · toggle
+    void apply(const ui::UiAction& action); // ui show · hide · toggle · theme
+    // 지금 테마 (v0.7 M3-T6 — 비면 없음). 없는 테마 이름이면 false (그대로)
+    bool setTheme(std::string_view theme);
+    [[nodiscard]] const std::string& theme() const noexcept { return m_theme; }
     [[nodiscard]] usize documentCount() const noexcept { return m_docs.size(); }
     [[nodiscard]] bool documentVisible(std::string_view id) const;
     [[nodiscard]] bool nodeHidden(std::string_view documentId, std::string_view nodeId) const;
@@ -47,7 +50,11 @@ public:
 
 private:
     std::string m_signature;
-    std::map<std::string, ui::UiStyle, std::less<>> m_styles;
+    ui::UiStyleTable m_baseStyles;                            // 팩 스타일 (뒤 팩이 이긴다)
+    std::map<std::string, ui::UiTheme, std::less<>> m_themes; // 팩 테마
+    std::string m_theme;                                      // 지금 테마 (비면 없음)
+    ui::UiStyleTable m_styles;                                // 테마를 씌운 것 — 배치 · 그리기가 쓴다
+    f32 m_scale = 1;
     std::vector<ui::UiDocument> m_docs;
     std::vector<bool> m_visible;
     std::set<std::string, std::less<>> m_hidden; // "<문서>.<노드>"

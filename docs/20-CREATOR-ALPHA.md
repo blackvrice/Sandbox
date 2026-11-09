@@ -154,6 +154,10 @@ M3-T5 ✅    (v0.7) 버튼 이벤트 마무리 — signal = PlayerSignal 명령 
             onEvent "signal"), action = PlayerAction 의 자리: 첫째 선택 개체 → 내 개체 (game.owner) → 화면 가운데 (위치 없는
             행동 대신 — 시뮬레이션은 그대로), ui = 층 안 보이기 · 숨기기 (M3-T3). 결과 · 거절 문장 = 바인딩 "session:message"
             (이 클라이언트가 보낸 행동 · 신호의 마지막 결과 — client 스크립트의 send 도 든다). UiEvent 는 UiAction (ui/model) 그대로
+M3-T6 ✅    (v0.7) 테마 = styles.json "themes" {"<팩>.<테마>": {"<스타일>": 덮을 칸}} — 적은 칸만 바꾸고 나머지는 바탕
+            스타일 (UiStylePatch · applyTheme). 버튼 {"ui": "theme", "target": 테마 | "none"} 으로 바꾼다 (클라이언트 안 — 다음 배치부터).
+            검사: 없는 스타일을 덮는 테마 = U5 경고, 없는 테마로 바꾸는 버튼 = U6. 배율 = 배치 (offset · size · gap · 여백 · 글꼴)
+            + 그리기 (테두리 두께). 사용자 배율 설정은 M4-T4 (지금 클라이언트는 1). 데모: rabbit_guard 의 eco.night
 ```
 
 ### 2.5 스크립트 연동 (client 도메인 — 3.8)
