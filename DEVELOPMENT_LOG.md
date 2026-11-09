@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T1 (1): 문자열 표 · 로케일 대체 — presentation/strings · "@<키>" · --locale · 검사
+
+**무엇을**
+
+- ui/strings: 표 읽기 parseStringTable (U1 모양 · U2 키 이름공간 · U7 1 KiB · 4,096), StringTable (팩마다 표 — 찾는 차례 = 사용자
+  로케일 → 언어 → 팩의 기본 표 → 키 그대로 + 경고 한 번), normalizeLocale · localeChain · formatString · resolveText. UI 글자
+  "@<키>" 는 표의 글에 args 바인딩을 넣는다 (formatText), "@@…" = 글자 "@…".
+- core/content: 팩 presentation/strings/<로케일>.json 원문 → PackInfo.uiStrings (32 개까지 — 클라 전용, contentHash 밖).
+- 프로젝트 검사: 파일 이름 · 같은 로케일 U2, 문서의 없는 키 U5, 빠진 번역 U5 (경고), sbx check 요약 "문자열 표: 로케일 N · 키 M".
+- 클라이언트: GameUiInfo.strings → GameUiLayer (setLocale — 원문을 다시 읽어도 남는다), --locale · client.json locale ·
+  platform::userLocale (Windows API · POSIX 환경) 순. 데모 rabbit_guard HUD 를 키로 바꾸고 ko · en 표.
+
+**왜**
+
+- 등록부 M4-T1 (v0.7 P1, ADR-0083) — 완료 기준 "데모가 ko · en 으로 바뀐다". ctx.ui.text (Host API 지문이 바뀐다) · 행동 · 모드
+  표시 이름은 (2) 로 나눴다 (M3-T4 처럼 — 한 커밋에 Host API 변경을 섞지 않는다).
+- 팩의 기본 표 규칙 (여럿이면 en, 없으면 이름 순) 은 ADR-0083 3 의 "표가 하나면 그것" 을 여러 표로 넓힌 것 — pack.json 에 새 키 없이
+  결정적이다 (20 5장에 적었다).
+
+**검증**
+
+- test_ui_strings (로케일 꼴 · 찾는 차례 · 표 검사 · 인자 · "@" 글자) · test_ui_document "ui strings project" · test_game_ui_layer
+  "ko · en" · test_user_settings "로케일". test_ui_layout 데모 골든은 ko 표의 글로 재고 사각형이 그대로다. 첫 실행에 모두 맞았다.
+- sbx check samples/rabbit_guard — "문자열 표: 로케일 2 · 키 4", 오류 · 경고 0. SandboxClient 창에서 --locale en · OS (ko-KR) 를
+  눈으로 확인 (MANUAL-QA v0.7 M4-T1). --locale english → 명령줄 오류.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19, -Wall -Wextra -Wpedantic -Wshadow) — 새 경고 없음.
+
+**남은 일**
+
+- M4-T1 (2): client ctx.ui.text (Host API) · 행동 · 게임 모드 표시 이름 "@<키>" · 실행 중 로케일 바꾸기. macOS CFLocale.
+- 복수형 · 성별 (v0.6 이후 — ICU 류 의존 결정), 도구 문자열 번역 (v0.9).
+
 ## 2026-11-09 — v0.7 M3-T6: 게임 UI 테마 · 배율 — styles.json themes · theme 버튼 · 테두리 배율 · 배율 2 골든
 
 **무엇을**

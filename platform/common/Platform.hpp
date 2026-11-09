@@ -3,6 +3,7 @@
 // 구현: platform/windows/Win32Platform.cpp (WIN32), platform/stub/StubPlatform.cpp (그 밖 — Phase 13·14 전).
 
 #include <chrono>
+#include <string>
 #include <string_view>
 
 #include "foundation/types/Types.hpp"
@@ -16,6 +17,11 @@ namespace sbx::platform {
 // 없으면 새 콘솔. 출력이 이미 파이프·파일로 넘겨져 있으면(CTest, CLion) 그대로 둔다. 다른 OS 는 아무것도 안 한다.
 // 성공하면(또는 할 일이 없으면) true.
 bool attachConsole() noexcept;
+
+// 사용자의 OS 로케일 (v0.7 M4-T1 — 게임 UI 문자열 표의 마지막 기본값). Windows: GetUserDefaultLocaleName ("ko-KR"),
+// 그 밖: 환경 LC_ALL → LC_MESSAGES → LANG ("ko_KR.UTF-8" 그대로 — 꼴 맞춤은 ui::normalizeLocale). 모르면 빈 글자
+[[nodiscard]] std::string userLocale();
+[[nodiscard]] std::string localeFromEnvironment(); // POSIX 환경 변수 차례 (모든 OS 에서 컴파일 — 시험)
 
 // 고해상도 잠자기. Windows: CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 타이머 (timeBeginPeriod 를 쓰지 않는다).
 // 그 밖: std::this_thread::sleep_until.

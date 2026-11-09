@@ -116,7 +116,7 @@ core/content                            presentation/ui · strings 는 원문만
 M3-T1 ✅   (v0.7) ui/model UiDocument — 위 모양 그대로 + list 는 item (반복할 노드 하나) · styles.json {"styles": {이름: {color ·
            border {color, width} · fontSize · padding}}}. 검사는 프로젝트 검사 (validateProject — sbx check · doctor) 가 부른다 (로더는
            원문만, openProject 는 보지 않는다 — ADR-0101). component 바인딩 대상은 owned · selected (식 모양만 — 칸 존재는 M3-T4),
-           문자열 키 존재 (U5) 는 M4-T1, 노드 visible · theme 은 [계획]. 데모: samples/rabbit_guard 의 eco.hud (점수 · 기운 · 행동 버튼)
+           문자열 키 존재 (U5) 는 M4-T1 (1) ✅, 노드 visible · theme 은 [계획]. 데모: samples/rabbit_guard 의 eco.hud (점수 · 기운 · 행동 버튼)
 M3-T2 ✅   (v0.7) ui/layout layoutDocument — 가장자리 = 부모 앵커 위치 + offset · 배율 (왼 · 위 · 오른 · 아래 모두 같은 식), size 가
            있으면 먼 가장자리 대신, 둘 다 없으면 내용에 맞춤 (ITextMeasure — 헤드리스는 FixedTextMeasure). 쌓는 부모의 자식은
            앵커 · offset 대신 차례 · align. 여백 = panel padding · 스타일 padding 중 큰 쪽, 글꼴 = 스타일 fontSize (없으면 16) · 배율.
@@ -319,6 +319,14 @@ v0.7        원격 관전 (보안 전송 · 방 권한 · 관전 지연) — 이
             겹침 경고, 되돌리기
 UI 배율     설정 0.75 ~ 2.0 (게임 UI 의 픽셀 offset · 폰트 크기에 곱한다 — DPI 와 곱)
 제외 (v0.5) 에디터 · 도구 문자열 (한국어 그대로 — v0.9), 화면 읽기 · 색각 테마 (v1.0 점검), 오른쪽에서 왼쪽 글자 (계획 없음 — v1.x)
+M4-T1 (1) ✅ (v0.7) ui/strings — parseStringTable (U1 · U2 이름공간 · U7) · StringTable (팩마다 표, 찾는 차례 = 사용자 로케일 →
+            언어 ("en-us" → "en") → 키를 정의한 팩의 기본 표 → 키 그대로 + 경고 한 번) · formatString · resolveText. 팩의 기본 표:
+            표가 하나면 그것, 여럿이면 en, 없으면 이름이 가장 앞인 표 (그 표에 키가 없으면 키가 있는 표 중 이름이 앞인 것) — pack.json
+            에 새 키를 두지 않는다. 로케일 비교는 소문자 · "_" → "-" (OS 의 "ko_KR.UTF-8" 도). UI 글자 "@<키>" (+ args 바인딩),
+            "@@…" = 글자 "@…". 사용자 로케일 = --locale → client.json locale → OS (Windows GetUserDefaultLocaleName · 그 밖
+            LC_ALL → LC_MESSAGES → LANG — macOS 의 CFLocale 은 [계획]). 검사: 파일 이름이 로케일이 아님 · 같은 로케일 둘 U2, 문서의
+            없는 키 U5, 같은 팩의 다른 표에 있는 키가 빠진 표 U5 (경고 — 표마다 한 번). 데모 rabbit_guard 의 ko · en.
+            (2) [계획]: client ctx.ui.text (Host API) · 행동 · 게임 모드 표시 이름의 "@" · 실행 중 로케일 바꾸기 (설정 UI)
 ```
 
 ## 6. 스크립트 실행 경계 · 프로파일 (X5 — ADR-0081)

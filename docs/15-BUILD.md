@@ -389,12 +389,14 @@ SandboxClient (Phase 6 — 빈 창 + 앱 상태기계, --help 에 전체 목록)
     (11) + "관심 영역" (월드 전체 | 청크 x0..x1 × y0..y1) · "다시 접속" (횟수 | 중…).
     Linux · Wine 시험에서 한글: --font /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc (Wine 은 Z:/usr/…)
     (v0.5 M1-T3) 사용자 설정 폴더 (SBX_CONFIG_DIR · %APPDATA%\sandbox · macOS ~/Library/Application Support/sandbox · XDG —
-    07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>"} · input.json (키 바인딩 — 기본 위,
+    07 8장) 의 client.json {"uiScale": 0.5~3, "updateCheck": bool, "updateFeed": "<파일>", "locale": "<BCP 47>" (v0.7)} · input.json (키 바인딩 — 기본 위,
     --input 아래). 깨진 파일은 "<이름>.broken-<UTC>" 로 옮기고 "알림" 창 · 로그 "알림: …" 에 알린 뒤 기본값으로 시작한다.
     [--safe-mode]: 두 파일 · UI 배율 · 패키지 캐시 (임시 폴더 sbx-packages-safe — 매번 빈 것) 를 쓰지 않는다.
     [--update-feed <파일 | https://URL>]: 릴리스 피드 (GitHub Releases "List releases" JSON) — 이 클라이언트보다 새 버전이면
     알림만 (받기 · 설치는 직접). URL 은 시스템 curl 로 백그라운드에서 (https 만 · 5 초 — M1-T4, ADR-0084). 예:
     --update-feed https://api.github.com/repos/<소유자>/<저장소>/releases. 피드가 없거나 · 오프라인 · 깨졌으면 조용히 (20 7.5 · 7.6)
+    [--locale <ko | en | en-US …>] (v0.7 M4-T1): 게임 UI 문자열 표의 로케일 — --locale → client.json locale → OS 로케일. 꼴이
+    아니면 (english · C) 명령줄 오류. 표가 없는 로케일이면 팩의 기본 표 (20 5장)
 
 sbx_render_tests [--rhi auto|dx12|vulkan] [--warp] [--debug] [--gbv] [--fl11] [--update-references] [--references <dir>]
                  [--out <dir>] [doctest 옵션]

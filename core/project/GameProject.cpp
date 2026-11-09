@@ -21,6 +21,7 @@
 #include "script/api/HostApi.hpp"
 #include "script/sdk/SdkGenerator.hpp"
 #include "ui/model/UiDocument.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::project {
 namespace {
@@ -697,8 +698,8 @@ void checkMaterialRefs(const content::ContentDatabase& db, const asset::AssetSca
 }
 
 // 게임 UI (v0.7 M3-T1 — ui/model, U1 ~ U8): 팩마다 presentation/ui/styles.json 과 문서. 신호 · 행동은 콘텐츠, material
-// 은 팩 materials.json + 엔진 에셋 (engineAssets — 비면 U8 을 보지 않는다), 컴포넌트 칸 · 문자열 키는 [계획] (M3-T4 ·
-// M4-T1)
+// 은 팩 materials.json + 엔진 에셋 (engineAssets — 비면 U8 을 보지 않는다), 문자열 키는 팩 presentation/strings (v0.7
+// M4-T1 — 없는 키 U5 경고), 컴포넌트 칸은 [계획]
 void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAssets, ProjectReport& r) {
     using Names = std::set<std::string, std::less<>>;
     Names signals;
@@ -764,12 +765,74 @@ void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAsset
             }
         }
     }
+    // 문자열 표 (v0.7 M4-T1 — ui/strings): 파일 이름 = 로케일 (U2), 표마다 모양 · 이름공간 · 상한. 키 모음은 문서의
+    // "@<키>" 가 본다 (없으면 U5 경고). 같은 팩의 다른 표에 있는 키가 빠진 표는 경고 한 번 (기본 표의 글이 보인다)
+    Names stringKeys;
+    Names locales;
+    for (const content::PackInfo& p : db.packs()) {
+        std::map<std::string, std::pair<std::string, ui::StringEntries>> tables; // 맞춘 로케일 → (파일, 항목)
+        for (const auto& [stem, text] : p.uiStrings) {
+            const std::string file = std::format("{}/presentation/strings/{}.json", p.id, stem);
+            if (!ui::isLocaleCode(stem)) {
+                r.issues.push_back(
+                    ContentIssue{Severity::Error, "U2", file, "",
+                                 std::format("파일 이름 '{}' 이 로케일 (BCP 47 — ko · en · pt-BR …) 이 아니다", stem)});
+                continue;
+            }
+            const std::string locale = ui::normalizeLocale(stem);
+            if (tables.contains(locale)) {
+                r.issues.push_back(
+                    ContentIssue{Severity::Error, "U2", file, "",
+                                 std::format("로케일 '{}' 의 표가 둘이다 ({})", locale, tables.at(locale).first)});
+                continue;
+            }
+            ui::StringTableResult st = ui::parseStringTable(text, p.id);
+            for (const ui::UiIssue& i : st.issues) {
+                r.issues.push_back(issue(file, i));
+            }
+            for (const auto& [key, value] : st.entries) {
+                stringKeys.insert(key);
+            }
+            locales.insert(locale);
+            tables.emplace(locale, std::make_pair(file, std::move(st.entries)));
+        }
+        if (tables.size() < 2) {
+            continue;
+        }
+        Names packKeys;
+        for (const auto& [locale, table] : tables) {
+            for (const auto& [key, value] : table.second) {
+                packKeys.insert(key);
+            }
+        }
+        for (const auto& [locale, table] : tables) {
+            usize missing = 0;
+            std::string first;
+            for (const std::string& key : packKeys) {
+                if (!table.second.contains(key)) {
+                    if (missing++ == 0) {
+                        first = key;
+                    }
+                }
+            }
+            if (missing > 0) {
+                r.issues.push_back(ContentIssue{
+                    Severity::Warning, "U5", table.first, "",
+                    std::format("로케일 '{}' 에 이 팩의 다른 표에 있는 키 {} 개가 없다 (첫째 '{}') — 기본 표의 글을 "
+                                "보인다",
+                                locale, missing, first)});
+            }
+        }
+    }
+    r.uiLocales = locales.size();
+    r.uiStrings = stringKeys.size();
+
     std::vector<std::pair<std::string, ui::UiDocument>> docs; // (파일, 문서)
     Names targets;                                            // 문서 id · "<문서>.<노드>"
     usize nodes = 0;
     for (const content::PackInfo& p : db.packs()) {
-        const ui::UiCheckContext context{p.id,    &signals, &actions, &styles, knowMaterials ? &materials : nullptr,
-                                         nullptr, nullptr};
+        const ui::UiCheckContext context{p.id,    &signals,   &actions, &styles, knowMaterials ? &materials : nullptr,
+                                         nullptr, &stringKeys};
         for (const auto& [stem, text] : p.uiDocuments) {
             const std::string file = std::format("{}/presentation/ui/{}.json", p.id, stem);
             ui::UiParseResult parsed = ui::parseUiDocument(stem, text, context);

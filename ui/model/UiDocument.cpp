@@ -114,8 +114,9 @@ public:
         return out;
     }
 
+    // "@<키>" = 문자열 표의 키 (v0.7 M4-T1), "@@…" = 글자 "@…" 그대로
     void textValue(const std::string& text, const std::string& pointer) {
-        if (text.starts_with('@')) {
+        if (text.starts_with('@') && !text.starts_with("@@")) {
             const std::string_view key = std::string_view(text).substr(1);
             if (!dottedId(key)) {
                 error("U1", pointer, std::format("문자열 키 '{}' — \"@<팩>.<이름>\"", text));
@@ -429,6 +430,10 @@ void collectIds(const UiNode& n, const std::string& documentId, std::vector<std:
 }
 
 } // namespace
+
+bool isUiKey(std::string_view s) {
+    return dottedId(s);
+}
 
 bool UiParseResult::ok() const noexcept {
     return noErrors(issues);

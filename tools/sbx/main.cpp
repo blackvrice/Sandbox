@@ -124,6 +124,9 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
     if (r.uiDocuments > 0) {
         std::printf("게임 UI: 문서 %zu · 노드 %zu (presentation/ui)\n", r.uiDocuments, r.uiNodes);
     }
+    if (r.uiLocales > 0) {
+        std::printf("문자열 표: 로케일 %zu · 키 %zu (presentation/strings)\n", r.uiLocales, r.uiStrings);
+    }
     if (r.exportProfiles > 0) {
         std::printf("Export Profile: %zu (export/ — sbx build --profile <이름>)\n", r.exportProfiles);
     }

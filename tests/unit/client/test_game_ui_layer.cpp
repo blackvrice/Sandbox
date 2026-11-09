@@ -38,6 +38,10 @@ GameUiInfo demoSources() {
     GameUiInfo info;
     info.documents.push_back({"eco", "hud", *io::readFile(ui / "hud.json")});
     info.styles.push_back({"eco", "styles", *io::readFile(ui / "styles.json")});
+    for (const char* locale : {"en", "ko"}) { // 로더와 같은 이름 순 (v0.7 M4-T1)
+        info.strings.push_back(
+            {"eco", locale, *io::readFile(ui.parent_path() / "strings" / std::format("{}.json", locale))});
+    }
     return info;
 }
 
@@ -55,6 +59,17 @@ const ui::UiLayoutNode* find(const GameUiLayer& layer, std::string_view id) {
 std::pair<i32, i32> centerOf(const ui::UiLayoutNode& n) {
     return {n.rect.x + n.rect.w / 2, n.rect.y + n.rect.h / 2};
 }
+
+class TextRenderer final : public ui::IUiRenderer {
+public:
+    std::vector<std::string> texts;
+    void fillRect(const ui::UiRect&, ui::UiColor, const ui::UiRect&) override {}
+    void strokeRect(const ui::UiRect&, ui::UiColor, f32, const ui::UiRect&) override {}
+    void text(const ui::UiRect&, std::string_view t, f32, ui::UiColor, const ui::UiRect&) override {
+        texts.emplace_back(t);
+    }
+    void image(const ui::UiRect&, std::string_view, const ui::UiRect&) override {}
+};
 
 class CountingRenderer final : public ui::IUiRenderer {
 public:
@@ -91,6 +106,7 @@ TEST_SUITE("client") {
     TEST_CASE(
         "game ui layer: 데모 HUD — 배치 · 버튼 action 이벤트 · ui 토글 (자리도 빠짐) · 누름 표시 · 빈 곳은 통과") {
         GameUiLayer layer;
+        layer.setLocale("ko");
         layer.setSources(demoSources());
         REQUIRE(layer.documentCount() == 1);
         CHECK(layer.takeWarnings().empty());
@@ -485,5 +501,54 @@ export default defineSystem({
         const auto [dx, dy] = centerOf(*find(layer, "day"));
         (void)layer.route(dx, dy, false, true, true, events);
         CHECK(layer.theme().empty());
+    }
+    TEST_CASE("game ui layer (v0.7 M4-T1): 데모가 ko · en 으로 바뀐다 — 같은 문서, 로케일만, 없는 키는 키 그대로 · "
+              "경고 한 번") {
+        GameUiLayer layer;
+        layer.setSources(demoSources());
+        const ui::FixedTextMeasure measure;
+        const auto texts = [&] {
+            layer.layout(1280, 720, 1.0f, measure);
+            TextRenderer r;
+            layer.draw(r);
+            return r.texts;
+        };
+        layer.setLocale("ko");
+        CHECK(layer.locale() == "ko");
+        CHECK(texts() == std::vector<std::string>{"토끼 - · 점수 -", "먹이 주기", "덫 놓기", "?",
+                                                  "토끼를 고르고 먹이를 주세요 — 늑대 옆에는 덫을"});
+        layer.setLocale("en-GB"); // 언어로 내려간다
+        CHECK(texts() == std::vector<std::string>{"Rabbits - · Score -", "Feed", "Set trap", "?",
+                                                  "Pick a rabbit and feed it — set traps near wolves"});
+        const i32 enFeed = find(layer, "feed")->rect.w;
+        layer.setLocale("fr"); // 표가 없는 로케일 — 팩의 기본 (en)
+        CHECK(texts()[1] == "Feed");
+        CHECK(find(layer, "feed")->rect.w == enFeed);
+        layer.setLocale("ko");
+        CHECK(texts()[1] == "먹이 주기");
+        CHECK(find(layer, "feed")->rect.w != enFeed); // 글이 바뀌면 배치도 바뀐다
+        CHECK(layer.takeWarnings().empty());
+
+        // 로케일은 원문을 다시 읽어도 남는다, 없는 키는 키 그대로 + 경고 한 번
+        GameUiInfo info = demoSources();
+        info.documents[0].text =
+            R"({"id": "eco.hud", "root": {"kind": "panel", "children": [{"kind": "text", "text": "@eco.hud.gone"}, {"kind": "text", "text": "@@eco"}]}})";
+        layer.setSources(info);
+        CHECK(layer.locale() == "ko");
+        CHECK(texts() == std::vector<std::string>{"eco.hud.gone", "@eco"});
+        (void)texts();
+        const std::vector<std::string> warnings = layer.takeWarnings();
+        REQUIRE(warnings.size() == 1);
+        CHECK(warnings[0].find("eco.hud.gone") != std::string::npos);
+        CHECK(layer.takeWarnings().empty());
+
+        // 깨진 표 — 경고, 성한 항목은 쓴다
+        info = demoSources();
+        info.strings[1].text = R"({"eco.hud.feed": "먹이", "eco.hud.trap": 3})";
+        layer.setSources(info);
+        CHECK(texts()[1] == "먹이");
+        const std::vector<std::string> broken = layer.takeWarnings();
+        CHECK(std::any_of(broken.begin(), broken.end(),
+                          [](const std::string& w) { return w.find("strings/ko.json") != std::string::npos; }));
     }
 }

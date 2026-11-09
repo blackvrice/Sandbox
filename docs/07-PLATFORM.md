@@ -317,6 +317,7 @@ SFML Audio 는 거치지 않는다 (요구사항상 임시 허용이지만 minia
 |--------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------|
 | 고해상도 시간      | `foundation/time` (`steady_clock` 래핑)  | 시뮬레이션은 사용 금지. `[계획]` — 지금은 std::chrono 직접                                                 |
 | 프레임 페이싱      | `platform::FramePacer`, `PreciseSleeper` | Phase 6 구현. 한 주기 넘게 밀리면 따라잡지 않는다                                                          |
+| 사용자 로케일      | `platform::userLocale()` (v0.7 M4-T1)    | Windows `GetUserDefaultLocaleName` ("ko-KR"), 그 밖 `localeFromEnvironment` (LC_ALL → LC_MESSAGES → LANG, C · POSIX 는 없음). macOS CFLocale `[계획]` — 게임 UI 문자열 표의 마지막 기본값 (20 5장) |
 | 콘솔               | `platform::attachConsole()`              | Phase 6 구현 (Windows GUI 실행 파일)                                                                       |
 | 파일 대화상자      | `IFileDialog` `[후속]`                   | 초기에는 ImGui 내부 파일 브라우저                                                                          |
 | 사용자 데이터 경로 | `platformPaths()` `[계획]` Phase 8       | Windows `%APPDATA%/Sandbox`, Linux `$XDG_DATA_HOME/sandbox`, macOS `~/Library/Application Support/Sandbox` |

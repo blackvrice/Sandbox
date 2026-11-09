@@ -105,6 +105,11 @@ content/<pack>/
                           "themes"?: {"<팩>.<테마>": {"<스타일>": {적은 칸만 덮는다}}}} (PackInfo.uiStyles — 테마는 v0.7 M3-T6).
                           버튼 이벤트 {"ui": "theme", "target": "<팩>.<테마>" | "none"} 가 테마를 바꾼다
                           검사 U1 ~ U8 은 프로젝트 검사 (sbx check — ui/model, 18 5.2 9) 가 본다
+    strings/<로케일>.json 문자열 표 (v0.7 M4-T1 — ADR-0083): {"<팩>.<키>": "텍스트 {0}"} 하나 — 키는 이 팩의 이름공간 (U2),
+                          글은 1 KiB · 표마다 4,096 키까지 (U7). 파일 이름 = BCP 47 로케일 (ko · en · pt-BR — U2), 팩마다 32 개까지
+                          (로더가 원문만 PackInfo.uiStrings 에). UI 글자 "@<키>" 가 부른다 ("@@…" = 글자 "@…"). 찾는 차례 = 사용자
+                          로케일 → 언어 → 팩의 기본 표 (하나면 그것, 여럿이면 en, 없으면 이름이 앞인 표) → 키 그대로. 인자 {0} ~ {9}.
+                          클라 전용 — contentHash 밖
     materials.json        머티리얼 (v0.6 M6-T9) — {"materials": {"<이름>": {"sprite": "<s>", "color": [r, g, b(, a)]}}}, 엔진
                           에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =
                           "asset:<id>" (프로젝트 에셋 .meta 의 id — 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) ·

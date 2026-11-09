@@ -72,6 +72,8 @@ struct AppConfig {
     std::vector<std::string> notices;
     // 백그라운드 릴리스 피드 (URL — v0.5 M1-T4). 끝나면 프레임에서 받아 로그 · 알림 (새 버전이면)
     std::shared_future<FeedCheck> lateFeed;
+    // 게임 UI 문자열 표의 사용자 로케일 (v0.7 M4-T1 — main 이 --locale → client.json → OS 로 정한다. 비면 팩의 기본 표)
+    std::string locale;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)

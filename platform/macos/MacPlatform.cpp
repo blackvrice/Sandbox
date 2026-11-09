@@ -10,6 +10,10 @@ std::string_view windowBackendName() noexcept {
     return "Cocoa";
 }
 
+std::string userLocale() {
+    return localeFromEnvironment();
+}
+
 bool attachConsole() noexcept {
     return true; // 콘솔 프로그램이다 (터미널에서 실행하면 로그가 그대로 보인다)
 }

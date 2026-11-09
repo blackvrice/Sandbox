@@ -179,6 +179,7 @@ struct GameUiSource {
 struct GameUiInfo {
     std::vector<GameUiSource> documents; // 팩 로드 차례 · 이름 순
     std::vector<GameUiSource> styles;    // 팩마다 styles.json (stem = "styles")
+    std::vector<GameUiSource> strings;   // 팩마다 presentation/strings/<로케일>.json (stem = 로케일 — v0.7 M4-T1)
 };
 
 // 패널(시뮬레이션)이 보는 진행 상태 (8C)

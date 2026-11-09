@@ -369,4 +369,41 @@ TEST_SUITE("ui") {
         std::error_code ec;
         fs::remove_all(dir, ec);
     }
+    TEST_CASE(
+        "ui strings project (v0.7 M4-T1): 문자열 표 검사 — 파일 이름 U2 · 키 U2 · 없는 키 U5 · 빠진 번역 U5, 데모는 "
+        "깨끗") {
+        const SemVer engine{0, 7, 0, {}, {}};
+        const fs::path sample = fs::path(SBX_SAMPLES_DIR) / "rabbit_guard";
+        const project::ProjectReport demo =
+            project::validateProject(sample, engine, catalog(), {.toolFiles = true, .engineAssets = SBX_ASSETS_DIR});
+        CHECK(demo.uiLocales == 2); // ko · en
+        CHECK(demo.uiStrings == 4);
+
+        const fs::path dir = fs::temp_directory_path() / std::format("sbx_ui_strings_{:x}", std::random_device{}());
+        fs::remove_all(dir);
+        fs::copy(sample, dir, fs::copy_options::recursive);
+        const fs::path strings = dir / "content/ecosystem/presentation/strings";
+        // en 에서 eco.hud.help 를 빼고 (빠진 번역), 다른 팩의 키를 넣는다
+        std::ofstream(strings / "en.json", std::ios::trunc)
+            << R"({"eco.hud.score": "Rabbits {0} · Score {1}", "eco.hud.feed": "Feed", "eco.hud.trap": "Trap", "rpg.x": "x"})";
+        std::ofstream(strings / "korean.json") << R"({"eco.hud.feed": "먹이"})";
+        std::ofstream(dir / "content/ecosystem/presentation/ui/menu.json")
+            << R"({"id": "eco.menu", "layer": "menu", "root": {"kind": "text", "text": "@eco.menu.title"}})";
+        const project::ProjectReport r =
+            project::validateProject(dir, engine, catalog(), {.toolFiles = true, .engineAssets = SBX_ASSETS_DIR});
+        const auto find = [&](std::string_view rule, std::string_view text) {
+            return std::any_of(r.issues.begin(), r.issues.end(), [&](const content::ContentIssue& i) {
+                return i.rule == rule && i.message.find(text) != std::string::npos;
+            });
+        };
+        CHECK(find("U2", "'korean'"));         // 파일 이름이 로케일이 아니다
+        CHECK(find("U2", "'rpg.x'"));          // 이름공간 밖
+        CHECK(find("U5", "'eco.menu.title'")); // 문서가 부르는 키가 어느 표에도 없다
+        CHECK(find("U5", "로케일 'en'"));      // en 에 eco.hud.help 가 없다
+        CHECK(find("U5", "'eco.hud.help'"));
+        CHECK(r.uiLocales == 2);
+        CHECK(project::openProject(dir, engine, catalog()).has_value()); // 검사만 — 게임은 열린다
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    }
 }

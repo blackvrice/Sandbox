@@ -10,6 +10,10 @@ std::string_view windowBackendName() noexcept {
     return "none";
 }
 
+std::string userLocale() {
+    return localeFromEnvironment();
+}
+
 bool attachConsole() noexcept {
     return true; // 콘솔 프로그램이다
 }

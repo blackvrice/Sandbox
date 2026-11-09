@@ -974,6 +974,9 @@ std::optional<GameUiInfo> NetworkSession::gameUi() const {
         if (!p.uiStyles.empty()) {
             info.styles.push_back(GameUiSource{p.id, "styles", p.uiStyles});
         }
+        for (const auto& [locale, text] : p.uiStrings) {
+            info.strings.push_back(GameUiSource{p.id, locale, text});
+        }
     }
     if (info.documents.empty()) {
         return std::nullopt;

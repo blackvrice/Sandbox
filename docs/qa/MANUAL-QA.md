@@ -574,6 +574,16 @@ ctest --preset macos-debug -R render_tests_metal --output-on-failure      # Meta
 [ ] macOS Retina 배율, 메뉴 바, Cmd 단축키
 ```
 
+## v0.7 M4-T1 — 게임 UI 문자열이 로케일로 바뀐다
+
+```text
+SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 감춤)
+[x] --locale en: "Rabbits - · Score 0" · Feed · Set trap · ? · "Pick a rabbit and feed it — set traps near wolves" (2026-11-09,
+    Windows 11 · GTX 1660 SUPER · D3D12, 커밋은 DEVELOPMENT_LOG v0.7 M4-T1 (1))
+[x] --locale 없음 (OS ko-KR): "토끼 - · 점수 0" · 먹이 주기 · 덫 놓기 · ? · 한국어 도움말
+[ ] Linux · macOS 에서 OS 로케일 (LANG · CFLocale [계획])
+```
+
 ## v0.7 M3-T3 — 게임 UI (HUD) 가 게임 화면에 보인다
 
 ```text

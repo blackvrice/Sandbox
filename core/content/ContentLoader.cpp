@@ -20,6 +20,7 @@
 #include "foundation/io/FileIo.hpp"
 #include "script/lang/Checker.hpp"
 #include "script/lang/Codegen.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::content {
 namespace {
@@ -2500,6 +2501,28 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                     warn(display, "", "U7", "게임 UI 문서는 팩마다 32 개까지 — 읽지 않았다");
                 } else {
                     sp.info.uiDocuments.emplace_back(f.stem().generic_string(), std::move(*text));
+                }
+            }
+        }
+        // 문자열 표 (v0.7 M4-T1) — 원문만 (검사는 ui/strings — 프로젝트 검사). 로케일 32 개까지, 이름 순
+        if (const fs::path strDir = p.dir / "presentation" / "strings"; fs::is_directory(strDir)) {
+            std::vector<fs::path> files;
+            std::error_code ec;
+            for (fs::directory_iterator it(strDir, ec), end; !ec && it != end; it.increment(ec)) {
+                if (it->is_regular_file(ec) && it->path().extension() == ".json") {
+                    files.push_back(it->path());
+                }
+            }
+            std::sort(files.begin(), files.end());
+            for (const fs::path& f : files) {
+                const std::string display = p.folder + "/presentation/strings/" + f.filename().generic_string();
+                auto text = io::readFile(f);
+                if (!text) {
+                    warn(display, "", "IO", text.error().describe());
+                } else if (sp.info.uiStrings.size() >= ui::kMaxLocales) {
+                    warn(display, "", "U7", "문자열 표는 팩마다 32 개 (로케일) 까지 — 읽지 않았다");
+                } else {
+                    sp.info.uiStrings.emplace_back(f.stem().generic_string(), std::move(*text));
                 }
             }
         }

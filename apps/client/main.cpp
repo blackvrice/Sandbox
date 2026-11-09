@@ -27,6 +27,7 @@
 #include "foundation/log/Log.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
+#include "platform/common/Platform.hpp"
 #include "platform/crash/CrashHandler.hpp"
 #include "render/asset/MaterialLibrary.hpp"
 #include "render/rhi/RenderDevice.hpp"
@@ -287,6 +288,10 @@ int main(int argc, char** argv) {
     cfg.uiRendered = uiRendered;
     cfg.notices = std::move(notices);
     cfg.lateFeed = lateFeed;
+    // 문자열 표의 로케일 (v0.7 M4-T1) — --locale → client.json locale (안전 모드면 없음) → OS
+    cfg.locale = !opts->locale.empty()           ? opts->locale
+                 : !user.settings.locale.empty() ? user.settings.locale
+                                                 : sbx::platform::userLocale();
     if (opts->world) {
         cfg.saveName = saveDefaults.saveName; // 게임 프로젝트면 시작 월드 — Ctrl+S 가 편집한 맵을 게임에 (M1-T5)
     }

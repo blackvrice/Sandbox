@@ -363,6 +363,9 @@ struct PackInfo {
     // styles.json 은 따로. 검사는 ui/model (프로젝트 검사가 부른다), 클라 전용 — contentHash 밖
     std::vector<std::pair<std::string, std::string>> uiDocuments;
     std::string uiStyles;
+    // presentation/strings/<로케일>.json 원문 (v0.7 M4-T1 — 문자열 표, ADR-0083): (파일 이름 — .json 앞, 텍스트) 이름
+    // 순, 32 개까지. 검사는 ui/strings (프로젝트 검사), 클라 전용 — contentHash 밖
+    std::vector<std::pair<std::string, std::string>> uiStrings;
     // presentation/** 전부의 지문 (FNV-1a64 — 상대 경로 순, "경로\0크기\0바이트") — 표시 digest 의 재료 (v0.6 NG-14).
     // 없으면 0. contentHash 와 따로: 그림 · 키 · 머티리얼이 달라도 시뮬레이션은 같다
     u64 presentationDigest = 0;

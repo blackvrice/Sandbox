@@ -9,6 +9,7 @@
 
 #include "foundation/io/FileIo.hpp"
 #include "ui/layout/UiLayout.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 using namespace sbx;
 using namespace sbx::ui;
@@ -31,6 +32,25 @@ std::vector<UiRect> rects(const std::vector<UiLayoutNode>& nodes) {
 }
 
 const FixedTextMeasure kMeasure;
+
+// 데모 (samples/rabbit_guard) 의 ko 문자열 표 — HUD 의 "@<키>" 를 표의 글 (인자 자리 그대로) 로 잰다 (v0.7 M4-T1)
+const StringTable& demoKo() {
+    static const StringTable table = [] {
+        StringTable t;
+        const std::filesystem::path dir =
+            std::filesystem::path(SBX_SAMPLES_DIR) / "rabbit_guard/content/ecosystem/presentation/strings";
+        t.addPack({{"ko", parseStringTable(*io::readFile(dir / "ko.json"), "eco").entries}});
+        t.setLocale("ko");
+        return t;
+    }();
+    return table;
+}
+
+UiLayoutOptions demoOptions(f32 scale, const UiStyleTable* styles) {
+    UiLayoutOptions o{.width = 1280, .height = 720, .scale = scale, .styles = styles};
+    o.textOf = [](const UiNode& n, i32) { return resolveText(n.text, &demoKo()); };
+    return o;
+}
 
 constexpr std::string_view kBar =
     R"({"kind": "panel", "anchor": {"min": [0, 0], "max": [1, 0]}, "offset": [8, 8, -8, 48],
@@ -142,8 +162,7 @@ TEST_SUITE("ui") {
         REQUIRE(styles.ok());
         const UiParseResult hud = parseUiDocument("hud", *io::readFile(ui / "hud.json"), UiCheckContext{"eco"});
         REQUIRE(hud.ok());
-        const auto nodes =
-            layoutDocument(*hud.document, {.width = 1280, .height = 720, .styles = &styles.styles}, kMeasure);
+        const auto nodes = layoutDocument(*hud.document, demoOptions(1, &styles.styles), kMeasure);
         // 띠 (eco.bar 여백 4) → 그림 24 · 점수 글자 15 자 · 기운 160 × 16 · 버튼 둘 (eco.button 글꼴 14 · 여백 6) · "?"
         // · 도움말 27 자
         CHECK(rects(nodes) == std::vector<UiRect>{{8, 8, 1264, 40},
@@ -164,8 +183,7 @@ TEST_SUITE("ui") {
         REQUIRE(styles.ok());
         const UiParseResult hud = parseUiDocument("hud", *io::readFile(ui / "hud.json"), UiCheckContext{"eco"});
         REQUIRE(hud.ok());
-        const auto nodes = layoutDocument(
-            *hud.document, {.width = 1280, .height = 720, .scale = 2, .styles = &styles.styles}, kMeasure);
+        const auto nodes = layoutDocument(*hud.document, demoOptions(2, &styles.styles), kMeasure);
         // 띠 16 ~ 1264 · 높이 80 (여백 8) → 내용 24 ~ 88 (64). 버튼: 글꼴 28 · 여백 12 — 높이 35 + 24 = 59, 위 24 + 2.5
         // = 26.5 → 27
         CHECK(rects(nodes) == std::vector<UiRect>{{16, 16, 1248, 80},

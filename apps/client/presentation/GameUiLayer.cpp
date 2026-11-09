@@ -7,7 +7,7 @@ namespace sbx::client {
 void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
     std::string signature;
     if (info) {
-        for (const auto* list : {&info->styles, &info->documents}) {
+        for (const auto* list : {&info->styles, &info->documents, &info->strings}) {
             for (const GameUiSource& s : *list) {
                 signature += s.pack + '\0' + s.stem + '\0' + s.text + '\0';
             }
@@ -21,6 +21,7 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
     m_themes.clear();
     m_theme.clear();
     m_styles.clear();
+    m_strings.clear();
     m_docs.clear();
     m_visible.clear();
     m_hidden.clear();
@@ -39,6 +40,25 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
         }
     }
     m_styles = m_baseStyles;
+    // 문자열 표 — 팩마다 모아서 (팩의 기본 표는 그 팩의 표들로 정한다). 원문은 팩 차례 · 로케일 이름 순
+    for (usize i = 0; i < info->strings.size();) {
+        const std::string& pack = info->strings[i].pack;
+        ui::LocaleTables tables;
+        for (; i < info->strings.size() && info->strings[i].pack == pack; ++i) {
+            const GameUiSource& s = info->strings[i];
+            ui::StringTableResult st = ui::parseStringTable(s.text, s.pack);
+            if (!st.ok()) {
+                const std::string why = st.issues.empty() ? std::string() : st.issues.front().message;
+                m_warnings.push_back(std::format(
+                    "문자열 표 {}/presentation/strings/{}.json 에 문제가 있다 — {} (sbx check)", s.pack, s.stem, why));
+            }
+            const std::string locale = ui::normalizeLocale(s.stem);
+            if (!locale.empty()) {
+                tables.emplace_back(locale, std::move(st.entries));
+            }
+        }
+        m_strings.addPack(tables);
+    }
     for (const GameUiSource& s : info->documents) {
         ui::UiParseResult parsed = ui::parseUiDocument(s.stem, s.text, ui::UiCheckContext{s.pack});
         if (!parsed.document) {
@@ -59,7 +79,7 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
         const ui::UiDocument& d = m_docs[i];
         m_scale = scale;
         ui::UiLayoutOptions o{.width = width, .height = height, .scale = scale, .styles = &m_styles};
-        o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
+        o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data, &m_strings); };
         o.listCount = [this](const ui::UiNode& n) { return ui::listCountOf(n, m_data); };
         o.hidden = [this, &d](const ui::UiNode& n) { return !n.id.empty() && nodeHidden(d.id, n.id); };
         // 숨긴 문서는 배치하지 않는다 (라우팅 · 그리기 모두 건너뛴다)
@@ -90,7 +110,7 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
 
 void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
     ui::UiDrawOptions o{.styles = &m_styles, .pressed = m_pressed, .pressedIndex = m_pressedIndex, .scale = m_scale};
-    o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data); };
+    o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data, &m_strings); };
     o.progressOf = [this](const ui::UiNode& n, i32) { return ui::progressOf(n, m_data); };
     for (const ui::UiDocumentLayout& l : m_layouts) {
         if (l.visible) {
@@ -158,6 +178,9 @@ bool GameUiLayer::nodeHidden(std::string_view documentId, std::string_view nodeI
 std::vector<std::string> GameUiLayer::takeWarnings() {
     std::vector<std::string> out;
     out.swap(m_warnings);
+    for (const std::string& key : m_strings.takeMissing()) {
+        out.push_back(std::format("문자열 키 '{}' 가 어느 표에도 없다 — 키를 그대로 보인다 (sbx check)", key));
+    }
     return out;
 }
 

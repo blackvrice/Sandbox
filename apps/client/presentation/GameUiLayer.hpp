@@ -6,8 +6,9 @@
 //
 // 이벤트: 버튼 위에서 왼쪽 단추를 누른 프레임에. signal · action 은 앱이 명령으로 (서버가 판정), ui 는 여기서 (show ·
 // hide · toggle — "<문서>" 는 문서, "<문서>.<노드>" 는 노드. 숨긴 노드는 자리도 차지하지 않는다). 글자 · progress ·
-// list 수: ui/binding (M3-T4) — 데이터는 setData (세션의 복제 월드 · 게임 세션 · var). 검사: 문서의 모양이 틀리면 (U1 ·
-// U3 · U7) 그 문서를 건너뛰고 경고 한 번 — 규칙 검사는 sbx check 의 몫
+// list 수: ui/binding (M3-T4) — 데이터는 setData (세션의 복제 월드 · 게임 세션 · var). 글자 "@<키>" 는 팩 문자열 표
+// (v0.7 M4-T1 — ui/strings, 로케일은 setLocale). 검사: 문서 · 표의 모양이 틀리면 (U1 · U3 · U7) 그것을 건너뛰고 경고
+// 한 번, 표에 없는 키도 경고 한 번 — 규칙 검사는 sbx check 의 몫
 
 #include <map>
 #include <set>
@@ -40,6 +41,10 @@ public:
     // 지금 테마 (v0.7 M3-T6 — 비면 없음). 없는 테마 이름이면 false (그대로)
     bool setTheme(std::string_view theme);
     [[nodiscard]] const std::string& theme() const noexcept { return m_theme; }
+    // 사용자 로케일 (v0.7 M4-T1 — "ko" · "en-US" …, 꼴이 아니면 팩의 기본 표만). 다음 배치부터
+    void setLocale(std::string_view locale) { m_strings.setLocale(locale); }
+    [[nodiscard]] const std::string& locale() const noexcept { return m_strings.locale(); }
+    [[nodiscard]] const ui::StringTable& strings() const noexcept { return m_strings; }
     [[nodiscard]] usize documentCount() const noexcept { return m_docs.size(); }
     [[nodiscard]] bool documentVisible(std::string_view id) const;
     [[nodiscard]] bool nodeHidden(std::string_view documentId, std::string_view nodeId) const;
@@ -54,6 +59,7 @@ private:
     std::map<std::string, ui::UiTheme, std::less<>> m_themes; // 팩 테마
     std::string m_theme;                                      // 지금 테마 (비면 없음)
     ui::UiStyleTable m_styles;                                // 테마를 씌운 것 — 배치 · 그리기가 쓴다
+    ui::StringTable m_strings;                                // 팩 문자열 표 (로케일은 setSources 를 지나도 남는다)
     f32 m_scale = 1;
     std::vector<ui::UiDocument> m_docs;
     std::vector<bool> m_visible;

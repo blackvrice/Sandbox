@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "foundation/io/FileIo.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::client {
 
@@ -77,6 +78,12 @@ ClientSettingsParse parseClientSettings(std::string_view jsonText) {
                 continue;
             }
             r.settings.updateFeed = v.get<std::string>();
+        } else if (key == "locale") {
+            if (!v.is_string() || ui::normalizeLocale(v.get<std::string>()).empty()) {
+                r.errors.emplace_back("locale 은 BCP 47 로케일 문자열 (ko · en · en-US …)");
+                continue;
+            }
+            r.settings.locale = v.get<std::string>();
         } else {
             r.warnings.push_back(std::format("모르는 키 '{}' 는 건너뛴다", key));
         }

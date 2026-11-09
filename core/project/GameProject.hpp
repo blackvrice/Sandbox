@@ -116,6 +116,8 @@ struct ProjectReport {
     usize exportProfiles = 0;     // 오류 없는 export/<이름>.json (v0.6 NG-08 — 문제는 P10)
     usize uiDocuments = 0;        // 모양이 맞는 게임 UI 문서 (v0.7 M3-T1 — 팩 presentation/ui, 문제는 U1 ~ U8)
     usize uiNodes = 0;
+    usize uiLocales = 0; // 문자열 표의 로케일 (팩 사이 합친 것 — v0.7 M4-T1, presentation/strings)
+    usize uiStrings = 0; // 문자열 키 (팩 사이 합)
 
     [[nodiscard]] bool ok() const noexcept;
     [[nodiscard]] usize errorCount() const noexcept;

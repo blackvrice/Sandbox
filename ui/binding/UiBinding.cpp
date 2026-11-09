@@ -68,22 +68,17 @@ UiScalar evaluate(const UiValue& value, const IUiDataSource* source) {
     return source != nullptr ? evaluate(value.bind, *source) : UiScalar{};
 }
 
-std::string formatText(const UiNode& node, const IUiDataSource* source) {
-    const std::string& t = node.text;
-    std::string out;
-    out.reserve(t.size());
-    for (usize i = 0; i < t.size(); ++i) {
-        if (t[i] == '{' && i + 2 < t.size() && t[i + 1] >= '0' && t[i + 1] <= '9' && t[i + 2] == '}') {
-            const usize index = static_cast<usize>(t[i + 1] - '0');
-            if (index < node.args.size()) {
-                out += evaluate(node.args[index], source).display();
-            }
-            i += 2;
-            continue;
-        }
-        out += t[i];
+std::string formatText(const UiNode& node, const IUiDataSource* source, const StringTable* strings) {
+    const std::string pattern = resolveText(node.text, strings);
+    if (node.args.empty()) {
+        return formatString(pattern, {});
     }
-    return out;
+    std::vector<std::string> args;
+    args.reserve(node.args.size());
+    for (const UiValue& a : node.args) {
+        args.push_back(evaluate(a, source).display());
+    }
+    return formatString(pattern, args);
 }
 
 f32 progressOf(const UiNode& node, const IUiDataSource* source) {

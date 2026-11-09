@@ -9,6 +9,7 @@
 #include "foundation/io/FileIo.hpp"
 #include "network/protocol/Messages.hpp"
 #include "render/rhi/RenderDevice.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::client {
 namespace {
@@ -222,6 +223,16 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return std::unexpected(v.error());
             }
             opts.updateFeed = std::string(*v);
+        } else if (a == "--locale") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            if (ui::normalizeLocale(*v).empty()) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 std::format("--locale 은 BCP 47 로케일 (ko · en · en-US …): '{}'", *v));
+            }
+            opts.locale = std::string(*v);
         } else if (a == "--input") {
             auto v = value();
             if (!v) {
@@ -259,6 +270,8 @@ std::string clientUsage() {
            "                         캐시를 쓰지 않고 시작 (설정 폴더: SBX_CONFIG_DIR · %APPDATA%\\sandbox · XDG, "
            "v0.5)\n"
            "      --update-feed <f>  릴리스 피드 파일 (GitHub Releases JSON) — 새 버전이면 알림만 (v0.5)\n"
+           "      --locale <로케일>  게임 UI 문자열 표의 로케일 (ko · en · en-US … — 기본: client.json locale → OS, "
+           "v0.7)\n"
            "      --frames <n>       n 프레임 뒤 끝낸다\n"
            "      --fps <hz>         프레임 페이싱 (기본: 렌더러 없는 창 60, 렌더러·--headless 0 = 페이싱 없음)\n"
            "      --width <w>        창 너비 (논리 단위, 기본 1600)\n"

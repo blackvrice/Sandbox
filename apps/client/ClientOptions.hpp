@@ -27,6 +27,7 @@ struct ClientOptions {
     bool crashTest = false;    // --crash-test: 충돌 처리기를 단 뒤 일부러 충돌 (v0.5 M1-T1 — 보고 묶음 시험)
     bool safeMode = false;     // --safe-mode: 사용자 설정 · 키 설정 · UI 배율 · 패키지 캐시 없이 (v0.5 M1-T3)
     std::string updateFeed;    // --update-feed <파일>: 릴리스 피드 (client.json updateFeed 보다 먼저 — v0.5 M1-T3)
+    std::string locale;        // --locale <BCP 47>: 게임 UI 문자열 표 (client.json locale · OS 보다 먼저 — v0.7 M4-T1)
     std::optional<u64> frames; // 이만큼 돌고 끝 (없으면 창을 닫을 때까지)
     std::optional<double> fps; // 프레임 페이싱 Hz. 0 = 페이싱 없음. 기본: 창 60, --headless 0
     std::string inputFile;     // 기본 바인딩 위에 덮어쓸 settings/input.json

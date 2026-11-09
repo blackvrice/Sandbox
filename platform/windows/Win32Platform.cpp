@@ -19,6 +19,14 @@ std::string_view windowBackendName() noexcept {
     return "Win32";
 }
 
+std::string userLocale() {
+    wchar_t name[LOCALE_NAME_MAX_LENGTH] = {};
+    if (GetUserDefaultLocaleName(name, LOCALE_NAME_MAX_LENGTH) > 0) {
+        return win32::narrow(name);
+    }
+    return localeFromEnvironment();
+}
+
 bool attachConsole() noexcept {
     // 출력이 이미 파이프·파일·콘솔로 연결돼 있으면(CTest, CLion 실행 창, 리디렉션) 그대로 둔다
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);

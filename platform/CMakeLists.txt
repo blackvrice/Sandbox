@@ -16,6 +16,7 @@ add_library(SandboxPlatform STATIC
     common/Audio.hpp
     common/Platform.hpp
     common/FramePacer.cpp
+    common/Locale.cpp
     audio/NullAudioBackend.hpp
     audio/NullAudioBackend.cpp
     # 순수 표 — 모든 OS 에서 컴파일해 단위 테스트가 확인한다 (windows.h · Xlib.h · AppKit 을 쓰지 않는다)

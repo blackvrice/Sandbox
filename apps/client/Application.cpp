@@ -134,6 +134,7 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     if (!m_config.saveName.empty()) {
         m_worldPanel.name = m_config.saveName;
     }
+    m_gameUi.setLocale(m_config.locale);
     m_ids.quit = m_actionMap.find("app.quit");
     m_ids.textInput = m_actionMap.find("debug.text_input");
     m_ids.captureMouse = m_actionMap.find("debug.capture_mouse");

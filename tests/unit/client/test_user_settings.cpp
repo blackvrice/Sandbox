@@ -12,6 +12,8 @@
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/UserSettings.hpp"
 #include "foundation/io/FileIo.hpp"
+#include "platform/common/Platform.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 using namespace sbx;
 using namespace sbx::client;
@@ -221,5 +223,30 @@ TEST_SUITE("client") {
         CHECK(o->updateFeed == "feed.json");
         const std::vector<std::string_view> missing{"--update-feed"};
         CHECK_FALSE(parseClientOptions(missing).has_value());
+    }
+    TEST_CASE(
+        "로케일 (v0.7 M4-T1): client.json locale · --locale (BCP 47 — 꼴이 아니면 오류), OS 로케일은 맞출 수 있는 꼴") {
+        ClientSettingsParse p = parseClientSettings(R"({"locale": "en-US"})");
+        CHECK(p.errors.empty());
+        CHECK(p.settings.locale == "en-US");
+        CHECK(parseClientSettings("{}").settings.locale.empty());
+        CHECK(parseClientSettings(R"({"locale": "english"})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"locale": 1})").errors.size() == 1);
+
+        const std::vector<std::string_view> args{"--headless", "--locale", "ko"};
+        const auto o = parseClientOptions(args);
+        REQUIRE(o.has_value());
+        CHECK(o->locale == "ko");
+        CHECK(parseClientOptions({}).value().locale.empty());
+        const std::vector<std::string_view> bad{"--locale", "C"};
+        CHECK_FALSE(parseClientOptions(bad).has_value());
+        const std::vector<std::string_view> missing{"--locale"};
+        CHECK_FALSE(parseClientOptions(missing).has_value());
+
+        // OS 로케일 — 모르면 빈 글자, 알면 맞출 수 있다 (Windows "ko-KR" · POSIX "ko_KR.UTF-8")
+        const std::string os = platform::userLocale();
+        CHECK_MESSAGE((os.empty() || !ui::normalizeLocale(os).empty()), os);
+        const std::string env = platform::localeFromEnvironment();
+        CHECK((env.empty() || (env != "C" && env != "POSIX")));
     }
 }

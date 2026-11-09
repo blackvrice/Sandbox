@@ -13,6 +13,7 @@
 #include <string_view>
 
 #include "ui/model/UiDocument.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::ui {
 
@@ -49,8 +50,10 @@ public:
 [[nodiscard]] UiScalar evaluate(std::string_view bind, const IUiDataSource& source);
 [[nodiscard]] UiScalar evaluate(const UiValue& value, const IUiDataSource* source); // 고정 수 또는 바인딩
 
-// node.text 의 "{0}" ~ "{9}" 를 args 의 값으로 (없는 인자는 빈 글자, 모르는 값은 "-"). source 가 없으면 바인딩은 "-"
-[[nodiscard]] std::string formatText(const UiNode& node, const IUiDataSource* source);
+// node.text 의 "{0}" ~ "{9}" 를 args 의 값으로 (없는 인자는 빈 글자, 모르는 값은 "-"). source 가 없으면 바인딩은 "-".
+// text 가 "@<키>" 면 먼저 문자열 표의 글로 바꾼다 (v0.7 M4-T1 — 표가 없으면 키 그대로, "@@…" 는 "@…")
+[[nodiscard]] std::string formatText(const UiNode& node, const IUiDataSource* source,
+                                     const StringTable* strings = nullptr);
 // progress 의 채움 value / max (0 ~ 1 로 자름, max ≤ 0 · 모르는 값 = 0)
 [[nodiscard]] f32 progressOf(const UiNode& node, const IUiDataSource* source);
 // list 의 항목 수 — items 바인딩의 수 (0 ~ 256 으로 자름, 모르면 0)

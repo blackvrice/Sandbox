@@ -7,13 +7,13 @@
     "style": "eco.bar", "stack": "row", "gap": 8, "padding": 4, "align": "center",
     "children": [
       { "kind": "image", "material": "eco/rabbit", "size": [24, 24] },
-      { "kind": "text", "id": "score", "text": "토끼 {0} · 점수 {1}", "args": [{ "bind": "var:eco.rabbits" }, { "bind": "session:score[0]" }] },
+      { "kind": "text", "id": "score", "text": "@eco.hud.score", "args": [{ "bind": "var:eco.rabbits" }, { "bind": "session:score[0]" }] },
       { "kind": "progress", "id": "energy", "value": { "bind": "component:life.energy.value@selected" },
         "max": { "bind": "component:life.energy.max@selected" }, "size": [160, 16], "style": "eco.meter" },
-      { "kind": "button", "id": "feed", "text": "먹이 주기", "style": "eco.button", "on": { "click": { "action": "eco.feed" } } },
-      { "kind": "button", "id": "trap", "text": "덫 놓기", "style": "eco.button", "on": { "click": { "action": "eco.trap" } } },
+      { "kind": "button", "id": "feed", "text": "@eco.hud.feed", "style": "eco.button", "on": { "click": { "action": "eco.feed" } } },
+      { "kind": "button", "id": "trap", "text": "@eco.hud.trap", "style": "eco.button", "on": { "click": { "action": "eco.trap" } } },
       { "kind": "button", "id": "help-toggle", "text": "?", "on": { "click": { "ui": "toggle", "target": "eco.hud.help" } } },
-      { "kind": "text", "id": "help", "text": "토끼를 고르고 먹이를 주세요 — 늑대 옆에는 덫을" }
+      { "kind": "text", "id": "help", "text": "@eco.hud.help" }
     ]
   }
 }

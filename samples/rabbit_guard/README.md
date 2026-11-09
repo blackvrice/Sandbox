@@ -14,6 +14,7 @@
 
 ```text
 SandboxClient --world samples/rabbit_guard              싱글플레이 — "게임" 패널의 시작 → Q · E
+SandboxClient --world samples/rabbit_guard --locale en  HUD 를 영어로 (presentation/strings/en.json — v0.7, 기본은 OS 로케일)
 SandboxServer --world samples/rabbit_guard              서버 (Lobby — admin 이 "게임" 패널에서 시작)
 sbx build samples/rabbit_guard                          게임 패키지 (samples/rabbit_guard/build/…sbpkg)
 ```

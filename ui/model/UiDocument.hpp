@@ -141,6 +141,9 @@ struct UiStylesResult {
 [[nodiscard]] UiStyleTable applyTheme(const UiStyleTable& styles, const UiTheme* theme);
 inline constexpr std::string_view kNoTheme = "none"; // ui theme 이벤트의 "테마 없음"
 
+// "<팩>.<이름>" 모양 (id 글자 · 점 하나 이상 · 64 바이트까지) — 문서 · 스타일 · 테마 · 문자열 키가 같은 규칙
+[[nodiscard]] bool isUiKey(std::string_view s);
+
 // 바인딩 식 하나 — 문제면 그 이유 (U4). componentFields 가 있으면 칸도 본다
 [[nodiscard]] std::optional<std::string> checkBinding(std::string_view bind,
                                                       const std::set<std::string, std::less<>>* componentFields);
