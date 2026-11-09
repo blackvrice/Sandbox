@@ -44,6 +44,14 @@ i32 roundPx(f32 v) {
     return static_cast<i32>(std::floor(v + 0.5f));
 }
 
+// 고른 번호 — 반올림, 범위 밖 · NaN 이면 -1
+i32 indexOf(f32 value, usize count) {
+    if (!(value > -0.5f) || !(value < static_cast<f32>(count) - 0.5f)) {
+        return -1;
+    }
+    return roundPx(value);
+}
+
 // 글자 칸 (v0.7 NG-06 (2)): 상자 · 테두리 → 글자 영역 (상자 안 여백) 에 줄마다. 포커스면 캐럿이 보이게 민다 — 세로는
 // 캐럿 줄이 마지막 보이는 줄이 되게, 가로는 캐럿 x 가 영역의 오른 끝 안에 들게 (모든 줄을 같은 만큼)
 void drawTextInput(const UiLayoutNode& ln, const UiDrawOptions& options, IUiRenderer& renderer, bool off, bool focus,
@@ -119,6 +127,7 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
         const bool off = options.disabledOf && options.disabledOf(n, ln.listIndex);
         const auto tone = [&](UiColor c) { return off ? dim(c) : c; };
         const auto valueNow = [&] { return options.valueOf ? options.valueOf(n, ln.listIndex) : n.value.number; };
+        const auto option = [&](usize i) { return options.optionOf ? options.optionOf(n, i) : n.options[i]; };
         const i32 pad = static_cast<i32>(ln.padding + 0.5f);
         // overflow wrap 이면 배치가 나눈 줄을 줄마다 (v0.7 M4-T2), 아니면 한 줄
         const auto drawText = [&](i32 inner) {
@@ -222,11 +231,75 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
             drawTextInput(ln, options, renderer, off, options.focused == &n && options.focusedIndex == ln.listIndex,
                           label());
             break;
+        case UiKind::Dropdown: {
+            const UiRect box = inset(ln.rect, pad);
+            renderer.fillRect(box, tone(kControlColor), ln.clip);
+            renderer.strokeRect(box, tone(kFieldBorderColor), options.scale, ln.clip);
+            const UiRect area = inset(box, static_cast<i32>(textInputMargin(ln.fontSize)));
+            const i32 arrowCol = static_cast<i32>(controlBox(ln.fontSize));
+            if (const i32 sel = indexOf(valueNow(), n.options.size()); sel >= 0) {
+                const i32 lineH = static_cast<i32>(std::ceil(ln.lineHeight > 0 ? ln.lineHeight : ln.fontSize * 1.25f));
+                renderer.text({area.x, area.y, std::max(0, area.w - arrowCol), lineH}, option(static_cast<usize>(sel)),
+                              ln.fontSize, tone(kTextColor), intersect(ln.clip, area));
+            }
+            // 화살표 — 오른쪽 칸 가운데의 납작한 사각형 (글꼴에 ▼ 가 없을 수 있다)
+            const i32 aw = std::max(2, arrowCol / 2);
+            const i32 ah = std::max(2, arrowCol / 4);
+            renderer.fillRect({area.x + area.w - arrowCol + (arrowCol - aw) / 2, area.y + (area.h - ah) / 2, aw, ah},
+                              tone(kTextColor), ln.clip);
+            break;
+        }
+        case UiKind::Tabs: {
+            if (style != nullptr && style->color) {
+                renderer.fillRect(ln.rect, *style->color, ln.clip);
+            }
+            border();
+            const i32 sel = indexOf(valueNow(), n.options.size());
+            const i32 margin = static_cast<i32>(textInputMargin(ln.fontSize));
+            const i32 line = std::max(1, static_cast<i32>(2 * options.scale + 0.5f));
+            for (usize i = 0; i < ln.parts.size() && i < n.options.size(); ++i) {
+                const UiRect& part = ln.parts[i];
+                const bool chosen = static_cast<i32>(i) == std::max(0, sel);
+                renderer.fillRect(part, tone(chosen ? brighter(kControlColor) : kControlColor), ln.clip);
+                renderer.text(inset(part, margin), option(i), ln.fontSize, tone(kTextColor), ln.clip);
+                if (chosen) {
+                    renderer.fillRect({part.x, part.y + part.h - line, part.w, line}, tone(kCheckColor), ln.clip);
+                }
+            }
+            break;
+        }
         }
         if (options.focused == &n && options.focusedIndex == ln.listIndex) {
-            renderer.strokeRect(ln.rect, kFocusColor, 2 * options.scale, ln.clip); // 포커스 고리 (v0.7 NG-06 (1))
+            // 포커스 고리 (v0.7 NG-06 (1)) — tabs 는 머리 칸들을 (몸통의 컨트롤과 겹치지 않게)
+            UiRect ring = ln.rect;
+            if (n.kind == UiKind::Tabs && !ln.parts.empty()) {
+                const UiRect& a = ln.parts.front();
+                const UiRect& b = ln.parts.back();
+                ring = {a.x, a.y, b.x + b.w - a.x, a.h};
+            }
+            renderer.strokeRect(ring, kFocusColor, 2 * options.scale, ln.clip);
         }
     }
+}
+
+void drawOptionList(const UiRect& list, const std::vector<std::string>& texts, i32 selected, i32 highlighted,
+                    f32 fontSize, f32 scale, IUiRenderer& renderer) {
+    if (texts.empty() || list.h <= 0) {
+        return;
+    }
+    renderer.fillRect(list, kListColor, list);
+    const i32 row = list.h / static_cast<i32>(texts.size());
+    const i32 margin = static_cast<i32>(textInputMargin(fontSize));
+    for (usize i = 0; i < texts.size(); ++i) {
+        const UiRect r{list.x, list.y + static_cast<i32>(i) * row, list.w, row};
+        if (static_cast<i32>(i) == highlighted) {
+            renderer.fillRect(r, kHighlightColor, list);
+        } else if (static_cast<i32>(i) == selected) {
+            renderer.fillRect(r, brighter(kListColor), list);
+        }
+        renderer.text(inset(r, margin), texts[i], fontSize, kTextColor, list);
+    }
+    renderer.strokeRect(list, kFieldBorderColor, scale, list);
 }
 
 } // namespace sbx::ui

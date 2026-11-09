@@ -67,6 +67,10 @@ struct UiLayoutOptions {
     // 숨긴 노드 (ui hide · toggle — v0.7 M3-T3). 참이면 그 노드와 아래를 배치하지 않는다 (쌓기에서 자리도 차지하지
     // 않는다)
     std::function<bool(const UiNode& node)> hidden{};
+    // 고르기 (v0.7 NG-06 (3)): tabs 의 고른 번호 (없거나 범위 밖이면 0 — 고른 자식만 배치한다), dropdown options ·
+    // tabs labels 의 보이는 글자 (없으면 원문 그대로 — 앱은 "@<키>" 를 푼다)
+    std::function<i32(const UiNode& node, i32 listIndex)> selectedOf{};
+    std::function<std::string(const UiNode& node, usize option)> optionOf{};
 };
 
 struct UiLayoutNode {
@@ -78,7 +82,8 @@ struct UiLayoutNode {
     f32 fontSize = kDefaultFontSize; // 배율을 곱한 값 (text · button)
     f32 padding = 0;                 // 배율을 곱한 안쪽 여백 (panel padding · 스타일 padding 중 큰 쪽)
     std::vector<std::string> lines;  // overflow wrap 이 나눈 줄 (v0.7 M4-T2 — 비면 한 줄, 글자는 textOf)
-    f32 lineHeight = 0;              // 줄 높이 (wrap · textinput)
+    f32 lineHeight = 0;              // 줄 높이 (wrap · textinput · dropdown · tabs)
+    std::vector<UiRect> parts{};     // tabs 의 머리 칸 (labels 차례 — v0.7 NG-06 (3))
 };
 
 inline constexpr f32 kMinFitScale = 0.5f;   // overflow fit — 글꼴을 원래의 절반까지 줄인다
@@ -95,6 +100,15 @@ inline constexpr u32 kTextInputLines = 4;   // multiline textinput 의 기본 �
 [[nodiscard]] inline f32 textInputMargin(f32 fontSize) noexcept {
     return static_cast<f32>(static_cast<i32>(fontSize * 0.25f + 0.5f));
 }
+
+// dropdown 의 열린 목록 (v0.7 NG-06 (3)): 줄 높이 = 닫힌 상자의 높이, 너비 = 상자의 너비. 아래에 놓고, 화면 아래를
+// 넘으면 (위에 자리가 있을 때) 위에
+[[nodiscard]] UiRect optionListRect(const UiRect& control, usize count, i32 screenHeight);
+// 목록 안 (x, y) 의 줄 번호 — 밖이면 -1
+[[nodiscard]] i32 optionAt(const UiRect& list, usize count, i32 x, i32 y);
+
+// tabs 의 고른 번호 (범위 밖 · 콜백 없음 = 0)
+[[nodiscard]] usize selectedTab(const UiNode& tabs, const UiLayoutOptions& options, i32 listIndex);
 
 // 글자를 너비 maxWidth 안의 줄로 (빈칸에서, 한 낱말이 넘치면 코드 포인트마다 — '\n' 은 늘 나눈다). 결정적
 [[nodiscard]] std::vector<std::string> wrapText(std::string_view text, f32 fontSize, f32 maxWidth,

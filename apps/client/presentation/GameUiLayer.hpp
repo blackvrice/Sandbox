@@ -58,6 +58,14 @@ public:
     [[nodiscard]] bool editingText() const;
     [[nodiscard]] usize caret() const noexcept { return m_caret; }
     [[nodiscard]] std::string textValue(const ui::UiNode& n) const; // 글자 칸의 지금 글자 (var — 없으면 빈 칸)
+    // 고르기 (v0.7 NG-06 (3) — ADR-0105): dropdown · tabs 의 고른 번호 (var 를 반올림 — 범위 밖 · 모름 -1), option ·
+    // label 의 보이는 글자 ("@<키>" 는 표의 글), 열린 dropdown 목록 (문서들 위에 그린다)
+    [[nodiscard]] i32 selectedIndex(const ui::UiNode& n) const;
+    [[nodiscard]] std::string optionText(const ui::UiNode& n, usize option) const {
+        return displayName(n.options[option]);
+    }
+    [[nodiscard]] bool listOpen() const noexcept { return m_open != nullptr; }
+    [[nodiscard]] i32 highlighted() const noexcept { return m_highlight; }
     [[nodiscard]] const ui::UiNode* focused() const noexcept { return m_focus; }
     void apply(const ui::UiAction& action); // ui show · hide · toggle · theme
     // 지금 테마 (v0.7 M3-T6 — 비면 없음). 없는 테마 이름이면 false (그대로)
@@ -99,8 +107,12 @@ private:
     // 입력 컨트롤 (v0.7 NG-06 (1))
     [[nodiscard]] bool disabled(const ui::UiNode& n) const;
     [[nodiscard]] f32 controlValue(const ui::UiNode& n) const;
-    void setControlValue(const ui::UiNode& n, f32 value);                  // var 에 쓴다 (checkbox · toggle 은 참거짓)
-    void press(const ui::UiLayoutNode& n, std::vector<ui::UiAction>& out); // 클릭 · Activate 의 같은 길
+    void setControlValue(const ui::UiNode& n, f32 value); // var 에 쓴다 (checkbox · toggle 은 참거짓)
+    void press(const ui::UiLayoutNode& n, usize document, std::vector<ui::UiAction>& out); // 클릭 · Activate 의 같은 길
+    void select(const ui::UiNode& n, i32 index, std::vector<ui::UiAction>& out);           // 바뀌면 var · on.change
+    bool choiceKey(const ui::UiLayoutNode& l, usize document, ui::UiKey key, std::vector<ui::UiAction>& out);
+    void openList(const ui::UiLayoutNode& l, usize document);
+    void closeList() noexcept { m_open = nullptr; }
     void sliderTo(const ui::UiNode& n, const ui::UiRect& rect, i32 x);
     void emitChange(const ui::UiNode& n, std::vector<ui::UiAction>& out) const;
     void setTextValue(const ui::UiNode& n, std::string value);
@@ -114,6 +126,11 @@ private:
     i32 m_focusIndex = -1;
     const ui::UiNode* m_drag = nullptr; // 끌고 있는 slider
     i32 m_dragIndex = -1;
+    const ui::UiNode* m_open = nullptr; // 목록이 열린 dropdown (v0.7 NG-06 (3))
+    i32 m_openIndex = -1;
+    usize m_openDocument = 0;
+    i32 m_highlight = -1;    // 열린 목록의 가리킨 줄
+    i32 m_height = 0;        // 배치한 화면 높이 (목록을 위 · 아래 어디에 놓나)
     usize m_caret = 0;       // 글자 칸의 캐럿 (코드 포인트 위치 — v0.7 NG-06 (2))
     std::string m_editStart; // 포커스를 받을 때의 글자 — 떠날 때 다르면 보낸다
 };

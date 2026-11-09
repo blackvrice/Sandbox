@@ -12,6 +12,8 @@
 //   포커스는 테두리 고리
 //   textinput      상자 + 글자 (줄마다 — '\n' 으로만 나눈다, 감싸지 않는다), 비면 placeholder 를 흐리게. 포커스면 캐럿
 //                  (깜빡이지 않는다 — 결정적) 이 보이게 가로 · 세로로 민다 (캐럿 줄이 넘치면) (v0.7 NG-06 (2))
+//   dropdown       상자 + 고른 option + 오른쪽 화살표 (v0.7 NG-06 (3)) — 열린 목록은 drawOptionList (문서들 위에)
+//   tabs           머리 칸마다 바탕 (고른 칸은 밝게 + 밑줄) + label, 몸통은 고른 자식 (배치가 그것만 놓았다)
 // 모든 호출에 clip (UiLayoutNode.clip) — 넘친 부분은 백엔드가 자른다
 
 #include <functional>
@@ -43,6 +45,8 @@ inline constexpr UiColor kCheckColor{110, 170, 230, 255};       // 켬 · 채움
 inline constexpr UiColor kFocusColor{250, 210, 90, 255};        // 포커스 고리
 inline constexpr UiColor kFieldBorderColor{120, 120, 132, 255}; // 글자 칸 테두리
 inline constexpr UiColor kPlaceholderColor{140, 140, 150, 255}; // 빈 글자 칸의 안내 글
+inline constexpr UiColor kListColor{38, 38, 44, 245};           // 열린 목록 바탕
+inline constexpr UiColor kHighlightColor{80, 110, 150, 255};    // 목록의 가리킨 줄
 
 struct UiDrawOptions {
     const std::map<std::string, UiStyle, std::less<>>* styles = nullptr;
@@ -65,9 +69,15 @@ struct UiDrawOptions {
     std::function<std::string(const UiNode& node, i32 listIndex)> textValueOf{};
     usize caret = 0;
     const ITextMeasure* measure = nullptr;
+    // dropdown options · tabs labels 의 보이는 글자 (v0.7 NG-06 (3) — 없으면 원문). 고른 번호는 valueOf (반올림)
+    std::function<std::string(const UiNode& node, usize option)> optionOf{};
 };
 
 // 배치 결과를 차례대로 그린다 (부모 먼저 — 자식이 위에)
 void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& options, IUiRenderer& renderer);
+
+// dropdown 의 열린 목록 (v0.7 NG-06 (3)) — list = optionListRect, 줄마다 바탕 (가리킨 줄 · 고른 줄) + 글자. 자름 = 목록
+void drawOptionList(const UiRect& list, const std::vector<std::string>& texts, i32 selected, i32 highlighted,
+                    f32 fontSize, f32 scale, IUiRenderer& renderer);
 
 } // namespace sbx::ui

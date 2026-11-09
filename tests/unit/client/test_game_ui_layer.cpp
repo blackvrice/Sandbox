@@ -1008,4 +1008,153 @@ export default defineSystem({
         CHECK_FALSE(window.textInputActive());
         CHECK(serverLogs().size() == 1); // 보낸 뒤 바뀌지 않았다
     }
+    TEST_CASE("game ui layer (v0.7 NG-06 (3)): dropdown — 누르면 목록 (문서들 위), 목록 위 포인터는 잡고 가리킨 줄, "
+              "누르면 고르기 (var · 신호 = 번호), 자신 · 밖을 누르면 닫기, 키 (Enter 열기 · 위아래 · Enter 고르기 · "
+              "Esc 닫기 · "
+              "왼 · 오른 한 칸). tabs — 머리 칸 누르기 · 왼 · 오른, 고른 자식만 배치") {
+        class Vars final : public ui::IUiDataSource {
+        public:
+            std::map<std::string, ui::UiScalar, std::less<>> values;
+            ui::UiScalar var(std::string_view key) const override {
+                const auto it = values.find(key);
+                return it == values.end() ? ui::UiScalar{} : it->second;
+            }
+            ui::UiScalar session(std::string_view) const override { return {}; }
+            ui::UiScalar component(std::string_view, ui::UiTarget) const override { return {}; }
+        } vars;
+        GameUiInfo info;
+        info.documents.push_back(
+            {"eco", "hud", R"({"id": "eco.hud", "root": {"kind": "panel", "stack": "row", "gap": 20, "children": [
+            {"kind": "dropdown", "id": "size", "value": {"bind": "var:eco.size"}, "options": ["작게", "보통", "아주 크게"],
+             "on": {"change": {"signal": "eco.size"}}},
+            {"kind": "tabs", "id": "tabs", "value": {"bind": "var:eco.tab"}, "labels": ["가", "나다"],
+             "on": {"change": {"signal": "eco.tab"}},
+             "children": [{"kind": "text", "id": "pa", "text": "A"}, {"kind": "text", "id": "pb", "text": "BBBB"}]}]}})"});
+        info.documents.push_back(
+            {"eco", "menu",
+             R"({"id": "eco.menu", "layer": "menu", "root": {"kind": "panel", "anchor": {"min": [0, 1], "max": [0, 1]},
+            "offset": [0, -40, 0, 0], "children": [
+            {"kind": "dropdown", "id": "q", "value": {"bind": "var:eco.q"}, "options": ["lo", "mid", "hi"],
+             "on": {"change": {"signal": "eco.q"}}}]}})"});
+        GameUiLayer layer;
+        layer.setSources(info);
+        REQUIRE(layer.documentCount() == 2);
+        layer.setData(&vars);
+        layer.setVarWriter(
+            [&](std::string_view key, const ui::UiScalar& v) { vars.values.insert_or_assign(std::string(key), v); });
+        const ui::FixedTextMeasure measure;
+        layer.layout(800, 600, 1.0f, measure);
+        const auto press = [&](i32 x, i32 y) {
+            std::vector<ui::UiAction> ev;
+            (void)layer.route(x, y, false, true, true, ev);
+            (void)layer.route(x, y, false, false, false, ev);
+            return ev;
+        };
+        const auto clickId = [&](std::string_view id) {
+            const auto [x, y] = centerOf(*find(layer, id));
+            return press(x, y);
+        };
+
+        // hud dropdown — 누르면 열린다 (포커스는 아니다), 목록 = 상자 아래 {0, 28, 68, 84}
+        const ui::UiLayoutNode* size = find(layer, "size");
+        REQUIRE(size != nullptr);
+        CHECK(size->rect == ui::UiRect{0, 0, 68, 28});
+        CHECK(clickId("size").empty());
+        CHECK(layer.listOpen());
+        CHECK_FALSE(layer.hasFocus());
+        CountingRenderer drawn;
+        layer.draw(drawn);
+        CHECK(drawn.fills > 0);
+        std::vector<ui::UiAction> ev;
+        const ui::UiPointerRoute over = layer.route(34, 98, false, false, false, ev); // 셋째 줄 위
+        CHECK(over.captured);
+        CHECK(over.owner == ui::UiPointerRoute::Owner::Hud);
+        CHECK(layer.highlighted() == 2);
+        ev = press(34, 98);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].target == "eco.size");
+        CHECK(ev[0].value == 2);
+        CHECK(vars.values.at("eco.size").number == 2.0);
+        CHECK_FALSE(layer.listOpen());
+        CHECK(layer.selectedIndex(*size->node) == 2);
+        // 다시 열고 자신을 누르면 닫기만, 밖을 누르면 닫기만 (고르지 않는다)
+        (void)clickId("size");
+        CHECK(layer.listOpen());
+        CHECK(layer.highlighted() == 2); // 고른 줄부터
+        CHECK(clickId("size").empty());
+        CHECK_FALSE(layer.listOpen());
+        (void)clickId("size");
+        CHECK(press(700, 300).empty());
+        CHECK_FALSE(layer.listOpen());
+        // 같은 줄을 다시 고르면 신호 없음
+        (void)clickId("size");
+        CHECK(press(34, 98).empty());
+
+        // tabs — 머리 칸 누르기 (나다 → 1), 고른 자식만 배치
+        const ui::UiLayoutNode* tabs = find(layer, "tabs");
+        REQUIRE(tabs != nullptr);
+        REQUIRE(tabs->parts.size() == 2);
+        CHECK(find(layer, "pa") != nullptr);
+        CHECK(find(layer, "pb") == nullptr);
+        const ui::UiRect head = tabs->parts[1];
+        ev = press(head.x + 2, head.y + 2);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].target == "eco.tab");
+        CHECK(ev[0].value == 1);
+        layer.layout(800, 600, 1.0f, measure);
+        CHECK(find(layer, "pa") == nullptr);
+        CHECK(find(layer, "pb") != nullptr);
+        CHECK(press(head.x + 2, head.y + 2).empty()); // 이미 고른 칸
+
+        // menu dropdown — 누르면 포커스 + 목록, 키: 아래 · Enter 고르기, Enter 열기 · Esc 닫기 (포커스는 남음) · Esc
+        // 놓기
+        (void)clickId("q");
+        REQUIRE(layer.hasFocus());
+        CHECK(layer.focused()->id == "q");
+        CHECK(layer.listOpen());
+        CHECK(layer.highlighted() == 0); // 모르는 값 — 첫 줄
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Down, ev));
+        CHECK(layer.key(ui::UiKey::Down, ev));
+        CHECK(layer.key(ui::UiKey::Down, ev)); // 끝에서 멈춘다
+        CHECK(layer.highlighted() == 2);
+        CHECK(layer.key(ui::UiKey::Up, ev));
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].target == "eco.q");
+        CHECK(ev[0].value == 1);
+        CHECK_FALSE(layer.listOpen());
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        CHECK(layer.listOpen());
+        CHECK(layer.key(ui::UiKey::Release, ev));
+        CHECK_FALSE(layer.listOpen());
+        CHECK(layer.hasFocus());
+        // 닫힌 채 왼 · 오른 = 한 칸 (신호 바로)
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Right, ev));
+        CHECK(layer.key(ui::UiKey::Right, ev)); // 끝 — 그대로 (신호 없음)
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].value == 2);
+        // Tab 으로 다른 컨트롤에 가면 열린 목록은 닫힌다
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        CHECK(layer.listOpen());
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK_FALSE(layer.listOpen());
+        // tabs 에 포커스 — 왼 · 오른이 머리 칸
+        while (layer.focused()->id != "tabs") {
+            REQUIRE(layer.key(ui::UiKey::Next, ev));
+        }
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Left, ev));
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].value == 0);
+        CHECK(vars.values.at("eco.tab").number == 0.0);
+        CHECK(layer.key(ui::UiKey::Release, ev));
+        CHECK_FALSE(layer.hasFocus());
+        // 원문이 바뀌면 목록을 닫는다
+        (void)clickId("size");
+        info.documents[0].text += " ";
+        layer.setSources(info);
+        CHECK_FALSE(layer.listOpen());
+    }
 }

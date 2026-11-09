@@ -13,8 +13,8 @@
 
 ```text
 제품      0.6.0 (v0.6 에셋 · 패키지 · SaveGame — [릴리스 노트](../releases/v0.6.0.md)). 지금 버전 v0.7
-다음      트랙 A  NG-06 게임 UI 입력 컨트롤 (v0.7 의 남은 태스크 — (1) checkbox · toggle · slider ✅ · (2) 글자 칸 ✅ · (3) Dropdown ·
-                  ScrollView · Tab · 게임패드) — M3-T1 ~ T6 ✅ 게임 UI · M4-T1 ~ T4 ✅ 문자열 · 폰트 · 키 · 배율
+다음      트랙 A  NG-06 게임 UI 입력 컨트롤 (v0.7 의 남은 태스크 — (1) checkbox · toggle · slider ✅ · (2) 글자 칸 ✅ · (3) dropdown ·
+                  tabs ✅ · ScrollView · 게임패드) — M3-T1 ~ T6 ✅ 게임 UI · M4-T1 ~ T4 ✅ 문자열 · 폰트 · 키 · 배율
           트랙 B  ST-06-1 Editor Services (v0.8) — v0.6 ✅ 0.6.0
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```

@@ -67,8 +67,22 @@ public:
             out.fontSize = t.fontSize;
             out.lines = t.lines;
             out.lineHeight = t.lineHeight;
-        } else if (n.kind == UiKind::TextInput) {
+        } else if (n.kind == UiKind::TextInput || n.kind == UiKind::Dropdown || n.kind == UiKind::Tabs) {
             out.lineHeight = m_measure.measure("", out.fontSize)[1]; // 그리기 · 캐럿의 줄 높이 (v0.7 NG-06 (2))
+        }
+        if (n.kind == UiKind::Tabs) {
+            // 머리 칸 — 안쪽 왼 위부터 labels 차례로 (글자 + 여백 양쪽, 높이 = 줄 + 여백 위아래 — v0.7 NG-06 (3))
+            const f32 pad = padding(n);
+            const f32 margin = textInputMargin(out.fontSize);
+            const i32 h = static_cast<i32>(std::ceil(out.lineHeight) + 2 * margin);
+            i32 x = rect.x + static_cast<i32>(pad + 0.5f);
+            const i32 y = rect.y + static_cast<i32>(pad + 0.5f);
+            for (usize i = 0; i < n.options.size(); ++i) {
+                const i32 w =
+                    static_cast<i32>(std::ceil(m_measure.measure(option(n, i), out.fontSize)[0]) + 2 * margin);
+                out.parts.push_back({x, y, w, h});
+                x += w;
+            }
         }
         m_out.push_back(std::move(out));
         const UiRect inner = intersect(clip, rect);
@@ -82,6 +96,16 @@ public:
             }
             const usize count = m_opt.listCount ? m_opt.listCount(n) : 0;
             stackChildren(n, content, inner, depth, count, listIndex);
+            return;
+        }
+        if (n.kind == UiKind::Tabs) {
+            // 고른 자식만 — 머리 아래의 몸통이 부모 사각형
+            if (n.children.empty()) {
+                return;
+            }
+            const usize sel = std::min(selectedTab(n, m_opt, listIndex), n.children.size() - 1);
+            const Box body{content.x0, content.y0 + tabsHeader(n), content.x1, content.y1};
+            place(n.children[sel], body, inner, depth + 1, listIndex, nullptr);
             return;
         }
         if (n.stack != UiStack::None) {
@@ -242,6 +266,36 @@ private:
             const f32 h = std::ceil(m_measure.measure("", fs)[1] * lines) + 2 * textInputMargin(fs);
             return {kTextInputWidth * m_scale + pad, h + pad};
         }
+        case UiKind::Dropdown: {
+            // 가장 긴 option + 여백 양쪽 + 화살표 칸 (상자) × 줄 + 여백 위아래 (v0.7 NG-06 (3))
+            const f32 fs = fontSize(n);
+            const f32 margin = textInputMargin(fs);
+            f32 widest = 0;
+            for (usize i = 0; i < n.options.size(); ++i) {
+                widest = std::max(widest, m_measure.measure(option(n, i), fs)[0]);
+            }
+            return {std::ceil(widest) + 2 * margin + controlBox(fs) + pad,
+                    std::ceil(m_measure.measure("", fs)[1]) + 2 * margin + pad};
+        }
+        case UiKind::Tabs: {
+            // 머리 (labels 의 합) 와 가장 큰 자식 (고르지 않은 것도 — 고를 때 크기가 흔들리지 않게)
+            const f32 fs = fontSize(n);
+            const f32 margin = textInputMargin(fs);
+            f32 header = 0;
+            for (usize i = 0; i < n.options.size(); ++i) {
+                header += std::ceil(m_measure.measure(option(n, i), fs)[0]) + 2 * margin;
+            }
+            f32 w = header;
+            f32 h = 0;
+            for (const UiNode& c : n.children) {
+                if (shown(c)) {
+                    const std::array<f32, 2> s = outerSize(c, listIndex, std::nullopt);
+                    w = std::max(w, s[0]);
+                    h = std::max(h, s[1]);
+                }
+            }
+            return {w + pad, tabsHeader(n) + h + pad};
+        }
         case UiKind::Panel:
         case UiKind::List:
             break;
@@ -281,6 +335,14 @@ private:
     }
 
     [[nodiscard]] bool shown(const UiNode& n) const { return !m_opt.hidden || !m_opt.hidden(n); }
+    [[nodiscard]] std::string option(const UiNode& n, usize i) const {
+        return m_opt.optionOf ? m_opt.optionOf(n, i) : n.options[i];
+    }
+    // tabs 머리의 높이 (배치의 parts 와 같은 값 — 정수)
+    [[nodiscard]] f32 tabsHeader(const UiNode& n) const {
+        const f32 fs = fontSize(n);
+        return static_cast<f32>(static_cast<i32>(std::ceil(m_measure.measure("", fs)[1]) + 2 * textInputMargin(fs)));
+    }
     [[nodiscard]] static bool textual(const UiNode& n) { return n.kind == UiKind::Text || n.kind == UiKind::Button; }
     [[nodiscard]] const UiStyle* style(const UiNode& n) const {
         if (m_opt.styles == nullptr || n.style.empty()) {
@@ -305,6 +367,26 @@ private:
 };
 
 } // namespace
+
+UiRect optionListRect(const UiRect& control, usize count, i32 screenHeight) {
+    const i32 h = control.h * static_cast<i32>(count);
+    const i32 below = control.y + control.h;
+    const bool above = below + h > screenHeight && control.y - h >= 0;
+    return {control.x, above ? control.y - h : below, control.w, h};
+}
+
+i32 optionAt(const UiRect& list, usize count, i32 x, i32 y) {
+    if (count == 0 || list.h <= 0 || x < list.x || x >= list.x + list.w || y < list.y || y >= list.y + list.h) {
+        return -1;
+    }
+    const i32 row = list.h / static_cast<i32>(count);
+    return row > 0 ? std::min(static_cast<i32>(count) - 1, (y - list.y) / row) : -1;
+}
+
+usize selectedTab(const UiNode& tabs, const UiLayoutOptions& options, i32 listIndex) {
+    const i32 s = options.selectedOf ? options.selectedOf(tabs, listIndex) : 0;
+    return s >= 0 && static_cast<usize>(s) < tabs.options.size() ? static_cast<usize>(s) : 0;
+}
 
 std::array<f32, 2> FixedTextMeasure::measure(std::string_view text, f32 fontSize) const {
     usize codePoints = 0;

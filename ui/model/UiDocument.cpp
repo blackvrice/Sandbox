@@ -209,7 +209,7 @@ public:
             return n;
         }
         const std::string kind = j["kind"].get<std::string>();
-        static constexpr std::array<std::pair<std::string_view, UiKind>, 10> kKinds{{{"panel", UiKind::Panel},
+        static constexpr std::array<std::pair<std::string_view, UiKind>, 12> kKinds{{{"panel", UiKind::Panel},
                                                                                      {"text", UiKind::Text},
                                                                                      {"image", UiKind::Image},
                                                                                      {"button", UiKind::Button},
@@ -218,12 +218,14 @@ public:
                                                                                      {"checkbox", UiKind::Checkbox},
                                                                                      {"toggle", UiKind::Toggle},
                                                                                      {"slider", UiKind::Slider},
-                                                                                     {"textinput", UiKind::TextInput}}};
+                                                                                     {"textinput", UiKind::TextInput},
+                                                                                     {"dropdown", UiKind::Dropdown},
+                                                                                     {"tabs", UiKind::Tabs}}};
         const auto k = std::find_if(kKinds.begin(), kKinds.end(), [&](const auto& p) { return p.first == kind; });
         if (k == kKinds.end()) {
             error("U3", pointer + "/kind",
                   std::format("모르는 요소 '{}' (panel · text · image · button · progress · list · checkbox · "
-                              "toggle · slider · textinput)",
+                              "toggle · slider · textinput · dropdown · tabs)",
                               kind));
             return n;
         }
@@ -253,6 +255,11 @@ public:
             case UiKind::TextInput:
                 return key == "value" || key == "placeholder" || key == "maxLength" || key == "multiline" ||
                        key == "on" || key == "disabled" || key == "tabIndex";
+            case UiKind::Dropdown:
+                return key == "value" || key == "options" || key == "on" || key == "disabled" || key == "tabIndex";
+            case UiKind::Tabs:
+                return key == "value" || key == "labels" || key == "children" || key == "on" || key == "disabled" ||
+                       key == "tabIndex";
             case UiKind::Progress:
                 return key == "value" || key == "max";
             case UiKind::List:
@@ -456,6 +463,22 @@ public:
                 }
             }
         }
+        if (n.kind == UiKind::Dropdown || n.kind == UiKind::Tabs) { // v0.7 NG-06 (3) — ADR-0105
+            const char* key = n.kind == UiKind::Dropdown ? "options" : "labels";
+            const json* list = j.contains(key) ? &j[key] : nullptr;
+            if (list == nullptr || !list->is_array() || list->empty() || list->size() > kMaxOptions) {
+                error("U1", list == nullptr ? pointer : pointer + "/" + key,
+                      std::format("{} 에 {} (글자 1 ~ {} 개) 가 필요하다", kind, key, kMaxOptions));
+            } else {
+                for (usize i = 0; i < list->size(); ++i) {
+                    const std::string at = std::format("{}/{}/{}", pointer, key, i);
+                    if (const auto s = string((*list)[i], at)) {
+                        textValue(*s, at);
+                        n.options.push_back(*s);
+                    }
+                }
+            }
+        }
         if (j.contains("disabled")) {
             const json& d = j["disabled"];
             if (d.is_boolean()) {
@@ -497,6 +520,11 @@ public:
                     n.children.push_back(node(c[i], std::format("{}/children/{}", pointer, i), depth + 1));
                 }
             }
+        }
+        if (n.kind == UiKind::Tabs && !n.options.empty() && n.children.size() != n.options.size()) {
+            error("U1", pointer + "/children",
+                  std::format("tabs 의 children ({}) 은 labels ({}) 와 하나씩이어야 한다", n.children.size(),
+                              n.options.size()));
         }
         return n;
     }

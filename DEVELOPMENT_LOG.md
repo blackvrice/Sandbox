@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-09 — v0.7 NG-06 (3): 게임 UI dropdown · tabs (ADR-0105)
+
+**무엇을**
+
+- ui/model: 요소 dropdown (value = "var:<키>" 의 번호 · options 1 ~ 32 · on.change) · tabs (value · labels 1 ~ 32 · children 은
+  labels 와 하나씩 — U1). ui/layout: dropdown 크기 (가장 긴 option + 여백 + 화살표 칸), tabs 머리 칸 (UiLayoutNode.parts) · 고른
+  자식만 배치 (selectedOf · 크기는 가장 큰 자식), 목록 자리 optionListRect · optionAt. ui/render: dropdown 상자 · 고른 option · 화살표,
+  tabs 머리 · 밑줄, 열린 목록 drawOptionList, tabs 의 포커스 고리는 머리 칸. ui/input: tabs 는 머리 칸 위에서만 잡는다 (partAt).
+- GameUiLayer: 열린 목록 (하나) — 라우팅에서 문서들보다 먼저 (목록 위 포인터 · 고르기 · 밖 누르면 닫고 아래로 · 자신은 닫기만),
+  모든 문서 뒤에 그리기. 고르기 select (같은 번호면 신호 없음), 키 choiceKey (왼 · 오른 한 칸, Enter 열기 · 위아래 · Enter 고르기 ·
+  Esc 닫기), 포커스가 옮겨 가면 목록 닫기. option · label 의 "@<키>" 는 문자열 표.
+
+**왜**
+
+- 등록부 NG-06 의 셋째 단계. 게임패드 탐색은 플랫폼 게임패드 입력 (I5) 이 먼저, ScrollView 는 배치의 밀기 상태라 따로 (NG-06 (3b)).
+
+**검증**
+
+- test_ui_choice 4 개 (문서 · 배치 · 그리기 · 라우팅) · test_game_ui_layer "dropdown" (층 — 마우스 · 키 · tabs). 그리기 기대값 하나를
+  손 계산으로 고쳤다 (글자 너비 = 영역 60 - 화살표 20 = 40). clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- 창 눈 확인은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). 런타임: rabbit_guard 복사본에 tabs (머리 "@" 키) · dropdown (없는 키 option) 문서를 더해 sbx check — 오류 0, 없는 키는 U5 경고 하나.
+
+**남은 일**
+
+- NG-06 (3b) ScrollView (밀기 · 휠 · 포커스가 보이게 · 긴 목록), 게임패드 탐색 (I5 뒤), 타자로 option 찾기.
+
 ## 2026-11-09 — v0.7 NG-06 (2): 게임 UI 글자 칸 (textinput) · client ctx.uiVar · uiVarText (ADR-0104)
 
 **무엇을**

@@ -184,7 +184,11 @@ NG-06 (2) ✅ (v0.7, ADR-0104) textinput — value = "var:<키>" 의 글 (클라
         왼 · 오른 · Home · End · Backspace · Delete, multiline 은 Enter = 줄 바꿈 · 위 · 아래 = 줄. 편집 중 앱이 창의 글자 입력을
         켠다. 배치 200 × 줄 (multiline 4) + 글꼴 × 0.25 여백, 그리기는 캐럿 (깜빡이지 않음) 이 보이게 민다. client 스크립트는
         ctx.uiVar · uiVarText 로 읽는다. [계획]: 문자열 신호 (글을 서버로 — 채팅), 조합 창 위치, 선택 · 복사 · 붙여넣기 · 누른 자리 캐럿
-(3) [계획] Dropdown · ScrollView · Tab · 게임패드 (I5)
+NG-06 (3) ✅ dropdown · tabs (v0.7, ADR-0105) — value = "var:<키>" 의 번호 (0 부터 — on.change 신호의 값도 번호, 같은 번호는 신호
+        없음). dropdown: options (1 ~ 32, "@<키>"), 누르면 목록 (상자 아래 · 넘치면 위, 모든 문서 위에 그린다 — 목록 위 포인터는
+        목록의 것, 밖을 누르면 닫고 그 누름은 아래로, 자신은 닫기만). tabs: labels 와 children 이 하나씩, 머리 칸 + 고른 자식만 배치
+        (크기는 가장 큰 자식), 라우팅은 머리 칸만. 키: 왼 · 오른 = 한 칸, dropdown Enter 열기 · 위아래 · Enter 고르기 · Esc 닫기.
+        [계획]: ScrollView (NG-06 (3b) — 목록 밀기도), 게임패드 탐색 (I5 — UiKey 로 옮기기만), 타자로 option 찾기
 ```
 
 ## 3. 게임플레이 API (X2 — ADR-0080)

@@ -593,6 +593,7 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [ ] (NG-06 (1)) checkbox · toggle · slider 를 마우스 · Tab · 방향 · Space 로 — 포커스 고리 · 끄는 slider · 흐린 disabled (창)
 [ ] (NG-06 (2)) textinput 에 한글 IME 로 쓰기 — 조합 창 (OS 의 자리 — 캐럿 자리는 [계획]) · 확정 글자만 들어감 · 캐럿 · 밀기 ·
     multiline 줄 바꿈 · Esc 뒤 게임 키 (Windows · X11 · Wayland 창)
+[ ] (NG-06 (3)) dropdown 목록이 다른 HUD · 메뉴 위에 보이고 화면 아래에서는 위로 열린다, tabs 머리 칸 · 밑줄 (창)
 ```
 
 ## v0.7 M3-T3 — 게임 UI (HUD) 가 게임 화면에 보인다

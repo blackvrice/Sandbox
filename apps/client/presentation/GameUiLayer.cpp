@@ -33,6 +33,7 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
     m_pressed = nullptr;
     m_focus = nullptr; // 문서를 다시 읽었다 — 노드 포인터가 바뀐다
     m_drag = nullptr;
+    m_open = nullptr;
     if (!info) {
         return;
     }
@@ -79,6 +80,7 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
 }
 
 void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasure& measure) {
+    m_height = height;
     m_layouts.clear();
     m_layouts.reserve(m_docs.size());
     for (usize i = 0; i < m_docs.size(); ++i) {
@@ -88,6 +90,8 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
         o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data, &m_strings); };
         o.listCount = [this](const ui::UiNode& n) { return ui::listCountOf(n, m_data); };
         o.hidden = [this, &d](const ui::UiNode& n) { return !n.id.empty() && nodeHidden(d.id, n.id); };
+        o.selectedOf = [this](const ui::UiNode& n, i32) { return selectedIndex(n); };
+        o.optionOf = [this](const ui::UiNode& n, usize option) { return optionText(n, option); };
         // 숨긴 문서는 배치하지 않는다 (라우팅 · 그리기 모두 건너뛴다)
         m_layouts.push_back(ui::UiDocumentLayout{
             &d, m_visible[i] ? ui::layoutDocument(d, o, measure) : std::vector<ui::UiLayoutNode>{}, m_visible[i]});
@@ -96,7 +100,7 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
 
 ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pressed, bool down,
                                       std::vector<ui::UiAction>& out) {
-    const ui::UiPointerRoute r = ui::routePointer(m_layouts, x, y, toolsWantMouse);
+    ui::UiPointerRoute r = ui::routePointer(m_layouts, x, y, toolsWantMouse);
     // slider 끌기 — 포인터가 밖으로 나가도 놓을 때까지 (놓으면 신호 하나)
     if (m_drag != nullptr) {
         const ui::UiLayoutNode* l = layoutOf(m_drag, m_dragIndex);
@@ -110,6 +114,39 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
     }
     if (!down) {
         m_pressed = nullptr;
+    }
+    // 열린 dropdown 목록 (v0.7 NG-06 (3) — ADR-0105): 문서들 위 — 목록 위의 포인터는 목록의 것 (가리킨 줄, 누르면
+    // 고르고 닫는다). 밖을 누르면 닫고 그 누름은 아래로 간다 (열린 dropdown 자신을 누른 것이면 닫기만)
+    if (m_open != nullptr) {
+        const ui::UiLayoutNode* l = layoutOf(m_open, m_openIndex);
+        if (l == nullptr || disabled(*m_open)) {
+            closeList();
+        } else {
+            const usize count = m_open->options.size();
+            const i32 at = ui::optionAt(ui::optionListRect(l->rect, count, m_height), count, x, y);
+            if (at >= 0) {
+                m_highlight = at;
+                static constexpr ui::UiPointerRoute::Owner kOwners[] = {
+                    ui::UiPointerRoute::Owner::Hud, ui::UiPointerRoute::Owner::Menu, ui::UiPointerRoute::Owner::Modal};
+                r = {kOwners[static_cast<usize>(m_layouts[m_openDocument].document->layer)], true, m_openDocument,
+                     nullptr};
+                if (pressed) {
+                    ++m_presses;
+                    const ui::UiNode& n = *m_open;
+                    closeList();
+                    select(n, at, out);
+                }
+                return r;
+            }
+            if (pressed) {
+                const bool self =
+                    r.control != nullptr && r.control->node == m_open && r.control->listIndex == m_openIndex;
+                closeList();
+                if (self) {
+                    return r;
+                }
+            }
+        }
     }
     // 글자 칸을 편집하는 중에 다른 곳을 누르면 놓는다 (바뀌었으면 보내기 — ADR-0104)
     if (pressed && editingText() &&
@@ -129,7 +166,9 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
                 setFocus(r.control->node, r.control->listIndex, &out);
             }
         }
-        if (r.control->node->kind == ui::UiKind::Slider) {
+        if (r.control->node->kind == ui::UiKind::Tabs) {
+            select(*r.control->node, ui::partAt(*r.control, x, y), out); // 누른 머리 칸
+        } else if (r.control->node->kind == ui::UiKind::Slider) {
             m_drag = r.control->node;
             m_dragIndex = r.control->listIndex;
             sliderTo(*m_drag, r.control->rect, x);
@@ -138,10 +177,79 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
                 m_drag = nullptr;
             }
         } else {
-            press(*r.control, out);
+            press(*r.control, r.document, out);
         }
     }
     return r;
+}
+
+i32 GameUiLayer::selectedIndex(const ui::UiNode& n) const {
+    const f32 v = controlValue(n);
+    const f32 count = static_cast<f32>(n.options.size());
+    if (!(v > -0.5f) || !(v < count - 0.5f)) {
+        return -1;
+    }
+    return static_cast<i32>(std::floor(v + 0.5f));
+}
+
+void GameUiLayer::select(const ui::UiNode& n, i32 index, std::vector<ui::UiAction>& out) {
+    if (index < 0 || static_cast<usize>(index) >= n.options.size() || index == selectedIndex(n)) {
+        return;
+    }
+    setControlValue(n, static_cast<f32>(index));
+    emitChange(n, out);
+}
+
+void GameUiLayer::openList(const ui::UiLayoutNode& l, usize document) {
+    m_open = l.node;
+    m_openIndex = l.listIndex;
+    m_openDocument = document;
+    m_highlight = std::max(0, selectedIndex(*l.node));
+}
+
+bool GameUiLayer::choiceKey(const ui::UiLayoutNode& l, usize document, ui::UiKey key, std::vector<ui::UiAction>& out) {
+    using K = ui::UiKey;
+    const ui::UiNode& n = *l.node;
+    const i32 count = static_cast<i32>(n.options.size());
+    if (m_open == &n && m_openIndex == l.listIndex) {
+        // 열린 목록: 위 · 아래 = 가리킨 줄, Enter · Space = 고르고 닫기, Esc = 닫기 (포커스는 남는다)
+        switch (key) {
+        case K::Up:
+        case K::Down:
+            m_highlight = std::clamp(m_highlight + (key == K::Down ? 1 : -1), 0, count - 1);
+            return true;
+        case K::Activate:
+            closeList();
+            select(n, m_highlight, out);
+            return true;
+        case K::Release:
+            closeList();
+            return true;
+        case K::Left:
+        case K::Right:
+            return true;
+        default:
+            return false;
+        }
+    }
+    switch (key) {
+    case K::Left:
+    case K::Right: {
+        // 한 칸 (모르는 값이면 오른 = 첫째) — tabs 는 머리 칸을 옮긴다
+        const i32 cur = selectedIndex(n);
+        const i32 next = cur < 0 ? 0 : std::clamp(cur + (key == K::Right ? 1 : -1), 0, count - 1);
+        select(n, next, out);
+        return true;
+    }
+    case K::Activate:
+        if (n.kind == ui::UiKind::Dropdown) {
+            ++m_presses;
+            openList(l, document);
+        }
+        return true;
+    default:
+        return false; // 위 · 아래 = 탐색, Esc = 포커스 놓기, Tab = 차례
+    }
 }
 
 bool GameUiLayer::disabled(const ui::UiNode& n) const {
@@ -197,6 +305,9 @@ void GameUiLayer::setFocus(const ui::UiNode* n, i32 listIndex, std::vector<ui::U
         textValue(*m_focus) != m_editStart) {
         emitChange(*m_focus, *out);
     }
+    if (m_open != nullptr && (m_open != n || m_openIndex != listIndex)) {
+        closeList();
+    }
     m_focus = n;
     m_focusIndex = listIndex;
     if (n != nullptr && n->kind == ui::UiKind::TextInput) {
@@ -221,15 +332,16 @@ void GameUiLayer::setControlValue(const ui::UiNode& n, f32 value) {
         return;
     }
     const std::string key = n.value.bind.substr(4);
-    const ui::UiScalar v =
-        n.kind == ui::UiKind::Slider ? ui::UiScalar::of(static_cast<f64>(value)) : ui::UiScalar::ofBool(value != 0.0f);
+    // checkbox · toggle 은 참거짓, slider · dropdown · tabs 는 수 (번호)
+    const bool flag = n.kind == ui::UiKind::Checkbox || n.kind == ui::UiKind::Toggle;
+    const ui::UiScalar v = flag ? ui::UiScalar::ofBool(value != 0.0f) : ui::UiScalar::of(static_cast<f64>(value));
     m_written.insert_or_assign(key, v);
     if (m_writeVar) {
         m_writeVar(key, v);
     }
 }
 
-void GameUiLayer::press(const ui::UiLayoutNode& l, std::vector<ui::UiAction>& out) {
+void GameUiLayer::press(const ui::UiLayoutNode& l, usize document, std::vector<ui::UiAction>& out) {
     const ui::UiNode& n = *l.node;
     switch (n.kind) {
     case ui::UiKind::Button:
@@ -243,6 +355,9 @@ void GameUiLayer::press(const ui::UiLayoutNode& l, std::vector<ui::UiAction>& ou
     case ui::UiKind::Toggle:
         setControlValue(n, controlValue(n) != 0.0f ? 0.0f : 1.0f);
         emitChange(n, out);
+        return;
+    case ui::UiKind::Dropdown:
+        openList(l, document); // 고르기는 목록에서 (route 의 열린 목록 · 키)
         return;
     default:
         return;
@@ -373,6 +488,10 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
     if (l.node->kind == ui::UiKind::TextInput && editText(*l.node, key, out)) {
         return true;
     }
+    if ((l.node->kind == ui::UiKind::Dropdown || l.node->kind == ui::UiKind::Tabs) &&
+        choiceKey(l, order[static_cast<usize>(at)].document, key, out)) {
+        return true;
+    }
     switch (key) {
     case K::Release:
         setFocus(nullptr, -1, &out);
@@ -382,7 +501,7 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
         if (l.node->kind == ui::UiKind::Slider) {
             return true;
         }
-        press(l, out);
+        press(l, order[static_cast<usize>(at)].document, out);
         return true;
     case K::Left:
     case K::Right:
@@ -417,10 +536,20 @@ void GameUiLayer::draw(ui::IUiRenderer& renderer, const ui::ITextMeasure* measur
     o.textValueOf = [this](const ui::UiNode& n, i32) { return textValue(n); };
     o.caret = m_caret;
     o.measure = measure;
+    o.optionOf = [this](const ui::UiNode& n, usize i) { return optionText(n, i); };
     for (const ui::UiDocumentLayout& l : m_layouts) {
         if (l.visible) {
             ui::drawLayout(l.nodes, o, renderer);
         }
+    }
+    // 열린 dropdown 목록 — 모든 문서 위 (v0.7 NG-06 (3))
+    if (const ui::UiLayoutNode* l = m_open != nullptr ? layoutOf(m_open, m_openIndex) : nullptr) {
+        std::vector<std::string> texts;
+        for (usize i = 0; i < m_open->options.size(); ++i) {
+            texts.push_back(optionText(*m_open, i));
+        }
+        ui::drawOptionList(ui::optionListRect(l->rect, texts.size(), m_height), texts, selectedIndex(*m_open),
+                           m_highlight, l->fontSize, m_scale, renderer);
     }
 }
 
