@@ -18,8 +18,8 @@
 ## 0. 한 줄 · 다음 태스크
 
 ```text
-지금      v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (2026-11-04 — releases/v0.6.0). v0.5 Technical Alpha ✅ 0.5.0 (아래 줄은 roadmap/README 1장과 같다)
-다음      트랙 A  M3-T1 게임 UI (v0.7, 20 10장 Phase 3)
+지금      v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (2026-11-09 — releases/v0.7.0). v0.6 ✅ 0.6.0 · v0.5 ✅ 0.5.0 (아래 줄은 roadmap/README 1장과 같다)
+다음      트랙 A  M6-T4 오류 메시지 · 줄 표 (.sbc 11, v0.9) — v0.7 의 M3 · M4 · NG-06 ✅
 트랙 B    ST-06-1 Editor Services → M6-T3 (Build) · M6-T1 (홈) · M6-T7 (자동 저장) (v0.8) — v0.6 의 NG-12 · NG-13 · M6-T9 · NG-01 ✅
 그다음   
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)

@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-09 — v0.7 종료: 0.7.0 게임 UI Runtime · 다국어 — 기준 판정 · 릴리스 노트 · 제품 버전 0.7.0
+
+**무엇을**
+
+- docs/releases/v0.7.0.md: 들어간 것 (M3-T1 ~ T6 · M4-T1 ~ T4 · NG-06 (1) ~ (4)), 호환 번호 (프로토콜 16 · .sbc 10 · kSimVersion 4 ·
+  세이브 · 패키지 · 잠금 · 리플레이 그대로, Host API 1 의 지문만 0x1dfa888c39154dde → 0xcfce033639142a66 — 더하기만), release-gates v0.7
+  행 판정 (항목마다 시험 이름), 계획 대비, 알려진 문제 (창 눈 확인 · IME 창 자리 · 게임패드는 Windows 만), 데모 · 재현.
+- CMake project VERSION 0.7.0, README · docs/README · 18 · 23 · roadmap 의 지금 · 다음 줄 (다음 = v0.8 ST-06-1, 트랙 A M6-T4), versioning ·
+  버전 매트릭스의 제품 버전.
+
+**왜**
+
+- v0.7 의 태스크 (releases.md v0.7 줄) 가 모두 Done — 버전이 끝날 때 제품 버전을 올린다 (18 4장).
+
+**검증**
+
+- 골든 · 콘텐츠 그대로 (`git diff 8dfab57 -- tests/golden content` 비어 있음) — 제품 버전만 바뀌었다. 기준 판정의 시험은 노트 4장.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). sbx --version = 0.7.0.
+
+**남은 일**
+
+- MANUAL-QA 의 v0.7 창 눈 확인 [ ] 줄, v0.8 ST-06-1 Editor Services.
+
 ## 2026-11-09 — v0.7 NG-06 (4): 게임패드 — Windows XInput 소스 · 게임 UI 탐색 (ADR-0107, NG-06 끝)
 
 **무엇을**

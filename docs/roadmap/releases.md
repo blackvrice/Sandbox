@@ -28,7 +28,7 @@
           NG-14 ✅ 해시 · digest 분리 · NG-08 ✅ Export Profile (Windows) · RT-06-12 ✅ 비동기 로드 · NG-04 ✅ SaveGame 마이그레이션 계약
 ```
 
-## v0.7 — 게임 UI Runtime · 다국어 기반
+## v0.7 — 게임 UI Runtime · 다국어 기반 ✅ 0.7.0 ([노트](../releases/v0.7.0.md))
 
 ```text
 목표      게임이 HUD · 메뉴 · 버튼을 띄우고, 버튼이 서버가 판정하는 신호를 보낸다. 문자열 · 폰트 · 키 · 배율을 바꿀 수 있다
