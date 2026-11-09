@@ -14,7 +14,7 @@
          v0.4 Package Manager ✅ 0.4.0 (2026-10-28 — 릴리스 노트 releases/v0.4.0, 6.4 · 6.5, ADR-0071~0077)
          v0.5 Technical Alpha ✅ 0.5.0 (2026-11-03 — 릴리스 노트 releases/v0.5.0, M1 · M2 · M8 · M7-T6, ADR-0078~0100)
          v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (2026-11-04 — 릴리스 노트 releases/v0.6.0, NG-01 · 02 · 04 · 08 · 12 · 13 · 14 · M6-T9 · RT-06-12)
-다음     roadmap/README 1장 — 트랙 A M3-T1 게임 UI (v0.7), 트랙 B ST-06-1 Editor Services (v0.8)
+다음     roadmap/README 1장 — 트랙 A v0.7 태스크 ✅ (0.7.0 릴리스 [계획]), 트랙 B ST-06-1 Editor Services (v0.8)
 로드맵   2026-11-03 재구성 (ADR-0096 · 2차 배치 ADR-0099 · 출시 강화 ADR-0100): 작은 MINOR v0.5 ~ v0.24 RC · v1.0 GA · 성숙 단계 분리 ·
          태스크 등록부 — 정본 roadmap/ (versioning · task-registry · releases · release-gates · stabilization), 근거 audit/SECOND-PASS-GAP-ANALYSIS.
          아래 1장 표는 옛 줄 (이력)

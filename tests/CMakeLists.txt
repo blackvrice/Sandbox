@@ -108,6 +108,7 @@ add_executable(SandboxTests
     unit/tools/test_sbx_options.cpp
     unit/tools/test_net_probe_options.cpp
     unit/platform/test_input.cpp
+    unit/platform/test_gamepad.cpp
     unit/platform/test_action_map.cpp
     unit/render/test_rhi_helpers.cpp
     unit/render/test_image.cpp

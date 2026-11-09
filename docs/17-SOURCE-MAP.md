@@ -178,11 +178,12 @@
 | `platform/common/HeadlessWindow.{hpp,cpp}`                                                                  | OS 창 없는 IWindow (`inject`) — `--headless`·테스트                                                                                                                 | SandboxPlatform             |
 | `platform/common/InputSystem.{hpp,cpp}`                                                                     | `InputState`, `InputSystem` (I1 `setCapture`/`downstream`, I3, I4)                                                                                                  | SandboxPlatform             |
 | `platform/common/ActionMap.{hpp,cpp}`                                                                       | `settings/input.json` 파싱, `Binding`, `ActionMap`, `ActionState`, 충돌 검출, 다시 묶기 `set` · `remove` · `overridesFrom` · `captureBinding` (v0.7 M4-T3)                                                                                        | SandboxPlatform             |
-| `platform/common/Gamepad.hpp`                                                                               | `IGamepadSource`, `GamepadState` — 인터페이스만 (I5)                                                                                                                | SandboxPlatform             |
+| `platform/common/Gamepad.hpp`, `GamepadSource.cpp`                                                                               | `IGamepadSource`, `GamepadState` (pressed), `NullGamepadSource`, `createGamepadSource` (I5 — 구현 없는 OS 는 없음) | SandboxPlatform             |
 | `platform/common/Audio.hpp`, `platform/audio/NullAudioBackend.{hpp,cpp}`                                    | `IAudioBackend`, 세대 핸들, Null 구현                                                                                                                               | SandboxPlatform             |
 | `platform/common/Platform.hpp`, `FramePacer.cpp`, `Locale.cpp`                                              | `attachConsole`, `windowBackendName`, `PreciseSleeper`, `FramePacer`, `userLocale` · `localeFromEnvironment` (v0.7 M4-T1)                                                                                                | SandboxPlatform             |
 | `platform/windows/Win32Window.cpp`, `Win32Platform.cpp`, `Win32Common.hpp`                                  | Win32 창·메시지 처리·DPI·Raw Input·IME·클립보드, 콘솔·고해상도 타이머 (WIN32 전용)                                                                                  | SandboxPlatform             |
 | `platform/windows/Win32KeyMap.{hpp,cpp}`                                                                    | Win32 스캔 코드 → `Key` 표 (windows.h 없음 — 모든 OS 에서 컴파일·테스트)                                                                                            | SandboxPlatform             |
+| `platform/windows/XInputMap.{hpp,cpp}`, `Win32Gamepad.cpp` | XInput → `GamepadState` 표 (순수 — 모든 OS 에서 컴파일 · 시험) · XInput 소스 (DLL 을 실행 중에, Windows 만) — v0.7 NG-06 (4), ADR-0107 | SandboxPlatform |
 | `platform/linux/X11Window.cpp`, `LinuxPlatform.cpp`, `LinuxWindows.hpp`                                     | X11 창 (Xlib · XIM · XInput2 Raw · CLIPBOARD · Xft.dpi, 13B — ADR-0033), 창 시스템 고르기 (Auto → Wayland, 안 되면 X11) · 잠자기                                    | SandboxPlatform (Linux)     |
 | `platform/linux/WaylandWindow.cpp`                                                                          | Wayland 창 (libdecor · wl_seat · text-input-v3 · pointer-constraints · relative-pointer · wl_data_device · 정수 배율, SBX_ENABLE_WAYLAND, 13C — ADR-0034)           | SandboxPlatform (Wayland)   |
 | `platform/linux/WaylandInput.{hpp,cpp}`                                                                     | xkbcommon 키맵 · 수정자 · 글자 · compose · 클라이언트 자동 반복, 버튼 코드, 더블클릭 판정 (wayland-client 없음 — 서버 없이 시험)                                    | SandboxPlatform (Wayland)   |
@@ -383,8 +384,8 @@ network/
 
 platform/
   common/       Window (IWindow) · PlatformEvent · Key · InputSystem · ActionMap · Audio (IAudioBackend) · HeadlessWindow ·
-                Gamepad · FramePacer · Platform
-  windows/      Win32Window · Win32Platform · Win32KeyMap · Win32Common                     (WIN32)
+                Gamepad · GamepadSource · FramePacer · Platform
+  windows/      Win32Window · Win32Platform · Win32KeyMap · Win32Common · Win32Gamepad · XInputMap (WIN32 — 표는 모두)
   linux/        X11Window · X11KeyMap · WaylandWindow · WaylandInput · LinuxPlatform · LinuxWindows
   macos/        CocoaWindow (.mm) · MacPlatform · MacKeyMap · MacWindows                    (APPLE — 미검증)
   stub/         StubPlatform

@@ -165,7 +165,7 @@ M3-T6 ✅    (v0.7) 테마 = styles.json "themes" {"<팩>.<테마>": {"<스타�
 `ctx.ui.set(key, value)` (var 바인딩), `ctx.ui.show(docId, bool)`, `ctx.ui.text(key, args)` (문자열 키 · 인자 — 5장). 서버
 스크립트는 UI 를 모른다 — 서버가 클라이언트 UI 를 바꾸려면 컴포넌트 (복제) 를 바꾸고 바인딩이 그것을 본다.
 
-### 2.6 입력 컨트롤 (NG-06 — 2차 감사 4.6) [계획 v0.7]
+### 2.6 입력 컨트롤 (NG-06 — 2차 감사 4.6) ✅ v0.7
 
 ```text
 컨트롤  TextInput (한 줄 · 여러 줄 · 최대 길이 · IME — 27 9장의 조합 규칙) · Slider · Checkbox · Toggle · Dropdown · ScrollView · Tab
@@ -188,11 +188,14 @@ NG-06 (3) ✅ dropdown · tabs (v0.7, ADR-0105) — value = "var:<키>" 의 번�
         없음). dropdown: options (1 ~ 32, "@<키>"), 누르면 목록 (상자 아래 · 넘치면 위, 모든 문서 위에 그린다 — 목록 위 포인터는
         목록의 것, 밖을 누르면 닫고 그 누름은 아래로, 자신은 닫기만). tabs: labels 와 children 이 하나씩, 머리 칸 + 고른 자식만 배치
         (크기는 가장 큰 자식), 라우팅은 머리 칸만. 키: 왼 · 오른 = 한 칸, dropdown Enter 열기 · 위아래 · Enter 고르기 · Esc 닫기.
-        [계획]: 게임패드 탐색 (I5 — UiKey 로 옮기기만), 타자로 option 찾기, dropdown 목록 밀기
+        [계획]: 타자로 option 찾기, dropdown 목록 밀기
 NG-06 (3b) ✅ scroll (v0.7, ADR-0106) — panel 과 같은 키, 세로로 민다. 밀기 = 클라이언트 층의 상태 (노드마다 픽셀 — var 가 아니다,
         원문이 바뀌면 잊는다), 배치가 0 ~ (내용 - 안쪽 높이) 로 자르고 정수로, 자식을 밀린 만큼 위로 (clip 은 scroll). 휠 = 포인터 아래
         가장 안쪽 scroll 한 칸 40 × 배율 (modal 이 보이면 modal 만, 끝에서도 써서 카메라 확대로 가지 않는다), Tab · 방향 포커스가
         가려지면 보이게 민다, 오른쪽 막대 (자식 위). [계획]: 막대 끌기 · 가로 · 겹친 scroll 의 바깥 맞추기
+NG-06 (4) ✅ 게임패드 탐색 (v0.7, ADR-0107) — 07 I5 의 Windows XInput 소스 · InputSystem::setGamepads. 십자 · 왼 스틱 (0.5 를 넘을 때
+        한 번) = 방향, A = 누르기, B = 놓기, LB · RB = 차례, 포커스가 없으면 방향 · A 가 첫 컨트롤에. 패드는 아직 게임 키가 아니다
+        (RT-06-13). [계획]: Linux · macOS 패드, 반복, 오른 스틱 밀기
 ```
 
 ## 3. 게임플레이 API (X2 — ADR-0080)

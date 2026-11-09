@@ -103,7 +103,7 @@ windows.h 없는 순수 표 — 모든 OS 에서 단위 테스트). `KeyDown.sca
 ```text
 PlatformEventQueue → InputSystem::beginFrame/consume → InputState
 InputState: keys[down/pressed/released/repeated], keyPressMods(눌린 순간의 수정자), mouse{pos, delta, buttons, clicks, wheel},
-            text(UTF-8, 이 프레임), focus, gamepads[4] ([계획])
+            text(UTF-8, 이 프레임), focus, gamepads[4] (I5 — setGamepads, v0.7 NG-06 (4))
 InputSystem::raw()          모든 입력 (ImGui 가 본다)
 InputSystem::setCapture(m,k) → downstream()   I1: 가져간 장치를 비운 입력 (하위 소비자가 본다). beginFrame 이 푼다
 ActionMap (settings/input.json) + ActionState(프레임마다 pressed/down/released)
@@ -144,7 +144,7 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 | I2   | Simulation은 InputState를 보지 않는다. 입력은 SimCommand로만 시뮬레이션에 들어간다                                                                                                           |
 | I3   | 포커스를 잃으면 눌린 키를 모두 released로 만든다 (끈적이는 키 방지)                                                                                                                          |
 | I4   | 텍스트 입력은 KeyDown과 별개 이벤트 (IME 조합 지원)                                                                                                                                          |
-| I5   | Gamepad: 인터페이스만 Phase 6에 정의 (`platform/common/Gamepad.hpp` — IGamepadSource, GamepadState). 구현은 콘텐츠가 요구할 때 (Windows XInput→GameInput, Linux evdev, macOS GameController) |
+| I5   | Gamepad: `platform/common/Gamepad.hpp` (IGamepadSource · GamepadState · createGamepadSource). ✅ Windows XInput (v0.7 NG-06 (4), [ADR-0107](adr/0107-gamepad-xinput-source-ui-navigation.md) — DLL 을 실행 중에, 끊긴 칸은 120 번에 한 번, 표 XInputMap 은 순수). InputSystem::setGamepads 가 pressed · 포커스 없음 (I3) · 키보드 캡처 (I1) 를. Linux evdev · macOS GameController 는 [계획] (NullGamepadSource) |
 
 ### 5.x 입력의 다음 단계 [계획]
 

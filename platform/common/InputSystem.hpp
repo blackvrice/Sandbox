@@ -42,7 +42,7 @@ struct InputState {
     bool mouseCaptured = false;    // downstream 에서: 상위 소비자(ImGui)가 마우스를 가져갔다
     bool keyboardCaptured = false; // downstream 에서: 상위 소비자가 키보드를 가져갔다
 
-    std::array<GamepadState, kMaxGamepads> gamepads{}; // [계획] 구현은 콘텐츠가 요구할 때 (I5)
+    std::array<GamepadState, kMaxGamepads> gamepads{}; // I5 — setGamepads 가 넣는다 (v0.7 NG-06 (4))
 
     [[nodiscard]] bool down(Key k) const noexcept { return k != Key::Unknown && keyDown.test(index(k)); }
     [[nodiscard]] bool pressed(Key k) const noexcept { return k != Key::Unknown && keyPressed.test(index(k)); }
@@ -67,6 +67,9 @@ public:
     void beginFrame();
     void consume(const PlatformEvent& e);
     void consume(const PlatformEventQueue& q);
+    // 게임패드 상태 (I5 — v0.7 NG-06 (4)). pressed = 앞 프레임에 없던 버튼. 창 포커스가 없으면 버튼 · 축을 0 으로 (I3 —
+    // 다른 창을 쓰는 동안 패드가 게임을 움직이지 않는다). 부르지 않은 프레임은 pressed 가 0
+    void setGamepads(std::span<const GamepadState, kMaxGamepads> pads);
 
     // 모든 입력 (ImGui 가 본다)
     [[nodiscard]] const InputState& raw() const noexcept { return m_state; }
@@ -74,7 +77,8 @@ public:
     // I1: 상위 소비자가 이 프레임에 가져간 장치. beginFrame 이 푼다.
     void setCapture(bool mouse, bool keyboard) noexcept;
     // 하위 소비자(에디터 툴·플레이 컨트롤·카메라)가 보는 입력. 가져간 장치는 비어 있다:
-    //   키보드 → 키·글자 없음,  마우스 → 버튼·휠·이동량 없음 (위치는 남는다 — 호버 표시용)
+    //   키보드 → 키·글자·게임패드 없음 (게임 UI 포커스가 패드도 갖는다),  마우스 → 버튼·휠·이동량 없음 (위치는 남는다 —
+    //   호버 표시용)
     [[nodiscard]] const InputState& downstream() const noexcept;
 
 private:

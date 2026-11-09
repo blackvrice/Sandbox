@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-09 — v0.7 NG-06 (4): 게임패드 — Windows XInput 소스 · 게임 UI 탐색 (ADR-0107, NG-06 끝)
+
+**무엇을**
+
+- platform: GamepadState.pressed · wasPressed, NullGamepadSource · createGamepadSource (common/GamepadSource.cpp — Windows 밖은 없음),
+  windows/XInputMap (순수 표 — 버튼 비트 · 스틱 죽은 영역 · 트리거, 모든 OS 에서 컴파일), windows/Win32Gamepad.cpp (XInput DLL 을 실행
+  중에 — xinput1_4 → 1_3 → 9_1_0, 끊긴 칸은 120 번에 한 번). InputSystem::setGamepads (pressed · 포커스 없음 0 — I3), downstream 은 키보드
+  캡처면 패드도 비운다 (I1).
+- 앱: AppConfig.gamepads (main 이 createGamepadSource), 프레임마다 poll → setGamepads, routeGamepads (십자 · 왼 스틱 넘을 때 한 번 ·
+  A 누르기 · B 놓기 · LB · RB 차례, 포커스가 없으면 첫 컨트롤에).
+- 문서: NG-06 Done (등록부), v0.7 태스크 모두 ✅ (releases · roadmap README · 18 0장).
+
+**왜**
+
+- NG-06 의 마지막 조각 (ADR-0105 5) — I5 의 "콘텐츠가 요구할 때" 가 게임 UI 탐색이다.
+
+**검증**
+
+- test_gamepad 3 개 (XInput 표 · InputSystem · 소스) · test_game_ui_layer 앱 "게임패드" (가짜 소스 · 로컬 서버 — A 첫 포커스 · 십자 ·
+  스틱 넘을 때 한 번 · B · 창 포커스 없으면 무시). 실행: SandboxClient --headless 가 "게임패드: XInput (xinput1_4.dll)" 을 남긴다.
+  clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- 실제 패드는 이 기계에 없다 — MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- Linux evdev · macOS GameController 소스, 스틱 · 십자 반복, 오른 스틱 밀기, 게임 키의 패드 바인딩 (RT-06-13), 0.7.0 릴리스.
+
 ## 2026-11-09 — v0.7 NG-06 (3b): 게임 UI scroll — 휠 · 포커스 따라 밀기 (ADR-0106)
 
 **무엇을**

@@ -545,6 +545,64 @@ void Application::localizeNames(ActionsInfo& actions) const {
 // 게임 UI (v0.7 M3-T3, ADR-0079): 원문이 바뀌면 다시 읽고, 창 크기 (논리 단위 — ImGui 와 같다) 로 배치, 포인터를 modal
 // → menu → 도구 패널 → hud 차례로. 버튼 이벤트: signal = PlayerSignal 명령, action = PlayerAction (자리 = 선택한 개체 →
 // 내 개체 → 화면 가운데 — v0.7 M3-T5), ui = 층 안에서 보이기 · 숨기기
+// 게임패드 → 게임 UI 키 (v0.7 NG-06 (4) — ADR-0107): 십자 · 왼 스틱 (0.5 를 넘을 때 한 번 — 0.3 아래로 돌아오면 다시) =
+// 방향, South (A) = 누르기, East (B) = 놓기, LB · RB = 포커스 앞 · 뒤. 포커스가 없으면 방향 · 누르기는 첫 컨트롤에
+// 포커스를 준다 (놓기는 아무것도 아니다). 패드는 아직 게임 키 (ActionMap) 에 없다 — 게임 UI 만 쓴다
+void Application::routeGamepads(std::vector<ui::UiAction>& events) {
+    using platform::GamepadAxis;
+    using platform::GamepadButton;
+    const InputState& raw = m_input.raw();
+    for (usize p = 0; p < platform::kMaxGamepads; ++p) {
+        const platform::GamepadState& g = raw.gamepads[p];
+        if (!g.connected) {
+            m_padStick[p] = 0;
+            continue;
+        }
+        std::vector<ui::UiKey> keys;
+        static constexpr std::pair<GamepadButton, ui::UiKey> kButtons[] = {
+            {GamepadButton::DpadUp, ui::UiKey::Up},
+            {GamepadButton::DpadDown, ui::UiKey::Down},
+            {GamepadButton::DpadLeft, ui::UiKey::Left},
+            {GamepadButton::DpadRight, ui::UiKey::Right},
+            {GamepadButton::South, ui::UiKey::Activate},
+            {GamepadButton::East, ui::UiKey::Release},
+            {GamepadButton::LeftShoulder, ui::UiKey::Previous},
+            {GamepadButton::RightShoulder, ui::UiKey::Next}};
+        for (const auto& [b, k] : kButtons) {
+            if (g.wasPressed(b)) {
+                keys.push_back(k);
+            }
+        }
+        // 왼 스틱 — 큰 축의 방향, 넘을 때 한 번 (히스테리시스 0.5 / 0.3)
+        const f32 x = g.axis(GamepadAxis::LeftX);
+        const f32 y = g.axis(GamepadAxis::LeftY);
+        const f32 ax = x < 0 ? -x : x;
+        const f32 ay = y < 0 ? -y : y;
+        u8 dir = m_padStick[p];
+        if (std::max(ax, ay) > 0.5f) {
+            dir = ay >= ax ? (y > 0 ? 1 : 2) : (x < 0 ? 3 : 4);
+        } else if (std::max(ax, ay) < 0.3f) {
+            dir = 0;
+        }
+        if (dir != 0 && dir != m_padStick[p]) {
+            static constexpr ui::UiKey kDirs[] = {ui::UiKey::Up, ui::UiKey::Down, ui::UiKey::Left, ui::UiKey::Right};
+            keys.push_back(kDirs[dir - 1]);
+        }
+        m_padStick[p] = dir;
+        for (const ui::UiKey k : keys) {
+            if (!m_gameUi.hasFocus()) {
+                if (k != ui::UiKey::Release && k != ui::UiKey::Previous) {
+                    (void)m_gameUi.key(ui::UiKey::Next, events); // 첫 포커스
+                } else if (k == ui::UiKey::Previous) {
+                    (void)m_gameUi.key(k, events);
+                }
+                continue;
+            }
+            (void)m_gameUi.key(k, events);
+        }
+    }
+}
+
 bool Application::routeGameUi() {
     m_gameUi.setSources(m_config.world->gameUi());
     m_gameUi.setData(m_config.world->uiData());
@@ -606,6 +664,7 @@ bool Application::routeGameUi() {
                 }
             }
         }
+        routeGamepads(events);
     }
     for (const ui::UiAction& e : events) {
         if (e.kind == ui::UiAction::Kind::Signal) {
@@ -702,6 +761,11 @@ bool Application::frame() {
     m_window.pollEvents(m_events);
     m_input.beginFrame();
     m_input.consume(m_events);
+    if (m_config.gamepads != nullptr) { // I5 — v0.7 NG-06 (4)
+        std::array<platform::GamepadState, platform::kMaxGamepads> pads{};
+        m_config.gamepads->poll(pads);
+        m_input.setGamepads(pads);
+    }
     for (const PlatformEvent& e : m_events) {
         handleEvent(e);
     }

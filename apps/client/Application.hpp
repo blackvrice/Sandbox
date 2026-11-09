@@ -82,6 +82,8 @@ struct AppConfig {
     std::optional<platform::ActionMap> defaultActions;
     std::filesystem::path userInputFile;
     f32 gameUiScale = 1.f; // 게임 UI 배율 (v0.7 M4-T4 — 0.75 ~ 2, main 이 --game-ui-scale → client.json 으로 정한다)
+    // 게임패드 (v0.7 NG-06 (4) — ADR-0107): 프레임마다 묻는다 (Application 보다 오래 산다). 없으면 패드 없음
+    platform::IGamepadSource* gamepads = nullptr;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -146,6 +148,7 @@ private:
     void applyKeysRequest(const KeysPanelRequest& r);
     void applyKeyBindings(); // 편집한 맵을 쓴다 (ActionId · 게임 키 다시)
     bool routeGameUi();      // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
+    void routeGamepads(std::vector<ui::UiAction>& events);           // v0.7 NG-06 (4) — 패드 → 게임 UI 키
     void localizeNames(GameInfo& game) const;                        // "@<키>" 표시 이름 (v0.7 M4-T1)
     void localizeNames(ActionsInfo& actions) const;                  // 행동 이름
     void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
@@ -174,6 +177,8 @@ private:
     // 입력 모니터 (MainMenu)
     std::string m_text;             // F2 로 켠 글자 입력이 모인 곳 (최근 것만)
     bool m_gameUiTextInput = false; // 게임 UI 글자 칸이 창의 글자 입력을 켰다 (v0.7 NG-06 (2))
+    // 게임패드 왼 스틱의 지난 방향 (0 없음 · 1 위 · 2 아래 · 3 왼 · 4 오른 — 넘어갈 때 한 번만 UiKey, v0.7 NG-06 (4))
+    std::array<u8, platform::kMaxGamepads> m_padStick{};
     Vec2 m_wheelTotal;
     platform::MouseButton m_lastClickButton = platform::MouseButton::Left;
     u8 m_lastClicks = 0;

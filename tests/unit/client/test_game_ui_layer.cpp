@@ -1287,4 +1287,107 @@ export default defineSystem({
         REQUIRE(app.frame());
         CHECK(app.camera().pixelsPerUnit != zoom);
     }
+    TEST_CASE("app (local server + ImGui 헤드리스, v0.7 NG-06 (4)): 게임패드 — A 가 첫 포커스 · 누르기, 십자 · 왼 스틱 "
+              "(넘을 때 한 번) 이 방향, B 가 놓기, 창 포커스가 없으면 패드는 아무것도 하지 않는다") {
+        class FakePads final : public IGamepadSource {
+        public:
+            GamepadState pad;
+            void poll(std::span<GamepadState, kMaxGamepads> out) override {
+                for (GamepadState& s : out) {
+                    s = GamepadState{};
+                }
+                out[0] = pad;
+            }
+        } fake;
+        fake.pad.connected = true;
+        TempDir root("game_ui_pad");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Pad";
+        project::NewProjectOptions o;
+        o.gameId = "studio.pad";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const fs::path pack = dir / "content" / "ecosystem";
+        fs::create_directories(pack / "presentation" / "ui");
+        std::ofstream(pack / "presentation" / "ui" / "hud.json", std::ios::binary)
+            << R"({"id": "eco.hud", "root": {"kind": "panel", "stack": "row", "gap": 20, "children": [
+                  {"kind": "checkbox", "id": "a", "text": "a", "value": {"bind": "var:eco.a"}},
+                  {"kind": "checkbox", "id": "b", "text": "b", "value": {"bind": "var:eco.b"}}]}})";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window;
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.ui = &imgui;
+        cfg.gamepads = &fake;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        window.inject(KeyDown{Key::F1, 0, {}, false}); // 도구 패널을 감춘다
+        window.inject(KeyUp{Key::F1, 0, {}});
+        REQUIRE(app.frame());
+        const auto tapPad = [&](GamepadButton b) {
+            fake.pad.buttons = 1u << static_cast<u32>(b);
+            REQUIRE(app.frame());
+            fake.pad.buttons = 0;
+            REQUIRE(app.frame());
+        };
+        const auto stick = [&](f32 x) {
+            fake.pad.axes[static_cast<usize>(GamepadAxis::LeftX)] = x;
+            REQUIRE(app.frame());
+        };
+        const auto flag = [&](std::string_view key) { return ui::evaluate(key, *ns->uiData()).flag; };
+
+        CHECK_FALSE(app.gameUi().hasFocus());
+        tapPad(GamepadButton::South); // 포커스가 없으면 첫 컨트롤에 포커스만
+        REQUIRE(app.gameUi().hasFocus());
+        CHECK(app.gameUi().focused()->id == "a");
+        CHECK_FALSE(flag("var:eco.a"));
+        tapPad(GamepadButton::DpadRight);
+        CHECK(app.gameUi().focused()->id == "b");
+        tapPad(GamepadButton::South);
+        CHECK(flag("var:eco.b"));
+        // 왼 스틱 — 넘을 때 한 번 (그대로 두어도 다시 가지 않는다), 0.3 아래로 돌아오면 다시
+        stick(-0.9f);
+        CHECK(app.gameUi().focused()->id == "a");
+        stick(-0.9f);
+        stick(-0.4f); // 0.3 ~ 0.5 — 그대로
+        stick(0.9f);
+        CHECK(app.gameUi().focused()->id == "b");
+        stick(0.0f);
+        tapPad(GamepadButton::LeftShoulder);
+        CHECK(app.gameUi().focused()->id == "a");
+        tapPad(GamepadButton::East); // 놓기
+        CHECK_FALSE(app.gameUi().hasFocus());
+        tapPad(GamepadButton::East); // 포커스가 없으면 아무것도 아니다
+        CHECK_FALSE(app.gameUi().hasFocus());
+
+        // 창 포커스가 없으면 패드는 쓰지 않는다 (I3)
+        window.inject(FocusLost{});
+        REQUIRE(app.frame());
+        tapPad(GamepadButton::South);
+        CHECK_FALSE(app.gameUi().hasFocus());
+        window.inject(FocusGained{});
+        REQUIRE(app.frame());
+        tapPad(GamepadButton::South);
+        CHECK(app.gameUi().hasFocus());
+    }
 }

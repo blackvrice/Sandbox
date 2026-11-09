@@ -9,6 +9,7 @@ add_library(SandboxPlatform STATIC
     common/HeadlessWindow.hpp
     common/HeadlessWindow.cpp
     common/Gamepad.hpp
+    common/GamepadSource.cpp
     common/InputSystem.hpp
     common/InputSystem.cpp
     common/ActionMap.hpp
@@ -22,6 +23,8 @@ add_library(SandboxPlatform STATIC
     # 순수 표 — 모든 OS 에서 컴파일해 단위 테스트가 확인한다 (windows.h · Xlib.h · AppKit 을 쓰지 않는다)
     windows/Win32KeyMap.hpp
     windows/Win32KeyMap.cpp
+    windows/XInputMap.hpp
+    windows/XInputMap.cpp
     linux/X11KeyMap.hpp
     linux/X11KeyMap.cpp
     macos/MacKeyMap.hpp
@@ -33,7 +36,8 @@ if(WIN32)
     target_sources(SandboxPlatform PRIVATE
         windows/Win32Common.hpp
         windows/Win32Window.cpp
-        windows/Win32Platform.cpp)
+        windows/Win32Platform.cpp
+        windows/Win32Gamepad.cpp)
     # 유니코드 API, Windows 10 API (GetDpiForWindow · AdjustWindowRectExForDpi · Per-Monitor v2)
     target_compile_definitions(SandboxPlatform PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
                                                        _WIN32_WINNT=0x0A00 WINVER=0x0A00)

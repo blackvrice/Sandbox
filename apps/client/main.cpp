@@ -281,7 +281,10 @@ int main(int argc, char** argv) {
 
     // 페이싱: 렌더러가 있으면 VSync(또는 무제한)가 정한다. 없으면 60 Hz. --fps 가 둘 다 이긴다
     const double fps = opts->fps.value_or(opts->headless || renderer ? 0.0 : 60.0);
+    // 게임패드 (v0.7 NG-06 (4) — Windows XInput, 그 밖은 없음). 앱보다 오래 산다
+    const std::unique_ptr<sbx::platform::IGamepadSource> gamepads = sbx::platform::createGamepadSource();
     sbx::client::AppConfig cfg;
+    cfg.gamepads = gamepads.get();
     cfg.maxFrames = opts->frames.value_or(0);
     cfg.logInput = opts->logInput;
     cfg.fps = fps > 0 ? fps : 60.0; // 오디오·애니메이션의 명목 dt

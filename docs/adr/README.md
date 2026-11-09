@@ -121,3 +121,4 @@
 | [0104](0104-game-ui-text-input-client-var-length-signal.md) | 게임 UI 글자 칸 — 글은 클라이언트 var 에만, on.change 신호의 값 = 코드 포인트 수 (Enter · 바뀐 뒤 떠날 때), 클릭은 어느 층이든 포커스, client 스크립트 ctx.uiVar · uiVarText, 문자열 신호 · 조합 창 위치는 [계획] | Accepted | 2026-11-09 |
 | [0105](0105-game-ui-dropdown-tabs-index-var-overlay-list.md) | 게임 UI 고르기 — dropdown · tabs 의 값은 var 의 번호 (신호 = 번호), 열린 목록은 모든 문서 위 (밖을 누르면 닫고 누름은 아래로), tabs 는 고른 자식만 배치 · 머리 칸만 잡기, 게임패드 · ScrollView 는 [계획] | Accepted | 2026-11-09 |
 | [0106](0106-game-ui-scroll-client-offset-wheel-reveal.md) | 게임 UI scroll — 세로 밀기는 클라이언트 층의 상태 (var 아님), 배치가 자르고 정수로, 휠은 포인터 아래 가장 안쪽 scroll (끝에서도 써서 카메라로 안 감), 포커스가 가려지면 보이게 민다 | Accepted | 2026-11-09 |
+| [0107](0107-gamepad-xinput-source-ui-navigation.md) | 게임패드 — Windows XInput 소스 (DLL 을 실행 중에, 끊긴 칸은 가끔), 순수 표 XInputMap, InputSystem::setGamepads (pressed · I3 · I1), 패드는 먼저 게임 UI 탐색만 (게임 키는 RT-06-13) | Accepted | 2026-11-09 |

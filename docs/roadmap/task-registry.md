@@ -51,7 +51,7 @@
 | M3-T4 | 바인딩 · ctx.ui | A | Done | v0.5 | v0.7 | P0 | M3-T3 | test_ui_binding · test_game_ui_layer "ui data" · test_client_script_session "ctx.setUi" |
 | M3-T5 | 이벤트 (버튼 → 신호) | A | Done | v0.5 | v0.7 | P0 | M3-T4 | test_game_ui_layer "버튼 → PlayerSignal" (서버 onEvent · 거절 · 선택 자리 행동) |
 | M3-T6 | 스타일 · 테마 · 배율 | A | Done | v0.5 | v0.7 | P1 | M3-T2 | test_ui_document · test_ui_render · test_ui_layout (배율 2 골든) · test_game_ui_layer (테마 버튼) |
-| NG-06 | 게임 UI 입력 컨트롤 (TextInput · Slider · Checkbox · Dropdown · Scroll · 포커스 · 게임패드 · IME) | A | Proposed | — | v0.7 | P1 | M3-T3 | 컨트롤마다 상태 · 이벤트 · 포커스 시험 |
+| NG-06 | 게임 UI 입력 컨트롤 (TextInput · Slider · Checkbox · Dropdown · Scroll · 포커스 · 게임패드 · IME) | A | Done | v0.7 | v0.7 | P1 | M3-T3 | test_ui_controls · test_ui_textinput · test_ui_choice · test_ui_scroll · test_gamepad · test_game_ui_layer (컨트롤 · 글자 칸 · dropdown · scroll · 앱 Tab · 글자 · 휠 · 게임패드) — ADR-0103 ~ 0107 |
 | M4-T1 | 문자열 표 · 로케일 대체 | A | Done | v0.5 | v0.7 | P1 | — | test_ui_strings · test_game_ui_layer (ko · en) · test_client_script_session (ctx.uiText) · MANUAL-QA v0.7 M4-T1 |
 | M4-T2 | 폰트 대체 | A | Done | v0.5 | v0.7 | P1 | M4-T1 | test_ui_layout (overflow · 번역 2 배) · test_font_fallback (사슬 · 덮기 · 실제 ImGui) |
 | M4-T3 | 키 다시 묶기 | A | Done | v0.5 | v0.7 | P1 | — | test_key_bindings (저장 · 읽기 · 겹침 · 되돌리기 · 앱 바꾸기) |

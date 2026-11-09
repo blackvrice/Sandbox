@@ -27,6 +27,9 @@ void InputSystem::beginFrame() {
     m_state.buttonReleased.fill(false);
     m_state.buttonClicks.fill(0);
     m_state.text.clear();
+    for (GamepadState& g : m_state.gamepads) {
+        g.pressed = 0;
+    }
     m_captureMouse = false;
     m_captureKeyboard = false;
     m_filteredDirty = true;
@@ -111,6 +114,19 @@ void InputSystem::consume(const PlatformEventQueue& q) {
     }
 }
 
+void InputSystem::setGamepads(std::span<const GamepadState, kMaxGamepads> pads) {
+    m_filteredDirty = true;
+    for (usize i = 0; i < kMaxGamepads; ++i) {
+        GamepadState next = pads[i];
+        if (!m_state.focused) {
+            next.buttons = 0; // I3 — 포커스가 없으면 눌린 것이 없다 (연결은 그대로 알린다)
+            next.axes = {};
+        }
+        next.pressed = next.buttons & ~m_state.gamepads[i].buttons;
+        m_state.gamepads[i] = next;
+    }
+}
+
 void InputSystem::setCapture(bool mouse, bool keyboard) noexcept {
     m_captureMouse = mouse;
     m_captureKeyboard = keyboard;
@@ -129,6 +145,11 @@ const InputState& InputSystem::downstream() const noexcept {
             m_filtered.keyReleased.reset();
             m_filtered.keyRepeated.reset();
             m_filtered.text.clear();
+            for (GamepadState& g : m_filtered.gamepads) {
+                g.buttons = 0;
+                g.pressed = 0;
+                g.axes = {};
+            }
             m_filtered.keyboardCaptured = true;
         }
         if (m_captureMouse) {
