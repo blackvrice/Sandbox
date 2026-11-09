@@ -34,8 +34,8 @@ struct UiPointerRoute {
 [[nodiscard]] bool contains(const UiRect& r, i32 x, i32 y) noexcept;
 
 // 키보드 포커스 (v0.7 NG-06 (1) — ADR-0103 4 · 5). ui/ 는 플랫폼 키를 모른다 — 앱이 Tab · Shift+Tab · 방향 ·
-// Enter/Space · Esc 를 UiKey 로 넘긴다
-enum class UiKey : u8 { Next, Previous, Up, Down, Left, Right, Activate, Release };
+// Enter/Space · Esc 를 UiKey 로 넘긴다. Backspace · Delete · Home · End 는 글자 칸 편집 (v0.7 NG-06 (2) — ADR-0104)
+enum class UiKey : u8 { Next, Previous, Up, Down, Left, Right, Activate, Release, Backspace, Delete, Home, End };
 
 struct UiFocusable {
     const UiLayoutNode* node = nullptr;

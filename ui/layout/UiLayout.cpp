@@ -67,6 +67,8 @@ public:
             out.fontSize = t.fontSize;
             out.lines = t.lines;
             out.lineHeight = t.lineHeight;
+        } else if (n.kind == UiKind::TextInput) {
+            out.lineHeight = m_measure.measure("", out.fontSize)[1]; // 그리기 · 캐럿의 줄 높이 (v0.7 NG-06 (2))
         }
         m_out.push_back(std::move(out));
         const UiRect inner = intersect(clip, rect);
@@ -233,6 +235,13 @@ private:
         }
         case UiKind::Slider:
             return {kSliderWidth * m_scale + pad, controlBox(fontSize(n)) + pad};
+        case UiKind::TextInput: {
+            // 기본 너비 × 줄 (한 줄 · multiline 4 줄) + 위아래 글자 여백 (v0.7 NG-06 (2) — 글자에 맞추지 않는다)
+            const f32 fs = fontSize(n);
+            const f32 lines = static_cast<f32>(n.multiline ? kTextInputLines : 1u);
+            const f32 h = std::ceil(m_measure.measure("", fs)[1] * lines) + 2 * textInputMargin(fs);
+            return {kTextInputWidth * m_scale + pad, h + pad};
+        }
         case UiKind::Panel:
         case UiKind::List:
             break;

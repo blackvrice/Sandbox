@@ -4,6 +4,8 @@
 #include <cmath>
 #include <format>
 
+#include "ui/input/UiTextEdit.hpp"
+
 namespace sbx::client {
 
 void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
@@ -109,15 +111,23 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
     if (!down) {
         m_pressed = nullptr;
     }
+    // 글자 칸을 편집하는 중에 다른 곳을 누르면 놓는다 (바뀌었으면 보내기 — ADR-0104)
+    if (pressed && editingText() &&
+        (r.control == nullptr || r.control->node != m_focus || r.control->listIndex != m_focusIndex)) {
+        setFocus(nullptr, -1, &out);
+    }
     if (r.control != nullptr && pressed && !disabled(*r.control->node)) {
         m_pressed = r.control->node;
         m_pressedIndex = r.control->listIndex;
         ++m_presses;
-        // menu · modal 의 컨트롤은 키보드 포커스도 (hud 는 아니다 — 게임 키를 빼앗지 않는다, ADR-0103 4)
+        // menu · modal 의 컨트롤은 키보드 포커스도 (hud 는 아니다 — 게임 키를 빼앗지 않는다, ADR-0103 4). 글자 칸은
+        // 어느 층이든 (누르는 것이 곧 글을 쓰겠다는 것 — ADR-0104)
         const ui::UiLayer layer = m_layouts[r.document].document->layer;
-        if (layer == ui::UiLayer::Menu || layer == ui::UiLayer::Modal) {
-            m_focus = r.control->node;
-            m_focusIndex = r.control->listIndex;
+        if (layer == ui::UiLayer::Menu || layer == ui::UiLayer::Modal ||
+            r.control->node->kind == ui::UiKind::TextInput) {
+            if (r.control->node != m_focus || r.control->listIndex != m_focusIndex) {
+                setFocus(r.control->node, r.control->listIndex, &out);
+            }
         }
         if (r.control->node->kind == ui::UiKind::Slider) {
             m_drag = r.control->node;
@@ -151,6 +161,59 @@ f32 GameUiLayer::controlValue(const ui::UiNode& n) const {
         }
     }
     return n.kind == ui::UiKind::Slider ? n.min : 0.0f;
+}
+
+std::string GameUiLayer::textValue(const ui::UiNode& n) const {
+    // 세션의 var 표가 먼저 (수 · 참거짓은 보이는 글자로), 모르면 이 층이 쓴 값, 그것도 없으면 빈 칸
+    if (const ui::UiScalar v = ui::evaluate(n.value, m_data); v.known()) {
+        return v.kind == ui::UiScalar::Kind::Text ? v.text : v.display();
+    }
+    if (n.value.bind.starts_with("var:")) {
+        if (const auto it = m_written.find(std::string_view(n.value.bind).substr(4)); it != m_written.end()) {
+            return it->second.kind == ui::UiScalar::Kind::Text ? it->second.text : it->second.display();
+        }
+    }
+    return {};
+}
+
+void GameUiLayer::setTextValue(const ui::UiNode& n, std::string value) {
+    if (!n.value.bind.starts_with("var:")) {
+        return;
+    }
+    const std::string key = n.value.bind.substr(4);
+    const ui::UiScalar v = ui::UiScalar::of(std::move(value));
+    m_written.insert_or_assign(key, v);
+    if (m_writeVar) {
+        m_writeVar(key, v);
+    }
+}
+
+bool GameUiLayer::editingText() const {
+    return m_focus != nullptr && m_focus->kind == ui::UiKind::TextInput && !disabled(*m_focus);
+}
+
+void GameUiLayer::setFocus(const ui::UiNode* n, i32 listIndex, std::vector<ui::UiAction>* out) {
+    if (m_focus != nullptr && m_focus->kind == ui::UiKind::TextInput && out != nullptr &&
+        textValue(*m_focus) != m_editStart) {
+        emitChange(*m_focus, *out);
+    }
+    m_focus = n;
+    m_focusIndex = listIndex;
+    if (n != nullptr && n->kind == ui::UiKind::TextInput) {
+        m_editStart = textValue(*n);
+        m_caret = ui::codepointCount(m_editStart); // 캐럿은 끝에 (클릭 자리로 옮기기는 [계획])
+    }
+}
+
+bool GameUiLayer::text(std::string_view utf8) {
+    if (!editingText()) {
+        return false;
+    }
+    std::string value = textValue(*m_focus);
+    if (ui::insertText(value, m_caret, utf8, m_focus->maxLength, m_focus->multiline)) {
+        setTextValue(*m_focus, std::move(value));
+    }
+    return true;
 }
 
 void GameUiLayer::setControlValue(const ui::UiNode& n, f32 value) {
@@ -208,6 +271,11 @@ void GameUiLayer::emitChange(const ui::UiNode& n, std::vector<ui::UiAction>& out
         return;
     }
     ui::UiAction a = n.change;
+    if (n.kind == ui::UiKind::TextInput) { // 글자는 클라이언트의 var 에 — 신호의 값은 코드 포인트 수 (ADR-0104)
+        a.value = static_cast<i32>(ui::codepointCount(textValue(n)));
+        out.push_back(std::move(a));
+        return;
+    }
     // 값은 컨트롤이 (ADR-0103 2): checkbox · toggle 0 · 1, slider 는 반올림한 i32 (범위 밖은 자른다)
     const f64 v = std::round(static_cast<f64>(controlValue(n)));
     a.value = static_cast<i32>(std::clamp(v, -2147483648.0, 2147483647.0));
@@ -225,6 +293,52 @@ const ui::UiLayoutNode* GameUiLayer::layoutOf(const ui::UiNode* n, i32 listIndex
     return nullptr;
 }
 
+bool GameUiLayer::editText(const ui::UiNode& n, ui::UiKey key, std::vector<ui::UiAction>& out) {
+    using K = ui::UiKey;
+    std::string value = textValue(n);
+    const auto move = [&](ui::UiCaretMove m) { return ui::moveCaret(value, m_caret, m); };
+    switch (key) {
+    case K::Left:
+        (void)move(ui::UiCaretMove::Left);
+        return true;
+    case K::Right:
+        (void)move(ui::UiCaretMove::Right);
+        return true;
+    case K::Up:
+    case K::Down:
+        // multiline 의 줄 — 첫 · 끝 줄 (또는 한 줄 칸) 이면 다른 컨트롤로 (탐색)
+        return n.multiline && move(key == K::Up ? ui::UiCaretMove::Up : ui::UiCaretMove::Down);
+    case K::Home:
+        (void)move(ui::UiCaretMove::LineStart);
+        return true;
+    case K::End:
+        (void)move(ui::UiCaretMove::LineEnd);
+        return true;
+    case K::Backspace:
+    case K::Delete:
+        if (!disabled(n) && ui::eraseText(value, m_caret, key == K::Delete)) {
+            setTextValue(n, std::move(value));
+        }
+        return true;
+    case K::Activate:
+        if (disabled(n)) {
+            return true;
+        }
+        if (n.multiline) {
+            if (ui::insertText(value, m_caret, "\n", n.maxLength, true)) {
+                setTextValue(n, std::move(value));
+            }
+            return true;
+        }
+        ++m_presses;
+        emitChange(n, out); // 보내기 — 같은 글이라도 (채팅의 같은 말 두 번)
+        m_editStart = value;
+        return true;
+    default:
+        return false; // Next · Previous · Release — 포커스를 옮기는 길 (떠날 때 보내기)
+    }
+}
+
 bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
     using K = ui::UiKey;
     const std::vector<ui::UiFocusable> order =
@@ -237,12 +351,9 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
         }
     }
     if (at < 0) {
-        m_focus = nullptr;
+        setFocus(nullptr, -1, nullptr); // 사라진 칸 — 보낼 것이 없다 (노드가 보이지 않는다)
     }
-    const auto focusAt = [&](usize i) {
-        m_focus = order[i].node->node;
-        m_focusIndex = order[i].node->listIndex;
-    };
+    const auto focusAt = [&](usize i) { setFocus(order[i].node->node, order[i].node->listIndex, &out); };
     if (key == K::Next || key == K::Previous) {
         if (order.empty()) {
             return false;
@@ -259,9 +370,12 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
         return false; // 포커스가 없으면 방향 · 누르기 · 놓기는 게임의 것
     }
     const ui::UiLayoutNode& l = *order[static_cast<usize>(at)].node;
+    if (l.node->kind == ui::UiKind::TextInput && editText(*l.node, key, out)) {
+        return true;
+    }
     switch (key) {
     case K::Release:
-        m_focus = nullptr;
+        setFocus(nullptr, -1, &out);
         return true;
     case K::Activate:
         ++m_presses;
@@ -292,7 +406,7 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
     }
 }
 
-void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
+void GameUiLayer::draw(ui::IUiRenderer& renderer, const ui::ITextMeasure* measure) const {
     ui::UiDrawOptions o{.styles = &m_styles, .pressed = m_pressed, .pressedIndex = m_pressedIndex, .scale = m_scale};
     o.textOf = [this](const ui::UiNode& n, i32) { return ui::formatText(n, m_data, &m_strings); };
     o.progressOf = [this](const ui::UiNode& n, i32) { return ui::progressOf(n, m_data); };
@@ -300,6 +414,9 @@ void GameUiLayer::draw(ui::IUiRenderer& renderer) const {
     o.disabledOf = [this](const ui::UiNode& n, i32) { return disabled(n); };
     o.focused = m_focus;
     o.focusedIndex = m_focusIndex;
+    o.textValueOf = [this](const ui::UiNode& n, i32) { return textValue(n); };
+    o.caret = m_caret;
+    o.measure = measure;
     for (const ui::UiDocumentLayout& l : m_layouts) {
         if (l.visible) {
             ui::drawLayout(l.nodes, o, renderer);

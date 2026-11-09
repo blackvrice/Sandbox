@@ -96,6 +96,12 @@ vm::HostResult clientUiText(ClientScriptHost& host, std::span<const vm::HostArg>
 vm::HostResult clientUiFormat(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.uiText(args, true);
 }
+vm::HostResult clientUiVar(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.uiVar(args, false);
+}
+vm::HostResult clientUiVarText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.uiVar(args, true);
+}
 
 constexpr ClientHostBinding kBindings[] = {
     {"client.tick", AbiType::I32, {AbiType::ClientContext}, 1, &clientTick},
@@ -130,6 +136,8 @@ constexpr ClientHostBinding kBindings[] = {
      {AbiType::ClientContext, AbiType::String, AbiType::String, AbiType::String},
      4,
      &clientUiFormat},
+    {"client.uiVar", AbiType::Number, {AbiType::ClientContext, AbiType::String}, 2, &clientUiVar},
+    {"client.uiVarText", AbiType::String, {AbiType::ClientContext, AbiType::String}, 2, &clientUiVarText},
 };
 
 } // namespace
@@ -412,6 +420,18 @@ vm::HostResult ClientScriptHost::uiText(std::span<const vm::HostArg> args, bool 
     }
     vm::HostResult r;
     r.text = clip(text, ui::kMaxStringBytes);
+    return r;
+}
+
+vm::HostResult ClientScriptHost::uiVar(std::span<const vm::HostArg> args, bool text) {
+    const ui::UiScalar v = m_frame.uiData != nullptr ? m_frame.uiData->var(args[1].text) : ui::UiScalar{};
+    vm::HostResult r;
+    if (text) {
+        r.text = clip(v.kind == ui::UiScalar::Kind::Text ? v.text : (v.known() ? v.display() : std::string()),
+                      ui::kMaxStringBytes);
+    } else {
+        r.value = vm::Value::f64v(v.asNumber().value_or(0.0));
+    }
     return r;
 }
 

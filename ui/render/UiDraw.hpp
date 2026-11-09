@@ -10,6 +10,8 @@
 //   checkbox       상자 (테두리) + 켜면 안쪽 채움 · 이름 (v0.7 NG-06 (1)), toggle = 2 칸 길 (켜면 밝게) + 손잡이 (켜면
 //   오른쪽) slider         가는 길 + 채움 (value 의 min ~ max 비율) + 손잡이. 꺼진 컨트롤 (disabled) 은 흐리게,
 //   포커스는 테두리 고리
+//   textinput      상자 + 글자 (줄마다 — '\n' 으로만 나눈다, 감싸지 않는다), 비면 placeholder 를 흐리게. 포커스면 캐럿
+//                  (깜빡이지 않는다 — 결정적) 이 보이게 가로 · 세로로 민다 (캐럿 줄이 넘치면) (v0.7 NG-06 (2))
 // 모든 호출에 clip (UiLayoutNode.clip) — 넘친 부분은 백엔드가 자른다
 
 #include <functional>
@@ -36,9 +38,11 @@ public:
 inline constexpr UiColor kTextColor{235, 235, 235, 255};
 inline constexpr UiColor kButtonColor{70, 70, 78, 230};
 inline constexpr UiColor kProgressColor{90, 170, 90, 255};
-inline constexpr UiColor kControlColor{55, 55, 62, 230};  // 상자 · 길 바탕
-inline constexpr UiColor kCheckColor{110, 170, 230, 255}; // 켬 · 채움
-inline constexpr UiColor kFocusColor{250, 210, 90, 255};  // 포커스 고리
+inline constexpr UiColor kControlColor{55, 55, 62, 230};        // 상자 · 길 바탕
+inline constexpr UiColor kCheckColor{110, 170, 230, 255};       // 켬 · 채움
+inline constexpr UiColor kFocusColor{250, 210, 90, 255};        // 포커스 고리
+inline constexpr UiColor kFieldBorderColor{120, 120, 132, 255}; // 글자 칸 테두리
+inline constexpr UiColor kPlaceholderColor{140, 140, 150, 255}; // 빈 글자 칸의 안내 글
 
 struct UiDrawOptions {
     const std::map<std::string, UiStyle, std::less<>>* styles = nullptr;
@@ -56,6 +60,11 @@ struct UiDrawOptions {
     std::function<bool(const UiNode& node, i32 listIndex)> disabledOf{};
     const UiNode* focused = nullptr;
     i32 focusedIndex = -1;
+    // 글자 칸 (v0.7 NG-06 (2)): 지금 글자 (var — 없으면 빈 칸), 포커스 칸의 캐럿 (코드 포인트 위치), 글자 재기 (캐럿 ·
+    // 밀기 — 없으면 캐럿을 그리지 않고 밀지 않는다)
+    std::function<std::string(const UiNode& node, i32 listIndex)> textValueOf{};
+    usize caret = 0;
+    const ITextMeasure* measure = nullptr;
 };
 
 // 배치 결과를 차례대로 그린다 (부모 먼저 — 자식이 위에)

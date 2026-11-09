@@ -591,6 +591,8 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [ ] (M4-T3) "키" 패널 — 바꾸기 · Esc 취소 · 겹침 노랑 · 저장 뒤 다시 시작해도 남는다 · 모두 기본값 (창 — 시험은 헤드리스)
 [ ] (M4-T4) --game-ui-scale 0.75 · 2 — HUD 가 줄고 는다, 버튼 클릭 자리가 맞다 (높은 DPI 와 함께)
 [ ] (NG-06 (1)) checkbox · toggle · slider 를 마우스 · Tab · 방향 · Space 로 — 포커스 고리 · 끄는 slider · 흐린 disabled (창)
+[ ] (NG-06 (2)) textinput 에 한글 IME 로 쓰기 — 조합 창 (OS 의 자리 — 캐럿 자리는 [계획]) · 확정 글자만 들어감 · 캐럿 · 밀기 ·
+    multiline 줄 바꿈 · Esc 뒤 게임 키 (Windows · X11 · Wayland 창)
 ```
 
 ## v0.7 M3-T3 — 게임 UI (HUD) 가 게임 화면에 보인다

@@ -577,20 +577,31 @@ bool Application::routeGameUi() {
         static_cast<i32>(raw.mousePosition.x), static_cast<i32>(raw.mousePosition.y), m_config.ui->wantMouse(),
         raw.pressed(platform::MouseButton::Left), raw.down(platform::MouseButton::Left), events);
     // 키보드 포커스 (v0.7 NG-06 (1) — ADR-0103 4 · 5): 도구 패널이 키보드를 원하지 않을 때 Tab 이 포커스를 주고,
-    // 포커스가 있으면 방향 · Enter · Space · Esc 를 게임 UI 가 쓴다 (앱은 그 프레임 키보드를 게임에서 뺀다 — frame)
+    // 포커스가 있으면 방향 · Enter · Space · Esc 를 게임 UI 가 쓴다 (앱은 그 프레임 키보드를 게임에서 뺀다 — frame).
+    // 글자 칸 (NG-06 (2) — ADR-0104): 확정된 글자를 먼저 넣고 (그 프레임의 Enter 보다 앞), Space 는 글자라 누르기가
+    // 아니다. Backspace · Delete · Home · End 는 편집
     if (!m_config.ui->wantKeyboard()) {
         const auto keyPress = [&](platform::Key k) { return raw.pressed(k) || raw.repeated(k); };
+        (void)m_gameUi.text(raw.text);
         if (keyPress(platform::Key::Tab)) {
             (void)m_gameUi.key(raw.modifiers().shift() ? ui::UiKey::Previous : ui::UiKey::Next, events);
         }
         if (m_gameUi.hasFocus()) {
-            const std::pair<platform::Key, ui::UiKey> keys[] = {
-                {platform::Key::Up, ui::UiKey::Up},          {platform::Key::Down, ui::UiKey::Down},
-                {platform::Key::Left, ui::UiKey::Left},      {platform::Key::Right, ui::UiKey::Right},
-                {platform::Key::Enter, ui::UiKey::Activate}, {platform::Key::Space, ui::UiKey::Activate},
-                {platform::Key::Escape, ui::UiKey::Release}};
+            const bool editing = m_gameUi.editingText();
+            const std::pair<platform::Key, ui::UiKey> keys[] = {{platform::Key::Up, ui::UiKey::Up},
+                                                                {platform::Key::Down, ui::UiKey::Down},
+                                                                {platform::Key::Left, ui::UiKey::Left},
+                                                                {platform::Key::Right, ui::UiKey::Right},
+                                                                {platform::Key::Enter, ui::UiKey::Activate},
+                                                                {platform::Key::KpEnter, ui::UiKey::Activate},
+                                                                {platform::Key::Space, ui::UiKey::Activate},
+                                                                {platform::Key::Escape, ui::UiKey::Release},
+                                                                {platform::Key::Backspace, ui::UiKey::Backspace},
+                                                                {platform::Key::Delete, ui::UiKey::Delete},
+                                                                {platform::Key::Home, ui::UiKey::Home},
+                                                                {platform::Key::End, ui::UiKey::End}};
             for (const auto& [k, u] : keys) {
-                if (keyPress(k)) {
+                if (keyPress(k) && !(editing && k == platform::Key::Space)) {
                     (void)m_gameUi.key(u, events);
                 }
             }
@@ -703,6 +714,16 @@ bool Application::frame() {
         const bool gameUiMouse = m_state == AppState::InWorld && m_config.world != nullptr && routeGameUi();
         // 게임 UI 에 키보드 포커스가 있으면 키는 게임 · 엔진 키에 가지 않는다 (v0.7 NG-06 (1) — Esc 가 놓는다)
         m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse, m_config.ui->wantKeyboard() || m_gameUi.hasFocus());
+        // 게임 UI 글자 칸을 편집하는 동안 창의 글자 입력 (IME) 을 켜고, 끝나면 우리가 켠 것만 끈다 (v0.7 NG-06 (2) —
+        // ImGui 의 글자 칸 · F2 시험 상태와 같은 규칙: 남이 켠 것은 끄지 않는다)
+        const bool editing = m_state == AppState::InWorld && m_config.world != nullptr && m_gameUi.editingText();
+        if (editing && !m_window.textInputActive()) {
+            m_window.setTextInputActive(true);
+            m_gameUiTextInput = true;
+        } else if (!editing && m_gameUiTextInput) {
+            m_window.setTextInputActive(false);
+            m_gameUiTextInput = false;
+        }
     } else {
         m_input.setCapture(false, false);
     }
@@ -818,7 +839,8 @@ bool Application::frame() {
             }
             if (m_gameUi.documentCount() > 0) { // v0.7 M3-T3 — 배경 목록: 게임 화면 위 · 도구 패널 아래
                 ImGuiUiRenderer renderer(ImGui::GetBackgroundDrawList(), m_glyphs ? &*m_glyphs : nullptr);
-                m_gameUi.draw(renderer);
+                const ImGuiTextMeasure measure(m_glyphs ? &*m_glyphs : nullptr); // 글자 칸 캐럿 (v0.7 NG-06 (2))
+                m_gameUi.draw(renderer, &measure);
             }
             if (const auto so = m_config.world->scriptOverlay()) {
                 drawScriptOverlay(*so, m_renderWorld.camera); // v0.3 M5-T3 — 게임 화면이라 늘

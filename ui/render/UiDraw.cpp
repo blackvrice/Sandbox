@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "ui/input/UiTextEdit.hpp"
+
 namespace sbx::ui {
 namespace {
 
@@ -28,6 +30,73 @@ UiColor darker(UiColor c) {
 
 UiRect inset(const UiRect& r, i32 by) {
     return {r.x + by, r.y + by, std::max(0, r.w - 2 * by), std::max(0, r.h - 2 * by)};
+}
+
+UiRect intersect(const UiRect& a, const UiRect& b) {
+    const i32 x0 = std::max(a.x, b.x);
+    const i32 y0 = std::max(a.y, b.y);
+    const i32 x1 = std::min(a.x + a.w, b.x + b.w);
+    const i32 y1 = std::min(a.y + a.h, b.y + b.h);
+    return {x0, y0, std::max(0, x1 - x0), std::max(0, y1 - y0)};
+}
+
+i32 roundPx(f32 v) {
+    return static_cast<i32>(std::floor(v + 0.5f));
+}
+
+// 글자 칸 (v0.7 NG-06 (2)): 상자 · 테두리 → 글자 영역 (상자 안 여백) 에 줄마다. 포커스면 캐럿이 보이게 민다 — 세로는
+// 캐럿 줄이 마지막 보이는 줄이 되게, 가로는 캐럿 x 가 영역의 오른 끝 안에 들게 (모든 줄을 같은 만큼)
+void drawTextInput(const UiLayoutNode& ln, const UiDrawOptions& options, IUiRenderer& renderer, bool off, bool focus,
+                   const std::string& placeholder) {
+    const auto tone = [&](UiColor c) { return off ? dim(c) : c; };
+    const UiRect box = inset(ln.rect, static_cast<i32>(ln.padding + 0.5f));
+    renderer.fillRect(box, tone(kControlColor), ln.clip);
+    renderer.strokeRect(box, tone(kFieldBorderColor), options.scale, ln.clip);
+    const UiRect area = inset(box, static_cast<i32>(textInputMargin(ln.fontSize)));
+    const UiRect clip = intersect(ln.clip, area);
+    const f32 lh = ln.lineHeight > 0 ? ln.lineHeight : ln.fontSize * 1.25f;
+    const i32 lineH = static_cast<i32>(std::ceil(lh));
+    const std::string value = options.textValueOf ? options.textValueOf(*ln.node, ln.listIndex) : std::string();
+    if (value.empty() && !placeholder.empty()) {
+        renderer.text({area.x, area.y, area.w, lineH}, placeholder, ln.fontSize, tone(kPlaceholderColor), clip);
+    }
+    const UiLineColumn at = lineColumnOf(value, focus ? options.caret : 0);
+    const usize visible = std::max<usize>(1, static_cast<usize>(static_cast<f32>(area.h) / lh));
+    const usize first = focus && at.line >= visible ? at.line - visible + 1 : 0;
+    // 캐럿 줄의 캐럿 앞 글자 너비 → 가로 밀기
+    std::string_view caretLine = value;
+    for (usize i = 0; i < at.line; ++i) {
+        caretLine.remove_prefix(caretLine.find('\n') + 1);
+    }
+    caretLine = caretLine.substr(0, caretLine.find('\n'));
+    f32 caretX = 0;
+    if (focus && options.measure != nullptr) {
+        caretX = options.measure->measure(caretLine.substr(0, byteOffsetOf(caretLine, at.column)), ln.fontSize)[0];
+    }
+    const i32 caretW = std::max(1, roundPx(options.scale));
+    const i32 scroll = std::max(0, roundPx(caretX) + caretW - area.w);
+    std::string_view rest = value;
+    for (usize i = 0;; ++i) {
+        const usize nl = rest.find('\n');
+        const std::string_view line = rest.substr(0, nl);
+        rest = nl == std::string_view::npos ? std::string_view() : rest.substr(nl + 1);
+        if (i >= first) {
+            const i32 y = area.y + roundPx(static_cast<f32>(i - first) * lh);
+            if (y >= area.y + area.h) {
+                break;
+            }
+            if (!line.empty()) {
+                renderer.text({area.x - scroll, y, area.w + scroll, lineH}, line, ln.fontSize, tone(kTextColor), clip);
+            }
+        }
+        if (nl == std::string_view::npos) {
+            break;
+        }
+    }
+    if (focus && !off && options.measure != nullptr) {
+        const i32 y = area.y + roundPx(static_cast<f32>(at.line - first) * lh);
+        renderer.fillRect({area.x + roundPx(caretX) - scroll, y, caretW, lineH}, kTextColor, clip);
+    }
 }
 
 } // namespace
@@ -149,6 +218,10 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
             renderer.fillRect({knobX, r.y, knob, r.h}, tone(kTextColor), ln.clip);
             break;
         }
+        case UiKind::TextInput:
+            drawTextInput(ln, options, renderer, off, options.focused == &n && options.focusedIndex == ln.listIndex,
+                          label());
+            break;
         }
         if (options.focused == &n && options.focusedIndex == ln.listIndex) {
             renderer.strokeRect(ln.rect, kFocusColor, 2 * options.scale, ln.clip); // 포커스 고리 (v0.7 NG-06 (1))

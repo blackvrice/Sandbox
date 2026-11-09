@@ -425,4 +425,66 @@ export default defineSystem({
         CHECK(table.takeMissing() == std::vector<std::string>{"eco.none"}); // 경고 한 번 (프레임마다 불러도)
         ns.setUiStrings(nullptr);
     }
+    TEST_CASE(
+        "client script (local server): ctx.uiVar · uiVarText (v0.7 NG-06 (2)) — 게임 UI 컨트롤이 쓴 var 를 읽는다 "
+        "(수 · 참거짓 · 글자, 없음은 0 · \"\")") {
+        render::MaterialLibrary mats;
+        NetworkSessionDesc d;
+        d.world = "ecosystem_small";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.inlineServer = true;
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        NetworkSession& ns = **made;
+        editor::Editor ed;
+        f64 now = 0;
+        const auto frame = [&] {
+            ns.update(kDt);
+            render::RenderWorld w;
+            ns.extract(w);
+            editor::EditorInput in;
+            in.now = (now += kDt);
+            in.cursor = {1e4f, 1e4f};
+            ed.update(in, ns);
+        };
+        for (int i = 0; i < 120 && !ns.ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns.ready());
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.echo",
+                               nlohmann::json{{"id", "eco.echo"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.echo",
+  domain: "client",
+  onUpdate(ctx) {
+    ctx.setUiText("eco.echo", "[" + ctx.uiVarText("eco.name") + "]")
+    ctx.setUi("eco.next", ctx.uiVar("eco.vol") + 1)
+    ctx.setUi("eco.flag", ctx.uiVar("eco.on"))
+    ctx.setUiText("eco.volText", ctx.uiVarText("eco.vol"))
+    ctx.setUi("eco.nameNum", ctx.uiVar("eco.name"))
+  },
+})
+)"}}));
+        for (int i = 0; i < 60 && ns.clientScripts() == nullptr && ns.overlayError().empty(); ++i) {
+            frame();
+        }
+        REQUIRE_MESSAGE(ns.overlayError().empty(), ns.overlayError());
+        REQUIRE(ns.clientScripts() != nullptr);
+        const ui::IUiDataSource* data = ns.uiData();
+        REQUIRE(data != nullptr);
+        frame();
+        CHECK(ui::evaluate("var:eco.echo", *data).text == "[]"); // 없음 = ""
+        CHECK(ui::evaluate("var:eco.next", *data).number == 1.0);
+
+        // 게임 UI 컨트롤이 쓰는 길 (세션 setUiVar — GameUiLayer 의 VarWriter)
+        ns.setUiVar("eco.name", ui::UiScalar::of(std::string("토끼")));
+        ns.setUiVar("eco.vol", ui::UiScalar::of(2.5));
+        ns.setUiVar("eco.on", ui::UiScalar::ofBool(true));
+        frame();
+        CHECK(ui::evaluate("var:eco.echo", *data).text == "[토끼]");
+        CHECK(ui::evaluate("var:eco.next", *data).number == 3.5);
+        CHECK(ui::evaluate("var:eco.flag", *data).number == 1.0);
+        CHECK(ui::evaluate("var:eco.volText", *data).text == "2.5");
+        CHECK(ui::evaluate("var:eco.nameNum", *data).number == 0.0); // 글자는 수로 0
+    }
 }

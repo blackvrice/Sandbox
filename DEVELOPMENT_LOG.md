@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-09 — v0.7 NG-06 (2): 게임 UI 글자 칸 (textinput) · client ctx.uiVar · uiVarText (ADR-0104)
+
+**무엇을**
+
+- ui/model: 요소 textinput (value = "var:<키>" 의 글 · placeholder · maxLength 1 ~ 256 · multiline · on.change 신호). ui/input/UiTextEdit
+  (새 파일): 코드 포인트 캐럿의 넣기 (제어 문자 · 상한) · 지우기 · 캐럿 줄 · 칸 이동. ui/layout 크기 (200 × 줄 + 글꼴 × 0.25 여백), ui/render
+  글자 칸 (상자 · placeholder · 줄마다 글 · 캐럿 · 캐럿이 보이게 가로 · 세로 밀기), UiKey 에 Backspace · Delete · Home · End.
+- GameUiLayer: text (확정 글자) · 편집 키 · Enter 보내기 (값 = 코드 포인트 수) · 떠날 때 바뀌었으면 보내기 (setFocus 한 곳), 글자 칸은
+  hud 클릭도 포커스 · 편집 중 다른 곳 클릭은 놓기. draw 가 글자 재기를 받는다 (캐럿).
+- Application: 글자 칸 편집 중 창의 글자 입력 (IME) 켜기 · 우리가 켠 것만 끄기, 확정 글자를 키보다 먼저, Space 는 글자.
+- Host API: client.uiVar (수) · client.uiVarText (글) — 세션의 var 표 (ClientScriptFrame.uiData). 지문 0xd8e74d9eb927e9ae →
+  0xcfce033639142a66 (더하기만 — 버전 1), SDK 4 곳 다시 생성.
+
+**왜**
+
+- 등록부 NG-06 의 둘째 단계. 글은 i32 신호로 보내지 못한다 — 프로토콜을 바꾸는 문자열 신호는 따로 결정하고 (ADR-0104 7), 이번은
+  클라이언트 쪽 글자 칸 + 스크립트가 읽는 길 (사용자 결정: 클라이언트 쪽 먼저).
+
+**검증**
+
+- test_ui_textinput 5 개 (문서 · 편집 · 배치 · 그리기 · 라우팅) · test_game_ui_layer "글자 칸" (층) · 앱 "HUD 글자 칸" (로컬 서버 —
+  창 글자 입력 켬 · 끔, 한글 · Space · Backspace, Enter → 서버 onEvent "signal eco.say 4", 일시정지 아님) · test_client_script_session
+  "ctx.uiVar" · 지문 · 바인딩 수 (22). clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- 한글 IME 창 눈 확인은 MANUAL-QA [ ]. 런타임: rabbit_guard 복사본에 글자 칸 문서 (한 줄 · multiline) 를 더해 sbx check — maxLength 300 은 U1 오류, 200 이면 오류 0 · 문서 2.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- 문자열 신호 ADR (글을 서버로 — 채팅 · 이름: 명령 · 프로토콜 17 · 길이 · 필터), IME 조합 창 위치 (창 API), 선택 · 복사 · 붙여넣기 ·
+  누른 자리 캐럿 · 깜빡임, NG-06 (3) Dropdown · ScrollView · Tab · 게임패드 탐색 (I5).
+
 ## 2026-11-09 — v0.7 NG-06 (1): 게임 UI 입력 컨트롤 — checkbox · toggle · slider · 키보드 포커스 (ADR-0103)
 
 **무엇을**

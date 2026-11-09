@@ -177,8 +177,14 @@ NG-06 (1) ✅ (v0.7, ADR-0103) checkbox · toggle · slider — value = "var:<�
         스크립트와 같은 표), on.change = 신호만 (값은 컨트롤 — 0 · 1 · 반올림 i32, slider 는 놓을 때 · 키로 바꿀 때 한 번), disabled ·
         tabIndex. 배치: 상자 = 글꼴 × 1.25 (toggle 2 칸) + 글꼴 절반 + 이름, slider 160 × 상자. 키보드 포커스: Tab · Shift+Tab (tabIndex →
         문서 차례, 꺼진 것 빼기), menu · modal 의 컨트롤 클릭 — hud 클릭은 포커스를 주지 않는다. 포커스가 있으면 키보드는 게임 UI 가
-        (Enter · Space 누르기, 왼 · 오른 slider 한 칸, 방향 = 가장 가까운 컨트롤, Esc 놓기). (2) [계획] TextInput · IME, (3) [계획]
-        Dropdown · ScrollView · Tab · 게임패드 (I5)
+        (Enter · Space 누르기, 왼 · 오른 slider 한 칸, 방향 = 가장 가까운 컨트롤, Esc 놓기)
+NG-06 (2) ✅ (v0.7, ADR-0104) textinput — value = "var:<키>" 의 글 (클라이언트에만 — 서버에 가지 않는다), placeholder · maxLength
+        (1 ~ 256 코드 포인트, 기본 64 · 1 KiB) · multiline, on.change = 신호 (값 = 코드 포인트 수 — 한 줄의 Enter, 바뀐 뒤 포커스가
+        떠날 때). 어느 층이든 누르면 포커스 (편집 중 다른 곳을 누르면 놓는다). 편집: 확정 글자 (IME 조합이 끝난 것 — 27 9장) ·
+        왼 · 오른 · Home · End · Backspace · Delete, multiline 은 Enter = 줄 바꿈 · 위 · 아래 = 줄. 편집 중 앱이 창의 글자 입력을
+        켠다. 배치 200 × 줄 (multiline 4) + 글꼴 × 0.25 여백, 그리기는 캐럿 (깜빡이지 않음) 이 보이게 민다. client 스크립트는
+        ctx.uiVar · uiVarText 로 읽는다. [계획]: 문자열 신호 (글을 서버로 — 채팅), 조합 창 위치, 선택 · 복사 · 붙여넣기 · 누른 자리 캐럿
+(3) [계획] Dropdown · ScrollView · Tab · 게임패드 (I5)
 ```
 
 ## 3. 게임플레이 API (X2 — ADR-0080)

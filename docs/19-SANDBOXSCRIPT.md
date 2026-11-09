@@ -790,6 +790,9 @@ ctx.uiText(key: string): string                                      문자열 �
                                                                     기본 표, 없으면 키 그대로 (앱 로그에 경고 한 번). "{0}" 은 그대로
 ctx.uiFormat(key: string, arg0: string, arg1: string): string        같은 글에 {0} = arg0 · {1} = arg1 (수는 "" + n). 결과 1 KiB 까지.
                                                                     둘 다 읽기 (Capability Ui) — 프레임 개수 제한 없음 (연료 2)
+ctx.uiVar(key: string): number · uiVarText(key: string): string    게임 UI "var:<key>" 읽기 (v0.7 NG-06 (2) — ADR-0104): 컨트롤 (글자 칸 ·
+                                                                    slider …) 과 setUi 가 쓴 값, 지난 프레임까지. uiVar = 수 (참거짓 1 · 0,
+                                                                    글자 · 없음 0), uiVarText = 글자 (수는 보이는 글자, 없음 "", 1 KiB 까지)
 Capability                                                           InputRead · ClientSend · Sound · Ui (onUpdate 가 허락 — 26장, Ui 는 v0.7)
 트랩                                                                 트랩난 호출의 신호 · 소리 · UI 값은 내보내지 않는다 (표시와 같은 규칙)
 결정성                                                               시뮬레이션 밖 — 서버에 닿는 것은 PlayerSignal 명령뿐 (리플레이에 남는다)

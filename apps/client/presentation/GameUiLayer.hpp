@@ -42,12 +42,22 @@ public:
     // 컨트롤을 누르면 키보드 포커스 (hud 는 주지 않는다 — ADR-0103 4)
     ui::UiPointerRoute route(i32 x, i32 y, bool toolsWantMouse, bool pressed, bool down,
                              std::vector<ui::UiAction>& out);
-    void draw(ui::IUiRenderer& renderer) const;
+    // measure = 글자 칸의 캐럿 · 밀기 (v0.7 NG-06 (2) — 없으면 캐럿을 그리지 않는다)
+    void draw(ui::IUiRenderer& renderer, const ui::ITextMeasure* measure = nullptr) const;
     // 키 (v0.7 NG-06 (1) — ADR-0103 5): Next · Previous = 포커스 차례, 방향 = 가까운 컨트롤 (slider 면 왼 · 오른 = 한
     // 칸), Activate = 누르기, Release = 포커스 놓기. 키를 썼으면 true (앱은 게임에 주지 않는다). 포커스가 없으면 Next ·
     // Previous 만 (보이는 컨트롤이 있으면 첫째 · 끝에)
+    // 글자 칸에 포커스가 있으면 (NG-06 (2) — ADR-0104): 왼 · 오른 = 캐럿, 위 · 아래 = multiline 의 줄 (첫 · 끝 줄이면
+    // 탐색), Home · End = 줄 처음 · 끝, Backspace · Delete = 지우기, Activate = multiline 은 줄 바꿈 · 한 줄은 보내기
+    // (on.change 신호 — 값 = 코드 포인트 수). 포커스가 떠나면 (Tab · Esc · 다른 곳 클릭) 글자가 바뀐 경우 보내기
     bool key(ui::UiKey key, std::vector<ui::UiAction>& out);
+    // 확정된 글자 (UTF-8 — IME 조합이 끝난 것만) 를 포커스 글자 칸의 캐럿에 넣는다. 글자 칸 포커스가 아니면 false
+    bool text(std::string_view utf8);
     [[nodiscard]] bool hasFocus() const noexcept { return m_focus != nullptr; } // 키보드는 게임 UI 가 갖는다
+    // 포커스가 켜진 글자 칸이다 — 앱은 창의 글자 입력 (IME) 을 켜고, Space 를 누르기로 바꾸지 않는다
+    [[nodiscard]] bool editingText() const;
+    [[nodiscard]] usize caret() const noexcept { return m_caret; }
+    [[nodiscard]] std::string textValue(const ui::UiNode& n) const; // 글자 칸의 지금 글자 (var — 없으면 빈 칸)
     [[nodiscard]] const ui::UiNode* focused() const noexcept { return m_focus; }
     void apply(const ui::UiAction& action); // ui show · hide · toggle · theme
     // 지금 테마 (v0.7 M3-T6 — 비면 없음). 없는 테마 이름이면 false (그대로)
@@ -93,6 +103,10 @@ private:
     void press(const ui::UiLayoutNode& n, std::vector<ui::UiAction>& out); // 클릭 · Activate 의 같은 길
     void sliderTo(const ui::UiNode& n, const ui::UiRect& rect, i32 x);
     void emitChange(const ui::UiNode& n, std::vector<ui::UiAction>& out) const;
+    void setTextValue(const ui::UiNode& n, std::string value);
+    bool editText(const ui::UiNode& n, ui::UiKey key, std::vector<ui::UiAction>& out); // 썼으면 true
+    // 포커스를 옮긴다 — 떠나는 글자 칸이 바뀌었으면 on.change 신호 (out 이 있으면), 새 글자 칸은 캐럿을 끝에
+    void setFocus(const ui::UiNode* n, i32 listIndex, std::vector<ui::UiAction>* out);
     [[nodiscard]] const ui::UiLayoutNode* layoutOf(const ui::UiNode* n, i32 listIndex) const;
     VarWriter m_writeVar;
     std::map<std::string, ui::UiScalar, std::less<>> m_written; // 이 층이 쓴 값 (세션이 없을 때 · 같은 프레임 읽기)
@@ -100,6 +114,8 @@ private:
     i32 m_focusIndex = -1;
     const ui::UiNode* m_drag = nullptr; // 끌고 있는 slider
     i32 m_dragIndex = -1;
+    usize m_caret = 0;       // 글자 칸의 캐럿 (코드 포인트 위치 — v0.7 NG-06 (2))
+    std::string m_editStart; // 포커스를 받을 때의 글자 — 떠날 때 다르면 보낸다
 };
 
 } // namespace sbx::client

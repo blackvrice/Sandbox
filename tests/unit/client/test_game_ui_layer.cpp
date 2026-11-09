@@ -784,4 +784,228 @@ export default defineSystem({
         CHECK(ns->paused() != pausedBefore);
         CHECK(serverLogs().size() == 1);
     }
+    TEST_CASE("game ui layer (v0.7 NG-06 (2)): 글자 칸 — hud 클릭도 포커스, 넣기 · 캐럿 · 지우기 · maxLength, Enter 는 "
+              "보내기 (값 = 코드 포인트 수), 떠날 때 바뀌었으면 보내기, multiline 의 줄 바꿈 · 줄 이동") {
+        class Vars final : public ui::IUiDataSource {
+        public:
+            std::map<std::string, ui::UiScalar, std::less<>> values;
+            ui::UiScalar var(std::string_view key) const override {
+                const auto it = values.find(key);
+                return it == values.end() ? ui::UiScalar{} : it->second;
+            }
+            ui::UiScalar session(std::string_view) const override { return {}; }
+            ui::UiScalar component(std::string_view, ui::UiTarget) const override { return {}; }
+        } vars;
+        GameUiInfo info;
+        info.documents.push_back(
+            {"eco", "hud", R"({"id": "eco.hud", "root": {"kind": "panel", "stack": "row", "gap": 20, "children": [
+            {"kind": "textinput", "id": "name", "value": {"bind": "var:eco.name"}, "maxLength": 5, "on": {"change": {"signal": "eco.name"}}},
+            {"kind": "checkbox", "id": "chk", "value": {"bind": "var:eco.chk"}},
+            {"kind": "textinput", "id": "note", "value": {"bind": "var:eco.note"}, "multiline": true, "on": {"change": {"signal": "eco.note"}}},
+            {"kind": "textinput", "id": "off", "value": {"bind": "var:eco.off"}, "disabled": true}]}})"});
+        GameUiLayer layer;
+        layer.setSources(info);
+        REQUIRE(layer.documentCount() == 1);
+        layer.setData(&vars);
+        layer.setVarWriter(
+            [&](std::string_view key, const ui::UiScalar& v) { vars.values.insert_or_assign(std::string(key), v); });
+        const ui::FixedTextMeasure measure;
+        layer.layout(800, 600, 1.0f, measure);
+        const auto clickAt = [&](std::string_view id) {
+            const auto [x, y] = centerOf(*find(layer, id));
+            std::vector<ui::UiAction> ev;
+            (void)layer.route(x, y, false, true, true, ev);
+            (void)layer.route(x, y, false, false, false, ev);
+            return ev;
+        };
+        const auto name = [&] { return ui::evaluate("var:eco.name", vars).text; };
+
+        CHECK_FALSE(layer.text("x")); // 포커스가 없으면 글자는 게임 UI 의 것이 아니다
+        CHECK(clickAt("name").empty());
+        REQUIRE(layer.hasFocus());
+        CHECK(layer.editingText());
+        CHECK(layer.text("가나"));
+        CHECK(name() == "가나");
+        CHECK(layer.caret() == 2);
+        std::vector<ui::UiAction> ev;
+        CHECK(layer.key(ui::UiKey::Left, ev)); // 왼 · 오른은 캐럿 (다른 컨트롤로 가지 않는다)
+        CHECK(layer.text("x"));
+        CHECK(name() == "가x나");
+        CHECK(layer.key(ui::UiKey::Backspace, ev));
+        CHECK(name() == "가나");
+        CHECK(layer.key(ui::UiKey::Home, ev));
+        CHECK(layer.caret() == 0);
+        CHECK(layer.key(ui::UiKey::Delete, ev));
+        CHECK(name() == "나");
+        CHECK(layer.text("abcdefgh")); // maxLength 5 — 남은 네 자리만
+        CHECK(name() == "abcd나");
+        CHECK(layer.key(ui::UiKey::End, ev));
+        CHECK(layer.caret() == 5);
+        CHECK(ev.empty());
+        // Enter = 보내기 (값 = 코드 포인트 수 — 글은 var 에), 포커스는 남는다
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].kind == ui::UiAction::Kind::Signal);
+        CHECK(ev[0].target == "eco.name");
+        CHECK(ev[0].value == 5);
+        CHECK(layer.editingText());
+        ev.clear();
+        CHECK(layer.key(ui::UiKey::Release, ev)); // 보낸 뒤 바뀌지 않았다 — 신호 없음
+        CHECK(ev.empty());
+        CHECK_FALSE(layer.hasFocus());
+
+        // 다시 누르면 캐럿은 끝, 바꾸고 다른 곳 (빈 자리) 을 누르면 놓으며 보낸다
+        (void)clickAt("name");
+        CHECK(layer.caret() == 5);
+        CHECK(layer.key(ui::UiKey::Backspace, ev));
+        (void)layer.route(700, 500, false, true, true, ev);
+        (void)layer.route(700, 500, false, false, false, ev);
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].value == 4);
+        CHECK_FALSE(layer.hasFocus());
+
+        // multiline — Enter 는 줄 바꿈, 위 · 아래는 줄 (첫 줄에서 위는 다른 컨트롤 찾기), Tab 으로 떠나면 보내기
+        ev.clear();
+        (void)clickAt("note");
+        CHECK(layer.text("ab"));
+        CHECK(layer.key(ui::UiKey::Activate, ev));
+        CHECK(layer.text("c"));
+        CHECK(ui::evaluate("var:eco.note", vars).text == "ab\nc");
+        CHECK(ev.empty());
+        CHECK(layer.key(ui::UiKey::Up, ev));
+        CHECK(layer.caret() == 1);
+        CHECK(layer.focused()->id == "note");
+        CHECK(layer.key(ui::UiKey::Next, ev)); // note → (off 는 꺼짐) → name
+        CHECK(layer.focused()->id == "name");
+        REQUIRE(ev.size() == 1);
+        CHECK(ev[0].target == "eco.note");
+        CHECK(ev[0].value == 4);
+
+        // checkbox 포커스는 글자 칸이 아니다 — 글자는 받지 않는다
+        CHECK(layer.key(ui::UiKey::Next, ev));
+        CHECK(layer.focused()->id == "chk");
+        CHECK_FALSE(layer.editingText());
+        CHECK_FALSE(layer.text("q"));
+        // 꺼진 칸 — 눌러도 포커스 없음
+        CHECK(layer.key(ui::UiKey::Release, ev));
+        CHECK(clickAt("off").empty());
+        CHECK_FALSE(layer.hasFocus());
+
+        // 그리기 (캐럿은 재기가 있을 때)
+        (void)clickAt("name");
+        CountingRenderer r;
+        layer.draw(r, &measure);
+        CHECK(r.fills > 0);
+    }
+    TEST_CASE(
+        "app (local server + ImGui 헤드리스, v0.7 NG-06 (2)): HUD 글자 칸을 누르면 창의 글자 입력이 켜지고, 친 글 "
+        "(Space 포함) 은 var 에 · 게임 키 (Space = 일시정지) 에는 가지 않고, Enter 가 신호 (서버 onEvent), Esc 가 "
+        "놓으며 글자 입력을 끈다") {
+        TempDir root("game_ui_text");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Text";
+        project::NewProjectOptions o;
+        o.gameId = "studio.text";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const fs::path pack = dir / "content" / "ecosystem";
+        std::ofstream(pack / "signals.json", std::ios::binary) << R"([{"id": "eco.say", "min": 0, "max": 64}])";
+        fs::create_directories(pack / "scripts");
+        std::ofstream(pack / "scripts" / "say.ts", std::ios::binary) << R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.say",
+  events: { signal: {} },
+  onEvent(ctx, e) { ctx.log(`signal ${e.signal} ${e.value}`) },
+})
+)";
+        fs::create_directories(pack / "presentation" / "ui");
+        std::ofstream(pack / "presentation" / "ui" / "hud.json", std::ios::binary)
+            << R"({"id": "eco.hud", "root": {"kind": "panel", "anchor": {"min": [0, 1], "max": [0, 1]}, "offset": [20, -60, 0, 0],
+                  "children": [{"kind": "textinput", "id": "say", "value": {"bind": "var:eco.say"},
+                  "on": {"change": {"signal": "eco.say"}}}]}})";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window;
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.ui = &imgui;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        const auto tap = [&](Key k) {
+            window.inject(KeyDown{k, 0, {}, false});
+            window.inject(KeyUp{k, 0, {}});
+            REQUIRE(app.frame());
+        };
+        tap(Key::F1); // 도구 패널을 감춘다 (ImGui 가 키보드를 원하지 않게)
+        REQUIRE(app.frame());
+        const auto serverLogs = [&] {
+            std::vector<std::string> out;
+            if (const auto* sys = ns->localServer()->host().world().scriptSystems()) {
+                for (const script::ScriptLogLine& l : sys->host().recentLogs()) {
+                    out.push_back(l.text);
+                }
+            }
+            return out;
+        };
+        const bool pausedBefore = ns->paused();
+        CHECK_FALSE(window.textInputActive());
+
+        const ui::UiLayoutNode* say = find(app.gameUi(), "say");
+        REQUIRE(say != nullptr);
+        const auto [sx, sy] = centerOf(*say);
+        const Vec2 at{static_cast<f32>(sx), static_cast<f32>(sy)};
+        window.inject(MouseMove{at, {0, 0}});
+        window.inject(MouseButtonDown{MouseButton::Left, at});
+        REQUIRE(app.frame());
+        window.inject(MouseButtonUp{MouseButton::Left, at});
+        REQUIRE(app.frame());
+        REQUIRE(app.gameUi().editingText());
+        CHECK(window.textInputActive());
+
+        // 친 글 — Space 는 글자 (키로는 누르기 · 일시정지가 아니다)
+        for (const char32_t c : std::u32string(U"hi 안녕")) {
+            if (c == U' ') {
+                window.inject(KeyDown{Key::Space, 0, {}, false});
+            }
+            window.inject(TextInput{c});
+            if (c == U' ') {
+                window.inject(KeyUp{Key::Space, 0, {}});
+            }
+        }
+        REQUIRE(app.frame());
+        CHECK(ui::evaluate("var:eco.say", *ns->uiData()).text == "hi 안녕");
+        tap(Key::Backspace);
+        CHECK(ui::evaluate("var:eco.say", *ns->uiData()).text == "hi 안");
+        tap(Key::Enter);
+        for (int i = 0; i < 60 && serverLogs().empty(); ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(serverLogs() == std::vector<std::string>{"signal eco.say 4"});
+        CHECK(ns->paused() == pausedBefore);
+
+        tap(Key::Escape);
+        CHECK_FALSE(app.gameUi().hasFocus());
+        REQUIRE(app.frame());
+        CHECK_FALSE(window.textInputActive());
+        CHECK(serverLogs().size() == 1); // 보낸 뒤 바뀌지 않았다
+    }
 }

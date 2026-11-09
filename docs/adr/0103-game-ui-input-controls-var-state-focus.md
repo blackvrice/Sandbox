@@ -1,6 +1,6 @@
 # ADR-0103. 게임 UI 입력 컨트롤 — 값은 var 바인딩 (클라이언트), 바뀜은 신호, 키보드 포커스는 Tab · menu · modal 에서만
 
-- 상태: **Accepted** · 날짜: 2026-11-09
+- 상태: **Accepted — 일부 Superseded** (4 — 글자 칸은 hud 클릭도 포커스, [ADR-0104](0104-game-ui-text-input-client-var-length-signal.md)) · 날짜: 2026-11-09
 - 관련: [ADR-0079](0079-game-ui-runtime-declarative-documents-renderer-adapter.md) (게임 UI 런타임),
   [20-CREATOR-ALPHA](../20-CREATOR-ALPHA.md) 2.6 (NG-06), [audit/SECOND-PASS-GAP-ANALYSIS](../audit/SECOND-PASS-GAP-ANALYSIS.md) 4.6,
   [ADR-0083](0083-i18n-accessibility-foundation.md) 5 (키)

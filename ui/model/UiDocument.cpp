@@ -209,19 +209,22 @@ public:
             return n;
         }
         const std::string kind = j["kind"].get<std::string>();
-        static constexpr std::array<std::pair<std::string_view, UiKind>, 9> kKinds{{{"panel", UiKind::Panel},
-                                                                                    {"text", UiKind::Text},
-                                                                                    {"image", UiKind::Image},
-                                                                                    {"button", UiKind::Button},
-                                                                                    {"progress", UiKind::Progress},
-                                                                                    {"list", UiKind::List},
-                                                                                    {"checkbox", UiKind::Checkbox},
-                                                                                    {"toggle", UiKind::Toggle},
-                                                                                    {"slider", UiKind::Slider}}};
+        static constexpr std::array<std::pair<std::string_view, UiKind>, 10> kKinds{{{"panel", UiKind::Panel},
+                                                                                     {"text", UiKind::Text},
+                                                                                     {"image", UiKind::Image},
+                                                                                     {"button", UiKind::Button},
+                                                                                     {"progress", UiKind::Progress},
+                                                                                     {"list", UiKind::List},
+                                                                                     {"checkbox", UiKind::Checkbox},
+                                                                                     {"toggle", UiKind::Toggle},
+                                                                                     {"slider", UiKind::Slider},
+                                                                                     {"textinput", UiKind::TextInput}}};
         const auto k = std::find_if(kKinds.begin(), kKinds.end(), [&](const auto& p) { return p.first == kind; });
         if (k == kKinds.end()) {
             error("U3", pointer + "/kind",
-                  std::format("모르는 요소 '{}' (panel · text · image · button · progress · list)", kind));
+                  std::format("모르는 요소 '{}' (panel · text · image · button · progress · list · checkbox · "
+                              "toggle · slider · textinput)",
+                              kind));
             return n;
         }
         n.kind = k->second;
@@ -247,6 +250,9 @@ public:
             case UiKind::Slider:
                 return key == "value" || key == "min" || key == "max" || key == "step" || key == "on" ||
                        key == "disabled" || key == "tabIndex";
+            case UiKind::TextInput:
+                return key == "value" || key == "placeholder" || key == "maxLength" || key == "multiline" ||
+                       key == "on" || key == "disabled" || key == "tabIndex";
             case UiKind::Progress:
                 return key == "value" || key == "max";
             case UiKind::List:
@@ -385,7 +391,7 @@ public:
         }
         if (j.contains("on")) {
             const json& on = j["on"];
-            const bool control = n.kind == UiKind::Checkbox || n.kind == UiKind::Toggle || n.kind == UiKind::Slider;
+            const bool control = n.kind != UiKind::Button && isControl(n.kind);
             const char* event = control ? "change" : "click";
             if (!on.is_object() || on.size() != 1 || !on.contains(event)) {
                 error("U3", pointer + "/on", std::format(R"(이벤트는 {{"{}": …}} 하나)", event));
@@ -401,7 +407,7 @@ public:
                 n.click = action(on["click"], pointer + "/on/click");
             }
         }
-        if (n.kind == UiKind::Checkbox || n.kind == UiKind::Toggle || n.kind == UiKind::Slider) {
+        if (n.kind != UiKind::Button && isControl(n.kind)) {
             // 값 = "var:<키>" 하나 (ADR-0103 1 — 컨트롤이 쓴다)
             if (!j.contains("value")) {
                 error("U1", pointer, std::format(R"({} 에 value {{"bind": "var:<키>"}} 가 필요하다)", kind));
@@ -425,6 +431,29 @@ public:
             }
             if (!(n.max.number > n.min)) {
                 error("U1", pointer + "/max", "slider 의 max 는 min 보다 커야 한다");
+            }
+        }
+        if (n.kind == UiKind::TextInput) { // v0.7 NG-06 (2) — ADR-0104
+            if (j.contains("placeholder")) {
+                if (const auto s = string(j["placeholder"], pointer + "/placeholder")) {
+                    n.text = *s; // 빈 칸일 때 흐리게 — "@<키>" 도 (formatText 가 푼다)
+                    textValue(*s, pointer + "/placeholder");
+                }
+            }
+            if (j.contains("maxLength")) {
+                const json& m = j["maxLength"];
+                if (!m.is_number_integer() || m.get<i64>() < 1 || m.get<i64>() > static_cast<i64>(kMaxTextLength)) {
+                    error("U1", pointer + "/maxLength", std::format("1 ~ {} 정수 (코드 포인트)", kMaxTextLength));
+                } else {
+                    n.maxLength = static_cast<u32>(m.get<i64>());
+                }
+            }
+            if (j.contains("multiline")) {
+                if (!j["multiline"].is_boolean()) {
+                    error("U1", pointer + "/multiline", "참거짓");
+                } else {
+                    n.multiline = j["multiline"].get<bool>();
+                }
             }
         }
         if (j.contains("disabled")) {

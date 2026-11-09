@@ -38,13 +38,18 @@ struct UiIssue {
 };
 
 enum class UiLayer : u8 { Hud, Menu, Modal };
-// Checkbox · Toggle · Slider = 입력 컨트롤 (v0.7 NG-06 (1) — ADR-0103: 값은 "var:<키>", 바뀜은 on.change 신호)
-enum class UiKind : u8 { Panel, Text, Image, Button, Progress, List, Checkbox, Toggle, Slider };
+// Checkbox · Toggle · Slider = 입력 컨트롤 (v0.7 NG-06 (1) — ADR-0103: 값은 "var:<키>", 바뀜은 on.change 신호).
+// TextInput = 글자 칸 (v0.7 NG-06 (2) — ADR-0104: 값은 "var:<키>" 의 글자, 클라이언트 안에만)
+enum class UiKind : u8 { Panel, Text, Image, Button, Progress, List, Checkbox, Toggle, Slider, TextInput };
 
 // 누르거나 포커스를 받는 노드 (버튼 · 입력 컨트롤)
 [[nodiscard]] constexpr bool isControl(UiKind k) noexcept {
-    return k == UiKind::Button || k == UiKind::Checkbox || k == UiKind::Toggle || k == UiKind::Slider;
+    return k == UiKind::Button || k == UiKind::Checkbox || k == UiKind::Toggle || k == UiKind::Slider ||
+           k == UiKind::TextInput;
 }
+
+inline constexpr u32 kDefaultTextLength = 64; // textinput maxLength 의 기본 (코드 포인트)
+inline constexpr u32 kMaxTextLength = 256; // textinput maxLength 의 상한 (코드 포인트 — 바이트는 kMaxStringBytes 까지)
 enum class UiStack : u8 { None, Row, Column };
 enum class UiAlign : u8 { Start, Center, End, Stretch };
 // 글자가 쓸 수 있는 너비를 넘을 때 (v0.7 M4-T2 — 번역이 길어진다): 자름 (기본) · 줄 바꿈 · 글꼴 줄이기 (절반까지)
@@ -76,8 +81,8 @@ struct UiNode {
     f32 gap = 0;
     f32 padding = 0;
     UiAlign align = UiAlign::Start;
-    std::string text;                       // text · button — 고정 문자열 또는 "@<문자열 키>"
-    std::vector<UiValue> args;              // text 인자
+    std::string text;          // text · button — 고정 문자열 또는 "@<문자열 키>" (textinput 은 placeholder)
+    std::vector<UiValue> args; // text 인자
     UiOverflow overflow = UiOverflow::Clip; // text · button (v0.7 M4-T2)
     UiValue value;                          // progress
     UiValue max{1, {}};                     // progress
@@ -88,8 +93,11 @@ struct UiNode {
     f32 min = 0;
     f32 step = 0;
     UiAction change;
-    UiValue disabled;             // 참이면 (0 이 아니면) 포인터 · 키를 받지 않고 포커스 차례에서 빠진다 — 버튼 · 컨트롤
-    i32 tabIndex = 0;             // 포커스 차례 — 작은 것 먼저, 같으면 문서 차례
+    UiValue disabled; // 참이면 (0 이 아니면) 포인터 · 키를 받지 않고 포커스 차례에서 빠진다 — 버튼 · 컨트롤
+    i32 tabIndex = 0; // 포커스 차례 — 작은 것 먼저, 같으면 문서 차례
+    // 글자 칸 (v0.7 NG-06 (2) — ADR-0104): 최대 코드 포인트 수 (1 ~ 256), 여러 줄 (Enter 가 줄 바꿈)
+    u32 maxLength = kDefaultTextLength;
+    bool multiline = false;
     std::string items;            // list — 바인딩 (목록)
     std::vector<UiNode> children; // panel · list (list 는 item 하나 — 반복할 틀)
 };

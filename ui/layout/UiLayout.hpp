@@ -78,15 +78,22 @@ struct UiLayoutNode {
     f32 fontSize = kDefaultFontSize; // 배율을 곱한 값 (text · button)
     f32 padding = 0;                 // 배율을 곱한 안쪽 여백 (panel padding · 스타일 padding 중 큰 쪽)
     std::vector<std::string> lines;  // overflow wrap 이 나눈 줄 (v0.7 M4-T2 — 비면 한 줄, 글자는 textOf)
-    f32 lineHeight = 0;              // 줄 높이 (wrap)
+    f32 lineHeight = 0;              // 줄 높이 (wrap · textinput)
 };
 
-inline constexpr f32 kMinFitScale = 0.5f; // overflow fit — 글꼴을 원래의 절반까지 줄인다
-inline constexpr f32 kSliderWidth = 160;  // slider 의 기본 너비 (size 가 없으면 — 배율을 곱한다, v0.7 NG-06 (1))
+inline constexpr f32 kMinFitScale = 0.5f;   // overflow fit — 글꼴을 원래의 절반까지 줄인다
+inline constexpr f32 kSliderWidth = 160;    // slider 의 기본 너비 (size 가 없으면 — 배율을 곱한다, v0.7 NG-06 (1))
+inline constexpr f32 kTextInputWidth = 200; // textinput 의 기본 너비 (배율을 곱한다, v0.7 NG-06 (2))
+inline constexpr u32 kTextInputLines = 4;   // multiline textinput 의 기본 줄 수 (size 가 없으면)
 
 // checkbox · toggle 의 상자 · slider 의 높이 = 글꼴 × 1.25 (반올림 — 배치와 그리기가 같은 값, 글자 재기와 무관)
 [[nodiscard]] inline f32 controlBox(f32 fontSize) noexcept {
     return static_cast<f32>(static_cast<i32>(fontSize * 1.25f + 0.5f));
+}
+
+// textinput 상자 안의 글자 여백 = 글꼴 × 0.25 (반올림 — 배치 · 그리기 · 라우팅이 같은 값)
+[[nodiscard]] inline f32 textInputMargin(f32 fontSize) noexcept {
+    return static_cast<f32>(static_cast<i32>(fontSize * 0.25f + 0.5f));
 }
 
 // 글자를 너비 maxWidth 안의 줄로 (빈칸에서, 한 낱말이 넘치면 코드 포인트마다 — '\n' 은 늘 나눈다). 결정적

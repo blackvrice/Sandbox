@@ -118,3 +118,4 @@
 | [0101](0101-core-links-gameui-for-project-check.md) | SandboxCore 가 SandboxGameUI 를 링크 — 게임 UI 문서 검사 (U1 ~ U8) 는 프로젝트 검사 validateProject 가 부른다 (로더는 원문만, openProject 는 보지 않음) | Accepted                                  | 2026-11-04 |
 | [0102](0102-key-overrides-in-user-input-json.md) | 키 다시 묶기의 사용자 파일은 <설정 폴더>/input.json (M1-T3 의 것) — 엔진 기본과 다른 액션만 저장 (ADR-0083 5 의 bindings.json 대신) | Accepted | 2026-11-09 |
 | [0103](0103-game-ui-input-controls-var-state-focus.md) | 게임 UI 입력 컨트롤 — 값은 var 바인딩 (클라이언트 표), 바뀜은 신호만, 키보드 포커스는 Tab · menu · modal 에서만 (hud 클릭은 아님), 키는 UiKey 로 | Accepted | 2026-11-09 |
+| [0104](0104-game-ui-text-input-client-var-length-signal.md) | 게임 UI 글자 칸 — 글은 클라이언트 var 에만, on.change 신호의 값 = 코드 포인트 수 (Enter · 바뀐 뒤 떠날 때), 클릭은 어느 층이든 포커스, client 스크립트 ctx.uiVar · uiVarText, 문자열 신호 · 조합 창 위치는 [계획] | Accepted | 2026-11-09 |

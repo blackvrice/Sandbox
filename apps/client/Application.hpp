@@ -172,7 +172,8 @@ private:
     std::string m_lastTitle;
 
     // 입력 모니터 (MainMenu)
-    std::string m_text; // F2 로 켠 글자 입력이 모인 곳 (최근 것만)
+    std::string m_text;             // F2 로 켠 글자 입력이 모인 곳 (최근 것만)
+    bool m_gameUiTextInput = false; // 게임 UI 글자 칸이 창의 글자 입력을 켰다 (v0.7 NG-06 (2))
     Vec2 m_wheelTotal;
     platform::MouseButton m_lastClickButton = platform::MouseButton::Left;
     u8 m_lastClicks = 0;
