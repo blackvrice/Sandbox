@@ -3,7 +3,7 @@
 #         -DGAME=<"게임 …" 줄의 정규식>] -P net_smoke.cmake      (WORLD 기본 random_walk_1k — v0.2 M1-T3 에서 프로젝트도)
 # execute_process 의 COMMAND 여럿은 파이프로 **동시에** 돈다 — 서버 표준 출력은 probe 의 표준 입력으로 가고(무시),
 # probe 의 출력을 검사한다. 서버는 150 틱(5 초) 뒤 스스로 끝난다. probe 는 서버가 늦게 떠도 ENet 이 다시 보낸다.
-# 같은 기계에서 이 테스트를 두 개 동시에 돌리면 포트가 겹친다 (CI 는 빌드 트리 하나).
+# 같은 기계에서 이 테스트를 두 개 동시에 돌리면 포트가 겹친다 (CI 는 빌드 트리 하나) — 포트가 쓰이면 PORT + 101 · + 202 로 다시.
 foreach(v SERVER PROBE PORT)
     if(NOT DEFINED ${v})
         message(FATAL_ERROR "${v} 가 필요합니다")
@@ -13,13 +13,23 @@ if(NOT DEFINED WORLD)
     set(WORLD random_walk_1k)
     set(WORLD_NAME random_walk_1k)
 endif()
-execute_process(
-    COMMAND "${SERVER}" --world "${WORLD}" --port ${PORT} --default-role admin --ticks 150 --exit --log-level warn
-    COMMAND "${PROBE}" --connect 127.0.0.1:${PORT} --name ctest --speed 2 --pause --resume --seconds 0.5 --log-level warn
-    RESULTS_VARIABLE rcs
-    OUTPUT_VARIABLE out
-    ERROR_VARIABLE err
-    TIMEOUT 60)
+# 포트가 이미 쓰이면 (서버 stderr "UDP 포트를 열지 못했습니다") 다른 포트로 두 번 더 — 고정 포트는 Linux 의 임시 포트 범위
+# (32768 ~ 60999) 안이라 바쁜 CI 기계에서 다른 프로세스의 나가는 연결이 먼저 잡을 수 있다 (2026-11-09 linux-clang 한 번)
+foreach(attempt RANGE 2)
+    math(EXPR port "${PORT} + ${attempt} * 101")
+    execute_process(
+        COMMAND "${SERVER}" --world "${WORLD}" --port ${port} --default-role admin --ticks 150 --exit --log-level warn
+        COMMAND "${PROBE}" --connect 127.0.0.1:${port} --name ctest --speed 2 --pause --resume --seconds 0.5 --log-level warn
+        RESULTS_VARIABLE rcs
+        OUTPUT_VARIABLE out
+        ERROR_VARIABLE err
+        TIMEOUT 60)
+    list(GET rcs 0 serverRc)
+    if(serverRc EQUAL 0 OR NOT err MATCHES "UDP 포트를 열지 못했습니다")
+        break()
+    endif()
+    message("포트 ${port} 가 쓰이고 있다 — 다른 포트로 다시")
+endforeach()
 message("${out}")
 if(err)
     message("stderr:\n${err}")

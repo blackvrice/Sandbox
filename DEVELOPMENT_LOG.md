@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-09 — tests: net_server_probe 스모크가 쓰인 포트면 다른 포트로 다시 (45e6ac5 CI linux-clang 고침)
+
+**무엇을**
+
+- tests/net/net_smoke.cmake: 서버 stderr 가 "UDP 포트를 열지 못했습니다" 면 PORT + 101 · + 202 로 두 번 더 (net_server_probe_smoke 47791 ·
+  net_server_probe_project 47792 — 다른 시험이 쓰지 않는 포트).
+
+**왜**
+
+- 45e6ac5 (scroll — UI 만) 의 CI linux-clang RelWithDebInfo 에서 net_server_probe_smoke 하나가 실패 (서버가 47791 을 열지 못함). 고정
+  포트가 Linux 의 임시 포트 범위 (32768 ~ 60999) 안이라 바쁜 CI 기계의 다른 연결이 먼저 잡을 수 있다 (같은 잡의 Debug 단계는 통과, 다른
+  네 잡 통과). 전에도 같은 충돌이 한 번 있었다 (M2-T5 기록).
+
+**검증**
+
+- ctest -R net_server_probe 2 / 2. 47791 을 다른 SandboxServer 가 잡은 채로 net_server_probe_smoke — "포트 47791 가 쓰이고 있다 — 다른
+  포트로 다시" 뒤 47892 로 접속 · 통과.
+
+**남은 일**
+
+- 없음 (포트를 OS 가 고르게 하려면 서버가 고른 포트를 알려야 한다 — 필요해지면).
+
 ## 2026-11-09 — v0.8 ST-06-1 (1): Editor Services 타깃 · include 규칙 · 명령 표 (ADR-0108)
 
 **무엇을**
