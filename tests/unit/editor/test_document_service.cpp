@@ -49,21 +49,21 @@ public:
     std::vector<std::string> done;
     std::vector<std::string> undone;
     bool busy = false;
-    bool undoLast() override {
+    UndoResult undoLast() override {
         if (busy || done.empty()) {
-            return false;
+            return UndoResult::Refused;
         }
         undone.push_back(done.back());
         done.pop_back();
-        return true;
+        return UndoResult::Done;
     }
-    bool redoLast() override {
+    UndoResult redoLast() override {
         if (busy || undone.empty()) {
-            return false;
+            return UndoResult::Refused;
         }
         done.push_back(undone.back());
         undone.pop_back();
-        return true;
+        return UndoResult::Done;
     }
     void dropRedo() override { undone.clear(); }
     void edit(UndoService& u, std::string name) {

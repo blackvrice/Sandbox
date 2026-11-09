@@ -132,6 +132,7 @@ std::string describeEvent(const PlatformEvent& event) {
 
 Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audio, AppConfig config)
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
+    m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     if (!m_config.saveName.empty()) {
         m_worldPanel.name = m_config.saveName;
     }

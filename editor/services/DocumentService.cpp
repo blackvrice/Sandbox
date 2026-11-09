@@ -169,9 +169,9 @@ Expected<void> DocumentService::setText(DocId id, std::string text, std::string 
     return apply(id, {0, d->text.size(), std::move(text)}, std::move(label));
 }
 
-bool DocumentService::undoLast() {
+UndoResult DocumentService::undoLast() {
     if (m_edits.empty()) {
-        return false;
+        return UndoResult::Refused;
     }
     Edit e = std::move(m_edits.back());
     m_edits.pop_back();
@@ -179,12 +179,12 @@ bool DocumentService::undoLast() {
         replace(*d, e.offset, e.inserted.size(), e.removed);
     }
     m_redo.push_back(std::move(e));
-    return true;
+    return UndoResult::Done;
 }
 
-bool DocumentService::redoLast() {
+UndoResult DocumentService::redoLast() {
     if (m_redo.empty()) {
-        return false;
+        return UndoResult::Refused;
     }
     Edit e = std::move(m_redo.back());
     m_redo.pop_back();
@@ -192,7 +192,7 @@ bool DocumentService::redoLast() {
         replace(*d, e.offset, e.removed.size(), e.inserted);
     }
     m_edits.push_back(std::move(e));
-    return true;
+    return UndoResult::Done;
 }
 
 void DocumentService::forget(DocId id) {

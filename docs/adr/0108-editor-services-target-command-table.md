@@ -1,6 +1,6 @@
 # ADR-0108. Editor Services 타깃 — SandboxEditorServices (Core 만 · UI 없음 · 하위 경로 include 규칙), 첫 서비스는 명령 표
 
-- 상태: **Accepted** · 날짜: 2026-11-09
+- 상태: **Accepted — 일부 Superseded** (3 — 서비스가 월드 명령을 보내지 않아 ICommandSink 를 옮기지 않는다, [ADR-0110](0110-editor-world-undo-participant-async-finish.md) 3) · 날짜: 2026-11-09
 - 관련: [ADR-0089](0089-studio-editor-services-layer-imgui-first.md) 3 · 4 (editor/services — 이 ADR 이 타깃 · 규칙 · 명령 표의 모양을 정한다),
   [25-STUDIO-ARCHITECTURE](../25-STUDIO-ARCHITECTURE.md) 2 · 3장, [01-ARCHITECTURE](../01-ARCHITECTURE.md) 2장, task-registry ST-06-1
 

@@ -65,8 +65,8 @@ public:
     [[nodiscard]] std::optional<DocId> find(const std::filesystem::path& path) const;
 
     // IUndoParticipant (UndoService 가 부른다)
-    bool undoLast() override;
-    bool redoLast() override;
+    UndoResult undoLast() override;
+    UndoResult redoLast() override;
     void dropRedo() override { m_redo.clear(); }
 
 private:

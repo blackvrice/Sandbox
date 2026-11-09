@@ -128,6 +128,7 @@ public:
     [[nodiscard]] FrameTimings totalTimings() const noexcept;
     [[nodiscard]] const editor::Editor& editor() const noexcept { return m_editor; }
     [[nodiscard]] editor::Editor& editor() noexcept { return m_editor; }
+    [[nodiscard]] editor::services::UndoService& undoLine() noexcept { return m_undoLine; }
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
     [[nodiscard]] const KeyBindingEditor& keyBindings() const noexcept { return m_keys; } // v0.7 M4-T3 (시험)
@@ -207,6 +208,9 @@ private:
     PanelState m_panels;       // 8C (F1)
     bool m_noticesOpen = true; // "알림" 창 (v0.5 M1-T3)
     // 12A 에디터 (세션이 editorHost 를 줄 때만 쓴다)
+    // 하나의 되돌리기 줄 (v0.8 ST-06-1 (3) — 월드 편집 + 파일 문서). 에디터보다 먼저 만들고 나중에 부순다 (에디터가
+    // 붙어 있다)
+    editor::services::UndoService m_undoLine;
     editor::Editor m_editor;
     editor::EditorPanelState m_editorPanel;
     editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"

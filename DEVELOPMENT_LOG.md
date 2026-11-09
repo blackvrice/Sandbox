@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-09 — v0.8 ST-06-1 (3): 에디터가 되돌리기 줄의 World 참여자 — 월드 · 문서 하나의 Ctrl+Z (ADR-0110, ST-06-1 끝)
+
+**무엇을**
+
+- UndoService: 참여자 대답 Done · Started · Refused, finish(종류, ok) (되돌리기 — 그 사이 다시 하기가 비워졌으면 버림 (epoch), 다시
+  하기 — 시작 때 자리에 끼움, 실패 — 버림), pending, dropOldest, 진행 중인 것도 clear 가 잊는다. DocumentService 는 Done · Refused.
+- Editor: private IUndoParticipant, attachUndo (옛 기록 옮겨 적기 · 뗄 때 · 부술 때 World 칸 지우기), 붙으면 undo · redo · canUndo ·
+  이름표가 줄의 것, undoLast · redoLast = replay → Started, 되돌리기가 끝나면 finish, 기다리는 동안 settleTxns 미룸 (끝나면 다시),
+  dropRedo 가 기다리는 되돌리기의 다시 하기를 무름, 상한 100 → dropOldest, 12D → 줄의 World 칸만. 호스트는 undo · redo 를 부르는 동안만.
+- 앱: Application 이 UndoService 하나 (에디터보다 먼저 선언) 를 갖고 에디터를 붙인다 (undoLine()).
+- 문서: 10 6.2 · 25 · 01 · 17 · 13, ADR-0110 (0108 3 · 0109 1 일부 Superseded), 등록부 ST-06-1 Done, 다음 줄 (M6-T1 · T3 · T7).
+
+**왜**
+
+- ST-06-1 의 마지막 조각 — 사용자에게 Ctrl+Z 는 하나 (25 3장). 월드 되돌리기는 결과를 기다리는 비동기라 줄에 진행 중 상태가 필요했다.
+
+**검증**
+
+- test_editor_undo_line 4 개 (차례 · 기다림 · 거절 · 기다리는 동안의 문서 편집 · 다시 하기 중 새 편집 · 12D · 붙이기 · 떼기 · 상한) +
+  unit_editor 36 개 모두 (옛 test_undo — 붙지 않은 에디터 — 그대로). 시험 기대값 하나를 고쳤다 (월드 편집이 문서의 다시 하기도 지운다 —
+  한 줄이므로). clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- 진행 중 (결과가 오지 않음) 시간 초과, 콘텐츠 창의 [저장 (팩 파일)] · 스크립트 편집을 DocumentService 로 (같은 줄), 앱 단축키를 명령
+  표로 (ST-06-2), 다음 태스크 M6-T1 Studio 홈.
+
 ## 2026-11-09 — v0.8 ST-06-1 (2): DocumentService · 하나의 되돌리기 줄 UndoService (ADR-0109)
 
 **무엇을**

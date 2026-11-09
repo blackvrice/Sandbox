@@ -24,6 +24,11 @@
 // EditPreview · 끄는 중인 것을 모두 비운다 (옛 월드의 netId 라 새 월드에서 뜻이 없다).
 //
 // 에디터는 월드를 바꾸지 않는다 — 명령만 낸다 (E1). 툴 상태 · 선택은 클라이언트 로컬 (E3).
+//
+// v0.8 ST-06-1 (3): 하나의 되돌리기 줄 (services::UndoService — ADR-0109 · 0110) 에 붙이면 (attachUndo) 이 에디터가
+// World 참여자다. 편집 기록 한 칸 = 줄의 World 칸 하나, undo · redo (Ctrl+Z · 패널) 는 줄로 간다 — 줄의 마지막 칸이
+// 문서면 문서를 되돌린다. 월드 되돌리기는 결과를 기다리므로 Started, 다 오면 finish (일부 거절 = 칸을 버림). 되돌리기를
+// 기다리는 동안 끝난 새 편집은 기록을 미룬다 (줄의 차례가 뒤집히지 않게).
 
 #include <optional>
 #include <set>
@@ -35,6 +40,7 @@
 
 #include "editor/EditorHost.hpp"
 #include "editor/Undo.hpp"
+#include "editor/services/UndoService.hpp"
 #include "render/renderer/DebugDraw.hpp"
 
 namespace sbx::editor {
@@ -79,8 +85,13 @@ struct EditorStats {
     u64 notSent = 0; // submit 이 0 (접속 전)
 };
 
-class Editor {
+class Editor final : private services::IUndoParticipant {
 public:
+    Editor() = default;
+    ~Editor() override;
+    Editor(const Editor&) = delete; // 줄에 붙은 참여자 (this) — 옮기지 않는다
+    Editor& operator=(const Editor&) = delete;
+
     static constexpr f32 kDragThresholdPixels = 4.f;
     static constexpr f64 kPreviewTimeoutSeconds = 3.0;
     static constexpr u32 kMaxBrushRadius = 8;
@@ -116,12 +127,17 @@ public:
     bool editContent(IEditorHost& host, content::ContentKind kind, const std::string& id, ecs::Json value);
 
     // ---- 12B: 되돌리기 ----
+    // 줄에 붙었으면 줄의 마지막 칸 (월드 · 문서), 아니면 이 에디터의 기록
     void undo(IEditorHost& host);
     void redo(IEditorHost& host);
-    [[nodiscard]] bool canUndo() const noexcept { return !m_undo.empty() && idle(); }
-    [[nodiscard]] bool canRedo() const noexcept { return !m_redo.empty() && idle(); }
+    [[nodiscard]] bool canUndo() const noexcept;
+    [[nodiscard]] bool canRedo() const noexcept;
     [[nodiscard]] std::string_view undoLabel() const noexcept;
     [[nodiscard]] std::string_view redoLabel() const noexcept;
+    // 하나의 되돌리기 줄 (v0.8 ST-06-1 (3)) — nullptr 이면 뗀다. 붙일 때 이미 있는 기록은 줄에 옮겨 적는다 (다시 하기는
+    // 버린다)
+    void attachUndo(services::UndoService* line);
+    [[nodiscard]] services::UndoService* undoLine() const noexcept { return m_line; }
     [[nodiscard]] usize undoDepth() const noexcept { return m_undo.size(); }
     [[nodiscard]] usize redoDepth() const noexcept { return m_redo.size(); }
     [[nodiscard]] const IdRemap& remap() const noexcept { return m_remap; }
@@ -215,6 +231,13 @@ private:
     std::vector<UndoEntry> m_redo;
     std::optional<Replay> m_replay;
     IdRemap m_remap;
+    // 하나의 되돌리기 줄 (v0.8 ST-06-1 (3))
+    services::UndoResult undoLast() override;
+    services::UndoResult redoLast() override;
+    void dropRedo() override;
+    services::UndoService* m_line = nullptr;
+    IEditorHost* m_host = nullptr;    // undo · redo 를 부르는 동안만 (줄이 참여자를 부를 때 쓴다)
+    bool m_replayRedoDropped = false; // 기다리는 되돌리기 사이에 줄이 다시 하기를 비웠다
     bool m_focusRequested = false;
     u32 m_generation = 0; // 마지막으로 본 host.worldGeneration() (12D)
 };

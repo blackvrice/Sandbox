@@ -1,6 +1,6 @@
 # ADR-0109. DocumentService (바이트 편집 · 저장 전 검사 · 바깥 변경이면 덮어쓰지 않음) · 하나의 되돌리기 줄 (참여자가 내용을, 서비스가 차례를)
 
-- 상태: **Accepted** · 날짜: 2026-11-09
+- 상태: **Accepted — 일부 Superseded** (1 의 참여자 대답 true · false → Done · Started · Refused, [ADR-0110](0110-editor-world-undo-participant-async-finish.md) 1) · 날짜: 2026-11-09
 - 관련: [ADR-0089](0089-studio-editor-services-layer-imgui-first.md) 2 · 3, [ADR-0108](0108-editor-services-target-command-table.md),
   [ADR-0029](0029-inspector-server-values-undo-entries.md) (월드 편집의 Undo), [25-STUDIO-ARCHITECTURE](../25-STUDIO-ARCHITECTURE.md) 3장,
   [10-EDITOR](../10-EDITOR.md) 12D, task-registry ST-06-1

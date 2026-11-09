@@ -153,12 +153,20 @@ void Editor::handleOutcomes(IEditorHost& host, f64 now) {
     if (m_replay && std::ranges::all_of(m_replay->steps, &ReplayStep::done)) {
         const bool all = std::ranges::all_of(m_replay->steps, &ReplayStep::accepted);
         if (all) {
-            (m_replay->undoing ? m_redo : m_undo).push_back(std::move(m_replay->entry));
+            // 기다리는 사이 새 기록이 다시 하기를 비웠으면 (줄 — 문서 편집) 되돌린 칸은 다시 하기로 가지 않는다
+            if (!(m_replay->undoing && m_replayRedoDropped)) {
+                (m_replay->undoing ? m_redo : m_undo).push_back(std::move(m_replay->entry));
+            }
         } else {
             m_message = std::format("{} 일부가 거절되어 기록에서 뺐습니다 ({})",
                                     m_replay->undoing ? "되돌리기" : "다시 하기", m_replay->entry.label);
         }
         m_replay.reset();
+        m_replayRedoDropped = false;
+        if (m_line != nullptr) {
+            m_line->finish(services::UndoKind::World, all);
+        }
+        settleTxns(); // 기다리는 동안 미룬 편집 기록
     }
     // 받아들여진 이동: 그 뒤 처음 온 스냅숏의 틱까지 그린 틱이 따라오면 그려진 위치가 이미 옮긴 위치다
     std::erase_if(m_pending, [&](Pending& p) {
@@ -424,7 +432,11 @@ void Editor::resetForNewWorld(IEditorHost& host) {
     m_undo.clear();
     m_redo.clear();
     m_replay.reset();
+    m_replayRedoDropped = false;
     m_remap = {};
+    if (m_line != nullptr) {
+        m_line->clear(services::UndoKind::World); // 문서 칸은 남는다 (10 12D 는 월드의 것만)
+    }
     host.setPreview({});
     m_message = "서버 월드가 바뀌어 되돌리기 기록을 비웠습니다";
 }
@@ -536,8 +548,10 @@ u32 Editor::sendEdit(IEditorHost& host, cmd::CommandPayload payload, std::vector
 }
 
 void Editor::settleTxns() {
-    // 앞에서부터: 닫혔고 결과가 다 온 것 → 받아들여진 단계만 기록 한 칸 (순서를 지키려고 앞이 끝나야 뒤를 본다)
-    while (!m_txns.empty() && !m_txns.front().open && std::ranges::all_of(m_txns.front().steps, &TxnStep::done)) {
+    // 앞에서부터: 닫혔고 결과가 다 온 것 → 받아들여진 단계만 기록 한 칸 (순서를 지키려고 앞이 끝나야 뒤를 본다).
+    // 되돌리기 · 다시 하기를 기다리는 동안은 미룬다 — 그것이 끝나 기록이 제자리에 간 뒤에 (끝날 때 다시 부른다)
+    while (!m_replay && !m_txns.empty() && !m_txns.front().open &&
+           std::ranges::all_of(m_txns.front().steps, &TxnStep::done)) {
         Txn txn = std::move(m_txns.front());
         m_txns.erase(m_txns.begin());
         UndoEntry entry;
@@ -557,11 +571,18 @@ void Editor::settleTxns() {
         if (entry.forward.empty()) {
             continue; // 다 거절 — 기록하지 않는다
         }
+        const std::string label = entry.label;
         m_undo.push_back(std::move(entry));
+        m_redo.clear();
+        if (m_line != nullptr) {
+            m_line->record(services::UndoKind::World, label); // 다시 하기 줄을 비운다 (이 에디터의 것도 — dropRedo)
+        }
         if (m_undo.size() > kMaxUndo) {
             m_undo.erase(m_undo.begin());
+            if (m_line != nullptr) {
+                m_line->dropOldest(services::UndoKind::World);
+            }
         }
-        m_redo.clear();
     }
 }
 
@@ -593,20 +614,98 @@ void Editor::replay(IEditorHost& host, bool undoing) {
     m_replay = std::move(r);
 }
 
+Editor::~Editor() {
+    attachUndo(nullptr);
+}
+
+void Editor::attachUndo(services::UndoService* line) {
+    if (m_line != nullptr) {
+        m_line->clear(services::UndoKind::World);
+        m_line->attach(services::UndoKind::World, nullptr);
+    }
+    m_line = line;
+    if (m_line != nullptr) {
+        m_line->attach(services::UndoKind::World, this);
+        m_redo.clear();
+        for (const UndoEntry& e : m_undo) {
+            m_line->record(services::UndoKind::World, e.label);
+        }
+    }
+}
+
 void Editor::undo(IEditorHost& host) {
-    replay(host, true);
+    if (m_line == nullptr) {
+        replay(host, true);
+        return;
+    }
+    m_host = &host; // 줄이 이 에디터를 부를 때 (undoLast) 만 쓴다 — 끝나면 지운다 (호스트가 바뀔 수 있다)
+    if (!m_line->undo() && m_line->canUndo() && m_line->nextUndo()->kind == services::UndoKind::World) {
+        m_message = "앞 편집의 결과를 기다리는 중입니다";
+    }
+    m_host = nullptr;
 }
 
 void Editor::redo(IEditorHost& host) {
-    replay(host, false);
+    if (m_line == nullptr) {
+        replay(host, false);
+        return;
+    }
+    m_host = &host;
+    (void)m_line->redo();
+    m_host = nullptr;
+}
+
+bool Editor::canUndo() const noexcept {
+    if (m_line != nullptr) {
+        return m_line->canUndo() && (m_line->nextUndo()->kind != services::UndoKind::World || idle());
+    }
+    return !m_undo.empty() && idle();
+}
+
+bool Editor::canRedo() const noexcept {
+    if (m_line != nullptr) {
+        return m_line->canRedo() && (m_line->nextRedo()->kind != services::UndoKind::World || idle());
+    }
+    return !m_redo.empty() && idle();
 }
 
 std::string_view Editor::undoLabel() const noexcept {
+    if (m_line != nullptr) {
+        return m_line->nextUndo() != nullptr ? std::string_view(m_line->nextUndo()->label) : std::string_view();
+    }
     return m_undo.empty() ? std::string_view() : std::string_view(m_undo.back().label);
 }
 
 std::string_view Editor::redoLabel() const noexcept {
+    if (m_line != nullptr) {
+        return m_line->nextRedo() != nullptr ? std::string_view(m_line->nextRedo()->label) : std::string_view();
+    }
     return m_redo.empty() ? std::string_view() : std::string_view(m_redo.back().label);
+}
+
+// 줄이 부른다 — 지금 보낼 수 없으면 (결과를 기다림 · 호스트 없음) Refused, 보냈으면 Started (끝나면 handleOutcomes 가
+// finish)
+services::UndoResult Editor::undoLast() {
+    if (m_host == nullptr || !idle() || m_undo.empty()) {
+        return services::UndoResult::Refused;
+    }
+    replay(*m_host, true);
+    return m_replay ? services::UndoResult::Started : services::UndoResult::Refused;
+}
+
+services::UndoResult Editor::redoLast() {
+    if (m_host == nullptr || !idle() || m_redo.empty()) {
+        return services::UndoResult::Refused;
+    }
+    replay(*m_host, false);
+    return m_replay ? services::UndoResult::Started : services::UndoResult::Refused;
+}
+
+void Editor::dropRedo() {
+    m_redo.clear();
+    if (m_replay && m_replay->undoing) {
+        m_replayRedoDropped = true;
+    }
 }
 
 std::vector<UndoCmd> Editor::recreates(IEditorHost& host, std::span<const NetEntityId> ids) const {
