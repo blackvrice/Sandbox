@@ -123,3 +123,4 @@
 | [0106](0106-game-ui-scroll-client-offset-wheel-reveal.md) | 게임 UI scroll — 세로 밀기는 클라이언트 층의 상태 (var 아님), 배치가 자르고 정수로, 휠은 포인터 아래 가장 안쪽 scroll (끝에서도 써서 카메라로 안 감), 포커스가 가려지면 보이게 민다 | Accepted | 2026-11-09 |
 | [0107](0107-gamepad-xinput-source-ui-navigation.md) | 게임패드 — Windows XInput 소스 (DLL 을 실행 중에, 끊긴 칸은 가끔), 순수 표 XInputMap, InputSystem::setGamepads (pressed · I3 · I1), 패드는 먼저 게임 UI 탐색만 (게임 키는 RT-06-13) | Accepted | 2026-11-09 |
 | [0108](0108-editor-services-target-command-table.md) | Editor Services 타깃 SandboxEditorServices (Core 만 · 링크 경계 · check_includes 하위 경로 규칙), 첫 서비스 명령 표 (단축키 맞춘 꼴 · 충돌은 진단 · 그 곳 먼저) | Accepted | 2026-11-09 |
+| [0109](0109-document-service-unified-undo-line.md) | DocumentService (바이트 편집 · 저장 전 검사 · 바깥 변경이면 덮어쓰지 않음 · 원자적) · 하나의 되돌리기 줄 (참여자가 내용 · 서비스가 차례, 종류 · tag 지우기) | Accepted | 2026-11-09 |

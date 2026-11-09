@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-09 — v0.8 ST-06-1 (2): DocumentService · 하나의 되돌리기 줄 UndoService (ADR-0109)
+
+**무엇을**
+
+- editor/services/UndoService: 줄의 칸 {World · Document, 이름, tag}, 참여자 IUndoParticipant (undoLast · redoLast · dropRedo) 가 내용을,
+  서비스가 차례를. record · undo · redo (참여자가 못 하면 줄 그대로) · clear(종류) · clear(종류, tag) · 상한 1000.
+- editor/services/DocumentService (Document 참여자): open (같은 경로 = 같은 문서) · apply (바이트 범위 — 범위 밖 · UTF-8 가운데 거절) ·
+  setText · dirty · save (확장자 검사 — .json 기본 · 바깥 변경 (디스크 SHA-256) · 없어진 파일이면 거절, force · io::writeFileAtomic) · reload ·
+  close (고친 채면 force) · diskState · setValidator.
+- 문서: 01 · 17 · 25 · 13 · ADR-0109.
+
+**왜**
+
+- ST-06-1 의 둘째 조각 — 파일 편집의 한 길 (ADR-0089 2) 과 하나의 Ctrl+Z (25 3장) 의 바탕. 월드 참여자 (Editor 의 Undo) 는 (3).
+
+**검증**
+
+- test_document_service 4 개 (편집 · 저장 · 되돌리기 줄 (두 문서 + 가짜 월드) · 상한). 시험 하나를 고쳤다 (Expected 끼리 == — Error 에
+  == 가 없어 값으로). clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- ST-06-1 (3): Editor 의 월드 Undo 를 World 참여자로 (앱의 Ctrl+Z · Ctrl+Y 를 UndoService 로), ICommandSink 를 render 없는 헤더로 — 그다음
+  콘텐츠 창의 [저장 (팩 파일)] 을 DocumentService 로.
+
 ## 2026-11-09 — tests: net_server_probe 스모크가 쓰인 포트면 다른 포트로 다시 (45e6ac5 CI linux-clang 고침)
 
 **무엇을**

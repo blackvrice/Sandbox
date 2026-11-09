@@ -131,6 +131,7 @@ add_executable(SandboxTests
     unit/editor/test_editor.cpp
     unit/editor/test_undo.cpp
     unit/editor/test_command_service.cpp
+    unit/editor/test_document_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp

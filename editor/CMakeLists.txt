@@ -3,6 +3,10 @@
 add_library(SandboxEditorServices STATIC
     services/CommandService.hpp
     services/CommandService.cpp
+    services/UndoService.hpp
+    services/UndoService.cpp
+    services/DocumentService.hpp
+    services/DocumentService.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)

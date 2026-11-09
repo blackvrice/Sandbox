@@ -59,10 +59,10 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    Trigger Graph (v0.6) · Data Editor · Test · Profiler · Build
 ├─ Editor Services     editor/services/  ✅ 타깃 SandboxEditorServices (v0.8 ST-06-1, ADR-0108)  UI 없음 — check_includes 대상
 │    ProjectService     열기 · 새로 만들기 (core::createProject) · 최근 · 매니페스트 · 진단 (core::diagnose)
-│    DocumentService    파일 문서 (팩 JSON · 스크립트 · UI 문서 · 에셋 메타) — 열기 · 고침 · 원자적 저장 · 되돌리기 · 바깥 변경 감지
+│    DocumentService    파일 문서 (팩 JSON · 스크립트 · UI 문서 · 에셋 메타) — 열기 · 고침 · 원자적 저장 · 되돌리기 · 바깥 변경 감지 ✅ (ST-06-1 (2), ADR-0109)
 │    CommandService     명령 표 { id, 이름, 단축키, 실행 가능 조건, 실행 } — 메뉴 · 팔레트 · 단축키가 같은 표 ✅ (ST-06-1)
 │    SelectionService   선택 (개체 netId · 에셋 id · 파일) — 지금 Editor 안의 선택을 옮긴다
-│    UndoService        월드 편집 기록 (기존 editor/Undo) + 문서 편집 기록을 한 줄로 (사용자에게는 Ctrl+Z 하나)
+│    UndoService        월드 편집 기록 (기존 editor/Undo) + 문서 편집 기록을 한 줄로 (사용자에게는 Ctrl+Z 하나) ✅ 줄 · 문서 (ST-06-1 (2) — 월드 참여자는 (3))
 │    AssetDatabase      core/asset/  (26 — 패키징 · 서버 검사도 쓰므로 Core 쪽, 시뮬레이션 밖)
 │    LanguageService    script/lang/LanguageService  (27 — 프로토타입 있음)
 │    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job)
