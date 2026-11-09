@@ -90,6 +90,12 @@ vm::HostResult clientSetUiText(ClientScriptHost& host, std::span<const vm::HostA
 vm::HostResult clientShowUi(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.ui(args, ClientScriptUi::Kind::Show);
 }
+vm::HostResult clientUiText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.uiText(args, false);
+}
+vm::HostResult clientUiFormat(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.uiText(args, true);
+}
 
 constexpr ClientHostBinding kBindings[] = {
     {"client.tick", AbiType::I32, {AbiType::ClientContext}, 1, &clientTick},
@@ -118,6 +124,12 @@ constexpr ClientHostBinding kBindings[] = {
      3,
      &clientSetUiText},
     {"client.showUi", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::Bool}, 3, &clientShowUi},
+    {"client.uiText", AbiType::String, {AbiType::ClientContext, AbiType::String}, 2, &clientUiText},
+    {"client.uiFormat",
+     AbiType::String,
+     {AbiType::ClientContext, AbiType::String, AbiType::String, AbiType::String},
+     4,
+     &clientUiFormat},
 };
 
 } // namespace
@@ -388,6 +400,19 @@ vm::HostResult ClientScriptHost::ui(std::span<const vm::HostArg> args, ClientScr
     }
     m_ui.push_back(std::move(u));
     return {};
+}
+
+vm::HostResult ClientScriptHost::uiText(std::span<const vm::HostArg> args, bool format) {
+    // 표가 없으면 (시험 · 게임 UI 없음) 키 그대로 — 없는 키도 표가 키 그대로 돌려주고 경고를 남긴다
+    const std::string key(args[1].text);
+    std::string text = m_frame.strings != nullptr ? m_frame.strings->text(key) : key;
+    if (format) {
+        const std::string params[] = {std::string(args[2].text), std::string(args[3].text)};
+        text = ui::formatString(text, params);
+    }
+    vm::HostResult r;
+    r.text = clip(text, ui::kMaxStringBytes);
+    return r;
 }
 
 } // namespace sbx::script

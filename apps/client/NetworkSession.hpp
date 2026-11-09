@@ -140,6 +140,7 @@ public:
     // var 바인딩 값 (v0.7 M3-T4 — client 스크립트 ctx.ui.set 이 쓴다 · 시험). 키 256 개까지 (넘으면 버린다)
     void setUiVar(std::string key, ui::UiScalar value);
     [[nodiscard]] std::vector<std::pair<std::string, bool>> takeUiShows() override;
+    void setUiStrings(const ui::StringTable* strings) override { m_uiStrings = strings; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 ----
     [[nodiscard]] std::optional<ScriptOverlayInfo> scriptOverlay() const override;
     [[nodiscard]] std::optional<ScriptProfileInfo> scriptProfile() const override;
@@ -250,6 +251,7 @@ private:
         const NetworkSession& m_session;
     };
     UiData m_uiData{*this};
+    const ui::StringTable* m_uiStrings = nullptr;        // 앱의 게임 UI 층 (v0.7 M4-T1 — client.uiText)
     std::vector<std::pair<std::string, bool>> m_uiShows; // client.showUi — 앱이 꺼낸다 (64 개까지)
     // 에디터가 보낸 명령 (결과를 IEditorHost::takeOutcomes 로) · EditPreview (netId 오름차순) — 12A
     std::vector<u32> m_editorSequences;

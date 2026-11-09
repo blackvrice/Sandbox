@@ -581,6 +581,8 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [x] --locale en: "Rabbits - · Score 0" · Feed · Set trap · ? · "Pick a rabbit and feed it — set traps near wolves" (2026-11-09,
     Windows 11 · GTX 1660 SUPER · D3D12, 커밋은 DEVELOPMENT_LOG v0.7 M4-T1 (1))
 [x] --locale 없음 (OS ko-KR): "토끼 - · 점수 0" · 먹이 주기 · 덫 놓기 · ? · 한국어 도움말
+[x] (M4-T1 (2)) 행동 이름을 "@eco.hud.feed" · "@eco.hud.trap" 로 바꾼 복사본 + --locale en → "행동" 패널 "[Q] Feed" · "[E] Set trap"
+    (2026-11-09)
 [ ] Linux · macOS 에서 OS 로케일 (LANG · CFLocale [계획])
 ```
 

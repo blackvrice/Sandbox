@@ -826,6 +826,31 @@ void checkGameUi(const content::ContentDatabase& db, const fs::path& engineAsset
     }
     r.uiLocales = locales.size();
     r.uiStrings = stringKeys.size();
+    // 콘텐츠의 표시 이름 (v0.7 M4-T1 (2)): "@<키>" 로 시작하면 (행동 · 게임 모드 · 팀) 키가 표에 있어야 한다 — 없으면
+    // 키 그대로 보인다 (U5 경고). "@@…" 는 글자 "@…"
+    const auto checkName = [&](std::string_view name, std::string file, std::string pointer, std::string_view what) {
+        if (!name.starts_with('@') || name.starts_with("@@")) {
+            return;
+        }
+        const std::string_view key = name.substr(1);
+        if (!ui::isUiKey(key)) {
+            r.issues.push_back(ContentIssue{Severity::Warning, "U5", std::move(file), std::move(pointer),
+                                            std::format("{} 이름 '{}' — \"@<팩>.<키>\" 꼴이 아니다", what, name)});
+        } else if (!stringKeys.contains(key)) {
+            r.issues.push_back(ContentIssue{
+                Severity::Warning, "U5", std::move(file), std::move(pointer),
+                std::format("{} 이름의 문자열 키 '{}' 가 문자열 표에 없다 — 키를 그대로 보인다", what, key)});
+        }
+    };
+    for (const content::PlayerActionDef& a : db.playerActions()) {
+        checkName(a.name, a.file, "", std::format("행동 '{}'", a.id)); // actions.json 은 배열 — 자리는 id 로
+    }
+    for (const content::GameMode& m : db.modes()) {
+        checkName(m.name, m.file, "/name", std::format("게임 모드 '{}'", m.id));
+        for (usize i = 0; i < m.teams.size(); ++i) {
+            checkName(m.teams[i].name, m.file, std::format("/teams/{}/name", i), std::format("팀 '{}'", m.teams[i].id));
+        }
+    }
 
     std::vector<std::pair<std::string, ui::UiDocument>> docs; // (파일, 문서)
     Names targets;                                            // 문서 id · "<문서>.<노드>"

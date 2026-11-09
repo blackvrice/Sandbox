@@ -22,6 +22,7 @@
 #include "core/ecs/Registry.hpp"
 #include "core/script/ScriptHost.hpp"
 #include "foundation/math/Vec2.hpp"
+#include "ui/strings/UiStrings.hpp"
 
 namespace sbx::script {
 
@@ -74,6 +75,7 @@ struct ClientScriptFrame {
     u32 frame = 0;                            // 몇 번째 프레임인가 (1 부터)
     f64 dt = 0;                               // 앞 프레임 뒤 지난 실제 시간 (초)
     const ClientScriptInput* input = nullptr; // 없으면 키는 모두 false · 커서 (0, 0) (v0.5 M2-T6)
+    const ui::StringTable* strings = nullptr; // client.uiText · uiFormat (v0.7 M4-T1 — 없으면 키 그대로)
 };
 
 struct ClientScriptLabel {
@@ -129,6 +131,7 @@ public:
     vm::HostResult send(std::span<const vm::HostArg> args);
     vm::HostResult playSound(std::span<const vm::HostArg> args);
     vm::HostResult ui(std::span<const vm::HostArg> args, ClientScriptUi::Kind kind);
+    vm::HostResult uiText(std::span<const vm::HostArg> args, bool format); // v0.7 M4-T1
 
 private:
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);

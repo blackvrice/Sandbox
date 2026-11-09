@@ -109,7 +109,8 @@ content/<pack>/
                           글은 1 KiB · 표마다 4,096 키까지 (U7). 파일 이름 = BCP 47 로케일 (ko · en · pt-BR — U2), 팩마다 32 개까지
                           (로더가 원문만 PackInfo.uiStrings 에). UI 글자 "@<키>" 가 부른다 ("@@…" = 글자 "@…"). 찾는 차례 = 사용자
                           로케일 → 언어 → 팩의 기본 표 (하나면 그것, 여럿이면 en, 없으면 이름이 앞인 표) → 키 그대로. 인자 {0} ~ {9}.
-                          클라 전용 — contentHash 밖
+                          클라 전용 — contentHash 밖. 행동 · 게임 모드 · 팀의 name 이 "@<키>" 면 클라이언트가 표의 글로 보인다
+                          (v0.7 M4-T1 (2) — 없는 키는 U5 경고), client 스크립트는 ctx.uiText · uiFormat (19)
     materials.json        머티리얼 (v0.6 M6-T9) — {"materials": {"<이름>": {"sprite": "<s>", "color": [r, g, b(, a)]}}}, 엔진
                           에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =
                           "asset:<id>" (프로젝트 에셋 .meta 의 id — 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) ·

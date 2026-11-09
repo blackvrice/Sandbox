@@ -131,6 +131,8 @@ private:
     void handleWorldInput(f64 dt);
     void handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx); // v0.2 M3-T3
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
+    void localizeNames(GameInfo& game) const;                        // "@<키>" 표시 이름 (v0.7 M4-T1)
+    void localizeNames(ActionsInfo& actions) const;                  // 행동 이름
     void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
     void handleEditor(editor::IEditorHost& host, const render::Camera2D& cam, Vec2 mousePx, f64 dt);
     void applyPanelActions(const PanelActions& act);

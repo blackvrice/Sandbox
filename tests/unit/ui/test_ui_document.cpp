@@ -11,6 +11,7 @@
 
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/project/GameProject.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "ui/model/UiDocument.hpp"
 
 using namespace sbx;
@@ -403,6 +404,27 @@ TEST_SUITE("ui") {
         CHECK(find("U5", "'eco.hud.help'"));
         CHECK(r.uiLocales == 2);
         CHECK(project::openProject(dir, engine, catalog()).has_value()); // 검사만 — 게임은 열린다
+
+        // 표시 이름 (v0.7 M4-T1 (2)): 행동 · 게임 모드의 "@<키>" — 있는 키는 조용, 없는 키 · 모양 밖은 U5 경고
+        const fs::path actions = dir / "content/ecosystem/actions.json";
+        std::string text = *io::readFile(actions);
+        text.replace(text.find("\"먹이 주기\""), std::string("\"먹이 주기\"").size(), "\"@eco.hud.feed\"");
+        text.replace(text.find("\"덫 놓기\""), std::string("\"덫 놓기\"").size(), "\"@eco.action.trap\"");
+        std::ofstream(actions, std::ios::trunc | std::ios::binary) << text;
+        const fs::path mode = dir / "content/ecosystem/modes/protect.json";
+        text = *io::readFile(mode);
+        text.replace(text.find("\"토끼 지키기\""), std::string("\"토끼 지키기\"").size(), "\"@Bad Key\"");
+        std::ofstream(mode, std::ios::trunc | std::ios::binary) << text;
+        const project::ProjectReport names =
+            project::validateProject(dir, engine, catalog(), {.toolFiles = true, .engineAssets = SBX_ASSETS_DIR});
+        const auto named = [&](std::string_view text) {
+            return std::count_if(names.issues.begin(), names.issues.end(), [&](const content::ContentIssue& i) {
+                return i.rule == "U5" && i.message.find(text) != std::string::npos;
+            });
+        };
+        CHECK(named("eco.hud.feed") == 0);
+        CHECK(named("'eco.action.trap'") == 1);
+        CHECK(named("게임 모드 'eco.protect'") == 1);
         std::error_code ec;
         fs::remove_all(dir, ec);
     }

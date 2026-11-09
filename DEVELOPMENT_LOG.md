@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T1 (2): client 스크립트 ctx.uiText · uiFormat · 표시 이름 "@<키>" — Host 결과 String (M4-T1 끝)
+
+**무엇을**
+
+- VM: Host 결과에 String (HostResult::text → 이 호출의 아레나 문자열 — 검사기 · 검증기는 이미 String 결과를 알았다).
+- Host 표 끝에 client.uiText(key) · client.uiFormat(key, arg0, arg1) (Capability Ui · 읽기). ClientScriptFrame.strings = 앱의
+  게임 UI 층의 표 (세션 setUiStrings — 없으면 키 그대로). Host API 지문 0x43ee8d9ef79b762a → 0xd8e74d9eb927e9ae (더하기만 — 버전 1),
+  sdk/ · 샘플 셋의 sdk 다시 생성.
+- 표시 이름: 행동 · 게임 모드 · 결과 팀 · 점수 줄의 name 이 "@<키>" 면 도구 패널 ("게임" · "행동") 이 표의 글로 (GameUiLayer::
+  displayName). 프로젝트 검사가 표시 이름의 없는 키 · 모양 밖을 U5 경고로. 문서가 없어도 표만 있으면 세션이 원문을 준다.
+
+**왜**
+
+- 등록부 M4-T1 의 남은 몫 (ADR-0083 2 — client ctx.ui.text · 콘텐츠 표시 이름). Host ABI 에 가변 인자 · 문자열 배열이 없어
+  ctx.ui.text(key, args) 를 uiText · uiFormat (인자 둘) 로 — M3-T4 의 setUi 처럼 평평한 이름.
+
+**검증**
+
+- test_client_script_session "ctx.uiText" (로컬 서버 — 오버레이 client 시스템, 표 없음 · ko · en · 없는 키 경고 한 번) ·
+  test_game_ui_layer "표시 이름" · test_ui_document (행동 · 모드 이름의 U5) · test_checker 지문 · test_client_scripts 20 ·
+  test_script_host SDK. 처음에 시험 스크립트가 String(3) 을 써서 (SandboxScript 에 없다 — "" + n) 시스템이 조용히 로드되지 않았다
+  (오버레이의 컴파일 오류가 드러나지 않는 알려진 후속 일).
+- 창 확인: rabbit_guard 복사본의 행동 이름을 "@eco.hud.feed" · "@eco.hud.trap" 로 바꾸고 --locale en → "행동" 패널이
+  "[Q] Feed" · "[E] Set trap" (MANUAL-QA v0.7 M4-T1). 저장소 데모 콘텐츠의 이름은 그대로 (contentHash · 자동 플레이 기대값).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄).
+
+**남은 일**
+
+- 실행 중 로케일 바꾸기 (설정 UI — M4-T4 와 함께), macOS CFLocale, 오버레이 client 스크립트 컴파일 오류 드러내기.
+
 ## 2026-11-09 — v0.7 M4-T1 (1): 문자열 표 · 로케일 대체 — presentation/strings · "@<키>" · --locale · 검사
 
 **무엇을**

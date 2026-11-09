@@ -551,4 +551,17 @@ export default defineSystem({
         CHECK(std::any_of(broken.begin(), broken.end(),
                           [](const std::string& w) { return w.find("strings/ko.json") != std::string::npos; }));
     }
+    TEST_CASE(
+        "game ui layer (v0.7 M4-T1 (2)): 표시 이름 — \"@<키>\" 는 표의 글 (로케일), \"@@\" 는 '@', 그 밖은 그대로") {
+        GameUiLayer layer;
+        layer.setSources(demoSources());
+        layer.setLocale("en");
+        CHECK(layer.displayName("@eco.hud.feed") == "Feed");
+        layer.setLocale("ko");
+        CHECK(layer.displayName("@eco.hud.feed") == "먹이 주기");
+        CHECK(layer.displayName("먹이 주기") == "먹이 주기");
+        CHECK(layer.displayName("@@home") == "@home");
+        CHECK(layer.displayName("@eco.gone") == "eco.gone");
+        CHECK(layer.displayName("").empty());
+    }
 }

@@ -442,12 +442,28 @@ void Application::handleWorldInput(f64 dt) {
     }
 }
 
+// 콘텐츠 표시 이름의 "@<키>" (v0.7 M4-T1 — 20 5장): 게임 모드 · 결과 팀 · 점수 줄 · 행동
+void Application::localizeNames(GameInfo& game) const {
+    game.modeName = m_gameUi.displayName(game.modeName);
+    game.team = m_gameUi.displayName(game.team);
+    for (ScoreRow& r : game.scores) {
+        r.name = m_gameUi.displayName(r.name);
+    }
+}
+
+void Application::localizeNames(ActionsInfo& actions) const {
+    for (ActionRow& a : actions.actions) {
+        a.name = m_gameUi.displayName(a.name);
+    }
+}
+
 // 게임 UI (v0.7 M3-T3, ADR-0079): 원문이 바뀌면 다시 읽고, 창 크기 (논리 단위 — ImGui 와 같다) 로 배치, 포인터를 modal
 // → menu → 도구 패널 → hud 차례로. 버튼 이벤트: signal = PlayerSignal 명령, action = PlayerAction (자리 = 선택한 개체 →
 // 내 개체 → 화면 가운데 — v0.7 M3-T5), ui = 층 안에서 보이기 · 숨기기
 bool Application::routeGameUi() {
     m_gameUi.setSources(m_config.world->gameUi());
     m_gameUi.setData(m_config.world->uiData());
+    m_config.world->setUiStrings(&m_gameUi.strings());           // client.uiText · uiFormat (v0.7 M4-T1)
     for (auto& [doc, visible] : m_config.world->takeUiShows()) { // client.showUi (v0.7 M3-T4)
         m_gameUi.apply(ui::UiAction{ui::UiAction::Kind::Ui, std::move(doc), std::nullopt, visible ? "show" : "hide"});
     }
@@ -657,12 +673,14 @@ bool Application::frame() {
                     m_config.world->worldOp(req->op, std::move(req->name));
                 }
             }
-            if (const auto game = m_config.world->game(); game && m_panels.visible) {
+            if (auto game = m_config.world->game(); game && m_panels.visible) {
+                localizeNames(*game);
                 if (const auto c = drawGamePanel(*game)) { // v0.2 M2-T3 "게임"
                     m_config.world->gameCommand(*c);
                 }
             }
-            if (const auto acts = m_config.world->playerActions(); acts && m_panels.visible) {
+            if (auto acts = m_config.world->playerActions(); acts && m_panels.visible) {
+                localizeNames(*acts);
                 drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
             } else if (!acts) {
                 m_actionPanel.armed.clear();

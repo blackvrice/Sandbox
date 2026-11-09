@@ -257,6 +257,8 @@ public:
     [[nodiscard]] virtual std::optional<Vec2> uiActionPoint() const { return std::nullopt; }
     // client 스크립트의 문서 보이기 (client.showUi — v0.7 M3-T4): (문서 id, 보이기) 부른 차례. 꺼내면 비운다
     [[nodiscard]] virtual std::vector<std::pair<std::string, bool>> takeUiShows() { return {}; }
+    // 문자열 표 (v0.7 M4-T1 — 앱의 게임 UI 층이 가진다, 앱보다 짧게 산다). client.uiText · uiFormat 이 본다
+    virtual void setUiStrings(const ui::StringTable* /*strings*/) {}
     // ---- v0.2 M3-T3: 카메라 처음 자리 (월드에 game.camera_start 가 없으면 nullopt — 월드 전체에 맞춘다) ----
     [[nodiscard]] virtual std::optional<CameraStart> cameraStart() const { return std::nullopt; }
     // ---- v0.3 M5-T3: 클라이언트 스크립트 (client 시스템이 없으면 nullopt — 아무것도 그리지 않는다) ----

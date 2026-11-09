@@ -149,7 +149,7 @@ M3-T4 (1) ✅ (v0.7) ui/binding evaluate · formatText · progressOf · listCoun
 M3-T4 (2) ✅ (v0.7) client 스크립트 ctx.setUi(key, number) · ctx.setUiText(key, text) · ctx.showUi(doc, visible) — 2.5 의
             ctx.ui.set · show 를 평평한 이름으로 (Host ABI 에 중첩 객체가 없다). Capability Ui (onUpdate 가 허락), 프레임마다 64 개,
             트랩난 호출의 것은 버린다. Host API 지문 0x43ee8d9ef79b762a (더하기만 — 버전 1 그대로), SDK sandbox.d.ts 다시 생성.
-            ctx.ui.text (문자열 표 — 5장) 는 M4-T1
+            ctx.ui.text (문자열 표 — 5장) 는 M4-T1 (2) ✅ ctx.uiText · uiFormat
 M3-T5 ✅    (v0.7) 버튼 이벤트 마무리 — signal = PlayerSignal 명령 (서버가 선언 · 범위 · perTick · 역할로 판정 → 서버 스크립트
             onEvent "signal"), action = PlayerAction 의 자리: 첫째 선택 개체 → 내 개체 (game.owner) → 화면 가운데 (위치 없는
             행동 대신 — 시뮬레이션은 그대로), ui = 층 안 보이기 · 숨기기 (M3-T3). 결과 · 거절 문장 = 바인딩 "session:message"
@@ -326,7 +326,11 @@ M4-T1 (1) ✅ (v0.7) ui/strings — parseStringTable (U1 · U2 이름공간 · U
             "@@…" = 글자 "@…". 사용자 로케일 = --locale → client.json locale → OS (Windows GetUserDefaultLocaleName · 그 밖
             LC_ALL → LC_MESSAGES → LANG — macOS 의 CFLocale 은 [계획]). 검사: 파일 이름이 로케일이 아님 · 같은 로케일 둘 U2, 문서의
             없는 키 U5, 같은 팩의 다른 표에 있는 키가 빠진 표 U5 (경고 — 표마다 한 번). 데모 rabbit_guard 의 ko · en.
-            (2) [계획]: client ctx.ui.text (Host API) · 행동 · 게임 모드 표시 이름의 "@" · 실행 중 로케일 바꾸기 (설정 UI)
+M4-T1 (2) ✅ (v0.7) client 스크립트 ctx.uiText(key) · ctx.uiFormat(key, a, b) — 5장의 ctx.ui.text 를 평평한 이름으로 (Host
+            ABI 에 가변 인자 · 문자열 배열이 없다 — 인자 둘). VM 의 Host 결과에 String 을 더했다 (HostResult::text → 아레나 문자열).
+            Host API 지문 0xd8e74d9eb927e9ae (더하기만 — 버전 1 그대로), SDK 다시 생성. 표는 앱의 게임 UI 층의 것 (세션에 넘긴다 —
+            문서가 없어도 표만 있으면 읽는다). 콘텐츠 표시 이름 (행동 · 게임 모드 · 팀 · 점수 줄) 이 "@<키>" 면 도구 패널이 표의 글로
+            보인다 (서버 · 리플레이는 이름 그대로). 검사: 표시 이름의 없는 키 · 모양 밖 = U5 경고. [계획] 실행 중 로케일 바꾸기 (설정 UI)
 ```
 
 ## 6. 스크립트 실행 경계 · 프로파일 (X5 — ADR-0081)

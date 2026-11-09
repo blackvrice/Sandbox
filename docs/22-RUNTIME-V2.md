@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x43ee8d9ef79b762a — v0.7 M3-T4 뒤) · kSimVersion 4 · 프로토콜 16 (v0.6 NG-14) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0xd8e74d9eb927e9ae — v0.7 M4-T1 (2) 뒤) · kSimVersion 4 · 프로토콜 16 (v0.6 NG-14) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -110,7 +110,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 | Random · Time · Log | 결정적 난수 · 틱 시간 · 로그 | random · time · log | server 전부 |
 | InputRead | 행동 상태 · 축 | ✅ v0.5 M2-T6 keyDown · keyPressed · keyReleased · pointerX · pointerY | client onUpdate · onAction · onTick |
 | ClientSend | 서버로 신호 명령 | ✅ v0.5 M2-T6 send | client onUpdate · onAction · onTick (예산 — 틱마다) |
-| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi | client onUpdate · onLateUpdate · onAction |
+| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat | client onUpdate · onLateUpdate · onAction |
 | Draw | 선 · 원 · 글자 (월드 · 화면) | [계획 v0.6] draw | client onRender 만 |
 | Sound | 소리 이벤트 | ✅ v0.5 M2-T6 playSound | client onUpdate · onEvent · onAction |
 | NetworkIo | 외부 요청 (허락된 대상만) | [계획 v0.8] fetch · socket | server onTick · onEvent (게임 매니페스트 허락 + 운영 할당) |

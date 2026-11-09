@@ -657,7 +657,8 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
         m_clientProfile.clear();
         m_clientProfileStart = m_now;
     }
-    m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput});
+    m_clientScripts->run(
+        {&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput, m_uiStrings});
     // 내보낸 것 (v0.5 M2-T6): 신호 = PlayerSignal 명령 (서버가 선언 · 범위 · perTick · 역할로 판정), 소리 = 앱이 가져갈
     // 이벤트
     for (const script::ClientScriptSend& s : m_clientScripts->host().sends()) {
@@ -978,7 +979,7 @@ std::optional<GameUiInfo> NetworkSession::gameUi() const {
             info.strings.push_back(GameUiSource{p.id, locale, text});
         }
     }
-    if (info.documents.empty()) {
+    if (info.documents.empty() && info.strings.empty()) { // 표만 있어도 (client.uiText · 표시 이름 — v0.7 M4-T1)
         return std::nullopt;
     }
     return info;

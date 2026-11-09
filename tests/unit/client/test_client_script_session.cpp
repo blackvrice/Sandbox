@@ -360,4 +360,69 @@ export default defineSystem({
         CHECK(shows == std::vector<std::pair<std::string, bool>>{{"eco.hud", false}});
         CHECK(ns.takeUiShows().empty());
     }
+    TEST_CASE(
+        "client script (local server): ctx.uiText · uiFormat (v0.7 M4-T1 (2)) — 앱의 문자열 표 · 로케일, 인자, 없는 키 "
+        "· 표 없음은 키 그대로") {
+        render::MaterialLibrary mats;
+        NetworkSessionDesc d;
+        d.world = "ecosystem_small";
+        d.contentRoot = SBX_CONTENT_DIR;
+        d.inlineServer = true;
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        NetworkSession& ns = **made;
+        editor::Editor ed;
+        f64 now = 0;
+        const auto frame = [&] {
+            ns.update(kDt);
+            render::RenderWorld w;
+            ns.extract(w);
+            editor::EditorInput in;
+            in.now = (now += kDt);
+            in.cursor = {1e4f, 1e4f};
+            ed.update(in, ns);
+        };
+        for (int i = 0; i < 120 && !ns.ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns.ready());
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.words",
+                               nlohmann::json{{"id", "eco.words"}, {"source", R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.words",
+  domain: "client",
+  onUpdate(ctx) {
+    ctx.setUiText("eco.title", ctx.uiText("eco.title"))
+    ctx.setUiText("eco.count", ctx.uiFormat("eco.count", "" + 3, "토끼"))
+    ctx.setUiText("eco.none", ctx.uiText("eco.none"))
+  },
+})
+)"}}));
+        for (int i = 0; i < 60 && ns.clientScripts() == nullptr && ns.overlayError().empty(); ++i) {
+            frame();
+        }
+        REQUIRE_MESSAGE(ns.overlayError().empty(), ns.overlayError());
+        REQUIRE(ns.clientScripts() != nullptr);
+        const ui::IUiDataSource* data = ns.uiData();
+        REQUIRE(data != nullptr);
+        // 표가 없으면 키 그대로
+        frame();
+        CHECK(ui::evaluate("var:eco.title", *data).text == "eco.title");
+
+        ui::StringTable table;
+        table.addPack(
+            {{"en", ui::parseStringTable(R"({"eco.title": "Guard", "eco.count": "{1} x{0}"})", "eco").entries},
+             {"ko", ui::parseStringTable(R"({"eco.title": "지키기", "eco.count": "{1} {0} 마리"})", "eco").entries}});
+        table.setLocale("ko");
+        ns.setUiStrings(&table);
+        frame();
+        CHECK(ui::evaluate("var:eco.title", *data).text == "지키기");
+        CHECK(ui::evaluate("var:eco.count", *data).text == "토끼 3 마리");
+        CHECK(ui::evaluate("var:eco.none", *data).text == "eco.none");
+        table.setLocale("en");
+        frame();
+        CHECK(ui::evaluate("var:eco.count", *data).text == "토끼 x3");
+        CHECK(table.takeMissing() == std::vector<std::string>{"eco.none"}); // 경고 한 번 (프레임마다 불러도)
+        ns.setUiStrings(nullptr);
+    }
 }

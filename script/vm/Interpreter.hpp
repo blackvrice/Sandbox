@@ -85,6 +85,7 @@ struct HostResult {
     std::string error;
     std::vector<Value> values{}; // ComponentDataOrNull = 펼친 칸 (HostArg::fields 와 같은 순서), EntityList = 원소
     u64 extraFuel = 0;           // 부른 쪽이 더 낼 연료 (질의 — 결과 개체마다)
+    std::string text{};          // 결과 String (v0.7 M4-T1 — 인터프리터가 아레나에 문자열로 만든다)
 };
 
 class IHost {

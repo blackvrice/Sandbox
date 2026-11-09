@@ -372,7 +372,8 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는 내용 (string_view) 으로, 첫 인자는 주인 (ctx). 실패하면 HostError.
             (v0.3 M3-T3) 구조체 T 는 칸 목록으로: 인자 ComponentData 는 펼치고 (HostArg::fields), 결과 ComponentDataOrNull ·
             EntityList 는 HostResult::values 로 만든다 — 레지스터 타입을 따라, 잎은 i32 · f64 · bool · 불투명 · 상자 (불투명) ·
-            중첩 구조체 (깊이 4) 만, 칸 수가 다르거나 다른 모양이면 HostError (16장). HostResult::extraFuel 만큼 연료를 더 쓴다
+            중첩 구조체 (깊이 4) 만, 칸 수가 다르거나 다른 모양이면 HostError (16장). HostResult::extraFuel 만큼 연료를 더 쓴다.
+            (v0.7 M4-T1 (2)) 결과 String 은 HostResult::text 를 이 호출의 아레나에 문자열로 (넘으면 OutOfMemory)
 결정성      같은 모듈 · 같은 인자 · 같은 Host 응답 = 같은 결과 · 같은 연료 (시험이 본다)
 ```
 
@@ -785,6 +786,10 @@ ctx.setUi(key: string, value: number) · setUiText(key, text: string)  게임 UI
                                                                     까지 남는다 (세션의 표 — 키 256 개). 글자 256 바이트
 ctx.showUi(document: string, visible: boolean): void                게임 UI 문서 ("<팩>.<이름>") 를 보이거나 숨긴다 (v0.7 M3-T4)
                                                                     — 셋 다 프레임마다 합쳐 64 개 (넘으면 버리고 센다 — droppedOutputs)
+ctx.uiText(key: string): string                                      문자열 표의 글 (v0.7 M4-T1 — 20 5장): 사용자 로케일 → 언어 → 팩의
+                                                                    기본 표, 없으면 키 그대로 (앱 로그에 경고 한 번). "{0}" 은 그대로
+ctx.uiFormat(key: string, arg0: string, arg1: string): string        같은 글에 {0} = arg0 · {1} = arg1 (수는 "" + n). 결과 1 KiB 까지.
+                                                                    둘 다 읽기 (Capability Ui) — 프레임 개수 제한 없음 (연료 2)
 Capability                                                           InputRead · ClientSend · Sound · Ui (onUpdate 가 허락 — 26장, Ui 는 v0.7)
 트랩                                                                 트랩난 호출의 신호 · 소리 · UI 값은 내보내지 않는다 (표시와 같은 규칙)
 결정성                                                               시뮬레이션 밖 — 서버에 닿는 것은 PlayerSignal 명령뿐 (리플레이에 남는다)

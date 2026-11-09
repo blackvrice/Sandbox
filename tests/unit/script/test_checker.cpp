@@ -138,7 +138,8 @@ TEST_SUITE("script") {
         CHECK(api::hostApiFingerprint() == api::hostApiFingerprint());
         // v0.5 M8-T8: 엔진 질의 · 경로 요청 7 (nearest · kNearest · inBox · requestPath · pathState · pathPoints ·
         // cancelPath — ADR-0085 11), ABI NumberList. M8-T8 (2): 충돌 질의 raycast · overlap
-        CHECK(api::hostApiFingerprint() == 0x43ee8d9ef79b762aull); // v0.7 M3-T4 — client.setUi · setUiText · showUi
+        // v0.7 M3-T4 — client.setUi · setUiText · showUi, M4-T1 (2) — client.uiText · uiFormat (String 결과)
+        CHECK(api::hostApiFingerprint() == 0xd8e74d9eb927e9aeull);
     }
 
     TEST_CASE("import 경로 풀기") {

@@ -45,6 +45,10 @@ public:
     void setLocale(std::string_view locale) { m_strings.setLocale(locale); }
     [[nodiscard]] const std::string& locale() const noexcept { return m_strings.locale(); }
     [[nodiscard]] const ui::StringTable& strings() const noexcept { return m_strings; }
+    // 콘텐츠의 표시 이름 (행동 · 게임 모드 · 팀 — v0.7 M4-T1): "@<키>" 면 표의 글, "@@…" 면 "@…", 그 밖은 그대로
+    [[nodiscard]] std::string displayName(std::string_view name) const {
+        return name.starts_with('@') ? ui::resolveText(name, &m_strings) : std::string(name);
+    }
     [[nodiscard]] usize documentCount() const noexcept { return m_docs.size(); }
     [[nodiscard]] bool documentVisible(std::string_view id) const;
     [[nodiscard]] bool nodeHidden(std::string_view documentId, std::string_view nodeId) const;
