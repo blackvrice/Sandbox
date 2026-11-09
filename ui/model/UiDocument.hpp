@@ -40,7 +40,8 @@ struct UiIssue {
 enum class UiLayer : u8 { Hud, Menu, Modal };
 // Checkbox · Toggle · Slider = 입력 컨트롤 (v0.7 NG-06 (1) — ADR-0103: 값은 "var:<키>", 바뀜은 on.change 신호).
 // TextInput = 글자 칸 (v0.7 NG-06 (2) — ADR-0104: 값은 "var:<키>" 의 글자, 클라이언트 안에만). Dropdown · Tabs = 고르기
-// (v0.7 NG-06 (3) — ADR-0105: 값은 "var:<키>" 의 번호 0 부터)
+// (v0.7 NG-06 (3) — ADR-0105: 값은 "var:<키>" 의 번호 0 부터). Scroll = 세로로 미는 panel (v0.7 NG-06 (3b) — ADR-0106:
+// 밀기 상태는 클라이언트 층의 것, 컨트롤이 아니다)
 enum class UiKind : u8 {
     Panel,
     Text,
@@ -53,7 +54,8 @@ enum class UiKind : u8 {
     Slider,
     TextInput,
     Dropdown,
-    Tabs
+    Tabs,
+    Scroll
 };
 
 // 누르거나 포커스를 받는 노드 (버튼 · 입력 컨트롤)

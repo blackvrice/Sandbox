@@ -70,6 +70,17 @@ public:
         } else if (n.kind == UiKind::TextInput || n.kind == UiKind::Dropdown || n.kind == UiKind::Tabs) {
             out.lineHeight = m_measure.measure("", out.fontSize)[1]; // 그리기 · 캐럿의 줄 높이 (v0.7 NG-06 (2))
         }
+        f32 scroll = 0;
+        if (n.kind == UiKind::Scroll) {
+            // 내용 높이 (쌓은 자식 · 겹친 자식의 큰 것) 와 보이는 높이 (안쪽) 의 차 — 밀기는 그 안으로 자른다 (v0.7
+            // NG-06 (3b))
+            const f32 pad = padding(n);
+            const f32 contentH = contentSize(n, listIndex, std::nullopt)[1] - 2 * pad;
+            out.scrollRange = std::max(0.0f, std::ceil(contentH) - (static_cast<f32>(rect.h) - 2 * pad));
+            scroll = m_opt.scrollOf ? std::clamp(m_opt.scrollOf(n, listIndex), 0.0f, out.scrollRange) : 0.0f;
+            scroll = std::floor(scroll + 0.5f); // 정수 픽셀 — 자식의 가장자리가 반올림에 흔들리지 않게
+            out.scroll = scroll;
+        }
         if (n.kind == UiKind::Tabs) {
             // 머리 칸 — 안쪽 왼 위부터 labels 차례로 (글자 + 여백 양쪽, 높이 = 줄 + 여백 위아래 — v0.7 NG-06 (3))
             const f32 pad = padding(n);
@@ -88,8 +99,9 @@ public:
         const UiRect inner = intersect(clip, rect);
         // 자식의 부모 사각형 = 반올림한 사각형에서 여백만큼 안쪽 (반올림 전 값을 쓰면 자식이 1 픽셀씩 어긋난다)
         const f32 pad = padding(n);
-        const Box content{static_cast<f32>(rect.x) + pad, static_cast<f32>(rect.y) + pad,
-                          static_cast<f32>(rect.x + rect.w) - pad, static_cast<f32>(rect.y + rect.h) - pad};
+        // scroll 은 자식을 밀린 만큼 위로 (clip 은 scroll 의 사각형 — 넘친 자식은 그리지 · 누르지 않는다)
+        const Box content{static_cast<f32>(rect.x) + pad, static_cast<f32>(rect.y) + pad - scroll,
+                          static_cast<f32>(rect.x + rect.w) - pad, static_cast<f32>(rect.y + rect.h) - pad - scroll};
         if (n.kind == UiKind::List) {
             if (n.children.empty()) {
                 return;
@@ -298,6 +310,7 @@ private:
         }
         case UiKind::Panel:
         case UiKind::List:
+        case UiKind::Scroll:
             break;
         }
         const bool row = n.stack == UiStack::Row;

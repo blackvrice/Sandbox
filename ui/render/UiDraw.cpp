@@ -145,6 +145,7 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
         switch (n.kind) {
         case UiKind::Panel:
         case UiKind::List:
+        case UiKind::Scroll:
             if (style != nullptr && style->color) {
                 renderer.fillRect(ln.rect, *style->color, ln.clip);
             }
@@ -279,6 +280,20 @@ void drawLayout(const std::vector<UiLayoutNode>& nodes, const UiDrawOptions& opt
             }
             renderer.strokeRect(ring, kFocusColor, 2 * options.scale, ln.clip);
         }
+    }
+    // scroll 막대 — 자식이 덮지 않게 마지막에 (v0.7 NG-06 (3b)): 길 = 오른쪽 kScrollBarWidth, 손잡이 높이 = 보이는 비율
+    // (막대 너비의 두 배 이상), 자리 = scroll / scrollRange
+    for (const UiLayoutNode& ln : nodes) {
+        if (ln.node->kind != UiKind::Scroll || ln.scrollRange <= 0 || ln.rect.h <= 0) {
+            continue;
+        }
+        const i32 w = std::max(2, roundPx(kScrollBarWidth * options.scale));
+        const UiRect track{ln.rect.x + ln.rect.w - w, ln.rect.y, w, ln.rect.h};
+        const f32 view = static_cast<f32>(ln.rect.h);
+        const i32 thumbH = std::min(track.h, std::max(2 * w, roundPx(view * view / (view + ln.scrollRange))));
+        const i32 thumbY = track.y + roundPx(static_cast<f32>(track.h - thumbH) * (ln.scroll / ln.scrollRange));
+        renderer.fillRect(track, kControlColor, ln.clip);
+        renderer.fillRect({track.x, thumbY, w, thumbH}, kFieldBorderColor, ln.clip);
     }
 }
 

@@ -14,6 +14,8 @@
 //                  (깜빡이지 않는다 — 결정적) 이 보이게 가로 · 세로로 민다 (캐럿 줄이 넘치면) (v0.7 NG-06 (2))
 //   dropdown       상자 + 고른 option + 오른쪽 화살표 (v0.7 NG-06 (3)) — 열린 목록은 drawOptionList (문서들 위에)
 //   tabs           머리 칸마다 바탕 (고른 칸은 밝게 + 밑줄) + label, 몸통은 고른 자식 (배치가 그것만 놓았다)
+//   scroll         panel 처럼 + 밀 것이 있으면 오른쪽 막대 (길 + 손잡이 — 자식 위에, 모든 노드 뒤에 한 번 더 돈다 —
+//                  v0.7 NG-06 (3b))
 // 모든 호출에 clip (UiLayoutNode.clip) — 넘친 부분은 백엔드가 자른다
 
 #include <functional>

@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-09 — v0.7 NG-06 (3b): 게임 UI scroll — 휠 · 포커스 따라 밀기 (ADR-0106)
+
+**무엇을**
+
+- ui/model: 요소 scroll (panel 과 같은 키 — 컨트롤 아님). ui/layout: scrollOf 콜백 → 0 ~ scrollRange (내용 높이 - 안쪽 높이) 로
+  자르고 정수로, 자식의 부모 사각형을 밀린 만큼 위로 (clip 은 scroll), UiLayoutNode.scroll · scrollRange. ui/render: panel 처럼 +
+  오른쪽 막대 (모든 노드 뒤 두 번째 돌기 — 자식 위).
+- GameUiLayer: 밀기 표 (노드 · list 번호 → 픽셀, 원문이 바뀌면 잊음), wheel (층 차례 · modal 만 · 가장 안쪽 · 40 × 배율 · 끝에서도
+  씀), revealFocus (Tab · 방향 포커스가 가려지면 가장 안쪽 scroll 을 민다).
+- Application: 포인터 아래 scroll 이 휠을 쓰면 그 프레임 마우스를 게임에서 뺀다 (카메라 확대 없음).
+
+**왜**
+
+- NG-06 (3) 의 남은 ScrollView (ADR-0105 5). 게임패드 탐색만 플랫폼 게임패드 입력 (I5) 뒤로 남는다.
+
+**검증**
+
+- test_ui_scroll 4 개 (문서 · 배치 · 그리기 · 라우팅) · test_game_ui_layer "scroll" (휠 · Tab 보이게 · modal) · 앱 "HUD scroll 위의 휠"
+  (로컬 서버 — 밀기 40, 카메라 pixelsPerUnit 그대로, 밖은 확대). 그리기 기대값 하나를 손 계산으로 고쳤다 (글자 y = 0 - 25).
+  clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음.
+- 창 눈 확인은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). 런타임: rabbit_guard 복사본에 menu scroll (글자 · 버튼) 문서를 더해 sbx check — 오류 0.
+
+**남은 일**
+
+- 막대 끌기 · 가로 밀기 · 겹친 scroll 의 바깥 맞추기 · dropdown 목록 밀기, 게임패드 탐색 (I5 뒤 — NG-06 의 마지막).
+
 ## 2026-11-09 — v0.7 NG-06 (3): 게임 UI dropdown · tabs (ADR-0105)
 
 **무엇을**

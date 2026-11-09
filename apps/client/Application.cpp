@@ -616,7 +616,11 @@ bool Application::routeGameUi() {
                                          m_config.world->uiActionPoint().value_or(m_renderWorld.camera.center));
         }
     }
-    return route.captured;
+    // 휠 (v0.7 NG-06 (3b)): 포인터 아래 scroll 이 쓰면 게임 (카메라 확대) 에 주지 않는다
+    const bool wheelUsed =
+        !m_config.ui->wantMouse() &&
+        m_gameUi.wheel(static_cast<i32>(raw.mousePosition.x), static_cast<i32>(raw.mousePosition.y), raw.wheel.y);
+    return route.captured || wheelUsed;
 }
 
 // 게임 키 (v0.2 M3-T3, ADR-0049): 팩 바인딩이 바뀌면 다시 만들고, play.action.<id> 를 누르면 커서 자리에 그 행동

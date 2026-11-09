@@ -65,6 +65,12 @@ public:
         return displayName(n.options[option]);
     }
     [[nodiscard]] bool listOpen() const noexcept { return m_open != nullptr; }
+    // 휠 (v0.7 NG-06 (3b) — ADR-0106): 포인터 아래 가장 안쪽의 밀 수 있는 scroll 을 notches (위 = 양수) × kWheelStep
+    // 만큼 (modal 이 보이면 modal 의 것만). 썼으면 true — 앱은 그 휠을 게임 (카메라 확대) 에 주지 않는다. 다음 배치부터
+    // 보인다
+    bool wheel(i32 x, i32 y, f32 notches);
+    [[nodiscard]] f32 scrollOf(const ui::UiNode& n, i32 listIndex) const;
+    static constexpr f32 kWheelStep = 40; // 휠 한 칸 (배율을 곱한다)
     [[nodiscard]] i32 highlighted() const noexcept { return m_highlight; }
     [[nodiscard]] const ui::UiNode* focused() const noexcept { return m_focus; }
     void apply(const ui::UiAction& action); // ui show · hide · toggle · theme
@@ -112,6 +118,7 @@ private:
     void select(const ui::UiNode& n, i32 index, std::vector<ui::UiAction>& out);           // 바뀌면 var · on.change
     bool choiceKey(const ui::UiLayoutNode& l, usize document, ui::UiKey key, std::vector<ui::UiAction>& out);
     void openList(const ui::UiLayoutNode& l, usize document);
+    void revealFocus(); // 포커스가 scroll 안에서 가려졌으면 보이게 민다 (가장 안쪽 scroll)
     void closeList() noexcept { m_open = nullptr; }
     void sliderTo(const ui::UiNode& n, const ui::UiRect& rect, i32 x);
     void emitChange(const ui::UiNode& n, std::vector<ui::UiAction>& out) const;
@@ -129,8 +136,10 @@ private:
     const ui::UiNode* m_open = nullptr; // 목록이 열린 dropdown (v0.7 NG-06 (3))
     i32 m_openIndex = -1;
     usize m_openDocument = 0;
-    i32 m_highlight = -1;    // 열린 목록의 가리킨 줄
-    i32 m_height = 0;        // 배치한 화면 높이 (목록을 위 · 아래 어디에 놓나)
+    i32 m_highlight = -1; // 열린 목록의 가리킨 줄
+    i32 m_height = 0;     // 배치한 화면 높이 (목록을 위 · 아래 어디에 놓나)
+    std::map<std::pair<const ui::UiNode*, i32>, f32>
+        m_scroll;            // scroll 마다 밀린 양 (노드 · list 번호 — v0.7 NG-06 (3b))
     usize m_caret = 0;       // 글자 칸의 캐럿 (코드 포인트 위치 — v0.7 NG-06 (2))
     std::string m_editStart; // 포커스를 받을 때의 글자 — 떠날 때 다르면 보낸다
 };

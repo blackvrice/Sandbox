@@ -209,7 +209,7 @@ public:
             return n;
         }
         const std::string kind = j["kind"].get<std::string>();
-        static constexpr std::array<std::pair<std::string_view, UiKind>, 12> kKinds{{{"panel", UiKind::Panel},
+        static constexpr std::array<std::pair<std::string_view, UiKind>, 13> kKinds{{{"panel", UiKind::Panel},
                                                                                      {"text", UiKind::Text},
                                                                                      {"image", UiKind::Image},
                                                                                      {"button", UiKind::Button},
@@ -220,12 +220,13 @@ public:
                                                                                      {"slider", UiKind::Slider},
                                                                                      {"textinput", UiKind::TextInput},
                                                                                      {"dropdown", UiKind::Dropdown},
-                                                                                     {"tabs", UiKind::Tabs}}};
+                                                                                     {"tabs", UiKind::Tabs},
+                                                                                     {"scroll", UiKind::Scroll}}};
         const auto k = std::find_if(kKinds.begin(), kKinds.end(), [&](const auto& p) { return p.first == kind; });
         if (k == kKinds.end()) {
             error("U3", pointer + "/kind",
                   std::format("모르는 요소 '{}' (panel · text · image · button · progress · list · checkbox · "
-                              "toggle · slider · textinput · dropdown · tabs)",
+                              "toggle · slider · textinput · dropdown · tabs · scroll)",
                               kind));
             return n;
         }
@@ -237,6 +238,7 @@ public:
             }
             switch (n.kind) {
             case UiKind::Panel:
+            case UiKind::Scroll:
                 return key == "stack" || key == "gap" || key == "padding" || key == "align" || key == "children";
             case UiKind::Text:
                 return key == "text" || key == "args" || key == "overflow";

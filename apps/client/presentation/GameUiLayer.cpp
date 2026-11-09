@@ -34,6 +34,7 @@ void GameUiLayer::setSources(const std::optional<GameUiInfo>& info) {
     m_focus = nullptr; // 문서를 다시 읽었다 — 노드 포인터가 바뀐다
     m_drag = nullptr;
     m_open = nullptr;
+    m_scroll.clear();
     if (!info) {
         return;
     }
@@ -92,6 +93,7 @@ void GameUiLayer::layout(i32 width, i32 height, f32 scale, const ui::ITextMeasur
         o.hidden = [this, &d](const ui::UiNode& n) { return !n.id.empty() && nodeHidden(d.id, n.id); };
         o.selectedOf = [this](const ui::UiNode& n, i32) { return selectedIndex(n); };
         o.optionOf = [this](const ui::UiNode& n, usize option) { return optionText(n, option); };
+        o.scrollOf = [this](const ui::UiNode& n, i32 listIndex) { return scrollOf(n, listIndex); };
         // 숨긴 문서는 배치하지 않는다 (라우팅 · 그리기 모두 건너뛴다)
         m_layouts.push_back(ui::UiDocumentLayout{
             &d, m_visible[i] ? ui::layoutDocument(d, o, measure) : std::vector<ui::UiLayoutNode>{}, m_visible[i]});
@@ -181,6 +183,78 @@ ui::UiPointerRoute GameUiLayer::route(i32 x, i32 y, bool toolsWantMouse, bool pr
         }
     }
     return r;
+}
+
+f32 GameUiLayer::scrollOf(const ui::UiNode& n, i32 listIndex) const {
+    const auto it = m_scroll.find({&n, listIndex});
+    return it == m_scroll.end() ? 0.0f : it->second;
+}
+
+bool GameUiLayer::wheel(i32 x, i32 y, f32 notches) {
+    if (notches == 0.0f) {
+        return false;
+    }
+    const bool modal = std::any_of(m_layouts.begin(), m_layouts.end(), [](const ui::UiDocumentLayout& d) {
+        return d.visible && !d.nodes.empty() && d.document->layer == ui::UiLayer::Modal;
+    });
+    // 층 차례 (modal → menu → hud), 같은 층은 뒤 문서가 위, 노드는 나중 (안쪽) 이 위
+    for (const ui::UiLayer layer : {ui::UiLayer::Modal, ui::UiLayer::Menu, ui::UiLayer::Hud}) {
+        if (modal && layer != ui::UiLayer::Modal) {
+            return false;
+        }
+        for (usize i = m_layouts.size(); i-- > 0;) {
+            const ui::UiDocumentLayout& d = m_layouts[i];
+            if (!d.visible || d.nodes.empty() || d.document->layer != layer) {
+                continue;
+            }
+            for (auto it = d.nodes.rbegin(); it != d.nodes.rend(); ++it) {
+                if (it->node->kind == ui::UiKind::Scroll && it->scrollRange > 0 && ui::contains(it->rect, x, y) &&
+                    ui::contains(it->clip, x, y)) {
+                    m_scroll[{it->node, it->listIndex}] =
+                        std::clamp(it->scroll - notches * kWheelStep * m_scale, 0.0f, it->scrollRange);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void GameUiLayer::revealFocus() {
+    for (const ui::UiDocumentLayout& d : m_layouts) {
+        for (usize k = 0; k < d.nodes.size(); ++k) {
+            const ui::UiLayoutNode& f = d.nodes[k];
+            if (f.node != m_focus || f.listIndex != m_focusIndex) {
+                continue;
+            }
+            // 조상을 거슬러 (앞 순서 — 깊이가 줄어드는 앞 노드) 가장 안쪽 scroll 을 찾는다
+            u32 depth = f.depth;
+            for (usize j = k; j-- > 0 && depth > 0;) {
+                const ui::UiLayoutNode& a = d.nodes[j];
+                if (a.depth >= depth) {
+                    continue;
+                }
+                depth = a.depth;
+                if (a.node->kind != ui::UiKind::Scroll || a.scrollRange <= 0) {
+                    continue;
+                }
+                const i32 pad = static_cast<i32>(a.padding + 0.5f);
+                const i32 top = a.rect.y + pad;
+                const i32 bottom = a.rect.y + a.rect.h - pad;
+                f32 delta = 0;
+                if (f.rect.y < top || f.rect.h > bottom - top) {
+                    delta = static_cast<f32>(f.rect.y - top); // 위로 가려졌거나 보이는 높이보다 크면 위를 맞춘다
+                } else if (f.rect.y + f.rect.h > bottom) {
+                    delta = static_cast<f32>(f.rect.y + f.rect.h - bottom);
+                }
+                if (delta != 0.0f) {
+                    m_scroll[{a.node, a.listIndex}] = std::clamp(a.scroll + delta, 0.0f, a.scrollRange);
+                }
+                return;
+            }
+            return;
+        }
+    }
 }
 
 i32 GameUiLayer::selectedIndex(const ui::UiNode& n) const {
@@ -468,7 +542,10 @@ bool GameUiLayer::key(ui::UiKey key, std::vector<ui::UiAction>& out) {
     if (at < 0) {
         setFocus(nullptr, -1, nullptr); // 사라진 칸 — 보낼 것이 없다 (노드가 보이지 않는다)
     }
-    const auto focusAt = [&](usize i) { setFocus(order[i].node->node, order[i].node->listIndex, &out); };
+    const auto focusAt = [&](usize i) {
+        setFocus(order[i].node->node, order[i].node->listIndex, &out);
+        revealFocus(); // scroll 안이면 보이게 (다음 배치부터 — v0.7 NG-06 (3b))
+    };
     if (key == K::Next || key == K::Previous) {
         if (order.empty()) {
             return false;

@@ -105,6 +105,7 @@ content/<pack>/
                           maxLength? (1 ~ 256, 기본 64) · multiline? · on.change (값 = 코드 포인트 수 — v0.7 NG-06 (2), ADR-0104),
                           dropdown: value (var — 번호 0 부터) · options [글자 1 ~ 32] · on.change, tabs: value (var — 번호) ·
                           labels [글자 1 ~ 32] · children (labels 와 하나씩 — 고른 것만 배치) · on.change (v0.7 NG-06 (3), ADR-0105),
+                          scroll: panel 과 같은 키 — 세로로 민다 (size 로 보이는 높이, 밀기는 클라이언트 층 — v0.7 NG-06 (3b), ADR-0106),
                           progress: value · max, list: items · item)}. 값 = 수 | {"bind": "var:<키>" | "session:<칸> (state · tick · time · team · message · score[i])" |
                           "component:<컴포넌트>.<칸>@owned|selected"}, 이벤트 = {"signal", "value"?} | {"action"} | {"ui": show | hide |
                           toggle, "target": "<문서>.<노드>"}. 팩마다 32 개까지 (로더가 원문만 PackInfo.uiDocuments 에)

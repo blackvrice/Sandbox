@@ -7,9 +7,9 @@
 // 쌓기: 부모가 stack row · column 이면 자식은 앵커 · offset 대신 차례로 — 주 축 = 앞 자식 끝 + gap, 교차 축 = align
 // (start · center · end · stretch). list 는 item 을 항목 수만큼 세로로 (stack row 면 가로로). 여백: panel padding ·
 // 스타일 padding 중 큰 쪽만큼 안쪽이 자식의 부모 사각형. 자름: 노드마다 clip = 조상들의 사각형의 교집합 — 넘친 부분은
-// 그리지 않는다 (스크롤은 [계획]). 반올림: 가장자리마다 floor(v + 0.5) — 너비가 아니라 가장자리를 반올림해 이웃 사이에
-// 틈 · 겹침이 없다. 글자 크기는 ITextMeasure, 스타일은 이름 표, 글자 · list 항목 수는 콜백으로 받는다 (바인딩 평가는
-// M3-T4).
+// 그리지 않는다 (scroll 은 자식을 밀린 만큼 위로 — v0.7 NG-06 (3b)). 반올림: 가장자리마다 floor(v + 0.5) — 너비가
+// 아니라 가장자리를 반올림해 이웃 사이에 틈 · 겹침이 없다. 글자 크기는 ITextMeasure, 스타일은 이름 표, 글자 · list 항목
+// 수는 콜백으로 받는다 (바인딩 평가는 M3-T4).
 //
 // 글자 넘침 (v0.7 M4-T2 — overflow): 글자가 쓸 수 있는 너비 = size 가 있으면 그 너비, 쌓는 row 면 남은 자리 (부모 안쪽
 // 끝 - 이 자식의 시작), column 이면 부모 안쪽 너비, 그 밖은 부모 안쪽 오른 끝까지 — 여백을 뺀 값. 넘치면 clip = 자름,
@@ -71,6 +71,8 @@ struct UiLayoutOptions {
     // tabs labels 의 보이는 글자 (없으면 원문 그대로 — 앱은 "@<키>" 를 푼다)
     std::function<i32(const UiNode& node, i32 listIndex)> selectedOf{};
     std::function<std::string(const UiNode& node, usize option)> optionOf{};
+    // scroll 의 밀린 양 (픽셀 — 배율을 곱한 배치 단위, v0.7 NG-06 (3b)). 없으면 0, 0 ~ scrollRange 로 자른다
+    std::function<f32(const UiNode& node, i32 listIndex)> scrollOf{};
 };
 
 struct UiLayoutNode {
@@ -84,12 +86,15 @@ struct UiLayoutNode {
     std::vector<std::string> lines;  // overflow wrap 이 나눈 줄 (v0.7 M4-T2 — 비면 한 줄, 글자는 textOf)
     f32 lineHeight = 0;              // 줄 높이 (wrap · textinput · dropdown · tabs)
     std::vector<UiRect> parts{};     // tabs 의 머리 칸 (labels 차례 — v0.7 NG-06 (3))
+    f32 scroll = 0;                  // scroll: 쓴 밀기 (0 ~ scrollRange — v0.7 NG-06 (3b))
+    f32 scrollRange = 0;             // scroll: 내용 높이 - 보이는 높이 (0 이면 밀 것이 없다)
 };
 
 inline constexpr f32 kMinFitScale = 0.5f;   // overflow fit — 글꼴을 원래의 절반까지 줄인다
 inline constexpr f32 kSliderWidth = 160;    // slider 의 기본 너비 (size 가 없으면 — 배율을 곱한다, v0.7 NG-06 (1))
 inline constexpr f32 kTextInputWidth = 200; // textinput 의 기본 너비 (배율을 곱한다, v0.7 NG-06 (2))
 inline constexpr u32 kTextInputLines = 4;   // multiline textinput 의 기본 줄 수 (size 가 없으면)
+inline constexpr f32 kScrollBarWidth = 4;   // scroll 막대 너비 (배율을 곱한다 — 그리기 · 라우팅)
 
 // checkbox · toggle 의 상자 · slider 의 높이 = 글꼴 × 1.25 (반올림 — 배치와 그리기가 같은 값, 글자 재기와 무관)
 [[nodiscard]] inline f32 controlBox(f32 fontSize) noexcept {

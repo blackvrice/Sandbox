@@ -1157,4 +1157,134 @@ export default defineSystem({
         layer.setSources(info);
         CHECK_FALSE(layer.listOpen());
     }
+    TEST_CASE("game ui layer (v0.7 NG-06 (3b)): scroll — 휠은 포인터 아래 scroll 을 한 칸 40 씩 (범위로 자른다 · 밖은 "
+              "쓰지 않는다), Tab 포커스가 가려지면 보이게 민다, modal 이 보이면 hud 휠은 쓰지 않는다") {
+        GameUiInfo info;
+        std::string rows;
+        for (int i = 0; i < 5; ++i) {
+            rows += std::format(R"({}{{"kind": "button", "id": "b{}", "text": "{}", "size": [80, 20]}})",
+                                i > 0 ? ", " : "", i, i);
+        }
+        info.documents.push_back(
+            {"eco", "hud",
+             std::format(R"({{"id": "eco.hud", "root": {{"kind": "scroll", "id": "list", "size": [100, 50],
+            "stack": "column", "children": [{}]}}}})",
+                         rows)});
+        info.documents.push_back({"eco", "pop",
+                                  R"({"id": "eco.pop", "layer": "modal", "visible": false, "root": {"kind": "panel",
+            "anchor": {"min": [0.5, 0.5], "max": [0.5, 0.5]}, "size": [10, 10]}})"});
+        GameUiLayer layer;
+        layer.setSources(info);
+        REQUIRE(layer.documentCount() == 2);
+        const ui::FixedTextMeasure measure;
+        const auto relayout = [&] { layer.layout(800, 600, 1.0f, measure); };
+        const auto yOf = [&](std::string_view id) { return find(layer, id)->rect.y; };
+        relayout();
+        CHECK(find(layer, "list")->scrollRange == 50.0f);
+
+        CHECK(layer.wheel(10, 10, -1)); // 아래로 한 칸 = 40
+        relayout();
+        CHECK(yOf("b0") == -40);
+        CHECK(layer.wheel(10, 10, -5)); // 끝에서 자른다 (그래도 쓴다 — 게임 확대로 가지 않는다)
+        relayout();
+        CHECK(yOf("b0") == -50);
+        CHECK_FALSE(layer.wheel(300, 300, -1)); // scroll 밖
+        CHECK_FALSE(layer.wheel(10, 10, 0));
+        CHECK(layer.wheel(10, 10, 10));
+        relayout();
+        CHECK(yOf("b0") == 0);
+
+        // Tab — b3 (60 ~ 80) 은 보이는 50 아래 → 30 밀어 30 ~ 50, b4 → 50, 처음 (b0) 으로 돌면 0
+        std::vector<ui::UiAction> ev;
+        for (int i = 0; i < 4; ++i) {
+            REQUIRE(layer.key(ui::UiKey::Next, ev));
+            relayout();
+        }
+        CHECK(layer.focused()->id == "b3");
+        CHECK(yOf("b3") == 30);
+        REQUIRE(layer.key(ui::UiKey::Next, ev));
+        relayout();
+        CHECK(yOf("b4") == 30);
+        CHECK(layer.scrollOf(*find(layer, "list")->node, -1) == 50.0f);
+        REQUIRE(layer.key(ui::UiKey::Next, ev));
+        relayout();
+        CHECK(layer.focused()->id == "b0");
+        CHECK(yOf("b0") == 0);
+        CHECK(ev.empty());
+
+        // modal 이 보이면 hud scroll 은 휠을 받지 않는다
+        layer.apply(ui::UiAction{ui::UiAction::Kind::Ui, "eco.pop", std::nullopt, "show"});
+        relayout();
+        CHECK_FALSE(layer.wheel(10, 10, -1));
+        // 원문이 바뀌면 밀기를 잊는다
+        layer.apply(ui::UiAction{ui::UiAction::Kind::Ui, "eco.pop", std::nullopt, "hide"});
+        relayout();
+        CHECK(layer.wheel(10, 10, -1));
+        info.documents[0].text += " ";
+        layer.setSources(info);
+        relayout();
+        CHECK(yOf("b0") == 0);
+    }
+    TEST_CASE(
+        "app (local server + ImGui 헤드리스, v0.7 NG-06 (3b)): HUD scroll 위의 휠은 scroll 을 밀고 카메라를 확대하지 "
+        "않는다, 밖의 휠은 카메라 확대") {
+        TempDir root("game_ui_scroll");
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        const fs::path dir = root.path / "Scroll";
+        project::NewProjectOptions o;
+        o.gameId = "studio.scroll";
+        o.fromScenario = "ecosystem_small";
+        o.contentRoot = SBX_CONTENT_DIR;
+        auto made = project::createProject(dir, o, SemVer{0, 1, 0, {}, {}}, catalog);
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        const fs::path pack = dir / "content" / "ecosystem";
+        fs::create_directories(pack / "presentation" / "ui");
+        std::ofstream(pack / "presentation" / "ui" / "hud.json", std::ios::binary)
+            << R"({"id": "eco.hud", "root": {"kind": "scroll", "id": "list", "size": [120, 60], "stack": "column", "children": [
+                  {"kind": "panel", "size": [100, 50]}, {"kind": "panel", "size": [100, 50]}, {"kind": "panel", "size": [100, 50]}]}})";
+
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = dir.string();
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window;
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = kDt;
+        cfg.ui = &imgui;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        window.inject(KeyDown{Key::F1, 0, {}, false}); // 도구 패널을 감춘다 (ImGui 가 마우스를 원하지 않게)
+        window.inject(KeyUp{Key::F1, 0, {}});
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+
+        const f32 zoom = app.camera().pixelsPerUnit;
+        window.inject(MouseMove{{20, 20}, {0, 0}});
+        window.inject(MouseWheel{{0, -1}});
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        CHECK(app.camera().pixelsPerUnit == zoom);
+        const ui::UiLayoutNode* list = find(app.gameUi(), "list");
+        REQUIRE(list != nullptr);
+        CHECK(list->scroll == 40.0f);
+
+        window.inject(MouseMove{{600, 400}, {0, 0}});
+        window.inject(MouseWheel{{0, -1}});
+        REQUIRE(app.frame());
+        CHECK(app.camera().pixelsPerUnit != zoom);
+    }
 }
