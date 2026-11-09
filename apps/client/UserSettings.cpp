@@ -1,5 +1,6 @@
 #include "apps/client/UserSettings.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <format>
@@ -84,6 +85,19 @@ ClientSettingsParse parseClientSettings(std::string_view jsonText) {
                 continue;
             }
             r.settings.locale = v.get<std::string>();
+        } else if (key == "fonts") {
+            const bool shape =
+                v.is_array() && v.size() <= 8 && std::all_of(v.begin(), v.end(), [](const nlohmann::json& f) {
+                    return f.is_string() && !f.get<std::string>().empty();
+                });
+            if (!shape) {
+                r.errors.emplace_back("fonts 는 폰트 파일 문자열의 배열 (8 개까지)");
+                continue;
+            }
+            r.settings.fonts.clear();
+            for (const auto& f : v) {
+                r.settings.fonts.push_back(f.get<std::string>());
+            }
         } else {
             r.warnings.push_back(std::format("모르는 키 '{}' 는 건너뛴다", key));
         }

@@ -249,4 +249,15 @@ TEST_SUITE("client") {
         const std::string env = platform::localeFromEnvironment();
         CHECK((env.empty() || (env != "C" && env != "POSIX")));
     }
+    TEST_CASE(
+        "client.json fonts (v0.7 M4-T2 (2)): 대체 폰트 파일 배열 — 차례 그대로, 모양 · 8 개 넘음 · 빈 문자열은 오류") {
+        ClientSettingsParse p = parseClientSettings(R"({"fonts": ["a.ttf", "C:/Windows/Fonts/b.ttc"]})");
+        CHECK(p.errors.empty());
+        CHECK(p.settings.fonts == std::vector<std::string>{"a.ttf", "C:/Windows/Fonts/b.ttc"});
+        CHECK(parseClientSettings("{}").settings.fonts.empty());
+        CHECK(parseClientSettings(R"({"fonts": "a.ttf"})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"fonts": [1]})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"fonts": [""]})").errors.size() == 1);
+        CHECK(parseClientSettings(R"({"fonts": ["1","2","3","4","5","6","7","8","9"]})").errors.size() == 1);
+    }
 }

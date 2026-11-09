@@ -335,7 +335,13 @@ M4-T2 (1) ✅ (v0.7) 글자 늘어남 — text · button 의 "overflow": clip (�
             남은 자리, column 이면 부모 안쪽 너비, 그 밖은 부모 안쪽 오른 끝까지 (여백 뺌). wrap = 배치가 빈칸에서 줄을 나눈다 (긴
             낱말은 코드 포인트마다, '\n') — 높이가 줄 수만큼, 그리기는 줄마다. fit = 글꼴을 너비에 맞게 (원래의 절반까지 — 그래도
             넘치면 자른다). 데모 도움말이 fit: 배율 2 골든의 도움말이 띠 밖으로 잘리던 것이 338 픽셀 안에 든다, 번역 2 배 (ko · en) 를
-            1280 × 720 에서 배치해도 잘리는 노드가 없다. (2) [계획]: 폰트 대체 목록 · 없는 글자 □ 와 경고 한 번
+            1280 × 720 에서 배치해도 잘리는 노드가 없다
+M4-T2 (2) ✅ (v0.7) 폰트 대체 — 사슬 = --font → client.json "fonts" (8 개까지, 차례대로) → OS 묶음 (묶음마다 처음 있는 파일 —
+            Windows 맑은 고딕 · Segoe UI · Segoe UI Symbol, Linux Noto CJK · 나눔 / DejaVu Sans / Noto Sans Symbols2, macOS 애플
+            SD 산돌고딕 Neo · Helvetica · Apple Symbols). 첫 파일이 바탕, 나머지는 ImGui MergeMode 로 합친다 (바탕에 없는 글자를
+            다음 파일에서 — 1.92 동적 글꼴). 게임 UI 의 글자는 사슬 어디에도 없으면 □ (U+25A1 — 그것도 없으면 '?') 로 그리고
+            재며, 코드 포인트마다 경고 한 번 (GlyphCoverage — ImWchar 16 비트라 U+FFFF 너머는 없음). 도구 패널 (ImGui 위젯)
+            은 같은 사슬이지만 덮지 않는다 (ImGui 의 대체 글자)
 ```
 
 ## 6. 스크립트 실행 경계 · 프로파일 (X5 — ADR-0081)

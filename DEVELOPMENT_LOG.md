@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T2 (2): 폰트 대체 사슬 · 없는 글자 □ 와 경고 한 번 (M4-T2 끝)
+
+**무엇을**
+
+- apps/client/ui/FontFallback: buildFontChain (--font → client.json fonts → OS 묶음 — 묶음마다 처음 있는 파일, 없는 파일 경고 ·
+  같은 파일 한 번), GlyphCoverage (사슬에 없는 글자 → □ · '?', 코드 포인트마다 캐시 · 처음 것만 경고), describeCodepoint.
+- ImGuiLayer: 사슬의 첫 파일이 바탕, 나머지는 MergeMode 로 합친다 (로그 "폰트 a + b + c"). client.json "fonts" (8 개까지 — 안전
+  모드는 읽지 않는다).
+- 게임 UI 그리기 · 재기 (ImGuiUiRenderer · ImGuiTextMeasure) 가 같은 덮은 글자를 쓴다, 앱이 새 없는 글자를 경고로.
+
+**왜**
+
+- 등록부 M4-T2 의 남은 몫 (ADR-0083 4 — "글자가 없으면 다음 폰트, 끝까지 없으면 □ 와 경고 한 번"). 전에는 바탕 폰트 하나뿐 (맑은
+  고딕에 없는 기호 · 라틴 확장은 '?').
+
+**검증**
+
+- test_font_fallback (사슬 · 덮기 · 실제 ImGui 헤드리스 — 이 기계 malgun + segoeui + seguisym) · test_user_settings "fonts".
+- SandboxClient --headless --console: en 도움말에 😀 · Ω 를 넣은 복사본 → U+1F600 경고 한 번, Ω 는 사슬에 있다 (MANUAL-QA).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19, -Wshadow 포함) — 바꾼 파일 모두 새 경고 없음.
+
+**남은 일**
+
+- 창에서 □ 눈 확인 · Linux · macOS 의 OS 묶음 (MANUAL-QA [ ]), ImWchar 32 비트 (이모지 — 색 글꼴은 v1.x), 도구 패널 글자 덮기.
+
 ## 2026-11-09 — CI 고침: test_ui_document 의 람다 매개변수가 지역 변수를 가린다 (-Wshadow, e6e5d46)
 
 - 무엇을 · 왜: Linux GCC 빌드가 -Werror=shadow 로 멈췄다 — v0.7 M4-T1 (2) 의 표시 이름 시험에서 람다 매개변수 `text` 가 같은

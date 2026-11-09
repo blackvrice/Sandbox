@@ -474,7 +474,18 @@ bool Application::routeGameUi() {
         return false;
     }
     const platform::Extent2D logical = m_window.windowSize();
-    m_gameUi.layout(static_cast<i32>(logical.width), static_cast<i32>(logical.height), 1.0f, ImGuiTextMeasure{});
+    if (!m_glyphs) {
+        // 폰트 사슬의 글자 표 (v0.7 M4-T2 (2)) — ImGui 글꼴이 준비된 뒤 한 번. ImWchar 는 16 비트 (U+FFFF 너머는 없음)
+        ImFont* font = ImGui::GetFont();
+        const auto inFont = [font](char32_t c) { return c <= 0xFFFF && font->IsGlyphInFont(static_cast<ImWchar>(c)); };
+        m_glyphs.emplace(inFont, inFont(kMissingGlyph) ? kMissingGlyph : U'?');
+    }
+    m_gameUi.layout(static_cast<i32>(logical.width), static_cast<i32>(logical.height), 1.0f,
+                    ImGuiTextMeasure{&*m_glyphs});
+    for (const char32_t cp : m_glyphs->takeMissing()) {
+        log::warn("client", "게임 UI 글자 {} 가 어느 폰트에도 없다 — {} 로 그린다 (client.json fonts 에 폰트를 더한다)",
+                  describeCodepoint(cp), describeCodepoint(m_glyphs->replacement()));
+    }
     const InputState& raw = m_input.raw();
     std::vector<ui::UiAction> events;
     const ui::UiPointerRoute route = m_gameUi.route(
@@ -686,7 +697,7 @@ bool Application::frame() {
                 m_actionPanel.armed.clear();
             }
             if (m_gameUi.documentCount() > 0) { // v0.7 M3-T3 — 배경 목록: 게임 화면 위 · 도구 패널 아래
-                ImGuiUiRenderer renderer(ImGui::GetBackgroundDrawList());
+                ImGuiUiRenderer renderer(ImGui::GetBackgroundDrawList(), m_glyphs ? &*m_glyphs : nullptr);
                 m_gameUi.draw(renderer);
             }
             if (const auto so = m_config.world->scriptOverlay()) {

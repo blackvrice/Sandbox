@@ -5,7 +5,8 @@
 //   설정 폴더   SBX_CONFIG_DIR, 아니면 Windows %APPDATA%\sandbox, macOS ~/Library/Application Support/sandbox,
 //               그 밖 $XDG_CONFIG_HOME/sandbox · ~/.config/sandbox
 //     client.json   {"schemaVersion": 1, "uiScale": 1.0, "updateCheck": true, "updateFeed": "<파일>", "locale": "ko"}
-//                   — 모두 선택. locale = 게임 UI 문자열 표의 로케일 (v0.7 M4-T1 — --locale 이 이긴다, 없으면 OS)
+//                   — 모두 선택. locale = 게임 UI 문자열 표의 로케일 (v0.7 M4-T1 — --locale 이 이긴다, 없으면 OS),
+//                   "fonts": ["<파일>", …] = 대체 폰트 (v0.7 M4-T2 — --font 뒤 · OS 기본 앞, 8 개까지)
 //                   uiScale 0.5~3 (ImGui — DPI 배율에 곱한다), updateCheck false 면 새 버전 알림을 끈다, updateFeed =
 //                   릴리스 피드 파일 (ReleaseFeed.hpp — --update-feed 가 이긴다). 모르는 키는 경고 (새 클라이언트가
 //                   쓴 키일 수 있다)
@@ -35,8 +36,9 @@ inline constexpr f32 kMaxUiScale = 3.f;
 struct ClientSettings {
     f32 uiScale = 1.f;
     bool updateCheck = true;
-    std::string updateFeed; // 비면 없음
-    std::string locale;     // 비면 OS 로케일 (v0.7 M4-T1)
+    std::string updateFeed;         // 비면 없음
+    std::string locale;             // 비면 OS 로케일 (v0.7 M4-T1)
+    std::vector<std::string> fonts; // 대체 폰트 파일 (v0.7 M4-T2 — 차례대로)
 };
 
 struct ClientSettingsParse {

@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 
+#include "apps/client/ui/FontFallback.hpp"
 #include "foundation/log/Log.hpp"
 
 namespace sbx::client {
@@ -221,42 +222,29 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
         }
     };
 
-    // 폰트: 지정 → OS 한글 폰트 → 내장 (영문만)
-    std::vector<std::filesystem::path> candidates;
-    if (!desc.font.empty()) {
-        candidates.push_back(desc.font);
-    }
-#ifdef _WIN32
-    candidates.emplace_back("C:/Windows/Fonts/malgun.ttf");
-#elif defined(__linux__)
-    // 배포판의 한글 글꼴 (Noto CJK · 나눔) — 첫 번째로 있는 것
-    for (const char* p :
-         {"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-          "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-          "/usr/share/fonts/nanum/NanumGothic.ttf"}) {
-        candidates.emplace_back(p);
-    }
-#elif defined(__APPLE__)
-    // macOS 기본 한글 글꼴 (Apple SD 산돌고딕 Neo) → 사용자가 설치한 나눔고딕
-    for (const char* p : {"/System/Library/Fonts/AppleSDGothicNeo.ttc", "/Library/Fonts/NanumGothic.ttf",
-                          "/System/Library/Fonts/Supplemental/AppleGothic.ttf"}) {
-        candidates.emplace_back(p);
-    }
-#endif
-    ImFont* font = nullptr;
-    for (const auto& p : candidates) {
+    // 폰트 사슬 (v0.7 M4-T2 (2) — FontFallback): --font → client.json fonts → OS 묶음 (한국어 · 라틴 · 기호). 첫째가
+    // 바탕, 나머지는 합친다 (MergeMode — 바탕에 없는 글자를 다음 파일에서). 하나도 없으면 내장 (영문만)
+    const std::vector<FontGroup> groups = defaultFontGroups();
+    const FontChain chain = buildFontChain(desc.font, desc.fallbackFonts, groups, [](const std::filesystem::path& p) {
         std::error_code ec;
-        if (!std::filesystem::exists(p, ec)) {
-            if (p == desc.font) {
-                log::warn("client", "UI 폰트 '{}' 이 없다 — 다른 폰트로", p.generic_string());
-            }
+        return std::filesystem::is_regular_file(p, ec);
+    });
+    for (const std::string& w : chain.warnings) {
+        log::warn("client", "{}", w);
+    }
+    ImFont* font = nullptr;
+    for (const auto& p : chain.files) {
+        ImFontConfig cfg;
+        cfg.MergeMode = font != nullptr;
+        const std::string utf8 = p.generic_string();
+        ImFont* added = io.Fonts->AddFontFromFileTTF(utf8.c_str(), desc.fontSize, &cfg);
+        if (added == nullptr) {
+            log::warn("client", "UI 폰트 '{}' 을 읽지 못했다 — 건너뛴다", utf8);
             continue;
         }
-        const std::string utf8 = p.generic_string();
-        font = io.Fonts->AddFontFromFileTTF(utf8.c_str(), desc.fontSize);
-        if (font != nullptr) {
-            m_fontName = p.filename().generic_string();
-            break;
+        m_fontName += (font == nullptr ? "" : " + ") + p.filename().generic_string();
+        if (font == nullptr) {
+            font = added;
         }
     }
     if (font == nullptr) {

@@ -42,8 +42,10 @@ void ImGuiUiRenderer::strokeRect(const ui::UiRect& rect, ui::UiColor color, f32 
 
 void ImGuiUiRenderer::text(const ui::UiRect& rect, std::string_view text, f32 fontSize, ui::UiColor color,
                            const ui::UiRect& clip) {
+    const std::string shown = m_glyphs != nullptr ? m_glyphs->cover(text) : std::string(text);
     clipped(m_list, clip, [&] {
-        m_list->AddText(ImGui::GetFont(), fontSize, topLeft(rect), rgba(color), text.data(), text.data() + text.size());
+        m_list->AddText(ImGui::GetFont(), fontSize, topLeft(rect), rgba(color), shown.data(),
+                        shown.data() + shown.size());
     });
 }
 
@@ -56,7 +58,9 @@ void ImGuiUiRenderer::image(const ui::UiRect& rect, std::string_view material, c
 }
 
 std::array<f32, 2> ImGuiTextMeasure::measure(std::string_view text, f32 fontSize) const {
-    const ImVec2 s = ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.data(), text.data() + text.size());
+    const std::string shown = m_glyphs != nullptr ? m_glyphs->cover(text) : std::string(text);
+    const ImVec2 s =
+        ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, shown.data(), shown.data() + shown.size());
     return {s.x, s.y};
 }
 

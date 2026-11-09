@@ -267,7 +267,10 @@ int main(int argc, char** argv) {
     if (!opts->noUi) {
         sbx::client::ImGuiLayerDesc ud;
         ud.font = opts->font;
-        ud.uiScale = user.settings.uiScale; // 안전 모드면 기본값 1
+        ud.uiScale = user.settings.uiScale;                // 안전 모드면 기본값 1
+        for (const std::string& f : user.settings.fonts) { // 대체 폰트 (v0.7 M4-T2 — 안전 모드면 없음)
+            ud.fallbackFonts.emplace_back(f);
+        }
         ui = std::make_unique<sbx::client::ImGuiLayer>(*window, ud);
         uiRendered = renderer != nullptr && renderer->attachImGui(ui->io(), ui->platformIo());
     }

@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "platform/common/Key.hpp"
 #include "platform/common/PlatformEvent.hpp"
@@ -29,8 +30,10 @@ namespace sbx::client {
 
 struct ImGuiLayerDesc {
     std::filesystem::path font; // 비면 OS 기본 한글 폰트 → 내장 폰트
-    f32 fontSize = 16.f;        // 논리 픽셀 (DPI 배율은 따로 곱한다)
-    f32 uiScale = 1.f;          // 사용자 UI 배율 (client.json uiScale — v0.5 M1-T3). DPI 배율에 곱한다
+    // 대체 폰트 (client.json fonts — v0.7 M4-T2 (2)). 사슬 = font → 이것 → OS 묶음 (FontFallback), 첫째 뒤는 합친다
+    std::vector<std::filesystem::path> fallbackFonts;
+    f32 fontSize = 16.f; // 논리 픽셀 (DPI 배율은 따로 곱한다)
+    f32 uiScale = 1.f;   // 사용자 UI 배율 (client.json uiScale — v0.5 M1-T3). DPI 배율에 곱한다
 };
 
 class ImGuiLayer {
