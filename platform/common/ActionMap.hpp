@@ -42,6 +42,10 @@ struct Binding {
 // 이 프레임에 바인딩이 "켜져" 있는가: bindingPressed 이거나, 키(버튼)가 눌려 있고 지금 수정자가 정확히 맞는다.
 [[nodiscard]] bool bindingActive(const Binding& b, const InputState& s) noexcept;
 
+// 키 다시 묶기 (v0.7 M4-T3): 이 프레임에 새로 눌린 키 (수정자 키 자신은 빼고 — 키 번호가 작은 것) 또는 마우스 버튼
+// 하나 + 눌린 순간의 수정자. 없으면 nullopt (자동 반복 · 수정자만 누름 포함). Esc 는 부르는 쪽이 취소로 본다
+[[nodiscard]] std::optional<Binding> captureBinding(const InputState& s) noexcept;
+
 using ActionId = u16;
 
 struct ActionConflict {
@@ -62,6 +66,13 @@ public:
     void merge(const ActionMap& overrides);
     // 이름이 prefix 로 시작하는 액션만 (v0.2 M3-T3 — 팩 바인딩의 "play." · 사용자 덮어쓰기 고르기)
     [[nodiscard]] ActionMap withPrefix(std::string_view prefix) const;
+
+    // 키 다시 묶기 (v0.7 M4-T3 — BindingOverrides): 액션의 바인딩을 통째로 (없으면 더한다 — ActionId 가 바뀔 수 있다),
+    // 액션을 뺀다 (있었으면 true), base 와 다른 것만 담은 덮어쓰기 (base 에 없는 액션 · 바인딩이 다른 액션 — merge 의
+    // 역: base.merge(x.overridesFrom(base)) == x 의 바인딩)
+    void set(std::string_view name, std::vector<Binding> bindings);
+    bool remove(std::string_view name);
+    [[nodiscard]] ActionMap overridesFrom(const ActionMap& base) const;
 
     [[nodiscard]] std::optional<ActionId> find(std::string_view name) const noexcept;
     [[nodiscard]] usize size() const noexcept { return m_actions.size(); }

@@ -17,6 +17,7 @@
 #include <format>
 #include <type_traits>
 
+#include "foundation/io/FileIo.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
 
@@ -135,6 +136,12 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
         m_worldPanel.name = m_config.saveName;
     }
     m_gameUi.setLocale(m_config.locale);
+    m_keys = KeyBindingEditor(m_config.defaultActions ? *m_config.defaultActions : m_actionMap, m_actionMap);
+    lookupActionIds();
+    m_pending = AppState::MainMenu; // 부팅은 첫 프레임 하나 — 이후 Phase 8 의 에셋 로드가 여기 들어간다
+}
+
+void Application::lookupActionIds() {
     m_ids.quit = m_actionMap.find("app.quit");
     m_ids.textInput = m_actionMap.find("debug.text_input");
     m_ids.captureMouse = m_actionMap.find("debug.capture_mouse");
@@ -167,7 +174,6 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_ids.step = m_actionMap.find("sim.step");
     m_ids.faster = m_actionMap.find("sim.speed_up");
     m_ids.slower = m_actionMap.find("sim.speed_down");
-    m_pending = AppState::MainMenu; // 부팅은 첫 프레임 하나 — 이후 Phase 8 의 에셋 로드가 여기 들어간다
 }
 
 Expected<void> Application::request(AppState next) {
@@ -442,6 +448,79 @@ void Application::handleWorldInput(f64 dt) {
     }
 }
 
+// 키 다시 묶기 (v0.7 M4-T3): 이 프레임에 새로 누른 키 하나 (수정자는 함께) — Esc 만이면 취소. 마우스 버튼은 ImGui 가
+// 마우스를 원하지 않을 때만 (패널의 단추를 누른 것을 바인딩으로 잡지 않게)
+void Application::handleKeyCapture() {
+    const InputState& raw = m_input.raw();
+    std::optional<platform::Binding> b = platform::captureBinding(raw);
+    if (!b) {
+        return;
+    }
+    if (b->kind == platform::Binding::Kind::Mouse && m_config.ui != nullptr && m_config.ui->wantMouse()) {
+        return;
+    }
+    if (b->kind == platform::Binding::Kind::Key && b->key == platform::Key::Escape && b->mods.none()) {
+        m_keysPanel.status = std::format("{} — 바꾸지 않았다", m_keysPanel.capturing);
+        m_keysPanel.capturing.clear();
+        return;
+    }
+    m_keys.rebind(m_keysPanel.capturing, *b);
+    m_keysPanel.status = std::format("{} = {}", m_keysPanel.capturing, platform::bindingName(*b));
+    m_keysPanel.capturing.clear();
+    applyKeyBindings();
+}
+
+void Application::applyKeysRequest(const KeysPanelRequest& r) {
+    using Kind = KeysPanelRequest::Kind;
+    switch (r.kind) {
+    case Kind::Capture:
+        m_keysPanel.capturing = r.action; // 다음 프레임부터 잡는다 (단추를 누른 이 프레임의 입력은 아니다)
+        return;
+    case Kind::Cancel:
+        m_keysPanel.capturing.clear();
+        return;
+    case Kind::Reset:
+        m_keys.reset(r.action);
+        m_keysPanel.status = std::format("{} — 기본값", r.action);
+        break;
+    case Kind::ResetAll:
+        m_keys.resetAll();
+        m_keysPanel.status = "모두 기본값 (저장하면 input.json 의 덮어쓰기가 빈다)";
+        break;
+    case Kind::Save: {
+        if (m_config.userInputFile.empty()) {
+            m_keysPanel.status = "안전 모드 — 저장하지 않는다";
+            return;
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(m_config.userInputFile.parent_path(), ec);
+        if (auto w = io::writeFileAtomic(m_config.userInputFile, m_keys.overrides().toJson()); !w) {
+            m_keysPanel.status = std::format("저장 실패 — {}", w.error().describe());
+            log::warn("client", "키 설정 저장 실패: {}", w.error().describe());
+            return;
+        }
+        m_keys.markSaved();
+        m_keysPanel.status = std::format("저장했다 — {}", m_config.userInputFile.generic_string());
+        log::info("client", "키 설정 저장: {} (기본과 다른 액션 {} 개)", m_config.userInputFile.generic_string(),
+                  m_keys.overrides().size());
+        return;
+    }
+    }
+    applyKeyBindings();
+}
+
+void Application::applyKeyBindings() {
+    // ActionId 는 이름 순 번호 — 액션이 늘거나 줄면 바뀌므로 다시 찾고, 켜짐 상태를 버린다
+    m_actionMap = m_keys.current();
+    lookupActionIds();
+    m_actionState.reset();
+    m_playSignature.clear(); // 게임 키 (팩 기본 + play.* 덮어쓰기) 를 다음 프레임에 다시
+    for (const auto& c : m_actionMap.conflicts()) {
+        log::warn("client", "키 바인딩 겹침: {} 이(가) {} 와 {} 에 있습니다", platform::bindingName(c.binding), c.first,
+                  c.second);
+    }
+}
+
 // 콘텐츠 표시 이름의 "@<키>" (v0.7 M4-T1 — 20 5장): 게임 모드 · 결과 팀 · 점수 줄 · 행동
 void Application::localizeNames(GameInfo& game) const {
     game.modeName = m_gameUi.displayName(game.modeName);
@@ -600,7 +679,12 @@ bool Application::frame() {
     } else {
         m_input.setCapture(false, false);
     }
-    m_actionState.update(m_actionMap, m_input.downstream());
+    // 키 다시 묶기 (v0.7 M4-T3): 바꾸는 중이면 누른 키는 바인딩이 된다 — 엔진 · 게임 키에는 주지 않는다
+    const bool capturingKey = !m_keysPanel.capturing.empty();
+    if (capturingKey) {
+        handleKeyCapture();
+    }
+    m_actionState.update(m_actionMap, capturingKey ? InputState{} : m_input.downstream());
 
     handleDebugActions();
     pollLateFeed();
@@ -623,7 +707,9 @@ bool Application::frame() {
     if (inWorld) {
         const f64 worldDt = m_config.fixedDt > 0 ? m_config.fixedDt : realDt;
         syncViewport();
-        handleWorldInput(worldDt);
+        if (!capturingKey) {
+            handleWorldInput(worldDt);
+        }
         m_config.world->setView(m_renderWorld.camera.visibleRect()); // 관심 영역 (Phase 11)
         t0 = Clock::now();
         m_config.world->update(worldDt);
@@ -666,6 +752,13 @@ bool Application::frame() {
         pin.font = m_config.ui->fontName();
         const PanelActions act = drawDebugPanels(m_panels, pin);
         drawNotices(m_config.notices, m_noticesOpen);
+        if (m_panels.visible) { // v0.7 M4-T3 "키"
+            KeysView view = buildKeysView(m_keys, m_playKeys.map);
+            view.canSave = !m_config.userInputFile.empty();
+            if (const auto r = drawKeysPanel(view, m_keysPanel)) {
+                applyKeysRequest(*r);
+            }
+        }
         if (inWorld) {
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {

@@ -54,7 +54,7 @@
 | NG-06 | 게임 UI 입력 컨트롤 (TextInput · Slider · Checkbox · Dropdown · Scroll · 포커스 · 게임패드 · IME) | A | Proposed | — | v0.7 | P1 | M3-T3 | 컨트롤마다 상태 · 이벤트 · 포커스 시험 |
 | M4-T1 | 문자열 표 · 로케일 대체 | A | Done | v0.5 | v0.7 | P1 | — | test_ui_strings · test_game_ui_layer (ko · en) · test_client_script_session (ctx.uiText) · MANUAL-QA v0.7 M4-T1 |
 | M4-T2 | 폰트 대체 | A | Done | v0.5 | v0.7 | P1 | M4-T1 | test_ui_layout (overflow · 번역 2 배) · test_font_fallback (사슬 · 덮기 · 실제 ImGui) |
-| M4-T3 | 키 다시 묶기 | A | Planned | v0.5 | v0.7 | P1 | — | 20 10장 |
+| M4-T3 | 키 다시 묶기 | A | Done | v0.5 | v0.7 | P1 | — | test_key_bindings (저장 · 읽기 · 겹침 · 되돌리기 · 앱 바꾸기) |
 | M4-T4 | UI 배율 | A | Planned | v0.5 | v0.7 | P1 | M3-T6 | 20 10장 |
 | ST-06-1 | Editor Services 층 · Command · Undo 통합 · check_includes 규칙 | B | Planned | v0.6 | v0.8 | P0 | — | 규칙 시험 · Undo 왕복 |
 | M6-T1 | Studio 홈 · 새 프로젝트 · 열기 · 최근 | B | Planned | v0.5 | v0.8 | P0 | ST-06-1 | CTest studio_new_project |

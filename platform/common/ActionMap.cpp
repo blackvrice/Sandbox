@@ -103,6 +103,30 @@ bool bindingPressed(const Binding& b, const InputState& s) noexcept {
     return s.pressed(b.button) && s.buttonPressMods[static_cast<usize>(b.button)] == b.mods.bits;
 }
 
+std::optional<Binding> captureBinding(const InputState& s) noexcept {
+    for (usize i = 0; i < kKeyCount; ++i) {
+        const Key k = static_cast<Key>(i);
+        if (k == Key::Unknown || !s.keyPressed.test(i) || modifierBitOf(k) != 0) {
+            continue;
+        }
+        Binding b;
+        b.kind = Binding::Kind::Key;
+        b.key = k;
+        b.mods.bits = s.keyPressMods[i];
+        return b;
+    }
+    for (usize i = 0; i < kMouseButtonCount; ++i) {
+        if (s.buttonPressed[i]) {
+            Binding b;
+            b.kind = Binding::Kind::Mouse;
+            b.button = static_cast<MouseButton>(i);
+            b.mods.bits = s.buttonPressMods[i];
+            return b;
+        }
+    }
+    return std::nullopt;
+}
+
 bool bindingActive(const Binding& b, const InputState& s) noexcept {
     if (bindingPressed(b, s)) {
         return true;
@@ -200,6 +224,37 @@ void ActionMap::merge(const ActionMap& overrides) {
             m_actions.insert(it, o);
         }
     }
+}
+
+void ActionMap::set(std::string_view name, std::vector<Binding> bindings) {
+    const auto it =
+        std::ranges::lower_bound(m_actions, name, {}, [](const Action& a) -> std::string_view { return a.name; });
+    if (it != m_actions.end() && it->name == name) {
+        it->bindings = std::move(bindings);
+    } else {
+        m_actions.insert(it, Action{std::string(name), std::move(bindings)});
+    }
+}
+
+bool ActionMap::remove(std::string_view name) {
+    const auto it =
+        std::ranges::lower_bound(m_actions, name, {}, [](const Action& a) -> std::string_view { return a.name; });
+    if (it == m_actions.end() || it->name != name) {
+        return false;
+    }
+    m_actions.erase(it);
+    return true;
+}
+
+ActionMap ActionMap::overridesFrom(const ActionMap& base) const {
+    ActionMap out;
+    for (const Action& a : m_actions) {
+        const std::optional<ActionId> b = base.find(a.name);
+        if (!b || !std::ranges::equal(base.bindings(*b), a.bindings)) {
+            out.m_actions.push_back(a); // 이름 순서 그대로
+        }
+    }
+    return out;
 }
 
 ActionMap ActionMap::withPrefix(std::string_view prefix) const {

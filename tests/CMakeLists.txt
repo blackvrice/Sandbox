@@ -153,6 +153,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_pack_materials.cpp
         unit/client/test_user_settings.cpp
         unit/client/test_font_fallback.cpp
+        unit/client/test_key_bindings.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -161,6 +162,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/GameUiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GameUiImGui.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/FontFallback.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/KeysPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ImGuiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/DebugPanels.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/PlayersPanel.cpp"

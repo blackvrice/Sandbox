@@ -27,6 +27,8 @@ add_executable(SandboxClient
     ui/GameUiImGui.cpp
     ui/FontFallback.hpp
     ui/FontFallback.cpp
+    ui/KeysPanel.hpp
+    ui/KeysPanel.cpp
     ui/ImGuiLayer.hpp
     ui/ImGuiLayer.cpp
     ui/DebugPanels.hpp

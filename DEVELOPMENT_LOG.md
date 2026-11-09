@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-09 — v0.7 M4-T3: 키 다시 묶기 — "키" 패널 · 바꾸기 · 되돌리기 · 겹침 · 저장 (ADR-0102)
+
+**무엇을**
+
+- platform ActionMap: set (없으면 이름 순 자리에) · remove · overridesFrom (base 와 다른 것만 — merge 의 역), captureBinding (이
+  프레임에 새로 누른 키 · 마우스 버튼 + 눌린 순간의 수정자, 수정자 키 자신은 아니다).
+- apps/client/ui/KeysPanel: KeyBindingEditor (엔진 기본 · 지금 맵 — rebind · reset (엔진 = 기본, play.* = 덮어쓰기 빼기) · resetAll ·
+  overrides · dirty), buildKeysView (엔진 · 게임 키 줄 · 겹침 — 엔진 × 게임 함께), drawKeysPanel.
+- Application: 바꾸는 동안 누른 키는 바인딩이 되고 엔진 · 게임 키 · 월드 입력에 가지 않는다 (Esc 취소), 바꾸면 ActionId 를 다시
+  찾고 (lookupActionIds) 게임 키를 다시 만든다. 저장 = <설정 폴더>/input.json 에 기본과 다른 것만 (안전 모드는 저장하지 않음).
+- ADR-0102: 사용자 파일은 M1-T3 의 input.json (ADR-0083 5 의 bindings.json 대신 — 0083 은 일부 Superseded).
+
+**왜**
+
+- 등록부 M4-T3 (v0.7 P1 — "사용자가 게임 키를 바꾼다"). 읽기는 M1-T3 에 있었고 바꾸기 · 저장 · 되돌리기 · 겹침 표시가 없었다.
+
+**검증**
+
+- test_key_bindings 4 개 (ActionMap 왕복 · 키 잡기 · 편집기 · 보기 겹침 · 앱 헤드리스 — 바꾸는 중 Ctrl+Q 가 끝내지 않는다, 저장 →
+  다시 읽기, 되돌리면 Ctrl+Q 가 끝낸다, 안전 모드). 처음에 시험이 Ctrl 을 누른 채로 두지 않아 (수정자는 누르고 있는 키로 본다)
+  Q 만 잡혔다 — 시험을 고쳤다. 기본 키 G 가 view.grid 라 겹침 시험 키를 Alt+J 로.
+- 창의 패널 눈 확인은 MANUAL-QA [ ] (다른 전체 화면 창).
+- Windows MSVC Debug 빌드 · 전체 ctest 79 / 79 통과 (경고 0 줄). clang-tidy (LLVM 19, -Wshadow 포함) — 새 경고 없음.
+
+**남은 일**
+
+- 게임패드 바인딩 (I5), 프로젝트별 키 설정 (ADR-0102 재검토 조건), 한 액션에 여러 키를 패널에서 더하기 (지금은 하나로 바꾼다 —
+  파일로는 여럿).
+
 ## 2026-11-09 — v0.7 M4-T2 (2): 폰트 대체 사슬 · 없는 글자 □ 와 경고 한 번 (M4-T2 끝)
 
 **무엇을**

@@ -134,7 +134,8 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 - 게임 키 (v0.2 M3-T3, ADR-0049): 콘텐츠 팩의 presentation/input.json 이 play.* 만 준다 (다른 이름은 무시 · 경고). 팩 로드
   순서로 합치고 --input 의 play.* 가 마지막에 이긴다. 엔진 키와 따로 둔 ActionMap (apps/client/PlayKeys — withPrefix 로 고른다),
   엔진 키와 같은 바인딩은 경고만.
-  [계획] 사용자 경로 platformPaths()/settings/input.json 자동 로드 · 저장 — Phase 8.
+  사용자 경로: <설정 폴더>/input.json 을 기본 위에 읽는다 (v0.5 M1-T3), "키" 패널이 기본과 다른 것만 저장한다 (v0.7 M4-T3 —
+  ActionMap set · remove · overridesFrom, captureBinding = 새로 누른 키 + 눌린 순간의 수정자, ADR-0102).
 ```
 
 | 규칙 | 내용                                                                                                                                                                                         |

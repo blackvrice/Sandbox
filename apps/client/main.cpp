@@ -145,6 +145,7 @@ int main(int argc, char** argv) {
         sbx::log::error("client", "{}", actions.error().describe());
         return kExitError;
     }
+    const sbx::platform::ActionMap defaultActions = *actions; // "키" 패널의 기본값 (v0.7 M4-T3)
     if (user.input) {
         actions->merge(*user.input);
         sbx::log::info("client", "키 바인딩 {} 적용",
@@ -291,6 +292,10 @@ int main(int argc, char** argv) {
     cfg.uiRendered = uiRendered;
     cfg.notices = std::move(notices);
     cfg.lateFeed = lateFeed;
+    cfg.defaultActions = defaultActions;
+    if (!opts->safeMode) { // 안전 모드는 사용자 설정을 쓰지 않는다 — 키 패널은 이 실행에만
+        cfg.userInputFile = configRoot / std::string(sbx::client::kUserInputFile);
+    }
     // 문자열 표의 로케일 (v0.7 M4-T1) — --locale → client.json locale (안전 모드면 없음) → OS
     cfg.locale = !opts->locale.empty()           ? opts->locale
                  : !user.settings.locale.empty() ? user.settings.locale

@@ -18,6 +18,7 @@
 
 #include <array>
 #include <chrono>
+#include <filesystem>
 #include <functional>
 #include <future>
 #include <optional>
@@ -32,6 +33,7 @@
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "apps/client/ui/FontFallback.hpp"
+#include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
 #include "editor/ui/ContentPanel.hpp"
@@ -75,6 +77,10 @@ struct AppConfig {
     std::shared_future<FeedCheck> lateFeed;
     // 게임 UI 문자열 표의 사용자 로케일 (v0.7 M4-T1 — main 이 --locale → client.json → OS 로 정한다. 비면 팩의 기본 표)
     std::string locale;
+    // 키 다시 묶기 (v0.7 M4-T3): 엔진 기본 바인딩 (없으면 받은 맵을 기본으로), "키" 패널이 저장할 파일
+    // (<설정 폴더>/input.json — 비면 저장하지 않는다: 안전 모드)
+    std::optional<platform::ActionMap> defaultActions;
+    std::filesystem::path userInputFile;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -121,6 +127,9 @@ public:
     [[nodiscard]] editor::Editor& editor() noexcept { return m_editor; }
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
+    [[nodiscard]] const KeyBindingEditor& keyBindings() const noexcept { return m_keys; } // v0.7 M4-T3 (시험)
+    [[nodiscard]] KeysPanelState& keysPanel() noexcept { return m_keysPanel; }
+    void keysRequest(const KeysPanelRequest& r) { applyKeysRequest(r); } // 패널과 같은 길 (시험)
     [[nodiscard]] const GameUiLayer& gameUi() const noexcept { return m_gameUi; }
 
 private:
@@ -131,7 +140,11 @@ private:
     void applyPendingTransition();
     void handleWorldInput(f64 dt);
     void handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx); // v0.2 M3-T3
-    bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
+    void lookupActionIds();  // 엔진 키 이름 → ActionId (맵이 바뀌면 다시 — v0.7 M4-T3)
+    void handleKeyCapture(); // "키" 패널의 바꾸기 — 다음에 누른 키 (v0.7 M4-T3)
+    void applyKeysRequest(const KeysPanelRequest& r);
+    void applyKeyBindings(); // 편집한 맵을 쓴다 (ActionId · 게임 키 다시)
+    bool routeGameUi();      // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
     void localizeNames(GameInfo& game) const;                        // "@<키>" 표시 이름 (v0.7 M4-T1)
     void localizeNames(ActionsInfo& actions) const;                  // 행동 이름
     void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
@@ -193,8 +206,10 @@ private:
     editor::ContentPanelState m_contentPanel; // 12C "콘텐츠"
     WorldPanelState m_worldPanel;             // 12D "월드" (Ctrl+S 도 이 이름으로 저장)
     ActionPanelState m_actionPanel;           // v0.2 M3-T1 "행동" — 쥐고 있으면 왼쪽 클릭 = 그 행동
-    GameUiLayer m_gameUi;                     // v0.7 M3-T3 게임 UI (HUD · 메뉴 · 버튼)
-    std::optional<GlyphCoverage> m_glyphs;    // 게임 UI 글자의 폰트 사슬 덮기 (v0.7 M4-T2 (2) — 첫 배치에서)
+    KeyBindingEditor m_keys;                  // v0.7 M4-T3 키 다시 묶기 (기본 · 지금 맵)
+    KeysPanelState m_keysPanel;
+    GameUiLayer m_gameUi;                  // v0.7 M3-T3 게임 UI (HUD · 메뉴 · 버튼)
+    std::optional<GlyphCoverage> m_glyphs; // 게임 UI 글자의 폰트 사슬 덮기 (v0.7 M4-T2 (2) — 첫 배치에서)
     // v0.2 M3-T3 게임 키 (팩 presentation/input.json 의 play.action.*) — 엔진 키와 따로 (PlayKeys.hpp)
     PlayKeys m_playKeys;
     platform::ActionState m_playState;

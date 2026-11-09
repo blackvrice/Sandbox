@@ -1,6 +1,6 @@
 # ADR-0083. 다국어 · 접근성 기반 — 팩 문자열 표 (presentation/strings), 팩 이름공간 키 · 로케일 대체, 폰트 대체 목록, 키 다시 묶기 · UI 배율은 사용자 설정
 
-- 상태: **Accepted** · 날짜: 2026-10-28
+- 상태: **Accepted — 일부 Superseded** (5 의 사용자 파일 bindings.json → <설정 폴더>/input.json, [ADR-0102](0102-key-overrides-in-user-input-json.md)) · 날짜: 2026-10-28
 - 관련: [20-CREATOR-ALPHA](../20-CREATOR-ALPHA.md) 5장, [ADR-0079](0079-game-ui-runtime-declarative-documents-renderer-adapter.md), 07 (ActionMap), 11
 
 ## 맥락
