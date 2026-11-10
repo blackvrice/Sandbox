@@ -40,7 +40,8 @@
 ```text
 목표      CLI 없이 프로젝트를 만들고 · 열고 · 빌드하고 · 서버 + N 클라이언트로 돌린다. 충돌해도 작업을 되찾는다
 태스크    ST-06-1 Editor Services · M6-T1 홈 · M6-T3 빌드 화면 · M6-T6 레이아웃 · M6-T7 자동 저장 · ST-06-2 · ST-06-9 TestService ·
-          ST-06-11 · M5-T1 · M5-T2 · M5-T3 리플레이 · NG-07 Studio 시험 층 · NG-03 Player 모드
+          ST-06-11 · M5-T1 · M5-T2 · M5-T3 리플레이 · NG-07 Studio 시험 층 · NG-03 Player 모드 · Studio UI 재설계 (29) —
+          UI-0 감사 · UI-1 셸 · UI-2 홈 · UI-3 편집기 통합 · UI-4 검증
 ```
 
 ## v0.9 — Script IDE

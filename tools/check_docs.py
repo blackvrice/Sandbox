@@ -7,7 +7,7 @@
 검사:
   L  상대 링크 — docs/ 의 .md 와 루트 README · AGENTS 의 [..](경로) 가 실제 파일을 가리킨다
   A  ADR 참조 — "ADR-NNNN" 마다 docs/adr/NNNN-*.md 가 있다
-  T  태스크 ID — 현행 계획 문서 (아래 PLAN_DOCS) 의 v0.5 이후 태스크 ID (M1-T1 · RT-06-3 · ST-06-1 · NG-01 …) 가
+  T  태스크 ID — 현행 계획 문서 (아래 PLAN_DOCS) 의 v0.5 이후 태스크 ID (M1-T1 · RT-06-3 · ST-06-1 · NG-01 · UI-1 …) 가
      docs/roadmap/task-registry.md 의 표 (또는 그 "옛 번호" 표) 에 있다. "v0.2 M1-T1" 처럼 옛 버전이 앞에 붙은 것은 건너뛴다
   V  목표 버전 — 태스크 등록부의 Target 이 버전 목록 (docs/roadmap/versioning.md 의 "버전 목록") 에 있다
   S  상태 — 등록부에서 Done 인 태스크가 현행 계획 문서에 "[계획]" 과 같은 줄로 남아 있지 않다 (같은 줄에 ID 와 [계획])
@@ -23,7 +23,7 @@ import sys
 
 LINK = re.compile(r'\]\(([^)#\s]+)(#[^)]*)?\)')
 ADR = re.compile(r'ADR-(\d{4})')
-TASK = re.compile(r'(?<![\w.-])((?:M[1-9]-T\d+)|(?:RT-0\d-\d+)|(?:ST-0\d-\d+)|(?:PS-\d\d-\d+)|(?:RH-\d\d-\d+)|(?:NG-\d\d))(?![\w])')
+TASK = re.compile(r'(?<![\w.-])((?:M[1-9]-T\d+)|(?:RT-0\d-\d+)|(?:ST-0\d-\d+)|(?:PS-\d\d-\d+)|(?:RH-\d\d-\d+)|(?:NG-\d\d)|(?:UI-\d))(?![\w])')
 OLD_VERSION_PREFIX = re.compile(r'v0\.[1-4]\s*$')
 
 # 현행 계획 문서 — 태스크 ID · 상태를 검사한다 (이력 · 동결 문서는 링크 · ADR 만)
