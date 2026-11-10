@@ -52,6 +52,17 @@ struct RecentProject {
     std::string name;
     std::string gameId;
     bool missing = false; // 목록을 읽을 때 폴더 (sandbox.project.json) 가 없었다
+    std::string version;  // 매니페스트의 게임 판 (읽을 때 매니페스트에서 — 없으면 마지막으로 적은 값, v0.8 UI-2)
+    std::string openedAt; // 마지막으로 만들거나 연 때 (UTC "2026-11-10T09:12:03Z", v0.8 UI-2 — 옛 목록이면 빈 글자)
+};
+
+// 예제 (v0.8 UI-2): 배포 묶음 · 저장소의 samples/ 아래 게임 프로젝트. 홈이 복사해서 연다 (예제 폴더는 고치지 않는다)
+struct ExampleProject {
+    std::filesystem::path dir;
+    std::string name;
+    std::string gameId;
+    std::string version;
+    std::string description;
 };
 
 class ProjectService {
@@ -61,7 +72,8 @@ public:
     // catalog 는 서비스보다 오래 산다. contentRoot = 시나리오 팩을 찾을 곳, recentFile 이 비면 최근 목록을 저장하지
     // 않는다, engineAssets = 엔진 에셋 루트 (게임 UI material 검사 U8 — sbx check 와 같게, 비면 보지 않는다)
     ProjectService(const ecs::ComponentCatalog& catalog, SemVer engine, std::filesystem::path contentRoot,
-                   std::filesystem::path recentFile, std::filesystem::path engineAssets = {});
+                   std::filesystem::path recentFile, std::filesystem::path engineAssets = {},
+                   std::filesystem::path samplesRoot = {});
 
     [[nodiscard]] const std::vector<ProjectTemplate>& templates() const noexcept { return m_templates; }
     Expected<ProjectSummary> create(const NewProjectRequest& request);
@@ -71,6 +83,10 @@ public:
     Expected<ProjectSummary> inspect(const std::filesystem::path& dir) const;
 
     [[nodiscard]] const std::vector<RecentProject>& recent() const noexcept { return m_recent; }
+    [[nodiscard]] const std::vector<ExampleProject>& examples() const noexcept { return m_examples; }
+    // 예제를 dest (없거나 빈 폴더) 로 복사하고 연다 (검사 · 최근 목록). 캐시 (.sandbox) · 빌드 출력 (build) 은 복사하지
+    // 않는다
+    Expected<ProjectSummary> copyExample(const std::filesystem::path& example, const std::filesystem::path& dest);
     void forget(const std::filesystem::path& dir); // 최근 목록에서 뺀다 (저장한다)
     // 최근 목록을 읽을 때의 경고 (깨진 파일 · 옮김) — 꺼내면 비운다
     [[nodiscard]] std::vector<std::string> takeWarnings();
@@ -87,6 +103,7 @@ private:
     std::filesystem::path m_engineAssets;
     std::vector<ProjectTemplate> m_templates;
     std::vector<RecentProject> m_recent;
+    std::vector<ExampleProject> m_examples;
     std::vector<std::string> m_warnings;
 };
 

@@ -71,11 +71,15 @@ public:
     void finishClean();
 
     [[nodiscard]] std::optional<RecoveryInfo> read() const; // 지금 프로젝트 복구본의 recovery.json
+    // 들어가지 않고 본다 (v0.8 UI-2 — 홈의 "복구 가능" 표시): 그 프로젝트에 깨끗이 끝나지 않은 복구본 (월드 · 문서) 이
+    // 있으면. 아무것도 바꾸지 않는다
+    [[nodiscard]] std::optional<RecoveryInfo> peek(const std::filesystem::path& project) const;
     [[nodiscard]] u64 saves() const noexcept { return m_saves; }
     [[nodiscard]] std::vector<std::string> takeWarnings();
 
 private:
     void writeInfo(bool clean);
+    [[nodiscard]] static std::optional<RecoveryInfo> readFolder(const std::filesystem::path& folder);
 
     std::filesystem::path m_root;
     f64 m_interval;

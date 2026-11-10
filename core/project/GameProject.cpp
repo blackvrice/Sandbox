@@ -133,6 +133,10 @@ const std::string* stringField(const json& j, const char* key, bool required, Co
 
 } // namespace
 
+bool isValidGameId(std::string_view id) noexcept {
+    return isGameId(id);
+}
+
 bool ManifestParseResult::ok() const noexcept {
     return countSeverity(issues, Severity::Error) == 0;
 }

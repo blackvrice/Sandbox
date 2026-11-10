@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-10 — v0.8 UI-2: Studio 홈 — 창 전체 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 · 복구 표시
+
+**무엇을**
+
+- apps/client/studio/StudioHome 다시 짬: 창 전체 (위 막대 — 파일 · 보기 · 도움말 · 엔진 판, 사이드바 — 프로젝트 · 새 프로젝트 · 예제), 프로젝트 페이지
+  (검색 · 프로젝트 열기 창 · 새 프로젝트 · 복구 알림 · 카드 — 이니셜 타일 · 이름 · gameId · 판 · 최근 연 때 · 경로 · 복구 가능 · 폴더 없음 · ⋯ 메뉴
+  · 바탕 클릭 = 열기), 새 프로젝트 세 단계 (템플릿 카드 → 이름 · gameId — 바로 검사 · 이름으로 채우기 → 위치 — 비어 있지 않은 폴더 경고 ·
+  만들고 열기), 예제 (복사해서 시작 — 위치 창). 복구 창은 문서 글이 "아직 화면 복구 없음" 이라고 적는다 (되살리는 것처럼 보이지 않게).
+- 서비스: ProjectService — 최근 목록의 version · openedAt (studio.json · 매니페스트에서 지금 판), examples (samples/ 의 프로젝트),
+  copyExample (.sandbox · build 빼고 복사 · 연다). AutosaveService::peek (들어가지 않고 복구본을 본다). core project::isValidGameId 를 밖으로.
+- 앱: 홈 보기 (ProjectService · AutosaveService · 판 · 간격), 예제 복사 → 들어가기, 끝내기, 간격. 홈에서 진단 창을 그리지 않는다 (UI-1 에서
+  월드 밖이면 그리던 것 — 홈 위에 겹쳤다). main: samples 폴더 (dataDir — SBX_DEFAULT_SAMPLES_DIR).
+- 문서: 29 UI-2 ✅, 25 상태 표, 17 · 13 · 15 · MANUAL-QA, 등록부 UI-2 Done.
+
+**왜**
+
+- 사용자 요청 (Studio UI 재설계 4장 홈) — 폼 한 창이던 홈 (29 1.2 P5).
+
+**검증**
+
+- test_studio_home_data 4 개 · test_studio_shell 의 홈 2 개 (헤드리스 앱 — 창 전체 · 진단 창 없음), studio_new_project (CLI --new-project 가
+  같은 명령 · 같은 폼 — gameId 꼴 검사가 만들기 조건에 들어가도 그대로), unit_client · unit_editor 139 케이스.
+- 처음 복구 엿보기 시험은 onWorldSaved 없이 세이브를 흉내 내 finishClean 이 clean 을 적지 않았다 — 앱의 길 (markRequested · onWorldSaved) 로.
+- 창 확인: 이번에는 다른 전체 화면 창 (권한 밖) 이 화면을 덮어 캡처하지 못했다 — MANUAL-QA [ ]. 실행 · 끝내기는 로그로 (MainMenu → Shutdown).
+- clang-tidy 바뀐 파일 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 85/85 통과.
+
+**남은 일**
+
+- OS 폴더 고르기 창 · 프로젝트 미리보기 그림 · 튜토리얼 · 패키지 페이지 (기능이 없어 메뉴에 넣지 않았다) · 영어 UI.
+
 ## 2026-11-10 — v0.8 UI-0 · UI-1: Studio UI 설계 · 셸 (메뉴 · 툴바 · 도크 공간 · 프리셋 · 디자인 토큰, ADR-0118)
 
 **무엇을**

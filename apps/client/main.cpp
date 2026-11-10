@@ -309,6 +309,8 @@ int main(int argc, char** argv) {
         sbx::log::warn("studio", "{}", w);
         notices.push_back(w);
     }
+    // 예제 (v0.8 UI-2): 배포 묶음 · 저장소의 samples/ (홈의 "예제" — 복사해서 연다)
+    const std::filesystem::path samplesRoot = sbx::io::dataDir("samples", SBX_DEFAULT_SAMPLES_DIR);
     // Studio 홈 (v0.8 M6-T1 — ADR-0111): 프로젝트 서비스 — 최근 목록은 설정 폴더의 studio.json (안전 모드면 저장하지
     // 않는다)
     sbx::ecs::ComponentCatalog studioCatalog;
@@ -319,7 +321,7 @@ int main(int argc, char** argv) {
     sbx::editor::services::ProjectService projects(
         studioCatalog,
         sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
-        contentRoot, studioFile, assetRoot);
+        contentRoot, studioFile, assetRoot, samplesRoot);
     // 자동 저장 · 크래시 복구 (v0.8 M6-T7) — 복구본은 설정 폴더 recovery/ (안전 모드면 끔 — 사용자 폴더를 쓰지 않는다)
     sbx::editor::services::AutosaveService autosave(
         opts->safeMode ? std::filesystem::path() : configRoot / "recovery",

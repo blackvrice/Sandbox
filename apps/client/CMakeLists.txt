@@ -58,7 +58,8 @@ add_executable(SandboxClient
 )
 target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxGameUI SandboxCrash SandboxProcess sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
-                                                 SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
+                                                 SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets"
+                                                 SBX_DEFAULT_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples")
 
 if(WIN32)
     # GUI 서브시스템 (콘솔 창 없음) + main 진입점 (docs/07-PLATFORM.md 6.1). 로그는 --console.

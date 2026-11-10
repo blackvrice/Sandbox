@@ -123,7 +123,7 @@ WorldOp (TestPlay · TestStop · Save). 할 수 없는 항목은 끈다 (when) �
 |------|------|------|------|
 | UI-0 | 감사 · 벤치마킹 · 디자인 시스템 · 정보 구조 · 배치 명세 (이 문서) · ADR-0118 | — | ✅ |
 | UI-1 | StudioTheme · StudioWidgets · StudioShell (메뉴 · 툴바 · 상태 막대 · 도크 공간 · 프리셋 · 모드 띠) · Creator/Developer | test_studio_shell (헤드리스 앱) · studio_layout · 창 1366×768 한 번 확인 | ✅ (창 · DPI 의 나머지는 MANUAL-QA) |
-| UI-2 | 홈 (사이드바 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 · 복구 표시) | test_project_service (최근 버전 · 시각) · 홈 시험 | [계획] |
+| UI-2 | 홈 (사이드바 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 복사 · 복구 표시) | test_studio_home_data · test_studio_shell (홈) · studio_new_project | ✅ (창 확인은 MANUAL-QA — 화면 캡처가 막혀 있었다) |
 | UI-3 | 툴바의 툴 · 목록 문맥 메뉴 · 인스펙터 머리 · 콘솔 창 · 콘텐츠/빌드/테스트 도크 | 앱 시험 | [계획] |
 | UI-4 | 흐름 시험 (A ~ E) · 창 캡처 QA (1366×768 · 1920×1080 · uiScale) · 문서 | CTest · MANUAL-QA | [계획] |
 

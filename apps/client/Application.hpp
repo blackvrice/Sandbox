@@ -213,6 +213,7 @@ private:
     void studioHome(); // MainMenu · 월드 없음 — --new-project 를 한 번
     void studioCreate();
     void studioOpen(const std::filesystem::path& dir);
+    void studioCopyExample(const std::filesystem::path& example, const std::filesystem::path& dest); // v0.8 UI-2
     bool enterProject(const std::filesystem::path& dir);
     void setProject(const std::filesystem::path& dir);
     void studioBuildFrame(); // 빌드 보고 받기 · --run-command · 끝내기

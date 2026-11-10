@@ -1,7 +1,9 @@
 #include "editor/services/ProjectService.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <format>
+#include <optional>
 #include <system_error>
 
 #include <nlohmann/json.hpp>
@@ -43,12 +45,54 @@ ProjectSummary summarize(const fs::path& dir, const project::ProjectReport& r) {
     return s;
 }
 
+// 매니페스트만 (검사 없이 — 홈의 카드 · 예제 목록). 읽지 못하면 nullopt
+std::optional<project::GameManifest> readManifestOf(const fs::path& dir) {
+    const Expected<std::string> text = io::readFile(dir / std::string(project::kManifestFile));
+    if (!text) {
+        return std::nullopt;
+    }
+    project::ManifestParseResult parsed = project::parseManifest(*text);
+    if (!parsed.ok()) {
+        return std::nullopt;
+    }
+    return std::move(parsed.manifest);
+}
+
+std::string utcNow() {
+    // 날짜 · 시각을 정수로 (chrono 형식 지정자는 macOS libc++ 에서 아직 고르지 않다)
+    const auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+    const auto day = std::chrono::floor<std::chrono::days>(now);
+    const std::chrono::year_month_day ymd{day};
+    const std::chrono::hh_mm_ss hms{now - day};
+    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", static_cast<int>(ymd.year()),
+                       static_cast<unsigned>(ymd.month()), static_cast<unsigned>(ymd.day()), hms.hours().count(),
+                       hms.minutes().count(), hms.seconds().count());
+}
+
 } // namespace
 
 ProjectService::ProjectService(const ecs::ComponentCatalog& catalog, SemVer engine, fs::path contentRoot,
-                               fs::path recentFile, fs::path engineAssets)
+                               fs::path recentFile, fs::path engineAssets, fs::path samplesRoot)
     : m_catalog(catalog), m_engine(std::move(engine)), m_contentRoot(std::move(contentRoot)),
       m_recentFile(std::move(recentFile)), m_engineAssets(std::move(engineAssets)) {
+    // 예제 (v0.8 UI-2): samples/<이름>/ 중 게임 프로젝트 — 이름 순
+    std::error_code ec;
+    if (!samplesRoot.empty() && fs::is_directory(samplesRoot, ec)) {
+        for (fs::directory_iterator it(samplesRoot, ec), end; !ec && it != end; it.increment(ec)) {
+            if (!it->is_directory(ec) || !project::isProjectFolder(it->path())) {
+                continue;
+            }
+            ExampleProject e{it->path(), it->path().filename().string(), {}, {}, {}};
+            if (const auto m = readManifestOf(it->path())) {
+                e.name = m->name.empty() ? e.name : m->name;
+                e.gameId = m->gameId;
+                e.version = m->version.toString();
+                e.description = m->description;
+            }
+            m_examples.push_back(std::move(e));
+        }
+        std::ranges::sort(m_examples, {}, &ExampleProject::name);
+    }
     m_templates.push_back({"empty", "빈 월드", ""});
     for (const scenario::ScenarioEntry& e : scenario::scenarioList()) {
         m_templates.push_back({std::string(e.name), std::string(e.description), std::string(e.name)});
@@ -107,9 +151,47 @@ Expected<ProjectSummary> ProjectService::create(const NewProjectRequest& request
     return s;
 }
 
+Expected<ProjectSummary> ProjectService::copyExample(const fs::path& example, const fs::path& dest) {
+    if (!project::isProjectFolder(example)) {
+        return makeError(ErrorCode::NotFound, "예제가 게임 프로젝트 폴더가 아니다", io::displayPath(example));
+    }
+    std::error_code ec;
+    if (fs::exists(dest, ec) && !fs::is_empty(dest, ec)) {
+        return makeError(ErrorCode::AlreadyExists, "복사할 폴더가 비어 있지 않다 — 없거나 빈 폴더를 고른다",
+                         io::displayPath(dest));
+    }
+    fs::create_directories(dest, ec);
+    // 캐시 · 빌드 출력은 빼고 복사 (예제 폴더는 고치지 않는다)
+    for (fs::recursive_directory_iterator it(example, ec), end; !ec && it != end; it.increment(ec)) {
+        const fs::path rel = fs::relative(it->path(), example, ec);
+        const std::string top = rel.begin() != rel.end() ? rel.begin()->string() : std::string();
+        if (top == ".sandbox" || top == "build") {
+            if (it->is_directory(ec)) {
+                it.disable_recursion_pending();
+            }
+            continue;
+        }
+        const fs::path to = dest / rel;
+        if (it->is_directory(ec)) {
+            fs::create_directories(to, ec);
+        } else {
+            fs::copy_file(it->path(), to, fs::copy_options::overwrite_existing, ec);
+        }
+        if (ec) {
+            return makeError(ErrorCode::IoError, std::format("예제를 복사하지 못했다: {}", ec.message()),
+                             io::displayPath(to));
+        }
+    }
+    if (ec) {
+        return makeError(ErrorCode::IoError, std::format("예제를 읽지 못했다: {}", ec.message()),
+                         io::displayPath(example));
+    }
+    return open(dest);
+}
+
 void ProjectService::remember(const ProjectSummary& s) {
     std::erase_if(m_recent, [&](const RecentProject& r) { return r.dir == s.dir; });
-    m_recent.insert(m_recent.begin(), RecentProject{s.dir, s.name, s.gameId, false});
+    m_recent.insert(m_recent.begin(), RecentProject{s.dir, s.name, s.gameId, false, s.version, utcNow()});
     if (m_recent.size() > kMaxRecent) {
         m_recent.resize(kMaxRecent);
     }
@@ -162,7 +244,15 @@ void ProjectService::loadRecent() {
                                        e["path"].get_ref<const std::string&>().size()));
         r.name = e.value("name", std::string());
         r.gameId = e.value("gameId", std::string());
+        r.version = e.value("version", std::string());
+        r.openedAt = e.value("openedAt", std::string());
         r.missing = !project::isProjectFolder(r.dir);
+        if (!r.missing) {
+            if (const auto m = readManifestOf(r.dir)) { // 지금 판 · 이름 (다른 곳에서 바뀌었을 수 있다)
+                r.version = m->version.toString();
+                r.name = m->name.empty() ? r.name : m->name;
+            }
+        }
         m_recent.push_back(std::move(r));
     }
 }
@@ -174,7 +264,11 @@ void ProjectService::saveRecent() {
     nlohmann::json list = nlohmann::json::array();
     for (const RecentProject& r : m_recent) {
         const std::u8string p = r.dir.generic_u8string();
-        list.push_back({{"path", std::string(p.begin(), p.end())}, {"name", r.name}, {"gameId", r.gameId}});
+        list.push_back({{"path", std::string(p.begin(), p.end())},
+                        {"name", r.name},
+                        {"gameId", r.gameId},
+                        {"version", r.version},
+                        {"openedAt", r.openedAt}});
     }
     if (const Expected<void> w = writeStudioSetting(m_recentFile, "recentProjects", list.dump()); !w) {
         m_warnings.push_back(std::format("최근 프로젝트를 저장하지 못했다 — {}", w.error().describe()));

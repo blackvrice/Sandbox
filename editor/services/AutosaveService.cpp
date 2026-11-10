@@ -55,9 +55,21 @@ fs::path AutosaveService::folderFor(const fs::path& root, const fs::path& projec
 }
 
 std::optional<RecoveryInfo> AutosaveService::read() const {
-    if (m_folder.empty()) {
+    return m_folder.empty() ? std::nullopt : readFolder(m_folder);
+}
+
+std::optional<RecoveryInfo> AutosaveService::peek(const std::filesystem::path& project) const {
+    if (m_root.empty() || project.empty()) {
         return std::nullopt;
     }
+    std::optional<RecoveryInfo> r = readFolder(folderFor(m_root, project));
+    if (!r || r->clean || (!r->hasWorld && r->documents.empty())) {
+        return std::nullopt;
+    }
+    return r;
+}
+
+std::optional<RecoveryInfo> AutosaveService::readFolder(const std::filesystem::path& m_folder) {
     const Expected<std::string> text = io::readFile(m_folder / std::string(kInfoFile));
     if (!text) {
         return std::nullopt;

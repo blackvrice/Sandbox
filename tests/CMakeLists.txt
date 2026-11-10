@@ -138,6 +138,7 @@ add_executable(SandboxTests
     unit/editor/test_build_service.cpp
     unit/editor/test_autosave_service.cpp
     unit/editor/test_layout_service.cpp
+    unit/editor/test_studio_home_data.cpp
     unit/editor/test_test_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp

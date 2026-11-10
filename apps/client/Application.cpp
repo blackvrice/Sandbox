@@ -927,7 +927,7 @@ bool Application::frame() {
         PanelActions act;
         act.grid = pin.grid;
         act.details = pin.details;
-        if (m_shell.developerPanels || !inWorld) {
+        if (m_shell.developerPanels) {
             act = drawDebugPanels(m_panels, pin);
         }
         if (inWorld) {
@@ -936,8 +936,28 @@ bool Application::frame() {
         drawNotices(m_config.notices, m_noticesOpen);
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
         if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.projects != nullptr) {
-            if (const auto a = drawStudioHome(m_home, *m_config.projects)) {
+            StudioHomeView hv;
+            hv.projects = m_config.projects;
+            hv.autosave = m_config.autosave;
+            hv.version = m_config.engineVersion;
+            hv.compact = m_shell.density == editor::theme::Density::Compact;
+            if (const auto a = drawStudioHome(m_home, hv)) {
                 switch (a->kind) {
+                case StudioHomeAction::Kind::CopyExample:
+                    studioCopyExample(a->dir, a->dest);
+                    break;
+                case StudioHomeAction::Kind::Quit:
+                    (void)request(AppState::Shutdown);
+                    break;
+                case StudioHomeAction::Kind::Density: {
+                    ShellActions d;
+                    m_shell.density =
+                        a->compact ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
+                    d.densityChanged = true;
+                    PanelActions unused;
+                    applyShellActions(d, unused);
+                    break;
+                }
                 case StudioHomeAction::Kind::NewProject:
                     (void)m_commands.run("studio.new-project");
                     break;
@@ -1340,6 +1360,18 @@ void Application::studioCreate() {
                                  made->errors, made->warnings);
     log::info("studio", "프로젝트를 만들었다: {} — {} \"{}\" (검사 오류 {} · 경고 {})", made->dir.generic_string(),
               made->gameId, made->name, made->errors, made->warnings);
+    m_home.failed = !enterProject(made->dir);
+}
+
+void Application::studioCopyExample(const std::filesystem::path& example, const std::filesystem::path& dest) {
+    const Expected<editor::services::ProjectSummary> made = m_config.projects->copyExample(example, dest);
+    if (!made) {
+        m_home.failed = true;
+        m_home.message = made.error().describe();
+        log::warn("studio", "예제 복사: {}", m_home.message);
+        return;
+    }
+    log::info("studio", "예제를 복사했다: {} → {}", example.generic_string(), made->dir.generic_string());
     m_home.failed = !enterProject(made->dir);
 }
 

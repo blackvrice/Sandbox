@@ -49,6 +49,10 @@ struct MigrationStep {
     bool operator==(const MigrationStep&) const = default;
 };
 
+// gameId 꼴 ("studio.arena" — 소문자 · 숫자 · '_' 마디 둘 이상을 '.' 로, 64 바이트까지 — P2). Studio 홈이 입력을 바로
+// 본다 (v0.8 UI-2)
+[[nodiscard]] bool isValidGameId(std::string_view id) noexcept;
+
 struct GameManifest {
     u32 schemaVersion = kManifestSchemaVersion;
     std::string gameId;                    // "studio.arena" — 소문자·숫자·'_' 마디 둘 이상을 '.' 로 (≤ 64 바이트)
