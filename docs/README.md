@@ -54,7 +54,7 @@
 | —  | [감사 (audit/)](audit/SANDBOX-GAP-MATRIX.md)  | 벤치마크 · Gap Matrix · 구조 위험 · 알파 준비 · 검증 결과 (2026-11-03)      | 감사          |
 | —  | [로드맵 (roadmap/)](roadmap/README.md)        | **로드맵 정본** — 버전 체계 (v0.10 > v0.9) · 태스크 등록부 · 버전별 목표 · 출시 기준 · 안정화 · RC · GA (ADR-0096 · 0099 · 0100) | 계획 · 규범   |
 | —  | [릴리스 노트](releases/v0.7.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 ~ 0.7.0)                 | 이력          |
-| —  | [수동 QA 체크리스트](qa/MANUAL-QA.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
+| —  | [수동 QA 체크리스트](qa/MANUAL-QA.md) · [QA 증거 양식](qa/QA-EVIDENCE.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
 | —  | [결정 기록 (ADR)](adr/README.md)              | "왜 이렇게 했지?"                                                          | 이력          |
 | —  | [원본 설계서](design/SANDBOX_ARCHITECTURE.md) | RTS 분석 결과, v0.1 설계의 출처                                            | 이력 (동결)   |
 | —  | [플랫폼 설계 초안](platform/START_HERE.md)    | 플랫폼 비전 · v0.1~v1.0 요구사항의 출처 (2026-10-13)                       | 이력 (동결)   |

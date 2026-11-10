@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-10 — v0.8 NG-07: Studio 시험 층 — 흐름 E2E · GUI smoke (CI 게이트) · QA 증거 양식 (ADR-0120)
+
+**무엇을**
+
+- CTest studio_flow_e2e (층 2): --new-project → sbx asset import → --run-command studio.build → 빈 캐시에서 --world <패키지> (InWorld).
+- CTest studio_gui_smoke (층 3 · WIN32): --rhi-warp 1366×768 로 홈 · 워크스페이스 (studio.json developerPanels — 모든 창), 종료 0 · [error] 없음 ·
+  렌더러 · 배치 저장 (목록 · 인스펙터 · 콘솔 · 통계). CI=true 또는 SBX_GUI_TESTS=1 일 때만 창을 띄우고, 아니면 · 창 · 디바이스가 없으면
+  SKIP_REGULAR_EXPRESSION 으로 SKIPPED.
+- qa/QA-EVIDENCE (층 4 양식 · 첫 기록 — UI-1 1366×768), 28 3.1 에 기준 G1 ~ G9 마다 증거 층 표, ADR-0120, 13, 등록부 NG-07 Done.
+
+**왜**
+
+- v0.8 트랙 B · 28 3.1 — 흐름 한 줄 시험 · GUI smoke · 실기 기록 양식이 없었다. 개발자 PC 의 기본 ctest 가 창을 띄우지 않게 (이번 세션에서
+  사용자의 전체 화면 창 위로 띄울 뻔했다).
+
+**검증**
+
+- 로컬: studio_flow_e2e 통과 (7 초), studio_gui_smoke SKIPPED (CI · SBX_GUI_TESTS 아님 — 이 PC 에서 창을 띄우지 않았다). 실제 창 길은 GitHub
+  Windows 러너 (CI=true · WARP) 에서 본다 — 이 커밋의 CI 결과를 아래 줄에.
+- Windows MSVC Debug 빌드 · 전체 ctest 88 개 — 87 통과 · studio_gui_smoke SKIPPED (이 PC 는 CI 가 아니다).
+
+**남은 일**
+
+- Linux (xvfb · lavapipe) GUI smoke, Studio 화면 골든, 외부 사용성 시험 (ST-06-12).
+
 ## 2026-11-10 — v0.8 M5-T3: 기록 --record · 보고 묶음에 리플레이 · 재생의 게임 결속 (ADR-0119)
 
 **무엇을**

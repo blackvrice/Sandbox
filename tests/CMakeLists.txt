@@ -542,6 +542,21 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_layout"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_layout.cmake")
         set_tests_properties(studio_layout PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # Studio 시험 층 (v0.8 NG-07 — 28 3.1): 층 2 흐름 E2E (새 프로젝트 → 가져오기 → 빌드 → 패키지 플레이)
+        add_test(NAME studio_flow_e2e
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_flow_e2e"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_flow_e2e.cmake")
+        set_tests_properties(studio_flow_e2e PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # 층 3 GUI smoke — 실제 창 · 렌더러 (Windows D3D12 WARP). CI 또는 SBX_GUI_TESTS=1 일 때만 창을 띄우고, 아니면 "건너뜀" (SKIPPED)
+        if(WIN32)
+            add_test(NAME studio_gui_smoke
+                COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_gui_smoke"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_gui_smoke.cmake")
+            set_tests_properties(studio_gui_smoke PROPERTIES LABELS "client;gui" TIMEOUT 600
+                                 SKIP_REGULAR_EXPRESSION "studio_gui_smoke: 건너뜀")
+        endif()
         # 기록 · 보고 묶음 (v0.8 M5-T3 — 20 4장 · 7.1): 서버 · 클라이언트 자동 플레이 --record → 재생 같음 · 보고 묶음 replay/ · 결속 · 있는 이름
         if(TARGET SandboxServer)
             add_test(NAME replay_record

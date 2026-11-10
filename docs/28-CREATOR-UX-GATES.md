@@ -70,7 +70,7 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
     안전 모드는 쓰지 않음 (창을 실제로 옮기는 확인은 MANUAL-QA)
 ```
 
-### 3.1 Studio 시험 층 (NG-07 — 2차 감사 4.7) [계획 v0.8]
+### 3.1 Studio 시험 층 (NG-07 — 2차 감사 4.7) ✅ v0.8 (ADR-0120)
 
 ```text
 층 1  Editor Services 단위 시험 (ImGui 없음) — 명령 · Undo · 문서 · 빌드 · 테스트 실행 (ST-06-1 이 가능하게 한다)
@@ -78,7 +78,22 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 층 3  GUI smoke — 창을 열고 N 프레임 · 패널마다 그리기 오류 없음. CI 에 GPU · 디스플레이가 없으면 건너뛰고 "건너뜀" 으로 적는다 (통과로 적지 않는다)
 층 4  실기 QA (16 형식 — 명령 · OS · GPU · 결과 · 커밋) · 외부 사용성 시험 (2장, ST-06-12)
 규칙  G1 ~ G9 마다 증거 층을 적는다 — 층 3 · 4 만 있는 기준은 Closed Creator Alpha 진입 (roadmap/release-gates 3장) 때 수동 기록이 있어야 한다
+지금  층 2 = CTest studio_flow_e2e (새 프로젝트 → sbx asset import → studio.build → 빈 캐시에서 패키지 플레이) 와 기준별 CTest.
+      층 3 = CTest studio_gui_smoke (Windows · D3D12 WARP · 1366×768 — 홈 · 모든 창 워크스페이스 · 배치 저장). CI 또는 SBX_GUI_TESTS=1 일 때만
+      창을 띄우고, 아니면 SKIPPED (통과로 적지 않는다). 층 4 = qa/QA-EVIDENCE 양식
 ```
+
+| 기준 | 층 1 (단위) | 층 2 (헤드리스 흐름) | 층 3 (GUI smoke) | 층 4 (실기 — QA-EVIDENCE) |
+|------|-------------|----------------------|------------------|---------------------------|
+| G1 프로젝트 생성 | test_project_service · test_studio_home_data | studio_new_project · studio_flow_e2e | studio_gui_smoke (홈) | MANUAL-QA UI-2 [ ] |
+| G2 에셋 | test_asset_database | studio_flow_e2e (CLI 가져오기) | — | 끌어다 놓기 화면 없음 (v0.10) |
+| G3 월드 편집 | test_editor · test_undo (setField) | test_editor_session | studio_gui_smoke (워크스페이스) | MANUAL-QA UI-1 [x] 부분 |
+| G4 스크립트 | test_script_editor | — | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
+| G5 게임 UI | test_game_ui_layer | — | — | MANUAL-QA [ ] |
+| G6 테스트 플레이 | test_test_service | test_world_panel · studio_test_session | — | MANUAL-QA ST-06-9 [ ] |
+| G7 디버깅 | test_console_panel | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
+| G8 빌드 | test_build_service | studio_build · studio_flow_e2e | — | MANUAL-QA M6-T3 [ ] |
+| G9 다른 PC | — | studio_flow_e2e (빈 캐시 패키지 플레이) | — | M7-T3 [계획] |
 
 ### 3.2 G10 Studio 접근성 (2차 감사 SG-08) [계획 v0.13 전]
 
