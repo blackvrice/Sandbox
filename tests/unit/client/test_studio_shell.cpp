@@ -86,6 +86,7 @@ TEST_SUITE("client") {
         cfg.fixedDt = kDt;
         cfg.ui = &imgui;
         cfg.engineVersion = "0.8.0";
+        cfg.studioTitle = true; // v0.8 UI-3
         auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
         REQUIRE(map.has_value());
         Application app(window, std::move(*map), audio, cfg);
@@ -108,6 +109,14 @@ TEST_SUITE("client") {
         CHECK(dockOf("인스펙터") != 0);
         CHECK(dockOf("목록") != dockOf("인스펙터"));
         CHECK_FALSE(app.shell().pendingPreset.has_value());
+        // 콘솔 (v0.8 UI-3) — 아래 도크, 창 제목은 Studio (진단 줄이 아니다)
+        CHECK(active("콘솔"));
+        CHECK(dockOf("콘솔") != 0);
+        for (int i = 0; i < 8; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(window.title().find("— Sandbox Studio") != std::string::npos);
+        CHECK(window.title().find(" | ") == std::string::npos);
         // 개발자 창은 숨김 (지우지 않았다 — 보기 › 개발자 창)
         CHECK_FALSE(active("통계"));
         CHECK_FALSE(active("시뮬레이션"));
@@ -117,6 +126,10 @@ TEST_SUITE("client") {
         REQUIRE(app.frame());
         CHECK(active("통계"));
         CHECK(active("시뮬레이션"));
+        for (int i = 0; i < 8; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(window.title().starts_with("Sandbox — InWorld")); // 개발자 창이면 진단 줄
         app.shell().developerPanels = false;
         REQUIRE(app.frame());
         REQUIRE(app.frame());

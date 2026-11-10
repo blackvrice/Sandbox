@@ -245,8 +245,8 @@ void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
             st.shown.push_back(i);
         }
     }
-    ImGui::TextDisabled("개체 %zu / %zu (관심 영역 안)", st.shown.size(), st.rows.size());
     const auto selection = host.selection();
+    ImGui::TextDisabled("개체 %zu / %zu (관심 영역 안) · 선택 %zu", st.shown.size(), st.rows.size(), selection.size());
     if (ImGui::BeginChild("##rows", {0, 0}, ImGuiChildFlags_Borders)) {
         ImGuiListClipper clipper;
         clipper.Begin(static_cast<int>(st.shown.size()));
@@ -271,6 +271,23 @@ void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
                     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                         editor.requestFocus();
                     }
+                }
+                // 문맥 메뉴 (v0.8 UI-3): 오른쪽 클릭 — 고르지 않은 줄이면 그것만 고르고 연다
+                if (ImGui::BeginPopupContextItem()) {
+                    if (!selected) {
+                        host.setSelection({row.id});
+                    }
+                    if (ImGui::MenuItem("이것만 선택")) {
+                        host.setSelection({row.id});
+                    }
+                    if (ImGui::MenuItem("카메라 맞추기", "F")) {
+                        editor.requestFocus();
+                    }
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("지우기", "Delete", false, host.permissions().entities)) {
+                        editor.deleteSelection(host);
+                    }
+                    ImGui::EndPopup();
                 }
             }
         }

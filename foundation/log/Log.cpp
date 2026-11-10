@@ -17,6 +17,7 @@ Sink g_sink;        // 비어 있으면 기본 싱크
 std::array<std::string, kRecentLines> g_recent;
 std::size_t g_next = 0;
 std::size_t g_count = 0;
+std::uint64_t g_total = 0; // 남긴 줄의 누계 (recentTotal)
 
 void remember(Level level, std::string_view category, std::string_view message) {
     std::string line = std::format("[{}] [{}] {}", levelName(level), category, message);
@@ -26,6 +27,7 @@ void remember(Level level, std::string_view category, std::string_view message) 
     g_recent[g_next] = std::move(line);
     g_next = (g_next + 1) % kRecentLines;
     g_count = g_count < kRecentLines ? g_count + 1 : kRecentLines;
+    ++g_total;
 }
 
 std::vector<std::string> copyRecent() {
@@ -94,6 +96,11 @@ void write(Level level, std::string_view category, std::string_view message) {
 std::vector<std::string> recentLines() {
     std::lock_guard lock(g_mutex);
     return copyRecent();
+}
+
+std::uint64_t recentTotal() {
+    std::lock_guard lock(g_mutex);
+    return g_total;
 }
 
 std::vector<std::string> recentLinesForCrash() {

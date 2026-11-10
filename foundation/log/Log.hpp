@@ -6,6 +6,7 @@
 // 스레드 안전. 시뮬레이션 핫 경로에서는 레벨 검사가 먼저 일어나므로 꺼진 레벨의 포맷 비용이 없다.
 
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <functional>
 #include <string>
@@ -38,6 +39,8 @@ void write(Level level, std::string_view category, std::string_view message);
 inline constexpr std::size_t kRecentLines = 256;
 inline constexpr std::size_t kRecentLineBytes = 1024;
 [[nodiscard]] std::vector<std::string> recentLines();
+// 지금까지 남긴 줄의 수 (고리에서 밀려난 것 포함 — 바뀌었는지만 싸게 볼 때, v0.8 UI-3 Studio 콘솔)
+[[nodiscard]] std::uint64_t recentTotal();
 // 충돌 처리기용 — 잠금을 잡지 못하면 (그 스레드가 쥔 채 멈췄다) 잠금 없이 읽는다 (최선, 깨진 줄이 섞일 수 있다)
 [[nodiscard]] std::vector<std::string> recentLinesForCrash();
 

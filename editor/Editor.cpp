@@ -76,6 +76,17 @@ bool toolAllowed(Tool t, const EditPermissions& p) noexcept {
     return false;
 }
 
+void Editor::deleteSelection(IEditorHost& host) {
+    if (host.selection().empty() || !host.permissions().entities) {
+        return;
+    }
+    cmd::DeleteEntity d;
+    d.targets.assign(host.selection().begin(), host.selection().end());
+    std::vector<UndoCmd> inverse = recreates(host, d.targets);
+    (void)sendEdit(host, std::move(d), std::move(inverse));
+    host.setSelection({});
+}
+
 void Editor::setTool(Tool t) {
     if (t == m_tool) {
         return;
@@ -493,12 +504,8 @@ void Editor::update(const EditorInput& in, IEditorHost& host) {
             host.setSelection({});
         }
     }
-    if (in.deleteSelection && !host.selection().empty() && perms.entities) {
-        cmd::DeleteEntity d;
-        d.targets.assign(host.selection().begin(), host.selection().end());
-        std::vector<UndoCmd> inverse = recreates(host, d.targets);
-        (void)sendEdit(host, std::move(d), std::move(inverse));
-        host.setSelection({});
+    if (in.deleteSelection && perms.entities) {
+        deleteSelection(host);
     }
     if (m_drag == Drag::None) {
         if (in.primaryPressed) {

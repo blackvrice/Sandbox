@@ -1004,6 +1004,9 @@ bool Application::frame() {
                     }
                 }
             }
+            if (m_panels.visible && m_shell.view.console) { // v0.8 UI-3 "콘솔" — 로그의 최근 줄
+                editor::drawConsolePanel(m_console);
+            }
             if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible &&
                 m_shell.view.test) { // ST-06-9
                 if (const auto a =
@@ -1111,7 +1114,8 @@ bool Application::frame() {
 
     applyPendingTransition(); // 제목 줄이 새 상태를 보이도록 그 전에
     if (m_titleDirty || m_frame - m_lastTitleFrame >= m_config.titleEveryFrames) {
-        std::string title = statusLine();
+        // Studio 제목 (v0.8 UI-3): 제작 화면은 프로젝트 이름, 진단 줄은 개발자 창 · 시험에서
+        std::string title = m_config.studioTitle && !m_shell.developerPanels ? studioTitle() : statusLine();
         if (title != m_lastTitle) {
             m_window.setTitle(title);
             m_lastTitle = std::move(title);
@@ -1836,6 +1840,21 @@ void Application::applyShellActions(const ShellActions& a, PanelActions& panel) 
             log::warn("studio", "개발자 창 설정을 저장하지 못했다 — {}", w.error().describe());
         }
     }
+}
+
+std::string Application::studioTitle() const {
+    if (m_state != AppState::InWorld || m_config.world == nullptr) {
+        return "Sandbox Studio";
+    }
+    std::string name = m_projectDir.empty() ? m_config.world->info().name : m_projectDir.filename().string();
+    std::string mode;
+    if (const auto ops = m_config.world->worldOps()) {
+        mode = ops->mode == 3   ? " [테스트 플레이]"
+               : ops->mode == 2 ? " [리플레이 재생]"
+               : ops->mode == 1 ? " [기록 중]"
+                                : "";
+    }
+    return std::format("{}{} — Sandbox Studio", name, mode);
 }
 
 } // namespace sbx::client

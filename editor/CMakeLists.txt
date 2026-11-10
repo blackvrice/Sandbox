@@ -51,5 +51,7 @@ add_library(SandboxEditor STATIC
     ui/StudioTheme.cpp
     ui/StudioWidgets.hpp
     ui/StudioWidgets.cpp
+    ui/ConsolePanel.hpp
+    ui/ConsolePanel.cpp
 )
 target_link_libraries(SandboxEditor PUBLIC SandboxCore SandboxRender SandboxEditorServices PRIVATE sbx_imgui sbx_warnings)

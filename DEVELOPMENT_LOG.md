@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-10 — v0.8 UI-3: 편집기 통합 — 콘솔 · 목록 문맥 메뉴 · 툴바만의 툴 · Studio 창 제목
+
+**무엇을**
+
+- editor/ui/ConsolePanel "콘솔" (아래 도크 — 로그의 최근 줄, 수준 · 글자 거르기 · 지우기 · 복사 · 따라가기, log::recentTotal 이 바뀔 때만 다시 가져온다).
+  foundation log::recentTotal (남긴 줄의 누계).
+- Editor::deleteSelection (Delete 키와 같은 길 — 목록 문맥 메뉴가 부른다). 목록: 오른쪽 클릭 (이것만 선택 · 카메라 맞추기 · 지우기) · 선택 수.
+- 편집 창: 툴 라디오를 뺐다 (툴바 · 1 ~ 5 가 한 곳) — 지금 툴과 그 설정만.
+- 창 제목: AppConfig.studioTitle (main 이 켠다 — --console 이면 끔) 이면 "<프로젝트> [모드] — Sandbox Studio", 개발자 창이면 진단 줄.
+- 문서: 29 UI-3 ✅, 17 · 13 · 15 · MANUAL-QA, 등록부 UI-3 Done.
+
+**왜**
+
+- 사용자 요청 (Studio UI 재설계 6장 · 29 1.2 P4 · P8) — 툴이 창 안 라디오, 결과가 터미널에만, 창 제목이 진단 줄.
+
+**검증**
+
+- test_console_panel (수준 · 보일 줄 · 지우기 · 누계), test_editor (deleteSelection · 권한 · 선택 없음), test_studio_shell (콘솔 도킹 · Studio 제목 ·
+  개발자 창이면 진단 줄), unit_editor · unit_client 146 케이스. 기존 제목 시험 (test_application · test_editor_session) 은 studioTitle 이 꺼진
+  기본값이라 그대로.
+- UI-2 를 따로 커밋하려고 섞인 파일 다섯 (Application · main · CMakeLists 둘) 에서 UI-3 줄을 잠깐 빼고 빌드한 뒤 되돌렸다.
+- clang-tidy 바뀐 파일 경고 없음. 창 확인은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 85/85 통과.
+
+**남은 일**
+
+- 인스펙터의 컴포넌트 묶음 · 잘못된 입력 표시 (지금 리플렉션 위젯 그대로), 계층 (부모-자식) 은 모델에 없음 (25 7장), UI-4 검증.
+
 ## 2026-11-10 — v0.8 UI-2: Studio 홈 — 창 전체 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 · 복구 표시
 
 **무엇을**

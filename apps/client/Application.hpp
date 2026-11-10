@@ -46,6 +46,7 @@
 #include "editor/services/ProjectService.hpp"
 #include "editor/services/TestService.hpp"
 #include "editor/ui/BuildPanel.hpp"
+#include "editor/ui/ConsolePanel.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
@@ -127,6 +128,9 @@ struct AppConfig {
     bool compactDensity = false;
     std::filesystem::path studioSettingsFile;
     std::string engineVersion;
+    // 창 제목 (v0.8 UI-3): true = "<프로젝트> — Sandbox Studio" (개발자 창이면 진단 줄 그대로), false = 진단 줄 (시험 ·
+    // --console)
+    bool studioTitle = false;
     // 테스트 세션 (v0.8 ST-06-9 — ADR-0115): 서비스 (Application 보다 오래 산다 — 없으면 끔), 계획의 기본 (실행 파일 ·
     // 로그 폴더 · 포트 · 클라이언트 수 · 흉내 · 자동 시험 프레임 — main 이 --test-* 로). 프로젝트는 지금 프로젝트
     editor::services::TestService* tests = nullptr;
@@ -228,7 +232,8 @@ private:
     [[nodiscard]] ShellInputs shellInputs(bool inWorld) const;
     void applyShellActions(const ShellActions& a, PanelActions& panel);
     void applyTheme();
-    void replayFrame(); // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
+    [[nodiscard]] std::string studioTitle() const; // "<프로젝트> — Sandbox Studio"
+    void replayFrame();                            // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
     [[nodiscard]] f64 appSeconds() const;
     void logBuildReport(const editor::services::BuildReport& r);
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
@@ -264,6 +269,7 @@ private:
     editor::LayoutPanelState m_layoutPanel;
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
     ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
+    editor::ConsoleState m_console;     // v0.8 UI-3 "콘솔"
     // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
     u8 m_replayStage = 0;
     u8 m_seekStep = 0;     // --replay-seek 의 단계 (0 아직 · 1 끝 앞 · 2 그 call · 3 끝)

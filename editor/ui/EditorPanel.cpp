@@ -100,23 +100,11 @@ void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host)
         ImGui::End();
         return;
     }
-    // 12C: 지금 역할로 쓸 수 없는 툴은 숨긴다 (선택은 언제나)
+    // 툴 고르기는 Studio 툴바 · 숫자 키 1 ~ 5 (v0.8 UI-3 — ADR-0118). 여기는 지금 툴과 그 설정
     const EditPermissions perms = host.permissions();
-    bool first = true;
-    for (usize i = 0; i < kToolCount; ++i) {
-        const Tool t = static_cast<Tool>(i);
-        if (!toolAllowed(t, perms)) {
-            continue;
-        }
-        const std::string label = std::format("{} ({})", toolName(t), i + 1);
-        if (!first) {
-            ImGui::SameLine();
-        }
-        first = false;
-        if (ImGui::RadioButton(label.c_str(), editor.tool() == t)) {
-            editor.setTool(t);
-        }
-    }
+    ImGui::Text("툴: %s (%d)", std::string(toolName(editor.tool())).c_str(), static_cast<int>(editor.tool()) + 1);
+    ImGui::SameLine();
+    ImGui::TextDisabled("— 위 툴바 · 1 ~ 5 로 바꾼다");
     if (!perms.anyEdit()) {
         ImGui::TextDisabled("지금 역할로는 보기만 할 수 있습니다 (접속자 패널의 역할)");
     }

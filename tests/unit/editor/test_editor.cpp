@@ -208,6 +208,20 @@ TEST_SUITE("editor") {
         CHECK(host.last<cmd::DeleteEntity>().targets == std::vector<NetEntityId>{3, 9});
         CHECK(host.sel.empty());
 
+        // 같은 길을 문맥 메뉴가 부른다 (v0.8 UI-3 — Editor::deleteSelection), 권한이 없으면 아무 일 없음
+        host.sel = {7};
+        ed.deleteSelection(host);
+        CHECK(host.last<cmd::DeleteEntity>().targets == std::vector<NetEntityId>{7});
+        CHECK(host.sel.empty());
+        const usize sentBefore = host.sent.size();
+        ed.deleteSelection(host); // 선택 없음
+        host.sel = {7};
+        host.perms.entities = false;
+        ed.deleteSelection(host);
+        CHECK(host.sent.size() == sentBefore);
+        CHECK(host.sel == std::vector<NetEntityId>{7});
+        host.perms.entities = true;
+
         host.sel = {3};
         in = h.frame({0, 0});
         in.cancel = true;

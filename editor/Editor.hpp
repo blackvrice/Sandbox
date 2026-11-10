@@ -118,7 +118,10 @@ public:
     // ---- 12B: Inspector ----
     // 선택한 개체 중 그 컴포넌트가 있는 것 전부에 ChangeComponent{field: value} (값이 같으면 보내지 않는다). 기록 한 칸
     void setField(IEditorHost& host, ecs::StableId component, std::string_view field, const ecs::Json& value);
-    void addComponent(IEditorHost& host, ecs::StableId component);    // 없는 개체에만
+    void addComponent(IEditorHost& host, ecs::StableId component); // 없는 개체에만
+    // 선택한 개체를 지운다 (Delete 키 · 목록의 문맥 메뉴 — v0.8 UI-3). 되살리기 기록 한 칸, 선택은 비운다. 권한이
+    // 없으면 아무 일 없음
+    void deleteSelection(IEditorHost& host);
     void removeComponent(IEditorHost& host, ecs::StableId component); // 있는 개체에서
 
     // ---- 12C: 콘텐츠 (월드 오버레이) ----
