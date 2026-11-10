@@ -1,8 +1,8 @@
 #include "network/transport/SimulatedTransport.hpp"
 
 #include <algorithm>
-#include <charconv>
 #include <chrono>
+#include <cstdlib>
 #include <format>
 
 namespace sbx::net {
@@ -170,9 +170,11 @@ Expected<SimulatedLinkDesc> parseSimulatedLink(std::string_view spec) {
         const usize eq = item.find('=');
         const std::string_view key = item.substr(0, eq);
         const std::string_view text = eq == std::string_view::npos ? std::string_view() : item.substr(eq + 1);
-        f64 v = 0;
-        const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
-        if (text.empty() || ec != std::errc() || ptr != text.data() + text.size()) {
+        // strtod — 부동소수 from_chars 가 없는 표준 라이브러리 (macOS libc++ — 삭제된 함수) 가 있다 (ClientOptions 와 같은 길)
+        const std::string number(text);
+        char* end2 = nullptr;
+        const f64 v = number.empty() ? 0.0 : std::strtod(number.c_str(), &end2);
+        if (number.empty() || end2 != number.c_str() + number.size()) {
             return makeError(ErrorCode::InvalidArgument,
                              std::format("--net-sim '{}' — <키>=<수> (latency · jitter · loss · kbps)", item));
         }

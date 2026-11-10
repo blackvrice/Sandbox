@@ -7,6 +7,17 @@
 
 ---
 
+## 2026-11-10 — 버그: --net-sim 파서가 macOS 에서 컴파일되지 않음 (부동소수 from_chars)
+
+**무엇을** network/transport parseSimulatedLink 가 숫자를 std::strtod 로 읽는다 (ClientOptions 의 --game-ui-scale 과 같은 길).
+
+**왜** CI b8cc6e5 의 macos 가 "call to deleted function 'from_chars'" — Apple libc++ 에는 부동소수 from_chars 가 없다 (bb7b9e1 ST-06-9 에서
+들어왔다. Windows · Linux 표준 라이브러리에는 있어 로컬 · 다른 CI 작업은 통과).
+
+**검증** unit_network 74 케이스 (test_transport 의 --net-sim 글 — 틀린 글 · 범위 · nan 은 범위 검사에서 거절). macOS 는 CI 로 본다.
+
+**남은 일** 없음.
+
 ## 2026-11-10 — v0.8 M5-T2: 리플레이 탐색 · 타임라인 — WorldOp Seek (프로토콜 17, ADR-0117)
 
 **무엇을**
