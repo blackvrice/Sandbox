@@ -60,6 +60,8 @@ std::string_view worldOpName(WorldOpKind op) noexcept {
         return "테스트 플레이";
     case WorldOpKind::TestStop:
         return "테스트 플레이 멈춤";
+    case WorldOpKind::Seek:
+        return "리플레이 탐색";
     }
     return "?";
 }
@@ -520,6 +522,7 @@ void encodeBody(BitWriter& w, const ContentOverlayMsg& m) {
 void encodeBody(BitWriter& w, const WorldOpRequest& m) {
     w.writeU8(static_cast<u8>(m.op));
     w.writeString(m.name);
+    w.writeVarU(m.target); // 프로토콜 17
 }
 void encodeBody(BitWriter& w, const WorldOpResultMsg& m) {
     w.writeU8(static_cast<u8>(m.op));
@@ -551,7 +554,7 @@ void encodeBody(BitWriter& w, const WorldChanged& m) {
 
 WorldOpKind readWorldOp(BitReader& r) {
     const u8 op = r.readU8();
-    if (op < static_cast<u8>(WorldOpKind::List) || op > static_cast<u8>(WorldOpKind::TestStop)) {
+    if (op < static_cast<u8>(WorldOpKind::List) || op > static_cast<u8>(WorldOpKind::Seek)) {
         r.fail();
         return WorldOpKind::List;
     }
@@ -885,6 +888,7 @@ WorldOpRequest decodeWorldOp(BitReader& r) {
     WorldOpRequest m;
     m.op = readWorldOp(r);
     m.name = r.readString(kMaxSaveNameBytes);
+    m.target = r.readVarU();
     return m;
 }
 WorldOpResultMsg decodeWorldOpResult(BitReader& r) {

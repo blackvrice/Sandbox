@@ -775,7 +775,28 @@ void ServerHost::simStep(f64 now) {
             handlePlaybackCommand(c, results);
         }
         Playback& pb = *m_playback;
-        if (!pb.paused || pb.steps > 0) {
+        if (pb.seekTarget) {
+            // 탐색 (v0.8 M5-T2): 닿을 때까지 call 을 빠르게 — 한 Sim 단계에 20 ms 까지 (서버 · 접속이 멈추지 않게).
+            // 해시 비교는 그대로 (탐색도 기록을 확인한다)
+            const f64 budgetEnd = steadySeconds() + 0.020;
+            while (!pb.player->done() && pb.player->call() < *pb.seekTarget && steadySeconds() < budgetEnd) {
+                if (auto r = pb.player->step(); !r) {
+                    log::warn("net", "리플레이 탐색 오류 — 재생을 끝냅니다: {}", r.error().describe());
+                    worldOut.push_back(Outgoing{0, WorldOpResultMsg{WorldOpKind::Play, pb.name, false,
+                                                                    clampUtf8(r.error().message, kMaxDetailBytes)}});
+                    m_playback.reset();
+                    break;
+                }
+            }
+            if (m_playback && (pb.player->done() || pb.player->call() >= *pb.seekTarget)) {
+                const f64 ms = (steadySeconds() - pb.seekStartedAt) * 1000.0;
+                const std::string detail = std::format("call {} · tick {} ({:.0f} ms)", pb.player->call(),
+                                                       m_runner->world().currentTick(), ms);
+                log::info("net", "리플레이 {} 탐색: {}", pb.name, detail);
+                worldOut.push_back(Outgoing{pb.seekClient, WorldOpResultMsg{WorldOpKind::Seek, pb.name, true, detail}});
+                pb.seekTarget.reset();
+            }
+        } else if (!pb.paused || pb.steps > 0) {
             if (auto r = pb.player->step(); !r) {
                 log::warn("net", "리플레이 재생 오류 — 재생을 끝냅니다: {}", r.error().describe());
                 worldOut.push_back(Outgoing{0, WorldOpResultMsg{WorldOpKind::Play, pb.name, false,
@@ -1051,6 +1072,10 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         reply("테스트 플레이 중입니다 — 먼저 멈추십시오", false);
         return;
     }
+    if (req.op == WorldOpKind::Seek) {
+        seekReplay(task, out, replaced);
+        return;
+    }
     if (req.op == WorldOpKind::Restart) {
         auto r = restartGame(out);
         if (r) {
@@ -1212,6 +1237,7 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         }
         auto pb = std::make_unique<Playback>();
         pb->name = req.name;
+        pb->dir = dir;
         auto rep = replay::readReplay(dir / kReplayFile);
         if (!rep) {
             reply(rep.error().describe(), false);
@@ -1249,6 +1275,7 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         publishStatus();
         return;
     }
+    case WorldOpKind::Seek:
     case WorldOpKind::List:
     case WorldOpKind::RecordStop:
     case WorldOpKind::Restart:
@@ -1568,6 +1595,54 @@ WorldList ServerHost::listWorlds() const {
         list.worlds.resize(kMaxSavedWorlds);
     }
     return list;
+}
+
+// 리플레이 탐색 (v0.8 M5-T2 — ADR-0117): 재생 중인 리플레이의 target call 로. 뒤로면 시작 세이브를 다시 열어 처음부터
+// (결정적이라 같은 자리 — 체크포인트 캐시 없이, 14 7.18 측정), 앞으로면 그대로. 닿기는 simStep 이 시간 예산 안에서 —
+// 닿으면 멈춘 채 결과
+void ServerHost::seekReplay(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced) {
+    const WorldOpRequest& req = task.request;
+    const auto refuse = [&](std::string detail) {
+        out.push_back(
+            Outgoing{task.clientId, WorldOpResultMsg{req.op, req.name, false, clampUtf8(detail, kMaxDetailBytes)}});
+    };
+    if (!m_playback) {
+        refuse("재생 중이 아닙니다");
+        return;
+    }
+    Playback& pb = *m_playback;
+    if (!req.name.empty() && req.name != pb.name) {
+        refuse(std::format("재생 중인 리플레이는 '{}' 입니다", pb.name));
+        return;
+    }
+    const u64 target = std::min(req.target, pb.player->calls());
+    if (target < pb.player->call()) {
+        auto& world = m_runner->world();
+        auto opened = scenario::openSave(pb.dir / pb.replay.header.startWorld, world.baseContent(), world.catalog());
+        if (!opened) {
+            refuse(opened.error().describe());
+            return;
+        }
+        auto player = replay::ReplayPlayer::start(opened->runner->world(), pb.replay);
+        if (!player) {
+            refuse(player.error().describe());
+            return;
+        }
+        // replaceWorld 는 재생을 지운다 (옛 월드를 가리키므로) — Playback (리플레이 데이터 · 이름 · 속도) 은 들고
+        // 있다가 새 플레이어로 되돌린다
+        std::unique_ptr<Playback> keep = std::move(m_playback);
+        replaceWorld(std::move(opened->runner), WorldChangeReason::Replay, keep->name, out);
+        keep->player = std::move(*player);
+        m_playback = std::move(keep);
+        replaced = true;
+    }
+    Playback& now = *m_playback;
+    now.paused = true; // 닿으면 멈춘 채 — 이어 보기는 재생 (Resume)
+    now.steps = 0;
+    now.seekTarget = target;
+    now.seekClient = task.clientId;
+    now.seekStartedAt = steadySeconds();
+    publishStatus();
 }
 
 void ServerHost::handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results) {

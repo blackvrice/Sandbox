@@ -1122,8 +1122,8 @@ std::vector<WorldOpOutcome> NetworkSession::takeWorldOpOutcomes() {
     return out;
 }
 
-void NetworkSession::worldOp(WorldOp op, std::string name) {
-    if (!m_session || !m_session->requestWorldOp(static_cast<net::WorldOpKind>(op), std::move(name))) {
+void NetworkSession::worldOp(WorldOp op, std::string name, u64 target) {
+    if (!m_session || !m_session->requestWorldOp(static_cast<net::WorldOpKind>(op), std::move(name), target)) {
         m_worldMessage = "접속 전이라 요청할 수 없습니다";
     }
 }

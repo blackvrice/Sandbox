@@ -125,9 +125,10 @@ void pump(Rig& rig, std::initializer_list<Peer*> peers, int frames = 4) {
 }
 
 // 요청 하나 → 그 결과 (같은 종류의 첫 결과)
-WorldOpResultMsg worldOp(Rig& rig, std::initializer_list<Peer*> all, Peer& who, WorldOpKind op, std::string name = {}) {
-    REQUIRE(who.session.requestWorldOp(op, std::move(name)));
-    for (int i = 0; i < 30; ++i) {
+WorldOpResultMsg worldOp(Rig& rig, std::initializer_list<Peer*> all, Peer& who, WorldOpKind op, std::string name = {},
+                         u64 target = 0, int maxPumps = 30) {
+    REQUIRE(who.session.requestWorldOp(op, std::move(name), target));
+    for (int i = 0; i < maxPumps; ++i) {
         pump(rig, all, 1);
         for (auto& r : who.session.takeWorldOpResults()) {
             if (r.op == op) {
@@ -182,6 +183,9 @@ TEST_SUITE("network") {
         const WorldOpRequest op = roundTrip(WorldOpRequest{WorldOpKind::RecordStart, "rec_1"});
         CHECK(op.op == WorldOpKind::RecordStart);
         CHECK(op.name == "rec_1");
+        const WorldOpRequest seek = roundTrip(WorldOpRequest{WorldOpKind::Seek, "rec_1", 123456789}); // 프로토콜 17
+        CHECK(seek.op == WorldOpKind::Seek);
+        CHECK(seek.target == 123456789u);
         const WorldOpResultMsg res = roundTrip(WorldOpResultMsg{WorldOpKind::Play, "rec_1", true, "재생 끝 — 일치"});
         CHECK(res.accepted);
         CHECK(res.detail == "재생 끝 — 일치");
@@ -245,7 +249,7 @@ TEST_SUITE("network") {
         CHECK_FALSE(isValidSaveName("세이브"));
         CHECK_FALSE(isValidSaveName(std::string(kMaxSaveNameBytes + 1, 'a')));
         CHECK(isValidSaveName(std::string(kMaxSaveNameBytes, 'a')));
-        const auto bad = decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(10), "a"}}));
+        const auto bad = decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(11), "a"}}));
         CHECK_FALSE(bad.has_value());
     }
 
@@ -525,6 +529,87 @@ TEST_SUITE("network") {
         CHECK(rig.host->world().clock().paused()); // 보통 월드로 돌아와 멈춰 있다
         // 이제 다시 편집된다
         CHECK(command(rig, all, ed, cmd::CreateEntity{}).accepted);
+    }
+
+    TEST_CASE("world ops: seek (v0.8 M5-T2) — 뒤로 · 앞으로 같은 자리 (해시), 끝 넘어 = 끝, 재생 중 아님 · 다른 이름 · "
+              "역할 거절") {
+        TempDir dir("seek");
+        ServerHostDesc d;
+        d.savesRoot = dir.path;
+        Rig rig(d);
+        Peer owner(rig, "owner", "k");
+        Peer ed(rig, "ed");
+        const std::initializer_list<Peer*> all{&owner, &ed};
+        pump(rig, all, 6);
+
+        // 재생 중이 아니면 거절
+        CHECK_FALSE(worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 10).accepted);
+
+        REQUIRE(worldOp(rig, all, owner, WorldOpKind::RecordStart, "r1").accepted);
+        const auto created = command(rig, all, ed, cmd::CreateEntity{{3.f, 4.f}, {}, {}});
+        REQUIRE(created.accepted);
+        REQUIRE(command(rig, all, ed, cmd::MoveEntity{{created.created[0]}, {1.f, 1.f}, false}).accepted);
+        pump(rig, all, 40);
+        REQUIRE(command(rig, all, ed, cmd::DeleteEntity{{created.created[0]}}).accepted);
+        pump(rig, all, 30);
+        REQUIRE(worldOp(rig, all, owner, WorldOpKind::RecordStop).accepted);
+
+        REQUIRE(worldOp(rig, all, owner, WorldOpKind::Play, "r1").accepted);
+        const u64 calls = rig.host->stats().replayCalls;
+        REQUIRE(calls > 60);
+        REQUIRE(command(rig, all, owner, cmd::PauseSimulation{}).accepted);
+        pump(rig, all, 2);
+
+        // 앞으로 30 → 그 자리의 해시
+        auto r = worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 30);
+        REQUIRE_MESSAGE(r.accepted, r.detail);
+        CHECK(r.detail.find("call 30") != std::string::npos);
+        CHECK(rig.host->stats().replayCall == 30);
+        const u64 h30 = rig.host->world().worldHash().value();
+        const sim::Tick t30 = rig.host->world().currentTick();
+        // 더 앞으로 (멈춘 채)
+        r = worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 55);
+        REQUIRE_MESSAGE(r.accepted, r.detail);
+        CHECK(rig.host->stats().replayCall == 55);
+        pump(rig, all, 5);
+        CHECK(rig.host->stats().replayCall == 55); // 닿으면 멈춘 채
+        // 뒤로 30 — 시작 세이브에서 다시: 같은 틱 · 같은 해시, 모두에게 WorldChanged (Replay)
+        const u32 genBefore = owner.session.generation();
+        r = worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 30);
+        REQUIRE_MESSAGE(r.accepted, r.detail);
+        CHECK(rig.host->stats().replayCall == 30);
+        CHECK(rig.host->world().currentTick() == t30);
+        CHECK(rig.host->world().worldHash().value() == h30);
+        pump(rig, all, 3);
+        CHECK(owner.session.generation() == genBefore + 1);
+        CHECK(ed.session.lastWorldChange()->reason == WorldChangeReason::Replay);
+        // 0 으로 · 같은 자리 (닿아 있음 — 바로)
+        REQUIRE(worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 0).accepted);
+        CHECK(rig.host->stats().replayCall == 0);
+        REQUIRE(worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 0).accepted);
+
+        // 거절: 다른 이름 · editor 역할
+        CHECK_FALSE(worldOp(rig, all, owner, WorldOpKind::Seek, "other", 5).accepted);
+        CHECK_FALSE(worldOp(rig, all, ed, WorldOpKind::Seek, "r1", 5).accepted);
+
+        // 끝 넘어 → 끝까지 (해시 모두 일치) → 재생 끝 결과 (모두에게 — 요청한 owner 의 것은 도우미가 Seek 과 함께
+        // 꺼냈으니 ed 의 것을 본다)
+        (void)ed.session.takeWorldOpResults();
+        r = worldOp(rig, all, owner, WorldOpKind::Seek, "r1", 1u << 30, 300);
+        REQUIRE_MESSAGE(r.accepted, r.detail);
+        CHECK(r.detail.find(std::format("call {}", calls)) != std::string::npos);
+        std::optional<WorldOpResultMsg> done;
+        for (int i = 0; i < 30 && !done; ++i) {
+            pump(rig, all, 1);
+            for (auto& x : ed.session.takeWorldOpResults()) {
+                if (x.op == WorldOpKind::Play) {
+                    done = x;
+                }
+            }
+        }
+        REQUIRE(done);
+        CHECK_MESSAGE(done->accepted, done->detail);
+        CHECK(rig.host->stats().mode == 0);
     }
 
     TEST_CASE("world ops: stopping the server writes the recording in progress") {

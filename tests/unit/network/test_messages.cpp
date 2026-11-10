@@ -167,7 +167,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 16); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.6 NG-14 — 표시 digest)
+        CHECK(kProtocolVersion == 17); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.8 M5-T2 — 리플레이 탐색)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
@@ -192,7 +192,7 @@ TEST_SUITE("network") {
         wc.reason = WorldChangeReason::Restart;
         CHECK(roundTrip(wc).reason == WorldChangeReason::Restart);
         CHECK_FALSE(
-            decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(10), {}}})).has_value());
+            decodeMessage(encodeMessage(Message{WorldOpRequest{static_cast<WorldOpKind>(11), {}}})).has_value());
     }
 
     TEST_CASE(

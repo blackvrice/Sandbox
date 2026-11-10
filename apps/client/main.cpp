@@ -374,6 +374,7 @@ int main(int argc, char** argv) {
     cfg.tests = &tests;
     cfg.replayName = opts->replayName; // 리플레이 뷰어 (v0.8 M5-T1) — 헤드리스면 끝에 끝낸다
     cfg.replayQuitAtEnd = opts->headless;
+    cfg.replaySeek = opts->replaySeek;
     {
         sbx::editor::services::TestPlan& tp = cfg.testPlan;
         tp.clientExe = sbx::io::executablePath();

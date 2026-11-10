@@ -36,6 +36,17 @@ if(CMAKE_MATCH_1 LESS 4)
     message(FATAL_ERROR "비교한 해시가 너무 적다 (${CMAKE_MATCH_1})")
 endif()
 
+# 2b. 탐색 (v0.8 M5-T2 — ADR-0117): 끝 앞 (119) → 30 (뒤로 — 시작 세이브에서 다시) → 끝 — 탐색 뒤에도 해시가 모두 맞는다
+run(0 "탐색 (--replay-seek 30)" "${CLIENT}" --headless --replay "${OUT}/rec1" --replay-seek 30 --frames 20000)
+if(NOT last MATCHES "리플레이 탐색: call 119 · tick 119" OR NOT last MATCHES "리플레이 탐색: call 30 · tick 30"
+   OR NOT last MATCHES "리플레이 탐색: call 120 · tick 120")
+    message(FATAL_ERROR "탐색 세 번 (끝 앞 · 뒤로 30 · 끝) 의 로그가 없다")
+endif()
+if(NOT last MATCHES "리플레이 끝: rec1 — 재생 끝 — 120 call, 해시 5개 일치")
+    message(FATAL_ERROR "탐색한 재생이 기록과 같게 끝나지 않았다")
+endif()
+run(2 "--replay-seek 만" "${CLIENT}" --headless --replay-seek 3 --frames 10)
+
 # 3. 해시를 바꾼 기록 — 기록과 다르다 · 종료 코드 1
 file(COPY "${OUT}/rec1/" DESTINATION "${OUT}/rec2")
 file(READ "${OUT}/rec2/replay.sbxr" sbxr)

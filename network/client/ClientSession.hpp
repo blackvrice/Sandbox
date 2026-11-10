@@ -98,7 +98,7 @@ public:
 
     // --- 12D ---
     // 세이브 · 로드 · 리플레이 (서버가 권한을 본다 — 결과는 takeWorldOpResults, List 는 worldList). 접속 전이면 false
-    bool requestWorldOp(WorldOpKind op, std::string name = {});
+    bool requestWorldOp(WorldOpKind op, std::string name = {}, u64 target = 0); // target = Seek 의 call (프로토콜 17)
     [[nodiscard]] std::vector<WorldOpResultMsg> takeWorldOpResults();
     [[nodiscard]] const std::optional<WorldList>& worldList() const noexcept { return m_worldList; }
     [[nodiscard]] u64 worldListRevision() const noexcept { return m_worldListRevision; }

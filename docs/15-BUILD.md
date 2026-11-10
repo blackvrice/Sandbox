@@ -263,6 +263,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.8 M5-T1) --replay <기록 폴더> (start/ + replay.sbxr): 로컬 서버로 재생 — <프로젝트>/worlds/<이름> 이면 그 프로젝트로, 아니면 start/
     세이브로 연다. 헤드리스면 끝 줄 "리플레이 끝: <이름> — 재생 끝 — N call, 해시 K개 일치" 를 쓰고 끝 (기록과 다르거나 다른 콘텐츠면
     "리플레이 실패" · 종료 코드 1, replay.sbxr 가 없으면 2). --world · --connect · --saves · --script 와 같이 쓰지 않는다
+    (v0.8 M5-T2) --replay-seek <call>: 끝 앞 → 그 call (뒤로 — 시작 세이브에서 다시) → 끝 으로 탐색하며 각 걸린 시간을 쓴다 (시험 · 측정).
+    창에서는 "월드" 창의 재생 타임라인을 끌어 놓는다
     (v0.8 M6-T6) 창 배치는 설정 폴더 studio/layouts/<이름>.ini (바뀌면 몇 초 뒤 · 끝낼 때 저장, 안전 모드는 끔) — "레이아웃" 창 · 명령
     studio.save-layout · studio.reset-layout. --layout <이름> = 그 배치로 시작하고 기억 (studio.json layout — 틀린 이름은 종료 코드 2).
     studio.json 의 autosaveSeconds 가 자동 저장 기본 주기 (--autosave-seconds 가 이긴다)

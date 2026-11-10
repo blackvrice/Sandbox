@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-10 — v0.8 M5-T2: 리플레이 탐색 · 타임라인 — WorldOp Seek (프로토콜 17, ADR-0117)
+
+**무엇을**
+
+- network: WorldOpKind::Seek (10) · WorldOpRequest.target varint — 프로토콜 17. ServerHost::seekReplay — 재생 중인 리플레이의 call 로: 뒤면
+  시작 세이브를 다시 열어 새 플레이어로 월드를 바꾸고 (WorldChanged Replay · Playback 은 들고 있다가 되돌린다 — replaceWorld 가 재생을
+  지우므로), 앞이면 그대로. simStep 이 Sim 단계마다 20 ms 예산으로 빠르게 돌리고 (해시 비교 그대로) 닿으면 멈춘 채 보낸 사람에게
+  WorldOpResult{Seek, "call N · tick T (ms)"}. ClientSession::requestWorldOp(op, name, target).
+- 앱: WorldOp::Seek, IWorldSession::worldOp(op, name, target), "월드" 창의 재생 타임라인 (끌어 놓으면 탐색), --replay-seek <call> (끝 앞 →
+  그 call → 끝 — 시험 · 측정).
+- 문서: ADR-0117, 08 (프로토콜 17 · 표), 22 버전 표, 20 4장, 14 7.18 (측정), 15 · 13 · MANUAL-QA, 등록부 M5-T2 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B · 20 X3 (seek · 타임라인 — "뒤로 가기가 같은 자리"), 체크포인트 캐시는 측정 뒤 결정 (20 4장).
+
+**검증**
+
+- test_world_ops "seek" (재생 중 아님 거절 → 30 (해시) → 55 · 멈춤 → 뒤로 30 = 같은 tick · 같은 해시 · generation +1 → 0 → 다른 이름 ·
+  editor 거절 → 끝 넘어 = 재생 끝 일치), test_messages (프로토콜 17 · target 왕복 · op 11 형식 오류), CTest client_replay 탐색 단계 (119 → 30 →
+  120 → 120 call 해시 5개 일치 · --replay-seek 만 = 2).
+- 처음 탐색 시험이 SIGSEGV — replaceWorld 가 m_playback 을 지워 참조가 매달렸다. Playback 을 들고 있다가 새 플레이어로 되돌리게 고쳤다.
+- 측정 (14 7.18, Release): 1 분 기록 가운데로 뒤로 0.13 초, 10 분 기록 3.1 초 — 캐시 없이 두고 긴 기록 (M5-T3 뒤) 에 체크포인트 [계획].
+- CI: d0ba793 의 linux-clang 이 "Install toolchain" (apt) 에서 3 시간 멈춰 취소 · 다시 돌렸다 (코드와 무관).
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 경고 없음. 창 타임라인은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 85/85 통과.
+
+**남은 일**
+
+- 체크포인트 캐시 (긴 기록), 탐색 중 진행 표시, --record · 보고 묶음 (M5-T3).
+
 ## 2026-11-10 — v0.8 M5-T1: 리플레이 뷰어 — SandboxClient --replay (ADR-0116)
 
 **무엇을**

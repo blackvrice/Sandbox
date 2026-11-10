@@ -38,6 +38,25 @@ std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldP
         return request;
     }
     ImGui::TextDisabled("%s · 월드 #%u", worldModeLine(info).c_str(), info.generation);
+    // 재생 타임라인 (v0.8 M5-T2 — 20 4장): 끌어서 놓으면 그 call 로 탐색 (뒤로면 서버가 시작 세이브에서 다시 — 같은
+    // 자리). 닿으면 멈춘 채 — 이어 보기는 실행 제어 (재생)
+    if (info.mode == 2 && info.replayCalls > 0) {
+        u64 call = state.scrub.value_or(info.replayCall);
+        const u64 lo = 0;
+        const u64 hi = info.replayCalls;
+        ImGui::SetNextItemWidth(-1);
+        ImGui::BeginDisabled(!info.canChange);
+        if (ImGui::SliderScalar("##timeline", ImGuiDataType_U64, &call, &lo, &hi, "call %llu")) {
+            state.scrub = call;
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit() && state.scrub) {
+            request = WorldPanelRequest{WorldOp::Seek, info.modeName, *state.scrub};
+            state.scrub.reset();
+        }
+        ImGui::EndDisabled();
+    } else {
+        state.scrub.reset();
+    }
     ImGui::Separator();
 
     ImGui::BeginDisabled(!info.canChange);

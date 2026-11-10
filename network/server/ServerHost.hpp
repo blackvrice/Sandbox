@@ -222,6 +222,11 @@ private:
         bool paused = false;
         u32 steps = 0; // 멈춘 동안 진행할 call
         f32 speed = 1.0f;
+        std::filesystem::path dir; // 리플레이 폴더 (뒤로 탐색 — 시작 세이브를 다시 연다, v0.8 M5-T2)
+        // 탐색 중 (v0.8 M5-T2): 닿을 call · 요청한 클라이언트 · 시작 시각 (결과에 걸린 시간)
+        std::optional<u64> seekTarget;
+        u16 seekClient = 0;
+        f64 seekStartedAt = 0;
     };
 
     // --- Net 절반 (Net IO 스레드 또는 Inline) ---
@@ -265,6 +270,7 @@ private:
     [[nodiscard]] bool autoRestartDue();
     [[nodiscard]] u32 playerCount() const; // 역할 player 이상으로 접속한 사람 수 (네트워크 스레드)
     [[nodiscard]] WorldList listWorlds() const;
+    void seekReplay(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced); // v0.8 M5-T2
     void handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results);
 
     INetworkTransport& m_transport;

@@ -124,7 +124,7 @@ public:
     void requestRole(u16 clientId, u8 role) override;
     // ---- 12D: 세이브 · 로드 · 리플레이 ----
     [[nodiscard]] std::optional<WorldOpsInfo> worldOps() const override;
-    void worldOp(WorldOp op, std::string name) override;
+    void worldOp(WorldOp op, std::string name, u64 target = 0) override;
     [[nodiscard]] std::vector<WorldOpOutcome> takeWorldOpOutcomes() override;
     [[nodiscard]] u32 worldGeneration() const override { return m_session ? m_session->generation() : 0; }
     // ---- v0.2 M2-T3: 게임 진행 ----

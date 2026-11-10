@@ -128,6 +128,8 @@ struct AppConfig {
     // 기록과 다르거나 재생하지 못하면 종료 코드 1)
     std::string replayName;
     bool replayQuitAtEnd = false;
+    // --replay-seek <call> (v0.8 M5-T2): 끝 앞 → 그 call (뒤로) → 끝 으로 탐색 — 시험 · 측정
+    std::optional<u64> replaySeek;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -249,6 +251,8 @@ private:
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
     // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
     u8 m_replayStage = 0;
+    u8 m_seekStep = 0;     // --replay-seek 의 단계 (0 아직 · 1 끝 앞 · 2 그 call · 3 끝)
+    u64 m_replayCalls = 0; // 재생 중인 리플레이의 call 수 (서버 통계에서)
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

@@ -321,11 +321,11 @@ void ClientSession::changeWorld(const WorldChanged& changed) {
     }
 }
 
-bool ClientSession::requestWorldOp(WorldOpKind op, std::string name) {
+bool ClientSession::requestWorldOp(WorldOpKind op, std::string name, u64 target) {
     if (m_state != ClientState::Connected) {
         return false;
     }
-    send(WorldOpRequest{op, std::move(name)});
+    send(WorldOpRequest{op, std::move(name), target});
     return true;
 }
 

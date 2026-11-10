@@ -33,8 +33,9 @@ namespace sbx::net {
 // WorldOp TestPlay · TestStop, WorldChanged 의 TestPlay · TestStop, ServerStats 의 모드 3 — v0.2 M5-T1 13: 콘텐츠 종류
 // Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2 14: ServerStats 의 스크립트
 // 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4 15: 명령
-// PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3)
-inline constexpr u32 kProtocolVersion = 16;
+// PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3) 16: 표시 digest (Auth · Welcome)
+// — v0.6 NG-14 17: 리플레이 탐색 — WorldOp Seek (10) · WorldOp 의 target varint (재생 call) — v0.8 M5-T2
+inline constexpr u32 kProtocolVersion = 17;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -351,6 +352,9 @@ enum class WorldOpKind : u8 {
     TestPlay =
         8, // 지금 (편집) 월드의 복사본으로 바꾸고 원본은 서버 메모리에 그대로 둔다. 게임 모드면 시작, 일시정지를 푼다
     TestStop = 9, // 복사본을 버리고 원본으로 되돌린다
+    // 리플레이 탐색 (프로토콜 17, v0.8 M5-T2, ADR-0117): 재생 중인 리플레이의 target call 로 — 앞이면 빠르게 돌리고,
+    // 뒤면 시작 세이브에서 다시 (결정적이라 같은 자리). 닿으면 멈춘 채 결과 (이름 = 재생 중인 것)
+    Seek = 10,
 };
 [[nodiscard]] std::string_view worldOpName(WorldOpKind op) noexcept;
 // 세이브 이름: 영문 · 숫자 · '_' · '-' 1 ~ 48 글자 (경로 문자 · 점 · 공백 없음 — 저장 폴더 아래 한 단계)
@@ -359,6 +363,7 @@ enum class WorldOpKind : u8 {
 struct WorldOpRequest {
     WorldOpKind op = WorldOpKind::List;
     std::string name; // List 는 무시
+    u64 target = 0;   // Seek 의 call (프로토콜 17) — 다른 op 는 0
 };
 struct WorldOpResultMsg {
     WorldOpKind op = WorldOpKind::List;

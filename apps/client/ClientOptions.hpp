@@ -82,6 +82,7 @@ struct ClientOptions {
     // 폴더가 <프로젝트>/worlds/<이름> 이면 --world <프로젝트>, 아니면 --world <폴더>/start · --saves <폴더의 부모>.
     // 들어가면 그 이름을 재생한다 (WorldOp Play — 서버가 콘텐츠 해시 · 시작 세이브를 확인한다)
     std::string replayName;
+    std::optional<u64> replaySeek; // --replay-seek <call> (v0.8 M5-T2 — --replay 와 함께)
     // --net-sim <글>: --connect 의 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션)
     std::optional<net::SimulatedLinkDesc> netSim;
     // Studio 테스트 세션 (v0.8 ST-06-9 — "테스트" 창 · studio.test-start 의 처음 값): --test-clients <1~4> (기본 2),

@@ -28,6 +28,8 @@
 > [11](11-CONTENT-SCHEMA.md) 6.1장).
 > **v0.6 NG-14** — 프로토콜 16: 표시 digest (Auth · Welcome 끝 u64 — 그림 · 키 · 머티리얼. contentHash 와 따로, 다르면 접속하고 경고 —
 > [ADR-0097](adr/0097-package-data-integrity-snapshot-ids-paths-digests.md) 5).
+> **v0.8 M5-T2** — 프로토콜 17: 리플레이 탐색 WorldOp Seek (op 10) · WorldOp 끝 target varint (call) —
+> [ADR-0117](adr/0117-replay-seek-worldop-protocol-17.md).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -221,7 +223,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 62 | Disconnect     | 양방향 | Control  | reason u8 (DisconnectReason — Transport 의 disconnect 이유와 같은 값)                                                                                                 |
 | 63 | SetRole        | C→S    | Control  | clientId varint, role u8 — 역할 바꾸기 요청 (12C, 10-EDITOR 7장)                                                                                                      |
 | 64 | SetRoleResult  | S→C    | Control  | clientId varint, role u8, accepted bool, detail str(256) — SetRole 을 보낸 사람에게 (12C)                                                                             |
-| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 · 7 재시작 (9) · 8 테스트 플레이 · 9 멈춤 (12) — 그 밖은 형식 오류), name str(48) (12D) |
+| 65 | WorldOp        | C→S    | Control  | op u8 (1 목록 · 2 저장 · 3 불러오기 · 4 기록 시작 · 5 기록 끝 · 6 재생 · 7 재시작 (9) · 8 테스트 플레이 · 9 멈춤 (12) · 10 탐색 (17) — 그 밖은 형식 오류), name str(48) (12D), target varint (탐색의 call — 그 밖은 0, 17) |
 | 66 | WorldOpResult  | S→C    | Control  | op u8, name str(48), accepted bool, detail str(256) — 보낸 사람에게 (재생 끝은 모두에게) (12D)                                                                        |
 | 67 | WorldList      | S→C    | Control  | worlds[] {name str(48), replay bool, tick varint, entities varint} × ≤ 256, 이름 순 (12D)                                                                             |
 | 68 | WorldChanged   | S→C    | Bulk     | generation varint, worldMeta{name, 청크 경계 4 × zigzag, paused, speed}, reason u8 (1 불러오기 · 2 재생 · 3 재시작 (9) · 4 테스트 플레이 · 5 멈춤 (12)), name str(48) (12D) |
@@ -256,6 +258,9 @@ traps · budget · cut · maxFuel · maxNanos (누적) varint · disabled bool} 
 id · SHA-256) 의 FNV-1a64 (scenario::presentationDigest). contentHash (시뮬레이션) 가 다르면 지금처럼 Reject{ContentMismatch}, 표시
 digest 만 다르면 들여보내고 (서버 로그 info) 클라이언트가 Welcome 의 값과 견줘 경고 "보이는 것이 서버와 다를 수 있습니다" (원격 클라이언트에
 게임 패키지의 그림이 없을 때 — asset: 참조는 마젠타).
+프로토콜 17 (v0.8 M5-T2): WorldOp 끝에 target varint, op 10 = 탐색 (재생 중인 리플레이의 call 로 — 앞이면 Sim 단계마다 20 ms 예산으로 빠르게,
+뒤면 시작 세이브를 다시 열어 처음부터 — 모두에게 WorldChanged{Replay}). 닿으면 멈춘 채 보낸 사람에게 WorldOpResult{10, "call N · tick T
+(ms)"}. 재생 중이 아니거나 다른 이름이면 거절 (ADR-0117).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

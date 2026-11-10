@@ -62,7 +62,8 @@ struct PlayersInfo {
 
 // 세이브 · 로드 · 리플레이 요청 (12D). 값 = net::WorldOpKind (Restart = 게임 재시작 — v0.2 M2-T3,
 // TestPlay · TestStop = 테스트 플레이 시작 · 멈추고 되돌리기 — v0.2 M5-T1)
-enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play, Restart, TestPlay, TestStop };
+// Seek = 리플레이 탐색 (v0.8 M5-T2 — 프로토콜 17)
+enum class WorldOp : u8 { List = 1, Save, Load, RecordStart, RecordStop, Play, Restart, TestPlay, TestStop, Seek };
 struct SavedWorldRow {
     std::string name;
     bool replay = false; // 리플레이 (재생) — 아니면 세이브 (불러오기)
@@ -248,8 +249,8 @@ public:
     [[nodiscard]] virtual std::optional<WorldOpsInfo> worldOps() const { return std::nullopt; }
     // 받은 WorldOp 결과를 꺼낸다 (v0.8 M5-T1 — 꺼내면 비운다)
     virtual std::vector<WorldOpOutcome> takeWorldOpOutcomes() { return {}; }
-    // 서버에 요청 (결과는 worldOps().message — 목록은 saved)
-    virtual void worldOp(WorldOp /*op*/, std::string /*name*/) {}
+    // 서버에 요청 (결과는 worldOps().message — 목록은 saved). target = Seek 의 call (v0.8 M5-T2 — 다른 op 는 0)
+    virtual void worldOp(WorldOp /*op*/, std::string /*name*/, u64 /*target*/ = 0) {}
     // Studio 자동 저장 (v0.8 M6-T7 — ADR-0113): 같은 프로세스의 로컬 서버면 편집 월드를 dir 에 세이브 (틱 사이).
     // 원격이면 false
     struct RecoverySave {

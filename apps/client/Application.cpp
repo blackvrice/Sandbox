@@ -976,7 +976,7 @@ bool Application::frame() {
                     if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
                         m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
                     }
-                    m_config.world->worldOp(req->op, std::move(req->name));
+                    m_config.world->worldOp(req->op, std::move(req->name), req->target);
                 }
             }
             if (auto game = m_config.world->game(); game && m_panels.visible) {
@@ -1575,7 +1575,37 @@ void Application::replayFrame() {
         log::info("client", "리플레이 '{}' 를 재생한다", m_config.replayName);
         return;
     }
+    // --replay-seek (v0.8 M5-T2): 재생이 시작되고 전체 call 수를 알면 끝 바로 앞 → 그 call (뒤로 — 시작 세이브에서
+    // 다시) → 끝 (재생 끝 · 해시 확인) 로 탐색한다. 각 탐색의 걸린 시간이 로그에 (14 7.18)
+    if (m_replayStage == 2 && m_config.replaySeek && m_seekStep == 0) {
+        if (const auto ops = m_config.world->worldOps(); ops && ops->mode == 2 && ops->replayCalls > 1) {
+            m_replayCalls = ops->replayCalls;
+            m_config.world->worldOp(WorldOp::Seek, m_config.replayName, m_replayCalls - 1);
+            m_seekStep = 1;
+        }
+    }
     for (const WorldOpOutcome& o : outcomes) {
+        if (o.op == WorldOp::Seek && o.name == m_config.replayName && m_replayStage == 2) {
+            if (!o.accepted) {
+                log::error("client", "리플레이 탐색 실패: {}", o.detail);
+                m_replayStage = 3;
+                if (m_config.replayQuitAtEnd) {
+                    m_exitCode = 1;
+                    (void)request(AppState::Shutdown);
+                }
+                continue;
+            }
+            log::info("client", "리플레이 탐색: {}", o.detail);
+            if (m_seekStep == 1) {
+                m_config.world->worldOp(WorldOp::Seek, m_config.replayName,
+                                        std::min(*m_config.replaySeek, m_replayCalls));
+                m_seekStep = 2;
+            } else if (m_seekStep == 2) {
+                m_config.world->worldOp(WorldOp::Seek, m_config.replayName, m_replayCalls); // 끝 — 재생 끝 결과가 온다
+                m_seekStep = 3;
+            }
+            continue;
+        }
         if (o.op != WorldOp::Play || o.name != m_config.replayName || m_replayStage >= 3) {
             continue;
         }
