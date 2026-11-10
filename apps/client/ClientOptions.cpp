@@ -273,6 +273,19 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                                  "--test-net-sim 은 latency · jitter · loss 만 (kbps 없음)");
             }
             opts.testNetSim = *sim;
+        } else if (a == "--play") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            opts.world = std::string(*v);
+            opts.player = true;
+        } else if (a == "--player") {
+            opts.player = true;
+        } else if (!a.starts_with("-") && a.ends_with(".sbpkg") && !opts.world) {
+            // 파일 연결 (더블클릭): OS 가 경로 하나만 넘긴다 — --play 와 같다
+            opts.world = std::string(a);
+            opts.player = true;
         } else if (a == "--record") {
             auto v = value();
             if (!v) {
@@ -392,6 +405,12 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
         } else {
             return makeError(ErrorCode::InvalidArgument, std::format("알 수 없는 옵션 '{}' (--help)", a));
         }
+    }
+    if (opts.player &&
+        (opts.connect || opts.newProject || !replayDir.empty() || !opts.record.empty() || !opts.runCommands.empty())) {
+        return makeError(ErrorCode::InvalidArgument,
+                         "--play · --player 는 받는 사람의 모드 — --connect · --new-project · --replay · --record · "
+                         "--run-command 와 같이 쓰지 않는다");
     }
     if (!opts.record.empty() && (!opts.world || !replayDir.empty())) {
         return makeError(ErrorCode::InvalidArgument,
@@ -518,6 +537,9 @@ std::string clientUsage() {
            "      --replay-seek <call>  --replay 를 끝 앞 → 그 call (뒤로 — 시작 세이브에서 다시) → 끝 으로 탐색 (시험 "
            "· 측정 —\n"
            "                         v0.8)\n"
+           "      --play <패키지>    Player 모드 — 게임 (.sbpkg) 을 받는 사람으로 연다 (편집 · 개발 창 없음, 열지 "
+           "못하면 오류 화면). .sbpkg 경로\n"
+           "                         하나만 넘겨도 같다 (파일 연결). --player = 최근 게임 화면 (v0.8)\n"
            "      --record <이름>    첫 틱부터 세이브 폴더의 <이름> 에 기록 (--world — 끝내면 replay.sbxr, v0.8)\n"
            "      --report-on-exit   끝낼 때 보고 묶음 (로그 · --record 의 리플레이) 을 만든다 (sbx report 로 본다 — "
            "v0.8)\n"

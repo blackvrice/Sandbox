@@ -30,6 +30,7 @@
 #include "apps/client/PlayKeys.hpp"
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/WorldSession.hpp"
+#include "apps/client/player/PlayerScreens.hpp"
 #include "apps/client/presentation/GameUiLayer.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/studio/StudioShell.hpp"
@@ -131,6 +132,11 @@ struct AppConfig {
     // 창 제목 (v0.8 UI-3): true = "<프로젝트> — Sandbox Studio" (개발자 창이면 진단 줄 그대로), false = 진단 줄 (시험 ·
     // --console)
     bool studioTitle = false;
+    // Player 모드 (v0.8 NG-03 — ADR-0121): Studio 창 · 셸 없음, 월드 없으면 최근 게임 화면 (library — Application 보다
+    // 오래 산다) 또는 오류 화면 (playError — main 이 --play 를 열지 못했을 때). openWorld 로 게임 파일을 연다
+    bool playerMode = false;
+    PlayerLibrary* library = nullptr;
+    std::optional<PlayError> playError;
     // 테스트 세션 (v0.8 ST-06-9 — ADR-0115): 서비스 (Application 보다 오래 산다 — 없으면 끔), 계획의 기본 (실행 파일 ·
     // 로그 폴더 · 포트 · 클라이언트 수 · 흉내 · 자동 시험 프레임 — main 이 --test-* 로). 프로젝트는 지금 프로젝트
     editor::services::TestService* tests = nullptr;
@@ -218,6 +224,9 @@ private:
     void studioCreate();
     void studioOpen(const std::filesystem::path& dir);
     void studioCopyExample(const std::filesystem::path& example, const std::filesystem::path& dest); // v0.8 UI-2
+    void playerFrame(); // Player 모드 — 최근 게임 · 오류 화면 (v0.8 NG-03)
+    void playerOpen(const std::filesystem::path& package);
+    void playerReport();
     bool enterProject(const std::filesystem::path& dir);
     void setProject(const std::filesystem::path& dir);
     void studioBuildFrame(); // 빌드 보고 받기 · --run-command · 끝내기
@@ -270,6 +279,7 @@ private:
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
     ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
     editor::ConsoleState m_console;     // v0.8 UI-3 "콘솔"
+    PlayerHomeState m_playerHome;       // v0.8 NG-03
     // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
     u8 m_replayStage = 0;
     u8 m_seekStep = 0;     // --replay-seek 의 단계 (0 아직 · 1 끝 앞 · 2 그 call · 3 끝)

@@ -87,6 +87,10 @@ struct ClientOptions {
     // replay.sbxr),
     // --report-on-exit = 끝낼 때 보고 묶음 (로그 + 기록이 있으면 replay/) 을 만든다 (버그 보고 · 자동 플레이)
     std::string record;
+    // Player 모드 (v0.8 NG-03 — ADR-0121): --play <패키지> (또는 .sbpkg 경로 하나만 — 파일 연결 · 더블클릭) = 그 게임을
+    // 받는 사람으로 연다 (편집 · 개발 창 없음), --player = 최근 게임 화면. 열지 못하면 오류 화면 (헤드리스면 종료 코드
+    // 2)
+    bool player = false;
     bool reportOnExit = false;
     // --net-sim <글>: --connect 의 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션)
     std::optional<net::SimulatedLinkDesc> netSim;

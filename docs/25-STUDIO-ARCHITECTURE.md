@@ -237,7 +237,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 협업 초안 · 문서 병합 · LSP | [계획 v0.7] |
 | 플러그인 | [계획 v0.8+] |
 
-## 12. Player 모드 — 받는 사람의 실행 경로 (NG-03, [ADR-0098](adr/0098-distribution-lifecycle-player-savegame-channels-plugin-api.md)) [계획 v0.8]
+## 12. Player 모드 — 받는 사람의 실행 경로 (NG-03, [ADR-0098](adr/0098-distribution-lifecycle-player-savegame-channels-plugin-api.md)) ✅ v0.8 ([ADR-0121](adr/0121-player-mode-client-option-library-error-screen.md) — --play · 경로 하나 · player.json · 오류 화면 · Studio 창 없음. 파일 연결 등록 · 최근 게임의 더블클릭 등록은 설치 프로그램 [계획 PS-13-2])
 
 ```text
 결정    SandboxClient 의 모드 — --play <패키지.sbpkg> · 파일 연결 (더블클릭) · 최근 게임 목록. 별도 실행 파일은 서명 배포 (v0.15) 때 다시

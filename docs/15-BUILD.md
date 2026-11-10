@@ -263,6 +263,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.8 M5-T1) --replay <기록 폴더> (start/ + replay.sbxr): 로컬 서버로 재생 — <프로젝트>/worlds/<이름> 이면 그 프로젝트로, 아니면 start/
     세이브로 연다. 헤드리스면 끝 줄 "리플레이 끝: <이름> — 재생 끝 — N call, 해시 K개 일치" 를 쓰고 끝 (기록과 다르거나 다른 콘텐츠면
     "리플레이 실패" · 종료 코드 1, replay.sbxr 가 없으면 2). --world · --connect · --saves · --script 와 같이 쓰지 않는다
+    (v0.8 NG-03) Player 모드: --play <패키지> (또는 .sbpkg 경로 하나만 — 파일 연결) — Studio 창 없이 게임만, 열지 못하면 사람 말 오류 화면 (헤드리스는
+    종료 코드 2), 최근 게임 = 설정 폴더 player.json. --player = 최근 게임 화면
     (v0.8 M5-T3) --record <이름> (--world): 첫 틱부터 세이브 폴더의 <이름> 에 기록 — 끝내면 replay.sbxr (서버도 SandboxServer --record).
     --report-on-exit: 끝낼 때 보고 묶음 (보고 폴더 — SBX_REPORTS_DIR) 에 로그 · --record 의 리플레이 (replay/) — sbx report <묶음> 으로 본다
     (v0.8 M5-T2) --replay-seek <call>: 끝 앞 → 그 call (뒤로 — 시작 세이브에서 다시) → 끝 으로 탐색하며 각 걸린 시간을 쓴다 (시험 · 측정).

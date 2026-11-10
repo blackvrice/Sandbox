@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-10 — v0.8 NG-03: Player 모드 — --play · 파일 연결 인자 · 최근 게임 · 사람 말 오류 화면 (ADR-0121)
+
+**무엇을**
+
+- apps/client/player/PlayerLibrary (player.json 최근 게임 · recentGameOf — 패키지 index · describePlayError — 오류 코드마다 제목 · 할 일 · 자세히),
+  PlayerScreens (최근 게임 화면 · 오류 화면 — Studio 위젯).
+- 옵션 --play · --player · .sbpkg 경로 하나 (파일 연결), 같이 못 쓰는 옵션. main: 열지 못하면 사람 말 (헤드리스 2 · 창은 오류 화면),
+  --play 로 들어가면 최근 게임에, Player 모드면 Studio 서비스 (홈 · 레이아웃 · 테스트 · 빌드) 를 넘기지 않는다.
+- Application: Player 모드면 셸 · Studio 창 · 진단 창 끔, 월드 없으면 Player 화면 · 오류 화면 (열기 · 빼기 · 보고 묶음 · 다른 게임 · 끝내기),
+  제목 "<게임> — Sandbox Player".
+- 문서: ADR-0121, 25 12장, 15 · 13 · MANUAL-QA, 등록부 NG-03 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B · ADR-0098 1 — 받는 사람에게도 Studio 셸 · 편집 창이 보였고, 열지 못하면 내부 문장 · 종료 코드 2 뿐이었다.
+
+**검증**
+
+- CTest player_mode (--play · 경로 하나 · player.json · studio.json 에 안 적음 · 잘린 파일 · 패키지 아님 · 없는 파일의 사람 말 · 같이 못 쓰는 옵션),
+  test_player_mode 3 개 (최근 게임 · 사람 말 · 옵션 · 헤드리스 앱의 Player · 오류 화면).
+- CMake 로는 NUL 을 담은 바이트를 쓰지 못해 잘린 파일이 머리부터 달라졌다 (손상이 아니라 ".sbpkg 아님") — 손상 · 판 분류는 단위 시험이 오류 코드로 본다.
+- clang-tidy 바뀐 파일 경고 없음. 창 화면은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님).
+
+**남은 일**
+
+- OS 파일 연결 등록 (설치 프로그램 — PS-13-2), Esc 메뉴 · 설정 화면, 별도 실행 파일 (서명 배포 때).
+
 ## 2026-11-10 — v0.8 NG-07: Studio 시험 층 — 흐름 E2E · GUI smoke (CI 게이트) · QA 증거 양식 (ADR-0120)
 
 **무엇을**

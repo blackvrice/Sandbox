@@ -19,6 +19,7 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/UserSettings.hpp"
+#include "apps/client/player/PlayerLibrary.hpp"
 #include "apps/client/studio/ProcessLauncher.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
@@ -286,6 +287,7 @@ int main(int argc, char** argv) {
         nd.workers = o.simThreads.value_or(o.headless ? 0u : std::clamp(hc > 2 ? hc - 2 : 1u, 1u, 4u));
         return sbx::client::NetworkSession::create(nd, materials);
     };
+    std::optional<sbx::client::PlayError> playError; // --play 를 열지 못했다 (v0.8 NG-03)
     if (opts->world || opts->connect) {
         if (opts->script) {
             auto loaded = sbx::scenario::loadPlayScript(*opts->script);
@@ -297,10 +299,19 @@ int main(int argc, char** argv) {
         }
         auto ns = makeSession(*opts, saveDefaults);
         if (!ns) {
-            sbx::log::error("client", "{}", ns.error().describe());
-            return kExitBadArgs;
+            if (!opts->player) {
+                sbx::log::error("client", "{}", ns.error().describe());
+                return kExitBadArgs;
+            }
+            // Player 모드 (v0.8 NG-03): 열지 못한 이유를 사람의 말로 — 창이면 오류 화면, 헤드리스면 종료 코드 2
+            playError = sbx::client::describePlayError(ns.error());
+            sbx::log::error("client", "게임을 열 수 없다: {} — {}", playError->title, playError->detail);
+            if (opts->headless) {
+                return kExitBadArgs;
+            }
+        } else {
+            world = std::move(*ns);
         }
-        world = std::move(*ns);
     }
     // Studio 설정 (v0.8 M6-T6 — ADR-0114): 설정 폴더의 studio.json (최근 프로젝트 · 레이아웃 · 자동 저장 주기 — 게임
     // 클라이언트의 client.json 과 따로). 안전 모드는 읽지도 쓰지도 않는다. 깨진 파일은 여기서 먼저 옆으로 옮긴다
@@ -406,10 +417,29 @@ int main(int argc, char** argv) {
                            std::u8string(opts->world->begin(), opts->world->end())))) { // 빌드할 프로젝트 (M6-T3)
         cfg.projectDir = std::filesystem::path(std::u8string(opts->world->begin(), opts->world->end()));
     }
+    // Player 모드 (v0.8 NG-03 — ADR-0121): 최근 게임 (설정 폴더 player.json — 안전 모드면 저장하지 않는다), Studio 홈 ·
+    // 서비스 없음
+    sbx::client::PlayerLibrary library(opts->safeMode ? std::filesystem::path() : configRoot / "player.json");
+    for (const std::string& w : library.takeWarnings()) {
+        sbx::log::warn("client", "{}", w);
+        notices.push_back(w); // 아래에서 cfg.notices 로 옮긴다
+    }
+    if (opts->player) {
+        cfg.playerMode = true;
+        cfg.library = &library;
+        cfg.playError = playError;
+        cfg.layouts = nullptr;
+        cfg.tests = nullptr;
+        cfg.builds = nullptr;
+        if (world && opts->world) { // --play 로 연 게임을 최근 목록에
+            const std::string& p = *opts->world;
+            library.remember(sbx::client::recentGameOf(std::filesystem::path(std::u8string(p.begin(), p.end()))));
+        }
+    }
     // Studio 홈 (v0.8 M6-T1): --world · --connect 가 없으면 홈 — 만들거나 연 프로젝트는 --world <프로젝트> 와 같은
-    // 세션으로
-    if (!opts->world && !opts->connect) {
-        cfg.projects = &projects;
+    // 세션으로. Player 모드는 같은 길로 게임 파일을 연다
+    if ((!opts->world && !opts->connect) || opts->player) {
+        cfg.projects = opts->player ? nullptr : &projects;
         cfg.openWorld = [&](const std::filesystem::path& dir) -> sbx::Expected<sbx::client::OpenedWorld> {
             sbx::client::ClientOptions o = *opts;
             const std::u8string d = dir.generic_u8string();

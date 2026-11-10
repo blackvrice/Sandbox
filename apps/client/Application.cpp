@@ -22,6 +22,7 @@
 #include <imgui.h>
 
 #include "editor/services/StudioSettings.hpp"
+#include "foundation/diag/Report.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
@@ -141,6 +142,14 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     registerStudioCommands();
     m_shell.developerPanels = m_config.developerPanels; // v0.8 UI-1
+    if (m_config.playerMode) { // v0.8 NG-03 — 받는 사람: 편집 · 진단 · Studio 창 없음, 게임 · 행동 창만
+        m_shell.developerPanels = false;
+        m_shell.view = ShellView{};
+        m_shell.view.hierarchy = m_shell.view.inspector = m_shell.view.tools = m_shell.view.console = false;
+        m_shell.view.build = m_shell.view.test = m_shell.view.world = false;
+        m_config.developerPanels = false;
+        log::info("client", "Player 모드");
+    }
     m_shell.density = m_config.compactDensity ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
     if (m_config.ui != nullptr) {
         applyTheme();
@@ -918,7 +927,7 @@ bool Application::frame() {
         pin.font = m_config.ui->fontName();
         // Studio 셸 (v0.8 UI-1 — ADR-0118): 월드 안이면 메뉴 · 툴바 · 도크 공간을 다른 창보다 먼저 (도킹 · 프리셋)
         ShellActions shell;
-        if (inWorld && m_panels.visible) {
+        if (inWorld && m_panels.visible && !m_config.playerMode) {
             m_shell.view.content = m_editorPanel.contentOpen;
             shell = drawStudioShell(m_shell, shellInputs(inWorld));
             m_editorPanel.contentOpen = m_shell.view.content;
@@ -935,6 +944,9 @@ bool Application::frame() {
         }
         drawNotices(m_config.notices, m_noticesOpen);
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
+        if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.playerMode) {
+            playerFrame(); // v0.8 NG-03
+        }
         if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.projects != nullptr) {
             StudioHomeView hv;
             hv.projects = m_config.projects;
@@ -1843,8 +1855,13 @@ void Application::applyShellActions(const ShellActions& a, PanelActions& panel) 
 }
 
 std::string Application::studioTitle() const {
+    const char* app = m_config.playerMode ? "Sandbox Player" : "Sandbox Studio";
     if (m_state != AppState::InWorld || m_config.world == nullptr) {
-        return "Sandbox Studio";
+        return app;
+    }
+    if (m_config.playerMode) { // 게임 이름 (패키지의 이름 — 프로젝트 폴더가 아니다)
+        const WorldInfo w = m_config.world->info();
+        return std::format("{} — {}", w.game.empty() ? w.name : w.game, app);
     }
     std::string name = m_projectDir.empty() ? m_config.world->info().name : m_projectDir.filename().string();
     std::string mode;
@@ -1854,7 +1871,85 @@ std::string Application::studioTitle() const {
                : ops->mode == 1 ? " [기록 중]"
                                 : "";
     }
-    return std::format("{}{} — Sandbox Studio", name, mode);
+    return std::format("{}{} — {}", name, mode, app);
+}
+
+// ---- Player 모드 (v0.8 NG-03 — ADR-0121) ----
+
+void Application::playerFrame() {
+    std::optional<PlayerAction> a;
+    if (m_config.playError) {
+        a = drawPlayError(m_playerHome, *m_config.playError);
+    } else if (m_config.library != nullptr) {
+        a = drawPlayerHome(m_playerHome, *m_config.library, m_config.engineVersion);
+    }
+    if (!a) {
+        return;
+    }
+    switch (a->kind) {
+    case PlayerAction::Kind::OpenGame:
+        playerOpen(a->path);
+        break;
+    case PlayerAction::Kind::Forget:
+        if (m_config.library != nullptr) {
+            m_config.library->forget(a->path);
+        }
+        break;
+    case PlayerAction::Kind::MakeReport:
+        playerReport();
+        break;
+    case PlayerAction::Kind::Back:
+        m_config.playError.reset();
+        m_playerHome.reportPath.clear();
+        break;
+    case PlayerAction::Kind::Quit:
+        (void)request(AppState::Shutdown);
+        break;
+    }
+}
+
+void Application::playerOpen(const std::filesystem::path& package) {
+    if (!m_config.openWorld) {
+        m_playerHome.failed = true;
+        m_playerHome.message = "이 실행은 게임을 열 수 없다 (세션을 만들 길이 없다)";
+        return;
+    }
+    Expected<OpenedWorld> w = m_config.openWorld(package);
+    if (!w) {
+        const PlayError e = describePlayError(w.error());
+        log::error("client", "게임을 열 수 없다: {} — {}", e.title, e.detail);
+        m_config.playError = e;
+        m_playerHome.reportPath.clear();
+        return;
+    }
+    m_ownedWorld = std::move(w->session);
+    m_config.world = m_ownedWorld.get();
+    if (m_config.library != nullptr) {
+        m_config.library->remember(recentGameOf(package));
+    }
+    m_playerHome.message.clear();
+    log::info("client", "게임을 연다: {}", package.generic_string());
+}
+
+void Application::playerReport() {
+    diag::ReportInfo info;
+    info.app = "SandboxClient";
+    info.reason =
+        m_config.playError ? std::format("Player — {}", m_config.playError->title) : std::string("Player 보고");
+    if (m_config.playError) {
+        info.context.emplace_back("error", m_config.playError->detail);
+    }
+    const Expected<std::filesystem::path> dir = diag::createReportDir(diag::defaultReportsRoot(), info.app);
+    if (!dir) {
+        m_playerHome.reportPath = std::format("만들지 못했다 — {}", dir.error().describe());
+        return;
+    }
+    if (const Expected<void> w = diag::writeReport(*dir, info, log::recentLines(), diag::defaultScrubRules()); !w) {
+        m_playerHome.reportPath = std::format("만들지 못했다 — {}", w.error().describe());
+        return;
+    }
+    m_playerHome.reportPath = dir->generic_string();
+    log::info("client", "보고 묶음: {}", m_playerHome.reportPath);
 }
 
 } // namespace sbx::client

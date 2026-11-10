@@ -157,6 +157,7 @@ if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
         unit/client/test_studio_shell.cpp
+        unit/client/test_player_mode.cpp
         unit/client/test_network_session.cpp
         unit/client/test_imgui_layer.cpp
         unit/client/test_editor_session.cpp
@@ -187,6 +188,8 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioShell.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerLibrary.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerScreens.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ScriptPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
@@ -557,6 +560,12 @@ if(TARGET sbx)
             set_tests_properties(studio_gui_smoke PROPERTIES LABELS "client;gui" TIMEOUT 600
                                  SKIP_REGULAR_EXPRESSION "studio_gui_smoke: 건너뜀")
         endif()
+        # Player 모드 (v0.8 NG-03 — 25 12장): --play · 경로 하나 (파일 연결) · 최근 게임 · 열지 못하는 파일의 사람 말 (2)
+        add_test(NAME player_mode
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/player_mode"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/player_mode.cmake")
+        set_tests_properties(player_mode PROPERTIES LABELS "content;client" TIMEOUT 600)
         # 기록 · 보고 묶음 (v0.8 M5-T3 — 20 4장 · 7.1): 서버 · 클라이언트 자동 플레이 --record → 재생 같음 · 보고 묶음 replay/ · 결속 · 있는 이름
         if(TARGET SandboxServer)
             add_test(NAME replay_record
