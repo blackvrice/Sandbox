@@ -136,6 +136,16 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     registerStudioCommands();
+    if (m_config.ui != nullptr && m_config.layouts != nullptr) { // v0.8 M6-T6 — 첫 프레임 전에 지금 레이아웃
+        m_config.ui->applyLayout(m_config.layouts->loadActive());
+        m_layoutNames = m_config.layouts->names();
+        log::info("studio", "레이아웃 '{}'{}", m_config.layouts->active(),
+                  m_config.layouts->enabled() ? "" : " (안전 모드 — 저장하지 않는다)");
+        for (const std::string& w : m_config.layouts->takeWarnings()) {
+            log::warn("studio", "{}", w);
+            m_config.notices.push_back(w);
+        }
+    }
     if (!m_config.projectDir.empty()) {
         setProject(m_config.projectDir);
     }
@@ -759,6 +769,9 @@ void Application::applyPendingTransition() {
     if (next == AppState::Shutdown && m_config.autosave != nullptr) {
         m_config.autosave->finishClean(); // 깨끗이 끝남 — 다음 시작에 복구를 제안하지 않는다 (v0.8 M6-T7)
     }
+    if (next == AppState::Shutdown) {
+        (void)saveLayout(false); // 끝낼 때의 배치 (v0.8 M6-T6 — 기본 배치로 되돌린 뒤 움직이지 않았어도)
+    }
 }
 
 bool Application::frame() {
@@ -787,6 +800,10 @@ bool Application::frame() {
     // I1: ImGui 가 먼저 본다 — 그 위의 창(또는 글자 칸)이면 그 장치를 게임 입력에서 뺀다 (8C)
     if (m_config.ui != nullptr) {
         m_config.ui->feed(m_events);
+        if (m_pendingLayout) { // 레이아웃 바꾸기는 ImGui 프레임 밖에서 (v0.8 M6-T6)
+            m_config.ui->applyLayout(*m_pendingLayout);
+            m_pendingLayout.reset();
+        }
         m_config.ui->beginFrame(m_config.fixedDt > 0 ? m_config.fixedDt : realDt);
         // 게임 UI (v0.7 M3-T3): modal · menu · hud 버튼 위면 게임 (카메라 · 선택 · 행동) 에 마우스를 주지 않는다
         const bool gameUiMouse = m_state == AppState::InWorld && m_config.world != nullptr && routeGameUi();
@@ -922,6 +939,12 @@ bool Application::frame() {
                     }
                 }
             }
+            if (m_config.layouts != nullptr && m_panels.visible) { // v0.8 M6-T6 "레이아웃"
+                if (const auto a = editor::drawLayoutPanel(m_layoutPanel, m_config.layouts->active(), m_layoutNames,
+                                                           m_config.layouts->enabled())) {
+                    applyLayoutAction(*a);
+                }
+            }
             if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 M6-T3 "빌드"
                 if (const auto a =
                         editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running())) {
@@ -987,6 +1010,7 @@ bool Application::frame() {
     }
     studioBuildFrame(); // 빌드 보고 · --run-command (v0.8 M6-T3)
     autosaveFrame();    // 자동 저장 · 복구 (v0.8 M6-T7)
+    layoutFrame();      // 배치가 바뀌었으면 저장 (v0.8 M6-T6)
     // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (없으면 Studio 홈 — v0.8 M6-T1). Connecting 은 세션이 준비될
     // 때까지 (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
@@ -1182,6 +1206,12 @@ void Application::registerStudioCommands() {
              logBuildReport(*m_buildPanel.last);
              m_commandFailed = m_commandFailed || !m_buildPanel.last->ok;
          }});
+    // 레이아웃 (v0.8 M6-T6)
+    const auto hasLayouts = [this] { return m_config.ui != nullptr && m_config.layouts != nullptr; };
+    add({"studio.save-layout", "레이아웃 저장", "", "global", hasLayouts,
+         [this] { m_commandFailed = !saveLayout(true) || m_commandFailed; }});
+    add({"studio.reset-layout", "기본 배치로", "", "global", hasLayouts,
+         [this] { applyLayoutAction({editor::LayoutPanelAction::Kind::Reset, {}}); }});
     add({"studio.build", "빌드", "Ctrl+B", "global", buildable, [this] {
              const std::string profile = chosenProfile(m_buildPanel, m_profiles);
              if (m_config.builds->start({m_projectDir, {}, profile})) {
@@ -1404,6 +1434,74 @@ void Application::autosaveFrame() {
     }
     if (a->due(now) && m_config.world->requestRecoverySave(a->worldDir())) {
         a->markRequested(now);
+    }
+}
+
+// ---- 레이아웃 (v0.8 M6-T6 — ADR-0114) ----
+
+void Application::layoutFrame() {
+    if (m_config.ui == nullptr || m_config.layouts == nullptr || !m_config.ui->layoutChanged()) {
+        return;
+    }
+    (void)saveLayout(false);
+    m_config.ui->layoutSaved();
+}
+
+bool Application::saveLayout(bool announce) {
+    if (m_config.ui == nullptr || m_config.layouts == nullptr) {
+        return false;
+    }
+    editor::services::LayoutService& l = *m_config.layouts;
+    // 아직 적용하지 않은 배치 (기본 배치로 · 고르기 — 다음 프레임 앞) 가 있으면 그것이 지금 배치다 (곧바로 끝내도
+    // 남는다)
+    const std::string text = m_pendingLayout ? *m_pendingLayout : m_config.ui->layoutText();
+    if (const Expected<void> r = l.save(text); !r) {
+        log::warn("studio", "레이아웃 '{}' 을 저장하지 못했다 — {}", l.active(), r.error().describe());
+        m_layoutPanel.message = r.error().message;
+        return false;
+    }
+    if (announce) {
+        log::info("studio", "레이아웃 '{}' 을 저장했다{}", l.active(),
+                  l.enabled() ? ": " + l.fileFor(l.active()).generic_string()
+                              : std::string(" (안전 모드 — 파일 없음)"));
+    }
+    return true;
+}
+
+void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {
+    editor::services::LayoutService& l = *m_config.layouts;
+    using Kind = editor::LayoutPanelAction::Kind;
+    if (a.kind == Kind::Reset) {
+        m_pendingLayout = std::string(); // 다음 프레임 앞 — 끝낼 때 (또는 움직이면) 지금 이름으로 저장된다
+        m_layoutPanel.message = "기본 배치로 되돌렸다";
+        log::info("studio", "레이아웃 '{}' — 기본 배치로", l.active());
+        return;
+    }
+    if (a.kind == Kind::SaveAs) {
+        if (const Expected<void> r = l.saveAs(a.name, m_config.ui->layoutText()); !r) {
+            m_layoutPanel.message = r.error().message;
+            log::warn("studio", "레이아웃 저장: {}", r.error().describe());
+            return;
+        }
+        m_layoutNames = l.names();
+        m_layoutPanel.message = std::format("'{}' 으로 저장했다", a.name);
+        log::info("studio", "레이아웃 '{}' 으로 저장했다", a.name);
+    } else {
+        (void)saveLayout(false); // 떠나는 레이아웃의 마지막 배치
+        Expected<std::string> text = l.select(a.name);
+        if (!text) {
+            m_layoutPanel.message = text.error().message;
+            log::warn("studio", "레이아웃 고르기: {}", text.error().describe());
+            return;
+        }
+        m_pendingLayout = std::move(*text);
+        m_layoutPanel.message.clear();
+        log::info("studio", "레이아웃 '{}'", a.name);
+    }
+    for (const std::string& w : l.takeWarnings()) {
+        log::warn("studio", "{}", w);
+        m_config.notices.push_back(w);
+        m_noticesOpen = true;
     }
 }
 

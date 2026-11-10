@@ -1,6 +1,6 @@
 # ADR-0111. Studio 홈 — ProjectService (만들기 · 열기 · 최근), 홈 화면은 --world 없는 클라이언트의 MainMenu, 들어가기는 --world 와 같은 세션
 
-- 상태: **Accepted** · 날짜: 2026-11-09
+- 상태: **Accepted — 일부 Superseded** (2 의 studio.json 쓰기 · 깨짐 판정 → 키마다 쓰기 · 객체가 아니면 깨짐, [ADR-0114](0114-studio-layout-settings-file.md)) · 날짜: 2026-11-09
 - 관련: [ADR-0089](0089-studio-editor-services-layer-imgui-first.md) 1 · 6 (Studio = SandboxClient 의 모드, 설정은 사용자 폴더),
   [ADR-0108](0108-editor-services-target-command-table.md) (명령 표), [ADR-0043](0043-sbx-project-tool-new-from-scenario-template.md) (createProject),
   [25-STUDIO-ARCHITECTURE](../25-STUDIO-ARCHITECTURE.md) 2 · 5장 ① ②, [28-CREATOR-UX-GATES](../28-CREATOR-UX-GATES.md) G1, task-registry M6-T1

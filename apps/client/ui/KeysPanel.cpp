@@ -76,7 +76,7 @@ std::optional<KeysPanelRequest> drawKeysPanel(const KeysView& view, const KeysPa
     ImGui::SetNextWindowSize({360.f * dpi, 320.f * dpi}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
     const char* title = view.dirty ? "키 (저장 안 함)###keys" : "키###keys";
-    if (!ImGui::Begin(title, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin(title)) {
         ImGui::End();
         return req;
     }

@@ -8,6 +8,7 @@
 
 #include "core/project/GameProject.hpp"
 #include "core/scenarios/Scenario.hpp"
+#include "editor/services/StudioSettings.hpp"
 #include "foundation/io/FileIo.hpp"
 
 namespace sbx::editor::services {
@@ -135,14 +136,18 @@ void ProjectService::loadRecent() {
     }
     const Expected<std::string> text = io::readFile(m_recentFile);
     const nlohmann::json j = text ? nlohmann::json::parse(*text, nullptr, false) : nlohmann::json();
-    const auto list = j.is_object() ? j.find("recentProjects") : j.end();
-    if (!text || !j.is_object() || list == j.end() || !list->is_array()) {
-        // 깨진 파일 — 옆으로 옮기고 빈 목록 (사용자가 고쳐 볼 수 있게 지우지 않는다)
-        fs::path aside = m_recentFile;
-        aside += ".broken";
-        fs::rename(m_recentFile, aside, ec);
-        m_warnings.push_back(std::format("Studio 설정 {} 을 읽지 못했다 — {} 로 옮기고 최근 목록을 비웠다",
-                                         io::displayPath(m_recentFile), io::displayPath(aside)));
+    if (!j.is_object()) {
+        // 깨진 파일 — 옆으로 옮기고 빈 목록 (사용자가 고쳐 볼 수 있게 지우지 않는다). studio.json 은 다른 Studio 설정도
+        // 든다 (v0.8 M6-T6 — StudioSettings)
+        m_warnings.push_back(moveStudioFileAside(m_recentFile));
+        return;
+    }
+    const auto list = j.find("recentProjects");
+    if (list == j.end()) {
+        return; // 아직 없다 (레이아웃 같은 다른 설정만 있는 파일)
+    }
+    if (!list->is_array()) {
+        m_warnings.push_back("Studio 설정 recentProjects 는 배열이어야 한다 — 최근 목록을 비웠다");
         return;
     }
     for (const nlohmann::json& e : *list) {
@@ -171,11 +176,7 @@ void ProjectService::saveRecent() {
         const std::u8string p = r.dir.generic_u8string();
         list.push_back({{"path", std::string(p.begin(), p.end())}, {"name", r.name}, {"gameId", r.gameId}});
     }
-    nlohmann::json j = nlohmann::json::object();
-    j["recentProjects"] = std::move(list);
-    std::error_code ec;
-    fs::create_directories(m_recentFile.parent_path(), ec);
-    if (const Expected<void> w = io::writeFileAtomic(m_recentFile, j.dump(2) + "\n"); !w) {
+    if (const Expected<void> w = writeStudioSetting(m_recentFile, "recentProjects", list.dump()); !w) {
         m_warnings.push_back(std::format("최근 프로젝트를 저장하지 못했다 — {}", w.error().describe()));
     }
 }

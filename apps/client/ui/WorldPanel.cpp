@@ -33,7 +33,7 @@ std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldP
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
     std::optional<WorldPanelRequest> request;
     const std::string title = std::format("월드 — {}###world", worldModeLine(info));
-    if (!ImGui::Begin(title.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin(title.c_str())) {
         ImGui::End();
         return request;
     }

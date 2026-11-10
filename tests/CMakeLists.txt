@@ -136,6 +136,7 @@ add_executable(SandboxTests
     unit/editor/test_project_service.cpp
     unit/editor/test_build_service.cpp
     unit/editor/test_autosave_service.cpp
+    unit/editor/test_layout_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -524,6 +525,12 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_recovery"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_recovery.cmake")
         set_tests_properties(studio_recovery PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # 레이아웃 · Studio 설정 (v0.8 M6-T6 — 25 4장): 저장한 배치 → 적용 · 꺼내기 왕복 · 기억 · 기본 배치로 · 깨진 ini · 안전 모드
+        add_test(NAME studio_layout
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_layout"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_layout.cmake")
+        set_tests_properties(studio_layout PROPERTIES LABELS "content;client" TIMEOUT 900)
     endif()
     if(TARGET SandboxServer)
         add_test(NAME project_new_from_scenario

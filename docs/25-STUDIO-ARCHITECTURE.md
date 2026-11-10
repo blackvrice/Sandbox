@@ -37,12 +37,12 @@ S6 "Core 에 꼭 들어가야 하나?" — 시뮬레이션 · 저장 · 복제�
 | 실행 파일 | SandboxClient (창 · 렌더 · 클라이언트 · 에디터 · LocalServerHost) · SandboxServer · sbx (CLI) | apps/client/CMakeLists.txt:43 (SandboxEditor 링크), tools/sbx |
 | 에디터 라이브러리 | SandboxEditor — 툴 5 (Select · Move · Place · TerrainBrush · Erase), EditPreview, Undo (받아들여진 명령만), IEditorHost · ICommandSink | editor/Editor.hpp, editor/Undo.hpp, ADR-0028 · 0029 |
 | 패널 (ImGui) | 편집 · Inspector (리플렉션 자동) · 목록 (Hierarchy) · 콘텐츠 창 (Prefab · Rule · Behavior · 트리거 폼 · 스크립트 여러 줄 편집 + 오류 줄) · 게임 · 행동 · 접속자 · 월드 (세이브 · 리플레이) · 스크립트 프로파일 · 알림 | editor/ui/*, apps/client/ui/* |
-| 도킹 | ImGui 도킹 켬, 레이아웃 저장 없음 | apps/client/ui/ImGuiLayer.cpp:198 (IniFilename = nullptr), :201 |
+| 도킹 | ImGui 도킹 켬, 레이아웃 저장 ✅ v0.8 M6-T6 (studio/layouts/<이름>.ini — ADR-0114) | apps/client/ui/ImGuiLayer.cpp (applyLayout · layoutText), editor/services/LayoutService |
 | 프로젝트 · 빌드 로직 | createProject · buildPackage · diagnose 는 core 에 있고 CLI 만 부른다 | core/project/GameProject.hpp:149, core/package/GamePackage.hpp:83, core/project/Diagnostics |
 | 테스트 플레이 | 편집 월드를 맡기고 복사본으로 플레이 → 멈추면 원본 (ADR-0053) | 08 프로토콜 12, 시험 unit_network · unit_client |
 | 사용자 설정 | client.json · input.json (사용자 설정 폴더), 안전 모드 | apps/client/UserSettings, v0.5 M1-T3 |
 
-빠진 것 (자세히는 gap matrix): 프로젝트 홈 · GUI 빌드 · 레이아웃 저장 · 자동 저장 · 에셋 DB · 자동 완성 · 디버거 · Prefab 오버라이드 ·
+빠진 것 (자세히는 gap matrix — 그 뒤 v0.8 에서 홈 · GUI 빌드 · 레이아웃 저장 · 자동 저장 ✅): 프로젝트 홈 · GUI 빌드 · 레이아웃 저장 · 자동 저장 · 에셋 DB · 자동 완성 · 디버거 · Prefab 오버라이드 ·
 그룹 · 명령 팔레트 · 멀티 클라이언트 실행 단추 · 지연 모의 UI.
 
 ---
@@ -68,6 +68,7 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job) ✅ 검사 · 빌드 · 일꾼 (v0.8 M6-T3, ADR-0112 — 배포 묶음은 [계획])
 │    TestService        로컬 서버 · 클라이언트 실행 (SandboxProcess 재사용) · 지연 모의 설정
 │    AutosaveService    편집 상태 주기 저장 · 복구 (7장) ✅ (v0.8 M6-T7, ADR-0113)
+│    LayoutService      창 배치 studio/layouts/<이름>.ini · StudioSettings (studio.json 키마다) (4장) ✅ (v0.8 M6-T6, ADR-0114)
 │    PluginService      [계획 v0.8+] (9장)
 └─ Engine (바꾸지 않는다)  Foundation · Core/ECS · Simulation · Script VM · Network · Render · Platform
 ```
@@ -112,11 +113,14 @@ BuildService
 ## 4. Shell · Workspace · 레이아웃 · 설정
 
 ```text
-레이아웃   ImGui 도킹 상태를 사용자 설정 폴더 studio/layouts/<이름>.ini 에 (IniFilename 을 켬). 기본 레이아웃 셋: 장면 편집 · 스크립트 ·
-          테스트 (Godot Editor Layouts 와 같은 사용 모양 — 벤치마크 A2). 깨진 ini = 기본으로 + 알림 (M1-T3 의 옮기기 규칙)
+레이아웃   ✅ v0.8 M6-T6 (ADR-0114) ImGui 도킹 상태를 사용자 설정 폴더 studio/layouts/<이름>.ini 에 (IniFilename 은 끈 채 — 앱이 텍스트를
+          꺼내 LayoutService 가 저장). 이름 붙인 레이아웃 · 고르기 · 기본 배치로 · "레이아웃" 창 · --layout. 깨진 ini = <이름>.ini.broken +
+          기본으로 + 알림 (M1-T3 의 옮기기 규칙). 기본 레이아웃 셋: 장면 편집 · 스크립트 · 테스트 (Godot Editor Layouts 와 같은 사용 모양 —
+          벤치마크 A2) [계획 — M6-T8 · ST-06-11 과 함께 (DockBuilder)]
 다중 모니터 ImGui 뷰포트 (떼어 낸 창) — [계획 v0.6] (플랫폼 창 층 지원 확인 뒤, 07)
 DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (밝음 · 어두움 · 고대비) [계획 v0.6]
-설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 테마 · 편집기 글꼴 · 자동 저장 주기) ↔ 프로젝트 sandbox.project.json (게임)
+설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 자동 저장 주기 ✅ v0.8 M6-T6 — 서비스마다 자기 키, 테마 · 편집기 글꼴 [계획
+          ST-06-2]) ↔ 프로젝트 sandbox.project.json (게임)
 명령 팔레트 Ctrl+Shift+P — CommandService 의 표를 이름 · 별칭으로 찾기 [계획 v0.6]
 ```
 
@@ -221,7 +225,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 |------|------|
 | 월드 편집 · 툴 · Inspector · 목록 · Undo · 권한 · 테스트 플레이 · 스크립트 오버레이 편집 | 현행 (10, ADR-0028 ~ 0031 · 0053 · 0066) |
 | 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | ✅ v0.8 M6-T1 (ProjectService · StudioHome — ADR-0111) |
-| 레이아웃 저장 · 설정 분리 | [계획 v0.5 M6-T6 — 이번 감사가 추가] |
+| 레이아웃 저장 · 설정 분리 | ✅ v0.8 M6-T6 (LayoutService · StudioSettings · "레이아웃" 창 — ADR-0114) |
 | GUI 빌드 · 누락 검사 | ✅ v0.8 M6-T3 (BuildService · "빌드" 창 — ADR-0112) |
 | 자동 저장 · 복구 | ✅ v0.8 M6-T7 (AutosaveService · 복구 창 — ADR-0113) |
 | 스크립트 자동 완성 · hover 기본 | [계획 v0.5 M6-T8 — 추가] (프로토타입: script/lang/LanguageService 현행) |

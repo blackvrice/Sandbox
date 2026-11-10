@@ -17,7 +17,7 @@ namespace sbx::editor {
 
 namespace {
 
-constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_NoSavedSettings;
+constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_None; // 자리는 레이아웃에 (v0.8 M6-T6)
 
 [[nodiscard]] f32 dpi() {
     return ImGui::GetStyle().FontScaleDpi;

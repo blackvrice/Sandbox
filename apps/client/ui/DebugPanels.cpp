@@ -18,7 +18,8 @@ void PanelState::pushFrame(f64 ms) noexcept {
 namespace {
 
 // 내용에 맞춰 크기가 정해진다 (정보 패널 — 사용자가 크기를 고를 일이 없다). 위치는 끌어서 옮길 수 있다
-constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
+// 자리는 레이아웃에 저장된다 (v0.8 M6-T6 — 전에는 NoSavedSettings)
+constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_AlwaysAutoResize;
 
 // ImGui 는 printf 서식 — std::format 결과를 그대로 (서식 문자 % 가 섞여도 안전)
 void text(const std::string& s) {

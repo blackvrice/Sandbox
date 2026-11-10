@@ -73,8 +73,11 @@ struct ClientOptions {
     std::optional<f64> autosaveSeconds;
     bool recover = false;
     u32 abortAfterAutosaves =
-        0;        // (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 강제 종료 · 충돌 흉내 (studio_recovery)
-    u64 seed = 1; // --seed (--world)
+        0; // (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 강제 종료 · 충돌 흉내 (studio_recovery)
+    // 레이아웃 (v0.8 M6-T6): --layout <이름> = 이 레이아웃으로 시작하고 지금 것으로 기억한다 (studio.json — 안전 모드면
+    // 이 실행만). 이름 [a-z0-9_-] 1 ~ 32
+    std::string layout;
+    u64 seed = 1;                  // --seed (--world)
     std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
     std::string assetRoot;         // --assets (비면 저장소의 assets/)

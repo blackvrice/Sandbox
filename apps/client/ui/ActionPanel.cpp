@@ -22,7 +22,7 @@ void drawActionPanel(const ActionsInfo& info, ActionPanelState& state) {
     ImGui::SetNextWindowSize({230.f * dpi, 170.f * dpi}, ImGuiCond_FirstUseEver);
     const std::string title =
         state.armed.empty() ? std::string("행동###actions") : std::format("행동 — {}###actions", state.armed);
-    if (!ImGui::Begin(title.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin(title.c_str())) {
         ImGui::End();
         return;
     }

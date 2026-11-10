@@ -239,6 +239,12 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.gameUiScale = static_cast<f32>(s);
         } else if (a == "--quit-after-commands") {
             opts.quitAfterCommands = true;
+        } else if (a == "--layout") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            opts.layout = std::string(*v); // 이름 검사는 LayoutService (main) — 규칙이 한 곳에
         } else if (a == "--recover") {
             opts.recover = true;
         } else if (a == "--abort-after-autosaves") {
@@ -390,6 +396,7 @@ std::string clientUsage() {
            "      --quit-after-commands  명령 (빌드 포함) 이 끝나면 끝낸다 — 실패가 있으면 종료 코드 1\n"
            "      --autosave-seconds <s>  프로젝트 자동 저장 주기 (기본 180, 0 = 끔 — 복구본은 설정 폴더 recovery/, "
            "v0.8)\n"
+           "      --layout <이름>    이 창 배치로 시작하고 기억한다 (설정 폴더 studio/layouts/<이름>.ini — v0.8)\n"
            "      --recover          앞 실행이 비정상으로 끝나 남은 복구본을 바로 연다 (worlds/recovered-<n> — v0.8)\n"
            "      --abort-after-autosaves <n>  (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 충돌 흉내 (종료 코드 "
            "3)\n"

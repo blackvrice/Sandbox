@@ -64,6 +64,8 @@ G8  CTest studio_build ✅ (v0.8 M6-T3, ADR-0112) — 명령 studio.build (--run
 G9  M7-T3 A → B E2E (기존 계획)
 복구 CTest studio_recovery ✅ (v0.8 M6-T7, ADR-0113) — 자동 저장 → 충돌 (--abort-after-autosaves) → 다시 시작 → 복구 제안 (--recover) →
     worlds/recovered-1 · 같은 tick · 해시 (불러오기가 확인) → 깨끗이 끝난 뒤에는 제안 없음
+레이아웃 CTest studio_layout ✅ (v0.8 M6-T6, ADR-0114) — 저장한 배치로 시작 → 같은 자리로 다시 저장 · 기억 → 기본 배치로 → 깨진 ini 옮김 →
+    안전 모드는 쓰지 않음 (창을 실제로 옮기는 확인은 MANUAL-QA)
 ```
 
 ### 3.1 Studio 시험 층 (NG-07 — 2차 감사 4.7) [계획 v0.8]

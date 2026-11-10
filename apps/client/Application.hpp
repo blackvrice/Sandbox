@@ -41,11 +41,13 @@
 #include "editor/services/AutosaveService.hpp"
 #include "editor/services/BuildService.hpp"
 #include "editor/services/CommandService.hpp"
+#include "editor/services/LayoutService.hpp"
 #include "editor/services/ProjectService.hpp"
 #include "editor/ui/BuildPanel.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
+#include "editor/ui/LayoutPanel.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
 #include "platform/common/Audio.hpp"
@@ -113,6 +115,9 @@ struct AppConfig {
     editor::services::AutosaveService* autosave = nullptr;
     bool recoverOnStart = false;
     u32 abortAfterAutosaves = 0; // (시험용) n 번째 자동 저장 뒤 std::_Exit(3) — 충돌 흉내
+    // 레이아웃 (v0.8 M6-T6 — ADR-0114): 서비스 (Application 보다 오래 산다 — 없으면 배치를 저장하지 않는다). 시작에
+    // 지금 레이아웃을 적용하고, ImGui 가 바뀌었다고 하면 · 끝낼 때 저장한다
+    editor::services::LayoutService* layouts = nullptr;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -192,6 +197,10 @@ private:
     void studioBuildFrame(); // 빌드 보고 받기 · --run-command · 끝내기
     void autosaveFrame();    // 자동 저장 · 복구 제안 (v0.8 M6-T7)
     void restoreRecovery();
+    // 레이아웃 (v0.8 M6-T6): 바뀌었으면 저장 · 고른 일 처리 · 지금 배치 저장 (announce = 로그에 알린다)
+    void layoutFrame();
+    void applyLayoutAction(const editor::LayoutPanelAction& a);
+    bool saveLayout(bool announce);
     [[nodiscard]] f64 appSeconds() const;
     void logBuildReport(const editor::services::BuildReport& r);
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
@@ -221,6 +230,10 @@ private:
     bool m_commandsRun = false;
     bool m_commandFailed = false;
     bool m_recoveryAsked = false; // 복구 제안을 알렸다 (v0.8 M6-T7)
+    // 레이아웃 (v0.8 M6-T6): 다음 프레임 앞 (ImGui 프레임 밖) 에 적용할 배치 텍스트 ("" = 기본 배치), 고르기 목록
+    std::optional<std::string> m_pendingLayout;
+    std::vector<std::string> m_layoutNames;
+    editor::LayoutPanelState m_layoutPanel;
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

@@ -10,11 +10,13 @@
 // 렌더러가 없으면(헤드리스 · 테스트) acknowledgeTextures 로 텍스처 요청을 받은 척한다.
 //
 // 폰트 (1.92 동적 아틀라스 — 쓰는 글자만 굽는다): desc.font → (Windows) C:/Windows/Fonts/malgun.ttf → 내장 벡터
-// 폰트(영문). 설정 파일(imgui.ini)은 쓰지 않는다 [계획 — Phase 12 에디터 레이아웃과 함께].
+// 폰트(영문). imgui.ini 를 ImGui 가 직접 쓰지 않는다 (IniFilename 없음) — 레이아웃 텍스트를 앱이 꺼내 LayoutService 가
+// 사용자 폴더 studio/layouts/ 에 둔다 (v0.8 M6-T6 — ADR-0114).
 
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "platform/common/Key.hpp"
@@ -57,6 +59,15 @@ public:
     [[nodiscard]] ImGuiPlatformIO& platformIo();
     [[nodiscard]] const std::string& fontName() const noexcept { return m_fontName; }
     [[nodiscard]] bool frameOpen() const noexcept { return m_frameOpen; }
+
+    // 레이아웃 (v0.8 M6-T6): ImGui ini 텍스트를 적용한다 — 프레임 밖에서 (beginFrame 전). 빈 텍스트 = 기본 배치 (설정을
+    // 지우고 도킹을 풀고, 창들이 코드의 처음 자리 — SetNextWindowPos(FirstUseEver) — 를 다시 받는다). ini 에 없는
+    // 창도 기본 자리로
+    void applyLayout(std::string_view ini);
+    [[nodiscard]] std::string layoutText(); // 지금 배치 (ImGui ini 텍스트)
+    // ImGui 가 배치가 바뀌었다고 한다 (움직임을 몇 초 모아서 — io.IniSavingRate). 꺼내 저장한 뒤 layoutSaved
+    [[nodiscard]] bool layoutChanged() const;
+    void layoutSaved();
 
 private:
     void syncModifiers();

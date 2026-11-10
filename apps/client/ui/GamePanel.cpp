@@ -73,7 +73,7 @@ std::optional<GameCommand> drawGamePanel(const GameInfo& info) {
     std::optional<GameCommand> request;
     const std::string line = gameStateLine(info);
     const std::string title = std::format("게임 — {}###game", line);
-    if (!ImGui::Begin(title.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin(title.c_str())) {
         ImGui::End();
         return request;
     }

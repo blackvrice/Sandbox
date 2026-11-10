@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include "apps/client/ui/FontFallback.hpp"
 #include "foundation/log/Log.hpp"
@@ -196,7 +197,7 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
     m_ctx = ImGui::CreateContext();
     ImGui::SetCurrentContext(m_ctx);
     ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr; // [계획] 레이아웃 저장 (Phase 12)
+    io.IniFilename = nullptr; // 레이아웃은 앱이 꺼내 LayoutService 가 저장한다 (v0.8 M6-T6) — 작업 폴더에 쓰지 않는다
     io.LogFilename = nullptr;
     // 키보드 내비게이션은 켜지 않는다 — 켜면 패널을 한 번 누른 뒤 WASD 까지 ImGui 가 가져간다 (I1)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -393,6 +394,38 @@ void ImGuiLayer::beginFrame(f64 dtSeconds) {
     }
     ImGui::NewFrame();
     m_frameOpen = true;
+}
+
+void ImGuiLayer::applyLayout(std::string_view ini) {
+    ImGui::SetCurrentContext(m_ctx);
+    ImGui::ClearIniSettings(); // 창 설정 · 도킹 노드를 지운다 (도킹한 창은 풀린다)
+    // 이미 만든 창도 코드의 처음 자리 (FirstUseEver) 를 다시 받게 — ini 에 있는 창은 아래 적용이 다시 막는다
+    for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows) {
+        w->SetWindowPosAllowFlags |= ImGuiCond_FirstUseEver;
+        w->SetWindowSizeAllowFlags |= ImGuiCond_FirstUseEver;
+        w->SetWindowCollapsedAllowFlags |= ImGuiCond_FirstUseEver;
+    }
+    if (!ini.empty()) {
+        ImGui::LoadIniSettingsFromMemory(ini.data(), ini.size());
+    }
+    ImGui::GetIO().WantSaveIniSettings = false;
+}
+
+std::string ImGuiLayer::layoutText() {
+    ImGui::SetCurrentContext(m_ctx);
+    usize size = 0;
+    const char* text = ImGui::SaveIniSettingsToMemory(&size);
+    return text != nullptr ? std::string(text, size) : std::string();
+}
+
+bool ImGuiLayer::layoutChanged() const {
+    ImGui::SetCurrentContext(m_ctx);
+    return ImGui::GetIO().WantSaveIniSettings;
+}
+
+void ImGuiLayer::layoutSaved() {
+    ImGui::SetCurrentContext(m_ctx);
+    ImGui::GetIO().WantSaveIniSettings = false;
 }
 
 ImDrawData* ImGuiLayer::endFrame(CursorShape appCursor) {

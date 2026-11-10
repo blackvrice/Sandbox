@@ -17,7 +17,7 @@ namespace {
 
 // 크기를 고정한다 — 툴마다 내용 높이가 달라 자동 크기면 오른쪽 아래에 둔 창이 화면 밖으로 자란다 (사용자가 늘릴 수
 // 있다)
-constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_NoSavedSettings;
+constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_None; // 자리는 레이아웃에 (v0.8 M6-T6)
 
 [[nodiscard]] bool containsIgnoreCase(std::string_view text, std::string_view needle) {
     if (needle.empty()) {

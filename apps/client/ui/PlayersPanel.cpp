@@ -44,7 +44,7 @@ std::optional<RoleRequest> drawPlayersPanel(const PlayersInfo& info) {
     ImGui::SetNextWindowPos({488.f * dpi, 12}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({250.f * dpi, 170.f * dpi}, ImGuiCond_FirstUseEver);
     std::optional<RoleRequest> request;
-    if (!ImGui::Begin("접속자", nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin("접속자")) {
         ImGui::End();
         return request;
     }

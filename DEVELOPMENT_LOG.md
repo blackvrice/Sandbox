@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-11-10 — v0.8 M6-T6: Studio 레이아웃 저장 · Studio 설정 (ADR-0114)
+
+**무엇을**
+
+- editor/services/StudioSettings: studio.json = 서비스마다 자기 키 (recentProjects · layout · autosaveSeconds) — 쓰기는 읽고 · 한 키 바꾸고 ·
+  원자적으로 (다른 키 · 모르는 키 그대로), 깨진 파일 (객체 아님) → studio.json.broken, 틀린 키 하나는 그 키만 무시, 더 새 schemaVersion 은
+  쓰지 않음. ProjectService 가 이것으로 쓴다 (전에는 통째로 써서 다른 키를 지웠다 · recentProjects 가 없으면 깨진 파일로 봤다 — ADR-0111 일부
+  Superseded).
+- editor/services/LayoutService: studio/layouts/<이름>.ini (이름 [a-z0-9_-] 1 ~ 32, default = 기본), select · save (같은 텍스트면 안 씀) ·
+  saveAs · names, 깨진 ini (1 MiB · UTF-8 · NUL · 줄 모양) → <이름>.ini.broken + 기본 배치, 안전 모드 (폴더 없음) 는 파일 없음.
+- 앱: ImGuiLayer applyLayout (ClearIniSettings → 이미 만든 창도 FirstUseEver 를 다시 → 적용) · layoutText · layoutChanged. Application — 시작에
+  지금 레이아웃, ImGui 가 바뀌었다고 하면 저장, 끝낼 때 저장 (아직 적용 안 한 배치가 있으면 그것), 고르기 · 기본 배치로는 프레임 밖, "레이아웃"
+  창 (editor/ui/LayoutPanel), 명령 studio.save-layout · studio.reset-layout, --layout <이름>. 패널 열두 개의 NoSavedSettings 를 뗐다.
+  main: studio.json 을 서비스보다 먼저 읽고 (깨짐 알림 한 번), autosaveSeconds 를 자동 저장 기본 주기로.
+- 문서: ADR-0114 (ADR-0111 일부 Superseded), 25 4장 · 상태 표 · 현행 표, 28 3장, 17 · 15 · 13 · MANUAL-QA, 등록부 M6-T6 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B 의 다섯째 태스크 · 감사 R6 · GM-08 — 다시 열 때마다 창이 처음 자리였다 (IniFilename 없음 · 패널 대부분 NoSavedSettings).
+
+**검증**
+
+- test_layout_service 4 개 (설정 키 · 깨짐 · 틀린 키 · 새 판, 최근 목록 ↔ 레이아웃이 서로 지우지 않음, 이름 · ini 모양, 저장 · 고르기 · 기억 ·
+  깨진 · 큰 ini · 안전 모드) · CTest studio_layout (qa.ini 의 편집 창 Pos=123,45 → 헤드리스 --layout qa → studio.save-layout 뒤 같은 자리 +
+  실제 창 "빌드" → 기억 → 기본 배치로 (곧바로 끝내도 남음) → 깨진 ini 옮김 → 틀린 이름 2 → 안전 모드는 설정 폴더에 쓰지 않음).
+- 처음 CTest 는 최근 목록이 남는지를 --world 실행으로 보려 했는데 --world 는 최근에 넣지 않는다 (홈의 열기 · 만들기만) — 시험이 studio.json 에
+  미리 최근 목록 · autosaveSeconds 를 넣고 그대로인지 본다.
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음. 성능: 레이아웃 저장은 ImGui 가 바뀌었다고 할 때만 (몇 초 모아서)
+  텍스트 몇 KB — 측정하지 않았다 (틱 · 프레임 경로 밖). 창 화면은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 83/83 통과.
+
+**남은 일**
+
+- 기본 레이아웃 셋 (장면 편집 · 스크립트 · 테스트 — DockBuilder, M6-T8 · ST-06-11 과), 레이아웃 지우기 · 이름 바꾸기, 테마 · 글꼴 키 (ST-06-2),
+  떼어 낸 창 (ImGui 뷰포트).
+
 ## 2026-11-10 — v0.8 M6-T7: Studio 자동 저장 · 크래시 복구 (ADR-0113)
 
 **무엇을**

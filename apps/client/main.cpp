@@ -25,7 +25,9 @@
 #include "core/project/GameProject.hpp"
 #include "editor/services/AutosaveService.hpp"
 #include "editor/services/BuildService.hpp"
+#include "editor/services/LayoutService.hpp"
 #include "editor/services/ProjectService.hpp"
+#include "editor/services/StudioSettings.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
 #include "foundation/io/AppPaths.hpp"
@@ -284,6 +286,14 @@ int main(int argc, char** argv) {
         }
         world = std::move(*ns);
     }
+    // Studio 설정 (v0.8 M6-T6 — ADR-0114): 설정 폴더의 studio.json (최근 프로젝트 · 레이아웃 · 자동 저장 주기 — 게임
+    // 클라이언트의 client.json 과 따로). 안전 모드는 읽지도 쓰지도 않는다. 깨진 파일은 여기서 먼저 옆으로 옮긴다
+    const std::filesystem::path studioFile = opts->safeMode ? std::filesystem::path() : configRoot / "studio.json";
+    const sbx::editor::services::StudioSettingsLoad studio = sbx::editor::services::loadStudioSettings(studioFile);
+    for (const std::string& w : studio.warnings) {
+        sbx::log::warn("studio", "{}", w);
+        notices.push_back(w);
+    }
     // Studio 홈 (v0.8 M6-T1 — ADR-0111): 프로젝트 서비스 — 최근 목록은 설정 폴더의 studio.json (안전 모드면 저장하지
     // 않는다)
     sbx::ecs::ComponentCatalog studioCatalog;
@@ -294,11 +304,23 @@ int main(int argc, char** argv) {
     sbx::editor::services::ProjectService projects(
         studioCatalog,
         sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
-        contentRoot, opts->safeMode ? std::filesystem::path() : configRoot / "studio.json", assetRoot);
+        contentRoot, studioFile, assetRoot);
     // 자동 저장 · 크래시 복구 (v0.8 M6-T7) — 복구본은 설정 폴더 recovery/ (안전 모드면 끔 — 사용자 폴더를 쓰지 않는다)
     sbx::editor::services::AutosaveService autosave(
         opts->safeMode ? std::filesystem::path() : configRoot / "recovery",
-        opts->autosaveSeconds.value_or(sbx::editor::services::AutosaveService::kDefaultInterval));
+        opts->autosaveSeconds.value_or(
+            studio.settings.autosaveSeconds.value_or(sbx::editor::services::AutosaveService::kDefaultInterval)));
+    // 레이아웃 (v0.8 M6-T6) — 설정 폴더 studio/layouts/ (안전 모드면 이 실행만 기본 배치). 더 새 studio.json 이면 지금
+    // 레이아웃을 기억하지 않는다 (그 파일을 바꾸지 않는다)
+    sbx::editor::services::LayoutService layouts(
+        opts->safeMode ? std::filesystem::path() : configRoot / "studio" / "layouts",
+        studio.newerVersion ? std::filesystem::path() : studioFile, studio.settings.layout);
+    if (!opts->layout.empty()) {
+        if (const auto r = layouts.select(opts->layout); !r) {
+            sbx::log::error("client", "--layout: {}", r.error().describe());
+            return kExitBadArgs;
+        }
+    }
     // 빌드 (v0.8 M6-T3 — sbx build 와 같은 길, 일꾼 스레드)
     sbx::editor::services::BuildService builds(
         studioCatalog,
@@ -330,6 +352,7 @@ int main(int argc, char** argv) {
     cfg.gamepads = gamepads.get();
     cfg.builds = &builds;
     cfg.autosave = &autosave;
+    cfg.layouts = &layouts;
     cfg.recoverOnStart = opts->recover;
     cfg.abortAfterAutosaves = opts->abortAfterAutosaves;
     cfg.runCommands = opts->runCommands;
