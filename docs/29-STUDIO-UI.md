@@ -125,7 +125,23 @@ WorldOp (TestPlay · TestStop · Save). 할 수 없는 항목은 끈다 (when) �
 | UI-1 | StudioTheme · StudioWidgets · StudioShell (메뉴 · 툴바 · 상태 막대 · 도크 공간 · 프리셋 · 모드 띠) · Creator/Developer | test_studio_shell (헤드리스 앱) · studio_layout · 창 1366×768 한 번 확인 | ✅ (창 · DPI 의 나머지는 MANUAL-QA) |
 | UI-2 | 홈 (사이드바 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 복사 · 복구 표시) | test_studio_home_data · test_studio_shell (홈) · studio_new_project | ✅ (창 확인은 MANUAL-QA — 화면 캡처가 막혀 있었다) |
 | UI-3 | 툴바의 툴 (편집 창은 지금 툴 · 설정만) · 목록 문맥 메뉴 · 선택 수 · 콘솔 창 · Studio 창 제목 · 콘텐츠/빌드/테스트 도크 | test_console_panel · test_editor (deleteSelection) · test_studio_shell (콘솔 도킹 · 제목) | ✅ (창 확인은 MANUAL-QA) |
-| UI-4 | 흐름 시험 (A ~ E) · 창 캡처 QA (1366×768 · 1920×1080 · uiScale) · 문서 | CTest · MANUAL-QA | [계획] |
+| UI-4 | 흐름 시험 (A ~ E — 7장 표) · 창 캡처 QA (1366×768 · 1920×1080 · uiScale) · 문서 | CTest · MANUAL-QA | 자동 흐름 ✅ · 창 QA 남음 (7장) |
 
 v0.9 ~ v0.13 연계 — 새 창은 3장의 위젯 · 4장의 도크 자리를 쓴다: v0.9 Script IDE (아래 도크 · scripting 배치), v0.10 Asset Browser ·
 UI Designer (아래 · 가운데 탭), v0.11 게임플레이 디버그 (개발자 창 → 제작자 창으로 올릴 것을 고른다), v0.12 고급 도구, v0.13 외부 제작자 사용성 시험.
+
+## 7. 흐름 검증 (UI-4)
+
+명령줄 · 설정 파일 손대기 없이 끝나야 하는 흐름 (사용자 요청 8장). 자동 시험은 화면 뒤의 같은 길 (명령 표 · 서비스 · 세션) 을 헤드리스로 지난다 —
+화면 모양 · 클릭 · DPI 는 창 QA 만 확인한다 (헤드리스 통과로 디자인을 검증했다고 하지 않는다).
+
+| 흐름 | 화면 길 | 자동 시험 (같은 길) | 창 QA (MANUAL-QA) |
+|------|---------|---------------------|-------------------|
+| A 새 프로젝트 | 홈 › 새 프로젝트 › 템플릿 › 이름 · gameId › 위치 › 만들고 열기 → 워크스페이스 | studio_new_project (명령 studio.new-project — 홈 단추와 같은 명령) · test_studio_home_data · test_studio_shell (홈 · 만들기 조건) | UI-2 줄 [ ] |
+| B 편집 · 저장 · 다시 열기 | 카드 열기 › 목록에서 고르기 › 인스펙터 값 › 툴바 저장 › 끝 › 다시 열기 | test_editor_session · test_world_panel (Save · Load) · studio_layout (배치 다시 열기) | UI-1 줄 [ ] |
+| C 테스트 플레이 | 툴바 ▶ 플레이 → 모드 띠 "Game" · 노란 테두리 → ■ 멈춤 → 편집 상태 | test_world_panel (TestPlay · TestStop — 편집 월드 그대로) · studio_test_session (서버 + N) | UI-1 줄 [ ] |
+| D 빌드 | 툴바 빌드 · 프로젝트 › 검사 → 빌드 창 · 콘솔 | studio_build (명령 studio.build · A6 · A8) | M6-T3 줄 [ ] |
+| E 크래시 복구 | 비정상 종료 → 홈 카드 "복구 가능" → 열기 → 복구 창 → recovered-<n> | studio_recovery · test_studio_home_data (peek) | M6-T7 · UI-2 줄 [ ] |
+
+창 QA 상태 (2026-11-10): UI-1 셸은 1366×768 에서 한 번 확인 (MANUAL-QA [x]). 그 뒤 실행은 다른 전체 화면 창이 주 모니터를 덮어 캡처하지 못했다 —
+1920×1080 · 배율 125 / 150 / 200 % · 홈 · 콘솔 · 메뉴 클릭은 [ ].
