@@ -11,6 +11,7 @@ add_executable(SandboxTests
     unit/foundation/test_sha256.cpp
     unit/foundation/test_handle.cpp
     unit/foundation/test_error.cpp
+    unit/foundation/test_file_io.cpp
     unit/foundation/test_assert.cpp
     unit/foundation/test_log.cpp
     unit/foundation/test_diag.cpp

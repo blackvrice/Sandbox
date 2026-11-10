@@ -1455,7 +1455,7 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
     if (projectDir.has_parent_path()) {
         fs::create_directories(projectDir.parent_path(), ec);
     }
-    fs::rename(staging, projectDir, ec);
+    ec = io::renameRetrying(staging, projectDir); // 방금 쓴 · 검사한 파일을 백신 · 색인기가 잠깐 잡으면 다시 (Windows)
     if (ec) {
         return makeError(ErrorCode::IoError, std::format("프로젝트 폴더를 넣을 수 없습니다: {}", ec.message()), where);
     }

@@ -245,7 +245,7 @@ Expected<CachedPack> cacheLocalPack(const fs::path& sourceDir, std::string_view 
     if (auto r = io::writeFileAtomic(staging / std::string(kMarker), snap->digest); !r) {
         return std::unexpected(r.error());
     }
-    fs::rename(staging, dir, ec);
+    ec = io::renameRetrying(staging, dir); // 백신 · 색인기의 잠깐 잡음이면 다시 (Windows)
     if (ec) {
         // 다른 프로세스가 먼저 넣었다 — 같으면 그것을 쓴다
         if (auto existing = snapshotPack(dir); existing && existing->digest == snap->digest) {

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 #include "foundation/types/Error.hpp"
 
@@ -25,6 +26,10 @@ namespace sbx::io {
 // 두 rename 사이에 실패하면 target.old 가 남는다 (오류 메시지에 경로를 담는다).
 [[nodiscard]] Expected<void> replaceDirectory(const std::filesystem::path& staging,
                                               const std::filesystem::path& target);
+
+// rename — 접근 거부 (Windows: 백신 · 색인기가 방금 쓴 파일을 잠깐 연다 — ERROR_ACCESS_DENIED · 공유 위반) 면 짧게 기다리며
+// 다시 (합 약 2 초). 다른 오류는 바로 돌려준다. 성공이면 빈 error_code
+[[nodiscard]] std::error_code renameRetrying(const std::filesystem::path& from, const std::filesystem::path& to);
 
 // 경로를 UTF-8 문자열로 (오류 메시지·로그용)
 [[nodiscard]] std::string displayPath(const std::filesystem::path& path);

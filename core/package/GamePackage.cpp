@@ -792,7 +792,7 @@ Expected<ExtractedPackage> extractPackage(const fs::path& file, const fs::path& 
     if (auto r = io::writeFileAtomic(staging / std::string(kMarker), idx->digest); !r) {
         return std::unexpected(r.error());
     }
-    fs::rename(staging, dir, ec);
+    ec = io::renameRetrying(staging, dir); // 백신 · 색인기의 잠깐 잡음이면 다시 (Windows)
     if (ec) {
         // 다른 프로세스가 먼저 같은 digest 를 풀었다 — 그것을 쓴다
         if (io::readFile(dir / std::string(kMarker)).value_or(std::string()) == idx->digest) {

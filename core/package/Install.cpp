@@ -135,7 +135,7 @@ Expected<InstallResult> installPackages(const fs::path& projectDir, const projec
     // 3. 바꿔 끼우기 — 실패하면 이름을 되돌린다
     const bool hadOld = fs::exists(target, ec);
     if (hadOld) {
-        fs::rename(target, old, ec);
+        ec = io::renameRetrying(target, old); // 백신 · 색인기의 잠깐 잡음이면 다시 (Windows)
         if (ec) {
             removeQuietly(staging);
             return makeError(ErrorCode::IoError, std::format("설치 폴더를 옮길 수 없다 — {}", ec.message()),
@@ -148,7 +148,7 @@ Expected<InstallResult> installPackages(const fs::path& projectDir, const projec
             fs::rename(old, target, ignored);
         }
     };
-    fs::rename(staging, target, ec);
+    ec = io::renameRetrying(staging, target); // 백신 · 색인기의 잠깐 잡음이면 다시 (Windows)
     if (ec) {
         const std::string why = ec.message();
         restore();

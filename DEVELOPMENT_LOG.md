@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-10 — 버그: 폴더 rename 이 Windows 에서 가끔 "Access is denied" (createProject · 패키지 풀기 · 원자적 쓰기)
+
+**무엇을**
+
+- foundation/io renameRetrying: rename 이 permission_denied (Windows ERROR_ACCESS_DENIED — 공유 위반 포함) 면 100 ms 씩 20 번까지 다시,
+  다른 오류는 바로. writeFileAtomic · replaceDirectory · createProject (staging → 프로젝트) · 패키지 풀기 (GamePackage · PackSource) ·
+  Install 이 쓴다.
+
+**왜**
+
+- 전체 ctest 에서 unit_client 의 앱 시험 (NG-06 (4) · (3b)) 이 두 번 createProject 의 "프로젝트 폴더를 넣을 수 없습니다: Access is denied" 로
+  떨어졌다 (다시 돌리면 통과). 방금 쓰고 검사한 파일을 백신 · 색인기가 잠깐 열면 폴더 rename 이 거절된다 — 사용자 기기에서도 같은 일이
+  sbx new · Studio 새 프로젝트 · 패키지 풀기에 생긴다.
+
+**검증**
+
+- test_file_io (폴더 안 파일을 열어 둔 채 rename → 300 ms 뒤 닫힘 → 성공 · 없는 원본은 1 초 안에 오류). Windows MSVC Debug 전체 ctest
+  84/84 통과.
+- 빌드 폴더의 CMakeCache 가 이 작업 중 바깥 (13:37 — 이 세션의 명령이 아니다) 에서 Ninja 없이 다시 구성돼 CMAKE_MAKE_PROGRAM-NOTFOUND 가
+  됐다 — 프리셋으로 다시 구성했다 (저장소 변경 없음).
+
+**남은 일**
+
+- 없음 (다른 rename — 깨진 설정 옮기기 등 — 은 실패해도 경고로 끝나 그대로 둔다).
+
 ## 2026-11-10 — v0.8 ST-06-9: Studio 테스트 세션 — 서버 + N 클라이언트 · 지연 · 손실 흉내 (ADR-0115)
 
 **무엇을**

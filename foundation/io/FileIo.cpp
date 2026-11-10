@@ -1,10 +1,24 @@
 #include "foundation/io/FileIo.hpp"
 
+#include <chrono>
 #include <format>
 #include <fstream>
 #include <system_error>
+#include <thread>
 
 namespace sbx::io {
+
+std::error_code renameRetrying(const std::filesystem::path& from, const std::filesystem::path& to) {
+    std::error_code ec;
+    for (int attempt = 0;; ++attempt) {
+        std::filesystem::rename(from, to, ec);
+        // permission_denied = Windows ERROR_ACCESS_DENIED (MSVC STL 이 공유 위반도 이것으로) — 잠깐 잡힌 것이면 풀린다
+        if (!ec || ec != std::errc::permission_denied || attempt >= 20) {
+            return ec;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
 
 std::string displayPath(const std::filesystem::path& path) {
     const std::u8string u = path.u8string();
@@ -47,9 +61,8 @@ Expected<void> writeFileAtomic(const std::filesystem::path& path, std::string_vi
             return makeError(ErrorCode::IoError, "쓰기 실패", displayPath(tmp));
         }
     }
-    std::error_code ec;
-    std::filesystem::rename(tmp, path,
-                            ec); // POSIX·Windows(MSVC STL: MOVEFILE_REPLACE_EXISTING) 모두 기존 파일을 바꾼다
+    // POSIX·Windows(MSVC STL: MOVEFILE_REPLACE_EXISTING) 모두 기존 파일을 바꾼다
+    std::error_code ec = renameRetrying(tmp, path);
     if (ec) {
         std::filesystem::remove(tmp, ec);
         return makeError(ErrorCode::IoError, std::format("rename 실패: {}", ec.message()), displayPath(path));
@@ -73,13 +86,13 @@ Expected<void> replaceDirectory(const std::filesystem::path& staging, const std:
     std::filesystem::remove_all(old, ec); // 지난 실패의 잔재
     const bool hadTarget = std::filesystem::exists(target, ec);
     if (hadTarget) {
-        std::filesystem::rename(target, old, ec);
+        ec = renameRetrying(target, old);
         if (ec) {
             return makeError(ErrorCode::IoError, std::format("기존 폴더를 옮길 수 없다: {}", ec.message()),
                              displayPath(target));
         }
     }
-    std::filesystem::rename(staging, target, ec);
+    ec = renameRetrying(staging, target);
     if (ec) {
         return makeError(
             ErrorCode::IoError,
