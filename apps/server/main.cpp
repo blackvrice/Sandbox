@@ -236,6 +236,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::scenario::attachPlayScript(*world->runner, *script);
     }
     desc.snapshotBytesPerSecond = static_cast<sbx::usize>(opts.snapshotKBps) * 1024;
+    desc.recordName = opts.record; // v0.8 M5-T3 — 첫 틱부터 기록 (멈추면 replay.sbxr)
     sbx::net::ServerHost host(*transport, std::move(world->runner), desc);
     if (auto r = host.start({opts.bind, opts.port}); !r) {
         sbx::log::error("server", "{}", r.error().describe());

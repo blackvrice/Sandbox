@@ -542,6 +542,15 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_layout"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_layout.cmake")
         set_tests_properties(studio_layout PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # 기록 · 보고 묶음 (v0.8 M5-T3 — 20 4장 · 7.1): 서버 · 클라이언트 자동 플레이 --record → 재생 같음 · 보고 묶음 replay/ · 결속 · 있는 이름
+        if(TARGET SandboxServer)
+            add_test(NAME replay_record
+                COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSERVER=$<TARGET_FILE:SandboxServer>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLES=${PROJECT_SOURCE_DIR}/samples"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/replay_record"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/replay_record.cmake")
+            set_tests_properties(replay_record PROPERTIES LABELS "content;client;net" TIMEOUT 900)
+        endif()
         # 리플레이 뷰어 (v0.8 M5-T1 — 20 4장): sim_check 기록 → --replay 끝 줄 · 일치 → 바꾼 기록 1 → 기록 아님 2 → 다른 게임 1
         if(TARGET sbx_sim_check)
             add_test(NAME client_replay

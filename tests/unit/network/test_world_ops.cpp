@@ -9,6 +9,7 @@
 #include <random>
 
 #include "core/components/RegisterCoreComponents.hpp"
+#include "core/replay/Replay.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "core/scenarios/WorldSource.hpp"
@@ -610,6 +611,25 @@ TEST_SUITE("network") {
         REQUIRE(done);
         CHECK_MESSAGE(done->accepted, done->detail);
         CHECK(rig.host->stats().mode == 0);
+    }
+
+    TEST_CASE("world ops (v0.8 M5-T3): desc.recordName 은 첫 틱 전부터 기록 — 멈추면 replay.sbxr, 재생하면 같다") {
+        TempDir dir("autorec");
+        ServerHostDesc d;
+        d.savesRoot = dir.path;
+        d.recordName = "auto";
+        Rig rig(d);
+        CHECK(rig.host->stats().mode == 1);
+        Peer owner(rig, "owner", "k");
+        const std::initializer_list<Peer*> all{&owner};
+        pump(rig, all, 30);
+        CHECK(fs::is_regular_file(dir.path / "auto" / "start" / "world.json"));
+        rig.host->stop();
+        CHECK(fs::is_regular_file(dir.path / "auto" / "replay.sbxr"));
+        const auto rep = replay::readReplay(dir.path / "auto" / "replay.sbxr");
+        REQUIRE(rep.has_value());
+        CHECK(rep->header.startTick == 0);
+        CHECK(rep->calls >= 30);
     }
 
     TEST_CASE("world ops: stopping the server writes the recording in progress") {

@@ -233,4 +233,28 @@ TEST_SUITE("project") {
         CHECK(newer.error().code == ErrorCode::VersionMismatch);
         CHECK_FALSE(readReportBundle(t.path / "not-a-bundle").has_value());
     }
+
+    TEST_CASE("report bundle (v0.8 M5-T3): 리플레이 폴더를 넣고 — 폴더로 읽고 · 보기가 다시 보는 법을 알린다") {
+        TempDir t("bundle_replay");
+        const fs::path rec = t.path / "saves" / "rec1";
+        fs::create_directories(rec / "start");
+        std::ofstream(rec / "replay.sbxr", std::ios::binary) << "{}";
+        std::ofstream(rec / "start" / "world.json", std::ios::binary) << "{}";
+        auto dir = diag::createReportDir(t.path / "reports", "SandboxClient");
+        REQUIRE(dir.has_value());
+        REQUIRE(diag::copyIntoReport(*dir, rec, "replay").has_value());
+        CHECK(fs::exists(*dir / "replay" / "start" / "world.json"));
+        CHECK(diag::copyIntoReport(*dir, rec, "replay").error().code == ErrorCode::AlreadyExists);
+        CHECK(diag::copyIntoReport(*dir, t.path / "nothing", "x").error().code == ErrorCode::NotFound);
+        diag::ReportInfo info{"SandboxClient", "사용자 보고", {}, {}, {}};
+        const std::vector<std::string> extra{"replay"};
+        REQUIRE(diag::writeReport(*dir, info, std::vector<std::string>{"l"}, {}, extra).has_value());
+        const auto b = readReportBundle(*dir);
+        REQUIRE(b.has_value());
+        CHECK(b->folders == std::vector<std::string>{"replay"});
+        CHECK(b->missingFiles.empty()); // 폴더는 빠진 파일이 아니다
+        const std::string text = formatReportBundle(*b, 10, "0.8.0");
+        CHECK(text.find("폴더 replay/ — 리플레이 기록") != std::string::npos);
+        CHECK(text.find("거르지 않았다") != std::string::npos);
+    }
 }

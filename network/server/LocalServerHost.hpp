@@ -28,6 +28,7 @@ struct LocalServerDesc {
     ServerMode mode = ServerMode::Threaded;
     u32 snapshotIntervalSteps = 2;
     std::filesystem::path savesRoot; // 세이브 · 리플레이 폴더 (12D — 비면 저장 · 불러오기 · 기록을 거절)
+    std::string recordName;          // 비지 않으면 첫 틱부터 <savesRoot>/<이름> 기록 (v0.8 M5-T3 — --record)
     // 자동 플레이 (v0.2 M6-T1, ADR-0055): 서버 러너의 시나리오로 (헤드리스 서버와 같은 단계에 같은 명령). 게임이
     // 끝나거나 maxTicks 면 서버가 멈춘다 (stats().reachedStopTick)
     std::optional<scenario::PlayScript> script;

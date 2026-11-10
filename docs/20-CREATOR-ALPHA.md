@@ -327,7 +327,9 @@ ctx.read 의 대상에 엔진 컴포넌트 (접근 표의 client 읽기)
             체크포인트 세이브 캐시 (N 틱마다) 로 뒤로 가기를 줄이는 것은 M5-T2 에서 측정 뒤 결정. ✅ v0.8 M5-T2 (ADR-0117 — WorldOp Seek ·
             프로토콜 17 · "월드" 창 타임라인, call 단위). 캐시는 두지 않았다 (14 7.18 측정 — 재검토 조건은 ADR)
 화면        타임라인 (게임 UI 가 없으면 ImGui 도구 패널 — 뷰어는 도구다), 해시 일치 표시 (기존 상태 줄)
-기록        테스트 플레이 · 자동 플레이 (--script) 에서 --record <폴더> — 버그 보고 묶음 (7.1) 에 넣는다
+기록        테스트 플레이 · 자동 플레이 (--script) 에서 --record <폴더> — 버그 보고 묶음 (7.1) 에 넣는다. ✅ v0.8 M5-T3 (ADR-0119) — --record <이름>
+            (서버 · 클라이언트 --world, 첫 틱 전부터 세이브 폴더에), --report-on-exit (묶음에 replay/), 재생의 게임 결속 (시작 세이브의 gameId).
+            충돌한 판의 기록은 [계획] (기록은 멈출 때 쓰인다)
 v0.7        원격 관전 (보안 전송 · 방 권한 · 관전 지연) — 이 장의 뷰어를 그대로 쓴다
 ```
 
@@ -403,7 +405,7 @@ v1.x        JIT (client onUpdate 먼저) · AOT 검토 — 조건: 프로파일�
                 <EMAIL>. 덤프는 거르지 않는다 (메모리가 든다 — sbx report 가 알린다). M1-T2: 콜스택 (report.json "stack" —
                 Windows 는 예외 문맥에서 StackWalk64 · 실행 파일 옆 PDB 가 있으면 기호 · 줄 (파일은 이름만), POSIX 는 backtrace),
                 문맥 crash::setContext (서버는 월드를 연 뒤 game · package digest · packs, 클라이언트는 connect · world). 리플레이를
-                묶음에 넣는 것은 M5-T3
+                묶음에 넣는 것은 M5-T3 ✅ (ADR-0119 — --report-on-exit 의 replay/, 거르지 않음)
 7.2 보기        ✅ M1-T2. sbx report [<묶음 | 이름>] [--lines n] [--reports-dir d] — 없으면 보고 폴더의 묶음 목록 (새것부터), 있으면
                 요약 (앱 · 시각 · 버전 · 커밋 · 툴체인 · 이유 · 명령줄 · 문맥) · 콜스택 · 마지막 로그 · 파일 · 거름 알림 · 덤프 알림
                 ("crash.dmp 에는 프로세스 메모리가 걸러지지 않고 든다 — 믿는 사람에게만") · 여는 법 · sbx 와 묶음의 버전 차이. 더 새

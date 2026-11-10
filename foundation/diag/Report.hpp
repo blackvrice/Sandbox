@@ -46,4 +46,9 @@ struct ReportInfo {
                                          std::span<const std::string> logLines, const ScrubRules& rules,
                                          std::span<const std::string> extraFiles = {});
 
+// 폴더 하나를 묶음 안 name/ 으로 복사한다 (v0.8 M5-T3 — 리플레이 기록 폴더). 거르지 않는다 (세이브 · 명령 — 받는 사람이
+// 다시 본다). 이미 있으면 AlreadyExists. writeReport 의 extraFiles 에 name 을 넣으면 report.json 의 files 에 적힌다
+[[nodiscard]] Expected<void> copyIntoReport(const std::filesystem::path& dir, const std::filesystem::path& source,
+                                            std::string_view name);
+
 } // namespace sbx::diag

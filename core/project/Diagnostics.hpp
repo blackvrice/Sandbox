@@ -79,6 +79,7 @@ struct ReportBundle {
     std::vector<std::string> stack;
     std::vector<std::pair<std::string, u64>> files; // report.json 의 files 와 크기 (없는 파일은 크기 0 · missing)
     std::vector<std::string> missingFiles;          // files 에 적혔는데 폴더에 없다
+    std::vector<std::string> folders;               // files 중 폴더 (v0.8 M5-T3 — replay/ 리플레이 기록)
     std::vector<std::string> logLines;              // log.txt
 };
 

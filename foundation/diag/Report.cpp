@@ -103,6 +103,30 @@ Expected<fs::path> createReportDir(const fs::path& root, std::string_view app) {
     return makeError(ErrorCode::IoError, "같은 초의 보고 폴더가 너무 많다", io::displayPath(root));
 }
 
+namespace {
+std::string displayPathOf(const fs::path& p) {
+    const std::u8string u = p.u8string();
+    return std::string(u.begin(), u.end());
+}
+} // namespace
+
+Expected<void> copyIntoReport(const fs::path& dir, const fs::path& source, std::string_view name) {
+    std::error_code ec;
+    const fs::path to = dir / std::string(name);
+    if (fs::exists(to, ec)) {
+        return makeError(ErrorCode::AlreadyExists, "묶음에 같은 이름이 있다", displayPathOf(to));
+    }
+    if (!fs::is_directory(source, ec)) {
+        return makeError(ErrorCode::NotFound, "복사할 폴더가 없다", displayPathOf(source));
+    }
+    fs::copy(source, to, fs::copy_options::recursive, ec);
+    if (ec) {
+        return makeError(ErrorCode::IoError, std::format("묶음에 복사하지 못했다: {}", ec.message()),
+                         displayPathOf(to));
+    }
+    return {};
+}
+
 Expected<void> writeReport(const fs::path& dir, const ReportInfo& info, std::span<const std::string> logLines,
                            const ScrubRules& rules, std::span<const std::string> extraFiles) {
     const auto s = [&](std::string_view text) { return quote(scrub(text, rules)); };

@@ -83,6 +83,11 @@ struct ClientOptions {
     // 들어가면 그 이름을 재생한다 (WorldOp Play — 서버가 콘텐츠 해시 · 시작 세이브를 확인한다)
     std::string replayName;
     std::optional<u64> replaySeek; // --replay-seek <call> (v0.8 M5-T2 — --replay 와 함께)
+    // 기록 (v0.8 M5-T3): --record <이름> = 첫 틱부터 <세이브 폴더>/<이름> 에 기록 (--world — 로컬 서버, 끝내면
+    // replay.sbxr),
+    // --report-on-exit = 끝낼 때 보고 묶음 (로그 + 기록이 있으면 replay/) 을 만든다 (버그 보고 · 자동 플레이)
+    std::string record;
+    bool reportOnExit = false;
     // --net-sim <글>: --connect 의 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션)
     std::optional<net::SimulatedLinkDesc> netSim;
     // Studio 테스트 세션 (v0.8 ST-06-9 — "테스트" 창 · studio.test-start 의 처음 값): --test-clients <1~4> (기본 2),

@@ -90,6 +90,9 @@ struct ServerHostDesc {
     std::string packageDigest; // 게임 패키지로 돌리면 그 digest (v0.2 M5-T2 — 세이브의 "game".package)
     u32 minPlayers = 0;
     sim::Tick stopAtTick = 0; // 0 이 아니면 그 틱에서 진행을 멈춘다 (--ticks N --exit)
+    // 비지 않으면 start 에서 첫 틱 전에 <savesRoot>/<이름> 기록을 시작한다 (v0.8 M5-T3 — --record, 자동 플레이 · 테스트
+    // 기록). 멈추면 (stop) replay.sbxr 로 쓴다 — 기존 길. 이름은 세이브 이름 규칙, 이미 있으면 start 가 실패한다
+    std::string recordName;
     // 게임 세션이 Finished (자동 재시작이 없는 모드) 가 되면 진행을 멈춘다 (--exit · --script, v0.2 M6-T1) — Finished
     // 는 틱을 멈추므로 stopAtTick 만으로는 끝나지 않는다
     bool stopWhenGameFinished = false;
@@ -271,6 +274,8 @@ private:
     [[nodiscard]] u32 playerCount() const; // 역할 player 이상으로 접속한 사람 수 (네트워크 스레드)
     [[nodiscard]] WorldList listWorlds() const;
     void seekReplay(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced); // v0.8 M5-T2
+    // 기록 시작 (WorldOp RecordStart · desc.recordName — v0.8 M5-T3 에서 나눔). 결과 요약
+    Expected<std::string> beginRecording(const std::string& name);
     void handlePlaybackCommand(const ValidatedCommand& c, std::vector<Outgoing>& results);
 
     INetworkTransport& m_transport;

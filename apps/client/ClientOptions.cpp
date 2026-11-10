@@ -273,6 +273,18 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                                  "--test-net-sim 은 latency · jitter · loss 만 (kbps 없음)");
             }
             opts.testNetSim = *sim;
+        } else if (a == "--record") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            if (!net::isValidSaveName(*v)) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 std::format("--record '{}' — 세이브 이름 규칙 (영숫자 · - · _ , 48 바이트)", *v));
+            }
+            opts.record = std::string(*v);
+        } else if (a == "--report-on-exit") {
+            opts.reportOnExit = true;
         } else if (a == "--replay-seek") {
             auto v = value();
             if (!v) {
@@ -380,6 +392,10 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
         } else {
             return makeError(ErrorCode::InvalidArgument, std::format("알 수 없는 옵션 '{}' (--help)", a));
         }
+    }
+    if (!opts.record.empty() && (!opts.world || !replayDir.empty())) {
+        return makeError(ErrorCode::InvalidArgument,
+                         "--record 는 --world 와 함께 (로컬 서버가 기록한다 — 재생 중이 아니다)");
     }
     if (opts.replaySeek && replayDir.empty()) {
         return makeError(ErrorCode::InvalidArgument, "--replay-seek 은 --replay 와 함께");
@@ -502,6 +518,9 @@ std::string clientUsage() {
            "      --replay-seek <call>  --replay 를 끝 앞 → 그 call (뒤로 — 시작 세이브에서 다시) → 끝 으로 탐색 (시험 "
            "· 측정 —\n"
            "                         v0.8)\n"
+           "      --record <이름>    첫 틱부터 세이브 폴더의 <이름> 에 기록 (--world — 끝내면 replay.sbxr, v0.8)\n"
+           "      --report-on-exit   끝낼 때 보고 묶음 (로그 · --record 의 리플레이) 을 만든다 (sbx report 로 본다 — "
+           "v0.8)\n"
            "      --layout <이름>    이 창 배치로 시작하고 기억한다 (설정 폴더 studio/layouts/<이름>.ini — v0.8)\n"
            "      --recover          앞 실행이 비정상으로 끝나 남은 복구본을 바로 연다 (worlds/recovered-<n> — v0.8)\n"
            "      --abort-after-autosaves <n>  (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 충돌 흉내 (종료 코드 "

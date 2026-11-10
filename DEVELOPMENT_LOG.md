@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-10 — v0.8 M5-T3: 기록 --record · 보고 묶음에 리플레이 · 재생의 게임 결속 (ADR-0119)
+
+**무엇을**
+
+- network: ServerHostDesc.recordName — start 가 첫 틱 전에 기록을 연다 (RecordStart 를 beginRecording 으로 나눠 같은 길). 재생 (Play) 은 시작
+  세이브의 gameId 가 다르면 "다른 게임 '…' 의 리플레이" 로 거절 (Load 와 같은 규칙). LocalServerHost · NetworkSession 이 recordName 을 넘긴다.
+- 앱: SandboxServer --record · SandboxClient --record (--world) · --report-on-exit (끝낼 때 — 로컬 서버가 기록을 쓴 뒤 — 묶음에 로그 + replay/).
+- foundation diag::copyIntoReport, core readReportBundle 이 폴더를 읽고 formatReportBundle 이 "폴더 replay/ — 리플레이 기록 · 다시 보기 · 거르지 않았다".
+- 문서: ADR-0119, 20 4장 · 7.1, 15 · 13, 등록부 M5-T3 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B · 20 M5-T3 ("버그 보고에 리플레이가 붙는다", 자동 플레이 기록 → 재생 같은 해시), ADR-0116 이 미룬 결속.
+
+**검증**
+
+- CTest replay_record (rabbit_guard 복사본 — 서버 자동 플레이 기록 3692 call → 재생 해시 124 개 일치, 클라이언트 자동 플레이 기록 + 묶음 →
+  sbx report 가 알림 → 묶음의 기록 재생 일치, 다른 게임 거절, 있는 이름은 서버가 시작하지 않음), test_world_ops (recordName — mode 1 · 쓰기 ·
+  startTick 0), test_diagnostics (묶음의 폴더), unit_network · unit_project 165 케이스.
+- 처음 시험: 기록 시작 tick 이 0 이 아니라 1 (프로젝트 시작 월드가 tick 1) — 시험이 tick 을 고정하지 않게. recordName 의 mode 가 통계에 안 보여
+  start 에서 publishStatus. sbx report 의 "다시 보기" 가 묶음 폴더를 그대로 가리켰는데 프로젝트 기록은 프로젝트 worlds/ 에서만 콘텐츠가 맞는다 —
+  안내를 고쳤다.
+- clang-tidy 바뀐 파일 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 86/86 통과.
+
+**남은 일**
+
+- 충돌한 판의 기록 (흘려 쓰기), Studio 메뉴의 "보고 묶음 만들기", 리플레이 거르기.
+
 ## 2026-11-10 — v0.8 UI-4 (자동 흐름 부분): 흐름 A ~ E 를 시험에 잇기 · 창 QA 목록
 
 **무엇을** 29 7장 — 사용자 요청의 흐름 다섯 (새 프로젝트 · 편집 저장 다시 열기 · 테스트 플레이 · 빌드 · 크래시 복구) 마다 화면 길 · 같은 길을 지나는

@@ -360,6 +360,10 @@ Expected<ReportBundle> readReportBundle(const fs::path& dir) {
     strings("files", files);
     for (const std::string& f : files) {
         std::error_code ec;
+        if (fs::is_directory(dir / f, ec)) { // 리플레이 기록 같은 폴더 (v0.8 M5-T3)
+            b.folders.push_back(f);
+            continue;
+        }
         const u64 size = fs::file_size(dir / f, ec);
         if (ec) {
             b.missingFiles.push_back(f);
@@ -427,6 +431,16 @@ std::string formatReportBundle(const ReportBundle& b, usize logLines, std::strin
         dump = dump || name == "crash.dmp";
     }
     out += std::format("  파일 {}\n", files.empty() ? std::string("(없음)") : files);
+    for (const std::string& f : b.folders) {
+        const bool replay = fs::is_regular_file(b.dir / f / "replay.sbxr");
+        out +=
+            std::format("  폴더 {}/{}\n", f,
+                        replay ? std::format(" — 리플레이 기록. 다시 보기: 그 게임 프로젝트의 worlds/ 에 복사해 "
+                                             "SandboxClient --replay <프로젝트>/worlds/<이름> (시나리오 기록이면 "
+                                             "SandboxClient --replay {} 그대로). 거르지 않았다 (세이브 · 명령 · 이름)",
+                                             io::displayPath(b.dir / f))
+                               : std::string());
+    }
     for (const std::string& m : b.missingFiles) {
         out += std::format("  빠진 파일 {} (report.json 에 적혔는데 없다)\n", m);
     }

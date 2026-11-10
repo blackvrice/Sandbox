@@ -36,6 +36,7 @@ Expected<std::unique_ptr<LocalServerHost>> LocalServerHost::create(const ecs::Co
     sd.snapshotIntervalSteps = desc.snapshotIntervalSteps;
     sd.snapshotBytesPerSecond = 0; // Loopback — 예산 없음
     sd.savesRoot = desc.savesRoot;
+    sd.recordName = desc.recordName;
     if (desc.script) {
         sd.stopWhenGameFinished = true;
         if (desc.script->maxTicks != 0) {

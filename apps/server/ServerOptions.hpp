@@ -50,6 +50,9 @@ struct ServerOptions {
     bool startGame = false; // --start-game: 게임 세션을 바로 시작 (서버가 GameControl Start 를 넣는다, M2-T3)
     // --net-sim <글>: 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션, "latency=80,jitter=10,loss=0.05")
     std::optional<net::SimulatedLinkDesc> netSim;
+    // --record <이름>: 첫 틱부터 세이브 폴더 (--saves · 프로젝트 worlds/) 의 <이름> 에 기록 — 끝나면 replay.sbxr (v0.8
+    // M5-T3 — 자동 플레이 --script 와 함께 쓰면 그 판의 리플레이)
+    std::string record;
 };
 
 [[nodiscard]] Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> args);

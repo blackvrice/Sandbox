@@ -1,5 +1,7 @@
 #include "apps/server/ServerOptions.hpp"
 
+#include "network/protocol/Messages.hpp"
+
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -69,12 +71,18 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             opts.logLevel = level;
         } else if (a == "--scenario" || a == "--world" || a == "--content-root" || a == "--bind" ||
                    a == "--default-role" || a == "--owner-key" || a == "--saves" || a == "--script" ||
-                   a == "--net-sim") {
+                   a == "--net-sim" || a == "--record") {
             const auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
             }
-            if (a == "--net-sim") {
+            if (a == "--record") {
+                if (!net::isValidSaveName(*v)) {
+                    return makeError(ErrorCode::InvalidArgument,
+                                     std::format("--record '{}' — 세이브 이름 규칙 (영숫자 · - · _ , 48 바이트)", *v));
+                }
+                opts.record = std::string(*v);
+            } else if (a == "--net-sim") {
                 auto sim = net::parseSimulatedLink(*v);
                 if (!sim) {
                     return std::unexpected(sim.error());
@@ -205,6 +213,7 @@ std::string serverUsage() {
            "      --saves <dir>        세이브 · 리플레이 폴더 (기본 saves — 월드 창의 저장 · 불러오기 · 기록, 12D)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
+           "      --record <이름>    첫 틱부터 세이브 폴더의 <이름> 에 기록 (끝나면 replay.sbxr — v0.8)\n"
            "      --net-sim <글>     보내는 쪽 지연 · 손실 흉내 — latency=80,jitter=10,loss=0.05,kbps=512 (v0.8)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 (또는 게임이 끝나면 — 자동 재시작 모드 말고) 접속자를 끊고\n"
            "                           끝낸다 (CI)\n"

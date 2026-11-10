@@ -66,7 +66,7 @@
 | ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.8 | P3 | ST-06-1 | 수동 QA |
 | M5-T1 | --replay · 로컬 재생 · 결속 | B | Done | v0.5 | v0.8 | P1 | — | CTest client_replay — ADR-0116 (결속 = 콘텐츠 해시 · 패키지 digest 는 M5-T3) |
 | M5-T2 | 재생 · 멈춤 · seek · 타임라인 | B | Done | v0.5 | v0.8 | P1 | M5-T1 | test_world_ops seek · client_replay --replay-seek · 14 7.18 — ADR-0117 (프로토콜 17) |
-| M5-T3 | --record · 보고 묶음에 | B | Planned | v0.5 | v0.8 | P2 | M5-T1 | 20 10장 |
+| M5-T3 | --record · 보고 묶음에 | B | Done | v0.5 | v0.8 | P2 | M5-T1 | CTest replay_record · test_world_ops · test_diagnostics — ADR-0119 |
 | NG-07 | Studio 시험 층 (헤드리스 Studio · GUI smoke · E2E · 실기 QA 증거) | B | Proposed | — | v0.8 | P0 | ST-06-1 | 헤드리스 흐름 시험 하나 · QA 양식 |
 | NG-03 | Player 모드 (패키지 열기 · 최근 게임 · 더블클릭 · 오류 화면) | B | Proposed | — | v0.8 | P1 | — | 헤드리스 Player 로 패키지 열기 시험 |
 | UI-0 | Studio UI 감사 · 벤치마킹 · 디자인 시스템 · 배치 명세 (29) | B | Done | v0.8 | v0.8 | P0 | — | 29-STUDIO-UI · ADR-0118 |

@@ -136,6 +136,14 @@ Expected<void> ServerHost::start(const Endpoint& at) {
     if (auto r = m_transport.listen(at, m_desc.maxClients + 4); !r) {
         return r;
     }
+    if (!m_desc.recordName.empty()) { // v0.8 M5-T3 — 첫 틱 전에 (Sim 스레드가 아직 없다)
+        auto r = beginRecording(m_desc.recordName);
+        if (!r) {
+            return std::unexpected(r.error());
+        }
+        log::info("net", "기록 '{}': {}", m_desc.recordName, *r);
+        publishStatus();
+    }
     m_started = true;
     const f64 interval = static_cast<f64>(m_runner->world().clock().tickIntervalNanos()) / 1e9;
     log::info("net", "서버 시작: {} · {} {} 포트 {} · 최대 {} 명 · 기본 역할 {}{}", m_meta.name, m_transport.name(),
@@ -1195,39 +1203,11 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
         return;
     }
     case WorldOpKind::RecordStart: {
-        if (m_recording) {
-            reply(std::format("이미 '{}' 를 기록하고 있습니다", m_recording->name), false);
-            return;
+        auto r = beginRecording(req.name);
+        r ? reply(*r, true) : reply(r.error().message, false);
+        if (r) {
+            publishStatus();
         }
-        if (m_playback) {
-            reply("리플레이를 재생하는 중에는 기록할 수 없습니다", false);
-            return;
-        }
-        std::error_code ec;
-        if (std::filesystem::exists(dir, ec)) {
-            reply("같은 이름의 세이브 · 리플레이가 있습니다", false);
-            return;
-        }
-        auto saved = persist::saveWorld(world, dir / kReplayStart, persist::SaveOptions{req.name, gameBinding()});
-        if (!saved) {
-            reply(saved.error().describe(), false);
-            return;
-        }
-        auto startHash = world.worldHash();
-        if (!startHash) {
-            reply(startHash.error().describe(), false);
-            return;
-        }
-        replay::ReplayHeader header;
-        header.startWorld = kReplayStart;
-        header.startWorldHash = *startHash;
-        Recording rec;
-        rec.name = req.name;
-        rec.dir = dir;
-        rec.recorder = std::make_unique<replay::ReplayRecorder>(world, std::move(header));
-        m_recording = std::move(rec);
-        reply(std::format("tick {} 부터 기록", world.currentTick()), true);
-        publishStatus();
         return;
     }
     case WorldOpKind::Play: {
@@ -1244,6 +1224,14 @@ void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out,
             return;
         }
         pb->replay = std::move(*rep);
+        // 게임 결속 (v0.8 M5-T3 — Load 와 같은 규칙): 시작 세이브의 gameId 가 이 서버의 게임과 다르면 거절
+        if (const auto summary = scenario::readSaveSummary(dir / pb->replay.header.startWorld);
+            summary && summary->game && !m_desc.game.empty() && summary->game->gameId != m_desc.game.gameId) {
+            reply(std::format("다른 게임 '{}' 의 리플레이입니다 (이 서버는 '{}')", summary->game->gameId,
+                              m_desc.game.gameId),
+                  false);
+            return;
+        }
         if (pb->replay.header.contentHash != m_contentHash) {
             reply(std::format("다른 콘텐츠로 기록한 리플레이입니다 (리플레이 {}, 서버 {})",
                               replay::formatHash(pb->replay.header.contentHash), replay::formatHash(m_contentHash)),
@@ -1595,6 +1583,46 @@ WorldList ServerHost::listWorlds() const {
         list.worlds.resize(kMaxSavedWorlds);
     }
     return list;
+}
+
+// 기록 시작 (12D RecordStart — v0.8 M5-T3 에서 나눔: WorldOp · desc.recordName 이 같은 길). <savesRoot>/<이름>/start 에
+// 시작 세이브 (게임 결속 포함), 이후 적용된 명령을 tick() 마다. Sim 절반 (틱 사이) 또는 start 전에만 부른다
+Expected<std::string> ServerHost::beginRecording(const std::string& name) {
+    if (m_recording) {
+        return makeError(ErrorCode::AlreadyExists, std::format("이미 '{}' 를 기록하고 있습니다", m_recording->name));
+    }
+    if (m_playback) {
+        return makeError(ErrorCode::Unsupported, "리플레이를 재생하는 중에는 기록할 수 없습니다");
+    }
+    if (m_desc.savesRoot.empty()) {
+        return makeError(ErrorCode::Unsupported, "이 서버에는 세이브 폴더가 없습니다 (--saves)");
+    }
+    if (!isValidSaveName(name)) {
+        return makeError(ErrorCode::InvalidArgument, "이름은 영문 · 숫자 · _ · - 로 1 ~ 48 글자");
+    }
+    const std::filesystem::path dir = m_desc.savesRoot / name;
+    std::error_code ec;
+    if (std::filesystem::exists(dir, ec)) {
+        return makeError(ErrorCode::AlreadyExists, "같은 이름의 세이브 · 리플레이가 있습니다");
+    }
+    auto& world = m_runner->world();
+    auto saved = persist::saveWorld(world, dir / kReplayStart, persist::SaveOptions{name, gameBinding()});
+    if (!saved) {
+        return std::unexpected(saved.error());
+    }
+    auto startHash = world.worldHash();
+    if (!startHash) {
+        return std::unexpected(startHash.error());
+    }
+    replay::ReplayHeader header;
+    header.startWorld = kReplayStart;
+    header.startWorldHash = *startHash;
+    Recording rec;
+    rec.name = name;
+    rec.dir = dir;
+    rec.recorder = std::make_unique<replay::ReplayRecorder>(world, std::move(header));
+    m_recording = std::move(rec);
+    return std::format("tick {} 부터 기록", world.currentTick());
 }
 
 // 리플레이 탐색 (v0.8 M5-T2 — ADR-0117): 재생 중인 리플레이의 target call 로. 뒤로면 시작 세이브를 다시 열어 처음부터

@@ -133,3 +133,4 @@
 | [0116](0116-replay-viewer-client-replay-option.md) | 리플레이 뷰어 — SandboxClient --replay <기록 폴더> = 옵션에서 월드 (프로젝트 worlds/ 면 프로젝트, 아니면 start/) · 세이브 폴더 · 이름으로, 들어가면 WorldOp Play (프로토콜 그대로), 결과는 takeWorldOpOutcomes, 헤드리스 끝 줄 · 종료 코드, 결속 = 콘텐츠 해시 | Accepted | 2026-11-10 |
 | [0117](0117-replay-seek-worldop-protocol-17.md) | 리플레이 탐색 — WorldOp Seek + target (프로토콜 17), 앞 = 빠르게 (Sim 단계마다 20 ms), 뒤 = 시작 세이브에서 다시 (WorldChanged Replay), 닿으면 멈춤 · 결과, 체크포인트 캐시는 측정 뒤 [계획], 타임라인 · --replay-seek | Accepted | 2026-11-10 |
 | [0118](0118-studio-shell-dockspace-design-system.md) | Studio 셸 — ImGui 그대로 메뉴 · 툴바 · 통과 도크 공간 · 배치 프리셋 (DockBuilder — LayoutService 이름) · 디자인 토큰 · Creator/Developer 창 나누기 (개발자 창 기본 숨김) | Accepted | 2026-11-10 |
+| [0119](0119-record-option-report-bundle-replay.md) | 기록 --record (ServerHostDesc.recordName — 첫 틱 전부터, 서버 · 로컬 서버) · 보고 묶음에 리플레이 (copyIntoReport · --report-on-exit · sbx report 가 알림) · 재생의 게임 결속 (시작 세이브의 gameId) | Accepted | 2026-11-10 |

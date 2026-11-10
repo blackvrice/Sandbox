@@ -257,6 +257,7 @@ int main(int argc, char** argv) {
         nd.connect = o.connect.value_or("");
         nd.displayName = o.name;
         nd.ownerKey = o.ownerKey;
+        nd.recordName = o.record;    // v0.8 M5-T3 — 첫 틱부터 기록
         if (o.netSim && o.connect) { // 지연 · 손실 흉내 (v0.8 ST-06-9) — 원격 접속의 보내는 쪽
             const sbx::net::SimulatedLinkDesc sim = *o.netSim;
             sbx::log::info("client", "네트워크 흉내: {}", sbx::net::describeSimulatedLink(sim));
@@ -514,7 +515,39 @@ int main(int argc, char** argv) {
                                   ss.overruns));
         }
     }
-    world.reset();
+    world.reset();            // 로컬 서버가 멈추며 기록 중인 리플레이를 쓴다 (--record)
+    if (opts->reportOnExit) { // 보고 묶음 (v0.8 M5-T3) — 로그 + 기록한 리플레이
+        sbx::diag::ReportInfo info;
+        info.app = "SandboxClient";
+        info.reason = "사용자 보고 (--report-on-exit)";
+        info.args = argStore;
+        if (opts->world) {
+            info.context.emplace_back("world", *opts->world);
+        }
+        std::vector<std::string> extra;
+        auto dir = sbx::diag::createReportDir(sbx::diag::defaultReportsRoot(), info.app);
+        if (dir) {
+            if (!opts->record.empty()) {
+                info.context.emplace_back("record", opts->record);
+                const std::filesystem::path rec = saveDefaults.savesRoot / opts->record;
+                if (const auto c = sbx::diag::copyIntoReport(*dir, rec, "replay"); c) {
+                    extra.push_back("replay");
+                } else {
+                    sbx::log::warn("client", "보고 묶음에 리플레이를 넣지 못했다: {}", c.error().describe());
+                }
+            }
+            const auto w =
+                sbx::diag::writeReport(*dir, info, sbx::log::recentLines(), sbx::diag::defaultScrubRules(), extra);
+            if (w) {
+                printText(
+                    std::format("보고 묶음: {}{}\n", dir->generic_string(), extra.empty() ? "" : " (리플레이 포함)"));
+            } else {
+                sbx::log::error("client", "보고 묶음을 쓰지 못했다: {}", w.error().describe());
+            }
+        } else {
+            sbx::log::error("client", "보고 묶음 폴더를 만들지 못했다: {}", dir.error().describe());
+        }
+    }
     // 에셋 (v0.6 M6-T9 — 프로젝트 · 패키지 파일이 실제로 올라갔나, 스모크 시험이 읽는다)
     if (renderer && renderer->assets() != nullptr) {
         const sbx::render::AssetStats& as = renderer->assets()->stats();
