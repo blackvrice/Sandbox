@@ -135,6 +135,7 @@ add_executable(SandboxTests
     unit/editor/test_editor_undo_line.cpp
     unit/editor/test_project_service.cpp
     unit/editor/test_build_service.cpp
+    unit/editor/test_autosave_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -517,6 +518,12 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_build"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_build.cmake")
         set_tests_properties(studio_build PROPERTIES LABELS "content;client" TIMEOUT 600)
+        # 자동 저장 · 크래시 복구 (v0.8 M6-T7 — 28 3장 "복구", 24 D3): 강제 종료 → --recover → 같은 tick · 해시의 세이브 → 깨끗하면 제안 없음
+        add_test(NAME studio_recovery
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_recovery"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_recovery.cmake")
+        set_tests_properties(studio_recovery PROPERTIES LABELS "content;client" TIMEOUT 900)
     endif()
     if(TARGET SandboxServer)
         add_test(NAME project_new_from_scenario

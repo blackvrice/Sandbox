@@ -67,7 +67,7 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    LanguageService    script/lang/LanguageService  (27 — 프로토타입 있음)
 │    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job) ✅ 검사 · 빌드 · 일꾼 (v0.8 M6-T3, ADR-0112 — 배포 묶음은 [계획])
 │    TestService        로컬 서버 · 클라이언트 실행 (SandboxProcess 재사용) · 지연 모의 설정
-│    AutosaveService    편집 상태 주기 저장 · 복구 (7장)
+│    AutosaveService    편집 상태 주기 저장 · 복구 (7장) ✅ (v0.8 M6-T7, ADR-0113)
 │    PluginService      [계획 v0.8+] (9장)
 └─ Engine (바꾸지 않는다)  Foundation · Core/ECS · Simulation · Script VM · Network · Render · Platform
 ```
@@ -178,7 +178,7 @@ Prefab 인스턴스 [제안 v0.6]  인스턴스 = core.prefab (현행 — 출처
 기즈모              2D 이동 (현행 Move 툴) + [v0.6] 축 핸들 · 회전 (core.transform 에 회전이 생길 때 — 지금 없음)
 다중 편집 충돌      현행 — 서버 순서로 적용 · 거절은 그 클라이언트에 (10 7장, edit_session 시험). 같은 Prefab · 파일 동시 편집은 v0.7 (문서
                    잠금 또는 3-way 병합 — 결정 필요 D-17)
-자동 저장 · 복구 [제안 v0.5]  편집 월드를 사용자 폴더 recovery/<프로젝트 해시>/ 에 N 분 (기본 3) 마다 + 플레이 시작 전에 세이브 (기존 세이브 형식
+자동 저장 · 복구 ✅ v0.8 M6-T7 (ADR-0113 — 로컬 서버의 프로세스 안 세이브 · 복구 = worlds/recovered-<n>)  편집 월드를 사용자 폴더 recovery/<프로젝트 해시>/ 에 N 분 (기본 3) 마다 + 플레이 시작 전에 세이브 (기존 세이브 형식
                    — 09), 열린 문서의 저장 안 한 텍스트도. 다음 시작이 비정상 종료 (충돌 보고 표시 — M1) 를 보면 "복구" 제안. 프로젝트 파일을
                    덮어쓰지 않는다 (사용자가 고르면 그때 저장)
 ```
@@ -223,7 +223,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | ✅ v0.8 M6-T1 (ProjectService · StudioHome — ADR-0111) |
 | 레이아웃 저장 · 설정 분리 | [계획 v0.5 M6-T6 — 이번 감사가 추가] |
 | GUI 빌드 · 누락 검사 | ✅ v0.8 M6-T3 (BuildService · "빌드" 창 — ADR-0112) |
-| 자동 저장 · 복구 | [계획 v0.5 M6-T7 — 추가] |
+| 자동 저장 · 복구 | ✅ v0.8 M6-T7 (AutosaveService · 복구 창 — ADR-0113) |
 | 스크립트 자동 완성 · hover 기본 | [계획 v0.5 M6-T8 — 추가] (프로토타입: script/lang/LanguageService 현행) |
 | Editor Services 층 · Command · Document · Undo 통합 | [계획 v0.6] (v0.5 는 새 기능부터 services 에) |
 | 에셋 브라우저 · 가져오기 · 안정 id | [계획 v0.5 최소 · v0.6] (26) |

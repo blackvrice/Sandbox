@@ -160,6 +160,8 @@ public:
     [[nodiscard]] const net::ClientWorld* clientWorld() const noexcept;
     [[nodiscard]] net::ClientSession* session() noexcept { return m_session.get(); }
     [[nodiscard]] net::LocalServerHost* localServer() noexcept { return m_local.get(); }
+    bool requestRecoverySave(const std::filesystem::path& dir) override; // v0.8 M6-T7
+    [[nodiscard]] std::vector<RecoverySave> takeRecoverySaves() override;
     [[nodiscard]] const WorldSnapshot& lastSnapshot() const noexcept { return m_snapshot; }
     [[nodiscard]] f64 renderTick() const override { return m_snapshot.renderTick; }
     [[nodiscard]] u64 serverTick() const override;

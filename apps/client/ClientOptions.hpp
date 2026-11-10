@@ -68,7 +68,13 @@ struct ClientOptions {
     // --quit-after-commands 면 명령 (비동기 빌드 포함) 이 끝나면 끝낸다 — 실패한 명령 · 빌드가 있으면 종료 코드 1
     std::vector<std::string> runCommands;
     bool quitAfterCommands = false;
-    u64 seed = 1;                  // --seed (--world)
+    // 자동 저장 · 크래시 복구 (v0.8 M6-T7): --autosave-seconds <s> (0 = 주기 저장 끔, 기본 180), --recover = 복구
+    // 제안을 바로 받아들인다 (헤드리스 시험 studio_recovery · 자동화)
+    std::optional<f64> autosaveSeconds;
+    bool recover = false;
+    u32 abortAfterAutosaves =
+        0;        // (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 강제 종료 · 충돌 흉내 (studio_recovery)
+    u64 seed = 1; // --seed (--world)
     std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)
     std::string assetRoot;         // --assets (비면 저장소의 assets/)

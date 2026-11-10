@@ -62,7 +62,8 @@ G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 �
 G8  CTest studio_build ✅ (v0.8 M6-T3, ADR-0112) — 명령 studio.build (--run-command · 일꾼) → 패키지 · A8 경고 → 빈 캐시에서 sbx check →
     누락 에셋 (A6) 은 열지 않음 · 패키지 없음. 열린 뒤 생긴 누락의 [빌드] 거절은 test_build_service
 G9  M7-T3 A → B E2E (기존 계획)
-복구 CTest studio_recovery [계획 M6-T7] — 자동 저장 → 강제 종료 → 다시 시작 → 복구 제안 → 같은 WorldHash
+복구 CTest studio_recovery ✅ (v0.8 M6-T7, ADR-0113) — 자동 저장 → 충돌 (--abort-after-autosaves) → 다시 시작 → 복구 제안 (--recover) →
+    worlds/recovered-1 · 같은 tick · 해시 (불러오기가 확인) → 깨끗이 끝난 뒤에는 제안 없음
 ```
 
 ### 3.1 Studio 시험 층 (NG-07 — 2차 감사 4.7) [계획 v0.8]

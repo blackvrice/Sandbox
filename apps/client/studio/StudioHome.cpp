@@ -138,4 +138,32 @@ std::optional<StudioHomeAction> drawStudioHome(StudioHomeState& state,
     return action;
 }
 
+std::optional<bool> drawRecoveryPrompt(const editor::services::RecoveryInfo& info) {
+    std::optional<bool> choice;
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.3f),
+                            ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+    if (ImGui::Begin("복구", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextWrapped("앞 실행이 비정상으로 끝났다. 자동 저장한 작업이 있다 (%s).", info.savedAt.c_str());
+        if (info.hasWorld) {
+            ImGui::BulletText("월드 tick %llu — 복구하면 worlds/recovered-<n> 로 옮겨 연다 (프로젝트의 것은 그대로)",
+                              static_cast<unsigned long long>(info.tick));
+        }
+        for (const editor::services::RecoveredDocument& d : info.documents) {
+            ImGui::BulletText("저장하지 않은 문서 %s", utf8(d.path).c_str());
+        }
+        ImGui::BeginDisabled(!info.hasWorld);
+        if (ImGui::Button("복구")) {
+            choice = true;
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("버리기")) {
+            choice = false;
+        }
+    }
+    ImGui::End();
+    return choice;
+}
+
 } // namespace sbx::client

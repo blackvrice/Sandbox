@@ -23,6 +23,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/project/GameProject.hpp"
+#include "editor/services/AutosaveService.hpp"
 #include "editor/services/BuildService.hpp"
 #include "editor/services/ProjectService.hpp"
 #include "foundation/BuildInfo.hpp"
@@ -294,6 +295,10 @@ int main(int argc, char** argv) {
         studioCatalog,
         sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
         contentRoot, opts->safeMode ? std::filesystem::path() : configRoot / "studio.json", assetRoot);
+    // 자동 저장 · 크래시 복구 (v0.8 M6-T7) — 복구본은 설정 폴더 recovery/ (안전 모드면 끔 — 사용자 폴더를 쓰지 않는다)
+    sbx::editor::services::AutosaveService autosave(
+        opts->safeMode ? std::filesystem::path() : configRoot / "recovery",
+        opts->autosaveSeconds.value_or(sbx::editor::services::AutosaveService::kDefaultInterval));
     // 빌드 (v0.8 M6-T3 — sbx build 와 같은 길, 일꾼 스레드)
     sbx::editor::services::BuildService builds(
         studioCatalog,
@@ -324,6 +329,9 @@ int main(int argc, char** argv) {
     sbx::client::AppConfig cfg;
     cfg.gamepads = gamepads.get();
     cfg.builds = &builds;
+    cfg.autosave = &autosave;
+    cfg.recoverOnStart = opts->recover;
+    cfg.abortAfterAutosaves = opts->abortAfterAutosaves;
     cfg.runCommands = opts->runCommands;
     cfg.quitAfterCommands = opts->quitAfterCommands;
     if (opts->world && sbx::project::isProjectFolder(std::filesystem::path(

@@ -38,6 +38,7 @@
 #include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
+#include "editor/services/AutosaveService.hpp"
 #include "editor/services/BuildService.hpp"
 #include "editor/services/CommandService.hpp"
 #include "editor/services/ProjectService.hpp"
@@ -107,6 +108,11 @@ struct AppConfig {
     std::filesystem::path projectDir;
     std::vector<std::string> runCommands;
     bool quitAfterCommands = false;
+    // 자동 저장 · 크래시 복구 (v0.8 M6-T7 — ADR-0113): 서비스 (Application 보다 오래 산다 — 없으면 끔), 복구 제안을
+    // 바로 받기
+    editor::services::AutosaveService* autosave = nullptr;
+    bool recoverOnStart = false;
+    u32 abortAfterAutosaves = 0; // (시험용) n 번째 자동 저장 뒤 std::_Exit(3) — 충돌 흉내
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -184,6 +190,9 @@ private:
     bool enterProject(const std::filesystem::path& dir);
     void setProject(const std::filesystem::path& dir);
     void studioBuildFrame(); // 빌드 보고 받기 · --run-command · 끝내기
+    void autosaveFrame();    // 자동 저장 · 복구 제안 (v0.8 M6-T7)
+    void restoreRecovery();
+    [[nodiscard]] f64 appSeconds() const;
     void logBuildReport(const editor::services::BuildReport& r);
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
     void routeGamepads(std::vector<ui::UiAction>& events);           // v0.7 NG-06 (4) — 패드 → 게임 UI 키
@@ -211,6 +220,7 @@ private:
     editor::BuildPanelState m_buildPanel;
     bool m_commandsRun = false;
     bool m_commandFailed = false;
+    bool m_recoveryAsked = false; // 복구 제안을 알렸다 (v0.8 M6-T7)
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

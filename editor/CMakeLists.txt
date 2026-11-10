@@ -11,6 +11,8 @@ add_library(SandboxEditorServices STATIC
     services/ProjectService.cpp
     services/BuildService.hpp
     services/BuildService.cpp
+    services/AutosaveService.hpp
+    services/AutosaveService.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)

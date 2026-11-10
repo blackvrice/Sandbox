@@ -239,6 +239,34 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.gameUiScale = static_cast<f32>(s);
         } else if (a == "--quit-after-commands") {
             opts.quitAfterCommands = true;
+        } else if (a == "--recover") {
+            opts.recover = true;
+        } else if (a == "--abort-after-autosaves") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const std::string text(*v);
+            char* end = nullptr;
+            const long n = std::strtol(text.c_str(), &end, 10);
+            if (text.empty() || end != text.c_str() + text.size() || n < 1 || n > 1000) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 std::format("--abort-after-autosaves '{}' — 1 ~ 1000", text));
+            }
+            opts.abortAfterAutosaves = static_cast<u32>(n);
+        } else if (a == "--autosave-seconds") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const std::string text(*v);
+            char* end = nullptr;
+            const double s = std::strtod(text.c_str(), &end);
+            if (text.empty() || end != text.c_str() + text.size() || !(s >= 0.0) || s > 86400.0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 std::format("--autosave-seconds '{}' — 0 ~ 86400 초", text));
+            }
+            opts.autosaveSeconds = s;
         } else if (a == "--run-command") {
             auto v = value();
             if (!v) {
@@ -360,6 +388,11 @@ std::string clientUsage() {
            "                         이름, v0.8). 그 밖에는 --world 없이 열면 Studio 홈 (새 프로젝트 · 열기 · 최근)\n"
            "      --run-command <id> 들어간 뒤 Studio 명령 (studio.build · studio.check …, 여러 번 — v0.8)\n"
            "      --quit-after-commands  명령 (빌드 포함) 이 끝나면 끝낸다 — 실패가 있으면 종료 코드 1\n"
+           "      --autosave-seconds <s>  프로젝트 자동 저장 주기 (기본 180, 0 = 끔 — 복구본은 설정 폴더 recovery/, "
+           "v0.8)\n"
+           "      --recover          앞 실행이 비정상으로 끝나 남은 복구본을 바로 연다 (worlds/recovered-<n> — v0.8)\n"
+           "      --abort-after-autosaves <n>  (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 충돌 흉내 (종료 코드 "
+           "3)\n"
            "      --seed <n>         --world 시나리오의 월드 시드 (기본 1)\n"
            "      --threads <n>      --world 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"

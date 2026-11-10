@@ -60,7 +60,7 @@
 | M6-T1 | Studio 홈 · 새 프로젝트 · 열기 · 최근 | B | Done | v0.5 | v0.8 | P0 | ST-06-1 | CTest studio_new_project · test_project_service — ADR-0111 |
 | M6-T3 | "패키지" 패널 · Build 화면 · 누락 검사 | B | Done | v0.5 | v0.8 | P0 | NG-01 · ST-06-1 | CTest studio_build · test_build_service — ADR-0112 |
 | M6-T6 | 레이아웃 저장 · Studio 설정 | B | Planned | v0.5 | v0.8 | P1 | — | 경로 · 깨진 파일 시험 |
-| M6-T7 | 자동 저장 · 크래시 복구 | B | Planned | v0.5 | v0.8 | P0 | — | CTest studio_recovery |
+| M6-T7 | 자동 저장 · 크래시 복구 | B | Done | v0.5 | v0.8 | P0 | — | CTest studio_recovery · test_autosave_service — ADR-0113 |
 | ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Planned | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 |
 | ST-06-9 | TestService — 서버 + N 클라이언트 · 지연 모의 | B | Planned | v0.6 | v0.8 | P1 | — | CTest 서버 + 2 헤드리스 |
 | ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.8 | P3 | ST-06-1 | 수동 QA |

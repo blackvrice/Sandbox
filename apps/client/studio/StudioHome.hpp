@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "editor/services/AutosaveService.hpp"
 #include "editor/services/ProjectService.hpp"
 
 namespace sbx::client {
@@ -36,6 +37,9 @@ struct StudioHomeAction {
 // 새 프로젝트 · 열기 단추를 누를 수 있는가 (명령의 when)
 [[nodiscard]] bool canCreate(const StudioHomeState& state);
 [[nodiscard]] bool canOpen(const StudioHomeState& state);
+
+// 복구 제안 창 (v0.8 M6-T7) — true = 복구, false = 버리기, nullopt = 아직 고르지 않음
+std::optional<bool> drawRecoveryPrompt(const editor::services::RecoveryInfo& info);
 
 // 그린다 (ImGui 프레임 안에서). 고른 일 하나 (없으면 nullopt)
 std::optional<StudioHomeAction> drawStudioHome(StudioHomeState& state,

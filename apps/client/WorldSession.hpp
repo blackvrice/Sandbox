@@ -8,6 +8,7 @@
 // v0.3 M5-T3: 클라이언트 스크립트의 표시 (개체 위 글자 · "스크립트" 칸 — ADR-0067). v0.3 M5-T4: 스크립트 프로파일
 // (ADR-0068).
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -239,6 +240,17 @@ public:
     [[nodiscard]] virtual std::optional<WorldOpsInfo> worldOps() const { return std::nullopt; }
     // 서버에 요청 (결과는 worldOps().message — 목록은 saved)
     virtual void worldOp(WorldOp /*op*/, std::string /*name*/) {}
+    // Studio 자동 저장 (v0.8 M6-T7 — ADR-0113): 같은 프로세스의 로컬 서버면 편집 월드를 dir 에 세이브 (틱 사이).
+    // 원격이면 false
+    struct RecoverySave {
+        std::filesystem::path dir;
+        bool ok = false;
+        u64 tick = 0;
+        u64 worldHash = 0;
+        std::string error;
+    };
+    virtual bool requestRecoverySave(const std::filesystem::path& /*dir*/) { return false; }
+    [[nodiscard]] virtual std::vector<RecoverySave> takeRecoverySaves() { return {}; }
     // ---- v0.2 M2-T3: 게임 진행 (세션이 없으면 "게임" 패널을 그리지 않는다) ----
     [[nodiscard]] virtual std::optional<GameInfo> game() const { return std::nullopt; }
     // 시작 · 중단 = 명령 GameControl, 재시작 = WorldOp Restart (결과는 game().message)

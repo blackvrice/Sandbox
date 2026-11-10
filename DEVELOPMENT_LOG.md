@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-11-10 — v0.8 M6-T7: Studio 자동 저장 · 크래시 복구 (ADR-0113)
+
+**무엇을**
+
+- editor/services/AutosaveService: 복구본 = 설정 폴더 recovery/<프로젝트 경로 해시>/ (world/ 세이브 · documents/ · recovery.json {project,
+  savedAt, clean, documents} — tick · 해시는 세이브의 world.json 이 정본), begin (앞 실행이 깨끗하지 않으면 복구 제안 · 아니면 앞 복구본을
+  지우고 먼저 clean false), due (주기 · requestNow · 기다림 · 제안 중 멈춤), onWorldSaved, saveDocuments (합 4 MiB), finishClean, restore
+  (worlds/recovered-<n> — 덮어쓰지 않음), discard (지우지 못하면 몇 번 다시 · clean 으로).
+- network: ServerHost::requestLocalSave · takeLocalSaves — 같은 프로세스의 편집기만, Sim 틱 사이에 편집 월드 (테스트 플레이 중이면 맡긴 원본)
+  를 persist::saveWorld. 프로토콜 그대로 (16).
+- 앱: IWorldSession::requestRecoverySave · takeRecoverySaves (NetworkSession — 로컬 서버만), Application autosaveFrame (결과 · 제안 · 요청),
+  플레이 시작 전 requestNow, Shutdown 에 finishClean, "복구" 창 (StudioHome 옆 — [복구] [버리기]), --autosave-seconds · --recover ·
+  (시험용) --abort-after-autosaves (std::_Exit(3)). main: AutosaveService (안전 모드면 끔).
+- 문서: ADR-0113, 14 7.17 (측정), 25 · 24 D3 · 28 · 17 · 15 · 13 · MANUAL-QA, 등록부 M6-T7 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B 의 넷째 태스크 · 출시 기준 D3 — 충돌 · 강제 종료 때 편집한 작업을 잃지 않는다.
+
+**검증**
+
+- test_autosave_service 4 개 · CTest studio_recovery (충돌 → 제안 → recovered-1 · 같은 tick · 해시 → 깨끗한 뒤 제안 없음). 손 실행: 자동 저장
+  로그 · recovery.json · 복구 뒤 서버 "불러오기 'recovered-n' … tick T".
+- 처음 CTest 는 시간 초과로 죽이는 길이었다 — execute_process 가 돌아온 뒤에도 프로세스가 몇 초 더 살아 자동 저장을 이어 써서 (tick 308 →
+  339 → 432) recovery.json 과 세이브가 어긋났다. 고친 것: (1) tick · 해시의 정본을 세이브의 world.json 으로 (진짜 충돌도 둘 사이에 올 수
+  있다), (2) 충돌 흉내를 --abort-after-autosaves (std::_Exit) 로, (3) begin 이 먼저 clean false 를 적는다. 시험 하나도 고쳤다 (없는 폴더
+  "A/." 가 다른 키 — 끝 구분자).
+- 측정 (14 7.17): 50k 개체 저장 853 ~ 868 ms (Windows Release, 옛 sbx_bench 0.2.0 — 추정) — 자동 저장이 지금 그만큼 틱을 멈춘다 (Worker
+  직렬화는 [계획]).
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음. 창 화면은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 81/82 — unit_client 하나가 NG-06 (4) 게임패드 앱 시험의 임시 폴더 createProject 에서 "Access is
+  denied" (이번 변경과 무관 — 백신 · 잠깐 잡음으로 본다). unit_client · unit_editor 를 두 번 다시 돌려 통과 (2/2 · 2/2).
+
+**남은 일**
+
+- Worker 직렬화 (틱 경계 스냅숏), 원격 서버 자동 저장, 문서 글 복구 화면 (DocumentService 를 쓰는 편집기와 — M6-T8), v0.8 의 남은 태스크.
+
 ## 2026-11-09 — v0.8 M6-T3: Studio 빌드 — BuildService · "빌드" 창 · --run-command (ADR-0112)
 
 **무엇을**

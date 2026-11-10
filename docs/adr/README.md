@@ -127,3 +127,4 @@
 | [0110](0110-editor-world-undo-participant-async-finish.md) | 에디터가 되돌리기 줄의 World 참여자 — 대답 Done · Started · Refused + finish, 기다리는 동안의 기록은 미룸, 다시 하기 무르기 (epoch), 호스트는 부르는 동안만 | Accepted | 2026-11-09 |
 | [0111](0111-studio-home-project-service-recent.md) | Studio 홈 — ProjectService (만들기 = createProject · 열기 = 검사 · 최근 studio.json), 홈은 월드 없는 MainMenu, 들어가기는 --world 와 같은 세션, --new-project 는 같은 명령 | Accepted | 2026-11-09 |
 | [0112](0112-studio-build-service-worker-run-command.md) | Studio 빌드 — BuildService (검사 → buildPackage, 일꾼 하나 · 메인 poll · 한 번에 하나), "빌드" 창, 명령 studio.check · studio.build, --run-command · --quit-after-commands | Accepted | 2026-11-09 |
+| [0113](0113-studio-autosave-recovery-local-save-hook.md) | Studio 자동 저장 · 크래시 복구 — 사용자 폴더 recovery/<해시> (tick · 해시는 세이브의 world.json), 로컬 서버의 프로세스 안 세이브 (프로토콜 그대로), 복구 = worlds/recovered-<n> + Load, 동기 저장 · Worker 직렬화는 [계획] | Accepted | 2026-11-10 |

@@ -650,10 +650,12 @@ void ServerHost::simStep(f64 now) {
     std::vector<std::pair<u16, InspectRequest>> inspects;
     std::vector<std::pair<u16, Subscribe>> subscribes;
     std::vector<WorldOpTask> worldOps;
+    std::vector<std::filesystem::path> localSaves;
     {
         const std::lock_guard lock(m_mutex);
         commands.swap(m_inbox);
         worldOps.swap(m_worldOps);
+        localSaves.swap(m_localSaveRequests);
         roster.swap(m_roster);
         acks.swap(m_acks);
         inspects.swap(m_inspectRequests);
@@ -713,6 +715,21 @@ void ServerHost::simStep(f64 now) {
     }
     for (const WorldOpTask& t : worldOps) {
         runWorldOp(t, worldOut, replaced);
+    }
+    // 편집기 자동 저장 (v0.8 M6-T7): 틱 사이 · 편집 월드 (테스트 플레이 중이면 맡긴 원본 — 플레이 결과가 아니라 편집한
+    // 것을 지킨다)
+    for (const std::filesystem::path& dir : localSaves) {
+        const sim::SimulationWorld& edit = m_editRunner ? m_editRunner->world() : m_runner->world();
+        LocalSave r{dir, false, edit.currentTick(), 0, 0, {}};
+        if (auto saved = persist::saveWorld(edit, dir, persist::SaveOptions{"recovery", gameBinding()})) {
+            r.ok = true;
+            r.worldHash = saved->worldHash;
+            r.entities = saved->entities;
+        } else {
+            r.error = saved.error().describe();
+        }
+        const std::lock_guard lock(m_mutex);
+        m_localSaves.push_back(std::move(r));
     }
     if (replaced) {
         for (auto& c : commands) {
@@ -991,6 +1008,18 @@ bool isSaveFolder(const std::filesystem::path& dir) {
 }
 
 } // namespace
+
+void ServerHost::requestLocalSave(std::filesystem::path dir) {
+    const std::lock_guard lock(m_mutex);
+    m_localSaveRequests.push_back(std::move(dir));
+}
+
+std::vector<ServerHost::LocalSave> ServerHost::takeLocalSaves() {
+    const std::lock_guard lock(m_mutex);
+    std::vector<LocalSave> out;
+    out.swap(m_localSaves);
+    return out;
+}
 
 void ServerHost::runWorldOp(const WorldOpTask& task, std::vector<Outgoing>& out, bool& replaced) {
     const WorldOpRequest& req = task.request;

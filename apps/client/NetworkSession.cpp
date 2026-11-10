@@ -1293,4 +1293,23 @@ WorldInfo NetworkSession::info() const {
     return i;
 }
 
+// Studio 자동 저장 (v0.8 M6-T7) — 같은 프로세스의 로컬 서버만 (원격 서버의 월드는 이 프로세스에 없다)
+bool NetworkSession::requestRecoverySave(const std::filesystem::path& dir) {
+    if (!m_local) {
+        return false;
+    }
+    m_local->host().requestLocalSave(dir);
+    return true;
+}
+
+std::vector<IWorldSession::RecoverySave> NetworkSession::takeRecoverySaves() {
+    std::vector<RecoverySave> out;
+    if (m_local) {
+        for (net::ServerHost::LocalSave& s : m_local->host().takeLocalSaves()) {
+            out.push_back({std::move(s.dir), s.ok, s.tick, s.worldHash, std::move(s.error)});
+        }
+    }
+    return out;
+}
+
 } // namespace sbx::client

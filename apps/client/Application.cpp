@@ -14,6 +14,8 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <type_traits>
 
@@ -754,6 +756,9 @@ void Application::applyPendingTransition() {
     log::info("client", "앱 상태 {} → {}", appStateName(m_state), appStateName(next));
     m_state = next;
     m_titleDirty = true;
+    if (next == AppState::Shutdown && m_config.autosave != nullptr) {
+        m_config.autosave->finishClean(); // 깨끗이 끝남 — 다음 시작에 복구를 제안하지 않는다 (v0.8 M6-T7)
+    }
 }
 
 bool Application::frame() {
@@ -907,6 +912,16 @@ bool Application::frame() {
                 editor::drawHierarchyPanel(m_editor, m_inspector, *host);
                 editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
             }
+            if (m_config.autosave != nullptr && m_config.autosave->pending()) { // v0.8 M6-T7 복구 제안
+                if (const auto choice = drawRecoveryPrompt(*m_config.autosave->pending())) {
+                    if (*choice) {
+                        restoreRecovery();
+                    } else {
+                        m_config.autosave->discard(appSeconds());
+                        log::info("studio", "복구본을 버렸다");
+                    }
+                }
+            }
             if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 M6-T3 "빌드"
                 if (const auto a =
                         editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running())) {
@@ -920,6 +935,9 @@ bool Application::frame() {
             }
             if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible) {
                 if (auto req = drawWorldPanel(*ops, m_worldPanel)) { // 12D "월드"
+                    if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
+                        m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
+                    }
                     m_config.world->worldOp(req->op, std::move(req->name));
                 }
             }
@@ -968,6 +986,7 @@ bool Application::frame() {
         studioHome(); // --new-project (v0.8 M6-T1)
     }
     studioBuildFrame(); // 빌드 보고 · --run-command (v0.8 M6-T3)
+    autosaveFrame();    // 자동 저장 · 복구 (v0.8 M6-T7)
     // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (없으면 Studio 홈 — v0.8 M6-T1). Connecting 은 세션이 준비될
     // 때까지 (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
@@ -1263,6 +1282,10 @@ bool Application::enterProject(const std::filesystem::path& dir) {
 
 void Application::setProject(const std::filesystem::path& dir) {
     m_projectDir = dir;
+    if (m_config.autosave != nullptr) {
+        m_config.autosave->begin(dir, appSeconds()); // 앞 실행의 복구본이 있으면 제안 (v0.8 M6-T7)
+        m_recoveryAsked = false;
+    }
     m_profiles.clear();
     std::error_code ec;
     for (const auto& e : std::filesystem::directory_iterator(dir / "export", ec)) {
@@ -1319,6 +1342,68 @@ void Application::studioBuildFrame() {
         (m_config.builds == nullptr || !m_config.builds->running())) {
         m_exitCode = m_commandFailed ? 1 : m_exitCode;
         (void)request(AppState::Shutdown);
+    }
+}
+
+// ---- 자동 저장 · 크래시 복구 (v0.8 M6-T7 — ADR-0113) ----
+
+f64 Application::appSeconds() const {
+    return std::chrono::duration<f64>(std::chrono::steady_clock::now() - m_startTime).count();
+}
+
+void Application::restoreRecovery() {
+    editor::services::AutosaveService& a = *m_config.autosave;
+    const editor::services::RecoveryInfo info = *a.pending();
+    const Expected<std::string> name = a.restore();
+    if (!name) {
+        log::error("studio", "복구하지 못했다: {}", name.error().describe());
+        m_config.notices.push_back(std::format("복구하지 못했다: {}", name.error().describe()));
+        m_noticesOpen = true;
+        return;
+    }
+    // 복구본은 프로젝트의 새 세이브로 옮겼다 — 사용자 폴더의 것은 지우고 그 세이브를 연다 (서버가 해시를 확인한다)
+    log::info("studio", "복구한다: worlds/{} (tick {} · hash {:016x} · 저장 {})", *name, info.tick, info.worldHash,
+              info.savedAt);
+    a.discard(appSeconds());
+    m_config.world->worldOp(WorldOp::Load, *name);
+}
+
+void Application::autosaveFrame() {
+    editor::services::AutosaveService* a = m_config.autosave;
+    if (a == nullptr || m_projectDir.empty() || m_config.world == nullptr || m_state != AppState::InWorld) {
+        return;
+    }
+    const f64 now = appSeconds();
+    for (const IWorldSession::RecoverySave& s : m_config.world->takeRecoverySaves()) {
+        a->onWorldSaved(s.ok, s.tick, s.worldHash, now);
+        if (s.ok) {
+            log::info("studio", "자동 저장: tick {} · hash {:016x} → {}", s.tick, s.worldHash, s.dir.generic_string());
+            if (m_config.abortAfterAutosaves != 0 && a->saves() >= m_config.abortAfterAutosaves) {
+                // (시험용) 충돌 흉내 — 소멸자 · 깨끗한 끝 표시 없이 바로 끝낸다 (studio_recovery)
+                log::warn("studio", "--abort-after-autosaves: 정리 없이 끝낸다 (충돌 흉내)");
+                std::fflush(stdout);
+                std::fflush(stderr);
+                std::_Exit(3);
+            }
+        } else {
+            log::warn("studio", "자동 저장 실패: {}", s.error);
+        }
+    }
+    for (const std::string& w : a->takeWarnings()) {
+        log::warn("studio", "{}", w);
+    }
+    if (const auto& p = a->pending(); p && !m_recoveryAsked) {
+        m_recoveryAsked = true;
+        log::warn("studio", "복구할 작업이 있다 — 앞 실행이 비정상으로 끝났다 (tick {} · 저장 {}{})", p->tick,
+                  p->savedAt,
+                  p->documents.empty() ? std::string() : std::format(" · 저장하지 않은 문서 {}", p->documents.size()));
+        if (m_config.recoverOnStart) {
+            restoreRecovery();
+            return;
+        }
+    }
+    if (a->due(now) && m_config.world->requestRecoverySave(a->worldDir())) {
+        a->markRequested(now);
     }
 }
 

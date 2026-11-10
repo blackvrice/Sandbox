@@ -155,6 +155,20 @@ public:
     // 접속자 표 (시험 — Inline 에서만, Net 절반 소유)
     [[nodiscard]] PlayerList players() const;
 
+    // 같은 프로세스의 편집기 (Studio 자동 저장 — v0.8 M6-T7, ADR-0113): 편집 월드 (테스트 플레이 중이면 맡긴 원본) 를
+    // dir 에 세이브한다 — 다음 Sim 단계의 틱 사이에. 네트워크 메시지가 아니다 (원격 서버에는 이 길이 없다). 어느
+    // 스레드에서 불러도 된다 · 결과는 takeLocalSaves
+    struct LocalSave {
+        std::filesystem::path dir;
+        bool ok = false;
+        u64 tick = 0;
+        u64 worldHash = 0;
+        usize entities = 0;
+        std::string error;
+    };
+    void requestLocalSave(std::filesystem::path dir);
+    [[nodiscard]] std::vector<LocalSave> takeLocalSaves();
+
 private:
     struct Client {
         enum class State : u8 { AwaitHello, AwaitAuth, Active };
@@ -329,7 +343,9 @@ private:
     // Net → Sim: 선택 상세 요청 (10B) · 관심 영역 (11)
     std::vector<std::pair<u16, InspectRequest>> m_inspectRequests;
     std::vector<std::pair<u16, Subscribe>> m_subscribes;
-    std::vector<WorldOpTask> m_worldOps; // Net → Sim (12D)
+    std::vector<WorldOpTask> m_worldOps;                    // Net → Sim (12D)
+    std::vector<std::filesystem::path> m_localSaveRequests; // 편집기 → Sim (v0.8 M6-T7 — m_mutex)
+    std::vector<LocalSave> m_localSaves;                    // Sim → 편집기 (m_mutex)
     WorldStatus m_status;
     ServerHostStats m_stats;
 
