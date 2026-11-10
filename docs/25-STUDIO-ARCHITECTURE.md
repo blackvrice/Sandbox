@@ -43,7 +43,7 @@ S6 "Core 에 꼭 들어가야 하나?" — 시뮬레이션 · 저장 · 복제�
 | 사용자 설정 | client.json · input.json (사용자 설정 폴더), 안전 모드 | apps/client/UserSettings, v0.5 M1-T3 |
 
 빠진 것 (자세히는 gap matrix — 그 뒤 v0.8 에서 홈 · GUI 빌드 · 레이아웃 저장 · 자동 저장 ✅): 프로젝트 홈 · GUI 빌드 · 레이아웃 저장 · 자동 저장 · 에셋 DB · 자동 완성 · 디버거 · Prefab 오버라이드 ·
-그룹 · 명령 팔레트 · 멀티 클라이언트 실행 단추 · 지연 모의 UI.
+그룹 · 명령 팔레트 · 멀티 클라이언트 실행 단추 · 지연 모의 UI (멀티 · 지연 모의는 v0.8 ST-06-9 ✅).
 
 ---
 
@@ -66,7 +66,7 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    AssetDatabase      core/asset/  (26 — 패키징 · 서버 검사도 쓰므로 Core 쪽, 시뮬레이션 밖)
 │    LanguageService    script/lang/LanguageService  (27 — 프로토타입 있음)
 │    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job) ✅ 검사 · 빌드 · 일꾼 (v0.8 M6-T3, ADR-0112 — 배포 묶음은 [계획])
-│    TestService        로컬 서버 · 클라이언트 실행 (SandboxProcess 재사용) · 지연 모의 설정
+│    TestService        로컬 서버 · 클라이언트 실행 (SandboxProcess 재사용) · 지연 모의 설정 ✅ 서버 + 1 ~ 4 · --net-sim (v0.8 ST-06-9, ADR-0115)
 │    AutosaveService    편집 상태 주기 저장 · 복구 (7장) ✅ (v0.8 M6-T7, ADR-0113)
 │    LayoutService      창 배치 studio/layouts/<이름>.ini · StudioSettings (studio.json 키마다) (4장) ✅ (v0.8 M6-T6, ADR-0114)
 │    PluginService      [계획 v0.8+] (9장)
@@ -231,7 +231,8 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 스크립트 자동 완성 · hover 기본 | [계획 v0.5 M6-T8 — 추가] (프로토타입: script/lang/LanguageService 현행) |
 | Editor Services 층 · Command · Document · Undo 통합 | [계획 v0.6] (v0.5 는 새 기능부터 services 에) |
 | 에셋 브라우저 · 가져오기 · 안정 id | [계획 v0.5 최소 · v0.6] (26) |
-| UI Designer · Prefab 오버라이드 · 그룹 · 명령 팔레트 · 서버+N 테스트 · 지연 모의 · 디버거 | [계획 v0.6] |
+| 서버+N 테스트 · 지연 모의 | ✅ v0.8 ST-06-9 (TestService · "테스트" 창 · --net-sim — ADR-0115) |
+| UI Designer · Prefab 오버라이드 · 그룹 · 명령 팔레트 · 디버거 | [계획 v0.6] |
 | 협업 초안 · 문서 병합 · LSP | [계획 v0.7] |
 | 플러그인 | [계획 v0.8+] |
 

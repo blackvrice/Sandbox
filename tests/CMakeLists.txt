@@ -137,6 +137,7 @@ add_executable(SandboxTests
     unit/editor/test_build_service.cpp
     unit/editor/test_autosave_service.cpp
     unit/editor/test_layout_service.cpp
+    unit/editor/test_test_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -197,6 +198,11 @@ target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRE
                                                SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples"
                                                SBX_SDK_DIR="${PROJECT_SOURCE_DIR}/sdk"
                                                SBX_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
+# 프로세스 띄우기 · 끝내기 시험 (v0.8 ST-06-9 — spawnProcess) 이 진짜 서버를 띄운다
+if(TARGET SandboxServer)
+    target_compile_definitions(SandboxTests PRIVATE SBX_SERVER_EXE="$<TARGET_FILE:SandboxServer>")
+    add_dependencies(SandboxTests SandboxServer)
+endif()
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
 set(_sbx_suites foundation script ui core ecs persist content project network server tools platform render editor)
@@ -531,6 +537,14 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_layout"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_layout.cmake")
         set_tests_properties(studio_layout PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # 테스트 세션 (v0.8 ST-06-9 — 25 3장): Studio 가 서버 + 2 헤드리스 클라이언트를 프로세스로 · 흉내 · 모두 스스로 끝 (서버가 있을 때)
+        if(TARGET SandboxServer)
+            add_test(NAME studio_test_session
+                COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_test_session" -DPORT=47913
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_test_session.cmake")
+            set_tests_properties(studio_test_session PROPERTIES LABELS "content;client;net" TIMEOUT 600)
+        endif()
     endif()
     if(TARGET SandboxServer)
         add_test(NAME project_new_from_scenario

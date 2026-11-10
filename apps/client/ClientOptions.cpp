@@ -239,6 +239,49 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.gameUiScale = static_cast<f32>(s);
         } else if (a == "--quit-after-commands") {
             opts.quitAfterCommands = true;
+        } else if (a == "--test-clients" || a == "--test-headless-frames" || a == "--test-port") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            const std::string text(*v);
+            char* end = nullptr;
+            const long n = std::strtol(text.c_str(), &end, 10);
+            const long hi = a == "--test-clients" ? 4 : a == "--test-port" ? 65535 : 1000000;
+            if (text.empty() || end != text.c_str() + text.size() || n < 1 || n > hi) {
+                return makeError(ErrorCode::InvalidArgument, std::format("{} '{}' — 1 ~ {}", a, text, hi));
+            }
+            if (a == "--test-clients") {
+                opts.testClients = static_cast<u32>(n);
+            } else if (a == "--test-port") {
+                opts.testPort = static_cast<u16>(n);
+            } else {
+                opts.testHeadlessFrames = static_cast<u32>(n);
+            }
+        } else if (a == "--test-net-sim") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            auto sim = net::parseSimulatedLink(*v);
+            if (!sim) {
+                return std::unexpected(sim.error());
+            }
+            if (sim->bandwidthBytesPerSec > 0) {
+                return makeError(ErrorCode::InvalidArgument,
+                                 "--test-net-sim 은 latency · jitter · loss 만 (kbps 없음)");
+            }
+            opts.testNetSim = *sim;
+        } else if (a == "--net-sim") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            auto sim = net::parseSimulatedLink(*v);
+            if (!sim) {
+                return std::unexpected(sim.error());
+            }
+            opts.netSim = *sim;
         } else if (a == "--layout") {
             auto v = value();
             if (!v) {
@@ -396,6 +439,12 @@ std::string clientUsage() {
            "      --quit-after-commands  명령 (빌드 포함) 이 끝나면 끝낸다 — 실패가 있으면 종료 코드 1\n"
            "      --autosave-seconds <s>  프로젝트 자동 저장 주기 (기본 180, 0 = 끔 — 복구본은 설정 폴더 recovery/, "
            "v0.8)\n"
+           "      --net-sim <글>     --connect 에서 보내는 쪽 지연 · 손실 흉내 — latency=80,jitter=10,loss=0.05 "
+           "(v0.8)\n"
+           "      --test-clients <n> · --test-net-sim <글> · --test-port <p>  Studio 테스트 세션 (서버 + n 클라이언트 "
+           "—\n"
+           "                         명령 studio.test-start · \"테스트\" 창, 기본 2 · 흉내 없음 · 7790 — v0.8)\n"
+           "      --test-headless-frames <n>  테스트 클라이언트를 헤드리스로 n 프레임 (서버도 스스로 끝 — 자동 시험)\n"
            "      --layout <이름>    이 창 배치로 시작하고 기억한다 (설정 폴더 studio/layouts/<이름>.ini — v0.8)\n"
            "      --recover          앞 실행이 비정상으로 끝나 남은 복구본을 바로 연다 (worlds/recovered-<n> — v0.8)\n"
            "      --abort-after-autosaves <n>  (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 충돌 흉내 (종료 코드 "

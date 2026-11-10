@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-11-10 — v0.8 ST-06-9: Studio 테스트 세션 — 서버 + N 클라이언트 · 지연 · 손실 흉내 (ADR-0115)
+
+**무엇을**
+
+- platform/process: spawnProcess · ChildProcess (기다리지 않음 · 출력은 로그 파일 · poll · terminate · waitFor · 소멸이 끝냄 — Windows 는
+  Job 객체 KILL_ON_JOB_CLOSE 로 Studio 가 충돌해도 자식이 남지 않음, POSIX 는 SIGTERM · 소멸 SIGKILL).
+- network: parseSimulatedLink ("latency=…,jitter=…,loss=…,kbps=…") · describeSimulatedLink · wrapSimulated (안쪽을 갖는 SimulatedTransport).
+  SimulatedTransport::drain 이 늦춘 패킷 (끊기 포함) 을 기한 안에서 내보낸다 — 전에는 한 번만 pump 해서 지연이 있으면 상대가 "응답 없음" 으로
+  봤다. 서버 · 클라이언트 (--connect) --net-sim.
+- editor/services/TestService (프로세스 모름 — IProcessLauncher 주입): planTestSession (서버 먼저 · --bind 127.0.0.1 · 클라이언트 1 ~ 4 ·
+  흉내 양쪽 · 자동 시험 = 헤드리스 F 프레임 + 서버 --ticks F/2+300 --exit), start (두 번 거절 · 못 띄우면 띄운 것을 끝냄) · poll · stopAll ·
+  succeeded. editor/ui/TestPanel "테스트" 창. apps/client/studio/ProcessLauncher (spawnProcess). Application: 명령 studio.test-start ·
+  studio.test-stop, 프레임마다 poll · 로그, --quit-after-commands 가 세션 끝을 기다림 (실패면 1), Shutdown 이 남은 세션을 끝냄. 옵션
+  --test-clients · --test-net-sim · --test-port · --test-headless-frames.
+- 문서: ADR-0115, 08 2장 · 15 · 17 · 13 · 25 3장 · 상태 표 · 28 G6 · MANUAL-QA, 등록부 ST-06-9 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B · 28 G6 (멀티 = 서버 + 2 클라이언트 단추) · 감사 GM-23 · GM-24 — 멀티 시험은 손으로 프로세스를 띄워야 했고, 지연 흉내는 시험만
+  썼다.
+
+**검증**
+
+- test_test_service 3 개 (계획 · 상태 · 진짜 프로세스 — 서버를 띄워 끝내고 · 스스로 끝나고 · 로그 · 없는 실행 파일), test_transport 1 개
+  (drain · 멈춘 시계 · 글 · 감싼 전송), CTest studio_test_session (Studio 헤드리스가 서버 + 2 헤드리스 클라이언트, 흉내 40 ms · 2 % → 서버
+  "들어옴: player-1 · player-2" · 클라이언트 InWorld · 양쪽 흉내 로그 · "나감 — 상대가 끊음" · 모두 종료 코드 0 — 15.8 초).
+- 처음 실행에서 클라이언트가 "응답 없음" 으로 나갔다 — 흉내가 끊기를 지연 큐에 두었는데 drain 이 한 번만 pump 했다. drain 을 고치고 CTest 에
+  "상대가 끊음" 을 넣었다.
+- POSIX 의 terminate 는 SIGTERM — 서버는 신호를 받아 깨끗이 멈춰 종료 코드 0 일 수 있다 (시험이 Windows 만 0 이 아님을 본다).
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 새 경고 없음 (Windows.h 대소문자 · onInterrupt 프로토타입은 전부터). 성능: 틱 ·
+  프레임 경로 밖 (poll 은 프로세스 몇 개의 상태 묻기) — 측정하지 않았다. 창 클라이언트는 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 83/84 — unit_client 하나가 다른 시험 (NG-06 (3b)) 의 createProject 폴더 바꾸기에서 "Access is
+  denied" (M6-T7 때와 같은 것 — 이번 변경과 무관, 다음 커밋이 고친다). unit_client · unit_editor 를 두 번 다시 돌려 통과.
+
+**남은 일**
+
+- 편집 중인 (저장하지 않은) 월드로 시작 (ADR-0113 의 로컬 세이브 길), 세션 중 흉내 바꾸기, POSIX 부모 죽음 신호, 원격 기기 클라이언트.
+
 ## 2026-11-10 — v0.8 M6-T6: Studio 레이아웃 저장 · Studio 설정 (ADR-0114)
 
 **무엇을**

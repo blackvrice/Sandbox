@@ -222,4 +222,66 @@ TEST_SUITE("network") {
         CHECK_FALSE(parseEndpoint(":80", 1).has_value());
     }
 
+    TEST_CASE("simulated: drain 은 늦춘 끊기까지 내보낸다 · --net-sim 글 · 감싼 전송 (v0.8 ST-06-9)") {
+        // 벽시계 지연 — 끝낼 때 drain 이 큐를 비운다 (전에는 한 번만 pump 해서 끊기가 남았다)
+        {
+            LoopbackNetwork hub;
+            LoopbackTransport server(hub);
+            LoopbackTransport inner(hub);
+            SimulatedTransport client(inner, {.latencyMs = 30});
+            REQUIRE(server.listen({"w", 0}, 4).has_value());
+            const auto c = client.connect({"w", 0});
+            (void)drain(server);
+            client.send(*c, Channel::Control, bytesOf(1));
+            client.disconnect(*c, DisconnectReason::ClientQuit);
+            client.drain(1000);
+            CHECK(client.inFlight() == 0);
+            const auto ev = drain(server);
+            REQUIRE(ev.size() == 2);
+            CHECK(ev[1].reason == DisconnectReason::ClientQuit);
+        }
+        // 손으로 움직이는 시계는 멈춰 있어도 drain 이 기한 (벽시계) 에 끝난다
+        {
+            LoopbackNetwork hub;
+            LoopbackTransport server(hub);
+            LoopbackTransport inner(hub);
+            SimulatedTransport client(inner, {.latencyMs = 30}, [] { return 0.0; });
+            REQUIRE(server.listen({"w", 0}, 4).has_value());
+            const auto c = client.connect({"w", 0});
+            client.send(*c, Channel::Control, bytesOf(1));
+            client.drain(20);
+            CHECK(client.inFlight() == 1);
+        }
+
+        const auto d = parseSimulatedLink("latency=80,jitter=10,loss=0.05,kbps=512");
+        REQUIRE(d.has_value());
+        CHECK(d->latencyMs == doctest::Approx(80));
+        CHECK(d->jitterMs == doctest::Approx(10));
+        CHECK(d->lossRate == doctest::Approx(0.05));
+        CHECK(d->bandwidthBytesPerSec == doctest::Approx(64000));
+        CHECK(parseSimulatedLink("loss=0.1").value().latencyMs == 0);
+        CHECK(describeSimulatedLink(*d) == "지연 80±10 ms · 손실 5.0% · 512 kbps");
+        for (const char* bad : {"", "latency", "latency=", "latency=x", "latency=-1", "latency=2001", "loss=0.6",
+                                "speed=3", "latency=80,", "latency=80;loss=0.1"}) {
+            CHECK_MESSAGE(!parseSimulatedLink(bad).has_value(), bad);
+        }
+
+        // 감싼 전송 (안쪽을 갖는다) 도 같은 흉내 · 이름은 안쪽의 것
+        LoopbackNetwork hub;
+        LoopbackTransport server(hub);
+        std::unique_ptr<INetworkTransport> wrapped =
+            wrapSimulated(std::make_unique<LoopbackTransport>(hub), {.latencyMs = 1});
+        CHECK(wrapped->name() == LoopbackTransport(hub).name());
+        REQUIRE(server.listen({"w", 0}, 4).has_value());
+        const auto c = wrapped->connect({"w", 0});
+        REQUIRE(c.has_value());
+        wrapped->send(*c, Channel::Control, bytesOf(9));
+        wrapped->drain(500);
+        bool got = false;
+        for (const auto& e : drain(server)) {
+            got = got || (e.type == Type::Received && e.data.size() == 1 && static_cast<u8>(e.data[0]) == 9);
+        }
+        CHECK(got);
+    }
+
 } // TEST_SUITE

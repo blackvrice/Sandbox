@@ -13,6 +13,7 @@
 
 #include "foundation/log/Log.hpp"
 #include "foundation/types/Error.hpp"
+#include "network/transport/SimulatedTransport.hpp"
 
 namespace sbx::server {
 
@@ -47,6 +48,8 @@ struct ServerOptions {
     std::optional<std::string> script;
     bool crashTest = false; // --crash-test: 일부러 충돌한다 (--world 면 월드를 연 뒤 — 보고 묶음 시험, v0.5 M1-T1 · T2)
     bool startGame = false; // --start-game: 게임 세션을 바로 시작 (서버가 GameControl Start 를 넣는다, M2-T3)
+    // --net-sim <글>: 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션, "latency=80,jitter=10,loss=0.05")
+    std::optional<net::SimulatedLinkDesc> netSim;
 };
 
 [[nodiscard]] Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> args);

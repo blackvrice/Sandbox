@@ -82,7 +82,7 @@ public:
 |-------------------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `EnetTransport`         | 실제 네트워크     | ENet 1.3.18 채널 3개 매핑. Snapshot = `ENET_PACKET_FLAG_UNSEQUENCED` 아님, **unreliable sequenced**(오래된 것 폐기). 끊기 = `disconnect_later`, 무응답 15 초 |
 | `LoopbackTransport`     | 싱글플레이·테스트 | 같은 프로세스, 큐 복사. 직렬화는 그대로 거친다 (경로 동일성)                                                                                                 |
-| `SimulatedTransport`    | 테스트            | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정                                                                                      |
+| `SimulatedTransport`    | 테스트 · Studio   | 다른 Transport를 감싸 지연·지터·손실·재정렬·대역폭 제한 주입. 시드 고정. v0.8 ST-06-9: `--net-sim` (클라이언트 --connect · 서버) 이 ENet 을 감싼다 (wrapSimulated · ADR-0115) |
 | `GnsTransport` `[후속]` | 암호화·NAT·릴레이 | ADR로 도입                                                                                                                                                   |
 
 ENet은 암호화가 없습니다. 공개 인터넷 서버를 운영하기 전에 GNS로 교체하거나 DTLS 계층을 추가해야 합니다 ([16-ROADMAP](16-ROADMAP.md) 위험 R6).

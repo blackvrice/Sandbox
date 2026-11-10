@@ -68,12 +68,19 @@ Expected<ServerOptions> parseServerOptions(std::span<const std::string_view> arg
             }
             opts.logLevel = level;
         } else if (a == "--scenario" || a == "--world" || a == "--content-root" || a == "--bind" ||
-                   a == "--default-role" || a == "--owner-key" || a == "--saves" || a == "--script") {
+                   a == "--default-role" || a == "--owner-key" || a == "--saves" || a == "--script" ||
+                   a == "--net-sim") {
             const auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
             }
-            if (a == "--scenario") {
+            if (a == "--net-sim") {
+                auto sim = net::parseSimulatedLink(*v);
+                if (!sim) {
+                    return std::unexpected(sim.error());
+                }
+                opts.netSim = *sim;
+            } else if (a == "--scenario") {
                 opts.scenario = std::string(*v);
             } else if (a == "--world") {
                 opts.world = std::string(*v);
@@ -198,6 +205,7 @@ std::string serverUsage() {
            "      --saves <dir>        세이브 · 리플레이 폴더 (기본 saves — 월드 창의 저장 · 불러오기 · 기록, 12D)\n"
            "      --threads <n>        시뮬레이션 Worker 수 (기본: 코어 수 - 2, 1 ~ 4)\n"
            "      --snapshot-kbps <n>  클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음)\n"
+           "      --net-sim <글>     보내는 쪽 지연 · 손실 흉내 — latency=80,jitter=10,loss=0.05,kbps=512 (v0.8)\n"
            "      --ticks <n> --exit   그 틱에 도달하면 (또는 게임이 끝나면 — 자동 재시작 모드 말고) 접속자를 끊고\n"
            "                           끝낸다 (CI)\n"
            "      --script <파일>      자동 플레이 스크립트 (v0.2 M6-T1) — 정한 단계에 명령을 넣고, 게임이 끝나거나\n"

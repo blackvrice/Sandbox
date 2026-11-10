@@ -30,6 +30,7 @@
 #include "foundation/log/Log.hpp"
 #include "network/server/ServerHost.hpp"
 #include "network/transport/EnetTransport.hpp"
+#include "network/transport/SimulatedTransport.hpp"
 #include "platform/crash/CrashHandler.hpp"
 
 namespace {
@@ -169,10 +170,15 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
     sbx::JobSystem jobs(workers);
     world->runner->world().setJobSystem(&jobs);
 
-    auto transport = sbx::net::EnetTransport::create();
-    if (!transport) {
-        sbx::log::error("server", "{}", transport.error().describe());
+    auto enet = sbx::net::EnetTransport::create();
+    if (!enet) {
+        sbx::log::error("server", "{}", enet.error().describe());
         return kExitNotImplemented;
+    }
+    std::unique_ptr<sbx::net::INetworkTransport> transport = std::move(*enet);
+    if (opts.netSim) { // 지연 · 손실 흉내 (v0.8 ST-06-9) — 서버가 보내는 쪽
+        sbx::log::info("server", "네트워크 흉내: {}", sbx::net::describeSimulatedLink(*opts.netSim));
+        transport = sbx::net::wrapSimulated(std::move(transport), *opts.netSim);
     }
     sbx::net::ServerHostDesc desc;
     desc.worldName = world->name;
@@ -230,7 +236,7 @@ int runWorldServer(const sbx::server::ServerOptions& opts) {
         sbx::scenario::attachPlayScript(*world->runner, *script);
     }
     desc.snapshotBytesPerSecond = static_cast<sbx::usize>(opts.snapshotKBps) * 1024;
-    sbx::net::ServerHost host(**transport, std::move(world->runner), desc);
+    sbx::net::ServerHost host(*transport, std::move(world->runner), desc);
     if (auto r = host.start({opts.bind, opts.port}); !r) {
         sbx::log::error("server", "{}", r.error().describe());
         return kExitNotImplemented;

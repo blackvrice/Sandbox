@@ -12,6 +12,7 @@
 
 #include "foundation/log/Log.hpp"
 #include "foundation/types/Error.hpp"
+#include "network/transport/SimulatedTransport.hpp"
 #include "platform/common/Window.hpp"
 #include "render/rhi/RhiTypes.hpp"
 
@@ -77,6 +78,15 @@ struct ClientOptions {
     // 레이아웃 (v0.8 M6-T6): --layout <이름> = 이 레이아웃으로 시작하고 지금 것으로 기억한다 (studio.json — 안전 모드면
     // 이 실행만). 이름 [a-z0-9_-] 1 ~ 32
     std::string layout;
+    // --net-sim <글>: --connect 의 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션)
+    std::optional<net::SimulatedLinkDesc> netSim;
+    // Studio 테스트 세션 (v0.8 ST-06-9 — "테스트" 창 · studio.test-start 의 처음 값): --test-clients <1~4> (기본 2),
+    // --test-net-sim <글> (지연 · 흔들림 · 손실 — kbps 는 받지 않는다), --test-headless-frames <n> (> 0 = 클라이언트를
+    // 헤드리스로 n 프레임 · 서버도 스스로 끝 — 자동 시험), --test-port <p> (기본 7790)
+    u32 testClients = 2;
+    std::optional<net::SimulatedLinkDesc> testNetSim;
+    u32 testHeadlessFrames = 0;
+    u16 testPort = 7790;
     u64 seed = 1;                  // --seed (--world)
     std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)

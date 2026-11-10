@@ -1,7 +1,9 @@
 #include "network/transport/SimulatedTransport.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
+#include <format>
 
 namespace sbx::net {
 
@@ -133,10 +135,118 @@ void SimulatedTransport::wait(u32 maxMs) {
     m_inner.wait(m_queue.empty() ? maxMs : std::min<u32>(maxMs, 1));
 }
 
+void SimulatedTransport::drain(u32 maxMs) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(maxMs);
+    pump();
+    while (!m_queue.empty() && std::chrono::steady_clock::now() < deadline) {
+        m_inner.wait(1); // 안쪽을 돌리며 (ENet 서비스) 1 ms 씩
+        pump();
+    }
+    const auto left =
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
+    m_inner.drain(static_cast<u32>(std::max<i64>(left.count(), 0)));
+}
+
 TransportStats SimulatedTransport::stats(ConnectionId connection) const {
     TransportStats s = m_inner.stats(connection);
     s.rttMs += static_cast<f32>(m_desc.latencyMs); // 이쪽 방향만 흉내 내므로 한 번만 더한다
     return s;
+}
+
+// ---- --net-sim (v0.8 ST-06-9) ----
+
+Expected<SimulatedLinkDesc> parseSimulatedLink(std::string_view spec) {
+    if (spec.empty()) {
+        return makeError(ErrorCode::InvalidArgument, "--net-sim 이 비었다 (예: latency=80,jitter=10,loss=0.05)");
+    }
+    SimulatedLinkDesc d;
+    usize begin = 0;
+    while (begin <= spec.size()) {
+        usize end = spec.find(',', begin);
+        if (end == std::string_view::npos) {
+            end = spec.size();
+        }
+        const std::string_view item = spec.substr(begin, end - begin);
+        const usize eq = item.find('=');
+        const std::string_view key = item.substr(0, eq);
+        const std::string_view text = eq == std::string_view::npos ? std::string_view() : item.substr(eq + 1);
+        f64 v = 0;
+        const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
+        if (text.empty() || ec != std::errc() || ptr != text.data() + text.size()) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("--net-sim '{}' — <키>=<수> (latency · jitter · loss · kbps)", item));
+        }
+        const auto range = [&](f64 lo, f64 hi) -> Expected<void> {
+            if (!(v >= lo && v <= hi)) {
+                return makeError(ErrorCode::InvalidArgument, std::format("--net-sim {} 은 {} ~ {}", key, lo, hi));
+            }
+            return {};
+        };
+        Expected<void> ok;
+        if (key == "latency") {
+            ok = range(0, 2000);
+            d.latencyMs = v;
+        } else if (key == "jitter") {
+            ok = range(0, 2000);
+            d.jitterMs = v;
+        } else if (key == "loss") {
+            ok = range(0, 0.5);
+            d.lossRate = v;
+        } else if (key == "kbps") {
+            ok = range(0, 1000000);
+            d.bandwidthBytesPerSec = v * 1000.0 / 8.0;
+        } else {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("--net-sim 의 모르는 키 '{}' (latency · jitter · loss · kbps)", key));
+        }
+        if (!ok) {
+            return std::unexpected(ok.error());
+        }
+        begin = end + 1;
+    }
+    return d;
+}
+
+std::string describeSimulatedLink(const SimulatedLinkDesc& d) {
+    std::string s = std::format("지연 {:.0f}±{:.0f} ms · 손실 {:.1f}%", d.latencyMs, d.jitterMs, d.lossRate * 100.0);
+    if (d.bandwidthBytesPerSec > 0) {
+        s += std::format(" · {:.0f} kbps", d.bandwidthBytesPerSec * 8.0 / 1000.0);
+    }
+    return s;
+}
+
+namespace {
+
+// 안쪽을 갖고 SimulatedTransport 에 넘긴다 — 선언 순서가 소멸 순서를 정한다 (흉내 층이 먼저 없어진다)
+class OwnedSimulatedTransport final : public INetworkTransport {
+public:
+    OwnedSimulatedTransport(std::unique_ptr<INetworkTransport> inner, SimulatedLinkDesc desc)
+        : m_inner(std::move(inner)), m_sim(*m_inner, desc) {}
+    [[nodiscard]] Expected<void> listen(const Endpoint& at, u32 maxConnections) override {
+        return m_sim.listen(at, maxConnections);
+    }
+    [[nodiscard]] u16 boundPort() const noexcept override { return m_sim.boundPort(); }
+    [[nodiscard]] Expected<ConnectionId> connect(const Endpoint& to) override { return m_sim.connect(to); }
+    void send(ConnectionId to, Channel channel, std::span<const std::byte> data) override {
+        m_sim.send(to, channel, data);
+    }
+    void flush() override { m_sim.flush(); }
+    void poll(std::vector<TransportEvent>& out) override { m_sim.poll(out); }
+    void wait(u32 maxMs) override { m_sim.wait(maxMs); }
+    void disconnect(ConnectionId connection, DisconnectReason reason) override { m_sim.disconnect(connection, reason); }
+    void drain(u32 maxMs) override { m_sim.drain(maxMs); }
+    [[nodiscard]] TransportStats stats(ConnectionId connection) const override { return m_sim.stats(connection); }
+    [[nodiscard]] std::string_view name() const noexcept override { return m_inner->name(); }
+
+private:
+    std::unique_ptr<INetworkTransport> m_inner;
+    SimulatedTransport m_sim;
+};
+
+} // namespace
+
+std::unique_ptr<INetworkTransport> wrapSimulated(std::unique_ptr<INetworkTransport> inner, SimulatedLinkDesc desc) {
+    return std::make_unique<OwnedSimulatedTransport>(std::move(inner), desc);
 }
 
 } // namespace sbx::net

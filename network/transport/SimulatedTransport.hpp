@@ -1,5 +1,6 @@
 #pragma once
-// 다른 Transport 를 감싸 나쁜 네트워크를 흉내 낸다 (테스트 전용). docs/08-NETWORK.md 2 · 12장, docs/13-TESTING.md L3′.
+// 다른 Transport 를 감싸 나쁜 네트워크를 흉내 낸다 (시험 · Studio 의 지연 · 손실 모의 — v0.8 ST-06-9 의 --net-sim,
+// ADR-0115). docs/08-NETWORK.md 2 · 12장, docs/13-TESTING.md L3′.
 //
 // 보내는 쪽에서만 흉내 낸다 — 양방향을 보려면 양쪽 Transport 를 각각 감싼다.
 //   지연      latencyMs ± jitterMs (균등). 대역폭 제한이 있으면 직렬화 시간이 더해진다
@@ -13,6 +14,9 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <memory>
+#include <string>
+#include <string_view>
 
 #include "network/transport/Transport.hpp"
 
@@ -49,10 +53,10 @@ public:
     void poll(std::vector<TransportEvent>& out) override;
     void wait(u32 maxMs) override;
     void disconnect(ConnectionId connection, DisconnectReason reason) override;
-    void drain(u32 maxMs) override {
-        pump();
-        m_inner.drain(maxMs);
-    }
+    // 끝내기 전: 늦춘 패킷 (끊기 알림 포함) 이 나갈 때까지 maxMs 안에서 기다린 뒤 안쪽의 drain (v0.8 ST-06-9 — 전에는
+    // 한 번만 pump 해서 지연이 있으면 끊기가 나가지 않아 상대는 "응답 없음" 으로 봤다). 기한은 벽시계 — 손으로 움직이는
+    // 시계의 시험에서도 끝난다
+    void drain(u32 maxMs) override;
     [[nodiscard]] TransportStats stats(ConnectionId connection) const override;
     [[nodiscard]] std::string_view name() const noexcept override { return "Simulated"; }
 
@@ -91,5 +95,15 @@ private:
     std::map<ConnectionId, LinkState> m_links;
     SimulatedStats m_stats;
 };
+
+// --net-sim 글 (v0.8 ST-06-9): "latency=80,jitter=10,loss=0.05,kbps=512" — 키는 모두 선택, 순서 무관. latency ·
+// jitter 0 ~ 2000 ms, loss 0 ~ 0.5, kbps 0 ~ 1000000 (0 = 제한 없음). 빈 글 · 모르는 키 · 범위 밖은 오류
+[[nodiscard]] Expected<SimulatedLinkDesc> parseSimulatedLink(std::string_view spec);
+// 사람이 읽는 한 줄 ("지연 80±10 ms · 손실 5%") — 로그 · Studio "테스트" 창
+[[nodiscard]] std::string describeSimulatedLink(const SimulatedLinkDesc& desc);
+// 안쪽 Transport 를 갖는 SimulatedTransport (앱이 진짜 전송 — ENet — 을 감쌀 때. SimulatedTransport 자체는 안쪽을
+// 빌린다)
+[[nodiscard]] std::unique_ptr<INetworkTransport> wrapSimulated(std::unique_ptr<INetworkTransport> inner,
+                                                               SimulatedLinkDesc desc);
 
 } // namespace sbx::net

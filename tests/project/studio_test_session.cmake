@@ -1,0 +1,61 @@
+# Studio 테스트 세션 — 서버 + 2 헤드리스 클라이언트 (v0.8 ST-06-9 — docs/25-STUDIO-ARCHITECTURE.md 3장 TestService, ADR-0115):
+#   sbx new → 헤드리스 SandboxClient (Studio) --world <프로젝트> --run-command studio.test-start --test-clients 2
+#   --test-headless-frames 300 --test-net-sim latency=40,loss=0.02 --quit-after-commands → Studio 가 SandboxServer + SandboxClient 둘을
+#   프로세스로 띄우고 · 모두 스스로 끝날 때까지 기다린다 (종료 코드 0) → 서버 로그 "들어옴: player-1 · player-2" · 흉내 · 클라이언트
+#   로그 InWorld · 흉내. 끝낼 때 남은 세션을 끝내는 것 (stopAll) 은 test_test_service.
+#   cmake -DCLIENT=<SandboxClient> -DSBX=<sbx> -DOUT=<작업 폴더> -DPORT=<포트> -P studio_test_session.cmake
+foreach(v CLIENT SBX OUT PORT)
+    if(NOT DEFINED ${v})
+        message(FATAL_ERROR "${v} 가 필요합니다")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${OUT}")
+file(MAKE_DIRECTORY "${OUT}/config" "${OUT}/tmp")
+set(ENV{SBX_CONFIG_DIR} "${OUT}/config")
+# 로그 폴더 = <임시>/sbx-test-<포트> — 임시 폴더를 작업 폴더 안으로
+set(ENV{TMP} "${OUT}/tmp")
+set(ENV{TEMP} "${OUT}/tmp")
+set(ENV{TMPDIR} "${OUT}/tmp")
+set(game "${OUT}/Multi")
+set(logs "${OUT}/tmp/sbx-test-${PORT}")
+
+execute_process(COMMAND "${SBX}" new "${game}" --id ctest.multi --from ecosystem_small RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "sbx new 실패 (${rc})")
+endif()
+
+execute_process(COMMAND "${CLIENT}" --headless --world "${game}" --autosave-seconds 0 --run-command studio.test-start
+    --test-clients 2 --test-headless-frames 300 --test-net-sim latency=40,loss=0.02 --test-port ${PORT} --quit-after-commands
+    RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 240)
+message("Studio 테스트 세션 → ${rc}\n${out}${err}")
+foreach(f server player-1 player-2)
+    if(EXISTS "${logs}/${f}.log")
+        file(READ "${logs}/${f}.log" text)
+        message("---- ${f}.log ----\n${text}")
+        set(log_${f} "${text}")
+    else()
+        message(FATAL_ERROR "로그가 없다: ${logs}/${f}.log")
+    endif()
+endforeach()
+if(NOT rc EQUAL 0)
+    message(FATAL_ERROR "Studio 테스트 세션의 종료 코드 ${rc} (기대 0 — 모든 프로세스가 스스로 끝나고 종료 코드 0)")
+endif()
+if(NOT "${out}${err}" MATCHES "테스트 세션: 서버 \\+ 클라이언트 2" OR NOT "${out}${err}" MATCHES "테스트 세션 끝: 모두 종료 코드 0")
+    message(FATAL_ERROR "Studio 로그에 세션 시작 · 끝이 없다")
+endif()
+foreach(p player-1 player-2)
+    if(NOT log_server MATCHES "들어옴: ${p}")
+        message(FATAL_ERROR "서버에 ${p} 가 들어오지 않았다")
+    endif()
+    # 흉내가 있어도 끊기 알림이 나간다 (SimulatedTransport::drain — 전에는 지연된 끊기가 남아 "응답 없음")
+    if(NOT log_server MATCHES "나감: ${p} \\(#[0-9]+\\) — 상대가 끊음")
+        message(FATAL_ERROR "${p} 가 깨끗이 끊지 않았다 (응답 없음?)")
+    endif()
+    if(NOT log_${p} MATCHES "Connecting → InWorld" OR NOT log_${p} MATCHES "네트워크 흉내: 지연 40")
+        message(FATAL_ERROR "${p} 가 월드에 들어가지 않았거나 흉내가 없다")
+    endif()
+endforeach()
+if(NOT log_server MATCHES "네트워크 흉내: 지연 40±0 ms · 손실 2\\.0%")
+    message(FATAL_ERROR "서버에 흉내가 없다")
+endif()
+message("studio_test_session: 통과")

@@ -19,6 +19,7 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ReleaseFeed.hpp"
 #include "apps/client/UserSettings.hpp"
+#include "apps/client/studio/ProcessLauncher.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
@@ -28,12 +29,15 @@
 #include "editor/services/LayoutService.hpp"
 #include "editor/services/ProjectService.hpp"
 #include "editor/services/StudioSettings.hpp"
+#include "editor/services/TestService.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
 #include "foundation/io/AppPaths.hpp"
 #include "foundation/io/Console.hpp"
 #include "foundation/job/JobSystem.hpp"
 #include "foundation/log/Log.hpp"
+#include "network/transport/EnetTransport.hpp"
+#include "network/transport/SimulatedTransport.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
 #include "platform/common/Platform.hpp"
@@ -253,6 +257,17 @@ int main(int argc, char** argv) {
         nd.connect = o.connect.value_or("");
         nd.displayName = o.name;
         nd.ownerKey = o.ownerKey;
+        if (o.netSim && o.connect) { // 지연 · 손실 흉내 (v0.8 ST-06-9) — 원격 접속의 보내는 쪽
+            const sbx::net::SimulatedLinkDesc sim = *o.netSim;
+            sbx::log::info("client", "네트워크 흉내: {}", sbx::net::describeSimulatedLink(sim));
+            nd.transportFactory = [sim]() -> sbx::Expected<std::unique_ptr<sbx::net::INetworkTransport>> {
+                auto e = sbx::net::EnetTransport::create();
+                if (!e) {
+                    return std::unexpected(e.error());
+                }
+                return sbx::net::wrapSimulated(std::move(*e), sim);
+            };
+        }
         // 싱글플레이 세이브 · 리플레이 (12D, 게임 프로젝트면 <프로젝트>/worlds — M1-T5)
         nd.savesRoot = saves.savesRoot;
         if (script) { // 자동 플레이 (v0.2 M6-T1) — 로컬 서버가 헤드리스 서버와 같은 단계에 같은 명령
@@ -315,6 +330,9 @@ int main(int argc, char** argv) {
     sbx::editor::services::LayoutService layouts(
         opts->safeMode ? std::filesystem::path() : configRoot / "studio" / "layouts",
         studio.newerVersion ? std::filesystem::path() : studioFile, studio.settings.layout);
+    // 테스트 세션 (v0.8 ST-06-9) — 런처가 서비스보다 오래 산다 (서비스가 없어지며 남은 자식을 끝낸다)
+    sbx::client::ProcessLauncher testLauncher;
+    sbx::editor::services::TestService tests(testLauncher);
     if (!opts->layout.empty()) {
         if (const auto r = layouts.select(opts->layout); !r) {
             sbx::log::error("client", "--layout: {}", r.error().describe());
@@ -353,6 +371,20 @@ int main(int argc, char** argv) {
     cfg.builds = &builds;
     cfg.autosave = &autosave;
     cfg.layouts = &layouts;
+    cfg.tests = &tests;
+    {
+        sbx::editor::services::TestPlan& tp = cfg.testPlan;
+        tp.clientExe = sbx::io::executablePath();
+        tp.serverExe = tp.clientExe.parent_path() / ("SandboxServer" + tp.clientExe.extension().string());
+        std::error_code ec;
+        tp.logDir = std::filesystem::temp_directory_path(ec) / std::format("sbx-test-{}", opts->testPort);
+        tp.clients = opts->testClients;
+        tp.port = opts->testPort;
+        tp.headlessFrames = opts->testHeadlessFrames;
+        if (opts->testNetSim) {
+            tp.netSim = {opts->testNetSim->latencyMs, opts->testNetSim->jitterMs, opts->testNetSim->lossRate};
+        }
+    }
     cfg.recoverOnStart = opts->recover;
     cfg.abortAfterAutosaves = opts->abortAfterAutosaves;
     cfg.runCommands = opts->runCommands;

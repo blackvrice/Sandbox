@@ -41,6 +41,8 @@ add_executable(SandboxClient
     ui/GamePanel.cpp
     studio/StudioHome.hpp
     studio/StudioHome.cpp
+    studio/ProcessLauncher.hpp
+    studio/ProcessLauncher.cpp
     ui/ScriptPanel.hpp
     ui/ScriptPanel.cpp
     ui/ActionPanel.hpp

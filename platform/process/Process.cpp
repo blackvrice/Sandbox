@@ -1,6 +1,8 @@
 #include "platform/process/Process.hpp"
 
+#include <chrono>
 #include <format>
+#include <thread>
 #include <vector>
 
 #if defined(_WIN32)
@@ -9,7 +11,9 @@
 #include <windows.h>
 #else
 #include <cerrno>
+#include <csignal>
 #include <cstring>
+#include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -160,5 +164,192 @@ Expected<ProcessResult> runProcess(std::span<const std::string> argv, const std:
 #endif
     return result;
 }
+
+// ---- spawnProcess (v0.8 ST-06-9) ----
+
+#if defined(_WIN32)
+struct ChildProcess::Impl {
+    HANDLE process = nullptr;
+    HANDLE job = nullptr; // KILL_ON_JOB_CLOSE — 부모가 어떻게 끝나든 자식도 끝난다
+    DWORD pid = 0;
+    std::optional<int> exit;
+    ~Impl() {
+        if (process != nullptr) {
+            if (!exit) {
+                TerminateProcess(process, 1);
+                WaitForSingleObject(process, 2000);
+            }
+            CloseHandle(process);
+        }
+        if (job != nullptr) {
+            CloseHandle(job);
+        }
+    }
+};
+
+ChildProcess::ChildProcess(std::unique_ptr<Impl> impl) : m_impl(std::move(impl)) {}
+ChildProcess::~ChildProcess() = default;
+
+std::optional<int> ChildProcess::poll() {
+    if (!m_impl->exit && WaitForSingleObject(m_impl->process, 0) == WAIT_OBJECT_0) {
+        DWORD code = 0;
+        GetExitCodeProcess(m_impl->process, &code);
+        m_impl->exit = static_cast<int>(code);
+    }
+    return m_impl->exit;
+}
+
+void ChildProcess::terminate() {
+    if (!poll()) {
+        TerminateProcess(m_impl->process, 1);
+    }
+}
+
+bool ChildProcess::waitFor(u32 ms) {
+    if (!m_impl->exit) {
+        WaitForSingleObject(m_impl->process, ms);
+    }
+    return poll().has_value();
+}
+
+u64 ChildProcess::pid() const noexcept {
+    return m_impl->pid;
+}
+
+Expected<std::unique_ptr<ChildProcess>> spawnProcess(std::span<const std::string> argv, const SpawnOptions& options) {
+    if (argv.empty()) {
+        return makeError(ErrorCode::InvalidArgument, "실행할 프로그램이 없다");
+    }
+    std::wstring cmd;
+    for (usize i = 0; i < argv.size(); ++i) {
+        if (i > 0) {
+            cmd += L' ';
+        }
+        appendQuoted(cmd, widen(argv[i]));
+    }
+    SECURITY_ATTRIBUTES sa{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+    const std::wstring logPath = options.logFile.empty() ? std::wstring(L"NUL") : options.logFile.wstring();
+    HANDLE out = CreateFileW(logPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                             &sa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (out == INVALID_HANDLE_VALUE) {
+        return makeError(ErrorCode::IoError, std::format("로그 파일을 열 수 없다 (오류 {})", GetLastError()),
+                         options.logFile.generic_string());
+    }
+    HANDLE in = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, nullptr);
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = in;
+    si.hStdOutput = out;
+    si.hStdError = out;
+    PROCESS_INFORMATION pi{};
+    const std::wstring dir = options.cwd.empty() ? std::wstring() : options.cwd.wstring();
+    // 콘솔 프로그램 (SandboxServer) 은 창 없이 · 창 프로그램 (SandboxClient) 은 자기 창. 멈춘 채 만들어 Job 에 넣고
+    // 푼다
+    const BOOL ok = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | CREATE_SUSPENDED,
+                                   nullptr, dir.empty() ? nullptr : dir.c_str(), &si, &pi);
+    CloseHandle(out);
+    if (in != INVALID_HANDLE_VALUE) {
+        CloseHandle(in);
+    }
+    if (!ok) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+            return makeError(ErrorCode::NotFound, std::format("'{}' 를 찾을 수 없다", argv[0]));
+        }
+        return makeError(ErrorCode::IoError, std::format("'{}' 를 띄울 수 없다 (오류 {})", argv[0], err));
+    }
+    auto impl = std::make_unique<ChildProcess::Impl>();
+    impl->process = pi.hProcess;
+    impl->pid = pi.dwProcessId;
+    impl->job = CreateJobObjectW(nullptr, nullptr);
+    if (impl->job != nullptr) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(impl->job, JobObjectExtendedLimitInformation, &info, sizeof(info));
+        AssignProcessToJobObject(impl->job, pi.hProcess); // 실패해도 (오래된 OS 의 겹친 Job) 소멸자가 끝낸다
+    }
+    ResumeThread(pi.hThread);
+    CloseHandle(pi.hThread);
+    return std::make_unique<ChildProcess>(std::move(impl));
+}
+#else
+struct ChildProcess::Impl {
+    pid_t pid = 0;
+    std::optional<int> exit;
+    ~Impl() {
+        if (pid > 0 && !exit) {
+            kill(pid, SIGKILL);
+            int status = 0;
+            waitpid(pid, &status, 0);
+        }
+    }
+};
+
+ChildProcess::ChildProcess(std::unique_ptr<Impl> impl) : m_impl(std::move(impl)) {}
+ChildProcess::~ChildProcess() = default;
+
+std::optional<int> ChildProcess::poll() {
+    if (!m_impl->exit) {
+        int status = 0;
+        if (waitpid(m_impl->pid, &status, WNOHANG) == m_impl->pid) {
+            m_impl->exit = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + (WIFSIGNALED(status) ? WTERMSIG(status) : 0);
+        }
+    }
+    return m_impl->exit;
+}
+
+void ChildProcess::terminate() {
+    if (!poll()) {
+        kill(m_impl->pid, SIGTERM);
+    }
+}
+
+bool ChildProcess::waitFor(u32 ms) {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while (!poll() && std::chrono::steady_clock::now() < until) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return poll().has_value();
+}
+
+u64 ChildProcess::pid() const noexcept {
+    return static_cast<u64>(m_impl->pid);
+}
+
+Expected<std::unique_ptr<ChildProcess>> spawnProcess(std::span<const std::string> argv, const SpawnOptions& options) {
+    if (argv.empty()) {
+        return makeError(ErrorCode::InvalidArgument, "실행할 프로그램이 없다");
+    }
+    const std::string logPath = options.logFile.empty() ? std::string("/dev/null") : options.logFile.string();
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, logPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO);
+    const std::string dir = options.cwd.string();
+    if (!dir.empty()) {
+        posix_spawn_file_actions_addchdir_np(&actions, dir.c_str());
+    }
+    std::vector<std::string> args(argv.begin(), argv.end());
+    std::vector<char*> cargs;
+    for (std::string& a : args) {
+        cargs.push_back(a.data());
+    }
+    cargs.push_back(nullptr);
+    pid_t pid = 0;
+    const int rc = posix_spawnp(&pid, cargs[0], &actions, nullptr, cargs.data(), environ);
+    posix_spawn_file_actions_destroy(&actions);
+    if (rc != 0) {
+        if (rc == ENOENT) {
+            return makeError(ErrorCode::NotFound, std::format("'{}' 를 찾을 수 없다", argv[0]));
+        }
+        return makeError(ErrorCode::IoError, std::format("'{}' 를 띄울 수 없다: {}", argv[0], std::strerror(rc)));
+    }
+    auto impl = std::make_unique<ChildProcess::Impl>();
+    impl->pid = pid;
+    return std::make_unique<ChildProcess>(std::move(impl));
+}
+#endif
 
 } // namespace sbx::proc

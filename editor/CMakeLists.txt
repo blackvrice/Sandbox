@@ -17,6 +17,8 @@ add_library(SandboxEditorServices STATIC
     services/StudioSettings.cpp
     services/LayoutService.hpp
     services/LayoutService.cpp
+    services/TestService.hpp
+    services/TestService.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)
@@ -43,5 +45,7 @@ add_library(SandboxEditor STATIC
     ui/BuildPanel.cpp
     ui/LayoutPanel.hpp
     ui/LayoutPanel.cpp
+    ui/TestPanel.hpp
+    ui/TestPanel.cpp
 )
 target_link_libraries(SandboxEditor PUBLIC SandboxCore SandboxRender SandboxEditorServices PRIVATE sbx_imgui sbx_warnings)

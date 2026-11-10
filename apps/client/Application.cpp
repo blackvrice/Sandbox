@@ -146,6 +146,10 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
             m_config.notices.push_back(w);
         }
     }
+    m_testPanel.clients = static_cast<int>(m_config.testPlan.clients);
+    m_testPanel.latencyMs = static_cast<float>(m_config.testPlan.netSim.latencyMs);
+    m_testPanel.jitterMs = static_cast<float>(m_config.testPlan.netSim.jitterMs);
+    m_testPanel.lossPercent = static_cast<float>(m_config.testPlan.netSim.lossRate * 100.0);
     if (!m_config.projectDir.empty()) {
         setProject(m_config.projectDir);
     }
@@ -769,6 +773,10 @@ void Application::applyPendingTransition() {
     if (next == AppState::Shutdown && m_config.autosave != nullptr) {
         m_config.autosave->finishClean(); // 깨끗이 끝남 — 다음 시작에 복구를 제안하지 않는다 (v0.8 M6-T7)
     }
+    if (next == AppState::Shutdown && m_config.tests != nullptr && m_config.tests->running()) {
+        m_config.tests->stopAll(); // 테스트 세션은 Studio 와 같이 끝난다 (v0.8 ST-06-9)
+        log::info("studio", "테스트 세션을 모두 끝냈다");
+    }
     if (next == AppState::Shutdown) {
         (void)saveLayout(false); // 끝낼 때의 배치 (v0.8 M6-T6 — 기본 배치로 되돌린 뒤 움직이지 않았어도)
     }
@@ -937,6 +945,13 @@ bool Application::frame() {
                         m_config.autosave->discard(appSeconds());
                         log::info("studio", "복구본을 버렸다");
                     }
+                }
+            }
+            if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 ST-06-9 "테스트"
+                if (const auto a =
+                        editor::drawTestPanel(m_testPanel, m_config.tests->processes(), m_config.tests->running())) {
+                    (void)m_commands.run(*a == editor::TestPanelAction::Start ? "studio.test-start"
+                                                                              : "studio.test-stop");
                 }
             }
             if (m_config.layouts != nullptr && m_panels.visible) { // v0.8 M6-T6 "레이아웃"
@@ -1206,6 +1221,16 @@ void Application::registerStudioCommands() {
              logBuildReport(*m_buildPanel.last);
              m_commandFailed = m_commandFailed || !m_buildPanel.last->ok;
          }});
+    // 테스트 세션 (v0.8 ST-06-9) — 프로젝트에 들어가 있고 세션이 돌지 않을 때 · 돌 때
+    add({"studio.test-start", "서버 + 클라이언트 테스트", "", "global",
+         [this] { return m_config.tests != nullptr && !m_projectDir.empty() && !m_config.tests->running(); },
+         [this] { testStart(); }});
+    add({"studio.test-stop", "테스트 모두 끝내기", "", "global",
+         [this] { return m_config.tests != nullptr && m_config.tests->running(); },
+         [this] {
+             m_config.tests->stopAll();
+             log::info("studio", "테스트 세션을 모두 끝냈다");
+         }});
     // 레이아웃 (v0.8 M6-T6)
     const auto hasLayouts = [this] { return m_config.ui != nullptr && m_config.layouts != nullptr; };
     add({"studio.save-layout", "레이아웃 저장", "", "global", hasLayouts,
@@ -1348,6 +1373,17 @@ void Application::logBuildReport(const editor::services::BuildReport& r) {
 }
 
 void Application::studioBuildFrame() {
+    if (m_config.tests != nullptr && m_config.tests->started()) { // 테스트 세션 (v0.8 ST-06-9)
+        const bool wasRunning = m_config.tests->running();
+        for (const std::string& e : m_config.tests->poll()) {
+            log::info("studio", "테스트: {}", e);
+        }
+        if (wasRunning && !m_config.tests->running()) {
+            const bool ok = m_config.tests->succeeded();
+            log::info("studio", "테스트 세션 끝: {}", ok ? "모두 종료 코드 0" : "실패 · 끝낸 프로세스가 있다");
+            m_commandFailed = m_commandFailed || !ok;
+        }
+    }
     if (m_config.builds != nullptr) {
         if (std::optional<editor::services::BuildReport> r = m_config.builds->poll()) {
             logBuildReport(*r);
@@ -1369,7 +1405,8 @@ void Application::studioBuildFrame() {
         }
     }
     if (m_commandsRun && m_config.quitAfterCommands && !m_pending &&
-        (m_config.builds == nullptr || !m_config.builds->running())) {
+        (m_config.builds == nullptr || !m_config.builds->running()) &&
+        (m_config.tests == nullptr || !m_config.tests->running())) {
         m_exitCode = m_commandFailed ? 1 : m_exitCode;
         (void)request(AppState::Shutdown);
     }
@@ -1503,6 +1540,21 @@ void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {
         m_config.notices.push_back(w);
         m_noticesOpen = true;
     }
+}
+
+// ---- 테스트 세션 (v0.8 ST-06-9 — ADR-0115) ----
+
+void Application::testStart() {
+    editor::services::TestPlan plan = m_config.testPlan;
+    plan.project = m_projectDir;
+    editor::applyTestPanel(m_testPanel, plan);
+    if (const Expected<void> r = m_config.tests->start(plan); !r) {
+        log::error("studio", "테스트 세션: {}", r.error().describe());
+        m_commandFailed = true;
+        return;
+    }
+    log::info("studio", "테스트 세션: 서버 + 클라이언트 {} (포트 {}{}) — 로그 {}", plan.clients, plan.port,
+              plan.netSim.active() ? " · 흉내 " + plan.netSim.arg() : std::string(), plan.logDir.generic_string());
 }
 
 } // namespace sbx::client

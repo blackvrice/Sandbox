@@ -232,6 +232,8 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     월드는 entryWorld 세이브 그대로 (틱 · 일시정지 포함), 월드 이름 = 매니페스트 name. 원격 클라이언트는
     --content <프로젝트>/content 로 같은 팩을 읽는다 (ADR-0041).
     --snapshot-kbps: 클라이언트당 복제 예산 KB/s (기본 256, 0 = 제한 없음 — 08 6.3, ADR-0025). 넘는 엔티티는 다음 스냅숏으로.
+    --net-sim "latency=80,jitter=10,loss=0.05,kbps=512" (v0.8 ST-06-9): 보내는 쪽 지연 · 손실 흉내 (SimulatedTransport — 클라이언트
+    --connect 도 같은 옵션). Studio 테스트 세션이 양쪽에 같은 값을 준다
     0 은 측정용 — 10k 월드의 스냅숏이 1 MB 를 넘어 UDP 받기 버퍼에서 조각을 잃고 클라이언트가 거의 못 받는다 (10B 측정).
     역할: 일시정지 · 한 틱 · 속도는 admin 부터 (10-EDITOR 7장) — 혼자 시험할 때는 --default-role admin.
     (v0.5 M1-T1) 충돌하면 보고 묶음을 남긴다 — <보고 폴더>/<UTC 시각>-SandboxServer/ (report.json · log.txt · Windows crash.dmp),
@@ -255,6 +257,9 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.8 M6-T7) 프로젝트면 자동 저장 (설정 폴더 recovery/<해시>/ — 기본 180 초 · 플레이 시작 전, 안전 모드 · 원격은 끔). --autosave-seconds <s>
     (0 = 주기 끔), 앞 실행이 비정상으로 끝났으면 "복구" 창 (--recover = 바로 복구 → worlds/recovered-<n> 을 연다). (시험용)
     --abort-after-autosaves <n> = n 번째 자동 저장 뒤 정리 없이 끝 (종료 코드 3 — studio_recovery)
+    (v0.8 ST-06-9) 프로젝트면 "테스트" 창 · 명령 studio.test-start · studio.test-stop — SandboxServer + SandboxClient 1 ~ 4 를 프로세스로
+    (127.0.0.1:<포트>, 저장한 프로젝트, 로그 <임시>/sbx-test-<포트>/). --test-clients <n> (기본 2) · --test-net-sim <글> · --test-port <p>
+    (기본 7790) · --test-headless-frames <n> (클라이언트 헤드리스 n 프레임 · 서버도 스스로 끝 — --quit-after-commands 가 기다린다, 실패면 1)
     (v0.8 M6-T6) 창 배치는 설정 폴더 studio/layouts/<이름>.ini (바뀌면 몇 초 뒤 · 끝낼 때 저장, 안전 모드는 끔) — "레이아웃" 창 · 명령
     studio.save-layout · studio.reset-layout. --layout <이름> = 그 배치로 시작하고 기억 (studio.json layout — 틀린 이름은 종료 코드 2).
     studio.json 의 autosaveSeconds 가 자동 저장 기본 주기 (--autosave-seconds 가 이긴다)
