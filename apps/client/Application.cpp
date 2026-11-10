@@ -19,9 +19,13 @@
 #include <format>
 #include <type_traits>
 
+#include <imgui.h>
+
+#include "editor/services/StudioSettings.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "foundation/log/Log.hpp"
 #include "foundation/text/Utf8.hpp"
+#include "network/protocol/Messages.hpp"
 
 namespace sbx::client {
 
@@ -136,8 +140,19 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     registerStudioCommands();
+    m_shell.developerPanels = m_config.developerPanels; // v0.8 UI-1
+    m_shell.density = m_config.compactDensity ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
+    if (m_config.ui != nullptr) {
+        applyTheme();
+        m_shell.pendingPreset = std::string("scene"); // 저장된 배치가 없으면 기본 (아래에서 지운다)
+    }
     if (m_config.ui != nullptr && m_config.layouts != nullptr) { // v0.8 M6-T6 — 첫 프레임 전에 지금 레이아웃
-        m_config.ui->applyLayout(m_config.layouts->loadActive());
+        const std::string layoutText = m_config.layouts->loadActive();
+        m_config.ui->applyLayout(layoutText);
+        // 저장된 배치가 있으면 그것 (사용자 · 프리셋을 고친 것), 없으면 이름의 프리셋 (v0.8 UI-1 — ADR-0118)
+        m_shell.pendingPreset = layoutText.empty()
+                                    ? std::optional<std::string>(std::string(presetFor(m_config.layouts->active())))
+                                    : std::nullopt;
         m_layoutNames = m_config.layouts->names();
         log::info("studio", "레이아웃 '{}'{}", m_config.layouts->active(),
                   m_config.layouts->enabled() ? "" : " (안전 모드 — 저장하지 않는다)");
@@ -901,7 +916,23 @@ bool Application::frame() {
         pin.details = m_detailOverlay;
         pin.zoom = m_renderWorld.camera.pixelsPerUnit;
         pin.font = m_config.ui->fontName();
-        const PanelActions act = drawDebugPanels(m_panels, pin);
+        // Studio 셸 (v0.8 UI-1 — ADR-0118): 월드 안이면 메뉴 · 툴바 · 도크 공간을 다른 창보다 먼저 (도킹 · 프리셋)
+        ShellActions shell;
+        if (inWorld && m_panels.visible) {
+            m_shell.view.content = m_editorPanel.contentOpen;
+            shell = drawStudioShell(m_shell, shellInputs(inWorld));
+            m_editorPanel.contentOpen = m_shell.view.content;
+        }
+        // 진단 창 (시뮬레이션 · 통계 · 네트워크) 은 개발자 창 — 제작 기능 (일시정지 · 격자 …) 은 툴바 · 보기 메뉴에
+        PanelActions act;
+        act.grid = pin.grid;
+        act.details = pin.details;
+        if (m_shell.developerPanels || !inWorld) {
+            act = drawDebugPanels(m_panels, pin);
+        }
+        if (inWorld) {
+            applyShellActions(shell, act);
+        }
         drawNotices(m_config.notices, m_noticesOpen);
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
         if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.projects != nullptr) {
@@ -922,7 +953,7 @@ bool Application::frame() {
                 }
             }
         }
-        if (m_panels.visible) { // v0.7 M4-T3 "키"
+        if (m_panels.visible && m_shell.developerPanels) { // v0.7 M4-T3 "키" — 개발자 창 (v0.8 UI-1)
             KeysView view = buildKeysView(m_keys, m_playKeys.map);
             view.canSave = !m_config.userInputFile.empty();
             if (const auto r = drawKeysPanel(view, m_keysPanel)) {
@@ -932,9 +963,15 @@ bool Application::frame() {
         if (inWorld) {
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {
-                editor::drawEditorPanel(m_editor, m_editorPanel, *host);  // 12A "편집"
-                editor::drawInspectorPanel(m_editor, m_inspector, *host); // 12B
-                editor::drawHierarchyPanel(m_editor, m_inspector, *host);
+                if (m_shell.view.tools) {
+                    editor::drawEditorPanel(m_editor, m_editorPanel, *host); // 12A "편집"
+                }
+                if (m_shell.view.inspector) {
+                    editor::drawInspectorPanel(m_editor, m_inspector, *host); // 12B
+                }
+                if (m_shell.view.hierarchy) {
+                    editor::drawHierarchyPanel(m_editor, m_inspector, *host);
+                }
                 editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
             }
             if (m_config.autosave != nullptr && m_config.autosave->pending()) { // v0.8 M6-T7 복구 제안
@@ -947,31 +984,35 @@ bool Application::frame() {
                     }
                 }
             }
-            if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 ST-06-9 "테스트"
+            if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible &&
+                m_shell.view.test) { // ST-06-9
                 if (const auto a =
                         editor::drawTestPanel(m_testPanel, m_config.tests->processes(), m_config.tests->running())) {
                     (void)m_commands.run(*a == editor::TestPanelAction::Start ? "studio.test-start"
                                                                               : "studio.test-stop");
                 }
             }
-            if (m_config.layouts != nullptr && m_panels.visible) { // v0.8 M6-T6 "레이아웃"
+            if (m_config.layouts != nullptr && m_panels.visible &&
+                m_shell.developerPanels) { // M6-T6 "레이아웃" — 개발자 창
                 if (const auto a = editor::drawLayoutPanel(m_layoutPanel, m_config.layouts->active(), m_layoutNames,
                                                            m_config.layouts->enabled())) {
                     applyLayoutAction(*a);
                 }
             }
-            if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 M6-T3 "빌드"
+            if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible &&
+                m_shell.view.build) { // M6-T3
                 if (const auto a =
                         editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running())) {
                     (void)m_commands.run(*a == editor::BuildPanelAction::Check ? "studio.check" : "studio.build");
                 }
             }
-            if (const auto players = m_config.world->players(); players && m_panels.visible) {
+            if (const auto players = m_config.world->players();
+                players && m_panels.visible && m_shell.developerPanels) {
                 if (const auto req = drawPlayersPanel(*players)) { // 12C "접속자"
                     m_config.world->requestRole(req->clientId, req->role);
                 }
             }
-            if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible) {
+            if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible && m_shell.view.world) {
                 if (auto req = drawWorldPanel(*ops, m_worldPanel)) { // 12D "월드"
                     if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
                         m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
@@ -979,13 +1020,13 @@ bool Application::frame() {
                     m_config.world->worldOp(req->op, std::move(req->name), req->target);
                 }
             }
-            if (auto game = m_config.world->game(); game && m_panels.visible) {
+            if (auto game = m_config.world->game(); game && m_panels.visible && m_shell.view.game) {
                 localizeNames(*game);
                 if (const auto c = drawGamePanel(*game)) { // v0.2 M2-T3 "게임"
                     m_config.world->gameCommand(*c);
                 }
             }
-            if (auto acts = m_config.world->playerActions(); acts && m_panels.visible) {
+            if (auto acts = m_config.world->playerActions(); acts && m_panels.visible && m_shell.view.game) {
                 localizeNames(*acts);
                 drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
             } else if (!acts) {
@@ -999,7 +1040,7 @@ bool Application::frame() {
             if (const auto so = m_config.world->scriptOverlay()) {
                 drawScriptOverlay(*so, m_renderWorld.camera); // v0.3 M5-T3 — 게임 화면이라 늘
             }
-            if (const auto sp = m_config.world->scriptProfile(); sp && m_panels.visible) {
+            if (const auto sp = m_config.world->scriptProfile(); sp && m_panels.visible && m_shell.developerPanels) {
                 drawScriptProfilePanel(*sp); // v0.3 M5-T4 "스크립트 프로파일"
             }
         }
@@ -1511,6 +1552,7 @@ void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {
     using Kind = editor::LayoutPanelAction::Kind;
     if (a.kind == Kind::Reset) {
         m_pendingLayout = std::string(); // 다음 프레임 앞 — 끝낼 때 (또는 움직이면) 지금 이름으로 저장된다
+        m_shell.pendingPreset = std::string(presetFor(l.active())); // 그 이름의 프리셋 (v0.8 UI-1)
         m_layoutPanel.message = "기본 배치로 되돌렸다";
         log::info("studio", "레이아웃 '{}' — 기본 배치로", l.active());
         return;
@@ -1531,6 +1573,9 @@ void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {
             m_layoutPanel.message = text.error().message;
             log::warn("studio", "레이아웃 고르기: {}", text.error().describe());
             return;
+        }
+        if (text->empty()) {
+            m_shell.pendingPreset = std::string(presetFor(a.name)); // 저장된 배치가 없는 이름 = 프리셋 (v0.8 UI-1)
         }
         m_pendingLayout = std::move(*text);
         m_layoutPanel.message.clear();
@@ -1624,6 +1669,139 @@ void Application::replayFrame() {
         if (m_config.replayQuitAtEnd) {
             m_exitCode = ok ? m_exitCode : 1;
             (void)request(AppState::Shutdown);
+        }
+    }
+}
+
+// ---- Studio 셸 (v0.8 UI-1 — ADR-0118) ----
+
+void Application::applyTheme() {
+    if (m_config.ui == nullptr) {
+        return;
+    }
+    ImGuiStyle& style = ImGui::GetStyle();
+    editor::theme::applyStudioTheme(style, m_shell.density, style.FontScaleDpi > 0.f ? style.FontScaleDpi : 1.f);
+}
+
+ShellInputs Application::shellInputs(bool inWorld) const {
+    ShellInputs in;
+    in.version = m_config.engineVersion;
+    if (!inWorld || m_config.world == nullptr) {
+        return in;
+    }
+    const WorldInfo w = m_config.world->info();
+    in.world = w.name;
+    in.project = m_projectDir.empty() ? std::string() : m_projectDir.filename().string();
+    in.paused = w.paused;
+    in.canControl = w.canControl;
+    in.speed = w.speed;
+    in.tick = w.tick;
+    in.tps = w.ticksPerSecond;
+    if (const auto ops = m_config.world->worldOps()) {
+        in.mode = ops->mode == 3   ? WorkspaceMode::TestPlay
+                  : ops->mode == 2 ? WorkspaceMode::Replay
+                  : ops->mode == 1 ? WorkspaceMode::Recording
+                                   : WorkspaceMode::Edit;
+        in.canSave = ops->canChange && net::isValidSaveName(m_worldPanel.name) && ops->mode != 2;
+        in.canPlay = ops->canChange && (ops->mode == 0);
+    }
+    if (editor::IEditorHost* host = m_config.world->editorHost()) {
+        in.hasEditor = true;
+        in.tool = m_editor.tool();
+        const editor::EditPermissions perms = host->permissions();
+        for (usize i = 0; i < editor::kToolCount; ++i) {
+            if (editor::toolAllowed(static_cast<editor::Tool>(i), perms)) {
+                in.toolMask |= 1u << i;
+            }
+        }
+        in.canUndo = m_editor.canUndo() && perms.anyEdit();
+        in.canRedo = m_editor.canRedo() && perms.anyEdit();
+        in.undoLabel = m_editor.undoLabel();
+        in.redoLabel = m_editor.redoLabel();
+        in.selected = host->selection().size();
+    }
+    in.buildRunning = m_config.builds != nullptr && m_config.builds->running();
+    in.canBuild = m_config.builds != nullptr && !m_projectDir.empty() && !in.buildRunning;
+    in.testRunning = m_config.tests != nullptr && m_config.tests->running();
+    in.canTest = m_config.tests != nullptr && !m_projectDir.empty() && !in.testRunning;
+    in.grid = m_renderWorld.overlay.grid;
+    in.details = m_detailOverlay;
+    in.notices = m_noticesOpen;
+    if (m_config.layouts != nullptr) {
+        in.layout = m_config.layouts->active();
+        in.layouts = m_layoutNames;
+        in.layoutsEnabled = m_config.layouts->enabled();
+    }
+    return in;
+}
+
+void Application::applyShellActions(const ShellActions& a, PanelActions& panel) {
+    editor::IEditorHost* host = m_config.world != nullptr ? m_config.world->editorHost() : nullptr;
+    if (a.tool && host != nullptr) {
+        m_editor.setTool(*a.tool);
+    }
+    if (a.undo && host != nullptr) {
+        m_editor.undo(*host);
+    }
+    if (a.redo && host != nullptr) {
+        m_editor.redo(*host);
+    }
+    panel.clearSelection = panel.clearSelection || a.clearSelection;
+    panel.togglePause = panel.togglePause || a.togglePause;
+    panel.step = panel.step || a.step;
+    panel.speed = a.speed != 0 ? a.speed : panel.speed;
+    panel.fitCamera = panel.fitCamera || a.fitCamera;
+    if (a.grid) {
+        panel.grid = *a.grid;
+    }
+    if (a.details) {
+        panel.details = *a.details;
+    }
+    if (a.play) {
+        if (m_config.autosave != nullptr) {
+            m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
+        }
+        m_config.world->worldOp(WorldOp::TestPlay, {});
+    }
+    if (a.stop) {
+        m_config.world->worldOp(WorldOp::TestStop, {});
+    }
+    if (a.save) {
+        m_config.world->worldOp(WorldOp::Save, m_worldPanel.name); // Ctrl+S 와 같은 길
+    }
+    if (a.command) {
+        (void)m_commands.run(*a.command);
+    }
+    if (a.layout && m_config.layouts != nullptr) {
+        applyLayoutAction({editor::LayoutPanelAction::Kind::Select, *a.layout});
+    }
+    if (a.resetLayout && m_config.layouts != nullptr) {
+        applyLayoutAction({editor::LayoutPanelAction::Kind::Reset, {}});
+    } else if (a.resetLayout) {
+        m_pendingLayout = std::string();
+        m_shell.pendingPreset = std::string("scene");
+    }
+    if (a.toggleNotices) {
+        m_noticesOpen = !m_noticesOpen;
+    }
+    if (a.quit) {
+        (void)request(AppState::Shutdown);
+    }
+    if (a.densityChanged) {
+        applyTheme();
+        if (const Expected<void> w = editor::services::writeStudioSetting(
+                m_config.studioSettingsFile, "density",
+                m_shell.density == editor::theme::Density::Compact ? "\"compact\"" : "\"comfortable\"");
+            !w) {
+            log::warn("studio", "간격 설정을 저장하지 못했다 — {}", w.error().describe());
+        }
+    }
+    if (m_shell.developerPanels != m_config.developerPanels) { // 보기 › 개발자 창 — 다음 실행도 같게
+        m_config.developerPanels = m_shell.developerPanels;
+        if (const Expected<void> w = editor::services::writeStudioSetting(
+                m_config.studioSettingsFile, "developerPanels", m_shell.developerPanels ? "true" : "false");
+            !w) {
+            log::warn("studio", "개발자 창 설정을 저장하지 못했다 — {}", w.error().describe());
         }
     }
 }

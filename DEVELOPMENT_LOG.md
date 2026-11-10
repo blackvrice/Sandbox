@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-10 — v0.8 UI-0 · UI-1: Studio UI 설계 · 셸 (메뉴 · 툴바 · 도크 공간 · 프리셋 · 디자인 토큰, ADR-0118)
+
+**무엇을**
+
+- UI-0 (3d00555 · 0c28e82): 29-STUDIO-UI — 실제 UI 감사 (창 18 개 · 문제 P1 ~ P8), Roblox · Unity · Godot · Unreal 공식 문서 비교, 디자인
+  시스템 · 정보 구조 · 배치 프리셋 · 단계. check_docs 가 UI-n 태스크 ID 를 안다 (3d00555 만으로는 docs_consistency 4 건 — 다음 커밋이 고쳤다).
+- editor/ui/StudioTheme (색 토큰 · 간격 4 단위 · 밀도 → ImGuiStyle), StudioWidgets (페이지 제목 · 묶음 머리 · 주/보조 단추 · 툴바 토글 · 배지 ·
+  상태 글 · 빈 상태 · 카드 · 이니셜 타일).
+- apps/client/studio/StudioShell: 메뉴 막대 (파일 · 편집 · 보기 · 프로젝트 · 도움말) · 툴바 (툴 다섯 · 되돌리기 · 플레이/멈춤 · 일시정지 · 한 틱 ·
+  저장 · 빌드 · 서버+N · 모드 배지) · 상태 막대 · 도크 공간 (가운데 통과 · 그 위 도킹 금지) · 모드 띠 (플레이 · 재생 중 노란 테두리) · 프리셋
+  scene · scripting · play (DockBuilder — 저장된 배치가 없을 때만).
+- Application: 셸을 다른 창보다 먼저, 고른 일은 기존 길 (Editor · PanelActions · WorldOp TestPlay/TestStop/Save · 명령 표 · LayoutService),
+  개발자 창 (시뮬레이션 · 통계 · 네트워크 · 스크립트 프로파일 · 접속자 · 키 · 레이아웃) 은 보기 › 개발자 창 일 때만, 보기의 창 켜기. studio.json
+  developerPanels · density (StudioSettings), 테마는 시작 · 간격을 바꿀 때.
+
+**왜**
+
+- 사용자 요청 (Studio UI 전면 재설계) — 셸 없이 떠 있던 창 · 제작/진단 섞임 · 월드 그림이 중심이 아님 (29 1.2).
+
+**검증**
+
+- test_studio_shell (이름 · 프리셋 · 토큰, 헤드리스 앱: scene 프리셋 도킹 · 가운데 빈 노드 · 개발자 창 숨김/보임 · 창 끄기 · play ↔ scene · F1),
+  studio_layout · studio_build · studio_recovery · studio_new_project (저장된 ini 가 있으면 프리셋을 만들지 않아 배치 왕복 그대로).
+- 창 (Windows · D3D12 · 1366×768): 셸이 그려지고 월드에서 고른 35 개가 목록 · 인스펙터와 같다, 끝내면 default.ini 에 도킹 11 창. 머리 · 고른
+  줄의 옅은 노랑이 갈색으로 보여 중립 회색으로 바꿨다. 두 번째 실행은 Xbox Game Bar 가 화면을 덮어 캡처하지 못했다 — 1920×1080 · 배율 · 다시
+  열기 · 메뉴 클릭은 MANUAL-QA [ ].
+- ImGui 1.92.9 의 AddRect 는 thickness · flags 차례가 바뀌어 (옛 차례는 delete) 컴파일에서 고쳤다. clang-tidy 바뀐 파일 경고 없음.
+- Windows MSVC Debug 빌드 · 전체 ctest 85/85 통과.
+
+**남은 일**
+
+- UI-2 홈 · UI-3 편집기 통합 (편집 창의 툴 라디오 → 툴바만, 목록 문맥 메뉴, 인스펙터 머리, 콘솔 창, 창 제목 — 아직 진단 줄) · UI-4 검증.
+
 ## 2026-11-10 — 버그: --net-sim 파서가 macOS 에서 컴파일되지 않음 (부동소수 from_chars)
 
 **무엇을** network/transport parseSimulatedLink 가 숫자를 std::strtod 로 읽는다 (ClientOptions 의 --game-ui-scale 과 같은 길).

@@ -76,6 +76,20 @@ StudioSettingsLoad loadStudioSettings(const fs::path& file) {
             out.warnings.push_back("Studio 설정 layout 은 문자열이어야 한다 — 기본 레이아웃");
         }
     }
+    if (const auto d = j->find("developerPanels"); d != j->end()) {
+        if (d->is_boolean()) {
+            out.settings.developerPanels = d->get<bool>();
+        } else {
+            out.warnings.push_back("Studio 설정 developerPanels 는 true · false 여야 한다 — 끔");
+        }
+    }
+    if (const auto d = j->find("density"); d != j->end()) {
+        if (d->is_string() && (*d == "compact" || *d == "comfortable")) {
+            out.settings.compactDensity = *d == "compact";
+        } else {
+            out.warnings.push_back("Studio 설정 density 는 \"comfortable\" · \"compact\" — 보통 간격");
+        }
+    }
     if (const auto a = j->find("autosaveSeconds"); a != j->end()) {
         const double v = a->is_number() ? a->get<double>() : -1.0;
         if (std::isfinite(v) && v >= 0.0 && v <= kMaxAutosaveSeconds) {

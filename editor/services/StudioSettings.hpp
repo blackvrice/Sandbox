@@ -3,7 +3,8 @@
 // 게임 클라이언트 설정 (client.json — UserSettings) 과 나눈다 (Studio 의 것은 Studio 만 읽는다).
 //
 //   {"schemaVersion": 1, "recentProjects": [...] (ProjectService), "layout": "<이름>" (LayoutService — 지금 레이아웃),
-//    "autosaveSeconds": 180 (AutosaveService 주기 — --autosave-seconds 가 이긴다, 0 = 끔)}
+//    "autosaveSeconds": 180 (AutosaveService 주기 — --autosave-seconds 가 이긴다, 0 = 끔),
+//    "developerPanels": false · "density": "comfortable" | "compact" (Studio 셸 — v0.8 UI-1)}
 //
 // 여러 서비스가 같은 파일의 자기 키만 쓴다 — 쓰기는 읽고 · 한 키를 바꾸고 · 원자적으로 쓴다 (다른 키 · 모르는 키는
 // 그대로). 깨진 파일 (JSON 객체가 아니다) 은 옆 "studio.json.broken" 으로 옮기고 기본값 + 경고 (M1-T3 의 규칙 — 먼저
@@ -26,6 +27,8 @@ inline constexpr double kMaxAutosaveSeconds = 86400.0; // --autosave-seconds 와
 struct StudioSettings {
     std::string layout;                    // 비면 기본 레이아웃
     std::optional<double> autosaveSeconds; // 없으면 서비스 기본값
+    bool developerPanels = false;          // 보기 › 개발자 창 (v0.8 UI-1 — ADR-0118)
+    bool compactDensity = false;           // "density": "compact" (v0.8 UI-1)
 };
 
 struct StudioSettingsLoad {

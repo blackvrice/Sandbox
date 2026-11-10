@@ -371,6 +371,12 @@ int main(int argc, char** argv) {
     cfg.builds = &builds;
     cfg.autosave = &autosave;
     cfg.layouts = &layouts;
+    // Studio 셸 (v0.8 UI-1): 개발자 창 · 간격 (studio.json — 안전 모드면 기본, 쓰지 않는다)
+    cfg.developerPanels = studio.settings.developerPanels;
+    cfg.compactDensity = studio.settings.compactDensity;
+    cfg.studioSettingsFile = studio.newerVersion ? std::filesystem::path() : studioFile;
+    cfg.engineVersion =
+        std::format("{}.{}.{}", sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch);
     cfg.tests = &tests;
     cfg.replayName = opts->replayName; // 리플레이 뷰어 (v0.8 M5-T1) — 헤드리스면 끝에 끝낸다
     cfg.replayQuitAtEnd = opts->headless;

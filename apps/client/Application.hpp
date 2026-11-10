@@ -32,6 +32,7 @@
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/presentation/GameUiLayer.hpp"
 #include "apps/client/studio/StudioHome.hpp"
+#include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "apps/client/ui/FontFallback.hpp"
@@ -120,6 +121,12 @@ struct AppConfig {
     // 레이아웃 (v0.8 M6-T6 — ADR-0114): 서비스 (Application 보다 오래 산다 — 없으면 배치를 저장하지 않는다). 시작에
     // 지금 레이아웃을 적용하고, ImGui 가 바뀌었다고 하면 · 끝낼 때 저장한다
     editor::services::LayoutService* layouts = nullptr;
+    // Studio 셸 (v0.8 UI-1 — ADR-0118): 개발자 창 · 촘촘한 간격의 처음 값 (studio.json), 바뀌면 쓸 파일 (비면 쓰지
+    // 않는다 — 안전 모드), 엔진 판 (메뉴 · 도움말)
+    bool developerPanels = false;
+    bool compactDensity = false;
+    std::filesystem::path studioSettingsFile;
+    std::string engineVersion;
     // 테스트 세션 (v0.8 ST-06-9 — ADR-0115): 서비스 (Application 보다 오래 산다 — 없으면 끔), 계획의 기본 (실행 파일 ·
     // 로그 폴더 · 포트 · 클라이언트 수 · 흉내 · 자동 시험 프레임 — main 이 --test-* 로). 프로젝트는 지금 프로젝트
     editor::services::TestService* tests = nullptr;
@@ -179,6 +186,8 @@ public:
     [[nodiscard]] StudioHomeState& studioHomeState() noexcept { return m_home; }
     [[nodiscard]] const std::filesystem::path& projectDir() const noexcept { return m_projectDir; }
     [[nodiscard]] const editor::BuildPanelState& buildPanel() const noexcept { return m_buildPanel; }
+    // Studio 셸 (v0.8 UI-1) — 보기 · 개발자 창 · 다음 프리셋 (시험이 바꾼다)
+    [[nodiscard]] ShellState& shell() noexcept { return m_shell; }
     [[nodiscard]] IWorldSession* world() const noexcept { return m_config.world; } // 지금 세션 (홈에서 들어간 것 포함)
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
@@ -213,7 +222,11 @@ private:
     void layoutFrame();
     void applyLayoutAction(const editor::LayoutPanelAction& a);
     bool saveLayout(bool announce);
-    void testStart();   // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
+    void testStart(); // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
+    // Studio 셸 (v0.8 UI-1): 입력 모으기 · 고른 일 적용 · 테마 (밀도)
+    [[nodiscard]] ShellInputs shellInputs(bool inWorld) const;
+    void applyShellActions(const ShellActions& a, PanelActions& panel);
+    void applyTheme();
     void replayFrame(); // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
     [[nodiscard]] f64 appSeconds() const;
     void logBuildReport(const editor::services::BuildReport& r);
@@ -249,6 +262,7 @@ private:
     std::vector<std::string> m_layoutNames;
     editor::LayoutPanelState m_layoutPanel;
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
+    ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
     // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
     u8 m_replayStage = 0;
     u8 m_seekStep = 0;     // --replay-seek 의 단계 (0 아직 · 1 끝 앞 · 2 그 call · 3 끝)

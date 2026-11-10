@@ -226,6 +226,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 월드 편집 · 툴 · Inspector · 목록 · Undo · 권한 · 테스트 플레이 · 스크립트 오버레이 편집 | 현행 (10, ADR-0028 ~ 0031 · 0053 · 0066) |
 | 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | ✅ v0.8 M6-T1 (ProjectService · StudioHome — ADR-0111) |
 | 레이아웃 저장 · 설정 분리 | ✅ v0.8 M6-T6 (LayoutService · StudioSettings · "레이아웃" 창 — ADR-0114) |
+| Studio 셸 (메뉴 · 툴바 · 도크 공간 · 프리셋 · 디자인 토큰 · 개발자 창 나누기) | ✅ v0.8 UI-1 (StudioShell · StudioTheme · StudioWidgets — ADR-0118, 29) |
 | GUI 빌드 · 누락 검사 | ✅ v0.8 M6-T3 (BuildService · "빌드" 창 — ADR-0112) |
 | 자동 저장 · 복구 | ✅ v0.8 M6-T7 (AutosaveService · 복구 창 — ADR-0113) |
 | 스크립트 자동 완성 · hover 기본 | [계획 v0.5 M6-T8 — 추가] (프로토타입: script/lang/LanguageService 현행) |

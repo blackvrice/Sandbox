@@ -154,6 +154,7 @@ add_executable(SandboxTests
 if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
+        unit/client/test_studio_shell.cpp
         unit/client/test_network_session.cpp
         unit/client/test_imgui_layer.cpp
         unit/client/test_editor_session.cpp
@@ -183,6 +184,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioShell.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ScriptPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/ActionPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/PlayKeys.cpp"
