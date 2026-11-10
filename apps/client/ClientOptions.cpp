@@ -237,6 +237,17 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                 return makeError(ErrorCode::InvalidArgument, std::format("--game-ui-scale 은 0.75 ~ 2: '{}'", *v));
             }
             opts.gameUiScale = static_cast<f32>(s);
+        } else if (a == "--quit-after-commands") {
+            opts.quitAfterCommands = true;
+        } else if (a == "--run-command") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            if (v->empty()) {
+                return makeError(ErrorCode::InvalidArgument, "--run-command 에 빈 값");
+            }
+            opts.runCommands.emplace_back(*v);
         } else if (a == "--new-project" || a == "--game-id" || a == "--template" || a == "--project-name") {
             auto v = value();
             if (!v) {
@@ -285,6 +296,9 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
     }
     if (opts.script && !opts.world) {
         return makeError(ErrorCode::InvalidArgument, "--script 는 --world 와 함께 (로컬 서버가 스크립트로 돈다)");
+    }
+    if (opts.quitAfterCommands && opts.runCommands.empty()) {
+        return makeError(ErrorCode::InvalidArgument, "--quit-after-commands 는 --run-command 와 함께");
     }
     if (opts.newProject && (opts.world || opts.connect)) {
         return makeError(ErrorCode::InvalidArgument,
@@ -344,6 +358,8 @@ std::string clientUsage() {
            "                         Studio 홈의 새 프로젝트를 시작하자마자 — 만들고 들어간다 (템플릿 empty · "
            "시나리오\n"
            "                         이름, v0.8). 그 밖에는 --world 없이 열면 Studio 홈 (새 프로젝트 · 열기 · 최근)\n"
+           "      --run-command <id> 들어간 뒤 Studio 명령 (studio.build · studio.check …, 여러 번 — v0.8)\n"
+           "      --quit-after-commands  명령 (빌드 포함) 이 끝나면 끝낸다 — 실패가 있으면 종료 코드 1\n"
            "      --seed <n>         --world 시나리오의 월드 시드 (기본 1)\n"
            "      --threads <n>      --world 시뮬레이션의 Worker 수 (기본: 코어 수 - 2, 1~4. 결과는 같다 — D5)\n"
            "      --content <dir>    콘텐츠 팩 루트 (기본: 빌드 때 정한 저장소의 content/)\n"

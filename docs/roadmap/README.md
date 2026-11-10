@@ -13,7 +13,7 @@
 
 ```text
 제품      0.7.0 (v0.7 게임 UI Runtime · 다국어 — [릴리스 노트](../releases/v0.7.0.md)). 지금 버전 v0.8
-다음      트랙 B  M6-T3 빌드 화면 · M6-T7 자동 저장 (v0.8 — ST-06-1 Editor Services ✅ · M6-T1 Studio 홈 ✅ 위에)
+다음      트랙 B  M6-T7 자동 저장 · 크래시 복구 (v0.8 — ST-06-1 Editor Services ✅ · M6-T1 Studio 홈 ✅ · M6-T3 빌드 ✅ 위에)
           트랙 A  M6-T4 오류 메시지 · 줄 표 (.sbc 11, v0.9) — v0.7 ✅ 0.7.0 (M3 · M4 · NG-06)
           트랙 C  없음 (v0.14 전에는 D-06 저장소 경계 결정만 — PS-12-1)
 ```

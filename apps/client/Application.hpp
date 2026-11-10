@@ -38,8 +38,10 @@
 #include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
+#include "editor/services/BuildService.hpp"
 #include "editor/services/CommandService.hpp"
 #include "editor/services/ProjectService.hpp"
+#include "editor/ui/BuildPanel.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
@@ -99,6 +101,12 @@ struct AppConfig {
     editor::services::ProjectService* projects = nullptr;
     std::function<Expected<OpenedWorld>(const std::filesystem::path& dir)> openWorld;
     std::optional<editor::services::NewProjectRequest> newProject;
+    // 빌드 (v0.8 M6-T3 — ADR-0112): 서비스 (Application 보다 오래 산다), 지금 프로젝트 (--world <프로젝트> — 홈에서
+    // 들어가면 그 폴더), 들어간 뒤 할 명령 (--run-command) · 끝나면 끝내기
+    editor::services::BuildService* builds = nullptr;
+    std::filesystem::path projectDir;
+    std::vector<std::string> runCommands;
+    bool quitAfterCommands = false;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -146,6 +154,8 @@ public:
     [[nodiscard]] editor::services::UndoService& undoLine() noexcept { return m_undoLine; }
     [[nodiscard]] const editor::services::CommandService& commands() const noexcept { return m_commands; }
     [[nodiscard]] StudioHomeState& studioHomeState() noexcept { return m_home; }
+    [[nodiscard]] const std::filesystem::path& projectDir() const noexcept { return m_projectDir; }
+    [[nodiscard]] const editor::BuildPanelState& buildPanel() const noexcept { return m_buildPanel; }
     [[nodiscard]] IWorldSession* world() const noexcept { return m_config.world; } // 지금 세션 (홈에서 들어간 것 포함)
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
@@ -172,6 +182,9 @@ private:
     void studioCreate();
     void studioOpen(const std::filesystem::path& dir);
     bool enterProject(const std::filesystem::path& dir);
+    void setProject(const std::filesystem::path& dir);
+    void studioBuildFrame(); // 빌드 보고 받기 · --run-command · 끝내기
+    void logBuildReport(const editor::services::BuildReport& r);
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
     void routeGamepads(std::vector<ui::UiAction>& events);           // v0.7 NG-06 (4) — 패드 → 게임 UI 키
     void localizeNames(GameInfo& game) const;                        // "@<키>" 표시 이름 (v0.7 M4-T1)
@@ -192,6 +205,12 @@ private:
     editor::services::CommandService m_commands; // Studio 명령 표 (ADR-0108) — 지금은 홈의 명령
     StudioHomeState m_home;
     bool m_newProjectTried = false;
+    // 빌드 (v0.8 M6-T3)
+    std::filesystem::path m_projectDir;  // 지금 프로젝트 (비면 프로젝트가 아니다 — 시나리오 · 원격)
+    std::vector<std::string> m_profiles; // <프로젝트>/export/*.json 이름
+    editor::BuildPanelState m_buildPanel;
+    bool m_commandsRun = false;
+    bool m_commandFailed = false;
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

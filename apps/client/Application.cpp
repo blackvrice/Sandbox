@@ -134,6 +134,9 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     : m_window(window), m_actionMap(std::move(actions)), m_audio(audio), m_config(config) {
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     registerStudioCommands();
+    if (!m_config.projectDir.empty()) {
+        setProject(m_config.projectDir);
+    }
     if (!m_config.saveName.empty()) {
         m_worldPanel.name = m_config.saveName;
     }
@@ -904,6 +907,12 @@ bool Application::frame() {
                 editor::drawHierarchyPanel(m_editor, m_inspector, *host);
                 editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
             }
+            if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible) { // v0.8 M6-T3 "빌드"
+                if (const auto a =
+                        editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running())) {
+                    (void)m_commands.run(*a == editor::BuildPanelAction::Check ? "studio.check" : "studio.build");
+                }
+            }
             if (const auto players = m_config.world->players(); players && m_panels.visible) {
                 if (const auto req = drawPlayersPanel(*players)) { // 12C "접속자"
                     m_config.world->requestRole(req->clientId, req->role);
@@ -958,6 +967,7 @@ bool Application::frame() {
     if (m_state == AppState::MainMenu && m_config.world == nullptr) {
         studioHome(); // --new-project (v0.8 M6-T1)
     }
+    studioBuildFrame(); // 빌드 보고 · --run-command (v0.8 M6-T3)
     // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (없으면 Studio 홈 — v0.8 M6-T1). Connecting 은 세션이 준비될
     // 때까지 (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
@@ -1144,6 +1154,22 @@ void Application::registerStudioCommands() {
          [this] { studioCreate(); }});
     add({"studio.open-project", "프로젝트 열기", "Ctrl+O", "home", [this, home] { return home() && canOpen(m_home); },
          [this] { studioOpen(openProjectDir(m_home)); }});
+    // 빌드 (v0.8 M6-T3) — 프로젝트에 들어가 있고 빌드가 돌지 않을 때
+    const auto buildable = [this] {
+        return m_config.builds != nullptr && !m_projectDir.empty() && !m_config.builds->running();
+    };
+    add({"studio.check", "프로젝트 검사", "", "global", buildable, [this] {
+             m_buildPanel.last = m_config.builds->check(m_projectDir);
+             logBuildReport(*m_buildPanel.last);
+             m_commandFailed = m_commandFailed || !m_buildPanel.last->ok;
+         }});
+    add({"studio.build", "빌드", "Ctrl+B", "global", buildable, [this] {
+             const std::string profile = chosenProfile(m_buildPanel, m_profiles);
+             if (m_config.builds->start({m_projectDir, {}, profile})) {
+                 log::info("studio", "빌드를 시작했다: {}{}", m_projectDir.generic_string(),
+                           profile.empty() ? std::string() : " (프로필 " + profile + ")");
+             }
+         }});
 }
 
 void Application::studioHome() {
@@ -1225,11 +1251,75 @@ bool Application::enterProject(const std::filesystem::path& dir) {
     }
     m_ownedWorld = std::move(w->session);
     m_config.world = m_ownedWorld.get();
+    setProject(dir);
     if (!w->saveName.empty()) {
         m_worldPanel.name = w->saveName;
     }
     log::info("studio", "프로젝트에 들어간다: {}", dir.generic_string());
     return true;
+}
+
+// ---- 빌드 (v0.8 M6-T3 — ADR-0112) ----
+
+void Application::setProject(const std::filesystem::path& dir) {
+    m_projectDir = dir;
+    m_profiles.clear();
+    std::error_code ec;
+    for (const auto& e : std::filesystem::directory_iterator(dir / "export", ec)) {
+        if (e.is_regular_file(ec) && e.path().extension() == ".json") {
+            const std::u8string stem = e.path().stem().u8string();
+            m_profiles.emplace_back(stem.begin(), stem.end());
+        }
+    }
+    std::ranges::sort(m_profiles);
+}
+
+void Application::logBuildReport(const editor::services::BuildReport& r) {
+    if (r.checkOnly) {
+        log::info("studio", "검사: 오류 {} · 경고 {}", r.errors.size(), r.warnings.size());
+    } else if (r.ok) {
+        log::info("studio", "빌드를 끝냈다: {} — {} {} · 파일 {} · {} 바이트 · digest {} ({:.2f} 초)",
+                  r.file.generic_string(), r.gameId, r.version, r.files, r.bytes, r.digest.substr(0, 16), r.seconds);
+    } else {
+        log::error("studio", "빌드 실패 — 오류 {}", r.errors.size());
+    }
+    for (const std::string& e : r.errors) {
+        log::error("studio", "  {}", e);
+    }
+    for (const std::string& w : r.warnings) {
+        log::warn("studio", "  경고: {}", w);
+    }
+    for (const std::string& g : r.groups) {
+        log::info("studio", "  에셋 그룹 {}", g);
+    }
+}
+
+void Application::studioBuildFrame() {
+    if (m_config.builds != nullptr) {
+        if (std::optional<editor::services::BuildReport> r = m_config.builds->poll()) {
+            logBuildReport(*r);
+            m_commandFailed = m_commandFailed || !r->ok;
+            m_buildPanel.last = std::move(r);
+        }
+    }
+    // --run-command: 들어간 첫 프레임에 차례로 (빌드는 일꾼에서 — 끝나면 위에서 받는다)
+    if (!m_commandsRun && m_state == AppState::InWorld && !m_config.runCommands.empty()) {
+        m_commandsRun = true;
+        for (const std::string& id : m_config.runCommands) {
+            const editor::services::RunResult r = m_commands.run(id);
+            if (r != editor::services::RunResult::Ran) {
+                log::error("studio", "명령 {} — {}", id,
+                           r == editor::services::RunResult::Unknown ? "없는 명령"
+                                                                     : "지금 할 수 없다 (프로젝트가 아니거나 빌드 중)");
+                m_commandFailed = true;
+            }
+        }
+    }
+    if (m_commandsRun && m_config.quitAfterCommands && !m_pending &&
+        (m_config.builds == nullptr || !m_config.builds->running())) {
+        m_exitCode = m_commandFailed ? 1 : m_exitCode;
+        (void)request(AppState::Shutdown);
+    }
 }
 
 } // namespace sbx::client

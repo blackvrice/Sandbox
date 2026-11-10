@@ -134,6 +134,7 @@ add_executable(SandboxTests
     unit/editor/test_document_service.cpp
     unit/editor/test_editor_undo_line.cpp
     unit/editor/test_project_service.cpp
+    unit/editor/test_build_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp
     unit/editor/test_trigger_form.cpp
@@ -510,6 +511,12 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_new_project"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_new_project.cmake")
         set_tests_properties(studio_new_project PROPERTIES LABELS "content;client" TIMEOUT 300)
+        # Studio 빌드 (v0.8 M6-T3 — 28 G8): 명령 studio.build (일꾼) → 패키지 · A8 경고 → 빈 캐시에서 sbx check → 누락 에셋 A6
+        add_test(NAME studio_build
+            COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSBX=$<TARGET_FILE:sbx>
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_build"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_build.cmake")
+        set_tests_properties(studio_build PROPERTIES LABELS "content;client" TIMEOUT 600)
     endif()
     if(TARGET SandboxServer)
         add_test(NAME project_new_from_scenario

@@ -59,7 +59,8 @@ G1  CTest studio_new_project ✅ (v0.8 M6-T1, ADR-0111) — 헤드리스 Studio 
     InWorld → sbx check 오류 0 · 경고 0 · 최근 목록 (studio.json), 같은 폴더 · 모르는 템플릿은 실패. 손으로 하는 홈 (폴더 글자 · 1 분 안) 은 MANUAL-QA
 G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 ✅ M6-T9 (test_asset_database · test_pack_materials · project_assets — CLI).
     Studio 화면 (끌어다 놓기 · 이름 바꾸기 UI) 은 [계획 v0.10 ST-06-3]
-G8  CTest studio_build [계획 M6-T3] — 명령 studio.build → 패키지 → 빈 캐시에서 열기 (기존 project_package 시험 확장) · 누락 에셋 경고
+G8  CTest studio_build ✅ (v0.8 M6-T3, ADR-0112) — 명령 studio.build (--run-command · 일꾼) → 패키지 · A8 경고 → 빈 캐시에서 sbx check →
+    누락 에셋 (A6) 은 열지 않음 · 패키지 없음. 열린 뒤 생긴 누락의 [빌드] 거절은 test_build_service
 G9  M7-T3 A → B E2E (기존 계획)
 복구 CTest studio_recovery [계획 M6-T7] — 자동 저장 → 강제 종료 → 다시 시작 → 복구 제안 → 같은 WorldHash
 ```

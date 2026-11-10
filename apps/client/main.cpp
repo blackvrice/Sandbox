@@ -22,6 +22,8 @@
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "core/project/GameProject.hpp"
+#include "editor/services/BuildService.hpp"
 #include "editor/services/ProjectService.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
@@ -292,6 +294,11 @@ int main(int argc, char** argv) {
         studioCatalog,
         sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
         contentRoot, opts->safeMode ? std::filesystem::path() : configRoot / "studio.json", assetRoot);
+    // 빌드 (v0.8 M6-T3 — sbx build 와 같은 길, 일꾼 스레드)
+    sbx::editor::services::BuildService builds(
+        studioCatalog,
+        sbx::SemVer{sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch, {}, {}},
+        assetRoot);
 
     // UI (Phase 8C): ImGui 레이어 — 렌더러가 있으면 UIPass 를 붙인다. 헤드리스도 돈다 (텍스처 요청은 레이어가 받는다)
     std::unique_ptr<sbx::client::ImGuiLayer> ui;
@@ -316,6 +323,13 @@ int main(int argc, char** argv) {
     const std::unique_ptr<sbx::platform::IGamepadSource> gamepads = sbx::platform::createGamepadSource();
     sbx::client::AppConfig cfg;
     cfg.gamepads = gamepads.get();
+    cfg.builds = &builds;
+    cfg.runCommands = opts->runCommands;
+    cfg.quitAfterCommands = opts->quitAfterCommands;
+    if (opts->world && sbx::project::isProjectFolder(std::filesystem::path(
+                           std::u8string(opts->world->begin(), opts->world->end())))) { // 빌드할 프로젝트 (M6-T3)
+        cfg.projectDir = std::filesystem::path(std::u8string(opts->world->begin(), opts->world->end()));
+    }
     // Studio 홈 (v0.8 M6-T1): --world · --connect 가 없으면 홈 — 만들거나 연 프로젝트는 --world <프로젝트> 와 같은
     // 세션으로
     if (!opts->world && !opts->connect) {

@@ -9,6 +9,8 @@ add_library(SandboxEditorServices STATIC
     services/DocumentService.cpp
     services/ProjectService.hpp
     services/ProjectService.cpp
+    services/BuildService.hpp
+    services/BuildService.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)
@@ -31,5 +33,7 @@ add_library(SandboxEditor STATIC
     ui/ContentPanel.cpp
     ui/TriggerForm.hpp
     ui/TriggerForm.cpp
+    ui/BuildPanel.hpp
+    ui/BuildPanel.cpp
 )
 target_link_libraries(SandboxEditor PUBLIC SandboxCore SandboxRender SandboxEditorServices PRIVATE sbx_imgui sbx_warnings)

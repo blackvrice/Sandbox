@@ -58,7 +58,7 @@
 | M4-T4 | UI 배율 | A | Done | v0.5 | v0.7 | P1 | M3-T6 | test_ui_layout (배율 0.75 · 1.5 · 2 골든) · test_game_ui_layer (앱 클릭 배율 1.5) |
 | ST-06-1 | Editor Services 층 · Command · Undo 통합 · check_includes 규칙 | B | Done | v0.6 | v0.8 | P0 | — | arch_include_lint_selftest (editor/services) · test_command_service · test_document_service · test_editor_undo_line (월드 · 문서 왕복) — ADR-0108 ~ 0110 |
 | M6-T1 | Studio 홈 · 새 프로젝트 · 열기 · 최근 | B | Done | v0.5 | v0.8 | P0 | ST-06-1 | CTest studio_new_project · test_project_service — ADR-0111 |
-| M6-T3 | "패키지" 패널 · Build 화면 · 누락 검사 | B | Planned | v0.5 | v0.8 | P0 | NG-01 · ST-06-1 | CTest studio_build |
+| M6-T3 | "패키지" 패널 · Build 화면 · 누락 검사 | B | Done | v0.5 | v0.8 | P0 | NG-01 · ST-06-1 | CTest studio_build · test_build_service — ADR-0112 |
 | M6-T6 | 레이아웃 저장 · Studio 설정 | B | Planned | v0.5 | v0.8 | P1 | — | 경로 · 깨진 파일 시험 |
 | M6-T7 | 자동 저장 · 크래시 복구 | B | Planned | v0.5 | v0.8 | P0 | — | CTest studio_recovery |
 | ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Planned | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 |

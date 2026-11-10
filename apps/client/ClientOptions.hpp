@@ -63,6 +63,11 @@ struct ClientOptions {
     std::string newGameId;
     std::string newTemplate = "empty";
     std::string newName;
+    // 들어간 뒤 명령 표의 명령을 차례로 (v0.8 M6-T3 — 헤드리스 시험 studio_build · 자동화): --run-command <id> (여러
+    // 번),
+    // --quit-after-commands 면 명령 (비동기 빌드 포함) 이 끝나면 끝낸다 — 실패한 명령 · 빌드가 있으면 종료 코드 1
+    std::vector<std::string> runCommands;
+    bool quitAfterCommands = false;
     u64 seed = 1;                  // --seed (--world)
     std::optional<u32> simThreads; // --threads: 로컬 서버의 시뮬레이션 Worker 수 (없으면 코어 수로 정한다)
     std::string contentRoot;       // --content (비면 빌드 때 정한 저장소의 content/)

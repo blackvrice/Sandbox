@@ -65,7 +65,7 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    UndoService        월드 편집 기록 (기존 editor/Undo) + 문서 편집 기록을 한 줄로 (사용자에게는 Ctrl+Z 하나) ✅ 줄 · 문서 (ST-06-1 (2)) · 월드 참여자 (ST-06-1 (3), ADR-0110)
 │    AssetDatabase      core/asset/  (26 — 패키징 · 서버 검사도 쓰므로 Core 쪽, 시뮬레이션 밖)
 │    LanguageService    script/lang/LanguageService  (27 — 프로토타입 있음)
-│    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job)
+│    BuildService       core::buildPackage + 누락 검사 + 배포 묶음 (Worker Job) ✅ 검사 · 빌드 · 일꾼 (v0.8 M6-T3, ADR-0112 — 배포 묶음은 [계획])
 │    TestService        로컬 서버 · 클라이언트 실행 (SandboxProcess 재사용) · 지연 모의 설정
 │    AutosaveService    편집 상태 주기 저장 · 복구 (7장)
 │    PluginService      [계획 v0.8+] (9장)
@@ -222,7 +222,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | 월드 편집 · 툴 · Inspector · 목록 · Undo · 권한 · 테스트 플레이 · 스크립트 오버레이 편집 | 현행 (10, ADR-0028 ~ 0031 · 0053 · 0066) |
 | 프로젝트 홈 · 새 프로젝트 · 열기 · 최근 | ✅ v0.8 M6-T1 (ProjectService · StudioHome — ADR-0111) |
 | 레이아웃 저장 · 설정 분리 | [계획 v0.5 M6-T6 — 이번 감사가 추가] |
-| GUI 빌드 · 누락 검사 | [계획 v0.5 M6-T3 — 누락 검사를 더함] (코드: buildPackage 현행) |
+| GUI 빌드 · 누락 검사 | ✅ v0.8 M6-T3 (BuildService · "빌드" 창 — ADR-0112) |
 | 자동 저장 · 복구 | [계획 v0.5 M6-T7 — 추가] |
 | 스크립트 자동 완성 · hover 기본 | [계획 v0.5 M6-T8 — 추가] (프로토타입: script/lang/LanguageService 현행) |
 | Editor Services 층 · Command · Document · Undo 통합 | [계획 v0.6] (v0.5 는 새 기능부터 services 에) |

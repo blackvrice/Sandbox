@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-09 — v0.8 M6-T3: Studio 빌드 — BuildService · "빌드" 창 · --run-command (ADR-0112)
+
+**무엇을**
+
+- editor/services/BuildService: check (validateProject — 오류 · 경고 · 에셋 그룹), buildNow (검사 → 오류가 없으면 package::buildPackage — 보고:
+  경로 · gameId · 버전 · 파일 수 · 바이트 · digest · 시간, 부르지 않는 에셋은 검사의 A8 하나로), start (일꾼 스레드 하나 — 돌고 있거나 보고를
+  가져가지 않았으면 거절), poll (메인 — 한 번), 소멸은 일꾼을 기다림.
+- editor/ui/BuildPanel: "빌드" 창 (프로젝트 · Export Profile · [검사] [빌드] · 보고). Application: 지금 프로젝트 (--world <프로젝트> · 홈에서
+  들어간 것 — setProject · export/*.json), 명령 studio.check · studio.build, 프레임마다 poll · 보고 로그, --run-command · --quit-after-commands
+  (들어간 첫 프레임 · 끝나면 끝내기 · 실패면 종료 코드 1). main: BuildService · cfg.projectDir.
+- 문서: ADR-0112, 28 G8 ✅, 25 · 26 · 17 · 15 · 13 · MANUAL-QA, 등록부 M6-T3 Done.
+
+**왜**
+
+- v0.8 트랙 B 의 셋째 태스크 — G8 (CLI 없이 빌드 · 누락 검사).
+
+**검증**
+
+- test_build_service 3 개 · CTest studio_build (명령 → 패키지 · A8 경고 → 빈 캐시 sbx check → 누락 에셋은 열지 않음 — 종료 코드 2) ·
+  studio_new_project · client_* (9 개 통과). 손 실행: --run-command studio.build 로그 (시작 · 끝 · 2.3 초 · A8).
+- 고친 것: 시험의 팩 폴더 이름 (eco 가 아니라 ecosystem), 같은 경고가 두 번 (검사 A8 + 빌드 보고) — 빌드 보고의 것을 뺐다, 누락 에셋
+  프로젝트는 열리지 않아 (openProject 오류 — 종료 코드 2) CTest 의 기대를 실제 동작으로 바꿨다 (열린 뒤의 [빌드] 거절은 단위 시험).
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 모두 경고 없음. 창 화면은 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 81 / 81 통과 (경고 0 줄 — studio_build 하나 더). 앞 실행 하나는 세션이 끝나며 죽었다 (0x40010004 — project_pack 의 sbx test 가 그 순간), 다시 돌려 통과.
+
+**남은 일**
+
+- 빌드 취소 · 진행 표시 · [폴더 열기] · 배포 묶음 단추, 다음 태스크 M6-T7 자동 저장 · 크래시 복구.
+
 ## 2026-11-09 — v0.8 M6-T1: Studio 홈 — 새 프로젝트 · 열기 · 최근 (ADR-0111)
 
 **무엇을**

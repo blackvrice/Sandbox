@@ -249,6 +249,9 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.8 M6-T1) --world · --connect 없이 열면 Studio 홈 (새 프로젝트 · 열기 · 최근 — 최근은 설정 폴더 studio.json, 안전 모드면 저장 안 함).
     --new-project <폴더> --game-id <id> [--template <empty|시나리오>] [--project-name <이름>]: 시작하자마자 홈의 새 프로젝트 명령 → 그 프로젝트로
     들어간다 (실패면 종료 코드 1 — 헤드리스 시험 studio_new_project)
+    (v0.8 M6-T3) --world <프로젝트 폴더> (또는 홈에서 들어간 프로젝트) 면 "빌드" 창 — [검사] [빌드] (sbx check · build 와 같은 길, 일꾼 스레드).
+    --run-command <id> (여러 번 — studio.build · studio.check …) · --quit-after-commands: 들어간 뒤 명령, 끝나면 끝낸다 (실패면 종료 코드 1 —
+    헤드리스 시험 studio_build)
     (v0.2 M6-T1) [--script <파일>]: 자동 플레이 스크립트 (13 5.1 — 서버 러너가 정한 단계에 명령). 게임이 끝나거나 maxTicks 면
     결과 한 줄을 쓰고 끝낸다, expect 와 다르면 종료 코드 1. --start-game 과는 같이 쓰지 않는다. 클라이언트도 같은 옵션
     (SandboxClient --world <…> --script <파일> — 헤드리스면 끝날 때 같은 결과 줄을 쓰고 끝, 창이면 끝난 판을 본다).
