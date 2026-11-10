@@ -69,6 +69,11 @@
 | M5-T3 | --record · 보고 묶음에 | B | Planned | v0.5 | v0.8 | P2 | M5-T1 | 20 10장 |
 | NG-07 | Studio 시험 층 (헤드리스 Studio · GUI smoke · E2E · 실기 QA 증거) | B | Proposed | — | v0.8 | P0 | ST-06-1 | 헤드리스 흐름 시험 하나 · QA 양식 |
 | NG-03 | Player 모드 (패키지 열기 · 최근 게임 · 더블클릭 · 오류 화면) | B | Proposed | — | v0.8 | P1 | — | 헤드리스 Player 로 패키지 열기 시험 |
+| UI-0 | Studio UI 감사 · 벤치마킹 · 디자인 시스템 · 배치 명세 (29) | B | Done | v0.8 | v0.8 | P0 | — | 29-STUDIO-UI · ADR-0118 |
+| UI-1 | Studio 셸 — 테마 · 위젯 · 메뉴 · 툴바 · 도크 공간 · 프리셋 · Creator/Developer | B | Planned | v0.8 | v0.8 | P0 | UI-0 · M6-T6 | 앱 시험 · studio_layout |
+| UI-2 | Studio 홈 — 사이드바 · 카드 · 검색 · 단계형 새 프로젝트 · 예제 · 복구 표시 | B | Planned | v0.8 | v0.8 | P0 | UI-1 · M6-T1 · M6-T7 | 홈 시험 · test_project_service |
+| UI-3 | 편집기 통합 — 툴바 툴 · 목록 · 인스펙터 · 콘솔 · 아래 도크 | B | Planned | v0.8 | v0.8 | P0 | UI-1 | 앱 시험 |
+| UI-4 | UI 검증 — 흐름 A ~ E · 창 캡처 (1366×768 · 1920×1080 · 배율) | B | Planned | v0.8 | v0.8 | P0 | UI-1 ~ UI-3 | CTest · MANUAL-QA |
 | M6-T4 | 오류 메시지 · 줄 표 (.sbc 11) · 함수별 프로파일 · IScriptExecutor | A | Planned | v0.5 | v0.9 | P0 | — | 20 10장 |
 | M6-T8 | 스크립트 편집기 — 자동 완성 · hover · 밑줄 · 저장 위치 구분 | B | Planned | v0.5 | v0.9 | P0 | NG-05 · M6-T4 | 후보 · hover · 저장 왕복 |
 | NG-05 | 텍스트 위치 계약 (UTF-8 바이트 · 코드 포인트 · UTF-16 · 화면 열 · IME) | B | Proposed | — | v0.9 | P0 | — | 위치 변환 · 한글 조합 시험 |
