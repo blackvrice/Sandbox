@@ -807,6 +807,7 @@ void NetworkSession::updateWorldOps() {
         if (r.op == net::WorldOpKind::Restart) {
             m_gameMessage = m_worldMessage;
         }
+        m_worldOutcomes.push_back({static_cast<WorldOp>(r.op), r.name, r.accepted, r.detail});
         if (r.accepted) {
             log::info("client", "{}", m_worldMessage);
             relist = true; // 폴더가 바뀌었을 수 있다
@@ -1113,6 +1114,12 @@ ui::UiScalar NetworkSession::UiData::component(std::string_view componentField, 
     }
     const std::optional<f64> v = info->getNumber(raw, componentField.substr(dot + 1));
     return v ? ui::UiScalar::of(*v) : ui::UiScalar{};
+}
+
+std::vector<WorldOpOutcome> NetworkSession::takeWorldOpOutcomes() {
+    std::vector<WorldOpOutcome> out;
+    out.swap(m_worldOutcomes);
+    return out;
 }
 
 void NetworkSession::worldOp(WorldOp op, std::string name) {

@@ -78,6 +78,10 @@ struct ClientOptions {
     // 레이아웃 (v0.8 M6-T6): --layout <이름> = 이 레이아웃으로 시작하고 지금 것으로 기억한다 (studio.json — 안전 모드면
     // 이 실행만). 이름 [a-z0-9_-] 1 ~ 32
     std::string layout;
+    // 리플레이 뷰어 (v0.8 M5-T1 — 20 4장): --replay <기록 폴더> (start/ + replay.sbxr). 옵션을 읽을 때 월드로 바꾼다:
+    // 폴더가 <프로젝트>/worlds/<이름> 이면 --world <프로젝트>, 아니면 --world <폴더>/start · --saves <폴더의 부모>.
+    // 들어가면 그 이름을 재생한다 (WorldOp Play — 서버가 콘텐츠 해시 · 시작 세이브를 확인한다)
+    std::string replayName;
     // --net-sim <글>: --connect 의 보내는 쪽 지연 · 손실 흉내 (v0.8 ST-06-9 — Studio 테스트 세션)
     std::optional<net::SimulatedLinkDesc> netSim;
     // Studio 테스트 세션 (v0.8 ST-06-9 — "테스트" 창 · studio.test-start 의 처음 값): --test-clients <1~4> (기본 2),

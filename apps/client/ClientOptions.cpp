@@ -40,6 +40,7 @@ Expected<u64> parseU64(std::string_view option, std::string_view text) {
 
 Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args) {
     ClientOptions opts;
+    std::string replayDir; // --replay (고리 뒤에 월드로 바꾼다)
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view a = args[i];
         const auto value = [&]() -> Expected<std::string_view> {
@@ -272,6 +273,12 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
                                  "--test-net-sim 은 latency · jitter · loss 만 (kbps 없음)");
             }
             opts.testNetSim = *sim;
+        } else if (a == "--replay") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            replayDir = std::string(*v);
         } else if (a == "--net-sim") {
             auto v = value();
             if (!v) {
@@ -362,6 +369,35 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             return makeError(ErrorCode::InvalidArgument, std::format("알 수 없는 옵션 '{}' (--help)", a));
         }
     }
+    if (!replayDir.empty()) { // v0.8 M5-T1 — 기록 폴더를 월드 · 세이브 폴더 · 이름으로
+        if (opts.world || opts.connect || opts.newProject || opts.script || opts.saves) {
+            return makeError(
+                ErrorCode::InvalidArgument,
+                "--replay 는 --world · --connect · --new-project · --script · --saves 와 함께 쓰지 않는다");
+        }
+        std::error_code ec;
+        std::filesystem::path dir = std::filesystem::absolute(std::filesystem::path(replayDir), ec).lexically_normal();
+        if (!dir.has_filename()) {
+            dir = dir.parent_path(); // "rec/" 의 끝 구분자
+        }
+        if (!std::filesystem::is_regular_file(dir / "replay.sbxr", ec)) {
+            return makeError(ErrorCode::NotFound,
+                             "--replay 폴더에 replay.sbxr 가 없다 (기록 폴더 = start/ + replay.sbxr)",
+                             io::displayPath(dir));
+        }
+        opts.replayName = dir.filename().string();
+        if (!net::isValidSaveName(opts.replayName)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("--replay 폴더 이름 '{}' — 세이브 이름 규칙 (영숫자 · - · _ , 48 바이트)",
+                                         opts.replayName));
+        }
+        const std::filesystem::path parent = dir.parent_path();
+        const bool inProject = parent.filename() == "worlds" && project::isProjectFolder(parent.parent_path());
+        const std::u8string world = (inProject ? parent.parent_path() : dir / "start").u8string();
+        opts.world = std::string(world.begin(), world.end());
+        const std::u8string saves = parent.u8string();
+        opts.saves = std::string(saves.begin(), saves.end());
+    }
     if (opts.world && opts.connect) {
         return makeError(ErrorCode::InvalidArgument, "--world(로컬 서버) 와 --connect(원격 서버) 중 하나만");
     }
@@ -445,6 +481,9 @@ std::string clientUsage() {
            "—\n"
            "                         명령 studio.test-start · \"테스트\" 창, 기본 2 · 흉내 없음 · 7790 — v0.8)\n"
            "      --test-headless-frames <n>  테스트 클라이언트를 헤드리스로 n 프레임 (서버도 스스로 끝 — 자동 시험)\n"
+           "      --replay <폴더>    기록 (start/ + replay.sbxr) 을 로컬 서버로 재생한다 — 헤드리스면 끝 줄을 쓰고 끝 "
+           "(기록과\n"
+           "                         다르면 종료 코드 1, v0.8)\n"
            "      --layout <이름>    이 창 배치로 시작하고 기억한다 (설정 폴더 studio/layouts/<이름>.ini — v0.8)\n"
            "      --recover          앞 실행이 비정상으로 끝나 남은 복구본을 바로 연다 (worlds/recovered-<n> — v0.8)\n"
            "      --abort-after-autosaves <n>  (시험용) n 번째 자동 저장 뒤 정리 없이 끝낸다 — 충돌 흉내 (종료 코드 "

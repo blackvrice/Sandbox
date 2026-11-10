@@ -1026,6 +1026,7 @@ bool Application::frame() {
     studioBuildFrame(); // 빌드 보고 · --run-command (v0.8 M6-T3)
     autosaveFrame();    // 자동 저장 · 복구 (v0.8 M6-T7)
     layoutFrame();      // 배치가 바뀌었으면 저장 (v0.8 M6-T6)
+    replayFrame();      // --replay (v0.8 M5-T1)
     // 월드 세션이 있으면 메뉴를 거치지 않고 바로 들어간다 (없으면 Studio 홈 — v0.8 M6-T1). Connecting 은 세션이 준비될
     // 때까지 (접속 · 첫 스냅숏 — 10B). 접속 실패 · 끊김이면 끝낸다
     if (m_config.world != nullptr && !m_pending) {
@@ -1555,6 +1556,46 @@ void Application::testStart() {
     }
     log::info("studio", "테스트 세션: 서버 + 클라이언트 {} (포트 {}{}) — 로그 {}", plan.clients, plan.port,
               plan.netSim.active() ? " · 흉내 " + plan.netSim.arg() : std::string(), plan.logDir.generic_string());
+}
+
+// ---- 리플레이 뷰어 (v0.8 M5-T1 — 20 4장) ----
+
+void Application::replayFrame() {
+    if (m_config.world == nullptr) {
+        return;
+    }
+    // 결과는 늘 꺼낸다 (쌓이지 않게) — 뷰어가 아니면 버린다
+    std::vector<WorldOpOutcome> outcomes = m_config.world->takeWorldOpOutcomes();
+    if (m_config.replayName.empty() || m_pending) {
+        return;
+    }
+    if (m_replayStage == 0 && m_state == AppState::InWorld) {
+        m_config.world->worldOp(WorldOp::Play, m_config.replayName);
+        m_replayStage = 1;
+        log::info("client", "리플레이 '{}' 를 재생한다", m_config.replayName);
+        return;
+    }
+    for (const WorldOpOutcome& o : outcomes) {
+        if (o.op != WorldOp::Play || o.name != m_config.replayName || m_replayStage >= 3) {
+            continue;
+        }
+        if (m_replayStage == 1 && o.accepted) { // 시작
+            m_replayStage = 2;
+            continue;
+        }
+        // 시작 거절 · 재생 오류 · 끝 (수락 = 기록과 같다)
+        m_replayStage = 3;
+        const bool ok = o.accepted;
+        if (ok) {
+            log::info("client", "리플레이 끝: {} — {}", o.name, o.detail);
+        } else {
+            log::error("client", "리플레이 실패: {} — {}", o.name, o.detail);
+        }
+        if (m_config.replayQuitAtEnd) {
+            m_exitCode = ok ? m_exitCode : 1;
+            (void)request(AppState::Shutdown);
+        }
+    }
 }
 
 } // namespace sbx::client

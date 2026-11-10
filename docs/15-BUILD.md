@@ -260,6 +260,9 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
     (v0.8 ST-06-9) 프로젝트면 "테스트" 창 · 명령 studio.test-start · studio.test-stop — SandboxServer + SandboxClient 1 ~ 4 를 프로세스로
     (127.0.0.1:<포트>, 저장한 프로젝트, 로그 <임시>/sbx-test-<포트>/). --test-clients <n> (기본 2) · --test-net-sim <글> · --test-port <p>
     (기본 7790) · --test-headless-frames <n> (클라이언트 헤드리스 n 프레임 · 서버도 스스로 끝 — --quit-after-commands 가 기다린다, 실패면 1)
+    (v0.8 M5-T1) --replay <기록 폴더> (start/ + replay.sbxr): 로컬 서버로 재생 — <프로젝트>/worlds/<이름> 이면 그 프로젝트로, 아니면 start/
+    세이브로 연다. 헤드리스면 끝 줄 "리플레이 끝: <이름> — 재생 끝 — N call, 해시 K개 일치" 를 쓰고 끝 (기록과 다르거나 다른 콘텐츠면
+    "리플레이 실패" · 종료 코드 1, replay.sbxr 가 없으면 2). --world · --connect · --saves · --script 와 같이 쓰지 않는다
     (v0.8 M6-T6) 창 배치는 설정 폴더 studio/layouts/<이름>.ini (바뀌면 몇 초 뒤 · 끝낼 때 저장, 안전 모드는 끔) — "레이아웃" 창 · 명령
     studio.save-layout · studio.reset-layout. --layout <이름> = 그 배치로 시작하고 기억 (studio.json layout — 틀린 이름은 종료 코드 2).
     studio.json 의 autosaveSeconds 가 자동 저장 기본 주기 (--autosave-seconds 가 이긴다)

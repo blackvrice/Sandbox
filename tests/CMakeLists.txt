@@ -538,6 +538,14 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_layout"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_layout.cmake")
         set_tests_properties(studio_layout PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # 리플레이 뷰어 (v0.8 M5-T1 — 20 4장): sim_check 기록 → --replay 끝 줄 · 일치 → 바꾼 기록 1 → 기록 아님 2 → 다른 게임 1
+        if(TARGET sbx_sim_check)
+            add_test(NAME client_replay
+                COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSIMCHECK=$<TARGET_FILE:sbx_sim_check>
+                        -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/client_replay"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/client_replay.cmake")
+            set_tests_properties(client_replay PROPERTIES LABELS "content;client" TIMEOUT 600)
+        endif()
         # 테스트 세션 (v0.8 ST-06-9 — 25 3장): Studio 가 서버 + 2 헤드리스 클라이언트를 프로세스로 · 흉내 · 모두 스스로 끝 (서버가 있을 때)
         if(TARGET SandboxServer)
             add_test(NAME studio_test_session

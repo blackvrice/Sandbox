@@ -2,6 +2,11 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <random>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -243,6 +248,60 @@ TEST_SUITE("client") {
             CAPTURE(name);
             CHECK(m.find(name).has_value());
         }
+    }
+
+    TEST_CASE("client options: --replay 는 기록 폴더를 월드 · 세이브 폴더 · 이름으로 · --net-sim · --test-* (v0.8 "
+              "M5-T1 · ST-06-9)") {
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / std::format("sbx_opt_replay_{}", std::random_device{}());
+        fs::create_directories(root / "saves" / "rec1" / "start");
+        std::ofstream(root / "saves" / "rec1" / "replay.sbxr") << "{}";
+        const std::string rec = (root / "saves" / "rec1").string();
+        const std::vector<std::string_view> args{"--headless", "--replay", rec};
+        const auto o = parseClientOptions(args);
+        REQUIRE(o.has_value());
+        CHECK(o->replayName == "rec1");
+        CHECK(fs::path(*o->world) == (root / "saves" / "rec1" / "start").lexically_normal());
+        CHECK(fs::path(*o->saves) == (root / "saves").lexically_normal());
+        // 끝 구분자 · 같이 못 쓰는 옵션 · 기록 아님 · 이름 규칙
+        const std::string recSlash = rec + "/";
+        const std::vector<std::string_view> slash{"--replay", recSlash};
+        CHECK(parseClientOptions(slash).value().replayName == "rec1");
+        const auto fails = [](std::vector<std::string_view> v) { return !parseClientOptions(v).has_value(); };
+        CHECK(fails({"--replay", rec, "--world", "ecosystem_small"}));
+        CHECK(fails({"--replay", rec, "--connect", "127.0.0.1"}));
+        const std::string start = (root / "saves" / "rec1" / "start").string();
+        CHECK(parseClientOptions(std::vector<std::string_view>{"--replay", start}).error().code == ErrorCode::NotFound);
+        fs::create_directories(root / "bad name");
+        std::ofstream(root / "bad name" / "replay.sbxr") << "{}";
+        const std::string bad = (root / "bad name").string();
+        CHECK(fails({"--replay", bad}));
+
+        // --net-sim · --test-*
+        const std::vector<std::string_view> sim{"--connect",
+                                                "127.0.0.1:7000",
+                                                "--net-sim",
+                                                "latency=50,loss=0.1",
+                                                "--test-clients",
+                                                "3",
+                                                "--test-port",
+                                                "7801",
+                                                "--test-net-sim",
+                                                "jitter=5",
+                                                "--test-headless-frames",
+                                                "90"};
+        const auto so = parseClientOptions(sim);
+        REQUIRE(so.has_value());
+        CHECK(so->netSim->latencyMs == doctest::Approx(50));
+        CHECK(so->testClients == 3u);
+        CHECK(so->testPort == 7801);
+        CHECK(so->testNetSim->jitterMs == doctest::Approx(5));
+        CHECK(so->testHeadlessFrames == 90u);
+        CHECK(fails({"--test-clients", "5"}));
+        CHECK(fails({"--test-net-sim", "kbps=100"}));
+        CHECK(fails({"--net-sim", "lag=3"}));
+        std::error_code ec;
+        fs::remove_all(root, ec);
     }
 
     TEST_CASE("client options") {

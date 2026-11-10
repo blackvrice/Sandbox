@@ -125,6 +125,7 @@ public:
     // ---- 12D: 세이브 · 로드 · 리플레이 ----
     [[nodiscard]] std::optional<WorldOpsInfo> worldOps() const override;
     void worldOp(WorldOp op, std::string name) override;
+    [[nodiscard]] std::vector<WorldOpOutcome> takeWorldOpOutcomes() override;
     [[nodiscard]] u32 worldGeneration() const override { return m_session ? m_session->generation() : 0; }
     // ---- v0.2 M2-T3: 게임 진행 ----
     [[nodiscard]] std::optional<GameInfo> game() const override;
@@ -285,6 +286,7 @@ private:
     const net::ClientSession* m_listSession = nullptr; // 목록을 요청한 세션 (다시 접속하면 다시)
     u64 m_seenWorldChanges = 0;
     std::string m_worldMessage;
+    std::vector<WorldOpOutcome> m_worldOutcomes; // v0.8 M5-T1 — 앱이 꺼낸다
 
     // 받은 바이트 (최근 1 초)
     f64 m_bytesWindowStart = 0;

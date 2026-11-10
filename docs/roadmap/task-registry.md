@@ -64,7 +64,7 @@
 | ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Planned | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 |
 | ST-06-9 | TestService — 서버 + N 클라이언트 · 지연 모의 | B | Done | v0.6 | v0.8 | P1 | — | CTest studio_test_session · test_test_service — ADR-0115 |
 | ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.8 | P3 | ST-06-1 | 수동 QA |
-| M5-T1 | --replay · 로컬 재생 · 결속 | B | Planned | v0.5 | v0.8 | P1 | — | 20 10장 Phase 5 |
+| M5-T1 | --replay · 로컬 재생 · 결속 | B | Done | v0.5 | v0.8 | P1 | — | CTest client_replay — ADR-0116 (결속 = 콘텐츠 해시 · 패키지 digest 는 M5-T3) |
 | M5-T2 | 재생 · 멈춤 · seek · 타임라인 | B | Planned | v0.5 | v0.8 | P1 | M5-T1 | 20 10장 |
 | M5-T3 | --record · 보고 묶음에 | B | Planned | v0.5 | v0.8 | P2 | M5-T1 | 20 10장 |
 | NG-07 | Studio 시험 층 (헤드리스 Studio · GUI smoke · E2E · 실기 QA 증거) | B | Proposed | — | v0.8 | P0 | ST-06-1 | 헤드리스 흐름 시험 하나 · QA 양식 |

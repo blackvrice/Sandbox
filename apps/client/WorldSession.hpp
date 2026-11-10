@@ -69,6 +69,14 @@ struct SavedWorldRow {
     u64 tick = 0;        // 세이브의 틱 (리플레이는 시작 틱)
     u64 entities = 0;
 };
+// 서버가 돌려준 WorldOp 결과 하나 (v0.8 M5-T1 — 리플레이 뷰어가 재생 시작 · 끝을 안다. Play 는 시작에 한 번 (수락 ·
+// 거절), 끝에 한 번 (수락 = 기록과 같다 · 거절 = 다르다 · 오류))
+struct WorldOpOutcome {
+    WorldOp op = WorldOp::List;
+    std::string name;
+    bool accepted = false;
+    std::string detail;
+};
 // "월드" 패널이 보는 것 (12D)
 struct WorldOpsInfo {
     bool canChange = false;           // 저장 · 불러오기 · 기록 · 재생 (admin 부터 — 판단은 서버)
@@ -238,6 +246,8 @@ public:
     virtual void requestRole(u16 /*clientId*/, u8 /*role*/) {}
     // ---- 12D: 세이브 · 로드 · 리플레이 (없으면 "월드" 패널을 그리지 않는다) ----
     [[nodiscard]] virtual std::optional<WorldOpsInfo> worldOps() const { return std::nullopt; }
+    // 받은 WorldOp 결과를 꺼낸다 (v0.8 M5-T1 — 꺼내면 비운다)
+    virtual std::vector<WorldOpOutcome> takeWorldOpOutcomes() { return {}; }
     // 서버에 요청 (결과는 worldOps().message — 목록은 saved)
     virtual void worldOp(WorldOp /*op*/, std::string /*name*/) {}
     // Studio 자동 저장 (v0.8 M6-T7 — ADR-0113): 같은 프로세스의 로컬 서버면 편집 월드를 dir 에 세이브 (틱 사이).

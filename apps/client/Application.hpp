@@ -124,6 +124,10 @@ struct AppConfig {
     // 로그 폴더 · 포트 · 클라이언트 수 · 흉내 · 자동 시험 프레임 — main 이 --test-* 로). 프로젝트는 지금 프로젝트
     editor::services::TestService* tests = nullptr;
     editor::services::TestPlan testPlan;
+    // 리플레이 뷰어 (v0.8 M5-T1 — 20 4장): 들어가면 이 이름을 재생 (WorldOp Play), quitAtEnd 면 끝에 끝낸다 (헤드리스 —
+    // 기록과 다르거나 재생하지 못하면 종료 코드 1)
+    std::string replayName;
+    bool replayQuitAtEnd = false;
 };
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
@@ -207,7 +211,8 @@ private:
     void layoutFrame();
     void applyLayoutAction(const editor::LayoutPanelAction& a);
     bool saveLayout(bool announce);
-    void testStart(); // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
+    void testStart();   // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
+    void replayFrame(); // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
     [[nodiscard]] f64 appSeconds() const;
     void logBuildReport(const editor::services::BuildReport& r);
     bool routeGameUi(); // v0.7 M3-T3 — 게임 UI 배치 · 포인터 · 버튼 이벤트. 참 = 게임 UI 가 마우스를 잡았다
@@ -242,6 +247,8 @@ private:
     std::vector<std::string> m_layoutNames;
     editor::LayoutPanelState m_layoutPanel;
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
+    // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
+    u8 m_replayStage = 0;
 
     platform::PlatformEventQueue m_events;
     platform::InputSystem m_input;

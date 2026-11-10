@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-10 — v0.8 M5-T1: 리플레이 뷰어 — SandboxClient --replay (ADR-0116)
+
+**무엇을**
+
+- ClientOptions --replay <기록 폴더>: replay.sbxr 가 있어야 (없으면 2), 옵션 단계에서 월드로 — <프로젝트>/worlds/<이름> 이면 --world <프로젝트>,
+  아니면 --world <폴더>/start, --saves <부모>, 재생 이름 = 폴더 이름 (세이브 이름 규칙). --world · --connect · --new-project · --script ·
+  --saves 와 같이 쓰지 않는다.
+- IWorldSession::takeWorldOpOutcomes (NetworkSession 이 받은 WorldOpResult 를 모은다), Application replayFrame — 들어가면 WorldOp Play 한 번,
+  Play 결과의 차례로 시작 · 끝을 가른다, 헤드리스면 "리플레이 끝: …" / "리플레이 실패: …" 를 쓰고 끝 (같으면 0, 아니면 1). 결과는 늘 꺼내
+  쌓이지 않는다.
+- 문서: ADR-0116, 20 4장, 15 · 13 · MANUAL-QA, 등록부 M5-T1 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B · 20 X3 — 기록 폴더 하나로 다시 보는 실행 경로가 없었다 (서버 WorldOp · sim_check 만).
+
+**검증**
+
+- unit_client "client options: --replay …" (월드 · 세이브 폴더 · 이름, 끝 구분자, 같이 못 쓰는 옵션, NotFound, 이름 규칙, --net-sim ·
+  --test-*), CTest client_replay (sbx_sim_check --replay-roundtrip 120 틱 → --replay "리플레이 끝: rec1 — 재생 끝 — 120 call, 해시 5개 일치" ·
+  0 → 해시 레코드를 바꾼 기록 "기록과 다르다: call 29 tick 30" · 1 → 기록 아님 2 → 프로젝트 worlds/ 에 넣은 시나리오 기록 "다른 콘텐츠로
+  기록한 리플레이" · 1).
+- 처음 CTest 의 해시 바꾸기는 키 차례를 잘못 알아 (JSON 은 키 이름 순 — call · hash · k · tick) 아무것도 바꾸지 않았다 — 바뀌지 않으면
+  시험이 멈추게 했다.
+- clang-tidy (-Wall -Wextra -Wpedantic -Wshadow) 바뀐 파일 경고 없음. 성능: 재생은 서버의 기존 길 — 측정하지 않았다. 창 뷰어는 MANUAL-QA [ ].
+- Windows MSVC Debug 빌드 · 전체 ctest 85/85 통과.
+
+**남은 일**
+
+- seek · 타임라인 (M5-T2), --record · 보고 묶음 · 기록 폴더의 패키지 digest (M5-T3).
+
 ## 2026-11-10 — 버그: 폴더 rename 이 Windows 에서 가끔 "Access is denied" (createProject · 패키지 풀기 · 원자적 쓰기)
 
 **무엇을**
