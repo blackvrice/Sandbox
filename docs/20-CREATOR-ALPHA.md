@@ -382,8 +382,9 @@ M4-T4 ✅    (v0.7) 게임 UI 배율 — client.json "gameUiScale" 0.75 ~ 2 (--g
 ## 6. 스크립트 실행 경계 · 프로파일 (X5 — ADR-0081)
 
 ```text
-경계        IScriptExecutor { call(fn, args) → result · trap, fuel, memory } — 지금 구현은 Interpreter 하나. 모듈마다 실행자를 고른다
-            (기본 Interpreter). JIT/AOT 실행자는 같은 계약을 지켜야 들어온다
+경계        ✅ v0.9 M6-T4 (ADR-0127) IScriptExecutor { call(fn, args) → result · trap, fuel, memory · 프로파일 } — 지금 구현은 Interpreter
+            하나 (makeScriptExecutor). 팩마다 실행자 (ScriptPackProgram.executor — 기본 Interpreter). JIT/AOT 실행자는 같은 계약을 지켜야
+            들어온다 — describeCallDifference (기준과 견줌) 가 빈 글
 계약        onTick (server): 결과 · 쓰기 · 트랩 · 연료 소비가 비트 단위로 Interpreter 와 같다 (04 — f64 IEEE · FMA 금지 · NaN 정규화 ·
             정수 감싸기). 연료는 기본 블록마다 같은 양 (바이트코드 기준 — 실행 방식과 무관). onUpdate (client) 는 결과만 같으면 된다
             (표시용 — 결정론 밖) — JIT 의 첫 후보

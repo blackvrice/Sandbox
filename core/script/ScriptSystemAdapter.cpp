@@ -5,6 +5,7 @@
 
 #include "foundation/hash/Fnv1a.hpp"
 #include "foundation/log/Log.hpp"
+#include "script/vm/ScriptExecutor.hpp"
 
 namespace sbx::script {
 namespace {
@@ -27,7 +28,7 @@ ScriptSystemAdapter::ScriptSystemAdapter(std::shared_ptr<const content::ScriptPr
     }
     for (usize pi = 0; pi < m_programs->packs.size(); ++pi) {
         const bc::Module& module = m_programs->packs[pi].module;
-        m_vms.push_back(std::make_unique<vm::Interpreter>(module, &m_host));
+        m_vms.push_back(vm::makeScriptExecutor(m_programs->packs[pi].executor, module, &m_host)); // ADR-0127
         const std::vector<u8> bytes = bc::serialize(module);
         m_digests.push_back(fnv1a64(std::span<const u8>(bytes)));
         // 모듈의 시스템 표는 id 오름차순 (검증기가 본다) — 팩 순서로 이으면 실행 순서다
@@ -64,7 +65,7 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     }
     const content::ScriptPackProgram& pack = m_programs->packs[s.pack];
     const bc::Function& f = pack.module.functions[fn];
-    vm::Interpreter& vmi = *m_vms[s.pack];
+    vm::IScriptExecutor& vmi = *m_vms[s.pack];
     // 호출 연료 = min(호출 상한, 틱에 남은 연료) — 연료는 결정적이라 끊기는 자리도 결정적이다
     const u64 limit = std::min(kCallFuel, m_tickFuelLeft);
     vm::Limits lim = vmi.limits();
@@ -351,7 +352,7 @@ std::string describeTrapSite(const bc::Module& module, const vm::CallResult& r) 
 }
 
 std::vector<ScriptFunctionRow> collectFunctionProfile(const content::ScriptPrograms& programs,
-                                                      std::span<const std::unique_ptr<vm::Interpreter>> vms,
+                                                      std::span<const std::unique_ptr<vm::IScriptExecutor>> vms,
                                                       usize maxRows, u64* totalFuel) {
     struct Hit {
         u32 pack = 0;

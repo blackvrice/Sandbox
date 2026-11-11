@@ -218,7 +218,8 @@ script/                SandboxScript (정적 라이브러리) — 의존 Foundat
   vm/Bytecode          명령 · 타입 표 · 모듈 · serialize · deserialize · disassemble
   vm/Verifier          verify · sameType · loadModule (읽기 + 검증)
   vm/Numbers           JS 수 규칙 (ToInt32 · Number#toString · round · pow · min/max · UTF-16 길이) — 검사기 접기와 VM 공용
-  vm/Interpreter       Interpreter (call · 아레나 · 예산 · 트랩) · Value · IHost
+  vm/Interpreter       Interpreter (call · 아레나 · 예산 · 트랩) · Value · IHost · IScriptExecutor (실행 경계 — v0.9 M6-T4)
+  vm/ScriptExecutor    makeScriptExecutor (종류 → 실행자) · describeCallDifference (실행자 계약 비교 — ADR-0127), vm/ExecutorKind
   sdk/SdkGenerator     sandbox.d.ts 생성 (Host 표 · 불투명 타입 · SDK 내장)
 core/script/          엔진 쪽 (SandboxCore — SandboxScript 를 링크한다)
   ScriptHost           Host 바인딩 목록 · 계약 검사 (도메인마다) · ScriptHost (IHost — 호출마다 ctx 핸들, 로그)

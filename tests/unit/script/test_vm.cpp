@@ -8,6 +8,7 @@
 #include "script/lang/Codegen.hpp"
 #include "script/vm/Interpreter.hpp"
 #include "script/vm/Numbers.hpp"
+#include "script/vm/ScriptExecutor.hpp"
 #include "script/vm/Verifier.hpp"
 
 using namespace sbx;
@@ -308,6 +309,75 @@ TEST_SUITE("script") {
         rejects({{n, 1, 1}});
         rejects({{0, 0, 1}});
         rejects({{0, 1, 0}});
+    }
+
+    TEST_CASE("실행 경계 (v0.9 M6-T4 조각 4): IScriptExecutor · makeScriptExecutor · 계약 비교") {
+        const bc::Module& m = program();
+        vm::Limits small;
+        small.fuel = 20'000;
+        small.maxDepth = 64;
+        small.maxArrayLength = 1000;
+        FakeHost h1;
+        FakeHost h2;
+        // 기준 (직접 만든 Interpreter) 과 인터페이스로 만든 실행자 — 같은 호출은 계약대로 같다 (성공 · 트랩 · 연료 끝 ·
+        // 깊이)
+        vm::Interpreter ref(m, &h1, small);
+        const std::unique_ptr<vm::IScriptExecutor> ex =
+            vm::makeScriptExecutor(vm::ExecutorKind::Interpreter, m, &h2, small);
+        REQUIRE(ex != nullptr);
+        CHECK(ex->kind() == vm::ExecutorKind::Interpreter);
+        CHECK(vm::executorKindName(ex->kind()) == "interpreter");
+        CHECK(ex->limits().fuel == small.fuel);
+        const auto fn = [&](std::string_view name) {
+            const bc::Export* e = m.findExport("scripts/a.ts", name);
+            REQUIRE(e != nullptr);
+            return e->function;
+        };
+        const std::vector<std::pair<std::string_view, std::vector<Value>>> calls{
+            {"fact", {I(7)}},  {"sumTo", {I(30)}},      {"rem", {I(7), I(0)}}, {"oob", {I(4)}},
+            {"spin", {}},      {"deep", {I(0)}},        {"grow", {}},          {"nul", {I(0)}},
+            {"fmt", {F(0.1)}}, {"chain", {F(3), F(4)}}, {"pushes", {}},        {"badIdx", {F(1.5)}}};
+        for (const auto& [name, args] : calls) {
+            CAPTURE(name);
+            const vm::CallResult a = ref.call(fn(name), args);
+            const vm::CallResult b = ex->call(fn(name), args);
+            CHECK(vm::describeCallDifference(a, b).empty());
+        }
+        CHECK(ref.profile().size() == ex->profile().size());
+        for (usize i = 0; i < ref.profile().size(); ++i) {
+            CHECK(ref.profile()[i].calls == ex->profile()[i].calls);
+            CHECK(ref.profile()[i].selfFuel == ex->profile()[i].selfFuel);
+        }
+        ex->resetProfile();
+        CHECK(ex->profile()[fn("fact")].calls == 0);
+        vm::Limits more = small;
+        more.fuel = 30'000;
+        ex->setLimits(more);
+        CHECK(ex->limits().fuel == 30'000);
+
+        // 비교가 다른 것을 잡는다 — 트랩 · 값 · 연료 · 자리 · 경로 · 메시지
+        vm::CallResult x;
+        x.value = Value::i32v(3);
+        x.fuelUsed = 10;
+        vm::CallResult y = x;
+        CHECK(vm::describeCallDifference(x, y).empty());
+        y.value = Value::i32v(4);
+        y.fuelUsed = 11;
+        const std::string d1 = vm::describeCallDifference(x, y);
+        CHECK(d1.find("값 비트") != std::string::npos);
+        CHECK(d1.find("연료 10 ≠ 11") != std::string::npos);
+        x.trap = Trap::DivideByZero;
+        y = x;
+        y.pc = 9;
+        y.stack.push_back({1, 2});
+        y.message = "다른";
+        const std::string d2 = vm::describeCallDifference(x, y);
+        CHECK(d2.find("트랩 자리") != std::string::npos);
+        CHECK(d2.find("호출 경로") != std::string::npos);
+        CHECK(d2.find("메시지") != std::string::npos);
+        y = x;
+        y.trap = Trap::OutOfFuel;
+        CHECK(vm::describeCallDifference(x, y).find("트랩 DivideByZero ≠ OutOfFuel") != std::string::npos);
     }
 
     TEST_CASE("트랩 호출 경로 (v0.9 M6-T4 조각 3): 안쪽부터 · 콜백 · 깊이 상한 · describePath") {

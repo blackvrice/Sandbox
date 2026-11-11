@@ -15,7 +15,7 @@
          v0.5 Technical Alpha ✅ 0.5.0 (2026-11-03 — 릴리스 노트 releases/v0.5.0, M1 · M2 · M8 · M7-T6, ADR-0078~0100)
          v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (2026-11-04 — 릴리스 노트 releases/v0.6.0, NG-01 · 02 · 04 · 08 · 12 · 13 · 14 · M6-T9 · RT-06-12)
          v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (2026-11-09 — 릴리스 노트 releases/v0.7.0, M3-T1 ~ T6 · M4-T1 ~ T4 · NG-06, ADR-0101 ~ 0107)
-다음     roadmap/README 1장 — v0.8 Studio 기본 환경 (트랙 B ST-06-1 · M6-T1 홈 · M6-T3 빌드 · M6-T7 자동 저장 · M6-T6 레이아웃 · ST-06-9 테스트 세션 · M5-T1 --replay · M5-T2 탐색 · Studio UI UI-0 ~ UI-3 ✅ · M5-T3 기록 · NG-07 시험 층 · NG-03 Player · ST-06-2 팔레트 ✅ → UI-4 창 QA → 0.8.0, ST-06-11 은 v0.12 — ADR-0123), 트랙 A 다음은 M6-T4 (v0.9 — 줄 표 · 함수 프로파일 · 오류 메시지 ✅ → IScriptExecutor)
+다음     roadmap/README 1장 — v0.8 Studio 기본 환경 (트랙 B ST-06-1 · M6-T1 홈 · M6-T3 빌드 · M6-T7 자동 저장 · M6-T6 레이아웃 · ST-06-9 테스트 세션 · M5-T1 --replay · M5-T2 탐색 · Studio UI UI-0 ~ UI-3 ✅ · M5-T3 기록 · NG-07 시험 층 · NG-03 Player · ST-06-2 팔레트 ✅ → UI-4 창 QA → 0.8.0, ST-06-11 은 v0.12 — ADR-0123), 트랙 A M6-T4 ✅ (v0.9 — 줄 표 · 함수 프로파일 · 오류 메시지 · IScriptExecutor), v0.9 의 남은 일은 트랙 B (NG-05 → M6-T8 · ST-06-7 · ST-06-8)
 로드맵   2026-11-03 재구성 (ADR-0096 · 2차 배치 ADR-0099 · 출시 강화 ADR-0100): 작은 MINOR v0.5 ~ v0.24 RC · v1.0 GA · 성숙 단계 분리 ·
          태스크 등록부 — 정본 roadmap/ (versioning · task-registry · releases · release-gates · stabilization), 근거 audit/SECOND-PASS-GAP-ANALYSIS.
          아래 1장 표는 옛 줄 (이력)
@@ -319,7 +319,7 @@ v1.0 GA                호환성 표 · 마이그레이션 가이드 · 보안 �
 | D-13 | 스크립트의 엔진 컴포넌트 · 구조 변경 권한                         | v0.5 진입    | 결정 — 접근 표 · 호출 버퍼 → ECB · 상한 · 신호 선언 (ADR-0080) |
 | D-14 | 오디오 출력 백엔드 (직접 · 서드파티)                              | v0.5 M2-T6   | 닫힘 — v0.5 소리 이벤트 · Null, 출력 · sounds.json 은 v0.6 (ADR-0095) |
 | D-15 | 서비스 데이터 (영구 저장 · 순위 · 업적) 의 신뢰 경계               | v0.5 계획    | 결정 — 계정 · 신뢰할 서버 뒤 (v0.7), 자체 서버 결과는 공식에 안 넣음 (ADR-0082) |
-| D-16 | 스크립트 실행 방식 (Interpreter · JIT · AOT)                      | v0.5 계획    | 결정 — Interpreter 유지 · IScriptExecutor 계약 · 프로파일 먼저, JIT/AOT v1.x (ADR-0081) |
+| D-16 | 스크립트 실행 방식 (Interpreter · JIT · AOT)                      | v0.5 계획    | 결정 — Interpreter 유지 · IScriptExecutor 계약 · 프로파일 먼저, JIT/AOT v1.x (ADR-0081). 경계 · 프로파일 구현 ✅ v0.9 M6-T4 (ADR-0125 · 0127) |
 
 ### 6.2 v0.3 SandboxScript — 마일스톤 · 태스크 (ADR-0056 언어 · ADR-0057 Host API)
 
@@ -568,7 +568,7 @@ M5 리플레이 뷰어
   T3 [계획] --record (테스트 · 자동 플레이) · 보고 묶음에
 M6 제작 UX · 템플릿 · 스크립트 개선
   T1 [계획] 첫 화면 새 프로젝트 · 열기 · 최근        T2 [계획] 템플릿 3종 (노코드 미니게임 + HUD · 스크립트 보드게임 · 생존)
-  T3 [계획] 에디터 "패키지" 패널 · 설치 단추        T4 [계획] 오류 메시지 · 트랩 위치 · 함수별 프로파일 · IScriptExecutor
+  T3 [계획] 에디터 "패키지" 패널 · 설치 단추        T4 ✅ (v0.9) 오류 메시지 · 트랩 위치 · 함수별 프로파일 · IScriptExecutor
   T5 [계획] 튜토리얼 (docs/tutorials)
   (Studio 감사 2026-11-03 — ADR-0092: T1 P0, T3 에 누락 에셋 검사 · Build 화면)
   T6 [계획] 레이아웃 저장 · Studio 설정                T7 [계획] 자동 저장 · 크래시 복구 (P0)

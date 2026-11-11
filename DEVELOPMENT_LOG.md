@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 조각 4: IScriptExecutor · 팩마다 실행자 · 계약 비교 (ADR-0127) — M6-T4 끝
+
+**무엇을**
+
+- script/vm: IScriptExecutor (Interpreter 가 구현 — final), ExecutorKind (따로 헤더), ScriptExecutor (makeScriptExecutor · executorKindName ·
+  describeCallDifference).
+- core: ScriptPackProgram.executor (기본 Interpreter), ScriptSystemAdapter · ClientScriptSystems 는 IScriptExecutor 만 쥔다.
+- 문서: ADR-0127, 20 6장 · 19 9장 · 18 D-16 · 17 · 13, 등록부 M6-T4 Done, 다음 줄 (v0.9 의 남은 일 = 트랙 B).
+
+**왜**
+
+- M6-T4 의 마지막 조각 — ADR-0081 의 실행 계약을 코드로. 엔진이 실행자 종류를 모르고, 새 실행자를 견줄 기준이 생긴다.
+
+**검증**
+
+- test_vm 실행 경계 (12 호출 계약 비교 · 프로파일 · 비교의 차이 탐지). 결정론 골든 · 전체 시험 그대로 (동작 변화 없음).
+- 빌드 중 ScriptSystemAdapter.obj 가 깨져 (LNK1236 — 손상된 COFF) 그 obj · SandboxCore.lib 를 지우고 다시 빌드 — 코드 문제 아님.
+- 벤치 (Release sbx_bench --only script.regen — 시스템 호출마다 가상 호출 하나): 16.2 · 16.0 · 15.9 ms/틱 (전 조각 16.8 ~ 18.8 — 잡음 안), 연료 같음.
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님).
+
+**남은 일**
+
+- 콘텐츠가 실행자를 고르는 설정 · JIT/AOT (v1.x 검토). v0.9 의 다음: NG-05 텍스트 위치 계약 → M6-T8.
+
 ## 2026-11-11 — v0.9 M6-T4 조각 3: 스크립트 오류 메시지 — 고치는 법 표 · 문구 골든 · 트랩 호출 경로 (ADR-0126)
 
 **무엇을**

@@ -74,8 +74,9 @@ struct ScriptFunctionRow {
 // 팩들의 인터프리터 프로파일 → 자기 연료가 큰 차례 (같으면 자리 글자 차례) maxRows 까지 (한 번도 부르지 않은 함수는
 // 뺀다). totalFuel 이 null 이 아니면 모든 함수의 자기 연료 합. vms 는 packs 차례 (null = 그 팩의 인터프리터 없음)
 [[nodiscard]] std::vector<ScriptFunctionRow>
-collectFunctionProfile(const content::ScriptPrograms& programs, std::span<const std::unique_ptr<vm::Interpreter>> vms,
-                       usize maxRows, u64* totalFuel = nullptr);
+collectFunctionProfile(const content::ScriptPrograms& programs,
+                       std::span<const std::unique_ptr<vm::IScriptExecutor>> vms, usize maxRows,
+                       u64* totalFuel = nullptr);
 
 // 세이브에 남기는 시스템 상태 (기본값 — 트랩 0 · 켜짐 — 이 아닌 것만, ADR-0064 4)
 struct ScriptSystemState {
@@ -204,10 +205,10 @@ private:
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;
-    ScriptHost m_host;                                   // 인터프리터보다 먼저 만들고 나중에 없앤다
-    std::vector<std::unique_ptr<vm::Interpreter>> m_vms; // packs 차례
-    std::vector<u64> m_digests;                          // packs 차례 — 바이트코드의 FNV-1a 64
-    std::vector<Entry> m_systems;                        // 실행 순서 (팩 순서, id)
+    ScriptHost m_host;                                       // 인터프리터보다 먼저 만들고 나중에 없앤다
+    std::vector<std::unique_ptr<vm::IScriptExecutor>> m_vms; // packs 차례
+    std::vector<u64> m_digests;                              // packs 차례 — 바이트코드의 FNV-1a 64
+    std::vector<Entry> m_systems;                            // 실행 순서 (팩 순서, id)
     bool m_hasCallbacks = false;
     u32 m_subscribed = 0; // 1 << GameEventKind
     std::vector<vm::Value> m_fields;

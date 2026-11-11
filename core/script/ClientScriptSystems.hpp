@@ -76,9 +76,9 @@ private:
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;
-    ClientScriptHost m_host;                             // 인터프리터보다 먼저 만들고 나중에 없앤다
-    std::vector<std::unique_ptr<vm::Interpreter>> m_vms; // packs 차례 (client 시스템이 없는 팩은 null)
-    std::vector<Entry> m_systems;                        // 실행 순서 (팩 순서, id)
+    ClientScriptHost m_host;                                 // 인터프리터보다 먼저 만들고 나중에 없앤다
+    std::vector<std::unique_ptr<vm::IScriptExecutor>> m_vms; // packs 차례 (client 시스템이 없는 팩은 null)
+    std::vector<Entry> m_systems;                            // 실행 순서 (팩 순서, id)
     u64 m_frameFuelLeft = kFrameFuel;
     u32 m_frames = 0;
     bool m_budgetLogged = false;

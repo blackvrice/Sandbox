@@ -4,6 +4,7 @@
 #include <format>
 
 #include "foundation/log/Log.hpp"
+#include "script/vm/ScriptExecutor.hpp"
 
 namespace sbx::script {
 
@@ -26,7 +27,7 @@ ClientScriptSystems::ClientScriptSystems(std::shared_ptr<const content::ScriptPr
             m_systems.push_back(std::move(e));
             any = true;
         }
-        m_vms.push_back(any ? std::make_unique<vm::Interpreter>(module, &m_host) : nullptr);
+        m_vms.push_back(any ? vm::makeScriptExecutor(m_programs->packs[pi].executor, module, &m_host) : nullptr);
     }
 }
 
@@ -55,7 +56,7 @@ void ClientScriptSystems::invoke(Entry& s) {
     }
     const content::ScriptPackProgram& pack = m_programs->packs[s.pack];
     const bc::Function& f = pack.module.functions[s.desc->onUpdate];
-    vm::Interpreter& vmi = *m_vms[s.pack];
+    vm::IScriptExecutor& vmi = *m_vms[s.pack];
     const u64 limit = std::min(kCallFuel, m_frameFuelLeft);
     vm::Limits lim = vmi.limits();
     lim.fuel = limit;

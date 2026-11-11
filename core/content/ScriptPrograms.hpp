@@ -8,6 +8,7 @@
 
 #include "core/content/TagSet.hpp"
 #include "script/vm/Bytecode.hpp"
+#include "script/vm/ExecutorKind.hpp"
 
 namespace sbx::content {
 
@@ -23,6 +24,8 @@ struct ScriptPackProgram {
     std::string folder; // 진단 · 로그 ("<폴더>/scripts/a.ts")
     script::bc::Module module;
     std::vector<std::vector<ScriptEventFilter>> events{}; // module.systems 와 같은 차례 — 시스템마다 구독 (종류 차례)
+    // 이 팩의 실행자 (v0.9 M6-T4 — ADR-0081 1 "모듈마다 고른다"). 지금은 Interpreter 하나 — 콘텐츠가 고를 길은 [계획]
+    script::vm::ExecutorKind executor = script::vm::ExecutorKind::Interpreter;
 };
 
 struct ScriptPrograms {

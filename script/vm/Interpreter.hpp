@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "script/vm/Bytecode.hpp"
+#include "script/vm/ExecutorKind.hpp"
 
 namespace sbx::script::vm {
 
@@ -114,20 +115,43 @@ public:
     virtual HostResult call(const api::HostFunction& fn, std::span<const HostArg> args) = 0;
 };
 
-class Interpreter {
+// 스크립트 실행 경계 (v0.9 M6-T4 조각 4 — ADR-0081 1, ADR-0127). 모듈 하나를 받아 함수를 부른다 — 결과 · 트랩 · 연료 ·
+// 메모리 · 함수별 프로파일. 지금 구현은 Interpreter 하나 (makeScriptExecutor — script/vm/ScriptExecutor). JIT/AOT
+// 실행자는 같은 계약 (server: 결과 · 트랩 · 연료 · 호출 경로가 비트 단위로 Interpreter 와 같다 — describeCallDifference
+// 가 빈 글) 을 지켜야 들어온다. 엔진 (core/script) 은 이 인터페이스만 쥔다
+class IScriptExecutor {
+public:
+    virtual ~IScriptExecutor() = default;
+    [[nodiscard]] virtual ExecutorKind kind() const noexcept = 0;
+    // 기본 · 불투명 인자의 호출 (Interpreter::call 과 같은 뜻)
+    virtual CallResult call(u32 function, std::span<const Value> args) = 0;
+    // 구조체 매개변수 (onEvent 의 GameEvent) — Interpreter::call 의 칸 · 글 규칙
+    virtual CallResult call(u32 function, std::span<const Value> args, std::span<const Value> structFields,
+                            std::span<const std::string> structTexts) = 0;
+    [[nodiscard]] virtual const Limits& limits() const noexcept = 0;
+    virtual void setLimits(const Limits& l) noexcept = 0;
+    // 마지막 호출이 쓴 아레나 바이트
+    [[nodiscard]] virtual usize heapBytes() const noexcept = 0;
+    // 함수 번호마다 쌓인 프로파일 (ADR-0125) · 0 으로
+    [[nodiscard]] virtual const std::vector<FunctionProfile>& profile() const noexcept = 0;
+    virtual void resetProfile() = 0;
+};
+
+class Interpreter final : public IScriptExecutor {
 public:
     // module 은 검증된 것이어야 한다 (Debug 에서 다시 검증한다). module · host 는 이 객체보다 오래 살아야 한다
     Interpreter(const bc::Module& module, IHost* host, Limits limits = {});
 
     // 함수 하나를 부른다 — 인자는 기본 타입 · 불투명 값 (참조는 넘길 수 없다: 이 호출의 아레나가 새로 시작한다)
-    CallResult call(u32 function, std::span<const Value> args);
+    [[nodiscard]] ExecutorKind kind() const noexcept override { return ExecutorKind::Interpreter; }
+    CallResult call(u32 function, std::span<const Value> args) override;
     CallResult call(std::string_view module, std::string_view exportName, std::span<const Value> args);
     // 구조체 매개변수를 받는 함수 (시스템의 onEvent — ADR-0063): 구조체 자리의 args 값은 쓰지 않고, 구조체 매개변수마다
     // structFields 에서 칸을 차례로 읽어 이 호출의 아레나에 만든다 (필드 이름 순 — Host 결과와 같은 잎 규칙). 칸이
     // 모자라거나 남거나 모양이 다르면 BadCall. 잎이 string 이면 칸 = structTexts 의 자리 (i32), 잎이 불투명 값의
     // 배열이면 칸 = 개수 n 다음 원소 n 칸 (GameEvent 의 action · targets — v0.5 M2-T5 (2))
     CallResult call(u32 function, std::span<const Value> args, std::span<const Value> structFields,
-                    std::span<const std::string> structTexts = {});
+                    std::span<const std::string> structTexts = {}) override;
 
     // 마지막 call 의 아레나 읽기 (다음 call 전까지)
     [[nodiscard]] std::string_view stringOf(Value v) const;
@@ -136,12 +160,12 @@ public:
     [[nodiscard]] Value fieldOf(Value v, usize slot) const;
     [[nodiscard]] Value unbox(Value v) const;
 
-    [[nodiscard]] usize heapBytes() const noexcept { return m_heapBytes; }
+    [[nodiscard]] usize heapBytes() const noexcept override { return m_heapBytes; }
     // 함수 번호마다 쌓인 프로파일 (call 을 넘어 쌓인다 — resetProfile 로 0)
-    [[nodiscard]] const std::vector<FunctionProfile>& profile() const noexcept { return m_profile; }
-    void resetProfile();
-    [[nodiscard]] const Limits& limits() const noexcept { return m_limits; }
-    void setLimits(const Limits& l) noexcept { m_limits = l; }
+    [[nodiscard]] const std::vector<FunctionProfile>& profile() const noexcept override { return m_profile; }
+    void resetProfile() override;
+    [[nodiscard]] const Limits& limits() const noexcept override { return m_limits; }
+    void setLimits(const Limits& l) noexcept override { m_limits = l; }
 
 private:
     // Map · Set (v0.5 M8-T4) — 넣은 차례의 항목 (지운 것은 alive = 0 으로 남는다 — 반복 커서가 그대로) + 선형 탐사 색인
