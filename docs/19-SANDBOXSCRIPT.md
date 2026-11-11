@@ -196,6 +196,11 @@ Math        min · max (모두 i32 면 i32) · abs · floor · ceil · round · 
        S500 검사 오류가 있어 코드를 만들지 않는다  S501 상한 (레지스터 4096 · 상수 65535 · 명령) — 함수를 나눈다
        S502 생성한 코드가 검증을 통과하지 못했다 (컴파일러 버그 — 보고한다)
 모음   첫 오류에서 멈추지 않는다 — 문장 단위로 회복해 나머지를 계속 본다. 믿지 않는 소스라 깊이 · 오류 수에 상한이 있다
+고치는 법 ✅ v0.9 M6-T4 (ADR-0126) script/lang/DiagnosticHelp — 코드마다 (뜻, 고치는 법 한 줄), 컴파일러가 쓰는 모든 코드 (시험이 소스와
+       맞춘다). Diagnostic.help · ContentIssue.help, describeWithHelp = 문장 + "\n    고치는 법: …" — sbx check · doctor · Studio 콘텐츠 창 ·
+       빌드 보고 · 프로젝트 열기 오류. 문장은 그 자리의 사실, 고치는 법은 코드의 안내 (섞지 않는다)
+골든   흔한 실수 18 가지 (TS 습관 · 타입) 의 문장 + 고치는 법 = tests/data/script_diagnostics.golden.txt (바꾸면 SBX_UPDATE_GOLDEN=1).
+       export class · export var 는 S301 · S303 (S320 은 export 모양 — export { } · export *)
 ```
 
 ## 9. 구현 위치
@@ -360,7 +365,7 @@ TS 와 다른 점 (더 엄격 — 받으면 tsc 도 받는다): 조건은 boolea
 
 ```text
 입력        검증한 Module 만 (Debug 에서 다시 검증). 부르기 = call(함수 · 또는 (파일, export)) + 인자 (기본 · 불투명 값 — 참조는
-            넘길 수 없다). 결과 CallResult {trap, value, function, pc, message, fuelUsed}. (v0.3 M4-T2) call(함수, 인자, 칸) — 구조체
+            넘길 수 없다). 결과 CallResult {trap, value, function, pc, message, fuelUsed, stack (트랩 호출 경로 — v0.9 M6-T4)}. (v0.3 M4-T2) call(함수, 인자, 칸) — 구조체
             매개변수는 칸 목록으로 이 호출의 아레나에 만든다 (Host 결과와 같은 잎 규칙, 칸 수가 다르면 BadCall — onEvent 의 GameEvent)
 아레나      호출마다 새로: call 처음에 앞 호출의 객체 (문자열 · 배열 · 구조체 · 상자) 를 통째로 버린다 (GC 없음). 결과의 문자열 ·
             배열은 다음 call 전까지 stringOf · arrayAt · fieldOf 로 읽는다. 상수 문자열은 모듈의 표를 그대로 가리킨다 (복사 없음)
@@ -383,6 +388,9 @@ Host        CALLH → IHost::call(표의 항목, 인자) — 문자열 인자는
             중첩 구조체 (깊이 4) 만, 칸 수가 다르거나 다른 모양이면 HostError (16장). HostResult::extraFuel 만큼 연료를 더 쓴다.
             (v0.7 M4-T1 (2)) 결과 String 은 HostResult::text 를 이 호출의 아레나에 문자열로 (넘으면 OutOfMemory)
 결정성      같은 모듈 · 같은 인자 · 같은 Host 응답 = 같은 결과 · 같은 연료 (시험이 본다)
+호출 경로   ✅ v0.9 M6-T4 (ADR-0126) 트랩이면 CallResult.stack = (함수, pc) 안쪽부터 바깥까지 16 칸 (더 깊으면 안쪽 15 + 맨 바깥) — 바깥
+            프레임의 pc 는 부른 CALL · INTR (내장 콜백). 시스템 트랩 로그 · lastTrap 은 "scripts/a.ts:6:10 (helper) ← :14:20 (onTick)"
+            (describeTrapSite — 같은 파일은 줄인다). 성공 호출에는 모으지 않는다
 ```
 
 ## 14. Host 바인딩 · SDK (v0.3 M2-T2 — `core/script/ScriptHost`, `script/sdk/SdkGenerator`, ADR-0057 2 · 4)

@@ -762,6 +762,26 @@ std::string describeSite(const Module& m, u32 function, u32 pc) {
     return std::format("{} pc {}", f.name, pc);
 }
 
+std::string describePath(const Module& m, std::span<const std::pair<u32, u32>> sites) {
+    std::string out;
+    std::string_view lastFile;
+    for (const auto& [fn, pc] : sites) {
+        std::string site = describeSite(m, fn, pc);
+        const std::string_view file = fn < m.functions.size() ? functionFile(m.functions[fn].name) : std::string_view();
+        if (!out.empty()) {
+            out += " ← ";
+            // 같은 파일 — 줄 표가 있으면 ":22:5 (onTick)" 로 줄인다
+            if (!file.empty() && file == lastFile && site.starts_with(file) && site.size() > file.size() &&
+                site[file.size()] == ':' && findLine(m.functions[fn], pc) != nullptr) {
+                site.erase(0, file.size());
+            }
+        }
+        out += site;
+        lastFile = file;
+    }
+    return out;
+}
+
 std::string describeFunction(const Module& m, u32 function) {
     if (function < m.functions.size() && m.functions[function].line > 0) {
         const Function& f = m.functions[function];

@@ -174,7 +174,8 @@ void diagnoseProject(Builder& b, const fs::path& dir, bool fromPackage, const Di
 
     // 콘텐츠
     for (usize k = 0; k < contentIssues.size() && k < kMaxContentItems; ++k) {
-        b.add("콘텐츠", levelOf(*contentIssues[k]), contentIssues[k]->describe());
+        b.add("콘텐츠", levelOf(*contentIssues[k]), contentIssues[k]->describe(),
+              contentIssues[k]->help); // 스크립트 S 코드는 고치는 법 (v0.9 M6-T4)
     }
     if (contentIssues.size() > kMaxContentItems) {
         b.add("콘텐츠", DiagLevel::Info, std::format("그 밖 {} 개", contentIssues.size() - kMaxContentItems),

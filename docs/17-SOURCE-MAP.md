@@ -42,6 +42,7 @@
 | `foundation/job/JobSystem.{hpp,cpp}`                                                                        | `JobSystem`(Worker 풀, 0 = 그 자리 실행), `JobGroup` — 경로 Job (5B)                                                                                                | SandboxFoundation           |
 | `foundation/version/SemVer.{hpp,cpp}`                                                                       | `SemVer`(2.0.0 엄격 · 우선순위), `VersionRange`(>= > <= < = ^ · 부분 버전 · AND) — v0.2 M1-T1, ADR-0040                                                             | SandboxFoundation           |
 | `foundation/text/Utf8.hpp`                                                                                  | UTF-8 인코딩·디코딩 (`append`, `decodeNext`, `length`, `tail`) (6)                                                                                                  | SandboxFoundation           |
+| `script/lang/DiagnosticHelp.{hpp,cpp}` | 진단 코드마다 뜻 · 고치는 법 한 줄 표 (`findDiagnosticHelp`) — v0.9 M6-T4, [19](19-SANDBOXSCRIPT.md) 8장, ADR-0126 | SandboxScript |
 | `script/lang/Diagnostic.{hpp,cpp}`                                                                          | `script::Diagnostic` ("파일:줄:열: 오류 Sxxx — …"), `DiagnosticList` — v0.3 M1-T1, [19](19-SANDBOXSCRIPT.md) 8장                                                   | SandboxScript               |
 | `script/lang/Token.hpp`, `Lexer.{hpp,cpp}`                                                                  | `Tok` · `Token`, `tokenize` (숫자 정확 반올림 · 이스케이프 · 템플릿 깊이 · 줄바꿈 표시) — [19](19-SANDBOXSCRIPT.md) 2장                                             | SandboxScript               |
 | `script/lang/Ast.{hpp,cpp}`                                                                                 | `Ast` (평평한 마디 풀 · 자식 구간 · `dump` S 식), `NodeKind` · 자식 자리 표                                                                                        | SandboxScript               |
@@ -277,6 +278,7 @@
 | `samples/stdlib_tour/`                                                                                      | 표준 라이브러리 예제 — 팩 tour: 인벤토리 (Map · Set · 알고리즘) · RTS 유닛 AI (kNearest · PriorityQueue · 경로 요청) · 보드게임 AI (Graph · BFS · 위상 정렬), Prefab 다섯 · 빈 시작 월드 · playthrough.json · README (v0.5 M8-T9, ADR-0085) | CTest `sample_stdlib_tour`  |
 | `docs/tutorials/stdlib.md`                                                                                  | 제작자 안내 — 표준 라이브러리 (배열 · Map · Set · 컬렉션 · 알고리즘 · 그래프 · 엔진 질의 · 예산) (v0.5 M8-T9)                                                     | —                           |
 | `tests/project/sbx_test_sample.cmake`                                                                       | sbx test 를 돌려 종료 코드 · 출력 줄 확인 (UTF-8) (v0.5 M8-T9)                                                                                                     | CTest                       |
+| `tests/data/script_diagnostics.golden.txt` | 흔한 스크립트 실수 18 가지의 진단 문구 · 고치는 법 골든 (test_diagnostic_help — SBX_UPDATE_GOLDEN=1 로 다시 쓴다) | SandboxTests (`script`) |
 | `tests/data/saves/v1_sample/`                                                                               | 커밋된 샘플 세이브 (고치지 않는다)                                                                                                                                  | SandboxTests (`persist`)    |
 | `tests/data/projects/minimal/`, `bad_manifest/`                                                             | 커밋된 게임 프로젝트 (내장 콘텐츠 + v1_sample 월드 · 일시정지 풂 / 깨진 매니페스트) — CTest `project_*` · `*_project_*`                                             | sbx_sim_check (CTest)       |
 | `content/ecosystem/`                                                                                        | 콘텐츠 팩 \"eco\" (tags · terrain · prefabs · rules · behaviors)                                                                                                    | 데이터                      |
@@ -355,7 +357,7 @@ foundation/
   [계획]        time/ (steady_clock 래퍼) · metrics/ — 지금은 std::chrono 직접 · 앱의 통계 패널
 
 script/                     SandboxScript (v0.3 — Foundation 만 안다, ADR-0056 9)
-  lang/         Token · Lexer · Ast · Parser · Diagnostic · Types · Checker · Codegen
+  lang/         Token · Lexer · Ast · Parser · Diagnostic · DiagnosticHelp · Types · Checker · Codegen
   api/          HostApi (Host 함수 표 · 지문) · MathBuiltins · ComponentSchema · SystemEvents
   vm/           Bytecode (.sbc) · Verifier · Interpreter · Numbers · Intrinsics (내장 표)
   sdk/          SdkGenerator (sandbox.d.ts · tsconfig.json)

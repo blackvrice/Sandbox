@@ -1231,7 +1231,7 @@ Expected<OpenedProject> openProject(const std::filesystem::path& projectDir, con
         usize shown = 0;
         for (const ContentIssue& i : r.issues) {
             if (i.severity == Severity::Error && shown++ < 5) {
-                msg += "\n  " + i.describe();
+                msg += "\n  " + i.describeWithHelp();
             }
         }
         return makeError(ErrorCode::ValidationFailed, msg, io::displayPath(projectDir));
@@ -1357,7 +1357,7 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
     if (!check.ok()) {
         std::string msg = "매니페스트를 만들 수 없습니다";
         for (const ContentIssue& i : check.issues) {
-            msg += "\n  " + i.describe();
+            msg += "\n  " + i.describeWithHelp();
         }
         return makeError(ErrorCode::ValidationFailed, msg, where);
     }
@@ -1449,7 +1449,7 @@ Expected<NewProjectResult> createProject(const std::filesystem::path& projectDir
     if (!report.ok() || report.warningCount() != 0 || !report.worldOpened) {
         std::string msg = "만든 프로젝트가 검사를 통과하지 못했습니다 (엔진 버그)";
         for (const ContentIssue& i : report.issues) {
-            msg += "\n  " + i.describe();
+            msg += "\n  " + i.describeWithHelp();
         }
         return makeError(ErrorCode::ValidationFailed, msg, where);
     }

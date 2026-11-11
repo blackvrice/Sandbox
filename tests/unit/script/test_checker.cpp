@@ -360,7 +360,7 @@ TEST_SUITE("script") {
             // 파싱 오류가 있는 모듈에서 가져오면 가져오는 쪽에는 이어지는 오류가 없다
             const Checked c = run({{"scripts/a.ts", "import { b } from \"./b\"\nexport function f(): void { b() }"},
                                    {"scripts/b.ts", "export class B {}"}});
-            CHECK(codes(c) == std::vector<std::string>{"S320"});
+            CHECK(codes(c) == std::vector<std::string>{"S301"}); // export class — class 의 진단 (v0.9 M6-T4)
         }
         {
             const Checked c = run({{"scripts/a.ts", "export const x = 1"}, {"scripts/a.ts", "export const y = 1"}});

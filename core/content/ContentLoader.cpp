@@ -2621,6 +2621,7 @@ void ContentLoaderImpl::compileScripts(const std::vector<std::vector<SourceFile>
             }
             issue(d.severity == script::Diagnostic::Severity::Error ? Severity::Error : Severity::Warning,
                   p.folder + "/" + d.file, std::format("{}:{}", d.pos.line, d.pos.column), d.code, d.message);
+            m_issues.back().help = d.help; // 고치는 법 (v0.9 M6-T4)
         }
         // 오류 없는 정의는 다른 함수에 오류가 있어도 넣는다 — Prefab 이 쓰는 자리에 이어지는 V3 가 나지 않게.
         // 의존 팩에서 가져온 정의는 그 팩이 이미 넣었다 (ADR-0075)
@@ -2934,6 +2935,10 @@ void ContentLoaderImpl::loadOverlay(const ContentOverlay& overlay) {
 std::string ContentIssue::describe() const {
     return std::format("{}:{}: {} {} — {}", file, pointer.empty() ? "/" : pointer,
                        severity == Severity::Error ? "오류" : "경고", rule, message);
+}
+
+std::string ContentIssue::describeWithHelp() const {
+    return help.empty() ? describe() : std::format("{}\n    고치는 법: {}", describe(), help);
 }
 
 bool ContentLoadResult::ok() const noexcept {

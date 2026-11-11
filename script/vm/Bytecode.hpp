@@ -10,6 +10,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "foundation/types/Error.hpp"
@@ -239,6 +240,9 @@ struct Module {
 // 트랩 · 프로파일의 자리: 줄이 있으면 "scripts/a.ts:12:5 (clamp)", 없으면 "scripts/a.ts:clamp pc 3"
 // (함수 번호가 틀리면 "함수 #n pc p")
 [[nodiscard]] std::string describeSite(const Module& m, u32 function, u32 pc);
+// 호출 경로 (트랩 — v0.9 M6-T4 조각 3): 안쪽부터 describeSite 를 " ← " 로 잇는다. 같은 파일이면 바깥 칸은 파일을 줄인다
+// ("scripts/a.ts:10:20 (helper) ← :22:5 (onTick)"). sites = (함수, pc) 쌍
+[[nodiscard]] std::string describePath(const Module& m, std::span<const std::pair<u32, u32>> sites);
 // 함수 자리 (프로파일): 선언 자리가 있으면 "scripts/a.ts:8:3 (onTick)", 없으면 describeSite(m, function, 0)
 [[nodiscard]] std::string describeFunction(const Module& m, u32 function);
 [[nodiscard]] std::string_view opName(Op op) noexcept;

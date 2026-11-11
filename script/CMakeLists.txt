@@ -3,6 +3,7 @@
 add_library(SandboxScript STATIC
     lang/Diagnostic.hpp
     lang/Diagnostic.cpp
+    lang/DiagnosticHelp.cpp
     lang/Token.hpp
     lang/Lexer.hpp
     lang/Lexer.cpp

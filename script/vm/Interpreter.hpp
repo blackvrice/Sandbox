@@ -59,11 +59,23 @@ struct Limits {
     u32 maxHostCalls = 1u << 16; // 호출 하나의 Host 함수 호출 (v0.3 M4-T3, ADR-0064 — 넘으면 HostError)
 };
 
+// 트랩 때의 호출 경로 한 칸 (v0.9 M6-T4 조각 3) — pc = 그 함수에서 실행 중이던 명령 (바깥 프레임은 부른 CALL · INTR
+// 자리)
+struct TrapFrame {
+    u32 function = 0;
+    u32 pc = 0;
+    friend bool operator==(const TrapFrame&, const TrapFrame&) = default;
+};
+inline constexpr usize kMaxTrapFrames = 16; // 그보다 깊으면 안쪽 15 개 + 맨 바깥 (호출을 시작한 함수)
+
 struct CallResult {
     Trap trap = Trap::None;
     Value value;      // 결과 (void 면 0)
     u32 function = 0; // 트랩이 난 함수 · 자리
     u32 pc = 0;
+    // 트랩이면 호출 경로 — 안쪽 (트랩 자리 = function · pc) 부터 바깥 (부른 시스템 콜백) 까지, kMaxTrapFrames 까지.
+    // 성공이면 비었다
+    std::vector<TrapFrame> stack{};
     std::string message; // 트랩 설명 (Host 오류의 글 포함)
     u64 fuelUsed = 0;
 
@@ -230,6 +242,8 @@ private:
     std::vector<FunctionProfile> m_profile;
     u64 m_profileMark = 0; // 마지막으로 나눈 때의 m_fuel
     void chargeTop() noexcept;
+    // 트랩 자리 (topPc = 맨 위 프레임의 pc) 로 m_res.stack 을 채운다 — 바깥 프레임의 pc 는 돌아갈 자리 - 1 (부른 명령)
+    void captureStack(u32 topPc);
 };
 
 } // namespace sbx::script::vm

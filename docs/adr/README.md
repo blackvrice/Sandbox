@@ -140,3 +140,4 @@
 | [0123](0123-defer-scene-game-view-split.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 — 게임 카메라 정의 · 렌더러 두 번 그리기 · 플랫폼 다중 창이 먼저, 창 QA 도 밀림. 다시 할 차례: 카메라 → Game 뷰 → 멀티 뷰포트 | Accepted | 2026-11-11 |
 | [0124](0124-bytecode-line-table-format-11.md) | 바이트코드 줄 표 (.sbc 형식 11) — 함수마다 (pc, 줄, 열) 칸 (식 단위 · 바뀔 때만), 읽기의 모양 검사, 실행 · 검증 · 해시 영향 없음, 트랩 자리 = 파일:줄:열 (describeSite) | Accepted | 2026-11-11 |
 | [0125](0125-script-function-profile-self-fuel-protocol-18.md) | 함수별 스크립트 프로파일 — 자기 연료를 프레임이 바뀔 때만 나눈다 (합 = 호출 연료, 늘 켬), 함수 선언 자리 (형식 11), ServerStats 함수 표 (프로토콜 18) · Studio 창 · 서버 끝 줄 | Accepted | 2026-11-11 |
+| [0126](0126-script-diagnostic-help-golden-trap-path.md) | 스크립트 오류 메시지 — 코드마다 고치는 법 표 (소스와 시험으로 맞춤) · Diagnostic · ContentIssue 의 help · 진단 문구 골든 (흔한 실수 18) · export class = S301 · 트랩 호출 경로 (16 칸) | Accepted | 2026-11-11 |

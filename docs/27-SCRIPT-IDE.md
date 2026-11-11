@@ -20,7 +20,8 @@
            Codegen. 진단 = 코드 (S1xx ~ S5xx) · 파일 · 줄 · 열 (19 8장)
 Host 표    script/api/HostApi kHostFunctions — { id, owner (ServerContext · ClientContext …), member, property, 서명, domain, effect, fuel, doc }
            — 검사기 · d.ts · 지문이 같이 읽는다 (ADR-0057)
-VM         트랩 = 함수 번호 · pc → 줄 표로 "파일:줄:열 (함수)" (ScriptSystemAdapter 의 lastTrap — ✅ v0.9 M6-T4 조각 1, ADR-0124)
+VM         트랩 = 함수 번호 · pc → 줄 표로 "파일:줄:열 (함수)" + 호출 경로 (lastTrap — ✅ v0.9 M6-T4, ADR-0124 · 0126). 진단은 코드마다
+           고치는 법 (DiagnosticHelp — 콘텐츠 창 · sbx check)
 프로토타입  script/lang/LanguageService (이번 감사) — contextMembers(domain) · completeAt(source, offset, domain): "ctx." 뒤 후보를 Host 표에서
            도메인으로 거른다 (서버 콜백에 label · print 없음, 클라이언트 콜백에 write · spawn 없음). 시험 test_language_service (unit_script)
 ```

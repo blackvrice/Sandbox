@@ -4534,7 +4534,7 @@ private:
         const auto kids = ast().kids(n);
         const usize argc = kids.size() - 1;
         if (member == "random") {
-            err("S413", callee, "Math.random 은 없다 (결정론) — 결정적 난수 ctx.random 은 [계획]");
+            err("S413", callee, "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다");
             argsLoose(n);
             return set(n, TypeTable::kError);
         }
@@ -4620,7 +4620,7 @@ private:
                     }
                 }
                 if (name == "random") {
-                    err("S413", n, "Math.random 은 없다 (결정론) — 결정적 난수 ctx.random 은 [계획]");
+                    err("S413", n, "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다");
                 } else {
                     err("S411", n, std::format("Math.{} 는 값이 아니다 — 부른다", name));
                 }

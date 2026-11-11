@@ -310,6 +310,64 @@ TEST_SUITE("script") {
         rejects({{0, 1, 0}});
     }
 
+    TEST_CASE("트랩 호출 경로 (v0.9 M6-T4 조각 3): 안쪽부터 · 콜백 · 깊이 상한 · describePath") {
+        constexpr std::string_view kNested = R"(import { i32, idiv } from "sandbox"
+export function inner(a: i32): i32 { return idiv(1, a) }
+export function outer(a: i32): i32 {
+  const x = inner(a)
+  return x
+}
+export function viaSort(): i32 {
+  const xs: i32[] = [3, 1, 2]
+  xs.sort((p, q) => idiv(p, 0))
+  return xs[0]
+}
+export function down(n: i32): i32 { return down(n + 1) }
+)";
+        DiagnosticList d;
+        const SourceFile f{"scripts/n.ts", std::string(kNested)};
+        std::optional<bc::Module> mod = compileScripts(std::span(&f, 1), d);
+        REQUIRE_MESSAGE(d.ok(), d.describeAll());
+        FakeHost host;
+        vm::Interpreter vm(*mod, &host);
+        const auto pathOf = [&](const vm::CallResult& c) {
+            std::vector<std::pair<u32, u32>> sites;
+            for (const vm::TrapFrame& t : c.stack) {
+                sites.emplace_back(t.function, t.pc);
+            }
+            return bc::describePath(*mod, sites);
+        };
+        // 함수 안의 함수 — 안쪽 (inner 2 째 줄) ← 바깥 (outer 4 째 줄 — inner 를 부른 자리)
+        const Value zero = Value::i32v(0);
+        const vm::CallResult a = vm.call("scripts/n.ts", "outer", std::span(&zero, 1));
+        REQUIRE(a.trap == Trap::DivideByZero);
+        REQUIRE(a.stack.size() == 2);
+        CHECK(a.stack[0] == vm::TrapFrame{a.function, a.pc});
+        const std::string pa = pathOf(a);
+        CAPTURE(pa);
+        CHECK(pa.starts_with("scripts/n.ts:2:"));
+        CHECK(pa.find(" (inner) ← :4:13 (outer)") != std::string::npos);
+        // 내장의 콜백 (sort 비교자) — 화살표 ← sort 를 부른 줄 (9)
+        const vm::CallResult b = vm.call("scripts/n.ts", "viaSort", {});
+        REQUIRE(b.trap == Trap::DivideByZero);
+        REQUIRE(b.stack.size() == 2);
+        const std::string pb = pathOf(b);
+        CAPTURE(pb);
+        CHECK(pb.starts_with("scripts/n.ts:9:"));
+        CHECK(pb.find(" ← :9:") != std::string::npos);
+        CHECK(pb.ends_with("(viaSort)"));
+        // 깊이 넘침 — 16 칸 (안쪽 15 + 맨 바깥)
+        const vm::CallResult c = vm.call("scripts/n.ts", "down", std::span(&zero, 1));
+        REQUIRE(c.trap == Trap::StackOverflow);
+        CHECK(c.stack.size() == vm::kMaxTrapFrames);
+        CHECK(c.stack.back().function == c.stack.front().function);
+        // 성공이면 비었다
+        const Value one = Value::i32v(1);
+        const vm::CallResult ok = vm.call("scripts/n.ts", "outer", std::span(&one, 1));
+        CHECK(ok.ok());
+        CHECK(ok.stack.empty());
+    }
+
     TEST_CASE("함수별 프로파일 (v0.9 M6-T4 조각 2): 자기 연료 합 = 호출 연료 · 들어간 수 · 트랩 · 연료 끝") {
         const bc::Module& m = program();
         vm::Limits small;

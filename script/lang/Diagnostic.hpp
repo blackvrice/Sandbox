@@ -27,8 +27,12 @@ struct Diagnostic {
     std::string file; // "eco/scripts/mana.ts"
     SourcePos pos;
     std::string message;
+    std::string
+        help{}; // 고치는 법 한 줄 (v0.9 M6-T4 — DiagnosticHelp 표, DiagnosticList 가 채운다. 표에 없으면 비었다)
 
     [[nodiscard]] std::string describe() const;
+    // describe() + 고치는 법 줄 ("\n    고치는 법: …" — 없으면 describe() 그대로)
+    [[nodiscard]] std::string describeWithHelp() const;
 };
 
 class DiagnosticList {
@@ -41,6 +45,8 @@ public:
     [[nodiscard]] bool ok() const noexcept { return m_errors == 0; }
     // 줄 하나에 하나씩 describe() (시험 · 도구 출력)
     [[nodiscard]] std::string describeAll() const;
+    // 진단마다 describeWithHelp() (사람에게 보일 출력 — 골든 시험)
+    [[nodiscard]] std::string describeAllWithHelp() const;
 
 private:
     std::vector<Diagnostic> m_items;

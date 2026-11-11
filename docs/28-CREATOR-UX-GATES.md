@@ -92,7 +92,7 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 | G4 스크립트 | test_script_editor | — | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
 | G5 게임 UI | test_game_ui_layer | — | — | MANUAL-QA [ ] |
 | G6 테스트 플레이 | test_test_service | test_world_panel · studio_test_session | — | MANUAL-QA ST-06-9 [ ] |
-| G7 디버깅 | test_console_panel · test_vm (줄 표 — 트랩 자리) | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
+| G7 디버깅 | test_console_panel · test_vm (줄 표 · 호출 경로) · test_diagnostic_help (고치는 법 · 문구 골든) | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
 | G8 빌드 | test_build_service | studio_build · studio_flow_e2e | — | MANUAL-QA M6-T3 [ ] |
 | G9 다른 PC | — | studio_flow_e2e (빈 캐시 패키지 플레이) | — | M7-T3 [계획] |
 

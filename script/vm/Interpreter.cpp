@@ -82,6 +82,22 @@ void Interpreter::resetProfile() {
     std::fill(m_profile.begin(), m_profile.end(), FunctionProfile{});
 }
 
+void Interpreter::captureStack(u32 topPc) {
+    m_res.stack.clear();
+    const usize n = m_frames.size();
+    for (usize k = 0; k < n; ++k) {
+        const usize i = n - 1 - k; // 안쪽부터
+        if (m_res.stack.size() == kMaxTrapFrames - 1 && i > 0) {
+            // 너무 깊다 — 맨 바깥 (콜백의 시작) 만 더 남긴다
+            const Frame& outer = m_frames.front();
+            m_res.stack.push_back({outer.function, outer.pc > 0 ? outer.pc - 1 : 0});
+            break;
+        }
+        const Frame& f = m_frames[i];
+        m_res.stack.push_back({f.function, i + 1 == n ? topPc : (f.pc > 0 ? f.pc - 1 : 0)});
+    }
+}
+
 void Interpreter::chargeTop() noexcept {
     if (!m_frames.empty()) {
         m_profile[m_frames.back().function].selfFuel += m_profileMark - m_fuel;
@@ -358,6 +374,11 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
         m_res.value = out;
         m_res.fuelUsed = m_budget - m_fuel;
     }
+    if (m_res.trap != Trap::None && !m_frames.empty()) {
+        // 호출 경로 — 트랩 뒤에도 프레임이 그대로 남아 있다 (실행 루프의 트랩 자리에 코드를 늘리지 않는다 — 측정,
+        // ADR-0126)
+        captureStack(m_res.pc);
+    }
     chargeTop(); // 트랩이면 프레임이 남아 있다 — 남은 연료는 트랩이 난 함수의 것 (끝난 호출이면 프레임이 없어 아무
                  // 일도)
     return m_res;
@@ -380,6 +401,7 @@ bool Interpreter::invoke(u32 fn, std::span<const Value> args, Value& out) {
     if (!enterFrame(fn, bc::kNoReg)) {
         m_res.trap = Trap::StackOverflow;
         m_res.function = m_frames.back().function;
+        m_res.pc = m_frames.back().pc > 0 ? m_frames.back().pc - 1 : 0; // 콜백을 부른 INTR
         m_res.message = std::format("호출 깊이 {} · 레지스터 칸 예산을 넘는다 (콜백)", m_frames.size());
         m_res.fuelUsed = m_budget - m_fuel;
         return false;
@@ -871,6 +893,7 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
         case Op::INTR: {
             Trap t = Trap::None;
             std::string msg;
+            m_frames.back().pc = pc + 1; // 콜백이 트랩이면 호출 경로가 이 자리를 본다 (CALL 과 같은 "돌아갈 자리")
             if (!intrinsic(in, *F, R, fuel, t, msg)) {
                 // Trap::None = 콜백 안의 트랩 (m_res 에 그 자리가 이미 있다)
                 return t == Trap::None ? false : trap(t, std::move(msg));

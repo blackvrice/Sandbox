@@ -155,7 +155,7 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     ++s.counters.traps;
     ++s.consecutive;
     // 자리 = 줄 표 (v0.9 M6-T4) — "eco/scripts/a.ts:12:5 (onTick)", 줄 표가 없으면 "… pc n"
-    const std::string where = bc::describeSite(pack.module, r.function, r.pc);
+    const std::string where = describeTrapSite(pack.module, r);
     s.counters.lastTrap =
         std::format("t{} {} 트랩 {} — {} ({}/{})", tick, callback, vm::trapName(r.trap), r.message, pack.folder, where);
     if (s.counters.traps == 1) {
@@ -336,6 +336,18 @@ std::vector<std::string> ScriptSystemAdapter::restoreState(std::span<const Scrip
         it->disabled = st.disabled;
     }
     return warnings;
+}
+
+std::string describeTrapSite(const bc::Module& module, const vm::CallResult& r) {
+    if (r.stack.size() <= 1) {
+        return bc::describeSite(module, r.function, r.pc);
+    }
+    std::vector<std::pair<u32, u32>> sites;
+    sites.reserve(r.stack.size());
+    for (const vm::TrapFrame& f : r.stack) {
+        sites.emplace_back(f.function, f.pc);
+    }
+    return bc::describePath(module, sites);
 }
 
 std::vector<ScriptFunctionRow> collectFunctionProfile(const content::ScriptPrograms& programs,

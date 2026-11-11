@@ -228,7 +228,7 @@ TEST_SUITE("script") {
         }
         // 최상위
         const Case top[] = {
-            {"export class A {}", "S320"},
+            {"export class A {}", "S301"}, // v0.9 M6-T4: export 보다 class 를 (TS 습관 — 고치는 법이 맞게)
             {"declare const x: i32", "S319"},
             {"namespace N {}", "S319"},
             {"async function f(): void {}", "S305"},

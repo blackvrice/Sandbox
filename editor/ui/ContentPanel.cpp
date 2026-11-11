@@ -299,6 +299,9 @@ bool checkContentEdit(const IEditorHost& host, content::ContentKind kind, const 
             if (kind == content::ContentKind::Script && i.file == file) {
                 line += scriptExcerpt(text, i.pointer);
             }
+            if (!i.help.empty()) {
+                line += "\n  고치는 법: " + i.help; // v0.9 M6-T4
+            }
             out.push_back({error, std::move(line)});
         }
     }

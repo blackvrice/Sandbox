@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 조각 3: 스크립트 오류 메시지 — 고치는 법 표 · 문구 골든 · 트랩 호출 경로 (ADR-0126)
+
+**무엇을**
+
+- script/lang/DiagnosticHelp (새): 코드 76 개마다 뜻 · 고치는 법. Diagnostic.help (DiagnosticList 가 채움) · describeWithHelp ·
+  describeAllWithHelp. ContentIssue.help · describeWithHelp — sbx check · doctor (→ 줄) · Studio 콘텐츠 창 · 빌드 보고 · 프로젝트 열기 ·
+  오버레이 오류.
+- Parser: export class · export var 는 S301 · S303 (예전 S320). Checker: Math.random 문장의 낡은 "ctx.random 은 [계획]" 을 고침.
+- 트랩 호출 경로: CallResult.stack (16 칸), INTR 앞 프레임 pc, bc::describePath, describeTrapSite — 서버 · 클라이언트 트랩 로그 · lastTrap.
+- 시험: test_diagnostic_help (표 = 소스의 코드, 골든 tests/data/script_diagnostics.golden.txt), test_vm 호출 경로, test_parser ·
+  test_checker 의 export class 기대 코드.
+- 문서: ADR-0126, 19 8 · 13장, 20 9장, 27 · 28 · 13 · 17, 등록부, 다음 줄.
+
+**왜**
+
+- M6-T4 의 "오류 메시지 (진단 문구 골든)" · 20 9장 R3. 고치는 법은 일부 문장에만 있었고, 문구가 바뀌어도 시험이 몰랐다.
+
+**검증**
+
+- 단위 907 통과. 골든을 처음 만들 때 export class 가 S320 (엉뚱한 안내) 으로 나오는 것을 찾아 고쳤다.
+- 실행: 샘플 복사본에 export class · any · Math.random 파일 → sbx check "오류 S301 — class 는 없다 … / 고치는 법: interface 로 모양을, …",
+  sbx doctor "→ interface 로 …". 도움 함수 안의 idiv(1, 0) → 서버 로그 "(content/ecosystem/scripts/regen.ts:6:10 (helper) ← :14:20 (onTick))".
+- build/ci-werror (MSVC /WX) 통과 — getenv C4996 를 여기서 잡아 고쳤다. clang-tidy -Wshadow -Wmissing-field-initializers 경고 없음,
+  바꾼 구조체의 지정 초기화 없음.
+- 벤치 (Release sbx_bench --only script.stdlib, merge sort n=100000): 처음 짠 대로 (실행 루프의 트랩 람다가 captureStack 을 부름)
+  119 · 126 · 135 · 139 · 146 · 156 ms — 그 둘을 뺀 빌드 111 · 113 · 114 · 128 ms 와 견줘 느렸다 (트랩 자리마다 코드가 늘어 루프가 무거워진
+  것으로 본다). 경로 모으기를 run() 끝 (트랩 뒤에도 프레임이 남아 있다) 으로 옮기니 101 · 102 · 106 · 106 ms. sort(cmp) 73 ~ 77 ms (전 72 ~ 79).
+  연료 같음.
+- Windows MSVC Debug 빌드 · 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님). 마지막 손질 (경로를 run() 끝으로) 뒤 단위 907 통과.
+
+**남은 일**
+
+- M6-T4 조각 4: IScriptExecutor. 빠른 수정 · hover 의 고치는 법은 ST-06-8.
+
 ## 2026-11-11 — v0.9 M6-T4 고침 2: 시험의 지정 초기화에 새 필드 (GCC · Clang -Wmissing-field-initializers)
 
 **무엇을** — test_client_script_session 의 `ScriptProfileInfo{.server …}` 에 serverFunctions · clientFunctions.

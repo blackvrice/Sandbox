@@ -631,7 +631,7 @@ void NetworkSession::refreshOverlay(const net::ClientWorld& world) {
         m_overlayError = std::format("서버의 콘텐츠 오버레이를 적용하지 못했습니다 (오류 {}개)", r.errorCount());
         for (const content::ContentIssue& i : r.issues) {
             if (i.severity == content::ContentIssue::Severity::Error) {
-                m_overlayError += "\n  " + i.describe();
+                m_overlayError += "\n  " + i.describeWithHelp();
                 break;
             }
         }

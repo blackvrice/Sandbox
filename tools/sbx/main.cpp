@@ -87,7 +87,7 @@ int runCheck(std::filesystem::path dir, const ecs::ComponentCatalog& catalog) {
         dir, engine, catalog,
         {.toolFiles = !fromPackage, .engineAssets = io::dataDir("assets", SBX_DEFAULT_ASSETS_DIR)});
     for (const content::ContentIssue& i : r.issues) {
-        std::printf("%s\n", i.describe().c_str());
+        std::printf("%s\n", i.describeWithHelp().c_str());
     }
     if (r.manifestRead) {
         std::printf("프로젝트 %s %s (\"%s\", 엔진 %s 범위 \"%s\")\n", r.manifest.gameId.c_str(),
@@ -311,7 +311,7 @@ int runTest(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     const auto r = project::validateProject(dir, engineVersion(), catalog);
     for (const content::ContentIssue& i : r.issues) {
         if (i.severity == content::ContentIssue::Severity::Error) {
-            std::printf("%s\n", i.describe().c_str());
+            std::printf("%s\n", i.describeWithHelp().c_str());
         }
     }
     std::printf("프로젝트 검사: 오류 %zu, 경고 %zu\n", r.errorCount(), r.warningCount());

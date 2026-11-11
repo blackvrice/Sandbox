@@ -26,6 +26,7 @@ add_executable(SandboxTests
     unit/script/test_runtime_contract.cpp
     unit/script/test_bytecode.cpp
     unit/script/test_vm.cpp
+    unit/script/test_diagnostic_help.cpp
     unit/script/test_script_host.cpp
     unit/script/test_components.cpp
     unit/script/test_component_host.cpp
@@ -206,7 +207,8 @@ target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRE
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                SBX_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples"
                                                SBX_SDK_DIR="${PROJECT_SOURCE_DIR}/sdk"
-                                               SBX_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
+                                               SBX_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets"
+                                               SBX_SCRIPT_SOURCE_DIR="${PROJECT_SOURCE_DIR}/script")
 # 프로세스 띄우기 · 끝내기 시험 (v0.8 ST-06-9 — spawnProcess) 이 진짜 서버를 띄운다
 if(TARGET SandboxServer)
     target_compile_definitions(SandboxTests PRIVATE SBX_SERVER_EXE="$<TARGET_FILE:SandboxServer>")

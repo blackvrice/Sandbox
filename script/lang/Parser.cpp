@@ -362,6 +362,9 @@ private:
         case Tok::KwLet:
             error("S328", cur().pos, "모듈 최상위에는 let 이 없다 — 틱을 넘는 상태는 컴포넌트에 둔다 (상수는 const)");
             return parseStatement();
+        case Tok::KwClass:
+        case Tok::KwVar:
+            return parseStatement(); // export class · export var — 그 낱말의 진단 (S301 · S303 — TS 습관, v0.9 M6-T4)
         case Tok::Identifier:
             if (isTypeAliasStart() || isUnsupportedDeclStart()) {
                 return parseDeclaration(NodeFlag::Exported);

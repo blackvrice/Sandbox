@@ -1,0 +1,54 @@
+== class
+scripts/class.ts:1:8: 오류 S301 — class 는 없다 — interface + 최상위 function, 상태는 컴포넌트에
+    고치는 법: interface 로 모양을, 최상위 function 으로 동작을, 틱을 넘는 상태는 컴포넌트에 둔다
+== var
+scripts/var.ts:1:31: 오류 S303 — var 는 없다 — const 나 let
+    고치는 법: 바뀌지 않으면 const, 바뀌면 let
+== loose-equals
+scripts/loose-equals.ts:1:50: 오류 S311 — == 는 없다 (강제 변환) — === 를 쓴다
+    고치는 법: === · !== 를 쓴다
+== top-level-let
+scripts/top-level-let.ts:1:1: 오류 S328 — 모듈 최상위에는 let 이 없다 — 틱을 넘는 상태는 컴포넌트에 둔다 (상수는 const)
+    고치는 법: 틱을 넘는 상태는 컴포넌트에, 상수는 const 로, 실행할 일은 시스템 콜백 (onTick) 안에
+== any
+scripts/any.ts:1:22: 오류 S413 — any 는 없다 — 타입을 적는다
+    고치는 법: 진단 문장의 대안을 쓴다 — any · unknown 은 실제 타입, console 은 ctx.log, Math.random 은 ctx.random
+== math-random
+scripts/math-random.ts:1:42: 오류 S413 — Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다
+    고치는 법: 진단 문장의 대안을 쓴다 — any · unknown 은 실제 타입, console 은 ctx.log, Math.random 은 ctx.random
+== console
+scripts/console.ts:1:29: 오류 S413 — console 은 없다 — ctx.log 를 쓴다
+    고치는 법: 진단 문장의 대안을 쓴다 — any · unknown 은 실제 타입, console 은 ctx.log, Math.random 은 ctx.random
+== try-catch
+scripts/try-catch.ts:1:31: 오류 S302 — 예외 (try · catch · finally · throw) 는 없다 — 오류는 반환값으로, 실행 중 오류는 트랩 (ADR-0056 5)
+    고치는 법: 실패는 반환값 (T | null) 으로 알린다 — 실행 중 오류는 트랩이 된다
+== optional-chain
+scripts/optional-chain.ts:2:50: 오류 S314 — 선택 연결 (?.) 은 없다 — if (x !== null) 로 좁힌다
+    고치는 법: if (x !== null) 로 좁힌 뒤 필드를 읽는다
+== null-unnarrowed
+scripts/null-unnarrowed.ts:2:50: 오류 S407 — null 일 수 있다 (P | null) — if (x !== null) 로 좁힌다
+    고치는 법: if (x !== null) 로 좁히거나 x ?? 기본값 을 쓴다
+== number-to-i32
+scripts/number-to-i32.ts:2:52: 오류 S409 — number 를 i32 자리에 넣을 수 없다 — toI32(x) 로 바꾼다 (JS ToInt32)
+    고치는 법: toI32(x) 나 idiv(a, b) 로 정수로 만든다 (범위 · 정수 상수 확인)
+== missing-type
+scripts/missing-type.ts:1:19: 오류 S414 — 매개변수 'a' 에 타입을 적는다 (x: number)
+    고치는 법: 매개변수 · 빈 배열 · null 초기값에 타입을 붙인다 (let xs: i32[] = [])
+== arg-count
+scripts/arg-count.ts:2:39: 오류 S405 — g 는 인자 1 개 — 2 개를 넘겼다
+    고치는 법: 함수 서명의 매개변수 수만큼 넘긴다
+== unknown-field
+scripts/unknown-field.ts:2:43: 오류 S406 — P 에는 필드 'y' 가 없다
+    고치는 법: interface 의 필드 이름을 확인한다 (SDK 는 sdk/sandbox.d.ts)
+== missing-name
+scripts/missing-name.ts:1:38: 오류 S401 — 없는 이름 'speed'
+    고치는 법: 철자를 확인하고, 다른 파일 · "sandbox" 의 것은 import 한다
+== condition-number
+scripts/condition-number.ts:1:44: 오류 S408 — 조건은 boolean 이다 — number 는 아니다 (x !== null · x !== 0 처럼 쓴다)
+    고치는 법: x !== null · n !== 0 · s !== "" 처럼 비교로 쓴다
+== missing-return
+scripts/missing-return.ts:1:8: 오류 S412 — 함수 'f' 가 모든 길에서 값을 돌려주지 않는다 (number)
+    고치는 법: 모든 길에 같은 타입의 return 을 두고, void 함수는 값을 돌려주지 않는다
+== import-missing
+scripts/import-missing.ts:1:1: 오류 S416 — "./mana" 에 해당하는 스크립트 scripts/mana.ts 가 없다
+    고치는 법: 경로 (./파일 — 확장자 없이) · export 이름 · 순환 import 를 확인한다

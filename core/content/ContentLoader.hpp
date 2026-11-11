@@ -34,8 +34,11 @@ struct ContentIssue {
     std::string file;    // "eco/prefabs/rabbit.json"
     std::string pointer; // "/components/life.energy/value"
     std::string message;
+    std::string help{}; // 고치는 법 한 줄 — 스크립트 진단 (S 코드) 만 (v0.9 M6-T4), 그 밖은 비었다
 
     [[nodiscard]] std::string describe() const;
+    // describe() + 줄바꿈 + "    고치는 법: …" (help 가 있을 때 — 사람에게 보일 출력)
+    [[nodiscard]] std::string describeWithHelp() const;
 };
 
 struct ContentLoadResult {

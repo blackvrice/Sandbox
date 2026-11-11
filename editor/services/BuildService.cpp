@@ -13,7 +13,7 @@ namespace fs = std::filesystem;
 
 void addIssues(BuildReport& r, const std::vector<content::ContentIssue>& issues) {
     for (const content::ContentIssue& i : issues) {
-        (i.severity == content::ContentIssue::Severity::Error ? r.errors : r.warnings).push_back(i.describe());
+        (i.severity == content::ContentIssue::Severity::Error ? r.errors : r.warnings).push_back(i.describeWithHelp());
     }
 }
 

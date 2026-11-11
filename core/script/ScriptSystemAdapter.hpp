@@ -67,6 +67,10 @@ struct ScriptFunctionRow {
     friend bool operator==(const ScriptFunctionRow&, const ScriptFunctionRow&) = default;
 };
 
+// 트랩 자리 (v0.9 M6-T4 조각 3): 호출 경로가 있으면 안쪽부터 " ← " 로 ("scripts/a.ts:3:10 (helper) ← :9:5 (onTick)"),
+// 아니면 bc::describeSite
+[[nodiscard]] std::string describeTrapSite(const bc::Module& module, const vm::CallResult& r);
+
 // 팩들의 인터프리터 프로파일 → 자기 연료가 큰 차례 (같으면 자리 글자 차례) maxRows 까지 (한 번도 부르지 않은 함수는
 // 뺀다). totalFuel 이 null 이 아니면 모든 함수의 자기 연료 합. vms 는 packs 차례 (null = 그 팩의 인터프리터 없음)
 [[nodiscard]] std::vector<ScriptFunctionRow>

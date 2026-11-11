@@ -100,7 +100,7 @@ void ClientScriptSystems::invoke(Entry& s) {
     ++m_last.traps;
     ++s.counters.traps;
     ++s.consecutive;
-    const std::string where = bc::describeSite(pack.module, r.function, r.pc); // 줄 표 (v0.9 M6-T4)
+    const std::string where = describeTrapSite(pack.module, r); // 줄 표 · 호출 경로 (v0.9 M6-T4)
     s.counters.lastTrap = std::format("프레임 {} onUpdate 트랩 {} — {} ({}/{})", m_frames, vm::trapName(r.trap),
                                       r.message, pack.folder, where);
     if (s.counters.traps == 1) {
