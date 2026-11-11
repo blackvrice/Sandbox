@@ -391,6 +391,13 @@ void encodeBody(BitWriter& w, const ServerStats& m) {
         w.writeBool(s.disabled);
     }
     w.writeVarU(m.scriptsOmitted);
+    w.writeVarU(m.scriptFunctions.size());
+    for (const ScriptFunctionStatRow& f : m.scriptFunctions) {
+        w.writeString(f.site);
+        w.writeVarU(f.calls);
+        w.writeVarU(f.fuel);
+    }
+    w.writeVarU(m.scriptFunctionFuel);
 }
 void encodeBody(BitWriter& w, const DisconnectMsg& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -703,6 +710,15 @@ ServerStats decodeServerStats(BitReader& r) {
         m.scripts.push_back(std::move(s));
     }
     m.scriptsOmitted = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    const u64 nf = r.readVarU(kMaxScriptFunctionRows);
+    for (u64 i = 0; i < nf && !r.error(); ++i) {
+        ScriptFunctionStatRow f;
+        f.site = r.readString(kMaxScriptSiteBytes);
+        f.calls = r.readVarU();
+        f.fuel = r.readVarU();
+        m.scriptFunctions.push_back(std::move(f));
+    }
+    m.scriptFunctionFuel = r.readVarU();
     return m;
 }
 Snapshot decodeSnapshot(BitReader& r) {

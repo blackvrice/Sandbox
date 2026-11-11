@@ -51,6 +51,11 @@ public:
     // 지난 run 에서 그 시스템이 쓴 연료 · 시간 (부르지 않았으면 0)
     [[nodiscard]] u64 lastFuel(usize i) const noexcept { return m_systems[i].lastFuel; }
     [[nodiscard]] u64 lastNanos(usize i) const noexcept { return m_systems[i].lastNanos; }
+    // 함수별 프로파일 (v0.9 M6-T4 — 만든 뒤 누적)
+    [[nodiscard]] std::vector<ScriptFunctionRow> functionProfile(usize maxRows, u64* totalFuel = nullptr) const {
+        return m_programs ? collectFunctionProfile(*m_programs, m_vms, maxRows, totalFuel)
+                          : std::vector<ScriptFunctionRow>{};
+    }
     // 진단 시계 (null = 재지 않는다 — ScriptClock.hpp)
     void setClock(ScriptClock clock) noexcept { m_clock = clock; }
     [[nodiscard]] bool timed() const noexcept { return m_clock != nullptr; }

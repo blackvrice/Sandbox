@@ -139,3 +139,4 @@
 | [0122](0122-command-palette-shortcut-dispatch-themes.md) | 명령 팔레트 (Ctrl+Shift+P) · 단축키 표 · 명령 표의 단축키를 ImGui::Shortcut 로 실행 (행동 표의 키는 keyHint 로 보이기만) · 셸 일을 명령으로 (같은 길) · 테마 어두움 · 밝음 · 고대비 (계산된 대비 시험, studio.json "theme") | Accepted | 2026-11-10 |
 | [0123](0123-defer-scene-game-view-split.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 — 게임 카메라 정의 · 렌더러 두 번 그리기 · 플랫폼 다중 창이 먼저, 창 QA 도 밀림. 다시 할 차례: 카메라 → Game 뷰 → 멀티 뷰포트 | Accepted | 2026-11-11 |
 | [0124](0124-bytecode-line-table-format-11.md) | 바이트코드 줄 표 (.sbc 형식 11) — 함수마다 (pc, 줄, 열) 칸 (식 단위 · 바뀔 때만), 읽기의 모양 검사, 실행 · 검증 · 해시 영향 없음, 트랩 자리 = 파일:줄:열 (describeSite) | Accepted | 2026-11-11 |
+| [0125](0125-script-function-profile-self-fuel-protocol-18.md) | 함수별 스크립트 프로파일 — 자기 연료를 프레임이 바뀔 때만 나눈다 (합 = 호출 연료, 늘 켬), 함수 선언 자리 (형식 11), ServerStats 함수 표 (프로토콜 18) · Studio 창 · 서버 끝 줄 | Accepted | 2026-11-11 |

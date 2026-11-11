@@ -320,6 +320,8 @@ std::vector<u8> serialize(const Module& m) {
             w.u32v(l.line);
             w.u32v(l.column);
         }
+        w.u32v(f.line);
+        w.u32v(f.column);
     }
     w.u32v(static_cast<u32>(m.exports.size()));
     for (const Export& e : m.exports) {
@@ -527,6 +529,9 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
             if (l.pc >= ni || (i > 0 && l.pc <= f.lines[i - 1].pc) || l.line == 0 || l.column == 0) {
                 return bad("줄 표의 칸");
             }
+        }
+        if (!r.u32v(f.line) || !r.u32v(f.column)) {
+            return bad("함수 자리");
         }
     }
     if (!r.count(n, kMaxFunctions, 12, "export")) {
@@ -755,6 +760,14 @@ std::string describeSite(const Module& m, u32 function, u32 pc) {
         return std::format("{}:{}:{} ({})", functionFile(f.name), l->line, l->column, functionShortName(f.name));
     }
     return std::format("{} pc {}", f.name, pc);
+}
+
+std::string describeFunction(const Module& m, u32 function) {
+    if (function < m.functions.size() && m.functions[function].line > 0) {
+        const Function& f = m.functions[function];
+        return std::format("{}:{}:{} ({})", functionFile(f.name), f.line, f.column, functionShortName(f.name));
+    }
+    return describeSite(m, function, 0);
 }
 
 } // namespace sbx::script::bc

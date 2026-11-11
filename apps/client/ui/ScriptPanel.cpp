@@ -96,6 +96,40 @@ ScriptProfileRow scriptProfileRow(std::string id, u64 calls, u64 fuel, u64 nanos
     return r;
 }
 
+namespace {
+
+// 함수 표 (v0.9 M6-T4): 자리 · 호출 · 자기 연료 · 몫 · 연료/호출 — 누적 (연료는 결정적 — 시계 아님)
+void functionTable(const char* id, const std::vector<ScriptFunctionProfileRow>& rows) {
+    if (rows.empty()) {
+        return;
+    }
+    if (ImGui::BeginTable(id, 5,
+                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit)) {
+        ImGui::TableSetupColumn("함수 (파일:줄:열)", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("호출");
+        ImGui::TableSetupColumn("자기 연료");
+        ImGui::TableSetupColumn("몫");
+        ImGui::TableSetupColumn("연료/호출");
+        ImGui::TableHeadersRow();
+        for (const ScriptFunctionProfileRow& r : rows) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(r.site.c_str());
+            ImGui::TableNextColumn();
+            ImGui::Text("%llu", static_cast<unsigned long long>(r.calls));
+            ImGui::TableNextColumn();
+            ImGui::Text("%llu", static_cast<unsigned long long>(r.fuel));
+            ImGui::TableNextColumn();
+            ImGui::Text("%.1f %%", r.share * 100.0);
+            ImGui::TableNextColumn();
+            ImGui::Text("%.1f", r.calls > 0 ? static_cast<f64>(r.fuel) / static_cast<f64>(r.calls) : 0.0);
+        }
+        ImGui::EndTable();
+    }
+}
+
+} // namespace
+
 void drawScriptProfilePanel(const ScriptProfileInfo& info) {
     ImGui::SetNextWindowPos({10, 300}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({640, 0}, ImGuiCond_FirstUseEver);
@@ -109,10 +143,18 @@ void drawScriptProfilePanel(const ScriptProfileInfo& info) {
         if (info.serverOmitted > 0) {
             ImGui::Text("… 표 상한으로 빠진 시스템 %u", info.serverOmitted);
         }
+        if (!info.serverFunctions.empty()) {
+            ImGui::TextUnformatted("서버 함수 — 자기 연료 상위 (누적)");
+            functionTable("##server-fn", info.serverFunctions);
+        }
     }
     if (!info.client.empty()) {
         ImGui::TextUnformatted("클라이언트 (최근 1 초)");
         profileTable("##client", info.client);
+        if (!info.clientFunctions.empty()) {
+            ImGui::TextUnformatted("클라이언트 함수 — 자기 연료 상위 (누적)");
+            functionTable("##client-fn", info.clientFunctions);
+        }
     }
     ImGui::End();
 }

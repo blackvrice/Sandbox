@@ -711,10 +711,21 @@ std::optional<ScriptProfileInfo> NetworkSession::scriptProfile() const {
                                                       r.traps, r.budget, r.cut, r.disabled));
             }
             out.serverOmitted = st->scriptsOmitted;
+            const f64 total = static_cast<f64>(st->scriptFunctionFuel);
+            for (const net::ScriptFunctionStatRow& f : st->scriptFunctions) {
+                out.serverFunctions.push_back(
+                    {f.site, f.calls, f.fuel, total > 0 ? static_cast<f64>(f.fuel) / total : 0.0});
+            }
         }
     }
     if (m_clientScripts) {
         out.client = m_clientProfile;
+        u64 total = 0;
+        for (const script::ScriptFunctionRow& f :
+             m_clientScripts->functionProfile(net::kMaxScriptFunctionRows, &total)) {
+            out.clientFunctions.push_back(
+                {f.site, f.calls, f.fuel, total > 0 ? static_cast<f64>(f.fuel) / static_cast<f64>(total) : 0.0});
+        }
         if (out.client.empty()) {
             // 첫 창이 아직 — 시스템 이름만 (값 0)
             for (usize i = 0; i < m_clientScripts->systemCount(); ++i) {

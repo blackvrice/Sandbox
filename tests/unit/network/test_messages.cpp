@@ -146,6 +146,21 @@ TEST_SUITE("network") {
         CHECK(back.scriptsOmitted == 7);
         CHECK(roundTrip(ServerStats{}).scripts.empty());
 
+        // 함수 표 (프로토콜 18 — v0.9 M6-T4): 왕복 · 상한
+        st.scriptFunctions.push_back({"eco/scripts/regen.ts:9:5 (onTick)", 40, 23600});
+        st.scriptFunctions.push_back({"eco/scripts/hud.ts:3:1 (fmt)", 2, 18});
+        st.scriptFunctionFuel = 23618;
+        const ServerStats fb = roundTrip(st);
+        CHECK(fb.scriptFunctions == st.scriptFunctions);
+        CHECK(fb.scriptFunctionFuel == 23618);
+        CHECK(roundTrip(ServerStats{}).scriptFunctions.empty());
+        ServerStats manyFn;
+        manyFn.scriptFunctions.resize(kMaxScriptFunctionRows + 1, ScriptFunctionStatRow{"a.ts:1:1 (f)"});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{manyFn})).has_value());
+        ServerStats longSite;
+        longSite.scriptFunctions.push_back({std::string(kMaxScriptSiteBytes + 1, 'a')});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longSite})).has_value());
+
         // 표 상한을 넘는 개수 · 긴 id 는 읽기 오류
         ServerStats many;
         many.scripts.resize(kMaxScriptStatRows + 1, ScriptSystemStatRow{"a.b"});
@@ -167,7 +182,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 17); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.8 M5-T2 — 리플레이 탐색)
+        CHECK(kProtocolVersion == 18); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.9 M6-T4 — 함수 프로파일)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));

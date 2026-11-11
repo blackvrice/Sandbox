@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 조각 2: 함수별 스크립트 프로파일 (자기 연료) · ServerStats 함수 표 (프로토콜 18, ADR-0125)
+
+**무엇을**
+
+- script/vm/Interpreter: FunctionProfile {calls, selfFuel} — 프레임이 바뀔 때만 (enterFrame · RET · run 끝) 맨 위 함수에 연료를 나눈다
+  (chargeTop). profile() · resetProfile(). 실행 루프는 그대로.
+- bc::Function 의 선언 자리 (줄 · 열 — 형식 11 에 더함, 아직 배포 전), describeFunction.
+- core/script: ScriptFunctionRow · collectFunctionProfile, 서버 · 클라이언트 어댑터의 functionProfile, describeScriptSystems 끝에 상위 5 함수.
+- network: 프로토콜 18 — ServerStats.scriptFunctions (≤ 16) · scriptFunctionFuel. ServerHost 가 채운다.
+- apps/client: ScriptProfileInfo 의 서버 · 클라이언트 함수 표, "스크립트 프로파일" 창에 함수 표 (자리 · 호출 · 자기 연료 · 몫 · 연료/호출).
+- 문서: ADR-0125, 08 (프로토콜 18), 19 12 · 22장, 27 · 22 · 28 · 13, 등록부, 다음 줄.
+
+**왜**
+
+- M6-T4 의 "함수별 프로파일 (프로파일 합 = 시스템 연료)". 시스템이 느릴 때 어느 함수가 연료를 쓰는지 알 수 없었다.
+
+**검증**
+
+- test_vm (호출 6 종의 합 = fuelUsed · 들어간 수 · 연료 끝 · 깊이 넘침 · 선언 자리 · 왕복), test_stdlib_callbacks (비교자 콜백),
+  test_script_budget (함수 합 = 시스템 연료 합 · 자리 · 끝 줄), test_messages (프로토콜 18 왕복 · 상한), test_client_script_session
+  (로컬 서버 세션의 서버 onTick · 클라이언트 onUpdate 함수 줄).
+- 실행: SandboxServer --world samples/mana_regen --ticks 300 --exit — "스크립트 함수 content/ecosystem/scripts/regen.ts:8:3 (onTick):
+  호출 20 · 자기 연료 93787 (100.0 %)" (시스템 줄의 연료 합 93787 과 같다). 처음에는 첫 명령의 자리 (9:18 — `0` 리터럴) 가 나와 선언 자리를 더했다.
+- 벤치 (Release sbx_bench --only script — 다른 일이 도는 기계라 잡음 큼): merge sort n=100000 119.3 · 98.7 → 105.9 · 108.7 · 105.0 ms,
+  sort(cmp) 77.9 · 68.5 → 72.3 · 71.5 · 72.7 ms, regen 18.1 · 18.8 → 17.2 · 16.9 · 16.8 ms/틱. 연료 같음. 잡음 안 — 늘 켬.
+- clang-tidy 바뀐 파일 경고 없음. Windows MSVC Debug 빌드 · 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님).
+
+**남은 일**
+
+- M6-T4 조각 3 · 4: 오류 메시지 (진단 문구 골든), IScriptExecutor. 포함 연료 · 호출 그래프는 재생 디버거 (ST-06-7) 와.
+
 ## 2026-11-11 — v0.8 NG-07 후속: CI 에서 studio_gui_smoke 첫 실제 창 통과 기록
 
 **무엇을** — 28 3.1 에 CI windows-msvc 의 studio_gui_smoke 통과 기록 (실행 42940155797 · 커밋 274f7e6), G7 행에 줄 표 시험.

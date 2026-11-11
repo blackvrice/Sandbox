@@ -1356,6 +1356,10 @@ void ServerHost::fillScriptRows(const script::ScriptSystemAdapter* systems, Serv
             row.disabled = systems->disabled(i);
             s.scripts.push_back(std::move(row));
         }
+        // 함수 표 (프로토콜 18 — v0.9 M6-T4): 누적 상위
+        for (script::ScriptFunctionRow& f : systems->functionProfile(kMaxScriptFunctionRows, &s.scriptFunctionFuel)) {
+            s.scriptFunctions.push_back({clampUtf8(f.site, kMaxScriptSiteBytes), f.calls, f.fuel});
+        }
     }
     m_scriptBase = std::move(next);
 }

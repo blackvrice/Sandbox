@@ -201,6 +201,21 @@ TEST_SUITE("script") {
         // 같은 hp 는 넣은 차례 (2 · 5, 1 · 3), 내림차순도 안정, 문자열 비교자, NaN 비교자는 그대로
         CHECK(r.s("sortStable") == "2,5,4,1,3|2,5,4,1,3|1,3,4,2,5|2,3,1,4,5|1,2,3,4,5");
         CHECK(r.s("sortDesc") == "10,3,1.5,0,-2");
+        // 함수별 프로파일 (v0.9 M6-T4): 콜백 (byHp · 화살표) 도 자기 연료를 받고, 합 = 호출 연료
+        r.vm.resetProfile();
+        const vm::CallResult c = r.call("sortStable");
+        REQUIRE(c.ok());
+        u64 total = 0;
+        u64 byHpCalls = 0;
+        for (usize i = 0; i < program().functions.size(); ++i) {
+            total += r.vm.profile()[i].selfFuel;
+            if (bc::functionShortName(program().functions[i].name) == "byHp") {
+                byHpCalls = r.vm.profile()[i].calls;
+                CHECK(r.vm.profile()[i].selfFuel > 0);
+            }
+        }
+        CHECK(total == c.fuelUsed);
+        CHECK(byHpCalls > 0);
     }
 
     TEST_CASE("stdlib 콜백: sort 의 병합 경계 — 길이 0 ~ 70 · 덩어리 16 의 배수 앞뒤가 std::stable_sort 와 같다") {

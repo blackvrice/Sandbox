@@ -34,8 +34,9 @@ namespace sbx::net {
 // Script (EditContent · ContentOverlay 의 kind 4 — 스크립트 파일 오버레이) — v0.3 M5-T2 14: ServerStats 의 스크립트
 // 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4 15: 명령
 // PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3) 16: 표시 digest (Auth · Welcome)
-// — v0.6 NG-14 17: 리플레이 탐색 — WorldOp Seek (10) · WorldOp 의 target varint (재생 call) — v0.8 M5-T2
-inline constexpr u32 kProtocolVersion = 17;
+// — v0.6 NG-14 17: 리플레이 탐색 — WorldOp Seek (10) · WorldOp 의 target varint (재생 call) — v0.8 M5-T2 18:
+// ServerStats 의 스크립트 함수 표 (자기 연료 상위 — 자리 · 호출 · 연료 누적, 합) — v0.9 M6-T4
+inline constexpr u32 kProtocolVersion = 18;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -66,6 +67,8 @@ inline constexpr usize kMaxSavedWorlds = 256;       // WorldList
 inline constexpr usize kMaxScriptStatRows =
     64; // ServerStats.scripts (넘는 시스템은 scriptsOmitted 로 센다 — 프로토콜 14)
 inline constexpr usize kMaxScriptIdBytes = 128; // 그 시스템 id
+inline constexpr usize kMaxScriptFunctionRows = 16; // ServerStats.scriptFunctions (프로토콜 18)
+inline constexpr usize kMaxScriptSiteBytes = 192;   // 그 자리 ("<팩>/scripts/a.ts:12:5 (onTick)")
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -186,6 +189,13 @@ struct CommandResultMsg {
     u64 appliedTick = 0;              // 적용된 틱 (거절이면 0 — 형식 · 권한 · 속도 제한은 틱 전에 거절된다)
     std::vector<NetEntityId> created; // CreateEntity 가 만든 엔티티
 };
+// 서버 스크립트 함수 하나 (프로토콜 18 — ADR-0125). 누적 = 어댑터를 만든 뒤
+struct ScriptFunctionStatRow {
+    std::string site; // "<팩 폴더>/scripts/a.ts:12:5 (onTick)" — 함수 선언의 자리
+    u64 calls = 0;
+    u64 fuel = 0; // 자기 연료
+    friend bool operator==(const ScriptFunctionStatRow&, const ScriptFunctionStatRow&) = default;
+};
 // 서버 스크립트 시스템 하나의 프로파일 (프로토콜 14 — ADR-0068). 창 = 앞 ServerStats 뒤 (약 1 초), 누적 = 어댑터를 만든
 // 뒤
 struct ScriptSystemStatRow {
@@ -223,6 +233,9 @@ struct ServerStats {
     f32 windowSeconds = 0; // 창의 길이 (실제 초)
     std::vector<ScriptSystemStatRow> scripts;
     u32 scriptsOmitted = 0;
+    // 프로토콜 18 (v0.9 M6-T4): 자기 연료가 큰 함수 (kMaxScriptFunctionRows 까지 — 누적) · 모든 함수의 자기 연료 합
+    std::vector<ScriptFunctionStatRow> scriptFunctions;
+    u64 scriptFunctionFuel = 0;
 };
 struct DisconnectMsg {
     DisconnectReason reason = DisconnectReason::None;

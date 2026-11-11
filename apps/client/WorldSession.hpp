@@ -174,10 +174,19 @@ struct ScriptProfileRow {
     u64 cut = 0;            // 누적 (건너뜀)
     bool disabled = false;
 };
+// 스크립트 함수 하나 (v0.9 M6-T4 — ADR-0125): 누적 자기 연료 · 그 몫
+struct ScriptFunctionProfileRow {
+    std::string site; // "<팩>/scripts/a.ts:12:5 (onTick)"
+    u64 calls = 0;
+    u64 fuel = 0;
+    f64 share = 0; // 모든 함수의 자기 연료 합에서의 몫 (0 ~ 1)
+};
 struct ScriptProfileInfo {
-    std::vector<ScriptProfileRow> server; // 실행 순서 (서버가 보낸 표 — 프로토콜 14)
-    u32 serverOmitted = 0;                // 표 상한으로 빠진 서버 시스템
-    std::vector<ScriptProfileRow> client; // 이 클라이언트의 client 시스템
+    std::vector<ScriptProfileRow> server;                  // 실행 순서 (서버가 보낸 표 — 프로토콜 14)
+    u32 serverOmitted = 0;                                 // 표 상한으로 빠진 서버 시스템
+    std::vector<ScriptProfileRow> client;                  // 이 클라이언트의 client 시스템
+    std::vector<ScriptFunctionProfileRow> serverFunctions; // 자기 연료 상위 (프로토콜 18)
+    std::vector<ScriptFunctionProfileRow> clientFunctions;
 };
 
 // 게임 UI 원문 (v0.7 M3-T3 — 팩의 presentation/ui, ADR-0079). 클라이언트의 GameUiLayer 가 읽는다 (검사는 sbx check)

@@ -75,6 +75,18 @@ Interpreter::Interpreter(const bc::Module& module, IHost* host, Limits limits)
     for (const std::string& id : M.components) {
         m_componentIds.push_back(fnv1a64(id));
     }
+    m_profile.resize(M.functions.size());
+}
+
+void Interpreter::resetProfile() {
+    std::fill(m_profile.begin(), m_profile.end(), FunctionProfile{});
+}
+
+void Interpreter::chargeTop() noexcept {
+    if (!m_frames.empty()) {
+        m_profile[m_frames.back().function].selfFuel += m_profileMark - m_fuel;
+    }
+    m_profileMark = m_fuel;
 }
 
 const Interpreter::Object* Interpreter::object(Value v) const {
@@ -339,12 +351,15 @@ CallResult Interpreter::run(u32 entry, std::span<const Value> args, const std::s
     m_res = CallResult{};
     m_budget = m_limits.fuel;
     m_fuel = m_budget;
+    m_profileMark = m_fuel;
     m_hostCalls = 0;
     Value out;
     if (loop(0, out)) {
         m_res.value = out;
         m_res.fuelUsed = m_budget - m_fuel;
     }
+    chargeTop(); // 트랩이면 프레임이 남아 있다 — 남은 연료는 트랩이 난 함수의 것 (끝난 호출이면 프레임이 없어 아무
+                 // 일도)
     return m_res;
 }
 
@@ -353,6 +368,8 @@ bool Interpreter::enterFrame(u32 f, u16 resultReg) {
     if (m_frames.size() >= m_limits.maxDepth || m_regs.size() + fn.regs.size() > m_limits.maxStackSlots) {
         return false;
     }
+    chargeTop(); // 부른 쪽이 여기까지 쓴 연료
+    ++m_profile[f].calls;
     m_frames.push_back({f, 0, static_cast<u32>(m_regs.size()), resultReg});
     m_regs.resize(m_regs.size() + fn.regs.size(), Value{});
     return true;
@@ -829,6 +846,7 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
         case Op::RET:
         case Op::RETV: {
             const Value result = in.op == Op::RETV ? R[in.a] : Value{};
+            chargeTop(); // 끝나는 함수의 연료 (RET 명령 하나까지)
             const Frame done = m_frames.back();
             m_frames.pop_back();
             m_regs.resize(done.base);

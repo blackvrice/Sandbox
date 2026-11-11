@@ -88,6 +88,14 @@ struct HostResult {
     std::string text{};          // 결과 String (v0.7 M4-T1 — 인터프리터가 아레나에 문자열로 만든다)
 };
 
+// 함수별 프로파일 (v0.9 M6-T4 조각 2 — ADR-0125): 함수에 들어간 수와 자기 연료 (그 함수의 프레임이 맨 위일 때 쓴 연료 —
+// 명령 · 내장의 원소 비용 · Host 호출 비용). 호출 하나의 자기 연료 합 = CallResult::fuelUsed (트랩 · 연료 끝 포함).
+// 연료는 결정적이라 프로파일도 결정적 — 시간 (벽시계) 은 싣지 않는다
+struct FunctionProfile {
+    u64 calls = 0;
+    u64 selfFuel = 0;
+};
+
 class IHost {
 public:
     virtual ~IHost() = default;
@@ -117,6 +125,9 @@ public:
     [[nodiscard]] Value unbox(Value v) const;
 
     [[nodiscard]] usize heapBytes() const noexcept { return m_heapBytes; }
+    // 함수 번호마다 쌓인 프로파일 (call 을 넘어 쌓인다 — resetProfile 로 0)
+    [[nodiscard]] const std::vector<FunctionProfile>& profile() const noexcept { return m_profile; }
+    void resetProfile();
     [[nodiscard]] const Limits& limits() const noexcept { return m_limits; }
     void setLimits(const Limits& l) noexcept { m_limits = l; }
 
@@ -214,6 +225,11 @@ private:
     u64 m_budget = 0;
     u64 m_fuel = 0;
     u32 m_hostCalls = 0;
+    // 프로파일: 프레임이 바뀔 때만 (들어감 · RET · 호출 끝) 그때까지 쓴 연료를 맨 위 프레임의 함수에 — 실행 루프는
+    // 그대로
+    std::vector<FunctionProfile> m_profile;
+    u64 m_profileMark = 0; // 마지막으로 나눈 때의 m_fuel
+    void chargeTop() noexcept;
 };
 
 } // namespace sbx::script::vm

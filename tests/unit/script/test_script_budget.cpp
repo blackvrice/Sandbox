@@ -3,6 +3,7 @@
 // 상한, ctx.log 틱 상한, 끝 줄.
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -130,6 +131,24 @@ TEST_SUITE("script") {
         CAPTURE(w.sys().counters(0).lastTrap);
         CHECK(w.sys().counters(0).lastTrap.find("(t/scripts/always.ts:10:46 (onTick))") != std::string::npos);
         CHECK(w.sys().counters(0).lastTrap.find(" (onTick))") != std::string::npos);
+        // 함수별 프로파일 (v0.9 M6-T4): 모든 함수의 자기 연료 합 = 시스템 연료 합 (트랩 호출 포함), 자리는 팩 폴더 + 줄
+        u64 fnTotal = 0;
+        const std::vector<script::ScriptFunctionRow> fns = w.sys().functionProfile(16, &fnTotal);
+        u64 sysTotal = 0;
+        for (usize i = 0; i < w.sys().systemCount(); ++i) {
+            sysTotal += w.sys().counters(i).fuel;
+        }
+        CHECK(fnTotal == sysTotal);
+        REQUIRE_FALSE(fns.empty());
+        CHECK(fns.front().fuel >= fns.back().fuel);
+        CHECK(fns.front().site.find("/scripts/") != std::string::npos);
+        CHECK(fns.front().site.ends_with(" (onTick)"));
+        CHECK(std::any_of(fns.begin(), fns.end(), [](const script::ScriptFunctionRow& f) {
+            return f.site.starts_with("t/scripts/always.ts:");
+        }));
+        const std::vector<std::string> described = script::describeScriptSystems(w.sys());
+        CHECK(std::any_of(described.begin(), described.end(),
+                          [](const std::string& l) { return l.starts_with("스크립트 함수 t/scripts/"); }));
         for (int i = 0; i < 5; ++i) {
             w.world.tick(); // 4 ~ 8
         }
@@ -148,7 +167,8 @@ TEST_SUITE("script") {
         CHECK_FALSE(st[1].disabled);
 
         const std::vector<std::string> lines = describeScriptSystems(w.sys());
-        REQUIRE(lines.size() == 2);
+        REQUIRE(lines.size() >= 3); // 시스템 둘 + 함수 줄 (v0.9 M6-T4 — 상위 5 까지)
+        CHECK(lines[2].starts_with("스크립트 함수 "));
         CHECK(lines[0].starts_with("스크립트 t.always: 호출 3 · 트랩 3 · 예산 0 · 건너뜀 0 · 연료 합 "));
         CHECK(lines[0].ends_with(" · 꺼짐"));
         CHECK(lines[1].starts_with("스크립트 t.odd: 호출 8 · 트랩 4 · "));

@@ -276,6 +276,18 @@ TEST_SUITE("script") {
         REQUIRE(back->functions.size() == m.functions.size());
         for (usize i = 0; i < m.functions.size(); ++i) {
             CHECK(back->functions[i].lines == m.functions[i].lines);
+            CHECK(back->functions[i].line == m.functions[i].line);
+            CHECK(back->functions[i].column == m.functions[i].column);
+        }
+        // 함수 자리 = 선언 (fact 는 3 째 줄) — 프로파일이 쓴다. 선언 자리가 없으면 첫 명령의 자리
+        for (u32 i = 0; i < m.functions.size(); ++i) {
+            if (bc::functionShortName(m.functions[i].name) == "fact") {
+                CHECK(m.functions[i].line == 3);
+                CHECK(bc::describeFunction(m, i).starts_with("scripts/a.ts:3:"));
+                bc::Module noHead = m;
+                noHead.functions[i].line = 0;
+                CHECK(bc::describeFunction(noHead, i) == bc::describeSite(noHead, i, 0));
+            }
         }
         // 줄 표 없는 모듈 (손으로 만든 것) — 자리는 pc
         bc::Module bare = m;
@@ -296,6 +308,58 @@ TEST_SUITE("script") {
         rejects({{n, 1, 1}});
         rejects({{0, 0, 1}});
         rejects({{0, 1, 0}});
+    }
+
+    TEST_CASE("함수별 프로파일 (v0.9 M6-T4 조각 2): 자기 연료 합 = 호출 연료 · 들어간 수 · 트랩 · 연료 끝") {
+        const bc::Module& m = program();
+        vm::Limits small;
+        small.fuel = 5'000;
+        Run r(small);
+        const auto total = [&] {
+            u64 t = 0;
+            for (const vm::FunctionProfile& p : r.vm.profile()) {
+                t += p.selfFuel;
+            }
+            return t;
+        };
+        const auto fnIndex = [&](std::string_view name) {
+            for (usize i = 0; i < m.functions.size(); ++i) {
+                if (bc::functionShortName(m.functions[i].name) == name) {
+                    return i;
+                }
+            }
+            FAIL("함수 없음");
+            return usize{0};
+        };
+        REQUIRE(r.vm.profile().size() == m.functions.size());
+        CHECK(total() == 0);
+        // 성공 · 재귀 · 트랩 · 연료 끝 — 호출마다 합이 늘어난 만큼 = fuelUsed
+        u64 sum = 0;
+        for (const auto& [name, args] :
+             std::vector<std::pair<std::string_view, std::vector<Value>>>{{"fact", {I(6)}},
+                                                                          {"sumTo", {I(40)}},
+                                                                          {"rem", {I(1), I(0)}},
+                                                                          {"spin", {}},
+                                                                          {"grow", {}},
+                                                                          {"nul", {I(0)}}}) {
+            CAPTURE(name);
+            const vm::CallResult c = r.call(name, args);
+            sum += c.fuelUsed;
+            CHECK(total() == sum);
+        }
+        // fact(6) 은 fact 에 6 번 들어간다, maybe 는 nul 이 부른다
+        CHECK(r.vm.profile()[fnIndex("fact")].calls == 6);
+        CHECK(r.vm.profile()[fnIndex("maybe")].calls == 1);
+        CHECK(r.vm.profile()[fnIndex("maybe")].selfFuel > 0);
+        // 연료 끝 (spin) — 연료 전부가 spin 의 것
+        CHECK(r.vm.profile()[fnIndex("spin")].selfFuel == small.fuel);
+        r.vm.resetProfile();
+        CHECK(total() == 0);
+        CHECK(r.vm.profile()[fnIndex("fact")].calls == 0);
+        // 깊이 넘침 (deep) 도 합이 맞는다
+        const vm::CallResult d = r.call("deep", {I(0)});
+        CHECK(d.trap == Trap::StackOverflow);
+        CHECK(total() == d.fuelUsed);
     }
 
     TEST_CASE("VM: 트랩 — 실행 중에만 아는 잘못") {

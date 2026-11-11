@@ -58,6 +58,21 @@ struct ScriptSystemCounters {
     std::string lastTrap;
 };
 
+// 함수 하나의 누적 프로파일 (v0.9 M6-T4 조각 2 — ADR-0125). site = "<팩 폴더>/scripts/a.ts:8:3 (onTick)" (함수 선언의
+// 자리), calls = 들어간 수, fuel = 자기 연료 (그 함수가 맨 위일 때 쓴 것 — 모든 함수의 합 = 시스템 연료 합)
+struct ScriptFunctionRow {
+    std::string site;
+    u64 calls = 0;
+    u64 fuel = 0;
+    friend bool operator==(const ScriptFunctionRow&, const ScriptFunctionRow&) = default;
+};
+
+// 팩들의 인터프리터 프로파일 → 자기 연료가 큰 차례 (같으면 자리 글자 차례) maxRows 까지 (한 번도 부르지 않은 함수는
+// 뺀다). totalFuel 이 null 이 아니면 모든 함수의 자기 연료 합. vms 는 packs 차례 (null = 그 팩의 인터프리터 없음)
+[[nodiscard]] std::vector<ScriptFunctionRow>
+collectFunctionProfile(const content::ScriptPrograms& programs, std::span<const std::unique_ptr<vm::Interpreter>> vms,
+                       usize maxRows, u64* totalFuel = nullptr);
+
 // 세이브에 남기는 시스템 상태 (기본값 — 트랩 0 · 켜짐 — 이 아닌 것만, ADR-0064 4)
 struct ScriptSystemState {
     std::string id;
@@ -147,6 +162,11 @@ public:
     [[nodiscard]] u32 trapCount(usize i) const noexcept { return static_cast<u32>(m_systems[i].counters.traps); }
     [[nodiscard]] bool disabled(usize i) const noexcept { return m_systems[i].disabled; }
     [[nodiscard]] const ScriptSystemCounters& counters(usize i) const noexcept { return m_systems[i].counters; }
+    // 함수별 프로파일 (어댑터를 만든 뒤 누적 — collectFunctionProfile)
+    [[nodiscard]] std::vector<ScriptFunctionRow> functionProfile(usize maxRows, u64* totalFuel = nullptr) const {
+        return m_programs ? collectFunctionProfile(*m_programs, m_vms, maxRows, totalFuel)
+                          : std::vector<ScriptFunctionRow>{};
+    }
     [[nodiscard]] const ScriptHost& host() const noexcept { return m_host; }
     [[nodiscard]] const std::shared_ptr<const content::ScriptPrograms>& programs() const noexcept { return m_programs; }
     // 진단 시계 (null = 재지 않는다). 결과에 닿지 않는다 — 통계의 nanos 만
@@ -196,6 +216,8 @@ private:
 
 // 시스템마다 한 줄 — "스크립트 rpg.mana.regen: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 1234 · 최대 200"
 // (시계가 있으면 " · 시간 0.52 ms · 최대 0.081 ms", 꺼졌으면 " · 꺼짐")
+// 시스템 줄 뒤에 자기 연료가 큰 함수 5 개 — "스크립트 함수 eco/scripts/regen.ts:9:5 (onTick): 호출 10 · 자기 연료 590
+// (98.0 %)"
 [[nodiscard]] std::vector<std::string> describeScriptSystems(const ScriptSystemAdapter& systems);
 // " · 시간 0.52 ms · 최대 0.081 ms" (나노초 → ms — 끝 줄 · 클라이언트 줄이 같이 쓴다)
 [[nodiscard]] std::string describeNanos(u64 total, u64 max);

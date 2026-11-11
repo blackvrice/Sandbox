@@ -1728,6 +1728,8 @@ private:
         m_loops.clear();
         F->name = std::format("{}:{}", MS->path, info.name);
         m_pos = MS->ast.node(info.decl).pos; // 함수 머리 (매개변수 · 마지막 RET · TRAP)
+        F->line = m_pos.line;                // 선언 자리 (프로파일의 함수 자리 — 형식 11)
+        F->column = m_pos.column;
         for (usize i = 0; i < info.params.size(); ++i) {
             const u32 t = tid(info.params[i]);
             F->params.push_back(t);

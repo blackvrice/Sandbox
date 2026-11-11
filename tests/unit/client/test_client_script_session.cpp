@@ -171,6 +171,15 @@ export default defineSystem({
         CHECK(p.client[0].id == "eco.hud");
         CHECK(p.client[0].callsPerSecond == doctest::Approx(30).epsilon(0.2)); // 프레임마다 (kDt = 1/30)
         CHECK(p.client[0].msPerCall > 0);
+        // 함수 표 (v0.9 M6-T4 — 프로토콜 18): 서버 onTick · 클라이언트 onUpdate 의 자리와 몫
+        REQUIRE_FALSE(p.serverFunctions.empty());
+        CHECK(p.serverFunctions[0].site.ends_with(" (onTick)"));
+        CHECK(p.serverFunctions[0].site.find("/scripts/") != std::string::npos);
+        CHECK(p.serverFunctions[0].calls > 0);
+        CHECK(p.serverFunctions[0].share > 0.5);
+        REQUIRE_FALSE(p.clientFunctions.empty());
+        CHECK(p.clientFunctions[0].site.ends_with(" (onUpdate)"));
+        CHECK(p.clientFunctions[0].fuel > 0);
         // 서버 월드의 끝 줄에도 시간
         const auto* sys = ns.localServer()->host().world().scriptSystems();
         REQUIRE(sys != nullptr);

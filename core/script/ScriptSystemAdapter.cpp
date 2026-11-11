@@ -338,6 +338,48 @@ std::vector<std::string> ScriptSystemAdapter::restoreState(std::span<const Scrip
     return warnings;
 }
 
+std::vector<ScriptFunctionRow> collectFunctionProfile(const content::ScriptPrograms& programs,
+                                                      std::span<const std::unique_ptr<vm::Interpreter>> vms,
+                                                      usize maxRows, u64* totalFuel) {
+    struct Hit {
+        u32 pack = 0;
+        u32 fn = 0;
+        vm::FunctionProfile p;
+    };
+    std::vector<Hit> hits;
+    u64 total = 0;
+    for (usize pi = 0; pi < vms.size() && pi < programs.packs.size(); ++pi) {
+        if (!vms[pi]) {
+            continue;
+        }
+        const std::vector<vm::FunctionProfile>& prof = vms[pi]->profile();
+        for (usize fi = 0; fi < prof.size(); ++fi) {
+            total += prof[fi].selfFuel;
+            if (prof[fi].calls > 0 || prof[fi].selfFuel > 0) {
+                hits.push_back({static_cast<u32>(pi), static_cast<u32>(fi), prof[fi]});
+            }
+        }
+    }
+    if (totalFuel != nullptr) {
+        *totalFuel = total;
+    }
+    std::vector<ScriptFunctionRow> rows;
+    rows.reserve(hits.size());
+    for (const Hit& h : hits) {
+        const content::ScriptPackProgram& pack = programs.packs[h.pack];
+        rows.push_back(
+            {std::format("{}/{}", pack.folder, bc::describeFunction(pack.module, h.fn)), h.p.calls, h.p.selfFuel});
+    }
+    // 표시용 차례 — 자기 연료 큰 것부터, 같으면 자리 글자 (결정적)
+    std::sort(rows.begin(), rows.end(), [](const ScriptFunctionRow& a, const ScriptFunctionRow& b) {
+        return a.fuel != b.fuel ? a.fuel > b.fuel : a.site < b.site;
+    });
+    if (rows.size() > maxRows) {
+        rows.resize(maxRows);
+    }
+    return rows;
+}
+
 std::vector<std::string> describeScriptSystems(const ScriptSystemAdapter& systems) {
     std::vector<std::string> out;
     for (usize i = 0; i < systems.systemCount(); ++i) {
@@ -346,6 +388,11 @@ std::vector<std::string> describeScriptSystems(const ScriptSystemAdapter& system
                                   systems.systemId(i), c.calls, c.traps, c.budget, c.cut, c.fuel, c.maxFuel,
                                   systems.timed() ? describeNanos(c.nanos, c.maxNanos) : std::string(),
                                   systems.disabled(i) ? " · 꺼짐" : ""));
+    }
+    u64 total = 0;
+    for (const ScriptFunctionRow& f : systems.functionProfile(5, &total)) {
+        out.push_back(std::format("스크립트 함수 {}: 호출 {} · 자기 연료 {} ({:.1f} %)", f.site, f.calls, f.fuel,
+                                  total > 0 ? 100.0 * static_cast<f64>(f.fuel) / static_cast<f64>(total) : 0.0));
     }
     return out;
 }

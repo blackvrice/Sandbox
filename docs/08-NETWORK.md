@@ -30,6 +30,7 @@
 > [ADR-0097](adr/0097-package-data-integrity-snapshot-ids-paths-digests.md) 5).
 > **v0.8 M5-T2** — 프로토콜 17: 리플레이 탐색 WorldOp Seek (op 10) · WorldOp 끝 target varint (call) —
 > [ADR-0117](adr/0117-replay-seek-worldop-protocol-17.md).
+> **v0.9 M6-T4** — 프로토콜 18: ServerStats 끝에 스크립트 함수 표 (자기 연료 상위 — [ADR-0125](adr/0125-script-function-profile-self-fuel-protocol-18.md)).
 > 결정 근거: [ADR-0003](adr/0003-server-authoritative.md), [ADR-0010](adr/0010-enet-transport.md), [ADR-0024](adr/0024-network-foundation-enet-serverhost-two-halves.md),
 > [ADR-0025](adr/0025-replication-change-stamp-records-epochs.md), [ADR-0026](adr/0026-network-session-local-server-inspect.md),
 > [ADR-0027](adr/0027-interest-chunk-rect-linger-priority-reconnect-token.md).
@@ -215,7 +216,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 40 | TerrainChunk   | S→C    | Bulk     | x · y zigzag, revision varint, runs[] {count, material} varint (길이 부호화, 머티리얼 번호 kTilesPerChunk 개)                                                         |
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
 | 42 | ContentOverlay | S→C    | Bulk     | reset bool, items[] {kind u8 (0 prefab · 1 rule · 2 behavior), id str(64), json str(16 KB — "" = 지움)} × ≤ 1024 (12C, 16 MB 까지)                                    |
-| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz), 기록 · 재생 상태 (12D), 스크립트 시스템 표 (프로토콜 14). Native 시스템별 시간은 [계획] |
+| 50 | ServerStats    | S→C    | Control  | serverTick u64, entities u32, tickMs avg · max f32 (최근 1 초), ticksPerSecond f32, paused, speed f32, clients u8 (1 Hz), 기록 · 재생 상태 (12D), 스크립트 시스템 표 (프로토콜 14), 스크립트 함수 표 (프로토콜 18). Native 시스템별 시간은 [계획] |
 | 51 | Inspect        | C→S    | Control  | ids[] NetEntityId varint × ≤ 32 (빈 목록 = 그만, 10B)                                                                                                                 |
 | 52 | InspectResult  | S→C    | Snapshot | serverTick, entries[] {netId, state str(64), sensorRadius f32, path[] Vec2 × ≤ 64, goal?, target netId} (10B)                                                         |
 | 60 | Chat           | 양방향 | Control  | text str(256) `[계획 Phase 12]`                                                                                                                                       |
@@ -261,6 +262,8 @@ digest 만 다르면 들여보내고 (서버 로그 info) 클라이언트가 Wel
 프로토콜 17 (v0.8 M5-T2): WorldOp 끝에 target varint, op 10 = 탐색 (재생 중인 리플레이의 call 로 — 앞이면 Sim 단계마다 20 ms 예산으로 빠르게,
 뒤면 시작 세이브를 다시 열어 처음부터 — 모두에게 WorldChanged{Replay}). 닿으면 멈춘 채 보낸 사람에게 WorldOpResult{10, "call N · tick T
 (ms)"}. 재생 중이 아니거나 다른 이름이면 거절 (ADR-0117).
+프로토콜 18 (v0.9 M6-T4): ServerStats 끝에 scriptFunctions varint (≤ 16) × {site str(192) · calls · fuel varint (누적 — 자기 연료)} ·
+scriptFunctionFuel varint (모든 함수의 자기 연료 합). site = "<팩 폴더>/scripts/a.ts:8:3 (onTick)" (함수 선언 자리 — ADR-0125).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

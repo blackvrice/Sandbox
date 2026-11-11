@@ -178,6 +178,8 @@ struct Function {
     std::vector<u32> regs;   // 레지스터마다 타입 — 앞 params.size() 개는 매개변수와 같다
     std::vector<Insn> code;
     std::vector<LineEntry> lines; // pc 오름차순 (같은 pc 없음 · pc < code 길이) — 비어도 된다 (손으로 만든 모듈)
+    u32 line = 0;                 // 선언 자리 (함수 · 메서드 · 화살표 이름) — 0 = 모름 (형식 11)
+    u32 column = 0;
 };
 
 // pc 의 소스 자리 — 줄 표에서 pc 이하의 마지막 칸 (없으면 nullptr)
@@ -237,6 +239,8 @@ struct Module {
 // 트랩 · 프로파일의 자리: 줄이 있으면 "scripts/a.ts:12:5 (clamp)", 없으면 "scripts/a.ts:clamp pc 3"
 // (함수 번호가 틀리면 "함수 #n pc p")
 [[nodiscard]] std::string describeSite(const Module& m, u32 function, u32 pc);
+// 함수 자리 (프로파일): 선언 자리가 있으면 "scripts/a.ts:8:3 (onTick)", 없으면 describeSite(m, function, 0)
+[[nodiscard]] std::string describeFunction(const Module& m, u32 function);
 [[nodiscard]] std::string_view opName(Op op) noexcept;
 [[nodiscard]] RegClass regClass(const Module& m, u32 type) noexcept;
 [[nodiscard]] std::string typeName(const Module& m, u32 type);
