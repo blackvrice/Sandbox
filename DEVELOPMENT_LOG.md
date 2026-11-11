@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T8 조각 1: 언어 서비스 — 타입 완성 · import · 이름 완성 · hover · 내장 멤버 표 (ADR-0129)
+
+**무엇을**
+
+- script/lang/LanguageService: complete · hover (LanguageQuery). 식 뒤 '.' = 자리표 이름으로 검사기 타입, import { } 완성, 이름 완성,
+  hover (Host · 필드 · enum · 내장 · 함수 서명 + 주석 · 지역 · 상수 · 컴포넌트). 이름 글자에 비 ASCII (한글 이름).
+- script/lang/MemberCatalog (새): 배열 · 문자열 · Map · Set · 컬렉션 8 종 · Math · vec2 의 멤버 (이름 · 서명 · 설명).
+- script/lang/Checker: sandboxExportNames.
+- 문서: ADR-0129, 27 3 · 7 · 8장, 17 · 13, 등록부 M6-T8 (조각 1), 다음 줄.
+
+**왜**
+
+- v0.9 P0 M6-T8 의 첫 조각 — 편집기 위젯 (다음 조각) 이 부를 순수 로직. "ctx." 글 방식 프로토타입을 타입 기반으로.
+
+**검증**
+
+- test_language_service 5 새 시험 (타입 완성 15 자리 · import · 이름 · hover 11 · 표 대조 · 응답 시간). 표 대조가 처음에 Map · Set 의 for-of
+  커서 (next · keyAt · valueAt) · Heap.extract (extractMin · extractMax) 를 짚어 시험의 거르기를 고쳤다 (표는 그대로).
+- 응답 (Release SandboxTests): 1,000 줄 완성 3.8 ms · hover 3.5 ms, 5,000 줄 18 · 22 ms (Debug 113 · 565 ms).
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 조각 2: 편집기 위젯 (완성 팝업 · hover · 밑줄 · 입력 멈춤 300 ms), 조각 3: [적용 (오버레이)] / [저장 (팩 파일 — 줄 끝 보존)].
+  객체 리터럴 · defineSystem 키 · events 완성, 시그니처 도움말, ctx.read 의 컴포넌트만 거르기는 [계획].
+
 ## 2026-11-11 — v0.9 NG-05: 텍스트 위치 계약 — TextPosition · 진단 발췌의 ^ · IME 자리 (ADR-0128)
 
 **무엇을**

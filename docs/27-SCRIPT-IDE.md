@@ -57,8 +57,10 @@ Script Editor (Studio — ImGui 위젯)        sbx lsp (표준 입출력 JSON-RP
 | 자리 | 후보 | 거르기 | 상태 |
 |------|------|--------|------|
 | `ctx.` | Host 표의 그 Context 멤버 | 콜백의 도메인 (server · client) — [계획 v0.6] 콜백 단계의 Capability (22 3.2: onRender 에는 Draw 만) | 프로토타입 (도메인만, 수신자 이름이 ctx 일 때만) |
-| 식의 타입 뒤 `.` | 그 타입의 필드 · 메서드 (구조체 · 컴포넌트 데이터 · 배열 · Map · 내장 컬렉션) | 검사기의 타입 | [계획 v0.5 M6-T8] |
-| `ctx.read(e, |)` · `import { | } from "sandbox"` | 컴포넌트 (스크립트 정의 · 엔진 접근 표) · SDK 이름 | 도메인 (클라이언트는 복제되는 것만 — M2-T1 ✅) | [계획 v0.5 M6-T8] |
+| 식의 타입 뒤 `.` | 그 타입의 필드 · 메서드 (구조체 · 컴포넌트 데이터 · Host 멤버 · 배열 · 문자열 · Map · Set · 내장 컬렉션 · enum · Math · vec2) | 검사기의 타입 (자리표 이름 — ADR-0129) | ✅ v0.9 M6-T8 (`complete` · MemberCatalog) |
+| `import { | } from "sandbox"` · `"./x"` | SDK 이름 (값 · 타입 · 엔진 컴포넌트) · 그 모듈의 export | 이미 쓴 이름은 뺀다 | ✅ v0.9 M6-T8 |
+| 이름 (접두) | 그 함수의 지역 · 매개변수 (커서 앞) · 모듈 이름 · 가져온 이름 · 전역 | 대소문자 무시 접두 — 정확한 것 먼저 | ✅ v0.9 M6-T8 |
+| `ctx.read(e, |)` | 컴포넌트만 | 도메인 (클라이언트는 복제되는 것만) | [계획] (지금은 이름 완성이 컴포넌트를 함께 보인다) |
 | `import … from "|"` | 팩 안 경로 · "@<팩>/…" (직접 의존만 — ADR-0075) | 매니페스트 의존 | [계획 v0.6] |
 | `defineSystem({ |` | 키 (id · domain · events · 콜백 이름 — 예약 이름은 "[계획 vX]" 표시, M2-T7 ✅) | — | [계획 v0.6] |
 | `events: { |` | death · spawn · areaEnter · score · action · signal (api::kGameEventKinds) | — | [계획 v0.6] |
@@ -105,7 +107,9 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 
 ```text
 자동 완성 응답 (파일 1k · 5k 줄, 팩 50 파일), 전체 다시 검사 시간, 편집 중 프레임 시간 회귀 (Studio), VM 훅 비용 (중단점 0 개일 때) — sbx_bench
-시나리오 [계획 v0.6]. 이번 감사의 프로토타입은 기능 시험만 (성능을 재지 않았다)
+시나리오 [계획 v0.6]. 이번 감사의 프로토타입은 기능 시험만 (성능을 재지 않았다).
+측정 (v0.9 M6-T8, test_language_service — 호출마다 검사기 한 번, 캐시 없음): Release 1,000 줄 완성 3.8 ms · hover 3.5 ms, 5,000 줄 18 ms · 22 ms.
+Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위 캐시는 큰 팩 측정 뒤
 ```
 
 ## 8. 상태 표
@@ -113,8 +117,8 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 | 항목 | 상태 |
 |------|------|
 | 컴파일 · 진단 (줄 · 열) · 오버레이 Hot Reload · d.ts | 현행 |
-| ctx. 자동 완성 (도메인 거르기) | 프로토타입 (script/lang/LanguageService · test_language_service) |
-| 편집기 위젯 (구문 색 · 팝업 · 밑줄) · 타입 기반 자동 완성 · hover | [계획 v0.5 M6-T8] |
+| 타입 기반 자동 완성 · import · 이름 완성 · hover (함수 주석) | ✅ v0.9 M6-T8 조각 1 (LanguageService complete · hover, MemberCatalog — ADR-0129) |
+| 편집기 위젯 (구문 색 · 팝업 · 밑줄) · [적용] / [저장] 구분 | [계획 v0.9 M6-T8 조각 2 · 3] |
 | 줄 표 · 트랩 줄 · 함수별 프로파일 | ✅ v0.9 M6-T4 — 줄 표 · 트랩 줄 (ADR-0124), 함수별 자기 연료 프로파일 (ADR-0125) |
 | 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | [계획 v0.6] |
 | 재생 디버거 (중단점 · 단계 · 스택 · 지역 · 감시 · logpoint) | [계획 v0.6] |

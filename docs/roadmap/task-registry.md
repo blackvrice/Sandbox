@@ -75,7 +75,7 @@
 | UI-3 | 편집기 통합 — 툴바 툴 · 목록 · 인스펙터 · 콘솔 · 아래 도크 | B | Done | v0.8 | v0.8 | P0 | UI-1 | test_console_panel · test_editor · test_studio_shell — 창 확인은 MANUAL-QA [ ] |
 | UI-4 | UI 검증 — 흐름 A ~ E · 창 캡처 (1366×768 · 1920×1080 · 배율) | B | Review | v0.8 | v0.8 | P0 | UI-1 ~ UI-3 | 자동 흐름 ✅ (29 7장) · 창 QA 남음 (MANUAL-QA [ ]) |
 | M6-T4 | 오류 메시지 · 줄 표 (.sbc 11) · 함수별 프로파일 · IScriptExecutor | A | Done | v0.5 | v0.9 | P0 | — | 20 10장 — 줄 표 · 트랩 자리 (ADR-0124), 함수별 프로파일 (ADR-0125), 오류 메시지 · 문구 골든 · 호출 경로 (ADR-0126), IScriptExecutor · 계약 비교 (ADR-0127) |
-| M6-T8 | 스크립트 편집기 — 자동 완성 · hover · 밑줄 · 저장 위치 구분 | B | Planned | v0.5 | v0.9 | P0 | NG-05 · M6-T4 | 후보 · hover · 저장 왕복 |
+| M6-T8 | 스크립트 편집기 — 자동 완성 · hover · 밑줄 · 저장 위치 구분 | B | Planned | v0.5 | v0.9 | P0 | NG-05 · M6-T4 | 후보 · hover · 저장 왕복 (조각 1 언어 서비스 완성 · hover · 응답 측정 ✅ — ADR-0129) |
 | NG-05 | 텍스트 위치 계약 (UTF-8 바이트 · 코드 포인트 · UTF-16 · 화면 열 · IME) | B | Done | — | v0.9 | P0 | — | 위치 변환 · 한글 조합 시험 (ADR-0128 — test_text_position · 진단 = offset · IME 자리) |
 | ST-06-7 | 재생 디버거 | B | Planned | v0.6 | v0.9 | P1 | M6-T4 | 같은 해시 · 훅 비용 < 2 % |
 | ST-06-8 | 언어 서비스 색인 · 이동 · 이름 바꾸기 · 빠른 수정 | B | Planned | v0.6 | v0.9 | P2 | M6-T8 | 응답 측정 |

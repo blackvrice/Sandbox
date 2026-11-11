@@ -127,6 +127,21 @@ class Checker {
 public:
     Checker(Program& p, DiagnosticList& d, std::span<const PackImports> imports) : P(p), D(d), m_imports(imports) {}
 
+    // "sandbox" 에서 가져올 수 있는 이름 (값 · 타입 — 겹치면 하나, 이름 순) — 언어 서비스의 import 완성 (v0.9 M6-T8)
+    [[nodiscard]] std::vector<std::string> sdkNames() {
+        setupSdk();
+        std::vector<std::string> out;
+        for (const ScopeEntry& e : m_sdkValues) {
+            out.push_back(e.name);
+        }
+        for (const ScopeEntry& e : m_sdkTypes) {
+            out.push_back(e.name);
+        }
+        std::sort(out.begin(), out.end());
+        out.erase(std::unique(out.begin(), out.end()), out.end());
+        return out;
+    }
+
     void run(std::span<const SourceFile> files) {
         parseAll(files);
         setupSdk();
@@ -4534,7 +4549,8 @@ private:
         const auto kids = ast().kids(n);
         const usize argc = kids.size() - 1;
         if (member == "random") {
-            err("S413", callee, "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다");
+            err("S413", callee,
+                "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다");
             argsLoose(n);
             return set(n, TypeTable::kError);
         }
@@ -4620,7 +4636,9 @@ private:
                     }
                 }
                 if (name == "random") {
-                    err("S413", n, "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 쓴다");
+                    err("S413", n,
+                        "Math.random 은 없다 (결정론) — 시스템마다 결정적인 ctx.random() · ctx.randomInt(lo, hi) 를 "
+                        "쓴다");
                 } else {
                     err("S411", n, std::format("Math.{} 는 값이 아니다 — 부른다", name));
                 }
@@ -4832,6 +4850,12 @@ SymbolId Program::exportedValue(std::string_view path, std::string_view name) co
         }
     }
     return kNoSymbol;
+}
+
+std::vector<std::string> sandboxExportNames() {
+    Program p;
+    DiagnosticList d;
+    return Checker(p, d, {}).sdkNames();
 }
 
 Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags, std::span<const PackImports> imports) {

@@ -210,6 +210,8 @@ struct Program {
 
 [[nodiscard]] Program checkProgram(std::span<const SourceFile> files, DiagnosticList& diags,
                                    std::span<const PackImports> imports = {});
+// import { … } from "sandbox" 로 가져올 수 있는 이름 (값 · 타입 · 엔진 컴포넌트 — 이름 순, v0.9 M6-T8 언어 서비스)
+[[nodiscard]] std::vector<std::string> sandboxExportNames();
 
 // import 경로 풀기: from = "scripts/x/a.ts", spec = "../b" → "scripts/b.ts". 팩 밖 · 빈 마디 · 확장자 있음이면 빈
 // 문자열
