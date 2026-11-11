@@ -7,6 +7,18 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 고침: Codegen 의 PosScope 변수 이름 (-Wshadow 경고 = CI 오류)
+
+**무엇을** — Codegen 의 `const PosScope at(...)` 를 `posScope` 로. statement() 안의 for-of 가 `const TypeId at` 을 따로 쓴다.
+
+**왜** — CI 실행 42956202561 (d70c315) 다섯 잡 모두 빌드 실패: GCC "declaration of 'at' shadows a previous local [-Werror=shadow]",
+MSVC C2220 (C4456). 로컬 windows-msvc 프리셋은 경고를 오류로 보지 않아 놓쳤다 — 앞으로 커밋 전에 build/ci-werror 도 빌드한다.
+
+**검증** — build/ci-werror (MSVC /WX) 전체 빌드 통과, clang-tidy -Wall -Wextra -Wshadow (5c2cb9c 이후 바뀐 .cpp 16 개) 경고 없음,
+unit_script 통과.
+
+**남은 일** — 없음.
+
 ## 2026-11-11 — v0.8 ST-06-2 고침: macOS CI — 팔레트 단축키 시험이 Cmd 를 쓴다
 
 **무엇을** — test_studio_shell 의 Ctrl+Shift+P 키 시험이 macOS 에서는 LeftSuper (Cmd) 를 누른다. 29 4장에 macOS 키 (Cmd+N · O · B ·

@@ -588,7 +588,7 @@ private:
     };
 
     u16 gen(NodeId n) {
-        const PosScope at(*this, n);
+        const PosScope posScope(*this, n);
         if (cval(n).has()) {
             return loadConst(cval(n), typeOf(n));
         }
@@ -1521,7 +1521,7 @@ private:
         if (s == kNoNode) {
             return;
         }
-        const PosScope at(*this, s);
+        const PosScope posScope(*this, s);
         const usize mark = m_temps.size();
         const Node& x = ast().node(s);
         switch (x.kind) {
