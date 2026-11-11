@@ -80,7 +80,8 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 규칙  G1 ~ G9 마다 증거 층을 적는다 — 층 3 · 4 만 있는 기준은 Closed Creator Alpha 진입 (roadmap/release-gates 3장) 때 수동 기록이 있어야 한다
 지금  층 2 = CTest studio_flow_e2e (새 프로젝트 → sbx asset import → studio.build → 빈 캐시에서 패키지 플레이) 와 기준별 CTest.
       층 3 = CTest studio_gui_smoke (Windows · D3D12 WARP · 1366×768 — 홈 · 모든 창 워크스페이스 · 배치 저장). CI 또는 SBX_GUI_TESTS=1 일 때만
-      창을 띄우고, 아니면 SKIPPED (통과로 적지 않는다). 층 4 = qa/QA-EVIDENCE 양식
+      창을 띄우고, 아니면 SKIPPED (통과로 적지 않는다). CI windows-msvc 에서 실제로 창을 띄워 통과 — 첫 기록 2026-11-11 (실행
+      42940155797, 커밋 274f7e6: Debug 6.1 s · RelWithDebInfo 4.8 s — CI 로그). 층 4 = qa/QA-EVIDENCE 양식
 ```
 
 | 기준 | 층 1 (단위) | 층 2 (헤드리스 흐름) | 층 3 (GUI smoke) | 층 4 (실기 — QA-EVIDENCE) |
@@ -91,7 +92,7 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 | G4 스크립트 | test_script_editor | — | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
 | G5 게임 UI | test_game_ui_layer | — | — | MANUAL-QA [ ] |
 | G6 테스트 플레이 | test_test_service | test_world_panel · studio_test_session | — | MANUAL-QA ST-06-9 [ ] |
-| G7 디버깅 | test_console_panel | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
+| G7 디버깅 | test_console_panel · test_vm (줄 표 — 트랩 자리) | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
 | G8 빌드 | test_build_service | studio_build · studio_flow_e2e | — | MANUAL-QA M6-T3 [ ] |
 | G9 다른 PC | — | studio_flow_e2e (빈 캐시 패키지 플레이) | — | M7-T3 [계획] |
 

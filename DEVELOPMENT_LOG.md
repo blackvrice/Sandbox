@@ -7,6 +7,16 @@
 
 ---
 
+## 2026-11-11 — v0.8 NG-07 후속: CI 에서 studio_gui_smoke 첫 실제 창 통과 기록
+
+**무엇을** — 28 3.1 에 CI windows-msvc 의 studio_gui_smoke 통과 기록 (실행 42940155797 · 커밋 274f7e6), G7 행에 줄 표 시험.
+
+**왜** — NG-07 은 "CI 첫 실행이 창을 만들지 못하면 SKIP 일 수 있다" 를 남은 일로 두었다. 실제로는 Debug · RelWithDebInfo 둘 다 창을 띄워 통과했다.
+
+**검증** — CI 로그 (gh api …/jobs/130259763645/logs): "studio_gui_smoke … Passed 6.11 sec" · "… Passed 4.82 sec". check_docs 0 문제.
+
+**남은 일** — 사람 손의 창 QA (UI-4 — MANUAL-QA) 는 그대로.
+
 ## 2026-11-11 — v0.9 M6-T4 조각 1: 바이트코드 줄 표 (.sbc 11) · 트랩 자리 파일:줄:열 (ADR-0124)
 
 **무엇을**
