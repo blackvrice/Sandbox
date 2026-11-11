@@ -142,3 +142,4 @@
 | [0125](0125-script-function-profile-self-fuel-protocol-18.md) | 함수별 스크립트 프로파일 — 자기 연료를 프레임이 바뀔 때만 나눈다 (합 = 호출 연료, 늘 켬), 함수 선언 자리 (형식 11), ServerStats 함수 표 (프로토콜 18) · Studio 창 · 서버 끝 줄 | Accepted | 2026-11-11 |
 | [0126](0126-script-diagnostic-help-golden-trap-path.md) | 스크립트 오류 메시지 — 코드마다 고치는 법 표 (소스와 시험으로 맞춤) · Diagnostic · ContentIssue 의 help · 진단 문구 골든 (흔한 실수 18) · export class = S301 · 트랩 호출 경로 (16 칸) | Accepted | 2026-11-11 |
 | [0127](0127-script-executor-interface-pack-kind-conformance.md) | IScriptExecutor 구현 — 엔진 (어댑터) 은 인터페이스만, ExecutorKind 팩마다 (지금 Interpreter), makeScriptExecutor, 계약 비교 describeCallDifference (새 실행자의 기준) | Accepted | 2026-11-11 |
+| [0128](0128-text-position-contract-byte-offset-ime-area.md) | 텍스트 위치 계약 — 바이트 offset 정본 · foundation/text/TextPosition (코드 포인트 · UTF-16 · 화면 칸), 줄 끝은 렉서와 같게 (27 9장의 LF 기준 고침), 줄 끝 보존 · 되돌리기, IME 확정 글자만 · 커서 자리 setTextInputArea (Win32 · macOS) | Accepted | 2026-11-11 |

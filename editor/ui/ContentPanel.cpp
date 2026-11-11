@@ -12,6 +12,8 @@
 #include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/PackGroups.hpp"
+#include "foundation/text/TextPosition.hpp"
+#include "foundation/text/Utf8.hpp"
 
 namespace sbx::editor {
 
@@ -316,37 +318,52 @@ ecs::Json contentEditValue(content::ContentKind kind, const std::string& id, con
 }
 
 std::string scriptExcerpt(const std::string& source, std::string_view pointer) {
-    // pointer = "줄:열" (1 부터) → "\n  12 | <그 줄>" (길면 자른다)
+    // pointer = "줄:열" (1 부터 — 열은 코드 포인트, 진단과 같은 단위) → "\n  12 | <그 줄>\n     |     ^" (길면 자른다).
+    // 줄 · 열은 텍스트 위치 계약으로 (v0.9 NG-05 — 줄 끝 CRLF · CR · U+2028 도 컴파일러와 같게, 줄 끝 글자는 보이지
+    // 않는다). ^ 줄은 화면 칸 (한글 2 칸) 만큼 띄우고 탭은 탭으로 (그 줄과 같은 들여쓰기 — 고정폭 글꼴에서 맞는다)
     const usize colon = pointer.find(':');
-    u32 line = 0;
-    for (usize i = 0; i < (colon == std::string_view::npos ? pointer.size() : colon); ++i) {
-        if (pointer[i] < '0' || pointer[i] > '9') {
-            return {};
+    const auto number = [](std::string_view d) {
+        u32 n = 0;
+        if (d.empty() || d.size() > 9) {
+            return u32{0};
         }
-        line = line * 10 + static_cast<u32>(pointer[i] - '0');
-    }
-    if (line == 0) {
+        for (const char ch : d) {
+            if (ch < '0' || ch > '9') {
+                return u32{0};
+            }
+            n = n * 10 + static_cast<u32>(ch - '0');
+        }
+        return n;
+    };
+    const u32 line = number(pointer.substr(0, colon));
+    const u32 column = colon == std::string_view::npos ? 0 : number(pointer.substr(colon + 1));
+    if (line == 0 || text::lineColAt(source, source.size()).line < line) {
         return {};
     }
-    usize begin = 0;
-    for (u32 l = 1; l < line; ++l) {
-        begin = source.find('\n', begin);
-        if (begin == std::string::npos) {
-            return {};
-        }
-        ++begin;
-    }
-    const usize end = source.find('\n', begin);
-    std::string text = source.substr(begin, end == std::string::npos ? std::string::npos : end - begin);
+    const std::string_view whole = text::lineAt(source, line);
     constexpr usize kMax = 160;
-    if (text.size() > kMax) {
-        usize cut = kMax;
-        while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80) {
+    usize cut = whole.size();
+    if (cut > kMax) {
+        cut = kMax;
+        while (cut > 0 && (static_cast<unsigned char>(whole[cut]) & 0xC0) == 0x80) {
             --cut; // UTF-8 글자 가운데를 자르지 않는다
         }
-        text = text.substr(0, cut) + "…";
     }
-    return std::format("\n  {} | {}", line, text);
+    std::string out = std::format("\n  {} | {}{}", line, whole.substr(0, cut), cut < whole.size() ? "…" : "");
+    if (column >= 1) {
+        const usize at = text::offsetAt(whole, {1, column});
+        if (at <= cut) {
+            std::string pad;
+            for (usize i = 0; i < at;) {
+                const usize start = i;
+                const char32_t cp = utf8::decodeNext(whole, i);
+                pad += cp == U'\t' ? std::string("\t")
+                                   : std::string(text::displayWidth(whole.substr(start, i - start)), ' ');
+            }
+            out += std::format("\n  {} | {}^", std::string(std::to_string(line).size(), ' '), pad);
+        }
+    }
+    return out;
 }
 
 std::string scriptTemplate(const std::string& id) {

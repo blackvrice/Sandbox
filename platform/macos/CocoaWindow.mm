@@ -85,6 +85,14 @@ public:
     [[nodiscard]] bool cursorCaptured() const override { return m_captured; }
     void setTextInputActive(bool active) override;
     [[nodiscard]] bool textInputActive() const override { return m_textInput; }
+    // IME 자리 (v0.9 NG-05) — 뷰 좌표 (뒤집힌 뷰 — 왼쪽 위 원점, 포인트 = 논리 단위). firstRectForCharacterRange 가 쓴다
+    void setTextInputArea(f32 x, f32 y, f32 lineHeight) override {
+        m_imeX = x;
+        m_imeY = y;
+        m_imeHeight = lineHeight;
+    }
+    [[nodiscard]] bool hasTextInputArea() const noexcept { return m_imeHeight > 0.f; }
+    [[nodiscard]] NSRect textInputArea() const noexcept { return NSMakeRect(m_imeX, m_imeY, 1, m_imeHeight); }
 
     [[nodiscard]] std::string clipboardText() const override;
     void setClipboardText(std::string_view utf8) override;
@@ -137,6 +145,9 @@ private:
     bool m_associated = true; // CGAssociateMouseAndMouseCursorPosition 의 지금 값
     bool m_cursorHidden = false;
     bool m_textInput = false;
+    f32 m_imeX = 0.f;
+    f32 m_imeY = 0.f;
+    f32 m_imeHeight = 0.f; // 0 = 아직 자리를 받지 않았다
     CursorShape m_cursor = CursorShape::Arrow;
     Vec2 m_lastMouse;
     bool m_haveLastMouse = false;
@@ -342,11 +353,13 @@ using sbx::platform::macwin::CocoaWindow;
 - (NSArray<NSAttributedStringKey>*)validAttributesForMarkedText {
     return @[];
 }
-// 입력기 후보 창 위치: 창 내용의 왼쪽 아래 ([계획] 글자 칸의 커서 위치)
+// 입력기 후보 창 위치: 글자 칸의 커서 (v0.9 NG-05 — setTextInputArea), 받지 않았으면 창 내용의 왼쪽 아래
 - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual {
     (void)range;
     (void)actual;
-    const NSRect inWindow = [self convertRect:NSMakeRect(0, [self bounds].size.height, 1, 1) toView:nil];
+    const NSRect inView = _owner->hasTextInputArea() ? _owner->textInputArea()
+                                                     : NSMakeRect(0, [self bounds].size.height, 1, 1);
+    const NSRect inWindow = [self convertRect:inView toView:nil];
     return [[self window] convertRectToScreen:inWindow];
 }
 - (NSUInteger)characterIndexForPoint:(NSPoint)point {

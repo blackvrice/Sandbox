@@ -121,14 +121,19 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 | LSP · 포맷터 · 클라이언트 라이브 디버그 | [계획 v0.7] |
 | DAP | [계획 v0.8+] |
 
-## 9. 텍스트 위치 계약 — UTF-8 · 코드 포인트 · UTF-16 · 화면 열 · IME (NG-05) [계획 v0.9]
+## 9. 텍스트 위치 계약 — UTF-8 · 코드 포인트 · UTF-16 · 화면 열 · IME (NG-05) ✅ v0.9 ([ADR-0128](adr/0128-text-position-contract-byte-offset-ime-area.md))
 
 ```text
 저장 · 컴파일러 · 줄 표  UTF-8 바이트 offset + (줄, 열 = 코드 포인트) — 현행 script/lang/Diagnostic.hpp 그대로 (.sbc 11 줄 표도 이 단위 — ✅ M6-T4)
-편집기 (ImGui)           UTF-8 바이트 offset — 언어 서비스 경계에서 한곳 (TextPosition 변환) 으로 바꾼다
+정본 · 변환              UTF-8 바이트 offset — 다른 단위는 foundation/text/TextPosition (lineColAt · offsetAt · lineAt · displayWidth) 으로만
+편집기 (ImGui)           UTF-8 바이트 offset (커서 · 선택) — 진단 (줄, 열) 은 offsetAt 으로
 LSP (v0.21)              UTF-16 code unit (LSP 기본 positionEncoding) — 같은 변환 함수
 화면 열                  글리프 폭 (한글 · 전각 2 칸, 결합 문자 0 칸) — 표시에만, 저장 · 진단에 쓰지 않는다
-IME                      조합 중 문자열은 문서에 넣지 않는다 (미리보기) — 자동 완성 · 진단 · Undo 는 조합이 끝난 뒤. 조합 중 커서 = 조합 시작
-줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음), 위치 계산은 LF 기준 (CR 은 앞 줄 끝)
-시험                     "가나다" 뒤 → 바이트 9 · 코드 포인트 3 · UTF-16 3, 서로게이트 쌍 (U+1F600) 왕복, CRLF 저장 왕복, 조합 중 자동 완성 없음
+IME                      조합 중 문자열은 문서에 넣지 않는다 — OS 조합 창이 그리고 확정 글자 (TextInput) 만 온다 (구조로 — 자동 완성 · 진단 ·
+                         Undo 는 확정 뒤). 조합 · 후보 창 = 글자 칸의 커서 (IWindow::setTextInputArea — Win32 · macOS, Wayland · X11 [계획])
+줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음 — 저장은 applyLineEnding(원본의 detectLineEnding)).
+                         위치 계산의 줄 끝은 렉서와 같다 (LF · CRLF 하나 · CR · U+2028 · U+2029 — "LF 기준" 을 고침, ADR-0128)
+시험                     "가나다" 뒤 → 바이트 9 · 코드 포인트 3 · UTF-16 3 · 화면 6 칸, 서로게이트 쌍 (U+1F600) 왕복, 모든 글자 경계의 왕복,
+                         CRLF · CR · U+2028 줄, CRLF 저장 왕복, 컴파일러 진단 (줄, 열) = offset, 진단 발췌의 ^, 헤드리스 IME 자리
+                         (test_text_position · test_diagnostic_help · test_script_editor · test_imgui_layer). 실제 조합 창 자리는 MANUAL-QA
 ```

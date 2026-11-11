@@ -41,6 +41,7 @@
 | `foundation/io/Console.{hpp,cpp}`                                                                           | `console::useUtf8Output` · `utf8Arguments`(Windows 명령줄 → UTF-8, 10B) — 콘솔 출력 · 인자 인코딩                                                                   | SandboxFoundation           |
 | `foundation/job/JobSystem.{hpp,cpp}`                                                                        | `JobSystem`(Worker 풀, 0 = 그 자리 실행), `JobGroup` — 경로 Job (5B)                                                                                                | SandboxFoundation           |
 | `foundation/version/SemVer.{hpp,cpp}`                                                                       | `SemVer`(2.0.0 엄격 · 우선순위), `VersionRange`(>= > <= < = ^ · 부분 버전 · AND) — v0.2 M1-T1, ADR-0040                                                             | SandboxFoundation           |
+| `foundation/text/TextPosition.{hpp,cpp}` | 텍스트 위치 계약 — 바이트 offset ↔ (줄, 열) 코드 포인트 · UTF-16 · 화면 칸, `lineAt`, `displayWidth`, 줄 끝 감지 · 되돌리기 (v0.9 NG-05, ADR-0128) | SandboxFoundation |
 | `foundation/text/Utf8.hpp`                                                                                  | UTF-8 인코딩·디코딩 (`append`, `decodeNext`, `length`, `tail`) (6)                                                                                                  | SandboxFoundation           |
 | `script/lang/DiagnosticHelp.{hpp,cpp}` | 진단 코드마다 뜻 · 고치는 법 한 줄 표 (`findDiagnosticHelp`) — v0.9 M6-T4, [19](19-SANDBOXSCRIPT.md) 8장, ADR-0126 | SandboxScript |
 | `script/lang/Diagnostic.{hpp,cpp}`                                                                          | `script::Diagnostic` ("파일:줄:열: 오류 Sxxx — …"), `DiagnosticList` — v0.3 M1-T1, [19](19-SANDBOXSCRIPT.md) 8장                                                   | SandboxScript               |
@@ -353,7 +354,7 @@ foundation/
   math/         Vec2                                                 handle/    Handle<Tag>
   container/    SmallVector · FixedString                            hash/      Fnv1a (Fnv1a64) · Sha256 (v0.2 패키지)
   log/          Log (레벨 · 카테고리 · 싱크)                          io/        FileIo (원자적 저장) · Console (UTF-8 콘솔 · 인자)
-  job/          JobSystem                                            text/      Utf8
+  job/          JobSystem                                            text/      Utf8 · TextPosition
   version/      SemVer (v0.2 — 버전 · 범위)                           BuildInfo  (생성 — 버전 · 커밋 · 컴파일러)
   [계획]        time/ (steady_clock 래퍼) · metrics/ — 지금은 std::chrono 직접 · 앱의 통계 패널
 

@@ -93,8 +93,16 @@ TEST_SUITE("editor") {
         CHECK(sent.id == "t.regen");
         CHECK(sent.value["source"] == src);
 
-        CHECK(scriptExcerpt("a\nbb\nccc", "2:1") == "\n  2 | bb");
-        CHECK(scriptExcerpt("a\nbb\nccc", "3:2") == "\n  3 | ccc");
+        // 줄 + ^ (열 — v0.9 NG-05 텍스트 위치 계약: 화면 칸 · 탭 · 줄 끝)
+        CHECK(scriptExcerpt("a\nbb\nccc", "2:1") == "\n  2 | bb\n    | ^");
+        CHECK(scriptExcerpt("a\nbb\nccc", "3:2") == "\n  3 | ccc\n    |  ^");
+        CHECK(scriptExcerpt("a\nbb\nccc", "3") == "\n  3 | ccc"); // 열이 없으면 ^ 없이
+        CHECK(scriptExcerpt("const 마나 = 1", "1:7") == "\n  1 | const 마나 = 1\n    |       ^");
+        CHECK(scriptExcerpt("const 마나 = 1", "1:10") == "\n  1 | const 마나 = 1\n    |            ^"); // 한글 2 칸씩
+        CHECK(scriptExcerpt("\tx = y", "1:6") == "\n  1 | \tx = y\n    | \t    ^");                     // 탭은 탭으로
+        CHECK(scriptExcerpt("a\r\nbb\r\n", "2:2") == "\n  2 | bb\n    |  ^");               // CR 은 보이지 않는다
+        CHECK(scriptExcerpt("a\rbb", "2:1") == "\n  2 | bb\n    | ^");                      // 홀로 CR 도 줄 끝 (렉서)
+        CHECK(scriptExcerpt(std::string(9, '\n') + "x", "10:1") == "\n  10 | x\n     | ^"); // 줄 번호 자리
         CHECK(scriptExcerpt("a\nbb", "9:1").empty());
         CHECK(scriptExcerpt("a", "x:1").empty());
         CHECK(scriptExcerpt("a", "").empty());

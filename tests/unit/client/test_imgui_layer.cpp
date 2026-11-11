@@ -169,6 +169,13 @@ TEST_SUITE("client") {
         CHECK(layer.wantText());
         CHECK(window.textInputActive());
         CHECK(layer.wantKeyboard());
+        // IME 자리 (v0.9 NG-05): 글자 칸의 커서가 창으로 — 조합 · 후보 창이 그 자리에 (창 "edit" 는 (10, 10) 부터)
+        CHECK(window.textInputAreaUpdates() > 0);
+        CHECK(window.textInputArea()[0] > 10.f);
+        CHECK(window.textInputArea()[0] < 300.f);
+        CHECK(window.textInputArea()[1] > 10.f);
+        CHECK(window.textInputArea()[1] < 100.f);
+        CHECK(window.textInputArea()[2] > 0.f);
         window.inject(KeyDown{Key::Escape, 0, {}, false}); // 글자 칸에서 나온다
         uiFrame(layer, window, textField);
         window.inject(KeyUp{Key::Escape, 0, {}});

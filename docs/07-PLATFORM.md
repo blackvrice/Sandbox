@@ -44,6 +44,8 @@ public:
     virtual void     setCursorCaptured(bool) = 0;           // 숨김 + 창 안에 가둠 + Raw Input 상대 이동
     virtual bool     cursorCaptured() const = 0;
     virtual void     setTextInputActive(bool) = 0;          // IME. 기본 끔 (ADR-0017)
+    virtual void     setTextInputArea(f32 x, f32 y, f32 h); // IME 조합 · 후보 창 자리 = 글자 칸의 커서 (논리 단위, v0.9 NG-05 —
+                                                            // Win32 · macOS. 기본 아무것도 — Wayland · X11 [계획], ADR-0128)
     virtual bool     textInputActive() const = 0;
     virtual std::string clipboardText() const = 0;
     virtual void     setClipboardText(std::string_view) = 0;

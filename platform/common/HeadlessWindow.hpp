@@ -35,6 +35,15 @@ public:
     [[nodiscard]] bool cursorCaptured() const override { return m_captured; }
     void setTextInputActive(bool active) override { m_textInput = active; }
     [[nodiscard]] bool textInputActive() const override { return m_textInput; }
+    // 시험이 본다 — 마지막 IME 자리 (x, y, 줄 높이) · 몇 번 받았나 (v0.9 NG-05)
+    void setTextInputArea(f32 x, f32 y, f32 lineHeight) override {
+        m_imeArea[0] = x;
+        m_imeArea[1] = y;
+        m_imeArea[2] = lineHeight;
+        ++m_imeUpdates;
+    }
+    [[nodiscard]] const f32* textInputArea() const noexcept { return m_imeArea; }
+    [[nodiscard]] u32 textInputAreaUpdates() const noexcept { return m_imeUpdates; }
 
     [[nodiscard]] std::string clipboardText() const override { return m_clipboard; }
     void setClipboardText(std::string_view utf8) override { m_clipboard = utf8; }
@@ -62,6 +71,8 @@ private:
     std::string m_title;
     std::string m_clipboard;
     usize m_waits = 0;
+    f32 m_imeArea[3] = {0.f, 0.f, 0.f};
+    u32 m_imeUpdates = 0;
 };
 
 } // namespace sbx::platform

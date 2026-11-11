@@ -79,6 +79,14 @@ public:
     // 텍스트 입력(IME 포함)을 켜고 끈다. 끄면 TextInput 이 오지 않고 IME 가 키를 가로채지 않는다. 기본: 끔.
     virtual void setTextInputActive(bool active) = 0;
     [[nodiscard]] virtual bool textInputActive() const = 0;
+    // 글자 칸의 커서 자리 (논리 단위 — 창 내용의 왼쪽 위 기준, 줄 높이) — IME 조합 · 후보 창을 그 자리에 (v0.9 NG-05).
+    // 조합 중 글자는 OS 의 조합 창이 그리고 문서에는 확정된 글자 (TextInput) 만 온다. 기본: 아무것도 하지 않는다 (Win32
+    // · macOS 가 구현, Wayland · X11 은 [계획])
+    virtual void setTextInputArea(f32 x, f32 y, f32 lineHeight) {
+        (void)x;
+        (void)y;
+        (void)lineHeight;
+    }
 
     [[nodiscard]] virtual std::string clipboardText() const = 0;
     virtual void setClipboardText(std::string_view utf8) = 0;

@@ -75,6 +75,7 @@ public:
     void setCursorCaptured(bool captured) override;
     [[nodiscard]] bool cursorCaptured() const override { return m_captured; }
     void setTextInputActive(bool active) override;
+    void setTextInputArea(f32 x, f32 y, f32 lineHeight) override;
     [[nodiscard]] bool textInputActive() const override { return m_textInput; }
 
     [[nodiscard]] std::string clipboardText() const override;
@@ -268,6 +269,28 @@ void Win32Window::setCursorCaptured(bool captured) {
     if (cursorInClient()) {
         applyCursor();
     }
+}
+
+void Win32Window::setTextInputArea(f32 x, f32 y, f32 lineHeight) {
+    // IME 조합 창 · 후보 창을 글자 칸의 커서에 (v0.9 NG-05 — imgui_impl_win32 와 같은 IMM 호출). 논리 → 클라이언트 픽셀
+    HIMC imc = ImmGetContext(m_hwnd);
+    if (imc == nullptr) {
+        return; // 글자 입력이 꺼져 IME 컨텍스트를 떼어 냈다
+    }
+    const LONG px = static_cast<LONG>(x * m_scale + 0.5f);
+    const LONG py = static_cast<LONG>(y * m_scale + 0.5f);
+    const LONG ph = static_cast<LONG>(lineHeight * m_scale + 0.5f);
+    COMPOSITIONFORM cf{};
+    cf.dwStyle = CFS_POINT;
+    cf.ptCurrentPos = {px, py};
+    ImmSetCompositionWindow(imc, &cf);
+    CANDIDATEFORM cand{};
+    cand.dwIndex = 0;
+    cand.dwStyle = CFS_EXCLUDE; // 후보 창이 그 줄을 가리지 않게
+    cand.ptCurrentPos = {px, py};
+    cand.rcArea = {px, py, px + 1, py + ph};
+    ImmSetCandidateWindow(imc, &cand);
+    ImmReleaseContext(m_hwnd, imc);
 }
 
 void Win32Window::setTextInputActive(bool active) {

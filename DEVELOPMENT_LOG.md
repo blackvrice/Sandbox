@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-11 — v0.9 NG-05: 텍스트 위치 계약 — TextPosition · 진단 발췌의 ^ · IME 자리 (ADR-0128)
+
+**무엇을**
+
+- foundation/text/TextPosition (새): lineColAt · offsetAt (코드 포인트 · UTF-16 · 화면 칸), lineAt, displayWidth (한글 2 · 결합 0),
+  utf16Units, detectLineEnding · applyLineEnding.
+- editor/ui/ContentPanel scriptExcerpt: 줄을 계약대로 (CRLF · CR · U+2028 — CR 숨김) + 열에 ^ (화면 칸 · 탭 보존 · 줄 번호 자리).
+- platform: IWindow::setTextInputArea (기본 아무것도), Win32 (ImmSetCompositionWindow · ImmSetCandidateWindow), Cocoa (firstRectForCharacterRange
+  가 커서 자리), Headless (시험이 본다). ImGuiLayer 가 Platform_SetImeDataFn 으로 부른다.
+- 문서: ADR-0128, 27 9장 ✅ (줄 끝 = 렉서와 같게 — "LF 기준" 고침), 07 · 17 · 13 · MANUAL-QA, 등록부 NG-05 Done, 다음 줄.
+
+**왜**
+
+- v0.9 Script IDE 의 P0 — M6-T8 편집기 (자동 완성 · hover · 밑줄) 가 위치 단위 하나를 기댄다. 진단은 코드 포인트, 편집기는 바이트, LSP 는 UTF-16.
+
+**검증**
+
+- test_text_position 4 (첫 빌드에 통과), 컴파일러 진단 (줄, 열) = offset (CRLF · CR · 한글 · 그림 문자), test_script_editor 발췌 ^ 7 가지,
+  test_imgui_layer 의 IME 자리 (글자 칸 → 창). 단위 913 통과.
+- 조사: Win32 IME 는 시스템 조합 창 (DefWindowProc) · WM_CHAR 확정 글자만, Cocoa 는 insertText 만 TextInput — 조합 중 글자가 문서에 들어갈 길이
+  없다 (구조). 렉서의 줄 끝이 LF · CRLF · CR · U+2028 · U+2029 라 계약을 렉서에 맞췄다 (27 9장이 "LF 기준" 이었다).
+- 실제 조합 · 후보 창 자리는 MANUAL-QA [ ] (창 QA).
+- build/ci-werror 통과, clang-tidy (-Wconversion -Wsign-conversion 포함) 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- Wayland · X11 IME 자리, 자소 클러스터 커서, LSP UTF-16 (v0.21). 다음: M6-T8 스크립트 편집기 (저장은 applyLineEnding 으로 줄 끝 보존).
+
 ## 2026-11-11 — v0.9 M6-T4 조각 4: IScriptExecutor · 팩마다 실행자 · 계약 비교 (ADR-0127) — M6-T4 끝
 
 **무엇을**

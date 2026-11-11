@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "foundation/text/TextPosition.hpp"
 #include "script/lang/Codegen.hpp"
 #include "script/lang/DiagnosticHelp.hpp"
 
@@ -119,6 +120,25 @@ TEST_SUITE("script") {
         CHECK(d.items()[0].describeWithHelp() == d.items()[0].describe() + "\n    고치는 법: " + d.items()[0].help);
         CHECK(d.items()[1].help.empty());
         CHECK(d.items()[1].describeWithHelp() == d.items()[1].describe());
+    }
+
+    TEST_CASE("텍스트 위치 계약 (v0.9 NG-05): 컴파일러 진단의 (줄, 열) = offset — CRLF · CR · 한글 · 그림 문자 줄") {
+        // 진단 자리 (렉서 · 파서 · 검사기) 의 (줄, 코드 포인트 열) 을 계약 함수로 바꾸면 진단의 바이트 offset 과 같다
+        const std::string src = "// 가나다 \xF0\x9F\x98\x80\r\n"
+                                "export function f(): number {\r\n"
+                                "  const 마나 = \"😀\"; return 마나 * 2\r"
+                                "}\n"
+                                "export function g(): number { return 없음 + 1 }\n";
+        DiagnosticList d;
+        const SourceFile f{"scripts/pos.ts", src};
+        (void)compileScripts(std::span(&f, 1), d);
+        REQUIRE_FALSE(d.items().empty());
+        for (const Diagnostic& x : d.items()) {
+            CAPTURE(x.describe());
+            const text::LineCol lc{x.pos.line, x.pos.column};
+            CHECK(text::offsetAt(src, lc) == x.pos.offset);
+            CHECK(text::lineColAt(src, x.pos.offset) == lc);
+        }
     }
 
     TEST_CASE("진단 문구 골든 (v0.9 M6-T4): 흔한 실수 18 가지의 진단 · 고치는 법") {

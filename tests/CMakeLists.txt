@@ -9,6 +9,7 @@ add_executable(SandboxTests
     main.cpp
     unit/foundation/test_hash.cpp
     unit/foundation/test_sha256.cpp
+    unit/foundation/test_text_position.cpp
     unit/foundation/test_handle.cpp
     unit/foundation/test_error.cpp
     unit/foundation/test_file_io.cpp

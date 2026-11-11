@@ -28,6 +28,9 @@ add_library(SandboxFoundation STATIC
     job/JobSystem.cpp
     version/SemVer.hpp
     version/SemVer.cpp
+    text/Utf8.hpp
+    text/TextPosition.hpp
+    text/TextPosition.cpp
 )
 add_library(Sandbox::Foundation ALIAS SandboxFoundation)
 

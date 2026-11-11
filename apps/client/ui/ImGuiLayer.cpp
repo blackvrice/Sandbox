@@ -222,6 +222,13 @@ ImGuiLayer::ImGuiLayer(platform::IWindow& window, ImGuiLayerDesc desc) : m_windo
             w->setClipboardText(text != nullptr ? text : "");
         }
     };
+    // IME 자리 (v0.9 NG-05): 글자 칸의 커서 → 창 (조합 · 후보 창이 그 자리에). ImGui 좌표 = 논리 단위 (DisplaySize)
+    pio.Platform_SetImeDataFn = [](ImGuiContext* ctx, ImGuiViewport*, ImGuiPlatformImeData* data) {
+        platform::IWindow* w = windowOf(ctx);
+        if (w != nullptr && data != nullptr && data->WantVisible) {
+            w->setTextInputArea(data->InputPos.x, data->InputPos.y, data->InputLineHeight);
+        }
+    };
 
     // 폰트 사슬 (v0.7 M4-T2 (2) — FontFallback): --font → client.json fonts → OS 묶음 (한국어 · 라틴 · 기호). 첫째가
     // 바탕, 나머지는 합친다 (MergeMode — 바탕에 없는 글자를 다음 파일에서). 하나도 없으면 내장 (영문만)
@@ -283,6 +290,7 @@ ImGuiLayer::~ImGuiLayer() {
     ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
     pio.Platform_GetClipboardTextFn = nullptr;
     pio.Platform_SetClipboardTextFn = nullptr;
+    pio.Platform_SetImeDataFn = nullptr;
     ImGui::DestroyContext(m_ctx);
     g_clipboardStore = nullptr;
 }
