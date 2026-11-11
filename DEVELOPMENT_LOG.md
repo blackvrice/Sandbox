@@ -7,6 +7,19 @@
 
 ---
 
+## 2026-11-11 — v0.8 ST-06-2 고침: macOS CI — 팔레트 단축키 시험이 Cmd 를 쓴다
+
+**무엇을** — test_studio_shell 의 Ctrl+Shift+P 키 시험이 macOS 에서는 LeftSuper (Cmd) 를 누른다. 29 4장에 macOS 키 (Cmd+N · O · B ·
+Shift+P) 와 행동 표 (물리 Ctrl) 의 차이를 적었다.
+
+**왜** — CI 실행 42947933884 (5c2cb9c) macos 의 unit_client 실패 (test_studio_shell.cpp:189 palette().open). ImGui 는
+ConfigMacOSXBehaviors (__APPLE__ 기본) 에서 AddKeyEvent 의 Ctrl ↔ Super 를 바꾼다 (external/imgui/imgui.cpp — "MacOS: swap Cmd(Super) and
+Ctrl") — 물리 Ctrl 은 ImGuiMod_Super 라 "Ctrl+Shift+P" (ImGuiMod_Ctrl) 와 맞지 않는다. 앱 동작 (Cmd+Shift+P) 은 macOS 관례대로 맞다 — 시험이 틀렸다.
+
+**검증** — Windows Debug unit_client 98 통과 (Ctrl 경로 그대로). macOS 경로는 CI 가 본다.
+
+**남은 일** — 행동 표 키 (Ctrl+S · Ctrl+Z) 와 명령 표 키 (Cmd) 의 macOS 차이 — 사용자 키 다시 매기기와 함께 [계획].
+
 ## 2026-11-11 — v0.9 M6-T4 조각 2: 함수별 스크립트 프로파일 (자기 연료) · ServerStats 함수 표 (프로토콜 18, ADR-0125)
 
 **무엇을**

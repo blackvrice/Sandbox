@@ -176,15 +176,23 @@ TEST_SUITE("client") {
         window.inject(KeyUp{Key::Escape, 0, {}});
         REQUIRE(app.frame());
         CHECK_FALSE(app.palette().open);
-        // 키로 — Ctrl+Shift+P (명령 표의 단축키를 ImGui 프레임 안에서 실행)
-        window.inject(KeyDown{Key::LeftCtrl, 0, {}, false});
+        // 키로 — Ctrl+Shift+P (명령 표의 단축키를 ImGui 프레임 안에서 실행). macOS 는 ImGui (ConfigMacOSXBehaviors) 가 Cmd 를
+        // Ctrl 로 바꿔 읽는다 — 팔레트는 Cmd+Shift+P (물리 Ctrl 은 Super)
+#if defined(__APPLE__)
+        constexpr Key kPrimary = Key::LeftSuper;
+        constexpr u8 kPrimaryMod = Modifiers::kSuper;
+#else
+        constexpr Key kPrimary = Key::LeftCtrl;
+        constexpr u8 kPrimaryMod = Modifiers::kCtrl;
+#endif
+        window.inject(KeyDown{kPrimary, 0, {}, false});
         window.inject(KeyDown{Key::LeftShift, 0, {}, false});
         REQUIRE(app.frame());
-        window.inject(KeyDown{Key::P, 0, {Modifiers::kCtrl | Modifiers::kShift}, false});
+        window.inject(KeyDown{Key::P, 0, {static_cast<u8>(kPrimaryMod | Modifiers::kShift)}, false});
         REQUIRE(app.frame());
         window.inject(KeyUp{Key::P, 0, {}});
         window.inject(KeyUp{Key::LeftShift, 0, {}});
-        window.inject(KeyUp{Key::LeftCtrl, 0, {}});
+        window.inject(KeyUp{kPrimary, 0, {}});
         REQUIRE(app.frame());
         CHECK(app.palette().open);
         window.inject(KeyDown{Key::Escape, 0, {}, false});

@@ -113,6 +113,8 @@ WorldOp (TestPlay · TestStop · Save). 할 수 없는 항목은 끈다 (when) �
 팔레트의 셸 명령 (world.* · edit.* · tool.* · view.*) 은 ShellActions 를 채워 툴바 · 메뉴와 같은 길로 간다 (ADR-0122). 키: 명령 표의 단축키
 (Ctrl+N · Ctrl+O · Ctrl+B · Ctrl+Shift+P · F5 플레이 · Shift+F5 멈춤) 는 ImGui 프레임에서 실행 (글자 칸에 쓰는 중이면 쉰다), 행동 표 (input.json)
 의 키 (Ctrl+S · Ctrl+Z · 1 ~ 5 · Space · . · G · Home · Esc) 는 행동 표가 듣고 명령에는 keyHint 로 보이기만.
+macOS: ImGui (ConfigMacOSXBehaviors) 가 Cmd 를 Ctrl 로 읽어 명령 표의 키는 Cmd+N · Cmd+O · Cmd+B · Cmd+Shift+P (물리 Ctrl 은 Super). 행동 표의
+키는 플랫폼 층의 Ctrl 그대로 — 둘을 맞추기는 [계획] (사용자 키 다시 매기기와 함께 — ADR-0122 재검토 조건).
 
 ## 5. 배치 프리셋 (LayoutService 이름 — M6-T6 의 레이아웃 그대로)
 
