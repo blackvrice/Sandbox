@@ -8,6 +8,7 @@
 // 머티리얼 인덱스 = id 정렬 순서 (05-WORLD 3.2). 인덱스는 이 프로세스 안에서만 의미가 있고,
 // 세이브에는 id 테이블을 함께 적어 로드할 때 재매핑한다. 해시에는 인덱스가 아니라 id 의 stableId 를 먹인다.
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <span>
@@ -41,6 +42,7 @@ struct ContentSourceFile {
 struct ContentSourcePack {
     PackInfo info;
     std::string folder;
+    std::filesystem::path dir; // 이 컴퓨터에서 읽은 팩 폴더 (스크립트 편집기의 [저장 (팩 파일)] — v0.9 M6-T8, 해시 밖)
     std::vector<ContentSourceFile> files; // rel 정렬
 };
 struct ContentSources {

@@ -43,6 +43,7 @@
 #include "editor/services/AutosaveService.hpp"
 #include "editor/services/BuildService.hpp"
 #include "editor/services/CommandService.hpp"
+#include "editor/services/DocumentService.hpp"
 #include "editor/services/LayoutService.hpp"
 #include "editor/services/ProjectService.hpp"
 #include "editor/services/TestService.hpp"
@@ -342,6 +343,9 @@ private:
     // 하나의 되돌리기 줄 (v0.8 ST-06-1 (3) — 월드 편집 + 파일 문서). 에디터보다 먼저 만들고 나중에 부순다 (에디터가
     // 붙어 있다)
     editor::services::UndoService m_undoLine;
+    // 파일 문서 (v0.9 M6-T8 — 스크립트 편집기의 [저장 (팩 파일)]). 되돌리기 줄에 넣지 않는다: 편집기 칸이 제 되돌리기를
+    // 갖고, 저장은 되돌리기 칸이 아니다 (ADR-0131)
+    editor::services::DocumentService m_documents{nullptr};
     editor::Editor m_editor;
     editor::EditorPanelState m_editorPanel;
     editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"

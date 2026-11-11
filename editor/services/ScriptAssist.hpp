@@ -12,6 +12,7 @@
 //
 // 위치는 모두 UTF-8 바이트 offset (텍스트 위치 계약 — NG-05).
 
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -26,6 +27,10 @@ class ContentDatabase;
 }
 
 namespace sbx::editor {
+
+namespace services {
+class DocumentService;
+}
 
 struct ScriptWorkspace {
     std::vector<script::SourceFile> files; // 팩 파일 ("scripts/a.ts") · 의존 팩 파일 ("@inv/scripts/b.ts")
@@ -57,6 +62,21 @@ struct TextReplace {
     usize end = 0;
     std::string text;
 };
+
+// [저장 (팩 파일)] (v0.9 M6-T8 조각 3, ADR-0131) — 편집기 글을 팩의 파일로 (DocumentService — 원자적 쓰기).
+// base 는 이 편집기가 아는 디스크 글 (팩을 읽은 때의 원문 · 이 창의 마지막 저장) — 디스크가 base 와 다르거나 (바깥에서
+// 고쳤다) 없어졌으면 force 가 아니면 쓰지 않는다 (DiskChanged). base 가 없으면 (팩에 없던 새 파일) 대조하지 않는다.
+// 줄 끝은 base (없으면 디스크) 의 것으로 — 편집기 (ImGui) 는 Enter 에 LF 를 넣는다. 섞였거나 한 줄이면 그대로
+// (ADR-0128 5).
+// 새 파일은 폴더까지 만든다.
+struct ScriptSaveResult {
+    enum class Status : u8 { Saved, DiskChanged, Failed };
+    Status status = Status::Failed;
+    std::string written; // 쓴 바이트 (다음 저장의 base)
+    std::string message;
+};
+[[nodiscard]] ScriptSaveResult saveScriptFile(services::DocumentService& docs, const std::filesystem::path& path,
+                                              std::string_view text, std::optional<std::string_view> base, bool force);
 
 class ScriptAssist {
 public:

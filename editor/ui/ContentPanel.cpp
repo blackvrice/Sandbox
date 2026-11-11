@@ -1,6 +1,7 @@
 #include "editor/ui/ContentPanel.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <format>
 #include <string_view>
 #include <utility>
@@ -37,6 +38,8 @@ struct Item {
 struct ScriptFile {
     std::string display; // "<팩 폴더>/scripts/a.ts" (콘텐츠 문제의 file 과 같다)
     const std::string* text = nullptr;
+    std::filesystem::path disk; // 이 컴퓨터의 그 파일 (팩 폴더를 모르면 비었다)
+    bool installed = false;     // 설치한 패키지 (.sandbox/packages/ — [저장] 하지 않는다)
 };
 [[nodiscard]] std::optional<ScriptFile> scriptFileOf(const content::ContentDatabase& db, std::string_view id) {
     const auto path = content::scriptOverlayPath(id);
@@ -47,7 +50,9 @@ struct ScriptFile {
         if (sp.info.id != path->pack) {
             continue;
         }
-        ScriptFile out{sp.folder + "/" + path->rel, nullptr};
+        ScriptFile out{sp.folder + "/" + path->rel, nullptr,
+                       sp.dir.empty() ? std::filesystem::path() : sp.dir / path->rel,
+                       sp.folder.starts_with(".sandbox/packages/")};
         for (const content::ContentSourceFile& f : sp.files) {
             if (f.rel == path->rel) {
                 out.text = &f.text;
@@ -311,6 +316,33 @@ bool checkContentEdit(const IEditorHost& host, content::ContentKind kind, const 
     return r.ok();
 }
 
+ScriptSaveResult saveScriptEdit(const content::ContentDatabase& db, services::DocumentService& docs,
+                                const std::string& id, const std::string& text,
+                                std::map<std::string, SavedScript, std::less<>>& saved, bool force) {
+    ScriptSaveResult r;
+    const auto file = scriptFileOf(db, id);
+    if (!file || file->disk.empty()) {
+        r.message = std::format("'{}' 의 팩 폴더를 모릅니다 — 팩 파일에 저장할 수 없습니다", id);
+        return r;
+    }
+    if (file->installed) {
+        r.message = std::format(
+            "{} — 설치한 패키지의 파일은 고치지 않습니다 (프로젝트 팩에서 고치거나 [적용 (오버레이)])", file->display);
+        return r;
+    }
+    std::optional<std::string_view> base;
+    if (const auto it = saved.find(id); it != saved.end()) {
+        base = it->second.written;
+    } else if (file->text != nullptr) {
+        base = *file->text;
+    }
+    r = saveScriptFile(docs, file->disk, text, base, force);
+    if (r.status == ScriptSaveResult::Status::Saved) {
+        saved[id] = SavedScript{r.written, text};
+    }
+    return r;
+}
+
 ecs::Json contentEditValue(content::ContentKind kind, const std::string& id, const std::string& text) {
     if (kind == content::ContentKind::Script) {
         return ecs::Json{{"id", id}, {"source", text}}; // 스크립트 오버레이 값 (ADR-0066)
@@ -437,6 +469,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     const auto kindButton = [&](const char* label, content::ContentKind k) {
         if (ImGui::RadioButton(label, st.kind == k) && st.kind != k) {
             st.kind = k;
+            st.saveAsk = ContentPanelState::SaveAsk::None;
             st.selected.clear();
             st.isNew = false;
             st.issues.clear();
@@ -505,6 +538,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             const std::string label = std::format("{}{}", item.overlay ? "● " : "   ", item.id);
             if (ImGui::Selectable(label.c_str(), st.selected == item.id && !st.isNew)) {
                 st.selected = std::string(item.id);
+                st.saveAsk = ContentPanelState::SaveAsk::None;
                 st.isNew = false;
                 st.pendingFrom.reset();
                 st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
@@ -552,8 +586,15 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                                           : "팩 원본 (적용하면 오버레이로)");
     if (st.kind == content::ContentKind::Script) {
         if (const auto f = scriptFileOf(*db, st.selected)) {
-            ImGui::TextDisabled("%s — 적용하면 서버가 팩을 다시 컴파일한다 (컴포넌트 정의는 바꿀 수 없다)",
-                                f->display.c_str());
+            // 팩 파일과 같은가 — 이 창의 마지막 저장 · 없으면 팩을 읽은 때의 원문 (v0.9 M6-T8 조각 3)
+            const auto s = st.saved.find(st.selected);
+            const std::string* disk = s != st.saved.end() ? &s->second.text : f->text;
+            const char* fileState = disk == nullptr    ? "팩 파일 없음 — [저장] 하면 만든다"
+                                    : *disk == st.text ? "팩 파일과 같음"
+                                                       : "팩 파일과 다름";
+            ImGui::TextDisabled(
+                "%s · %s — [적용 (오버레이)] = 지금 월드 (서버가 다시 컴파일), [저장 (팩 파일)] = 다음 로드부터",
+                f->display.c_str(), fileState);
         }
     }
     if (!st.isNew) {
@@ -604,7 +645,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     if (editable) {
         ImGui::SameLine();
         ImGui::BeginDisabled(!dirty);
-        if (ImGui::Button("적용")) {
+        if (ImGui::Button(st.kind == content::ContentKind::Script ? "적용 (오버레이)" : "적용")) {
             st.checked = st.text;
             if (checkContentEdit(host, st.kind, st.selected, st.text, st.issues)) {
                 if (editor.editContent(host, st.kind, st.selected, contentEditValue(st.kind, st.selected, st.text))) {
@@ -623,6 +664,38 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             }
         }
         ImGui::EndDisabled();
+        if (st.kind == content::ContentKind::Script && st.documents != nullptr) {
+            // [저장 (팩 파일)] — 검사가 오류면 묻고, 바깥에서 파일이 바뀌었으면 묻는다 (v0.9 M6-T8 조각 3)
+            const auto save = [&](bool force) {
+                const ScriptSaveResult r = saveScriptEdit(*db, *st.documents, st.selected, st.text, st.saved, force);
+                st.saveAsk = r.status == ScriptSaveResult::Status::DiskChanged ? ContentPanelState::SaveAsk::Overwrite
+                                                                               : ContentPanelState::SaveAsk::None;
+                st.issues.push_back({r.status != ScriptSaveResult::Status::Saved,
+                                     r.status == ScriptSaveResult::Status::Saved
+                                         ? r.message + " — 지금 월드에는 [적용 (오버레이)], 팩 파일은 다음 로드부터"
+                                         : r.message});
+            };
+            ImGui::SameLine();
+            if (ImGui::Button("저장 (팩 파일)")) {
+                st.checked = st.text;
+                if (checkContentEdit(host, st.kind, st.selected, st.text, st.issues)) {
+                    save(false);
+                } else {
+                    st.saveAsk = ContentPanelState::SaveAsk::Errors;
+                }
+            }
+            if (st.saveAsk == ContentPanelState::SaveAsk::Errors) {
+                ImGui::SameLine();
+                if (ImGui::Button("오류가 있어도 저장")) {
+                    save(false);
+                }
+            } else if (st.saveAsk == ContentPanelState::SaveAsk::Overwrite) {
+                ImGui::SameLine();
+                if (ImGui::Button("덮어쓰기")) {
+                    save(true);
+                }
+            }
+        }
         if (inOverlay) {
             ImGui::SameLine();
             if (ImGui::Button("팩 값으로")) {

@@ -14,8 +14,9 @@
 ```text
 편집기     "콘텐츠" 창의 스크립트 종류 — editor/ui/ScriptEditor (✅ v0.9 M6-T8 조각 2, ADR-0130): ImGui 여러 줄 입력 + 줄 번호 · 진단 점 ·
            물결 밑줄 (입력 멈춤 300 ms 뒤 검사기 — editor/services/ScriptAssist), '.' · Ctrl+Space 완성 팝업, hover, 실시간 진단 목록
-           (누르면 그 자리로). [검사] = 팩 다시 컴파일 · 오류마다 "12 | <그 줄>", [적용] = 오버레이 EditContent (ADR-0066 — 다음 틱부터).
-           구문 색 · [저장 (팩 파일)] 없음 ([계획] · M6-T8 조각 3)
+           (누르면 그 자리로). [검사] = 팩 다시 컴파일 · 오류마다 "12 | <그 줄>", [적용 (오버레이)] = EditContent (ADR-0066 — 다음
+           틱부터), [저장 (팩 파일)] = 팩 폴더의 그 파일 (✅ 조각 3, ADR-0131 — 줄 끝 보존 · 바깥 변경은 [덮어쓰기] · 오류는 묻는다).
+           구문 색 없음 ([계획])
 외부 IDE   sbx sdk 가 sandbox.d.ts 를 쓴다 → tsc · VS Code 가 타입 · 자동 완성 (ADR-0065). 부분집합 밖 (S3xx) · 엔진 규칙 (S404 도메인) 은
            tsc 가 모른다 → sbx check 로
 컴파일러   script/lang: Lexer (토큰 · 위치) · Parser (AST) · Checker (Program { types, symbols, functions, components, systems, modules }) ·
@@ -115,7 +116,7 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 측정 (v0.9 M6-T8, test_language_service — 호출마다 검사기 한 번, 캐시 없음): Release 1,000 줄 완성 3.8 ms · hover 3.5 ms, 5,000 줄 18 ms · 22 ms.
 Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위 캐시는 큰 팩 측정 뒤.
 편집기 위젯 (v0.9 M6-T8 조각 2, test_script_assist — Release, 5,000 줄 · 밑줄 1,000): 첫 분석 21 ms, 쉬는 프레임 0.24 ms, 타자 프레임
-0.56 ms (Debug 812 · 3.0 · 4.6 ms)
+0.56 ms (Debug 560 · 2.3 · 3.6 ms — ADR-0131 의 측정 고침)
 ```
 
 ## 8. 상태 표
@@ -125,7 +126,7 @@ Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위
 | 컴파일 · 진단 (줄 · 열) · 오버레이 Hot Reload · d.ts | 현행 |
 | 타입 기반 자동 완성 · import · 이름 완성 · hover (함수 주석) | ✅ v0.9 M6-T8 조각 1 (LanguageService complete · hover, MemberCatalog — ADR-0129) |
 | 편집기 위젯 (줄 번호 · 밑줄 · 완성 팝업 · hover · 실시간 진단 · 이동) | ✅ v0.9 M6-T8 조각 2 (editor/ui/ScriptEditor · editor/services/ScriptAssist — ADR-0130) |
-| [적용] / [저장] 구분 (줄 끝 보존) | [계획 v0.9 M6-T8 조각 3] |
+| [적용 (오버레이)] / [저장 (팩 파일)] 구분 (줄 끝 보존 · 바깥 변경 · 새 파일) | ✅ v0.9 M6-T8 조각 3 (ContentPanel · saveScriptFile → DocumentService — ADR-0131) |
 | 구문 색 · 마우스로 팝업 고르기 · 저절로 여는 이름 완성 · 트랩 메시지 (스크립트 창) 에서 편집기 그 줄로 | [계획] (ADR-0130 결과) |
 | 줄 표 · 트랩 줄 · 함수별 프로파일 | ✅ v0.9 M6-T4 — 줄 표 · 트랩 줄 (ADR-0124), 함수별 자기 연료 프로파일 (ADR-0125) |
 | 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | [계획 v0.6] |
@@ -143,7 +144,8 @@ LSP (v0.21)              UTF-16 code unit (LSP 기본 positionEncoding) — 같�
 화면 열                  글리프 폭 (한글 · 전각 2 칸, 결합 문자 0 칸) — 표시에만, 저장 · 진단에 쓰지 않는다
 IME                      조합 중 문자열은 문서에 넣지 않는다 — OS 조합 창이 그리고 확정 글자 (TextInput) 만 온다 (구조로 — 자동 완성 · 진단 ·
                          Undo 는 확정 뒤). 조합 · 후보 창 = 글자 칸의 커서 (IWindow::setTextInputArea — Win32 · macOS, Wayland · X11 [계획])
-줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음 — 저장은 applyLineEnding(원본의 detectLineEnding)).
+줄 끝                    CRLF · LF 를 읽은 그대로 보존 (저장 왕복이 바꾸지 않음 — 저장은 applyLineEnding(원본의 detectLineEnding),
+                         ✅ v0.9 M6-T8 [저장 (팩 파일)] — ADR-0131).
                          위치 계산의 줄 끝은 렉서와 같다 (LF · CRLF 하나 · CR · U+2028 · U+2029 — "LF 기준" 을 고침, ADR-0128)
 시험                     "가나다" 뒤 → 바이트 9 · 코드 포인트 3 · UTF-16 3 · 화면 6 칸, 서로게이트 쌍 (U+1F600) 왕복, 모든 글자 경계의 왕복,
                          CRLF · CR · U+2028 줄, CRLF 저장 왕복, 컴파일러 진단 (줄, 열) = offset, 진단 발췌의 ^, 헤드리스 IME 자리

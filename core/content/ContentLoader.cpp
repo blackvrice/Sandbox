@@ -2463,6 +2463,7 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
         ContentSourcePack sp;
         sp.info = p.info;
         sp.folder = p.folder;
+        sp.dir = p.dir;
         // 클라 전용 키 바인딩 — 원문만 들고 간다 (형식 검사는 클라이언트의 ActionMap, contentHash 제외)
         if (const fs::path input = p.dir / "presentation" / "input.json"; fs::is_regular_file(input)) {
             if (auto text = io::readFile(input)) {

@@ -8,6 +8,9 @@
 
 #include "core/content/ContentDatabase.hpp"
 #include "core/content/ContentOverlay.hpp"
+#include "editor/services/DocumentService.hpp"
+#include "foundation/io/FileIo.hpp"
+#include "foundation/text/TextPosition.hpp"
 #include "foundation/text/Utf8.hpp"
 #include "script/lang/Checker.hpp"
 
@@ -142,6 +145,68 @@ std::vector<ScriptMark> analyzeScript(const ScriptWorkspace& ws) {
         out.push_back(
             ScriptMark{begin, end, d.severity == script::Diagnostic::Severity::Error, d.code, std::move(text)});
     }
+    return out;
+}
+
+ScriptSaveResult saveScriptFile(services::DocumentService& docs, const std::filesystem::path& path,
+                                std::string_view text, std::optional<std::string_view> base, bool force) {
+    namespace fs = std::filesystem;
+    ScriptSaveResult out;
+    const std::string where = io::displayPath(path);
+    std::error_code ec;
+    const bool exists = fs::is_regular_file(path, ec);
+    std::string disk;
+    if (exists) {
+        Expected<std::string> bytes = io::readFile(path);
+        if (!bytes) {
+            out.message = bytes.error().describe();
+            return out;
+        }
+        disk = std::move(*bytes);
+    }
+    if (!force) {
+        if (base && exists && disk != *base) {
+            out.status = ScriptSaveResult::Status::DiskChanged;
+            out.message = std::format("{} — 바깥에서 파일이 바뀌었습니다 (덮어쓰지 않았다)", where);
+            return out;
+        }
+        if (base && !exists) {
+            out.status = ScriptSaveResult::Status::DiskChanged;
+            out.message = std::format("{} — 바깥에서 파일이 없어졌습니다 (덮어쓰면 다시 만든다)", where);
+            return out;
+        }
+    }
+    // 줄 끝 — 파일이 쓰던 것 (편집기가 넣은 LF 를 되돌린다)
+    out.written = text::applyLineEnding(text, text::detectLineEnding(base ? *base : std::string_view(disk)));
+    if (!exists) {
+        fs::create_directories(path.parent_path(), ec);
+        if (Expected<void> w = io::writeFileAtomic(path, {}); !w) {
+            out.message = w.error().describe();
+            return out;
+        }
+    }
+    const Expected<services::DocId> id = docs.open(path);
+    if (!id) {
+        out.message = id.error().describe();
+        return out;
+    }
+    // 열려 있던 문서는 그때의 디스크를 안다 — 디스크는 위에서 base 와 대조했으니 지금 것으로 맞춘다
+    if (docs.diskState(*id) != services::DiskState::Same) {
+        if (Expected<void> r = docs.reload(*id); !r) {
+            out.message = r.error().describe();
+            return out;
+        }
+    }
+    if (Expected<void> s = docs.setText(*id, out.written, "스크립트 저장"); !s) {
+        out.message = s.error().describe();
+        return out;
+    }
+    if (Expected<void> s = docs.save(*id); !s) {
+        out.message = s.error().describe();
+        return out;
+    }
+    out.status = ScriptSaveResult::Status::Saved;
+    out.message = std::format("{} 에 저장했습니다", where);
     return out;
 }
 

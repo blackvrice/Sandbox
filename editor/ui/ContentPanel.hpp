@@ -14,6 +14,8 @@
 // ImGui::NewFrame 과 Render 사이에서. 월드는 Editor 가 명령으로만 바꾼다.
 
 #include <array>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,6 +27,16 @@
 #include "editor/ui/TriggerForm.hpp"
 
 namespace sbx::editor {
+
+namespace services {
+class DocumentService;
+}
+
+// 이 창이 팩 파일에 쓴 스크립트 (v0.9 M6-T8 조각 3) — 다음 저장의 base · "팩 파일과 같음" 표시
+struct SavedScript {
+    std::string written; // 디스크에 쓴 바이트 (줄 끝 되돌린 것)
+    std::string text;    // 그때의 편집기 글
+};
 
 struct ContentPanelState {
     content::ContentKind kind = content::ContentKind::Rule;
@@ -45,6 +57,11 @@ struct ContentPanelState {
     bool wasOpen = false;     // 열리는 프레임에 창을 앞으로
     TriggerFormState trigger; // 트리거 폼 (v0.2 M4-T3)
     ScriptEditorState script; // 스크립트 편집기 (v0.9 M6-T8 — 줄 번호 · 밑줄 · 완성 · hover)
+    // [저장 (팩 파일)] (v0.9 M6-T8 조각 3) — Application 이 문서 서비스를 넣는다 (없으면 저장 단추 없음)
+    services::DocumentService* documents = nullptr;
+    std::map<std::string, SavedScript, std::less<>> saved; // 스크립트 id → 이 창의 마지막 저장
+    enum class SaveAsk : u8 { None, Errors, Overwrite };
+    SaveAsk saveAsk = SaveAsk::None; // 저장을 멈추고 묻는 중 (오류가 있다 · 바깥에서 파일이 바뀌었다)
 };
 
 // 고친 JSON 을 이 컴퓨터에서 검사한다 (오버레이에 넣어 콘텐츠 로더로). JSON 이 아니면 그 오류 하나.
@@ -55,6 +72,12 @@ struct ContentPanelState {
 [[nodiscard]] ecs::Json contentTemplate(content::ContentKind kind, const std::string& id);
 // 고친 텍스트 → 오버레이 값: JSON 종류는 파싱 (실패하면 discarded), 스크립트 (v0.3 M5-T2) 는 {"id", "source": 텍스트}
 [[nodiscard]] ecs::Json contentEditValue(content::ContentKind kind, const std::string& id, const std::string& text);
+// [저장 (팩 파일)] (v0.9 M6-T8 조각 3, ADR-0131) — 스크립트 오버레이 id 의 팩 파일 (읽은 팩 폴더 / scripts/…) 에 편집기
+// 글을 쓴다. base = 이 창의 마지막 저장 (saved) · 없으면 팩을 읽은 때의 원문. 설치한 패키지 (.sandbox/packages/) 의
+// 파일 · 폴더를 모르는 팩은 쓰지 않는다. 저장되면 saved 를 고친다. 검사 (오류) 는 부르는 쪽이 먼저 한다
+[[nodiscard]] ScriptSaveResult saveScriptEdit(const content::ContentDatabase& db, services::DocumentService& docs,
+                                              const std::string& id, const std::string& text,
+                                              std::map<std::string, SavedScript, std::less<>>& saved, bool force);
 // 새 스크립트 파일의 틀 (시스템 하나 — id 는 파일의 오버레이 id)
 [[nodiscard]] std::string scriptTemplate(const std::string& id);
 // 진단의 "줄:열" 이 가리키는 소스 줄 — "\n  12 | <줄>" (오류 줄 보이기, 없는 줄이면 빈 문자열)

@@ -13,9 +13,11 @@
 #include <imgui.h>
 
 #include "core/content/ContentLoader.hpp"
+#include "editor/services/DocumentService.hpp"
 #include "editor/services/ScriptAssist.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/ScriptEditor.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "foundation/text/Utf8.hpp"
 
 using namespace sbx;
@@ -43,8 +45,8 @@ export default defineSystem({
 )";
 
 // inv (컴포넌트 · 함수) ← rpg (시스템 · 함수 파일 하나)
-content::ContentDatabase loadPacks(const ecs::ComponentCatalog& cat) {
-    const fs::path root = fs::temp_directory_path() / "sbx-tests" / "script-assist";
+content::ContentDatabase loadPacks(const ecs::ComponentCatalog& cat, std::string_view folder = "script-assist") {
+    const fs::path root = fs::temp_directory_path() / "sbx-tests" / folder;
     std::error_code ec;
     fs::remove_all(root, ec);
     const auto put = [&](const std::string& rel, std::string_view text) {
@@ -68,6 +70,16 @@ const script::SourceFile* fileOf(const ScriptWorkspace& ws, std::string_view pat
     const auto it =
         std::find_if(ws.files.begin(), ws.files.end(), [&](const script::SourceFile& f) { return f.path == path; });
     return it != ws.files.end() ? &*it : nullptr;
+}
+
+std::string readAll(const fs::path& path) {
+    auto bytes = io::readFile(path);
+    REQUIRE(bytes);
+    return *bytes;
+}
+
+void writeAll(const fs::path& path, std::string_view bytes) {
+    std::ofstream(path, std::ios::binary) << bytes;
 }
 
 // 파일 하나짜리 작업 공간 (위젯 · 완성 시험)
@@ -313,6 +325,106 @@ TEST_SUITE("editor") {
         CHECK((*a.cachedHover(6))->title == "함수 f(): number");
         a.edited(0.0);
         CHECK(a.cachedHover(6) == nullptr);
+    }
+
+    TEST_CASE("script save (v0.9 M6-T8 조각 3): 줄 끝 보존 · 바깥 변경 · 덮어쓰기 · 없어진 파일 · 새 파일") {
+        const fs::path dir = fs::temp_directory_path() / "sbx-tests" / "script-save";
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        fs::create_directories(dir);
+        services::DocumentService docs(nullptr);
+
+        // CRLF 파일 — 편집기가 넣은 LF 를 CRLF 로 되돌린다
+        const fs::path crlf = dir / "crlf.ts";
+        writeAll(crlf, "const a = 1\r\nconst b = 2\r\n");
+        ScriptSaveResult r = saveScriptFile(docs, crlf, "const a = 1\r\nconst b = 2\nconst c = 3\n",
+                                            std::string_view("const a = 1\r\nconst b = 2\r\n"), false);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(crlf) == "const a = 1\r\nconst b = 2\r\nconst c = 3\r\n");
+        CHECK(r.written == readAll(crlf));
+
+        // LF 파일은 LF, 섞인 파일은 그대로
+        const fs::path lf = dir / "lf.ts";
+        writeAll(lf, "x\ny\n");
+        r = saveScriptFile(docs, lf, "x\ny\nz\n", std::string_view("x\ny\n"), false);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(lf) == "x\ny\nz\n");
+        const fs::path mixed = dir / "mixed.ts";
+        writeAll(mixed, "x\r\ny\n");
+        r = saveScriptFile(docs, mixed, "x\r\ny\nz\n", std::string_view("x\r\ny\n"), false);
+        CHECK(readAll(mixed) == "x\r\ny\nz\n");
+
+        // 바깥에서 고쳤다 — base 와 다르면 쓰지 않고, force 면 쓴다 (그 문서가 열려 있어도)
+        writeAll(crlf, "// 다른 도구가 고침\r\n");
+        r = saveScriptFile(docs, crlf, "const a = 9\n", std::string_view(r.written), false);
+        CHECK(r.status == ScriptSaveResult::Status::DiskChanged);
+        CHECK(readAll(crlf) == "// 다른 도구가 고침\r\n");
+        r = saveScriptFile(docs, crlf, "const a = 9\n", std::string_view("const a = 1\r\n"), true);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(crlf) == "const a = 9\r\n"); // 줄 끝은 base 의 것
+
+        // 없어졌다 — 묻고, force 면 다시 만든다
+        fs::remove(lf);
+        r = saveScriptFile(docs, lf, "x\n", std::string_view("x\ny\nz\n"), false);
+        CHECK(r.status == ScriptSaveResult::Status::DiskChanged);
+        CHECK_FALSE(fs::exists(lf));
+        r = saveScriptFile(docs, lf, "x\n", std::string_view("x\ny\nz\n"), true);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(lf) == "x\n");
+
+        // 새 파일 (base 없음) — 폴더까지 만든다
+        const fs::path fresh = dir / "ai" / "deep" / "wander.ts";
+        r = saveScriptFile(docs, fresh, "export const w = 1\n", std::nullopt, false);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(fresh) == "export const w = 1\n");
+        CHECK_FALSE(docs.dirty(*docs.find(fresh)));
+    }
+
+    TEST_CASE(
+        "script save (v0.9 M6-T8 조각 3): 콘텐츠 창 — 팩 폴더의 그 파일 · base 이어가기 · 다시 읽으면 그 글로 컴파일") {
+        FakeHost host;
+        const content::ContentDatabase db = loadPacks(host.cat, "script-save-pack");
+        const fs::path root = fs::temp_directory_path() / "sbx-tests" / "script-save-pack";
+        const fs::path file = root / "rpg" / "scripts" / "regen.ts";
+        services::DocumentService docs(nullptr);
+        std::map<std::string, SavedScript, std::less<>> saved;
+
+        std::string text(kRegen);
+        text.replace(text.find("refill(m.current)"), 17, "refill(m.current) + 1");
+        ScriptSaveResult r = saveScriptEdit(db, docs, "rpg.regen", text, saved, false);
+        REQUIRE(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(readAll(file) == text);
+        REQUIRE(saved.contains("rpg.regen"));
+        CHECK(saved["rpg.regen"].text == text);
+
+        // 다음 저장의 base 는 이 창이 쓴 것 (팩을 읽은 때의 원문이 아니다)
+        text += "// 두 번째\n";
+        r = saveScriptEdit(db, docs, "rpg.regen", text, saved, false);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        // 바깥에서 고치면 멈춘다
+        writeAll(file, "// 다른 도구\n");
+        r = saveScriptEdit(db, docs, "rpg.regen", text + "// 세 번째\n", saved, false);
+        CHECK(r.status == ScriptSaveResult::Status::DiskChanged);
+        CHECK(readAll(file) == "// 다른 도구\n");
+        r = saveScriptEdit(db, docs, "rpg.regen", text, saved, true);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+
+        // 팩에 없던 새 파일 · 모르는 팩
+        r = saveScriptEdit(db, docs, "rpg.ai.wander", "export const w = 1\n", saved, false);
+        CHECK(r.status == ScriptSaveResult::Status::Saved);
+        CHECK(fs::exists(root / "rpg" / "scripts" / "ai" / "wander.ts"));
+        r = saveScriptEdit(db, docs, "nope.x", "x", saved, false);
+        CHECK(r.status == ScriptSaveResult::Status::Failed);
+
+        // 다시 읽으면 저장한 글 — 컴파일된다
+        content::ContentLoadResult again =
+            content::ContentLoader::load(root, std::vector<std::string>{"inv", "rpg"}, host.cat);
+        CAPTURE(again.issues.size());
+        REQUIRE(again.ok());
+        const auto ws = scriptWorkspace(again.db, "rpg.regen", text);
+        REQUIRE(ws);
+        CHECK(fileOf(*ws, "scripts/ai/wander.ts") != nullptr);
+        CHECK(analyzeScript(*ws).empty());
     }
 
     TEST_CASE("script editor widget (v0.9 M6-T8): 글 배치 — 자리 → 점 → 자리 왕복, 줄 밖은 없음") {

@@ -1041,6 +1041,7 @@ bool Application::frame() {
                 if (m_shell.view.hierarchy) {
                     editor::drawHierarchyPanel(m_editor, m_inspector, *host);
                 }
+                m_contentPanel.documents = &m_documents; // [저장 (팩 파일)] (v0.9 M6-T8)
                 editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
             }
             if (m_config.autosave != nullptr && m_config.autosave->pending()) { // v0.8 M6-T7 복구 제안

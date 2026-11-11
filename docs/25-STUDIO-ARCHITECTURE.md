@@ -230,7 +230,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | Studio 셸 (메뉴 · 툴바 · 도크 공간 · 프리셋 · 디자인 토큰 · 개발자 창 나누기) | ✅ v0.8 UI-1 (StudioShell · StudioTheme · StudioWidgets — ADR-0118, 29) |
 | GUI 빌드 · 누락 검사 | ✅ v0.8 M6-T3 (BuildService · "빌드" 창 — ADR-0112) |
 | 자동 저장 · 복구 | ✅ v0.8 M6-T7 (AutosaveService · 복구 창 — ADR-0113) |
-| 스크립트 자동 완성 · hover 기본 | ✅ v0.9 M6-T8 (언어 서비스 ADR-0129 · 편집기 위젯 ADR-0130 — 밑줄 · 팝업 · hover · 이동), [저장 (팩 파일)] 은 조각 3 |
+| 스크립트 자동 완성 · hover 기본 | ✅ v0.9 M6-T8 (언어 서비스 ADR-0129 · 편집기 위젯 ADR-0130 — 밑줄 · 팝업 · hover · 이동, [적용 (오버레이)] / [저장 (팩 파일)] ADR-0131) |
 | Editor Services 층 · Command · Document · Undo 통합 | [계획 v0.6] (v0.5 는 새 기능부터 services 에) |
 | 에셋 브라우저 · 가져오기 · 안정 id | [계획 v0.5 최소 · v0.6] (26) |
 | 서버+N 테스트 · 지연 모의 | ✅ v0.8 ST-06-9 (TestService · "테스트" 창 · --net-sim — ADR-0115) |

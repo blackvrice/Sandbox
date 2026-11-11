@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T8 조각 3: [적용 (오버레이)] / [저장 (팩 파일)] 구분 — 줄 끝 보존 (ADR-0131) — M6-T8 끝
+
+**무엇을**
+
+- editor/services/ScriptAssist: saveScriptFile — base (이 창의 마지막 저장 · 팩을 읽은 때의 원문) 와 디스크를 대조 (바깥 변경 · 없어짐 →
+  DiskChanged, force 면 쓴다), base 의 줄 끝으로 (applyLineEnding), 새 파일은 폴더까지, 쓰기는 DocumentService (원자적).
+- core/content: ContentSourcePack::dir (로더가 읽은 팩 폴더 — 해시 밖).
+- 콘텐츠 창: [적용 (오버레이)] · [저장 (팩 파일)] (검사 오류 → [오류가 있어도 저장], 바깥 변경 → [덮어쓰기]), 머리 줄 "팩 파일과 같음 · 다름 ·
+  없음", 설치한 패키지는 거절. saveScriptEdit (id → 팩 파일 · saved 이어가기). Application 이 DocumentService 를 갖는다 (되돌리기 줄 밖).
+- 문서: ADR-0131, 27 0 · 8 · 9장, 17 · 13 · 25 · 28 (G4), 등록부 M6-T8 Done, 18 · 23 · roadmap 다음 줄, MANUAL-QA 저장 줄.
+
+**왜**
+
+- M6-T8 의 마지막 조각 — 적용은 월드에만 남고 (16 KB 상한), 팩 파일에 남길 길이 없었다. 편집기의 LF 가 CRLF 파일을 섞지 않게.
+
+**검증**
+
+- test_script_assist 2 새 시험: 저장 (CRLF 되돌림 · LF · 섞임 · 바깥 변경 · 덮어쓰기 (열린 문서도) · 없어진 파일 · 새 파일), 콘텐츠 창 저장 (팩
+  폴더의 파일 · base 이어가기 · 바깥 변경 · 새 id · 모르는 팩 · 다시 읽으면 컴파일).
+- 측정 고침: 조각 2 의 Debug 812 ms 는 시험 파일이 6,544 줄이던 값 — 5,000 줄은 560 · 2.3 · 3.6 ms (ADR-0131 에 적음).
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 저장한 팩 파일을 지금 DB 에 다시 읽기, 일반 파일 편집기 (DocumentService 문서 탭), 파일 감시, 구문 색은 [계획]. 창 확인은 MANUAL-QA.
+- v0.9 의 다음: ST-06-7 재생 디버거 · ST-06-8 언어 서비스 색인.
+
 ## 2026-11-11 — v0.9 M6-T8 조각 2: 스크립트 편집기 위젯 — 밑줄 · 완성 팝업 · hover · 이동 (ADR-0130)
 
 **무엇을**
