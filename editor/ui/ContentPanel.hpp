@@ -8,6 +8,8 @@
 //   (TriggerForm — 노드 · 연결 양식) 과 "JSON" 탭, 요약에 실행 표현 (펼친 명령열). 행동 · 규칙의 폼 · 노드 그래프
 //   편집은 [계획]. 역할이 콘텐츠를 바꿀 수 없으면 보기만. 스크립트 (v0.3 M5-T2, ADR-0066) 는 팩의 scripts/*.ts 를 소스
 //   그대로 고친다 — 검사 결과의 오류마다 그 줄을 붙여 보이고, 적용 = 오버레이 Script (서버가 팩을 다시 컴파일).
+//   스크립트 편집 칸은 ScriptEditor (v0.9 M6-T8 — 입력 멈춤 300 ms 뒤 진단 밑줄 · 자동 완성 · hover), 아래 목록의
+//   실시간 진단을 누르면 그 자리로 커서를 옮긴다.
 //
 // ImGui::NewFrame 과 Render 사이에서. 월드는 Editor 가 명령으로만 바꾼다.
 
@@ -19,6 +21,7 @@
 
 #include "core/content/ContentOverlay.hpp"
 #include "editor/Editor.hpp"
+#include "editor/ui/ScriptEditor.hpp"
 #include "editor/ui/TriggerForm.hpp"
 
 namespace sbx::editor {
@@ -41,6 +44,7 @@ struct ContentPanelState {
     std::optional<std::string> pendingFrom;
     bool wasOpen = false;     // 열리는 프레임에 창을 앞으로
     TriggerFormState trigger; // 트리거 폼 (v0.2 M4-T3)
+    ScriptEditorState script; // 스크립트 편집기 (v0.9 M6-T8 — 줄 번호 · 밑줄 · 완성 · hover)
 };
 
 // 고친 JSON 을 이 컴퓨터에서 검사한다 (오버레이에 넣어 콘텐츠 로더로). JSON 이 아니면 그 오류 하나.

@@ -179,6 +179,7 @@
 | `editor/services/StudioSettings.{hpp,cpp}` · `LayoutService.{hpp,cpp}` · `editor/ui/LayoutPanel.{hpp,cpp}` | Studio 설정 (studio.json — 서비스마다 자기 키 · 깨진 파일 옮기기 · 더 새 판은 쓰지 않음) · 레이아웃 (studio/layouts/<이름>.ini — 이름 · 고르기 · 저장 · 기억 · 깨진 ini 옮기기 · 안전 모드 끔), "레이아웃" 창 (v0.8 M6-T6, ADR-0114) | SandboxEditorServices · SandboxEditor |
 | `editor/services/TestService.{hpp,cpp}` · `editor/ui/TestPanel.{hpp,cpp}` · `apps/client/studio/ProcessLauncher.{hpp,cpp}` | Studio 테스트 세션 — 계획 (서버 + 1 ~ 4 클라이언트 · 127.0.0.1 · 흉내 · 자동 시험) · 상태 · 모두 끝내기 (IProcessLauncher 주입), "테스트" 창, 런처 (spawnProcess) (v0.8 ST-06-9, ADR-0115) | SandboxEditorServices · SandboxEditor · SandboxClient |
 | `editor/ui/StudioTheme.{hpp,cpp}` · `editor/ui/StudioWidgets.{hpp,cpp}` | Studio 디자인 토큰 (색 · 간격 · 밀도 → ImGuiStyle) · 공통 위젯 (페이지 제목 · 묶음 머리 · 주/보조 단추 · 툴바 토글 · 배지 · 상태 글 · 빈 상태 · 카드 · 이니셜 타일) (v0.8 UI-1, ADR-0118) | SandboxEditor |
+| `editor/services/ScriptAssist.{hpp,cpp}` · `editor/ui/ScriptEditor.{hpp,cpp}` | 스크립트 편집기 — 서비스: 작업 공간 (팩 · 오버레이 · 의존 팩 — 로더와 같은 입력) · 진단 → 밑줄 범위 · 입력 멈춤 300 ms · 완성 세션 · hover 기억. 위젯: ImGui 여러 줄 입력 + 줄 번호 · 밑줄 · '.' · Ctrl+Space 팝업 · hover · 이동 (v0.9 M6-T8 조각 2, ADR-0130). 시험 `tests/unit/editor/test_script_assist.cpp` | SandboxEditorServices · SandboxEditor |
 | `editor/ui/CommandPalette.{hpp,cpp}` | 명령 팔레트 (Ctrl+Shift+P — CommandService::search · ↑ ↓ · Enter · Esc · 흐린 끈 명령) · 단축키 표 · 충돌, shortcutChord (단축키 글자 → ImGui 키 조합) (v0.8 ST-06-2) | SandboxEditor |
 | `editor/ui/ConsolePanel.{hpp,cpp}` | Studio "콘솔" — 로그 최근 줄 (log::recentLines · recentTotal 이 바뀔 때만), 수준 · 글자 거르기 · 지우기 · 복사 · 따라가기 (v0.8 UI-3) | SandboxEditor |
 | `apps/client/studio/StudioShell.{hpp,cpp}` | Studio 셸 — 메뉴 막대 · 툴바 · 상태 막대 · 도크 공간 (가운데 통과) · 배치 프리셋 (DockBuilder) · 모드 띠, 고른 일만 돌려준다 (ShellActions) (v0.8 UI-1, ADR-0118) | SandboxClient |
@@ -423,7 +424,7 @@ render/
 editor/
   EditorHost (ICommandSink · IEditorHost · EditPermissions) · Editor (툴 · EditPreview · editContent) · Undo
   ui/           EditorPanel ("편집") · InspectorPanel (인스펙터 · 목록) · ContentPanel ("콘텐츠" — JSON · 트리거 폼 · 스크립트) ·
-                TriggerForm
+                TriggerForm · ScriptEditor (스크립트 칸 — v0.9 M6-T8)
   [계획]        panels/ · tools/ · selection/ 로 나누기 — 지금은 Editor 한 클래스
 
 apps/client/

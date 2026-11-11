@@ -61,6 +61,12 @@ struct HoverInfo {
 [[nodiscard]] std::vector<CompletionItem> complete(const LanguageQuery& q);
 [[nodiscard]] std::optional<HoverInfo> hover(const LanguageQuery& q);
 
+// 커서 앞 이름의 시작 — 완성의 접두 자리 (ASCII 이름 글자 · '$' · UTF-8 의 비 ASCII 바이트, 편집기 위젯이 같은 규칙을
+// 쓴다 — v0.9 M6-T8 조각 2)
+[[nodiscard]] usize completionWordStart(std::string_view text, usize offset) noexcept;
+// complete 가 쓰는 거르기 · 차례: 대소문자 무시 접두, 정확히 그 접두로 시작하는 것 먼저, 이름 순, 같은 이름은 하나
+void filterCompletions(std::vector<CompletionItem>& items, std::string_view prefix);
+
 // 그 도메인 콜백의 ctx 멤버 — 이름 순 (같은 이름 없음)
 [[nodiscard]] std::vector<CompletionItem> contextMembers(api::HostDomain domain);
 // 옛 프로토타입 (v0.5 감사) — 글만 보고 "ctx." 뒤를 도메인으로. 검사기가 쓸 수 없을 때 (파싱 오류) complete 가 이것으로

@@ -665,4 +665,12 @@ std::optional<HoverInfo> hover(const LanguageQuery& q) {
     return std::nullopt;
 }
 
+usize completionWordStart(std::string_view text, usize offset) noexcept {
+    return wordStart(text, offset);
+}
+
+void filterCompletions(std::vector<CompletionItem>& items, std::string_view prefix) {
+    finish(items, prefix);
+}
+
 } // namespace sbx::script

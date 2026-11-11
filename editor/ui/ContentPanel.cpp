@@ -12,6 +12,7 @@
 #include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/PackGroups.hpp"
+#include "editor/services/ScriptAssist.hpp"
 #include "foundation/text/TextPosition.hpp"
 #include "foundation/text/Utf8.hpp"
 
@@ -584,6 +585,11 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             }
             ImGui::EndTabBar();
         }
+    } else if (st.kind == content::ContentKind::Script) {
+        // 스크립트 편집기 (v0.9 M6-T8) — 작업 공간 = 이 파일의 팩 스크립트 (오버레이 반영) + 편집 중인 글
+        const std::string id = st.selected;
+        (void)drawScriptEditor("##script", st.text, editSize, !editable, st.script,
+                               [db, id](std::string_view t) { return scriptWorkspace(*db, id, t); });
     } else {
         inputJson("##json", st.text, editSize, !editable);
     }
@@ -628,6 +634,36 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
         }
     }
     ImGui::BeginChild("##issues", {0, 0}, ImGuiChildFlags_Borders);
+    if (st.kind == content::ContentKind::Script) {
+        // 실시간 진단 (입력 멈춤 300 ms 뒤 검사기 — 누르면 그 자리로)
+        const auto& marks = st.script.assist.marks();
+        const auto errors =
+            static_cast<usize>(std::ranges::count_if(marks, [](const ScriptMark& m) { return m.error; }));
+        if (st.script.assist.marksStale()) {
+            ImGui::TextDisabled("실시간 진단 — 입력이 멈추면 다시 검사합니다");
+        } else if (marks.empty()) {
+            ImGui::TextDisabled("실시간 진단 — 문제 없음");
+        } else {
+            ImGui::TextDisabled("실시간 진단 — 오류 %zu · 경고 %zu (누르면 그 자리로)", errors, marks.size() - errors);
+        }
+        for (usize i = 0; i < marks.size(); ++i) {
+            const ScriptMark& m = marks[i];
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::PushStyleColor(ImGuiCol_Text, m.error ? ImVec4{1.f, 0.5f, 0.4f, 1.f} : ImVec4{1.f, 0.8f, 0.4f, 1.f});
+            const std::string first = m.text.substr(0, m.text.find('\n'));
+            if (ImGui::Selectable(first.c_str())) {
+                st.script.gotoOffset = m.begin;
+            }
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered() && first.size() != m.text.size()) {
+                ImGui::SetTooltip("%s", m.text.c_str());
+            }
+            ImGui::PopID();
+        }
+        if (!marks.empty() || !st.issues.empty()) {
+            ImGui::Separator();
+        }
+    }
     for (const ContentPanelState::Issue& i : st.issues) {
         ImGui::PushTextWrapPos(0);
         if (i.error) {
