@@ -169,6 +169,15 @@ void mainMenu(ShellState& st, const ShellInputs& in, ShellActions& act) {
             st.density = th::Density::Compact;
             act.densityChanged = true;
         }
+        for (const auto t : {th::Theme::Dark, th::Theme::Light, th::Theme::HighContrast}) {
+            const char* label = t == th::Theme::Dark    ? "어두운 테마"
+                                : t == th::Theme::Light ? "밝은 테마"
+                                                        : "고대비 테마";
+            if (menuItem(label, nullptr, true, st.theme == t) && st.theme != t) {
+                st.theme = t;
+                act.themeChanged = true;
+            }
+        }
         ImGui::MenuItem("개발자 창 (진단)", nullptr, &st.developerPanels);
         ImGui::EndMenu();
     }
@@ -189,6 +198,12 @@ void mainMenu(ShellState& st, const ShellInputs& in, ShellActions& act) {
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("도움말")) {
+        if (menuItem("명령 팔레트", "Ctrl+Shift+P")) {
+            act.openPalette = true;
+        }
+        if (menuItem("단축키 표 · 충돌", nullptr)) {
+            act.openShortcuts = true;
+        }
         ImGui::SeparatorText("단축키");
         for (const auto& [k, v] :
              std::array<std::pair<const char*, const char*>, 9>{{{"1 ~ 5", "툴 (선택 · 이동 · 배치 · 지형 · 지우기)"},

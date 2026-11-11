@@ -151,6 +151,7 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
         log::info("client", "Player 모드");
     }
     m_shell.density = m_config.compactDensity ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
+    m_shell.theme = editor::theme::themeFromName(m_config.theme).value_or(editor::theme::Theme::Dark); // v0.8 ST-06-2
     if (m_config.ui != nullptr) {
         applyTheme();
         m_shell.pendingPreset = std::string("scene"); // 저장된 배치가 없으면 기본 (아래에서 지운다)
@@ -939,8 +940,44 @@ bool Application::frame() {
         if (m_shell.developerPanels) {
             act = drawDebugPanels(m_panels, pin);
         }
+        // 명령 (팔레트 · 단축키) 이 고른 셸 일 — 툴바 · 메뉴와 같은 길 (v0.8 ST-06-2)
+        if (!m_config.playerMode) {
+            dispatchShortcuts();
+            if (const auto id = editor::drawCommandPalette(m_palette, m_commands)) {
+                (void)m_commands.run(*id);
+            }
+            editor::drawShortcutTable(m_shortcutsOpen, m_commands);
+        }
+        {
+            ShellActions& c = m_commandShell;
+            shell.tool = shell.tool ? shell.tool : c.tool;
+            shell.undo |= c.undo;
+            shell.redo |= c.redo;
+            shell.clearSelection |= c.clearSelection;
+            shell.play |= c.play;
+            shell.stop |= c.stop;
+            shell.togglePause |= c.togglePause;
+            shell.step |= c.step;
+            shell.save |= c.save;
+            shell.fitCamera |= c.fitCamera;
+            shell.grid = shell.grid ? shell.grid : c.grid;
+            shell.details = shell.details ? shell.details : c.details;
+            shell.layout = shell.layout ? shell.layout : c.layout;
+            shell.resetLayout |= c.resetLayout;
+            shell.themeChanged |= c.themeChanged;
+            m_commandShell = ShellActions{};
+        }
+        if (shell.openPalette) {
+            editor::openPalette(m_palette);
+        }
+        if (shell.openShortcuts) {
+            m_shortcutsOpen = true;
+        }
         if (inWorld) {
             applyShellActions(shell, act);
+        } else if (shell.themeChanged) {
+            PanelActions unused;
+            applyShellActions(shell, unused);
         }
         drawNotices(m_config.notices, m_noticesOpen);
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
@@ -1315,6 +1352,58 @@ void Application::registerStudioCommands() {
          [this] { m_commandFailed = !saveLayout(true) || m_commandFailed; }});
     add({"studio.reset-layout", "기본 배치로", "", "global", hasLayouts,
          [this] { applyLayoutAction({editor::LayoutPanelAction::Kind::Reset, {}}); }});
+    // 셸 일을 명령으로 (v0.8 ST-06-2 — 팔레트 · 단축키 표). 행동 표가 듣는 키는 keyHint (보이기만), 명령 표만의 키는
+    // shortcut
+    const auto inWorld = [this] { return m_state == AppState::InWorld && m_config.world != nullptr; };
+    const auto editing = [this, inWorld] { return inWorld() && m_config.world->editorHost() != nullptr; };
+    const auto shell = [this](auto&& f) { return [this, f] { f(m_commandShell); }; };
+    add({"studio.palette", "명령 팔레트", "Ctrl+Shift+P", "global", {}, [this] { editor::openPalette(m_palette); }});
+    add({"studio.shortcuts", "단축키 표 · 충돌", "", "global", {}, [this] { m_shortcutsOpen = true; }});
+    add({"world.save", "월드 저장", "", "global", inWorld, shell([](ShellActions& a) { a.save = true; }), "Ctrl+S"});
+    add({"world.play", "플레이 (테스트 플레이)", "F5", "global", inWorld,
+         shell([](ShellActions& a) { a.play = true; })});
+    add({"world.stop", "플레이 멈춤", "Shift+F5", "global", inWorld, shell([](ShellActions& a) { a.stop = true; })});
+    add({"world.pause", "일시정지 · 재개", "", "global", inWorld, shell([](ShellActions& a) { a.togglePause = true; }),
+         "Space"});
+    add({"world.step", "한 틱 진행", "", "global", inWorld, shell([](ShellActions& a) { a.step = true; }), "."});
+    add({"edit.undo", "되돌리기", "", "global", editing, shell([](ShellActions& a) { a.undo = true; }), "Ctrl+Z"});
+    add({"edit.redo", "다시 하기", "", "global", editing, shell([](ShellActions& a) { a.redo = true; }), "Ctrl+Y"});
+    add({"edit.clear-selection", "선택 해제", "", "global", editing,
+         shell([](ShellActions& a) { a.clearSelection = true; }), "Escape"});
+    const std::array<std::pair<const char*, const char*>, 5> tools{{{"tool.select", "선택 툴"},
+                                                                    {"tool.move", "이동 툴"},
+                                                                    {"tool.place", "배치 툴"},
+                                                                    {"tool.terrain", "지형 툴"},
+                                                                    {"tool.erase", "지우기 툴"}}};
+    for (usize i = 0; i < tools.size(); ++i) {
+        const auto t = static_cast<editor::Tool>(i);
+        add({tools[i].first, tools[i].second, "", "global", editing, shell([t](ShellActions& a) { a.tool = t; }),
+             std::to_string(i + 1)});
+    }
+    add({"view.grid", "격자 켜고 끄기", "", "global", inWorld,
+         [this] { m_commandShell.grid = !m_renderWorld.overlay.grid; }, "G"});
+    add({"view.fit", "월드 맞춤", "", "global", inWorld, shell([](ShellActions& a) { a.fitCamera = true; }), "Home"});
+    for (const char* preset : {"scene", "scripting", "play"}) {
+        add({std::format("view.layout-{}", preset), std::format("배치: {}", preset), "", "global", hasLayouts,
+             [this, preset] { m_commandShell.layout = std::string(preset); }});
+    }
+    add({"view.developer-panels", "개발자 창 켜고 끄기", "", "global", {}, [this] {
+             m_shell.developerPanels = !m_shell.developerPanels;
+         }});
+    add({"view.console", "콘솔 창 켜고 끄기", "", "global", {}, [this] {
+             m_shell.view.console = !m_shell.view.console;
+         }});
+    for (const auto t : {editor::theme::Theme::Dark, editor::theme::Theme::Light, editor::theme::Theme::HighContrast}) {
+        const char* title = t == editor::theme::Theme::Dark    ? "테마: 어두움"
+                            : t == editor::theme::Theme::Light ? "테마: 밝음"
+                                                               : "테마: 고대비";
+        add({std::format("view.theme-{}", editor::theme::themeName(t)), title, "", "global", {}, [this, t] {
+                 if (m_shell.theme != t) {
+                     m_shell.theme = t;
+                     m_commandShell.themeChanged = true;
+                 }
+             }});
+    }
     add({"studio.build", "빌드", "Ctrl+B", "global", buildable, [this] {
              const std::string profile = chosenProfile(m_buildPanel, m_profiles);
              if (m_config.builds->start({m_projectDir, {}, profile})) {
@@ -1728,7 +1817,8 @@ void Application::applyTheme() {
         return;
     }
     ImGuiStyle& style = ImGui::GetStyle();
-    editor::theme::applyStudioTheme(style, m_shell.density, style.FontScaleDpi > 0.f ? style.FontScaleDpi : 1.f);
+    editor::theme::applyStudioTheme(style, m_shell.density, style.FontScaleDpi > 0.f ? style.FontScaleDpi : 1.f,
+                                    m_shell.theme);
 }
 
 ShellInputs Application::shellInputs(bool inWorld) const {
@@ -1844,6 +1934,16 @@ void Application::applyShellActions(const ShellActions& a, PanelActions& panel) 
             log::warn("studio", "간격 설정을 저장하지 못했다 — {}", w.error().describe());
         }
     }
+    if (a.themeChanged) { // v0.8 ST-06-2 — 다음 실행도 같게
+        applyTheme();
+        const std::string name(editor::theme::themeName(m_shell.theme));
+        if (const Expected<void> w =
+                editor::services::writeStudioSetting(m_config.studioSettingsFile, "theme", "\"" + name + "\"");
+            !w) {
+            log::warn("studio", "테마 설정을 저장하지 못했다 — {}", w.error().describe());
+        }
+        log::info("studio", "테마: {}", name);
+    }
     if (m_shell.developerPanels != m_config.developerPanels) { // 보기 › 개발자 창 — 다음 실행도 같게
         m_config.developerPanels = m_shell.developerPanels;
         if (const Expected<void> w = editor::services::writeStudioSetting(
@@ -1950,6 +2050,28 @@ void Application::playerReport() {
     }
     m_playerHome.reportPath = dir->generic_string();
     log::info("client", "보고 묶음: {}", m_playerHome.reportPath);
+}
+
+// ---- 단축키 (v0.8 ST-06-2 — 명령 표의 shortcut 만. 행동 표의 키는 행동 표가 듣는다) ----
+
+void Application::dispatchShortcuts() {
+    if (m_config.ui == nullptr || ImGui::GetIO().WantTextInput) {
+        return; // 글자 칸에 쓰는 중
+    }
+    const std::string_view context =
+        m_state == AppState::MainMenu ? std::string_view("home") : std::string_view("global");
+    for (const editor::services::CommandSpec& c : m_commands.commands()) {
+        if (c.shortcut.empty()) {
+            continue;
+        }
+        const std::optional<ImGuiKeyChord> chord = editor::shortcutChord(c.shortcut);
+        if (chord && ImGui::Shortcut(*chord, ImGuiInputFlags_RouteGlobal)) {
+            if (const auto ran = m_commands.runShortcut(c.shortcut, context)) {
+                log::info("studio", "단축키 {} → {}", c.shortcut, *ran);
+            }
+            return; // 한 프레임에 하나
+        }
+    }
 }
 
 } // namespace sbx::client

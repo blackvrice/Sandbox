@@ -6,6 +6,9 @@
 // 색 (다크 하나 — 밝음 · 고대비는 ST-06-2 [계획]): 대비는 WCAG 공식으로 계산해 29 3장에 적었다 (글자 14.6:1 ·
 // 보조 5.3:1 · 강조 위 글자 10.1:1). 간격은 4 단위 × 배율 (uiScale × DPI — 부르는 쪽이 넘긴다).
 
+#include <optional>
+#include <string_view>
+
 #include <imgui.h>
 
 #include "foundation/types/Types.hpp"
@@ -13,6 +16,10 @@
 namespace sbx::editor::theme {
 
 enum class Density : u8 { Comfortable, Compact };
+// 테마 (v0.8 ST-06-2): 어두움 (기본) · 밝음 · 고대비 — 대비는 WCAG 공식으로 계산 (29 3장)
+enum class Theme : u8 { Dark, Light, HighContrast };
+[[nodiscard]] std::string_view themeName(Theme t) noexcept; // "dark" · "light" · "high-contrast"
+[[nodiscard]] std::optional<Theme> themeFromName(std::string_view name) noexcept;
 enum class Status : u8 { Info, Muted, Success, Warning, Error, Accent };
 
 struct Tokens {
@@ -30,7 +37,9 @@ struct Tokens {
     ImVec4 success;
 };
 
+// 지금 테마의 토큰 (applyStudioTheme 가 바꾼다 — UI 는 한 스레드)
 [[nodiscard]] const Tokens& tokens() noexcept;
+[[nodiscard]] const Tokens& tokensOf(Theme t) noexcept;
 [[nodiscard]] ImVec4 statusColor(Status s) noexcept;
 [[nodiscard]] ImU32 toU32(const ImVec4& c) noexcept;
 
@@ -44,6 +53,6 @@ inline constexpr float kPanelMinHeight = 120.f;
 
 // ImGuiStyle 를 토큰 · 밀도 · 배율로 (색 · 둥글기 · 안쪽 여백 · 간격). 배율은 style.FontScaleDpi 와 따로 —
 // ScaleAllSizes 를 부르지 않고 값을 직접 정한다 (두 번 부르면 겹쳐 커지지 않게)
-void applyStudioTheme(ImGuiStyle& style, Density density, float scale);
+void applyStudioTheme(ImGuiStyle& style, Density density, float scale, Theme theme = Theme::Dark);
 
 } // namespace sbx::editor::theme

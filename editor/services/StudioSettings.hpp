@@ -4,7 +4,8 @@
 //
 //   {"schemaVersion": 1, "recentProjects": [...] (ProjectService), "layout": "<이름>" (LayoutService — 지금 레이아웃),
 //    "autosaveSeconds": 180 (AutosaveService 주기 — --autosave-seconds 가 이긴다, 0 = 끔),
-//    "developerPanels": false · "density": "comfortable" | "compact" (Studio 셸 — v0.8 UI-1)}
+//    "developerPanels": false · "density": "comfortable" | "compact" (Studio 셸 — v0.8 UI-1),
+//    "theme": "dark" | "light" | "high-contrast" (v0.8 ST-06-2)}
 //
 // 여러 서비스가 같은 파일의 자기 키만 쓴다 — 쓰기는 읽고 · 한 키를 바꾸고 · 원자적으로 쓴다 (다른 키 · 모르는 키는
 // 그대로). 깨진 파일 (JSON 객체가 아니다) 은 옆 "studio.json.broken" 으로 옮기고 기본값 + 경고 (M1-T3 의 규칙 — 먼저
@@ -29,6 +30,7 @@ struct StudioSettings {
     std::optional<double> autosaveSeconds; // 없으면 서비스 기본값
     bool developerPanels = false;          // 보기 › 개발자 창 (v0.8 UI-1 — ADR-0118)
     bool compactDensity = false;           // "density": "compact" (v0.8 UI-1)
+    std::string theme;                     // "dark" · "light" · "high-contrast" (v0.8 ST-06-2 — 비면 dark)
 };
 
 struct StudioSettingsLoad {

@@ -10,6 +10,7 @@
 // context: 단축키가 듣는 곳 ("global" — 어디서나, 그 밖은 화면 이름 "scene" · "script" …). 같은 단축키가 겹치는 곳
 // (같은 곳이거나 한쪽이 global) 에 둘이면 충돌 — 등록은 받고 conflicts() 가 알린다 (사용자 키 덮기가 풀 수 있다).
 // when: 실행할 수 있는가 (없으면 언제나) — 팔레트는 흐리게, 단축키 · run 은 하지 않는다.
+// keyHint: 보이기만 하는 키 (v0.8 ST-06-2 — 행동 표가 듣는 키, runShortcut · conflicts 에 들지 않는다).
 // 단축키 실행 (runShortcut): 그 곳 (context) 의 명령이 global 보다 먼저, 같은 곳 안에서는 등록 차례 — 실행할 수 있는 첫
 // 명령 하나.
 
@@ -32,6 +33,9 @@ struct CommandSpec {
     std::string context{kGlobalContext};
     std::function<bool()> when{}; // 없으면 언제나
     std::function<void()> run{};
+    // 보이기만 하는 키 (v0.8 ST-06-2): 행동 표 (ActionMap — Ctrl+S · 1 ~ 5 · Space …) 가 듣는 키를 팔레트 · 단축키 표에
+    // 적는다. shortcut 과 달리 runShortcut · 충돌 진단에 들지 않는다 (두 곳이 같은 키를 듣지 않게)
+    std::string keyHint{};
 };
 
 struct ShortcutConflict {

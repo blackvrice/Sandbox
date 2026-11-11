@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-11 — v0.8 ST-06-2: 명령 팔레트 · 단축키 표 · 명령 표의 단축키 실행 · 테마 셋 (ADR-0122)
+
+**무엇을**
+
+- editor/ui/CommandPalette: 팔레트 (Ctrl+Shift+P — 찾기 · ↑ ↓ · Enter · Esc · 포커스 잃으면 닫기 · 끈 명령 흐림 · 줄마다 키),
+  단축키 표 (키 · 이름 · id · 충돌), shortcutChord ("Ctrl+Shift+P" → ImGui 키 조합).
+- CommandSpec.keyHint (보이기만 하는 키 — 행동 표가 듣는 Ctrl+S · Ctrl+Z · 1 ~ 5 · Space …), Application 이 명령 표의 shortcut 을
+  ImGui::Shortcut (RouteGlobal) 로 실행 (글자 칸에 쓰는 중이면 쉰다) — 지금 Ctrl+N · O · B · Shift+P · F5 · Shift+F5.
+- 셸 일을 명령으로 (world.* · edit.* · tool.* · view.* · studio.palette · studio.shortcuts): ShellActions 를 채워 다음 셸 단계에서
+  툴바 · 메뉴와 같은 길 (applyShellActions).
+- 테마 Dark · Light · HighContrast (StudioTheme — 같은 토큰, 고대비는 테두리 굵게), 보기 메뉴 · 명령 · studio.json "theme" (모르는 이름은 그 키만 무시).
+- 문서: ADR-0122, 29 2 · 3 · 4장, 25 4장, 17 · 13 · MANUAL-QA, 등록부 ST-06-2 Done, 다음 줄.
+
+**왜**
+
+- v0.8 트랙 B — 명령 표의 단축키가 메뉴에 보이기만 하고 실행되지 않았고 (Ctrl+N · Ctrl+O · Ctrl+B), 명령을 찾을 곳이 메뉴뿐, 테마는 어두움 하나였다 (28 G10 고대비).
+
+**검증**
+
+- test_command_palette (단축키 글자 해석 · 거절, 세 테마 이름 왕복 · WCAG 대비 계산 — 본문 7 · 나머지 4.5 · 고대비 7, 적용 뒤 tokens()),
+  test_layout_service (theme 키), test_studio_shell (명령 등록 · 충돌 없음 · keyHint, 명령으로 · Ctrl+Shift+P 키로 팔레트 열기 · 입력 칸 포커스 ·
+  Esc 닫기, tool.* · view.theme-* 명령 → 툴 · 스타일 색, 단축키 표).
+- 대비 수치는 계산값 (밝음 14.8 / 6.1 / 5.9 · 고대비 21 / 12.8 / 14.7 — 29 3장). 처음 밝음 강조로 어두움의 노랑을 쓰면 흰 바닥에서 1.8:1 이라 #8A5A00 으로.
+- 팔레트가 매 프레임 포커스를 가져가면 다른 창을 누를 수 없어 — 연 프레임에만 포커스, 그 뒤 잃으면 닫는다.
+- clang-tidy 바뀐 파일 경고 없음. 창 화면 (밝음 · 고대비의 읽힘 · 키) 은 MANUAL-QA [ ].
+- 헤드리스 SandboxClient --safe-mode --run-command view.theme-high-contrast · tool.erase · studio.palette — "테마: high-contrast", 종료 0.
+- Windows MSVC Debug 빌드 · 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님).
+
+**남은 일**
+
+- 사용자 키 다시 매기기 (명령 표 키 덮기) · 행동 표와 명령 표 합치기, 별칭 · 최근 쓴 차례, 편집기 글꼴 설정, keyHint 를 사용자 바인딩에서 읽기.
+
 ## 2026-11-10 — v0.8 NG-03: Player 모드 — --play · 파일 연결 인자 · 최근 게임 · 사람 말 오류 화면 (ADR-0121)
 
 **무엇을**

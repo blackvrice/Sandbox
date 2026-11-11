@@ -63,7 +63,7 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 | 초보 · 고급 분리 | 탭 · 플러그인 | 패키지 · 창 메뉴 | 고급 설정 토글 | 모드 | **Adopt** — Creator / Developer (보기 메뉴 · studio.json) |
 | 탭 사용자화 · 플러그인 툴바 | 있음 | 있음 | 있음 | 있음 | **Later** — 플러그인 (25 9장, v0.21) |
 | 떼어 낸 창 (다중 모니터) | 있음 | 있음 | 없음 (한 창) | 있음 | **Later** — ImGui 뷰포트 (ST-06-11) |
-| 명령 팔레트 · 단축키 표 | Quick Open | 검색 | 명령 팔레트 | 검색 | **Later** — ST-06-2 (CommandService 가 이미 표) |
+| 명령 팔레트 · 단축키 표 | Quick Open | 검색 | 명령 팔레트 | 검색 | **Adopt** ✅ ST-06-2 (CommandService 표 — Ctrl+Shift+P · 단축키 표, ADR-0122) |
 
 출처: [Roblox Studio interface](https://create.roblox.com/docs/studio/overview), [Unity Editor interface](https://docs.unity3d.com/6000.2/Documentation/Manual/unity-editor.html),
 [Godot first look](https://docs.godotengine.org/en/stable/getting_started/introduction/first_look_at_the_editor.html), [Unreal Editor Interface](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-editor-interface).
@@ -74,8 +74,13 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 ```text
 색 토큰   background #15171B · surface #1D2026 · elevated #262A31 · border #323741 · text #E6E8EB · muted #8B93A1
           accent #F5B83D (노랑 — 고른 것 · 주 단추 · 포커스) · accentHover #FFC95C · warning #F0A030 · error #EF6461 · success #5BC489
-          (다크 하나 — 밝음 · 고대비는 ST-06-2 [계획]). 대비 (WCAG 공식으로 계산): text/background 14.6:1 · muted/surface 5.3:1 ·
+          대비 (WCAG 공식으로 계산): text/background 14.6:1 · muted/surface 5.3:1 ·
           accent 위 #15171B 10.1:1 · error/surface 5.2:1 · warning/surface 7.6:1 · success/surface 7.5:1 — 모두 AA (4.5) 이상
+테마     ✅ v0.8 ST-06-2 (ADR-0122) 어두움 (위 — 기본) · 밝음 · 고대비, 같은 토큰 이름. 보기 메뉴 · 명령 view.theme-*, studio.json "theme"
+          밝음    background #EEF0F3 · surface #FFFFFF · text #1A1D23 · muted #5B6370 · accent #8A5A00 (흰 글자) · error #C42B2B · warning #A35F00 ·
+                  success #1E7A46 — text/bg 14.8 · muted 6.1 · 강조 위 흰 글자 5.9 · error 5.6 · warning 5.0 · success 5.3 (계산)
+          고대비  검은 바탕 · 흰 글자 · 흰 테두리 (굵게 — 창 2 · 입력 1) · accent #FFD400 (검은 글자) — text 21 · muted 12.8 · 강조 14.7 · error 7.1 ·
+                  warning 10.8 · success 15.2 (계산). 시험 test_command_palette 가 세 테마의 기준 (본문 7 · 나머지 4.5, 고대비 7) 을 지킨다
 글자     제목 = 기본 × 1.5 (홈 페이지 제목) · 패널 제목 = 기본 (굵기 대신 accent 밑줄) · 본문 = 기본 · 보조 = muted
 간격     4 단위 (xs 4 · sm 8 · md 12 · lg 16 · xl 24) × uiScale × DPI. 창 안쪽 12 · 항목 사이 8 · 묶음 사이 16
 크기     입력 · 단추 높이 = 글자 + 2 × 6, 툴바 높이 = 글자 + 2 × 10, 패널 최소 폭 220 · 높이 120 (DPI 곱)
@@ -94,8 +99,9 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 ```text
 홈 (월드 없음)        상단 막대 (Sandbox Studio · 파일 · 보기 · 도움말 · 엔진 판) │ 사이드바 (프로젝트 · 새 프로젝트 · 예제) │ 페이지
 워크스페이스 (월드)   메뉴 막대  파일 (저장 Ctrl+S · 홈으로는 [계획] · 끝내기) · 편집 (되돌리기 · 다시 · 선택 해제) · 보기 (창 켜기 · 끄기 ·
-                                 배치 셋 · 밀도 · 개발자 창 · 격자 · 자세히 · 월드 맞춤) · 프로젝트 (검사 · 빌드 · 서버 + N · 테스트 끝)
-                                 · 도움말 (판 · 단축키)
+                                 배치 셋 · 밀도 · 테마 · 개발자 창 · 격자 · 자세히 · 월드 맞춤) · 프로젝트 (검사 · 빌드 · 서버 + N · 테스트 끝)
+                                 · 도움말 (명령 팔레트 Ctrl+Shift+P · 단축키 표 · 충돌 · 판)
+명령 팔레트 (어디서나)  ✅ v0.8 ST-06-2 (ADR-0122) 이름 · id 찾기 · ↑ ↓ · Enter · Esc, 할 수 없는 명령은 흐리게, 줄마다 키. 홈 · 워크스페이스
                       툴바      [선택 이동 배치 지형 지우기] │ [▶ 플레이 ■ 멈춤] [❚❚ 일시정지 · 한 틱] │ [저장] [빌드] [서버+N] │ 모드 배지
                       도크 공간 왼쪽 = 목록 · 월드 │ 가운데 = 월드 그림 (통과 — 게임 입력) + 모드 띠 │ 오른쪽 = 인스펙터 · 편집 (툴 설정)
                                  │ 아래 = 콘솔 · 콘텐츠 · 빌드 · 테스트 · 게임 · 행동 · 알림
@@ -104,6 +110,9 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 
 모든 메뉴 · 툴바 항목은 기존 길에 잇는다: CommandService 명령 (studio.*), Editor (툴 · 되돌리기), PanelActions (일시정지 · 한 틱 · 격자),
 WorldOp (TestPlay · TestStop · Save). 할 수 없는 항목은 끈다 (when) — 장식 단추를 만들지 않는다.
+팔레트의 셸 명령 (world.* · edit.* · tool.* · view.*) 은 ShellActions 를 채워 툴바 · 메뉴와 같은 길로 간다 (ADR-0122). 키: 명령 표의 단축키
+(Ctrl+N · Ctrl+O · Ctrl+B · Ctrl+Shift+P · F5 플레이 · Shift+F5 멈춤) 는 ImGui 프레임에서 실행 (글자 칸에 쓰는 중이면 쉰다), 행동 표 (input.json)
+의 키 (Ctrl+S · Ctrl+Z · 1 ~ 5 · Space · . · G · Home · Esc) 는 행동 표가 듣고 명령에는 keyHint 로 보이기만.
 
 ## 5. 배치 프리셋 (LayoutService 이름 — M6-T6 의 레이아웃 그대로)
 

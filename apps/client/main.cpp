@@ -388,6 +388,7 @@ int main(int argc, char** argv) {
     // Studio 셸 (v0.8 UI-1): 개발자 창 · 간격 (studio.json — 안전 모드면 기본, 쓰지 않는다)
     cfg.developerPanels = studio.settings.developerPanels;
     cfg.compactDensity = studio.settings.compactDensity;
+    cfg.theme = studio.settings.theme; // v0.8 ST-06-2
     cfg.studioSettingsFile = studio.newerVersion ? std::filesystem::path() : studioFile;
     cfg.engineVersion =
         std::format("{}.{}.{}", sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch);

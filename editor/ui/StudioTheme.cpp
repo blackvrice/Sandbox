@@ -23,6 +23,42 @@ constexpr Tokens kDark{
     rgb(0x5B, 0xC4, 0x89), // success
 };
 
+// 밝음 (v0.8 ST-06-2): 글자/바닥 14.8:1 · 보조/표면 6.1:1 · 강조 (#8A5A00) 위 흰 글자 5.9:1 · 강조 글자/바닥 5.2:1 ·
+// 오류 5.6 · 경고 5.0 · 성공 5.3 (표면 위)
+constexpr Tokens kLight{
+    rgb(0xEE, 0xF0, 0xF3), // background
+    rgb(0xFF, 0xFF, 0xFF), // surface
+    rgb(0xF4, 0xF5, 0xF7), // elevated
+    rgb(0xC9, 0xCE, 0xD6), // border
+    rgb(0x1A, 0x1D, 0x23), // text
+    rgb(0x5B, 0x63, 0x70), // muted
+    rgb(0x8A, 0x5A, 0x00), // accent
+    rgb(0xA0, 0x6A, 0x00), // accentHover
+    rgb(0xFF, 0xFF, 0xFF), // accentText
+    rgb(0xA3, 0x5F, 0x00), // warning
+    rgb(0xC4, 0x2B, 0x2B), // error
+    rgb(0x1E, 0x7A, 0x46), // success
+};
+
+// 고대비 (v0.8 ST-06-2 · 28 G10): 검은 바탕 · 흰 글자 21:1 · 흰 테두리 · 노랑 강조/바닥 14.7:1 (강조 위 검은
+// 글자 14.7:1) · 오류 7.1 · 경고 10.8 · 성공 15.2
+constexpr Tokens kHighContrast{
+    rgb(0x00, 0x00, 0x00), // background
+    rgb(0x0A, 0x0A, 0x0A), // surface
+    rgb(0x1A, 0x1A, 0x1A), // elevated
+    rgb(0xFF, 0xFF, 0xFF), // border
+    rgb(0xFF, 0xFF, 0xFF), // text
+    rgb(0xD0, 0xD0, 0xD0), // muted
+    rgb(0xFF, 0xD4, 0x00), // accent
+    rgb(0xFF, 0xE6, 0x5C), // accentHover
+    rgb(0x00, 0x00, 0x00), // accentText
+    rgb(0xFF, 0xB0, 0x00), // warning
+    rgb(0xFF, 0x6B, 0x6B), // error
+    rgb(0x5C, 0xFF, 0x8F), // success
+};
+
+Theme g_theme = Theme::Dark; // 지금 테마 (applyStudioTheme — UI 스레드)
+
 ImVec4 withAlpha(ImVec4 c, float a) {
     c.w = a;
     return c;
@@ -30,8 +66,41 @@ ImVec4 withAlpha(ImVec4 c, float a) {
 
 } // namespace
 
-const Tokens& tokens() noexcept {
+const Tokens& tokensOf(Theme t) noexcept {
+    switch (t) {
+    case Theme::Light:
+        return kLight;
+    case Theme::HighContrast:
+        return kHighContrast;
+    case Theme::Dark:
+        break;
+    }
     return kDark;
+}
+
+const Tokens& tokens() noexcept {
+    return tokensOf(g_theme);
+}
+
+std::string_view themeName(Theme t) noexcept {
+    switch (t) {
+    case Theme::Light:
+        return "light";
+    case Theme::HighContrast:
+        return "high-contrast";
+    case Theme::Dark:
+        break;
+    }
+    return "dark";
+}
+
+std::optional<Theme> themeFromName(std::string_view name) noexcept {
+    for (const Theme t : {Theme::Dark, Theme::Light, Theme::HighContrast}) {
+        if (themeName(t) == name) {
+            return t;
+        }
+    }
+    return std::nullopt;
 }
 
 ImVec4 statusColor(Status s) noexcept {
@@ -62,8 +131,11 @@ float space(Space s, float scale, Density d) noexcept {
     return static_cast<float>(static_cast<u8>(s)) * unit * scale;
 }
 
-void applyStudioTheme(ImGuiStyle& style, Density density, float scale) {
+void applyStudioTheme(ImGuiStyle& style, Density density, float scale, Theme theme) {
+    g_theme = theme;
     const Tokens& t = tokens();
+    const bool light = theme == Theme::Light;
+    const bool contrast = theme == Theme::HighContrast;
     const bool compact = density == Density::Compact;
     const float pad = compact ? 6.f : 8.f;
     style.WindowPadding = ImVec2(12.f * scale, 12.f * scale);
@@ -101,25 +173,35 @@ void applyStudioTheme(ImGuiStyle& style, Density density, float scale) {
     c[ImGuiCol_BorderShadow] = withAlpha(t.background, 0.f);
     c[ImGuiCol_FrameBg] = t.elevated;
     c[ImGuiCol_FrameBgHovered] = withAlpha(t.border, 1.f);
-    c[ImGuiCol_FrameBgActive] = rgb(0x3B, 0x41, 0x4C);
+    c[ImGuiCol_FrameBgActive] = light      ? rgb(0xDC, 0xE0, 0xE6)
+                                : contrast ? rgb(0x33, 0x33, 0x33)
+                                           : rgb(0x3B, 0x41, 0x4C);
     c[ImGuiCol_TitleBg] = t.background;
     c[ImGuiCol_TitleBgActive] = t.surface;
     c[ImGuiCol_TitleBgCollapsed] = t.background;
     c[ImGuiCol_MenuBarBg] = t.background;
     c[ImGuiCol_ScrollbarBg] = withAlpha(t.background, 0.f);
     c[ImGuiCol_ScrollbarGrab] = t.border;
-    c[ImGuiCol_ScrollbarGrabHovered] = rgb(0x45, 0x4B, 0x57);
+    c[ImGuiCol_ScrollbarGrabHovered] = light ? rgb(0xA9, 0xB0, 0xBA) : rgb(0x45, 0x4B, 0x57);
     c[ImGuiCol_ScrollbarGrabActive] = t.muted;
     c[ImGuiCol_CheckMark] = t.accent;
     c[ImGuiCol_SliderGrab] = t.accent;
     c[ImGuiCol_SliderGrabActive] = t.accentHover;
     c[ImGuiCol_Button] = t.elevated;
-    c[ImGuiCol_ButtonHovered] = rgb(0x34, 0x39, 0x43);
-    c[ImGuiCol_ButtonActive] = rgb(0x40, 0x46, 0x52);
+    c[ImGuiCol_ButtonHovered] = light      ? rgb(0xE3, 0xE6, 0xEB)
+                                : contrast ? rgb(0x33, 0x33, 0x33)
+                                           : rgb(0x34, 0x39, 0x43);
+    c[ImGuiCol_ButtonActive] = light ? rgb(0xD5, 0xDA, 0xE1) : contrast ? rgb(0x4D, 0x4D, 0x4D) : rgb(0x40, 0x46, 0x52);
     // 묶음 머리 · 고른 줄: 중립 (강조 노랑을 옅게 쓰면 어두운 바탕 위에서 갈색으로 보인다 — 창 확인 2026-11-10)
-    c[ImGuiCol_Header] = rgb(0x34, 0x3A, 0x45);
-    c[ImGuiCol_HeaderHovered] = rgb(0x3D, 0x44, 0x51);
-    c[ImGuiCol_HeaderActive] = rgb(0x47, 0x4F, 0x5D);
+    c[ImGuiCol_Header] = light ? rgb(0xE1, 0xE5, 0xEB) : contrast ? rgb(0x33, 0x33, 0x33) : rgb(0x34, 0x3A, 0x45);
+    c[ImGuiCol_HeaderHovered] = light      ? rgb(0xD6, 0xDB, 0xE2)
+                                : contrast ? rgb(0x4D, 0x4D, 0x4D)
+                                           : rgb(0x3D, 0x44, 0x51);
+    c[ImGuiCol_HeaderActive] = light ? rgb(0xCB, 0xD1, 0xDA) : contrast ? rgb(0x66, 0x66, 0x66) : rgb(0x47, 0x4F, 0x5D);
+    if (contrast) { // 고대비: 테두리를 굵게 (색만으로 구분하지 않는다)
+        style.FrameBorderSize = 1.f;
+        style.WindowBorderSize = 2.f;
+    }
     c[ImGuiCol_Separator] = t.border;
     c[ImGuiCol_SeparatorHovered] = withAlpha(t.accent, 0.6f);
     c[ImGuiCol_SeparatorActive] = t.accent;

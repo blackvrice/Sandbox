@@ -87,6 +87,16 @@ TEST_CASE("Studio 설정: 키마다 쓰기 · 다른 키 그대로 · 깨진 파
     CHECK(l.warnings.size() == 2);
     CHECK(fs::exists(file));
 
+    // 테마 (v0.8 ST-06-2) — 아는 이름만, 모르면 그 키만 무시
+    write(file, R"({"theme": "high-contrast"})");
+    l = loadStudioSettings(file);
+    CHECK(l.settings.theme == "high-contrast");
+    CHECK(l.warnings.empty());
+    write(file, R"({"theme": "pink"})");
+    l = loadStudioSettings(file);
+    CHECK(l.settings.theme.empty());
+    CHECK(l.warnings.size() == 1);
+
     // 깨진 파일 — studio.json.broken 으로 옮기고 기본값
     write(file, "{ broken");
     l = loadStudioSettings(file);

@@ -90,6 +90,13 @@ StudioSettingsLoad loadStudioSettings(const fs::path& file) {
             out.warnings.push_back("Studio 설정 density 는 \"comfortable\" · \"compact\" — 보통 간격");
         }
     }
+    if (const auto t = j->find("theme"); t != j->end()) {
+        if (t->is_string() && (*t == "dark" || *t == "light" || *t == "high-contrast")) {
+            out.settings.theme = t->get<std::string>();
+        } else {
+            out.warnings.push_back("Studio 설정 theme 은 \"dark\" · \"light\" · \"high-contrast\" — 어두움");
+        }
+    }
     if (const auto a = j->find("autosaveSeconds"); a != j->end()) {
         const double v = a->is_number() ? a->get<double>() : -1.0;
         if (std::isfinite(v) && v >= 0.0 && v <= kMaxAutosaveSeconds) {

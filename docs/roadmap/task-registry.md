@@ -61,7 +61,7 @@
 | M6-T3 | "패키지" 패널 · Build 화면 · 누락 검사 | B | Done | v0.5 | v0.8 | P0 | NG-01 · ST-06-1 | CTest studio_build · test_build_service — ADR-0112 |
 | M6-T6 | 레이아웃 저장 · Studio 설정 | B | Done | v0.5 | v0.8 | P1 | — | CTest studio_layout · test_layout_service — ADR-0114 |
 | M6-T7 | 자동 저장 · 크래시 복구 | B | Done | v0.5 | v0.8 | P0 | — | CTest studio_recovery · test_autosave_service — ADR-0113 |
-| ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Planned | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 |
+| ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Done | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 (ADR-0122 — test_command_palette · test_studio_shell) |
 | ST-06-9 | TestService — 서버 + N 클라이언트 · 지연 모의 | B | Done | v0.6 | v0.8 | P1 | — | CTest studio_test_session · test_test_service — ADR-0115 |
 | ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.8 | P3 | ST-06-1 | 수동 QA |
 | M5-T1 | --replay · 로컬 재생 · 결속 | B | Done | v0.5 | v0.8 | P1 | — | CTest client_replay — ADR-0116 (결속 = 콘텐츠 해시 · 패키지 digest 는 M5-T3) |

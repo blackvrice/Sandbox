@@ -47,6 +47,7 @@
 #include "editor/services/ProjectService.hpp"
 #include "editor/services/TestService.hpp"
 #include "editor/ui/BuildPanel.hpp"
+#include "editor/ui/CommandPalette.hpp"
 #include "editor/ui/ConsolePanel.hpp"
 #include "editor/ui/ContentPanel.hpp"
 #include "editor/ui/EditorPanel.hpp"
@@ -127,6 +128,7 @@ struct AppConfig {
     // 않는다 — 안전 모드), 엔진 판 (메뉴 · 도움말)
     bool developerPanels = false;
     bool compactDensity = false;
+    std::string theme; // "dark" · "light" · "high-contrast" (v0.8 ST-06-2 — studio.json)
     std::filesystem::path studioSettingsFile;
     std::string engineVersion;
     // 창 제목 (v0.8 UI-3): true = "<프로젝트> — Sandbox Studio" (개발자 창이면 진단 줄 그대로), false = 진단 줄 (시험 ·
@@ -198,6 +200,8 @@ public:
     [[nodiscard]] const editor::BuildPanelState& buildPanel() const noexcept { return m_buildPanel; }
     // Studio 셸 (v0.8 UI-1) — 보기 · 개발자 창 · 다음 프리셋 (시험이 바꾼다)
     [[nodiscard]] ShellState& shell() noexcept { return m_shell; }
+    [[nodiscard]] const editor::PaletteState& palette() const noexcept { return m_palette; } // v0.8 ST-06-2
+    [[nodiscard]] bool shortcutsOpen() const noexcept { return m_shortcutsOpen; }
     [[nodiscard]] IWorldSession* world() const noexcept { return m_config.world; } // 지금 세션 (홈에서 들어간 것 포함)
     // "행동" 패널 상태 (시험 · 도구 — 패널에서 고른 것처럼 행동을 쥔다)
     [[nodiscard]] ActionPanelState& actionPanel() noexcept { return m_actionPanel; }
@@ -241,6 +245,7 @@ private:
     [[nodiscard]] ShellInputs shellInputs(bool inWorld) const;
     void applyShellActions(const ShellActions& a, PanelActions& panel);
     void applyTheme();
+    void dispatchShortcuts();                      // 명령 표의 단축키 (v0.8 ST-06-2 — 글자 칸에 쓰는 중이 아닐 때)
     [[nodiscard]] std::string studioTitle() const; // "<프로젝트> — Sandbox Studio"
     void replayFrame();                            // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
     [[nodiscard]] f64 appSeconds() const;
@@ -280,6 +285,10 @@ private:
     ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
     editor::ConsoleState m_console;     // v0.8 UI-3 "콘솔"
     PlayerHomeState m_playerHome;       // v0.8 NG-03
+    // 명령 팔레트 · 단축키 표 (v0.8 ST-06-2), 명령이 고른 셸 일 (다음 셸 단계에서 적용 — 툴바 · 메뉴와 같은 길)
+    editor::PaletteState m_palette;
+    bool m_shortcutsOpen = false;
+    ShellActions m_commandShell;
     // 리플레이 뷰어 (v0.8 M5-T1): 0 요청 전 · 1 요청함 · 2 재생 중 · 3 끝
     u8 m_replayStage = 0;
     u8 m_seekStep = 0;     // --replay-seek 의 단계 (0 아직 · 1 끝 앞 · 2 그 call · 3 끝)

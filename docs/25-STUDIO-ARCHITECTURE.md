@@ -118,10 +118,11 @@ BuildService
           기본으로 + 알림 (M1-T3 의 옮기기 규칙). 기본 레이아웃 셋: 장면 편집 · 스크립트 · 테스트 (Godot Editor Layouts 와 같은 사용 모양 —
           벤치마크 A2) [계획 — M6-T8 · ST-06-11 과 함께 (DockBuilder)]
 다중 모니터 ImGui 뷰포트 (떼어 낸 창) — [계획 v0.6] (플랫폼 창 층 지원 확인 뒤, 07)
-DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (밝음 · 어두움 · 고대비) [계획 v0.6]
-설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 자동 저장 주기 ✅ v0.8 M6-T6 — 서비스마다 자기 키, 테마 · 편집기 글꼴 [계획
-          ST-06-2]) ↔ 프로젝트 sandbox.project.json (게임)
-명령 팔레트 Ctrl+Shift+P — CommandService 의 표를 이름 · 별칭으로 찾기 [계획 v0.6]
+DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (어두움 · 밝음 · 고대비) ✅ v0.8 ST-06-2 (ADR-0122 — 29 3장)
+설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 자동 저장 주기 ✅ v0.8 M6-T6 — 서비스마다 자기 키, 테마 ✅ ST-06-2,
+          편집기 글꼴 [계획]) ↔ 프로젝트 sandbox.project.json (게임)
+명령 팔레트 Ctrl+Shift+P — CommandService 의 표를 이름 · id 로 찾기, 단축키 표 · 충돌 ✅ v0.8 ST-06-2 (ADR-0122). 별칭 · 최근 쓴 차례 ·
+          사용자 키 다시 매기기 [계획]
 ```
 
 ## 5. 화면 (10 개) · 흐름
@@ -233,7 +234,7 @@ UI 애니메이션 [계획 v0.7] — 속성 트랙 (표시만, 클라이언트)
 | Editor Services 층 · Command · Document · Undo 통합 | [계획 v0.6] (v0.5 는 새 기능부터 services 에) |
 | 에셋 브라우저 · 가져오기 · 안정 id | [계획 v0.5 최소 · v0.6] (26) |
 | 서버+N 테스트 · 지연 모의 | ✅ v0.8 ST-06-9 (TestService · "테스트" 창 · --net-sim — ADR-0115) |
-| UI Designer · Prefab 오버라이드 · 그룹 · 명령 팔레트 · 디버거 | [계획 v0.6] |
+| UI Designer · Prefab 오버라이드 · 그룹 · 디버거 | [계획 v0.6] (명령 팔레트는 ✅ v0.8 ST-06-2) |
 | 협업 초안 · 문서 병합 · LSP | [계획 v0.7] |
 | 플러그인 | [계획 v0.8+] |
 

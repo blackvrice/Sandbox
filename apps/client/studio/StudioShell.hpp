@@ -36,6 +36,7 @@ struct ShellState {
     ShellView view;
     bool developerPanels = false; // 시뮬레이션 · 통계 · 네트워크 · 스크립트 프로파일 · 접속자 · 키 · 레이아웃 창
     editor::theme::Density density = editor::theme::Density::Comfortable;
+    editor::theme::Theme theme = editor::theme::Theme::Dark; // v0.8 ST-06-2
     std::optional<std::string> pendingPreset; // 다음 프레임에 DockBuilder 로 만들 배치 (scene · scripting · play)
     unsigned dockId = 0;                      // 도크 공간 id (ImGuiID)
 };
@@ -88,6 +89,9 @@ struct ShellActions {
     bool fitCamera = false;
     bool toggleNotices = false;
     bool densityChanged = false;
+    bool themeChanged = false;  // v0.8 ST-06-2 — state.theme 이 바뀌었다
+    bool openPalette = false;   // 명령 팔레트 (Ctrl+Shift+P)
+    bool openShortcuts = false; // 단축키 표
 };
 
 [[nodiscard]] std::string_view workspaceModeName(WorkspaceMode m) noexcept; // "Scene — 편집" …

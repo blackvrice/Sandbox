@@ -140,6 +140,7 @@ add_executable(SandboxTests
     unit/editor/test_layout_service.cpp
     unit/editor/test_studio_home_data.cpp
     unit/editor/test_console_panel.cpp
+    unit/editor/test_command_palette.cpp
     unit/editor/test_test_service.cpp
     unit/editor/test_editor_roles.cpp
     unit/editor/test_editor_world_change.cpp

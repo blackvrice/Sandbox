@@ -153,6 +153,63 @@ TEST_SUITE("client") {
         REQUIRE(app.frame());
         CHECK(dockOf("목록") != 0);
 
+        // 명령 팔레트 · 테마 · 툴 명령 (v0.8 ST-06-2) — 표 하나, 충돌 없음, 명령은 툴바 · 메뉴와 같은 길
+        CHECK(app.commands().conflicts().empty());
+        for (const char* id : {"studio.palette", "studio.shortcuts", "world.save", "world.play", "edit.undo",
+                               "tool.erase", "view.layout-play", "view.theme-light", "view.theme-high-contrast"}) {
+            CAPTURE(id);
+            CHECK(app.commands().find(id) != nullptr);
+        }
+        CHECK(app.commands().find("tool.move")->keyHint == "2");
+        CHECK(app.commands().find("tool.move")->shortcut.empty()); // 행동 표의 키 — 보이기만
+        REQUIRE(app.commands().run("studio.palette") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        CHECK(app.palette().open);
+        CHECK(active("명령 팔레트"));
+        REQUIRE(app.frame()); // 포커스 → 입력 칸 활성 → io.WantTextInput 은 프레임마다 한 걸음씩
+        CHECK(app.palette().open);
+        CHECK(ImGui::GetIO().WantTextInput); // 입력 칸에 포커스 — 단축키 · 게임 입력은 쉰다
+        // Esc 로 닫는다
+        window.inject(KeyDown{Key::Escape, 0, {}, false});
+        REQUIRE(app.frame());
+        window.inject(KeyUp{Key::Escape, 0, {}});
+        REQUIRE(app.frame());
+        CHECK_FALSE(app.palette().open);
+        // 키로 — Ctrl+Shift+P (명령 표의 단축키를 ImGui 프레임 안에서 실행)
+        window.inject(KeyDown{Key::LeftCtrl, 0, {}, false});
+        window.inject(KeyDown{Key::LeftShift, 0, {}, false});
+        REQUIRE(app.frame());
+        window.inject(KeyDown{Key::P, 0, {Modifiers::kCtrl | Modifiers::kShift}, false});
+        REQUIRE(app.frame());
+        window.inject(KeyUp{Key::P, 0, {}});
+        window.inject(KeyUp{Key::LeftShift, 0, {}});
+        window.inject(KeyUp{Key::LeftCtrl, 0, {}});
+        REQUIRE(app.frame());
+        CHECK(app.palette().open);
+        window.inject(KeyDown{Key::Escape, 0, {}, false});
+        REQUIRE(app.frame());
+        window.inject(KeyUp{Key::Escape, 0, {}});
+        REQUIRE(app.frame());
+        CHECK_FALSE(app.palette().open);
+        REQUIRE(app.commands().run("tool.erase") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.editor().tool() == editor::Tool::Erase);
+        REQUIRE(app.commands().run("tool.select") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.editor().tool() == editor::Tool::Select);
+        REQUIRE(app.commands().run("view.theme-light") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.shell().theme == editor::theme::Theme::Light);
+        CHECK(ImGui::GetStyle().Colors[ImGuiCol_Text].x ==
+              doctest::Approx(editor::theme::tokensOf(editor::theme::Theme::Light).text.x));
+        REQUIRE(app.commands().run("view.theme-dark") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.shell().theme == editor::theme::Theme::Dark);
+        REQUIRE(app.commands().run("studio.shortcuts") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.shortcutsOpen());
+
         // F1 — 셸 · 창 모두 숨김 (게임 화면)
         window.inject(KeyDown{Key::F1, 0, {}, false});
         window.inject(KeyUp{Key::F1, 0, {}});
