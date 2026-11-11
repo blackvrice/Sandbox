@@ -237,6 +237,67 @@ TEST_SUITE("script") {
         CHECK(r.i("badIdx", {F(1.0)}) == 2);
     }
 
+    TEST_CASE("줄 표 (v0.9 M6-T4 — .sbc 11): 트랩 자리 · 왕복 · 모양 검사") {
+        const bc::Module& m = program();
+        // 컴파일한 함수는 모든 pc 에 자리가 있다 (첫 명령에 칸), pc 는 오름차순
+        for (const bc::Function& f : m.functions) {
+            CAPTURE(f.name);
+            REQUIRE_FALSE(f.lines.empty());
+            CHECK(f.lines.front().pc == 0);
+            for (usize i = 1; i < f.lines.size(); ++i) {
+                CHECK(f.lines[i].pc > f.lines[i - 1].pc);
+            }
+            CHECK(bc::findLine(f, static_cast<u32>(f.code.size() - 1)) != nullptr);
+        }
+        Run r;
+        const auto site = [&](std::string_view name, std::vector<Value> args) {
+            const vm::CallResult c = r.call(name, std::move(args));
+            CHECK_FALSE(c.ok());
+            return bc::describeSite(m, c.function, c.pc);
+        };
+        // rem 은 6 째 줄, oob 는 27 째 줄 (kProgram)
+        const std::string rem = site("rem", {I(1), I(0)});
+        CHECK(rem.starts_with("scripts/a.ts:6:"));
+        CHECK(rem.ends_with(" (rem)"));
+        const std::string oob = site("oob", {I(3)});
+        CHECK(oob.starts_with("scripts/a.ts:27:"));
+        CHECK(oob.ends_with(" (oob)"));
+        // 여러 줄 함수: 끝없는 while 의 줄 (spin — 연료)
+        const std::string spin = site("spin", {});
+        CHECK(spin.starts_with("scripts/a.ts:35:"));
+        CHECK(bc::functionFile("scripts/a.ts:clamp") == "scripts/a.ts");
+        CHECK(bc::functionShortName("scripts/a.ts:clamp") == "clamp");
+        CHECK(bc::functionShortName("solo") == "solo");
+        CHECK(bc::describeSite(m, 60000, 2) == "함수 #60000 pc 2");
+
+        // 왕복 — 줄 표 그대로
+        const auto back = bc::deserialize(bc::serialize(m));
+        REQUIRE(back.has_value());
+        REQUIRE(back->functions.size() == m.functions.size());
+        for (usize i = 0; i < m.functions.size(); ++i) {
+            CHECK(back->functions[i].lines == m.functions[i].lines);
+        }
+        // 줄 표 없는 모듈 (손으로 만든 것) — 자리는 pc
+        bc::Module bare = m;
+        bare.functions[0].lines.clear();
+        CHECK(bc::describeSite(bare, 0, 1).ends_with(" pc 1"));
+        REQUIRE(bc::deserialize(bc::serialize(bare)).has_value());
+        // 모양이 틀린 줄 표는 읽기에서 거절 (pc 차례 · 명령 밖 · 줄 0)
+        const auto rejects = [&](std::vector<bc::LineEntry> lines) {
+            bc::Module bad = m;
+            bad.functions[0].lines = std::move(lines);
+            const auto e = bc::deserialize(bc::serialize(bad));
+            REQUIRE_FALSE(e.has_value());
+            CHECK(e.error().code == ErrorCode::ParseError);
+        };
+        const u32 n = static_cast<u32>(m.functions[0].code.size());
+        rejects({{1, 1, 1}, {1, 2, 1}});
+        rejects({{2, 1, 1}, {1, 2, 1}});
+        rejects({{n, 1, 1}});
+        rejects({{0, 0, 1}});
+        rejects({{0, 1, 0}});
+    }
+
     TEST_CASE("VM: 트랩 — 실행 중에만 아는 잘못") {
         vm::Limits small;
         small.fuel = 20'000;

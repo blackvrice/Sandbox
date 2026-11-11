@@ -381,6 +381,21 @@ private:
             limit("명령이 너무 많다");
             return 0;
         }
+        // 줄 표 (형식 11 — M6-T4): 자리가 바뀔 때만 칸을 더한다. 같은 pc 에 이미 칸이 있으면 (앞 마디가 명령 없이
+        // 끝났다) 바꾼다 — pc 는 늘 오름차순
+        const u32 pc = static_cast<u32>(F->code.size());
+        std::vector<bc::LineEntry>& lines = F->lines;
+        if (lines.empty() || lines.back().line != m_pos.line || lines.back().column != m_pos.column) {
+            if (!lines.empty() && lines.back().pc == pc) {
+                lines.back() = {pc, m_pos.line, m_pos.column};
+                if (lines.size() >= 2 && lines[lines.size() - 2].line == m_pos.line &&
+                    lines[lines.size() - 2].column == m_pos.column) {
+                    lines.pop_back(); // 바로 앞 칸과 같아졌다
+                }
+            } else {
+                lines.push_back({pc, m_pos.line, m_pos.column});
+            }
+        }
         F->code.push_back({op, 0, a, b, c});
         return F->code.size() - 1;
     }
@@ -553,7 +568,27 @@ private:
         return r;
     }
 
+    // 마디를 만드는 동안의 소스 자리 (줄 표) — 끝나면 바깥 마디의 자리로 되돌린다
+    class PosScope {
+    public:
+        PosScope(Gen& g, NodeId n) : m_g(g), m_saved(g.m_pos) {
+            if (n != kNoNode) {
+                const Node& x = g.ast().node(n);
+                // 호출은 '(' 자리 — 사람에게는 부른 이름의 첫 글자 (idiv(1, 0) 의 i)
+                g.m_pos = x.kind == NodeKind::Call && x.kidCount > 0 ? g.ast().node(g.ast().kid(n, 0)).pos : x.pos;
+            }
+        }
+        ~PosScope() { m_g.m_pos = m_saved; }
+        PosScope(const PosScope&) = delete;
+        PosScope& operator=(const PosScope&) = delete;
+
+    private:
+        Gen& m_g;
+        SourcePos m_saved;
+    };
+
     u16 gen(NodeId n) {
+        const PosScope at(*this, n);
         if (cval(n).has()) {
             return loadConst(cval(n), typeOf(n));
         }
@@ -1486,6 +1521,7 @@ private:
         if (s == kNoNode) {
             return;
         }
+        const PosScope at(*this, s);
         const usize mark = m_temps.size();
         const Node& x = ast().node(s);
         switch (x.kind) {
@@ -1691,6 +1727,7 @@ private:
         m_temps.clear();
         m_loops.clear();
         F->name = std::format("{}:{}", MS->path, info.name);
+        m_pos = MS->ast.node(info.decl).pos; // 함수 머리 (매개변수 · 마지막 RET · TRAP)
         for (usize i = 0; i < info.params.size(); ++i) {
             const u32 t = tid(info.params[i]);
             F->params.push_back(t);
@@ -1739,6 +1776,7 @@ private:
     std::map<u32, u16> m_importIdx;
 
     bc::Function* F = nullptr;
+    SourcePos m_pos; // 지금 만드는 마디의 자리 (PosScope)
     const ModuleSema* MS = nullptr;
     u32 m_fn = 0;
     u32 m_module = 0;

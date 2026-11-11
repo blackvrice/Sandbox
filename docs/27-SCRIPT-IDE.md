@@ -20,7 +20,7 @@
            Codegen. 진단 = 코드 (S1xx ~ S5xx) · 파일 · 줄 · 열 (19 8장)
 Host 표    script/api/HostApi kHostFunctions — { id, owner (ServerContext · ClientContext …), member, property, 서명, domain, effect, fuel, doc }
            — 검사기 · d.ts · 지문이 같이 읽는다 (ADR-0057)
-VM         트랩 = 함수 번호 · pc (ScriptSystemAdapter 의 lastTrap). 바이트코드에 소스 줄 표가 없다 (M6-T4 계획)
+VM         트랩 = 함수 번호 · pc → 줄 표로 "파일:줄:열 (함수)" (ScriptSystemAdapter 의 lastTrap — ✅ v0.9 M6-T4 조각 1, ADR-0124)
 프로토타입  script/lang/LanguageService (이번 감사) — contextMembers(domain) · completeAt(source, offset, domain): "ctx." 뒤 후보를 Host 표에서
            도메인으로 거른다 (서버 콜백에 label · print 없음, 클라이언트 콜백에 write · spawn 없음). 시험 test_language_service (unit_script)
 ```
@@ -91,7 +91,7 @@ publishDiagnostics). 같은 LanguageService. 프로젝트 루트 = sandbox.proje
 ```text
 VM 훅 [계획 v0.6]  Interpreter 에 "중단점 표 (함수 · pc)" — 비어 있으면 훅 비용 0 (분기 하나도 없는 별도 루프 경로가 이상적 — 측정해서
                    script.regen · script.stdlib 회귀 < 2 % 를 완료 기준으로)
-줄 표              M6-T4 (.sbc 형식 10 — 함수마다 pc → (파일, 줄, 열)) — 트랩 위치 · 프로파일 · 디버거가 같이 쓴다
+줄 표              ✅ M6-T4 (.sbc 형식 11 — 함수마다 pc → (줄, 열), 파일 = 함수 이름 앞 — ADR-0124) — 트랩 위치 · 프로파일 · 디버거가 같이 쓴다
 보는 것            호출 스택 (프레임 · 함수 · 줄) · 지역 (레지스터 → 기호 이름 — 코드 생성이 이름 표를 남겨야 함) · 감시 (식 평가 = 그 프레임의
                    지역 · ctx 읽기만, 쓰기 · Host 쓰기 금지 — 재생을 바꾸지 않는다)
 단계 실행          Step Into · Over · Out = 줄 표 위 pc 범위
@@ -114,7 +114,7 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 | 컴파일 · 진단 (줄 · 열) · 오버레이 Hot Reload · d.ts | 현행 |
 | ctx. 자동 완성 (도메인 거르기) | 프로토타입 (script/lang/LanguageService · test_language_service) |
 | 편집기 위젯 (구문 색 · 팝업 · 밑줄) · 타입 기반 자동 완성 · hover | [계획 v0.5 M6-T8] |
-| 줄 표 · 트랩 줄 · 함수별 프로파일 | [계획 v0.5 M6-T4] (기존) |
+| 줄 표 · 트랩 줄 · 함수별 프로파일 | 줄 표 · 트랩 줄 ✅ v0.9 M6-T4 (ADR-0124), 함수별 프로파일 [계획 M6-T4] |
 | 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | [계획 v0.6] |
 | 재생 디버거 (중단점 · 단계 · 스택 · 지역 · 감시 · logpoint) | [계획 v0.6] |
 | LSP · 포맷터 · 클라이언트 라이브 디버그 | [계획 v0.7] |
@@ -123,7 +123,7 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 ## 9. 텍스트 위치 계약 — UTF-8 · 코드 포인트 · UTF-16 · 화면 열 · IME (NG-05) [계획 v0.9]
 
 ```text
-저장 · 컴파일러 · 줄 표  UTF-8 바이트 offset + (줄, 열 = 코드 포인트) — 현행 script/lang/Diagnostic.hpp 그대로 (.sbc 10 줄 표도 이 단위, M6-T4)
+저장 · 컴파일러 · 줄 표  UTF-8 바이트 offset + (줄, 열 = 코드 포인트) — 현행 script/lang/Diagnostic.hpp 그대로 (.sbc 11 줄 표도 이 단위 — ✅ M6-T4)
 편집기 (ImGui)           UTF-8 바이트 offset — 언어 서비스 경계에서 한곳 (TextPosition 변환) 으로 바꾼다
 LSP (v0.21)              UTF-16 code unit (LSP 기본 positionEncoding) — 같은 변환 함수
 화면 열                  글리프 폭 (한글 · 전각 2 칸, 결합 문자 0 칸) — 표시에만, 저장 · 진단에 쓰지 않는다

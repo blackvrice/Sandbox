@@ -19,8 +19,9 @@
 namespace sbx::script::bc {
 
 // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
-// 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4), 9 = 컬렉션 Coll (M8-T5)
-inline constexpr u32 kFormatVersion = 10;
+// 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4), 9 = 컬렉션 Coll
+// (M8-T5), 10 = onMigrate (v0.6 NG-04), 11 = 함수마다 줄 표 (v0.9 M6-T4 — ADR-0124)
+inline constexpr u32 kFormatVersion = 11;
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -160,13 +161,31 @@ struct HostImport {
     api::AbiType result = api::AbiType::Void;
 };
 
+// 줄 표 한 칸 (형식 11 — v0.9 M6-T4): pc 부터 다음 칸 앞까지의 명령이 소스의 (줄, 열) 에서 왔다. 줄 · 열은 1 부터,
+// 열 = 코드 포인트 (script/lang/Diagnostic 의 SourcePos 와 같은 단위 — 27 5장). 파일은 함수 이름의 앞 ("scripts/a.ts")
+struct LineEntry {
+    u32 pc = 0;
+    u32 line = 1;
+    u32 column = 1;
+
+    friend bool operator==(const LineEntry&, const LineEntry&) = default;
+};
+
 struct Function {
     std::string name;        // "scripts/a.ts:clamp" (진단 · 역어셈블)
     std::vector<u32> params; // 타입 번호
     u32 result = 0;          // 타입 번호 (Void 됨)
     std::vector<u32> regs;   // 레지스터마다 타입 — 앞 params.size() 개는 매개변수와 같다
     std::vector<Insn> code;
+    std::vector<LineEntry> lines; // pc 오름차순 (같은 pc 없음 · pc < code 길이) — 비어도 된다 (손으로 만든 모듈)
 };
+
+// pc 의 소스 자리 — 줄 표에서 pc 이하의 마지막 칸 (없으면 nullptr)
+[[nodiscard]] const LineEntry* findLine(const Function& f, u32 pc) noexcept;
+// 함수 이름의 파일 부분 ("scripts/a.ts:clamp" → "scripts/a.ts") · 이름 부분 ("clamp"). ':' 가 없으면 파일 = "" · 이름 =
+// 전체
+[[nodiscard]] std::string_view functionFile(std::string_view name) noexcept;
+[[nodiscard]] std::string_view functionShortName(std::string_view name) noexcept;
 
 struct Export {
     std::string module; // "scripts/a.ts"
@@ -215,6 +234,9 @@ struct Module {
     [[nodiscard]] const Export* findExport(std::string_view module, std::string_view name) const noexcept;
 };
 
+// 트랩 · 프로파일의 자리: 줄이 있으면 "scripts/a.ts:12:5 (clamp)", 없으면 "scripts/a.ts:clamp pc 3"
+// (함수 번호가 틀리면 "함수 #n pc p")
+[[nodiscard]] std::string describeSite(const Module& m, u32 function, u32 pc);
 [[nodiscard]] std::string_view opName(Op op) noexcept;
 [[nodiscard]] RegClass regClass(const Module& m, u32 type) noexcept;
 [[nodiscard]] std::string typeName(const Module& m, u32 type);

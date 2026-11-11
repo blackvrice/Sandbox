@@ -154,16 +154,14 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     ++m_last.traps;
     ++s.counters.traps;
     ++s.consecutive;
-    // std::string 으로 — 삼항의 공통 타입이 std::string 이라 string_view 로 받으면 임시값을 가리킨다
-    const std::string where =
-        r.function < pack.module.functions.size() ? pack.module.functions[r.function].name : std::string("?");
-    s.counters.lastTrap = std::format("t{} {} 트랩 {} — {} ({}/{} pc {})", tick, callback, vm::trapName(r.trap),
-                                      r.message, pack.folder, where, r.pc);
+    // 자리 = 줄 표 (v0.9 M6-T4) — "eco/scripts/a.ts:12:5 (onTick)", 줄 표가 없으면 "… pc n"
+    const std::string where = bc::describeSite(pack.module, r.function, r.pc);
+    s.counters.lastTrap =
+        std::format("t{} {} 트랩 {} — {} ({}/{})", tick, callback, vm::trapName(r.trap), r.message, pack.folder, where);
     if (s.counters.traps == 1) {
-        log::warn(
-            "script",
-            "{} t{}: {} 트랩 {} — {} ({}/{} pc {}) — 이 호출의 쓰기를 버렸다 (이 시스템의 다음 트랩은 세기만 한다)",
-            s.desc->id, tick, callback, vm::trapName(r.trap), r.message, pack.folder, where, r.pc);
+        log::warn("script",
+                  "{} t{}: {} 트랩 {} — {} ({}/{}) — 이 호출의 쓰기를 버렸다 (이 시스템의 다음 트랩은 세기만 한다)",
+                  s.desc->id, tick, callback, vm::trapName(r.trap), r.message, pack.folder, where);
     }
     if (s.consecutive >= kDisableAfterTraps) {
         s.disabled = true;

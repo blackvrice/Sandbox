@@ -126,7 +126,10 @@ TEST_SUITE("script") {
         CHECK(w.sys().disabled(0));
         CHECK(w.sys().counters(0).traps == 3);
         CHECK(w.sys().counters(0).lastTrap.find("t3 onTick 트랩 DivideByZero") != std::string::npos);
-        CHECK(w.sys().counters(0).lastTrap.find("(t/scripts/always.ts:onTick pc ") != std::string::npos);
+        // 자리 = 줄 표 (v0.9 M6-T4): idiv(1, 0) 의 줄 · 열과 함수 이름
+        CAPTURE(w.sys().counters(0).lastTrap);
+        CHECK(w.sys().counters(0).lastTrap.find("(t/scripts/always.ts:10:46 (onTick))") != std::string::npos);
+        CHECK(w.sys().counters(0).lastTrap.find(" (onTick))") != std::string::npos);
         for (int i = 0; i < 5; ++i) {
             w.world.tick(); // 4 ~ 8
         }

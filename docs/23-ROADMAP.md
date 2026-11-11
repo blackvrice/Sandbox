@@ -19,7 +19,7 @@
 
 ```text
 지금      v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (2026-11-09 — releases/v0.7.0). v0.6 ✅ 0.6.0 · v0.5 ✅ 0.5.0 (아래 줄은 roadmap/README 1장과 같다)
-다음      트랙 A  M6-T4 오류 메시지 · 줄 표 (.sbc 11, v0.9) — v0.7 의 M3 · M4 · NG-06 ✅
+다음      트랙 A  M6-T4 (v0.9) — 줄 표 (.sbc 11) · 트랩 자리 ✅ → 오류 메시지 · 함수별 프로파일 · IScriptExecutor — v0.7 의 M3 · M4 · NG-06 ✅
 트랙 B    ST-06-1 Editor Services ✅ · M6-T1 (홈) ✅ · M6-T3 (Build) ✅ · M6-T7 (자동 저장) ✅ · M6-T6 (레이아웃) ✅ · ST-06-9 (테스트 세션) ✅ · M5-T1 (--replay) ✅ · M5-T2 (탐색) ✅ · Studio UI UI-0 ~ UI-3 ✅ (29) · M5-T3 (기록) ✅ · NG-07 (시험 층) ✅ · NG-03 (Player) ✅ · ST-06-2 (팔레트 · 테마) ✅ → UI-4 창 QA → 0.8.0 (v0.8 — ST-06-11 은 v0.12, ADR-0123) — v0.6 의 NG-12 · NG-13 · M6-T9 · NG-01 ✅
 그다음   
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)

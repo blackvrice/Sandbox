@@ -100,10 +100,9 @@ void ClientScriptSystems::invoke(Entry& s) {
     ++m_last.traps;
     ++s.counters.traps;
     ++s.consecutive;
-    const std::string where =
-        r.function < pack.module.functions.size() ? pack.module.functions[r.function].name : std::string("?");
-    s.counters.lastTrap = std::format("프레임 {} onUpdate 트랩 {} — {} ({}/{} pc {})", m_frames, vm::trapName(r.trap),
-                                      r.message, pack.folder, where, r.pc);
+    const std::string where = bc::describeSite(pack.module, r.function, r.pc); // 줄 표 (v0.9 M6-T4)
+    s.counters.lastTrap = std::format("프레임 {} onUpdate 트랩 {} — {} ({}/{})", m_frames, vm::trapName(r.trap),
+                                      r.message, pack.folder, where);
     if (s.counters.traps == 1) {
         log::warn("script", "{} {} — 이 호출의 표시를 버렸다 (이 시스템의 다음 트랩은 세기만 한다)", s.desc->id,
                   s.counters.lastTrap);

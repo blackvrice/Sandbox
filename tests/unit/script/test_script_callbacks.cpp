@@ -756,7 +756,7 @@ export default defineSystem({
         CHECK(sys->onTick == script::api::kNoCallback);
         const auto back = bc::deserialize(bc::serialize(mod));
         REQUIRE(back.has_value());
-        CHECK(back->format == 10);
+        CHECK(back->format == bc::kFormatVersion); // 10 = onMigrate, 11 = 줄 표 (M6-T4)
         CHECK(std::find_if(back->systems.begin(), back->systems.end(), [&](const auto& s) {
                   return s.id == "t.mig" && s.onMigrate == sys->onMigrate;
               }) != back->systems.end());

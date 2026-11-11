@@ -1,9 +1,11 @@
 #include "script/vm/Bytecode.hpp"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstring>
 #include <format>
+#include <iterator>
 
 #include "script/vm/Intrinsics.hpp"
 
@@ -311,6 +313,13 @@ std::vector<u8> serialize(const Module& m) {
             w.u16v(in.b);
             w.u16v(in.c);
         }
+        // 형식 11: 줄 표 (pc · 줄 · 열 — u32 셋)
+        w.u32v(static_cast<u32>(f.lines.size()));
+        for (const LineEntry& l : f.lines) {
+            w.u32v(l.pc);
+            w.u32v(l.line);
+            w.u32v(l.column);
+        }
     }
     w.u32v(static_cast<u32>(m.exports.size()));
     for (const Export& e : m.exports) {
@@ -503,6 +512,21 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
                 return bad("명령");
             }
             in.op = static_cast<Op>(op); // 범위는 검증기가 본다 (Count 이상 = 모르는 명령)
+        }
+        u32 nl = 0;
+        if (!r.count(nl, ni, 12, "줄 표")) {
+            return bad("줄 표");
+        }
+        f.lines.resize(nl);
+        for (usize i = 0; i < f.lines.size(); ++i) {
+            LineEntry& l = f.lines[i];
+            if (!r.u32v(l.pc) || !r.u32v(l.line) || !r.u32v(l.column)) {
+                return bad("줄 표");
+            }
+            // 모양: pc 오름차순 · 명령 안 · 줄 · 열은 1 부터 (찾기가 이진 탐색이다)
+            if (l.pc >= ni || (i > 0 && l.pc <= f.lines[i - 1].pc) || l.line == 0 || l.column == 0) {
+                return bad("줄 표의 칸");
+            }
         }
     }
     if (!r.count(n, kMaxFunctions, 12, "export")) {
@@ -703,6 +727,34 @@ std::string disassemble(const Module& m) {
         out += std::format("export {}:{} = fn {}\n", e.module, e.name, e.function);
     }
     return out;
+}
+
+const LineEntry* findLine(const Function& f, u32 pc) noexcept {
+    // pc 보다 큰 첫 칸의 바로 앞
+    const auto it =
+        std::upper_bound(f.lines.begin(), f.lines.end(), pc, [](u32 p, const LineEntry& l) { return p < l.pc; });
+    return it == f.lines.begin() ? nullptr : &*std::prev(it);
+}
+
+std::string_view functionFile(std::string_view name) noexcept {
+    const usize colon = name.find(':');
+    return colon == std::string_view::npos ? std::string_view() : name.substr(0, colon);
+}
+
+std::string_view functionShortName(std::string_view name) noexcept {
+    const usize colon = name.find(':');
+    return colon == std::string_view::npos ? name : name.substr(colon + 1);
+}
+
+std::string describeSite(const Module& m, u32 function, u32 pc) {
+    if (function >= m.functions.size()) {
+        return std::format("함수 #{} pc {}", function, pc);
+    }
+    const Function& f = m.functions[function];
+    if (const LineEntry* l = findLine(f, pc)) {
+        return std::format("{}:{}:{} ({})", functionFile(f.name), l->line, l->column, functionShortName(f.name));
+    }
+    return std::format("{} pc {}", f.name, pc);
 }
 
 } // namespace sbx::script::bc

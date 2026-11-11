@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 조각 1: 바이트코드 줄 표 (.sbc 11) · 트랩 자리 파일:줄:열 (ADR-0124)
+
+**무엇을**
+
+- script/vm/Bytecode: LineEntry · Function.lines, 직렬화 (명령 뒤 개수 + (pc, 줄, 열)), 읽기의 모양 검사, findLine · functionFile ·
+  functionShortName · describeSite. kFormatVersion 10 → 11.
+- script/lang/Codegen: PosScope (문장 · 식 마디의 자리 — 호출은 부른 이름의 첫 글자), emit 이 자리가 바뀔 때만 칸.
+- core/script: 서버 · 클라이언트 시스템 트랩 로그 · lastTrap 의 자리 = describeSite ("eco/scripts/a.ts:12:5 (onTick)").
+- 문서: ADR-0124, 19 12장, 27 · 22 · 28 · 21 · 13, 등록부 M6-T4 (조각 1), 다음 줄.
+
+**왜**
+
+- v0.9 Script IDE 의 첫 조각 — 트랩이 함수 · pc 로만 나와 소스를 찾을 수 없었다. 프로파일 · 재생 디버거 · 편집기 줄 이동이 같은 표를 쓴다.
+
+**검증**
+
+- test_vm 줄 표 시험 (모든 함수 · 트랩 줄 셋 · 왕복 · 틀린 표 다섯), test_script_budget (lastTrap 의 10:46), test_script_callbacks (형식 상수).
+  무작위 변형 보호 시험 그대로 통과 (읽기 검사가 새 표도 본다).
+- 크기 (측정, Debug): 시험 프로그램 명령 256 · 칸 193, 모듈 바이트 5,019 → 7,335 (메모리에만 — .sbc 는 디스크에 없다). 인터프리터 · 검증기
+  변경 없음 — 실행 비용 영향 없어 sbx_bench 는 돌리지 않았다. WorldHash · kSimVersion 그대로 (골든 시험 통과).
+- 실행: samples/mana_regen 복사본의 regen.ts 10 째 줄에 idiv(1, n) 을 넣고 SandboxServer --ticks 40 --exit — 로그
+  "onTick 트랩 DivideByZero — idiv(a, 0) (content/ecosystem/scripts/regen.ts:10:20 (onTick))" (열 20 = idiv 의 i).
+- Windows MSVC Debug 빌드 · 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED (CI 아님).
+
+**남은 일**
+
+- M6-T4 조각 2 ~ 4: 오류 메시지 (진단 문구 골든), 함수별 프로파일 (프로파일 합 = 시스템 연료), IScriptExecutor. 편집기 줄 이동은 M6-T8.
+
 ## 2026-11-11 — v0.8: ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 (ADR-0123)
 
 **무엇을**
