@@ -7,6 +7,18 @@
 
 ---
 
+## 2026-11-11 — v0.9 M6-T4 고침 2: 시험의 지정 초기화에 새 필드 (GCC · Clang -Wmissing-field-initializers)
+
+**무엇을** — test_client_script_session 의 `ScriptProfileInfo{.server …}` 에 serverFunctions · clientFunctions.
+
+**왜** — CI 실행 42957340740 (06aa6b6): linux 셋 빌드 실패 (GCC "missing initializer for member serverFunctions" · Clang
+-Wmissing-designated-field-initializers). MSVC 는 이 경고가 없고, 로컬 clang-tidy (VS 의 LLVM) 는 지정 초기화 경고가 없는 판이라 놓쳤다.
+windows-msvc 는 러너 오류 ("A device which does not exist was specified" — 빌드 · 시험 전). macos 는 통과 (Cmd 시험 고침 확인).
+
+**검증** — build/ci-werror 통과, unit_client 98 통과, 바꾼 구조체의 지정 초기화를 저장소 전체에서 찾아 이 한 곳뿐.
+
+**남은 일** — 없음.
+
 ## 2026-11-11 — v0.9 M6-T4 고침: Codegen 의 PosScope 변수 이름 (-Wshadow 경고 = CI 오류)
 
 **무엇을** — Codegen 의 `const PosScope at(...)` 를 `posScope` 로. statement() 안의 for-of 가 `const TypeId at` 을 따로 쓴다.

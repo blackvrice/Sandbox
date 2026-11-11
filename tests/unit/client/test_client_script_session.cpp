@@ -194,7 +194,8 @@ export default defineSystem({
         layer.feed(q);
         layer.beginFrame(1.0 / 60.0);
         drawScriptProfilePanel(p);
-        drawScriptProfilePanel(ScriptProfileInfo{.server = {}, .serverOmitted = 3, .client = {}});
+        drawScriptProfilePanel(
+            ScriptProfileInfo{.server = {}, .serverOmitted = 3, .client = {}, .serverFunctions = {}, .clientFunctions = {}});
         (void)layer.endFrame(platform::CursorShape::Arrow);
         layer.acknowledgeTextures();
 
