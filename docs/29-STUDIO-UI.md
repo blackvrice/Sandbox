@@ -42,7 +42,7 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 |---|---|---|---|---|
 | Studio Home | 폼 한 창 (StudioHome) | P5 — 카드 · 검색 · 단계 없음 | 전체 화면 홈: 사이드바 (프로젝트 · 새 프로젝트 · 예제) · 검색 · 카드 (이름 · id · 경로 · 버전 · 최근 · 복구 표시) · 단계형 새 프로젝트 | v0.8 UI-2 |
 | Workspace | 없음 (떠 있는 창) | P1 · P2 | 메뉴 + 툴바 + 도크 공간 (가운데 = 월드 — 통과), 기본 배치 셋 | v0.8 UI-1 |
-| Scene / Game | 한 그림 (TestPlay 가 같은 화면) | P6 | 가운데 위 모드 띠 (Scene — 편집 / Game — 테스트 플레이 / 재생) + 플레이 중 테두리. 분리된 두 뷰는 ST-06-11 [계획] | v0.8 UI-1 (띠) · ST-06-11 (분리) |
+| Scene / Game | 한 그림 (TestPlay 가 같은 화면) | P6 | 가운데 위 모드 띠 (Scene — 편집 / Game — 테스트 플레이 / 재생) + 플레이 중 테두리. 분리된 두 뷰는 ST-06-11 [계획 v0.12 — ADR-0123] | v0.8 UI-1 (띠) · ST-06-11 (분리) |
 | Hierarchy | "목록" (평평한 목록 · 거르기 · 선택) | 이름 · 문맥 메뉴 없음 | 왼쪽 도크, 검색 · 선택 수 · 문맥 메뉴 (선택 · 맞추기 · 지우기). 계층 (부모-자식) 은 모델에 없음 — 흉내 내지 않는다 (25 7장 D-16) | v0.8 UI-3 |
 | Inspector | 리플렉션 필드 · 컴포넌트 | 대상 표시 약함 | 오른쪽 도크, 대상 머리 (이름 · id · 선택 수), 컴포넌트마다 접는 묶음 | v0.8 UI-3 |
 | Asset Browser | 콘텐츠 창 (Prefab · Rule · Script) | 에셋 브라우저 없음 | 아래 도크에 콘텐츠 그대로. 썸네일 · 끌어 놓기 가져오기는 v0.10 ST-06-3 [계획] | v0.8 (배치) · v0.10 |
@@ -56,13 +56,13 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 | 시작 화면 | 템플릿 · 최근 | Hub (별도 앱) | Project Manager (첫 창) | Project Browser | **Adapt** — 앱 안 홈 (Godot 처럼 첫 화면), 카드 · 검색 |
 | 메뉴 + 작업별 툴바 | 탭 리본 (Home · Model · Script …) · 왼쪽 테스트 단추 | 메뉴 + 툴바 (Play) | 메뉴 + 작업 공간 단추 + 플레이 | 메뉴 + 메인 툴바 (저장 · 모드 · 플레이) | **Adapt** — 메뉴 한 줄 + 툴바 한 줄 (툴 · 플레이 · 저장 · 빌드). 리본은 Reject (기능 수에 비해 크다) |
 | Explorer ↔ Properties | 연결 (선택) | Hierarchy ↔ Inspector | Scene ↔ Inspector | Outliner ↔ Details | **Adopt** — 목록 ↔ 인스펙터 (이미 같은 선택) |
-| Scene vs Game | 같은 뷰 (Play 모드) | 다른 탭 | Game 화면 (4.4+) | PIE (같은 뷰포트) | **Adapt** — 같은 뷰 + 모드 띠 (지금), 분리는 Later (ST-06-11) |
+| Scene vs Game | 같은 뷰 (Play 모드) | 다른 탭 | Game 화면 (4.4+) | PIE (같은 뷰포트) | **Adapt** — 같은 뷰 + 모드 띠 (지금), 분리는 Later (ST-06-11 — v0.12, 게임 카메라 정의 먼저) |
 | 레이아웃 저장 · 프리셋 | 창 도킹 | Layout 메뉴 (저장 · 바꾸기) | 레이아웃 (저장) | 레이아웃 저장 | **Adopt** — 이미 M6-T6 (이름 붙인 ini) + 기본 셋 |
 | 아래 패널 (Output · Console) | Output | Console | 아래 패널 (Output · Debugger) | Output Log · Content Drawer | **Adopt** — 아래 도크 (콘솔 · 콘텐츠 · 빌드 · 테스트) |
 | 콘텐츠 브라우저 | Asset Manager · Toolbox | Project | FileSystem | Content Browser / Drawer | **Later** — v0.10 ST-06-3 (지금은 콘텐츠 창) |
 | 초보 · 고급 분리 | 탭 · 플러그인 | 패키지 · 창 메뉴 | 고급 설정 토글 | 모드 | **Adopt** — Creator / Developer (보기 메뉴 · studio.json) |
 | 탭 사용자화 · 플러그인 툴바 | 있음 | 있음 | 있음 | 있음 | **Later** — 플러그인 (25 9장, v0.21) |
-| 떼어 낸 창 (다중 모니터) | 있음 | 있음 | 없음 (한 창) | 있음 | **Later** — ImGui 뷰포트 (ST-06-11) |
+| 떼어 낸 창 (다중 모니터) | 있음 | 있음 | 없음 (한 창) | 있음 | **Later** — ImGui 뷰포트 (ST-06-11 — v0.12) |
 | 명령 팔레트 · 단축키 표 | Quick Open | 검색 | 명령 팔레트 | 검색 | **Adopt** ✅ ST-06-2 (CommandService 표 — Ctrl+Shift+P · 단축키 표, ADR-0122) |
 
 출처: [Roblox Studio interface](https://create.roblox.com/docs/studio/overview), [Unity Editor interface](https://docs.unity3d.com/6000.2/Documentation/Manual/unity-editor.html),

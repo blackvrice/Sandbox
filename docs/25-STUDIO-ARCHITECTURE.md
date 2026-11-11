@@ -116,8 +116,8 @@ BuildService
 레이아웃   ✅ v0.8 M6-T6 (ADR-0114) ImGui 도킹 상태를 사용자 설정 폴더 studio/layouts/<이름>.ini 에 (IniFilename 은 끈 채 — 앱이 텍스트를
           꺼내 LayoutService 가 저장). 이름 붙인 레이아웃 · 고르기 · 기본 배치로 · "레이아웃" 창 · --layout. 깨진 ini = <이름>.ini.broken +
           기본으로 + 알림 (M1-T3 의 옮기기 규칙). 기본 레이아웃 셋: 장면 편집 · 스크립트 · 테스트 (Godot Editor Layouts 와 같은 사용 모양 —
-          벤치마크 A2) [계획 — M6-T8 · ST-06-11 과 함께 (DockBuilder)]
-다중 모니터 ImGui 뷰포트 (떼어 낸 창) — [계획 v0.6] (플랫폼 창 층 지원 확인 뒤, 07)
+          벤치마크 A2) ✅ v0.8 UI-1 (DockBuilder 프리셋 scene · scripting · play — ADR-0118)
+다중 모니터 ImGui 뷰포트 (떼어 낸 창) · Scene/Game 뷰 분리 — [계획 v0.12 ST-06-11] (게임 카메라 정의 · 플랫폼 다중 창 뒤 — ADR-0123)
 DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (어두움 · 밝음 · 고대비) ✅ v0.8 ST-06-2 (ADR-0122 — 29 3장)
 설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 자동 저장 주기 ✅ v0.8 M6-T6 — 서비스마다 자기 키, 테마 ✅ ST-06-2,
           편집기 글꼴 [계획]) ↔ 프로젝트 sandbox.project.json (게임)

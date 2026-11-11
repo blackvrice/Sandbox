@@ -63,7 +63,7 @@
 | M6-T7 | 자동 저장 · 크래시 복구 | B | Done | v0.5 | v0.8 | P0 | — | CTest studio_recovery · test_autosave_service — ADR-0113 |
 | ST-06-2 | 명령 팔레트 · 단축키 표 · 테마 | B | Done | v0.6 | v0.8 | P2 | ST-06-1 | 충돌 진단 시험 (ADR-0122 — test_command_palette · test_studio_shell) |
 | ST-06-9 | TestService — 서버 + N 클라이언트 · 지연 모의 | B | Done | v0.6 | v0.8 | P1 | — | CTest studio_test_session · test_test_service — ADR-0115 |
-| ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.8 | P3 | ST-06-1 | 수동 QA |
+| ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 | B | Planned | v0.6 | v0.12 | P3 | ST-06-1 | 수동 QA (ADR-0123 — 게임 카메라 정의 먼저, v0.12 시작 때 판정) |
 | M5-T1 | --replay · 로컬 재생 · 결속 | B | Done | v0.5 | v0.8 | P1 | — | CTest client_replay — ADR-0116 (결속 = 콘텐츠 해시 · 패키지 digest 는 M5-T3) |
 | M5-T2 | 재생 · 멈춤 · seek · 타임라인 | B | Done | v0.5 | v0.8 | P1 | M5-T1 | test_world_ops seek · client_replay --replay-seek · 14 7.18 — ADR-0117 (프로토콜 17) |
 | M5-T3 | --record · 보고 묶음에 | B | Done | v0.5 | v0.8 | P2 | M5-T1 | CTest replay_record · test_world_ops · test_diagnostics — ADR-0119 |

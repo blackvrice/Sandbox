@@ -20,7 +20,7 @@
 ```text
 지금      v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (2026-11-09 — releases/v0.7.0). v0.6 ✅ 0.6.0 · v0.5 ✅ 0.5.0 (아래 줄은 roadmap/README 1장과 같다)
 다음      트랙 A  M6-T4 오류 메시지 · 줄 표 (.sbc 11, v0.9) — v0.7 의 M3 · M4 · NG-06 ✅
-트랙 B    ST-06-1 Editor Services ✅ · M6-T1 (홈) ✅ · M6-T3 (Build) ✅ · M6-T7 (자동 저장) ✅ · M6-T6 (레이아웃) ✅ · ST-06-9 (테스트 세션) ✅ · M5-T1 (--replay) ✅ · M5-T2 (탐색) ✅ · Studio UI UI-0 ~ UI-3 ✅ (29) · M5-T3 (기록) ✅ · NG-07 (시험 층) ✅ · NG-03 (Player) ✅ · ST-06-2 (팔레트 · 테마) ✅ → UI-4 창 QA · ST-06-11 (v0.8) — v0.6 의 NG-12 · NG-13 · M6-T9 · NG-01 ✅
+트랙 B    ST-06-1 Editor Services ✅ · M6-T1 (홈) ✅ · M6-T3 (Build) ✅ · M6-T7 (자동 저장) ✅ · M6-T6 (레이아웃) ✅ · ST-06-9 (테스트 세션) ✅ · M5-T1 (--replay) ✅ · M5-T2 (탐색) ✅ · Studio UI UI-0 ~ UI-3 ✅ (29) · M5-T3 (기록) ✅ · NG-07 (시험 층) ✅ · NG-03 (Player) ✅ · ST-06-2 (팔레트 · 테마) ✅ → UI-4 창 QA → 0.8.0 (v0.8 — ST-06-11 은 v0.12, ADR-0123) — v0.6 의 NG-12 · NG-13 · M6-T9 · NG-01 ✅
 그다음   
           M3 → M4 · M5 → M6 → M7 (20 10장 진행 차례에 M2-T7 하나를 끼움 — 이유는 1장)
 ```
@@ -235,7 +235,7 @@ v0.6 출시 기준: 초안 v0_6 완료 기준 + 24 2장 v0.6 줄 (V3 · C1 · Q1
 | ST-06-8 | 언어 서비스 색인 — 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | P2 | M6-T8 | script/lang | unit · 응답 측정 |
 | ST-06-9 | TestService — 서버 + N 클라이언트 단추 · 지연 · 손실 모의 (SimulatedTransport 노출) | P1 | — | editor/services, network (옵션), platform/process | CTest (서버 + 2 헤드리스) |
 | ST-06-10 | 데이터 폼 (콘텐츠 JSON 일반 — FieldMeta) · 트리거 그래프 캔버스 | P2 | ST-06-1 | editor/ui | 스키마 → 폼 왕복 unit |
-| ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 (다중 모니터) | P3 | ST-06-1 | apps/client · platform | 수동 QA |
+| ST-06-11 | Scene/Game 뷰 분리 · 떼어 낸 창 (다중 모니터) — v0.12 (ADR-0123: 게임 카메라 정의 먼저) | P3 | ST-06-1 | apps/client · platform · render | 수동 QA |
 | ST-06-12 | 제작자 사용성 시험 (28 2장) — 결과를 ALPHA-READINESS 에 | P0 | v0.5 끝 | docs · qa | 시험 기록 |
 
 v0.6 출시 기준 (트랙 B): 28 G5 (시각 UI) · G6 (멀티) · G7 (디버거) 통과 + 사용성 시험 합격 (28 2장).

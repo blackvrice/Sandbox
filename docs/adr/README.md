@@ -137,3 +137,4 @@
 | [0120](0120-studio-test-layers-gui-smoke-gated.md) | Studio 시험 층 — 층 2 흐름 E2E (새 프로젝트 → 가져오기 → 빌드 → 패키지 플레이), 층 3 GUI smoke (Windows WARP · CI 또는 SBX_GUI_TESTS=1 만 — 그 밖 SKIPPED), 층 4 QA 증거 양식, 기준마다 증거 층 | Accepted | 2026-11-10 |
 | [0121](0121-player-mode-client-option-library-error-screen.md) | Player 모드 — --play · .sbpkg 경로 하나 (파일 연결 인자), Studio 창 · 서비스 없음, player.json 최근 게임, 오류 코드마다 사람 말 화면 · 보고 묶음, OS 파일 연결 등록은 설치 프로그램 몫 | Accepted | 2026-11-10 |
 | [0122](0122-command-palette-shortcut-dispatch-themes.md) | 명령 팔레트 (Ctrl+Shift+P) · 단축키 표 · 명령 표의 단축키를 ImGui::Shortcut 로 실행 (행동 표의 키는 keyHint 로 보이기만) · 셸 일을 명령으로 (같은 길) · 테마 어두움 · 밝음 · 고대비 (계산된 대비 시험, studio.json "theme") | Accepted | 2026-11-10 |
+| [0123](0123-defer-scene-game-view-split.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 — 게임 카메라 정의 · 렌더러 두 번 그리기 · 플랫폼 다중 창이 먼저, 창 QA 도 밀림. 다시 할 차례: 카메라 → Game 뷰 → 멀티 뷰포트 | Accepted | 2026-11-11 |
