@@ -1041,8 +1041,17 @@ bool Application::frame() {
                 if (m_shell.view.hierarchy) {
                     editor::drawHierarchyPanel(m_editor, m_inspector, *host);
                 }
-                m_contentPanel.documents = &m_documents; // [저장 (팩 파일)] (v0.9 M6-T8)
+                m_contentPanel.documents = &m_documents;  // [저장 (팩 파일)] (v0.9 M6-T8)
+                m_contentPanel.debugger = &m_scriptDebug; // 줄 번호 칸의 중단점 · 멈춘 줄 (v0.9 ST-06-7)
                 editor::drawContentPanel(m_editor, m_contentPanel, *host, m_editorPanel.contentOpen); // 12C
+                // 스크립트 디버거 (v0.9 ST-06-7) — [편집기에서 보기] 는 콘텐츠 창의 스크립트 편집기를 그 줄로
+                const editor::ScriptDebugPanelResult dbg = editor::drawScriptDebugPanel(
+                    m_scriptDebug, m_debugPanel, m_config.savesRoot, m_config.contentRoot, m_shell.view.debugger);
+                if (dbg.showInEditor && host->content() != nullptr &&
+                    editor::showScriptLine(m_contentPanel, *host->content(), *dbg.showInEditor)) {
+                    m_editorPanel.contentOpen = true;
+                    m_shell.view.content = true;
+                }
             }
             if (m_config.autosave != nullptr && m_config.autosave->pending()) { // v0.8 M6-T7 복구 제안
                 if (const auto choice = drawRecoveryPrompt(*m_config.autosave->pending())) {
@@ -1393,6 +1402,9 @@ void Application::registerStudioCommands() {
          }});
     add({"view.console", "콘솔 창 켜고 끄기", "", "global", {}, [this] {
              m_shell.view.console = !m_shell.view.console;
+         }});
+    add({"view.script-debugger", "스크립트 디버거 (기록 재생)", "", "global", {}, [this] {
+             m_shell.view.debugger = !m_shell.view.debugger;
          }});
     for (const auto t : {editor::theme::Theme::Dark, editor::theme::Theme::Light, editor::theme::Theme::HighContrast}) {
         const char* title = t == editor::theme::Theme::Dark    ? "테마: 어두움"

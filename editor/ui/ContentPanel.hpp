@@ -30,7 +30,9 @@ namespace sbx::editor {
 
 namespace services {
 class DocumentService;
-}
+class ScriptDebugService;
+struct DebugLocation;
+} // namespace services
 
 // 이 창이 팩 파일에 쓴 스크립트 (v0.9 M6-T8 조각 3) — 다음 저장의 base · "팩 파일과 같음" 표시
 struct SavedScript {
@@ -60,6 +62,8 @@ struct ContentPanelState {
     // [저장 (팩 파일)] (v0.9 M6-T8 조각 3) — Application 이 문서 서비스를 넣는다 (없으면 저장 단추 없음)
     services::DocumentService* documents = nullptr;
     std::map<std::string, SavedScript, std::less<>> saved; // 스크립트 id → 이 창의 마지막 저장
+    // 스크립트 디버거 (v0.9 ST-06-7) — Application 이 넣는다: 줄 번호 칸을 누르면 중단점, 멈춘 줄을 칠한다
+    services::ScriptDebugService* debugger = nullptr;
     enum class SaveAsk : u8 { None, Errors, Overwrite };
     SaveAsk saveAsk = SaveAsk::None; // 저장을 멈추고 묻는 중 (오류가 있다 · 바깥에서 파일이 바뀌었다)
 };
@@ -78,6 +82,9 @@ struct ContentPanelState {
 [[nodiscard]] ScriptSaveResult saveScriptEdit(const content::ContentDatabase& db, services::DocumentService& docs,
                                               const std::string& id, const std::string& text,
                                               std::map<std::string, SavedScript, std::less<>>& saved, bool force);
+// 디버거의 [편집기에서 보기] (v0.9 ST-06-7) — 그 팩 · 파일의 스크립트를 고르고 그 줄로 커서를 옮긴다 (이미 고친 채 열려
+// 있으면 글은 그대로). 오버레이 id 로 쓸 수 없는 경로 · 콘텐츠에 없는 파일이면 false
+bool showScriptLine(ContentPanelState& state, const content::ContentDatabase& db, const services::DebugLocation& at);
 // 새 스크립트 파일의 틀 (시스템 하나 — id 는 파일의 오버레이 id)
 [[nodiscard]] std::string scriptTemplate(const std::string& id);
 // 진단의 "줄:열" 이 가리키는 소스 줄 — "\n  12 | <줄>" (오류 줄 보이기, 없는 줄이면 빈 문자열)

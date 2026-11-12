@@ -31,6 +31,12 @@ struct ScriptEditorState {
     ScriptAssist assist;
     std::optional<usize> gotoOffset; // 커서를 여기로 (바이트) — 위젯을 활성화하고 적용되면 비운다
     bool focusRequest = false;       // 다음 프레임에 입력 칸에 키보드 포커스
+    // 디버거 (v0.9 ST-06-7 조각 3): breakpointGutter 면 줄 번호 칸을 누른 줄이 toggledLine 으로 나온다 (놓고 거두기는
+    // 부르는 쪽이). breakpointLines = 빨간 점, execLine = 멈춘 줄 (칠하고 처음 보일 때 스크롤). 줄은 1 부터
+    bool breakpointGutter = false;
+    std::vector<u32> breakpointLines;
+    std::optional<u32> execLine;
+    std::optional<u32> toggledLine; // 이번 프레임에 누른 줄 (부르는 쪽이 읽고 비운다)
 
     // --- 위젯 안 (부르는 쪽은 읽기만) ---
     std::string shadow; // 마지막으로 본 글 — 바깥에서 바꾸면 (다른 파일 · 버리기 · 서버 값) reset
@@ -45,6 +51,7 @@ struct ScriptEditorState {
     bool layoutDirty = true;
     std::vector<usize> lineStarts{0}; // 줄마다 시작 바이트 ('\n' 다음) — 글이 바뀔 때마다 (자리 → 줄은 이분 탐색)
     f32 contentWidth = 0.f;
+    std::optional<u32> shownExecLine; // 스크롤을 맞춘 멈춘 줄
     ImVec2 hoverMouse{-1.f, -1.f};
     f64 hoverSince = 0.0;
 };

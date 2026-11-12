@@ -151,6 +151,7 @@ add_executable(SandboxTests
     unit/editor/test_trigger_form.cpp
     unit/editor/test_script_editor.cpp
     unit/editor/test_script_assist.cpp
+    unit/editor/test_script_debug_service.cpp
     unit/editor/test_pack_groups.cpp
     # 앱·도구 코드 중 순수 로직은 테스트에 직접 컴파일해 넣는다 (exe 를 링크할 수 없으므로)
     "${PROJECT_SOURCE_DIR}/apps/server/ServerOptions.cpp"

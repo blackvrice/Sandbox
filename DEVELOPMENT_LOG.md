@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-12 — v0.9 ST-06-7 조각 3: Studio 스크립트 디버거 창 · 편집기 줄 번호 칸 중단점 (ADR-0134) — ST-06-7 끝
+
+**무엇을**
+
+- editor/services/ScriptDebugService (새): 기록 찾기 (start/ + replay.sbxr, 이름은 UTF-8), 열기 (엔진 카탈로그 + 리플레이 팩을 콘텐츠 폴더에서 +
+  시작 세이브 → ScriptDebugSession), 중단점 (세션 사이에 남는다 — 돌거나 끝난 동안 바꾼 것은 멈추면 · 처음부터에), 감시, 처음부터, 멈춘 자리.
+- editor/ui/ScriptDebugPanel (새): "스크립트 디버거" 창 — 기록 · 시작 (틱에서 멈춤) · 계속 · 한 줄 · 들어가기 · 나가기 · 그만 · 처음부터, 멈춘 자리 ·
+  [편집기에서 보기], 호출 스택 · 지역 · 감시 (바깥 프레임은 디버그 스레드에 묻는다) · 중단점 · logpoint 글 · 재생 결과.
+- ScriptEditor: 줄 번호 칸 (breakpointGutter — 누른 줄 toggledLine, 중단점 빨간 점, 멈춘 줄 칠하기 · ▶ · 스크롤, 진단 점은 오른쪽으로).
+- ContentPanel: 디버거 연결 (그 파일의 중단점 · 멈춘 줄 · 칸 누름 → toggleBreakpoint), showScriptLine.
+- Studio: 보기 메뉴 · 명령 view.script-debugger · scripting 배치의 오른쪽, 앱 설정 savesRoot · contentRoot (main).
+- 문서: ADR-0134, 27 6 · 8장, 17 · 13 · 25 · 28 (G7), 등록부 ST-06-7 Done, 18 · 23 · roadmap 다음 줄, MANUAL-QA 디버거 줄.
+
+**왜**
+
+- ST-06-7 의 마지막 조각 — 재생 디버거를 Studio 에서 쓰게 한다 (v0.9 목표 "재생 디버거로 고친다").
+
+**검증**
+
+- test_script_debug_service 2 새 시험 (서비스 — 기록 · 열기 · 중단점이 남는다 · 멈춘 자리 · 끝 · 해시 · 미룬 바꾸기 · 틱 · 오류, 창 · 편집기 칸 ·
+  showScriptLine) — 두 번 돌려 같다. 처음 짚은 것: 한글 이름 폴더를 path::string() 으로 읽으면 던진다 (→ io::displayPath), 시험이 새 멈춤 전에
+  바깥 프레임을 골라 창이 안쪽으로 되돌렸다 (창의 뜻대로 — 시험을 고침).
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED. 창은 MANUAL-QA.
+
+**남은 일**
+
+- 조건부 중단점 · 식 감시 · 멈춘 틱의 월드 · 되감기 · 단축키 · 테스트 플레이에서 바로 디버그 · 큰 기록의 비동기 열기는 [계획]. v0.9 의 남은 태스크는 ST-06-8.
+
 ## 2026-11-12 — v0.9 ST-06-7 조각 2: 스크립트 재생 디버그 세션 — 디버그 스레드 · 같은 해시 (ADR-0133)
 
 **무엇을**

@@ -393,6 +393,8 @@ int main(int argc, char** argv) {
     cfg.engineVersion =
         std::format("{}.{}.{}", sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch);
     cfg.tests = &tests;
+    cfg.savesRoot = saveDefaults.savesRoot; // 스크립트 디버거의 기록 (v0.9 ST-06-7)
+    cfg.contentRoot = contentRoot;
     cfg.replayName = opts->replayName; // 리플레이 뷰어 (v0.8 M5-T1) — 헤드리스면 끝에 끝낸다
     cfg.replayQuitAtEnd = opts->headless;
     cfg.replaySeek = opts->replaySeek;

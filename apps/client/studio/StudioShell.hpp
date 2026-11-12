@@ -30,6 +30,7 @@ struct ShellView {
     bool world = true;     // 월드 (세이브 · 리플레이)
     bool game = true;      // 게임 · 행동
     bool content = false;  // 콘텐츠 (Prefab · Rule · 스크립트 — 편집 창의 단추와 같은 값)
+    bool debugger = false; // 스크립트 디버거 (v0.9 ST-06-7 — 기록을 디버그 재생)
 };
 
 struct ShellState {

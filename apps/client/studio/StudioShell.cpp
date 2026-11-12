@@ -28,6 +28,7 @@ constexpr const char* kTest = "테스트";
 constexpr const char* kGame = "###game";
 constexpr const char* kActions = "###actions";
 constexpr const char* kNotices = "알림";
+constexpr const char* kDebugger = "스크립트 디버거";
 
 float uiScale() {
     return ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
@@ -50,6 +51,7 @@ void buildPreset(ImGuiID dock, std::string_view name, const ImGuiViewport* vp) {
         ImGui::DockBuilderDockWindow(kHierarchy, left);
         ImGui::DockBuilderDockWindow(kInspector, right);
         ImGui::DockBuilderDockWindow(kTools, right);
+        ImGui::DockBuilderDockWindow(kDebugger, right);
         for (const char* w : {kContent, kConsole, kBuild, kNotices}) {
             ImGui::DockBuilderDockWindow(w, bottom);
         }
@@ -125,6 +127,7 @@ void mainMenu(ShellState& st, const ShellInputs& in, ShellActions& act) {
         ImGui::MenuItem("인스펙터", nullptr, &st.view.inspector);
         ImGui::MenuItem("편집 도구 설정", nullptr, &st.view.tools);
         ImGui::MenuItem("콘텐츠 (Prefab · 규칙 · 스크립트)", nullptr, &st.view.content);
+        ImGui::MenuItem("스크립트 디버거 (기록 재생)", nullptr, &st.view.debugger);
         ImGui::MenuItem("콘솔", nullptr, &st.view.console);
         ImGui::MenuItem("빌드", nullptr, &st.view.build);
         ImGui::MenuItem("테스트 세션", nullptr, &st.view.test);

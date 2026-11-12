@@ -14,6 +14,7 @@
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/PackGroups.hpp"
 #include "editor/services/ScriptAssist.hpp"
+#include "editor/services/ScriptDebugService.hpp"
 #include "foundation/text/TextPosition.hpp"
 #include "foundation/text/Utf8.hpp"
 
@@ -399,6 +400,30 @@ std::string scriptExcerpt(const std::string& source, std::string_view pointer) {
     return out;
 }
 
+bool showScriptLine(ContentPanelState& st, const content::ContentDatabase& db, const services::DebugLocation& at) {
+    const std::optional<std::string> id = content::scriptOverlayId(at.pack, at.file);
+    if (!id) {
+        return false;
+    }
+    if (st.kind != content::ContentKind::Script || st.selected != *id) {
+        const std::optional<std::string> text = currentTextOf(db, content::ContentKind::Script, *id);
+        if (!text) {
+            return false;
+        }
+        st.kind = content::ContentKind::Script;
+        st.selected = *id;
+        st.isNew = false;
+        st.pendingFrom.reset();
+        st.text = st.loaded = *text;
+        st.issues.clear();
+        st.checked.clear();
+        st.saveAsk = ContentPanelState::SaveAsk::None;
+    }
+    // 줄 → 바이트 (텍스트 위치 계약 — 열 1 은 그 줄의 처음)
+    st.script.gotoOffset = text::offsetAt(st.text, {at.line, 1});
+    return true;
+}
+
 std::string scriptTemplate(const std::string& id) {
     return std::format(R"(import {{ defineSystem }} from "sandbox"
 
@@ -629,8 +654,23 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     } else if (st.kind == content::ContentKind::Script) {
         // 스크립트 편집기 (v0.9 M6-T8) — 작업 공간 = 이 파일의 팩 스크립트 (오버레이 반영) + 편집 중인 글
         const std::string id = st.selected;
+        // 디버거 (v0.9 ST-06-7): 이 파일의 중단점 · 멈춘 줄
+        const auto path = content::scriptOverlayPath(id);
+        st.script.breakpointGutter = st.debugger != nullptr && path.has_value();
+        st.script.breakpointLines.clear();
+        st.script.execLine.reset();
+        if (st.script.breakpointGutter) {
+            st.script.breakpointLines = st.debugger->breakpointLines(path->pack, path->rel);
+            if (const auto at = st.debugger->pausedAt(); at && at->pack == path->pack && at->file == path->rel) {
+                st.script.execLine = at->line;
+            }
+        }
         (void)drawScriptEditor("##script", st.text, editSize, !editable, st.script,
                                [db, id](std::string_view t) { return scriptWorkspace(*db, id, t); });
+        if (st.script.toggledLine && st.script.breakpointGutter) {
+            (void)st.debugger->toggleBreakpoint(path->pack, path->rel, *st.script.toggledLine);
+            st.script.toggledLine.reset();
+        }
     } else {
         inputJson("##json", st.text, editSize, !editable);
     }

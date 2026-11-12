@@ -287,13 +287,54 @@ bool drawScriptEditor(const char* id, std::string& text, ImVec2 size, bool readO
             v = std::max<i8>(v, m.error ? 2 : 1);
         }
     }
+    // 멈춘 줄 (디버거) — 줄 전체를 칠한다 (입력 칸 아래)
+    if (st.execLine && *st.execLine >= 1 && *st.execLine <= st.lineStarts.size()) {
+        const f32 y = origin.y + static_cast<f32>(*st.execLine - 1) * lineH;
+        ImVec4 band = tk.accent;
+        band.w = 0.22f;
+        dl->AddRectFilled({base.x, y}, {base.x + ImGui::GetScrollX() + view.x, y + lineH}, // 보이는 폭
+                          theme::toU32(band));
+    }
     for (usize l = firstLine; l < lastLine; ++l) {
         const std::string n = std::to_string(l + 1);
         const f32 y = origin.y + static_cast<f32>(l) * lineH;
-        dl->AddText({base.x + gutter - 8.f * dpi() - widthOf(n), y}, theme::toU32(tk.muted), n.c_str());
+        const auto lineNo = static_cast<u32>(l + 1);
+        const bool exec = st.execLine == lineNo;
+        dl->AddText({base.x + gutter - 8.f * dpi() - widthOf(n), y}, theme::toU32(exec ? tk.text : tk.muted),
+                    n.c_str());
+        if (std::find(st.breakpointLines.begin(), st.breakpointLines.end(), lineNo) != st.breakpointLines.end()) {
+            dl->AddCircleFilled({base.x + 7.f * dpi(), y + lineH * 0.5f}, 4.5f * dpi(), theme::toU32(tk.error));
+        }
+        if (exec) { // 멈춘 줄 표 (▶)
+            const f32 cx = base.x + 7.f * dpi();
+            const f32 cy = y + lineH * 0.5f;
+            dl->AddTriangleFilled({cx - 3.f * dpi(), cy - 4.f * dpi()}, {cx - 3.f * dpi(), cy + 4.f * dpi()},
+                                  {cx + 4.f * dpi(), cy}, theme::toU32(tk.accent));
+        }
         if (const i8 v = lineMark[l - firstLine]; v != 0) {
-            dl->AddCircleFilled({base.x + 4.f * dpi(), y + lineH * 0.5f}, 2.5f * dpi(),
+            dl->AddCircleFilled({base.x + gutter - 4.f * dpi(), y + lineH * 0.5f}, 2.5f * dpi(),
                                 theme::toU32(v == 2 ? tk.error : tk.warning));
+        }
+    }
+    // 줄 번호 칸을 누르면 중단점 (디버거가 붙은 편집기만)
+    st.toggledLine.reset();
+    if (st.breakpointGutter && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseClicked(0)) {
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        if (mouse.x >= base.x && mouse.x < base.x + gutter && mouse.y >= origin.y) {
+            const auto line = static_cast<usize>((mouse.y - origin.y) / lineH) + 1;
+            if (line <= st.lineStarts.size()) {
+                st.toggledLine = static_cast<u32>(line);
+            }
+        }
+    }
+    // 멈춘 줄이 바뀌면 보이게
+    if (st.execLine != st.shownExecLine) {
+        st.shownExecLine = st.execLine;
+        if (st.execLine && *st.execLine >= 1) {
+            const f32 y = style.FramePadding.y + static_cast<f32>(*st.execLine - 1) * lineH;
+            if (y < ImGui::GetScrollY() || y + lineH > ImGui::GetScrollY() + view.y) {
+                ImGui::SetScrollY(std::max(0.f, y - view.y * 0.3f));
+            }
         }
     }
     // 밑줄 — 입력 칸 아래에 먼저 (입력 칸 바탕은 투명). 보이는 줄만 (진단이 많은 큰 파일 — 정점 수)

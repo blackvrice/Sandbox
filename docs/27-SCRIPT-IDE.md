@@ -105,6 +105,9 @@ VM 훅             ✅ v0.9 ST-06-7 조각 1 (ADR-0132) — 디버그 세션의 
                    .필드 · [정수] · .length 경로 — 읽기만. 식 평가 · ctx 읽기는 [계획]) — vm::frameLocals · evaluateWatch · describeValue
 단계 실행          ✅ Step Into · Over · Out = 줄 시작 (줄 표에서 줄이 바뀌는 칸) 의 단계 BRK + 깊이 조건, logpoint ("{식}" — 멈추지 않는다),
                    armStep (다음 호출의 첫 줄) — vm::Debugger
+Studio 창          ✅ v0.9 ST-06-7 조각 3 (ADR-0134) — "스크립트 디버거" (보기 메뉴 · 명령 view.script-debugger · scripting 배치):
+                   기록 (세이브 폴더의 start/ + replay.sbxr) 을 리플레이의 팩 · 콘텐츠 폴더로 열어 디버그 재생. 중단점은 서비스에 남고 편집기의 줄
+                   번호 칸을 눌러 놓는다 (빨간 점), 멈춘 줄은 편집기에 칠한다, [편집기에서 보기]
 재생 세션          ✅ v0.9 ST-06-7 조각 2 (core/script/ScriptDebugSession — ADR-0133): 리플레이를 디버그 스레드에서 call 마다, 멈추면 그
                    스레드가 훅 안에서 기다린다 (틱 중간). UI 는 스냅숏 (틱 · call · 프레임 · 지역 · 감시) 만, 멈춘 동안의 요청 (감시 식 · 중단점)
                    은 디버그 스레드가 한다. stopAtTick (그 틱의 첫 줄), abort, 끝나면 BRK 를 거둔다. 해시 기록 · 끝 해시 = 디버거 없는 재생
@@ -137,7 +140,8 @@ Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위
 | 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | [계획 v0.6] |
 | 재생 디버거 — VM 쪽 (BRK 패치 · 지역 이름 표 형식 12 · 중단점 · 단계 · 감시 경로 · logpoint) | ✅ v0.9 ST-06-7 조각 1 (script/vm/Debug — ADR-0132) |
 | 재생 디버거 — 재생 세션 (디버그 스레드 · 같은 해시 · stopAtTick · abort) | ✅ v0.9 ST-06-7 조각 2 (core/script/ScriptDebugSession — ADR-0133) |
-| 재생 디버거 — Studio 창 | [계획 v0.9 ST-06-7 조각 3] |
+| 재생 디버거 — Studio 창 (기록 · 계속 · 단계 · 스택 · 지역 · 감시 · 중단점 · logpoint · 결과) · 편집기 줄 번호 칸 중단점 · 멈춘 줄 | ✅ v0.9 ST-06-7 조각 3 (editor/ui/ScriptDebugPanel · editor/services/ScriptDebugService — ADR-0134) |
+| 재생 디버거 — 조건부 중단점 · 식 감시 · 멈춘 틱의 월드 · 되감기 · 단축키 · 테스트 플레이에서 바로 | [계획] (ADR-0132 · 0133 · 0134 결과) |
 | LSP · 포맷터 · 클라이언트 라이브 디버그 | [계획 v0.7] |
 | DAP | [계획 v0.8+] |
 

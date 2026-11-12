@@ -46,6 +46,7 @@
 #include "editor/services/DocumentService.hpp"
 #include "editor/services/LayoutService.hpp"
 #include "editor/services/ProjectService.hpp"
+#include "editor/services/ScriptDebugService.hpp"
 #include "editor/services/TestService.hpp"
 #include "editor/ui/BuildPanel.hpp"
 #include "editor/ui/CommandPalette.hpp"
@@ -54,6 +55,7 @@
 #include "editor/ui/EditorPanel.hpp"
 #include "editor/ui/InspectorPanel.hpp"
 #include "editor/ui/LayoutPanel.hpp"
+#include "editor/ui/ScriptDebugPanel.hpp"
 #include "editor/ui/TestPanel.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
@@ -144,6 +146,10 @@ struct AppConfig {
     // 로그 폴더 · 포트 · 클라이언트 수 · 흉내 · 자동 시험 프레임 — main 이 --test-* 로). 프로젝트는 지금 프로젝트
     editor::services::TestService* tests = nullptr;
     editor::services::TestPlan testPlan;
+    // 스크립트 디버거 (v0.9 ST-06-7 — ADR-0134): 기록을 찾을 세이브 폴더 · 팩을 읽을 콘텐츠 폴더 (main 이 --saves ·
+    // 프로젝트 worlds/ 와 --content 로 정한다 — 로컬 서버와 같은 것)
+    std::filesystem::path savesRoot;
+    std::filesystem::path contentRoot;
     // 리플레이 뷰어 (v0.8 M5-T1 — 20 4장): 들어가면 이 이름을 재생 (WorldOp Play), quitAtEnd 면 끝에 끝낸다 (헤드리스 —
     // 기록과 다르거나 재생하지 못하면 종료 코드 1)
     std::string replayName;
@@ -346,6 +352,9 @@ private:
     // 파일 문서 (v0.9 M6-T8 — 스크립트 편집기의 [저장 (팩 파일)]). 되돌리기 줄에 넣지 않는다: 편집기 칸이 제 되돌리기를
     // 갖고, 저장은 되돌리기 칸이 아니다 (ADR-0131)
     editor::services::DocumentService m_documents{nullptr};
+    // 스크립트 디버거 (v0.9 ST-06-7) — 기록의 디버그 재생 (자기 월드 · 콘텐츠 — 라이브 월드와 따로)
+    editor::services::ScriptDebugService m_scriptDebug;
+    editor::ScriptDebugPanelState m_debugPanel;
     editor::Editor m_editor;
     editor::EditorPanelState m_editorPanel;
     editor::InspectorState m_inspector;       // 12B "인스펙터" · "목록"
