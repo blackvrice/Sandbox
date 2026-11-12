@@ -15,7 +15,7 @@
          v0.5 Technical Alpha ✅ 0.5.0 (2026-11-03 — 릴리스 노트 releases/v0.5.0, M1 · M2 · M8 · M7-T6, ADR-0078~0100)
          v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0 (2026-11-04 — 릴리스 노트 releases/v0.6.0, NG-01 · 02 · 04 · 08 · 12 · 13 · 14 · M6-T9 · RT-06-12)
          v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (2026-11-09 — 릴리스 노트 releases/v0.7.0, M3-T1 ~ T6 · M4-T1 ~ T4 · NG-06, ADR-0101 ~ 0107)
-다음     roadmap/README 1장 — v0.8 Studio 기본 환경 (트랙 B ST-06-1 · M6-T1 홈 · M6-T3 빌드 · M6-T7 자동 저장 · M6-T6 레이아웃 · ST-06-9 테스트 세션 · M5-T1 --replay · M5-T2 탐색 · Studio UI UI-0 ~ UI-3 ✅ · M5-T3 기록 · NG-07 시험 층 · NG-03 Player · ST-06-2 팔레트 ✅ → UI-4 창 QA → 0.8.0, ST-06-11 은 v0.12 — ADR-0123), 트랙 A M6-T4 ✅ (v0.9 — 줄 표 · 함수 프로파일 · 오류 메시지 · IScriptExecutor), v0.9 의 남은 일은 트랙 B (NG-05 ✅ → M6-T8 ✅ → ST-06-7 (VM 쪽 ✅ → 재생 세션 · 창) · ST-06-8)
+다음     roadmap/README 1장 — v0.8 Studio 기본 환경 (트랙 B ST-06-1 · M6-T1 홈 · M6-T3 빌드 · M6-T7 자동 저장 · M6-T6 레이아웃 · ST-06-9 테스트 세션 · M5-T1 --replay · M5-T2 탐색 · Studio UI UI-0 ~ UI-3 ✅ · M5-T3 기록 · NG-07 시험 층 · NG-03 Player · ST-06-2 팔레트 ✅ → UI-4 창 QA → 0.8.0, ST-06-11 은 v0.12 — ADR-0123), 트랙 A M6-T4 ✅ (v0.9 — 줄 표 · 함수 프로파일 · 오류 메시지 · IScriptExecutor), v0.9 의 남은 일은 트랙 B (NG-05 ✅ → M6-T8 ✅ → ST-06-7 (VM 쪽 · 재생 세션 ✅ → Studio 창) · ST-06-8)
 로드맵   2026-11-03 재구성 (ADR-0096 · 2차 배치 ADR-0099 · 출시 강화 ADR-0100): 작은 MINOR v0.5 ~ v0.24 RC · v1.0 GA · 성숙 단계 분리 ·
          태스크 등록부 — 정본 roadmap/ (versioning · task-registry · releases · release-gates · stabilization), 근거 audit/SECOND-PASS-GAP-ANALYSIS.
          아래 1장 표는 옛 줄 (이력)

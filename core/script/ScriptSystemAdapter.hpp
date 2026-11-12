@@ -176,6 +176,13 @@ public:
     [[nodiscard]] const std::shared_ptr<const content::ScriptPrograms>& programs() const noexcept { return m_programs; }
     // 진단 시계 (null = 재지 않는다). 결과에 닿지 않는다 — 통계의 nanos 만
     void setClock(ScriptClock clock) noexcept { m_clock = clock; }
+
+    // --- 디버거 (v0.9 ST-06-7 조각 2 — 재생 디버그 세션만, ADR-0133) ---
+    // 팩 pack 의 실행자를 모듈 사본 위의 Interpreter 로 바꾸고 그 사본을 돌려준다 (BRK 를 그 사본에 놓는다 — 콘텐츠의
+    // 모듈은 그대로). 같은 팩이면 같은 사본. 그 팩의 함수 프로파일은 새로 시작한다. 팩이 없으면 nullptr
+    [[nodiscard]] bc::Module* debugModule(usize pack);
+    // debugModule 뒤에 — 그 팩의 인터프리터에 훅을 붙인다 (nullptr 이면 뗀다)
+    void attachDebugger(usize pack, vm::IDebugHook* hook, const vm::CodePatches* patches);
     [[nodiscard]] bool timed() const noexcept { return m_clock != nullptr; }
 
 private:
@@ -206,6 +213,7 @@ private:
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;
     ScriptHost m_host;                                       // 인터프리터보다 먼저 만들고 나중에 없앤다
+    std::vector<std::unique_ptr<bc::Module>> m_debugModules; // 디버그 사본 (packs 차례 — m_vms 보다 오래 산다)
     std::vector<std::unique_ptr<vm::IScriptExecutor>> m_vms; // packs 차례
     std::vector<u64> m_digests;                              // packs 차례 — 바이트코드의 FNV-1a 64
     std::vector<Entry> m_systems;                            // 실행 순서 (팩 순서, id)

@@ -51,6 +51,28 @@ ScriptSystemAdapter::ScriptSystemAdapter(std::shared_ptr<const content::ScriptPr
     }
 }
 
+bc::Module* ScriptSystemAdapter::debugModule(usize pack) {
+    if (!m_programs || pack >= m_programs->packs.size()) {
+        return nullptr;
+    }
+    if (m_debugModules.size() < m_vms.size()) {
+        m_debugModules.resize(m_vms.size());
+    }
+    if (!m_debugModules[pack]) {
+        // 사본 위의 Interpreter — 디버거는 BRK 를 사본에만 놓는다 (실행자 종류는 Interpreter: BRK 를 아는 것은 그것뿐)
+        m_debugModules[pack] = std::make_unique<bc::Module>(m_programs->packs[pack].module);
+        const vm::Limits limits = m_vms[pack]->limits();
+        m_vms[pack] = std::make_unique<vm::Interpreter>(*m_debugModules[pack], &m_host, limits);
+    }
+    return m_debugModules[pack].get();
+}
+
+void ScriptSystemAdapter::attachDebugger(usize pack, vm::IDebugHook* hook, const vm::CodePatches* patches) {
+    if (pack < m_debugModules.size() && m_debugModules[pack]) {
+        static_cast<vm::Interpreter&>(*m_vms[pack]).attachDebugger(hook, patches); // debugModule 이 만든 Interpreter
+    }
+}
+
 ScriptSystemAdapter::~ScriptSystemAdapter() = default;
 
 void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, Entry& s, u32 fn,

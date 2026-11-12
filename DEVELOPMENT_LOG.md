@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-12 — v0.9 ST-06-7 조각 2: 스크립트 재생 디버그 세션 — 디버그 스레드 · 같은 해시 (ADR-0133)
+
+**무엇을**
+
+- core/script/ScriptDebugSession (새): (시작 세이브를 로드한 월드, 리플레이) → ReplayPlayer 를 디버그 스레드에서 call 마다. 팩마다 vm::Debugger,
+  멈추면 훅 안에서 기다린다 (스냅숏 — 틱 · call · 팩 · 줄 · 프레임 (안쪽부터) · 지역 · 감시). 멈춘 동안의 요청 (감시 식 · 중단점 · 감시 목록) 은
+  디버그 스레드가 한다. stopAtTick (armStep), resume (Continue · Into · Over · Out), abort, 소멸자가 BRK 를 거두고 훅을 뗀다.
+- core/script/ScriptSystemAdapter: debugModule (팩의 실행자를 모듈 사본 위의 Interpreter 로) · attachDebugger.
+- 문서: ADR-0133, 27 6 · 8장, 17 · 13, 등록부 ST-06-7 (조각 2), 18 · 23 · roadmap 다음 줄.
+
+**왜**
+
+- ST-06-7 의 둘째 조각 — "재생 중단 · 같은 해시" 완료 기준. Studio 창 (조각 3) 이 이 API 를 쓴다.
+
+**검증**
+
+- test_script_debug_session 3 새 시험 (중단점 → Into → 멈춘 동안 감시 → Out → 중단점 거두기 → 끝 · 해시 같음, logpoint · stopAtTick · abort ·
+  멈춘 채 없애기, 스크립트 없는 월드 거절) — 세 번 돌려 같다. 처음 짚은 것: 첫 틱에 만든 개체도 그 틱의 시스템이 본다 (명령이 먼저 —
+  logpoint 수 24).
+- 같은 해시: 디버거로 재생한 해시 기록 수 · 끝 해시 = 디버거 없는 재생 = 기록한 리플레이의 끝 해시.
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 조각 3: Studio 디버거 창 (리플레이 고르기 · 중단점 줄 · 계속 · 단계 · 스택 · 지역 · 감시 · logpoint 글). 시스템 · 이벤트 단위 멈춤, 멈춘 틱의
+  월드 보기, 되감기, 클라이언트 시스템은 [계획].
+
 ## 2026-11-12 — v0.9 ST-06-7 조각 1: 스크립트 디버거 VM 쪽 — BRK 패치 · 지역 이름 표 (형식 12) · 단계 · logpoint (ADR-0132)
 
 **무엇을**

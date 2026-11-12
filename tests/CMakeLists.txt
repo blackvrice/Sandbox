@@ -28,6 +28,7 @@ add_executable(SandboxTests
     unit/script/test_bytecode.cpp
     unit/script/test_vm.cpp
     unit/script/test_script_debugger.cpp
+    unit/script/test_script_debug_session.cpp
     unit/script/test_diagnostic_help.cpp
     unit/script/test_script_host.cpp
     unit/script/test_components.cpp
