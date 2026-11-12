@@ -82,7 +82,7 @@
 | ST-06-3 | Asset Browser 완성 | B | Planned | v0.6 | v0.10 | P1 | M6-T9 | 참조 · 옮기기 · 지우기 시험 |
 | ST-06-4 | Game UI Designer | B | Planned | v0.6 | v0.10 | P1 | M3-T5 · ST-06-1 | 문서 왕복 · 수동 QA |
 | M6-T2 | 템플릿 3종 | B | Planned | v0.5 | v0.10 | P0 | M3-T5 | 템플릿마다 new → check → test |
-| RT-06-1 | 호출 토큰 · Capability 실행 검사 | A | Planned | v0.6 | v0.10 | P0 | M2-T7 | 변조 .sbc 시험 |
+| RT-06-1 | 호출 토큰 · Capability 실행 검사 | A | Done | v0.6 | v0.10 | P0 | M2-T7 | 변조 .sbc 시험 — beginCall 의 콜백 이름 · 허락 집합, Host 호출마다 비교 (server · client), 비용 +0.1 % (ADR-0137) |
 | RT-06-7 | client 수명주기 · onEvent · onLateUpdate | A | Planned | v0.6 | v0.10 | P1 | RT-06-1 | 순서 |
 | RT-06-8 | onAction · 입력 Context | A | Planned | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 |
 | RT-06-10 | 타이머 · defineState | A | Planned | v0.6 | v0.10 | P1 | RT-06-1 | 세이브 → 로드 해시 |

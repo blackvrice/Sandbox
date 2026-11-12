@@ -275,8 +275,11 @@ ScriptHost::ScriptHost() {
     }
 }
 
-vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::SimulationWorld* world) {
+vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::SimulationWorld* world,
+                                std::string_view callback) {
     m_token = kCtxTag | (m_nextToken++ & 0x0000'FFFF'FFFF'FFFFull);
+    m_callback = std::string(callback);
+    m_capabilities = api::callbackCapabilities(callback, false);
     m_tick = tick;
     m_script = std::move(script);
     m_world = world;
@@ -326,6 +329,7 @@ void ScriptHost::endCall(bool commit) {
     m_ops = {};
     m_pathOps.clear();
     m_token = 0;
+    m_capabilities = 0;
     m_world = nullptr;
     m_handles.clear();
     m_handleOf.clear();
@@ -342,6 +346,12 @@ vm::HostResult ScriptHost::call(const api::HostFunction& fn, std::span<const vm:
     // 첫 인자는 주인 — 지금 열린 호출의 ctx 여야 한다
     if (m_token == 0 || args.empty() || args[0].value.bits != m_token) {
         return fail("ctx 가 지금 호출의 것이 아니다 (지난 호출의 ctx · 위조한 핸들)");
+    }
+    // 호출 토큰의 콜백이 이 함수의 Capability 를 허락하는가 (v0.10 RT-06-1 — 검사기를 거치지 않은 · 고친 바이트코드
+    // 대비)
+    if ((m_capabilities & api::capBit(fn.capability)) == 0) {
+        return fail(std::format("{} — {} 콜백에서는 쓸 수 없다 ({} 권한이 없다 — docs/22-RUNTIME-V2.md 3.2)", fn.id,
+                                m_callback, api::capabilityName(fn.capability)));
     }
     return b->impl(*this, args);
 }

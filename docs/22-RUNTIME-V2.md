@@ -121,6 +121,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
   검사기  콜백 이름 → 허락 Capability 집합. Host 함수의 Capability 가 그 집합 밖이면 S404 (TS 타입도 d.ts 에서 같은 집합 — 4.3)
   Host 표 HostFunction 에 capability 열 (지금의 effect 를 대신하는 것이 아니라 더함 — 지문이 바뀌고 kHostApiVersion 은 그대로, 더하기만)
   실행    ScriptHost::call 이 호출 토큰의 단계로 Capability 를 다시 본다 (위조 · 손으로 고친 .sbc 대비 — HostError)
+          ✅ v0.10 RT-06-1 (ADR-0137): beginCall(…, 콜백 이름) — 표 (Callbacks) 의 허락 집합, 모르는 이름은 0, client 도 같다
 ```
 
 ### 3.3 TypeScript 쪽 (d.ts)

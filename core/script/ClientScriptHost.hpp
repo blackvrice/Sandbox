@@ -104,7 +104,8 @@ public:
     // 프레임을 연다 — 지난 프레임의 표시를 비운다
     void beginFrame(const ClientScriptFrame& frame);
     // 호출 하나를 연다 — 돌려준 값을 ctx 인자로 넘긴다
-    vm::Value beginCall(std::string system);
+    // callback = 이 호출의 콜백 이름 (client — v0.10 RT-06-1): 그 콜백의 허락 Capability 밖의 Host 함수는 HostError
+    vm::Value beginCall(std::string system, std::string_view callback = "onUpdate");
     // ok = 트랩 없이 끝났다. false 면 이 호출의 표시를 버린다
     void endCall(bool ok);
 
@@ -144,7 +145,9 @@ private:
     std::vector<const ClientHostBinding*> m_byHostIndex; // api::kHostFunctions 자리 → 구현
     ClientScriptFrame m_frame;
     u64 m_nextToken = 1;
-    u64 m_token = 0; // 0 = 열린 호출 없음
+    u64 m_token = 0;        // 0 = 열린 호출 없음
+    std::string m_callback; // 이 호출의 콜백 (호출 토큰 — RT-06-1)
+    u32 m_capabilities = 0; // 그 콜백의 허락 Capability
     std::string m_system;
     usize m_labelsAtCall = 0;
     usize m_linesAtCall = 0;

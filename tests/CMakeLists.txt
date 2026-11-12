@@ -30,6 +30,7 @@ add_executable(SandboxTests
     unit/script/test_script_debugger.cpp
     unit/script/test_script_debug_session.cpp
     unit/script/test_language_index.cpp
+    unit/script/test_script_capability.cpp
     unit/script/test_diagnostic_help.cpp
     unit/script/test_script_host.cpp
     unit/script/test_components.cpp

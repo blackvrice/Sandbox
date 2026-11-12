@@ -94,7 +94,8 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
     lim.fuel = limit;
     vmi.setLimits(lim);
     const u64 t0 = m_clock != nullptr ? m_clock() : 0; // 진단만 — 아래 어디에도 시간으로 갈라지지 않는다
-    const vm::Value args[2] = {m_host.beginCall(tick, s.desc->id, &world), vm::Value::null()};
+    const vm::Value args[2] = {m_host.beginCall(tick, s.desc->id, &world, callback),
+                               vm::Value::null()}; // 호출 토큰 (RT-06-1)
     vm::CallResult r;
     if (ev != nullptr && f.params.size() == 2) {
         // GameEvent 의 칸 — 필드 이름 순 (api::kGameEventFields)

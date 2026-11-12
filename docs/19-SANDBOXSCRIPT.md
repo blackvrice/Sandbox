@@ -1004,10 +1004,11 @@ Capability                                                           InputRead �
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
               "두지 않는다" (onTick 이 물리 뒤). Host 표 capability 열 (HostCapability — EcsRead · EcsWrite · Structural · Random · Time · Log ·
               Display, 예약: PhysicsCommand · InputRead · ClientSend · Ui · Draw · Sound · NetworkIo · WorkerTask) — 정규 서명 · 지문에 든다
-              (kHostApiVersion 1 그대로), 실행 경로는 읽지 않는다 (콜백 단계별 검사는 v0.6 RT-06-1). 매니페스트 network.model (18 5.2 —
+              (kHostApiVersion 1 그대로). 실행 검사 ✅ v0.10 RT-06-1 (ADR-0137): 호출 토큰에 콜백 이름 · 허락 집합, Host 호출마다 비교 —
+              밖이면 HostError (지금의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 계획 콜백부터). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
 [계획 v0.6]   server onPrePhysics (8b) · client 수명주기 · onAction · onLateUpdate · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
-              실행 HostError (호출 토큰). 타이머 (ctx.after · every → onEvent "timer") · defineState
+              실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 (ctx.after · every → onEvent "timer") · defineState
 [계획 v0.7]   client onTick (고정 Tick — predicted 게임만, ADR-0087)
 [계획 v0.8]   onEvent "response" · "socket" (NetworkModule — 서버만)
 Context 타입   콜백마다 TS 타입 하나 (ServerPrePhysicsContext · ClientActionContext · ClientRenderContext · ClientTickContext) =

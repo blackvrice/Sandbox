@@ -62,7 +62,7 @@ void ClientScriptSystems::invoke(Entry& s) {
     lim.fuel = limit;
     vmi.setLimits(lim);
     const u64 t0 = m_clock != nullptr ? m_clock() : 0;
-    const vm::Value ctx = m_host.beginCall(s.desc->id);
+    const vm::Value ctx = m_host.beginCall(s.desc->id, "onUpdate"); // 호출 토큰 (RT-06-1)
     // (ctx) 나 () — 검증기가 서명을 보았다
     const vm::CallResult r = vmi.call(s.desc->onUpdate, std::span(&ctx, f.params.size()));
     m_host.endCall(r.ok());

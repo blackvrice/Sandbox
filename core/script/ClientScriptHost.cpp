@@ -171,8 +171,10 @@ void ClientScriptHost::beginFrame(const ClientScriptFrame& frame) {
     m_ui.clear();
 }
 
-vm::Value ClientScriptHost::beginCall(std::string system) {
+vm::Value ClientScriptHost::beginCall(std::string system, std::string_view callback) {
     m_token = kCtxTag | (m_nextToken++ & 0x0000'FFFF'FFFF'FFFFull);
+    m_callback = std::string(callback);
+    m_capabilities = api::callbackCapabilities(callback, true);
     m_system = std::move(system);
     m_labelsAtCall = m_labels.size();
     m_linesAtCall = m_lines.size();
@@ -193,6 +195,7 @@ void ClientScriptHost::endCall(bool ok) {
         m_ui.resize(m_uiAtCall);
     }
     m_token = 0;
+    m_capabilities = 0;
     m_handles.clear();
     m_handleOf.clear();
 }
@@ -205,6 +208,10 @@ vm::HostResult ClientScriptHost::call(const api::HostFunction& fn, std::span<con
     }
     if (m_token == 0 || args.empty() || args[0].value.bits != m_token) {
         return fail("ctx 가 지금 호출의 것이 아니다 (지난 호출의 ctx · 위조한 핸들)");
+    }
+    if ((m_capabilities & api::capBit(fn.capability)) == 0) { // 호출 토큰의 콜백 (v0.10 RT-06-1)
+        return fail(std::format("{} — client {} 콜백에서는 쓸 수 없다 ({} 권한이 없다 — docs/22-RUNTIME-V2.md 3.2)",
+                                fn.id, m_callback, api::capabilityName(fn.capability)));
     }
     return b->impl(*this, args);
 }

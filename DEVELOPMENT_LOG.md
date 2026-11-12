@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-12 — v0.10 RT-06-1: 호출 토큰의 콜백 · Capability 실행 검사 (ADR-0137)
+
+**무엇을**
+
+- ScriptHost::beginCall(…, 콜백 이름) · ClientScriptHost::beginCall(시스템, 콜백 이름) — 호출 토큰에 콜백과 허락 Capability (api::callbackCapabilities —
+  kCallbacks, 모르는 이름은 0). Host 호출마다 함수의 capability 비트를 비교 — 밖이면 HostError (구현에 닿기 전).
+- ScriptSystemAdapter 가 onTick · onStart · onStop · onEvent · onMigrate, ClientScriptSystems 가 onUpdate 를 넘긴다.
+- Callbacks.hpp: callbackCapabilities, 주석 ("[계획 v0.6] 호출 토큰" → 실행 검사).
+- 문서: ADR-0137, 22 3.2 · 19 26장 · 24 V3, 13, 등록부 RT-06-1 Done, roadmap · 23 다음 줄.
+
+**왜**
+
+- v0.10 트랙 A 의 첫 P0 — Capability 세 겹의 마지막 (실행). 계획 콜백 (onPrePhysics · onRender · client 수명주기) 이 생기기 전에 실행 경로가 콜백을 안다.
+
+**검증**
+
+- test_script_capability 3 새 시험 (표 전수 — 지금 콜백은 모두 허락 · 계획 콜백 토큰으로 부른 바이트코드의 spawn → HostError · 모르는 이름 · client
+  onRender). script · content · core · network 시험 437 개 그대로 (골든 해시 · kSimVersion 그대로).
+- 비용 (Release sbx_bench script.regen, 이전 · 이후 번갈아 6 번): 최솟값 16.39 → 16.40 ms (+0.1 %), 중앙값 +0.0 %.
+- build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 검사기 쪽 콜백별 S404 · 계획 콜백 (RT-06-2 · RT-06-7 · onRender) 은 그 태스크에서 — 새 콜백 경로는 beginCall 에 이름을 넘긴다. v0.10 트랙 A 의 다음:
+  RT-06-10 타이머 · defineState, RT-06-7 client 수명주기, RT-06-8 onAction.
+
 ## 2026-11-12 — v0.9 ST-06-8 조각 2: Studio 스크립트 편집기의 색인 · drafts · 스니펫 (ADR-0136) — ST-06-8 끝, v0.9 태스크 끝
 
 **무엇을**

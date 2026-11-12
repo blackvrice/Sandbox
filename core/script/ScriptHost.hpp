@@ -99,7 +99,12 @@ public:
 
     // 호출 하나를 연다 — 돌려준 값을 ctx 인자로 넘긴다. script = 로그에 붙는 이름 ("scripts/a.ts:tick").
     // world 가 없으면 컴포넌트 항목은 HostError. world 는 endCall 까지 살아야 하고, 그동안 구조를 바꾸지 않는다
-    vm::Value beginCall(sim::Tick tick, std::string script, sim::SimulationWorld* world = nullptr);
+    // callback = 이 호출의 콜백 이름 (api::kCallbacks — v0.10 RT-06-1 호출 토큰): 그 콜백의 허락 Capability 밖의 Host
+    // 함수는 HostError. 표에 없는 이름이면 아무 Host 함수도 부르지 못한다
+    vm::Value beginCall(sim::Tick tick, std::string script, sim::SimulationWorld* world = nullptr,
+                        std::string_view callback = "onTick");
+    [[nodiscard]] std::string_view callback() const noexcept { return m_callback; }
+    [[nodiscard]] u32 capabilities() const noexcept { return m_capabilities; }
     // commit = 호출이 트랩 없이 끝났다 → 쓰기 버퍼를 쓴 차례대로 적용, 구조 변경은 월드 큐로 (v0.5 M2-T3 — 단계 끝에
     // 적용). false 면 둘 다 버린다 (ADR-0057 5)
     void endCall(bool commit);
@@ -174,7 +179,9 @@ private:
 
     std::vector<const HostBinding*> m_byHostIndex; // api::kHostFunctions 자리 → 구현
     u64 m_nextToken = 1;
-    u64 m_token = 0; // 0 = 열린 호출 없음
+    u64 m_token = 0;        // 0 = 열린 호출 없음
+    std::string m_callback; // 이 호출의 콜백 (호출 토큰 — RT-06-1)
+    u32 m_capabilities = 0; // 그 콜백의 허락 Capability
     sim::Tick m_tick = 0;
     std::string m_script;
     std::vector<ScriptLogLine> m_logs;

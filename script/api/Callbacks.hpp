@@ -3,8 +3,9 @@
 //
 // defineSystem 의 콜백 이름 하나하나를 (도메인, 상태, 허락 Capability) 로 한 곳에 적는다. 지금 쓸 수 있는 콜백 (Active)
 // 과 나중 버전에 생길 이름 (Planned — 예약: 지금 쓰면 검사기 S426 "[계획 vX]") 을 같이 두어, 이름이 생길 때 기존
-// 스크립트의 뜻이 바뀌지 않게 한다. Capability 는 Host 표의 열 (HostFunction::capability) 과 같은 이름 — 콜백 단계마다
-// 검사는 [계획 v0.6] (호출 토큰).
+// 스크립트의 뜻이 바뀌지 않게 한다. Capability 는 Host 표의 열 (HostFunction::capability) 과 같은 이름 — 실행 검사
+// (v0.10 RT-06-1, ADR-0137): ScriptHost · ClientScriptHost 의 beginCall 이 콜백 이름으로 이 표의 허락 집합을 호출
+// 토큰에 적고, Host 함수마다 그 함수의 Capability 가 집합 안인지 본다 (밖이면 HostError — 고친 .sbc · 위조 대비).
 
 #include <array>
 #include <string_view>
@@ -107,6 +108,13 @@ inline constexpr std::array kCallbacks{
         }
     }
     return nullptr;
+}
+
+// 이 도메인의 그 콜백에서 허락되는 Capability (없는 이름이면 0 — 아무것도 허락하지 않는다). 예약 (Planned) 콜백도 표의
+// 집합 — 생길 때 그대로 쓴다
+[[nodiscard]] constexpr u32 callbackCapabilities(std::string_view name, bool client) noexcept {
+    const CallbackInfo* c = findCallback(name, client);
+    return c != nullptr ? c->capabilities : 0u;
 }
 
 // 어느 도메인에든 있는 이름인가 (예약 포함)
