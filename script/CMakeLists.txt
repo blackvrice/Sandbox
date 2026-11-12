@@ -21,6 +21,10 @@ add_library(SandboxScript STATIC
     lang/LanguageService.cpp
     lang/MemberCatalog.hpp
     lang/MemberCatalog.cpp
+    lang/ProgramCache.hpp
+    lang/ProgramCache.cpp
+    lang/LanguageIndex.hpp
+    lang/LanguageIndex.cpp
     vm/Bytecode.hpp
     vm/Bytecode.cpp
     vm/Verifier.hpp

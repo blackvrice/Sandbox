@@ -4,6 +4,7 @@
 #include <format>
 
 #include "script/lang/MemberCatalog.hpp"
+#include "script/lang/ProgramCache.hpp"
 #include "script/vm/Intrinsics.hpp"
 
 namespace sbx::script {
@@ -12,7 +13,8 @@ namespace {
 // 자리표 이름 — '.' 뒤에 넣어 문장을 맞춘다 (사람이 쓰지 않을 이름)
 constexpr std::string_view kSentinel = "__sbx_complete__";
 
-// 이름 글자 — ASCII 이름 글자와 UTF-8 의 비 ASCII 바이트 (한글 이름 — 렉서가 받는다)
+// 이름 글자 — ASCII 이름 글자와 UTF-8 의 비 ASCII 바이트 (렉서는 비 ASCII 이름을 받지 않는다 — S101. 여기서는 편집 중
+// 낱말의 경계만 맞춘다)
 [[nodiscard]] bool identChar(char c) noexcept {
     const auto u = static_cast<unsigned char>(c);
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '$' ||
@@ -345,9 +347,10 @@ struct ImportSite {
     return s.name;
 }
 
-[[nodiscard]] Program analyze(const LanguageQuery& q, std::span<const SourceFile> files) {
-    DiagnosticList d;
-    return checkProgram(files, d, q.imports);
+// 같은 입력이면 기억한 결과 (v0.9 ST-06-8 — ProgramCache)
+[[nodiscard]] std::shared_ptr<const AnalyzedProgram> analyze(const LanguageQuery& q,
+                                                             std::span<const SourceFile> files) {
+    return analyzeCached(files, q.imports);
 }
 
 } // namespace
@@ -409,7 +412,8 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
     if (dot > 0 && text[dot - 1] == '.') {
         std::vector<SourceFile> files(q.files.begin(), q.files.end());
         files[q.file].text = std::string(text.substr(0, p)) + std::string(kSentinel) + std::string(text.substr(offset));
-        const Program prog = analyze(q, files);
+        const auto analyzed = analyze(q, files);
+        const Program& prog = analyzed->program;
         const ModuleSema* m = moduleOf(prog, doc.path);
         if (m != nullptr && m->parsed) {
             for (NodeId n = 0; n < m->ast.size(); ++n) {
@@ -434,7 +438,8 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
                 out.push_back(CompletionItem{std::move(n), {}, {}, CompletionKind::Function});
             }
         } else {
-            const Program prog = analyze(q, q.files);
+            const auto analyzed = analyze(q, q.files);
+            const Program& prog = analyzed->program;
             const std::string path = resolveImportPath(doc.path, site->spec);
             if (const ModuleSema* target = moduleOf(prog, path)) {
                 for (const auto& [n, s] : target->exportValues) {
@@ -460,7 +465,8 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
     if (prefix.empty()) {
         return out;
     }
-    const Program prog = analyze(q, q.files);
+    const auto analyzed = analyze(q, q.files);
+    const Program& prog = analyzed->program;
     const ModuleSema* m = moduleOf(prog, doc.path);
     u32 mi = 0;
     for (; mi < prog.modules.size(); ++mi) {
@@ -546,7 +552,8 @@ std::optional<HoverInfo> hover(const LanguageQuery& q) {
         return std::nullopt;
     }
     const std::string_view word = text.substr(begin, end - begin);
-    const Program prog = analyze(q, q.files);
+    const auto analyzed = analyze(q, q.files);
+    const Program& prog = analyzed->program;
     const ModuleSema* m = moduleOf(prog, doc.path);
     if (m == nullptr || !m->parsed) {
         return std::nullopt;

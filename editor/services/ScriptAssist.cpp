@@ -13,6 +13,7 @@
 #include "foundation/text/TextPosition.hpp"
 #include "foundation/text/Utf8.hpp"
 #include "script/lang/Checker.hpp"
+#include "script/lang/ProgramCache.hpp"
 
 namespace sbx::editor {
 
@@ -128,8 +129,9 @@ std::vector<ScriptMark> analyzeScript(const ScriptWorkspace& ws) {
     if (ws.file >= ws.files.size()) {
         return out;
     }
-    script::DiagnosticList diags;
-    (void)script::checkProgram(ws.files, diags, ws.imports);
+    const auto analyzed =
+        script::analyzeCached(ws.files, ws.imports); // hover · 완성과 같은 글이면 다시 검사하지 않는다
+    const script::DiagnosticList& diags = analyzed->diagnostics;
     const script::SourceFile& doc = ws.files[ws.file];
     for (const script::Diagnostic& d : diags.items()) {
         if (d.file != doc.path) {

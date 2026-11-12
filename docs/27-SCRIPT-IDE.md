@@ -48,11 +48,11 @@ Script Editor (Studio — ImGui 위젯)        sbx lsp (표준 입출력 JSON-RP
                      LanguageService (script/lang)
                        ├─ 문서 표      경로 → (텍스트, 편집 번호), 팩 · import 그래프 (resolveImportPath · PackImports 현행)
                        ├─ 분석         Lexer → Parser → Checker (현행) — [계획] 파일 단위 캐시: 바뀐 파일과 그 파일을 import 한 파일만 다시
-                       ├─ 기호 색인     Program.symbols · modules (현행 데이터) → 위치 → 기호, 기호 → 정의 · 참조 [계획 v0.6]
+                       ├─ 기호 색인     Program.symbols · modules → 위치 → 기호, 기호 → 정의 · 참조 (✅ v0.9 ST-06-8 — LanguageIndex, ADR-0135)
                        ├─ 자동 완성     ctx.(도메인 · 콜백) · 컴포넌트 필드 · import 이름 · 내장 · 지역 이름 — contextMembers 프로토타입부터
                        ├─ 진단         검사기 진단 그대로 (+ 빠른 수정 제안 — 4장)
                        ├─ hover · 서명  Host 표 doc · 서명, 사용자 함수 = 선언 줄 + 앞의 주석 블록 (Roblox 의 블록 주석 툴팁 — 벤치마크 C1)
-                       └─ 이동 · 이름 바꾸기  정의로 · 참조 찾기 · 이름 바꾸기 (같은 팩 · import 경로 고침) [계획 v0.6]
+                       └─ 이동 · 이름 바꾸기  정의로 · 참조 찾기 · 이름 바꾸기 (같은 팩 · import 자리 · 타입 자리 — ✅ v0.9 ST-06-8, 부딪힘은 다시 검사)
 ```
 
 ## 3. 자동 완성 규칙
@@ -74,7 +74,8 @@ Script Editor (Studio — ImGui 위젯)        sbx lsp (표준 입출력 JSON-RP
 실시간 진단  입력 멈춤 300 ms 뒤 분석 — 오류 밑줄 · 목록. 검사기 그대로 (새 규칙을 따로 만들지 않는다). ✅ v0.9 M6-T8 조각 2 (ADR-0130):
            UI 스레드에서 (편집 번호 — 늦은 결과는 버린다, Worker 는 측정 뒤 [계획]), 작업 공간 = 콘텐츠 로더와 같은 입력 (같은 진단),
            밑줄 = 진단 자리부터 그 이름 끝 (진단에 길이가 없다)
-빠른 수정 [계획 v0.6]  S404 클라이언트에서 쓰기 → "서버 시스템으로 옮기기" 안내 / 없는 이름 → 비슷한 이름 (편집 거리 ≤ 2) / 없는 import → 경로 제안 /
+빠른 수정  ✅ v0.9 ST-06-8 (ADR-0135): 없는 이름 (S401) → "sandbox" · 팩의 다른 파일 import (같은 import 줄에) · 비슷한 이름 (편집 거리 ≤ 2).
+           [계획]: S404 클라이언트에서 쓰기 → "서버 시스템으로 옮기기" 안내 /
            S3xx 지원 안 하는 문법 → 19 의 대안 문장 (예: Promise → onEvent 요청 · 결과)
 포맷터 [계획 v0.7]  AST → 텍스트 (주석 보존이 선행 — 파서가 주석을 붙여야 한다)
 스니펫     defineSystem · defineComponent · onEvent 틀 — 지금 콘텐츠 창의 "새 파일 (시스템 틀)" 의 확장 [계획 v0.6]
@@ -123,6 +124,8 @@ Hot Reload 충돌     디버그 세션은 스냅숏한 바이트코드 (digest) 
 시나리오 [계획 v0.6]. 이번 감사의 프로토타입은 기능 시험만 (성능을 재지 않았다).
 측정 (v0.9 M6-T8, test_language_service — 호출마다 검사기 한 번, 캐시 없음): Release 1,000 줄 완성 3.8 ms · hover 3.5 ms, 5,000 줄 18 ms · 22 ms.
 Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위 캐시는 큰 팩 측정 뒤.
+색인 (v0.9 ST-06-8, test_language_index — Release): 1,000 줄 참조 2.3 ms · 이름 바꾸기 2.4 ms, 5,000 줄 14.6 · 14.2 ms (이름 바꾸기는 다시 검사 포함),
+같은 글의 두 번째 질의 (검사 결과 기억) 0.05 · 0.27 ms
 편집기 위젯 (v0.9 M6-T8 조각 2, test_script_assist — Release, 5,000 줄 · 밑줄 1,000): 첫 분석 21 ms, 쉬는 프레임 0.24 ms, 타자 프레임
 0.56 ms (Debug 560 · 2.3 · 3.6 ms — ADR-0131 의 측정 고침)
 ```
@@ -137,7 +140,9 @@ Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위
 | [적용 (오버레이)] / [저장 (팩 파일)] 구분 (줄 끝 보존 · 바깥 변경 · 새 파일) | ✅ v0.9 M6-T8 조각 3 (ContentPanel · saveScriptFile → DocumentService — ADR-0131) |
 | 구문 색 · 마우스로 팝업 고르기 · 저절로 여는 이름 완성 · 트랩 메시지 (스크립트 창) 에서 편집기 그 줄로 | [계획] (ADR-0130 결과) |
 | 줄 표 · 트랩 줄 · 함수별 프로파일 | ✅ v0.9 M6-T4 — 줄 표 · 트랩 줄 (ADR-0124), 함수별 자기 연료 프로파일 (ADR-0125) |
-| 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 증분 분석 | [계획 v0.6] |
+| 정의 · 참조 · 이름 바꾸기 · 빠른 수정 (언어 서비스) · 검사 결과 기억 | ✅ v0.9 ST-06-8 조각 1 (script/lang/LanguageIndex · ProgramCache — ADR-0135) |
+| Studio 의 정의로 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 | [계획 v0.9 ST-06-8 조각 2] |
+| 파일 단위 증분 분석 · 필드 이름 바꾸기 | [계획] (ADR-0135 결과) |
 | 재생 디버거 — VM 쪽 (BRK 패치 · 지역 이름 표 형식 12 · 중단점 · 단계 · 감시 경로 · logpoint) | ✅ v0.9 ST-06-7 조각 1 (script/vm/Debug — ADR-0132) |
 | 재생 디버거 — 재생 세션 (디버그 스레드 · 같은 해시 · stopAtTick · abort) | ✅ v0.9 ST-06-7 조각 2 (core/script/ScriptDebugSession — ADR-0133) |
 | 재생 디버거 — Studio 창 (기록 · 계속 · 단계 · 스택 · 지역 · 감시 · 중단점 · logpoint · 결과) · 편집기 줄 번호 칸 중단점 · 멈춘 줄 | ✅ v0.9 ST-06-7 조각 3 (editor/ui/ScriptDebugPanel · editor/services/ScriptDebugService — ADR-0134) |

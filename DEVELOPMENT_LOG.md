@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-12 — v0.9 ST-06-8 조각 1: 언어 서비스 색인 — 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 검사 결과 기억 (ADR-0135)
+
+**무엇을**
+
+- script/lang/LanguageIndex (새): findDefinition · findReferences (이름 마디 · import 이름 — 검사기와 같은 경로 규칙 · 타입 자리 · 선언), renameSymbol
+  (as 이름 그대로, 렉서로 이름 검사, SDK · 의존 팩 거절, 바꾼 글을 다시 검사해 오류가 늘면 거절), quickFixes (S401 — sandbox · 팩의 다른 파일 ·
+  의존 팩 import, 같은 import 줄에 더하기, 비슷한 이름 셋), editDistance · relativeImportSpec.
+- script/lang/ProgramCache (새): analyzeCached — 입력 해시 + 전체 비교, 최근 넷. LanguageService 의 질의와 편집기 진단 (ScriptAssist) 이 함께 쓴다.
+- LanguageService 의 이름 글자 주석 고침 (렉서는 비 ASCII 이름을 받지 않는다 — 시험이 짚었다).
+- 문서: ADR-0135, 27 2 · 4 · 7 · 8장, 17 · 13, 등록부 ST-06-8 (조각 1), 18 · 23 · roadmap 다음 줄.
+
+**왜**
+
+- v0.9 의 마지막 태스크 ST-06-8 의 첫 조각 — Studio 의 F12 · Shift+F12 · F2 · 빠른 수정 (조각 2) 과 sbx lsp (ST-07-3) 가 쓸 함수.
+
+**검증**
+
+- test_language_index 6 새 시험 (정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 편집 거리 · 기억 · 응답). 처음 짚은 것: 시험의 하위 폴더 파일이 "./mana" 로
+  가져오고 있었다 (→ "../mana"), 한글 이름으로 바꾸기를 기대했는데 렉서가 받지 않는다 (거절이 맞다 — 시험 · 주석을 고침).
+- 응답 (Release SandboxTests): 1,000 줄 참조 2.3 ms · 이름 바꾸기 2.4 ms, 5,000 줄 14.6 · 14.2 ms, 기억이 맞으면 0.05 · 0.27 ms (Debug 70 · 414 ms).
+- script · editor 시험 261 개 그대로 통과 (검사 결과 기억으로 바꿈), build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest
+  89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 조각 2: Studio — F12 정의로 · Shift+F12 참조 목록 · F2 이름 바꾸기 (여러 파일 — 오버레이 · 팩 파일) · 빠른 수정 (Ctrl+.) · 스니펫. 필드 이름
+  바꾸기 · 파일 단위 증분은 [계획].
+
 ## 2026-11-12 — v0.9 ST-06-7 조각 3: Studio 스크립트 디버거 창 · 편집기 줄 번호 칸 중단점 (ADR-0134) — ST-06-7 끝
 
 **무엇을**
