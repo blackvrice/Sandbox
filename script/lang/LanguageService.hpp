@@ -34,7 +34,8 @@ enum class CompletionKind : u8 {
     Enum,
     EnumMember,
     Component,
-    Namespace
+    Namespace,
+    Snippet // 틀 (v0.9 ST-06-8 — insertText 를 넣는다)
 };
 
 struct CompletionItem {
@@ -42,6 +43,7 @@ struct CompletionItem {
     std::string detail; // 서명 ("read(e: Entity, c: ComponentRef<T>): T | null")
     std::string doc;    // 설명 (hover 와 같다)
     CompletionKind kind = CompletionKind::Method;
+    std::string insertText{}; // 비면 label 을 넣는다 — 스니펫은 틀 글 (여러 줄 · 들여쓰기는 넣는 자리의 줄에 맞춘다)
 };
 
 struct LanguageQuery {

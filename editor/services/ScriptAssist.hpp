@@ -13,6 +13,7 @@
 // 위치는 모두 UTF-8 바이트 offset (텍스트 위치 계약 — NG-05).
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -40,9 +41,14 @@ struct ScriptWorkspace {
     [[nodiscard]] script::LanguageQuery query(usize offset) const noexcept;
 };
 
-// 오버레이 스크립트 id ("t.regen" — scriptOverlayPath) 의 작업 공간. 그 팩을 읽지 않았으면 nullopt
+// 스크립트 id → 아직 적용 · 저장하지 않은 글 (콘텐츠 창의 다른 파일 — v0.9 ST-06-8)
+using ScriptDrafts = std::map<std::string, std::string, std::less<>>;
+
+// 오버레이 스크립트 id ("t.regen" — scriptOverlayPath) 의 작업 공간. 그 팩을 읽지 않았으면 nullopt. drafts 가 있으면 그
+// 파일들은 그 글로 (오버레이 · 팩 원본보다 앞 — 편집 중인 파일은 text)
 [[nodiscard]] std::optional<ScriptWorkspace> scriptWorkspace(const content::ContentDatabase& db,
-                                                             std::string_view overlayId, std::string_view text);
+                                                             std::string_view overlayId, std::string_view text,
+                                                             const ScriptDrafts* drafts = nullptr);
 
 struct ScriptMark {
     usize begin = 0; // 밑줄 [begin, end) — 바이트
@@ -104,8 +110,8 @@ public:
     [[nodiscard]] bool refreshCompletion(std::string_view text, usize cursor);
     void closeCompletion() noexcept;
     void moveSelection(i32 delta) noexcept; // 끝에서 돌아간다
-    // 고른 후보로 [접두 시작, 커서) 를 바꾼다 — 닫는다
-    [[nodiscard]] std::optional<TextReplace> acceptCompletion(usize cursor);
+    // 고른 후보로 [접두 시작, 커서) 를 바꾼다 — 닫는다. 스니펫 (insertText) 은 둘째 줄부터 그 줄의 들여쓰기를 붙인다
+    [[nodiscard]] std::optional<TextReplace> acceptCompletion(std::string_view text, usize cursor);
     [[nodiscard]] bool completionOpen() const noexcept { return m_open; }
     [[nodiscard]] std::span<const script::CompletionItem> completionItems() const noexcept { return m_shown; }
     [[nodiscard]] usize selected() const noexcept { return m_selected; }

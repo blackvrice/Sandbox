@@ -10,6 +10,23 @@
 namespace sbx::script {
 namespace {
 
+// 스니펫 (v0.9 ST-06-8 — 27 4장): 문장 처음에서 이름 완성에 섞인다. 본문의 줄은 넣는 줄의 들여쓰기에 맞춘다
+// (ScriptAssist)
+struct Snippet {
+    std::string_view trigger;
+    std::string_view detail;
+    std::string_view body;
+};
+constexpr Snippet kSnippets[] = {
+    {"system", "틀: export default defineSystem({ id · onTick })",
+     "export default defineSystem({\n  id: \"pack.system\",\n  onTick(ctx) {\n  },\n})"},
+    {"component", "틀: export const … = defineComponent({ id · fields })",
+     "export const Thing = defineComponent({\n  id: \"pack.thing\",\n  fields: { value: field.f32(0) },\n})"},
+    {"forquery", "틀: for (const e of ctx.query(C)) { read · write }",
+     "for (const e of ctx.query(Thing)) {\n  const c = ctx.read(e, Thing)\n  if (c !== null) {\n    ctx.write(e, "
+     "Thing, c)\n  }\n}"},
+};
+
 // 자리표 이름 — '.' 뒤에 넣어 문장을 맞춘다 (사람이 쓰지 않을 이름)
 constexpr std::string_view kSentinel = "__sbx_complete__";
 
@@ -41,8 +58,11 @@ constexpr std::string_view kSentinel = "__sbx_complete__";
 }
 
 [[nodiscard]] CompletionItem hostItem(const api::HostFunction& f) {
-    return CompletionItem{std::string(f.member), signatureOf(f), std::string(f.doc),
-                          f.property ? CompletionKind::Property : CompletionKind::Method};
+    return CompletionItem{std::string(f.member),
+                          signatureOf(f),
+                          std::string(f.doc),
+                          f.property ? CompletionKind::Property : CompletionKind::Method,
+                          {}};
 }
 
 [[nodiscard]] bool startsWithNoCase(std::string_view s, std::string_view prefix) noexcept {
@@ -108,8 +128,11 @@ void finish(std::vector<CompletionItem>& items, std::string_view prefix) {
 
 void addBuiltinMembers(std::vector<CompletionItem>& out, BuiltinReceiver r) {
     for (const MemberDoc& m : builtinMembers(r)) {
-        out.push_back(CompletionItem{std::string(m.name), std::string(m.signature), std::string(m.doc),
-                                     m.property ? CompletionKind::Property : CompletionKind::Method});
+        out.push_back(CompletionItem{std::string(m.name),
+                                     std::string(m.signature),
+                                     std::string(m.doc),
+                                     m.property ? CompletionKind::Property : CompletionKind::Method,
+                                     {}});
     }
 }
 
@@ -146,7 +169,8 @@ std::vector<CompletionItem> membersFor(const Program& p, const ModuleSema& m, No
             out.push_back(CompletionItem{e.name,
                                          std::format("{}.{} = {}", p.types.enumOf(et).name, e.name, e.value),
                                          {},
-                                         CompletionKind::EnumMember});
+                                         CompletionKind::EnumMember,
+                                         {}});
         }
         return out;
     }
@@ -161,7 +185,8 @@ std::vector<CompletionItem> membersFor(const Program& p, const ModuleSema& m, No
                 CompletionItem{f.name,
                                std::format("{}{}: {}", f.readonly ? "readonly " : "", f.name, p.types.name(f.type)),
                                {},
-                               CompletionKind::Field});
+                               CompletionKind::Field,
+                               {}});
         }
         return out;
     }
@@ -435,7 +460,7 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
     if (const auto site = importSiteAt(text, p)) {
         if (site->spec == "sandbox") {
             for (std::string& n : sandboxExportNames()) {
-                out.push_back(CompletionItem{std::move(n), {}, {}, CompletionKind::Function});
+                out.push_back(CompletionItem{std::move(n), {}, {}, CompletionKind::Function, {}});
             }
         } else {
             const auto analyzed = analyze(q, q.files);
@@ -446,10 +471,11 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
                     out.push_back(CompletionItem{n,
                                                  s < prog.symbols.size() ? prog.types.name(prog.symbols[s].type) : "",
                                                  {},
-                                                 CompletionKind::Variable});
+                                                 CompletionKind::Variable,
+                                                 {}});
                 }
                 for (const auto& [n, s] : target->exportTypes) {
-                    out.push_back(CompletionItem{n, "type", {}, CompletionKind::Type});
+                    out.push_back(CompletionItem{n, "type", {}, CompletionKind::Type, {}});
                 }
             }
         }
@@ -494,27 +520,28 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
             case SymbolKind::Local:
             case SymbolKind::Param:
                 if (at >= fnStart && at < p) {
-                    out.push_back(CompletionItem{s.name, prog.types.name(s.type), {}, CompletionKind::Variable});
+                    out.push_back(CompletionItem{s.name, prog.types.name(s.type), {}, CompletionKind::Variable, {}});
                 }
                 break;
             case SymbolKind::ModuleConst:
-                out.push_back(CompletionItem{s.name, prog.types.name(s.type), {}, CompletionKind::Constant});
+                out.push_back(CompletionItem{s.name, prog.types.name(s.type), {}, CompletionKind::Constant, {}});
                 break;
             case SymbolKind::Function:
                 out.push_back(CompletionItem{
                     s.name,
                     s.function < prog.functions.size() ? functionSignature(prog, prog.functions[s.function]) : "",
                     {},
-                    CompletionKind::Function});
+                    CompletionKind::Function,
+                    {}});
                 break;
             case SymbolKind::Type:
-                out.push_back(CompletionItem{s.name, "type", {}, CompletionKind::Type});
+                out.push_back(CompletionItem{s.name, "type", {}, CompletionKind::Type, {}});
                 break;
             case SymbolKind::Enum:
-                out.push_back(CompletionItem{s.name, "enum", {}, CompletionKind::Enum});
+                out.push_back(CompletionItem{s.name, "enum", {}, CompletionKind::Enum, {}});
                 break;
             case SymbolKind::Component:
-                out.push_back(CompletionItem{s.name, "컴포넌트", {}, CompletionKind::Component});
+                out.push_back(CompletionItem{s.name, "컴포넌트", {}, CompletionKind::Component, {}});
                 break;
             case SymbolKind::Builtin:
                 break;
@@ -528,15 +555,29 @@ std::vector<CompletionItem> complete(const LanguageQuery& q) {
             for (const NodeId nm : m->ast.kids(item)) {
                 const std::string_view shown =
                     m->ast.node(nm).kidCount > 0 ? m->ast.str(m->ast.kid(nm, 0)) : m->ast.str(nm);
-                out.push_back(CompletionItem{
-                    std::string(shown), std::format("from \"{}\"", m->ast.str(item)), {}, CompletionKind::Variable});
+                out.push_back(CompletionItem{std::string(shown),
+                                             std::format("from \"{}\"", m->ast.str(item)),
+                                             {},
+                                             CompletionKind::Variable,
+                                             {}});
             }
         }
     }
     for (const std::string_view g : {"Math", "NaN", "Infinity"}) {
-        out.push_back(CompletionItem{std::string(g), "전역", {}, CompletionKind::Namespace});
+        out.push_back(CompletionItem{std::string(g), "전역", {}, CompletionKind::Namespace, {}});
     }
     std::erase_if(out, [&](const CompletionItem& c) { return c.label == prefix; }); // 다 쓴 이름은 보이지 않는다
+    // 스니펫 (v0.9 ST-06-8) — 문장의 처음 (그 줄에서 이름 앞이 빈칸뿐) 에서만
+    usize lineStart = p;
+    while (lineStart > 0 && text[lineStart - 1] != '\n') {
+        --lineStart;
+    }
+    if (text.substr(lineStart, p - lineStart).find_first_not_of(" \t") == std::string_view::npos) {
+        for (const Snippet& sn : kSnippets) {
+            out.push_back(CompletionItem{std::string(sn.trigger), std::string(sn.detail), std::string(sn.body),
+                                         CompletionKind::Snippet, std::string(sn.body)});
+        }
+    }
     finish(out, prefix);
     return out;
 }

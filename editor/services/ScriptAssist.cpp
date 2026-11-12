@@ -31,8 +31,8 @@ namespace {
 
 // 한 팩의 scripts/*.ts — 오버레이 소스가 있으면 그것 (콘텐츠 로더의 applyScriptOverlay 와 같다: 같은 경로는 바꾸고,
 // 없으면 더한다). 경로 정렬
-[[nodiscard]] std::map<std::string, std::string> packScripts(const content::ContentDatabase& db,
-                                                             const content::ContentSourcePack& sp) {
+[[nodiscard]] std::map<std::string, std::string>
+packScripts(const content::ContentDatabase& db, const content::ContentSourcePack& sp, const ScriptDrafts* drafts) {
     std::map<std::string, std::string> out;
     for (const content::ContentSourceFile& f : sp.files) {
         if (f.rel.starts_with("scripts/") && f.rel.ends_with(".ts")) {
@@ -46,6 +46,13 @@ namespace {
             out[path->rel] = value["source"].get<std::string>();
         }
     }
+    if (drafts != nullptr) {
+        for (const auto& [id, text] : *drafts) {
+            if (const auto path = content::scriptOverlayPath(id); path && path->pack == sp.info.id) {
+                out[path->rel] = text;
+            }
+        }
+    }
     return out;
 }
 
@@ -56,7 +63,7 @@ script::LanguageQuery ScriptWorkspace::query(usize offset) const noexcept {
 }
 
 std::optional<ScriptWorkspace> scriptWorkspace(const content::ContentDatabase& db, std::string_view overlayId,
-                                               std::string_view text) {
+                                               std::string_view text, const ScriptDrafts* drafts) {
     const auto path = content::scriptOverlayPath(overlayId);
     if (!path || db.sources() == nullptr) {
         return std::nullopt;
@@ -72,7 +79,7 @@ std::optional<ScriptWorkspace> scriptWorkspace(const content::ContentDatabase& d
         return std::nullopt;
     }
     ScriptWorkspace ws;
-    std::map<std::string, std::string> scripts = packScripts(db, *own);
+    std::map<std::string, std::string> scripts = packScripts(db, *own, drafts);
     scripts[path->rel] = std::string(text); // 편집 중인 글 (저장 · 적용 전)
     for (auto& [rel, source] : scripts) {
         if (rel == path->rel) {
@@ -91,7 +98,7 @@ std::optional<ScriptWorkspace> scriptWorkspace(const content::ContentDatabase& d
         if (!seen.insert(id).second || dep == nullptr) {
             continue;
         }
-        for (auto& [rel, source] : packScripts(db, *dep)) {
+        for (auto& [rel, source] : packScripts(db, *dep, drafts)) {
             ws.files.push_back(script::SourceFile{std::format("@{}/{}", id, rel), std::move(source)});
         }
         ws.imports.push_back({id, dep->info.dependencies});
@@ -329,12 +336,29 @@ void ScriptAssist::moveSelection(i32 delta) noexcept {
     m_selected = static_cast<usize>(next);
 }
 
-std::optional<TextReplace> ScriptAssist::acceptCompletion(usize cursor) {
+std::optional<TextReplace> ScriptAssist::acceptCompletion(std::string_view text, usize cursor) {
     if (!m_open || m_selected >= m_shown.size() || cursor < m_anchor) {
         closeCompletion();
         return std::nullopt;
     }
-    TextReplace r{m_anchor, cursor, m_shown[m_selected].label};
+    const script::CompletionItem& c = m_shown[m_selected];
+    std::string insert = c.insertText.empty() ? c.label : c.insertText;
+    if (!c.insertText.empty()) {
+        // 넣는 줄의 들여쓰기를 둘째 줄부터
+        usize lineStart = std::min(m_anchor, text.size());
+        while (lineStart > 0 && text[lineStart - 1] != '\n') {
+            --lineStart;
+        }
+        usize indentEnd = lineStart;
+        while (indentEnd < text.size() && (text[indentEnd] == ' ' || text[indentEnd] == '\t')) {
+            ++indentEnd;
+        }
+        const std::string indent(text.substr(lineStart, indentEnd - lineStart));
+        for (usize at = insert.find('\n'); at != std::string::npos; at = insert.find('\n', at + 1 + indent.size())) {
+            insert.insert(at + 1, indent);
+        }
+    }
+    TextReplace r{m_anchor, cursor, std::move(insert)};
     closeCompletion();
     return r;
 }

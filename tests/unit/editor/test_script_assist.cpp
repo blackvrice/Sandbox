@@ -274,7 +274,7 @@ TEST_SUITE("editor") {
         a.moveSelection(1);
         CHECK(a.selected() == 0);
         const std::string first = a.completionItems()[0].label;
-        const auto r = a.acceptCompletion(cursor);
+        const auto r = a.acceptCompletion(text, cursor);
         REQUIRE(r);
         CHECK(r->begin == head.size() + 4);
         CHECK(r->end == cursor);

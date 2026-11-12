@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-12 — v0.9 ST-06-8 조각 2: Studio 스크립트 편집기의 색인 · drafts · 스니펫 (ADR-0136) — ST-06-8 끝, v0.9 태스크 끝
+
+**무엇을**
+
+- ScriptEditor: F12 · Shift+F12 · F2 · Ctrl+. → 커서 자리의 요청 (request), pendingEdits (활성이면 콜백 안에서 — 되돌리기에 남고 커서는 앞 편집만큼, 아니면
+  글에 바로).
+- ContentPanel: drafts (스크립트 id → 고친 글 — 옮겨도 남는다 · 목록 ✎ · 버리기가 지운다), openScript · goToDefinition (다른 파일을 연다) ·
+  findScriptReferences (진단 목록 칸에 "파일:줄  그 줄") · renameInScripts (이 파일 pendingEdits · 다른 파일 drafts · 안내) · scriptQuickFixes ·
+  applyQuickFix, 이름 바꾸기 · 빠른 수정 작은 창. showScriptLine 은 openScript 위로.
+- ScriptAssist: scriptWorkspace 의 drafts (오버레이 · 원본보다 앞), acceptCompletion 이 스니펫 들여쓰기.
+- LanguageService: CompletionItem::insertText · CompletionKind::Snippet, 문장 처음의 system · component · forquery 스니펫.
+- 문서: ADR-0136, 27 0 · 4 · 8장, 17 · 13, 등록부 ST-06-8 Done, 18 · 23 · roadmap 다음 줄 (v0.9 태스크 끝), MANUAL-QA 줄.
+
+**왜**
+
+- ST-06-8 의 마지막 조각 — 색인을 Studio 에서. 정의로 · 이름 바꾸기가 파일을 옮겨 다니므로 고친 글을 버리지 않게 (drafts).
+
+**검증**
+
+- test_script_navigation 4 새 시험 (drafts · 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 · 위젯 키 · 콜백 편집). 처음 짚은 것: 시험의 커서 기대값이 앞 줄
+  import 편집의 밀림을 빼먹었다 (구현이 맞다 — 시험을 고침).
+- script · editor 시험 265 개 통과, build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 · studio_gui_smoke SKIPPED.
+  창 확인은 MANUAL-QA.
+
+**남은 일**
+
+- drafts 의 자동 저장 · 복구, 여러 파일 한 번에 적용 · 저장, Ctrl+클릭 정의로, 스니펫 자리 이동은 [계획]. v0.9 는 창 확인 (MANUAL-QA — NG-05 · M6-T8 ·
+  ST-06-7 · ST-06-8) 뒤 0.9.0.
+
 ## 2026-11-12 — v0.9 ST-06-8 조각 1: 언어 서비스 색인 — 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 검사 결과 기억 (ADR-0135)
 
 **무엇을**

@@ -37,6 +37,12 @@ struct ScriptEditorState {
     std::vector<u32> breakpointLines;
     std::optional<u32> execLine;
     std::optional<u32> toggledLine; // 이번 프레임에 누른 줄 (부르는 쪽이 읽고 비운다)
+    // 색인 (v0.9 ST-06-8): F12 정의로 · Shift+F12 참조 · F2 이름 바꾸기 · Ctrl+. 빠른 수정 — 커서 자리의 요청 (부르는
+    // 쪽이 읽고 비운다). pendingEdits = 부르는 쪽이 넣는 편집 (지금 글 기준) — 입력 칸이 활성이면 콜백 안에서
+    // (되돌리기에 남는다), 아니면 글에 바로
+    enum class Request : u8 { Definition, References, Rename, QuickFix };
+    std::optional<std::pair<Request, usize>> request;
+    std::vector<TextReplace> pendingEdits;
 
     // --- 위젯 안 (부르는 쪽은 읽기만) ---
     std::string shadow; // 마지막으로 본 글 — 바깥에서 바꾸면 (다른 파일 · 버리기 · 서버 값) reset

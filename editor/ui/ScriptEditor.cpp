@@ -107,6 +107,8 @@ void relayout(ScriptEditorState& st, std::string_view text) {
         return "컴포넌트";
     case script::CompletionKind::Namespace:
         return "이름공간";
+    case script::CompletionKind::Snippet:
+        return "스니펫";
     }
     return "";
 }
@@ -142,11 +144,32 @@ int editorCallback(ImGuiInputTextCallbackData* data) {
         const auto place = [&](usize at) {
             data->CursorPos = data->SelectionStart = data->SelectionEnd = static_cast<int>(at);
         };
+        if (!st.pendingEdits.empty()) {
+            // 이름 바꾸기 · 빠른 수정 — 뒤에서부터 (앞 편집의 자리가 밀리지 않게), 커서는 앞의 편집만큼 민다
+            std::vector<TextReplace> edits = std::move(st.pendingEdits);
+            st.pendingEdits.clear();
+            std::sort(edits.begin(), edits.end(),
+                      [](const TextReplace& a, const TextReplace& b) { return a.begin > b.begin; });
+            auto cursor = static_cast<i64>(data->CursorPos);
+            for (const TextReplace& e : edits) {
+                if (e.end > static_cast<usize>(data->BufTextLen) || e.begin > e.end) {
+                    continue; // 그사이 글이 줄었다
+                }
+                data->DeleteChars(static_cast<int>(e.begin), static_cast<int>(e.end - e.begin));
+                data->InsertChars(static_cast<int>(e.begin), e.text.data(), e.text.data() + e.text.size());
+                if (static_cast<i64>(e.end) <= cursor) {
+                    cursor += static_cast<i64>(e.text.size()) - static_cast<i64>(e.end - e.begin);
+                } else if (static_cast<i64>(e.begin) < cursor) {
+                    cursor = static_cast<i64>(e.begin + e.text.size());
+                }
+            }
+            place(static_cast<usize>(std::clamp<i64>(cursor, 0, data->BufTextLen)));
+        }
         if (st.gotoOffset) {
-            place(snapToChar(buf, *st.gotoOffset));
+            place(snapToChar(std::string_view(data->Buf, static_cast<usize>(data->BufTextLen)), *st.gotoOffset));
             st.gotoOffset.reset();
         } else if (f->acceptKey) {
-            if (const auto r = st.assist.acceptCompletion(static_cast<usize>(data->CursorPos))) {
+            if (const auto r = st.assist.acceptCompletion(buf, static_cast<usize>(data->CursorPos))) {
                 data->DeleteChars(static_cast<int>(r->begin), static_cast<int>(r->end - r->begin));
                 data->InsertChars(static_cast<int>(r->begin), r->text.data(), r->text.data() + r->text.size());
                 place(r->begin + r->text.size());
@@ -373,6 +396,31 @@ bool drawScriptEditor(const char* id, std::string& text, ImVec2 size, bool readO
         st.assist.closeCompletion();
     }
     const bool ctrlSpace = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Space, kOver);
+    // 색인 (v0.9 ST-06-8) — 입력 칸이 활성일 때 커서 자리의 요청
+    if (st.active) {
+        using R = ScriptEditorState::Request;
+        if (ImGui::Shortcut(ImGuiKey_F12, kOver)) {
+            st.request = std::pair{R::Definition, st.cursor};
+        } else if (ImGui::Shortcut(ImGuiMod_Shift | ImGuiKey_F12, kOver)) {
+            st.request = std::pair{R::References, st.cursor};
+        } else if (ImGui::Shortcut(ImGuiKey_F2, kOver)) {
+            st.request = std::pair{R::Rename, st.cursor};
+        } else if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Period, kOver)) {
+            st.request = std::pair{R::QuickFix, st.cursor};
+        }
+    }
+    // 활성이 아니면 편집을 글에 바로 (바깥 변경으로 보인다 — 진단을 다시)
+    if (!st.pendingEdits.empty() && !st.active) {
+        std::vector<TextReplace> edits = std::move(st.pendingEdits);
+        st.pendingEdits.clear();
+        std::sort(edits.begin(), edits.end(),
+                  [](const TextReplace& a, const TextReplace& b) { return a.begin > b.begin; });
+        for (const TextReplace& e : edits) {
+            if (e.end <= text.size() && e.begin <= e.end) {
+                text.replace(e.begin, e.end - e.begin, e.text);
+            }
+        }
+    }
 
     ImGui::SetCursorScreenPos({base.x + gutter, base.y});
     if (st.focusRequest || (st.gotoOffset && !st.active)) {

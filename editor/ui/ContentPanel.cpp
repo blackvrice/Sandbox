@@ -1,6 +1,7 @@
 #include "editor/ui/ContentPanel.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <format>
 #include <string_view>
@@ -400,28 +401,183 @@ std::string scriptExcerpt(const std::string& source, std::string_view pointer) {
     return out;
 }
 
-bool showScriptLine(ContentPanelState& st, const content::ContentDatabase& db, const services::DebugLocation& at) {
-    const std::optional<std::string> id = content::scriptOverlayId(at.pack, at.file);
-    if (!id) {
-        return false;
+namespace {
+
+// 지금 스크립트의 고친 글을 drafts 에 (팩 값과 같으면 지운다) — 다른 항목 · 종류로 옮기기 전에
+void stashScriptDraft(ContentPanelState& st) {
+    if (st.kind != content::ContentKind::Script || st.selected.empty() || st.isNew) {
+        return;
     }
-    if (st.kind != content::ContentKind::Script || st.selected != *id) {
-        const std::optional<std::string> text = currentTextOf(db, content::ContentKind::Script, *id);
-        if (!text) {
+    if (st.text != st.loaded) {
+        st.drafts[st.selected] = st.text;
+    } else {
+        st.drafts.erase(st.selected);
+    }
+}
+
+// 작업 공간의 파일 → 스크립트 오버레이 id (의존 팩 파일 "@inv/scripts/a.ts" 도)
+[[nodiscard]] std::optional<std::string> idOfWorkspaceFile(const ScriptWorkspace& ws, usize file,
+                                                           std::string_view ownPack) {
+    const std::string_view path = ws.files[file].path;
+    if (const std::string_view pack = script::foreignPackOf(path); !pack.empty()) {
+        return content::scriptOverlayId(pack, path.substr(pack.size() + 2));
+    }
+    return content::scriptOverlayId(ownPack, path);
+}
+
+[[nodiscard]] std::optional<ScriptWorkspace> workspaceOf(const ContentPanelState& st,
+                                                         const content::ContentDatabase& db) {
+    if (st.kind != content::ContentKind::Script || st.selected.empty()) {
+        return std::nullopt;
+    }
+    return scriptWorkspace(db, st.selected, st.text, &st.drafts);
+}
+
+} // namespace
+
+bool openScript(ContentPanelState& st, const content::ContentDatabase& db, std::string_view id,
+                std::optional<usize> offset) {
+    if (st.kind != content::ContentKind::Script || st.selected != id || st.isNew) {
+        const std::optional<std::string> current = currentTextOf(db, content::ContentKind::Script, id);
+        if (!current) {
             return false;
         }
+        stashScriptDraft(st);
         st.kind = content::ContentKind::Script;
-        st.selected = *id;
+        st.selected = std::string(id);
         st.isNew = false;
         st.pendingFrom.reset();
-        st.text = st.loaded = *text;
+        st.loaded = *current;
+        const auto draft = st.drafts.find(id);
+        st.text = draft != st.drafts.end() ? draft->second : *current;
         st.issues.clear();
         st.checked.clear();
         st.saveAsk = ContentPanelState::SaveAsk::None;
     }
+    if (offset) {
+        st.script.gotoOffset = std::min(*offset, st.text.size());
+    }
+    return true;
+}
+
+bool showScriptLine(ContentPanelState& st, const content::ContentDatabase& db, const services::DebugLocation& at) {
+    const std::optional<std::string> id = content::scriptOverlayId(at.pack, at.file);
+    if (!id || !openScript(st, db, *id)) {
+        return false;
+    }
     // 줄 → 바이트 (텍스트 위치 계약 — 열 1 은 그 줄의 처음)
     st.script.gotoOffset = text::offsetAt(st.text, {at.line, 1});
     return true;
+}
+
+bool goToDefinition(ContentPanelState& st, const content::ContentDatabase& db, usize offset) {
+    const std::optional<ScriptWorkspace> ws = workspaceOf(st, db);
+    const auto own = content::scriptOverlayPath(st.selected);
+    if (!ws || !own) {
+        return false;
+    }
+    const std::optional<script::SourceRange> def = script::findDefinition(ws->query(offset));
+    if (!def) {
+        return false;
+    }
+    if (def->file == ws->file) {
+        st.script.gotoOffset = def->begin;
+        return true;
+    }
+    const std::optional<std::string> id = idOfWorkspaceFile(*ws, def->file, own->pack);
+    return id && openScript(st, db, *id, def->begin);
+}
+
+usize findScriptReferences(ContentPanelState& st, const content::ContentDatabase& db, usize offset) {
+    st.references.clear();
+    st.referencesOf.clear();
+    const std::optional<ScriptWorkspace> ws = workspaceOf(st, db);
+    const auto own = content::scriptOverlayPath(st.selected);
+    if (!ws || !own) {
+        return 0;
+    }
+    for (const script::SourceRange& r : script::findReferences(ws->query(offset))) {
+        const std::string& fileText = ws->files[r.file].text;
+        if (st.referencesOf.empty()) {
+            st.referencesOf = fileText.substr(r.begin, r.end - r.begin);
+        }
+        const std::optional<std::string> id = idOfWorkspaceFile(*ws, r.file, own->pack);
+        if (!id) {
+            continue;
+        }
+        const u32 line = text::lineColAt(fileText, r.begin).line;
+        std::string preview(text::lineAt(fileText, line));
+        const usize first = preview.find_first_not_of(" \t");
+        preview = first == std::string::npos ? std::string() : preview.substr(first);
+        st.references.push_back({*id, ws->files[r.file].path, r.begin, line, std::move(preview)});
+    }
+    return st.references.size();
+}
+
+std::string renameInScripts(ContentPanelState& st, const content::ContentDatabase& db, usize offset,
+                            std::string_view newName) {
+    const std::optional<ScriptWorkspace> ws = workspaceOf(st, db);
+    const auto own = content::scriptOverlayPath(st.selected);
+    if (!ws || !own) {
+        return "스크립트를 고른 뒤에";
+    }
+    const script::RenameResult r = script::renameSymbol(ws->query(offset), newName);
+    if (!r.ok()) {
+        return r.error;
+    }
+    // 이 파일 = 편집기 (되돌리기에 남는다), 다른 파일 = drafts (열면 그 글 — [적용] · [저장] 은 사람이)
+    std::map<usize, std::vector<script::FileEdit>> byFile;
+    for (const script::FileEdit& e : r.edits) {
+        byFile[e.file].push_back(e);
+    }
+    usize here = 0;
+    usize others = 0;
+    for (auto& [file, edits] : byFile) {
+        if (file == ws->file) {
+            for (const script::FileEdit& e : edits) {
+                st.script.pendingEdits.push_back({e.begin, e.end, e.text});
+            }
+            here = edits.size();
+            continue;
+        }
+        const std::optional<std::string> id = idOfWorkspaceFile(*ws, file, own->pack);
+        if (!id) {
+            continue;
+        }
+        std::string text = ws->files[file].text; // 작업 공간의 글 = draft · 오버레이 · 팩 원본
+        std::sort(edits.begin(), edits.end(),
+                  [](const script::FileEdit& a, const script::FileEdit& b) { return a.begin > b.begin; });
+        for (const script::FileEdit& e : edits) {
+            text.replace(e.begin, e.end - e.begin, e.text);
+        }
+        st.drafts[*id] = std::move(text);
+        ++others;
+    }
+    st.issues.push_back(
+        {false, std::format("'{}' 로 바꿨습니다 — 이 파일 {} 곳{}", newName, here,
+                            others == 0 ? std::string()
+                                        : std::format(" · 다른 파일 {} 개 (✎ — 열어 [적용] · [저장])", others))});
+    return {};
+}
+
+std::vector<script::QuickFix> scriptQuickFixes(const ContentPanelState& st, const content::ContentDatabase& db,
+                                               usize offset) {
+    const std::optional<ScriptWorkspace> ws = workspaceOf(st, db);
+    if (!ws) {
+        return {};
+    }
+    std::vector<script::QuickFix> fixes = script::quickFixes(ws->query(offset));
+    std::erase_if(fixes, [&](const script::QuickFix& f) {
+        return std::any_of(f.edits.begin(), f.edits.end(),
+                           [&](const script::FileEdit& e) { return e.file != ws->file; });
+    });
+    return fixes;
+}
+
+void applyQuickFix(ContentPanelState& st, const script::QuickFix& fix) {
+    for (const script::FileEdit& e : fix.edits) {
+        st.script.pendingEdits.push_back({e.begin, e.end, e.text});
+    }
 }
 
 std::string scriptTemplate(const std::string& id) {
@@ -493,6 +649,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     // 종류
     const auto kindButton = [&](const char* label, content::ContentKind k) {
         if (ImGui::RadioButton(label, st.kind == k) && st.kind != k) {
+            stashScriptDraft(st);
             st.kind = k;
             st.saveAsk = ContentPanelState::SaveAsk::None;
             st.selected.clear();
@@ -560,15 +717,21 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
         }
         for (const usize i : g.items) {
             const Item& item = items[i];
-            const std::string label = std::format("{}{}", item.overlay ? "● " : "   ", item.id);
+            const bool draft = st.kind == content::ContentKind::Script && st.drafts.contains(item.id);
+            const std::string label =
+                std::format("{}{}{}", item.overlay ? "● " : "   ", item.id, draft ? " ✎" : ""); // ✎ = 적용 · 저장 전
             if (ImGui::Selectable(label.c_str(), st.selected == item.id && !st.isNew)) {
-                st.selected = std::string(item.id);
-                st.saveAsk = ContentPanelState::SaveAsk::None;
-                st.isNew = false;
-                st.pendingFrom.reset();
-                st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
-                st.issues.clear();
-                st.checked.clear();
+                if (st.kind == content::ContentKind::Script) {
+                    (void)openScript(st, *db, item.id); // 고친 글은 drafts 에 남는다 (v0.9 ST-06-8)
+                } else {
+                    st.selected = std::string(item.id);
+                    st.saveAsk = ContentPanelState::SaveAsk::None;
+                    st.isNew = false;
+                    st.pendingFrom.reset();
+                    st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
+                    st.issues.clear();
+                    st.checked.clear();
+                }
             }
         }
     }
@@ -665,8 +828,92 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                 st.script.execLine = at->line;
             }
         }
+        const ScriptDrafts* drafts = &st.drafts;
         (void)drawScriptEditor("##script", st.text, editSize, !editable, st.script,
-                               [db, id](std::string_view t) { return scriptWorkspace(*db, id, t); });
+                               [db, id, drafts](std::string_view t) { return scriptWorkspace(*db, id, t, drafts); });
+        // 색인 요청 (v0.9 ST-06-8) — F12 · Shift+F12 · F2 · Ctrl+.
+        if (st.script.request) {
+            const auto [kind, offset] = *st.script.request;
+            st.script.request.reset();
+            using R = ScriptEditorState::Request;
+            switch (kind) {
+            case R::Definition:
+                if (!goToDefinition(st, *db, offset)) {
+                    st.issues.push_back({true, "정의를 찾지 못했습니다 (SDK · 내장 이름 · 필드는 색인 밖)"});
+                }
+                break;
+            case R::References:
+                if (findScriptReferences(st, *db, offset) == 0) {
+                    st.issues.push_back({true, "참조를 찾지 못했습니다"});
+                }
+                break;
+            case R::Rename: {
+                if (!editable) {
+                    break;
+                }
+                st.renameOpen = true;
+                st.renameOffset = offset;
+                usize b = std::min(offset, st.text.size());
+                while (b > 0 && (std::isalnum(static_cast<unsigned char>(st.text[b - 1])) != 0 ||
+                                 st.text[b - 1] == '_' || st.text[b - 1] == '$')) {
+                    --b;
+                }
+                usize e = b;
+                while (e < st.text.size() && (std::isalnum(static_cast<unsigned char>(st.text[e])) != 0 ||
+                                              st.text[e] == '_' || st.text[e] == '$')) {
+                    ++e;
+                }
+                const std::string word = st.text.substr(b, std::min<usize>(e - b, st.renameInput.size() - 1));
+                std::copy(word.begin(), word.end(), st.renameInput.begin());
+                st.renameInput[word.size()] = '\0';
+                break;
+            }
+            case R::QuickFix:
+                if (editable) {
+                    st.quickFixes = scriptQuickFixes(st, *db, offset);
+                    st.quickFixOpen = true;
+                }
+                break;
+            }
+        }
+        if (std::exchange(st.renameOpen, false)) {
+            ImGui::OpenPopup("##rename");
+        }
+        if (ImGui::BeginPopup("##rename")) {
+            ImGui::TextUnformatted("이름 바꾸기 (팩의 모든 파일 — 다른 파일은 ✎ 로)");
+            if (ImGui::IsWindowAppearing()) {
+                ImGui::SetKeyboardFocusHere();
+            }
+            const bool enter =
+                ImGui::InputText("##newname", st.renameInput.data(), st.renameInput.size(),
+                                 ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::SameLine();
+            if (ImGui::Button("바꾸기") || enter) {
+                if (const std::string err = renameInScripts(st, *db, st.renameOffset, st.renameInput.data());
+                    !err.empty()) {
+                    st.issues.push_back({true, err});
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        if (std::exchange(st.quickFixOpen, false)) {
+            ImGui::OpenPopup("##quickfix");
+        }
+        if (ImGui::BeginPopup("##quickfix")) {
+            if (st.quickFixes.empty()) {
+                ImGui::TextDisabled("고칠 것이 없습니다 (없는 이름 S401 위에서)");
+            }
+            for (usize i = 0; i < st.quickFixes.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::Selectable(st.quickFixes[i].title.c_str())) {
+                    applyQuickFix(st, st.quickFixes[i]);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndPopup();
+        }
         if (st.script.toggledLine && st.script.breakpointGutter) {
             (void)st.debugger->toggleBreakpoint(path->pack, path->rel, *st.script.toggledLine);
             st.script.toggledLine.reset();
@@ -697,6 +944,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
         ImGui::SameLine();
         if (ImGui::Button("고친 것 버리기")) {
             st.text = st.loaded;
+            st.drafts.erase(st.selected);
             st.issues.clear();
             if (st.isNew) {
                 st.selected.clear();
@@ -772,6 +1020,23 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                 ImGui::SetTooltip("%s", m.text.c_str());
             }
             ImGui::PopID();
+        }
+        if (!st.references.empty()) {
+            ImGui::Separator();
+            ImGui::TextDisabled("참조 '%s' — %zu 곳 (누르면 그 자리로)", st.referencesOf.c_str(), st.references.size());
+            std::optional<usize> go;
+            for (usize i = 0; i < st.references.size(); ++i) {
+                const ScriptReference& r = st.references[i];
+                ImGui::PushID(static_cast<int>(1000 + i));
+                if (ImGui::Selectable(std::format("{}:{}  {}", r.file, r.line, r.preview).c_str())) {
+                    go = i;
+                }
+                ImGui::PopID();
+            }
+            if (go) {
+                const ScriptReference r = st.references[*go];
+                (void)openScript(st, *db, r.id, r.offset);
+            }
         }
         if (!marks.empty() || !st.issues.empty()) {
             ImGui::Separator();

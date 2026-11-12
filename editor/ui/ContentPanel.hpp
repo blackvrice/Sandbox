@@ -25,6 +25,7 @@
 #include "editor/Editor.hpp"
 #include "editor/ui/ScriptEditor.hpp"
 #include "editor/ui/TriggerForm.hpp"
+#include "script/lang/LanguageIndex.hpp"
 
 namespace sbx::editor {
 
@@ -38,6 +39,15 @@ struct DebugLocation;
 struct SavedScript {
     std::string written; // 디스크에 쓴 바이트 (줄 끝 되돌린 것)
     std::string text;    // 그때의 편집기 글
+};
+
+// 참조 한 자리 (v0.9 ST-06-8 — Shift+F12 목록)
+struct ScriptReference {
+    std::string id;   // 스크립트 오버레이 id ("t.regen")
+    std::string file; // "scripts/regen.ts"
+    usize offset = 0; // 바이트
+    u32 line = 0;
+    std::string preview; // 그 줄 (앞뒤 빈칸 없이)
 };
 
 struct ContentPanelState {
@@ -66,6 +76,16 @@ struct ContentPanelState {
     services::ScriptDebugService* debugger = nullptr;
     enum class SaveAsk : u8 { None, Errors, Overwrite };
     SaveAsk saveAsk = SaveAsk::None; // 저장을 멈추고 묻는 중 (오류가 있다 · 바깥에서 파일이 바뀌었다)
+    // 색인 (v0.9 ST-06-8): 스크립트마다 적용 · 저장 전의 글 (다른 파일로 옮겨도 남는다 · 이름 바꾸기가 다른 파일에 쓴다
+    // — 진단 · 색인의 작업 공간도 이 글), 참조 목록, 이름 바꾸기 · 빠른 수정 창
+    ScriptDrafts drafts;
+    std::vector<ScriptReference> references;
+    std::string referencesOf; // 참조 목록의 이름
+    bool renameOpen = false;
+    usize renameOffset = 0;
+    std::array<char, 64> renameInput{};
+    bool quickFixOpen = false;
+    std::vector<script::QuickFix> quickFixes;
 };
 
 // 고친 JSON 을 이 컴퓨터에서 검사한다 (오버레이에 넣어 콘텐츠 로더로). JSON 이 아니면 그 오류 하나.
@@ -82,6 +102,22 @@ struct ContentPanelState {
 [[nodiscard]] ScriptSaveResult saveScriptEdit(const content::ContentDatabase& db, services::DocumentService& docs,
                                               const std::string& id, const std::string& text,
                                               std::map<std::string, SavedScript, std::less<>>& saved, bool force);
+// 스크립트 열기 (v0.9 ST-06-8) — 지금 스크립트의 고친 글은 drafts 에 남기고 (팩 값과 같으면 지운다) id 를 고른다 (draft
+// 가 있으면 그 글). offset 이 있으면 그 바이트로 커서. 콘텐츠에 없는 id 면 false
+bool openScript(ContentPanelState& state, const content::ContentDatabase& db, std::string_view id,
+                std::optional<usize> offset = std::nullopt);
+// 색인 요청 (v0.9 ST-06-8, ADR-0136) — 지금 스크립트 (state.selected · text) 의 offset 에서. 작업 공간은 drafts 를 쓴다
+// F12: 정의가 이 파일이면 커서, 다른 파일이면 그 스크립트를 연다. 없으면 false
+bool goToDefinition(ContentPanelState& state, const content::ContentDatabase& db, usize offset);
+// Shift+F12: 참조 목록 (state.references) — 수
+usize findScriptReferences(ContentPanelState& state, const content::ContentDatabase& db, usize offset);
+// F2: 이 파일은 편집기에 (pendingEdits — 되돌리기에 남는다), 다른 파일은 drafts 에. 실패면 이유 (빈 글 = 성공)
+std::string renameInScripts(ContentPanelState& state, const content::ContentDatabase& db, usize offset,
+                            std::string_view newName);
+// Ctrl+.: 그 자리의 빠른 수정 · 하나 넣기 (편집기에 — 빠른 수정은 이 파일만 고친다)
+[[nodiscard]] std::vector<script::QuickFix> scriptQuickFixes(const ContentPanelState& state,
+                                                             const content::ContentDatabase& db, usize offset);
+void applyQuickFix(ContentPanelState& state, const script::QuickFix& fix);
 // 디버거의 [편집기에서 보기] (v0.9 ST-06-7) — 그 팩 · 파일의 스크립트를 고르고 그 줄로 커서를 옮긴다 (이미 고친 채 열려
 // 있으면 글은 그대로). 오버레이 id 로 쓸 수 없는 경로 · 콘텐츠에 없는 파일이면 false
 bool showScriptLine(ContentPanelState& state, const content::ContentDatabase& db, const services::DebugLocation& at);

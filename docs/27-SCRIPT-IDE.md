@@ -16,7 +16,8 @@
            물결 밑줄 (입력 멈춤 300 ms 뒤 검사기 — editor/services/ScriptAssist), '.' · Ctrl+Space 완성 팝업, hover, 실시간 진단 목록
            (누르면 그 자리로). [검사] = 팩 다시 컴파일 · 오류마다 "12 | <그 줄>", [적용 (오버레이)] = EditContent (ADR-0066 — 다음
            틱부터), [저장 (팩 파일)] = 팩 폴더의 그 파일 (✅ 조각 3, ADR-0131 — 줄 끝 보존 · 바깥 변경은 [덮어쓰기] · 오류는 묻는다).
-           구문 색 없음 ([계획])
+           F12 정의로 · Shift+F12 참조 · F2 이름 바꾸기 · Ctrl+. 빠른 수정 · 스니펫 (✅ v0.9 ST-06-8, ADR-0136), 파일을 옮겨도 고친 글은 ✎
+           drafts 로 남는다. 구문 색 없음 ([계획])
 외부 IDE   sbx sdk 가 sandbox.d.ts 를 쓴다 → tsc · VS Code 가 타입 · 자동 완성 (ADR-0065). 부분집합 밖 (S3xx) · 엔진 규칙 (S404 도메인) 은
            tsc 가 모른다 → sbx check 로
 컴파일러   script/lang: Lexer (토큰 · 위치) · Parser (AST) · Checker (Program { types, symbols, functions, components, systems, modules }) ·
@@ -78,7 +79,7 @@ Script Editor (Studio — ImGui 위젯)        sbx lsp (표준 입출력 JSON-RP
            [계획]: S404 클라이언트에서 쓰기 → "서버 시스템으로 옮기기" 안내 /
            S3xx 지원 안 하는 문법 → 19 의 대안 문장 (예: Promise → onEvent 요청 · 결과)
 포맷터 [계획 v0.7]  AST → 텍스트 (주석 보존이 선행 — 파서가 주석을 붙여야 한다)
-스니펫     defineSystem · defineComponent · onEvent 틀 — 지금 콘텐츠 창의 "새 파일 (시스템 틀)" 의 확장 [계획 v0.6]
+스니펫     ✅ v0.9 ST-06-8 (ADR-0136) — 문장 처음의 이름 완성에 system · component · forquery 틀 (넣는 줄의 들여쓰기). onEvent 틀 · Tab 자리 이동은 [계획]
 ```
 
 ## 5. LSP (v0.7)
@@ -141,7 +142,7 @@ Debug 는 약 30 배 (113 · 565 ms). 입력 멈춤 300 ms 안 — 파일 단위
 | 구문 색 · 마우스로 팝업 고르기 · 저절로 여는 이름 완성 · 트랩 메시지 (스크립트 창) 에서 편집기 그 줄로 | [계획] (ADR-0130 결과) |
 | 줄 표 · 트랩 줄 · 함수별 프로파일 | ✅ v0.9 M6-T4 — 줄 표 · 트랩 줄 (ADR-0124), 함수별 자기 연료 프로파일 (ADR-0125) |
 | 정의 · 참조 · 이름 바꾸기 · 빠른 수정 (언어 서비스) · 검사 결과 기억 | ✅ v0.9 ST-06-8 조각 1 (script/lang/LanguageIndex · ProgramCache — ADR-0135) |
-| Studio 의 정의로 · 참조 · 이름 바꾸기 · 빠른 수정 · 스니펫 | [계획 v0.9 ST-06-8 조각 2] |
+| Studio 의 정의로 (F12) · 참조 (Shift+F12) · 이름 바꾸기 (F2 — 다른 파일은 drafts) · 빠른 수정 (Ctrl+.) · 스니펫 · 파일마다 고친 글 | ✅ v0.9 ST-06-8 조각 2 (ContentPanel · ScriptEditor — ADR-0136) |
 | 파일 단위 증분 분석 · 필드 이름 바꾸기 | [계획] (ADR-0135 결과) |
 | 재생 디버거 — VM 쪽 (BRK 패치 · 지역 이름 표 형식 12 · 중단점 · 단계 · 감시 경로 · logpoint) | ✅ v0.9 ST-06-7 조각 1 (script/vm/Debug — ADR-0132) |
 | 재생 디버거 — 재생 세션 (디버그 스레드 · 같은 해시 · stopAtTick · abort) | ✅ v0.9 ST-06-7 조각 2 (core/script/ScriptDebugSession — ADR-0133) |
