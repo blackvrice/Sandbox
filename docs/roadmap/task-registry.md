@@ -77,7 +77,7 @@
 | M6-T4 | 오류 메시지 · 줄 표 (.sbc 11) · 함수별 프로파일 · IScriptExecutor | A | Done | v0.5 | v0.9 | P0 | — | 20 10장 — 줄 표 · 트랩 자리 (ADR-0124), 함수별 프로파일 (ADR-0125), 오류 메시지 · 문구 골든 · 호출 경로 (ADR-0126), IScriptExecutor · 계약 비교 (ADR-0127) |
 | M6-T8 | 스크립트 편집기 — 자동 완성 · hover · 밑줄 · 저장 위치 구분 | B | Done | v0.5 | v0.9 | P0 | NG-05 · M6-T4 | 후보 · hover · 저장 왕복 — 언어 서비스 완성 · hover · 응답 측정 (ADR-0129), 편집기 위젯 밑줄 · 팝업 · hover · 이동 (ADR-0130), [적용 (오버레이)] / [저장 (팩 파일)] · 줄 끝 보존 (ADR-0131) |
 | NG-05 | 텍스트 위치 계약 (UTF-8 바이트 · 코드 포인트 · UTF-16 · 화면 열 · IME) | B | Done | — | v0.9 | P0 | — | 위치 변환 · 한글 조합 시험 (ADR-0128 — test_text_position · 진단 = offset · IME 자리) |
-| ST-06-7 | 재생 디버거 | B | Planned | v0.6 | v0.9 | P1 | M6-T4 | 같은 해시 · 훅 비용 < 2 % |
+| ST-06-7 | 재생 디버거 | B | Planned | v0.6 | v0.9 | P1 | M6-T4 | 같은 해시 · 훅 비용 < 2 % (조각 1 VM 쪽 — BRK 패치 · 지역 이름 표 형식 12 · 단계 · logpoint · 감시 경로 · 비용 측정 ✅ — ADR-0132) |
 | ST-06-8 | 언어 서비스 색인 · 이동 · 이름 바꾸기 · 빠른 수정 | B | Planned | v0.6 | v0.9 | P2 | M6-T8 | 응답 측정 |
 | ST-06-3 | Asset Browser 완성 | B | Planned | v0.6 | v0.10 | P1 | M6-T9 | 참조 · 옮기기 · 지우기 시험 |
 | ST-06-4 | Game UI Designer | B | Planned | v0.6 | v0.10 | P1 | M3-T5 · ST-06-1 | 문서 왕복 · 수동 QA |

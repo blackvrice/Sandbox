@@ -12,6 +12,7 @@
 #include "foundation/assert/Assert.hpp"
 #include "foundation/hash/Fnv1a.hpp"
 #include "script/api/MathBuiltins.hpp"
+#include "script/vm/Debug.hpp"
 #include "script/vm/Intrinsics.hpp"
 #include "script/vm/Numbers.hpp"
 #include "script/vm/Verifier.hpp"
@@ -114,6 +115,46 @@ const Interpreter::Object* Interpreter::object(Value v) const {
 }
 Interpreter::Object* Interpreter::object(Value v) {
     return const_cast<Object*>(static_cast<const Interpreter*>(this)->object(v));
+}
+
+FrameInfo Interpreter::frameAt(usize i) const {
+    if (i >= m_frames.size()) {
+        return {};
+    }
+    const Frame& f = m_frames[i];
+    // 바깥 프레임의 pc 는 돌아갈 자리 — 부른 명령은 그 앞
+    const u32 pc = i + 1 == m_frames.size() ? f.pc : (f.pc > 0 ? f.pc - 1 : 0);
+    return {f.function, pc, f.base};
+}
+
+Value Interpreter::regAt(usize frame, u16 reg) const {
+    if (frame >= m_frames.size()) {
+        return {};
+    }
+    const usize at = static_cast<usize>(m_frames[frame].base) + reg;
+    return at < m_regs.size() ? m_regs[at] : Value{};
+}
+
+usize Interpreter::containerSize(Value v) const {
+    const Object* o = object(v);
+    if (o == nullptr) {
+        return 0;
+    }
+    switch (o->kind) {
+    case Object::Kind::String:
+        return o->text.size();
+    case Object::Kind::Array:
+        return o->slots.size();
+    case Object::Kind::Map:
+    case Object::Kind::Set:
+        return o->hash ? o->hash->live : 0;
+    case Object::Kind::Coll:
+        return !o->seq ? 0 : o->seq->sub == static_cast<u8>(CollKind::BitSet) ? o->seq->bits : o->seq->count;
+    case Object::Kind::Struct:
+    case Object::Kind::Box:
+        return 0;
+    }
+    return 0;
 }
 
 std::string_view Interpreter::stringOf(Value v) const {
@@ -446,7 +487,9 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
             return trap(Trap::OutOfFuel, std::format("연료 {} 를 다 썼다", budget));
         }
         --fuel;
-        const bc::Insn& in = F->code[pc];
+        const bc::Insn* ip = &F->code[pc];
+    dispatch: // BRK 는 원래 명령으로 여기 돌아온다 (연료는 한 번만)
+        const bc::Insn& in = *ip;
         switch (in.op) {
         case Op::NOP:
             break;
@@ -903,6 +946,18 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
         case Op::LOADFN:
             R[in.a] = Value{static_cast<u64>(in.b) + 1}; // 0 = 없음 (검증기가 서명을 봤다)
             break;
+        case Op::BRK: {
+            const u32 fnIndex = m_frames.back().function;
+            const bc::Insn* original = m_patches != nullptr ? m_patches->original(fnIndex, pc) : nullptr;
+            if (m_debugHook == nullptr || original == nullptr) {
+                return trap(Trap::Unreachable, "BRK — 디버거가 붙어 있지 않다");
+            }
+            m_brkInsn = *original;   // 훅이 이 자리를 거둬도 (단계 실행) 이 명령은 이것
+            m_frames.back().pc = pc; // 훅이 읽는 맨 위 프레임의 자리
+            m_debugHook->onBreak(*this, fnIndex, pc);
+            ip = &m_brkInsn;
+            goto dispatch;
+        }
         case Op::Count:
             return trap(Trap::Unreachable, "모르는 명령");
         }

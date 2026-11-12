@@ -1272,6 +1272,7 @@ private:
         const SymbolId vs = sema(decl).refIndex;
         const u16 var = newReg(tid(P.symbols[vs].type));
         m_symReg[vs] = var;
+        openLocal(vs, var);
         const u32 pair[] = {tid(ct), m_i32};
         const u16 base = block(pair);
         const u16 e = temp(m_i32);
@@ -1523,6 +1524,7 @@ private:
         }
         const PosScope posScope(*this, s);
         const usize mark = m_temps.size();
+        const usize scope = m_open.size(); // 이 문장 안에서 선언한 지역 — 문장이 끝나면 닫는다 (형식 12 지역 이름 표)
         const Node& x = ast().node(s);
         switch (x.kind) {
         case NodeKind::Block:
@@ -1540,6 +1542,7 @@ private:
                 emit(Op::MOV, reg, v);
             }
             m_symReg[sid] = reg;
+            openLocal(sid, reg);
             break;
         }
         case NodeKind::ExprStmt:
@@ -1610,6 +1613,7 @@ private:
             const SymbolId vs = sema(decl).refIndex;
             const u16 var = newReg(tid(P.symbols[vs].type));
             m_symReg[vs] = var;
+            openLocal(vs, var);
             const u16 len = temp(m_i32);
             const u16 c = temp(m_bool);
             const u16 one = temp(m_i32);
@@ -1656,7 +1660,23 @@ private:
         default:
             break;
         }
+        if (x.kind != NodeKind::VarDecl) {
+            closeLocals(scope); // 선언은 둘러싼 블록 · 문장 끝까지 보인다
+        }
         releaseTemps(mark);
+    }
+
+    // 지역 이름 표 (형식 12 — v0.9 ST-06-7): 지금 자리부터 보이는 지역 하나를 연다 · mark 뒤에 연 것을 지금 자리에서
+    // 닫는다
+    void openLocal(SymbolId sid, u16 reg) {
+        m_open.push_back(F->locals.size());
+        F->locals.push_back(bc::LocalName{reg, P.symbols[sid].name, static_cast<u32>(here()), 0});
+    }
+    void closeLocals(usize mark) {
+        for (usize i = mark; i < m_open.size(); ++i) {
+            F->locals[m_open[i]].end = static_cast<u32>(here());
+        }
+        m_open.resize(mark);
     }
 
     void jumpTo(Op op, u16 cond, usize target) { patch(jump(op, cond), target); }
@@ -1726,6 +1746,7 @@ private:
         m_free.clear();
         m_temps.clear();
         m_loops.clear();
+        m_open.clear();
         F->name = std::format("{}:{}", MS->path, info.name);
         m_pos = MS->ast.node(info.decl).pos; // 함수 머리 (매개변수 · 마지막 RET · TRAP)
         F->line = m_pos.line;                // 선언 자리 (프로파일의 함수 자리 — 형식 11)
@@ -1734,6 +1755,7 @@ private:
             const u32 t = tid(info.params[i]);
             F->params.push_back(t);
             m_symReg[info.paramSymbols[i]] = newReg(t);
+            openLocal(info.paramSymbols[i], m_symReg[info.paramSymbols[i]]);
         }
         F->result = tid(info.result);
         const NodeId body = MS->ast.kids(info.decl).back();
@@ -1745,6 +1767,7 @@ private:
             } else {
                 emit(Op::RETV, genTo(body, info.result));
             }
+            closeLocals(0);
             return;
         }
         for (const NodeId s : MS->ast.kids(body)) {
@@ -1755,6 +1778,7 @@ private:
         } else {
             emit(Op::TRAP, static_cast<u16>(bc::TrapCode::Unreachable));
         }
+        closeLocals(0);
     }
 
     const Program& P;
@@ -1786,6 +1810,7 @@ private:
     std::map<u32, std::vector<u16>> m_free;
     std::vector<u16> m_temps;
     std::vector<Loop> m_loops;
+    std::vector<usize> m_open; // 열린 지역 (F->locals 의 자리)
 };
 
 } // namespace

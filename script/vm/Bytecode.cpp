@@ -20,7 +20,7 @@ constexpr std::array<std::string_view, static_cast<usize>(Op::Count)> kOpNames{
     "LTI",    "LEI",    "EQF",    "LTF",    "LEF",    "EQB",    "EQS",      "LTS",    "LES",    "EQR",    "EQO",
     "NOTB",   "CONCAT", "TOSTRI", "TOSTRF", "TOSTRB", "STRLEN", "NEWARR",   "ARRLEN", "ARRGET", "ARRSET", "ARRPUSH",
     "NEWOBJ", "GETF",   "SETF",   "BOX",    "UNBOX",  "JMP",    "JMPT",     "JMPF",   "CALL",   "CALLH",  "RET",
-    "RETV",   "TRAP",   "LOADK",  "INTR",   "LOADFN",
+    "RETV",   "TRAP",   "LOADK",  "INTR",   "LOADFN", "BRK",
 };
 
 constexpr std::array<u8, 4> kMagic{'S', 'B', 'X', 'C'};
@@ -322,6 +322,14 @@ std::vector<u8> serialize(const Module& m) {
         }
         w.u32v(f.line);
         w.u32v(f.column);
+        // 형식 12: 지역 이름 표 (레지스터 u16 · 이름 · pc 범위)
+        w.u32v(static_cast<u32>(f.locals.size()));
+        for (const LocalName& l : f.locals) {
+            w.u16v(l.reg);
+            w.str(l.name);
+            w.u32v(l.begin);
+            w.u32v(l.end);
+        }
     }
     w.u32v(static_cast<u32>(m.exports.size()));
     for (const Export& e : m.exports) {
@@ -532,6 +540,20 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
         }
         if (!r.u32v(f.line) || !r.u32v(f.column)) {
             return bad("함수 자리");
+        }
+        u32 nloc = 0;
+        if (!r.count(nloc, nr, 14, "지역 이름")) {
+            return bad("지역 이름 표");
+        }
+        f.locals.resize(nloc);
+        for (LocalName& l : f.locals) {
+            if (!r.u16v(l.reg) || !r.str(l.name) || !r.u32v(l.begin) || !r.u32v(l.end)) {
+                return bad("지역 이름 표");
+            }
+            // 모양: 레지스터 안 · 범위가 명령 안 · 이름이 있다 (디버거가 믿고 읽는다)
+            if (l.reg >= nr || l.begin > l.end || l.end > ni || l.name.empty() || l.name.size() > kMaxLocalNameBytes) {
+                return bad("지역 이름의 칸");
+            }
         }
     }
     if (!r.count(n, kMaxFunctions, 12, "export")) {

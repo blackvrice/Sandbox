@@ -22,7 +22,7 @@ namespace sbx::script::bc {
 // 2 = 컴포넌트 표 · LOADK (v0.3 M3-T3), 3 = 시스템 표 (M4-T1), 4 = 콜백 · 구독 (M4-T2), 5 = 도메인 · onUpdate (M5-T3),
 // 6 = INTR (v0.5 M8-T2 — ADR-0085), 7 = 함수 참조 Func · LOADFN (M8-T3), 8 = Map · Set (M8-T4), 9 = 컬렉션 Coll
 // (M8-T5), 10 = onMigrate (v0.6 NG-04), 11 = 함수마다 줄 표 (v0.9 M6-T4 — ADR-0124)
-inline constexpr u32 kFormatVersion = 11;
+inline constexpr u32 kFormatVersion = 12; // 12 = 지역 이름 표 (v0.9 ST-06-7)
 inline constexpr u16 kNoReg = 0xFFFF;
 
 // 상한 (믿지 않는 파일 — 읽기와 검증이 둘 다 본다)
@@ -137,6 +137,7 @@ enum class Op : u8 {
     LOADK,  // a(ComponentRef) ← components[b] (v0.3 M3-T3 — 값은 fnv1a64(id) = stableId)
     INTR,   // a(결과 · kNoReg) ← kIntrinsics[c](b …) — VM 내장 (v0.5 M8-T2, script/vm/Intrinsics)
     LOADFN, // a(Func) ← functions[b] 의 참조 (v0.5 M8-T3 — 서명 = a 의 타입)
+    BRK, // 디버그 중단점 (v0.9 ST-06-7) — 디버그 세션의 모듈 사본에만 놓인다 (원래 명령은 vm::CodePatches). 검증 거절
     Count,
 };
 
@@ -172,6 +173,18 @@ struct LineEntry {
     friend bool operator==(const LineEntry&, const LineEntry&) = default;
 };
 
+// 지역 이름 한 칸 (형식 12 — v0.9 ST-06-7 디버거): 레지스터 reg 가 pc [begin, end) 에서 소스 이름 name 의 값이다
+// (매개변수 · const · let · for-of 변수 — 임시 레지스터는 없다). 지역은 레지스터를 다시 쓰지 않는다 (코드 생성)
+struct LocalName {
+    u16 reg = 0;
+    std::string name;
+    u32 begin = 0;
+    u32 end = 0;
+
+    friend bool operator==(const LocalName&, const LocalName&) = default;
+};
+inline constexpr u32 kMaxLocalNameBytes = 256;
+
 struct Function {
     std::string name;        // "scripts/a.ts:clamp" (진단 · 역어셈블)
     std::vector<u32> params; // 타입 번호
@@ -181,6 +194,7 @@ struct Function {
     std::vector<LineEntry> lines; // pc 오름차순 (같은 pc 없음 · pc < code 길이) — 비어도 된다 (손으로 만든 모듈)
     u32 line = 0;                 // 선언 자리 (함수 · 메서드 · 화살표 이름) — 0 = 모름 (형식 11)
     u32 column = 0;
+    std::vector<LocalName> locals{}; // 형식 12 — 디버거가 레지스터를 이름으로 (비어도 된다). 실행 · 검증은 보지 않는다
 };
 
 // pc 의 소스 자리 — 줄 표에서 pc 이하의 마지막 칸 (없으면 nullptr)

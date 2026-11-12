@@ -1060,6 +1060,9 @@ private:
                 }
             }
             break;
+        case Op::BRK:
+            bad("BRK 는 디버그 세션의 모듈 사본에만 (파일 · 컴파일 결과에는 없다)");
+            break;
         case Op::Count:
             break;
         }

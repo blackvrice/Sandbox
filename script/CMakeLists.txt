@@ -32,6 +32,8 @@ add_library(SandboxScript STATIC
     vm/ExecutorKind.hpp
     vm/ScriptExecutor.hpp
     vm/ScriptExecutor.cpp
+    vm/Debug.hpp
+    vm/Debug.cpp
     vm/Intrinsics.hpp
     api/Callbacks.hpp
     api/HostApi.hpp

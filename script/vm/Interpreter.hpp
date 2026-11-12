@@ -109,6 +109,26 @@ struct FunctionProfile {
     u64 selfFuel = 0;
 };
 
+class Interpreter;
+class CodePatches;
+
+// 디버그 훅 (v0.9 ST-06-7 — docs/27-SCRIPT-IDE.md 6장, ADR-0132): 디버그 세션의 모듈 사본에 놓인 BRK 를 만나면
+// 인터프리터가 부른다 (그 명령 전, 연료는 그 명령 몫을 이미 냈다). 훅 안에서는 vm 의 프레임 · 레지스터를 읽기만 한다
+// (call 금지 — 같은 호출 안이다). 훅은 CodePatches 의 BRK 를 놓고 · 거둘 수 있다 (단계 실행). 돌아오면 원래 명령을
+// 돌린다
+class IDebugHook {
+public:
+    virtual ~IDebugHook() = default;
+    virtual void onBreak(const Interpreter& vm, u32 function, u32 pc) = 0;
+};
+
+// 멈춘 동안의 프레임 한 칸 — 0 = 맨 바깥 (부른 콜백). pc = 맨 위는 지금 명령, 바깥은 부른 CALL · INTR 자리
+struct FrameInfo {
+    u32 function = 0;
+    u32 pc = 0;
+    u32 base = 0;
+};
+
 class IHost {
 public:
     virtual ~IHost() = default;
@@ -166,6 +186,21 @@ public:
     void resetProfile() override;
     [[nodiscard]] const Limits& limits() const noexcept override { return m_limits; }
     void setLimits(const Limits& l) noexcept override { m_limits = l; }
+
+    // --- 디버그 (v0.9 ST-06-7 — ADR-0132) ---
+    // BRK 를 만나면 hook 을 부르고 patches 의 원래 명령을 돌린다. 둘 다 nullptr 면 뗀다 (BRK 를 만나면 트랩). 디버거가
+    // 없을 때 실행 루프의 비용은 0 이다 — BRK 는 switch 의 칸 하나 (명령마다 검사가 없다)
+    void attachDebugger(IDebugHook* hook, const CodePatches* patches) noexcept {
+        m_debugHook = hook;
+        m_patches = patches;
+    }
+    [[nodiscard]] const bc::Module& module() const noexcept { return M; }
+    // 훅 안에서만 뜻이 있다 (실행 중의 프레임)
+    [[nodiscard]] usize frameCount() const noexcept { return m_frames.size(); }
+    [[nodiscard]] FrameInfo frameAt(usize i) const;
+    [[nodiscard]] Value regAt(usize frame, u16 reg) const;
+    // Map · Set 의 살아 있는 항목 수, 컬렉션 · 배열의 원소 수, 문자열 바이트 (그 밖은 0)
+    [[nodiscard]] usize containerSize(Value v) const;
 
 private:
     // Map · Set (v0.5 M8-T4) — 넣은 차례의 항목 (지운 것은 alive = 0 으로 남는다 — 반복 커서가 그대로) + 선형 탐사 색인
@@ -266,6 +301,10 @@ private:
     std::vector<FunctionProfile> m_profile;
     u64 m_profileMark = 0; // 마지막으로 나눈 때의 m_fuel
     void chargeTop() noexcept;
+    // 디버그 (BRK)
+    IDebugHook* m_debugHook = nullptr;
+    const CodePatches* m_patches = nullptr;
+    bc::Insn m_brkInsn{}; // BRK 자리의 원래 명령 (훅이 그 자리를 거둬도 이 프레임은 이것을 돌린다)
     // 트랩 자리 (topPc = 맨 위 프레임의 pc) 로 m_res.stack 을 채운다 — 바깥 프레임의 pc 는 돌아갈 자리 - 1 (부른 명령)
     void captureStack(u32 topPc);
 };

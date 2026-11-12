@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-12 — v0.9 ST-06-7 조각 1: 스크립트 디버거 VM 쪽 — BRK 패치 · 지역 이름 표 (형식 12) · 단계 · logpoint (ADR-0132)
+
+**무엇을**
+
+- script/vm/Bytecode: BRK 명령 (검증기가 거절 — 디버그 사본에만), Function.locals (지역 이름 표 — 형식 11 → 12, 읽기가 모양 검사).
+- script/lang/Codegen: 매개변수 · const · let · for-of 변수의 이름 · 레지스터 · pc 범위 (선언 뒤 ~ 둘러싼 문장 끝).
+- script/vm/Interpreter: BRK 칸 (IDebugHook → 원래 명령, 연료 한 번), attachDebugger, 훅 안 읽기 (frameAt · regAt · containerSize · module).
+- script/vm/Debug (새): CodePatches (주인 비트), lineStarts · resolveLine, describeValue · frameLocals · evaluateWatch (지역 · .필드 · [정수] ·
+  .length — 구조체 타입은 필드로), Debugger (중단점 · logpoint · Into/Over/Out · armStep).
+- 문서: ADR-0132, 27 6 · 8장, 19 (지역 이름 · BRK), 21, 17 · 13, 등록부 ST-06-7 (조각 1), 18 · 23 · roadmap 다음 줄.
+
+**왜**
+
+- ST-06-7 재생 디버거의 첫 조각 — 재생 세션 (조각 2) · Studio 창 (조각 3) 이 쓸 VM 쪽. 완료 기준의 "훅 비용 < 2 %" 를 여기서 잰다.
+
+**검증**
+
+- test_script_debugger 5 새 시험 (지역 표 · BRK · 중단점 + 결과 불변 · 단계 · logpoint/armStep). 처음 짚은 것: 인터프리터 생성자가 검증된
+  모듈을 요구한다 (BRK 는 생성 뒤에 놓는다 — 헤더에 적음), 바이트코드에 구조체 이름이 없다 (타입을 필드로 보인다).
+- 비용 (Release sbx_bench --only script, 이전 · 이후 바이너리를 번갈아 6 번, 최솟값 / 중앙값): script.regen 16.34 → 16.52 ms (+1.1 % / +0.4 %),
+  merge sort n=100000 +0.2 % / +6.2 %, n=10000 −3.0 % / −3.1 %. 같은 코드의 sortNumbers 가 −22 ~ +13 % 로 흔들리는 머신 — 잡음 안.
+- script · content 시험 229 개 그대로 통과 (형식 12), build/ci-werror 통과, clang-tidy 경고 없음, Windows MSVC Debug 전체 ctest 89 개 — 88 통과 ·
+  studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 조각 2: 재생 세션 (리플레이를 디버그 스레드에서 — 그 틱 · 그 시스템에서 멈춤, 같은 WorldHash), 조각 3: Studio 디버거 창. 조건부 중단점 ·
+  식 감시 · ctx 읽기는 [계획].
+
 ## 2026-11-11 — v0.9 M6-T8 조각 3: [적용 (오버레이)] / [저장 (팩 파일)] 구분 — 줄 끝 보존 (ADR-0131) — M6-T8 끝
 
 **무엇을**
