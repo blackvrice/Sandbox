@@ -1,11 +1,15 @@
 // 클라이언트 스크립트 세션 (v0.3 M5-T3, ADR-0067): 로컬 서버에 EditContent Script 로 client 시스템을 더하면 서버는 그
 // 시스템을 돌리지 않고 (어댑터 없음), NetworkSession 이 오버레이 콘텐츠로 ClientScriptSystems 를 만들어 프레임마다
 // onUpdate — scriptOverlay() 의 줄, 되돌리면 사라진다. "스크립트" 칸 · 개체 위 글자 그리기.
+// v0.10 RT-06-7 (ADR-0140): 스크립트 세션 = 복제 월드 하나 — 첫 스냅숏 뒤 onStart, 서버 월드가 바뀌면 (테스트 플레이 ·
+// 멈춤) onStop 뒤 새 세션의 onStart, client 시스템을 지우면 onStop.
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <memory>
+#include <random>
 #include <string>
 
 #include <imgui.h>
@@ -26,6 +30,17 @@ namespace {
 
 constexpr f64 kDt = 1.0 / 30.0;
 
+// 세션마다 onStart · onStop 을 UI 변수로 센다 (세션 표 uiVar 는 NetworkSession 의 것 — 세션을 넘어 남는다)
+constexpr std::string_view kLife = R"(import { defineSystem } from "sandbox"
+export default defineSystem({
+  id: "eco.life",
+  domain: "client",
+  onStart(ctx) { ctx.setUi("eco.starts", ctx.uiVar("eco.starts") + 1) },
+  onLateUpdate(ctx) { ctx.setUi("eco.lateTick", ctx.tick) },
+  onStop(ctx) { ctx.setUi("eco.stops", ctx.uiVar("eco.stops") + 1) },
+})
+)";
+
 constexpr std::string_view kHud = R"(import { defineSystem } from "sandbox"
 export default defineSystem({
   id: "eco.hud",
@@ -33,6 +48,10 @@ export default defineSystem({
   onUpdate(ctx) { ctx.print(`틱 ${ctx.tick} 프레임 ${ctx.frame}`) },
 })
 )";
+
+f64 uiNumber(const NetworkSession& ns, std::string_view key) {
+    return ns.uiData()->var(key).number;
+}
 
 } // namespace
 
@@ -194,8 +213,8 @@ export default defineSystem({
         layer.feed(q);
         layer.beginFrame(1.0 / 60.0);
         drawScriptProfilePanel(p);
-        drawScriptProfilePanel(
-            ScriptProfileInfo{.server = {}, .serverOmitted = 3, .client = {}, .serverFunctions = {}, .clientFunctions = {}});
+        drawScriptProfilePanel(ScriptProfileInfo{
+            .server = {}, .serverOmitted = 3, .client = {}, .serverFunctions = {}, .clientFunctions = {}});
         (void)layer.endFrame(platform::CursorShape::Arrow);
         layer.acknowledgeTextures();
 
@@ -496,5 +515,101 @@ export default defineSystem({
         CHECK(ui::evaluate("var:eco.flag", *data).number == 1.0);
         CHECK(ui::evaluate("var:eco.volText", *data).text == "2.5");
         CHECK(ui::evaluate("var:eco.nameNum", *data).number == 0.0); // 글자는 수로 0
+    }
+    TEST_CASE("client script lifecycle (local server, v0.10 RT-06-7): 첫 스냅숏 뒤 onStart · 서버 월드가 바뀌면 onStop "
+              "→ 새 세션 onStart · 콘텐츠가 바뀌면 onStop → 새 실행기 onStart") {
+        // 팩에 client 시스템을 둔 콘텐츠 복사본 — 오버레이 없이 (Script 오버레이가 있는 월드는 세이브의 콘텐츠 해시가
+        // 달라 불러오지 못한다 — DEVELOPMENT_LOG 2026-11-16)
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / std::format("sbx_client_life_{:x}", std::random_device{}());
+        struct Cleanup {
+            fs::path dir;
+            ~Cleanup() {
+                std::error_code ec;
+                fs::remove_all(dir, ec);
+            }
+        } cleanup{root};
+        fs::create_directories(root / "content");
+        fs::copy(SBX_CONTENT_DIR, root / "content", fs::copy_options::recursive);
+        fs::create_directories(root / "content" / "ecosystem" / "scripts");
+        {
+            std::ofstream f(root / "content" / "ecosystem" / "scripts" / "life.ts", std::ios::binary);
+            f << kLife;
+        }
+        render::MaterialLibrary mats;
+        NetworkSessionDesc d;
+        d.world = "ecosystem_small";
+        d.contentRoot = root / "content";
+        d.inlineServer = true;
+        d.savesRoot = root / "saves";
+        auto made = NetworkSession::create(d, mats);
+        REQUIRE(made.has_value());
+        NetworkSession& ns = **made;
+        editor::Editor ed;
+        f64 now = 0;
+        const auto frame = [&] {
+            ns.update(kDt);
+            render::RenderWorld w;
+            ns.extract(w);
+            editor::EditorInput in;
+            in.now = (now += kDt);
+            in.cursor = {1e4f, 1e4f};
+            ed.update(in, ns);
+        };
+        const auto waitStarted = [&] {
+            for (int i = 0; i < 60 && (ns.clientScripts() == nullptr || !ns.clientScripts()->started()); ++i) {
+                frame();
+            }
+            REQUIRE(ns.clientScripts() != nullptr);
+            REQUIRE(ns.clientScripts()->started());
+        };
+        for (int i = 0; i < 120 && !ns.ready(); ++i) {
+            frame();
+        }
+        REQUIRE(ns.ready());
+        waitStarted();
+        CHECK(ns.clientScripts()->sessions() == 1);
+        frame();
+        CHECK(uiNumber(ns, "eco.starts") == 1);
+        CHECK(uiNumber(ns, "eco.stops") == 0);
+        CHECK(uiNumber(ns, "eco.lateTick") > 0); // onLateUpdate 가 프레임마다
+
+        // 서버 월드가 바뀐다 (저장 → 불러오기) → 옛 세션 onStop (월드 없이), 새 월드의 첫 스냅숏 뒤 onStart — 같은
+        // 콘텐츠라 실행기를 다시 만들지 않고 새 세션
+        ns.worldOp(WorldOp::Save, "life");
+        for (int i = 0; i < 60 && (!ns.worldOps() || ns.worldOps()->saved.empty()); ++i) {
+            frame();
+        }
+        REQUIRE(ns.worldOps()->saved.size() == 1);
+        const script::ClientScriptSystems* first = ns.clientScripts();
+        for (u32 generation = 1; generation <= 2; ++generation) {
+            CAPTURE(generation);
+            ns.worldOp(WorldOp::Load, "life");
+            for (int i = 0; i < 60 && ns.worldGeneration() < generation; ++i) {
+                frame();
+            }
+            const std::string opMessage = ns.worldOps() ? ns.worldOps()->message : std::string("-");
+            REQUIRE_MESSAGE(ns.worldGeneration() == generation, opMessage);
+            CHECK(uiNumber(ns, "eco.stops") == generation);
+            waitStarted();
+            CHECK(ns.clientScripts() == first);
+            CHECK(ns.clientScripts()->sessions() == generation + 1);
+            CHECK(uiNumber(ns, "eco.starts") == generation + 1);
+            CHECK(uiNumber(ns, "eco.stops") == generation);
+        }
+
+        // 콘텐츠가 바뀐다 (오버레이로 client 시스템 하나 더) → 옛 실행기의 onStop, 새 실행기의 onStart
+        REQUIRE(ed.editContent(ns, ContentKind::Script, "eco.hud",
+                               nlohmann::json{{"id", "eco.hud"}, {"source", std::string(kHud)}}));
+        for (int i = 0; i < 60 && (ns.clientScripts() == nullptr || ns.clientScripts()->systemCount() < 2); ++i) {
+            frame();
+        }
+        REQUIRE(ns.overlayError().empty());
+        waitStarted();
+        CHECK(ns.clientScripts()->systemCount() == 2);
+        CHECK(ns.clientScripts()->sessions() == 1);
+        CHECK(uiNumber(ns, "eco.stops") == 3);
+        CHECK(uiNumber(ns, "eco.starts") == 4);
+        CHECK(ns.clientScripts()->counters(0).traps == 0);
     }
 }

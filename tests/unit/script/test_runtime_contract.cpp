@@ -46,10 +46,6 @@ TEST_SUITE("script") {
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onRender(ctx) { } })\n",
              "onRender 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onAction(ctx) { } })\n", "[계획 v0.6]"},
-            {"export default defineSystem({ id: \"a.b\", domain: \"client\", onLateUpdate(ctx) { } })\n",
-             "[계획 v0.6]"},
-            {"export default defineSystem({ id: \"a.b\", domain: \"client\", onStart(ctx) { } })\n",
-             "onStart 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onEvent(ctx, e) { } })\n", "[계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "[계획 v0.7]"},
             // 다른 도메인의 예약 이름
@@ -68,6 +64,10 @@ TEST_SUITE("script") {
             check("export default defineSystem({ id: \"a.b\", onTick(ctx) { }, onStart(ctx) { }, onStop(ctx) { } })\n")
                 .ok());
         CHECK(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onUpdate(ctx) { } })\n").ok());
+        // client 수명주기 (v0.10 RT-06-7 — 예약이 풀렸다)
+        CHECK(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onStart(ctx) { }, onStop(ctx) { "
+                    "}, onLateUpdate(ctx) { } })\n")
+                  .ok());
     }
 
     TEST_CASE(
@@ -84,10 +84,12 @@ TEST_SUITE("script") {
                 active.insert({c.name, c.client});
             }
         }
-        const std::set<std::pair<std::string_view, bool>> want{{"onTick", false},    {"onStart", false},
-                                                               {"onStop", false},    {"onEvent", false},
-                                                               {"onMigrate", false}, {"onUpdate", true}};
-        CHECK(active == want); // 검사기 (Checker::declareSystem) 가 콜백으로 받는 여섯 (onMigrate — v0.6 NG-04)
+        const std::set<std::pair<std::string_view, bool>> want{
+            {"onTick", false},  {"onStart", false}, {"onStop", false},      {"onEvent", false}, {"onMigrate", false},
+            {"onUpdate", true}, {"onStart", true},  {"onLateUpdate", true}, {"onStop", true}};
+        // 검사기 (Checker::declareSystem) 가 콜백으로 받는 아홉 (onMigrate — v0.6 NG-04, client 수명주기 — v0.10
+        // RT-06-7)
+        CHECK(active == want);
         CHECK(api::findCallback("onRender", true)->status == api::CallbackStatus::Planned);
         CHECK(api::findCallback("onRender", false) == nullptr);
         CHECK(api::isCallbackName("onPrePhysics"));

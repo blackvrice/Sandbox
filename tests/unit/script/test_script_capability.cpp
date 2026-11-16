@@ -53,13 +53,15 @@ bc::Module compile() {
 } // namespace
 
 TEST_SUITE("script") {
-    TEST_CASE(
-        "capability (v0.10 RT-06-1): 지금의 콜백은 그 도메인의 모든 Host 함수를 허락한다 (기존 게임이 막히지 않는다)") {
+    TEST_CASE("capability (v0.10 RT-06-1): v0.10 전부터 있던 콜백은 그 도메인의 모든 Host 함수를 허락한다 (기존 게임이 "
+              "막히지 "
+              "않는다)") {
         usize checked = 0;
         for (const api::HostFunction& fn : api::kHostFunctions) {
             const bool client = fn.domain == api::HostDomain::Client;
             for (const api::CallbackInfo& cb : api::kCallbacks) {
-                if (cb.status != api::CallbackStatus::Active || cb.client != client) {
+                // v0.10 RT-06-7 의 client onStart · onStop · onLateUpdate 는 처음부터 좁다 (ADR-0140 — 아래)
+                if (cb.status != api::CallbackStatus::Active || cb.client != client || cb.since == "v0.10") {
                     continue;
                 }
                 CAPTURE(fn.id);
@@ -80,6 +82,14 @@ TEST_SUITE("script") {
         CHECK((pre & api::capBit(api::HostCapability::Log)) != 0);
         const u32 render = api::callbackCapabilities("onRender", true);
         CHECK((render & api::capBit(api::HostCapability::Ui)) == 0);
+        // client 수명주기 (v0.10 RT-06-7): 읽기 · 시간 · 표시 · UI 만 — 입력 · 신호 · 소리는 onUpdate (· onAction)
+        for (const std::string_view name : {"onStart", "onStop", "onLateUpdate"}) {
+            CAPTURE(name);
+            const u32 caps = api::callbackCapabilities(name, true);
+            CHECK(caps == (api::capBit(api::HostCapability::EcsRead) | api::capBit(api::HostCapability::Time) |
+                           api::capBit(api::HostCapability::Display) | api::capBit(api::HostCapability::Ui)));
+            CHECK(api::findCallback(name, true)->status == api::CallbackStatus::Active);
+        }
     }
 
     TEST_CASE("capability (v0.10 RT-06-1): 호출 토큰의 콜백 밖 Host 함수는 HostError — 바이트코드로 불러도") {

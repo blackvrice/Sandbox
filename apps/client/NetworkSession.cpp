@@ -99,6 +99,7 @@ NetworkSession::NetworkSession(const NetworkSessionDesc& desc, render::MaterialL
     : m_desc(desc), m_extraction(materials) {}
 
 NetworkSession::~NetworkSession() {
+    stopClientScripts(m_session ? m_session->world() : nullptr); // 스크립트 세션 끝 (RT-06-7)
     if (m_session) {
         m_session->disconnect();
     }
@@ -154,6 +155,7 @@ Expected<void> NetworkSession::connect() {
     }
     m_session = std::make_unique<net::ClientSession>(*transport, sessionDesc(*content));
     m_seenWorld = nullptr;
+    m_seenWorldSerial = 0;
     m_seenSnapshots = 0;
     if (auto r = m_session->connect(m_target, m_now); !r) {
         return r;
@@ -304,6 +306,7 @@ void NetworkSession::update(f64 dtSeconds) {
         }
         m_failure =
             std::format("서버와 연결이 끊겼습니다 ({}): {}", m_target.describe(), net::disconnectReasonName(reason));
+        stopClientScripts(m_session->world()); // 접속 끝 = 스크립트 세션 끝 (RT-06-7)
         return;
     }
     case net::ClientState::Connected:
@@ -329,8 +332,10 @@ void NetworkSession::update(f64 dtSeconds) {
         m_failure = "복제 월드를 만들지 못했습니다 (로그 참고)";
         return;
     }
-    if (world != m_seenWorld) {
+    if (world != m_seenWorld || world->serial() != m_seenWorldSerial) {
+        stopClientScripts(nullptr); // 옛 복제 월드는 이미 없다 — 그 세션의 onStop 은 월드 없이 (RT-06-7, ADR-0140)
         m_seenWorld = world;
+        m_seenWorldSerial = world->serial();
         m_extraction.reset();
         m_clock.reset();
         m_seenSnapshots = 0;
@@ -646,20 +651,62 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
     const content::ContentDatabase* db = content();
     const std::shared_ptr<const content::ScriptPrograms> programs = db != nullptr ? db->scriptPrograms() : nullptr;
     if (!programs || programs->systemCount(script::api::HostDomain::Client) == 0) {
+        stopClientScripts(&world);
         m_clientScripts.reset();
         m_clientProfile.clear();
         return;
     }
     if (!m_clientScripts || m_clientScripts->programs() != programs) {
-        // 오버레이가 스크립트를 바꿨다 — 새로 (꺼짐 · 통계는 이 접속의 메모리에만 — ADR-0067)
+        // 오버레이가 스크립트를 바꿨다 — 옛 것의 세션을 끝내고 새로 (꺼짐 · 통계는 이 접속의 메모리에만 — ADR-0067)
+        stopClientScripts(&world);
         m_clientScripts = std::make_unique<script::ClientScriptSystems>(programs);
         m_clientScripts->setClock(&diagnosticNanos);
         m_clientProfileBase.assign(m_clientScripts->systemCount(), {});
         m_clientProfile.clear();
         m_clientProfileStart = m_now;
     }
+    if (world.stats().snapshotsApplied == 0) {
+        return; // 세션은 첫 스냅숏이 적용된 프레임에 연다 — onStart 가 빈 월드를 보지 않게 (RT-06-7)
+    }
     m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput,
                           m_uiStrings, &m_uiData});
+    drainClientScriptOutputs();
+
+    // 프로파일 창 (실제 1 초) — 누적의 차이
+    const f64 span = m_now - m_clientProfileStart;
+    if (span < kClientProfileWindow) {
+        return;
+    }
+    const script::ClientScriptSystems& cs = *m_clientScripts;
+    m_clientProfile.clear();
+    for (usize i = 0; i < cs.systemCount(); ++i) {
+        const script::ScriptSystemCounters& c = cs.counters(i);
+        ClientProfileBase& base = m_clientProfileBase[i];
+        m_clientProfile.push_back(scriptProfileRow(std::string(cs.systemId(i)), c.calls - base.calls,
+                                                   c.fuel - base.fuel, c.nanos - base.nanos, span, c.maxNanos,
+                                                   c.maxFuel, c.traps, c.budget, c.cut, cs.disabled(i)));
+        base = {c.calls, c.fuel, c.nanos};
+    }
+    m_clientProfileStart = m_now;
+}
+
+void NetworkSession::stopClientScripts(const net::ClientWorld* world) {
+    if (!m_clientScripts || !m_clientScripts->started()) {
+        return;
+    }
+    script::ClientScriptFrame f;
+    if (world != nullptr && world == m_seenWorld && world->serial() == m_seenWorldSerial) {
+        f.registry = &world->registry();
+        f.catalog = &world->catalog();
+        f.tick = world->serverTick();
+    }
+    f.strings = m_uiStrings;
+    f.uiData = &m_uiData;
+    m_clientScripts->stop(f);
+    drainClientScriptOutputs();
+}
+
+void NetworkSession::drainClientScriptOutputs() {
     // 내보낸 것 (v0.5 M2-T6): 신호 = PlayerSignal 명령 (서버가 선언 · 범위 · perTick · 역할로 판정), 소리 = 앱이 가져갈
     // 이벤트
     for (const script::ClientScriptSend& s : m_clientScripts->host().sends()) {
@@ -682,23 +729,6 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
             m_scriptSounds.push_back(s.id);
         }
     }
-
-    // 프로파일 창 (실제 1 초) — 누적의 차이
-    const f64 span = m_now - m_clientProfileStart;
-    if (span < kClientProfileWindow) {
-        return;
-    }
-    const script::ClientScriptSystems& cs = *m_clientScripts;
-    m_clientProfile.clear();
-    for (usize i = 0; i < cs.systemCount(); ++i) {
-        const script::ScriptSystemCounters& c = cs.counters(i);
-        ClientProfileBase& base = m_clientProfileBase[i];
-        m_clientProfile.push_back(scriptProfileRow(std::string(cs.systemId(i)), c.calls - base.calls,
-                                                   c.fuel - base.fuel, c.nanos - base.nanos, span, c.maxNanos,
-                                                   c.maxFuel, c.traps, c.budget, c.cut, cs.disabled(i)));
-        base = {c.calls, c.fuel, c.nanos};
-    }
-    m_clientProfileStart = m_now;
 }
 
 std::optional<ScriptProfileInfo> NetworkSession::scriptProfile() const {

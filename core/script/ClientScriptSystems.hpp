@@ -2,11 +2,15 @@
 // 클라이언트 스크립트 시스템 (v0.3 M5-T3, ADR-0067). docs/19-SANDBOXSCRIPT.md 21장.
 //
 // 콘텐츠의 팩 바이트코드 (content::ScriptPrograms) 에서 client 시스템 (domain: "client") 만 — 팩마다 인터프리터 하나,
-// Host (ClientScriptHost) 는 하나. run 이 프레임마다 (팩 순서, 시스템 id) 차례로 onUpdate(ctx) 를 부른다.
-// 예산: 호출마다 연료 min(kCallFuel, 프레임에 남은 연료), 프레임 연료 kFrameFuel — 다 쓰면 그 프레임의 남은 호출은
-// 건너뛴다 ("예산" — 트랩 정책에 넣지 않는다). 트랩 정책: 한 시스템의 호출이 트랩으로 kDisableAfterTraps 번 이어지면
-// 그 시스템을 끈다 (이 접속 동안 — 상태는 메모리에만, 콘텐츠가 바뀌면 다시 만든다). 서버의 ScriptSystemAdapter 와 달리
-// 시뮬레이션 상태가 아니다: 세이브 · 해시 · 서버와 무관하다.
+// Host (ClientScriptHost) 는 하나. run 이 프레임마다 (팩 순서, 시스템 id) 차례로 부른다 (v0.10 RT-06-7, ADR-0140):
+//   세션의 첫 run   모든 시스템의 onStart → (그 프레임의) onUpdate → onLateUpdate
+//   그 뒤 run      모든 시스템의 onUpdate → 모든 시스템의 onLateUpdate
+//   stop          모든 시스템의 onStop (시작한 세션만 — 한 번). 다음 run 이 새 세션을 연다 (onStart 다시)
+// 세션 = 복제 월드 하나 (앱이 정한다 — NetworkSession: 월드가 바뀜 · 콘텐츠가 바뀜 · 접속 끝에 stop). 꺼진 시스템은
+// 어느 콜백도 부르지 않는다. 예산: 호출마다 연료 min(kCallFuel, 프레임에 남은 연료), 프레임 연료 kFrameFuel — 다 쓰면
+// 그 프레임의 남은 호출은 건너뛴다 ("예산" — 트랩 정책에 넣지 않는다). 트랩 정책: 한 시스템의 호출이 트랩으로
+// kDisableAfterTraps 번 이어지면 그 시스템을 끈다 (이 접속 동안 — 상태는 메모리에만, 콘텐츠가 바뀌면 다시 만든다).
+// 서버의 ScriptSystemAdapter 와 달리 시뮬레이션 상태가 아니다: 세이브 · 해시 · 서버와 무관하다.
 
 #include <memory>
 #include <string>
@@ -41,6 +45,11 @@ public:
 
     // 프레임 하나 — frame.frame 은 여기서 센다 (넘긴 값은 쓰지 않는다). 표시는 host().labels() · lines()
     void run(ClientScriptFrame frame);
+    // 세션 끝 — 시작한 세션이면 onStop 을 부른다 (아니면 아무것도 하지 않는다). frame.registry 는 null 이어도 된다
+    // (월드가 이미 없다 — 질의는 빈 목록). frame.frame 은 마지막 프레임 번호, 연료는 프레임 하나 몫
+    void stop(ClientScriptFrame frame);
+    [[nodiscard]] bool started() const noexcept { return m_started; }
+    [[nodiscard]] u32 sessions() const noexcept { return m_sessions; } // 연 세션 수 (onStart 를 부른 run)
 
     [[nodiscard]] const ClientScriptStats& lastStats() const noexcept { return m_last; }
     [[nodiscard]] u32 frames() const noexcept { return m_frames; }
@@ -48,7 +57,7 @@ public:
     [[nodiscard]] std::string_view systemId(usize i) const noexcept { return m_systems[i].desc->id; }
     [[nodiscard]] bool disabled(usize i) const noexcept { return m_systems[i].disabled; }
     [[nodiscard]] const ScriptSystemCounters& counters(usize i) const noexcept { return m_systems[i].counters; }
-    // 지난 run 에서 그 시스템이 쓴 연료 · 시간 (부르지 않았으면 0)
+    // 지난 run (· stop) 에서 그 시스템이 쓴 연료 · 시간 — 콜백들의 합 (부르지 않았으면 0)
     [[nodiscard]] u64 lastFuel(usize i) const noexcept { return m_systems[i].lastFuel; }
     [[nodiscard]] u64 lastNanos(usize i) const noexcept { return m_systems[i].lastNanos; }
     // 함수별 프로파일 (v0.9 M6-T4 — 만든 뒤 누적)
@@ -72,7 +81,8 @@ private:
         u64 lastFuel = 0;
         u64 lastNanos = 0;
     };
-    void invoke(Entry& s);
+    enum class Callback : u8 { Start, Update, LateUpdate, Stop };
+    void invoke(Entry& s, Callback which);
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;
@@ -81,6 +91,8 @@ private:
     std::vector<Entry> m_systems;                            // 실행 순서 (팩 순서, id)
     u64 m_frameFuelLeft = kFrameFuel;
     u32 m_frames = 0;
+    u32 m_sessions = 0;
+    bool m_started = false;
     bool m_budgetLogged = false;
     ClientScriptStats m_last;
 };

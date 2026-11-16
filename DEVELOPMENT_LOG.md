@@ -7,6 +7,61 @@
 
 ---
 
+## 2026-11-16 — v0.10 RT-06-7 조각 1: client 수명주기 — onStart · onLateUpdate · onStop, 세션 = 복제 월드 하나 (ADR-0140)
+
+**무엇을**
+
+- 콜백 표: client onStart · onStop · onLateUpdate 를 Active (v0.10) 로 — 허락 Capability 는 EcsRead · Time · Display · Ui (입력 · 신호 ·
+  소리는 onUpdate). client onEvent 는 아직 예약 (조각 2).
+- 검사기: client 시스템은 onUpdate · onLateUpdate · onStart · onStop 중 하나 이상 (onUpdate 가 없어도 된다), server 의 onLateUpdate ·
+  client 의 onMigrate 는 S426. 콜백 메서드의 몸에서 ctx 로 바로 부른 Host 함수의 Capability 가 그 콜백의 허락 밖이면 S404
+  (FunctionInfo::callbackCaps — 22 3.2 의 검사기 겹. 도우미 함수 안은 실행 검사만).
+- .sbc 형식 12 → 13: 시스템 표에 onLateUpdate. 검증기 · 역어셈블 (있을 때만 " · onLateUpdate fn n · onStart · onStop") · 코드 생성.
+- ClientScriptSystems: run = (세션의 첫 프레임이면 모든 onStart) → 모든 onUpdate → 모든 onLateUpdate, stop = 모든 onStop (시작한 세션만 ·
+  한 번), sessions · started. 같은 프레임 연료 · 트랩 정책 · 통계는 콜백 합. ClientScriptHost: 월드가 없으면 질의는 빈 목록 (전에는 HostError).
+- NetworkSession: 첫 스냅숏이 적용된 뒤에만 run (onStart 가 빈 월드를 보지 않게), 복제 월드가 바뀌면 · 콘텐츠가 바뀌면 · 접속이 끝나면
+  (끊김 · 소멸자) stopClientScripts. 출력 적용 (신호 · UI · 소리) 을 drainClientScriptOutputs 로 나눴다.
+- ClientWorld::serial (프로세스 안의 만든 차례) — NetworkSession 이 주소와 같이 본다 (아래 "찾은 것").
+- sandbox.d.ts 4 곳 다시 생성 (ServerSystemDefinition · ClientSystemDefinition · defineSystem 오버로드 둘). Host 지문 그대로
+  (0x6d51897bbd2ba715 — 콜백 표는 지문 밖). 프로젝트 요약 줄에 " · client onLateUpdate".
+- 문서: ADR-0140, 19 21 · 21.2 · 26장 · 17장 d.ts, 22 3.1 · 3.2, 24 C2, 13, 형식 번호 (versioning · VERSION-MIGRATION-MATRIX · 21 · MODULES),
+  FEATURE_MATRIX F-209, CURRENT_STATUS, v0.10 세부 체크리스트 (onEvent 칸을 나눴다), 등록부 RT-06-7 (Planned — 조각 1 메모, gen_roadmap).
+
+**왜**
+
+- HUD 처음 값 · 월드가 바뀔 때 정리 · 카메라 (모든 onUpdate 뒤) 의 자리가 없었다. 세션을 "복제 월드 하나" 로 둔 것은 불러오기 · 재시작
+  뒤 옛 월드의 HUD 값이 남지 않게, onStop 을 월드 없이 부르는 것은 끝을 알아챈 때 옛 복제 월드가 이미 없어서 (ClientSession 안에 "없애기
+  전" 콜백을 두지 않는다) — ADR-0140.
+
+**찾은 것**
+
+- 복제 월드를 다시 만들면 (WorldChanged · 다시 접속) 옛 월드와 같은 주소에 놓일 수 있어 NetworkSession 의 `world != m_seenWorld` 가
+  바뀜을 놓쳤다 — 두 번째 불러오기에서 시험이 잡았다. 같은 비교에 기대는 선택 비우기 · 추출 초기화 · 기다리던 에디터 명령 정리도 그때
+  건너뛰었을 것이다. serial 을 같이 보아 고쳤다.
+- Script 오버레이가 있는 월드는 저장 → 불러오기 · 테스트 플레이가 "다른 콘텐츠로 만든 세이브" 로 거절된다: 세이브는 오버레이를 얹은
+  DB 의 contentHash 를, openSave 는 기본 콘텐츠의 것을 쓰고, Script 오버레이는 소스 파일 목록에 끼어 해시에 든다 (Rule 등 다른 오버레이는
+  해시 밖). 이번 일과 무관해 고치지 않았다 — 시험은 팩에 client 시스템을 둔 콘텐츠 복사본으로 피했다.
+
+**검증** (Windows MSVC, 2026-11-16)
+
+- 단위 시험 964 개 통과 (Debug — 앞 958 + 6). 새 test_client_lifecycle 5 개 (검사기 S404 · S426, 형식 13 왕복 · 12 거절, 차례 · stop ·
+  새 세션, 도우미 함수의 실행 검사 트랩, 꺼진 시스템의 onStop 없음), test_client_script_session "lifecycle" 1 개 (로컬 서버 — 첫 스냅숏 뒤
+  onStart · 불러오기 두 번 · 오버레이로 콘텐츠 바뀜). 기대를 바꾼 시험: test_client_scripts (월드 없음 = 빈 질의 · 검증기 문장),
+  test_runtime_contract (Active 아홉 · 예약 해제), test_script_capability (v0.10 콜백은 좁다), test_script_callbacks · test_script_systems
+  (문장), test_script_debugger (형식 ≥ 12), 커밋된 sandbox.d.ts.
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED (clang-format 전 빌드 — 그 뒤 다시 빌드해 단위 시험 964 개 통과).
+  build\ci-werror (/WX) 빌드 경고 0, check_docs 문제 0 · check_includes 위반 0 · gen_roadmap --check 낡은 것 0.
+- 시뮬레이션 밖이라 골든 · kSimVersion 무관 (det_* 그대로 통과).
+- 벤치는 돌리지 않았다: 바뀐 것은 클라이언트 프레임의 시스템 목록 두 바퀴 (콜백 없는 칸은 비교 한 번) — sbx_bench 에 client 스크립트
+  시나리오가 없다. 서버 틱 경로는 바뀌지 않았다.
+- 창 · Linux · macOS 는 CI 로 (GUI 창은 띄우지 않았다).
+
+**남은 일**
+
+- RT-06-7 조각 2: client onEvent — 복제된 서버 이벤트 (프로토콜 · 프레임마다 큐 상한 24 Q1) · Host 지문.
+- Script 오버레이 세이브의 contentHash 불일치 (위 "찾은 것").
+- Studio 스니펫 · 템플릿에 client 수명주기 예 (M6-T2), 콘텐츠 패널의 시스템 줄에 client 콜백.
+
 ## 2026-11-16 — v0.10 RT-06-10 조각 2: 월드 상태 — defineState · ctx.state · ctx.setState · script.state (ADR-0139) — RT-06-10 끝
 
 **무엇을**

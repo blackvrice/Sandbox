@@ -83,10 +83,10 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | server | onStop | 17d — 시스템이 꺼질 때 | ServerContext | 현행 |
 | server | onMigrate | 단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (v0.6 NG-04) | ServerContext | 현행 (.sbc 10) |
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
-| client | onStart · onStop | 세션 시작 · 끝 (프레임) | ClientContext | [계획 v0.6] |
+| client | onStart · onStop | 세션 (복제 월드 하나) 의 첫 프레임 — 모든 onUpdate 앞 · 끝 (월드 · 콘텐츠 · 접속이 바뀜 — 월드 없이) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140) |
 | client | onAction | 프레임 — 입력 처리 뒤 (UI 가 먹지 않은 행동만) | ClientActionContext | [계획 v0.10 RT-06-8] (v0.5 M2-T6 ✅ 은 onUpdate 안의 ctx.keyDown · keyPressed · keyReleased 읽기) |
-| client | onEvent | 프레임 — 복제된 서버 이벤트 (소리 · 효과 · 신호 결과) | ClientContext + GameEvent | [계획 v0.6] |
-| client | onLateUpdate | 프레임 — 모든 onUpdate 뒤 · UI 바인딩 앞 (카메라 · 따라가기) | ClientContext | [계획 v0.6] |
+| client | onEvent | 프레임 — 복제된 서버 이벤트 (소리 · 효과 · 신호 결과) | ClientContext + GameEvent | [계획 v0.10 RT-06-7 조각 2] |
+| client | onLateUpdate | 프레임 — 모든 시스템의 onUpdate 뒤 · UI 바인딩 앞 (카메라 · 따라가기) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140, .sbc 13) |
 | client | onRender | 프레임 — 추출 뒤 · 제출 앞 | ClientRenderContext (Draw 명령만) | [계획 v0.6] |
 | client | onTick | Client 고정 Tick (예측 모델에서만) | ClientTickContext | [계획 v0.7] — 게임이 `network.model = "predicted"` 일 때만 (4장) |
 | client | onPrePhysics · onPostPhysics | Client 고정 Tick 안 (예측 물리) | ClientTickContext | [계획 v0.7] (예측 모델 · 로컬 물리일 때만) |
@@ -110,7 +110,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 | Random · Time · Log | 결정적 난수 · 틱 시간 · 로그 | random · time · log | server 전부 |
 | InputRead | 행동 상태 · 축 | ✅ v0.5 M2-T6 keyDown · keyPressed · keyReleased · pointerX · pointerY | client onUpdate · onAction · onTick |
 | ClientSend | 서버로 신호 명령 | ✅ v0.5 M2-T6 send | client onUpdate · onAction · onTick (예산 — 틱마다) |
-| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat, NG-06 (2) uiVar · uiVarText | client onUpdate · onLateUpdate · onAction |
+| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat, NG-06 (2) uiVar · uiVarText | client onUpdate · onLateUpdate · onStart · onStop (v0.10 RT-06-7) · onAction |
 | Draw | 선 · 원 · 글자 (월드 · 화면) | [계획 v0.6] draw | client onRender 만 |
 | Sound | 소리 이벤트 | ✅ v0.5 M2-T6 playSound | client onUpdate · onEvent · onAction |
 | NetworkIo | 외부 요청 (허락된 대상만) | [계획 v0.8] fetch · socket | server onTick · onEvent (게임 매니페스트 허락 + 운영 할당) |
@@ -119,6 +119,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 ```text
 검사 (세 겹 — 19 24장의 방식 그대로)
   검사기  콜백 이름 → 허락 Capability 집합. Host 함수의 Capability 가 그 집합 밖이면 S404 (TS 타입도 d.ts 에서 같은 집합 — 4.3)
+          ✅ v0.10 RT-06-7 (ADR-0140): 콜백 메서드의 몸에서 ctx 로 바로 부른 함수만 — 도우미 함수 안은 어느 콜백인지 모른다 (실행 검사)
   Host 표 HostFunction 에 capability 열 (지금의 effect 를 대신하는 것이 아니라 더함 — 지문이 바뀌고 kHostApiVersion 은 그대로, 더하기만)
   실행    ScriptHost::call 이 호출 토큰의 단계로 Capability 를 다시 본다 (위조 · 손으로 고친 .sbc 대비 — HostError)
           ✅ v0.10 RT-06-1 (ADR-0137): beginCall(…, 콜백 이름) — 표 (Callbacks) 의 허락 집합, 모르는 이름은 0, client 도 같다

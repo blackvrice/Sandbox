@@ -41,39 +41,80 @@ void ClientScriptSystems::run(ClientScriptFrame frame) {
     for (Entry& s : m_systems) {
         s.lastFuel = 0;
         s.lastNanos = 0;
-        invoke(s);
+    }
+    // 차례 (ADR-0140): 세션의 첫 프레임이면 모든 onStart 먼저, 그다음 모든 onUpdate, 그다음 모든 onLateUpdate — 시스템
+    // 하나의 콜백을 묶지 않는다 (onLateUpdate 는 다른 시스템의 onUpdate 결과까지 본 뒤 — 카메라 · 따라가기)
+    if (!m_started) {
+        m_started = true;
+        ++m_sessions;
+        for (Entry& s : m_systems) {
+            invoke(s, Callback::Start);
+        }
+    }
+    for (Entry& s : m_systems) {
+        invoke(s, Callback::Update);
+    }
+    for (Entry& s : m_systems) {
+        invoke(s, Callback::LateUpdate);
     }
 }
 
-void ClientScriptSystems::invoke(Entry& s) {
+void ClientScriptSystems::stop(ClientScriptFrame frame) {
+    if (!m_started) {
+        return;
+    }
+    m_started = false;
+    m_last = {};
+    m_frameFuelLeft = kFrameFuel;
+    frame.frame = m_frames;
+    m_host.beginFrame(frame);
+    for (Entry& s : m_systems) {
+        s.lastFuel = 0;
+        s.lastNanos = 0;
+        invoke(s, Callback::Stop);
+    }
+}
+
+void ClientScriptSystems::invoke(Entry& s, Callback which) {
     if (s.disabled) {
         return;
     }
+    const u32 fn = which == Callback::Start        ? s.desc->onStart
+                   : which == Callback::Update     ? s.desc->onUpdate
+                   : which == Callback::LateUpdate ? s.desc->onLateUpdate
+                                                   : s.desc->onStop;
+    if (fn == api::kNoCallback) {
+        return;
+    }
+    const std::string_view callback = which == Callback::Start        ? "onStart"
+                                      : which == Callback::Update     ? "onUpdate"
+                                      : which == Callback::LateUpdate ? "onLateUpdate"
+                                                                      : "onStop";
     if (m_frameFuelLeft == 0) {
         ++s.counters.cut;
         ++m_last.cut;
         return;
     }
     const content::ScriptPackProgram& pack = m_programs->packs[s.pack];
-    const bc::Function& f = pack.module.functions[s.desc->onUpdate];
+    const bc::Function& f = pack.module.functions[fn];
     vm::IScriptExecutor& vmi = *m_vms[s.pack];
     const u64 limit = std::min(kCallFuel, m_frameFuelLeft);
     vm::Limits lim = vmi.limits();
     lim.fuel = limit;
     vmi.setLimits(lim);
     const u64 t0 = m_clock != nullptr ? m_clock() : 0;
-    const vm::Value ctx = m_host.beginCall(s.desc->id, "onUpdate"); // 호출 토큰 (RT-06-1)
+    const vm::Value ctx = m_host.beginCall(s.desc->id, callback); // 호출 토큰 (RT-06-1) — 콜백의 허락 Capability
     // (ctx) 나 () — 검증기가 서명을 보았다
-    const vm::CallResult r = vmi.call(s.desc->onUpdate, std::span(&ctx, f.params.size()));
+    const vm::CallResult r = vmi.call(fn, std::span(&ctx, f.params.size()));
     m_host.endCall(r.ok());
     if (m_clock != nullptr) {
         const u64 ns = m_clock() - t0;
         m_last.nanos += ns;
-        s.lastNanos = ns;
+        s.lastNanos += ns;
         s.counters.nanos += ns;
         s.counters.maxNanos = std::max(s.counters.maxNanos, ns);
     }
-    s.lastFuel = r.fuelUsed;
+    s.lastFuel += r.fuelUsed;
     m_frameFuelLeft -= std::min(r.fuelUsed, m_frameFuelLeft);
     ++m_last.calls;
     m_last.fuel += r.fuelUsed;
@@ -90,11 +131,10 @@ void ClientScriptSystems::invoke(Entry& s) {
         ++m_last.budget;
         if (!m_budgetLogged) {
             m_budgetLogged = true;
-            log::warn(
-                "script",
-                "{} 프레임 {}: 프레임 연료 {} 를 다 써 onUpdate 를 멈췄다 — 그 프레임의 남은 클라이언트 스크립트는 "
-                "건너뛴다 (다음부터는 세기만 한다)",
-                s.desc->id, m_frames, kFrameFuel);
+            log::warn("script",
+                      "{} 프레임 {}: 프레임 연료 {} 를 다 써 {} 를 멈췄다 — 그 프레임의 남은 클라이언트 스크립트는 "
+                      "건너뛴다 (다음부터는 세기만 한다)",
+                      s.desc->id, m_frames, kFrameFuel, callback);
         }
         return;
     }
@@ -102,7 +142,7 @@ void ClientScriptSystems::invoke(Entry& s) {
     ++s.counters.traps;
     ++s.consecutive;
     const std::string where = describeTrapSite(pack.module, r); // 줄 표 · 호출 경로 (v0.9 M6-T4)
-    s.counters.lastTrap = std::format("프레임 {} onUpdate 트랩 {} — {} ({}/{})", m_frames, vm::trapName(r.trap),
+    s.counters.lastTrap = std::format("프레임 {} {} 트랩 {} — {} ({}/{})", m_frames, callback, vm::trapName(r.trap),
                                       r.message, pack.folder, where);
     if (s.counters.traps == 1) {
         log::warn("script", "{} {} — 이 호출의 표시를 버렸다 (이 시스템의 다음 트랩은 세기만 한다)", s.desc->id,

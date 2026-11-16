@@ -307,6 +307,9 @@ vm::HostResult ClientScriptHost::has(std::span<const vm::HostArg> args) {
 }
 
 vm::HostResult ClientScriptHost::query(std::span<const vm::HostArg> args) {
+    if (m_frame.registry == nullptr) {
+        return {}; // 월드가 없다 (세션이 끝난 onStop — v0.10 RT-06-7) — 빈 목록
+    }
     std::string error;
     const ecs::ComponentInfo* info = componentOf(args[1].value, error);
     if (info == nullptr) {

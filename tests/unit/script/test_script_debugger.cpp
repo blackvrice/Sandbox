@@ -93,7 +93,7 @@ vm::CallResult runOnce(const bc::Module& m, vm::Interpreter& vm) {
 TEST_SUITE("script") {
     TEST_CASE("debugger (v0.9 ST-06-7): 지역 이름 표 — 매개변수 · const · let · for 변수, 형식 12 왕복 · 모양 검사") {
         const bc::Module m = compile();
-        CHECK(m.format == 12);
+        CHECK(m.format >= 12); // 12 = 지역 이름 표 (13 = client onLateUpdate — v0.10 RT-06-7)
         const bc::Function& heal = m.functions[functionNamed(m, "heal")];
         const bc::Function& run = m.functions[functionNamed(m, "run")];
         CHECK(localNames(heal) == std::vector<std::string>{"u", "amount", "before"});

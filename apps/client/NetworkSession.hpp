@@ -22,6 +22,8 @@
 // (ADR-0031).
 // v0.3 M5-T3: 콘텐츠 (오버레이 포함) 에 client 시스템이 있으면 ClientScriptSystems 를 두고, update 마다 스냅숏을 적용한
 // 뒤 복제 월드로 onUpdate 를 돌린다 — 표시는 scriptOverlay() (ADR-0067). 콘텐츠의 바이트코드가 바뀌면 다시 만든다.
+// v0.10 RT-06-7 (ADR-0140): 스크립트 세션 = 복제 월드 하나 — 첫 스냅숏이 적용된 프레임에 onStart, 복제 월드가 바뀌면
+// (다시 접속 · 서버 월드 바뀜) · 콘텐츠가 바뀌면 · 접속이 끝나면 (끊김 · 세션을 없앰) onStop.
 // v0.3 M5-T4: scriptProfile() = 서버가 보낸 스크립트 시스템 표 (ServerStats — 프로토콜 14) + client 시스템의 최근 1 초
 // (진단 시계로 잰 시간 — ADR-0068).
 //
@@ -194,6 +196,9 @@ private:
     void refreshOverlay(const net::ClientWorld& world); // 서버 오버레이가 바뀌었으면 콘텐츠를 다시 만든다 (12C)
     void updateWorldOps();                              // 12D: 목록 요청 · 결과
     void updateClientScripts(const net::ClientWorld& world, f64 dtSeconds); // v0.3 M5-T3
+    // 스크립트 세션 끝 (v0.10 RT-06-7) — world 가 지금 복제 월드면 그것을, 아니면 월드 없이 onStop. 내보낸 UI 값도 적용
+    void stopClientScripts(const net::ClientWorld* world);
+    void drainClientScriptOutputs();                   // 신호 · UI · 소리 (run · stop 뒤)
     [[nodiscard]] bool controlPaused() const noexcept; // 일시정지 단추가 볼 값 (재생 중이면 재생의 멈춤)
     [[nodiscard]] f32 controlSpeed() const noexcept;
 
@@ -223,6 +228,7 @@ private:
     net::InterpolationClock m_clock;
     WorldSnapshot m_snapshot;
     const net::ClientWorld* m_seenWorld = nullptr;
+    u64 m_seenWorldSerial = 0; // m_seenWorld 의 serial — 같은 주소에 다시 만든 월드도 바뀐 것으로 (ABA)
     u64 m_seenSnapshots = 0;
     f64 m_now = 0;
 

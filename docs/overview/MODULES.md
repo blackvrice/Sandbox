@@ -110,7 +110,7 @@ sequenceDiagram
 graph LR
   TS[scripts/*.ts<br/>TypeScript 부분집합] --> Lex[Lexer · Parser]
   Lex --> Chk[Checker<br/>타입 · 도메인 · Capability]
-  Chk --> Gen[Codegen] --> Sbc[.sbc 바이트코드<br/>형식 12]
+  Chk --> Gen[Codegen] --> Sbc[.sbc 바이트코드<br/>형식 13]
   Sbc --> Ver[Verifier] --> VM[VM 인터프리터<br/>연료 · 메모리 예산 · GC 없음]
   VM -- Host API 표 --> Host[core/script<br/>ScriptHost · 호출 토큰]
   Host --> World[SimulationWorld<br/>단계 16b · 17d]

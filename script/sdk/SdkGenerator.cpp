@@ -329,12 +329,14 @@ std::string generateSandboxDts() {
     out += "    /** 그 틱에 받아들여진 PlayerSignal (팩 signals.json — e.signal · player · value) */\n";
     out += "    signal?: {};\n";
     out += "  }\n";
-    out += "  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
-    out += "  export interface SystemDefinition {\n";
+    // 도메인마다 정의 타입 (v0.10 RT-06-7) — onStart · onStop 의 ctx 가 도메인마다 다르다. defineSystem 은 오버로드 둘:
+    // domain: "client" 면 ClientSystemDefinition, 아니면 서버 것
+    out += "  /** server 시스템의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */\n";
+    out += "  export interface ServerSystemDefinition {\n";
     out += "    /** \"이름공간.이름\" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */\n";
     out += "    id: string;\n";
-    out += "    /** \"server\" (기본 — 서버 시뮬레이션) 또는 \"client\" (클라이언트 화면 — onUpdate 만, ADR-0067) */\n";
-    out += "    domain?: \"server\" | \"client\";\n";
+    out += "    /** \"server\" (기본 — 서버 시뮬레이션). 클라이언트 화면은 domain: \"client\" (ADR-0067) */\n";
+    out += "    domain?: \"server\";\n";
     out += "    /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */\n";
     out += "    intervalTicks?: i32;\n";
     out += "    /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */\n";
@@ -351,11 +353,28 @@ std::string generateSandboxDts() {
     out += "    onMigrate?(ctx: ServerContext): void;\n";
     out += "    /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */\n";
     out += "    onEvent?(ctx: ServerContext, e: GameEvent): void;\n";
-    out += "    /** client 시스템만 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관) */\n";
-    out += "    onUpdate?(ctx: ClientContext): void;\n";
     out += "  }\n";
+    out += "  /** client 시스템의 정의 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관 — "
+           "ADR-0067 · 0140) */\n";
+    out += "  export interface ClientSystemDefinition {\n";
+    out += "    /** \"이름공간.이름\" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */\n";
+    out += "    id: string;\n";
+    out += "    domain: \"client\";\n";
+    out += "    /** 세션 시작 — 복제 월드의 첫 프레임, 모든 시스템의 onUpdate 앞 */\n";
+    out += "    onStart?(ctx: ClientContext): void;\n";
+    out += "    /** 프레임마다 — 스냅숏 적용 · 보간 뒤 */\n";
+    out += "    onUpdate?(ctx: ClientContext): void;\n";
+    out += "    /** 프레임마다 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) */\n";
+    out += "    onLateUpdate?(ctx: ClientContext): void;\n";
+    out +=
+        "    /** 세션 끝 — 서버 월드가 바뀌거나 (불러오기 · 재시작 · 다시 접속) 콘텐츠 · 접속이 끝날 때. 복제 월드는 "
+        "이미 없다 (질의는 빈 목록) */\n";
+    out += "    onStop?(ctx: ClientContext): void;\n";
+    out += "  }\n";
+    out += "  export type SystemDefinition = ServerSystemDefinition | ClientSystemDefinition;\n";
     out += "  /** 스크립트 시스템 (서버 · 클라이언트) */\n";
-    out += "  export function defineSystem(definition: SystemDefinition): SystemDefinition;\n";
+    out += "  export function defineSystem(definition: ClientSystemDefinition): ClientSystemDefinition;\n";
+    out += "  export function defineSystem(definition: ServerSystemDefinition): ServerSystemDefinition;\n";
     for (const api::OpaqueTypeInfo& o : api::kOpaqueTypes) {
         out += "\n";
         out += std::format("  /** {} */\n", o.doc);

@@ -558,6 +558,9 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
             if (s.onUpdate != script::api::kNoCallback) {
                 line += " · client onUpdate"; // 클라이언트 프레임마다 (v0.3 M5-T3)
             }
+            if (s.onLateUpdate != script::api::kNoCallback) {
+                line += " · client onLateUpdate"; // 모든 onUpdate 뒤 (v0.10 RT-06-7)
+            }
             r.scriptSystems.push_back(std::move(line));
         }
     }

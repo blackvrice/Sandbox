@@ -86,6 +86,9 @@ public:
     [[nodiscard]] u32 lastSnapshotId() const noexcept { return m_lastSnapshot; }
     [[nodiscard]] bool lastSnapshotComplete() const noexcept { return m_lastComplete; }
     [[nodiscard]] const ClientWorldStats& stats() const noexcept { return m_stats; }
+    // 이 프로세스에서 만든 차례 (1 부터, 겹치지 않는다) — 다시 만든 월드가 옛 월드의 주소에 놓여도 다른 월드로 안다
+    // (주소 비교는 ABA — v0.10 RT-06-7)
+    [[nodiscard]] u64 serial() const noexcept { return m_serial; }
     // 복제 표 칸 → 컴포넌트 (이 빌드가 모르면 nullptr)
     [[nodiscard]] const ecs::ComponentInfo* replicatedInfo(usize index) const noexcept {
         return index < m_table.size() ? m_table[index] : nullptr;
@@ -122,6 +125,7 @@ private:
     bool m_paused = false;
     f32 m_speed = 1.0f;
     ClientWorldStats m_stats;
+    u64 m_serial = 0;
 };
 
 } // namespace sbx::net

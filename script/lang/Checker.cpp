@@ -1004,13 +1004,14 @@ private:
                     continue;
                 }
             }
-            u32* const callback = key == "onTick"      ? &sd.onTick
-                                  : key == "onStart"   ? &sd.onStart
-                                  : key == "onStop"    ? &sd.onStop
-                                  : key == "onMigrate" ? &sd.onMigrate
-                                  : key == "onEvent"   ? &sd.onEvent
-                                  : key == "onUpdate"  ? &sd.onUpdate
-                                                       : nullptr;
+            u32* const callback = key == "onTick"         ? &sd.onTick
+                                  : key == "onStart"      ? &sd.onStart
+                                  : key == "onStop"       ? &sd.onStop
+                                  : key == "onMigrate"    ? &sd.onMigrate
+                                  : key == "onEvent"      ? &sd.onEvent
+                                  : key == "onUpdate"     ? &sd.onUpdate
+                                  : key == "onLateUpdate" ? &sd.onLateUpdate
+                                                          : nullptr;
             if (callback != nullptr) {
                 if (!method) {
                     err("S426", p,
@@ -1019,13 +1020,17 @@ private:
                     ok = false;
                     continue;
                 }
-                const bool update = key == "onUpdate";
-                if (update != client) {
+                // onStart · onStop 은 두 도메인 (client 는 세션 수명주기 — v0.10 RT-06-7, ADR-0140)
+                const bool clientOnly = key == "onUpdate" || key == "onLateUpdate";
+                const bool serverOnly = key == "onTick" || key == "onEvent" || key == "onMigrate";
+                if ((clientOnly && !client) || (serverOnly && client)) {
                     // 몸은 그래도 검사한다 — 도메인에 맞는 ctx 로 (오류를 겹치지 않게)
                     err("S426", p,
-                        update ? std::string("onUpdate 는 domain: \"client\" 시스템의 콜백이다 — 서버 시스템은 onTick")
-                               : std::format("client 시스템의 콜백은 onUpdate 뿐이다 — {} 는 서버 시스템에 (ADR-0067)",
-                                             key));
+                        clientOnly
+                            ? std::format("{} 는 domain: \"client\" 시스템의 콜백이다 — 서버 시스템은 onTick", key)
+                            : std::format("client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop 이다 — {} "
+                                          "는 서버 시스템에 (ADR-0067)",
+                                          key));
                     ok = false;
                     wrongCallback = true;
                 }
@@ -1035,7 +1040,7 @@ private:
             if (method) {
                 err("S426", p,
                     std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onMigrate · onUpdate "
-                                "뿐이다 ('{}')",
+                                "· onLateUpdate 뿐이다 ('{}')",
                                 key));
                 ok = false;
                 continue;
@@ -1116,7 +1121,7 @@ private:
                 err("S426", p,
                     std::format(
                         "defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · eventsPerTick · events · "
-                        "onTick · onStart · onStop · onEvent · onMigrate · onUpdate",
+                        "onTick · onStart · onStop · onEvent · onMigrate · onUpdate · onLateUpdate",
                         key));
                 expr(value, kNoExpect);
                 ok = false;
@@ -1128,7 +1133,8 @@ private:
         }
         const auto none = [](u32 f) { return f == api::kNoCallback; };
         if (client) {
-            // client 시스템 = 매 프레임 onUpdate 하나 — 틱 주기 · 이벤트는 서버의 것 (ADR-0067)
+            // client 시스템 = 프레임 콜백 (onUpdate · onLateUpdate) + 세션 수명주기 (onStart · onStop) — 틱 주기 ·
+            // 이벤트는 서버의 것 (ADR-0067 · 0140)
             for (const NodeId at : {intervalAt, eventsAt, perTickAt}) {
                 if (at != kNoNode) {
                     err("S426", at,
@@ -1136,12 +1142,13 @@ private:
                     ok = false;
                 }
             }
-            if (none(sd.onUpdate) && !wrongCallback) {
-                err("S426", domainAt != kNoNode ? domainAt : init, "client 시스템에 onUpdate(ctx) { … } 가 없다");
+            if (none(sd.onUpdate) && none(sd.onLateUpdate) && none(sd.onStart) && none(sd.onStop) && !wrongCallback) {
+                err("S426", domainAt != kNoNode ? domainAt : init,
+                    "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop 중 하나 이상");
                 ok = false;
             }
         } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
-                   none(sd.onMigrate)) {
+                   none(sd.onLateUpdate) && none(sd.onMigrate)) {
             err("S426", init,
                 "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent · onMigrate 중 하나 이상");
             ok = false;
@@ -1363,6 +1370,26 @@ private:
     // 시스템 메서드 → 함수 하나. 서명: onTick · onStart · onStop = (ctx?) — 타입을 적지 않으면 ServerContext, onEvent =
     // (ctx?, e?) — e 는 GameEvent, client 시스템의 메서드 = (ctx?) — ClientContext. 반환 void. 서명이 틀리면 ok = false
     // (몸은 그래도 검사한다 — 적은 타입으로)
+    // 콜백 메서드의 몸에서 ctx 로 바로 부른 Host 함수의 Capability (v0.10 RT-06-7 — 22 3.2 의 검사기 겹). 도우미
+    // 함수 · 화살표 함수 안의 호출은 어느 콜백인지 모른다 — 실행 검사 (호출 토큰, ADR-0137) 가 본다
+    void checkCallbackCapability(NodeId at, const api::HostFunction& h) {
+        if (m_ctx.function < 0) {
+            return;
+        }
+        const FunctionInfo& f = P.functions[static_cast<usize>(m_ctx.function)];
+        if (f.callbackCaps == 0 || (f.callbackCaps & api::capBit(h.capability)) != 0) {
+            return;
+        }
+        const usize colon = f.name.rfind(':');
+        const std::string_view callback =
+            colon == std::string::npos ? std::string_view(f.name) : std::string_view(f.name).substr(colon + 1);
+        err("S404", at,
+            std::format(
+                "{} 는 {} 에서 부를 수 없다 — Capability {} 를 그 콜백이 허락하지 않는다 (docs/22-RUNTIME-V2.md "
+                "3.2)",
+                h.id, callback, api::capabilityName(h.capability)));
+    }
+
     u32 declareSystemMethod(NodeId m, bool& ok, bool event, bool client) {
         FunctionInfo f;
         f.name = std::string(ast().str(m));
@@ -1374,6 +1401,7 @@ private:
         const usize paramCount = kids.size() - 2;
         const usize maxParams = event ? 2 : 1;
         const TypeId ctxType = T().opaque(client ? api::AbiType::ClientContext : api::AbiType::ServerContext);
+        f.callbackCaps = api::callbackCapabilities(f.name, client); // 몸의 ctx 호출을 S404 로 (v0.10 RT-06-7)
         if (paramCount > maxParams) {
             err("S426", kids[maxParams],
                 event ? std::string("onEvent 의 매개변수는 (ctx, e) 둘이다")
@@ -4510,6 +4538,9 @@ private:
             }
             if (T().kind(ot) == TypeKind::Opaque) {
                 const api::HostFunction* h = api::findHostMember(T().info(ot).abi, member);
+                if (h != nullptr) {
+                    checkCallbackCapability(callee, *h);
+                }
                 if (h != nullptr && !h->property && api::isComponentGeneric(*h)) {
                     sema(callee).ref = RefKind::HostFunction;
                     sema(callee).refIndex = static_cast<u32>(api::hostFunctionIndex(*h));
@@ -4728,6 +4759,7 @@ private:
         case TypeKind::Opaque: {
             const api::HostFunction* h = api::findHostMember(T().info(ot).abi, name);
             if (h != nullptr && h->property) {
+                checkCallbackCapability(n, *h);
                 sema(n).ref = RefKind::HostFunction;
                 sema(n).refIndex = static_cast<u32>(api::hostFunctionIndex(*h));
                 return set(n, abiType(h->result));

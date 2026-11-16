@@ -322,17 +322,26 @@ private:
                 fail(std::format("시스템 {}: 모듈 경로가 UTF-8 이 아니다", i));
             }
             if (s.domain == api::HostDomain::Client) {
-                // client 시스템 = onUpdate 하나 (ADR-0067) — 틱 · 이벤트 콜백 · 구독이 없다
-                if (s.onUpdate == api::kNoCallback || s.onTick != api::kNoCallback || s.onStart != api::kNoCallback ||
-                    s.onStop != api::kNoCallback || s.onEvent != api::kNoCallback || s.onMigrate != api::kNoCallback ||
+                // client 시스템 = 프레임 콜백 onUpdate · onLateUpdate + 수명주기 onStart · onStop (ADR-0067 · 0140) —
+                // 틱 · 이벤트 콜백 · 구독이 없다
+                if (s.onTick != api::kNoCallback || s.onEvent != api::kNoCallback || s.onMigrate != api::kNoCallback ||
                     s.intervalTicks != 1 || s.eventsPerTick != 0 || !s.events.empty()) {
-                    fail(std::format("시스템 {}: client 시스템은 onUpdate 하나뿐이다", s.id));
+                    fail(std::format("시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop 만 둔다",
+                                     s.id));
+                }
+                if (s.onUpdate == api::kNoCallback && s.onLateUpdate == api::kNoCallback &&
+                    s.onStart == api::kNoCallback && s.onStop == api::kNoCallback) {
+                    fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
                 }
                 callback(s, "onUpdate", s.onUpdate, false, api::AbiType::ClientContext);
+                callback(s, "onLateUpdate", s.onLateUpdate, false, api::AbiType::ClientContext);
+                callback(s, "onStart", s.onStart, false, api::AbiType::ClientContext);
+                callback(s, "onStop", s.onStop, false, api::AbiType::ClientContext);
                 continue;
             }
-            if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback) {
-                fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate 는 client 시스템에만)", s.id));
+            if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
+                s.onLateUpdate != api::kNoCallback) {
+                fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate 는 client 시스템에만)", s.id));
             }
             if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
                 s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {

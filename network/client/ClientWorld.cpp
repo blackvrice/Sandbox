@@ -1,6 +1,7 @@
 #include "network/client/ClientWorld.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <format>
 
@@ -55,7 +56,10 @@ Expected<std::unique_ptr<ClientWorld>> ClientWorld::create(const ecs::ComponentC
 
 ClientWorld::ClientWorld(const ecs::ComponentCatalog& catalog, const content::ContentDatabase& content,
                          world::WorldGrid grid)
-    : m_catalog(catalog), m_content(content), m_grid(std::move(grid)), m_refs(std::make_unique<Refs>(*this)) {}
+    : m_catalog(catalog), m_content(content), m_grid(std::move(grid)), m_refs(std::make_unique<Refs>(*this)) {
+    static std::atomic<u64> next{0};
+    m_serial = next.fetch_add(1, std::memory_order_relaxed) + 1;
+}
 
 ClientWorld::~ClientWorld() = default;
 

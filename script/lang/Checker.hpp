@@ -119,6 +119,9 @@ struct FunctionInfo {
     TypeId result = TypeTable::kError;
     bool resultDeclared = false;
     enum class State : u8 { Pending, Checking, Done } state = State::Pending;
+    // defineSystem 의 콜백 메서드면 그 콜백의 허락 Capability (api::callbackCapabilities — 몸에서 ctx 를 바로 부른 Host
+    // 함수를 S404 로 본다, v0.10 RT-06-7). 0 = 콜백이 아니다 (도우미 함수 — 실행 검사만, ADR-0137)
+    u32 callbackCaps = 0;
 };
 
 // 마디가 가리키는 것
@@ -184,7 +187,8 @@ struct SystemDecl {
     u32 line = 0;
     u32 column = 0;
     api::HostDomain domain = api::HostDomain::Server;
-    u32 onUpdate = api::kNoCallback; // client — (ClientContext?) → void, 매 프레임
+    u32 onUpdate = api::kNoCallback;     // client — (ClientContext?) → void, 매 프레임
+    u32 onLateUpdate = api::kNoCallback; // client — 모든 onUpdate 뒤 (v0.10 RT-06-7)
     u32 intervalTicks = 1;
     u32 onTick = api::kNoCallback;
     u32 onStart = api::kNoCallback;

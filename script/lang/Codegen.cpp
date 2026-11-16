@@ -66,6 +66,7 @@ public:
             d.onStop = s.onStop;
             d.onMigrate = s.onMigrate;
             d.onEvent = s.onEvent;
+            d.onLateUpdate = s.onLateUpdate;
             d.intervalTicks = s.intervalTicks;
             d.eventsPerTick = s.eventsPerTick;
             for (const SystemEventDecl& e : s.events) {

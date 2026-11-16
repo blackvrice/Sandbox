@@ -361,12 +361,12 @@ declare module "sandbox" {
     /** 그 틱에 받아들여진 PlayerSignal (팩 signals.json — e.signal · player · value) */
     signal?: {};
   }
-  /** defineSystem 의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
-  export interface SystemDefinition {
+  /** server 시스템의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
+  export interface ServerSystemDefinition {
     /** "이름공간.이름" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */
     id: string;
-    /** "server" (기본 — 서버 시뮬레이션) 또는 "client" (클라이언트 화면 — onUpdate 만, ADR-0067) */
-    domain?: "server" | "client";
+    /** "server" (기본 — 서버 시뮬레이션). 클라이언트 화면은 domain: "client" (ADR-0067) */
+    domain?: "server";
     /** onTick 의 주기 — 틱 번호 % n == 0 인 틱 (1 ~ 65535, 기본 1) */
     intervalTicks?: i32;
     /** 한 틱에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */
@@ -382,11 +382,25 @@ declare module "sandbox" {
     onMigrate?(ctx: ServerContext): void;
     /** 단계 17d — events 의 구독마다, 그 틱에 일어난 차례로 */
     onEvent?(ctx: ServerContext, e: GameEvent): void;
-    /** client 시스템만 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관) */
-    onUpdate?(ctx: ClientContext): void;
   }
+  /** client 시스템의 정의 — 클라이언트의 프레임마다 (복제 월드를 읽고 화면에 표시, 시뮬레이션과 무관 — ADR-0067 · 0140) */
+  export interface ClientSystemDefinition {
+    /** "이름공간.이름" — 팩들 사이에 하나. 실행 순서 = (팩 순서, id) */
+    id: string;
+    domain: "client";
+    /** 세션 시작 — 복제 월드의 첫 프레임, 모든 시스템의 onUpdate 앞 */
+    onStart?(ctx: ClientContext): void;
+    /** 프레임마다 — 스냅숏 적용 · 보간 뒤 */
+    onUpdate?(ctx: ClientContext): void;
+    /** 프레임마다 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) */
+    onLateUpdate?(ctx: ClientContext): void;
+    /** 세션 끝 — 서버 월드가 바뀌거나 (불러오기 · 재시작 · 다시 접속) 콘텐츠 · 접속이 끝날 때. 복제 월드는 이미 없다 (질의는 빈 목록) */
+    onStop?(ctx: ClientContext): void;
+  }
+  export type SystemDefinition = ServerSystemDefinition | ClientSystemDefinition;
   /** 스크립트 시스템 (서버 · 클라이언트) */
-  export function defineSystem(definition: SystemDefinition): SystemDefinition;
+  export function defineSystem(definition: ClientSystemDefinition): ClientSystemDefinition;
+  export function defineSystem(definition: ServerSystemDefinition): ServerSystemDefinition;
 
   /** 개체 핸들 — 같음 비교만, 틱을 넘겨 두려면 EntityRef 필드에 */
   export interface Entity {

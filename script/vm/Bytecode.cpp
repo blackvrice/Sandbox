@@ -348,6 +348,7 @@ std::vector<u8> serialize(const Module& m) {
         w.u32v(s.onStop);
         w.u32v(s.onEvent);
         w.u32v(s.onMigrate);
+        w.u32v(s.onLateUpdate);
         w.u32v(s.intervalTicks);
         w.u32v(s.eventsPerTick);
         w.u32v(static_cast<u32>(s.events.size()));
@@ -574,7 +575,7 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
         u8 domain = 0;
         if (!r.str(s.id) || !r.str(s.module) || !r.u8v(domain) || !r.u32v(s.onUpdate) || !r.u32v(s.onTick) ||
             !r.u32v(s.onStart) || !r.u32v(s.onStop) || !r.u32v(s.onEvent) || !r.u32v(s.onMigrate) ||
-            !r.u32v(s.intervalTicks) || !r.u32v(s.eventsPerTick) ||
+            !r.u32v(s.onLateUpdate) || !r.u32v(s.intervalTicks) || !r.u32v(s.eventsPerTick) ||
             !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
             return bad("시스템");
         }
@@ -627,7 +628,15 @@ std::string disassemble(const Module& m) {
     const auto fnOf = [](u32 f) { return f == api::kNoCallback ? std::string("-") : std::format("fn {}", f); };
     for (const SystemDesc& s : m.systems) {
         if (s.domain == api::HostDomain::Client) {
-            out += std::format("system {} {} client onUpdate {}\n", s.id, s.module, fnOf(s.onUpdate));
+            out += std::format("system {} {} client onUpdate {}", s.id, s.module, fnOf(s.onUpdate));
+            // 수명주기 (v0.10 RT-06-7) — 있을 때만 (옛 덤프 그대로)
+            for (const auto& [name, fn] : {std::pair{"onLateUpdate", s.onLateUpdate}, std::pair{"onStart", s.onStart},
+                                           std::pair{"onStop", s.onStop}}) {
+                if (fn != api::kNoCallback) {
+                    out += std::format(" · {} {}", name, fnOf(fn));
+                }
+            }
+            out += '\n';
             continue;
         }
         out += std::format("system {} {} onTick {} every {} · onStart {} · onStop {} · onEvent {} ×{}\n", s.id,

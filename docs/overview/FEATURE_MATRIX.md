@@ -85,7 +85,7 @@
 | F-206 | Script Runtime — 컴파일러 · 검증기 · VM (연료 · 메모리 예산) · 표준 라이브러리 | v0.3 · v0.5 | ✅ 사용 가능 | CTest `unit_script` · `sample_stdlib_tour` | [19](../19-SANDBOXSCRIPT.md) |
 | F-207 | 이벤트 · 콜백 — server onStart · onTick · onEvent · onStop · onMigrate, client onUpdate | v0.3 ~ v0.6 | ✅ 사용 가능 | `test_script_callbacks` · `test_client_scripts` | 19 17 ~ 21장 |
 | F-208 | Capability 실행 검사 (호출 토큰) | v0.10 | ✅ 사용 가능 | `test_script_capability` | ADR-0137 · RT-06-1 |
-| F-209 | 타이머 · defineState · client 수명주기 · onAction · 입력 Context | v0.10 | 🚧 일부 — 타이머 (ctx.after · every · cancelTimer) · 월드 상태 (defineState · ctx.state · setState) ✅, client 수명주기 · onAction · 입력 Context 는 설계만 | `test_script_timers` · `test_script_state` — 나머지 없음 (RT-06-7 · RT-06-8) | ADR-0138 · 0139 · 22 3 · 6 · 9장 |
+| F-209 | 타이머 · defineState · client 수명주기 · onAction · 입력 Context | v0.10 | 🚧 일부 — 타이머 (ctx.after · every · cancelTimer) · 월드 상태 (defineState · ctx.state · setState) · client 수명주기 (onStart · onLateUpdate · onStop) ✅, client onEvent · onAction · 입력 Context 는 설계만 | `test_script_timers` · `test_script_state` · `test_client_lifecycle` — 나머지 없음 (RT-06-7 조각 2 · RT-06-8) | ADR-0138 · 0139 · 0140 · 22 3 · 6 · 9장 |
 | F-210 | 렌더링 — 자체 RHI, D3D12 · Vulkan · Metal, 스프라이트 · 지형 · ImGui | v0.1 | ✅ 사용 가능 (자동) · ⚠️ 실기는 Windows 일부만 | CTest `render_tests_warp` · `render_tests_lavapipe` · `render_tests_metal` | [06](../06-RENDERING.md) |
 | F-211 | 외부 Graphics SDK 연동 | — | ❓ 계획 불명확 | 렌더는 자체 RHI 가 세 그래픽 API 를 직접 쓴다. 다른 그래픽 SDK 와 잇는 계획 · 태스크는 문서에서 찾지 못했다 | 06 · ADR-0006 |
 | F-212 | onRender · Draw API (스크립트가 그리기 명령을 낸다) | v0.11 | 📐 설계만 | — (RT-06-9) | 22 |

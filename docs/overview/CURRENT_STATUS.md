@@ -74,7 +74,7 @@
 | 콘텐츠 · 게임 규칙 | ✅ [11](../11-CONTENT-SCHEMA.md) | ✅ `core/content` · `core/trigger` · `core/game` | ✅ `content_eco_validate` · `sample_playthrough` | 해당 없음 | ✅ 완료 | [모듈](MODULES.md#콘텐츠--게임-규칙) |
 | 물리 · 충돌 | 🟡 [03](../03-SIMULATION.md) 2장 · [22](../22-RUNTIME-V2.md) 5장 (다음 단계는 설계만) | 🟡 원 분리 충돌 · 이동 · raycast · overlap 질의만 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — layer · mask · Enter/Exit 이벤트 · PhysicsCommand 는 v0.11 | [v0.11](../roadmap/versions/v0.11.md) |
 | Script 컴파일러 · VM | ✅ [19](../19-SANDBOXSCRIPT.md) | ✅ `script/lang` · `script/vm` · `script/api` | ✅ `unit_script` (퍼즈 · 보호 시험 포함) | 해당 없음 | ✅ 완료 | [모듈](MODULES.md#sandboxscript) |
-| Script Runtime (Host API · 시스템 · 콜백) | ✅ 19 · [22](../22-RUNTIME-V2.md) | 🟡 `core/script` — server onStart · onTick · onEvent · onStop · onMigrate, client onUpdate, 호출 토큰 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — 타이머 · client 수명주기 · onAction (v0.10), onPrePhysics · onRender (v0.11) 남음 | [v0.10](../roadmap/versions/v0.10.md) |
+| Script Runtime (Host API · 시스템 · 콜백) | ✅ 19 · [22](../22-RUNTIME-V2.md) | 🟡 `core/script` — server onStart · onTick · onEvent · onStop · onMigrate, client onStart · onUpdate · onLateUpdate · onStop, 호출 토큰 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — client onEvent · onAction (v0.10), onPrePhysics · onRender (v0.11) 남음 | [v0.10](../roadmap/versions/v0.10.md) |
 | 네트워크 · 복제 | ✅ [08](../08-NETWORK.md) | ✅ `network/` (ENet · 차분 스냅숏 · Interest · 역할) | ✅ `net_convergence` · `unit_network` | ⚠️ LAN 만 | ✅ 완료 (LAN 한정) — 암호화 · 인증 없음, 보안 전송은 v0.16 | [모듈](MODULES.md#네트워크) |
 | 렌더링 | ✅ [06](../06-RENDERING.md) | ✅ `render/` (RHI · D3D12 · Vulkan · Metal) | ✅ `render_tests_warp` · `_lavapipe` · `_metal` | ⚠️ Windows 일부만, Linux · macOS 실기 없음 | ⚠️ 확인 필요 — 자동 시험은 통과, 실기 매트릭스는 RH-23-7 | [모듈](MODULES.md#렌더링) |
 | 플랫폼 (창 · 입력) | ✅ [07](../07-PLATFORM.md) | ✅ `platform/` (Win32 · X11 · Wayland · Cocoa) | ✅ `unit_platform` · `platform_x11` · `platform_wayland` · `platform_cocoa` | ⚠️ macOS · Linux 실기 없음 | ⚠️ 확인 필요 | [모듈](MODULES.md#플랫폼) |
@@ -103,7 +103,7 @@
 
 ### 4.2 다음 할 일 (순서)
 
-1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
+1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 (조각 1 ✅ ADR-0140 — 남은 것 client onEvent · 복제 이벤트 큐) → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
 2. v0.10 트랙 B — ST-06-3 Asset Browser · ST-06-4 Game UI Designer · M6-T2 템플릿 3종 (P0).
 3. 위가 끝나면 NG-18 통합 시험 → v0.10 출시 판정. 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
 4. 병행 (사람) — B1 의 창 QA 로 0.8.0 · 0.9.0 을 낸다.

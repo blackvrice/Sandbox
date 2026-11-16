@@ -681,8 +681,8 @@ export default defineSystem({
 트랩       그 호출의 쓰기만 버리고 다음 시스템으로 (그 시스템은 다음 주기에 다시 돈다). 로그는 시스템마다 처음 한 줄
            ("<id> t<틱>: 트랩 <종류> — <글> (<팩>/<함수> pc n)"), 그 뒤는 세기만 (ScriptSystemAdapter::trapCount · lastStats). 트랩이
            3 번 이어지면 시스템을 끈다 · 틱 연료 예산은 19장
-d.ts       sandbox.d.ts 의 SystemDefinition · defineSystem (tsc 쪽 타입 — onTick(ctx: ServerContext): void, domain?: "server" |
-           "client", onUpdate?(ctx: ClientContext): void)
+d.ts       sandbox.d.ts 의 SystemDefinition = ServerSystemDefinition | ClientSystemDefinition · defineSystem 오버로드 둘 (tsc 쪽 타입 —
+           onTick(ctx: ServerContext): void, domain: "client" 면 onStart · onUpdate · onLateUpdate · onStop(ctx: ClientContext) — v0.10 RT-06-7)
 결정성     시스템 상태가 없다 (주기는 틱 번호로만) — 세이브 → 로드 · 늦은 합류 뒤에도 같은 틱에 같은 시스템이 돈다. 같은 콘텐츠 =
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
 ```
@@ -811,19 +811,21 @@ export default defineSystem({
 ```
 
 ```text
-정의       client 시스템의 콜백은 onUpdate 하나 ((ClientContext?) → void). intervalTicks · events · eventsPerTick · onTick · onStart ·
-           onStop · onEvent 는 S426 (서버의 것), server 시스템의 onUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
-           id 는 도메인과 무관하게 팩들 사이에 하나 (V1). .sbc 형식 5 의 시스템 표에 도메인 · onUpdate (12장) — 검증기가 같은 규칙
+정의       client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop ((ClientContext?) → void — 하나 이상, 수명주기는 21.2 —
+           v0.10 RT-06-7). intervalTicks · events · eventsPerTick · onTick (예약 v0.7) · onEvent (예약 — RT-06-7 조각 2) · onMigrate 는 S426
+           (서버의 것), server 시스템의 onUpdate · onLateUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
+           id 는 도메인과 무관하게 팩들 사이에 하나 (V1). .sbc 형식 5 의 시스템 표에 도메인 · onUpdate (12장), 형식 13 에 onLateUpdate —
+           검증기가 같은 규칙
 ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ctx.log 없음 — 주인 타입이 다르다):
              tick (복제 월드의 서버 틱) · frame (1 부터) · dt (앞 프레임 뒤 실제 초 — 표시용)
              read · has · query — 복제 월드의 스크립트 컴포넌트 (복제되지 않는 것은 null · 빈 질의), 질의 = netId 오름차순 (개체마다
-             연료 1), 개체 참조 필드는 null [계획]
+             연료 1), 개체 참조 필드는 null [계획]. 월드가 없으면 (세션 끝의 onStop) 질의는 빈 목록 (v0.10 RT-06-7 — 전에는 HostError)
              label(entity, text) — 이번 프레임 개체 위 글자 · print(text) — "스크립트" 칸 한 줄. 줄마다 256 바이트 (UTF-8 글자 경계
              에서 자르고 …), 프레임마다 글자 1024 · 줄 64 (넘으면 버리고 센다 — droppedDisplay)
 서버       client 시스템을 돌리지 않는다 (ScriptSystemAdapter 가 건너뛴다). server 시스템이 없으면 어댑터도 단계도 없다 — client 시스템만
            있는 콘텐츠의 해시 · 세이브는 스크립트 없는 콘텐츠와 같다
 클라이언트 NetworkSession 이 콘텐츠 (오버레이 포함 — 20장) 에 client 시스템이 있을 때 ClientScriptSystems 를 두고, update 마다
-           스냅숏을 적용한 뒤 (팩 순서, id) 차례로 onUpdate. 바이트코드가 바뀌면 (오버레이) 새로. 예산: 호출 연료 1,000,000 · 프레임
+           스냅숏을 적용한 뒤 (팩 순서, id) 차례로 onUpdate (첫 스냅숏 전에는 돌지 않는다 — 21.2). 바이트코드가 바뀌면 (오버레이) 새로. 예산: 호출 연료 1,000,000 · 프레임
            연료 2,000,000 (kFrameFuel — 넘으면 "예산" · "건너뜀"), 트랩이면 그 호출의 표시를 버리고 3 번 이어지면 그 시스템을 끈다 —
            이 접속의 메모리에만 (세이브 · 서버와 무관, 콘텐츠가 바뀌면 다시 켠다). 첫 트랩 · 끔 · 첫 예산은 로그 한 줄
 화면       Application 이 글자를 개체의 그린 자리 (보간 위치 — 스프라이트가 없으면 복제 위치) 위에 (ImGui 배경 목록 — 패널 아래),
@@ -862,6 +864,35 @@ ctx.uiVar(key: string): number · uiVarText(key: string): string    게임 UI "v
 Capability                                                           InputRead · ClientSend · Sound · Ui (onUpdate 가 허락 — 26장, Ui 는 v0.7)
 트랩                                                                 트랩난 호출의 신호 · 소리 · UI 값은 내보내지 않는다 (표시와 같은 규칙)
 결정성                                                               시뮬레이션 밖 — 서버에 닿는 것은 PlayerSignal 명령뿐 (리플레이에 남는다)
+```
+
+### 21.2 수명주기 · onLateUpdate (v0.10 RT-06-7 조각 1 — `core/script/ClientScriptSystems`, `apps/client/NetworkSession`, [ADR-0140](adr/0140-client-script-lifecycle-session.md))
+
+```ts
+export default defineSystem({
+  id: "rpg.hud.round",
+  domain: "client",
+  onStart(ctx) { ctx.showUi("rpg.hud", true); ctx.setUi("rpg.frames", 0) },    // 세션의 첫 프레임 — 모든 onUpdate 앞
+  onUpdate(ctx) { ctx.setUi("rpg.frames", ctx.uiVar("rpg.frames") + 1) },
+  onLateUpdate(ctx) { ctx.setUi("rpg.tick", ctx.tick) },                         // 모든 시스템의 onUpdate 뒤
+  onStop(ctx) { ctx.showUi("rpg.hud", false) },                                  // 월드가 바뀌거나 접속이 끝날 때
+});
+```
+
+```text
+세션       복제 월드 하나 (NetworkSession 이 정한다): 그 월드에 첫 스냅숏이 적용된 프레임에 시작, 복제 월드가 바뀌면 (다시 접속 ·
+           불러오기 · 재시작 · 테스트 플레이) · 콘텐츠가 바뀌면 (오버레이 · client 시스템이 없어짐) · 접속이 끝나면 끝. 같은 콘텐츠로 월드만
+           바뀌면 실행기는 그대로 새 세션 (꺼짐 · 통계는 접속의 메모리)
+차례       세션의 첫 프레임: 모든 시스템의 onStart → 모든 onUpdate → 모든 onLateUpdate. 그 뒤 프레임: 모든 onUpdate → 모든 onLateUpdate.
+           세션 끝: 모든 onStop (시작한 세션만 · 한 번). 시스템 차례는 (팩 순서, id)
+onStop     월드 없이 — 질의는 빈 목록 · tick 0 · frame 은 마지막 프레임 (월드가 아직 있으면 — 접속 끝 · 콘텐츠 바뀜 — 그 월드). 내보낸
+           UI 값은 적용한다. 끝에 읽을 값은 onUpdate 에서 UI 변수에 둔다
+Capability onStart · onStop · onLateUpdate = 읽기 (read · has · query) · 시간 (tick · frame · dt) · 표시 (label · print) · UI (setUi ·
+           setUiText · showUi · uiText · uiFormat · uiVar · uiVarText). keyDown · pointerX · send · playSound 는 onUpdate 만 — 콜백
+           몸에서 바로 부르면 S404, 도우미 함수 안이면 실행 검사가 HostError (트랩 — 그 호출의 표시 · UI 를 버린다)
+예산       같은 프레임 연료 (모든 콜백 합 kFrameFuel) · 호출 연료 · 트랩 정책 (콜백을 가리지 않고 이어진 트랩 3 번 = 끔 — 꺼진 시스템은
+           onStop 도 없다). 통계 (호출 · 연료) 는 콜백의 합
+[계획]     client onEvent (복제된 서버 이벤트 — 프레임마다 큐 상한, 24 Q1) — RT-06-7 조각 2
 ```
 
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
@@ -1044,16 +1075,18 @@ Capability                                                           InputRead �
 ## 26. 콜백 표 · Capability · 예약 콜백 (v0.5 M2-T7 ✅ 계약 — `script/api/Callbacks`, Runtime v2 — [22](22-RUNTIME-V2.md) 3장, [ADR-0086](adr/0086-runtime-architecture-v2.md))
 
 ```text
-지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다
+지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다. client onStart · onLateUpdate ·
+              onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다)
 ✅ v0.5 M2-T7 계약 — script/api/Callbacks kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability). 예약 (Planned):
-              server onPrePhysics (v0.6), client onAction · onEvent · onLateUpdate · onRender · onStart · onStop (v0.6) · onTick (v0.7) —
+              server onPrePhysics (v0.6), client onAction · onEvent · onRender (v0.6) · onTick (v0.7) —
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
               "두지 않는다" (onTick 이 물리 뒤). Host 표 capability 열 (HostCapability — EcsRead · EcsWrite · Structural · Random · Time · Log ·
               Display, 예약: PhysicsCommand · InputRead · ClientSend · Ui · Draw · Sound · NetworkIo · WorkerTask) — 정규 서명 · 지문에 든다
               (kHostApiVersion 1 그대로). 실행 검사 ✅ v0.10 RT-06-1 (ADR-0137): 호출 토큰에 콜백 이름 · 허락 집합, Host 호출마다 비교 —
-              밖이면 HostError (지금의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 계획 콜백부터). 매니페스트 network.model (18 5.2 —
+              밖이면 HostError (v0.10 전의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 새 콜백부터). 검사기 겹 ✅ v0.10 RT-06-7:
+              콜백 메서드 몸에서 ctx 로 바로 부른 함수가 허락 밖이면 S404 (도우미 함수는 실행 검사만). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
-[계획 v0.6]   server onPrePhysics (8b) · client 수명주기 · onAction · onLateUpdate · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
+[계획 v0.6]   server onPrePhysics (8b) · client onEvent (RT-06-7 조각 2) · onAction · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
               onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
               (ctx.state · setState, ADR-0139 — 16.2)

@@ -174,7 +174,7 @@ TEST_SUITE("script") {
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client", onTick(ctx) { } }))", "S426",
                     "onTick 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.7]"); // M2-T7 — Client 고정 Tick
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client" }))", "S426",
-                    "client 시스템에 onUpdate");
+                    "client 시스템에 콜백이 없다");
         expectError(R"(export default defineSystem({ id: "a.b", domain: "client", intervalTicks: 2, onUpdate() { } }))",
                     "S426", "intervalTicks 는 서버 시스템의 것");
         expectError(
@@ -231,10 +231,16 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         };
         bc::Module clientTick = *m;
         clientTick.systems[0].onTick = clientTick.systems[1].onTick;
-        mention(clientTick, "client 시스템은 onUpdate 하나뿐");
+        mention(clientTick, "client 시스템은 onUpdate · onLateUpdate · onStart · onStop 만");
         bc::Module serverUpdate = *m;
         serverUpdate.systems[1].onUpdate = m->systems[0].onUpdate;
-        mention(serverUpdate, "onUpdate 는 client 시스템에만");
+        mention(serverUpdate, "onUpdate · onLateUpdate 는 client 시스템에만");
+        bc::Module serverLate = *m;
+        serverLate.systems[1].onLateUpdate = m->systems[0].onUpdate;
+        mention(serverLate, "onUpdate · onLateUpdate 는 client 시스템에만");
+        bc::Module clientNone = *m;
+        clientNone.systems[0].onUpdate = api::kNoCallback;
+        mention(clientNone, "콜백이 하나도 없다");
         bc::Module wrongSig = *m;
         wrongSig.systems[0].onUpdate = m->systems[1].onTick; // () 는 되지만 ServerContext 를 받는 함수로
         wrongSig.systems[1].onTick = m->systems[0].onUpdate; // (ClientContext) 를 서버 콜백에
@@ -320,11 +326,12 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         CHECK(systems.host().lines()[0].text.starts_with("프레임 2 "));
         CHECK(describeClientScriptSystems(systems)[0].starts_with("클라이언트 스크립트 t.hud: 호출 2 · 트랩 0"));
 
-        // 월드가 없으면 컴포넌트 항목은 HostError (트랩) — 표시는 버린다
+        // 월드가 없으면 질의는 빈 목록 (세션이 끝난 onStop 과 같다 — v0.10 RT-06-7, ADR-0140)
         ClientScriptSystems empty(programs);
         empty.run({nullptr, nullptr, 0, 0, 0});
-        CHECK(empty.lastStats().traps == 1);
-        CHECK(empty.host().lines().empty());
+        CHECK(empty.lastStats().traps == 0);
+        REQUIRE(empty.host().lines().size() == 1);
+        CHECK(empty.host().lines()[0].text == "프레임 1 틱 0 개체 0");
     }
 
     TEST_CASE("client 입력 · send · playSound (v0.5 M2-T6): 게임 키 · 커서를 읽고, 신호 · 소리를 내보낸다 — 상한 · "
