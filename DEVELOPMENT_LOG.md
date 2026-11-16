@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-11-16 — v0.10 RT-06-10 조각 1: 스크립트 타이머 — ctx.after · every · cancelTimer · script.timer (ADR-0138)
+
+**무엇을**
+
+- 엔진 컴포넌트 `script.timer` { system, key, dueTick, period } (core/components/game/ScriptTimer.hpp — Persistent · ServerOnly · EditorVisible,
+  카탈로그 24 개). 타이머마다 개체 하나. 사용자 명령 · Prefab · ctx.add 로는 붙일 수 없다 (SimulationWorld 의 보호 컴포넌트).
+- Host API: ctx.after(ticks, key) · ctx.every(ticks, key) · ctx.cancelTimer(key) — 서버만 · Structural · 연료 8. ScriptHost 가 인자를 보고
+  (ticks 1 … 2^24, key 1 … 47 바이트 — 밖이면 HostError) 구조 변경 버퍼에 TimerAdd · TimerCancel 을 넣는다 (호출마다 64 개).
+  SimulationWorld::applyScriptStructural 이 개체를 만들고 · 지운다 (시스템마다 1024 개 상한, 통계 timersAdded · timersCancelled).
+- 단계 17d (SimulationScripts.cpp): 만기 타이머를 (dueTick, saveId) 순으로 모아 엔진이 먼저 진행 (한 번짜리는 지우고 every 는
+  dueTick += period) → ScriptSystemAdapter 가 시스템마다 구독 이벤트 다음에 자기 타이머를 onEvent 로 (GameEventKind.Timer = 7, GameEvent.key).
+  타이머가 있으면 콜백 없는 콘텐츠에서도 17d 가 돈다 (hasScriptTimers).
+- 검사기 · 검증기: events: { timer } 는 S426, onEvent 만 있고 events 가 없는 시스템을 허용 (타이머만 받는다) — 검증기는 "구독이 있는데
+  onEvent 가 없다" 만 거절.
+- sandbox.d.ts 4 곳 다시 생성 (sdk · samples 셋). Host 지문 0xcfce033639142a66 → 0x3c0bbbceed44d584 (Host API 1 그대로).
+- 문서: ADR-0138, 19 (16.2 타이머 · 18장 GameEvent · 26장), 03 (17d), 22 (3 · 9장), 24 D2, 02 · 04 · 09 · 13 · 17, 지문 (versioning · 21 ·
+  VERSION-MIGRATION-MATRIX), FEATURE_MATRIX F-209, v0.10 체크리스트, 등록부 RT-06-10 비고.
+
+**왜**
+
+- 스크립트는 틱을 넘는 값을 VM 에 둘 수 없어 "N 틱 뒤 · N 틱마다" 를 컴포넌트에 세어야 했다 (매 틱 호출 비용 · 시스템마다 같은 코드).
+  22 9장 · 24 D2 가 정한 대로 타이머를 세이브 · 해시에 드는 ECS 데이터로. 세션 개체에 두는 처음 안 대신 개체 하나씩 (가변 길이 필드를
+  피한다), 번호 대신 키로 취소 (번호를 둘 곳이 필요 없다) — ADR-0138.
+
+**검증** (Windows MSVC, 2026-11-16)
+
+- 단위 시험 955 개 통과 (Debug). 새 test_script_timers 3 개: 만기 틱 · 키 (4:once · 6 · 11 · 16:beat) · 같은 호출의 취소 · every 의 취소,
+  세이브 (틱 8) → 로드 → 이어 돌린 WorldHash = 곧장 돌린 것 · 리플레이 중간 · 끝 해시, ticks 0 HostError · onEvent 없는 시스템 · S426 ·
+  명령 거절. test_script_callbacks (GameEvent 칸 12 개 배치 · 완화한 규칙) · test_checker (지문) · test_catalog_serialization (24 개) 갱신.
+- 골든: kSimVersion 4 그대로 — det_* · 샘플 · 리플레이 해시가 전체 ctest 에서 그대로 (타이머가 없는 월드는 풀이 없다).
+- 벤치 (Release sbx_bench --only script.regen, 이전 · 이후 번갈아 4 번, 측정값): 이전 15.94 · 10.31 · 16.13 · 15.43 ms, 이후 16.42 · 9.47 ·
+  17.44 · 15.29 ms — 기계가 바빠 9 ~ 17 ms 로 흔들렸다 (잡음 안, 연료 59.0/개체 같음). 조용한 기계의 수치는 아니다.
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED (docs_roadmap_generated 포함). build\ci-werror (/WX) 빌드 통과, check_docs 문제 0 (252 파일) ·
+  check_includes 위반 0 · gen_roadmap --check 낡은 것 0.
+- 창 · Linux · macOS 실기는 CI 로.
+
+**남은 일**
+
+- RT-06-10 조각 2: defineState · ctx.state (세션 개체의 상태 컴포넌트 — 세이브 · 해시 시험). 끝나면 등록부 RT-06-10 Done.
+- 타이머 payload · 없어진 시스템의 타이머 치우기 (ADR-0138 재검토 조건), Studio 에서 타이머 개체를 따로 보여 주기 (지금은 개체 목록에 보인다).
+
 ## 2026-11-12 — docs: 문서 체계 정리 — 현황 대시보드 · 기능 매트릭스 · 전체 로드맵 · 버전별 체크리스트 (생성)
 
 **무엇을**

@@ -15,6 +15,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/game/GameOwner.hpp"
+#include "core/components/game/ScriptTimer.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
 #include "core/content/ScriptPrograms.hpp"
@@ -37,7 +38,8 @@ bool isFinite(Vec2 v) noexcept {
 bool isProtected(ecs::StableId id) noexcept {
     return id == ecs::stableIdOf<comp::Persistence> || id == ecs::stableIdOf<comp::NetIdentity> ||
            id == ecs::stableIdOf<comp::GameSession> || // 게임 진행 상태 — 시작 · 재시작 명령만 (M2-T3)
-           id == ecs::stableIdOf<comp::GameScore>;     // 점수 — 효과 score.add · 시작만 (M3-T2)
+           id == ecs::stableIdOf<comp::GameScore> ||   // 점수 — 효과 score.add · 시작만 (M3-T2)
+           id == ecs::stableIdOf<comp::ScriptTimer>; // 스크립트 타이머 — ctx.after · every · cancelTimer 만 (RT-06-10)
 }
 
 std::string hexId(ecs::StableId id) {
@@ -179,7 +181,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
 
     // --- 17d Script callbacks --------------------------------------------------------------------------------
     // 스크립트 onStart · onEvent · onStop — 그 틱의 죽음 · 생성 · 영역 · 점수 · 세션 전이가 다 끝난 뒤 (ADR-0063)
-    if (m_scriptSystems && m_scriptSystems->hasCallbacks()) {
+    if (m_scriptSystems && (m_scriptSystems->hasCallbacks() || hasScriptTimers())) {
         runScriptCallbacks(now);
         applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
     }
@@ -581,6 +583,38 @@ void SimulationWorld::applyScriptStructural() {
                     ++s.dropped;
                 }
                 break;
+            case ScriptStructuralOp::Kind::TimerAdd: {
+                // 타이머 하나 = 개체 하나 (script.timer — 세이브 · 해시). 시스템마다 상한 (넘으면 버린다)
+                usize mine = 0;
+                for (auto [e, t] : m_registry.view<ecs::Read<comp::ScriptTimer>>()) {
+                    (void)e;
+                    mine += t.system.view() == op.system ? 1 : 0;
+                }
+                comp::ScriptTimer timer;
+                if (mine >= comp::kMaxTimersPerSystem || !timer.system.assign(op.system) || !timer.key.assign(op.key)) {
+                    ++s.dropped;
+                    break;
+                }
+                timer.dueTick = tick + op.delay;
+                timer.period = op.period;
+                const ecs::EntityId e = m_registry.create();
+                m_registry.emplace<comp::ScriptTimer>(e, timer);
+                ++s.timersAdded;
+                break;
+            }
+            case ScriptStructuralOp::Kind::TimerCancel: {
+                std::vector<ecs::EntityId> gone;
+                for (auto [e, t] : m_registry.view<ecs::Read<comp::ScriptTimer>>()) {
+                    if (t.system.view() == op.system && t.key.view() == op.key) {
+                        gone.push_back(e);
+                    }
+                }
+                for (const ecs::EntityId e : gone) {
+                    m_registry.destroy(e);
+                }
+                s.timersCancelled += gone.size();
+                break;
+            }
             case ScriptStructuralOp::Kind::Remove: {
                 ecs::ComponentPoolBase* pool = m_registry.poolByStableId(op.component->stableId);
                 if (alive && pool != nullptr && pool->remove(target)) {

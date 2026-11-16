@@ -604,6 +604,21 @@ ctx.setOwner(e: Entity, player: i32): void   (v0.5 M2-T5 (4b) — ADR-0094) 주�
                                              Structural · 연료 4, 16.2 의 구조 변경 버퍼 (호출 끝 적용 · 같은 호출의 새 개체 핸들 · 붙이기 · 떼기와
                                              같은 상한). 0 = 주인 없음, 0 ~ 65535 밖이면 HostError (그 호출의 쓰기를 버린다)
 ```
+
+타이머 (v0.10 RT-06-10 조각 1 — [ADR-0138](adr/0138-script-timers-entity-key-onevent.md), `core/components/game/ScriptTimer.hpp`):
+
+```text
+ctx.after(ticks: i32, key: string): void     ticks 틱 뒤 한 번 — 만기 틱 (만든 틱 + ticks) 의 17d 에 이 시스템의 onEvent 로
+                                             (e.kind === GameEventKind.Timer, e.key === key — 18장). 만기에 타이머는 없어진다
+ctx.every(ticks: i32, key: string): void     ticks 틱마다 — 첫 만기는 ticks 틱 뒤, cancelTimer 까지 되풀이
+ctx.cancelTimer(key: string): void           이 시스템의 그 키 타이머를 모두 지운다 (없으면 아무 일도 없다). 같은 호출에서 만든 것도
+도메인 · 비용                                 서버만 · Structural · 연료 8 — 16.2 의 구조 변경 버퍼 (호출 끝 적용, 트랩이면 버린다)
+범위                                         ticks 1 ~ 16 777 216 (2^24), key 1 ~ 47 바이트 — 밖이면 HostError. 호출마다 타이머 연산 64,
+                                             시스템마다 살아 있는 타이머 1024 (넘으면 버리고 센다 — scriptStructuralStats)
+데이터                                       타이머마다 개체 하나 — 엔진 컴포넌트 script.timer { system, key, dueTick, period } (세이브 ·
+                                             WorldHash · 리플레이, 서버만 — 복제하지 않는다). 명령 · Prefab · ctx.add 로는 붙일 수 없다
+같은 키                                      여러 번 만들면 여럿이다 — 바꾸려면 cancelTimer 뒤 after. 값은 싣지 못한다 (키 하나 — 값은 컴포넌트에)
+```
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts
@@ -692,9 +707,12 @@ export default defineSystem({
              signal     그 틱에 받아들여진 PlayerSignal (명령 적용 차례 — 11 6.1장) — signal = id, player = 보낸 쪽, value = 값.
                         월드는 바뀌지 않는다 (규칙은 스크립트가). 거절된 신호 (선언 · 범위 · perTick · 세션) 는 오지 않는다
            tags 거르기는 death 는 틱 처음의 태그, spawn · areaEnter 는 지금 태그 (Rule · 트리거의 TagExpr 와 같다)
-GameEvent  { action: string, entity: Entity | null, kind: GameEventKind, player · previous: i32, signal: string, targets:
-           Entity[], team · value: i32, x · y: number } (읽기 전용, 칸 = 이름 순 — 해당 없는 action · signal 은 "", targets 는 []).
-           GameEventKind { Death = 1, Spawn, AreaEnter, Score, Action, Signal } 는 SDK enum. onEvent 의 매개변수는 (ctx?, e?) — 적으면
+GameEvent  { action: string, entity: Entity | null, key: string, kind: GameEventKind, player · previous: i32, signal: string, targets:
+           Entity[], team · value: i32, x · y: number } (읽기 전용, 칸 = 이름 순 — 해당 없는 action · key · signal 은 "", targets 는 []).
+           GameEventKind { Death = 1, Spawn, AreaEnter, Score, Action, Signal, Timer } 는 SDK enum.
+타이머     (v0.10 RT-06-10, ADR-0138) ctx.after · every 의 만기 — kind = Timer, key = 그 키. 구독하지 않는다: 만든 시스템의 onEvent 로만
+           오고 events: { timer } 는 S426. 그래서 onEvent 만 있고 events 가 없는 시스템이 된다 (타이머만 받는다). 차례는 그 시스템의
+           구독 이벤트 다음, (만기 틱, 만든 차례). onEvent 가 없으면 만기에 버리고 센다. onEvent 의 매개변수는 (ctx?, e?) — 적으면
            ServerContext · GameEvent. 종류 · 필드는 Host API 지문에 든다 (v0.5 M2-T5 (2) — 배치가 바뀐 옛 .sbc 는 지문으로 거절 →
            소스에서 다시 컴파일). 엔진은 문자열 칸을 글 목록의 자리로, 개체 목록 칸을 개수 + 원소로 넘긴다 (Interpreter::call)
 구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score · action · signal (키 없음). tags 의 이름은
@@ -1008,7 +1026,8 @@ Capability                                                           InputRead �
               밖이면 HostError (지금의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 계획 콜백부터). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
 [계획 v0.6]   server onPrePhysics (8b) · client 수명주기 · onAction · onLateUpdate · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
-              실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 (ctx.after · every → onEvent "timer") · defineState
+              실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
+              onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState [계획 — RT-06-10 조각 2]
 [계획 v0.7]   client onTick (고정 Tick — predicted 게임만, ADR-0087)
 [계획 v0.8]   onEvent "response" · "socket" (NetworkModule — 서버만)
 Context 타입   콜백마다 TS 타입 하나 (ServerPrePhysicsContext · ClientActionContext · ClientRenderContext · ClientTickContext) =

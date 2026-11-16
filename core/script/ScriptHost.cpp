@@ -10,6 +10,7 @@
 #include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Movement.hpp"
+#include "core/components/game/ScriptTimer.hpp"
 #include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
 #include "core/simulation/SimulationWorld.hpp"
@@ -32,6 +33,16 @@ constexpr u64 kNewEntityTag = 0x5E01'0000'0000'0000ull;
 
 vm::HostResult fail(std::string message) {
     return {false, {}, std::move(message), {}, 0};
+}
+
+vm::HostResult ctxAfter(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.addTimer(args, false);
+}
+vm::HostResult ctxEvery(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.addTimer(args, true);
+}
+vm::HostResult ctxCancelTimer(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.cancelTimer(args);
 }
 
 vm::HostResult ctxTick(ScriptHost& host, std::span<const vm::HostArg>) {
@@ -152,6 +163,9 @@ constexpr HostBinding kBindings[] = {
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
     {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
     {"ctx.setOwner", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::I32}, 3, &ctxSetOwner},
+    {"ctx.after", AbiType::Void, {AbiType::ServerContext, AbiType::I32, AbiType::String}, 3, &ctxAfter},
+    {"ctx.every", AbiType::Void, {AbiType::ServerContext, AbiType::I32, AbiType::String}, 3, &ctxEvery},
+    {"ctx.cancelTimer", AbiType::Void, {AbiType::ServerContext, AbiType::String}, 2, &ctxCancelTimer},
     {"ctx.playerCount", AbiType::I32, {AbiType::ServerContext}, 1, &ctxPlayerCount},
     {"ctx.playerId", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerId},
     {"ctx.playerRole", AbiType::I32, {AbiType::ServerContext, AbiType::I32}, 2, &ctxPlayerRole},
@@ -292,6 +306,7 @@ vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::Simulat
     m_newEntities = 0;
     m_destroysThisCall = 0;
     m_addRemovesThisCall = 0;
+    m_timerOpsThisCall = 0;
     m_droppedThisCall = 0;
     return vm::Value::opaque(m_token);
 }
@@ -822,6 +837,67 @@ vm::HostResult ScriptHost::setOwner(std::span<const vm::HostArg> args) {
     }
     op.player = static_cast<u32>(player);
     ++m_addRemovesThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
+}
+
+// ---- 타이머 (v0.10 RT-06-10, ADR-0138) — 구조 변경과 같은 큐 (호출이 끝나면 넣은 차례로, 트랩이면 버린다)
+// -------------------------------------------------------------
+
+namespace {
+[[nodiscard]] bool timerKeyOk(std::string_view key) noexcept {
+    return !key.empty() && key.size() <= ContentId::kCapacity;
+}
+} // namespace
+
+vm::HostResult ScriptHost::addTimer(std::span<const vm::HostArg> args, bool repeat) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const i32 ticks = args[1].value.asI32();
+    const std::string_view key = args[2].text;
+    const char* name = repeat ? "every" : "after";
+    if (ticks < 1 || static_cast<u32>(ticks) > comp::kMaxTimerDelayTicks) {
+        return fail(std::format("{} — ticks {} 는 1 ~ {}", name, ticks, comp::kMaxTimerDelayTicks));
+    }
+    if (!timerKeyOk(key)) {
+        return fail(std::format("{} — key 는 1 ~ {} 바이트 ({} 바이트)", name, ContentId::kCapacity, key.size()));
+    }
+    if (m_script.empty() || m_script.size() > ContentId::kCapacity) {
+        return fail(std::format("{} — 시스템 콜백 밖에서는 타이머를 만들 수 없다", name));
+    }
+    if (m_timerOpsThisCall >= kMaxTimerOpsPerCall) {
+        ++m_droppedThisCall;
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::TimerAdd;
+    op.system = m_script;
+    op.key = std::string(key);
+    op.delay = static_cast<u32>(ticks);
+    op.period = repeat ? static_cast<u32>(ticks) : 0;
+    ++m_timerOpsThisCall;
+    m_ops.ops.push_back(std::move(op));
+    return {};
+}
+
+vm::HostResult ScriptHost::cancelTimer(std::span<const vm::HostArg> args) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const std::string_view key = args[1].text;
+    if (!timerKeyOk(key)) {
+        return fail(std::format("cancelTimer — key 는 1 ~ {} 바이트", ContentId::kCapacity));
+    }
+    if (m_timerOpsThisCall >= kMaxTimerOpsPerCall) {
+        ++m_droppedThisCall;
+        return {};
+    }
+    sim::ScriptStructuralOp op;
+    op.kind = sim::ScriptStructuralOp::Kind::TimerCancel;
+    op.system = m_script;
+    op.key = std::string(key);
+    ++m_timerOpsThisCall;
     m_ops.ops.push_back(std::move(op));
     return {};
 }

@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0xcfce033639142a66 — v0.7 NG-06 (2) 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x3c0bbbceed44d584 — v0.10 RT-06-10 조각 1 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -79,7 +79,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | server | onPrePhysics | 새 단계 8b — Path 요청 (8) 뒤 · Movement (9) 앞 | ServerPrePhysicsContext | [계획 v0.6] |
 | server | onTick | 16b — Collision (16) 뒤 · ECB (17) 앞 | ServerContext (= ServerTickContext) | 현행 — **단계를 옮기지 않는다** (이미 물리 뒤라 "post-physics" 몫을 한다) |
 | server | onPostPhysics | — | — | **두지 않는다** — onTick 과 같은 자리라 이름만 둘이 된다 (ADR-0086 3) |
-| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, [계획] action · signal · timer · trigger · collision · response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
+| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, timer ✅ v0.10 RT-06-10 — 구독 없이 만든 시스템에게, [계획] action · signal · trigger · collision · response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
 | server | onStop | 17d — 시스템이 꺼질 때 | ServerContext | 현행 |
 | server | onMigrate | 단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (v0.6 NG-04) | ServerContext | 현행 (.sbc 10) |
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
@@ -259,8 +259,10 @@ NetworkModule [계획 v0.8 — 서버만]
 플레이어 상태 ✅ M2-T5 플레이어 표 (시뮬레이션 안 · ECS · 세이브 · 해시 밖 — ADR-0093, ctx.playerCount · playerId · playerRole),
             게임 값 저장은 [계획 v0.16 PS-14-5] 플레이어 데이터
 개체 상태    컴포넌트 (현행)
-타이머       ctx.after(ticks, key) · ctx.every(ticks, key) · ctx.cancelTimer(id) → 엔진 컴포넌트 script.timer (세이브 · 해시), 만기는 17d 의
-            onEvent "timer" (dueTick, 시스템 id, 만든 차례) [계획 v0.6]
+타이머       ✅ v0.10 RT-06-10 조각 1 (ADR-0138): ctx.after(ticks, key) · ctx.every(ticks, key) · ctx.cancelTimer(key) → 타이머마다 개체 하나,
+            엔진 컴포넌트 script.timer { system, key, dueTick, period } (세이브 · 해시 · 서버만 · 보호), 만기는 17d 의 onEvent
+            (GameEventKind.Timer · e.key — 만든 시스템에게만, 구독 없음, 차례 = 시스템 → dueTick → 만든 차례). 처음 안의 "세션 개체에" ·
+            "번호로 취소" 는 바꿨다 (가변 길이 필드 · 번호를 둘 곳 — ADR-0138)
 Game · Real 시간  ctx.time = 틱 시간 (현행). 실제 시각은 스크립트에 주지 않는다 (04) — 표시용은 client 만 [계획 v0.6 client.now]
 Hot Reload   오버레이 다시 컴파일 (현행 ADR-0066) — 상태가 컴포넌트에 있어 잃지 않는다. 스키마 바뀜 = 마이그레이션 (ADR-0061)
 Worker       [검토 v0.9] 순수 함수 (컴포넌트 값 복사 입력 → 결과 값) 를 Worker 에서 — 결과는 제출 차례로 onEvent "task". Host 호출 · 쓰기 없음.

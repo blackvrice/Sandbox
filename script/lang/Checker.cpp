@@ -1141,10 +1141,7 @@ private:
             err("S426", intervalAt, "intervalTicks 는 onTick 의 주기다 — onTick 이 없다");
             ok = false;
         }
-        if (!client && !none(sd.onEvent) && eventsAt == kNoNode) {
-            err("S426", init, "onEvent 가 받을 이벤트를 events: { death: {}, … } 로 적는다");
-            ok = false;
-        }
+        // onEvent 만 있고 events 가 없어도 된다 — 타이머 (ctx.after · every) 의 만기를 받는다 (v0.10 RT-06-10)
         if (!client && eventsAt != kNoNode && none(sd.onEvent)) {
             err("S426", eventsAt, "events 를 받을 onEvent(ctx, e) { … } 가 없다");
             ok = false;
@@ -1185,6 +1182,13 @@ private:
             if (k == nullptr) {
                 err("S426", p,
                     std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action · signal", key));
+                ok = false;
+                continue;
+            }
+            if (k->kind == api::GameEventKind::Timer) {
+                err("S426", p,
+                    "timer 는 구독하지 않는다 — ctx.after · every 의 만기는 그 타이머를 만든 시스템의 onEvent 로 온다 "
+                    "(docs/19-SANDBOXSCRIPT.md 18장)");
                 ok = false;
                 continue;
             }

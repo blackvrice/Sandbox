@@ -245,7 +245,8 @@ TEST_SUITE("script") {
             return std::format("export default defineSystem({{ id: \"a.b\", {} }})\n", inner);
         };
         expectOnly(sys("events: { spawn: {} }, onTick(ctx) { }"), "S426", "onEvent(ctx, e) { … } 가 없다");
-        expectOnly(sys("onEvent(ctx, e) { }"), "S426", "events: { death: {}, … }");
+        // onEvent 만 (events 없음) 은 된다 — 타이머의 만기를 받는다 (v0.10 RT-06-10). events 에 timer 는 없다
+        expectOnly(sys(std::format("events: {{ timer: {{}} }}, {}", kOn)), "S426", "timer 는 구독하지 않는다");
         expectOnly(sys(std::format("events: {{ born: {{}} }}, {}", kOn)), "S426", "이벤트 'born' 는 없다");
         expectOnly(sys(std::format("events: {{}}, {}", kOn)), "S426", "구독이 없다");
         expectOnly(sys(std::format("events: {{ death: 1 }}, {}", kOn)), "S426", "객체 리터럴");
@@ -304,7 +305,7 @@ TEST_SUITE("script") {
             }
             CHECK(found);
         };
-        broken([](bc::SystemDesc& d, bc::Module&) { d.events.clear(); }, "구독과 onEvent 는 함께");
+        broken([](bc::SystemDesc& d, bc::Module&) { d.onEvent = api::kNoCallback; }, "구독이 있는데 onEvent 가 없다");
         broken([](bc::SystemDesc& d, bc::Module&) { std::swap(d.events[0], d.events[1]); }, "차례가 아니다");
         broken([](bc::SystemDesc& d, bc::Module&) { d.events[0].kind = 9; }, "모르는 종류");
         broken([](bc::SystemDesc& d, bc::Module&) { d.events[2].minX = 99; }, "areaEnter 의 사각형");
@@ -341,28 +342,28 @@ export default defineSystem({ id: "a.b", events: { spawn: {} }, onEvent(ctx, e) 
         vm::Interpreter vmi(*m, nullptr);
         const bc::Export* k = m->findExport("scripts/a.ts", "k");
         REQUIRE(k != nullptr);
-        // 칸 = action (글 자리) · entity · kind · player · previous · signal (글 자리) · targets (개수 + 원소) · team ·
-        // value · x · y (이름 순)
+        // 칸 = action (글 자리) · entity · key (글 자리 — v0.10 RT-06-10) · kind · player · previous · signal (글 자리)
+        // · targets (개수 + 원소) · team · value · x · y (이름 순)
         const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
         const std::vector<std::string> noText{""};
-        const vm::Value fields[11] = {vm::Value::i32v(0),  vm::Value::opaque(0x5E00'0000'0000'0001ull),
-                                      vm::Value::i32v(2),  vm::Value::i32v(0),
-                                      vm::Value::i32v(0),  vm::Value::i32v(0),
-                                      vm::Value::i32v(0),  vm::Value::i32v(0),
-                                      vm::Value::i32v(5),  vm::Value::f64v(1.5),
-                                      vm::Value::f64v(2.5)};
+        const vm::Value fields[12] = {vm::Value::i32v(0),   vm::Value::opaque(0x5E00'0000'0000'0001ull),
+                                      vm::Value::i32v(0),   vm::Value::i32v(2),
+                                      vm::Value::i32v(0),   vm::Value::i32v(0),
+                                      vm::Value::i32v(0),   vm::Value::i32v(0),
+                                      vm::Value::i32v(0),   vm::Value::i32v(5),
+                                      vm::Value::f64v(1.5), vm::Value::f64v(2.5)};
         const vm::CallResult r = vmi.call(k->function, args, fields, noText);
         REQUIRE_MESSAGE(r.ok(), r.message);
         CHECK(r.value.asI32() == 2012);
-        const vm::Value nullEntity[11] = {vm::Value::i32v(0), vm::Value::null(),  vm::Value::i32v(1),
+        const vm::Value nullEntity[12] = {vm::Value::i32v(0), vm::Value::null(),  vm::Value::i32v(0),
+                                          vm::Value::i32v(1), vm::Value::i32v(0), vm::Value::i32v(0),
                                           vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(0),
-                                          vm::Value::i32v(0), vm::Value::i32v(0), vm::Value::i32v(4),
-                                          vm::Value::f64v(0), vm::Value::f64v(0)};
+                                          vm::Value::i32v(4), vm::Value::f64v(0), vm::Value::f64v(0)};
         CHECK(vmi.call(k->function, args, nullEntity, noText).value.asI32() == 1004);
-        CHECK(vmi.call(k->function, args, std::span(fields).first(10), noText).trap == vm::Trap::BadCall);
+        CHECK(vmi.call(k->function, args, std::span(fields).first(11), noText).trap == vm::Trap::BadCall);
         CHECK(vmi.call(k->function, args, fields).trap == vm::Trap::BadCall); // 글 자리가 목록 밖
-        const vm::Value twelve[12] = {};
-        CHECK(vmi.call(k->function, args, twelve, noText).trap == vm::Trap::BadCall);
+        const vm::Value thirteen[13] = {};
+        CHECK(vmi.call(k->function, args, thirteen, noText).trap == vm::Trap::BadCall);
     }
 
     TEST_CASE("onEvent: action 의 글 · 개체 목록 칸 (v0.5 M2-T5 (2)) — 모양이 다르면 BadCall") {
@@ -384,8 +385,9 @@ export default defineSystem({ id: "a.b", events: { action: {} }, onEvent(ctx, e)
         REQUIRE(k != nullptr);
         const vm::Value args[2] = {vm::Value::opaque(1), vm::Value::null()};
         const std::vector<std::string> texts{"t.go"};
-        const vm::Value fields[13] = {vm::Value::i32v(0),
+        const vm::Value fields[14] = {vm::Value::i32v(0),
                                       vm::Value::null(),
+                                      vm::Value::i32v(0), // key — 글 자리 (v0.10 RT-06-10)
                                       vm::Value::i32v(5),
                                       vm::Value::i32v(3),
                                       vm::Value::i32v(0),
@@ -404,11 +406,11 @@ export default defineSystem({ id: "a.b", events: { action: {} }, onEvent(ctx, e)
         CHECK(vmi.call(k->function, args, fields, other).value.asI32() == 322);
         // 개수가 남은 칸보다 크다 · 음수 · 글 자리가 목록 밖
         std::vector<vm::Value> bad(std::begin(fields), std::end(fields));
-        bad[6] = vm::Value::i32v(9);
+        bad[7] = vm::Value::i32v(9);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
-        bad[6] = vm::Value::i32v(-1);
+        bad[7] = vm::Value::i32v(-1);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
-        bad[6] = vm::Value::i32v(2);
+        bad[7] = vm::Value::i32v(2);
         bad[0] = vm::Value::i32v(1);
         CHECK(vmi.call(k->function, args, bad, texts).trap == vm::Trap::BadCall);
     }

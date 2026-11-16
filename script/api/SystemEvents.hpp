@@ -14,7 +14,8 @@
 namespace sbx::script::api {
 
 // ★ 값은 바이트코드 (.sbc 구독 표) 와 스크립트 (GameEventKind.Death …) 에 남는다 — 바꾸지 않고 추가만
-enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4, Action = 5, Signal = 6 };
+// Timer (v0.10 RT-06-10) = ctx.after · every 의 만기 — 구독 키 없이 만든 시스템의 onEvent 로 (events 에 timer 는 S426)
+enum class GameEventKind : u8 { Death = 1, Spawn = 2, AreaEnter = 3, Score = 4, Action = 5, Signal = 6, Timer = 7 };
 
 struct GameEventKindInfo {
     GameEventKind kind;
@@ -25,13 +26,14 @@ struct GameEventKindInfo {
 };
 
 // 종류 차례 = 한 시스템이 이벤트를 받는 차례 (ADR-0063 3)
-inline constexpr std::array<GameEventKindInfo, 6> kGameEventKinds{{
+inline constexpr std::array<GameEventKindInfo, 7> kGameEventKinds{{
     {GameEventKind::Death, "death", "Death", false, true},
     {GameEventKind::Spawn, "spawn", "Spawn", false, true},
     {GameEventKind::AreaEnter, "areaEnter", "AreaEnter", true, true},
     {GameEventKind::Score, "score", "Score", false, false},
     {GameEventKind::Action, "action", "Action", false, false},
     {GameEventKind::Signal, "signal", "Signal", false, false},
+    {GameEventKind::Timer, "timer", "Timer", false, false}, // 구독하지 않는다 (v0.10 RT-06-10)
 }};
 
 [[nodiscard]] constexpr const GameEventKindInfo* findGameEventKind(std::string_view key) noexcept {
@@ -59,9 +61,10 @@ struct GameEventFieldInfo {
     GameEventField type;
     std::string_view doc;
 };
-inline constexpr std::array<GameEventFieldInfo, 11> kGameEventFields{{
+inline constexpr std::array<GameEventFieldInfo, 12> kGameEventFields{{
     {"action", GameEventField::String, "action: 받아들여진 PlayerAction 의 id (다른 종류는 빈 문자열)"},
     {"entity", GameEventField::EntityOrNull, "spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다)"},
+    {"key", GameEventField::String, "timer: ctx.after · every 의 키 (다른 종류는 빈 문자열 — v0.10 RT-06-10)"},
     {"kind", GameEventField::Kind, "이벤트 종류"},
     {"player", GameEventField::I32, "action · signal: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이)"},
     {"previous", GameEventField::I32, "score: 틱 처음의 점수"},

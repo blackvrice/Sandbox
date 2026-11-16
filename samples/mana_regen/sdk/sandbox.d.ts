@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 cfce033639142a66 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 3c0bbbceed44d584 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -307,6 +307,7 @@ declare module "sandbox" {
     Score = 4,
     Action = 5,
     Signal = 6,
+    Timer = 7,
   }
   /** onEvent 의 이벤트 (단계 17d — 그 틱에 일어난 일) */
   export interface GameEvent {
@@ -314,6 +315,8 @@ declare module "sandbox" {
     readonly action: string;
     /** spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다) */
     readonly entity: Entity | null;
+    /** timer: ctx.after · every 의 키 (다른 종류는 빈 문자열 — v0.10 RT-06-10) */
+    readonly key: string;
     /** 이벤트 종류 */
     readonly kind: GameEventKind;
     /** action · signal: 명령을 낸 쪽 (CommandHeader issuer — 0 = 서버 · 자동 플레이) */
@@ -409,6 +412,12 @@ declare module "sandbox" {
     add<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
     /** 스크립트 컴포넌트를 뗀다 (이 틱 끝에) — ctx.remove */
     remove<T>(entity: Entity, component: ComponentRef<T>): void;
+    /** ticks 틱 뒤 한 번 — 그 틱의 onEvent 에 e.kind == GameEventKind.Timer · e.key == key (이 시스템의 onEvent). ticks 1 ~ 16777216, key 1 ~ 47 바이트 (밖이면 HostError). 세이브 · 리플레이에 남는다 (script.timer). 이 호출이 끝나면 적용 — ctx.after */
+    after(ticks: i32, key: string): void;
+    /** ticks 틱마다 — 첫 만기는 ticks 틱 뒤, cancelTimer(key) 까지 (ctx.after 와 같은 이벤트 · 범위) — ctx.every */
+    every(ticks: i32, key: string): void;
+    /** 이 시스템의 key 타이머를 모두 지운다 (after · every — 없으면 아무 일 없음). 이 호출이 끝나면 적용 — ctx.cancelTimer */
+    cancelTimer(key: string): void;
     /** 개체의 주인 플레이어를 정한다 (game.owner — 없으면 붙인다, 0 = 주인 없음, 0 ~ 65535 밖이면 HostError). 이 호출이 끝나면 적용 — ctx.setOwner */
     setOwner(e: Entity, player: i32): void;
     /** 접속한 플레이어 수 (리플레이에 기록된 접속 · 나감 — 재생 때 같은 값) — ctx.playerCount */

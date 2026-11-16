@@ -139,7 +139,8 @@ TEST_SUITE("script") {
         // v0.5 M8-T8: 엔진 질의 · 경로 요청 7 (nearest · kNearest · inBox · requestPath · pathState · pathPoints ·
         // cancelPath — ADR-0085 11), ABI NumberList. M8-T8 (2): 충돌 질의 raycast · overlap
         // v0.7 M3-T4 — client.setUi · setUiText · showUi, M4-T1 (2) — client.uiText · uiFormat (String 결과)
-        CHECK(api::hostApiFingerprint() == 0xcfce033639142a66ull);
+        // v0.10 RT-06-10 — ctx.after · every · cancelTimer, GameEventKind.Timer · GameEvent.key
+        CHECK(api::hostApiFingerprint() == 0x3c0bbbceed44d584ull);
     }
 
     TEST_CASE("import 경로 풀기") {

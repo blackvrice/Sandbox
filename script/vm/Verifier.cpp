@@ -348,8 +348,8 @@ private:
             callback(s, "onMigrate", s.onMigrate, false);
             callback(s, "onEvent", s.onEvent, true);
             const bool events = s.onEvent != api::kNoCallback;
-            if (events != !s.events.empty()) {
-                fail(std::format("시스템 {}: 구독과 onEvent 는 함께 있다", s.id));
+            if (!events && !s.events.empty()) { // onEvent 만 (구독 없음) 은 된다 — 타이머 (v0.10 RT-06-10)
+                fail(std::format("시스템 {}: 구독이 있는데 onEvent 가 없다", s.id));
             }
             if (events ? (s.eventsPerTick < 1 || s.eventsPerTick > api::kMaxEventsPerTick) : s.eventsPerTick != 0) {
                 fail(std::format("시스템 {}: eventsPerTick {} 가 맞지 않다", s.id, s.eventsPerTick));

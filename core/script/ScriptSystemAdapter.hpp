@@ -128,6 +128,14 @@ struct ScriptEventFacts {
     std::vector<Score> scores;    // 바뀐 칸 — 칸 순
     std::vector<Action> actions;  // 받아들여진 차례 (명령 적용 차례 — executeTick · issuer · sequence)
     std::vector<Signal> signals;  // 받아들여진 차례 (명령 적용 차례)
+    // 만기 타이머 (v0.10 RT-06-10) — (만기, saveId) 차례. 만든 시스템의 onEvent 로만
+    struct Timer {
+        std::string system;
+        std::string key;
+        SaveId saveId = kInvalidSaveId;
+        sim::Tick due = 0;
+    };
+    std::vector<Timer> timers;
 };
 
 class ScriptSystemAdapter {
@@ -204,6 +212,7 @@ private:
         i32 previous = 0;
         const ScriptEventFacts::Action* action = nullptr; // action 종류일 때만
         const ScriptEventFacts::Signal* signal = nullptr; // signal 종류일 때만
+        const ScriptEventFacts::Timer* timer = nullptr;   // timer 종류일 때만 (v0.10 RT-06-10)
     };
     // 콜백 하나를 부른다 (ev 가 있으면 onEvent 의 e). 꺼졌거나 틱 연료가 없으면 부르지 않는다
     void invoke(sim::SimulationWorld& world, sim::Tick tick, Entry& s, u32 fn, std::string_view callback,

@@ -111,6 +111,9 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
             } else if (n == "signal") {
                 v = vm::Value::i32v(static_cast<i32>(m_texts.size()));
                 m_texts.push_back(ev->signal != nullptr ? ev->signal->name : std::string());
+            } else if (n == "key") {
+                v = vm::Value::i32v(static_cast<i32>(m_texts.size()));
+                m_texts.push_back(ev->timer != nullptr ? ev->timer->key : std::string());
             } else if (n == "player") {
                 v = vm::Value::i32v(ev->action != nullptr   ? ev->action->player
                                     : ev->signal != nullptr ? ev->signal->player
@@ -256,6 +259,13 @@ void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick ti
     u32 total = 0;
     for (Entry& s : m_systems) {
         if (s.desc->onEvent == api::kNoCallback) {
+            // 타이머를 만들고 onEvent 가 없다 — 받을 곳이 없어 건너뛴다 (센다)
+            for (const ScriptEventFacts::Timer& t : facts.timers) {
+                if (t.system == s.desc->id) {
+                    ++s.counters.cut;
+                    ++m_last.cut;
+                }
+            }
             continue;
         }
         u32 mine = 0;
@@ -316,6 +326,14 @@ void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick ti
                     deliver(EventValues{GameEventKind::Signal, {}, 0.0, 0.0, 0, g.value, 0, nullptr, &g});
                 }
                 break;
+            case GameEventKind::Timer:
+                break; // 구독하지 않는다 — 아래에서 만든 시스템에만
+            }
+        }
+        // 이 시스템의 만기 타이머 — 구독 뒤에, (만기, 만든 차례)
+        for (const ScriptEventFacts::Timer& t : facts.timers) {
+            if (t.system == s.desc->id) {
+                deliver(EventValues{GameEventKind::Timer, {}, 0.0, 0.0, 0, 0, 0, nullptr, nullptr, &t});
             }
         }
     }

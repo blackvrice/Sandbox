@@ -12,6 +12,7 @@
 #include "core/components/game/GameOwner.hpp"
 #include "core/components/game/GameScore.hpp"
 #include "core/components/game/GameSession.hpp"
+#include "core/components/game/ScriptTimer.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/components/life/Age.hpp"
 #include "core/components/life/Life.hpp"
@@ -32,7 +33,7 @@ Expected<void> addAll(ecs::ComponentCatalog& catalog) {
 Expected<void> registerCoreComponents(ecs::ComponentCatalog& catalog) {
     return addAll<Transform, Velocity, Lifetime, Persistence, NetIdentity, Tags, PrefabSource, Age, Energy, Health,
                   Growth, Reproduce, RandomWalk, Movement, Collider, Sensor, Behavior, Path, GameSession, GameScore,
-                  SpawnPoint, CameraStart, GameOwner>(catalog);
+                  SpawnPoint, CameraStart, GameOwner, ScriptTimer>(catalog);
 }
 
 } // namespace sbx::comp

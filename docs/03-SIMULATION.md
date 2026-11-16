@@ -155,7 +155,7 @@ public:
 | 17 | ApplyStructuralChanges②  | ECB 일괄 적용                                                            | Registry                            |
 | 17b | GameRules (v0.2)        | game.session 전이 — 카운트다운 · 끝 조건 (세션이 있을 때만)              | game.session                        |
 | 17c | Triggers (v0.2 M4-T2)   | 콘텐츠 Trigger — 세션이 Running 일 때만, 같은 틱 이어짐 · 예산           | 효과 (바로 적용)                    |
-| 17d | Script callbacks (v0.3 M4-T2) | 스크립트 onStart · onEvent (구독 — 죽음 · 생성 · 영역 · 점수) · onStop — 그 틱의 일만 | 스크립트 컴포넌트 (호출마다 바로 적용) |
+| 17d | Script callbacks (v0.3 M4-T2) | 스크립트 onStart · onEvent (구독 — 죽음 · 생성 · 영역 · 점수, 타이머 만기 — v0.10) · onStop — 그 틱의 일만 | 스크립트 컴포넌트 (호출마다 바로 적용) |
 | 18 | ReplicationSystem        | (ServerHost) 클라이언트별 Delta 작성 — 읽기 전용                         | —                                   |
 | 19 | WorldHash                | N틱마다(기본 30)                                                         | —                                   |
 | 20 | EndTick                  | 메트릭, 리플레이 체크포인트, 오토세이브 스냅샷, 로그 정리                | —                                   |
@@ -178,6 +178,12 @@ areaEnter · score → 일어난 차례) ③ onStop (세션이 그 틱에 Finish
 (위치 · 태그는 스냅숏), spawn = 그 틱의 EntitySpawned 중 살아 있는 것, areaEnter = 스냅숏에서 사각형 밖 → 지금 안 (saveId 순),
 score = 칸마다 스냅숏 ≠ 지금. 예산 — 시스템마다 eventsPerTick, 틱 전체 4096 (넘으면 건너뜀). 콜백은 이벤트를 내지 않아 이어짐이
 없다. 콜백이 없는 콘텐츠는 단계 · 스냅숏이 없다 → 골든 그대로.
+
+타이머 (v0.10 RT-06-10, [ADR-0138](adr/0138-script-timers-entity-key-onevent.md)): 17d 는 script.timer 가 하나라도 있으면 콜백 없는
+콘텐츠에서도 돈다. ① 다음에 만기 (dueTick ≤ 틱) 인 타이머를 (dueTick, saveId) 순으로 모으고, 콜백을 부르기 전에 엔진이 먼저 진행한다 —
+한 번짜리는 개체를 지우고 (syncIdentityLogs), every 는 dueTick 이 틱을 넘을 때까지 period 를 더한다 (한 틱에 한 번만 알린다). ② 에서
+시스템마다 그 시스템의 구독 이벤트 다음에 자기 타이머를 onEvent (kind Timer · key) 로 — 다른 시스템의 타이머는 오지 않는다. 그 콜백이
+만든 · 지운 타이머는 17d 끝의 구조 변경 적용에서 (같은 틱의 만기는 없다 — ticks ≥ 1).
 
 `17b GameRules` (v0.2 M2-T2, [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md)): System 이 아니라
 SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱의 생성 · 파괴가 반영된 수로 끝 조건을 본다. 월드에 하나인

@@ -103,7 +103,7 @@
 
 ### 4.2 다음 할 일 (순서)
 
-1. v0.10 트랙 A — RT-06-10 타이머 · defineState → RT-06-7 client 수명주기 → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
+1. v0.10 트랙 A — RT-06-10 (타이머 ✅ 조각 1, ADR-0138 — 남은 것 defineState · ctx.state) → RT-06-7 client 수명주기 → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
 2. v0.10 트랙 B — ST-06-3 Asset Browser · ST-06-4 Game UI Designer · M6-T2 템플릿 3종 (P0).
 3. 위가 끝나면 NG-18 통합 시험 → v0.10 출시 판정. 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
 4. 병행 (사람) — B1 의 창 QA 로 0.8.0 · 0.9.0 을 낸다.

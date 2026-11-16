@@ -93,6 +93,8 @@ worlds/<name>/
 
 ```text
 - prefab 은 출처 기록용. 로드 시 Prefab 을 다시 적용하지 않고 저장된 컴포넌트를 그대로 쓴다.
+- 스크립트 타이머 (v0.10 RT-06-10, ADR-0138) 는 개체마다 하나 — prefab 없는 개체에 `script.timer` { system, key, dueTick, period } 만.
+  로드하면 남은 타이머가 같은 틱에 같은 차례 (saveId) 로 만기한다. 세이브 형식 번호는 그대로 (components 표에 한 줄).
 - EntityRef 필드는 saveId 로 기록 → 로드 2-pass (전부 생성 후 참조 연결).
 - 모르는 stableId → Opaque 로 보존 (다시 저장하면 그대로 나간다).
 - float 은 최단 왕복 표현(std::to_chars) — 로드 후 비트가 같아야 D2 가 성립한다.

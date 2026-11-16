@@ -93,6 +93,7 @@ public:
     static constexpr u32 kMaxSpawnsPerCall = 64;
     static constexpr u32 kMaxDestroysPerCall = 256;
     static constexpr u32 kMaxAddRemovesPerCall = 256;
+    static constexpr u32 kMaxTimerOpsPerCall = 64; // after · every · cancelTimer (v0.10 RT-06-10)
     static constexpr u32 kMaxSpawnsPerTick = 1024; // 월드 하나의 모든 스크립트 호출 합
 
     ScriptHost();
@@ -137,6 +138,9 @@ public:
     vm::HostResult time(std::span<const vm::HostArg> args);
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — SimulationWorld::players() 를 id 순으로
     vm::HostResult setOwner(std::span<const vm::HostArg> args);
+    // 타이머 (v0.10 RT-06-10) — period 0 = after, 아니면 every
+    vm::HostResult addTimer(std::span<const vm::HostArg> args, bool repeat);
+    vm::HostResult cancelTimer(std::span<const vm::HostArg> args);
     vm::HostResult playerCount(std::span<const vm::HostArg> args);
     vm::HostResult playerId(std::span<const vm::HostArg> args);
     vm::HostResult playerRole(std::span<const vm::HostArg> args);
@@ -204,6 +208,7 @@ private:
     sim::ScriptStructuralBatch m_ops;
     u32 m_newEntities = 0; // spawn 한 수 (newIndex 의 끝)
     u32 m_destroysThisCall = 0;
+    u32 m_timerOpsThisCall = 0;
     u32 m_addRemovesThisCall = 0;
     u64 m_droppedThisCall = 0; // 상한 · 잘못된 연산으로 버린 수 (commit 이면 월드 통계에)
     // ctx.random 흐름 (v0.5 M2-T4) — 틱마다 (시스템 id 해시 → 흐름). 같은 시스템의 호출들이 한 틱에 이어 쓴다

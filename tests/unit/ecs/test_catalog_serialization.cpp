@@ -18,13 +18,13 @@ TEST_SUITE("ecs") {
     TEST_CASE("catalog: core components register and are sorted by stable id") {
         ComponentCatalog cat;
         REQUIRE(comp::registerCoreComponents(cat).has_value());
-        CHECK(cat.size() == 23); // v0.5 M2-T5: + game.owner
+        CHECK(cat.size() == 24); // v0.5 M2-T5: + game.owner, v0.10 RT-06-10: + script.timer
         for (const char* name :
              {"core.transform",      "core.velocity",     "core.lifetime",     "core.tags",     "core.prefab",
               "persist.persistence", "net.identity",      "life.age",          "life.energy",   "life.health",
               "life.growth",         "life.reproduce",    "debug.random_walk", "core.movement", "core.collider",
               "ai.sensor",           "ai.behavior",       "ai.path",           "game.session",  "game.score",
-              "game.spawn_point",    "game.camera_start", "game.owner"}) {
+              "game.spawn_point",    "game.camera_start", "game.owner",        "script.timer"}) {
             INFO(name);
             CHECK(cat.find(name) != nullptr);
         }

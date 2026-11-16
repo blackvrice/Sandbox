@@ -11,6 +11,7 @@
 // 같은 호출에서 spawn 한 개체는 newIndex (1 부터) 로 가리킨다 — add · destroy 의 대상이 될 수 있다.
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 #include "core/content/ContentDatabase.hpp"
@@ -20,7 +21,7 @@
 namespace sbx::sim {
 
 struct ScriptStructuralOp {
-    enum class Kind : u8 { Spawn, Destroy, Add, Remove, SetOwner };
+    enum class Kind : u8 { Spawn, Destroy, Add, Remove, SetOwner, TimerAdd, TimerCancel };
     Kind kind = Kind::Spawn;
     u32 newIndex = 0;       // Spawn: 이 호출의 새 개체 번호 (1 부터). 그 밖: 대상이 새 개체면 그 번호, 아니면 0
     ecs::EntityId target{}; // 기존 개체 (newIndex == 0)
@@ -29,6 +30,11 @@ struct ScriptStructuralOp {
     const ecs::ComponentInfo* component = nullptr; // Add · Remove
     std::vector<std::byte> bytes;                  // Add — 동적 컴포넌트의 값 (배치 그대로)
     u32 player = 0;                                // SetOwner — game.owner.player (v0.5 M2-T5 (4b))
+    // TimerAdd · TimerCancel (v0.10 RT-06-10) — 시스템 id · 키, 첫 만기까지 틱 · 간격 (0 = 한 번)
+    std::string system;
+    std::string key;
+    u32 delay = 0;
+    u32 period = 0;
 };
 
 struct ScriptStructuralBatch {
@@ -42,6 +48,8 @@ struct ScriptStructuralStats {
     u64 added = 0;
     u64 removed = 0;
     u64 dropped = 0; // 상한 · 잘못된 연산 · 적용 때 대상이 없음
+    u64 timersAdded = 0;
+    u64 timersCancelled = 0;
 };
 
 } // namespace sbx::sim

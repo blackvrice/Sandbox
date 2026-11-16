@@ -258,8 +258,9 @@ private:
     // 단계 0 (v0.2 M4-T2): 트리거 · 스크립트 이벤트가 볼 틱 처음의 상태 — 점수, (영역 진입 · 죽음을 듣는 트리거 ·
     // 스크립트가 있으면) 개체 위치 · 태그. 저장된 상태에서 다시 만들 수 있는 값이라 세이브/로드와 무관하다
     void snapshotForTriggers();
-    void runTriggers(Tick now);        // 단계 17c
-    void runScriptCallbacks(Tick now); // 단계 17d (SimulationScripts.cpp)
+    void runTriggers(Tick now);                 // 단계 17c
+    void runScriptCallbacks(Tick now);          // 단계 17d (SimulationScripts.cpp)
+    [[nodiscard]] bool hasScriptTimers() const; // script.timer 개체가 있다 (v0.10 RT-06-10 — 17d 를 돌린다)
     // 지금 콘텐츠의 스크립트 바이트코드에 맞춰 어댑터를 만든다 · 다시 만든다 · 없앤다 (생성 · 오버레이가 바뀔 때)
     void syncScriptSystems();
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)

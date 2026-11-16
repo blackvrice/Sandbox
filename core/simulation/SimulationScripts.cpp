@@ -10,12 +10,15 @@
 //   score  점수 칸마다 스냅숏 ≠ 지금 (세션이 있을 때)
 //   action 그 틱에 받아들여진 PlayerAction (명령 적용 차례) — 대상은 지금 살아 있는 것만 (v0.5 M2-T5 (2))
 //   signal 그 틱에 받아들여진 PlayerSignal (명령 적용 차례) — v0.5 M2-T5 (3)
+//   timer  dueTick ≤ 그 틱인 script.timer (만기 · saveId 차례 — 어댑터가 시스템 차례로 나눈다). 콜백 전에 엔진이
+//          한 번짜리는 지우고 every 는 다음 만기로 민다 — 콜백의 cancelTimer · after 는 그 뒤에 적용 (v0.10 RT-06-10)
 
 #include <algorithm>
 
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
+#include "core/components/game/ScriptTimer.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/script/ScriptSystemAdapter.hpp"
 #include "core/simulation/SimulationWorld.hpp"
@@ -112,7 +115,43 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             facts.signals.push_back(script::ScriptEventFacts::Signal{g.name, g.player, g.value});
         }
     }
+    // 만기 타이머 — 이벤트를 모으고 엔진이 먼저 진행 (지우기 · 다음 만기). 콜백의 cancelTimer 는 그 뒤
+    // (applyScriptStructural)
+    if (hasScriptTimers()) {
+        std::vector<std::pair<ecs::EntityId, script::ScriptEventFacts::Timer>> due;
+        for (auto [e, t, id] : m_registry.view<ecs::Read<comp::ScriptTimer>, ecs::Read<comp::Persistence>>()) {
+            if (t.dueTick <= now) {
+                due.push_back({e, script::ScriptEventFacts::Timer{std::string(t.system.view()),
+                                                                  std::string(t.key.view()), id.saveId, t.dueTick}});
+            }
+        }
+        std::sort(due.begin(), due.end(), [](const auto& a, const auto& b) {
+            return a.second.due != b.second.due ? a.second.due < b.second.due : a.second.saveId < b.second.saveId;
+        });
+        bool destroyed = false;
+        for (auto& [e, timer] : due) {
+            const comp::ScriptTimer& t = m_registry.read<comp::ScriptTimer>(e);
+            if (t.period == 0) {
+                m_registry.destroy(e);
+                destroyed = true;
+            } else {
+                comp::ScriptTimer& w = m_registry.write<comp::ScriptTimer>(e);
+                while (w.dueTick <= now) {
+                    w.dueTick += w.period; // 한 틱에 한 번 (멈췄다 이어도 쌓이지 않는다)
+                }
+            }
+            facts.timers.push_back(std::move(timer));
+        }
+        if (destroyed) {
+            syncIdentityLogs(); // 파괴 이벤트 · saveId 표
+        }
+    }
     scripts.runCallbacks(*this, now, facts);
+}
+
+bool SimulationWorld::hasScriptTimers() const {
+    const auto* pool = m_registry.findPool<comp::ScriptTimer>();
+    return pool != nullptr && pool->size() > 0;
 }
 
 } // namespace sbx::sim
