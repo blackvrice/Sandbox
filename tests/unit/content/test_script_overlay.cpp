@@ -166,6 +166,8 @@ export default defineSystem({ id: "t.boost", intervalTicks: 2, onTick(ctx) { } }
         CHECK(r.db.scriptPrograms() != base.db.scriptPrograms()); // 새 바이트코드
         CHECK(r.db.scriptCatalog() == base.db.scriptCatalog());   // 같은 카탈로그 (월드의 풀이 그대로)
         CHECK(r.db.scriptPrograms()->systemCount() == 2);
+        // contentHash 는 팩의 것 그대로 — 오버레이 소스는 해시 밖 (09 7장. 세이브 · 접속 · 리플레이의 콘텐츠 검사)
+        CHECK(r.db.contentHash() == base.db.contentHash());
         const auto& systems = r.db.scriptPrograms()->packs[0].module.systems;
         CHECK(systems[0].id == "t.boost");
         CHECK(systems[0].module == "scripts/extra/boost.ts");
@@ -253,6 +255,12 @@ export default defineSystem({ id: "t.boost", intervalTicks: 2, onTick(ctx) { } }
         auto loaded = persist::loadWorld(engine(), base.db, dir);
         REQUIRE_MESSAGE(loaded.has_value(), loaded.error().describe());
         CHECK(loaded->hashVerified);
+        // 세이브의 contentHash 는 팩의 것 — "콘텐츠가 저장 당시와 다르다" 경고가 없다
+        // (Script 오버레이가 해시를 바꾸던 버그)
+        CHECK(w.world.content().contentHash() == base.db.contentHash());
+        for (const std::string& warning : loaded->warnings) {
+            CHECK_MESSAGE(warning.find("contentHash") == std::string::npos, warning);
+        }
         for (int i = 0; i < 5; ++i) {
             w.world.tick();
             loaded->world->tick();

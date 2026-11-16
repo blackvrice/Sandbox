@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-11-17 — content: Script 오버레이가 contentHash 를 바꿔 그 월드의 세이브가 거절되던 버그
+
+**무엇을**
+
+- ContentLoader::build: contentHash (팩 매니페스트) 를 0 단계 (applyScriptOverlay) 가 오버레이 소스를 팩의 scripts/ 목록에 끼우기
+  **전에** 센다. 오버레이를 얹은 DB 의 contentHash 가 Script 오버레이가 있어도 팩의 것 그대로 (09 7장 · ContentOverlay.hpp 가 이미
+  그렇게 정했다 — 구현만 어긋났다). 09 7장에 Script 오버레이도 같다는 줄.
+- 시험: test_script_overlay — 로더 (오버레이 DB 의 해시 = 팩 DB 의 해시) · 세이브 → 로드 (contentHash 경고 없음).
+  test_client_script_session "lifecycle" 끝에 Script 오버레이 두 개가 있는 월드의 저장 → 불러오기 · 테스트 플레이 (onStop · onStart
+  수까지). 팩 복사본은 그대로 둔다 — "같은 콘텐츠면 실행기 그대로, 새 세션" 을 보는 자리다 (아래 "찾은 것").
+
+**왜**
+
+- 세이브의 world.json 은 `world.content().contentHash()` (오버레이를 얹은 DB) 를, 서버의 openSave 는 `baseContent()` 의 것을 쓴다.
+  Script 오버레이만 소스 파일 목록에 끼어 해시에 들었으므로 (Rule · Prefab 등은 4 단계 loadOverlay — 해시 밖) 그 월드의 불러오기 ·
+  테스트 플레이 · 리플레이 시작 월드가 "다른 콘텐츠로 만든 세이브입니다" 로 거절됐다. 같은 해시가 서버 핸드셰이크
+  (ServerHost m_contentHash) · 리플레이 머리에도 들어가 Script 오버레이 세이브로 띄운 서버에는 팩 그대로인 클라이언트가 접속하지 못했을
+  것이다. 고친 쪽: 세이브 쪽을 baseContent 로 바꾸는 것보다 로더 한 곳이 문서의 계약 ("오버레이는 넣지 않는다") 을 지키게 했다 —
+  쓰는 곳 (세이브 · 리플레이 · 핸드셰이크 · 프로젝트 요약) 이 모두 같은 값을 본다. 오버레이 자체는 세이브의 overlay/ 와 WorldHash 의
+  오버레이 지문에 남는다.
+
+**찾은 것**
+
+- 오버레이 콘텐츠의 클라이언트는 월드가 바뀔 때마다 (WorldChanged — overlayRevision 이 새 세션에서 다시 온다) applyOverlay 로 다시
+  컴파일해 ScriptPrograms 가 새것이 되고, client 실행기도 새로 만든다 (sessions 1 부터). onStop → onStart 수는 같아 수명주기 계약은
+  지키지만, 같은 오버레이면 실행기를 그대로 두는 편이 싸다 — 고치지 않았다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 회귀: 로더 변경만 되돌리면 새 검사 5 개가 실패 (lifecycle 은 Load 거절로 REQUIRE 실패) — 고침으로 통과.
+- 단위 시험 964 개 통과 (Debug — 수 그대로, 기존 시험 둘에 검사를 더했다). 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED.
+  build\ci-werror (/WX) 빌드 경고 0, check_docs · check_includes 문제 0.
+- 골든 WorldHash 그대로 · kSimVersion 그대로: WorldHash 는 contentHash 가 아니라 오버레이 지문 (`content.overlay().hash()`,
+  core/replay/WorldHash.cpp) 을 쓴다. det_* 통과. 커밋된 세이브 (tests/data — 오버레이 없음) 의 contentHash 도 그대로.
+  Script 오버레이로 기록한 옛 리플레이 · 세이브는 머리의 contentHash 가 지금 값과 달라 경고 (리플레이 · loadWorld) 또는 openSave 거절이
+  날 수 있다 — 버그가 만든 값이다.
+- 벤치는 돌리지 않았다: 해시 계산 자리만 옮겼다 (같은 일).
+
+**남은 일**
+
+- 같은 오버레이면 클라이언트 실행기를 다시 만들지 않기 (위 "찾은 것").
+
 ## 2026-11-16 — v0.10 RT-06-7 조각 1: client 수명주기 — onStart · onLateUpdate · onStop, 세션 = 복제 월드 하나 (ADR-0140)
 
 **무엇을**

@@ -2721,6 +2721,19 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
         m_visible[sp.info.id] = std::move(vis);
     }
 
+    // contentHash = 팩(id, version) + 파일 (경로, 바이트) 매니페스트 + 내장 머티리얼 (09 7장). 오버레이는 넣지 않는다 —
+    // 그래서 0 단계 (applyScriptOverlay) 가 files 에 오버레이 소스를 끼우기 전에 센다. 오버레이를 얹은 DB 의 해시도
+    // 팩의 것 그대로여야 세이브 · 접속 · 리플레이의 콘텐츠 검사가 맞는다 (오버레이 지문은 WorldHash 에, 04 5장)
+    Fnv1a64 h;
+    h.string("SBXCONTENT2").u64le(ContentDatabase::builtin().contentHash());
+    for (usize i = 0; i < m_order.size(); ++i) {
+        h.string(m_order[i].info.id).byte(0).string(m_order[i].info.version).byte(0);
+        for (const SourceFile& f : files[i]) {
+            h.string(f.rel).byte(0).u64le(fnv1a64(f.text));
+        }
+    }
+    const u64 manifestHash = h.value();
+
     // 0) 스크립트 컴포넌트 — Prefab · Rule · 트리거 검사보다 먼저 (V3 가 스크립트 컴포넌트를 안다).
     // 오버레이에 스크립트가 있으면 (v0.3 M5-T2, ADR-0066) 그 파일을 팩의 scripts/ 에 넣고 (바꾸거나 더하고) 다시
     // 컴파일한다 — 컴포넌트 정의는 팩 DB 와 같아야 하고 (월드의 풀 · 카탈로그가 그대로), 카탈로그는 팩 DB 의 것을
@@ -2824,16 +2837,7 @@ ContentDatabase ContentLoaderImpl::build(const ContentSources& sources, const Co
     crossCheck();
     link();
 
-    // contentHash = 팩(id, version) + 파일 (경로, 바이트) 매니페스트 + 내장 머티리얼 (09 7장). 오버레이는 넣지 않는다
-    Fnv1a64 h;
-    h.string("SBXCONTENT2").u64le(ContentDatabase::builtin().contentHash());
-    for (usize i = 0; i < m_order.size(); ++i) {
-        h.string(m_order[i].info.id).byte(0).string(m_order[i].info.version).byte(0);
-        for (const SourceFile& f : files[i]) {
-            h.string(f.rel).byte(0).u64le(fnv1a64(f.text));
-        }
-    }
-    m_db.m_hash = h.value();
+    m_db.m_hash = manifestHash;
     if (overlay != nullptr) {
         m_db.m_overlay = *overlay;
     }

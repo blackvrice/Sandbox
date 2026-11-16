@@ -518,8 +518,10 @@ export default defineSystem({
     }
     TEST_CASE("client script lifecycle (local server, v0.10 RT-06-7): 첫 스냅숏 뒤 onStart · 서버 월드가 바뀌면 onStop "
               "→ 새 세션 onStart · 콘텐츠가 바뀌면 onStop → 새 실행기 onStart") {
-        // 팩에 client 시스템을 둔 콘텐츠 복사본 — 오버레이 없이 (Script 오버레이가 있는 월드는 세이브의 콘텐츠 해시가
-        // 달라 불러오지 못한다 — DEVELOPMENT_LOG 2026-11-16)
+        // 팩에 client 시스템을 둔 콘텐츠 복사본 — 같은 콘텐츠의 월드가 바뀌면 실행기를 그대로 두고 새 세션인 것을 본다
+        // (오버레이 콘텐츠는 월드가 바뀔 때 클라이언트가 다시 컴파일한다 — 실행기도 새로). 끝에 Script 오버레이
+        // 월드의 저장 → 불러오기 · 테스트 플레이 (오버레이가 contentHash 를 바꿔 거절되던 버그의 회귀,
+        // DEVELOPMENT_LOG 2026-11-17)
         namespace fs = std::filesystem;
         const fs::path root = fs::temp_directory_path() / std::format("sbx_client_life_{:x}", std::random_device{}());
         struct Cleanup {
@@ -611,5 +613,35 @@ export default defineSystem({
         CHECK(uiNumber(ns, "eco.stops") == 3);
         CHECK(uiNumber(ns, "eco.starts") == 4);
         CHECK(ns.clientScripts()->counters(0).traps == 0);
+
+        // Script 오버레이가 있는 월드의 저장 → 불러오기 · 테스트 플레이 — 세이브의 contentHash 는 팩의 것 (09 7장)
+        auto& host = ns.localServer()->host();
+        CHECK(host.world().content().contentHash() == host.world().baseContent().contentHash());
+        ns.worldOp(WorldOp::Save, "hud");
+        for (int i = 0; i < 60 && ns.worldOps()->saved.size() < 2; ++i) {
+            frame();
+        }
+        REQUIRE(ns.worldOps()->saved.size() == 2);
+        const auto reopen = [&](WorldOp op, std::string_view name, u32 generation) {
+            ns.worldOp(op, std::string(name));
+            for (int i = 0; i < 60 && ns.worldGeneration() < generation; ++i) {
+                frame();
+            }
+            const std::string message = ns.worldOps() ? ns.worldOps()->message : std::string("-");
+            REQUIRE_MESSAGE(ns.worldGeneration() == generation, message);
+            CHECK(message.find("다른 콘텐츠") == std::string::npos);
+            for (int i = 0; i < 60 && ns.clientScripts()->systemCount() < 2; ++i) {
+                frame(); // 오버레이가 다시 온다
+            }
+            waitStarted();
+            CHECK(ns.clientScripts()->systemCount() == 2);
+        };
+        reopen(WorldOp::Load, "hud", 3);
+        CHECK(host.world().contentOverlay().find(ContentKind::Script, "eco.hud") != nullptr);
+        CHECK(uiNumber(ns, "eco.stops") == 4);
+        CHECK(uiNumber(ns, "eco.starts") == 5);
+        reopen(WorldOp::TestPlay, {}, 4); // 편집 월드를 저장해 복사본을 연다
+        CHECK(uiNumber(ns, "eco.stops") == 5);
+        CHECK(uiNumber(ns, "eco.starts") == 6);
     }
 }

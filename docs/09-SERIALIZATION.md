@@ -300,6 +300,8 @@ registerMigration("life.energy", /*from*/ 1, /*to*/ 2, [](nlohmann::json& j) {
 contentHash = 매니페스트를 다시 해시
 월드 오버레이는 contentHash 에 포함하지 않는다 (서버가 ContentOverlay 로 내려준다). Phase 12C 구현: 오버레이를 적용한
 ContentDatabase 의 contentHash 도 팩의 것 그대로 — 오버레이 지문은 WorldHash 에 (04 5장).
+Script 오버레이 (ADR-0066) 도 같다: 로더는 오버레이 소스를 팩의 scripts/ 목록에 끼우기 전에 매니페스트를 센다
+(2026-11-17 고침 — 전에는 Script 오버레이만 해시에 들어 그 월드의 세이브가 "다른 콘텐츠" 로 거절됐다).
 ```
 
 ## 8. 필수 테스트
