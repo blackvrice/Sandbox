@@ -588,7 +588,7 @@ void SimulationWorld::applyScriptStructural() {
                 usize mine = 0;
                 for (auto [e, t] : m_registry.view<ecs::Read<comp::ScriptTimer>>()) {
                     (void)e;
-                    mine += t.system.view() == op.system ? 1 : 0;
+                    mine += t.system.view() == op.system ? usize{1} : usize{0};
                 }
                 comp::ScriptTimer timer;
                 if (mine >= comp::kMaxTimersPerSystem || !timer.system.assign(op.system) || !timer.key.assign(op.key)) {
