@@ -14,6 +14,10 @@
 
 ## 1. 현재 구현 상태 (v0.1 ~ v0.5 M8)
 
+> **이 표는 2026-11-02 시점의 분석이다 (이력으로 남긴다).** 그 뒤 v0.6 ~ v0.9 가 바꾼 것 — 게임 UI · 다국어 · 리플레이 뷰어 · 프로젝트 에셋 ·
+> Studio 홈 · 빌드 화면 · 호환 번호 — 은 반영돼 있지 않다. 지금 상태는 [overview/FEATURE_MATRIX](overview/FEATURE_MATRIX.md) ·
+> [overview/CURRENT_STATUS](overview/CURRENT_STATUS.md), 호환 번호는 [roadmap/versioning](roadmap/versioning.md) 5장.
+
 18-PLATFORM 2장의 표 (게임 제작 영역) 를 넓히고, 이번 요청의 영역을 더했다. 근거는 경로 · 시험 이름 · 문서 장.
 버전 번호 (2026-11-09 헤더 값 — v0.7 NG-06 (2)): .sbc kFormatVersion 10 (script/vm/Bytecode.hpp) · kHostApiVersion 1 · 지문 0xcfce033639142a66
 (script/api/HostApi.hpp · test_checker 고정) · kSimVersion 4 (core/simulation) · 프로토콜 15 (network/protocol — M2-T5 (3)) · .sbpkg 형식 2 · 리플레이 1 ·

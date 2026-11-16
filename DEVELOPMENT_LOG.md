@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-12 — docs: 문서 체계 정리 — 현황 대시보드 · 기능 매트릭스 · 전체 로드맵 · 버전별 체크리스트 (생성)
+
+**무엇을**
+
+- 보는 문서 층을 더했다: docs/overview/ (CURRENT_STATUS · FEATURE_MATRIX · MODULES), docs/roadmap/MASTER_ROADMAP · versions/v0.5 ~ v1.0 (22),
+  docs/development/DOCUMENTATION_GUIDE, 감사 기록 docs/audit/DOCS-AUDIT-2026-11-12.
+- tools/gen_roadmap.py — 태스크 등록부 · releases · MANUAL-QA · 릴리스 노트 · CMake VERSION 을 읽어 MASTER_ROADMAP · versions/ · CURRENT_STATUS 의
+  생성 구간 (버전 표 · 진행률 · 작업 체크리스트 · 미완료 · 완료 조건) 을 쓴다. `--check` = CTest docs_roadmap_generated (라벨 arch).
+  버전 문서의 손으로 쓴 세부 체크리스트 (### <ID>) 를 등록부 상태와 맞춰 본다. v0.10 의 세부 체크리스트를 태스크 카드에서 옮겼다.
+- 낡은 줄을 소스 · 등록부에 맞춤: versioning 5장 (Bytecode 10 → 12 · Protocol 16 → 18), 08 5장 제목, 18 2장 세 줄 (게임 UI · 게임플레이 API ·
+  실행 구조), 28 1장 G1 · G2 · G5 · G8 · G9 의 "지금" 칸, 21 1장 머리에 안내, 루트 README · docs/README 의 상태 · 목차, AGENTS 1 · 6장,
+  roadmap/README (보기 문서 · 검사 G), 13 · 17.
+
+**왜**
+
+- 현황이 18 2장 · 21 1장 · audit · 28 에 다른 날짜로 흩어져 서로 어긋났고, README 는 v0.8 이후를 모두 계획으로 적고 있었다. 버전마다 무엇이 끝났고
+  무엇이 남았는지를 표 · 체크리스트로 보려면 등록부 167 행을 직접 읽어야 했다.
+- 체크리스트를 손으로 또 쓰면 등록부와 어긋나므로 생성하고 CTest 로 묶었다. 번호 문서 (규범) 는 옮기거나 다시 쓰지 않았다 — ADR · 로그가 번호로 가리킨다.
+
+**검증**
+
+- tools/check_docs.py 문제 0 (251 파일), tools/gen_roadmap.py --check 낡은 것 0 · 문제 0, 새 문서의 표 열 수 · 코드 블록 · 앵커 · 적어 둔 소스 경로 ·
+  시험 이름을 일회성 스크립트로 대조.
+- Windows MSVC Debug 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED (2026-11-16). C++ 소스는 바꾸지 않았다 (tests/CMakeLists.txt 에 시험 하나).
+- 창 · GPU · Linux · macOS 실기는 하지 않았다 (헤드리스 조사). 감사 기록 6장.
+
+**남은 일**
+
+- 감사 기록 4장의 기록만 한 발견: G-09 회전 · 크기 툴 · G-10 월드 추가 화면 (계획에 넣을지 결정), G-11 v0.8 · v0.9 창 QA, G-12 Git 태그,
+  13 · 20 의 머리 줄. 호환 번호 · 등록부 시험 이름의 자동 대조는 제안 (문서 가이드 8장).
+
 ## 2026-11-12 — v0.10 RT-06-1: 호출 토큰의 콜백 · Capability 실행 검사 (ADR-0137)
 
 **무엇을**

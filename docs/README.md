@@ -3,24 +3,34 @@
 이 폴더는 프로젝트의 **단일 진실원(single source of truth)** 입니다.
 코드와 문서가 어긋나면 둘 중 하나가 버그입니다 — 어느 쪽인지 판단해서 같은 커밋에서 고칩니다.
 
-마지막 전면 정리: 2026-10-26 (v0.3 M5-T2 — 지도 · 상태 줄 · 소스 지도 · 남은 `[계획]` 표시를 코드와 맞춤)
+마지막 전면 정리: 2026-11-12 (현황 대시보드 · 기능 매트릭스 · 전체 로드맵 · 버전별 체크리스트를 더하고 낡은 현황 줄을 고침 —
+[감사 기록](audit/DOCS-AUDIT-2026-11-12.md))
 
 ---
 
 ## 0. 지금 어디인가
 
-```text
-버전      v0.1 Engine Foundation (Phase 0~15) 구현 끝 · 실기 검증 대기, v0.2 Game Creator ✅ 0.2.0, v0.3 SandboxScript ✅ 0.3.0,
-          v0.4 Package Manager ✅ 0.4.0, v0.5 Technical Alpha ✅ 0.5.0, v0.6 에셋 · 패키지 · SaveGame ✅ 0.6.0,
-          v0.7 게임 UI Runtime · 다국어 ✅ 0.7.0 (다음 v0.8 — roadmap/README 1장)
-지금 · 다음  18-PLATFORM 0장 (버전 · 마일스톤 · 태스크 "v0.N Mk-Tn")      Phase 0~15 이력 · 남은 검증  16-ROADMAP
-작업 이력    ../DEVELOPMENT_LOG.md (위가 최신)                            결정 이유      adr/README.md (0001~)
-```
+숫자와 상태는 여기 적지 않습니다 — 한곳에서만 관리합니다.
+
+| 알고 싶은 것 | 문서 |
+|---|---|
+| 지금 버전 · 진행률 · 막힌 것 | **[overview/CURRENT_STATUS](overview/CURRENT_STATUS.md)** (현황 대시보드) |
+| 무엇이 실제로 되나 | [overview/FEATURE_MATRIX](overview/FEATURE_MATRIX.md) (기능 매트릭스) |
+| 전체 버전 계획 · 버전별 작업 | [roadmap/MASTER_ROADMAP](roadmap/MASTER_ROADMAP.md) → [roadmap/versions/](roadmap/versions/) (버전별 체크리스트) |
+| 지금 태스크 · 다음 태스크 | [roadmap/README](roadmap/README.md) 1장 · [18-PLATFORM](18-PLATFORM.md) 0장 |
+| 작업 이력 · 결정 이유 | [DEVELOPMENT_LOG](../DEVELOPMENT_LOG.md) (위가 최신) · [adr/README](adr/README.md) |
+
+읽는 순서: `README → 현황 대시보드 → 전체 로드맵 → 버전별 체크리스트 → 기능별 설계 (아래 문서 맵)`.
 
 ## 1. 문서 맵
 
 | #  | 문서                                          | 언제 읽나                                                                  | 성격          |
 |----|-----------------------------------------------|----------------------------------------------------------------------------|---------------|
+| —  | [현황 대시보드](overview/CURRENT_STATUS.md)   | **가장 먼저.** 지금 버전 · 모듈별 상태 · 막힌 것 · 다음 할 일              | 보는 문서     |
+| —  | [기능 매트릭스](overview/FEATURE_MATRIX.md)   | 기능마다 쓸 수 있나 · 어느 버전인가 · 근거                                 | 보는 문서     |
+| —  | [모듈 안내](overview/MODULES.md)              | 모듈마다 역할 · 상태 · 제약 · 어느 규범 문서를 읽나 (그림 포함)            | 보는 문서     |
+| —  | [전체 로드맵](roadmap/MASTER_ROADMAP.md) · [버전별 체크리스트](roadmap/versions/) | 버전 표 · 진행률 · 태스크 체크리스트 · 미완료 작업 (등록부에서 생성) | 보는 문서 (생성) |
+| —  | [문서 가이드](development/DOCUMENTATION_GUIDE.md) | 문서를 쓰거나 고치기 전 — 정본 · 상태 표시 · 갱신 절차                  | 규범          |
 | 00 | [개요](00-OVERVIEW.md)                        | 처음 합류했을 때. 무엇을 왜 만드나, 범위, 용어집                           | 규범          |
 | 01 | [아키텍처](01-ARCHITECTURE.md)                | 타깃 · 레이어 · 스레드 · 데이터 흐름. 경계를 넘는 변경 전                  | 규범          |
 | 02 | [ECS](02-ECS.md)                              | EntityId, Registry, View, ECB, 리플렉션, 변경 추적, 스크립트 동적 컴포넌트 | 규범          |
@@ -51,7 +61,7 @@
 | 27 | [스크립트 IDE](27-SCRIPT-IDE.md)              | 언어 서비스 · 자동 완성 · 재생 디버거 · LSP                                 | 설계 · 계획   |
 | 28 | [제작자 흐름 기준](28-CREATOR-UX-GATES.md)    | 알파 G1 ~ G9 (CLI 없이) · 사용성 시험 계획 · 양식                           | 계획 · 규범   |
 | 29 | [Studio UI](29-STUDIO-UI.md)                  | 셸 · 워크스페이스 · 디자인 시스템 · 배치 프리셋 · 감사 · 벤치마킹 (v0.8 UI) | 설계 · 현행   |
-| —  | [감사 (audit/)](audit/SANDBOX-GAP-MATRIX.md)  | 벤치마크 · Gap Matrix · 구조 위험 · 알파 준비 · 검증 결과 (2026-11-03)      | 감사          |
+| —  | [감사 (audit/)](audit/SANDBOX-GAP-MATRIX.md)  | 벤치마크 · Gap Matrix · 구조 위험 · 알파 준비 · 검증 결과 (2026-11-03), [문서 체계 감사](audit/DOCS-AUDIT-2026-11-12.md) (2026-11-12 — 설계와 구현의 차이) | 감사          |
 | —  | [로드맵 (roadmap/)](roadmap/README.md)        | **로드맵 정본** — 버전 체계 (v0.10 > v0.9) · 태스크 등록부 · 버전별 목표 · 출시 기준 · 안정화 · RC · GA (ADR-0096 · 0099 · 0100) | 계획 · 규범   |
 | —  | [릴리스 노트](releases/v0.7.0.md)             | 버전마다 들어간 것 · 호환성 번호 · 미룬 것 (0.2.0 ~ 0.7.0)                 | 이력          |
 | —  | [수동 QA 체크리스트](qa/MANUAL-QA.md) · [QA 증거 양식](qa/QA-EVIDENCE.md)         | 마일스톤 QA (실기 · 창 · GPU)                                              | 절차          |
@@ -59,6 +69,7 @@
 | —  | [원본 설계서](design/SANDBOX_ARCHITECTURE.md) | RTS 분석 결과, v0.1 설계의 출처                                            | 이력 (동결)   |
 | —  | [플랫폼 설계 초안](platform/START_HERE.md)    | 플랫폼 비전 · v0.1~v1.0 요구사항의 출처 (2026-10-13)                       | 이력 (동결)   |
 
+**보는 문서**는 정본 (태스크 등록부 · 규범 문서) 을 사람이 읽기 좋게 묶은 것입니다 — 숫자 · 상태 표는 `tools/gen_roadmap.py` 가 만듭니다.
 **규범**은 코드가 따라야 하는 계약입니다. 어기면 리뷰에서 막습니다. **참조**는 현재 상태의 설명, **계획**은 순서와 우선순위,
 **이력**은 바꾸지 않는 기록입니다. 규범 문서도 아직 없는 부분은 `[계획]` 으로 표시합니다 — 머리의 "상태" 줄이 그 문서의
 구현 범위를 요약합니다.
@@ -70,7 +81,8 @@
 ## 2. 급할 때 읽을 순서
 
 ```text
-처음 온 사람          00 → 18 (0 · 1 · 2장) → 21 (1장) → 01 → 17
+처음 온 사람          overview/CURRENT_STATUS → overview/MODULES → 00 → 01 → 17
+무엇이 남았나         roadmap/MASTER_ROADMAP → roadmap/versions/<지금 버전> → overview/FEATURE_MATRIX
 v0.5 작업             18 (6.6) → 20 → 해당 규범 문서 (ADR-0078~0083)
 v0.6 이후 · 실행 구조  23 → 22 → 24 → ADR-0086 ~ 0088
 Studio · 제작 도구     audit/ALPHA-READINESS → 28 → 25 → 26 · 27 → ADR-0089 ~ 0092
@@ -89,9 +101,11 @@ ECS / 시뮬레이션 수정  04 → 02 → 03 → 12 → 13
 
 ## 3. 문서 유지 규칙
 
-[AGENTS.md](../AGENTS.md) 6장과 한 쌍입니다.
+[AGENTS.md](../AGENTS.md) 6장과 한 쌍입니다. 절차 (기능을 개발할 때 · 버전을 끝낼 때) 와 작성 규칙의 자세한 것은
+[문서 가이드](development/DOCUMENTATION_GUIDE.md).
 
-1. **구조를 바꾸면 문서를 같은 커밋에서 고칩니다.** 태스크가 끝나면 18-PLATFORM 0장 (다음) · 6.2 (✅) 를 고칩니다.
+1. **구조를 바꾸면 문서를 같은 커밋에서 고칩니다.** 태스크가 끝나면 태스크 등록부의 상태 · roadmap/README 1장 · 18-PLATFORM 0장 (다음) 을
+   고치고 `python tools/gen_roadmap.py --root .` 로 보는 문서를 다시 만듭니다.
 2. **결정을 바꾸면 ADR을 추가합니다.** 기존 ADR은 수정하지 않습니다 (상태 줄의 Superseded 표시만).
 3. **`DEVELOPMENT_LOG.md`는 이력, `docs/`는 현재 계약.** 섞지 않습니다.
 4. 수치에는 출처(측정 / 추정 / 데이터 파일)를 적습니다.

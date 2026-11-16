@@ -55,6 +55,9 @@
 
 ## 2. 현황 (초안 대비, 2026-11-02 소스 · 테스트 기준 — v0.5 M8 뒤. 영역별 상세 · 빠진 것은 21 1장)
 
+> 이 표는 2026-11-02 의 것이다 (세 줄만 2026-11-12 에 고쳤다). **지금의 모듈 · 기능 상태는 [overview/CURRENT_STATUS](overview/CURRENT_STATUS.md) ·
+> [overview/FEATURE_MATRIX](overview/FEATURE_MATRIX.md)** 가 정리한다.
+
 **Implemented** = 소스와 자동 시험이 있다, **Partial** = 바탕은 있고 플랫폼 요구에 확장이 필요하다, **Planned** = 새로 만든다.
 초안(2026-10-13)이 "초기 Vulkan"으로 적은 것은 그 뒤 13A~13C · 14 · 15 로 바뀌었다.
 
@@ -84,10 +87,10 @@
 | 패키지 · SemVer         | Implemented | v0.4 ✅ — SemVer (~ · *), 의존 해석 · sandbox.lock · 트랜잭션 설치 · 팩 사이 import · 라이선스 요약 (ADR-0071~0077)         |
 | Hub · Cloud · 결제      | Planned     | v0.6~v0.9. 이 저장소 밖의 서비스가 필요하다 (D-06)                                                                          |
 | 진단 · 충돌 보고        | Implemented | v0.5 M1 ✅ — SandboxCrash · 보고 묶음 · sbx doctor · report · 안전 모드 · 새 버전 알림 · 배포 묶음 (20 7장, ADR-0084)      |
-| 게임플레이 API          | Partial     | v0.5 M2-T1~T4 ✅ · T5 ◐ — 엔진 컴포넌트 읽기 · 쓰기 · 구조 변경 · random · near · time · game.owner (19 16장). 남음: 6.6 M2 |
+| 게임플레이 API          | Implemented | v0.5 M2-T1 ~ T7 ✅ — 엔진 컴포넌트 읽기 · 쓰기 · 구조 변경 · random · near · time · 플레이어 · 세션 · owner · action · signal · client 입력 · send (19 16장, 등록부 Done — 2026-11-12 갱신) |
 | 스크립트 표준 라이브러리 | Implemented | v0.5 M8 ✅ — 내장 · 컬렉션 · 알고리즘 · Graph · 엔진 질의 · 경로 요청 · raycast · overlap (19 25장, ADR-0085)            |
-| 실행 구조 v2            | Planned     | 콜백 단계 · Capability · Client 고정 Tick · 예측 · NetworkModule — [22](22-RUNTIME-V2.md) (v0.5 는 계약만)              |
-| 게임 UI · 다국어         | Missing     | v0.5 M3 · M4 [계획] (6.6 · 20)                                                                                             |
+| 실행 구조 v2            | Partial     | 계약 동결 ✅ v0.5 M2-T7 · 호출 토큰 (Capability 실행 검사) ✅ v0.10 RT-06-1. 남음: 타이머 · client 수명주기 · onAction (v0.10) · 물리 단계 · onRender (v0.11) · 예측 (v0.17) · NetworkModule (v0.18) — [22](22-RUNTIME-V2.md) (2026-11-12 갱신) |
+| 게임 UI · 다국어         | Implemented | v0.7 ✅ 0.7.0 — ui/ (SandboxGameUI): 문서 · 배치 · 그리기 · 바인딩 · 버튼 → 신호 · 입력 컨트롤 · 문자열 표 · 폰트 대체 · 키 다시 묶기 · 배율 (등록부 M3 · M4 · NG-06 Done — 2026-11-12 갱신). 시각 디자이너는 v0.10 ST-06-4 |
 
 ## 3. 모듈 계획 (C++ 의존 방향은 01 2장 그대로)
 

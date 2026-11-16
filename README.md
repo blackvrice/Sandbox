@@ -6,21 +6,40 @@ C++23 로 처음부터 만드는 **Sandbox Simulation Engine · 게임 제작 �
 관찰 · 수정 · 저장하고 → 여러 사람이 같은 월드에 접속해 함께 편집 · 플레이합니다. 생태계 · 콜로니 · 도시 · 전투 같은 시뮬레이션을
 특정 장르 규칙에 묶이지 않고 만들고, 그것을 게임으로 묶어 배포하는 것이 목표입니다.
 
-## 지금 상태 (2026-10-26)
+## 지금 상태 (2026-11-12)
 
-| 버전 | 내용                                                                                       | 상태                                                     |
-|------|--------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| v0.1 | Engine Foundation — ECS · 30 TPS 결정론 시뮬레이션 · 청크 월드 · 서버 권위 네트워크 · 멀티플레이 에디터 · DX12 / Vulkan / Metal | 구현 끝 (Phase 0~15) — 실기 · CI · macOS 검증 대기         |
-| v0.2 | Game Creator — 게임 프로젝트 · GameMode · 플레이어 행동 · Visual Trigger · 테스트 플레이 · 게임 패키지 | ✅ 0.2.0 ([릴리스 노트](docs/releases/v0.2.0.md))          |
+제품 버전 **0.7.0**. v0.8 (Studio) · v0.9 (Script IDE) 는 코드와 자동 시험이 끝났고 창 확인 (수동 QA) 뒤 출시합니다. 지금 작업은 **v0.10**.
+버전은 식별자입니다 — v0.10 은 v0.9 다음입니다.
+
+| 버전 | 내용 | 상태 |
+|------|------|------|
+| v0.1 | Engine Foundation — ECS · 30 TPS 결정론 시뮬레이션 · 청크 월드 · 서버 권위 네트워크 · 멀티플레이 에디터 · DX12 / Vulkan / Metal | 🟡 구현 끝 — Linux · macOS 실기 · 50k 성능 판정 대기 |
+| v0.2 | Game Creator — 게임 프로젝트 · GameMode · 플레이어 행동 · Visual Trigger · 테스트 플레이 · 게임 패키지 | ✅ 0.2.0 ([릴리스 노트](docs/releases/v0.2.0.md)) |
 | v0.3 | SandboxScript — TypeScript 부분집합 · 자체 컴파일러 · 바이트코드 VM · 스크립트 컴포넌트 · 시스템 | ✅ 0.3.0 ([릴리스 노트](docs/releases/v0.3.0.md)) |
-| v0.4 | Package Manager — 콘텐츠 팩 = 패키지 · 로컬 · Git · 캐시 소스 · 잠금 파일 · 트랜잭션 설치 · 팩 사이 스크립트 import · 라이선스 요약 | ✅ 0.4.0 ([릴리스 노트](docs/releases/v0.4.0.md)) |
-| v0.5 | Technical Alpha — 게임플레이 API · Runtime v2 계약 · 표준 라이브러리 · 충돌 보고 · 진단 · 배포 묶음 · 패키지 하나로 다른 환경에서 같은 해시 | ✅ 0.5.0 ([릴리스 노트](docs/releases/v0.5.0.md)) |
-| v0.6 | 에셋 · 패키지 · SaveGame — 프로젝트 PNG (안정 id) · 패키지 형식 3 · 빌드 스냅숏 · 표시 digest 분리 · 세이브 마이그레이션 · Asset Group · Export Profile | ✅ 0.6.0 ([릴리스 노트](docs/releases/v0.6.0.md)) |
-| v0.7 | 게임 UI Runtime · 다국어 — 선언 HUD · 메뉴 (검사 · 배치 · 그리기 · 바인딩 · 버튼 → 서버 신호) · 문자열 표 · 폰트 대체 · 키 다시 묶기 · UI 배율 · 입력 컨트롤 (글자 칸 · dropdown · tabs · scroll · 게임패드) | ✅ 0.7.0 ([릴리스 노트](docs/releases/v0.7.0.md)) |
-| v0.8~ | Studio · Script IDE · Creator Alpha (v0.13) · Hub · 멀티플레이 · 안정화 · RC · GA | [계획] ([roadmap/](docs/roadmap/README.md))               |
+| v0.4 | Package Manager — 로컬 · Git 소스 · 잠금 파일 · 트랜잭션 설치 · 팩 사이 스크립트 import | ✅ 0.4.0 ([릴리스 노트](docs/releases/v0.4.0.md)) |
+| v0.5 | Technical Alpha — 게임플레이 API · 표준 라이브러리 · 충돌 보고 · 진단 · 배포 묶음 | ✅ 0.5.0 ([릴리스 노트](docs/releases/v0.5.0.md)) |
+| v0.6 | 에셋 · 패키지 · SaveGame — 프로젝트 PNG (안정 id) · 패키지 형식 3 · 세이브 마이그레이션 | ✅ 0.6.0 ([릴리스 노트](docs/releases/v0.6.0.md)) |
+| v0.7 | 게임 UI Runtime · 다국어 — 선언 HUD · 메뉴 · 버튼 → 서버 신호 · 문자열 표 · 입력 컨트롤 | ✅ 0.7.0 ([릴리스 노트](docs/releases/v0.7.0.md)) |
+| v0.8 | Studio 기본 환경 — 홈 · 빌드 화면 · 자동 저장 · 테스트 세션 · 리플레이 · Player | 🟡 구현 끝 — 창 QA 대기 ([체크리스트](docs/roadmap/versions/v0.8.md)) |
+| v0.9 | Script IDE — 편집기 · 자동 완성 · 재생 디버거 · 정의 · 이름 바꾸기 | 🟡 태스크 끝 — 창 QA 대기 ([체크리스트](docs/roadmap/versions/v0.9.md)) |
+| v0.10 | Creator Foundation — Asset Browser · UI 디자이너 · 템플릿 · 타이머 · client 수명주기 | 🟡 진행 중 ([체크리스트](docs/roadmap/versions/v0.10.md)) |
+| v0.11 ~ v1.0 | 물리 단계 · 고급 제작 도구 · Closed Creator Alpha (v0.13) · 계정 · 멀티플레이 · 안정화 · RC · GA | ⬜ 계획 ([전체 로드맵](docs/roadmap/MASTER_ROADMAP.md)) |
 
-지금 무엇을 하고 다음에 무엇을 하는지는 **[docs/18-PLATFORM.md](docs/18-PLATFORM.md) 0장**에 있습니다 (Phase 0~15 이력은
-[docs/16-ROADMAP.md](docs/16-ROADMAP.md)). 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다.
+진행률 · 남은 작업 · 막힌 것은 **[현황 대시보드](docs/overview/CURRENT_STATUS.md)** 에 있습니다 (숫자는 태스크 등록부에서 자동 집계).
+
+## 문서 따라가기
+
+```text
+README → 현황 대시보드 → 전체 로드맵 → 버전별 체크리스트 → 기능별 설계
+```
+
+| 알고 싶은 것 | 문서 |
+|---|---|
+| 지금 어디까지 왔나 · 무엇이 막혔나 | [현황 대시보드](docs/overview/CURRENT_STATUS.md) |
+| 무엇이 실제로 되고 무엇이 안 되나 | [기능 매트릭스](docs/overview/FEATURE_MATRIX.md) |
+| 버전마다 무엇을 하나 · 얼마나 됐나 | [전체 로드맵](docs/roadmap/MASTER_ROADMAP.md) → [버전별 체크리스트](docs/roadmap/versions/) |
+| 모듈마다의 역할 · 상태 · 설계 문서 | [모듈 안내](docs/overview/MODULES.md) |
+| 모든 문서의 목차 | [docs/README](docs/README.md) |
 
 ## 핵심 기술
 
@@ -104,17 +123,18 @@ export default defineSystem({
 
 ## 문서
 
-**처음이라면 [docs/README.md](docs/README.md)부터 읽으십시오.** 모든 문서의 지도와 읽는 순서가 있습니다.
-AI 에이전트는 [AGENTS.md](AGENTS.md)를 먼저 따릅니다.
+**처음이라면 위 "문서 따라가기" 의 순서로, 그다음 [docs/README.md](docs/README.md) (전체 목차) 를 읽으십시오.**
+AI 에이전트는 [AGENTS.md](AGENTS.md)를 먼저 따릅니다. 구현되지 않은 것은 문서마다 `[계획]`으로 표시합니다.
 
 | 알고 싶은 것               | 문서                                                               |
 |----------------------------|--------------------------------------------------------------------|
 | 무엇을 왜 만드나           | [00-OVERVIEW](docs/00-OVERVIEW.md)                                 |
 | 전체 구조와 의존성         | [01-ARCHITECTURE](docs/01-ARCHITECTURE.md)                         |
-| 지금 상태 · 다음 할 일     | [18-PLATFORM](docs/18-PLATFORM.md)                                 |
+| 지금 태스크 · 다음 태스크  | [roadmap/README](docs/roadmap/README.md) 1장 · [18-PLATFORM](docs/18-PLATFORM.md) 0장 |
 | 코드가 어디 있나           | [17-SOURCE-MAP](docs/17-SOURCE-MAP.md)                             |
 | 스크립트 언어              | [19-SANDBOXSCRIPT](docs/19-SANDBOXSCRIPT.md)                       |
 | 빌드 · 실행 옵션           | [15-BUILD](docs/15-BUILD.md)                                       |
+| 문서를 어떻게 고치나       | [문서 가이드](docs/development/DOCUMENTATION_GUIDE.md)             |
 | 작업 이력                  | [DEVELOPMENT_LOG](DEVELOPMENT_LOG.md)                              |
 
 ## 기원

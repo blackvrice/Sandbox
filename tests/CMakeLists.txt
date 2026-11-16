@@ -742,7 +742,11 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME docs_consistency_selftest
         COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/check_docs.py
             --root ${CMAKE_SOURCE_DIR}/tests/docs/fixtures --expect 9)
-    set_tests_properties(docs_consistency docs_consistency_selftest PROPERTIES LABELS "arch")
+    # 로드맵 보기 문서 (MASTER_ROADMAP · versions/ · CURRENT_STATUS 의 생성 구간) 가 태스크 등록부와 같은가 —
+    # 다르면 python tools/gen_roadmap.py --root . 로 다시 만든다 (docs/development/DOCUMENTATION_GUIDE.md 4장)
+    add_test(NAME docs_roadmap_generated
+        COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/gen_roadmap.py --root ${CMAKE_SOURCE_DIR} --check)
+    set_tests_properties(docs_consistency docs_consistency_selftest docs_roadmap_generated PROPERTIES LABELS "arch")
     # 셰이더 코드 생성기 자체 검사 (손으로 만든 SPIR-V 로 리플렉션·병합 규칙) — dxc 없이 모든 OS 에서 (ADR-0019)
     add_test(NAME shader_gen_selftest
         COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/shader/sbx_shader_gen.py --self-test)

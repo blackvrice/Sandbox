@@ -6,6 +6,8 @@
 > 태스크 카드의 자세한 내용 (모듈 · API · 형식 · 시험) 은 그대로 [20](../20-CREATOR-ALPHA.md) 10장 · [23](../23-ROADMAP.md) · [22](../22-RUNTIME-V2.md) ·
 > [25](../25-STUDIO-ARCHITECTURE.md) ~ [28](../28-CREATOR-UX-GATES.md) 에 있다 — 그 문서들의 "[계획 v0.x]" 는 [versioning 4장](versioning.md) 의
 > 변환표로 읽는다. 재구성의 근거는 [2차 감사](../audit/SECOND-PASS-GAP-ANALYSIS.md) · [일관성 점검](../audit/ROADMAP-CONSISTENCY.md).
+> **진행률 · 버전별 체크리스트로 보려면** [MASTER_ROADMAP](MASTER_ROADMAP.md) (버전 표 · 알파 · GA 까지 남은 작업) · [versions/](versions/) (버전마다
+> 작업 요약 · 체크리스트 · 미완료 · 완료 조건) — 등록부 · releases 에서 `tools/gen_roadmap.py` 가 만든다 ([문서 가이드](../development/DOCUMENTATION_GUIDE.md) 4장).
 
 ---
 
@@ -120,7 +122,9 @@ D  선행 태스크의 목표 버전이 그 태스크보다 뒤가 아니다 (�
 R  끝나지 않은 태스크는 releases 의 한 버전 절 "태스크" 줄에만 있고, 그 버전 = 등록부 목표 (태스크마다 버전 하나)
 예외  KNOWN (이유 필수) — ADR-0085 의 오타 링크 · 18 7장의 v0.2 이력 ID
 자체 시험  tests/docs/fixtures (일부러 틀린 작은 저장소) 에서 정확히 N 건을 찾아야 통과 (--expect)
+G  (tools/gen_roadmap.py --check — CTest docs_roadmap_generated) MASTER_ROADMAP · versions/ · overview/CURRENT_STATUS 의 생성 구간이
+   등록부 · releases 와 같다, 버전 문서의 세부 체크리스트가 등록부 상태와 어긋나지 않는다
 ```
 
-새 태스크는 등록부에 먼저 행을 더하고 releases 의 그 버전 "태스크" 줄에 넣는다. 새 버전은 versioning 3장 목록 끝에 더한다.
+새 태스크는 등록부에 먼저 행을 더하고 releases 의 그 버전 "태스크" 줄에 넣는다. 등록부 · releases 를 고치면 `python tools/gen_roadmap.py --root .` 를 돌린다. 새 버전은 versioning 3장 목록 끝에 더한다.
 태스크 ID 는 다시 쓰지 않는다 (등록부 2장).

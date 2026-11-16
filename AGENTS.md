@@ -8,7 +8,8 @@
 ## 1. 작업 전에 읽을 것
 
 ```text
-항상            docs/README.md (문서 지도) → docs/18-PLATFORM.md 0장 (지금 버전 · 다음 태스크 "v0.N Mk-Tn")
+항상            docs/README.md (문서 지도) → docs/overview/CURRENT_STATUS.md (현황) → docs/18-PLATFORM.md 0장 (지금 버전 · 다음 태스크 "v0.N Mk-Tn")
+                지금 버전의 작업 체크리스트는 docs/roadmap/versions/v0.N.md
                 (Phase 0~15 = v0.1 의 이력 · 남은 실기 검증은 docs/16-ROADMAP.md)
 코드를 쓰기 전  docs/12-CODING-STANDARDS.md (리뷰 체크리스트 포함)
 Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선한다
@@ -86,6 +87,9 @@ Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선�
 - 모듈·폴더·진입점·타깃을 추가/이동/삭제하면 [17-SOURCE-MAP](docs/17-SOURCE-MAP.md)을 갱신합니다.
 - `content/` 데이터의 모양을 바꾸면 [11-CONTENT-SCHEMA](docs/11-CONTENT-SCHEMA.md)를 갱신합니다.
 - 와이어 포맷·세이브 포맷을 바꾸면 [08-NETWORK](docs/08-NETWORK.md) / [09-SERIALIZATION](docs/09-SERIALIZATION.md)과 버전 번호를 갱신합니다.
+- 태스크의 상태 · 목표 버전은 [roadmap/task-registry](docs/roadmap/task-registry.md) 에서만 고칩니다. 고친 뒤 `python tools/gen_roadmap.py --root .`
+  로 보는 문서 (MASTER_ROADMAP · versions/ · CURRENT_STATUS 의 생성 구간) 를 다시 만듭니다 — 생성 구간을 손으로 고치지 않습니다.
+  끝낸 세부 칸은 그 버전 문서의 세부 체크리스트에 `[x]`. 절차 전체는 [문서 가이드](docs/development/DOCUMENTATION_GUIDE.md).
 - 작업 단위마다 `DEVELOPMENT_LOG.md`에 "무엇을, 왜, 어떻게 검증했나, 남은 일"을 남깁니다.
 - 문서에 수치를 쓸 때는 출처(측정값/추정/데이터 파일)를 함께 적습니다.
 - 구현되지 않은 것은 `[계획]`으로 표시합니다.
