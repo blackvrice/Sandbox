@@ -28,11 +28,11 @@
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
 | 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) |
-| 현재 개발 버전 | [v0.10](../roadmap/versions/v0.10.md) — Creator Foundation (1 / 8, 12 %) |
+| 현재 개발 버전 | [v0.10](../roadmap/versions/v0.10.md) — Creator Foundation (2 / 8, 25 %) |
 | 다음 목표 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime |
-| 전체 진행 (v0.5 ~ v1.0 태스크) | 65 / 167 Done — 39 % |
-| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 32 |
-| v1.0 (GA) 까지 남은 태스크 | 102 |
+| 전체 진행 (v0.5 ~ v1.0 태스크) | 66 / 167 Done — 40 % |
+| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 31 |
+| v1.0 (GA) 까지 남은 태스크 | 101 |
 | 수동 QA (v0.7 이후 버전 줄) | 8 / 37 확인 |
 
 <!-- GENERATED:END -->
@@ -103,7 +103,7 @@
 
 ### 4.2 다음 할 일 (순서)
 
-1. v0.10 트랙 A — RT-06-10 (타이머 ✅ 조각 1, ADR-0138 — 남은 것 defineState · ctx.state) → RT-06-7 client 수명주기 → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
+1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 → RT-06-8 onAction (선행이 모두 끝나 바로 시작할 수 있다).
 2. v0.10 트랙 B — ST-06-3 Asset Browser · ST-06-4 Game UI Designer · M6-T2 템플릿 3종 (P0).
 3. 위가 끝나면 NG-18 통합 시험 → v0.10 출시 판정. 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
 4. 병행 (사람) — B1 의 창 QA 로 0.8.0 · 0.9.0 을 낸다.

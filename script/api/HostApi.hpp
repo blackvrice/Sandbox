@@ -203,8 +203,34 @@ inline constexpr std::array kHostFunctions{
                  HostCapability::Structural,
                  8,
                  "스크립트 컴포넌트를 뗀다 (이 틱 끝에)"},
-    // 주인 (v0.5 M2-T5 (4b)) — game.owner 를 붙이거나 바꾼다 (구조 변경과 같은 버퍼 — 호출 끝 적용, 새 개체 핸들도
-    // 된다)
+    // 월드 상태 (v0.10 RT-06-10 조각 2, ADR-0139) — defineState 의 값. 상태 개체 (엔진이 만든다) 의 스크립트 컴포넌트
+    HostFunction{"ctx.state",
+                 AbiType::ServerContext,
+                 "state",
+                 false,
+                 AbiType::ComponentData,
+                 {AbiType::Component},
+                 {"state"},
+                 1,
+                 HostDomain::Server,
+                 HostEffect::Read,
+                 HostCapability::EcsRead,
+                 8,
+                 "월드 상태 (defineState) 의 값의 복사 — 늘 있다 (처음은 필드 기본값), 이 호출에서 쓴 값이 보인다"},
+    HostFunction{"ctx.setState",
+                 AbiType::ServerContext,
+                 "setState",
+                 false,
+                 AbiType::Void,
+                 {AbiType::Component, AbiType::ComponentData},
+                 {"state", "value"},
+                 2,
+                 HostDomain::Server,
+                 HostEffect::Write,
+                 HostCapability::EcsWrite,
+                 16,
+                 "월드 상태 (defineState) 를 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖은 트랩)"},
+    // 타이머 (v0.10 RT-06-10 조각 1, ADR-0138) — 구조 변경과 같은 버퍼. 만기는 17d 의 onEvent (GameEventKind.Timer)
     HostFunction{
         "ctx.after",
         AbiType::ServerContext,
@@ -247,6 +273,8 @@ inline constexpr std::array kHostFunctions{
                  HostCapability::Structural,
                  8,
                  "이 시스템의 key 타이머를 모두 지운다 (after · every — 없으면 아무 일 없음). 이 호출이 끝나면 적용"},
+    // 주인 (v0.5 M2-T5 (4b)) — game.owner 를 붙이거나 바꾼다 (구조 변경과 같은 버퍼 — 호출 끝 적용, 새 개체 핸들도
+    // 된다)
     HostFunction{"ctx.setOwner",
                  AbiType::ServerContext,
                  "setOwner",
@@ -792,6 +820,11 @@ inline constexpr std::array kHostFunctions{
 };
 
 // 제네릭 항목 (Component 매개변수가 있다) 인가
+// 월드 상태 항목 (ctx.state · setState) — 컴포넌트 인자가 defineState 의 것이어야 한다 (다른 항목은 그 반대)
+[[nodiscard]] constexpr bool isStateFunction(const HostFunction& f) noexcept {
+    return f.id == "ctx.state" || f.id == "ctx.setState";
+}
+
 [[nodiscard]] constexpr bool isComponentGeneric(const HostFunction& f) noexcept {
     for (u8 i = 0; i < f.paramCount; ++i) {
         if (f.params[i] == AbiType::Component) {

@@ -151,7 +151,7 @@ public:
 | 14 | ProductionSystem         | 생산 진행 → ECB.create                                                   | Production, ECB                     |
 | 15 | LifecycleSystem          | Age·Energy·Growth·Reproduce·Lifetime → 사망/번식                         | ECB                                 |
 | 16 | CollisionSystem          | 분리(separation), 지형 충돌 보정                                         | Transform                           |
-| 16b | Scripts (v0.3 M4-T1)    | 스크립트 시스템 onTick — (팩 순서, 시스템 id), intervalTicks, 시스템이 있을 때만 | 스크립트 컴포넌트 (호출마다 바로 적용) |
+| 16b | Scripts (v0.3 M4-T1)    | 스크립트 시스템 onTick — (팩 순서, 시스템 id), intervalTicks, 시스템이 있을 때만. 앞에서 월드 상태 개체를 챙긴다 (defineState 가 있을 때 — v0.10) | 스크립트 컴포넌트 (호출마다 바로 적용) |
 | 17 | ApplyStructuralChanges②  | ECB 일괄 적용                                                            | Registry                            |
 | 17b | GameRules (v0.2)        | game.session 전이 — 카운트다운 · 끝 조건 (세션이 있을 때만)              | game.session                        |
 | 17c | Triggers (v0.2 M4-T2)   | 콘텐츠 Trigger — 세션이 Running 일 때만, 같은 틱 이어짐 · 예산           | 효과 (바로 적용)                    |
@@ -184,6 +184,11 @@ score = 칸마다 스냅숏 ≠ 지금. 예산 — 시스템마다 eventsPerTick
 한 번짜리는 개체를 지우고 (syncIdentityLogs), every 는 dueTick 이 틱을 넘을 때까지 period 를 더한다 (한 틱에 한 번만 알린다). ② 에서
 시스템마다 그 시스템의 구독 이벤트 다음에 자기 타이머를 onEvent (kind Timer · key) 로 — 다른 시스템의 타이머는 오지 않는다. 그 콜백이
 만든 · 지운 타이머는 17d 끝의 구조 변경 적용에서 (같은 틱의 만기는 없다 — ticks ≥ 1).
+
+월드 상태 (v0.10 RT-06-10, [ADR-0139](adr/0139-script-world-state-define-state.md), `SimulationWorld::ensureScriptState`): 16b 의 스크립트
+실행 바로 앞 — 카탈로그에 상태 컴포넌트 (defineState — ComponentFlags::WorldState) 가 있으면 상태 개체 (script.state — 월드에 하나) 를
+찾거나 만들고, 빠진 상태 컴포넌트를 기본값으로 붙인다 (카탈로그 차례, 바뀌었으면 syncIdentityLogs). 그래서 그 틱의 onTick · onStart ·
+onEvent 가 모두 값을 본다. 쓰기는 컴포넌트 쓰기와 같이 호출 끝에. defineState 가 없는 콘텐츠는 아무것도 하지 않는다 → 골든 그대로.
 
 `17b GameRules` (v0.2 M2-T2, [ADR-0045](adr/0045-game-mode-content-session-in-simulation-player-actions.md)): System 이 아니라
 SimulationWorld 의 단계 — 17 (ECB · Prefab 생성) 다음이라 이번 틱의 생성 · 파괴가 반영된 수로 끝 조건을 본다. 월드에 하나인

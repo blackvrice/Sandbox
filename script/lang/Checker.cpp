@@ -179,8 +179,15 @@ private:
     }
 
     void err(const char* code, NodeId at, std::string message) {
+        if (m_declaringState) { // defineState 는 defineComponent 와 같은 규칙 — 진단의 이름만 바꾼다
+            for (usize at2 = message.find("defineComponent"); at2 != std::string::npos;
+                 at2 = message.find("defineComponent", at2)) {
+                message.replace(at2, 15, "defineState");
+            }
+        }
         D.error(code, mod().path, ast().node(at).pos, std::move(message));
     }
+    bool m_declaringState = false;
 
     SymbolId newSymbol(Symbol s) {
         P.symbols.push_back(std::move(s));
@@ -254,6 +261,7 @@ private:
                                        StructField{"y", TypeTable::kNumber, false}};
         addType("Vec2", m_vec2);
         addBuiltin(m_sdkValues, "defineComponent", Builtin::DefineComponent, TypeTable::kError);
+        addBuiltin(m_sdkValues, "defineState", Builtin::DefineState, TypeTable::kError);
         addBuiltin(m_sdkValues, "field", Builtin::FieldNamespace, TypeTable::kError);
         addBuiltin(m_sdkValues, "defineSystem", Builtin::DefineSystem, TypeTable::kError);
         addBuiltin(m_sdkValues, "setUnion", Builtin::SetUnion, TypeTable::kError);
@@ -875,7 +883,9 @@ private:
         const NodeId typeNode = ast().kid(item, 0);
         const NodeId init = ast().kid(item, 1);
         if (init != kNoNode && isDefineComponentCall(init)) {
-            declareComponent(item, id, typeNode, init);
+            m_declaringState = isSdkBuiltin(ast().kid(init, 0), Builtin::DefineState);
+            declareComponent(item, id, typeNode, init, m_declaringState);
+            m_declaringState = false;
             return;
         }
         TypeId declared = kNoExpect;
@@ -1426,7 +1436,8 @@ private:
         return e != nullptr && sym(e->sym).kind == SymbolKind::Builtin && sym(e->sym).builtin == b;
     }
     bool isDefineComponentCall(NodeId init) {
-        return node(init).kind == NodeKind::Call && isSdkBuiltin(ast().kid(init, 0), Builtin::DefineComponent);
+        return node(init).kind == NodeKind::Call && (isSdkBuiltin(ast().kid(init, 0), Builtin::DefineComponent) ||
+                                                     isSdkBuiltin(ast().kid(init, 0), Builtin::DefineState));
     }
 
     std::optional<f64> constNumberArg(NodeId v, std::string_view what, const char* code = "S424") {
@@ -1654,7 +1665,7 @@ private:
     }
 
     // 정의 모양: { id, version?, fields, persistent?, replicated?, editorVisible?, serverOnly? } — 모두 상수
-    void declareComponent(NodeId item, SymbolId id, NodeId typeNode, NodeId init) {
+    void declareComponent(NodeId item, SymbolId id, NodeId typeNode, NodeId init, bool state) {
         auto fail = [&] {
             sym(id).type = TypeTable::kError;
             sema(item).type = TypeTable::kError;
@@ -1835,6 +1846,7 @@ private:
             schema.fields.push_back(std::move(entry.first));
         }
         T().structOf(data).fields = std::move(sf);
+        schema.state = state;
         ComponentDecl d;
         d.schema = std::move(schema);
         d.symbol = id;
@@ -2882,6 +2894,10 @@ private:
             if (s.builtin == Builtin::None) {
                 return set(n, TypeTable::kError); // 가져오지 못한 이름 — 이미 보고했다
             }
+            if (s.builtin == Builtin::DefineState) {
+                err("S425", n, std::format("'{}' 는 최상위 const 의 초기값으로만 쓴다 (export const Round = …)", name));
+                return set(n, TypeTable::kError);
+            }
             if (s.builtin == Builtin::DefineComponent || s.builtin == Builtin::FieldNamespace) {
                 err("S425", n, std::format("'{}' 는 최상위 const 의 defineComponent({{ … }}) 안에서만 쓴다", name));
                 return set(n, TypeTable::kError);
@@ -3238,8 +3254,21 @@ private:
         if (!T().isError(rt)) {
             if (T().kind(rt) == TypeKind::Component) {
                 data = T().info(rt).elem;
+                // 월드 상태 (v0.10 RT-06-10, ADR-0139): defineState 의 것은 ctx.state · setState 로만, 그 둘은 상태만.
                 // 엔진 컴포넌트 (v0.5 M2-T1 · T2): 쓰기는 접근 표가 허락한 것만, 클라이언트는 복제하는 것만 읽는다
-                if (const u32 index = T().info(rt).index; (index & kEngineComponentFlag) != 0) {
+                const u32 refIndex = T().info(rt).index;
+                const bool isState = (refIndex & kEngineComponentFlag) == 0 && refIndex < P.components.size() &&
+                                     P.components[refIndex].schema.state;
+                if (api::isStateFunction(h) != isState) {
+                    err("S404", refArg,
+                        isState ? std::format("{} 에 월드 상태 (defineState) 를 넘겼다 — 상태는 ctx.state(…) · "
+                                              "ctx.setState(…, 값) 으로 읽고 쓴다 (개체에 붙지 않는다)",
+                                              h.id)
+                                : std::format("{} 는 월드 상태 (defineState 의 const) 만 받는다 — 컴포넌트는 "
+                                              "ctx.read · ctx.write 로",
+                                              h.id));
+                    data = TypeTable::kError;
+                } else if (const u32 index = refIndex; (index & kEngineComponentFlag) != 0) {
                     const api::EngineComponentAccess& e = api::kEngineComponents[index & ~kEngineComponentFlag];
                     if (h.effect == api::HostEffect::Structural) {
                         // 붙이기 · 떼기 (v0.5 M2-T3) 는 스크립트 컴포넌트만 — 엔진 컴포넌트는 접근 표에 권한이 없다
@@ -4427,6 +4456,10 @@ private:
             }
             if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineComponent) {
                 err("S425", callee, "defineComponent 는 최상위 const 의 초기값으로만 부른다 (export const Mana = …)");
+                return set(n, TypeTable::kError);
+            }
+            if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineState) {
+                err("S425", callee, "defineState 는 최상위 const 의 초기값으로만 부른다 (export const Round = …)");
                 return set(n, TypeTable::kError);
             }
             if (s.kind == SymbolKind::Builtin && s.builtin == Builtin::DefineSystem) {

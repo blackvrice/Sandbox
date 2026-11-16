@@ -40,6 +40,9 @@ struct ComponentSchema {
     bool replicated = true;
     bool editorVisible = true;
     bool serverOnly = false;
+    // defineState (v0.10 RT-06-10, ADR-0139) — 월드에 하나: 엔진이 상태 개체에 붙이고 ctx.state · setState 로만 읽고
+    // 쓴다
+    bool state = false;
     std::vector<ComponentFieldSchema> fields; // 이름 순
     // 정의한 자리 (진단)
     std::string module;

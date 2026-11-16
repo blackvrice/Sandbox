@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x3c0bbbceed44d584 — v0.10 RT-06-10 조각 1 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x6d51897bbd2ba715 — v0.10 RT-06-10 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -255,7 +255,9 @@ NetworkModule [계획 v0.8 — 서버만]
 ```text
 원칙        VM 컬렉션은 호출마다 버려진다 (ADR-0056 4 · ADR-0085). 틱을 넘는 상태는 ECS (스크립트 컴포넌트 — 세이브 · 해시 · 복제 · 리플레이가
             이미 맞다)
-시스템 상태  defineState({ id, fields }) → 세션 개체 (월드에 하나 — 엔진이 만든다) 의 스크립트 컴포넌트, ctx.state 로 읽고 쓰기 [계획 v0.6]
+시스템 상태  ✅ v0.10 RT-06-10 조각 2 (ADR-0139): defineState({ id, fields }) → 상태 개체 (엔진 컴포넌트 script.state — 월드에 하나, 엔진이
+            16b 앞에서 만든다) 의 스크립트 컴포넌트, ctx.state(s) 로 읽고 ctx.setState(s, 값) 으로 쓴다 (호출 끝 적용). 처음 안의
+            "세션 개체" 는 바꿨다 (세션 없는 월드 — ADR-0139). 클라이언트에서 읽기는 [계획 — RT-06-7 뒤]
 플레이어 상태 ✅ M2-T5 플레이어 표 (시뮬레이션 안 · ECS · 세이브 · 해시 밖 — ADR-0093, ctx.playerCount · playerId · playerRole),
             게임 값 저장은 [계획 v0.16 PS-14-5] 플레이어 데이터
 개체 상태    컴포넌트 (현행)

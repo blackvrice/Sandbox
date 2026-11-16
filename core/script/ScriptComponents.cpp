@@ -46,6 +46,9 @@ ecs::DynamicComponentDesc toDynamicDesc(const api::ComponentSchema& schema) {
     if (schema.serverOnly) {
         flags = flags | F::ServerOnly;
     }
+    if (schema.state) {
+        flags = flags | F::WorldState;
+    }
     d.flags = flags;
     for (const api::ComponentFieldSchema& f : schema.fields) {
         ecs::DynamicFieldDesc fd;

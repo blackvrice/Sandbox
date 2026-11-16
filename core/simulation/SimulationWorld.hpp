@@ -152,6 +152,8 @@ public:
     [[nodiscard]] ecs::Registry& registry() noexcept { return m_registry; } // 틱 밖에서만
     [[nodiscard]] const ecs::Registry& registry() const noexcept { return m_registry; }
     [[nodiscard]] const ecs::ComponentCatalog& catalog() const noexcept { return m_catalog; }
+    // 월드 상태 개체 (script.state — defineState 가 있는 콘텐츠의 첫 틱부터), 없으면 kNullEntity (v0.10 RT-06-10)
+    [[nodiscard]] ecs::EntityId scriptStateEntity() const;
     [[nodiscard]] SystemScheduler& scheduler() noexcept { return m_scheduler; }
     [[nodiscard]] const world::SpatialIndex& spatial() const noexcept { return m_spatial; }
     [[nodiscard]] const world::WorldGrid& grid() const noexcept { return m_grid; }
@@ -261,6 +263,7 @@ private:
     void runTriggers(Tick now);                 // 단계 17c
     void runScriptCallbacks(Tick now);          // 단계 17d (SimulationScripts.cpp)
     [[nodiscard]] bool hasScriptTimers() const; // script.timer 개체가 있다 (v0.10 RT-06-10 — 17d 를 돌린다)
+    void ensureScriptState(Tick now);           // 단계 16b 앞 — defineState 의 상태 개체 · 컴포넌트 (ADR-0139)
     // 지금 콘텐츠의 스크립트 바이트코드에 맞춰 어댑터를 만든다 · 다시 만든다 · 없앤다 (생성 · 오버레이가 바뀔 때)
     void syncScriptSystems();
     // 오버레이를 적용한 DB 를 만든다 (검증 실패면 오류 — 앞의 몇 개를 묶어)

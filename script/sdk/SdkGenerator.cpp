@@ -236,6 +236,11 @@ std::string generateSandboxDts() {
     out += "  export function defineComponent<F extends { [name: string]: Field<unknown> }>(\n";
     out += "    definition: ComponentDefinition<F>,\n";
     out += "  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;\n";
+    out += "  /** 월드 상태 (v0.10) — 월드에 하나. 엔진이 상태 개체에 붙인다 (세이브 · WorldHash). ctx.state · "
+           "ctx.setState 로만 */\n";
+    out += "  export function defineState<F extends { [name: string]: Field<unknown> }>(\n";
+    out += "    definition: ComponentDefinition<F>,\n";
+    out += "  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;\n";
     // 엔진 컴포넌트 (v0.5 M2-T1 · T2, ADR-0080 1) — 접근 표 그대로
     for (const api::EngineComponentAccess& e : api::kEngineComponents) {
         out += std::format("  /** {} — 엔진 컴포넌트 {} (읽기 {} · 쓰기 {}) */\n", e.doc, e.id,

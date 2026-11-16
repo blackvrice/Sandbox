@@ -2541,6 +2541,9 @@ namespace {
 std::string canonicalSchema(const script::api::ComponentSchema& c) {
     std::string s = std::format("{}|{}|{}{}{}{}", c.id, c.version, c.persistent ? 'p' : '-', c.replicated ? 'r' : '-',
                                 c.editorVisible ? 'e' : '-', c.serverOnly ? 's' : '-');
+    if (c.state) {
+        s += 'w'; // defineState — 없을 때는 옛 정규형 그대로
+    }
     for (const script::api::ComponentFieldSchema& f : c.fields) {
         s += std::format("|{}:{}:{}:{}:{}:{}:{}:{}", f.name, script::api::componentFieldKindName(f.kind),
                          f.defaultValue, f.defaultY, f.hasRange, f.min, f.max, f.enumName);

@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-11-16 — v0.10 RT-06-10 조각 2: 월드 상태 — defineState · ctx.state · ctx.setState · script.state (ADR-0139) — RT-06-10 끝
+
+**무엇을**
+
+- 언어: `defineState({ … })` — defineComponent 와 같은 모양 · 규칙 · 타입 (ComponentRef<T>), 스키마에 state 표시 (ComponentSchema::state →
+  ecs ComponentFlags::WorldState). 검사기: 상태를 ctx.read · write · has · query · add · remove 에, 컴포넌트를 ctx.state · setState 에
+  넘기면 S404. 정의의 진단은 "defineState" 라고 부른다.
+- Host API: ctx.state(s): T (null 아님 — Read · 연료 8) · ctx.setState(s, 값) (Write · 연료 16 — ctx.write 와 같은 쓰기 버퍼:
+  ScriptHost::writeTo 로 몸을 나눴다). VM: Host 결과 ComponentData (T) 를 구조체로 (지금까지는 T | null 만 있었다).
+- 엔진 컴포넌트 `script.state` { revision } (core/components/game/ScriptState.hpp — 카탈로그 25 개, 보호). SimulationWorld::ensureScriptState
+  가 단계 16b 앞에서 상태 개체를 찾거나 만들고 빠진 상태 컴포넌트를 기본값으로 붙인다 (defineState 가 없으면 아무것도 안 한다).
+- sandbox.d.ts 4 곳 다시 생성. Host 지문 0x3c0bbbceed44d584 → 0x6d51897bbd2ba715 (Host API 1 그대로). 컴포넌트 정규형 (오버레이 비교) 은
+  state 일 때만 'w' 가 붙는다.
+- HostApi.hpp 의 주석 자리 고침 (조각 1 에서 setOwner 의 주석이 타이머 항목 위에 남았다).
+- 문서: ADR-0139, 19 16.2 · 26장, 03 (16b · 17d), 22 9장, 24 D2, 02 · 04 · 09 · 13 · 17, 지문 (versioning · 21 · VERSION-MIGRATION-MATRIX),
+  FEATURE_MATRIX F-209, v0.10 체크리스트, 등록부 RT-06-10 Done (gen_roadmap).
+
+**왜**
+
+- 개체에 딸리지 않은 게임 값 (라운드 · 카운터) 을 둘 곳이 없어 스크립트가 "상태 개체" 를 직접 만들고 찾아야 했다 (첫 틱 차례 · 중복 · 로드 뒤
+  다시 만들기). 22 9장 · 24 D2 대로 세이브 · 해시에 드는 ECS 데이터로. 세션 개체 대신 따로 표시한 개체 (세션 없는 월드), 구조 변경 버퍼
+  대신 쓰기 버퍼 (한 틱의 여러 onEvent 가 쌓이게) — ADR-0139.
+
+**검증** (Windows MSVC, 2026-11-16)
+
+- 단위 시험 958 개 통과 (Debug). 새 test_script_state 3 개: 기본값 · 같은 호출의 읽기 · 한 틱의 onEvent 셋이 쌓임 (beats 3), 세이브 (틱 3) →
+  로드 → 이어 돌린 WorldHash = 곧장 돌린 것 · 상태가 바뀌면 해시가 다름 · 리플레이 해시, 범위 밖 HostError · S404 둘 · S425 · S424 ·
+  상태 없는 콘텐츠는 개체 없음 · 명령 거절. test_checker (지문) · test_catalog_serialization (25 개) 갱신.
+- 골든: kSimVersion 4 그대로 — 전체 ctest 에서 det_* · 샘플 · 리플레이 해시 그대로 (defineState 가 없는 콘텐츠는 개체가 없다).
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED. build\ci-werror (/WX) 빌드 통과, check_docs 문제 0 · check_includes 위반 0 ·
+  gen_roadmap --check 낡은 것 0.
+- 벤치는 돌리지 않았다: 스크립트가 있는 월드의 틱마다 카탈로그를 한 번 훑는다 (컴포넌트 수십 개의 플래그 비교 — 추정으로 script.regen
+  16 ms/틱 대비 잡음 아래). defineState 를 쓰는 벤치 시나리오는 없다.
+- 창 · Linux · macOS 실기는 CI 로. 조각 1 (4e993bb) 의 linux-gcc CI 가 -Wsign-conversion 한 줄로 실패해 따로 고쳤다 (c4c05a6).
+
+**남은 일**
+
+- client.state (클라이언트에서 상태 읽기 — RT-06-7 뒤), 편집기에서 상태 개체 삭제 막기, Studio 스니펫 · 템플릿에 defineState 예 (M6-T2).
+- v0.10 의 다음: RT-06-7 client 수명주기 · RT-06-8 onAction.
+
 ## 2026-11-16 — v0.10 RT-06-10 조각 1: 스크립트 타이머 — ctx.after · every · cancelTimer · script.timer (ADR-0138)
 
 **무엇을**

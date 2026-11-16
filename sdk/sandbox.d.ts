@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 3c0bbbceed44d584 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 6d51897bbd2ba715 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -227,6 +227,10 @@ declare module "sandbox" {
   export function defineComponent<F extends { [name: string]: Field<unknown> }>(
     definition: ComponentDefinition<F>,
   ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
+  /** 월드 상태 (v0.10) — 월드에 하나. 엔진이 상태 개체에 붙인다 (세이브 · WorldHash). ctx.state · ctx.setState 로만 */
+  export function defineState<F extends { [name: string]: Field<unknown> }>(
+    definition: ComponentDefinition<F>,
+  ): ComponentRef<{ [K in keyof F]: F[K] extends Field<infer T> ? T : never }>;
   /** 충돌체 (서버만 — 복제하지 않는다) — 엔진 컴포넌트 core.collider (읽기 server · 쓰기 none) */
   export interface Collider {
     /** 충돌 반지름 */
@@ -412,6 +416,10 @@ declare module "sandbox" {
     add<T>(entity: Entity, component: ComponentRef<T>, value: T): void;
     /** 스크립트 컴포넌트를 뗀다 (이 틱 끝에) — ctx.remove */
     remove<T>(entity: Entity, component: ComponentRef<T>): void;
+    /** 월드 상태 (defineState) 의 값의 복사 — 늘 있다 (처음은 필드 기본값), 이 호출에서 쓴 값이 보인다 — ctx.state */
+    state<T>(state: ComponentRef<T>): T;
+    /** 월드 상태 (defineState) 를 쓴다 (호출이 끝나면 적용, 트랩이면 버림 — 범위 밖은 트랩) — ctx.setState */
+    setState<T>(state: ComponentRef<T>, value: T): void;
     /** ticks 틱 뒤 한 번 — 그 틱의 onEvent 에 e.kind == GameEventKind.Timer · e.key == key (이 시스템의 onEvent). ticks 1 ~ 16777216, key 1 ~ 47 바이트 (밖이면 HostError). 세이브 · 리플레이에 남는다 (script.timer). 이 호출이 끝나면 적용 — ctx.after */
     after(ticks: i32, key: string): void;
     /** ticks 틱마다 — 첫 만기는 ticks 틱 뒤, cancelTimer(key) 까지 (ctx.after 와 같은 이벤트 · 범위) — ctx.every */

@@ -35,6 +35,12 @@ vm::HostResult fail(std::string message) {
     return {false, {}, std::move(message), {}, 0};
 }
 
+vm::HostResult ctxState(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.state(args);
+}
+vm::HostResult ctxSetState(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.setState(args);
+}
 vm::HostResult ctxAfter(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.addTimer(args, false);
 }
@@ -163,6 +169,12 @@ constexpr HostBinding kBindings[] = {
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
     {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
     {"ctx.setOwner", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::I32}, 3, &ctxSetOwner},
+    {"ctx.state", AbiType::ComponentData, {AbiType::ServerContext, AbiType::Component}, 2, &ctxState},
+    {"ctx.setState",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Component, AbiType::ComponentData},
+     3,
+     &ctxSetState},
     {"ctx.after", AbiType::Void, {AbiType::ServerContext, AbiType::I32, AbiType::String}, 3, &ctxAfter},
     {"ctx.every", AbiType::Void, {AbiType::ServerContext, AbiType::I32, AbiType::String}, 3, &ctxEvery},
     {"ctx.cancelTimer", AbiType::Void, {AbiType::ServerContext, AbiType::String}, 2, &ctxCancelTimer},
@@ -639,6 +651,58 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     if (!e.valid()) {
         return fail("개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 죽은 개체)");
     }
+    return writeTo(e, *info, args[3].fields);
+}
+
+// ---- 월드 상태 (v0.10 RT-06-10 조각 2, ADR-0139) — 상태 개체 (script.state) 의 상태 컴포넌트
+// 읽기 · 쓰기는 ctx.read · write 와 같은 길 (쓰기 버퍼 — 호출 끝 적용, 같은 호출의 읽기에 보인다)
+
+const ecs::ComponentInfo* ScriptHost::stateOf(vm::Value ref, ecs::EntityId& holder, std::string& error) const {
+    const ecs::ComponentInfo* info = componentOf(ref, error);
+    if (info == nullptr) {
+        return nullptr;
+    }
+    if (!ecs::hasFlag(info->flags, ecs::ComponentFlags::WorldState)) {
+        error = std::format("'{}' 는 월드 상태 (defineState) 가 아니다", info->name);
+        return nullptr;
+    }
+    holder = m_world->scriptStateEntity();
+    if (!holder.valid() || currentBytes(holder, *info) == nullptr) {
+        error = std::format("월드 상태 '{}' 가 아직 없다 (엔진이 틱의 스크립트 단계 앞에서 만든다)", info->name);
+        return nullptr;
+    }
+    return info;
+}
+
+vm::HostResult ScriptHost::state(std::span<const vm::HostArg> args) {
+    std::string error;
+    ecs::EntityId holder;
+    const ecs::ComponentInfo* info = stateOf(args[1].value, holder, error);
+    if (info == nullptr) {
+        return fail(std::move(error));
+    }
+    vm::HostResult r;
+    r.value = vm::Value::boolean(true);
+    appendFieldValues(*info->dynamicLayout, currentBytes(holder, *info), r.values, [&](SaveId id) {
+        const ecs::EntityId target = id == kInvalidSaveId ? ecs::kNullEntity : m_world->resolveSave(id);
+        return target.valid() && m_world->registry().alive(target) ? entityHandle(target) : vm::Value::null();
+    });
+    return r;
+}
+
+vm::HostResult ScriptHost::setState(std::span<const vm::HostArg> args) {
+    std::string error;
+    ecs::EntityId holder;
+    const ecs::ComponentInfo* info = stateOf(args[1].value, holder, error);
+    if (info == nullptr) {
+        return fail(std::move(error));
+    }
+    return writeTo(holder, *info, args[2].fields);
+}
+
+vm::HostResult ScriptHost::writeTo(ecs::EntityId e, const ecs::ComponentInfo& component,
+                                   std::span<const vm::Value> fields) {
+    const ecs::ComponentInfo* info = &component;
     // 엔진 관리 컴포넌트 (접근 표의 쓰기 None) 는 개체에 있든 없든 거절 — 권한이 먼저 (v0.5 M2-T2)
     if (const api::EngineComponentAccess* engine = engineAccessOf(*info);
         engine != nullptr && engine->write != api::EngineWrite::Server) {
@@ -667,13 +731,13 @@ vm::HostResult ScriptHost::write(std::span<const vm::HostArg> args) {
     if (const api::EngineComponentAccess* engine = engineAccessOf(*info)) {
         std::vector<std::byte> bytes(current, current + info->size);
         std::string why;
-        if (!applyEngineFieldValues(*engine, *info, bytes.data(), args[3].fields, &m_world->grid(), why)) {
+        if (!applyEngineFieldValues(*engine, *info, bytes.data(), fields, &m_world->grid(), why)) {
             return fail(std::move(why));
         }
         return buffer(std::move(bytes));
     }
     std::vector<std::byte> bytes(current, current + info->dynamicLayout->stride());
-    if (auto bad = encodeDynamic(*info, bytes.data(), args[3].fields)) {
+    if (auto bad = encodeDynamic(*info, bytes.data(), fields)) {
         return fail(std::move(*bad));
     }
     return buffer(std::move(bytes));

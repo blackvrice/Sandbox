@@ -15,6 +15,7 @@
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
 #include "core/components/game/GameOwner.hpp"
+#include "core/components/game/ScriptState.hpp"
 #include "core/components/game/ScriptTimer.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
@@ -39,6 +40,7 @@ bool isProtected(ecs::StableId id) noexcept {
     return id == ecs::stableIdOf<comp::Persistence> || id == ecs::stableIdOf<comp::NetIdentity> ||
            id == ecs::stableIdOf<comp::GameSession> || // 게임 진행 상태 — 시작 · 재시작 명령만 (M2-T3)
            id == ecs::stableIdOf<comp::GameScore> ||   // 점수 — 효과 score.add · 시작만 (M3-T2)
+           id == ecs::stableIdOf<comp::ScriptState> || // 월드 상태 개체의 표시 — 엔진만 (RT-06-10)
            id == ecs::stableIdOf<comp::ScriptTimer>; // 스크립트 타이머 — ctx.after · every · cancelTimer 만 (RT-06-10)
 }
 
@@ -164,6 +166,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     // 본다). 구조 변경 (spawn · destroy · add · remove — v0.5 M2-T3) 은 Native ECB · Prefab 생성 다음에 넣은 차례로.
     // 시스템이 없는 콘텐츠는 없다 (골든 그대로)
     if (m_scriptSystems) {
+        ensureScriptState(
+            now); // defineState 가 있으면 상태 개체 · 상태 컴포넌트 (v0.10 RT-06-10 — 없으면 아무것도 안 한다)
         m_scriptSystems->run(*this, now);
     }
     m_scheduler.applyBuffers(m_registry, [this] { syncIdentityLogs(); });
@@ -184,6 +188,36 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     if (m_scriptSystems && (m_scriptSystems->hasCallbacks() || hasScriptTimers())) {
         runScriptCallbacks(now);
         applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
+    }
+}
+
+ecs::EntityId SimulationWorld::scriptStateEntity() const {
+    const auto* pool = m_registry.findPool<comp::ScriptState>();
+    return pool != nullptr && !pool->empty() ? pool->entityAt(0) : ecs::kNullEntity; // 월드에 하나 (엔진만 만든다)
+}
+
+// 콘텐츠의 상태 컴포넌트 (defineState — ComponentFlags::WorldState) 마다 상태 개체에 하나. 카탈로그 차례 (등록 순 —
+// 결정적) 로 붙이고, 개체는 처음 필요할 때 만든다. 세이브에서 온 개체 · 값은 그대로 두고 빠진 것만 기본값으로
+// (ADR-0139)
+void SimulationWorld::ensureScriptState(Tick now) {
+    ecs::EntityId holder = scriptStateEntity();
+    bool changed = false;
+    for (const ecs::ComponentInfo& info : m_catalog.all()) {
+        if (!ecs::hasFlag(info.flags, ecs::ComponentFlags::WorldState)) {
+            continue;
+        }
+        if (!holder.valid()) {
+            holder = m_registry.create();
+            m_registry.emplace<comp::ScriptState>(holder, comp::ScriptState{});
+            changed = true;
+        }
+        if (ecs::ComponentPoolBase& pool = poolFor(info); !pool.contains(holder)) {
+            (void)pool.emplaceDefaultRaw(holder, now);
+            changed = true;
+        }
+    }
+    if (changed) {
+        syncIdentityLogs(); // 새 개체의 saveId · 생성 이벤트
     }
 }
 

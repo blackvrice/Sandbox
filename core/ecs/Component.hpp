@@ -33,6 +33,7 @@ enum class ComponentFlags : u32 {
     ServerOnly = 1u << 4,    // 서버에만 존재
     ClientOnly = 1u << 5,    // 클라에만 존재
     NotHashed = 1u << 6,     // Persistent 이지만 해시에서 뺀다 — 등록 옆에 사유 주석 필수
+    WorldState = 1u << 7,    // 월드에 하나 — 상태 개체 (script.state) 에 엔진이 붙인다 (defineState, ADR-0139)
 };
 
 constexpr ComponentFlags operator|(ComponentFlags a, ComponentFlags b) noexcept {

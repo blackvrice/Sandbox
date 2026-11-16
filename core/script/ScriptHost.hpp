@@ -139,6 +139,8 @@ public:
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — SimulationWorld::players() 를 id 순으로
     vm::HostResult setOwner(std::span<const vm::HostArg> args);
     // 타이머 (v0.10 RT-06-10) — period 0 = after, 아니면 every
+    vm::HostResult state(std::span<const vm::HostArg> args);    // ctx.state — 월드 상태 (v0.10 RT-06-10, ADR-0139)
+    vm::HostResult setState(std::span<const vm::HostArg> args); // ctx.setState
     vm::HostResult addTimer(std::span<const vm::HostArg> args, bool repeat);
     vm::HostResult cancelTimer(std::span<const vm::HostArg> args);
     vm::HostResult playerCount(std::span<const vm::HostArg> args);
@@ -174,6 +176,10 @@ private:
     const ecs::ComponentInfo* componentOf(vm::Value ref, std::string& error) const;
     // 지금 값 (쓰기 버퍼 → 풀). 없으면 nullptr
     [[nodiscard]] const std::byte* currentBytes(ecs::EntityId e, const ecs::ComponentInfo& info) const;
+    // ctx.write · setState 의 몸 — 값을 검사해 쓰기 버퍼에
+    vm::HostResult writeTo(ecs::EntityId e, const ecs::ComponentInfo& component, std::span<const vm::Value> fields);
+    // 상태 컴포넌트와 상태 개체 (없으면 nullptr + error)
+    [[nodiscard]] const ecs::ComponentInfo* stateOf(vm::Value ref, ecs::EntityId& holder, std::string& error) const;
     // 스크립트 컴포넌트 값의 칸 → 배치 바이트 (범위 · 유한 · 핸들 검사). 문제면 그 설명
     [[nodiscard]] std::optional<std::string> encodeDynamic(const ecs::ComponentInfo& info, std::byte* bytes,
                                                            std::span<const vm::Value> v) const;

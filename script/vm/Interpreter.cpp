@@ -860,7 +860,7 @@ bool Interpreter::loop(usize stopDepth, Value& retOut) {
             if (in.a == bc::kNoReg) {
                 break;
             }
-            if (im.result == api::AbiType::ComponentDataOrNull) {
+            if (im.result == api::AbiType::ComponentDataOrNull || im.result == api::AbiType::ComponentData) {
                 Value out = Value::null();
                 if (!hr.value.isNull()) {
                     usize pos = 0;

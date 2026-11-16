@@ -77,6 +77,7 @@ enum class Builtin : u32 {
     NaN,
     Infinity,
     DefineComponent,        // defineComponent — 최상위 const 의 초기값으로만 (ADR-0059 1)
+    DefineState,            // defineState — 같은 모양, 월드에 하나인 상태 (v0.10 RT-06-10, ADR-0139)
     FieldNamespace,         // field.i32 · f32 · … — defineComponent 의 fields 안에서만
     DefineSystem,           // defineSystem — export default 의 식으로만 (ADR-0062)
     SetUnion,               // setUnion — 집합 연산 (v0.5 M8-T4 — "sandbox")

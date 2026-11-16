@@ -619,6 +619,34 @@ ctx.cancelTimer(key: string): void           이 시스템의 그 키 타이머�
                                              WorldHash · 리플레이, 서버만 — 복제하지 않는다). 명령 · Prefab · ctx.add 로는 붙일 수 없다
 같은 키                                      여러 번 만들면 여럿이다 — 바꾸려면 cancelTimer 뒤 after. 값은 싣지 못한다 (키 하나 — 값은 컴포넌트에)
 ```
+
+월드 상태 (v0.10 RT-06-10 조각 2 — [ADR-0139](adr/0139-script-world-state-define-state.md), `core/components/game/ScriptState.hpp`):
+
+```ts
+import { defineSystem, defineState, field } from "sandbox";
+export const Round = defineState({ id: "rpg.round", fields: { number: field.i32(1), kills: field.i32(0) } });
+export default defineSystem({
+  id: "rpg.round.count",
+  events: { death: {} },
+  onEvent(ctx, e) {
+    const r = ctx.state(Round); // 값의 복사 — 늘 있다 (처음은 필드 기본값)
+    r.kills += 1;
+    ctx.setState(Round, r); // 호출이 끝나면 적용 — 같은 틱의 다음 onEvent 가 이 값을 읽는다
+  },
+});
+```
+
+```text
+defineState({ … })                           defineComponent 와 같은 모양 · 같은 규칙 (15장 — id · version · fields · persistent …, S424 · S425).
+                                             개체에 붙이지 않는다 — 월드에 하나. 타입은 ComponentRef<T>
+ctx.state(s: ComponentRef<T>): T             값의 복사 (null 이 아니다). 이 호출에서 setState 한 값이 보인다. 서버만 · Read · 연료 8
+ctx.setState(s: ComponentRef<T>, value: T): void   ctx.write 와 같은 쓰기 버퍼 — 범위 · 유한 검사 (밖이면 HostError), 호출 끝 적용, 트랩이면
+                                             버린다. 서버만 · Write · 연료 16
+섞지 않는다                                   상태를 ctx.read · write · has · query · add · remove 에, 컴포넌트를 ctx.state · setState 에 넘기면 S404
+데이터                                       상태 개체 — 엔진 컴포넌트 script.state 를 가진 개체 하나. defineState 가 있는 콘텐츠면 엔진이 단계 16b
+                                             앞에서 만들고 상태 컴포넌트를 기본값으로 붙인다 (세이브에서 왔으면 그대로, 새 상태만 더).
+                                             세이브 · WorldHash · 리플레이 · Inspector 는 스크립트 컴포넌트 그대로. 클라이언트에서 읽기는 [계획]
+```
 ## 17. 스크립트 시스템 (v0.3 M4-T1 — 검사기 · 시스템 표 · `core/script/ScriptSystemAdapter`, ADR-0062)
 
 ```ts
@@ -1027,7 +1055,8 @@ Capability                                                           InputRead �
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
 [계획 v0.6]   server onPrePhysics (8b) · client 수명주기 · onAction · onLateUpdate · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
-              onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState [계획 — RT-06-10 조각 2]
+              onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
+              (ctx.state · setState, ADR-0139 — 16.2)
 [계획 v0.7]   client onTick (고정 Tick — predicted 게임만, ADR-0087)
 [계획 v0.8]   onEvent "response" · "socket" (NetworkModule — 서버만)
 Context 타입   콜백마다 TS 타입 하나 (ServerPrePhysicsContext · ClientActionContext · ClientRenderContext · ClientTickContext) =
