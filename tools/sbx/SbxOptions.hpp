@@ -58,7 +58,9 @@ struct SbxOptions {
     std::string contentRoot; // new --content-root (비면 빌드 때 정한 저장소의 content/)
     u64 seed = 1;            // new --seed
     std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
-    std::string out;         // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
+    std::string
+        templateId;  // new --template <id> (v0.10 M6-T2 — samples/ 의 template.json, --from · --mode 와 함께 못 쓴다)
+    std::string out; // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
     std::string profile;     // build --profile <이름> (export/<이름>.json — v0.6 NG-08)
     bool cache = false;      // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
     std::string cacheDir;    // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)

@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.template",
+  "version": 1,
+  "id": "minigame",
+  "title": "노코드 미니게임 + HUD",
+  "description": "스크립트 없이 콘텐츠 규칙 · 트리거 · 게임 모드 · 행동 키로 만든 미니게임 (토끼 지키기) — 점수 · 시간 HUD, 자동 플레이 포함",
+  "order": 1
+}

@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core/project/GameProject.hpp"
+#include "core/project/ProjectTemplate.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "editor/services/StudioSettings.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -93,9 +94,13 @@ ProjectService::ProjectService(const ecs::ComponentCatalog& catalog, SemVer engi
         }
         std::ranges::sort(m_examples, {}, &ExampleProject::name);
     }
-    m_templates.push_back({"empty", "빈 월드", ""});
+    m_templates.push_back({"empty", "빈 월드", "", {}, {}});
+    // 게임 템플릿 (v0.10 M6-T2, ADR-0144) — samples/ 중 template.json 이 있는 예제, 빈 월드 다음 · 시나리오 앞
+    for (project::ProjectTemplateInfo& t : project::listProjectTemplates(samplesRoot, &m_warnings)) {
+        m_templates.push_back({std::move(t.id), std::move(t.title), {}, std::move(t.dir), std::move(t.description)});
+    }
     for (const scenario::ScenarioEntry& e : scenario::scenarioList()) {
-        m_templates.push_back({std::string(e.name), std::string(e.description), std::string(e.name)});
+        m_templates.push_back({std::string(e.name), std::string(e.description), std::string(e.name), {}, {}});
     }
     loadRecent();
 }
@@ -135,12 +140,21 @@ Expected<ProjectSummary> ProjectService::create(const NewProjectRequest& request
     if (t == m_templates.end()) {
         return makeError(ErrorCode::NotFound, std::format("템플릿 '{}' 가 없다", request.templateId));
     }
-    project::NewProjectOptions o;
-    o.gameId = request.gameId;
-    o.name = request.name;
-    o.fromScenario = t->scenario;
-    o.contentRoot = m_contentRoot;
-    const Expected<project::NewProjectResult> made = project::createProject(request.dir, o, m_engine, m_catalog);
+    Expected<project::NewProjectResult> made = makeError(ErrorCode::Unknown, "");
+    if (!t->projectDir.empty()) {
+        project::ProjectTemplateInfo info;
+        info.id = t->id;
+        info.title = t->title;
+        info.dir = t->projectDir;
+        made = project::createProjectFromTemplate(info, request.dir, request.gameId, request.name, m_engine, m_catalog);
+    } else {
+        project::NewProjectOptions o;
+        o.gameId = request.gameId;
+        o.name = request.name;
+        o.fromScenario = t->scenario;
+        o.contentRoot = m_contentRoot;
+        made = project::createProject(request.dir, o, m_engine, m_catalog);
+    }
     if (!made) {
         return std::unexpected(made.error());
     }
@@ -165,7 +179,7 @@ Expected<ProjectSummary> ProjectService::copyExample(const fs::path& example, co
     for (fs::recursive_directory_iterator it(example, ec), end; !ec && it != end; it.increment(ec)) {
         const fs::path rel = fs::relative(it->path(), example, ec);
         const std::string top = rel.begin() != rel.end() ? rel.begin()->string() : std::string();
-        if (top == ".sandbox" || top == "build") {
+        if (top == ".sandbox" || top == "build" || rel == fs::path(project::kTemplateFile)) { // 템플릿 표시는 예제의 것
             if (it->is_directory(ec)) {
                 it.disable_recursion_pending();
             }

@@ -25,9 +25,11 @@ class ComponentCatalog;
 namespace sbx::editor::services {
 
 struct ProjectTemplate {
-    std::string id;       // "empty" · 시나리오 이름
+    std::string id;       // "empty" · 시나리오 이름 · 게임 템플릿 id (v0.10 M6-T2 — minigame · board · survival)
     std::string title;    // 화면 이름
     std::string scenario; // createProject 의 fromScenario (빈 월드 = "")
+    std::filesystem::path projectDir; // 게임 템플릿이면 그 예제 폴더 (template.json — createProjectFromTemplate)
+    std::string description;
 };
 
 struct NewProjectRequest {

@@ -85,6 +85,7 @@ add_executable(SandboxTests
     unit/content/test_pack_import.cpp
     unit/content/test_script_overlay.cpp
     unit/project/test_game_project.cpp
+    unit/project/test_project_template.cpp
     unit/project/test_game_package.cpp
     unit/project/test_asset_database.cpp
     unit/project/test_asset_groups.cpp
@@ -671,6 +672,12 @@ if(TARGET sbx)
                     ${_sbx_release_client_arg}
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/tech_alpha_e2e.cmake")
         set_tests_properties(tech_alpha_e2e PROPERTIES LABELS "content" TIMEOUT 600)
+        # 게임 템플릿 — samples/ 의 template.json 마다 sbx new --template → check (경고 0) → test → build (v0.10 M6-T2)
+        add_test(NAME project_templates
+            COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DSAMPLES=${PROJECT_SOURCE_DIR}/samples"
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_templates" "-DEXPECT=minigame"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_templates.cmake")
+        set_tests_properties(project_templates PROPERTIES LABELS "content" TIMEOUT 900 PASS_REGULAR_EXPRESSION "project_templates OK")
         # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
         add_test(NAME project_pack
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_pack"

@@ -24,6 +24,7 @@
 #include "core/project/Diagnostics.hpp"
 #include "core/project/ExportProfile.hpp"
 #include "core/project/GameProject.hpp"
+#include "core/project/ProjectTemplate.hpp"
 #include "core/replay/WorldHash.hpp"
 #include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
@@ -408,9 +409,45 @@ int runNewPack(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     return kExitOk;
 }
 
+// sbx new --template (v0.10 M6-T2, ADR-0144) — samples/ (배포 묶음 · 저장소) 의 template.json 이 있는 게임 프로젝트
+int runNewFromTemplate(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    std::vector<std::string> warnings;
+    const auto templates = project::listProjectTemplates(io::dataDir("samples", SBX_DEFAULT_SAMPLES_DIR), &warnings);
+    for (const std::string& w : warnings) {
+        printErr("템플릿 목록: " + w);
+    }
+    const auto it = std::ranges::find(templates, opt.templateId, &project::ProjectTemplateInfo::id);
+    if (it == templates.end()) {
+        std::string ids;
+        for (const project::ProjectTemplateInfo& t : templates) {
+            ids += (ids.empty() ? "" : ", ") + t.id;
+        }
+        printErr(std::format("템플릿 '{}' 가 없습니다 (있는 것: {})", opt.templateId, ids.empty() ? "없음" : ids));
+        return kExitError;
+    }
+    const auto made = project::createProjectFromTemplate(*it, std::filesystem::path(opt.dir), opt.gameId, opt.name,
+                                                         engineVersion(), catalog);
+    if (!made) {
+        printErr(made.error().describe());
+        return kExitError;
+    }
+    std::printf("프로젝트를 만들었습니다: %s — %s %s \"%s\" (엔진 \"%s\")\n", opt.dir.c_str(),
+                made->manifest.gameId.c_str(), made->manifest.version.toString().c_str(), made->manifest.name.c_str(),
+                made->manifest.engine.text.c_str());
+    std::printf("  템플릿 %s (%s) · 시작 월드 %s (tick %llu, 엔티티 %zu)%s%s\n", it->id.c_str(), it->title.c_str(),
+                made->manifest.entryWorld.c_str(), static_cast<unsigned long long>(made->worldTick),
+                made->worldEntities, made->manifest.gameMode.empty() ? "" : " · 게임 모드 ",
+                made->manifest.gameMode.c_str());
+    std::printf("  자동 플레이: sbx test %s  ·  실행: SandboxClient --world %s\n", opt.dir.c_str(), opt.dir.c_str());
+    return kExitOk;
+}
+
 int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     if (opt.pack) {
         return runNewPack(opt, catalog);
+    }
+    if (!opt.templateId.empty()) {
+        return runNewFromTemplate(opt, catalog);
     }
     project::NewProjectOptions n;
     n.gameId = opt.gameId;
@@ -511,13 +548,19 @@ int main(int argc, char** argv) {
         std::printf("sbx %.*s (%.*s)\n", static_cast<int>(build::kVersionString.size()), build::kVersionString.data(),
                     static_cast<int>(build::kGitCommit.size()), build::kGitCommit.data());
         return kExitOk;
-    case SbxCommand::Templates:
+    case SbxCommand::Templates: {
         std::printf("%-18s %s\n", "-", "(--from 없음) 빈 월드 — 내장 콘텐츠, 16 × 16 청크, 일시정지");
         for (const auto& s : scenario::scenarioList()) {
             std::printf("%-18.*s %.*s\n", static_cast<int>(s.name.size()), s.name.data(),
                         static_cast<int>(s.description.size()), s.description.data());
         }
+        // 게임 템플릿 (v0.10 M6-T2) — new --template <id>
+        for (const project::ProjectTemplateInfo& t :
+             project::listProjectTemplates(io::dataDir("samples", SBX_DEFAULT_SAMPLES_DIR))) {
+            std::printf("--template %-7s %s — %s\n", t.id.c_str(), t.title.c_str(), t.description.c_str());
+        }
         return kExitOk;
+    }
     case SbxCommand::Digest: {
         // 패키지 (팩) digest · 캐시 (v0.4 M2-T1, ADR-0071) — 해결 · 설치 (M3) 가 쓰는 것과 같은 함수
         const std::filesystem::path dir(opt.dir);

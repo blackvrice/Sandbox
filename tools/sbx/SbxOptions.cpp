@@ -74,16 +74,18 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             return args[++i];
         };
         const bool isNew = o.command == SbxCommand::New;
-        if (isNew && (a == "--id" || a == "--name" || a == "--from" || a == "--mode" || a == "--content-root")) {
+        if (isNew && (a == "--id" || a == "--name" || a == "--from" || a == "--mode" || a == "--content-root" ||
+                      a == "--template")) {
             auto v = value();
             if (!v) {
                 return std::unexpected(v.error());
             }
-            (a == "--id"     ? o.gameId
-             : a == "--name" ? o.name
-             : a == "--from" ? o.from
-             : a == "--mode" ? o.mode
-                             : o.contentRoot) = std::string(*v);
+            (a == "--id"         ? o.gameId
+             : a == "--name"     ? o.name
+             : a == "--from"     ? o.from
+             : a == "--mode"     ? o.mode
+             : a == "--template" ? o.templateId
+                                 : o.contentRoot) = std::string(*v);
             sawProjectOnly = sawProjectOnly || a != "--id";
         } else if (isNew && a == "--pack") {
             o.pack = true;
@@ -170,6 +172,11 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                          "new --pack 은 --id <팩 id> [--license <SPDX>] 만 받는다 (--name · --from · --mode · "
                          "--content-root · --seed 는 게임 프로젝트의 것)");
     }
+    if (!o.templateId.empty() && (!o.from.empty() || !o.mode.empty() || !o.contentRoot.empty())) {
+        return makeError(
+            ErrorCode::InvalidArgument,
+            "--template 은 --from · --mode · --content-root 와 같이 쓰지 않는다 (템플릿이 콘텐츠 · 모드를 가진다)");
+    }
     if (!o.pack && !o.license.empty()) {
         return makeError(ErrorCode::InvalidArgument, "--license 는 new --pack 의 것");
     }
@@ -235,6 +242,10 @@ std::string sbxUsage() {
            "                             데모: --from ecosystem_small --mode eco.protect (토끼 지키기)\n"
            "      --content-root <d>     --from 의 팩을 찾을 곳 (기본: 저장소의 content/)\n"
            "      --seed <n>             월드 시드 (기본 1)\n"
+           "      --template <id>        게임 템플릿 (v0.10 — samples/ 의 template.json: minigame · board · survival) "
+           "— 콘텐츠 ·\n"
+           "                             시작 월드 · 자동 플레이를 복사하고 gameId · 이름을 새로 쓴다 (--from · --mode "
+           "대신)\n"
            "  new --pack <폴더> --id <팩 id> [--license <SPDX>]   패키지 (팩) 틀 — 컴포넌트 · 함수 · 시스템 · Prefab\n"
            "  check <폴더>               프로젝트 검사 (매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기)\n"
            "  test <폴더>                검사 + 자동 플레이 스크립트 (playthrough.json · tests/*.json) 를 끝까지 · "

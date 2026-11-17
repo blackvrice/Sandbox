@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-17 — v0.10 M6-T2 조각 1: 게임 템플릿 틀 — sbx new --template · Studio 고르기, minigame (ADR-0144)
+
+**무엇을**
+
+- core/project/ProjectTemplate: 템플릿 = samples/ 의 template.json 이 있는 예제 게임 프로젝트. listProjectTemplates (order · id 차례,
+  깨진 것 · 겹친 id 경고) · readProjectTemplate · createProjectFromTemplate (복사 — .sandbox · build · template.json 제외, 매니페스트
+  gameId · 이름 · 판 0.1.0 · 엔진 범위, worlds/*/world.json 의 게임 결속, SDK 를 이 엔진으로, 임시 폴더에서 검사 오류 · 경고 0 · 시작 월드
+  열림 → 제자리로).
+- sbx new <폴더> --template <id> --id <gameId> [--name] (--from · --mode · --content-root 와 같이 못 쓴다), sbx templates 에 "--template" 줄.
+  Studio ProjectService 의 템플릿 목록에 게임 템플릿 (빈 월드 다음 · 시나리오 앞 — 고르면 createProjectFromTemplate), 예제 복사는
+  template.json 을 뺀다.
+- samples/rabbit_guard/template.json — minigame (노코드 미니게임 + HUD).
+- CTest project_templates: 템플릿마다 new → check (오류 · 경고 0) → test (자동 플레이) → build. 지금 EXPECT minigame.
+- 문서: ADR-0144, 15 7장, 17, 13, FEATURE_MATRIX F-132, CURRENT_STATUS, v0.10 체크리스트 (minigame · sbx new --template · Studio), 등록부
+  M6-T2 메모 (Planned — gen_roadmap).
+
+**왜**
+
+- M6-T2 의 장르 틀은 콘텐츠 · UI · 스크립트 · 시작 월드 · 자동 플레이가 다 있는 게임이다 — 그건 이미 예제다. 같은 게임을 두 벌 두지 않고
+  예제에 표시만 붙여, 새 프로젝트에서는 정체 (gameId · 이름 · 판 · 결속 · SDK) 만 바꾼다 (ADR-0144).
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 단위 시험 976 개 통과 (Debug — 앞 973 + 3). 새 test_project_template 3 개 (목록 · 경고 넷, 새 프로젝트 — 정체 · 빼는 파일 · 결속 ·
+  SDK · 검사 · 거절 셋 (폴더를 남기지 않음), 저장소 minigame + Studio 프로젝트 서비스 고르기).
+- 전체 ctest 91 개 — 90 통과 · studio_gui_smoke SKIPPED (새 project_templates 포함 — minigame new · check 경고 0 · test (자동 플레이 통과 —
+  hash 0x02d03b52e9655a3f, 예제와 같다) · build). sbx templates 줄을 고친 뒤 다시 빌드해 프로젝트 CTest 18 개 통과, build\ci-werror (/WX)
+  경고 0, check_docs 문제 0 · gen_roadmap --check 낡은 것 0.
+- Studio 화면 (새 프로젝트 창의 목록) 은 창을 띄워 보지 않았다 — 목록 · 만들기는 ProjectService 시험이 본다.
+- 벤치 해당 없음 (도구 · 프로젝트 만들기).
+
+**남은 일**
+
+- M6-T2 조각 2 · 3: board (스크립트 보드게임) · survival (생존) 템플릿 — 새 예제 + template.json + playthrough, CTest EXPECT 에 더한다.
+
 ## 2026-11-17 — v0.10 RT-06-8 조각 2: 입력 Context — 메뉴 · 모달이 게임 키를 먹는다 (ADR-0143) — RT-06-8 끝
 
 **무엇을**

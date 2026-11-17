@@ -1,0 +1,55 @@
+# 게임 템플릿 (v0.10 M6-T2, ADR-0144): samples/ 의 template.json 이 있는 프로젝트마다 sbx new --template → check (오류 ·
+# 경고 0) → test (자동 플레이 통과) → build (패키지). 템플릿이 셋 (minigame · board · survival) 이 될 때까지 있는 것만 —
+# EXPECT 에 적은 id 는 꼭 있어야 한다.
+#   cmake -DSBX=<sbx> -DSAMPLES=<samples> -DOUT=<작업 폴더> [-DEXPECT=minigame;board;survival] -P project_templates.cmake
+cmake_minimum_required(VERSION 3.25)
+foreach(v SBX SAMPLES OUT)
+    if(NOT DEFINED ${v})
+        message(FATAL_ERROR "${v} 가 필요합니다")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${OUT}")
+file(MAKE_DIRECTORY "${OUT}")
+
+file(GLOB markers "${SAMPLES}/*/template.json")
+set(ids "")
+foreach(marker ${markers})
+    file(READ "${marker}" text)
+    string(JSON id GET "${text}" id)
+    list(APPEND ids "${id}")
+endforeach()
+foreach(want ${EXPECT})
+    if(NOT want IN_LIST ids)
+        message(FATAL_ERROR "템플릿 '${want}' 가 없다 (있는 것: ${ids})")
+    endif()
+endforeach()
+if(ids STREQUAL "")
+    message(FATAL_ERROR "템플릿이 하나도 없다 (${SAMPLES}/*/template.json)")
+endif()
+
+foreach(id ${ids})
+    set(dir "${OUT}/${id}")
+    execute_process(COMMAND "${SBX}" new "${dir}" --template "${id}" --id "tpl.${id}"
+        RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+    if(NOT rc EQUAL 0)
+        message(FATAL_ERROR "[${id}] sbx new --template 실패:\n${out}${err}")
+    endif()
+    execute_process(COMMAND "${SBX}" check "${dir}"
+        RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+    if(NOT rc EQUAL 0 OR NOT out MATCHES "프로젝트 검사: 오류 0, 경고 0")
+        message(FATAL_ERROR "[${id}] 검사가 깨끗하지 않다 (오류 · 경고 0 이어야 한다):\n${out}${err}")
+    endif()
+    execute_process(COMMAND "${SBX}" test "${dir}"
+        RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 300)
+    if(NOT rc EQUAL 0 OR NOT out MATCHES "실패 0")
+        message(FATAL_ERROR "[${id}] 자동 플레이 실패:\n${out}${err}")
+    endif()
+    execute_process(COMMAND "${SBX}" build "${dir}" --out "${OUT}/${id}.sbpkg"
+        RESULT_VARIABLE rc OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+    if(NOT rc EQUAL 0 OR NOT EXISTS "${OUT}/${id}.sbpkg")
+        message(FATAL_ERROR "[${id}] 패키지 빌드 실패:\n${out}${err}")
+    endif()
+    message("[${id}] new · check (경고 0) · test · build 통과")
+endforeach()
+file(REMOVE_RECURSE "${OUT}")
+message("project_templates OK (${ids})")
