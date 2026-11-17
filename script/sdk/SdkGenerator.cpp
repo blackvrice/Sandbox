@@ -342,6 +342,16 @@ std::string generateSandboxDts() {
     out += "    action?: {};\n";
     out += "    /** 그 틱에 받아들여진 PlayerSignal (팩 signals.json — e.signal · player · value) */\n";
     out += "    signal?: {};\n";
+    out += "    /** 두 콜라이더가 겹치기 시작했다 (단계 16a — e.entity = 자기 · e.targets = [상대], 쌍마다 두 방향, "
+           "태그는 자기 쪽) "
+           "*/\n";
+    out += "    collisionEnter?: { tags?: TagFilter };\n";
+    out += "    /** 겹침이 끝났다 (떨어졌거나 한쪽이 없어졌다 — 없어진 쪽은 e.entity null · e.targets 빈 목록) */\n";
+    out += "    collisionExit?: { tags?: TagFilter };\n";
+    out += "    /** 트리거 (core.trigger) 와 겹치기 시작했다 — 밀어내지 않는다 */\n";
+    out += "    triggerEnter?: { tags?: TagFilter };\n";
+    out += "    /** 트리거와의 겹침이 끝났다 */\n";
+    out += "    triggerExit?: { tags?: TagFilter };\n";
     out += "  }\n";
     // 도메인마다 정의 타입 (v0.10 RT-06-7) — onStart · onStop 의 ctx 가 도메인마다 다르다. defineSystem 은 오버로드 둘:
     // domain: "client" 면 ClientSystemDefinition, 아니면 서버 것

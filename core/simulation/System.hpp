@@ -42,6 +42,14 @@ class JobSystem;
 
 namespace sbx::sim {
 
+// 단계 16 의 겹침 쌍 (v0.11 RT-06-5, ADR-0151) — Collision 이 밀기 전 위치 · layer · mask 를 지난 겹침. a < b (saveId)
+struct ContactPair {
+    SaveId a = kInvalidSaveId;
+    SaveId b = kInvalidSaveId;
+    bool trigger = false; // 어느 쪽이든 core.trigger
+    friend bool operator==(const ContactPair&, const ContactPair&) = default;
+};
+
 // 값 = 문서의 파이프라인 번호. System 이 도는 구간(5~16)만 있다. 나머지 단계는 SimulationWorld 가 직접 한다.
 enum class Stage : u8 {
     CollectPathResults = 5, // Phase 5B
@@ -97,8 +105,8 @@ struct SystemContext {
     ecs::Registry& reg;
     ecs::EntityCommandBuffer& ecb;      // 이 System 전용. Stage 17 에서 System 실행 순서대로 적용된다
     const world::SpatialIndex& spatial; // Stage 4 에 재구성된 이번 틱 색인 (S3)
-    const world::WorldGrid& grid; // 지형·경계 (System 은 지형을 바꾸지 않는다 — 지형 편집은 명령만)
-    const rnd::RandomService& random; // 이번 틱으로 맞춰져 있다
+    const world::WorldGrid& grid;       // 지형·경계 (System 은 지형을 바꾸지 않는다 — 지형 편집은 명령만)
+    const rnd::RandomService& random;   // 이번 틱으로 맞춰져 있다
     EventStream& events;
     SpawnQueue& spawns;                      // Prefab 생성 (Stage 17)
     const content::ContentDatabase& content; // 불변
@@ -109,6 +117,8 @@ struct SystemContext {
     JobSystem* jobs; // Worker 풀 (없을 수 있다). System 안 병렬은 결과가 Worker 수와 무관할 때만 (D5)
     Tick tick;
     f32 dt; // == kFixedDt 항상
+    std::vector<ContactPair>*
+        contacts; // 겹침 쌍을 모을 곳 (충돌 · 트리거 이벤트 구독이 있을 때만 — 아니면 null, RT-06-5)
 };
 
 class ISystem {

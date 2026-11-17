@@ -780,13 +780,21 @@ export default defineSystem({
            tags 거르기는 death 는 틱 처음의 태그, spawn · areaEnter 는 지금 태그 (Rule · 트리거의 TagExpr 와 같다)
 GameEvent  { action: string, entity: Entity | null, key: string, kind: GameEventKind, player · previous: i32, signal: string, targets:
            Entity[], team · value: i32, x · y: number } (읽기 전용, 칸 = 이름 순 — 해당 없는 action · key · signal 은 "", targets 는 []).
-           GameEventKind { Death = 1, Spawn, AreaEnter, Score, Action, Signal, Timer } 는 SDK enum.
+           GameEventKind { Death = 1, Spawn, AreaEnter, Score, Action, Signal, Timer, CollisionEnter, CollisionExit, TriggerEnter,
+           TriggerExit } 는 SDK enum.
+겹침       (v0.11 RT-06-5, ADR-0151) collisionEnter · collisionExit · triggerEnter · triggerExit — 단계 16a 의 겹침 쌍 변화 (Collision 이
+           밀기 전 위치 · layer · mask 를 지난 겹침, 한쪽이라도 core.trigger 면 trigger 종류). 쌍 (작은 saveId, 큰) 차례, 쌍마다 두
+           방향: e.entity = 자기 (17d 에 살아 있을 때만 — 아니면 null), e.targets = [상대] (살아 있을 때만), e.x · y = 자기 위치,
+           tags 는 자기 쪽. 밀려도 겹친 채면 다시 내지 않는다 (Enter 한 번 · 떨어질 때 Exit). 지운 개체는 다음 틱 Exit — 둘 다 같은 틱에
+           지워지면 없다. 상태 core.contacts (양쪽 개체 — 세이브 · 해시) 는 구독이 있을 때만, 개체마다 16 쌍 · 틱 4,096 쌍 (넘으면
+           세고 버린다). client 시스템도 구독한다 (복제 — 프로토콜 20)
 타이머     (v0.10 RT-06-10, ADR-0138) ctx.after · every 의 만기 — kind = Timer, key = 그 키. 구독하지 않는다: 만든 시스템의 onEvent 로만
            오고 events: { timer } 는 S426. 그래서 onEvent 만 있고 events 가 없는 시스템이 된다 (타이머만 받는다). 차례는 그 시스템의
            구독 이벤트 다음, (만기 틱, 만든 차례). onEvent 가 없으면 만기에 버리고 센다. onEvent 의 매개변수는 (ctx?, e?) — 적으면
            ServerContext · GameEvent. 종류 · 필드는 Host API 지문에 든다 (v0.5 M2-T5 (2) — 배치가 바뀐 옛 .sbc 는 지문으로 거절 →
            소스에서 다시 컴파일). 엔진은 문자열 칸을 글 목록의 자리로, 개체 목록 칸을 개수 + 원소로 넘긴다 (Interpreter::call)
-구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score · action · signal (키 없음). tags 의 이름은
+구독       events 의 키 = death · spawn · areaEnter (min · max: [x, y] 필수, f32 로 반올림) · score · action · signal (키 없음) ·
+           collisionEnter · collisionExit · triggerEnter · triggerExit (tags — v0.11). tags 의 이름은
            콘텐츠 로드가 태그 비트로 푼다 (없는 태그 V7). events 와 onEvent 는 함께 (S426). 바이트코드는 이름을 싣는다 (.sbc 형식 4)
 예산       시스템마다 eventsPerTick (기본 256), 틱 전체 4096 — 넘은 이벤트는 건너뛰고 센다 (ScriptSystemAdapter::lastStats().cut).
            연료는 호출마다 (VM 기본). 이어짐 없음 — 콜백은 컴포넌트 값만 써서 새 이벤트를 내지 않는다 (생성 · 파괴 Host 항목이

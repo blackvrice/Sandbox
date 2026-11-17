@@ -28,11 +28,11 @@
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
 | 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) · [v0.10](../roadmap/versions/v0.10.md) (6 / 8 Done, 수동 QA 0 / 3) |
-| 현재 개발 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime (3 / 7, 43 %) |
+| 현재 개발 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime (4 / 7, 57 %) |
 | 다음 목표 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools |
-| 전체 진행 (v0.5 ~ v1.0 태스크) | 73 / 167 Done — 44 % |
-| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 24 |
-| v1.0 (GA) 까지 남은 태스크 | 94 |
+| 전체 진행 (v0.5 ~ v1.0 태스크) | 74 / 167 Done — 44 % |
+| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 23 |
+| v1.0 (GA) 까지 남은 태스크 | 93 |
 | 수동 QA (v0.7 이후 버전 줄) | 8 / 40 확인 |
 
 <!-- GENERATED:END -->
@@ -74,7 +74,7 @@
 | 콘텐츠 · 게임 규칙 | ✅ [11](../11-CONTENT-SCHEMA.md) | ✅ `core/content` · `core/trigger` · `core/game` | ✅ `content_eco_validate` · `sample_playthrough` | 해당 없음 | ✅ 완료 | [모듈](MODULES.md#콘텐츠--게임-규칙) |
 | 물리 · 충돌 | 🟡 [03](../03-SIMULATION.md) 2장 · [22](../22-RUNTIME-V2.md) 5장 (다음 단계는 설계만) | 🟡 원 분리 충돌 · 이동 · raycast · overlap 질의만 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — layer · mask · Enter/Exit 이벤트 · PhysicsCommand 는 v0.11 | [v0.11](../roadmap/versions/v0.11.md) |
 | Script 컴파일러 · VM | ✅ [19](../19-SANDBOXSCRIPT.md) | ✅ `script/lang` · `script/vm` · `script/api` | ✅ `unit_script` (퍼즈 · 보호 시험 포함) | 해당 없음 | ✅ 완료 | [모듈](MODULES.md#sandboxscript) |
-| Script Runtime (Host API · 시스템 · 콜백) | ✅ 19 · [22](../22-RUNTIME-V2.md) | 🟡 `core/script` — server onStart · onPrePhysics · onTick · onEvent · onStop · onMigrate, client onStart · onEvent · onAction · onUpdate · onLateUpdate · onStop, 호출 토큰 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — onPrePhysics · 물리 명령 ✅ (v0.11 RT-06-2 · 3), 충돌 이벤트 · onRender (v0.11) 남음 | [v0.11](../roadmap/versions/v0.11.md) |
+| Script Runtime (Host API · 시스템 · 콜백) | ✅ 19 · [22](../22-RUNTIME-V2.md) | 🟡 `core/script` — server onStart · onPrePhysics · onTick · onEvent · onStop · onMigrate, client onStart · onEvent · onAction · onUpdate · onLateUpdate · onStop, 호출 토큰 | ✅ (있는 범위) | 해당 없음 | 🟡 진행 중 — onPrePhysics · 물리 명령 · 충돌 · 트리거 이벤트 ✅ (v0.11 RT-06-2 ~ 5), onRender (v0.11) 남음 | [v0.11](../roadmap/versions/v0.11.md) |
 | 네트워크 · 복제 | ✅ [08](../08-NETWORK.md) | ✅ `network/` (ENet · 차분 스냅숏 · Interest · 역할) | ✅ `net_convergence` · `unit_network` | ⚠️ LAN 만 | ✅ 완료 (LAN 한정) — 암호화 · 인증 없음, 보안 전송은 v0.16 | [모듈](MODULES.md#네트워크) |
 | 렌더링 | ✅ [06](../06-RENDERING.md) | ✅ `render/` (RHI · D3D12 · Vulkan · Metal) | ✅ `render_tests_warp` · `_lavapipe` · `_metal` | ⚠️ Windows 일부만, Linux · macOS 실기 없음 | ⚠️ 확인 필요 — 자동 시험은 통과, 실기 매트릭스는 RH-23-7 | [모듈](MODULES.md#렌더링) |
 | 플랫폼 (창 · 입력) | ✅ [07](../07-PLATFORM.md) | ✅ `platform/` (Win32 · X11 · Wayland · Cocoa) | ✅ `unit_platform` · `platform_x11` · `platform_wayland` · `platform_cocoa` | ⚠️ macOS · Linux 실기 없음 | ⚠️ 확인 필요 | [모듈](MODULES.md#플랫폼) |

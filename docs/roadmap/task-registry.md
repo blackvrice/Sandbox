@@ -90,7 +90,7 @@
 | RT-06-2 | server onPrePhysics (8b) | A | Done | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |
 | RT-06-3 | PhysicsCommand | A | Done | v0.6 | v0.11 | P1 | RT-06-2 | 적용 순서 · 해시 |
 | RT-06-4 | collider layer · mask · trigger | A | Done | v0.6 | v0.11 | P1 | — | 골든 그대로 |
-| RT-06-5 | 충돌 · 트리거 Enter/Exit (16a) | A | Planned | v0.6 | v0.11 | P1 | RT-06-4 | 순서 · 세이브 정합 |
+| RT-06-5 | 충돌 · 트리거 Enter/Exit (16a) | A | Done | v0.6 | v0.11 | P1 | RT-06-4 | 순서 · 세이브 정합 |
 | RT-06-9 | onRender · Draw API | A | Planned | v0.6 | v0.11 | P1 | RT-06-7 | 상한 · 거절 |
 | NG-17 | 오디오 출력 백엔드 · sound importer · sounds.json (ADR-0095) | A | Proposed | — | v0.11 | P2 | M6-T9 | 세 OS 출력 수동 QA · 이벤트 → 소리 시험 |
 | NG-19 | v0.11 통합 시험 — 충돌 · 트리거 · 오디오 미니게임 (서버 · 클라이언트 · 렌더 · 스크립트 경계) | A | Proposed | — | v0.11 | P0 | RT-06-5 · RT-06-9 · NG-17 | 자동 플레이 해시 · 이벤트 폭주 시험 · 헤드리스 서버 (오디오 장치 없음) |

@@ -129,6 +129,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_scriptSignals.clear();
     m_physics.clear();
     m_physicsThisTick = 0;
+    m_contactPairs.clear();
+    m_contactChanges.clear();
     m_clientEvents.clear();
     m_clientEventsDropped = 0;
     m_signalCounts.clear();
@@ -161,9 +163,23 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     }
 
     // --- 5~16 Systems, 17 Structural② ----------------------------------------
-    const SystemContext base{m_registry, m_baseEcb, m_spatial,           m_grid,    m_random,
-                             m_events,   m_spawns,  *m_content,          m_catalog, m_saves,
-                             m_intents,  m_paths,   m_paths.jobSystem(), now,       kFixedDt};
+    const bool contacts = wantsContacts(); // 충돌 · 트리거 이벤트 구독이 있을 때만 쌍을 모은다 (RT-06-5)
+    const SystemContext base{m_registry,
+                             m_baseEcb,
+                             m_spatial,
+                             m_grid,
+                             m_random,
+                             m_events,
+                             m_spawns,
+                             *m_content,
+                             m_catalog,
+                             m_saves,
+                             m_intents,
+                             m_paths,
+                             m_paths.jobSystem(),
+                             now,
+                             kFixedDt,
+                             contacts ? &m_contactPairs : nullptr};
     // 8b PrePhysics (v0.11 RT-06-2, ADR-0148) — onPrePhysics 가 있는 콘텐츠만 (없으면 단계도 없다 — 골든 그대로)
     if (m_scriptSystems && m_scriptSystems->hasPrePhysics()) {
         m_scheduler.run(base, profiler, [this, now] {
@@ -173,6 +189,12 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
         });
     } else {
         m_scheduler.run(base, profiler);
+    }
+
+    // --- 16a 물리 이벤트 (v0.11 RT-06-5, ADR-0151) -----------------------------------------------------------
+    // 구독이 없으면 쌍도 상태 (core.contacts) 도 없다 — 골든 그대로
+    if (contacts) {
+        updateContacts();
     }
 
     // --- 16b Scripts -----------------------------------------------------------
@@ -393,6 +415,8 @@ void SimulationWorld::finishRestore(const RestoreState& state) {
     m_scriptSignals.clear();
     m_physics.clear();
     m_physicsThisTick = 0;
+    m_contactPairs.clear();
+    m_contactChanges.clear();
     m_clientEvents.clear();
     m_clientEventsDropped = 0;
     m_signalCounts.clear();

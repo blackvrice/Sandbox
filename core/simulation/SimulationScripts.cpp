@@ -10,6 +10,9 @@
 //   score  점수 칸마다 스냅숏 ≠ 지금 (세션이 있을 때)
 //   action 그 틱에 받아들여진 PlayerAction (명령 적용 차례) — 대상은 지금 살아 있는 것만 (v0.5 M2-T5 (2))
 //   signal 그 틱에 받아들여진 PlayerSignal (명령 적용 차례) — v0.5 M2-T5 (3)
+//   collision · trigger  16a 의 바뀐 쌍 (a, b) 차례, 쌍마다 두 방향 — 자기 · 상대는 17d 에 살아 있을 때만, 죽은 쪽의
+//   위치 ·
+//          태그는 틱 처음 스냅숏 (v0.11 RT-06-5)
 //   timer  dueTick ≤ 그 틱인 script.timer (만기 · saveId 차례 — 어댑터가 시스템 차례로 나눈다). 콜백 전에 엔진이
 //          한 번짜리는 지우고 every 는 다음 만기로 민다 — 콜백의 cancelTimer · after 는 그 뒤에 적용 (v0.10 RT-06-10)
 // 사실은 서버 시스템이나 client 시스템이 구독한 종류만 모은다 (wantsEvent). client 구독 종류는 클라이언트 복제 이벤트로
@@ -117,6 +120,37 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             facts.signals.push_back(script::ScriptEventFacts::Signal{g.name, g.player, g.value});
         }
     }
+    // 겹침 변화 (v0.11 RT-06-5) — 16a 가 모은 쌍, 쌍마다 (a 쪽, b 쪽) 두 방향
+    for (const ContactChange& ch : m_contactChanges) {
+        const GameEventKind kind = ch.trigger
+                                       ? (ch.enter ? GameEventKind::TriggerEnter : GameEventKind::TriggerExit)
+                                       : (ch.enter ? GameEventKind::CollisionEnter : GameEventKind::CollisionExit);
+        if (!wants(kind)) {
+            continue;
+        }
+        const auto side = [&](SaveId self, SaveId other) {
+            script::ScriptEventFacts::Contact c;
+            c.kind = kind;
+            const ecs::EntityId e = m_saves.find(self);
+            const ecs::EntityId o = m_saves.find(other);
+            c.entity = m_registry.alive(e) ? e : ecs::EntityId{};
+            c.other = m_registry.alive(o) ? o : ecs::EntityId{};
+            if (c.entity.valid()) {
+                if (const comp::Transform* tr = m_registry.tryRead<comp::Transform>(c.entity)) {
+                    c.pos = tr->position;
+                }
+                if (const comp::Tags* tags = m_registry.tryRead<comp::Tags>(c.entity)) {
+                    c.tags = tags->set;
+                }
+            } else if (const TriggerSnapEntry* before = snapOf(self)) {
+                c.pos = before->position;
+                c.tags = before->tags;
+            }
+            facts.contacts.push_back(std::move(c));
+        };
+        side(ch.a, ch.b);
+        side(ch.b, ch.a);
+    }
     // 만기 타이머 — 이벤트를 모으고 엔진이 먼저 진행 (지우기 · 다음 만기). 콜백의 cancelTimer 는 그 뒤
     // (applyScriptStructural)
     if (hasScriptTimers()) {
@@ -221,6 +255,21 @@ void SimulationWorld::collectClientEvents(const script::ScriptEventFacts& facts)
             }
             push(std::move(e));
         }
+    }
+    // 겹침 (v0.11 RT-06-5) — 자기 · [상대] 의 복제 id (죽었으면 없음), 사실의 차례 그대로
+    for (const script::ScriptEventFacts::Contact& c : facts.contacts) {
+        if (!client(c.kind)) {
+            continue;
+        }
+        ClientGameEvent e;
+        e.kind = static_cast<u8>(c.kind);
+        e.entity = netIdOf(c.entity);
+        e.pos = c.pos;
+        e.tags = c.tags;
+        if (const NetEntityId other = netIdOf(c.other); other != kInvalidNetEntityId) {
+            e.targets.push_back(other);
+        }
+        push(std::move(e));
     }
     if (client(GameEventKind::Signal)) {
         for (const script::ScriptEventFacts::Signal& g : facts.signals) {

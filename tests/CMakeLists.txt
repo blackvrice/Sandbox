@@ -35,6 +35,7 @@ add_executable(SandboxTests
     unit/script/test_script_state.cpp
     unit/script/test_script_prephysics.cpp
     unit/script/test_physics_commands.cpp
+    unit/script/test_contact_events.cpp
     unit/script/test_diagnostic_help.cpp
     unit/script/test_script_host.cpp
     unit/script/test_components.cpp

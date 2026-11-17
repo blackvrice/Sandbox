@@ -1224,7 +1224,9 @@ private:
             const api::GameEventKindInfo* k = api::findGameEventKind(key);
             if (k == nullptr) {
                 err("S426", p,
-                    std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action · signal", key));
+                    std::format("이벤트 '{}' 는 없다 — death · spawn · areaEnter · score · action · signal · "
+                                "collisionEnter · collisionExit · triggerEnter · triggerExit",
+                                key));
                 ok = false;
                 continue;
             }
@@ -1313,7 +1315,9 @@ private:
             ok = ok && good;
         }
         if (ok && sd.events.empty()) {
-            err("S426", v, "events 에 구독이 없다 — death · spawn · areaEnter · score · action · signal");
+            err("S426", v,
+                "events 에 구독이 없다 — death · spawn · areaEnter · score · action · signal · collisionEnter · "
+                "collisionExit · triggerEnter · triggerExit");
             ok = false;
         }
         std::sort(sd.events.begin(), sd.events.end(),

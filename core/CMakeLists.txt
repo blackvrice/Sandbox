@@ -15,6 +15,7 @@ add_library(SandboxCore STATIC
     simulation/SimulationWorld.cpp
     simulation/SimulationTriggers.cpp
     simulation/SimulationScripts.cpp
+    simulation/SimulationContacts.cpp
 
     ecs/EntityId.hpp
     ecs/EntityManager.hpp

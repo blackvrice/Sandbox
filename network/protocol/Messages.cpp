@@ -977,11 +977,13 @@ GameEventsMsg decodeGameEvents(BitReader& r) {
     for (u64 i = 0; i < n && !r.error(); ++i) {
         sim::ClientGameEvent e;
         e.kind = r.readU8();
-        // 클라이언트가 받는 종류만 (death · spawn · score · action · signal — areaEnter · timer 는 서버만)
+        // 클라이언트가 받는 종류만 (death · spawn · score · action · signal · 겹침 넷 (v0.11 RT-06-5, 프로토콜 20) —
+        // areaEnter · timer 는 서버만)
         using script::api::GameEventKind;
         if (e.kind != static_cast<u8>(GameEventKind::Death) && e.kind != static_cast<u8>(GameEventKind::Spawn) &&
             e.kind != static_cast<u8>(GameEventKind::Score) && e.kind != static_cast<u8>(GameEventKind::Action) &&
-            e.kind != static_cast<u8>(GameEventKind::Signal)) {
+            e.kind != static_cast<u8>(GameEventKind::Signal) &&
+            !script::api::isContactKind(static_cast<GameEventKind>(e.kind))) {
             r.fail();
         }
         e.entity = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));

@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 7e7024b2d198fb7c — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 bfb4c2ec4ff6844e — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -312,12 +312,16 @@ declare module "sandbox" {
     Action = 5,
     Signal = 6,
     Timer = 7,
+    CollisionEnter = 8,
+    CollisionExit = 9,
+    TriggerEnter = 10,
+    TriggerExit = 11,
   }
   /** onEvent 의 이벤트 (단계 17d — 그 틱에 일어난 일) */
   export interface GameEvent {
     /** action: 받아들여진 PlayerAction 의 id (다른 종류는 빈 문자열) */
     readonly action: string;
-    /** spawn · areaEnter 의 개체 (death · score 는 null — 죽은 개체는 없다) */
+    /** spawn · areaEnter 의 개체 · collision · trigger 의 자기 쪽 (death · score 는 null — 죽은 개체는 없다) */
     readonly entity: Entity | null;
     /** timer: ctx.after · every 의 키 (다른 종류는 빈 문자열 — v0.10 RT-06-10) */
     readonly key: string;
@@ -329,7 +333,7 @@ declare module "sandbox" {
     readonly previous: i32;
     /** signal: 받아들여진 PlayerSignal 의 id (다른 종류는 빈 문자열) */
     readonly signal: string;
-    /** action: 고른 대상 중 17d 에 살아 있는 것 ((거리², saveId) 차례 — 효과가 지운 대상은 빠진다) */
+    /** action: 고른 대상 중 17d 에 살아 있는 것 ((거리², saveId) 차례 — 효과가 지운 대상은 빠진다), collision · trigger: [상대] (상대가 죽었으면 빈 목록) */
     readonly targets: Entity[];
     /** score: 점수 칸 (0 = 공용, 팀 번호 + 1) */
     readonly team: i32;
@@ -371,6 +375,14 @@ declare module "sandbox" {
     action?: {};
     /** 그 틱에 받아들여진 PlayerSignal (팩 signals.json — e.signal · player · value) */
     signal?: {};
+    /** 두 콜라이더가 겹치기 시작했다 (단계 16a — e.entity = 자기 · e.targets = [상대], 쌍마다 두 방향, 태그는 자기 쪽) */
+    collisionEnter?: { tags?: TagFilter };
+    /** 겹침이 끝났다 (떨어졌거나 한쪽이 없어졌다 — 없어진 쪽은 e.entity null · e.targets 빈 목록) */
+    collisionExit?: { tags?: TagFilter };
+    /** 트리거 (core.trigger) 와 겹치기 시작했다 — 밀어내지 않는다 */
+    triggerEnter?: { tags?: TagFilter };
+    /** 트리거와의 겹침이 끝났다 */
+    triggerExit?: { tags?: TagFilter };
   }
   /** server 시스템의 정의 — export default defineSystem({ … }) 으로만 (파일 하나에 하나) */
   export interface ServerSystemDefinition {

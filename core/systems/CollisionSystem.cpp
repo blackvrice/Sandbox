@@ -13,6 +13,9 @@
 // 콜라이더가 없어 한 번의 배열 읽기로 거른다. 값은 같은 틱 같은 단계에 읽은 것이라 레지스트리 조회와 같다. 정밀 물리가
 // 목표가 아니다 — 한 틱에 한 번, 반복하지 않는다. (v0.11 RT-06-4) layer · mask: 두 쪽 다 (내 layer & 상대 mask) ≠ 0 일
 // 때만 겹친다. core.trigger 가 있는 쪽이 하나라도 있으면 겹쳐도 밀어내지 않는다 (트리거 — 겹침만, ADR-0150).
+// (v0.11 RT-06-5) ctx.contacts 가 있으면 겹친 쌍 (작은 saveId, 큰) 을 모은다 — 항목마다 자기 목록에 (Worker 안전), 끝에
+// 항목 차례로 합치고 (a, b) 로 정렬. 단계 16a (SimulationWorld) 가 지난 틱의 쌍과 비교해 Enter · Exit 를 낸다
+// (ADR-0151).
 
 #include <algorithm>
 #include <cmath>
@@ -37,7 +40,8 @@ struct Item {
     Vec2 position;
     comp::Collider collider;
     Vec2 push;
-    bool trigger = false; // core.trigger (v0.11 RT-06-4) — 밀지도 밀리지도 않는다
+    bool trigger = false;                   // core.trigger (v0.11 RT-06-4) — 밀지도 밀리지도 않는다
+    std::vector<sim::ContactPair> contacts; // 이 항목이 작은 쪽인 겹침 (ctx.contacts 가 있을 때만)
 };
 
 // 원(pos, r)을 통행 불가 타일 밖으로. 타일은 (y, x) 오름차순으로 한 번씩.
@@ -91,7 +95,7 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
     f32 maxRadius = 0.f;
     for (auto [e, col, tr, id] :
          ctx.reg.view<ecs::Read<comp::Collider>, ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
-        items.push_back(Item{e, id.saveId, tr.position, col, Vec2{}, ctx.reg.tryRead<comp::Trigger>(e) != nullptr});
+        items.push_back(Item{e, id.saveId, tr.position, col, Vec2{}, ctx.reg.tryRead<comp::Trigger>(e) != nullptr, {}});
         maxRadius = std::max(maxRadius, col.radius);
         if (const comp::Velocity* v = ctx.reg.tryRead<comp::Velocity>(e)) {
             maxSpeed2 = std::max(maxSpeed2, v->value.lengthSquared());
@@ -122,14 +126,17 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
             if ((it.collider.layer & o.collider.mask) == 0 || (o.collider.layer & it.collider.mask) == 0) {
                 return;
             }
-            if (it.trigger || o.trigger) {
-                return; // 트리거 — 밀어내지 않는다 (겹침은 RT-06-5 가 센다)
-            }
             const Vec2 d = it.position - o.position;
             const f32 rsum = it.collider.radius + o.collider.radius;
             const f32 d2 = d.lengthSquared();
             if (d2 >= rsum * rsum) {
                 return;
+            }
+            if (ctx.contacts != nullptr && it.saveId < o.saveId) {
+                it.contacts.push_back(sim::ContactPair{it.saveId, o.saveId, it.trigger || o.trigger});
+            }
+            if (it.trigger || o.trigger) {
+                return; // 트리거 — 밀어내지 않는다 (겹침만 — 16a 의 trigger 이벤트)
             }
             const f32 dist = std::sqrt(d2);
             const Vec2 n = dist > 1.0e-6f ? d / dist : Vec2{it.saveId < c.saveId ? -1.f : 1.f, 0.f};
@@ -141,6 +148,15 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
             readPass(items[i]);
         }
     });
+
+    if (ctx.contacts != nullptr) {
+        for (const Item& it : items) {
+            ctx.contacts->insert(ctx.contacts->end(), it.contacts.begin(), it.contacts.end());
+        }
+        std::sort(ctx.contacts->begin(), ctx.contacts->end(), [](const sim::ContactPair& x, const sim::ContactPair& y) {
+            return x.a != y.a ? x.a < y.a : x.b < y.b;
+        });
+    }
 
     // 2) 쓰기 패스 — 지형 밀어내기 계산은 항목마다 독립 (Worker 와 나눈다, 15A), 레지스트리 쓰기는 호출 스레드가
     // 순서대로

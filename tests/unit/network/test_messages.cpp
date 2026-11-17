@@ -182,7 +182,8 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 19); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.10 RT-06-7 — GameEvents)
+        CHECK(kProtocolVersion ==
+              20); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.11 RT-06-5 — GameEvents 겹침 종류)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
@@ -490,14 +491,27 @@ TEST_SUITE("network") {
         }
         CHECK(encodeMessage(Message{big}).size() <= kMaxControlMessageBytes);
         CHECK(roundTrip(big).events.size() == sim::kMaxClientGameEventsPerTick);
-        // areaEnter (3) · timer (7) · 모르는 종류는 거절 — 클라이언트가 받는 종류가 아니다
-        for (const u8 kind : {u8{0}, u8{3}, u8{7}, u8{9}}) {
+        // areaEnter (3) · timer (7) · 모르는 종류는 거절 — 클라이언트가 받는 종류가 아니다 (8 ~ 11 겹침은 받는다 — 프로토콜 20)
+        for (const u8 kind : {u8{0}, u8{3}, u8{7}, u8{12}}) {
             CAPTURE(kind);
             GameEventsMsg bad;
             sim::ClientGameEvent e;
             e.kind = kind;
             bad.events.push_back(e);
             CHECK_FALSE(decodeMessage(encodeMessage(Message{bad})).has_value());
+        }
+        // 겹침 (v0.11 RT-06-5 — 프로토콜 20): 자기 · [상대] 왕복
+        {
+            GameEventsMsg touch;
+            sim::ClientGameEvent e;
+            e.kind = 10; // GameEventKind::TriggerEnter
+            e.entity = 7;
+            e.targets = {9};
+            e.pos = Vec2{1.5f, -2.0f};
+            touch.events.push_back(e);
+            const GameEventsMsg touched = roundTrip(touch);
+            REQUIRE(touched.events.size() == 1);
+            CHECK(touched.events[0] == e);
         }
         // 이름 상한 넘음 · 대상 상한 넘음
         GameEventsMsg longName;

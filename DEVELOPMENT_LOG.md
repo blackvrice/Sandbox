@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-17 — v0.11 RT-06-5: 충돌 · 트리거 Enter / Exit — 단계 16a (ADR-0151)
+
+**무엇을**
+
+- GameEventKind CollisionEnter (8) · CollisionExit (9) · TriggerEnter (10) · TriggerExit (11) — 구독 키 collisionEnter … (tags 는
+  자기 쪽). e.entity = 자기, e.targets = [상대] (새 GameEvent 칸 없음), e.x · y = 자기 위치. Host 지문 0xbfb4c2ec4ff6844e.
+- CollisionSystem 이 밀기 전 겹침 쌍 (작은 saveId, 큰 · 트리거 비트) 을 SystemContext::contacts 로 모은다 (구독이 있을 때만 —
+  항목마다 자기 목록 → 합쳐 정렬).
+- core.contacts (Persistent — 세이브 · 해시): 겹친 양쪽 개체에 상대 saveId 오름차순 (16 까지) · 트리거 비트.
+- 단계 16a (core/simulation/SimulationContacts): 개체마다 16 쌍 (양쪽이 남길 때만) → 지난 쌍 (core.contacts) 과 (a, b) 차례로 비교 →
+  바뀐 쌍 (틱 4,096 — 넘으면 세고 버린다) → core.contacts 고쳐 쓰기. 17d 에 쌍마다 두 방향 사실 (죽은 쪽은 null · 틱 처음 위치).
+- client 구독 → 복제 이벤트 (netId · targets [상대]) — 프로토콜 20 (GameEvents 가 받는 종류에 8 ~ 11).
+- 검사기 · SDK (SystemEvents 키 넷) · 카탈로그 27.
+- 문서: ADR-0151, 19 18장, 22 (버전 행 · 3 · 5장), 03, 05, 08 (프로토콜 20), 13, 17, versioning · VERSION-MIGRATION-MATRIX · 21 (지문 ·
+  프로토콜), 18 · CURRENT_STATUS · FEATURE_MATRIX F-216, 등록부 RT-06-5 Done (gen_roadmap).
+
+**왜**
+
+- 충돌 · 트리거 미니게임 (NG-19) 의 바탕 — 스크립트가 "부딪혔다 · 들어왔다 · 나갔다" 를 이벤트로 받는다. 쌍 집합은 틱을 넘는 상태라
+  세이브 · 해시에 있어야 불러온 월드가 같은 겹침을 다시 Enter 로 알리지 않는다 — 기존 세이브 · 해시가 그대로 싣는 개체 컴포넌트로
+  두었다. 밀고 난 위치로 재면 반지름 합에 딱 닿아 깜빡이므로 밀기 전 겹침으로.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과 (첫 /WX 는 시험의 지역 이름 가림 C4456 — 고쳐 통과), 단위 시험 assertions 1,949,371 모두 통과 (새
+  test_contact_events 4 — 틱 16 triggerEnter · 47 triggerExit · 52 collisionEnter, 세이브 → 로드 이벤트 · 해시, 지운 개체 Exit,
+  16 쌍 상한, client 복제, 구독 없음), 렌더 시험 통과, 전체 ctest 94 개 — 93 통과 · studio_gui_smoke SKIPPED. 골든 해시 ·
+  kSimVersion 4 그대로 (구독이 없으면 단계 · 상태 없음).
+
+**남은 일**
+
+- 둘 다 같은 틱에 지워진 쌍은 Exit 가 없다 (문서). Stay · 화면 좌표 그리기 없음. RT-06-9 onRender, NG-17 오디오, NG-19.
+
 ## 2026-11-17 — v0.11 RT-06-4: 트리거 표시 core.trigger · layer · mask 확인 (ADR-0150)
 
 **무엇을**

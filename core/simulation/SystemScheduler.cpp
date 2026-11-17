@@ -65,9 +65,9 @@ void SystemScheduler::run(const SystemContext& base, ISystemProfiler* profiler,
             prePhysicsDone = true;
             prePhysics(); // 단계 8b
         }
-        SystemContext ctx{base.reg,     entry.ecb,   base.spatial, base.grid,    base.random,
-                          base.events,  base.spawns, base.content, base.catalog, base.saves,
-                          base.intents, base.paths,  base.jobs,    base.tick,    base.dt};
+        SystemContext ctx{base.reg,    entry.ecb,    base.spatial, base.grid,    base.random,  base.events,
+                          base.spawns, base.content, base.catalog, base.saves,   base.intents, base.paths,
+                          base.jobs,   base.tick,    base.dt,      base.contacts};
         if (profiler != nullptr) {
             profiler->beginSystem(i, entry.system->name());
         }

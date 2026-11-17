@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 15 (v0.11 RT-06-2 — onPrePhysics) · Host API 1 (지문 0x7e7024b2d198fb7c — v0.11 RT-06-3 물리 명령 뒤) · kSimVersion 4 · 프로토콜 19 (v0.10 RT-06-7 — GameEvents) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 15 (v0.11 RT-06-2 — onPrePhysics) · Host API 1 (지문 0xbfb4c2ec4ff6844e — v0.11 RT-06-5 겹침 종류 뒤) · kSimVersion 4 · 프로토콜 20 (v0.11 RT-06-5 — GameEvents 겹침 종류) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -79,7 +79,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | server | onPrePhysics | 단계 8b — Path 요청 (8) 뒤 · Movement (9) 앞 | ServerContext (허락 EcsRead · PhysicsCommand · Random · Time · Log — ServerPrePhysicsContext 대신, ADR-0148) | 현행 — v0.11 RT-06-2 (.sbc 15) |
 | server | onTick | 16b — Collision (16) 뒤 · ECB (17) 앞 | ServerContext (= ServerTickContext) | 현행 — **단계를 옮기지 않는다** (이미 물리 뒤라 "post-physics" 몫을 한다) |
 | server | onPostPhysics | — | — | **두지 않는다** — onTick 과 같은 자리라 이름만 둘이 된다 (ADR-0086 3) |
-| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, timer ✅ v0.10 RT-06-10 — 구독 없이 만든 시스템에게, [계획] action · signal · trigger · collision · response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
+| server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, timer ✅ v0.10 RT-06-10 — 구독 없이 만든 시스템에게, collision · trigger Enter · Exit ✅ v0.11 RT-06-5, [계획] response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
 | server | onStop | 17d — 시스템이 꺼질 때 | ServerContext | 현행 |
 | server | onMigrate | 단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (v0.6 NG-04) | ServerContext | 현행 (.sbc 10) |
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
@@ -180,8 +180,8 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 |------|------|-------------|----------------------|
 | 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | ✅ v0.11 RT-06-2 (스케줄러 훅 — ADR-0148) · 물리 명령 ✅ RT-06-3 (ADR-0149) | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
 | 9 Movement | 조향 · 적분 + PhysicsCommand 적용 (힘 · 충격 · 순간 이동 · 속도) — 명령은 (saveId, 넣은 차례) | 현행 + 명령 ✅ v0.11 RT-06-3 (8b 끝 · 9 앞에 적용, 질량 1 — ADR-0149) | 명령이 없으면 같다 |
-| 16 Collision | 원 분리 + layer · mask 거르기 (Phase 5B 부터 — 두 쪽이 맞아야), 트리거 core.trigger ✅ v0.11 RT-06-4 (밀지 않는다 — ADR-0150), 겹침 쌍 집합 → Enter · Exit [RT-06-5] | 현행 + 트리거 ✅ | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
-| 16a 물리 이벤트 | 쌍 (saveId 작은 쪽, 큰 쪽) 정렬 → GameEvent collisionEnter · Exit · triggerEnter · Exit (core.collider.trigger [계획]) | [계획 v0.6] | 구독이 없으면 만들지 않는다 |
+| 16 Collision | 원 분리 + layer · mask 거르기 (Phase 5B 부터 — 두 쪽이 맞아야), 트리거 core.trigger ✅ v0.11 RT-06-4 (밀지 않는다 — ADR-0150), 겹침 쌍 집합 → Enter · Exit ✅ RT-06-5 (밀기 전 겹침 — ADR-0151) | 현행 + 트리거 ✅ | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
+| 16a 물리 이벤트 | 쌍 (saveId 작은 쪽, 큰 쪽) 정렬 → GameEvent collisionEnter · Exit · triggerEnter · Exit (core.trigger), 상태 = 양쪽 개체의 core.contacts | ✅ v0.11 RT-06-5 (ADR-0151) | 구독이 없으면 만들지 않는다 (골든 그대로) |
 | ShapeCast | 원 쓸기 (원 + 선분 — raycast 의 일반화) | [계획 v0.6] | 질의만 |
 | Substep | 게임마다 1 ~ 4 (기본 1) | [계획 v0.8] | 기본 1 이면 그대로 |
 | CCD · 재질 (마찰 · 반발) | 빠른 원의 쓸기 충돌 · 재질 표 | [계획 v0.8] | 켠 게임만 |

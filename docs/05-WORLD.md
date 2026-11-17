@@ -183,7 +183,7 @@ public:
 - layer · mask (core.collider, u32): 두 쪽 다 (내 layer & 상대 mask) ≠ 0 일 때만 겹친다 — 한쪽만 맞으면 겹치지 않는다. 기본 layer 1 ·
   mask 전부.
 - 트리거 ✅ v0.11 RT-06-4 (ADR-0150): `core.trigger` 를 core.collider 와 함께 두면 겹쳐도 밀어내지 않는다 (밀지도 밀리지도).
-  겹침은 단계 16a 의 trigger 이벤트로 [RT-06-5]. 콜라이더에 필드를 더하지 않은 까닭 — 콜라이더는 Hashed 라 모든 콜라이더 개체의
+  겹침은 단계 16a 의 trigger 이벤트로 (✅ RT-06-5 — ADR-0151). 콜라이더에 필드를 더하지 않은 까닭 — 콜라이더는 Hashed 라 모든 콜라이더 개체의
   해시 (골든) 가 바뀐다.
 
 ---

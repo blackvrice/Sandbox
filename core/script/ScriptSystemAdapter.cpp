@@ -120,7 +120,15 @@ void ScriptSystemAdapter::invoke(sim::SimulationWorld& world, sim::Tick tick, En
                                     : ev->signal != nullptr ? ev->signal->player
                                                             : 0);
             } else if (n == "targets") {
-                // 개수 다음 원소 (Interpreter::call 의 개체 목록 칸)
+                // 개수 다음 원소 (Interpreter::call 의 개체 목록 칸). 겹침은 [상대] (살아 있을 때만 — v0.11 RT-06-5)
+                if (ev->contact != nullptr) {
+                    const bool alive = ev->contact->other.valid();
+                    m_fields.push_back(vm::Value::i32v(alive ? 1 : 0));
+                    if (alive) {
+                        m_fields.push_back(m_host.entityHandle(ev->contact->other));
+                    }
+                    continue;
+                }
                 const usize count = ev->action != nullptr ? ev->action->targets.size() : 0;
                 m_fields.push_back(vm::Value::i32v(static_cast<i32>(count)));
                 for (usize i = 0; i < count; ++i) {
@@ -345,6 +353,18 @@ void ScriptSystemAdapter::runCallbacks(sim::SimulationWorld& world, sim::Tick ti
                 break;
             case GameEventKind::Timer:
                 break; // 구독하지 않는다 — 아래에서 만든 시스템에만
+            case GameEventKind::CollisionEnter:
+            case GameEventKind::CollisionExit:
+            case GameEventKind::TriggerEnter:
+            case GameEventKind::TriggerExit:
+                for (const ScriptEventFacts::Contact& c : facts.contacts) {
+                    if (static_cast<u8>(c.kind) == f.kind && f.tags.matches(c.tags)) {
+                        EventValues ev{c.kind, c.entity, c.pos.x, c.pos.y, 0, 0, 0};
+                        ev.contact = &c;
+                        deliver(ev);
+                    }
+                }
+                break;
             }
         }
         // 이 시스템의 만기 타이머 — 구독 뒤에, (만기, 만든 차례)

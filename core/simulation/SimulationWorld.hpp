@@ -62,6 +62,9 @@ struct ScriptEventFacts;
 
 namespace sbx::sim {
 
+// 단계 16a 가 한 틱에 내는 겹침 변화 (쌍) 의 상한 — 넘으면 (a, b) 차례의 뒤를 버리고 센다 (24 Q1 — 결정적, RT-06-5)
+inline constexpr usize kMaxContactChangesPerTick = 4096;
+
 struct WorldDesc {
     u64 seed = 1;
     world::GridBounds bounds{};              // 기본 16 × 16 청크 (512 × 512 타일, 원점 중심)
@@ -218,6 +221,8 @@ public:
     void queuePhysicsCommands(std::span<const PhysicsCommand> commands);
     [[nodiscard]] u32 physicsCommandsThisTick() const noexcept { return m_physicsThisTick; }
     [[nodiscard]] u64 physicsCommandsApplied() const noexcept { return m_physicsApplied; } // 진단 — 누적
+    // 겹침 변화 (v0.11 RT-06-5) — 틱 상한 (kMaxContactChangesPerTick) 으로 버린 수 (진단 — 누적)
+    [[nodiscard]] u64 contactChangesDropped() const noexcept { return m_contactChangesDropped; }
     [[nodiscard]] u32 scriptSpawnsThisTick() const noexcept;
     void countScriptStructuralDropped(u64 n) noexcept { m_scriptStructuralStats.dropped += n; }
     [[nodiscard]] const ScriptStructuralStats& scriptStructuralStats() const noexcept {
@@ -290,6 +295,18 @@ private:
 
     std::vector<ScriptStructuralBatch> m_scriptOps; // 적용 전 (넣은 차례)
     std::vector<PhysicsCommand> m_physics;          // 물리 명령 — 적용 전 (8b 안에서만 찬다)
+    // 단계 16a 물리 이벤트 (v0.11 RT-06-5, ADR-0151) — 이번 틱의 겹침 쌍 (Collision 이 채운다) · 바뀐 쌍 (17d 의 재료)
+    struct ContactChange {
+        bool enter = false;
+        bool trigger = false;
+        SaveId a = kInvalidSaveId;
+        SaveId b = kInvalidSaveId;
+    };
+    std::vector<ContactPair> m_contactPairs;
+    std::vector<ContactChange> m_contactChanges;
+    u64 m_contactChangesDropped = 0;
+    [[nodiscard]] bool wantsContacts() const noexcept;
+    void updateContacts(); // 16a — 지난 쌍 (core.contacts) 과 비교, 바뀐 쌍을 모으고 core.contacts 를 고쳐 쓴다
     u32 m_physicsThisTick = 0;
     u64 m_physicsApplied = 0;
     void applyPhysicsCommands();

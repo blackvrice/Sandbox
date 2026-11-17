@@ -250,7 +250,9 @@ System은 다른 System을 직접 호출하지 않습니다. 소통은 컴포넌
 - 8b server onPrePhysics (Path 제출 8 뒤 · Movement 9 앞) — ✅ v0.11 RT-06-2 (ADR-0148): SystemScheduler::run 의 훅 (Movement 이상의
   첫 System 앞), onPrePhysics 가 있는 시스템이 없으면 단계가 없다 (골든 그대로). 읽기 · 난수 · 로그 · 물리 명령 (✅ RT-06-3 —
   8b 끝 · Movement 앞에 (saveId, 넣은 차례) 로 적용, 틱 안에서 비운다 — ADR-0149).
-- 16a 물리 이벤트 (Collision 16 뒤 — 겹침 쌍 Enter · Exit → GameEvent) — [계획 v0.6], 구독이 없으면 만들지 않는다.
+- 16a 물리 이벤트 (Collision 16 뒤 — 겹침 쌍 Enter · Exit → GameEvent) — ✅ v0.11 RT-06-5 (ADR-0151): Collision 이 밀기 전 겹침 쌍을
+  모으고 (SystemContext::contacts), 16a 가 지난 쌍 (양쪽 개체의 core.contacts — 세이브 · 해시) 과 비교해 바뀐 쌍을 17d 로. 구독이 없으면
+  쌍도 단계도 상태도 없다 (골든 그대로).
 - 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action (v0.5 M2-T5 (2) ✅) · signal (M2-T5 (3) ✅),
   timer · collision · trigger (v0.6), response · socket (v0.8) 이 더해진다.
 - 상세: [22-RUNTIME-V2](22-RUNTIME-V2.md) 3 · 5장, [ADR-0086](adr/0086-runtime-architecture-v2.md).

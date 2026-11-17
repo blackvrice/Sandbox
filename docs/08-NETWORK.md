@@ -214,7 +214,7 @@ generation Welcome · Snapshot 에 싣는다. WorldChanged 는 Bulk (새 월드�
 | 21 | CommandResult  | S→C    | Control  | sequence u32, accepted bool, reason u8 (ErrorCode), detail str(256), appliedTick u64 (틱 전 거절이면 0), created[] NetEntityId                                        |
 | 30 | Snapshot       | S→C    | Snapshot | generation (12D) · snapshotId · epoch · baselineId · serverTick varint, paused, speed f32, complete, entities[], despawns[] NetEntityId (6.2)                         |
 | 31 | SnapshotAck    | C→S    | Snapshot | epoch varint, snapshotId varint (적용한 가장 최근 것)                                                                                                                 |
-| 32 | GameEvents     | S→C    | Control  | generation · tick · dropped varint, events[] (≤ 256) {kind u8 · netId varint · x · y f32 · 태그 칸 표시 u8 + 칸마다 u64 · value · previous · team · player zigzag · name str(64) · targets[] (≤ 16) varint} — 프로토콜 19 |
+| 32 | GameEvents     | S→C    | Control  | generation · tick · dropped varint, events[] (≤ 256) {kind u8 · netId varint · x · y f32 · 태그 칸 표시 u8 + 칸마다 u64 · value · previous · team · player zigzag · name str(64) · targets[] (≤ 16) varint} — 프로토콜 19 (종류 8 ~ 11 은 20) |
 | 40 | TerrainChunk   | S→C    | Bulk     | x · y zigzag, revision varint, runs[] {count, material} varint (길이 부호화, 머티리얼 번호 kTilesPerChunk 개)                                                         |
 | 41 | EntityBaseline | S→C    | Bulk     | baselineTick, entities[] (Spawn 형식) `[계획 — Snapshot(새 epoch) 이 대신한다, ADR-0025]`                                                                             |
 | 42 | ContentOverlay | S→C    | Bulk     | reset bool, items[] {kind u8 (0 prefab · 1 rule · 2 behavior), id str(64), json str(16 KB — "" = 지움)} × ≤ 1024 (12C, 16 MB 까지)                                    |
@@ -269,6 +269,8 @@ scriptFunctionFuel varint (모든 함수의 자기 연료 합). site = "<팩 폴
 프로토콜 19 (v0.10 RT-06-7 조각 2): GameEvents (32) — 서버가 틱을 돈 뒤, 콘텐츠의 client 시스템이 구독한 종류 (death · spawn · score ·
 action · signal) 의 그 틱 이벤트를 모두에게 (구독이 없으면 보내지 않는다 · 관심 영역은 보지 않는다 [계획]). 종류는 그 다섯만 (나머지 = 형식
 오류). 받는 쪽은 세대마다 큐 (1024 — 넘으면 새 것을 버리고 센다) 에 두고 복제 월드가 tick 에 닿은 프레임에 client onEvent 로 (ADR-0141).
+프로토콜 20 (v0.11 RT-06-5): GameEvents 의 종류에 collisionEnter · collisionExit · triggerEnter · triggerExit (8 ~ 11) — netId = 자기,
+targets = [상대] (죽었으면 0 · 빈 목록). 배치는 19 그대로 (받는 종류만 늘었다 — 옛 클라이언트는 형식 오류로 끊으므로 번호를 올린다, ADR-0151).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

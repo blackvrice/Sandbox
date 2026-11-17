@@ -138,6 +138,16 @@ struct ScriptEventFacts {
         sim::Tick due = 0;
     };
     std::vector<Timer> timers;
+    // 겹침 변화 (v0.11 RT-06-5) — 쌍 (a, b) 차례, 쌍마다 두 방향 (a 쪽 → b 쪽). 죽은 쪽은 entity 가 빈 핸들 · 위치는 틱
+    // 처음
+    struct Contact {
+        api::GameEventKind kind = api::GameEventKind::CollisionEnter;
+        ecs::EntityId entity{}; // 자기 (17d 에 살아 있을 때만)
+        ecs::EntityId other{};  // 상대 (17d 에 살아 있을 때만)
+        Vec2 pos{};             // 자기 위치 (살아 있으면 지금, 아니면 틱 처음 — 없으면 0)
+        content::TagSet tags;   // 자기 태그 (같은 규칙)
+    };
+    std::vector<Contact> contacts;
 };
 
 class ScriptSystemAdapter {
@@ -217,9 +227,10 @@ private:
         i32 team = 0;
         i32 value = 0;
         i32 previous = 0;
-        const ScriptEventFacts::Action* action = nullptr; // action 종류일 때만
-        const ScriptEventFacts::Signal* signal = nullptr; // signal 종류일 때만
-        const ScriptEventFacts::Timer* timer = nullptr;   // timer 종류일 때만 (v0.10 RT-06-10)
+        const ScriptEventFacts::Action* action = nullptr;   // action 종류일 때만
+        const ScriptEventFacts::Signal* signal = nullptr;   // signal 종류일 때만
+        const ScriptEventFacts::Timer* timer = nullptr;     // timer 종류일 때만 (v0.10 RT-06-10)
+        const ScriptEventFacts::Contact* contact = nullptr; // collision · trigger 종류일 때만 (v0.11 RT-06-5)
     };
     // 콜백 하나를 부른다 (ev 가 있으면 onEvent 의 e). 꺼졌거나 틱 연료가 없으면 부르지 않는다
     void invoke(sim::SimulationWorld& world, sim::Tick tick, Entry& s, u32 fn, std::string_view callback,
