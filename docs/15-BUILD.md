@@ -296,9 +296,14 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
 sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <GameMode id>] [--content-root d] [--seed n]
                                                                                             (v0.2 M1-T4, ADR-0043)
 sbx new <폴더> --template <id> --id <gameId> [--name 이름]                                  (v0.10 M6-T2, ADR-0144)
-  게임 템플릿 — samples/ 의 template.json 이 있는 예제 (minigame = 노코드 미니게임 + HUD · [계획] board · survival) 를 복사하고
+  게임 템플릿 — samples/ 의 template.json 이 있는 예제 (minigame = 노코드 미니게임 + HUD · board = 스크립트 보드게임 (틱택토) ·
+  [계획] survival) 를 복사하고
   gameId · 이름 · 판 0.1.0 · 엔진 범위 · 세이브 결속 · SDK 를 새로 쓴다 (--from · --mode 와 같이 쓰지 않는다). 검사 오류 · 경고 0 을
   통과해야 제자리로. sbx templates 가 "--template <id> 제목 — 설명" 줄로 보인다
+sbx resave <폴더> [--resume]                                                               (v0.10 M6-T2)
+  시작 월드 (worlds/<이름>) 를 지금 프로젝트 콘텐츠로 다시 저장 — Studio 의 Ctrl+S 와 같다 (개체 · 지형 · 틱 그대로, 세이브의 게임
+  결속 그대로). 팩을 더하거나 고친 뒤의 P4 경고 ("콘텐츠가 저장 당시와 다르다") 를 창 없이 없앤다. --resume = 일시정지를 풀고 저장
+  (편집 단계로 명령만 적용 — 틱은 나아가지 않는다) — 바로 도는 게임의 시작 월드. 시작 월드가 worlds/ 밖이면 거절
 sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg] [--profile <이름>]  ·  sbx templates  ·  sbx sdk [<폴더>]  ·  sbx --version
   (sdk — SandboxScript SDK 선언 sandbox.d.ts 를 쓴다, v0.3 M2-T2. 저장소의 sdk/ 를 갱신: sbx sdk sdk — 19 14장)
   (v0.4 M5-T2, ADR-0077 — 라이선스 요약) build 는 "  팩 n — <라이선스> <수> · …" 한 줄 (라이선스가 없는 팩은 "라이선스 없음"),

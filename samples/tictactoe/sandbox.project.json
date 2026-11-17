@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 3,
+  "gameId": "sandbox.tictactoe",
+  "name": "틱택토",
+  "version": "0.1.0",
+  "engine": ">=0.7.0 <1.0.0",
+  "entryWorld": "worlds/main",
+  "content": {
+    "packs": [
+      "ttt"
+    ]
+  },
+  "gameMode": "ttt.match"
+}

@@ -1,0 +1,238 @@
+{
+  "id": "ttt.hud",
+  "layer": "hud",
+  "root": {
+    "kind": "panel",
+    "id": "board",
+    "anchor": {
+      "min": [
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0
+      ]
+    },
+    "offset": [
+      8,
+      8,
+      196,
+      236
+    ],
+    "stack": "column",
+    "gap": 4,
+    "padding": 4,
+    "children": [
+      {
+        "kind": "text",
+        "id": "title",
+        "text": "틱택토 — 칸을 눌러 X 를 둔다"
+      },
+      {
+        "kind": "panel",
+        "id": "row0",
+        "stack": "row",
+        "gap": 4,
+        "children": [
+          {
+            "kind": "button",
+            "id": "c0",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c0"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 0
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c1",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c1"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 1
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c2",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c2"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 2
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "panel",
+        "id": "row1",
+        "stack": "row",
+        "gap": 4,
+        "children": [
+          {
+            "kind": "button",
+            "id": "c3",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c3"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 3
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c4",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c4"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 4
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c5",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c5"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 5
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "panel",
+        "id": "row2",
+        "stack": "row",
+        "gap": 4,
+        "children": [
+          {
+            "kind": "button",
+            "id": "c6",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c6"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 6
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c7",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c7"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 7
+              }
+            }
+          },
+          {
+            "kind": "button",
+            "id": "c8",
+            "text": "{0}",
+            "args": [
+              {
+                "bind": "var:ttt.c8"
+              }
+            ],
+            "size": [
+              56,
+              56
+            ],
+            "on": {
+              "click": {
+                "signal": "ttt.place",
+                "value": 8
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

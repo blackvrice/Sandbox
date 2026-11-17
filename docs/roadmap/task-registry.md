@@ -81,7 +81,7 @@
 | ST-06-8 | 언어 서비스 색인 · 이동 · 이름 바꾸기 · 빠른 수정 | B | Done | v0.6 | v0.9 | P2 | M6-T8 | 응답 측정 — 언어 서비스 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 검사 결과 기억 (ADR-0135), Studio F12 · Shift+F12 · F2 · Ctrl+. · 스니펫 · drafts (ADR-0136) |
 | ST-06-3 | Asset Browser 완성 | B | Planned | v0.6 | v0.10 | P1 | M6-T9 | 참조 · 옮기기 · 지우기 시험 |
 | ST-06-4 | Game UI Designer | B | Planned | v0.6 | v0.10 | P1 | M3-T5 · ST-06-1 | 문서 왕복 · 수동 QA |
-| M6-T2 | 템플릿 3종 | B | Planned | v0.5 | v0.10 | P0 | M3-T5 | 템플릿마다 new → check → test — 조각 1 ✅ 틀 (sbx new --template · Studio · ADR-0144) · minigame (rabbit_guard), CTest project_templates, 남은 것 board · survival |
+| M6-T2 | 템플릿 3종 | B | Planned | v0.5 | v0.10 | P0 | M3-T5 | 템플릿마다 new → check → test — 조각 1 ✅ 틀 (sbx new --template · Studio · ADR-0144) · minigame (rabbit_guard), 조각 2 ✅ board (tictactoe — CTest sample_tictactoe) · sbx resave, CTest project_templates, 남은 것 survival |
 | RT-06-1 | 호출 토큰 · Capability 실행 검사 | A | Done | v0.6 | v0.10 | P0 | M2-T7 | 변조 .sbc 시험 — beginCall 의 콜백 이름 · 허락 집합, Host 호출마다 비교 (server · client), 비용 +0.1 % (ADR-0137) |
 | RT-06-7 | client 수명주기 · onEvent · onLateUpdate | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 순서 — onStart → onEvent → onUpdate → onLateUpdate 차례 · 세션 끝 (ADR-0140, test_client_lifecycle · test_client_script_session), client onEvent · 복제 이벤트 큐 (GameEvents 프로토콜 19 — ADR-0141, test_client_events · test_client_event_session) |
 | RT-06-8 | onAction · 입력 Context | A | Done | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 — onAction(ctx, a: ActionEvent) (ADR-0142, test_client_actions), 입력 Context 키보드 UI > 메뉴 > 게임 · 먹히면 뗌 (ADR-0143, test_play_keys · test_game_ui_layer) |

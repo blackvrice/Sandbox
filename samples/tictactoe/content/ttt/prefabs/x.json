@@ -1,0 +1,10 @@
+{
+  "id": "ttt.x",
+  "name": "X",
+  "category": "Board",
+  "tags": ["stone", "x"],
+  "components": {
+    "core.transform": {},
+    "render.sprite": { "material": "ttt/x", "size": [1.6, 1.6], "layer": 10 }
+  }
+}

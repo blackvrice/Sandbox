@@ -50,11 +50,13 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Report;
     } else if (cmd == "asset") {
         o.command = SbxCommand::Asset;
+    } else if (cmd == "resave") {
+        o.command = SbxCommand::Resave;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
             std::format("모르는 명령 '{}' (new · check · build · test · templates · sdk · digest · fetch · resolve · "
-                        "install · update · add · remove · doctor · report · asset)",
+                        "install · update · add · remove · doctor · report · asset · resave)",
                         cmd));
     }
     bool sawProjectOnly = false; // new 의 게임 프로젝트 옵션 (--pack 과 같이 쓸 수 없다)
@@ -87,6 +89,8 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
              : a == "--template" ? o.templateId
                                  : o.contentRoot) = std::string(*v);
             sawProjectOnly = sawProjectOnly || a != "--id";
+        } else if (o.command == SbxCommand::Resave && a == "--resume") {
+            o.resume = true;
         } else if (isNew && a == "--pack") {
             o.pack = true;
         } else if (isNew && a == "--license") {
@@ -181,7 +185,7 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         return makeError(ErrorCode::InvalidArgument, "--license 는 new --pack 의 것");
     }
     if ((o.command == SbxCommand::New || o.command == SbxCommand::Check || o.command == SbxCommand::Build ||
-         o.command == SbxCommand::Test || o.command == SbxCommand::Doctor) &&
+         o.command == SbxCommand::Test || o.command == SbxCommand::Doctor || o.command == SbxCommand::Resave) &&
         !haveDir) {
         return makeError(ErrorCode::InvalidArgument, std::format("{} 에 프로젝트 폴더가 필요합니다", cmd));
     }
@@ -248,6 +252,10 @@ std::string sbxUsage() {
            "대신)\n"
            "  new --pack <폴더> --id <팩 id> [--license <SPDX>]   패키지 (팩) 틀 — 컴포넌트 · 함수 · 시스템 · Prefab\n"
            "  check <폴더>               프로젝트 검사 (매니페스트 · 엔진 범위 · 팩 · 시작 월드 열기)\n"
+           "  resave <폴더> [--resume]   시작 월드 (worlds/<이름>) 를 지금 콘텐츠로 다시 저장 — 팩을 고친 뒤의 P4 "
+           "경고를 없앤다\n"
+           "                             (--resume: 일시정지를 풀고 저장 — 바로 도는 게임의 시작 월드)\n"
+           "                             (Studio 의 Ctrl+S 와 같다 — 개체 · 지형 · 틱 그대로, v0.10)\n"
            "  test <폴더>                검사 + 자동 플레이 스크립트 (playthrough.json · tests/*.json) 를 끝까지 · "
            "expect\n"
            "  check <파일.sbpkg>         게임 패키지 검사 (파일마다 SHA-256 · digest → 풀어서 프로젝트 검사)\n"

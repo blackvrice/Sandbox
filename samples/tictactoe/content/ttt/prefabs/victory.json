@@ -1,0 +1,7 @@
+{
+  "id": "ttt.victory",
+  "name": "victory",
+  "category": "Board",
+  "tags": ["victory"],
+  "components": { "core.transform": {} }
+}

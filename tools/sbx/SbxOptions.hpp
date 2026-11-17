@@ -46,7 +46,8 @@ enum class SbxCommand : u8 {
     Test,
     Doctor,
     Report,
-    Asset
+    Asset,
+    Resave // v0.10 M6-T2 — 시작 월드를 지금 콘텐츠로 다시 저장 (Studio Ctrl+S 와 같다)
 };
 
 struct SbxOptions {
@@ -59,8 +60,9 @@ struct SbxOptions {
     u64 seed = 1;            // new --seed
     std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
     std::string
-        templateId;  // new --template <id> (v0.10 M6-T2 — samples/ 의 template.json, --from · --mode 와 함께 못 쓴다)
-    std::string out; // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
+        templateId; // new --template <id> (v0.10 M6-T2 — samples/ 의 template.json, --from · --mode 와 함께 못 쓴다)
+    bool resume = false;     // resave --resume (일시정지를 풀고 저장 — 게임 템플릿의 시작 월드)
+    std::string out;         // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
     std::string profile;     // build --profile <이름> (export/<이름>.json — v0.6 NG-08)
     bool cache = false;      // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
     std::string cacheDir;    // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)

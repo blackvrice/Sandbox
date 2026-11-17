@@ -1,0 +1,6 @@
+{
+  "id": "ttt",
+  "version": "0.1.0",
+  "requires": [],
+  "description": "틱택토 — 스크립트 보드게임 템플릿 (신호 · 월드 상태 · 서버 규칙 · client HUD)"
+}

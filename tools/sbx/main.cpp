@@ -21,6 +21,7 @@
 #include "core/package/PackSource.hpp"
 #include "core/package/PackTemplate.hpp"
 #include "core/package/Resolve.hpp"
+#include "core/persist/WorldSave.hpp"
 #include "core/project/Diagnostics.hpp"
 #include "core/project/ExportProfile.hpp"
 #include "core/project/GameProject.hpp"
@@ -483,6 +484,46 @@ int runNew(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     return kExitOk;
 }
 
+// sbx resave (v0.10 M6-T2) — 시작 월드를 지금 프로젝트 콘텐츠로 다시 저장한다 (Studio 의 Ctrl+S 와 같다). 개체 · 지형 ·
+// 틱은 그대로, world.json 의 콘텐츠 해시 · 태그 · 머티리얼 표가 지금 것이 된다. 세이브의 게임 결속은 그대로 둔다
+int runResave(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
+    const std::filesystem::path dir(opt.dir);
+    auto opened = project::openProject(dir, engineVersion(), catalog);
+    if (!opened) {
+        printErr(opened.error().describe());
+        return kExitError;
+    }
+    const auto name = project::entryWorldSaveName(opened->manifest);
+    if (!name) {
+        printErr(std::format("시작 월드 '{}' 가 worlds/<이름> 이 아니다 — 다시 저장하지 않는다",
+                             opened->manifest.entryWorld));
+        return kExitError;
+    }
+    const std::filesystem::path worldDir = dir / opened->manifest.entryWorld;
+    if (opt.resume && opened->world->clock().paused()) {
+        // 편집 단계 (멈춘 월드 · 게임이 잡은 월드) 는 명령만 적용하고 틱을 나아가지 않는다 — 개체 · 틱 그대로
+        sim::SimulationWorld& w = *opened->world;
+        w.enqueue(
+            cmd::SimCommand{cmd::CommandHeader{w.currentTick() + 1, cmd::kServerIssuer, 1}, cmd::ResumeSimulation{}});
+        w.tick();
+    }
+    persist::SaveOptions so{*name};
+    if (const auto summary = scenario::readSaveSummary(worldDir); summary && summary->game) {
+        so.game = summary->game; // 결속 그대로
+    }
+    const auto saved = persist::saveWorld(*opened->world, worldDir, so);
+    if (!saved) {
+        printErr(saved.error().describe());
+        return kExitError;
+    }
+    std::printf("시작 월드를 다시 저장했습니다: %s — tick %llu · 엔티티 %zu · contentHash 0x%016llx%s\n",
+                (dir / opened->manifest.entryWorld).string().c_str(),
+                static_cast<unsigned long long>(opened->world->currentTick()), saved->entities,
+                static_cast<unsigned long long>(opened->content->contentHash()),
+                opened->world->clock().paused() ? " · 일시정지" : " · 도는 중");
+    return kExitOk;
+}
+
 // 진단 (v0.5 M1-T2) — 검사는 check 와 같고 항목마다 문장 · 고치는 법으로 묶는다
 int runDoctor(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     project::DiagnoseOptions o;
@@ -669,6 +710,7 @@ int main(int argc, char** argv) {
     case SbxCommand::Remove:
     case SbxCommand::Test:
     case SbxCommand::Doctor:
+    case SbxCommand::Resave:
         break;
     }
     ecs::ComponentCatalog catalog;
@@ -690,6 +732,8 @@ int main(int argc, char** argv) {
         return runTest(opt, catalog);
     case SbxCommand::Doctor:
         return runDoctor(opt, catalog);
+    case SbxCommand::Resave:
+        return runResave(opt, catalog);
     default:
         return runCheck(std::filesystem::path(opt.dir), catalog);
     }

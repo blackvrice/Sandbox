@@ -1,0 +1,56 @@
+{
+  "format": 1,
+  "name": "틱택토 — 자동 플레이 (X 0 · 8 · 6 · 3 — 갈래로 이긴다)",
+  "maxTicks": 300,
+  "steps": [
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 10,
+      "command": {
+        "op": "signal",
+        "name": "ttt.place",
+        "value": 0
+      }
+    },
+    {
+      "at": 20,
+      "command": {
+        "op": "signal",
+        "name": "ttt.place",
+        "value": 8
+      }
+    },
+    {
+      "at": 30,
+      "command": {
+        "op": "signal",
+        "name": "ttt.place",
+        "value": 6
+      }
+    },
+    {
+      "at": 40,
+      "command": {
+        "op": "signal",
+        "name": "ttt.place",
+        "value": 3
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "team": 0,
+    "rule": 1,
+    "tick": 39,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0xa58a2e3be1b45bf9"
+    }
+  }
+}

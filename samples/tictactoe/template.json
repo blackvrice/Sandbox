@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.template",
+  "version": 1,
+  "id": "board",
+  "title": "스크립트 보드게임",
+  "description": "3 × 3 틱택토 — 신호 (칸 번호) 로 두고, 서버 스크립트가 상대 · 승패를 정한다 (defineState 판 · 복제 돌 · client HUD 버튼), 자동 플레이 포함",
+  "order": 2
+}

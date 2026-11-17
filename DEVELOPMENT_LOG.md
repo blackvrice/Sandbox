@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-17 — v0.10 M6-T2 조각 2: 스크립트 보드게임 템플릿 board (틱택토) · sbx resave
+
+**무엇을**
+
+- samples/tictactoe (template.json — board, order 2): 팩 ttt — 신호 ttt.place (칸 0 ~ 8), 컴포넌트 ttt.stone {cell, mark} (복제),
+  월드 상태 ttt.board {x, o, over} (칸 비트), 서버 시스템 ttt.rules (onEvent signal — X 를 두고 O 를 고른다: 이기기 · 막기 · 가운데 ·
+  모서리 · 변, 줄이면 표시 개체 ttt.victory · defeat · draw), client 시스템 ttt.hud (돌 → UI 변수 ttt.c0 ~ c8), 게임 모드 ttt.match
+  (끝 조건 = 표시 개체 수), 3 × 3 버튼 HUD (누르면 신호), playthrough.json (X 0 · 8 · 6 · 3 — 갈래로 이긴다, tick 39), README (만든 길).
+- sbx resave <폴더> [--resume]: 시작 월드를 지금 프로젝트 콘텐츠로 다시 저장 (Studio Ctrl+S 와 같다 — 개체 · 지형 · 틱 · 결속 그대로),
+  --resume 은 일시정지를 편집 단계 명령으로 풀고 저장. 팩을 더한 빈 프로젝트의 P4 경고를 창 없이 없앤다 — 새 예제의 시작 월드를 이것으로.
+- CTest sample_tictactoe (헤드리스 서버 = 로컬 플레이 · client HUD 트랩 0 · 패키지도 같은 결과), project_templates 의 EXPECT 에 board.
+- 문서: 15 7장 (resave · board), 17 (samples/tictactoe), 13, FEATURE_MATRIX F-132, CURRENT_STATUS, v0.10 체크리스트, 등록부 M6-T2 메모.
+
+**왜**
+
+- M6-T2 의 둘째 틀 — 스크립트로 규칙을 쓰는 보드게임. 지금 엔진이 가진 것 (신호 · defineState · 서버 onEvent · client HUD · 게임 모드의
+  개수 끝 조건) 만으로 바로 돌고, 스크립트에 "게임을 끝내는" API 가 없어도 표시 개체로 끝낸다 (새 API 없음). 시작 월드를 GUI 없이 만들
+  길이 없어 (샘플은 Ctrl+S 로 만들었다) resave 를 더했다 — 팩을 고친 제작자도 같은 경고를 같은 명령으로 없앤다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 전체 ctest 92 개 — 91 통과 · studio_gui_smoke SKIPPED (새 sample_tictactoe 포함, project_templates 는 minigame · board). 단위 시험 976 개
+  통과 (바뀜 없음). build\ci-werror (/WX) 경고 0, check_docs 문제 0 · gen_roadmap --check 낡은 것 0.
+- sbx test samples/tictactoe: 게임 Finished · win · rule 1 · tick 39 · hash 0xa58a2e3be1b45bf9 (Windows MSVC — 다른 툴체인은 expect 의 hash 칸이
+  없어 해시 비교를 건너뛴다).
+- HUD 버튼을 창에서 눌러 보지는 않았다 (GUI 창을 띄우지 않는다) — 신호 · client HUD 는 자동 플레이 · 로컬 플레이 줄이 본다.
+
+**남은 일**
+
+- M6-T2 조각 3: survival (생존) 템플릿. 그 뒤 M6-T2 끝 (EXPECT minigame · board · survival).
+
 ## 2026-11-17 — v0.10 M6-T2 조각 1: 게임 템플릿 틀 — sbx new --template · Studio 고르기, minigame (ADR-0144)
 
 **무엇을**

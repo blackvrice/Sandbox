@@ -1,0 +1,10 @@
+{
+  "id": "ttt.o",
+  "name": "O",
+  "category": "Board",
+  "tags": ["stone", "o"],
+  "components": {
+    "core.transform": {},
+    "render.sprite": { "material": "ttt/o", "size": [1.6, 1.6], "layer": 10 }
+  }
+}

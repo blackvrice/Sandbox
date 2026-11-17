@@ -1,0 +1,7 @@
+{
+  "id": "ttt.draw",
+  "name": "draw",
+  "category": "Board",
+  "tags": ["draw"],
+  "components": { "core.transform": {} }
+}

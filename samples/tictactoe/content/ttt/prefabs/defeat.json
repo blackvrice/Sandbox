@@ -1,0 +1,7 @@
+{
+  "id": "ttt.defeat",
+  "name": "defeat",
+  "category": "Board",
+  "tags": ["defeat"],
+  "components": { "core.transform": {} }
+}
