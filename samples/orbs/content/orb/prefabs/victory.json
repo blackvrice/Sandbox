@@ -1,0 +1,7 @@
+{
+  "id": "orb.victory",
+  "name": "victory",
+  "category": "Orb",
+  "tags": ["victory"],
+  "components": { "core.transform": {} }
+}

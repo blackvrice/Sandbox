@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-17 — v0.11 NG-19: 통합 시험 — 구슬 모으기 (samples/orbs · 템플릿 physics) · 폭주 시험 (ADR-0154)
+
+**무엇을**
+
+- samples/orbs (template.json — physics): 서버 orb.game (월드 상태 orb.play, 신호 orb.push → 방향, onPrePhysics 의 setVelocity —
+  물리 명령, triggerEnter (구슬 쪽) → 동전 줍기 · 셋이면 승리 표시, collisionEnter → 벽 수), client orb.fx (onAction → 신호,
+  onEvent → playSound, onRender → 구슬 둘레 원), 동전 = core.trigger, 머티리얼 (색) · 키 · sounds.json + assets/sfx (생성한 사인파 WAV) ·
+  playthrough (오른쪽 → 위 → 왼쪽: 동전 틱 27 · 62 · 117, 벽 75, 승리 tick 118) · README.
+- CTest sample_orbs (헤드리스 서버 = 로컬 플레이 (Null 오디오, sounds.json 올림) = 패키지 같은 결과, 서버 · client 스크립트 트랩 0),
+  project_templates 에 physics.
+- test_contact_events "폭주": 트리거 무더기 33 × 17 을 순간 이동으로 한 틱에 떼어 겹침 변화가 4,096 을 넘게 — 버리고 셈 · 이벤트 예산
+  건너뜀 셈 · 트랩 0 · 계속.
+- 문서: ADR-0154, 13, 15 (템플릿 physics), MANUAL-QA (창으로 orbs), 18 · CURRENT_STATUS, 등록부 NG-19 Done (gen_roadmap).
+
+**왜**
+
+- v0.11 의 기능 (8b · 물리 명령 · 트리거 · 충돌 이벤트 · onRender · 소리) 을 한 게임에서 같이 — 서버 (권위 · 해시) · 클라이언트 (입력 ·
+  소리 · 그리기) · 렌더 (선 목록) · 오디오 (표시 쪽) 의 책임이 나뉘어 도는지. 폭주 (24 Q1) 는 정확히 세는 단위 시험으로.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,153 모두 통과 (새 "폭주"), 전체 ctest 95 개 — 94 통과 · studio_gui_smoke
+  SKIPPED (새 sample_orbs 7 초 — 서버 · 로컬 플레이 · 패키지 같은 결과 Finished · win · tick 118 · 해시 0xae729fa32349bd6b, project_templates
+  넷). 창 · 장치는 열지 않았다.
+
+**남은 일**
+
+- 수동 QA (창으로 orbs — 원 · 소리 · 승리, NG-17 세 OS 소리) 뒤 v0.11 출시 판정 · 릴리스 노트 (v0.8 ~ v0.10 과 같이).
+
 ## 2026-11-17 — v0.11 NG-17: 오디오 출력 — 소프트웨어 믹서 · OS 장치 · WAV · 팩 sounds.json (ADR-0153)
 
 **무엇을**

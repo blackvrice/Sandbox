@@ -1,0 +1,40 @@
+{
+  "id": "orb.collect",
+  "name": "구슬 모으기",
+  "description": "방향 키 (W · A · S · D) 로 구슬을 밀어 동전 셋을 모으면 승리 — 60 초 안에",
+  "players": {
+    "min": 1,
+    "max": 4
+  },
+  "start": {
+    "countdownSeconds": 0
+  },
+  "end": [
+    {
+      "when": {
+        "count": {
+          "tags": {
+            "all": [
+              "victory"
+            ]
+          },
+          "op": ">=",
+          "value": 1
+        }
+      },
+      "result": "win"
+    },
+    {
+      "when": {
+        "time": {
+          "op": ">=",
+          "seconds": 60
+        }
+      },
+      "result": "lose"
+    }
+  ],
+  "restart": {
+    "mode": "manual"
+  }
+}

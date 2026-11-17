@@ -1,0 +1,21 @@
+{
+  "format": "sandbox.input",
+  "version": 1,
+  "actions": {
+    "play.right": [
+      "D"
+    ],
+    "play.up": [
+      "W"
+    ],
+    "play.left": [
+      "A"
+    ],
+    "play.down": [
+      "S"
+    ],
+    "play.stop": [
+      "Space"
+    ]
+  }
+}

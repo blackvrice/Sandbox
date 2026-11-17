@@ -640,6 +640,8 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [ ] (v0.10 ST-06-3) 창으로 보기 › 에셋 — 썸네일 · 거르기 · [가져오기] (id 없는 PNG), 고른 에셋의 참조 목록, [옮기기] 뒤 게임 그림 그대로 ·
     materials.json 의 경로가 바뀜, 참조가 있는 에셋 [지우기] 는 확인을 묻고 .sandbox/trash 로, PNG 를 그림판으로 고친 뒤 [다시 읽기] 로
     월드 그림이 바뀌는가, 에셋을 UI 디자이너의 image 노드에 끌어다 놓기 → 머티리얼이 생기고 미리보기 · 게임에 그 그림
+[ ] (v0.11 NG-19) 창으로 SandboxClient --world samples/orbs — W · A · S · D 로 구슬이 움직이고 (물리 앞 스크립트), 구슬 둘레의 노란 원
+    (onRender — 줌을 바꿔도 같은 두께), 동전에 닿으면 사라지며 소리 · 벽돌에 부딪히면 다른 소리, 셋을 모으면 승리 화면
 [ ] (v0.11 NG-17) 소리 — 세 OS (Windows waveOut · macOS AudioQueue · Linux ALSA) 에서 창으로 게임을 열면 로그 "오디오: <장치> · 48000 Hz ·
     2 채널", 팩 sounds.json 의 소리가 client.playSound 에 맞춰 들리는가 (버스 볼륨 · 끊김 · 지연 약 60 ms), 장치를 빼고 열면 "열지 못했다" 경고 뒤
     소리 없이 계속, --no-audio · --headless 는 장치를 열지 않는다 (OS · 장치 · 결과를 QA-EVIDENCE 에)

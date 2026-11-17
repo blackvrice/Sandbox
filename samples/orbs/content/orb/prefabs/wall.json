@@ -1,0 +1,11 @@
+{
+  "id": "orb.wall",
+  "name": "벽돌",
+  "category": "Orb",
+  "tags": ["wall"],
+  "components": {
+    "core.transform": {},
+    "core.collider":  { "radius": 0.4 },
+    "render.sprite":  { "material": "orb/wall", "size": [0.8, 0.8], "layer": 5 }
+  }
+}

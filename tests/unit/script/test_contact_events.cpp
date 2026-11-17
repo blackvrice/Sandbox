@@ -121,6 +121,37 @@ export default defineSystem({
 })
 )";
 
+// 폭주 (v0.11 NG-19 — 24 Q1): 트리거 알갱이 17 개씩 33 무더기 (무더기마다 쌍 136 — 개체마다 16 상대까지) 를 열한 틱에
+// 걸쳐 만들고, 틱 14 의 onPrePhysics 가 모두 떨어진 자리로 순간 이동 → 한 틱에 겹침 변화 약 4,488 (상한 4,096 — 뒤를
+// 버리고 센다), 이벤트는 시스템 예산 (256) 까지만 부르고 건너뛴 것을 센다. 서버는 트랩 없이 계속
+constexpr std::string_view kStorm = R"(import { defineSystem, Transform, i32, idiv } from "sandbox"
+export default defineSystem({
+  id: "t.storm",
+  events: { triggerEnter: {}, triggerExit: {} },
+  onTick(ctx) {
+    if (ctx.tick <= 11) {
+      for (let k: i32 = 0; k < 3; k = k + 1) {
+        const c: i32 = (ctx.tick - 1) * 3 + k
+        for (let i: i32 = 0; i < 17; i = i + 1) {
+          ctx.spawn("t.mote", -20 + (c % 10) * 4 + 0.001 * i, -20 + idiv(c, 10) * 4)
+        }
+      }
+    }
+  },
+  onPrePhysics(ctx) {
+    if (ctx.tick === 14) {
+      let n: i32 = 0
+      for (const e of ctx.query(Transform)) {
+        ctx.teleport(e, -30 + (n % 55), -30 + idiv(n, 55))
+        n = n + 1
+      }
+    }
+  },
+  onEvent(ctx, e) {
+  },
+})
+)";
+
 fs::path writePack(std::string_view name, const std::vector<std::pair<std::string, std::string_view>>& scripts) {
     const fs::path root = fs::temp_directory_path() / "sbx-tests" / "contact-events" / name;
     std::error_code ec;
@@ -137,6 +168,8 @@ fs::path writePack(std::string_view name, const std::vector<std::pair<std::strin
         R"({"id": "t.zone", "tags": ["zone"], "components": {"core.transform": {}, "core.collider": {"radius": 1.05}, "core.trigger": {}}})");
     put("content/t/prefabs/wall.json",
         R"({"id": "t.wall", "tags": ["wall"], "components": {"core.transform": {}, "core.collider": {"radius": 0.5}}})");
+    put("content/t/prefabs/mote.json",
+        R"({"id": "t.mote", "components": {"core.transform": {}, "core.collider": {"radius": 0.1}, "core.trigger": {}}})");
     put("content/t/prefabs/dot.json",
         R"({"id": "t.dot", "components": {"core.transform": {}, "core.collider": {"radius": 0.1}}})");
     for (const auto& [file, src] : scripts) {
@@ -288,5 +321,25 @@ TEST_SUITE("script") {
             runTo(w, 60);
             CHECK(contactHolders(w) == 0);
         }
+    }
+
+    TEST_CASE(
+        "contact events (v0.11 NG-19): 폭주 — 한 틱에 겹침 변화가 상한 4,096 을 넘는다, 이벤트 예산, 서버는 계속") {
+        QuietLog quiet;
+        const fs::path root = writePack("storm", {{"storm.ts", kStorm}});
+        content::ContentLoadResult r = load(root);
+        REQUIRE_MESSAGE(r.ok(), issuesOf(r));
+        sim::SimulationWorld w(engine(), r.db, smallWorld());
+        runTo(w, 13);
+        CHECK(w.registry().aliveCount() == 33 * 17);
+        CHECK(w.contactChangesDropped() == 0); // 무더기는 틱마다 셋 — 상한 안
+        runTo(w, 14);
+        CHECK(w.contactChangesDropped() > 0);          // 순간 이동으로 한 틱에 약 4,488 Exit — 뒤를 버리고 셌다
+        CHECK(w.scriptSystems()->counters(0).cut > 0); // 시스템 예산 (256) 을 넘은 이벤트는 건너뛰고 셌다
+        CHECK(w.scriptSystems()->counters(0).traps == 0);
+        const u64 at14 = *w.worldHash();
+        runTo(w, 16);
+        CHECK(*w.worldHash() != at14);
+        CHECK(w.scriptSystems()->counters(0).traps == 0);
     }
 }

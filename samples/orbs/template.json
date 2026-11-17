@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.template",
+  "version": 1,
+  "id": "physics",
+  "title": "물리 미니게임",
+  "description": "구슬 모으기 — 방향 키로 구슬을 밀어 동전 셋을 모은다 (물리 앞 스크립트 · 물리 명령 · 트리거 · 충돌 이벤트 · 소리 · 그리기), 자동 플레이 포함",
+  "order": 4
+}

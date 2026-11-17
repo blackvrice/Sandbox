@@ -1,0 +1,12 @@
+{
+  "id": "orb.coin",
+  "name": "동전",
+  "category": "Orb",
+  "tags": ["coin"],
+  "components": {
+    "core.transform": {},
+    "core.collider":  { "radius": 0.3 },
+    "core.trigger":   {},
+    "render.sprite":  { "material": "orb/coin", "size": [0.6, 0.6], "layer": 5 }
+  }
+}

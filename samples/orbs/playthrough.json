@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "name": "구슬 모으기 — 자동 플레이 (오른쪽 → 위 → 왼쪽: 동전 셋 · 벽 하나)",
+  "maxTicks": 400,
+  "steps": [
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 5,
+      "command": {
+        "op": "signal",
+        "name": "orb.push",
+        "value": 0
+      }
+    },
+    {
+      "at": 40,
+      "command": {
+        "op": "signal",
+        "name": "orb.push",
+        "value": 1
+      }
+    },
+    {
+      "at": 70,
+      "command": {
+        "op": "signal",
+        "name": "orb.push",
+        "value": 2
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "team": 0,
+    "rule": 1,
+    "tick": 118,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0xae729fa32349bd6b"
+    }
+  }
+}

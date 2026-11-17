@@ -1,0 +1,12 @@
+{
+  "id": "orb.ball",
+  "name": "구슬",
+  "category": "Orb",
+  "tags": ["ball"],
+  "components": {
+    "core.transform": {},
+    "core.velocity":  {},
+    "core.collider":  { "radius": 0.4 },
+    "render.sprite":  { "material": "orb/ball", "size": [0.8, 0.8], "layer": 10 }
+  }
+}

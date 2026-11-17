@@ -1,0 +1,14 @@
+{
+  "sounds": {
+    "coin": {
+      "file": "assets/sfx/coin.wav",
+      "bus": "sfx",
+      "volume": 0.6
+    },
+    "bump": {
+      "file": "assets/sfx/bump.wav",
+      "bus": "sfx",
+      "volume": 0.5
+    }
+  }
+}
