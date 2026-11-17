@@ -138,6 +138,9 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
   엔진 키와 같은 바인딩은 경고만.
   사용자 경로: <설정 폴더>/input.json 을 기본 위에 읽는다 (v0.5 M1-T3), "키" 패널이 기본과 다른 것만 저장한다 (v0.7 M4-T3 —
   ActionMap set · remove · overridesFrom, captureBinding = 새로 누른 키 + 눌린 순간의 수정자, ADR-0102).
+- 입력 Context (v0.10 RT-06-8 조각 2, [ADR-0143](adr/0143-input-contexts-menu-consumes-game-keys.md)): 팩 input.json 의 "contexts" 로
+  play.* 마다 game (기본) · menu · always. 스택 = 키보드를 잡은 UI (I1) > 메뉴 (게임 UI 의 menu · modal 문서가 보임) > 게임 — 위가 먹은
+  키는 down · pressed 가 없고, 눌린 채 먹히면 뗌 한 번 (PlayGate). 스크립트 입력 · onAction · play.action.* 의 PlayerAction 이 같이 쓴다.
 ```
 
 | 규칙 | 내용                                                                                                                                                                                         |
@@ -150,8 +153,8 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 
 ### 5.x 입력의 다음 단계 [계획]
 
-v0.5 M2-T6 ✅: client 스크립트 입력 읽기 (keyDown · keyPressed · keyReleased — 게임 키 "play.<이름>", 커서 월드 좌표 — 19 21.1) · send. v0.6: onAction ·
-입력 Context 스택 (메뉴 > UI > 게임) · 소비 · 게임패드 · Hold · Double Tap · Combo. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
+v0.5 M2-T6 ✅: client 스크립트 입력 읽기 (keyDown · keyPressed · keyReleased — 게임 키 "play.<이름>", 커서 월드 좌표 — 19 21.1) · send. v0.10 ✅:
+onAction (ADR-0142) · 입력 Context 스택 · 소비 (ADR-0143 — 위 단락). [계획 v0.12]: 게임패드 버튼 바인딩 · Hold · Double Tap · Combo. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
 키 이벤트마다 패킷을 보내지 않는다. [22-RUNTIME-V2](22-RUNTIME-V2.md) 6장, [ADR-0087](adr/0087-client-fixed-tick-prediction-opt-in.md).
 
 ## 6. 플랫폼별 구현

@@ -265,4 +265,69 @@ TEST_SUITE("client") {
         CHECK(start->generation == ns->worldGeneration());
     }
 
+    TEST_CASE(
+        "input context (v0.10 RT-06-8 조각 2): 팩 contexts — game · menu · always, 메뉴가 열리면 game 키를 먹고 눌린 "
+        "키는 뗌 한 번, 사용자 키 덮어쓰기는 Context 를 바꾸지 않는다") {
+        const PackInput pack{"g", R"({"format": "sandbox.input", "version": 1,
+  "actions": {"play.jump": ["Space"], "play.pause": ["Escape"], "play.menu.ok": ["Enter"], "play.fire": ["F"]},
+  "contexts": {"play.pause": "always", "play.menu.ok": "menu", "play.jump": "game", "play.fire": "sometimes",
+               "play.ghost": "menu"}})"};
+        auto user =
+            ActionMap::parse(R"({"format": "sandbox.input", "version": 1, "actions": {"play.jump": ["J"]}})", "user");
+        REQUIRE(user.has_value());
+        const PlayKeys keys = buildPlayKeys(std::span(&pack, 1), *user);
+        const auto id = [&](std::string_view name) {
+            const auto found = keys.map.find(std::string(name));
+            REQUIRE(found.has_value());
+            return *found;
+        };
+        CHECK(keys.contextOf(id("play.pause")) == PlayContext::Always);
+        CHECK(keys.contextOf(id("play.menu.ok")) == PlayContext::Menu);
+        CHECK(keys.contextOf(id("play.jump")) == PlayContext::Game); // 사용자가 J 로 다시 묶어도 Context 는 팩의 것
+        CHECK(keys.contextOf(id("play.fire")) == PlayContext::Game); // 모르는 값은 기본 (경고)
+        CHECK(hasWarning(keys, "contexts.play.fire"));
+        CHECK(hasWarning(keys, "contexts.play.ghost — 이 파일의 play.* 바인딩이 아니다"));
+        CHECK(PlayGate::allowed(PlayContext::Game, false));
+        CHECK_FALSE(PlayGate::allowed(PlayContext::Game, true));
+        CHECK(PlayGate::allowed(PlayContext::Menu, true));
+        CHECK_FALSE(PlayGate::allowed(PlayContext::Menu, false));
+        CHECK(PlayGate::allowed(PlayContext::Always, true));
+
+        // 프레임: J (jump) 를 누른 채 메뉴가 열린다 → 그 프레임에 jump 뗌 한 번, 메뉴 동안 Enter 는 menu.ok, J 는
+        // 먹힌다
+        InputSystem in;
+        ActionState raw;
+        PlayGate gate;
+        const auto frame = [&](std::initializer_list<Key> down, std::initializer_list<Key> up, bool menu) {
+            in.beginFrame();
+            for (const Key k : down) {
+                in.consume(KeyDown{k, 0, {}, false});
+            }
+            for (const Key k : up) {
+                in.consume(KeyUp{k, 0, {}});
+            }
+            raw.update(keys.map, in.raw());
+            gate.update(keys, raw, menu);
+        };
+        frame({Key::J}, {}, false);
+        CHECK(gate.pressed(id("play.jump")));
+        CHECK(gate.down(id("play.jump")));
+        frame({}, {}, true); // 메뉴가 열렸다 — J 는 아직 눌림
+        CHECK_FALSE(gate.down(id("play.jump")));
+        CHECK(gate.released(id("play.jump"))); // 먹혔다 — 뗌 한 번
+        frame({Key::Enter, Key::Escape}, {}, true);
+        CHECK(gate.pressed(id("play.menu.ok")));
+        CHECK(gate.pressed(id("play.pause"))); // always
+        CHECK_FALSE(gate.released(id("play.jump")));
+        frame({}, {Key::J, Key::Enter}, true);
+        CHECK_FALSE(gate.released(id("play.jump"))); // 이미 뗌을 보냈다
+        CHECK(gate.released(id("play.menu.ok")));
+        frame({}, {}, false); // 메뉴가 닫혔다 — Escape 는 아직 눌림 (always)
+        CHECK(gate.down(id("play.pause")));
+        CHECK_FALSE(gate.released(id("play.pause")));
+        frame({Key::Enter}, {}, false); // 게임 Context 에서 Enter 는 먹힌다
+        CHECK_FALSE(gate.pressed(id("play.menu.ok")));
+        CHECK_FALSE(gate.down(id("play.menu.ok")));
+    }
+
 } // TEST_SUITE

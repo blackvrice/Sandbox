@@ -87,6 +87,8 @@ public:
     }
     [[nodiscard]] usize documentCount() const noexcept { return m_docs.size(); }
     [[nodiscard]] bool documentVisible(std::string_view id) const;
+    // 메뉴 · 모달 층의 문서가 하나라도 보인다 — 입력 Context 의 메뉴 (게임 키를 먹는다, v0.10 RT-06-8 조각 2)
+    [[nodiscard]] bool menuOpen() const;
     [[nodiscard]] bool nodeHidden(std::string_view documentId, std::string_view nodeId) const;
     [[nodiscard]] const std::vector<ui::UiDocumentLayout>& layouts() const noexcept { return m_layouts; }
     [[nodiscard]] u64 buttonPresses() const noexcept { return m_presses; } // 누른 버튼 수 (진단 · 시험)

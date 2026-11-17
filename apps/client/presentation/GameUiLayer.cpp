@@ -682,6 +682,15 @@ bool GameUiLayer::documentVisible(std::string_view id) const {
     return false;
 }
 
+bool GameUiLayer::menuOpen() const {
+    for (usize i = 0; i < m_docs.size(); ++i) {
+        if (m_visible[i] && m_docs[i].layer != ui::UiLayer::Hud) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool GameUiLayer::nodeHidden(std::string_view documentId, std::string_view nodeId) const {
     return m_hidden.contains(std::format("{}.{}", documentId, nodeId));
 }

@@ -1212,13 +1212,16 @@ export default defineSystem({
         CHECK(yOf("b0") == 0);
         CHECK(ev.empty());
 
-        // modal 이 보이면 hud scroll 은 휠을 받지 않는다
+        // modal 이 보이면 hud scroll 은 휠을 받지 않는다 · 입력 Context 는 메뉴 (v0.10 RT-06-8 — hud 만이면 아니다)
+        CHECK_FALSE(layer.menuOpen());
         layer.apply(ui::UiAction{ui::UiAction::Kind::Ui, "eco.pop", std::nullopt, "show"});
         relayout();
+        CHECK(layer.menuOpen());
         CHECK_FALSE(layer.wheel(10, 10, -1));
         // 원문이 바뀌면 밀기를 잊는다
         layer.apply(ui::UiAction{ui::UiAction::Kind::Ui, "eco.pop", std::nullopt, "hide"});
         relayout();
+        CHECK_FALSE(layer.menuOpen());
         CHECK(layer.wheel(10, 10, -1));
         info.documents[0].text += " ";
         layer.setSources(info);

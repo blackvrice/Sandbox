@@ -939,7 +939,8 @@ export default defineSystem({
 언제       프레임마다 onStart → onEvent → onAction → onUpdate → onLateUpdate. 시스템 차례 → 키 이름 차례, 눌림 (pressed true) · 뗌
            (false), 한 프레임에 눌렀다 떼면 둘. 눌린 채 (변화 없음) 는 부르지 않는다
 키         팩 presentation/input.json 의 "play.<이름>" (keyDown 과 같은 이름 — play.action.<id> 는 "action.<id>"). UI 가 키보드를 잡은
-           프레임은 없다. 메뉴가 먹는 키 (입력 Context) 는 [계획 — RT-06-8 조각 2]
+           프레임은 없다. 게임 UI 의 메뉴 · 모달이 보이면 "game" 키는 먹힌다 — 팩 input.json 의 contexts (07 5장, ADR-0143),
+           눌린 채 먹히면 뗌 (pressed false) 한 번. keyDown · keyPressed · keyReleased 도 같은 규칙
 x · y      커서의 월드 자리 (UI 위면 0)
 Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send · UI · 소리
 형식       .sbc 형식 14 (onAction), Host 지문 0x339421f28fd42c1c (ActionEvent 칸)

@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-11-17 — v0.10 RT-06-8 조각 2: 입력 Context — 메뉴 · 모달이 게임 키를 먹는다 (ADR-0143) — RT-06-8 끝
+
+**무엇을**
+
+- 팩 presentation/input.json 에 선택 키 "contexts": { "play.<이름>": "game" | "menu" | "always" }. PlayKeys 가 떼어 읽고 (ActionMap
+  형식 version 1 그대로), 합친 맵의 ActionId 마다 PlayContext (없으면 Game). 모르는 값 · 그 파일 actions 에 없는 이름은 경고 · 무시.
+  사용자 키 묶기는 Context 를 바꾸지 않는다.
+- PlayGate (apps/client/PlayKeys): Context 로 down · pressed · released 를 거른다 — 메뉴가 위면 menu · always 만, 아니면 game · always 만.
+  보이던 키가 안 보이게 되면 (뗐거나 먹혔다) 그 프레임에 뗌 한 번.
+- GameUiLayer::menuOpen — menu · modal 층 문서가 하나라도 보인다. Application 이 ActionState 다음에 PlayGate 를 돌리고, client 스크립트
+  입력 (keyDown · keyPressed · keyReleased · onAction) 과 play.action.<id> 의 PlayerAction 이 그 값을 쓴다.
+- 문서: ADR-0143, 07 5장, 11 (input.json), 19 21.4, 22 3.1 · 6장, 13, FEATURE_MATRIX F-209 (✅), CURRENT_STATUS, v0.10 체크리스트, 등록부
+  RT-06-8 Done (gen_roadmap).
+
+**왜**
+
+- 게임 UI 의 메뉴를 연 동안에도 팩 키 (점프 · 공격 · 행동) 가 서버로 신호 · 행동을 보냈다. 키보드를 잡은 UI 는 이미 모든 키를 먹으니,
+  남은 칸은 "메뉴 > 게임" 과 메뉴에서만 쓰는 키를 콘텐츠가 고르는 길 (22 6장). 눌린 채 먹힌 키의 뗌은 onAction 이 눌림에 갇히지 않게 —
+  ADR-0143.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 단위 시험 973 개 통과 (Debug — 앞 972 + 1). 새 test_play_keys "input context" (contexts 파싱 · 경고 둘 · 사용자 묶기와 무관 · allowed 표,
+  PlayGate 프레임 — 눌린 game 키가 메뉴에 먹히면 뗌 한 번 · 메뉴에서 menu · always 키 · 먹힌 동안 뗀 키는 뗌 없음 · 메뉴가 닫혀도 always 는
+  이어짐 · 게임에서 menu 키 먹힘), test_game_ui_layer 에 menuOpen (hud 만 false · modal 보이면 true · 숨기면 false).
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED (clang-format 뒤 빌드). build\ci-werror (/WX) 경고 0, check_docs 문제 0 ·
+  check_includes 위반 0 · gen_roadmap --check 낡은 것 0. 시뮬레이션 밖 (해시 그대로).
+- 앱 전체 (창 · 실제 키) 는 돌리지 않았다 — GUI 창을 띄우지 않는다. Application 의 연결은 PlayGate 한 줄 · 입력 둘 (스크립트 키 ·
+  행동 키) 이고, 거르는 규칙은 PlayGate 시험이 본다. 창 QA 에서 "메뉴를 연 채 행동 키" 를 확인할 것.
+- 벤치는 돌리지 않았다: 프레임마다 게임 키 수만큼 비교 몇 번 (클라이언트만).
+
+**남은 일**
+
+- 게임패드 버튼 바인딩 · Hold · Double Tap · Combo 가 같은 Context 를 따르게 (RT-06-13, v0.12).
+- v0.10 트랙 A (RT-06-1 · 10 · 7 · 8) 끝. 남은 v0.10: 트랙 B ST-06-3 Asset Browser · ST-06-4 Game UI Designer · M6-T2 템플릿 3종 → NG-18.
+
 ## 2026-11-17 — v0.10 RT-06-8 조각 1: client onAction — 게임 키의 눌림 · 뗌을 ActionEvent 로 (ADR-0142)
 
 **무엇을**

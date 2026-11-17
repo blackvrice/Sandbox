@@ -737,6 +737,7 @@ void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
             m_playSignature.clear();
             m_actionPanel.keys.clear();
             m_playState.reset();
+            m_playGate.reset();
         }
         return;
     }
@@ -760,16 +761,20 @@ void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
             }
         }
         m_playState.reset();
+        m_playGate.reset();
     }
     m_playState.update(m_playKeys.map, m_input.downstream());
+    // 입력 Context (v0.10 RT-06-8 조각 2): 메뉴 · 모달이 보이면 "game" 키를 먹는다 — 스크립트 키 · onAction · 행동 키
+    // 모두
+    m_playGate.update(m_playKeys, m_playState, m_gameUi.menuOpen());
     // client 스크립트의 입력 (v0.5 M2-T6) — 게임 키 ("play.<이름>" 의 <이름> — ActionId 가 이름 순이라 정렬 그대로) ·
     // 커서
     script::ClientScriptInput scriptInput;
     for (platform::ActionId id = 0; id < m_playKeys.map.size(); ++id) {
         const std::string_view name = m_playKeys.map.name(id);
         if (name.starts_with(kPlayPrefix)) {
-            scriptInput.keys.push_back({std::string(name.substr(kPlayPrefix.size())), m_playState.down(id),
-                                        m_playState.pressed(id), m_playState.released(id)});
+            scriptInput.keys.push_back({std::string(name.substr(kPlayPrefix.size())), m_playGate.down(id),
+                                        m_playGate.pressed(id), m_playGate.released(id)});
         }
     }
     scriptInput.hasPointer = m_config.ui == nullptr || !m_config.ui->wantMouse();
@@ -780,7 +785,7 @@ void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
     }
     for (const ActionRow& a : acts->actions) {
         const auto id = m_playKeys.map.find(std::string(kPlayActionPrefix) + a.id);
-        if (id && m_playState.pressed(*id)) {
+        if (id && m_playGate.pressed(*id)) {
             m_config.world->playerAction(a.id, cam.screenToWorld(mousePx));
         }
     }
