@@ -12,7 +12,9 @@
 // 이미지마다 가장자리를 1 텍셀 늘린 테두리(padding)를 둔다 — 선형 필터가 이웃 스프라이트를 섞지 않게.
 // 실패(파일 없음 · 디코드 오류 · 아틀라스 가득)는 마젠타 자리 + 경고 한 번.
 // 스레드: requestSprite · update · regions 는 Render 스레드(지금은 메인)만. Worker 는 결과 칸에만 쓴다.
-// 8A 는 해제 · 핫 리로드가 없다 ([계획] refcount · 파일 감시).
+// 8A 는 해제가 없다 ([계획] refcount). 핫 리로드 (v0.10 ST-06-3): reloadSpriteFile 이 같은 id 를 다시 디코드해 새
+// 자리에 올린다 — 올리기 전까지는 옛 그림, 옛 자리는 돌려받지 않는다 (아틀라스가 차면 마젠타 — 다시 열면 비워진다).
+// 파일 감시는 앱이.
 
 #include <filesystem>
 #include <memory>
@@ -56,6 +58,7 @@ struct AssetStats {
     u32 files = 0;
     u32 filesReady = 0;
     u32 filesFailed = 0;
+    u32 reloads = 0; // reloadSpriteFile (v0.10 ST-06-3)
 };
 
 class AssetManager {
@@ -75,6 +78,9 @@ public:
     // 와 겹치지 않는다). file 은 대소문자 그대로 연다 (requestSprite 는 정규화한 소문자 경로로 연다 — 06 9장). 빈 file
     // = 실패 (마젠타)
     [[nodiscard]] SpriteId requestSpriteFile(std::string_view key, const std::filesystem::path& file);
+    // 핫 리로드 (v0.10 ST-06-3 — 에셋 원본이 바뀌었다): requestSpriteFile 로 받은 key 의 그림을 file 에서 다시 읽는다.
+    // 같은 id — 새 그림이 올라갈 때까지 옛 그림. 그런 key 가 없으면 false
+    bool reloadSpriteFile(std::string_view key, const std::filesystem::path& file);
     // 메모리의 이미지 (절차적 텍스처 · 테스트). name 이 같으면 같은 id (두 번째 이미지는 무시)
     [[nodiscard]] SpriteId addSprite(std::string_view name, Image image);
 

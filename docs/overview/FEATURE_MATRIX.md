@@ -49,7 +49,7 @@
 | F-108 | Prefab 인스턴스 오버라이드 · 변형 | v0.12 | 📐 설계만 (설계 ADR 도 아직) | — | — (ST-06-5) | 25 7장 |
 | F-109 | Prefab 배치 (팔레트에서 골라 클릭 · 끌기) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` · `test_pack_groups` | 10 3장 |
 | F-110 | 프로젝트 PNG 가져오기 (.meta 안정 id) | v0.6 | 🟡 일부 — CLI (`sbx asset import`) 로만 | — | CTest `project_assets` · `project_own_png` · `test_asset_database` | [26](../26-ASSET-PIPELINE.md) · M6-T9 |
-| F-111 | Asset Browser (썸네일 · 끌어다 놓기 · 참조 찾기 · 안전 지우기 · 다시 가져오기) | v0.10 | 📐 설계만 | — | — (ST-06-3) | 26 · 25 5장 |
+| F-111 | Asset Browser (썸네일 · 끌어다 놓기 · 참조 찾기 · 안전 지우기 · 다시 가져오기) | v0.10 | ✅ "에셋" 창 (목록 · 썸네일 · 가져오기 · 참조 · 옮기기 · 다시 읽기 · 안전 지우기 · 놓기 → UI 디자이너) — 폴더 나무 · 파일 감시 [계획] | `test_asset_browser` · `test_sprites` hot reload | — | 26 · 25 5장 · ADR-0146 |
 | F-112 | Object 선택 · 이동 (Select · Move 툴) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` | 10 3장 |
 | F-113 | Object 회전 · 크기 조절 (전용 툴 · 기즈모) | — | ❓ 계획 불명확 | — | 툴은 Select · Move · Place · TerrainBrush · Erase 다섯 (`editor/Editor.hpp`). 회전은 Inspector 에서 `core.transform.rotation` 값으로만 고친다. Transform 에 크기 필드가 없다. 등록부에 이 일을 맡은 태스크가 없다 | [감사](../audit/DOCS-AUDIT-2026-11-12.md) G-09 |
 | F-114 | Component 추가 · 제거 · 속성 편집 | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` (ChangeComponent · AddComponent · RemoveComponent) | 10 4장 |
@@ -62,7 +62,7 @@
 | F-121 | 편집 데이터 자동 저장 · 크래시 복구 | v0.8 | ✅ 사용 가능 | ⬜ | CTest `studio_recovery` · `test_autosave_service` | 25 7장 · M6-T7 |
 | F-122 | 빌드 화면 (검사 · 패키지 · 누락 보고 · Export Profile) | v0.8 | ✅ 사용 가능 | ⬜ | CTest `studio_build` · `test_build_service` | 25 5장 · M6-T3 |
 | F-123 | 레이아웃 저장 · 명령 팔레트 · 단축키 표 · 테마 | v0.8 | ✅ 사용 가능 | 🟡 (1366×768 셸만) | CTest `studio_layout` · `test_layout_service` · `test_command_palette` | 29 · M6-T6 · ST-06-2 · UI-1 |
-| F-124 | Game UI Designer (HUD · 버튼 · 메뉴를 화면에서 편집) | v0.10 | 📐 설계만 — 지금은 UI 문서 JSON 을 손으로 쓴다 | — | — (ST-06-4) | 25 8장 |
+| F-124 | Game UI Designer (HUD · 버튼 · 메뉴를 화면에서 편집) | v0.10 | 🟡 구현 — "UI 디자이너" 창 (계층 · 라이브러리 · 미리보기 · 끌기 · 노드 JSON · 저장), 수동 QA 남음 | `test_ui_design_service` · `test_ui_designer_panel` | — (ST-06-4 수동 QA) | 25 8장 · ADR-0145 |
 | F-125 | Visual Trigger 편집 — 폼 | v0.2 | ✅ 사용 가능 | ⬜ | `test_trigger_form` | 10 8장 · 11 10장 |
 | F-126 | 트리거 노드 그래프 캔버스 · 콘텐츠 데이터 폼 | v0.12 | 📐 설계만 | — | — (ST-06-10) | 26 6장 |
 | F-127 | 지형 칠하기 (TerrainBrush) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` | 10 3장 · [05](../05-WORLD.md) |

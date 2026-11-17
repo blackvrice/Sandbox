@@ -58,7 +58,7 @@
 G1  CTest studio_new_project ✅ (v0.8 M6-T1, ADR-0111) — 헤드리스 Studio 명령 (CommandService 의 studio.new-project — --new-project) → 프로젝트 →
     InWorld → sbx check 오류 0 · 경고 0 · 최근 목록 (studio.json), 같은 폴더 · 모르는 템플릿은 실패. 손으로 하는 홈 (폴더 글자 · 1 분 안) 은 MANUAL-QA
 G2  unit — 가져오기 → .meta → 이름 바꾸기 → 참조 그대로 ✅ M6-T9 (test_asset_database · test_pack_materials · project_assets — CLI).
-    Studio 화면 (끌어다 놓기 · 이름 바꾸기 UI) 은 [계획 v0.10 ST-06-3]
+    Studio 화면 ✅ v0.10 ST-06-3 ("에셋" 창 — test_asset_browser: 옮기기 뒤 참조 그대로 · 안전 지우기 · 놓기, ADR-0146)
 G8  CTest studio_build ✅ (v0.8 M6-T3, ADR-0112) — 명령 studio.build (--run-command · 일꾼) → 패키지 · A8 경고 → 빈 캐시에서 sbx check →
     누락 에셋 (A6) 은 열지 않음 · 패키지 없음. 열린 뒤 생긴 누락의 [빌드] 거절은 test_build_service
 G9  M7-T3 A → B E2E (기존 계획)
@@ -87,10 +87,10 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 | 기준 | 층 1 (단위) | 층 2 (헤드리스 흐름) | 층 3 (GUI smoke) | 층 4 (실기 — QA-EVIDENCE) |
 |------|-------------|----------------------|------------------|---------------------------|
 | G1 프로젝트 생성 | test_project_service · test_studio_home_data | studio_new_project · studio_flow_e2e | studio_gui_smoke (홈) | MANUAL-QA UI-2 [ ] |
-| G2 에셋 | test_asset_database | studio_flow_e2e (CLI 가져오기) | — | 끌어다 놓기 화면 없음 (v0.10) |
+| G2 에셋 | test_asset_database · test_asset_browser (옮기기 · 지우기 · 놓기) | studio_flow_e2e (CLI 가져오기) | — | MANUAL-QA ST-06-3 [ ] |
 | G3 월드 편집 | test_editor · test_undo (setField) | test_editor_session | studio_gui_smoke (워크스페이스) | MANUAL-QA UI-1 [x] 부분 |
 | G4 스크립트 | test_script_editor | — | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
-| G5 게임 UI | test_game_ui_layer | — | — | MANUAL-QA [ ] |
+| G5 게임 UI | test_game_ui_layer · test_ui_design_service · test_ui_designer_panel | — | — | MANUAL-QA ST-06-4 [ ] |
 | G6 테스트 플레이 | test_test_service | test_world_panel · studio_test_session | — | MANUAL-QA ST-06-9 [ ] |
 | G7 디버깅 | test_console_panel · test_vm (줄 표 · 호출 경로) · test_diagnostic_help (고치는 법 · 문구 골든) | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
 | G8 빌드 | test_build_service | studio_build · studio_flow_e2e | — | MANUAL-QA M6-T3 [ ] |

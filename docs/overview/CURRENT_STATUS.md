@@ -28,12 +28,12 @@
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
 | 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) |
-| 현재 개발 버전 | [v0.10](../roadmap/versions/v0.10.md) — Creator Foundation (5 / 8, 62 %) |
+| 현재 개발 버전 | [v0.10](../roadmap/versions/v0.10.md) — Creator Foundation (6 / 8, 75 %) |
 | 다음 목표 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime |
-| 전체 진행 (v0.5 ~ v1.0 태스크) | 69 / 167 Done — 41 % |
-| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 28 |
-| v1.0 (GA) 까지 남은 태스크 | 98 |
-| 수동 QA (v0.7 이후 버전 줄) | 8 / 37 확인 |
+| 전체 진행 (v0.5 ~ v1.0 태스크) | 70 / 167 Done — 42 % |
+| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 27 |
+| v1.0 (GA) 까지 남은 태스크 | 97 |
+| 수동 QA (v0.7 이후 버전 줄) | 8 / 39 확인 |
 
 <!-- GENERATED:END -->
 
@@ -42,7 +42,7 @@
 | 전체 개발 상태 | 엔진 · 스크립트 · 패키지 · 게임 UI 런타임은 자동 시험으로 검증됨. Studio (v0.8) · Script IDE (v0.9) 는 코드 · 자동 시험이 끝났고 **창에서 사람이 확인하는 QA 가 남아** 출시 (0.8.0 · 0.9.0) 를 못 했다. v0.10 은 첫 태스크만 끝났다 |
 | 완료된 주요 기능 | ECS · 30 TPS 결정론 시뮬레이션 · 세이브 · 리플레이 · 서버 권위 네트워크 (LAN) · 월드 에디터 · 세 렌더 백엔드 · 게임 프로젝트 · .sbpkg · SandboxScript (컴파일러 · VM · 표준 라이브러리) · 패키지 관리자 · 충돌 보고 · 프로젝트 에셋 · 게임 UI 런타임 · 다국어 |
 | 진행 중인 기능 | Studio 기본 환경 (창 QA 대기) · Script IDE (창 QA 대기) · Creator Foundation v0.10 (RT-06-1 ✅, 나머지 7 태스크 미착수) |
-| 주요 미구현 기능 | Asset Browser · Game UI Designer · 템플릿 · 타이머 · client 수명주기 · 물리 단계 · 충돌 이벤트 · 오디오 출력 · Prefab 오버라이드 · 타일맵 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
+| 주요 미구현 기능 | 물리 단계 · 충돌 이벤트 · 오디오 출력 · Prefab 오버라이드 · 타일맵 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
 | 현재 차단 요인 | ① v0.8 · v0.9 창 QA (사람이 창을 봐야 한다) ② v0.1 의 Linux · macOS 실기 검증 · 50k 성능 판정 ③ 트랙 C 전체가 저장소 경계 결정 D-06 (PS-12-1) 을 기다림 — 4장 |
 | 다음 마일스톤 | Closed Creator Alpha (v0.13) — 남은 태스크 수는 위 표, 목록은 [MASTER_ROADMAP](../roadmap/MASTER_ROADMAP.md) 3장 |
 
@@ -83,7 +83,7 @@
 | 월드 에디터 | ✅ [10](../10-EDITOR.md) | ✅ `editor/` (툴 5 · Inspector · 목록 · Undo · 콘텐츠 창) | ✅ `unit_editor` · `det_edit_session` | ⚠️ Phase 12 줄 미확인 | ✅ 완료 (자동) — 회전 · 크기 전용 툴은 없다 | [모듈](MODULES.md#에디터--studio) |
 | Studio 셸 · 서비스 | ✅ [25](../25-STUDIO-ARCHITECTURE.md) · [29](../29-STUDIO-UI.md) | ✅ `editor/services` · `apps/client/studio` | ✅ `studio_*` 7 개 (`studio_gui_smoke` 는 창이 없으면 SKIP) | 🟡 1 / 13 줄 | 🟡 진행 중 — 창 QA (UI-4) 뒤 0.8.0 | [v0.8](../roadmap/versions/v0.8.md) |
 | Script IDE | ✅ [27](../27-SCRIPT-IDE.md) | ✅ `script/lang/LanguageService` · `editor/ui/ScriptEditor` · `ScriptDebugPanel` | ✅ `unit_script` · `unit_editor` | ⬜ 0 / 5 줄 | 🟡 진행 중 — 창 QA 뒤 0.9.0 | [v0.9](../roadmap/versions/v0.9.md) |
-| 에셋 파이프라인 | ✅ [26](../26-ASSET-PIPELINE.md) | 🟡 `core/asset` (.meta 안정 id · 그룹) · `render/asset` (아틀라스 · 비동기 로드) | ✅ `project_assets` · `project_own_png` | 해당 없음 | 🟡 진행 중 — 가져오기는 CLI, Asset Browser 는 v0.10 | [v0.10](../roadmap/versions/v0.10.md) |
+| 에셋 파이프라인 | ✅ [26](../26-ASSET-PIPELINE.md) | 🟡 `core/asset` (.meta 안정 id · 그룹) · `render/asset` (아틀라스 · 비동기 로드) | ✅ `project_assets` · `project_own_png` | 해당 없음 | ✅ "에셋" 창 (ST-06-3 — ADR-0146), 파일 감시 [계획] | [v0.10](../roadmap/versions/v0.10.md) |
 | 프로젝트 · 패키지 · 패키지 관리자 | ✅ [18](../18-PLATFORM.md) 5장 · 09 9장 | ✅ `core/project` · `core/package` · `tools/sbx` | ✅ `project_*` · `tech_alpha_e2e` | 해당 없음 | ✅ 완료 — 서명 · 레지스트리는 v0.14 | [모듈](MODULES.md#프로젝트--패키지) |
 | 진단 · 충돌 보고 | ✅ 20 7장 | ✅ `foundation/diag` · `platform/crash` | ✅ `crash_report_*` · `project_doctor` | 해당 없음 | ✅ 완료 | [모듈](MODULES.md#프로젝트--패키지) |
 | Player 모드 | ✅ ADR-0121 | ✅ `apps/client/player` | ✅ `player_mode` | ⬜ 0 / 1 줄 | 🟡 진행 중 — v0.8 창 QA 에 포함 | [v0.8](../roadmap/versions/v0.8.md) |
@@ -103,8 +103,8 @@
 
 ### 4.2 다음 할 일 (순서)
 
-1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 · onEvent ✅ (ADR-0140 · 0141) → RT-06-8 onAction · 입력 Context ✅ (ADR-0142 · 0143) — v0.10 트랙 A 끝. 트랙 B: M6-T2 템플릿 셋 ✅ (minigame · board · survival — ADR-0144) → 남은 것 ST-06-3 · ST-06-4 → NG-18 (선행이 모두 끝나 바로 시작할 수 있다).
-2. v0.10 트랙 B — ST-06-3 Asset Browser · ST-06-4 Game UI Designer · M6-T2 템플릿 3종 (P0).
+1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 · onEvent ✅ (ADR-0140 · 0141) → RT-06-8 onAction · 입력 Context ✅ (ADR-0142 · 0143) — v0.10 트랙 A 끝. 트랙 B: M6-T2 템플릿 셋 ✅ (minigame · board · survival — ADR-0144) → ST-06-3 Asset Browser ✅ (ADR-0146) · ST-06-4 Game UI Designer (모델 · 창 ✅ — ADR-0145, 수동 QA 남음) → NG-18.
+2. v0.10 트랙 B — 남은 것 NG-18 통합 시험 (헤드리스 흐름 CTest + 수동 QA 기록) · ST-06-4 수동 QA, 그 뒤 v0.10.0 릴리스 노트.
 3. 위가 끝나면 NG-18 통합 시험 → v0.10 출시 판정. 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
 4. 병행 (사람) — B1 의 창 QA 로 0.8.0 · 0.9.0 을 낸다.
 

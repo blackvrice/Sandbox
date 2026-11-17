@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-11-17 — v0.10 ST-06-4 · ST-06-3: Game UI Designer (모델 · 창) · Asset Browser (참조 · 옮기기 · 휴지통 · 썸네일 · 다시 읽기)
+
+**무엇을**
+
+- ST-06-4 (ADR-0145): editor/services/UiDesignService — UI 문서 JSON (presentation/ui) 을 DocumentService 위에서 편집 (노드 = 자식 번호
+  경로, 고치기 하나 = setText 한 칸 → 되돌리기, 키 차례 지킴, 편집하지 않은 저장은 바이트 그대로), 라이브러리 13 종 (기본값이 검사를
+  통과), 옮기기 · 지우기 (root · list 항목 틀 거절), layout (ui/ 배치 엔진 그대로 → 미리보기 사각형). editor/ui/UiDesignerPanel —
+  "UI 디자이너" 창 (보기 메뉴): 문서 고르기 · 해상도 넷 · 배율 · 계층 · 라이브러리 · 미리보기 (누르면 가장 깊은 노드 · 끌면 오프셋) ·
+  노드 JSON [적용] (자식 지킴) · 검사 · 저장. 경계: editor · editor/services 가 ui/ 를 안다 (check_includes · AGENTS · 01).
+- ST-06-3 (ADR-0146): core/asset/AssetRefs — 참조 (프로젝트 팩 materials.json 의 sprite — asset:<id> · assets/<경로>), moveAsset (원본 ·
+  .meta 같이, 경로 참조 고쳐 씀), deleteAsset (참조면 거절 · force → .sandbox/trash/<n>), ensureAssetMaterial (끌어다 놓기).
+  editor/ui/AssetBrowserPanel — "에셋" 창: 목록 · 거르기 · 썸네일 (ImGui 1.92 사용자 텍스처, 48 픽셀, 내용 해시) · 가져오기 · 참조 ·
+  옮기기 · 다시 읽기 · 지우기 (확인), 끌기 원천 SBX_ASSET → UI 디자이너 image 노드 (머티리얼을 만들고 material 로). render
+  AssetManager::reloadSpriteFile (같은 스프라이트 id 를 다시 디코드 · 올리기) — 앱이 [다시 읽기] · 옮기기 · 가져오기 뒤 부른다.
+- 문서: ADR-0145 · 0146, 25 5 · 8장, 26, 28 G2, 17, 13, AGENTS, 01, FEATURE_MATRIX F-111 · F-124, CURRENT_STATUS, v0.10 체크리스트,
+  등록부 (ST-06-3 Done · ST-06-4 는 수동 QA 남아 Planned) (gen_roadmap).
+
+**왜**
+
+- v0.10 트랙 B 의 Studio 도구 둘 — UI 문서를 손으로 쓰지 않고 HUD · 버튼 · 메뉴를 화면에서 고치고, 에셋을 옮기거나 지워도 게임이
+  깨지지 않게. 두 작업은 한 커밋이다: 끌어다 놓기 (에셋 → UI 디자이너 image) 가 두 창 · Application · StudioShell 의 같은 줄에 걸쳐
+  있어 따로 떼면 첫 커밋이 빌드되지 않거나 반쪽 기능이 된다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 (build/ci-werror) 통과, 단위 시험 assertions 1,948,764 모두 통과 (새 test_ui_design_service 3 ·
+  test_ui_designer_panel 2 · test_asset_browser 3), 렌더 시험 통과 (새 "assets: hot reload" — D3D12 Debug Layer 경고 0).
+- 전체 ctest 93 개 — 92 통과 · docs_roadmap_generated 는 수동 QA 줄을 더한 뒤 gen_roadmap 을 다시 돌려 통과 (studio_gui_smoke 는 CI 만).
+- check_docs 0 · check_includes 0 (editor · editor/services → ui 허용).
+- 창은 띄우지 않았다 (사람 화면 — 수동 QA 두 줄을 MANUAL-QA 에)
+
+**남은 일**
+
+- ST-06-4 수동 QA (창에서 HUD · 버튼 · 메뉴 만들기 — 사람, GUI). 디자이너 편집을 앱 되돌리기 줄에 넣기 · 폴더 나무 · Prefab 칸에 놓기 ·
+  파일 감시 (바뀌면 저절로 다시 읽기) · 휴지통 비우기 [계획].
+
 ## 2026-11-17 — v0.10 M6-T2 조각 3: 생존 템플릿 survival (모닥불 지키기) — M6-T2 끝
 
 **무엇을**

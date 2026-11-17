@@ -107,6 +107,39 @@ SpriteId AssetManager::requestSpriteFile(std::string_view key, const std::filesy
     return id;
 }
 
+bool AssetManager::reloadSpriteFile(std::string_view key, const std::filesystem::path& file) {
+    const auto it = m_byId.find(assetIdOf("project:" + normalizeAssetPath(key)));
+    if (it == m_byId.end() || !m_entries[it->second].file) {
+        return false;
+    }
+    const SpriteId id = it->second;
+    ++m_stats.reloads;
+    if (!m_atlas.valid() || file.empty()) {
+        fail(id, "다시 읽을 수 없다");
+        return true;
+    }
+    // 실패한 것도 다시 — 상태를 기다림으로 (regions 는 옛 그림 · 마젠타 그대로, 올라가면 바뀐다)
+    if (m_entries[id].state == AssetState::Failed) {
+        --m_stats.failed;
+        --m_stats.filesFailed;
+    } else if (m_entries[id].state == AssetState::Ready) {
+        --m_stats.ready;
+        --m_stats.filesReady;
+    }
+    m_entries[id].state = AssetState::Queued;
+    ++m_stats.queued;
+    if (m_jobs == nullptr) {
+        m_done.push_back({id, loadPng(file)});
+        return true;
+    }
+    m_jobs->submit(m_group, [this, id, file] {
+        Expected<Image> img = loadPng(file);
+        const std::scoped_lock lock(m_doneMutex);
+        m_done.push_back({id, std::move(img)});
+    });
+    return true;
+}
+
 SpriteId AssetManager::addSprite(std::string_view name, Image image) {
     const AssetId aid = assetIdOf(std::string("mem:") + std::string(name));
     if (const auto it = m_byId.find(aid); it != m_byId.end()) {

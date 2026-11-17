@@ -48,6 +48,7 @@
 #include "editor/services/ProjectService.hpp"
 #include "editor/services/ScriptDebugService.hpp"
 #include "editor/services/TestService.hpp"
+#include "editor/ui/AssetBrowserPanel.hpp"
 #include "editor/ui/BuildPanel.hpp"
 #include "editor/ui/CommandPalette.hpp"
 #include "editor/ui/ConsolePanel.hpp"
@@ -57,6 +58,7 @@
 #include "editor/ui/LayoutPanel.hpp"
 #include "editor/ui/ScriptDebugPanel.hpp"
 #include "editor/ui/TestPanel.hpp"
+#include "editor/ui/UiDesignerPanel.hpp"
 #include "foundation/types/Error.hpp"
 #include "platform/common/ActionMap.hpp"
 #include "platform/common/Audio.hpp"
@@ -246,6 +248,9 @@ private:
     // 레이아웃 (v0.8 M6-T6): 바뀌었으면 저장 · 고른 일 처리 · 지금 배치 저장 (announce = 로그에 알린다)
     void layoutFrame();
     void applyLayoutAction(const editor::LayoutPanelAction& a);
+    // 에셋 창의 바뀜 (v0.10 ST-06-3 — Hot Reload): 그 에셋을 부르는 스프라이트 키 (asset:<id> · 경로 · 옛 경로) 를 다시
+    // 올린다
+    void reloadAssetSprites(const editor::AssetChange& change);
     bool saveLayout(bool announce);
     void testStart(); // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
     // Studio 셸 (v0.8 UI-1): 입력 모으기 · 고른 일 적용 · 테마 (밀도)
@@ -352,6 +357,14 @@ private:
     // 파일 문서 (v0.9 M6-T8 — 스크립트 편집기의 [저장 (팩 파일)]). 되돌리기 줄에 넣지 않는다: 편집기 칸이 제 되돌리기를
     // 갖고, 저장은 되돌리기 칸이 아니다 (ADR-0131)
     editor::services::DocumentService m_documents{nullptr};
+    // Game UI Designer (v0.10 ST-06-4 — ADR-0145): 같은 문서 서비스 위의 모델 · 창 상태 · 프로젝트의 UI 문서 목록 (가끔
+    // 다시)
+    editor::services::UiDesignService m_uiDesign{m_documents};
+    editor::UiDesignerPanelState m_uiDesigner;
+    std::vector<std::filesystem::path> m_uiDocs;
+    std::filesystem::path m_uiDocsProject;
+    u32 m_uiDocsAge = 0;
+    editor::AssetBrowserState m_assetBrowser; // v0.10 ST-06-3 "에셋"
     // 스크립트 디버거 (v0.9 ST-06-7) — 기록의 디버그 재생 (자기 월드 · 콘텐츠 — 라이브 월드와 따로)
     editor::services::ScriptDebugService m_scriptDebug;
     editor::ScriptDebugPanelState m_debugPanel;

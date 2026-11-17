@@ -147,6 +147,9 @@ add_executable(SandboxTests
     unit/editor/test_document_service.cpp
     unit/editor/test_editor_undo_line.cpp
     unit/editor/test_project_service.cpp
+    unit/editor/test_ui_design_service.cpp
+    unit/editor/test_ui_designer_panel.cpp
+    unit/editor/test_asset_browser.cpp
     unit/editor/test_build_service.cpp
     unit/editor/test_autosave_service.cpp
     unit/editor/test_layout_service.cpp

@@ -4,7 +4,7 @@
 검사하는 것
   1. 모듈 방향: 각 최상위 모듈은 허용된 모듈의 헤더만 "module/..." 형식으로 include 한다.
   2. 금지 헤더: 그래픽 API·OS 창·ImGui·오디오 헤더가 금지된 위치에 나타나지 않는다.
-  1b. 하위 경로 방향: editor/services/ 는 foundation · script · core · editor/services 만 (SUBPATH_ALLOWED).
+  1b. 하위 경로 방향: editor/services/ 는 foundation · script · ui · core · editor/services 만 (SUBPATH_ALLOWED).
   3. 전역 금지: SFML, OpenGL (어디서도 쓰지 않는다).
   4. Objective-C #import 는 .mm 에서만.
 
@@ -34,7 +34,7 @@ ALLOWED_MODULES = {
     "network": {"foundation", "script", "core", "network"},
     "platform": {"foundation", "platform"},
     "render": {"foundation", "platform", "render"},
-    "editor": {"foundation", "script", "core", "platform", "render", "editor"},
+    "editor": {"foundation", "script", "ui", "core", "platform", "render", "editor"},  # ui = Game UI Designer (ADR-0145)
     "apps": ALL,
     "tests": ALL,
     "bench": ALL,
@@ -43,9 +43,9 @@ ALLOWED_MODULES = {
 
 # 모듈 안의 하위 경로가 더 좁게 include 할 수 있는 접두사 (가장 긴 접두사가 이긴다). 모듈 방향 검사 뒤에 본다.
 #   editor/services — UI 를 모르는 Studio 서비스 (v0.8 ST-06-1, ADR-0089 3 · ADR-0108): 나머지 editor/ (툴 · 패널 — render · ImGui) 를
-#   모른다
+#   모른다. ui/ (게임 UI 문서 모델 · 배치 — Foundation 만) 는 된다 (v0.10 ST-06-4 — Game UI Designer 의 모델, ADR-0145)
 SUBPATH_ALLOWED = [
-    ("editor/services/", ("foundation/", "script/", "core/", "editor/services/")),
+    ("editor/services/", ("foundation/", "script/", "ui/", "core/", "editor/services/")),  # ui = 순수 모델 · 배치 (ADR-0145)
 ]
 
 # 그래픽 API · OS 창 · UI · 오디오 · 전송 헤더 (꺾쇠 include 기준, 소문자 비교)

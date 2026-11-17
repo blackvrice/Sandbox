@@ -128,6 +128,8 @@ void mainMenu(ShellState& st, const ShellInputs& in, ShellActions& act) {
         ImGui::MenuItem("편집 도구 설정", nullptr, &st.view.tools);
         ImGui::MenuItem("콘텐츠 (Prefab · 규칙 · 스크립트)", nullptr, &st.view.content);
         ImGui::MenuItem("스크립트 디버거 (기록 재생)", nullptr, &st.view.debugger);
+        ImGui::MenuItem("UI 디자이너 (게임 UI 문서)", nullptr, &st.view.uiDesigner);
+        ImGui::MenuItem("에셋 (assets/)", nullptr, &st.view.assets);
         ImGui::MenuItem("콘솔", nullptr, &st.view.console);
         ImGui::MenuItem("빌드", nullptr, &st.view.build);
         ImGui::MenuItem("테스트 세션", nullptr, &st.view.test);

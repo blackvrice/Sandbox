@@ -292,6 +292,53 @@ TEST_SUITE("render.gpu") {
         std::filesystem::remove_all(dir);
     }
 
+    TEST_CASE("assets: hot reload (v0.10 ST-06-3) — same id, old picture until the new one is uploaded") {
+        const auto dir = std::filesystem::temp_directory_path() / "sbx_render_tests_reload";
+        std::filesystem::create_directories(dir / "assets");
+        const auto file = dir / "assets" / "hero.png";
+        REQUIRE(savePng(file, Image::filled(6, 6, 255, 0, 0)));
+        Rig rig(64, 64, atlasDesc(64, 1), nullptr);
+        const SpriteId hero = rig.assets->requestSpriteFile("assets/hero.png", file);
+        for (int frame = 0; frame < 3; ++frame) {
+            rig.uploadFrame();
+        }
+        REQUIRE(rig.assets->state(hero) == AssetState::Ready);
+        RenderWorld w = blackWorld(16);
+        w.sprites.push_back({.position = {0, 0}, .size = {1, 1}, .sprite = hero});
+        CHECK(near(rig.draw(w).pixel(32, 32), 255, 0, 0));
+
+        // 원본이 바뀌었다 — 같은 key 를 다시 읽는다. 올리기 전까지 옛 자리 (옛 그림), 올린 뒤 새 그림 (같은 id)
+        REQUIRE(savePng(file, Image::filled(6, 6, 0, 0, 255)));
+        const auto oldUv = rig.assets->regions()[hero].uv;
+        CHECK(rig.assets->reloadSpriteFile("assets/hero.png", file));
+        CHECK(rig.assets->state(hero) == AssetState::Queued);
+        CHECK(rig.assets->regions()[hero].uv == oldUv);
+        for (int frame = 0; frame < 3; ++frame) {
+            rig.uploadFrame();
+        }
+        CHECK(rig.assets->state(hero) == AssetState::Ready);
+        CHECK(near(rig.draw(w).pixel(32, 32), 0, 0, 255));
+        CHECK(rig.assets->stats().reloads == 1);
+        CHECK(rig.assets->stats().filesReady == 1);
+        CHECK(rig.assets->stats().queued == 0);
+        // 모르는 key · 지운 파일 (마젠타 — 다시 고치면 돌아온다)
+        CHECK_FALSE(rig.assets->reloadSpriteFile("assets/none.png", file));
+        std::filesystem::remove(file);
+        CHECK(rig.assets->reloadSpriteFile("assets/hero.png", file));
+        rig.uploadFrame();
+        CHECK(rig.assets->state(hero) == AssetState::Failed);
+        CHECK(near(rig.draw(w).pixel(32, 32), 255, 0, 255));
+        REQUIRE(savePng(file, Image::filled(6, 6, 0, 255, 0)));
+        CHECK(rig.assets->reloadSpriteFile("assets/hero.png", file));
+        for (int frame = 0; frame < 3; ++frame) {
+            rig.uploadFrame();
+        }
+        CHECK(rig.assets->state(hero) == AssetState::Ready);
+        CHECK(near(rig.draw(w).pixel(32, 32), 0, 255, 0));
+        CHECK(rig.assets->stats().filesFailed == 0);
+        std::filesystem::remove_all(dir);
+    }
+
     TEST_CASE("assets: load order does not change the picture (v0.6 RT-06-12 — placeholder first, worker decode)") {
         const auto dir = std::filesystem::temp_directory_path() / "sbx_render_tests_order";
         std::filesystem::create_directories(dir / "pack");

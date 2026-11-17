@@ -1,5 +1,7 @@
 #include "apps/client/Application.hpp"
 
+#include "render/asset/AssetManager.hpp"
+
 #include "core/script/ClientScriptHost.hpp"
 
 #include "apps/client/ui/ActionPanel.hpp"
@@ -1079,6 +1081,18 @@ bool Application::frame() {
                                                                               : "studio.test-stop");
                 }
             }
+            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.uiDesigner) { // ST-06-4 "UI 디자이너"
+                if (m_uiDocsProject != m_projectDir || m_uiDocsAge++ % 120 == 0) {      // 폴더 목록은 2 초쯤마다
+                    m_uiDocsProject = m_projectDir;
+                    m_uiDocs = editor::uiDocumentFiles(m_projectDir);
+                }
+                editor::drawUiDesignerPanel(m_uiDesigner, m_uiDesign, m_uiDocs);
+            }
+            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.assets) { // ST-06-3 "에셋"
+                if (const auto c = editor::drawAssetBrowser(m_assetBrowser, m_projectDir)) {
+                    reloadAssetSprites(*c);
+                }
+            }
             if (m_config.layouts != nullptr && m_panels.visible &&
                 m_shell.developerPanels) { // M6-T6 "레이아웃" — 개발자 창
                 if (const auto a = editor::drawLayoutPanel(m_layoutPanel, m_config.layouts->active(), m_layoutNames,
@@ -1700,6 +1714,21 @@ bool Application::saveLayout(bool announce) {
                               : std::string(" (안전 모드 — 파일 없음)"));
     }
     return true;
+}
+
+void Application::reloadAssetSprites(const editor::AssetChange& change) {
+    render::AssetManager* assets = m_config.renderer != nullptr ? m_config.renderer->assets() : nullptr;
+    if (assets == nullptr) {
+        return; // 그리지 않는다 (--headless)
+    }
+    const std::filesystem::path file = m_projectDir / std::filesystem::path(change.path);
+    usize n = 0;
+    n += assets->reloadSpriteFile("asset:" + change.id, file) ? 1 : 0;
+    n += assets->reloadSpriteFile(change.path, file) ? 1 : 0;
+    if (!change.oldPath.empty()) {
+        n += assets->reloadSpriteFile(change.oldPath, file) ? 1 : 0; // 옛 경로 키 — 머티리얼을 다시 읽기 전까지
+    }
+    log::info("studio", "에셋 {} — 스프라이트 {} 개를 다시 올린다", change.path, n);
 }
 
 void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {

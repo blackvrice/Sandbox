@@ -21,16 +21,18 @@ enum class WorkspaceMode : u8 { Edit, TestPlay, Replay, Recording };
 
 // 보기 메뉴의 창 켜기 (Creator 창)
 struct ShellView {
-    bool hierarchy = true; // 목록
-    bool inspector = true; // 인스펙터
-    bool tools = true;     // 편집 (툴 설정)
-    bool console = true;   // 콘솔
-    bool build = true;     // 빌드
-    bool test = true;      // 테스트
-    bool world = true;     // 월드 (세이브 · 리플레이)
-    bool game = true;      // 게임 · 행동
-    bool content = false;  // 콘텐츠 (Prefab · Rule · 스크립트 — 편집 창의 단추와 같은 값)
-    bool debugger = false; // 스크립트 디버거 (v0.9 ST-06-7 — 기록을 디버그 재생)
+    bool hierarchy = true;   // 목록
+    bool inspector = true;   // 인스펙터
+    bool tools = true;       // 편집 (툴 설정)
+    bool console = true;     // 콘솔
+    bool build = true;       // 빌드
+    bool test = true;        // 테스트
+    bool world = true;       // 월드 (세이브 · 리플레이)
+    bool game = true;        // 게임 · 행동
+    bool content = false;    // 콘텐츠 (Prefab · Rule · 스크립트 — 편집 창의 단추와 같은 값)
+    bool debugger = false;   // 스크립트 디버거 (v0.9 ST-06-7 — 기록을 디버그 재생)
+    bool uiDesigner = false; // UI 디자이너 (v0.10 ST-06-4 — 팩의 presentation/ui 문서)
+    bool assets = false;     // 에셋 (v0.10 ST-06-3 — 프로젝트 assets/)
 };
 
 struct ShellState {
