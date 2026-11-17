@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 15 (v0.11 RT-06-2 — onPrePhysics) · Host API 1 (지문 0xbfb4c2ec4ff6844e — v0.11 RT-06-5 겹침 종류 뒤) · kSimVersion 4 · 프로토콜 20 (v0.11 RT-06-5 — GameEvents 겹침 종류) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 16 (v0.11 RT-06-9 — onRender) · Host API 1 (지문 0xd9bce63b33f33c2b — v0.11 RT-06-9 그리기 뒤) · kSimVersion 4 · 프로토콜 20 (v0.11 RT-06-5 — GameEvents 겹침 종류) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -87,7 +87,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | client | onAction | 프레임 — onEvent 뒤 · onUpdate 앞, UI · 메뉴가 먹지 않은 게임 키의 눌림 · 뗌 | ClientContext + ActionEvent (ClientActionContext 대신 — ADR-0142) | 현행 — v0.10 RT-06-8 (.sbc 14 · 지문 0x339421f28fd42c1c, 입력 Context ADR-0143) |
 | client | onEvent | 프레임 — 복제된 서버 이벤트 (death · spawn · score · action · signal — onStart 뒤 · onUpdate 앞) | ClientContext + GameEvent | 현행 — v0.10 RT-06-7 조각 2 (ADR-0141, GameEvents 프로토콜 19) |
 | client | onLateUpdate | 프레임 — 모든 시스템의 onUpdate 뒤 · UI 바인딩 앞 (카메라 · 따라가기) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140, .sbc 13) |
-| client | onRender | 프레임 — 추출 뒤 · 제출 앞 | ClientRenderContext (Draw 명령만) | [계획 v0.6] |
+| client | onRender | 프레임 — 모든 onLateUpdate 뒤 · 그리기 제출 앞 | ClientContext (허락 EcsRead · Draw — ClientRenderContext 대신, ADR-0152) | 현행 — v0.11 RT-06-9 (.sbc 16) |
 | client | onTick | Client 고정 Tick (예측 모델에서만) | ClientTickContext | [계획 v0.7] — 게임이 `network.model = "predicted"` 일 때만 (4장) |
 | client | onPrePhysics · onPostPhysics | Client 고정 Tick 안 (예측 물리) | ClientTickContext | [계획 v0.7] (예측 모델 · 로컬 물리일 때만) |
 | network | onConnected · onMessage · onDisconnected · onError · onResponse · onStop | NetworkModule 결과 → **server onEvent 로** (종류 response · socket) | ServerContext + GameEvent | [계획 v0.8] — 독립 콜백이 아니라 onEvent 의 종류 (R2 · T8) |
@@ -111,7 +111,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 | InputRead | 행동 상태 · 축 | ✅ v0.5 M2-T6 keyDown · keyPressed · keyReleased · pointerX · pointerY | client onUpdate · onAction · onTick |
 | ClientSend | 서버로 신호 명령 | ✅ v0.5 M2-T6 send | client onUpdate · onAction · onTick (예산 — 틱마다) |
 | Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat, NG-06 (2) uiVar · uiVarText | client onUpdate · onLateUpdate · onStart · onStop · onEvent (v0.10 RT-06-7) · onAction |
-| Draw | 선 · 원 · 글자 (월드 · 화면) | [계획 v0.6] draw | client onRender 만 |
+| Draw | 선 · 원 · 사각형 · 글자 (월드 좌표 — 화면 좌표는 게임 UI) | ✅ v0.11 RT-06-9 client.drawColor · drawLine · drawCircle · drawRect · drawText | client onRender 만 |
 | Sound | 소리 이벤트 | ✅ v0.5 M2-T6 playSound | client onUpdate · onEvent (✅ v0.10) · onAction |
 | NetworkIo | 외부 요청 (허락된 대상만) | [계획 v0.8] fetch · socket | server onTick · onEvent (게임 매니페스트 허락 + 운영 할당) |
 | WorkerTask | 순수 함수 Job 제출 | [검토 v0.9] spawnTask | server onTick |
@@ -279,7 +279,7 @@ Worker       [검토 v0.9] 순수 함수 (컴포넌트 값 복사 입력 → 결
 
 | 항목 | 설계 | 상태 · 버전 |
 |------|------|-------------|
-| onRender · Draw API | 선 · 원 · 사각형 · 글자 (월드 · 화면 좌표) → DrawCommandBuffer (프레임마다 상한 1,024 명령) → RenderFrameInput 에 복사. GPU · 권위 ECS 접근 없음 | [계획 v0.6] |
+| onRender · Draw API | 선 · 원 · 사각형 · 글자 (월드 좌표) → ClientScriptHost 의 그리기 목록 (프레임마다 상한 1,024 — 넘으면 버리고 센다) → RenderWorld::script · ImGui 글자. GPU · 권위 ECS 접근 없음 | ✅ v0.11 RT-06-9 (ADR-0152) |
 | 렌더 층 · ECS 렌더 컴포넌트 | render.sprite (현행) · 층 번호 (현행) — 스크립트 쓰기는 접근 표로 (M2-T1 ✅ 방식) | 현행 + [계획 v0.6] 접근 표 |
 | 게임 UI | 선언형 문서 · 바인딩 · 이벤트 · 입력 라우팅 · 스타일 · 다국어 (ADR-0079 · 0083) — 바꾸지 않는다 | [계획 v0.5 M3 · M4] |
 | 애니메이션 | 2D 프레임 클립 · 상태 기계 (표시만 — 클라이언트) · 애니메이션 이벤트 (client onEvent) | [계획 v0.6] (P2), 블렌드 · 루트 모션 · 물리 연동 [검토 v1.x] |

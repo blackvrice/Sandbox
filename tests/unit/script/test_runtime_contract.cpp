@@ -41,12 +41,10 @@ TEST_SUITE("script") {
             std::string_view part;
         };
         const Case cases[] = {
-            {"export default defineSystem({ id: \"a.b\", domain: \"client\", onRender(ctx) { } })\n",
-             "onRender 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "[계획 v0.7]"},
-            // 다른 도메인의 예약 이름
+            // client onRender (v0.11 RT-06-9 — 예약이 풀렸다) 는 서버 시스템에 두지 않는다
             {"export default defineSystem({ id: \"a.b\", onRender(ctx) { } })\n",
-             "onRender 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
+             "onRender 는 domain: \"client\" 시스템의 콜백이다"},
             {"export default defineSystem({ id: \"a.b\", onPostPhysics(ctx) { } })\n", "onPostPhysics 는 두지 않는다"},
             // server onPrePhysics (v0.11 RT-06-2 — 예약이 풀렸다) 는 client 시스템에 두지 않는다
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onPrePhysics(ctx) { } })\n",
@@ -87,11 +85,12 @@ TEST_SUITE("script") {
         const std::set<std::pair<std::string_view, bool>> want{
             {"onTick", false},    {"onStart", false}, {"onStop", false},  {"onEvent", false},
             {"onMigrate", false}, {"onUpdate", true}, {"onStart", true},  {"onLateUpdate", true},
-            {"onStop", true},     {"onEvent", true},  {"onAction", true}, {"onPrePhysics", false}};
+            {"onStop", true},     {"onEvent", true},  {"onAction", true}, {"onPrePhysics", false},
+            {"onRender", true}};
         // 검사기 (Checker::declareSystem) 가 콜백으로 받는 열 (onMigrate — v0.6 NG-04, client 수명주기 · onEvent —
         // v0.10 RT-06-7)
         CHECK(active == want);
-        CHECK(api::findCallback("onRender", true)->status == api::CallbackStatus::Planned);
+        CHECK(api::findCallback("onRender", true)->status == api::CallbackStatus::Active); // v0.11 RT-06-9
         CHECK(api::findCallback("onRender", false) == nullptr);
         CHECK(api::isCallbackName("onPrePhysics"));
         CHECK_FALSE(api::isCallbackName("onPostPhysics"));

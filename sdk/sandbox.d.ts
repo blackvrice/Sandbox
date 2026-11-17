@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 bfb4c2ec4ff6844e — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 d9bce63b33f33c2b — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -419,6 +419,8 @@ declare module "sandbox" {
     onUpdate?(ctx: ClientContext): void;
     /** 프레임마다 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) */
     onLateUpdate?(ctx: ClientContext): void;
+    /** 프레임마다 — 모든 시스템의 onLateUpdate 뒤, 그리기 명령만 (ctx.drawColor · drawLine · drawCircle · drawRect · drawText — 프레임 1,024 개) */
+    onRender?(ctx: ClientContext): void;
     /** 복제된 서버 이벤트 — death · spawn · score · action · signal (areaEnter · timer 는 서버만) */
     events?: SystemEvents;
     /** 한 프레임에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */
@@ -546,6 +548,16 @@ declare module "sandbox" {
     pointerY(): number;
     /** 서버에 신호 (PlayerSignal 명령 — 팩 signals.json 의 이름 · 범위, 서버가 판정). 프레임마다 8 개까지 (넘으면 버리고 센다) — client.send */
     send(signal: string, value: i32): void;
+    /** 이 호출의 뒤 그리기 색 (0xRRGGBBAA — 0 ~ 0xFFFFFFFF 의 정수, 호출마다 흰색 0xFFFFFFFF 에서 — 밖이면 HostError). onRender 에서만 — client.drawColor */
+    drawColor(rgba: number): void;
+    /** 선 (월드 좌표) — 유한하지 않으면 HostError, 프레임 1,024 개를 넘으면 버리고 센다. onRender 에서만 — client.drawLine */
+    drawLine(x0: number, y0: number, x1: number, y1: number): void;
+    /** 원 (월드 좌표 · 반지름 0 ~ 10,000) — drawLine 과 같은 상한. onRender 에서만 — client.drawCircle */
+    drawCircle(x: number, y: number, radius: number): void;
+    /** 사각형 테두리 (월드 좌표 두 모서리) — drawLine 과 같은 상한. onRender 에서만 — client.drawRect */
+    drawRect(x0: number, y0: number, x1: number, y1: number): void;
+    /** 글자 (월드 좌표에 가운데 — 256 바이트까지 자른다) — drawLine 과 같은 상한. onRender 에서만 — client.drawText */
+    drawText(x: number, y: number, text: string): void;
     /** 소리 이벤트 (v0.5 는 이벤트만 — 실제 출력은 v0.6, ADR-0095). 프레임마다 32 개까지 — client.playSound */
     playSound(id: string): void;
     /** 이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지) — client.label */

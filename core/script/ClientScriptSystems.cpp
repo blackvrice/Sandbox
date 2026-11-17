@@ -61,6 +61,9 @@ void ClientScriptSystems::run(ClientScriptFrame frame, std::span<const ClientScr
     for (Entry& s : m_systems) {
         invoke(s, Callback::LateUpdate);
     }
+    for (Entry& s : m_systems) {
+        invoke(s, Callback::Render); // v0.11 RT-06-9 — 모든 onLateUpdate 뒤 (카메라가 정해진 뒤의 그리기)
+    }
 }
 
 void ClientScriptSystems::stop(ClientScriptFrame frame) {
@@ -147,6 +150,7 @@ void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEve
                    : which == Callback::LateUpdate ? s.desc->onLateUpdate
                    : which == Callback::Event      ? s.desc->onEvent
                    : which == Callback::Action     ? s.desc->onAction
+                   : which == Callback::Render     ? s.desc->onRender
                                                    : s.desc->onStop;
     if (fn == api::kNoCallback) {
         return;
@@ -156,6 +160,7 @@ void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEve
                                       : which == Callback::LateUpdate ? "onLateUpdate"
                                       : which == Callback::Event      ? "onEvent"
                                       : which == Callback::Action     ? "onAction"
+                                      : which == Callback::Render     ? "onRender"
                                                                       : "onStop";
     if (m_frameFuelLeft == 0) {
         ++s.counters.cut;

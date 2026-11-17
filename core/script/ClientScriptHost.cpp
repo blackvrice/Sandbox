@@ -1,6 +1,7 @@
 #include "core/script/ClientScriptHost.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 
 #include "core/components/core/Identity.hpp"
@@ -102,6 +103,21 @@ vm::HostResult clientUiVar(ClientScriptHost& host, std::span<const vm::HostArg> 
 vm::HostResult clientUiVarText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.uiVar(args, true);
 }
+vm::HostResult clientDrawColor(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.drawColor(args);
+}
+vm::HostResult clientDrawLine(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.draw(args, ClientScriptDraw::Kind::Line);
+}
+vm::HostResult clientDrawCircle(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.draw(args, ClientScriptDraw::Kind::Circle);
+}
+vm::HostResult clientDrawRect(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.draw(args, ClientScriptDraw::Kind::Rect);
+}
+vm::HostResult clientDrawText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.draw(args, ClientScriptDraw::Kind::Text);
+}
 
 constexpr ClientHostBinding kBindings[] = {
     {"client.tick", AbiType::I32, {AbiType::ClientContext}, 1, &clientTick},
@@ -123,6 +139,27 @@ constexpr ClientHostBinding kBindings[] = {
     {"client.pointerY", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerY},
     {"client.send", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::I32}, 3, &clientSend},
     {"client.playSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPlaySound},
+    {"client.drawColor", AbiType::Void, {AbiType::ClientContext, AbiType::Number}, 2, &clientDrawColor},
+    {"client.drawLine",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+     5,
+     &clientDrawLine},
+    {"client.drawCircle",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::Number, AbiType::Number, AbiType::Number},
+     4,
+     &clientDrawCircle},
+    {"client.drawRect",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+     5,
+     &clientDrawRect},
+    {"client.drawText",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::Number, AbiType::Number, AbiType::String},
+     4,
+     &clientDrawText},
     {"client.setUi", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::Number}, 3, &clientSetUi},
     {"client.setUiText",
      AbiType::Void,
@@ -169,6 +206,7 @@ void ClientScriptHost::beginFrame(const ClientScriptFrame& frame) {
     m_sends.clear();
     m_sounds.clear();
     m_ui.clear();
+    m_draws.clear();
 }
 
 vm::Value ClientScriptHost::beginCall(std::string system, std::string_view callback) {
@@ -181,6 +219,8 @@ vm::Value ClientScriptHost::beginCall(std::string system, std::string_view callb
     m_sendsAtCall = m_sends.size();
     m_soundsAtCall = m_sounds.size();
     m_uiAtCall = m_ui.size();
+    m_drawsAtCall = m_draws.size();
+    m_drawColor = 0xFFFF'FFFFu;
     m_handles.clear();
     m_handleOf.clear();
     return vm::Value::opaque(m_token);
@@ -193,6 +233,7 @@ void ClientScriptHost::endCall(bool ok) {
         m_sends.resize(m_sendsAtCall); // 트랩난 호출은 아무것도 내보내지 않는다
         m_sounds.resize(m_soundsAtCall);
         m_ui.resize(m_uiAtCall);
+        m_draws.resize(m_drawsAtCall);
     }
     m_token = 0;
     m_capabilities = 0;
@@ -443,6 +484,51 @@ vm::HostResult ClientScriptHost::uiVar(std::span<const vm::HostArg> args, bool t
         r.value = vm::Value::f64v(v.asNumber().value_or(0.0));
     }
     return r;
+}
+
+// ---- 그리기 (v0.11 RT-06-9, ADR-0152) — onRender 의 client.draw*. 월드 좌표, 호출마다 흰색에서, 트랩이면 그 호출의
+// 것은 버린다
+
+vm::HostResult ClientScriptHost::drawColor(std::span<const vm::HostArg> args) {
+    // 0xRRGGBBAA 는 i32 를 넘는다 (RR ≥ 0x80) — number 로 받아 정수 · 범위를 본다
+    const f64 v = args[1].value.asF64();
+    if (!(v >= 0.0 && v <= 4294967295.0) || v != std::floor(v)) {
+        return fail("drawColor — 색은 0 ~ 0xFFFFFFFF 의 정수 (0xRRGGBBAA)");
+    }
+    m_drawColor = static_cast<u32>(v);
+    return {};
+}
+
+vm::HostResult ClientScriptHost::draw(std::span<const vm::HostArg> args, ClientScriptDraw::Kind kind) {
+    const auto num = [&](usize i) { return args[i].value.asF64(); };
+    const bool text = kind == ClientScriptDraw::Kind::Text;
+    const usize count = kind == ClientScriptDraw::Kind::Circle || text ? 2 : 4;
+    for (usize i = 1; i <= count; ++i) {
+        if (!std::isfinite(num(i)) || std::abs(num(i)) > 1.0e9) {
+            return fail("그리기 좌표가 유한하지 않다 (±1e9 안)");
+        }
+    }
+    ClientScriptDraw d;
+    d.kind = kind;
+    d.color = m_drawColor;
+    d.a = Vec2{static_cast<f32>(num(1)), static_cast<f32>(num(2))};
+    if (kind == ClientScriptDraw::Kind::Circle) {
+        const f64 r = num(3);
+        if (!std::isfinite(r) || r < 0 || r > kMaxDrawRadius) {
+            return fail(std::format("drawCircle — 반지름 {} 은 0 ~ {}", r, kMaxDrawRadius));
+        }
+        d.radius = static_cast<f32>(r);
+    } else if (text) {
+        d.text = clip(args[3].text, kMaxTextBytes);
+    } else {
+        d.b = Vec2{static_cast<f32>(num(3)), static_cast<f32>(num(4))};
+    }
+    if (m_draws.size() >= kMaxDrawsPerFrame) {
+        ++m_droppedDraws; // 상한 — 버리고 센다 (트랩 아님)
+        return {};
+    }
+    m_draws.push_back(std::move(d));
+    return {};
 }
 
 } // namespace sbx::script

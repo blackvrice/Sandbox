@@ -269,7 +269,7 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         CHECK(clientHostBindings().size() == client);
         // v0.3 8 + v0.5 M2-T6 입력 다섯 · send · playSound + v0.7 M3-T4 setUi · setUiText · showUi + M4-T1 uiText ·
         // uiFormat + NG-06 (2) uiVar · uiVarText
-        CHECK(client == 22);
+        CHECK(client == 27); // + v0.11 RT-06-9 drawColor · drawLine · drawCircle · drawRect · drawText
         std::vector<ClientHostBinding> withServer(clientHostBindings().begin(), clientHostBindings().end());
         withServer.push_back({"ctx.tick", api::AbiType::I32, {api::AbiType::ServerContext}, 1, nullptr});
         const std::vector<std::string> p = checkClientHostBindings(withServer);

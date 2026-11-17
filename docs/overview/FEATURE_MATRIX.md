@@ -88,7 +88,7 @@
 | F-209 | 타이머 · defineState · client 수명주기 · onAction · 입력 Context | v0.10 | ✅ — 타이머 (ctx.after · every · cancelTimer) · 월드 상태 (defineState · ctx.state · setState) · client 수명주기 (onStart · onLateUpdate · onStop) · client onEvent (복제 이벤트 — 프로토콜 19) · client onAction · 입력 Context (메뉴가 게임 키를 먹는다) ✅ | `test_script_timers` · `test_script_state` · `test_client_lifecycle` · `test_client_events` · `test_client_actions` · `test_play_keys` | ADR-0138 · 0139 · 0140 · 0141 · 0142 · 0143 · 22 3 · 6 · 9장 |
 | F-210 | 렌더링 — 자체 RHI, D3D12 · Vulkan · Metal, 스프라이트 · 지형 · ImGui | v0.1 | ✅ 사용 가능 (자동) · ⚠️ 실기는 Windows 일부만 | CTest `render_tests_warp` · `render_tests_lavapipe` · `render_tests_metal` | [06](../06-RENDERING.md) |
 | F-211 | 외부 Graphics SDK 연동 | — | ❓ 계획 불명확 | 렌더는 자체 RHI 가 세 그래픽 API 를 직접 쓴다. 다른 그래픽 SDK 와 잇는 계획 · 태스크는 문서에서 찾지 못했다 | 06 · ADR-0006 |
-| F-212 | onRender · Draw API (스크립트가 그리기 명령을 낸다) | v0.11 | 📐 설계만 | — (RT-06-9) | 22 |
+| F-212 | onRender · Draw API (스크립트가 그리기 명령을 낸다) | v0.11 | ✅ client onRender — drawColor · drawLine · drawCircle · drawRect · drawText (월드 좌표, 프레임 1,024) | `test_client_render` (RT-06-9) | 22 · ADR-0152 |
 | F-213 | 입력 — 키 · 마우스 · ActionMap · 팩 게임 키 · 키 다시 묶기 · 게임패드 (게임 UI) | v0.1 ~ v0.7 | ✅ 사용 가능 | CTest `unit_platform` · `test_key_bindings` · `test_gamepad` | [07](../07-PLATFORM.md) |
 | F-214 | 고급 입력 — Hold · Double Tap · Combo | v0.12 | 📐 설계만 | — (RT-06-13) | 22 6장 |
 | F-215 | 물리 · 충돌 — 이동 · 원 분리 충돌 · raycast · overlap 질의 | v0.1 · v0.5 | 🟡 일부 | CTest `det_*` · `test_script_engine_queries` | 03 2장 |

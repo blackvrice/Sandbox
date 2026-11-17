@@ -36,6 +36,7 @@ add_executable(SandboxTests
     unit/script/test_script_prephysics.cpp
     unit/script/test_physics_commands.cpp
     unit/script/test_contact_events.cpp
+    unit/script/test_client_render.cpp
     unit/script/test_diagnostic_help.cpp
     unit/script/test_script_host.cpp
     unit/script/test_components.cpp
@@ -200,6 +201,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/ScriptDraws.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/PackMaterials.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/GameUiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GameUiImGui.cpp"

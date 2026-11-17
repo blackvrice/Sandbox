@@ -997,6 +997,33 @@ Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send 
 형식       .sbc 형식 14 (onAction), Host 지문 0x339421f28fd42c1c (ActionEvent 칸)
 ```
 
+### 21.5 onRender · 그리기 (v0.11 RT-06-9 — `core/script/ClientScriptHost` · `apps/client/presentation/ScriptDraws`, [ADR-0152](adr/0152-client-onrender-draw-api.md))
+
+```ts
+export default defineSystem({
+  id: "hud.aim",
+  domain: "client",
+  onRender(ctx) {                                  // 모든 onLateUpdate 뒤 — 그리기 명령만
+    ctx.drawColor(0xFFCC00FF)                      // 0xRRGGBBAA (호출마다 흰색에서)
+    for (const e of ctx.query(Mana)) {
+      const t = ctx.read(e, Transform)
+      if (t !== null) { ctx.drawCircle(t.position.x, t.position.y, 1.5); ctx.drawText(t.position.x, t.position.y + 1, "!") }
+    }
+  },
+})
+```
+
+```text
+언제       프레임마다 onStart → onEvent → onAction → onUpdate → onLateUpdate → onRender (시스템 차례). 그 프레임만 보인다
+함수       ctx.drawColor(rgba) · drawLine(x0, y0, x1, y1) · drawCircle(x, y, r) · drawRect(x0, y0, x1, y1) · drawText(x, y, text) — 월드 좌표
+허락       EcsRead · Draw 만 — print · label · setUi · send · playSound · 시간은 S404 (도우미 함수면 HostError), Draw 는 onRender 에서만
+상한       모든 시스템 합 프레임 1,024 개 — 넘으면 버리고 센다 (host().droppedDraws, 트랩 아님). 좌표 유한 · ±1e9, 반지름 0 ~ 10,000,
+           색 0 ~ 0xFFFFFFFF 정수 (밖 = HostError — 그 호출의 그리기를 다 버린다), 글자 256 바이트
+화면       선 · 원 (32 마디) · 사각형 → RenderWorld::script (DebugPass 의 LinePass — 2 픽셀, 줌과 무관), 글자 → ImGui 배경 목록 (자리 가운데).
+           화면 좌표 · 채운 도형은 없다 (HUD 는 게임 UI 문서)
+형식       .sbc 형식 16 (onRender), Host 지문 0xd9bce63b33f33c2b (client.draw* 다섯)
+```
+
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
 
 ```text
@@ -1179,7 +1206,8 @@ Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send 
 ```text
 지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다. client onStart · onLateUpdate ·
               onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다) · client onEvent ✅ 조각 2 (21.3, ADR-0141) ·
-              client onAction ✅ v0.10 RT-06-8 조각 1 (21.4, ADR-0142) · server onPrePhysics ✅ v0.11 RT-06-2 (17.1, ADR-0148)
+              client onAction ✅ v0.10 RT-06-8 조각 1 (21.4, ADR-0142) · server onPrePhysics ✅ v0.11 RT-06-2 (17.1, ADR-0148) ·
+              client onRender ✅ v0.11 RT-06-9 (21.5, ADR-0152)
 ✅ v0.5 M2-T7 계약 — script/api/Callbacks kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability). 예약 (Planned):
               server onPrePhysics (v0.6), client onRender (v0.6) · onTick (v0.7) —
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
@@ -1189,7 +1217,7 @@ Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send 
               밖이면 HostError (v0.10 전의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 새 콜백부터). 검사기 겹 ✅ v0.10 RT-06-7:
               콜백 메서드 몸에서 ctx 로 바로 부른 함수가 허락 밖이면 S404 (도우미 함수는 실행 검사만). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
-[계획 v0.6]   client onRender (Draw 만 — server onPrePhysics (8b) 는 ✅ v0.11 RT-06-2), 단계 밖 호출은 검사기 S404 +
+✅ v0.11      server onPrePhysics (8b — RT-06-2) · client onRender (Draw 만 — RT-06-9, 21.5), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
               onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
               (ctx.state · setState, ADR-0139 — 16.2)

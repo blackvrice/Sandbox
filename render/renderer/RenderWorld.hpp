@@ -86,12 +86,14 @@ struct RenderWorld {
     OverlayOptions overlay;          // GridPass
     DebugDrawList selection;         // SelectionPass: 선택 외곽선 · 박스 선택 사각형
     DebugDrawList debug;             // DebugPass: 경로 · 감지 반경 · 청크 경계
+    DebugDrawList script;            // DebugPass (debug 앞): client 스크립트 onRender 의 그리기 (v0.11 RT-06-9)
 
     // 프레임마다 다시 채우는 것만 비운다 (카메라 · 지형 · 오버레이 설정은 그대로)
     void reset() {
         sprites.clear();
         selection.clear();
         debug.clear();
+        script.clear();
     }
 };
 

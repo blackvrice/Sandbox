@@ -97,6 +97,17 @@ struct ClientScriptEvent {
     u64 tick = 0; // 서버 틱
 };
 
+// 그리기 명령 (v0.11 RT-06-9, ADR-0152) — onRender 의 client.draw*. 월드 좌표. 프레임마다 새로 (그 프레임만 보인다)
+struct ClientScriptDraw {
+    enum class Kind : u8 { Line, Circle, Rect, Text };
+    Kind kind = Kind::Line;
+    Vec2 a{};                 // 선 · 사각형의 첫 점, 원 · 글자의 가운데
+    Vec2 b{};                 // 선 · 사각형의 둘째 점
+    f32 radius = 0;           // 원
+    u32 color = 0xFFFF'FFFFu; // RGBA8 (0xRRGGBBAA)
+    std::string text;         // 글자
+};
+
 struct ClientScriptLabel {
     ecs::EntityId entity; // 복제 월드의 개체
     std::string text;
@@ -115,6 +126,8 @@ public:
     static constexpr usize kMaxSendsPerFrame = 8;     // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
     static constexpr usize kMaxSoundsPerFrame = 32;   // client.playSound
     static constexpr usize kMaxUiPerFrame = 64;       // client.setUi · setUiText · showUi (v0.7 M3-T4)
+    static constexpr usize kMaxDrawsPerFrame = 1024;  // client.draw* (v0.11 RT-06-9 — 넘으면 버리고 센다, 24 C1)
+    static constexpr f64 kMaxDrawRadius = 10'000.0;
 
     ClientScriptHost();
 
@@ -139,6 +152,9 @@ public:
     [[nodiscard]] u64 droppedOutputs() const noexcept { return m_droppedOutputs; }
     // 이번 프레임의 게임 UI 값 · 보이기 (부른 차례 — 트랩난 호출의 것은 버렸다)
     [[nodiscard]] const std::vector<ClientScriptUi>& uiOutputs() const noexcept { return m_ui; }
+    // 이번 프레임의 그리기 명령 (부른 차례 — 트랩난 호출의 것은 버렸다), 상한으로 버린 수 (처음부터) — v0.11 RT-06-9
+    [[nodiscard]] const std::vector<ClientScriptDraw>& draws() const noexcept { return m_draws; }
+    [[nodiscard]] u64 droppedDraws() const noexcept { return m_droppedDraws; }
 
     // 바인딩이 쓰는 지금 호출의 상태 · 구현 (core/script/ClientScriptHost.cpp 의 표가 부른다)
     [[nodiscard]] const ClientScriptFrame& frame() const noexcept { return m_frame; }
@@ -153,6 +169,8 @@ public:
     vm::HostResult ui(std::span<const vm::HostArg> args, ClientScriptUi::Kind kind);
     vm::HostResult uiText(std::span<const vm::HostArg> args, bool format); // v0.7 M4-T1
     vm::HostResult uiVar(std::span<const vm::HostArg> args, bool text);    // v0.7 NG-06 (2)
+    vm::HostResult drawColor(std::span<const vm::HostArg> args);           // v0.11 RT-06-9
+    vm::HostResult draw(std::span<const vm::HostArg> args, ClientScriptDraw::Kind kind);
     // 이 호출의 개체 핸들 (beginCall 뒤 — onEvent 의 GameEvent 칸, ClientScriptSystems)
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
 
@@ -172,6 +190,8 @@ private:
     usize m_sendsAtCall = 0;
     usize m_soundsAtCall = 0;
     usize m_uiAtCall = 0;
+    usize m_drawsAtCall = 0;
+    u32 m_drawColor = 0xFFFF'FFFFu;       // 이 호출의 그리기 색
     std::vector<ecs::EntityId> m_handles; // 핸들 자리 → 개체 (호출마다 새로)
     std::map<u64, u32> m_handleOf;        // EntityId.raw → 자리 (찾기만)
     std::vector<ClientScriptLabel> m_labels;
@@ -181,6 +201,8 @@ private:
     std::vector<ClientScriptSound> m_sounds;
     std::vector<ClientScriptUi> m_ui;
     u64 m_droppedOutputs = 0;
+    std::vector<ClientScriptDraw> m_draws;
+    u64 m_droppedDraws = 0;
 };
 
 } // namespace sbx::script

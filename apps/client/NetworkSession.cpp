@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "apps/client/presentation/PackMaterials.hpp"
+#include "apps/client/presentation/ScriptDraws.hpp"
 #include "apps/client/presentation/SelectionOverlay.hpp"
 #include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/ScriptPanel.hpp"
@@ -435,6 +436,10 @@ void NetworkSession::extract(render::RenderWorld& out) {
     m_extraction.capture(*world, rt, m_selection, inspect ? &*inspect : nullptr, m_snapshot);
     applyPreview();
     SpriteExtraction::emit(m_snapshot, out);
+    if (m_clientScripts) {
+        // client 스크립트 onRender 의 선 · 원 · 사각형 (v0.11 RT-06-9) — 글자는 scriptOverlay
+        appendScriptDraws(m_clientScripts->host().draws(), out.script, nullptr);
+    }
     if (!m_selection.empty()) {
         (void)drawSelectionOutlines(m_snapshot, m_selection, out.selection);
         if (m_detailOverlay) {
@@ -820,6 +825,12 @@ std::optional<ScriptOverlayInfo> NetworkSession::scriptOverlay() const {
     }
     for (const script::ClientScriptLine& line : m_clientScripts->host().lines()) {
         out.lines.push_back(line.text);
+    }
+    std::vector<ScriptTextView> texts; // onRender 의 drawText (v0.11 RT-06-9)
+    render::DebugDrawList ignored;
+    appendScriptDraws(m_clientScripts->host().draws(), ignored, &texts);
+    for (ScriptTextView& t : texts) {
+        out.texts.push_back({t.world, std::move(t.text), t.color});
     }
     return out;
 }

@@ -233,7 +233,7 @@ TEST_SUITE("script") {
         const SourceFile f{"scripts/order.ts", std::string(kOrder)};
         std::optional<bc::Module> m = compileScripts(std::span(&f, 1), d);
         REQUIRE_MESSAGE(m.has_value(), d.describeAll());
-        CHECK(m->format == 15);
+        CHECK(m->format >= 15); // 15 = onPrePhysics (지금 형식은 그 뒤 — v0.11 RT-06-9 16)
         REQUIRE(m->systems.size() == 1);
         CHECK(m->systems[0].onPrePhysics != api::kNoCallback);
         const std::vector<u8> bytes = bc::serialize(*m);

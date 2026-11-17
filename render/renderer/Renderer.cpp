@@ -197,6 +197,7 @@ void Renderer::record(rhi::ICommandList& cl, rhi::RhiTexture target, const Rende
 
     m_lines.resetStats();
     cl.beginDebugLabel("DebugPass");
+    m_lines.draw(cl, m_camera, world.script.lines()); // client 스크립트의 그리기 (v0.11 RT-06-9) — 디버그 선 아래
     m_lines.draw(cl, m_camera, world.debug.lines());
     m_stats.debug = m_lines.stats();
     cl.endDebugLabel();

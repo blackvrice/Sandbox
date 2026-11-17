@@ -1025,6 +1025,7 @@ private:
                                   : key == "onLateUpdate" ? &sd.onLateUpdate
                                   : key == "onAction"     ? &sd.onAction
                                   : key == "onPrePhysics" ? &sd.onPrePhysics
+                                  : key == "onRender"     ? &sd.onRender
                                                           : nullptr;
             if (callback != nullptr) {
                 if (!method) {
@@ -1035,7 +1036,8 @@ private:
                     continue;
                 }
                 // onStart · onStop 은 두 도메인 (client 는 세션 수명주기 — v0.10 RT-06-7, ADR-0140)
-                const bool clientOnly = key == "onUpdate" || key == "onLateUpdate" || key == "onAction";
+                const bool clientOnly =
+                    key == "onUpdate" || key == "onLateUpdate" || key == "onAction" || key == "onRender";
                 const bool serverOnly =
                     key == "onTick" || key == "onMigrate" || key == "onPrePhysics"; // onEvent 는 두 도메인 (ADR-0141)
                 if ((clientOnly && !client) || (serverOnly && client)) {
@@ -1159,7 +1161,7 @@ private:
                 ok = false;
             }
             if (none(sd.onUpdate) && none(sd.onLateUpdate) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) &&
-                none(sd.onAction) && !wrongCallback) {
+                none(sd.onAction) && none(sd.onRender) && !wrongCallback) {
                 err("S426", domainAt != kNoNode ? domainAt : init,
                     "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop · onEvent · "
                     "onAction 중 하나 이상");
@@ -1173,7 +1175,8 @@ private:
                 ok = false;
             }
         } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
-                   none(sd.onLateUpdate) && none(sd.onAction) && none(sd.onMigrate) && none(sd.onPrePhysics)) {
+                   none(sd.onLateUpdate) && none(sd.onAction) && none(sd.onMigrate) && none(sd.onPrePhysics) &&
+                   none(sd.onRender)) {
             err("S426", init,
                 "defineSystem 에 콜백이 없다 — onTick · onPrePhysics · onStart · onStop · onEvent · onMigrate 중 하나 "
                 "이상");

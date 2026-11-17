@@ -4,7 +4,8 @@
 // 콘텐츠의 팩 바이트코드 (content::ScriptPrograms) 에서 client 시스템 (domain: "client") 만 — 팩마다 인터프리터 하나,
 // Host (ClientScriptHost) 는 하나. run 이 프레임마다 (팩 순서, 시스템 id) 차례로 부른다 (v0.10 RT-06-7, ADR-0140):
 //   세션의 첫 run   모든 시스템의 onStart → onEvent → (그 프레임의) onUpdate → onLateUpdate
-//   그 뒤 run      (이벤트가 있으면 onEvent) → 모든 시스템의 onUpdate → 모든 시스템의 onLateUpdate
+//   그 뒤 run      (이벤트가 있으면 onEvent) → 모든 시스템의 onUpdate → 모든 시스템의 onLateUpdate → 모든 시스템의
+//                 onRender (v0.11 RT-06-9 — 그리기 명령만, host().draws())
 //   onEvent       복제된 서버 이벤트 (v0.10 RT-06-7 조각 2, ADR-0141) — 시스템 차례 → 구독 종류 차례 → 받은 차례 (틱
 //   차례),
 //                 시스템마다 프레임에 eventsPerTick 개 · 모두 api::kMaxEventsPerTick (넘으면 건너뛰고 센다 — cut)
@@ -89,7 +90,7 @@ private:
         u64 lastFuel = 0;
         u64 lastNanos = 0;
     };
-    enum class Callback : u8 { Start, Update, LateUpdate, Stop, Event, Action };
+    enum class Callback : u8 { Start, Update, LateUpdate, Stop, Event, Action, Render };
     struct ActionValues {
         std::string_view name;
         bool pressed = false;

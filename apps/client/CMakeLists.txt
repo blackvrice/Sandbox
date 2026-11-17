@@ -19,6 +19,8 @@ add_executable(SandboxClient
     presentation/SpriteExtraction.cpp
     presentation/SelectionOverlay.hpp
     presentation/SelectionOverlay.cpp
+    presentation/ScriptDraws.hpp
+    presentation/ScriptDraws.cpp
     presentation/PackMaterials.hpp
     presentation/PackMaterials.cpp
     presentation/GameUiLayer.hpp

@@ -335,7 +335,7 @@ private:
                 }
                 if (s.onUpdate == api::kNoCallback && s.onLateUpdate == api::kNoCallback &&
                     s.onStart == api::kNoCallback && s.onStop == api::kNoCallback && s.onEvent == api::kNoCallback &&
-                    s.onAction == api::kNoCallback) {
+                    s.onAction == api::kNoCallback && s.onRender == api::kNoCallback) {
                     fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
                 }
                 if (s.onEvent != api::kNoCallback && s.events.empty()) {
@@ -353,9 +353,11 @@ private:
                 callback(s, "onStop", s.onStop, false, api::AbiType::ClientContext);
                 callback(s, "onEvent", s.onEvent, true, api::AbiType::ClientContext);
                 callback(s, "onAction", s.onAction, true, api::AbiType::ClientContext, api::kActionEventFields);
+                callback(s, "onRender", s.onRender, false, api::AbiType::ClientContext); // v0.11 RT-06-9
             } else {
                 if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
-                    s.onLateUpdate != api::kNoCallback || s.onAction != api::kNoCallback) {
+                    s.onLateUpdate != api::kNoCallback || s.onAction != api::kNoCallback ||
+                    s.onRender != api::kNoCallback) {
                     // (onPrePhysics 는 서버 것 — client 쪽은 아래에서 따로 막는다)
                     fail(std::format(
                         "시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate · onAction 은 client 시스템에만)",

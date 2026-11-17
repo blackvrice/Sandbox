@@ -89,7 +89,7 @@
 | 진단 · 충돌 보고        | Implemented | v0.5 M1 ✅ — SandboxCrash · 보고 묶음 · sbx doctor · report · 안전 모드 · 새 버전 알림 · 배포 묶음 (20 7장, ADR-0084)      |
 | 게임플레이 API          | Implemented | v0.5 M2-T1 ~ T7 ✅ — 엔진 컴포넌트 읽기 · 쓰기 · 구조 변경 · random · near · time · 플레이어 · 세션 · owner · action · signal · client 입력 · send (19 16장, 등록부 Done — 2026-11-12 갱신) |
 | 스크립트 표준 라이브러리 | Implemented | v0.5 M8 ✅ — 내장 · 컬렉션 · 알고리즘 · Graph · 엔진 질의 · 경로 요청 · raycast · overlap (19 25장, ADR-0085)            |
-| 실행 구조 v2            | Partial     | 계약 동결 ✅ v0.5 M2-T7 · 호출 토큰 (Capability 실행 검사) ✅ v0.10 RT-06-1 · 타이머 · client 수명주기 · onAction ✅ v0.10 · onPrePhysics (8b) · 물리 명령 · 충돌 · 트리거 이벤트 ✅ v0.11 RT-06-2 ~ 5. 남음: onRender (v0.11) · 예측 (v0.17) · NetworkModule (v0.18) — [22](22-RUNTIME-V2.md) (2026-11-12 갱신) |
+| 실행 구조 v2            | Partial     | 계약 동결 ✅ v0.5 M2-T7 · 호출 토큰 (Capability 실행 검사) ✅ v0.10 RT-06-1 · 타이머 · client 수명주기 · onAction ✅ v0.10 · onPrePhysics (8b) · 물리 명령 · 충돌 · 트리거 이벤트 · onRender ✅ v0.11 RT-06-2 ~ 5 · 9. 남음: 예측 (v0.17) · NetworkModule (v0.18) — [22](22-RUNTIME-V2.md) (2026-11-12 갱신) |
 | 게임 UI · 다국어         | Implemented | v0.7 ✅ 0.7.0 — ui/ (SandboxGameUI): 문서 · 배치 · 그리기 · 바인딩 · 버튼 → 신호 · 입력 컨트롤 · 문자열 표 · 폰트 대체 · 키 다시 묶기 · 배율 (등록부 M3 · M4 · NG-06 Done — 2026-11-12 갱신). 시각 디자이너는 v0.10 ST-06-4 |
 
 ## 3. 모듈 계획 (C++ 의존 방향은 01 2장 그대로)

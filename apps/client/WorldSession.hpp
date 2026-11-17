@@ -154,8 +154,14 @@ struct ScriptLabelView {
     Vec2 world; // 개체의 그린 자리 (보간한 위치)
     std::string text;
 };
+struct ScriptTextLabel {
+    Vec2 world;
+    std::string text;
+    u32 color = 0xFFFF'FFFFu; // RGBA8
+};
 struct ScriptOverlayInfo {
     std::vector<ScriptLabelView> labels; // 부른 차례 (그린 자리가 없는 개체는 빠진다)
+    std::vector<ScriptTextLabel> texts;  // onRender 의 client.drawText (월드 좌표 — v0.11 RT-06-9)
     std::vector<std::string> lines;      // ctx.print — "스크립트" 칸
 };
 

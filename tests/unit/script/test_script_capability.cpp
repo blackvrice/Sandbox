@@ -66,9 +66,11 @@ TEST_SUITE("script") {
                     cb.since == "v0.11") {
                     continue;
                 }
-                // 물리 명령 (v0.11 RT-06-3 — PhysicsCommand) 은 새 함수 · 새 권한 — onPrePhysics 에서만 (ADR-0149). 기존
-                // 게임은 쓰지 않았으므로 막히는 것이 없다
-                if (fn.capability == api::HostCapability::PhysicsCommand) {
+                // 물리 명령 (v0.11 RT-06-3 — PhysicsCommand) 은 새 함수 · 새 권한 — onPrePhysics 에서만 (ADR-0149).
+                // 기존 게임은 쓰지 않았으므로 막히는 것이 없다 그리기 (v0.11 RT-06-9 — Draw) 도 새 함수 · 새 권한 —
+                // client onRender 에서만 (ADR-0152)
+                if (fn.capability == api::HostCapability::PhysicsCommand ||
+                    fn.capability == api::HostCapability::Draw) {
                     CHECK((cb.capabilities & api::capBit(fn.capability)) == 0);
                     continue;
                 }

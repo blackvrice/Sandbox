@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-17 — v0.11 RT-06-9: client onRender · Draw API (ADR-0152)
+
+**무엇을**
+
+- 콜백 표: client onRender Active (v0.11) — 허락 EcsRead · Draw. 검사기 (client 시스템만 — 서버면 S426, Draw 는 onRender 에서만 S404).
+- .sbc 형식 16 — 시스템 표 onRender (client 만), 검증기 · 역어셈블 · 코드 생성.
+- Host 표: client.drawColor (0xRRGGBBAA number — 호출마다 흰색) · drawLine · drawCircle · drawRect · drawText (월드 좌표), Draw 권한.
+  지문 0xd9bce63b33f33c2b.
+- ClientScriptHost 의 그리기 목록 (프레임 1,024 — 넘으면 버리고 센다, 좌표 · 반지름 · 색 거절은 HostError — 그 호출의 그리기를 버린다),
+  ClientScriptSystems 가 모든 onLateUpdate 뒤에 onRender.
+- 화면: apps/client/presentation/ScriptDraws — 선 · 원 (32) · 사각형 → RenderWorld::script (DebugPass 안 · debug 앞 — 렌더러는 선 목록만),
+  글자 → ScriptOverlayInfo::texts → ImGui 배경 목록. NetworkSession::extract · scriptOverlay 가 옮긴다.
+- SDK 다시 생성 (ClientSystemDefinition.onRender · draw 함수).
+- 문서: ADR-0152, 19 21.5 · 26장, 22 (3장 표 · 버전 행), 24 C1, 06 8.1, 13, 17, 21 · versioning · VERSION-MIGRATION-MATRIX (.sbc 16 · 지문),
+  18 · CURRENT_STATUS · FEATURE_MATRIX F-212, 등록부 RT-06-9 Done (gen_roadmap).
+
+**왜**
+
+- 조준선 · 범위 원 · 떠 있는 글자처럼 매 프레임 그리는 표시를 스크립트로 — 권위 ECS · GPU 는 만지지 못하게 (24 C1). 선 + 색 = 매개변수
+  5 개라 Host 표 상한 (4) 을 늘리는 대신 색을 호출 안의 상태로 두었다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,062 모두 통과 (새 test_client_render 4 — 검사기 · .sbc 16 · 차례 · 명령 ·
+  화면 변환 · 상한 1,024 (1,100 → 76 셈) · 거절 트랩 · 도우미의 Draw 실행 검사), 렌더 시험 통과, 전체 ctest 94 개 — 93 통과 ·
+  studio_gui_smoke SKIPPED. 창은 띄우지 않았다 (화면의 선 · 글자 모양은 수동 QA).
+
+**남은 일**
+
+- 화면 좌표 · 채운 도형 · 이미지 그리기 [계획] (HUD 는 게임 UI). 창에서 보이는지는 NG-19 의 수동 QA 와 같이.
+
 ## 2026-11-17 — v0.11 RT-06-5: 충돌 · 트리거 Enter / Exit — 단계 16a (ADR-0151)
 
 **무엇을**

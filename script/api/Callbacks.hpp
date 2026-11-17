@@ -87,9 +87,10 @@ inline constexpr std::array kCallbacks{
     CallbackInfo{"onLateUpdate", true, CallbackStatus::Active, "v0.10",
                  detail::kClientDisplay | capBit(HostCapability::Ui),
                  "프레임 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) — RT-06-7"},
-    CallbackInfo{"onRender", true, CallbackStatus::Planned, "v0.6",
-                 capBit(HostCapability::EcsRead) | capBit(HostCapability::Draw),
-                 "프레임 — 그리기 명령만 (GPU · 권위 ECS 없음)"},
+    CallbackInfo{
+        "onRender", true, CallbackStatus::Active, "v0.11",
+        capBit(HostCapability::EcsRead) | capBit(HostCapability::Draw),
+        "프레임 — 모든 onLateUpdate 뒤 · 그리기 제출 앞, 그리기 명령만 (GPU · 권위 ECS 없음 — RT-06-9, ADR-0152)"},
     CallbackInfo{"onStart", true, CallbackStatus::Active, "v0.10", detail::kClientDisplay | capBit(HostCapability::Ui),
                  "세션 시작 — 복제 월드의 첫 프레임, 모든 onUpdate 앞 (RT-06-7, ADR-0140)"},
     CallbackInfo{"onStop", true, CallbackStatus::Active, "v0.10", detail::kClientDisplay | capBit(HostCapability::Ui),

@@ -69,6 +69,7 @@ public:
             d.onLateUpdate = s.onLateUpdate;
             d.onAction = s.onAction;
             d.onPrePhysics = s.onPrePhysics;
+            d.onRender = s.onRender;
             d.intervalTicks = s.intervalTicks;
             d.eventsPerTick = s.eventsPerTick;
             for (const SystemEventDecl& e : s.events) {

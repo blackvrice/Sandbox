@@ -60,6 +60,12 @@ void drawScriptOverlay(const ScriptOverlayInfo& info, const render::Camera2D& ca
         draw->AddRectFilled({at.x - 3, at.y - 1}, {at.x + size.x + 3, at.y + size.y + 1}, IM_COL32(0, 0, 0, 140), 3.f);
         draw->AddText(at, IM_COL32(255, 255, 255, 255), l.text.c_str());
     }
+    // onRender 의 drawText (v0.11 RT-06-9) — 월드 자리에 가운데, 색 그대로 (RGBA8 = ImGui 의 IM_COL32 배치)
+    for (const ScriptTextLabel& t : info.texts) {
+        const Vec2 s = camera.worldToScreen(t.world);
+        const ImVec2 size = ImGui::CalcTextSize(t.text.c_str());
+        draw->AddText({s.x / sx - size.x * 0.5f, s.y / sy - size.y * 0.5f}, t.color, t.text.c_str());
+    }
 
     if (info.lines.empty()) {
         return;
