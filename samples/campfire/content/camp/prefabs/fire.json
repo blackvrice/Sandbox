@@ -1,0 +1,13 @@
+{
+  "id": "camp.fire",
+  "name": "모닥불",
+  "category": "Camp",
+  "tags": ["camp", "prey"],
+  "components": {
+    "core.transform": {},
+    "life.health":    { "value": 100, "max": 100 },
+    "life.energy":    { "value": 60, "max": 100, "drainPerSecond": 1.5 },
+    "core.collider":  { "radius": 0.6 },
+    "render.sprite":  { "material": "camp/fire", "size": [1.4, 1.4], "layer": 5 }
+  }
+}

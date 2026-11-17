@@ -1,0 +1,22 @@
+[
+  {
+    "id": "camp.fuel",
+    "name": "장작 넣기",
+    "targets": { "tags": { "all": ["camp"] } },
+    "range": 4,
+    "maxTargets": 1,
+    "conditions": [ { "field": "target.life.energy.value", "op": "<", "value": 90 } ],
+    "effects": [ { "op": "field.add", "who": "target", "field": "life.energy.value", "value": 30 } ]
+  },
+  {
+    "id": "camp.trap",
+    "name": "덫 놓기",
+    "targets": { "tags": { "all": ["predator"] } },
+    "range": 2,
+    "maxTargets": 1,
+    "effects": [
+      { "op": "score.add", "value": 1 },
+      { "op": "destroy", "who": "target" }
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "camp.wolf_bites_fire",
+    "action": "bite",
+    "source": { "tags": { "all": ["predator"] } },
+    "target": { "tags": { "all": ["camp"] } },
+    "range": 1.4,
+    "conditions": [ { "field": "source.life.energy.value", "op": "<", "value": 120 } ],
+    "effects": [
+      { "op": "field.add", "who": "target", "field": "life.health.value", "value": -20 },
+      { "op": "field.add", "who": "source", "field": "life.energy.value", "value": 60 }
+    ]
+  }
+]

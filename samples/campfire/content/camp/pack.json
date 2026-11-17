@@ -1,0 +1,6 @@
+{
+  "id": "camp",
+  "version": "0.1.0",
+  "requires": [],
+  "description": "모닥불 지키기 — 생존 템플릿 (타이머 파도 · 행동 키 · 생명 규칙 · 스크립트 시작 · client HUD)"
+}

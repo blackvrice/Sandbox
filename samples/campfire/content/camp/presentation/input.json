@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.input",
+  "version": 1,
+  "actions": {
+    "play.action.camp.fuel": ["Q"],
+    "play.action.camp.trap": ["E"]
+  }
+}

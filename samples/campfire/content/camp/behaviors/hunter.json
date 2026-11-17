@@ -1,0 +1,15 @@
+{
+  "id": "camp.hunter",
+  "initial": "hunt",
+  "states": [
+    { "id": "hunt", "onTick": [ { "action": "seek", "tags": { "all": ["prey"] } } ] },
+    { "id": "bite", "onTick": [ { "action": "interact", "name": "bite" } ] },
+    { "id": "rest", "onTick": [ { "action": "idle" } ] }
+  ],
+  "transitions": [
+    { "from": "hunt", "to": "bite", "priority": 10, "when": { "targetInRange": 1.2 } },
+    { "from": "bite", "to": "rest", "priority": 10, "when": { "energyAbove": 120 } },
+    { "from": "bite", "to": "hunt", "priority": 5,  "when": { "not": "targetValid" } },
+    { "from": "rest", "to": "hunt", "priority": 10, "when": { "stateTime": { "op": ">=", "seconds": 10 } } }
+  ]
+}

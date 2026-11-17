@@ -1,0 +1,16 @@
+{
+  "id": "camp.hud",
+  "layer": "hud",
+  "root": {
+    "kind": "panel", "id": "top",
+    "anchor": { "min": [0, 0], "max": [1, 0] }, "offset": [8, 8, -8, 48],
+    "stack": "row", "gap": 8, "padding": 4, "align": "center",
+    "children": [
+      { "kind": "text", "id": "status", "text": "장작 {0} · 체력 {1} · 덫 {2}",
+        "args": [{ "bind": "var:camp.fuel" }, { "bind": "var:camp.health" }, { "bind": "session:score[0]" }] },
+      { "kind": "progress", "id": "fuel", "value": { "bind": "var:camp.fuel" }, "max": 100, "size": [160, 16] },
+      { "kind": "button", "id": "fuel-button", "text": "장작 (Q)", "on": { "click": { "action": "camp.fuel" } } },
+      { "kind": "button", "id": "trap-button", "text": "덫 (E)", "on": { "click": { "action": "camp.trap" } } }
+    ]
+  }
+}

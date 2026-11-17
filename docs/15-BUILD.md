@@ -297,7 +297,7 @@ sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <
                                                                                             (v0.2 M1-T4, ADR-0043)
 sbx new <폴더> --template <id> --id <gameId> [--name 이름]                                  (v0.10 M6-T2, ADR-0144)
   게임 템플릿 — samples/ 의 template.json 이 있는 예제 (minigame = 노코드 미니게임 + HUD · board = 스크립트 보드게임 (틱택토) ·
-  [계획] survival) 를 복사하고
+  survival = 생존 (모닥불 지키기)) 를 복사하고
   gameId · 이름 · 판 0.1.0 · 엔진 범위 · 세이브 결속 · SDK 를 새로 쓴다 (--from · --mode 와 같이 쓰지 않는다). 검사 오류 · 경고 0 을
   통과해야 제자리로. sbx templates 가 "--template <id> 제목 — 설명" 줄로 보인다
 sbx resave <폴더> [--resume]                                                               (v0.10 M6-T2)

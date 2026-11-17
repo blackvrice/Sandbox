@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-11-17 — v0.10 M6-T2 조각 3: 생존 템플릿 survival (모닥불 지키기) — M6-T2 끝
+
+**무엇을**
+
+- samples/campfire (template.json — survival, order 3): 팩 camp — 서버 시스템 camp.waves (onStart: 모닥불 camp.fire 를 가운데에 ·
+  camp.marker 를 붙임 · ctx.every(600, "wave"), onEvent timer: 판 가장자리 (결정적 randomInt) 에 늑대, onEvent death (태그 camp):
+  꺼짐 표시 camp.lost), 월드 상태 camp.waves {count}, 행동 camp.fuel (장작 +30) · camp.trap (늑대를 없애고 점수 +1), 늑대 행동 camp.hunter ·
+  규칙 camp.wolf_bites_fire (체력 −20), 게임 모드 camp.hold (camp.lost → 패배 · 90 초 → 승리), client HUD camp.hud (Energy · Health →
+  UI 변수), HUD 문서 (장작 · 체력 · 덫 · 진행 막대 · 버튼 둘) · 키 Q · E, playthrough.json (15 초마다 장작 · 불 둘레 덫 — tick 2701 승리),
+  README (만든 길 — sbx new · resave --resume).
+- 시작 월드에 개체를 미리 두지 않는다 — 모닥불을 스크립트 onStart 가 만든다 (게임 규칙의 "개수 0 = 패배" 는 시작 틱에 먼저 판정되므로
+  패배는 death 이벤트의 표시 개체로).
+- CTest sample_campfire (헤드리스 서버 = 로컬 플레이 · client HUD 트랩 0 · 패키지도 같은 결과), project_templates EXPECT 셋 (minigame ·
+  board · survival).
+- 문서: 18 5.2 (template.json), 15 7장, 17, 13, FEATURE_MATRIX F-132, CURRENT_STATUS, v0.10 체크리스트 (M6-T2 칸 모두), 등록부 M6-T2 Done
+  (gen_roadmap).
+
+**왜**
+
+- M6-T2 의 셋째 틀 — 노코드 규칙 (행동 · 생명 · 행동 그래프 · 게임 모드) 과 스크립트 (시작 배치 · 타이머 파도 · 패배 판정 · HUD) 를 섞은
+  생존 게임. v0.10 에서 생긴 타이머 · 월드 상태 · client HUD 를 실제 게임에서 쓴다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 전체 ctest 93 개 — 92 통과 · studio_gui_smoke SKIPPED (새 sample_campfire, project_templates EXPECT 셋). 빌드 · 단위 시험은 조각 2 와 같다
+  (C++ 변경 없음 — 976 개).
+- sbx test samples/campfire: Finished · win · rule 2 · 점수 4 · tick 2701 · hash 0x42e99c66de31422e (Windows MSVC). 같은 프로젝트를 아무 행동
+  없이 돌리면 tick 1203 (장작 0 — 약 40 초) 에 lose · rule 1 — 규칙이 실제로 판정한다 (임시 복사본으로 확인, 커밋하지 않음).
+- check_docs 문제 0 · gen_roadmap --check 낡은 것 0. 창 (HUD 버튼 · 키) 은 띄우지 않았다.
+
+**남은 일**
+
+- v0.10 트랙 B: ST-06-3 Asset Browser · ST-06-4 Game UI Designer → NG-18 통합 시험. M6-T5 튜토리얼 (v0.13) 이 세 템플릿을 쓴다.
+
 ## 2026-11-17 — v0.10 M6-T2 조각 2: 스크립트 보드게임 템플릿 board (틱택토) · sbx resave
 
 **무엇을**

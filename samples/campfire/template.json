@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.template",
+  "version": 1,
+  "id": "survival",
+  "title": "생존",
+  "description": "모닥불 지키기 — 장작이 줄고 20 초마다 늑대가 온다 (스크립트 타이머 파도 · 생명 규칙 · 행동 키 · 모닥불 HUD), 90 초를 버티면 승리, 자동 플레이 포함",
+  "order": 3
+}

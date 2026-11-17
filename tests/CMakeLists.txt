@@ -675,7 +675,7 @@ if(TARGET sbx)
         # 게임 템플릿 — samples/ 의 template.json 마다 sbx new --template → check (경고 0) → test → build (v0.10 M6-T2)
         add_test(NAME project_templates
             COMMAND "${CMAKE_COMMAND}" -DSBX=$<TARGET_FILE:sbx> "-DSAMPLES=${PROJECT_SOURCE_DIR}/samples"
-                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_templates" "-DEXPECT=minigame;board"
+                    "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/project_templates" "-DEXPECT=minigame;board;survival"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/project_templates.cmake")
         set_tests_properties(project_templates PROPERTIES LABELS "content" TIMEOUT 900 PASS_REGULAR_EXPRESSION "project_templates OK")
         # 패키지 틀 · 프로젝트 시험 — sbx new --pack · add · test (v0.4 M4-T2)
@@ -714,6 +714,14 @@ if(TARGET sbx)
                         "-DCLIENT_MATCH=클라이언트 스크립트 ttt.hud: 호출 [0-9]+ · 트랩 0"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
             set_tests_properties(sample_tictactoe PROPERTIES LABELS "content" TIMEOUT 600)
+            # 생존 템플릿 (v0.10 M6-T2 — survival) — 스크립트 타이머 파도 · 생명 규칙 · 행동 · client HUD, 서버 = 로컬 플레이
+            add_test(NAME sample_campfire
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/campfire"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_campfire" "-DRESULT_MATCH=게임 Finished · win"
+                        "-DCLIENT_MATCH=클라이언트 스크립트 camp.hud: 호출 [0-9]+ · 트랩 0"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
+            set_tests_properties(sample_campfire PROPERTIES LABELS "content" TIMEOUT 600)
             # 패키지 데모 (v0.4 M6-T1) — 다른 폴더 · 빈 캐시에서 sbx install → sbx test → 서버 = 로컬 플레이 (프로젝트 · 패키지)
             add_test(NAME sample_stash
                 COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>

@@ -216,6 +216,9 @@ MyGame/
   sandbox.project.json   매니페스트
   content/<팩 폴더>/      콘텐츠 팩 (11-CONTENT-SCHEMA 그대로, pack.json 의 id 로 찾는다)
   worlds/<이름>/          월드 = 세이브 폴더 형식 (09 6장 — world.json · entities.jsonl · chunks/)
+  template.json          (선택 — 예제만) 게임 템플릿 표시 (v0.10 M6-T2, ADR-0144 — sbx new --template 의 id · 제목 · 설명 · 차례).
+                         검사는 보지 않고, 템플릿 · 예제에서 만든 프로젝트에는 복사하지 않는다. 지금 셋: minigame (samples/rabbit_guard) ·
+                         board (samples/tictactoe) · survival (samples/campfire)
 ```
 
 | 키              | 필수 | 형식                                                                                                                 |

@@ -1,0 +1,12 @@
+{
+  "id": "camp.hold",
+  "name": "모닥불 지키기",
+  "description": "90 초 동안 모닥불을 지키세요 — 장작 넣기 (Q) · 덫 놓기 (E). 20 초마다 늑대가 온다. 불이 꺼지면 패배",
+  "players": { "min": 1, "max": 4 },
+  "start": { "countdownSeconds": 0 },
+  "end": [
+    { "when": { "count": { "tags": { "all": ["lost"] }, "op": ">=", "value": 1 } }, "result": "lose" },
+    { "when": { "time": { "op": ">=", "seconds": 90 } }, "result": "win" }
+  ],
+  "restart": { "mode": "manual" }
+}

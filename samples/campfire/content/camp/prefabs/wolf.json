@@ -1,0 +1,18 @@
+{
+  "id": "camp.wolf",
+  "name": "늑대",
+  "category": "Camp",
+  "tags": ["predator"],
+  "components": {
+    "core.transform": {},
+    "core.velocity":  {},
+    "life.health":    { "value": 40, "max": 40 },
+    "life.energy":    { "value": 80, "max": 150, "drainPerSecond": 0.5 },
+    "core.movement":  { "maxSpeed": 2.5, "accel": 8.0, "arriveRadius": 0.3 },
+    "core.collider":  { "radius": 0.4 },
+    "ai.sensor":      { "radius": 40 },
+    "ai.behavior":    { "graph": "camp.hunter" },
+    "ai.path":        {},
+    "render.sprite":  { "material": "camp/wolf", "size": [1.0, 1.0], "layer": 10 }
+  }
+}

@@ -70,7 +70,7 @@
 | F-129 | Scene / Game 뷰 분리 · 떼어 낸 창 | v0.12 | 📐 설계만 (P3 — 시작 때 필요성 판정) | — | — (ST-06-11) | ADR-0123 |
 | F-130 | 리플레이 뷰어 (열기 · 재생 · 멈춤 · seek · 기록) | v0.8 | ✅ 사용 가능 | ⬜ | CTest `client_replay` · `replay_record` | 09 4장 · M5-T1 ~ T3 |
 | F-131 | 여러 사람이 같은 월드를 함께 편집 (역할 · 권한) | v0.1 | ✅ 사용 가능 (LAN) | ⬜ | `test_editor_roles` · CTest `det_edit_session` | 10 7장 |
-| F-132 | 템플릿 3종 · 튜토리얼 | v0.10 · v0.13 | 🟡 일부 — 게임 템플릿 틀 (`sbx new --template` · Studio 고르기 — ADR-0144) · minigame · board (틱택토) ✅, survival · 튜토리얼 (M6-T5) 남음, `sbx new --from <시나리오>` · [표준 라이브러리 안내](../tutorials/stdlib.md) | `test_project_template` · CTest `project_templates` · `sample_tictactoe` · `project_new_from_scenario` | 20 10장 · ADR-0144 |
+| F-132 | 템플릿 3종 · 튜토리얼 | v0.10 · v0.13 | 🟡 일부 — 게임 템플릿 틀 (`sbx new --template` · Studio 고르기 — ADR-0144) · 템플릿 셋 minigame · board (틱택토) · survival (모닥불) ✅ (M6-T2), 튜토리얼 (M6-T5) 남음, `sbx new --from <시나리오>` · [표준 라이브러리 안내](../tutorials/stdlib.md) | `test_project_template` · CTest `project_templates` · `sample_tictactoe` · `sample_campfire` · `project_new_from_scenario` | 20 10장 · ADR-0144 |
 | F-133 | Editor Plugin API | v0.21 | 📐 설계만 | — | — (NG-10) | 25 9장 |
 
 ## 3. Runtime / Engine

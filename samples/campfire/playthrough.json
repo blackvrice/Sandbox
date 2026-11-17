@@ -1,0 +1,1549 @@
+{
+  "format": 1,
+  "name": "모닥불 지키기 — 자동 플레이 (15 초마다 장작 · 불 둘레에 덫, 8 배속)",
+  "maxTicks": 4000,
+  "steps": [
+    {
+      "at": 1,
+      "command": {
+        "op": "speed",
+        "speed": 8
+      }
+    },
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 60,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 80,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 100,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 120,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 140,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 160,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 180,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 200,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 220,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 240,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 260,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 280,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 300,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 300,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 320,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 340,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 360,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 380,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 400,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 420,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 440,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 460,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 480,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 500,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 520,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 540,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 560,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 580,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 600,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 620,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 640,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 660,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 680,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 700,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 720,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 740,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 750,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 760,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 780,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 800,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 820,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 840,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 860,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 880,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 900,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 920,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 940,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 960,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 980,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1000,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1020,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1040,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1060,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1080,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1100,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1120,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1140,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1160,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1180,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1200,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1200,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1220,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1240,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1260,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1280,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1300,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1320,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1340,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1360,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1380,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1400,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1420,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1440,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1460,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1480,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1500,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1520,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1540,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1560,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1580,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1600,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1620,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1640,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1650,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1660,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1680,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1700,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1720,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1740,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1760,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1780,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1800,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1820,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1840,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1860,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1880,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1900,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1920,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1940,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1960,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 1980,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2000,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2020,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2040,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2060,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2080,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2100,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2100,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2120,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2140,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2160,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2180,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2200,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2220,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2240,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2260,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2280,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2300,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2320,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2340,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2360,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2380,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2400,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2420,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2440,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2460,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2480,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2500,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2520,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2540,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2550,
+      "command": {
+        "op": "action",
+        "action": "camp.fuel",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2560,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2580,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2600,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2620,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2640,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2660,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "at": 2680,
+      "command": {
+        "op": "action",
+        "action": "camp.trap",
+        "position": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "team": 0,
+    "rule": 2,
+    "tick": 2701,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0x42e99c66de31422e"
+    }
+  }
+}
