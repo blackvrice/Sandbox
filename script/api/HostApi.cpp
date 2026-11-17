@@ -133,6 +133,10 @@ u64 hostApiFingerprint() {
     for (const GameEventFieldInfo& f : kGameEventFields) {
         lines.push_back(std::format("eventfield {} {}", f.name, static_cast<int>(f.type)));
     }
+    // client onAction 의 ActionEvent (v0.10 RT-06-8) — 칸이 바뀌면 onAction 의 구조체 배치가 바뀐다
+    for (const GameEventFieldInfo& f : kActionEventFields) {
+        lines.push_back(std::format("actionfield {} {}", f.name, static_cast<int>(f.type)));
+    }
     std::sort(lines.begin(), lines.end());
     Fnv1a64 h;
     h.string("SBXHOST").u64le(kHostApiVersion);

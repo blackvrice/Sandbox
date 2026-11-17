@@ -713,7 +713,7 @@ export default defineSystem({
         // 검사기: onMigrate 만 있는 시스템도 된다, client 시스템에는 안 된다
         CHECK(one("export default defineSystem({ id: \"a.mig\", onMigrate(ctx) { } })\n").diags.items().empty());
         expectOnly("export default defineSystem({ id: \"a.c\", domain: \"client\", onMigrate(ctx) { } })\n", "S426",
-                   "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent 이다");
+                   "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent · onAction 이다");
 
         Root r = basePack("migrate");
         r.file("t/scripts/watch.ts", kWatch)

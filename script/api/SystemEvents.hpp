@@ -55,7 +55,7 @@ inline constexpr std::array<GameEventKindInfo, 7> kGameEventKinds{{
 
 // GameEvent 구조체의 필드 — 이름 순 (= 칸 차례)
 // String = 값 칸이 텍스트 목록의 자리 (i32), EntityList = 칸 하나 (개수 n) + 개체 n 칸 (Interpreter::call 의 구조체 칸)
-enum class GameEventField : u8 { EntityOrNull, Kind, I32, Number, String, EntityList };
+enum class GameEventField : u8 { EntityOrNull, Kind, I32, Number, String, EntityList, Bool }; // Bool = ActionEvent
 struct GameEventFieldInfo {
     std::string_view name;
     GameEventField type;
@@ -76,6 +76,15 @@ inline constexpr std::array<GameEventFieldInfo, 12> kGameEventFields{{
      "score: 지금 점수, death: 죽은 까닭 (1 굶음 · 2 늙음 · 3 죽임 · 4 수명), signal: 보낸 값"},
     {"x", GameEventField::Number, "위치 x (death 는 틱 처음의 위치, 그 틱에 생겨 죽었으면 0, action 은 고른 점)"},
     {"y", GameEventField::Number, "위치 y"},
+}};
+
+// client onAction 의 a (v0.10 RT-06-8, ADR-0142) — 게임 키 ("play.<이름>") 하나의 눌림 · 뗌. 이름 순 (= 칸 차례), 칸
+// 종류는 GameEventField 를 같이 쓴다. Host 지문에 든다
+inline constexpr std::array<GameEventFieldInfo, 4> kActionEventFields{{
+    {"action", GameEventField::String, "게임 키 이름 — 팩 presentation/input.json 의 \"play.<이름>\" 의 <이름>"},
+    {"pressed", GameEventField::Bool, "true = 이번 프레임에 눌렸다, false = 떼었다 (한 프레임에 둘 다면 눌림 다음 뗌)"},
+    {"x", GameEventField::Number, "커서의 월드 x (커서가 UI 위면 0)"},
+    {"y", GameEventField::Number, "커서의 월드 y"},
 }};
 
 inline constexpr u32 kNoCallback = 0xFFFF'FFFFu;  // 시스템 표의 없는 콜백

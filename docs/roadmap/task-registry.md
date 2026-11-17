@@ -84,7 +84,7 @@
 | M6-T2 | 템플릿 3종 | B | Planned | v0.5 | v0.10 | P0 | M3-T5 | 템플릿마다 new → check → test |
 | RT-06-1 | 호출 토큰 · Capability 실행 검사 | A | Done | v0.6 | v0.10 | P0 | M2-T7 | 변조 .sbc 시험 — beginCall 의 콜백 이름 · 허락 집합, Host 호출마다 비교 (server · client), 비용 +0.1 % (ADR-0137) |
 | RT-06-7 | client 수명주기 · onEvent · onLateUpdate | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 순서 — onStart → onEvent → onUpdate → onLateUpdate 차례 · 세션 끝 (ADR-0140, test_client_lifecycle · test_client_script_session), client onEvent · 복제 이벤트 큐 (GameEvents 프로토콜 19 — ADR-0141, test_client_events · test_client_event_session) |
-| RT-06-8 | onAction · 입력 Context | A | Planned | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 |
+| RT-06-8 | onAction · 입력 Context | A | Planned | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 — 조각 1 ✅ onAction(ctx, a: ActionEvent) (ADR-0142, test_client_actions), 남은 것 입력 Context (메뉴 > UI > 게임 · 소비) |
 | RT-06-10 | 타이머 · defineState | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 세이브 → 로드 해시 — 타이머 (ctx.after · every · cancelTimer, script.timer — ADR-0138, test_script_timers) · 월드 상태 (defineState · ctx.state · setState, script.state — ADR-0139, test_script_state) |
 | NG-18 | v0.10 통합 시험 — 버튼 · 오목형 게임 (생성 → UI → 스크립트 → 실행 → 저장 → 재실행 → 패키지) | B | Proposed | — | v0.10 | P0 | ST-06-4 · RT-06-10 · M6-T2 | 헤드리스 흐름 CTest (NG-07 층 2) + 수동 QA 기록 |
 | RT-06-2 | server onPrePhysics (8b) | A | Planned | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |

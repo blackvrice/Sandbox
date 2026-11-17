@@ -812,7 +812,7 @@ export default defineSystem({
 
 ```text
 정의       client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop ((ClientContext?) → void — 하나 이상, 수명주기는 21.2 —
-           v0.10 RT-06-7), onEvent + events (21.3 — 조각 2). intervalTicks · onTick (예약 v0.7) · onMigrate 는 S426 (서버의 것), events 의
+           v0.10 RT-06-7), onEvent + events (21.3 — 조각 2), onAction (21.4 — v0.10 RT-06-8). intervalTicks · onTick (예약 v0.7) · onMigrate 는 S426 (서버의 것), events 의
            areaEnter · timer 도 S426, server 시스템의 onUpdate · onLateUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
            id 는 도메인과 무관하게 팩들 사이에 하나 (V1). .sbc 형식 5 의 시스템 표에 도메인 · onUpdate (12장), 형식 13 에 onLateUpdate —
            검증기가 같은 규칙
@@ -920,6 +920,29 @@ export default defineSystem({
 예산       시스템마다 프레임에 eventsPerTick (기본 256) · 모두 4096 — 넘으면 건너뛰고 센다. 프레임 연료 · 트랩 정책은 다른 콜백과 같다
 Capability 읽기 · 시간 · 표시 · UI · 소리 — send · 입력은 onUpdate
 [계획]     관심 영역으로 거르기 (먼 곳의 이벤트 — 정보 노출), 스크립트가 보내는 사용자 이벤트
+```
+
+### 21.4 onAction — 게임 키의 눌림 · 뗌 (v0.10 RT-06-8 조각 1 — `core/script/ClientScriptSystems`, [ADR-0142](adr/0142-client-onaction-action-event.md))
+
+```ts
+export default defineSystem({
+  id: "rpg.input",
+  domain: "client",
+  onAction(ctx, a) {                                   // a: ActionEvent { action, pressed, x, y }
+    if (a.action === "jump" && a.pressed) ctx.send("rpg.jump", 1);
+    if (a.action === "aim") ctx.setUi("rpg.aiming", a.pressed ? 1 : 0);
+  },
+});
+```
+
+```text
+언제       프레임마다 onStart → onEvent → onAction → onUpdate → onLateUpdate. 시스템 차례 → 키 이름 차례, 눌림 (pressed true) · 뗌
+           (false), 한 프레임에 눌렀다 떼면 둘. 눌린 채 (변화 없음) 는 부르지 않는다
+키         팩 presentation/input.json 의 "play.<이름>" (keyDown 과 같은 이름 — play.action.<id> 는 "action.<id>"). UI 가 키보드를 잡은
+           프레임은 없다. 메뉴가 먹는 키 (입력 Context) 는 [계획 — RT-06-8 조각 2]
+x · y      커서의 월드 자리 (UI 위면 0)
+Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send · UI · 소리
+형식       .sbc 형식 14 (onAction), Host 지문 0x339421f28fd42c1c (ActionEvent 칸)
 ```
 
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
@@ -1103,9 +1126,10 @@ Capability 읽기 · 시간 · 표시 · UI · 소리 — send · 입력은 onUp
 
 ```text
 지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다. client onStart · onLateUpdate ·
-              onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다) · client onEvent ✅ 조각 2 (21.3, ADR-0141)
+              onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다) · client onEvent ✅ 조각 2 (21.3, ADR-0141) ·
+              client onAction ✅ v0.10 RT-06-8 조각 1 (21.4, ADR-0142)
 ✅ v0.5 M2-T7 계약 — script/api/Callbacks kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability). 예약 (Planned):
-              server onPrePhysics (v0.6), client onAction · onRender (v0.6) · onTick (v0.7) —
+              server onPrePhysics (v0.6), client onRender (v0.6) · onTick (v0.7) —
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
               "두지 않는다" (onTick 이 물리 뒤). Host 표 capability 열 (HostCapability — EcsRead · EcsWrite · Structural · Random · Time · Log ·
               Display, 예약: PhysicsCommand · InputRead · ClientSend · Ui · Draw · Sound · NetworkIo · WorkerTask) — 정규 서명 · 지문에 든다
@@ -1113,7 +1137,7 @@ Capability 읽기 · 시간 · 표시 · UI · 소리 — send · 입력은 onUp
               밖이면 HostError (v0.10 전의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 새 콜백부터). 검사기 겹 ✅ v0.10 RT-06-7:
               콜백 메서드 몸에서 ctx 로 바로 부른 함수가 허락 밖이면 S404 (도우미 함수는 실행 검사만). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
-[계획 v0.6]   server onPrePhysics (8b) · client onAction · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
+[계획 v0.6]   server onPrePhysics (8b) · client onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
               onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
               (ctx.state · setState, ADR-0139 — 16.2)

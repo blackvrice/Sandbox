@@ -303,7 +303,21 @@ std::string generateSandboxDts() {
         case api::GameEventField::EntityList:
             t = "Entity[]";
             break;
+        case api::GameEventField::Bool:
+            t = "boolean";
+            break;
         }
+        out += std::format("    /** {} */\n", f.doc);
+        out += std::format("    readonly {}: {};\n", f.name, t);
+    }
+    out += "  }\n";
+    // client onAction 의 a (v0.10 RT-06-8)
+    out += "  /** client onAction 의 게임 키 눌림 · 뗌 (UI · 메뉴가 먹지 않은 것만) */\n";
+    out += "  export interface ActionEvent {\n";
+    for (const api::GameEventFieldInfo& f : api::kActionEventFields) {
+        const std::string_view t = f.type == api::GameEventField::Bool     ? "boolean"
+                                   : f.type == api::GameEventField::String ? "string"
+                                                                           : "number";
         out += std::format("    /** {} */\n", f.doc);
         out += std::format("    readonly {}: {};\n", f.name, t);
     }
@@ -373,6 +387,8 @@ std::string generateSandboxDts() {
     out += "    /** 프레임마다 — 복제 월드가 그 틱에 닿은 이벤트, onStart 뒤 · onUpdate 앞 (구독 종류 차례 → 틱 차례) "
            "*/\n";
     out += "    onEvent?(ctx: ClientContext, e: GameEvent): void;\n";
+    out += "    /** 프레임마다 — 게임 키 (play.<이름>) 의 눌림 · 뗌, onEvent 뒤 · onUpdate 앞 (키 이름 차례) */\n";
+    out += "    onAction?(ctx: ClientContext, a: ActionEvent): void;\n";
     out +=
         "    /** 세션 끝 — 서버 월드가 바뀌거나 (불러오기 · 재시작 · 다시 접속) 콘텐츠 · 접속이 끝날 때. 복제 월드는 "
         "이미 없다 (질의는 빈 목록) */\n";

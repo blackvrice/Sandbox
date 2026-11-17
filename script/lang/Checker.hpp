@@ -189,6 +189,7 @@ struct SystemDecl {
     api::HostDomain domain = api::HostDomain::Server;
     u32 onUpdate = api::kNoCallback;     // client — (ClientContext?) → void, 매 프레임
     u32 onLateUpdate = api::kNoCallback; // client — 모든 onUpdate 뒤 (v0.10 RT-06-7)
+    u32 onAction = api::kNoCallback;     // client — 게임 키의 눌림 · 뗌 (ctx, a: ActionEvent) (v0.10 RT-06-8)
     u32 intervalTicks = 1;
     u32 onTick = api::kNoCallback;
     u32 onStart = api::kNoCallback;

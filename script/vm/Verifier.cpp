@@ -327,12 +327,14 @@ private:
                 // (ADR-0067 · 0140 · 0141) — 틱 콜백 · 주기 · 타이머가 없다, 구독은 death · spawn · score · action ·
                 // signal
                 if (s.onTick != api::kNoCallback || s.onMigrate != api::kNoCallback || s.intervalTicks != 1) {
-                    fail(std::format(
-                        "시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop · onEvent 만 둔다",
-                        s.id));
+                    fail(
+                        std::format("시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop · onEvent · "
+                                    "onAction 만 둔다",
+                                    s.id));
                 }
                 if (s.onUpdate == api::kNoCallback && s.onLateUpdate == api::kNoCallback &&
-                    s.onStart == api::kNoCallback && s.onStop == api::kNoCallback && s.onEvent == api::kNoCallback) {
+                    s.onStart == api::kNoCallback && s.onStop == api::kNoCallback && s.onEvent == api::kNoCallback &&
+                    s.onAction == api::kNoCallback) {
                     fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
                 }
                 if (s.onEvent != api::kNoCallback && s.events.empty()) {
@@ -349,11 +351,13 @@ private:
                 callback(s, "onStart", s.onStart, false, api::AbiType::ClientContext);
                 callback(s, "onStop", s.onStop, false, api::AbiType::ClientContext);
                 callback(s, "onEvent", s.onEvent, true, api::AbiType::ClientContext);
+                callback(s, "onAction", s.onAction, true, api::AbiType::ClientContext, api::kActionEventFields);
             } else {
                 if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
-                    s.onLateUpdate != api::kNoCallback) {
-                    fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate 는 client 시스템에만)",
-                                     s.id));
+                    s.onLateUpdate != api::kNoCallback || s.onAction != api::kNoCallback) {
+                    fail(std::format(
+                        "시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate · onAction 은 client 시스템에만)",
+                        s.id));
                 }
                 if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
                     s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {
@@ -408,17 +412,17 @@ private:
     [[nodiscard]] bool isOpaque(u32 t, api::AbiType abi) const {
         return kindOf(t) == TypeKind::Opaque && M.types[t].abi == abi;
     }
-    // GameEvent 구조체 (api::kGameEventFields — 이름 순 · 칸 종류) 인가
-    [[nodiscard]] bool isGameEvent(u32 t) const {
+    // GameEvent · ActionEvent 구조체 (api 의 칸 표 — 이름 순 · 칸 종류) 인가
+    [[nodiscard]] bool isEventStruct(u32 t, std::span<const api::GameEventFieldInfo> fields) const {
         if (kindOf(t) != TypeKind::Struct) {
             return false;
         }
         const TypeDesc& d = M.types[t];
-        if (d.fieldNames.size() != api::kGameEventFields.size() || d.fieldTypes.size() != d.fieldNames.size()) {
+        if (d.fieldNames.size() != fields.size() || d.fieldTypes.size() != d.fieldNames.size()) {
             return false;
         }
-        for (usize i = 0; i < api::kGameEventFields.size(); ++i) {
-            const api::GameEventFieldInfo& f = api::kGameEventFields[i];
+        for (usize i = 0; i < fields.size(); ++i) {
+            const api::GameEventFieldInfo& f = fields[i];
             const u32 ft = d.fieldTypes[i];
             bool ok = d.fieldNames[i] == f.name;
             switch (f.type) {
@@ -438,6 +442,9 @@ private:
             case api::GameEventField::EntityList:
                 ok = ok && kindOf(ft) == TypeKind::Array && isOpaque(M.types[ft].elem, api::AbiType::Entity);
                 break;
+            case api::GameEventField::Bool:
+                ok = ok && kindOf(ft) == TypeKind::Bool;
+                break;
             }
             if (!ok) {
                 return false;
@@ -446,7 +453,8 @@ private:
         return true;
     }
     void callback(const SystemDesc& s, std::string_view name, u32 fn, bool event,
-                  api::AbiType ctx = api::AbiType::ServerContext) {
+                  api::AbiType ctx = api::AbiType::ServerContext,
+                  std::span<const api::GameEventFieldInfo> second = api::kGameEventFields) {
         if (fn == api::kNoCallback) {
             return;
         }
@@ -460,13 +468,15 @@ private:
             ok = isOpaque(f.params[0], ctx);
         }
         if (ok && f.params.size() == 2) {
-            ok = isGameEvent(f.params[1]);
+            ok = isEventStruct(f.params[1], second);
         }
         if (!ok) {
             const bool clientCtx = ctx == api::AbiType::ClientContext;
+            const bool action = second.data() == api::kActionEventFields.data();
             fail(std::format("시스템 {}: {} 의 서명은 {} → void 다", s.id, name,
-                             event ? (clientCtx ? "(ClientContext, GameEvent)" : "(ServerContext, GameEvent)")
-                                   : (clientCtx ? "(ClientContext)" : "(ServerContext)")));
+                             action  ? "(ClientContext, ActionEvent)"
+                             : event ? (clientCtx ? "(ClientContext, GameEvent)" : "(ServerContext, GameEvent)")
+                                     : (clientCtx ? "(ClientContext)" : "(ServerContext)")));
         }
     }
 

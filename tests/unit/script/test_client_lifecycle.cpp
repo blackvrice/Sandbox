@@ -136,7 +136,8 @@ TEST_SUITE("script") {
         CHECK(has(check("export default defineSystem({ id: \"a.b\", onLateUpdate(ctx) { } })\n"), "S426",
                   "onLateUpdate 는 domain: \"client\" 시스템의 콜백이다"));
         CHECK(has(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onMigrate(ctx) { } })\n"),
-                  "S426", "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent 이다"));
+                  "S426",
+                  "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent · onAction 이다"));
         // client onEvent 는 구독이 있어야 한다 (조각 2 — 타이머는 서버만)
         CHECK(has(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onEvent(ctx, e) { } })\n"),
                   "S426", "client 시스템의 onEvent 는 events 구독이 있어야 한다"));
@@ -151,7 +152,7 @@ TEST_SUITE("script") {
         DiagnosticList d;
         std::optional<bc::Module> m = compileScripts(twoSystems(), d);
         REQUIRE_MESSAGE(m.has_value(), d.describeAll());
-        CHECK(m->format == 13);
+        CHECK(m->format >= 13); // 13 = onLateUpdate (14 = onAction — v0.10 RT-06-8)
         REQUIRE(m->systems.size() == 2);
         const bc::SystemDesc& a = m->systems[0];
         CHECK(a.id == "t.a");

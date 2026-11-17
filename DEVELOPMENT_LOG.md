@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-11-17 — v0.10 RT-06-8 조각 1: client onAction — 게임 키의 눌림 · 뗌을 ActionEvent 로 (ADR-0142)
+
+**무엇을**
+
+- API: SDK 구조체 ActionEvent { action: string, pressed: boolean, x, y: number } (script/api/SystemEvents kActionEventFields — 칸 종류에
+  Bool 을 더함), 콜백 표의 client onAction 을 Active (v0.10 — 허락 묶음은 onUpdate 와 같다). Host 지문 0x6d51897bbd2ba715 →
+  0x339421f28fd42c1c (kHostApiVersion 1 그대로).
+- 검사기: onAction(ctx, a) — 둘째 매개변수 ActionEvent (declareSystemMethod 가 둘째 타입을 받는다), client 만 (서버의 onAction S426),
+  client 콜백 목록 · 문장에 onAction. 검증기: 서명 (ClientContext?, ActionEvent?) → void (isEventStruct 로 GameEvent 와 같은 검사).
+- .sbc 형식 13 → 14: 시스템 표에 onAction. 역어셈블에 " · onAction fn n". 코드 생성.
+- ClientScriptSystems: 프레임마다 onEvent 뒤 · onUpdate 앞에 deliverActions — frame.input 의 키 (이름 순) 의 눌림 · 뗌마다, 시스템 차례 →
+  키 차례, 한 프레임 탭은 눌림 다음 뗌. ActionEvent 칸 = action (텍스트) · pressed (boolean) · x · y (커서 — UI 위면 0).
+- sandbox.d.ts 4 곳 다시 생성 (ActionEvent · onAction).
+- 문서: ADR-0142, 19 21.4 · 26장, 22 3.1 · 3.3 · 6장 · 1장 번호, 13, 형식 · 지문 (versioning · VERSION-MIGRATION-MATRIX · 21 · MODULES),
+  FEATURE_MATRIX F-209, CURRENT_STATUS, v0.10 체크리스트, 등록부 RT-06-8 (Planned — 조각 1 메모, gen_roadmap).
+
+**왜**
+
+- 키마다 반응하는 client 코드가 onUpdate 안에서 모든 키를 매 프레임 묻고 있었다. 바뀐 키만 차례대로 받는 콜백이 22 3.1 의 onAction 이다.
+  ClientActionContext (불투명 타입 하나 더) 대신 둘째 매개변수 구조체로 — ABI 타입 · ctx 도우미가 갈리지 않는다 (22 3.2, ADR-0142).
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 단위 시험 972 개 통과 (Debug — 앞 969 + 3). 새 test_client_actions 3 개 (검사기 — 칸 타입 · 매개변수 · 도메인 · Capability, .sbc 형식
+  14 왕복 · 역어셈블 · 검증기 거절 셋, ClientScriptSystems — 시스템 → 키 차례 · 눌림 · 뗌 · 한 프레임 탭 · onUpdate 앞 · send · playSound ·
+  눌린 채면 없음 · UI 위 커서 0 · 입력 없으면 없음). 기대를 바꾼 시험: test_checker (지문), test_client_lifecycle (형식 ≥ 13 · 문장),
+  test_client_scripts · test_script_callbacks · test_script_systems (문장), test_runtime_contract (Active 열하나), 커밋된 sandbox.d.ts.
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED (clang-format 뒤 빌드). 골든 해시 그대로 (시뮬레이션 밖). build\ci-werror (/WX)
+  경고 0, check_docs 문제 0 · check_includes 위반 0 · gen_roadmap --check 낡은 것 0.
+- 벤치는 돌리지 않았다: 클라이언트 프레임에 키 목록 한 바퀴 (onAction 이 있는 시스템만) — 서버 경로는 그대로, sbx_bench 에 client 시나리오가
+  없다.
+- 창 · Linux · macOS 는 CI 로.
+
+**남은 일**
+
+- RT-06-8 조각 2: 입력 Context — 메뉴 · 모달이 열리면 게임 키를 먹는다 (팩 input.json 의 context), 막힐 때 눌린 키의 뗌, PlayerAction
+  키도 같은 규칙.
+
 ## 2026-11-17 — v0.10 RT-06-7 조각 2: client onEvent — 복제된 서버 이벤트 (GameEvents 프로토콜 19, ADR-0141) — RT-06-7 끝
 
 **무엇을**

@@ -77,10 +77,10 @@ inline constexpr std::array kCallbacks{
     CallbackInfo{"onStop", false, CallbackStatus::Active, "v0.3", detail::kServerAll, "단계 17d — 게임 끝 틱"},
     CallbackInfo{"onTick", false, CallbackStatus::Active, "v0.3", detail::kServerAll,
                  "단계 16b — Native System 뒤 (물리 뒤 — 옮기지 않는다)"},
-    CallbackInfo{"onAction", true, CallbackStatus::Planned, "v0.6",
+    CallbackInfo{"onAction", true, CallbackStatus::Active, "v0.10",
                  detail::kClientDisplay | capBit(HostCapability::InputRead) | capBit(HostCapability::ClientSend) |
                      capBit(HostCapability::Ui) | capBit(HostCapability::Sound),
-                 "프레임 — UI 가 먹지 않은 행동"},
+                 "프레임 — UI 가 먹지 않은 게임 키의 눌림 · 뗌 (onEvent 뒤 · onUpdate 앞, RT-06-8 — ADR-0142)"},
     CallbackInfo{"onEvent", true, CallbackStatus::Active, "v0.10",
                  detail::kClientDisplay | capBit(HostCapability::Sound) | capBit(HostCapability::Ui),
                  "프레임 — 복제된 서버 이벤트 (onStart 뒤 · onUpdate 앞, RT-06-7 조각 2 — ADR-0141)"},

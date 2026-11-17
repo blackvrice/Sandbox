@@ -8,6 +8,9 @@
 //   onEvent       복제된 서버 이벤트 (v0.10 RT-06-7 조각 2, ADR-0141) — 시스템 차례 → 구독 종류 차례 → 받은 차례 (틱
 //   차례),
 //                 시스템마다 프레임에 eventsPerTick 개 · 모두 api::kMaxEventsPerTick (넘으면 건너뛰고 센다 — cut)
+//   onAction      게임 키 (frame.input 의 키 — 앱이 UI · 메뉴가 먹은 것을 뺐다) 의 눌림 · 뗌 (v0.10 RT-06-8, ADR-0142)
+//   —
+//                 onEvent 뒤 · onUpdate 앞, 시스템 차례 → 키 이름 차례, 한 프레임에 눌렀다 떼면 눌림 다음 뗌
 //   stop          모든 시스템의 onStop (시작한 세션만 — 한 번). 다음 run 이 새 세션을 연다 (onStart 다시)
 // 세션 = 복제 월드 하나 (앱이 정한다 — NetworkSession: 월드가 바뀜 · 콘텐츠가 바뀜 · 접속 끝에 stop). 꺼진 시스템은
 // 어느 콜백도 부르지 않는다. 예산: 호출마다 연료 min(kCallFuel, 프레임에 남은 연료), 프레임 연료 kFrameFuel — 다 쓰면
@@ -86,9 +89,15 @@ private:
         u64 lastFuel = 0;
         u64 lastNanos = 0;
     };
-    enum class Callback : u8 { Start, Update, LateUpdate, Stop, Event };
-    void invoke(Entry& s, Callback which, const ClientScriptEvent* ev = nullptr);
+    enum class Callback : u8 { Start, Update, LateUpdate, Stop, Event, Action };
+    struct ActionValues {
+        std::string_view name;
+        bool pressed = false;
+        Vec2 pos{};
+    };
+    void invoke(Entry& s, Callback which, const ClientScriptEvent* ev = nullptr, const ActionValues* act = nullptr);
     void deliverEvents(std::span<const ClientScriptEvent> events);
+    void deliverActions(const ClientScriptInput* input);
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;

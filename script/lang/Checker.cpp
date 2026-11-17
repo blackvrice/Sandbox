@@ -325,10 +325,10 @@ private:
             m_sdkValues.push_back({"GameEventKind", id});
             m_sdkTypes.push_back({"GameEventKind", id});
         }
-        m_gameEvent = T().newStruct("GameEvent");
-        for (const api::GameEventFieldInfo& f : api::kGameEventFields) {
+        // GameEvent (onEvent 의 e) · ActionEvent (onAction 의 a — v0.10 RT-06-8) — 칸 종류 표가 같다
+        const auto fieldType = [&](api::GameEventField type) {
             TypeId t = TypeTable::kI32;
-            switch (f.type) {
+            switch (type) {
             case api::GameEventField::EntityOrNull:
                 t = T().nullableOf(T().opaque(api::AbiType::Entity));
                 break;
@@ -347,10 +347,22 @@ private:
             case api::GameEventField::EntityList:
                 t = T().arrayOf(T().opaque(api::AbiType::Entity));
                 break;
+            case api::GameEventField::Bool:
+                t = TypeTable::kBool;
+                break;
             }
-            T().structOf(m_gameEvent).fields.push_back(StructField{std::string(f.name), t, true});
+            return t;
+        };
+        m_gameEvent = T().newStruct("GameEvent");
+        for (const api::GameEventFieldInfo& f : api::kGameEventFields) {
+            T().structOf(m_gameEvent).fields.push_back(StructField{std::string(f.name), fieldType(f.type), true});
         }
         addType("GameEvent", m_gameEvent);
+        m_actionEvent = T().newStruct("ActionEvent");
+        for (const api::GameEventFieldInfo& f : api::kActionEventFields) {
+            T().structOf(m_actionEvent).fields.push_back(StructField{std::string(f.name), fieldType(f.type), true});
+        }
+        addType("ActionEvent", m_actionEvent);
 
         // 엔진 컴포넌트 (v0.5 M2-T1, ADR-0080 1 — script/api/EngineComponents 의 표): import { Transform } from
         // "sandbox" → 값 = ComponentRef<Transform> (LOADK 의 id 는 표의 id), 타입 = 데이터 구조체 (이름 순 필드).
@@ -1011,6 +1023,7 @@ private:
                                   : key == "onEvent"      ? &sd.onEvent
                                   : key == "onUpdate"     ? &sd.onUpdate
                                   : key == "onLateUpdate" ? &sd.onLateUpdate
+                                  : key == "onAction"     ? &sd.onAction
                                                           : nullptr;
             if (callback != nullptr) {
                 if (!method) {
@@ -1021,7 +1034,7 @@ private:
                     continue;
                 }
                 // onStart · onStop 은 두 도메인 (client 는 세션 수명주기 — v0.10 RT-06-7, ADR-0140)
-                const bool clientOnly = key == "onUpdate" || key == "onLateUpdate";
+                const bool clientOnly = key == "onUpdate" || key == "onLateUpdate" || key == "onAction";
                 const bool serverOnly = key == "onTick" || key == "onMigrate"; // onEvent 는 두 도메인 (ADR-0141)
                 if ((clientOnly && !client) || (serverOnly && client)) {
                     // 몸은 그래도 검사한다 — 도메인에 맞는 ctx 로 (오류를 겹치지 않게)
@@ -1029,18 +1042,22 @@ private:
                         clientOnly
                             ? std::format("{} 는 domain: \"client\" 시스템의 콜백이다 — 서버 시스템은 onTick", key)
                             : std::format("client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent "
-                                          "이다 — {} 는 서버 시스템에 (ADR-0067)",
+                                          "· onAction 이다 — {} 는 서버 시스템에 (ADR-0067)",
                                           key));
                     ok = false;
                     wrongCallback = true;
                 }
-                *callback = declareSystemMethod(p, ok, key == "onEvent", client);
+                *callback = declareSystemMethod(p, ok,
+                                                key == "onEvent"    ? m_gameEvent
+                                                : key == "onAction" ? m_actionEvent
+                                                                    : TypeTable::kError,
+                                                client);
                 continue;
             }
             if (method) {
                 err("S426", p,
                     std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onMigrate · onUpdate "
-                                "· onLateUpdate 뿐이다 ('{}')",
+                                "· onLateUpdate · onAction 뿐이다 ('{}')",
                                 key));
                 ok = false;
                 continue;
@@ -1121,7 +1138,7 @@ private:
                 err("S426", p,
                     std::format(
                         "defineSystem 에 '{}' 키는 없다 — id · domain · intervalTicks · eventsPerTick · events · "
-                        "onTick · onStart · onStop · onEvent · onMigrate · onUpdate · onLateUpdate",
+                        "onTick · onStart · onStop · onEvent · onMigrate · onUpdate · onLateUpdate · onAction",
                         key));
                 expr(value, kNoExpect);
                 ok = false;
@@ -1140,10 +1157,10 @@ private:
                 ok = false;
             }
             if (none(sd.onUpdate) && none(sd.onLateUpdate) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) &&
-                !wrongCallback) {
+                none(sd.onAction) && !wrongCallback) {
                 err("S426", domainAt != kNoNode ? domainAt : init,
-                    "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop · onEvent 중 "
-                    "하나 이상");
+                    "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop · onEvent · "
+                    "onAction 중 하나 이상");
                 ok = false;
             }
             // client 에는 타이머가 없다 — onEvent 가 받을 것은 구독뿐
@@ -1154,7 +1171,7 @@ private:
                 ok = false;
             }
         } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
-                   none(sd.onLateUpdate) && none(sd.onMigrate)) {
+                   none(sd.onLateUpdate) && none(sd.onAction) && none(sd.onMigrate)) {
             err("S426", init,
                 "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent · onMigrate 중 하나 이상");
             ok = false;
@@ -1403,7 +1420,9 @@ private:
                 h.id, callback, api::capabilityName(h.capability)));
     }
 
-    u32 declareSystemMethod(NodeId m, bool& ok, bool event, bool client) {
+    // second = 둘째 매개변수의 타입 (onEvent 의 GameEvent · onAction 의 ActionEvent), kError = ctx 하나
+    u32 declareSystemMethod(NodeId m, bool& ok, TypeId second, bool client) {
+        const bool event = second != TypeTable::kError;
         FunctionInfo f;
         f.name = std::string(ast().str(m));
         f.module = m_ctx.module;
@@ -1417,13 +1436,13 @@ private:
         f.callbackCaps = api::callbackCapabilities(f.name, client); // 몸의 ctx 호출을 S404 로 (v0.10 RT-06-7)
         if (paramCount > maxParams) {
             err("S426", kids[maxParams],
-                event ? std::string("onEvent 의 매개변수는 (ctx, e) 둘이다")
+                event ? std::format("{} 의 매개변수는 (ctx, {}) 둘이다", f.name, second == m_actionEvent ? "a" : "e")
                       : std::format("{} 의 매개변수는 ctx 하나다", f.name));
             ok = false;
         }
         for (usize i = 0; i < paramCount; ++i) {
             const NodeId p = kids[i];
-            const TypeId want = i == 0 ? ctxType : m_gameEvent;
+            const TypeId want = i == 0 ? ctxType : second;
             TypeId pt = want;
             if (ast().kid(p, 0) != kNoNode) {
                 pt = resolveType(ast().kid(p, 0), false);
@@ -4901,10 +4920,11 @@ private:
     std::vector<ScopeEntry> m_sdkValues;
     std::vector<ScopeEntry> m_sdkTypes;
     std::vector<ScopeEntry> m_globals;
-    TypeId m_vec2 = TypeTable::kError;      // SDK 의 Vec2 { x, y: number }
-    TypeId m_gameEvent = TypeTable::kError; // SDK 의 GameEvent (onEvent 의 e — ADR-0063)
-    std::vector<bool> m_ready;              // 심볼마다 — 타입 · 값이 정해졌다
-    std::vector<bool> m_resolving;          // 타입 별칭 순환 검사
+    TypeId m_vec2 = TypeTable::kError;        // SDK 의 Vec2 { x, y: number }
+    TypeId m_gameEvent = TypeTable::kError;   // SDK 의 GameEvent (onEvent 의 e — ADR-0063)
+    TypeId m_actionEvent = TypeTable::kError; // SDK 의 ActionEvent (client onAction 의 a — ADR-0142)
+    std::vector<bool> m_ready;                // 심볼마다 — 타입 · 값이 정해졌다
+    std::vector<bool> m_resolving;            // 타입 별칭 순환 검사
     ScopeEntry m_tmpEntry[2];
     FnCtx m_ctx;
     std::vector<const FnCtx*> m_arrowOuter; // 검사 중인 화살표 몸들의 바깥 함수 문맥 (캡처 검사 — 안쪽이 끝)

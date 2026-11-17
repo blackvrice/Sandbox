@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x6d51897bbd2ba715 — v0.10 RT-06-10 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x339421f28fd42c1c — v0.10 RT-06-8 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -84,7 +84,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | server | onMigrate | 단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (v0.6 NG-04) | ServerContext | 현행 (.sbc 10) |
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
 | client | onStart · onStop | 세션 (복제 월드 하나) 의 첫 프레임 — 모든 onUpdate 앞 · 끝 (월드 · 콘텐츠 · 접속이 바뀜 — 월드 없이) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140) |
-| client | onAction | 프레임 — 입력 처리 뒤 (UI 가 먹지 않은 행동만) | ClientActionContext | [계획 v0.10 RT-06-8] (v0.5 M2-T6 ✅ 은 onUpdate 안의 ctx.keyDown · keyPressed · keyReleased 읽기) |
+| client | onAction | 프레임 — onEvent 뒤 · onUpdate 앞, UI 가 먹지 않은 게임 키의 눌림 · 뗌 | ClientContext + ActionEvent (ClientActionContext 대신 — ADR-0142) | 현행 — v0.10 RT-06-8 조각 1 (.sbc 14 · 지문 0x339421f28fd42c1c), 입력 Context 는 조각 2 |
 | client | onEvent | 프레임 — 복제된 서버 이벤트 (death · spawn · score · action · signal — onStart 뒤 · onUpdate 앞) | ClientContext + GameEvent | 현행 — v0.10 RT-06-7 조각 2 (ADR-0141, GameEvents 프로토콜 19) |
 | client | onLateUpdate | 프레임 — 모든 시스템의 onUpdate 뒤 · UI 바인딩 앞 (카메라 · 따라가기) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140, .sbc 13) |
 | client | onRender | 프레임 — 추출 뒤 · 제출 앞 | ClientRenderContext (Draw 명령만) | [계획 v0.6] |
@@ -131,7 +131,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 interface ServerContext { … 지금 그대로 … }                       // onStart · onTick · onEvent · onStop — 기존 게임 그대로
 interface ServerPrePhysicsContext extends ServerReadOnly, PhysicsCommands, Random, Time, Log { }
 interface ClientContext { … 지금 그대로 … }                       // onUpdate
-interface ClientActionContext extends ClientContext { readonly action: ActionEvent }
+interface ClientActionContext extends ClientContext { readonly action: ActionEvent }   // ✅ v0.10 은 onAction(ctx, a: ActionEvent) — ADR-0142
 interface ClientRenderContext extends ClientReadOnly { draw: DrawApi }
 interface ClientTickContext extends ClientReadOnly, InputRead, ClientSend, PredictedWrite { readonly tick: i32 }
 defineSystem({ onPrePhysics(ctx) {} })  → ctx 의 타입이 콜백마다 정해진다 (지금의 onTick(ctx) 처럼 — 매개변수 타입 생략 가능)
@@ -200,7 +200,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 | 키 다시 묶기 | ✅ v0.7 M4-T3 ("키" 패널 — 바꾸기 · 되돌리기 · 겹침 · 저장) | <설정 폴더>/input.json (기본과 다른 것만 — ADR-0102) |
 | UI 배율 | ✅ v0.7 M4-T4 (게임 UI 0.75 ~ 2 — 배치 · 그리기) | client.json gameUiScale · --game-ui-scale |
 | UI 입력 막기 (UI 가 먼저) | ✅ v0.7 M3-T3 (modal → menu → 도구 패널 → hud 버튼 → 게임) | ui/input UiInputRouter · GameUiLayer — 잡은 포인터는 게임 입력에서 뺀다 |
-| onAction · 입력 Context (우선순위 스택: 메뉴 > UI > 게임) · 소비 | [계획 v0.6] | Enhanced Input 의 Mapping Context 와 비슷 (공식 문서 확인 못 함 — 일반 지식) |
+| onAction · 입력 Context (우선순위 스택: 메뉴 > UI > 게임) · 소비 | onAction ✅ v0.10 RT-06-8 조각 1 (ADR-0142) · 입력 Context [계획 v0.10 조각 2] | Enhanced Input 의 Mapping Context 와 비슷 (공식 문서 확인 못 함 — 일반 지식) |
 | 게임패드 · Double Tap · Hold · Combo 트리거 | [계획 v0.6] (P2) | 플랫폼 층에서 표준화 (07) |
 | 고정 Tick 입력 프레임 (예측 모델) | [계획 v0.7] | 4장 InputFrame |
 | 입력 기록 (리플레이에 명령으로 — 이미 명령은 기록된다) | 현행 (명령) · [계획 v0.7] InputFrame 기록 | 09 4장 |

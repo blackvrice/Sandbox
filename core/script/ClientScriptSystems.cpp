@@ -53,7 +53,8 @@ void ClientScriptSystems::run(ClientScriptFrame frame, std::span<const ClientScr
             invoke(s, Callback::Start);
         }
     }
-    deliverEvents(events); // 복제 이벤트 — onStart 뒤 · onUpdate 앞 (onUpdate 가 이벤트의 결과를 본다)
+    deliverEvents(events);       // 복제 이벤트 — onStart 뒤 · onUpdate 앞 (onUpdate 가 이벤트의 결과를 본다)
+    deliverActions(frame.input); // 게임 키 눌림 · 뗌 (RT-06-8) — onEvent 뒤 · onUpdate 앞
     for (Entry& s : m_systems) {
         invoke(s, Callback::Update);
     }
@@ -114,7 +115,30 @@ void ClientScriptSystems::deliverEvents(std::span<const ClientScriptEvent> event
     }
 }
 
-void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEvent* ev) {
+void ClientScriptSystems::deliverActions(const ClientScriptInput* input) {
+    if (input == nullptr || input->keys.empty()) {
+        return;
+    }
+    const Vec2 pos = input->hasPointer ? input->pointer : Vec2{};
+    for (Entry& s : m_systems) {
+        if (s.desc->onAction == api::kNoCallback) {
+            continue;
+        }
+        // 키 이름 차례 (input.keys 가 이름 순) — 한 프레임에 눌렀다 뗀 키는 눌림 다음 뗌
+        for (const ClientScriptKey& k : input->keys) {
+            if (k.pressed) {
+                const ActionValues a{k.name, true, pos};
+                invoke(s, Callback::Action, nullptr, &a);
+            }
+            if (k.released) {
+                const ActionValues a{k.name, false, pos};
+                invoke(s, Callback::Action, nullptr, &a);
+            }
+        }
+    }
+}
+
+void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEvent* ev, const ActionValues* act) {
     if (s.disabled) {
         return;
     }
@@ -122,6 +146,7 @@ void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEve
                    : which == Callback::Update     ? s.desc->onUpdate
                    : which == Callback::LateUpdate ? s.desc->onLateUpdate
                    : which == Callback::Event      ? s.desc->onEvent
+                   : which == Callback::Action     ? s.desc->onAction
                                                    : s.desc->onStop;
     if (fn == api::kNoCallback) {
         return;
@@ -130,6 +155,7 @@ void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEve
                                       : which == Callback::Update     ? "onUpdate"
                                       : which == Callback::LateUpdate ? "onLateUpdate"
                                       : which == Callback::Event      ? "onEvent"
+                                      : which == Callback::Action     ? "onAction"
                                                                       : "onStop";
     if (m_frameFuelLeft == 0) {
         ++s.counters.cut;
@@ -193,6 +219,24 @@ void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEve
                 m_fields.push_back(vm::Value::f64v(ev->pos.x));
             } else {
                 m_fields.push_back(vm::Value::f64v(ev->pos.y));
+            }
+        }
+        r = vmi.call(fn, std::span(args, 2), m_fields, m_texts);
+    } else if (act != nullptr && f.params.size() == 2) {
+        // ActionEvent 의 칸 — 이름 순 (api::kActionEventFields: action · pressed · x · y)
+        m_fields.clear();
+        m_texts.clear();
+        for (const api::GameEventFieldInfo& field : api::kActionEventFields) {
+            const std::string_view n = field.name;
+            if (n == "action") {
+                m_texts.emplace_back(act->name);
+                m_fields.push_back(vm::Value::i32v(static_cast<i32>(m_texts.size() - 1)));
+            } else if (n == "pressed") {
+                m_fields.push_back(vm::Value::boolean(act->pressed));
+            } else if (n == "x") {
+                m_fields.push_back(vm::Value::f64v(act->pos.x));
+            } else {
+                m_fields.push_back(vm::Value::f64v(act->pos.y));
             }
         }
         r = vmi.call(fn, std::span(args, 2), m_fields, m_texts);

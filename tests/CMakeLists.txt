@@ -53,6 +53,7 @@ add_executable(SandboxTests
     unit/script/test_client_scripts.cpp
     unit/script/test_client_lifecycle.cpp
     unit/script/test_client_events.cpp
+    unit/script/test_client_actions.cpp
     unit/script/test_script_protection.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp

@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 6d51897bbd2ba715 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 339421f28fd42c1c — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -340,6 +340,17 @@ declare module "sandbox" {
     /** 위치 y */
     readonly y: number;
   }
+  /** client onAction 의 게임 키 눌림 · 뗌 (UI · 메뉴가 먹지 않은 것만) */
+  export interface ActionEvent {
+    /** 게임 키 이름 — 팩 presentation/input.json 의 "play.<이름>" 의 <이름> */
+    readonly action: string;
+    /** true = 이번 프레임에 눌렸다, false = 떼었다 (한 프레임에 둘 다면 눌림 다음 뗌) */
+    readonly pressed: boolean;
+    /** 커서의 월드 x (커서가 UI 위면 0) */
+    readonly x: number;
+    /** 커서의 월드 y */
+    readonly y: number;
+  }
   /** 태그 거르기 — 콘텐츠 태그 이름 (Rule · 트리거와 같은 식) */
   export interface TagFilter {
     all?: string[];
@@ -400,6 +411,8 @@ declare module "sandbox" {
     eventsPerTick?: i32;
     /** 프레임마다 — 복제 월드가 그 틱에 닿은 이벤트, onStart 뒤 · onUpdate 앞 (구독 종류 차례 → 틱 차례) */
     onEvent?(ctx: ClientContext, e: GameEvent): void;
+    /** 프레임마다 — 게임 키 (play.<이름>) 의 눌림 · 뗌, onEvent 뒤 · onUpdate 앞 (키 이름 차례) */
+    onAction?(ctx: ClientContext, a: ActionEvent): void;
     /** 세션 끝 — 서버 월드가 바뀌거나 (불러오기 · 재시작 · 다시 접속) 콘텐츠 · 접속이 끝날 때. 복제 월드는 이미 없다 (질의는 빈 목록) */
     onStop?(ctx: ClientContext): void;
   }
