@@ -853,6 +853,19 @@ void ServerHost::simStep(f64 now) {
     }
     const f64 ms = (steadySeconds() - t0) * 1000.0;
     const bool advanced = world.currentTick() != before;
+    // 게임 이벤트 (프로토콜 19 — v0.10 RT-06-7 조각 2, ADR-0141): 방금 돈 틱에 client 시스템이 구독한 것 — 모두에게.
+    // 리플레이 탐색처럼 한 번에 여러 틱을 돌면 마지막 틱 것만 (탐색 중의 이벤트는 보지 않는다)
+    if (advanced && (!world.clientEvents().empty() || world.clientEventsDropped() != 0)) {
+        GameEventsMsg ev;
+        ev.generation = m_generation;
+        ev.tick = world.currentTick();
+        ev.dropped = world.clientEventsDropped();
+        ev.events = world.clientEvents();
+        for (sim::ClientGameEvent& e : ev.events) {
+            e.name = clampUtf8(e.name, kMaxGameEventNameBytes);
+        }
+        results.push_back(Outgoing{0, std::move(ev)});
+    }
 
     if (world.contentRevision() != m_sentContentRevision) {
         ContentOverlayMsg diff = overlayDiff(m_sentOverlay, world.contentOverlay());

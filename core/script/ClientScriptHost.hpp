@@ -18,6 +18,7 @@
 #include <string_view>
 #include <vector>
 
+#include "core/content/TagSet.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/ecs/Registry.hpp"
 #include "core/script/ScriptHost.hpp"
@@ -80,6 +81,22 @@ struct ClientScriptFrame {
     const ui::IUiDataSource* uiData = nullptr; // client.uiVar · uiVarText (v0.7 NG-06 (2) — 없으면 0 · "")
 };
 
+// 복제된 서버 이벤트 하나 (v0.10 RT-06-7 조각 2, ADR-0141) — 앱이 GameEvents (프로토콜 19) 를 복제 월드에 푼 것. 개체는
+// 받은 프레임의 복제 월드에서 netId 로 찾았다 (없으면 null · 대상에서 빠짐)
+struct ClientScriptEvent {
+    u8 kind = 0; // script::api::GameEventKind (death · spawn · score · action · signal)
+    ecs::EntityId entity{};
+    Vec2 pos{};
+    content::TagSet tags; // death · spawn — 구독의 태그 거르기
+    i32 value = 0;
+    i32 previous = 0;
+    i32 team = 0;
+    i32 player = 0;
+    std::string name; // action · signal id
+    std::vector<ecs::EntityId> targets;
+    u64 tick = 0; // 서버 틱
+};
+
 struct ClientScriptLabel {
     ecs::EntityId entity; // 복제 월드의 개체
     std::string text;
@@ -136,9 +153,10 @@ public:
     vm::HostResult ui(std::span<const vm::HostArg> args, ClientScriptUi::Kind kind);
     vm::HostResult uiText(std::span<const vm::HostArg> args, bool format); // v0.7 M4-T1
     vm::HostResult uiVar(std::span<const vm::HostArg> args, bool text);    // v0.7 NG-06 (2)
+    // 이 호출의 개체 핸들 (beginCall 뒤 — onEvent 의 GameEvent 칸, ClientScriptSystems)
+    [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
 
 private:
-    [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
     [[nodiscard]] ecs::EntityId entityOf(vm::Value handle) const;
     const ecs::ComponentInfo* componentOf(vm::Value ref, std::string& error) const;
 

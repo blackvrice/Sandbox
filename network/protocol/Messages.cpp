@@ -11,6 +11,7 @@
 #include "foundation/text/Utf8.hpp"
 #include "network/protocol/BitStream.hpp"
 #include "network/protocol/CommandCodec.hpp"
+#include "script/api/SystemEvents.hpp"
 
 namespace sbx::net {
 
@@ -146,6 +147,8 @@ MessageId messageId(const Message& m) noexcept {
                 return MessageId::WorldList;
             } else if constexpr (std::is_same_v<T, WorldChanged>) {
                 return MessageId::WorldChanged;
+            } else if constexpr (std::is_same_v<T, GameEventsMsg>) {
+                return MessageId::GameEvents;
             } else {
                 static_assert(std::is_same_v<T, TerrainChunk>);
                 return MessageId::TerrainChunk;
@@ -178,6 +181,8 @@ std::string_view messageName(MessageId id) noexcept {
         return "Snapshot";
     case MessageId::SnapshotAck:
         return "SnapshotAck";
+    case MessageId::GameEvents:
+        return "GameEvents";
     case MessageId::TerrainChunk:
         return "TerrainChunk";
     case MessageId::EntityBaseline:
@@ -544,6 +549,38 @@ void encodeBody(BitWriter& w, const WorldList& m) {
         w.writeBool(s.replay);
         w.writeVarU(s.tick);
         w.writeVarU(s.entities);
+    }
+}
+// 게임 이벤트 하나 — 종류 · 개체 · 자리 (f32) · 태그 (0 이 아닌 64 비트 칸만 — 앞에 칸 표시 4 비트) · 수 · 이름 · 대상
+void encodeBody(BitWriter& w, const GameEventsMsg& m) {
+    w.writeVarU(m.generation);
+    w.writeVarU(m.tick);
+    w.writeVarU(m.dropped);
+    w.writeVarU(m.events.size());
+    for (const sim::ClientGameEvent& e : m.events) {
+        w.writeU8(e.kind);
+        w.writeVarU(e.entity);
+        w.writeF32(e.pos.x);
+        w.writeF32(e.pos.y);
+        u8 words = 0;
+        for (usize i = 0; i < e.tags.bits.size(); ++i) {
+            words |= e.tags.bits[i] != 0 ? static_cast<u8>(1u << i) : u8{0};
+        }
+        w.writeU8(words);
+        for (usize i = 0; i < e.tags.bits.size(); ++i) {
+            if (e.tags.bits[i] != 0) {
+                w.writeU64(e.tags.bits[i]);
+            }
+        }
+        w.writeVarI(e.value);
+        w.writeVarI(e.previous);
+        w.writeVarI(e.team);
+        w.writeVarI(e.player);
+        w.writeString(e.name);
+        w.writeVarU(e.targets.size());
+        for (const NetEntityId t : e.targets) {
+            w.writeVarU(t);
+        }
     }
 }
 void encodeBody(BitWriter& w, const WorldChanged& m) {
@@ -928,6 +965,50 @@ WorldList decodeWorldList(BitReader& r) {
     }
     return m;
 }
+GameEventsMsg decodeGameEvents(BitReader& r) {
+    GameEventsMsg m;
+    m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    m.tick = r.readVarU();
+    m.dropped = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+    const u64 n = r.readVarU(sim::kMaxClientGameEventsPerTick);
+    if (r.remainingBits() < n * 8) {
+        r.fail();
+    }
+    for (u64 i = 0; i < n && !r.error(); ++i) {
+        sim::ClientGameEvent e;
+        e.kind = r.readU8();
+        // 클라이언트가 받는 종류만 (death · spawn · score · action · signal — areaEnter · timer 는 서버만)
+        using script::api::GameEventKind;
+        if (e.kind != static_cast<u8>(GameEventKind::Death) && e.kind != static_cast<u8>(GameEventKind::Spawn) &&
+            e.kind != static_cast<u8>(GameEventKind::Score) && e.kind != static_cast<u8>(GameEventKind::Action) &&
+            e.kind != static_cast<u8>(GameEventKind::Signal)) {
+            r.fail();
+        }
+        e.entity = static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull));
+        e.pos.x = readFiniteF32(r);
+        e.pos.y = readFiniteF32(r);
+        const u8 words = r.readU8();
+        if (words >= (1u << e.tags.bits.size())) {
+            r.fail();
+        }
+        for (usize k = 0; k < e.tags.bits.size(); ++k) {
+            if ((words >> k) & 1u) {
+                e.tags.bits[k] = r.readU64();
+            }
+        }
+        e.value = readI32(r);
+        e.previous = readI32(r);
+        e.team = readI32(r);
+        e.player = readI32(r);
+        e.name = r.readString(kMaxGameEventNameBytes);
+        const u64 nt = r.readVarU(sim::kMaxClientGameEventTargets);
+        for (u64 t = 0; t < nt && !r.error(); ++t) {
+            e.targets.push_back(static_cast<NetEntityId>(r.readVarU(0xFFFF'FFFFull)));
+        }
+        m.events.push_back(std::move(e));
+    }
+    return m;
+}
 WorldChanged decodeWorldChanged(BitReader& r) {
     WorldChanged m;
     m.generation = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
@@ -1045,6 +1126,9 @@ Expected<Message> decodeMessage(std::span<const std::byte> data) {
         break;
     case MessageId::WorldChanged:
         out = decodeWorldChanged(r);
+        break;
+    case MessageId::GameEvents:
+        out = decodeGameEvents(r);
         break;
     default:
         return makeError(ErrorCode::ParseError, std::format("아직 없는 메시지 {} ({})", rawId, messageName(id)));

@@ -81,8 +81,9 @@ inline constexpr std::array kCallbacks{
                  detail::kClientDisplay | capBit(HostCapability::InputRead) | capBit(HostCapability::ClientSend) |
                      capBit(HostCapability::Ui) | capBit(HostCapability::Sound),
                  "프레임 — UI 가 먹지 않은 행동"},
-    CallbackInfo{"onEvent", true, CallbackStatus::Planned, "v0.6",
-                 detail::kClientDisplay | capBit(HostCapability::Sound), "프레임 — 복제된 서버 이벤트"},
+    CallbackInfo{"onEvent", true, CallbackStatus::Active, "v0.10",
+                 detail::kClientDisplay | capBit(HostCapability::Sound) | capBit(HostCapability::Ui),
+                 "프레임 — 복제된 서버 이벤트 (onStart 뒤 · onUpdate 앞, RT-06-7 조각 2 — ADR-0141)"},
     CallbackInfo{"onLateUpdate", true, CallbackStatus::Active, "v0.10",
                  detail::kClientDisplay | capBit(HostCapability::Ui),
                  "프레임 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) — RT-06-7"},

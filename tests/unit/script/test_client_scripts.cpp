@@ -179,7 +179,7 @@ TEST_SUITE("script") {
                     "S426", "intervalTicks 는 서버 시스템의 것");
         expectError(
             R"(export default defineSystem({ id: "a.b", domain: "client", events: { death: {} }, onUpdate() { } }))",
-            "S426", "events 는 서버 시스템의 것");
+            "S426", "events 를 받을 onEvent"); // client 도 구독을 받는다 (v0.10 RT-06-7 조각 2) — onEvent 가 없다
         expectError(R"(export default defineSystem({ id: "a.b", domain: "web", onTick() { } }))", "S426",
                     "domain 'web'");
         // 상수 이름은 안 된다 (메서드의 ctx 타입을 먼저 정한다) — 그 onUpdate 는 server 시스템의 것이 된다
@@ -231,7 +231,7 @@ export default defineSystem({ id: "a.b", domain: D, onUpdate() { } }))");
         };
         bc::Module clientTick = *m;
         clientTick.systems[0].onTick = clientTick.systems[1].onTick;
-        mention(clientTick, "client 시스템은 onUpdate · onLateUpdate · onStart · onStop 만");
+        mention(clientTick, "client 시스템은 onUpdate · onLateUpdate · onStart · onStop · onEvent 만");
         bc::Module serverUpdate = *m;
         serverUpdate.systems[1].onUpdate = m->systems[0].onUpdate;
         mention(serverUpdate, "onUpdate · onLateUpdate 는 client 시스템에만");

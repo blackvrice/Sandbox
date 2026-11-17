@@ -12,6 +12,8 @@
 //   signal 그 틱에 받아들여진 PlayerSignal (명령 적용 차례) — v0.5 M2-T5 (3)
 //   timer  dueTick ≤ 그 틱인 script.timer (만기 · saveId 차례 — 어댑터가 시스템 차례로 나눈다). 콜백 전에 엔진이
 //          한 번짜리는 지우고 every 는 다음 만기로 민다 — 콜백의 cancelTimer · after 는 그 뒤에 적용 (v0.10 RT-06-10)
+// 사실은 서버 시스템이나 client 시스템이 구독한 종류만 모은다 (wantsEvent). client 구독 종류는 클라이언트 복제 이벤트로
+// 옮긴다 (collectClientEvents — v0.10 RT-06-7 조각 2, ADR-0141). 서버 어댑터가 없으면 (client 시스템뿐) 콜백은 없다
 
 #include <algorithm>
 
@@ -27,7 +29,7 @@ namespace sbx::sim {
 
 void SimulationWorld::runScriptCallbacks(Tick now) {
     using script::api::GameEventKind;
-    script::ScriptSystemAdapter& scripts = *m_scriptSystems;
+    const auto wants = [this](GameEventKind k) { return wantsEvent(static_cast<u8>(k)); };
     script::ScriptEventFacts facts;
     const comp::GameSession* session = game::findSession(m_registry);
     if (session != nullptr) {
@@ -55,7 +57,7 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
         }
         return p;
     };
-    if (scripts.subscribes(GameEventKind::Death)) {
+    if (wants(GameEventKind::Death)) {
         for (const SimEvent& d : m_events.events()) {
             if (d.kind != EventKind::Died) {
                 continue;
@@ -71,7 +73,7 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             facts.deaths.push_back(x);
         }
     }
-    if (scripts.subscribes(GameEventKind::Spawn)) {
+    if (wants(GameEventKind::Spawn)) {
         for (const SimEvent& s : m_events.events()) {
             if (s.kind != EventKind::EntitySpawned || !m_registry.alive(s.entity)) {
                 continue;
@@ -80,14 +82,14 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             facts.spawns.push_back(present(s.entity, s.saveId, tr != nullptr ? tr->position : Vec2{}));
         }
     }
-    if (scripts.subscribes(GameEventKind::AreaEnter)) {
+    if (wants(GameEventKind::AreaEnter)) {
         for (auto [e, tr, id] : m_registry.view<ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
             facts.current.push_back(present(e, id.saveId, tr.position));
         }
         std::sort(facts.current.begin(), facts.current.end(),
                   [](const auto& a, const auto& b) { return a.saveId < b.saveId; });
     }
-    if (scripts.subscribes(GameEventKind::Score) && session != nullptr && m_triggerSnap.taken) {
+    if (wants(GameEventKind::Score) && session != nullptr && m_triggerSnap.taken) {
         const comp::GameScore* sc = game::findScore(m_registry);
         for (usize slot = 0; slot < comp::kScoreSlots; ++slot) {
             const i32 after = sc != nullptr ? sc->points[slot] : 0;
@@ -96,7 +98,7 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             }
         }
     }
-    if (scripts.subscribes(GameEventKind::Action)) {
+    if (wants(GameEventKind::Action)) {
         for (const ScriptAction& a : m_scriptActions) {
             script::ScriptEventFacts::Action x;
             x.action = a.action;
@@ -110,7 +112,7 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             facts.actions.push_back(std::move(x));
         }
     }
-    if (scripts.subscribes(GameEventKind::Signal)) {
+    if (wants(GameEventKind::Signal)) {
         for (const ScriptSignal& g : m_scriptSignals) {
             facts.signals.push_back(script::ScriptEventFacts::Signal{g.name, g.player, g.value});
         }
@@ -146,7 +148,90 @@ void SimulationWorld::runScriptCallbacks(Tick now) {
             syncIdentityLogs(); // 파괴 이벤트 · saveId 표
         }
     }
-    scripts.runCallbacks(*this, now, facts);
+    collectClientEvents(facts);
+    if (m_scriptSystems) {
+        m_scriptSystems->runCallbacks(*this, now, facts);
+    }
+}
+
+bool SimulationWorld::wantsEvent(u8 kind) const noexcept {
+    const u32 bit = 1u << kind;
+    return (m_clientEventKinds & bit) != 0 ||
+           (m_scriptSystems && m_scriptSystems->subscribes(static_cast<script::api::GameEventKind>(kind)));
+}
+
+// client 구독 종류의 사실 → 복제 이벤트. 차례 = 종류 차례 (death · spawn · score · action · signal) → 일어난 차례 —
+// 클라이언트가 구독마다 다시 거른다 (태그). 상한을 넘으면 새 것을 버리고 센다
+void SimulationWorld::collectClientEvents(const script::ScriptEventFacts& facts) {
+    using script::api::GameEventKind;
+    const auto client = [this](GameEventKind k) { return (m_clientEventKinds & (1u << static_cast<u32>(k))) != 0; };
+    const auto push = [this](ClientGameEvent&& e) {
+        if (m_clientEvents.size() >= kMaxClientGameEventsPerTick) {
+            ++m_clientEventsDropped;
+            return;
+        }
+        m_clientEvents.push_back(std::move(e));
+    };
+    const auto netIdOf = [this](ecs::EntityId e) {
+        const comp::NetIdentity* id = m_registry.alive(e) ? m_registry.tryRead<comp::NetIdentity>(e) : nullptr;
+        return id != nullptr ? id->netId : kInvalidNetEntityId;
+    };
+    if (client(GameEventKind::Death)) {
+        for (const script::ScriptEventFacts::Death& d : facts.deaths) {
+            ClientGameEvent e;
+            e.kind = static_cast<u8>(GameEventKind::Death);
+            e.pos = d.hasPos ? d.pos : Vec2{};
+            e.tags = d.tags;
+            e.value = d.cause;
+            push(std::move(e));
+        }
+    }
+    if (client(GameEventKind::Spawn)) {
+        for (const script::ScriptEventFacts::Present& p : facts.spawns) {
+            ClientGameEvent e;
+            e.kind = static_cast<u8>(GameEventKind::Spawn);
+            e.entity = netIdOf(p.entity);
+            e.pos = p.pos;
+            e.tags = p.tags;
+            push(std::move(e));
+        }
+    }
+    if (client(GameEventKind::Score)) {
+        for (const script::ScriptEventFacts::Score& s : facts.scores) {
+            ClientGameEvent e;
+            e.kind = static_cast<u8>(GameEventKind::Score);
+            e.team = s.slot;
+            e.value = s.after;
+            e.previous = s.before;
+            push(std::move(e));
+        }
+    }
+    if (client(GameEventKind::Action)) {
+        for (const script::ScriptEventFacts::Action& a : facts.actions) {
+            ClientGameEvent e;
+            e.kind = static_cast<u8>(GameEventKind::Action);
+            e.pos = a.pos;
+            e.player = a.player;
+            e.name = a.action;
+            for (const ecs::EntityId t : a.targets) {
+                const NetEntityId id = netIdOf(t);
+                if (id != kInvalidNetEntityId && e.targets.size() < kMaxClientGameEventTargets) {
+                    e.targets.push_back(id);
+                }
+            }
+            push(std::move(e));
+        }
+    }
+    if (client(GameEventKind::Signal)) {
+        for (const script::ScriptEventFacts::Signal& g : facts.signals) {
+            ClientGameEvent e;
+            e.kind = static_cast<u8>(GameEventKind::Signal);
+            e.player = g.player;
+            e.value = g.value;
+            e.name = g.name;
+            push(std::move(e));
+        }
+    }
 }
 
 bool SimulationWorld::hasScriptTimers() const {

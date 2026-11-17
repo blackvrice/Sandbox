@@ -182,7 +182,7 @@ TEST_SUITE("network") {
     }
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
-        CHECK(kProtocolVersion == 18); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.9 M6-T4 — 함수 프로파일)
+        CHECK(kProtocolVersion == 19); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.10 RT-06-7 — GameEvents)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
@@ -437,6 +437,79 @@ TEST_SUITE("network") {
         CHECK_FALSE(isValidDisplayName("tab\tname"));
         CHECK_FALSE(isValidDisplayName(std::string(33, 'a')));
         CHECK(isValidDisplayName(std::string(32, 'a')));
+    }
+
+    TEST_CASE("messages: GameEvents (프로토콜 19 — v0.10 RT-06-7 조각 2) 왕복 · Control 채널 · 종류 · 상한 거절") {
+        GameEventsMsg m;
+        m.generation = 3;
+        m.tick = 1234567;
+        m.dropped = 2;
+        sim::ClientGameEvent death;
+        death.kind = 1; // Death
+        death.pos = {1.5f, -2.0f};
+        death.tags.set(3);
+        death.tags.set(200); // 넷째 칸 — 0 이 아닌 칸만 보낸다
+        death.value = 3;
+        sim::ClientGameEvent spawn;
+        spawn.kind = 2;
+        spawn.entity = 77;
+        sim::ClientGameEvent score;
+        score.kind = 4;
+        score.team = 1;
+        score.value = 10;
+        score.previous = -5;
+        sim::ClientGameEvent action;
+        action.kind = 5;
+        action.player = 2;
+        action.name = "g.place";
+        action.targets = {9, 10};
+        sim::ClientGameEvent signal;
+        signal.kind = 6;
+        signal.player = 4;
+        signal.value = -7;
+        signal.name = "g.ready";
+        m.events = {death, spawn, score, action, signal};
+        const GameEventsMsg back = roundTrip(m);
+        CHECK(back.generation == 3);
+        CHECK(back.tick == 1234567);
+        CHECK(back.dropped == 2);
+        REQUIRE(back.events.size() == 5);
+        CHECK(back.events == m.events);
+        CHECK(channelOf(Message{m}) == Channel::Control);
+        CHECK(messageName(MessageId::GameEvents) == "GameEvents");
+        // 상한 — 256 개 꽉 찬 메시지가 Control 64 KB 안 (이름 64 · 대상 16 · 태그 넷)
+        GameEventsMsg big;
+        for (usize i = 0; i < sim::kMaxClientGameEventsPerTick; ++i) {
+            sim::ClientGameEvent e;
+            e.kind = 5;
+            e.name = std::string(kMaxGameEventNameBytes, 'a');
+            e.tags.bits = {~0ull, ~0ull, ~0ull, ~0ull};
+            e.targets.assign(sim::kMaxClientGameEventTargets, 0xFFFF'FFFFu);
+            e.value = e.previous = e.team = e.player = -2'000'000'000;
+            big.events.push_back(std::move(e));
+        }
+        CHECK(encodeMessage(Message{big}).size() <= kMaxControlMessageBytes);
+        CHECK(roundTrip(big).events.size() == sim::kMaxClientGameEventsPerTick);
+        // areaEnter (3) · timer (7) · 모르는 종류는 거절 — 클라이언트가 받는 종류가 아니다
+        for (const u8 kind : {u8{0}, u8{3}, u8{7}, u8{9}}) {
+            CAPTURE(kind);
+            GameEventsMsg bad;
+            sim::ClientGameEvent e;
+            e.kind = kind;
+            bad.events.push_back(e);
+            CHECK_FALSE(decodeMessage(encodeMessage(Message{bad})).has_value());
+        }
+        // 이름 상한 넘음 · 대상 상한 넘음
+        GameEventsMsg longName;
+        sim::ClientGameEvent ln = signal;
+        ln.name = std::string(kMaxGameEventNameBytes + 1, 'b');
+        longName.events.push_back(ln);
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longName})).has_value());
+        GameEventsMsg many;
+        sim::ClientGameEvent mt = action;
+        mt.targets.assign(sim::kMaxClientGameEventTargets + 1, 1);
+        many.events.push_back(mt);
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{many})).has_value());
     }
 
 } // TEST_SUITE

@@ -651,6 +651,7 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
     const content::ContentDatabase* db = content();
     const std::shared_ptr<const content::ScriptPrograms> programs = db != nullptr ? db->scriptPrograms() : nullptr;
     if (!programs || programs->systemCount(script::api::HostDomain::Client) == 0) {
+        (void)m_session->takeGameEvents(world.serverTick()); // 받을 시스템이 없다 — 큐에 쌓아 두지 않는다
         stopClientScripts(&world);
         m_clientScripts.reset();
         m_clientProfile.clear();
@@ -668,8 +669,31 @@ void NetworkSession::updateClientScripts(const net::ClientWorld& world, f64 dtSe
     if (world.stats().snapshotsApplied == 0) {
         return; // 세션은 첫 스냅숏이 적용된 프레임에 연다 — onStart 가 빈 월드를 보지 않게 (RT-06-7)
     }
-    m_clientScripts->run({&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput,
-                          m_uiStrings, &m_uiData});
+    // 복제된 서버 이벤트 (프로토콜 19 — v0.10 RT-06-7 조각 2, ADR-0141): 복제 월드가 그 틱에 닿은 것만 — 개체는 지금
+    // 복제 월드에서 netId 로 찾는다 (없으면 null · 대상에서 빠진다)
+    std::vector<script::ClientScriptEvent> events;
+    for (net::ClientSession::QueuedGameEvent& q : m_session->takeGameEvents(world.serverTick())) {
+        script::ClientScriptEvent e;
+        e.kind = q.event.kind;
+        e.entity = q.event.entity != kInvalidNetEntityId ? world.find(q.event.entity) : ecs::kNullEntity;
+        e.pos = q.event.pos;
+        e.tags = q.event.tags;
+        e.value = q.event.value;
+        e.previous = q.event.previous;
+        e.team = q.event.team;
+        e.player = q.event.player;
+        e.name = std::move(q.event.name);
+        for (const NetEntityId t : q.event.targets) {
+            if (const ecs::EntityId found = world.find(t); found.valid()) {
+                e.targets.push_back(found);
+            }
+        }
+        e.tick = q.tick;
+        events.push_back(std::move(e));
+    }
+    m_clientScripts->run(
+        {&world.registry(), &world.catalog(), world.serverTick(), 0, dtSeconds, &m_scriptInput, m_uiStrings, &m_uiData},
+        events);
     drainClientScriptOutputs();
 
     // 프로파일 창 (실제 1 초) — 누적의 차이

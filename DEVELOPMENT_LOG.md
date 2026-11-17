@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-11-17 — v0.10 RT-06-7 조각 2: client onEvent — 복제된 서버 이벤트 (GameEvents 프로토콜 19, ADR-0141) — RT-06-7 끝
+
+**무엇을**
+
+- 콜백 표: client onEvent 를 Active (v0.10) 로 — EcsRead · Time · Display · Ui · Sound. 검사기: client 시스템이 events · eventsPerTick ·
+  onEvent 를 받는다 (areaEnter · timer 구독은 S426, 구독 없는 client onEvent 도 S426). 검증기도 같은 규칙.
+- 시뮬레이션: syncScriptSystems 가 콘텐츠의 client 시스템 구독 종류 합 (clientEventKinds) 을 알고, 17d 의 사실 수집 · 트리거 스냅숏 ·
+  action · signal 모으기를 "서버 구독 ∪ client 구독" (wantsEvent) 으로 연다 — 서버 어댑터가 없어도. collectClientEvents 가 client 종류의
+  사실을 sim::ClientGameEvent (core/simulation/ClientGameEvents.hpp — netId · 자리 · 태그 · 수 · 이름 · 대상) 로 옮긴다. 틱 256, 넘으면
+  새 것을 버리고 센다. 틱마다 비운다 (세이브 · 해시 밖).
+- 프로토콜 18 → 19: GameEvents (id 32, Control) — ServerHost 가 틱을 돈 뒤 모두에게. 태그는 0 이 아닌 64 비트 칸만, 이름 ≤ 64 바이트,
+  대상 ≤ 16 — 꽉 찬 메시지도 64 KB 안. 받는 종류는 다섯만.
+- ClientSession: 세대별 큐 (1024 — 넘으면 새 것 버림 · 셈), takeGameEvents(upToTick) — 옛 세대 버림, 새 세대는 WorldChanged 를 기다림.
+  NetworkSession: 복제 월드의 serverTick 까지 꺼내 netId 를 풀고 ClientScriptSystems::run 에 (client 시스템이 없으면 꺼내 버림).
+- ClientScriptSystems: run = onStart → onEvent (시스템 → 구독 종류 → 받은 차례, 태그 거르기, 프레임 예산 eventsPerTick · 4096 — 넘으면
+  cut) → onUpdate → onLateUpdate. GameEvent 칸은 서버 어댑터와 같은 배치 (지운 개체는 null). ClientScriptHost::entityHandle 을 공개.
+- sandbox.d.ts 4 곳 다시 생성 (ClientSystemDefinition 에 events · eventsPerTick · onEvent). Host 지문 · .sbc 형식 그대로.
+- 문서: ADR-0141, 08 (프로토콜 19 · 메시지 32), 19 21 · 21.3 · 26장, 22 3.1 · 3.2 · 7장, 24 Q1 · C2, 13, 17, versioning ·
+  VERSION-MIGRATION-MATRIX (프로토콜), FEATURE_MATRIX F-209, CURRENT_STATUS, v0.10 체크리스트, 등록부 RT-06-7 Done (gen_roadmap).
+
+**왜**
+
+- 클라이언트는 복제 월드만 받아, 죽음 · 점수 바뀜 · 받아들여진 신호처럼 "일어난 일" 에 효과 · 소리 · HUD 를 붙일 자리가 없었다. 스냅숏
+  차이로 만들면 까닭 · 전 값이 없고 관심 영역 출입과 생성이 섞인다 — 서버가 이미 모으는 17d 사실을 client 구독 종류만큼 보내는 것이 작고
+  정확하다. 복제 월드가 그 틱에 닿은 프레임에 넘겨 spawn 의 개체가 클라이언트에 있다 (ADR-0141).
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 단위 시험 969 개 통과 (Debug — 앞 964 + 5). 새 test_client_events 3 개 (검사기 · 검증기, 서버가 client 구독 종류만 모음 · 해시
+  같음 · 300 → 256 + 버린 44, ClientScriptSystems 차례 · 태그 · 예산 · 칸 · 지운 개체 null), test_client_event_session 1 개 (로컬 서버 —
+  구독 없으면 모으지 않음, 오버레이 client 시스템이 서버의 CreateEntity 토끼를 복제 월드가 닿은 프레임에 개체와 함께 받음),
+  test_messages "GameEvents" 1 개 (왕복 · Control · 꽉 찬 메시지 64 KB 안 · 거절 다섯). 기대를 바꾼 시험: test_messages (프로토콜 19),
+  test_client_lifecycle · test_client_scripts · test_runtime_contract (Active 열) · test_script_callbacks (문장), 커밋된 sandbox.d.ts.
+- 전체 ctest 90 개 — 89 통과 · studio_gui_smoke SKIPPED. det_* · 샘플 · 리플레이 골든 해시 그대로 (client 구독이 없는 콘텐츠는 17d ·
+  트리거 스냅숏의 조건이 전과 같다). clang-format 뒤 다시 빌드해 단위 시험 969 개 통과, build\ci-werror (/WX) 경고 0, check_docs 문제 0 ·
+  check_includes 위반 0 · gen_roadmap --check 낡은 것 0.
+- 벤치는 돌리지 않았다: 서버 틱에 더한 것은 구독 비트 비교 (wantsEvent) 와 client 구독이 있을 때의 사실 모으기뿐이고, sbx_bench 시나리오
+  (script.regen 등) 에는 client 시스템이 없다 — 그 경로의 일은 전과 같다 (추정).
+- 창 · Linux · macOS 는 CI 로 (GUI 창은 띄우지 않았다).
+
+**남은 일**
+
+- 관심 영역으로 이벤트 거르기 (먼 곳의 죽음 · 생성 자리 노출 — ADR-0141 결과), 스크립트가 보내는 사용자 이벤트, 클라이언트 진단 칸에
+  큐 · 버린 수 보이기.
+- v0.10 의 다음: RT-06-8 onAction · 입력 Context. 그 뒤 ST-06-3 · ST-06-4 · M6-T2 · NG-18.
+- Script 오버레이 세이브 해시 버그의 고침은 따로 세션의 브랜치 (claude/intelligent-albattani-088524, 45b9d3a) — 이 master 에는 아직 없다.
+
 ## 2026-11-16 — v0.10 RT-06-7 조각 1: client 수명주기 — onStart · onLateUpdate · onStop, 세션 = 복제 월드 하나 (ADR-0140)
 
 **무엇을**

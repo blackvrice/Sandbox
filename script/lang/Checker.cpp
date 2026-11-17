@@ -1022,14 +1022,14 @@ private:
                 }
                 // onStart · onStop 은 두 도메인 (client 는 세션 수명주기 — v0.10 RT-06-7, ADR-0140)
                 const bool clientOnly = key == "onUpdate" || key == "onLateUpdate";
-                const bool serverOnly = key == "onTick" || key == "onEvent" || key == "onMigrate";
+                const bool serverOnly = key == "onTick" || key == "onMigrate"; // onEvent 는 두 도메인 (ADR-0141)
                 if ((clientOnly && !client) || (serverOnly && client)) {
                     // 몸은 그래도 검사한다 — 도메인에 맞는 ctx 로 (오류를 겹치지 않게)
                     err("S426", p,
                         clientOnly
                             ? std::format("{} 는 domain: \"client\" 시스템의 콜백이다 — 서버 시스템은 onTick", key)
-                            : std::format("client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop 이다 — {} "
-                                          "는 서버 시스템에 (ADR-0067)",
+                            : std::format("client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent "
+                                          "이다 — {} 는 서버 시스템에 (ADR-0067)",
                                           key));
                     ok = false;
                     wrongCallback = true;
@@ -1133,18 +1133,24 @@ private:
         }
         const auto none = [](u32 f) { return f == api::kNoCallback; };
         if (client) {
-            // client 시스템 = 프레임 콜백 (onUpdate · onLateUpdate) + 세션 수명주기 (onStart · onStop) — 틱 주기 ·
-            // 이벤트는 서버의 것 (ADR-0067 · 0140)
-            for (const NodeId at : {intervalAt, eventsAt, perTickAt}) {
-                if (at != kNoNode) {
-                    err("S426", at,
-                        std::format("{} 는 서버 시스템의 것이다 — client 시스템은 매 프레임 onUpdate", ast().str(at)));
-                    ok = false;
-                }
+            // client 시스템 = 프레임 콜백 (onUpdate · onLateUpdate) + 세션 수명주기 (onStart · onStop) + 복제된 서버
+            // 이벤트 (onEvent — eventsPerTick 은 프레임마다) — 틱 주기는 서버의 것 (ADR-0067 · 0140 · 0141)
+            if (intervalAt != kNoNode) {
+                err("S426", intervalAt, "intervalTicks 는 서버 시스템의 것이다 — client 시스템은 매 프레임 onUpdate");
+                ok = false;
             }
-            if (none(sd.onUpdate) && none(sd.onLateUpdate) && none(sd.onStart) && none(sd.onStop) && !wrongCallback) {
+            if (none(sd.onUpdate) && none(sd.onLateUpdate) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) &&
+                !wrongCallback) {
                 err("S426", domainAt != kNoNode ? domainAt : init,
-                    "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop 중 하나 이상");
+                    "client 시스템에 콜백이 없다 — onUpdate(ctx) { … } · onLateUpdate · onStart · onStop · onEvent 중 "
+                    "하나 이상");
+                ok = false;
+            }
+            // client 에는 타이머가 없다 — onEvent 가 받을 것은 구독뿐
+            if (!none(sd.onEvent) && eventsAt == kNoNode) {
+                err("S426", domainAt != kNoNode ? domainAt : init,
+                    "client 시스템의 onEvent 는 events 구독이 있어야 한다 — events: { death: {}, … } (타이머는 "
+                    "서버만)");
                 ok = false;
             }
         } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
@@ -1158,12 +1164,12 @@ private:
             err("S426", intervalAt, "intervalTicks 는 onTick 의 주기다 — onTick 이 없다");
             ok = false;
         }
-        // onEvent 만 있고 events 가 없어도 된다 — 타이머 (ctx.after · every) 의 만기를 받는다 (v0.10 RT-06-10)
-        if (!client && eventsAt != kNoNode && none(sd.onEvent)) {
+        // onEvent 만 있고 events 가 없어도 된다 — 타이머 (ctx.after · every) 의 만기를 받는다 (v0.10 RT-06-10, 서버만)
+        if (eventsAt != kNoNode && none(sd.onEvent)) {
             err("S426", eventsAt, "events 를 받을 onEvent(ctx, e) { … } 가 없다");
             ok = false;
         }
-        if (!client && perTickAt != kNoNode && none(sd.onEvent)) {
+        if (perTickAt != kNoNode && none(sd.onEvent)) {
             err("S426", perTickAt, "eventsPerTick 은 onEvent 의 예산이다 — onEvent 가 없다");
             ok = false;
         }
@@ -1206,6 +1212,13 @@ private:
                 err("S426", p,
                     "timer 는 구독하지 않는다 — ctx.after · every 의 만기는 그 타이머를 만든 시스템의 onEvent 로 온다 "
                     "(docs/19-SANDBOXSCRIPT.md 18장)");
+                ok = false;
+                continue;
+            }
+            if (k->kind == api::GameEventKind::AreaEnter && sd.domain == api::HostDomain::Client) {
+                err("S426", p,
+                    "client 시스템은 areaEnter 를 받지 않는다 — 서버 시스템이 받아 신호 · 컴포넌트로 알린다 (client 는 "
+                    "death · spawn · score · action · signal — ADR-0141)");
                 ok = false;
                 continue;
             }

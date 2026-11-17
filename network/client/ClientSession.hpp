@@ -11,6 +11,7 @@
 //
 // 한 스레드에서 쓴다 (Transport 계약). 시간은 호출자가 준다 (초) — 핸드셰이크 시간 초과에만 쓴다.
 
+#include <deque>
 #include <memory>
 #include <optional>
 #include <span>
@@ -108,6 +109,20 @@ public:
     [[nodiscard]] const std::optional<WorldChanged>& lastWorldChange() const noexcept { return m_lastWorldChange; }
     static constexpr usize kMaxHeldSnapshots = 64;
 
+    // --- 게임 이벤트 (프로토콜 19 — v0.10 RT-06-7 조각 2, ADR-0141) ---
+    struct QueuedGameEvent {
+        u32 generation = 0;
+        u64 tick = 0;
+        sim::ClientGameEvent event;
+    };
+    // 지금 세대의 tick ≤ upToTick 인 것 (받은 차례 — 서버가 돈 틱 차례) 을 꺼낸다. 옛 세대 것은 버린다, 새 세대 것은
+    // WorldChanged 를 기다린다 (채널이 달라 먼저 올 수 있다)
+    [[nodiscard]] std::vector<QueuedGameEvent> takeGameEvents(u64 upToTick);
+    [[nodiscard]] usize queuedGameEvents() const noexcept { return m_gameEvents.size(); }
+    // 버린 수 — 큐 상한 (kMaxQueuedGameEvents — 새 것을 버린다, 24 Q1) + 서버가 틱 상한으로 버린 수
+    [[nodiscard]] u64 droppedGameEvents() const noexcept { return m_droppedGameEvents; }
+    static constexpr usize kMaxQueuedGameEvents = 1024;
+
 private:
     void send(const Message& m);
     void onMessage(Message& m);
@@ -148,6 +163,8 @@ private:
     std::optional<WorldChanged> m_lastWorldChange;
     std::optional<WorldChanged> m_earlyWorldChange; // Welcome 보다 먼저 온 것 (Bulk 채널)
     std::vector<Snapshot> m_heldSnapshots;          // WorldChanged 보다 먼저 온 새 generation 의 것
+    std::deque<QueuedGameEvent> m_gameEvents;       // 받은 차례
+    u64 m_droppedGameEvents = 0;
     std::vector<TransportEvent> m_events;
 };
 

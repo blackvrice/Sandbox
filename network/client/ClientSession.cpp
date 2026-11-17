@@ -190,6 +190,20 @@ void ClientSession::onMessage(Message& m) {
             m_worldOpResults.push_back(std::move(*wr));
             return;
         }
+        if (auto* ge = std::get_if<GameEventsMsg>(&m)) {
+            m_droppedGameEvents += ge->dropped;
+            if (ge->generation < generation()) {
+                return; // 옛 월드 것
+            }
+            for (sim::ClientGameEvent& e : ge->events) {
+                if (m_gameEvents.size() >= kMaxQueuedGameEvents) {
+                    ++m_droppedGameEvents; // 새 것을 버린다 (24 Q1)
+                    continue;
+                }
+                m_gameEvents.push_back({ge->generation, ge->tick, std::move(e)});
+            }
+            return;
+        }
         if (auto* wl = std::get_if<WorldList>(&m)) {
             m_worldList = std::move(*wl);
             ++m_worldListRevision;
@@ -327,6 +341,24 @@ bool ClientSession::requestWorldOp(WorldOpKind op, std::string name, u64 target)
     }
     send(WorldOpRequest{op, std::move(name), target});
     return true;
+}
+
+std::vector<ClientSession::QueuedGameEvent> ClientSession::takeGameEvents(u64 upToTick) {
+    std::vector<QueuedGameEvent> out;
+    const u32 current = generation();
+    while (!m_gameEvents.empty()) {
+        QueuedGameEvent& q = m_gameEvents.front();
+        if (q.generation < current) {
+            m_gameEvents.pop_front(); // 월드가 바뀌었다 — 옛 것
+            continue;
+        }
+        if (q.generation > current || q.tick > upToTick) {
+            break; // 받은 차례 = 틱 차례 — 뒤도 아직이다
+        }
+        out.push_back(std::move(q));
+        m_gameEvents.pop_front();
+    }
+    return out;
 }
 
 std::vector<WorldOpResultMsg> ClientSession::takeWorldOpResults() {

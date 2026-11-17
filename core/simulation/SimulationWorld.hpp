@@ -45,6 +45,7 @@
 #include "core/path/PathfindingService.hpp"
 #include "core/random/RandomService.hpp"
 #include "core/script/ScriptClock.hpp"
+#include "core/simulation/ClientGameEvents.hpp"
 #include "core/simulation/EventStream.hpp"
 #include "core/simulation/Intent.hpp"
 #include "core/simulation/ScriptStructural.hpp"
@@ -55,6 +56,7 @@
 
 namespace sbx::script {
 class ScriptSystemAdapter;
+struct ScriptEventFacts;
 } // namespace sbx::script
 
 namespace sbx::sim {
@@ -113,6 +115,12 @@ public:
     static constexpr usize kMaxPlayerNameBytes = 64;
     [[nodiscard]] const std::map<cmd::ClientId, PlayerRow>& players() const noexcept { return m_players; }
     [[nodiscard]] const EventStream& events() const noexcept { return m_events; }
+    // 이번 틱의 클라이언트 복제 이벤트 (v0.10 RT-06-7 조각 2, ADR-0141) — client 시스템이 구독한 종류만, 17d 에서. 상한
+    // (kMaxClientGameEventsPerTick) 을 넘어 버린 수. 시뮬레이션 상태가 아니다 (세이브 · 해시 밖)
+    [[nodiscard]] const std::vector<ClientGameEvent>& clientEvents() const noexcept { return m_clientEvents; }
+    [[nodiscard]] u32 clientEventsDropped() const noexcept { return m_clientEventsDropped; }
+    // client 시스템이 구독한 종류 (비트 = 1 << GameEventKind) — 0 이면 모으지 않는다
+    [[nodiscard]] u32 clientEventKinds() const noexcept { return m_clientEventKinds; }
 
     [[nodiscard]] Tick currentTick() const noexcept { return m_clock.tick(); }
     // 변경 순번: tick() 호출마다 1 이상 오른다 (일시정지 편집 단계도 — 틱 번호는 그대로인데 값은 바뀌므로).
@@ -260,8 +268,11 @@ private:
     // 단계 0 (v0.2 M4-T2): 트리거 · 스크립트 이벤트가 볼 틱 처음의 상태 — 점수, (영역 진입 · 죽음을 듣는 트리거 ·
     // 스크립트가 있으면) 개체 위치 · 태그. 저장된 상태에서 다시 만들 수 있는 값이라 세이브/로드와 무관하다
     void snapshotForTriggers();
-    void runTriggers(Tick now);                 // 단계 17c
-    void runScriptCallbacks(Tick now);          // 단계 17d (SimulationScripts.cpp)
+    void runTriggers(Tick now);        // 단계 17c
+    void runScriptCallbacks(Tick now); // 단계 17d (SimulationScripts.cpp)
+    // 이 종류의 사실을 17d 가 모으나 — 서버 시스템이나 client 시스템 (복제 — ADR-0141) 이 구독했다
+    [[nodiscard]] bool wantsEvent(u8 kind) const noexcept;
+    void collectClientEvents(const script::ScriptEventFacts& facts); // 17d — client 구독 종류만 (SimulationScripts.cpp)
     [[nodiscard]] bool hasScriptTimers() const; // script.timer 개체가 있다 (v0.10 RT-06-10 — 17d 를 돌린다)
     void ensureScriptState(Tick now);           // 단계 16b 앞 — defineState 의 상태 개체 · 컴포넌트 (ADR-0139)
     // 지금 콘텐츠의 스크립트 바이트코드에 맞춰 어댑터를 만든다 · 다시 만든다 · 없앤다 (생성 · 오버레이가 바뀔 때)
@@ -318,6 +329,10 @@ private:
         i32 value = 0;
     };
     std::vector<ScriptSignal> m_scriptSignals;
+    // 클라이언트 복제 이벤트 (v0.10 RT-06-7 조각 2) — 틱마다 비운다. 구독 종류는 콘텐츠 (syncScriptSystems) 가 정한다
+    u32 m_clientEventKinds = 0;
+    std::vector<ClientGameEvent> m_clientEvents;
+    u32 m_clientEventsDropped = 0;
     std::map<std::pair<cmd::ClientId, std::string>, u32> m_signalCounts;
     cmd::ClientId m_applyingIssuer = cmd::kServerIssuer; // applyCommand 가 적용 중인 명령의 issuer
     std::map<cmd::ClientId, PlayerRow> m_players;        // 플레이어 표 (players())

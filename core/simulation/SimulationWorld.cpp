@@ -126,6 +126,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_results.clear();
     m_scriptActions.clear();
     m_scriptSignals.clear();
+    m_clientEvents.clear();
+    m_clientEventsDropped = 0;
     m_signalCounts.clear();
     m_intents.clear();
     if (run) {
@@ -184,10 +186,14 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     runTriggers(now);
 
     // --- 17d Script callbacks --------------------------------------------------------------------------------
-    // 스크립트 onStart · onEvent · onStop — 그 틱의 죽음 · 생성 · 영역 · 점수 · 세션 전이가 다 끝난 뒤 (ADR-0063)
-    if (m_scriptSystems && (m_scriptSystems->hasCallbacks() || hasScriptTimers())) {
+    // 스크립트 onStart · onEvent · onStop — 그 틱의 죽음 · 생성 · 영역 · 점수 · 세션 전이가 다 끝난 뒤 (ADR-0063).
+    // client 구독이 있으면 서버 콜백이 없어도 사실을 모아 복제 이벤트로 (읽기만 — ADR-0141)
+    const bool serverCallbacks = m_scriptSystems && (m_scriptSystems->hasCallbacks() || hasScriptTimers());
+    if (serverCallbacks || m_clientEventKinds != 0) {
         runScriptCallbacks(now);
-        applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
+        if (serverCallbacks) {
+            applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
+        }
     }
 }
 
@@ -321,6 +327,8 @@ void SimulationWorld::finishRestore(const RestoreState& state) {
     m_results.clear();
     m_scriptActions.clear();
     m_scriptSignals.clear();
+    m_clientEvents.clear();
+    m_clientEventsDropped = 0;
     m_signalCounts.clear();
     m_intents.clear();
     m_spatial.rebuild(m_registry);
@@ -687,7 +695,7 @@ void SimulationWorld::applyCommand(const cmd::SimCommand& command) {
         result.created = std::move(*applied);
         // 스크립트 action 이벤트 (17d) — 구독이 있을 때만 모은다 (없으면 아무것도 바뀌지 않는다)
         if (const auto* pa = std::get_if<cmd::PlayerAction>(&command.payload);
-            pa != nullptr && m_scriptSystems && m_scriptSystems->subscribes(script::api::GameEventKind::Action)) {
+            pa != nullptr && wantsEvent(static_cast<u8>(script::api::GameEventKind::Action))) {
             m_scriptActions.push_back(ScriptAction{pa->action, static_cast<i32>(command.header.issuer), pa->position,
                                                    std::move(m_actionTargets)});
         }
@@ -1093,7 +1101,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPlayerSignal(const cmd:
                          std::format("'{}' 는 한 틱에 {} 번까지 (보낸 쪽 {})", c.name, def->perTick, m_applyingIssuer));
     }
     ++sent;
-    if (m_scriptSystems && m_scriptSystems->subscribes(script::api::GameEventKind::Signal)) {
+    if (wantsEvent(static_cast<u8>(script::api::GameEventKind::Signal))) {
         m_scriptSignals.push_back(ScriptSignal{c.name, static_cast<i32>(m_applyingIssuer), c.value});
     }
     return std::vector<NetEntityId>{};
@@ -1359,6 +1367,21 @@ void SimulationWorld::syncScriptSystems() {
     // 스크립트 오버레이 (v0.3 M5-T2, ADR-0066) 가 팩 바이트코드를 바꿨으면 어댑터를 다시 만든다. 이어진 트랩 · 꺼짐은
     // 옮긴다 — digest 가 같은 팩 (바뀌지 않은 팩) 의 시스템만 되살아난다 (ADR-0064 4 와 같은 규칙)
     const auto& programs = m_content->scriptPrograms();
+    // client 시스템의 구독 종류 (복제 이벤트 — v0.10 RT-06-7 조각 2, ADR-0141). 서버는 client 시스템을 돌리지 않고
+    // 그 구독만 본다 — 같은 콘텐츠라 클라이언트와 같은 표
+    m_clientEventKinds = 0;
+    if (programs) {
+        for (const content::ScriptPackProgram& pp : programs->packs) {
+            for (usize si = 0; si < pp.module.systems.size() && si < pp.events.size(); ++si) {
+                if (pp.module.systems[si].domain != script::api::HostDomain::Client) {
+                    continue;
+                }
+                for (const content::ScriptEventFilter& f : pp.events[si]) {
+                    m_clientEventKinds |= 1u << f.kind;
+                }
+            }
+        }
+    }
     const bool want = programs && programs->systemCount(script::api::HostDomain::Server) > 0;
     if (want && m_scriptSystems && m_scriptSystems->programs() == programs) {
         return;

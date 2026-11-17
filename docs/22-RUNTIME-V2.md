@@ -85,7 +85,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | client | onUpdate | 프레임 — 스냅숏 적용 · 보간 뒤 | ClientContext (= ClientUpdateContext) | 현행 (v0.3 M5-T3) |
 | client | onStart · onStop | 세션 (복제 월드 하나) 의 첫 프레임 — 모든 onUpdate 앞 · 끝 (월드 · 콘텐츠 · 접속이 바뀜 — 월드 없이) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140) |
 | client | onAction | 프레임 — 입력 처리 뒤 (UI 가 먹지 않은 행동만) | ClientActionContext | [계획 v0.10 RT-06-8] (v0.5 M2-T6 ✅ 은 onUpdate 안의 ctx.keyDown · keyPressed · keyReleased 읽기) |
-| client | onEvent | 프레임 — 복제된 서버 이벤트 (소리 · 효과 · 신호 결과) | ClientContext + GameEvent | [계획 v0.10 RT-06-7 조각 2] |
+| client | onEvent | 프레임 — 복제된 서버 이벤트 (death · spawn · score · action · signal — onStart 뒤 · onUpdate 앞) | ClientContext + GameEvent | 현행 — v0.10 RT-06-7 조각 2 (ADR-0141, GameEvents 프로토콜 19) |
 | client | onLateUpdate | 프레임 — 모든 시스템의 onUpdate 뒤 · UI 바인딩 앞 (카메라 · 따라가기) | ClientContext | 현행 — v0.10 RT-06-7 조각 1 (ADR-0140, .sbc 13) |
 | client | onRender | 프레임 — 추출 뒤 · 제출 앞 | ClientRenderContext (Draw 명령만) | [계획 v0.6] |
 | client | onTick | Client 고정 Tick (예측 모델에서만) | ClientTickContext | [계획 v0.7] — 게임이 `network.model = "predicted"` 일 때만 (4장) |
@@ -110,9 +110,9 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 | Random · Time · Log | 결정적 난수 · 틱 시간 · 로그 | random · time · log | server 전부 |
 | InputRead | 행동 상태 · 축 | ✅ v0.5 M2-T6 keyDown · keyPressed · keyReleased · pointerX · pointerY | client onUpdate · onAction · onTick |
 | ClientSend | 서버로 신호 명령 | ✅ v0.5 M2-T6 send | client onUpdate · onAction · onTick (예산 — 틱마다) |
-| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat, NG-06 (2) uiVar · uiVarText | client onUpdate · onLateUpdate · onStart · onStop (v0.10 RT-06-7) · onAction |
+| Ui | UI 값 · 보이기 | ✅ v0.7 M3-T4 setUi · setUiText · showUi, M4-T1 uiText · uiFormat, NG-06 (2) uiVar · uiVarText | client onUpdate · onLateUpdate · onStart · onStop · onEvent (v0.10 RT-06-7) · onAction |
 | Draw | 선 · 원 · 글자 (월드 · 화면) | [계획 v0.6] draw | client onRender 만 |
-| Sound | 소리 이벤트 | ✅ v0.5 M2-T6 playSound | client onUpdate · onEvent · onAction |
+| Sound | 소리 이벤트 | ✅ v0.5 M2-T6 playSound | client onUpdate · onEvent (✅ v0.10) · onAction |
 | NetworkIo | 외부 요청 (허락된 대상만) | [계획 v0.8] fetch · socket | server onTick · onEvent (게임 매니페스트 허락 + 운영 할당) |
 | WorkerTask | 순수 함수 Job 제출 | [검토 v0.9] spawnTask | server onTick |
 
@@ -227,6 +227,7 @@ NetworkModule [계획 v0.8 — 서버만]
   구독 · 해제   defineSystem 의 events (현행) — 실행 중 구독 바꾸기는 없다 (결정적 구독 표)
   순서         Server: (틱, 단계, 종류 차례 (SystemEvents 표), 출처 키 — saveId · 요청 id · 신호 sequence). 같은 키는 넣은 차례
   상한 · 예산   시스템마다 eventsPerTick (현행 ADR-0063), 큐 상한을 넘으면 오래된 것부터가 아니라 **새 것을 버리고 계수** (결정적), 진단
+               ✅ v0.10 RT-06-7 (ADR-0141): 클라이언트 복제 이벤트 — 서버 틱 256 · 클라이언트 큐 1024, 넘으면 새 것을 버리고 센다
   취소         요청 id 의 cancel → 그 결과는 "cancelled" 로 한 번만 온다. 월드 바꾸기 · 로드 = 세대 +1 → 옛 세대 결과 버림
   개체 무효화   결과에 붙은 개체 (saveId + 세대) 가 없어졌으면 결과의 entity = null 로 (트랩이 아니다)
   중복 제거     요청 id 하나에 결과 하나 (재시도는 엔진 안에서 — 스크립트는 한 번만 받는다)
@@ -258,7 +259,7 @@ NetworkModule [계획 v0.8 — 서버만]
             이미 맞다)
 시스템 상태  ✅ v0.10 RT-06-10 조각 2 (ADR-0139): defineState({ id, fields }) → 상태 개체 (엔진 컴포넌트 script.state — 월드에 하나, 엔진이
             16b 앞에서 만든다) 의 스크립트 컴포넌트, ctx.state(s) 로 읽고 ctx.setState(s, 값) 으로 쓴다 (호출 끝 적용). 처음 안의
-            "세션 개체" 는 바꿨다 (세션 없는 월드 — ADR-0139). 클라이언트에서 읽기는 [계획 — RT-06-7 뒤]
+            "세션 개체" 는 바꿨다 (세션 없는 월드 — ADR-0139). 클라이언트에서 읽기 (client.state) 는 [계획] (상태 개체는 서버만 — 복제하려면 ServerOnly 를 풀어야 한다)
 플레이어 상태 ✅ M2-T5 플레이어 표 (시뮬레이션 안 · ECS · 세이브 · 해시 밖 — ADR-0093, ctx.playerCount · playerId · playerRole),
             게임 값 저장은 [계획 v0.16 PS-14-5] 플레이어 데이터
 개체 상태    컴포넌트 (현행)

@@ -321,41 +321,55 @@ private:
             if (!validUtf8(s.module)) {
                 fail(std::format("시스템 {}: 모듈 경로가 UTF-8 이 아니다", i));
             }
-            if (s.domain == api::HostDomain::Client) {
-                // client 시스템 = 프레임 콜백 onUpdate · onLateUpdate + 수명주기 onStart · onStop (ADR-0067 · 0140) —
-                // 틱 · 이벤트 콜백 · 구독이 없다
-                if (s.onTick != api::kNoCallback || s.onEvent != api::kNoCallback || s.onMigrate != api::kNoCallback ||
-                    s.intervalTicks != 1 || s.eventsPerTick != 0 || !s.events.empty()) {
-                    fail(std::format("시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop 만 둔다",
-                                     s.id));
+            const bool client = s.domain == api::HostDomain::Client;
+            if (client) {
+                // client 시스템 = 프레임 콜백 onUpdate · onLateUpdate + 수명주기 onStart · onStop + 복제 이벤트 onEvent
+                // (ADR-0067 · 0140 · 0141) — 틱 콜백 · 주기 · 타이머가 없다, 구독은 death · spawn · score · action ·
+                // signal
+                if (s.onTick != api::kNoCallback || s.onMigrate != api::kNoCallback || s.intervalTicks != 1) {
+                    fail(std::format(
+                        "시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop · onEvent 만 둔다",
+                        s.id));
                 }
                 if (s.onUpdate == api::kNoCallback && s.onLateUpdate == api::kNoCallback &&
-                    s.onStart == api::kNoCallback && s.onStop == api::kNoCallback) {
+                    s.onStart == api::kNoCallback && s.onStop == api::kNoCallback && s.onEvent == api::kNoCallback) {
                     fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
+                }
+                if (s.onEvent != api::kNoCallback && s.events.empty()) {
+                    fail(std::format("시스템 {}: client 의 onEvent 에 구독이 없다", s.id));
+                }
+                for (const EventSubscription& e : s.events) {
+                    if (e.kind == static_cast<u8>(api::GameEventKind::AreaEnter) ||
+                        e.kind == static_cast<u8>(api::GameEventKind::Timer)) {
+                        fail(std::format("시스템 {}: client 시스템은 구독 종류 {} 를 받지 않는다", s.id, e.kind));
+                    }
                 }
                 callback(s, "onUpdate", s.onUpdate, false, api::AbiType::ClientContext);
                 callback(s, "onLateUpdate", s.onLateUpdate, false, api::AbiType::ClientContext);
                 callback(s, "onStart", s.onStart, false, api::AbiType::ClientContext);
                 callback(s, "onStop", s.onStop, false, api::AbiType::ClientContext);
-                continue;
+                callback(s, "onEvent", s.onEvent, true, api::AbiType::ClientContext);
+            } else {
+                if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
+                    s.onLateUpdate != api::kNoCallback) {
+                    fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate 는 client 시스템에만)",
+                                     s.id));
+                }
+                if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
+                    s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {
+                    fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
+                }
+                const u32 maxInterval = s.onTick == api::kNoCallback ? 1 : kMaxIntervalTicks;
+                if (s.intervalTicks < 1 || s.intervalTicks > maxInterval) {
+                    fail(std::format("시스템 {}: intervalTicks {} 는 1 ~ {} 밖이다", s.id, s.intervalTicks,
+                                     maxInterval));
+                }
+                callback(s, "onTick", s.onTick, false);
+                callback(s, "onStart", s.onStart, false);
+                callback(s, "onStop", s.onStop, false);
+                callback(s, "onMigrate", s.onMigrate, false);
+                callback(s, "onEvent", s.onEvent, true);
             }
-            if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
-                s.onLateUpdate != api::kNoCallback) {
-                fail(std::format("시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate 는 client 시스템에만)", s.id));
-            }
-            if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
-                s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {
-                fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
-            }
-            const u32 maxInterval = s.onTick == api::kNoCallback ? 1 : kMaxIntervalTicks;
-            if (s.intervalTicks < 1 || s.intervalTicks > maxInterval) {
-                fail(std::format("시스템 {}: intervalTicks {} 는 1 ~ {} 밖이다", s.id, s.intervalTicks, maxInterval));
-            }
-            callback(s, "onTick", s.onTick, false);
-            callback(s, "onStart", s.onStart, false);
-            callback(s, "onStop", s.onStop, false);
-            callback(s, "onMigrate", s.onMigrate, false);
-            callback(s, "onEvent", s.onEvent, true);
             const bool events = s.onEvent != api::kNoCallback;
             if (!events && !s.events.empty()) { // onEvent 만 (구독 없음) 은 된다 — 타이머 (v0.10 RT-06-10)
                 fail(std::format("시스템 {}: 구독이 있는데 onEvent 가 없다", s.id));
@@ -449,9 +463,10 @@ private:
             ok = isGameEvent(f.params[1]);
         }
         if (!ok) {
+            const bool clientCtx = ctx == api::AbiType::ClientContext;
             fail(std::format("시스템 {}: {} 의 서명은 {} → void 다", s.id, name,
-                             event ? "(ServerContext, GameEvent)"
-                                   : (ctx == api::AbiType::ClientContext ? "(ClientContext)" : "(ServerContext)")));
+                             event ? (clientCtx ? "(ClientContext, GameEvent)" : "(ServerContext, GameEvent)")
+                                   : (clientCtx ? "(ClientContext)" : "(ServerContext)")));
         }
     }
 

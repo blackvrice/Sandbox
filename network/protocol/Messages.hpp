@@ -20,6 +20,7 @@
 
 #include "core/command/SimCommand.hpp"
 #include "core/project/GameProject.hpp"
+#include "core/simulation/ClientGameEvents.hpp"
 #include "network/transport/Transport.hpp"
 
 namespace sbx::net {
@@ -35,8 +36,9 @@ namespace sbx::net {
 // 시스템 표 (프로파일 — 시스템마다 최근 창의 호출 · 연료 · 시간, 누적 트랩 · 예산 · 최대) — v0.3 M5-T4 15: 명령
 // PlayerSignal (팩 signals.json 의 이름 · i32 값 — 역할 player 부터) — v0.5 M2-T5 (3) 16: 표시 digest (Auth · Welcome)
 // — v0.6 NG-14 17: 리플레이 탐색 — WorldOp Seek (10) · WorldOp 의 target varint (재생 call) — v0.8 M5-T2 18:
-// ServerStats 의 스크립트 함수 표 (자기 연료 상위 — 자리 · 호출 · 연료 누적, 합) — v0.9 M6-T4
-inline constexpr u32 kProtocolVersion = 18;
+// ServerStats 의 스크립트 함수 표 (자기 연료 상위 — 자리 · 호출 · 연료 누적, 합) — v0.9 M6-T4 19: GameEvents (32 —
+// client 시스템이 구독한 게임 이벤트, 틱마다) — v0.10 RT-06-7 조각 2 (ADR-0141)
+inline constexpr u32 kProtocolVersion = 19;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -66,7 +68,7 @@ inline constexpr usize kMaxSaveNameBytes = 48;      // 세이브 · 리플레이
 inline constexpr usize kMaxSavedWorlds = 256;       // WorldList
 inline constexpr usize kMaxScriptStatRows =
     64; // ServerStats.scripts (넘는 시스템은 scriptsOmitted 로 센다 — 프로토콜 14)
-inline constexpr usize kMaxScriptIdBytes = 128; // 그 시스템 id
+inline constexpr usize kMaxScriptIdBytes = 128;     // 그 시스템 id
 inline constexpr usize kMaxScriptFunctionRows = 16; // ServerStats.scriptFunctions (프로토콜 18)
 inline constexpr usize kMaxScriptSiteBytes = 192;   // 그 자리 ("<팩>/scripts/a.ts:12:5 (onTick)")
 
@@ -82,6 +84,7 @@ enum class MessageId : u8 {
     CommandResult = 21,
     Snapshot = 30,
     SnapshotAck = 31,
+    GameEvents = 32, // 프로토콜 19 (v0.10 RT-06-7 조각 2)
     TerrainChunk = 40,
     EntityBaseline = 41, // [계획 — Snapshot(epoch) 이 대신한다]
     ContentOverlay = 42, // 12C
@@ -394,6 +397,16 @@ struct SavedWorld {
 struct WorldList {
     std::vector<SavedWorld> worlds; // 이름 순, ≤ kMaxSavedWorlds
 };
+// 게임 이벤트 (프로토콜 19 — v0.10 RT-06-7 조각 2, ADR-0141): 한 틱에 일어난 것 중 client 시스템이 구독한 종류. 서버가
+// 그 틱을 돈 뒤 모두에게 (Control — 믿을 수 있는 차례). 받는 쪽은 그 세대의 복제 월드가 tick 에 닿은 프레임에 onEvent
+inline constexpr usize kMaxGameEventNameBytes = 64; // action · signal id
+struct GameEventsMsg {
+    u32 generation = 0; // 이 이벤트의 서버 월드 (다른 세대 것은 버린다)
+    u64 tick = 0;
+    u32 dropped = 0;                          // 틱 상한 (sim::kMaxClientGameEventsPerTick) 으로 서버가 버린 수
+    std::vector<sim::ClientGameEvent> events; // ≤ sim::kMaxClientGameEventsPerTick
+};
+
 // Restart: 프로토콜 9, TestPlay · TestStop: 프로토콜 12
 enum class WorldChangeReason : u8 { Load = 1, Replay = 2, Restart = 3, TestPlay = 4, TestStop = 5 };
 struct WorldChanged {
@@ -406,7 +419,7 @@ struct WorldChanged {
 using Message = std::variant<Hello, Challenge, Auth, Welcome, Reject, CommandMsg, CommandResultMsg, ServerStats,
                              DisconnectMsg, Snapshot, SnapshotAck, TerrainChunk, InspectRequest, InspectResult,
                              Subscribe, PlayerList, SetRoleRequest, SetRoleResultMsg, ContentOverlayMsg, WorldOpRequest,
-                             WorldOpResultMsg, WorldList, WorldChanged>;
+                             WorldOpResultMsg, WorldList, WorldChanged, GameEventsMsg>;
 
 [[nodiscard]] MessageId messageId(const Message& m) noexcept;
 [[nodiscard]] std::string_view messageName(MessageId id) noexcept;

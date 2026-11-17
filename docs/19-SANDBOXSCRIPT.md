@@ -812,8 +812,8 @@ export default defineSystem({
 
 ```text
 정의       client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop ((ClientContext?) → void — 하나 이상, 수명주기는 21.2 —
-           v0.10 RT-06-7). intervalTicks · events · eventsPerTick · onTick (예약 v0.7) · onEvent (예약 — RT-06-7 조각 2) · onMigrate 는 S426
-           (서버의 것), server 시스템의 onUpdate · onLateUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
+           v0.10 RT-06-7), onEvent + events (21.3 — 조각 2). intervalTicks · onTick (예약 v0.7) · onMigrate 는 S426 (서버의 것), events 의
+           areaEnter · timer 도 S426, server 시스템의 onUpdate · onLateUpdate 도 S426, domain 은 문자열 리터럴 (상수 이름은 S426).
            id 는 도메인과 무관하게 팩들 사이에 하나 (V1). .sbc 형식 5 의 시스템 표에 도메인 · onUpdate (12장), 형식 13 에 onLateUpdate —
            검증기가 같은 규칙
 ctx        ClientContext — 서버 항목을 부를 수 없다 (ctx.write · ctx.log 없음 — 주인 타입이 다르다):
@@ -892,7 +892,34 @@ Capability onStart · onStop · onLateUpdate = 읽기 (read · has · query) · 
            몸에서 바로 부르면 S404, 도우미 함수 안이면 실행 검사가 HostError (트랩 — 그 호출의 표시 · UI 를 버린다)
 예산       같은 프레임 연료 (모든 콜백 합 kFrameFuel) · 호출 연료 · 트랩 정책 (콜백을 가리지 않고 이어진 트랩 3 번 = 끔 — 꺼진 시스템은
            onStop 도 없다). 통계 (호출 · 연료) 는 콜백의 합
-[계획]     client onEvent (복제된 서버 이벤트 — 프레임마다 큐 상한, 24 Q1) — RT-06-7 조각 2
+onEvent    ✅ 조각 2 — 21.3 (복제된 서버 이벤트, ADR-0141)
+```
+
+### 21.3 onEvent — 복제된 서버 이벤트 (v0.10 RT-06-7 조각 2 — `core/simulation/ClientGameEvents.hpp`, GameEvents 프로토콜 19, [ADR-0141](adr/0141-client-onevent-replicated-game-events-protocol-19.md))
+
+```ts
+export default defineSystem({
+  id: "rpg.fx",
+  domain: "client",
+  events: { death: { tags: { any: ["monster"] } }, score: {} },
+  eventsPerTick: 32,                                   // client 는 프레임마다
+  onEvent(ctx, e) {
+    if (e.kind === GameEventKind.Death) ctx.playSound("rpg.poof");
+    if (e.kind === GameEventKind.Score) ctx.setUi(`rpg.score${e.team}`, e.value);
+  },
+});
+```
+
+```text
+종류       death · spawn · score · action · signal — GameEvent 칸은 서버 onEvent 와 같다 (18장). entity = spawn 의 개체 (그 프레임의 복제
+           월드에 있으면 — 없으면 null), targets = action 대상 중 복제 월드에 있는 것. areaEnter 는 S426 (서버가 판정해 신호 · 컴포넌트로),
+           timer 는 서버만 (client 의 onEvent 는 구독이 있어야 한다 — 없으면 S426)
+흐름       서버 17d 가 client 구독 종류의 그 틱 사실을 모은다 (해시 · 세이브 밖, 틱 256 — 넘으면 새 것 버림) → GameEvents (08 5장) → 클라이언트
+           큐 (1024) → 복제 월드가 그 틱에 닿은 프레임 → onEvent. 태그 거르기 · 예산은 클라이언트
+차례       (첫 프레임이면 onStart) → onEvent (시스템 → 구독 종류 → 받은 차례 = 틱 차례) → onUpdate → onLateUpdate
+예산       시스템마다 프레임에 eventsPerTick (기본 256) · 모두 4096 — 넘으면 건너뛰고 센다. 프레임 연료 · 트랩 정책은 다른 콜백과 같다
+Capability 읽기 · 시간 · 표시 · UI · 소리 — send · 입력은 onUpdate
+[계획]     관심 영역으로 거르기 (먼 곳의 이벤트 — 정보 노출), 스크립트가 보내는 사용자 이벤트
 ```
 
 ## 22. 스크립트 프로파일 (v0.3 M5-T4 — `core/script/ScriptClock`, ServerStats, `apps/client/ui/ScriptPanel`, ADR-0068)
@@ -1076,9 +1103,9 @@ Capability onStart · onStop · onLateUpdate = 읽기 (read · has · query) · 
 
 ```text
 지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다. client onStart · onLateUpdate ·
-              onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다)
+              onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다) · client onEvent ✅ 조각 2 (21.3, ADR-0141)
 ✅ v0.5 M2-T7 계약 — script/api/Callbacks kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability). 예약 (Planned):
-              server onPrePhysics (v0.6), client onAction · onEvent · onRender (v0.6) · onTick (v0.7) —
+              server onPrePhysics (v0.6), client onAction · onRender (v0.6) · onTick (v0.7) —
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
               "두지 않는다" (onTick 이 물리 뒤). Host 표 capability 열 (HostCapability — EcsRead · EcsWrite · Structural · Random · Time · Log ·
               Display, 예약: PhysicsCommand · InputRead · ClientSend · Ui · Draw · Sound · NetworkIo · WorkerTask) — 정규 서명 · 지문에 든다
@@ -1086,7 +1113,7 @@ Capability onStart · onStop · onLateUpdate = 읽기 (read · has · query) · 
               밖이면 HostError (v0.10 전의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 새 콜백부터). 검사기 겹 ✅ v0.10 RT-06-7:
               콜백 메서드 몸에서 ctx 로 바로 부른 함수가 허락 밖이면 S404 (도우미 함수는 실행 검사만). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
-[계획 v0.6]   server onPrePhysics (8b) · client onEvent (RT-06-7 조각 2) · onAction · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
+[계획 v0.6]   server onPrePhysics (8b) · client onAction · onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
               onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
               (ctx.state · setState, ADR-0139 — 16.2)

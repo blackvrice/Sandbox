@@ -136,9 +136,10 @@ TEST_SUITE("script") {
         CHECK(has(check("export default defineSystem({ id: \"a.b\", onLateUpdate(ctx) { } })\n"), "S426",
                   "onLateUpdate 는 domain: \"client\" 시스템의 콜백이다"));
         CHECK(has(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onMigrate(ctx) { } })\n"),
-                  "S426", "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop 이다"));
+                  "S426", "client 시스템의 콜백은 onUpdate · onLateUpdate · onStart · onStop · onEvent 이다"));
+        // client onEvent 는 구독이 있어야 한다 (조각 2 — 타이머는 서버만)
         CHECK(has(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onEvent(ctx, e) { } })\n"),
-                  "S426", "[계획 v0.6]")); // client onEvent 는 조각 2
+                  "S426", "client 시스템의 onEvent 는 events 구독이 있어야 한다"));
         // 서버 콜백은 Capability 가 그대로 (모든 서버 함수)
         CHECK(check("export default defineSystem({ id: \"a.b\", onStart(ctx) { ctx.log(`${ctx.tick}`) }, onStop(ctx) { "
                     "ctx.log(\"x\") } })\n")

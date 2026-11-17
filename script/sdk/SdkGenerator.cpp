@@ -366,6 +366,13 @@ std::string generateSandboxDts() {
     out += "    onUpdate?(ctx: ClientContext): void;\n";
     out += "    /** 프레임마다 — 모든 시스템의 onUpdate 뒤 (카메라 · 따라가기 · UI 값) */\n";
     out += "    onLateUpdate?(ctx: ClientContext): void;\n";
+    out += "    /** 복제된 서버 이벤트 — death · spawn · score · action · signal (areaEnter · timer 는 서버만) */\n";
+    out += "    events?: SystemEvents;\n";
+    out += "    /** 한 프레임에 받는 onEvent 수 (1 ~ 4096, 기본 256 — 넘으면 건너뛴다) */\n";
+    out += "    eventsPerTick?: i32;\n";
+    out += "    /** 프레임마다 — 복제 월드가 그 틱에 닿은 이벤트, onStart 뒤 · onUpdate 앞 (구독 종류 차례 → 틱 차례) "
+           "*/\n";
+    out += "    onEvent?(ctx: ClientContext, e: GameEvent): void;\n";
     out +=
         "    /** 세션 끝 — 서버 월드가 바뀌거나 (불러오기 · 재시작 · 다시 접속) 콘텐츠 · 접속이 끝날 때. 복제 월드는 "
         "이미 없다 (질의는 빈 목록) */\n";

@@ -44,11 +44,11 @@ void SimulationWorld::snapshotForTriggers() {
     const auto triggers = m_content->triggers();
     // 트리거는 세션 있는 월드에서만, 스크립트 이벤트 (death · areaEnter · score — ADR-0063) 는 세션과 무관하게
     const bool forTriggers = !triggers.empty() && game::findSession(m_registry) != nullptr;
+    // 서버 시스템 · client 시스템 (복제 — ADR-0141) 의 구독
     using script::api::GameEventKind;
-    const script::ScriptSystemAdapter* scripts = m_scriptSystems.get();
-    const bool scriptEntities = scripts != nullptr && (scripts->subscribes(GameEventKind::Death) ||
-                                                       scripts->subscribes(GameEventKind::AreaEnter));
-    const bool forScripts = scriptEntities || (scripts != nullptr && scripts->subscribes(GameEventKind::Score));
+    const bool scriptEntities =
+        wantsEvent(static_cast<u8>(GameEventKind::Death)) || wantsEvent(static_cast<u8>(GameEventKind::AreaEnter));
+    const bool forScripts = scriptEntities || wantsEvent(static_cast<u8>(GameEventKind::Score));
     if (!forTriggers && !forScripts) {
         return; // 기존 월드 · 골든 그대로
     }

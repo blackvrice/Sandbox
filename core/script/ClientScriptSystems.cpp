@@ -17,12 +17,14 @@ ClientScriptSystems::ClientScriptSystems(std::shared_ptr<const content::ScriptPr
         const bc::Module& module = m_programs->packs[pi].module;
         bool any = false;
         // 모듈의 시스템 표는 id 오름차순 (검증기가 본다) — 팩 순서로 이으면 실행 순서다
-        for (const bc::SystemDesc& s : module.systems) {
+        for (usize si = 0; si < module.systems.size(); ++si) {
+            const bc::SystemDesc& s = module.systems[si];
             if (s.domain != api::HostDomain::Client) {
                 continue; // server 시스템은 서버 시뮬레이션이 돌린다 (ScriptSystemAdapter)
             }
             Entry e;
             e.pack = static_cast<u32>(pi);
+            e.index = static_cast<u32>(si);
             e.desc = &s;
             m_systems.push_back(std::move(e));
             any = true;
@@ -33,7 +35,7 @@ ClientScriptSystems::ClientScriptSystems(std::shared_ptr<const content::ScriptPr
 
 ClientScriptSystems::~ClientScriptSystems() = default;
 
-void ClientScriptSystems::run(ClientScriptFrame frame) {
+void ClientScriptSystems::run(ClientScriptFrame frame, std::span<const ClientScriptEvent> events) {
     m_last = {};
     m_frameFuelLeft = kFrameFuel;
     frame.frame = ++m_frames;
@@ -51,6 +53,7 @@ void ClientScriptSystems::run(ClientScriptFrame frame) {
             invoke(s, Callback::Start);
         }
     }
+    deliverEvents(events); // 복제 이벤트 — onStart 뒤 · onUpdate 앞 (onUpdate 가 이벤트의 결과를 본다)
     for (Entry& s : m_systems) {
         invoke(s, Callback::Update);
     }
@@ -75,13 +78,50 @@ void ClientScriptSystems::stop(ClientScriptFrame frame) {
     }
 }
 
-void ClientScriptSystems::invoke(Entry& s, Callback which) {
+void ClientScriptSystems::deliverEvents(std::span<const ClientScriptEvent> events) {
+    if (events.empty()) {
+        return;
+    }
+    u32 total = 0;
+    for (Entry& s : m_systems) {
+        if (s.desc->onEvent == api::kNoCallback) {
+            continue;
+        }
+        u32 mine = 0;
+        const auto& filters = m_programs->packs[s.pack].events;
+        if (s.index >= filters.size()) {
+            continue;
+        }
+        // 구독 종류 차례 (검사기가 종류 차례로 적는다) → 받은 차례
+        for (const content::ScriptEventFilter& f : filters[s.index]) {
+            for (const ClientScriptEvent& e : events) {
+                if (e.kind != f.kind || !f.tags.matches(e.tags)) {
+                    continue;
+                }
+                if (s.disabled) {
+                    break;
+                }
+                if (mine >= s.desc->eventsPerTick || total >= api::kMaxEventsPerTick) {
+                    ++s.counters.cut;
+                    ++m_last.cut;
+                    continue;
+                }
+                ++mine;
+                ++total;
+                invoke(s, Callback::Event, &e);
+            }
+        }
+    }
+}
+
+void ClientScriptSystems::invoke(Entry& s, Callback which, const ClientScriptEvent* ev) {
     if (s.disabled) {
         return;
     }
     const u32 fn = which == Callback::Start        ? s.desc->onStart
                    : which == Callback::Update     ? s.desc->onUpdate
                    : which == Callback::LateUpdate ? s.desc->onLateUpdate
+                   : which == Callback::Event      ? s.desc->onEvent
                                                    : s.desc->onStop;
     if (fn == api::kNoCallback) {
         return;
@@ -89,6 +129,7 @@ void ClientScriptSystems::invoke(Entry& s, Callback which) {
     const std::string_view callback = which == Callback::Start        ? "onStart"
                                       : which == Callback::Update     ? "onUpdate"
                                       : which == Callback::LateUpdate ? "onLateUpdate"
+                                      : which == Callback::Event      ? "onEvent"
                                                                       : "onStop";
     if (m_frameFuelLeft == 0) {
         ++s.counters.cut;
@@ -103,9 +144,62 @@ void ClientScriptSystems::invoke(Entry& s, Callback which) {
     lim.fuel = limit;
     vmi.setLimits(lim);
     const u64 t0 = m_clock != nullptr ? m_clock() : 0;
-    const vm::Value ctx = m_host.beginCall(s.desc->id, callback); // 호출 토큰 (RT-06-1) — 콜백의 허락 Capability
-    // (ctx) 나 () — 검증기가 서명을 보았다
-    const vm::CallResult r = vmi.call(fn, std::span(&ctx, f.params.size()));
+    const vm::Value args[2] = {m_host.beginCall(s.desc->id, callback), // 호출 토큰 (RT-06-1) — 콜백의 허락 Capability
+                               vm::Value::null()};
+    vm::CallResult r;
+    if (ev != nullptr && f.params.size() == 2) {
+        // GameEvent 의 칸 — 필드 이름 순 (api::kGameEventFields — 서버 ScriptSystemAdapter 와 같은 배치)
+        m_fields.clear();
+        m_texts.clear();
+        const auto text = [&](bool has) {
+            m_texts.push_back(has ? ev->name : std::string());
+            return vm::Value::i32v(static_cast<i32>(m_texts.size() - 1));
+        };
+        using api::GameEventKind;
+        for (const api::GameEventFieldInfo& field : api::kGameEventFields) {
+            const std::string_view n = field.name;
+            if (n == "action") {
+                m_fields.push_back(text(ev->kind == static_cast<u8>(GameEventKind::Action)));
+            } else if (n == "signal") {
+                m_fields.push_back(text(ev->kind == static_cast<u8>(GameEventKind::Signal)));
+            } else if (n == "key") {
+                m_fields.push_back(text(false)); // 타이머는 서버만
+            } else if (n == "targets") {
+                std::vector<ecs::EntityId> alive;
+                for (const ecs::EntityId t : ev->targets) {
+                    if (t.valid() && m_host.frame().registry != nullptr && m_host.frame().registry->alive(t)) {
+                        alive.push_back(t);
+                    }
+                }
+                m_fields.push_back(vm::Value::i32v(static_cast<i32>(alive.size())));
+                for (const ecs::EntityId t : alive) {
+                    m_fields.push_back(m_host.entityHandle(t));
+                }
+            } else if (n == "entity") {
+                const bool alive = ev->entity.valid() && m_host.frame().registry != nullptr &&
+                                   m_host.frame().registry->alive(ev->entity);
+                m_fields.push_back(alive ? m_host.entityHandle(ev->entity) : vm::Value::null());
+            } else if (n == "kind") {
+                m_fields.push_back(vm::Value::i32v(ev->kind));
+            } else if (n == "player") {
+                m_fields.push_back(vm::Value::i32v(ev->player));
+            } else if (n == "previous") {
+                m_fields.push_back(vm::Value::i32v(ev->previous));
+            } else if (n == "team") {
+                m_fields.push_back(vm::Value::i32v(ev->team));
+            } else if (n == "value") {
+                m_fields.push_back(vm::Value::i32v(ev->value));
+            } else if (n == "x") {
+                m_fields.push_back(vm::Value::f64v(ev->pos.x));
+            } else {
+                m_fields.push_back(vm::Value::f64v(ev->pos.y));
+            }
+        }
+        r = vmi.call(fn, std::span(args, 2), m_fields, m_texts);
+    } else {
+        // (ctx) 나 () — 검증기가 서명을 보았다
+        r = vmi.call(fn, std::span(args, f.params.size()));
+    }
     m_host.endCall(r.ok());
     if (m_clock != nullptr) {
         const u64 ns = m_clock() - t0;

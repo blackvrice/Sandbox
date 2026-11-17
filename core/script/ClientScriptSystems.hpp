@@ -3,8 +3,11 @@
 //
 // 콘텐츠의 팩 바이트코드 (content::ScriptPrograms) 에서 client 시스템 (domain: "client") 만 — 팩마다 인터프리터 하나,
 // Host (ClientScriptHost) 는 하나. run 이 프레임마다 (팩 순서, 시스템 id) 차례로 부른다 (v0.10 RT-06-7, ADR-0140):
-//   세션의 첫 run   모든 시스템의 onStart → (그 프레임의) onUpdate → onLateUpdate
-//   그 뒤 run      모든 시스템의 onUpdate → 모든 시스템의 onLateUpdate
+//   세션의 첫 run   모든 시스템의 onStart → onEvent → (그 프레임의) onUpdate → onLateUpdate
+//   그 뒤 run      (이벤트가 있으면 onEvent) → 모든 시스템의 onUpdate → 모든 시스템의 onLateUpdate
+//   onEvent       복제된 서버 이벤트 (v0.10 RT-06-7 조각 2, ADR-0141) — 시스템 차례 → 구독 종류 차례 → 받은 차례 (틱
+//   차례),
+//                 시스템마다 프레임에 eventsPerTick 개 · 모두 api::kMaxEventsPerTick (넘으면 건너뛰고 센다 — cut)
 //   stop          모든 시스템의 onStop (시작한 세션만 — 한 번). 다음 run 이 새 세션을 연다 (onStart 다시)
 // 세션 = 복제 월드 하나 (앱이 정한다 — NetworkSession: 월드가 바뀜 · 콘텐츠가 바뀜 · 접속 끝에 stop). 꺼진 시스템은
 // 어느 콜백도 부르지 않는다. 예산: 호출마다 연료 min(kCallFuel, 프레임에 남은 연료), 프레임 연료 kFrameFuel — 다 쓰면
@@ -43,8 +46,9 @@ public:
     ClientScriptSystems& operator=(const ClientScriptSystems&) = delete;
     ~ClientScriptSystems();
 
-    // 프레임 하나 — frame.frame 은 여기서 센다 (넘긴 값은 쓰지 않는다). 표시는 host().labels() · lines()
-    void run(ClientScriptFrame frame);
+    // 프레임 하나 — frame.frame 은 여기서 센다 (넘긴 값은 쓰지 않는다). 표시는 host().labels() · lines(). events = 이
+    // 프레임에 닿은 복제 이벤트 (받은 차례)
+    void run(ClientScriptFrame frame, std::span<const ClientScriptEvent> events = {});
     // 세션 끝 — 시작한 세션이면 onStop 을 부른다 (아니면 아무것도 하지 않는다). frame.registry 는 null 이어도 된다
     // (월드가 이미 없다 — 질의는 빈 목록). frame.frame 은 마지막 프레임 번호, 연료는 프레임 하나 몫
     void stop(ClientScriptFrame frame);
@@ -74,6 +78,7 @@ public:
 private:
     struct Entry {
         u32 pack = 0;
+        u32 index = 0; // 팩 모듈의 시스템 자리 (구독 표 — ScriptPackProgram::events)
         const bc::SystemDesc* desc = nullptr;
         u32 consecutive = 0; // 이어진 트랩
         bool disabled = false;
@@ -81,8 +86,9 @@ private:
         u64 lastFuel = 0;
         u64 lastNanos = 0;
     };
-    enum class Callback : u8 { Start, Update, LateUpdate, Stop };
-    void invoke(Entry& s, Callback which);
+    enum class Callback : u8 { Start, Update, LateUpdate, Stop, Event };
+    void invoke(Entry& s, Callback which, const ClientScriptEvent* ev = nullptr);
+    void deliverEvents(std::span<const ClientScriptEvent> events);
 
     std::shared_ptr<const content::ScriptPrograms> m_programs;
     ScriptClock m_clock = nullptr;
@@ -95,6 +101,8 @@ private:
     bool m_started = false;
     bool m_budgetLogged = false;
     ClientScriptStats m_last;
+    std::vector<vm::Value> m_fields; // onEvent 의 GameEvent 칸 (호출마다 다시)
+    std::vector<std::string> m_texts;
 };
 
 // 시스템마다 한 줄 — "클라이언트 스크립트 rpg.hud.names: 호출 10 · 트랩 0 · 예산 0 · 건너뜀 0 · 연료 합 1234 · 최대

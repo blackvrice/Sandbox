@@ -52,6 +52,7 @@ add_executable(SandboxTests
     unit/script/test_script_budget.cpp
     unit/script/test_client_scripts.cpp
     unit/script/test_client_lifecycle.cpp
+    unit/script/test_client_events.cpp
     unit/script/test_script_protection.cpp
     unit/ecs/test_entity_manager.cpp
     unit/ecs/test_component.cpp
@@ -176,6 +177,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_editor_session.cpp
         unit/client/test_roles_content.cpp
         unit/client/test_client_script_session.cpp
+        unit/client/test_client_event_session.cpp
         unit/client/test_world_panel.cpp
         unit/client/test_game_panel.cpp
         unit/client/test_action_panel.cpp
