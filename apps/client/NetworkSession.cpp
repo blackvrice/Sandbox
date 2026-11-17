@@ -80,6 +80,7 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         if (pm.packs > 0) {
             log::info("client", "팩 머티리얼 {} 개 (팩 {} 개 — presentation/materials.json)", pm.materials, pm.packs);
         }
+        s->loadSounds(s->m_local->content(), s->m_local->projectDir()); // 팩 소리 (v0.11 NG-17)
     } else {
         auto target = net::parseEndpoint(desc.connect, kDefaultPort);
         if (!target) {
@@ -99,8 +100,25 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
 NetworkSession::NetworkSession(const NetworkSessionDesc& desc, render::MaterialLibrary& materials)
     : m_desc(desc), m_extraction(materials) {}
 
+void NetworkSession::loadSounds(const content::ContentDatabase& content, const std::filesystem::path& projectDir) {
+    if (m_desc.audio == nullptr) {
+        return;
+    }
+    m_sounds.clear(*m_desc.audio);
+    const PackSoundsResult r = loadPackSounds(m_sounds, *m_desc.audio, content, projectDir);
+    for (const std::string& w : r.warnings) {
+        log::warn("client", "소리: {}", w);
+    }
+    if (r.packs > 0) {
+        log::info("client", "팩 소리 {} 개 (팩 {} 개 — presentation/sounds.json)", r.sounds, r.packs);
+    }
+}
+
 NetworkSession::~NetworkSession() {
     stopClientScripts(m_session ? m_session->world() : nullptr); // 스크립트 세션 끝 (RT-06-7)
+    if (m_desc.audio != nullptr) {
+        m_sounds.clear(*m_desc.audio); // 올린 소리를 내린다 (백엔드는 세션보다 오래 산다)
+    }
     if (m_session) {
         m_session->disconnect();
     }
@@ -756,6 +774,9 @@ void NetworkSession::drainClientScriptOutputs() {
     for (const script::ClientScriptSound& s : m_clientScripts->host().sounds()) {
         if (m_scriptSounds.size() < 256) {
             m_scriptSounds.push_back(s.id);
+        }
+        if (m_desc.audio != nullptr) { // 팩 sounds.json 의 소리를 재생 (v0.11 NG-17 — 모르는 id 는 센다)
+            playScriptSounds(m_sounds, *m_desc.audio, std::span(&s.id, 1), m_soundStats);
         }
     }
 }

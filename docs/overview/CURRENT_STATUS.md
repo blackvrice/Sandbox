@@ -33,7 +33,7 @@
 | 전체 진행 (v0.5 ~ v1.0 태스크) | 75 / 167 Done — 45 % |
 | Closed Creator Alpha (v0.13) 까지 남은 태스크 | 22 |
 | v1.0 (GA) 까지 남은 태스크 | 92 |
-| 수동 QA (v0.7 이후 버전 줄) | 8 / 40 확인 |
+| 수동 QA (v0.7 이후 버전 줄) | 8 / 41 확인 |
 
 <!-- GENERATED:END -->
 
@@ -42,7 +42,7 @@
 | 전체 개발 상태 | 엔진 · 스크립트 · 패키지 · 게임 UI 런타임은 자동 시험으로 검증됨. Studio (v0.8) · Script IDE (v0.9) 는 코드 · 자동 시험이 끝났고 **창에서 사람이 확인하는 QA 가 남아** 출시 (0.8.0 · 0.9.0) 를 못 했다. v0.10 은 첫 태스크만 끝났다 |
 | 완료된 주요 기능 | ECS · 30 TPS 결정론 시뮬레이션 · 세이브 · 리플레이 · 서버 권위 네트워크 (LAN) · 월드 에디터 · 세 렌더 백엔드 · 게임 프로젝트 · .sbpkg · SandboxScript (컴파일러 · VM · 표준 라이브러리) · 패키지 관리자 · 충돌 보고 · 프로젝트 에셋 · 게임 UI 런타임 · 다국어 |
 | 진행 중인 기능 | Studio 기본 환경 (창 QA 대기) · Script IDE (창 QA 대기) · Creator Foundation v0.10 (RT-06-1 ✅, 나머지 7 태스크 미착수) |
-| 주요 미구현 기능 | 물리 단계 · 충돌 이벤트 · 오디오 출력 · Prefab 오버라이드 · 타일맵 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
+| 주요 미구현 기능 | Prefab 오버라이드 · 타일맵 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
 | 현재 차단 요인 | ① v0.8 · v0.9 창 QA (사람이 창을 봐야 한다) ② v0.1 의 Linux · macOS 실기 검증 · 50k 성능 판정 ③ 트랙 C 전체가 저장소 경계 결정 D-06 (PS-12-1) 을 기다림 — 4장 |
 | 다음 마일스톤 | Closed Creator Alpha (v0.13) — 남은 태스크 수는 위 표, 목록은 [MASTER_ROADMAP](../roadmap/MASTER_ROADMAP.md) 3장 |
 
@@ -78,7 +78,7 @@
 | 네트워크 · 복제 | ✅ [08](../08-NETWORK.md) | ✅ `network/` (ENet · 차분 스냅숏 · Interest · 역할) | ✅ `net_convergence` · `unit_network` | ⚠️ LAN 만 | ✅ 완료 (LAN 한정) — 암호화 · 인증 없음, 보안 전송은 v0.16 | [모듈](MODULES.md#네트워크) |
 | 렌더링 | ✅ [06](../06-RENDERING.md) | ✅ `render/` (RHI · D3D12 · Vulkan · Metal) | ✅ `render_tests_warp` · `_lavapipe` · `_metal` | ⚠️ Windows 일부만, Linux · macOS 실기 없음 | ⚠️ 확인 필요 — 자동 시험은 통과, 실기 매트릭스는 RH-23-7 | [모듈](MODULES.md#렌더링) |
 | 플랫폼 (창 · 입력) | ✅ [07](../07-PLATFORM.md) | ✅ `platform/` (Win32 · X11 · Wayland · Cocoa) | ✅ `unit_platform` · `platform_x11` · `platform_wayland` · `platform_cocoa` | ⚠️ macOS · Linux 실기 없음 | ⚠️ 확인 필요 | [모듈](MODULES.md#플랫폼) |
-| 오디오 | 🟡 07 7장 · ADR-0095 | ⬜ Null 백엔드뿐 (`platform/audio`) | 해당 없음 | 해당 없음 | ⬜ 미착수 — 출력 백엔드 NG-17 (v0.11) | [v0.11](../roadmap/versions/v0.11.md) |
+| 오디오 | ✅ 07 7장 · ADR-0095 · 0153 | 🟡 `platform/audio` — 믹서 · waveOut · AudioQueue · ALSA (dlopen) · Null, WAV, 팩 sounds.json | ✅ test_audio_output | 해당 없음 | 🟡 구현 — 세 OS 출력 수동 QA 남음 (NG-17) | [v0.11](../roadmap/versions/v0.11.md) |
 | 게임 UI 런타임 · 다국어 | ✅ [20](../20-CREATOR-ALPHA.md) 2 · 6장 | ✅ `ui/` (SandboxGameUI) | ✅ `unit_ui` | 🟡 7 / 19 줄 | ✅ 완료 (0.7.0) | [모듈](MODULES.md#게임-ui-런타임) |
 | 월드 에디터 | ✅ [10](../10-EDITOR.md) | ✅ `editor/` (툴 5 · Inspector · 목록 · Undo · 콘텐츠 창) | ✅ `unit_editor` · `det_edit_session` | ⚠️ Phase 12 줄 미확인 | ✅ 완료 (자동) — 회전 · 크기 전용 툴은 없다 | [모듈](MODULES.md#에디터--studio) |
 | Studio 셸 · 서비스 | ✅ [25](../25-STUDIO-ARCHITECTURE.md) · [29](../29-STUDIO-UI.md) | ✅ `editor/services` · `apps/client/studio` | ✅ `studio_*` 7 개 (`studio_gui_smoke` 는 창이 없으면 SKIP) | 🟡 1 / 13 줄 | 🟡 진행 중 — 창 QA (UI-4) 뒤 0.8.0 | [v0.8](../roadmap/versions/v0.8.md) |

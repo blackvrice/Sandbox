@@ -217,6 +217,8 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.font = std::string(*v);
         } else if (a == "--no-ui") {
             opts.noUi = true;
+        } else if (a == "--no-audio") {
+            opts.noAudio = true;
         } else if (a == "--safe-mode") {
             opts.safeMode = true;
         } else if (a == "--update-feed") {
@@ -553,7 +555,8 @@ std::string clientUsage() {
            "      --assets <dir>     에셋 루트 — 스프라이트 PNG · materials.json (기본: 저장소의 assets/)\n"
            "      --font <file>      UI 폰트 (.ttf/.ttc — 기본: Windows 맑은 고딕 · Linux Noto CJK · 나눔고딕, 없으면 "
            "내장 영문)\n"
-           "      --no-ui            ImGui 패널 없이 (제목 줄만)"
+           "      --no-ui            ImGui 패널 없이 (제목 줄만)\n"
+           "      --no-audio         소리 장치를 열지 않는다 (헤드리스는 늘 — v0.11)"
            "\n"
            "창 안 단축키 (수동 QA, docs/qa/MANUAL-QA.md): F2 글자 입력 켜기/끄기, F3 마우스 캡처, F4 커서 모양,\n"
            "Ctrl+C / Ctrl+V 글자 복사·붙여넣기, Esc 캡처 해제·글자 지우기, Ctrl+Q 종료, F1 패널(시뮬레이션 · 네트워크 "

@@ -359,6 +359,9 @@ struct PackInfo {
     // presentation/materials.json 원문 (없으면 빈 문자열) — 클라이언트 머티리얼 (v0.6 M6-T9). sprite 는 "asset:<id>" ·
     // 프로젝트 기준 "assets/…" · 엔진 에셋 루트 상대. input.json 과 같이 클라 전용 — contentHash 밖
     std::string materials;
+    // presentation/sounds.json 원문 (없으면 빈 문자열) — 클라이언트 소리 (v0.11 NG-17, ADR-0153). file 은 "asset:<id>"
+    // · 프로젝트 기준 "assets/…" (WAV). input.json 과 같이 클라 전용 — contentHash 밖
+    std::string sounds;
     // presentation/ui/ 원문 (v0.7 M3-T1 — 게임 UI, ADR-0079): 문서마다 (파일 이름 — .json 앞, 텍스트) 이름 순 ·
     // styles.json 은 따로. 검사는 ui/model (프로젝트 검사가 부른다), 클라 전용 — contentHash 밖
     std::vector<std::pair<std::string, std::string>> uiDocuments;

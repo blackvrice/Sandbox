@@ -2481,6 +2481,14 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                 warn(p.folder + "/presentation/materials.json", "", "IO", text.error().describe());
             }
         }
+        // 클라 전용 소리 (v0.11 NG-17) — 원문만 (형식 검사 · 디코드는 클라이언트의 PackSounds)
+        if (const fs::path snd = p.dir / "presentation" / "sounds.json"; fs::is_regular_file(snd)) {
+            if (auto text = io::readFile(snd)) {
+                sp.info.sounds = std::move(*text);
+            } else {
+                warn(p.folder + "/presentation/sounds.json", "", "IO", text.error().describe());
+            }
+        }
         // 게임 UI (v0.7 M3-T1) — 원문만 (검사는 ui/model — 프로젝트 검사). 문서 32 개까지 (20 2.4 예산), 이름 순
         if (const fs::path uiDir = p.dir / "presentation" / "ui"; fs::is_directory(uiDir)) {
             std::vector<fs::path> files;

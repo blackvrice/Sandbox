@@ -1,5 +1,7 @@
 # SandboxFoundation — 의존 없음. docs/01-ARCHITECTURE.md 2장.
 add_library(SandboxFoundation STATIC
+    audio/WavDecoder.hpp
+    audio/WavDecoder.cpp
     types/Types.hpp
     types/Error.hpp
     types/Error.cpp

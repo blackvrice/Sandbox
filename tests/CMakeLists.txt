@@ -128,6 +128,7 @@ add_executable(SandboxTests
     unit/platform/test_input.cpp
     unit/platform/test_gamepad.cpp
     unit/platform/test_action_map.cpp
+    unit/platform/test_audio_output.cpp
     unit/render/test_rhi_helpers.cpp
     unit/render/test_image.cpp
     unit/render/test_pipeline_validation.cpp
@@ -202,6 +203,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SelectionOverlay.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/ScriptDraws.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/presentation/PackSounds.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/PackMaterials.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/GameUiLayer.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GameUiImGui.cpp"

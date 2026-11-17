@@ -194,6 +194,32 @@ bool matchAssetGlob(std::string_view pattern, std::string_view path) noexcept {
 std::vector<std::string> materialAssetIds(const content::ContentDatabase& db, const AssetScan& scan) {
     std::set<std::string> ids;
     const std::string prefix = std::string(kAssetDir) + "/";
+    // 참조 하나 — "asset:<id>" · "assets/…" (머티리얼 sprite · 소리 file 이 같은 규칙)
+    const auto reference = [&](const std::string& ref) {
+        if (ref.starts_with("asset:")) {
+            if (const AssetEntry* e = scan.find(std::string_view(ref).substr(6))) {
+                ids.insert(e->id);
+            }
+        } else if (ref.starts_with(prefix)) {
+            for (const AssetEntry& e : scan.assets) {
+                if (e.path == ref || std::find(e.copies.begin(), e.copies.end(), ref) != e.copies.end()) {
+                    ids.insert(e.id);
+                }
+            }
+        }
+    };
+    // 소리 (v0.11 NG-17) — presentation/sounds.json 의 file
+    for (const content::PackInfo& p : db.packs()) {
+        const json doc = p.sounds.empty() ? json() : json::parse(p.sounds, nullptr, false);
+        if (!doc.is_object() || !doc.contains("sounds") || !doc["sounds"].is_object()) {
+            continue;
+        }
+        for (const auto& [id, s] : doc["sounds"].items()) {
+            if (s.is_object() && s.contains("file") && s["file"].is_string()) {
+                reference(s["file"].get<std::string>());
+            }
+        }
+    }
     for (const content::PackInfo& p : db.packs()) {
         if (p.materials.empty()) {
             continue;
@@ -261,7 +287,7 @@ AssetUsage summarizeAssetUsage(const AssetScan& scan, std::span<const AssetGroup
         r.issues.push_back(
             {Severity::Warning, "A8", std::string(kAssetDir), "",
              std::format("어디서도 부르지 않는 에셋 {} 개 (첫째 '{}') — 정적 참조 (materials.json) 도 그룹 "
-                         "(assets/groups.json) 도 아니다. 패키지에는 싣는다 (지우지 않는다)",
+                         "(assets/groups.json) 도 소리 (sounds.json) 도 아니다. 패키지에는 싣는다 (지우지 않는다)",
                          r.unreferenced.size(), r.unreferenced.front())});
     }
     return r;

@@ -39,6 +39,7 @@
 #include "foundation/log/Log.hpp"
 #include "network/transport/EnetTransport.hpp"
 #include "network/transport/SimulatedTransport.hpp"
+#include "platform/audio/MixerAudioBackend.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
 #include "platform/common/Platform.hpp"
@@ -249,6 +250,26 @@ int main(int argc, char** argv) {
                                                   ? sbx::io::dataDir("content", SBX_DEFAULT_CONTENT_DIR)
                                                   : std::filesystem::path(opts->contentRoot);
     // 세션 하나 — 시작할 때 (--world · --connect) 와 Studio 홈에서 들어갈 때 (v0.8 M6-T1) 같은 길
+    // 오디오 (v0.11 NG-17, ADR-0153): 헤드리스 · --no-audio 면 Null (소리 없음 — 이벤트는 센다), 아니면 OS 장치 위의
+    // 믹서 — 장치가 없거나 열지 못하면 Null 로 (경고)
+    std::unique_ptr<sbx::platform::IAudioBackend> audio;
+    if (!opts->headless && !opts->noAudio) {
+        if (auto device = sbx::platform::createSystemAudioDevice()) {
+            auto mixer = std::make_unique<sbx::platform::MixerAudioBackend>(std::move(device));
+            if (mixer->init({})) {
+                sbx::log::info("client", "오디오: {} · {} Hz · {} 채널", mixer->deviceName(), mixer->desc().sampleRate,
+                               mixer->desc().channels);
+                audio = std::move(mixer);
+            } else {
+                sbx::log::warn("client", "오디오 장치를 열지 못했다 — 소리 없이 계속");
+            }
+        }
+    }
+    if (!audio) {
+        auto null = std::make_unique<sbx::platform::NullAudioBackend>();
+        null->init({});
+        audio = std::move(null);
+    }
     const auto makeSession = [&](const sbx::client::ClientOptions& o, const sbx::client::WorldSaveDefaults& saves)
         -> sbx::Expected<std::unique_ptr<sbx::client::NetworkSession>> {
         loadMaterials();
@@ -278,6 +299,7 @@ int main(int argc, char** argv) {
         nd.seed = o.seed;
         nd.packageCache = packageCache;
         nd.assets = renderer ? renderer->assets() : nullptr;
+        nd.audio = audio.get(); // 팩 sounds.json · client.playSound (v0.11 NG-17)
         nd.contentRoot = contentRoot;
         // 창: 로컬 서버가 자기 스레드에서 (틱이 느려도 화면은 제 속도로 — ADR-0021 · 0026). 헤드리스: 프레임 안에서
         // (틱 수가 고정된다)
@@ -372,9 +394,6 @@ int main(int argc, char** argv) {
         ui = std::make_unique<sbx::client::ImGuiLayer>(*window, ud);
         uiRendered = renderer != nullptr && renderer->attachImGui(ui->io(), ui->platformIo());
     }
-
-    sbx::platform::NullAudioBackend audio;
-    audio.init({});
 
     // 페이싱: 렌더러가 있으면 VSync(또는 무제한)가 정한다. 없으면 60 Hz. --fps 가 둘 다 이긴다
     const double fps = opts->fps.value_or(opts->headless || renderer ? 0.0 : 60.0);
@@ -491,7 +510,7 @@ int main(int argc, char** argv) {
             return local != nullptr && local->stats().reachedStopTick;
         };
     }
-    sbx::client::Application app(*window, std::move(*actions), audio, cfg);
+    sbx::client::Application app(*window, std::move(*actions), *audio, cfg);
 
     std::unique_ptr<sbx::platform::FramePacer> pacer;
     if (fps > 0) {
@@ -592,7 +611,7 @@ int main(int argc, char** argv) {
     }
     renderer.reset(); // 창보다 먼저 (스왑체인이 HWND 를 쓴다)
     ui.reset();
-    audio.shutdown();
+    audio->shutdown();
     printText(std::format("SandboxClient 끝: frames {} state {}\n", app.frameCount(),
                           sbx::client::appStateName(app.state())));
     return scriptFailed && code == 0 ? 1 : code;

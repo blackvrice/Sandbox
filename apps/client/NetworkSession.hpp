@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "apps/client/WorldSession.hpp"
+#include "apps/client/presentation/PackSounds.hpp"
 #include "apps/client/presentation/SpriteExtraction.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/scenarios/PlayScript.hpp"
@@ -70,6 +71,8 @@ struct NetworkSessionDesc {
     // Local: 팩의 presentation/materials.json · 프로젝트 에셋의 스프라이트를 요청할 곳 (v0.6 M6-T9). nullptr 이면 색만
     // (헤드리스)
     render::AssetManager* assets = nullptr;
+    platform::IAudioBackend* audio =
+        nullptr; // 팩 sounds.json 을 올리고 client.playSound 를 재생 (v0.11 NG-17 — 없으면 세기만)
     // Remote: Transport 를 만든다 (없으면 ENet). 시험은 Loopback 을 넣는다
     std::function<Expected<std::unique_ptr<net::INetworkTransport>>()> transportFactory;
 };
@@ -278,6 +281,9 @@ private:
     std::unique_ptr<script::ClientScriptSystems> m_clientScripts;
     script::ClientScriptInput m_scriptInput; // 이번 프레임 (setScriptInput — v0.5 M2-T6)
     std::vector<std::string> m_scriptSounds; // 가져가지 않은 소리 이벤트 (256 개까지)
+    SoundLibrary m_sounds;                   // 팩 sounds.json (v0.11 NG-17 — desc.audio 가 있을 때)
+    SoundPlayStats m_soundStats;
+    void loadSounds(const content::ContentDatabase& content, const std::filesystem::path& projectDir);
     u64 m_scriptSignalsSent = 0;
     // client 시스템 프로파일 (M5-T4): 창이 시작할 때의 누적 (시스템 차례) · 지난 창의 줄
     struct ClientProfileBase {

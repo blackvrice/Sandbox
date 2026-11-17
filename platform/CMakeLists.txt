@@ -20,6 +20,8 @@ add_library(SandboxPlatform STATIC
     common/Locale.cpp
     audio/NullAudioBackend.hpp
     audio/NullAudioBackend.cpp
+    audio/MixerAudioBackend.hpp
+    audio/MixerAudioBackend.cpp
     # 순수 표 — 모든 OS 에서 컴파일해 단위 테스트가 확인한다 (windows.h · Xlib.h · AppKit 을 쓰지 않는다)
     windows/Win32KeyMap.hpp
     windows/Win32KeyMap.cpp
@@ -100,9 +102,24 @@ else()
     target_sources(SandboxPlatform PRIVATE stub/StubPlatform.cpp)
 endif()
 
+# 오디오 출력 장치 (v0.11 NG-17, ADR-0153) — OS 마다 하나. Linux 는 libasound 를 실행 중에 연다 (ALSA 개발 파일 없이 빌드)
+if(WIN32)
+    target_sources(SandboxPlatform PRIVATE audio/WaveOutDevice.cpp)
+    target_link_libraries(SandboxPlatform PRIVATE winmm)
+elseif(APPLE)
+    target_sources(SandboxPlatform PRIVATE audio/AudioQueueDevice.cpp)
+    target_link_libraries(SandboxPlatform PRIVATE "-framework AudioToolbox")
+elseif(UNIX)
+    target_sources(SandboxPlatform PRIVATE audio/AlsaDevice.cpp)
+    target_link_libraries(SandboxPlatform PRIVATE ${CMAKE_DL_LIBS})
+else()
+    target_sources(SandboxPlatform PRIVATE audio/NoAudioDevice.cpp)
+endif()
+find_package(Threads REQUIRED)
+
 target_link_libraries(SandboxPlatform
     PUBLIC SandboxFoundation
-    PRIVATE sbx_nlohmann_json sbx_warnings)
+    PRIVATE sbx_nlohmann_json sbx_warnings Threads::Threads)
 
 # 충돌 처리기 — 따로 된 타깃 (서버도 링크한다, v0.5 M1-T1)
 add_subdirectory(crash)

@@ -163,6 +163,10 @@
 | `core/trigger/TriggerSchema.{hpp,cpp}`                                                                      | Visual Trigger 노드 종류 표 — 범주 · 키 · 타입 · 범위 · 대상 규칙 · 권한 (로더 · 에디터 폼이 같은 표, v0.2 M4-T1, ADR-0050)       | SandboxCore                 |
 | `core/simulation/SimulationTriggers.cpp`                                                                     | 단계 17c Triggers — 틱 처음 스냅숏 · 이벤트 · 같은 틱 이어짐 · 예산 · 조건 평가 (SimulationWorld 의 일부, v0.2 M4-T2, ADR-0051) | SandboxCore                 |
 | `core/simulation/SimulationScripts.cpp`                                                                      | 단계 17d — 그 틱의 시작 · 끝 · Died · EntitySpawned · 지금 개체 · 점수 칸을 ScriptEventFacts 로 모아 어댑터에 (스냅숏은 SimulationTriggers 와 공용) — v0.3 M4-T2, ADR-0063 | SandboxCore                 |
+| `apps/client/presentation/PackSounds.{hpp,cpp}` | 팩 presentation/sounds.json → WAV 디코드 → 오디오 백엔드 (SoundLibrary), client.playSound 재생 (playScriptSounds) (v0.11 NG-17, ADR-0153) | SandboxClient (+ Tests) |
+| `foundation/audio/WavDecoder.{hpp,cpp}` | WAV 디코더 — PCM 8 · 16 · 24 · 32 · float, 1 · 2 채널 → f32 (v0.11 NG-17) | SandboxFoundation |
+| `platform/audio/MixerAudioBackend.{hpp,cpp}` | 소프트웨어 믹서 (IAudioBackend) · IAudioDevice · createSystemAudioDevice (v0.11 NG-17, ADR-0153) | SandboxPlatform |
+| `platform/audio/{WaveOutDevice,AudioQueueDevice,AlsaDevice,NoAudioDevice}.cpp` | OS 출력 장치 — Windows waveOut · macOS AudioQueue · Linux ALSA (dlopen) · 없음 (v0.11 NG-17) | SandboxPlatform |
 | `apps/client/presentation/ScriptDraws.{hpp,cpp}` | client 스크립트 onRender 의 그리기 → RenderWorld::script (선 · 원 · 사각형) · 글자 (ImGui), 색 0xRRGGBBAA → RGBA8 (v0.11 RT-06-9, ADR-0152) | SandboxClient (+ Tests) |
 | `core/simulation/SimulationContacts.cpp` | 단계 16a 물리 이벤트 — Collision 의 겹침 쌍과 지난 쌍 (core.contacts) 비교, 바뀐 쌍 (Enter · Exit) 을 17d 로, core.contacts 고쳐 쓰기 — 구독이 있을 때만 (v0.11 RT-06-5, ADR-0151) | SandboxCore |
 | `core/simulation/PhysicsCommand.hpp` | 물리 명령 (applyForce · applyImpulse · setVelocity · teleport) · 틱 상한 1,024 — 8b 끝 · Movement 앞에 적용 (v0.11 RT-06-3, ADR-0149) | SandboxCore |

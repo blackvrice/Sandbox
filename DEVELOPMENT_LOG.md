@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-17 — v0.11 NG-17: 오디오 출력 — 소프트웨어 믹서 · OS 장치 · WAV · 팩 sounds.json (ADR-0153)
+
+**무엇을**
+
+- foundation/audio/WavDecoder — WAV PCM 8 · 16 · 24 · 32 · float (EXTENSIBLE), 1 · 2 채널, 8 ~ 192 kHz, 10 분 (믿지 않는 파일).
+- platform/audio/MixerAudioBackend (IAudioBackend) — 선형 리샘플 (× pitch) · 볼륨 × 버스 × 마스터 · 2D 패닝 · 거리 감쇠 · 반복 · 끝 →
+  update 가 거둔다, 한 뮤텍스. IAudioDevice · createSystemAudioDevice: Windows waveOut (winmm) · macOS AudioQueue · Linux ALSA
+  (libasound.so.2 dlopen) · 그 밖 null.
+- SoundAsset::samples (f32 PCM). 앱: 헤드리스 · --no-audio 면 Null, 아니면 장치 위의 믹서 (못 열면 Null — 경고).
+- 팩 presentation/sounds.json (PackInfo.sounds — 원문, contentHash 밖) → apps/client/presentation/PackSounds (WAV 디코드 → 백엔드 →
+  SoundLibrary), NetworkSession 이 열 때 올리고 client.playSound(id) 를 재생 (모르는 id 는 센다). importer .wav = "sound@1",
+  A8 (부르지 않는 에셋) 이 sounds.json 의 file 도 참조로 본다.
+- 문서: ADR-0153 (ADR-0095 결정 2 의 miniaudio 후보를 대신 — 상태 줄만), 07 7장, 26, 11, 13, 17, MANUAL-QA (세 OS 소리), FEATURE_MATRIX
+  F-227 · F-228, CURRENT_STATUS, 등록부 NG-17 → Review (구현 · 시험 끝 — 세 OS 출력 수동 QA 남음) (gen_roadmap).
+
+**왜**
+
+- v0.11 의 "기본 오디오 출력" — 외부 라이브러리 (miniaudio) 를 받아 들이는 대신 필요한 만큼 (효과음 · 버스 · 2D) 직접 만들었다 (외부
+  의존 · 원본 검토 없이). Linux 는 ALSA 개발 파일 없는 빌드 PC · CI 를 위해 dlopen.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,142 모두 통과 (새 test_audio_output 5 — 디코더 · 믹서 · 패닝 · 리샘플 · 팩
+  sounds.json · playSound → 재생 · Null), 렌더 시험 통과, 전체 ctest 94 개 — 93 통과 · studio_gui_smoke SKIPPED (project_templates 의
+  한 번 실패는 아직 커밋하지 않은 다음 작업의 예제가 디스크에 있었던 것 — 그 작업에서 고쳐 통과). 장치는 열지 않았다 (헤드리스 ·
+  시험은 장치 없이 render).
+
+**남은 일**
+
+- 세 OS 에서 실제로 들리는지 (MANUAL-QA). OGG · 스트리밍 · 낮은 지연 (WASAPI · AUHAL) · 위치 소리 API (RT-06-15) · sounds.json 프로젝트
+  검사 · 에셋 옮기기의 sounds.json 참조 고쳐 쓰기 [계획].
+
 ## 2026-11-17 — v0.11 RT-06-9: client onRender · Draw API (ADR-0152)
 
 **무엇을**

@@ -1,10 +1,12 @@
 #pragma once
 // 오디오 백엔드. docs/07-PLATFORM.md 7장.
-// 구현 순서: NullAudioBackend (Phase 6) → MiniaudioBackend (Phase 8 이후).
+// 구현: NullAudioBackend (Phase 6 — 소리 없음) · MixerAudioBackend (v0.11 NG-17 — 소프트웨어 믹서 + OS 장치, ADR-0153).
 // 경로: Server EventStream → 복제 Event → Client AudioExtraction → AudioEvent 큐 → Audio 스레드 → IAudioBackend.
 // 백엔드 메서드는 한 스레드(Audio 스레드, 지금은 메인)에서만 부른다.
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "foundation/handle/Handle.hpp"
 #include "foundation/math/Vec2.hpp"
@@ -24,12 +26,13 @@ struct AudioDesc {
     u16 maxVoices = 64; // 넘으면 play 가 무효 VoiceId 를 돌려준다
 };
 
-// 디코드된 PCM 의 설명. 표본 데이터는 Phase 8 의 AssetManager 가 들고 온다 — Null 백엔드는 길이만 쓴다.
+// 디코드된 PCM — samples 는 엇갈린 f32 [-1, 1] (frameCount × channels). Null 백엔드는 길이만 쓴다 (v0.11 NG-17).
 struct SoundAsset {
     std::string name;
     u32 sampleRate = 48000;
     u16 channels = 1;
-    u64 frameCount = 0; // 채널당 표본 수. 길이(초) = frameCount / sampleRate
+    u64 frameCount = 0;                              // 채널당 표본 수. 길이(초) = frameCount / sampleRate
+    std::shared_ptr<const std::vector<f32>> samples; // 믹서가 쓴다 (없으면 MixerAudioBackend::load 는 무효)
 };
 
 struct PlayParams {

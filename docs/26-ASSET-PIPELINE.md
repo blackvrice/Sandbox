@@ -70,7 +70,7 @@ A5 런타임 형식 · 결정론 — 에셋은 표시 (클라이언트) 만. 시
 | 종류 | 원본 | v0.5 | 이후 |
 |------|------|------|------|
 | image | PNG | 현행 디코드 (stb) + [제안] .meta · 크기 상한 (4096² · 64 MiB 디코드) | JPEG · 아틀라스 그룹 설정 · 압축 (BC · ASTC) v0.8 |
-| sound | WAV · OGG | 없음 (오디오 백엔드 D-14 — M2-T6) | v0.6 |
+| sound | WAV (OGG [계획]) | WAV ✅ v0.11 NG-17 — importer "sound@1", foundation/audio/WavDecoder (PCM 8 · 16 · 24 · 32 · float, 1 · 2 채널, 8 ~ 192 kHz, 10 분), 팩 presentation/sounds.json 이 id 로 부른다 (ADR-0153) | v0.11 |
 | font | TTF | 글꼴 대체 (M4-T2) 의 자리 | v0.6 |
 | ui | presentation/ui/*.json | 콘텐츠로 (에셋 아님 — 텍스트 문서) | — |
 | model (3D) | glTF | 없음 | v1.x (3D 결정 D-16) |

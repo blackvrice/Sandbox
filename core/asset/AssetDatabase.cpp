@@ -274,7 +274,7 @@ std::string importerFor(std::string_view relPath) {
                                                                                        : relPath.find_last_of('.')));
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; });
-    return ext == ".png" ? "image@1" : "file@1";
+    return ext == ".png" ? "image@1" : ext == ".wav" ? "sound@1" : "file@1"; // sound@1 — v0.11 NG-17
 }
 
 bool AssetScan::ok() const noexcept {

@@ -103,8 +103,8 @@
 | F-224 | 세이브 · 버전 마이그레이션 (엔진 스키마 · 스크립트 컴포넌트 · 게임 버전 onMigrate) | v0.1 ~ v0.6 | ✅ 사용 가능 | `test_save_migration` · `unit_persist` | 09 6장 · NG-04 |
 | F-225 | 게임 UI 런타임 (선언 HUD · 메뉴 · 바인딩 · 버튼 → 서버 신호 · 입력 컨트롤) | v0.7 | ✅ 사용 가능 | CTest `unit_ui` · `test_game_ui_layer` | [20](../20-CREATOR-ALPHA.md) 2장 |
 | F-226 | 다국어 (문자열 표 · 로케일 · 폰트 대체 · UI 배율) | v0.7 | ✅ 사용 가능 | `test_ui_strings` · `test_font_fallback` | 20 6장 |
-| F-227 | 오디오 — 소리 이벤트 (client) | v0.5 | 🧪 시험 전용 — 이벤트는 나가지만 Null 백엔드라 소리가 나지 않는다 | `test_client_scripts` | 07 7장 · ADR-0095 |
-| F-228 | 오디오 출력 백엔드 · 믹서 · 2D 위치 | v0.11 · v0.12 | 📐 설계만 | — (NG-17 · RT-06-15) | ADR-0095 |
+| F-227 | 오디오 — 소리 이벤트 (client) | v0.5 | ✅ v0.11 부터 팩 sounds.json 의 소리를 재생 (헤드리스는 Null) | `test_client_scripts` | 07 7장 · ADR-0095 |
+| F-228 | 오디오 출력 백엔드 · 믹서 · 2D 위치 | v0.11 · v0.12 | 🟡 구현 — 믹서 · waveOut · AudioQueue · ALSA · WAV · sounds.json (세 OS 수동 QA 남음), 위치 소리 API (RT-06-15) | `test_audio_output` | ADR-0095 · 0153 |
 | F-229 | 2D 애니메이션 클립 · 상태 기계 | v0.12 | 📐 설계만 | — (RT-06-14) | 22 |
 | F-230 | 창 없는 실행 (`HeadlessWindow` · `--ticks N --exit`) | v0.1 | 🧪 시험 전용 (서버는 원래 창이 없다 — 클라이언트의 헤드리스는 시험 · CI 용) | CTest `client_headless_smoke` · `studio_flow_e2e` | 07 · [13](../13-TESTING.md) |
 | F-231 | 3D | v1.x | 범위 외 (결정 D-16 뒤) | — | 22 · releases v1.x |

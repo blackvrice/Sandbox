@@ -107,8 +107,9 @@ struct ClientOptions {
     std::string assetRoot;         // --assets (비면 저장소의 assets/)
 
     // UI (Phase 8C)
-    std::string font;  // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)
-    bool noUi = false; // --no-ui: ImGui 패널 없이
+    std::string font;     // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)
+    bool noUi = false;    // --no-ui: ImGui 패널 없이
+    bool noAudio = false; // --no-audio: 소리 장치를 열지 않는다 (Null — v0.11 NG-17)
 };
 
 [[nodiscard]] Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> args);

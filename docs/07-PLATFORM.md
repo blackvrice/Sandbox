@@ -289,7 +289,10 @@ onAction (ADR-0142) · 입력 Context 스택 · 소비 (ADR-0143 — 위 단락)
 
 ## 7. Audio
 
-> v0.5 M2-T6 (D-14 — [ADR-0095](adr/0095-audio-v05-events-null-output-v06.md)): client 스크립트의 playSound 는 소리 이벤트 — 앱이 세고 (NullAudioBackend 그대로) 소리는 나지 않는다. 실제 출력 백엔드 · sound importer · presentation/sounds.json 은 v0.6.
+> v0.5 M2-T6 (D-14 — [ADR-0095](adr/0095-audio-v05-events-null-output-v06.md)): client 스크립트의 playSound 는 소리 이벤트. **v0.11 NG-17**
+> ([ADR-0153](adr/0153-audio-output-own-mixer-os-devices-sounds-json.md)): 실제 출력 — `MixerAudioBackend` (소프트웨어 믹서) + OS 장치
+> (`IAudioDevice`: Windows waveOut · macOS AudioQueue · Linux ALSA (libasound 를 dlopen)), WAV 디코더 (`foundation/audio`), 팩
+> `presentation/sounds.json` → `client.playSound(id)` 재생. 헤드리스 · `--no-audio` · 장치 없음은 Null.
 
 ```cpp
 class IAudioBackend {
@@ -310,8 +313,13 @@ public:
 `NullAudioBackend`(`platform/audio/`)는 소리를 내지 않지만 이 규칙의 기준 구현입니다 (SandboxClient 가 지금 씁니다).
 
 ```text
-구현 순서: NullAudioBackend (Phase 6) → MiniaudioBackend (Phase 8 이후)
-SFML Audio 는 거치지 않는다 (요구사항상 임시 허용이지만 miniaudio 가 같은 비용으로 최종 형태).
+구현: NullAudioBackend (Phase 6 — 소리 없음, 헤드리스 · CI · 장치 없음) · MixerAudioBackend (v0.11 NG-17 — ADR-0153)
+믹서      목소리마다 f32 PCM (SoundAsset::samples) 을 선형 보간 (소리 표본율 → 장치 표본율 × pitch), 목소리 볼륨 × 버스 × 마스터,
+          positional = 리스너와의 x 차이로 상수 파워 패닝 (kAudioPanRange 16) · 거리 감쇠 1 / (1 + d / 24), [-1, 1] 로 자름.
+          반복 아닌 목소리는 끝까지 그린 뒤 update 가 거둔다. 공개 메서드 · 장치 스레드의 render 는 한 뮤텍스
+장치      IAudioDevice::start(표본율, 채널, render) · stop — waveOut (20 ms × 3, 16 비트) · AudioQueue (f32) · ALSA (dlopen, 16 비트),
+          지연 약 60 ms (WASAPI · AUHAL 은 [계획]). createSystemAudioDevice() 가 없거나 열지 못하면 앱은 Null
+SFML Audio · miniaudio 는 쓰지 않는다 (ADR-0153 — 외부 의존 없이).
 경로: Server EventStream → 복제 Event → Client AudioExtraction(이벤트 → 사운드 매핑, 콘텐츠 데이터)
       → AudioEvent 큐 → Audio 스레드 → IAudioBackend
 렌더러를 꺼도 오디오는 동작한다 (RTS 의 RenderQueue 경유 구조를 반복하지 않음).
