@@ -304,6 +304,11 @@ sbx resave <폴더> [--resume]                                                  
   시작 월드 (worlds/<이름>) 를 지금 프로젝트 콘텐츠로 다시 저장 — Studio 의 Ctrl+S 와 같다 (개체 · 지형 · 틱 그대로, 세이브의 게임
   결속 그대로). 팩을 더하거나 고친 뒤의 P4 경고 ("콘텐츠가 저장 당시와 다르다") 를 창 없이 없앤다. --resume = 일시정지를 풀고 저장
   (편집 단계로 명령만 적용 — 틱은 나아가지 않는다) — 바로 도는 게임의 시작 월드. 시작 월드가 worlds/ 밖이면 거절
+sbx ui list|add|set|remove <폴더> <UI 문서> …                                          (v0.10 NG-18, ADR-0147)
+  UI 문서 (예: content/<팩>/presentation/ui/hud.json) 를 UI 디자이너의 모델 (editor/services/UiDesignService) 로 화면 없이 고친다.
+  경로 "/" = root · "/0/2" = 자식 번호. list = 노드 (경로 · 종류 · id · 글자) · 검사, add <부모> <종류> = 라이브러리 기본값을 끝에 (새
+  경로를 쓴다), set <경로> <키> <JSON 값> = 속성 하나 (children · kind 는 거절), remove <경로>. 고친 뒤 저장 — 검사 오류면 저장하지
+  않고 종료 코드 1. 신호 · 머티리얼이 콘텐츠에 있는지는 sbx check 가 본다 (U6)
 sbx check <폴더 | 파일.sbpkg>  ·  sbx build <폴더> [--out 파일.sbpkg] [--profile <이름>]  ·  sbx templates  ·  sbx sdk [<폴더>]  ·  sbx --version
   (sdk — SandboxScript SDK 선언 sandbox.d.ts 를 쓴다, v0.3 M2-T2. 저장소의 sdk/ 를 갱신: sbx sdk sdk — 19 14장)
   (v0.4 M5-T2, ADR-0077 — 라이선스 요약) build 는 "  팩 n — <라이선스> <수> · …" 한 줄 (라이선스가 없는 팩은 "라이선스 없음"),

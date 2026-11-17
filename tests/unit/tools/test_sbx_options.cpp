@@ -183,4 +183,29 @@ TEST_SUITE("tools") {
         CHECK_FALSE(parse({"asset", "newid", "G", "a", "b"}).has_value());
         CHECK(sbxUsage().find("asset import <프로젝트>") != std::string::npos);
     }
+
+    TEST_CASE("sbx options: ui list · add · set · remove (v0.10 NG-18)") {
+        const auto parse = [](std::initializer_list<std::string_view> args) {
+            const std::vector<std::string_view> v(args);
+            return parseSbxOptions(v);
+        };
+        const auto list = parse({"ui", "list", "G", "content/p/presentation/ui/hud.json"});
+        REQUIRE_MESSAGE(list.has_value(), list.error().describe());
+        CHECK(list->command == SbxCommand::Ui);
+        CHECK(list->uiAction == "list");
+        CHECK(list->dir == "G");
+        CHECK(list->uiArgs == std::vector<std::string>{"content/p/presentation/ui/hud.json"});
+        const auto set = parse({"ui", "set", "G", "hud.json", "/0", "offset", "-4"}); // '-' 로 시작하는 JSON 값도
+        REQUIRE_MESSAGE(set.has_value(), set.error().describe());
+        CHECK(set->uiArgs == std::vector<std::string>{"hud.json", "/0", "offset", "-4"});
+        CHECK(parse({"ui", "add", "G", "hud.json", "/", "button"}).has_value());
+        CHECK(parse({"ui", "remove", "G", "hud.json", "/1"}).has_value());
+        CHECK_FALSE(parse({"ui"}).has_value());
+        CHECK_FALSE(parse({"ui", "list"}).has_value());                              // 프로젝트 없음
+        CHECK_FALSE(parse({"ui", "list", "G"}).has_value());                         // 문서 없음
+        CHECK_FALSE(parse({"ui", "add", "G", "hud.json", "/"}).has_value());         // 종류 없음
+        CHECK_FALSE(parse({"ui", "set", "G", "hud.json", "/", "text"}).has_value()); // 값 없음
+        CHECK_FALSE(parse({"ui", "move", "G", "hud.json", "/1"}).has_value());       // 모르는 하위 명령
+        CHECK(sbxUsage().find("ui add <폴더> <문서>") != std::string::npos);
+    }
 }

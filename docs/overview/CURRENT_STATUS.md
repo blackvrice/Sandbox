@@ -27,13 +27,13 @@
 |---|---|
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
-| 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) |
-| 현재 개발 버전 | [v0.10](../roadmap/versions/v0.10.md) — Creator Foundation (6 / 8, 75 %) |
-| 다음 목표 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime |
+| 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) · [v0.10](../roadmap/versions/v0.10.md) (6 / 8 Done, 수동 QA 0 / 3) |
+| 현재 개발 버전 | [v0.11](../roadmap/versions/v0.11.md) — Gameplay Runtime (0 / 7, 0 %) |
+| 다음 목표 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools |
 | 전체 진행 (v0.5 ~ v1.0 태스크) | 70 / 167 Done — 42 % |
 | Closed Creator Alpha (v0.13) 까지 남은 태스크 | 27 |
 | v1.0 (GA) 까지 남은 태스크 | 97 |
-| 수동 QA (v0.7 이후 버전 줄) | 8 / 39 확인 |
+| 수동 QA (v0.7 이후 버전 줄) | 8 / 40 확인 |
 
 <!-- GENERATED:END -->
 
@@ -103,9 +103,10 @@
 
 ### 4.2 다음 할 일 (순서)
 
-1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 · onEvent ✅ (ADR-0140 · 0141) → RT-06-8 onAction · 입력 Context ✅ (ADR-0142 · 0143) — v0.10 트랙 A 끝. 트랙 B: M6-T2 템플릿 셋 ✅ (minigame · board · survival — ADR-0144) → ST-06-3 Asset Browser ✅ (ADR-0146) · ST-06-4 Game UI Designer (모델 · 창 ✅ — ADR-0145, 수동 QA 남음) → NG-18.
-2. v0.10 트랙 B — 남은 것 NG-18 통합 시험 (헤드리스 흐름 CTest + 수동 QA 기록) · ST-06-4 수동 QA, 그 뒤 v0.10.0 릴리스 노트.
-3. 위가 끝나면 NG-18 통합 시험 → v0.10 출시 판정. 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
+1. v0.10 트랙 A — RT-06-10 타이머 · defineState ✅ (ADR-0138 · 0139) → RT-06-7 client 수명주기 · onEvent ✅ (ADR-0140 · 0141) → RT-06-8 onAction · 입력 Context ✅ (ADR-0142 · 0143) — v0.10 트랙 A 끝. 트랙 B: M6-T2 템플릿 셋 ✅ (minigame · board · survival — ADR-0144) → ST-06-3 Asset Browser ✅ (ADR-0146) · ST-06-4 Game UI Designer (모델 · 창 ✅ — ADR-0145, 수동 QA 남음) → NG-18 흐름 CTest ✅ (ng18_board_flow · sbx ui — ADR-0147) — v0.10 자동화 작업 끝.
+2. v0.10 출시 판정 대기 — 사람의 창 확인 셋 (MANUAL-QA: ST-06-4 UI 디자이너 · ST-06-3 에셋 창 · NG-18 같은 흐름) → 릴리스 노트 · 제품 판
+   (v0.8 · v0.9 와 같이 수동 QA 뒤). 세부 칸은 [v0.10 체크리스트](../roadmap/versions/v0.10.md).
+3. 다음 버전 v0.11 (트랙 A 물리 단계 · 충돌 · onRender · 오디오 — RT-06-2 ~ 9 · NG-17 · NG-19).
 4. 병행 (사람) — B1 의 창 QA 로 0.8.0 · 0.9.0 을 낸다.
 
 ## 5. 검증 기록

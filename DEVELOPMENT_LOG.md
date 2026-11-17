@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-17 — v0.10 NG-18: 통합 시험 ng18_board_flow · sbx ui (ADR-0147)
+
+**무엇을**
+
+- sbx ui list · add · set · remove <프로젝트> <UI 문서> … — UI 디자이너의 모델 (editor/services/UiDesignService) 을 그대로 써서 UI 문서를
+  화면 없이 고친다 (경로 "/" · "/0/2", 라이브러리 기본값, children · kind 거절, 검사 오류면 저장하지 않고 종료 코드 1). sbx 가
+  SandboxEditorServices 를 링크한다 (UI · ImGui 없음 — 경계 안).
+- CTest ng18_board_flow (tests/project/ng18_board_flow.cmake): Studio 홈 명령 (--new-project --template board) → sbx ui 로 HUD 에 [기권]
+  버튼 (on.click 신호 ttt.resign) → 신호가 없으면 sbx check 오류 U6 → 신호 표 · rules.ts (기권 → 패배 표시) → sbx resave → 검사 오류 0 ·
+  경고 0 → 헤드리스 서버 (돌 하나 → 기권 = lose) + --record, 원래 자동 플레이 win → 로컬 플레이 같은 결과 줄 · 기록 재생 해시 일치 →
+  sbx build → 빈 캐시의 서버 · 로컬 플레이 같은 줄.
+- test_sbx_options: ui 하위 명령 · 인자 수 · '-' 로 시작하는 JSON 값.
+- 문서: ADR-0147, 15 (sbx ui), 13, 17, 28 (층 2 · G4 · G5), MANUAL-QA (NG-18 창 흐름), 18 0장, FEATURE_MATRIX, CURRENT_STATUS, v0.10
+  체크리스트, 등록부 NG-18 · ST-06-4 → Review (자동 시험 끝 · 창 QA 남음 — UI-4 와 같은 처리) (gen_roadmap).
+
+**왜**
+
+- v0.10 의 통합 시험 — 템플릿 · UI · 스크립트 (신호 · 월드 상태) · 저장 · 기록 · 패키지가 한 게임에서 같이 도는가. UI 단계에 화면 없는
+  길이 없어서 (NG-07 이 가져오기를 sbx asset import 로 갈음한 것처럼) 디자이너의 모델을 명령줄로 열었다 — CMake 가 JSON 을 직접 고치면
+  디자이너의 기본값 · 검사 · 저장 거절을 지나지 않는다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 전체 ctest 94 개 모두 통과 (새 ng18_board_flow 8 초 — 결과 "Finished · lose · tick 19", 원래 자동 플레이 해시 0xa58a2e3be1b45bf9 = 샘플
+  playthrough.json 의 기대값, 기록 재생 21 call · 해시 일치), 단위 시험 assertions 1,948,780 통과, /WX 빌드 통과, check_docs · check_includes 0.
+- 창은 띄우지 않았다.
+
+**남은 일**
+
+- 사람의 창 확인 셋 (MANUAL-QA — ST-06-4 · ST-06-3 · NG-18) → v0.10 출시 판정 · 릴리스 노트 · 제품 판 (v0.8 · v0.9 도 같은 대기 — 0.7.0
+  다음 판을 어떻게 올릴지는 그때 정한다).
+
 ## 2026-11-17 — v0.10 ST-06-4 · ST-06-3: Game UI Designer (모델 · 창) · Asset Browser (참조 · 옮기기 · 휴지통 · 썸네일 · 다시 읽기)
 
 **무엇을**

@@ -52,11 +52,13 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
         o.command = SbxCommand::Asset;
     } else if (cmd == "resave") {
         o.command = SbxCommand::Resave;
+    } else if (cmd == "ui") {
+        o.command = SbxCommand::Ui;
     } else {
         return makeError(
             ErrorCode::InvalidArgument,
             std::format("모르는 명령 '{}' (new · check · build · test · templates · sdk · digest · fetch · resolve · "
-                        "install · update · add · remove · doctor · report · asset · resave)",
+                        "install · update · add · remove · doctor · report · asset · resave · ui)",
                         cmd));
     }
     bool sawProjectOnly = false; // new 의 게임 프로젝트 옵션 (--pack 과 같이 쓸 수 없다)
@@ -157,6 +159,10 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
             if (ec != std::errc{} || p != v->data() + v->size()) {
                 return makeError(ErrorCode::InvalidArgument, std::format("--seed 는 0 이상의 정수: '{}'", *v));
             }
+        } else if (o.command == SbxCommand::Ui && !a.starts_with("-") && o.uiAction.empty()) {
+            o.uiAction = std::string(a); // ui 다음 첫 낱말은 하위 명령
+        } else if (o.command == SbxCommand::Ui && haveDir) {
+            o.uiArgs.emplace_back(a); // JSON 값 (예: -4) 도 그대로
         } else if (o.command == SbxCommand::Asset && !a.starts_with("-") && o.assetAction.empty()) {
             o.assetAction = std::string(a); // asset 다음 첫 낱말은 하위 명령
         } else if (o.command == SbxCommand::Asset && !a.starts_with("-") && haveDir && o.assetPath.empty()) {
@@ -232,6 +238,25 @@ Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args) {
                                                              : "asset import 는 프로젝트 폴더 하나만 받는다");
         }
     }
+    if (o.command == SbxCommand::Ui) {
+        // 하위 명령마다 <문서> 다음 인자 수
+        const usize want = o.uiAction == "list"     ? 1
+                           : o.uiAction == "add"    ? 3
+                           : o.uiAction == "set"    ? 4
+                           : o.uiAction == "remove" ? 2
+                                                    : 0;
+        if (want == 0) {
+            return makeError(ErrorCode::InvalidArgument, "ui 는 list · add · set · remove");
+        }
+        if (!haveDir || o.uiArgs.size() != want) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("ui {} <프로젝트> {}", o.uiAction,
+                                         o.uiAction == "list"  ? "<문서>"
+                                         : o.uiAction == "add" ? "<문서> <부모 경로> <종류>"
+                                         : o.uiAction == "set" ? "<문서> <경로> <키> <JSON 값>"
+                                                               : "<문서> <경로>"));
+        }
+    }
     return o;
 }
 
@@ -256,6 +281,13 @@ std::string sbxUsage() {
            "경고를 없앤다\n"
            "                             (--resume: 일시정지를 풀고 저장 — 바로 도는 게임의 시작 월드)\n"
            "                             (Studio 의 Ctrl+S 와 같다 — 개체 · 지형 · 틱 그대로, v0.10)\n"
+           "  ui list <폴더> <문서>      UI 문서 (예: content/<팩>/presentation/ui/hud.json) 의 노드 — 경로 · 종류 · "
+           "id · 글자\n"
+           "  ui add <폴더> <문서> <부모 경로> <종류>   요소 (panel · text · button …) 를 부모의 끝에 — 새 경로를 "
+           "쓴다\n"
+           "  ui set <폴더> <문서> <경로> <키> <JSON 값>  속성 하나 (예: on '{\"click\":{\"signal\":\"a.b\"}}')\n"
+           "  ui remove <폴더> <문서> <경로>   노드 지우기. 경로: / = root, /0/2 = root 의 0 번 자식의 2 번 자식\n"
+           "                             (UI 디자이너와 같은 모델 — 검사 오류면 저장하지 않는다, v0.10)\n"
            "  test <폴더>                검사 + 자동 플레이 스크립트 (playthrough.json · tests/*.json) 를 끝까지 · "
            "expect\n"
            "  check <파일.sbpkg>         게임 패키지 검사 (파일마다 SHA-256 · digest → 풀어서 프로젝트 검사)\n"

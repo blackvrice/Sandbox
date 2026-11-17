@@ -640,6 +640,9 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [ ] (v0.10 ST-06-3) 창으로 보기 › 에셋 — 썸네일 · 거르기 · [가져오기] (id 없는 PNG), 고른 에셋의 참조 목록, [옮기기] 뒤 게임 그림 그대로 ·
     materials.json 의 경로가 바뀜, 참조가 있는 에셋 [지우기] 는 확인을 묻고 .sandbox/trash 로, PNG 를 그림판으로 고친 뒤 [다시 읽기] 로
     월드 그림이 바뀌는가, 에셋을 UI 디자이너의 image 노드에 끌어다 놓기 → 머티리얼이 생기고 미리보기 · 게임에 그 그림
+[ ] (v0.10 NG-18) 창으로 같은 흐름 — 홈 › 새 프로젝트 (board 템플릿) → UI 디자이너로 [기권] 버튼 (on.click 신호) → 콘텐츠 창에서 신호 표 ·
+    rules.ts 고치기 → Ctrl+S → F5 테스트 플레이에서 칸을 누르고 [기권] → 패배 화면 → 빌드 창에서 패키지 → 다른 폴더 · 빈 캐시의
+    SandboxClient --play 로 같은 결과 (걸린 시간 · 막힌 곳을 QA-EVIDENCE 에)
 [ ] (v0.8 NG-03) 창으로 SandboxClient --play <패키지> — Studio 창 없이 게임 · 제목 "… — Sandbox Player", --player 의 최근 게임 카드 · 빼기,
     망가진 파일의 오류 화면 (제목 · 할 일 · 자세히) · [보고 묶음 만들기] 경로 · [다른 게임 열기]
 [ ] (NG-06 (4)) 실제 Xbox 패드 — 연결 · 끊김 로그, 십자 · 스틱 · A · B · LB · RB 로 HUD · 메뉴 조작, 스틱 죽은 영역, 두 패드, 다른 창에

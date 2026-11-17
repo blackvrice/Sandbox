@@ -15,10 +15,12 @@
 //   sbx report [<묶음>] [--lines <n>] [--reports-dir <d>] (v0.5 M1-T2 — 충돌 보고 묶음 보기, 없으면 목록)
 //   sbx asset import <폴더> · sbx asset newid <폴더> <assets/경로>  (v0.6 M6-T9 — 에셋 .meta 쓰기 · 복제본에 새 id,
 //   ADR-0090)
+//   sbx ui list|add|set|remove <폴더> <UI 문서> …           (v0.10 NG-18 — UI 디자이너의 모델로 화면 없이, ADR-0147)
 
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "foundation/types/Error.hpp"
 
@@ -47,7 +49,8 @@ enum class SbxCommand : u8 {
     Doctor,
     Report,
     Asset,
-    Resave // v0.10 M6-T2 — 시작 월드를 지금 콘텐츠로 다시 저장 (Studio Ctrl+S 와 같다)
+    Resave, // v0.10 M6-T2 — 시작 월드를 지금 콘텐츠로 다시 저장 (Studio Ctrl+S 와 같다)
+    Ui      // v0.10 NG-18 — UI 문서 편집 (UI 디자이너의 모델 — editor/services/UiDesignService, ADR-0147)
 };
 
 struct SbxOptions {
@@ -77,6 +80,8 @@ struct SbxOptions {
     std::string reportsDir;  // report --reports-dir <d> (비면 diag::defaultReportsRoot — 목록 · 이름만 준 묶음)
     std::string assetAction; // asset 의 하위 명령 — "import" · "newid" (v0.6 M6-T9)
     std::string assetPath;   // asset newid 의 <assets/경로>
+    std::string uiAction;    // ui 의 하위 명령 — "list" · "add" · "set" · "remove" (v0.10 NG-18)
+    std::vector<std::string> uiArgs; // ui 의 <폴더> 다음 인자 — <문서> [<경로> …] (값은 '-' 로 시작해도 된다)
 };
 
 [[nodiscard]] Expected<SbxOptions> parseSbxOptions(std::span<const std::string_view> args);

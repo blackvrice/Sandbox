@@ -5,6 +5,7 @@
 //   sbx build MyGame                                            게임 패키지 (v0.2 M5-T2) — check 는 .sbpkg 도
 //   sbx doctor MyGame · sbx report                              진단 · 충돌 보고 묶음 보기 (v0.5 M1-T2)
 #include <algorithm>
+#include <charconv>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -30,6 +31,8 @@
 #include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/Scenario.hpp"
 #include "core/scenarios/WorldSource.hpp"
+#include "editor/services/DocumentService.hpp"
+#include "editor/services/UiDesignService.hpp"
 #include "foundation/BuildInfo.hpp"
 #include "foundation/diag/Report.hpp"
 #include "foundation/io/AppPaths.hpp"
@@ -388,6 +391,114 @@ int runAsset(const SbxOptions& opt) {
     return scan.ok() ? kExitOk : kExitCheckFailed;
 }
 
+// sbx ui (v0.10 NG-18, ADR-0147) — UI 문서를 UI 디자이너의 모델 (UiDesignService) 로 화면 없이 고친다.
+// 경로: "/" = root, "/0/2" = root 의 0 번 자식의 2 번 자식 (list 의 항목 틀 = 0 번)
+Expected<editor::services::UiNodePath> parseUiPath(std::string_view s) {
+    if (s.empty() || s.front() != '/') {
+        return makeError(ErrorCode::InvalidArgument, std::format("경로는 '/' 로 시작한다 (/ · /0 · /0/2): '{}'", s));
+    }
+    editor::services::UiNodePath path;
+    s.remove_prefix(1);
+    while (!s.empty()) {
+        const usize slash = s.find('/');
+        const std::string_view part = s.substr(0, slash);
+        u32 index = 0;
+        const auto [p, ec] = std::from_chars(part.data(), part.data() + part.size(), index);
+        if (part.empty() || ec != std::errc{} || p != part.data() + part.size()) {
+            return makeError(ErrorCode::InvalidArgument, std::format("경로의 '{}' 는 0 이상의 번호가 아니다", part));
+        }
+        path.push_back(index);
+        s = slash == std::string_view::npos ? std::string_view() : s.substr(slash + 1);
+    }
+    return path;
+}
+
+std::string formatUiPath(const editor::services::UiNodePath& path) {
+    std::string out;
+    for (const u32 i : path) {
+        out += std::format("/{}", i);
+    }
+    return out.empty() ? "/" : out;
+}
+
+int runUi(const SbxOptions& opt) {
+    namespace es = editor::services;
+    const std::filesystem::path dir(opt.dir);
+    if (!project::isProjectFolder(dir)) {
+        printErr(std::format("{} 는 게임 프로젝트가 아니다 ({} 이 없다)", opt.dir, project::kManifestFile));
+        return kExitError;
+    }
+    es::DocumentService documents;
+    es::UiDesignService design(documents);
+    if (auto opened = design.open(dir / opt.uiArgs[0]); !opened) {
+        printErr(opened.error().describe());
+        return kExitError;
+    }
+    if (!design.parseError().empty()) {
+        printErr(std::format("{}: {}", opt.uiArgs[0], design.parseError()));
+        return kExitCheckFailed;
+    }
+    const auto printIssues = [&] {
+        bool errors = false;
+        for (const ui::UiIssue& i : design.issues()) {
+            const bool error = i.severity == ui::UiIssue::Severity::Error;
+            errors = errors || error;
+            std::printf("%s %s %s: %s\n", error ? "오류" : "경고", i.rule.c_str(), i.pointer.c_str(),
+                        i.message.c_str());
+        }
+        return errors;
+    };
+    if (opt.uiAction == "list") {
+        for (const es::UiDesignNode& n : design.nodes()) {
+            std::printf("%*s%s  %s\n", static_cast<int>(n.depth * 2), "", formatUiPath(n.path).c_str(),
+                        n.label.c_str());
+        }
+        return printIssues() ? kExitCheckFailed : kExitOk;
+    }
+    Expected<void> edited;
+    if (opt.uiAction == "add") {
+        auto parent = parseUiPath(opt.uiArgs[1]);
+        if (!parent) {
+            printErr(parent.error().describe());
+            return kExitError;
+        }
+        auto added = design.addChild(*parent, opt.uiArgs[2]);
+        if (added) {
+            std::printf("추가: %s %s\n", formatUiPath(*added).c_str(), opt.uiArgs[2].c_str());
+        } else {
+            edited = std::unexpected(added.error());
+        }
+    } else {
+        auto path = parseUiPath(opt.uiArgs[1]);
+        if (!path) {
+            printErr(path.error().describe());
+            return kExitError;
+        }
+        if (opt.uiAction == "remove") {
+            edited = design.remove(*path);
+        } else {
+            auto value = nlohmann::ordered_json::parse(opt.uiArgs[3], nullptr, false);
+            if (value.is_discarded()) {
+                printErr(std::format("'{}' 는 JSON 값이 아니다 (글자는 따옴표째: '\"글\"')", opt.uiArgs[3]));
+                return kExitError;
+            }
+            edited = design.setProperty(*path, opt.uiArgs[2], std::move(value));
+        }
+    }
+    if (!edited) {
+        printErr(edited.error().describe());
+        return kExitError;
+    }
+    if (auto saved = design.save(); !saved) {
+        printIssues();
+        printErr(saved.error().describe());
+        return kExitCheckFailed; // 파일은 그대로
+    }
+    std::printf("저장: %s\n", opt.uiArgs[0].c_str());
+    printIssues();
+    return kExitOk;
+}
+
 // sbx new --pack (v0.4 M4-T2) — 패키지 틀
 int runNewPack(const SbxOptions& opt, const ecs::ComponentCatalog& catalog) {
     const auto made = package::createPack(std::filesystem::path(opt.dir), opt.gameId, opt.license, catalog);
@@ -701,6 +812,8 @@ int main(int argc, char** argv) {
         return runReport(opt);
     case SbxCommand::Asset:
         return runAsset(opt);
+    case SbxCommand::Ui:
+        return runUi(opt);
     case SbxCommand::New:
     case SbxCommand::Check:
     case SbxCommand::Build:

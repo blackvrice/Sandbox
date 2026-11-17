@@ -572,6 +572,15 @@ if(TARGET sbx)
                     "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/studio_flow_e2e"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/project/studio_flow_e2e.cmake")
         set_tests_properties(studio_flow_e2e PROPERTIES LABELS "content;client" TIMEOUT 900)
+        # v0.10 통합 시험 NG-18 (ADR-0147): 버튼 · 판 게임 — 생성 (board) → UI (sbx ui) → 스크립트 → 저장 → 실행 → 재실행 → 패키지
+        if(TARGET SandboxServer)
+            add_test(NAME ng18_board_flow
+                COMMAND "${CMAKE_COMMAND}" -DCLIENT=$<TARGET_FILE:SandboxClient> -DSERVER=$<TARGET_FILE:SandboxServer>
+                        -DSBX=$<TARGET_FILE:sbx> "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/ng18_board_flow"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/ng18_board_flow.cmake")
+            set_tests_properties(ng18_board_flow PROPERTIES LABELS "content;client" TIMEOUT 900
+                                 PASS_REGULAR_EXPRESSION "ng18_board_flow OK")
+        endif()
         # 층 3 GUI smoke — 실제 창 · 렌더러 (Windows D3D12 WARP). CI 또는 SBX_GUI_TESTS=1 일 때만 창을 띄우고, 아니면 "건너뜀" (SKIPPED)
         if(WIN32)
             add_test(NAME studio_gui_smoke

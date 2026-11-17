@@ -80,13 +80,13 @@
 | ST-06-7 | 재생 디버거 | B | Done | v0.6 | v0.9 | P1 | M6-T4 | 같은 해시 · 훅 비용 < 2 % — VM 쪽 BRK 패치 · 지역 이름 표 형식 12 · 단계 · logpoint · 감시 경로 · 비용 측정 (ADR-0132), 재생 세션 디버그 스레드 · 같은 해시 (ADR-0133), Studio 창 · 편집기 줄 번호 칸 중단점 (ADR-0134) |
 | ST-06-8 | 언어 서비스 색인 · 이동 · 이름 바꾸기 · 빠른 수정 | B | Done | v0.6 | v0.9 | P2 | M6-T8 | 응답 측정 — 언어 서비스 정의 · 참조 · 이름 바꾸기 · 빠른 수정 · 검사 결과 기억 (ADR-0135), Studio F12 · Shift+F12 · F2 · Ctrl+. · 스니펫 · drafts (ADR-0136) |
 | ST-06-3 | Asset Browser 완성 | B | Done | v0.6 | v0.10 | P1 | M6-T9 | 참조 · 옮기기 · 지우기 시험 |
-| ST-06-4 | Game UI Designer | B | Planned | v0.6 | v0.10 | P1 | M3-T5 · ST-06-1 | 문서 왕복 · 수동 QA — 모델 · 창 ✅ (editor/services/UiDesignService · editor/ui/UiDesignerPanel — ADR-0145, test_ui_design_service · test_ui_designer_panel), 남은 것 수동 QA (창에서 HUD · 버튼 · 메뉴 만들기 — 사람) |
+| ST-06-4 | Game UI Designer | B | Review | v0.6 | v0.10 | P1 | M3-T5 · ST-06-1 | 문서 왕복 · 수동 QA — 모델 · 창 ✅ (editor/services/UiDesignService · editor/ui/UiDesignerPanel — ADR-0145, test_ui_design_service · test_ui_designer_panel), 남은 것 수동 QA (창에서 HUD · 버튼 · 메뉴 만들기 — 사람) |
 | M6-T2 | 템플릿 3종 | B | Done | v0.5 | v0.10 | P0 | M3-T5 | 템플릿마다 new → check → test — 틀 (sbx new --template · Studio · ADR-0144), minigame (rabbit_guard) · board (tictactoe) · survival (campfire), CTest project_templates · sample_tictactoe · sample_campfire, sbx resave |
 | RT-06-1 | 호출 토큰 · Capability 실행 검사 | A | Done | v0.6 | v0.10 | P0 | M2-T7 | 변조 .sbc 시험 — beginCall 의 콜백 이름 · 허락 집합, Host 호출마다 비교 (server · client), 비용 +0.1 % (ADR-0137) |
 | RT-06-7 | client 수명주기 · onEvent · onLateUpdate | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 순서 — onStart → onEvent → onUpdate → onLateUpdate 차례 · 세션 끝 (ADR-0140, test_client_lifecycle · test_client_script_session), client onEvent · 복제 이벤트 큐 (GameEvents 프로토콜 19 — ADR-0141, test_client_events · test_client_event_session) |
 | RT-06-8 | onAction · 입력 Context | A | Done | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 — onAction(ctx, a: ActionEvent) (ADR-0142, test_client_actions), 입력 Context 키보드 UI > 메뉴 > 게임 · 먹히면 뗌 (ADR-0143, test_play_keys · test_game_ui_layer) |
 | RT-06-10 | 타이머 · defineState | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 세이브 → 로드 해시 — 타이머 (ctx.after · every · cancelTimer, script.timer — ADR-0138, test_script_timers) · 월드 상태 (defineState · ctx.state · setState, script.state — ADR-0139, test_script_state) |
-| NG-18 | v0.10 통합 시험 — 버튼 · 오목형 게임 (생성 → UI → 스크립트 → 실행 → 저장 → 재실행 → 패키지) | B | Proposed | — | v0.10 | P0 | ST-06-4 · RT-06-10 · M6-T2 | 헤드리스 흐름 CTest (NG-07 층 2) + 수동 QA 기록 |
+| NG-18 | v0.10 통합 시험 — 버튼 · 오목형 게임 (생성 → UI → 스크립트 → 실행 → 저장 → 재실행 → 패키지) | B | Review | — | v0.10 | P0 | ST-06-4 · RT-06-10 · M6-T2 | 헤드리스 흐름 CTest (NG-07 층 2) + 수동 QA 기록 — 흐름 CTest ✅ (ng18_board_flow · sbx ui — ADR-0147), 남은 것 수동 QA 기록 (MANUAL-QA [ ]) |
 | RT-06-2 | server onPrePhysics (8b) | A | Planned | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |
 | RT-06-3 | PhysicsCommand | A | Planned | v0.6 | v0.11 | P1 | RT-06-2 | 적용 순서 · 해시 |
 | RT-06-4 | collider layer · mask · trigger | A | Planned | v0.6 | v0.11 | P1 | — | 골든 그대로 |

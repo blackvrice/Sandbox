@@ -78,7 +78,8 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 층 3  GUI smoke — 창을 열고 N 프레임 · 패널마다 그리기 오류 없음. CI 에 GPU · 디스플레이가 없으면 건너뛰고 "건너뜀" 으로 적는다 (통과로 적지 않는다)
 층 4  실기 QA (16 형식 — 명령 · OS · GPU · 결과 · 커밋) · 외부 사용성 시험 (2장, ST-06-12)
 규칙  G1 ~ G9 마다 증거 층을 적는다 — 층 3 · 4 만 있는 기준은 Closed Creator Alpha 진입 (roadmap/release-gates 3장) 때 수동 기록이 있어야 한다
-지금  층 2 = CTest studio_flow_e2e (새 프로젝트 → sbx asset import → studio.build → 빈 캐시에서 패키지 플레이) 와 기준별 CTest.
+지금  층 2 = CTest studio_flow_e2e (새 프로젝트 → sbx asset import → studio.build → 빈 캐시에서 패키지 플레이) · ng18_board_flow (v0.10 —
+      board 템플릿 → sbx ui 로 버튼 → 신호 · 스크립트 → resave → 서버 · 로컬 · 기록 재생 · 패키지, ADR-0147) 와 기준별 CTest.
       층 3 = CTest studio_gui_smoke (Windows · D3D12 WARP · 1366×768 — 홈 · 모든 창 워크스페이스 · 배치 저장). CI 또는 SBX_GUI_TESTS=1 일 때만
       창을 띄우고, 아니면 SKIPPED (통과로 적지 않는다). CI windows-msvc 에서 실제로 창을 띄워 통과 — 첫 기록 2026-11-11 (실행
       42940155797, 커밋 274f7e6: Debug 6.1 s · RelWithDebInfo 4.8 s — CI 로그). 층 4 = qa/QA-EVIDENCE 양식
@@ -89,8 +90,8 @@ G6 멀티 CTest studio_test_session ✅ (v0.8 ST-06-9, ADR-0115) — 명령 stud
 | G1 프로젝트 생성 | test_project_service · test_studio_home_data | studio_new_project · studio_flow_e2e | studio_gui_smoke (홈) | MANUAL-QA UI-2 [ ] |
 | G2 에셋 | test_asset_database · test_asset_browser (옮기기 · 지우기 · 놓기) | studio_flow_e2e (CLI 가져오기) | — | MANUAL-QA ST-06-3 [ ] |
 | G3 월드 편집 | test_editor · test_undo (setField) | test_editor_session | studio_gui_smoke (워크스페이스) | MANUAL-QA UI-1 [x] 부분 |
-| G4 스크립트 | test_script_editor | — | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
-| G5 게임 UI | test_game_ui_layer · test_ui_design_service · test_ui_designer_panel | — | — | MANUAL-QA ST-06-4 [ ] |
+| G4 스크립트 | test_script_editor | ng18_board_flow (규칙 고치기 → 검사 · 실행) | studio_gui_smoke (콘텐츠 창) | MANUAL-QA [ ] |
+| G5 게임 UI | test_game_ui_layer · test_ui_design_service · test_ui_designer_panel | ng18_board_flow (sbx ui → 신호 검사 → 플레이) | — | MANUAL-QA ST-06-4 [ ] |
 | G6 테스트 플레이 | test_test_service | test_world_panel · studio_test_session | — | MANUAL-QA ST-06-9 [ ] |
 | G7 디버깅 | test_console_panel · test_vm (줄 표 · 호출 경로) · test_diagnostic_help (고치는 법 · 문구 골든) | — | studio_gui_smoke (콘솔 · 통계) | MANUAL-QA UI-3 [ ] |
 | G8 빌드 | test_build_service | studio_build · studio_flow_e2e | — | MANUAL-QA M6-T3 [ ] |

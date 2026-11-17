@@ -6,7 +6,8 @@ add_executable(sbx
     Process.hpp
     Process.cpp
 )
-target_link_libraries(sbx PRIVATE SandboxCore SandboxProcess sbx_warnings)
+# SandboxEditorServices — sbx ui 가 UI 디자이너의 모델 (UiDesignService) 을 쓴다 (v0.10 NG-18, ADR-0147 — 화면 · ImGui 없음)
+target_link_libraries(sbx PRIVATE SandboxCore SandboxEditorServices SandboxProcess sbx_warnings)
 # new --from 의 팩을 찾을 기본 루트 = 저장소의 content/ (--content-root 로 바꾼다)
 target_compile_definitions(sbx PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                        SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets"

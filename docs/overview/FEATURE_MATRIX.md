@@ -62,7 +62,7 @@
 | F-121 | 편집 데이터 자동 저장 · 크래시 복구 | v0.8 | ✅ 사용 가능 | ⬜ | CTest `studio_recovery` · `test_autosave_service` | 25 7장 · M6-T7 |
 | F-122 | 빌드 화면 (검사 · 패키지 · 누락 보고 · Export Profile) | v0.8 | ✅ 사용 가능 | ⬜ | CTest `studio_build` · `test_build_service` | 25 5장 · M6-T3 |
 | F-123 | 레이아웃 저장 · 명령 팔레트 · 단축키 표 · 테마 | v0.8 | ✅ 사용 가능 | 🟡 (1366×768 셸만) | CTest `studio_layout` · `test_layout_service` · `test_command_palette` | 29 · M6-T6 · ST-06-2 · UI-1 |
-| F-124 | Game UI Designer (HUD · 버튼 · 메뉴를 화면에서 편집) | v0.10 | 🟡 구현 — "UI 디자이너" 창 (계층 · 라이브러리 · 미리보기 · 끌기 · 노드 JSON · 저장), 수동 QA 남음 | `test_ui_design_service` · `test_ui_designer_panel` | — (ST-06-4 수동 QA) | 25 8장 · ADR-0145 |
+| F-124 | Game UI Designer (HUD · 버튼 · 메뉴를 화면에서 편집) | v0.10 | 🟡 구현 — "UI 디자이너" 창 (계층 · 라이브러리 · 미리보기 · 끌기 · 노드 JSON · 저장), 수동 QA 남음 | `test_ui_design_service` · `test_ui_designer_panel` · CTest `ng18_board_flow` (sbx ui) | — (ST-06-4 수동 QA) | 25 8장 · ADR-0145 · 0147 |
 | F-125 | Visual Trigger 편집 — 폼 | v0.2 | ✅ 사용 가능 | ⬜ | `test_trigger_form` | 10 8장 · 11 10장 |
 | F-126 | 트리거 노드 그래프 캔버스 · 콘텐츠 데이터 폼 | v0.12 | 📐 설계만 | — | — (ST-06-10) | 26 6장 |
 | F-127 | 지형 칠하기 (TerrainBrush) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` | 10 3장 · [05](../05-WORLD.md) |

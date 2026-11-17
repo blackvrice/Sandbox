@@ -44,7 +44,7 @@
 | [v0.7](versions/v0.7.md) | 게임 UI Runtime · 다국어 기반 |  | 11 | 0 | 11 | 100 % | 100 % | 7 / 19 | ✅ 완료 (0.7.0) |
 | [v0.8](versions/v0.8.md) | Studio 기본 환경: 홈 · 빌드 화면 · 복구 · 테스트 실행 |  | 16 | 1 | 17 | 94 % | 100 % | 1 / 13 | 🟡 판정 대기 (태스크 1 개 확인 필요) |
 | [v0.9](versions/v0.9.md) | Script IDE |  | 5 | 0 | 5 | 100 % | 100 % | 0 / 5 | 🟡 태스크 끝 · 출시 판정 대기 |
-| [v0.10](versions/v0.10.md) | Creator Foundation |  | 6 | 0 | 8 | 75 % | 88 % | 0 / 2 | 🟡 진행 중 |
+| [v0.10](versions/v0.10.md) | Creator Foundation |  | 6 | 2 | 8 | 75 % | 100 % | 0 / 3 | 🟡 판정 대기 (태스크 2 개 확인 필요) |
 | [v0.11](versions/v0.11.md) | Gameplay Runtime |  | 0 | 0 | 7 | 0 % | 71 % | — | ⬜ 미착수 |
 | [v0.12](versions/v0.12.md) | Advanced Creator Tools |  | 0 | 0 | 11 | 0 % | 82 % | — | ⬜ 미착수 |
 | [v0.13](versions/v0.13.md) | Closed Creator Alpha | Closed Creator Alpha | 0 | 0 | 6 | 0 % | 100 % | — | ⬜ 미착수 |
@@ -61,7 +61,7 @@
 | [v0.24](versions/v0.24.md) | Release Candidate | Release Candidate | 0 | 0 | 4 | 0 % | 0 % | — | ⬜ 미착수 |
 | [v0.25](versions/v0.25.md) | 추가 수정 · GA 후보 재검증 (필요할 때만) |  | 0 | 0 | 0 | 집계 불가 | 집계 불가 | — | ⬜ 미착수 (태스크 없음) |
 | [v1.0](versions/v1.0.md) | General Availability | General Availability | 0 | 0 | 1 | 0 % | 0 % | — | ⬜ 미착수 |
-| **합계** | | | **70** | 5 | **167** | **42 %** | 81 % | | |
+| **합계** | | | **70** | 7 | **167** | **42 %** | 81 % | | |
 
 ## 3. Closed Creator Alpha (v0.13) 까지 남은 작업
 
