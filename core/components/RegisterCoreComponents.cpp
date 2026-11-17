@@ -34,7 +34,7 @@ Expected<void> addAll(ecs::ComponentCatalog& catalog) {
 Expected<void> registerCoreComponents(ecs::ComponentCatalog& catalog) {
     return addAll<Transform, Velocity, Lifetime, Persistence, NetIdentity, Tags, PrefabSource, Age, Energy, Health,
                   Growth, Reproduce, RandomWalk, Movement, Collider, Sensor, Behavior, Path, GameSession, GameScore,
-                  SpawnPoint, CameraStart, GameOwner, ScriptTimer, ScriptState>(catalog);
+                  SpawnPoint, CameraStart, GameOwner, ScriptTimer, ScriptState, Trigger>(catalog);
 }
 
 } // namespace sbx::comp

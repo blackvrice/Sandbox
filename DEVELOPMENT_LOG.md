@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-17 — v0.11 RT-06-4: 트리거 표시 core.trigger · layer · mask 확인 (ADR-0150)
+
+**무엇을**
+
+- core.trigger (u8 reserved — Persistent · EditorVisible) — core.collider 와 함께 두면 겹쳐도 밀어내지 않는다 (밀지도 밀리지도).
+  CollisionSystem 의 항목에 trigger, 겹침 판정 뒤 한쪽이라도 트리거면 push 를 더하지 않는다.
+- layer · mask 거르기는 Phase 5B 부터 있었다 (두 쪽 다 (내 layer & 상대 mask) ≠ 0) — 시험으로 확인 (한쪽만 맞으면 겹치지 않는다).
+- 카탈로그 26 (core.trigger). 시험 test_collision_trigger.
+- 문서: ADR-0150, 05 4.3, 11, 22 5장, 13, FEATURE_MATRIX F-216, 등록부 RT-06-4 Done (gen_roadmap).
+
+**왜**
+
+- RT-06-5 의 triggerEnter · Exit 가 쓸 "겹침만" 콜라이더. core.collider 에 필드를 더하면 Hashed 컴포넌트라 모든 콜라이더 개체의
+  해시 (골든 · 리플레이) 가 바뀌어 kSimVersion 5 가 필요하다 — 붙인 개체만 바뀌는 표시 컴포넌트로 했다.
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,949,338 모두 통과 (새 test_collision_trigger — 보통 쌍 −0.4 · 0.6, 트리거 ·
+  layer · mask 쌍은 그대로, 세이브 → 로드 해시), 렌더 시험 통과, 전체 ctest 94 개 — 93 통과 · studio_gui_smoke SKIPPED. 골든 해시 ·
+  kSimVersion 4 그대로.
+
+**남은 일**
+
+- RT-06-5 (16a 겹침 쌍 → collision · trigger Enter · Exit), 스크립트에서 트리거 여부 읽기 (엔진 컴포넌트 표) 는 필요할 때.
+
 ## 2026-11-17 — v0.11 RT-06-3: 물리 명령 — applyForce · applyImpulse · setVelocity · teleport (ADR-0149)
 
 **무엇을**

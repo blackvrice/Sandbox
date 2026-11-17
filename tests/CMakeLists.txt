@@ -76,6 +76,7 @@ add_executable(SandboxTests
     unit/core/test_prefab_lifecycle.cpp
     unit/core/test_pathfinding.cpp
     unit/core/test_ai_systems.cpp
+    unit/core/test_collision_trigger.cpp
     unit/core/test_replay.cpp
     unit/persist/test_world_save.cpp
     unit/persist/test_sample_saves.cpp

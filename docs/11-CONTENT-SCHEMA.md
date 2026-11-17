@@ -52,7 +52,8 @@ Phase 5B (실행 — 03 5·6·7장)
   상태 정의 순 → 전이 순으로 모은 것 (그래프당 최대 8, 넘으면 V7 오류).
 - 2장 예시의 "ai.sensor": {"radius", "mask"} 대신 {"radius"} 만 — 무엇을 감지할지는 그래프의 질의가 정한다.
   "ai.behavior": {"graph"} (state·enteredTick·target·blackboard 는 실행 상태). "ai.path": {} 를 붙이면 막힌 곳을 돌아가는
-  경로를 쓴다 (없으면 목표로 곧장). "core.movement" · "core.collider" 는 2장 예시 그대로 (+ collider 의 layer·mask u32).
+  경로를 쓴다 (없으면 목표로 곧장). "core.movement" · "core.collider" 는 2장 예시 그대로 (+ collider 의 layer·mask u32 — 두 쪽이
+  다 맞아야 겹친다). "core.trigger": {} (v0.11 RT-06-4, ADR-0150) — 콜라이더와 함께 두면 겹쳐도 밀지 않는다 (트리거 영역).
 - 노드 의미: seek 는 질의의 가장 가까운 개체를 target 으로 (안 보이면 target 을 놓고 멈춤), targetValid = target 이 살아 있음,
   targetInRange(r) = 중심 거리 ≤ r. "*" → 지금 상태 자신 전이는 건너뛴다. stateTime 은 진입 틱부터 초.
 - Rule 의 range 는 중심 거리다. 둘 다 core.collider 가 있으면 반지름 합보다 넉넉히 둔다 (분리가 반지름 합까지 민다) —

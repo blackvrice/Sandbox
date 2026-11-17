@@ -39,6 +39,13 @@ struct Collider {
 
 inline constexpr f32 kMaxColliderRadius = 2.f; // 이웃 질의 범위의 근거 — 더 큰 반지름은 FieldMeta 가 막는다
 
+// 트리거 표시 (v0.11 RT-06-4, ADR-0150) — core.collider 와 함께 두면 겹쳐도 밀어내지 않는다 (겹침만 — 단계 16a 의
+// trigger 이벤트, RT-06-5). layer · mask 는 콜라이더의 것을 그대로 쓴다. core.collider 에 필드를 더하지 않은 까닭:
+// 콜라이더는 Hashed 라 필드 하나가 모든 콜라이더 개체의 해시 (골든) 를 바꾼다 — 표시 컴포넌트는 붙인 개체만 바꾼다
+struct Trigger {
+    u8 reserved = 0; // 빈 구조체 대신 (세이브 · 해시의 칸 — 값은 늘 0)
+};
+
 template <class V>
 void reflect(V& v, Collider& c) {
     v.field("radius", c.radius, ecs::Hint::None, ecs::FieldMeta::range(0.01, kMaxColliderRadius));
@@ -46,9 +53,16 @@ void reflect(V& v, Collider& c) {
     v.field("mask", c.mask);
 }
 
+template <class V>
+void reflect(V& v, Trigger& c) {
+    v.field("reserved", c.reserved, ecs::Hint::None, ecs::FieldMeta::range(0, 0));
+}
+
 } // namespace sbx::comp
 
 SBX_COMPONENT(sbx::comp::Movement, "core.movement", 1,
               sbx::ecs::ComponentFlags::Persistent | sbx::ecs::ComponentFlags::EditorVisible);
 SBX_COMPONENT(sbx::comp::Collider, "core.collider", 1,
+              sbx::ecs::ComponentFlags::Persistent | sbx::ecs::ComponentFlags::EditorVisible);
+SBX_COMPONENT(sbx::comp::Trigger, "core.trigger", 1,
               sbx::ecs::ComponentFlags::Persistent | sbx::ecs::ComponentFlags::EditorVisible);

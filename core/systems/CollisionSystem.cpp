@@ -9,9 +9,10 @@
 // 2) 쓰기 패스: 모은 양을 더한 뒤 통행 불가 타일(moveCost 0)과 겹치면 밖으로 밀어내고 월드 경계로 자른다.
 // 엔티티마다 자기 위치에만 쓰고, 읽기는 모두 1) 에서 끝나므로 순회 순서와 무관하다 (Jacobi 방식).
 // (Phase 5C) 1) 은 Worker 와 나눠 계산한다 — 레지스트리는 읽기만, 쓰기는 2) 에서 호출 스레드가.
-// (15A) 후보의 콜라이더 · 위치는 레지스트리 대신 이번 틱 항목 표(엔티티 index → 항목)에서 — 후보 대부분(풀)은 콜라이더가
-// 없어 한 번의 배열 읽기로 거른다. 값은 같은 틱 같은 단계에 읽은 것이라 레지스트리 조회와 같다.
-// 정밀 물리가 목표가 아니다 — 한 틱에 한 번, 반복하지 않는다.
+// (15A) 후보의 콜라이더 · 위치는 레지스트리 대신 이번 틱 항목 표(엔티티 index → 항목)에서 — 후보 대부분(풀)은
+// 콜라이더가 없어 한 번의 배열 읽기로 거른다. 값은 같은 틱 같은 단계에 읽은 것이라 레지스트리 조회와 같다. 정밀 물리가
+// 목표가 아니다 — 한 틱에 한 번, 반복하지 않는다. (v0.11 RT-06-4) layer · mask: 두 쪽 다 (내 layer & 상대 mask) ≠ 0 일
+// 때만 겹친다. core.trigger 가 있는 쪽이 하나라도 있으면 겹쳐도 밀어내지 않는다 (트리거 — 겹침만, ADR-0150).
 
 #include <algorithm>
 #include <cmath>
@@ -36,6 +37,7 @@ struct Item {
     Vec2 position;
     comp::Collider collider;
     Vec2 push;
+    bool trigger = false; // core.trigger (v0.11 RT-06-4) — 밀지도 밀리지도 않는다
 };
 
 // 원(pos, r)을 통행 불가 타일 밖으로. 타일은 (y, x) 오름차순으로 한 번씩.
@@ -89,7 +91,7 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
     f32 maxRadius = 0.f;
     for (auto [e, col, tr, id] :
          ctx.reg.view<ecs::Read<comp::Collider>, ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>>()) {
-        items.push_back(Item{e, id.saveId, tr.position, col, Vec2{}});
+        items.push_back(Item{e, id.saveId, tr.position, col, Vec2{}, ctx.reg.tryRead<comp::Trigger>(e) != nullptr});
         maxRadius = std::max(maxRadius, col.radius);
         if (const comp::Velocity* v = ctx.reg.tryRead<comp::Velocity>(e)) {
             maxSpeed2 = std::max(maxSpeed2, v->value.lengthSquared());
@@ -120,6 +122,9 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
             if ((it.collider.layer & o.collider.mask) == 0 || (o.collider.layer & it.collider.mask) == 0) {
                 return;
             }
+            if (it.trigger || o.trigger) {
+                return; // 트리거 — 밀어내지 않는다 (겹침은 RT-06-5 가 센다)
+            }
             const Vec2 d = it.position - o.position;
             const f32 rsum = it.collider.radius + o.collider.radius;
             const f32 d2 = d.lengthSquared();
@@ -137,7 +142,8 @@ void CollisionSystem::run(sim::SystemContext& ctx) {
         }
     });
 
-    // 2) 쓰기 패스 — 지형 밀어내기 계산은 항목마다 독립 (Worker 와 나눈다, 15A), 레지스트리 쓰기는 호출 스레드가 순서대로
+    // 2) 쓰기 패스 — 지형 밀어내기 계산은 항목마다 독립 (Worker 와 나눈다, 15A), 레지스트리 쓰기는 호출 스레드가
+    // 순서대로
     std::vector<Vec2> finalPos(items.size());
     parallelFor(ctx.jobs, items.size(), 256, [&](usize begin, usize end) {
         for (usize i = begin; i < end; ++i) {

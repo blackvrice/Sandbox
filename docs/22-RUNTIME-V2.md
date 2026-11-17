@@ -180,7 +180,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 |------|------|-------------|----------------------|
 | 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | ✅ v0.11 RT-06-2 (스케줄러 훅 — ADR-0148) · 물리 명령 ✅ RT-06-3 (ADR-0149) | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
 | 9 Movement | 조향 · 적분 + PhysicsCommand 적용 (힘 · 충격 · 순간 이동 · 속도) — 명령은 (saveId, 넣은 차례) | 현행 + 명령 ✅ v0.11 RT-06-3 (8b 끝 · 9 앞에 적용, 질량 1 — ADR-0149) | 명령이 없으면 같다 |
-| 16 Collision | 원 분리 + [계획 v0.6] layer · mask 거르기 (필드는 이미 core.collider 에 있다), 겹침 쌍 집합 → Enter · Stay · Exit | 현행 + [계획 v0.6] | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
+| 16 Collision | 원 분리 + layer · mask 거르기 (Phase 5B 부터 — 두 쪽이 맞아야), 트리거 core.trigger ✅ v0.11 RT-06-4 (밀지 않는다 — ADR-0150), 겹침 쌍 집합 → Enter · Exit [RT-06-5] | 현행 + 트리거 ✅ | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
 | 16a 물리 이벤트 | 쌍 (saveId 작은 쪽, 큰 쪽) 정렬 → GameEvent collisionEnter · Exit · triggerEnter · Exit (core.collider.trigger [계획]) | [계획 v0.6] | 구독이 없으면 만들지 않는다 |
 | ShapeCast | 원 쓸기 (원 + 선분 — raycast 의 일반화) | [계획 v0.6] | 질의만 |
 | Substep | 게임마다 1 ~ 4 (기본 1) | [계획 v0.8] | 기본 1 이면 그대로 |
