@@ -87,7 +87,7 @@
 | RT-06-8 | onAction · 입력 Context | A | Done | v0.6 | v0.10 | P1 | M3-T3 | 우선순위 · 소비 — onAction(ctx, a: ActionEvent) (ADR-0142, test_client_actions), 입력 Context 키보드 UI > 메뉴 > 게임 · 먹히면 뗌 (ADR-0143, test_play_keys · test_game_ui_layer) |
 | RT-06-10 | 타이머 · defineState | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 세이브 → 로드 해시 — 타이머 (ctx.after · every · cancelTimer, script.timer — ADR-0138, test_script_timers) · 월드 상태 (defineState · ctx.state · setState, script.state — ADR-0139, test_script_state) |
 | NG-18 | v0.10 통합 시험 — 버튼 · 오목형 게임 (생성 → UI → 스크립트 → 실행 → 저장 → 재실행 → 패키지) | B | Review | — | v0.10 | P0 | ST-06-4 · RT-06-10 · M6-T2 | 헤드리스 흐름 CTest (NG-07 층 2) + 수동 QA 기록 — 흐름 CTest ✅ (ng18_board_flow · sbx ui — ADR-0147), 남은 것 수동 QA 기록 (MANUAL-QA [ ]) |
-| RT-06-2 | server onPrePhysics (8b) | A | Planned | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |
+| RT-06-2 | server onPrePhysics (8b) | A | Done | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |
 | RT-06-3 | PhysicsCommand | A | Planned | v0.6 | v0.11 | P1 | RT-06-2 | 적용 순서 · 해시 |
 | RT-06-4 | collider layer · mask · trigger | A | Planned | v0.6 | v0.11 | P1 | — | 골든 그대로 |
 | RT-06-5 | 충돌 · 트리거 Enter/Exit (16a) | A | Planned | v0.6 | v0.11 | P1 | RT-06-4 | 순서 · 세이브 정합 |

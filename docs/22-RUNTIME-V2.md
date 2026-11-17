@@ -76,7 +76,7 @@ T10 새 OS 스레드는 ADR 로만 — 측정 (14) 과 소유권 표 (이 장) �
 | 도메인 | 콜백 | 단계 · 주기 | Context (TS 타입) | 상태 · 버전 |
 |--------|------|-------------|-------------------|-------------|
 | server | onStart | 17d — 시스템이 처음 도는 틱 | ServerContext | 현행 (v0.3 M4-T2) |
-| server | onPrePhysics | 새 단계 8b — Path 요청 (8) 뒤 · Movement (9) 앞 | ServerPrePhysicsContext | [계획 v0.6] |
+| server | onPrePhysics | 단계 8b — Path 요청 (8) 뒤 · Movement (9) 앞 | ServerContext (허락 EcsRead · PhysicsCommand · Random · Time · Log — ServerPrePhysicsContext 대신, ADR-0148) | 현행 — v0.11 RT-06-2 (.sbc 15) |
 | server | onTick | 16b — Collision (16) 뒤 · ECB (17) 앞 | ServerContext (= ServerTickContext) | 현행 — **단계를 옮기지 않는다** (이미 물리 뒤라 "post-physics" 몫을 한다) |
 | server | onPostPhysics | — | — | **두지 않는다** — onTick 과 같은 자리라 이름만 둘이 된다 (ADR-0086 3) |
 | server | onEvent | 17d — 구독한 종류 (death · spawn · areaEnter · score, timer ✅ v0.10 RT-06-10 — 구독 없이 만든 시스템에게, [계획] action · signal · trigger · collision · response) | ServerContext + GameEvent | 현행 — action 은 v0.5 M2-T5 (2) ✅ (종류는 늘어남) |
@@ -178,7 +178,7 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 
 | 단계 | 내용 | 상태 · 버전 | 결정론 · kSimVersion |
 |------|------|-------------|----------------------|
-| 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | [계획 v0.6] | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
+| 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | ✅ v0.11 RT-06-2 (스케줄러 훅 — ADR-0148), 물리 명령은 RT-06-3 | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
 | 9 Movement | 조향 · 적분 + PhysicsCommand 적용 (힘 · 충격 · 순간 이동 · 속도) — 명령은 (saveId, 넣은 차례) | 현행 + [계획 v0.6] 명령 | 명령이 없으면 같다 |
 | 16 Collision | 원 분리 + [계획 v0.6] layer · mask 거르기 (필드는 이미 core.collider 에 있다), 겹침 쌍 집합 → Enter · Stay · Exit | 현행 + [계획 v0.6] | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
 | 16a 물리 이벤트 | 쌍 (saveId 작은 쪽, 큰 쪽) 정렬 → GameEvent collisionEnter · Exit · triggerEnter · Exit (core.collider.trigger [계획]) | [계획 v0.6] | 구독이 없으면 만들지 않는다 |

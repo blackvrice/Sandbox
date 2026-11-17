@@ -535,6 +535,9 @@ void summarizeScripts(const content::ContentDatabase& db, ProjectReport& r) {
         for (const script::bc::SystemDesc& s : p.module.systems) {
             std::string line =
                 std::format("{} — {}/{}", s.id, p.folder, s.module); // folder = "content/<팩>" · 설치 폴더
+            if (s.onPrePhysics != script::api::kNoCallback) {
+                line += " · onPrePhysics"; // 단계 8b — Movement 앞 (v0.11 RT-06-2)
+            }
             if (s.onTick != script::api::kNoCallback) {
                 line += s.intervalTicks == 1 ? " · onTick" : std::format(" · onTick ({} 틱마다)", s.intervalTicks);
             }

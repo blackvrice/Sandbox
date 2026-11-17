@@ -161,7 +161,15 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     const SystemContext base{m_registry, m_baseEcb, m_spatial,           m_grid,    m_random,
                              m_events,   m_spawns,  *m_content,          m_catalog, m_saves,
                              m_intents,  m_paths,   m_paths.jobSystem(), now,       kFixedDt};
-    m_scheduler.run(base, profiler);
+    // 8b PrePhysics (v0.11 RT-06-2, ADR-0148) — onPrePhysics 가 있는 콘텐츠만 (없으면 단계도 없다 — 골든 그대로)
+    if (m_scriptSystems && m_scriptSystems->hasPrePhysics()) {
+        m_scheduler.run(base, profiler, [this, now] {
+            ensureScriptState(now); // ctx.state 를 읽는다 — 상태 개체는 16b 와 같이 (없을 때만 만든다)
+            m_scriptSystems->runPrePhysics(*this, now);
+        });
+    } else {
+        m_scheduler.run(base, profiler);
+    }
 
     // --- 16b Scripts -----------------------------------------------------------
     // 스크립트 시스템의 onTick — Native System 이 쓴 값을 보고, 쓰기는 호출마다 바로 적용 (17b · 17c 가 같은 틱에

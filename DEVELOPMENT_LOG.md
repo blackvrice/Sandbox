@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-17 — v0.11 RT-06-2: server onPrePhysics — 단계 8b (ADR-0148)
+
+**무엇을**
+
+- 콜백 표: server onPrePhysics Active (v0.11) — 허락 EcsRead · PhysicsCommand · Random · Time · Log. 검사기가 defineSystem 의
+  onPrePhysics 를 받고 (서버 시스템만 — client 면 S426), 콜백 몸의 ctx 호출 Capability 는 기존 S404 (spawn · write 거절).
+- .sbc 형식 15 — 시스템 표에 onPrePhysics 칸, 검증기 (서버만 · 콜백 서명 (ServerContext?) → void), 역어셈블은 있을 때만.
+- SystemScheduler::run 에 prePhysics 훅 — Stage::Movement 이상의 첫 System 앞에 한 번 (없으면 끝). SimulationWorld 는
+  onPrePhysics 가 있는 시스템이 있을 때만 넘긴다 (없으면 단계 없음 — 골든 · kSimVersion 4 그대로).
+- ScriptSystemAdapter::runPrePhysics — (팩, id) 차례, 틱 통계 · 연료는 8b 가 새로 세고 16b · 17d 가 이어 쓴다.
+- sbx check 요약 줄 "· onPrePhysics", SDK (ServerSystemDefinition.onPrePhysics) 다시 생성 (sdk/ · 예제 다섯).
+- 문서: ADR-0148, 03 2.x, 22 3 · 5장, 19 17.1 · 26장, 24 V3, 13, versioning · VERSION-MIGRATION-MATRIX (.sbc 15), 18 · CURRENT_STATUS ·
+  FEATURE_MATRIX F-216, 등록부 RT-06-2 Done (gen_roadmap).
+
+**왜**
+
+- v0.11 의 첫 조각 — 물리 앞에 스크립트가 끼어드는 자리. 물리 명령 (RT-06-3) 이 이 단계에 붙는다. Stage 는 정수 열거라 8 과 9
+  사이 값이 없어 System 이 아닌 스케줄러 훅으로 두었다 (단계 번호 · 프로파일 이름을 밀지 않는다).
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,948,808 모두 통과 (새 test_script_prephysics 4 — 8b 의 위치가 Movement 앞 ·
+  읽기만 하면 해시 그대로 · 세이브 → 로드 해시 · 검사기 · .sbc 15), 렌더 시험 통과, 전체 ctest 94 개 — 93 통과 · studio_gui_smoke
+  SKIPPED (첫 실행의 unit_script 실패 둘 = 예약 이름 · 메서드 목록 문구의 옛 기대 — 고쳐 다시 통과).
+- Host 지문 그대로 (표를 바꾸지 않았다), 골든 해시 그대로 (onPrePhysics 없는 콘텐츠는 단계가 없다).
+
+**남은 일**
+
+- RT-06-3 PhysicsCommand (같은 단계 — 8b 끝에 적용), RT-06-4 · 5 충돌, RT-06-9 onRender, NG-17 오디오, NG-19.
+
 ## 2026-11-17 — v0.10 NG-18: 통합 시험 ng18_board_flow · sbx ui (ADR-0147)
 
 **무엇을**

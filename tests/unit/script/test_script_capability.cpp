@@ -60,8 +60,10 @@ TEST_SUITE("script") {
         for (const api::HostFunction& fn : api::kHostFunctions) {
             const bool client = fn.domain == api::HostDomain::Client;
             for (const api::CallbackInfo& cb : api::kCallbacks) {
-                // v0.10 RT-06-7 의 client onStart · onStop · onLateUpdate 는 처음부터 좁다 (ADR-0140 — 아래)
-                if (cb.status != api::CallbackStatus::Active || cb.client != client || cb.since == "v0.10") {
+                // v0.10 RT-06-7 의 client onStart · onStop · onLateUpdate · v0.11 의 server onPrePhysics 는 처음부터
+                // 좁다 (ADR-0140 · 0148 — 아래)
+                if (cb.status != api::CallbackStatus::Active || cb.client != client || cb.since == "v0.10" ||
+                    cb.since == "v0.11") {
                     continue;
                 }
                 CAPTURE(fn.id);

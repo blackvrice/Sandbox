@@ -3,6 +3,8 @@
 // 19장, 03-SIMULATION 2장.
 //
 // 콘텐츠의 팩 바이트코드 (content::ScriptPrograms) 마다 인터프리터 하나, Host (ScriptHost) 는 하나.
+//   8b  runPrePhysics (팩 순서, 시스템 id) 차례로 onPrePhysics — Path 요청 뒤 · Movement 앞, 읽기 · 물리 명령만
+//                     (v0.11 RT-06-2, ADR-0148). 틱 통계 · 연료는 여기서 새로 세고 16b · 17d 가 이어 쓴다
 //   16b run           (팩 순서, 시스템 id) 차례로 이번 틱에 돌 시스템 (틱 번호 % intervalTicks == 0) 의 onTick
 //   17d runCallbacks  ① onStart (시작한 틱) ② onEvent (시스템 차례 → 구독 종류 차례 → 그 틱에 일어난 차례) ③ onStop
 //   (끝난 틱)
@@ -146,7 +148,10 @@ public:
     ScriptSystemAdapter& operator=(const ScriptSystemAdapter&) = delete;
     ~ScriptSystemAdapter();
 
-    // 단계 16b — world 는 System 이 도는 틱 (구조 잠금 밖, ECB 적용 전). 이번 틱의 통계 · 틱 연료를 새로 센다
+    // 단계 8b — onPrePhysics 가 있는 시스템이 있을 때만 SimulationWorld 가 부른다. 이번 틱의 통계 · 틱 연료를 새로 센다
+    void runPrePhysics(sim::SimulationWorld& world, sim::Tick tick);
+    // 단계 16b — world 는 System 이 도는 틱 (구조 잠금 밖, ECB 적용 전). 이번 틱의 통계 · 틱 연료를 새로 센다 (같은
+    // 틱에 8b 가 돌았으면 그 위에 이어서 — 틱 연료는 8b · 16b · 17d 의 합)
     void run(sim::SimulationWorld& world, sim::Tick tick);
     // 단계 17d — 17c 다음 (통계 · 틱 연료는 run 에 이어서)
     void runCallbacks(sim::SimulationWorld& world, sim::Tick tick, const ScriptEventFacts& facts);
@@ -159,6 +164,8 @@ public:
 
     // onStart · onStop · onEvent 가 있는 시스템이 있다 (17d 가 필요하다)
     [[nodiscard]] bool hasCallbacks() const noexcept { return m_hasCallbacks; }
+    // onPrePhysics 가 있는 시스템이 있다 (단계 8b 가 필요하다 — 없으면 단계도 없다, 골든 그대로)
+    [[nodiscard]] bool hasPrePhysics() const noexcept { return m_hasPrePhysics; }
     // 이 종류를 구독한 시스템이 있다
     [[nodiscard]] bool subscribes(api::GameEventKind kind) const noexcept {
         return (m_subscribed & (1u << static_cast<u32>(kind))) != 0;
@@ -227,11 +234,13 @@ private:
     std::vector<u64> m_digests;                              // packs 차례 — 바이트코드의 FNV-1a 64
     std::vector<Entry> m_systems;                            // 실행 순서 (팩 순서, id)
     bool m_hasCallbacks = false;
+    bool m_hasPrePhysics = false;
     u32 m_subscribed = 0; // 1 << GameEventKind
     std::vector<vm::Value> m_fields;
     std::vector<std::string> m_texts; // GameEvent 의 문자열 칸 (구조체 칸이 자리를 가리킨다)
     u64 m_tickFuelLeft = kTickFuel;
     u64 m_droppedAtTickStart = 0;
+    std::optional<sim::Tick> m_prePhysicsTick; // 8b 가 돈 틱 — 16b 가 통계 · 연료를 새로 세지 않는다
     bool m_budgetLogged = false;
     ScriptSystemStats m_last;
 };

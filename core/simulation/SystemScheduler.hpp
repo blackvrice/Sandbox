@@ -25,7 +25,10 @@ public:
     }
 
     // base 의 ecb 를 제외한 모든 참조를 System 마다 그대로 쓰고, ecb 만 System 전용으로 바꿔 끼운다.
-    void run(const SystemContext& base, ISystemProfiler* profiler = nullptr);
+    // prePhysics 가 있으면 단계 8b — Movement (9) 이상의 첫 System 앞 (없으면 끝) 에 한 번, 구조 잠금 밖에서 부른다
+    // (v0.11 RT-06-2 — server onPrePhysics, ADR-0148)
+    void run(const SystemContext& base, ISystemProfiler* profiler = nullptr,
+             const std::function<void()>& prePhysics = {});
 
     // 모든 System 의 ECB 를 실행 순서대로 적용한다. afterEach 는 ECB 하나를 적용할 때마다 불린다
     // (SimulationWorld 가 정체성 부여를 하나씩 따라가도록).

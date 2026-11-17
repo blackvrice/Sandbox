@@ -119,7 +119,7 @@ TEST_SUITE("script") {
 )"}};
         std::optional<bc::Module> m = compileScripts(files, d);
         REQUIRE_MESSAGE(m.has_value(), d.describeAll());
-        CHECK(m->format == 14);
+        CHECK(m->format >= 14); // 14 = onAction (지금 형식은 그 뒤 — v0.11 15)
         REQUIRE(m->systems.size() == 2);
         const bc::SystemDesc& fx = m->systems[0];
         const bc::SystemDesc& play = m->systems[1];

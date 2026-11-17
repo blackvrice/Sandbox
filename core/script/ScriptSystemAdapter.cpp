@@ -44,6 +44,7 @@ ScriptSystemAdapter::ScriptSystemAdapter(std::shared_ptr<const content::ScriptPr
             m_systems.push_back(std::move(e));
             m_hasCallbacks = m_hasCallbacks || s.onStart != api::kNoCallback || s.onStop != api::kNoCallback ||
                              s.onEvent != api::kNoCallback;
+            m_hasPrePhysics = m_hasPrePhysics || s.onPrePhysics != api::kNoCallback;
             for (const bc::EventSubscription& sub : s.events) {
                 m_subscribed |= 1u << sub.kind;
             }
@@ -202,10 +203,26 @@ void ScriptSystemAdapter::finishTick() {
     m_last.droppedLogs = m_host.droppedLogs() - m_droppedAtTickStart;
 }
 
-void ScriptSystemAdapter::run(sim::SimulationWorld& world, sim::Tick tick) {
+void ScriptSystemAdapter::runPrePhysics(sim::SimulationWorld& world, sim::Tick tick) {
     m_last = {};
     m_tickFuelLeft = kTickFuel;
     m_droppedAtTickStart = m_host.droppedLogs();
+    m_prePhysicsTick = tick;
+    for (Entry& s : m_systems) {
+        if (s.desc->onPrePhysics != api::kNoCallback) {
+            invoke(world, tick, s, s.desc->onPrePhysics, "onPrePhysics", nullptr);
+        }
+    }
+    finishTick();
+}
+
+void ScriptSystemAdapter::run(sim::SimulationWorld& world, sim::Tick tick) {
+    if (m_prePhysicsTick != tick) { // 8b 가 이 틱에 돌았으면 그 통계 · 남은 연료에 이어서
+        m_last = {};
+        m_tickFuelLeft = kTickFuel;
+        m_droppedAtTickStart = m_host.droppedLogs();
+    }
+    m_prePhysicsTick.reset();
     for (Entry& s : m_systems) {
         if (s.desc->onTick == api::kNoCallback || tick % s.desc->intervalTicks != 0) {
             continue;

@@ -350,6 +350,7 @@ std::vector<u8> serialize(const Module& m) {
         w.u32v(s.onMigrate);
         w.u32v(s.onLateUpdate);
         w.u32v(s.onAction);
+        w.u32v(s.onPrePhysics);
         w.u32v(s.intervalTicks);
         w.u32v(s.eventsPerTick);
         w.u32v(static_cast<u32>(s.events.size()));
@@ -576,8 +577,8 @@ Expected<Module> deserialize(std::span<const u8> bytes) {
         u8 domain = 0;
         if (!r.str(s.id) || !r.str(s.module) || !r.u8v(domain) || !r.u32v(s.onUpdate) || !r.u32v(s.onTick) ||
             !r.u32v(s.onStart) || !r.u32v(s.onStop) || !r.u32v(s.onEvent) || !r.u32v(s.onMigrate) ||
-            !r.u32v(s.onLateUpdate) || !r.u32v(s.onAction) || !r.u32v(s.intervalTicks) || !r.u32v(s.eventsPerTick) ||
-            !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
+            !r.u32v(s.onLateUpdate) || !r.u32v(s.onAction) || !r.u32v(s.onPrePhysics) || !r.u32v(s.intervalTicks) ||
+            !r.u32v(s.eventsPerTick) || !r.count(ne, static_cast<u32>(api::kGameEventKinds.size()), 45, "구독")) {
             return bad("시스템");
         }
         if (domain > static_cast<u8>(api::HostDomain::Client)) {
@@ -645,6 +646,9 @@ std::string disassemble(const Module& m) {
                            s.eventsPerTick);
         if (s.onMigrate != api::kNoCallback) {
             out.insert(out.size() - 1, " · onMigrate " + fnOf(s.onMigrate)); // 줄바꿈 앞에 (있을 때만 — 옛 덤프 그대로)
+        }
+        if (s.onPrePhysics != api::kNoCallback) {
+            out.insert(out.size() - 1, " · onPrePhysics " + fnOf(s.onPrePhysics)); // v0.11 RT-06-2 — 있을 때만
         }
         for (const EventSubscription& e : s.events) {
             const api::GameEventKindInfo* k = api::gameEventKindInfo(e.kind);

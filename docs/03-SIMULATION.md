@@ -247,7 +247,8 @@ System은 다른 System을 직접 호출하지 않습니다. 소통은 컴포넌
 
 ### 2.x Runtime v2 의 단계 추가 [계획]
 
-- 8b server onPrePhysics (Path 제출 8 뒤 · Movement 9 앞) — [계획 v0.6]. 스크립트 시스템이 없으면 단계가 없다 (골든 그대로).
+- 8b server onPrePhysics (Path 제출 8 뒤 · Movement 9 앞) — ✅ v0.11 RT-06-2 (ADR-0148): SystemScheduler::run 의 훅 (Movement 이상의
+  첫 System 앞), onPrePhysics 가 있는 시스템이 없으면 단계가 없다 (골든 그대로). 읽기 · 난수 · 로그만 (물리 명령은 RT-06-3).
 - 16a 물리 이벤트 (Collision 16 뒤 — 겹침 쌍 Enter · Exit → GameEvent) — [계획 v0.6], 구독이 없으면 만들지 않는다.
 - 16b onTick 은 옮기지 않는다 (이미 물리 뒤 — 별도 onPostPhysics 없음). 17d 의 onEvent 종류에 action (v0.5 M2-T5 (2) ✅) · signal (M2-T5 (3) ✅),
   timer · collision · trigger (v0.6), response · socket (v0.8) 이 더해진다.

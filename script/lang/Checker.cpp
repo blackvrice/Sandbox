@@ -1024,6 +1024,7 @@ private:
                                   : key == "onUpdate"     ? &sd.onUpdate
                                   : key == "onLateUpdate" ? &sd.onLateUpdate
                                   : key == "onAction"     ? &sd.onAction
+                                  : key == "onPrePhysics" ? &sd.onPrePhysics
                                                           : nullptr;
             if (callback != nullptr) {
                 if (!method) {
@@ -1035,7 +1036,8 @@ private:
                 }
                 // onStart · onStop 은 두 도메인 (client 는 세션 수명주기 — v0.10 RT-06-7, ADR-0140)
                 const bool clientOnly = key == "onUpdate" || key == "onLateUpdate" || key == "onAction";
-                const bool serverOnly = key == "onTick" || key == "onMigrate"; // onEvent 는 두 도메인 (ADR-0141)
+                const bool serverOnly =
+                    key == "onTick" || key == "onMigrate" || key == "onPrePhysics"; // onEvent 는 두 도메인 (ADR-0141)
                 if ((clientOnly && !client) || (serverOnly && client)) {
                     // 몸은 그래도 검사한다 — 도메인에 맞는 ctx 로 (오류를 겹치지 않게)
                     err("S426", p,
@@ -1056,8 +1058,8 @@ private:
             }
             if (method) {
                 err("S426", p,
-                    std::format("defineSystem 의 메서드는 onTick · onStart · onStop · onEvent · onMigrate · onUpdate "
-                                "· onLateUpdate · onAction 뿐이다 ('{}')",
+                    std::format("defineSystem 의 메서드는 onTick · onPrePhysics · onStart · onStop · onEvent · "
+                                "onMigrate · onUpdate · onLateUpdate · onAction 뿐이다 ('{}')",
                                 key));
                 ok = false;
                 continue;
@@ -1171,9 +1173,10 @@ private:
                 ok = false;
             }
         } else if (none(sd.onTick) && none(sd.onStart) && none(sd.onStop) && none(sd.onEvent) && none(sd.onUpdate) &&
-                   none(sd.onLateUpdate) && none(sd.onAction) && none(sd.onMigrate)) {
+                   none(sd.onLateUpdate) && none(sd.onAction) && none(sd.onMigrate) && none(sd.onPrePhysics)) {
             err("S426", init,
-                "defineSystem 에 콜백이 없다 — onTick · onStart · onStop · onEvent · onMigrate 중 하나 이상");
+                "defineSystem 에 콜백이 없다 — onTick · onPrePhysics · onStart · onStop · onEvent · onMigrate 중 하나 "
+                "이상");
             ok = false;
         }
         // 아래는 server 시스템의 규칙 — client 시스템은 위에서 키마다 한 번 알렸다

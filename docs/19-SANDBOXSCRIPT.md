@@ -687,6 +687,27 @@ d.ts       sandbox.d.ts 의 SystemDefinition = ServerSystemDefinition | ClientSy
            같은 해시 (시험 · sbx_sim_check D1 · D2 · D5)
 ```
 
+### 17.1 onPrePhysics — 단계 8b (v0.11 RT-06-2 — `core/script/ScriptSystemAdapter::runPrePhysics`, [ADR-0148](adr/0148-server-onprephysics-stage-8b.md))
+
+```ts
+export default defineSystem({
+  id: "ball.steer",
+  onPrePhysics(ctx) {                           // 단계 8b — Path 요청 뒤 · Movement 앞 (같은 틱의 onTick 은 적분 뒤)
+    for (const e of ctx.query(Transform)) { const t = ctx.read(e, Transform) /* 틱 처음 위치 */ }
+  },
+})
+```
+
+```text
+언제       System 이 도는 틱마다, Native Stage 8 (PathfindingRequest) 뒤 · 9 (Movement) 앞 — SystemScheduler 의 훅. onPrePhysics 가
+           있는 시스템이 없으면 단계가 없다 (골든 그대로). 차례 = (팩 순서, 시스템 id)
+허락       EcsRead · PhysicsCommand · Random · Time · Log — ctx.write · setState · spawn · destroy · add · remove · after · setOwner 는
+           검사기 S404 (콜백 몸의 ctx 호출) · 실행 HostError (호출 토큰 — 도우미 함수 · 고친 바이트코드). 물리 명령 (applyForce ·
+           applyImpulse · teleport · setVelocity) 은 RT-06-3
+예산       틱 연료 · 통계는 8b 가 새로 세고 16b · 17d 가 이어 쓴다 (한 틱의 합 kTickFuel — 19장)
+형식       .sbc 형식 15 (시스템 표 onPrePhysics — 서버 시스템만), ABI 는 ServerContext (콜백마다 TS 타입 없음), Host 지문 그대로
+```
+
 ## 18. 시스템 콜백 · 이벤트 (v0.3 M4-T2 — 검사기 · `script/api/SystemEvents` · `core/simulation/SimulationScripts`, ADR-0063 · action 은 v0.5 M2-T5 (2))
 
 ```ts
@@ -1128,7 +1149,7 @@ Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send 
 ```text
 지금          server onStart · onTick (16b) · onEvent · onStop (17d), client onUpdate — 바꾸지 않는다. client onStart · onLateUpdate ·
               onStop ✅ v0.10 RT-06-7 조각 1 (21.2, ADR-0140 — 예약을 풀었다) · client onEvent ✅ 조각 2 (21.3, ADR-0141) ·
-              client onAction ✅ v0.10 RT-06-8 조각 1 (21.4, ADR-0142)
+              client onAction ✅ v0.10 RT-06-8 조각 1 (21.4, ADR-0142) · server onPrePhysics ✅ v0.11 RT-06-2 (17.1, ADR-0148)
 ✅ v0.5 M2-T7 계약 — script/api/Callbacks kCallbacks: 콜백마다 (이름 · 도메인 · Active | Planned · 버전 · 허락 Capability). 예약 (Planned):
               server onPrePhysics (v0.6), client onRender (v0.6) · onTick (v0.7) —
               쓰면 S426 "<이름> 는 <도메인> 시스템의 예약된 콜백 이름이다 — [계획 vX]" (다른 도메인의 예약 이름도), onPostPhysics 는 S426
@@ -1138,7 +1159,7 @@ Capability onUpdate 와 같다 — 읽기 · 시간 · 표시 · 입력 · send 
               밖이면 HostError (v0.10 전의 콜백은 그 도메인의 모든 Host 함수를 허락 — 막는 것은 새 콜백부터). 검사기 겹 ✅ v0.10 RT-06-7:
               콜백 메서드 몸에서 ctx 로 바로 부른 함수가 허락 밖이면 S404 (도우미 함수는 실행 검사만). 매니페스트 network.model (18 5.2 —
               "snapshot" 만, "predicted" 는 P2 [계획 v0.7])
-[계획 v0.6]   server onPrePhysics (8b) · client onRender (Draw 만), 단계 밖 호출은 검사기 S404 +
+[계획 v0.6]   client onRender (Draw 만 — server onPrePhysics (8b) 는 ✅ v0.11 RT-06-2), 단계 밖 호출은 검사기 S404 +
               실행 HostError (호출 토큰 — 실행 쪽 ✅ RT-06-1). 타이머 ✅ v0.10 RT-06-10 조각 1 (ctx.after · every · cancelTimer →
               onEvent Timer, ADR-0138 — 16.2 · 18장) · defineState ✅ v0.10 RT-06-10 조각 2
               (ctx.state · setState, ADR-0139 — 16.2)

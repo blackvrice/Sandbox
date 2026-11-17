@@ -385,6 +385,8 @@ declare module "sandbox" {
     events?: SystemEvents;
     /** 단계 16b — Native System 뒤, 구조 변경 · 게임 규칙 · 트리거 앞. 쓰기는 호출이 끝나면 적용 */
     onTick?(ctx: ServerContext): void;
+    /** 단계 8b — Path 요청 뒤 · Movement 앞 (물리 앞). 읽기 · 난수 · 로그만 — 쓰기 · 구조 변경은 거절 (v0.11) */
+    onPrePhysics?(ctx: ServerContext): void;
     /** 단계 17d — 게임이 Running 이 된 틱 (세션이 없으면 틱 1) */
     onStart?(ctx: ServerContext): void;
     /** 단계 17d — 게임이 Finished 가 된 틱 (세션이 없으면 없다) */

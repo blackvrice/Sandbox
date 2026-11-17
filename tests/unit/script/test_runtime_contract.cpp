@@ -41,8 +41,6 @@ TEST_SUITE("script") {
             std::string_view part;
         };
         const Case cases[] = {
-            {"export default defineSystem({ id: \"a.b\", onPrePhysics(ctx) { } })\n",
-             "onPrePhysics 는 server 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onRender(ctx) { } })\n",
              "onRender 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", domain: \"client\", onTick(ctx) { } })\n", "[계획 v0.7]"},
@@ -50,6 +48,9 @@ TEST_SUITE("script") {
             {"export default defineSystem({ id: \"a.b\", onRender(ctx) { } })\n",
              "onRender 는 client 시스템의 예약된 콜백 이름이다 — [계획 v0.6]"},
             {"export default defineSystem({ id: \"a.b\", onPostPhysics(ctx) { } })\n", "onPostPhysics 는 두지 않는다"},
+            // server onPrePhysics (v0.11 RT-06-2 — 예약이 풀렸다) 는 client 시스템에 두지 않는다
+            {"export default defineSystem({ id: \"a.b\", domain: \"client\", onPrePhysics(ctx) { } })\n",
+             "onPrePhysics 는 서버 시스템에"},
         };
         for (const Case& c : cases) {
             CAPTURE(c.src);
@@ -62,6 +63,7 @@ TEST_SUITE("script") {
             check("export default defineSystem({ id: \"a.b\", onTick(ctx) { }, onStart(ctx) { }, onStop(ctx) { } })\n")
                 .ok());
         CHECK(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onUpdate(ctx) { } })\n").ok());
+        CHECK(check("export default defineSystem({ id: \"a.b\", onPrePhysics(ctx) { } })\n").ok()); // v0.11 RT-06-2
         // client 수명주기 (v0.10 RT-06-7 — 예약이 풀렸다)
         CHECK(check("export default defineSystem({ id: \"a.b\", domain: \"client\", onStart(ctx) { }, onStop(ctx) { "
                     "}, onLateUpdate(ctx) { } })\n")
@@ -83,9 +85,9 @@ TEST_SUITE("script") {
             }
         }
         const std::set<std::pair<std::string_view, bool>> want{
-            {"onTick", false},    {"onStart", false}, {"onStop", false}, {"onEvent", false},
-            {"onMigrate", false}, {"onUpdate", true}, {"onStart", true}, {"onLateUpdate", true},
-            {"onStop", true},     {"onEvent", true},  {"onAction", true}};
+            {"onTick", false},    {"onStart", false}, {"onStop", false},  {"onEvent", false},
+            {"onMigrate", false}, {"onUpdate", true}, {"onStart", true},  {"onLateUpdate", true},
+            {"onStop", true},     {"onEvent", true},  {"onAction", true}, {"onPrePhysics", false}};
         // 검사기 (Checker::declareSystem) 가 콜백으로 받는 열 (onMigrate — v0.6 NG-04, client 수명주기 · onEvent —
         // v0.10 RT-06-7)
         CHECK(active == want);

@@ -56,9 +56,15 @@ ISystem* SystemScheduler::find(std::string_view name) noexcept {
     return nullptr;
 }
 
-void SystemScheduler::run(const SystemContext& base, ISystemProfiler* profiler) {
+void SystemScheduler::run(const SystemContext& base, ISystemProfiler* profiler,
+                          const std::function<void()>& prePhysics) {
+    bool prePhysicsDone = !prePhysics;
     for (usize i = 0; i < m_entries.size(); ++i) {
         Entry& entry = m_entries[i];
+        if (!prePhysicsDone && entry.stage >= Stage::Movement) {
+            prePhysicsDone = true;
+            prePhysics(); // 단계 8b
+        }
         SystemContext ctx{base.reg,     entry.ecb,   base.spatial, base.grid,    base.random,
                           base.events,  base.spawns, base.content, base.catalog, base.saves,
                           base.intents, base.paths,  base.jobs,    base.tick,    base.dt};
@@ -72,6 +78,9 @@ void SystemScheduler::run(const SystemContext& base, ISystemProfiler* profiler) 
         if (profiler != nullptr) {
             profiler->endSystem(i);
         }
+    }
+    if (!prePhysicsDone) {
+        prePhysics(); // Movement 이상의 System 이 없다 (시험의 작은 스케줄러)
     }
 }
 

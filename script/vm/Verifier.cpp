@@ -326,7 +326,8 @@ private:
                 // client 시스템 = 프레임 콜백 onUpdate · onLateUpdate + 수명주기 onStart · onStop + 복제 이벤트 onEvent
                 // (ADR-0067 · 0140 · 0141) — 틱 콜백 · 주기 · 타이머가 없다, 구독은 death · spawn · score · action ·
                 // signal
-                if (s.onTick != api::kNoCallback || s.onMigrate != api::kNoCallback || s.intervalTicks != 1) {
+                if (s.onTick != api::kNoCallback || s.onMigrate != api::kNoCallback ||
+                    s.onPrePhysics != api::kNoCallback || s.intervalTicks != 1) {
                     fail(
                         std::format("시스템 {}: client 시스템은 onUpdate · onLateUpdate · onStart · onStop · onEvent · "
                                     "onAction 만 둔다",
@@ -355,12 +356,14 @@ private:
             } else {
                 if (s.domain != api::HostDomain::Server || s.onUpdate != api::kNoCallback ||
                     s.onLateUpdate != api::kNoCallback || s.onAction != api::kNoCallback) {
+                    // (onPrePhysics 는 서버 것 — client 쪽은 아래에서 따로 막는다)
                     fail(std::format(
                         "시스템 {}: 도메인이 맞지 않다 (onUpdate · onLateUpdate · onAction 은 client 시스템에만)",
                         s.id));
                 }
                 if (s.onTick == api::kNoCallback && s.onStart == api::kNoCallback && s.onStop == api::kNoCallback &&
-                    s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback) {
+                    s.onEvent == api::kNoCallback && s.onMigrate == api::kNoCallback &&
+                    s.onPrePhysics == api::kNoCallback) {
                     fail(std::format("시스템 {}: 콜백이 하나도 없다", s.id));
                 }
                 const u32 maxInterval = s.onTick == api::kNoCallback ? 1 : kMaxIntervalTicks;
@@ -373,6 +376,7 @@ private:
                 callback(s, "onStop", s.onStop, false);
                 callback(s, "onMigrate", s.onMigrate, false);
                 callback(s, "onEvent", s.onEvent, true);
+                callback(s, "onPrePhysics", s.onPrePhysics, false); // v0.11 RT-06-2 — 단계 8b
             }
             const bool events = s.onEvent != api::kNoCallback;
             if (!events && !s.events.empty()) { // onEvent 만 (구독 없음) 은 된다 — 타이머 (v0.10 RT-06-10)

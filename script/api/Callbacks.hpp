@@ -69,10 +69,10 @@ inline constexpr std::array kCallbacks{
     CallbackInfo{"onEvent", false, CallbackStatus::Active, "v0.3", detail::kServerAll, "단계 17d — 구독한 이벤트"},
     CallbackInfo{"onMigrate", false, CallbackStatus::Active, "v0.6", detail::kServerAll,
                  "단계 밖 — 게임 버전이 바뀐 세이브를 열 때 마이그레이션 단계마다 한 번 (NG-04, ADR-0098 2)"},
-    CallbackInfo{"onPrePhysics", false, CallbackStatus::Planned, "v0.6",
+    CallbackInfo{"onPrePhysics", false, CallbackStatus::Active, "v0.11",
                  capBit(HostCapability::EcsRead) | capBit(HostCapability::PhysicsCommand) |
                      capBit(HostCapability::Random) | capBit(HostCapability::Time) | capBit(HostCapability::Log),
-                 "새 단계 8b — Movement 앞 (구조 변경 없음)"},
+                 "단계 8b — Path 요청 뒤 · Movement 앞 (읽기 · 물리 명령 — 쓰기 · 구조 변경 없음, RT-06-2 — ADR-0148)"},
     CallbackInfo{"onStart", false, CallbackStatus::Active, "v0.3", detail::kServerAll, "단계 17d — 게임 시작 틱"},
     CallbackInfo{"onStop", false, CallbackStatus::Active, "v0.3", detail::kServerAll, "단계 17d — 게임 끝 틱"},
     CallbackInfo{"onTick", false, CallbackStatus::Active, "v0.3", detail::kServerAll,
