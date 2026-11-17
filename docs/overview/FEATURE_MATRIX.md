@@ -92,7 +92,7 @@
 | F-213 | 입력 — 키 · 마우스 · ActionMap · 팩 게임 키 · 키 다시 묶기 · 게임패드 (게임 UI) | v0.1 ~ v0.7 | ✅ 사용 가능 | CTest `unit_platform` · `test_key_bindings` · `test_gamepad` | [07](../07-PLATFORM.md) |
 | F-214 | 고급 입력 — Hold · Double Tap · Combo | v0.12 | 📐 설계만 | — (RT-06-13) | 22 6장 |
 | F-215 | 물리 · 충돌 — 이동 · 원 분리 충돌 · raycast · overlap 질의 | v0.1 · v0.5 | 🟡 일부 | CTest `det_*` · `test_script_engine_queries` | 03 2장 |
-| F-216 | 물리 단계 콜백 · PhysicsCommand · layer · mask · 충돌 · 트리거 Enter / Exit | v0.11 | 🟡 onPrePhysics (8b) ✅ — 나머지 진행 | `test_script_prephysics` (RT-06-2) | 22 5장 · ADR-0148 |
+| F-216 | 물리 단계 콜백 · PhysicsCommand · layer · mask · 충돌 · 트리거 Enter / Exit | v0.11 | 🟡 onPrePhysics (8b) · 물리 명령 ✅ — 충돌 진행 | `test_script_prephysics` · `test_physics_commands` (RT-06-2 · 3) | 22 5장 · ADR-0148 · 0149 |
 | F-217 | ShapeCast · Substep · CCD · 재질 | v0.12 · v0.18 | 📐 설계만 | — (RT-06-6 · RT-08-2 · RT-08-3) | 22 5장 |
 | F-218 | 리소스 관리 — PNG 디코드 · 아틀라스 · 비동기 로드 · 캐시 | v0.1 · v0.6 | 🟡 일부 — 해제 · Hot Reload · 스트리밍 · 메모리 예산 없음 | CTest `render_tests_*` (`test_sprites`) | 06 7장 · 26 |
 | F-219 | 에셋 스트리밍 · 메모리 예산 | v0.18 | 📐 설계만 | — (RT-08-4) | 22 11장 |

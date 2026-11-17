@@ -10,6 +10,8 @@
 #include "core/components/ai/Ai.hpp"
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Movement.hpp"
+#include "core/components/core/Transform.hpp"
+#include "core/components/core/Velocity.hpp"
 #include "core/components/game/ScriptTimer.hpp"
 #include "core/script/EngineComponentAccess.hpp"
 #include "core/script/ScriptValues.hpp"
@@ -90,6 +92,18 @@ vm::HostResult ctxTime(ScriptHost& host, std::span<const vm::HostArg> args) {
 vm::HostResult ctxSetOwner(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.setOwner(args);
 }
+vm::HostResult ctxApplyForce(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.physics(args, sim::PhysicsCommand::Kind::Force);
+}
+vm::HostResult ctxApplyImpulse(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.physics(args, sim::PhysicsCommand::Kind::Impulse);
+}
+vm::HostResult ctxSetVelocity(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.physics(args, sim::PhysicsCommand::Kind::SetVelocity);
+}
+vm::HostResult ctxTeleport(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.physics(args, sim::PhysicsCommand::Kind::Teleport);
+}
 vm::HostResult ctxPlayerCount(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.playerCount(args);
 }
@@ -169,6 +183,26 @@ constexpr HostBinding kBindings[] = {
     {"ctx.remove", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::Component}, 3, &ctxRemove},
     {"ctx.time", AbiType::Number, {AbiType::ServerContext}, 1, &ctxTime},
     {"ctx.setOwner", AbiType::Void, {AbiType::ServerContext, AbiType::Entity, AbiType::I32}, 3, &ctxSetOwner},
+    {"ctx.applyForce",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Number, AbiType::Number},
+     4,
+     &ctxApplyForce},
+    {"ctx.applyImpulse",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Number, AbiType::Number},
+     4,
+     &ctxApplyImpulse},
+    {"ctx.setVelocity",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Number, AbiType::Number},
+     4,
+     &ctxSetVelocity},
+    {"ctx.teleport",
+     AbiType::Void,
+     {AbiType::ServerContext, AbiType::Entity, AbiType::Number, AbiType::Number},
+     4,
+     &ctxTeleport},
     {"ctx.state", AbiType::ComponentData, {AbiType::ServerContext, AbiType::Component}, 2, &ctxState},
     {"ctx.setState",
      AbiType::Void,
@@ -314,6 +348,7 @@ vm::Value ScriptHost::beginCall(sim::Tick tick, std::string script, sim::Simulat
     m_writes.clear();
     m_writeOf.clear();
     m_pathOps.clear();
+    m_physics.clear();
     m_ops = {};
     m_newEntities = 0;
     m_destroysThisCall = 0;
@@ -352,9 +387,11 @@ void ScriptHost::endCall(bool commit) {
         // 구조 변경은 월드 큐로 — 단계 끝에 넣은 차례로 적용 (v0.5 M2-T3). 트랩이면 아래에서 버린다
         m_world->countScriptStructuralDropped(m_droppedThisCall);
         m_world->queueScriptStructural(std::move(m_ops));
+        m_world->queuePhysicsCommands(m_physics); // 물리 명령 (v0.11 RT-06-3) — 단계 8b 끝에 적용
     }
     m_ops = {};
     m_pathOps.clear();
+    m_physics.clear();
     m_token = 0;
     m_capabilities = 0;
     m_world = nullptr;
@@ -902,6 +939,41 @@ vm::HostResult ScriptHost::setOwner(std::span<const vm::HostArg> args) {
     op.player = static_cast<u32>(player);
     ++m_addRemovesThisCall;
     m_ops.ops.push_back(std::move(op));
+    return {};
+}
+
+// ---- 물리 명령 (v0.11 RT-06-3, ADR-0149) — 호출마다 모으고 endCall(true) 가 월드로 (트랩이면 버린다). 값 · 개체 ·
+// 컴포넌트 · 틱 상한은 지금 본다 (HostError — 조용히 버리면 공이 왜 안 움직이는지 모른다)
+// -------------------------------------------------------------
+
+vm::HostResult ScriptHost::physics(std::span<const vm::HostArg> args, sim::PhysicsCommand::Kind kind) {
+    if (m_world == nullptr) {
+        return fail("이 호출에는 월드가 없다");
+    }
+    const bool teleport = kind == sim::PhysicsCommand::Kind::Teleport;
+    const std::string_view name = kind == sim::PhysicsCommand::Kind::Force     ? "applyForce"
+                                  : kind == sim::PhysicsCommand::Kind::Impulse ? "applyImpulse"
+                                  : teleport                                   ? "teleport"
+                                                                               : "setVelocity";
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail(std::format("{} — 개체가 없다 (지운 개체 · 이 틱에 만든 개체는 다음 틱부터)", name));
+    }
+    const f64 x = args[2].value.asF64();
+    const f64 y = args[3].value.asF64();
+    if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > sim::kMaxPhysicsValue ||
+        std::abs(y) > sim::kMaxPhysicsValue) {
+        return fail(std::format("{} — 값 ({}, {}) 은 유한하고 ±{} 안이어야 한다", name, x, y, sim::kMaxPhysicsValue));
+    }
+    const ecs::Registry& reg = m_world->registry();
+    if (teleport ? reg.tryRead<comp::Transform>(e) == nullptr : reg.tryRead<comp::Velocity>(e) == nullptr) {
+        return fail(std::format("{} — 개체에 {} 가 없다", name, teleport ? "core.transform" : "core.velocity"));
+    }
+    if (m_world->physicsCommandsThisTick() + m_physics.size() >= sim::kMaxPhysicsCommandsPerTick) {
+        return fail(std::format("{} — 틱마다 물리 명령은 {} 개까지", name, sim::kMaxPhysicsCommandsPerTick));
+    }
+    m_physics.push_back(
+        sim::PhysicsCommand{kind, e, kInvalidSaveId, 0, Vec2{static_cast<f32>(x), static_cast<f32>(y)}});
     return {};
 }
 

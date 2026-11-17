@@ -48,6 +48,7 @@
 #include "core/simulation/ClientGameEvents.hpp"
 #include "core/simulation/EventStream.hpp"
 #include "core/simulation/Intent.hpp"
+#include "core/simulation/PhysicsCommand.hpp"
 #include "core/simulation/ScriptStructural.hpp"
 #include "core/simulation/SimulationClock.hpp"
 #include "core/simulation/SystemScheduler.hpp"
@@ -212,6 +213,11 @@ public:
     // 스크립트의 구조 변경 (v0.5 M2-T3 — ScriptStructural.hpp). ScriptHost::endCall(true) 가 호출 하나의 것을 넣고,
     // 월드는 단계 16b · 17d 끝에 넣은 차례로 적용한다. 틱마다 spawn 상한을 위해 이번 틱에 넣은 spawn 수를 센다
     void queueScriptStructural(ScriptStructuralBatch batch);
+    // 물리 명령 (v0.11 RT-06-3, ADR-0149) — ScriptHost::endCall(true) 가 onPrePhysics 호출 하나의 것을 넣고, 월드는
+    // 단계 8b 끝 (Movement 앞) 에 (saveId, 넣은 차례) 로 적용한다. 틱 상한은 이번 틱에 넣은 수로 (넣은 것 + 적용한 것)
+    void queuePhysicsCommands(std::span<const PhysicsCommand> commands);
+    [[nodiscard]] u32 physicsCommandsThisTick() const noexcept { return m_physicsThisTick; }
+    [[nodiscard]] u64 physicsCommandsApplied() const noexcept { return m_physicsApplied; } // 진단 — 누적
     [[nodiscard]] u32 scriptSpawnsThisTick() const noexcept;
     void countScriptStructuralDropped(u64 n) noexcept { m_scriptStructuralStats.dropped += n; }
     [[nodiscard]] const ScriptStructuralStats& scriptStructuralStats() const noexcept {
@@ -283,6 +289,10 @@ private:
     void applySpawns();
 
     std::vector<ScriptStructuralBatch> m_scriptOps; // 적용 전 (넣은 차례)
+    std::vector<PhysicsCommand> m_physics;          // 물리 명령 — 적용 전 (8b 안에서만 찬다)
+    u32 m_physicsThisTick = 0;
+    u64 m_physicsApplied = 0;
+    void applyPhysicsCommands();
     ScriptStructuralStats m_scriptStructuralStats;
     Tick m_scriptSpawnTick = 0; // m_scriptSpawns 를 센 틱
     u32 m_scriptSpawns = 0;

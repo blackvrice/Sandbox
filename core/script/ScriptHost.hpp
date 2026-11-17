@@ -25,6 +25,7 @@
 
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/random/CounterRng.hpp"
+#include "core/simulation/PhysicsCommand.hpp"
 #include "core/simulation/ScriptStructural.hpp"
 #include "core/simulation/SimConstants.hpp"
 #include "script/vm/Interpreter.hpp"
@@ -138,6 +139,8 @@ public:
     vm::HostResult time(std::span<const vm::HostArg> args);
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — SimulationWorld::players() 를 id 순으로
     vm::HostResult setOwner(std::span<const vm::HostArg> args);
+    // 물리 명령 (v0.11 RT-06-3) — applyForce · applyImpulse · setVelocity · teleport
+    vm::HostResult physics(std::span<const vm::HostArg> args, sim::PhysicsCommand::Kind kind);
     // 타이머 (v0.10 RT-06-10) — period 0 = after, 아니면 every
     vm::HostResult state(std::span<const vm::HostArg> args);    // ctx.state — 월드 상태 (v0.10 RT-06-10, ADR-0139)
     vm::HostResult setState(std::span<const vm::HostArg> args); // ctx.setState
@@ -210,6 +213,7 @@ private:
         Vec2 goal{};
     };
     std::vector<PathOp> m_pathOps;
+    std::vector<sim::PhysicsCommand> m_physics; // 물리 명령 (v0.11 RT-06-3) — 호출 끝 (commit) 에 월드로
     // 구조 변경 (v0.5 M2-T3) — 이 호출의 것
     sim::ScriptStructuralBatch m_ops;
     u32 m_newEntities = 0; // spawn 한 수 (newIndex 의 끝)

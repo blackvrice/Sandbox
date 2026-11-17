@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-17 — v0.11 RT-06-3: 물리 명령 — applyForce · applyImpulse · setVelocity · teleport (ADR-0149)
+
+**무엇을**
+
+- Host 표: ctx.applyForce · applyImpulse · setVelocity · teleport (Entity, number, number) → void, HostCapability::PhysicsCommand —
+  onPrePhysics 에서만 (onTick 은 S404 · HostError). Host API 1, 지문 0x7e7024b2d198fb7c.
+- core/simulation/PhysicsCommand (명령 · 틱 상한 1,024 · 값 상한 ±1e6). ScriptHost::physics 가 호출마다 모으고 (거절은 지금 —
+  없는 개체 · 유한하지 않은 값 · 컴포넌트 없음 · 틱 상한 → HostError), endCall(true) 가 SimulationWorld::queuePhysicsCommands 로.
+- SimulationWorld::applyPhysicsCommands — 8b 의 모든 호출 뒤 · Movement 앞에 (saveId, 넣은 차례) stable sort, 질량 1 (힘 × 1/30 ·
+  충격 = 속도 변화 · 속도 = 값 · 순간 이동은 경계로 자름). 틱 안에서 비운다 — 세이브 · 해시 · 리플레이에 새 칸 없음.
+- SDK 다시 생성 (sdk/ · 예제 다섯).
+- 문서: ADR-0149, 19 17.2, 22 (버전 행 · 3.2 · 5장), 03, 24 V3, 13, 21 · versioning · VERSION-MIGRATION-MATRIX (지문), 18 ·
+  CURRENT_STATUS · FEATURE_MATRIX F-216, 등록부 RT-06-3 Done (gen_roadmap).
+
+**왜**
+
+- 물리 앞의 스크립트가 같은 틱의 적분에 힘 · 충격을 넣는 길. 22 3.2 의 "onTick (다음 틱 적용)" 은 틱을 넘는 대기열 (세이브 · 해시의
+  새 칸) 이 되고 동결된 onTick 허락 집합에도 없다 — onPrePhysics 에서만으로 좁혔다 (onTick 은 ctx.write 로 같은 일).
+
+**검증** (Windows MSVC, 2026-11-17)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,949,320 모두 통과 (새 test_physics_commands 4 — 속도 · 충격 · 힘 · 순간 이동의
+  값 · 경계, 두 시스템의 차례, 거절 셋 (NaN · 컴포넌트 없음 · 틱 1,025 개 — 그 호출을 버린다), onTick S404, 세이브 → 로드 해시),
+  렌더 시험 통과, 전체 ctest 94 개 — 93 통과 · studio_gui_smoke SKIPPED. 골든 해시 · kSimVersion 4 그대로 (명령이 없으면 같다).
+
+**남은 일**
+
+- RT-06-4 collider layer · mask · trigger → RT-06-5 충돌 · 트리거 이벤트, RT-06-9 onRender, NG-17 오디오, NG-19.
+
 ## 2026-11-17 — v0.11 RT-06-2: server onPrePhysics — 단계 8b (ADR-0148)
 
 **무엇을**

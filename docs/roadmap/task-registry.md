@@ -88,7 +88,7 @@
 | RT-06-10 | 타이머 · defineState | A | Done | v0.6 | v0.10 | P1 | RT-06-1 | 세이브 → 로드 해시 — 타이머 (ctx.after · every · cancelTimer, script.timer — ADR-0138, test_script_timers) · 월드 상태 (defineState · ctx.state · setState, script.state — ADR-0139, test_script_state) |
 | NG-18 | v0.10 통합 시험 — 버튼 · 오목형 게임 (생성 → UI → 스크립트 → 실행 → 저장 → 재실행 → 패키지) | B | Review | — | v0.10 | P0 | ST-06-4 · RT-06-10 · M6-T2 | 헤드리스 흐름 CTest (NG-07 층 2) + 수동 QA 기록 — 흐름 CTest ✅ (ng18_board_flow · sbx ui — ADR-0147), 남은 것 수동 QA 기록 (MANUAL-QA [ ]) |
 | RT-06-2 | server onPrePhysics (8b) | A | Done | v0.6 | v0.11 | P1 | RT-06-1 | 단계 순서 · 해시 |
-| RT-06-3 | PhysicsCommand | A | Planned | v0.6 | v0.11 | P1 | RT-06-2 | 적용 순서 · 해시 |
+| RT-06-3 | PhysicsCommand | A | Done | v0.6 | v0.11 | P1 | RT-06-2 | 적용 순서 · 해시 |
 | RT-06-4 | collider layer · mask · trigger | A | Planned | v0.6 | v0.11 | P1 | — | 골든 그대로 |
 | RT-06-5 | 충돌 · 트리거 Enter/Exit (16a) | A | Planned | v0.6 | v0.11 | P1 | RT-06-4 | 순서 · 세이브 정합 |
 | RT-06-9 | onRender · Draw API | A | Planned | v0.6 | v0.11 | P1 | RT-06-7 | 상한 · 거절 |

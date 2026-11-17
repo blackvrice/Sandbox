@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 339421f28fd42c1c — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 7e7024b2d198fb7c — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -461,6 +461,14 @@ declare module "sandbox" {
     every(ticks: i32, key: string): void;
     /** 이 시스템의 key 타이머를 모두 지운다 (after · every — 없으면 아무 일 없음). 이 호출이 끝나면 적용 — ctx.cancelTimer */
     cancelTimer(key: string): void;
+    /** 힘 (월드 단위/초² — 질량 1): 이 틱의 Movement 앞에 속도 += 힘 × 1/30. core.velocity 가 없는 개체 · 유한하지 않은 값 · 틱 1,024 개를 넘으면 HostError. onPrePhysics 에서만 — ctx.applyForce */
+    applyForce(e: Entity, fx: number, fy: number): void;
+    /** 충격 (질량 1 — 속도 변화, 월드 단위/초): 이 틱의 Movement 앞에 속도 += 충격 (applyForce 와 같은 거절 · 상한). onPrePhysics 에서만 — ctx.applyImpulse */
+    applyImpulse(e: Entity, ix: number, iy: number): void;
+    /** 속도를 정한다 (월드 단위/초): 이 틱의 Movement 앞에 (applyForce 와 같은 거절 · 상한 — core.movement 의 목표가 있으면 Movement 가 다시 조향한다). onPrePhysics 에서만 — ctx.setVelocity */
+    setVelocity(e: Entity, vx: number, vy: number): void;
+    /** 순간 이동 (월드 좌표): 이 틱의 Movement 앞에 위치를 정한다 (월드 경계로 자른다). core.transform 이 없는 개체 · 유한하지 않은 값 · 틱 1,024 개를 넘으면 HostError. onPrePhysics 에서만 — ctx.teleport */
+    teleport(e: Entity, x: number, y: number): void;
     /** 개체의 주인 플레이어를 정한다 (game.owner — 없으면 붙인다, 0 = 주인 없음, 0 ~ 65535 밖이면 HostError). 이 호출이 끝나면 적용 — ctx.setOwner */
     setOwner(e: Entity, player: i32): void;
     /** 접속한 플레이어 수 (리플레이에 기록된 접속 · 나감 — 재생 때 같은 값) — ctx.playerCount */

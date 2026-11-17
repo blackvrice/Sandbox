@@ -141,7 +141,8 @@ TEST_SUITE("script") {
         // v0.7 M3-T4 — client.setUi · setUiText · showUi, M4-T1 (2) — client.uiText · uiFormat (String 결과)
         // v0.10 RT-06-10 — ctx.after · every · cancelTimer, GameEventKind.Timer · GameEvent.key (조각 1), ctx.state ·
         // setState (조각 2)
-        CHECK(api::hostApiFingerprint() == 0x339421f28fd42c1cull); // v0.10 RT-06-8 — ActionEvent 칸
+        // v0.10 RT-06-8 — ActionEvent 칸 (0x339421f28fd42c1c)
+        CHECK(api::hostApiFingerprint() == 0x7e7024b2d198fb7cull); // v0.11 RT-06-3 — 물리 명령 넷
     }
 
     TEST_CASE("import 경로 풀기") {

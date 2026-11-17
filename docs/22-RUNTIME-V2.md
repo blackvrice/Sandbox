@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 10 (v0.6 NG-04 — onMigrate) · Host API 1 (지문 0x339421f28fd42c1c — v0.10 RT-06-8 뒤) · kSimVersion 4 · 프로토콜 17 (v0.8 M5-T2 — 리플레이 탐색) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 15 (v0.11 RT-06-2 — onPrePhysics) · Host API 1 (지문 0x7e7024b2d198fb7c — v0.11 RT-06-3 물리 명령 뒤) · kSimVersion 4 · 프로토콜 19 (v0.10 RT-06-7 — GameEvents) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -50,7 +50,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | **Server Runtime** (Simulation) | SimulationWorld 전부 (Registry · Grid · 색인 · 큐 · 스크립트 상태) | 불변 스냅숏 (복제 · 저장 · Job 입력) | CommandQueue (네트워크 · 로컬 · 외부 응답 · Worker 결과) | 고정 30 TPS × speed · 최우선 | 금지 (I/O 없음) | 단계 2 (명령) · 5 (Job 결과) · 17 (ECB) · 틱 끝 (스냅숏) | 틱 경계에서만 (월드 바꾸기 · 멈춤) | 스크립트 트랩 = 그 호출만 버림 (ADR-0064), Native 오류 = 충돌 보고 (M1) | 틱 33 ms 안 (14 1.2) | Simulation (현행) |
 | **Network Runtime** (ENet 멀티플레이) | Transport · 연결 · 송수신 버퍼 | — | 직렬화 바이트 (Sim → Net) | 이벤트 · 높음 | wait(2 ms) 만 | inbox swap (틱 처음) | 연결 끊기 · flush | 잘못된 메시지 = 그 연결 끊기 (08) | 연결마다 속도 제한 | Network IO (현행) |
 | **Client Runtime** | ClientWorld (복제 사본) · InputState · UI 상태 · 클라이언트 스크립트 · [계획 v0.7] PredictedWorld | 불변 RenderFrameInput 을 만든다 | SnapshotPacket · 서버 이벤트 | 프레임 (vsync) + [계획 v0.7] 고정 Tick (누산기) | 금지 | 프레임 처음 (스냅숏 적용) | 세션 끝 = 큐 비움 | 클라이언트 스크립트 트랩 = 그 시스템 끔 (19 21장) | 프레임 16.6 ms 중 스크립트 몫 (14) | Main (현행) |
-| **Physics Execution** | (Server Runtime 의 단계 — 자기 데이터 없음) Transform · Velocity · 충돌 쌍 | 공간 색인 | PhysicsCommand 버퍼 [계획 v0.6] | 틱 안의 단계 8b ~ 16a | 금지 | 단계 경계 | — | — | 단계 9 + 16 합 ≤ 틱의 40 % (14 목표) | Simulation + [검토 v0.9] Worker 병렬 커널 (결정적 합치기) |
+| **Physics Execution** | (Server Runtime 의 단계 — 자기 데이터 없음) Transform · Velocity · 충돌 쌍 | 공간 색인 | PhysicsCommand 버퍼 ✅ v0.11 RT-06-3 (틱 안에서 비운다 — ADR-0149) | 틱 안의 단계 8b ~ 16a | 금지 | 단계 경계 | — | — | 단계 9 + 16 합 ≤ 틱의 40 % (14 목표) | Simulation + [검토 v0.9] Worker 병렬 커널 (결정적 합치기) |
 | **Render Preparation** | RenderWorld (추출 결과) | ClientWorld 읽기 | — | 프레임 | 금지 | 추출 끝 → RenderFrameInput 복사 | — | — | CPU ≤ 6 ms (넘으면 분리 — 01) | Main (현행) |
 | **Render Submission** | RHI 장치 · GPU 리소스 | RenderFrameInput | RenderFrameInput (1 프레임 지연) · [계획 v0.6] DrawCommandBuffer | 프레임 | GPU 동기화만 | Present | 장치 잃음 → 다시 만들기 | 장치 오류 보고 | GPU 프레임 예산 | Main 지금 · [검토 v0.8] Render 스레드 (CPU 렌더 > 6 ms 측정 뒤) |
 | **Worker Runtime** | 없음 (입력 복사 → 결과 객체) | 불변 스냅숏 | Job (값 캡처) | Job · 낮음 | 허용 안 함 (계산만) | 결과 = 요청 순서로 소유 Runtime 이 적용 (01 T3) | 월드 세대가 바뀌면 결과 버림 | 결과에 오류 값 | Job 당 상한 (경로 확장 4,096) | Worker Pool (현행) · [계획 v0.9] 스크립트 Worker (순수 함수) |
@@ -106,7 +106,7 @@ Context 타입은 Capability 의 조합이다. ABI 의 불투명 타입은 지�
 | EcsRead | 컴포넌트 · 질의 읽기 | read · has · query · near · nearest | server 전부, client (복제된 것만) |
 | EcsWrite | 컴포넌트 쓰기 (호출 끝 커밋) | write | server onTick · onEvent · onStart · onStop · onPrePhysics |
 | Structural | spawn · destroy · add · remove | spawn … | server onTick · onEvent · onStart (onPrePhysics 는 안 됨 — 물리 앞의 구조 변경 금지) |
-| PhysicsCommand | applyForce · applyImpulse · teleport · setVelocity | [계획 v0.6] | server onPrePhysics · onTick (다음 틱 적용) |
+| PhysicsCommand | applyForce · applyImpulse · teleport · setVelocity | ✅ v0.11 RT-06-3 (ADR-0149) | server onPrePhysics 만 (같은 틱의 Movement 앞 — onTick 은 ctx.write 로 다음 틱) |
 | Random · Time · Log | 결정적 난수 · 틱 시간 · 로그 | random · time · log | server 전부 |
 | InputRead | 행동 상태 · 축 | ✅ v0.5 M2-T6 keyDown · keyPressed · keyReleased · pointerX · pointerY | client onUpdate · onAction · onTick |
 | ClientSend | 서버로 신호 명령 | ✅ v0.5 M2-T6 send | client onUpdate · onAction · onTick (예산 — 틱마다) |
@@ -178,8 +178,8 @@ PredictedWorld     ClientWorld 와 따로인 작은 ECS (예측 개체만, 같�
 
 | 단계 | 내용 | 상태 · 버전 | 결정론 · kSimVersion |
 |------|------|-------------|----------------------|
-| 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | ✅ v0.11 RT-06-2 (스케줄러 훅 — ADR-0148), 물리 명령은 RT-06-3 | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
-| 9 Movement | 조향 · 적분 + PhysicsCommand 적용 (힘 · 충격 · 순간 이동 · 속도) — 명령은 (saveId, 넣은 차례) | 현행 + [계획 v0.6] 명령 | 명령이 없으면 같다 |
+| 8b PrePhysics | server onPrePhysics (PhysicsCommand · 읽기) | ✅ v0.11 RT-06-2 (스케줄러 훅 — ADR-0148) · 물리 명령 ✅ RT-06-3 (ADR-0149) | 스크립트가 없으면 단계도 없다 → 골든 그대로 |
+| 9 Movement | 조향 · 적분 + PhysicsCommand 적용 (힘 · 충격 · 순간 이동 · 속도) — 명령은 (saveId, 넣은 차례) | 현행 + 명령 ✅ v0.11 RT-06-3 (8b 끝 · 9 앞에 적용, 질량 1 — ADR-0149) | 명령이 없으면 같다 |
 | 16 Collision | 원 분리 + [계획 v0.6] layer · mask 거르기 (필드는 이미 core.collider 에 있다), 겹침 쌍 집합 → Enter · Stay · Exit | 현행 + [계획 v0.6] | mask 기본 0xFFFFFFFF — 기존 콘텐츠 그대로. 거르기가 기본값을 바꾸면 kSimVersion 5 |
 | 16a 물리 이벤트 | 쌍 (saveId 작은 쪽, 큰 쪽) 정렬 → GameEvent collisionEnter · Exit · triggerEnter · Exit (core.collider.trigger [계획]) | [계획 v0.6] | 구독이 없으면 만들지 않는다 |
 | ShapeCast | 원 쓸기 (원 + 선분 — raycast 의 일반화) | [계획 v0.6] | 질의만 |

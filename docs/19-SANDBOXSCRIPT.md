@@ -702,10 +702,32 @@ export default defineSystem({
 언제       System 이 도는 틱마다, Native Stage 8 (PathfindingRequest) 뒤 · 9 (Movement) 앞 — SystemScheduler 의 훅. onPrePhysics 가
            있는 시스템이 없으면 단계가 없다 (골든 그대로). 차례 = (팩 순서, 시스템 id)
 허락       EcsRead · PhysicsCommand · Random · Time · Log — ctx.write · setState · spawn · destroy · add · remove · after · setOwner 는
-           검사기 S404 (콜백 몸의 ctx 호출) · 실행 HostError (호출 토큰 — 도우미 함수 · 고친 바이트코드). 물리 명령 (applyForce ·
-           applyImpulse · teleport · setVelocity) 은 RT-06-3
+           검사기 S404 (콜백 몸의 ctx 호출) · 실행 HostError (호출 토큰 — 도우미 함수 · 고친 바이트코드). 물리 명령은 17.2
 예산       틱 연료 · 통계는 8b 가 새로 세고 16b · 17d 가 이어 쓴다 (한 틱의 합 kTickFuel — 19장)
 형식       .sbc 형식 15 (시스템 표 onPrePhysics — 서버 시스템만), ABI 는 ServerContext (콜백마다 TS 타입 없음), Host 지문 그대로
+```
+
+### 17.2 물리 명령 (v0.11 RT-06-3 — `core/simulation/PhysicsCommand` · `SimulationWorld::applyPhysicsCommands`, [ADR-0149](adr/0149-physics-commands-prephysics-only-same-tick.md))
+
+```ts
+onPrePhysics(ctx) {
+  for (const e of ctx.query(Velocity)) {
+    ctx.applyForce(e, 0, -9.8)       // 속도 += 힘 × 1/30 (질량 1)
+    ctx.applyImpulse(e, 2, 0)        // 속도 += 충격
+    ctx.setVelocity(e, 3, 0)         // 속도 = 값
+    ctx.teleport(e, 5, 5)            // 위치 = 값 (월드 경계로 자른다)
+  }
+}
+```
+
+```text
+언제       onPrePhysics 에서만 (PhysicsCommand 권한 — onTick 은 S404 · HostError, 대신 ctx.write). 호출이 끝나면 (트랩 아님) 월드로,
+           8b 의 모든 호출 뒤 · Native Movement (9) 앞에 (saveId, 넣은 차례) 로 적용 — 같은 틱의 적분 · 충돌이 본다
+뜻         질량 1. core.movement 의 목표가 있는 개체는 그 뒤 Movement 가 다시 조향한다
+거절       HostError (그 호출의 명령 · 쓰기를 다 버린다): 없는 개체 · 이 틱에 만든 개체, 유한하지 않거나 ±1e6 밖, core.velocity
+           (힘 · 충격 · 속도) · core.transform (순간 이동) 없음, 틱 상한 1,024 (월드의 모든 onPrePhysics 합)
+상태       틱 안에서 다 비운다 — 세이브 · 월드 해시 · 리플레이에 새 칸이 없다. 명령이 없으면 결과가 같다 (골든 그대로)
+지문       Host API 1, 지문 0x7e7024b2d198fb7c (네 함수 — 옛 .sbc 는 다시 컴파일)
 ```
 
 ## 18. 시스템 콜백 · 이벤트 (v0.3 M4-T2 — 검사기 · `script/api/SystemEvents` · `core/simulation/SimulationScripts`, ADR-0063 · action 은 v0.5 M2-T5 (2))

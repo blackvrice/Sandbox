@@ -14,6 +14,7 @@
 #include "core/components/core/Identity.hpp"
 #include "core/components/core/Tags.hpp"
 #include "core/components/core/Transform.hpp"
+#include "core/components/core/Velocity.hpp"
 #include "core/components/game/GameOwner.hpp"
 #include "core/components/game/ScriptState.hpp"
 #include "core/components/game/ScriptTimer.hpp"
@@ -126,6 +127,8 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
     m_results.clear();
     m_scriptActions.clear();
     m_scriptSignals.clear();
+    m_physics.clear();
+    m_physicsThisTick = 0;
     m_clientEvents.clear();
     m_clientEventsDropped = 0;
     m_signalCounts.clear();
@@ -166,6 +169,7 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
         m_scheduler.run(base, profiler, [this, now] {
             ensureScriptState(now); // ctx.state 를 읽는다 — 상태 개체는 16b 와 같이 (없을 때만 만든다)
             m_scriptSystems->runPrePhysics(*this, now);
+            applyPhysicsCommands(); // 물리 명령 (v0.11 RT-06-3) — 8b 의 모든 호출 뒤 · Movement 앞
         });
     } else {
         m_scheduler.run(base, profiler);
@@ -203,6 +207,58 @@ void SimulationWorld::tick(ISystemProfiler* profiler) {
             applyScriptStructural(); // 콜백의 구조 변경 — 이 틱 끝에 (그 이벤트는 다음 틱의 콜백이 보지 않는다)
         }
     }
+}
+
+void SimulationWorld::queuePhysicsCommands(std::span<const PhysicsCommand> commands) {
+    for (const PhysicsCommand& c : commands) {
+        PhysicsCommand copy = c;
+        const auto* p = m_registry.tryRead<comp::Persistence>(c.entity);
+        copy.saveId = p != nullptr ? p->saveId : kInvalidSaveId;
+        copy.seq = static_cast<u32>(m_physics.size());
+        m_physics.push_back(copy);
+        ++m_physicsThisTick;
+    }
+}
+
+// (saveId, 넣은 차례) — 시스템 · 호출 차례와 무관하게 한 개체의 명령은 넣은 차례로 겹친다 (ADR-0149). 8b 안에는 구조
+// 변경이 없어 개체 · 컴포넌트는 그대로지만, 없으면 건너뛴다
+void SimulationWorld::applyPhysicsCommands() {
+    if (m_physics.empty()) {
+        return;
+    }
+    std::stable_sort(m_physics.begin(), m_physics.end(),
+                     [](const PhysicsCommand& a, const PhysicsCommand& b) { return a.saveId < b.saveId; });
+    for (const PhysicsCommand& c : m_physics) {
+        if (!m_registry.alive(c.entity)) {
+            continue;
+        }
+        if (c.kind == PhysicsCommand::Kind::Teleport) {
+            if (m_registry.tryRead<comp::Transform>(c.entity) != nullptr) {
+                m_registry.write<comp::Transform>(c.entity).position = m_grid.clampPoint(c.value);
+                ++m_physicsApplied;
+            }
+            continue;
+        }
+        if (m_registry.tryRead<comp::Velocity>(c.entity) == nullptr) {
+            continue;
+        }
+        Vec2& v = m_registry.write<comp::Velocity>(c.entity).value;
+        switch (c.kind) {
+        case PhysicsCommand::Kind::Force:
+            v = v + c.value * kFixedDt; // 질량 1 — 가속도 × dt
+            break;
+        case PhysicsCommand::Kind::Impulse:
+            v = v + c.value; // 질량 1 — 속도 변화
+            break;
+        case PhysicsCommand::Kind::SetVelocity:
+            v = c.value;
+            break;
+        case PhysicsCommand::Kind::Teleport:
+            break;
+        }
+        ++m_physicsApplied;
+    }
+    m_physics.clear();
 }
 
 ecs::EntityId SimulationWorld::scriptStateEntity() const {
@@ -335,6 +391,8 @@ void SimulationWorld::finishRestore(const RestoreState& state) {
     m_results.clear();
     m_scriptActions.clear();
     m_scriptSignals.clear();
+    m_physics.clear();
+    m_physicsThisTick = 0;
     m_clientEvents.clear();
     m_clientEventsDropped = 0;
     m_signalCounts.clear();

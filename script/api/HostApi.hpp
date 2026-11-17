@@ -275,6 +275,68 @@ inline constexpr std::array kHostFunctions{
                  "이 시스템의 key 타이머를 모두 지운다 (after · every — 없으면 아무 일 없음). 이 호출이 끝나면 적용"},
     // 주인 (v0.5 M2-T5 (4b)) — game.owner 를 붙이거나 바꾼다 (구조 변경과 같은 버퍼 — 호출 끝 적용, 새 개체 핸들도
     // 된다)
+    // 물리 명령 (v0.11 RT-06-3, ADR-0149) — onPrePhysics 에서만 (PhysicsCommand). 호출 끝에 월드로, 단계 8b 끝
+    // (Movement 앞) 에 (saveId, 넣은 차례) 로 적용. 질량은 1 — 충격 = 속도 변화, 힘 = 가속도 (× 1/30)
+    HostFunction{
+        "ctx.applyForce",
+        AbiType::ServerContext,
+        "applyForce",
+        false,
+        AbiType::Void,
+        {AbiType::Entity, AbiType::Number, AbiType::Number},
+        {"e", "fx", "fy"},
+        3,
+        HostDomain::Server,
+        HostEffect::Write,
+        HostCapability::PhysicsCommand,
+        2,
+        "힘 (월드 단위/초² — 질량 1): 이 틱의 Movement 앞에 속도 += 힘 × 1/30. core.velocity 가 없는 개체 · 유한하지 "
+        "않은 값 · 틱 1,024 개를 넘으면 HostError. onPrePhysics 에서만"},
+    HostFunction{
+        "ctx.applyImpulse",
+        AbiType::ServerContext,
+        "applyImpulse",
+        false,
+        AbiType::Void,
+        {AbiType::Entity, AbiType::Number, AbiType::Number},
+        {"e", "ix", "iy"},
+        3,
+        HostDomain::Server,
+        HostEffect::Write,
+        HostCapability::PhysicsCommand,
+        2,
+        "충격 (질량 1 — 속도 변화, 월드 단위/초): 이 틱의 Movement 앞에 속도 += 충격 (applyForce 와 같은 거절 · "
+        "상한). onPrePhysics 에서만"},
+    HostFunction{
+        "ctx.setVelocity",
+        AbiType::ServerContext,
+        "setVelocity",
+        false,
+        AbiType::Void,
+        {AbiType::Entity, AbiType::Number, AbiType::Number},
+        {"e", "vx", "vy"},
+        3,
+        HostDomain::Server,
+        HostEffect::Write,
+        HostCapability::PhysicsCommand,
+        2,
+        "속도를 정한다 (월드 단위/초): 이 틱의 Movement 앞에 (applyForce 와 같은 거절 · 상한 — core.movement 의 "
+        "목표가 있으면 Movement 가 다시 조향한다). onPrePhysics 에서만"},
+    HostFunction{
+        "ctx.teleport",
+        AbiType::ServerContext,
+        "teleport",
+        false,
+        AbiType::Void,
+        {AbiType::Entity, AbiType::Number, AbiType::Number},
+        {"e", "x", "y"},
+        3,
+        HostDomain::Server,
+        HostEffect::Write,
+        HostCapability::PhysicsCommand,
+        2,
+        "순간 이동 (월드 좌표): 이 틱의 Movement 앞에 위치를 정한다 (월드 경계로 자른다). core.transform 이 없는 "
+        "개체 · 유한하지 않은 값 · 틱 1,024 개를 넘으면 HostError. onPrePhysics 에서만"},
     HostFunction{"ctx.setOwner",
                  AbiType::ServerContext,
                  "setOwner",

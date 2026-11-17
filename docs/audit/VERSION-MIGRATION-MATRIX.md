@@ -11,7 +11,7 @@
 |------|------|-----------|---------|-------------|-------|
 | Product | 0.7.0 (2026-11-09) | — | 릴리스 피드가 더 새 것을 알림 (바꾸지 않음) | test_user_settings (정수 비교 — v0.10 > v0.9.3) | — |
 | Engine API 범위 | 새 프로젝트 ">=x.y.z <1.0.0" | 프로젝트가 정함 | 범위 밖 엔진 = 열기 거절 (문장) | test_game_project · test_semver | 1.0 전환 (NG-16) |
-| Host API | 1 · 0x339421f28fd42c1c (v0.10 RT-06-8) | 같은 버전 + 같은 지문 | 지문 다름 = 패키지의 소스로 다시 컴파일 · 버전 다름 = 거절 | test_bytecode (지문) · test_runtime_contract | — |
+| Host API | 1 · 0x7e7024b2d198fb7c (v0.11 RT-06-3 — 물리 명령) | 같은 버전 + 같은 지문 | 지문 다름 = 패키지의 소스로 다시 컴파일 · 버전 다름 = 거절 | test_bytecode (지문) · test_runtime_contract | — |
 | Bytecode .sbc | 15 (v0.11 RT-06-2 — server onPrePhysics. 14 = onAction, 13 = onLateUpdate, 12 = 지역 이름 표, 11 = 줄 표, 10 = onMigrate) | 15 | 다시 컴파일 (소스는 패키지에) | test_bytecode · test_script_callbacks (onMigrate 왕복) · test_client_lifecycle (형식 13+ 왕복 · 12 거절) · test_client_actions (형식 14 왕복) | — |
 | Protocol | 19 (v0.10 RT-06-7 — GameEvents. 18 = 스크립트 함수 표, 17 = 리플레이 탐색, 16 = 표시 digest) | 같은 값만 | 핸드셰이크 거절 (문장) — 옛 클라이언트 · 서버와 접속하지 않는다 | unit_network (핸드셰이크 · Auth · Welcome 왕복 · GameEvents 왕복) | 표시 digest 만 다르면 접속 + 경고 (test_network_session) |
 | Simulation | 4 | 어느 값이든 읽음 | 리플레이 · 세이브 모두 진행하되 해시 비교를 건너뛰고 "규칙 차이" 로 알림 (core/replay/Replay.cpp simVersionDiffers · WorldSave.cpp hashSkippedReason) | det_* · test_replay | 툴체인 간 재생 (SG-06) |
