@@ -101,7 +101,7 @@
 | RT-06-11 | AccessSet 선언 · 단계 프로파일 | A | Planned | v0.6 | v0.12 | P2 | — | 선언 밖 단언 |
 | RT-06-13 | 게임패드 · Hold · Double Tap · Combo | A | Planned | v0.6 | v0.12 | P2 | RT-06-8 | 트리거 판정 |
 | RT-06-14 | 2D 애니메이션 클립 · 상태 기계 | A | Done | v0.6 | v0.12 | P1 | RT-06-7 | 상태 전이 |
-| RT-06-15 | 오디오 믹서 · 2D 위치 | A | Planned | v0.6 | v0.12 | P2 | NG-17 | — |
+| RT-06-15 | 오디오 믹서 · 2D 위치 | A | Done | v0.6 | v0.12 | P2 | NG-17 | — |
 | NG-15 | 2D 타일맵 · 타일셋 (GM-39 — 스프라이트 타일 칠하기) | B | Done | — | v0.12 | P1 | M6-T9 | 칠하기 · 저장 왕복 · 해시 |
 | NG-20 | v0.12 통합 시험 — Prefab · Tilemap · 애니메이션 2D 게임 (가져오기 → Prefab → 맵 → 스크립트 → 애니메이션 → 빌드 → 실행 → 저장 · 로드) | B | Proposed | — | v0.12 | P0 | ST-06-5 · NG-15 · RT-06-14 | 헤드리스 흐름 CTest · 세이브 → 로드 · 리플레이 해시 |
 | M7-T1 | samples/omok | B | Planned | v0.5 | v0.13 | P0 | M3-T5 · M6-T9 | 20 10장 Phase 7 |

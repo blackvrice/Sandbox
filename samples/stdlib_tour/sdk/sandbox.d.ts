@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 e8e97ec0f91deab4 — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 128b3513e1ca4c25 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -564,6 +564,12 @@ declare module "sandbox" {
     playAnimation(e: Entity, state: string): void;
     /** 소리 이벤트 (v0.5 는 이벤트만 — 실제 출력은 v0.6, ADR-0095). 프레임마다 32 개까지 — client.playSound */
     playSound(id: string): void;
+    /** 위치 소리 — 월드 좌표 (x, y) 에서 (리스너 = 카메라 가운데 — 좌우 패닝 · 거리 감쇠). playSound 와 합쳐 프레임마다 32 개까지 (v0.12 RT-06-15, ADR-0159) — client.playSoundAt */
+    playSoundAt(id: string, x: number, y: number): void;
+    /** 그 id 로 낸 소리 (반복 포함) 를 모두 멈춘다. 재생과 같은 줄 — 부른 차례 (v0.12 RT-06-15) — client.stopSound */
+    stopSound(id: string): void;
+    /** 버스 볼륨 — "master" · "sfx" · "ambient" · "ui", 0 ~ 1 (자른다, 모르는 버스는 아무 일 없음). 저장하지 않는다 — 시작 값은 사용자 client.json "audio" (v0.12 RT-06-15) — client.setVolume */
+    setVolume(bus: string, volume: number): void;
     /** 이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지) — client.label */
     label(entity: Entity, text: string): void;
     /** 이번 프레임 화면 왼쪽 위 "스크립트" 칸에 한 줄 (256 바이트까지) — client.print */

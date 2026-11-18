@@ -82,6 +82,15 @@ vm::HostResult clientSend(ClientScriptHost& host, std::span<const vm::HostArg> a
 vm::HostResult clientPlaySound(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.playSound(args);
 }
+vm::HostResult clientPlaySoundAt(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.soundOp(args, ClientScriptSound::Op::Play, true);
+}
+vm::HostResult clientStopSound(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.soundOp(args, ClientScriptSound::Op::Stop, false);
+}
+vm::HostResult clientSetVolume(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.soundOp(args, ClientScriptSound::Op::Volume, false);
+}
 vm::HostResult clientSetUi(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.ui(args, ClientScriptUi::Kind::Number);
 }
@@ -142,6 +151,17 @@ constexpr ClientHostBinding kBindings[] = {
     {"client.pointerY", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerY},
     {"client.send", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::I32}, 3, &clientSend},
     {"client.playSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPlaySound},
+    {"client.playSoundAt",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::String, AbiType::Number, AbiType::Number},
+     4,
+     &clientPlaySoundAt},
+    {"client.stopSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientStopSound},
+    {"client.setVolume",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::String, AbiType::Number},
+     3,
+     &clientSetVolume},
     {"client.playAnimation",
      AbiType::Void,
      {AbiType::ClientContext, AbiType::Entity, AbiType::String},
@@ -454,11 +474,32 @@ vm::HostResult ClientScriptHost::playAnimation(std::span<const vm::HostArg> args
 }
 
 vm::HostResult ClientScriptHost::playSound(std::span<const vm::HostArg> args) {
+    return soundOp(args, ClientScriptSound::Op::Play, false);
+}
+
+vm::HostResult ClientScriptHost::soundOp(std::span<const vm::HostArg> args, ClientScriptSound::Op op, bool positional) {
     if (m_sounds.size() >= kMaxSoundsPerFrame) {
         ++m_droppedOutputs;
         return {};
     }
-    m_sounds.push_back({m_system, clip(args[1].text, 64)});
+    ClientScriptSound s;
+    s.system = m_system;
+    s.id = clip(args[1].text, 64);
+    s.op = op;
+    if (positional) {
+        const f64 x = args[2].value.asF64();
+        const f64 y = args[3].value.asF64();
+        if (!std::isfinite(x) || !std::isfinite(y)) {
+            return fail("playSoundAt 의 자리가 유한하지 않다");
+        }
+        s.positional = true;
+        s.position = {static_cast<f32>(x), static_cast<f32>(y)};
+    }
+    if (op == ClientScriptSound::Op::Volume) {
+        const f64 v = args[2].value.asF64();
+        s.volume = std::isfinite(v) ? static_cast<f32>(std::clamp(v, 0.0, 1.0)) : 1.f;
+    }
+    m_sounds.push_back(std::move(s));
     return {};
 }
 

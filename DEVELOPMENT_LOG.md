@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-18 — v0.12 RT-06-15: 오디오 믹서 · 2D 위치 (ADR-0159)
+
+**무엇을**
+
+- client 스크립트 ctx.playSoundAt(id, x, y) (위치 소리 — 믹서의 패닝 · 감쇠 그대로) · ctx.stopSound(id) (그 id 로 낸 목소리 모두) ·
+  ctx.setVolume(bus, v) ("master" · "sfx" · "ambient" · "ui", 0 ~ 1 자름). 재생 · 멈춤 · 볼륨은 한 줄 (ClientScriptSound::Op — 부른
+  차례, 프레임마다 32). Host 지문 0x128b3513e1ca4c25, client 바인딩 31, SDK 다시 생성.
+- 팩 sounds.json "loop" · "pitch" (0.25 ~ 4). PackSounds::applyScriptSounds (NetworkSession 이 부른다) · SoundLibrary 가 id 마다 낸
+  목소리를 기억 (끝난 것은 다음 기록 때 거둠).
+- 리스너 = 카메라 가운데 (Application — 월드 프레임마다 setListener). 사용자 client.json "audio" = 버스 볼륨 시작 값 (main).
+- 문서: ADR-0159, 07 7장, 11 sounds.json, 15 client.json, 19 client API, 13, 21 · 22 · versioning · VERSION-MIGRATION-MATRIX (지문),
+  FEATURE_MATRIX F-228, 등록부 RT-06-15 Done (gen_roadmap).
+
+**왜**
+
+- NG-17 의 믹서는 패닝 · 감쇠 · 버스 · 반복 · pitch 를 이미 안다 — 게임이 쓸 길 (자리 · 멈춤 · 볼륨) 과 리스너 연결이 빠져 있었다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,951,210 모두 통과 (test_audio_output "오디오 믹서 · 2D 위치" — 장치 없는
+  믹서 표본으로 패닝 · 감쇠 · 반복 · 멈춤 · 버스 볼륨, client.json audio), 전체 ctest 95 개 — 94 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 실제 장치의 좌우 · 거리 소리는 MANUAL-QA (세 OS — NG-17 과 같이). 음악 스트리밍 · OGG · 효과 · 도플러 [계획].
+
 ## 2026-11-18 — v0.11: ALSA 설정 캐시 풀기 (9e936a2 의 CI — linux-clang-asan LeakSanitizer)
 
 **무엇을**

@@ -901,6 +901,12 @@ ctx.send(signal: string, value: i32): void                           서버에 P
                                                                     6.1장). 프레임마다 8 개 (넘으면 버리고 센다 — droppedOutputs)
 ctx.playSound(id: string): void                                      소리 이벤트 — 앱이 가져가 센다 (v0.5 는 소리 없음 · 출력은 v0.6, ADR-0095).
                                                                     프레임마다 32 개
+ctx.playSoundAt(id: string, x: number, y: number): void              위치 소리 (v0.12 RT-06-15, ADR-0159) — 월드 좌표, 리스너 = 카메라
+                                                                    가운데 (좌우 패닝 16 단위 · 거리 감쇠). playSound 와 합쳐 프레임마다 32
+ctx.stopSound(id: string): void                                      그 id 로 낸 소리 (반복 — sounds.json "loop") 를 모두 멈춘다
+ctx.setVolume(bus: string, volume: number): void                     버스 볼륨 "master" · "sfx" · "ambient" · "ui", 0 ~ 1 (자른다 · 모르는
+                                                                    버스는 아무 일 없음, 저장하지 않는다 — 시작 값은 client.json "audio").
+                                                                    재생 · 멈춤 · 볼륨은 한 줄 — 부른 차례로
 ctx.playAnimation(e: Entity, state: string): void                   개체의 애니메이터 (Prefab render.animator) 를 그 상태로 — 전이 없이
                                                                     처음부터 (v0.12 RT-06-14, ADR-0157). 없는 상태 · 애니메이터면 아무 일
                                                                     없음, 프레임마다 256 개 (넘으면 버리고 센다). 보이는 것만 바꾼다

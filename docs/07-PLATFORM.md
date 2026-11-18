@@ -319,6 +319,9 @@ public:
           반복 아닌 목소리는 끝까지 그린 뒤 update 가 거둔다. 공개 메서드 · 장치 스레드의 render 는 한 뮤텍스
 장치      IAudioDevice::start(표본율, 채널, render) · stop — waveOut (20 ms × 3, 16 비트) · AudioQueue (f32) · ALSA (dlopen, 16 비트),
           지연 약 60 ms (WASAPI · AUHAL 은 [계획]). createSystemAudioDevice() 가 없거나 열지 못하면 앱은 Null
+v0.12 RT-06-15 (ADR-0159): 리스너 = 카메라 가운데 (Application 이 월드를 그리는 프레임마다 setListener). 버스 볼륨 시작 값 =
+          사용자 client.json "audio" (main), client 스크립트 setVolume 이 그 위에. 팩 소리의 loop · pitch, stopSound 는
+          apps/client/presentation/PackSounds (applyScriptSounds — id 마다 낸 목소리를 기억)
 SFML Audio · miniaudio 는 쓰지 않는다 (ADR-0153 — 외부 의존 없이).
 경로: Server EventStream → 복제 Event → Client AudioExtraction(이벤트 → 사운드 매핑, 콘텐츠 데이터)
       → AudioEvent 큐 → Audio 스레드 → IAudioBackend

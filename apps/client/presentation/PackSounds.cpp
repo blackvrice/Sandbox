@@ -33,9 +33,29 @@ const SoundEntry* SoundLibrary::find(std::string_view id) const {
     return it != m_entries.end() ? &it->second : nullptr;
 }
 
-namespace {
+void SoundLibrary::trackVoice(std::string_view id, platform::VoiceId voice, const platform::IAudioBackend& audio) {
+    auto it = m_voices.find(id);
+    if (it == m_voices.end()) {
+        it = m_voices.emplace(std::string(id), std::vector<platform::VoiceId>{}).first;
+    }
+    std::erase_if(it->second, [&](platform::VoiceId v) { return !audio.playing(v); });
+    it->second.push_back(voice);
+}
 
-std::optional<platform::AudioBus> busOf(std::string_view name) {
+std::vector<platform::VoiceId> SoundLibrary::takeVoices(std::string_view id) {
+    const auto it = m_voices.find(id);
+    if (it == m_voices.end()) {
+        return {};
+    }
+    std::vector<platform::VoiceId> out = std::move(it->second);
+    m_voices.erase(it);
+    return out;
+}
+
+std::optional<platform::AudioBus> audioBusOf(std::string_view name) {
+    if (name == "master") {
+        return platform::AudioBus::Master;
+    }
     if (name == "sfx") {
         return platform::AudioBus::Sfx;
     }
@@ -46,6 +66,13 @@ std::optional<platform::AudioBus> busOf(std::string_view name) {
         return platform::AudioBus::Ambient;
     }
     return std::nullopt;
+}
+
+namespace {
+
+std::optional<platform::AudioBus> busOf(std::string_view name) {
+    const auto bus = audioBusOf(name);
+    return bus && *bus != platform::AudioBus::Master ? bus : std::nullopt; // 소리는 master 에 직접 두지 않는다
 }
 
 } // namespace
@@ -90,6 +117,20 @@ PackSoundsResult loadPackSounds(SoundLibrary& library, platform::IAudioBackend& 
                     continue;
                 }
                 e.volume = static_cast<f32>(v->get<f64>());
+            }
+            if (const auto l = spec.find("loop"); l != spec.end()) { // v0.12 RT-06-15
+                if (!l->is_boolean()) {
+                    warn("loop 는 true · false");
+                    continue;
+                }
+                e.loop = l->get<bool>();
+            }
+            if (const auto pt = spec.find("pitch"); pt != spec.end()) {
+                if (!pt->is_number() || !(pt->get<f64>() >= 0.25 && pt->get<f64>() <= 4.0)) {
+                    warn("pitch 는 0.25 ~ 4");
+                    continue;
+                }
+                e.pitch = static_cast<f32>(pt->get<f64>());
             }
             // 파일 — 머티리얼 sprite 와 같은 규칙 (프로젝트 에셋만)
             const std::string file = spec["file"].get<std::string>();
@@ -142,23 +183,66 @@ PackSoundsResult loadPackSounds(SoundLibrary& library, platform::IAudioBackend& 
     return r;
 }
 
-void playScriptSounds(const SoundLibrary& library, platform::IAudioBackend& audio, std::span<const std::string> ids,
+void playScriptSounds(SoundLibrary& library, platform::IAudioBackend& audio, std::span<const std::string> ids,
                       SoundPlayStats& stats) {
     for (const std::string& id : ids) {
-        const SoundEntry* e = library.find(id);
-        if (e == nullptr) {
-            ++stats.unknown;
-            continue;
-        }
-        platform::PlayParams p;
-        p.volume = e->volume;
-        p.bus = e->bus;
-        if (audio.play(e->handle, p).valid()) {
-            ++stats.played;
-        } else {
-            ++stats.refused;
+        playScriptSound(library, audio, id, std::nullopt, stats);
+    }
+}
+
+void playScriptSound(SoundLibrary& library, platform::IAudioBackend& audio, std::string_view id,
+                     const std::optional<Vec2>& at, SoundPlayStats& stats) {
+    const SoundEntry* e = library.find(id);
+    if (e == nullptr) {
+        ++stats.unknown;
+        return;
+    }
+    platform::PlayParams p;
+    p.volume = e->volume;
+    p.bus = e->bus;
+    p.loop = e->loop;
+    p.pitch = e->pitch;
+    if (at) {
+        p.positional = true;
+        p.position = *at;
+    }
+    const platform::VoiceId v = audio.play(e->handle, p);
+    if (v.valid()) {
+        ++stats.played;
+        library.trackVoice(id, v, audio);
+    } else {
+        ++stats.refused;
+    }
+}
+
+void applyScriptSounds(SoundLibrary& library, platform::IAudioBackend& audio,
+                       std::span<const script::ClientScriptSound> sounds, SoundPlayStats& stats) {
+    for (const script::ClientScriptSound& s : sounds) {
+        switch (s.op) {
+        case script::ClientScriptSound::Op::Play: // 모르는 id 는 센다 (v0.11 NG-17)
+            playScriptSound(library, audio, s.id, s.positional ? std::optional<Vec2>(s.position) : std::nullopt, stats);
+            break;
+        case script::ClientScriptSound::Op::Stop:
+            (void)stopScriptSounds(library, audio, s.id);
+            break;
+        case script::ClientScriptSound::Op::Volume:
+            if (const auto bus = audioBusOf(s.id)) {
+                audio.setBusVolume(*bus, s.volume);
+            }
+            break;
         }
     }
+}
+
+usize stopScriptSounds(SoundLibrary& library, platform::IAudioBackend& audio, std::string_view id) {
+    usize n = 0;
+    for (const platform::VoiceId v : library.takeVoices(id)) {
+        if (audio.playing(v)) {
+            audio.stop(v);
+            ++n;
+        }
+    }
+    return n;
 }
 
 } // namespace sbx::client

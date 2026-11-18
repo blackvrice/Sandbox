@@ -56,8 +56,15 @@ struct ClientScriptSend {
     i32 value = 0;
 };
 struct ClientScriptSound {
+    // 소리 줄 (v0.12 RT-06-15 — 부른 차례): Play = playSound · playSoundAt (positional), Stop = stopSound (id 의 목소리
+    // 모두), Volume = setVolume (id = 버스 이름)
+    enum class Op : u8 { Play, Stop, Volume };
     std::string system;
     std::string id;
+    Op op = Op::Play;
+    bool positional = false;
+    Vec2 position{};
+    f32 volume = 1.f;
 };
 // 애니메이션 상태 바꾸기 (v0.12 RT-06-14) — ctx.playAnimation(e, state)
 struct ClientScriptAnimation {
@@ -129,7 +136,7 @@ public:
     static constexpr usize kMaxLines = 64;               // 프레임마다
     static constexpr usize kMaxQueryEntities = 65536;    // 질의 하나 (넘으면 HostError)
     static constexpr usize kMaxSendsPerFrame = 8;        // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
-    static constexpr usize kMaxSoundsPerFrame = 32;      // client.playSound
+    static constexpr usize kMaxSoundsPerFrame = 32;      // client.playSound · playSoundAt · stopSound · setVolume
     static constexpr usize kMaxUiPerFrame = 64;          // client.setUi · setUiText · showUi (v0.7 M3-T4)
     static constexpr usize kMaxAnimationsPerFrame = 256; // client.playAnimation (v0.12 RT-06-14)
     static constexpr usize kMaxDrawsPerFrame = 1024;     // client.draw* (v0.11 RT-06-9 — 넘으면 버리고 센다, 24 C1)
@@ -179,6 +186,7 @@ public:
     vm::HostResult uiVar(std::span<const vm::HostArg> args, bool text);    // v0.7 NG-06 (2)
     vm::HostResult drawColor(std::span<const vm::HostArg> args);           // v0.11 RT-06-9
     vm::HostResult playAnimation(std::span<const vm::HostArg> args);       // v0.12 RT-06-14
+    vm::HostResult soundOp(std::span<const vm::HostArg> args, ClientScriptSound::Op op, bool positional); // RT-06-15
     vm::HostResult draw(std::span<const vm::HostArg> args, ClientScriptDraw::Kind kind);
     // 이 호출의 개체 핸들 (beginCall 뒤 — onEvent 의 GameEvent 칸, ClientScriptSystems)
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);

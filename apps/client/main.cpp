@@ -270,6 +270,10 @@ int main(int argc, char** argv) {
         null->init({});
         audio = std::move(null);
     }
+    // 버스 볼륨 시작 값 — 사용자 client.json "audio" (v0.12 RT-06-15, 안전 모드면 기본 1)
+    for (sbx::usize b = 0; b < sbx::platform::kAudioBusCount; ++b) {
+        audio->setBusVolume(static_cast<sbx::platform::AudioBus>(b), user.settings.busVolume[b]);
+    }
     const auto makeSession = [&](const sbx::client::ClientOptions& o, const sbx::client::WorldSaveDefaults& saves)
         -> sbx::Expected<std::unique_ptr<sbx::client::NetworkSession>> {
         loadMaterials();

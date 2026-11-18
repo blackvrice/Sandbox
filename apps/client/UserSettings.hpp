@@ -10,6 +10,8 @@
 //                   "gameUiScale": 0.75~2 = 게임 UI 배율 (v0.7 M4-T4 — offset · size · gap · 여백 · 글꼴 · 테두리에
 //                   곱한다,
 //                   --game-ui-scale 이 이긴다. 좌표는 논리 단위라 DPI 는 따로 — 프레임버퍼 배율)
+//                   "audio": {"master" · "sfx" · "ambient" · "ui": 0 ~ 1} = 버스 볼륨 시작 값 (v0.12 RT-06-15 — client
+//                   스크립트 ctx.setVolume 이 그 위에 바꾼다, 저장하지 않는다)
 //                   uiScale 0.5~3 (ImGui — DPI 배율에 곱한다), updateCheck false 면 새 버전 알림을 끈다, updateFeed =
 //                   릴리스 피드 파일 (ReleaseFeed.hpp — --update-feed 가 이긴다). 모르는 키는 경고 (새 클라이언트가
 //                   쓴 키일 수 있다)
@@ -19,6 +21,7 @@
 //   기본값으로 시작한다. 더 새 schemaVersion 은 옮기지 않고 읽지도 않는다 (새 클라이언트의 파일 — 알림만).
 //   --safe-mode: 둘 다 읽지 않는다 (옮기지도 않는다), UI 배율 1, 패키지 캐시는 빈 임시 폴더 (main 이 정한다).
 
+#include <array>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -45,6 +48,9 @@ struct ClientSettings {
     std::string locale;             // 비면 OS 로케일 (v0.7 M4-T1)
     std::vector<std::string> fonts; // 대체 폰트 파일 (v0.7 M4-T2 — 차례대로)
     f32 gameUiScale = 1.f;          // 게임 UI 배율 (v0.7 M4-T4)
+    // 오디오 버스 볼륨 (v0.12 RT-06-15) — "audio": {"master" · "sfx" · "ambient" · "ui": 0 ~ 1}, platform::AudioBus
+    // 차례
+    std::array<f32, 4> busVolume{1.f, 1.f, 1.f, 1.f};
 };
 
 struct ClientSettingsParse {

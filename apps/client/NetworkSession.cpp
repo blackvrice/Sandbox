@@ -785,13 +785,14 @@ void NetworkSession::drainClientScriptOutputs() {
             }
         }
     }
+    // 소리 줄 (부른 차례 — v0.12 RT-06-15: 위치 소리 · 멈춤 · 버스 볼륨). 팩 sounds.json 의 소리 (v0.11 NG-17)
     for (const script::ClientScriptSound& s : m_clientScripts->host().sounds()) {
-        if (m_scriptSounds.size() < 256) {
+        if (s.op == script::ClientScriptSound::Op::Play && m_scriptSounds.size() < 256) {
             m_scriptSounds.push_back(s.id);
         }
-        if (m_desc.audio != nullptr) { // 팩 sounds.json 의 소리를 재생 (v0.11 NG-17 — 모르는 id 는 센다)
-            playScriptSounds(m_sounds, *m_desc.audio, std::span(&s.id, 1), m_soundStats);
-        }
+    }
+    if (m_desc.audio != nullptr) {
+        applyScriptSounds(m_sounds, *m_desc.audio, m_clientScripts->host().sounds(), m_soundStats);
     }
 }
 

@@ -137,7 +137,8 @@ content/<pack>/
                           "render.animator": {"animator": "<이름>"} 가 그 개체를 움직인다 (render.sprite 크기 · 레이어 그대로). 로더는
                           원문만 PackInfo.animations (클라 전용 — contentHash 밖), 틀린 항목은 클라이언트가 경고하고 그것만 뺀다
     sounds.json           소리 (v0.11 NG-17, ADR-0153) — {"sounds": {"<id>": {"file": "asset:<id>" | "assets/…wav", "bus": "sfx" |
-                          "ui" | "ambient" (기본 sfx), "volume": 0 ~ 1 (기본 1)}}}. 팩 로드 차례로 (같은 id 는 뒤가 이긴다).
+                          "ui" | "ambient" (기본 sfx), "volume": 0 ~ 1 (기본 1), "loop": false (v0.12 RT-06-15 — stopSound 로
+                          멈춘다), "pitch": 0.25 ~ 4 (기본 1)}}}. 팩 로드 차례로 (같은 id 는 뒤가 이긴다).
                           client.playSound(id) 가 부른다. 로더는 원문만 PackInfo.sounds 에 (클라 전용 — contentHash 밖), 형식 ·
                           파일 · WAV 디코드는 클라이언트가 열 때 (틀리면 경고 · 그 소리만 없이). 프로젝트 검사는 [계획]
     input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.

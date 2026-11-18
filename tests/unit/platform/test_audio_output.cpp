@@ -9,9 +9,11 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
+#include "apps/client/UserSettings.hpp"
 #include "apps/client/presentation/PackSounds.hpp"
 #include "core/asset/AssetDatabase.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
@@ -323,5 +325,103 @@ TEST_SUITE("platform") {
         client::SoundPlayStats ns;
         client::playScriptSounds(nl, null, ids, ns);
         CHECK(ns.played == 1);
+    }
+
+    TEST_CASE(
+        "오디오 믹서 · 2D 위치 (v0.12 RT-06-15): playSoundAt 패닝 · 감쇠, 반복 · stopSound, setVolume, sounds.json "
+        "loop · pitch, client.json audio") {
+        const fs::path root = fs::temp_directory_path() / "sbx-tests" / "audio-output" / "mixer2d";
+        std::error_code ec;
+        fs::remove_all(root, ec);
+        const auto put = [&](const std::string& rel, const std::vector<u8>& bytes) {
+            fs::create_directories((root / rel).parent_path());
+            std::ofstream(root / rel, std::ios::binary)
+                .write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        };
+        const auto text = [&](const std::string& rel, std::string_view t) {
+            put(rel, std::vector<u8>(t.begin(), t.end()));
+        };
+        put("assets/sfx/hit.wav", wav(1, 1, 48000, 16, pcm16({16384, 16384, 16384})));
+        text("content/t/pack.json", R"({"id": "t", "version": "1"})");
+        text("content/t/presentation/sounds.json",
+             R"({"sounds": {"hit": {"file": "assets/sfx/hit.wav"}, "hum": {"file": "assets/sfx/hit.wav", "loop": true,
+                 "pitch": 2}, "badloop": {"file": "assets/sfx/hit.wav", "loop": "yes"},
+                 "badpitch": {"file": "assets/sfx/hit.wav", "pitch": 9},
+                 "master": {"file": "assets/sfx/hit.wav", "bus": "master"}}})");
+        ecs::ComponentCatalog cat;
+        REQUIRE(comp::registerCoreComponents(cat).has_value());
+        content::ContentLoadResult loaded =
+            content::ContentLoader::load(root / "content", std::vector<std::string>{"t"}, cat);
+        REQUIRE(loaded.ok());
+        Mix m;
+        client::SoundLibrary lib;
+        const client::PackSoundsResult r = client::loadPackSounds(lib, m.mixer, loaded.db, root);
+        CHECK(r.sounds == 2);
+        CHECK(r.warnings.size() == 3); // badloop · badpitch · master 버스
+        REQUIRE(lib.find("hum") != nullptr);
+        CHECK(lib.find("hum")->loop);
+        CHECK(lib.find("hum")->pitch == doctest::Approx(2.f));
+
+        // client 스크립트 — 첫 run: 오른쪽 16 단위의 위치 소리. 둘째: 반복 소리 + sfx 볼륨 0.5 (모르는 버스는 아무 일
+        // 없음) 셋째: 멈춤
+        script::DiagnosticList d;
+        const std::vector<script::SourceFile> files = {
+            {"scripts/fx.ts", "import { defineSystem } from \"sandbox\"\nexport default defineSystem({ id: \"t.fx\", "
+                              "domain: \"client\", onUpdate(ctx) {\n"
+                              "  if (ctx.frame === 1) { ctx.playSoundAt(\"hit\", 16, 0) }\n"
+                              "  if (ctx.frame === 2) { ctx.playSound(\"hum\"); ctx.setVolume(\"sfx\", 0.5); "
+                              "ctx.setVolume(\"nope\", 0.1); ctx.setVolume(\"ui\", 7) }\n"
+                              "  if (ctx.frame === 3) { ctx.stopSound(\"hum\"); ctx.stopSound(\"missing\") }\n"
+                              "} })\n"}};
+        std::optional<script::bc::Module> mod = script::compileScripts(files, d);
+        REQUIRE_MESSAGE(mod.has_value(), d.describeAll());
+        auto programs = std::make_shared<content::ScriptPrograms>();
+        content::ScriptPackProgram pack;
+        pack.pack = "t";
+        pack.folder = "content/t";
+        pack.module = std::move(*mod);
+        programs->packs.push_back(std::move(pack));
+        script::ClientScriptSystems sys(programs);
+        client::SoundPlayStats stats;
+
+        m.mixer.setListener({0, 0});
+        sys.run({});
+        REQUIRE(sys.host().sounds().size() == 1);
+        CHECK(sys.host().sounds()[0].positional);
+        client::applyScriptSounds(lib, m.mixer, sys.host().sounds(), stats);
+        std::vector<f32> out = m.render(1);
+        // 오른쪽 끝 (x 차이 16 = 패닝 범위) — 왼쪽 0, 오른쪽 0.5 × √2 × 1 / (1 + 16 / 24)
+        CHECK(out[0] == doctest::Approx(0.f).epsilon(1e-4));
+        CHECK(out[1] == doctest::Approx(0.5f * std::numbers::sqrt2_v<f32> * 0.6f).epsilon(1e-3));
+        (void)m.render(4);   // 끝까지
+        m.mixer.update(0.f); // 끝난 목소리를 거둔다
+
+        sys.run({});
+        client::applyScriptSounds(lib, m.mixer, sys.host().sounds(), stats);
+        CHECK(m.mixer.busVolume(platform::AudioBus::Sfx) == doctest::Approx(0.5f));
+        CHECK(m.mixer.busVolume(platform::AudioBus::Ui) == doctest::Approx(1.f)); // 7 → 1 로 자름
+        out = m.render(8);                        // pitch 2 · 3 표본 — 반복이라 계속 소리
+        CHECK(out[14] == doctest::Approx(0.25f)); // 0.5 × sfx 0.5
+        CHECK(m.mixer.activeVoiceCount() == 1);
+
+        sys.run({});
+        client::applyScriptSounds(lib, m.mixer, sys.host().sounds(), stats);
+        out = m.render(2);
+        CHECK(out[0] == doctest::Approx(0.f));
+        m.mixer.update(0.f);
+        CHECK(m.mixer.activeVoiceCount() == 0);
+        CHECK(stats.played == 2);
+        CHECK(stats.unknown == 0);
+
+        // client.json "audio" — 버스 볼륨 시작 값
+        const client::ClientSettingsParse ok =
+            client::parseClientSettings(R"({"schemaVersion": 1, "audio": {"master": 0.8, "ui": 0}})");
+        CHECK(ok.errors.empty());
+        CHECK(ok.settings.busVolume[0] == doctest::Approx(0.8f));
+        CHECK(ok.settings.busVolume[1] == doctest::Approx(1.f));
+        CHECK(ok.settings.busVolume[3] == doctest::Approx(0.f));
+        CHECK(client::parseClientSettings(R"({"audio": {"music": 1}})").errors.size() == 1);
+        CHECK(client::parseClientSettings(R"({"audio": {"sfx": 2}})").errors.size() == 1);
+        CHECK(client::parseClientSettings(R"({"audio": 1})").errors.size() == 1);
     }
 }

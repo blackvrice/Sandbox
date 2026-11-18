@@ -894,6 +894,7 @@ bool Application::frame() {
             handleWorldInput(worldDt);
         }
         m_config.world->setView(m_renderWorld.camera.visibleRect()); // 관심 영역 (Phase 11)
+        m_audio.setListener(m_renderWorld.camera.center);            // 위치 소리의 리스너 = 카메라 (v0.12 RT-06-15)
         t0 = Clock::now();
         m_config.world->update(worldDt);
         // client 스크립트의 소리 이벤트 (v0.5 M2-T6) — v0.5 는 세기만 한다 (실제 출력 · sounds.json 은 v0.6, ADR-0095)

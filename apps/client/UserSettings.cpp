@@ -1,6 +1,7 @@
 #include "apps/client/UserSettings.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <format>
@@ -96,6 +97,26 @@ ClientSettingsParse parseClientSettings(std::string_view jsonText) {
                 continue;
             }
             r.settings.gameUiScale = static_cast<f32>(s);
+        } else if (key == "audio") { // v0.12 RT-06-15 — 버스 볼륨
+            static constexpr std::array<std::string_view, 4> kBuses{"master", "sfx", "ambient", "ui"};
+            bool good = v.is_object();
+            std::array<f32, 4> vol = r.settings.busVolume;
+            if (good) {
+                for (const auto& [bus, value] : v.items()) {
+                    const auto it = std::ranges::find(kBuses, bus);
+                    if (it == kBuses.end() || !value.is_number() ||
+                        !(value.get<f64>() >= 0.0 && value.get<f64>() <= 1.0)) {
+                        good = false;
+                        break;
+                    }
+                    vol[static_cast<usize>(it - kBuses.begin())] = static_cast<f32>(value.get<f64>());
+                }
+            }
+            if (!good) {
+                r.errors.emplace_back("audio 는 {\"master\" · \"sfx\" · \"ambient\" · \"ui\": 0 ~ 1}");
+                continue;
+            }
+            r.settings.busVolume = vol;
         } else if (key == "fonts") {
             const bool shape =
                 v.is_array() && v.size() <= 8 && std::all_of(v.begin(), v.end(), [](const nlohmann::json& f) {
