@@ -110,7 +110,8 @@ core/content                            presentation/ui · strings 는 원문만
 바인딩     "var:<키>" (client 스크립트 ctx.ui.set) · "session:<필드>" (state · tick · time · score[i] · team · message — M3-T5) · "component:<id>.<필드>@<대상>"
            (대상 = owned (내 플레이어가 가진 개체 — 3.6) · selected · entity:<netId> 는 없음 — 참조 풀기는 v0.6), 문자열 "@<키>" (5장)
 이벤트     on.click → { "signal": "<팩>.<이름>", "value": i32? } (3.7 — 서버가 판정) · { "action": "<PlayerAction id>" } (위치 없는
-           행동은 v0.5 에 더한다) · { "ui": "show|hide|toggle", "target": "<문서>.<노드>" } (클라이언트 안)
+           행동은 v0.5 에 더한다) · { "ui": "show|hide|toggle", "target": "<문서>.<노드>" } (클라이언트 안) · { "game": "start|restart|abort" }
+           (v0.12 — 게임 패널의 시작 · 재시작 · 중단과 같은 명령, 권한은 서버 — "다시 하기" 버튼, ADR-0166)
 검사       U1 형식 · U2 id 규칙 · U3 모르는 요소 · 키 · U4 바인딩 식 · U5 없는 스타일 · 문자열 키 (경고) · U6 신호 · 행동이 콘텐츠에 없다 ·
            U7 상한 (문서마다 노드 512 · 깊이 16 · 문자열 1 KiB) · U8 material 이 없다 (경고). sbx check · 콘텐츠 로드가 같은 검사
 M3-T1 ✅   (v0.7) ui/model UiDocument — 위 모양 그대로 + list 는 item (반복할 노드 하나) · styles.json {"styles": {이름: {color ·

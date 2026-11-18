@@ -80,11 +80,12 @@ struct UiValue {
 };
 
 struct UiAction {
-    enum class Kind : u8 { None, Signal, Action, Ui };
+    enum class Kind : u8 { None, Signal, Action, Ui, Game };
     Kind kind = Kind::None;
     std::string target;       // 신호 id · 행동 id · "<문서>.<노드>"
     std::optional<i32> value; // signal 의 값
-    std::string op;           // ui: show · hide · toggle · theme (v0.7 M3-T6 — target = 테마 이름 · "none")
+    std::string op;           // ui: show · hide · toggle · theme (v0.7 M3-T6 — target = 테마 이름 · "none"),
+                    // game: start · restart · abort (v0.12 — 게임 진행 명령, 권한은 서버가 — "다시 하기" 버튼)
 };
 
 struct UiNode {

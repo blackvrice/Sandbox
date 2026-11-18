@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-11-18 — 게임 UI 행동 {"game": start · restart · abort} — "다시 하기" 버튼 (ADR-0166)
+
+**무엇을**
+
+- ui/model UiAction::Kind::Game (op start · restart · abort — 모르는 값 U1 · 다른 키 U3), Application 이 게임 명령으로
+  (gameCommand — 게임 패널의 시작 · 중단 · 재시작과 같은 길, 권한은 서버). 문서: ADR-0166, 20 5장 이벤트, 13.
+
+**왜**
+
+- 오목 개발 (dogfood) 에서: 끝난 판 (Finished) 은 신호를 받지 않아 UI 로 새 판을 열 수 없었다 (게임 패널만).
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 통과, test_ui_document "게임 진행 버튼" 통과. 오목 HUD 의 "다시 하기" 가 쓴다 (samples/omok — 다음 커밋).
+
+**남은 일**
+
+- 창에서 누르기는 MANUAL-QA.
+
 ## 2026-11-18 — v0.12: GCC 시험 충돌 고침 (7e2834b 의 CI — test_data_form 의 매달린 범위 for)
 
 **무엇을**

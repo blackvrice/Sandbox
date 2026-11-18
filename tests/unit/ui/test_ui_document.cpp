@@ -100,6 +100,23 @@ TEST_SUITE("ui") {
         CHECK(parseUiDocument("hud", kGood, UiCheckContext{"eco"}).issues.empty());
     }
 
+    TEST_CASE("ui document: 게임 진행 버튼 (v0.12 — {\"game\": start · restart · abort}) · 틀린 모양") {
+        const UiParseResult ok = parseUiDocument(
+            "hud",
+            withRoot(R"({"kind": "button", "id": "again", "text": "다시 하기", "on": {"click": {"game": "restart"}}})"),
+            context());
+        CHECK(ok.issues.empty());
+        REQUIRE(ok.document.has_value());
+        CHECK(ok.document->root.click.kind == UiAction::Kind::Game);
+        CHECK(ok.document->root.click.op == "restart");
+        CHECK(has(
+            parseUiDocument("hud", withRoot(R"({"kind": "button", "on": {"click": {"game": "reset"}}})"), context()),
+            "U1", "start · restart · abort"));
+        CHECK(has(parseUiDocument("hud", withRoot(R"({"kind": "button", "on": {"click": {"game": "start", "x": 1}}})"),
+                                  context()),
+                  "U3", "game 이벤트"));
+    }
+
     TEST_CASE("ui document: U1 형식 · U2 id · U3 모르는 요소 · 키") {
         CHECK(has(parseUiDocument("hud", "[1]", context()), "U1", "JSON 객체"));
         CHECK(has(parseUiDocument("hud", "{broken", context()), "U1"));

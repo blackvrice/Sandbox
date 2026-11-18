@@ -722,6 +722,11 @@ bool Application::routeGameUi() {
             // 위치 없는 버튼 행동 (v0.7 M3-T5): 선택한 개체 → 내 개체 → 화면 가운데
             m_config.world->playerAction(e.target,
                                          m_config.world->uiActionPoint().value_or(m_renderWorld.camera.center));
+        } else if (e.kind == ui::UiAction::Kind::Game) {
+            // 게임 진행 버튼 (v0.12 — "다시 하기"): 게임 패널의 시작 · 중단 · 재시작과 같은 명령 (권한은 서버)
+            m_config.world->gameCommand(e.op == "start"   ? GameCommand::Start
+                                        : e.op == "abort" ? GameCommand::Abort
+                                                          : GameCommand::Restart);
         }
     }
     // 휠 (v0.7 NG-06 (3b)): 포인터 아래 scroll 이 쓰면 게임 (카메라 확대) 에 주지 않는다

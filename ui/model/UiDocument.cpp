@@ -129,7 +129,9 @@ public:
     UiAction action(const json& v, const std::string& pointer) {
         UiAction a;
         if (!v.is_object()) {
-            error("U1", pointer, R"({"signal": id, "value"?} · {"action": id} · {"ui": "show|hide|toggle", "target"})");
+            error(
+                "U1", pointer,
+                R"({"signal": id, "value"?} · {"action": id} · {"ui": "show|hide|toggle", "target"} · {"game": "start|restart|abort"})");
             return a;
         }
         if (v.contains("signal")) {
@@ -186,8 +188,22 @@ public:
                 }
                 a.target = *t;
             }
+        } else if (v.contains("game")) {
+            // 게임 진행 (v0.12 — 오목 개발에서 찾음: 끝난 판은 신호를 받지 않아 "다시 하기" 버튼을 만들 수 없었다).
+            // 서버의 GameControl · 재시작과 같은 길 — 역할 (admin 부터, 혼자 하는 로컬 플레이는 Owner) 은 서버가
+            // 판단한다
+            a.kind = UiAction::Kind::Game;
+            if (v.size() != 1) {
+                error("U3", pointer, "game 이벤트는 {\"game\": \"start\" | \"restart\" | \"abort\"} 하나");
+            }
+            if (const auto op = string(v["game"], pointer + "/game")) {
+                if (*op != "start" && *op != "restart" && *op != "abort") {
+                    error("U1", pointer + "/game", std::format("'{}' — start · restart · abort", *op));
+                }
+                a.op = *op;
+            }
         } else {
-            error("U3", pointer, "이벤트는 signal · action · ui 중 하나");
+            error("U3", pointer, "이벤트는 signal · action · ui · game 중 하나");
         }
         return a;
     }
