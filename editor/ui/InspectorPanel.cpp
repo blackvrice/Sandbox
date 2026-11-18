@@ -146,12 +146,12 @@ void fieldWidget(Editor& editor, InspectorState& st, IEditorHost& host, const ec
 
 } // namespace
 
-void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
+void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host, bool* open) {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos({vp->WorkPos.x + vp->WorkSize.x - 12 - 400 * dpi(), vp->WorkPos.y + vp->WorkSize.y - 12},
                             ImGuiCond_FirstUseEver, {1, 1});
     ImGui::SetNextWindowSize({330.f * dpi(), 420.f * dpi()}, ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("인스펙터", nullptr, kPanelFlags)) {
+    if (!ImGui::Begin("인스펙터", open, kPanelFlags)) {
         ImGui::End();
         return;
     }
@@ -266,11 +266,11 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
     ImGui::End();
 }
 
-void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
+void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host, bool* open) {
     // 시뮬레이션 패널 오른쪽 위 (왼쪽 아래는 네트워크 패널)
     ImGui::SetNextWindowPos({236 * dpi(), 12}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({240.f * dpi(), 220.f * dpi()}, ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("목록", nullptr, kPanelFlags)) {
+    if (!ImGui::Begin("목록", open, kPanelFlags)) {
         ImGui::End();
         return;
     }

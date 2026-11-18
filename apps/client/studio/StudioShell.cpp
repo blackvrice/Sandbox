@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <utility>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -395,6 +396,48 @@ bool isPresetLayout(std::string_view name) noexcept {
     return name == "default" || name == "scene" || name == "scripting" || name == "play";
 }
 
+namespace {
+
+// 이름 ↔ 칸 (studio.json "windows" — 이름은 바꾸지 않는다: 저장된 파일 호환)
+constexpr std::pair<const char*, bool ShellView::*> kWindowNames[] = {
+    {"hierarchy", &ShellView::hierarchy}, {"inspector", &ShellView::inspector}, {"tools", &ShellView::tools},
+    {"console", &ShellView::console},     {"build", &ShellView::build},         {"test", &ShellView::test},
+    {"world", &ShellView::world},         {"game", &ShellView::game},           {"content", &ShellView::content},
+    {"debugger", &ShellView::debugger},   {"uiDesigner", &ShellView::uiDesigner}, {"assets", &ShellView::assets},
+};
+
+} // namespace
+
+ShellView presetView(std::string_view preset) noexcept {
+    ShellView v; // scene (기본)
+    if (preset == "scripting") {
+        v.assets = false;
+        v.content = true;
+        v.debugger = true;
+    } else if (preset == "play") {
+        v = ShellView{};
+        v.hierarchy = v.inspector = v.tools = v.assets = false;
+        v.game = v.world = v.test = true;
+    }
+    return v;
+}
+
+std::vector<std::string> openWindowNames(const ShellView& view) {
+    std::vector<std::string> out;
+    for (const auto& [name, field] : kWindowNames) {
+        if (view.*field) {
+            out.emplace_back(name);
+        }
+    }
+    return out;
+}
+
+void applyWindowNames(ShellView& view, const std::vector<std::string>& names) {
+    for (const auto& [name, field] : kWindowNames) {
+        view.*field = std::ranges::find(names, std::string_view(name)) != names.end();
+    }
+}
+
 std::string_view presetFor(std::string_view layoutName) noexcept {
     if (layoutName == "scripting" || layoutName == "play") {
         return layoutName;
@@ -412,6 +455,10 @@ ShellActions drawStudioShell(ShellState& state, const ShellInputs& in) {
     state.dockId = dock;
     if (state.pendingPreset) {
         buildPreset(dock, *state.pendingPreset, vp);
+        if (state.presetSetsView) {
+            state.view = presetView(*state.pendingPreset); // 배치가 켜는 창도 (v0.13 ST-08-2)
+        }
+        state.presetSetsView = true;
         state.pendingPreset.reset();
     }
     // 가운데는 통과 (월드 그림 · 게임 입력), 그 위에 창을 도킹하지 않는다 (Scene 이 늘 보인다)

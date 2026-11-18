@@ -15,14 +15,14 @@ void syncArmedAction(const ActionsInfo& info, ActionPanelState& state) {
     }
 }
 
-void drawActionPanel(const ActionsInfo& info, ActionPanelState& state) {
+void drawActionPanel(const ActionsInfo& info, ActionPanelState& state, bool* open) {
     syncArmedAction(info, state);
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({8.f * dpi, 420.f * dpi}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({230.f * dpi, 170.f * dpi}, ImGuiCond_FirstUseEver);
     const std::string title =
         state.armed.empty() ? std::string("행동###actions") : std::format("행동 — {}###actions", state.armed);
-    if (!ImGui::Begin(title.c_str())) {
+    if (!ImGui::Begin(title.c_str(), open)) {
         ImGui::End();
         return;
     }

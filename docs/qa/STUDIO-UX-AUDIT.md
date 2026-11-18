@@ -94,7 +94,7 @@ core/command CreateEntity          prefab + components 덮어쓰기 · 위치 �
 | ID | 버전 | 기능 | 우선순위 | 구현 | 자동 시험 | GUI QA | 상태 |
 |----|------|------|----------|------|-----------|--------|------|
 | ST-08-1 | v0.13 | 이 감사 · 계획 · 태스크 등록 | P0 | 문서 | docs_consistency | — | Done |
-| ST-08-2 | v0.13 | 창 닫기 (X) · Creator 기본 배치 (적은 창) · 개발자 창 분리 | P0 | 계획 | test_studio_shell | 미실시 | Planned |
+| ST-08-2 | v0.13 | 창 닫기 (X) · Creator 기본 배치 (적은 창) · 개발자 창 분리 | P0 | 완료 | test_studio_shell · test_layout_service · studio_layout | 미실시 | Done (GUI QA 남음) |
 | ST-08-3 | v0.13 | Project Explorer — 트리 · 검색 · 새 폴더 · 이름 바꾸기 · 복제 · 지우기 (휴지통) · 경로 안전 | P0 | 계획 | test_project_files | 미실시 | Planned |
 | ST-08-4 | v0.13 | 스크립트 열기 · 새 스크립트 (탐색기 두 번 클릭 · 틀) · 스크립트 창의 Ctrl+S | P0 | 계획 | test_project_files · test_content_panel | 미실시 | Planned |
 | ST-08-5 | v0.13 | Sprite → Object (에셋을 월드에 끌어 놓기 — 머티리얼 · Prefab · CreateEntity · 되돌리기) | P0 | 계획 | test_sprite_drop | 미실시 | Planned |
@@ -168,4 +168,5 @@ ST-08-7 ~ 13 (P1, v0.14) · ST-08-14 (P2, v0.21) — 카드는 착수 때 이 �
 
 | 날짜 | 태스크 | 커밋 | 자동 시험 | GUI QA |
 |------|--------|------|-----------|--------|
-| 2026-11-18 | ST-08-1 감사 · 계획 | (이 커밋) | docs_consistency | — |
+| 2026-11-18 | ST-08-1 감사 · 계획 | e73db0e | docs_consistency | — |
+| 2026-11-18 | ST-08-2 창 X · Creator 기본 창 · studio.json "windows" | (이 커밋) | test_studio_shell · test_layout_service · studio_layout · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-2) |

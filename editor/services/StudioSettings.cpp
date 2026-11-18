@@ -1,5 +1,6 @@
 #include "editor/services/StudioSettings.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <format>
 #include <system_error>
@@ -95,6 +96,14 @@ StudioSettingsLoad loadStudioSettings(const fs::path& file) {
             out.settings.theme = t->get<std::string>();
         } else {
             out.warnings.push_back("Studio 설정 theme 은 \"dark\" · \"light\" · \"high-contrast\" — 어두움");
+        }
+    }
+    if (const auto w = j->find("windows"); w != j->end()) {
+        const bool ok = w->is_array() && std::ranges::all_of(*w, [](const auto& e) { return e.is_string(); });
+        if (ok) {
+            out.settings.windows = w->get<std::vector<std::string>>();
+        } else {
+            out.warnings.push_back("Studio 설정 windows 는 창 이름 (문자열) 의 배열이어야 한다 — 기본 창");
         }
     }
     if (const auto a = j->find("autosaveSeconds"); a != j->end()) {

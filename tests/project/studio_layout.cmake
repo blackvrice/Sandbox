@@ -1,6 +1,6 @@
 # Studio 레이아웃 · 설정 (v0.8 M6-T6 — docs/25-STUDIO-ARCHITECTURE.md 4장, docs/28-CREATOR-UX-GATES.md 3장, ADR-0114):
 #   설정 폴더 studio/layouts/qa.ini 에 "편집" 창 자리 (Pos=123,45) → 헤드리스 SandboxClient --world <프로젝트> --layout qa
-#   --run-command studio.save-layout → qa.ini 에 같은 자리 (ImGui 가 적용하고 다시 꺼냈다) + 실제로 그린 창 ("빌드") · studio.json
+#   --run-command studio.save-layout → qa.ini 에 같은 자리 (ImGui 가 적용하고 다시 꺼냈다) + 실제로 그린 창 ("콘솔") · studio.json
 #   layout = qa (최근 목록 · autosaveSeconds 는 그대로) → --layout 없이 다시 열면 qa (기억) → studio.reset-layout 곧바로 끝내도 기본 배치가 남는다 →
 #   깨진 qa.ini 는 qa.ini.broken 으로 옮기고 기본 배치 (종료 코드 0) → 틀린 이름은 종료 코드 2 → 안전 모드는 아무 파일도 쓰지 않는다.
 #   cmake -DCLIENT=<SandboxClient> -DSBX=<sbx> -DOUT=<작업 폴더> -P studio_layout.cmake
@@ -43,8 +43,8 @@ message("qa.ini:\n${ini}")
 if(NOT ini MATCHES "\\[Window\\]\\[편집\\]\nPos=123,45\nSize=390,330")
     message(FATAL_ERROR "qa.ini 에 '편집' 창의 자리가 그대로 없다 (적용 → 꺼내기 왕복)")
 endif()
-if(NOT ini MATCHES "\\[Window\\]\\[빌드\\]")
-    message(FATAL_ERROR "qa.ini 에 그린 창 ('빌드') 이 없다 — 실제 배치를 꺼내지 않았다")
+if(NOT ini MATCHES "\\[Window\\]\\[콘솔\\]") # 빌드 창은 v0.13 ST-08-2 부터 기본으로 닫혀 있다
+    message(FATAL_ERROR "qa.ini 에 그린 창 ('콘솔') 이 없다 — 실제 배치를 꺼내지 않았다")
 endif()
 file(READ "${OUT}/config/studio.json" studio)
 string(JSON active GET "${studio}" layout)

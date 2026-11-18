@@ -23,6 +23,6 @@ enum class TestPanelAction : u8 { Start, Stop };
 void applyTestPanel(const TestPanelState& state, services::TestPlan& plan);
 
 std::optional<TestPanelAction> drawTestPanel(TestPanelState& state, const std::vector<services::TestProcess>& processes,
-                                             bool running);
+                                             bool running, bool* open = nullptr);
 
 } // namespace sbx::editor

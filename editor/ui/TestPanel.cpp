@@ -14,11 +14,11 @@ void applyTestPanel(const TestPanelState& state, services::TestPlan& plan) {
 }
 
 std::optional<TestPanelAction> drawTestPanel(TestPanelState& state, const std::vector<services::TestProcess>& processes,
-                                             bool running) {
+                                             bool running, bool* open) {
     std::optional<TestPanelAction> action;
     ImGui::SetNextWindowSize(ImVec2(420.f, 0.f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("테스트")) {
+    if (ImGui::Begin("테스트", open)) {
         ImGui::BeginDisabled(running);
         ImGui::SliderInt("클라이언트", &state.clients, 1, static_cast<int>(services::TestService::kMaxClients));
         ImGui::DragFloat("지연 ms (한 방향)", &state.latencyMs, 1.f, 0.f, 2000.f, "%.0f");

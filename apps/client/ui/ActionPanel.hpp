@@ -18,6 +18,6 @@ struct ActionPanelState {
 // 목록에 없는 행동을 쥐고 있으면 놓는다 (월드 · 콘텐츠가 바뀜)
 void syncArmedAction(const ActionsInfo& info, ActionPanelState& state);
 
-void drawActionPanel(const ActionsInfo& info, ActionPanelState& state);
+void drawActionPanel(const ActionsInfo& info, ActionPanelState& state, bool* open = nullptr);
 
 } // namespace sbx::client

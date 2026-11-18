@@ -22,6 +22,6 @@ namespace sbx::client {
 // "점수 12" · "빨강 3 · 파랑 5" (scores 가 비면 빈 문자열)
 [[nodiscard]] std::string scoreLine(const GameInfo& info);
 
-[[nodiscard]] std::optional<GameCommand> drawGamePanel(const GameInfo& info);
+[[nodiscard]] std::optional<GameCommand> drawGamePanel(const GameInfo& info, bool* open = nullptr);
 
 } // namespace sbx::client

@@ -89,14 +89,14 @@ void materialList(Editor& editor, const content::ContentDatabase& content) {
 
 } // namespace
 
-void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host) {
+void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host, bool* open) {
     const content::ContentDatabase* content = host.content();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({vp->WorkPos.x + vp->WorkSize.x - 12, vp->WorkPos.y + vp->WorkSize.y - 12},
                             ImGuiCond_FirstUseEver, {1, 1});
     ImGui::SetNextWindowSize({390.f * dpi, 330.f * dpi}, ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("편집", nullptr, kPanelFlags)) {
+    if (!ImGui::Begin("편집", open, kPanelFlags)) {
         ImGui::End();
         return;
     }

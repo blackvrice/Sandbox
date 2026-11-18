@@ -144,6 +144,11 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_editor.attachUndo(&m_undoLine); // Ctrl+Z · 패널의 되돌리기는 하나의 줄로 (v0.8 ST-06-1 (3))
     registerStudioCommands();
     m_shell.developerPanels = m_config.developerPanels; // v0.8 UI-1
+    if (m_config.windows) {                             // v0.13 ST-08-2 — 닫은 창은 닫힌 채로
+        applyWindowNames(m_shell.view, *m_config.windows);
+        m_shell.presetSetsView = false; // 저장된 배치가 없어 시작 프리셋을 만들어도 창은 이것 그대로
+    }
+    m_savedWindows = openWindowNames(m_shell.view);
     if (m_config.playerMode) { // v0.8 NG-03 — 받는 사람: 편집 · 진단 · Studio 창 없음, 게임 · 행동 창만
         m_shell.developerPanels = false;
         m_shell.view = ShellView{};
@@ -946,6 +951,7 @@ bool Application::frame() {
             m_shell.view.content = m_editorPanel.contentOpen;
             shell = drawStudioShell(m_shell, shellInputs(inWorld));
             m_editorPanel.contentOpen = m_shell.view.content;
+            saveOpenWindows();
         }
         // 진단 창 (시뮬레이션 · 통계 · 네트워크) 은 개발자 창 — 제작 기능 (일시정지 · 격자 …) 은 툴바 · 보기 메뉴에
         PanelActions act;
@@ -1047,13 +1053,13 @@ bool Application::frame() {
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {
                 if (m_shell.view.tools) {
-                    editor::drawEditorPanel(m_editor, m_editorPanel, *host); // 12A "편집"
+                    editor::drawEditorPanel(m_editor, m_editorPanel, *host, &m_shell.view.tools); // 12A "편집"
                 }
                 if (m_shell.view.inspector) {
-                    editor::drawInspectorPanel(m_editor, m_inspector, *host); // 12B
+                    editor::drawInspectorPanel(m_editor, m_inspector, *host, &m_shell.view.inspector); // 12B
                 }
                 if (m_shell.view.hierarchy) {
-                    editor::drawHierarchyPanel(m_editor, m_inspector, *host);
+                    editor::drawHierarchyPanel(m_editor, m_inspector, *host, &m_shell.view.hierarchy);
                 }
                 m_contentPanel.documents = &m_documents;  // [저장 (팩 파일)] (v0.9 M6-T8)
                 m_contentPanel.debugger = &m_scriptDebug; // 줄 번호 칸의 중단점 · 멈춘 줄 (v0.9 ST-06-7)
@@ -1078,12 +1084,13 @@ bool Application::frame() {
                 }
             }
             if (m_panels.visible && m_shell.view.console) { // v0.8 UI-3 "콘솔" — 로그의 최근 줄
-                editor::drawConsolePanel(m_console);
+                editor::drawConsolePanel(m_console, &m_shell.view.console);
             }
             if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible &&
                 m_shell.view.test) { // ST-06-9
                 if (const auto a =
-                        editor::drawTestPanel(m_testPanel, m_config.tests->processes(), m_config.tests->running())) {
+                        editor::drawTestPanel(m_testPanel, m_config.tests->processes(), m_config.tests->running(),
+                                            &m_shell.view.test)) {
                     (void)m_commands.run(*a == editor::TestPanelAction::Start ? "studio.test-start"
                                                                               : "studio.test-stop");
                 }
@@ -1093,10 +1100,10 @@ bool Application::frame() {
                     m_uiDocsProject = m_projectDir;
                     m_uiDocs = editor::uiDocumentFiles(m_projectDir);
                 }
-                editor::drawUiDesignerPanel(m_uiDesigner, m_uiDesign, m_uiDocs);
+                editor::drawUiDesignerPanel(m_uiDesigner, m_uiDesign, m_uiDocs, &m_shell.view.uiDesigner);
             }
             if (!m_projectDir.empty() && m_panels.visible && m_shell.view.assets) { // ST-06-3 "에셋"
-                if (const auto c = editor::drawAssetBrowser(m_assetBrowser, m_projectDir)) {
+                if (const auto c = editor::drawAssetBrowser(m_assetBrowser, m_projectDir, &m_shell.view.assets)) {
                     reloadAssetSprites(*c);
                 }
             }
@@ -1110,7 +1117,8 @@ bool Application::frame() {
             if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible &&
                 m_shell.view.build) { // M6-T3
                 if (const auto a =
-                        editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running())) {
+                        editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running(),
+                                             &m_shell.view.build)) {
                     (void)m_commands.run(*a == editor::BuildPanelAction::Check ? "studio.check" : "studio.build");
                 }
             }
@@ -1121,7 +1129,7 @@ bool Application::frame() {
                 }
             }
             if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible && m_shell.view.world) {
-                if (auto req = drawWorldPanel(*ops, m_worldPanel)) { // 12D "월드"
+                if (auto req = drawWorldPanel(*ops, m_worldPanel, &m_shell.view.world)) { // 12D "월드"
                     if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
                         m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
                     }
@@ -1130,13 +1138,13 @@ bool Application::frame() {
             }
             if (auto game = m_config.world->game(); game && m_panels.visible && m_shell.view.game) {
                 localizeNames(*game);
-                if (const auto c = drawGamePanel(*game)) { // v0.2 M2-T3 "게임"
+                if (const auto c = drawGamePanel(*game, &m_shell.view.game)) { // v0.2 M2-T3 "게임"
                     m_config.world->gameCommand(*c);
                 }
             }
             if (auto acts = m_config.world->playerActions(); acts && m_panels.visible && m_shell.view.game) {
                 localizeNames(*acts);
-                drawActionPanel(*acts, m_actionPanel); // v0.2 M3-T1 "행동"
+                drawActionPanel(*acts, m_actionPanel, &m_shell.view.game); // v0.2 M3-T1 "행동"
             } else if (!acts) {
                 m_actionPanel.armed.clear();
             }
@@ -2019,6 +2027,23 @@ void Application::applyShellActions(const ShellActions& a, PanelActions& panel) 
             !w) {
             log::warn("studio", "개발자 창 설정을 저장하지 못했다 — {}", w.error().describe());
         }
+    }
+}
+
+void Application::saveOpenWindows() {
+    std::vector<std::string> names = openWindowNames(m_shell.view);
+    if (names == m_savedWindows) {
+        return;
+    }
+    m_savedWindows = std::move(names);
+    m_config.windows = m_savedWindows;
+    if (m_config.studioSettingsFile.empty()) {
+        return; // 안전 모드 · 시험
+    }
+    const std::string json = ecs::Json(m_savedWindows).dump();
+    if (const Expected<void> w = editor::services::writeStudioSetting(m_config.studioSettingsFile, "windows", json);
+        !w) {
+        log::warn("studio", "창 설정을 저장하지 못했다 — {}", w.error().describe());
     }
 }
 

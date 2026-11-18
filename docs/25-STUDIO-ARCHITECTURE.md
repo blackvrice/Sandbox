@@ -120,7 +120,7 @@ BuildService
 다중 모니터 ImGui 뷰포트 (떼어 낸 창) · Scene/Game 뷰 분리 — [계획 v0.12 ST-06-11] (게임 카메라 정의 · 플랫폼 다중 창 뒤 — ADR-0123)
 DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (어두움 · 밝음 · 고대비) ✅ v0.8 ST-06-2 (ADR-0122 — 29 3장)
 설정       studio.json (사용자 폴더 — 최근 프로젝트 · 레이아웃 · 자동 저장 주기 ✅ v0.8 M6-T6 — 서비스마다 자기 키, 테마 ✅ ST-06-2,
-          편집기 글꼴 [계획]) ↔ 프로젝트 sandbox.project.json (게임)
+          켜진 창 "windows" ✅ v0.13 ST-08-2, 편집기 글꼴 [계획]) ↔ 프로젝트 sandbox.project.json (게임)
 명령 팔레트 Ctrl+Shift+P — CommandService 의 표를 이름 · id 로 찾기, 단축키 표 · 충돌 ✅ v0.8 ST-06-2 (ADR-0122). 별칭 · 최근 쓴 차례 ·
           사용자 키 다시 매기기 [계획]
 ```

@@ -71,7 +71,7 @@
 | F-130 | 리플레이 뷰어 (열기 · 재생 · 멈춤 · seek · 기록) | v0.8 | ✅ 사용 가능 | ⬜ | CTest `client_replay` · `replay_record` | 09 4장 · M5-T1 ~ T3 |
 | F-131 | 여러 사람이 같은 월드를 함께 편집 (역할 · 권한) | v0.1 | ✅ 사용 가능 (LAN) | ⬜ | `test_editor_roles` · CTest `det_edit_session` | 10 7장 |
 | F-132 | 템플릿 3종 · 튜토리얼 | v0.10 · v0.13 | 🟡 일부 — 게임 템플릿 틀 (`sbx new --template` · Studio 고르기 — ADR-0144) · 템플릿 셋 minigame · board (틱택토) · survival (모닥불) ✅ (M6-T2), 튜토리얼 (M6-T5) 남음, `sbx new --from <시나리오>` · [표준 라이브러리 안내](../tutorials/stdlib.md) | `test_project_template` · CTest `project_templates` · `sample_tictactoe` · `sample_campfire` · `project_new_from_scenario` | 20 10장 · ADR-0144 |
-| F-133 | 창 닫기 (X) · Creator 기본 배치 (적은 창) | v0.13 | 📐 설계만 — 지금은 콘텐츠 · 디버거 창만 X, 나머지는 보기 메뉴로 끔 | ⬜ | — (ST-08-2) | [STUDIO-UX-AUDIT](../qa/STUDIO-UX-AUDIT.md) · ADR-0167 |
+| F-133 | 창 닫기 (X) · Creator 기본 배치 (적은 창) | v0.13 | ✅ 구현 — 모든 도킹 창 X · 기본 창 다섯 · 배치가 켜는 창 · studio.json "windows" (창 QA 남음) | ⬜ | test_studio_shell · test_layout_service · CTest studio_layout (ST-08-2) | [STUDIO-UX-AUDIT](../qa/STUDIO-UX-AUDIT.md) · ADR-0167 |
 | F-134 | Project Explorer (프로젝트 파일 트리 · 새 폴더 · 이름 바꾸기 · 복제 · 휴지통) | v0.13 | 📐 설계만 — 에셋 창 (assets/) · 콘텐츠 창 (종류별 id) 이 나눠 갖는다 | ⬜ | — (ST-08-3) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-135 | 스크립트 파일 열기 · 새 스크립트 (탐색기) · 스크립트 창 Ctrl+S | v0.13 | 🟡 일부 — 콘텐츠 창의 "새 항목" (id) · [저장 (팩 파일)] 단추 | ⬜ | — (ST-08-4) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-136 | Sprite → Object (에셋을 월드에 끌어 놓기) | v0.13 | 📐 설계만 — 에셋 끌기 원천만 (받는 곳은 UI 디자이너) | ⬜ | — (ST-08-5) | STUDIO-UX-AUDIT · ADR-0167 |

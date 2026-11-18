@@ -20,6 +20,6 @@ struct EditorPanelState {
     bool contentOpen = false;      // "콘텐츠" 창 (12C — 이 패널의 단추로 연다)
 };
 
-void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host);
+void drawEditorPanel(Editor& editor, EditorPanelState& state, IEditorHost& host, bool* open = nullptr);
 
 } // namespace sbx::editor

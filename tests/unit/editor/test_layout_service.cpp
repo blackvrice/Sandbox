@@ -97,6 +97,21 @@ TEST_CASE("Studio 설정: 키마다 쓰기 · 다른 키 그대로 · 깨진 파
     CHECK(l.settings.theme.empty());
     CHECK(l.warnings.size() == 1);
 
+    // 켜진 창 (v0.13 ST-08-2) — 문자열 배열만. 없으면 nullopt (기본 배치의 창), 빈 배열 = 모두 닫음
+    write(file, R"({"windows": ["hierarchy", "console"]})");
+    l = loadStudioSettings(file);
+    REQUIRE(l.settings.windows.has_value());
+    CHECK(*l.settings.windows == std::vector<std::string>{"hierarchy", "console"});
+    CHECK(l.warnings.empty());
+    write(file, R"({"windows": []})");
+    CHECK(loadStudioSettings(file).settings.windows == std::vector<std::string>{});
+    write(file, R"({"windows": ["hierarchy", 3]})");
+    l = loadStudioSettings(file);
+    CHECK_FALSE(l.settings.windows.has_value());
+    CHECK(l.warnings.size() == 1);
+    REQUIRE(writeStudioSetting(file, "windows", R"(["assets"])").has_value());
+    CHECK(loadStudioSettings(file).settings.windows == std::vector<std::string>{"assets"});
+
     // 깨진 파일 — studio.json.broken 으로 옮기고 기본값
     write(file, "{ broken");
     l = loadStudioSettings(file);

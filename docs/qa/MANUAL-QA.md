@@ -650,6 +650,9 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
     SandboxClient --play 로 같은 결과 (걸린 시간 · 막힌 곳을 QA-EVIDENCE 에)
 [ ] (v0.8 NG-03) 창으로 SandboxClient --play <패키지> — Studio 창 없이 게임 · 제목 "… — Sandbox Player", --player 의 최근 게임 카드 · 빼기,
     망가진 파일의 오류 화면 (제목 · 할 일 · 자세히) · [보고 묶음 만들기] 경로 · [다른 게임 열기]
+[ ] (v0.13 ST-08-2) 창으로 프로젝트를 처음 열면 (studio.json 없음) 목록 · 인스펙터 · 편집 · 콘솔 · 에셋만 — 빌드 · 테스트 · 월드 · 게임 창이 없다,
+    모든 도킹 창의 탭에 X → 누르면 닫히고 보기 메뉴에서 다시 켜진다, 끝내고 다시 열면 닫은 창은 닫힌 채 (studio.json "windows"), 보기 › 배치
+    play 는 게임 · 월드 · 콘솔 · 테스트 · scene 은 다시 기본 창 (증거를 QA-EVIDENCE 에)
 [ ] (NG-06 (4)) 실제 Xbox 패드 — 연결 · 끊김 로그, 십자 · 스틱 · A · B · LB · RB 로 HUD · 메뉴 조작, 스틱 죽은 영역, 두 패드, 다른 창에
     포커스가 있을 때 무시 (Windows — 패드가 없어 시험은 가짜 소스)
 ```

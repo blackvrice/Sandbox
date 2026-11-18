@@ -62,6 +62,6 @@ Expected<void> dropAssetOnImage(UiDesignerPanelState& state, services::UiDesignS
 
 // 창을 그린다. files = uiDocumentFiles(프로젝트). 문서를 고르면 design.open, 편집 · 저장은 design 으로
 void drawUiDesignerPanel(UiDesignerPanelState& state, services::UiDesignService& design,
-                         const std::vector<std::filesystem::path>& files);
+                         const std::vector<std::filesystem::path>& files, bool* open = nullptr);
 
 } // namespace sbx::editor

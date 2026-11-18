@@ -26,6 +26,6 @@ struct ConsoleState {
 // 보일 줄의 차례 (lines 의 첫 줄 = total - lines.size() 번째 줄 — clearedAt 앞은 뺀다)
 [[nodiscard]] std::vector<usize> consoleVisible(const ConsoleState& state, u64 total);
 
-void drawConsolePanel(ConsoleState& state);
+void drawConsolePanel(ConsoleState& state, bool* open = nullptr);
 
 } // namespace sbx::editor

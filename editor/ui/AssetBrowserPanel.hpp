@@ -53,6 +53,7 @@ struct AssetChange {
     std::string oldPath; // 옮겼으면 옛 경로 (아니면 빈 글자)
 };
 
-std::optional<AssetChange> drawAssetBrowser(AssetBrowserState& state, const std::filesystem::path& projectDir);
+std::optional<AssetChange> drawAssetBrowser(AssetBrowserState& state, const std::filesystem::path& projectDir,
+                                              bool* open = nullptr);
 
 } // namespace sbx::editor

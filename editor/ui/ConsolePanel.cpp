@@ -40,7 +40,7 @@ std::vector<usize> consoleVisible(const ConsoleState& state, u64 total) {
     return out;
 }
 
-void drawConsolePanel(ConsoleState& state) {
+void drawConsolePanel(ConsoleState& state, bool* open) {
     const u64 total = log::recentTotal();
     const bool changed = total != state.seen;
     if (changed) {
@@ -48,7 +48,7 @@ void drawConsolePanel(ConsoleState& state) {
         state.seen = total;
     }
     ImGui::SetNextWindowSize(ImVec2(560.f, 220.f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("콘솔")) {
+    if (!ImGui::Begin("콘솔", open)) {
         ImGui::End();
         return;
     }

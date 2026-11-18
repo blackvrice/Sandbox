@@ -134,6 +134,8 @@ struct AppConfig {
     bool developerPanels = false;
     bool compactDensity = false;
     std::string theme; // "dark" · "light" · "high-contrast" (v0.8 ST-06-2 — studio.json)
+    // 켜진 창 (v0.13 ST-08-2 — studio.json "windows"). 없으면 ShellView 기본값 (scene 배치의 적은 창)
+    std::optional<std::vector<std::string>> windows;
     std::filesystem::path studioSettingsFile;
     std::string engineVersion;
     // 창 제목 (v0.8 UI-3): true = "<프로젝트> — Sandbox Studio" (개발자 창이면 진단 줄 그대로), false = 진단 줄 (시험 ·
@@ -257,6 +259,7 @@ private:
     [[nodiscard]] ShellInputs shellInputs(bool inWorld) const;
     void applyShellActions(const ShellActions& a, PanelActions& panel);
     void applyTheme();
+    void saveOpenWindows(); // 켜진 창이 바뀌었으면 studio.json "windows" (v0.13 ST-08-2)
     void dispatchShortcuts();                      // 명령 표의 단축키 (v0.8 ST-06-2 — 글자 칸에 쓰는 중이 아닐 때)
     [[nodiscard]] std::string studioTitle() const; // "<프로젝트> — Sandbox Studio"
     void replayFrame();                            // 리플레이 뷰어 (v0.8 M5-T1) — 재생 요청 · 시작 · 끝
@@ -294,6 +297,7 @@ private:
     std::vector<std::string> m_layoutNames;
     editor::LayoutPanelState m_layoutPanel;
     editor::TestPanelState m_testPanel; // v0.8 ST-06-9 (main 의 계획 값으로 처음을 채운다)
+    std::vector<std::string> m_savedWindows; // studio.json "windows" 에 마지막으로 쓴 것 (v0.13 ST-08-2)
     ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
     editor::ConsoleState m_console;     // v0.8 UI-3 "콘솔"
     PlayerHomeState m_playerHome;       // v0.8 NG-03

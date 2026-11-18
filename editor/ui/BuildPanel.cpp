@@ -15,10 +15,10 @@ std::string chosenProfile(const BuildPanelState& state, const std::vector<std::s
 }
 
 std::optional<BuildPanelAction> drawBuildPanel(BuildPanelState& state, const std::filesystem::path& project,
-                                               const std::vector<std::string>& profiles, bool running) {
+                                               const std::vector<std::string>& profiles, bool running, bool* open) {
     std::optional<BuildPanelAction> action;
     ImGui::SetNextWindowSize(ImVec2(560.f, 0.f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("빌드")) {
+    if (ImGui::Begin("빌드", open)) {
         const std::u8string dir = project.generic_u8string();
         ImGui::TextWrapped("프로젝트 %s", std::string(dir.begin(), dir.end()).c_str());
         state.profileIndex = std::clamp(state.profileIndex, 0, static_cast<int>(profiles.size()));

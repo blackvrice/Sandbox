@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-18 — Studio 창 닫기 · Creator 기본 창 (v0.13 ST-08-2, ADR-0167)
+
+**무엇을**
+
+- 모든 Creator 도킹 창 (편집 · 인스펙터 · 목록 · 콘솔 · 빌드 · 테스트 · UI 디자이너 · 에셋 · 월드 · 게임 · 행동) 의 Begin 에 p_open —
+  탭에 X, 닫으면 ShellView 칸이 꺼진다 (보기 메뉴로 다시). 그리기 함수에 `bool* open = nullptr` (기존 호출 그대로).
+- ShellView 기본값 = scene 배치의 적은 창 (목록 · 인스펙터 · 편집 · 콘솔 · 에셋) — 빌드 · 테스트 · 월드 · 게임은 꺼짐.
+  presetView (scene · scripting · play) — 배치를 고르면 그 창도 켠다.
+- 켜진 창을 studio.json "windows" (이름 배열) 에 — 바뀔 때만 쓴다, 다음 실행도 같고 시작 프리셋이 덮지 않는다 (presetSetsView).
+- CTest studio_layout 의 "그린 창" 을 콘솔로 (빌드 창은 기본으로 닫힘), studio_gui_smoke 는 "windows" 로 모든 창을 켠다.
+
+**왜**
+
+- 사용자 창 QA: 창이 너무 많고 닫을 수 없다 (STUDIO-UX-AUDIT 2장 2 · 3).
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드, test_studio_shell (배치 창 · windows 왕복 · 헤드리스 앱 — 기본 창 · 끄면 studio.json · play/scene) ·
+  test_layout_service (windows 키), 전체 ctest. 창 (X 클릭 · 다시 열기) 은 사람 QA — MANUAL-QA v0.13 ST-08-2 [ ].
+
+**남은 일**
+
+- 창 QA. 프로젝트 창 (ST-08-3) 이 기본 창의 에셋 자리를 맡는다.
+
 ## 2026-11-18 — Studio UX 감사 · 보완 계획 — ST-08 묶음 (ADR-0167)
 
 **무엇을**

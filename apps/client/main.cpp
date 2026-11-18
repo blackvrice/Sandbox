@@ -412,6 +412,7 @@ int main(int argc, char** argv) {
     cfg.developerPanels = studio.settings.developerPanels;
     cfg.compactDensity = studio.settings.compactDensity;
     cfg.theme = studio.settings.theme; // v0.8 ST-06-2
+    cfg.windows = studio.settings.windows; // v0.13 ST-08-2
     cfg.studioSettingsFile = studio.newerVersion ? std::filesystem::path() : studioFile;
     cfg.engineVersion =
         std::format("{}.{}.{}", sbx::build::kVersionMajor, sbx::build::kVersionMinor, sbx::build::kVersionPatch);

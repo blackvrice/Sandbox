@@ -19,20 +19,23 @@ namespace sbx::client {
 
 enum class WorkspaceMode : u8 { Edit, TestPlay, Replay, Recording };
 
-// 보기 메뉴의 창 켜기 (Creator 창)
+// 보기 메뉴의 창 켜기 (Creator 창). 기본값 = scene 배치의 적은 창 (v0.13 ST-08-2 — ADR-0167): 목록 · 인스펙터 · 편집 ·
+// 콘솔 · 에셋. 나머지는 보기 메뉴 · 배치로 켜고, 창의 X 가 끈다 (studio.json "windows" 에 남는다)
 struct ShellView {
     bool hierarchy = true;   // 목록
     bool inspector = true;   // 인스펙터
     bool tools = true;       // 편집 (툴 설정)
     bool console = true;     // 콘솔
-    bool build = true;       // 빌드
-    bool test = true;        // 테스트
-    bool world = true;       // 월드 (세이브 · 리플레이)
-    bool game = true;        // 게임 · 행동
+    bool build = false;      // 빌드
+    bool test = false;       // 테스트
+    bool world = false;      // 월드 (세이브 · 리플레이)
+    bool game = false;       // 게임 · 행동
     bool content = false;    // 콘텐츠 (Prefab · Rule · 스크립트 — 편집 창의 단추와 같은 값)
     bool debugger = false;   // 스크립트 디버거 (v0.9 ST-06-7 — 기록을 디버그 재생)
     bool uiDesigner = false; // UI 디자이너 (v0.10 ST-06-4 — 팩의 presentation/ui 문서)
-    bool assets = false;     // 에셋 (v0.10 ST-06-3 — 프로젝트 assets/)
+    bool assets = true;      // 에셋 (v0.10 ST-06-3 — 프로젝트 assets/)
+
+    bool operator==(const ShellView&) const = default;
 };
 
 struct ShellState {
@@ -41,6 +44,8 @@ struct ShellState {
     editor::theme::Density density = editor::theme::Density::Comfortable;
     editor::theme::Theme theme = editor::theme::Theme::Dark; // v0.8 ST-06-2
     std::optional<std::string> pendingPreset; // 다음 프레임에 DockBuilder 로 만들 배치 (scene · scripting · play)
+    // 프리셋이 보기 (켜진 창) 도 바꾸나 (v0.13 ST-08-2). 시작 때 저장된 "windows" 가 있으면 첫 프리셋은 도킹만 — 한 번 쓰면 true
+    bool presetSetsView = true;
     unsigned dockId = 0;                      // 도크 공간 id (ImGuiID)
 };
 
@@ -102,6 +107,14 @@ struct ShellActions {
 [[nodiscard]] bool isPresetLayout(std::string_view name) noexcept;
 // 기본 (default) 이 쓰는 프리셋
 [[nodiscard]] std::string_view presetFor(std::string_view layoutName) noexcept;
+
+// 배치 프리셋이 켜는 창 (v0.13 ST-08-2): scene = 기본값, scripting = 목록 · 인스펙터 · 편집 · 콘텐츠 · 콘솔 · 디버거,
+// play = 게임 · 월드 · 콘솔 · 테스트. 프리셋을 적용하면 (pendingPreset) 보기도 이것으로
+[[nodiscard]] ShellView presetView(std::string_view preset) noexcept;
+// studio.json "windows" — 켜진 창의 이름 ("hierarchy" · "inspector" …, 정해진 차례). 적용은 모르는 이름을 무시하고 목록에
+// 없는 창은 끈다
+[[nodiscard]] std::vector<std::string> openWindowNames(const ShellView& view);
+void applyWindowNames(ShellView& view, const std::vector<std::string>& names);
 
 // 그린다 — 다른 창보다 먼저 (ImGui 프레임 안). 메뉴 · 툴바 · 상태 막대 · 도크 공간 · 모드 띠
 [[nodiscard]] ShellActions drawStudioShell(ShellState& state, const ShellInputs& in);

@@ -27,6 +27,7 @@ struct WorldPanelRequest {
 // 상태 한 줄 ("보통" · "기록 중 'x' — 120 call" · "재생 'x' 300/608 call · 해시 10 일치 · 멈춤")
 [[nodiscard]] std::string worldModeLine(const WorldOpsInfo& info);
 
-[[nodiscard]] std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldPanelState& state);
+[[nodiscard]] std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldPanelState& state,
+                                                                bool* open = nullptr);
 
 } // namespace sbx::client

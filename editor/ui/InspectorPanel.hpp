@@ -35,7 +35,7 @@ struct InspectorState {
     std::array<char, 64> groupName{}; // "선택을 그룹으로" 의 이름
 };
 
-void drawInspectorPanel(Editor& editor, InspectorState& state, IEditorHost& host);
-void drawHierarchyPanel(Editor& editor, InspectorState& state, IEditorHost& host);
+void drawInspectorPanel(Editor& editor, InspectorState& state, IEditorHost& host, bool* open = nullptr);
+void drawHierarchyPanel(Editor& editor, InspectorState& state, IEditorHost& host, bool* open = nullptr);
 
 } // namespace sbx::editor

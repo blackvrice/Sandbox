@@ -66,14 +66,14 @@ std::string scoreLine(const GameInfo& info) {
     return line;
 }
 
-std::optional<GameCommand> drawGamePanel(const GameInfo& info) {
+std::optional<GameCommand> drawGamePanel(const GameInfo& info, bool* open) {
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({488.f * dpi, 160.f * dpi}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({250.f * dpi, 150.f * dpi}, ImGuiCond_FirstUseEver);
     std::optional<GameCommand> request;
     const std::string line = gameStateLine(info);
     const std::string title = std::format("게임 — {}###game", line);
-    if (!ImGui::Begin(title.c_str())) {
+    if (!ImGui::Begin(title.c_str(), open)) {
         ImGui::End();
         return request;
     }

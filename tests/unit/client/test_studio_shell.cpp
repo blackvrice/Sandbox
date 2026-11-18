@@ -4,6 +4,7 @@
 // 숨긴다. 이름 · 모드 줄
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <format>
@@ -22,6 +23,7 @@
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "editor/services/StudioSettings.hpp"
 #include "editor/ui/StudioTheme.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
@@ -32,6 +34,8 @@ using namespace sbx::client;
 using namespace sbx::platform;
 
 namespace {
+
+namespace fs = std::filesystem;
 
 constexpr f64 kDt = 1.0 / 30.0;
 
@@ -57,6 +61,34 @@ TEST_SUITE("client") {
         CHECK(presetFor("default") == "scene");
         CHECK(presetFor("mine") == "scene");
         CHECK(presetFor("play") == "play");
+        // 배치가 켜는 창 (v0.13 ST-08-2 — Creator 기본은 적은 창)
+        const ShellView scene = presetView("scene");
+        CHECK(scene == ShellView{});
+        CHECK(scene.hierarchy);
+        CHECK(scene.inspector);
+        CHECK(scene.console);
+        CHECK(scene.assets);
+        CHECK_FALSE(scene.build);
+        CHECK_FALSE(scene.test);
+        CHECK_FALSE(scene.world);
+        CHECK_FALSE(scene.game);
+        CHECK_FALSE(scene.content);
+        CHECK(presetView("scripting").content);
+        CHECK(presetView("scripting").debugger);
+        CHECK(presetView("play").game);
+        CHECK_FALSE(presetView("play").hierarchy);
+        CHECK(presetView("mine") == scene);
+        // studio.json "windows" 왕복 — 모르는 이름은 무시, 목록에 없는 창은 끈다
+        CHECK(openWindowNames(scene) == std::vector<std::string>{"hierarchy", "inspector", "tools", "console", "assets"});
+        ShellView v = presetView("play");
+        applyWindowNames(v, openWindowNames(scene));
+        CHECK(v == scene);
+        applyWindowNames(v, {"build", "nope"});
+        CHECK(v.build);
+        CHECK_FALSE(v.hierarchy);
+        CHECK(openWindowNames(v) == std::vector<std::string>{"build"});
+        applyWindowNames(v, {});
+        CHECK(openWindowNames(v).empty());
         CHECK(workspaceModeName(WorkspaceMode::Edit).find("Scene") != std::string_view::npos);
         CHECK(workspaceModeName(WorkspaceMode::TestPlay).find("Game") != std::string_view::npos);
         // 토큰: 상태 색은 서로 다르다 (색만으로 뜻을 전하지 않지만 구분은 된다)
@@ -87,6 +119,10 @@ TEST_SUITE("client") {
         cfg.ui = &imgui;
         cfg.engineVersion = "0.8.0";
         cfg.studioTitle = true; // v0.8 UI-3
+        // 켜진 창 저장 (v0.13 ST-08-2) — studio.json "windows"
+        const fs::path settingsDir = fs::temp_directory_path() / std::format("sbx_shell_{}", std::random_device{}());
+        fs::create_directories(settingsDir);
+        cfg.studioSettingsFile = settingsDir / "studio.json";
         auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
         REQUIRE(map.has_value());
         Application app(window, std::move(*map), audio, cfg);
@@ -135,22 +171,41 @@ TEST_SUITE("client") {
         REQUIRE(app.frame());
         CHECK_FALSE(active("통계"));
 
-        // 보기 메뉴의 창 끄기
+        // Creator 기본 창 (v0.13 ST-08-2) — 빌드 · 테스트 · 월드 · 게임은 닫혀 있다 (보기 메뉴 · 배치로)
+        CHECK(app.shell().view.assets); // 에셋 창은 프로젝트가 있을 때만 그린다 (이 월드는 프로젝트가 아니다)
+        CHECK_FALSE(active("빌드"));
+        CHECK_FALSE(active("테스트"));
+        CHECK_FALSE(active("###world"));
+        // 기본 그대로면 "windows" 를 쓰지 않는다 (개발자 창 켜기 · 끄기는 위에서 다른 키를 썼다)
+        CHECK_FALSE(editor::services::loadStudioSettings(cfg.studioSettingsFile).settings.windows.has_value());
+
+        // 보기 메뉴의 창 끄기 (창의 X 와 같은 칸) — studio.json 에 남는다
         app.shell().view.inspector = false;
         REQUIRE(app.frame());
         REQUIRE(app.frame());
         CHECK_FALSE(active("인스펙터"));
+        {
+            const auto saved = editor::services::loadStudioSettings(cfg.studioSettingsFile);
+            REQUIRE(saved.settings.windows.has_value());
+            CHECK(std::ranges::find(*saved.settings.windows, "inspector") == saved.settings.windows->end());
+            CHECK(std::ranges::find(*saved.settings.windows, "hierarchy") != saved.settings.windows->end());
+        }
         app.shell().view.inspector = true;
 
-        // play 프리셋: 목록은 도킹하지 않는다 (떠 있다), 인스펙터도
+        // play 프리셋: 게임 · 월드 창을 켜고 목록 · 인스펙터는 닫는다 (v0.13 ST-08-2)
         app.shell().pendingPreset = std::string("play");
         REQUIRE(app.frame());
         REQUIRE(app.frame());
-        CHECK(dockOf("목록") == 0);
-        // scene 으로 되돌리면 다시 도킹
+        CHECK_FALSE(app.shell().view.hierarchy);
+        CHECK(app.shell().view.world);
+        CHECK_FALSE(active("목록"));
+        CHECK(active("###world"));
+        // scene 으로 되돌리면 다시 기본 창 · 도킹
         app.shell().pendingPreset = std::string("scene");
         REQUIRE(app.frame());
         REQUIRE(app.frame());
+        CHECK(app.shell().view == presetView("scene"));
+        CHECK(active("목록"));
         CHECK(dockOf("목록") != 0);
 
         // 명령 팔레트 · 테마 · 툴 명령 (v0.8 ST-06-2) — 표 하나, 충돌 없음, 명령은 툴바 · 메뉴와 같은 길
@@ -225,10 +280,11 @@ TEST_SUITE("client") {
         REQUIRE(app.frame());
         CHECK_FALSE(active("목록"));
         CHECK_FALSE(active("##studio-toolbar"));
+        std::error_code ec;
+        fs::remove_all(settingsDir, ec);
     }
 
     TEST_CASE("studio home (v0.8 UI-2): 검색 · 위치 · gameId 제안 · 시각 · 만들기 조건") {
-        namespace fs = std::filesystem;
         using editor::services::RecentProject;
         const std::vector<RecentProject> recent{
             {fs::path("D:/Games/Omok"), "오목", "me.omok", false, "0.1.0", ""},

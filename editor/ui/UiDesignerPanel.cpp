@@ -131,8 +131,8 @@ Expected<void> dropAssetOnImage(UiDesignerPanelState& state, services::UiDesignS
 }
 
 void drawUiDesignerPanel(UiDesignerPanelState& state, services::UiDesignService& design,
-                         const std::vector<fs::path>& files) {
-    if (!ImGui::Begin("UI 디자이너")) {
+                         const std::vector<fs::path>& files, bool* open) {
+    if (!ImGui::Begin("UI 디자이너", open)) {
         ImGui::End();
         return;
     }

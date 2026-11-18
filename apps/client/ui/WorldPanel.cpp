@@ -25,7 +25,7 @@ std::string worldModeLine(const WorldOpsInfo& info) {
     }
 }
 
-std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldPanelState& state) {
+std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldPanelState& state, bool* open) {
     const f32 dpi = ImGui::GetStyle().FontScaleDpi;
     ImGui::SetNextWindowPos({488.f * dpi, 192.f * dpi}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize({250.f * dpi, 260.f * dpi}, ImGuiCond_FirstUseEver);
@@ -33,7 +33,7 @@ std::optional<WorldPanelRequest> drawWorldPanel(const WorldOpsInfo& info, WorldP
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
     std::optional<WorldPanelRequest> request;
     const std::string title = std::format("월드 — {}###world", worldModeLine(info));
-    if (!ImGui::Begin(title.c_str())) {
+    if (!ImGui::Begin(title.c_str(), open)) {
         ImGui::End();
         return request;
     }

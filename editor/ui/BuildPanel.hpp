@@ -23,6 +23,7 @@ enum class BuildPanelAction : u8 { Check, Build };
 [[nodiscard]] std::string chosenProfile(const BuildPanelState& state, const std::vector<std::string>& profiles);
 
 std::optional<BuildPanelAction> drawBuildPanel(BuildPanelState& state, const std::filesystem::path& project,
-                                               const std::vector<std::string>& profiles, bool running);
+                                               const std::vector<std::string>& profiles, bool running,
+                                               bool* open = nullptr);
 
 } // namespace sbx::editor

@@ -142,7 +142,7 @@ bool inputString(const char* label, std::string& text) {
 
 } // namespace
 
-std::optional<AssetChange> drawAssetBrowser(AssetBrowserState& state, const fs::path& projectDir) {
+std::optional<AssetChange> drawAssetBrowser(AssetBrowserState& state, const fs::path& projectDir, bool* open) {
     std::optional<AssetChange> change;
     if (state.project != projectDir) {
         state.project = projectDir;
@@ -155,7 +155,7 @@ std::optional<AssetChange> drawAssetBrowser(AssetBrowserState& state, const fs::
         state.refs = asset::findAssetReferences(projectDir, state.scan);
     }
     state.thumbs->collect();
-    if (!ImGui::Begin("에셋")) {
+    if (!ImGui::Begin("에셋", open)) {
         ImGui::End();
         return change;
     }
