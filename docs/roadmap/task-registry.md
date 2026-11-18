@@ -104,7 +104,7 @@
 | RT-06-15 | 오디오 믹서 · 2D 위치 | A | Done | v0.6 | v0.12 | P2 | NG-17 | — |
 | NG-15 | 2D 타일맵 · 타일셋 (GM-39 — 스프라이트 타일 칠하기) | B | Done | — | v0.12 | P1 | M6-T9 | 칠하기 · 저장 왕복 · 해시 |
 | NG-20 | v0.12 통합 시험 — Prefab · Tilemap · 애니메이션 2D 게임 (가져오기 → Prefab → 맵 → 스크립트 → 애니메이션 → 빌드 → 실행 → 저장 · 로드) | B | Done | — | v0.12 | P0 | ST-06-5 · NG-15 · RT-06-14 | 헤드리스 흐름 CTest · 세이브 → 로드 · 리플레이 해시 |
-| M7-T1 | samples/omok | B | Planned | v0.5 | v0.13 | P0 | M3-T5 · M6-T9 | 20 10장 Phase 7 |
+| M7-T1 | samples/omok | B | Done | v0.5 | v0.13 | P0 | M3-T5 · M6-T9 | 20 10장 Phase 7 |
 | M7-T2 | samples/hud_guard | B | Planned | v0.5 | v0.13 | P0 | M3-T4 | 20 10장 |
 | M7-T3 | A → B E2E (Studio 빌드 · 자기 에셋 · 진단) | B | Planned | v0.5 | v0.13 | P0 | M6-T3 · M6-T9 | 20 10장 + 툴체인 간 리플레이 (SG-06) |
 | M7-T4 | Alpha 채널 · 외부 시험 · 차단 목록 | B | Planned | v0.5 | v0.13 | P0 | M7-T3 | 20 10장 |

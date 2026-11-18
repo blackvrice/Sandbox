@@ -121,6 +121,7 @@ add_executable(SandboxTests
     unit/game/test_trigger_run.cpp
     unit/game/test_play_script.cpp
     unit/game/test_mana_regen_sample.cpp
+    unit/game/test_omok_sample.cpp
     unit/content/test_trigger.cpp
     property/test_spatial_property.cpp
     unit/server/test_server_options.cpp
@@ -770,6 +771,15 @@ if(TARGET sbx)
                         "-DCLIENT_MATCH=클라이언트 스크립트 dun.fx: 호출 [0-9]+ · 트랩 0"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
             set_tests_properties(sample_dungeon PROPERTIES LABELS "content" TIMEOUT 600)
+            # 오목 (v0.13 M7-T1 — v0.12 dogfood, ADR-0166) — 서버 규칙 · client HUD · 그리기 · 다시 하기 단추, 서버 = 로컬 = 패키지
+            add_test(NAME sample_omok
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/omok"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_omok" "-DRESULT_MATCH=게임 Finished · win"
+                        "-DSERVER_MATCH=스크립트 omok.rules: 호출 [0-9]+ · 트랩 0"
+                        "-DCLIENT_MATCH=클라이언트 스크립트 omok.hud: 호출 [0-9]+ · 트랩 0"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
+            set_tests_properties(sample_omok PROPERTIES LABELS "content" TIMEOUT 600)
             # 패키지 데모 (v0.4 M6-T1) — 다른 폴더 · 빈 캐시에서 sbx install → sbx test → 서버 = 로컬 플레이 (프로젝트 · 패키지)
             add_test(NAME sample_stash
                 COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>

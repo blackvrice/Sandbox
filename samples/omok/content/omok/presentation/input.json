@@ -1,0 +1,7 @@
+{
+  "format": "sandbox.input",
+  "version": 1,
+  "actions": {
+    "play.place": ["MouseLeft"]
+  }
+}

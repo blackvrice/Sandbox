@@ -1,0 +1,7 @@
+{
+  "materials": {
+    "omok/black": { "sprite": "assets/sprites/black.png", "color": [30, 30, 30] },
+    "omok/white": { "sprite": "assets/sprites/white.png", "color": [235, 235, 230] },
+    "terrain/core.grass": { "color": [214, 178, 112] }
+  }
+}

@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-18 — v0.13 M7-T1: samples/omok — 오목 (v0.12 끝 dogfood, ADR-0166)
+
+**무엇을**
+
+- 사용자 요청 ("12 버전 끝나고 알파테스트 전에 프로젝트를 만들어 오목 개발"): 제작자의 길로 samples/omok — sbx new --template board
+  에서 시작, 15 × 15 · 한 컴퓨터의 두 사람 · 다섯 줄 승리 (네 방향, 다섯 이상) · 무승부, HUD (차례 · 돌 수 · 승리 · 다시 하기),
+  마우스 칸 고르기, 판 그리기 (onRender), 돌 그림 (PNG — sbx asset import). 자동 플레이 셋 (expect tick · hash).
+- unit test_omok_sample (자동 플레이 셋 · 중간 판 세이브 → 로드), CTest sample_omok. 개발 기록 docs/qa/DOGFOOD-v0.12-omok.md
+  (막힌 것 여덟 — 셋은 엔진을 고침: 앞 두 커밋과 다음 커밋, 넷은 [계획]). 등록부 M7-T1 Done, 17 · 13.
+
+**왜**
+
+- 알파 시험 전에 제작자 흐름에서 막히는 곳을 먼저 찾는다. M7-T1 의 기준 (스크립트 규칙 · UI · 세이브 — 자동 플레이 승자 · 해시,
+  중간 판 세이브 → 로드) 을 채운다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- sbx test samples/omok 셋 통과, 헤드리스 서버 = 로컬 플레이 = 패키지 (hash 0xb696055b754c77aa, tick 53), test_omok_sample ·
+  sample_omok 통과. 전체 검증은 다음 커밋과 같이 (자동 재시작 고침이 이 샘플을 쓴다).
+
+**남은 일**
+
+- 창에서 마우스 · HUD · 다시 하기 (MANUAL-QA). 기록 3 장의 [계획] 넷.
+
 ## 2026-11-18 — sbx new --template --pack-id — 템플릿 팩 이름 바꾸기 (ADR-0166)
 
 **무엇을**

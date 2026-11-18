@@ -1,0 +1,80 @@
+{
+  "worldVersion": 1,
+  "schemaVersion": 1,
+  "simVersion": 4,
+  "name": "main",
+  "seed": "0x0000000000000001",
+  "tick": 0,
+  "nextSaveId": 2,
+  "entityCount": 1,
+  "chunkSize": 32,
+  "bounds": {
+    "minChunk": [
+      -8,
+      -8
+    ],
+    "maxChunk": [
+      7,
+      7
+    ]
+  },
+  "fillMaterial": "core.grass",
+  "content": {
+    "packs": [
+      "omok"
+    ],
+    "contentHash": "0x9b3503d09d19e971"
+  },
+  "tags": [
+    "black",
+    "draw",
+    "stone",
+    "white",
+    "winner"
+  ],
+  "terrainMaterials": [
+    "core.grass",
+    "core.rock",
+    "core.sand",
+    "core.water"
+  ],
+  "components": {
+    "ai.behavior": 1,
+    "ai.path": 1,
+    "ai.sensor": 1,
+    "core.collider": 1,
+    "core.contacts": 1,
+    "core.lifetime": 1,
+    "core.movement": 1,
+    "core.prefab": 1,
+    "core.tags": 1,
+    "core.transform": 1,
+    "core.trigger": 1,
+    "core.velocity": 1,
+    "debug.random_walk": 1,
+    "game.camera_start": 1,
+    "game.owner": 1,
+    "game.score": 1,
+    "game.session": 1,
+    "game.spawn_point": 1,
+    "life.age": 1,
+    "life.energy": 1,
+    "life.growth": 1,
+    "life.health": 1,
+    "life.reproduce": 1,
+    "omok.game": 1,
+    "omok.result": 1,
+    "omok.stone": 1,
+    "script.state": 1,
+    "script.timer": 1
+  },
+  "simulation": {
+    "paused": false,
+    "speed": 1.0,
+    "pendingSteps": 0,
+    "editSequence": 1
+  },
+  "worldHash": "0x26c64d786e5b2d2b",
+  "opaqueEntities": 0,
+  "opaqueComponents": []
+}

@@ -1,0 +1,95 @@
+{
+  "format": 1,
+  "name": "오목 — 자동 플레이 (흑 가운데 줄 다섯 · 백 위 줄 넷)",
+  "maxTicks": 300,
+  "steps": [
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 6,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 112
+      }
+    },
+    {
+      "at": 12,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 97
+      }
+    },
+    {
+      "at": 18,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 113
+      }
+    },
+    {
+      "at": 24,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 98
+      }
+    },
+    {
+      "at": 30,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 114
+      }
+    },
+    {
+      "at": 36,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 99
+      }
+    },
+    {
+      "at": 42,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 115
+      }
+    },
+    {
+      "at": 48,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 100
+      }
+    },
+    {
+      "at": 54,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 116
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "tick": 53,
+    "rule": 1,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0xb696055b754c77aa"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "name": "오목 — 둔 칸에 다시 두면 무시 (차례 그대로)",
+  "maxTicks": 80,
+  "steps": [
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 6,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 112
+      }
+    },
+    {
+      "at": 12,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 112
+      }
+    },
+    {
+      "at": 18,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 113
+      }
+    }
+  ],
+  "expect": {
+    "state": "Running",
+    "tick": 80,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0x550abd0dc294d322"
+    }
+  }
+}

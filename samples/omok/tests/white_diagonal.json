@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "name": "오목 — 백 대각선 승리 (흑 맨 윗줄 띄엄띄엄)",
+  "maxTicks": 300,
+  "steps": [
+    {
+      "at": 2,
+      "command": {
+        "op": "game",
+        "action": "start"
+      }
+    },
+    {
+      "at": 6,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 0
+      }
+    },
+    {
+      "at": 12,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 153
+      }
+    },
+    {
+      "at": 18,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 2
+      }
+    },
+    {
+      "at": 24,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 139
+      }
+    },
+    {
+      "at": 30,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 4
+      }
+    },
+    {
+      "at": 36,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 125
+      }
+    },
+    {
+      "at": 42,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 6
+      }
+    },
+    {
+      "at": 48,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 111
+      }
+    },
+    {
+      "at": 54,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 8
+      }
+    },
+    {
+      "at": 60,
+      "command": {
+        "op": "signal",
+        "name": "omok.place",
+        "value": 97
+      }
+    }
+  ],
+  "expect": {
+    "state": "Finished",
+    "result": "win",
+    "tick": 59,
+    "rule": 1,
+    "hash": {
+      "Windows-x86_64-MSVC-19.44": "0xa21923d615e9b1eb"
+    }
+  }
+}

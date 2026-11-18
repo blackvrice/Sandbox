@@ -1,0 +1,12 @@
+{
+  "id": "omok.match",
+  "name": "오목",
+  "description": "15 × 15 판 — 흑부터 번갈아 두어 가로 · 세로 · 대각선으로 다섯 이상 이으면 승리. 칸 클릭 = 두기 (신호 omok.place 0 ~ 224)",
+  "players": { "min": 1, "max": 2 },
+  "start": { "countdownSeconds": 0 },
+  "end": [
+    { "when": { "count": { "tags": { "all": ["winner"] }, "op": ">=", "value": 1 } }, "result": "win" },
+    { "when": { "count": { "tags": { "all": ["draw"] }, "op": ">=", "value": 1 } }, "result": "draw" }
+  ],
+  "restart": { "mode": "manual" }
+}

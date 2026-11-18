@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 3,
+  "gameId": "sandbox.omok",
+  "name": "오목",
+  "version": "0.1.0",
+  "engine": ">=0.7.0 <1.0.0",
+  "content": {
+    "packs": [
+      "omok"
+    ]
+  },
+  "entryWorld": "worlds/main",
+  "gameMode": "omok.match"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "omok.hud",
+  "layer": "hud",
+  "root": {
+    "kind": "panel",
+    "id": "info",
+    "anchor": { "min": [0, 0], "max": [0, 0] },
+    "offset": [8, 8, 236, 142],
+    "stack": "column",
+    "gap": 4,
+    "padding": 6,
+    "children": [
+      { "kind": "text", "id": "title", "text": "오목 — 칸을 눌러 둔다 (흑부터)" },
+      { "kind": "text", "id": "turn", "text": "{0}", "args": [{ "bind": "var:omok.turn" }] },
+      { "kind": "text", "id": "count", "text": "{0}", "args": [{ "bind": "var:omok.count" }] },
+      { "kind": "text", "id": "state", "text": "판: {0}", "args": [{ "bind": "session:state" }] },
+      { "kind": "button", "id": "again", "text": "다시 하기", "on": { "click": { "game": "restart" } } }
+    ]
+  }
+}
