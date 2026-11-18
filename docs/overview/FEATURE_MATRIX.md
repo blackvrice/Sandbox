@@ -43,7 +43,7 @@
 | F-102 | 월드 (Scene) 저장 · 불러오기 — 월드 = 세이브 폴더, Ctrl+S | v0.1 | ✅ 사용 가능 | ⬜ | CTest `det_world_save_load` · `server_project_saves_root` · `test_world_ops` | [09](../09-SERIALIZATION.md) 3장 · [10](../10-EDITOR.md) |
 | F-103 | 한 프로젝트 안에서 새 월드 (Scene) 를 더 만드는 화면 | — | ❓ 계획 불명확 | — | 새 프로젝트 · `sbx new --from` 은 시작 월드 하나를 만든다. Studio 에서 월드를 추가하는 화면 · 태스크는 찾지 못했다 | [18](../18-PLATFORM.md) 5.2 |
 | F-104 | Scene Hierarchy — "목록" 패널 (태그 · Prefab · 이름 거르기) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` | 10 2장 |
-| F-105 | Hierarchy 검색 · 편집기 그룹 · 부모-자식 | v0.12 | 📐 설계만 | — | — (ST-06-6) | 25 7장 |
+| F-105 | Hierarchy 검색 · 편집기 그룹 · 부모-자식 | v0.12 | 🟡 검색 · 그룹 ✅ (ADR-0162) · 부모-자식 [계획 v1.x] | ⬜ | test_hierarchy_service · test_editor_session (ST-06-6) | 25 7장 |
 | F-106 | Object 생성 · 삭제 (Place · Erase 툴) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` · CTest `det_edit_session` | 10 3장 |
 | F-107 | Prefab 정의 편집 ("콘텐츠" 창 — JSON, 오버레이 적용 / 팩 파일 저장) | v0.1 · v0.9 | 🟡 일부 | ⬜ | `test_editor` · `test_document_service` — 폼 없이 JSON 을 고친다 | 10 8장 · [11](../11-CONTENT-SCHEMA.md) |
 | F-108 | Prefab 인스턴스 오버라이드 · 변형 | v0.12 | ✅ 구현 (변형 inherits · 차이 기반 오버라이드 · EditContent.propagate — ADR-0158) | ⬜ | test_prefab_variants · test_editor_session (ST-06-5) | 25 7장 |

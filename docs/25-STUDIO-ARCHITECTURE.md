@@ -173,7 +173,7 @@ DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (어두움 ·
 
 ```text
 Scene = World      지금의 월드 (세이브 폴더 — 09) 가 장면. 프로젝트 worlds/ 아래 여럿 (ADR-0040). 바꾸지 않는다
-그룹 [제안 v0.6]    편집기 전용 논리 그룹 — worlds/<w>/editor.json { groups: [{ id, name, members: [saveId…], collapsed }] }. 시뮬레이션 ·
+그룹 ✅ v0.12 ST-06-6 (ADR-0162 — 세이브 폴더 editor.json · saveId 복제, 10 11장)    편집기 전용 논리 그룹 — worlds/<w>/editor.json { groups: [{ id, name, members: [saveId…], collapsed }] }. 시뮬레이션 ·
                    해시 · 복제 밖 (E3 의 확장 — 그러나 저장된다). 멀티 편집에서는 그룹 변경도 서버를 거친다 [계획 v0.7 — 그 전에는
                    로컬 저장, 충돌 시 마지막 쓰기]
 부모-자식 변환     도입하지 않음 (v0.6) — 2D 게임에 필요한 "같이 옮기기" 는 다중 선택 이동 (현행 MoveEntity{선택, delta}) 으로.

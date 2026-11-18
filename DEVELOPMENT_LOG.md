@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-18 — v0.12 ST-06-6: 편집기 그룹 · Hierarchy 검색 (ADR-0162)
+
+**무엇을**
+
+- editor/services/HierarchyService: 검색 낱말 (글자 · #번호 · prefab: · tag: · group: — 모두 맞아야, 대소문자 무시), 편집기 그룹
+  (이름 · saveId 멤버 · 접기 — 개체 하나는 그룹 하나, editor.json 왕복), 목록 줄 만들기 (그룹 머리 → 펼친 개체 → 그룹 없는 개체).
+- persist.persistence 에 Replicated — 클라이언트가 saveId 를 안다 (그룹이 세이브를 넘어 개체를 기억). EntityRow 에 saveId · 태그.
+- Editor::groupSelection · ungroupSelection · saveGroups · loadGroups, 목록 패널 (검색 칸 · 그룹 이름 · 묶기 · 빼기 · 머리 줄 접기 ·
+  그룹 지우기), Application 이 로컬 서버의 저장 · 불러오기가 받아들여지면 세이브 폴더 editor.json (IEditorHost::savedWorldFolder).
+- 문서: ADR-0162, 02 14장, 10 11장, 13, 14 7.19, 17, 25, FEATURE_MATRIX F-105, 등록부 ST-06-6 Done.
+
+**왜**
+
+- 카드 ST-06-6 (10k 측정). netId 는 불러오기마다 새로라 그룹은 saveId 로 — 로컬 서버는 스레드에서 돌아 서버 월드를 읽을 수 없으니
+  saveId 를 복제한다 (생성 때 한 번, 해시 · 세이브와 무관).
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과 (/WX 가 시험의 for … break 를 C4702 로 잡아 if 로), 단위 시험 assertions 1,955,309 모두 통과
+  (그룹 · 검색 · 목록 · 로컬 세션 saveId · editor.json),
+  10k 측정 Debug 4.0 ms (처음 20 ms — saveId → 그룹 표로 5 배), 복제 · 세이브 · 해시 시험이 saveId 복제 뒤에도 그대로, 전체 ctest
+  95 개 — 94 통과 · studio_gui_smoke SKIPPED. 골든 해시 그대로.
+
+**남은 일**
+
+- 멀티 편집의 그룹 공유 · 부모-자식 변환 [계획]. 목록 패널의 실제 창 조작은 MANUAL-QA.
+
 ## 2026-11-18 — v0.12 RT-06-11: AccessSet 선언 · Debug 검사 · 엔진 시스템 프로파일 (ADR-0161)
 
 **무엇을**

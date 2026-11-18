@@ -10,6 +10,7 @@
 #include "core/content/PrefabDiff.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "render/renderer/RenderWorld.hpp"
 
 namespace sbx::editor {
@@ -881,6 +882,69 @@ void Editor::revertToPrefab(IEditorHost& host, ecs::StableId component) {
         }
     }
     endTxn();
+}
+
+// ---- v0.12 ST-06-6: 편집기 그룹 ----
+
+namespace {
+std::vector<SaveId> selectedSaveIds(IEditorHost& host) {
+    std::vector<EntityRow> rows;
+    host.listEntities(rows);
+    std::vector<SaveId> out;
+    for (const NetEntityId id : host.selection()) {
+        const auto it = std::ranges::lower_bound(rows, id, {}, &EntityRow::id);
+        if (it != rows.end() && it->id == id && it->saveId != kInvalidSaveId) {
+            out.push_back(it->saveId);
+        }
+    }
+    return out;
+}
+} // namespace
+
+usize Editor::groupSelection(IEditorHost& host, const std::string& name) {
+    const std::vector<SaveId> ids = selectedSaveIds(host);
+    if (ids.empty()) {
+        m_message = "그룹으로 묶을 개체가 없습니다 (선택 · saveId)";
+        return 0;
+    }
+    const bool ok = m_groups.find(name) != nullptr ? m_groups.add(name, ids) : m_groups.create(name, ids);
+    if (!ok) {
+        m_message = std::format("그룹 '{}' 을 만들 수 없습니다 (이름 1 ~ {} 바이트 · {} 개까지)", name,
+                                kMaxGroupNameBytes, kMaxEditorGroups);
+        return 0;
+    }
+    m_message = std::format("그룹 '{}' 에 {} 개", name, ids.size());
+    return ids.size();
+}
+
+usize Editor::ungroupSelection(IEditorHost& host) {
+    const std::vector<SaveId> ids = selectedSaveIds(host);
+    m_groups.removeMembers(ids);
+    return ids.size();
+}
+
+Expected<void> Editor::saveGroups(const std::filesystem::path& worldFolder) const {
+    const std::filesystem::path file = worldFolder / "editor.json";
+    if (m_groups.empty()) {
+        std::error_code ec;
+        std::filesystem::remove(file, ec); // 그룹이 없으면 파일도 없다
+        return {};
+    }
+    return io::writeFileAtomic(file, m_groups.toJson());
+}
+
+Expected<void> Editor::loadGroups(const std::filesystem::path& worldFolder) {
+    m_groups.clear();
+    const std::filesystem::path file = worldFolder / "editor.json";
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(file, ec)) {
+        return {};
+    }
+    auto text = io::readFile(file);
+    if (!text) {
+        return std::unexpected(text.error());
+    }
+    return m_groups.fromJson(*text);
 }
 
 // ---- 12C: 콘텐츠 ----

@@ -41,7 +41,9 @@ void reflect(V& v, NetIdentity& c) {
 
 } // namespace sbx::comp
 
-// saveId 는 Persistent → 자동으로 Hashed. (해시 순서 키이기도 하다)
-SBX_COMPONENT(sbx::comp::Persistence, "persist.persistence", 1, sbx::ecs::ComponentFlags::Persistent);
+// saveId 는 Persistent → 자동으로 Hashed. (해시 순서 키이기도 하다). Replicated (v0.12 ST-06-6, ADR-0162) — 편집기
+// 그룹이 세이브를 넘어 개체를 기억한다 (생성 때 한 번 — 바뀌지 않는다). 해시 · 세이브와 무관
+SBX_COMPONENT(sbx::comp::Persistence, "persist.persistence", 1,
+              sbx::ecs::ComponentFlags::Persistent | sbx::ecs::ComponentFlags::Replicated);
 // netId 는 세션 값이라 저장·해시하지 않는다 (클라이언트 수와 무관해야 한다 — D6). 복제만 한다.
 SBX_COMPONENT(sbx::comp::NetIdentity, "net.identity", 1, sbx::ecs::ComponentFlags::Replicated);

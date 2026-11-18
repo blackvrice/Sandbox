@@ -95,7 +95,7 @@
 | NG-17 | 오디오 출력 백엔드 · sound importer · sounds.json (ADR-0095) | A | Review | — | v0.11 | P2 | M6-T9 | 세 OS 출력 수동 QA · 이벤트 → 소리 시험 — 구현 ✅ (믹서 · waveOut · AudioQueue · ALSA · WAV · sounds.json — ADR-0153, test_audio_output), 남은 것 세 OS 출력 수동 QA |
 | NG-19 | v0.11 통합 시험 — 충돌 · 트리거 · 오디오 미니게임 (서버 · 클라이언트 · 렌더 · 스크립트 경계) | A | Done | — | v0.11 | P0 | RT-06-5 · RT-06-9 · NG-17 | 자동 플레이 해시 · 이벤트 폭주 시험 · 헤드리스 서버 (오디오 장치 없음) |
 | ST-06-5 | Prefab 인스턴스 오버라이드 · 변형 (설계 ADR 먼저) | B | Done | v0.6 | v0.12 | P1 | NG-04 | det 시험 |
-| ST-06-6 | 편집기 그룹 · Hierarchy 검색 | B | Planned | v0.6 | v0.12 | P2 | ST-06-1 | 10k 측정 |
+| ST-06-6 | 편집기 그룹 · Hierarchy 검색 | B | Done | v0.6 | v0.12 | P2 | ST-06-1 | 10k 측정 |
 | ST-06-10 | 데이터 폼 · 트리거 그래프 캔버스 | B | Planned | v0.6 | v0.12 | P2 | ST-06-1 | 스키마 → 폼 왕복 |
 | RT-06-6 | ShapeCast | A | Done | v0.6 | v0.12 | P2 | — | raycast 표 |
 | RT-06-11 | AccessSet 선언 · 단계 프로파일 | A | Done | v0.6 | v0.12 | P2 | — | 선언 밖 단언 |

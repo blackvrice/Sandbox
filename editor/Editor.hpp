@@ -30,6 +30,7 @@
 // 문서면 문서를 되돌린다. 월드 되돌리기는 결과를 기다리므로 Started, 다 오면 finish (일부 거절 = 칸을 버림). 되돌리기를
 // 기다리는 동안 끝난 새 편집은 기록을 미룬다 (줄의 차례가 뒤집히지 않게).
 
+#include <filesystem>
 #include <optional>
 #include <set>
 #include <span>
@@ -41,6 +42,7 @@
 #include "core/content/PrefabDiff.hpp"
 #include "editor/EditorHost.hpp"
 #include "editor/Undo.hpp"
+#include "editor/services/HierarchyService.hpp"
 #include "editor/services/UndoService.hpp"
 #include "render/renderer/DebugDraw.hpp"
 
@@ -130,6 +132,16 @@ public:
     // 칸
     void revertToPrefab(IEditorHost& host, ecs::StableId component);
 
+    // ---- v0.12 ST-06-6: 편집기 그룹 (ADR-0162) ----
+    [[nodiscard]] EditorGroups& groups() noexcept { return m_groups; }
+    [[nodiscard]] const EditorGroups& groups() const noexcept { return m_groups; }
+    // 선택한 개체 (saveId 를 아는 것) 를 그 이름의 그룹으로 — 없으면 만든다. 묶은 수
+    usize groupSelection(IEditorHost& host, const std::string& name);
+    usize ungroupSelection(IEditorHost& host);
+    // 세이브 폴더의 editor.json — 저장 · 불러오기가 받아들여졌을 때 (Application). 읽기: 없으면 빈 그룹
+    Expected<void> saveGroups(const std::filesystem::path& worldFolder) const;
+    Expected<void> loadGroups(const std::filesystem::path& worldFolder);
+
     // ---- 12C: 콘텐츠 (월드 오버레이) ----
     // EditContent{kind, id, value} 하나 (value null = 팩 값으로). 지금 오버레이 값과 같으면 보내지 않는다. 기록 한 칸 —
     // 역명령은 지금 오버레이 값 (없었으면 null). 보냈으면 true
@@ -158,6 +170,7 @@ public:
     [[nodiscard]] bool takeFocusRequest() noexcept { return std::exchange(m_focusRequested, false); }
 
 private:
+    EditorGroups m_groups; // 편집기 그룹 (v0.12 ST-06-6)
     enum class Drag : u8 { None = 0, Box, Move, Place, Paint };
     struct Pending {
         u32 sequence = 0;

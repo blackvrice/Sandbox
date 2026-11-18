@@ -671,3 +671,24 @@ fps 가 오른다는 보고. 원인은 그래픽이 아니라 렌더 스레드 �
 - 결정 (ADR-0117): v0.8 은 캐시 없이 — 지금 기록은 테스트 · 버그 보고의 수 분. 긴 기록 (--record — M5-T3) 을 쓰게 되면 N call 마다 메모리
   세이브 (체크포인트) 로 뒤로 탐색을 "가장 가까운 앞 체크포인트 + 나머지" 로 [계획]
 ```
+
+
+### 7.19 v0.12 ST-06-6 — 목록 (Hierarchy) 10k (2026-11-18)
+
+```text
+환경       Windows 11 · MSVC Debug (SandboxTests — 이 커밋의 빌드) · 이 PC
+측정       tests/unit/editor/test_hierarchy_service.cpp "hierarchy 10k" — 개체 10,000 (Prefab 넷 돌림) · 그룹 50 × 100,
+           buildHierarchy 다섯 번의 평균 (stdout 에 찍는다)
+```
+
+| 검색 | 시간 (Debug) | 줄 |
+|------|--------------|----|
+| 없음 | 4.0 ms | 10,050 |
+| "rabbit" | 4.5 ms | 2,550 |
+| "group:g4 prefab:eco." | 4.8 ms | 836 |
+
+```text
+해석
+- 처음 구현 (줄마다 그룹을 차례로 이분 탐색) 은 20 ms — saveId → 그룹 표 (unordered_map) 하나로 바꿔 5 배. 목록은 패널이 보일 때만
+  프레임마다 만든다. Release 측정은 하지 않았다 (Debug 가 프레임 예산 16 ms 안 — 시험 상한 50 ms)
+```

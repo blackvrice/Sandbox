@@ -123,6 +123,7 @@ public:
     [[nodiscard]] const ecs::ComponentCatalog* catalog() const override;
     [[nodiscard]] std::vector<editor::ComponentState> components(NetEntityId id) const override;
     void listEntities(std::vector<editor::EntityRow>& out) const override;
+    [[nodiscard]] std::optional<std::filesystem::path> savedWorldFolder(std::string_view name) const override;
     [[nodiscard]] std::optional<Vec2> positionOf(NetEntityId id) const override;
     [[nodiscard]] editor::EditPermissions permissions() const override;
     // ---- 12C: 접속자 ----

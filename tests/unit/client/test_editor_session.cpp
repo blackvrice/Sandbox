@@ -4,6 +4,7 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -21,6 +22,7 @@
 using namespace sbx;
 using namespace sbx::client;
 using namespace sbx::platform;
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -272,6 +274,39 @@ TEST_SUITE("client") {
         r.until([&] { return r.ed.idle() && serverSpeed(ids[0]) == doctest::Approx(2.5f); });
         CHECK(serverSpeed(ids[1]) == doctest::Approx(5.f));
         CHECK(r.ed.stats().rejected == 0);
+    }
+
+    TEST_CASE("editor groups on a local server (v0.12 ST-06-6): 복제된 saveId · 선택을 그룹으로 · editor.json 왕복") {
+        EditRig r;
+        r.until([&] { return r.ns->ready(); });
+        r.ns->togglePause();
+        r.until([&] { return r.ns->paused(); });
+        std::vector<editor::EntityRow> rows;
+        r.ns->listEntities(rows);
+        REQUIRE(!rows.empty());
+        const sim::SimulationWorld& sw = r.ns->localServer()->host().world();
+        for (const editor::EntityRow& row : rows) {
+            CHECK(row.saveId == sw.saveIdOfNet(row.id)); // persist.persistence 가 복제된다
+        }
+        r.ns->setSelection({rows[0].id, rows[1].id});
+        CHECK(r.ed.groupSelection(*r.ns, "herd") == 2);
+        CHECK(r.ed.groups().find("herd")->members.size() == 2);
+        const fs::path dir = fs::temp_directory_path() / "sbx-tests" / "editor-groups";
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        fs::create_directories(dir);
+        REQUIRE(r.ed.saveGroups(dir).has_value());
+        CHECK(fs::exists(dir / "editor.json"));
+        CHECK(r.ed.ungroupSelection(*r.ns) == 2);
+        CHECK(r.ed.groups().find("herd")->members.empty());
+        REQUIRE(r.ed.loadGroups(dir).has_value());
+        CHECK(r.ed.groups().find("herd")->members.size() == 2);
+        r.ed.groups().clear();
+        REQUIRE(r.ed.saveGroups(dir).has_value()); // 그룹이 없으면 파일도 없다
+        CHECK_FALSE(fs::exists(dir / "editor.json"));
+        REQUIRE(r.ed.loadGroups(dir).has_value()); // 없는 파일 = 빈 그룹
+        CHECK(r.ed.groups().empty());
+        CHECK(r.ns->savedWorldFolder("w") == std::nullopt); // 이 시험의 세션은 세이브 폴더가 없다
     }
 
     TEST_CASE("app: number keys pick the tool, a left click places, the title shows the tool") {

@@ -1345,6 +1345,13 @@ std::vector<editor::ComponentState> NetworkSession::components(NetEntityId id) c
     return out;
 }
 
+std::optional<std::filesystem::path> NetworkSession::savedWorldFolder(std::string_view name) const {
+    if (!m_local || m_desc.savesRoot.empty() || name.empty()) {
+        return std::nullopt;
+    }
+    return m_desc.savesRoot / std::filesystem::path(std::string(name));
+}
+
 void NetworkSession::listEntities(std::vector<editor::EntityRow>& out) const {
     out.clear();
     const net::ClientWorld* w = clientWorld();
@@ -1355,7 +1362,11 @@ void NetworkSession::listEntities(std::vector<editor::EntityRow>& out) const {
     reg.forEachEntityByIndex([&](ecs::EntityId e) {
         if (const auto* ni = reg.tryRead<comp::NetIdentity>(e)) {
             const auto* prefab = reg.tryRead<comp::PrefabSource>(e);
-            out.push_back({ni->netId, prefab != nullptr ? prefab->prefab.view() : std::string_view()});
+            const auto* per = reg.tryRead<comp::Persistence>(e); // v0.12 ST-06-6 — 복제된 saveId
+            const auto* tags = reg.tryRead<comp::Tags>(e);
+            out.push_back({ni->netId, prefab != nullptr ? prefab->prefab.view() : std::string_view(),
+                           per != nullptr ? per->saveId : kInvalidSaveId,
+                           tags != nullptr ? tags->set : content::TagSet{}});
         }
     });
     std::ranges::sort(out, {}, &editor::EntityRow::id);

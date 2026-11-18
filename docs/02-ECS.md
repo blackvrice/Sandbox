@@ -448,7 +448,7 @@ graph · state · enteredTick · target(saveId) · blackboard[8]. `core.movement
 | `society.production`                       | queue, progress                                                                                                              | P H E                   |
 | `combat.combat`                            | damage, range, cooldown, cooldownLeft                                                                                        | P H E                   |
 | `net.identity`                             | netId, owner(ClientId)                                                                                                       | (내부)                  |
-| `persist.persistence`                      | saveId                                                                                                                       | (내부)                  |
+| `persist.persistence`                      | saveId — v0.12 ST-06-6 부터 복제 (편집기 그룹이 세이브를 넘어 개체를 기억, ADR-0162)                                         | (내부) R                |
 | `render.sprite` *(Client 정의)*            | material(AssetId), size, layer, tint                                                                                         | R P E · 서버에선 Opaque |
 | `client.interpolated_transform` *(Client)* | prev, curr, renderPos                                                                                                        | C                       |
 | `editor.selected` *(Client)*               | —                                                                                                                            | C                       |

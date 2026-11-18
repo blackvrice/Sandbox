@@ -9,11 +9,12 @@
 //                 목록(Hierarchy), 그린 위치(카메라 맞추기).
 //                 12C: 지금 역할로 할 수 있는 것 (EditPermissions — 툴 · 패널을 숨긴다. 판단은 서버), content() 는
 //                 서버의 월드 오버레이까지 적용한 콘텐츠 (overlay() 가 그 오버레이).
-//                 12D: 서버 월드가 바뀐 횟수 (worldGeneration — 불러오기 · 리플레이 재생. 바뀌면 에디터가 되돌리기 기록을
-//                 비운다: 옛 월드의 netId 다).
+//                 12D: 서버 월드가 바뀐 횟수 (worldGeneration — 불러오기 · 리플레이 재생. 바뀌면 에디터가 되돌리기
+//                 기록을 비운다: 옛 월드의 netId 다).
 //
 // 에디터는 월드를 직접 바꾸지 않는다. 한 스레드(Main)에서 쓴다.
 
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -22,6 +23,7 @@
 
 #include "core/command/SimCommand.hpp"
 #include "core/components/core/Identity.hpp"
+#include "core/content/TagSet.hpp"
 #include "core/ecs/Component.hpp"
 #include "core/serialization/JsonVisitor.hpp"
 #include "render/renderer/Camera2D.hpp"
@@ -81,7 +83,9 @@ struct EditPermissions {
 // Hierarchy 한 줄
 struct EntityRow {
     NetEntityId id = kInvalidNetEntityId;
-    std::string_view prefab; // core.prefab (없으면 빈 문자열) — 다음 update 까지 유효
+    std::string_view prefab;        // core.prefab (없으면 빈 문자열) — 다음 update 까지 유효
+    SaveId saveId = kInvalidSaveId; // persist.persistence (v0.12 ST-06-6 — 복제), 모르면 무효
+    content::TagSet tags;           // core.tags (검색 tag:)
 };
 
 class IEditorHost : public ICommandSink {
@@ -110,6 +114,10 @@ public:
     [[nodiscard]] virtual std::vector<ComponentState> components(NetEntityId id) const = 0;
     // 복제 월드의 개체 (관심 영역 안), netId 오름차순
     virtual void listEntities(std::vector<EntityRow>& out) const = 0;
+    // 로컬 서버의 세이브 폴더 (그 이름의 월드 — editor.json 자리, v0.12 ST-06-6). 원격 · 세이브 폴더 없음이면 없다
+    [[nodiscard]] virtual std::optional<std::filesystem::path> savedWorldFolder(std::string_view /*name*/) const {
+        return std::nullopt;
+    }
     // 그린 위치 (없으면 nullopt)
     [[nodiscard]] virtual std::optional<Vec2> positionOf(NetEntityId id) const = 0;
 

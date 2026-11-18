@@ -5,6 +5,8 @@ add_library(SandboxEditorServices STATIC
     services/CommandService.cpp
     services/UndoService.hpp
     services/UndoService.cpp
+    services/HierarchyService.hpp
+    services/HierarchyService.cpp
     services/DocumentService.hpp
     services/DocumentService.cpp
     services/ProjectService.hpp

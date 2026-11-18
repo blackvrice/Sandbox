@@ -94,7 +94,7 @@ struct FakeHost final : IEditorHost {
     void listEntities(std::vector<EntityRow>& out) const override {
         out.clear();
         for (const FakeEntity& e : entities) {
-            out.push_back({e.id, {}});
+            out.push_back({e.id, {}, kInvalidSaveId, {}});
         }
         std::ranges::sort(out, {}, &EntityRow::id);
     }

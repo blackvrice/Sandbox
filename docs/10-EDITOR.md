@@ -30,7 +30,7 @@ E4. Inspector 는 리플렉션으로 자동 생성한다. 컴포넌트마다 UI 
 SandboxEditor
  ├─ EditorContext     ClientWorld&, ContentDatabase&, Selection, ActiveTool, Camera2D&, ICommandSink&, Role
  ├─ panels/
- │    Hierarchy       관련 엔티티 목록 (필터: 태그, Prefab, 이름)
+ │    Hierarchy       관련 엔티티 목록 (필터: 태그, Prefab, 이름) — v0.12 ST-06-6 ✅ 검색 낱말 · 편집기 그룹 (ADR-0162, 아래 11장)
  │    Inspector       선택 엔티티의 컴포넌트 (리플렉션), 컴포넌트 추가/제거
  │    Palette         Prefab 목록 (드래그 → 배치), 즐겨찾기
  │    Terrain         머티리얼 팔레트, 브러시 모양·크기
@@ -347,4 +347,19 @@ v0.3 M5-T4: 스크립트 시스템이 있으면 "스크립트 프로파일" 패�
 - 세이브 · 리플레이 (12D): 월드가 바뀌면 기록 비우기 (editor test_editor_world_change), 로컬 서버에서 저장 · 목록 · 불러오기 →
   오버레이 복원 · 기록 비우기, 기록 → 재생 · 재생 멈춤 · 한 call, "월드" 패널 그리기 · 앱 Ctrl+S (client test_world_panel), 서버 쪽은
   08 12장 (test_world_ops), 편집 명령 전 종류를 담은 시나리오 edit_session 의 D1 · D2 · D3 · D5 (13-TESTING)
+```
+
+
+## 11. 목록 검색 · 편집기 그룹 (v0.12 ST-06-6, [ADR-0162](adr/0162-editor-groups-hierarchy-search.md))
+
+```text
+검색       "목록" 칸 — 공백으로 나눈 낱말 모두 (대소문자 무시): 글자 = Prefab id 에 있다 ("개체" = Prefab 없음), #<번호> = netId,
+           prefab:<앞>, tag:<이름> (콘텐츠 태그), group:<이름 글자>. editor/services/HierarchyService (ImGui 없이 — 시험)
+그룹       편집기 전용 묶음 (시뮬레이션 · 해시 · 복제 밖). "그룹 이름" + "묶기" = 선택을 그 그룹으로 (없으면 만든다 — 개체 하나는
+           그룹 하나), "빼기" = 선택을 그룹에서. 머리 줄을 누르면 접기 · 펼치기, 오른쪽 클릭 = 그룹 지우기 (개체는 그대로).
+           목록 = 그룹 (만든 차례 · 검색에 맞은 수) → 펼친 그룹의 개체 → 그룹 없는 개체. 개체는 saveId 로 기억한다
+           (persist.persistence 복제 — netId 는 불러오기마다 새로)
+저장       로컬 서버의 저장이 받아들여지면 세이브 폴더 <saves>/<이름>/editor.json, 불러오기가 받아들여지면 읽는다 (그룹이 없으면
+           파일을 지운다 · 틀린 파일은 경고하고 빈 그룹). 원격 서버는 세션 동안만
+측정       개체 10,000 · 그룹 50 의 목록 만들기 — Debug 4.0 ms · 검색 4.5 ms (14 7.19)
 ```

@@ -27,9 +27,12 @@ struct InspectorState {
         ecs::Json value;
     };
     std::optional<Edit> edit;      // 지금 끌거나 쓰고 있는 값 (끝나야 보낸다)
-    std::array<char, 64> filter{}; // 목록 거르기
+    std::array<char, 64> filter{}; // 목록 검색 (낱말 — HierarchyService, v0.12 ST-06-6)
     std::vector<EntityRow> rows;   // 목록 (프레임마다 다시 채운다)
-    std::vector<usize> shown;      // 걸러진 줄
+    std::vector<usize> shown;      // 걸러진 줄 (그룹 머리는 빼고 — 개체 줄의 rows 번호)
+    std::vector<HierarchyRow> hrows;
+    std::vector<HierarchyLine> lines; // 그린 줄 (그룹 머리 · 개체)
+    std::array<char, 64> groupName{}; // "선택을 그룹으로" 의 이름
 };
 
 void drawInspectorPanel(Editor& editor, InspectorState& state, IEditorHost& host);

@@ -1797,6 +1797,20 @@ void Application::replayFrame() {
     }
     // 결과는 늘 꺼낸다 (쌓이지 않게) — 뷰어가 아니면 버린다
     std::vector<WorldOpOutcome> outcomes = m_config.world->takeWorldOpOutcomes();
+    // 편집기 그룹 (v0.12 ST-06-6, ADR-0162): 로컬 서버의 저장 · 불러오기가 받아들여지면 세이브 폴더의 editor.json
+    if (editor::IEditorHost* host = m_config.world->editorHost()) {
+        for (const WorldOpOutcome& o : outcomes) {
+            if (!o.accepted || (o.op != WorldOp::Save && o.op != WorldOp::Load)) {
+                continue;
+            }
+            if (const auto folder = host->savedWorldFolder(o.name)) {
+                const auto r = o.op == WorldOp::Save ? m_editor.saveGroups(*folder) : m_editor.loadGroups(*folder);
+                if (!r) {
+                    log::warn("client", "편집기 그룹 ({}): {}", folder->generic_string(), r.error().describe());
+                }
+            }
+        }
+    }
     if (m_config.replayName.empty() || m_pending) {
         return;
     }

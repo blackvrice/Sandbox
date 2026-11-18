@@ -276,23 +276,62 @@ void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
     }
     host.listEntities(st.rows);
     ImGui::SetNextItemWidth(-1);
-    ImGui::InputTextWithHint("##filter", "거르기 (prefab · 번호)", st.filter.data(), st.filter.size());
-    const std::string_view filter(st.filter.data());
+    ImGui::InputTextWithHint("##filter", "검색 (낱말 · #번호 · prefab: · tag: · group:)", st.filter.data(),
+                             st.filter.size());
+    // 그룹 · 검색 (v0.12 ST-06-6, ADR-0162) — 서비스가 줄을 만든다
+    st.hrows.clear();
+    for (const EntityRow& r : st.rows) {
+        st.hrows.push_back({r.id, r.saveId, r.prefab, r.tags});
+    }
+    buildHierarchy(st.hrows, editor.groups(), parseHierarchyQuery(st.filter.data(), host.content()), st.lines);
     st.shown.clear();
-    for (usize i = 0; i < st.rows.size(); ++i) {
-        if (filter.empty() || st.rows[i].prefab.find(filter) != std::string_view::npos ||
-            std::to_string(st.rows[i].id).find(filter) != std::string::npos) {
-            st.shown.push_back(i);
+    for (const HierarchyLine& l : st.lines) {
+        if (l.kind == HierarchyLine::Kind::Entity) {
+            st.shown.push_back(l.row);
         }
     }
     const auto selection = host.selection();
     ImGui::TextDisabled("개체 %zu / %zu (관심 영역 안) · 선택 %zu", st.shown.size(), st.rows.size(), selection.size());
+    // 선택을 그룹으로 · 그룹에서 빼기 (saveId 를 아는 개체만 — 로컬 서버면 세이브와 같이 저장)
+    ImGui::SetNextItemWidth(110.f * dpi());
+    ImGui::InputTextWithHint("##group", "그룹 이름", st.groupName.data(), st.groupName.size());
+    ImGui::SameLine();
+    ImGui::BeginDisabled(selection.empty() || st.groupName[0] == '\0');
+    if (ImGui::SmallButton("묶기")) {
+        (void)editor.groupSelection(host, st.groupName.data());
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(selection.empty());
+    if (ImGui::SmallButton("빼기")) {
+        (void)editor.ungroupSelection(host);
+    }
+    ImGui::EndDisabled();
     if (ImGui::BeginChild("##rows", {0, 0}, ImGuiChildFlags_Borders)) {
         ImGuiListClipper clipper;
-        clipper.Begin(static_cast<int>(st.shown.size()));
+        clipper.Begin(static_cast<int>(st.lines.size()));
         while (clipper.Step()) {
             for (int k = clipper.DisplayStart; k < clipper.DisplayEnd; ++k) {
-                const EntityRow& row = st.rows[st.shown[static_cast<usize>(k)]];
+                const HierarchyLine& line = st.lines[static_cast<usize>(k)];
+                if (line.kind == HierarchyLine::Kind::Group) {
+                    const EditorGroup& g = editor.groups().groups()[line.group];
+                    const std::string head =
+                        std::format("{} {}  ({})##g{}", g.collapsed ? ">" : "v", g.name, line.matches, line.group);
+                    if (ImGui::Selectable(head.c_str(), false)) {
+                        (void)editor.groups().setCollapsed(g.name, !g.collapsed);
+                    }
+                    if (ImGui::BeginPopupContextItem()) {
+                        if (ImGui::MenuItem("그룹 지우기 (개체는 그대로)")) {
+                            (void)editor.groups().remove(std::string(g.name));
+                        }
+                        ImGui::EndPopup();
+                    }
+                    continue;
+                }
+                if (line.inGroup) {
+                    ImGui::Indent(14.f * dpi());
+                }
+                const EntityRow& row = st.rows[line.row];
                 const std::string label = std::format("{} #{}", row.prefab.empty() ? "개체" : row.prefab, row.id);
                 const bool selected = std::ranges::binary_search(selection, row.id);
                 if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
@@ -328,6 +367,9 @@ void drawHierarchyPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
                         editor.deleteSelection(host);
                     }
                     ImGui::EndPopup();
+                }
+                if (line.inGroup) {
+                    ImGui::Unindent(14.f * dpi());
                 }
             }
         }
