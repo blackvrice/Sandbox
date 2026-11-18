@@ -149,6 +149,9 @@ vm::HostResult ctxCancelPath(ScriptHost& host, std::span<const vm::HostArg> args
 vm::HostResult ctxRaycast(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.raycast(args);
 }
+vm::HostResult ctxShapeCast(ScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.shapeCast(args);
+}
 vm::HostResult ctxOverlap(ScriptHost& host, std::span<const vm::HostArg> args) {
     return host.overlap(args);
 }
@@ -255,6 +258,11 @@ constexpr HostBinding kBindings[] = {
      {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
      5,
      &ctxRaycast},
+    {"ctx.shapeCast",
+     AbiType::EntityOrNull,
+     {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+     6,
+     &ctxShapeCast},
     {"ctx.overlap",
      AbiType::EntityList,
      {AbiType::ServerContext, AbiType::Number, AbiType::Number, AbiType::Number},
@@ -1320,6 +1328,20 @@ vm::HostResult ScriptHost::cancelPath(std::span<const vm::HostArg> args) {
 // 선분 (x0, y0) → (x1, y1) 이 처음 닿는 충돌 원. 후보 = 선분의 사각형을 충돌 반지름 상한만큼 넓힌 색인 칸, 위치는
 // 단계 4 색인 (틱 처음), 반지름은 지금 값. 매개변수 t (0 ~ 1) 가 작은 것, 같으면 saveId 작은 것 (결정적)
 vm::HostResult ScriptHost::raycast(std::span<const vm::HostArg> args) {
+    return sweep(args, 0.0, "raycast");
+}
+
+vm::HostResult ScriptHost::shapeCast(std::span<const vm::HostArg> args) {
+    const f64 radius = args[5].value.asF64();
+    if (!std::isfinite(radius) || radius < 0.0 || radius > kMaxShapeCastRadius) {
+        return fail(std::format("shapeCast — 반지름 {} 은 0 ~ {}", radius, kMaxShapeCastRadius));
+    }
+    return sweep(args, radius, "shapeCast");
+}
+
+// 반지름 radius 의 원을 쓸기 = 각 충돌 원의 반지름을 radius 만큼 키운 raycast (Minkowski 합 — v0.12 RT-06-6). radius 0
+// 이면 raycast 그대로 (같은 차례 · 같은 결과)
+vm::HostResult ScriptHost::sweep(std::span<const vm::HostArg> args, f64 radius, std::string_view what) {
     if (m_world == nullptr) {
         return fail("이 호출에는 월드가 없다");
     }
@@ -1331,9 +1353,9 @@ vm::HostResult ScriptHost::raycast(std::span<const vm::HostArg> args) {
     const f64 dy = y1 - y0;
     if (!std::isfinite(x0) || !std::isfinite(y0) || !std::isfinite(x1) || !std::isfinite(y1) ||
         dx * dx + dy * dy > kMaxRayLength * kMaxRayLength) {
-        return fail(std::format("raycast({}, {}, {}, {}) — 유한하고 길이 {} 까지", x0, y0, x1, y1, kMaxRayLength));
+        return fail(std::format("{}({}, {}, {}, {}) — 유한하고 길이 {} 까지", what, x0, y0, x1, y1, kMaxRayLength));
     }
-    const f64 pad = comp::kMaxColliderRadius;
+    const f64 pad = comp::kMaxColliderRadius + radius;
     const Vec2 lo{static_cast<f32>(std::min(x0, x1) - pad), static_cast<f32>(std::min(y0, y1) - pad)};
     const Vec2 hi{static_cast<f32>(std::max(x0, x1) + pad), static_cast<f32>(std::max(y0, y1) + pad)};
     const ecs::Registry& reg = m_world->registry();
@@ -1353,7 +1375,7 @@ vm::HostResult ScriptHost::raycast(std::span<const vm::HostArg> args) {
         // |p0 + t·d − c|² = r² 의 작은 근 (시작점이 원 안이면 t = 0)
         const f64 fx = x0 - static_cast<f64>(e.position.x);
         const f64 fy = y0 - static_cast<f64>(e.position.y);
-        const f64 r = static_cast<f64>(c->radius);
+        const f64 r = static_cast<f64>(c->radius) + radius;
         const f64 cc = fx * fx + fy * fy - r * r;
         f64 t = 0.0;
         if (cc > 0.0) {

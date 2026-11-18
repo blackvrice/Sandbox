@@ -71,6 +71,12 @@ export function ray(ctx: ServerContext, x0: number, y0: number, x1: number, y1: 
   return t !== null ? t.position.x : -98
 }
 export function overlapCount(ctx: ServerContext, x: number, y: number, r: number): i32 { return ctx.overlap(x, y, r).length }
+export function cast(ctx: ServerContext, x0: number, y0: number, x1: number, y1: number, r: number): number {
+  const e = ctx.shapeCast(x0, y0, x1, y1, r)
+  if (e === null) { return -99 }
+  const t = ctx.read(e, Transform)
+  return t !== null ? t.position.y * 100 + t.position.x : -98
+}
 export function requestThenTrap(ctx: ServerContext): void {
   for (const e of ctx.inBox(-40, -40, 40, 40)) { ctx.requestPath(e, 5, 5) }
   const xs: i32[] = []
@@ -229,6 +235,22 @@ TEST_SUITE("script") {
         CHECK(f.i("overlapCount", {F(3.5), F(0), F(1)}) == 2); // 둘 다 경계에 (1.5 = 1 + 0.5)
         CHECK(f.i("overlapCount", {F(0), F(0), F(20)}) == 4);  // rock 은 충돌이 없다
         CHECK_FALSE(f.call("overlapCount", {F(0), F(0), F(500)}).ok());
+
+        // shapeCast (v0.12 RT-06-6) — 반지름 0 은 raycast 와 같다, 굵은 원은 선이 놓친 원에 닿는다 (값 = y × 100 + x)
+        const auto cast = [&](f64 x0, f64 y0, f64 x1, f64 y1, f64 r) {
+            const vm::CallResult res = f.call("cast", {F(x0), F(y0), F(x1), F(y1), F(r)});
+            REQUIRE_MESSAGE(res.ok(), res.message);
+            return res.value.asF64();
+        };
+        CHECK(cast(0, 0, 10, 0, 0) == 2.0);          // raycast 와 같다
+        CHECK(cast(0, 1, 10, 1, 0) == -99.0);        // 선은 놓친다
+        CHECK(cast(0, 1, 10, 1, 0.6) == 2.0);        // 반지름 0.6 — 0.5 + 0.6 ≥ 1 이라 x 2 에 닿는다
+        CHECK(cast(0, 1.5, 10, 1.5, 0.05) == -99.0); // 원 둘 사이 (두 원까지 1.5 > 0.55)
+        CHECK(cast(0, 2.5, 10, 2.5, 0.6) == 302.0);  // y 3 의 원 (거리 0.5 < 1.1) 만 — y 0 의 원 (2.5) 은 아니다
+        CHECK(cast(10, 0, 0, 0, 0.2) == 5.0);        // 거꾸로 — x 5 먼저
+        CHECK_FALSE(f.call("cast", {F(0), F(0), F(1), F(0), F(-1)}).ok());
+        CHECK_FALSE(f.call("cast", {F(0), F(0), F(1), F(0), F(33)}).ok());
+        CHECK_FALSE(f.call("cast", {F(0), F(0), F(300), F(0), F(1)}).ok());
     }
 
     TEST_CASE("경로 요청 · 질의: 두 월드 같은 차례 = 같은 WorldHash") {

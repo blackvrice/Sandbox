@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-18 — v0.12 RT-06-6: ShapeCast — ctx.shapeCast (ADR-0155)
+
+**무엇을**
+
+- ctx.shapeCast(x0, y0, x1, y1, radius) → Entity | null — 반지름 radius 의 원 쓸기 = 각 충돌 원의 반지름을 radius 만큼 키운 raycast
+  (같은 식 · 차례 (t, saveId) · 시작에 겹치면 t 0 · 길이 256, 반지름 0 ~ 32). ScriptHost::raycast 를 sweep 으로 묶었다 (radius 0 =
+  raycast 그대로).
+- Host 표 매개변수 상한 kMaxHostParams 4 → 5 (.sbc import 인자 상한도 — 형식 번호 그대로). 지문 0xf8098f2fe1551dbf. SDK 다시 생성.
+- 문서: ADR-0155, 19 질의 표, 22 5장 · 버전 행, 13, 21 · versioning · VERSION-MIGRATION-MATRIX (지문), FEATURE_MATRIX F-217, 등록부
+  RT-06-6 Done (gen_roadmap).
+
+**왜**
+
+- 굵은 탄 · 몸통 쓸기 판정 (카드 RT-06-6 — raycast 시험과 같은 표). 다섯째 매개변수 (반지름) 때문에 상한을 올렸다 — 상태로 두면
+  질의가 앞 호출에 기댄다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,307 모두 통과 (충돌 질의에 shapeCast 여덟 — 반지름 0 = raycast · 굵은
+  원 · 사이 지나감 · 위 원 · 거꾸로 · 거절 셋), 전체 ctest 95 개 — 94 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- layer · mask 거르기 (raycast 와 같이) [계획].
+
 ## 2026-11-18 — v0.11: GCC · Clang 빌드 고침 (5a2e8d1 의 CI — -Wmissing-field-initializers)
 
 **무엇을**

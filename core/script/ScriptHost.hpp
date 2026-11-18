@@ -135,6 +135,7 @@ public:
     vm::HostResult remove(std::span<const vm::HostArg> args);
     // 시간 · 난수 · 반경 질의 (v0.5 M2-T4)
     static constexpr usize kMaxNearEntities = 1024;
+    static constexpr f64 kMaxShapeCastRadius = 32.0; // ctx.shapeCast (v0.12 RT-06-6)
     static constexpr f64 kMaxNearRadius = 128.0;
     vm::HostResult time(std::span<const vm::HostArg> args);
     // 플레이어 표 (v0.5 M2-T5 (4a), ADR-0093) — SimulationWorld::players() 를 id 순으로
@@ -164,6 +165,7 @@ public:
     // 충돌 질의 (v0.5 M8-T8 (2)) — core.collider 원
     static constexpr f64 kMaxRayLength = 256.0;
     vm::HostResult raycast(std::span<const vm::HostArg> args);
+    vm::HostResult shapeCast(std::span<const vm::HostArg> args); // v0.12 RT-06-6 — 원 쓸기
     vm::HostResult overlap(std::span<const vm::HostArg> args);
     vm::HostResult nearWithArgs(std::span<const vm::HostArg> args);
 
@@ -174,6 +176,7 @@ private:
         std::vector<std::byte> bytes;
     };
     // 핸들 → 개체 (지난 호출 · 위조 · 죽은 개체면 kNullEntity)
+    vm::HostResult sweep(std::span<const vm::HostArg> args, f64 radius, std::string_view what);
     [[nodiscard]] ecs::EntityId entityOf(vm::Value handle) const;
     // 컴포넌트 참조 → 스크립트 컴포넌트 정보 (없으면 error 를 채우고 nullptr)
     const ecs::ComponentInfo* componentOf(vm::Value ref, std::string& error) const;

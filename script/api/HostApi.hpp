@@ -48,7 +48,9 @@ enum class HostDomain : u8 { Server, Client };
 // Display = 화면 표시 (클라이언트), Output = 클라이언트가 내보내는 것 — 신호 · 소리 (v0.5 M2-T6)
 enum class HostEffect : u8 { Read, Write, Structural, Random, Log, Display, Output };
 
-inline constexpr usize kMaxHostParams = 4;
+// 주인 (ctx) 을 뺀 매개변수 상한 — 5 = ctx.shapeCast (v0.12 RT-06-6). .sbc import 의 인자 수 상한 (+1) 이 같이 늘었다
+// (옛 파일은 4 이하라 그대로 읽힌다)
+inline constexpr usize kMaxHostParams = 5;
 
 struct HostFunction {
     std::string_view id;     // "ctx.tick" — 영속 이름
@@ -571,6 +573,23 @@ inline constexpr std::array kHostFunctions{
         16,
         "선분이 처음 닿는 충돌 원 (core.collider) 의 개체 — 같은 자리면 saveId 작은 것, 시작점이 원 안이면 그 개체, "
         "길이 256 까지, 없으면 null"},
+    HostFunction{
+        "ctx.shapeCast",
+        AbiType::ServerContext,
+        "shapeCast",
+        false,
+        AbiType::EntityOrNull,
+        {AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number, AbiType::Number},
+        {"x0", "y0", "x1", "y1", "radius"},
+        5,
+        HostDomain::Server,
+        HostEffect::Read,
+        HostCapability::EcsRead,
+        16,
+        "반지름 radius 의 원을 (x0, y0) 에서 (x1, y1) 로 쓸어 처음 닿는 충돌 원 (core.collider) 의 개체 — raycast 와 "
+        "같은 "
+        "차례 (닿는 t, 같으면 saveId 작은 것) · 시작에 겹치면 그 개체, 길이 256 · 반지름 0 ~ 32 까지, 없으면 null "
+        "(v0.12 RT-06-6)"},
     HostFunction{"ctx.overlap",
                  AbiType::ServerContext,
                  "overlap",
