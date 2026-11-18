@@ -14,6 +14,7 @@
 #include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/PackGroups.hpp"
+#include "editor/services/DataForm.hpp"
 #include "editor/services/ScriptAssist.hpp"
 #include "editor/services/ScriptDebugService.hpp"
 #include "foundation/text/TextPosition.hpp"
@@ -184,6 +185,134 @@ int resizeCallback(ImGuiInputTextCallbackData* data) {
         data->Buf = str->data();
     }
     return 0;
+}
+
+// Prefab 폼 (v0.12 ST-06-10) — 섹션 (컴포넌트) 마다 필드 위젯, 원본에 쓴 필드는 밝게 · "기본값으로", 컴포넌트 더하기 ·
+// 빼기
+bool drawPrefabForm(ecs::Json& prefab, const ecs::ComponentCatalog& catalog, const content::ContentDatabase* db,
+                    std::string& message, bool readOnly) {
+    bool changed = false;
+    std::vector<std::string> warnings;
+    const std::vector<FormSection> sections = prefabForm(prefab, catalog, &warnings);
+    for (const std::string& w : warnings) {
+        ImGui::TextColored({1.f, 0.6f, 0.4f, 1.f}, "%s", w.c_str());
+    }
+    if (!message.empty()) {
+        ImGui::TextColored({1.f, 0.6f, 0.4f, 1.f}, "%s", message.c_str());
+    }
+    ImGui::BeginDisabled(readOnly);
+    std::optional<std::string> removeComp;
+    for (const FormSection& sec : sections) {
+        ImGui::PushID(sec.component.c_str());
+        const bool open = ImGui::CollapsingHeader(sec.component.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 40.f * dpi());
+        if (ImGui::SmallButton("빼기")) {
+            removeComp = sec.component;
+        }
+        if (open) {
+            const ecs::ComponentInfo* info = sec.stableId != 0 ? catalog.find(sec.stableId) : nullptr;
+            if (info == nullptr) {
+                const std::string dump = sec.raw.dump();
+                ImGui::TextDisabled("%s (JSON 탭에서)", dump.substr(0, 120).c_str());
+            }
+            for (const FormField& f : info != nullptr ? sec.fields : std::vector<FormField>{}) {
+                ImGui::PushID(f.name.c_str());
+                ecs::Json& partial = prefab["components"][sec.component];
+                std::optional<ecs::Json> next;
+                const std::string label = f.set ? f.name : f.name + " (기본)";
+                ImGui::SetNextItemWidth(170.f * dpi());
+                switch (f.kind) {
+                case FormFieldKind::Bool: {
+                    bool b = f.value.get<bool>();
+                    if (ImGui::Checkbox(label.c_str(), &b)) {
+                        next = b;
+                    }
+                    break;
+                }
+                case FormFieldKind::Int: {
+                    i64 x = f.value.is_number_unsigned() ? static_cast<i64>(f.value.get<u64>()) : f.value.get<i64>();
+                    if (ImGui::DragScalar(label.c_str(), ImGuiDataType_S64, &x, 1.f)) {
+                        next = x;
+                    }
+                    break;
+                }
+                case FormFieldKind::Number: {
+                    f64 x = f.value.get<f64>();
+                    if (ImGui::DragScalar(label.c_str(), ImGuiDataType_Double, &x, 0.05f, nullptr, nullptr, "%.3f")) {
+                        next = x;
+                    }
+                    break;
+                }
+                case FormFieldKind::Vec2:
+                case FormFieldKind::Vec2i: {
+                    f64 xy[2] = {f.value[0].get<f64>(), f.value[1].get<f64>()};
+                    if (ImGui::DragScalarN(label.c_str(), ImGuiDataType_Double, xy, 2, 0.05f, nullptr, nullptr,
+                                           f.kind == FormFieldKind::Vec2i ? "%.0f" : "%.2f")) {
+                        next = ecs::Json::array({xy[0], xy[1]});
+                    }
+                    break;
+                }
+                case FormFieldKind::PrefabRef:
+                    if (db != nullptr && ImGui::BeginCombo(label.c_str(), f.value.get<std::string>().c_str())) {
+                        for (const content::Prefab& p : db->prefabs()) {
+                            if (ImGui::Selectable(p.id.c_str(), p.id == f.value.get<std::string>())) {
+                                next = p.id;
+                            }
+                        }
+                        ImGui::EndCombo();
+                    }
+                    break;
+                case FormFieldKind::Text:
+                case FormFieldKind::BehaviorRef: {
+                    std::array<char, 128> buf{};
+                    f.value.get<std::string>().copy(buf.data(), buf.size() - 1);
+                    if (ImGui::InputText(label.c_str(), buf.data(), buf.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        next = std::string(buf.data());
+                    }
+                    break;
+                }
+                case FormFieldKind::EntityRef:
+                case FormFieldKind::Other:
+                    ImGui::TextDisabled("%s: %s", f.name.c_str(), f.value.dump().substr(0, 80).c_str());
+                    break;
+                }
+                if (f.set && f.editable()) {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("기본값으로")) {
+                        changed |= resetFormField(partial, f.name);
+                    }
+                }
+                if (next) {
+                    if (auto r = setFormField(*info, partial, f.name, *next); r) {
+                        changed = true;
+                        message.clear();
+                    } else {
+                        message = r.error().describe();
+                    }
+                }
+                ImGui::PopID();
+            }
+        }
+        ImGui::PopID();
+    }
+    if (removeComp) {
+        changed |= removePrefabComponent(prefab, *removeComp);
+    }
+    ImGui::SetNextItemWidth(220.f * dpi());
+    if (ImGui::BeginCombo("##addcomp", "컴포넌트 더하기…")) {
+        for (const ecs::ComponentInfo& info : catalog.all()) {
+            if (!ecs::hasFlag(info.flags, ecs::ComponentFlags::EditorVisible) ||
+                content::isEngineManagedComponent(info.name)) {
+                continue;
+            }
+            if (ImGui::Selectable(std::string(info.name).c_str())) {
+                changed |= addPrefabComponent(prefab, info.name, catalog);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::EndDisabled();
+    return changed && !readOnly;
 }
 
 bool inputJson(const char* label, std::string& text, ImVec2 size, bool readOnly) {
@@ -803,6 +932,39 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                 if (j.is_discarded() || !j.is_object()) {
                     ImGui::TextColored({1.f, 0.5f, 0.4f, 1.f}, "JSON 이 깨져 있습니다 — JSON 탭에서 고치십시오");
                 } else if (drawTriggerForm(j, st.trigger, *db, !editable)) {
+                    st.text = j.dump(2);
+                }
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("그래프")) { // v0.12 ST-06-10 — 노드 자리 · 끌어 잇기
+                ImGui::BeginChild("##graph", {editSize.x, editSize.y - ImGui::GetFrameHeightWithSpacing()});
+                ecs::Json j = ecs::Json::parse(st.text, nullptr, false);
+                if (j.is_discarded() || !j.is_object()) {
+                    ImGui::TextColored({1.f, 0.5f, 0.4f, 1.f}, "JSON 이 깨져 있습니다 — JSON 탭에서 고치십시오");
+                } else if (drawTriggerCanvas(j, st.canvas, !editable)) {
+                    st.text = j.dump(2);
+                }
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("JSON")) {
+                inputJson("##json", st.text, {editSize.x, editSize.y - ImGui::GetFrameHeightWithSpacing()}, !editable);
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+    } else if (st.kind == content::ContentKind::Prefab && host.catalog() != nullptr) {
+        // Prefab: 폼 (컴포넌트 리플렉션 — v0.12 ST-06-10, ADR-0163) · JSON. 폼은 원본 JSON 을 고친다 (검사 · 적용은
+        // 아래 그대로)
+        if (ImGui::BeginTabBar("##prefab_tabs")) {
+            if (ImGui::BeginTabItem("폼")) {
+                ImGui::BeginChild("##pform", {editSize.x, editSize.y - ImGui::GetFrameHeightWithSpacing()},
+                                  ImGuiChildFlags_Borders);
+                ecs::Json j = ecs::Json::parse(st.text, nullptr, false);
+                if (j.is_discarded() || !j.is_object()) {
+                    ImGui::TextColored({1.f, 0.5f, 0.4f, 1.f}, "JSON 이 깨져 있습니다 — JSON 탭에서 고치십시오");
+                } else if (drawPrefabForm(j, *host.catalog(), db, st.formMessage, !editable)) {
                     st.text = j.dump(2);
                 }
                 ImGui::EndChild();

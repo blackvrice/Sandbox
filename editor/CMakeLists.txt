@@ -7,6 +7,8 @@ add_library(SandboxEditorServices STATIC
     services/UndoService.cpp
     services/HierarchyService.hpp
     services/HierarchyService.cpp
+    services/DataForm.hpp
+    services/DataForm.cpp
     services/DocumentService.hpp
     services/DocumentService.cpp
     services/ProjectService.hpp
@@ -57,6 +59,8 @@ add_library(SandboxEditor STATIC
     ui/ScriptDebugPanel.cpp
     ui/TriggerForm.hpp
     ui/TriggerForm.cpp
+    ui/TriggerCanvas.hpp
+    ui/TriggerCanvas.cpp
     ui/BuildPanel.hpp
     ui/BuildPanel.cpp
     ui/LayoutPanel.hpp

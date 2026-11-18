@@ -24,6 +24,7 @@
 #include "core/content/ContentOverlay.hpp"
 #include "editor/Editor.hpp"
 #include "editor/ui/ScriptEditor.hpp"
+#include "editor/ui/TriggerCanvas.hpp"
 #include "editor/ui/TriggerForm.hpp"
 #include "script/lang/LanguageIndex.hpp"
 
@@ -66,9 +67,11 @@ struct ContentPanelState {
     std::string checked;       // 검사한 JSON
     // 적용 · 팩 값으로를 보낸 뒤: 그때의 값 (서버 값이 이것과 달라지면 — 받아들여졌다 — 새 값으로 다시 불러온다)
     std::optional<std::string> pendingFrom;
-    bool wasOpen = false;     // 열리는 프레임에 창을 앞으로
-    TriggerFormState trigger; // 트리거 폼 (v0.2 M4-T3)
-    ScriptEditorState script; // 스크립트 편집기 (v0.9 M6-T8 — 줄 번호 · 밑줄 · 완성 · hover)
+    bool wasOpen = false;      // 열리는 프레임에 창을 앞으로
+    TriggerFormState trigger;  // 트리거 폼 (v0.2 M4-T3)
+    TriggerCanvasState canvas; // 트리거 그래프 캔버스 (v0.12 ST-06-10)
+    std::string formMessage;   // Prefab 폼의 마지막 거절 (v0.12 ST-06-10)
+    ScriptEditorState script;  // 스크립트 편집기 (v0.9 M6-T8 — 줄 번호 · 밑줄 · 완성 · hover)
     // [저장 (팩 파일)] (v0.9 M6-T8 조각 3) — Application 이 문서 서비스를 넣는다 (없으면 저장 단추 없음)
     services::DocumentService* documents = nullptr;
     std::map<std::string, SavedScript, std::less<>> saved; // 스크립트 id → 이 창의 마지막 저장

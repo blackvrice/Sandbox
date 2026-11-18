@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-18 — v0.12 ST-06-10: 데이터 폼 · 트리거 그래프 캔버스 (ADR-0163)
+
+**무엇을**
+
+- editor/services/DataForm: 컴포넌트 리플렉션 (필드 · Hint · FieldMeta) 으로 Prefab JSON ↔ 폼 — 종류 (켜기 · 정수 · 수 · 좌표 · 글자 ·
+  Prefab · 행동 · 개체 참조 / 그 밖 = 읽기만), 정규 값 + set, setFormField (종류 · 범위 자르기 · 정수 반올림 · validateJson — 원자적),
+  기본값으로, 컴포넌트 더하기 · 빼기 (엔진 관리 거절). "콘텐츠" 창의 Prefab "폼" 탭.
+- editor/ui/TriggerCanvas: 트리거 "그래프" 탭 — 노드 상자 (범주 색) · 연결 곡선 (else 붉게), 자리 = pos 또는 깊이 · 행, 끌어 옮기기
+  (pos 정수), 오른쪽 점에서 끌어 잇기 (Shift = else), 연결 점 오른쪽 클릭 = 지우기, 잇기 규칙 (거절 이유 표시). 도우미는 ImGui 없이.
+- 문서: ADR-0163, 10 8장, 13, 17, 등록부 ST-06-10 Done.
+
+**왜**
+
+- 카드 ST-06-10 (스키마 → 폼 왕복). Prefab 은 JSON 글로만, 트리거는 목록 폼만 있었다 (10 8장 [계획]). 폼은 원본 JSON 하나를 고쳐
+  검사 · 적용 길이 그대로다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,955,702 모두 통과 (test_data_form 셋 — 카탈로그 왕복 · 팩 Prefab 왕복 ·
+  거절 · 그래프), 전체 ctest 95 개 — 94 통과 · studio_gui_smoke SKIPPED (project_templates 는 작업 중인 samples/dungeon 을 치운 뒤 따로 통과). 창의 폼 ·
+  캔버스 조작은 MANUAL-QA.
+
+**남은 일**
+
+- Rule · Behavior 폼, 그래프의 노드 더하기 · 여러 개 고르기 · 확대 [계획].
+
 ## 2026-11-18 — v0.12: GCC · Clang 빌드 고침 (32c6c8e 의 CI — test_input_triggers 의 Rig{keys})
 
 **무엇을**
