@@ -47,21 +47,21 @@
 | [v0.10](versions/v0.10.md) | Creator Foundation |  | 6 | 2 | 8 | 75 % | 100 % | 0 / 3 | 🟡 판정 대기 (태스크 2 개 확인 필요) |
 | [v0.11](versions/v0.11.md) | Gameplay Runtime |  | 6 | 1 | 7 | 86 % | 100 % | 0 / 2 | 🟡 판정 대기 (태스크 1 개 확인 필요) |
 | [v0.12](versions/v0.12.md) | Advanced Creator Tools |  | 10 | 0 | 10 | 100 % | 100 % | — | 🟡 태스크 끝 · 출시 판정 대기 |
-| [v0.13](versions/v0.13.md) | Closed Creator Alpha | Closed Creator Alpha | 1 | 0 | 6 | 17 % | 100 % | — | 🟡 진행 중 |
-| [v0.14](versions/v0.14.md) | 계정 · 레지스트리 · 서명 |  | 0 | 0 | 5 | 0 % | 100 % | — | ⬜ 미착수 |
+| [v0.13](versions/v0.13.md) | Closed Creator Alpha | Closed Creator Alpha | 2 | 0 | 12 | 17 % | 100 % | — | 🟡 진행 중 |
+| [v0.14](versions/v0.14.md) | 계정 · 레지스트리 · 서명 |  | 0 | 0 | 12 | 0 % | 100 % | — | ⬜ 미착수 |
 | [v0.15](versions/v0.15.md) | Public Creator Alpha: 게시 · 설치 · 출시 채널 | Public Creator Alpha | 0 | 0 | 3 | 0 % | 0 % | — | ⬜ 미착수 |
 | [v0.16](versions/v0.16.md) | 멀티플레이 · 방 |  | 0 | 0 | 7 | 0 % | 100 % | — | ⬜ 미착수 |
 | [v0.17](versions/v0.17.md) | 예측 · Closed Beta | Closed Beta | 0 | 0 | 7 | 0 % | 100 % | — | ⬜ 미착수 |
 | [v0.18](versions/v0.18.md) | 호스팅 · NetworkModule · 스트리밍 |  | 0 | 0 | 6 | 0 % | 100 % | — | ⬜ 미착수 |
 | [v0.19](versions/v0.19.md) | 결제 (테스트 모드) · 에셋 마켓 |  | 0 | 0 | 2 | 0 % | 50 % | — | ⬜ 미착수 |
 | [v0.20](versions/v0.20.md) | 정산 · 분석 · 등급전 |  | 0 | 0 | 4 | 0 % | 100 % | — | ⬜ 미착수 |
-| [v0.21](versions/v0.21.md) | 팀 · 협업 · 플러그인 | Public Beta 후보 | 0 | 0 | 7 | 0 % | 86 % | — | ⬜ 미착수 |
+| [v0.21](versions/v0.21.md) | 팀 · 협업 · 플러그인 | Public Beta 후보 | 0 | 0 | 8 | 0 % | 88 % | — | ⬜ 미착수 |
 | [v0.22](versions/v0.22.md) | Reliability & Performance |  | 0 | 4 | 14 | 0 % | 50 % | — | ⬜ 미착수 |
 | [v0.23](versions/v0.23.md) | Security & Release Hardening |  | 0 | 0 | 11 | 0 % | 9 % | — | ⬜ 미착수 |
 | [v0.24](versions/v0.24.md) | Release Candidate | Release Candidate | 0 | 0 | 4 | 0 % | 0 % | — | ⬜ 미착수 |
 | [v0.25](versions/v0.25.md) | 추가 수정 · GA 후보 재검증 (필요할 때만) |  | 0 | 0 | 0 | 집계 불가 | 집계 불가 | — | ⬜ 미착수 (태스크 없음) |
 | [v1.0](versions/v1.0.md) | General Availability | General Availability | 0 | 0 | 1 | 0 % | 0 % | — | ⬜ 미착수 |
-| **합계** | | | **87** | 8 | **167** | **52 %** | 84 % | | |
+| **합계** | | | **88** | 8 | **181** | **49 %** | 85 % | | |
 
 ## 3. Closed Creator Alpha (v0.13) 까지 남은 작업
 
@@ -70,8 +70,8 @@
 | [v0.8](versions/v0.8.md) | 1 | 1 | UI-4 |
 | [v0.10](versions/v0.10.md) | 2 | 1 | ST-06-4 · NG-18 |
 | [v0.11](versions/v0.11.md) | 1 | 0 | NG-17 |
-| [v0.13](versions/v0.13.md) | 5 | 4 | M7-T2 · M7-T3 · M7-T4 · M6-T5 · ST-06-12 |
-| **합계** | **9** | | |
+| [v0.13](versions/v0.13.md) | 10 | 9 | M7-T2 · M7-T3 · M7-T4 · M6-T5 · ST-06-12 · ST-08-2 · ST-08-3 · ST-08-4 · ST-08-5 · ST-08-6 |
+| **합계** | **14** | | |
 
 ## 4. v1.0 (GA) 까지 남은 작업
 
@@ -80,20 +80,20 @@
 | [v0.8](versions/v0.8.md) | 1 | 1 | UI-4 |
 | [v0.10](versions/v0.10.md) | 2 | 1 | ST-06-4 · NG-18 |
 | [v0.11](versions/v0.11.md) | 1 | 0 | NG-17 |
-| [v0.13](versions/v0.13.md) | 5 | 4 | M7-T2 · M7-T3 · M7-T4 · M6-T5 · ST-06-12 |
-| [v0.14](versions/v0.14.md) | 5 | 3 | PS-12-1 · PS-12-2 · PS-12-3 · PS-12-4 · PS-12-5 |
+| [v0.13](versions/v0.13.md) | 10 | 9 | M7-T2 · M7-T3 · M7-T4 · M6-T5 · ST-06-12 · ST-08-2 · ST-08-3 · ST-08-4 · ST-08-5 · ST-08-6 |
+| [v0.14](versions/v0.14.md) | 12 | 3 | PS-12-1 · PS-12-2 · PS-12-3 · ST-08-7 · ST-08-8 · ST-08-9 · ST-08-10 · ST-08-11 · ST-08-12 · ST-08-13 · PS-12-4 · PS-12-5 |
 | [v0.15](versions/v0.15.md) | 3 | 3 | PS-13-1 · PS-13-2 · NG-09 |
 | [v0.16](versions/v0.16.md) | 7 | 2 | PS-14-1 · PS-14-2 · PS-14-3 · PS-14-4 · PS-14-5 · PS-14-6 · PS-14-7 |
 | [v0.17](versions/v0.17.md) | 7 | 2 | RT-07-1 · RT-07-2 · RT-07-3 · RT-07-4 · RT-07-5 · RT-07-6 · RT-07-7 |
 | [v0.18](versions/v0.18.md) | 6 | 1 | PS-16-1 · RT-08-1 · RT-08-2 · RT-08-3 · RT-08-4 · RT-08-6 |
 | [v0.19](versions/v0.19.md) | 2 | 1 | PS-17-1 · PS-17-2 |
 | [v0.20](versions/v0.20.md) | 4 | 1 | PS-18-1 · PS-18-2 · PS-18-3 · PS-18-4 |
-| [v0.21](versions/v0.21.md) | 7 | 1 | ST-06-11 · PS-19-1 · ST-07-1 · ST-07-2 · ST-07-3 · NG-10 · PS-19-2 |
+| [v0.21](versions/v0.21.md) | 8 | 1 | ST-06-11 · PS-19-1 · ST-07-1 · ST-07-2 · ST-07-3 · ST-08-14 · NG-10 · PS-19-2 |
 | [v0.22](versions/v0.22.md) | 14 | 5 | RT-09-1 · RT-09-2 · RT-09-3 · RT-09-4 · RT-09-5 · RT-08-5 · PS-20-2 · RH-22-1 · RH-22-2 · RH-22-3 · RH-22-4 · RH-22-5 · RH-22-6 · RH-22-7 |
 | [v0.23](versions/v0.23.md) | 11 | 11 | PS-20-1 · PS-20-3 · NG-16 · RH-23-1 · RH-23-2 · RH-23-3 · RH-23-4 · RH-23-5 · RH-23-6 · RH-23-7 · RH-23-8 |
 | [v0.24](versions/v0.24.md) | 4 | 3 | RH-24-1 · RH-24-2 · RH-24-3 · RH-24-4 |
 | [v1.0](versions/v1.0.md) | 1 | 1 | RH-24-5 |
-| **합계** | **80** | | |
+| **합계** | **93** | | |
 
 <!-- GENERATED:END -->
 

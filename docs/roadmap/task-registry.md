@@ -110,9 +110,22 @@
 | M7-T4 | Alpha 채널 · 외부 시험 · 차단 목록 | B | Planned | v0.5 | v0.13 | P0 | M7-T3 | 20 10장 |
 | M6-T5 | 튜토리얼 | B | Planned | v0.5 | v0.13 | P1 | M6-T2 | 문서의 명령을 CTest 가 |
 | ST-06-12 | 제작자 사용성 시험 (28 2장) | B | Planned | v0.6 | v0.13 | P0 | M7-T3 | 시험 기록 · 합격선 |
+| ST-08-1 | Studio UX 감사 · 보완 계획 (ADR-0167 — docs/qa/STUDIO-UX-AUDIT) | B | Done | — | v0.13 | P0 | — | 감사 문서 · 태스크 등록 |
+| ST-08-2 | 창 닫기 (X) · Creator 기본 배치 (적은 창) | B | Planned | — | v0.13 | P0 | ST-06-1 | test_studio_shell · MANUAL-QA |
+| ST-08-3 | Project Explorer (트리 · 검색 · 새 폴더 · 이름 바꾸기 · 복제 · 휴지통 · 경로 안전) | B | Planned | — | v0.13 | P0 | M6-T9 · ST-06-1 | test_project_files · MANUAL-QA |
+| ST-08-4 | 스크립트 열기 · 새 스크립트 (탐색기) · 스크립트 창 Ctrl+S | B | Planned | — | v0.13 | P0 | ST-08-3 · ST-06-8 | test_project_files · MANUAL-QA |
+| ST-08-5 | Sprite → Object (에셋 끌어 놓기 · 되돌리기 · 세이브 왕복) | B | Planned | — | v0.13 | P0 | ST-08-3 · M6-T9 | test_sprite_drop · MANUAL-QA |
+| ST-08-6 | Object → Prefab (선택 개체 → Prefab · 잇기) | B | Planned | — | v0.13 | P0 | ST-06-5 | test_prefab_from_entity · MANUAL-QA |
 | PS-12-1 | 저장소 경계 D-06 (서비스 저장소 · 엔진 저장소) | C | Planned | v0.6 | v0.14 | P0 | — | ADR |
 | PS-12-2 | 계정 · 인증 | C | Planned | v0.6 | v0.14 | P0 | PS-12-1 | 인증 위협 시험 (24) |
 | PS-12-3 | 패키지 레지스트리 · 불변 릴리스 · 서명 | C | Planned | v0.6 | v0.14 | P0 | PS-12-2 | 24 P3 |
+| ST-08-7 | 메뉴 정리 (파일 · 편집 · 보기 · 개체 · 에셋 · 빌드 · 창 · 도움말 — 명령 id) | B | Planned | — | v0.14 | P1 | ST-08-2 | test_studio_shell · MANUAL-QA |
+| ST-08-8 | Workspace (장면 · 스크립트 · UI 디자인 · 시험 · 빌드) | B | Planned | — | v0.14 | P1 | ST-08-2 | test_studio_shell · MANUAL-QA |
+| ST-08-9 | 레이아웃 지우기 · 이름 바꾸기 · 기본으로 | B | Planned | — | v0.14 | P1 | ST-08-2 | test_layout_service |
+| ST-08-10 | Build Settings 창 · 빌드 실행 나누기 | B | Planned | — | v0.14 | P1 | ST-08-7 | test_build_service · MANUAL-QA |
+| ST-08-11 | 시작 삼각형 제거 · --render-demo · 로드 실패 화면 | B | Planned | — | v0.14 | P1 | — | test_client_options · MANUAL-QA |
+| ST-08-12 | 인스펙터 — 이름 · 회전 (도) · 스프라이트 · Prefab 정보 · 스크립트 링크 | B | Planned | — | v0.14 | P1 | ST-08-6 | test_inspector · MANUAL-QA |
+| ST-08-13 | Creator / Developer 모드 · 빈 상태 안내 · 스크립트 여러 탭 | B | Planned | — | v0.14 | P1 | ST-08-4 | test_studio_shell · MANUAL-QA |
 | PS-12-4 | 게임 검색 · 목록 · 프로필 | C | Planned | v0.6 | v0.14 | P1 | PS-12-3 | — |
 | PS-12-5 | 패키지 · 게임 신고 · 차단 · 검토 큐 | C | Planned | v0.6 | v0.14 | P1 | PS-12-2 | — |
 | PS-13-1 | Studio 에서 게시 (빌드 → 서명 → 레지스트리) | C | Proposed | — | v0.15 | P0 | PS-12-3 · M6-T3 | 게시 E2E |
@@ -148,6 +161,7 @@
 | ST-07-1 | 스크립트 초안 · 커밋 | B | Planned | v0.7 | v0.21 | P1 | ST-06-1 | — |
 | ST-07-2 | 문서 동시 편집 (D-17 — 잠금 · 3-way) | B | Planned | v0.7 | v0.21 | P1 | ST-06-1 | — |
 | ST-07-3 | sbx lsp | B | Planned | v0.7 | v0.21 | P2 | ST-06-8 | LSP 왕복 |
+| ST-08-14 | 독립 OS 창 (Viewports) 조사 · 고급 레이아웃 · 추가 단축키 | B | Planned | — | v0.21 | P2 | ST-08-8 | 조사 기록 · MANUAL-QA |
 | NG-10 | Editor Plugin API v1 (매니페스트 · 확장 지점 · 권한 · 격리 · 지원 중단) | B | Proposed | — | v0.21 | P2 | ST-06-1 | 24 P5 · 호환 검사 시험 |
 | PS-19-2 | 도구 다국어 | C | Planned | v0.9 | v0.21 | P2 | M4-T1 | — |
 | RT-09-1 | 성능 회귀 CI | A | Planned | v0.9 | v0.22 | P0 | RH-22-5 | PR 마다 핵심 벤치 · 기준선 (RH-22-5) 대비 % 경고 · 실패 |

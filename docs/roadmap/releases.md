@@ -101,6 +101,8 @@
 목표      외부 제작자가 Studio 만으로 (CLI 없이) 실제 게임을 만들어 다른 PC 의 친구가 실행한다
 원칙      새 핵심 기능을 만들지 않는다 — 통합 · 버그 · 사용성 · 데이터 복구 · 안정성. 기능이 모자라면 앞 버전 태스크로 돌려보낸다
 태스크    M7-T1 omok · M7-T2 hud_guard · M7-T3 A → B E2E · M6-T5 튜토리얼 · ST-06-12 사용성 시험 · M7-T4 Alpha 채널 · 차단 목록
+          · Studio UX 진입 전제 (ADR-0167): ST-08-1 감사 · ST-08-2 창 닫기 · 기본 배치 · ST-08-3 Project Explorer · ST-08-4 스크립트
+            열기 · 만들기 · ST-08-5 Sprite → Object · ST-08-6 Object → Prefab
 필수 검증 프로젝트 생성 · 에셋 가져오기 · 월드 편집 · 스크립트 · 자동 완성 · UI 제작 · 테스트 플레이 · 디버깅 · 패키징 · 다른 PC 실행 ·
           자동 저장 · 복구 · 외부 제작자 사용성 시험 · Studio 접근성 (28 G1 ~ G10)
 ```
@@ -110,6 +112,8 @@
 ```text
 목표      계정으로 로그인하고, 서명된 불변 릴리스를 레지스트리에 올리고 받는다 (서비스 저장소 — D-06)
 태스크    PS-12-1 저장소 경계 · PS-12-2 계정 · 인증 · PS-12-3 레지스트리 · 서명 · PS-12-4 검색 · PS-12-5 신고 · 검토
+          · Studio UX P1 (ADR-0167): ST-08-7 메뉴 · ST-08-8 Workspace · ST-08-9 레이아웃 관리 · ST-08-10 Build Settings ·
+            ST-08-11 시작 삼각형 · --render-demo · ST-08-12 인스펙터 · ST-08-13 Creator/Developer 모드 · 스크립트 탭
 ```
 
 ## v0.15 — Public Creator Alpha: 게시 · 설치 · 출시 채널
@@ -158,6 +162,7 @@
 단계      Public Beta 후보 (release-gates 3장으로 판정 — 번호로 정하지 않는다)
 태스크    PS-19-1 팀 ACL · CI/CD · ST-07-1 초안 · ST-07-2 문서 동시 편집 · ST-07-3 sbx lsp · NG-10 Editor Plugin API v1 · PS-19-2 도구 다국어
           · ST-06-11 Scene/Game 뷰 · 떼어 낸 창 (P3 — v0.12 에서, ADR-0164)
+          · ST-08-14 독립 OS 창 · 고급 레이아웃 · 단축키 (P2 — ADR-0167)
 ```
 
 ## v0.22 — Reliability & Performance

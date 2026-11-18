@@ -156,3 +156,9 @@ UI Designer (아래 · 가운데 탭), v0.11 게임플레이 디버그 (개발�
 
 창 QA 상태 (2026-11-10): UI-1 셸은 1366×768 에서 한 번 확인 (MANUAL-QA [x]). 그 뒤 실행은 다른 전체 화면 창이 주 모니터를 덮어 캡처하지 못했다 —
 1920×1080 · 배율 125 / 150 / 200 % · 홈 · 콘솔 · 메뉴 클릭은 [ ].
+
+## 8. 보완 — Studio UX · Creator Workflow (ST-08, [ADR-0167](adr/0167-studio-ux-creator-workflow-tasks.md))
+
+2026-11-18 사용자 창 QA 의 보고 (창이 많고 닫을 수 없음 · 프로젝트 탐색기 없음 · 스크립트 열기 · Sprite → Object · Object → Prefab ·
+빌드 메뉴 · 시작 삼각형 · 인스펙터) 를 소스와 맞춘 감사 · 태스크 표는 [STUDIO-UX-AUDIT](qa/STUDIO-UX-AUDIT.md). P0 (ST-08-1 ~ 6) =
+v0.13 알파 진입 전제, P1 (ST-08-7 ~ 13) = v0.14, P2 (ST-08-14 독립 OS 창) = v0.21. 진행은 감사 문서 6장 · task-registry.

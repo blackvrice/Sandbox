@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-18 — Studio UX 감사 · 보완 계획 — ST-08 묶음 (ADR-0167)
+
+**무엇을**
+
+- 사용자 창 QA 보고 (창이 많고 닫을 수 없음 · 프로젝트 탐색기 없음 · 스크립트 열기 · Sprite → Object · Object → Prefab · 빌드 메뉴 ·
+  시작 삼각형 · 인스펙터 · 작업 공간 · 레이아웃) 를 소스 (StudioShell · Application · ClientRenderer · ContentPanel · AssetBrowser ·
+  Inspector · Layout · Build · core/asset · core/content · CreateEntity) 와 맞춰 상태로 나눴다 — docs/qa/STUDIO-UX-AUDIT.md.
+- 재사용 (AssetRefs · ensureAssetMaterial · openScript · scriptTemplate · DocumentService · CreateEntity · PrefabDiff · 명령 표) 과 새로
+  만들 것 (ProjectFiles 서비스 · 프로젝트 창 · 월드의 끌어 놓기 받기 · Object → Prefab) 을 나눴다.
+- ST-08-1 ~ 14 등록: P0 (ST-08-2 ~ 6) = v0.13, P1 (ST-08-7 ~ 13) = v0.14, P2 (ST-08-14) = v0.21. FEATURE_MATRIX F-133 ~ 138,
+  29-STUDIO-UI 8장.
+
+**왜**
+
+- v0.13 의 "Studio 만으로 (CLI 없이)" 를 막는 것만 알파 진입 전제로 두고, 나머지는 그 버전으로 — v0.13 에 한꺼번에 넣지 않는다.
+  Scene/Game 뷰 분리 (ST-06-11) 는 당기지 않는다. 스케일은 core.transform 에 필드가 없어 (시뮬레이션 · 세이브 호환) 만들지 않는다.
+
+**검증**
+
+- gen_roadmap (문제 0) · check_docs (0 problem). 코드 변경 없음.
+
+**남은 일**
+
+- ST-08-2 ~ 6 구현 (이어서). 모든 ST-08 의 창 QA 는 사람 (MANUAL-QA).
+
 ## 2026-11-18 — 자동 재시작 게임의 자동 플레이 — playFinished 가 Finished 에서 끝 (ADR-0166)
 
 **무엇을**
