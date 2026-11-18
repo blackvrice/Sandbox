@@ -84,6 +84,10 @@ Sensed sense(const world::SpatialIndex& spatial, const Probe& p) {
 
 } // namespace
 
+ecs::AccessSet SensorSystem::access() const {
+    return ecs::AccessSet::declare().read<comp::Behavior, comp::Transform>().write<comp::Sensor>();
+}
+
 void SensorSystem::run(sim::SystemContext& ctx) {
     const world::SpatialIndex& spatial = ctx.spatial;
     // (15A) 태그 종류(색인의 tagClasses — 보통 Prefab 수 정도)마다 그래프의 질의 일치를 한 번만 계산한다.

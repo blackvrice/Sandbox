@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "core/components/core/Identity.hpp"
+#include "core/ecs/AccessSet.hpp"
 #include "core/ecs/EntityCommandBuffer.hpp"
 #include "core/random/RandomService.hpp"
 #include "core/simulation/EventStream.hpp"
@@ -132,7 +133,9 @@ public:
 
     [[nodiscard]] virtual std::string_view name() const noexcept = 0; // 메트릭·로그
     virtual void run(SystemContext& ctx) = 0;
-    // [Phase 15] virtual AccessSet access() const — 병렬 스케줄링용 읽기/쓰기 선언
+    // 읽기 · 쓰기 컴포넌트 선언 (v0.12 RT-06-11, ADR-0161) — Debug 가 선언 밖 접근을 단언한다. 기본 = 선언 없음
+    // (무엇이든)
+    [[nodiscard]] virtual ecs::AccessSet access() const { return {}; }
 };
 
 // 시간 측정 훅. Core 는 벽시계를 쓰지 않으므로(04-DETERMINISM 4.5) 측정은 호출자가 주입한다.

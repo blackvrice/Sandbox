@@ -408,6 +408,15 @@ TEST_SUITE("network") {
         CHECK(p.session.lastStats()->entities == 50);
         CHECK(p.session.lastStats()->clients == 1);
         CHECK(p.session.lastStats()->ticksPerSecond > 20);
+        // 엔진 시스템 시간 (프로토콜 22 — v0.12 RT-06-11): 스케줄러 차례 · 이름 · 단계, 창 안에서 불렸다
+        const std::vector<EngineSystemStatRow>& systems = p.session.lastStats()->systems;
+        REQUIRE(systems.size() == rig.host->world().scheduler().size());
+        for (usize i = 0; i < systems.size(); ++i) {
+            CHECK(systems[i].name == rig.host->world().scheduler().nameAt(i));
+            CHECK(systems[i].stage == static_cast<u8>(rig.host->world().scheduler().stageAt(i)));
+            CHECK(systems[i].calls > 0);
+            CHECK(systems[i].maxNanos <= systems[i].nanos);
+        }
 
         pump(rig, {&p.session}, 20);
         CHECK(rig.host->world().currentTick() == 40);

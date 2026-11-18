@@ -799,6 +799,19 @@ void NetworkSession::drainClientScriptOutputs() {
 std::optional<ScriptProfileInfo> NetworkSession::scriptProfile() const {
     ScriptProfileInfo out;
     if (m_session) {
+        // 엔진 시스템 (v0.12 RT-06-11 — 단계 프로파일)
+        if (const auto& st = m_session->lastStats(); st && !st->systems.empty()) {
+            u64 total = 0;
+            for (const net::EngineSystemStatRow& r : st->systems) {
+                total += r.nanos;
+            }
+            for (const net::EngineSystemStatRow& r : st->systems) {
+                out.engine.push_back({r.name, std::string(sim::stageName(static_cast<sim::Stage>(r.stage))),
+                                      r.calls > 0 ? static_cast<f64>(r.nanos) / static_cast<f64>(r.calls) / 1e6 : 0.0,
+                                      static_cast<f64>(r.maxNanos) / 1e6,
+                                      total > 0 ? static_cast<f64>(r.nanos) / static_cast<f64>(total) : 0.0});
+            }
+        }
         if (const auto& st = m_session->lastStats(); st && !st->scripts.empty()) {
             const f64 span = st->windowSeconds > 0 ? static_cast<f64>(st->windowSeconds) : 1.0;
             for (const net::ScriptSystemStatRow& r : st->scripts) {
@@ -828,7 +841,7 @@ std::optional<ScriptProfileInfo> NetworkSession::scriptProfile() const {
             }
         }
     }
-    if (out.server.empty() && out.client.empty() && out.serverOmitted == 0) {
+    if (out.server.empty() && out.client.empty() && out.serverOmitted == 0 && out.engine.empty()) {
         return std::nullopt;
     }
     return out;

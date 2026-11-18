@@ -22,6 +22,12 @@ Vec2 RandomWalkSystem::randomDirection(rnd::CounterRng& rng) noexcept {
     return Vec2{1.f, 0.f};
 }
 
+ecs::AccessSet RandomWalkSystem::access() const {
+    return ecs::AccessSet::declare()
+        .read<comp::Persistence, comp::RandomWalk, comp::Transform>()
+        .write<comp::Velocity>();
+}
+
 void RandomWalkSystem::run(sim::SystemContext& ctx) {
     auto view = ctx.reg.view<ecs::Read<comp::RandomWalk>, ecs::Read<comp::Transform>, ecs::Read<comp::Persistence>,
                              ecs::Read<comp::Velocity>>();

@@ -22,6 +22,7 @@ public:
     static constexpr std::string_view kName = "Lifecycle";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 } // namespace sbx::sys

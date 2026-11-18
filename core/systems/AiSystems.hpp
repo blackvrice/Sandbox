@@ -21,6 +21,7 @@ public:
     static constexpr std::string_view kName = "PathCollect";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 class SensorSystem final : public sim::ISystem {
@@ -28,6 +29,7 @@ public:
     static constexpr std::string_view kName = "Sensor";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 class BehaviorSystem final : public sim::ISystem {
@@ -35,6 +37,7 @@ public:
     static constexpr std::string_view kName = "Behavior";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 class PathRequestSystem final : public sim::ISystem {
@@ -42,9 +45,11 @@ public:
     static constexpr std::string_view kName = "PathRequest";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 class InteractionSystem final : public sim::ISystem {
+    // 접근 선언 없음 (무엇이든) — Rule 의 조건 · 효과가 리플렉션으로 아무 컴포넌트를 읽고 쓴다 (RT-06-11)
 public:
     static constexpr std::string_view kName = "Interaction";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
@@ -52,6 +57,7 @@ public:
 };
 
 class ResolveIntentsSystem final : public sim::ISystem {
+    // 접근 선언 없음 (무엇이든) — Rule 의 조건 · 효과가 리플렉션으로 아무 컴포넌트를 읽고 쓴다 (RT-06-11)
 public:
     static constexpr std::string_view kName = "ResolveIntents";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
@@ -63,6 +69,7 @@ public:
     static constexpr std::string_view kName = "Collision";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 };
 
 } // namespace sbx::sys

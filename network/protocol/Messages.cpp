@@ -403,6 +403,14 @@ void encodeBody(BitWriter& w, const ServerStats& m) {
         w.writeVarU(f.fuel);
     }
     w.writeVarU(m.scriptFunctionFuel);
+    w.writeVarU(m.systems.size()); // 프로토콜 22
+    for (const EngineSystemStatRow& s : m.systems) {
+        w.writeString(s.name);
+        w.writeU8(s.stage);
+        w.writeVarU(s.calls);
+        w.writeVarU(s.nanos);
+        w.writeVarU(s.maxNanos);
+    }
 }
 void encodeBody(BitWriter& w, const DisconnectMsg& m) {
     w.writeU8(static_cast<u8>(m.reason));
@@ -756,6 +764,16 @@ ServerStats decodeServerStats(BitReader& r) {
         m.scriptFunctions.push_back(std::move(f));
     }
     m.scriptFunctionFuel = r.readVarU();
+    const u64 ns = r.readVarU(kMaxEngineSystemRows);
+    for (u64 i = 0; i < ns && !r.error(); ++i) {
+        EngineSystemStatRow s;
+        s.name = r.readString(kMaxEngineSystemNameBytes);
+        s.stage = r.readU8();
+        s.calls = static_cast<u32>(r.readVarU(0xFFFF'FFFFull));
+        s.nanos = r.readVarU();
+        s.maxNanos = r.readVarU();
+        m.systems.push_back(std::move(s));
+    }
     return m;
 }
 Snapshot decodeSnapshot(BitReader& r) {

@@ -11,6 +11,7 @@
 #include "core/components/life/Age.hpp"
 #include "core/simulation/SimulationWorld.hpp"
 #include "core/systems/RandomWalkSystem.hpp"
+#include "foundation/assert/Assert.hpp"
 
 using namespace sbx;
 using namespace sbx::sim;
@@ -53,6 +54,35 @@ struct Fixture {
     SimulationWorld world;
     u32 seq = 0;
 };
+
+// 접근 선언 시험 (v0.12 RT-06-11): Transform 만 읽겠다고 하고 Velocity 를 쓰는 System
+class SneakySystem final : public ISystem {
+public:
+    explicit SneakySystem(bool honest) : m_honest(honest) {}
+    std::string_view name() const noexcept override { return m_honest ? "TestHonest" : "TestSneaky"; }
+    [[nodiscard]] ecs::AccessSet access() const override {
+        ecs::AccessSet a = ecs::AccessSet::declare().read<comp::Transform>();
+        if (m_honest) {
+            a.write<comp::Velocity>();
+        }
+        return a;
+    }
+    void run(SystemContext& ctx) override {
+        for (auto [e, tr] : ctx.reg.view<ecs::Read<comp::Transform>>()) {
+            if (comp::Velocity* v = ctx.reg.tryWrite<comp::Velocity>(e)) {
+                v->value.x += tr.position.x * 0.f;
+            }
+        }
+    }
+
+private:
+    bool m_honest;
+};
+
+int g_accessAsserts = 0;
+void countAccessAssert(const AssertInfo&) {
+    ++g_accessAsserts;
+}
 
 // 테스트용 System: 매 틱 ECB 로 엔티티 하나를 만든다
 class SpawnerSystem final : public ISystem {
@@ -349,6 +379,42 @@ TEST_SUITE("core") {
         CHECK(va.x < 0.f); // 서로 반대쪽으로 밀어낸다
         CHECK(vb.x > 0.f);
         CHECK(va.length() == doctest::Approx(1.0).epsilon(1e-5));
+    }
+
+    TEST_CASE(
+        "access set (v0.12 RT-06-11): 기본 System 은 선언 · 선언 밖 접근은 Debug 단언, 선언 안은 조용하다, Release 는 "
+        "검사하지 않는다") {
+        // 기본 파이프라인 — Rule 을 쓰는 둘 (Interaction · ResolveIntents) 만 선언 없음
+        Fixture d;
+        const SystemScheduler& sched = d.world.scheduler();
+        usize restricted = 0;
+        for (usize i = 0; i < sched.size(); ++i) {
+            const bool rule = sched.nameAt(i) == "Interaction" || sched.nameAt(i) == "ResolveIntents";
+            CHECK_MESSAGE(sched.accessAt(i).restricted != rule, sched.nameAt(i));
+            restricted += sched.accessAt(i).restricted ? 1 : 0;
+        }
+        CHECK(restricted == sched.size() - 2);
+
+        for (const bool honest : {true, false}) {
+            Fixture f(false);
+            f.world.scheduler().emplace<SneakySystem>(Stage::Movement, honest);
+            g_accessAsserts = 0;
+            const AssertHandler prev = setAssertHandler(&countAccessAssert); // spawn 의 틱도 System 을 돈다
+            (void)f.spawn(Vec2{1, 1}, {{stableIdOf<comp::Velocity>, Json{{"value", {1.0, 0.0}}}}});
+            f.world.tick();
+            setAssertHandler(prev);
+#if SBX_ENABLE_ASSERTS
+            CHECK(g_accessAsserts == (honest ? 0 : 2)); // 틱마다 개체 하나의 tryWrite<Velocity>
+#else
+            CHECK(g_accessAsserts == 0);
+#endif
+            CHECK(f.world.registry().accessGuard() == nullptr); // System 밖에서는 감시 없음
+        }
+        // 쓰기 선언은 읽기도, 선언 없음은 무엇이든
+        const ecs::AccessSet w = ecs::AccessSet::declare().write<comp::Velocity>();
+        CHECK(w.canRead(stableIdOf<comp::Velocity>));
+        CHECK_FALSE(w.canRead(stableIdOf<comp::Transform>));
+        CHECK(ecs::AccessSet{}.canWrite(stableIdOf<comp::Transform>));
     }
 
 } // TEST_SUITE

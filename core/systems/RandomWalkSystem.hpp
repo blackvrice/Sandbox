@@ -22,6 +22,7 @@ public:
     static constexpr std::string_view kName = "RandomWalk";
     [[nodiscard]] std::string_view name() const noexcept override { return kName; }
     void run(sim::SystemContext& ctx) override;
+    [[nodiscard]] ecs::AccessSet access() const override;
 
     // 길이 1 의 무작위 방향. 기각 샘플링 16회 안에 못 고르면 (1, 0).
     [[nodiscard]] static Vec2 randomDirection(rnd::CounterRng& rng) noexcept;

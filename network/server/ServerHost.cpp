@@ -843,7 +843,7 @@ void ServerHost::simStep(f64 now) {
             world.enqueue(cmd::SimCommand{cmd::CommandHeader{world.currentTick() + 1, c.issuer, c.sequence},
                                           std::move(c.payload)});
         }
-        m_runner->step();
+        m_runner->step(&m_systemTimes);
         if (m_recording) {
             if (auto r = m_recording->recorder->afterTick(); !r) {
                 log::warn("net", "리플레이 기록 오류 — 기록을 끝냅니다: {}", r.error().describe());
@@ -928,6 +928,15 @@ void ServerHost::simStep(f64 now) {
         }
         s.windowSeconds = static_cast<f32>(span);
         fillScriptRows(world.scriptSystems(), s);
+        // 엔진 시스템 시간 (프로토콜 22 — RT-06-11): 스케줄러 차례 · 이름 · 단계
+        const sim::SystemScheduler& sched = m_runner->world().scheduler();
+        for (usize i = 0; i < sched.size() && i < m_systemTimes.rows.size() && s.systems.size() < kMaxEngineSystemRows;
+             ++i) {
+            const SystemTimes::Row& t = m_systemTimes.rows[i];
+            s.systems.push_back({clampUtf8(sched.nameAt(i), kMaxEngineSystemNameBytes),
+                                 static_cast<u8>(sched.stageAt(i)), t.calls, t.nanos, t.maxNanos});
+        }
+        m_systemTimes.rows.assign(m_systemTimes.rows.size(), {});
         statsMsg = s;
         m_statsWindowStart = now;
         m_tickMsSum = 0;
@@ -1747,6 +1756,22 @@ void ServerHost::simThreadMain() {
         }
         simStep(steadySeconds());
     }
+}
+
+// 엔진 시스템 시간 (v0.12 RT-06-11 — 단계 프로파일, 진단 시계)
+void ServerHost::SystemTimes::beginSystem(usize index, std::string_view /*name*/) {
+    if (index >= rows.size()) {
+        rows.resize(index + 1);
+    }
+    start = steadyNanos();
+}
+
+void ServerHost::SystemTimes::endSystem(usize index) {
+    const u64 ns = steadyNanos() - start;
+    Row& r = rows[index];
+    ++r.calls;
+    r.nanos += ns;
+    r.maxNanos = std::max(r.maxNanos, ns);
 }
 
 } // namespace sbx::net

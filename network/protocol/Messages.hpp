@@ -40,7 +40,8 @@ namespace sbx::net {
 // client 시스템이 구독한 게임 이벤트, 틱마다) — v0.10 RT-06-7 조각 2 (ADR-0141) 20: GameEvents 의 종류에 collisionEnter
 // · collisionExit · triggerEnter · triggerExit (8 ~ 11 — entity = 자기, targets = [상대]) — v0.11 RT-06-5 (ADR-0151)
 // 21: EditContent 끝에 propagate bool (Prefab 을 이미 있는 개체에 전한다) — v0.12 ST-06-5 (ADR-0158)
-inline constexpr u32 kProtocolVersion = 21;
+// 22: ServerStats 끝에 엔진 시스템 시간 표 (이름 · 단계 · 호출 · 합 · 최대) — v0.12 RT-06-11 (ADR-0161)
+inline constexpr u32 kProtocolVersion = 22;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;
@@ -72,7 +73,9 @@ inline constexpr usize kMaxScriptStatRows =
     64; // ServerStats.scripts (넘는 시스템은 scriptsOmitted 로 센다 — 프로토콜 14)
 inline constexpr usize kMaxScriptIdBytes = 128;     // 그 시스템 id
 inline constexpr usize kMaxScriptFunctionRows = 16; // ServerStats.scriptFunctions (프로토콜 18)
-inline constexpr usize kMaxScriptSiteBytes = 192;   // 그 자리 ("<팩>/scripts/a.ts:12:5 (onTick)")
+inline constexpr usize kMaxEngineSystemRows = 32;   // ServerStats.systems (프로토콜 22)
+inline constexpr usize kMaxEngineSystemNameBytes = 48;
+inline constexpr usize kMaxScriptSiteBytes = 192; // 그 자리 ("<팩>/scripts/a.ts:12:5 (onTick)")
 
 enum class MessageId : u8 {
     Hello = 1,
@@ -216,6 +219,15 @@ struct ScriptSystemStatRow {
     bool disabled = false;
     friend bool operator==(const ScriptSystemStatRow&, const ScriptSystemStatRow&) = default;
 };
+// 엔진 시스템 하나의 시간 (v0.12 RT-06-11 — 단계 프로파일, 프로토콜 22). 서버의 진단 시계 — 시뮬레이션과 무관
+struct EngineSystemStatRow {
+    std::string name;
+    u8 stage = 0;     // sim::Stage 값 (파이프라인 번호)
+    u32 calls = 0;    // 창
+    u64 nanos = 0;    // 창 합
+    u64 maxNanos = 0; // 창 — 한 번의 최대
+    friend bool operator==(const EngineSystemStatRow&, const EngineSystemStatRow&) = default;
+};
 struct ServerStats {
     u64 serverTick = 0;
     u32 entities = 0;
@@ -241,6 +253,8 @@ struct ServerStats {
     // 프로토콜 18 (v0.9 M6-T4): 자기 연료가 큰 함수 (kMaxScriptFunctionRows 까지 — 누적) · 모든 함수의 자기 연료 합
     std::vector<ScriptFunctionStatRow> scriptFunctions;
     u64 scriptFunctionFuel = 0;
+    // 프로토콜 22 (v0.12 RT-06-11): 엔진 시스템 (실행 순서 — 단계 5 ~ 16, kMaxEngineSystemRows 까지)
+    std::vector<EngineSystemStatRow> systems;
 };
 struct DisconnectMsg {
     DisconnectReason reason = DisconnectReason::None;

@@ -94,6 +94,10 @@ void steer(sim::SystemContext& ctx, ecs::EntityId e, const comp::Movement& mvIn,
 
 } // namespace
 
+ecs::AccessSet MovementSystem::access() const {
+    return ecs::AccessSet::declare().write<comp::Movement, comp::Path, comp::Transform, comp::Velocity>();
+}
+
 void MovementSystem::run(sim::SystemContext& ctx) {
     // 엔티티마다 자기 상태만 읽고 쓴다 → 순회 순서와 무관 (02-ECS E1)
 

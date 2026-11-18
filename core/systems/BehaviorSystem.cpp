@@ -266,6 +266,12 @@ private:
 //   난수 = (틱, Behavior, saveId) 스트림 — 엔티티마다 따로
 // 그래서 순서 · Worker 수와 무관하다 (D5). 구조 변경 · 이벤트 · ECB 를 쓰는 행동이 생기면 다시 나눠야 한다.
 // 그래프 찾기(graphOf — Behavior 의 캐시 칸을 고친다)는 먼저 호출 스레드에서.
+ecs::AccessSet BehaviorSystem::access() const {
+    return ecs::AccessSet::declare()
+        .read<comp::Persistence, comp::Transform, comp::Energy, comp::Health, comp::Sensor>()
+        .write<comp::Behavior, comp::Movement, comp::Path>();
+}
+
 void BehaviorSystem::run(sim::SystemContext& ctx) {
     struct Job {
         ecs::EntityId entity;

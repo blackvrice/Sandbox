@@ -150,7 +150,12 @@ TEST_SUITE("client") {
             frame();
         }
         REQUIRE(ns.ready());
-        CHECK_FALSE(ns.scriptProfile().has_value()); // 스크립트 시스템이 없다
+        // 스크립트 시스템이 없다 — 엔진 시스템 표 (v0.12 RT-06-11) 만 (첫 통계 창 뒤)
+        if (const auto first = ns.scriptProfile()) {
+            CHECK(first->server.empty());
+            CHECK(first->client.empty());
+            CHECK_FALSE(first->engine.empty());
+        }
 
         constexpr std::string_view kTicker = R"(import { defineSystem, i32 } from "sandbox"
 export default defineSystem({

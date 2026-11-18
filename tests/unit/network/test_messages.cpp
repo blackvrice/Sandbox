@@ -163,6 +163,19 @@ TEST_SUITE("network") {
         longSite.scriptFunctions.push_back({std::string(kMaxScriptSiteBytes + 1, 'a')});
         CHECK_FALSE(decodeMessage(encodeMessage(Message{longSite})).has_value());
 
+        // 엔진 시스템 표 (프로토콜 22 — v0.12 RT-06-11): 왕복 · 상한 · 긴 이름
+        ServerStats sys;
+        sys.systems.push_back(EngineSystemStatRow{"Movement", 9, 30, 450000, 40000});
+        sys.systems.push_back(EngineSystemStatRow{"Collision", 16, 30, 900000, 70000});
+        CHECK(roundTrip(sys).systems == sys.systems);
+        CHECK(roundTrip(ServerStats{}).systems.empty());
+        ServerStats manySys;
+        manySys.systems.resize(kMaxEngineSystemRows + 1, EngineSystemStatRow{"a", 5, 0, 0, 0});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{manySys})).has_value());
+        ServerStats longSys;
+        longSys.systems.push_back(EngineSystemStatRow{std::string(kMaxEngineSystemNameBytes + 1, 'a'), 5, 0, 0, 0});
+        CHECK_FALSE(decodeMessage(encodeMessage(Message{longSys})).has_value());
+
         // 표 상한을 넘는 개수 · 긴 id 는 읽기 오류
         ServerStats many;
         many.scripts.resize(kMaxScriptStatRows + 1, ScriptSystemStatRow{"a.b"});
@@ -185,7 +198,7 @@ TEST_SUITE("network") {
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
         CHECK(kProtocolVersion ==
-              21); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.12 ST-06-5 — EditContent propagate)
+              22); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.12 RT-06-11 — ServerStats 엔진 시스템 표)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));

@@ -323,6 +323,20 @@ private:
     std::set<std::pair<cmd::ClientId, u32>> m_awaitingResult;
     f64 m_nextTickAt = 0;
     f64 m_statsWindowStart = 0;
+    // 엔진 시스템 시간 (v0.12 RT-06-11 — 단계 프로파일). 서버의 진단 시계 (steady) — 시뮬레이션 결과에 닿지 않는다
+    class SystemTimes final : public sim::ISystemProfiler {
+    public:
+        void beginSystem(usize index, std::string_view name) override;
+        void endSystem(usize index) override;
+        struct Row {
+            u32 calls = 0;
+            u64 nanos = 0;
+            u64 maxNanos = 0;
+        };
+        std::vector<Row> rows; // 스케줄러 차례
+        u64 start = 0;
+    };
+    SystemTimes m_systemTimes;
     f64 m_tickMsSum = 0;
     f64 m_tickMsMax = 0;
     u32 m_ticksInWindow = 0;

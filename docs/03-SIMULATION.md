@@ -243,6 +243,10 @@ public:
 
 System은 다른 System을 직접 호출하지 않습니다. 소통은 컴포넌트, IntentBuffer, EventStream으로만 합니다.
 
+v0.12 RT-06-11 구현 ([ADR-0161](adr/0161-system-access-set-debug-check-engine-profile.md)): `ISystem::access()` →
+`ecs::AccessSet` (기본 = 선언 없음). 기본 파이프라인의 여덟이 읽기 · 쓰기 컴포넌트를 선언하고 (Interaction · ResolveIntents 는 Rule
+리플렉션이라 선언 없음), SystemScheduler 가 실행 동안 Registry 에 걸어 Debug 에서 선언 밖 접근을 단언한다 (Release 검사 없음).
+
 ---
 
 ### 2.x Runtime v2 의 단계 추가 [계획]

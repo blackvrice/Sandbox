@@ -39,7 +39,7 @@ R5  모든 새 API 는 타입 · Capability · 실행 단계 · 예산 · 수명
 | Context | ServerContext · ClientContext (불투명 ABI 둘) — 도메인은 Host 표의 HostDomain | `script/api/HostApi.hpp` |
 | 물리 | MovementSystem (단계 9 — 조향 · 적분) · CollisionSystem (16 — 원 분리), 질의 raycast · overlap (원, M8-T8) | 03 2장, `core/systems`, 19 25.7 |
 | 클라이언트 | 스냅숏 적용 · 보간 · 그리기 (예측 없음), 행동 키 → 명령 | 08 6장, `apps/client/ClientSession` |
-| 버전 번호 | .sbc 16 (v0.11 RT-06-9 — onRender) · Host API 1 (지문 0x128b3513e1ca4c25 — v0.12 RT-06-15 client.playSoundAt · stopSound · setVolume 뒤) · kSimVersion 4 · 프로토콜 21 (v0.12 ST-06-5 — EditContent propagate. 20 = v0.11 RT-06-5 — GameEvents 겹침 종류) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
+| 버전 번호 | .sbc 16 (v0.11 RT-06-9 — onRender) · Host API 1 (지문 0x128b3513e1ca4c25 — v0.12 RT-06-15 client.playSoundAt · stopSound · setVolume 뒤) · kSimVersion 4 · 프로토콜 22 (v0.12 RT-06-11 — ServerStats 엔진 시스템 표. 21 = ST-06-5 EditContent propagate, 20 = v0.11 RT-06-5 — GameEvents 겹침 종류) · .sbpkg 3 (에셋이 있을 때 — v0.6 M6-T9) · 리플레이 1 · 세이브 1/1 | 각 헤더 (21 1장) |
 
 ---
 
@@ -241,8 +241,10 @@ NetworkModule [계획 v0.8 — 서버만]
 
 ```text
 지금         SystemScheduler = 고정 순서 단계 (03 2장), 병렬은 경로 Job 만 (결과는 다음 틱 제출 차례)
-계획 순서     ① 시스템마다 AccessSet (읽기 · 쓰기 컴포넌트 · 리소스) 선언 + Debug 검사 (선언 밖 접근 = 단언) [계획 v0.6, P2 — 비용 작다]
-             ② 단계별 시간 · 개체 수 프로파일 (ServerStats 확장) [계획 v0.6]
+계획 순서     ① 시스템마다 AccessSet (읽기 · 쓰기 컴포넌트 · 리소스) 선언 + Debug 검사 (선언 밖 접근 = 단언) — ✅ v0.12 RT-06-11
+                (ADR-0161 — 컴포넌트만, 리소스 선언은 [계획])
+             ② 단계별 시간 · 개체 수 프로파일 (ServerStats 확장) — ✅ v0.12 RT-06-11 (엔진 시스템 표 — 이름 · 단계 · 호출 · 합 · 최대,
+                프로토콜 22, Studio "스크립트 프로파일" 창. 개체 수는 ServerStats.entities)
              ③ 같은 단계 안에서만 병렬 (Read 만 겹치는 시스템, 또는 셀 분할 커널) + saveId 순 합치기 [검토 v0.9 — ②에서 단계 하나가
                 틱의 30 % 를 넘을 때]
 금지         단계를 넘는 병렬 · Worker 완료 순서로 정하는 결과 · 스크립트 시스템 병렬 실행 (VM 하나 — 스크립트 Worker 는 9장)

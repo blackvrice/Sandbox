@@ -49,7 +49,18 @@ bool Registry::destroy(EntityId e) {
     return true;
 }
 
+void Registry::accessViolation(StableId component, std::string_view name, bool write) const noexcept {
+    log::error("ecs", "AccessSet: 시스템 '{}' 가 선언하지 않은 '{}' ({:016x}) 를 {} — System::access 에 더한다",
+               m_guardWho, name, component, write ? "쓴다" : "읽는다");
+    SBX_ASSERT(false, "시스템이 AccessSet 에 선언하지 않은 컴포넌트에 접근했다 (v0.12 RT-06-11)");
+}
+
 ComponentPoolBase* Registry::poolByStableId(StableId id) noexcept {
+#if SBX_ENABLE_ASSERTS
+    if (m_guard != nullptr && !m_guard->canWrite(id)) {
+        accessViolation(id, "<stableId>", true);
+    }
+#endif
     for (auto& p : m_pools) {
         if (p && p->stableId() == id) {
             return p.get();
@@ -59,6 +70,11 @@ ComponentPoolBase* Registry::poolByStableId(StableId id) noexcept {
 }
 
 const ComponentPoolBase* Registry::poolByStableId(StableId id) const noexcept {
+#if SBX_ENABLE_ASSERTS
+    if (m_guard != nullptr && !m_guard->canRead(id)) {
+        accessViolation(id, "<stableId>", false);
+    }
+#endif
     for (const auto& p : m_pools) {
         if (p && p->stableId() == id) {
             return p.get();

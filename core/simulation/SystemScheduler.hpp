@@ -37,6 +37,7 @@ public:
     [[nodiscard]] usize size() const noexcept { return m_entries.size(); }
     [[nodiscard]] std::string_view nameAt(usize i) const noexcept { return m_entries[i].system->name(); }
     [[nodiscard]] Stage stageAt(usize i) const noexcept { return m_entries[i].stage; }
+    [[nodiscard]] const ecs::AccessSet& accessAt(usize i) const noexcept { return m_entries[i].access; }
     [[nodiscard]] ISystem* find(std::string_view name) noexcept;
 
 private:
@@ -44,6 +45,7 @@ private:
         Stage stage;
         std::unique_ptr<ISystem> system;
         ecs::EntityCommandBuffer ecb;
+        ecs::AccessSet access; // 등록 때 한 번 (v0.12 RT-06-11)
     };
     std::vector<Entry> m_entries; // 항상 실행 순서로 정렬되어 있다
 };

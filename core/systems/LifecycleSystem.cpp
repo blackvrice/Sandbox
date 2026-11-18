@@ -92,6 +92,12 @@ bool occupied(const sim::SystemContext& ctx, PrefabTable& prefabs, Vec2 center, 
 
 } // namespace
 
+ecs::AccessSet LifecycleSystem::access() const {
+    return ecs::AccessSet::declare()
+        .read<comp::Health, comp::Lifetime, comp::Persistence, comp::Transform>()
+        .write<comp::Age, comp::Energy, comp::Growth, comp::Reproduce>();
+}
+
 void LifecycleSystem::run(sim::SystemContext& ctx) {
     std::vector<Death> deaths;
     const auto die = [&](ecs::EntityId e, sim::DeathCause cause) {

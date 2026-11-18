@@ -43,7 +43,8 @@ ISystem& SystemScheduler::add(Stage stage, std::unique_ptr<ISystem> system) {
     const auto pos = std::upper_bound(m_entries.begin(), m_entries.end(), stage,
                                       [](Stage s, const Entry& e) { return s < e.stage; });
     ISystem& ref = *system;
-    m_entries.insert(pos, Entry{stage, std::move(system), {}});
+    ecs::AccessSet access = system->access(); // 접근 선언 (v0.12 RT-06-11)
+    m_entries.insert(pos, Entry{stage, std::move(system), {}, std::move(access)});
     return ref;
 }
 
@@ -73,7 +74,9 @@ void SystemScheduler::run(const SystemContext& base, ISystemProfiler* profiler,
         }
         {
             const ecs::StructuralLockGuard lock(base.reg);
+            base.reg.setAccessGuard(entry.access.restricted ? &entry.access : nullptr, entry.system->name());
             entry.system->run(ctx);
+            base.reg.setAccessGuard(nullptr, {});
         }
         if (profiler != nullptr) {
             profiler->endSystem(i);

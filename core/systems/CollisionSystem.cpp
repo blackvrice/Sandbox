@@ -89,6 +89,12 @@ Vec2 resolveTerrain(const world::WorldGrid& grid, Vec2 pos, f32 r) {
 
 } // namespace
 
+ecs::AccessSet CollisionSystem::access() const {
+    return ecs::AccessSet::declare()
+        .read<comp::Collider, comp::Persistence, comp::Trigger, comp::Velocity>()
+        .write<comp::Transform>();
+}
+
 void CollisionSystem::run(sim::SystemContext& ctx) {
     std::vector<Item> items;
     f32 maxSpeed2 = 0.f;

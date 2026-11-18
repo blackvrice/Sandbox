@@ -9,9 +9,11 @@
 
 #include <memory>
 #include <span>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
+#include "core/ecs/AccessSet.hpp"
 #include "core/ecs/ComponentPool.hpp"
 #include "core/ecs/EntityManager.hpp"
 #include "core/ecs/View.hpp"
@@ -95,14 +97,31 @@ public:
     }
 
     // --- 컴포넌트: 접근 (언제나 가능) --------------------------------------
+    // --- 접근 선언 감시 (v0.12 RT-06-11, ADR-0161) — SystemScheduler 가 시스템을 돌리는 동안만 건다 (null = 감시 없음)
+    void setAccessGuard(const AccessSet* access, std::string_view who) noexcept {
+        m_guard = access;
+        m_guardWho = who;
+    }
+    [[nodiscard]] const AccessSet* accessGuard() const noexcept { return m_guard; }
+    template <class... Access>
+    void checkViewAccess() const noexcept {
+#if SBX_ENABLE_ASSERTS
+        if (m_guard != nullptr) {
+            (checkOneAccess<Access>(), ...);
+        }
+#endif
+    }
+
     template <Component T>
     [[nodiscard]] bool has(EntityId e) const noexcept {
+        checkRead<T>();
         const auto* p = findPool<T>();
         return p != nullptr && p->contains(e);
     }
 
     template <Component T>
     [[nodiscard]] const T* tryRead(EntityId e) const noexcept {
+        checkRead<T>();
         const auto* p = findPool<T>();
         return p == nullptr ? nullptr : p->tryGet(e);
     }
@@ -117,6 +136,7 @@ public:
     // 쓰기 접근 — changed 틱을 현재 틱으로 갱신한다 (복제·증분 저장의 근거)
     template <Component T>
     [[nodiscard]] T* tryWrite(EntityId e) noexcept {
+        checkWrite<T>();
         auto* p = findPool<T>();
         return p == nullptr ? nullptr : p->tryGetForWrite(e, m_tick);
     }
@@ -220,6 +240,38 @@ public:
 private:
     // 구조 변경 허용 여부. 잠겨 있으면 Debug 단언, Release 는 로그 후 false.
     bool checkStructuralChange(const char* what) const;
+    // 선언 밖 접근 — 로그 (시스템 · 컴포넌트) 후 단언 (Debug 만 부른다)
+    void accessViolation(StableId component, std::string_view name, bool write) const noexcept;
+    template <Component T>
+    void checkRead() const noexcept {
+#if SBX_ENABLE_ASSERTS
+        if (m_guard != nullptr && !m_guard->canRead(stableIdOf<T>)) {
+            accessViolation(stableIdOf<T>, ComponentTraits<T>::kName, false);
+        }
+#endif
+    }
+    template <Component T>
+    void checkWrite() const noexcept {
+#if SBX_ENABLE_ASSERTS
+        if (m_guard != nullptr && !m_guard->canWrite(stableIdOf<T>)) {
+            accessViolation(stableIdOf<T>, ComponentTraits<T>::kName, true);
+        }
+#endif
+    }
+    template <class A>
+    void checkOneAccess() const noexcept {
+        if constexpr (requires { A::kWrite; }) {
+            if constexpr (A::kWrite) {
+                checkWrite<typename A::type>();
+            } else {
+                checkRead<typename A::type>();
+            }
+        } else {
+            checkRead<typename A::type>(); // Exclude — 있는지 본다
+        }
+    }
+    const AccessSet* m_guard = nullptr;
+    std::string_view m_guardWho;
 
     EntityManager m_entities;
     std::vector<std::unique_ptr<ComponentPoolBase>> m_pools; // ComponentTypeId 인덱스

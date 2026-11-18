@@ -154,6 +154,32 @@ void drawScriptProfilePanel(const ScriptProfileInfo& info) {
             functionTable("##server-fn", info.serverFunctions);
         }
     }
+    if (!info.engine.empty()) { // v0.12 RT-06-11 — 단계 프로파일
+        ImGui::TextUnformatted("엔진 시스템 (단계 · 최근 통계 창 — 서버 시계)");
+        if (ImGui::BeginTable("##engine", 5,
+                              ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingFixedFit)) {
+            ImGui::TableSetupColumn("시스템", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("단계");
+            ImGui::TableSetupColumn("ms/틱");
+            ImGui::TableSetupColumn("최대 ms");
+            ImGui::TableSetupColumn("몫");
+            ImGui::TableHeadersRow();
+            for (const EngineProfileRow& r : info.engine) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(r.name.c_str());
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(r.stage.c_str());
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", r.msPerCall);
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", r.maxMs);
+                ImGui::TableNextColumn();
+                ImGui::Text("%.1f %%", r.share * 100.0);
+            }
+            ImGui::EndTable();
+        }
+    }
     if (!info.client.empty()) {
         ImGui::TextUnformatted("클라이언트 (최근 1 초)");
         profileTable("##client", info.client);

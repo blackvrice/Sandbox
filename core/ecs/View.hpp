@@ -203,6 +203,7 @@ auto makeView(Reg& reg) {
                   "view 인자는 Read<T> / Write<T> / Exclude<T> 만 허용한다");
     using Inc = decltype(std::tuple_cat(std::declval<detail::IncludeTuple<Access>>()...));
     using Exc = decltype(std::tuple_cat(std::declval<detail::ExcludeTuple<Access>>()...));
+    reg.template checkViewAccess<Access...>(); // 접근 선언 (v0.12 RT-06-11 — Debug 만)
     return [&]<class... I, class... E>(std::tuple<I...>*, std::tuple<E...>*) {
         return BasicView<Inc, Exc>(
             std::tuple<ComponentPool<typename I::type>*...>(reg.template findPool<typename I::type>()...),

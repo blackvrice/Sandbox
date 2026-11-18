@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-18 — v0.12 RT-06-11: AccessSet 선언 · Debug 검사 · 엔진 시스템 프로파일 (ADR-0161)
+
+**무엇을**
+
+- core/ecs/AccessSet (restricted · reads · writes — declare().read<…>().write<…>()), ISystem::access() (기본 = 선언 없음).
+  기본 파이프라인의 여덟 (PathCollect · Sensor · Behavior · PathRequest · Movement · Lifecycle · Collision · RandomWalk) 이 선언,
+  Interaction · ResolveIntents 는 Rule 리플렉션이라 선언 없음 (주석).
+- Registry 접근 감시: SystemScheduler 가 System 실행 동안 선언을 걸고, read · tryRead · has · write · tryWrite · view (Read · Write ·
+  Exclude) · poolByStableId 가 선언 밖이면 로그 + SBX_ASSERT (Debug 만 — Release 는 코드 없음). 결과 · 해시 그대로.
+- 서버: ScenarioRunner::step 에 ISystemProfiler (steady 진단 시계) — ServerStats 끝에 엔진 시스템 표 (이름 · 단계 · 호출 · 합 · 최대,
+  32 행), 프로토콜 22. Studio "스크립트 프로파일" 창에 "엔진 시스템" 표 (ms/틱 · 최대 · 몫) — 스크립트가 없어도 보인다.
+- 문서: ADR-0161, 03 2.2, 08, 13, 17, 22 8장 · 버전 행, versioning · VERSION-MIGRATION-MATRIX (프로토콜 22), 등록부 RT-06-11 Done.
+
+**왜**
+
+- 카드 RT-06-11 (선언 밖 단언) — 22 8장 병렬화 계획의 ① ②. 선언이 있어야 RT-09-3 이 겹침을 판단하고, 단계 시간이 있어야 병렬의
+  시작 조건 (단계 하나가 틱의 30 %) 을 본다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,951,368 모두 통과 — Debug 의 전체 단위 시험 · det 시나리오가 선언 밖 접근
+  없이 돈다 (선언을 처음 넣은 그대로 통과), 위반 시험 (단언 둘) · 감시 해제, ServerStats 엔진 표, 전체 ctest 95 개 — 94 통과 ·
+  studio_gui_smoke SKIPPED. 골든 해시 그대로.
+
+**남은 일**
+
+- 리소스 (SpatialIndex · IntentBuffer · EventStream) 의 선언 · 선언으로 자동 병렬은 RT-09-3 [계획].
+
 ## 2026-11-18 — v0.12 RT-06-13: 게임패드 바인딩 · Hold · Double Tap · Combo (ADR-0160)
 
 **무엇을**

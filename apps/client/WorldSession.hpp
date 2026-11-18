@@ -187,12 +187,21 @@ struct ScriptFunctionProfileRow {
     u64 fuel = 0;
     f64 share = 0; // 모든 함수의 자기 연료 합에서의 몫 (0 ~ 1)
 };
+// 엔진 시스템 하나 (v0.12 RT-06-11 — 단계 프로파일, 서버 통계 창 · 서버 시계)
+struct EngineProfileRow {
+    std::string name;
+    std::string stage; // 단계 이름 (03 2장)
+    f64 msPerCall = 0; // 창 평균
+    f64 maxMs = 0;     // 창 최대
+    f64 share = 0;     // 모든 엔진 시스템 시간에서의 몫 (0 ~ 1)
+};
 struct ScriptProfileInfo {
     std::vector<ScriptProfileRow> server;                  // 실행 순서 (서버가 보낸 표 — 프로토콜 14)
     u32 serverOmitted = 0;                                 // 표 상한으로 빠진 서버 시스템
     std::vector<ScriptProfileRow> client;                  // 이 클라이언트의 client 시스템
     std::vector<ScriptFunctionProfileRow> serverFunctions; // 자기 연료 상위 (프로토콜 18)
     std::vector<ScriptFunctionProfileRow> clientFunctions;
+    std::vector<EngineProfileRow> engine; // 엔진 시스템 (프로토콜 22 — 스크립트가 없어도)
 };
 
 // 게임 UI 원문 (v0.7 M3-T3 — 팩의 presentation/ui, ADR-0079). 클라이언트의 GameUiLayer 가 읽는다 (검사는 sbx check)

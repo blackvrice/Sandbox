@@ -17,6 +17,14 @@
 
 namespace sbx::sys {
 
+ecs::AccessSet PathCollectSystem::access() const {
+    return ecs::AccessSet::declare().read<comp::Persistence, comp::Transform>().write<comp::Path>();
+}
+
+ecs::AccessSet PathRequestSystem::access() const {
+    return ecs::AccessSet::declare().read<comp::Persistence, comp::Transform>().write<comp::Path>();
+}
+
 void PathCollectSystem::run(sim::SystemContext& ctx) {
     for (const auto& job : ctx.paths.collect()) {
         if (!ctx.reg.alive(job->entity)) {
