@@ -17,6 +17,7 @@
 //
 // 월드를 바꾸지 않는다 (R4 — 읽기만). MaterialLibrary::find 는 capture 에서만 부른다 (경고 기록이 바뀌므로 한 스레드).
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <span>
@@ -48,7 +49,17 @@ struct SnapshotSprite {
     render::SpriteId sprite = render::kWhiteSprite;
     u32 color = 0xFFFF'FFFFu;
     u8 layer = 0;
+    std::array<f32, 4> sub{0.f, 0.f, 1.f, 1.f}; // 시트의 칸 (v0.12 NG-15)
 };
+
+// 지형 타일 하나의 그림 (v0.12 NG-15 — 지형 머티리얼 "terrain/<id>" 에 sprite 가 있을 때). 머티리얼 번호 차례
+struct TileSprite {
+    bool textured = false;
+    render::SpriteId sprite = render::kWhiteSprite;
+    u32 color = 0xFFFF'FFFFu;
+    std::array<f32, 4> sub{0.f, 0.f, 1.f, 1.f};
+};
+inline constexpr usize kMaxTileSprites = 32768; // 보이는 칸이 이보다 많으면 (멀리 줄임) 타일 그림 없이 색만
 
 // 선택한 개체의 자세한 상태 (상한 kMaxSelectedDetails)
 struct SelectedDetail {
@@ -69,6 +80,7 @@ struct WorldSnapshot {
     u64 serverTick = 0; // 마지막으로 적용한 스냅숏의 서버 틱
     f64 renderTick = 0; // 그린 틱 (보간)
     render::TerrainView terrain;
+    std::shared_ptr<const std::vector<TileSprite>> tiles; // 머티리얼 번호 → 타일 그림 (그림 있는 것이 없으면 null)
     std::vector<SnapshotSprite> sprites;
     std::vector<SelectedDetail> selected; // selection 순서 (netId 오름차순)
     ExtractionStats stats;
@@ -86,6 +98,8 @@ public:
                  const net::InspectResult* inspect, WorldSnapshot& out);
     // out 에 지형 · 스프라이트를 채운다 (스프라이트는 비우지 않고 더한다 — 호출자가 reset)
     static void emit(const WorldSnapshot& snapshot, render::RenderWorld& out);
+    // 지형 타일 그림 (v0.12 NG-15) — emit 이 부른다. out.camera 의 보이는 칸만
+    static void emitTiles(const WorldSnapshot& snapshot, render::RenderWorld& out);
     // 다른 월드(다시 접속)를 보기 시작한다 — 캐시를 비우고 지형 캐시 id 를 새로
     void reset();
 
@@ -109,6 +123,7 @@ private:
     std::unordered_map<NetEntityId, Resolved> m_cache;
     std::vector<render::TerrainChunk> m_terrain; // 청크마다 마지막으로 복사한 것 (grid.chunks() 순서)
     std::shared_ptr<const std::vector<u32>> m_palette;
+    std::shared_ptr<const std::vector<TileSprite>> m_tiles; // 처음 한 번 (팔레트와 같이)
     u64 m_captures = 0;
 };
 

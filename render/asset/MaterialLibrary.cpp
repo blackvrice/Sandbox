@@ -36,6 +36,7 @@ Expected<void> MaterialLibrary::loadJson(std::string_view json, std::string_view
             if (!v["sprite"].is_string()) {
                 return makeError(ErrorCode::InvalidArgument, std::format("{}: '{}'.sprite 는 문자열", origin, name));
             }
+            m.textured = true;
             if (assets != nullptr) {
                 const std::string sprite = v["sprite"].get<std::string>();
                 const std::optional<std::filesystem::path> file = resolve ? resolve(sprite) : std::nullopt;
@@ -57,6 +58,30 @@ Expected<void> MaterialLibrary::loadJson(std::string_view json, std::string_view
                 ch[i] = static_cast<u8>(c[i].get<int>());
             }
             m.color = packRgba8(ch[0], ch[1], ch[2], ch[3]);
+        }
+        // 시트의 칸 (v0.12 NG-15): cell [열, 행] · grid [열 수, 행 수] — 둘 다 있어야 한다
+        if (v.contains("cell") || v.contains("grid")) {
+            const auto pair = [&](const char* key, int lo) -> std::optional<std::array<int, 2>> {
+                const auto it = v.find(key);
+                if (it == v.end() || !it->is_array() || it->size() != 2 || !(*it)[0].is_number_integer() ||
+                    !(*it)[1].is_number_integer() || (*it)[0].get<int>() < lo || (*it)[1].get<int>() < lo ||
+                    (*it)[0].get<int>() > 4096 || (*it)[1].get<int>() > 4096) {
+                    return std::nullopt;
+                }
+                return std::array<int, 2>{(*it)[0].get<int>(), (*it)[1].get<int>()};
+            };
+            const auto cell = pair("cell", 0);
+            const auto grid = pair("grid", 1);
+            if (!cell || !grid || (*cell)[0] >= (*grid)[0] || (*cell)[1] >= (*grid)[1]) {
+                return makeError(
+                    ErrorCode::InvalidArgument,
+                    std::format("{}: '{}' 의 cell [열, 행] · grid [열 수, 행 수] — 칸은 격자 안 (0 부터, 1 ~ 4096)",
+                                origin, name));
+            }
+            const f32 cw = 1.f / static_cast<f32>((*grid)[0]);
+            const f32 ch2 = 1.f / static_cast<f32>((*grid)[1]);
+            m.sub = {cw * static_cast<f32>((*cell)[0]), ch2 * static_cast<f32>((*cell)[1]),
+                     cw * static_cast<f32>((*cell)[0] + 1), ch2 * static_cast<f32>((*cell)[1] + 1)};
         }
         m_materials[name] = m;
     }

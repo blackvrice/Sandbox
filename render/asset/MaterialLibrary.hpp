@@ -4,9 +4,11 @@
 // assets/<팩>/materials.json:
 //   { "materials": { "eco/rabbit": { "sprite": "ecosystem/rabbit.png", "color": [255, 255, 255, 255] } } }
 //   sprite 는 에셋 루트 상대 경로 (없으면 흰색 사각형), color 는 RGBA 0~255 (없으면 흰색). 둘 다 선택.
+//   (v0.12 NG-15) "cell": [열, 행] + "grid": [열 수, 행 수] — 시트 한 장의 칸 (타일셋 · 프레임), 0 부터 · 위에서 아래로
 // 모르는 이름은 흰색 사각형 + 이름에서 고른 색 (같은 이름은 늘 같은 색 — 어떤 엔티티인지 구별은 된다), 경고 한 번.
 // 콘텐츠(서버)와 달리 contentHash 에 들어가지 않는다 (7.1 — 표현 전용).
 
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -23,6 +25,8 @@ namespace sbx::render {
 struct Material {
     SpriteId sprite = kWhiteSprite;
     u32 color = 0xFFFF'FFFFu;
+    std::array<f32, 4> sub{0.f, 0.f, 1.f, 1.f}; // 그림 안의 칸 (cell · grid — v0.12 NG-15)
+    bool textured = false;                      // sprite 를 적었다 (헤드리스는 흰색이어도 — 타일 그리기의 판단)
 };
 
 // sprite 문자열 → 루트 밖 파일 (v0.6 M6-T9 — 프로젝트 에셋). nullopt = 엔진 에셋 루트 상대 (requestSprite), 빈 경로 =

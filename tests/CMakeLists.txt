@@ -194,6 +194,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_action_panel.cpp
         unit/client/test_game_ui_layer.cpp
         unit/client/test_play_keys.cpp
+        unit/client/test_tilemap.cpp
         unit/client/test_pack_materials.cpp
         unit/client/test_user_settings.cpp
         unit/client/test_font_fallback.cpp

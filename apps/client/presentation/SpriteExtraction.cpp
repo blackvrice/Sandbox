@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <string>
 
 #include "core/components/core/Identity.hpp"
@@ -75,10 +76,18 @@ void SpriteExtraction::captureTerrain(const net::ClientWorld& world, WorldSnapsh
     if (!m_palette) {
         // 콘텐츠는 월드가 사는 동안 그대로 — 처음 한 번 (머티리얼 번호 = 콘텐츠 순서)
         auto palette = std::make_shared<std::vector<u32>>();
+        auto tiles = std::make_shared<std::vector<TileSprite>>();
+        bool anyTile = false;
         for (const content::TerrainMaterial& m : world.content().terrainMaterials()) {
-            palette->push_back(m_materials.find("terrain/" + m.id).color);
+            const render::Material mat = m_materials.find("terrain/" + m.id);
+            palette->push_back(mat.color);
+            tiles->push_back({mat.textured, mat.sprite, mat.textured ? 0xFFFF'FFFFu : mat.color, mat.sub});
+            anyTile = anyTile || mat.textured;
         }
         m_palette = std::move(palette);
+        if (anyTile) { // 타일 그림 (v0.12 NG-15) — sprite 를 적은 지형 머티리얼이 하나라도 있을 때
+            m_tiles = std::move(tiles);
+        }
     }
     const std::span<const world::Chunk> chunks = grid.chunks();
     if (m_terrain.size() != chunks.size()) {
@@ -107,6 +116,7 @@ void SpriteExtraction::captureTerrain(const net::ClientWorld& world, WorldSnapsh
     v.chunks = m_terrain;
     v.palette = m_palette;
     v.paletteVersion = 1;
+    out.tiles = m_tiles;
 }
 
 void SpriteExtraction::captureSelected(const net::ClientWorld& world, f64 renderTick,
@@ -196,7 +206,8 @@ void SpriteExtraction::capture(const net::ClientWorld& world, f64 renderTick, st
                                .rotation = rotation,
                                .sprite = r.material.sprite,
                                .color = r.material.color,
-                               .layer = r.layer});
+                               .layer = r.layer,
+                               .sub = r.material.sub});
         ++out.stats.entities;
         out.stats.withSprite += r.fromContent ? 1 : 0;
     });
@@ -219,7 +230,57 @@ void SpriteExtraction::emit(const WorldSnapshot& snapshot, render::RenderWorld& 
                                .sprite = s.sprite,
                                .color = s.color,
                                .layer = s.layer,
-                               .depth = -s.position.y});
+                               .depth = -s.position.y,
+                               .sub = s.sub});
+    }
+    emitTiles(snapshot, out);
+}
+
+// 지형 타일 그림 (v0.12 NG-15): 보이는 칸 (카메라 사각형 ∩ 월드) 중 그림 있는 머티리얼의 칸마다 스프라이트 하나 —
+// 레이어 0 · 깊이 가장 아래 (개체 밑). 지형 색 (TerrainPass) 위에 덮는다. 보이는 칸이 kMaxTileSprites 를 넘으면 그리지
+// 않는다
+void SpriteExtraction::emitTiles(const WorldSnapshot& snapshot, render::RenderWorld& out) {
+    const render::TerrainView& v = snapshot.terrain;
+    if (!snapshot.tiles || v.empty()) {
+        return;
+    }
+    const render::WorldRect view = out.camera.visibleRect();
+    const Vec2 wmin = v.worldMin();
+    const Vec2 wmax = wmin + v.worldSize();
+    const i32 x0 = static_cast<i32>(std::floor(std::max(view.min.x, wmin.x)));
+    const i32 y0 = static_cast<i32>(std::floor(std::max(view.min.y, wmin.y)));
+    const i32 x1 = static_cast<i32>(std::ceil(std::min(view.max.x, wmax.x)));
+    const i32 y1 = static_cast<i32>(std::ceil(std::min(view.max.y, wmax.y)));
+    if (x1 <= x0 || y1 <= y0 ||
+        static_cast<u64>(x1 - x0) * static_cast<u64>(y1 - y0) > static_cast<u64>(kMaxTileSprites)) {
+        return;
+    }
+    const std::vector<TileSprite>& tiles = *snapshot.tiles;
+    for (const render::TerrainChunk& c : v.chunks) {
+        if (!c.tiles) {
+            continue;
+        }
+        const i32 ox = c.x * v.chunkSize;
+        const i32 oy = c.y * v.chunkSize;
+        if (ox + v.chunkSize <= x0 || ox >= x1 || oy + v.chunkSize <= y0 || oy >= y1) {
+            continue;
+        }
+        for (i32 ly = std::max(0, y0 - oy); ly < std::min(v.chunkSize, y1 - oy); ++ly) {
+            for (i32 lx = std::max(0, x0 - ox); lx < std::min(v.chunkSize, x1 - ox); ++lx) {
+                const u16 m = (*c.tiles)[static_cast<usize>(ly * v.chunkSize + lx)];
+                if (m >= tiles.size() || !tiles[m].textured) {
+                    continue;
+                }
+                const TileSprite& t = tiles[m];
+                out.sprites.push_back({.position = {static_cast<f32>(ox + lx) + 0.5f, static_cast<f32>(oy + ly) + 0.5f},
+                                       .size = {1.f, 1.f},
+                                       .sprite = t.sprite,
+                                       .color = t.color,
+                                       .layer = 0,
+                                       .depth = -1.0e9f, // 개체 밑
+                                       .sub = t.sub});
+            }
+        }
     }
 }
 

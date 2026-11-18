@@ -5,6 +5,7 @@
 //
 // Phase 8A: 카메라 · 배경색 · 스프라이트. 8B: 지형(TerrainView) · 선택 외곽선 · DebugDraw · 격자. [계획] UI(8C).
 
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -39,6 +40,9 @@ struct SpriteDraw {
     u8 layer = 0;             // 큰 값이 위
     // 같은 레이어 안의 순서: 작은 값이 먼저(아래) 그려진다. 탑다운이면 -y 를 넣어 아래쪽(앞)이 위에 오게 한다.
     f32 depth = 0;
+    // 스프라이트 그림 안의 칸 (u0, v0, u1, v1 — 0 ~ 1, v 아래로) — 시트 한 장의 타일 · 애니메이션 프레임 (v0.12 NG-15).
+    // 기본 전체
+    std::array<f32, 4> sub{0.f, 0.f, 1.f, 1.f};
 };
 
 // ---- 8B: 지형 (TerrainPass, ADR-0022) ----

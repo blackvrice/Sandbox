@@ -66,7 +66,7 @@
 | F-125 | Visual Trigger 편집 — 폼 | v0.2 | ✅ 사용 가능 | ⬜ | `test_trigger_form` | 10 8장 · 11 10장 |
 | F-126 | 트리거 노드 그래프 캔버스 · 콘텐츠 데이터 폼 | v0.12 | 📐 설계만 | — | — (ST-06-10) | 26 6장 |
 | F-127 | 지형 칠하기 (TerrainBrush) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` | 10 3장 · [05](../05-WORLD.md) |
-| F-128 | 2D 타일맵 · 타일셋 | v0.12 | 📐 설계만 | — | — (NG-15) | [releases](../roadmap/releases.md) v0.12 |
+| F-128 | 2D 타일맵 · 타일셋 | v0.12 | ✅ 지형 머티리얼 + 그림 (시트의 칸) — 칠하기 · 세이브 · 해시 그대로, 장식 층 · 자동 타일 [계획] | `test_tilemap` | — | 05 3.2 · ADR-0156 |
 | F-129 | Scene / Game 뷰 분리 · 떼어 낸 창 | v0.12 | 📐 설계만 (P3 — 시작 때 필요성 판정) | — | — (ST-06-11) | ADR-0123 |
 | F-130 | 리플레이 뷰어 (열기 · 재생 · 멈춤 · seek · 기록) | v0.8 | ✅ 사용 가능 | ⬜ | CTest `client_replay` · `replay_record` | 09 4장 · M5-T1 ~ T3 |
 | F-131 | 여러 사람이 같은 월드를 함께 편집 (역할 · 권한) | v0.1 | ✅ 사용 가능 (LAN) | ⬜ | `test_editor_roles` · CTest `det_edit_session` | 10 7장 |

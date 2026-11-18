@@ -89,7 +89,11 @@ void SpriteBatcher::build(std::span<const SpriteDraw> sprites, std::span<const S
         g.size[1] = s.size.y;
         g.rotation = s.rotation;
         g.page = reg.page;
-        f32 u0 = reg.uv[0], v0 = reg.uv[1], u1 = reg.uv[2], v1 = reg.uv[3];
+        // 그림 안의 칸 (sub) — 아틀라스 자리 안에서 비율로 (v0.12 NG-15 — 타일셋 · 시트)
+        const f32 w = reg.uv[2] - reg.uv[0];
+        const f32 h = reg.uv[3] - reg.uv[1];
+        f32 u0 = reg.uv[0] + w * s.sub[0], v0 = reg.uv[1] + h * s.sub[1];
+        f32 u1 = reg.uv[0] + w * s.sub[2], v1 = reg.uv[1] + h * s.sub[3];
         if ((s.flags & kSpriteFlipX) != 0) {
             std::swap(u0, u1);
         }

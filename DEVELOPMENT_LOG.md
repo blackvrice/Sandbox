@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-18 — v0.12 NG-15: 2D 타일맵 — 지형 머티리얼 + 시트의 칸 그림 (ADR-0156)
+
+**무엇을**
+
+- 타일 = 지형 머티리얼 (칠하기 PaintTerrain · 세이브 · WorldHash · 복제 · moveCost 막힘은 지금 것 그대로 — kSimVersion · 형식 ·
+  프로토콜 그대로). 그림: presentation/materials.json 의 "terrain/<id>" 에 sprite 가 있으면 그 칸을 그림으로.
+- 머티리얼 "cell": [열, 행] · "grid": [열 수, 행 수] → Material::sub (시트 한 장의 칸, 1 ~ 4096 · 둘이 같이 — 틀리면 오류) ·
+  Material::textured. SpriteDraw::sub — SpriteBatcher 가 아틀라스 자리 안에서 비율로 uv (뒤집기 그대로).
+- 클라이언트 추출: 그림 있는 머티리얼이 있으면 팔레트와 같이 타일 표 (TileSprite), 보이는 칸 (카메라 ∩ 월드) 마다 스프라이트 하나
+  (레이어 0 · 깊이 가장 아래, 32,768 칸 넘으면 색만). 개체의 render.sprite 머티리얼도 sub 를 쓴다.
+- 문서: ADR-0156, 05 3.2, 06 8.1, 11 materials.json, 13, FEATURE_MATRIX F-128, 등록부 NG-15 Done (gen_roadmap).
+
+**왜**
+
+- GM-39 — 지형 칠하기는 있고 스프라이트 타일 · 타일셋이 없었다. 따로 된 타일 층은 세이브 · 해시 · 복제 · 편집기를 두 겹으로 만든다 —
+  지형이 곧 타일.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,347 모두 통과 (test_tilemap 넷 — 머티리얼 칸 · 거절, 묶기의 sub uv · 뒤집기, emitTiles 보이는
+  칸 · 상한, 팩 칠하기 → 저장 → 불러오기 → 같은 해시 · 벽 타일이 막음), 전체 ctest 95 개 — 94 통과 · studio_gui_smoke SKIPPED (CI 전용).
+
+**남은 일**
+
+- 장식 타일 층 · 자동 타일 · 타일 회전 [계획]. 실제 창에서 타일 그림 확인은 MANUAL-QA.
+
 ## 2026-11-18 — v0.12 RT-06-6: ShapeCast — ctx.shapeCast (ADR-0155)
 
 **무엇을**

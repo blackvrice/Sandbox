@@ -124,7 +124,9 @@ content/<pack>/
                           에셋 루트 */materials.json 과 같은 모양. 엔진 것 위에 팩 로드 차례로 (같은 이름은 뒤가 이긴다). sprite =
                           "asset:<id>" (프로젝트 에셋 .meta 의 id — 옮겨도 그대로) · "assets/…" (프로젝트 기준, 대소문자 그대로) ·
                           그 밖 (엔진 루트 상대). 로더는 원문만 PackInfo.materials 에 (클라 전용 — contentHash 밖). 프로젝트 검사 A6:
-                          없는 id · 파일 = 오류, 읽지 못하는 문서 = 경고 (18 5.2)
+                          없는 id · 파일 = 오류, 읽지 못하는 문서 = 경고 (18 5.2). (v0.12 NG-15, ADR-0156) "cell": [열, 행] ·
+                          "grid": [열 수, 행 수] — 시트 한 장의 칸 (0 부터 · 위에서 아래로, 1 ~ 4096), 둘이 같이. "terrain/<지형 id>"
+                          에 sprite 가 있으면 그 지형 칸이 타일 그림이 된다 (타일맵)
     sounds.json           소리 (v0.11 NG-17, ADR-0153) — {"sounds": {"<id>": {"file": "asset:<id>" | "assets/…wav", "bus": "sfx" |
                           "ui" | "ambient" (기본 sfx), "volume": 0 ~ 1 (기본 1)}}}. 팩 로드 차례로 (같은 id 는 뒤가 이긴다).
                           client.playSound(id) 가 부른다. 로더는 원문만 PackInfo.sounds 에 (클라 전용 — contentHash 밖), 형식 ·

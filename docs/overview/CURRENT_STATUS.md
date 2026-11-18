@@ -28,11 +28,11 @@
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
 | 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) · [v0.10](../roadmap/versions/v0.10.md) (6 / 8 Done, 수동 QA 0 / 3) · [v0.11](../roadmap/versions/v0.11.md) (6 / 7 Done, 수동 QA 0 / 2) |
-| 현재 개발 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools (1 / 11, 9 %) |
+| 현재 개발 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools (2 / 11, 18 %) |
 | 다음 목표 버전 | [v0.13](../roadmap/versions/v0.13.md) — Closed Creator Alpha |
-| 전체 진행 (v0.5 ~ v1.0 태스크) | 77 / 167 Done — 46 % |
-| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 20 |
-| v1.0 (GA) 까지 남은 태스크 | 90 |
+| 전체 진행 (v0.5 ~ v1.0 태스크) | 78 / 167 Done — 47 % |
+| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 19 |
+| v1.0 (GA) 까지 남은 태스크 | 89 |
 | 수동 QA (v0.7 이후 버전 줄) | 8 / 42 확인 |
 
 <!-- GENERATED:END -->
@@ -42,7 +42,7 @@
 | 전체 개발 상태 | 엔진 · 스크립트 · 패키지 · 게임 UI 런타임은 자동 시험으로 검증됨. Studio (v0.8) · Script IDE (v0.9) 는 코드 · 자동 시험이 끝났고 **창에서 사람이 확인하는 QA 가 남아** 출시 (0.8.0 · 0.9.0) 를 못 했다. v0.10 은 첫 태스크만 끝났다 |
 | 완료된 주요 기능 | ECS · 30 TPS 결정론 시뮬레이션 · 세이브 · 리플레이 · 서버 권위 네트워크 (LAN) · 월드 에디터 · 세 렌더 백엔드 · 게임 프로젝트 · .sbpkg · SandboxScript (컴파일러 · VM · 표준 라이브러리) · 패키지 관리자 · 충돌 보고 · 프로젝트 에셋 · 게임 UI 런타임 · 다국어 |
 | 진행 중인 기능 | Studio 기본 환경 (창 QA 대기) · Script IDE (창 QA 대기) · Creator Foundation v0.10 (RT-06-1 ✅, 나머지 7 태스크 미착수) |
-| 주요 미구현 기능 | Prefab 오버라이드 · 타일맵 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
+| 주요 미구현 기능 | Prefab 오버라이드 · 애니메이션 · 계정 · 레지스트리 · 보안 전송 · 예측 · 호스팅 · 결제 — [기능 매트릭스](FEATURE_MATRIX.md) |
 | 현재 차단 요인 | ① v0.8 · v0.9 창 QA (사람이 창을 봐야 한다) ② v0.1 의 Linux · macOS 실기 검증 · 50k 성능 판정 ③ 트랙 C 전체가 저장소 경계 결정 D-06 (PS-12-1) 을 기다림 — 4장 |
 | 다음 마일스톤 | Closed Creator Alpha (v0.13) — 남은 태스크 수는 위 표, 목록은 [MASTER_ROADMAP](../roadmap/MASTER_ROADMAP.md) 3장 |
 

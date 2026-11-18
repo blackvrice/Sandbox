@@ -620,6 +620,9 @@ viewport}` — 월드 y 위, 화면 y 아래, `zoomAt`(커서 아래 점 고정)
 청크 범위, chunks[{x, y, revision, tiles(shared u16 — chunkSize², 행 = 청크 안 y)}], palette(RGBA8) + paletteVersion}` — 초안의
 `TerrainChunkDraw{ChunkCoord, revision, MeshHandle}` 자리. `DebugDrawList`(line · rect · box · circle · arrow · polyline, 선 =
 두 끝점 · 색 · 두께 px)가 `selection` · `debug` 두 목록으로 초안의 `DebugDrawList` · `OverlayInputs` 를 맡는다.
+**v0.12 NG-15** (ADR-0156): `SpriteDraw::sub` (그림 안의 칸 — u0 · v0 · u1 · v1 비율, 기본 전체) — SpriteBatcher 가 아틀라스 자리 안에서
+비율로 (뒤집기 그대로). 머티리얼의 cell · grid 가 정한다 (타일셋 · 시트). 타일 그림은 클라이언트 추출이 보이는 칸마다 스프라이트 하나
+(레이어 0 · 깊이 가장 아래, TerrainPass 색 위, 32,768 칸 넘으면 없음).
 **v0.11 RT-06-9**: `script` 목록 — client 스크립트 onRender 의 선 · 원 · 사각형 (apps/client/presentation/ScriptDraws 가 채운다), DebugPass
 안에서 debug 앞에 그린다 (ADR-0152). 렌더러는 스크립트를 모른다 — 선 목록만 받는다.
 
