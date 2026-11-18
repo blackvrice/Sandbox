@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-18 — v0.12 ST-06-5: Prefab 변형 · 오버라이드 · 전파 (ADR-0158)
+
+**무엇을**
+
+- 변형: Prefab "inherits": "<부모 id>" — 로드 끝 (crossCheck 의 id 정렬 뒤) 에 부모의 푼 값 위에 컴포넌트마다 키 단위 덮어쓰기,
+  "<컴포넌트>": null 로 빼기, tags · name · category 는 안 쓰면 부모 것. 깊이 4 · 순환 · 문자열 아님 = V2, 없는 부모 = 참조 검사 V2.
+- 오버라이드 = 저장하지 않는 값의 차이: core/content/PrefabDiff (정규 JSON — 기본값 + 값 → readJson → writeJson, Changed ·
+  Added · Removed, core.transform · 엔진 관리 제외, followPatch).
+- 전파: EditContent.propagate (기본 false — 지금 명령 · 리플레이 · 골든 그대로, kSimVersion 4 그대로). true 면 같은 명령 안에서
+  정의가 바뀐 Prefab · 변형의 개체마다 saveId 차례로 옛 값 그대로인 필드만 새 값 (patchJson 원자적), 새 컴포넌트 붙임, 없어진
+  컴포넌트는 옛 값 그대로일 때만 뗌, 태그 · opaque 도. 와이어: EditContent 끝에 bool — 프로토콜 21. 명령 JSON 은 true 일 때만.
+  EditContent 에 생성자 (propagate 를 생략한 {kind, id, value} 가 GCC · Clang -Wmissing-field-initializers 에 걸리지 않게).
+- Studio: Prefab 편집 (Editor::editContent) 과 그 되돌리기는 propagate. Inspector 가 오버라이드 필드를 강조 · "● 더함" · "Prefab
+  에서 뺌 [되살리기]" · "Prefab 값으로" (Editor::revertToPrefab — ChangeComponent · AddComponent · RemoveComponent, 되돌리기 한 칸).
+- 문서: ADR-0158, 02 · 03 · 08 · 10 · 11 · 13 · 17 · 22 · 25, versioning · VERSION-MIGRATION-MATRIX (프로토콜 21), FEATURE_MATRIX
+  F-108, 등록부 ST-06-5 Done (gen_roadmap).
+
+**왜**
+
+- 카드 ST-06-5 (det 시험 — 전파 순서 · 해시). 오버라이드 목록을 상태로 저장하면 세이브 · 해시 · 복제 · 모든 쓰기 경로가 목록을
+  고쳐야 한다 — 차이 계산은 쓰기 경로를 모른다. EditContent 가 언제나 전파하면 kSimVersion 을 올려야 하고 골든은 툴체인마다 있어
+  모든 툴체인을 다시 기록해야 한다 — 비트 하나로 고른다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,759 모두 통과 (test_prefab_variants 넷 — 변형 해석 · 거절 다섯 ·
+  오버라이드 차이 · 전파 det (같은 입력 = 같은 해시 · propagate false 와 다름 · 세이브 → 로드 같은 해시 · JSON 왕복), 로컬 세션
+  Studio Prefab 편집 · Inspector 되돌리기, test_messages 의 propagate 왕복 · 프로토콜 21), 전체 ctest 95 개 — 94 통과 ·
+  studio_gui_smoke SKIPPED (CI 전용). 골든 해시 그대로 (det_*_golden 통과 — kSimVersion 4).
+
+**남은 일**
+
+- opaque (render.*) 전파는 서버 상태 · 세이브 · 새로 보는 클라이언트에 — 이미 보는 클라이언트는 다시 보일 때까지 늦다 [계획]
+  (opaque 갱신 복제). 중첩 Prefab · 배열 원소 단위 오버라이드 · 명시 오버라이드 목록 [계획]. Inspector 강조는 MANUAL-QA (창).
+
 ## 2026-11-18 — v0.12 RT-06-14: 2D 애니메이션 클립 · 상태 기계 (ADR-0157)
 
 **무엇을**

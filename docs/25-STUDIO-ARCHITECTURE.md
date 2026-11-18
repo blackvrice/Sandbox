@@ -178,7 +178,7 @@ Scene = World      지금의 월드 (세이브 폴더 — 09) 가 장면. 프로
                    로컬 저장, 충돌 시 마지막 쓰기]
 부모-자식 변환     도입하지 않음 (v0.6) — 2D 게임에 필요한 "같이 옮기기" 는 다중 선택 이동 (현행 MoveEntity{선택, delta}) 으로.
                    변환 계층은 3D 결정과 같이 (D-16 — v1.x 검토, 그때 core.parent 컴포넌트 · 결정적 갱신 순서 · 해시 영향)
-Prefab 인스턴스 [제안 v0.6]  인스턴스 = core.prefab (현행 — 출처 id) + 오버라이드 패치 (컴포넌트 · 필드 → 값). Prefab 을 고치면 오버라이드
+Prefab 인스턴스 ✅ v0.12 ST-06-5 (ADR-0158 — 오버라이드는 저장하지 않는 값의 차이, 전파는 EditContent.propagate, 변형 = inherits — 아래 초안과 다른 점)  인스턴스 = core.prefab (현행 — 출처 id) + 오버라이드 패치 (컴포넌트 · 필드 → 값). Prefab 을 고치면 오버라이드
                    없는 필드가 따라간다 — 적용은 서버 명령 (EditContent 로 Prefab 이 바뀔 때 인스턴스 갱신 · 리플레이 기록). Inspector 에
                    오버라이드 굵게 · "되돌리기" · "Prefab 에 적용" (Unity 의 오버라이드 목록 — 벤치마크 B1). 변형 = prefabs/*.json 의
                    base 키 (상속, 깊이 ≤ 4, 순환 V2). 결정론: 인스턴스 갱신은 명령 단계에서 saveId 순 — kSimVersion 영향은 설계 ADR 에서 측정

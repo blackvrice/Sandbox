@@ -80,6 +80,7 @@ add_library(SandboxCore STATIC
     content/ContentLoader.cpp
     content/ContentOverlay.hpp
     content/ContentOverlay.cpp
+    content/PrefabDiff.cpp
 
     command/SimCommand.hpp
     command/CommandQueue.hpp

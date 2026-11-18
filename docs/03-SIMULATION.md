@@ -329,6 +329,9 @@ Phase 12C 구현 (ADR-0030): `ChangeRule` · `ChangeBehavior` · `CreatePrefab` 
 value: 팩 파일과 같은 JSON | null}` 하나 — 월드 오버레이 항목을 바꾸거나 더하거나 (null) 뺀다. 적용 = 콘텐츠를 팩 원본 + 오버레이로
 다시 만들어 (검증 실패면 거절) 바꿔 끼운다 — Stage 2 에서만, 그 틱의 System 은 새 콘텐츠를 본다. BehaviorGraph 를 바꾸면 그
 그래프를 쓰는 개체의 ai.behavior.state 를 상태 id 로 옮긴다 (없어진 상태 = 처음부터).
+v0.12 ST-06-5 (ADR-0158): `EditContent.propagate` (기본 false — 지금 명령 · 골든 그대로, kSimVersion 그대로) 면 Prefab 을 바꾼 같은
+명령 안에서 정의가 바뀐 Prefab (변형 포함) 의 개체에 saveId 차례로 전한다 — 개체 값 = 옛 Prefab 값인 필드만 (core/content/PrefabDiff
+followPatch, patchJson 원자적 — 틀리면 그 컴포넌트만 그대로).
 v0.2 M3-T1 구현 (ADR-0047): `PlayerAction{action, position}` — 콘텐츠 PlayerAction(11 6장)의 대상을 위치에서 고르고 (range ·
 태그 · 조건 · 가까운 순 maxTargets) 효과를 Stage 2 에서 바로 적용한다 (destroy 는 바로 구조 변경, spawn 난수 =
 Purpose::PlayerAction). 대상이 없거나 게임 세션이 Running 이 아니면 거절. 역할 player 부터 (4.1).

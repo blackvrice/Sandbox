@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/content/PrefabDiff.hpp"
 #include "editor/EditorHost.hpp"
 #include "editor/Undo.hpp"
 #include "editor/services/UndoService.hpp"
@@ -123,6 +124,11 @@ public:
     // 없으면 아무 일 없음
     void deleteSelection(IEditorHost& host);
     void removeComponent(IEditorHost& host, ecs::StableId component); // 있는 개체에서
+    // Prefab 오버라이드 (v0.12 ST-06-5, ADR-0158) — 개체의 core.prefab 과 지금 값의 차이 (Prefab 이 없으면 빈 목록)
+    [[nodiscard]] static std::vector<content::ComponentOverride> prefabOverrides(IEditorHost& host, NetEntityId id);
+    // 선택한 개체의 그 컴포넌트를 Prefab 값으로 (Changed = 다른 필드 패치 · Removed = 다시 붙임 · Added = 뗌). 기록 한
+    // 칸
+    void revertToPrefab(IEditorHost& host, ecs::StableId component);
 
     // ---- 12C: 콘텐츠 (월드 오버레이) ----
     // EditContent{kind, id, value} 하나 (value null = 팩 값으로). 지금 오버레이 값과 같으면 보내지 않는다. 기록 한 칸 —

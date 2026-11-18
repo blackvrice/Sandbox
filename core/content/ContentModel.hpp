@@ -25,6 +25,8 @@ struct PrefabComponent {
     nlohmann::json value;       // 리플렉션 JSON (생략한 필드는 기본값, P2)
 };
 
+inline constexpr u32 kMaxPrefabInheritDepth = 4; // 변형의 inherits 단계 (v0.12 ST-06-5)
+
 struct Prefab {
     std::string id; // "eco.rabbit"
     u64 stableId = 0;
@@ -35,6 +37,11 @@ struct Prefab {
     std::string file;                        // 진단용 "<pack>/prefabs/rabbit.json"
     nlohmann::json raw;                      // 읽은 JSON 그대로 (에디터가 보여 주고 고친다 — 오버레이, ADR-0030)
     bool overlay = false;                    // 월드 오버레이에서 왔다
+    // 변형 (v0.12 ST-06-5, ADR-0158) — "inherits": 부모 Prefab id. 로드 끝에 components · tags · name · category 를 푼
+    // 값으로 채운다 (위의 것은 푼 뒤의 값). 아래 셋은 푸는 데만 쓰는 이 파일의 것
+    std::string inherits;
+    std::vector<std::string> removes; // "<컴포넌트>": null — 부모의 그 컴포넌트를 뺀다
+    bool ownTags = false;             // "tags" 를 썼다 (안 쓰면 부모 것)
 };
 
 // --- Rule (11 3장, 03 6장) ------------------------------------------------------------------------------------------

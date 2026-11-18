@@ -260,6 +260,8 @@ private:
     // Prefab 이 붙이는 엔진 컴포넌트 (core.tags · core.prefab) · 정체성 · opaque — 두 경로 공통
     void finishPrefabEntity(ecs::EntityId e, const content::Prefab* prefab);
     Expected<void> applyEditContent(const cmd::EditContent& c);
+    // EditContent{Prefab, propagate} — 정의가 바뀐 Prefab 의 개체에 전한다 (v0.12 ST-06-5, ADR-0158)
+    void propagatePrefabs(const content::ContentDatabase& before, const content::ContentDatabase& after);
     // 콘텐츠 PlayerAction (v0.2 M3-T1): 대상 고르기 → 효과. 만든 엔티티의 netId
     Expected<std::vector<NetEntityId>> applyPlayerAction(const cmd::PlayerAction& c);
     Expected<std::vector<NetEntityId>> applyPlayerSignal(const cmd::PlayerSignal& c);

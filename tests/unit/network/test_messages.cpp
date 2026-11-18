@@ -41,24 +41,26 @@ std::vector<cmd::CommandPayload> everyPayload() {
     paint.center = {-1, 2};
     paint.shape = cmd::BrushShape::Square;
     paint.radius = 31;
-    return {create,
-            cmd::DeleteEntity{{5, 6}},
-            move,
-            cmd::AddComponent{9, {0xABCDEF, ecs::Json::object()}},
-            cmd::RemoveComponent{9, 77},
-            cmd::ChangeComponent{10, 0x55, ecs::Json{{"energy", 3}}},
-            paint,
-            cmd::PauseSimulation{},
-            cmd::ResumeSimulation{},
-            cmd::StepSimulation{12},
-            cmd::SetSimulationSpeed{2.0f},
-            cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
-            cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr},
-            cmd::EditContent{content::ContentKind::Trigger, "eco.lost", ecs::Json{{"id", "eco.lost"}}}, // v0.2 M4-T3
-            cmd::GameControl{cmd::GameControlOp::Start},
-            cmd::GameControl{cmd::GameControlOp::Abort},
-            cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}},
-            cmd::PlayerSignal{"eco.place", -2147483647 - 1}}; // 프로토콜 15 (v0.5 M2-T5 (3)) — i32 끝값
+    return {
+        create,
+        cmd::DeleteEntity{{5, 6}},
+        move,
+        cmd::AddComponent{9, {0xABCDEF, ecs::Json::object()}},
+        cmd::RemoveComponent{9, 77},
+        cmd::ChangeComponent{10, 0x55, ecs::Json{{"energy", 3}}},
+        paint,
+        cmd::PauseSimulation{},
+        cmd::ResumeSimulation{},
+        cmd::StepSimulation{12},
+        cmd::SetSimulationSpeed{2.0f},
+        cmd::EditContent{content::ContentKind::Rule, "eco.rule", ecs::Json{{"id", "eco.rule"}, {"range", 1.5}}},
+        cmd::EditContent{content::ContentKind::Behavior, "eco.graph", nullptr},
+        cmd::EditContent{content::ContentKind::Trigger, "eco.lost", ecs::Json{{"id", "eco.lost"}}},    // v0.2 M4-T3
+        cmd::EditContent{content::ContentKind::Prefab, "eco.fox", ecs::Json{{"id", "eco.fox"}}, true}, // v0.12 ST-06-5
+        cmd::GameControl{cmd::GameControlOp::Start},
+        cmd::GameControl{cmd::GameControlOp::Abort},
+        cmd::PlayerAction{"eco.feed", {1.25f, -3.5f}},
+        cmd::PlayerSignal{"eco.place", -2147483647 - 1}}; // 프로토콜 15 (v0.5 M2-T5 (3)) — i32 끝값
 }
 
 } // namespace
@@ -183,7 +185,7 @@ TEST_SUITE("network") {
 
     TEST_CASE("messages: 플레이어 행동 (프로토콜 10 — PlayerAction 명령, 역할 player)") {
         CHECK(kProtocolVersion ==
-              20); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.11 RT-06-5 — GameEvents 겹침 종류)
+              21); // 와이어를 바꾸면 이 줄과 08 4 · 5장 표를 함께 (v0.12 ST-06-5 — EditContent propagate)
         CHECK(classifyCommand(cmd::PlayerSignal{"x.y", 1}) == CommandClass::PlayerAction); // 신호도 역할 player 부터
         CHECK(classifyCommand(cmd::PlayerAction{"x.y", {}}) == CommandClass::PlayerAction);
         CHECK(roleAllows(Role::Player, CommandClass::PlayerAction));
@@ -491,7 +493,8 @@ TEST_SUITE("network") {
         }
         CHECK(encodeMessage(Message{big}).size() <= kMaxControlMessageBytes);
         CHECK(roundTrip(big).events.size() == sim::kMaxClientGameEventsPerTick);
-        // areaEnter (3) · timer (7) · 모르는 종류는 거절 — 클라이언트가 받는 종류가 아니다 (8 ~ 11 겹침은 받는다 — 프로토콜 20)
+        // areaEnter (3) · timer (7) · 모르는 종류는 거절 — 클라이언트가 받는 종류가 아니다 (8 ~ 11 겹침은 받는다 —
+        // 프로토콜 20)
         for (const u8 kind : {u8{0}, u8{3}, u8{7}, u8{12}}) {
             CAPTURE(kind);
             GameEventsMsg bad;

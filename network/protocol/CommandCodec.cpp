@@ -150,6 +150,7 @@ void writePayload(BitWriter& w, const cmd::CommandPayload& payload) {
                 w.writeU8(static_cast<u8>(p.kind));
                 w.writeString(p.id);
                 writeJson(w, p.value);
+                w.writeBool(p.propagate); // 프로토콜 21 (v0.12 ST-06-5)
             } else if constexpr (std::is_same_v<T, cmd::GameControl>) {
                 w.writeU8(static_cast<u8>(PayloadTag::GameControl));
                 w.writeU8(static_cast<u8>(p.op));
@@ -277,6 +278,7 @@ bool readPayload(BitReader& r, cmd::CommandPayload& out) {
         if (readJson(r, p.value) && !p.value.is_object() && !p.value.is_null()) {
             r.fail();
         }
+        p.propagate = r.readBool();
         out = std::move(p);
         break;
     }

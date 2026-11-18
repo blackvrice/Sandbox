@@ -271,6 +271,7 @@ action · signal) 의 그 틱 이벤트를 모두에게 (구독이 없으면 보
 오류). 받는 쪽은 세대마다 큐 (1024 — 넘으면 새 것을 버리고 센다) 에 두고 복제 월드가 tick 에 닿은 프레임에 client onEvent 로 (ADR-0141).
 프로토콜 20 (v0.11 RT-06-5): GameEvents 의 종류에 collisionEnter · collisionExit · triggerEnter · triggerExit (8 ~ 11) — netId = 자기,
 targets = [상대] (죽었으면 0 · 빈 목록). 배치는 19 그대로 (받는 종류만 늘었다 — 옛 클라이언트는 형식 오류로 끊으므로 번호를 올린다, ADR-0151).
+프로토콜 21 (v0.12 ST-06-5): 명령 EditContent (5.1 태그 8) 끝에 propagate bool — Prefab 을 이미 있는 개체에 전한다 (ADR-0158).
 메시지 하나 = Transport 패킷 하나. 예약된 id(`[계획]`)를 받거나, 남는 바이트 · 상한 초과 · 잘못된 열거 값이면 형식 오류 → 연결을
 끊는다 (ProtocolError). 구현: `network/protocol/Messages.{hpp,cpp}`.
 

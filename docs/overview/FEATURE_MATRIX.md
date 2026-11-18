@@ -46,7 +46,7 @@
 | F-105 | Hierarchy 검색 · 편집기 그룹 · 부모-자식 | v0.12 | 📐 설계만 | — | — (ST-06-6) | 25 7장 |
 | F-106 | Object 생성 · 삭제 (Place · Erase 툴) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` · CTest `det_edit_session` | 10 3장 |
 | F-107 | Prefab 정의 편집 ("콘텐츠" 창 — JSON, 오버레이 적용 / 팩 파일 저장) | v0.1 · v0.9 | 🟡 일부 | ⬜ | `test_editor` · `test_document_service` — 폼 없이 JSON 을 고친다 | 10 8장 · [11](../11-CONTENT-SCHEMA.md) |
-| F-108 | Prefab 인스턴스 오버라이드 · 변형 | v0.12 | 📐 설계만 (설계 ADR 도 아직) | — | — (ST-06-5) | 25 7장 |
+| F-108 | Prefab 인스턴스 오버라이드 · 변형 | v0.12 | ✅ 구현 (변형 inherits · 차이 기반 오버라이드 · EditContent.propagate — ADR-0158) | ⬜ | test_prefab_variants · test_editor_session (ST-06-5) | 25 7장 |
 | F-109 | Prefab 배치 (팔레트에서 골라 클릭 · 끌기) | v0.1 | ✅ 사용 가능 | ⬜ | `test_editor` · `test_pack_groups` | 10 3장 |
 | F-110 | 프로젝트 PNG 가져오기 (.meta 안정 id) | v0.6 | 🟡 일부 — CLI (`sbx asset import`) 로만 | — | CTest `project_assets` · `project_own_png` · `test_asset_database` | [26](../26-ASSET-PIPELINE.md) · M6-T9 |
 | F-111 | Asset Browser (썸네일 · 끌어다 놓기 · 참조 찾기 · 안전 지우기 · 다시 가져오기) | v0.10 | ✅ "에셋" 창 (목록 · 썸네일 · 가져오기 · 참조 · 옮기기 · 다시 읽기 · 안전 지우기 · 놓기 → UI 디자이너) — 폴더 나무 · 파일 감시 [계획] | `test_asset_browser` · `test_sprites` hot reload | — | 26 · 25 5장 · ADR-0146 |
@@ -146,7 +146,7 @@
 | 실제 사용 가능 | 월드 편집 (배치 · 이동 · 지우기 · 지형 · Inspector · Undo) · 저장 · Studio 홈 · 빌드 화면 · 자동 저장 · 테스트 세션 · Script IDE · 디버거 · 리플레이 · 게임 UI 런타임 · 다국어 · 스크립트 · 패키지 · 패키지 관리자 · LAN 멀티플레이 · 충돌 보고 |
 | 일부만 구현 | Prefab 편집 (JSON) · 에셋 가져오기 (CLI) · 물리 · 리소스 관리 · Export Profile · 템플릿 · A → B 실행 |
 | 시험 · 시뮬레이션 전용 | 소리 이벤트 (Null 백엔드) · 클라이언트 헤드리스 실행 |
-| 설계만 | Asset Browser · UI Designer · 타이머 · client 수명주기 · 물리 단계 · 충돌 이벤트 · onRender · 오디오 출력 · Prefab 오버라이드 · 타일맵 · 애니메이션 · 플랫폼 서비스 전부 |
+| 설계만 | Asset Browser · UI Designer · 타이머 · client 수명주기 · 물리 단계 · 충돌 이벤트 · onRender · 오디오 출력 · 플랫폼 서비스 전부 |
 | 계획 불명확 | 프로젝트 안 월드 추가 화면 (F-103) · 회전 · 크기 툴 (F-113) · 외부 Graphics SDK 연동 (F-211) |
 | 범위 외 | 3D (F-231) |
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <functional>
 #include <limits>
 #include <map>
 #include <queue>
@@ -164,7 +165,8 @@ private:
         return !fromOverlay && m_overlay != nullptr && m_overlay->find(k, id) != nullptr;
     }
     void crossCheck();
-    void link(); // action 번호 · Rule 색인 · Behavior 감지 질의 (모든 파일을 읽은 뒤)
+    void resolvePrefabInherits(); // v0.12 ST-06-5 — 변형 (inherits) 을 푼다 (m_prefabs 는 id 정렬)
+    void link();                  // action 번호 · Rule 색인 · Behavior 감지 질의 (모든 파일을 읽은 뒤)
 
     // --- 조각 -------------------------------------------------------------------------------------------------
     bool checkId(const PackDir& p, const SourceFile& f, const std::string& at, const json& idJson, std::string& out);
@@ -636,10 +638,17 @@ void ContentLoaderImpl::loadPrefab(const PackDir& p, const SourceFile& f, const 
         pf.category = j["category"].get<std::string>();
     }
     if (j.contains("inherits") && !j["inherits"].is_null()) {
-        error(f.display, ptr(at, "inherits"), "V2", "Prefab 상속은 [계획] — null 이거나 없어야 한다");
-        ok = false;
+        // 변형 (v0.12 ST-06-5, ADR-0158) — 부모는 로드 끝에 푼다 (참조 무결성 · 팩 경계는 Prefab 참조와 같은 V2)
+        if (!j["inherits"].is_string() || !isValidContentId(j["inherits"].get<std::string>())) {
+            error(f.display, ptr(at, "inherits"), "V2", "inherits 는 부모 Prefab id (문자열) 이거나 null");
+            ok = false;
+        } else {
+            pf.inherits = j["inherits"].get<std::string>();
+            noteRef(true, pf.inherits, p, f, ptr(at, "inherits"));
+        }
     }
     if (j.contains("tags")) {
+        pf.ownTags = true;
         const auto t = parseTagList(j["tags"], f, ptr(at, "tags"));
         ok = ok && t.has_value();
         if (t) {
@@ -654,6 +663,10 @@ void ContentLoaderImpl::loadPrefab(const PackDir& p, const SourceFile& f, const 
         }
         for (const auto& [name, value] : comps.items()) {
             const std::string cat = ptr(ptr(at, "components"), name);
+            if (value.is_null() && !pf.inherits.empty()) {
+                pf.removes.push_back(name); // 변형이 부모의 컴포넌트를 뺀다
+                continue;
+            }
             if (isEngineManagedComponent(name)) {
                 error(f.display, cat, "V3",
                       std::format("'{}' 는 엔진이 관리한다{}", name,
@@ -2182,6 +2195,81 @@ void ContentLoaderImpl::loadTriggerJson(const PackDir& p, const SourceFile& f, c
     m_db.m_triggers.push_back(std::move(t));
 }
 
+// 변형 (v0.12 ST-06-5, ADR-0158): 부모의 푼 값 위에 자기 컴포넌트를 키 단위로 덮어쓰고, null 로 쓴 컴포넌트는 뺀다.
+// tags · name · category 는 안 썼으면 부모 것. 깊이 4 까지 (넘거나 순환이면 V2). 없는 부모는 참조 검사 (V2) 가 알린다 —
+// 여기서는 그 변형을 부모 없이 둔다
+void ContentLoaderImpl::resolvePrefabInherits() {
+    std::vector<Prefab>& all = m_db.m_prefabs;
+    const auto find = [&](std::string_view id) -> Prefab* {
+        const auto it =
+            std::lower_bound(all.begin(), all.end(), id, [](const Prefab& p, std::string_view v) { return p.id < v; });
+        return it != all.end() && it->id == id ? &*it : nullptr;
+    };
+    // 단계 (0 = 부모 없음). kUnknown · kVisiting (순환 찾기) · kFailed (부모를 못 풀었다 — 이 변형도 풀지 않는다)
+    constexpr i32 kUnknown = -1, kVisiting = -2, kFailed = -3;
+    std::vector<i32> level(all.size(), kUnknown);
+    const std::function<i32(usize)> resolve = [&](usize i) -> i32 {
+        Prefab& pf = all[i];
+        if (level[i] >= 0 || level[i] == kFailed) {
+            return level[i];
+        }
+        if (pf.inherits.empty()) {
+            return level[i] = 0;
+        }
+        if (level[i] == kVisiting) {
+            error(pf.file, "/inherits", "V2", std::format("Prefab '{}' 의 inherits 가 순환한다", pf.id));
+            return kFailed;
+        }
+        Prefab* parent = find(pf.inherits);
+        if (parent == nullptr) {
+            return level[i] = kFailed; // 없는 부모 — 참조 검사 V2
+        }
+        level[i] = kVisiting;
+        const i32 up = resolve(static_cast<usize>(parent - all.data()));
+        if (up < 0) {
+            return level[i] = kFailed;
+        }
+        if (up + 1 > static_cast<i32>(kMaxPrefabInheritDepth)) {
+            error(pf.file, "/inherits", "V2",
+                  std::format("Prefab '{}' 의 inherits 가 {} 단계를 넘는다", pf.id, kMaxPrefabInheritDepth));
+            return level[i] = kFailed;
+        }
+        std::vector<PrefabComponent> merged;
+        for (const PrefabComponent& pc : parent->components) {
+            if (std::ranges::find(pf.removes, pc.name) == pf.removes.end()) {
+                merged.push_back(pc);
+            }
+        }
+        for (const PrefabComponent& own : pf.components) {
+            const auto it = std::ranges::find(merged, own.name, &PrefabComponent::name);
+            if (it == merged.end()) {
+                merged.push_back(own);
+            } else if (own.value.is_object() && it->value.is_object()) {
+                for (const auto& [k, v] : own.value.items()) {
+                    it->value[k] = v; // CreateEntity 의 병합과 같다 — 키 단위
+                }
+            } else {
+                it->value = own.value;
+            }
+        }
+        std::ranges::sort(merged, {}, &PrefabComponent::name);
+        pf.components = std::move(merged);
+        if (!pf.ownTags) {
+            pf.tags = parent->tags;
+        }
+        if (pf.name.empty()) {
+            pf.name = parent->name;
+        }
+        if (pf.category.empty()) {
+            pf.category = parent->category;
+        }
+        return level[i] = up + 1;
+    };
+    for (usize i = 0; i < all.size(); ++i) {
+        (void)resolve(i);
+    }
+}
+
 void ContentLoaderImpl::crossCheck() {
     // V1 중복 id
     const auto dupCheck = [&](auto& items, const char* what) {
@@ -2194,6 +2282,7 @@ void ContentLoaderImpl::crossCheck() {
         }
     };
     dupCheck(m_db.m_prefabs, "Prefab");
+    resolvePrefabInherits();
     dupCheck(m_db.m_behaviors, "Behavior");
     dupCheck(m_db.m_modes, "GameMode");
     dupCheck(m_db.m_playerActions, "PlayerAction");

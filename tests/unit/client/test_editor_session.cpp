@@ -11,6 +11,7 @@
 #include "apps/client/DefaultInput.hpp"
 #include "apps/client/NetworkSession.hpp"
 #include "core/components/core/Movement.hpp"
+#include "core/content/PrefabDiff.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
 #include "editor/Editor.hpp"
@@ -198,6 +199,78 @@ TEST_SUITE("client") {
         CHECK(r.drawnAt(back)->x == doctest::Approx(2.5f));
         CHECK(r.drawnAt(back)->y == doctest::Approx(3.5f));
         CHECK(serverSpeed(back) == doctest::Approx(2.5f));
+        CHECK(r.ed.stats().rejected == 0);
+    }
+
+    TEST_CASE(
+        "prefab propagate on a local server (v0.12 ST-06-5): Prefab 을 고치면 개체가 따라오고 오버라이드는 남는다 · "
+        "Inspector 의 오버라이드 · Prefab 값으로 · 되돌리기") {
+        EditRig r;
+        r.until([&] { return r.ns->ready(); });
+        r.ns->togglePause();
+        r.until([&] { return r.ns->paused(); });
+        r.ed.setTool(editor::Tool::Place);
+        r.ed.settings().prefab = "eco.rabbit";
+        std::vector<NetEntityId> ids;
+        for (const Vec2 at : {Vec2{2.5f, 3.5f}, Vec2{4.5f, 3.5f}}) {
+            auto in = r.input(at);
+            in.primaryPressed = true;
+            r.frame(in);
+            r.until([&] { return !r.ed.lastCreated().empty() && r.ed.idle(); });
+            ids.push_back(r.ed.lastCreated().front());
+        }
+        REQUIRE(ids[0] != ids[1]);
+        const ecs::StableId movement = r.ns->catalog()->find("core.movement")->stableId;
+        const auto serverSpeed = [&](NetEntityId netId) {
+            const sim::SimulationWorld& sw = r.ns->localServer()->host().world();
+            const ecs::EntityId e = sw.resolve(netId);
+            const auto* m = e != ecs::kNullEntity ? sw.registry().tryRead<comp::Movement>(e) : nullptr;
+            return m != nullptr ? m->maxSpeed : -1.f;
+        };
+        const auto shownSpeed = [&](NetEntityId netId) -> f64 {
+            for (const editor::ComponentState& s : r.ns->components(netId)) {
+                if (s.stableId == movement) {
+                    return s.value["maxSpeed"].get<f64>();
+                }
+            }
+            return -1;
+        };
+        // 둘째 토끼만 maxSpeed 오버라이드
+        r.ns->setSelection({ids[1]});
+        r.until([&] { return shownSpeed(ids[1]) == doctest::Approx(2.5); });
+        r.ed.setField(*r.ns, movement, "maxSpeed", 5.0);
+        r.until([&] { return r.ed.idle() && shownSpeed(ids[1]) == doctest::Approx(5.0); });
+        auto ov = editor::Editor::prefabOverrides(*r.ns, ids[1]);
+        const auto movementOverride = [&] {
+            return std::ranges::find(ov, movement, &content::ComponentOverride::stableId);
+        };
+        REQUIRE(movementOverride() != ov.end());
+        CHECK(movementOverride()->fields == std::vector<std::string>{"maxSpeed"});
+
+        // Studio 의 Prefab 편집 (EditContent{Prefab, propagate}) — 첫째는 따라오고 둘째의 오버라이드는 남는다
+        nlohmann::json rabbit = r.ns->content()->findPrefab("eco.rabbit")->raw;
+        rabbit["components"]["core.movement"]["maxSpeed"] = 4.0;
+        rabbit["components"]["core.movement"]["accel"] = 12.0;
+        REQUIRE(r.ed.editContent(*r.ns, content::ContentKind::Prefab, "eco.rabbit", rabbit));
+        r.until([&] { return r.ed.idle() && serverSpeed(ids[0]) == doctest::Approx(4.f); });
+        CHECK(serverSpeed(ids[1]) == doctest::Approx(5.f));
+        const sim::SimulationWorld& sw = r.ns->localServer()->host().world();
+        CHECK(sw.registry().read<comp::Movement>(sw.resolve(ids[1])).accel == doctest::Approx(12.f)); // 따라온 필드
+
+        // Inspector "Prefab 값으로" — 새 Prefab 값 (4)
+        r.until([&] { return r.ns->content()->findPrefab("eco.rabbit")->raw == rabbit; });
+        r.ed.revertToPrefab(*r.ns, movement);
+        r.until([&] { return r.ed.idle() && serverSpeed(ids[1]) == doctest::Approx(4.f); });
+        r.until([&] { return shownSpeed(ids[1]) == doctest::Approx(4.0); });
+        ov = editor::Editor::prefabOverrides(*r.ns, ids[1]);
+        CHECK(movementOverride() == ov.end());
+
+        // 되돌리기 두 번 — "Prefab 값으로" 를 되돌리고, Prefab 편집을 되돌리면 (전파) 따라간 값이 돌아온다
+        r.ed.undo(*r.ns);
+        r.until([&] { return r.ed.idle() && serverSpeed(ids[1]) == doctest::Approx(5.f); });
+        r.ed.undo(*r.ns);
+        r.until([&] { return r.ed.idle() && serverSpeed(ids[0]) == doctest::Approx(2.5f); });
+        CHECK(serverSpeed(ids[1]) == doctest::Approx(5.f));
         CHECK(r.ed.stats().rejected == 0);
     }
 

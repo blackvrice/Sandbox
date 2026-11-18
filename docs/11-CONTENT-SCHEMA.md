@@ -32,7 +32,9 @@
 - 태그 이름은 소문자·숫자·'_' (팩 접두사 없음, 여러 팩이 같은 태그를 선언해도 된다). 비트 = 전체 태그 이름 정렬 순.
 - Prefab: "tags" 는 이름 배열 → 엔티티의 core.tags. 엔진 관리 컴포넌트(persist.persistence, net.identity, core.tags,
   core.prefab, game.session, game.score)는 components 에 쓸 수 없다 (game.spawn_point 는 쓸 수 있다 — 9장). 모르는 컴포넌트는 render.* / client.* 만 허용(Opaque), 나머지는 V3 오류.
-  "inherits" 는 null 이거나 없어야 한다 (상속 [계획]). enum 필드(예: life.reproduce.mode)는 지금 정수로 쓴다.
+  "inherits": "<부모 Prefab id>" = 변형 (v0.12 ST-06-5, ADR-0158) — 로드 끝에 부모의 푼 값 위에 컴포넌트마다 키 단위로 덮어쓴다,
+  "<컴포넌트>": null 은 부모의 그 컴포넌트를 뺀다 (inherits 가 없으면 V3), tags · name · category 는 안 쓰면 부모 것. 깊이 4 까지
+  (넘거나 순환 · 문자열 아님 = V2, 없는 부모 · 팩 경계 = V2 참조 검사). enum 필드(예: life.reproduce.mode)는 지금 정수로 쓴다.
 - Prefab 생성 시 core.prefab{id} 가 붙는다 (출처). 09 의 entities.jsonl "prefab" 필드 대신 이 컴포넌트가 저장된다.
 - Rule: source/target 은 {"tags": TagExpr}. 조건 경로 "<source|target>.<컴포넌트>.<수치 필드>", op < <= > >= == !=.
   효과의 who 는 spawn(기본 source)·event(기본 target)·score.add(기본 target) 외에는 필수. spawn 의 count 1~16, event 이름은
@@ -217,7 +219,7 @@ dependencies  {팩 id: 범위 | {version?, path} | {version?, git, rev}}. 키는
     // material 은 표현 에셋 이름 — assets/<팩>/materials.json 이 스프라이트 · 색으로 푼다 (06 7.1 · 7.4, Phase 8A).
     // 서버 · contentHash 와 무관 (render.* 는 Opaque). size 는 월드 단위, layer 0~255 (큰 값이 위)
   },
-  "inherits": null                          // 후속: 단일 상속 (병합 규칙 미정)
+  "inherits": null                          // 변형이면 부모 Prefab id (v0.12 ST-06-5 — 위 0장 규칙)
 }
 ```
 

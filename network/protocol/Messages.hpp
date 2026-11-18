@@ -39,7 +39,8 @@ namespace sbx::net {
 // ServerStats 의 스크립트 함수 표 (자기 연료 상위 — 자리 · 호출 · 연료 누적, 합) — v0.9 M6-T4 19: GameEvents (32 —
 // client 시스템이 구독한 게임 이벤트, 틱마다) — v0.10 RT-06-7 조각 2 (ADR-0141) 20: GameEvents 의 종류에 collisionEnter
 // · collisionExit · triggerEnter · triggerExit (8 ~ 11 — entity = 자기, targets = [상대]) — v0.11 RT-06-5 (ADR-0151)
-inline constexpr u32 kProtocolVersion = 20;
+// 21: EditContent 끝에 propagate bool (Prefab 을 이미 있는 개체에 전한다) — v0.12 ST-06-5 (ADR-0158)
+inline constexpr u32 kProtocolVersion = 21;
 inline constexpr usize kMaxControlMessageBytes = 64 * 1024; // 03 장 표: Control 메시지 64 KB
 inline constexpr usize kMaxDisplayNameBytes = 64;           // UTF-8 바이트 (글자 수 상한은 32)
 inline constexpr usize kMaxDisplayNameChars = 32;

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "core/content/ContentDatabase.hpp"
+#include "core/content/PrefabDiff.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
 #include "render/renderer/RenderWorld.hpp"
@@ -812,6 +813,76 @@ void Editor::removeComponent(IEditorHost& host, ecs::StableId component) {
     endTxn();
 }
 
+// ---- v0.12 ST-06-5: Prefab 오버라이드 ----
+
+std::vector<content::ComponentOverride> Editor::prefabOverrides(IEditorHost& host, NetEntityId id) {
+    const content::ContentDatabase* content = host.content();
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    if (content == nullptr || catalog == nullptr) {
+        return {};
+    }
+    const std::vector<ComponentState> comps = host.components(id);
+    const content::Prefab* prefab = nullptr;
+    std::vector<content::InstanceComponent> instance;
+    for (const ComponentState& s : comps) {
+        if (s.name == "core.prefab" && s.value.is_object() && s.value.contains("id") && s.value["id"].is_string()) {
+            prefab = content->findPrefab(s.value["id"].get<std::string>());
+        }
+        instance.push_back({std::string(s.name), s.stableId, s.value});
+    }
+    if (prefab == nullptr) {
+        return {};
+    }
+    std::vector<content::ComponentOverride> out = content::prefabOverrides(*prefab, *catalog, instance);
+    // opaque (render.*) 는 개체 값이 이 목록에 없다 — 표시하지 않는다 (서버의 값)
+    std::erase_if(out, [](const content::ComponentOverride& o) { return o.stableId == 0; });
+    return out;
+}
+
+void Editor::revertToPrefab(IEditorHost& host, ecs::StableId component) {
+    if (!host.permissions().entities) {
+        m_message = "지금 역할로는 값을 바꿀 수 없습니다";
+        return;
+    }
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    const ecs::ComponentInfo* info = catalog != nullptr ? catalog->find(component) : nullptr;
+    if (info == nullptr) {
+        return;
+    }
+    beginTxn(std::format("{} — Prefab 값으로", info->name));
+    for (const NetEntityId id : std::vector<NetEntityId>(host.selection().begin(), host.selection().end())) {
+        for (const content::ComponentOverride& o : prefabOverrides(host, id)) {
+            if (o.stableId != component) {
+                continue;
+            }
+            const std::vector<ComponentState> comps = host.components(id);
+            const auto now = std::ranges::find(comps, component, &ComponentState::stableId);
+            if (o.kind == content::OverrideKind::Changed && now != comps.end()) {
+                cmd::ChangeComponent change{id, component, ecs::Json::object()};
+                cmd::ChangeComponent back{id, component, ecs::Json::object()};
+                for (const std::string& f : o.fields) {
+                    const ecs::FieldDesc* fd = info->findField(f);
+                    if (fd == nullptr || fd->hint == ecs::Hint::EntityRef || !o.prefabValue.contains(f)) {
+                        continue; // 개체 참조는 Prefab 값이 없다 (읽기만)
+                    }
+                    change.patch[f] = o.prefabValue[f];
+                    back.patch[f] = now->value.contains(f) ? now->value[f] : ecs::Json();
+                }
+                if (!change.patch.empty()) {
+                    (void)sendEdit(host, std::move(change), {UndoCmd{std::move(back), {}}});
+                }
+            } else if (o.kind == content::OverrideKind::Removed) {
+                cmd::AddComponent add{id, {component, o.prefabValue}};
+                (void)sendEdit(host, std::move(add), {UndoCmd{cmd::RemoveComponent{id, component}, {}}});
+            } else if (o.kind == content::OverrideKind::Added && now != comps.end()) {
+                cmd::AddComponent back{id, {component, withoutEntityRefs(now->value, *info)}};
+                (void)sendEdit(host, cmd::RemoveComponent{id, component}, {UndoCmd{std::move(back), {}}});
+            }
+        }
+    }
+    endTxn();
+}
+
 // ---- 12C: 콘텐츠 ----
 
 bool Editor::editContent(IEditorHost& host, content::ContentKind kind, const std::string& id, ecs::Json value) {
@@ -828,9 +899,12 @@ bool Editor::editContent(IEditorHost& host, content::ContentKind kind, const std
     if (before == value) {
         return false; // 바뀌는 것이 없다
     }
-    cmd::EditContent back{kind, id, std::move(before)};
+    // Prefab 은 이미 있는 개체에 전한다 (v0.12 ST-06-5, ADR-0158) — 되돌리기도 전해 따라간 필드가 돌아온다
+    const bool propagate = kind == content::ContentKind::Prefab;
+    cmd::EditContent back{kind, id, std::move(before), propagate};
     beginTxn(std::format("{} {}", content::contentKindName(kind), id));
-    const u32 seq = sendEdit(host, cmd::EditContent{kind, id, std::move(value)}, {UndoCmd{std::move(back), {}}});
+    const u32 seq =
+        sendEdit(host, cmd::EditContent{kind, id, std::move(value), propagate}, {UndoCmd{std::move(back), {}}});
     endTxn();
     return seq != 0;
 }

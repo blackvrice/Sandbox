@@ -24,7 +24,7 @@ enum class PayloadTag : u8 {
     RemoveComponent = 5,
     ChangeComponent = 6,
     PaintTerrain = 7,
-    EditContent = 8, // 프로토콜 6 (12C)
+    EditContent = 8, // 프로토콜 6 (12C). 프로토콜 21 (v0.12 ST-06-5): 끝에 propagate bool
     PauseSimulation = 20,
     ResumeSimulation = 21,
     StepSimulation = 22,

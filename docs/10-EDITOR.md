@@ -261,7 +261,13 @@ Phase 12C 구현 (ADR-0030):
 적용         서버 월드가 팩 원본(로더가 남긴 파일 텍스트) + 오버레이로 콘텐츠를 다시 만든다 — 팩과 같은 검증(V1~V7, 문제는
              "overlay/<종류>/<id>.json"), 실패면 거절 · 그대로. 태그 · 머티리얼은 바꿀 수 없다 (모르는 태그 = V7).
              BehaviorGraph 를 바꾸면 그 그래프를 쓰는 개체의 상태를 상태 id 로 옮긴다 (없어진 상태면 처음부터). 바꾼 Rule 은 원래
-             정의 순서 자리, 더한 Rule 은 맨 뒤. 이미 만든 개체는 Prefab 이 바뀌어도 그대로 (새로 만드는 것부터)
+             정의 순서 자리, 더한 Rule 은 맨 뒤. 이미 만든 개체는 Prefab 이 바뀌어도 그대로 (새로 만드는 것부터) — 단 v0.12
+             ST-06-5 (ADR-0158): propagate (Studio 의 Prefab 편집 · 그 되돌리기) 면 정의가 바뀐 Prefab · 변형의 개체마다 saveId
+             차례로 옛 Prefab 값 그대로인 필드만 새 값, 새 컴포넌트 붙임, 없어진 컴포넌트는 옛 값 그대로일 때만 뗌, 태그 · opaque
+             도 같은 규칙 (core.transform 제외). opaque (render.*) 변경은 이미 보는 클라이언트에 다시 보일 때까지 늦다 [계획]
+Prefab 인스턴스 (v0.12 ST-06-5) Inspector 가 첫 선택 개체의 오버라이드를 강조 (Prefab 과 다른 필드 · "● 더함" · "Prefab 에서 뺌")
+             — 오버라이드는 저장하지 않는 값의 차이 (core/content/PrefabDiff). "Prefab 값으로" = ChangeComponent (다른 필드) ·
+             AddComponent (뺀 것 되살리기) · RemoveComponent (더한 것) — 되돌리기 한 칸
 전송         ContentOverlay (Bulk) — 들어오면 전체, 바뀌면 바뀐 항목만. 클라이언트도 자기 팩에 얹어 content() 로 (팔레트에 새 Prefab)
 해시 · 세이브 오버레이 지문은 WorldHash 끝에 (비어 있으면 넣지 않는다). contentHash(접속 검사)는 팩 그대로.
              세이브 overlay/<prefabs|rules|behaviors>/<id>.json, 리플레이는 명령 그대로 ({"op": "content"})

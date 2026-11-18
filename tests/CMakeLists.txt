@@ -85,6 +85,7 @@ add_executable(SandboxTests
     unit/persist/test_save_migration.cpp
     unit/content/test_content_loader.cpp
     unit/content/test_content_overlay.cpp
+    unit/content/test_prefab_variants.cpp
     unit/content/test_pack_manifest.cpp
     unit/content/test_script_content.cpp
     unit/content/test_pack_import.cpp

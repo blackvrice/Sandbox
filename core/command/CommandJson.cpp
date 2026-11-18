@@ -151,8 +151,11 @@ Json payloadToJson(const CommandPayload& payload, const RefWriter& ref) {
                 return Json{{"op", "game"}, {"action", p.op == GameControlOp::Start ? "start" : "abort"}};
             } else {
                 static_assert(std::is_same_v<P, EditContent>);
-                return Json{
-                    {"op", "content"}, {"kind", content::contentKindName(p.kind)}, {"id", p.id}, {"value", p.value}};
+                Json j{{"op", "content"}, {"kind", content::contentKindName(p.kind)}, {"id", p.id}, {"value", p.value}};
+                if (p.propagate) {
+                    j["propagate"] = true; // v0.12 ST-06-5 — 없으면 false (옛 리플레이 그대로)
+                }
+                return j;
             }
         },
         payload);
@@ -287,6 +290,12 @@ Expected<CommandPayload> payloadFromJson(const Json& j, const RefReader& ref) {
         }
         c.id = j["id"].get<std::string>();
         c.value = j["value"];
+        if (j.contains("propagate")) {
+            if (!j["propagate"].is_boolean()) {
+                return makeError(ErrorCode::ParseError, "content 의 'propagate' 는 true · false");
+            }
+            c.propagate = j["propagate"].get<bool>();
+        }
         return CommandPayload{std::move(c)};
     }
     if (op == "action") {

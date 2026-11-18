@@ -13,6 +13,7 @@
 // 12C (ADR-0030). PlayerAction 은 [계획].
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -91,9 +92,17 @@ struct PaintTerrain {
 // — 오류가 있으면 거절되고 아무것도 바뀌지 않는다. BehaviorGraph 를 바꾸면 그 그래프를 쓰는 개체의 상태는 상태 id 로
 // 옮긴다.
 struct EditContent {
+    // 생성자 — propagate 를 생략한 {kind, id, value} 가 GCC · Clang 의 -Wmissing-field-initializers 에 걸리지 않게
+    EditContent() = default;
+    EditContent(content::ContentKind k, std::string i, ecs::Json v, bool p = false)
+        : kind(k), id(std::move(i)), value(std::move(v)), propagate(p) {}
+
     content::ContentKind kind = content::ContentKind::Rule;
     std::string id;
     ecs::Json value; // 객체 또는 null
+    // Prefab 일 때 — 이미 있는 개체에 전한다 (v0.12 ST-06-5, ADR-0158): 개체 값이 옛 Prefab 값인 필드만 새 값으로,
+    // saveId 차례. 기본 false = 지금 동작 (새 개체만 새 값). 프로토콜 21 · 명령 JSON 은 true 일 때만 "propagate"
+    bool propagate = false;
 };
 
 // --- 실행 제어 ---------------------------------------------------------------

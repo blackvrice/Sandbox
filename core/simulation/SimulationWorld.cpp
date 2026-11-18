@@ -20,6 +20,7 @@
 #include "core/components/game/ScriptTimer.hpp"
 #include "core/components/game/SpawnPoint.hpp"
 #include "core/content/ContentLoader.hpp"
+#include "core/content/PrefabDiff.hpp"
 #include "core/content/ScriptPrograms.hpp"
 #include "core/game/GameRules.hpp"
 #include "core/replay/WorldHash.hpp"
@@ -1439,11 +1440,148 @@ Expected<void> SimulationWorld::applyEditContent(const cmd::EditContent& c) {
             }
         }
     }
+    const std::shared_ptr<const content::ContentDatabase> keep = m_overlaid; // 전파가 옛 정의를 읽는 동안 살려 둔다
+    const content::ContentDatabase& previous = *m_content;
     m_overlaid = std::move(db);
     m_content = m_overlaid ? m_overlaid.get() : &m_baseContent;
     ++m_contentRevision;
+    if (c.kind == content::ContentKind::Prefab && c.propagate) {
+        propagatePrefabs(previous, *m_content);
+    }
     syncScriptSystems();
     return {};
+}
+
+// Prefab 전파 (v0.12 ST-06-5, ADR-0158 3) — EditContent{Prefab, propagate} 가 콘텐츠를 바꾼 뒤 같은 명령 안에서. 정의
+// (컴포넌트 · 태그) 가 바뀐 Prefab 의 개체마다 saveId 차례로: 개체 값 = 옛 Prefab 값인 필드만 새 값, 새로 생긴
+// 컴포넌트는 붙이고, 없어진 컴포넌트는 개체 값이 옛 값과 모두 같을 때만 뗀다. 패치가 틀리면 (범위 · 경계) 그 컴포넌트만
+// 그대로 — 결정적
+void SimulationWorld::propagatePrefabs(const content::ContentDatabase& before, const content::ContentDatabase& after) {
+    struct Change {
+        const content::Prefab* old;
+        const content::Prefab* now;
+        std::map<std::string, std::pair<Json, Json>, std::less<>>
+            canon; // 이름 → (옛 정규 값, 새 정규 값) — 없으면 null
+    };
+    const auto sameComponents = [](const content::Prefab& a, const content::Prefab& b) {
+        if (a.components.size() != b.components.size() || a.tags != b.tags) {
+            return false;
+        }
+        for (usize i = 0; i < a.components.size(); ++i) {
+            if (a.components[i].name != b.components[i].name || a.components[i].value != b.components[i].value) {
+                return false;
+            }
+        }
+        return true;
+    };
+    std::map<std::string, Change, std::less<>> changed;
+    for (const content::Prefab& p : before.prefabs()) {
+        const content::Prefab* now = after.findPrefab(p.id);
+        if (now == nullptr || sameComponents(p, *now)) {
+            continue; // 없어진 Prefab 의 개체는 그대로 (출처 id 만 남는다)
+        }
+        Change ch{&p, now, {}};
+        const auto canonOf = [&](const content::Prefab& pf, std::string_view name) -> Json {
+            const content::PrefabComponent* pc = content::findPrefabComponent(pf, name);
+            if (pc == nullptr) {
+                return nullptr;
+            }
+            if (pc->opaque) {
+                return pc->value;
+            }
+            const ecs::ComponentInfo* info = m_catalog.find(pc->stableId);
+            auto c = info != nullptr ? content::canonicalComponentJson(*info, pc->value) : Expected<Json>(Json());
+            return c ? *c : Json();
+        };
+        for (const content::Prefab* pf : {&p, now}) {
+            for (const content::PrefabComponent& pc : pf->components) {
+                if (content::tracksPrefabComponent(pc.name) && !ch.canon.contains(pc.name)) {
+                    ch.canon.emplace(pc.name, std::make_pair(canonOf(p, pc.name), canonOf(*now, pc.name)));
+                }
+            }
+        }
+        changed.emplace(p.id, std::move(ch));
+    }
+    if (changed.empty()) {
+        return;
+    }
+    std::vector<std::tuple<u64, ecs::EntityId, const Change*>> targets; // saveId 차례
+    for (auto [e, src, per] : m_registry.view<ecs::Read<comp::PrefabSource>, ecs::Read<comp::Persistence>>()) {
+        if (const auto it = changed.find(src.prefab.view()); it != changed.end()) {
+            targets.emplace_back(per.saveId, e, &it->second);
+        }
+    }
+    std::ranges::sort(targets, {}, [](const auto& t) { return std::get<0>(t); });
+    const Tick tick = m_clock.tick();
+    for (const auto& [saveId, e, ch] : targets) {
+        for (const auto& [name, values] : ch->canon) {
+            const auto& [oldC, newC] = values;
+            const content::PrefabComponent* now = content::findPrefabComponent(*ch->now, name);
+            const content::PrefabComponent* old = content::findPrefabComponent(*ch->old, name);
+            const bool opaque = (now != nullptr && now->opaque) || (old != nullptr && old->opaque);
+            if (opaque) {
+                Json& bag = m_opaque[saveId];
+                if (!bag.is_object()) {
+                    bag = Json::object();
+                }
+                const Json* inst = bag.contains(name) && bag[name].contains("value") ? &bag[name]["value"] : nullptr;
+                if (inst != nullptr && old != nullptr && *inst == oldC) {
+                    if (now == nullptr) {
+                        bag.erase(name);
+                    } else {
+                        bag[name] = Json{{"version", 1}, {"value", newC}};
+                    }
+                } else if (inst == nullptr && old == nullptr && now != nullptr) {
+                    bag[name] = Json{{"version", 1}, {"value", newC}};
+                }
+                if (bag.empty()) {
+                    m_opaque.erase(saveId);
+                }
+                continue;
+            }
+            const ecs::StableId sid = now != nullptr ? now->stableId : old->stableId;
+            const ecs::ComponentInfo* info = m_catalog.find(sid);
+            if (info == nullptr) {
+                continue;
+            }
+            ecs::ComponentPoolBase& pool = poolFor(*info);
+            if (pool.contains(e)) {
+                Json inst;
+                info->writeJson(pool.getRaw(e), inst);
+                if (now == nullptr) { // Prefab 에서 없어졌다 — 개체 값이 옛 값 그대로일 때만 뗀다
+                    if (inst == oldC) {
+                        (void)pool.remove(e);
+                    }
+                    continue;
+                }
+                if (old == nullptr || info->patchJson == nullptr) {
+                    continue; // 개체가 먼저 더한 컴포넌트 — 오버라이드
+                }
+                const Json patch = content::followPatch(oldC, newC, inst);
+                if (patch.empty()) {
+                    continue;
+                }
+                void* raw = const_cast<void*>(pool.getRaw(e)); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                if (info->stableId == ecs::stableIdOf<comp::Transform>) {
+                    continue; // tracksPrefabComponent 가 막는다 — 자리는 개체의 것
+                }
+                if (auto r = info->patchJson(raw, patch, info->name); r) {
+                    (void)pool.getRawForWrite(e, tick);
+                }
+            } else if (old == nullptr && now != nullptr) { // 새로 생긴 컴포넌트 — 붙인다
+                if (info->validateJson(newC, info->name)) {
+                    void* raw = pool.emplaceDefaultRaw(e, tick);
+                    const auto r = info->readJson(raw, newC, info->name);
+                    SBX_VERIFY(r.has_value(), "검증을 통과한 컴포넌트 값의 적용이 실패했다");
+                }
+            }
+        }
+        if (ch->old->tags != ch->now->tags) {
+            if (const auto* tags = m_registry.tryRead<comp::Tags>(e); tags != nullptr && tags->set == ch->old->tags) {
+                m_registry.write<comp::Tags>(e).set = ch->now->tags;
+            }
+        }
+    }
 }
 
 void SimulationWorld::setScriptClock(script::ScriptClock scriptClock) noexcept {

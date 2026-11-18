@@ -15,6 +15,7 @@ namespace sbx::editor {
 namespace {
 
 constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_None; // 자리는 레이아웃에 (v0.8 M6-T6)
+constexpr ImVec4 kOverrideColor{0.98f, 0.75f, 0.30f, 1.f};      // Prefab 오버라이드 (v0.12 ST-06-5)
 
 [[nodiscard]] f32 dpi() {
     return ImGui::GetStyle().FontScaleDpi;
@@ -181,13 +182,38 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
     if (!editable) {
         ImGui::TextDisabled("보기만 — 지금 역할로는 값을 바꿀 수 없습니다");
     }
+    // Prefab 오버라이드 (v0.12 ST-06-5, ADR-0158) — 첫 선택 개체의 Prefab 과 다른 필드 · 더한 · 뺀 컴포넌트
+    const std::vector<content::ComponentOverride> overrides = Editor::prefabOverrides(host, id);
+    const auto overrideOf = [&](ecs::StableId c) -> const content::ComponentOverride* {
+        const auto it = std::ranges::find(overrides, c, &content::ComponentOverride::stableId);
+        return it != overrides.end() ? &*it : nullptr;
+    };
     ImGui::Separator();
+    for (const content::ComponentOverride& o : overrides) {
+        if (o.kind != content::OverrideKind::Removed) {
+            continue;
+        }
+        ImGui::TextColored(kOverrideColor, "Prefab 에서 뺌: %s", o.component.c_str());
+        if (editable) {
+            ImGui::SameLine();
+            ImGui::PushID(static_cast<int>(o.stableId & 0x7FFF'FFFF));
+            if (ImGui::SmallButton("되살리기")) {
+                editor.revertToPrefab(host, o.stableId);
+            }
+            ImGui::PopID();
+        }
+    }
     for (const ComponentState& s : comps) {
         const ecs::ComponentInfo* info = catalog->find(s.stableId);
         if (info == nullptr) {
             continue;
         }
-        const std::string header = std::format("{}{}##c{}", info->name, s.replicated ? "" : "  (서버)", info->stableId);
+        const content::ComponentOverride* ov = overrideOf(s.stableId);
+        const char* mark = ov == nullptr                              ? ""
+                           : ov->kind == content::OverrideKind::Added ? "  ● 더함"
+                                                                      : "  ● Prefab 과 다름";
+        const std::string header =
+            std::format("{}{}{}##c{}", info->name, s.replicated ? "" : "  (서버)", mark, info->stableId);
         if (!ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
             continue;
         }
@@ -195,11 +221,25 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host) {
         ImGui::BeginDisabled(!editable);
         for (const ecs::FieldDesc& f : info->fields) {
             if (s.value.is_object() && s.value.contains(std::string(f.name))) {
+                // 오버라이드 필드는 강조 색 (Prefab 과 다른 값)
+                const bool overridden = ov != nullptr && std::ranges::find(ov->fields, f.name) != ov->fields.end();
+                if (overridden) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, kOverrideColor);
+                }
                 fieldWidget(editor, st, host, *info, f, s.value[std::string(f.name)]);
+                if (overridden) {
+                    ImGui::PopStyleColor();
+                }
             }
         }
         if (editable && ImGui::SmallButton("컴포넌트 빼기")) {
             editor.removeComponent(host, s.stableId);
+        }
+        if (editable && ov != nullptr) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton(ov->kind == content::OverrideKind::Added ? "Prefab 처럼 (빼기)" : "Prefab 값으로")) {
+                editor.revertToPrefab(host, s.stableId);
+            }
         }
         ImGui::EndDisabled();
         ImGui::PopID();

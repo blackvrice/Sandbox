@@ -406,6 +406,10 @@ Prefab 스키마: [11-CONTENT-SCHEMA](11-CONTENT-SCHEMA.md) 2장.
 스폰 지점 · 효과 spawn) 가 같은 차례로 만든다. SpawnQueue 는 17 단계에서 (parent saveId, 넣은 순서) 로 정렬해 적용하고, 덮어쓰기 없는
 생성은 처음 한 번 만든 컴포넌트 바이트 (Prefab 템플릿) 를 다시 쓴다 (15A — 결과는 JSON 경로와 같다).
 
+v0.12 ST-06-5 (ADR-0158): 변형 (Prefab "inherits") 은 로드 때 푼 보통 Prefab 이라 인스턴스화는 그대로 (core.prefab = 변형 id).
+오버라이드는 컴포넌트에 저장하지 않는다 — 개체 값과 Prefab 값의 차이 (core/content/PrefabDiff). EditContent.propagate 가 이미
+있는 개체에 Prefab 변경을 전한다 (03 4장).
+
 ---
 
 ## 14. 기본 컴포넌트 카탈로그 (Phase 5B · v0.2 까지 구현 — 0장. society.* · combat.* · client.* 는 `[계획]`, 스크립트 컴포넌트는 9.6)
