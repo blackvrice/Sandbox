@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-18 — v0.11: GCC · Clang 빌드 고침 (5a2e8d1 의 CI — -Wmissing-field-initializers)
+
+**무엇을**
+
+- 시험의 집합 초기화가 새 필드를 빠뜨렸다 — SoundAsset::samples (test_action_map 의 Null 백엔드 시험 둘), PlayParams::position
+  (test_audio_output 의 pitch 0 거절 — 이름 있는 변수로). MSVC 는 경고하지 않아 로컬 /WX 를 지났다.
+- 같은 김에 GCC -Wsign-conversion 이 볼 자리 (WavDecoder 의 채널 곱 · 나눗셈, SimulationContacts 의 트리거 비트) 를 명시 변환으로,
+  ALSA 장치의 쓰지 않는 필드 (m_channels — Clang -Wunused-private-field) 를 뺐다.
+
+**왜**
+
+- 5a2e8d1 의 CI (Linux gcc · clang · asan · macOS) 가 SandboxTests 컴파일에서 멈췄다 — Windows 만 통과.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,153 모두 통과. clang-cl 은 이 PC 에 없어 (VS LLVM 폴더에 clang-format ·
+  clang-tidy 뿐) GCC · Clang 은 CI 로 본다.
+
+**남은 일**
+
+- CI 결과 확인.
+
 ## 2026-11-17 — v0.11 NG-19: 통합 시험 — 구슬 모으기 (samples/orbs · 템플릿 physics) · 폭주 시험 (ADR-0154)
 
 **무엇을**

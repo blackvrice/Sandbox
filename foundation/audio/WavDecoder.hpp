@@ -25,7 +25,9 @@ struct DecodedAudio {
     u16 channels = 0;
     std::vector<f32> samples; // 엇갈린 표본 — 크기 = frames × channels
 
-    [[nodiscard]] u64 frames() const noexcept { return channels == 0 ? 0 : samples.size() / channels; }
+    [[nodiscard]] u64 frames() const noexcept {
+        return channels == 0 ? 0 : samples.size() / static_cast<usize>(channels);
+    }
     [[nodiscard]] f64 seconds() const noexcept {
         return sampleRate == 0 ? 0.0 : static_cast<f64>(frames()) / static_cast<f64>(sampleRate);
     }

@@ -210,13 +210,13 @@ TEST_SUITE("platform") {
 
     TEST_CASE("null audio: handle lifetimes, voice limit, finishing, buses") {
         NullAudioBackend audio;
-        SoundAsset clip{"click", 48000, 1, 24000}; // 0.5초
-        CHECK_FALSE(audio.load(clip).valid());     // init 전
+        SoundAsset clip{"click", 48000, 1, 24000, {}}; // 0.5초
+        CHECK_FALSE(audio.load(clip).valid());         // init 전
 
         REQUIRE(audio.init(AudioDesc{48000, 2, 2}));
         const SoundHandle s = audio.load(clip);
         REQUIRE(s.valid());
-        CHECK_FALSE(audio.load(SoundAsset{"bad", 0, 1, 10}).valid());
+        CHECK_FALSE(audio.load(SoundAsset{"bad", 0, 1, 10, {}}).valid());
 
         PlayParams once;
         PlayParams loop;

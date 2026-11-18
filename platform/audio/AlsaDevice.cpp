@@ -77,7 +77,6 @@ public:
             return false;
         }
         m_render = std::move(render);
-        m_channels = channels;
         m_frames = std::max<u32>(sampleRate / 50, 64);
         m_mix.assign(static_cast<usize>(m_frames) * channels, 0.f);
         m_out.assign(m_mix.size(), 0);
@@ -124,7 +123,6 @@ private:
     DrainFn m_drop = nullptr;
     snd_pcm_t* m_pcm = nullptr;
     AudioRenderFn m_render;
-    u16 m_channels = 2;
     u32 m_frames = 0;
     std::vector<f32> m_mix;
     std::vector<i16> m_out;

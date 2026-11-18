@@ -228,7 +228,9 @@ TEST_SUITE("platform") {
         (void)q.mixer.play(steps, fast);
         out = q.render(2);
         CHECK(out[2] == doctest::Approx(0.5f));
-        CHECK_FALSE(q.mixer.play(steps, platform::PlayParams{1.f, 0.f}).valid()); // pitch 0 거절
+        platform::PlayParams still;
+        still.pitch = 0.f;
+        CHECK_FALSE(q.mixer.play(steps, still).valid()); // pitch 0 거절
         // 스테레오 소리는 채널 그대로
         Mix st;
         (void)st.mixer.play(st.load({0.2f, -0.2f}, 2), {});

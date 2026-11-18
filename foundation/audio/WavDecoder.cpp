@@ -126,7 +126,7 @@ Expected<DecodedAudio> decodeWav(std::span<const u8> bytes) {
     DecodedAudio out;
     out.sampleRate = rate;
     out.channels = channels;
-    out.samples.resize(static_cast<usize>(frames) * channels);
+    out.samples.resize(static_cast<usize>(frames) * static_cast<usize>(channels));
     const u8* p = data;
     for (usize i = 0; i < out.samples.size(); ++i, p += sampleBytes) {
         out.samples[i] = sampleAt(p, bits, isFloat);

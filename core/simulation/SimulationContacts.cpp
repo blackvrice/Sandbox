@@ -65,7 +65,7 @@ void SimulationWorld::updateContacts() {
         (void)e;
         for (usize i = 0; i < c.others.size(); ++i) {
             const SaveId other = c.others[i];
-            const bool trigger = ((c.triggers >> i) & 1u) != 0;
+            const bool trigger = ((static_cast<u32>(c.triggers) >> i) & 1u) != 0;
             previous.push_back(id.saveId < other ? ContactPair{id.saveId, other, trigger}
                                                  : ContactPair{other, id.saveId, trigger});
         }
