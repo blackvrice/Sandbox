@@ -538,7 +538,7 @@ int runNewFromTemplate(const SbxOptions& opt, const ecs::ComponentCatalog& catal
         return kExitError;
     }
     const auto made = project::createProjectFromTemplate(*it, std::filesystem::path(opt.dir), opt.gameId, opt.name,
-                                                         engineVersion(), catalog);
+                                                         engineVersion(), catalog, opt.templatePackId);
     if (!made) {
         printErr(made.error().describe());
         return kExitError;

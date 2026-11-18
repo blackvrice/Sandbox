@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-18 — sbx new --template --pack-id — 템플릿 팩 이름 바꾸기 (ADR-0166)
+
+**무엇을**
+
+- createProjectFromTemplate(…, packId) · sbx new --pack-id: 팩 폴더 · pack.json id · 팩 안 글 (json · ts · md) · 자동 플레이 ·
+  시작 월드 (world.json · entities.jsonl) 의 "<옛>." · "<옛>/" · "<옛>" 낱말 (앞이 id 글자 · '.' 가 아닌 것만) · 매니페스트 (팩 ·
+  게임 모드) 를 바꾸고, 시작 월드를 해시 확인 없이 열어 다시 저장, 자동 플레이의 expect.hash 를 뺀다. 문서: 15, 13.
+
+**왜**
+
+- 오목 개발 (dogfood) 에서: 팩을 손으로 바꾸면 시작 월드가 옛 팩 · 옛 컴포넌트 이름을 가리켜 P5 · D2 로 열리지 않았고, sbx resave
+  도 실패 — world.json 의 해시를 손으로 고쳐야 했다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 통과, test_project_template "--pack-id" 통과. 다섯 템플릿 (board · dungeon · physics · minigame · survival) 을
+  --pack-id mygame 으로 만들어 sbx test 모두 통과 (같은 결과 · 틱). 만들다 찾은 것: 넘겨받은 팩 id (string_view) 가 바꾸는
+  매니페스트 칸을 가리켜 게임 모드가 안 바뀌었다 — 복사해 쓴다.
+
+**남은 일**
+
+- 팩이 여럿인 템플릿 · 이미 만든 프로젝트의 팩 이름 바꾸기 (Studio) [계획].
+
 ## 2026-11-18 — 게임 UI 행동 {"game": start · restart · abort} — "다시 하기" 버튼 (ADR-0166)
 
 **무엇을**

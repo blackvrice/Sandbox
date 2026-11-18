@@ -5,6 +5,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "core/content/ContentLoader.hpp"
+#include "core/persist/WorldSave.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "script/sdk/SdkGenerator.hpp"
 
@@ -13,6 +16,141 @@ namespace sbx::project {
 namespace fs = std::filesystem;
 
 namespace {
+
+[[nodiscard]] bool validPackId(std::string_view id) noexcept {
+    return !id.empty() && id.size() <= 32 && id != "core" &&
+           std::ranges::all_of(id, [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; });
+}
+
+// 글에서 팩 id 낱말 from 을 to 로 — 앞이 id 글자 · '.' 가 아니고 뒤가 '.' · '/' · '"' 인 것만 ("ttt.board" · "ttt/x" ·
+// "ttt"). 설명 글 안의 같은 글자 (다른 낱말의 일부) 는 건드리지 않는다
+std::string renamePackWord(std::string_view text, std::string_view from, std::string_view to) {
+    const auto idChar = [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.'; };
+    std::string out;
+    out.reserve(text.size());
+    usize i = 0;
+    while (i < text.size()) {
+        const usize end = i + from.size();
+        if (text.compare(i, from.size(), from) == 0 && (i == 0 || !idChar(text[i - 1])) && end < text.size() &&
+            (text[end] == '.' || text[end] == '/' || text[end] == '"')) {
+            out += to;
+            i = end;
+        } else {
+            out += text[i++];
+        }
+    }
+    return out;
+}
+
+// 팩 바꾸기 (createProjectFromTemplate 의 packId) — 시작 월드의 다시 저장은 매니페스트를 쓴 뒤 (아래 reopenWorlds)
+Expected<void> renameTemplatePack(const fs::path& staging, std::string_view fromView, std::string_view to,
+                                  GameManifest& m) {
+    const std::string from(fromView); // 부르는 쪽이 m.contentPacks 의 칸을 넘긴다 — 아래에서 그 칸을 바꾸므로 복사
+    std::error_code ec;
+    fs::path folder;
+    for (fs::directory_iterator it(staging / "content", ec), end; !ec && it != end; it.increment(ec)) {
+        auto text = io::readFile(it->path() / "pack.json");
+        if (!text) {
+            continue;
+        }
+        const nlohmann::json j = nlohmann::json::parse(*text, nullptr, false);
+        if (j.is_object() && j.value("id", "") == from) {
+            folder = it->path();
+        }
+    }
+    if (folder.empty()) {
+        return makeError(ErrorCode::NotFound, std::format("템플릿에 팩 '{}' 의 폴더가 없다", from),
+                         io::displayPath(staging));
+    }
+    const fs::path target = staging / "content" / std::string(to);
+    if (fs::exists(target, ec)) {
+        return makeError(ErrorCode::AlreadyExists, std::format("팩 폴더 '{}' 가 이미 있다", to),
+                         io::displayPath(target));
+    }
+    fs::rename(folder, target, ec);
+    if (ec) {
+        return makeError(ErrorCode::IoError, std::format("팩 폴더를 옮기지 못했다: {}", ec.message()),
+                         io::displayPath(folder));
+    }
+    // 글 파일 — 팩 안 (json · ts · md), 자동 플레이 (playthrough.json · tests/*.json), 시작 월드 (world.json ·
+    // entities.jsonl)
+    std::vector<fs::path> files;
+    for (fs::recursive_directory_iterator it(target, ec), end; !ec && it != end; it.increment(ec)) {
+        const auto ext = it->path().extension();
+        if (it->is_regular_file(ec) && (ext == ".json" || ext == ".ts" || ext == ".md")) {
+            files.push_back(it->path());
+        }
+    }
+    files.push_back(staging / "playthrough.json");
+    for (fs::directory_iterator it(staging / "tests", ec), end; !ec && it != end; it.increment(ec)) {
+        if (it->path().extension() == ".json") {
+            files.push_back(it->path());
+        }
+    }
+    for (fs::directory_iterator it(staging / "worlds", ec), end; !ec && it != end; it.increment(ec)) {
+        files.push_back(it->path() / "world.json");
+        files.push_back(it->path() / "entities.jsonl");
+    }
+    for (const fs::path& f : files) {
+        if (!fs::is_regular_file(f, ec)) {
+            continue;
+        }
+        auto text = io::readFile(f);
+        if (!text) {
+            return std::unexpected(text.error());
+        }
+        std::string next = renamePackWord(*text, from, to);
+        // 자동 플레이의 expect.hash 는 뺀다 — 컴포넌트 이름 (stableId) 이 바뀌어 같은 판도 해시가 달라진다 (결과 · 틱은
+        // 그대로)
+        if (f.parent_path() == staging || f.parent_path() == staging / "tests") {
+            nlohmann::ordered_json j = nlohmann::ordered_json::parse(next, nullptr, false);
+            if (j.is_object() && j.contains("expect") && j["expect"].is_object() && j["expect"].erase("hash") > 0) {
+                next = j.dump(2) + "\n";
+            }
+        }
+        if (next != *text) {
+            if (auto w = io::writeFileAtomic(f, next); !w) {
+                return std::unexpected(w.error());
+            }
+        }
+    }
+    std::ranges::replace(m.contentPacks, std::string(from), std::string(to));
+    m.gameMode = renamePackWord("\"" + m.gameMode, from, to).substr(1); // "<옛>.<모드>" — 앞 따옴표가 낱말 경계
+    return {};
+}
+
+// 바꾼 이름으로 시작 월드들을 다시 저장 — 컴포넌트 이름이 바뀌어 옛 worldHash 와 맞지 않으므로 해시 확인 없이 열고 새로
+// 쓴다
+Expected<void> reopenWorlds(const fs::path& staging, const GameManifest& m, const ecs::ComponentCatalog& catalog) {
+    content::ContentLoadResult loaded = content::ContentLoader::load(staging / "content", m.contentPacks, catalog);
+    if (!loaded.ok()) {
+        std::string msg = "이름을 바꾼 팩을 읽지 못했다";
+        for (const content::ContentIssue& i : loaded.issues) {
+            msg += "\n  " + i.describe();
+        }
+        return makeError(ErrorCode::ValidationFailed, msg, io::displayPath(staging));
+    }
+    std::error_code ec;
+    for (fs::directory_iterator it(staging / "worlds", ec), end; !ec && it != end; it.increment(ec)) {
+        if (!fs::is_regular_file(it->path() / "world.json", ec)) {
+            continue;
+        }
+        persist::LoadOptions lo;
+        lo.verifyHash = false;
+        auto w = persist::loadWorld(catalog, loaded.db, it->path(), lo);
+        if (!w) {
+            return std::unexpected(w.error());
+        }
+        persist::SaveOptions so{it->path().filename().string()};
+        if (const auto summary = scenario::readSaveSummary(it->path()); summary && summary->game) {
+            so.game = summary->game;
+        }
+        if (auto s = persist::saveWorld(*w->world, it->path(), so); !s) {
+            return std::unexpected(s.error());
+        }
+    }
+    return {};
+}
 
 [[nodiscard]] bool validTemplateId(std::string_view id) noexcept {
     if (id.empty() || id.size() > 32) {
@@ -131,7 +269,8 @@ std::vector<ProjectTemplateInfo> listProjectTemplates(const fs::path& samplesRoo
 
 Expected<NewProjectResult> createProjectFromTemplate(const ProjectTemplateInfo& tmpl, const fs::path& projectDirArg,
                                                      std::string_view gameId, std::string_view name,
-                                                     const SemVer& engine, const ecs::ComponentCatalog& catalog) {
+                                                     const SemVer& engine, const ecs::ComponentCatalog& catalog,
+                                                     std::string_view packId) {
     fs::path projectDir = projectDirArg.lexically_normal();
     if (projectDir.filename().empty()) {
         projectDir = projectDir.parent_path();
@@ -204,9 +343,33 @@ Expected<NewProjectResult> createProjectFromTemplate(const ProjectTemplateInfo& 
         return makeError(ErrorCode::IoError, std::format("템플릿을 읽지 못했다: {}", ec.message()),
                          io::displayPath(tmpl.dir));
     }
+    // 2b. 팩 이름 바꾸기 (--pack-id — v0.12)
+    if (!packId.empty()) {
+        if (!validPackId(packId)) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("팩 id '{}' — 소문자 · 숫자 · '_' (32 바이트까지, core 는 엔진)", packId),
+                             where);
+        }
+        if (m.contentPacks.size() != 1) {
+            return makeError(ErrorCode::InvalidArgument,
+                             std::format("템플릿 '{}' 의 팩이 하나가 아니다 ({} 개) — 팩 이름을 바꿀 수 없다", tmpl.id,
+                                         m.contentPacks.size()),
+                             where);
+        }
+        if (m.contentPacks.front() != packId) {
+            if (auto r = renameTemplatePack(staging, m.contentPacks.front(), packId, m); !r) {
+                return std::unexpected(r.error());
+            }
+        }
+    }
     // 3. 매니페스트 · 세이브 결속 · SDK (이 엔진의 Host 표)
     if (auto r = saveManifest(staging, m); !r) {
         return std::unexpected(r.error());
+    }
+    if (!packId.empty()) {
+        if (auto r = reopenWorlds(staging, m, catalog); !r) {
+            return std::unexpected(r.error());
+        }
     }
     if (auto r = rebindWorlds(staging, m.gameId); !r) {
         return std::unexpected(r.error());

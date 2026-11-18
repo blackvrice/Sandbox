@@ -36,11 +36,14 @@ struct ProjectTemplateInfo {
 // template.json 하나를 읽는다 (형식 · id 검사)
 [[nodiscard]] Expected<ProjectTemplateInfo> readProjectTemplate(const std::filesystem::path& projectDir);
 
-// 템플릿에서 새 프로젝트 — 폴더는 없거나 비어 있어야 한다 (AlreadyExists). name 이 비면 gameId 의 마지막 마디
-[[nodiscard]] Expected<NewProjectResult> createProjectFromTemplate(const ProjectTemplateInfo& tmpl,
-                                                                   const std::filesystem::path& projectDir,
-                                                                   std::string_view gameId, std::string_view name,
-                                                                   const SemVer& engine,
-                                                                   const ecs::ComponentCatalog& catalog);
+// 템플릿에서 새 프로젝트 — 폴더는 없거나 비어 있어야 한다 (AlreadyExists). name 이 비면 gameId 의 마지막 마디.
+// packId 가 있으면 템플릿의 팩 (하나) 을 그 id 로 바꾼다 (v0.12 — 오목 개발에서 찾음: 손으로 바꾸면 시작 월드가 옛 팩을
+// 가리켜 열리지 않았다): 팩 폴더 · pack.json id · 콘텐츠와 자동 플레이의 "<옛>." · "<옛>/" · "<옛>" 낱말 · 매니페스트
+// (팩 · 게임 모드) · 시작 월드 (팩 · 컴포넌트 이름 · 세션 모드 — 옛 해시 없이 열어 다시 저장). 소문자 · 숫자 · '_'
+// (core 아님)
+[[nodiscard]] Expected<NewProjectResult>
+createProjectFromTemplate(const ProjectTemplateInfo& tmpl, const std::filesystem::path& projectDir,
+                          std::string_view gameId, std::string_view name, const SemVer& engine,
+                          const ecs::ComponentCatalog& catalog, std::string_view packId = {});
 
 } // namespace sbx::project

@@ -64,13 +64,14 @@ struct SbxOptions {
     std::string mode;        // new --mode <GameMode id> (비면 모드 없음 — v0.2 M3-T3)
     std::string
         templateId; // new --template <id> (v0.10 M6-T2 — samples/ 의 template.json, --from · --mode 와 함께 못 쓴다)
-    bool resume = false;     // resave --resume (일시정지를 풀고 저장 — 게임 템플릿의 시작 월드)
-    std::string out;         // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
-    std::string profile;     // build --profile <이름> (export/<이름>.json — v0.6 NG-08)
-    bool cache = false;      // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
-    std::string cacheDir;    // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)
-    std::string gitUrl;      // fetch · add --git <URL> (v0.4 M2-T2)
-    std::string gitRev;      // fetch · add --rev <태그 · 커밋>
+    std::string templatePackId; // new --template … --pack-id <id> (v0.12 — 템플릿의 팩 이름을 바꾼다)
+    bool resume = false;        // resave --resume (일시정지를 풀고 저장 — 게임 템플릿의 시작 월드)
+    std::string out;            // build --out <파일> (비면 <프로젝트>/build/<gameId>-<version>.sbpkg — v0.2 M5-T2)
+    std::string profile;        // build --profile <이름> (export/<이름>.json — v0.6 NG-08)
+    bool cache = false;         // digest --cache (사용자 캐시에 넣는다 — v0.4 M2-T1)
+    std::string cacheDir;       // digest · fetch --cache-dir <폴더> (비면 사용자 캐시)
+    std::string gitUrl;         // fetch · add --git <URL> (v0.4 M2-T2)
+    std::string gitRev;         // fetch · add --rev <태그 · 커밋>
     std::string packId;      // fetch --id <팩 id> (비면 확인하지 않는다) · add · remove · update 의 <팩> (v0.4 M3-T3)
     std::string depPath;     // add --path <팩 폴더> (프로젝트 기준 상대 경로, '/' 구분)
     std::string depVersion;  // add --version <범위> (비면 범위 없음)

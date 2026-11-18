@@ -295,11 +295,15 @@ SandboxServer --world <시나리오|게임 프로젝트|세이브 폴더> [--por
 
 sbx new <폴더> --id <gameId> [--name 이름] [--from <시나리오>] [--mode <GameMode id>] [--content-root d] [--seed n]
                                                                                             (v0.2 M1-T4, ADR-0043)
-sbx new <폴더> --template <id> --id <gameId> [--name 이름]                                  (v0.10 M6-T2, ADR-0144)
+sbx new <폴더> --template <id> --id <gameId> [--name 이름] [--pack-id <팩>]                 (v0.10 M6-T2, ADR-0144)
   게임 템플릿 — samples/ 의 template.json 이 있는 예제 (minigame = 노코드 미니게임 + HUD · board = 스크립트 보드게임 (틱택토) ·
-  survival = 생존 (모닥불 지키기) · physics = 물리 미니게임 (구슬 모으기 — v0.11 NG-19)) 를 복사하고
+  survival = 생존 (모닥불 지키기) · physics = 물리 미니게임 (구슬 모으기 — v0.11 NG-19) · dungeon = 2D 타일맵 (보석 동굴 — v0.12
+  NG-20)) 를 복사하고
   gameId · 이름 · 판 0.1.0 · 엔진 범위 · 세이브 결속 · SDK 를 새로 쓴다 (--from · --mode 와 같이 쓰지 않는다). 검사 오류 · 경고 0 을
-  통과해야 제자리로. sbx templates 가 "--template <id> 제목 — 설명" 줄로 보인다
+  통과해야 제자리로. sbx templates 가 "--template <id> 제목 — 설명" 줄로 보인다.
+  --pack-id <팩> (v0.12, ADR-0166): 템플릿의 팩 (하나) 이름을 바꾼다 — 폴더 · pack.json id · 팩 안 글 · 자동 플레이 · 시작 월드의
+  "<옛>." · "<옛>/" · "<옛>" 낱말 · 매니페스트 (팩 · 게임 모드), 시작 월드를 옛 해시 없이 열어 다시 저장, 자동 플레이의 expect.hash
+  는 뺀다 (id 가 바뀌어 같은 판도 해시가 다르다). 소문자 · 숫자 · '_' (core 아님)
 sbx resave <폴더> [--resume]                                                               (v0.10 M6-T2)
   시작 월드 (worlds/<이름>) 를 지금 프로젝트 콘텐츠로 다시 저장 — Studio 의 Ctrl+S 와 같다 (개체 · 지형 · 틱 그대로, 세이브의 게임
   결속 그대로). 팩을 더하거나 고친 뒤의 P4 경고 ("콘텐츠가 저장 당시와 다르다") 를 창 없이 없앤다. --resume = 일시정지를 풀고 저장

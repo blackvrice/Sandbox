@@ -15,7 +15,10 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/project/ProjectTemplate.hpp"
+#include "core/scenarios/PlayScript.hpp"
+#include "core/scenarios/WorldSource.hpp"
 #include "editor/services/ProjectService.hpp"
+#include "foundation/BuildInfo.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "script/sdk/SdkGenerator.hpp"
 
@@ -159,6 +162,53 @@ TEST_SUITE("project") {
         CHECK(broken.error().message.find("템플릿 'base'") != std::string::npos);
         CHECK_FALSE(fs::exists(t.path / "Broken"));
         CHECK_FALSE(fs::exists(t.path / "Broken.sbx-new"));
+    }
+
+    TEST_CASE("project template (v0.12 — --pack-id): 템플릿 팩 이름 바꾸기 — 폴더 · id · 매니페스트 · 시작 월드 · 자동 "
+              "플레이") {
+        const auto list = project::listProjectTemplates(SBX_SAMPLES_DIR);
+        const auto board = std::ranges::find(list, "board", &project::ProjectTemplateInfo::id);
+        REQUIRE(board != list.end());
+        TempDir t("packid");
+        const fs::path dir = t.path / "Omok";
+        // 이 빌드의 엔진 (시작 월드를 openWorldSource 로 연다 — 범위가 이 엔진을 담아야 한다)
+        const SemVer engineNow{build::kVersionMajor, build::kVersionMinor, build::kVersionPatch, {}, {}};
+        const auto made = project::createProjectFromTemplate(*board, dir, "me.omok", "", engineNow, catalog(), "omok");
+        REQUIRE_MESSAGE(made.has_value(), made.error().describe());
+        CHECK(made->manifest.contentPacks == std::vector<std::string>{"omok"});
+        CHECK(made->manifest.gameMode == "omok.match");
+        CHECK(fs::is_directory(dir / "content" / "omok"));
+        CHECK_FALSE(fs::exists(dir / "content" / "ttt"));
+        // 옛 id 가 남지 않았다 (팩 · 자동 플레이 · 시작 월드), 설명 글은 그대로
+        for (const auto& e : fs::recursive_directory_iterator(dir)) {
+            const auto ext = e.path().extension();
+            if (e.is_regular_file() && (ext == ".json" || ext == ".ts" || ext == ".jsonl") &&
+                e.path().filename() != "sandbox.d.ts") {
+                const std::string text = *io::readFile(e.path());
+                CHECK_MESSAGE(text.find("ttt.") == std::string::npos, e.path().string());
+                CHECK_MESSAGE(text.find("\"ttt\"") == std::string::npos, e.path().string());
+            }
+        }
+        const std::string playText = *io::readFile(dir / "playthrough.json");
+        CHECK(playText.find("\"hash\"") == std::string::npos); // id 에 매인 해시는 뺐다
+        // 시작 월드가 열리고 (해시 다시 저장) 자동 플레이가 그대로 이긴다
+        auto src = scenario::openWorldSource(dir.string(), {}, 1, catalog());
+        REQUIRE_MESSAGE(src.has_value(), src.error().describe());
+        CHECK(src->warnings.empty());
+        const auto script = scenario::loadPlayScript(dir / "playthrough.json");
+        REQUIRE(script.has_value());
+        REQUIRE(scenario::runPlayScript(*src->runner, *script, scenario::playStepLimit(*script)).has_value());
+        CHECK(scenario::checkPlayExpectation(src->runner->world(), script->expect).empty());
+        // 거절 — 틀린 id · core
+        CHECK_FALSE(
+            project::createProjectFromTemplate(*board, t.path / "Bad1", "me.bad", "", kEngine, catalog(), "Bad-Id")
+                .has_value());
+        CHECK_FALSE(
+            project::createProjectFromTemplate(*board, t.path / "Bad2", "me.bad", "", kEngine, catalog(), "core")
+                .has_value());
+        // 같은 id 면 그대로
+        CHECK(project::createProjectFromTemplate(*board, t.path / "Same", "me.same", "", kEngine, catalog(), "ttt")
+                  .has_value());
     }
 
     TEST_CASE("project template (v0.10 M6-T2): 저장소 samples 의 minigame — sbx new 와 같은 결과, Studio 고르기") {
