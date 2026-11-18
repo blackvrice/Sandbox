@@ -201,7 +201,7 @@ struct ScriptProfileInfo {
     std::vector<ScriptProfileRow> client;                  // 이 클라이언트의 client 시스템
     std::vector<ScriptFunctionProfileRow> serverFunctions; // 자기 연료 상위 (프로토콜 18)
     std::vector<ScriptFunctionProfileRow> clientFunctions;
-    std::vector<EngineProfileRow> engine; // 엔진 시스템 (프로토콜 22 — 스크립트가 없어도)
+    std::vector<EngineProfileRow> engine{}; // 엔진 시스템 (프로토콜 22 — 스크립트가 없어도)
 };
 
 // 게임 UI 원문 (v0.7 M3-T3 — 팩의 presentation/ui, ADR-0079). 클라이언트의 GameUiLayer 가 읽는다 (검사는 sbx check)

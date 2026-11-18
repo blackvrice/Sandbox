@@ -7,6 +7,22 @@
 
 ---
 
+## 2026-11-18 — v0.12: GCC · Clang 빌드 고침 (833256d 의 CI — ScriptProfileInfo 의 새 필드 engine)
+
+**무엇을**
+
+- RT-06-11 이 ScriptProfileInfo 에 더한 engine 을 test_client_script_session 의 지정 초기화가 빠뜨려 GCC
+  (-Wmissing-field-initializers) · Clang (-Wmissing-designated-field-initializers) 이 오류 (CI = -Werror). 시험에 `.engine = {}`, 필드에
+  기본 초기화 `{}`. MSVC 는 경고하지 않는다.
+
+**검증**
+
+- 디버그 빌드 · client 시험 통과. GCC · Clang 은 다음 CI 로.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-18 — v0.12 NG-20: 통합 시험 — 보석 동굴 (ADR-0165)
 
 **무엇을**
