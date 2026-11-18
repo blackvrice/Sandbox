@@ -137,7 +137,7 @@
 | [0120](0120-studio-test-layers-gui-smoke-gated.md) | Studio 시험 층 — 층 2 흐름 E2E (새 프로젝트 → 가져오기 → 빌드 → 패키지 플레이), 층 3 GUI smoke (Windows WARP · CI 또는 SBX_GUI_TESTS=1 만 — 그 밖 SKIPPED), 층 4 QA 증거 양식, 기준마다 증거 층 | Accepted | 2026-11-10 |
 | [0121](0121-player-mode-client-option-library-error-screen.md) | Player 모드 — --play · .sbpkg 경로 하나 (파일 연결 인자), Studio 창 · 서비스 없음, player.json 최근 게임, 오류 코드마다 사람 말 화면 · 보고 묶음, OS 파일 연결 등록은 설치 프로그램 몫 | Accepted | 2026-11-10 |
 | [0122](0122-command-palette-shortcut-dispatch-themes.md) | 명령 팔레트 (Ctrl+Shift+P) · 단축키 표 · 명령 표의 단축키를 ImGui::Shortcut 로 실행 (행동 표의 키는 keyHint 로 보이기만) · 셸 일을 명령으로 (같은 길) · 테마 어두움 · 밝음 · 고대비 (계산된 대비 시험, studio.json "theme") | Accepted | 2026-11-10 |
-| [0123](0123-defer-scene-game-view-split.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 — 게임 카메라 정의 · 렌더러 두 번 그리기 · 플랫폼 다중 창이 먼저, 창 QA 도 밀림. 다시 할 차례: 카메라 → Game 뷰 → 멀티 뷰포트 | Accepted | 2026-11-11 |
+| [0123](0123-defer-scene-game-view-split.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 — 게임 카메라 정의 · 렌더러 두 번 그리기 · 플랫폼 다중 창이 먼저, 창 QA 도 밀림. 다시 할 차례: 카메라 → Game 뷰 → 멀티 뷰포트 | Superseded (0164) | 2026-11-11 |
 | [0124](0124-bytecode-line-table-format-11.md) | 바이트코드 줄 표 (.sbc 형식 11) — 함수마다 (pc, 줄, 열) 칸 (식 단위 · 바뀔 때만), 읽기의 모양 검사, 실행 · 검증 · 해시 영향 없음, 트랩 자리 = 파일:줄:열 (describeSite) | Accepted | 2026-11-11 |
 | [0125](0125-script-function-profile-self-fuel-protocol-18.md) | 함수별 스크립트 프로파일 — 자기 연료를 프레임이 바뀔 때만 나눈다 (합 = 호출 연료, 늘 켬), 함수 선언 자리 (형식 11), ServerStats 함수 표 (프로토콜 18) · Studio 창 · 서버 끝 줄 | Accepted | 2026-11-11 |
 | [0126](0126-script-diagnostic-help-golden-trap-path.md) | 스크립트 오류 메시지 — 코드마다 고치는 법 표 (소스와 시험으로 맞춤) · Diagnostic · ContentIssue 의 help · 진단 문구 골든 (흔한 실수 18) · export class = S301 · 트랩 호출 경로 (16 칸) | Accepted | 2026-11-11 |
@@ -171,6 +171,7 @@
 | [0154](0154-v011-integration-orbs-physics-minigame.md) | v0.11 통합 시험 NG-19 — samples/orbs (템플릿 physics — 8b 물리 명령 · 트리거 · 충돌 이벤트 · client 소리 · 그리기), CTest sample_orbs (헤드리스 서버 = 로컬 플레이 (Null 오디오) = 패키지, 트랩 0) · project_templates, 폭주는 단위 시험 (틱 4,096 쌍 · 이벤트 예산) | Accepted | 2026-11-17 |
 | [0155](0155-shapecast-host-params-five.md) | ShapeCast — ctx.shapeCast(x0, y0, x1, y1, r) = raycast 의 Minkowski 합 (같은 차례 · r 0 ~ 32), Host 표 매개변수 상한 4 → 5 (.sbc 형식 그대로), 지문 0xf8098f2fe1551dbf | Accepted | 2026-11-18 |
 | [0156](0156-tilemap-terrain-materials-sprite-cells.md) | 2D 타일맵 = 지형 머티리얼 (칠하기 · 세이브 · 해시 · 복제 · 막힘 그대로) + 그림 ("terrain/<id>" 의 sprite · 시트의 칸 cell · grid), SpriteDraw::sub, 보이는 칸만 타일 스프라이트 (32,768 넘으면 색만) | Accepted | 2026-11-18 |
+| [0164](0164-defer-scene-game-view-split-to-v021.md) | ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.21 로 다시 미룬다 — v0.12 판정: 게임 카메라 요구 · 다중 창 없음, 렌더러 세 백엔드 변경 + 창 QA 만 | Accepted | 2026-11-18 |
 | [0163](0163-data-forms-trigger-graph-canvas.md) | 데이터 폼 (컴포넌트 리플렉션 → Prefab 폼 — 종류 · FieldMeta 자르기 · 검증 · 왕복) · 트리거 그래프 캔버스 (노드 pos · 깊이 자리 · 끌어 잇기 · 잇기 규칙) | Accepted | 2026-11-18 |
 | [0162](0162-editor-groups-hierarchy-search.md) | 편집기 그룹 (세이브 폴더 editor.json · saveId — persist.persistence 를 복제) · 목록 검색 낱말 (글자 · #번호 · prefab: · tag: · group:), 10k 측정 | Accepted | 2026-11-18 |
 | [0161](0161-system-access-set-debug-check-engine-profile.md) | 시스템 AccessSet (읽기 · 쓰기 컴포넌트 — Rule 리플렉션의 둘은 선언 없음) · Debug 에서 Registry 가 선언 밖 접근을 단언 (Release 검사 없음) · ServerStats 엔진 시스템 시간 표 (이름 · 단계 · 호출 · 합 · 최대, 프로토콜 22) | Accepted | 2026-11-18 |

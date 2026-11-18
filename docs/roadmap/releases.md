@@ -84,7 +84,7 @@
 목표      다양한 2D 게임 — Prefab 오버라이드 · 그룹 · 데이터 폼 · 타일맵 · 애니메이션 · 고급 입력 · 믹서
 태스크    ST-06-5 Prefab Override · ST-06-6 Hierarchy 검색 · 그룹 · ST-06-10 데이터 폼 · 트리거 그래프 · NG-15 Tilemap · RT-06-6 ShapeCast ·
           RT-06-11 AccessSet · 프로파일 · RT-06-13 게임패드 · Combo · RT-06-14 애니메이션 상태 기계 · RT-06-15 Audio Mixer · 2D 공간 음향 ·
-          ST-06-11 Scene/Game 뷰 · 떼어 낸 창 (v0.8 에서 — ADR-0123) · NG-20 통합 시험
+          NG-20 통합 시험 (Scene/Game 뷰 분리는 v0.12 판정으로 v0.21 — ADR-0164)
 우선순위  P0 NG-20 · P1 ST-06-5 · NG-15 · RT-06-14 (통합 시험이 쓴다 — 2026-11-03 P2 → P1) 먼저. P2 (ST-06-6 · ST-06-10 · RT-06-6 · RT-06-11 ·
           RT-06-13 · RT-06-15) · P3 (ST-06-11) 는 v0.12 시작 때 필요성을 판정 — 미루면 등록부의 목표를 v0.14 이후로 고치고 이 절에서 뺀다 (v0.13 을 막지 않게)
 완료 기준 1 Prefab 오버라이드 저장 · 다시 열기                           2 에셋 · Prefab 참조가 옮기기 · 이름 바꾸기 뒤에도 그대로
@@ -157,6 +157,7 @@
 ```text
 단계      Public Beta 후보 (release-gates 3장으로 판정 — 번호로 정하지 않는다)
 태스크    PS-19-1 팀 ACL · CI/CD · ST-07-1 초안 · ST-07-2 문서 동시 편집 · ST-07-3 sbx lsp · NG-10 Editor Plugin API v1 · PS-19-2 도구 다국어
+          · ST-06-11 Scene/Game 뷰 · 떼어 낸 창 (P3 — v0.12 에서, ADR-0164)
 ```
 
 ## v0.22 — Reliability & Performance

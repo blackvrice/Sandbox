@@ -1,6 +1,6 @@
 # ADR-0123. ST-06-11 (Scene/Game 뷰 분리 · 떼어 낸 창) 을 v0.12 로 미룬다
 
-- 상태: **Accepted** · 날짜: 2026-11-11
+- 상태: **Superseded** (목표 버전 — [ADR-0164](0164-defer-scene-game-view-split-to-v021.md), v0.12 판정으로 v0.21) · 날짜: 2026-11-11
 - 관련: [ADR-0118](0118-studio-shell-dockspace-design-system.md) (셸 · 모드 띠), [ADR-0096](0096-roadmap-versioning-small-milestones.md) (작은 MINOR),
   [29-STUDIO-UI](../29-STUDIO-UI.md) 1 · 2장, [25-STUDIO-ARCHITECTURE](../25-STUDIO-ARCHITECTURE.md) 4장, task-registry ST-06-11
 
