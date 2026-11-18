@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "보석 동굴 — 자동 플레이 (오른쪽 → 위 → 오른쪽: 보석 셋)",
+  "maxTicks": 400,
+  "steps": [
+    { "at": 2, "command": { "op": "game", "action": "start" } },
+    { "at": 5, "command": { "op": "signal", "name": "dun.move", "value": 0 } },
+    { "at": 45, "command": { "op": "signal", "name": "dun.move", "value": 1 } },
+    { "at": 110, "command": { "op": "signal", "name": "dun.move", "value": 0 } }
+  ],
+  "expect": { "state": "Finished", "result": "win" }
+}

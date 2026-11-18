@@ -1,0 +1,12 @@
+{
+  "id": "dun.collect",
+  "name": "보석 동굴",
+  "description": "방향 키 (W · A · S · D · 패드 십자) 로 주인공을 움직여 보석 셋을 모으면 승리 — 90 초 안에",
+  "players": { "min": 1, "max": 4 },
+  "start": { "countdownSeconds": 0 },
+  "end": [
+    { "when": { "count": { "tags": { "all": ["victory"] }, "op": ">=", "value": 1 } }, "result": "win" },
+    { "when": { "time": { "op": ">=", "seconds": 90 } }, "result": "lose" }
+  ],
+  "restart": { "mode": "manual" }
+}

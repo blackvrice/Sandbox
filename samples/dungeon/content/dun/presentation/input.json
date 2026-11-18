@@ -1,0 +1,11 @@
+{
+  "format": "sandbox.input",
+  "version": 1,
+  "actions": {
+    "play.right": ["D", "Pad.Right"],
+    "play.up": ["W", "Pad.Up"],
+    "play.left": ["A", "Pad.Left"],
+    "play.down": ["S", "Pad.Down"],
+    "play.stop": ["Space", "Pad.A"]
+  }
+}

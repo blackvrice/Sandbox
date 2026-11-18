@@ -1,0 +1,79 @@
+{
+  "worldVersion": 1,
+  "schemaVersion": 1,
+  "simVersion": 4,
+  "name": "world",
+  "seed": "0x0000000000000001",
+  "tick": 0,
+  "nextSaveId": 2,
+  "entityCount": 1,
+  "chunkSize": 32,
+  "bounds": {
+    "minChunk": [
+      0,
+      0
+    ],
+    "maxChunk": [
+      0,
+      0
+    ]
+  },
+  "fillMaterial": "dun.floor",
+  "content": {
+    "packs": [
+      "dun"
+    ],
+    "contentHash": "0xd9d2bf6c4b045719"
+  },
+  "tags": [
+    "gem",
+    "hero",
+    "slime",
+    "victory"
+  ],
+  "terrainMaterials": [
+    "core.grass",
+    "core.rock",
+    "core.sand",
+    "core.water",
+    "dun.floor",
+    "dun.wall"
+  ],
+  "components": {
+    "ai.behavior": 1,
+    "ai.path": 1,
+    "ai.sensor": 1,
+    "core.collider": 1,
+    "core.contacts": 1,
+    "core.lifetime": 1,
+    "core.movement": 1,
+    "core.prefab": 1,
+    "core.tags": 1,
+    "core.transform": 1,
+    "core.trigger": 1,
+    "core.velocity": 1,
+    "debug.random_walk": 1,
+    "dun.cave": 1,
+    "game.camera_start": 1,
+    "game.owner": 1,
+    "game.score": 1,
+    "game.session": 1,
+    "game.spawn_point": 1,
+    "life.age": 1,
+    "life.energy": 1,
+    "life.growth": 1,
+    "life.health": 1,
+    "life.reproduce": 1,
+    "script.state": 1,
+    "script.timer": 1
+  },
+  "simulation": {
+    "paused": false,
+    "speed": 1.0,
+    "pendingSteps": 0,
+    "editSequence": 1
+  },
+  "worldHash": "0x21ef73733dd16d64",
+  "opaqueEntities": 0,
+  "opaqueComponents": []
+}

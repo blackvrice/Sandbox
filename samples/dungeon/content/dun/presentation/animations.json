@@ -1,0 +1,19 @@
+{
+  "clips": {
+    "dun.hero.idle":  { "material": "dun/hero", "grid": [4, 2], "frames": [[0, 0], [1, 0]], "fps": 2 },
+    "dun.hero.walk":  { "material": "dun/hero", "grid": [4, 2], "frames": [[0, 1], [1, 1], [2, 1], [3, 1]], "fps": 8 },
+    "dun.hero.cheer": { "material": "dun/hero", "grid": [4, 2], "frames": [[2, 0], [3, 0], [2, 0], [3, 0]], "fps": 8, "loop": false }
+  },
+  "animators": {
+    "dun.hero": {
+      "initial": "idle",
+      "states": { "idle": "dun.hero.idle", "walk": "dun.hero.walk", "cheer": "dun.hero.cheer" },
+      "transitions": [
+        { "from": "idle", "to": "walk", "when": "moving" },
+        { "from": "walk", "to": "idle", "when": "still" },
+        { "from": "cheer", "to": "idle", "when": "end" }
+      ],
+      "flipWithVelocity": true
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "dun.slime",
+  "name": "슬라임",
+  "category": "Dungeon",
+  "tags": ["slime"],
+  "components": {
+    "core.transform": {},
+    "core.collider":  { "radius": 0.4 },
+    "render.sprite":  { "material": "dun/slime", "size": [0.8, 0.8], "layer": 8 }
+  }
+}

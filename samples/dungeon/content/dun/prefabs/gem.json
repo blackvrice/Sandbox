@@ -1,0 +1,12 @@
+{
+  "id": "dun.gem",
+  "name": "보석",
+  "category": "Dungeon",
+  "tags": ["gem"],
+  "components": {
+    "core.transform": {},
+    "core.collider":  { "radius": 0.3 },
+    "core.trigger":   {},
+    "render.sprite":  { "material": "dun/gem", "size": [0.6, 0.6], "layer": 5 }
+  }
+}

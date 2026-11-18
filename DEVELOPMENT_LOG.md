@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-18 — v0.12 NG-20: 통합 시험 — 보석 동굴 (ADR-0165)
+
+**무엇을**
+
+- samples/dungeon "보석 동굴" (템플릿 dungeon): 팩 dun — 지형 타일 (dun.floor · dun.wall + tiles.png 의 칸), Prefab 변형 (dun.slime_red
+  inherits dun.slime), 주인공 애니메이터 (idle · walk · cheer), 키보드 + 게임패드 게임 키, 서버 dun.game (물리 앞 setVelocity · 트리거
+  보석) · client dun.fx (키 → 신호, 보석 → playAnimation cheer). 시험용 단색 스프라이트 시트 셋 (.meta).
+- unit test_v012_integration: 새 프로젝트 → 가져오기 → 콘텐츠 → 지형 칠하기 맵 → 시작 월드 저장 → 검사 → 빌드 → 패키지 자동 플레이
+  (승리) + 리플레이 → 저장 · 불러오기 · 나란히 해시 → 리플레이 해시. 샘플 worlds/main 은 이 시험이 만든다 (SBX_NG20_WRITE_SAMPLE).
+- CTest sample_dungeon (헤드리스 서버 = 로컬 플레이 = 패키지). 문서: ADR-0165, 13, 17, 등록부 NG-20 Done, v0.12 통합 시험 칸.
+
+**왜**
+
+- 카드 NG-20 (헤드리스 흐름 · 세이브 → 로드 · 리플레이 해시). v0.12 기능이 한 게임에서 같이 도는지 — 창 없이 매 커밋.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과 (/WX 가 getenv C4996 을 잡아 UserSettings 와 같은 꼴로), 단위 시험 assertions 1,955,868
+  모두 통과, 전체 ctest 96 개 — 95 통과 · studio_gui_smoke SKIPPED
+  (sample_dungeon · project_templates 포함). sbx test samples/dungeon — 통과 (tick 134 win).
+- 시험을 쓰다 찾은 것: (1) client 스크립트의 `e.entity !== null` 은 필드라 좁혀지지 않는다 (S404) — 지역 변수로, 검사기의 필드
+  좁히기는 [계획]. (2) 리플레이 헤더의 startWorldHash 는 부르는 쪽이 채운다 (sim_check 처럼 — 시작 세이브의 해시). (3) 일시정지로
+  저장한 시작 월드는 자동 플레이가 돌지 않는다 — 바로 도는 게임은 sbx resave --resume 처럼 풀어서 저장.
+
+**남은 일**
+
+- 창에서 타일 · 애니메이션 그림 · 실제 패드는 MANUAL-QA. v0.12 릴리스 노트 · 제품 버전은 창 QA 뒤 (v0.8 ~ v0.11 과 같이).
+
 ## 2026-11-18 — v0.12 ST-06-11 판정: Scene/Game 뷰 분리를 v0.21 로 (ADR-0164)
 
 **무엇을**

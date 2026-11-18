@@ -1,0 +1,4 @@
+[
+  { "id": "dun.floor", "moveCost": 10 },
+  { "id": "dun.wall", "moveCost": 0 }
+]

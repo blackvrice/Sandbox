@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 3,
+  "gameId": "sandbox.dungeon",
+  "name": "보석 동굴",
+  "version": "0.1.0",
+  "engine": ">=0.7.0 <1.0.0",
+  "entryWorld": "worlds/main",
+  "content": {
+    "packs": [
+      "dun"
+    ]
+  },
+  "gameMode": "dun.collect"
+}

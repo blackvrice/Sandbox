@@ -1,0 +1,9 @@
+{
+  "id": "dun.slime_red",
+  "name": "붉은 슬라임",
+  "inherits": "dun.slime",
+  "components": {
+    "core.collider":  { "radius": 0.45 },
+    "render.sprite":  { "material": "dun/slime_red" }
+  }
+}

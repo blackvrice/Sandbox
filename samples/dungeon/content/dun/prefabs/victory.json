@@ -1,0 +1,7 @@
+{
+  "id": "dun.victory",
+  "name": "victory",
+  "category": "Dungeon",
+  "tags": ["victory"],
+  "components": { "core.transform": {} }
+}

@@ -92,6 +92,7 @@ add_executable(SandboxTests
     unit/content/test_script_overlay.cpp
     unit/project/test_game_project.cpp
     unit/project/test_project_template.cpp
+    unit/project/test_v012_integration.cpp
     unit/project/test_game_package.cpp
     unit/project/test_asset_database.cpp
     unit/project/test_asset_groups.cpp
@@ -759,6 +760,16 @@ if(TARGET sbx)
                         "-DCLIENT_MATCH=클라이언트 스크립트 orb.fx: 호출 [0-9]+ · 트랩 0"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
             set_tests_properties(sample_orbs PROPERTIES LABELS "content" TIMEOUT 600)
+            # v0.12 통합 시험 NG-20 (ADR-0165) — 타일맵 · Prefab 변형 · 2D 애니메이션 · 게임패드 바인딩 · 물리 앞 스크립트 · 트리거,
+            # 헤드리스 서버 = 로컬 플레이 (추출이 타일 · 애니메이션을 돈다) = 패키지. 제작 흐름 · 저장 · 리플레이는 unit (test_v012_integration)
+            add_test(NAME sample_dungeon
+                COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>
+                        -DSBX=$<TARGET_FILE:sbx> "-DSAMPLE=${PROJECT_SOURCE_DIR}/samples/dungeon"
+                        "-DOUT=${CMAKE_CURRENT_BINARY_DIR}/sample_dungeon" "-DRESULT_MATCH=게임 Finished · win"
+                        "-DSERVER_MATCH=스크립트 dun.game: 호출 [0-9]+ · 트랩 0"
+                        "-DCLIENT_MATCH=클라이언트 스크립트 dun.fx: 호출 [0-9]+ · 트랩 0"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/project/sample_playthrough.cmake")
+            set_tests_properties(sample_dungeon PROPERTIES LABELS "content" TIMEOUT 600)
             # 패키지 데모 (v0.4 M6-T1) — 다른 폴더 · 빈 캐시에서 sbx install → sbx test → 서버 = 로컬 플레이 (프로젝트 · 패키지)
             add_test(NAME sample_stash
                 COMMAND "${CMAKE_COMMAND}" -DSERVER=$<TARGET_FILE:SandboxServer> -DCLIENT=$<TARGET_FILE:SandboxClient>

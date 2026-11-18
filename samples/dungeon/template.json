@@ -1,0 +1,8 @@
+{
+  "format": "sandbox.template",
+  "version": 1,
+  "id": "dungeon",
+  "title": "2D 타일맵 게임",
+  "description": "보석 동굴 — 타일 벽 · Prefab 변형 (붉은 슬라임) · 걷기 · 기뻐하기 애니메이션 · 방향 키 · 패드로 보석 셋을 모은다, 자동 플레이 포함",
+  "order": 5
+}
