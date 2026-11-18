@@ -9,6 +9,9 @@
 // 수정자는 **정확히** 맞아야 한다: "Z" 는 Ctrl+Z 를 누를 때 켜지지 않는다. 바인딩된 키가 수정자 키 자신이면
 // (예: "LeftShift") 그 키가 만드는 수정자는 비교에서 뺀다.
 // 같은 바인딩이 두 액션에 있으면 conflicts() 가 보고한다 (로드는 실패하지 않는다 — 문맥이 다른 액션은 겹쳐도 된다).
+// 게임패드 버튼 (v0.12 RT-06-13, ADR-0160): "Pad.A" · "Pad.B" · "Pad.X" · "Pad.Y" · "Pad.LB" · "Pad.RB" · "Pad.Back" ·
+// "Pad.Start" · "Pad.LS" · "Pad.RS" · "Pad.Up" · "Pad.Down" · "Pad.Left" · "Pad.Right" — 연결된 어느 패드든 (수정자
+// 없이).
 
 #include <filesystem>
 #include <optional>
@@ -23,10 +26,11 @@
 namespace sbx::platform {
 
 struct Binding {
-    enum class Kind : u8 { Key = 0, Mouse };
+    enum class Kind : u8 { Key = 0, Mouse, Gamepad };
     Kind kind = Kind::Key;
-    Key key = Key::Unknown;                 // kind == Key
-    MouseButton button = MouseButton::Left; // kind == Mouse
+    Key key = Key::Unknown;                   // kind == Key
+    MouseButton button = MouseButton::Left;   // kind == Mouse
+    GamepadButton pad = GamepadButton::South; // kind == Gamepad (v0.12 RT-06-13)
     Modifiers mods;
 
     friend bool operator==(const Binding&, const Binding&) noexcept = default;

@@ -38,6 +38,40 @@ bool validActionName(std::string_view s) {
     return true;
 }
 
+// 게임패드 버튼 이름 (v0.12 RT-06-13) — Guide 는 OS 몫이라 묶지 않는다
+struct PadName {
+    std::string_view name;
+    GamepadButton button;
+};
+constexpr std::array<PadName, 14> kPadNames{{{"Pad.A", GamepadButton::South},
+                                             {"Pad.B", GamepadButton::East},
+                                             {"Pad.X", GamepadButton::West},
+                                             {"Pad.Y", GamepadButton::North},
+                                             {"Pad.LB", GamepadButton::LeftShoulder},
+                                             {"Pad.RB", GamepadButton::RightShoulder},
+                                             {"Pad.Back", GamepadButton::Back},
+                                             {"Pad.Start", GamepadButton::Start},
+                                             {"Pad.LS", GamepadButton::LeftStick},
+                                             {"Pad.RS", GamepadButton::RightStick},
+                                             {"Pad.Up", GamepadButton::DpadUp},
+                                             {"Pad.Down", GamepadButton::DpadDown},
+                                             {"Pad.Left", GamepadButton::DpadLeft},
+                                             {"Pad.Right", GamepadButton::DpadRight}}};
+
+std::string_view padName(GamepadButton b) noexcept {
+    const auto it = std::ranges::find(kPadNames, b, &PadName::button);
+    return it != kPadNames.end() ? it->name : std::string_view("Pad.?");
+}
+
+bool anyPad(const InputState& s, GamepadButton b, bool pressedOnly) noexcept {
+    for (const GamepadState& g : s.gamepads) {
+        if (g.connected && (pressedOnly ? g.wasPressed(b) : g.down(b))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 Expected<Binding> parseBinding(std::string_view text) {
@@ -68,6 +102,15 @@ Expected<Binding> parseBinding(std::string_view text) {
         b.key = *key;
         return b;
     }
+    if (const auto pad = std::ranges::find(kPadNames, rest, &PadName::name); pad != kPadNames.end()) {
+        if (b.mods.bits != 0) {
+            return makeError(ErrorCode::ParseError,
+                             std::format("'{}' : 게임패드 버튼에는 수정자를 붙이지 않는다", text));
+        }
+        b.kind = Binding::Kind::Gamepad;
+        b.pad = pad->button;
+        return b;
+    }
     if (const auto button = mouseButtonFromName(rest)) {
         b.kind = Binding::Kind::Mouse;
         b.button = *button;
@@ -87,7 +130,9 @@ std::string bindingName(const Binding& b) {
             out += '+';
         }
     }
-    out += b.kind == Binding::Kind::Key ? keyName(b.key) : mouseButtonName(b.button);
+    out += b.kind == Binding::Kind::Key     ? keyName(b.key)
+           : b.kind == Binding::Kind::Mouse ? mouseButtonName(b.button)
+                                            : padName(b.pad);
     return out;
 }
 
@@ -99,6 +144,9 @@ bool bindingPressed(const Binding& b, const InputState& s) noexcept {
         }
         const u8 mods = static_cast<u8>(s.keyPressMods[static_cast<usize>(b.key)] & ~modifierBitOf(b.key));
         return mods == b.mods.bits;
+    }
+    if (b.kind == Binding::Kind::Gamepad) {
+        return anyPad(s, b.pad, true); // 수정자는 보지 않는다
     }
     return s.pressed(b.button) && s.buttonPressMods[static_cast<usize>(b.button)] == b.mods.bits;
 }
@@ -124,12 +172,24 @@ std::optional<Binding> captureBinding(const InputState& s) noexcept {
             return b;
         }
     }
+    for (usize i = 0; i < static_cast<usize>(GamepadButton::Count); ++i) { // 게임패드 (v0.12 RT-06-13)
+        const auto pad = static_cast<GamepadButton>(i);
+        if (pad != GamepadButton::Guide && anyPad(s, pad, true)) {
+            Binding b;
+            b.kind = Binding::Kind::Gamepad;
+            b.pad = pad;
+            return b;
+        }
+    }
     return std::nullopt;
 }
 
 bool bindingActive(const Binding& b, const InputState& s) noexcept {
     if (bindingPressed(b, s)) {
         return true;
+    }
+    if (b.kind == Binding::Kind::Gamepad) {
+        return anyPad(s, b.pad, false);
     }
     u8 mods = s.modifiers().bits;
     if (b.kind == Binding::Kind::Key) {

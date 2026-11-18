@@ -143,7 +143,12 @@ content/<pack>/
                           파일 · WAV 디코드는 클라이언트가 열 때 (틀리면 경고 · 그 소리만 없이). 프로젝트 검사는 [계획]
     input.json            게임 키 기본값 (v0.2 M3-T3, ADR-0049) — sandbox.input 형식 (07 5장), play.* 이름만.
                           "play.action.<PlayerAction id>": ["Q"] = 누르면 커서 자리에 그 행동. 선택 "contexts": { "play.<이름>":
-                          "game" | "menu" | "always" } (v0.10 RT-06-8 — 없으면 game, 메뉴 · 모달이 보이면 game 키는 먹힌다, ADR-0143). 로더는 원문만 PackInfo 에
+                          "game" | "menu" | "always" } (v0.10 RT-06-8 — 없으면 game, 메뉴 · 모달이 보이면 game 키는 먹힌다, ADR-0143). 로더는 원문만 PackInfo 에.
+                          바인딩에 게임패드 "Pad.A" · "Pad.B" · "Pad.X" · "Pad.Y" · "Pad.LB" · "Pad.RB" · "Pad.Back" · "Pad.Start" · "Pad.LS" ·
+                          "Pad.RS" · "Pad.Up" · "Pad.Down" · "Pad.Left" · "Pad.Right" (v0.12 RT-06-13 — 어느 패드든, 수정자 없이). 선택
+                          "triggers": { "play.<이름>": { "hold" | "doubleTap": "play.<원본>" | "combo": ["play.<원본>", … 2 ~ 8],
+                          "ms": 1 ~ 5000 } } = 바인딩 없는 가상 게임 키 (ADR-0160 — hold 는 ms 뒤 켜짐 · 뗄 때까지, doubleTap · combo 는
+                          한 프레임, 원본은 바인딩이 있는 play.* · 입력 Context 로 거른 값). 틀린 정의는 경고 · 그것만 뺀다
 ```
 
 ```jsonc

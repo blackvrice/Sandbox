@@ -382,6 +382,7 @@ private:
     PlayKeys m_playKeys;
     platform::ActionState m_playState;
     PlayGate m_playGate;                        // 입력 Context 로 거른 게임 키 (v0.10 RT-06-8 조각 2)
+    f64 m_inputClock = 0.0;                     // 월드 입력 프레임 시계 (초 — 트리거, v0.12 RT-06-13)
     u64 m_scriptSoundEvents = 0;                // client 스크립트의 소리 이벤트 수 (v0.5 M2-T6 — 출력은 v0.6)
     std::string m_playSignature;                // 팩 바인딩 · 행동 목록이 바뀌면 다시 만든다
     std::optional<u32> m_cameraStartGeneration; // game.camera_start 를 맞춘 월드 (generation)

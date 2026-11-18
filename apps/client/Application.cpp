@@ -404,6 +404,7 @@ void Application::handleEditor(editor::IEditorHost& host, const render::Camera2D
 }
 
 void Application::handleWorldInput(f64 dt) {
+    m_inputClock += dt; // 입력 트리거의 시계 (v0.12 RT-06-13 — hold · doubleTap · combo)
     const InputState& in = m_input.downstream();
     render::Camera2D& cam = m_renderWorld.camera;
     const auto down = [&](const std::optional<ActionId>& id) { return id.has_value() && m_actionState.down(*id); };
@@ -768,7 +769,7 @@ void Application::handlePlayKeys(const render::Camera2D& cam, Vec2 mousePx) {
     m_playState.update(m_playKeys.map, m_input.downstream());
     // 입력 Context (v0.10 RT-06-8 조각 2): 메뉴 · 모달이 보이면 "game" 키를 먹는다 — 스크립트 키 · onAction · 행동 키
     // 모두
-    m_playGate.update(m_playKeys, m_playState, m_gameUi.menuOpen());
+    m_playGate.update(m_playKeys, m_playState, m_gameUi.menuOpen(), m_inputClock); // 트리거 시계 (v0.12 RT-06-13)
     // client 스크립트의 입력 (v0.5 M2-T6) — 게임 키 ("play.<이름>" 의 <이름> — ActionId 가 이름 순이라 정렬 그대로) ·
     // 커서
     script::ClientScriptInput scriptInput;

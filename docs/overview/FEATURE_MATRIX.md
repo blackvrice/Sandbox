@@ -90,7 +90,7 @@
 | F-211 | 외부 Graphics SDK 연동 | — | ❓ 계획 불명확 | 렌더는 자체 RHI 가 세 그래픽 API 를 직접 쓴다. 다른 그래픽 SDK 와 잇는 계획 · 태스크는 문서에서 찾지 못했다 | 06 · ADR-0006 |
 | F-212 | onRender · Draw API (스크립트가 그리기 명령을 낸다) | v0.11 | ✅ client onRender — drawColor · drawLine · drawCircle · drawRect · drawText (월드 좌표, 프레임 1,024) | `test_client_render` (RT-06-9) | 22 · ADR-0152 |
 | F-213 | 입력 — 키 · 마우스 · ActionMap · 팩 게임 키 · 키 다시 묶기 · 게임패드 (게임 UI) | v0.1 ~ v0.7 | ✅ 사용 가능 | CTest `unit_platform` · `test_key_bindings` · `test_gamepad` | [07](../07-PLATFORM.md) |
-| F-214 | 고급 입력 — Hold · Double Tap · Combo | v0.12 | 📐 설계만 | — (RT-06-13) | 22 6장 |
+| F-214 | 고급 입력 — Hold · Double Tap · Combo · 게임패드 바인딩 | v0.12 | ✅ 구현 (팩 input.json triggers · Pad.* — ADR-0160) | test_input_triggers (RT-06-13) | 22 6장 |
 | F-215 | 물리 · 충돌 — 이동 · 원 분리 충돌 · raycast · overlap 질의 | v0.1 · v0.5 | 🟡 일부 | CTest `det_*` · `test_script_engine_queries` | 03 2장 |
 | F-216 | 물리 단계 콜백 · PhysicsCommand · layer · mask · 충돌 · 트리거 Enter / Exit | v0.11 | ✅ onPrePhysics (8b) · 물리 명령 · 트리거 · 충돌 · 트리거 Enter / Exit (16a) | `test_script_prephysics` · `test_physics_commands` · `test_collision_trigger` · `test_contact_events` (RT-06-2 ~ 5) | 22 5장 · ADR-0148 ~ 0151 |
 | F-217 | ShapeCast · Substep · CCD · 재질 | v0.12 · v0.18 | 🟡 ShapeCast ✅ (ctx.shapeCast — v0.12 RT-06-6), Substep · CCD · 재질 [계획 v0.18] | `test_script_engine_queries` | 22 5장 · ADR-0155 |

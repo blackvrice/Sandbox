@@ -99,7 +99,7 @@
 | ST-06-10 | 데이터 폼 · 트리거 그래프 캔버스 | B | Planned | v0.6 | v0.12 | P2 | ST-06-1 | 스키마 → 폼 왕복 |
 | RT-06-6 | ShapeCast | A | Done | v0.6 | v0.12 | P2 | — | raycast 표 |
 | RT-06-11 | AccessSet 선언 · 단계 프로파일 | A | Planned | v0.6 | v0.12 | P2 | — | 선언 밖 단언 |
-| RT-06-13 | 게임패드 · Hold · Double Tap · Combo | A | Planned | v0.6 | v0.12 | P2 | RT-06-8 | 트리거 판정 |
+| RT-06-13 | 게임패드 · Hold · Double Tap · Combo | A | Done | v0.6 | v0.12 | P2 | RT-06-8 | 트리거 판정 |
 | RT-06-14 | 2D 애니메이션 클립 · 상태 기계 | A | Done | v0.6 | v0.12 | P1 | RT-06-7 | 상태 전이 |
 | RT-06-15 | 오디오 믹서 · 2D 위치 | A | Done | v0.6 | v0.12 | P2 | NG-17 | — |
 | NG-15 | 2D 타일맵 · 타일셋 (GM-39 — 스프라이트 타일 칠하기) | B | Done | — | v0.12 | P1 | M6-T9 | 칠하기 · 저장 왕복 · 해시 |

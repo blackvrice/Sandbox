@@ -28,11 +28,11 @@
 | 제품 버전 (CMake `project VERSION`) | 0.7.0 |
 | 최근 완료 (출시) 버전 | [v0.7](../roadmap/versions/v0.7.md) — 게임 UI Runtime · 다국어 기반 |
 | 태스크는 끝났고 출시 판정을 기다리는 버전 | [v0.8](../roadmap/versions/v0.8.md) (16 / 17 Done, 수동 QA 1 / 13) · [v0.9](../roadmap/versions/v0.9.md) (5 / 5 Done, 수동 QA 0 / 5) · [v0.10](../roadmap/versions/v0.10.md) (6 / 8 Done, 수동 QA 0 / 3) · [v0.11](../roadmap/versions/v0.11.md) (6 / 7 Done, 수동 QA 0 / 2) |
-| 현재 개발 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools (5 / 11, 45 %) |
+| 현재 개발 버전 | [v0.12](../roadmap/versions/v0.12.md) — Advanced Creator Tools (6 / 11, 55 %) |
 | 다음 목표 버전 | [v0.13](../roadmap/versions/v0.13.md) — Closed Creator Alpha |
-| 전체 진행 (v0.5 ~ v1.0 태스크) | 81 / 167 Done — 49 % |
-| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 16 |
-| v1.0 (GA) 까지 남은 태스크 | 86 |
+| 전체 진행 (v0.5 ~ v1.0 태스크) | 82 / 167 Done — 49 % |
+| Closed Creator Alpha (v0.13) 까지 남은 태스크 | 15 |
+| v1.0 (GA) 까지 남은 태스크 | 85 |
 | 수동 QA (v0.7 이후 버전 줄) | 8 / 42 확인 |
 
 <!-- GENERATED:END -->

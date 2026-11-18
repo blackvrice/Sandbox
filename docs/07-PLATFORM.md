@@ -154,7 +154,9 @@ WASD 가 게임으로). 글자 칸이 활성이면 창의 글자 입력(IME)을 
 ### 5.x 입력의 다음 단계 [계획]
 
 v0.5 M2-T6 ✅: client 스크립트 입력 읽기 (keyDown · keyPressed · keyReleased — 게임 키 "play.<이름>", 커서 월드 좌표 — 19 21.1) · send. v0.10 ✅:
-onAction (ADR-0142) · 입력 Context 스택 · 소비 (ADR-0143 — 위 단락). [계획 v0.12]: 게임패드 버튼 바인딩 · Hold · Double Tap · Combo. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
+onAction (ADR-0142) · 입력 Context 스택 · 소비 (ADR-0143 — 위 단락). v0.12 RT-06-13 ✅ (ADR-0160): 게임패드 버튼 바인딩 (Binding::Kind::Gamepad
+— "Pad.A" …, 어느 패드든 · 수정자 없음 · captureBinding 도) · 팩 input.json "triggers" (hold · doubleTap · combo — PlayGate 가 앱의 월드
+입력 프레임 시계로 판정, 가상 게임 키). 스틱 · 트리거 축 바인딩은 [계획]. v0.7 (예측 게임만): 고정 Tick 마다 InputFrame 하나 —
 키 이벤트마다 패킷을 보내지 않는다. [22-RUNTIME-V2](22-RUNTIME-V2.md) 6장, [ADR-0087](adr/0087-client-fixed-tick-prediction-opt-in.md).
 
 ## 6. 플랫폼별 구현

@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-18 — v0.12 RT-06-13: 게임패드 바인딩 · Hold · Double Tap · Combo (ADR-0160)
+
+**무엇을**
+
+- ActionMap 바인딩 종류 Gamepad — "Pad.A" · "Pad.B" · "Pad.X" · "Pad.Y" · "Pad.LB" · "Pad.RB" · "Pad.Back" · "Pad.Start" · "Pad.LS" ·
+  "Pad.RS" · "Pad.Up" · "Pad.Down" · "Pad.Left" · "Pad.Right" (연결된 어느 패드든, 수정자 없음 — 붙이면 오류). bindingPressed ·
+  bindingActive · captureBinding (키 다시 묶기) 가 패드 버튼을 안다.
+- 팩 input.json "triggers": hold · doubleTap · combo (ms 1 ~ 5000, combo 2 ~ 8 단계) = 바인딩 없는 가상 게임 키. buildPlayKeys 가
+  검증 (틀린 정의는 경고 · 그것만 뺀다) 한 뒤 가상 키를 더하고, PlayGate::update(…, now) 가 Context 로 거른 원본으로 판정 — 앱은
+  월드 입력 프레임 시계 (m_inputClock) 를 넘긴다. 스크립트 keyDown · keyPressed · onAction 이 그대로 읽는다.
+- 문서: ADR-0160, 07 5장, 11 input.json, 13, FEATURE_MATRIX F-214, 등록부 RT-06-13 Done (gen_roadmap).
+
+**왜**
+
+- 카드 RT-06-13 (트리거 판정). 패드는 UI 이동에만 쓰였고, 길게 · 두 번 · 콤보는 스크립트가 프레임 시간을 세야 했다 — 메뉴
+  Context 와 프레임 차례를 게임마다 다시 맞추지 않게 엔진의 게임 키 경로에 둔다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과 (/WX 가 PlayGate::update 의 매개변수 now 가 지역 변수를 가린 것을 잡아 nowSeconds 로), 단위 시험
+  assertions 1,951,296 모두 통과 (test_input_triggers 둘 — 패드 바인딩 · 트리거 판정),
+  전체 ctest 95 개 — 94 통과 · studio_gui_smoke SKIPPED.
+
+**남은 일**
+
+- 스틱 · 트리거 축 바인딩 · 트리거 위의 트리거 · 키 설정 화면의 트리거 편집 [계획]. 실제 패드 (XInput) 는 MANUAL-QA.
+
 ## 2026-11-18 — v0.12 RT-06-15: 오디오 믹서 · 2D 위치 (ADR-0159)
 
 **무엇을**

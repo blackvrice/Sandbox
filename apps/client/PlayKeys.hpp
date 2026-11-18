@@ -15,6 +15,7 @@
 // (InputSystem 캡처). PlayGate 가 그 규칙으로 down · pressed · released 를 거른다 — 먹힌 키가 눌려 있었으면 그 프레임에
 // 뗌 한 번.
 
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -30,10 +31,32 @@ inline constexpr std::string_view kPlayActionPrefix = "play.action.";
 
 enum class PlayContext : u8 { Game, Menu, Always };
 
+// 입력 트리거 (v0.12 RT-06-13, ADR-0160): 팩 input.json 의 "triggers": { "play.<이름>": { … } } — 그 이름이 가상 게임
+// 키가 된다 (바인딩 없음 — 스크립트 keyDown · keyPressed · onAction 이 그대로 읽는다). 원본 키는 같은 파일 · 앞 팩의
+// play.* (Context 로 거른 값).
+//   hold       { "hold": "play.fire", "ms": 500 }            원본을 ms 동안 누르고 있으면 켜짐 (뗄 때까지)
+//   doubleTap  { "doubleTap": "play.right", "ms": 250 }      두 번째 누름이 첫째로부터 ms 안이면 한 프레임
+//   combo      { "combo": ["play.down", "play.right", "play.fire"], "ms": 400 }  차례대로, 각 누름이 앞 것으로부터 ms
+//   안이면
+//                                                            마지막 누름의 프레임에 한 번 (다른 차례의 원본을 누르면
+//                                                            처음부터)
+// ms 는 1 ~ 5000. 시간은 앱의 프레임 시계 (초) — 표시 쪽 입력이라 시뮬레이션과 무관 (신호 · 행동으로 보낼 때만 명령이
+// 된다)
+enum class TriggerKind : u8 { Hold, DoubleTap, Combo };
+inline constexpr usize kMaxComboSteps = 8;
+
+struct PlayTrigger {
+    platform::ActionId id = 0; // 가상 키 (map 안)
+    TriggerKind kind = TriggerKind::Hold;
+    std::vector<platform::ActionId> sources; // hold · doubleTap = 하나, combo = 차례
+    f64 seconds = 0.25;
+};
+
 struct PlayKeys {
     platform::ActionMap map;           // play.* 만
     std::vector<PlayContext> contexts; // map 의 ActionId 차례 (없으면 Game)
-    std::vector<std::string> warnings; // 형식 오류 · 무시한 이름 · 엔진 키와 겹침 · 모르는 context
+    std::vector<PlayTrigger> triggers; // v0.12 RT-06-13 — 가상 키 차례 (이름 순)
+    std::vector<std::string> warnings; // 형식 오류 · 무시한 이름 · 엔진 키와 겹침 · 모르는 context · 틀린 트리거
 
     [[nodiscard]] PlayContext contextOf(platform::ActionId id) const noexcept {
         return id < contexts.size() ? contexts[id] : PlayContext::Game;
@@ -43,9 +66,13 @@ struct PlayKeys {
 // 입력 Context 로 거른 게임 키 (v0.10 RT-06-8 조각 2). update 를 프레임마다 ActionState 다음에
 class PlayGate {
 public:
-    // menuOpen = 게임 UI 의 메뉴 · 모달 문서가 보인다 (GameUiLayer::menuOpen)
-    void update(const PlayKeys& keys, const platform::ActionState& raw, bool menuOpen);
-    void reset() noexcept { m_down.clear(); }
+    // menuOpen = 게임 UI 의 메뉴 · 모달 문서가 보인다 (GameUiLayer::menuOpen). now = 앱 프레임 시계 (초 — 트리거,
+    // RT-06-13)
+    void update(const PlayKeys& keys, const platform::ActionState& raw, bool menuOpen, f64 nowSeconds = 0.0);
+    void reset() noexcept {
+        m_down.clear();
+        m_triggers.clear();
+    }
     [[nodiscard]] bool down(platform::ActionId id) const noexcept { return id < m_down.size() && m_down[id] != 0; }
     [[nodiscard]] bool pressed(platform::ActionId id) const noexcept {
         return id < m_pressed.size() && m_pressed[id] != 0;
@@ -58,9 +85,17 @@ public:
     }
 
 private:
+    struct TriggerState {
+        std::optional<f64> since; // hold: 누른 때 · doubleTap: 첫 누름 · combo: 마지막 누름
+        usize step = 0;           // combo 진행
+        bool fired = false;       // hold: 이번 누름에 이미 켜짐
+    };
+    void updateTriggers(const PlayKeys& keys, f64 now);
+
     std::vector<u8> m_down;
     std::vector<u8> m_pressed;
     std::vector<u8> m_released;
+    std::vector<TriggerState> m_triggers; // keys.triggers 차례
 };
 
 // user = 엔진 기본값 + 사용자 --input 을 합친 맵 (play.* 덮어쓰기 · 겹침 검사)
