@@ -151,12 +151,11 @@ bool playFinished(const sim::SimulationWorld& world, sim::Tick startTick, const 
     if (script.maxTicks != 0 && world.currentTick() >= startTick + script.maxTicks) {
         return true;
     }
+    // 판이 끝나면 끝 — 자동 재시작 모드 (restart: auto) 도. 다음 판을 여는 것은 서버 (ServerHost::reachedStop ·
+    // autoRestartDue) 뿐이고, 여기 (sbx test · 헤드리스 러너) 에는 재시작이 없다 — 기다리면 단계 상한까지 돈다 (v0.12
+    // 오목 개발에서 찾음)
     const comp::GameSession* s = game::findSession(world.registry());
-    if (s == nullptr || s->gameState() != comp::GameState::Finished) {
-        return false;
-    }
-    const content::GameMode* mode = world.content().findMode(std::string_view(s->mode.view()));
-    return mode == nullptr || !mode->autoRestart; // 자동 재시작 모드는 다음 판이 온다
+    return s != nullptr && s->gameState() == comp::GameState::Finished;
 }
 
 std::string describePlayResult(const sim::SimulationWorld& world) {

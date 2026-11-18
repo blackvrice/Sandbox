@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-18 — 자동 재시작 게임의 자동 플레이 — playFinished 가 Finished 에서 끝 (ADR-0166)
+
+**무엇을**
+
+- core playFinished = 게임 세션 Finished (또는 maxTicks) — restart: auto 도. 다음 판은 서버 (ServerHost::reachedStop ·
+  autoRestartDue) 의 일이고 판정도 서버에 따로 있다. test_play_script 에 restart auto 오목 사본. 문서 13.
+
+**왜**
+
+- 오목 개발 (dogfood) 에서: restart auto 인 게임은 sbx test (헤드리스 러너 — 재시작 없음) 가 다음 판을 기다리며 단계 상한까지
+  돌았다 (1600 단계 OutOfRange).
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,955,975 모두 통과, 전체 ctest 97 개 — 96 통과 · studio_gui_smoke SKIPPED (sample_omok 포함) — 앞 커밋
+  (samples/omok) 과 같이 검증.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-18 — v0.13 M7-T1: samples/omok — 오목 (v0.12 끝 dogfood, ADR-0166)
 
 **무엇을**

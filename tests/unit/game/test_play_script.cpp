@@ -11,6 +11,7 @@
 #include "core/scenarios/PlayScript.hpp"
 #include "core/scenarios/WorldSource.hpp"
 #include "foundation/BuildInfo.hpp"
+#include "foundation/io/FileIo.hpp"
 
 using namespace sbx;
 namespace fs = std::filesystem;
@@ -94,6 +95,31 @@ TEST_SUITE("core") {
         const std::string a = play();
         CHECK(a.starts_with("게임 Finished · win"));
         CHECK(play() == a);
+    }
+
+    TEST_CASE(
+        "play script: 자동 재시작 모드 (restart: auto) 도 헤드리스 러너에서는 Finished 에서 끝 — 재시작은 서버 몫") {
+        // samples/omok 사본의 게임 모드를 auto 로 — 예전에는 다음 판을 기다리며 단계 상한 (OutOfRange) 까지 돌았다
+        const fs::path omok = fs::path(SBX_SAMPLES_DIR) / "omok";
+        REQUIRE(project::isProjectFolder(omok));
+        const fs::path dir = fs::temp_directory_path() / "sbx-tests" / "play-script-auto-restart";
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        fs::copy(omok, dir, fs::copy_options::recursive);
+        const fs::path mode = dir / "content" / "omok" / "modes" / "match.json";
+        std::string text = *io::readFile(mode);
+        const std::string manual = R"("restart": { "mode": "manual" })";
+        REQUIRE(text.find(manual) != std::string::npos);
+        text.replace(text.find(manual), manual.size(), R"("restart": { "mode": "auto", "delaySeconds": 5 })");
+        REQUIRE(io::writeFileAtomic(mode, text).has_value());
+        auto src = scenario::openWorldSource(dir.string(), {}, 1, catalog());
+        REQUIRE_MESSAGE(src.has_value(), src.error().describe());
+        const auto script = scenario::loadPlayScript(dir / "playthrough.json");
+        REQUIRE(script.has_value());
+        const auto r = scenario::runPlayScript(*src->runner, *script, scenario::playStepLimit(*script));
+        REQUIRE_MESSAGE(r.has_value(), r.error().describe());
+        CHECK(scenario::describePlayResult(src->runner->world()).starts_with("게임 Finished · win"));
+        fs::remove_all(dir, ec);
     }
 
     TEST_CASE("play script: 세션 없는 월드는 maxTicks 에서 끝, expect 가 다르면 목록") {
