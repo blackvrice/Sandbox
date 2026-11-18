@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-11-18 — v0.12: GCC · Clang 빌드 고침 (32c6c8e 의 CI — test_input_triggers 의 Rig{keys})
+
+**무엇을**
+
+- tests/unit/client/test_input_triggers.cpp 의 Rig 에 생성자 — Rig{keys} 가 나머지 필드 (in · raw · gate) 를 빠뜨려 GCC ·
+  Clang 의 -Wmissing-field-initializers (CI = -Werror) 에 걸렸다. MSVC 는 경고하지 않는다.
+
+**검증**
+
+- 디버그 빌드 · 그 시험 통과. GCC · Clang 은 다음 CI 로 (로컬 clang-cl 없음).
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-18 — v0.12 ST-06-6: 편집기 그룹 · Hierarchy 검색 (ADR-0162)
 
 **무엇을**

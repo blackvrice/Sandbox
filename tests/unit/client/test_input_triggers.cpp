@@ -35,6 +35,8 @@ const ActionMap& noUser() {
 
 // 키 · 패드 입력 한 프레임 → raw → gate (시각 now 초)
 struct Rig {
+    // 생성자 — Rig{keys} 의 나머지 필드가 GCC · Clang -Wmissing-field-initializers 에 걸리지 않게
+    explicit Rig(const PlayKeys& k) : keys(k) {}
     const PlayKeys& keys;
     InputSystem in;
     ActionState raw;
@@ -98,7 +100,7 @@ TEST_SUITE("client") {
         const PackInput pack{"g", R"({"format": "sandbox.input", "version": 1,
   "actions": {"play.jump": ["Space", "Pad.A"]}})"};
         const PlayKeys keys = buildPlayKeys(std::span(&pack, 1), noUser());
-        Rig r{keys};
+        Rig r(keys);
         r.pads[0].connected = true;
         r.pads[0].buttons = 1u << static_cast<u32>(GamepadButton::South);
         r.frame(0.0);
@@ -127,7 +129,7 @@ TEST_SUITE("client") {
         CHECK(hasWarning(keys, "triggers.play.bad4"));
         CHECK(hasWarning(keys, "triggers.play.jump — 바인딩이 있는 키와 같은 이름"));
         CHECK(hasWarning(keys, "triggers.jump2 — play.* 만"));
-        Rig r{keys};
+        Rig r(keys);
         const ActionId charge = r.id("play.charge");
         const ActionId dash = r.id("play.dash");
         const ActionId hadoken = r.id("play.hadoken");
