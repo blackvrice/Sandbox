@@ -67,7 +67,8 @@ TEST_SUITE("client") {
         CHECK(scene.hierarchy);
         CHECK(scene.inspector);
         CHECK(scene.console);
-        CHECK(scene.assets);
+        CHECK(scene.project); // v0.13 ST-08-3 — 프로젝트 창 (에셋 창은 보기 메뉴로)
+        CHECK_FALSE(scene.assets);
         CHECK_FALSE(scene.build);
         CHECK_FALSE(scene.test);
         CHECK_FALSE(scene.world);
@@ -79,7 +80,7 @@ TEST_SUITE("client") {
         CHECK_FALSE(presetView("play").hierarchy);
         CHECK(presetView("mine") == scene);
         // studio.json "windows" 왕복 — 모르는 이름은 무시, 목록에 없는 창은 끈다
-        CHECK(openWindowNames(scene) == std::vector<std::string>{"hierarchy", "inspector", "tools", "console", "assets"});
+        CHECK(openWindowNames(scene) == std::vector<std::string>{"hierarchy", "inspector", "tools", "console", "project"});
         ShellView v = presetView("play");
         applyWindowNames(v, openWindowNames(scene));
         CHECK(v == scene);
@@ -172,7 +173,7 @@ TEST_SUITE("client") {
         CHECK_FALSE(active("통계"));
 
         // Creator 기본 창 (v0.13 ST-08-2) — 빌드 · 테스트 · 월드 · 게임은 닫혀 있다 (보기 메뉴 · 배치로)
-        CHECK(app.shell().view.assets); // 에셋 창은 프로젝트가 있을 때만 그린다 (이 월드는 프로젝트가 아니다)
+        CHECK(app.shell().view.project); // 프로젝트 창은 프로젝트가 있을 때만 그린다 (이 월드는 프로젝트가 아니다)
         CHECK_FALSE(active("빌드"));
         CHECK_FALSE(active("테스트"));
         CHECK_FALSE(active("###world"));

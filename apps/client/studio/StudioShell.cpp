@@ -30,6 +30,9 @@ constexpr const char* kGame = "###game";
 constexpr const char* kActions = "###actions";
 constexpr const char* kNotices = "알림";
 constexpr const char* kDebugger = "스크립트 디버거";
+constexpr const char* kProject = "프로젝트"; // v0.13 ST-08-3
+constexpr const char* kAssets = "에셋";
+constexpr const char* kUiDesigner = "UI 디자이너";
 
 float uiScale() {
     return ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
@@ -49,6 +52,7 @@ void buildPreset(ImGuiID dock, std::string_view name, const ImGuiViewport* vp) {
         const ImGuiID left = split(ImGuiDir_Left, 0.16f);
         const ImGuiID right = split(ImGuiDir_Right, 0.22f / 0.84f);
         const ImGuiID bottom = split(ImGuiDir_Down, 0.48f);
+        ImGui::DockBuilderDockWindow(kProject, left);
         ImGui::DockBuilderDockWindow(kHierarchy, left);
         ImGui::DockBuilderDockWindow(kInspector, right);
         ImGui::DockBuilderDockWindow(kTools, right);
@@ -71,11 +75,14 @@ void buildPreset(ImGuiID dock, std::string_view name, const ImGuiViewport* vp) {
         const ImGuiID bottom = split(ImGuiDir_Down, 0.26f);
         ImGuiID rightBottom = 0;
         const ImGuiID rightTop = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.62f, nullptr, &rightBottom);
-        ImGui::DockBuilderDockWindow(kHierarchy, left);
-        ImGui::DockBuilderDockWindow(kWorld, left);
+        ImGuiID leftBottom = 0; // 왼쪽 위 = 목록, 아래 = 프로젝트 (v0.13 ST-08-3)
+        const ImGuiID leftTop = ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.55f, nullptr, &leftBottom);
+        ImGui::DockBuilderDockWindow(kHierarchy, leftTop);
+        ImGui::DockBuilderDockWindow(kWorld, leftTop);
+        ImGui::DockBuilderDockWindow(kProject, leftBottom);
         ImGui::DockBuilderDockWindow(kInspector, rightTop);
         ImGui::DockBuilderDockWindow(kTools, rightBottom);
-        for (const char* w : {kConsole, kContent, kBuild, kTest, kGame, kActions, kNotices}) {
+        for (const char* w : {kConsole, kContent, kAssets, kUiDesigner, kBuild, kTest, kGame, kActions, kNotices}) {
             ImGui::DockBuilderDockWindow(w, bottom);
         }
     }
@@ -130,7 +137,8 @@ void mainMenu(ShellState& st, const ShellInputs& in, ShellActions& act) {
         ImGui::MenuItem("콘텐츠 (Prefab · 규칙 · 스크립트)", nullptr, &st.view.content);
         ImGui::MenuItem("스크립트 디버거 (기록 재생)", nullptr, &st.view.debugger);
         ImGui::MenuItem("UI 디자이너 (게임 UI 문서)", nullptr, &st.view.uiDesigner);
-        ImGui::MenuItem("에셋 (assets/)", nullptr, &st.view.assets);
+        ImGui::MenuItem("프로젝트 (파일 트리)", nullptr, &st.view.project);
+        ImGui::MenuItem("에셋 (assets/ — 썸네일 · 참조)", nullptr, &st.view.assets);
         ImGui::MenuItem("콘솔", nullptr, &st.view.console);
         ImGui::MenuItem("빌드", nullptr, &st.view.build);
         ImGui::MenuItem("테스트 세션", nullptr, &st.view.test);
@@ -404,6 +412,7 @@ constexpr std::pair<const char*, bool ShellView::*> kWindowNames[] = {
     {"console", &ShellView::console},     {"build", &ShellView::build},         {"test", &ShellView::test},
     {"world", &ShellView::world},         {"game", &ShellView::game},           {"content", &ShellView::content},
     {"debugger", &ShellView::debugger},   {"uiDesigner", &ShellView::uiDesigner}, {"assets", &ShellView::assets},
+    {"project", &ShellView::project},
 };
 
 } // namespace
@@ -411,12 +420,12 @@ constexpr std::pair<const char*, bool ShellView::*> kWindowNames[] = {
 ShellView presetView(std::string_view preset) noexcept {
     ShellView v; // scene (기본)
     if (preset == "scripting") {
-        v.assets = false;
+        v.hierarchy = false;
         v.content = true;
         v.debugger = true;
     } else if (preset == "play") {
         v = ShellView{};
-        v.hierarchy = v.inspector = v.tools = v.assets = false;
+        v.hierarchy = v.inspector = v.tools = v.project = false;
         v.game = v.world = v.test = true;
     }
     return v;

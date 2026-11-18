@@ -1102,6 +1102,11 @@ bool Application::frame() {
                 }
                 editor::drawUiDesignerPanel(m_uiDesigner, m_uiDesign, m_uiDocs, &m_shell.view.uiDesigner);
             }
+            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.project) { // v0.13 ST-08-3 "프로젝트"
+                if (const auto a = editor::drawProjectExplorer(m_projectExplorer, m_projectDir, &m_shell.view.project)) {
+                    applyProjectExplorerAction(*a);
+                }
+            }
             if (!m_projectDir.empty() && m_panels.visible && m_shell.view.assets) { // ST-06-3 "에셋"
                 if (const auto c = editor::drawAssetBrowser(m_assetBrowser, m_projectDir, &m_shell.view.assets)) {
                     reloadAssetSprites(*c);
@@ -1744,6 +1749,26 @@ void Application::reloadAssetSprites(const editor::AssetChange& change) {
         n += assets->reloadSpriteFile(change.oldPath, file) ? 1 : 0; // 옛 경로 키 — 머티리얼을 다시 읽기 전까지
     }
     log::info("studio", "에셋 {} — 스프라이트 {} 개를 다시 올린다", change.path, n);
+}
+
+void Application::applyProjectExplorerAction(const editor::ProjectExplorerAction& a) {
+    using Kind = editor::ProjectExplorerAction::Kind;
+    switch (a.kind) {
+    case Kind::OpenAsset: // PNG 두 번 클릭 — 에셋 창에서 그 그림 (참조 · 옮기기 · 다시 읽기)
+        m_shell.view.assets = true;
+        m_assetBrowser.selected = a.rel;
+        m_assetBrowser.moveTo = a.rel;
+        m_assetBrowser.stale = true;
+        break;
+    case Kind::FilesChanged:
+        m_assetBrowser.stale = true;
+        m_uiDocsAge = 0; // UI 문서 목록도 다음 프레임에 다시
+        if (!a.assetId.empty() && !a.rel.empty()) {
+            reloadAssetSprites(editor::AssetChange{a.assetId, a.rel, a.oldRel});
+        }
+        log::info("studio", "프로젝트 파일: {}{}{}", a.oldRel, a.oldRel.empty() || a.rel.empty() ? "" : " → ", a.rel);
+        break;
+    }
 }
 
 void Application::applyLayoutAction(const editor::LayoutPanelAction& a) {

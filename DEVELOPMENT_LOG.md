@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-18 — Project Explorer — "프로젝트" 창 (v0.13 ST-08-3, ADR-0167)
+
+**무엇을**
+
+- editor/services/ProjectFiles (UI 없음): 프로젝트 폴더 트리 (폴더 먼저 · 이름 순 · .sandbox · build · .git · .meta · 심볼릭 링크 숨김) ·
+  거르기 · 새 폴더 · 이름 바꾸기 · 옮기기 · 복제 · 휴지통 · 새 스크립트 자리. 새 이름은 project::checkRelativePath (P4), 고칠 경로는
+  '..' · 절대 경로 · 숨김 · 심볼릭 링크 · 지킴 (매니페스트 · content · assets · worlds) 거절. assets/ 는 asset::moveAsset · deleteAsset
+  (.meta 동행 · 경로 참조 고침 · 참조가 있으면 거절) — 폴더는 파일마다. 복제한 에셋은 .meta 없이 (같은 id 충돌 NG-12).
+- editor/ui/ProjectExplorerPanel: 트리 (깊이 우선 목록 → TreeNode) · 찾기 · 맥락 메뉴 · F2 · Delete · 확인 창 · 끌기 (에셋 = SBX_ASSET
+  id, 그 밖 = SBX_FILE) · 폴더로 놓기 · PNG 두 번 클릭 = 에셋 창. 2 초쯤마다 다시 훑는다 (밖에서 바뀐 파일).
+- 셸: ShellView.project (기본 켜짐 — 에셋 창은 보기 메뉴로), scene 배치의 왼쪽 아래 · scripting 배치의 왼쪽, "windows" 이름 "project".
+
+**왜**
+
+- 사용자 창 QA: 프로젝트 파일 탐색기가 없다 (STUDIO-UX-AUDIT 2장 5). 에셋 창 (assets/) · 콘텐츠 창 (종류별 id) 으로 나뉘어 폴더 ·
+  스크립트 파일이 보이지 않았다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 · /WX 빌드, test_project_files (서비스 다섯 경우 + 헤드리스 창 — 묻는 창 열림 · applyExplorerAsk (이름 바꾸기 · 에셋 id · 휴지통 거절). 클릭 · Enter 주입은 헤드리스에서 입력 칸에 닿지 않아 창 QA 로), test_studio_shell, 전체 ctest.
+  심볼릭 링크 시험은 만들 권한이 없으면 건너뛴다 (Windows 개발자 모드 아님 — CI Linux 가 본다). 창 QA 는 사람 — MANUAL-QA v0.13 ST-08-3.
+
+**남은 일**
+
+- 스크립트 열기 · 새 스크립트 (ST-08-4), 에셋을 월드에 놓기 (ST-08-5). 휴지통 되살리기 화면 · 가져오기 (OS 파일 끌어 놓기) 는 [계획].
+
 ## 2026-11-18 — Studio 창 닫기 · Creator 기본 창 (v0.13 ST-08-2, ADR-0167)
 
 **무엇을**

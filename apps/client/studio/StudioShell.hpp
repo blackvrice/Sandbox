@@ -20,7 +20,7 @@ namespace sbx::client {
 enum class WorkspaceMode : u8 { Edit, TestPlay, Replay, Recording };
 
 // 보기 메뉴의 창 켜기 (Creator 창). 기본값 = scene 배치의 적은 창 (v0.13 ST-08-2 — ADR-0167): 목록 · 인스펙터 · 편집 ·
-// 콘솔 · 에셋. 나머지는 보기 메뉴 · 배치로 켜고, 창의 X 가 끈다 (studio.json "windows" 에 남는다)
+// 콘솔 · 프로젝트. 나머지는 보기 메뉴 · 배치로 켜고, 창의 X 가 끈다 (studio.json "windows" 에 남는다)
 struct ShellView {
     bool hierarchy = true;   // 목록
     bool inspector = true;   // 인스펙터
@@ -33,7 +33,8 @@ struct ShellView {
     bool content = false;    // 콘텐츠 (Prefab · Rule · 스크립트 — 편집 창의 단추와 같은 값)
     bool debugger = false;   // 스크립트 디버거 (v0.9 ST-06-7 — 기록을 디버그 재생)
     bool uiDesigner = false; // UI 디자이너 (v0.10 ST-06-4 — 팩의 presentation/ui 문서)
-    bool assets = true;      // 에셋 (v0.10 ST-06-3 — 프로젝트 assets/)
+    bool assets = false;     // 에셋 (v0.10 ST-06-3 — 프로젝트 assets/ 의 썸네일 · 참조)
+    bool project = true;     // 프로젝트 (v0.13 ST-08-3 — Project Explorer, 프로젝트 폴더 트리)
 
     bool operator==(const ShellView&) const = default;
 };
@@ -108,7 +109,7 @@ struct ShellActions {
 // 기본 (default) 이 쓰는 프리셋
 [[nodiscard]] std::string_view presetFor(std::string_view layoutName) noexcept;
 
-// 배치 프리셋이 켜는 창 (v0.13 ST-08-2): scene = 기본값, scripting = 목록 · 인스펙터 · 편집 · 콘텐츠 · 콘솔 · 디버거,
+// 배치 프리셋이 켜는 창 (v0.13 ST-08-2): scene = 기본값, scripting = 프로젝트 · 인스펙터 · 편집 · 콘텐츠 · 콘솔 · 디버거,
 // play = 게임 · 월드 · 콘솔 · 테스트. 프리셋을 적용하면 (pendingPreset) 보기도 이것으로
 [[nodiscard]] ShellView presetView(std::string_view preset) noexcept;
 // studio.json "windows" — 켜진 창의 이름 ("hierarchy" · "inspector" …, 정해진 차례). 적용은 모르는 이름을 무시하고 목록에

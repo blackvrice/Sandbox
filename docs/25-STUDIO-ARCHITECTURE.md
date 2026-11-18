@@ -59,6 +59,8 @@ SandboxClient (실행 파일 하나 — 플레이어 모드 · Studio 모드)   
 │    Trigger Graph (v0.6) · Data Editor · Test · Profiler · Build
 ├─ Editor Services     editor/services/  ✅ 타깃 SandboxEditorServices (v0.8 ST-06-1, ADR-0108)  UI 없음 — check_includes 대상
 │    ProjectService     열기 · 새로 만들기 (core::createProject) · 최근 · 매니페스트 · 진단 (core::diagnose) ✅ 만들기 · 열기 (검사) · 최근 (v0.8 M6-T1, ADR-0111)
+│    ProjectFiles       프로젝트 파일 트리 · 거르기 · 새 폴더 · 이름 바꾸기 · 옮기기 · 복제 · 휴지통 · 새 스크립트 자리 — 경로 탈출 · 심볼릭 링크 ·
+│                       지킴 거절, 에셋은 AssetRefs (참조 · .meta) ✅ (v0.13 ST-08-3, ADR-0167) — "프로젝트" 창 (editor/ui/ProjectExplorerPanel)
 │    DocumentService    파일 문서 (팩 JSON · 스크립트 · UI 문서 · 에셋 메타) — 열기 · 고침 · 원자적 저장 · 되돌리기 · 바깥 변경 감지 ✅ (ST-06-1 (2), ADR-0109)
 │    CommandService     명령 표 { id, 이름, 단축키, 실행 가능 조건, 실행 } — 메뉴 · 팔레트 · 단축키가 같은 표 ✅ (ST-06-1)
 │    SelectionService   선택 (개체 netId · 에셋 id · 파일) — 지금 Editor 안의 선택을 옮긴다

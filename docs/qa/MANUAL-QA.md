@@ -653,6 +653,9 @@ SandboxClient --world samples/rabbit_guard [--locale en] → F1 (도구 패널 �
 [ ] (v0.13 ST-08-2) 창으로 프로젝트를 처음 열면 (studio.json 없음) 목록 · 인스펙터 · 편집 · 콘솔 · 에셋만 — 빌드 · 테스트 · 월드 · 게임 창이 없다,
     모든 도킹 창의 탭에 X → 누르면 닫히고 보기 메뉴에서 다시 켜진다, 끝내고 다시 열면 닫은 창은 닫힌 채 (studio.json "windows"), 보기 › 배치
     play 는 게임 · 월드 · 콘솔 · 테스트 · scene 은 다시 기본 창 (증거를 QA-EVIDENCE 에)
+[ ] (v0.13 ST-08-3) 창으로 프로젝트를 열면 왼쪽 아래 "프로젝트" 창 — 폴더 트리 (assets · content · worlds …, .sandbox · build 없음), 찾기 칸,
+    폴더 오른쪽 클릭 › 새 폴더 · 이름 바꾸기 (F2) · 복제 · 휴지통으로 (Delete — 확인 창, .sandbox/trash 에 남음), PNG 를 다른 폴더로 끌어 놓기 뒤
+    게임 그림 그대로 · materials.json 경로가 바뀜, 쓰는 곳이 있는 PNG 휴지통은 거절 메시지, 한글 이름은 거절 메시지, PNG 두 번 클릭 = 에셋 창
 [ ] (NG-06 (4)) 실제 Xbox 패드 — 연결 · 끊김 로그, 십자 · 스틱 · A · B · LB · RB 로 HUD · 메뉴 조작, 스틱 죽은 영역, 두 패드, 다른 창에
     포커스가 있을 때 무시 (Windows — 패드가 없어 시험은 가짜 소스)
 ```

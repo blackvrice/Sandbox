@@ -13,6 +13,8 @@ add_library(SandboxEditorServices STATIC
     services/DocumentService.cpp
     services/ProjectService.hpp
     services/ProjectService.cpp
+    services/ProjectFiles.hpp
+    services/ProjectFiles.cpp
     services/BuildService.hpp
     services/BuildService.cpp
     services/AutosaveService.hpp
@@ -40,6 +42,8 @@ add_library(SandboxEditor STATIC
     ui/UiDesignerPanel.cpp
     ui/AssetBrowserPanel.hpp
     ui/AssetBrowserPanel.cpp
+    ui/ProjectExplorerPanel.hpp
+    ui/ProjectExplorerPanel.cpp
     EditorHost.hpp
     Editor.hpp
     Editor.cpp

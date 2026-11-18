@@ -49,6 +49,7 @@
 #include "editor/services/ScriptDebugService.hpp"
 #include "editor/services/TestService.hpp"
 #include "editor/ui/AssetBrowserPanel.hpp"
+#include "editor/ui/ProjectExplorerPanel.hpp"
 #include "editor/ui/BuildPanel.hpp"
 #include "editor/ui/CommandPalette.hpp"
 #include "editor/ui/ConsolePanel.hpp"
@@ -253,6 +254,7 @@ private:
     // 에셋 창의 바뀜 (v0.10 ST-06-3 — Hot Reload): 그 에셋을 부르는 스프라이트 키 (asset:<id> · 경로 · 옛 경로) 를 다시
     // 올린다
     void reloadAssetSprites(const editor::AssetChange& change);
+    void applyProjectExplorerAction(const editor::ProjectExplorerAction& action); // v0.13 ST-08-3
     bool saveLayout(bool announce);
     void testStart(); // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
     // Studio 셸 (v0.8 UI-1): 입력 모으기 · 고른 일 적용 · 테마 (밀도)
@@ -369,6 +371,7 @@ private:
     std::filesystem::path m_uiDocsProject;
     u32 m_uiDocsAge = 0;
     editor::AssetBrowserState m_assetBrowser; // v0.10 ST-06-3 "에셋"
+    editor::ProjectExplorerState m_projectExplorer; // v0.13 ST-08-3 "프로젝트"
     // 스크립트 디버거 (v0.9 ST-06-7) — 기록의 디버그 재생 (자기 월드 · 콘텐츠 — 라이브 월드와 따로)
     editor::services::ScriptDebugService m_scriptDebug;
     editor::ScriptDebugPanelState m_debugPanel;
