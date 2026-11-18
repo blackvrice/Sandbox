@@ -105,8 +105,10 @@ TEST_SUITE("editor") {
         CHECK_FALSE(setFormField(*movement, partial, "maxSpeed", "fast").has_value()); // 종류
         CHECK_FALSE(setFormField(*movement, partial, "nope", 1).has_value());          // 없는 필드
         CHECK(partial["maxSpeed"] == 2.5);                                             // 그대로
-        // 범위가 있는 필드는 자른다
-        for (const FormField& f : componentForm(*movement, partial)->fields) {
+        // 범위가 있는 필드는 자른다 (폼은 변수에 — 임시 값의 ->fields 를 범위 for 로 돌면 C++20 에서 매달린다)
+        const auto movementForm = componentForm(*movement, partial);
+        REQUIRE(movementForm.has_value());
+        for (const FormField& f : movementForm->fields) {
             if (f.meta.hasRange && f.kind == FormFieldKind::Number) {
                 ecs::Json p2 = ecs::Json::object();
                 REQUIRE(setFormField(*movement, p2, f.name, f.meta.max + 100.0).has_value());

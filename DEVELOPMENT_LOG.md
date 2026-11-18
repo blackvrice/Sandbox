@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-11-18 — v0.12: GCC 시험 충돌 고침 (7e2834b 의 CI — test_data_form 의 매달린 범위 for)
+
+**무엇을**
+
+- test_data_form "팩 Prefab 왕복" 의 `for (… : componentForm(…)->fields)` — 임시 Expected 의 멤버를 범위 for 로 돌아 C++20 에서
+  임시가 먼저 사라진다 (GCC Debug 에서 SIGSEGV, MSVC 는 우연히 살았다). 폼을 변수에 두고 돈다.
+
+**검증**
+
+- 디버그 빌드 · 그 시험 통과. GCC 는 다음 CI 로.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-18 — v0.12: GCC · Clang 빌드 고침 (833256d 의 CI — ScriptProfileInfo 의 새 필드 engine)
 
 **무엇을**
