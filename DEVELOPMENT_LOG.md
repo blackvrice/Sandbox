@@ -7,6 +7,26 @@
 
 ---
 
+## 2026-11-18 — v0.11: ALSA 설정 캐시 풀기 (9e936a2 의 CI — linux-clang-asan LeakSanitizer)
+
+**무엇을**
+
+- AlsaDevice 가 소멸할 때 (장치를 닫은 뒤 · dlclose 앞) snd_config_update_free_global 을 부른다 (이름으로 찾고, 없으면 건너뜀).
+
+**왜**
+
+- CI linux-clang-asan 의 project_own_png (SandboxClient 창 실행) 가 LeakSanitizer 로 실패 — snd_pcm_open 이 읽은 alsa.conf 의
+  전역 캐시 (66,666 바이트 · 2,049 할당) 가 프로세스 끝까지 남는다 (열기에 실패해도). 같은 CI 의 GCC · Clang · macOS · Windows 는
+  통과 (v0.11 GCC · Clang 고침 9e936a2 확인).
+
+**검증**
+
+- Windows 에서는 이 파일을 빌드하지 않는다 (Linux 전용) — 다음 CI 의 linux-clang-asan 으로 확인한다.
+
+**남은 일**
+
+- CI 결과 확인.
+
 ## 2026-11-18 — v0.12 ST-06-5: Prefab 변형 · 오버라이드 · 전파 (ADR-0158)
 
 **무엇을**

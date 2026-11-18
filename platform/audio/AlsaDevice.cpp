@@ -1,6 +1,6 @@
 // Linux 오디오 장치 — ALSA (v0.11 NG-17, ADR-0153). libasound.so.2 를 실행 중에 연다 (dlopen — 빌드에 ALSA 개발 파일이
 // 필요 없고, 없는 PC · 컨테이너는 장치 없음으로 → 앱이 Null 로). 장치 스레드가 20 ms 씩 render → 16 비트 →
-// snd_pcm_writei (막힘 쓰기 — 장치가 속도를 정한다), 밑돌면 snd_pcm_recover. 필요한 함수 여섯만 이름으로 찾는다 (헤더
+// snd_pcm_writei (막힘 쓰기 — 장치가 속도를 정한다), 밑돌면 snd_pcm_recover. 필요한 함수 여섯 (+ 설정 캐시 풀기) 만 이름으로 찾는다 (헤더
 // 없이 — ABI 는 ALSA 1.x 의 공개 서명).
 #include "platform/audio/MixerAudioBackend.hpp"
 
@@ -28,6 +28,7 @@ using WriteFn = snd_pcm_sframes_t (*)(snd_pcm_t*, const void*, snd_pcm_uframes_t
 using RecoverFn = int (*)(snd_pcm_t*, int, int);
 using CloseFn = int (*)(snd_pcm_t*);
 using DrainFn = int (*)(snd_pcm_t*);
+using FreeGlobalFn = int (*)(); // snd_config_update_free_global
 
 // dlsym 의 void* → 함수 포인터 (객체 · 함수 포인터 사이 reinterpret_cast 는 -Wpedantic 경고 — 바이트로 옮긴다)
 template <class F>
@@ -44,6 +45,11 @@ public:
     ~AlsaDevice() override {
         stop();
         if (m_lib != nullptr) {
+            // snd_pcm_open 이 읽은 설정 (alsa.conf) 의 전역 캐시 — 열기에 실패해도 남는다. 풀지 않으면 LeakSanitizer 가
+            // 누수로 본다 (CI linux-clang-asan). 장치를 모두 닫은 뒤에만 부른다
+            if (m_freeGlobal != nullptr) {
+                m_freeGlobal();
+            }
             dlclose(m_lib);
         }
     }
@@ -61,6 +67,7 @@ public:
             m_recover = symbol<RecoverFn>(m_lib, "snd_pcm_recover");
             m_close = symbol<CloseFn>(m_lib, "snd_pcm_close");
             m_drop = symbol<DrainFn>(m_lib, "snd_pcm_drop");
+            m_freeGlobal = symbol<FreeGlobalFn>(m_lib, "snd_config_update_free_global"); // 없어도 된다
         }
         if (m_open == nullptr || m_setParams == nullptr || m_write == nullptr || m_recover == nullptr ||
             m_close == nullptr || m_drop == nullptr) {
@@ -121,6 +128,7 @@ private:
     RecoverFn m_recover = nullptr;
     CloseFn m_close = nullptr;
     DrainFn m_drop = nullptr;
+    FreeGlobalFn m_freeGlobal = nullptr;
     snd_pcm_t* m_pcm = nullptr;
     AudioRenderFn m_render;
     u32 m_frames = 0;
