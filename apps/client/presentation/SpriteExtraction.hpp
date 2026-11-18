@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "apps/client/presentation/Animation.hpp"
 #include "core/components/core/Identity.hpp"
 #include "foundation/math/Vec2.hpp"
 #include "network/client/ClientWorld.hpp"
@@ -50,6 +51,7 @@ struct SnapshotSprite {
     u32 color = 0xFFFF'FFFFu;
     u8 layer = 0;
     std::array<f32, 4> sub{0.f, 0.f, 1.f, 1.f}; // 시트의 칸 (v0.12 NG-15)
+    u32 flags = 0;                              // render::SpriteFlags (애니메이션의 좌우 뒤집기 — RT-06-14)
 };
 
 // 지형 타일 하나의 그림 (v0.12 NG-15 — 지형 머티리얼 "terrain/<id>" 에 sprite 가 있을 때). 머티리얼 번호 차례
@@ -102,6 +104,12 @@ public:
     static void emitTiles(const WorldSnapshot& snapshot, render::RenderWorld& out);
     // 다른 월드(다시 접속)를 보기 시작한다 — 캐시를 비우고 지형 캐시 id 를 새로
     void reset();
+    // 팩 presentation/animations.json (v0.12 RT-06-14) — 콘텐츠의 팩 차례로 다시 읽는다. 돌려준 줄은 경고
+    std::vector<std::string> loadAnimations(const content::ContentDatabase& content);
+    // client 스크립트의 ctx.playAnimation — 그 개체의 애니메이터를 그 상태로 (렌더 틱부터). 없는 상태 · 애니메이터면
+    // false
+    bool playAnimation(NetEntityId id, std::string_view state, f64 renderTick);
+    [[nodiscard]] const AnimationLibrary& animations() const noexcept { return m_animations; }
 
     // 월드 경계 (월드 단위 — 타일)
     [[nodiscard]] static render::WorldRect worldBounds(const net::ClientWorld& world);
@@ -112,6 +120,7 @@ private:
         Vec2 size{1, 1};
         u8 layer = 0;
         bool fromContent = false;
+        std::optional<u32> animator; // render.animator (v0.12 RT-06-14)
     };
     const Resolved& resolve(const net::ClientWorld& world, NetEntityId id);
     void captureTerrain(const net::ClientWorld& world, WorldSnapshot& out);
@@ -124,6 +133,8 @@ private:
     std::vector<render::TerrainChunk> m_terrain; // 청크마다 마지막으로 복사한 것 (grid.chunks() 순서)
     std::shared_ptr<const std::vector<u32>> m_palette;
     std::shared_ptr<const std::vector<TileSprite>> m_tiles; // 처음 한 번 (팔레트와 같이)
+    AnimationLibrary m_animations;                          // 팩 animations.json (RT-06-14)
+    std::unordered_map<NetEntityId, AnimationState> m_anim; // 개체마다 상태 (렌더 틱 기준)
     u64 m_captures = 0;
 };
 

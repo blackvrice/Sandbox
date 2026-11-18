@@ -127,6 +127,13 @@ content/<pack>/
                           없는 id · 파일 = 오류, 읽지 못하는 문서 = 경고 (18 5.2). (v0.12 NG-15, ADR-0156) "cell": [열, 행] ·
                           "grid": [열 수, 행 수] — 시트 한 장의 칸 (0 부터 · 위에서 아래로, 1 ~ 4096), 둘이 같이. "terrain/<지형 id>"
                           에 sprite 가 있으면 그 지형 칸이 타일 그림이 된다 (타일맵)
+    animations.json       2D 애니메이션 (v0.12 RT-06-14, ADR-0157) — {"clips": {"<클립>": {"material": "<시트 머티리얼>", "grid": [열 수,
+                          행 수] (기본 [1, 1]), "frames": [[열, 행], …] (1 ~ 256, grid 안), "fps": 1 ~ 60 (기본 8), "loop": true}},
+                          "animators": {"<이름>": {"initial": "<상태>" (기본 이름 차례 첫 상태), "states": {"<상태>": "<클립>"} (1 ~ 64),
+                          "transitions": [{"from": "<상태>" | "*", "to": "<상태>", "when": "moving" | "still" | "end" | "always"}],
+                          "flipWithVelocity": false}}}. 팩 차례 (같은 이름은 뒤가 이긴다 · 다른 팩의 클립을 써도 된다). Prefab
+                          "render.animator": {"animator": "<이름>"} 가 그 개체를 움직인다 (render.sprite 크기 · 레이어 그대로). 로더는
+                          원문만 PackInfo.animations (클라 전용 — contentHash 밖), 틀린 항목은 클라이언트가 경고하고 그것만 뺀다
     sounds.json           소리 (v0.11 NG-17, ADR-0153) — {"sounds": {"<id>": {"file": "asset:<id>" | "assets/…wav", "bus": "sfx" |
                           "ui" | "ambient" (기본 sfx), "volume": 0 ~ 1 (기본 1)}}}. 팩 로드 차례로 (같은 id 는 뒤가 이긴다).
                           client.playSound(id) 가 부른다. 로더는 원문만 PackInfo.sounds 에 (클라 전용 — contentHash 밖), 형식 ·

@@ -105,7 +105,7 @@
 | F-226 | 다국어 (문자열 표 · 로케일 · 폰트 대체 · UI 배율) | v0.7 | ✅ 사용 가능 | `test_ui_strings` · `test_font_fallback` | 20 6장 |
 | F-227 | 오디오 — 소리 이벤트 (client) | v0.5 | ✅ v0.11 부터 팩 sounds.json 의 소리를 재생 (헤드리스는 Null) | `test_client_scripts` | 07 7장 · ADR-0095 |
 | F-228 | 오디오 출력 백엔드 · 믹서 · 2D 위치 | v0.11 · v0.12 | 🟡 구현 — 믹서 · waveOut · AudioQueue · ALSA · WAV · sounds.json (세 OS 수동 QA 남음), 위치 소리 API (RT-06-15) | `test_audio_output` | ADR-0095 · 0153 |
-| F-229 | 2D 애니메이션 클립 · 상태 기계 | v0.12 | 📐 설계만 | — (RT-06-14) | 22 |
+| F-229 | 2D 애니메이션 클립 · 상태 기계 | v0.12 | ✅ 구현 (표시 쪽 — 렌더 틱 · ADR-0157) | test_animation · test_client_scripts (RT-06-14) | 22 |
 | F-230 | 창 없는 실행 (`HeadlessWindow` · `--ticks N --exit`) | v0.1 | 🧪 시험 전용 (서버는 원래 창이 없다 — 클라이언트의 헤드리스는 시험 · CI 용) | CTest `client_headless_smoke` · `studio_flow_e2e` | 07 · [13](../13-TESTING.md) |
 | F-231 | 3D | v1.x | 범위 외 (결정 D-16 뒤) | — | 22 · releases v1.x |
 | F-232 | 성능 — 50k 개체 30 TPS | v0.1 | ⚠️ 확인 필요 — 2 코어 측정은 예산 밖, 판정 측정 대기 | `sbx_bench` 기록 ([14](../14-PERFORMANCE.md) 7.12) | 14 |

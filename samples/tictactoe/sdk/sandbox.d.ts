@@ -1,5 +1,5 @@
 // SandboxScript SDK — 생성된 파일 (sbx sdk). 손으로 고치지 않는다 — script/api 의 표를 고치고 다시 만든다.
-// Host API 1 · 지문 f8098f2fe1551dbf — docs/19-SANDBOXSCRIPT.md
+// Host API 1 · 지문 e8e97ec0f91deab4 — docs/19-SANDBOXSCRIPT.md
 declare module "sandbox" {
   /** 32 비트 정수 — 산술은 감싼다 (2147483647 + 1 = -2147483648). TS 에서는 number 와 같다 */
   export type i32 = number;
@@ -560,6 +560,8 @@ declare module "sandbox" {
     drawRect(x0: number, y0: number, x1: number, y1: number): void;
     /** 글자 (월드 좌표에 가운데 — 256 바이트까지 자른다) — drawLine 과 같은 상한. onRender 에서만 — client.drawText */
     drawText(x: number, y: number, text: string): void;
+    /** 개체의 애니메이터 (Prefab render.animator) 를 그 상태로 — 전이 없이 처음부터 (그 프레임의 렌더 틱). 없는 상태 · 애니메이터면 아무 일 없음. 프레임마다 256 개까지 (v0.12 RT-06-14) — client.playAnimation */
+    playAnimation(e: Entity, state: string): void;
     /** 소리 이벤트 (v0.5 는 이벤트만 — 실제 출력은 v0.6, ADR-0095). 프레임마다 32 개까지 — client.playSound */
     playSound(id: string): void;
     /** 이번 프레임 개체 위에 글자 (한 줄, 256 바이트까지) — client.label */

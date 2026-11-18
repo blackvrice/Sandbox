@@ -103,6 +103,9 @@ vm::HostResult clientUiVar(ClientScriptHost& host, std::span<const vm::HostArg> 
 vm::HostResult clientUiVarText(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.uiVar(args, true);
 }
+vm::HostResult clientPlayAnimation(ClientScriptHost& host, std::span<const vm::HostArg> args) {
+    return host.playAnimation(args);
+}
 vm::HostResult clientDrawColor(ClientScriptHost& host, std::span<const vm::HostArg> args) {
     return host.drawColor(args);
 }
@@ -139,6 +142,11 @@ constexpr ClientHostBinding kBindings[] = {
     {"client.pointerY", AbiType::Number, {AbiType::ClientContext}, 1, &clientPointerY},
     {"client.send", AbiType::Void, {AbiType::ClientContext, AbiType::String, AbiType::I32}, 3, &clientSend},
     {"client.playSound", AbiType::Void, {AbiType::ClientContext, AbiType::String}, 2, &clientPlaySound},
+    {"client.playAnimation",
+     AbiType::Void,
+     {AbiType::ClientContext, AbiType::Entity, AbiType::String},
+     3,
+     &clientPlayAnimation},
     {"client.drawColor", AbiType::Void, {AbiType::ClientContext, AbiType::Number}, 2, &clientDrawColor},
     {"client.drawLine",
      AbiType::Void,
@@ -207,6 +215,7 @@ void ClientScriptHost::beginFrame(const ClientScriptFrame& frame) {
     m_sounds.clear();
     m_ui.clear();
     m_draws.clear();
+    m_animations.clear();
 }
 
 vm::Value ClientScriptHost::beginCall(std::string system, std::string_view callback) {
@@ -220,6 +229,7 @@ vm::Value ClientScriptHost::beginCall(std::string system, std::string_view callb
     m_soundsAtCall = m_sounds.size();
     m_uiAtCall = m_ui.size();
     m_drawsAtCall = m_draws.size();
+    m_animationsAtCall = m_animations.size();
     m_drawColor = 0xFFFF'FFFFu;
     m_handles.clear();
     m_handleOf.clear();
@@ -234,6 +244,7 @@ void ClientScriptHost::endCall(bool ok) {
         m_sounds.resize(m_soundsAtCall);
         m_ui.resize(m_uiAtCall);
         m_draws.resize(m_drawsAtCall);
+        m_animations.resize(m_animationsAtCall);
     }
     m_token = 0;
     m_capabilities = 0;
@@ -426,6 +437,19 @@ vm::HostResult ClientScriptHost::send(std::span<const vm::HostArg> args) {
         return {};
     }
     m_sends.push_back({m_system, clip(args[1].text, 64), args[2].value.asI32()});
+    return {};
+}
+
+vm::HostResult ClientScriptHost::playAnimation(std::span<const vm::HostArg> args) {
+    const ecs::EntityId e = entityOf(args[1].value);
+    if (!e.valid()) {
+        return fail("개체 핸들이 이 호출의 것이 아니다 (지난 호출 · 위조 · 사라진 개체)");
+    }
+    if (m_animations.size() >= kMaxAnimationsPerFrame) {
+        ++m_droppedOutputs; // 상한 — 버리고 센다
+        return {};
+    }
+    m_animations.push_back({e, clip(args[2].text, 64)});
     return {};
 }
 

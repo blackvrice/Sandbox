@@ -59,6 +59,11 @@ struct ClientScriptSound {
     std::string system;
     std::string id;
 };
+// 애니메이션 상태 바꾸기 (v0.12 RT-06-14) — ctx.playAnimation(e, state)
+struct ClientScriptAnimation {
+    ecs::EntityId entity;
+    std::string state;
+};
 // 게임 UI (v0.7 M3-T4) — var 바인딩 값 (수 · 글자) 또는 문서 보이기
 struct ClientScriptUi {
     enum class Kind : u8 { Number, Text, Show };
@@ -119,14 +124,15 @@ struct ClientScriptLine {
 
 class ClientScriptHost final : public vm::IHost {
 public:
-    static constexpr usize kMaxTextBytes = 256;       // label · print 한 줄
-    static constexpr usize kMaxLabels = 1024;         // 프레임마다
-    static constexpr usize kMaxLines = 64;            // 프레임마다
-    static constexpr usize kMaxQueryEntities = 65536; // 질의 하나 (넘으면 HostError)
-    static constexpr usize kMaxSendsPerFrame = 8;     // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
-    static constexpr usize kMaxSoundsPerFrame = 32;   // client.playSound
-    static constexpr usize kMaxUiPerFrame = 64;       // client.setUi · setUiText · showUi (v0.7 M3-T4)
-    static constexpr usize kMaxDrawsPerFrame = 1024;  // client.draw* (v0.11 RT-06-9 — 넘으면 버리고 센다, 24 C1)
+    static constexpr usize kMaxTextBytes = 256;          // label · print 한 줄
+    static constexpr usize kMaxLabels = 1024;            // 프레임마다
+    static constexpr usize kMaxLines = 64;               // 프레임마다
+    static constexpr usize kMaxQueryEntities = 65536;    // 질의 하나 (넘으면 HostError)
+    static constexpr usize kMaxSendsPerFrame = 8;        // client.send (v0.5 M2-T6 — 서버의 perTick · 속도 제한과 따로)
+    static constexpr usize kMaxSoundsPerFrame = 32;      // client.playSound
+    static constexpr usize kMaxUiPerFrame = 64;          // client.setUi · setUiText · showUi (v0.7 M3-T4)
+    static constexpr usize kMaxAnimationsPerFrame = 256; // client.playAnimation (v0.12 RT-06-14)
+    static constexpr usize kMaxDrawsPerFrame = 1024;     // client.draw* (v0.11 RT-06-9 — 넘으면 버리고 센다, 24 C1)
     static constexpr f64 kMaxDrawRadius = 10'000.0;
 
     ClientScriptHost();
@@ -154,6 +160,8 @@ public:
     [[nodiscard]] const std::vector<ClientScriptUi>& uiOutputs() const noexcept { return m_ui; }
     // 이번 프레임의 그리기 명령 (부른 차례 — 트랩난 호출의 것은 버렸다), 상한으로 버린 수 (처음부터) — v0.11 RT-06-9
     [[nodiscard]] const std::vector<ClientScriptDraw>& draws() const noexcept { return m_draws; }
+    // 이번 프레임의 애니메이션 바꾸기 (부른 차례 — 트랩난 호출의 것은 버렸다) — v0.12 RT-06-14
+    [[nodiscard]] const std::vector<ClientScriptAnimation>& animations() const noexcept { return m_animations; }
     [[nodiscard]] u64 droppedDraws() const noexcept { return m_droppedDraws; }
 
     // 바인딩이 쓰는 지금 호출의 상태 · 구현 (core/script/ClientScriptHost.cpp 의 표가 부른다)
@@ -170,6 +178,7 @@ public:
     vm::HostResult uiText(std::span<const vm::HostArg> args, bool format); // v0.7 M4-T1
     vm::HostResult uiVar(std::span<const vm::HostArg> args, bool text);    // v0.7 NG-06 (2)
     vm::HostResult drawColor(std::span<const vm::HostArg> args);           // v0.11 RT-06-9
+    vm::HostResult playAnimation(std::span<const vm::HostArg> args);       // v0.12 RT-06-14
     vm::HostResult draw(std::span<const vm::HostArg> args, ClientScriptDraw::Kind kind);
     // 이 호출의 개체 핸들 (beginCall 뒤 — onEvent 의 GameEvent 칸, ClientScriptSystems)
     [[nodiscard]] vm::Value entityHandle(ecs::EntityId e);
@@ -191,6 +200,7 @@ private:
     usize m_soundsAtCall = 0;
     usize m_uiAtCall = 0;
     usize m_drawsAtCall = 0;
+    usize m_animationsAtCall = 0;
     u32 m_drawColor = 0xFFFF'FFFFu;       // 이 호출의 그리기 색
     std::vector<ecs::EntityId> m_handles; // 핸들 자리 → 개체 (호출마다 새로)
     std::map<u64, u32> m_handleOf;        // EntityId.raw → 자리 (찾기만)
@@ -202,6 +212,7 @@ private:
     std::vector<ClientScriptUi> m_ui;
     u64 m_droppedOutputs = 0;
     std::vector<ClientScriptDraw> m_draws;
+    std::vector<ClientScriptAnimation> m_animations;
     u64 m_droppedDraws = 0;
 };
 

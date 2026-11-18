@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <format>
 #include <string>
 
 #include "core/components/core/Identity.hpp"
@@ -33,8 +34,43 @@ render::WorldRect SpriteExtraction::worldBounds(const net::ClientWorld& world) {
              static_cast<f32>((b.maxChunk.y + 1) * world::kChunkSize)}};
 }
 
+std::vector<std::string> SpriteExtraction::loadAnimations(const content::ContentDatabase& content) {
+    m_animations.clear();
+    m_anim.clear();
+    m_cache.clear(); // 애니메이터 번호가 바뀐다
+    std::vector<std::string> warnings;
+    for (const content::PackInfo& p : content.packs()) {
+        if (!p.animations.empty()) {
+            const std::vector<std::string> w =
+                m_animations.load(p.animations, std::format("{}/presentation/animations.json", p.id));
+            warnings.insert(warnings.end(), w.begin(), w.end());
+        }
+    }
+    const std::vector<std::string> left = m_animations.unresolved();
+    warnings.insert(warnings.end(), left.begin(), left.end());
+    return warnings;
+}
+
+bool SpriteExtraction::playAnimation(NetEntityId id, std::string_view state, f64 renderTick) {
+    const auto cached = m_cache.find(id);
+    if (cached == m_cache.end() || !cached->second.animator) {
+        return false;
+    }
+    const Animator* an = m_animations.animator(*cached->second.animator);
+    const std::optional<u32> s = an != nullptr ? an->stateOf(state) : std::nullopt;
+    if (!s) {
+        return false;
+    }
+    AnimationState& st =
+        m_anim.try_emplace(id, AnimationState{*cached->second.animator, *s, renderTick, false}).first->second;
+    st.state = *s;
+    st.start = renderTick;
+    return true;
+}
+
 void SpriteExtraction::reset() {
     m_cache.clear();
+    m_anim.clear();
     m_terrain.clear();
     m_palette.reset();
     m_worldId = nextWorldId();
@@ -65,6 +101,13 @@ const SpriteExtraction::Resolved& SpriteExtraction::resolve(const net::ClientWor
             }
             if (v.contains("layer") && v["layer"].is_number_integer()) {
                 r.layer = static_cast<u8>(std::clamp(v["layer"].get<int>(), 0, 255));
+            }
+        }
+        // {"render.animator": {"version": 1, "value": {"animator": "hero"}}} — v0.12 RT-06-14
+        if (comps.is_object() && comps.contains("render.animator") && comps["render.animator"].contains("value")) {
+            const ecs::Json& v = comps["render.animator"]["value"];
+            if (v.contains("animator") && v["animator"].is_string()) {
+                r.animator = m_animations.findAnimator(v["animator"].get<std::string>());
             }
         }
     }
@@ -200,20 +243,40 @@ void SpriteExtraction::capture(const net::ClientWorld& world, f64 renderTick, st
             position = s.position;
             rotation = s.rotation;
         }
+        render::Material material = r.material;
+        u32 flags = 0;
+        if (r.animator) { // 애니메이션 (v0.12 RT-06-14) — 지금 프레임의 머티리얼 (시트) · 칸 · 뒤집기
+            auto [it, fresh] = m_anim.try_emplace(ni->netId, AnimationState{*r.animator, ~0u, renderTick, false});
+            const auto* vel = reg.tryRead<comp::Velocity>(e);
+            const Vec2 v = vel != nullptr ? vel->value : Vec2{};
+            const AnimationFrame frame =
+                stepAnimation(m_animations, it->second, renderTick, std::sqrt(v.x * v.x + v.y * v.y), v.x);
+            if (frame.clip != nullptr) {
+                const render::Material sheet = m_materials.find(frame.clip->material);
+                material.sprite = sheet.sprite;
+                material.color = sheet.color;
+                material.sub = frame.sub;
+                flags = frame.flipX ? render::kSpriteFlipX : 0u;
+            }
+        }
         out.sprites.push_back({.id = ni->netId,
                                .position = position,
                                .size = r.size,
                                .rotation = rotation,
-                               .sprite = r.material.sprite,
-                               .color = r.material.color,
+                               .sprite = material.sprite,
+                               .color = material.color,
                                .layer = r.layer,
-                               .sub = r.material.sub});
+                               .sub = material.sub,
+                               .flags = flags});
         ++out.stats.entities;
         out.stats.withSprite += r.fromContent ? 1 : 0;
     });
     // 사라진 엔티티의 캐시를 가끔 정리 (netId 는 재사용되지 않으므로 틀린 값을 쓸 일은 없다 — 메모리만)
     if (m_captures % 600 == 0 && m_cache.size() > static_cast<usize>(out.stats.entities) * 2) {
         std::erase_if(m_cache, [&](const auto& kv) { return world.find(kv.first) == ecs::kNullEntity; });
+    }
+    if (m_captures % 600 == 0 && m_anim.size() > static_cast<usize>(out.stats.entities) * 2) {
+        std::erase_if(m_anim, [&](const auto& kv) { return world.find(kv.first) == ecs::kNullEntity; });
     }
     out.stats.cached = static_cast<u32>(m_cache.size());
 
@@ -229,6 +292,7 @@ void SpriteExtraction::emit(const WorldSnapshot& snapshot, render::RenderWorld& 
                                .rotation = s.rotation,
                                .sprite = s.sprite,
                                .color = s.color,
+                               .flags = s.flags,
                                .layer = s.layer,
                                .depth = -s.position.y,
                                .sub = s.sub});

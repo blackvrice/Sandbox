@@ -80,7 +80,10 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
         if (pm.packs > 0) {
             log::info("client", "팩 머티리얼 {} 개 (팩 {} 개 — presentation/materials.json)", pm.materials, pm.packs);
         }
-        s->loadSounds(s->m_local->content(), s->m_local->projectDir()); // 팩 소리 (v0.11 NG-17)
+        s->loadSounds(s->m_local->content(), s->m_local->projectDir());                      // 팩 소리 (v0.11 NG-17)
+        for (const std::string& w : s->m_extraction.loadAnimations(s->m_local->content())) { // v0.12 RT-06-14
+            log::warn("client", "애니메이션: {}", w);
+        }
     } else {
         auto target = net::parseEndpoint(desc.connect, kDefaultPort);
         if (!target) {
@@ -271,6 +274,9 @@ void NetworkSession::handleRejected() {
             }
             m_session.reset(); // 복제 월드가 옛 콘텐츠를 가리킨다 — 먼저 없앤다
             m_ownContent = std::make_unique<content::ContentDatabase>(std::move(*db));
+            for (const std::string& w : m_extraction.loadAnimations(*m_ownContent)) { // v0.12 RT-06-14
+                log::warn("client", "애니메이션: {}", w);
+            }
         }
         if (m_ownContent->contentHash() != r.contentHash) {
             m_failure = std::format("콘텐츠가 다릅니다: 서버 {:016x}, 이 컴퓨터 {:016x} (팩 {} 개)", r.contentHash,
@@ -769,6 +775,14 @@ void NetworkSession::drainClientScriptOutputs() {
             setUiVar(u.key, ui::UiScalar::of(u.text));
         } else if (m_uiShows.size() < 64) {
             m_uiShows.emplace_back(u.key, u.visible);
+        }
+    }
+    // 애니메이션 상태 (v0.12 RT-06-14) — 복제 개체의 netId 로 추출에 (지난 캡처의 렌더 틱부터)
+    if (const net::ClientWorld* cw = clientWorld()) {
+        for (const script::ClientScriptAnimation& a : m_clientScripts->host().animations()) {
+            if (const auto* id = cw->registry().tryRead<comp::NetIdentity>(a.entity)) {
+                (void)m_extraction.playAnimation(id->netId, a.state, m_snapshot.renderTick);
+            }
         }
     }
     for (const script::ClientScriptSound& s : m_clientScripts->host().sounds()) {

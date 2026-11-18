@@ -2481,6 +2481,14 @@ std::shared_ptr<ContentSources> ContentLoaderImpl::readSources(std::span<const s
                 warn(p.folder + "/presentation/materials.json", "", "IO", text.error().describe());
             }
         }
+        // 클라 전용 애니메이션 (v0.12 RT-06-14) — 원문만 (형식 검사는 클라이언트의 AnimationLibrary)
+        if (const fs::path anim = p.dir / "presentation" / "animations.json"; fs::is_regular_file(anim)) {
+            if (auto text = io::readFile(anim)) {
+                sp.info.animations = std::move(*text);
+            } else {
+                warn(p.folder + "/presentation/animations.json", "", "IO", text.error().describe());
+            }
+        }
         // 클라 전용 소리 (v0.11 NG-17) — 원문만 (형식 검사 · 디코드는 클라이언트의 PackSounds)
         if (const fs::path snd = p.dir / "presentation" / "sounds.json"; fs::is_regular_file(snd)) {
             if (auto text = io::readFile(snd)) {

@@ -23,6 +23,8 @@ add_executable(SandboxClient
     presentation/ScriptDraws.cpp
     presentation/PackSounds.hpp
     presentation/PackSounds.cpp
+    presentation/Animation.hpp
+    presentation/Animation.cpp
     presentation/PackMaterials.hpp
     presentation/PackMaterials.cpp
     presentation/GameUiLayer.hpp

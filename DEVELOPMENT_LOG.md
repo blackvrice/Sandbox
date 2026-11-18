@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-18 — v0.12 RT-06-14: 2D 애니메이션 클립 · 상태 기계 (ADR-0157)
+
+**무엇을**
+
+- 팩 presentation/animations.json (클라 전용 — contentHash 밖): 클립 (시트 머티리얼 · grid · frames · fps 1 ~ 60 · loop) · 애니메이터
+  (initial · states → 클립 · 전이 from/"*" · to · when moving/still/end/always · flipWithVelocity). 틀린 항목은 그것만 빼고 경고, 다른
+  팩의 클립을 써도 된다. 로더는 원문만 PackInfo.animations.
+- apps/client/presentation/Animation (AnimationLibrary · stepAnimation): 시간 = 복제 월드의 렌더 틱 (30 TPS), 전이는 프레임마다 한 번
+  (정의 차례 첫째), 좌우 속도로 뒤집기. SpriteExtraction 이 Prefab "render.animator" 개체마다 클립의 시트 · 칸 (NG-15 의 sub) ·
+  kSpriteFlipX 를 채운다 (상태는 netId 마다, 사라진 개체는 가끔 정리).
+- client 스크립트 ctx.playAnimation(e, state) — 전이 없이 그 상태를 처음부터 (프레임마다 256, 트랩난 호출의 것은 버림). Host 지문
+  0xe8e97ec0f91deab4, client 바인딩 28, SDK 다시 생성.
+- 문서: ADR-0157, 06 8.1, 11 animations.json, 13, 17, 19 client API, 21 · 22 · versioning · VERSION-MIGRATION-MATRIX (지문),
+  FEATURE_MATRIX F-229, 등록부 RT-06-14 Done (gen_roadmap).
+
+**왜**
+
+- 걷기 · 맞기 같은 상태 그림 (카드 RT-06-14 — 상태 전이). 애니메이션은 보이는 것 — 시뮬레이션 컴포넌트로 두면 해시 · 세이브 · 복제
+  대역을 그림에 쓴다. 같은 렌더 틱이면 클라이언트끼리 같은 프레임이라 결정론 표시에 충분하다.
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 빌드 · /WX 빌드 통과, 단위 시험 assertions 1,950,533 모두 통과 (test_animation 넷 — 해석 · 경고 넷 · 팩 사이 클립,
+  프레임 반복 · 멈춤 · 끝, 전이 · 뒤집기 · 같은 입력 = 같은 결과, 로컬 세션의 토끼 칸 · ctx.playAnimation → hit → idle), 전체 ctest
+  95 개 — 94 통과 · studio_gui_smoke SKIPPED (CI 전용).
+- 시험을 쓰다 찾은 것: JSON 객체 키는 이름 차례로 읽힌다 — states 의 상태 번호 · initial 기본값은 이름 차례 (문서에 적었다).
+
+**남은 일**
+
+- 블렌딩 · 뼈대 · 프레임 이벤트 · Studio 미리보기 [계획]. 실제 창에서의 재생은 MANUAL-QA (NG-20 통합 시험이 흐름을 잇는다).
+
 ## 2026-11-18 — v0.12 NG-15: 2D 타일맵 — 지형 머티리얼 + 시트의 칸 그림 (ADR-0156)
 
 **무엇을**

@@ -145,7 +145,7 @@ TEST_SUITE("script") {
         // v0.11 RT-06-3 — 물리 명령 넷 (0x7e7024b2d198fb7c)
         // v0.11 RT-06-5 — 겹침 이벤트 종류 넷 (0xbfb4c2ec4ff6844e)
         // v0.11 RT-06-9 — client.draw* 다섯 (0xd9bce63b33f33c2b)
-        CHECK(api::hostApiFingerprint() == 0xf8098f2fe1551dbfull); // v0.12 RT-06-6 — ctx.shapeCast
+        CHECK(api::hostApiFingerprint() == 0xe8e97ec0f91deab4ull); // v0.12 RT-06-14 — client.playAnimation (전: 0xf8098f2fe1551dbf RT-06-6 ctx.shapeCast)
     }
 
     TEST_CASE("import 경로 풀기") {
