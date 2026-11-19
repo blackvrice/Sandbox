@@ -32,4 +32,11 @@ struct PackMaterialsResult {
                                                     const std::filesystem::path& projectDir,
                                                     render::AssetManager* assets);
 
+// 디스크에서 다시 (v0.13 ST-08-5 — Studio 가 materials.json 을 고친 뒤). 콘텐츠의 원문 (팩을 읽은 때) 이 아니라 읽은 팩 폴더
+// (sources — 프로젝트 팩만, 폴더가 있는 것) 의 presentation/materials.json 을 지금 읽는다. 팩 차례 · 덮어쓰기 규칙은 같다
+[[nodiscard]] PackMaterialsResult reloadPackMaterialsFromDisk(render::MaterialLibrary& materials,
+                                                              const content::ContentDatabase& content,
+                                                              const std::filesystem::path& projectDir,
+                                                              render::AssetManager* assets);
+
 } // namespace sbx::client

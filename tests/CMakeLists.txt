@@ -188,6 +188,7 @@ if(SBX_BUILD_CLIENT)
     target_sources(SandboxTests PRIVATE
         unit/client/test_application.cpp
         unit/client/test_studio_shell.cpp
+        unit/client/test_sprite_drop.cpp
         unit/client/test_player_mode.cpp
         unit/client/test_network_session.cpp
         unit/client/test_imgui_layer.cpp

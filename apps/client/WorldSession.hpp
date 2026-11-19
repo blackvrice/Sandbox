@@ -265,6 +265,8 @@ public:
     [[nodiscard]] virtual WorldInfo info() const { return {}; }
     // ---- 12A: 에디터 (없으면 null — Application 은 8B 의 선택만 한다) ----
     [[nodiscard]] virtual editor::IEditorHost* editorHost() { return nullptr; }
+    // 프로젝트 팩의 presentation/materials.json 을 다시 읽는다 (v0.13 ST-08-5 — Studio 가 머티리얼을 더한 뒤). 로컬 프로젝트만
+    virtual bool reloadPackMaterials() { return false; }
     // ---- 12C: 접속자 · 역할 (없으면 패널을 그리지 않는다) ----
     [[nodiscard]] virtual std::optional<PlayersInfo> players() const { return std::nullopt; }
     // 역할 바꾸기 요청 (서버가 판단 — 결과는 players().message)

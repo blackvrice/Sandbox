@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-19 — Sprite → Object — 에셋을 월드에 끌어 놓기 (v0.13 ST-08-5, ADR-0167)
+
+**무엇을**
+
+- editor/SpriteDrop: 계획만 (파일 · 월드를 바꾸지 않는다) — 프로젝트 팩 (content/ 아래 · 설치한 패키지 아님) 중 처음 읽은 것, 머티리얼
+  "<팩 폴더>/<파일 이름>" (UI 디자이너의 image 끌어 놓기와 같은 이름), Prefab "<팩 id>.<id 마디>" = core.transform + render.sprite
+  {material, size [1, 1], layer 10}, 같은 그림의 Prefab 은 재사용 · 같은 id 다른 그림이면 _2.
+- Application::dropSpriteOnWorld: asset::ensureAssetMaterial (asset:<id> — 옮겨도 그대로) → WorldSession::reloadPackMaterials (디스크의
+  materials.json 을 다시 — reloadPackMaterialsFromDisk; 콘텐츠의 원문은 팩을 읽은 때 것) → Editor::editContent (오버레이 Prefab — 되돌리기 ·
+  세이브) → Editor::placePrefab (배치 툴과 같은 CreateEntity · 되돌리기 — placeAt 을 나눴다). 서버가 명령 차례대로 Prefab 다음 개체.
+- 끌어 놓기: 에셋 끌기 (에셋 창 · 프로젝트 창, SBX_ASSET) 가 창이 없는 곳 (가운데 — 월드) 위면 풍선, 놓는 프레임에 그 자리 (카메라 →
+  월드). 창 위에 놓으면 그 창의 것.
+
+**왜**
+
+- 사용자 창 QA: Sprite 를 끌어 Object 를 만들 수 없다 (감사 2장 8) — 배치는 Prefab 을 먼저 JSON 으로 만들어야 했다.
+
+**검증** (Windows MSVC, 2026-11-19)
+
+- 디버그 · /WX 빌드, test_sprite_drop (계획 + 헤드리스 앱 — 머티리얼 다시 읽기 · 개체 자리 · 거절 0 · edit.undo · 재사용 · 시작 월드 저장 →
+  에셋 이름을 바꾸고 다시 열기), 전체 ctest. 마우스 끌기 · 그림 표시는 창 QA — MANUAL-QA v0.13 ST-08-5 [ ].
+
+**남은 일**
+
+- 그림 크기 (픽셀 → 칸) 는 1 × 1 고정 — 인스펙터의 render.sprite size 로 고친다 (ST-08-12). Prefab 은 개체 되돌리기와 따로 남는다.
+
 ## 2026-11-18 — 스크립트 열기 · 새 스크립트 · 스크립트 창 Ctrl+S (v0.13 ST-08-4, ADR-0167)
 
 **무엇을**

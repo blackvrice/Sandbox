@@ -7,6 +7,7 @@
 
 #include "core/asset/AssetDatabase.hpp"
 #include "core/project/GameProject.hpp"
+#include "foundation/io/FileIo.hpp"
 
 namespace sbx::client {
 
@@ -51,6 +52,42 @@ PackMaterialsResult loadPackMaterials(render::MaterialLibrary& materials, const 
         r.materials += doc.is_object() && doc.contains("materials") && doc["materials"].is_object()
                            ? doc["materials"].size()
                            : materials.size() - before;
+    }
+    return r;
+}
+
+PackMaterialsResult reloadPackMaterialsFromDisk(render::MaterialLibrary& materials,
+                                                const content::ContentDatabase& content,
+                                                const std::filesystem::path& projectDir, render::AssetManager* assets) {
+    PackMaterialsResult r;
+    if (content.sources() == nullptr) {
+        return r;
+    }
+    const render::SpriteResolver resolve = projectSpriteResolver(projectDir);
+    for (const content::ContentSourcePack& sp : content.sources()->packs) {
+        if (sp.dir.empty()) {
+            continue;
+        }
+        const std::filesystem::path file = sp.dir / "presentation" / "materials.json";
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(file, ec)) {
+            continue;
+        }
+        const auto text = io::readFile(file);
+        if (!text) {
+            r.warnings.push_back(text.error().describe());
+            continue;
+        }
+        const std::string origin = std::format("{}/presentation/materials.json", sp.info.id);
+        if (auto loaded = materials.loadJson(*text, origin, assets, resolve); !loaded) {
+            r.warnings.push_back(loaded.error().describe());
+            continue;
+        }
+        ++r.packs;
+        const nlohmann::json doc = nlohmann::json::parse(*text, nullptr, false);
+        r.materials += doc.is_object() && doc.contains("materials") && doc["materials"].is_object()
+                           ? doc["materials"].size()
+                           : 0;
     }
     return r;
 }

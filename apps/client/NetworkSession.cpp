@@ -101,7 +101,20 @@ Expected<std::unique_ptr<NetworkSession>> NetworkSession::create(const NetworkSe
 }
 
 NetworkSession::NetworkSession(const NetworkSessionDesc& desc, render::MaterialLibrary& materials)
-    : m_desc(desc), m_extraction(materials) {}
+    : m_desc(desc), m_materials(materials), m_extraction(materials) {}
+
+bool NetworkSession::reloadPackMaterials() {
+    if (!m_local) {
+        return false; // 원격 서버 — 프로젝트 파일이 이 컴퓨터에 없다
+    }
+    const PackMaterialsResult pm =
+        reloadPackMaterialsFromDisk(m_materials, m_local->content(), m_local->projectDir(), m_desc.assets);
+    for (const std::string& w : pm.warnings) {
+        log::warn("client", "머티리얼: {}", w);
+    }
+    log::info("client", "팩 머티리얼을 다시 읽었다 — {} 개", pm.materials);
+    return true;
+}
 
 void NetworkSession::loadSounds(const content::ContentDatabase& content, const std::filesystem::path& projectDir) {
     if (m_desc.audio == nullptr) {

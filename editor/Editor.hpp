@@ -146,6 +146,9 @@ public:
     // EditContent{kind, id, value} 하나 (value null = 팩 값으로). 지금 오버레이 값과 같으면 보내지 않는다. 기록 한 칸 —
     // 역명령은 지금 오버레이 값 (없었으면 null). 보냈으면 true
     bool editContent(IEditorHost& host, content::ContentKind kind, const std::string& id, ecs::Json value);
+    // 그 Prefab 을 at (격자 맞춤) 에 CreateEntity — 배치 툴의 클릭과 같은 명령 · 되돌리기 (v0.13 ST-08-5 — Sprite → Object
+    // 끌어 놓기). 월드 밖 · 보내지 못함이면 false (message)
+    bool placePrefab(IEditorHost& host, const std::string& prefab, Vec2 at);
 
     // ---- 12B: 되돌리기 ----
     // 줄에 붙었으면 줄의 마지막 칸 (월드 · 문서), 아니면 이 에디터의 기록

@@ -97,7 +97,7 @@ core/command CreateEntity          prefab + components 덮어쓰기 · 위치 �
 | ST-08-2 | v0.13 | 창 닫기 (X) · Creator 기본 배치 (적은 창) · 개발자 창 분리 | P0 | 완료 | test_studio_shell · test_layout_service · studio_layout | 미실시 | Done (GUI QA 남음) |
 | ST-08-3 | v0.13 | Project Explorer — 트리 · 검색 · 새 폴더 · 이름 바꾸기 · 복제 · 지우기 (휴지통) · 경로 안전 | P0 | 완료 | test_project_files (서비스 · 헤드리스 창) · test_studio_shell | 미실시 | Done (GUI QA 남음) |
 | ST-08-4 | v0.13 | 스크립트 열기 · 새 스크립트 (탐색기 두 번 클릭 · 틀) · 스크립트 창의 Ctrl+S | P0 | 완료 | test_script_assist (파일 → id · 열기 · 새 스크립트) · test_project_files | 미실시 | Done (GUI QA 남음) |
-| ST-08-5 | v0.13 | Sprite → Object (에셋을 월드에 끌어 놓기 — 머티리얼 · Prefab · CreateEntity · 되돌리기) | P0 | 계획 | test_sprite_drop | 미실시 | Planned |
+| ST-08-5 | v0.13 | Sprite → Object (에셋을 월드에 끌어 놓기 — 머티리얼 · Prefab · CreateEntity · 되돌리기) | P0 | 완료 | test_sprite_drop (계획 · 헤드리스 앱 — 되돌리기 · 저장 → 다시 열기) | 미실시 | Done (GUI QA 남음) |
 | ST-08-6 | v0.13 | Object → Prefab (선택 개체 → Prefab · 그 개체를 Prefab 에 잇기) | P0 | 계획 | test_prefab_from_entity | 미실시 | Planned |
 | ST-08-7 | v0.14 | 메뉴 정리 — 파일 · 편집 · 보기 · 개체 · 에셋 · 빌드 · 창 · 도움말 (명령 id 재사용) | P1 | 계획 | test_studio_shell | 미실시 | Planned |
 | ST-08-8 | v0.14 | Workspace — 장면 · 스크립트 · UI 디자인 · 시험 · 빌드 | P1 | 계획 | test_studio_shell | 미실시 | Planned |
@@ -171,4 +171,5 @@ ST-08-7 ~ 13 (P1, v0.14) · ST-08-14 (P2, v0.21) — 카드는 착수 때 이 �
 | 2026-11-18 | ST-08-1 감사 · 계획 | e73db0e | docs_consistency | — |
 | 2026-11-18 | ST-08-2 창 X · Creator 기본 창 · studio.json "windows" | a48d56c | test_studio_shell · test_layout_service · studio_layout · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-2) |
 | 2026-11-18 | ST-08-3 Project Explorer (ProjectFiles · "프로젝트" 창 — 기본 창, 에셋 창 대신) | 28afd14 | test_project_files · test_studio_shell · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-3) |
-| 2026-11-18 | ST-08-4 탐색기 .ts 두 번 클릭 · 새 스크립트 (틀 → 저장 길) · 스크립트 창 Ctrl+S | (이 커밋) | test_script_assist · test_project_files · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-4) |
+| 2026-11-18 | ST-08-4 탐색기 .ts 두 번 클릭 · 새 스크립트 (틀 → 저장 길) · 스크립트 창 Ctrl+S | e8ebdfc | test_script_assist · test_project_files · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-4) |
+| 2026-11-19 | ST-08-5 Sprite → Object (머티리얼 asset:<id> · 오버레이 Prefab · CreateEntity · 머티리얼 다시 읽기) | (이 커밋) | test_sprite_drop · 전체 ctest | 미실시 (MANUAL-QA v0.13 ST-08-5) |

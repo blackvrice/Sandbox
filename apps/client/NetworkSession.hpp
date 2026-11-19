@@ -105,6 +105,7 @@ public:
     [[nodiscard]] std::string selectionStatus() const override;
     [[nodiscard]] WorldInfo info() const override;
     [[nodiscard]] editor::IEditorHost* editorHost() override { return this; }
+    bool reloadPackMaterials() override;
 
     // ---- IEditorHost (12A) ----
     u32 submit(cmd::CommandPayload payload) override;
@@ -228,6 +229,7 @@ private:
     bool m_presentationMismatch = false;
     std::optional<std::string> m_failure;
 
+    render::MaterialLibrary& m_materials; // 팩 머티리얼을 다시 읽을 곳 (v0.13 ST-08-5)
     SpriteExtraction m_extraction;
     net::InterpolationClock m_clock;
     WorldSnapshot m_snapshot;

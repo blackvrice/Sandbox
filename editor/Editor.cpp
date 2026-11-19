@@ -213,17 +213,23 @@ void Editor::placeAt(Vec2 at, IEditorHost& host) {
         m_message = "배치할 Prefab 을 고르십시오 (편집 패널)";
         return;
     }
+    (void)placePrefab(host, m_settings.prefab, at);
+}
+
+bool Editor::placePrefab(IEditorHost& host, const std::string& prefab, Vec2 at) {
     const Vec2 p = snapped(at);
     if (const world::WorldGrid* grid = host.grid(); grid != nullptr && !grid->containsPoint(p)) {
         m_message = "월드 밖에는 놓을 수 없습니다";
-        return;
+        return false;
     }
     cmd::CreateEntity c;
     c.position = p;
-    c.prefab = m_settings.prefab;
-    if (const u32 seq = sendEdit(host, std::move(c), {}); seq != 0) { // 역명령(DeleteEntity)은 결과의 새 netId 로
+    c.prefab = prefab;
+    const u32 seq = sendEdit(host, std::move(c), {});
+    if (seq != 0) { // 역명령(DeleteEntity)은 결과의 새 netId 로
         m_creates.push_back(seq);
     }
+    return seq != 0;
 }
 
 void Editor::paintAlong(Vec2 from, Vec2 to, IEditorHost& host) {

@@ -23,6 +23,8 @@
 
 #include <imgui.h>
 
+#include "core/asset/AssetRefs.hpp"
+#include "editor/SpriteDrop.hpp"
 #include "editor/services/StudioSettings.hpp"
 #include "foundation/diag/Report.hpp"
 #include "foundation/io/FileIo.hpp"
@@ -1103,6 +1105,21 @@ bool Application::frame() {
                 }
                 editor::drawUiDesignerPanel(m_uiDesigner, m_uiDesign, m_uiDocs, &m_shell.view.uiDesigner);
             }
+            // 에셋을 월드 (가운데 — 창이 없는 곳) 에 끌어 놓기 → Sprite → Object (v0.13 ST-08-5). 놓는 프레임까지 끌기 값이
+            // 남아 있다 — 놓은 곳에 창이 있으면 그 창이 받는다 (UI 디자이너 · 프로젝트 폴더)
+            if (const ImGuiPayload* drag = ImGui::GetDragDropPayload();
+                drag != nullptr && drag->IsDataType(editor::kAssetPayload) && !m_projectDir.empty() &&
+                !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+                ImGui::SetTooltip("월드에 놓으면 이 그림의 개체를 만든다 (Prefab 도)");
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    const f32 scale = m_window.contentScale() > 0.f ? m_window.contentScale() : 1.f;
+                    const ImVec2 mouse = ImGui::GetMousePos();
+                    const Vec2 at = m_renderWorld.camera.screenToWorld(Vec2{mouse.x, mouse.y} * scale);
+                    if (const std::string why = dropSpriteOnWorld(static_cast<const char*>(drag->Data), at); !why.empty()) {
+                        m_config.notices.push_back(why);
+                    }
+                }
+            }
             if (!m_projectDir.empty() && m_panels.visible && m_shell.view.project) { // v0.13 ST-08-3 "프로젝트"
                 if (const auto a = editor::drawProjectExplorer(m_projectExplorer, m_projectDir, &m_shell.view.project)) {
                     applyProjectExplorerAction(*a);
@@ -1750,6 +1767,42 @@ void Application::reloadAssetSprites(const editor::AssetChange& change) {
         n += assets->reloadSpriteFile(change.oldPath, file) ? 1 : 0; // 옛 경로 키 — 머티리얼을 다시 읽기 전까지
     }
     log::info("studio", "에셋 {} — 스프라이트 {} 개를 다시 올린다", change.path, n);
+}
+
+std::string Application::dropSpriteOnWorld(const std::string& assetId, Vec2 world) {
+    editor::IEditorHost* host = m_config.world != nullptr ? m_config.world->editorHost() : nullptr;
+    const content::ContentDatabase* db = host != nullptr ? host->content() : nullptr;
+    if (db == nullptr || m_projectDir.empty()) {
+        return "프로젝트 월드가 아니라 그림으로 개체를 만들 수 없다";
+    }
+    if (!host->permissions().content || !host->permissions().entities) {
+        return "지금 역할로는 개체 · Prefab 을 만들 수 없다 (편집 권한)";
+    }
+    const asset::AssetScan scan = asset::scanProjectAssets(m_projectDir);
+    const asset::AssetEntry* entry = scan.find(assetId);
+    if (entry == nullptr) {
+        return std::format("에셋 id '{}' 가 프로젝트에 없다 — 에셋 창에서 [가져오기]", assetId);
+    }
+    Expected<editor::SpriteDropPlan> plan = editor::planSpriteDrop(*db, m_projectDir, *entry);
+    if (!plan) {
+        return plan.error().message;
+    }
+    // 1. 머티리얼 (팩 파일 — 이미 같은 그림이면 그대로) → 렌더러가 다시 읽는다
+    if (auto r = asset::ensureAssetMaterial(m_projectDir, plan->packFolder, assetId, plan->material); !r) {
+        return r.error().message;
+    }
+    (void)m_config.world->reloadPackMaterials();
+    // 2. Prefab (오버레이 — 되돌리기 · 세이브) · 3. 개체 (서버가 차례로 — Prefab 다음 CreateEntity)
+    if (plan->prefab) {
+        if (!m_editor.editContent(*host, content::ContentKind::Prefab, plan->prefabId, std::move(*plan->prefab))) {
+            return m_editor.lastMessage().empty() ? std::string("Prefab 을 보내지 못했다") : m_editor.lastMessage();
+        }
+    }
+    if (!m_editor.placePrefab(*host, plan->prefabId, world)) {
+        return m_editor.lastMessage();
+    }
+    log::info("studio", "{} → Prefab {} · 개체 ({:.1f}, {:.1f})", entry->path, plan->prefabId, world.x, world.y);
+    return {};
 }
 
 void Application::applyProjectExplorerAction(const editor::ProjectExplorerAction& a) {

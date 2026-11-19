@@ -255,6 +255,14 @@ private:
     // 올린다
     void reloadAssetSprites(const editor::AssetChange& change);
     void applyProjectExplorerAction(const editor::ProjectExplorerAction& action); // v0.13 ST-08-3
+    // 에셋 (PNG) 을 월드에 놓았다 — 머티리얼 · Prefab (오버레이) · 개체 (v0.13 ST-08-5). 실패면 이유 (빈 글자 = 보냈다)
+    std::string dropSpriteOnWorld(const std::string& assetId, Vec2 world);
+
+public:
+    // 시험 · 자동화 (v0.13 ST-08-5) — 끌어 놓기와 같은 길
+    std::string dropSpriteForTest(const std::string& assetId, Vec2 world) { return dropSpriteOnWorld(assetId, world); }
+
+private:
     bool saveLayout(bool announce);
     void testStart(); // 테스트 세션 (v0.8 ST-06-9) — 지금 프로젝트 · 창의 값으로
     // Studio 셸 (v0.8 UI-1): 입력 모으기 · 고른 일 적용 · 테마 (밀도)
