@@ -39,6 +39,8 @@ target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warni
 # Core + Render 위. Network 를 모른다 (ICommandSink · IEditorHost 로 분리 — 경계 규칙이 검사한다).
 add_library(SandboxEditor STATIC
     SpriteDrop.hpp
+    PrefabFromEntity.hpp
+    PrefabFromEntity.cpp
     SpriteDrop.cpp
     ui/UiDesignerPanel.hpp
     ui/UiDesignerPanel.cpp

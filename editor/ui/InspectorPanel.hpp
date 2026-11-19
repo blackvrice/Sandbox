@@ -33,6 +33,8 @@ struct InspectorState {
     std::vector<HierarchyRow> hrows;
     std::vector<HierarchyLine> lines; // 그린 줄 (그룹 머리 · 개체)
     std::array<char, 64> groupName{}; // "선택을 그룹으로" 의 이름
+    std::array<char, 64> newPrefab{}; // "Prefab 으로 만들기" 의 id (v0.13 ST-08-6)
+    NetEntityId newPrefabFor = kInvalidNetEntityId; // newPrefab 제안을 채운 개체 (고른 개체가 바뀌면 다시)
 };
 
 void drawInspectorPanel(Editor& editor, InspectorState& state, IEditorHost& host, bool* open = nullptr);

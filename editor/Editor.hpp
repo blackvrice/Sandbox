@@ -149,6 +149,9 @@ public:
     // 그 Prefab 을 at (격자 맞춤) 에 CreateEntity — 배치 툴의 클릭과 같은 명령 · 되돌리기 (v0.13 ST-08-5 — Sprite → Object
     // 끌어 놓기). 월드 밖 · 보내지 못함이면 false (message)
     bool placePrefab(IEditorHost& host, const std::string& prefab, Vec2 at);
+    // Object → Prefab (v0.13 ST-08-6 — editor/PrefabFromEntity): 그 개체의 지금 값으로 새 Prefab newId 를 오버레이에 넣고
+    // (EditContent) 그 개체의 core.prefab 을 newId 로 (ChangeComponent) — 한 되돌리기 단위. id 가 틀리거나 이미 있으면 false (message)
+    bool prefabFromEntity(IEditorHost& host, NetEntityId id, const std::string& newId);
 
     // ---- 12B: 되돌리기 ----
     // 줄에 붙었으면 줄의 마지막 칸 (월드 · 문서), 아니면 이 에디터의 기록

@@ -165,6 +165,7 @@ add_executable(SandboxTests
     unit/editor/test_autosave_service.cpp
     unit/editor/test_layout_service.cpp
     unit/editor/test_project_files.cpp
+    unit/editor/test_prefab_from_entity.cpp
     unit/editor/test_studio_home_data.cpp
     unit/editor/test_console_panel.cpp
     unit/editor/test_command_palette.cpp

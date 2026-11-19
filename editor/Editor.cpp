@@ -10,6 +10,7 @@
 #include "core/content/PrefabDiff.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "core/world/WorldGrid.hpp"
+#include "editor/PrefabFromEntity.hpp"
 #include "foundation/io/FileIo.hpp"
 #include "render/renderer/RenderWorld.hpp"
 
@@ -230,6 +231,68 @@ bool Editor::placePrefab(IEditorHost& host, const std::string& prefab, Vec2 at) 
         m_creates.push_back(seq);
     }
     return seq != 0;
+}
+
+bool Editor::prefabFromEntity(IEditorHost& host, NetEntityId id, const std::string& newId) {
+    if (!host.permissions().content || !host.permissions().entities) {
+        m_message = "지금 역할로는 Prefab 을 만들 수 없습니다";
+        return false;
+    }
+    const content::ContentDatabase* content = host.content();
+    const ecs::ComponentCatalog* catalog = host.catalog();
+    if (content == nullptr || catalog == nullptr) {
+        return false;
+    }
+    if (const auto bad = checkNewPrefabId(*content, newId)) {
+        m_message = *bad;
+        return false;
+    }
+    const std::vector<ComponentState> comps = host.components(id);
+    if (comps.empty()) {
+        m_message = "개체를 찾지 못했습니다";
+        return false;
+    }
+    const content::Prefab* base = nullptr;
+    std::string oldPrefab;
+    ecs::StableId prefabStable = 0;
+    for (const ComponentState& s : comps) {
+        if (s.name == "core.prefab") {
+            prefabStable = s.stableId;
+            if (s.value.is_object() && s.value.contains("id") && s.value["id"].is_string()) {
+                oldPrefab = s.value["id"].get<std::string>();
+                base = content->findPrefab(oldPrefab);
+            }
+        }
+    }
+    if (prefabStable == 0) {
+        const ecs::ComponentInfo* info = catalog->find(std::string_view("core.prefab"));
+        prefabStable = info != nullptr ? info->stableId : 0;
+    }
+    ecs::Json value = prefabFromComponents(newId, base, comps, *catalog);
+    beginTxn(std::format("Prefab 만들기 {}", newId));
+    // 새 Prefab — 되돌리면 지운다 (null). 전하기 (propagate) 는 하지 않는다: 아직 이 Prefab 의 개체가 없다
+    const u32 made = sendEdit(host, cmd::EditContent{content::ContentKind::Prefab, newId, std::move(value), false},
+                              {UndoCmd{cmd::EditContent{content::ContentKind::Prefab, newId, ecs::Json(nullptr), false}, {}}});
+    if (made != 0 && prefabStable != 0) {
+        const bool had = !oldPrefab.empty() || std::ranges::any_of(comps, [](const ComponentState& s) {
+            return s.name == "core.prefab";
+        });
+        if (had) {
+            cmd::ChangeComponent link{id, prefabStable, ecs::Json{{"id", newId}}};
+            cmd::ChangeComponent back{id, prefabStable, ecs::Json{{"id", oldPrefab}}};
+            (void)sendEdit(host, std::move(link), {UndoCmd{std::move(back), {}}});
+        } else {
+            cmd::AddComponent link{id, {prefabStable, ecs::Json{{"id", newId}}}};
+            cmd::RemoveComponent back{id, prefabStable};
+            (void)sendEdit(host, std::move(link), {UndoCmd{std::move(back), {}}});
+        }
+    }
+    endTxn();
+    if (made == 0) {
+        return false;
+    }
+    m_message = std::format("Prefab {} 을 만들고 이 개체를 이었다", newId);
+    return true;
 }
 
 void Editor::paintAlong(Vec2 from, Vec2 to, IEditorHost& host) {

@@ -75,7 +75,7 @@
 | F-134 | Project Explorer (프로젝트 파일 트리 · 새 폴더 · 이름 바꾸기 · 복제 · 휴지통) | v0.13 | ✅ 구현 — "프로젝트" 창 (트리 · 찾기 · 맥락 메뉴 · 끌어다 놓기 · F2 · Delete · 휴지통 확인, 에셋은 참조 · .meta 동행) — 창 QA 남음 | ⬜ | test_project_files (ST-08-3) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-135 | 스크립트 파일 열기 · 새 스크립트 (탐색기) · 스크립트 창 Ctrl+S | v0.13 | ✅ 구현 — 프로젝트 창의 .ts 두 번 클릭 · [+ 스크립트] (이름만 — 틀로 파일을 만들고 편집기에), 스크립트 창에 초점이면 Ctrl+S = 팩 파일 저장 — 창 QA 남음 | ⬜ | test_script_assist · test_project_files (ST-08-4) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-136 | Sprite → Object (에셋을 월드에 끌어 놓기) | v0.13 | ✅ 구현 — 에셋 · 프로젝트 창의 PNG 를 월드 (창이 없는 가운데) 에 놓으면 머티리얼 (asset:<id>) · 오버레이 Prefab · 개체, Ctrl+Z, 저장 → 다시 열기 — 창 QA 남음 | ⬜ | test_sprite_drop (ST-08-5) | STUDIO-UX-AUDIT · ADR-0167 |
-| F-137 | Object → Prefab (선택 개체에서 Prefab 만들기) | v0.13 | 📐 설계만 | ⬜ | — (ST-08-6) | STUDIO-UX-AUDIT · ADR-0167 |
+| F-137 | Object → Prefab (선택 개체에서 Prefab 만들기) | v0.13 | ✅ 구현 — Inspector › Prefab 으로 만들기 (id 제안 · 검사) → 지금 값 (위치 빼고, 바탕 Prefab 의 표시 컴포넌트 · 태그) 으로 오버레이 Prefab, 그 개체를 잇는다 (한 되돌리기) — 창 QA 남음 | ⬜ | test_prefab_from_entity (ST-08-6) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-138 | 메뉴 정리 · Workspace · 레이아웃 지우기 · 이름 바꾸기 · Build Settings · 시작 삼각형 제거 · 인스펙터 보강 · Creator/Developer 모드 | v0.14 | 📐 설계만 | — | — (ST-08-7 ~ 13) | STUDIO-UX-AUDIT · ADR-0167 |
 | F-133 | Editor Plugin API | v0.21 | 📐 설계만 | — | — (NG-10) | 25 9장 |
 

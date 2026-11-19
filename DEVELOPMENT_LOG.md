@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-19 — Object → Prefab — 인스펙터 "Prefab 으로 만들기" (v0.13 ST-08-6, ADR-0167)
+
+**무엇을**
+
+- editor/PrefabFromEntity: 새 id 검사 ("<읽은 팩>.<이름>" · 이미 있음 거절), 개체 값 → Prefab JSON — 바탕 = 지금 Prefab 의 raw (render.* 같은
+  표시 컴포넌트 · 태그 · 분류 — 개체 값으로 볼 수 없는 것), 덮어쓰기 = Inspector 컴포넌트 값, 빼기 = core.prefab · persist.persistence ·
+  core.contacts · core.velocity · core.tags (V3 — 엔진 관리) · WorldState · transform 의 position · 개체 참조 필드. 제안 id (_variant).
+- Editor::prefabFromEntity: EditContent (새 Prefab — 되돌리면 null) + core.prefab ChangeComponent (없으면 AddComponent) 를 한 되돌리기 단위.
+- 인스펙터: "Prefab 으로 만들기" (접기) — id 칸 (제안) · [만들기] (검사가 틀리면 꺼지고 이유).
+
+**왜**
+
+- 사용자 창 QA: Object 에서 Prefab 을 만들 수 없다 (감사 2장 9) — Prefab 은 콘텐츠 창의 JSON 으로만.
+- 시험 중 엔진 결함 둘을 찾아 앞 커밋 (e087879) 에서 고쳤다 (일시정지 편집 복제 · 보이지 않는 컴포넌트 오버라이드).
+
+**검증** (Windows MSVC, 2026-11-19)
+
+- 디버그 · /WX 빌드, test_prefab_from_entity (값 → JSON · 로컬 서버 일시정지 — 거절 둘 · 만들기 · 잇기 · 오버라이드 0 · 새 Prefab 배치 ·
+  되돌리기), 전체 ctest. 단추 · 접기 · 제안은 창 QA — MANUAL-QA v0.13 ST-08-6 [ ].
+
+**남은 일**
+
+- 팩 파일로 남기기는 콘텐츠 창의 [저장] (Prefab JSON) — 한 단추로 묶기는 [계획]. P0 (ST-08-2 ~ 6) 끝 — 창 QA 와 P1 (v0.14).
+
 ## 2026-11-19 — 일시정지 편집의 컴포넌트 변경 복제 · 보이지 않는 컴포넌트 오버라이드 (ST-08-6 에서 찾음)
 
 **무엇을**

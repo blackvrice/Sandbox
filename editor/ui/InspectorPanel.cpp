@@ -9,6 +9,7 @@
 
 #include "core/content/ContentDatabase.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "editor/PrefabFromEntity.hpp"
 
 namespace sbx::editor {
 
@@ -181,6 +182,36 @@ void drawInspectorPanel(Editor& editor, InspectorState& st, IEditorHost& host, b
     const bool editable = host.permissions().entities;
     if (!editable) {
         ImGui::TextDisabled("보기만 — 지금 역할로는 값을 바꿀 수 없습니다");
+    }
+    // Object → Prefab (v0.13 ST-08-6) — 이 개체의 지금 값으로 새 Prefab · 이 개체를 그것에 잇는다
+    if (host.permissions().content && host.permissions().entities && host.content() != nullptr) {
+        if (st.newPrefabFor != id) {
+            st.newPrefabFor = id;
+            const content::Prefab* base = nullptr;
+            for (const ComponentState& s : comps) {
+                if (s.name == "core.prefab" && s.value.is_object() && s.value.contains("id") && s.value["id"].is_string()) {
+                    base = host.content()->findPrefab(s.value["id"].get<std::string>());
+                }
+            }
+            const std::string suggested = suggestPrefabId(*host.content(), base);
+            st.newPrefab.fill('\0');
+            std::copy_n(suggested.begin(), std::min(suggested.size(), st.newPrefab.size() - 1), st.newPrefab.begin());
+        }
+        if (ImGui::TreeNode("Prefab 으로 만들기")) {
+            ImGui::SetNextItemWidth(-ImGui::CalcTextSize("만들기").x - ImGui::GetStyle().FramePadding.x * 4.f);
+            ImGui::InputText("##new-prefab", st.newPrefab.data(), st.newPrefab.size());
+            ImGui::SameLine();
+            const std::optional<std::string> bad = checkNewPrefabId(*host.content(), st.newPrefab.data());
+            ImGui::BeginDisabled(bad.has_value());
+            if (ImGui::Button("만들기")) {
+                (void)editor.prefabFromEntity(host, id, st.newPrefab.data());
+                st.newPrefabFor = kInvalidNetEntityId; // 다음 제안
+            }
+            ImGui::EndDisabled();
+            ImGui::TextDisabled("%s", bad ? bad->c_str()
+                                          : "지금 값 (위치 빼고) 으로 Prefab 을 만들고 이 개체를 잇는다 — 편집 창의 Prefab 목록에서 배치");
+            ImGui::TreePop();
+        }
     }
     // Prefab 오버라이드 (v0.12 ST-06-5, ADR-0158) — 첫 선택 개체의 Prefab 과 다른 필드 · 더한 · 뺀 컴포넌트
     const std::vector<content::ComponentOverride> overrides = Editor::prefabOverrides(host, id);
