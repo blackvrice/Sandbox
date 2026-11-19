@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-19 — 일시정지 편집의 컴포넌트 변경 복제 · 보이지 않는 컴포넌트 오버라이드 (ST-08-6 에서 찾음)
+
+**무엇을**
+
+- core SimulationWorld::applyPayload: AddComponent · ChangeComponent 와 Prefab 전파 (EditContent.propagate) 가 바뀐 틱을 시계 틱
+  (m_clock.tick) 으로 찍었다. 복제 (ReplicationWriter) 는 변경 스탬프 (m_changeStamp — tick() 마다 오른다) 와 견준다. 일시정지면 시계 틱이
+  멈춰 있어 변경이 기준 스탬프보다 작아 **클라이언트에 가지 않았다** (Inspector 로 고친 회전 · Prefab 잇기). 셋 다 m_changeStamp 로.
+  시뮬레이션 값 · 해시와는 관계없다 (changedAt 은 복제만 쓴다 — 골든 해시 그대로, 아래 검증).
+- editor Editor::prefabOverrides: Inspector 에 보이지 않는 컴포넌트 (EditorVisible 아님 — core.velocity · ai.path) 는 host.components 에
+  없어 "Prefab 에서 뺌" 으로 나왔다 (토끼마다). 볼 수 없는 것은 판단하지 않는다.
+
+**왜**
+
+- Object → Prefab (ST-08-6) 을 일시정지 편집에서 시험하다 — 잇기 (core.prefab ChangeComponent) 가 받아들여졌는데 클라이언트 값이 그대로,
+  잇고 난 개체에 오버라이드 둘이 남았다.
+
+**검증** (Windows MSVC, 2026-11-19)
+
+- test_editor_session 의 새 시험 (일시정지 — 회전 두 번 바꾸기가 둘 다 복제 · 갓 놓은 토끼의 오버라이드 0), 로컬 서버 편집 시험 셋,
+  전체 ctest (골든 해시 · det_* 그대로).
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-19 — Sprite → Object — 에셋을 월드에 끌어 놓기 (v0.13 ST-08-5, ADR-0167)
 
 **무엇을**

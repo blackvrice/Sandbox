@@ -921,7 +921,7 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
                 return makeError(ErrorCode::OutOfRange, "core.transform 위치가 월드 경계 밖이다");
             }
         }
-        void* raw = pool.emplaceDefaultRaw(*e, tick);
+        void* raw = pool.emplaceDefaultRaw(*e, m_changeStamp);
         const auto r = (*info)->readJson(raw, c->component.value, (*info)->name);
         SBX_VERIFY(r.has_value(), "검증을 통과한 컴포넌트 값의 적용이 실패했다");
         return Result{};
@@ -976,7 +976,8 @@ Expected<std::vector<NetEntityId>> SimulationWorld::applyPayload(const CommandPa
         if (auto r = (*info)->patchJson(raw, c->patch, (*info)->name); !r) {
             return std::unexpected(r.error());
         }
-        (void)pool->getRawForWrite(*e, tick);
+        // 바뀐 틱 = 변경 스탬프 (복제가 견주는 값) — 시계 틱은 일시정지 편집에서 멈춰 있어 클라이언트에 가지 않았다
+        (void)pool->getRawForWrite(*e, m_changeStamp);
         return Result{};
     }
 
@@ -1512,7 +1513,6 @@ void SimulationWorld::propagatePrefabs(const content::ContentDatabase& before, c
         }
     }
     std::ranges::sort(targets, {}, [](const auto& t) { return std::get<0>(t); });
-    const Tick tick = m_clock.tick();
     for (const auto& [saveId, e, ch] : targets) {
         for (const auto& [name, values] : ch->canon) {
             const auto& [oldC, newC] = values;
@@ -1566,11 +1566,11 @@ void SimulationWorld::propagatePrefabs(const content::ContentDatabase& before, c
                     continue; // tracksPrefabComponent 가 막는다 — 자리는 개체의 것
                 }
                 if (auto r = info->patchJson(raw, patch, info->name); r) {
-                    (void)pool.getRawForWrite(e, tick);
+                    (void)pool.getRawForWrite(e, m_changeStamp);
                 }
             } else if (old == nullptr && now != nullptr) { // 새로 생긴 컴포넌트 — 붙인다
                 if (info->validateJson(newC, info->name)) {
-                    void* raw = pool.emplaceDefaultRaw(e, tick);
+                    void* raw = pool.emplaceDefaultRaw(e, m_changeStamp);
                     const auto r = info->readJson(raw, newC, info->name);
                     SBX_VERIFY(r.has_value(), "검증을 통과한 컴포넌트 값의 적용이 실패했다");
                 }

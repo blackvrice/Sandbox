@@ -841,8 +841,16 @@ std::vector<content::ComponentOverride> Editor::prefabOverrides(IEditorHost& hos
         return {};
     }
     std::vector<content::ComponentOverride> out = content::prefabOverrides(*prefab, *catalog, instance);
-    // opaque (render.*) 는 개체 값이 이 목록에 없다 — 표시하지 않는다 (서버의 값)
-    std::erase_if(out, [](const content::ComponentOverride& o) { return o.stableId == 0; });
+    // opaque (render.*) 는 개체 값이 이 목록에 없다 — 표시하지 않는다 (서버의 값). Inspector 에 보이지 않는 컴포넌트
+    // (EditorVisible 아님 — core.velocity · ai.path …) 도 host.components 에 없어 "Prefab 에서 뺌" 으로 잘못 나왔다 — 볼 수
+    // 없는 것은 판단하지 않는다 (v0.13 ST-08-6 에서 찾음)
+    std::erase_if(out, [&](const content::ComponentOverride& o) {
+        if (o.stableId == 0) {
+            return true;
+        }
+        const ecs::ComponentInfo* info = catalog->find(o.stableId);
+        return info == nullptr || !ecs::hasFlag(info->flags, ecs::ComponentFlags::EditorVisible);
+    });
     return out;
 }
 

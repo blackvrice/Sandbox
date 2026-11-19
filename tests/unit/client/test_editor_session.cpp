@@ -276,6 +276,37 @@ TEST_SUITE("client") {
         CHECK(r.ed.stats().rejected == 0);
     }
 
+    TEST_CASE("paused edit replicates (v0.13 — ADR-0167 의 발견): 일시정지 중 ChangeComponent 가 클라이언트에 온다 · 보이지 않는 컴포넌트는 오버라이드 아님") {
+        EditRig r;
+        r.until([&] { return r.ns->ready(); });
+        r.ns->togglePause();
+        r.until([&] { return r.ns->paused(); });
+        REQUIRE(r.ed.placePrefab(*r.ns, "eco.rabbit", {2.5f, 2.5f}));
+        r.until([&] { return !r.ed.lastCreated().empty(); });
+        const NetEntityId id = r.ed.lastCreated().front();
+        r.ns->setSelection({id});
+        const auto valueOf = [&](std::string_view comp, std::string_view field) -> ecs::Json {
+            for (const editor::ComponentState& c : r.ns->components(id)) {
+                if (c.name == comp && c.replicated && c.value.contains(field)) {
+                    return c.value[std::string(field)];
+                }
+            }
+            return {};
+        };
+        r.until([&] { return !valueOf("core.transform", "rotation").is_null(); });
+        // 갓 놓은 Prefab 개체는 오버라이드가 없다 — Inspector 에 보이지 않는 컴포넌트 (core.velocity · ai.path) 를
+        // "Prefab 에서 뺌" 으로 내지 않는다 (v0.13 ST-08-6 에서 찾음)
+        r.until([&] { return editor::Editor::prefabOverrides(*r.ns, id).empty(); });
+        // 복제 컴포넌트 (core.transform) 를 두 번 — 시계 틱이 멈춰 있어도 둘 다 온다 (변경 스탬프로 표시)
+        const ecs::StableId transform = r.ns->catalog()->find(std::string_view("core.transform"))->stableId;
+        r.ed.setField(*r.ns, transform, "rotation", ecs::Json(0.5));
+        r.until([&] { return r.ed.idle() && valueOf("core.transform", "rotation") == 0.5; });
+        r.ed.setField(*r.ns, transform, "rotation", ecs::Json(1.0));
+        r.until([&] { return r.ed.idle() && valueOf("core.transform", "rotation") == 1.0; });
+        CHECK(r.ns->paused());
+        CHECK(r.ed.stats().rejected == 0);
+    }
+
     TEST_CASE("editor groups on a local server (v0.12 ST-06-6): 복제된 saveId · 선택을 그룹으로 · editor.json 왕복") {
         EditRig r;
         r.until([&] { return r.ns->ready(); });
