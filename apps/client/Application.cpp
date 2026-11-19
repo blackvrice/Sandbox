@@ -503,7 +503,8 @@ void Application::handleWorldInput(f64 dt) {
         m_titleDirty = true;
     }
     // 빠른 저장 (12D): "월드" 패널의 이름으로 (권한 · 결과는 서버 — 패널의 마지막 줄)
-    if (pressed(m_ids.save) && m_config.world->worldOps()) {
+    // 콘텐츠 창 (스크립트 편집기) 에 초점이면 Ctrl+S 는 그 창의 저장 (v0.13 ST-08-4)
+    if (pressed(m_ids.save) && m_config.world->worldOps() && !m_contentPanel.focused) {
         m_config.world->worldOp(WorldOp::Save, m_worldPanel.name);
     }
 }
@@ -1760,6 +1761,33 @@ void Application::applyProjectExplorerAction(const editor::ProjectExplorerAction
         m_assetBrowser.moveTo = a.rel;
         m_assetBrowser.stale = true;
         break;
+    case Kind::OpenScript:
+    case Kind::NewScript: { // v0.13 ST-08-4 — 스크립트 편집기 (콘텐츠 창) 에서
+        editor::IEditorHost* host = m_config.world != nullptr ? m_config.world->editorHost() : nullptr;
+        const content::ContentDatabase* db = host != nullptr ? host->content() : nullptr;
+        if (db == nullptr) {
+            m_projectExplorer.status = "월드가 아직 열리지 않아 스크립트를 열 수 없다";
+            m_projectExplorer.statusError = true;
+            break;
+        }
+        m_contentPanel.documents = &m_documents;
+        const std::filesystem::path file = m_projectDir / std::filesystem::path(a.rel);
+        const std::string why = a.kind == Kind::OpenScript ? editor::openScriptFile(m_contentPanel, *db, file)
+                                                           : editor::createScriptFile(m_contentPanel, *db, file);
+        if (!why.empty()) {
+            m_projectExplorer.status = why;
+            m_projectExplorer.statusError = true;
+            log::warn("studio", "{}", why);
+            break;
+        }
+        m_editorPanel.contentOpen = true;
+        m_shell.view.content = true;
+        if (a.kind == Kind::NewScript) {
+            m_projectExplorer.stale = true;
+            log::info("studio", "새 스크립트 {} — 편집기에 열었다", a.rel);
+        }
+        break;
+    }
     case Kind::FilesChanged:
         m_assetBrowser.stale = true;
         m_uiDocsAge = 0; // UI 문서 목록도 다음 프레임에 다시

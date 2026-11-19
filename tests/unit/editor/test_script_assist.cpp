@@ -427,6 +427,57 @@ TEST_SUITE("editor") {
         CHECK(analyzeScript(*ws).empty());
     }
 
+    TEST_CASE("script file (v0.13 ST-08-4): 파일 → id · 탐색기에서 열기 (팩에 있는 · 뒤에 생긴) · 새 스크립트 (틀 · 저장 · 거절)") {
+        FakeHost host;
+        const content::ContentDatabase db = loadPacks(host.cat, "script-file-open");
+        const fs::path root = fs::temp_directory_path() / "sbx-tests" / "script-file-open";
+        services::DocumentService docs(nullptr);
+        // 파일 → id: 읽은 팩의 scripts/ 아래 · id 규칙 안
+        CHECK(scriptIdForFile(db, root / "rpg" / "scripts" / "regen.ts") == std::string("rpg.regen"));
+        CHECK(scriptIdForFile(db, root / "rpg" / "scripts" / "ai" / "wander.ts") == std::string("rpg.ai.wander"));
+        CHECK(scriptIdForFile(db, root / "inv" / "scripts" / "mana.ts") == std::string("inv.mana"));
+        CHECK_FALSE(scriptIdForFile(db, root / "rpg" / "pack.json").has_value());
+        CHECK_FALSE(scriptIdForFile(db, root / "rpg" / "other" / "x.ts").has_value());     // scripts/ 밖
+        CHECK_FALSE(scriptIdForFile(db, root / "rpg" / "scripts" / "Bad.ts").has_value()); // id 규칙 밖
+        CHECK_FALSE(scriptIdForFile(db, root / "nopack" / "scripts" / "x.ts").has_value());
+
+        // 팩에 있는 파일 — openScript 와 같다
+        ContentPanelState st;
+        st.documents = &docs;
+        CHECK(openScriptFile(st, db, root / "rpg" / "scripts" / "regen.ts").empty());
+        CHECK(st.kind == ContentKind::Script);
+        CHECK(st.selected == "rpg.regen");
+        CHECK_FALSE(st.isNew);
+        CHECK(st.text == kRegen);
+        // 팩을 읽은 뒤 생긴 파일 — 디스크 글로 새 항목, 저장 기준 = 연 때의 디스크
+        writeAll(root / "rpg" / "scripts" / "later.ts", "export const later = 1\n");
+        CHECK(openScriptFile(st, db, root / "rpg" / "scripts" / "later.ts").empty());
+        CHECK(st.selected == "rpg.later");
+        CHECK(st.isNew);
+        CHECK(st.text == "export const later = 1\n");
+        REQUIRE(st.saved.contains("rpg.later"));
+        CHECK_FALSE(openScriptFile(st, db, root / "rpg" / "pack.json").empty());
+
+        // 새 스크립트 — 틀로 만들고 곧바로 팩 파일에 (문서 서비스)
+        const fs::path fresh = root / "rpg" / "scripts" / "enemy_ai.ts";
+        CHECK(createScriptFile(st, db, fresh).empty());
+        CHECK(st.selected == "rpg.enemy_ai");
+        CHECK(st.isNew);
+        CHECK(st.text == scriptTemplate("rpg.enemy_ai"));
+        CHECK(readAll(fresh) == st.text);
+        CHECK_FALSE(createScriptFile(st, db, fresh).empty());                                  // 이미 있는 파일
+        CHECK_FALSE(createScriptFile(st, db, root / "rpg" / "scripts" / "util.ts").empty());   // 이미 있는 id
+        CHECK_FALSE(createScriptFile(st, db, root / "rpg" / "data" / "x.ts").empty());         // scripts/ 밖
+        ContentPanelState noDocs;
+        CHECK_FALSE(createScriptFile(noDocs, db, root / "rpg" / "scripts" / "z.ts").empty()); // 저장 길 없음
+        CHECK_FALSE(fs::exists(root / "rpg" / "scripts" / "z.ts"));
+        // 다시 읽으면 새 스크립트가 컴파일된다 (틀이 맞는 프로그램)
+        content::ContentLoadResult again =
+            content::ContentLoader::load(root, std::vector<std::string>{"inv", "rpg"}, host.cat);
+        CAPTURE(again.issues.size());
+        CHECK(again.ok());
+    }
+
     TEST_CASE("script editor widget (v0.9 M6-T8): 글 배치 — 자리 → 점 → 자리 왕복, 줄 밖은 없음") {
         Ui ui;
         ui.frame([] {

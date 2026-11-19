@@ -14,6 +14,7 @@
 // ImGui::NewFrame 과 Render 사이에서. 월드는 Editor 가 명령으로만 바꾼다.
 
 #include <array>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <optional>
@@ -89,6 +90,7 @@ struct ContentPanelState {
     std::array<char, 64> renameInput{};
     bool quickFixOpen = false;
     std::vector<script::QuickFix> quickFixes;
+    bool focused = false; // 이 창 (또는 안의 칸) 에 초점 — Ctrl+S 는 월드가 아니라 스크립트 저장 (v0.13 ST-08-4)
 };
 
 // 고친 JSON 을 이 컴퓨터에서 검사한다 (오버레이에 넣어 콘텐츠 로더로). JSON 이 아니면 그 오류 하나.
@@ -124,6 +126,17 @@ void applyQuickFix(ContentPanelState& state, const script::QuickFix& fix);
 // 디버거의 [편집기에서 보기] (v0.9 ST-06-7) — 그 팩 · 파일의 스크립트를 고르고 그 줄로 커서를 옮긴다 (이미 고친 채 열려
 // 있으면 글은 그대로). 오버레이 id 로 쓸 수 없는 경로 · 콘텐츠에 없는 파일이면 false
 bool showScriptLine(ContentPanelState& state, const content::ContentDatabase& db, const services::DebugLocation& at);
+// 프로젝트 파일 → 스크립트 오버레이 id (v0.13 ST-08-4 — Project Explorer). 읽은 팩 폴더의 scripts/ 아래 · id 규칙 안의 .ts 만
+[[nodiscard]] std::optional<std::string> scriptIdForFile(const content::ContentDatabase& db,
+                                                         const std::filesystem::path& file);
+// 탐색기의 두 번 클릭 (v0.13 ST-08-4) — 그 파일의 스크립트를 편집기에 연다. 팩을 읽은 뒤 생긴 파일이면 디스크 글로 새 항목
+// ([적용] 으로 지금 월드에, [저장] 은 그 파일에 — 바깥 변경 감지 기준 = 연 때의 디스크). 실패면 이유 (빈 글자 = 열었다)
+[[nodiscard]] std::string openScriptFile(ContentPanelState& state, const content::ContentDatabase& db,
+                                         const std::filesystem::path& file);
+// 새 스크립트 (v0.13 ST-08-4) — 틀 (scriptTemplate) 로 새 항목을 열고 곧바로 그 팩 파일에 저장 (문서 서비스 — 저장 단추와 같은
+// 길). 이미 있는 id · 파일이면 거절. 실패면 이유 (빈 글자 = 만들었다)
+[[nodiscard]] std::string createScriptFile(ContentPanelState& state, const content::ContentDatabase& db,
+                                           const std::filesystem::path& file);
 // 새 스크립트 파일의 틀 (시스템 하나 — id 는 파일의 오버레이 id)
 [[nodiscard]] std::string scriptTemplate(const std::string& id);
 // 진단의 "줄:열" 이 가리키는 소스 줄 — "\n  12 | <줄>" (오류 줄 보이기, 없는 줄이면 빈 문자열)

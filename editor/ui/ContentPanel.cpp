@@ -17,6 +17,7 @@
 #include "editor/services/DataForm.hpp"
 #include "editor/services/ScriptAssist.hpp"
 #include "editor/services/ScriptDebugService.hpp"
+#include "foundation/io/FileIo.hpp"
 #include "foundation/text/TextPosition.hpp"
 #include "foundation/text/Utf8.hpp"
 
@@ -589,6 +590,94 @@ bool openScript(ContentPanelState& st, const content::ContentDatabase& db, std::
     return true;
 }
 
+std::optional<std::string> scriptIdForFile(const content::ContentDatabase& db, const std::filesystem::path& file) {
+    namespace fs = std::filesystem;
+    if (db.sources() == nullptr || file.extension() != ".ts") {
+        return std::nullopt;
+    }
+    std::error_code ec;
+    const fs::path target = fs::weakly_canonical(file, ec);
+    for (const content::ContentSourcePack& sp : db.sources()->packs) {
+        if (sp.dir.empty() || sp.folder.starts_with(".sandbox/packages/")) {
+            continue; // 설치한 패키지의 파일은 고치지 않는다
+        }
+        const fs::path rel = target.lexically_relative(fs::weakly_canonical(sp.dir, ec));
+        const std::string r = rel.generic_string();
+        if (rel.empty() || r.starts_with("..") || !r.starts_with("scripts/")) {
+            continue;
+        }
+        if (auto id = content::scriptOverlayId(sp.info.id, r)) {
+            return id;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string openScriptFile(ContentPanelState& st, const content::ContentDatabase& db,
+                           const std::filesystem::path& file) {
+    const std::optional<std::string> id = scriptIdForFile(db, file);
+    if (!id) {
+        return std::format("{} — 팩의 scripts/ 아래 스크립트가 아니거나 이름이 id 규칙 밖 (소문자 · 숫자 · '_') 이라 "
+                           "편집기로 열 수 없습니다",
+                           file.filename().generic_string());
+    }
+    if (openScript(st, db, *id)) {
+        return {};
+    }
+    Expected<std::string> disk = io::readFile(file); // 팩을 읽은 뒤 생긴 파일 — 새 항목으로
+    if (!disk) {
+        return disk.error().describe();
+    }
+    stashScriptDraft(st);
+    st.kind = content::ContentKind::Script;
+    st.selected = *id;
+    st.isNew = true;
+    st.text = *disk;
+    st.loaded.clear();
+    st.issues.clear();
+    st.checked.clear();
+    st.pendingFrom.reset();
+    st.saveAsk = ContentPanelState::SaveAsk::None;
+    st.saved[*id] = SavedScript{*disk, *disk};
+    return {};
+}
+
+std::string createScriptFile(ContentPanelState& st, const content::ContentDatabase& db,
+                             const std::filesystem::path& file) {
+    std::error_code ec;
+    if (std::filesystem::exists(file, ec)) {
+        return std::format("{} 가 이미 있습니다", file.filename().generic_string());
+    }
+    const std::optional<std::string> id = scriptIdForFile(db, file);
+    if (!id) {
+        return std::format("{} — 이 월드가 읽은 팩의 scripts/ 아래가 아니라 스크립트 id 를 만들 수 없습니다",
+                           file.generic_string());
+    }
+    if (currentTextOf(db, content::ContentKind::Script, *id)) {
+        return std::format("스크립트 '{}' 가 이미 있습니다", *id);
+    }
+    if (st.documents == nullptr) {
+        return "문서 서비스가 없어 파일에 저장할 수 없습니다";
+    }
+    stashScriptDraft(st);
+    st.kind = content::ContentKind::Script;
+    st.selected = *id;
+    st.isNew = true;
+    st.text = scriptTemplate(*id);
+    st.loaded.clear();
+    st.issues.clear();
+    st.checked.clear();
+    st.pendingFrom.reset();
+    st.saveAsk = ContentPanelState::SaveAsk::None;
+    const ScriptSaveResult r = saveScriptEdit(db, *st.documents, *id, st.text, st.saved, false);
+    if (r.status != ScriptSaveResult::Status::Saved) {
+        return r.message;
+    }
+    st.issues.push_back({false, std::format("{} 을 만들었다 — 지금 월드에는 [적용 (오버레이)], 다음 로드부터는 팩 파일",
+                                            file.filename().generic_string())});
+    return {};
+}
+
 bool showScriptLine(ContentPanelState& st, const content::ContentDatabase& db, const services::DebugLocation& at) {
     const std::optional<std::string> id = content::scriptOverlayId(at.pack, at.file);
     if (!id || !openScript(st, db, *id)) {
@@ -764,9 +853,11 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                             ImGuiCond_FirstUseEver, {0.5f, 0.5f});
     ImGui::SetNextWindowSize({600.f * dpi(), 470.f * dpi()}, ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("콘텐츠", &open, kPanelFlags)) {
+        st.focused = false;
         ImGui::End();
         return;
     }
+    st.focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     const content::ContentDatabase* db = host.content();
     if (db == nullptr) {
         ImGui::TextDisabled("접속 전");
@@ -1126,7 +1217,9 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                                          : r.message});
             };
             ImGui::SameLine();
-            if (ImGui::Button("저장 (팩 파일)")) {
+            // Ctrl+S — 이 창에 초점이 있으면 스크립트를 팩 파일로 (월드 저장이 아니다, v0.13 ST-08-4)
+            const bool saveKey = st.focused && ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_S);
+            if (ImGui::Button("저장 (팩 파일) Ctrl+S") || saveKey) {
                 st.checked = st.text;
                 if (checkContentEdit(host, st.kind, st.selected, st.text, st.issues)) {
                     save(false);

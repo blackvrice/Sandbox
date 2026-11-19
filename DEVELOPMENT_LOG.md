@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-18 — 스크립트 열기 · 새 스크립트 · 스크립트 창 Ctrl+S (v0.13 ST-08-4, ADR-0167)
+
+**무엇을**
+
+- ContentPanel: scriptIdForFile (읽은 팩 폴더의 scripts/ 아래 · id 규칙 안의 .ts → 오버레이 id — 설치한 패키지 빼기), openScriptFile
+  (팩에 있으면 openScript, 팩을 읽은 뒤 생긴 파일이면 디스크 글로 새 항목 · 저장 기준 = 연 때의 디스크), createScriptFile (틀 →
+  saveScriptEdit — [저장 (팩 파일)] 과 같은 문서 서비스 길로 곧바로 파일, 이미 있는 파일 · id 거절).
+- 프로젝트 창: .ts 두 번 클릭 = OpenScript, 팩 폴더의 맥락 메뉴 · [+ 스크립트] = 이름만 묻고 services::newScriptPath → NewScript.
+  Application 이 콘텐츠 창을 연다.
+- 스크립트 창에 초점이면 Ctrl+S = [저장 (팩 파일)] (ImGui 키 조합 — macOS 는 Cmd), 앱의 editor.save (월드 저장) 는 그때 쉰다.
+  단추 글자 "저장 (팩 파일) Ctrl+S".
+
+**왜**
+
+- 사용자 창 QA: 스크립트를 어디서 여는지 · 새 파일을 어떻게 만드는지 모른다, Ctrl+S 가 스크립트를 저장하지 않는다 (감사 2장 6 · 7 · 15).
+
+**검증** (Windows MSVC, 2026-11-18)
+
+- 디버그 · /WX 빌드, test_script_assist (파일 → id · 열기 둘 · 새 스크립트 · 거절 · 다시 읽으면 컴파일), test_project_files (팩 폴더 판정 ·
+  NewScript · 이름 거절), 전체 ctest. 두 번 클릭 · Ctrl+S 키는 창 QA — MANUAL-QA v0.13 ST-08-4 [ ].
+
+**남은 일**
+
+- 여러 스크립트 탭 · Ctrl+Shift+S (다른 이름으로) 는 ST-08-13 (v0.14). 창 QA.
+
 ## 2026-11-18 — Project Explorer — "프로젝트" 창 (v0.13 ST-08-3, ADR-0167)
 
 **무엇을**

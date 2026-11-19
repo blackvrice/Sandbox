@@ -108,6 +108,9 @@ void contextMenu(ProjectExplorerState& st, const ProjectFileEntry& e) {
     if (folder && ImGui::MenuItem("새 폴더…")) {
         ask(st, ProjectExplorerState::Ask::NewFolder, e.rel, "");
     }
+    if (folder && canCreateScriptIn(e.rel) && ImGui::MenuItem("새 스크립트…")) {
+        ask(st, ProjectExplorerState::Ask::NewScript, e.rel, "");
+    }
     if (ImGui::MenuItem("이름 바꾸기…", "F2", false, editable)) {
         ask(st, ProjectExplorerState::Ask::Rename, e.rel, e.name);
     }
@@ -152,14 +155,17 @@ std::optional<ProjectExplorerAction> askWindow(ProjectExplorerState& st, const f
         }
     } else {
         const bool folder = st.ask == Ask::NewFolder;
-        ImGui::TextUnformatted(folder ? "새 폴더 이름" : "새 이름");
-        ImGui::TextDisabled("영문 · 숫자 · '_' · '-' · '.' (패키지가 모든 OS 에서 같게 — P4)");
+        const bool script = st.ask == Ask::NewScript;
+        ImGui::TextUnformatted(script ? "새 스크립트 이름" : folder ? "새 폴더 이름" : "새 이름");
+        ImGui::TextDisabled("%s", script ? "소문자 · 숫자 · '_' (소문자로 시작 — 예: enemy_ai). 틀로 만들고 편집기에 연다"
+                                         : "영문 · 숫자 · '_' · '-' · '.' (패키지가 모든 OS 에서 같게 — P4)");
         if (ImGui::IsWindowAppearing()) {
             ImGui::SetKeyboardFocusHere();
         }
         const bool enter = ImGui::InputText("##ask-name", st.askInput.data(), st.askInput.size(),
                                             ImGuiInputTextFlags_EnterReturnsTrue);
-        if (ui::primaryButton(folder ? "만들기" : "바꾸기", st.askInput[0] == '\0') || (enter && st.askInput[0] != '\0')) {
+        if (ui::primaryButton(folder || script ? "만들기" : "바꾸기", st.askInput[0] == '\0') ||
+            (enter && st.askInput[0] != '\0')) {
             out = applyExplorerAsk(st, projectDir);
             done = true;
         }
@@ -192,6 +198,16 @@ std::optional<ProjectExplorerAction> applyExplorerAsk(ProjectExplorerState& st, 
         }
         return out;
     }
+    if (what == Ask::NewScript) { // 자리만 정한다 — 만들기 · 열기는 앱 (스크립트 편집기의 저장 길)
+        const auto r = services::newScriptPath(projectDir, st.askTarget, st.askInput.data());
+        if (!r) {
+            setStatus(st, r.error().message, true);
+            return out;
+        }
+        setStatus(st, std::format("새 스크립트: {}", *r), false);
+        st.selected = *r;
+        return ProjectExplorerAction{ProjectExplorerAction::Kind::NewScript, *r, {}, {}};
+    }
     if (what != Ask::NewFolder && what != Ask::Rename) {
         return out;
     }
@@ -208,6 +224,23 @@ std::optional<ProjectExplorerAction> applyExplorerAsk(ProjectExplorerState& st, 
                                     assetId};
     }
     return out;
+}
+
+bool canCreateScriptIn(std::string_view folderRel) noexcept {
+    // content/<팩> 이거나 content/<팩>/scripts[/…]
+    if (!folderRel.starts_with("content/")) {
+        return false;
+    }
+    const std::string_view rest = folderRel.substr(8);
+    const usize slash = rest.find('/');
+    if (rest.empty() || slash == 0) {
+        return false;
+    }
+    if (slash == std::string_view::npos) {
+        return true;
+    }
+    const std::string_view after = rest.substr(slash + 1);
+    return after == "scripts" || after.starts_with("scripts/");
 }
 
 std::string projectParentOf(std::string_view rel) {
@@ -257,6 +290,14 @@ std::optional<ProjectExplorerAction> drawProjectExplorer(ProjectExplorerState& s
     }
     ui::tooltip("고른 폴더 (없으면 맨 위) 에 새 폴더");
     ImGui::SameLine();
+    {
+        const std::string folder = selectedFolder();
+        if (ui::secondaryButton("+ 스크립트", !canCreateScriptIn(folder))) {
+            ask(st, ProjectExplorerState::Ask::NewScript, folder, "");
+        }
+        ui::tooltip("팩 폴더 (content/<팩> · 그 scripts/) 를 고르면 그 scripts/ 에 새 스크립트");
+    }
+    ImGui::SameLine();
     if (ui::secondaryButton("다시 읽기")) {
         st.stale = true;
     }
@@ -300,9 +341,12 @@ std::optional<ProjectExplorerAction> drawProjectExplorer(ProjectExplorerState& s
         if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
             st.selected = e.rel;
         }
-        if (!folder && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
-            e.kind == ProjectFileKind::Image) {
-            action = ProjectExplorerAction{ProjectExplorerAction::Kind::OpenAsset, e.rel, {}, {}};
+        if (!folder && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            if (e.kind == ProjectFileKind::Image) {
+                action = ProjectExplorerAction{ProjectExplorerAction::Kind::OpenAsset, e.rel, {}, {}};
+            } else if (e.kind == ProjectFileKind::Script) {
+                action = ProjectExplorerAction{ProjectExplorerAction::Kind::OpenScript, e.rel, {}, {}};
+            }
         }
         if (ImGui::IsItemHovered() && !folder && e.size > 0) {
             ui::tooltip(std::format("{} · {:.1f} KB", e.rel, static_cast<double>(e.size) / 1024.0));

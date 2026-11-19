@@ -113,7 +113,7 @@
 | ST-08-1 | Studio UX 감사 · 보완 계획 (ADR-0167 — docs/qa/STUDIO-UX-AUDIT) | B | Done | — | v0.13 | P0 | — | 감사 문서 · 태스크 등록 |
 | ST-08-2 | 창 닫기 (X) · Creator 기본 배치 (적은 창) | B | Done | — | v0.13 | P0 | ST-06-1 | test_studio_shell · MANUAL-QA |
 | ST-08-3 | Project Explorer (트리 · 검색 · 새 폴더 · 이름 바꾸기 · 복제 · 휴지통 · 경로 안전) | B | Done | — | v0.13 | P0 | M6-T9 · ST-06-1 | test_project_files · MANUAL-QA |
-| ST-08-4 | 스크립트 열기 · 새 스크립트 (탐색기) · 스크립트 창 Ctrl+S | B | Planned | — | v0.13 | P0 | ST-08-3 · ST-06-8 | test_project_files · MANUAL-QA |
+| ST-08-4 | 스크립트 열기 · 새 스크립트 (탐색기) · 스크립트 창 Ctrl+S | B | Done | — | v0.13 | P0 | ST-08-3 · ST-06-8 | test_project_files · MANUAL-QA |
 | ST-08-5 | Sprite → Object (에셋 끌어 놓기 · 되돌리기 · 세이브 왕복) | B | Planned | — | v0.13 | P0 | ST-08-3 · M6-T9 | test_sprite_drop · MANUAL-QA |
 | ST-08-6 | Object → Prefab (선택 개체 → Prefab · 잇기) | B | Planned | — | v0.13 | P0 | ST-06-5 | test_prefab_from_entity · MANUAL-QA |
 | PS-12-1 | 저장소 경계 D-06 (서비스 저장소 · 엔진 저장소) | C | Planned | v0.6 | v0.14 | P0 | — | ADR |

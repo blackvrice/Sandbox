@@ -347,5 +347,30 @@ TEST_SUITE("editor") {
         CHECK_FALSE(editor::applyExplorerAsk(st, p.root()).has_value());
         CHECK(st.statusError);
         CHECK(fs::exists(p.root() / "assets" / "art" / "player.png"));
+
+        // 새 스크립트 (v0.13 ST-08-4) — 팩 폴더에서만, 자리만 정하고 NewScript (만들기 · 열기는 앱)
+        CHECK(editor::canCreateScriptIn("content/game"));
+        CHECK(editor::canCreateScriptIn("content/game/scripts"));
+        CHECK(editor::canCreateScriptIn("content/game/scripts/ai"));
+        CHECK_FALSE(editor::canCreateScriptIn("content"));
+        CHECK_FALSE(editor::canCreateScriptIn("content/game/presentation"));
+        CHECK_FALSE(editor::canCreateScriptIn("assets"));
+        CHECK_FALSE(editor::canCreateScriptIn(""));
+        st.ask = editor::ProjectExplorerState::Ask::NewScript;
+        st.askTarget = "content/game";
+        st.askInput = {};
+        const std::string_view script = "enemy_ai";
+        std::copy(script.begin(), script.end(), st.askInput.begin());
+        last = editor::applyExplorerAsk(st, p.root());
+        REQUIRE(last.has_value());
+        CHECK(last->kind == editor::ProjectExplorerAction::Kind::NewScript);
+        CHECK(last->rel == "content/game/scripts/enemy_ai.ts");
+        CHECK_FALSE(fs::exists(p.root() / "content" / "game" / "scripts" / "enemy_ai.ts")); // 앱이 저장 길로 만든다
+        st.ask = editor::ProjectExplorerState::Ask::NewScript;
+        st.askInput = {};
+        const std::string_view bad = "Bad-Name";
+        std::copy(bad.begin(), bad.end(), st.askInput.begin());
+        CHECK_FALSE(editor::applyExplorerAsk(st, p.root()).has_value());
+        CHECK(st.statusError);
     }
 }

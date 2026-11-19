@@ -5,7 +5,8 @@
 //
 //   끌기 원천  에셋 (id 가 있는 assets/ 원본) = kAssetPayload (에셋 id — 월드 · UI 디자이너가 받는다), 나머지 = kFilePayload
 //   받는 곳    폴더 — kFilePayload · kAssetPayload 를 그 폴더로 옮긴다 (에셋은 assets/ 안에서만 — 서비스가 거절)
-//   두 번 클릭 PNG = 에셋 창에서 고르기 (OpenAsset). 스크립트 열기 · 새 스크립트는 ST-08-4
+//   두 번 클릭 PNG = 에셋 창에서 고르기 (OpenAsset), .ts = 스크립트 편집기 (OpenScript — v0.13 ST-08-4)
+//   새 스크립트 팩 폴더 (content/<팩> · 그 scripts/…) 의 맥락 메뉴 · [+ 스크립트] — 이름만 묻고 NewScript (앱이 틀로 만들어 연다)
 
 #include <array>
 #include <filesystem>
@@ -31,7 +32,7 @@ struct ProjectExplorerState {
     std::string status;
     bool statusError = false;
     // 묻는 창 (새 폴더 · 이름 바꾸기 · 휴지통)
-    enum class Ask : u8 { None, NewFolder, Rename, Trash };
+    enum class Ask : u8 { None, NewFolder, Rename, Trash, NewScript };
     Ask ask = Ask::None;
     bool askOpen = false;   // 다음 그리기에서 OpenPopup
     std::string askTarget;  // 새 폴더 = 부모, 그 밖 = 그 항목
@@ -42,6 +43,8 @@ struct ProjectExplorerState {
 struct ProjectExplorerAction {
     enum class Kind : u8 {
         OpenAsset,    // PNG 두 번 클릭 — 에셋 창에서 고른다
+        OpenScript,   // .ts 두 번 클릭 — 스크립트 편집기 (콘텐츠 창) 에 연다 (v0.13 ST-08-4)
+        NewScript,    // 새 스크립트 — rel = 만들 파일 (services::newScriptPath 를 지났다, 아직 없다)
         FilesChanged, // 파일이 바뀌었다 — 에셋 창 · 스프라이트를 다시
     };
     Kind kind = Kind::FilesChanged;
@@ -54,6 +57,8 @@ struct ProjectExplorerAction {
 // 상태 글 · 고른 항목을 고친다. st.ask 를 비운다 (창은 다음 그리기에서 닫힌다)
 std::optional<ProjectExplorerAction> applyExplorerAsk(ProjectExplorerState& state,
                                                       const std::filesystem::path& projectDir);
+// 이 폴더에 새 스크립트를 만들 수 있나 (content/<팩> · content/<팩>/scripts/…)
+[[nodiscard]] bool canCreateScriptIn(std::string_view folderRel) noexcept;
 // 부모 폴더의 경로 ("a/b/c.ts" → "a/b", 맨 위 항목 → 빈 글자)
 [[nodiscard]] std::string projectParentOf(std::string_view rel);
 
