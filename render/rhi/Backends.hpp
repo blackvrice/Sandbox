@@ -23,5 +23,11 @@ namespace metal {
 [[nodiscard]] Expected<std::unique_ptr<IRenderDevice>> createDevice(const DeviceDesc& desc);
 }
 #endif
+#if defined(SBX_HAS_GRAPHICS_SDK)
+namespace graphics_sdk {
+[[nodiscard]] Expected<std::unique_ptr<IRenderDevice>> createDevice(const DeviceDesc& desc);
+[[nodiscard]] Expected<void> verifyAdapterTypeMappings();
+}
+#endif
 
 } // namespace sbx::rhi

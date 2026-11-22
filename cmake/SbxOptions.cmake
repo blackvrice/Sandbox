@@ -21,6 +21,7 @@ if(APPLE)
 else()
     set(SBX_ENABLE_METAL OFF)
 endif()
+option(SBX_USE_GRAPHICS_SDK     "Use Graphics SDK rendering backend"                             OFF)
 
 # Linux 창 (docs/07-PLATFORM.md 6.2, ADR-0033). X11 은 Linux 기본 — libx11-dev (+ libxi-dev) 가 필요하다.
 # 끄면 X11 창 없이 (둘 다 끄면 SandboxClient --headless 만 — 서버 · 도구 빌드 머신용).

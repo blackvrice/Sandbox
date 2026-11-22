@@ -253,6 +253,7 @@
 | `render/vulkan/VulkanPipeline.cpp`, `VulkanCommandList.cpp`, `VulkanSwapChain.cpp`                          | 셰이더 · 샘플러 · 세트/파이프라인 레이아웃 캐시 · 바인드 그룹 · dynamic rendering 파이프라인, 커맨드 풀 · 배리어 · 그리기, Win32 표면 스왑체인                      | SandboxRender (Vulkan)      |
 | `render/metal/MetalDevice.hpp`, `MetalDevice.mm`                                                            | (14C, macOS · 검증 대기) 내부 헤더(ObjC++ 전용) · 장치(Metal 3) · 공유 이벤트 큐 · Private/Shared 메모리 · 버퍼/텍스처(뷰) · 업로드 링 · 프레임 (ADR-0037)          | SandboxRender (Metal)       |
 | `render/metal/MetalPipeline.mm`, `MetalCommandList.mm`, `MetalSwapChain.mm`                                 | MSL 실행 중 컴파일 · 샘플러 · 바인드 그룹(리소스 목록) · 파이프라인(번호 표), 인코더 · 기억한 상태를 draw 때 묶기, CAMetalLayer 스왑체인                            | SandboxRender (Metal)       |
+| `render/graphics_sdk/GraphicsSdk*.{hpp,cpp}`                                                                | Graphics SDK (`GraphicsSDK::Core`) RHI 어댑터 (`SBX_USE_GRAPHICS_SDK=ON`): `GraphicsSdkDevice` · `GraphicsSdkCommandList` · `GraphicsSdkCommandQueue` · `GraphicsSdkSwapChain` · `GraphicsSdkResource` · `GraphicsSdkPipeline` · `GraphicsSdkTypes` · `GraphicsSdkFactory` | SandboxRender (GraphicsSDK) |
 | `render/asset/Image.{hpp,cpp}`, `StbImpl.cpp`                                                               | RGBA8 이미지, PNG 읽기·쓰기(stb), 비교·차이 그림                                                                                                                    | SandboxRender               |
 | `render/asset/AssetManager.{hpp,cpp}`, `ShelfPacker.hpp`, `AssetId.hpp`                                     | 스프라이트 에셋: Worker 디코드 · 업로드 예산 · Texture2DArray 아틀라스 선반 패킹 · 자리 표시, 경로 정규화 id (8A, ADR-0020)                                         | SandboxRender               |
 | `render/asset/MaterialLibrary.{hpp,cpp}`                                                                    | 머티리얼 이름 → 스프라이트 · 색 (`assets/<팩>/materials.json`), 대체 색 (8A)                                                                                        | SandboxRender               |
@@ -450,6 +451,8 @@ render/
   dx12/         Dx12Device · Dx12CommandList · Dx12SwapChain · Dx12Pipeline · Dx12Common     (WIN32)
   vulkan/       VulkanDevice · VulkanCommandList · VulkanSwapChain · VulkanPipeline · VulkanCommon  (SBX_ENABLE_VULKAN)
   metal/        MetalDevice · MetalCommandList · MetalSwapChain · MetalPipeline (.mm)     (SBX_ENABLE_METAL — 미검증)
+  graphics_sdk/ GraphicsSdkDevice · GraphicsSdkCommandList · GraphicsSdkCommandQueue · GraphicsSdkSwapChain ·
+                GraphicsSdkResource · GraphicsSdkPipeline · GraphicsSdkTypes · GraphicsSdkFactory  (SBX_USE_GRAPHICS_SDK)
   renderer/     Renderer · RenderWorld · Camera2D · SpriteBatcher · TerrainPass · OverlayPasses · DebugDraw
   asset/        AssetManager · AssetId · Image · MaterialLibrary · ShelfPacker · StbImpl
   imgui/        ImGuiRenderer

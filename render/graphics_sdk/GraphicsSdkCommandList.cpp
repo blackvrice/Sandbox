@@ -1,0 +1,701 @@
+#include "render/graphics_sdk/GraphicsSdkCommandList.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <format>
+#include <string>
+#include <variant>
+#include <vector>
+
+#include "foundation/log/Log.hpp"
+#include "render/graphics_sdk/GraphicsSdkDevice.hpp"
+#include "render/graphics_sdk/GraphicsSdkTypes.hpp"
+
+namespace sbx::rhi::graphics_sdk {
+namespace {
+
+struct CmdBarrier {
+    gfx::TexturePtr texture;
+    gfx::ResourceState state = gfx::ResourceState::Common;
+};
+
+struct CmdBeginRenderPass {
+    gfx::RenderPassDesc pass;
+    u32 targetWidth = 0;
+    u32 targetHeight = 0;
+};
+
+struct CmdEndRenderPass {};
+
+struct CmdSetViewport {
+    gfx::Viewport viewport;
+};
+
+struct CmdSetScissor {
+    u32 x = 0;
+    u32 y = 0;
+    u32 width = 0;
+    u32 height = 0;
+};
+
+struct CmdCopyBuffer {
+    gfx::BufferPtr src;
+    u64 srcOffset = 0;
+    gfx::BufferPtr dst;
+    u64 dstOffset = 0;
+    u64 size = 0;
+    bool srcNeedsTransition = false;
+    bool dstNeedsTransition = false;
+};
+
+struct CmdCopyTexture {
+    gfx::BufferPtr buffer;
+    gfx::TexturePtr texture;
+    gfx::TextureCopyRegion region{};
+    bool toTexture = true;
+    bool fullTexture = false;
+};
+
+struct CmdDebugMarker {
+    std::string label;
+};
+
+struct CmdSetPipeline {
+    gfx::PipelinePtr pipeline;
+};
+
+struct CmdBindResources {
+    gfx::ResourceBindings bindings;
+};
+
+struct CmdSetVertexBuffer {
+    u32 slot = 0;
+    gfx::BufferPtr buffer;
+    u32 stride = 0;
+    u64 offset = 0;
+    u64 size = 0;
+    bool needsTransition = false;
+};
+
+struct CmdSetIndexBuffer {
+    gfx::BufferPtr buffer;
+    gfx::IndexFormat format = gfx::IndexFormat::UInt16;
+    u64 offset = 0;
+    u64 size = 0;
+    bool needsTransition = false;
+};
+
+struct CmdDraw {
+    u32 vertexCount = 0;
+    u32 instanceCount = 1;
+    u32 firstVertex = 0;
+    u32 firstInstance = 0;
+};
+
+struct CmdDrawIndexed {
+    u32 indexCount = 0;
+    u32 instanceCount = 1;
+    u32 firstIndex = 0;
+    i32 vertexOffset = 0;
+    u32 firstInstance = 0;
+};
+
+struct CmdWriteTimestamp {
+    u32 index = 0;
+};
+
+struct CmdResolveTimestamps {
+    u32 count = 0;
+};
+
+using RecordedOp =
+    std::variant<CmdBarrier, CmdBeginRenderPass, CmdEndRenderPass, CmdSetViewport, CmdSetScissor, CmdCopyBuffer,
+                 CmdCopyTexture, CmdDebugMarker, CmdSetPipeline, CmdBindResources, CmdSetVertexBuffer,
+                 CmdSetIndexBuffer, CmdDraw, CmdDrawIndexed, CmdWriteTimestamp, CmdResolveTimestamps>;
+
+class GraphicsSdkCommandList final : public ICommandList {
+public:
+    GraphicsSdkCommandList(GraphicsSdkDevice& dev, QueueType type) : m_dev(dev), m_type(type) {}
+
+    void begin() override {
+        if (m_recording) {
+            error("begin() 을 end() 없이 두 번");
+        }
+        m_ops.clear();
+        m_pendingReadbacks.clear();
+        m_pipelineHandle = {};
+        m_boundGroups = {};
+        m_pushData.clear();
+        m_bindingsDirty = false;
+        m_inPass = false;
+        m_passLabel = false;
+        m_targetWidth = 0;
+        m_targetHeight = 0;
+        m_writtenTimestamps = 0;
+        m_resolvedTimestampCount = 0;
+        m_timestampOrder = {};
+        m_recording = true;
+    }
+
+    void end() override {
+        if (!m_recording) {
+            error("begin() 없이 end()");
+            return;
+        }
+        if (m_inPass) {
+            error("endRenderPass 없이 end()");
+            m_inPass = false;
+        }
+        m_recording = false;
+    }
+
+    void barrier(std::span<const ResourceBarrier> barriers) override {
+        for (const ResourceBarrier& b : barriers) {
+            GraphicsSdkTexture* t = m_dev.texture(b.texture);
+            if (t == nullptr || !t->texture) {
+                error("barrier: 무효 텍스처 핸들");
+                continue;
+            }
+            auto toState = mapResourceState(b.after);
+            if (!toState) {
+                error(toState.error().message);
+                continue;
+            }
+            t->trackedState = b.after;
+            m_ops.emplace_back(CmdBarrier{t->texture, *toState});
+        }
+    }
+
+    void beginRenderPass(const RenderPassDesc& desc) override {
+        if (!desc.debugLabel.empty()) {
+            beginDebugLabel(desc.debugLabel);
+            m_passLabel = true;
+        }
+        gfx::RenderPassDesc sdkPass{};
+        u32 w = 0;
+        u32 h = 0;
+        for (u32 i = 0; i < desc.colorCount && i < kMaxColorAttachments; ++i) {
+            const ColorAttachment& a = desc.colors[i];
+            GraphicsSdkTexture* t = m_dev.texture(a.texture);
+            if (t == nullptr || !t->texture || !hasFlag(t->desc.usage, TextureUsage::RenderTarget)) {
+                error(std::format("beginRenderPass: 색 첨부 {} 이 렌더 타깃이 아니다", i));
+                continue;
+            }
+            if (t->trackedState != ResourceState::RenderTarget) {
+                t->trackedState = ResourceState::RenderTarget;
+                m_ops.emplace_back(CmdBarrier{t->texture, gfx::ResourceState::RenderTarget});
+            }
+            gfx::ColorAttachment ca{};
+            ca.texture = t->texture;
+            if (a.load == LoadOp::Load && !t->initialized) {
+                // 아직 초기화된 적이 없는 타깃에 Load 를 요청하면 Clear(0)로 초기화한다
+                ca.load = gfx::LoadOp::Clear;
+                ca.clear = {0.f, 0.f, 0.f, 1.f};
+            } else {
+                ca.load = a.load == LoadOp::Load ? gfx::LoadOp::Load : gfx::LoadOp::Clear;
+                ca.clear = {a.clear.r, a.clear.g, a.clear.b, a.clear.a};
+            }
+            t->initialized = true;
+            sdkPass.colors.push_back(std::move(ca));
+            if (w == 0 && h == 0) {
+                w = t->desc.width;
+                h = t->desc.height;
+            }
+        }
+        m_targetWidth = w;
+        m_targetHeight = h;
+        m_inPass = true;
+        if (!sdkPass.colors.empty()) {
+            m_ops.emplace_back(CmdBeginRenderPass{std::move(sdkPass), w, h});
+        }
+    }
+
+    void endRenderPass() override {
+        if (m_inPass) {
+            m_ops.emplace_back(CmdEndRenderPass{});
+            m_inPass = false;
+        }
+        if (m_passLabel) {
+            endDebugLabel();
+            m_passLabel = false;
+        }
+    }
+
+    void setViewport(const Viewport& v) override {
+        m_ops.emplace_back(CmdSetViewport{gfx::Viewport{v.x, v.y, v.width, v.height, v.minDepth, v.maxDepth}});
+    }
+
+    void setScissor(const Rect2D& r) override {
+        const i32 x0 = std::max<i32>(0, r.x);
+        const i32 y0 = std::max<i32>(0, r.y);
+        u32 w = r.width;
+        u32 h = r.height;
+        if (m_targetWidth > 0 && static_cast<u32>(x0) + w > m_targetWidth) {
+            w = static_cast<u32>(x0) < m_targetWidth ? m_targetWidth - static_cast<u32>(x0) : 0;
+        }
+        if (m_targetHeight > 0 && static_cast<u32>(y0) + h > m_targetHeight) {
+            h = static_cast<u32>(y0) < m_targetHeight ? m_targetHeight - static_cast<u32>(y0) : 0;
+        }
+        if (w == 0 || h == 0) {
+            return;
+        }
+        m_ops.emplace_back(CmdSetScissor{static_cast<u32>(x0), static_cast<u32>(y0), w, h});
+    }
+
+    void copyBuffer(const BufferCopy& c) override {
+        GraphicsSdkBuffer* src = m_dev.buffer(c.src);
+        GraphicsSdkBuffer* dst = m_dev.buffer(c.dst);
+        if (src == nullptr || dst == nullptr || !src->buffer || !dst->buffer || c.size == 0 ||
+            c.srcOffset + c.size > src->desc.size || c.dstOffset + c.size > dst->desc.size) {
+            error("copyBuffer: 무효 핸들 또는 범위 밖");
+            return;
+        }
+        const bool srcDevice = src->desc.memory == MemoryType::GpuOnly;
+        const bool dstDevice = dst->desc.memory == MemoryType::GpuOnly;
+        m_ops.emplace_back(
+            CmdCopyBuffer{src->buffer, c.srcOffset, dst->buffer, c.dstOffset, c.size, srcDevice, dstDevice});
+        if (dst->desc.memory == MemoryType::Readback) {
+            m_pendingReadbacks.push_back(c.dst);
+        }
+    }
+
+    void copyBufferToTexture(const BufferTextureCopy& c) override { recordCopyTexture(c, true); }
+    void copyTextureToBuffer(const BufferTextureCopy& c) override { recordCopyTexture(c, false); }
+
+    void beginDebugLabel(std::string_view label) override {
+        if (!label.empty()) {
+            m_ops.emplace_back(CmdDebugMarker{std::string(label)});
+        }
+    }
+
+    void endDebugLabel() override {}
+
+    void setPipeline(RhiPipeline pipeline) override {
+        GraphicsSdkPipeline* p = m_dev.pipeline(pipeline);
+        if (p == nullptr || !p->pipeline) {
+            error("setPipeline: 무효 파이프라인 핸들");
+            m_pipelineHandle = {};
+            return;
+        }
+        m_pipelineHandle = pipeline;
+        m_bindingsDirty = true;
+        m_ops.emplace_back(CmdSetPipeline{p->pipeline});
+    }
+
+    void setBindGroup(u32 slot, RhiBindGroup group) override {
+        GraphicsSdkPipeline* pl = m_dev.pipeline(m_pipelineHandle);
+        GraphicsSdkBindGroup* g = m_dev.bindGroup(group);
+        if (pl == nullptr || g == nullptr || slot >= kMaxBindGroups) {
+            error("setBindGroup: 파이프라인이 없거나 무효 그룹·슬롯");
+            return;
+        }
+        if (!pl->slotUsed[slot] || pl->slotSignatures[slot] != g->layoutSignature) {
+            error(std::format("setBindGroup: 그룹 '{}' 의 레이아웃이 파이프라인 '{}' 의 슬롯 {} 과 다르다", g->name,
+                              pl->name, slot));
+            return;
+        }
+        m_boundGroups[slot] = group;
+        m_bindingsDirty = true;
+    }
+
+    void pushConstants(std::span<const std::byte> data) override {
+        GraphicsSdkPipeline* pl = m_dev.pipeline(m_pipelineHandle);
+        if (pl == nullptr || pl->pushConstantBytes == 0 || data.size() % 4 != 0 ||
+            data.size() > pl->pushConstantBytes) {
+            error(std::format("pushConstants: {} 바이트 (파이프라인 {} 바이트, 4 의 배수)", data.size(),
+                              pl != nullptr ? pl->pushConstantBytes : 0));
+            return;
+        }
+        m_pushData.assign(data.begin(), data.end());
+        m_bindingsDirty = true;
+    }
+
+    void setVertexBuffer(u32 slot, RhiBuffer buffer, u64 offset) override {
+        GraphicsSdkPipeline* pl = m_dev.pipeline(m_pipelineHandle);
+        GraphicsSdkBuffer* b = m_dev.buffer(buffer);
+        if (pl == nullptr || b == nullptr || !b->buffer || slot >= pl->vertexStrides.size() || offset >= b->desc.size) {
+            error("setVertexBuffer: 파이프라인이 없거나 무효 버퍼·슬롯·오프셋");
+            return;
+        }
+        const bool isDevice = b->desc.memory == MemoryType::GpuOnly;
+        m_ops.emplace_back(
+            CmdSetVertexBuffer{slot, b->buffer, pl->vertexStrides[slot], offset, b->desc.size - offset, isDevice});
+    }
+
+    void setIndexBuffer(RhiBuffer buffer, u64 offset, IndexFormat format) override {
+        GraphicsSdkBuffer* b = m_dev.buffer(buffer);
+        if (b == nullptr || !b->buffer || offset >= b->desc.size) {
+            error("setIndexBuffer: 무효 버퍼 또는 오프셋");
+            return;
+        }
+        const bool isDevice = b->desc.memory == MemoryType::GpuOnly;
+        m_ops.emplace_back(
+            CmdSetIndexBuffer{b->buffer, mapIndexFormat(format), offset, b->desc.size - offset, isDevice});
+    }
+
+    void draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
+        GraphicsSdkPipeline* pl = m_dev.pipeline(m_pipelineHandle);
+        if (pl == nullptr) {
+            error("draw: setPipeline 이 먼저");
+            return;
+        }
+        if (!emitBindingsIfNeeded(*pl)) {
+            return;
+        }
+        m_ops.emplace_back(CmdDraw{vertexCount, instanceCount, firstVertex, firstInstance});
+    }
+
+    void drawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance) override {
+        GraphicsSdkPipeline* pl = m_dev.pipeline(m_pipelineHandle);
+        if (pl == nullptr) {
+            error("drawIndexed: setPipeline 이 먼저");
+            return;
+        }
+        if (!emitBindingsIfNeeded(*pl)) {
+            return;
+        }
+        m_ops.emplace_back(CmdDrawIndexed{indexCount, instanceCount, firstIndex, vertexOffset, firstInstance});
+    }
+
+    void writeTimestamp(u32 index) override {
+        if (!m_dev.caps().timestampQueries) {
+            return;
+        }
+        if (index >= kMaxTimestampsPerFrame) {
+            error(std::format("writeTimestamp: 칸 {} ≥ {}", index, kMaxTimestampsPerFrame));
+            return;
+        }
+        if (m_writtenTimestamps < kMaxTimestampsPerFrame) {
+            m_timestampOrder[m_writtenTimestamps++] = index;
+        }
+        m_ops.emplace_back(CmdWriteTimestamp{index});
+    }
+
+    void resolveTimestamps(u32 count) override {
+        if (!m_dev.caps().timestampQueries || count == 0) {
+            return;
+        }
+        if (count > kMaxTimestampsPerFrame || m_inPass) {
+            error(m_inPass ? "resolveTimestamps: 렌더 패스 밖에서" : "resolveTimestamps: 칸 수가 상한을 넘는다");
+            return;
+        }
+        m_resolvedTimestampCount = count;
+        m_ops.emplace_back(CmdResolveTimestamps{count});
+    }
+
+    gfx::CommandList* prepareAndReplay() {
+        if (m_recording) {
+            error("submit: end() 되지 않은 커맨드 리스트");
+            return nullptr;
+        }
+        // 1) Stage-Before-Record: 기록된 명령들을 SDK CommandList 로 재생하기 전에
+        //    이번 프레임의 모든 CPU UploadRing / Upload 버퍼 쓰기를 SDK 버퍼로 먼저 flush 한다.
+        if (!m_dev.flushPendingUploads(0)) {
+            return nullptr;
+        }
+
+        const u32 slot = m_dev.frameIndex();
+        gfx::CommandList* sdkCmd = m_dev.acquireSlotCommandList(slot, m_type);
+        if (sdkCmd == nullptr) {
+            return nullptr;
+        }
+
+        gfx::CommandList& cmd = *sdkCmd;
+        if (auto res = cmd.begin(); !res) {
+            m_dev.reportSdkError("CommandList::begin", res.error());
+            return nullptr;
+        }
+
+        bool scopeOpen = false;
+        u32 scopesRecorded = 0;
+
+        for (const RecordedOp& op : m_ops) {
+            if (const auto* b = std::get_if<CmdBarrier>(&op)) {
+                if (auto res = cmd.transition(b->texture, b->state); !res) {
+                    m_dev.reportSdkError("CommandList::transition(Texture)", res.error());
+                }
+            } else if (const auto* rp = std::get_if<CmdBeginRenderPass>(&op)) {
+                if (auto res = cmd.beginRenderPass(rp->pass); !res) {
+                    m_dev.reportSdkError("CommandList::beginRenderPass", res.error());
+                }
+            } else if (std::holds_alternative<CmdEndRenderPass>(op)) {
+                if (auto res = cmd.endRenderPass(); !res) {
+                    m_dev.reportSdkError("CommandList::endRenderPass", res.error());
+                }
+            } else if (const auto* vp = std::get_if<CmdSetViewport>(&op)) {
+                if (auto res = cmd.setViewport(vp->viewport); !res) {
+                    m_dev.reportSdkError("CommandList::setViewport", res.error());
+                }
+            } else if (const auto* sc = std::get_if<CmdSetScissor>(&op)) {
+                if (auto res = cmd.setScissor(sc->x, sc->y, sc->width, sc->height); !res) {
+                    m_dev.reportSdkError("CommandList::setScissor", res.error());
+                }
+            } else if (const auto* cb = std::get_if<CmdCopyBuffer>(&op)) {
+                if (cb->srcNeedsTransition) {
+                    (void)cmd.transition(cb->src, gfx::ResourceState::CopySource);
+                }
+                if (cb->dstNeedsTransition) {
+                    (void)cmd.transition(cb->dst, gfx::ResourceState::CopyDestination);
+                }
+                if (auto res = cmd.copyBufferRegion(cb->src, cb->srcOffset, cb->dst, cb->dstOffset, cb->size); !res) {
+                    m_dev.reportSdkError("CommandList::copyBufferRegion", res.error());
+                }
+            } else if (const auto* ct = std::get_if<CmdCopyTexture>(&op)) {
+                if (ct->toTexture) {
+                    if (auto res = cmd.copyBufferToTextureRegion(ct->buffer, ct->texture, ct->region); !res) {
+                        m_dev.reportSdkError("CommandList::copyBufferToTextureRegion", res.error());
+                    }
+                } else {
+                    if (auto res = cmd.copyTextureToBufferRegion(ct->texture, ct->buffer, ct->region); !res) {
+                        m_dev.reportSdkError("CommandList::copyTextureToBufferRegion", res.error());
+                    }
+                }
+            } else if (const auto* dm = std::get_if<CmdDebugMarker>(&op)) {
+                // Vulkan 에서 debug_utils 확장이 없는 경우 Unsupported 를 반환할 수 있으므로 무시한다.
+                (void)cmd.debugMarker(dm->label);
+            } else if (const auto* sp = std::get_if<CmdSetPipeline>(&op)) {
+                if (auto res = cmd.setPipeline(sp->pipeline); !res) {
+                    m_dev.reportSdkError("CommandList::setPipeline", res.error());
+                }
+            } else if (const auto* br = std::get_if<CmdBindResources>(&op)) {
+                if (auto res = cmd.bindResources(br->bindings); !res) {
+                    m_dev.reportSdkError("CommandList::bindResources", res.error());
+                }
+            } else if (const auto* vb = std::get_if<CmdSetVertexBuffer>(&op)) {
+                if (vb->needsTransition) {
+                    (void)cmd.transition(vb->buffer, gfx::ResourceState::VertexBuffer);
+                }
+                if (auto res = cmd.bindVertexBuffer(vb->slot, vb->buffer, vb->stride, vb->offset, vb->size); !res) {
+                    m_dev.reportSdkError("CommandList::bindVertexBuffer", res.error());
+                }
+            } else if (const auto* ib = std::get_if<CmdSetIndexBuffer>(&op)) {
+                if (ib->needsTransition) {
+                    (void)cmd.transition(ib->buffer, gfx::ResourceState::IndexBuffer);
+                }
+                if (auto res = cmd.bindIndexBuffer(ib->buffer, ib->format, ib->offset, ib->size); !res) {
+                    m_dev.reportSdkError("CommandList::bindIndexBuffer", res.error());
+                }
+            } else if (const auto* d = std::get_if<CmdDraw>(&op)) {
+                if (auto res = cmd.draw(d->vertexCount, d->instanceCount, d->firstVertex, d->firstInstance); !res) {
+                    m_dev.reportSdkError("CommandList::draw", res.error());
+                }
+            } else if (const auto* di = std::get_if<CmdDrawIndexed>(&op)) {
+                if (auto res = cmd.drawIndexed(di->indexCount, di->instanceCount, di->firstIndex, di->vertexOffset,
+                                               di->firstInstance);
+                    !res) {
+                    m_dev.reportSdkError("CommandList::drawIndexed", res.error());
+                }
+            } else if (const auto* wt = std::get_if<CmdWriteTimestamp>(&op)) {
+                if (scopeOpen) {
+                    (void)cmd.endTimestampScope();
+                    scopeOpen = false;
+                    ++scopesRecorded;
+                }
+                if (scopesRecorded < gfx::kMaxTimestampScopesPerCommandList) {
+                    if (cmd.beginTimestampScope(std::format("ts_{}", wt->index))) {
+                        scopeOpen = true;
+                    }
+                }
+            } else if (const auto* rt = std::get_if<CmdResolveTimestamps>(&op)) {
+                if (scopeOpen) {
+                    (void)cmd.endTimestampScope();
+                    scopeOpen = false;
+                    ++scopesRecorded;
+                }
+                if (scopesRecorded > 0) {
+                    if (auto res = cmd.resolveTimestampScopes(); !res) {
+                        m_dev.reportSdkError("CommandList::resolveTimestampScopes", res.error());
+                    } else {
+                        m_dev.recordFrameTimestamps(rt->count, m_timestampOrder, &cmd);
+                    }
+                }
+            }
+        }
+
+        if (scopeOpen) {
+            (void)cmd.endTimestampScope();
+            scopeOpen = false;
+        }
+
+        if (auto res = cmd.end(); !res) {
+            m_dev.reportSdkError("CommandList::end", res.error());
+            return nullptr;
+        }
+        return &cmd;
+    }
+
+    void onSubmitted(gfx::Fence fence) {
+        for (const RhiBuffer rb : m_pendingReadbacks) {
+            m_dev.registerPendingReadback(rb, fence.value);
+        }
+        m_pendingReadbacks.clear();
+    }
+
+private:
+    void error(std::string_view what) { m_dev.reportError(what); }
+
+    bool emitBindingsIfNeeded(const GraphicsSdkPipeline& pl) {
+        if (!m_bindingsDirty) {
+            return true;
+        }
+        gfx::ResourceBindings rb{};
+        for (const PipelineBindingMapEntry& mapEntry : pl.bindingMap) {
+            const RhiBindGroup gh = m_boundGroups[mapEntry.group];
+            const GraphicsSdkBindGroup* bg = m_dev.bindGroup(gh);
+            if (bg == nullptr) {
+                error(std::format("draw: 바인드 그룹 슬롯 {} 이 묶이지 않았다", mapEntry.group));
+                return false;
+            }
+            const auto it = std::ranges::find(bg->entries, mapEntry.binding, &BindGroupEntry::binding);
+            if (it == bg->entries.end()) {
+                error(std::format("draw: 바인드 그룹 슬롯 {} 에 binding {} 이 없다", mapEntry.group, mapEntry.binding));
+                return false;
+            }
+            if (mapEntry.type == BindingType::ConstantBuffer) {
+                const GraphicsSdkBuffer* b = m_dev.buffer(it->buffer);
+                if (b == nullptr || !b->buffer) {
+                    error("draw: 상수 버퍼가 이미 해제되었다");
+                    return false;
+                }
+                const u64 rawSize = it->size != 0 ? it->size : (b->desc.size - it->offset);
+                const u64 alignedSize = alignUp(rawSize, m_dev.caps().constantBufferAlignment);
+                rb.constants.push_back({mapEntry.sdkBindingIndex, 0u, b->buffer, it->offset, alignedSize});
+            } else if (mapEntry.type == BindingType::Texture) {
+                const GraphicsSdkTexture* t = m_dev.texture(it->texture);
+                if (t == nullptr || !t->texture) {
+                    error("draw: 텍스처가 이미 해제되었다");
+                    return false;
+                }
+                rb.textures.push_back({mapEntry.sdkBindingIndex, 0u, t->texture, {}});
+            } else if (mapEntry.type == BindingType::StorageBuffer || mapEntry.type == BindingType::StorageBufferRW) {
+                const GraphicsSdkBuffer* b = m_dev.buffer(it->buffer);
+                if (b == nullptr || !b->buffer) {
+                    error("draw: 스토리지 버퍼가 이미 해제되었다");
+                    return false;
+                }
+                const u64 rawSize = it->size != 0 ? it->size : (b->desc.size - it->offset);
+                rb.storageBuffers.push_back({mapEntry.sdkBindingIndex, 0u, b->buffer, it->offset, rawSize});
+            } else if (mapEntry.type == BindingType::StorageTexture) {
+                const GraphicsSdkTexture* t = m_dev.texture(it->texture);
+                if (t == nullptr || !t->texture) {
+                    error("draw: 스토리지 텍스처가 이미 해제되었다");
+                    return false;
+                }
+                rb.storageTextures.push_back({mapEntry.sdkBindingIndex, 0u, t->texture, {}});
+            }
+        }
+
+        if (pl.hasPushConstantSlot) {
+            // Push Constants 데이터를 256 바이트 정렬 업로드 링 슬롯에 올려 상수 버퍼로 바인딩한다.
+            const UploadAllocation pushAlloc = m_dev.allocateUpload(256, m_dev.caps().constantBufferAlignment);
+            if (!pushAlloc.valid()) {
+                error("draw: push constant 용 업로드 링 할당 실패");
+                return false;
+            }
+            std::memset(pushAlloc.cpu, 0, 256);
+            if (!m_pushData.empty()) {
+                std::memcpy(pushAlloc.cpu, m_pushData.data(), std::min<usize>(m_pushData.size(), 256));
+            }
+            const GraphicsSdkBuffer* ringBuf = m_dev.buffer(pushAlloc.buffer);
+            if (ringBuf != nullptr && ringBuf->buffer) {
+                rb.constants.push_back({pl.pushConstantSdkIndex, 0u, ringBuf->buffer, pushAlloc.offset, 256u});
+            }
+        }
+
+        if (!rb.constants.empty() || !rb.textures.empty() || !rb.storageBuffers.empty() ||
+            !rb.storageTextures.empty()) {
+            m_ops.emplace_back(CmdBindResources{std::move(rb)});
+        }
+        m_bindingsDirty = false;
+        return true;
+    }
+
+    void recordCopyTexture(const BufferTextureCopy& c, bool toTexture) {
+        GraphicsSdkBuffer* b = m_dev.buffer(c.buffer);
+        GraphicsSdkTexture* t = m_dev.texture(c.texture);
+        const char* what = toTexture ? "copyBufferToTexture" : "copyTextureToBuffer";
+        if (b == nullptr || t == nullptr || !b->buffer || !t->texture) {
+            error(std::format("{}: 무효 핸들", what));
+            return;
+        }
+        const DeviceCaps& caps = m_dev.caps();
+        const u32 bpp = formatInfo(t->desc.format).bytesPerPixel;
+        const u64 bytes =
+            static_cast<u64>(c.bufferRowPitch) * (c.height > 0 ? c.height - 1 : 0) + static_cast<u64>(c.width) * bpp;
+        if (c.bufferRowPitch % caps.textureCopyRowAlignment != 0 ||
+            c.bufferOffset % caps.textureCopyOffsetAlignment != 0 || c.bufferRowPitch < c.width * bpp ||
+            c.bufferOffset + bytes > b->desc.size || c.x + c.width > t->desc.width || c.y + c.height > t->desc.height ||
+            c.mip >= t->desc.mips || c.layer >= t->desc.layers || c.width == 0 || c.height == 0) {
+            error(std::format(
+                "{}: 배치가 잘못됐다 (rowPitch {} 는 {} 의 배수, offset {} 는 {} 의 배수, 영역 {}×{}+{}+{})", what,
+                c.bufferRowPitch, caps.textureCopyRowAlignment, c.bufferOffset, caps.textureCopyOffsetAlignment,
+                c.width, c.height, c.x, c.y));
+            return;
+        }
+        if (toTexture) {
+            if (t->trackedState != ResourceState::CopyDst) {
+                t->trackedState = ResourceState::CopyDst;
+                m_ops.emplace_back(CmdBarrier{t->texture, gfx::ResourceState::CopyDestination});
+            }
+            t->initialized = true;
+        } else {
+            if (t->trackedState != ResourceState::CopySrc) {
+                t->trackedState = ResourceState::CopySrc;
+                m_ops.emplace_back(CmdBarrier{t->texture, gfx::ResourceState::CopySource});
+            }
+            if (b->desc.memory == MemoryType::Readback) {
+                m_pendingReadbacks.push_back(c.buffer);
+            }
+        }
+        gfx::TextureCopyRegion region{};
+        region.bufferOffset = c.bufferOffset;
+        region.bufferRowPitch = c.bufferRowPitch;
+        region.x = c.x;
+        region.y = c.y;
+        region.width = c.width;
+        region.height = c.height;
+        region.mipLevel = c.mip;
+        region.arrayLayer = c.layer;
+        region.z = 0;
+        region.depth = 1;
+        m_ops.emplace_back(CmdCopyTexture{b->buffer, t->texture, region, toTexture,
+                                          c.x == 0 && c.y == 0 && c.width == t->desc.width &&
+                                              c.height == t->desc.height && c.mip == 0 && c.layer == 0});
+    }
+
+    GraphicsSdkDevice& m_dev;
+    QueueType m_type = QueueType::Graphics;
+    std::vector<RecordedOp> m_ops;
+    std::vector<RhiBuffer> m_pendingReadbacks;
+    bool m_recording = false;
+    bool m_inPass = false;
+    bool m_passLabel = false;
+    u32 m_targetWidth = 0;
+    u32 m_targetHeight = 0;
+
+    RhiPipeline m_pipelineHandle{};
+    std::array<RhiBindGroup, kMaxBindGroups> m_boundGroups{};
+    std::vector<std::byte> m_pushData;
+    bool m_bindingsDirty = false;
+
+    u32 m_writtenTimestamps = 0;
+    u32 m_resolvedTimestampCount = 0;
+    std::array<u32, kMaxTimestampsPerFrame> m_timestampOrder{};
+};
+
+} // namespace
+
+std::unique_ptr<ICommandList> makeGraphicsSdkCommandList(GraphicsSdkDevice& dev, QueueType type) {
+    return std::make_unique<GraphicsSdkCommandList>(dev, type);
+}
+
+gfx::CommandList* prepareForSubmit(ICommandList& list) {
+    return static_cast<GraphicsSdkCommandList&>(list).prepareAndReplay();
+}
+
+void notifySubmitted(ICommandList& list, gfx::Fence fence) {
+    static_cast<GraphicsSdkCommandList&>(list).onSubmitted(fence);
+}
+
+} // namespace sbx::rhi::graphics_sdk

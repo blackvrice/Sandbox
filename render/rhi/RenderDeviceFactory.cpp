@@ -74,6 +74,11 @@ Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& de
                                      : want == BackendType::Metal ? " (macOS 빌드만 — SBX_ENABLE_METAL)"
                                                                   : ""));
     }
+#if defined(SBX_HAS_GRAPHICS_SDK)
+    DeviceDesc resolved = desc;
+    resolved.backend = want;
+    return graphics_sdk::createDevice(resolved);
+#else
 #if defined(SBX_HAS_D3D12)
     if (want == BackendType::D3D12) {
         return dx12::createDevice(desc);
@@ -90,6 +95,7 @@ Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& de
     }
 #endif
     return makeError(ErrorCode::Unsupported, std::format("{} 백엔드를 만들 수 없습니다", backendName(want)));
+#endif
 }
 
 } // namespace sbx::rhi

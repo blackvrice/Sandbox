@@ -93,6 +93,27 @@ if(SBX_ENABLE_METAL)
         message(WARNING "SBX_SHADER_MSL=OFF: 내장 셰이더에 MSL 이 없어 Metal 이 파이프라인을 만들지 못한다 (createShader 실패)")
     endif()
 endif()
+if(SBX_USE_GRAPHICS_SDK)
+    find_package(GraphicsSDK CONFIG REQUIRED)
+    target_sources(SandboxRender PRIVATE
+        graphics_sdk/GraphicsSdkTypes.hpp
+        graphics_sdk/GraphicsSdkTypes.cpp
+        graphics_sdk/GraphicsSdkResource.hpp
+        graphics_sdk/GraphicsSdkPipeline.hpp
+        graphics_sdk/GraphicsSdkPipeline.cpp
+        graphics_sdk/GraphicsSdkDevice.hpp
+        graphics_sdk/GraphicsSdkDevice.cpp
+        graphics_sdk/GraphicsSdkCommandQueue.hpp
+        graphics_sdk/GraphicsSdkCommandQueue.cpp
+        graphics_sdk/GraphicsSdkCommandList.hpp
+        graphics_sdk/GraphicsSdkCommandList.cpp
+        graphics_sdk/GraphicsSdkSwapChain.hpp
+        graphics_sdk/GraphicsSdkSwapChain.cpp
+        graphics_sdk/GraphicsSdkFactory.cpp)
+    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_GRAPHICS_SDK=1)
+    target_link_libraries(SandboxRender PRIVATE GraphicsSDK::Core)
+endif()
+
 # 이 빌드에 들어간 백엔드 (render/rhi/Backends.hpp · RenderDeviceFactory, 시험의 기대값 — PUBLIC)
 if(WIN32)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_D3D12=1)
