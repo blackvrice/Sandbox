@@ -57,15 +57,20 @@ elseif(SBX_ENABLE_X11 OR SBX_ENABLE_WAYLAND)
             message(FATAL_ERROR "X11 개발 파일이 없습니다 — Debian/Ubuntu: sudo apt install libx11-dev libxi-dev "
                                 "(X11 창 없이 빌드하려면 -D SBX_ENABLE_X11=OFF)")
         endif()
+        # libX11-xcb: Xlib 연결의 XCB 연결 (XGetXCBConnection) — 렌더러의 XCB 표면 (Graphics SDK, ADR-0170)
+        if(NOT TARGET X11::X11_xcb)
+            message(FATAL_ERROR "libX11-xcb 개발 파일이 없습니다 — Debian/Ubuntu: sudo apt install libx11-xcb-dev "
+                                "(렌더러가 X11 창에 그리려면 필요하다)")
+        endif()
         target_sources(SandboxPlatform PRIVATE linux/X11Window.cpp)
-        target_link_libraries(SandboxPlatform PRIVATE X11::X11)
+        target_link_libraries(SandboxPlatform PRIVATE X11::X11 X11::X11_xcb)
         if(TARGET X11::Xi)
             target_link_libraries(SandboxPlatform PRIVATE X11::Xi)
             target_compile_definitions(SandboxPlatform PRIVATE SBX_HAS_XINPUT2=1)
         else()
             message(STATUS "Sandbox: XInput2(libxi-dev)가 없다 — 커서 캡처는 가운데로 되돌리는 방식 (가속이 섞인다)")
         endif()
-        # Vulkan 의 Xlib 표면 (render/vulkan) 과 시험이 안다
+        # 렌더러 (XCB 표면 — NativeWindowHandle::xcbConnection) 와 시험이 안다
         target_compile_definitions(SandboxPlatform PUBLIC SBX_HAS_X11=1)
     endif()
     if(SBX_ENABLE_WAYLAND)

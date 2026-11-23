@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-23 — Linux 렌더 표면: X11 창 → XCB, 자동 창 선택 X11 먼저 (ADR-0170)
+
+**무엇을**
+
+- `NativeWindowHandle::xcbConnection` — X11 창이 `XGetXCBConnection(Display*)` 를 함께 준다 (libX11-xcb 링크, 없으면 구성 오류 +
+  apt 안내). 어댑터 `mapSurface` 는 Xlib + XCB 연결을 Graphics SDK 의 Xcb 표면으로 (창 id 그대로), XCB 연결이 없으면 Unsupported.
+  Wayland 는 이유와 함께 Unsupported ("X11 (Xwayland) 창으로 그린다").
+- Linux `createWindow` Auto: DISPLAY 가 있으면 X11 (Xwayland 포함), X 서버 없는 Wayland 세션만 Wayland.
+- 시험: 어댑터 자체 검사에 Xlib→Xcb 매핑 · XCB 없는 Xlib 거절, test_x11_window 가 xcbConnection 확인, client_x11_world_smoke 는
+  lavapipe 가 있으면 "GraphicsSDK 스왑체인" 을 요구하고 "렌더러 없이 계속합니다" 면 실패.
+
+**왜**
+
+- ADR-0168 뒤로 Linux 창 클라이언트 · Studio 가 스왑체인을 만들지 못했다 (Xlib · Wayland 핸들 거절 — SDK 는 XCB 만). 예전 자체 Vulkan
+  백엔드는 둘 다 그렸다. 창 스모크는 프레임 수만 봐 잡지 못했다.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- Windows: 디버그 /WX 빌드 · 어댑터 자체 검사 (test_rhi_helpers) · 전체 ctest. Linux 쪽 코드 (X11Window · LinuxPlatform · libX11-xcb)
+  는 이 PC 에서 컴파일되지 않는다 — CI (GCC 13 · Clang 19 · ASan) 의 platform_x11 · client_x11_world_smoke 가 검증한다.
+
+**남은 일**
+
+- 순수 Wayland 세션의 렌더링 — Graphics SDK 에 Wayland 표면 (SDK-REQ-008).
+
 ## 2026-11-23 — Graphics SDK 공급: external/graphics-sdk 고정 커밋 함께 빌드 — CI 복구 (ADR-0169)
 
 **무엇을**

@@ -93,7 +93,7 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_ENABLE_VULKAN`      | ON(Linux)   | Graphics SDK 의 Vulkan 백엔드 (GFX_ENABLE_VULKAN). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan` | 구현 (ADR-0168) |
 | `SBX_ENABLE_METAL`       | ON(macOS)   | Graphics SDK 의 Metal 백엔드 (GFX_ENABLE_METAL). macOS 만 — 다른 OS 는 늘 OFF      | 구현 (ADR-0168, 검증 대기) |
 | `SBX_SYSTEM_GRAPHICS_SDK`| OFF         | 설치된 Graphics SDK (CMAKE_PREFIX_PATH · GraphicsSDK_DIR) 를 쓴다. 기본은 external/graphics-sdk 를 함께 빌드 | 구현 (ADR-0169) |
-| `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). 둘 다 OFF = 창 없음        | 구현 (Phase 13B)      |
+| `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, libx11-xcb-dev, +libxi-dev). 둘 다 OFF = 창 없음 | 구현 (Phase 13B · ADR-0170) |
 | `SBX_ENABLE_WAYLAND`     | ON(Linux)   | Linux Wayland 창 (libwayland · libdecor · xkbcommon). X11 과 함께 = 실행 중 선택   | 구현 (Phase 13C)      |
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
 | `SBX_BUILD_SHADERS`      | ON(Windows) | HLSL 을 DXC 로 빌드해 SandboxRender 에 내장, 정의 `SBX_HAS_SHADERS`. Python 3 필요 | 구현 (Phase 7B)       |

@@ -30,6 +30,7 @@
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xlib-xcb.h> // XGetXCBConnection — 렌더러 (Graphics SDK) 의 XCB 표면 (ADR-0170)
 #include <X11/Xresource.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
@@ -149,6 +150,7 @@ public:
         h.kind = NativeWindowHandle::Kind::Xlib;
         h.window = reinterpret_cast<void*>(static_cast<uintptr_t>(m_win));
         h.display = m_dpy;
+        h.xcbConnection = XGetXCBConnection(m_dpy); // X 창 id 는 xcb_window_t 와 같다
         return h;
     }
     [[nodiscard]] std::string_view backendName() const override { return "X11"; }

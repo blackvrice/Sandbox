@@ -24,7 +24,7 @@
 
 | ID | 내용 | 현재 대응 및 영향 | 향후 조치 |
 |---|---|---|---|
-| `OPEN-001` | **Linux Xlib / Wayland Surface 미지원 (`SDK-REQ-008`)** | `GraphicsSdkTypes::mapSurface()`가 `Xcb`는 지원하고 `Xlib`/`Wayland`는 명시적 `Unsupported` 반환 (오프스크린/헤드리스 `sbx_render_tests`는 영향 없음) | `GraphicsSDK`에 Xlib/Wayland Surface 추가 또는 Sandbox Linux 창에서 XCB 연결 노출 |
+| `OPEN-001` | **Linux Wayland Surface 미지원 (`SDK-REQ-008`)** — 2026-11-23 Xlib 는 해결 (ADR-0170: X11 창이 같은 연결의 XCB 를 넘긴다) | 이 항목은 처음에 "오프스크린 영향 없음" 으로 적었지만 실제로는 Linux 창 클라이언트 · Studio 전부가 그리지 못했다. 지금: X11 · Xwayland 는 그린다, 자동 창 선택은 X 서버 먼저, `--platform wayland` 는 렌더러 없이 | `GraphicsSDK` 에 Wayland Surface 추가 → ADR-0170 Superseded · 자동 선택 되돌리기 |
 | `OPEN-002` | **D3D12/Vulkan `DestBlendAlpha = ZERO` (`SDK-REQ-009`)** | 불투명 클리어 타깃(`clear.a >= 0.999`)의 CPU Readback 시 `applyOpaqueAlphaFixup()`으로 Porter-Duff Over 알파 불변량 보정 (전 35/35 골든 이미지 일치) | `GraphicsSDK` D3D12/Vulkan 백엔드의 `DestBlendAlpha`를 Metal과 동일하게 `INV_SRC_ALPHA`로 통일 후 어댑터 보정 제거 |
 | `OPEN-003` | **Linux / macOS 실기 실행 검증 미수행** | 로컬 환경이 Windows 11 전용. 어댑터 코드 및 6종 Surface 단위 매핑 검증 완료 | Linux(Lavapipe/GPU) 및 macOS(Apple Silicon Metal 3) CI 러너에서 `sbx_render_tests` 실기 실행 |
 | `OPEN-004` | **GraphicsSDK D3D12/Vulkan CPU `render ms` 추가 개선 여지** | Phase 6~7 최적화로 D3D12 1% Low(173.6 vs 169.7 FPS) · 0.1% Low(123.0 vs 121.9 FPS), Vulkan 0.1% Low(430.3 vs 382.3 FPS, `10k` 24.3 vs 22.3 FPS)에서 Legacy 초과 달성. 다만 평균 FPS는 `Buffer::write()` 이중 복사로 Legacy 대비 소폭 낮음 | 향후 `GraphicsSDK`에 Persistent Mapped Upload Buffer API 도입 시 이중 복사 완전 제거 가능 |

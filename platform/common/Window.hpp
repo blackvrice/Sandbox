@@ -52,6 +52,9 @@ struct NativeWindowHandle {
     Kind kind = Kind::None;
     void* window = nullptr;  // HWND | Window | xcb_window_t | wl_surface* | CAMetalLayer*
     void* display = nullptr; // HINSTANCE | Display* | xcb_connection_t* | wl_display* | nullptr
+    // Xlib 창의 같은 연결의 xcb_connection_t* (XGetXCBConnection — window 는 그대로 X 창 id). Graphics SDK 는 Linux 에서
+    // XCB 표면만 만든다 (ADR-0170). 다른 종류는 nullptr
+    void* xcbConnection = nullptr;
 };
 
 class IWindow {

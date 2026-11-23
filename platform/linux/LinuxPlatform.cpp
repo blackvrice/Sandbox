@@ -35,14 +35,17 @@ void PreciseSleeper::sleepUntil(Clock::time_point deadline) noexcept {
     std::this_thread::sleep_until(deadline);
 }
 
-// Auto: Wayland 세션(WAYLAND_DISPLAY)이면 Wayland, 실패하면 X11 (Xwayland). 강제한 시스템은 대신하지 않는다.
-// 한쪽만 든 빌드는 그쪽만 해 본다
+// Auto: X 서버가 있으면 (DISPLAY — Wayland 세션의 Xwayland 포함) X11, X 서버가 없는 Wayland 세션이면 Wayland. 렌더러
+// (Graphics SDK) 가 Linux 에서 XCB 표면에만 그리기 때문이다 (ADR-0170 — Wayland 창은 렌더러 없이 뜬다). 강제한 시스템은
+// 대신하지 않는다. 한쪽만 든 빌드는 그쪽만 해 본다
 Expected<std::unique_ptr<IWindow>> createWindow(const WindowDesc& desc) {
     const char* wl = std::getenv("WAYLAND_DISPLAY");
     const bool waylandSession = wl != nullptr && *wl != '\0';
 #if defined(SBX_HAS_WAYLAND)
 #if defined(SBX_HAS_X11)
-    const bool tryWayland = waylandSession;
+    const char* x = std::getenv("DISPLAY");
+    const bool xServer = x != nullptr && *x != '\0';
+    const bool tryWayland = waylandSession && !xServer;
 #else
     const bool tryWayland = true; // X11 이 없는 빌드 — WAYLAND_DISPLAY 가 없어도 기본 소켓(wayland-0)을 해 본다
     (void)waylandSession;

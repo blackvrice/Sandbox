@@ -43,6 +43,7 @@ struct Rig {
         window = std::move(*r);
         const NativeWindowHandle h = window->nativeHandle();
         REQUIRE(h.kind == NativeWindowHandle::Kind::Xlib);
+        CHECK(h.xcbConnection != nullptr); // 렌더러의 XCB 표면 (ADR-0170)
         dpy = static_cast<Display*>(h.display);
         win = static_cast<::Window>(reinterpret_cast<uintptr_t>(h.window));
         REQUIRE(dpy != nullptr);

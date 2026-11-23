@@ -199,7 +199,8 @@ onAction (ADR-0142) · 입력 Context 스택 · 소비 (ADR-0143 — 위 단락)
 13C Wayland: wl_compositor + libdecor(xdg-shell · 창 장식) + wl_seat + xkbcommon + text-input-v3, 표면 VK_KHR_wayland_surface
 (13A 는 창 없이 Vulkan 백엔드 · 헤드리스 시험 — 06 5.2, ADR-0032)
 런타임 선택: WindowDesc.system = Auto · X11 · Wayland (SandboxClient --platform auto|x11|wayland).
-             Auto = WAYLAND_DISPLAY 가 있으면 Wayland, 만들지 못하면 경고 후 X11 (Xwayland). 강제한 쪽은 대신하지 않는다.
+             Auto = X 서버 (DISPLAY — Xwayland 포함) 가 있으면 X11, 없는 Wayland 세션이면 Wayland (ADR-0170 — 렌더러는 X11 창의
+             XCB 표면에만 그린다, Wayland 창은 렌더러 없이). 강제한 쪽은 대신하지 않는다.
              IWindow::backendName() = 실제로 고른 것 ("창 Wayland" 로그), --version = 빌드에 든 것 ("window Wayland · X11")
 ```
 

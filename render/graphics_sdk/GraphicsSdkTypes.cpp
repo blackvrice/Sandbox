@@ -318,9 +318,19 @@ Expected<gfx::Surface> mapSurface(const platform::NativeWindowHandle& window) {
         surface.window = window.window;
         return surface;
     case Kind::Xlib:
+        // X11 창은 같은 연결의 XCB 연결을 함께 준다 (XGetXCBConnection — ADR-0170). X 창 id = xcb_window_t
+        if (window.xcbConnection == nullptr || window.window == nullptr) {
+            return makeError(ErrorCode::Unsupported,
+                             "Xlib 창에 XCB 연결이 없습니다 — Graphics SDK 는 Linux 에서 XCB 표면만 만든다 (libX11-xcb)");
+        }
+        surface.kind = gfx::SurfaceKind::Xcb;
+        surface.connection = window.xcbConnection;
+        surface.windowId = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(window.window));
+        return surface;
     case Kind::Wayland:
         return makeError(ErrorCode::Unsupported,
-                         "Graphics SDK 는 Linux 에서 XCB 표면만 지원합니다 (Xlib/Wayland 표면은 SDK-REQ-008)");
+                         "Graphics SDK 에 Wayland 표면이 없습니다 (SDK-REQ-008) — X11 (Xwayland) 창으로 그린다: "
+                         "--platform x11 또는 자동 선택 (ADR-0170)");
     case Kind::None:
         break;
     }
@@ -372,32 +382,38 @@ Expected<void> verifyAdapterTypeMappings() {
         return makeError(ErrorCode::ValidationFailed, "mapQueueType mismatch");
     }
     platform::NativeWindowHandle win32{platform::NativeWindowHandle::Kind::Win32, reinterpret_cast<void*>(0x1234),
-                                       nullptr};
+                                       nullptr, nullptr};
     if (!mapSurface(win32) || mapSurface(win32)->kind != gfx::SurfaceKind::Win32) {
         return makeError(ErrorCode::ValidationFailed, "Win32 surface mapping mismatch");
     }
-    platform::NativeWindowHandle win32Null{platform::NativeWindowHandle::Kind::Win32, nullptr, nullptr};
+    platform::NativeWindowHandle win32Null{platform::NativeWindowHandle::Kind::Win32, nullptr, nullptr, nullptr};
     if (mapSurface(win32Null).error().code != ErrorCode::InvalidArgument) {
         return makeError(ErrorCode::ValidationFailed, "Win32 null surface rejection mismatch");
     }
     platform::NativeWindowHandle xcb{platform::NativeWindowHandle::Kind::Xcb, reinterpret_cast<void*>(0x42),
-                                     reinterpret_cast<void*>(0x5678)};
+                                     reinterpret_cast<void*>(0x5678), nullptr};
     if (!mapSurface(xcb) || mapSurface(xcb)->kind != gfx::SurfaceKind::Xcb || mapSurface(xcb)->windowId != 0x42u ||
         mapSurface(xcb)->connection != reinterpret_cast<void*>(0x5678)) {
         return makeError(ErrorCode::ValidationFailed, "Xcb surface mapping mismatch");
     }
     platform::NativeWindowHandle cocoa{platform::NativeWindowHandle::Kind::Cocoa, reinterpret_cast<void*>(0x9999),
-                                       nullptr};
+                                       nullptr, nullptr};
     if (!mapSurface(cocoa) || mapSurface(cocoa)->kind != gfx::SurfaceKind::MetalLayer) {
         return makeError(ErrorCode::ValidationFailed, "Cocoa MetalLayer surface mapping mismatch");
     }
     platform::NativeWindowHandle xlib{platform::NativeWindowHandle::Kind::Xlib, reinterpret_cast<void*>(0x1234),
-                                      reinterpret_cast<void*>(0x5678)};
-    if (mapSurface(xlib).error().code != ErrorCode::Unsupported) {
-        return makeError(ErrorCode::ValidationFailed, "Xlib surface Unsupported rejection mismatch");
+                                      reinterpret_cast<void*>(0x5678), reinterpret_cast<void*>(0x9abc)};
+    if (!mapSurface(xlib) || mapSurface(xlib)->kind != gfx::SurfaceKind::Xcb || mapSurface(xlib)->windowId != 0x1234u ||
+        mapSurface(xlib)->connection != reinterpret_cast<void*>(0x9abc)) {
+        return makeError(ErrorCode::ValidationFailed, "Xlib → Xcb surface mapping mismatch");
+    }
+    platform::NativeWindowHandle xlibNoXcb{platform::NativeWindowHandle::Kind::Xlib, reinterpret_cast<void*>(0x1234),
+                                           reinterpret_cast<void*>(0x5678), nullptr};
+    if (mapSurface(xlibNoXcb).error().code != ErrorCode::Unsupported) {
+        return makeError(ErrorCode::ValidationFailed, "Xlib without XCB connection rejection mismatch");
     }
     platform::NativeWindowHandle wayland{platform::NativeWindowHandle::Kind::Wayland, reinterpret_cast<void*>(0x1234),
-                                         reinterpret_cast<void*>(0x5678)};
+                                         reinterpret_cast<void*>(0x5678), nullptr};
     if (mapSurface(wayland).error().code != ErrorCode::Unsupported) {
         return makeError(ErrorCode::ValidationFailed, "Wayland surface Unsupported rejection mismatch");
     }
