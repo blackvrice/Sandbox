@@ -2,10 +2,25 @@
 
 **실행 일시**: 2026-11-23  
 **실행 환경**: Windows 11 x64, NVIDIA GeForce GTX 1660 SUPER + Microsoft Basic Render Driver (WARP), MSVC 19.44.35228.0 (`RelWithDebInfo`)  
-**Graphics SDK 커밋**: `9345c1816879c63f8c26f13fc876382b0c2ed054`  
+**Graphics SDK 커밋**: `9345c1816b06391d91d8010cf2938164eec56b01 (리팩터링 당시 — 지금 고정 커밋은 external/graphics-sdk/VENDORED_COMMIT, ADR-0169)`  
 **Sandbox 리팩토링 브랜치**: `refactor/graphics-sdk` (`D:/Game/Sandbox-GraphicsSDK`)
 
 ---
+
+## 0. 재검증 (2026-11-23, 병합 뒤 — 이 문서의 아래 표는 리팩터링 당시 기록)
+
+병합 (517c914) 뒤 다른 사람이 같은 PC (Windows 11 · MSVC 14.44 · GTX 1660 SUPER) 에서 새로 구성해 다시 돌린 결과와 고친 것.
+
+| 항목 | 리팩터링 기록 | 재검증 |
+|---|---|---|
+| SDK 고정 커밋 | `9345c1816879…` | 저장소에 없는 해시 — 실제 `9345c1816b06…`. 지금 고정은 `external/graphics-sdk/VENDORED_COMMIT` (95967d2e, ADR-0169) |
+| CI | (기록 없음) | 517c914 다섯 잡 모두 구성 실패 (SDK 설치본 없음) → ADR-0169 로 고침. Windows 러너의 VS 2026 은 SDK D3D12.cpp 를 거부 (OPEN-005 — windows-2022 고정) |
+| 전체 CTest | 99/99 · 100/100 | 97 개 중 95 통과 — arch_link_boundary_selftest (중첩 구성이 SDK 를 못 찾음, ADR-0169 로 고침), project_doctor (이 PC 의 패키지 캐시 경로 가상화 — 리팩터링 전 빌드도 같음) |
+| GPU 시험 | 35/35 | D3D12 WARP · 실제 GPU · Vulkan 실제 GPU 34/34 (swapchain 은 창을 띄워 제외 — 지금은 CI · SBX_GUI_TESTS=1 에서만). 고친 뒤 37/37 (띠 · 텍스처 모양 · 알파 카나리아 시험 더함) |
+| Vulkan 검증 레이어 | VVL 1.3.290 | 이 PC 에는 없음 — 검증 없이 실행 (VVL 결과는 재현하지 못했다) |
+| Linux 창 | "오프스크린 영향 없음" | Linux 창 클라이언트 · Studio 가 스왑체인을 못 만들었다 (Xlib · Wayland 거절) → ADR-0170 (X11 = XCB, Wayland 는 렌더러 없이) |
+| 셰이더 | "해결" | D3D12 · Vulkan 이 shaders/*.hlsl 대신 손 사본을 썼다 → ADR-0171 |
+| 어댑터 계약 | — | 블렌드 대체 · 띠의 인덱스 버퍼 · 컬링 범위 · 이름으로 정한 텍스처 모양 → ADR-0172, 다중 큐 수명 · 제출 실패 · 대기 → ADR-0173 |
 
 ## 1. 테스트 결과 총괄표
 

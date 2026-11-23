@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 리팩터링 문서의 정확성 — 커밋 해시 · 재검증 (분석 9)
+
+**무엇을**
+
+- docs/graphics-sdk-refactor (README · AI_HANDOFF · DEVELOPMENT_DASHBOARD · TEST_REPORT) 의 SDK 커밋 해시 9345c1816879… (SDK 저장소에
+  없는 값) 를 실제 9345c1816b06391d… 로, 지금 고정 커밋은 external/graphics-sdk/VENDORED_COMMIT (ADR-0169) 임을 적었다. ADR-0168 은
+  고치지 않는다 (ADR-0169 가 바로잡는다).
+- TEST_REPORT 0장: 병합 뒤 재검증 표 (CI · CTest · GPU 시험 · Vulkan 검증 레이어 · Linux 창 · 셰이더 · 어댑터 계약) 와 고친 ADR.
+
+**왜**
+
+- 고정 커밋 해시가 틀려 재현할 수 없었고, 시험 보고의 숫자 (99/99 · "오프스크린 영향 없음") 가 다시 돌린 결과와 달랐다.
+
+**검증**
+
+- check_docs. 해시는 SDK 저장소에서 `git rev-parse 9345c18` 로 확인.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-23 — Graphics SDK 어댑터: 텍스처 배열 모양은 TextureDesc::viewDim (ADR-0172 4)
 
 **무엇을**

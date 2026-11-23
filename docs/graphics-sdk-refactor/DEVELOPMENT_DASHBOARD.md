@@ -2,7 +2,7 @@
 
 **최종 업데이트**: 2026-11-23  
 **현재 리팩토링 브랜치**: `refactor/graphics-sdk` (`D:/Game/Sandbox-GraphicsSDK`)  
-**고정 Graphics SDK 버전**: `9345c1816879c63f8c26f13fc876382b0c2ed054` (`D:/source/GraphicsSDK`)  
+**고정 Graphics SDK 버전**: `9345c1816b06391d91d8010cf2938164eec56b01 (리팩터링 당시 — 지금 고정 커밋은 external/graphics-sdk/VENDORED_COMMIT, ADR-0169)` (`D:/source/GraphicsSDK`)  
 **현재 완료 버전**: `R0.1` ~ `R0.35` (**Phase 0 ~ Phase 10 전체 완료 — 100%, 35/35**)  
 **최종 상태**: 자체 `render/dx12/`, `render/vulkan/`, `render/metal/` 백엔드 제거 완료 (`ADR-0168`), `GraphicsSDK` 단일 백엔드 체제 전환 완료 (`refactor/graphics-sdk` 브랜치)
 

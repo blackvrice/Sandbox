@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **Sandbox (원본)** | `D:/Game/Sandbox` | `master` (`189ac37`) | 기존 Sandbox 기능 개발 (변경 금지) |
 | **Sandbox-GraphicsSDK** | `D:/Game/Sandbox-GraphicsSDK` | `refactor/graphics-sdk` | Graphics SDK 기반 RHI 리팩토링 전용 Worktree |
-| **GraphicsSDK** | `D:/source/GraphicsSDK` | `main` (`9345c1816879c63f8c26f13fc876382b0c2ed054`) | 독립 그래픽 SDK (`GraphicsSDK::Core`, C++23) |
+| **GraphicsSDK** | `D:/source/GraphicsSDK` | `main` (`9345c1816b06391d91d8010cf2938164eec56b01 (리팩터링 당시 — 지금 고정 커밋은 external/graphics-sdk/VENDORED_COMMIT, ADR-0169)`) | 독립 그래픽 SDK (`GraphicsSDK::Core`, C++23) |
 | **GraphicsUI** | `D:/source/GraphicsUI` | `main` | 독립 Graphics UI 프레임워크 (Phase 8 연동 대상) |
 
 ---

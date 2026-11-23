@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **리팩토링 전용 Worktree (작업 위치)** | `D:/Game/Sandbox-GraphicsSDK` | `refactor/graphics-sdk` | **모든 코드 수정·빌드·커밋은 반드시 여기서 수행** |
 | **원본 Sandbox (건드리지 말 것)** | `D:/Game/Sandbox` | `master` (`189ac37`) | 다른 AI/개발자의 기능 개발 공간 — 수정 금지 |
-| **Graphics SDK 소스** | `D:/source/GraphicsSDK` | `main` (`9345c1816879c63f8c26f13fc876382b0c2ed054`) | 루트에 미커밋 `tests/VulkanAllocationBenchmarkTests.cpp` 존재 — 건드리지 말 것 |
+| **Graphics SDK 소스** | `D:/source/GraphicsSDK` | `main` (`9345c1816b06391d91d8010cf2938164eec56b01 (리팩터링 당시 — 지금 고정 커밋은 external/graphics-sdk/VENDORED_COMMIT, ADR-0169)`) | 루트에 미커밋 `tests/VulkanAllocationBenchmarkTests.cpp` 존재 — 건드리지 말 것 |
 | **Graphics SDK 설치 프리픽스** | `D:/Game/Sandbox-GraphicsSDK/build/gfx-sdk-install` | Multi-Config (`Debug`/`RelWithDebInfo`/`Release`) | `CMAKE_PREFIX_PATH`로 연결됨 |
 | **Legacy 빌드 디렉터리** | `D:/Game/Sandbox-GraphicsSDK/build/windows-msvc` | `SBX_USE_GRAPHICS_SDK=OFF` | 기준선 및 회귀 검증용 |
 | **Graphics SDK 빌드 디렉터리** | `D:/Game/Sandbox-GraphicsSDK/build/windows-msvc-gfxsdk` | `SBX_USE_GRAPHICS_SDK=ON` | 어댑터 개발 및 검증용 |
