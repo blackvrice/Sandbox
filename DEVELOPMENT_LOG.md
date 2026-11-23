@@ -7,6 +7,22 @@
 
 ---
 
+## 2026-11-23 — CI windows-msvc 를 windows-2022 로 고정 (Graphics SDK 의 VS 2026 비호환)
+
+**무엇을 · 왜**
+
+- 47965df 의 CI windows-msvc 가 external/graphics-sdk 의 `src/backends/d3d12/D3D12.cpp(353)` 에서 C3779 (정의 전에 쓴 auto 반환
+  멤버 함수) 로 실패했다 — windows-latest 가 VS 2026 (MSVC 14.52) 로 바뀌었다. 이 PC (MSVC 14.44) · SDK 자체 CI (windows-2022) 는
+  받아들인다. 받은 SDK 는 고치지 않으므로 (ADR-0169) Sandbox CI 를 windows-2022 로 고정한다. KNOWN_ISSUES OPEN-005.
+
+**검증**
+
+- CI (다음 push). 로컬은 MSVC 14.44 로 계속 빌드된다.
+
+**남은 일**
+
+- SDK 저장소에서 고치고 다시 가져온 뒤 windows-latest 로 되돌린다.
+
 ## 2026-11-23 — 셰이더 원본 하나: D3D12 는 shaders/*.hlsl 그대로, Vulkan SPIR-V 는 출처 검사 (ADR-0171)
 
 **무엇을**

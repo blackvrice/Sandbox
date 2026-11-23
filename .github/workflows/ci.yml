@@ -15,7 +15,10 @@ concurrency:
 
 jobs:
   windows-msvc:
-    runs-on: windows-latest
+    # windows-2022 (VS 2022 · MSVC 14.4x) 로 고정 — external/graphics-sdk 의 D3D12.cpp 가 VS 2026 (MSVC 14.52, windows-latest)
+    # 에서 C3779 (정의 전에 쓴 auto 반환 멤버 함수) 로 컴파일되지 않는다. SDK 자체 CI 도 windows-2022. SDK 가 고쳐지면
+    # 다시 windows-latest (docs/graphics-sdk-refactor/KNOWN_ISSUES.md OPEN-005)
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1          # cl.exe 와 Windows SDK 환경 변수
