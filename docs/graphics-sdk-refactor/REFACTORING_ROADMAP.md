@@ -53,13 +53,13 @@
 | `R0.30` | Phase 7 | Device Lost 감지 및 SwapChain Resize/최소화(0×0)/VSync 토글 안정화 | `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`, `tests/render/test_rhi_basic.cpp` | `R0.29` | `sbx_render_tests --test-case="*swapchain*"` | ✅ 완료 |
 | `R0.31` | Phase 8 | Graphics UI 연동 호스트 브리지(`GraphicsSdkUiBridge`) 구축 | `render/graphics_sdk/GraphicsSdkUiBridge.{hpp,cpp}`, `GraphicsSdkCommandList.{hpp,cpp}` | `R0.30` | `sbx_render_tests --test-case="*ui_bridge*"` | ✅ 완료 |
 | `R0.32` | Phase 8 | World Pass → Native Graphics UI → Dear ImGui 단일 커맨드 리스트 공존 합성 검증 | `tests/render/test_imgui.cpp`, `tests/render/CMakeLists.txt` | `R0.31` | `sbx_render_tests --test-case="*ui_bridge*"` | ✅ 완료 |
-| `R0.33` | Phase 9 | 전체 시나리오 벤치마크 및 성능 비교 | `docs/graphics-sdk-refactor/BENCHMARK_COMPARISON.md` | `R0.32` | `SandboxClient --scenario ecosystem_10k` | ⬜ 대기 |
-| `R0.34` | Phase 9 | `SBX_USE_GRAPHICS_SDK` 기본값 `ON` 전환 검토 | `cmake/SbxOptions.cmake` | `R0.33` | 전체 CTest + 3대 백엔드 통과 | ⬜ 대기 |
-| `R0.35` | Phase 10 | Legacy 백엔드(`render/dx12`, `vulkan`, `metal`) 정리 및 최종 통합 | `render/CMakeLists.txt`, `docs/` | `R0.34` | 사용자 최종 승인 후 제거 | ⬜ 대기 |
+| `R0.33` | Phase 9 | 전체 100개 CTest 최종 재검증 및 전체 시나리오 최종 벤치마크 확정 | `docs/graphics-sdk-refactor/BENCHMARK_COMPARISON.md`, `TEST_REPORT.md` | `R0.32` | `ctest -C RelWithDebInfo -j 4` (99/99 PASS) | ✅ 완료 |
+| `R0.34` | Phase 9 | `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 및 병합 계획(`MERGE_PLAN.md`) 확정 | `docs/graphics-sdk-refactor/MERGE_PLAN.md`, `KNOWN_ISSUES.md` | `R0.33` | Gate 2 달성 확인 + `origin/master` 동기화 점검 | ✅ 완료 |
+| `R0.35` | Phase 10 | Legacy 백엔드(`render/dx12`, `vulkan`, `metal`) 정리 및 최종 병합 | `render/CMakeLists.txt`, `docs/` | `R0.34` | **사용자 최종 승인 후 진행** | ⏸️ 승인 대기 |
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.32`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.34`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -117,3 +117,7 @@
 ### R0.31 ~ R0.32 — Phase 8 Graphics UI 연동 브리지 및 ImGui 공존 구조
 - [x] `R0.31.1`: `GraphicsSdkUiBridge.{hpp,cpp}` (`queryGraphicsSdkDevice`, `resolveGraphicsSdkTarget`, `recordNativeUiPass`) 및 `GraphicsSdkCommandList::enqueueNativeCallback` 구현 (순환 의존성 0, `Stage-Before-Record` 순서 보장)
 - [x] `R0.32.1`: `tests/render/test_imgui.cpp`에 단일 커맨드 리스트 · 단일 타깃 위 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 공존 합성 픽셀 검증 테스트 추가 → D3D12 WARP/HW, Vulkan HW+VVL 모두 **35/35 PASS (591 assertions)** 통과
+
+### R0.33 ~ R0.34 — Phase 9 전체 최종 검증 및 기본 백엔드 전환 검토
+- [x] `R0.33.1`: `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 100개 CTest 최종 재검증 (**99/99 실행 테스트 100% PASS**, `render_tests_warp` 35/35 · 결정론 16/16 · 경계 3/3 포함) 및 최종 벤치마크 비교표 확정
+- [x] `R0.34.1`: `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 및 `MERGE_PLAN.md` / `KNOWN_ISSUES.md` 확정 (Gate 2 완료, Linux/macOS CI 실기 검증 전까지 기본값 `OFF` 유지 권고, `origin/master` 충돌 0 확인)

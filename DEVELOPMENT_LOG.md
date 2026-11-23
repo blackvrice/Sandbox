@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 9 (`R0.33` ~ `R0.34`: 전체 CTest 최종 재검증 및 기본값 전환·병합 검토)
+
+**무엇을**
+
+- `docs/graphics-sdk-refactor/MERGE_PLAN.md`, `KNOWN_ISSUES.md`, `DEVELOPMENT_DASHBOARD.md`, `REFACTORING_ROADMAP.md`, `VERSION_HISTORY.md`, `AI_HANDOFF.md`:
+  - Phase 0~8까지 완료된 모든 기능·최적화·멀티 플랫폼 매핑·SwapChain 안정화·GraphicsUI+ImGui 공존 구조에 대해 전체 100개 CTest 최종 재검증을 수행하고(`R0.33`), `SBX_USE_GRAPHICS_SDK` 기본값 전환 조건과 단계별 병합 게이트(Gate 1~4)를 확정했다(`R0.34`).
+  - `origin/master`에 신규 커밋이 없어 충돌 0건임을 확인했다.
+
+**왜**
+
+- `refactor/graphics-sdk` 브랜치가 사용자 승인 후 안전하게 병합될 수 있도록 전 시스템 회귀 0건과 남은 외부 환경 제약(`OPEN-001`~`004`)을 명확히 문서화하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- 전체 `ctest --test-dir build/windows-msvc-gfxsdk -C RelWithDebInfo -j 4`: **99/99 실행 테스트 100% PASS** (`render_tests_warp` 35/35 PASS 포함, `studio_gui_smoke` 1건 기본 Skipped), 결정론 골든 해시 16/16 일치.
+- `check_includes.py` (803파일 0건), `check_docs.py` (302파일 0건), `gen_roadmap.py --check` (24문서 0건) 모두 통과.
+
+**남은 일**
+
+- Phase 10 (`R0.35`): 사용자 최종 승인 후 `refactor/graphics-sdk` → `master` 병합(Gate 2) 및 추후 Linux/macOS CI 검증 완료 시 기본값 `ON` 전환(Gate 3) · Legacy 백엔드 제거(Gate 4) 진행.
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 8 (`R0.31` ~ `R0.32`: Graphics UI 연동 브리지 및 Dear ImGui 공존 구조)
 
 **무엇을**

@@ -1,34 +1,30 @@
 # 알려진 이슈 및 제약사항 (`KNOWN_ISSUES.md`)
 
-본 문서는 Graphics SDK 기반 RHI 리팩토링(현재 Phase 1·2 완료, `R0.1`~`R0.15`) 진행 중 확인된 기술적 특이사항, 어댑터에서 해결한 이슈, 그리고 Phase 3 이후 해소 예정인 제약사항을 기록합니다.
+본 문서는 Graphics SDK 기반 RHI 리팩토링(Phase 0 ~ Phase 9, `R0.1`~`R0.34`) 진행 중 확인·해결된 기술적 이슈와 현재 남아 있는 외부 환경/SDK 제약사항을 기록합니다.
 
 ---
 
-## 1. Phase 1·2 어댑터에서 해결 완료된 이슈
+## 1. 어댑터에서 해결 완료된 이슈
 
-### 1.1 `GraphicsSDK` Stage-Before-Record (`observedVersion`) 계약과 Sandbox 지속 매핑(`map`) 간의 충돌
-- **현상**: Sandbox의 `allocateUpload()`와 `map()`은 지속적인 CPU 포인터를 반환하여 호출자가 커맨드 기록 이후에도 제출 전까지 CPU 메모리를 수정할 수 있는 반면, Graphics SDK는 커맨드 기록 이후 `gfx::Buffer::write()` 호출 시 `Resource changed after recording` 오류로 제출을 거부합니다.
-- **해결 (✅ 완료)**: `GraphicsSdkCommandList`에 지연 재생(`prepareAndReplay`)을 도입하여 `submit()` 시점에 모든 더티 Upload 범위를 먼저 `gfx::Buffer::write()`로 flush한 뒤 SDK 커맨드 리스트에 명령을 기록하도록 해결했습니다.
-
-### 1.2 Vulkan 멀티 프레임 UploadRing 래핑 시 `Upload buffer busy` 및 펜스 타임아웃 제약
-- **현상**:
-  1. 단일 `gfx::Buffer`를 멀티 프레임 UploadRing으로 공유하면 다른 영역을 쓰더라도 SDK가 버퍼 전체의 `executionFence`를 검사하여 `Upload buffer busy`를 반환합니다.
-  2. `gfx::CommandQueue::wait(fence, timeout)`의 타임아웃 상한이 `4,294,967,294 ns`(~4.29초)는 아니지만 Vulkan 백엔드가 `timeout.count() > 4294967294ll`(밀리초 단위 검사 후 1,000,000을 곱함) 및 FIFO `qSlot.pending` 큐 순차 은퇴 방식을 사용합니다.
-- **해결 (✅ 완료)**:
-  1. `FrameSlot`(`m_framesInFlight = 2|3`)마다 독립적인 `gfx::Buffer` 업로드 링 인스턴스를 두고, 해당 슬롯이 재사용될 때 슬롯의 펜스를 먼저 대기합니다.
-  2. `GraphicsSdkCommandQueue::wait()`가 `cur + 1`부터 목표 펜스까지 5000ms 타임아웃으로 순차 대기하도록 구현하여 12프레임 링 감기 테스트(`test_rhi_basic`)를 D3D12와 Vulkan 모두에서 오류 0건으로 통과시켰습니다.
-
-### 1.3 Windows 콘솔 코드페이지(CP949)에서 CTest 한글 출력 매칭 실패
-- **현상**: Windows 기본 CP949 콘솔에서 `ctest`를 바로 실행하면 실행 파일의 UTF-8 한글 로그(`충돌 보고: `)를 CMake 스크립트(`crash_report.cmake`)가 매칭하지 못합니다.
-- **우회 / 해결 (✅ 완료)**: `cmd /c "chcp 65001 >nul && ctest ..."`로 UTF-8 코드페이지를 활성화하면 100개 CTest가 100% 통과합니다.
-
----
-
-## 2. 미해결 이슈 및 다음 단계(Phase 3~7) 해소 항목
-
-| ID | 내용 | 영향 | 해소 예정 단계 |
+| ID | 이슈 요약 | 해결 방식 | 상태 |
 |---|---|---|---|
-| `ISSUE-001` | 오프라인 리플렉션 수용 및 커스텀 엔트리포인트(`VSMain`/`PSMain`)/다중 Descriptor Set 미지원 ([SDK-REQ-001](SDK_REQUIREMENTS.md)) | 셰이더 드로우 파이프라인(`test_rhi_draw`, `Renderer` 패스) 생성 대기 | Phase 3 (`R0.16`) |
-| `ISSUE-002` | `Format::R16Uint` 텍스처 및 `Format::R32Uint` 정점 속성 미지원 ([SDK-REQ-002](SDK_REQUIREMENTS.md)) | `TerrainPass` 타일맵 및 `SpriteBatcher` 인스턴스 속성 | Phase 4 (`R0.20`~`R0.21`) |
-| `ISSUE-003` | `PrimitiveTopology::TriangleStrip` / `LineList` 및 `CullMode` 설정 미지원 ([SDK-REQ-003](SDK_REQUIREMENTS.md), [SDK-REQ-004](SDK_REQUIREMENTS.md)) | 쿼드 스트립 기반 패스 및 컬링 테스트 | Phase 3 (`R0.18`) |
-| `ISSUE-004` | Linux Xlib / Wayland Surface 생성 미지원 ([SDK-REQ-008](SDK_REQUIREMENTS.md)) | Linux 창 모드 스왑체인 (헤드리스/오프스크린은 영향 없음) | Phase 7 (`R0.28`) |
+| `ISSUE-001` | Stage-Before-Record (`observedVersion`) vs Sandbox 지속 매핑(`map`) 충돌 | `GraphicsSdkCommandList::prepareAndReplay()` 지연 재생 + `flushPendingUploads()` 4KB 패딩 병합 | ✅ 해결 |
+| `ISSUE-002` | Vulkan 멀티 프레임 UploadRing 래핑 시 `Upload buffer busy` 및 펜스 타임아웃 상한 | `FrameSlot`별 독립 UploadRing 버퍼 + `GraphicsSdkCommandQueue::wait()` 5000ms 분할 대기 | ✅ 해결 |
+| `ISSUE-003` | 오프라인 리플렉션 · 다중 Descriptor Set · `VSMain`/`PSMain` 엔트리포인트 (`SDK-REQ-001`) | `GraphicsSdkShaders` (D3D12 SM5.1 캐시 + Vulkan 단일 셋 SPIR-V 1.3 생성기 `gen_gfxsdk_spirv.py` + Metal MSL) | ✅ 해결 |
+| `ISSUE-004` | `Format::R16Uint` / `Format::R32Uint` 정점 속성 미지원 (`SDK-REQ-002`) | `R16Uint→R16UNorm`(`(uint)(raw*65535+0.5)`), `R32Uint→VertexFormat::Float`(`asuint()`) 매핑 | ✅ 해결 |
+| `ISSUE-005` | `TriangleStrip` / `CullMode` / PushConstant / 동적 Sampler (`SDK-REQ-003`~`006`) | 공용 6-인덱스 쿼드 스트립 IB, CPU 2D 와인딩 컬링, 슬롯별 `pushBuffer`, 샘플러 변형 PSO 캐시 | ✅ 해결 |
+| `ISSUE-006` | Vulkan 부분 업로드 시 `Sampled texture must have initialized contents` | 최초 부분 업로드 전 1회 `fullSlice` 제로 초기화 | ✅ 해결 |
+| `ISSUE-007` | Vulkan `SwapChain::resize()` OS 창 크기 불일치 오류 | `surfaceMetrics()`로 실제 클라이언트 크기 정합 및 `InvalidState` 1회 `syncExtent()` 자동 복구 | ✅ 해결 |
+| `ISSUE-008` | 정적 매핑 Upload 버퍼의 `Cannot overwrite a buffer in flight` | `GraphicsSdkBuffer::lastUploadedShadow` 변경 감지 후 실제 변경 시에만 `Buffer::write()` 호출 | ✅ 해결 |
+| `ISSUE-009` | Windows CP949 콘솔에서 CTest UTF-8 한글 출력 매칭 실패 | `chcp 65001 >nul` 환경에서 CTest 실행 (100/100 통과) | ✅ 해결 |
+
+---
+
+## 2. 남아 있는 SDK / 외부 환경 제약사항
+
+| ID | 내용 | 현재 대응 및 영향 | 향후 조치 |
+|---|---|---|---|
+| `OPEN-001` | **Linux Xlib / Wayland Surface 미지원 (`SDK-REQ-008`)** | `GraphicsSdkTypes::mapSurface()`가 `Xcb`는 지원하고 `Xlib`/`Wayland`는 명시적 `Unsupported` 반환 (오프스크린/헤드리스 `sbx_render_tests`는 영향 없음) | `GraphicsSDK`에 Xlib/Wayland Surface 추가 또는 Sandbox Linux 창에서 XCB 연결 노출 |
+| `OPEN-002` | **D3D12/Vulkan `DestBlendAlpha = ZERO` (`SDK-REQ-009`)** | 불투명 클리어 타깃(`clear.a >= 0.999`)의 CPU Readback 시 `applyOpaqueAlphaFixup()`으로 Porter-Duff Over 알파 불변량 보정 (전 35/35 골든 이미지 일치) | `GraphicsSDK` D3D12/Vulkan 백엔드의 `DestBlendAlpha`를 Metal과 동일하게 `INV_SRC_ALPHA`로 통일 후 어댑터 보정 제거 |
+| `OPEN-003` | **Linux / macOS 실기 실행 검증 미수행** | 로컬 환경이 Windows 11 전용. 어댑터 코드 및 6종 Surface 단위 매핑 검증 완료 | Linux(Lavapipe/GPU) 및 macOS(Apple Silicon Metal 3) CI 러너에서 `sbx_render_tests` 실기 실행 |
+| `OPEN-004` | **GraphicsSDK D3D12/Vulkan CPU `render ms` 추가 개선 여지** | Phase 6~7 최적화로 D3D12 1% Low(173.6 vs 169.7 FPS) · 0.1% Low(123.0 vs 121.9 FPS), Vulkan 0.1% Low(430.3 vs 382.3 FPS, `10k` 24.3 vs 22.3 FPS)에서 Legacy 초과 달성. 다만 평균 FPS는 `Buffer::write()` 이중 복사로 Legacy 대비 소폭 낮음 | 향후 `GraphicsSDK`에 Persistent Mapped Upload Buffer API 도입 시 이중 복사 완전 제거 가능 |

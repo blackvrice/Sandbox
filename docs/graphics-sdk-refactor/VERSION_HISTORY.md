@@ -130,3 +130,13 @@
   - 순환 의존성 없이 Sandbox RHI에서 `gfx::Device*`, `GraphicsSdkUiTarget`, `recordNativeUiPass()`를 노출하는 `GraphicsSdkUiBridge` 구현
   - `GraphicsSdkCommandList`의 `Stage-Before-Record` 파이프라인에 `CmdNativeCallback`을 통합하여 단일 커맨드 리스트 내에서 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 순차 합성 지원
   - `tests/render/test_imgui.cpp`에 픽셀 단위 공존 검증 GPU 테스트 추가 → D3D12 WARP / D3D12 HW / Vulkan HW+VVL 모두 **35/35 PASS (591 assertions)** 통과
+
+### `R0.33` ~ `R0.34` — Phase 9 전체 최종 검증 및 기본 백엔드 전환 검토 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `docs/graphics-sdk-refactor/{MERGE_PLAN,KNOWN_ISSUES,DEVELOPMENT_DASHBOARD,REFACTORING_ROADMAP,VERSION_HISTORY,AI_HANDOFF}.md`
+  - `DEVELOPMENT_LOG.md`
+- **변경 요약**:
+  - `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 100개 CTest 최종 재검증 (**99/99 실행 테스트 100% PASS**, `render_tests_warp` 35/35 포함)
+  - `origin/master` 최신 커밋 동기화 확인(충돌 0건), Gate 2 달성 확인, Linux/macOS 실기 CI 및 SDK 패키지 공급 구성 전까지 `SBX_USE_GRAPHICS_SDK=OFF` 기본값 유지 권고 확정
+  - Phase 10 (`R0.35`: Legacy 백엔드 정리 및 `master` 최종 병합)은 사용자 명시적 승인 대기 상태로 전환

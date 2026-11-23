@@ -17,7 +17,7 @@
 
 ---
 
-## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.32`, Phase 0 ~ Phase 8 완료 — 진행률 91.4%)
+## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.34`, Phase 0 ~ Phase 9 완료 — 진행률 97.1%)
 
 1. **Phase 0 (`R0.1` ~ `R0.2`) 완료**:
    - Sandbox RHI 및 3대 백엔드(`dx12`, `vulkan`, `metal`), 렌더러 패스 전수 분석 및 `GraphicsSDK::Core` 호환성 매트릭스([API_COMPATIBILITY.md](API_COMPATIBILITY.md)), SDK 확장 요구사항([SDK_REQUIREMENTS.md](SDK_REQUIREMENTS.md)) 수립.
@@ -46,16 +46,12 @@
 
 ---
 
-## 3. 바로 이어서 진행할 다음 작업 (`R0.33` ~ `R0.34` — Phase 9 착수)
+## 3. 남은 작업 (`R0.35` — Phase 10, 사용자 최종 승인 대기)
 
-다음 작업자는 **Phase 9 (`R0.33` ~ `R0.34`: 전체 시나리오 최종 검증 및 기본 백엔드(`ON`) 전환 검토)**로 진행하면 됩니다:
-
-1. **`R0.33` — 전체 시나리오 최종 벤치마크 및 전체 CTest 100% 통과 검증**:
-   - `build/windows-msvc-gfxsdk`에서 전체 100개 CTest 실행 및 최종 벤치마크 비교표(`BENCHMARK_COMPARISON.md`) 확정.
-2. **`R0.34` — `SBX_USE_GRAPHICS_SDK` 기본값 `ON` 전환 검토 및 병합 계획(`MERGE_PLAN.md`) 최종 점검**:
-   - 미지원 플랫폼(Linux Xlib/Wayland `SDK-REQ-008`, macOS 실기) 고려 사항 및 전환 조건 정리.
-3. **`R0.35` (Phase 10) — Legacy 백엔드 정리 및 `main`/`master` 최종 병합**:
-   - **사용자 명시 승인 없이 `main`/`master`에 병합하거나 Legacy 백엔드를 제거하지 말 것.**
+Phase 0 ~ Phase 9 (`R0.1` ~ `R0.34`)의 모든 개발·검증·벤치마크·문서화가 완료되었습니다.
+- **즉시 가능한 병합 (Gate 2)**: `SBX_USE_GRAPHICS_SDK=OFF` 기본값을 유지한 채 `refactor/graphics-sdk`를 `master`에 병합 (사용자 승인 필요).
+- **기본값 `ON` 전환 (Gate 3)**: Linux(Xlib/Wayland `SDK-REQ-008` 포함) · macOS 실기 CI 검증 및 `GraphicsSDK` 패키지 공급 구성 완료 후 전환.
+- **Legacy 백엔드 제거 (`R0.35`, Gate 4)**: **사용자의 명시적 최종 승인 없이 `main`/`master`에 병합하거나 `render/dx12/`, `vulkan/`, `metal/`을 제거하지 말 것.**
 
 ---
 
