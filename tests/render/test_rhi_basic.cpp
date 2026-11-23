@@ -3,7 +3,9 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <cstdlib>
 #include <cstring>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -17,6 +19,21 @@ using sbx::rendertest::readback;
 using sbx::rendertest::submitAndWait;
 
 namespace {
+
+// 실제 OS 창을 띄우는 시험은 CI 또는 SBX_GUI_TESTS=1 일 때만 — 사람이 쓰는 PC 에서 창 · 포커스를 빼앗지 않는다
+// (tests/project/studio_gui_smoke.cmake 와 같은 규칙)
+bool guiTestsAllowed() {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996) // getenv — 읽기만
+#endif
+    const char* ci = std::getenv("CI");
+    const char* gui = std::getenv("SBX_GUI_TESTS");
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+    return (ci != nullptr && *ci != '\0') || (gui != nullptr && std::string_view(gui) == "1");
+}
 
 RhiTexture makeTarget(IRenderDevice& dev, u32 w, u32 h, std::string name, TextureUsage extra = TextureUsage::None) {
     TextureDesc td;
@@ -555,6 +572,10 @@ TEST_SUITE("render.gpu") {
     }
 
     TEST_CASE("swapchain: resize, minimize 0x0, vsync toggle, and present lifecycle (R0.30)") {
+        if (!guiTestsAllowed()) {
+            MESSAGE("실제 창을 띄우는 시험 — CI 또는 SBX_GUI_TESTS=1 에서만 (건너뜀)");
+            return;
+        }
         IRenderDevice& dev = device();
         platform::WindowDesc wdesc;
         wdesc.width = 256;

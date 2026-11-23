@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-11-23 — 렌더 시험의 실제 창은 CI · SBX_GUI_TESTS=1 에서만 (분석 10)
+
+**무엇을**
+
+- sbx_render_tests 의 "swapchain: resize, minimize …" (R0.30) 가 실제 OS 창을 만든다 — CTest render_tests_warp 로 사람이 쓰는 PC 에서도
+  창이 떴다. `CI` 또는 `SBX_GUI_TESTS=1` 일 때만 돌고, 아니면 이유와 함께 건너뛴다 (studio_gui_smoke 와 같은 규칙 · getenv 는 C4996 pragma).
+
+**왜**
+
+- 저장소 규칙: 창을 띄우는 시험은 CI 에서만 (사람의 화면 · 포커스를 빼앗지 않는다).
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- 로컬 (CI 없음) 에서 그 시험이 "건너뜀" MESSAGE, CTest render_tests_warp 포함 전체 96/96 — 창이 뜨지 않았다. CI (CI=true) 는 그대로 돈다.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-23 — Graphics SDK 리팩터링 문서의 정확성 — 커밋 해시 · 재검증 (분석 9)
 
 **무엇을**
