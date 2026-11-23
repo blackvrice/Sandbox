@@ -52,13 +52,28 @@ struct PipelineBindingMapEntry {
     u32 sdkBindingIndex = 0;
 };
 
+// 파이프라인의 (group, binding) ↔ gfx::BindingLayout::samplers 인덱스 매핑 항목
+struct PipelineSamplerMapEntry {
+    u32 group = 0;
+    u32 binding = 0;
+    u32 sdkSamplerIndex = 0;
+};
+
+struct SamplerPipelineVariant {
+    u64 key = 0;
+    gfx::PipelinePtr pipeline;
+};
+
 struct GraphicsSdkPipeline {
-    gfx::PipelinePtr pipeline; // SDK 파이프라인 (지원 범위 내에서 생성된 경우)
+    gfx::PipelinePtr pipeline; // 기본 SDK 파이프라인 (Linear / Clamp)
+    gfx::GraphicsPipelineDesc baseSdkDesc;
     GraphicsPipelineDesc desc;
     std::array<std::string, kMaxBindGroups> slotSignatures{};
     std::array<bool, kMaxBindGroups> slotUsed{};
     std::vector<u32> vertexStrides;
     std::vector<PipelineBindingMapEntry> bindingMap;
+    std::vector<PipelineSamplerMapEntry> samplerMap;
+    std::vector<SamplerPipelineVariant> variants;
     u32 pushConstantBytes = 0;
     bool hasPushConstantSlot = false;
     u32 pushConstantSdkIndex = 0;

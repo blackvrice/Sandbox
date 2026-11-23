@@ -1,6 +1,6 @@
 # 리팩토링 버전 이력 (`VERSION_HISTORY.md`)
 
-본 문서는 Graphics SDK 기반 RHI 리팩토링에서 완료된 각 버전(`R0.1` ~ `R0.15`)의 완료 일자, 변경 내역 및 검증 증적을 기록합니다.
+본 문서는 Graphics SDK 기반 RHI 리팩토링에서 완료된 각 버전(`R0.1` ~ `R0.24`)의 완료 일자, 변경 내역 및 검증 증적을 기록합니다.
 
 ---
 
@@ -57,3 +57,34 @@
   - `FrameSlot`별 `gfx::CommandPool` 및 `gfx::CommandList` 소유권 분리(커맨드 리스트 파괴 후 dangling 포인터 방지)
   - `FrameSlot`별 SDK Upload 링 버퍼 분리로 Vulkan 12프레임 링 감기(wrap-around) `Upload buffer busy` 제거
   - `GraphicsSdkCommandQueue::wait()`의 5000ms 유한 타임아웃 분할 대기 및 드라이버 펜스 레이스 방어
+
+### `R0.16` ~ `R0.18` — Phase 3 셰이더 컴파일, 동적 샘플러 캐시, Push Constants 및 토폴로지/컬링 전환 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `tools/shader/gen_gfxsdk_spirv.py`
+  - `render/graphics_sdk/GraphicsSdkSpirvData.hpp`
+  - `render/graphics_sdk/GraphicsSdkShaders.{hpp,cpp}`
+  - `render/graphics_sdk/GraphicsSdkTypes.cpp`
+  - `render/graphics_sdk/GraphicsSdkPipeline.hpp`
+  - `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`
+  - `render/graphics_sdk/GraphicsSdkCommandList.cpp`
+  - `render/CMakeLists.txt`
+- **변경 요약**:
+  - 7종 내장 셰이더(14개 스테이지)를 D3D12(SM5.1 `gfx::compileHlsl()` 캐시), Vulkan(단일 셋 SPIR-V 1.3 + `OpTypeImage` Depth 정규화), Metal(MSL)로 변환하는 `GraphicsSdkShaders` 구현 (`SDK-REQ-001` 어댑터 해소)
+  - `Format::R16Uint` → `gfx::Format::R16UNorm` 및 정점 `Format::R32Uint` → `gfx::VertexFormat::Float`(`asuint()` 복원) 매핑 (`SDK-REQ-002` 어댑터 해소)
+  - 바인딩된 `RhiSampler` `(filter, address)` 조합별 PSO 변형 캐시(`resolvePipelineVariant`) 및 슬롯별 전용 `pushBuffer`(256 KB) 도입 (`SDK-REQ-005`, `006` 어댑터 해소)
+  - 공용 6-인덱스 쿼드 스트립 버퍼(`m_quadStripIndexBuffer`) + 동적 스트립→리스트 변환, 2D CPU 와인딩 컬링(`tryDrawWithCpuCulling`) 구현 (`SDK-REQ-003`, `004` 어댑터 해소)
+
+### `R0.19` ~ `R0.24` — Phase 4~5 상위 렌더러 패스, ImGui 및 실기 클라이언트 검증 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `render/graphics_sdk/GraphicsSdkResource.hpp`
+  - `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`
+  - `render/graphics_sdk/GraphicsSdkCommandList.cpp`
+  - `tests/render/CMakeLists.txt`
+- **변경 요약**:
+  - `prepareAndReplay()`의 렌더 패스 진입 전 Vertex/Index/Constant 버퍼 상태 사전 전이 스캔 구현
+  - 1-layer 스프라이트 아틀라스(`"sprite atlas"`)의 `TextureDimension::Texture2DArray` 생성 및 Vulkan 부분 업로드 전 1회 `fullSlice` 제로 초기화 구현
+  - GraphicsSDK D3D12/Vulkan의 `DestBlendAlpha = ZERO` 불일치(`SDK-REQ-009`)에 대한 불투명 RT Readback 알파 불변량 보정(`applyOpaqueAlphaFixup`) 구현
+  - 정적 매핑 Upload 버퍼의 `lastUploadedShadow` 변경 감지 도입으로 `SandboxClient`의 `Cannot overwrite a buffer in flight` 제거
+  - `tests/render/CMakeLists.txt`에서 `SBX_RENDER_TEST_FILTER` 완전 제거 → D3D12 WARP, D3D12 HW, Vulkan HW(+VVL) 모두 **31/31 PASS (527 assertions)**, `SandboxClient` Debug Layer 0경고/0오류 검증 완료

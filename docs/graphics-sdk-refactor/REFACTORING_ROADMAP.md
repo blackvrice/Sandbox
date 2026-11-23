@@ -36,15 +36,15 @@
 | `R0.13` | Phase 2 | Frame-based Deferred Destruction 고도화 | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `render/rhi/DeferredDestruction.hpp` | `R0.12` | `sbx_render_tests --rhi dx12 --debug` | ✅ 완료 |
 | `R0.14` | Phase 2 | FrameSlot 및 CommandPool 리셋 안정화 | `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}` | `R0.13` | `sbx_render_tests --rhi vulkan --debug` | ✅ 완료 |
 | `R0.15` | Phase 2 | 슬롯별 Upload Ring 및 Zero-copy Staging 최적화 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.14` | `sbx_render_tests --test-case="*ring wrap-around*"` | ✅ 완료 |
-| `R0.16` | Phase 3 | Shader Asset 및 Offline Reflection (`SDK-REQ-001`) 연동 | `render/graphics_sdk/GraphicsSdkPipeline.cpp`, GraphicsSDK `Shader.cpp` | `R0.15` | `sbx_render_tests --test-case="*triangle*"` | ⬜ 대기 |
-| `R0.17` | Phase 3 | BindGroupLayout, 동적 Sampler(`SDK-REQ-006`), PushConstant(`SDK-REQ-005`) | `render/graphics_sdk/GraphicsSdkCommandList.cpp` | `R0.16` | `sbx_render_tests --test-case="*texture*,*push*"` | ⬜ 대기 |
-| `R0.18` | Phase 3 | Pipeline State (`SDK-REQ-003` Topology, `SDK-REQ-004` Cull) 및 Cache 연동 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.17` | `sbx_render_tests --test-case="*culling*"` | ⬜ 대기 |
-| `R0.19` | Phase 4 | `Renderer` 및 FrameGraph/RenderPass 전환 | `render/renderer/Renderer.cpp` | `R0.18` | `sbx_render_tests` | ⬜ 대기 |
-| `R0.20` | Phase 4 | `SpriteBatcher` 및 Instanced Rendering (`SDK-REQ-002` `R32Uint`) 전환 | `render/renderer/SpriteBatcher.cpp` | `R0.19` | `sbx_render_tests --test-case="*sprite*"` | ⬜ 대기 |
-| `R0.21` | Phase 4 | `TerrainPass` (`SDK-REQ-002` `R16Uint`) 및 월드 렌더링 전환 | `render/renderer/TerrainPass.cpp`, `GridPass.cpp` | `R0.20` | `sbx_render_tests --test-case="*terrain*,*grid*"` | ⬜ 대기 |
-| `R0.22` | Phase 4 | `DebugDraw` 및 Overlay(`LinePass`) 렌더링 전환 | `render/renderer/LinePass.cpp` | `R0.21` | `sbx_render_tests --test-case="*lines*"` | ⬜ 대기 |
-| `R0.23` | Phase 5 | `ImGuiRenderer` 전환 | `render/imgui/ImGuiRenderer.cpp` | `R0.22` | `sbx_render_tests --test-case="*imgui*"` | ⬜ 대기 |
-| `R0.24` | Phase 5 | Studio Editor 및 Multi-window 지원 | `editor/`, `apps/client/` | `R0.23` | `SandboxClient --studio` | ⬜ 대기 |
+| `R0.16` | Phase 3 | Shader Asset 및 Offline Reflection (`SDK-REQ-001`) 연동 | `render/graphics_sdk/GraphicsSdkShaders.{hpp,cpp}`, `GraphicsSdkSpirvData.hpp`, `tools/shader/gen_gfxsdk_spirv.py` | `R0.15` | `sbx_render_tests --test-case="*triangle*"` | ✅ 완료 |
+| `R0.17` | Phase 3 | BindGroupLayout, 동적 Sampler(`SDK-REQ-006`), PushConstant(`SDK-REQ-005`) | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `GraphicsSdkCommandList.cpp` | `R0.16` | `sbx_render_tests --test-case="*texture*,*push*"` | ✅ 완료 |
+| `R0.18` | Phase 3 | Pipeline State (`SDK-REQ-003` Topology, `SDK-REQ-004` Cull) 및 Cache 연동 | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `GraphicsSdkCommandList.cpp` | `R0.17` | `sbx_render_tests --test-case="*culling*"` | ✅ 완료 |
+| `R0.19` | Phase 4 | `Renderer` 및 FrameGraph/RenderPass 전환 (버퍼 상태 사전 전이 포함) | `render/graphics_sdk/GraphicsSdkCommandList.cpp` | `R0.18` | `sbx_render_tests` | ✅ 완료 |
+| `R0.20` | Phase 4 | `SpriteBatcher` 및 Instanced Rendering (`SDK-REQ-002` `R32Uint`) 전환 | `render/graphics_sdk/GraphicsSdkTypes.cpp`, `GraphicsSdkShaders.cpp` | `R0.19` | `sbx_render_tests --test-case="*sprite*,*batch*"` | ✅ 완료 |
+| `R0.21` | Phase 4 | `TerrainPass` (`SDK-REQ-002` `R16Uint`) 및 월드 렌더링 전환 | `render/graphics_sdk/GraphicsSdkTypes.cpp`, `GraphicsSdkCommandList.cpp` | `R0.20` | `sbx_render_tests --test-case="*terrain*,*gpu timings*"` | ✅ 완료 |
+| `R0.22` | Phase 4 | `DebugDraw` 및 Overlay(`GridPass`, `LinePass`) 렌더링 전환 (`SDK-REQ-009` 보정) | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `GraphicsSdkCommandList.cpp` | `R0.21` | `sbx_render_tests --test-case="*overlay*"` | ✅ 완료 |
+| `R0.23` | Phase 5 | `ImGuiRenderer` 전환 | `render/graphics_sdk/GraphicsSdkShaders.cpp`, `tests/render/CMakeLists.txt` | `R0.22` | `sbx_render_tests --test-case="*imgui*"` | ✅ 완료 |
+| `R0.24` | Phase 5 | `SandboxClient` / Studio 스왑체인 통합 및 정적 Upload 버퍼 동기화 검증 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.23` | `SandboxClient --world ecosystem_small --frames 300` | ✅ 완료 |
 | `R0.25` | Phase 6 | Multithreaded Command Recording 도입 | `render/renderer/Renderer.cpp`, `render/graphics_sdk/` | `R0.24` | `sbx_bench --only render` | ⬜ 대기 |
 | `R0.26` | Phase 6 | Async Compute 및 Copy Queue 도입 | `render/graphics_sdk/GraphicsSdkCommandQueue.cpp` | `R0.25` | `sbx_render_tests` | ⬜ 대기 |
 | `R0.27` | Phase 6 | GPU Memory Allocator 및 Descriptor 최적화 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.26` | `SandboxClient --scenario ecosystem_10k` | ⬜ 대기 |
@@ -59,7 +59,7 @@
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.15`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.24`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -90,3 +90,16 @@
 - [x] `R0.13.1`: `DeferredDestructionQueue` 기반 프레임 지연 해제 및 `waitIdle()` 시 확정 회수(`pendingDestructions == 0`) 검증 통과
 - [x] `R0.14.1`: `FrameSlot`별 `gfx::CommandPool` 및 `CommandList` 재사용, Vulkan 드라이버 펜스 레이스 방어 완료
 - [x] `R0.15.1`: `FrameSlot`별 SDK Upload 버퍼 + 공유 `UploadRing` 오프셋 관리로 12프레임 링 감기(wrap-around) 테스트 D3D12/Vulkan 모두 통과
+
+### R0.16 ~ R0.18 — Phase 3 셰이더, 샘플러, Push Constant, 토폴로지/컬링 어댑터 구현
+- [x] `R0.16.1`: `GraphicsSdkShaders.{hpp,cpp}` (D3D12 `gfx::compileHlsl` SM5.1 DXBC 캐시 + Vulkan SPIR-V 1.3 내장 데이터) 및 `tools/shader/gen_gfxsdk_spirv.py` 작성
+- [x] `R0.17.1`: 동적 `RhiSampler` 조합별 `gfx::PipelinePtr` 변형 캐시(`resolvePipelineVariant`) 및 프레임별 Push Constant 전용 슬롯 버퍼(`FrameSlot::pushBuffer`) 구현
+- [x] `R0.18.1`: `TriangleStrip` → 공용/동적 인덱스 `TriangleList` 자동 변환 및 `CullMode::Back`/`Front` CPU 삼각형 와인딩 필터링 구현
+
+### R0.19 ~ R0.24 — Phase 4~5 전체 렌더 패스, ImGui 및 SandboxClient 통합 검증
+- [x] `R0.19.1`: `prepareAndReplay()` 렌더 패스 진입 전 Vertex/Index/ConstantBuffer 상태 자동 전이 및 Vulkan 부분 업로드 1회 `fullSlice` 0-초기화 구현
+- [x] `R0.20.1`: `Format::R32Uint` → `gfx::VertexFormat::Float` + `asuint()` 및 `sprite atlas` `Texture2DArray` 매핑으로 `SpriteBatcher` 전체 테스트(`sprite`, `batch_1k`, `assets` 등) 통과
+- [x] `R0.21.1`: `Format::R16Uint` → `gfx::Format::R16UNorm` + `(uint)(raw * 65535.0 + 0.5)`로 `TerrainPass` 및 `gpu timings` 통과
+- [x] `R0.22.1`: `GridPass`, `LinePass` (`overlay` 기준 이미지) 및 `SDK-REQ-009` 불투명 타깃 Readback 알파 불변식 보정 완료
+- [x] `R0.23.1`: `ImGuiRenderer` (`imgui_basic` 기준 이미지 및 1.92 동적 폰트 갱신/클리핑/해제) 통과 및 `tests/render/CMakeLists.txt` 전체 31개 GPU 테스트 활성화
+- [x] `R0.24.1`: `SandboxClient --world ecosystem_small` D3D12 (`--rhi-debug` 경고 0 · 오류 0) 및 Vulkan 실기 구동 검증, 정적 Upload 버퍼 dirty-check 동기화 완료

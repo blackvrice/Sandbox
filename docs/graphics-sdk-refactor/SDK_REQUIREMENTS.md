@@ -8,14 +8,15 @@
 
 | ID | 제목 | 우선순위 | 영향 범위 | 현재 상태 | 목표 단계 |
 |---|---|---|---|---|---|
-| `SDK-REQ-001` | 오프라인 셰이더 리플렉션 수용 및 커스텀 엔트리포인트/다중 Descriptor Set 지원 | **P0** | 모든 그래픽 파이프라인 (`createGraphicsPipeline`) | ⬜ 대기 | Phase 3 (`R0.16`) |
-| `SDK-REQ-002` | 정수형 텍스처 포맷(`R16Uint`) 및 정점 속성 포맷(`R32Uint`) 추가 | **P0** | `TerrainPass` 타일맵, `SpriteInstanceGpu` 인스턴스 속성 | ⬜ 대기 | Phase 2 (`R0.12`)/Phase 4 (`R0.20`) |
-| `SDK-REQ-003` | `PrimitiveTopology` 설정 추가 (`TriangleStrip`, `LineList`, `LineStrip`, `PointList`) | **P0** | `Renderer` 쿼드, `TerrainPass`, `GridPass`, `LinePass` | ⬜ 대기 | Phase 3 (`R0.18`)/Phase 4 (`R0.19`) |
-| `SDK-REQ-004` | 래스터라이저 상태(`CullMode`, `FrontFace`, `wireframe`) 설정 추가 | **P1** | `test_rhi_draw` 컬링 테스트, 디버그 와이어프레임 | ⬜ 대기 | Phase 3 (`R0.18`) |
-| `SDK-REQ-005` | Push Constants / Root Constants (최대 128 바이트) 공개 API 지원 | **P1** | 7개 모든 Sandbox 셰이더 (`register(b0, space7)` / `[[vk::push_constant]]`) | ⬜ 대기 | Phase 3 (`R0.17`) |
-| `SDK-REQ-006` | `BindGroup` 내 동적 샘플러(`Sampler`) 바인딩 지원 | **P1** | `basic_texture`, `sprite`, `terrain`, `imgui` 샘플러 바인딩 | ⬜ 대기 | Phase 3 (`R0.17`) |
-| `SDK-REQ-007` | 확장 블렌드 모드(`PremultipliedAlpha`, `Additive`) 및 `StoreOp::DontCare` | **P2** | 파티클/이펙트 블렌딩, 임시 깊이 첨부 최적화 | ⬜ 대기 | Phase 4 (`R0.19`) |
+| `SDK-REQ-001` | 오프라인 셰이더 리플렉션 수용 및 커스텀 엔트리포인트/다중 Descriptor Set 지원 | **P0** | 모든 그래픽 파이프라인 (`createGraphicsPipeline`) | 🟡 어댑터 해소 (DXBC/SPIR-V 1.3 변환, SDK 네이티브 지원 대기) | Phase 3 (`R0.16`) |
+| `SDK-REQ-002` | 정수형 텍스처 포맷(`R16Uint`) 및 정점 속성 포맷(`R32Uint`) 추가 | **P0** | `TerrainPass` 타일맵, `SpriteInstanceGpu` 인스턴스 속성 | 🟡 어댑터 해소 (`R16UNorm` / `Float`+`asuint`, SDK 네이티브 지원 대기) | Phase 4 (`R0.20`) |
+| `SDK-REQ-003` | `PrimitiveTopology` 설정 추가 (`TriangleStrip`, `LineList`, `LineStrip`, `PointList`) | **P0** | `Renderer` 쿼드, `TerrainPass`, `GridPass`, `LinePass` | 🟡 어댑터 해소 (인덱스 `TriangleList` 자동 변환, SDK 네이티브 지원 대기) | Phase 3 (`R0.18`) |
+| `SDK-REQ-004` | 래스터라이저 상태(`CullMode`, `FrontFace`, `wireframe`) 설정 추가 | **P1** | `test_rhi_draw` 컬링 테스트, 디버그 와이어프레임 | 🟡 부분 해소 (`CullMode`/`FrontFace` 어댑터 처리, `wireframe` 대기) | Phase 3 (`R0.18`) |
+| `SDK-REQ-005` | Push Constants / Root Constants (최대 128 바이트) 공개 API 지원 | **P1** | 7개 모든 Sandbox 셰이더 (`register(b0, space7)` / `[[vk::push_constant]]`) | 🟡 어댑터 해소 (프레임별 전용 CB 슬롯, SDK 네이티브 지원 대기) | Phase 3 (`R0.17`) |
+| `SDK-REQ-006` | `BindGroup` 내 동적 샘플러(`Sampler`) 바인딩 지원 | **P1** | `basic_texture`, `sprite`, `terrain`, `imgui` 샘플러 바인딩 | 🟡 어댑터 해소 (동적 샘플러 변형 PSO 캐시, SDK 네이티브 지원 대기) | Phase 3 (`R0.17`) |
+| `SDK-REQ-007` | 확장 블렌드 모드(`PremultipliedAlpha`, `Additive`) 및 `StoreOp::DontCare` | **P2** | 파티클/이펙트 블렌딩, 임시 깊이 첨부 최적화 | ⬜ 대기 | Phase 6 (`R0.25`) |
 | `SDK-REQ-008` | Linux Xlib(`Display*`, `Window`) 및 Wayland 네이티브 Surface 지원 | **P2** | Linux `SandboxClient` / Studio 창 스왑체인 | ⬜ 대기 | Phase 7 (`R0.28`) |
+| `SDK-REQ-009` | D3D12/Vulkan `alphaBlend` 의 `DestBlendAlpha` 를 `InvSrcAlpha`/`OneMinusSrcAlpha` 로 통일 | **P1** | 불투명 타깃 위 알파 블렌딩 Readback (`batch_1k`, `overlay`, `imgui_basic`) | 🟡 어댑터 보정 (불투명 타깃 Readback 알파 불변식 복원, SDK 수정 대기) | Phase 4 (`R0.22`) |
 
 ---
 
@@ -104,3 +105,12 @@
 - **우선순위**: **P2**
 - **현재 한계**: `gfx::SurfaceKind`는 `Win32`, `Xcb`, `MetalLayer`를 지원합니다. Sandbox의 `platform/linux/`는 Xlib(`Display*`, `Window`)와 Wayland(`wl_display*`, `wl_surface*`)를 사용합니다.
 - **필요한 SDK API**: `gfx::SurfaceKind::Xlib` (`vkCreateXlibSurfaceKHR` 또는 `XGetXCBConnection` 브리지) 및 `gfx::SurfaceKind::Wayland` (`vkCreateWaylandSurfaceKHR`).
+
+---
+
+### SDK-REQ-009: D3D12/Vulkan `alphaBlend` 의 `DestBlendAlpha` 크로스-백엔드 통일
+
+- **우선순위**: **P1**
+- **현재 한계**: `GraphicsSDK`의 Metal 백엔드(`MetalGraphics.hpp:80`)는 `destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha`를 사용하지만, D3D12(`D3D12.cpp:3003`)와 Vulkan(`Vulkan.cpp:3535`)은 `DestBlendAlpha = ZERO`를 하드코딩하고 있습니다. 이로 인해 불투명(`clear.a = 1.0`) 렌더 타깃 위에 반투명 드로우를 수행할 때 RGB는 정확히 블렌딩되지만 출력 알파 채널이 `src.a`로 덮어씌워져 표준 Porter-Duff Over (`dst.a = src.a + dst.a * (1 - src.a)`)와 불일치합니다.
+- **필요한 SDK 수정**: D3D12 `D3D12_BLEND_INV_SRC_ALPHA` 및 Vulkan `VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA`로 통일 (Metal과 일치).
+- **어댑터 현재 처리**: `clear.a == 1.0`으로 초기화된 불투명 타깃에 `BlendMode::Alpha` 드로우가 실행된 경우, Readback 시 Porter-Duff Over 알파 불변식(`1.0`)을 복원합니다. SDK 수정 후 제거 예정.

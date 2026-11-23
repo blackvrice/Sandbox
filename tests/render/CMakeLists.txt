@@ -12,13 +12,6 @@ target_link_libraries(sbx_render_tests PRIVATE SandboxRender sbx_imgui sbx_docte
 target_compile_definitions(sbx_render_tests PRIVATE SBX_RENDER_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/references")
 
 set(SBX_RENDER_TEST_FILTER)
-if(SBX_USE_GRAPHICS_SDK)
-    # Phase 1 어댑터 검증 단계에서는 Phase 7A(Device·Clear·Upload·Copy·Lifetime·Misuse) + 8B(Timestamps) +
-    # 7B(Pipeline/BindGroup 레이아웃 검증) 테스트 케이스를 기본 실행하고, Phase 3(SDK-REQ-001~006 해소 후) 에서
-    # 셰이더 드로우 패스를 전체 활성화한다.
-    set(SBX_RENDER_TEST_FILTER
-        "--test-case=*device reports*,*clear*,*upload:*,*copy:*,*lifetime: destroy invalidates*,*misuse*,*timestamps*,*validation: mismatched*")
-endif()
 
 # D3D12 는 WARP(소프트웨어)로 — GPU 가 없는 CI 에서도 같은 결과. Debug Layer 는 "그래픽 도구" 가 설치돼 있으면 켜진다
 # (없으면 경고 후 계속).

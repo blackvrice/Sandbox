@@ -8,8 +8,10 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "render/graphics_sdk/GraphicsSdkCommandQueue.hpp"
@@ -88,6 +90,11 @@ public:
     [[nodiscard]] RhiBuffer ringBufferHandle() const noexcept {
         return m_frameIndex < m_frameSlots.size() ? m_frameSlots[m_frameIndex].ringBuffer : RhiBuffer{};
     }
+    [[nodiscard]] gfx::BufferPtr quadStripIndexBuffer() const noexcept { return m_quadStripIndexBuffer; }
+    [[nodiscard]] std::pair<gfx::BufferPtr, u64> allocatePushConstant(std::span<const std::byte> data);
+    [[nodiscard]] gfx::PipelinePtr
+    resolvePipelineVariant(GraphicsSdkPipeline& pl,
+                           std::span<const std::pair<gfx::SamplerFilter, gfx::SamplerAddress>> samplers);
     [[nodiscard]] gfx::CommandPool* frameCommandPool(u32 slot) noexcept {
         return slot < m_frameSlots.size() ? m_frameSlots[slot].pool.get() : nullptr;
     }
@@ -122,6 +129,10 @@ private:
         std::vector<std::unique_ptr<gfx::CommandList>> lists;
         u32 nextListIndex = 0;
         RhiBuffer ringBuffer{};
+        gfx::BufferPtr pushBuffer;
+        std::vector<std::byte> pushCpuShadow;
+        u64 pushUsed = 0;
+        u64 pushFlushed = 0;
         gfx::Fence fence{};
         u64 recordedFrameNumber = 0;
         u32 resolvedTimestampCount = 0;
@@ -159,6 +170,7 @@ private:
     std::vector<std::byte> m_ringCpuShadow;
     std::byte* m_ringCpu = nullptr;
     UploadRing m_ring{0};
+    gfx::BufferPtr m_quadStripIndexBuffer;
     std::vector<DirtyUploadRange> m_dirtyRingRanges;
     std::vector<RhiBuffer> m_mappedUploadBuffers;
     std::vector<PendingReadback> m_pendingReadbacks;

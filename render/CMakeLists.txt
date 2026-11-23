@@ -101,6 +101,9 @@ if(SBX_USE_GRAPHICS_SDK)
         graphics_sdk/GraphicsSdkResource.hpp
         graphics_sdk/GraphicsSdkPipeline.hpp
         graphics_sdk/GraphicsSdkPipeline.cpp
+        graphics_sdk/GraphicsSdkSpirvData.hpp
+        graphics_sdk/GraphicsSdkShaders.hpp
+        graphics_sdk/GraphicsSdkShaders.cpp
         graphics_sdk/GraphicsSdkDevice.hpp
         graphics_sdk/GraphicsSdkDevice.cpp
         graphics_sdk/GraphicsSdkCommandQueue.hpp

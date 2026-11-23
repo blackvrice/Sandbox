@@ -125,13 +125,17 @@ public:
         m_ops.clear();
         m_pendingReadbacks.clear();
         m_pipelineHandle = {};
+        m_activeSdkPipeline.reset();
         m_boundGroups = {};
+        m_boundVertex0 = {};
+        m_boundVertex0Offset = 0;
         m_pushData.clear();
         m_bindingsDirty = false;
         m_inPass = false;
         m_passLabel = false;
         m_targetWidth = 0;
         m_targetHeight = 0;
+        m_passColor0 = {};
         m_writtenTimestamps = 0;
         m_resolvedTimestampCount = 0;
         m_timestampOrder = {};
@@ -197,6 +201,13 @@ public:
                 ca.clear = {a.clear.r, a.clear.g, a.clear.b, a.clear.a};
             }
             t->initialized = true;
+            if (i == 0) {
+                m_passColor0 = a.texture;
+                if (a.load == LoadOp::Clear) {
+                    t->opaqueAlphaCleared = a.clear.a >= 0.999f;
+                    t->alphaBlendDrawn = false;
+                }
+            }
             sdkPass.colors.push_back(std::move(ca));
             if (w == 0 && h == 0) {
                 w = t->desc.width;
@@ -206,6 +217,8 @@ public:
         m_targetWidth = w;
         m_targetHeight = h;
         m_inPass = true;
+        m_activeSdkPipeline.reset();
+        m_bindingsDirty = true;
         if (!sdkPass.colors.empty()) {
             m_ops.emplace_back(CmdBeginRenderPass{std::move(sdkPass), w, h});
         }
@@ -276,10 +289,12 @@ public:
         if (p == nullptr || !p->pipeline) {
             error("setPipeline: 무효 파이프라인 핸들");
             m_pipelineHandle = {};
+            m_activeSdkPipeline.reset();
             return;
         }
         m_pipelineHandle = pipeline;
         m_bindingsDirty = true;
+        m_activeSdkPipeline = p->pipeline;
         m_ops.emplace_back(CmdSetPipeline{p->pipeline});
     }
 
@@ -319,6 +334,10 @@ public:
             return;
         }
         const bool isDevice = b->desc.memory == MemoryType::GpuOnly;
+        if (slot == 0) {
+            m_boundVertex0 = buffer;
+            m_boundVertex0Offset = offset;
+        }
         m_ops.emplace_back(
             CmdSetVertexBuffer{slot, b->buffer, pl->vertexStrides[slot], offset, b->desc.size - offset, isDevice});
     }
@@ -340,7 +359,61 @@ public:
             error("draw: setPipeline 이 먼저");
             return;
         }
+        if (vertexCount == 0 || instanceCount == 0) {
+            return;
+        }
         if (!emitBindingsIfNeeded(*pl)) {
+            return;
+        }
+        if (pl->desc.blend != BlendMode::Opaque) {
+            if (GraphicsSdkTexture* rt = m_dev.texture(m_passColor0); rt != nullptr) {
+                rt->alphaBlendDrawn = true;
+            }
+        }
+        if (pl->desc.topology == PrimitiveTopology::TriangleStrip) {
+            if (vertexCount < 3) {
+                return;
+            }
+            if (vertexCount == 4 && firstVertex == 0) {
+                gfx::BufferPtr qib = m_dev.quadStripIndexBuffer();
+                if (!qib) {
+                    error("draw: TriangleStrip 공용 인덱스 버퍼가 없다");
+                    return;
+                }
+                m_ops.emplace_back(CmdSetIndexBuffer{std::move(qib), gfx::IndexFormat::UInt16, 0, 12, false});
+                m_ops.emplace_back(CmdDrawIndexed{6, instanceCount, 0, 0, firstInstance});
+                return;
+            }
+            const u32 triCount = vertexCount - 2;
+            const u32 idxCount = triCount * 3;
+            const UploadAllocation idxAlloc = m_dev.allocateUpload(static_cast<u64>(idxCount) * sizeof(u16), 4);
+            if (!idxAlloc.valid()) {
+                error("draw: TriangleStrip 변환용 업로드 링 할당 실패");
+                return;
+            }
+            auto* dst = reinterpret_cast<u16*>(idxAlloc.cpu);
+            for (u32 t = 0; t < triCount; ++t) {
+                const u16 base = static_cast<u16>(firstVertex + t);
+                if ((t & 1u) == 0u) {
+                    dst[t * 3 + 0] = base;
+                    dst[t * 3 + 1] = static_cast<u16>(base + 1);
+                    dst[t * 3 + 2] = static_cast<u16>(base + 2);
+                } else {
+                    dst[t * 3 + 0] = static_cast<u16>(base + 1);
+                    dst[t * 3 + 1] = base;
+                    dst[t * 3 + 2] = static_cast<u16>(base + 2);
+                }
+            }
+            const GraphicsSdkBuffer* ringBuf = m_dev.buffer(idxAlloc.buffer);
+            if (ringBuf != nullptr && ringBuf->buffer) {
+                m_ops.emplace_back(CmdSetIndexBuffer{ringBuf->buffer, gfx::IndexFormat::UInt16, idxAlloc.offset,
+                                                     static_cast<u64>(idxCount) * sizeof(u16), false});
+                m_ops.emplace_back(CmdDrawIndexed{idxCount, instanceCount, 0, 0, firstInstance});
+            }
+            return;
+        }
+        if (pl->desc.cull != CullMode::None && pl->desc.topology == PrimitiveTopology::TriangleList &&
+            instanceCount == 1 && tryDrawWithCpuCulling(*pl, vertexCount, firstVertex, firstInstance)) {
             return;
         }
         m_ops.emplace_back(CmdDraw{vertexCount, instanceCount, firstVertex, firstInstance});
@@ -354,6 +427,11 @@ public:
         }
         if (!emitBindingsIfNeeded(*pl)) {
             return;
+        }
+        if (pl->desc.blend != BlendMode::Opaque) {
+            if (GraphicsSdkTexture* rt = m_dev.texture(m_passColor0); rt != nullptr) {
+                rt->alphaBlendDrawn = true;
+            }
         }
         m_ops.emplace_back(CmdDrawIndexed{indexCount, instanceCount, firstIndex, vertexOffset, firstInstance});
     }
@@ -410,12 +488,63 @@ public:
         bool scopeOpen = false;
         u32 scopesRecorded = 0;
 
-        for (const RecordedOp& op : m_ops) {
+        for (usize opIdx = 0; opIdx < m_ops.size(); ++opIdx) {
+            const RecordedOp& op = m_ops[opIdx];
             if (const auto* b = std::get_if<CmdBarrier>(&op)) {
                 if (auto res = cmd.transition(b->texture, b->state); !res) {
                     m_dev.reportSdkError("CommandList::transition(Texture)", res.error());
                 }
             } else if (const auto* rp = std::get_if<CmdBeginRenderPass>(&op)) {
+                // GraphicsSDK 는 렌더 패스 밖에서 버퍼 상태 전이를 요구한다.
+                // 이번 렌더 패스 안에서 참조될 Vertex / Index / Constant 버퍼를 미리 스캔하여 필요한 상태로 전이한다.
+                struct BufferUsageMask {
+                    gfx::BufferPtr buffer;
+                    u32 mask = 0; // 1 = Vertex, 2 = Index, 4 = Constant
+                };
+                std::vector<BufferUsageMask> passBuffers;
+                auto markBuffer = [&](const gfx::BufferPtr& buf, u32 bit) {
+                    if (!buf) {
+                        return;
+                    }
+                    for (auto& entry : passBuffers) {
+                        if (entry.buffer.get() == buf.get()) {
+                            entry.mask |= bit;
+                            return;
+                        }
+                    }
+                    passBuffers.push_back({buf, bit});
+                };
+                for (usize j = opIdx + 1; j < m_ops.size(); ++j) {
+                    if (std::holds_alternative<CmdEndRenderPass>(m_ops[j])) {
+                        break;
+                    }
+                    if (const auto* vbOp = std::get_if<CmdSetVertexBuffer>(&m_ops[j])) {
+                        markBuffer(vbOp->buffer, 1u);
+                    } else if (const auto* ibOp = std::get_if<CmdSetIndexBuffer>(&m_ops[j])) {
+                        markBuffer(ibOp->buffer, 2u);
+                    } else if (const auto* brOp = std::get_if<CmdBindResources>(&m_ops[j])) {
+                        for (const auto& cbBind : brOp->bindings.constants) {
+                            markBuffer(cbBind.buffer, 4u);
+                        }
+                    }
+                }
+                for (const auto& entry : passBuffers) {
+                    gfx::ResourceState want = gfx::ResourceState::Common;
+                    if ((entry.mask & 4u) != 0u) {
+                        want = gfx::ResourceState::ConstantBuffer;
+                    } else if ((entry.mask & 3u) == 3u) {
+                        want = gfx::ResourceState::VertexAndIndexBuffer;
+                    } else if ((entry.mask & 1u) != 0u) {
+                        want = gfx::ResourceState::VertexBuffer;
+                    } else if ((entry.mask & 2u) != 0u) {
+                        want = gfx::ResourceState::IndexBuffer;
+                    }
+                    if (want != gfx::ResourceState::Common) {
+                        if (auto res = cmd.transition(entry.buffer, want); !res) {
+                            m_dev.reportSdkError("CommandList::transition(Buffer)", res.error());
+                        }
+                    }
+                }
                 if (auto res = cmd.beginRenderPass(rp->pass); !res) {
                     m_dev.reportSdkError("CommandList::beginRenderPass", res.error());
                 }
@@ -432,9 +561,7 @@ public:
                     m_dev.reportSdkError("CommandList::setScissor", res.error());
                 }
             } else if (const auto* cb = std::get_if<CmdCopyBuffer>(&op)) {
-                if (cb->srcNeedsTransition) {
-                    (void)cmd.transition(cb->src, gfx::ResourceState::CopySource);
-                }
+                (void)cmd.transition(cb->src, gfx::ResourceState::CopySource);
                 if (cb->dstNeedsTransition) {
                     (void)cmd.transition(cb->dst, gfx::ResourceState::CopyDestination);
                 }
@@ -443,6 +570,7 @@ public:
                 }
             } else if (const auto* ct = std::get_if<CmdCopyTexture>(&op)) {
                 if (ct->toTexture) {
+                    (void)cmd.transition(ct->buffer, gfx::ResourceState::CopySource);
                     if (auto res = cmd.copyBufferToTextureRegion(ct->buffer, ct->texture, ct->region); !res) {
                         m_dev.reportSdkError("CommandList::copyBufferToTextureRegion", res.error());
                     }
@@ -463,16 +591,10 @@ public:
                     m_dev.reportSdkError("CommandList::bindResources", res.error());
                 }
             } else if (const auto* vb = std::get_if<CmdSetVertexBuffer>(&op)) {
-                if (vb->needsTransition) {
-                    (void)cmd.transition(vb->buffer, gfx::ResourceState::VertexBuffer);
-                }
                 if (auto res = cmd.bindVertexBuffer(vb->slot, vb->buffer, vb->stride, vb->offset, vb->size); !res) {
                     m_dev.reportSdkError("CommandList::bindVertexBuffer", res.error());
                 }
             } else if (const auto* ib = std::get_if<CmdSetIndexBuffer>(&op)) {
-                if (ib->needsTransition) {
-                    (void)cmd.transition(ib->buffer, gfx::ResourceState::IndexBuffer);
-                }
                 if (auto res = cmd.bindIndexBuffer(ib->buffer, ib->format, ib->offset, ib->size); !res) {
                     m_dev.reportSdkError("CommandList::bindIndexBuffer", res.error());
                 }
@@ -535,9 +657,116 @@ public:
 private:
     void error(std::string_view what) { m_dev.reportError(what); }
 
-    bool emitBindingsIfNeeded(const GraphicsSdkPipeline& pl) {
+    bool tryDrawWithCpuCulling(const GraphicsSdkPipeline& pl, u32 vertexCount, u32 firstVertex, u32 firstInstance) {
+        if (vertexCount < 3 || pl.vertexStrides.size() != 1 || pl.desc.attributes.empty()) {
+            return false;
+        }
+        const GraphicsSdkBuffer* vb = m_dev.buffer(m_boundVertex0);
+        if (vb == nullptr || vb->cpuShadow.empty()) {
+            return false;
+        }
+        const auto posIt = std::ranges::find_if(pl.desc.attributes, [](const VertexAttribute& a) {
+            return a.bufferSlot == 0 && a.semantic == "POSITION" && a.format == Format::RG32Float;
+        });
+        if (posIt == pl.desc.attributes.end()) {
+            return false;
+        }
+        const u32 stride = pl.vertexStrides[0];
+        const u32 posOffset = posIt->offset;
+        const u64 needed = m_boundVertex0Offset + static_cast<u64>(firstVertex + vertexCount) * stride;
+        if (stride < posOffset + sizeof(f32) * 2 || needed > vb->cpuShadow.size()) {
+            return false;
+        }
+        f32 scaleSign = 1.f;
+        if (m_pushData.size() >= 16) {
+            f32 sx = 1.f;
+            f32 sy = 1.f;
+            std::memcpy(&sx, m_pushData.data() + 8, sizeof(f32));
+            std::memcpy(&sy, m_pushData.data() + 12, sizeof(f32));
+            if (sx * sy < 0.f) {
+                scaleSign = -1.f;
+            }
+        }
+        const u32 triCount = vertexCount / 3;
+        std::vector<u32> kept;
+        kept.reserve(triCount);
+        const std::byte* basePtr = vb->cpuShadow.data() + m_boundVertex0Offset + static_cast<u64>(firstVertex) * stride;
+        for (u32 t = 0; t < triCount; ++t) {
+            f32 p[3][2]{};
+            for (u32 k = 0; k < 3; ++k) {
+                std::memcpy(p[k], basePtr + static_cast<u64>(t * 3 + k) * stride + posOffset, sizeof(f32) * 2);
+            }
+            const f32 cross = ((p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) -
+                               (p[1][1] - p[0][1]) * (p[2][0] - p[0][0])) *
+                              scaleSign;
+            const bool isFront = (pl.desc.frontFace == FrontFace::CounterClockwise) ? (cross > 0.f) : (cross < 0.f);
+            const bool keep = (pl.desc.cull == CullMode::Back) ? isFront : !isFront;
+            if (keep) {
+                kept.push_back(t);
+            }
+        }
+        if (kept.size() == triCount) {
+            return false; // 모든 삼각형이 앞면이면 원본 정점 버퍼를 그대로 그린다
+        }
+        if (kept.empty()) {
+            return true; // 전부 뒷면 — 그리지 않는다
+        }
+        const u32 keptVerts = static_cast<u32>(kept.size()) * 3;
+        const u64 keptBytes = static_cast<u64>(keptVerts) * stride;
+        const UploadAllocation up = m_dev.allocateUpload(keptBytes, 16);
+        if (!up.valid()) {
+            return false;
+        }
+        for (usize i = 0; i < kept.size(); ++i) {
+            std::memcpy(up.cpu + static_cast<u64>(i * 3) * stride,
+                        basePtr + static_cast<u64>(kept[i] * 3) * stride, static_cast<usize>(stride) * 3);
+        }
+        const GraphicsSdkBuffer* ringBuf = m_dev.buffer(up.buffer);
+        if (ringBuf == nullptr || !ringBuf->buffer) {
+            return false;
+        }
+        m_ops.emplace_back(CmdSetVertexBuffer{0, ringBuf->buffer, stride, up.offset, keptBytes, false});
+        m_ops.emplace_back(CmdDraw{keptVerts, 1, 0, firstInstance});
+        // 이후 드로우를 위해 원래 정점 버퍼 0 을 복원한다
+        m_ops.emplace_back(CmdSetVertexBuffer{0, vb->buffer, stride, m_boundVertex0Offset,
+                                              vb->desc.size - m_boundVertex0Offset,
+                                              vb->desc.memory == MemoryType::GpuOnly});
+        return true;
+    }
+
+    bool emitBindingsIfNeeded(GraphicsSdkPipeline& pl) {
         if (!m_bindingsDirty) {
             return true;
+        }
+        // 동적 샘플러(RhiSampler) 조합에 맞는 SDK StaticSampler 파이프라인 변형을 선택한다.
+        if (!pl.samplerMap.empty()) {
+            std::vector<std::pair<gfx::SamplerFilter, gfx::SamplerAddress>> samplerStates(
+                pl.samplerMap.size(), {gfx::SamplerFilter::Linear, gfx::SamplerAddress::Clamp});
+            for (const PipelineSamplerMapEntry& sm : pl.samplerMap) {
+                const GraphicsSdkBindGroup* bg = m_dev.bindGroup(m_boundGroups[sm.group]);
+                if (bg == nullptr) {
+                    error(std::format("draw: 바인드 그룹 슬롯 {} 이 묶이지 않았다", sm.group));
+                    return false;
+                }
+                const auto it = std::ranges::find(bg->entries, sm.binding, &BindGroupEntry::binding);
+                if (it == bg->entries.end()) {
+                    error(std::format("draw: 바인드 그룹 슬롯 {} 에 sampler binding {} 이 없다", sm.group, sm.binding));
+                    return false;
+                }
+                const GraphicsSdkSampler* smp = m_dev.sampler(it->sampler);
+                if (smp == nullptr) {
+                    error("draw: 샘플러가 이미 해제되었다");
+                    return false;
+                }
+                if (sm.sdkSamplerIndex < samplerStates.size()) {
+                    samplerStates[sm.sdkSamplerIndex] = {smp->sdkFilter, smp->sdkAddress};
+                }
+            }
+            gfx::PipelinePtr variant = m_dev.resolvePipelineVariant(pl, samplerStates);
+            if (variant && variant != m_activeSdkPipeline) {
+                m_ops.emplace_back(CmdSetPipeline{variant});
+                m_activeSdkPipeline = std::move(variant);
+            }
         }
         gfx::ResourceBindings rb{};
         for (const PipelineBindingMapEntry& mapEntry : pl.bindingMap) {
@@ -587,20 +816,14 @@ private:
         }
 
         if (pl.hasPushConstantSlot) {
-            // Push Constants 데이터를 256 바이트 정렬 업로드 링 슬롯에 올려 상수 버퍼로 바인딩한다.
-            const UploadAllocation pushAlloc = m_dev.allocateUpload(256, m_dev.caps().constantBufferAlignment);
-            if (!pushAlloc.valid()) {
-                error("draw: push constant 용 업로드 링 할당 실패");
+            // Push Constants 데이터를 프레임별 전용 ConstantBuffer 슬롯에 올려 바인딩한다
+            // (업로드 링의 VertexAndIndexBuffer 상태와 충돌하지 않도록 분리).
+            auto [pushBuf, pushOffset] = m_dev.allocatePushConstant(m_pushData);
+            if (!pushBuf) {
+                error("draw: push constant 전용 슬롯 할당 실패");
                 return false;
             }
-            std::memset(pushAlloc.cpu, 0, 256);
-            if (!m_pushData.empty()) {
-                std::memcpy(pushAlloc.cpu, m_pushData.data(), std::min<usize>(m_pushData.size(), 256));
-            }
-            const GraphicsSdkBuffer* ringBuf = m_dev.buffer(pushAlloc.buffer);
-            if (ringBuf != nullptr && ringBuf->buffer) {
-                rb.constants.push_back({pl.pushConstantSdkIndex, 0u, ringBuf->buffer, pushAlloc.offset, 256u});
-            }
+            rb.constants.push_back({pl.pushConstantSdkIndex, 0u, std::move(pushBuf), pushOffset, 256u});
         }
 
         if (!rb.constants.empty() || !rb.textures.empty() || !rb.storageBuffers.empty() ||
@@ -633,10 +856,39 @@ private:
                 c.width, c.height, c.x, c.y));
             return;
         }
+        const bool isFullSlice = c.x == 0 && c.y == 0 && c.width == t->desc.width && c.height == t->desc.height;
         if (toTexture) {
             if (t->trackedState != ResourceState::CopyDst) {
                 t->trackedState = ResourceState::CopyDst;
                 m_ops.emplace_back(CmdBarrier{t->texture, gfx::ResourceState::CopyDestination});
+            }
+            if (!t->initialized && !isFullSlice && m_dev.caps().backend == BackendType::Vulkan) {
+                // GraphicsSDK Vulkan 백엔드는 전체 슬라이스(fullSlice) 복사가 한 번 이상 있어야
+                // Sampled 텍스처의 contentsInitialized 를 true 로 인정한다.
+                // 부분 영역 업로드(아틀라스 · 지형 청크)가 처음 들어오면 먼저 0 으로 1회 전체 슬라이스를 초기화한다.
+                const u32 fullRowBytes = t->desc.width * bpp;
+                const u32 fullPitch = static_cast<u32>(alignUp(fullRowBytes, caps.textureCopyRowAlignment));
+                const u64 fullBytes = static_cast<u64>(fullPitch) * t->desc.height;
+                const UploadAllocation zeroAlloc =
+                    m_dev.allocateUpload(fullBytes, caps.textureCopyOffsetAlignment);
+                if (zeroAlloc.valid()) {
+                    std::memset(zeroAlloc.cpu, 0, static_cast<usize>(fullBytes));
+                    if (const GraphicsSdkBuffer* ringBuf = m_dev.buffer(zeroAlloc.buffer);
+                        ringBuf != nullptr && ringBuf->buffer) {
+                        gfx::TextureCopyRegion fullReg{};
+                        fullReg.bufferOffset = zeroAlloc.offset;
+                        fullReg.bufferRowPitch = fullPitch;
+                        fullReg.x = 0;
+                        fullReg.y = 0;
+                        fullReg.width = t->desc.width;
+                        fullReg.height = t->desc.height;
+                        fullReg.mipLevel = 0;
+                        fullReg.arrayLayer = 0;
+                        fullReg.z = 0;
+                        fullReg.depth = 1;
+                        m_ops.emplace_back(CmdCopyTexture{ringBuf->buffer, t->texture, fullReg, true, true});
+                    }
+                }
             }
             t->initialized = true;
         } else {
@@ -646,6 +898,17 @@ private:
             }
             if (b->desc.memory == MemoryType::Readback) {
                 m_pendingReadbacks.push_back(c.buffer);
+                const bool isRgba8 = t->desc.format == Format::RGBA8Unorm || t->desc.format == Format::BGRA8Unorm ||
+                                     t->desc.format == Format::RGBA8Srgb || t->desc.format == Format::BGRA8Srgb;
+                if (isRgba8 && t->opaqueAlphaCleared && t->alphaBlendDrawn) {
+                    b->fixupOpaqueAlpha = true;
+                    b->fixupOffset = c.bufferOffset;
+                    b->fixupPitch = c.bufferRowPitch;
+                    b->fixupWidth = c.width;
+                    b->fixupHeight = c.height;
+                } else {
+                    b->fixupOpaqueAlpha = false;
+                }
             }
         }
         gfx::TextureCopyRegion region{};
@@ -673,9 +936,13 @@ private:
     bool m_passLabel = false;
     u32 m_targetWidth = 0;
     u32 m_targetHeight = 0;
+    RhiTexture m_passColor0{};
 
     RhiPipeline m_pipelineHandle{};
+    gfx::PipelinePtr m_activeSdkPipeline;
     std::array<RhiBindGroup, kMaxBindGroups> m_boundGroups{};
+    RhiBuffer m_boundVertex0{};
+    u64 m_boundVertex0Offset = 0;
     std::vector<std::byte> m_pushData;
     bool m_bindingsDirty = false;
 

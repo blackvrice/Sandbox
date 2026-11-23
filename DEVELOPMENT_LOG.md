@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 3 · Phase 4 · Phase 5 (`R0.16` ~ `R0.24`)
+
+**무엇을**
+
+- `tools/shader/gen_gfxsdk_spirv.py`, `render/graphics_sdk/GraphicsSdkSpirvData.hpp`, `render/graphics_sdk/GraphicsSdkShaders.{hpp,cpp}`: 7종 내장 셰이더(14개 스테이지: `basic_color`, `basic_texture`, `sprite`, `terrain`, `grid`, `lines`, `imgui`)를 D3D12(`gfx::compileHlsl()` SM5.1 프로세스 캐시), Vulkan(단일 디스크립터 셋 SPIR-V 1.3 + `OpTypeImage` Depth 정규화), Metal(MSL)로 변환하는 셰이더 계층을 구현했다 (`SDK-REQ-001`).
+- `render/graphics_sdk/GraphicsSdkTypes.cpp`: `Format::R16Uint` → `gfx::Format::R16UNorm`(`terrain.ps`에서 정확한 `u16` 복원), 정점 `Format::R32Uint` → `gfx::VertexFormat::Float`(`sprite.vs`에서 `asuint()` 복원) 매핑을 추가했다 (`SDK-REQ-002`).
+- `render/graphics_sdk/GraphicsSdkPipeline.hpp`, `GraphicsSdkDevice.{hpp,cpp}`, `GraphicsSdkCommandList.cpp`:
+  - 바인딩된 `RhiSampler` `(filter, address)` 조합별 PSO 변형 캐시(`resolvePipelineVariant`) 및 슬롯별 전용 `pushBuffer`(256 KB)를 구현했다 (`SDK-REQ-005`, `006`).
+  - 공용 6-인덱스 쿼드 스트립 버퍼(`m_quadStripIndexBuffer`) + 동적 스트립→리스트 변환 및 2D CPU 와인딩 컬링(`tryDrawWithCpuCulling`)을 구현했다 (`SDK-REQ-003`, `004`).
+  - `prepareAndReplay()`에 렌더 패스 진입 전 Vertex/Index/Constant 버퍼 상태 사전 전이 스캔을 추가했다.
+  - 1-layer `"sprite atlas"` 텍스처를 `TextureDimension::Texture2DArray`로 생성하고, Vulkan 부분 업로드 전 1회 `fullSlice` 제로 초기화를 수행하도록 수정했다.
+  - GraphicsSDK D3D12/Vulkan의 `DestBlendAlpha = ZERO` 불일치(`SDK-REQ-009`)에 대해 불투명 RT Readback 알파 불변량 보정(`applyOpaqueAlphaFixup`)을 구현했다.
+  - 정적 매핑 Upload 버퍼의 `lastUploadedShadow` 변경 감지를 추가하여 `SandboxClient`의 `Cannot overwrite a buffer in flight` 오류를 해소했다.
+- `tests/render/CMakeLists.txt`: `SBX_RENDER_TEST_FILTER`를 완전 제거하여 31개 전체 GPU 골든 이미지 테스트가 CTest 기본 대상이 되도록 전환했다.
+- `docs/graphics-sdk-refactor/*`, `docs/17-SOURCE-MAP.md`: Phase 3~5 완료 상태, 테스트 보고서 및 `RelWithDebInfo` 성능 비교 기준선을 반영했다.
+
+**왜**
+
+- `GraphicsSDK::Core` 공개 API(고정 커밋 `9345c181`) 위에서 Sandbox의 모든 내장 셰이더, 스프라이트 배치, 지형·그리드·디버그 선 패스 및 Dear ImGui 1.92 렌더링을 수정 없이 100% 골든 이미지 일치로 구동하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 31/31 PASS, 527 assertions**):
+  - D3D12 WARP + Debug Layer: 31/31 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8, 해제 382.
+  - D3D12 GTX 1660 SUPER + Debug Layer: 31/31 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8, 해제 382.
+  - Vulkan GTX 1660 SUPER + VVL 1.3.290: 31/31 PASS, 누수 0, VVL 경고 0, 예상 오류 8/8, 해제 382.
+- `SandboxClient` 실기 검증:
+  - `--world ecosystem_small --rhi dx12 --rhi-debug --frames 300 --vsync off --safe-mode --no-audio`: Debug Layer 경고 0 · 오류 0 정상 종료.
+  - `RelWithDebInfo` 1920×1080 `--vsync off` (Phase 6 최적화 전): `ecosystem_small` D3D12 1762.0 FPS (`render 0.38 ms`) / Vulkan 1663.7 FPS (`render 0.41 ms`), `ecosystem_10k` D3D12 346.2 FPS (`render 0.81 ms`) / Vulkan 294.1 FPS (`render 1.09 ms`).
+- 전체 `ctest --test-dir build/windows-msvc-gfxsdk -C RelWithDebInfo -j 4`: **99/99 실행 테스트 100% PASS** (`render_tests_warp` 31/31 0.99 sec 포함, `studio_gui_smoke` 1건 Skipped), 결정론 16/16 일치.
+- `check_includes.py` (801파일 0건), `check_docs.py` (302파일 0건), `gen_roadmap.py --check` (24문서 0건) 모두 통과.
+
+**남은 일**
+
+- Phase 6 (`R0.25` ~ `R0.27`): ResourceSet 캐싱·스크래치 버퍼 재사용·멀티스레드 커맨드 기록, Dedicated Copy Queue 활용, Upload Ring 이중 복사 제거 및 1% Low / 0.1% Low FPS 벤치마크 하네스 구축으로 Legacy 대비 성능 개선 달성.
+
 ## 2026-11-22 — Graphics SDK 기반 RHI 리팩토링 Phase 0 · Phase 1 · Phase 2 (`R0.1` ~ `R0.15`)
 
 **무엇을**

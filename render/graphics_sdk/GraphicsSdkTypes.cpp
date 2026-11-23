@@ -125,13 +125,16 @@ Expected<gfx::Format> mapTextureFormat(Format format) {
         return gfx::Format::RGBA16Float;
     case Format::D32Float:
         return gfx::Format::D32Float;
+    case Format::R16Uint:
+        // Graphics SDK 에 R16UInt 가 없으므로 같은 2바이트/픽셀 크기인 R16UNorm 으로 저장하고
+        // Terrain 셰이더에서 (uint)(val * 65535.0 + 0.5) 로 16비트 정수를 비트 정확하게 복원한다.
+        return gfx::Format::R16UNorm;
     case Format::R32Float:
     case Format::D24UnormS8Uint:
     case Format::R32Uint:
     case Format::RG32Float:
     case Format::RGB32Float:
     case Format::RGBA32Float:
-    case Format::R16Uint:
         return makeError(ErrorCode::Unsupported,
                          std::format("Graphics SDK 가 아직 텍스처 포맷 '{}' 을(를) 지원하지 않습니다 (SDK-REQ-001)",
                                      formatInfo(format).name));
@@ -178,8 +181,9 @@ Expected<gfx::VertexFormat> mapVertexFormat(Format format) {
     case Format::RGBA8Unorm:
         return gfx::VertexFormat::UNorm8x4;
     case Format::R32Uint:
-        return makeError(ErrorCode::Unsupported,
-                         "Graphics SDK 가 정점 포맷 R32Uint 를 아직 지원하지 않습니다 (SDK-REQ-002)");
+        // Graphics SDK VertexFormat 에 UInt 가 없으므로 같은 4바이트 정렬의 Float 로 전달하고
+        // 셰이더에서 asuint() 로 32비트 정수를 비트 그대로 복원한다.
+        return gfx::VertexFormat::Float;
     default:
         return makeError(ErrorCode::InvalidArgument,
                          std::format("지원하지 않는 정점 속성 포맷 '{}'", formatInfo(format).name));
@@ -340,13 +344,14 @@ Expected<void> verifyAdapterTypeMappings() {
         mapTextureFormat(Format::RG8Unorm).value_or(gfx::Format::D32Float) != gfx::Format::RG8UNorm) {
         return makeError(ErrorCode::ValidationFailed, "mapTextureFormat supported mismatch");
     }
-    if (mapTextureFormat(Format::R16Uint).error().code != ErrorCode::Unsupported ||
+    if (mapTextureFormat(Format::R16Uint).value_or(gfx::Format::D32Float) != gfx::Format::R16UNorm ||
         mapTextureFormat(Format::D24UnormS8Uint).error().code != ErrorCode::Unsupported ||
-        mapVertexFormat(Format::R32Uint).error().code != ErrorCode::Unsupported) {
-        return makeError(ErrorCode::ValidationFailed, "Unsupported format rejection mismatch");
+        mapTextureFormat(Format::R32Float).error().code != ErrorCode::Unsupported) {
+        return makeError(ErrorCode::ValidationFailed, "Texture format mapping/rejection mismatch");
     }
     if (mapVertexFormat(Format::RG32Float).value_or(gfx::VertexFormat::Float) != gfx::VertexFormat::Float2 ||
-        mapVertexFormat(Format::RGBA8Unorm).value_or(gfx::VertexFormat::Float) != gfx::VertexFormat::UNorm8x4) {
+        mapVertexFormat(Format::RGBA8Unorm).value_or(gfx::VertexFormat::Float) != gfx::VertexFormat::UNorm8x4 ||
+        mapVertexFormat(Format::R32Uint).value_or(gfx::VertexFormat::Float2) != gfx::VertexFormat::Float) {
         return makeError(ErrorCode::ValidationFailed, "mapVertexFormat mismatch");
     }
     if (mapResourceState(ResourceState::RenderTarget).value_or(gfx::ResourceState::Common) !=

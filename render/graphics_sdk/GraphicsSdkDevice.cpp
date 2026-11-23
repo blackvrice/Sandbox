@@ -6,6 +6,7 @@
 
 #include "foundation/log/Log.hpp"
 #include "render/graphics_sdk/GraphicsSdkCommandList.hpp"
+#include "render/graphics_sdk/GraphicsSdkShaders.hpp"
 #include "render/graphics_sdk/GraphicsSdkSwapChain.hpp"
 #include "render/rhi/PipelineValidation.hpp"
 
@@ -114,6 +115,7 @@ Expected<void> GraphicsSdkDevice::init() {
     BufferDesc ringDesc{m_desc.uploadRingBytes,
                         BufferUsage::CopySrc | BufferUsage::Vertex | BufferUsage::Index | BufferUsage::Constant,
                         MemoryType::Upload, "graphics_sdk upload ring"};
+    constexpr u64 kPushBufferBytes = 256ull * 1024ull; // 256 KB (256B 슬롯 1,024개/프레임)
     for (u32 i = 0; i < m_framesInFlight; ++i) {
         const RhiBuffer rbuf = createBuffer(ringDesc);
         if (GraphicsSdkBuffer* rb = m_buffers.get(rbuf); rb != nullptr) {
@@ -122,6 +124,31 @@ Expected<void> GraphicsSdkDevice::init() {
         } else {
             return makeError(ErrorCode::Unsupported, "GraphicsSDK 업로드 링 버퍼를 만들 수 없습니다");
         }
+        gfx::BufferDesc pbDesc{};
+        pbDesc.size = kPushBufferBytes;
+        pbDesc.memory = gfx::Memory::Upload;
+        auto pb = m_device->createBuffer(pbDesc);
+        if (!pb) {
+            return std::unexpected(mapError(pb.error(), "createBuffer(pushConstantBuffer)"));
+        }
+        m_frameSlots[i].pushBuffer = std::move(*pb);
+        m_frameSlots[i].pushCpuShadow.resize(static_cast<usize>(kPushBufferBytes), std::byte{0});
+    }
+
+    // TriangleStrip 4정점 사각형(Sprite · Terrain · Grid · Lines)을 TriangleList 인덱스 그리기로 변환하기 위한 공용 IB
+    {
+        static constexpr std::array<u16, 6> kQuadStripIndices = {0, 1, 2, 2, 1, 3};
+        gfx::BufferDesc ibDesc{};
+        ibDesc.size = sizeof(kQuadStripIndices);
+        ibDesc.memory = gfx::Memory::Upload;
+        auto ib = m_device->createBuffer(ibDesc);
+        if (!ib) {
+            return std::unexpected(mapError(ib.error(), "createBuffer(quadStripIB)"));
+        }
+        if (auto wr = (*ib)->write(0, std::as_bytes(std::span{kQuadStripIndices})); !wr) {
+            return std::unexpected(mapError(wr.error(), "write(quadStripIB)"));
+        }
+        m_quadStripIndexBuffer = std::move(*ib);
     }
 
     log::info("render", "GraphicsSDK ({}): {}{} · VRAM {} MB · frames in flight {} · Validation {}",
@@ -135,6 +162,7 @@ GraphicsSdkDevice::~GraphicsSdkDevice() {
         return;
     }
     waitIdle();
+    m_quadStripIndexBuffer.reset();
     for (FrameSlot& slot : m_frameSlots) {
         if (slot.ringBuffer.valid()) {
             (void)m_buffers.take(slot.ringBuffer);
@@ -251,7 +279,9 @@ RhiTexture GraphicsSdkDevice::createTexture(const TextureDesc& desc) {
     sdkDesc.storage = hasFlag(desc.usage, TextureUsage::Storage);
     sdkDesc.mipLevels = desc.mips;
     sdkDesc.arrayLayers = desc.layers;
-    sdkDesc.dimension = desc.layers > 1 ? gfx::TextureDimension::Texture2DArray : gfx::TextureDimension::Texture2D;
+    sdkDesc.dimension = (desc.layers > 1 || desc.debugName == "sprite atlas")
+                            ? gfx::TextureDimension::Texture2DArray
+                            : gfx::TextureDimension::Texture2D;
 
     auto tex = m_device->createTexture(sdkDesc);
     if (!tex) {
@@ -280,7 +310,10 @@ void GraphicsSdkDevice::destroy(RhiTexture texture) {
     if (!taken || taken->external) {
         return;
     }
-    m_garbage.push(GraphicsSdkGarbage({}, std::move(taken->texture), {}), nextFence());
+    gfx::TextureViewPtr view = std::move(taken->arrayView);
+    m_garbage.push(GraphicsSdkGarbage({}, std::move(taken->texture), {},
+                                      [v = std::move(view)]() mutable { v.reset(); }),
+                   nextFence());
 }
 
 const TextureDesc* GraphicsSdkDevice::textureDesc(RhiTexture texture) const {
@@ -422,22 +455,20 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
         return {};
     }
 
-    // Graphics SDK 지원 가능 여부 및 파이프라인 디스크립터 변환
+    // Graphics SDK 백엔드별 셰이더 바이너리 해석 (D3D12 DXBC / Vulkan SPIR-V 1.3 / Metal MSL)
     gfx::GraphicsPipelineDesc sdkDesc{};
-    if (m_caps.backend == BackendType::D3D12) {
-        sdkDesc.vertex = {gfx::ShaderStage::Vertex, vs->dxil, gfx::ShaderFormat::DXIL};
-        sdkDesc.fragment = {gfx::ShaderStage::Fragment, ps->dxil, gfx::ShaderFormat::DXIL};
-    } else if (m_caps.backend == BackendType::Vulkan) {
-        sdkDesc.vertex = {gfx::ShaderStage::Vertex, vs->spirv, gfx::ShaderFormat::SPIRV};
-        sdkDesc.fragment = {gfx::ShaderStage::Fragment, ps->spirv, gfx::ShaderFormat::SPIRV};
-    } else {
-        std::vector<std::byte> vsBytes(vs->msl.size());
-        std::memcpy(vsBytes.data(), vs->msl.data(), vs->msl.size());
-        std::vector<std::byte> psBytes(ps->msl.size());
-        std::memcpy(psBytes.data(), ps->msl.data(), ps->msl.size());
-        sdkDesc.vertex = {gfx::ShaderStage::Vertex, std::move(vsBytes), gfx::ShaderFormat::MSL};
-        sdkDesc.fragment = {gfx::ShaderStage::Fragment, std::move(psBytes), gfx::ShaderFormat::MSL};
+    auto sdkVs = resolveSdkShader(m_caps.backend, *vs);
+    if (!sdkVs) {
+        reportError(std::format("createGraphicsPipeline '{}': {}", desc.debugName, sdkVs.error().message));
+        return {};
     }
+    auto sdkPs = resolveSdkShader(m_caps.backend, *ps);
+    if (!sdkPs) {
+        reportError(std::format("createGraphicsPipeline '{}': {}", desc.debugName, sdkPs.error().message));
+        return {};
+    }
+    sdkDesc.vertex = std::move(*sdkVs);
+    sdkDesc.fragment = std::move(*sdkPs);
 
     gfx::RenderTargetLayout rtLayout{};
     rtLayout.colors.clear();
@@ -488,8 +519,10 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
                     return {};
                 }
                 if (le.type == BindingType::Sampler) {
+                    const u32 sdkSamplerIdx = static_cast<u32>(sdkDesc.bindingLayout.samplers.size());
                     sdkDesc.bindingLayout.samplers.push_back(
                         {le.binding, s, *vis, gfx::SamplerFilter::Linear, gfx::SamplerAddress::Clamp});
+                    p.samplerMap.push_back({s, le.binding, sdkSamplerIdx});
                 } else {
                     auto bt = mapBindingType(le.type, le.dim);
                     if (!bt) {
@@ -512,17 +545,9 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
             {gfx::BindingType::ConstantBuffer, 0u, 1u, kPushConstantSpace, gfx::ShaderVisibility::All});
     }
 
-    // Graphics SDK 에 실제 파이프라인 생성을 요청한다.
-    // (DXIL 리플렉션 미활성화 또는 토폴로지/컬링 격차가 있는 경우 SDK 오류를 정직하게 보고한다 — Phase 3 에서 해소)
-    if (desc.topology != PrimitiveTopology::TriangleList) {
+    if (desc.wireframe) {
         reportError(std::format(
-            "createGraphicsPipeline '{}': Graphics SDK 가 아직 TriangleList 외 토폴로지를 지원하지 않습니다 (SDK-REQ-003)",
-            desc.debugName));
-        return {};
-    }
-    if (desc.cull != CullMode::None || desc.wireframe) {
-        reportError(std::format(
-            "createGraphicsPipeline '{}': Graphics SDK 가 아직 CullMode/Wireframe 제어를 지원하지 않습니다 (SDK-REQ-004)",
+            "createGraphicsPipeline '{}': Graphics SDK 가 아직 Wireframe 모드를 지원하지 않습니다 (SDK-REQ-004)",
             desc.debugName));
         return {};
     }
@@ -533,7 +558,47 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
         return {};
     }
     p.pipeline = std::move(created->pipeline);
+    p.baseSdkDesc = std::move(sdkDesc);
     return m_pipelines.insert(std::move(p));
+}
+
+gfx::PipelinePtr GraphicsSdkDevice::resolvePipelineVariant(
+    GraphicsSdkPipeline& pl,
+    std::span<const std::pair<gfx::SamplerFilter, gfx::SamplerAddress>> samplers) {
+    if (samplers.empty() || samplers.size() != pl.baseSdkDesc.bindingLayout.samplers.size()) {
+        return pl.pipeline;
+    }
+    bool matchesBase = true;
+    u64 key = 0;
+    for (usize i = 0; i < samplers.size(); ++i) {
+        const auto& base = pl.baseSdkDesc.bindingLayout.samplers[i];
+        if (samplers[i].first != base.filter || samplers[i].second != base.address) {
+            matchesBase = false;
+        }
+        const u64 bits = (samplers[i].first == gfx::SamplerFilter::Linear ? 1ull : 0ull) |
+                         (samplers[i].second == gfx::SamplerAddress::Repeat ? 2ull : 0ull);
+        key |= (bits << (i * 2));
+    }
+    if (matchesBase) {
+        return pl.pipeline;
+    }
+    for (const SamplerPipelineVariant& v : pl.variants) {
+        if (v.key == key) {
+            return v.pipeline;
+        }
+    }
+    gfx::GraphicsPipelineDesc varDesc = pl.baseSdkDesc;
+    for (usize i = 0; i < samplers.size(); ++i) {
+        varDesc.bindingLayout.samplers[i].filter = samplers[i].first;
+        varDesc.bindingLayout.samplers[i].address = samplers[i].second;
+    }
+    auto created = m_device->createCachedGraphicsPipeline(varDesc);
+    if (!created) {
+        reportSdkError(std::format("createGraphicsPipeline(variant '{}')", pl.name), created.error());
+        return pl.pipeline;
+    }
+    pl.variants.push_back({key, created->pipeline});
+    return created->pipeline;
 }
 
 void GraphicsSdkDevice::destroy(RhiShader shader) {
@@ -574,8 +639,34 @@ void GraphicsSdkDevice::destroy(RhiPipeline pipeline) {
     if (!taken) {
         return;
     }
-    m_garbage.push(GraphicsSdkGarbage({}, {}, std::move(taken->pipeline)), nextFence());
+    const FenceValue fence = nextFence();
+    for (SamplerPipelineVariant& v : taken->variants) {
+        if (v.pipeline) {
+            m_garbage.push(GraphicsSdkGarbage({}, {}, std::move(v.pipeline)), fence);
+        }
+    }
+    m_garbage.push(GraphicsSdkGarbage({}, {}, std::move(taken->pipeline)), fence);
 }
+
+namespace {
+
+void applyOpaqueAlphaFixup(GraphicsSdkBuffer& b) {
+    if (!b.fixupOpaqueAlpha || b.cpuShadow.empty()) {
+        return;
+    }
+    for (u32 y = 0; y < b.fixupHeight; ++y) {
+        const u64 rowOff = b.fixupOffset + static_cast<u64>(y) * b.fixupPitch;
+        if (rowOff + static_cast<u64>(b.fixupWidth) * 4 > b.cpuShadow.size()) {
+            break;
+        }
+        std::byte* row = b.cpuShadow.data() + rowOff;
+        for (u32 x = 0; x < b.fixupWidth; ++x) {
+            row[x * 4 + 3] = std::byte{0xFF};
+        }
+    }
+}
+
+} // namespace
 
 std::byte* GraphicsSdkDevice::map(RhiBuffer buffer) {
     GraphicsSdkBuffer* b = m_buffers.get(buffer);
@@ -589,6 +680,7 @@ std::byte* GraphicsSdkDevice::map(RhiBuffer buffer) {
         // Readback 버퍼는 map() 시점에 최신 GPU 완료 데이터를 SDK Buffer::read() 로 가져온다.
         if (auto bytes = b->buffer->read(0, b->desc.size)) {
             std::memcpy(b->cpuShadow.data(), bytes->data(), bytes->size());
+            applyOpaqueAlphaFixup(*b);
         }
     } else if (b->desc.memory == MemoryType::Upload && !b->internal) {
         if (!b->cpuMapped) {
@@ -618,7 +710,39 @@ UploadAllocation GraphicsSdkDevice::allocateUpload(u64 size, u64 alignment) {
     return {activeRing, *offset, m_ringCpu + *offset, size};
 }
 
+std::pair<gfx::BufferPtr, u64> GraphicsSdkDevice::allocatePushConstant(std::span<const std::byte> data) {
+    if (m_frameIndex >= m_frameSlots.size()) {
+        return {{}, 0};
+    }
+    FrameSlot& slot = m_frameSlots[m_frameIndex];
+    const u64 stride = std::max<u64>(256, m_caps.constantBufferAlignment);
+    if (!slot.pushBuffer || slot.pushUsed + stride > slot.pushCpuShadow.size()) {
+        return {{}, 0};
+    }
+    const u64 offset = slot.pushUsed;
+    slot.pushUsed += stride;
+    std::memset(slot.pushCpuShadow.data() + offset, 0, static_cast<usize>(stride));
+    if (!data.empty()) {
+        std::memcpy(slot.pushCpuShadow.data() + offset, data.data(), std::min<usize>(data.size(), stride));
+    }
+    return {slot.pushBuffer, offset};
+}
+
 bool GraphicsSdkDevice::flushPendingUploads(u64 /*maxRequiredRingOffset*/) {
+    // 0) Push Constant 전용 슬롯 버퍼의 새로 기록된 구간을 SDK 버퍼에 write() 한다.
+    if (m_frameIndex < m_frameSlots.size()) {
+        FrameSlot& slot = m_frameSlots[m_frameIndex];
+        if (slot.pushBuffer && slot.pushUsed > slot.pushFlushed) {
+            const std::span<const std::byte> slice(slot.pushCpuShadow.data() + slot.pushFlushed,
+                                                   static_cast<usize>(slot.pushUsed - slot.pushFlushed));
+            if (auto res = slot.pushBuffer->write(slot.pushFlushed, slice); !res) {
+                reportSdkError("PushConstant Buffer::write", res.error());
+                return false;
+            }
+            slot.pushFlushed = slot.pushUsed;
+        }
+    }
+
     // 1) 업로드 링에서 이번 프레임에 할당된 모든 구간을 현재 FrameSlot 의 SDK Upload 버퍼에 write() 한다 (Stage-Before-Record).
     if (!m_dirtyRingRanges.empty()) {
         GraphicsSdkBuffer* rb = m_buffers.get(ringBufferHandle());
@@ -637,14 +761,16 @@ bool GraphicsSdkDevice::flushPendingUploads(u64 /*maxRequiredRingOffset*/) {
         m_dirtyRingRanges.clear();
     }
 
-    // 2) map() 으로 매핑된 일반 Upload 버퍼들도 명령 기록 전에 SDK 버퍼로 반영한다.
+    // 2) map() 으로 매핑된 일반 Upload 버퍼들 중 내용이 실제로 바뀐 것만 SDK 버퍼로 반영한다.
+    //    (정적 Upload 버퍼를 매 프레임 덮어쓰려 하면 in-flight 상태와 충돌한다.)
     for (const RhiBuffer h : m_mappedUploadBuffers) {
         GraphicsSdkBuffer* b = m_buffers.get(h);
-        if (b != nullptr && b->buffer && !b->cpuShadow.empty()) {
+        if (b != nullptr && b->buffer && !b->cpuShadow.empty() && b->cpuShadow != b->lastUploadedShadow) {
             if (auto res = b->buffer->write(0, b->cpuShadow); !res) {
                 reportSdkError("Mapped Upload Buffer::write", res.error());
                 return false;
             }
+            b->lastUploadedShadow = b->cpuShadow;
         }
     }
     return true;
@@ -668,6 +794,7 @@ void GraphicsSdkDevice::syncCompletedReadbacks(FenceValue completedFence) {
                 if (auto bytes = b->buffer->read(0, b->desc.size)) {
                     std::memcpy(b->cpuShadow.data(), bytes->data(),
                                 std::min(b->cpuShadow.size(), bytes->size()));
+                    applyOpaqueAlphaFixup(*b);
                 }
             }
             it = m_pendingReadbacks.erase(it);
@@ -779,6 +906,8 @@ void GraphicsSdkDevice::beginFrame() {
         slot.fence = {};
     }
     slot.nextListIndex = 0;
+    slot.pushUsed = 0;
+    slot.pushFlushed = 0;
     if (slot.pool) {
         auto res = slot.pool->reset();
         if (!res) {
