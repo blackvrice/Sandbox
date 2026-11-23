@@ -219,6 +219,39 @@ void GraphicsSdkDevice::reportError(std::string_view what) {
 void GraphicsSdkDevice::reportSdkError(std::string_view what, const gfx::Error& err) {
     ++m_debugErrors;
     log::error("render", "{} 실패: {} (gfx code={})", what, err.message, static_cast<int>(err.code));
+    if (err.code == gfx::ErrorCode::DeviceLost) {
+        markDeviceLost(what);
+    }
+}
+
+void GraphicsSdkDevice::markDeviceLost(std::string_view reason) {
+    if (!m_deviceLost) {
+        m_deviceLost = true;
+        log::error("render", "GraphicsSDK Device Lost 감지 ({})", reason);
+    }
+}
+
+bool GraphicsSdkDevice::checkDeviceStatus() {
+    if (!m_device || m_deviceLost) {
+        return false;
+    }
+    if (auto res = m_device->checkStatus(); !res) {
+        if (res.error().code == gfx::ErrorCode::DeviceLost) {
+            markDeviceLost("Device::checkStatus");
+        }
+        return false;
+    }
+    return true;
+}
+
+std::optional<u64> GraphicsSdkDevice::queryLocalMemoryUsageBytes() const {
+    if (!m_device || m_deviceLost) {
+        return std::nullopt;
+    }
+    if (auto budget = m_device->queryMemoryBudget(gfx::MemorySegment::Local)) {
+        return budget->usageBytes;
+    }
+    return std::nullopt;
 }
 
 DeviceStats GraphicsSdkDevice::stats() const {

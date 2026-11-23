@@ -48,9 +48,9 @@
 | `R0.25` | Phase 6 | Multithreaded Command Recording 및 핫 패스 힙 할당 제거 | `render/graphics_sdk/GraphicsSdkCommandList.cpp`, `GraphicsSdkDevice.cpp`, `tests/render/test_rhi_basic.cpp` | `R0.24` | `sbx_render_tests --test-case="*multithread*"` | ✅ 완료 |
 | `R0.26` | Phase 6 | 다중 Queue (`Graphics`/`Copy`/`Compute`) 및 `CommandPool` 분리 | `render/rhi/RhiTypes.hpp`, `render/graphics_sdk/GraphicsSdkCommandQueue.{hpp,cpp}`, `GraphicsSdkDevice.{hpp,cpp}` | `R0.25` | `sbx_render_tests --test-case="*queues*"` | ✅ 완료 |
 | `R0.27` | Phase 6 | UploadRing 4KB 패딩 병합 및 1% Low / 0.1% Low FPS 분포 계측 | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `apps/client/Application.{hpp,cpp}`, `apps/client/main.cpp` | `R0.26` | `SandboxClient --world ecosystem_10k` | ✅ 완료 |
-| `R0.28` | Phase 7 | D3D12, Vulkan, Metal 및 Linux Surface(`SDK-REQ-008`) 검증 | `render/graphics_sdk/GraphicsSdkTypes.cpp` | `R0.27` | 플랫폼별 `sbx_render_tests` | ⬜ 대기 |
-| `R0.29` | Phase 7 | GPU Timestamp 및 CPU/GPU Profiler 통합 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.28` | `SandboxClient` F3 오버레이 확인 | ⬜ 대기 |
-| `R0.30` | Phase 7 | Device Lost 및 Resize/Recovery 안정화 | `render/graphics_sdk/GraphicsSdkSwapChain.cpp` | `R0.29` | 창 크기 조절 및 복구 테스트 | ⬜ 대기 |
+| `R0.28` | Phase 7 | 멀티 플랫폼 Surface 매핑(Win32/Xcb/Cocoa/Xlib/Wayland) 및 Tearing PresentMode | `render/graphics_sdk/GraphicsSdkTypes.cpp`, `GraphicsSdkSwapChain.cpp`, `PLATFORM_SUPPORT.md` | `R0.27` | `SandboxTests --test-suite=render` | ✅ 완료 |
+| `R0.29` | Phase 7 | GPU Timestamp · 메모리 예산(`queryMemoryBudget`) · `checkStatus()` 통합 | `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}` | `R0.28` | `sbx_render_tests --test-case="*gpu timings*"` | ✅ 완료 |
+| `R0.30` | Phase 7 | Device Lost 감지 및 SwapChain Resize/최소화(0×0)/VSync 토글 안정화 | `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`, `tests/render/test_rhi_basic.cpp` | `R0.29` | `sbx_render_tests --test-case="*swapchain*"` | ✅ 완료 |
 | `R0.31` | Phase 8 | Graphics UI 연동 인터페이스 구축 | `ui/`, `render/graphics_sdk/` | `R0.30` | Graphics UI 통합 스모크 테스트 | ⬜ 대기 |
 | `R0.32` | Phase 8 | ImGui 및 Graphics UI 공존 구조 구축 | `apps/client/`, `editor/` | `R0.31` | Studio + Game UI 동시 렌더링 검증 | ⬜ 대기 |
 | `R0.33` | Phase 9 | 전체 시나리오 벤치마크 및 성능 비교 | `docs/graphics-sdk-refactor/BENCHMARK_COMPARISON.md` | `R0.32` | `SandboxClient --scenario ecosystem_10k` | ⬜ 대기 |
@@ -59,7 +59,7 @@
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.27`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.30`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -108,3 +108,8 @@
 - [x] `R0.25.1`: `GraphicsSdkCommandList` 풀 재사용(`m_recordedPasses`, `m_recordedBindings`, `m_passBuffersScratch`, `m_lastBufferStates`), 파이프라인 지연 발행, `m_recordMutex` 스레드 안전화 및 4스레드 병렬 기록 배치 제출 GPU 테스트 통과
 - [x] `R0.26.1`: `QueueType::Copy`/`Compute` 확장, `GraphicsSdkCommandQueue` 전용 큐 바인딩, `FrameSlot`별 `copyPool`/`computePool` 분리 및 Copy Queue 전송 GPU 테스트(D3D12 WARP/HW, Vulkan HW) 통과
 - [x] `R0.27.1`: `allocateUpload()` 4KB 패딩 병합으로 프레임당 `Buffer::write()` 호출 최소화(Vulkan `ecosystem_10k` +25.6% FPS 향상) 및 `Application` 1% Low / 0.1% Low FPS 분포 계측 추가
+
+### R0.28 ~ R0.30 — Phase 7 멀티 플랫폼 매핑, 프로파일링/메모리 예산, SwapChain/Device Lost 안정화
+- [x] `R0.28.1`: `verifyAdapterTypeMappings()`에 6종 Surface(Win32/Xcb/Cocoa/Xlib/Wayland/None) · 3종 QueueType 검증 확장 및 `PresentMode::Tearing` 자동 선택 연동 (D3D12 1% Low 173.6 FPS, Vulkan 0.1% Low 430.3 FPS 달성)
+- [x] `R0.29.1`: `GraphicsSdkDevice`에 `queryLocalMemoryUsageBytes()` (`queryMemoryBudget`), `checkDeviceStatus()` (`checkStatus`), `markDeviceLost()` 통합
+- [x] `R0.30.1`: `GraphicsSdkSwapChain` 최소화(`0×0`) 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 재생성 및 34/34 GPU 테스트(D3D12 WARP/HW, Vulkan HW+VVL, Legacy D3D12) 통과

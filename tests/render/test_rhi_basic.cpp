@@ -512,4 +512,90 @@ TEST_SUITE("render.gpu") {
         dev.destroy(gpu);
         dev.destroy(rb);
     }
+
+    TEST_CASE("swapchain: resize, minimize 0x0, vsync toggle, and present lifecycle (R0.30)") {
+        IRenderDevice& dev = device();
+        platform::WindowDesc wdesc;
+        wdesc.width = 256;
+        wdesc.height = 256;
+        wdesc.title = "sbx_render_tests_swapchain";
+        wdesc.resizable = true;
+        auto win = platform::createWindow(wdesc);
+        if (!win) {
+            MESSAGE("창 생성 불가(헤드리스 환경) — 스왑체인 수명 테스트 건너뜀");
+            return;
+        }
+        const platform::Extent2D fb = (*win)->framebufferSize();
+        SwapChainDesc scDesc;
+        scDesc.width = fb.width > 0 ? fb.width : 256;
+        scDesc.height = fb.height > 0 ? fb.height : 256;
+        scDesc.vsync = true;
+        auto sc = dev.createSwapChain((*win)->nativeHandle(), scDesc);
+        if (!sc) {
+            MESSAGE("스왑체인 생성 미지원 — 건너뜀: " << sc.error().message);
+            return;
+        }
+
+        auto drawFrame = [&](f32 r, f32 g, f32 b) -> bool {
+            dev.beginFrame();
+            const AcquireResult acq = (*sc)->acquire();
+            if (acq.skip || !acq.backbuffer.valid()) {
+                dev.endFrame();
+                return false;
+            }
+            auto cl = dev.createCommandList(QueueType::Graphics);
+            cl->begin();
+            const ResourceBarrier toRt{acq.backbuffer, ResourceState::Present, ResourceState::RenderTarget};
+            cl->barrier({&toRt, 1});
+            RenderPassDesc pass;
+            pass.colorCount = 1;
+            pass.colors[0] = {acq.backbuffer, LoadOp::Clear, StoreOp::Store, {r, g, b, 1.f}};
+            cl->beginRenderPass(pass);
+            cl->endRenderPass();
+            const ResourceBarrier toPresent{acq.backbuffer, ResourceState::RenderTarget, ResourceState::Present};
+            cl->barrier({&toPresent, 1});
+            cl->end();
+            ICommandList* raw = cl.get();
+            const FenceValue f = dev.queue(QueueType::Graphics).submit({&raw, 1});
+            const bool ok = (*sc)->present();
+            dev.endFrame();
+            dev.queue(QueueType::Graphics).wait(f);
+            return ok;
+        };
+
+        // 1) 초기 렌더 & Present
+        CHECK(drawFrame(0.1f, 0.2f, 0.3f));
+
+        // 2) 크기 변경 후 렌더
+        (*sc)->resize(320, 240);
+        CHECK(drawFrame(0.3f, 0.2f, 0.1f));
+
+        // 3) 최소화(0×0) 시 크래시 없이 처리되어야 한다 (GraphicsSDK 는 skip=true 로 즉시 건너뜀)
+        (*sc)->resize(0, 0);
+        dev.beginFrame();
+        const AcquireResult minAcq = (*sc)->acquire();
+        if (!minAcq.skip && minAcq.backbuffer.valid()) {
+            (void)(*sc)->present();
+        }
+        dev.endFrame();
+#if defined(SBX_HAS_GRAPHICS_SDK) && SBX_HAS_GRAPHICS_SDK
+        CHECK(minAcq.skip);
+#endif
+
+        // 4) 최소화 복귀 후 정상 렌더
+        (*sc)->resize(scDesc.width, scDesc.height);
+        CHECK(drawFrame(0.2f, 0.4f, 0.2f));
+
+        // 5) 런타임 VSync 끄기/켜기 토글 및 렌더
+        (*sc)->setVsync(false);
+        CHECK_FALSE((*sc)->vsync());
+        CHECK(drawFrame(0.4f, 0.1f, 0.4f));
+
+        (*sc)->setVsync(true);
+        CHECK((*sc)->vsync());
+        CHECK(drawFrame(0.1f, 0.4f, 0.4f));
+
+        dev.waitIdle();
+        (*sc).reset();
+    }
 }

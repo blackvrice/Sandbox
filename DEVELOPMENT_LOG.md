@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 7 (`R0.28` ~ `R0.30`: 멀티 플랫폼 매핑 · 프로파일링/메모리 예산 · SwapChain/Device Lost 안정화)
+
+**무엇을**
+
+- `render/graphics_sdk/GraphicsSdkTypes.cpp`: `verifyAdapterTypeMappings()`에 6종 OS Surface(Win32, Xcb, Cocoa→MetalLayer, Xlib/Wayland `Unsupported`, None `InvalidArgument`) 및 3종 `QueueType` 매핑 검증을 추가했다 (`R0.28`).
+- `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`: `noteTearingSupport()`, `queryLocalMemoryUsageBytes()` (`queryMemoryBudget`), `checkDeviceStatus()` (`checkStatus`), `markDeviceLost()` 및 `reportSdkError()` 내 `DeviceLost` 자동 감지를 추가했다 (`R0.29`).
+- `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`: `querySurfacePresentCapabilities()` 기반 `PresentMode::Tearing` 자동 선택, 최소화(`0×0`) 안전 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 시 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 스왑체인 재생성(실패 시 롤백)을 구현했다 (`R0.30`).
+- `tests/render/CMakeLists.txt`, `tests/render/test_rhi_basic.cpp`: `SandboxPlatform`을 링크하고 실제 창 생성 → SwapChain `acquire/clear/present` → `resize` → `resize(0, 0)` 최소화 → 복귀 → `setVsync(false/true)` 수명 GPU 테스트를 추가했다.
+- `docs/graphics-sdk-refactor/{PLATFORM_SUPPORT,DEVELOPMENT_DASHBOARD,REFACTORING_ROADMAP,TEST_REPORT,VERSION_HISTORY,AI_HANDOFF}.md`를 갱신했다.
+
+**왜**
+
+- 멀티 플랫폼 서피스 계약을 자동 테스트로 고정하고, 실기 창 환경에서 발생하는 창 리사이즈·최소화·VSync 토글·Device Lost 시 크래시나 검증 오류 없이 복구되며 VSync OFF Tearing 지연을 개선하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `SandboxTests --test-suite=render`: **33/33 PASS** (340,535 assertions).
+- `sbx_render_tests` (**전체 34/34 PASS, 567 assertions**, 누수 0, 경고 0, 예상 오류 8/8):
+  - Legacy D3D12 WARP: 34/34 PASS
+  - Graphics SDK D3D12 WARP: 34/34 PASS
+  - Graphics SDK D3D12 GTX 1660 SUPER (`tearing 지원`): 34/34 PASS
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290 (`tearing 지원`): 34/34 PASS
+- `SandboxClient` Tearing 적용 효과 (`ecosystem_small`, 1920×1080 `--vsync off`):
+  - Graphics SDK D3D12: 1052.2 FPS, **1% Low 173.6 FPS** (Legacy 169.7 FPS 초과), **0.1% Low 123.0 FPS** (Legacy 121.9 FPS 초과)
+  - Graphics SDK Vulkan: 1489.1 FPS, **0.1% Low 430.3 FPS** (Legacy 382.3 FPS 대비 +12.6% 우위)
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check`, `arch_link_boundary_selftest` 모두 통과.
+
+**남은 일**
+
+- Phase 8 (`R0.31` ~ `R0.32`): Graphics UI 프레임워크 연동 인터페이스 및 Dear ImGui 공존 구조 구축.
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 6 (`R0.25` ~ `R0.27`: 멀티스레드 기록 · 다중 Queue · 핫 패스 최적화)
 
 **무엇을**

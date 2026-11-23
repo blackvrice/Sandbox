@@ -105,3 +105,16 @@
   - `allocateUpload()` 4KB 패딩 병합으로 프레임당 `Buffer::write()` 호출 최소화(D3D12 `small` +14.4% FPS, Vulkan `10k` +25.6% FPS)
   - `Application::totalTimings()`에 O(N) `nth_element` 기반 1% Low / 0.1% Low FPS 분포 계측 추가
   - 4스레드 병렬 커맨드 기록 배치 제출 및 Copy Queue 전송 GPU 테스트 2종 추가 → Legacy & GraphicsSDK (D3D12 WARP / D3D12 HW / Vulkan HW+VVL) 모두 **33/33 PASS (559 assertions)** 통과
+
+### `R0.28` ~ `R0.30` — Phase 7 멀티 플랫폼 매핑, 프로파일링/메모리 예산, SwapChain/Device Lost 안정화 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `render/graphics_sdk/GraphicsSdkTypes.cpp`
+  - `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`
+  - `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`
+  - `tests/render/CMakeLists.txt`, `tests/render/test_rhi_basic.cpp`
+- **변경 요약**:
+  - `verifyAdapterTypeMappings()`에 6종 Surface(Win32/Xcb/Cocoa/Xlib/Wayland/None) 및 3종 QueueType 매핑 검증 추가
+  - `makeGraphicsSdkSwapChain()`에서 `querySurfacePresentCapabilities()` 기반 `PresentMode::Tearing` 자동 선택 및 `DeviceCaps::tearing` 반영 (D3D12 `ecosystem_small` 1% Low 173.6 FPS, Vulkan 0.1% Low 430.3 FPS 달성)
+  - `GraphicsSdkDevice`에 `queryLocalMemoryUsageBytes()`, `checkDeviceStatus()`, `markDeviceLost()` 통합
+  - `GraphicsSdkSwapChain` 최소화(`0×0`) 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 재생성 구현 및 SwapChain 수명 GPU 테스트 추가 → 전 백엔드 **34/34 PASS (567 assertions)** 통과

@@ -120,6 +120,11 @@ public:
     void reportError(std::string_view what);
     void reportSdkError(std::string_view what, const gfx::Error& err);
     void countValidationError() noexcept { ++m_debugErrors; }
+    void noteTearingSupport(bool supported) noexcept { m_caps.tearing = supported; }
+    [[nodiscard]] bool isDeviceLost() const noexcept { return m_deviceLost; }
+    void markDeviceLost(std::string_view reason);
+    [[nodiscard]] bool checkDeviceStatus();
+    [[nodiscard]] std::optional<u64> queryLocalMemoryUsageBytes() const;
 
 private:
     Expected<void> init();
@@ -196,6 +201,7 @@ private:
     u64 m_debugErrors = 0;
     u64 m_ringDeferred = 0;
     bool m_debugActive = false;
+    bool m_deviceLost = false;
 };
 
 } // namespace sbx::rhi::graphics_sdk

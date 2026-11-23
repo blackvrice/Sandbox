@@ -17,7 +17,7 @@
 
 ---
 
-## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.27`, Phase 0 ~ Phase 6 완료 — 진행률 77.1%)
+## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.30`, Phase 0 ~ Phase 7 완료 — 진행률 85.7%)
 
 1. **Phase 0 (`R0.1` ~ `R0.2`) 완료**:
    - Sandbox RHI 및 3대 백엔드(`dx12`, `vulkan`, `metal`), 렌더러 패스 전수 분석 및 `GraphicsSDK::Core` 호환성 매트릭스([API_COMPATIBILITY.md](API_COMPATIBILITY.md)), SDK 확장 요구사항([SDK_REQUIREMENTS.md](SDK_REQUIREMENTS.md)) 수립.
@@ -46,16 +46,14 @@
 
 ---
 
-## 3. 바로 이어서 진행할 다음 작업 (`R0.28` — Phase 7 착수)
+## 3. 바로 이어서 진행할 다음 작업 (`R0.31` — Phase 8 착수)
 
-다음 작업자는 **Phase 7 (`R0.28` ~ `R0.30`: 멀티 플랫폼, 프로파일러, Device Lost/Resize 안정화)**부터 시작하면 됩니다:
+다음 작업자는 **Phase 8 (`R0.31` ~ `R0.32`: Graphics UI 연동 기반 및 ImGui 공존 구조)**부터 시작하면 됩니다:
 
-1. **`R0.28` — 멀티 플랫폼 검증 (Windows / Linux / macOS)**:
-   - Windows D3D12/Vulkan 33/33 검증 완료. Linux X11/Wayland(`SDK-REQ-008`) 및 macOS Metal(`MetalLayer`) 어댑터 컴파일/경계 점검 및 CI 매트릭스 정합성 확인.
-2. **`R0.29` — GPU Timestamp 및 CPU/GPU 프로파일러 통합**:
-   - `GraphicsSdkDevice::sdkDevice().profilingSnapshot()` / `resourceStatistics()`와 Sandbox 프로파일러 연동 확인.
-3. **`R0.30` — Device Lost 및 Resize / Recovery 안정화**:
-   - `GraphicsSdkSwapChain::resize()` 최소화(0×0) 및 반복 리사이즈 안정화, `gfx::Device::checkStatus()`/`recover()` 오류 전파 검증.
+1. **`R0.31` — Graphics UI 연동 인터페이스 구축**:
+   - `D:/source/GraphicsUI` 및 `D:/source/GraphicsSDK/docs/PHASE12_GRAPHICS_UI_REPORT.md`를 확인하고, `GraphicsSdkDevice`가 `GraphicsUI`에 순환 의존성 없이 `gfx::Device&` / `gfx::CommandList&` / 스왑체인 포맷 정보를 노출할 수 있는 비침투적 브리지(Host 인터페이스) 설계 및 검증.
+2. **`R0.32` — ImGui 및 Graphics UI 공존 구조 구축**:
+   - 동일 프레임/동일 렌더 패스(또는 연속 UI 패스)에서 게임 렌더러 + Graphics UI + Dear ImGui(Studio 도구)가 충돌 없이 공존할 수 있는 렌더 순서 및 입력 라우팅 경계 설계·검증.
 
 ---
 
