@@ -45,9 +45,9 @@
 | `R0.22` | Phase 4 | `DebugDraw` 및 Overlay(`GridPass`, `LinePass`) 렌더링 전환 (`SDK-REQ-009` 보정) | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `GraphicsSdkCommandList.cpp` | `R0.21` | `sbx_render_tests --test-case="*overlay*"` | ✅ 완료 |
 | `R0.23` | Phase 5 | `ImGuiRenderer` 전환 | `render/graphics_sdk/GraphicsSdkShaders.cpp`, `tests/render/CMakeLists.txt` | `R0.22` | `sbx_render_tests --test-case="*imgui*"` | ✅ 완료 |
 | `R0.24` | Phase 5 | `SandboxClient` / Studio 스왑체인 통합 및 정적 Upload 버퍼 동기화 검증 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.23` | `SandboxClient --world ecosystem_small --frames 300` | ✅ 완료 |
-| `R0.25` | Phase 6 | Multithreaded Command Recording 도입 | `render/renderer/Renderer.cpp`, `render/graphics_sdk/` | `R0.24` | `sbx_bench --only render` | ⬜ 대기 |
-| `R0.26` | Phase 6 | Async Compute 및 Copy Queue 도입 | `render/graphics_sdk/GraphicsSdkCommandQueue.cpp` | `R0.25` | `sbx_render_tests` | ⬜ 대기 |
-| `R0.27` | Phase 6 | GPU Memory Allocator 및 Descriptor 최적화 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.26` | `SandboxClient --scenario ecosystem_10k` | ⬜ 대기 |
+| `R0.25` | Phase 6 | Multithreaded Command Recording 및 핫 패스 힙 할당 제거 | `render/graphics_sdk/GraphicsSdkCommandList.cpp`, `GraphicsSdkDevice.cpp`, `tests/render/test_rhi_basic.cpp` | `R0.24` | `sbx_render_tests --test-case="*multithread*"` | ✅ 완료 |
+| `R0.26` | Phase 6 | 다중 Queue (`Graphics`/`Copy`/`Compute`) 및 `CommandPool` 분리 | `render/rhi/RhiTypes.hpp`, `render/graphics_sdk/GraphicsSdkCommandQueue.{hpp,cpp}`, `GraphicsSdkDevice.{hpp,cpp}` | `R0.25` | `sbx_render_tests --test-case="*queues*"` | ✅ 완료 |
+| `R0.27` | Phase 6 | UploadRing 4KB 패딩 병합 및 1% Low / 0.1% Low FPS 분포 계측 | `render/graphics_sdk/GraphicsSdkDevice.cpp`, `apps/client/Application.{hpp,cpp}`, `apps/client/main.cpp` | `R0.26` | `SandboxClient --world ecosystem_10k` | ✅ 완료 |
 | `R0.28` | Phase 7 | D3D12, Vulkan, Metal 및 Linux Surface(`SDK-REQ-008`) 검증 | `render/graphics_sdk/GraphicsSdkTypes.cpp` | `R0.27` | 플랫폼별 `sbx_render_tests` | ⬜ 대기 |
 | `R0.29` | Phase 7 | GPU Timestamp 및 CPU/GPU Profiler 통합 | `render/graphics_sdk/GraphicsSdkDevice.cpp` | `R0.28` | `SandboxClient` F3 오버레이 확인 | ⬜ 대기 |
 | `R0.30` | Phase 7 | Device Lost 및 Resize/Recovery 안정화 | `render/graphics_sdk/GraphicsSdkSwapChain.cpp` | `R0.29` | 창 크기 조절 및 복구 테스트 | ⬜ 대기 |
@@ -59,7 +59,7 @@
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.24`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.27`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -103,3 +103,8 @@
 - [x] `R0.22.1`: `GridPass`, `LinePass` (`overlay` 기준 이미지) 및 `SDK-REQ-009` 불투명 타깃 Readback 알파 불변식 보정 완료
 - [x] `R0.23.1`: `ImGuiRenderer` (`imgui_basic` 기준 이미지 및 1.92 동적 폰트 갱신/클리핑/해제) 통과 및 `tests/render/CMakeLists.txt` 전체 31개 GPU 테스트 활성화
 - [x] `R0.24.1`: `SandboxClient --world ecosystem_small` D3D12 (`--rhi-debug` 경고 0 · 오류 0) 및 Vulkan 실기 구동 검증, 정적 Upload 버퍼 dirty-check 동기화 완료
+
+### R0.25 ~ R0.27 — Phase 6 멀티스레드 기록, 다중 Queue, CPU/Upload 최적화 및 프레임 분포 계측
+- [x] `R0.25.1`: `GraphicsSdkCommandList` 풀 재사용(`m_recordedPasses`, `m_recordedBindings`, `m_passBuffersScratch`, `m_lastBufferStates`), 파이프라인 지연 발행, `m_recordMutex` 스레드 안전화 및 4스레드 병렬 기록 배치 제출 GPU 테스트 통과
+- [x] `R0.26.1`: `QueueType::Copy`/`Compute` 확장, `GraphicsSdkCommandQueue` 전용 큐 바인딩, `FrameSlot`별 `copyPool`/`computePool` 분리 및 Copy Queue 전송 GPU 테스트(D3D12 WARP/HW, Vulkan HW) 통과
+- [x] `R0.27.1`: `allocateUpload()` 4KB 패딩 병합으로 프레임당 `Buffer::write()` 호출 최소화(Vulkan `ecosystem_10k` +25.6% FPS 향상) 및 `Application` 1% Low / 0.1% Low FPS 분포 계측 추가

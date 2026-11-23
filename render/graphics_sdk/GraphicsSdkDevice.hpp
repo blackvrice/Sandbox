@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -34,6 +35,7 @@ public:
     GraphicsSdkDevice& operator=(const GraphicsSdkDevice&) = delete;
 
     [[nodiscard]] const DeviceCaps& caps() const override { return m_caps; }
+    [[nodiscard]] bool debugEnabled() const noexcept { return m_desc.debugLayer; }
     [[nodiscard]] DeviceStats stats() const override;
 
     [[nodiscard]] RhiBuffer createBuffer(const BufferDesc& desc) override;
@@ -128,6 +130,12 @@ private:
         std::unique_ptr<gfx::CommandPool> pool;
         std::vector<std::unique_ptr<gfx::CommandList>> lists;
         u32 nextListIndex = 0;
+        std::unique_ptr<gfx::CommandPool> copyPool;
+        std::vector<std::unique_ptr<gfx::CommandList>> copyLists;
+        u32 nextCopyListIndex = 0;
+        std::unique_ptr<gfx::CommandPool> computePool;
+        std::vector<std::unique_ptr<gfx::CommandList>> computeLists;
+        u32 nextComputeListIndex = 0;
         RhiBuffer ringBuffer{};
         gfx::BufferPtr pushBuffer;
         std::vector<std::byte> pushCpuShadow;
@@ -155,7 +163,9 @@ private:
     u32 m_framesInFlight = 2;
 
     std::unique_ptr<gfx::Device> m_device;
-    GraphicsSdkCommandQueue m_queue{*this};
+    GraphicsSdkCommandQueue m_queue{*this, QueueType::Graphics};
+    GraphicsSdkCommandQueue m_copyQueue{*this, QueueType::Copy};
+    GraphicsSdkCommandQueue m_computeQueue{*this, QueueType::Compute};
     std::vector<FrameSlot> m_frameSlots;
 
     HandlePool<BufferTag, GraphicsSdkBuffer> m_buffers;
@@ -174,6 +184,7 @@ private:
     std::vector<DirtyUploadRange> m_dirtyRingRanges;
     std::vector<RhiBuffer> m_mappedUploadBuffers;
     std::vector<PendingReadback> m_pendingReadbacks;
+    mutable std::mutex m_recordMutex;
 
     TimestampReadback m_timestamps{};
 

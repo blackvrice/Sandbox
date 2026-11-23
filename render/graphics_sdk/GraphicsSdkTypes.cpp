@@ -91,6 +91,10 @@ gfx::QueueType mapQueueType(QueueType type) noexcept {
     switch (type) {
     case QueueType::Graphics:
         return gfx::QueueType::Graphics;
+    case QueueType::Copy:
+        return gfx::QueueType::Copy;
+    case QueueType::Compute:
+        return gfx::QueueType::Compute;
     }
     return gfx::QueueType::Graphics;
 }

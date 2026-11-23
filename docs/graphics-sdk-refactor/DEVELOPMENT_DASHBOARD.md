@@ -3,8 +3,8 @@
 **최종 업데이트**: 2026-11-23  
 **현재 리팩토링 브랜치**: `refactor/graphics-sdk` (`D:/Game/Sandbox-GraphicsSDK`)  
 **고정 Graphics SDK 버전**: `9345c1816879c63f8c26f13fc876382b0c2ed054` (`D:/source/GraphicsSDK`)  
-**현재 완료 버전**: `R0.1` ~ `R0.24` (Phase 0 ~ Phase 5 완료 — 전체 31/31 GPU 테스트 및 `SandboxClient` 구동 완료)  
-**다음 착수 버전**: `R0.25` (Phase 6 — 멀티스레드 커맨드 기록, 다중 Queue 및 GPU 메모리 최적화)
+**현재 완료 버전**: `R0.1` ~ `R0.27` (Phase 0 ~ Phase 6 완료 — 전체 33/33 GPU 테스트, 멀티스레드 기록, 다중 Queue 및 프레임 분포 계측 완료)  
+**다음 착수 버전**: `R0.28` (Phase 7 — 멀티 플랫폼 검증, GPU 프로파일러 통합, Device Lost / Resize 안정화)
 
 ---
 
@@ -18,12 +18,12 @@
 | **Phase 3** | `R0.16` ~ `R0.18` | 셰이더 변환(`DXBC`/`SPIR-V 1.3`), 동적 샘플러 변형 PSO, PushConstant 전용 슬롯, 토폴로지/컬링 | 100% (3/3) | ✅ 완료 |
 | **Phase 4** | `R0.19` ~ `R0.22` | `Renderer`, `SpriteBatcher`, `TerrainPass`, `GridPass`, `LinePass` Graphics SDK 구동 | 100% (4/4) | ✅ 완료 |
 | **Phase 5** | `R0.23` ~ `R0.24` | `ImGuiRenderer` 및 `SandboxClient` / Studio 스왑체인 통합 검증 | 100% (2/2) | ✅ 완료 |
-| **Phase 6** | `R0.25` ~ `R0.27` | 멀티스레드 커맨드 기록, 다중 Queue, GPU 메모리 최적화 | 0% (0/3) | ⬜ 대기 |
+| **Phase 6** | `R0.25` ~ `R0.27` | 멀티스레드 커맨드 기록, 다중 Queue, GPU 메모리·Upload 최적화 | 100% (3/3) | ✅ 완료 |
 | **Phase 7** | `R0.28` ~ `R0.30` | 멀티 플랫폼(Windows/Linux/macOS), GPU 프로파일러, Device Lost 복구 | 0% (0/3) | ⬜ 대기 |
 | **Phase 8** | `R0.31` ~ `R0.32` | Graphics UI 프레임워크 연동 및 ImGui 공존 | 0% (0/2) | ⬜ 대기 |
 | **Phase 9** | `R0.33` ~ `R0.34` | 전체 시나리오 벤치마크 비교 및 기본 백엔드(`ON`) 전환 검토 | 0% (0/2) | ⬜ 대기 |
 | **Phase 10** | `R0.35` | Legacy 백엔드 정리 및 최종 통합 | 0% (0/1) | ⬜ 대기 |
-| **합계** | `R0.1` ~ `R0.35` | 총 35개 리팩토링 마일스톤 | **68.6% (24/35)** | 🟡 진행 중 |
+| **합계** | `R0.1` ~ `R0.35` | 총 35개 리팩토링 마일스톤 | **77.1% (27/35)** | 🟡 진행 중 |
 
 ---
 

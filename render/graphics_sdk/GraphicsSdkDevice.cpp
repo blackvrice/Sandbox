@@ -151,9 +151,24 @@ Expected<void> GraphicsSdkDevice::init() {
         m_quadStripIndexBuffer = std::move(*ib);
     }
 
-    log::info("render", "GraphicsSDK ({}): {}{} · VRAM {} MB · frames in flight {} · Validation {}",
+    m_queue.bindSdkQueue(&m_device->queue(), true);
+    if (auto cq = m_device->queue(gfx::QueueType::Copy); cq && *cq != nullptr) {
+        const bool dedicated = (*cq != &m_device->queue());
+        m_copyQueue.bindSdkQueue(*cq, dedicated);
+    } else {
+        m_copyQueue.bindSdkQueue(&m_device->queue(), false);
+    }
+    if (auto cmp = m_device->queue(gfx::QueueType::Compute); cmp && *cmp != nullptr) {
+        const bool dedicated = (*cmp != &m_device->queue());
+        m_computeQueue.bindSdkQueue(*cmp, dedicated);
+    } else {
+        m_computeQueue.bindSdkQueue(&m_device->queue(), false);
+    }
+
+    log::info("render", "GraphicsSDK ({}): {}{} · VRAM {} MB · frames in flight {} · Validation {} · Queues G{}{}",
               backendName(m_caps.backend), m_caps.adapterName, m_caps.softwareAdapter ? " (소프트웨어)" : "",
-              m_caps.dedicatedVideoMemory >> 20, m_framesInFlight, m_debugActive ? "켬" : "끔");
+              m_caps.dedicatedVideoMemory >> 20, m_framesInFlight, m_debugActive ? "켬" : "끔",
+              m_copyQueue.isDedicated() ? "+Copy" : "", m_computeQueue.isDedicated() ? "+Compute" : "");
     return {};
 }
 
@@ -582,6 +597,7 @@ gfx::PipelinePtr GraphicsSdkDevice::resolvePipelineVariant(
     if (matchesBase) {
         return pl.pipeline;
     }
+    std::scoped_lock lock(m_recordMutex);
     for (const SamplerPipelineVariant& v : pl.variants) {
         if (v.key == key) {
             return v.pipeline;
@@ -692,15 +708,18 @@ std::byte* GraphicsSdkDevice::map(RhiBuffer buffer) {
 }
 
 UploadAllocation GraphicsSdkDevice::allocateUpload(u64 size, u64 alignment) {
+    std::scoped_lock lock(m_recordMutex);
     const auto offset = m_ring.allocate(size, alignment);
     if (!offset) {
         ++m_ringDeferred;
         return {};
     }
     const RhiBuffer activeRing = ringBufferHandle();
+    // 정렬 패딩 갭(<= 4KB)을 허용해 연속 업로드 구간으로 병합하여 프레임당 Buffer::write 호출 횟수를 1~2회로 최소화한다.
+    constexpr u64 kUploadCoalesceGap = 4096;
     if (!m_dirtyRingRanges.empty()) {
         DirtyUploadRange& last = m_dirtyRingRanges.back();
-        if (*offset >= last.offset && *offset <= last.offset + last.size) {
+        if (*offset >= last.offset && *offset <= last.offset + last.size + kUploadCoalesceGap) {
             const u64 end = std::max(last.offset + last.size, *offset + size);
             last.size = end - last.offset;
             return {activeRing, *offset, m_ringCpu + *offset, size};
@@ -711,6 +730,7 @@ UploadAllocation GraphicsSdkDevice::allocateUpload(u64 size, u64 alignment) {
 }
 
 std::pair<gfx::BufferPtr, u64> GraphicsSdkDevice::allocatePushConstant(std::span<const std::byte> data) {
+    std::scoped_lock lock(m_recordMutex);
     if (m_frameIndex >= m_frameSlots.size()) {
         return {{}, 0};
     }
@@ -804,8 +824,16 @@ void GraphicsSdkDevice::syncCompletedReadbacks(FenceValue completedFence) {
     }
 }
 
-ICommandQueue& GraphicsSdkDevice::queue(QueueType /*type*/) {
-    return m_queue;
+ICommandQueue& GraphicsSdkDevice::queue(QueueType type) {
+    switch (type) {
+    case QueueType::Copy:
+        return m_copyQueue;
+    case QueueType::Compute:
+        return m_computeQueue;
+    case QueueType::Graphics:
+    default:
+        return m_queue;
+    }
 }
 
 std::unique_ptr<ICommandList> GraphicsSdkDevice::createCommandList(QueueType type) {
@@ -834,17 +862,33 @@ gfx::CommandList* GraphicsSdkDevice::acquireSlotCommandList(u32 slotIdx, QueueTy
         return nullptr;
     }
     FrameSlot& slot = m_frameSlots[slotIdx];
-    if (slot.nextListIndex < slot.lists.size() && slot.lists[slot.nextListIndex]) {
-        return slot.lists[slot.nextListIndex++].get();
+    const bool useCopy = type == QueueType::Copy && m_copyQueue.isDedicated();
+    const bool useCompute = type == QueueType::Compute && m_computeQueue.isDedicated();
+    const gfx::QueueType effectiveType =
+        useCopy ? gfx::QueueType::Copy : (useCompute ? gfx::QueueType::Compute : gfx::QueueType::Graphics);
+
+    std::unique_ptr<gfx::CommandPool>& targetPool =
+        useCopy ? slot.copyPool : (useCompute ? slot.computePool : slot.pool);
+    std::vector<std::unique_ptr<gfx::CommandList>>& targetLists =
+        useCopy ? slot.copyLists : (useCompute ? slot.computeLists : slot.lists);
+    u32& nextIdx = useCopy ? slot.nextCopyListIndex : (useCompute ? slot.nextComputeListIndex : slot.nextListIndex);
+
+    if (nextIdx < targetLists.size() && targetLists[nextIdx]) {
+        return targetLists[nextIdx++].get();
+    }
+    if (!targetPool && effectiveType != gfx::QueueType::Graphics) {
+        if (auto createdPool = m_device->createCommandPool(effectiveType)) {
+            targetPool = std::move(*createdPool);
+        }
     }
     std::unique_ptr<gfx::CommandList> createdList;
-    if (slot.pool) {
-        if (auto created = slot.pool->createCommandList()) {
+    if (targetPool) {
+        if (auto created = targetPool->createCommandList()) {
             createdList = std::move(*created);
         }
     }
     if (!createdList) {
-        if (auto created = m_device->createCommandList(mapQueueType(type))) {
+        if (auto created = m_device->createCommandList(effectiveType)) {
             createdList = std::move(*created);
         } else {
             reportSdkError("createCommandList", created.error());
@@ -852,8 +896,8 @@ gfx::CommandList* GraphicsSdkDevice::acquireSlotCommandList(u32 slotIdx, QueueTy
         }
     }
     gfx::CommandList* ptr = createdList.get();
-    slot.lists.push_back(std::move(createdList));
-    slot.nextListIndex = static_cast<u32>(slot.lists.size());
+    targetLists.push_back(std::move(createdList));
+    nextIdx = static_cast<u32>(targetLists.size());
     return ptr;
 }
 
@@ -906,6 +950,8 @@ void GraphicsSdkDevice::beginFrame() {
         slot.fence = {};
     }
     slot.nextListIndex = 0;
+    slot.nextCopyListIndex = 0;
+    slot.nextComputeListIndex = 0;
     slot.pushUsed = 0;
     slot.pushFlushed = 0;
     if (slot.pool) {
@@ -917,6 +963,18 @@ void GraphicsSdkDevice::beginFrame() {
         }
         if (!res) {
             reportSdkError("CommandPool::reset", res.error());
+        }
+    }
+    if (slot.copyPool) {
+        if (auto res = slot.copyPool->reset(); !res) {
+            m_copyQueue.waitIdle();
+            (void)slot.copyPool->reset();
+        }
+    }
+    if (slot.computePool) {
+        if (auto res = slot.computePool->reset(); !res) {
+            m_computeQueue.waitIdle();
+            (void)slot.computePool->reset();
         }
     }
 
@@ -940,16 +998,30 @@ void GraphicsSdkDevice::noteFrameSubmission(gfx::Fence fence) noexcept {
 
 void GraphicsSdkDevice::waitIdle() {
     m_queue.waitIdle();
+    if (m_copyQueue.isDedicated()) {
+        m_copyQueue.waitIdle();
+    }
+    if (m_computeQueue.isDedicated()) {
+        m_computeQueue.waitIdle();
+    }
     for (u32 i = 0; i < m_frameSlots.size(); ++i) {
         if (m_frameSlots[i].fence.value != 0) {
             collectSlotTimestamps(i);
             m_frameSlots[i].fence = {};
         }
         m_frameSlots[i].nextListIndex = 0;
+        m_frameSlots[i].nextCopyListIndex = 0;
+        m_frameSlots[i].nextComputeListIndex = 0;
         if (m_frameSlots[i].pool) {
             if (auto res = m_frameSlots[i].pool->reset(); !res) {
                 reportSdkError("CommandPool::reset(waitIdle)", res.error());
             }
+        }
+        if (m_frameSlots[i].copyPool) {
+            (void)m_frameSlots[i].copyPool->reset();
+        }
+        if (m_frameSlots[i].computePool) {
+            (void)m_frameSlots[i].computePool->reset();
         }
     }
     const FenceValue done = m_queue.lastSubmittedValue();

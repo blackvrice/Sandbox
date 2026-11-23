@@ -541,6 +541,10 @@ int main(int argc, char** argv) {
             printText(
                 std::format("프레임 평균 ({} 프레임, {:.1f} fps): 월드 {:.2f} ms · 추출 {:.2f} ms · 렌더 {:.2f} ms\n",
                             t.frames, 1000.0 / t.frameMs, t.worldMs, t.extractMs, t.renderMs));
+            if (t.p99FrameMs > 0.0 && t.p999FrameMs > 0.0) {
+                printText(std::format("프레임 분포: 1% Low {:.1f} fps ({:.2f} ms) · 0.1% Low {:.1f} fps ({:.2f} ms)\n",
+                                      1000.0 / t.p99FrameMs, t.p99FrameMs, 1000.0 / t.p999FrameMs, t.p999FrameMs));
+            }
         }
         if (const sbx::script::ClientScriptSystems* cs = world->clientScripts()) {
             // client 시스템 (v0.3 M5-T3) — 시스템마다 누적 통계, 마지막 프레임의 표시

@@ -21,7 +21,7 @@ struct CmdBarrier {
 };
 
 struct CmdBeginRenderPass {
-    gfx::RenderPassDesc pass;
+    u32 passIndex = 0;
     u32 targetWidth = 0;
     u32 targetHeight = 0;
 };
@@ -66,7 +66,13 @@ struct CmdSetPipeline {
 };
 
 struct CmdBindResources {
-    gfx::ResourceBindings bindings;
+    u32 bindingIndex = 0;
+};
+
+constexpr std::array<const char*, kMaxTimestampsPerFrame> kTimestampScopeNames = {
+    "ts_0",  "ts_1",  "ts_2",  "ts_3",  "ts_4",  "ts_5",  "ts_6",  "ts_7",  "ts_8",  "ts_9",  "ts_10",
+    "ts_11", "ts_12", "ts_13", "ts_14", "ts_15", "ts_16", "ts_17", "ts_18", "ts_19", "ts_20", "ts_21",
+    "ts_22", "ts_23", "ts_24", "ts_25", "ts_26", "ts_27", "ts_28", "ts_29", "ts_30", "ts_31",
 };
 
 struct CmdSetVertexBuffer {
@@ -122,6 +128,7 @@ public:
         if (m_recording) {
             error("begin() 을 end() 없이 두 번");
         }
+        releasePoolReferences();
         m_ops.clear();
         m_pendingReadbacks.clear();
         m_pipelineHandle = {};
@@ -172,11 +179,16 @@ public:
     }
 
     void beginRenderPass(const RenderPassDesc& desc) override {
-        if (!desc.debugLabel.empty()) {
+        if (!desc.debugLabel.empty() && m_dev.debugEnabled()) {
             beginDebugLabel(desc.debugLabel);
             m_passLabel = true;
         }
-        gfx::RenderPassDesc sdkPass{};
+        const u32 passIdx = m_recordedPassCount++;
+        if (passIdx >= m_recordedPasses.size()) {
+            m_recordedPasses.emplace_back();
+        }
+        gfx::RenderPassDesc& sdkPass = m_recordedPasses[passIdx];
+        sdkPass.colors.clear();
         u32 w = 0;
         u32 h = 0;
         for (u32 i = 0; i < desc.colorCount && i < kMaxColorAttachments; ++i) {
@@ -220,7 +232,9 @@ public:
         m_activeSdkPipeline.reset();
         m_bindingsDirty = true;
         if (!sdkPass.colors.empty()) {
-            m_ops.emplace_back(CmdBeginRenderPass{std::move(sdkPass), w, h});
+            m_ops.emplace_back(CmdBeginRenderPass{passIdx, w, h});
+        } else {
+            --m_recordedPassCount;
         }
     }
 
@@ -277,7 +291,7 @@ public:
     void copyTextureToBuffer(const BufferTextureCopy& c) override { recordCopyTexture(c, false); }
 
     void beginDebugLabel(std::string_view label) override {
-        if (!label.empty()) {
+        if (!label.empty() && m_dev.debugEnabled()) {
             m_ops.emplace_back(CmdDebugMarker{std::string(label)});
         }
     }
@@ -294,8 +308,7 @@ public:
         }
         m_pipelineHandle = pipeline;
         m_bindingsDirty = true;
-        m_activeSdkPipeline = p->pipeline;
-        m_ops.emplace_back(CmdSetPipeline{p->pipeline});
+        // 샘플러 변형 PSO 가 결정되는 draw 직전(emitBindingsIfNeeded)에 최종 파이프라인을 1회만 발행한다.
     }
 
     void setBindGroup(u32 slot, RhiBindGroup group) override {
@@ -487,6 +500,30 @@ public:
 
         bool scopeOpen = false;
         u32 scopesRecorded = 0;
+        m_lastBufferStates.clear();
+
+        auto transitionBufferIfNeeded = [&](const gfx::BufferPtr& buf, gfx::ResourceState want) {
+            if (!buf || want == gfx::ResourceState::Common) {
+                return;
+            }
+            const gfx::Buffer* raw = buf.get();
+            for (BufferStateEntry& entry : m_lastBufferStates) {
+                if (entry.buffer == raw) {
+                    if (entry.state == want) {
+                        return;
+                    }
+                    entry.state = want;
+                    if (auto res = cmd.transition(buf, want); !res) {
+                        m_dev.reportSdkError("CommandList::transition(Buffer)", res.error());
+                    }
+                    return;
+                }
+            }
+            m_lastBufferStates.push_back({raw, want});
+            if (auto res = cmd.transition(buf, want); !res) {
+                m_dev.reportSdkError("CommandList::transition(Buffer)", res.error());
+            }
+        };
 
         for (usize opIdx = 0; opIdx < m_ops.size(); ++opIdx) {
             const RecordedOp& op = m_ops[opIdx];
@@ -496,23 +533,20 @@ public:
                 }
             } else if (const auto* rp = std::get_if<CmdBeginRenderPass>(&op)) {
                 // GraphicsSDK 는 렌더 패스 밖에서 버퍼 상태 전이를 요구한다.
-                // 이번 렌더 패스 안에서 참조될 Vertex / Index / Constant 버퍼를 미리 스캔하여 필요한 상태로 전이한다.
-                struct BufferUsageMask {
-                    gfx::BufferPtr buffer;
-                    u32 mask = 0; // 1 = Vertex, 2 = Index, 4 = Constant
-                };
-                std::vector<BufferUsageMask> passBuffers;
+                // 재사용 스크래치 벡터로 이번 패스의 Vertex / Index / Constant 버퍼 사용을 집계한다 (힙 할당 0).
+                m_passBuffersScratch.clear();
                 auto markBuffer = [&](const gfx::BufferPtr& buf, u32 bit) {
                     if (!buf) {
                         return;
                     }
-                    for (auto& entry : passBuffers) {
-                        if (entry.buffer.get() == buf.get()) {
+                    const gfx::Buffer* raw = buf.get();
+                    for (auto& entry : m_passBuffersScratch) {
+                        if (entry.buffer->get() == raw) {
                             entry.mask |= bit;
                             return;
                         }
                     }
-                    passBuffers.push_back({buf, bit});
+                    m_passBuffersScratch.push_back({&buf, bit});
                 };
                 for (usize j = opIdx + 1; j < m_ops.size(); ++j) {
                     if (std::holds_alternative<CmdEndRenderPass>(m_ops[j])) {
@@ -523,12 +557,12 @@ public:
                     } else if (const auto* ibOp = std::get_if<CmdSetIndexBuffer>(&m_ops[j])) {
                         markBuffer(ibOp->buffer, 2u);
                     } else if (const auto* brOp = std::get_if<CmdBindResources>(&m_ops[j])) {
-                        for (const auto& cbBind : brOp->bindings.constants) {
+                        for (const auto& cbBind : m_recordedBindings[brOp->bindingIndex].constants) {
                             markBuffer(cbBind.buffer, 4u);
                         }
                     }
                 }
-                for (const auto& entry : passBuffers) {
+                for (const auto& entry : m_passBuffersScratch) {
                     gfx::ResourceState want = gfx::ResourceState::Common;
                     if ((entry.mask & 4u) != 0u) {
                         want = gfx::ResourceState::ConstantBuffer;
@@ -539,13 +573,9 @@ public:
                     } else if ((entry.mask & 2u) != 0u) {
                         want = gfx::ResourceState::IndexBuffer;
                     }
-                    if (want != gfx::ResourceState::Common) {
-                        if (auto res = cmd.transition(entry.buffer, want); !res) {
-                            m_dev.reportSdkError("CommandList::transition(Buffer)", res.error());
-                        }
-                    }
+                    transitionBufferIfNeeded(*entry.buffer, want);
                 }
-                if (auto res = cmd.beginRenderPass(rp->pass); !res) {
+                if (auto res = cmd.beginRenderPass(m_recordedPasses[rp->passIndex]); !res) {
                     m_dev.reportSdkError("CommandList::beginRenderPass", res.error());
                 }
             } else if (std::holds_alternative<CmdEndRenderPass>(op)) {
@@ -561,16 +591,16 @@ public:
                     m_dev.reportSdkError("CommandList::setScissor", res.error());
                 }
             } else if (const auto* cb = std::get_if<CmdCopyBuffer>(&op)) {
-                (void)cmd.transition(cb->src, gfx::ResourceState::CopySource);
+                transitionBufferIfNeeded(cb->src, gfx::ResourceState::CopySource);
                 if (cb->dstNeedsTransition) {
-                    (void)cmd.transition(cb->dst, gfx::ResourceState::CopyDestination);
+                    transitionBufferIfNeeded(cb->dst, gfx::ResourceState::CopyDestination);
                 }
                 if (auto res = cmd.copyBufferRegion(cb->src, cb->srcOffset, cb->dst, cb->dstOffset, cb->size); !res) {
                     m_dev.reportSdkError("CommandList::copyBufferRegion", res.error());
                 }
             } else if (const auto* ct = std::get_if<CmdCopyTexture>(&op)) {
                 if (ct->toTexture) {
-                    (void)cmd.transition(ct->buffer, gfx::ResourceState::CopySource);
+                    transitionBufferIfNeeded(ct->buffer, gfx::ResourceState::CopySource);
                     if (auto res = cmd.copyBufferToTextureRegion(ct->buffer, ct->texture, ct->region); !res) {
                         m_dev.reportSdkError("CommandList::copyBufferToTextureRegion", res.error());
                     }
@@ -587,7 +617,7 @@ public:
                     m_dev.reportSdkError("CommandList::setPipeline", res.error());
                 }
             } else if (const auto* br = std::get_if<CmdBindResources>(&op)) {
-                if (auto res = cmd.bindResources(br->bindings); !res) {
+                if (auto res = cmd.bindResources(m_recordedBindings[br->bindingIndex]); !res) {
                     m_dev.reportSdkError("CommandList::bindResources", res.error());
                 }
             } else if (const auto* vb = std::get_if<CmdSetVertexBuffer>(&op)) {
@@ -615,7 +645,9 @@ public:
                     ++scopesRecorded;
                 }
                 if (scopesRecorded < gfx::kMaxTimestampScopesPerCommandList) {
-                    if (cmd.beginTimestampScope(std::format("ts_{}", wt->index))) {
+                    const char* scopeName =
+                        wt->index < kTimestampScopeNames.size() ? kTimestampScopeNames[wt->index] : "ts";
+                    if (cmd.beginTimestampScope(scopeName)) {
                         scopeOpen = true;
                     }
                 }
@@ -652,6 +684,10 @@ public:
             m_dev.registerPendingReadback(rb, fence.value);
         }
         m_pendingReadbacks.clear();
+        // 제출이 끝난 뒤 풀에 남아 있는 GPU 리소스 shared_ptr 참조를 즉시 해제한다(벡터 capacity 는 유지).
+        releasePoolReferences();
+        m_ops.clear();
+        m_activeSdkPipeline.reset();
     }
 
 private:
@@ -738,10 +774,15 @@ private:
         if (!m_bindingsDirty) {
             return true;
         }
-        // 동적 샘플러(RhiSampler) 조합에 맞는 SDK StaticSampler 파이프라인 변형을 선택한다.
+        // 동적 샘플러(RhiSampler) 조합에 맞는 최종 SDK 파이프라인을 결정해 1회만 발행한다.
+        gfx::PipelinePtr targetPipeline = pl.pipeline;
         if (!pl.samplerMap.empty()) {
-            std::vector<std::pair<gfx::SamplerFilter, gfx::SamplerAddress>> samplerStates(
-                pl.samplerMap.size(), {gfx::SamplerFilter::Linear, gfx::SamplerAddress::Clamp});
+            constexpr usize kMaxStaticSamplers = 8;
+            std::array<std::pair<gfx::SamplerFilter, gfx::SamplerAddress>, kMaxStaticSamplers> samplerStates{};
+            const usize samplerCount = std::min(pl.samplerMap.size(), kMaxStaticSamplers);
+            for (usize i = 0; i < samplerCount; ++i) {
+                samplerStates[i] = {gfx::SamplerFilter::Linear, gfx::SamplerAddress::Clamp};
+            }
             for (const PipelineSamplerMapEntry& sm : pl.samplerMap) {
                 const GraphicsSdkBindGroup* bg = m_dev.bindGroup(m_boundGroups[sm.group]);
                 if (bg == nullptr) {
@@ -758,17 +799,31 @@ private:
                     error("draw: 샘플러가 이미 해제되었다");
                     return false;
                 }
-                if (sm.sdkSamplerIndex < samplerStates.size()) {
+                if (sm.sdkSamplerIndex < samplerCount) {
                     samplerStates[sm.sdkSamplerIndex] = {smp->sdkFilter, smp->sdkAddress};
                 }
             }
-            gfx::PipelinePtr variant = m_dev.resolvePipelineVariant(pl, samplerStates);
-            if (variant && variant != m_activeSdkPipeline) {
-                m_ops.emplace_back(CmdSetPipeline{variant});
-                m_activeSdkPipeline = std::move(variant);
+            gfx::PipelinePtr variant =
+                m_dev.resolvePipelineVariant(pl, std::span(samplerStates.data(), samplerCount));
+            if (variant) {
+                targetPipeline = std::move(variant);
             }
         }
-        gfx::ResourceBindings rb{};
+        if (targetPipeline && targetPipeline.get() != m_activeSdkPipeline.get()) {
+            m_ops.emplace_back(CmdSetPipeline{targetPipeline});
+            m_activeSdkPipeline = std::move(targetPipeline);
+        }
+
+        const u32 bindIdx = m_recordedBindingCount;
+        if (bindIdx >= m_recordedBindings.size()) {
+            m_recordedBindings.emplace_back();
+        }
+        gfx::ResourceBindings& rb = m_recordedBindings[bindIdx];
+        rb.constants.clear();
+        rb.textures.clear();
+        rb.storageBuffers.clear();
+        rb.storageTextures.clear();
+
         for (const PipelineBindingMapEntry& mapEntry : pl.bindingMap) {
             const RhiBindGroup gh = m_boundGroups[mapEntry.group];
             const GraphicsSdkBindGroup* bg = m_dev.bindGroup(gh);
@@ -828,7 +883,8 @@ private:
 
         if (!rb.constants.empty() || !rb.textures.empty() || !rb.storageBuffers.empty() ||
             !rb.storageTextures.empty()) {
-            m_ops.emplace_back(CmdBindResources{std::move(rb)});
+            ++m_recordedBindingCount;
+            m_ops.emplace_back(CmdBindResources{bindIdx});
         }
         m_bindingsDirty = false;
         return true;
@@ -927,9 +983,39 @@ private:
                                               c.height == t->desc.height && c.mip == 0 && c.layer == 0});
     }
 
+    void releasePoolReferences() {
+        for (u32 i = 0; i < m_recordedPassCount && i < m_recordedPasses.size(); ++i) {
+            m_recordedPasses[i].colors.clear();
+        }
+        m_recordedPassCount = 0;
+        for (u32 i = 0; i < m_recordedBindingCount && i < m_recordedBindings.size(); ++i) {
+            m_recordedBindings[i].constants.clear();
+            m_recordedBindings[i].textures.clear();
+            m_recordedBindings[i].storageBuffers.clear();
+            m_recordedBindings[i].storageTextures.clear();
+        }
+        m_recordedBindingCount = 0;
+    }
+
+    struct PassBufferUse {
+        const gfx::BufferPtr* buffer = nullptr;
+        u32 mask = 0; // 1 = Vertex, 2 = Index, 4 = Constant
+    };
+
+    struct BufferStateEntry {
+        const gfx::Buffer* buffer = nullptr;
+        gfx::ResourceState state = gfx::ResourceState::Common;
+    };
+
     GraphicsSdkDevice& m_dev;
     QueueType m_type = QueueType::Graphics;
     std::vector<RecordedOp> m_ops;
+    std::vector<gfx::RenderPassDesc> m_recordedPasses;
+    u32 m_recordedPassCount = 0;
+    std::vector<gfx::ResourceBindings> m_recordedBindings;
+    u32 m_recordedBindingCount = 0;
+    std::vector<PassBufferUse> m_passBuffersScratch;
+    std::vector<BufferStateEntry> m_lastBufferStates;
     std::vector<RhiBuffer> m_pendingReadbacks;
     bool m_recording = false;
     bool m_inPass = false;

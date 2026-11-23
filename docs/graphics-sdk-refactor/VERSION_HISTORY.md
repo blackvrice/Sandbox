@@ -88,3 +88,20 @@
   - GraphicsSDK D3D12/Vulkan의 `DestBlendAlpha = ZERO` 불일치(`SDK-REQ-009`)에 대한 불투명 RT Readback 알파 불변량 보정(`applyOpaqueAlphaFixup`) 구현
   - 정적 매핑 Upload 버퍼의 `lastUploadedShadow` 변경 감지 도입으로 `SandboxClient`의 `Cannot overwrite a buffer in flight` 제거
   - `tests/render/CMakeLists.txt`에서 `SBX_RENDER_TEST_FILTER` 완전 제거 → D3D12 WARP, D3D12 HW, Vulkan HW(+VVL) 모두 **31/31 PASS (527 assertions)**, `SandboxClient` Debug Layer 0경고/0오류 검증 완료
+
+### `R0.25` ~ `R0.27` — Phase 6 멀티스레드 기록, 다중 Queue, 핫 패스 CPU/Upload 최적화 및 1%/0.1% Low 계측 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `render/rhi/RhiTypes.hpp`
+  - `render/graphics_sdk/GraphicsSdkTypes.cpp`
+  - `render/graphics_sdk/GraphicsSdkCommandQueue.{hpp,cpp}`
+  - `render/graphics_sdk/GraphicsSdkCommandList.cpp`
+  - `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`
+  - `tests/render/test_rhi_basic.cpp`
+  - `apps/client/Application.{hpp,cpp}`, `apps/client/main.cpp`
+- **변경 요약**:
+  - `GraphicsSdkCommandList`의 `m_recordedPasses`/`m_recordedBindings` 풀 재사용, `m_passBuffersScratch`/`m_lastBufferStates` 재사용, 파이프라인 지연 발행, 중복 버퍼 `transition()` 제거, 정적 타임스탬프 이름 테이블, `m_recordMutex` 스레드 안전화 구현
+  - `QueueType::Copy`/`Compute` 확장, `GraphicsSdkCommandQueue` 전용 큐 바인딩 + 16개 인라인 스택 배치 제출, `FrameSlot`별 `copyPool`/`computePool` 분리 구현
+  - `allocateUpload()` 4KB 패딩 병합으로 프레임당 `Buffer::write()` 호출 최소화(D3D12 `small` +14.4% FPS, Vulkan `10k` +25.6% FPS)
+  - `Application::totalTimings()`에 O(N) `nth_element` 기반 1% Low / 0.1% Low FPS 분포 계측 추가
+  - 4스레드 병렬 커맨드 기록 배치 제출 및 Copy Queue 전송 GPU 테스트 2종 추가 → Legacy & GraphicsSDK (D3D12 WARP / D3D12 HW / Vulkan HW+VVL) 모두 **33/33 PASS (559 assertions)** 통과

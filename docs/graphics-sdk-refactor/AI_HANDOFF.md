@@ -17,7 +17,7 @@
 
 ---
 
-## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.24`, Phase 0 ~ Phase 5 완료 — 진행률 68.6%)
+## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.27`, Phase 0 ~ Phase 6 완료 — 진행률 77.1%)
 
 1. **Phase 0 (`R0.1` ~ `R0.2`) 완료**:
    - Sandbox RHI 및 3대 백엔드(`dx12`, `vulkan`, `metal`), 렌더러 패스 전수 분석 및 `GraphicsSDK::Core` 호환성 매트릭스([API_COMPATIBILITY.md](API_COMPATIBILITY.md)), SDK 확장 요구사항([SDK_REQUIREMENTS.md](SDK_REQUIREMENTS.md)) 수립.
@@ -46,17 +46,16 @@
 
 ---
 
-## 3. 바로 이어서 진행할 다음 작업 (`R0.25` — Phase 6 착수)
+## 3. 바로 이어서 진행할 다음 작업 (`R0.28` — Phase 7 착수)
 
-다음 작업자는 **Phase 6 (`R0.25` ~ `R0.27`: 멀티스레드 렌더링, 다중 Queue 및 메모리/CPU 최적화)**부터 시작하면 됩니다:
+다음 작업자는 **Phase 7 (`R0.28` ~ `R0.30`: 멀티 플랫폼, 프로파일러, Device Lost/Resize 안정화)**부터 시작하면 됩니다:
 
-1. **`R0.25` — 멀티스레드 커맨드 기록 및 CPU 오버헤드 절감**:
-   - `GraphicsSdkCommandList::prepareAndReplay()`의 프레임당 벡터 할당(`std::vector` 재사용 멤버 버퍼화), `bindGroup` / `pushBuffer` 업로드 오버헤드 절감, `resolvePipelineVariant()` 해시/선형 조회 최적화.
-   - `gfx::CommandPool` 스레드별 분리 설계 및 멀티스레드 커맨드 기록 지원 검증.
-2. **`R0.26` — Dedicated Copy Queue 활용**:
-   - `gfx::QueueType::Copy` 큐 지원 시 아틀라스/지형 텍스처 업로드를 전용 Copy Queue로 분리하고 `TimelineFence`로 그래픽 큐와 동기화.
-3. **`R0.27` — GPU 메모리 및 Upload Ring 최적화**:
-   - `FrameSlot`별 Upload Ring / `pushBuffer` 재사용률 및 메모리 할당 횟수 최적화, 1% Low / 0.1% Low FPS 및 프레임 타임 분포 벤치마크 하네스 구축.
+1. **`R0.28` — 멀티 플랫폼 검증 (Windows / Linux / macOS)**:
+   - Windows D3D12/Vulkan 33/33 검증 완료. Linux X11/Wayland(`SDK-REQ-008`) 및 macOS Metal(`MetalLayer`) 어댑터 컴파일/경계 점검 및 CI 매트릭스 정합성 확인.
+2. **`R0.29` — GPU Timestamp 및 CPU/GPU 프로파일러 통합**:
+   - `GraphicsSdkDevice::sdkDevice().profilingSnapshot()` / `resourceStatistics()`와 Sandbox 프로파일러 연동 확인.
+3. **`R0.30` — Device Lost 및 Resize / Recovery 안정화**:
+   - `GraphicsSdkSwapChain::resize()` 최소화(0×0) 및 반복 리사이즈 안정화, `gfx::Device::checkStatus()`/`recover()` 오류 전파 검증.
 
 ---
 

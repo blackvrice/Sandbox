@@ -165,11 +165,13 @@ struct AppConfig {
 
 // 프레임 구간별 CPU 시간 (ms, 최근 0.5 초 평균). 제목 줄 · --console 로그 · 헤드리스 끝 요약에 쓴다 (MANUAL-QA 8A)
 struct FrameTimings {
-    f64 frameMs = 0;   // 프레임 사이 실제 시간 (fps = 1000 / frameMs)
-    f64 worldMs = 0;   // IWorldSession::update (받은 스냅숏 적용, 헤드리스 로컬 서버면 틱 실행 포함)
-    f64 extractMs = 0; // IWorldSession::extract
-    f64 renderMs = 0;  // IFrameRenderer::render (기록 · 제출 · Present, GPU 대기 포함)
-    u64 frames = 0;    // 이 평균에 들어간 프레임 수
+    f64 frameMs = 0;    // 프레임 사이 실제 시간 (fps = 1000 / frameMs)
+    f64 worldMs = 0;    // IWorldSession::update (받은 스냅숏 적용, 헤드리스 로컬 서버면 틱 실행 포함)
+    f64 extractMs = 0;  // IWorldSession::extract
+    f64 renderMs = 0;   // IFrameRenderer::render (기록 · 제출 · Present, GPU 대기 포함)
+    u64 frames = 0;     // 이 평균에 들어간 프레임 수
+    f64 p99FrameMs = 0; // 상위 1% 프레임 시간 (1% Low FPS = 1000 / p99FrameMs)
+    f64 p999FrameMs = 0; // 상위 0.1% 프레임 시간 (0.1% Low FPS = 1000 / p999FrameMs)
 };
 
 class Application {
@@ -410,6 +412,7 @@ private:
     f64 m_windowSeconds = 0;
     FrameTimings m_timings;
     FrameTimings m_total;
+    mutable std::vector<f64> m_frameSamplesMs;
 };
 
 // 이벤트 한 줄 설명 (--log-input)

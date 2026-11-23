@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 6 (`R0.25` ~ `R0.27`: 멀티스레드 기록 · 다중 Queue · 핫 패스 최적화)
+
+**무엇을**
+
+- `render/rhi/RhiTypes.hpp`, `render/graphics_sdk/GraphicsSdkTypes.cpp`: `QueueType`을 `{ Graphics, Copy, Compute }`로 확장하고 `mapQueueType()`에 1:1 매핑을 연결했다 (Legacy 백엔드는 기존처럼 Graphics 큐로 호환).
+- `render/graphics_sdk/GraphicsSdkCommandQueue.{hpp,cpp}`, `GraphicsSdkDevice.{hpp,cpp}`:
+  - `GraphicsSdkDevice`에 `m_copyQueue`/`m_computeQueue` 전용 큐 어댑터를 바인딩(`Queues G+Copy+Compute`)하고 `FrameSlot`별 `copyPool`/`computePool`을 분리했다.
+  - `GraphicsSdkCommandQueue::submit()`의 1~16개 배치 제출에 스택 인라인 배열을 적용하여 매 프레임 힙 할당을 제거했다.
+  - `allocateUpload()`에 4KB 정렬 패딩 병합을 적용하여 프레임당 `Buffer::write()` 호출 수를 1~2회로 최소화했고, `m_recordMutex`로 멀티스레드 병렬 기록(`allocateUpload`, `allocatePushConstant`, `resolvePipelineVariant`)의 스레드 안전성을 확보했다.
+- `render/graphics_sdk/GraphicsSdkCommandList.cpp`:
+  - `m_recordedPasses` / `m_recordedBindings` 풀 및 `m_passBuffersScratch` / `m_lastBufferStates` 스크래치 벡터 재사용(제출 후 `shared_ptr` 즉시 해제 + capacity 유지), 파이프라인 지연 발행, 동일 상태 버퍼 `transition()` 중복 제거, 정적 타임스탬프 이름 테이블, 디버그 마커 조건부 기록으로 핫 패스 CPU 오버헤드와 힙 할당을 대폭 절감했다.
+- `tests/render/test_rhi_basic.cpp`: 4스레드 병렬 커맨드 기록 + 배치 제출(`R0.25`) 및 Copy Queue 전송·동기화(`R0.26`) GPU 테스트 2종을 추가했다.
+- `apps/client/Application.{hpp,cpp}`, `apps/client/main.cpp`: `FrameTimings`에 `std::nth_element` 기반 1% Low / 0.1% Low FPS 분포 계측(`p99FrameMs`, `p999FrameMs`)을 추가했다 (`R0.27`).
+
+**왜**
+
+- Phase 5 완료 직후 식별된 CPU 기록·업로드 병목을 해소하고, 다중 Queue(`Copy`/`Compute`) 및 멀티스레드 병렬 커맨드 기록 기반과 1%/0.1% Low FPS 계측 도구를 확보하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 33/33 PASS, 559 assertions**):
+  - Legacy D3D12 WARP: 33/33 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8.
+  - Graphics SDK D3D12 WARP (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, 경고 0, 예상 오류 8/8.
+  - Graphics SDK D3D12 GTX 1660 SUPER (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, 경고 0, 예상 오류 8/8.
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290 (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, VVL 경고 0, 예상 오류 8/8.
+- 핫 패스 최적화 효과 (`RelWithDebInfo`, 1920×1080 `--vsync off`):
+  - D3D12 `ecosystem_small`: 1762.0 → **2016.2 FPS (+14.4%)**, `render 0.38 → 0.32 ms (-15.8%)`.
+  - Vulkan `ecosystem_10k`: 294.1 → **369.4 FPS (+25.6%)**, `render 1.09 → 0.81 ms (-25.7%)`.
+  - 동일 세션 0.1% Low FPS: Vulkan `ecosystem_small` 387.5 FPS vs Legacy 382.3 FPS, Vulkan `ecosystem_10k` 24.3 FPS vs Legacy 22.3 FPS (+9.0%).
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check` 모두 0 errors 통과.
+
+**남은 일**
+
+- Phase 7 (`R0.28` ~ `R0.30`): 멀티 플랫폼 검증(Windows/Linux/macOS), GPU 프로파일러 통합 및 Device Lost/Resize 복구 안정화.
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 3 · Phase 4 · Phase 5 (`R0.16` ~ `R0.24`)
 
 **무엇을**
