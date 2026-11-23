@@ -16,7 +16,8 @@
 
 구성 단계가 `std::expected`·`std::format`·`std::source_location`을 실제로 컴파일해 보고, 안 되면 원인 한 줄로 중단합니다 (`cmake/SbxCompilerSettings.cmake`).
 
-Linux 의 Vulkan (Phase 13A): 빌드에는 아무것도 더 필요 없다 (헤더 · volk 벤더링, 로더는 실행 중에). 실행 · 시험에는
+Linux 의 Vulkan: 빌드에는 libxcb1-dev · libx11-xcb-dev · pkg-config (Graphics SDK 의 XCB 표면 — ADR-0170), 헤더는 벤더링,
+로더는 실행 중에. 실행 · 시험에는
 `libvulkan1` (로더) 과 드라이버 — GPU 가 없으면 `mesa-vulkan-drivers` 의 lavapipe, `--rhi-debug` 에는 `vulkan-validationlayers`.
 내장 셰이더(그리기 시험 · 클라이언트 렌더러)는 `dxc` 가 PATH 에 있을 때만 (Vulkan SDK 또는 배포판 패키지 — 6장).
 
@@ -32,7 +33,7 @@ Linux 의 Wayland 창 (Phase 13C): `libwayland-dev` · `wayland-protocols` · `l
 창 시험(`platform_wayland` · `client_wayland_world_smoke`)은 `weston` 이 있으면 화면 없는 컴포지터(`tools/wayland/run_headless.sh`)에서 돈다.
 
 macOS 의 창 · Metal (Phase 14B · 14C, **구현 완료 · macOS 검증 대기**): 더 필요한 것 없음 — AppKit · QuartzCore · CoreGraphics ·
-Metal 은 SDK 에 있다 (Xcode Command Line Tools). Objective-C++ (`platform/macos/CocoaWindow.mm`, `render/metal/*.mm`, ARC).
+Metal 은 SDK 에 있다 (Xcode Command Line Tools). Objective-C++ (`platform/macos/CocoaWindow.mm`, Graphics SDK 의 Metal 백엔드, ARC).
 배포 목표 macOS 13.4 (`CMAKE_OSX_DEPLOYMENT_TARGET`, 루트 CMakeLists 가 project() 앞에서 정한다 — 13.0 이면 Apple libc++ 의
 std::format 이 쓰는 to_chars(double) 이 "unavailable" 로 컴파일 오류, 14C 에서 올렸다). GPU 는 Metal 3 (Apple Silicon · 최근
 Intel/AMD Mac — 아니면 렌더러 없이 창만). 내장 셰이더 · MSL 은 PATH 의 `dxc` (Vulkan SDK) 가 있을 때만 — 없으면
@@ -126,15 +127,15 @@ SandboxPlatform           STATIC     PUBLIC Foundation, PRIVATE sbx_nlohmann_jso
                                      CoreGraphics, PUBLIC SBX_HAS_COCOA. 그 밖(Linux 에서 둘 다 끔): platform/stub
                                      platform/linux/X11KeyMap 은 순수 표라 모든 OS 에서 컴파일한다 (Win32KeyMap 과 같다)
 SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 빌드 (RHI 순수 로직·이미지 비교 단위 테스트). Core 를 모른다
-                                     WIN32: render/dx12/* + d3d12 dxgi dxguid, PUBLIC SBX_HAS_D3D12. SBX_ENABLE_VULKAN: render/vulkan/* +
-                                     PRIVATE sbx_volk, PUBLIC SBX_HAS_VULKAN (13A). 백엔드는 rhi/RenderDeviceFactory 가 고른다 (stub 은 지웠다)
-                                     SBX_ENABLE_METAL (14C): OBJCXX + render/metal/*.mm (-fobjc-arc) + Metal · QuartzCore · Foundation,
-                                     PUBLIC SBX_HAS_METAL
+                                     render/graphics_sdk/* + PRIVATE GraphicsSDK::Core (ADR-0168 · 0169 — 기본 external/graphics-sdk 를 함께
+                                     빌드). PUBLIC SBX_HAS_D3D12 (WIN32) · SBX_HAS_VULKAN (SBX_ENABLE_VULKAN) · SBX_HAS_METAL
+                                     (SBX_ENABLE_METAL) — 백엔드는 rhi/RenderDeviceFactory 가 고르고 SDK 가 연다. 구성 때 shaders/*.hlsl 를
+                                     generated/render/generated/GraphicsSdkHlslSources.hpp 로 (D3D12 런타임 FXC — ADR-0171)
                                      SBX_BUILD_SHADERS: sbx_add_shader 가 만든 generated/render/generated/*Shader.cpp 를 소스에 더하고
                                      PUBLIC SBX_HAS_SHADERS=1 (7B, cmake/SbxShaders.cmake). SBX_SHADER_MSL: + PUBLIC SBX_HAS_MSL=1 (14A)
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
-sbx_vulkan_headers        INTERFACE  external/vulkan-headers (SYSTEM), VK_NO_PROTOTYPES, WIN32: VK_USE_PLATFORM_WIN32_KHR (13A)
-sbx_volk                  STATIC     external/volk/volk.c (C, 경고 끔) + ${CMAKE_DL_LIBS}. SBX_ENABLE_VULKAN 일 때만 (13A)
+GraphicsSDKCore           STATIC     external/graphics-sdk (EXCLUDE_FROM_ALL · SYSTEM — SDK 의 경고 설정, ADR-0169). D3D12 · Vulkan
+                                     (헤더 = external/vulkan-headers, Linux XCB) · Metal 을 Sandbox 옵션대로
 sbx_spirv_cross           STATIC     external/spirv-cross (코어 · GLSL · MSL, 경고 끔). SBX_SHADER_MSL 일 때만 (14A)
 sbx_msl                   EXECUTABLE tools/shader/sbx_msl.cpp — 빌드 때 SPIR-V → MSL 호스트 도구. 셰이더 생성이 의존한다 (14A)
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
@@ -171,7 +172,7 @@ sbx_render_tests          EXE        Render, sbx_doctest — SBX_BUILD_TESTS 와
 ```cmake
 add_library(SandboxEditor   STATIC …)   # PUBLIC Core Render, PRIVATE imgui  — Phase 12A 에 생겼다 (위 목록)
 add_executable(SandboxClient …)         # Editor Network Render Platform Core
-if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos + render/metal   elseif(UNIX) platform/linux + render/vulkan
+if(WIN32) platform/windows   elseif(APPLE) OBJCXX + platform/macos   elseif(UNIX) platform/linux   # 렌더 백엔드는 모두 render/graphics_sdk (ADR-0168)
 ```
 
 경계 규칙은 아직 없는 타깃까지 루트 `CMakeLists.txt`에 미리 선언되어 있어, 타깃이 생기는 순간부터 검사됩니다

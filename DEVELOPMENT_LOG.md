@@ -7,6 +7,23 @@
 
 ---
 
+## 2026-11-23 — 쓰이지 않는 volk 삭제 · 빌드 문서 정리 (분석 14)
+
+**무엇을**
+
+- external/CMakeLists.txt 의 sbx_vulkan_headers · sbx_volk 타깃 삭제 (ADR-0168 뒤 아무도 링크하지 않았다). external/volk 파일 삭제는
+  앞 커밋 edfb2ef 에 함께 들어갔다 (index 에 먼저 올려 둔 삭제 — 내용은 이 항목). Vulkan-Headers 는 Graphics SDK 가 쓴다.
+- 15-BUILD (타깃 · Linux 준비물 · macOS), 17-SOURCE-MAP (지운 dx12 · vulkan · metal 폴더 · 진입점 표), 06-RENDERING (자체 백엔드 절은 이력이라는
+  머리말), external/README.md.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- volk 없이 새로 구성 · /WX 빌드 · 전체 ctest 96/96, check_docs.
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-23 — 제출 실패 · GPU 대기 시간 초과 (분석 13, ADR-0173 3 · 4)
 
 **무엇을**

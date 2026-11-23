@@ -282,7 +282,7 @@
 | `external/stb/`                                                                                             | stb_image v2.30 · stb_image_write v1.16                                                                                                                             | sbx_stb                     |
 | `external/enet/`                                                                                            | ENet v1.3.18 (C 소스 · include/enet · LICENSE, 수정 없음)                                                                                                           | sbx_enet                    |
 | `external/imgui/`                                                                                           | Dear ImGui v1.92.9b docking (imgui*.{h,cpp} · imstb_* · LICENSE, 수정 없음 — ADR-0023)                                                                              | sbx_imgui                   |
-| `external/vulkan-headers/`, `external/volk/`                                                                | Vulkan-Headers v1.4.309 (C 헤더만) · volk 1.4.304 (수정 없음 — ADR-0032)                                                                                            | sbx_volk · 헤더 타깃        |
+| `external/vulkan-headers/`                                                                                  | Vulkan-Headers v1.4.309 (C 헤더만, 수정 없음) — Graphics SDK 의 Vulkan 백엔드가 쓴다 (volk 는 ADR-0168 뒤 삭제)                                                       | — (GFX_VULKAN_HEADERS)      |
 | `external/graphics-sdk/` · `cmake/SbxGraphicsSdk.cmake` · `tools/vendor_graphics_sdk.py` | Graphics SDK 코어 (고정 커밋 `VENDORED_COMMIT`, 수정 없음) · 공급 (기본 함께 빌드, `SBX_SYSTEM_GRAPHICS_SDK` = 설치본) · 갱신 도구 (ADR-0169) | `GraphicsSDK::Core` |
 | `external/spirv-cross/`                                                                                     | SPIRV-Cross 1.4.304.1 의 코어 · GLSL · MSL 소스 (수정 없음 — ADR-0035)                                                                                              | sbx_spirv_cross             |
 | `apps/client/main.cpp`                                                                                      | 클라이언트 진입점 (Windows: GUI 서브시스템 + main)                                                                                                                  | SandboxClient               |
@@ -337,7 +337,7 @@
 | `bench/ScriptBench.cpp`                                                                                     | `script.regen` — 스크립트 컴포넌트 개체 10k 에 매 틱 질의 · 읽기 · 쓰기, 스크립트 없는 월드와 비교 · 진단 시계 (v0.3 M6-T2, ADR-0070). `script.stdlib` — 표준 라이브러리 내장 대 스크립트 반복문, n 100 ~ 100k (v0.5 M8-T9) | sbx_bench                   |
 | `bench/NetBench.cpp`                                                                                        | `net.snapshot` · `net.late_join` — 50k random_walk 복제 비용 · 바이트 · 새 접속 시간 (Phase 11)                                                                     | sbx_bench                   |
 | `bench/baselines/*.json`                                                                                    | 머신별 벤치 기준선                                                                                                                                                  | —                           |
-| `external/CMakeLists.txt`                                                                                   | `sbx_nlohmann_json`, `sbx_doctest`, `sbx_stb`, `sbx_imgui`, `sbx_enet`, `sbx_vulkan_headers` · `sbx_volk`, `sbx_spirv_cross` 타깃                                   | —                           |
+| `external/CMakeLists.txt`                                                                                   | `sbx_nlohmann_json`, `sbx_doctest`, `sbx_stb`, `sbx_imgui`, `sbx_enet`, `sbx_spirv_cross` 타깃 (Graphics SDK 는 cmake/SbxGraphicsSdk.cmake)                                   | —                           |
 | `external/nlohmann_json/`                                                                                   | nlohmann/json v3.12.0                                                                                                                                               | —                           |
 | `tests/arch/fixtures/**`                                                                                    | include 린터 자체 시험용 위반 파일 (**컴파일 안 함**)                                                                                                               | —                           |
 | `tests/docs/fixtures/**`                                                                                    | 문서 검사기 (check_docs.py) 자체 시험용 틀린 작은 저장소 (docs_consistency_selftest)                                                                                 | —                           |
@@ -441,11 +441,9 @@ platform/
 render/
   rhi/          RenderDevice · RhiTypes · ShaderTypes · HandlePool · DeferredDestruction · UploadRing · RangeAllocator ·
                 PipelineValidation · RenderDeviceFactory · Backends
-  dx12/         Dx12Device · Dx12CommandList · Dx12SwapChain · Dx12Pipeline · Dx12Common     (WIN32)
-  vulkan/       VulkanDevice · VulkanCommandList · VulkanSwapChain · VulkanPipeline · VulkanCommon  (SBX_ENABLE_VULKAN)
-  metal/        MetalDevice · MetalCommandList · MetalSwapChain · MetalPipeline (.mm)     (SBX_ENABLE_METAL — 미검증)
   graphics_sdk/ GraphicsSdkDevice · GraphicsSdkCommandList · GraphicsSdkCommandQueue · GraphicsSdkSwapChain ·
-                GraphicsSdkResource · GraphicsSdkPipeline · GraphicsSdkTypes · GraphicsSdkFactory  (SBX_USE_GRAPHICS_SDK)
+                GraphicsSdkResource · GraphicsSdkPipeline · GraphicsSdkTypes · GraphicsSdkShaders · GraphicsSdkUiBridge ·
+                GraphicsSdkFactory  (유일한 백엔드 — ADR-0168 · 0169 · 0171 · 0172 · 0173)
   renderer/     Renderer · RenderWorld · Camera2D · SpriteBatcher · TerrainPass · OverlayPasses · DebugDraw
   asset/        AssetManager · AssetId · Image · MaterialLibrary · ShelfPacker · StbImpl
   imgui/        ImGuiRenderer
@@ -499,9 +497,7 @@ tests/          unit/<모듈> · property/ · net/ · render/ · arch/ · projec
 | 복제 (무엇을 보내나)        | `network/replication/ReplicationWriter.cpp` → `network/client/ClientWorld.cpp` + [08](08-NETWORK.md) 6장        |
 | 스프라이트가 화면에 가는 길 | `apps/client/presentation/SpriteExtraction.cpp` → `render/renderer/SpriteBatcher.cpp` · `Renderer.cpp`          |
 | 화면 패널 (ImGui)           | `apps/client/ui/DebugPanels.cpp` → `Application.cpp` (`applyPanelActions`) · `render/imgui/ImGuiRenderer.cpp`   |
-| D3D12 디바이스 생성         | `render/dx12/Dx12Device.cpp`                                                                                    |
-| Vulkan 디바이스 생성        | `render/vulkan/VulkanDevice.cpp` (백엔드 고르기는 `render/rhi/RenderDeviceFactory.cpp`)                         |
-| Metal 디바이스 생성         | `render/metal/MetalDevice.mm` (`MetalDevice::init` — 14C, macOS 검증 대기)                                      |
+| 렌더 디바이스 생성          | `render/graphics_sdk/GraphicsSdkDevice.cpp` (`GraphicsSdkDevice::init` — D3D12 · Vulkan · Metal 모두 Graphics SDK, 고르기는 `render/rhi/RenderDeviceFactory.cpp`) |
 | 창 메시지 처리              | `Win32Window.cpp` · `X11Window.cpp` (`handle`) · `WaylandWindow.cpp` (`Listeners`) — platform/<os>/             |
 | 콘텐츠 검증 규칙            | `core/content/ContentLoader.cpp` (V1~V11) + [11](11-CONTENT-SCHEMA.md) 8장                                      |
 | 게임 프로젝트 검사 규칙     | `core/project/GameProject.cpp` + [18](18-PLATFORM.md) 5.2                                                       |

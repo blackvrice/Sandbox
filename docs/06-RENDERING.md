@@ -1,5 +1,10 @@
 # 06. 렌더링
 
+> **2026-11-23 — 렌더 백엔드는 Graphics SDK 하나 ([ADR-0168](adr/0168-graphics-sdk-rhi-backend.md)).** 아래의 자체 D3D12 · Vulkan ·
+> Metal 백엔드 절 (render/dx12 · render/vulkan · render/metal, volk) 은 **지워진 구현의 이력** 이다. 지금: render/graphics_sdk 어댑터 ·
+> external/graphics-sdk (ADR-0169), Linux 표면 XCB (ADR-0170), 셰이더 원본 하나 (ADR-0171), 어댑터 계약 (ADR-0172), 큐 동기 ·
+> 실패 처리 (ADR-0173). RHI 계약 (3장) · 렌더러 (8장) · 셰이더 규칙 (6.2) 은 그대로다.
+
 > **규범 문서.** RHI, 세 백엔드, 셰이더 파이프라인, 에셋, Renderer 프레임을 정합니다.
 > 상태: **Phase 7A·7B 구현** — RHI 골격(3장 중 Buffer·Texture·RenderPass Clear·Barrier·Copy·SwapChain), 4장 FrameContext·업로드 링·
 > 지연 해제, D3D12 백엔드(5.1 중 committed 리소스·RTV·Debug Layer·DRED), 이미지 비교·`sbx_render_tests`(14장 중 Clear·업로드·복사·수명).

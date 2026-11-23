@@ -85,28 +85,8 @@ else()
     target_compile_options(sbx_enet PRIVATE -w)
 endif()
 
-# Vulkan-Headers 1.4.309 (Apache-2.0 또는 MIT) + volk 1.4.304 (MIT) — Vulkan 백엔드만 (render/vulkan, ADR-0032).
-# volk 가 실행 중에 로더(vulkan-1.dll · libvulkan.so.1)를 열어 함수 포인터를 채운다: Vulkan SDK · 링크 라이브러리 없이 빌드되고,
-# 로더가 없는 PC 에서도 실행 파일이 뜬다 (Vulkan 을 고르면 그때 Unsupported). VK_NO_PROTOTYPES — 전역 함수 선언 없이 volk 것만.
-# 헤더(vulkan/ · volk.h)는 render/vulkan 에서만 include 한다 (tools/check_includes.py).
-if(SBX_ENABLE_VULKAN)
-    add_library(sbx_vulkan_headers INTERFACE)
-    target_include_directories(sbx_vulkan_headers SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan-headers/include")
-    target_compile_definitions(sbx_vulkan_headers INTERFACE VK_NO_PROTOTYPES)
-    # 창 시스템 표면 확장: volk.c 와 백엔드가 같은 정의를 봐야 함수 표 모양이 같다 → INTERFACE 로 함께
-    if(WIN32)
-        target_compile_definitions(sbx_vulkan_headers INTERFACE VK_USE_PLATFORM_WIN32_KHR)
-    endif()
-    enable_language(C)
-    add_library(sbx_volk STATIC volk/volk.c)
-    target_include_directories(sbx_volk SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/volk")
-    target_link_libraries(sbx_volk PUBLIC sbx_vulkan_headers ${CMAKE_DL_LIBS})
-    if(MSVC)
-        target_compile_options(sbx_volk PRIVATE /w)
-    else()
-        target_compile_options(sbx_volk PRIVATE -w)
-    endif()
-endif()
+# Vulkan-Headers 1.4.309 (Apache-2.0 또는 MIT) — 타깃 없음: Graphics SDK 의 Vulkan 백엔드가 GFX_VULKAN_HEADERS 로 이 폴더를 쓴다
+# (cmake/SbxGraphicsSdk.cmake, ADR-0169). volk 는 자체 Vulkan 백엔드 (ADR-0168 로 제거) 만 썼다 — 지웠다.
 
 # SPIRV-Cross 1.4.304.1 (Apache-2.0 또는 MIT) — 빌드 때만 쓰는 호스트 도구 sbx_msl (SPIR-V → MSL, tools/shader/sbx_msl.cpp)
 # 에 링크한다. 실행 파일 · 엔진 라이브러리에는 들어가지 않는다 (ADR-0035). 코어 · GLSL · MSL 컴파일러만 넣었다.
