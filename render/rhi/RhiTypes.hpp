@@ -131,6 +131,9 @@ struct TextureDesc {
     TextureUsage usage = TextureUsage::Sampled;
     std::optional<ClearColor> optimizedClear; // RenderTarget: 이 색으로 지우면 빠르다 (D3D12 경고 회피)
     std::string debugName;
+    // 셰이더가 보는 모양. layers > 1 이면 늘 배열. 층이 하나여도 셰이더가 Texture2DArray 로 읽으면 Tex2DArray 를 적는다
+    // (아틀라스 — 백엔드가 텍스처를 만들 때 모양을 정한다, ADR-0172 4)
+    TextureDim viewDim = TextureDim::Tex2D;
 };
 
 // RHI 리소스 상태 (06 3.5). 패스가 배리어를 손으로 선언한다.

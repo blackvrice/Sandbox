@@ -327,7 +327,8 @@ RhiTexture GraphicsSdkDevice::createTexture(const TextureDesc& desc) {
     sdkDesc.storage = hasFlag(desc.usage, TextureUsage::Storage);
     sdkDesc.mipLevels = desc.mips;
     sdkDesc.arrayLayers = desc.layers;
-    sdkDesc.dimension = (desc.layers > 1 || desc.debugName == "sprite atlas")
+    // 모양은 RHI 가 말한다 (ADR-0172 4) — 층이 둘 이상이거나 셰이더가 배열로 읽는 텍스처
+    sdkDesc.dimension = (desc.layers > 1 || desc.viewDim == TextureDim::Tex2DArray)
                             ? gfx::TextureDimension::Texture2DArray
                             : gfx::TextureDimension::Texture2D;
 
@@ -358,10 +359,7 @@ void GraphicsSdkDevice::destroy(RhiTexture texture) {
     if (!taken || taken->external) {
         return;
     }
-    gfx::TextureViewPtr view = std::move(taken->arrayView);
-    m_garbage.push(GraphicsSdkGarbage({}, std::move(taken->texture), {},
-                                      [v = std::move(view)]() mutable { v.reset(); }),
-                   nextFence());
+    m_garbage.push(GraphicsSdkGarbage({}, std::move(taken->texture), {}), nextFence());
 }
 
 const TextureDesc* GraphicsSdkDevice::textureDesc(RhiTexture texture) const {
@@ -457,6 +455,16 @@ RhiBindGroup GraphicsSdkDevice::createBindGroup(const BindGroupDesc& desc) {
             if (b == nullptr || it->offset % m_caps.constantBufferAlignment != 0 || it->offset + size > b->desc.size) {
                 reportError(std::format("바인드 그룹 '{}' binding {}: CBV 오프셋 {} 은 {} 의 배수, 범위 안",
                                         desc.debugName, le.binding, it->offset, m_caps.constantBufferAlignment));
+                return {};
+            }
+        }
+        // 텍스처 모양: 백엔드는 만들 때 정한 모양으로만 묶는다 (ADR-0172 4). 배열 칸에 2D 로 만든 텍스처면 이유와 함께 거절
+        if (le.type == BindingType::Texture && le.dim == TextureDim::Tex2DArray) {
+            const GraphicsSdkTexture* t = m_textures.get(it->texture);
+            if (t != nullptr && t->desc.layers == 1 && t->desc.viewDim != TextureDim::Tex2DArray) {
+                reportError(std::format("바인드 그룹 '{}' binding {}: 텍스처 '{}' 는 2D 로 만들어졌다 — 셰이더가 Texture2DArray "
+                                        "로 읽으면 TextureDesc::viewDim = Tex2DArray 로 만든다",
+                                        desc.debugName, le.binding, t->desc.debugName));
                 return {};
             }
         }

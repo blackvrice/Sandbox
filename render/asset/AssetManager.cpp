@@ -24,6 +24,7 @@ Expected<void> AssetManager::init() {
     td.format = rhi::Format::RGBA8Unorm;
     td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
     td.debugName = "sprite atlas";
+    td.viewDim = rhi::TextureDim::Tex2DArray; // sprite.hlsl 의 Texture2DArray atlas — 층이 하나여도
     m_atlas = m_dev.createTexture(td);
     if (!m_atlas.valid()) {
         return makeError(ErrorCode::Unsupported,

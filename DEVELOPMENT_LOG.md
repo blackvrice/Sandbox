@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 어댑터: 텍스처 배열 모양은 TextureDesc::viewDim (ADR-0172 4)
+
+**무엇을**
+
+- `TextureDesc::viewDim` (기본 Tex2D) — 층이 하나여도 셰이더가 Texture2DArray 로 읽으면 Tex2DArray. AssetManager 아틀라스가 적는다.
+  어댑터는 `layers > 1 || viewDim == Tex2DArray` 로 배열을 만들고 (debugName == "sprite atlas" 판정 삭제), 죽은 `arrayView` 칸을 지웠다.
+- createBindGroup: Texture2DArray 칸에 2D 로 만든 층 하나 텍스처를 묶으면 이유와 함께 거절.
+- 렌더 시험 "texture dim": "sprite atlas" 이름의 2D 텍스처는 거절 · "renamed atlas" + viewDim 은 성공.
+
+**왜**
+
+- 텍스처 모양을 디버그 이름으로 정해, 아틀라스 이름을 바꾸면 스프라이트가 그려지지 않았다.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- D3D12 WARP · 실제 GPU · Vulkan 실제 GPU 렌더 시험 36/36 (스프라이트 시험 포함), 끝 줄 "오류 12 (예상된 사용 오류 12)".
+
+**남은 일**
+
+- ADR-0172 끝. 다음: 문서 · 시험 정리 (SDK 커밋 해시 · 창을 띄우는 렌더 시험 · 알려진 문제).
+
 ## 2026-11-23 — Graphics SDK 어댑터: 컬링 흉내의 범위 · 흉내 밖은 알림 (ADR-0172 3)
 
 **무엇을**

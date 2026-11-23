@@ -300,6 +300,47 @@ TEST_SUITE("render.gpu") {
         CHECK(after.liveBuffers == before.liveBuffers);
     }
 
+    // 텍스처 모양은 RHI 가 말한다 (ADR-0172 4): 층 하나 텍스처는 viewDim = Tex2DArray 로 만들어야 Texture2DArray 칸에 묶인다 —
+    // 이름 ("sprite atlas") 과 무관하게, 어긋나면 이유와 함께 거절
+    TEST_CASE("texture dim: a one-layer texture binds to a Texture2DArray slot only when made with viewDim Tex2DArray") {
+        IRenderDevice& dev = device();
+        BindGroupLayoutDesc ld;
+        ld.entries = {{0, BindingType::Texture, kAllGraphicsStages, TextureDim::Tex2DArray}};
+        ld.debugName = "array slot";
+        const RhiBindGroupLayout layout = dev.createBindGroupLayout(ld);
+        REQUIRE(layout.valid());
+        TextureDesc flat;
+        flat.width = flat.height = 4;
+        flat.debugName = "sprite atlas"; // 예전 이름 판정이 배열로 만들던 이름 — 이제 이름은 뜻이 없다
+        const RhiTexture flatTex = dev.createTexture(flat);
+        TextureDesc arr = flat;
+        arr.viewDim = TextureDim::Tex2DArray;
+        arr.debugName = "renamed atlas";
+        const RhiTexture arrTex = dev.createTexture(arr);
+        REQUIRE(flatTex.valid());
+        REQUIRE(arrTex.valid());
+        const u64 before = dev.stats().debugErrors;
+        BindGroupEntry e;
+        e.binding = 0;
+        BindGroupDesc gd;
+        gd.layout = layout;
+        e.texture = flatTex;
+        gd.entries = {e};
+        gd.debugName = "flat";
+        CHECK_FALSE(dev.createBindGroup(gd).valid());
+        CHECK(dev.stats().debugErrors == before + 1);
+        rendertest::expectValidationErrors(1);
+        e.texture = arrTex;
+        gd.entries = {e};
+        gd.debugName = "array";
+        const RhiBindGroup group = dev.createBindGroup(gd);
+        CHECK(group.valid());
+        dev.destroy(group);
+        dev.destroy(flatTex);
+        dev.destroy(arrTex);
+        dev.destroy(layout);
+    }
+
     TEST_CASE("misuse is reported, not crashed: unaligned copy pitch") {
         IRenderDevice& dev = device();
         TextureDesc td;

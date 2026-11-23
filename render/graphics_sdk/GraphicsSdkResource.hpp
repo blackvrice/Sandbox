@@ -30,7 +30,6 @@ struct GraphicsSdkBuffer {
 
 struct GraphicsSdkTexture {
     gfx::TexturePtr texture;
-    gfx::TextureViewPtr arrayView; // layers == 1 텍스처를 Texture2DArray 로 바인딩할 때 캐싱
     TextureDesc desc;
     gfx::Format sdkFormat = gfx::Format::RGBA8UNorm;
     ResourceState trackedState = ResourceState::Undefined;
