@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <format>
+#include <utility>
 
 #include "foundation/log/Log.hpp"
 #include "render/graphics_sdk/GraphicsSdkCommandList.hpp"
@@ -733,6 +734,13 @@ void applyOpaqueAlphaFixup(GraphicsSdkBuffer& b) {
 
 } // namespace
 
+void GraphicsSdkDevice::noteAlphaFixupApplied() {
+    if (!std::exchange(m_alphaFixupNoted, true)) {
+        log::info("render", "Graphics SDK 알파 보정 (SDK-REQ-009): 불투명 타깃에 알파 블렌드한 Readback 의 알파를 255 로 고친다 — "
+                            "SDK 가 DestBlendAlpha 를 고치면 지운다");
+    }
+}
+
 std::byte* GraphicsSdkDevice::map(RhiBuffer buffer) {
     GraphicsSdkBuffer* b = m_buffers.get(buffer);
     if (b == nullptr || b->desc.memory == MemoryType::GpuOnly) {
@@ -745,6 +753,9 @@ std::byte* GraphicsSdkDevice::map(RhiBuffer buffer) {
         // Readback 버퍼는 map() 시점에 최신 GPU 완료 데이터를 SDK Buffer::read() 로 가져온다.
         if (auto bytes = b->buffer->read(0, b->desc.size)) {
             std::memcpy(b->cpuShadow.data(), bytes->data(), bytes->size());
+            if (b->fixupOpaqueAlpha) {
+                noteAlphaFixupApplied();
+            }
             applyOpaqueAlphaFixup(*b);
         }
     } else if (b->desc.memory == MemoryType::Upload && !b->internal) {
@@ -863,6 +874,9 @@ void GraphicsSdkDevice::syncCompletedReadbacks(FenceValue completedFence) {
                 if (auto bytes = b->buffer->read(0, b->desc.size)) {
                     std::memcpy(b->cpuShadow.data(), bytes->data(),
                                 std::min(b->cpuShadow.size(), bytes->size()));
+                    if (b->fixupOpaqueAlpha) {
+                        noteAlphaFixupApplied();
+                    }
                     applyOpaqueAlphaFixup(*b);
                 }
             }

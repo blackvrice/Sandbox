@@ -1007,7 +1007,7 @@ private:
                 m_pendingReadbacks.push_back(c.buffer);
                 const bool isRgba8 = t->desc.format == Format::RGBA8Unorm || t->desc.format == Format::BGRA8Unorm ||
                                      t->desc.format == Format::RGBA8Srgb || t->desc.format == Format::BGRA8Srgb;
-                if (isRgba8 && t->opaqueAlphaCleared && t->alphaBlendDrawn) {
+                if (isRgba8 && t->opaqueAlphaCleared && t->alphaBlendDrawn && m_dev.readbackAlphaFixup()) {
                     b->fixupOpaqueAlpha = true;
                     b->fixupOffset = c.bufferOffset;
                     b->fixupPitch = c.bufferRowPitch;

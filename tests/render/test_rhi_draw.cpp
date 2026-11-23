@@ -9,6 +9,7 @@
 
 #include "render/generated/BasicColorShader.hpp"
 #include "render/generated/BasicTextureShader.hpp"
+#include "render/graphics_sdk/GraphicsSdkDevice.hpp"
 #include "tests/render/RenderTestEnv.hpp"
 
 using namespace sbx;
@@ -79,7 +80,8 @@ struct ColorRig {
     Owned o;
 
     explicit ColorRig(IRenderDevice& d, CullMode cull = CullMode::None, FrontFace front = FrontFace::CounterClockwise,
-                      color::Frame tint = {{1, 1, 1, 1}}, PrimitiveTopology topology = PrimitiveTopology::TriangleList)
+                      color::Frame tint = {{1, 1, 1, 1}}, PrimitiveTopology topology = PrimitiveTopology::TriangleList,
+                      BlendMode blend = BlendMode::Opaque)
         : o{d, {}, {}, {}, {}, {}, {}} {
         IRenderDevice& dev = o.dev;
         o.vs = dev.createShader({color::vs(), &color::reflection()});
@@ -99,6 +101,7 @@ struct ColorRig {
         pd.cull = cull;
         pd.frontFace = front;
         pd.topology = topology;
+        pd.blend = blend;
         pd.bindGroupLayouts[color::kFrameGroup] = o.layout;
         pd.pushConstantBytes = color::kPushConstantBytes;
         pd.debugName = "basic_color";
@@ -410,6 +413,44 @@ TEST_SUITE("render.gpu") {
         dev.destroy(bvb);
         dev.destroy(rt);
         dev.destroy(rt2);
+    }
+
+    // 알려진 SDK 결함의 카나리아 (SDK-REQ-009, ADR-0172): D3D12 · Vulkan 백엔드는 알파 블렌드의 DestBlendAlpha 가 ZERO 라
+    // 불투명 타깃 위에 반투명을 그리면 알파가 1 이 아니다 — 어댑터가 Readback 에서 255 로 고친다 (골든 시험은 고친 그림을 본다).
+    // 보정을 끄고 맨 값을 봐, SDK 가 고쳐지면 이 시험이 알린다 (보정을 지울 때)
+    TEST_CASE("alpha canary: SDK-REQ-009 — readback alpha with and without the adapter fixup") {
+        IRenderDevice& dev = device();
+        auto* sdk = dynamic_cast<sbx::rhi::graphics_sdk::GraphicsSdkDevice*>(&dev);
+        REQUIRE(sdk != nullptr);
+        ColorRig rig(dev, CullMode::None, FrontFace::CounterClockwise, {{1, 1, 1, 1}}, PrimitiveTopology::TriangleList,
+                     BlendMode::Alpha);
+        const ColorVertex half[] = {{-1, -1, 1, 0, 0, 0.5f}, {1, -1, 1, 0, 0, 0.5f}, {1, 1, 1, 0, 0, 0.5f},
+                                    {-1, -1, 1, 0, 0, 0.5f}, {1, 1, 1, 0, 0, 0.5f}, {-1, 1, 1, 0, 0, 0.5f}};
+        const RhiBuffer vb = uploadBuffer(dev, half, sizeof(half), BufferUsage::Vertex, "alpha canary vb");
+        const auto drawAlpha = [&](bool fixup) {
+            sdk->setReadbackAlphaFixup(fixup);
+            const RhiTexture rt = target(dev, "alpha canary");
+            submitAndWait(dev, [&](ICommandList& cl) {
+                beginTarget(cl, rt); // 불투명 검정 (알파 1)
+                rig.bind(cl, kIdentity);
+                cl.setVertexBuffer(0, vb);
+                cl.draw(6);
+                cl.endRenderPass();
+            });
+            const render::Image img = readback(dev, rt, ResourceState::RenderTarget);
+            dev.destroy(rt);
+            sdk->setReadbackAlphaFixup(true);
+            return img.pixel(kSize / 2, kSize / 2)[3];
+        };
+        CHECK(drawAlpha(true) == 255); // 보정 — Porter-Duff over 의 알파 (1)
+        const u8 raw = drawAlpha(false);
+        if (dev.caps().backend == BackendType::Metal) {
+            CHECK(raw == 255); // Metal 백엔드는 맞다
+        } else {
+            CHECK_MESSAGE(raw != 255, "SDK-REQ-009 가 고쳐졌다 (맨 알파 255) — 어댑터의 applyOpaqueAlphaFixup 과 이 시험을 지운다");
+        }
+        MESSAGE("맨 알파 (보정 없이): " << static_cast<int>(raw));
+        dev.destroy(vb);
     }
 
     TEST_CASE("texture: nearest sampling of a 2×2 texture reproduces the quadrants; linear blends (reference "

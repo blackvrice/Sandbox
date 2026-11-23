@@ -122,6 +122,11 @@ public:
     void countValidationError() noexcept { ++m_debugErrors; }
     void noteTearingSupport(bool supported) noexcept { m_caps.tearing = supported; }
     [[nodiscard]] bool isDeviceLost() const noexcept { return m_deviceLost; }
+    // SDK-REQ-009 보정 (D3D12 · Vulkan 의 DestBlendAlpha = ZERO): 불투명 클리어 + 알파 블렌드 뒤 Readback 의 알파를 255 로. 켬이
+    // 기본 — 보정이 SDK 결함을 가리지 않게 시험이 끄고 맨 값을 본다 (render 시험 "alpha canary", ADR-0172)
+    [[nodiscard]] bool readbackAlphaFixup() const noexcept { return m_readbackAlphaFixup; }
+    void setReadbackAlphaFixup(bool on) noexcept { m_readbackAlphaFixup = on; }
+    void noteAlphaFixupApplied();
     void markDeviceLost(std::string_view reason);
     [[nodiscard]] bool checkDeviceStatus();
     [[nodiscard]] std::optional<u64> queryLocalMemoryUsageBytes() const;
@@ -202,6 +207,8 @@ private:
     u64 m_ringDeferred = 0;
     bool m_debugActive = false;
     bool m_deviceLost = false;
+    bool m_readbackAlphaFixup = true;
+    bool m_alphaFixupNoted = false;
 };
 
 } // namespace sbx::rhi::graphics_sdk
