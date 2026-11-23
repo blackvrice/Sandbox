@@ -3,8 +3,8 @@
 **최종 업데이트**: 2026-11-23  
 **현재 리팩토링 브랜치**: `refactor/graphics-sdk` (`D:/Game/Sandbox-GraphicsSDK`)  
 **고정 Graphics SDK 버전**: `9345c1816879c63f8c26f13fc876382b0c2ed054` (`D:/source/GraphicsSDK`)  
-**현재 완료 버전**: `R0.1` ~ `R0.34` (Phase 0 ~ Phase 9 완료 — 전체 35/35 GPU 테스트, 전체 CTest 99/99 통과, 기본값 전환 검토 및 병합 계획 완료)  
-**다음 착수 버전**: `R0.35` (Phase 10 — Legacy 백엔드 정리 및 `master` 최종 병합, **사용자 최종 승인 대기**)
+**현재 완료 버전**: `R0.1` ~ `R0.35` (**Phase 0 ~ Phase 10 전체 완료 — 100%, 35/35**)  
+**최종 상태**: 자체 `render/dx12/`, `render/vulkan/`, `render/metal/` 백엔드 제거 완료 (`ADR-0168`), `GraphicsSDK` 단일 백엔드 체제 전환 완료 (`refactor/graphics-sdk` 브랜치)
 
 ---
 
@@ -22,8 +22,8 @@
 | **Phase 7** | `R0.28` ~ `R0.30` | 멀티 플랫폼(Windows/Linux/macOS), 프로파일러/메모리 예산, Device Lost·Resize 안정화 | 100% (3/3) | ✅ 완료 |
 | **Phase 8** | `R0.31` ~ `R0.32` | Graphics UI 프레임워크 연동 브리지(`GraphicsSdkUiBridge`) 및 ImGui 공존 합성 | 100% (2/2) | ✅ 완료 |
 | **Phase 9** | `R0.33` ~ `R0.34` | 전체 시나리오 벤치마크 확정, 전체 CTest 최종 검증 및 기본값 전환 검토 | 100% (2/2) | ✅ 완료 |
-| **Phase 10** | `R0.35` | Legacy 백엔드 정리 및 `master` 최종 병합 (사용자 최종 승인 필수) | 0% (0/1) | ⏸️ 승인 대기 |
-| **합계** | `R0.1` ~ `R0.35` | 총 35개 리팩토링 마일스톤 | **97.1% (34/35)** | 🟢 승인 대기 |
+| **Phase 10** | `R0.35` | Legacy 백엔드(`dx12`/`vulkan`/`metal`) 제거 및 Graphics SDK 단독 체제 전환 (`ADR-0168`) | 100% (1/1) | ✅ 완료 |
+| **합계** | `R0.1` ~ `R0.35` | 총 35개 리팩토링 마일스톤 | **100.0% (35/35)** | ✅ 완료 |
 
 ---
 

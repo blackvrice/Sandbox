@@ -140,3 +140,15 @@
   - `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 100개 CTest 최종 재검증 (**99/99 실행 테스트 100% PASS**, `render_tests_warp` 35/35 포함)
   - `origin/master` 최신 커밋 동기화 확인(충돌 0건), Gate 2 달성 확인, Linux/macOS 실기 CI 및 SDK 패키지 공급 구성 전까지 `SBX_USE_GRAPHICS_SDK=OFF` 기본값 유지 권고 확정
   - Phase 10 (`R0.35`: Legacy 백엔드 정리 및 `master` 최종 병합)은 사용자 명시적 승인 대기 상태로 전환
+
+### `R0.35` — Phase 10 Legacy 백엔드 제거 및 Graphics SDK 단독 체제 전환 (2026-11-23)
+- **상태**: ✅ 완료 (사용자 승인 후 진행)
+- **변경 파일**:
+  - `render/dx12/*`, `render/vulkan/*`, `render/metal/*` (19개 파일 제거)
+  - `cmake/SbxOptions.cmake`, `render/CMakeLists.txt`, `render/rhi/Backends.hpp`, `render/rhi/RenderDeviceFactory.cpp`
+  - `docs/adr/0168-graphics-sdk-rhi-backend.md`, `docs/adr/README.md`, `docs/17-SOURCE-MAP.md`
+  - `docs/graphics-sdk-refactor/*`, `DEVELOPMENT_LOG.md`
+- **변경 요약**:
+  - 자체 D3D12 · Vulkan · Metal 백엔드(19개 파일) 및 `d3d12`/`dxgi`/`sbx_volk`/Metal 프레임워크 직접 링크 제거
+  - `SBX_USE_GRAPHICS_SDK` 기본값을 `ON`으로 전환하고 `GraphicsSDK::Core` 단일 백엔드 체제로 통합 (`ADR-0168`)
+  - 전체 빌드, 35/35 GPU 테스트(D3D12 WARP/HW, Vulkan HW+VVL), `SandboxTests --test-suite=render` 33/33, `check_includes`/`check_docs`/`gen_roadmap` 0건 통과

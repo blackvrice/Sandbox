@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 10 (`R0.35`, ADR-0168: Legacy 백엔드 제거 및 Graphics SDK 단독 체제 전환)
+
+**무엇을**
+
+- `render/dx12/` (7파일), `render/vulkan/` (7파일), `render/metal/` (5파일) — 총 19개 자체 백엔드 파일을 제거했다.
+- `cmake/SbxOptions.cmake`, `render/CMakeLists.txt`, `render/rhi/Backends.hpp`, `render/rhi/RenderDeviceFactory.cpp`: `SBX_USE_GRAPHICS_SDK` 기본값을 `ON`으로 전환하고, `d3d12`/`dxgi`/`sbx_volk`/Metal 직접 링크를 제거하여 `GraphicsSDK::Core` 단일 백엔드 체제로 통합했다.
+- `docs/adr/0168-graphics-sdk-rhi-backend.md`, `docs/adr/README.md`, `docs/17-SOURCE-MAP.md`, `docs/graphics-sdk-refactor/*`: `ADR-0168`을 추가하고 리팩토링 전체 완료(100%, 35/35) 상태를 반영했다.
+
+**왜**
+
+- 사용자 승인에 따라 Phase 10(`R0.35`)을 완료하여 3대 그래픽 API의 플랫폼별 중복 구현을 제거하고, `GraphicsSDK::Core` 단일 그래픽 기반으로 장기 유지보수 비용을 최소화하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 타깃 클린 재링크 성공 (경고 0 · 오류 0).
+- `sbx_render_tests` (**전체 35/35 PASS, 591 assertions**, 누수 0, 경고 0, 예상 오류 8/8): D3D12 WARP, D3D12 GTX 1660 SUPER, Vulkan GTX 1660 SUPER + VVL 1.3.290 모두 통과.
+- `SandboxTests --test-suite=render`: **33/33 PASS** (340,535 assertions).
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check`, `arch_link_boundary_selftest` 모두 통과.
+
+**남은 일**
+
+- 사용자가 최종 승인을 내리면 `refactor/graphics-sdk` 브랜치를 `master`에 병합한다.
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 9 (`R0.33` ~ `R0.34`: 전체 CTest 최종 재검증 및 기본값 전환·병합 검토)
 
 **무엇을**

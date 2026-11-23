@@ -55,11 +55,11 @@
 | `R0.32` | Phase 8 | World Pass → Native Graphics UI → Dear ImGui 단일 커맨드 리스트 공존 합성 검증 | `tests/render/test_imgui.cpp`, `tests/render/CMakeLists.txt` | `R0.31` | `sbx_render_tests --test-case="*ui_bridge*"` | ✅ 완료 |
 | `R0.33` | Phase 9 | 전체 100개 CTest 최종 재검증 및 전체 시나리오 최종 벤치마크 확정 | `docs/graphics-sdk-refactor/BENCHMARK_COMPARISON.md`, `TEST_REPORT.md` | `R0.32` | `ctest -C RelWithDebInfo -j 4` (99/99 PASS) | ✅ 완료 |
 | `R0.34` | Phase 9 | `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 및 병합 계획(`MERGE_PLAN.md`) 확정 | `docs/graphics-sdk-refactor/MERGE_PLAN.md`, `KNOWN_ISSUES.md` | `R0.33` | Gate 2 달성 확인 + `origin/master` 동기화 점검 | ✅ 완료 |
-| `R0.35` | Phase 10 | Legacy 백엔드(`render/dx12`, `vulkan`, `metal`) 정리 및 최종 병합 | `render/CMakeLists.txt`, `docs/` | `R0.34` | **사용자 최종 승인 후 진행** | ⏸️ 승인 대기 |
+| `R0.35` | Phase 10 | Legacy 백엔드(`render/dx12`, `vulkan`, `metal`) 제거 및 Graphics SDK 단독 체제 전환 (`ADR-0168`) | `render/CMakeLists.txt`, `cmake/SbxOptions.cmake`, `render/rhi/`, `docs/adr/0168-*.md` | `R0.34` | 전체 빌드 + 35/35 GPU 테스트 + 정적 검사 0건 | ✅ 완료 |
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.34`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.35`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -121,3 +121,6 @@
 ### R0.33 ~ R0.34 — Phase 9 전체 최종 검증 및 기본 백엔드 전환 검토
 - [x] `R0.33.1`: `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 100개 CTest 최종 재검증 (**99/99 실행 테스트 100% PASS**, `render_tests_warp` 35/35 · 결정론 16/16 · 경계 3/3 포함) 및 최종 벤치마크 비교표 확정
 - [x] `R0.34.1`: `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 및 `MERGE_PLAN.md` / `KNOWN_ISSUES.md` 확정 (Gate 2 완료, Linux/macOS CI 실기 검증 전까지 기본값 `OFF` 유지 권고, `origin/master` 충돌 0 확인)
+
+### R0.35 — Phase 10 Legacy 백엔드 제거 및 Graphics SDK 단독 체제 전환 (사용자 승인 완료)
+- [x] `R0.35.1`: `render/dx12/` (7파일), `render/vulkan/` (7파일), `render/metal/` (5파일) 제거, `SBX_USE_GRAPHICS_SDK` 기본값 `ON` 전환, `render/CMakeLists.txt` 및 `RenderDeviceFactory.cpp` 단일화, `ADR-0168` 및 `17-SOURCE-MAP.md` 갱신, 전체 빌드 및 35/35 GPU 테스트 통과

@@ -45,78 +45,33 @@ add_library(sbx_stb_impl OBJECT asset/StbImpl.cpp)
 target_link_libraries(sbx_stb_impl PRIVATE sbx_stb)
 target_sources(SandboxRender PRIVATE $<TARGET_OBJECTS:sbx_stb_impl>)
 
-if(WIN32)
-    target_sources(SandboxRender PRIVATE
-        dx12/Dx12Common.hpp
-        dx12/Dx12Common.cpp
-        dx12/Dx12Device.hpp
-        dx12/Dx12Device.cpp
-        dx12/Dx12CommandList.cpp
-        dx12/Dx12Pipeline.cpp
-        dx12/Dx12SwapChain.cpp)
-    target_compile_definitions(SandboxRender PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
-                                                     _WIN32_WINNT=0x0A00 WINVER=0x0A00)
-    target_link_libraries(SandboxRender PRIVATE d3d12 dxgi dxguid)
-endif()
-# Vulkan (Linux 기본, Windows 는 SBX_ENABLE_VULKAN 으로 D3D12 와 함께 — ADR-0032). 로더는 volk 가 실행 중에 연다.
-if(SBX_ENABLE_VULKAN)
-    target_sources(SandboxRender PRIVATE
-        vulkan/VulkanCommon.hpp
-        vulkan/VulkanCommon.cpp
-        vulkan/VulkanDevice.hpp
-        vulkan/VulkanDevice.cpp
-        vulkan/VulkanPipeline.cpp
-        vulkan/VulkanCommandList.cpp
-        vulkan/VulkanSwapChain.cpp)
-    target_link_libraries(SandboxRender PRIVATE sbx_volk)
-    # Vk*Info x{VK_STRUCTURE_TYPE_…} 는 Vulkan 의 관용 초기화 — 나머지 필드는 0 이 맞다
-    if(NOT MSVC)
-        set_source_files_properties(vulkan/VulkanCommon.cpp vulkan/VulkanDevice.cpp vulkan/VulkanPipeline.cpp
-                                    vulkan/VulkanCommandList.cpp vulkan/VulkanSwapChain.cpp
-                                    PROPERTIES COMPILE_OPTIONS -Wno-missing-field-initializers)
-    endif()
-endif()
-# Metal (macOS 기본, 14C — ADR-0037). Objective-C++ (ARC). 셰이더는 생성 헤더의 MSL 을 실행 중에 컴파일한다 (SBX_SHADER_MSL).
-if(SBX_ENABLE_METAL)
-    enable_language(OBJCXX)
-    target_sources(SandboxRender PRIVATE
-        metal/MetalDevice.hpp
-        metal/MetalDevice.mm
-        metal/MetalPipeline.mm
-        metal/MetalCommandList.mm
-        metal/MetalSwapChain.mm)
-    set_source_files_properties(metal/MetalDevice.mm metal/MetalPipeline.mm metal/MetalCommandList.mm
-                                metal/MetalSwapChain.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
-    target_link_libraries(SandboxRender PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation"
-                                                "-framework CoreGraphics") # 창 없는 시험에서도 장치를 찾게
-    if(SBX_BUILD_SHADERS AND NOT SBX_SHADER_MSL)
-        message(WARNING "SBX_SHADER_MSL=OFF: 내장 셰이더에 MSL 이 없어 Metal 이 파이프라인을 만들지 못한다 (createShader 실패)")
-    endif()
-endif()
-if(SBX_USE_GRAPHICS_SDK)
-    find_package(GraphicsSDK CONFIG REQUIRED)
-    target_sources(SandboxRender PRIVATE
-        graphics_sdk/GraphicsSdkTypes.hpp
-        graphics_sdk/GraphicsSdkTypes.cpp
-        graphics_sdk/GraphicsSdkResource.hpp
-        graphics_sdk/GraphicsSdkPipeline.hpp
-        graphics_sdk/GraphicsSdkPipeline.cpp
-        graphics_sdk/GraphicsSdkSpirvData.hpp
-        graphics_sdk/GraphicsSdkShaders.hpp
-        graphics_sdk/GraphicsSdkShaders.cpp
-        graphics_sdk/GraphicsSdkDevice.hpp
-        graphics_sdk/GraphicsSdkDevice.cpp
-        graphics_sdk/GraphicsSdkCommandQueue.hpp
-        graphics_sdk/GraphicsSdkCommandQueue.cpp
-        graphics_sdk/GraphicsSdkCommandList.hpp
-        graphics_sdk/GraphicsSdkCommandList.cpp
-        graphics_sdk/GraphicsSdkSwapChain.hpp
-        graphics_sdk/GraphicsSdkSwapChain.cpp
-        graphics_sdk/GraphicsSdkUiBridge.hpp
-        graphics_sdk/GraphicsSdkUiBridge.cpp
-        graphics_sdk/GraphicsSdkFactory.cpp)
-    target_compile_definitions(SandboxRender PUBLIC SBX_HAS_GRAPHICS_SDK=1)
-    target_link_libraries(SandboxRender PRIVATE GraphicsSDK::Core)
+# Graphics SDK 단일 백엔드 (Phase 10: R0.35 — 자체 dx12/vulkan/metal 백엔드 제거, ADR-0168)
+find_package(GraphicsSDK CONFIG REQUIRED)
+target_sources(SandboxRender PRIVATE
+    graphics_sdk/GraphicsSdkTypes.hpp
+    graphics_sdk/GraphicsSdkTypes.cpp
+    graphics_sdk/GraphicsSdkResource.hpp
+    graphics_sdk/GraphicsSdkPipeline.hpp
+    graphics_sdk/GraphicsSdkPipeline.cpp
+    graphics_sdk/GraphicsSdkSpirvData.hpp
+    graphics_sdk/GraphicsSdkShaders.hpp
+    graphics_sdk/GraphicsSdkShaders.cpp
+    graphics_sdk/GraphicsSdkDevice.hpp
+    graphics_sdk/GraphicsSdkDevice.cpp
+    graphics_sdk/GraphicsSdkCommandQueue.hpp
+    graphics_sdk/GraphicsSdkCommandQueue.cpp
+    graphics_sdk/GraphicsSdkCommandList.hpp
+    graphics_sdk/GraphicsSdkCommandList.cpp
+    graphics_sdk/GraphicsSdkSwapChain.hpp
+    graphics_sdk/GraphicsSdkSwapChain.cpp
+    graphics_sdk/GraphicsSdkUiBridge.hpp
+    graphics_sdk/GraphicsSdkUiBridge.cpp
+    graphics_sdk/GraphicsSdkFactory.cpp)
+target_compile_definitions(SandboxRender PUBLIC SBX_HAS_GRAPHICS_SDK=1)
+target_link_libraries(SandboxRender PRIVATE GraphicsSDK::Core)
+
+if(SBX_ENABLE_METAL AND SBX_BUILD_SHADERS AND NOT SBX_SHADER_MSL)
+    message(WARNING "SBX_SHADER_MSL=OFF: 내장 셰이더에 MSL 이 없어 Metal 이 파이프라인을 만들지 못한다 (createShader 실패)")
 endif()
 
 # 이 빌드에 들어간 백엔드 (render/rhi/Backends.hpp · RenderDeviceFactory, 시험의 기대값 — PUBLIC)
