@@ -8,6 +8,9 @@
 #include <imgui.h>
 
 #include "render/imgui/ImGuiRenderer.hpp"
+#if defined(SBX_HAS_GRAPHICS_SDK) && SBX_HAS_GRAPHICS_SDK
+#include "render/graphics_sdk/GraphicsSdkUiBridge.hpp"
+#endif
 #include "tests/render/RenderTestEnv.hpp"
 
 using namespace sbx;
@@ -159,4 +162,79 @@ TEST_SUITE("render.gpu") {
         // 대상 + ImGui 텍스처가 모두 파괴됐다 (실제 해제는 지연 — 핸들 수는 바로 준다)
         CHECK(device().stats().liveTextures == before);
     }
+
+#if defined(SBX_HAS_GRAPHICS_SDK) && SBX_HAS_GRAPHICS_SDK
+    TEST_CASE("ui_bridge: native GraphicsSDK UI pass coexists with ImGuiRenderer on the same target (R0.31-R0.32)") {
+        using namespace sbx::rhi::graphics_sdk;
+        UiRig rig;
+        gfx::Device* sdkDev = queryGraphicsSdkDevice(rig.dev);
+        REQUIRE(sdkDev != nullptr);
+
+        auto uiTarget = resolveGraphicsSdkTarget(rig.dev, rig.target);
+        REQUIRE(uiTarget.has_value());
+        CHECK(uiTarget->width == kW);
+        CHECK(uiTarget->height == kH);
+        CHECK(uiTarget->texture != nullptr);
+
+        ImGui::SetCurrentContext(rig.ctx);
+        ImGui::NewFrame();
+        basicWindow();
+        ImGui::Render();
+        ImDrawData* dd = ImGui::GetDrawData();
+        REQUIRE(dd != nullptr);
+
+        bool nativeCallbackInvoked = false;
+        submitAndWait(rig.dev, [&](rhi::ICommandList& cl) {
+            // 1) World Pass (Sandbox RHI)
+            const rhi::ResourceBarrier toRt{rig.target, rig.targetState, rhi::ResourceState::RenderTarget};
+            cl.barrier({&toRt, 1});
+            rhi::RenderPassDesc worldPass;
+            worldPass.colorCount = 1;
+            worldPass.colors[0] = {rig.target, rhi::LoadOp::Clear, rhi::StoreOp::Store, {0.1f, 0.12f, 0.16f, 1.f}};
+            cl.beginRenderPass(worldPass);
+            cl.endRenderPass();
+
+            // 2) Native Graphics UI Pass (순수 GraphicsSDK CommandList 직접 사용)
+            const bool queued = recordNativeUiPass(
+                cl, rig.dev, rig.target, [&](gfx::CommandList& gfxCmd, const GraphicsSdkUiTarget& tgt) {
+                    nativeCallbackInvoked = true;
+                    gfx::RenderPassDesc uiPass{};
+                    gfx::ColorAttachment ca{};
+                    ca.texture = tgt.texture;
+                    ca.load = gfx::LoadOp::Clear;
+                    ca.clear = {0.0f, 0.8f, 0.2f, 1.0f};
+                    uiPass.colors.push_back(std::move(ca));
+                    REQUIRE(gfxCmd.beginRenderPass(uiPass).has_value());
+                    REQUIRE(gfxCmd.endRenderPass().has_value());
+                });
+            CHECK(queued);
+
+            // 3) Studio Dear ImGui Pass (동일 커맨드 리스트 · 동일 타깃 위에 LoadOp::Load 합성)
+            rig.renderer.record(cl, rig.target, dd);
+            const rhi::ResourceBarrier toCopy{rig.target, rhi::ResourceState::RenderTarget, rhi::ResourceState::CopySrc};
+            cl.barrier({&toCopy, 1});
+            rig.targetState = rhi::ResourceState::CopySrc;
+        });
+
+        CHECK(nativeCallbackInvoked);
+        const ImGuiRenderStats& st = rig.renderer.stats();
+        CHECK(st.draws >= 1);
+        CHECK(st.skippedCommands == 0);
+
+        const Image img = readback(rig.dev, rig.target, rhi::ResourceState::CopySrc);
+
+        // 창 밖 영역은 Native GraphicsUI 패스가 그린 초록색 (0, 204, 51) 이어야 한다.
+        const u8* bgPx = img.pixel(300, 180);
+        CHECK(bgPx[0] <= 5);
+        CHECK(bgPx[1] >= 195);
+        CHECK(bgPx[1] <= 212);
+        CHECK(bgPx[2] >= 45);
+        CHECK(bgPx[2] <= 58);
+
+        // 좌상단 ImGui 창 내부는 Dear ImGui 가 그 위에 정상 합성한 픽셀이어야 한다.
+        const u8* uiPx = img.pixel(100, 80);
+        const bool isGreenBg = uiPx[0] <= 5 && uiPx[1] >= 195 && uiPx[2] <= 58;
+        CHECK_FALSE(isGreenBg);
+    }
+#endif
 }

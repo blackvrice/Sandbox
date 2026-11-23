@@ -67,6 +67,7 @@ RESTRICTED = [
     ("network/", set()),
     ("network/transport/", {r"enet/"}),
     ("render/rhi/", set()),
+    ("render/graphics_sdk/", set()),
     ("render/renderer/", set()),
     ("render/asset/", set()),
     ("render/shader/", set()),

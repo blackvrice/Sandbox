@@ -10,6 +10,9 @@
 #include "render/rhi/HandlePool.hpp"
 #include "render/rhi/RenderDevice.hpp"
 #include "render/rhi/UploadRing.hpp"
+#if defined(SBX_HAS_GRAPHICS_SDK)
+#include "render/rhi/Backends.hpp"
+#endif
 
 using namespace sbx;
 using namespace sbx::rhi;
@@ -251,4 +254,12 @@ TEST_SUITE("render") {
         CHECK(any.error().code == ErrorCode::Unsupported);
 #endif
     }
+
+#if defined(SBX_HAS_GRAPHICS_SDK)
+    TEST_CASE("graphics sdk adapter: error code, format, state, and surface mappings") {
+        const auto ok = sbx::rhi::graphics_sdk::verifyAdapterTypeMappings();
+        const std::string err = ok ? std::string{} : ok.error().describe();
+        CHECK_MESSAGE(ok.has_value(), err);
+    }
+#endif
 }

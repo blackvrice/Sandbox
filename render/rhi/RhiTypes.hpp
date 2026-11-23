@@ -32,7 +32,7 @@ using FenceValue = u64;
 enum class BackendType : u8 { Auto = 0, D3D12, Vulkan, Metal };
 [[nodiscard]] std::string_view backendName(BackendType b) noexcept;
 
-enum class QueueType : u8 { Graphics = 0 }; // [계획] Copy · Compute 큐
+enum class QueueType : u8 { Graphics = 0, Copy = 1, Compute = 2 };
 
 enum class Format : u8 {
     Unknown = 0,

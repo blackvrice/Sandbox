@@ -2,7 +2,9 @@
 // 백엔드 독립 — RHI 로만 쓴다. 기준 이미지는 tests/render/references/.
 #include <doctest/doctest.h>
 
+#include <array>
 #include <cstring>
+#include <thread>
 #include <vector>
 
 #include "tests/render/RenderTestEnv.hpp"
@@ -379,5 +381,221 @@ TEST_SUITE("render.gpu") {
         });
         rendertest::expectValidationErrors(2);
         dev.destroy(rt);
+    }
+
+    TEST_CASE("multithread: parallel command list recording and batched queue submission (R0.25)") {
+        IRenderDevice& dev = device();
+        constexpr u32 kWorkers = 4;
+        constexpr u64 kBytes = 4096;
+
+        std::array<RhiBuffer, kWorkers> uploads{};
+        std::array<RhiBuffer, kWorkers> gpus{};
+        std::array<RhiBuffer, kWorkers> readbacks{};
+        std::array<std::unique_ptr<ICommandList>, kWorkers> lists{};
+
+        for (u32 i = 0; i < kWorkers; ++i) {
+            uploads[i] = dev.createBuffer({kBytes, BufferUsage::CopySrc, MemoryType::Upload, "mt upload"});
+            gpus[i] =
+                dev.createBuffer({kBytes, BufferUsage::CopyDst | BufferUsage::CopySrc, MemoryType::GpuOnly, "mt gpu"});
+            readbacks[i] = dev.createBuffer({kBytes, BufferUsage::CopyDst, MemoryType::Readback, "mt readback"});
+            REQUIRE(uploads[i].valid());
+            REQUIRE(gpus[i].valid());
+            REQUIRE(readbacks[i].valid());
+            std::byte* src = dev.map(uploads[i]);
+            REQUIRE(src != nullptr);
+            for (u64 b = 0; b < kBytes; ++b) {
+                src[b] = static_cast<std::byte>((b * 3 + i * 29) & 0xFF);
+            }
+            lists[i] = dev.createCommandList(QueueType::Graphics);
+            REQUIRE(lists[i] != nullptr);
+        }
+
+        auto runParallelBatch = [&](bool toGpu) {
+            dev.beginFrame();
+            auto recordWorker = [&](u32 idx) {
+                ICommandList& cl = *lists[idx];
+                cl.begin();
+                if (toGpu) {
+                    cl.copyBuffer({uploads[idx], 0, gpus[idx], 0, kBytes});
+                } else {
+                    cl.copyBuffer({gpus[idx], 0, readbacks[idx], 0, kBytes});
+                }
+                cl.end();
+            };
+
+#if defined(SBX_HAS_GRAPHICS_SDK) && SBX_HAS_GRAPHICS_SDK
+            std::array<std::thread, kWorkers> threads{};
+            for (u32 i = 0; i < kWorkers; ++i) {
+                threads[i] = std::thread(recordWorker, i);
+            }
+            for (auto& t : threads) {
+                t.join();
+            }
+#else
+            for (u32 i = 0; i < kWorkers; ++i) {
+                recordWorker(i);
+            }
+#endif
+
+            std::array<ICommandList*, kWorkers> batch{};
+            for (u32 i = 0; i < kWorkers; ++i) {
+                batch[i] = lists[i].get();
+            }
+            const FenceValue f = dev.queue(QueueType::Graphics).submit(batch);
+            dev.endFrame();
+            dev.queue(QueueType::Graphics).wait(f);
+        };
+
+        runParallelBatch(true);
+        runParallelBatch(false);
+
+        u64 bad = 0;
+        for (u32 i = 0; i < kWorkers; ++i) {
+            const std::byte* got = dev.map(readbacks[i]);
+            REQUIRE(got != nullptr);
+            for (u64 b = 0; b < kBytes; ++b) {
+                if (got[b] != static_cast<std::byte>((b * 3 + i * 29) & 0xFF)) {
+                    ++bad;
+                }
+            }
+            dev.destroy(uploads[i]);
+            dev.destroy(gpus[i]);
+            dev.destroy(readbacks[i]);
+        }
+        CHECK(bad == 0);
+    }
+
+    TEST_CASE("queues: copy queue submits buffer transfer and synchronizes completion (R0.26)") {
+        IRenderDevice& dev = device();
+        constexpr u64 kBytes = 8192;
+
+        const RhiBuffer upload = dev.createBuffer({kBytes, BufferUsage::CopySrc, MemoryType::Upload, "cq upload"});
+        const RhiBuffer gpu =
+            dev.createBuffer({kBytes, BufferUsage::CopyDst | BufferUsage::CopySrc, MemoryType::GpuOnly, "cq gpu"});
+        const RhiBuffer rb = dev.createBuffer({kBytes, BufferUsage::CopyDst, MemoryType::Readback, "cq readback"});
+        REQUIRE(upload.valid());
+        REQUIRE(gpu.valid());
+        REQUIRE(rb.valid());
+
+        std::byte* src = dev.map(upload);
+        REQUIRE(src != nullptr);
+        for (u64 b = 0; b < kBytes; ++b) {
+            src[b] = static_cast<std::byte>((b * 11 + 7) & 0xFF);
+        }
+
+        // Copy Queue 로 Upload -> GpuOnly 전송 후 동기화
+        auto copyCmd = dev.createCommandList(QueueType::Copy);
+        REQUIRE(copyCmd != nullptr);
+        dev.beginFrame();
+        copyCmd->begin();
+        copyCmd->copyBuffer({upload, 0, gpu, 0, kBytes});
+        copyCmd->end();
+        ICommandList* copyRaw = copyCmd.get();
+        const FenceValue copyFence = dev.queue(QueueType::Copy).submit({&copyRaw, 1});
+        dev.endFrame();
+        dev.queue(QueueType::Copy).wait(copyFence);
+
+        // Graphics Queue 로 GpuOnly -> Readback 복사 후 데이터 검증
+        submitAndWait(dev, [&](ICommandList& cl) { cl.copyBuffer({gpu, 0, rb, 0, kBytes}); });
+
+        const std::byte* got = dev.map(rb);
+        REQUIRE(got != nullptr);
+        u64 bad = 0;
+        for (u64 b = 0; b < kBytes; ++b) {
+            if (got[b] != static_cast<std::byte>((b * 11 + 7) & 0xFF)) {
+                ++bad;
+            }
+        }
+        CHECK(bad == 0);
+
+        dev.destroy(upload);
+        dev.destroy(gpu);
+        dev.destroy(rb);
+    }
+
+    TEST_CASE("swapchain: resize, minimize 0x0, vsync toggle, and present lifecycle (R0.30)") {
+        IRenderDevice& dev = device();
+        platform::WindowDesc wdesc;
+        wdesc.width = 256;
+        wdesc.height = 256;
+        wdesc.title = "sbx_render_tests_swapchain";
+        wdesc.resizable = true;
+        auto win = platform::createWindow(wdesc);
+        if (!win) {
+            MESSAGE("창 생성 불가(헤드리스 환경) — 스왑체인 수명 테스트 건너뜀");
+            return;
+        }
+        const platform::Extent2D fb = (*win)->framebufferSize();
+        SwapChainDesc scDesc;
+        scDesc.width = fb.width > 0 ? fb.width : 256;
+        scDesc.height = fb.height > 0 ? fb.height : 256;
+        scDesc.vsync = true;
+        auto sc = dev.createSwapChain((*win)->nativeHandle(), scDesc);
+        if (!sc) {
+            MESSAGE("스왑체인 생성 미지원 — 건너뜀: " << sc.error().message);
+            return;
+        }
+
+        auto drawFrame = [&](f32 r, f32 g, f32 b) -> bool {
+            dev.beginFrame();
+            const AcquireResult acq = (*sc)->acquire();
+            if (acq.skip || !acq.backbuffer.valid()) {
+                dev.endFrame();
+                return false;
+            }
+            auto cl = dev.createCommandList(QueueType::Graphics);
+            cl->begin();
+            const ResourceBarrier toRt{acq.backbuffer, ResourceState::Present, ResourceState::RenderTarget};
+            cl->barrier({&toRt, 1});
+            RenderPassDesc pass;
+            pass.colorCount = 1;
+            pass.colors[0] = {acq.backbuffer, LoadOp::Clear, StoreOp::Store, {r, g, b, 1.f}};
+            cl->beginRenderPass(pass);
+            cl->endRenderPass();
+            const ResourceBarrier toPresent{acq.backbuffer, ResourceState::RenderTarget, ResourceState::Present};
+            cl->barrier({&toPresent, 1});
+            cl->end();
+            ICommandList* raw = cl.get();
+            const FenceValue f = dev.queue(QueueType::Graphics).submit({&raw, 1});
+            const bool ok = (*sc)->present();
+            dev.endFrame();
+            dev.queue(QueueType::Graphics).wait(f);
+            return ok;
+        };
+
+        // 1) 초기 렌더 & Present
+        CHECK(drawFrame(0.1f, 0.2f, 0.3f));
+
+        // 2) 크기 변경 후 렌더
+        (*sc)->resize(320, 240);
+        CHECK(drawFrame(0.3f, 0.2f, 0.1f));
+
+        // 3) 최소화(0×0) 시 크래시 없이 처리되어야 한다 (GraphicsSDK 는 skip=true 로 즉시 건너뜀)
+        (*sc)->resize(0, 0);
+        dev.beginFrame();
+        const AcquireResult minAcq = (*sc)->acquire();
+        if (!minAcq.skip && minAcq.backbuffer.valid()) {
+            (void)(*sc)->present();
+        }
+        dev.endFrame();
+#if defined(SBX_HAS_GRAPHICS_SDK) && SBX_HAS_GRAPHICS_SDK
+        CHECK(minAcq.skip);
+#endif
+
+        // 4) 최소화 복귀 후 정상 렌더
+        (*sc)->resize(scDesc.width, scDesc.height);
+        CHECK(drawFrame(0.2f, 0.4f, 0.2f));
+
+        // 5) 런타임 VSync 끄기/켜기 토글 및 렌더
+        (*sc)->setVsync(false);
+        CHECK_FALSE((*sc)->vsync());
+        CHECK(drawFrame(0.4f, 0.1f, 0.4f));
+
+        (*sc)->setVsync(true);
+        CHECK((*sc)->vsync());
+        CHECK(drawFrame(0.1f, 0.4f, 0.4f));
+
+        dev.waitIdle();
+        (*sc).reset();
     }
 }

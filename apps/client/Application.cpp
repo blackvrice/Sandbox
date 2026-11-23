@@ -1279,6 +1279,10 @@ void Application::accumulateTimings(f64 frameS, f64 worldS, f64 extractS, f64 re
     };
     add(m_windowSum);
     add(m_total);
+    constexpr usize kMaxFrameSamples = 60000;
+    if (m_frameSamplesMs.size() < kMaxFrameSamples && frameS > 0.0) {
+        m_frameSamplesMs.push_back(frameS * 1000.0);
+    }
     m_windowSeconds += frameS;
     if (m_windowSeconds >= 0.5) {
         const f64 n = static_cast<f64>(m_windowSum.frames);
@@ -1294,7 +1298,21 @@ FrameTimings Application::totalTimings() const noexcept {
         return {};
     }
     const f64 n = static_cast<f64>(m_total.frames);
-    return {m_total.frameMs / n, m_total.worldMs / n, m_total.extractMs / n, m_total.renderMs / n, m_total.frames};
+    f64 p99 = 0.0;
+    f64 p999 = 0.0;
+    if (!m_frameSamplesMs.empty()) {
+        const usize count = m_frameSamplesMs.size();
+        const usize idx99 = std::min(count - 1, static_cast<usize>(static_cast<f64>(count) * 0.99));
+        const usize idx999 = std::min(count - 1, static_cast<usize>(static_cast<f64>(count) * 0.999));
+        std::nth_element(m_frameSamplesMs.begin(), m_frameSamplesMs.begin() + static_cast<std::ptrdiff_t>(idx99),
+                         m_frameSamplesMs.end());
+        p99 = m_frameSamplesMs[idx99];
+        std::nth_element(m_frameSamplesMs.begin() + static_cast<std::ptrdiff_t>(idx99),
+                         m_frameSamplesMs.begin() + static_cast<std::ptrdiff_t>(idx999), m_frameSamplesMs.end());
+        p999 = m_frameSamplesMs[idx999];
+    }
+    return {m_total.frameMs / n, m_total.worldMs / n, m_total.extractMs / n, m_total.renderMs / n, m_total.frames, p99,
+            p999};
 }
 
 int Application::run(FramePacer* pacer) {

@@ -7,6 +7,207 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 10 (`R0.35`, ADR-0168: Legacy 백엔드 제거 및 Graphics SDK 단독 체제 전환)
+
+**무엇을**
+
+- `render/dx12/` (7파일), `render/vulkan/` (7파일), `render/metal/` (5파일) — 총 19개 자체 백엔드 파일을 제거했다.
+- `cmake/SbxOptions.cmake`, `render/CMakeLists.txt`, `render/rhi/Backends.hpp`, `render/rhi/RenderDeviceFactory.cpp`: `SBX_USE_GRAPHICS_SDK` 기본값을 `ON`으로 전환하고, `d3d12`/`dxgi`/`sbx_volk`/Metal 직접 링크를 제거하여 `GraphicsSDK::Core` 단일 백엔드 체제로 통합했다.
+- `docs/adr/0168-graphics-sdk-rhi-backend.md`, `docs/adr/README.md`, `docs/17-SOURCE-MAP.md`, `docs/graphics-sdk-refactor/*`: `ADR-0168`을 추가하고 리팩토링 전체 완료(100%, 35/35) 상태를 반영했다.
+
+**왜**
+
+- 사용자 승인에 따라 Phase 10(`R0.35`)을 완료하여 3대 그래픽 API의 플랫폼별 중복 구현을 제거하고, `GraphicsSDK::Core` 단일 그래픽 기반으로 장기 유지보수 비용을 최소화하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `build/windows-msvc-gfxsdk` (`RelWithDebInfo`) 전체 타깃 클린 재링크 성공 (경고 0 · 오류 0).
+- `sbx_render_tests` (**전체 35/35 PASS, 591 assertions**, 누수 0, 경고 0, 예상 오류 8/8): D3D12 WARP, D3D12 GTX 1660 SUPER, Vulkan GTX 1660 SUPER + VVL 1.3.290 모두 통과.
+- `SandboxTests --test-suite=render`: **33/33 PASS** (340,535 assertions).
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check`, `arch_link_boundary_selftest` 모두 통과.
+
+**남은 일**
+
+- 사용자가 최종 승인을 내리면 `refactor/graphics-sdk` 브랜치를 `master`에 병합한다.
+
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 9 (`R0.33` ~ `R0.34`: 전체 CTest 최종 재검증 및 기본값 전환·병합 검토)
+
+**무엇을**
+
+- `docs/graphics-sdk-refactor/MERGE_PLAN.md`, `KNOWN_ISSUES.md`, `DEVELOPMENT_DASHBOARD.md`, `REFACTORING_ROADMAP.md`, `VERSION_HISTORY.md`, `AI_HANDOFF.md`:
+  - Phase 0~8까지 완료된 모든 기능·최적화·멀티 플랫폼 매핑·SwapChain 안정화·GraphicsUI+ImGui 공존 구조에 대해 전체 100개 CTest 최종 재검증을 수행하고(`R0.33`), `SBX_USE_GRAPHICS_SDK` 기본값 전환 조건과 단계별 병합 게이트(Gate 1~4)를 확정했다(`R0.34`).
+  - `origin/master`에 신규 커밋이 없어 충돌 0건임을 확인했다.
+
+**왜**
+
+- `refactor/graphics-sdk` 브랜치가 사용자 승인 후 안전하게 병합될 수 있도록 전 시스템 회귀 0건과 남은 외부 환경 제약(`OPEN-001`~`004`)을 명확히 문서화하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- 전체 `ctest --test-dir build/windows-msvc-gfxsdk -C RelWithDebInfo -j 4`: **99/99 실행 테스트 100% PASS** (`render_tests_warp` 35/35 PASS 포함, `studio_gui_smoke` 1건 기본 Skipped), 결정론 골든 해시 16/16 일치.
+- `check_includes.py` (803파일 0건), `check_docs.py` (302파일 0건), `gen_roadmap.py --check` (24문서 0건) 모두 통과.
+
+**남은 일**
+
+- Phase 10 (`R0.35`): 사용자 최종 승인 후 `refactor/graphics-sdk` → `master` 병합(Gate 2) 및 추후 Linux/macOS CI 검증 완료 시 기본값 `ON` 전환(Gate 3) · Legacy 백엔드 제거(Gate 4) 진행.
+
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 8 (`R0.31` ~ `R0.32`: Graphics UI 연동 브리지 및 Dear ImGui 공존 구조)
+
+**무엇을**
+
+- `render/graphics_sdk/GraphicsSdkUiBridge.{hpp,cpp}` (신규), `render/graphics_sdk/GraphicsSdkCommandList.{hpp,cpp}`, `render/CMakeLists.txt`:
+  - `GraphicsUI`가 Sandbox에 의존하지 않고 `GraphicsSDK::Core` 공개 API만 직접 사용할 수 있도록 호스트 브리지(`queryGraphicsSdkDevice`, `resolveGraphicsSdkTarget`, `recordNativeUiPass`)를 구현했다 (`R0.31`).
+  - `GraphicsSdkCommandList`의 `Stage-Before-Record` 파이프라인에 `CmdNativeCallback`을 추가하여, 단일 커맨드 리스트 안에서 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 순으로 정확한 상태 전이 및 합성이 보장되도록 했다.
+- `tests/render/CMakeLists.txt`, `tests/render/test_imgui.cpp`: 동일 커맨드 리스트 · 동일 렌더 타깃 위에서 World Clear → Native GraphicsSDK UI Pass → Dear ImGui(`ImGuiRenderer`) 공존 합성을 픽셀 단위로 검증하는 GPU 테스트를 추가했다 (`R0.32`).
+- `docs/17-SOURCE-MAP.md`, `docs/graphics-sdk-refactor/{DEVELOPMENT_DASHBOARD,REFACTORING_ROADMAP,TEST_REPORT,VERSION_HISTORY,AI_HANDOFF}.md`를 갱신했다.
+
+**왜**
+
+- 향후 `GraphicsUI` 프레임워크가 순환 의존성 없이 `GraphicsSDK` 공개 API로 직접 렌더링하면서도 Studio의 Dear ImGui와 동일 프레임·동일 타깃에서 충돌 없이 공존할 수 있는 기반을 확보하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 35/35 PASS, 591 assertions**, 누수 0, 경고 0, 예상 오류 8/8):
+  - Graphics SDK D3D12 WARP: 35/35 PASS
+  - Graphics SDK D3D12 GTX 1660 SUPER: 35/35 PASS
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290: 35/35 PASS
+  - Legacy D3D12 빌드: 컴파일 0 에러 0 경고
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check` 모두 0 errors 통과.
+
+**남은 일**
+
+- Phase 9 (`R0.33` ~ `R0.34`): 전체 시나리오 최종 벤치마크 · 전체 CTest 재검증 및 `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 (`R0.35` Legacy 정리 및 `main` 병합은 사용자 승인 후 진행).
+
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 7 (`R0.28` ~ `R0.30`: 멀티 플랫폼 매핑 · 프로파일링/메모리 예산 · SwapChain/Device Lost 안정화)
+
+**무엇을**
+
+- `render/graphics_sdk/GraphicsSdkTypes.cpp`: `verifyAdapterTypeMappings()`에 6종 OS Surface(Win32, Xcb, Cocoa→MetalLayer, Xlib/Wayland `Unsupported`, None `InvalidArgument`) 및 3종 `QueueType` 매핑 검증을 추가했다 (`R0.28`).
+- `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}`: `noteTearingSupport()`, `queryLocalMemoryUsageBytes()` (`queryMemoryBudget`), `checkDeviceStatus()` (`checkStatus`), `markDeviceLost()` 및 `reportSdkError()` 내 `DeviceLost` 자동 감지를 추가했다 (`R0.29`).
+- `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`: `querySurfacePresentCapabilities()` 기반 `PresentMode::Tearing` 자동 선택, 최소화(`0×0`) 안전 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 시 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 스왑체인 재생성(실패 시 롤백)을 구현했다 (`R0.30`).
+- `tests/render/CMakeLists.txt`, `tests/render/test_rhi_basic.cpp`: `SandboxPlatform`을 링크하고 실제 창 생성 → SwapChain `acquire/clear/present` → `resize` → `resize(0, 0)` 최소화 → 복귀 → `setVsync(false/true)` 수명 GPU 테스트를 추가했다.
+- `docs/graphics-sdk-refactor/{PLATFORM_SUPPORT,DEVELOPMENT_DASHBOARD,REFACTORING_ROADMAP,TEST_REPORT,VERSION_HISTORY,AI_HANDOFF}.md`를 갱신했다.
+
+**왜**
+
+- 멀티 플랫폼 서피스 계약을 자동 테스트로 고정하고, 실기 창 환경에서 발생하는 창 리사이즈·최소화·VSync 토글·Device Lost 시 크래시나 검증 오류 없이 복구되며 VSync OFF Tearing 지연을 개선하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `SandboxTests --test-suite=render`: **33/33 PASS** (340,535 assertions).
+- `sbx_render_tests` (**전체 34/34 PASS, 567 assertions**, 누수 0, 경고 0, 예상 오류 8/8):
+  - Legacy D3D12 WARP: 34/34 PASS
+  - Graphics SDK D3D12 WARP: 34/34 PASS
+  - Graphics SDK D3D12 GTX 1660 SUPER (`tearing 지원`): 34/34 PASS
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290 (`tearing 지원`): 34/34 PASS
+- `SandboxClient` Tearing 적용 효과 (`ecosystem_small`, 1920×1080 `--vsync off`):
+  - Graphics SDK D3D12: 1052.2 FPS, **1% Low 173.6 FPS** (Legacy 169.7 FPS 초과), **0.1% Low 123.0 FPS** (Legacy 121.9 FPS 초과)
+  - Graphics SDK Vulkan: 1489.1 FPS, **0.1% Low 430.3 FPS** (Legacy 382.3 FPS 대비 +12.6% 우위)
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check`, `arch_link_boundary_selftest` 모두 통과.
+
+**남은 일**
+
+- Phase 8 (`R0.31` ~ `R0.32`): Graphics UI 프레임워크 연동 인터페이스 및 Dear ImGui 공존 구조 구축.
+
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 6 (`R0.25` ~ `R0.27`: 멀티스레드 기록 · 다중 Queue · 핫 패스 최적화)
+
+**무엇을**
+
+- `render/rhi/RhiTypes.hpp`, `render/graphics_sdk/GraphicsSdkTypes.cpp`: `QueueType`을 `{ Graphics, Copy, Compute }`로 확장하고 `mapQueueType()`에 1:1 매핑을 연결했다 (Legacy 백엔드는 기존처럼 Graphics 큐로 호환).
+- `render/graphics_sdk/GraphicsSdkCommandQueue.{hpp,cpp}`, `GraphicsSdkDevice.{hpp,cpp}`:
+  - `GraphicsSdkDevice`에 `m_copyQueue`/`m_computeQueue` 전용 큐 어댑터를 바인딩(`Queues G+Copy+Compute`)하고 `FrameSlot`별 `copyPool`/`computePool`을 분리했다.
+  - `GraphicsSdkCommandQueue::submit()`의 1~16개 배치 제출에 스택 인라인 배열을 적용하여 매 프레임 힙 할당을 제거했다.
+  - `allocateUpload()`에 4KB 정렬 패딩 병합을 적용하여 프레임당 `Buffer::write()` 호출 수를 1~2회로 최소화했고, `m_recordMutex`로 멀티스레드 병렬 기록(`allocateUpload`, `allocatePushConstant`, `resolvePipelineVariant`)의 스레드 안전성을 확보했다.
+- `render/graphics_sdk/GraphicsSdkCommandList.cpp`:
+  - `m_recordedPasses` / `m_recordedBindings` 풀 및 `m_passBuffersScratch` / `m_lastBufferStates` 스크래치 벡터 재사용(제출 후 `shared_ptr` 즉시 해제 + capacity 유지), 파이프라인 지연 발행, 동일 상태 버퍼 `transition()` 중복 제거, 정적 타임스탬프 이름 테이블, 디버그 마커 조건부 기록으로 핫 패스 CPU 오버헤드와 힙 할당을 대폭 절감했다.
+- `tests/render/test_rhi_basic.cpp`: 4스레드 병렬 커맨드 기록 + 배치 제출(`R0.25`) 및 Copy Queue 전송·동기화(`R0.26`) GPU 테스트 2종을 추가했다.
+- `apps/client/Application.{hpp,cpp}`, `apps/client/main.cpp`: `FrameTimings`에 `std::nth_element` 기반 1% Low / 0.1% Low FPS 분포 계측(`p99FrameMs`, `p999FrameMs`)을 추가했다 (`R0.27`).
+
+**왜**
+
+- Phase 5 완료 직후 식별된 CPU 기록·업로드 병목을 해소하고, 다중 Queue(`Copy`/`Compute`) 및 멀티스레드 병렬 커맨드 기록 기반과 1%/0.1% Low FPS 계측 도구를 확보하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 33/33 PASS, 559 assertions**):
+  - Legacy D3D12 WARP: 33/33 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8.
+  - Graphics SDK D3D12 WARP (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, 경고 0, 예상 오류 8/8.
+  - Graphics SDK D3D12 GTX 1660 SUPER (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, 경고 0, 예상 오류 8/8.
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290 (`Queues G+Copy+Compute`): 33/33 PASS, 누수 0, VVL 경고 0, 예상 오류 8/8.
+- 핫 패스 최적화 효과 (`RelWithDebInfo`, 1920×1080 `--vsync off`):
+  - D3D12 `ecosystem_small`: 1762.0 → **2016.2 FPS (+14.4%)**, `render 0.38 → 0.32 ms (-15.8%)`.
+  - Vulkan `ecosystem_10k`: 294.1 → **369.4 FPS (+25.6%)**, `render 1.09 → 0.81 ms (-25.7%)`.
+  - 동일 세션 0.1% Low FPS: Vulkan `ecosystem_small` 387.5 FPS vs Legacy 382.3 FPS, Vulkan `ecosystem_10k` 24.3 FPS vs Legacy 22.3 FPS (+9.0%).
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check` 모두 0 errors 통과.
+
+**남은 일**
+
+- Phase 7 (`R0.28` ~ `R0.30`): 멀티 플랫폼 검증(Windows/Linux/macOS), GPU 프로파일러 통합 및 Device Lost/Resize 복구 안정화.
+
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 3 · Phase 4 · Phase 5 (`R0.16` ~ `R0.24`)
+
+**무엇을**
+
+- `tools/shader/gen_gfxsdk_spirv.py`, `render/graphics_sdk/GraphicsSdkSpirvData.hpp`, `render/graphics_sdk/GraphicsSdkShaders.{hpp,cpp}`: 7종 내장 셰이더(14개 스테이지: `basic_color`, `basic_texture`, `sprite`, `terrain`, `grid`, `lines`, `imgui`)를 D3D12(`gfx::compileHlsl()` SM5.1 프로세스 캐시), Vulkan(단일 디스크립터 셋 SPIR-V 1.3 + `OpTypeImage` Depth 정규화), Metal(MSL)로 변환하는 셰이더 계층을 구현했다 (`SDK-REQ-001`).
+- `render/graphics_sdk/GraphicsSdkTypes.cpp`: `Format::R16Uint` → `gfx::Format::R16UNorm`(`terrain.ps`에서 정확한 `u16` 복원), 정점 `Format::R32Uint` → `gfx::VertexFormat::Float`(`sprite.vs`에서 `asuint()` 복원) 매핑을 추가했다 (`SDK-REQ-002`).
+- `render/graphics_sdk/GraphicsSdkPipeline.hpp`, `GraphicsSdkDevice.{hpp,cpp}`, `GraphicsSdkCommandList.cpp`:
+  - 바인딩된 `RhiSampler` `(filter, address)` 조합별 PSO 변형 캐시(`resolvePipelineVariant`) 및 슬롯별 전용 `pushBuffer`(256 KB)를 구현했다 (`SDK-REQ-005`, `006`).
+  - 공용 6-인덱스 쿼드 스트립 버퍼(`m_quadStripIndexBuffer`) + 동적 스트립→리스트 변환 및 2D CPU 와인딩 컬링(`tryDrawWithCpuCulling`)을 구현했다 (`SDK-REQ-003`, `004`).
+  - `prepareAndReplay()`에 렌더 패스 진입 전 Vertex/Index/Constant 버퍼 상태 사전 전이 스캔을 추가했다.
+  - 1-layer `"sprite atlas"` 텍스처를 `TextureDimension::Texture2DArray`로 생성하고, Vulkan 부분 업로드 전 1회 `fullSlice` 제로 초기화를 수행하도록 수정했다.
+  - GraphicsSDK D3D12/Vulkan의 `DestBlendAlpha = ZERO` 불일치(`SDK-REQ-009`)에 대해 불투명 RT Readback 알파 불변량 보정(`applyOpaqueAlphaFixup`)을 구현했다.
+  - 정적 매핑 Upload 버퍼의 `lastUploadedShadow` 변경 감지를 추가하여 `SandboxClient`의 `Cannot overwrite a buffer in flight` 오류를 해소했다.
+- `tests/render/CMakeLists.txt`: `SBX_RENDER_TEST_FILTER`를 완전 제거하여 31개 전체 GPU 골든 이미지 테스트가 CTest 기본 대상이 되도록 전환했다.
+- `docs/graphics-sdk-refactor/*`, `docs/17-SOURCE-MAP.md`: Phase 3~5 완료 상태, 테스트 보고서 및 `RelWithDebInfo` 성능 비교 기준선을 반영했다.
+
+**왜**
+
+- `GraphicsSDK::Core` 공개 API(고정 커밋 `9345c181`) 위에서 Sandbox의 모든 내장 셰이더, 스프라이트 배치, 지형·그리드·디버그 선 패스 및 Dear ImGui 1.92 렌더링을 수정 없이 100% 골든 이미지 일치로 구동하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 31/31 PASS, 527 assertions**):
+  - D3D12 WARP + Debug Layer: 31/31 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8, 해제 382.
+  - D3D12 GTX 1660 SUPER + Debug Layer: 31/31 PASS, 누수 0, Debug Layer 경고 0, 예상 오류 8/8, 해제 382.
+  - Vulkan GTX 1660 SUPER + VVL 1.3.290: 31/31 PASS, 누수 0, VVL 경고 0, 예상 오류 8/8, 해제 382.
+- `SandboxClient` 실기 검증:
+  - `--world ecosystem_small --rhi dx12 --rhi-debug --frames 300 --vsync off --safe-mode --no-audio`: Debug Layer 경고 0 · 오류 0 정상 종료.
+  - `RelWithDebInfo` 1920×1080 `--vsync off` (Phase 6 최적화 전): `ecosystem_small` D3D12 1762.0 FPS (`render 0.38 ms`) / Vulkan 1663.7 FPS (`render 0.41 ms`), `ecosystem_10k` D3D12 346.2 FPS (`render 0.81 ms`) / Vulkan 294.1 FPS (`render 1.09 ms`).
+- 전체 `ctest --test-dir build/windows-msvc-gfxsdk -C RelWithDebInfo -j 4`: **99/99 실행 테스트 100% PASS** (`render_tests_warp` 31/31 0.99 sec 포함, `studio_gui_smoke` 1건 Skipped), 결정론 16/16 일치.
+- `check_includes.py` (801파일 0건), `check_docs.py` (302파일 0건), `gen_roadmap.py --check` (24문서 0건) 모두 통과.
+
+**남은 일**
+
+- Phase 6 (`R0.25` ~ `R0.27`): ResourceSet 캐싱·스크래치 버퍼 재사용·멀티스레드 커맨드 기록, Dedicated Copy Queue 활용, Upload Ring 이중 복사 제거 및 1% Low / 0.1% Low FPS 벤치마크 하네스 구축으로 Legacy 대비 성능 개선 달성.
+
+## 2026-11-22 — Graphics SDK 기반 RHI 리팩토링 Phase 0 · Phase 1 · Phase 2 (`R0.1` ~ `R0.15`)
+
+**무엇을**
+
+- `cmake/SbxOptions.cmake`, `render/CMakeLists.txt`: `SBX_USE_GRAPHICS_SDK` 옵션(기본값 `OFF`)을 추가하고, `ON`일 때 `find_package(GraphicsSDK CONFIG REQUIRED)`로 `GraphicsSDK::Core`를 `SandboxRender`에 `PRIVATE` 링크하며 `render/graphics_sdk/*.cpp`를 컴파일하도록 구성했다 (`OFF`일 때는 기존 `render/dx12/`, `render/vulkan/`, `render/metal/` 그대로 유지).
+- `render/graphics_sdk/`: `GraphicsSdkTypes`, `GraphicsSdkResource`, `GraphicsSdkPipeline`, `GraphicsSdkCommandQueue`, `GraphicsSdkSwapChain`, `GraphicsSdkDevice`, `GraphicsSdkCommandList`, `GraphicsSdkFactory`를 구현했다.
+  - Stage-Before-Record 지연 재생(`RecordedOp` + `flushPendingUploads`)으로 Sandbox의 지속 CPU 포인터(`allocateUpload`, `map`) 계약과 Graphics SDK의 `observedVersion` 계약을 정합시켰다.
+  - `FrameSlot`별 `gfx::CommandPool` · `gfx::CommandList` 소유권 관리 및 슬롯별 SDK Upload 링 버퍼를 구현하여 멀티 프레임 링 래핑 시 Vulkan `Upload buffer busy`를 해결했다.
+  - `HandlePool` 세대형 핸들, `DeferredDestructionQueue` 지연 해제, `beginTimestampScope`/`endTimestampScope` 기반 GPU 타임스탬프 변환, `PipelineValidation` 오프라인 리플렉션 검증을 연결했다.
+- `docs/graphics-sdk-refactor/`: Phase 0 정밀 분석, API 호환성 매트릭스(`API_COMPATIBILITY.md`), SDK 확장 요구사항(`SDK_REQUIREMENTS.md`, `SDK-REQ-001`~`008`), 실측 성능 기준선(`BENCHMARK_BASELINE.md`), 비교표, 로드맵(`R0.1`~`R0.35`), 테스트 보고서 및 AI 인수인계 문서를 작성했다.
+
+**왜**
+
+- 자체 D3D12 · Vulkan · Metal 백엔드의 중복 구현을 독립적인 `GraphicsSDK::Core` 기반으로 통합하면서, 기존 Sandbox 기능·결정론·Legacy 백엔드와의 비침투적 공존을 보장하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-22)
+
+- Phase 0 Legacy 기준선: `sbx_render_tests` D3D12 WARP / D3D12 HW / Vulkan HW 31/31 PASS, `sbx_bench --only render` (10k: 0.235 ms, 50k: 1.218 ms), `SandboxClient` 1920×1080 `--vsync off` (`ecosystem_small`: D3D12 2843.8 FPS / Vulkan 3631.9 FPS, `ecosystem_10k`: D3D12 604.3 FPS / Vulkan 623.7 FPS).
+- Phase 1·2 Graphics SDK 빌드(`SBX_USE_GRAPHICS_SDK=ON`):
+  - `SandboxTests --test-suite=render`: 33/33 test cases (340,535 assertions) PASS (`verifyAdapterTypeMappings` 포함).
+  - `sbx_render_tests` (Phase 7A + 8B Timestamps + 7B Validation 10개 코어 RHI 케이스): D3D12 WARP, D3D12 GTX 1660 SUPER, Vulkan GTX 1660 SUPER(+ VVL 1.3.290) 모두 10/10 PASS, 리소스 누수 0, Debug Layer / VVL 경고 0, 예상 오류 8/8.
+  - 전체 `ctest` (`build/windows-msvc-gfxsdk`): 99/99 실행 테스트 100% PASS (`studio_gui_smoke` 1건 Skipped), 결정론 골든 해시 16/16 일치.
+  - `python tools/check_includes.py --root .`, `python tools/check_docs.py --root .`, `python tools/gen_roadmap.py --root . --check` 모두 통과.
+
+**남은 일**
+
+- Phase 3 (`R0.16`~`R0.18`): `SDK-REQ-001`~`006`(오프라인 리플렉션 수용, `R16Uint`/`R32Uint`, `TriangleStrip`, `CullMode`, Push Constants, 동적 Sampler) 해소 후 셰이더 드로우 파이프라인(`test_rhi_draw`) 및 상위 렌더 패스(Phase 4~5) 전체 활성화.
+
 ## 2026-11-19 — Object → Prefab — 인스펙터 "Prefab 으로 만들기" (v0.13 ST-08-6, ADR-0167)
 
 **무엇을**

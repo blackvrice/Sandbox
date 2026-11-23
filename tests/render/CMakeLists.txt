@@ -8,14 +8,20 @@ add_executable(sbx_render_tests
 if(SBX_BUILD_SHADERS)
     target_sources(sbx_render_tests PRIVATE test_rhi_draw.cpp test_sprites.cpp test_world_passes.cpp test_imgui.cpp)
 endif()
-target_link_libraries(sbx_render_tests PRIVATE SandboxRender sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(sbx_render_tests PRIVATE SandboxRender SandboxPlatform sbx_imgui sbx_doctest sbx_warnings)
+if(SBX_USE_GRAPHICS_SDK)
+    find_package(GraphicsSDK CONFIG REQUIRED)
+    target_link_libraries(sbx_render_tests PRIVATE GraphicsSDK::Core)
+endif()
 target_compile_definitions(sbx_render_tests PRIVATE SBX_RENDER_REFERENCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/references")
+
+set(SBX_RENDER_TEST_FILTER)
 
 # D3D12 는 WARP(소프트웨어)로 — GPU 가 없는 CI 에서도 같은 결과. Debug Layer 는 "그래픽 도구" 가 설치돼 있으면 켜진다
 # (없으면 경고 후 계속).
 if(WIN32)
     add_test(NAME render_tests_warp
-        COMMAND sbx_render_tests --rhi dx12 --warp --debug --out "${CMAKE_CURRENT_BINARY_DIR}/out_warp")
+        COMMAND sbx_render_tests --rhi dx12 --warp --debug --out "${CMAKE_CURRENT_BINARY_DIR}/out_warp" ${SBX_RENDER_TEST_FILTER})
     set_tests_properties(render_tests_warp PROPERTIES LABELS "render" PASS_REGULAR_EXPRESSION "render tests OK")
 endif()
 # Vulkan 은 lavapipe(Mesa 의 CPU 드라이버)로 — WARP 와 같은 자리. 드라이버 목록을 lavapipe 하나로 좁혀 GPU 가 있는
@@ -25,7 +31,7 @@ if(SBX_ENABLE_VULKAN AND NOT WIN32)
     find_file(SBX_LAVAPIPE_ICD NAMES lvp_icd.json lvp_icd.x86_64.json lvp_icd.aarch64.json
               PATHS /usr/share/vulkan/icd.d /usr/local/share/vulkan/icd.d /etc/vulkan/icd.d NO_DEFAULT_PATH)
     add_test(NAME render_tests_lavapipe
-        COMMAND sbx_render_tests --rhi vulkan --warp --debug --out "${CMAKE_CURRENT_BINARY_DIR}/out_lavapipe")
+        COMMAND sbx_render_tests --rhi vulkan --warp --debug --out "${CMAKE_CURRENT_BINARY_DIR}/out_lavapipe" ${SBX_RENDER_TEST_FILTER})
     set_tests_properties(render_tests_lavapipe PROPERTIES LABELS "render" PASS_REGULAR_EXPRESSION "render tests OK")
     if(SBX_LAVAPIPE_ICD)
         set_tests_properties(render_tests_lavapipe PROPERTIES
@@ -39,7 +45,7 @@ endif()
 # GPU 가 Metal 3 가 아니면(가상 머신 등) 건너뛴다 (77). 그리기 시험은 셰이더(dxc → MSL)가 있을 때만 — 15-BUILD.
 if(SBX_ENABLE_METAL)
     add_test(NAME render_tests_metal
-        COMMAND sbx_render_tests --rhi metal --debug --skip-unsupported --out "${CMAKE_CURRENT_BINARY_DIR}/out_metal")
+        COMMAND sbx_render_tests --rhi metal --debug --skip-unsupported --out "${CMAKE_CURRENT_BINARY_DIR}/out_metal" ${SBX_RENDER_TEST_FILTER})
     set_tests_properties(render_tests_metal PROPERTIES LABELS "render" PASS_REGULAR_EXPRESSION "render tests OK"
                                                        SKIP_RETURN_CODE 77)
 endif()

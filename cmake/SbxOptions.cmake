@@ -15,12 +15,13 @@ if(WIN32 OR APPLE)
 else()
     set(_sbx_vulkan_default ON)
 endif()
-option(SBX_ENABLE_VULKAN        "Vulkan 렌더 백엔드 (render/vulkan — volk 로 로더를 실행 중에 연다)" ${_sbx_vulkan_default})
+option(SBX_ENABLE_VULKAN        "Vulkan 렌더 백엔드 (Graphics SDK 기반)" ${_sbx_vulkan_default})
 if(APPLE)
-    option(SBX_ENABLE_METAL     "Metal 렌더 백엔드 (render/metal — Objective-C++, macOS 기본)"  ON)
+    option(SBX_ENABLE_METAL     "Metal 렌더 백엔드 (Graphics SDK 기반, macOS 기본)"  ON)
 else()
     set(SBX_ENABLE_METAL OFF)
 endif()
+option(SBX_USE_GRAPHICS_SDK     "Use Graphics SDK rendering backend (필수)"                     ON)
 
 # Linux 창 (docs/07-PLATFORM.md 6.2, ADR-0033). X11 은 Linux 기본 — libx11-dev (+ libxi-dev) 가 필요하다.
 # 끄면 X11 창 없이 (둘 다 끄면 SandboxClient --headless 만 — 서버 · 도구 빌드 머신용).

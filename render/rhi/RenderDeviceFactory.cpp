@@ -1,4 +1,4 @@
-// createRenderDevice: 이 빌드에 들어간 백엔드 중에서 고른다. docs/06-RENDERING.md 3.3 · 5장, ADR-0032.
+// createRenderDevice: Graphics SDK 어댑터로 이 빌드에 들어간 백엔드(D3D12 · Vulkan · Metal) 중 하나를 연다.
 //   Auto = 플랫폼 기본 (Windows: D3D12, Linux: Vulkan, macOS: Metal). 빌드에 없는 백엔드를 고르면 Unsupported.
 #include <format>
 
@@ -74,22 +74,9 @@ Expected<std::unique_ptr<IRenderDevice>> createRenderDevice(const DeviceDesc& de
                                      : want == BackendType::Metal ? " (macOS 빌드만 — SBX_ENABLE_METAL)"
                                                                   : ""));
     }
-#if defined(SBX_HAS_D3D12)
-    if (want == BackendType::D3D12) {
-        return dx12::createDevice(desc);
-    }
-#endif
-#if defined(SBX_HAS_VULKAN)
-    if (want == BackendType::Vulkan) {
-        return vk::createDevice(desc);
-    }
-#endif
-#if defined(SBX_HAS_METAL)
-    if (want == BackendType::Metal) {
-        return metal::createDevice(desc);
-    }
-#endif
-    return makeError(ErrorCode::Unsupported, std::format("{} 백엔드를 만들 수 없습니다", backendName(want)));
+    DeviceDesc resolved = desc;
+    resolved.backend = want;
+    return graphics_sdk::createDevice(resolved);
 }
 
 } // namespace sbx::rhi
