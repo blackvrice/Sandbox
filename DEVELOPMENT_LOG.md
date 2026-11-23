@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 어댑터: 컬링 흉내의 범위 · 흉내 밖은 알림 (ADR-0172 3)
+
+**무엇을**
+
+- `tryDrawWithCpuCulling` 이 Handled · DrawAll · Unsupported 를 돌려준다. 흉내 = 비인덱스 TriangleList · 인스턴스 1 · CPU 에서
+  읽히는 정점 버퍼의 POSITION (RG32Float). 한 셰이더의 push constant 배치 (8 ~ 15 바이트 = scale 부호) 를 가정하던 감기 뒤집기를 지웠다.
+- 흉내 밖 (drawIndexed · 인스턴스 · TriangleStrip · GPU 전용 정점 버퍼) 은 컬링 없이 그리되 파이프라인마다 한 번 오류
+  (`cullUnsupported` · `GraphicsSdkPipeline::cullWarned`).
+- 렌더 시험 culling 에 drawIndexed 두 번 → 둘 다 보이고 오류 하나.
+
+**왜**
+
+- 흉내 밖의 그리기가 컬링 없이 조용히 그려졌고, 다른 push constant 배치의 파이프라인에서는 감기 판정이 틀릴 수 있었다.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- D3D12 WARP · 실제 GPU 35/35, culling 골든 그림 그대로, 끝 줄 "오류 11 (예상된 사용 오류 11)".
+
+**남은 일**
+
+- SDK 의 cull 상태 (SDK-REQ-004) 가 생기면 흉내를 지운다. ADR-0172 4 (텍스처 모양).
+
 ## 2026-11-23 — Graphics SDK 어댑터: 띠 흉내가 인덱스 버퍼를 되돌림 · u32 (ADR-0172 2)
 
 **무엇을**

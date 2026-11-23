@@ -78,6 +78,7 @@ struct GraphicsSdkPipeline {
     bool hasPushConstantSlot = false;
     u32 pushConstantSdkIndex = 0;
     std::string name;
+    bool cullWarned = false; // CullMode 를 흉내 낼 수 없는 그리기를 알렸다 (한 번 — ADR-0172 3)
 };
 
 } // namespace sbx::rhi::graphics_sdk

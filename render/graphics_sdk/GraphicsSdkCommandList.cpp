@@ -6,6 +6,7 @@
 #include <format>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -395,6 +396,9 @@ public:
             if (vertexCount < 3) {
                 return;
             }
+            if (pl->desc.cull != CullMode::None) {
+                cullUnsupported(*pl, "TriangleStrip");
+            }
             if (vertexCount == 4 && firstVertex == 0) {
                 gfx::BufferPtr qib = m_dev.quadStripIndexBuffer();
                 if (!qib) {
@@ -440,9 +444,15 @@ public:
             }
             return;
         }
-        if (pl->desc.cull != CullMode::None && pl->desc.topology == PrimitiveTopology::TriangleList &&
-            instanceCount == 1 && tryDrawWithCpuCulling(*pl, vertexCount, firstVertex, firstInstance)) {
-            return;
+        if (pl->desc.cull != CullMode::None) {
+            const CpuCull r = instanceCount == 1 ? tryDrawWithCpuCulling(*pl, vertexCount, firstVertex, firstInstance)
+                                                 : CpuCull::Unsupported;
+            if (r == CpuCull::Handled) {
+                return;
+            }
+            if (r == CpuCull::Unsupported) {
+                cullUnsupported(*pl, instanceCount != 1 ? "인스턴스 그리기" : "GPU 전용 정점 버퍼 · POSITION 이 RG32Float 아님");
+            }
         }
         m_ops.emplace_back(CmdDraw{vertexCount, instanceCount, firstVertex, firstInstance});
     }
@@ -460,6 +470,9 @@ public:
             if (GraphicsSdkTexture* rt = m_dev.texture(m_passColor0); rt != nullptr) {
                 rt->alphaBlendDrawn = true;
             }
+        }
+        if (pl->desc.cull != CullMode::None) {
+            cullUnsupported(*pl, "drawIndexed");
         }
         m_ops.emplace_back(CmdDrawIndexed{indexCount, instanceCount, firstIndex, vertexOffset, firstInstance});
     }
@@ -728,36 +741,39 @@ public:
 
 private:
     void error(std::string_view what) { m_dev.reportError(what); }
+    // 컬링을 흉내 낼 수 없는 그리기 — 컬링 없이 그리고 파이프라인마다 한 번 알린다 (조용히 다른 그림을 내지 않게, ADR-0172 3)
+    void cullUnsupported(GraphicsSdkPipeline& pl, std::string_view why) {
+        if (std::exchange(pl.cullWarned, true)) {
+            return;
+        }
+        error(std::format("파이프라인 '{}': CullMode 를 흉내 낼 수 없는 그리기 ({}) — 컬링 없이 그린다 (Graphics SDK 에 cull 상태가 "
+                          "없다, SDK-REQ-004)",
+                          pl.name, why));
+    }
 
-    bool tryDrawWithCpuCulling(const GraphicsSdkPipeline& pl, u32 vertexCount, u32 firstVertex, u32 firstInstance) {
+    // CullMode 흉내 (Graphics SDK 에 cull 상태가 없다 — SDK-REQ-004, ADR-0172 3). 비인덱스 TriangleList · 인스턴스 1 · CPU 에서
+    // 읽히는 정점 버퍼 (Upload) 만. 감기는 정점 버퍼의 POSITION (RG32Float) 그대로 — 정점 셰이더를 보지 않으므로 셰이더가
+    // 뒤집는 (음수 scale) 파이프라인은 컬링에 기대지 않는다 (Sandbox 렌더러의 파이프라인은 모두 CullMode::None)
+    enum class CpuCull : u8 { Handled, DrawAll, Unsupported };
+    CpuCull tryDrawWithCpuCulling(const GraphicsSdkPipeline& pl, u32 vertexCount, u32 firstVertex, u32 firstInstance) {
         if (vertexCount < 3 || pl.vertexStrides.size() != 1 || pl.desc.attributes.empty()) {
-            return false;
+            return CpuCull::Unsupported;
         }
         const GraphicsSdkBuffer* vb = m_dev.buffer(m_boundVertex0);
         if (vb == nullptr || vb->cpuShadow.empty()) {
-            return false;
+            return CpuCull::Unsupported; // GPU 전용 정점 버퍼 — CPU 에서 읽을 수 없다
         }
         const auto posIt = std::ranges::find_if(pl.desc.attributes, [](const VertexAttribute& a) {
             return a.bufferSlot == 0 && a.semantic == "POSITION" && a.format == Format::RG32Float;
         });
         if (posIt == pl.desc.attributes.end()) {
-            return false;
+            return CpuCull::Unsupported;
         }
         const u32 stride = pl.vertexStrides[0];
         const u32 posOffset = posIt->offset;
         const u64 needed = m_boundVertex0Offset + static_cast<u64>(firstVertex + vertexCount) * stride;
         if (stride < posOffset + sizeof(f32) * 2 || needed > vb->cpuShadow.size()) {
-            return false;
-        }
-        f32 scaleSign = 1.f;
-        if (m_pushData.size() >= 16) {
-            f32 sx = 1.f;
-            f32 sy = 1.f;
-            std::memcpy(&sx, m_pushData.data() + 8, sizeof(f32));
-            std::memcpy(&sy, m_pushData.data() + 12, sizeof(f32));
-            if (sx * sy < 0.f) {
-                scaleSign = -1.f;
-            }
+            return CpuCull::Unsupported;
         }
         const u32 triCount = vertexCount / 3;
         std::vector<u32> kept;
@@ -768,9 +784,8 @@ private:
             for (u32 k = 0; k < 3; ++k) {
                 std::memcpy(p[k], basePtr + static_cast<u64>(t * 3 + k) * stride + posOffset, sizeof(f32) * 2);
             }
-            const f32 cross = ((p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) -
-                               (p[1][1] - p[0][1]) * (p[2][0] - p[0][0])) *
-                              scaleSign;
+            const f32 cross =
+                (p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) - (p[1][1] - p[0][1]) * (p[2][0] - p[0][0]);
             const bool isFront = (pl.desc.frontFace == FrontFace::CounterClockwise) ? (cross > 0.f) : (cross < 0.f);
             const bool keep = (pl.desc.cull == CullMode::Back) ? isFront : !isFront;
             if (keep) {
@@ -778,16 +793,16 @@ private:
             }
         }
         if (kept.size() == triCount) {
-            return false; // 모든 삼각형이 앞면이면 원본 정점 버퍼를 그대로 그린다
+            return CpuCull::DrawAll; // 모든 삼각형이 앞면이면 원본 정점 버퍼를 그대로 그린다
         }
         if (kept.empty()) {
-            return true; // 전부 뒷면 — 그리지 않는다
+            return CpuCull::Handled; // 전부 뒷면 — 그리지 않는다
         }
         const u32 keptVerts = static_cast<u32>(kept.size()) * 3;
         const u64 keptBytes = static_cast<u64>(keptVerts) * stride;
         const UploadAllocation up = m_dev.allocateUpload(keptBytes, 16);
         if (!up.valid()) {
-            return false;
+            return CpuCull::Unsupported;
         }
         for (usize i = 0; i < kept.size(); ++i) {
             std::memcpy(up.cpu + static_cast<u64>(i * 3) * stride,
@@ -795,7 +810,7 @@ private:
         }
         const GraphicsSdkBuffer* ringBuf = m_dev.buffer(up.buffer);
         if (ringBuf == nullptr || !ringBuf->buffer) {
-            return false;
+            return CpuCull::Unsupported;
         }
         m_ops.emplace_back(CmdSetVertexBuffer{0, ringBuf->buffer, stride, up.offset, keptBytes, false});
         m_ops.emplace_back(CmdDraw{keptVerts, 1, 0, firstInstance});
@@ -803,7 +818,7 @@ private:
         m_ops.emplace_back(CmdSetVertexBuffer{0, vb->buffer, stride, m_boundVertex0Offset,
                                               vb->desc.size - m_boundVertex0Offset,
                                               vb->desc.memory == MemoryType::GpuOnly});
-        return true;
+        return CpuCull::Handled;
     }
 
     bool emitBindingsIfNeeded(GraphicsSdkPipeline& pl) {

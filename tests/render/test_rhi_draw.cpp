@@ -259,6 +259,29 @@ TEST_SUITE("render.gpu") {
         const render::Image cw = drawWith(FrontFace::Clockwise, "cull cw");
         CHECK(cw.pixel(12, 36)[1] == 0);   // 이번에는 왼쪽이 뒷면
         CHECK(cw.pixel(44, 36)[0] == 255); // 오른쪽이 앞면
+
+        // 흉내 밖 (drawIndexed — ADR-0172 3): 컬링 없이 그리되 파이프라인마다 한 번 알린다 (두 번 그려도 오류 하나)
+        const u16 idx[] = {0, 1, 2, 3, 4, 5};
+        const RhiBuffer ib = uploadBuffer(dev, idx, sizeof(idx), BufferUsage::Index, "culling ib");
+        const u64 before = dev.stats().debugErrors;
+        ColorRig rig(dev, CullMode::Back, FrontFace::CounterClockwise);
+        const RhiTexture rt = target(dev, "cull indexed");
+        submitAndWait(dev, [&](ICommandList& cl) {
+            beginTarget(cl, rt);
+            rig.bind(cl, kIdentity);
+            cl.setVertexBuffer(0, vb);
+            cl.setIndexBuffer(ib, 0, IndexFormat::Uint16);
+            cl.drawIndexed(6);
+            cl.drawIndexed(6);
+            cl.endRenderPass();
+        });
+        const render::Image indexed = readback(dev, rt, ResourceState::RenderTarget);
+        CHECK(indexed.pixel(12, 36)[1] == 255); // 컬링 없음 — 둘 다 보인다
+        CHECK(indexed.pixel(44, 36)[0] == 255);
+        CHECK(dev.stats().debugErrors == before + 1);
+        rendertest::expectValidationErrors(1);
+        dev.destroy(rt);
+        dev.destroy(ib);
         dev.destroy(vb);
     }
 
