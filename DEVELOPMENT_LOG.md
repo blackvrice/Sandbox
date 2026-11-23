@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-11-23 — CI: client_x11_world_smoke 의 정규식 순서 (분석 2 의 후속)
+
+**무엇을**
+
+- 6af2e76 (분석 2) 이 client_x11_world_smoke 에 "GraphicsSDK 스왑체인" 을 요구하며 정규식을 `창 X11.*GraphicsSDK 스왑체인.*` 로 썼다.
+  실제 로그는 스왑체인 줄 (렌더러 초기화) 이 "창 X11, 렌더러 …" 요약 줄보다 먼저라 Linux 세 잡 (b2ec1a2 CI) 이 모두 실패했다 —
+  스왑체인은 lavapipe 로 만들어졌다 (실패는 시험의 순서만). `GraphicsSDK 스왑체인.*창 X11.*SandboxClient 끝 …` 로 고쳤다.
+
+**검증**
+
+- b2ec1a2 CI 의 linux-clang 시험 출력에 옛 · 새 정규식을 `cmake -P` (MATCHES) 로 대 봄: 옛 것 불일치 (CI 재현), 새 것 일치.
+- Windows 는 이 시험이 없다 (xvfb) — 구성 · 전체 ctest 로 깨지지 않음만 확인. Linux 결과는 이 커밋의 CI.
+  (ctest -j 8 에서 unit_project 의 "빌드 스냅숏" 이 staging 폴더 1 개를 더 봤다 — 단독으로 다시 돌리면 통과. 병렬 시험이 같은 임시
+  폴더를 쓴 탓으로 보이며 이 변경과 무관, 그대로 둔다)
+
+**남은 일**
+
+- 없음.
+
 ## 2026-11-23 — 쓰이지 않는 volk 삭제 · 빌드 문서 정리 (분석 14)
 
 **무엇을**

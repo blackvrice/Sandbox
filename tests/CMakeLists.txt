@@ -432,9 +432,9 @@ if(TARGET SandboxClient)
             PASS_REGULAR_EXPRESSION "창 X11.*SandboxClient 끝: frames 90 state Shutdown")
         if(SBX_LAVAPIPE_ICD)
             # 렌더러가 실제로 X11 창에 스왑체인을 만들었는가 (XCB 표면 — ADR-0170). 클라이언트는 렌더러가 없어도 끝까지 돌아
-            # 프레임 수만으로는 그리기를 증명하지 못한다
+            # 프레임 수만으로는 그리기를 증명하지 못한다. 순서는 로그 순서 — 스왑체인 (렌더러 초기화) 이 "창 X11, 렌더러" 요약 줄보다 먼저
             set_tests_properties(client_x11_world_smoke PROPERTIES
-                PASS_REGULAR_EXPRESSION "창 X11.*GraphicsSDK 스왑체인.*SandboxClient 끝: frames 90 state Shutdown"
+                PASS_REGULAR_EXPRESSION "GraphicsSDK 스왑체인.*창 X11.*SandboxClient 끝: frames 90 state Shutdown"
                 FAIL_REGULAR_EXPRESSION "렌더러 없이 계속합니다"
                 ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
             # 자기 PNG 게임 (v0.6 M6-T9) — 패키지만 다른 폴더 · 빈 캐시로, 창 클라이언트 (렌더러) 가 그 그림을 올린다.
