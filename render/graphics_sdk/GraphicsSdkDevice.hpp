@@ -116,6 +116,8 @@ public:
     void recordFrameTimestamps(u32 count, const std::array<u32, kMaxTimestampsPerFrame>& indices,
                                gfx::CommandList* sdkCmd);
     void noteFrameSubmission(gfx::Fence fence) noexcept;
+    // 전용 Copy · Compute 큐의 제출 — 이 프레임 슬롯을 다시 쓰기 전에 기다린다 (업로드 링 · 명령 풀, ADR-0173)
+    void noteSecondarySubmission(QueueType type, gfx::Fence fence) noexcept;
 
     void reportError(std::string_view what);
     void reportSdkError(std::string_view what, const gfx::Error& err);
@@ -152,6 +154,8 @@ private:
         u64 pushUsed = 0;
         u64 pushFlushed = 0;
         gfx::Fence fence{};
+        gfx::Fence copyFence{};    // 이 슬롯 프레임에 전용 Copy 큐로 낸 마지막 제출
+        gfx::Fence computeFence{}; // 전용 Compute 큐
         u64 recordedFrameNumber = 0;
         u32 resolvedTimestampCount = 0;
         std::array<u32, kMaxTimestampsPerFrame> timestampIndices{};
@@ -167,6 +171,17 @@ private:
         RhiBuffer buffer;
         FenceValue fence = 0;
     };
+
+    // 지연 해제는 Graphics 큐 타임라인 하나로 센다. 파괴할 때 전용 Copy · Compute 큐에 끝나지 않은 일이 있으면 그 큐의 그
+    // 값까지 끝날 때를 따로 기다렸다가 Graphics 큐 지연 해제로 넘긴다 (그 큐가 쓰는 자원을 일찍 풀지 않게 — ADR-0173)
+    struct SecondaryGarbage {
+        GraphicsSdkGarbage garbage;
+        FenceValue graphicsFence = 0;
+        FenceValue copyFence = 0;
+        FenceValue computeFence = 0;
+    };
+    void deferRelease(GraphicsSdkGarbage garbage, FenceValue graphicsFence);
+    void promoteSecondaryGarbage(bool waitAll);
 
     DeviceDesc m_desc;
     DeviceCaps m_caps;
@@ -186,6 +201,7 @@ private:
     HandlePool<BindGroupTag, GraphicsSdkBindGroup> m_groups;
     HandlePool<PipelineTag, GraphicsSdkPipeline> m_pipelines;
     DeferredDestructionQueue<GraphicsSdkGarbage> m_garbage;
+    std::vector<std::unique_ptr<SecondaryGarbage>> m_secondaryGarbage;
 
     std::vector<std::byte> m_ringCpuShadow;
     std::byte* m_ringCpu = nullptr;

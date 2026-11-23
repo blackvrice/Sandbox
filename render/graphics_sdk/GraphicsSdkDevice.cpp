@@ -208,6 +208,7 @@ GraphicsSdkDevice::~GraphicsSdkDevice() {
         log::warn("render", "종료 시 남은 GPU 리소스: 버퍼 {} · 텍스처 {} (destroy 를 부르지 않았다)", leakedBuffers,
                   leakedTextures);
     }
+    m_secondaryGarbage.clear(); // waitIdle 이 넘겼다 — 남은 것은 없다
     m_garbage.clear();
     m_frameSlots.clear();
 }
@@ -352,7 +353,7 @@ void GraphicsSdkDevice::destroy(RhiBuffer buffer) {
     }
     std::erase(m_mappedUploadBuffers, buffer);
     std::erase_if(m_pendingReadbacks, [&](const PendingReadback& p) { return p.buffer == buffer; });
-    m_garbage.push(GraphicsSdkGarbage(std::move(taken->buffer), {}, {}), nextFence());
+    deferRelease(GraphicsSdkGarbage(std::move(taken->buffer), {}, {}), nextFence());
 }
 
 void GraphicsSdkDevice::destroy(RhiTexture texture) {
@@ -360,7 +361,7 @@ void GraphicsSdkDevice::destroy(RhiTexture texture) {
     if (!taken || taken->external) {
         return;
     }
-    m_garbage.push(GraphicsSdkGarbage({}, std::move(taken->texture), {}), nextFence());
+    deferRelease(GraphicsSdkGarbage({}, std::move(taken->texture), {}), nextFence());
 }
 
 const TextureDesc* GraphicsSdkDevice::textureDesc(RhiTexture texture) const {
@@ -691,13 +692,13 @@ void GraphicsSdkDevice::destroy(RhiBindGroup group) {
         return;
     }
     const u32 resCount = taken->resourceCount;
-    m_garbage.push(GraphicsSdkGarbage({}, {}, {},
-                                      [this, resCount] {
-                                          if (m_descriptorsUsed >= resCount) {
-                                              m_descriptorsUsed -= resCount;
-                                          }
-                                      }),
-                   nextFence());
+    deferRelease(GraphicsSdkGarbage({}, {}, {},
+                                    [this, resCount] {
+                                        if (m_descriptorsUsed >= resCount) {
+                                            m_descriptorsUsed -= resCount;
+                                        }
+                                    }),
+                 nextFence());
 }
 
 void GraphicsSdkDevice::destroy(RhiPipeline pipeline) {
@@ -708,10 +709,10 @@ void GraphicsSdkDevice::destroy(RhiPipeline pipeline) {
     const FenceValue fence = nextFence();
     for (SamplerPipelineVariant& v : taken->variants) {
         if (v.pipeline) {
-            m_garbage.push(GraphicsSdkGarbage({}, {}, std::move(v.pipeline)), fence);
+            deferRelease(GraphicsSdkGarbage({}, {}, std::move(v.pipeline)), fence);
         }
     }
-    m_garbage.push(GraphicsSdkGarbage({}, {}, std::move(taken->pipeline)), fence);
+    deferRelease(GraphicsSdkGarbage({}, {}, std::move(taken->pipeline)), fence);
 }
 
 namespace {
@@ -1012,6 +1013,15 @@ void GraphicsSdkDevice::beginFrame() {
         collectSlotTimestamps(m_frameIndex);
         slot.fence = {};
     }
+    // 이 슬롯의 업로드 링 버퍼 · 명령 풀을 전용 Copy · Compute 큐가 아직 쓰고 있을 수 있다 (ADR-0173)
+    if (slot.copyFence.value != 0) {
+        m_copyQueue.wait(slot.copyFence.value);
+        slot.copyFence = {};
+    }
+    if (slot.computeFence.value != 0) {
+        m_computeQueue.wait(slot.computeFence.value);
+        slot.computeFence = {};
+    }
     slot.nextListIndex = 0;
     slot.nextCopyListIndex = 0;
     slot.nextComputeListIndex = 0;
@@ -1041,15 +1051,62 @@ void GraphicsSdkDevice::beginFrame() {
         }
     }
 
+    promoteSecondaryGarbage(false);
     const FenceValue done = m_queue.completedValue();
     m_ring.retire(done);
     m_released += m_garbage.collect(done);
 }
 
 void GraphicsSdkDevice::endFrame() {
+    promoteSecondaryGarbage(false);
     const FenceValue done = m_queue.completedValue();
     m_ring.retire(done);
     m_released += m_garbage.collect(done);
+}
+
+void GraphicsSdkDevice::deferRelease(GraphicsSdkGarbage garbage, FenceValue graphicsFence) {
+    // 전용 큐에 끝나지 않은 일이 있으면 그 큐의 마지막 제출까지 끝나야 넘긴다 (공유 큐면 Graphics 타임라인이 같다)
+    const auto pending = [](const GraphicsSdkCommandQueue& q) -> FenceValue {
+        return q.isDedicated() && q.lastSubmittedValue() > q.completedValue() ? q.lastSubmittedValue() : 0;
+    };
+    const FenceValue copy = pending(m_copyQueue);
+    const FenceValue compute = pending(m_computeQueue);
+    if (copy == 0 && compute == 0) {
+        m_garbage.push(std::move(garbage), graphicsFence);
+        return;
+    }
+    m_secondaryGarbage.push_back(
+        std::make_unique<SecondaryGarbage>(SecondaryGarbage{std::move(garbage), graphicsFence, copy, compute}));
+}
+
+void GraphicsSdkDevice::promoteSecondaryGarbage(bool waitAll) {
+    if (m_secondaryGarbage.empty()) {
+        return;
+    }
+    if (waitAll) {
+        m_copyQueue.waitIdle();
+        m_computeQueue.waitIdle();
+    }
+    const FenceValue copyDone = m_copyQueue.completedValue();
+    const FenceValue computeDone = m_computeQueue.completedValue();
+    std::erase_if(m_secondaryGarbage, [&](std::unique_ptr<SecondaryGarbage>& g) {
+        if (g->copyFence > copyDone || g->computeFence > computeDone) {
+            return false;
+        }
+        m_garbage.push(std::move(g->garbage), g->graphicsFence);
+        return true;
+    });
+}
+
+void GraphicsSdkDevice::noteSecondarySubmission(QueueType type, gfx::Fence fence) noexcept {
+    if (m_frameIndex >= m_frameSlots.size()) {
+        return;
+    }
+    FrameSlot& slot = m_frameSlots[m_frameIndex];
+    gfx::Fence& target = type == QueueType::Copy ? slot.copyFence : slot.computeFence;
+    if (fence.value > target.value) {
+        target = fence;
+    }
 }
 
 void GraphicsSdkDevice::noteFrameSubmission(gfx::Fence fence) noexcept {
@@ -1067,11 +1124,14 @@ void GraphicsSdkDevice::waitIdle() {
     if (m_computeQueue.isDedicated()) {
         m_computeQueue.waitIdle();
     }
+    promoteSecondaryGarbage(true);
     for (u32 i = 0; i < m_frameSlots.size(); ++i) {
         if (m_frameSlots[i].fence.value != 0) {
             collectSlotTimestamps(i);
             m_frameSlots[i].fence = {};
         }
+        m_frameSlots[i].copyFence = {};
+        m_frameSlots[i].computeFence = {};
         m_frameSlots[i].nextListIndex = 0;
         m_frameSlots[i].nextCopyListIndex = 0;
         m_frameSlots[i].nextComputeListIndex = 0;

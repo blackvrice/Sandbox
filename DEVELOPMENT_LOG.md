@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-11-23 — 다중 큐 수명: 전용 Copy · Compute 큐가 쓰는 자원 · 프레임 슬롯 (분석 12, ADR-0173 1 · 2)
+
+**무엇을**
+
+- `deferRelease`: destroy 할 때 전용 Copy · Compute 큐에 끝나지 않은 일이 있으면 그 큐의 마지막 제출 값을 적어 (`SecondaryGarbage`)
+  그 큐들이 거기까지 끝난 뒤 Graphics 지연 해제로 넘긴다 (`promoteSecondaryGarbage` — beginFrame · endFrame · waitIdle 은 모두 기다림).
+  destroy 다섯 곳 (버퍼 · 텍스처 · 바인드 그룹 · 파이프라인 · 변형) 이 이 길.
+- 전용 큐 제출은 `noteSecondarySubmission` 으로 프레임 슬롯의 copyFence · computeFence 에 — 슬롯을 다시 쓸 때 기다린다.
+
+**왜**
+
+- 수명 관리가 Graphics 큐 타임라인 하나만 봐, 전용 Copy 큐가 아직 쓰는 자원을 풀거나 그 슬롯의 명령 풀 · 업로드 링을 다시 쓸 수 있었다.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- 렌더 시험 (다중 큐 · 병렬 기록 시험 포함) D3D12 WARP · 실제 GPU · Vulkan 실제 GPU 37/37 — Debug Layer 경고 0, 전체 ctest 96/96.
+
+**남은 일**
+
+- 제출 실패 · 대기 시간 초과 (ADR-0173 3 · 4) — 다음 커밋.
+
 ## 2026-11-23 — 알파 보정이 SDK 결함을 가리지 않게 — 카나리아 시험 (분석 11, ADR-0172)
 
 **무엇을**

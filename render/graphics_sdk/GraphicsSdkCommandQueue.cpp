@@ -68,6 +68,8 @@ FenceValue GraphicsSdkCommandQueue::submit(std::span<ICommandList* const> lists)
     m_lastFence = *fence;
     if (m_type == QueueType::Graphics || !m_dedicated) {
         m_dev.noteFrameSubmission(m_lastFence);
+    } else {
+        m_dev.noteSecondarySubmission(m_type, m_lastFence);
     }
     for (ICommandList* list : lists) {
         if (list != nullptr) {
