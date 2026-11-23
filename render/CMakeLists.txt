@@ -45,8 +45,8 @@ add_library(sbx_stb_impl OBJECT asset/StbImpl.cpp)
 target_link_libraries(sbx_stb_impl PRIVATE sbx_stb)
 target_sources(SandboxRender PRIVATE $<TARGET_OBJECTS:sbx_stb_impl>)
 
-# Graphics SDK 단일 백엔드 (Phase 10: R0.35 — 자체 dx12/vulkan/metal 백엔드 제거, ADR-0168)
-find_package(GraphicsSDK CONFIG REQUIRED)
+# Graphics SDK 단일 백엔드 (Phase 10: R0.35 — 자체 dx12/vulkan/metal 백엔드 제거, ADR-0168). 설치본 또는 고정 커밋 (ADR-0169)
+include(SbxGraphicsSdk)
 target_sources(SandboxRender PRIVATE
     graphics_sdk/GraphicsSdkTypes.hpp
     graphics_sdk/GraphicsSdkTypes.cpp

@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 공급: external/graphics-sdk 고정 커밋 함께 빌드 — CI 복구 (ADR-0169)
+
+**무엇을**
+
+- `find_package(GraphicsSDK CONFIG REQUIRED)` (개발자 PC 의 설치본) 대신 `cmake/SbxGraphicsSdk.cmake`: 기본은
+  `external/graphics-sdk/` (고정 커밋 `95967d2e…` 의 include · src · cmake · CMakeLists.txt · LICENSE — 35 파일, 수정 없음) 를
+  `add_subdirectory(EXCLUDE_FROM_ALL SYSTEM)` 로 함께 빌드, `SBX_SYSTEM_GRAPHICS_SDK=ON` 이면 설치본. SDK 백엔드 옵션은
+  Sandbox 옵션 (D3D12 = Windows · Vulkan = SBX_ENABLE_VULKAN + external/vulkan-headers · Linux XCB · Metal) 을 따른다.
+- `tools/vendor_graphics_sdk.py` (git archive — 작업 트리를 건드리지 않음, 40자 해시만), `VENDORED_COMMIT`.
+- 경계 자체 시험의 중첩 구성에 같은 공급 (설치본이면 GraphicsSDK_DIR) 을 넘긴다. 쓰이지 않던 `SBX_USE_GRAPHICS_SDK` 옵션 삭제,
+  sbx_render_tests 의 두 번째 find_package 삭제. CI Linux 에 libxcb1-dev · libx11-xcb-dev · pkg-config.
+- 문서: ADR-0169, 15-BUILD 3 · 5장, external/README.md, 17-SOURCE-MAP.
+
+**왜**
+
+- 517c914 의 CI 다섯 잡이 모두 구성 단계에서 실패 (러너에 SDK 없음), arch_link_boundary_selftest 도 로컬에서 실패. FetchContent 는
+  SDK 저장소 (182 MB · 18,163 파일 — 17,087 개가 벤치 기록, 경로 최대 208 자) 가 Windows 에서 "Filename too long" 으로 받아지지 않았다.
+- ADR-0168 의 고정 커밋 해시 9345c1816879… 는 SDK 저장소에 없는 값이었다 (실제 9345c1816b06…) — 재현성.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- 설치본 없이 새 빌드 폴더에서 구성 ("Sandbox: Graphics SDK — external/graphics-sdk (95967d2e…)") · Debug /WX 빌드 · ctest
+  (아래 결과). project_doctor 는 이 PC 의 패키지 캐시 경로 가상화로 리팩터링 전 빌드에서도 실패해 제외했다 (CI 가 본다).
+
+**남은 일**
+
+- Linux 창 (Xlib · Wayland) 표면 — 다음 커밋. Linux · macOS 에서 SDK 가 GCC 13 · Clang 19 · Apple Clang 으로 빌드되는지는 CI.
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 10 (`R0.35`, ADR-0168: Legacy 백엔드 제거 및 Graphics SDK 단독 체제 전환)
 
 **무엇을**

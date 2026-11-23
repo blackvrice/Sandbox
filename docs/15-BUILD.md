@@ -90,8 +90,9 @@ cmake --build --preset linux-clang-debug && ctest --preset linux-clang-debug
 | `SBX_BOUNDARY_SELFTEST`  | OFF         | 내부: 경계 검사 실패 경로 시험 (테스트만 켬)                                       | 구현                  |
 | `SBX_BUILD_CLIENT`       | ON          | SandboxClient (+ CTest `client_*`, 스위트 client). Platform 은 항상 빌드           | 구현 (Phase 6)        |
 | `SBX_BUILD_BENCH`        | OFF         | sbx_bench + CTest `bench_quick` (EnTT 기준선은 `[계획]`)                           | 구현                  |
-| `SBX_ENABLE_VULKAN`      | ON(Linux)   | Vulkan 백엔드 (render/vulkan). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan`      | 구현 (Phase 13A)      |
-| `SBX_ENABLE_METAL`       | ON(macOS)   | Metal 백엔드 (render/metal, Objective-C++). macOS 만 — 다른 OS 는 늘 OFF           | 구현 (14C, 검증 대기) |
+| `SBX_ENABLE_VULKAN`      | ON(Linux)   | Graphics SDK 의 Vulkan 백엔드 (GFX_ENABLE_VULKAN). Windows 는 켜면 D3D12 와 함께 — `--rhi vulkan` | 구현 (ADR-0168) |
+| `SBX_ENABLE_METAL`       | ON(macOS)   | Graphics SDK 의 Metal 백엔드 (GFX_ENABLE_METAL). macOS 만 — 다른 OS 는 늘 OFF      | 구현 (ADR-0168, 검증 대기) |
+| `SBX_SYSTEM_GRAPHICS_SDK`| OFF         | 설치된 Graphics SDK (CMAKE_PREFIX_PATH · GraphicsSDK_DIR) 를 쓴다. 기본은 external/graphics-sdk 를 함께 빌드 | 구현 (ADR-0169) |
 | `SBX_ENABLE_X11`         | ON(Linux)   | Linux X11 창 (platform/linux — libx11-dev, +libxi-dev). 둘 다 OFF = 창 없음        | 구현 (Phase 13B)      |
 | `SBX_ENABLE_WAYLAND`     | ON(Linux)   | Linux Wayland 창 (libwayland · libdecor · xkbcommon). X11 과 함께 = 실행 중 선택   | 구현 (Phase 13C)      |
 | `SBX_ENABLE_TRACY`       | OFF         | Tracy 계측                                                                         | `[계획]`              |
@@ -188,7 +189,8 @@ if(WIN32) platform/windows + render/dx12   elseif(APPLE) OBJCXX + platform/macos
 | stb_image, stb_truetype, stb_rect_pack | 디코드·폰트·아틀라스 | Render                      | vendored                                                                         |
 | miniaudio                              | 오디오               | Platform                    | vendored                                                                         |
 | D3D12 Memory Allocator                 | D3D12 메모리         | Render/dx12                 | vendored                                                                         |
-| volk, Vulkan-Headers, VMA              | Vulkan               | Render/vulkan               | vendored — volk **1.4.304** · Vulkan-Headers **1.4.309** (13A). VMA `[계획]`     |
+| Graphics SDK (`GraphicsSDK::Core`)     | 그래픽 백엔드 (D3D12 · Vulkan · Metal) | Render/graphics_sdk | vendored — 고정 커밋 `external/graphics-sdk/VENDORED_COMMIT` (코어만, ADR-0169). 설치본은 `SBX_SYSTEM_GRAPHICS_SDK` |
+| Vulkan-Headers                         | Vulkan (SDK 의 헤더) | Graphics SDK                | vendored — **1.4.309** (13A). volk 는 더 쓰지 않는다 (ADR-0168)                   |
 | DXC                                    | 셰이더 컴파일러      | 빌드 타임                   | NuGet Microsoft.Direct3D.DXC **1.9.2609.5** (SHA256 고정, 구성 때 `.cache/dxc/`) |
 | SPIRV-Cross                            | MSL 변환 (Metal)     | 빌드 타임 (sbx_msl)         | vendored — **1.4.304.1** (`external/spirv-cross/`, 14A, ADR-0035)                |
 | WinPixEventRuntime                     | PIX 마커             | Render/dx12                 | NuGet 패키지 버전 고정                                                           |

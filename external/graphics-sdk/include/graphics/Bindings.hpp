@@ -1,0 +1,53 @@
+#pragma once
+#include "Resources.hpp"
+#include <vector>
+
+namespace gfx {
+enum class BindingType { Texture2D, ConstantBuffer, StorageBuffer, StorageTexture2D, Texture1D, Texture3D, Texture2DArray, TextureCube };
+enum class ShaderVisibility { Vertex, Fragment, All, Compute };
+enum class SamplerFilter { Point, Linear };
+enum class SamplerAddress { Clamp, Repeat };
+struct BindingLayoutEntry {
+    BindingType type{BindingType::Texture2D};
+    std::uint32_t slot{}, count{1}, space{};
+    ShaderVisibility visibility{ShaderVisibility::Fragment};
+    bool operator==(const BindingLayoutEntry&) const = default;
+};
+struct StaticSampler {
+    std::uint32_t slot{}, space{};
+    ShaderVisibility visibility{ShaderVisibility::Fragment};
+    SamplerFilter filter{SamplerFilter::Linear};
+    SamplerAddress address{SamplerAddress::Clamp};
+    bool operator==(const StaticSampler&) const = default;
+};
+// Vulkan: set 0, entry i maps to binding i, static sampler i to binding 32+i.
+// Register slot/space are the D3D12 shader mapping; visibility applies to both backends.
+// Metal supports space 0: texture(slot+element), buffer(slot+element), sampler(slot).
+struct BindingLayout {
+    std::vector<BindingLayoutEntry> entries;
+    std::vector<StaticSampler> samplers;
+    bool operator==(const BindingLayout&) const = default;
+};
+[[nodiscard]] Result<void> validateBindingLayout(const BindingLayout&);
+// binding indexes BindingLayout::entries; element indexes that entry's array.
+// Specify either texture or view (with ShaderRead usage), never both.
+struct TextureBinding { std::uint32_t binding{}, element{}; TexturePtr texture; TextureViewPtr view; };
+struct ConstantBufferBinding {
+    std::uint32_t binding{}, element{}; BufferPtr buffer;
+    std::uint64_t offset{}, size{}; // Both multiples of 256; size is 256..65536.
+};
+struct StorageBufferBinding {
+    std::uint32_t binding{}, element{}; BufferPtr buffer;
+    std::uint64_t offset{}, size{}; // Offset multiple of 256; size=0 means remaining bytes (multiple of 4).
+};
+// Specify either texture or view (with Storage usage), never both.
+struct StorageTextureBinding {
+    std::uint32_t binding{}, element{}; TexturePtr texture; TextureViewPtr view;
+};
+struct ResourceBindings {
+    std::vector<TextureBinding> textures;
+    std::vector<ConstantBufferBinding> constants;
+    std::vector<StorageBufferBinding> storageBuffers;
+    std::vector<StorageTextureBinding> storageTextures;
+};
+}

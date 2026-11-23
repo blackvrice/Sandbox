@@ -863,6 +863,10 @@ if(SBX_BUILD_SERVER)
     if(CMAKE_TOOLCHAIN_FILE)
         list(APPEND _selftest_args -D "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
     endif()
+    # Graphics SDK (ADR-0169): 바깥 구성과 같은 공급 — 기본은 external/graphics-sdk (할 일 없음), 설치본이면 그 경로를 넘긴다
+    if(SBX_SYSTEM_GRAPHICS_SDK)
+        list(APPEND _selftest_args -D SBX_SYSTEM_GRAPHICS_SDK=ON -D "GraphicsSDK_DIR=${GraphicsSDK_DIR}")
+    endif()
     add_test(NAME arch_link_boundary_selftest COMMAND "${CMAKE_COMMAND}" ${_selftest_args})
     # 종료 코드가 아니라 메시지로 판정한다 — 다른 이유(컴파일러 탐지 실패 등)로 실패해도 통과하면 안 되므로.
     # 중첩 구성이 컴파일러 자체를 못 쓰면(환경 문제) 실패가 아니라 SKIP 으로 보고한다.

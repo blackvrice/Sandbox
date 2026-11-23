@@ -66,6 +66,9 @@ jobs:
           # 창 (Phase 13B · 13C, ADR-0033 · 0034): X11 · Wayland 개발 파일, 화면 없는 서버 (Xvfb · weston)
           sudo apt-get install -y libx11-dev libxi-dev libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
                                   xvfb xauth weston
+          # Graphics SDK (ADR-0169 — external/graphics-sdk 를 함께 빌드): Linux Vulkan 표면은 XCB (GFX_VULKAN_XCB · pkg-config),
+          # X11 창은 Xlib 연결의 XCB 를 넘긴다 (libX11-xcb)
+          sudo apt-get install -y libxcb1-dev libx11-xcb-dev pkg-config
       - name: Configure
         run: cmake --preset ${{ matrix.preset }} -D CMAKE_CXX_COMPILER=${{ matrix.cxx }} -D SBX_WARNINGS_AS_ERRORS=ON -D SBX_BUILD_BENCH=ON
       - name: Build (Debug)
