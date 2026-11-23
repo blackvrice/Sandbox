@@ -11,5 +11,7 @@ namespace sbx::rhi::graphics_sdk {
 
 // Sandbox 셰이더 핸들 정보를 지정 백엔드의 gfx::ShaderBinary 로 변환한다.
 [[nodiscard]] Expected<gfx::ShaderBinary> resolveSdkShader(BackendType backend, const GraphicsSdkShader& shader);
+// Vulkan 생성 SPIR-V 가 지금 shaders/*.hlsl 에서 만든 것인가 (원본 SHA-256 비교 — ADR-0171)
+[[nodiscard]] Expected<void> verifyVulkanShaderSources();
 
 } // namespace sbx::rhi::graphics_sdk

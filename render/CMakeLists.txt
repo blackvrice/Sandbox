@@ -47,6 +47,13 @@ target_sources(SandboxRender PRIVATE $<TARGET_OBJECTS:sbx_stb_impl>)
 
 # Graphics SDK 단일 백엔드 (Phase 10: R0.35 — 자체 dx12/vulkan/metal 백엔드 제거, ADR-0168). 설치본 또는 고정 커밋 (ADR-0169)
 include(SbxGraphicsSdk)
+# 내장 셰이더 원본 (shaders/*.hlsl — include 를 푼 글 · SHA-256): D3D12 런타임 컴파일 (FXC SM 5.1) 과 Vulkan 생성 SPIR-V 의
+# 출처 검사 (ADR-0171). 원본이 바뀌면 다시 구성된다
+include(SbxEmbedHlsl)
+sbx_embed_hlsl(OUTPUT "${SBX_GENERATED_DIR}/render/generated/GraphicsSdkHlslSources.hpp"
+               SOURCE_DIR "${PROJECT_SOURCE_DIR}/shaders"
+               NAMES basic_color basic_texture sprite terrain grid lines imgui)
+target_include_directories(SandboxRender PRIVATE "${SBX_GENERATED_DIR}")
 target_sources(SandboxRender PRIVATE
     graphics_sdk/GraphicsSdkTypes.hpp
     graphics_sdk/GraphicsSdkTypes.cpp

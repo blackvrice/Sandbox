@@ -12,7 +12,7 @@ struct VSIn {
 struct Push {
     float4 xform; // ndc = pos · xform.xy + xform.zw
 };
-[[vk::push_constant]] ConstantBuffer<Push> push : register(b0, space7);
+SBX_PUSH_CONSTANT ConstantBuffer<Push> push : register(b0, space7);
 
 Texture2D tex : register(t0, space2);
 SamplerState texSampler : register(s1, space2);

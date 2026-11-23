@@ -11,6 +11,7 @@ namespace sbx::rhi {
 namespace graphics_sdk {
 [[nodiscard]] Expected<std::unique_ptr<IRenderDevice>> createDevice(const DeviceDesc& desc);
 [[nodiscard]] Expected<void> verifyAdapterTypeMappings();
+[[nodiscard]] Expected<void> verifyVulkanShaderSources(); // 시험 — 생성 SPIR-V 의 출처 (ADR-0171)
 }
 
 } // namespace sbx::rhi

@@ -15,7 +15,7 @@ struct Push {
     float2 viewport;  // 픽셀
     float2 pad;
 };
-[[vk::push_constant]] ConstantBuffer<Push> push : register(b0, space7);
+SBX_PUSH_CONSTANT ConstantBuffer<Push> push : register(b0, space7);
 
 struct VSOut {
     float4 position : SV_Position;

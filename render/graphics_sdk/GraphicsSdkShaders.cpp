@@ -8,261 +8,16 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "render/generated/GraphicsSdkHlslSources.hpp"
 #include "render/graphics_sdk/GraphicsSdkSpirvData.hpp"
 #include "render/graphics_sdk/GraphicsSdkTypes.hpp"
 
 namespace sbx::rhi::graphics_sdk {
 namespace {
 
-constexpr std::string_view kBasicColorHlsl = R"(
-float2 rotate2d(float2 p, float radians) {
-    float s, c;
-    sincos(radians, s, c);
-    return float2(p.x * c - p.y * s, p.x * s + p.y * c);
-}
-struct VSIn {
-    float2 position : POSITION;
-    float4 color : COLOR0;
-};
-struct VSOut {
-    float4 position : SV_Position;
-    float4 color : COLOR0;
-};
-cbuffer Frame : register(b0, space0) {
-    float4 tint;
-};
-cbuffer Push : register(b0, space7) {
-    float2 pushOffset;
-    float2 pushScale;
-    float pushRotation;
-    float3 pushPad;
-};
-VSOut VSMain(VSIn i) {
-    VSOut o;
-    const float2 p = rotate2d(i.position, pushRotation) * pushScale + pushOffset;
-    o.position = float4(p, 0.0, 1.0);
-    o.color = i.color;
-    return o;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    return i.color * tint;
-}
-)";
-
-constexpr std::string_view kBasicTextureHlsl = R"(
-struct VSIn {
-    float2 position : POSITION;
-    float2 uv : TEXCOORD0;
-};
-struct VSOut {
-    float4 position : SV_Position;
-    float2 uv : TEXCOORD0;
-};
-Texture2D colorTexture : register(t0, space2);
-SamplerState colorSampler : register(s1, space2);
-VSOut VSMain(VSIn i) {
-    VSOut o;
-    o.position = float4(i.position, 0.0, 1.0);
-    o.uv = i.uv;
-    return o;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    return colorTexture.Sample(colorSampler, i.uv);
-}
-)";
-
-constexpr std::string_view kSpriteHlsl = R"(
-float2 rotate2d(float2 p, float radians) {
-    float s, c;
-    sincos(radians, s, c);
-    return float2(p.x * c - p.y * s, p.x * s + p.y * c);
-}
-struct InstanceIn {
-    float2 position : SPRITE_POS;
-    float2 size : SPRITE_SIZE;
-    float rotation : SPRITE_ROT;
-    float page : SPRITE_PAGE;
-    float4 uvRect : SPRITE_UV;
-    float4 color : SPRITE_COLOR;
-    float flags : SPRITE_FLAGS;
-};
-struct VSOut {
-    float4 position : SV_Position;
-    float3 uvw : TEXCOORD0;
-    float4 color : COLOR0;
-};
-cbuffer Push : register(b0, space7) {
-    float4 clip;
-};
-Texture2DArray atlas : register(t0, space2);
-SamplerState atlasSampler : register(s1, space2);
-VSOut VSMain(InstanceIn i, uint vertexId : SV_VertexID) {
-    const float2 corner = float2(vertexId & 1, vertexId >> 1);
-    const float2 local = (corner - 0.5) * i.size;
-    const float2 world = i.position + rotate2d(local, i.rotation);
-    VSOut o;
-    o.position = float4(world * clip.xy + clip.zw, 0.0, 1.0);
-    const uint pageIdx = asuint(i.page);
-    o.uvw = float3(lerp(i.uvRect.x, i.uvRect.z, corner.x),
-                   lerp(i.uvRect.w, i.uvRect.y, corner.y),
-                   (float)pageIdx);
-    o.color = i.color;
-    return o;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    return atlas.Sample(atlasSampler, i.uvw) * i.color;
-}
-)";
-
-constexpr std::string_view kTerrainHlsl = R"(
-cbuffer Push : register(b0, space7) {
-    float4 clip;
-    float2 worldMin;
-    float2 worldSize;
-    float pixelsPerUnit;
-    uint paletteSize;
-    float2 pad;
-};
-Texture2D<float4> tiles : register(t0, space2);
-Texture2D<float4> palette : register(t1, space2);
-struct VSOut {
-    float4 position : SV_Position;
-    float2 world : TEXCOORD0;
-};
-VSOut VSMain(uint vertexId : SV_VertexID) {
-    const float2 corner = float2(vertexId & 1, vertexId >> 1);
-    VSOut o;
-    o.world = worldMin + corner * worldSize;
-    o.position = float4(o.world * clip.xy + clip.zw, 0.0, 1.0);
-    return o;
-}
-uint hashTile(int2 p) {
-    uint h = (uint)p.x * 0x8da6b343u ^ (uint)p.y * 0xd8163841u;
-    h ^= h >> 13;
-    h *= 0x5bd1e995u;
-    h ^= h >> 15;
-    return h;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    const int2 size = int2(worldSize);
-    const int2 tile = clamp(int2(floor(i.world - worldMin)), int2(0, 0), size - 1);
-    const uint id = (uint)(tiles.Load(int3(tile, 0)).x * 65535.0 + 0.5);
-    float4 c = id < paletteSize ? palette.Load(int3((int)id, 0, 0)) : float4(1.0, 0.0, 1.0, 1.0);
-    const float grain = smoothstep(4.0, 12.0, pixelsPerUnit);
-    const float v = ((float)(hashTile(tile) & 0xFFu) / 255.0 - 0.5) * 0.08 * grain;
-    c.rgb *= 1.0 + v;
-    return c;
-}
-)";
-
-constexpr std::string_view kGridHlsl = R"(
-cbuffer Push : register(b0, space7) {
-    float4 clip;
-    float2 worldMin;
-    float2 worldSize;
-    float pixelsPerUnit;
-    float chunkSize;
-    float2 pad;
-};
-struct VSOut {
-    float4 position : SV_Position;
-    float2 world : TEXCOORD0;
-};
-VSOut VSMain(uint vertexId : SV_VertexID) {
-    const float2 corner = float2(vertexId & 1, vertexId >> 1);
-    VSOut o;
-    o.world = worldMin + corner * worldSize;
-    o.position = float4(o.world * clip.xy + clip.zw, 0.0, 1.0);
-    return o;
-}
-float coverage(float2 rel, float spacing, float widthPx) {
-    const float2 d = abs(frac(rel / spacing + 0.5) - 0.5) * spacing * pixelsPerUnit;
-    return saturate(widthPx * 0.5 + 0.5 - min(d.x, d.y));
-}
-float4 PSMain(VSOut i) : SV_Target {
-    const float2 rel = i.world - worldMin;
-    const float tileA = coverage(rel, 1.0, 1.0) * smoothstep(6.0, 16.0, pixelsPerUnit) * 0.16;
-    const float chunkA = coverage(rel, chunkSize, 1.25) * 0.40;
-    const float2 edge = min(rel, worldSize - rel) * pixelsPerUnit;
-    const float borderA = saturate(1.5 + 0.5 - min(edge.x, edge.y)) * 0.85;
-    if (borderA > max(tileA, chunkA)) {
-        return float4(1.0, 0.85, 0.35, borderA);
-    }
-    return float4(0.92, 0.96, 1.0, max(tileA, chunkA));
-}
-)";
-
-constexpr std::string_view kLinesHlsl = R"(
-struct LineIn {
-    float2 a : LINE_A;
-    float2 b : LINE_B;
-    float4 color : LINE_COLOR;
-    float width : LINE_WIDTH;
-};
-cbuffer Push : register(b0, space7) {
-    float4 clip;
-    float2 viewport;
-    float2 pad;
-};
-struct VSOut {
-    float4 position : SV_Position;
-    float4 color : COLOR0;
-    float across : TEXCOORD0;
-    float halfWidth : TEXCOORD1;
-};
-VSOut VSMain(LineIn i, uint vertexId : SV_VertexID) {
-    const float2 halfVp = viewport * 0.5;
-    const float2 pa = (i.a * clip.xy + clip.zw) * halfVp;
-    const float2 pb = (i.b * clip.xy + clip.zw) * halfVp;
-    const float2 d = pb - pa;
-    const float len = length(d);
-    const float2 dir = len > 1e-4 ? d / len : float2(1.0, 0.0);
-    const float2 n = float2(-dir.y, dir.x);
-    const float hw = max(i.width, 0.5) * 0.5;
-    const float reach = hw + 1.0;
-    const float2 corner = float2(vertexId & 1, vertexId >> 1);
-    const float2 along = corner.x > 0.5 ? pb + dir * 0.5 : pa - dir * 0.5;
-    const float side = (corner.y * 2.0 - 1.0) * reach;
-    VSOut o;
-    o.position = float4((along + n * side) / halfVp, 0.0, 1.0);
-    o.color = i.color;
-    o.across = side;
-    o.halfWidth = hw;
-    return o;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    const float a = saturate(i.halfWidth + 0.5 - abs(i.across));
-    return float4(i.color.rgb, i.color.a * a);
-}
-)";
-
-constexpr std::string_view kImguiHlsl = R"(
-struct VSIn {
-    float2 pos : POSITION;
-    float2 uv : TEXCOORD0;
-    float4 col : COLOR0;
-};
-cbuffer Push : register(b0, space7) {
-    float4 xform;
-};
-Texture2D tex : register(t0, space2);
-SamplerState texSampler : register(s1, space2);
-struct VSOut {
-    float4 position : SV_Position;
-    float2 uv : TEXCOORD0;
-    float4 col : COLOR0;
-};
-VSOut VSMain(VSIn i) {
-    VSOut o;
-    o.position = float4(i.pos * xform.xy + xform.zw, 0.0, 1.0);
-    o.uv = i.uv;
-    o.col = i.col;
-    return o;
-}
-float4 PSMain(VSOut i) : SV_Target {
-    return i.col * tex.Sample(texSampler, i.uv);
-}
-)";
+// 내장 셰이더의 D3D12 원본 = shaders/*.hlsl 그대로 (include 를 푼 글 — cmake/SbxEmbedHlsl.cmake). 손으로 고친 사본을 두지 않는다
+// (ADR-0171). Graphics SDK 는 DXC 없이 빌드돼 (GFX_HAS_DXC 아님) DXIL 리플렉션이 없으므로 FXC (SM 5.1) 로 런타임 컴파일한다
+using namespace hlsl_sources;
 
 struct BuiltinHlslEntry {
     std::string_view name;
@@ -389,6 +144,41 @@ Expected<gfx::ShaderBinary> resolveSdkShader(BackendType backend, const Graphics
         std::memcpy(bytes.data(), shader.msl.data(), shader.msl.size());
     }
     return gfx::ShaderBinary{stage, std::move(bytes), gfx::ShaderFormat::MSL};
+}
+
+Expected<void> verifyVulkanShaderSources() {
+    // Vulkan 생성 SPIR-V (tools/shader/gen_gfxsdk_spirv.py — SDK 계약: set 0 하나 · main · GLSL.std.450 없음, SDK-REQ-001) 는
+    // shaders/*.hlsl 를 손으로 옮긴 변형에서 만든다. 생성할 때 원본의 SHA-256 을 기록하므로, 원본이 바뀌었는데 다시 만들지
+    // 않았으면 여기서 실패한다 — 조용히 다른 셰이더로 그리지 않는다
+    struct Pair {
+        std::string_view name;
+        std::string_view now;
+        std::string_view generatedFrom;
+    };
+    using namespace spirv_data;
+    using namespace hlsl_sources;
+    const Pair pairs[] = {
+        {"basic_color", kBasicColorHlslSha256, kBasicColorSourceSha256},
+        {"basic_texture", kBasicTextureHlslSha256, kBasicTextureSourceSha256},
+        {"sprite", kSpriteHlslSha256, kSpriteSourceSha256},
+        {"terrain", kTerrainHlslSha256, kTerrainSourceSha256},
+        {"grid", kGridHlslSha256, kGridSourceSha256},
+        {"lines", kLinesHlslSha256, kLinesSourceSha256},
+        {"imgui", kImguiHlslSha256, kImguiSourceSha256},
+    };
+    std::string stale;
+    for (const Pair& p : pairs) {
+        if (p.now != p.generatedFrom) {
+            stale += std::format("{}{}", stale.empty() ? "" : ", ", p.name);
+        }
+    }
+    if (!stale.empty()) {
+        return makeError(ErrorCode::ValidationFailed,
+                         std::format("Vulkan SPIR-V 가 지금 shaders/*.hlsl 에서 만든 것이 아니다: {} — 바뀐 내용을 "
+                                     "tools/shader/gen_gfxsdk_spirv.py 의 변형에 옮기고 다시 생성한다 (ADR-0171)",
+                                     stale));
+    }
+    return {};
 }
 
 } // namespace sbx::rhi::graphics_sdk

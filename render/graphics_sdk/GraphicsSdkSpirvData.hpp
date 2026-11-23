@@ -4,6 +4,7 @@
 // Sandbox 내장 셰이더 7종(14개 스테이지) SPIR-V 바이트코드.
 #include <array>
 #include <cstdint>
+#include <string_view>
 
 namespace sbx::rhi::graphics_sdk::spirv_data {
 
@@ -827,5 +828,14 @@ inline constexpr std::array<std::uint32_t, 217> kImguiPs = {
     0x0000000du, 0x0000001bu, 0x00000016u, 0x0000001au, 0x0003003eu, 0x00000004u, 0x0000001bu, 0x000100fdu,
     0x00010038u,
 };
+
+// 이 SPIR-V 를 만든 shaders/*.hlsl 원본의 SHA-256 (ADR-0171 — verifyVulkanShaderSources 가 지금 원본과 견준다)
+inline constexpr std::string_view kBasicColorSourceSha256 = "95ce0a301c38382ad284c3c5480b92a17cb6940ba4c9b393b9bb73ede4a2c7e4";
+inline constexpr std::string_view kBasicTextureSourceSha256 = "50e3a7b6d7a185386b90dd9606fd23500997a36ac2da158eb628f0283a8b4f90";
+inline constexpr std::string_view kSpriteSourceSha256 = "4f0d5bd4251bdcf20af9e4d6bcd13306ccdd169ad7204cb9f26095c46e7e9d48";
+inline constexpr std::string_view kTerrainSourceSha256 = "c1114c7919da41d0b6c476bbe4af8cf26dcf7512b6b8496c95449d35eb7a13d9";
+inline constexpr std::string_view kGridSourceSha256 = "8b9dcf22ac05ec66623f0b0ba5781a0cf4098d4f88e5f24c980f1770eb0bf8ef";
+inline constexpr std::string_view kLinesSourceSha256 = "1e8a76aee86820841646facfd9554f424df052d971c2d6c3775f052ab2248db5";
+inline constexpr std::string_view kImguiSourceSha256 = "c6dcb0b329e8062e27654477b4a70d347ee440429321cecb09ddd29702e85de2";
 
 } // namespace sbx::rhi::graphics_sdk::spirv_data

@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-23 — 셰이더 원본 하나: D3D12 는 shaders/*.hlsl 그대로, Vulkan SPIR-V 는 출처 검사 (ADR-0171)
+
+**무엇을**
+
+- `cmake/SbxEmbedHlsl.cmake`: 구성 때 shaders/*.hlsl 7 개를 (`#include "common/…"` 를 풀고 줄 끝 LF 로) `render/generated/
+  GraphicsSdkHlslSources.hpp` 에 — 글과 SHA-256. 어댑터 D3D12 는 이 글을 FXC (SM 5.1) 로 컴파일하고, 손으로 옮긴 HLSL 사본 7 개
+  (GraphicsSdkShaders.cpp) 를 지웠다.
+- 원본에 SDK 형식 공백의 뜻을 옮김: sprite `float page/flags` + `asuint` (R32Uint 정점 → Float), terrain `Texture2D<float>` + `× 65535`
+  (R16Uint → R16UNorm). FXC 가 모르는 `[[vk::push_constant]]` → `SBX_PUSH_CONSTANT` (Common.hlsli, `__spirv__` 일 때만).
+- Vulkan: `gen_gfxsdk_spirv.py` 가 원본 SHA-256 을 `GraphicsSdkSpirvData.hpp` 에 기록 (`--stamp-sources` 는 SPIR-V 를 두고 기록만),
+  `verifyVulkanShaderSources` + 단위 시험이 지금 원본과 견준다.
+
+**왜**
+
+- 원본 (shaders/*.hlsl) 을 고쳐도 D3D12 · Vulkan 화면이 바뀌지 않았다 (이름으로 맞춘 사본 둘). Metal 의 MSL (원본의 uint) 은 어댑터의
+  형식 대응 (Float · R16UNorm) 과 어긋났다.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- FXC 로 원본 14 단계 컴파일 확인. D3D12 WARP · 실제 GPU (GTX 1660 SUPER) · Vulkan 실제 GPU 렌더 시험 34/34 (골든 그림 그대로),
+  단위 시험 (어댑터 · SPIR-V 출처). 출처 검사가 실제로 멈추는지: grid.hlsl 에 주석 한 줄 → 시험 실패 ("grid") → 되돌림 → 통과.
+
+**남은 일**
+
+- Vulkan 변형은 SDK 가 다중 set · push constant · GLSL.std.450 을 받을 때까지 생성기 안에 (SDK-REQ-001). Metal 실기는 CI 의 macOS.
+
 ## 2026-11-23 — Linux 렌더 표면: X11 창 → XCB, 자동 창 선택 X11 먼저 (ADR-0170)
 
 **무엇을**

@@ -509,6 +509,12 @@ const rhi::ShaderReflection& reflection();  rhi::ShaderBytecode vs();  rhi::Shad
 - 행렬은 column_major, mul(M, v). 상수 버퍼는 16바이트 정렬을 직접 맞춘다 (생성 헤더의 static_assert 가 검사)
 - 좌표 규약은 엔진 규약(12장)으로만 작성. #ifdef VULKAN 같은 백엔드 분기 금지
 - 텍스처 샘플링 좌표는 좌상단 원점
+- push constant 는 SBX_PUSH_CONSTANT ConstantBuffer<Push> push : register(b0, space7) — 같은 원본이 DXC (DXIL · SPIR-V) 와
+  FXC (Graphics SDK 의 D3D12 런타임 컴파일 SM 5.1) 를 지난다 (ADR-0171)
+- 정수 정점 · 텍스처 형식은 Graphics SDK 에 없다: R32Uint 정점 속성은 float 로 받아 asuint, R16Uint 텍스처는 R16UNorm 으로
+  만들어 Load × 65535 (sprite · terrain 이 그렇게 쓴다 — 어댑터의 형식 대응과 같은 뜻)
+- 원본을 고치면 Vulkan 생성 SPIR-V (tools/shader/gen_gfxsdk_spirv.py 의 변형) 도 옮기고 다시 생성한다 — 단위 시험이 원본
+  SHA-256 으로 견준다 (ADR-0171)
 ```
 
 ### 6.3 리플렉션

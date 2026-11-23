@@ -261,5 +261,13 @@ TEST_SUITE("render") {
         const std::string err = ok ? std::string{} : ok.error().describe();
         CHECK_MESSAGE(ok.has_value(), err);
     }
+
+    // 셰이더 원본은 shaders/*.hlsl 하나 (ADR-0171): Vulkan 생성 SPIR-V 가 지금 원본에서 만든 것인가 — 원본을 고치고
+    // tools/shader/gen_gfxsdk_spirv.py 를 다시 돌리지 않으면 여기서 멈춘다
+    TEST_CASE("graphics sdk adapter: Vulkan SPIR-V 가 지금 shaders/*.hlsl 에서 생성됐다") {
+        const auto ok = sbx::rhi::graphics_sdk::verifyVulkanShaderSources();
+        const std::string err = ok ? std::string{} : ok.error().describe();
+        CHECK_MESSAGE(ok.has_value(), err);
+    }
 #endif
 }

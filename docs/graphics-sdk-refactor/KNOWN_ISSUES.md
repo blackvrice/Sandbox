@@ -10,7 +10,7 @@
 |---|---|---|---|
 | `ISSUE-001` | Stage-Before-Record (`observedVersion`) vs Sandbox 지속 매핑(`map`) 충돌 | `GraphicsSdkCommandList::prepareAndReplay()` 지연 재생 + `flushPendingUploads()` 4KB 패딩 병합 | ✅ 해결 |
 | `ISSUE-002` | Vulkan 멀티 프레임 UploadRing 래핑 시 `Upload buffer busy` 및 펜스 타임아웃 상한 | `FrameSlot`별 독립 UploadRing 버퍼 + `GraphicsSdkCommandQueue::wait()` 5000ms 분할 대기 | ✅ 해결 |
-| `ISSUE-003` | 오프라인 리플렉션 · 다중 Descriptor Set · `VSMain`/`PSMain` 엔트리포인트 (`SDK-REQ-001`) | `GraphicsSdkShaders` (D3D12 SM5.1 캐시 + Vulkan 단일 셋 SPIR-V 1.3 생성기 `gen_gfxsdk_spirv.py` + Metal MSL) | ✅ 해결 |
+| `ISSUE-003` | 오프라인 리플렉션 · 다중 Descriptor Set · `VSMain`/`PSMain` 엔트리포인트 (`SDK-REQ-001`) | 2026-11-23 ADR-0171: D3D12 는 shaders/*.hlsl 원본을 그대로 FXC (사본 삭제), Vulkan 생성 SPIR-V 는 원본 SHA-256 을 기록하고 시험이 견준다 (처음 해결은 원본과 별도의 손 사본 둘이라 원본을 고쳐도 반영되지 않았다) | ✅ 해결 (Vulkan 변형은 SDK-REQ-001 까지 남음) |
 | `ISSUE-004` | `Format::R16Uint` / `Format::R32Uint` 정점 속성 미지원 (`SDK-REQ-002`) | `R16Uint→R16UNorm`(`(uint)(raw*65535+0.5)`), `R32Uint→VertexFormat::Float`(`asuint()`) 매핑 | ✅ 해결 |
 | `ISSUE-005` | `TriangleStrip` / `CullMode` / PushConstant / 동적 Sampler (`SDK-REQ-003`~`006`) | 공용 6-인덱스 쿼드 스트립 IB, CPU 2D 와인딩 컬링, 슬롯별 `pushBuffer`, 샘플러 변형 PSO 캐시 | ✅ 해결 |
 | `ISSUE-006` | Vulkan 부분 업로드 시 `Sampled texture must have initialized contents` | 최초 부분 업로드 전 1회 `fullSlice` 제로 초기화 | ✅ 해결 |

@@ -4,12 +4,21 @@ Sandbox 내장 셰이더 7종(14개 스테이지) SPIR-V 바이트코드 헤더 
 
 사용법:
     python tools/shader/gen_gfxsdk_spirv.py --dxc <dxc.exe> --out render/graphics_sdk/GraphicsSdkSpirvData.hpp
+    python tools/shader/gen_gfxsdk_spirv.py --stamp-sources --out render/graphics_sdk/GraphicsSdkSpirvData.hpp
+
+원본 = shaders/*.hlsl (ADR-0171). 아래 SHADERS 는 그 원본을 SDK 의 SPIR-V 계약 (set 0 하나 · main · GLSL.std.450 없음 —
+SDK-REQ-001) 에 맞게 손으로 옮긴 변형이다. 생성할 때 원본 (include 를 푼 글 · 줄 끝 LF) 의 SHA-256 을 헤더에 적고,
+어댑터 시험 (verifyVulkanShaderSources) 이 cmake/SbxEmbedHlsl.cmake 가 같은 방식으로 계산한 지금 값과 견준다 — 원본을
+고치면 여기 변형도 고치고 다시 생성해야 시험이 통과한다. --stamp-sources 는 SPIR-V 를 그대로 두고 기록만 새로 쓴다
+(변형이 이미 원본과 같은 뜻임을 확인했을 때만).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import pathlib
+import re
 import struct
 import subprocess
 import tempfile
@@ -424,6 +433,47 @@ float4 main(VSOut i) : SV_Target {
 ]
 
 
+CANONICAL = ["basic_color", "basic_texture", "sprite", "terrain", "grid", "lines", "imgui"]
+SHADERS_DIR = pathlib.Path(__file__).resolve().parents[2] / "shaders"
+_INCLUDE = re.compile(r'#include "(common/[A-Za-z0-9_]+\.hlsli)"')
+
+
+def canonical_sha256(name: str) -> str:
+    """cmake/SbxEmbedHlsl.cmake 와 같은 글의 SHA-256 — 줄 끝 LF, `#include "common/…"` 줄을 그 파일 내용으로."""
+    text = (SHADERS_DIR / f"{name}.hlsl").read_bytes().decode("utf-8").replace("\r\n", "\n")
+    for rel in sorted(set(_INCLUDE.findall(text))):
+        inc = (SHADERS_DIR / rel).read_bytes().decode("utf-8").replace("\r\n", "\n")
+        text = text.replace(f'#include "{rel}"', inc)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def pascal(name: str) -> str:
+    return "".join(p[:1].upper() + p[1:] for p in name.split("_"))
+
+
+def source_stamp_lines() -> list[str]:
+    out = ["// 이 SPIR-V 를 만든 shaders/*.hlsl 원본의 SHA-256 (ADR-0171 — verifyVulkanShaderSources 가 지금 원본과 견준다)"]
+    for name in CANONICAL:
+        out.append(f'inline constexpr std::string_view k{pascal(name)}SourceSha256 = "{canonical_sha256(name)}";')
+    out.append("")
+    return out
+
+
+def stamp_only(out: pathlib.Path) -> None:
+    text = out.read_text(encoding="utf-8")
+    kept = [l for l in text.split("\n") if "SourceSha256 = " not in l and "원본의 SHA-256 (ADR-0171" not in l]
+    if "#include <string_view>" not in kept:
+        kept.insert(kept.index("#include <cstdint>") + 1, "#include <string_view>")
+    end = len(kept) - 1 - kept[::-1].index("} // namespace sbx::rhi::graphics_sdk::spirv_data")
+    # 앞의 빈 줄 하나는 남긴다
+    while end > 0 and kept[end - 1] == "" and kept[end - 2] == "":
+        del kept[end - 1]
+        end -= 1
+    kept[end:end] = source_stamp_lines()
+    out.write_text("\n".join(kept), encoding="utf-8", newline="\n")
+    print(f"stamped {len(CANONICAL)} source hashes into {out}")
+
+
 def verify_spirv(name: str, words: tuple[int, ...]) -> None:
     if words[0] != 0x07230203 or words[1] != 0x00010300:
         raise RuntimeError(f"{name}: invalid SPIR-V 1.3 header ({hex(words[0])}, {hex(words[1])})")
@@ -479,9 +529,15 @@ def compile_one(dxc: pathlib.Path, name: str, stage: str, source: str) -> tuple[
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dxc", type=pathlib.Path, required=True)
+    parser.add_argument("--dxc", type=pathlib.Path)
     parser.add_argument("--out", type=pathlib.Path, required=True)
+    parser.add_argument("--stamp-sources", action="store_true", help="SPIR-V 는 그대로, 원본 SHA-256 기록만 새로 쓴다")
     args = parser.parse_args()
+    if args.stamp_sources:
+        stamp_only(args.out)
+        return
+    if args.dxc is None:
+        parser.error("--dxc 가 필요하다 (--stamp-sources 가 아니면)")
 
     lines: list[str] = [
         "#pragma once",
@@ -490,6 +546,7 @@ def main() -> None:
         "// Sandbox 내장 셰이더 7종(14개 스테이지) SPIR-V 바이트코드.",
         "#include <array>",
         "#include <cstdint>",
+        "#include <string_view>",
         "",
         "namespace sbx::rhi::graphics_sdk::spirv_data {",
         "",
@@ -505,10 +562,11 @@ def main() -> None:
         lines.append("")
         print(f"generated {name}: {len(words)} words ({len(words) * 4} bytes)")
 
+    lines.extend(source_stamp_lines())
     lines.append("} // namespace sbx::rhi::graphics_sdk::spirv_data")
     lines.append("")
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text("\n".join(lines), encoding="utf-8")
+    args.out.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":

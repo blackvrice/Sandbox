@@ -22,7 +22,7 @@ struct Push {
     float rotation;  // 라디안, CCW
     float3 pad;
 };
-[[vk::push_constant]] ConstantBuffer<Push> push : register(b0, space7);
+SBX_PUSH_CONSTANT ConstantBuffer<Push> push : register(b0, space7);
 
 VSOut VSMain(VSIn i) {
     VSOut o;

@@ -8,10 +8,11 @@ struct InstanceIn {
     float2 position : SPRITE_POS;  // 월드, 가운데
     float2 size : SPRITE_SIZE;     // 월드
     float rotation : SPRITE_ROT;   // 라디안, 반시계
-    uint page : SPRITE_PAGE;       // 아틀라스 층
+    // R32Uint 의 비트 그대로 — Graphics SDK 에 정수 정점 형식이 없어 Float 로 받고 asuint 로 되읽는다 (ADR-0171)
+    float page : SPRITE_PAGE;      // 아틀라스 층
     float4 uvRect : SPRITE_UV;     // (u0, v0, u1, v1), v0 = 위
     float4 color : SPRITE_COLOR;   // RGBA8 UNORM
-    uint flags : SPRITE_FLAGS;     // [계획] 선택 강조 등 — 지금은 읽지 않는다 (뒤집기는 CPU 가 uv 로)
+    float flags : SPRITE_FLAGS;    // (asuint) [계획] 선택 강조 등 — 지금은 읽지 않는다 (뒤집기는 CPU 가 uv 로)
 };
 
 struct VSOut {
@@ -23,7 +24,7 @@ struct VSOut {
 struct Push {
     float4 clip; // xy = scale, zw = offset  (ndc = world · scale + offset)
 };
-[[vk::push_constant]] ConstantBuffer<Push> push : register(b0, space7);
+SBX_PUSH_CONSTANT ConstantBuffer<Push> push : register(b0, space7);
 
 Texture2DArray atlas : register(t0, space2);
 SamplerState atlasSampler : register(s1, space2);
@@ -36,7 +37,8 @@ VSOut VSMain(InstanceIn i, uint vertexId : SV_VertexID) {
     VSOut o;
     o.position = float4(world * push.clip.xy + push.clip.zw, 0.0, 1.0);
     // 텍스처 원점은 좌상단: 위(corner.y = 1) → v0
-    o.uvw = float3(lerp(i.uvRect.x, i.uvRect.z, corner.x), lerp(i.uvRect.w, i.uvRect.y, corner.y), (float)i.page);
+    o.uvw = float3(lerp(i.uvRect.x, i.uvRect.z, corner.x), lerp(i.uvRect.w, i.uvRect.y, corner.y),
+                   (float)asuint(i.page));
     o.color = i.color;
     return o;
 }
