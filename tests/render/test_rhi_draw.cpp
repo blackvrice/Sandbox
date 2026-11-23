@@ -79,7 +79,7 @@ struct ColorRig {
     Owned o;
 
     explicit ColorRig(IRenderDevice& d, CullMode cull = CullMode::None, FrontFace front = FrontFace::CounterClockwise,
-                      color::Frame tint = {{1, 1, 1, 1}})
+                      color::Frame tint = {{1, 1, 1, 1}}, PrimitiveTopology topology = PrimitiveTopology::TriangleList)
         : o{d, {}, {}, {}, {}, {}, {}} {
         IRenderDevice& dev = o.dev;
         o.vs = dev.createShader({color::vs(), &color::reflection()});
@@ -98,6 +98,7 @@ struct ColorRig {
         pd.attributes = {{"POSITION", 0, 0, Format::RG32Float, 0, 0}, {"COLOR", 0, 1, Format::RGBA32Float, 8, 0}};
         pd.cull = cull;
         pd.frontFace = front;
+        pd.topology = topology;
         pd.bindGroupLayouts[color::kFrameGroup] = o.layout;
         pd.pushConstantBytes = color::kPushConstantBytes;
         pd.debugName = "basic_color";
@@ -315,6 +316,77 @@ TEST_SUITE("render.gpu") {
         dev.destroy(vb);
         dev.destroy(ib);
         dev.destroy(rt);
+    }
+
+    // Graphics SDK 에 TriangleStrip 이 없어 어댑터가 인덱스 그리기로 바꾼다 (ADR-0172 2). 그 뒤에도 사용자가 묶은 인덱스
+    // 버퍼로 drawIndexed 가 그려야 하고, 정점 번호가 u16 을 넘는 띠도 그려야 한다
+    TEST_CASE("triangle strip: the bound index buffer survives a strip draw; strips past vertex 65535 draw") {
+        IRenderDevice& dev = device();
+        ColorRig list(dev);
+        ColorRig strip(dev, CullMode::None, FrontFace::CounterClockwise, {{1, 1, 1, 1}}, PrimitiveTopology::TriangleStrip);
+        const ColorVertex quad[] = {
+            {-1, -1, 0, 0, 1, 1}, {1, -1, 0, 0, 1, 1}, {1, 1, 0, 0, 1, 1}, {-1, 1, 0, 0, 1, 1}};
+        const u16 idx[] = {0, 1, 2, 0, 2, 3}; // 띠의 공용 인덱스 (0, 1, 2, 2, 1, 3) 와 달리 왼쪽 위 삼각형을 덮는다
+        // 띠 정점: 작은 빨강 띠 (5 개 — 일반 변환, 4 개 — 사각형 경로)
+        const ColorVertex small[] = {{-0.2f, -0.2f, 1, 0, 0, 1}, {0.2f, -0.2f, 1, 0, 0, 1}, {-0.2f, 0.2f, 1, 0, 0, 1},
+                                     {0.2f, 0.2f, 1, 0, 0, 1},   {0.0f, 0.4f, 1, 0, 0, 1}};
+        const RhiBuffer vb = uploadBuffer(dev, quad, sizeof(quad), BufferUsage::Vertex, "strip list vb");
+        const RhiBuffer ib = uploadBuffer(dev, idx, sizeof(idx), BufferUsage::Index, "strip list ib");
+        const RhiBuffer svb = uploadBuffer(dev, small, sizeof(small), BufferUsage::Vertex, "strip vb");
+        const RhiTexture rt = target(dev, "strip target");
+        submitAndWait(dev, [&](ICommandList& cl) {
+            beginTarget(cl, rt);
+            cl.setIndexBuffer(ib, 0, IndexFormat::Uint16);
+            strip.bind(cl, kIdentity);
+            cl.setVertexBuffer(0, svb);
+            cl.draw(5);
+            cl.draw(4);
+            list.bind(cl, kIdentity);
+            cl.setVertexBuffer(0, vb);
+            cl.drawIndexed(6); // 묶어 둔 ib — 화면 전체 파랑이 띠 위를 덮는다
+            cl.endRenderPass();
+        });
+        const render::Image img = readback(dev, rt, ResourceState::RenderTarget);
+        u64 blue = 0;
+        for (u32 y = 0; y < kSize; ++y) {
+            for (u32 x = 0; x < kSize; ++x) {
+                blue += img.pixel(x, y)[2] == 255 && img.pixel(x, y)[0] == 0 ? 1 : 0;
+            }
+        }
+        CHECK(blue == u64{kSize} * kSize);
+        CHECK(img.pixel(1, 1)[2] == 255); // 왼쪽 위 — 띠의 인덱스로 그렸다면 빈다
+
+        // 정점 번호 70,000 부터의 띠 (u16 을 넘는다 — 어댑터가 u32 인덱스로)
+        constexpr u32 kFirst = 70000;
+        std::vector<ColorVertex> big(kFirst + 4, ColorVertex{0, 0, 0, 0, 0, 1});
+        big[kFirst + 0] = {-1, -1, 0, 1, 0, 1};
+        big[kFirst + 1] = {1, -1, 0, 1, 0, 1};
+        big[kFirst + 2] = {-1, 1, 0, 1, 0, 1};
+        big[kFirst + 3] = {1, 1, 0, 1, 0, 1};
+        const RhiBuffer bvb =
+            uploadBuffer(dev, big.data(), big.size() * sizeof(ColorVertex), BufferUsage::Vertex, "strip big vb");
+        const RhiTexture rt2 = target(dev, "strip big target");
+        submitAndWait(dev, [&](ICommandList& cl) {
+            beginTarget(cl, rt2);
+            strip.bind(cl, kIdentity);
+            cl.setVertexBuffer(0, bvb);
+            cl.draw(4, 1, kFirst);
+            cl.endRenderPass();
+        });
+        const render::Image img2 = readback(dev, rt2, ResourceState::RenderTarget);
+        u64 green = 0;
+        for (u32 y = 0; y < kSize; ++y) {
+            for (u32 x = 0; x < kSize; ++x) {
+                green += img2.pixel(x, y)[1] == 255 ? 1 : 0;
+            }
+        }
+        CHECK(green == u64{kSize} * kSize);
+        dev.destroy(vb);
+        dev.destroy(ib);
+        dev.destroy(svb);
+        dev.destroy(bvb);
+        dev.destroy(rt);
+        dev.destroy(rt2);
     }
 
     TEST_CASE("texture: nearest sampling of a 2×2 texture reproduces the quadrants; linear blends (reference "

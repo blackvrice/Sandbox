@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 #include <format>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -142,6 +143,7 @@ public:
         m_boundGroups = {};
         m_boundVertex0 = {};
         m_boundVertex0Offset = 0;
+        m_boundIndex.reset();
         m_pushData.clear();
         m_bindingsDirty = false;
         m_inPass = false;
@@ -368,8 +370,8 @@ public:
             return;
         }
         const bool isDevice = b->desc.memory == MemoryType::GpuOnly;
-        m_ops.emplace_back(
-            CmdSetIndexBuffer{b->buffer, mapIndexFormat(format), offset, b->desc.size - offset, isDevice});
+        m_boundIndex = CmdSetIndexBuffer{b->buffer, mapIndexFormat(format), offset, b->desc.size - offset, isDevice};
+        m_ops.emplace_back(*m_boundIndex);
     }
 
     void draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override {
@@ -401,33 +403,40 @@ public:
                 }
                 m_ops.emplace_back(CmdSetIndexBuffer{std::move(qib), gfx::IndexFormat::UInt16, 0, 12, false});
                 m_ops.emplace_back(CmdDrawIndexed{6, instanceCount, 0, 0, firstInstance});
+                restoreIndexBuffer();
                 return;
             }
+            // 띠 → 삼각형 목록 인덱스 (홀수 삼각형은 처음 둘을 바꿔 감기 방향을 지킨다). 마지막 정점 번호가 u16 을 넘으면 u32
             const u32 triCount = vertexCount - 2;
             const u32 idxCount = triCount * 3;
-            const UploadAllocation idxAlloc = m_dev.allocateUpload(static_cast<u64>(idxCount) * sizeof(u16), 4);
+            const bool wide = static_cast<u64>(firstVertex) + vertexCount - 1 > 0xFFFFu;
+            const u64 idxBytes = static_cast<u64>(idxCount) * (wide ? sizeof(u32) : sizeof(u16));
+            const UploadAllocation idxAlloc = m_dev.allocateUpload(idxBytes, 4);
             if (!idxAlloc.valid()) {
                 error("draw: TriangleStrip 변환용 업로드 링 할당 실패");
                 return;
             }
-            auto* dst = reinterpret_cast<u16*>(idxAlloc.cpu);
-            for (u32 t = 0; t < triCount; ++t) {
-                const u16 base = static_cast<u16>(firstVertex + t);
-                if ((t & 1u) == 0u) {
-                    dst[t * 3 + 0] = base;
-                    dst[t * 3 + 1] = static_cast<u16>(base + 1);
-                    dst[t * 3 + 2] = static_cast<u16>(base + 2);
+            const auto put = [&](u32 at, u32 v) {
+                if (wide) {
+                    reinterpret_cast<u32*>(idxAlloc.cpu)[at] = v;
                 } else {
-                    dst[t * 3 + 0] = static_cast<u16>(base + 1);
-                    dst[t * 3 + 1] = base;
-                    dst[t * 3 + 2] = static_cast<u16>(base + 2);
+                    reinterpret_cast<u16*>(idxAlloc.cpu)[at] = static_cast<u16>(v);
                 }
+            };
+            for (u32 t = 0; t < triCount; ++t) {
+                const u32 base = firstVertex + t;
+                const bool odd = (t & 1u) != 0u;
+                put(t * 3 + 0, odd ? base + 1 : base);
+                put(t * 3 + 1, odd ? base : base + 1);
+                put(t * 3 + 2, base + 2);
             }
             const GraphicsSdkBuffer* ringBuf = m_dev.buffer(idxAlloc.buffer);
             if (ringBuf != nullptr && ringBuf->buffer) {
-                m_ops.emplace_back(CmdSetIndexBuffer{ringBuf->buffer, gfx::IndexFormat::UInt16, idxAlloc.offset,
-                                                     static_cast<u64>(idxCount) * sizeof(u16), false});
+                m_ops.emplace_back(CmdSetIndexBuffer{ringBuf->buffer,
+                                                     wide ? gfx::IndexFormat::UInt32 : gfx::IndexFormat::UInt16,
+                                                     idxAlloc.offset, idxBytes, false});
                 m_ops.emplace_back(CmdDrawIndexed{idxCount, instanceCount, 0, 0, firstInstance});
+                restoreIndexBuffer();
             }
             return;
         }
@@ -1010,6 +1019,14 @@ private:
                                               c.height == t->desc.height && c.mip == 0 && c.layer == 0});
     }
 
+    // 띠 흉내가 공용 · 업로드 링 인덱스 버퍼를 묶은 뒤, 사용자가 묶어 둔 인덱스 버퍼를 다시 묶는다 — 뒤의 drawIndexed 가
+    // 엉뚱한 인덱스로 그리지 않게 (ADR-0172 2)
+    void restoreIndexBuffer() {
+        if (m_boundIndex) {
+            m_ops.emplace_back(*m_boundIndex);
+        }
+    }
+
     void releasePoolReferences() {
         for (u32 i = 0; i < m_recordedPassCount && i < m_recordedPasses.size(); ++i) {
             m_recordedPasses[i].colors.clear();
@@ -1055,6 +1072,7 @@ private:
     gfx::PipelinePtr m_activeSdkPipeline;
     std::array<RhiBindGroup, kMaxBindGroups> m_boundGroups{};
     RhiBuffer m_boundVertex0{};
+    std::optional<CmdSetIndexBuffer> m_boundIndex; // setIndexBuffer 가 묶은 것 (띠 흉내 뒤 되돌린다)
     u64 m_boundVertex0Offset = 0;
     std::vector<std::byte> m_pushData;
     bool m_bindingsDirty = false;
