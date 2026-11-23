@@ -4,6 +4,7 @@
 #include <chrono>
 #include <vector>
 
+#include "foundation/log/Log.hpp"
 #include "render/graphics_sdk/GraphicsSdkCommandList.hpp"
 #include "render/graphics_sdk/GraphicsSdkDevice.hpp"
 #include "render/graphics_sdk/GraphicsSdkTypes.hpp"
@@ -61,7 +62,13 @@ FenceValue GraphicsSdkCommandQueue::submit(std::span<ICommandList* const> lists)
 
     auto fence = batch.size() == 1 ? q.submit(*batch[0]) : q.submit(batch);
     if (!fence) {
-        m_dev.reportSdkError("CommandQueue::submit", fence.error());
+        // 제출되지 않은 일 — 돌려주는 값은 이미 지난 펜스다 (기다려도 바로 끝난다). 장치 손실이면 표시해 다음 프레임부터
+        // 그리지 않는다 (ADR-0173)
+        if (fence.error().code == gfx::ErrorCode::DeviceLost) {
+            m_dev.markDeviceLost("CommandQueue::submit");
+        } else {
+            m_dev.reportSdkError("CommandQueue::submit", fence.error());
+        }
         return m_lastFence.value;
     }
 
@@ -100,11 +107,26 @@ void GraphicsSdkCommandQueue::wait(FenceValue value) {
     if (auto c = q.completedValue()) {
         cur = *c;
     }
+    // GPU 가 멈춘 것 (TDR) 을 영원히 기다리지 않는다: 5 초 창으로 나눠 기다리고, 합쳐 60 초가 넘으면 장치 손실로 본다 —
+    // 첫 5 초에서 그냥 돌아가면 부르는 쪽이 아직 GPU 가 쓰는 자원을 재사용 · 해제했다 (ADR-0173)
+    constexpr int kMaxTimeoutWindows = 12;
+    int timeoutWindows = 0;
     while (cur < maxTarget) {
         const gfx::Fence stepTarget{cur + 1, m_lastFence.device};
         // GraphicsSDK 의 queue().wait(..., milliseconds) 는 최대 ~4,294,967 ms 이하 유한 범위만 허용하므로 5000 ms 를 쓴다.
         if (auto res = q.wait(stepTarget, std::chrono::milliseconds(5000)); !res) {
+            if (res.error().code == gfx::ErrorCode::DeviceLost) {
+                m_dev.markDeviceLost("CommandQueue::wait");
+                return;
+            }
+            if (res.error().code == gfx::ErrorCode::Timeout && ++timeoutWindows < kMaxTimeoutWindows) {
+                log::warn("render", "GPU 대기 {} 초 — 펜스 {} 를 계속 기다린다", timeoutWindows * 5, stepTarget.value);
+                continue;
+            }
             m_dev.reportSdkError("CommandQueue::wait", res.error());
+            if (timeoutWindows >= kMaxTimeoutWindows) {
+                m_dev.markDeviceLost("CommandQueue::wait (60 초 시간 초과)");
+            }
             return;
         }
         if (auto next = q.completedValue()) {
