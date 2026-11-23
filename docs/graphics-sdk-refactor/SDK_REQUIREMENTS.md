@@ -14,7 +14,7 @@
 | `SDK-REQ-004` | 래스터라이저 상태(`CullMode`, `FrontFace`, `wireframe`) 설정 추가 | **P1** | `test_rhi_draw` 컬링 테스트, 디버그 와이어프레임 | 🟡 부분 해소 (`CullMode`/`FrontFace` 어댑터 처리, `wireframe` 대기) | Phase 3 (`R0.18`) |
 | `SDK-REQ-005` | Push Constants / Root Constants (최대 128 바이트) 공개 API 지원 | **P1** | 7개 모든 Sandbox 셰이더 (`register(b0, space7)` / `[[vk::push_constant]]`) | 🟡 어댑터 해소 (프레임별 전용 CB 슬롯, SDK 네이티브 지원 대기) | Phase 3 (`R0.17`) |
 | `SDK-REQ-006` | `BindGroup` 내 동적 샘플러(`Sampler`) 바인딩 지원 | **P1** | `basic_texture`, `sprite`, `terrain`, `imgui` 샘플러 바인딩 | 🟡 어댑터 해소 (동적 샘플러 변형 PSO 캐시, SDK 네이티브 지원 대기) | Phase 3 (`R0.17`) |
-| `SDK-REQ-007` | 확장 블렌드 모드(`PremultipliedAlpha`, `Additive`) 및 `StoreOp::DontCare` | **P2** | 파티클/이펙트 블렌딩, 임시 깊이 첨부 최적화 | ⬜ 대기 | Phase 6 (`R0.25`) |
+| `SDK-REQ-007` | 확장 블렌드 모드(`PremultipliedAlpha`, `Additive`) 및 `StoreOp::DontCare` | **P2** | 파티클/이펙트 블렌딩, 임시 깊이 첨부 최적화 | ⬜ 대기 — 2026-11-23 어댑터는 두 블렌드 파이프라인을 이유와 함께 거절 (그 전에는 Alpha 로 조용히 그렸다, ADR-0172) | Phase 6 (`R0.25`) |
 | `SDK-REQ-008` | Linux Xlib(`Display*`, `Window`) 및 Wayland 네이티브 Surface 지원 | **P2** | Linux `SandboxClient` / Studio 창 스왑체인 | ⬜ 대기 | Phase 7 (`R0.28`) |
 | `SDK-REQ-009` | D3D12/Vulkan `alphaBlend` 의 `DestBlendAlpha` 를 `InvSrcAlpha`/`OneMinusSrcAlpha` 로 통일 | **P1** | 불투명 타깃 위 알파 블렌딩 Readback (`batch_1k`, `overlay`, `imgui_basic`) | 🟡 어댑터 보정 (불투명 타깃 Readback 알파 불변식 복원, SDK 수정 대기) | Phase 4 (`R0.22`) |
 

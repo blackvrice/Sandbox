@@ -314,6 +314,8 @@ struct ShaderDesc {
 enum class PrimitiveTopology : u8 { TriangleList = 0, TriangleStrip, LineList, LineStrip, PointList };
 enum class CullMode : u8 { None = 0, Back, Front };
 enum class FrontFace : u8 { CounterClockwise = 0, Clockwise }; // 엔진 규약: CCW = 앞면 (06 12장)
+// PremultipliedAlpha · Additive 는 계약에 남지만 지금 백엔드 (Graphics SDK — 블렌드 켬/끔뿐) 는 만들지 못한다: 파이프라인
+// 생성이 이유와 함께 실패한다 (ADR-0172 · SDK-REQ-007)
 enum class BlendMode : u8 { Opaque = 0, Alpha, PremultipliedAlpha, Additive };
 enum class IndexFormat : u8 { Uint16 = 0, Uint32 };
 enum class VertexStepMode : u8 { Vertex = 0, Instance };

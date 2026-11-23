@@ -483,6 +483,14 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
         reportError(std::format("createGraphicsPipeline '{}': colorCount {}", desc.debugName, desc.colorCount));
         return {};
     }
+    // Graphics SDK 의 블렌드는 켬/끔 (straight alpha: SrcAlpha · InvSrcAlpha) 뿐이다. Additive · PremultipliedAlpha 를 alpha 로
+    // 바꿔 그리지 않고 거절한다 — 다른 색이 조용히 나오지 않게 (SDK-REQ-007, ADR-0172)
+    if (desc.blend == BlendMode::Additive || desc.blend == BlendMode::PremultipliedAlpha) {
+        reportError(std::format("createGraphicsPipeline '{}': 블렌드 {} 은 Graphics SDK 에 없다 (Opaque · Alpha 만 — "
+                                "SDK-REQ-007)",
+                                desc.debugName, desc.blend == BlendMode::Additive ? "Additive" : "PremultipliedAlpha"));
+        return {};
+    }
 
     LayoutSet layoutDescs{};
     std::array<const GraphicsSdkBindGroupLayout*, kMaxBindGroups> layouts{};
@@ -530,7 +538,7 @@ RhiPipeline GraphicsSdkDevice::createGraphicsPipeline(const GraphicsPipelineDesc
     }
     sdkDesc.colorFormat = rtLayout.colors[0];
     sdkDesc.renderTargets = rtLayout;
-    sdkDesc.alphaBlend = desc.blend != BlendMode::Opaque;
+    sdkDesc.alphaBlend = desc.blend == BlendMode::Alpha;
 
     // 정점 레이아웃 변환
     for (u32 slot = 0; slot < desc.vertexBuffers.size(); ++slot) {

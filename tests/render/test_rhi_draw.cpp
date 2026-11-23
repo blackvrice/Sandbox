@@ -456,8 +456,19 @@ TEST_SUITE("render.gpu") {
         BindGroupLayoutDesc dup;
         dup.entries = {{0, BindingType::ConstantBuffer}, {0, BindingType::Texture}};
         CHECK_FALSE(dev.createBindGroupLayout(dup).valid());
-        CHECK(dev.stats().debugErrors == before + 5);
-        rendertest::expectValidationErrors(5);
+        // 6 · 7) 백엔드가 만들 수 없는 블렌드 — 다른 블렌드로 바꿔 그리지 않고 거절한다 (Graphics SDK: Opaque · Alpha 만,
+        // ADR-0172). 나머지는 맞는 파이프라인이다
+        pd.attributes = {{"POSITION", 0, 0, Format::RG32Float, 0, 0}, {"COLOR", 0, 1, Format::RGBA32Float, 8, 0}};
+        pd.blend = BlendMode::Alpha;
+        const RhiPipeline alpha = dev.createGraphicsPipeline(pd);
+        CHECK(alpha.valid());
+        pd.blend = BlendMode::Additive;
+        CHECK_FALSE(dev.createGraphicsPipeline(pd).valid());
+        pd.blend = BlendMode::PremultipliedAlpha;
+        CHECK_FALSE(dev.createGraphicsPipeline(pd).valid());
+        CHECK(dev.stats().debugErrors == before + 7);
+        rendertest::expectValidationErrors(7);
+        dev.destroy(alpha);
         dev.destroy(good);
         dev.destroy(wrongLayout);
         dev.destroy(vs);

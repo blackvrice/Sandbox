@@ -7,6 +7,26 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 어댑터: 못 하는 블렌드는 거절 (ADR-0172 1)
+
+**무엇을**
+
+- `createGraphicsPipeline`: BlendMode::Additive · PremultipliedAlpha 는 이유 ("Graphics SDK 에 없다 — Opaque · Alpha 만, SDK-REQ-007")
+  와 함께 실패. SDK 의 alphaBlend 는 `blend == Alpha` 일 때만. RhiTypes 의 enum 에 주석.
+- 렌더 시험 validation 에 Alpha 성공 · 두 블렌드 거절 (예상 오류 5 → 7). ADR-0172 (어댑터 계약 수정 넷의 결정 — 이 커밋이 1).
+
+**왜**
+
+- 두 블렌드가 straight alpha 로 조용히 바뀌어 그려졌다 (예전 D3D12 백엔드는 셋 다 했다). 지금 쓰는 곳은 없지만 RHI 계약 위반.
+
+**검증** (Windows MSVC, 2026-11-23)
+
+- D3D12 WARP · 실제 GPU · Vulkan 실제 GPU 렌더 시험 34/34, 끝 줄 "오류 10 (예상된 사용 오류 10)".
+
+**남은 일**
+
+- ADR-0172 2 ~ 4 (띠 · 컬링 · 텍스처 모양) — 다음 커밋들.
+
 ## 2026-11-23 — CI windows-msvc 를 windows-2022 로 고정 (Graphics SDK 의 VS 2026 비호환)
 
 **무엇을 · 왜**
