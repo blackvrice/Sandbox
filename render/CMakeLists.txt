@@ -112,6 +112,8 @@ if(SBX_USE_GRAPHICS_SDK)
         graphics_sdk/GraphicsSdkCommandList.cpp
         graphics_sdk/GraphicsSdkSwapChain.hpp
         graphics_sdk/GraphicsSdkSwapChain.cpp
+        graphics_sdk/GraphicsSdkUiBridge.hpp
+        graphics_sdk/GraphicsSdkUiBridge.cpp
         graphics_sdk/GraphicsSdkFactory.cpp)
     target_compile_definitions(SandboxRender PUBLIC SBX_HAS_GRAPHICS_SDK=1)
     target_link_libraries(SandboxRender PRIVATE GraphicsSDK::Core)

@@ -118,3 +118,15 @@
   - `makeGraphicsSdkSwapChain()`에서 `querySurfacePresentCapabilities()` 기반 `PresentMode::Tearing` 자동 선택 및 `DeviceCaps::tearing` 반영 (D3D12 `ecosystem_small` 1% Low 173.6 FPS, Vulkan 0.1% Low 430.3 FPS 달성)
   - `GraphicsSdkDevice`에 `queryLocalMemoryUsageBytes()`, `checkDeviceStatus()`, `markDeviceLost()` 통합
   - `GraphicsSdkSwapChain` 최소화(`0×0`) 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 재생성 구현 및 SwapChain 수명 GPU 테스트 추가 → 전 백엔드 **34/34 PASS (567 assertions)** 통과
+
+### `R0.31` ~ `R0.32` — Phase 8 Graphics UI 연동 브리지 및 Dear ImGui 공존 구조 (2026-11-23)
+- **상태**: ✅ 완료
+- **변경 파일**:
+  - `render/graphics_sdk/GraphicsSdkUiBridge.{hpp,cpp}` (신규)
+  - `render/graphics_sdk/GraphicsSdkCommandList.{hpp,cpp}`
+  - `render/CMakeLists.txt`
+  - `tests/render/CMakeLists.txt`, `tests/render/test_imgui.cpp`
+- **변경 요약**:
+  - 순환 의존성 없이 Sandbox RHI에서 `gfx::Device*`, `GraphicsSdkUiTarget`, `recordNativeUiPass()`를 노출하는 `GraphicsSdkUiBridge` 구현
+  - `GraphicsSdkCommandList`의 `Stage-Before-Record` 파이프라인에 `CmdNativeCallback`을 통합하여 단일 커맨드 리스트 내에서 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 순차 합성 지원
+  - `tests/render/test_imgui.cpp`에 픽셀 단위 공존 검증 GPU 테스트 추가 → D3D12 WARP / D3D12 HW / Vulkan HW+VVL 모두 **35/35 PASS (591 assertions)** 통과

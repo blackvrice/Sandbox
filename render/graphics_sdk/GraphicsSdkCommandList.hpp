@@ -2,6 +2,7 @@
 // Graphics SDK ICommandList 어댑터 (Stage-Before-Record 지연 명령 재생 포함).
 
 #include <graphics/Graphics.hpp>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string_view>
@@ -21,5 +22,9 @@ class GraphicsSdkDevice;
 
 // 제출 완료 직후 Readback 복사 대상 버퍼들을 동기화하기 위한 후처리
 void notifySubmitted(ICommandList& list, gfx::Fence fence);
+
+// Phase 8 (R0.31): Graphics UI 네이티브 콜백을 현재 기록 위치에 삽입한다.
+bool enqueueNativeCallback(ICommandList& list, gfx::TexturePtr targetTexture,
+                           std::function<void(gfx::CommandList&)> callback);
 
 } // namespace sbx::rhi::graphics_sdk

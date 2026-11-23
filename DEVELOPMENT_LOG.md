@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 8 (`R0.31` ~ `R0.32`: Graphics UI 연동 브리지 및 Dear ImGui 공존 구조)
+
+**무엇을**
+
+- `render/graphics_sdk/GraphicsSdkUiBridge.{hpp,cpp}` (신규), `render/graphics_sdk/GraphicsSdkCommandList.{hpp,cpp}`, `render/CMakeLists.txt`:
+  - `GraphicsUI`가 Sandbox에 의존하지 않고 `GraphicsSDK::Core` 공개 API만 직접 사용할 수 있도록 호스트 브리지(`queryGraphicsSdkDevice`, `resolveGraphicsSdkTarget`, `recordNativeUiPass`)를 구현했다 (`R0.31`).
+  - `GraphicsSdkCommandList`의 `Stage-Before-Record` 파이프라인에 `CmdNativeCallback`을 추가하여, 단일 커맨드 리스트 안에서 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 순으로 정확한 상태 전이 및 합성이 보장되도록 했다.
+- `tests/render/CMakeLists.txt`, `tests/render/test_imgui.cpp`: 동일 커맨드 리스트 · 동일 렌더 타깃 위에서 World Clear → Native GraphicsSDK UI Pass → Dear ImGui(`ImGuiRenderer`) 공존 합성을 픽셀 단위로 검증하는 GPU 테스트를 추가했다 (`R0.32`).
+- `docs/17-SOURCE-MAP.md`, `docs/graphics-sdk-refactor/{DEVELOPMENT_DASHBOARD,REFACTORING_ROADMAP,TEST_REPORT,VERSION_HISTORY,AI_HANDOFF}.md`를 갱신했다.
+
+**왜**
+
+- 향후 `GraphicsUI` 프레임워크가 순환 의존성 없이 `GraphicsSDK` 공개 API로 직접 렌더링하면서도 Studio의 Dear ImGui와 동일 프레임·동일 타깃에서 충돌 없이 공존할 수 있는 기반을 확보하기 위해.
+
+**검증** (Windows 11, NVIDIA GeForce GTX 1660 SUPER + WARP, MSVC 19.44.35228.0 RelWithDebInfo, 2026-11-23)
+
+- `sbx_render_tests` (**전체 35/35 PASS, 591 assertions**, 누수 0, 경고 0, 예상 오류 8/8):
+  - Graphics SDK D3D12 WARP: 35/35 PASS
+  - Graphics SDK D3D12 GTX 1660 SUPER: 35/35 PASS
+  - Graphics SDK Vulkan GTX 1660 SUPER + VVL 1.3.290: 35/35 PASS
+  - Legacy D3D12 빌드: 컴파일 0 에러 0 경고
+- `check_includes.py`, `check_docs.py`, `gen_roadmap.py --check` 모두 0 errors 통과.
+
+**남은 일**
+
+- Phase 9 (`R0.33` ~ `R0.34`): 전체 시나리오 최종 벤치마크 · 전체 CTest 재검증 및 `SBX_USE_GRAPHICS_SDK` 기본값 전환 검토 (`R0.35` Legacy 정리 및 `main` 병합은 사용자 승인 후 진행).
+
 ## 2026-11-23 — Graphics SDK 기반 RHI 리팩토링 Phase 7 (`R0.28` ~ `R0.30`: 멀티 플랫폼 매핑 · 프로파일링/메모리 예산 · SwapChain/Device Lost 안정화)
 
 **무엇을**

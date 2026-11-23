@@ -115,10 +115,16 @@ struct CmdResolveTimestamps {
     u32 count = 0;
 };
 
+struct CmdNativeCallback {
+    gfx::TexturePtr targetTexture;
+    std::function<void(gfx::CommandList&)> callback;
+};
+
 using RecordedOp =
     std::variant<CmdBarrier, CmdBeginRenderPass, CmdEndRenderPass, CmdSetViewport, CmdSetScissor, CmdCopyBuffer,
                  CmdCopyTexture, CmdDebugMarker, CmdSetPipeline, CmdBindResources, CmdSetVertexBuffer,
-                 CmdSetIndexBuffer, CmdDraw, CmdDrawIndexed, CmdWriteTimestamp, CmdResolveTimestamps>;
+                 CmdSetIndexBuffer, CmdDraw, CmdDrawIndexed, CmdWriteTimestamp, CmdResolveTimestamps,
+                 CmdNativeCallback>;
 
 class GraphicsSdkCommandList final : public ICommandList {
 public:
@@ -664,6 +670,17 @@ public:
                         m_dev.recordFrameTimestamps(rt->count, m_timestampOrder, &cmd);
                     }
                 }
+            } else if (const auto* nc = std::get_if<CmdNativeCallback>(&op)) {
+                if (nc->targetTexture) {
+                    if (auto res = cmd.transition(nc->targetTexture, gfx::ResourceState::RenderTarget); !res) {
+                        m_dev.reportSdkError("CommandList::transition(NativeUI)", res.error());
+                    }
+                }
+                if (nc->callback) {
+                    nc->callback(cmd);
+                }
+                // 네이티브 UI 콜백 내부에서 버퍼 상태가 변경될 수 있으므로 추적 캐시를 초기화한다.
+                m_lastBufferStates.clear();
             }
         }
 
@@ -688,6 +705,16 @@ public:
         releasePoolReferences();
         m_ops.clear();
         m_activeSdkPipeline.reset();
+    }
+
+    bool addNativeCallback(gfx::TexturePtr targetTexture, std::function<void(gfx::CommandList&)> callback) {
+        if (!m_recording || m_inPass || !callback) {
+            return false;
+        }
+        m_ops.emplace_back(CmdNativeCallback{std::move(targetTexture), std::move(callback)});
+        m_activeSdkPipeline.reset();
+        m_bindingsDirty = true;
+        return true;
     }
 
 private:
@@ -1049,6 +1076,15 @@ gfx::CommandList* prepareForSubmit(ICommandList& list) {
 
 void notifySubmitted(ICommandList& list, gfx::Fence fence) {
     static_cast<GraphicsSdkCommandList&>(list).onSubmitted(fence);
+}
+
+bool enqueueNativeCallback(ICommandList& list, gfx::TexturePtr targetTexture,
+                           std::function<void(gfx::CommandList&)> callback) {
+    auto* sdkList = dynamic_cast<GraphicsSdkCommandList*>(&list);
+    if (sdkList == nullptr) {
+        return false;
+    }
+    return sdkList->addNativeCallback(std::move(targetTexture), std::move(callback));
 }
 
 } // namespace sbx::rhi::graphics_sdk

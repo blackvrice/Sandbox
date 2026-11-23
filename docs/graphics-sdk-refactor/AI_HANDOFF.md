@@ -17,7 +17,7 @@
 
 ---
 
-## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.30`, Phase 0 ~ Phase 7 완료 — 진행률 85.7%)
+## 2. 현재까지 완료된 작업 (`R0.1` ~ `R0.32`, Phase 0 ~ Phase 8 완료 — 진행률 91.4%)
 
 1. **Phase 0 (`R0.1` ~ `R0.2`) 완료**:
    - Sandbox RHI 및 3대 백엔드(`dx12`, `vulkan`, `metal`), 렌더러 패스 전수 분석 및 `GraphicsSDK::Core` 호환성 매트릭스([API_COMPATIBILITY.md](API_COMPATIBILITY.md)), SDK 확장 요구사항([SDK_REQUIREMENTS.md](SDK_REQUIREMENTS.md)) 수립.
@@ -46,14 +46,16 @@
 
 ---
 
-## 3. 바로 이어서 진행할 다음 작업 (`R0.31` — Phase 8 착수)
+## 3. 바로 이어서 진행할 다음 작업 (`R0.33` ~ `R0.34` — Phase 9 착수)
 
-다음 작업자는 **Phase 8 (`R0.31` ~ `R0.32`: Graphics UI 연동 기반 및 ImGui 공존 구조)**부터 시작하면 됩니다:
+다음 작업자는 **Phase 9 (`R0.33` ~ `R0.34`: 전체 시나리오 최종 검증 및 기본 백엔드(`ON`) 전환 검토)**로 진행하면 됩니다:
 
-1. **`R0.31` — Graphics UI 연동 인터페이스 구축**:
-   - `D:/source/GraphicsUI` 및 `D:/source/GraphicsSDK/docs/PHASE12_GRAPHICS_UI_REPORT.md`를 확인하고, `GraphicsSdkDevice`가 `GraphicsUI`에 순환 의존성 없이 `gfx::Device&` / `gfx::CommandList&` / 스왑체인 포맷 정보를 노출할 수 있는 비침투적 브리지(Host 인터페이스) 설계 및 검증.
-2. **`R0.32` — ImGui 및 Graphics UI 공존 구조 구축**:
-   - 동일 프레임/동일 렌더 패스(또는 연속 UI 패스)에서 게임 렌더러 + Graphics UI + Dear ImGui(Studio 도구)가 충돌 없이 공존할 수 있는 렌더 순서 및 입력 라우팅 경계 설계·검증.
+1. **`R0.33` — 전체 시나리오 최종 벤치마크 및 전체 CTest 100% 통과 검증**:
+   - `build/windows-msvc-gfxsdk`에서 전체 100개 CTest 실행 및 최종 벤치마크 비교표(`BENCHMARK_COMPARISON.md`) 확정.
+2. **`R0.34` — `SBX_USE_GRAPHICS_SDK` 기본값 `ON` 전환 검토 및 병합 계획(`MERGE_PLAN.md`) 최종 점검**:
+   - 미지원 플랫폼(Linux Xlib/Wayland `SDK-REQ-008`, macOS 실기) 고려 사항 및 전환 조건 정리.
+3. **`R0.35` (Phase 10) — Legacy 백엔드 정리 및 `main`/`master` 최종 병합**:
+   - **사용자 명시 승인 없이 `main`/`master`에 병합하거나 Legacy 백엔드를 제거하지 말 것.**
 
 ---
 

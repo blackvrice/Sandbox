@@ -51,15 +51,15 @@
 | `R0.28` | Phase 7 | 멀티 플랫폼 Surface 매핑(Win32/Xcb/Cocoa/Xlib/Wayland) 및 Tearing PresentMode | `render/graphics_sdk/GraphicsSdkTypes.cpp`, `GraphicsSdkSwapChain.cpp`, `PLATFORM_SUPPORT.md` | `R0.27` | `SandboxTests --test-suite=render` | ✅ 완료 |
 | `R0.29` | Phase 7 | GPU Timestamp · 메모리 예산(`queryMemoryBudget`) · `checkStatus()` 통합 | `render/graphics_sdk/GraphicsSdkDevice.{hpp,cpp}` | `R0.28` | `sbx_render_tests --test-case="*gpu timings*"` | ✅ 완료 |
 | `R0.30` | Phase 7 | Device Lost 감지 및 SwapChain Resize/최소화(0×0)/VSync 토글 안정화 | `render/graphics_sdk/GraphicsSdkSwapChain.{hpp,cpp}`, `tests/render/test_rhi_basic.cpp` | `R0.29` | `sbx_render_tests --test-case="*swapchain*"` | ✅ 완료 |
-| `R0.31` | Phase 8 | Graphics UI 연동 인터페이스 구축 | `ui/`, `render/graphics_sdk/` | `R0.30` | Graphics UI 통합 스모크 테스트 | ⬜ 대기 |
-| `R0.32` | Phase 8 | ImGui 및 Graphics UI 공존 구조 구축 | `apps/client/`, `editor/` | `R0.31` | Studio + Game UI 동시 렌더링 검증 | ⬜ 대기 |
+| `R0.31` | Phase 8 | Graphics UI 연동 호스트 브리지(`GraphicsSdkUiBridge`) 구축 | `render/graphics_sdk/GraphicsSdkUiBridge.{hpp,cpp}`, `GraphicsSdkCommandList.{hpp,cpp}` | `R0.30` | `sbx_render_tests --test-case="*ui_bridge*"` | ✅ 완료 |
+| `R0.32` | Phase 8 | World Pass → Native Graphics UI → Dear ImGui 단일 커맨드 리스트 공존 합성 검증 | `tests/render/test_imgui.cpp`, `tests/render/CMakeLists.txt` | `R0.31` | `sbx_render_tests --test-case="*ui_bridge*"` | ✅ 완료 |
 | `R0.33` | Phase 9 | 전체 시나리오 벤치마크 및 성능 비교 | `docs/graphics-sdk-refactor/BENCHMARK_COMPARISON.md` | `R0.32` | `SandboxClient --scenario ecosystem_10k` | ⬜ 대기 |
 | `R0.34` | Phase 9 | `SBX_USE_GRAPHICS_SDK` 기본값 `ON` 전환 검토 | `cmake/SbxOptions.cmake` | `R0.33` | 전체 CTest + 3대 백엔드 통과 | ⬜ 대기 |
 | `R0.35` | Phase 10 | Legacy 백엔드(`render/dx12`, `vulkan`, `metal`) 정리 및 최종 통합 | `render/CMakeLists.txt`, `docs/` | `R0.34` | 사용자 최종 승인 후 제거 | ⬜ 대기 |
 
 ---
 
-## 3. 완료된 버전(`R0.1` ~ `R0.30`)의 하위 세부 단계 체크리스트
+## 3. 완료된 버전(`R0.1` ~ `R0.32`)의 하위 세부 단계 체크리스트
 
 ### R0.1 — 기존 그래픽 시스템 분석 및 호환성 매트릭스
 - [x] `R0.1.1`: `render/rhi/`, `render/dx12/`, `render/vulkan/`, `render/metal/`, `render/renderer/`, `render/imgui/` 전수 분석
@@ -113,3 +113,7 @@
 - [x] `R0.28.1`: `verifyAdapterTypeMappings()`에 6종 Surface(Win32/Xcb/Cocoa/Xlib/Wayland/None) · 3종 QueueType 검증 확장 및 `PresentMode::Tearing` 자동 선택 연동 (D3D12 1% Low 173.6 FPS, Vulkan 0.1% Low 430.3 FPS 달성)
 - [x] `R0.29.1`: `GraphicsSdkDevice`에 `queryLocalMemoryUsageBytes()` (`queryMemoryBudget`), `checkDeviceStatus()` (`checkStatus`), `markDeviceLost()` 통합
 - [x] `R0.30.1`: `GraphicsSdkSwapChain` 최소화(`0×0`) 건너뛰기, Vulkan 표면 크기 정합(`surfaceMetrics`), `InvalidState` 1회 `syncExtent()` 자동 복구, 런타임 `setVsync()` 재생성 및 34/34 GPU 테스트(D3D12 WARP/HW, Vulkan HW+VVL, Legacy D3D12) 통과
+
+### R0.31 ~ R0.32 — Phase 8 Graphics UI 연동 브리지 및 ImGui 공존 구조
+- [x] `R0.31.1`: `GraphicsSdkUiBridge.{hpp,cpp}` (`queryGraphicsSdkDevice`, `resolveGraphicsSdkTarget`, `recordNativeUiPass`) 및 `GraphicsSdkCommandList::enqueueNativeCallback` 구현 (순환 의존성 0, `Stage-Before-Record` 순서 보장)
+- [x] `R0.32.1`: `tests/render/test_imgui.cpp`에 단일 커맨드 리스트 · 단일 타깃 위 `World Pass → Native GraphicsSDK UI Pass → Dear ImGui` 공존 합성 픽셀 검증 테스트 추가 → D3D12 WARP/HW, Vulkan HW+VVL 모두 **35/35 PASS (591 assertions)** 통과
