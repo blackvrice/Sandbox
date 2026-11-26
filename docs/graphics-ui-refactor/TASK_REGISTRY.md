@@ -11,8 +11,8 @@
 | Phase | 작업 수 | Done | Partial · QA | Blocked | 비고 |
 |---|---:|---:|---:|---:|---|
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
-| UI-R1 통합 기반 | 12 | 7 | 2 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
-| UI-R2 Studio Shell | 10 | 0 | 0 | 2 | |
+| UI-R1 통합 기반 | 12 | 8 | 2 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
+| UI-R2 Studio Shell | 10 | 1 | 0 | 2 | R2-09 홈 ✅ |
 | UI-R3 편집 패널 | 12 | 0 | 0 | 4 | |
 | UI-R4 Viewport | 6 | 0 | 0 | 2 | |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
@@ -21,10 +21,11 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **18 (22 %)** | 3 | 21 | |
+| **합계** | **81** | **20 (25 %)** | 3 | 21 | |
 
-**작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈의 최근 목록 · 열기 · 종료 — 새 프로젝트 ·
-폴더 열기는 아직 ImGui) 를 GraphicsUI 로 옮겼다 (약 4 %, [FEATURE_MATRIX](FEATURE_MATRIX.md) 2장). GPU 렌더러는 과도기 경로다.
+**작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
+열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
+[FEATURE_MATRIX](FEATURE_MATRIX.md) 2장). 기본 UI 는 ImGui, GPU 렌더러는 과도기 경로다.
 
 ## 2. 등록부
 
@@ -49,7 +50,7 @@
 | UI-R1-05 | 선택 실행 `--ui imgui\|graphicsui` — Studio 홈 | Done | R1-03 · 04 | apps/client | `unit_client` "gui studio home" · `client_graphicsui_home_headless` · `client_ui_rejects_unknown` |
 | UI-R1-06 | 경계 — include · link 규칙 | Done | R1-01 | tools · CMake | `arch_include_lint_selftest` (18) · 구성 단계 sbx_check_link_boundaries |
 | UI-R1-07 | 비동기 작업 결과 → UI 스레드 (StateSender) | Done | R1-02 | uihost/ | `unit_uihost` "worker values" (다음 frame 적용 · 지난 세대 거절) |
-| UI-R1-08 | 글자 입력 · IME · 휠 · 클립보드 라우팅 | Planned | R1-03 | uihost/ · platform | TextInput 세션 ↔ 창 setTextInputActive · TextInput 이벤트 · 조합 (GraphicsUI P7-03/04 의 호스트 계약) |
+| UI-R1-08 | 글자 입력 · IME · 휠 · 클립보드 라우팅 | Done | R1-03 | uihost/ · apps/client | `UiHost::setTextTarget` (확정 글자 묶음 → 포커스 칸 · 캐럿 → IME 후보 창 자리) · `setWheelHandler` (안쪽 → 조상) · `setClipboard` · `editCallbacks` · `caretFromX`, 앱 단축키 막기 · 창 글자 입력 켜고 끄기. `unit_uihost` 4 케이스 · `unit_client` app 시험. 조합 중 미리보기는 OS 입력기 창 (S-04) |
 | UI-R1-09 | DPI · 사용자 UI 배율 · 화면 크기 | Partial | R1-02 | uihost/ · apps/client | 논리 좌표 · 화면 크기는 됨. uiScale · 글꼴 배율 · ContentScaleChanged 재배치 남음 |
 | UI-R1-10 | GraphicsSDK 장치 공유 GraphicsUI 렌더러 | Blocked | GUI-UP-01 | uihost/ · render | 하나의 gfx::Device · 세 백엔드 · 과도기 경로 대체 |
 | UI-R1-11 | 장치 손실 · 오류 복구 (UI 렌더 자원) | Blocked | R1-10 | render · uihost | 과도기 경로는 ImGui 렌더러의 복구를 따른다 (새 자원 없음) |
@@ -62,7 +63,7 @@
 | UI-R2-06 | 독립 OS 창 분리 · 재도킹 · 다중 모니터 | Blocked | Sandbox 다중 창 (S-01) · GUI-UP-01 | platform · uihost | 창마다 스왑체인 · DPI |
 | UI-R2-07 | 레이아웃 저장 · 복원 · ImGui ini 마이그레이션 | Planned | R2-05 | editor/services | DockLayout 바이트 · LayoutService 이름 유지, ini → 프리셋 이름 대응 (MIGRATION_GUIDE 3장) |
 | UI-R2-08 | 명령 팔레트 · 단축키 (CommandService 재사용) | Planned | R1-08 | editor/ | 같은 명령 id · when |
-| UI-R2-09 | Studio 홈 전체 (새 프로젝트 · 폴더 열기 · 예제 · 복구 · 검색) | Planned | R1-08 | apps/client | ImGui 홈과 같은 흐름 (studio_new_project 등 같은 시험) |
+| UI-R2-09 | Studio 홈 전체 (새 프로젝트 · 폴더 열기 · 예제 · 복구 · 검색) | Done | R1-08 | apps/client | 검색 · 가상 목록 (휠 · 키 · 클릭 · Delete) · 목록에서 빼기 · 복구 가능 표시 · 새 프로젝트 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 (예제 ‹ › · 복사할 곳 제안) · 간격 — ImGui 홈과 같은 StudioHomeAction · 명령. `unit_client` gui 5 + app 1 (실제 만들기 · 예제 복사 · 빼기). 남음: 좁은 창의 세로 스크롤 (R2-05 와 함께) · 템플릿 설명 글 |
 | UI-R2-10 | 상태 · 알림 · 진행 표시 | Planned | R2-04 | editor/ | |
 | UI-R3-01 | Project Explorer (TreeView · 맥락 메뉴 · 끌어다 놓기) | Blocked | GUI-UP-03 · 05 | editor/ | ProjectFiles 서비스 재사용 |
 | UI-R3-02 | Hierarchy (가상 TreeView · 다중 선택 · 검색) | Planned | R2-05 | editor/ | HierarchyService 재사용, 10만 행 |

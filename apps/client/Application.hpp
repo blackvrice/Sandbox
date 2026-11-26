@@ -203,6 +203,10 @@ public:
     [[nodiscard]] const uihost::UiFrameStats* graphicsUiStats() const noexcept {
         return m_guiHost ? &m_guiHost->stats() : nullptr;
     }
+    // 시험 · 진단: GraphicsUI 홈 화면 · 호스트 (처음 그리기 전 · 기존 UI 로 바꾼 뒤에도 남는다 — active 로 구분)
+    [[nodiscard]] const GuiStudioHome* graphicsUiHome() const noexcept { return m_guiHome.get(); }
+    [[nodiscard]] const uihost::UiHost* graphicsUiHost() const noexcept { return m_guiHost.get(); }
+    [[nodiscard]] bool graphicsUiHomeActive() const noexcept { return m_guiHomeActive; }
     [[nodiscard]] const platform::InputSystem& input() const noexcept { return m_input; }
     [[nodiscard]] const platform::ActionMap& actions() const noexcept { return m_actionMap; }
     [[nodiscard]] const std::string& typedText() const noexcept { return m_text; }
@@ -255,6 +259,9 @@ private:
     // GraphicsUI Studio 홈 (UI-R1 — ADR-0174): 처음 부를 때 호스트를 만들고, 최근 목록이 바뀌면 다시 마운트한다.
     // 고른 일은 ImGui 홈과 같은 StudioHomeAction 으로 돌려준다 (같은 처리). 실패하면 기록하고 ImGui 홈으로 돌아간다
     std::optional<StudioHomeAction> guiHomeFrame();
+    // 홈 폼 상태 (StudioHomeState — newDir · newGameId · newName · templateIndex) 를 요청으로 채운다. 템플릿이 없으면 결과 줄에
+    // 적고 false (--new-project 자동화 · GraphicsUI 홈이 같은 길로 studio.new-project 를 부른다)
+    bool fillHomeNewProject(const editor::services::NewProjectRequest& request);
     void playerOpen(const std::filesystem::path& package);
     void playerReport();
     bool enterProject(const std::filesystem::path& dir);
@@ -332,6 +339,8 @@ private:
     std::unique_ptr<uihost::UiHost> m_guiHost;
     bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
     bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다
+    bool m_guiHomeDrawn = false;       // 이번 프레임에 GraphicsUI 홈을 그렸다 (아니면 우리가 켠 글자 입력을 끈다)
+    bool m_guiTextInput = false;       // GraphicsUI 글자 칸 때문에 창의 글자 입력 (IME) 을 우리가 켰다
     std::vector<std::filesystem::path> m_guiRecent; // 마운트한 최근 목록 (바뀌면 다시 마운트)
     // 명령 팔레트 · 단축키 표 (v0.8 ST-06-2), 명령이 고른 셸 일 (다음 셸 단계에서 적용 — 툴바 · 메뉴와 같은 길)
     editor::PaletteState m_palette;

@@ -1,4 +1,4 @@
-# UI-R2 — Studio Shell [계획]
+# UI-R2 — Studio Shell [진행 — R2-09 홈 ✅]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R2-01 ~ 10. 선행: UI-R1 (특히 R1-08 글자 입력).
 
@@ -25,7 +25,7 @@ Studio 홈 전체 — 를 GraphicsUI 로. GraphicsUI 의 기존 DockLayout (P9-0
 | R2-06 분리 OS 창 · 재도킹 · 다중 모니터 | S-01 (Sandbox 다중 창) · GUI-UP-01 · GUI-UP-10 (resize 메모리) |
 | R2-07 레이아웃 저장 · 복원 · ImGui ini 마이그레이션 | — (MIGRATION_GUIDE 3장) |
 | R2-08 명령 팔레트 · 단축키 (CommandService 그대로) | R1-08 |
-| R2-09 홈 전체 | R1-08 |
+| R2-09 홈 전체 | ✅ (2026-11-26) — ImGui 홈의 행동 전부. 남음: 좁은 창 세로 스크롤 (R2-05) · 템플릿 설명 글 |
 | R2-10 상태 · 알림 · 진행 | R2-04 |
 
 ## 완료 조건

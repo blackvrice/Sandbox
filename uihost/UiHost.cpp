@@ -6,6 +6,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <graphics-ui/core/text.hpp>
+
 #include "foundation/text/Utf8.hpp"
 #include "uihost/InputRouting.hpp"
 
@@ -79,6 +81,25 @@ gui::LayoutSize ApproxTextMeasure::measure(std::string_view utf8, double emSize)
     return {width, 1.25 * emSize};
 }
 
+usize caretFromX(const ITextMeasure& text, std::string_view utf8, double emSize, double x) {
+    const auto bounds = gui::textBoundaries(utf8);
+    if (!bounds || bounds->graphemes.empty()) {
+        return 0;
+    }
+    // 경계마다 앞 글자 폭을 재어 x 에 가장 가까운 것 (짧은 글자 칸 — 경계 수만큼 측정, 긴 문서는 R5 의 편집기 몫)
+    usize best = 0;
+    double bestDist = x < 0.0 ? -x : x;
+    for (const std::size_t b : bounds->graphemes) {
+        const double w = text.measure(utf8.substr(0, b), emSize).width;
+        const double d = w > x ? w - x : x - w;
+        if (d < bestDist) {
+            bestDist = d;
+            best = b;
+        }
+    }
+    return best;
+}
+
 void PaintList::add(gui::ComponentHandle component, std::vector<gui::DrawCommand> draws, bool clipToBounds) {
     m_storage.push_back(std::move(draws));
     gui::RenderNode node;
@@ -143,6 +164,8 @@ Expected<void> UiHost::setScreen(IUiScreen* screen) {
     m_layout.reset();
     m_paint.clear();
     m_hover.reset();
+    m_textTargets.clear();
+    m_wheelHandlers.clear();
     m_screen = nullptr;
     if (auto r = m_tree->commit({}); !r) { // 빈 트리 — 구독 · 포커스 · 캡처가 풀린다
         return std::unexpected(toError(r.error(), "ComponentTree::commit (비우기)"));
@@ -163,7 +186,17 @@ void UiHost::feed(std::span<const platform::PlatformEvent> events) {
     if (m_screen == nullptr) {
         return;
     }
+    std::string pendingText; // 이어 온 확정 글자 — 다른 이벤트 앞에서 한 번에 보낸다 (IME 가 여러 글자를 한꺼번에 확정)
     for (const platform::PlatformEvent& e : events) {
+        if (const auto* t = std::get_if<platform::TextInput>(&e)) {
+            utf8::append(pendingText, t->codepoint);
+            continue;
+        }
+        deliverText(pendingText);
+        if (const auto* w = std::get_if<platform::MouseWheel>(&e)) {
+            deliverWheel(w->delta.x, w->delta.y);
+            continue;
+        }
         if (const auto* k = std::get_if<platform::KeyDown>(&e)) {
             m_mods = k->mods;
         } else if (const auto* u = std::get_if<platform::KeyUp>(&e)) {
@@ -202,6 +235,133 @@ void UiHost::feed(std::span<const platform::PlatformEvent> events) {
                 (void)m_input->moveFocus(back ? gui::FocusDirection::backward : gui::FocusDirection::forward);
             }
         }
+    }
+    deliverText(pendingText);
+}
+
+namespace {
+
+template <class T>
+Expected<void> setHandlerIn(std::vector<std::pair<gui::ComponentHandle, T>>& list, const gui::ComponentTree& tree,
+                            gui::ComponentHandle target, T handler, std::string_view what) {
+    if (auto r = tree.resolve(target); !r) {
+        return std::unexpected(toError(r.error(), what));
+    }
+    std::erase_if(list, [&](const auto& p) { return p.first == target; });
+    if (handler) {
+        list.emplace_back(target, std::move(handler));
+    }
+    return {};
+}
+
+} // namespace
+
+Expected<void> UiHost::setTextTarget(gui::ComponentHandle target, TextTarget handler) {
+    if (!handler.insert) {
+        std::erase_if(m_textTargets, [&](const auto& p) { return p.first == target; });
+        return {};
+    }
+    if (auto r = m_tree->resolve(target); !r) {
+        return std::unexpected(toError(r.error(), "setTextTarget"));
+    }
+    std::erase_if(m_textTargets, [&](const auto& p) { return p.first == target; });
+    m_textTargets.emplace_back(target, std::move(handler));
+    return {};
+}
+
+Expected<void> UiHost::setWheelHandler(gui::ComponentHandle target, WheelHandler handler) {
+    return setHandlerIn(m_wheelHandlers, *m_tree, target, std::move(handler), "setWheelHandler");
+}
+
+gui::TextEditCallbacks UiHost::editCallbacks(std::function<gui::Result<void>(std::string_view)> publish) const {
+    gui::TextEditCallbacks cb;
+    cb.publish = std::move(publish);
+    if (m_clipboard.read) {
+        cb.read_clipboard = [read = m_clipboard.read]() -> gui::Result<std::string> { return read(); };
+    }
+    if (m_clipboard.write) {
+        cb.write_clipboard = [write = m_clipboard.write](std::string_view s) -> gui::Result<void> {
+            write(s);
+            return {};
+        };
+    }
+    return cb;
+}
+
+const TextTarget* UiHost::focusedTextTarget() const {
+    if (m_screen == nullptr) {
+        return nullptr;
+    }
+    const auto focus = m_input->focus();
+    if (!focus || !*focus) {
+        return nullptr;
+    }
+    for (const auto& [h, t] : m_textTargets) {
+        if (h == **focus) {
+            return &t;
+        }
+    }
+    return nullptr;
+}
+
+bool UiHost::textFocused() const {
+    return focusedTextTarget() != nullptr;
+}
+
+TextInputState UiHost::textInput() const {
+    TextInputState out;
+    const TextTarget* t = focusedTextTarget();
+    if (t == nullptr) {
+        return out;
+    }
+    out.active = true;
+    if (!t->caret || !m_layout) {
+        return out;
+    }
+    const auto focus = m_input->focus();
+    const auto local = t->caret();
+    if (!local || !focus || !*focus) {
+        return out;
+    }
+    // 캐럿은 컴포넌트 기준 — 그 상자의 자리를 더한다 (직전 frame 의 배치)
+    for (const gui::LayoutBox& box : m_layout->boxes()) {
+        if (box.component == **focus) {
+            out.caret = gui::LayoutRect{box.bounds.x + local->x, box.bounds.y + local->y, local->width, local->height};
+            break;
+        }
+    }
+    return out;
+}
+
+void UiHost::deliverText(std::string& pending) {
+    if (pending.empty()) {
+        return;
+    }
+    if (const TextTarget* t = focusedTextTarget()) {
+        ++m_stats.inputEvents;
+        t->insert(pending);
+    }
+    pending.clear();
+}
+
+void UiHost::deliverWheel(f32 dx, f32 dy) {
+    if (m_screen == nullptr || !m_hover) {
+        return;
+    }
+    // 포인터 아래 컴포넌트에서 조상으로 — 처음 처리한 곳에서 멈춘다 (안쪽 스크롤 영역이 먼저)
+    std::optional<gui::ComponentHandle> at = m_hover;
+    while (at) {
+        for (const auto& [h, fn] : m_wheelHandlers) {
+            if (h == *at && fn(dx, dy)) {
+                ++m_stats.inputEvents;
+                return;
+            }
+        }
+        const auto info = m_tree->resolve(*at);
+        if (!info) {
+            return;
+        }
+        at = info->parent;
     }
 }
 

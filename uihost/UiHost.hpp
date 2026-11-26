@@ -10,11 +10,13 @@
 // sender() 의 StateSender 로 값만 보낸다 (다음 frame 이 순서대로 적용).
 
 #include <deque>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
 
+#include <graphics-ui/core/controls.hpp>
 #include <graphics-ui/core/input_dispatcher.hpp>
 #include <graphics-ui/core/layout.hpp>
 #include <graphics-ui/core/render.hpp>
@@ -56,6 +58,31 @@ private:
     std::deque<std::vector<gui::DrawCommand>> m_storage; // deque — 앞 원소의 주소가 바뀌지 않는다
     std::vector<gui::RenderNode> m_nodes;
 };
+
+// 글자 입력 대상 (UI-R1-08) — 포커스가 이 컴포넌트일 때 창의 확정 글자 (IME 조합이 끝난 글자 포함) 를 받는다.
+// 조합 중 미리보기는 OS 입력기 창이 그린다 (PlatformEvent 에 조합 이벤트가 없다 — UPSTREAM S-04), 그 자리는 caret 이 정한다
+struct TextTarget {
+    std::function<void(std::string_view utf8)> insert;              // 한 번에 도착한 글자 묶음 (한 편집 · 한 실행 취소 단계)
+    std::function<std::optional<gui::LayoutRect>()> caret;          // 컴포넌트 기준 논리 좌표의 캐럿 (IME 후보 창 자리)
+};
+
+// 휠 — dx · dy 는 칸 수 (PlatformEvent::MouseWheel — y 양수 = 위로). 처리했으면 true (조상에게 가지 않는다)
+using WheelHandler = std::function<bool(f32 dx, f32 dy)>;
+
+// 클립보드 — 호스트 (창) 의 것. 비어 있으면 GraphicsUI 편집의 복사 · 붙여넣기가 실패를 돌려준다
+struct Clipboard {
+    std::function<std::string()> read;
+    std::function<void(std::string_view)> write;
+};
+
+// 창에 알릴 글자 입력 상태 — frame 뒤에 읽는다
+struct TextInputState {
+    bool active = false;                // 포커스가 글자 대상이다 → 창의 글자 입력 (IME) 을 켠다
+    std::optional<gui::LayoutRect> caret; // 화면 논리 좌표 (후보 창 자리)
+};
+
+// 논리 x (글자 시작 기준) 에 가장 가까운 그래핌 경계의 UTF-8 바이트 위치 — 글자 칸을 눌러 캐럿을 놓을 때
+[[nodiscard]] usize caretFromX(const ITextMeasure& text, std::string_view utf8, double emSize, double x);
 
 class UiHost;
 
@@ -114,6 +141,16 @@ public:
 
     [[nodiscard]] const UiFrameStats& stats() const noexcept { return m_stats; }
     [[nodiscard]] const gui::LayoutFrame* lastLayout() const noexcept { return m_layout.get(); }
+    // 글자 대상 · 휠 · 클립보드 (UI-R1-08). 빈 함수 = 해제. 화면 바꾸기 (setScreen) 가 모두 지운다
+    Expected<void> setTextTarget(gui::ComponentHandle target, TextTarget handler);
+    Expected<void> setWheelHandler(gui::ComponentHandle target, WheelHandler handler);
+    void setClipboard(Clipboard clipboard) { m_clipboard = std::move(clipboard); }
+    // GraphicsUI 편집 콜백 — publish 는 화면의 값 저장, 클립보드는 호스트의 것
+    [[nodiscard]] gui::TextEditCallbacks editCallbacks(std::function<gui::Result<void>(std::string_view)> publish) const;
+    [[nodiscard]] TextInputState textInput() const;
+    // 포커스가 글자 대상인가 (앱 단축키를 막는다 — ImGui 의 WantTextInput 과 같은 뜻)
+    [[nodiscard]] bool textFocused() const;
+
     // 마지막 포인터 이벤트가 가리킨 컴포넌트 (hover 표시 — Button::visualState 에 넘긴다)
     [[nodiscard]] std::optional<gui::ComponentHandle> pointerHit() const noexcept { return m_hover; }
     // 논리 좌표가 루트가 아닌 컴포넌트 위인가 (게임 입력과 나누기 — 빈 배경은 UI 가 아니다)
@@ -136,6 +173,13 @@ private:
     std::optional<gui::ComponentHandle> m_hover;
     gui::LayoutSize m_viewport;
     UiFrameStats m_stats;
+    std::vector<std::pair<gui::ComponentHandle, TextTarget>> m_textTargets;
+    std::vector<std::pair<gui::ComponentHandle, WheelHandler>> m_wheelHandlers;
+    Clipboard m_clipboard;
+
+    void deliverText(std::string& pending);
+    void deliverWheel(f32 dx, f32 dy);
+    [[nodiscard]] const TextTarget* focusedTextTarget() const;
 };
 
 } // namespace sbx::uihost

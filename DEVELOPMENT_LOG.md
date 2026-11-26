@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-11-26 — GraphicsUI 통합 UI-R1-08 (글자 입력 · IME 자리 · 휠 · 클립보드) · UI-R2-09 홈 전체 (ImGui 홈의 행동 전부)
+
+**무엇을**
+
+- **uihost (UI-R1-08).** `UiHost::setTextTarget` — 창의 확정 글자 (PlatformEvent::TextInput) 를 이어 온 것끼리 한 묶음으로 포커스된
+  글자 대상에 (IME 가 여러 글자를 한꺼번에 확정해도 한 편집 · 한 실행 취소 단계), 대상의 캐럿 → `textInput()` 의 화면 좌표 (IME 후보 창
+  자리). `setWheelHandler` — 포인터 아래 가장 안쪽 처리기부터 조상으로 (처리하면 멈춤). `setClipboard` · `editCallbacks` — GraphicsUI
+  TextInput 편집 (Ctrl+A · C · X · V · Z · Y) 의 클립보드 = 창의 것. `caretFromX` — 눌러 캐럿 놓기 (그래핌 경계, 결합 문자를 가르지 않음).
+  화면 바꾸기가 대상 · 처리기를 지운다.
+- **Application.** 글자 칸에 포커스가 있으면 창의 글자 입력 (IME) 을 켜고 `setTextInputArea` 를 캐럿에, 우리가 켠 것만 끈다 (홈을 떠날
+  때 포함 — 게임 UI · ImGui 와 같은 규칙). GraphicsUI 글자 칸에 쓰는 동안 앱 단축키 (`dispatchShortcuts`) 를 막는다 (ImGui 의
+  WantTextInput 과 같은 뜻). `--new-project` 자동화의 폼 채우기를 `fillHomeNewProject` 로 빼서 GraphicsUI 홈과 같이 쓴다. 홈의
+  NewProject · OpenProject 명령이 꺼져 있으면 (canCreate · canOpen 아님) 결과 줄에 이유 (ImGui 홈은 단추가 꺼져 그 길이 없었다).
+- **GuiStudioHome (UI-R2-09).** 최근 목록 = 전체 가상 목록 (GraphicsUI ListView — 앞 8 개 제한을 없앴다): 검색 칸
+  (filterRecent — ImGui 홈과 같은 검색), ↑↓ · Home · End · Enter, 클릭 (누른 행에서 떼면 연다), 휠 (한 칸 = 세 줄). 새 프로젝트: 템플릿
+  단추 (→ 2 차에 ‹ › 넘기기), 이름 · gameId · 폴더 칸 (이름을 쓰면 suggestGameId · suggestProjectDir — 손으로 고친 칸은 따라가지 않는다),
+  만들기 · Enter. 폴더 열기 칸 · 단추. 결과 줄 = ImGui 홈의 message · failed. 넓으면 두 칸 (목록 | 폼), 좁으면 한 칸. 다시 마운트해도
+  쓰던 글자를 남긴다. 첫 포커스 = 검색 칸.
+  2 차: 목록에서 빼기 (단추 · Delete — ImGui 카드 메뉴와 같은 ForgetRecent), 복구 가능 표시 (AutosaveService::peek — ImGui 카드 배지와
+  같은 조건 · 같은 시각 표시), 예제 복사 (예제 ‹ › · 복사할 곳 제안 — CopyExample), 간격 보통 ↔ 촘촘 (Density — 행 높이 · 여백 · 글자),
+  템플릿 · 예제 고르기를 ‹ › 넘기기로 (템플릿 15 개 격자는 오른쪽 칸을 넘쳤다).
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 현황 문서 4장의 다음 작업 1 (UI-R1-08 → UI-R2-09).
+
+**검증** (Windows MSVC, 2026-11-26)
+
+- `unit_uihost` 11 케이스 (새 4: 한글 두 글자 한 번에 확정 · Ctrl+Z 한 번에 둘 다 · 포커스 없으면 버림 · 클립보드 없음 → 붙여넣기만 실패 ·
+  붙여넣기 · 잘라내기 · 휠 안쪽 → 조상 · 화면 바꾼 뒤 처리기 없음 · caretFromX 결합 악센트).
+- `unit_client` gui 5 + app 1: 검색 → 걸러진 목록 · Enter 로 열기 · IME 자리가 칸 안, 40 행 목록 클릭 · ↑↓ End Home · 휠 3 줄 · 목록 밖 휠 무시 ·
+  Tab 으로 글자 칸 떠나기, 새 프로젝트 폼 (템플릿 · 제안 · 손으로 고친 gameId 유지 · 만들기 · Enter · 다시 마운트해도 글자 유지), 폴더 열기 ·
+  클립보드 복사 · 붙여넣기 · 눌러 캐럿 놓기 · 좁은 화면, 브리지. **Application 시험**: `--ui graphicsui` 홈에서 이름 · 폴더를 쓰고 만들기 →
+  `studio.new-project` 로 실제 프로젝트 폴더 · 최근 목록, 나쁜 gameId 는 만들지 않음, 창 글자 입력 켜짐 → "기존 UI 로" 뒤 꺼짐.
+- `unit_client` "forget · recovery badge · example copy · density" — 단추 · Delete 로 빼기, 복구 배지 글 (displayTime 같음), 예제 넘기기 → 복사할
+  곳 제안 · 복사 의도, 간격. Application 시험에 예제 복사 (실제 폴더 생김) · 목록에서 빼기 (최근 목록 하나 줄어듦) 를 더했다.
+- 실제 실행 (헤드리스): `SandboxClient --headless --ui graphicsui` — 컴포넌트 36 · 그리기 명령 87 · 템플릿 15 (Debug 첫 배치 1.51 ms, 평균 0.19 ms).
+- 좁은 창 (700 × 900) 에서 한 칸으로 쌓은 내용이 화면을 넘어 아래 단추가 잘린다 — 세로 스크롤이 없다 (R2-05 와 함께). 시험은 700 × 1200.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 99 / 99 (project_doctor 제외 — 이 PC 의 AppData 문제).
+
+**남은 일** — 좁은 창 세로 스크롤 · 템플릿 설명 글. 칸 안 IME 조합 미리보기는 플랫폼의 조합 이벤트 (S-04) 뒤.
+UI-R1-09 (사용자 UI 배율 · DPI 글꼴). 창 실행 QA Q-01 · Q-01c.
+
 ## 2026-11-26 — GraphicsUI 통합 UI-R0 (분석 · 설계) · UI-R1 기반 (호스트 · 입력 · 과도기 렌더 · `--ui graphicsui`) — ADR-0174
 
 **무엇을**

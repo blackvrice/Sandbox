@@ -38,6 +38,14 @@ using namespace sbx::platform;
 
 namespace {
 
+// 고정 크기 글자 버퍼 (StudioHomeState 의 폼 칸) 에 채운다 — 넘치면 자른다 (끝은 늘 NUL)
+template <usize N>
+void fillText(std::array<char, N>& buf, const std::string& text) {
+    const usize n = std::min(text.size(), N - 1);
+    std::copy_n(text.begin(), n, buf.begin());
+    buf[n] = 0;
+}
+
 constexpr usize kTextKeep = 64; // 입력 모니터에 남길 글자 수
 constexpr usize kTextShow = 16; // 제목 줄에 보일 글자 수
 constexpr usize kKeysShow = 6;
@@ -1008,6 +1016,7 @@ bool Application::frame() {
             applyShellActions(shell, unused);
         }
         drawNotices(m_config.notices, m_noticesOpen);
+        m_guiHomeDrawn = false;
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
         if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.playerMode) {
             playerFrame(); // v0.8 NG-03
@@ -1039,10 +1048,17 @@ bool Application::frame() {
                     break;
                 }
                 case StudioHomeAction::Kind::NewProject:
-                    (void)m_commands.run("studio.new-project");
+                    // ImGui 홈은 canCreate 가 아니면 단추를 끈다 — GraphicsUI 홈은 누를 수 있으니 왜 안 되는지 적는다
+                    if (m_commands.run("studio.new-project") != editor::services::RunResult::Ran) {
+                        m_home.failed = true;
+                        m_home.message = "만들 수 없다 — 폴더와 gameId (작성자.게임 — 소문자 · 숫자 · '_') 를 확인한다";
+                    }
                     break;
                 case StudioHomeAction::Kind::OpenProject:
-                    (void)m_commands.run("studio.open-project");
+                    if (m_commands.run("studio.open-project") != editor::services::RunResult::Ran) {
+                        m_home.failed = true;
+                        m_home.message = "열 수 없다 — 프로젝트 폴더를 적는다";
+                    }
                     break;
                 case StudioHomeAction::Kind::OpenRecent:
                     studioOpen(a->dir);
@@ -1052,6 +1068,10 @@ bool Application::frame() {
                     break;
                 }
             }
+        }
+        if (!m_guiHomeDrawn && m_guiTextInput) { // 홈을 떠났다 (프로젝트 · 기존 UI) — 우리가 켠 글자 입력을 끈다
+            m_window.setTextInputActive(false);
+            m_guiTextInput = false;
         }
         if (m_panels.visible && m_shell.developerPanels) { // v0.7 M4-T3 "키" — 개발자 창 (v0.8 UI-1)
             KeysView view = buildKeysView(m_keys, m_playKeys.map);
@@ -1522,29 +1542,32 @@ void Application::studioHome() {
     }
     // 시작하자마자 새 프로젝트 (--new-project): 홈의 폼을 채우고 홈 단추와 같은 명령으로
     m_newProjectTried = true;
-    const editor::services::NewProjectRequest& r = *m_config.newProject;
-    const auto fill = [](auto& buf, const std::string& text) {
-        const usize n = std::min(text.size(), buf.size() - 1);
-        std::copy_n(text.begin(), n, buf.begin());
-        buf[n] = '\0';
-    };
-    const std::u8string dir = r.dir.generic_u8string();
-    fill(m_home.newDir, std::string(dir.begin(), dir.end()));
-    fill(m_home.newGameId, r.gameId);
-    fill(m_home.newName, r.name);
-    const auto& t = m_config.projects->templates();
-    const auto it = std::ranges::find(t, r.templateId, &editor::services::ProjectTemplate::id);
-    if (it == t.end()) {
-        log::error("studio", "템플릿 '{}' 가 없다", r.templateId);
+    if (!fillHomeNewProject(*m_config.newProject)) {
         m_exitCode = 1;
         (void)request(AppState::Shutdown);
         return;
     }
-    m_home.templateIndex = static_cast<int>(it - t.begin());
     if (m_commands.run("studio.new-project") != editor::services::RunResult::Ran || m_home.failed) {
         m_exitCode = 1; // 자동화 — 실패면 끝낸다
         (void)request(AppState::Shutdown);
     }
+}
+
+bool Application::fillHomeNewProject(const editor::services::NewProjectRequest& r) {
+    const std::u8string dir = r.dir.generic_u8string();
+    fillText(m_home.newDir, std::string(dir.begin(), dir.end()));
+    fillText(m_home.newGameId, r.gameId);
+    fillText(m_home.newName, r.name);
+    const auto& t = m_config.projects->templates();
+    const auto it = std::ranges::find(t, r.templateId, &editor::services::ProjectTemplate::id);
+    if (it == t.end()) {
+        m_home.failed = true;
+        m_home.message = std::format("템플릿 '{}' 가 없다", r.templateId);
+        log::error("studio", "{}", m_home.message);
+        return false;
+    }
+    m_home.templateIndex = static_cast<int>(it - t.begin());
+    return true;
 }
 
 void Application::studioCreate() {
@@ -2217,9 +2240,12 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
             return std::nullopt;
         }
         m_guiHost = std::move(*host);
+        // 클립보드 = 창의 것 (ImGui 와 같은 곳 — 두 UI 사이 복사 · 붙여넣기가 된다)
+        m_guiHost->setClipboard({[this] { return m_window.clipboardText(); },
+                                 [this](std::string_view t) { m_window.setClipboardText(t); }});
         m_guiHome = std::make_unique<GuiStudioHome>();
     }
-    // 최근 목록이 바뀌었으면 (열기 · 잊기 · 처음) 모델을 다시 만들고 다시 마운트 — 지난 트리의 포커스 · 캡처는 풀린다
+    // 최근 목록이 바뀌었으면 (열기 · 잊기 · 만들기 · 처음) 다시 마운트 — 쓰던 글자는 화면이 남긴다
     std::vector<std::filesystem::path> dirs;
     for (const editor::services::RecentProject& r : m_config.projects->recent()) {
         dirs.push_back(r.dir);
@@ -2227,12 +2253,13 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     if (dirs != m_guiRecent || m_guiHost->stats().frames == 0) {
         GuiHomeModel model;
         model.version = m_config.engineVersion;
-        for (const editor::services::RecentProject& r : m_config.projects->recent()) {
-            const std::u8string d = r.dir.generic_u8string();
-            model.recent.push_back({r.name.empty() ? r.gameId : r.name,
-                                    std::format("{}{} · {}", r.gameId, r.missing ? " (폴더 없음)" : "",
-                                                std::string(d.begin(), d.end())),
-                                    r.dir});
+        model.recent = m_config.projects->recent();
+        model.templates = m_config.projects->templates();
+        model.examples = m_config.projects->examples();
+        for (const editor::services::RecentProject& r : model.recent) {
+            // 복구 가능 표시 — ImGui 홈의 카드와 같은 조건 (자동 저장이 켜졌고 폴더가 있다)
+            const auto info = m_config.autosave != nullptr && !r.missing ? m_config.autosave->peek(r.dir) : std::nullopt;
+            model.recovery.push_back(info ? info->savedAt : std::string());
         }
         m_guiHome->setModel(std::move(model));
         if (auto r = m_guiHost->setScreen(m_guiHome.get()); !r) {
@@ -2240,6 +2267,8 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         }
         m_guiRecent = std::move(dirs);
     }
+    m_guiHome->setStatus(m_home.message, m_home.failed); // 결과 줄 = ImGui 홈과 같은 상태
+    m_guiHome->setCompact(m_shell.density == editor::theme::Density::Compact);
     m_guiHost->feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
     auto display = m_guiHost->frame({static_cast<double>(size.x), static_cast<double>(size.y)});
@@ -2248,12 +2277,27 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     }
     // 배경 그리기 목록 — 알림 · 팔레트 같은 ImGui 창이 그 위에 온다 (과도기 렌더 경로, GraphicsUiImGuiBridge)
     const GuiBridgeStats drawn = drawDisplayList(**display, *ImGui::GetBackgroundDrawList());
+    // 글자 칸에 포커스가 있으면 창의 글자 입력 (IME) 을 켜고 후보 창을 캐럿에 — 우리가 켠 것만 끈다 (게임 UI · ImGui 와 같은 규칙)
+    const uihost::TextInputState ti = m_guiHost->textInput();
+    if (ti.active && !m_window.textInputActive()) {
+        m_window.setTextInputActive(true);
+        m_guiTextInput = true;
+    } else if (!ti.active && m_guiTextInput) {
+        m_window.setTextInputActive(false);
+        m_guiTextInput = false;
+    }
+    if (ti.active && ti.caret) {
+        m_window.setTextInputArea(static_cast<f32>(ti.caret->x), static_cast<f32>(ti.caret->y),
+                                  static_cast<f32>(ti.caret->height));
+    }
+    m_guiHomeDrawn = true;
     if (!m_guiHomeLogged) {
         const uihost::UiFrameStats& st = m_guiHost->stats();
-        log::info("client", "GraphicsUI 홈: 컴포넌트 {} · 그리기 명령 {} (사각형 {} · 글자 {} · clip {}) · 최근 {} · 배치 {:.3f} ms · "
-                            "그리기 {:.3f} ms",
-                  st.components, st.commands, drawn.rects, drawn.texts, drawn.clips, m_guiHome->rowCount(),
-                  st.layoutMs, st.paintMs);
+        log::info("client",
+                  "GraphicsUI 홈: 컴포넌트 {} · 그리기 명령 {} (사각형 {} · 글자 {} · clip {}) · 최근 {} · 템플릿 {} · "
+                  "배치 {:.3f} ms · 그리기 {:.3f} ms",
+                  st.components, st.commands, drawn.rects, drawn.texts, drawn.clips, m_guiHome->listedCount(),
+                  m_guiHome->model().templates.size(), st.layoutMs, st.paintMs);
         m_guiHomeLogged = true;
     }
     const auto intent = m_guiHome->takeIntent();
@@ -2266,6 +2310,32 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         a.kind = StudioHomeAction::Kind::OpenRecent;
         a.dir = intent->dir;
         return a;
+    case GuiHomeIntent::Kind::ForgetRecent:
+        a.kind = StudioHomeAction::Kind::ForgetRecent;
+        a.dir = intent->dir;
+        return a;
+    case GuiHomeIntent::Kind::CopyExample:
+        a.kind = StudioHomeAction::Kind::CopyExample;
+        a.dir = intent->dir;
+        a.dest = intent->dest;
+        return a;
+    case GuiHomeIntent::Kind::Density:
+        a.kind = StudioHomeAction::Kind::Density;
+        a.compact = intent->compact;
+        return a;
+    case GuiHomeIntent::Kind::NewProject:
+        // ImGui 홈의 폼과 같은 상태를 채우고 같은 명령 (studio.new-project — 검사 · 만들기 · 들어가기 · 결과 줄)
+        if (!fillHomeNewProject({intent->dir, intent->gameId, intent->name, intent->templateId})) {
+            return std::nullopt;
+        }
+        a.kind = StudioHomeAction::Kind::NewProject;
+        return a;
+    case GuiHomeIntent::Kind::OpenFolder: {
+        const std::u8string d = intent->dir.generic_u8string();
+        fillText(m_home.openDir, std::string(d.begin(), d.end()));
+        a.kind = StudioHomeAction::Kind::OpenProject;
+        return a;
+    }
     case GuiHomeIntent::Kind::Quit:
         a.kind = StudioHomeAction::Kind::Quit;
         return a;
@@ -2361,6 +2431,9 @@ void Application::playerReport() {
 void Application::dispatchShortcuts() {
     if (m_config.ui == nullptr || ImGui::GetIO().WantTextInput) {
         return; // 글자 칸에 쓰는 중
+    }
+    if (m_guiHomeActive && m_guiHost && m_guiHost->textFocused()) {
+        return; // GraphicsUI 글자 칸에 쓰는 중 (UI-R1-08 — Ctrl+A · C · V · Z 는 그 칸의 편집)
     }
     const std::string_view context =
         m_state == AppState::MainMenu ? std::string_view("home") : std::string_view("global");

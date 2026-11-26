@@ -19,7 +19,7 @@
 
 | # | 화면 (소스) | GraphicsUI 대응 | 분류 | 작업 |
 |---|---|---|---|---|
-| 1 | Studio 홈 (`apps/client/studio/StudioHome`) | Button · ListView · TextInput · 레이아웃 | **일부 완료** — 최근 목록 · 열기 · 종료는 GraphicsUI (`--ui graphicsui`), 새 프로젝트 · 폴더 열기 · 예제 · 검색 · 복구는 ImGui (글자 입력) | UI-R1-05 ✅ · R2-09 |
+| 1 | Studio 홈 (`apps/client/studio/StudioHome`) | Button · ListView · TextInput · 레이아웃 | **완료 (선택 실행)** — 검색 · 가상 최근 목록 (휠 · 키 · Delete) · 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료가 GraphicsUI (`--ui graphicsui`, 같은 행동 · 명령). 좁은 창 세로 스크롤 없음 | UI-R1-05 · R1-08 · R2-09 ✅ |
 | 2 | 메인 메뉴 · 툴바 (`StudioShell`) | 메뉴 · 팝업 없음 | GUI 개선 (GUI-UP-03) | UI-R2-04 |
 | 3 | 도크 작업 공간 · 프리셋 (`StudioShell` — ImGui DockBuilder) | DockLayout (분할 · 탭 · 분리 · 저장) — 그리기 · 끌기는 호스트 | 어댑터 | UI-R2-05 |
 | 4 | 레이아웃 창 (`editor/ui/LayoutPanel`) | ListView · Button | 즉시 (R2-05 뒤) | UI-R2-07 |
@@ -66,7 +66,7 @@
 |---|---|---|---|---|
 | 응용 호스트 (트리 · 상태 · 입력 소유, 프레임) | ImGuiLayer (즉시 모드) | ComponentTree · StateStore · InputDispatcher (호스트 없음 — 예제에만 Win32 · GTK · AppKit) | 어댑터 | ✅ `uihost/UiHost` (UI-R1-02) |
 | 포인터 · 키 · 포커스 | ImGuiLayer.feed | InputDispatcher (논리 입력) | 어댑터 | ✅ `uihost/InputRouting` (UI-R1-03) |
-| 글자 입력 · IME · 클립보드 | ImGuiLayer (TextInput · setTextInputActive · 창 클립보드) | TextInput 편집 엔진 · 조합 미리보기 (호스트가 OS 조합을 넘긴다) | 어댑터 | UI-R1-08 |
+| 글자 입력 · IME · 클립보드 | ImGuiLayer (TextInput · setTextInputActive · 창 클립보드) | TextInput 편집 엔진 · 조합 미리보기 (호스트가 OS 조합을 넘긴다) | 어댑터 | ✅ `UiHost::setTextTarget` · `setClipboard` · 창 글자 입력 · IME 자리 (UI-R1-08). 칸 안 조합 미리보기는 S-04 |
 | 작업자 → UI 스레드 | 각 서비스의 poll (BuildService 등) | StateSender · drain | 즉시 | ✅ (UI-R1-07) |
 | 글자 측정 · 배치 · 그리기 | ImGui 글꼴 아틀라스 (stb_truetype · 한글 대체 글꼴) | DirectWrite (SdkRenderer · Windows 만) | 어댑터 — 과도기: ImGui 글꼴 (ITextMeasure) | ✅ 과도기 (UI-R1-04), 목표는 GUI-UP-07 |
 | GPU 렌더 | render/imgui (GraphicsSDK — D3D12 · Vulkan · Metal) | SdkRenderer (GraphicsSDK 9ae01bb7 · D3D12 만) | GUI 개선 (GUI-UP-01) | 과도기 = DisplayList → ImDrawList ✅ |

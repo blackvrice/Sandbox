@@ -4,6 +4,7 @@
 
 #include <array>
 #include <set>
+#include <string>
 #include <thread>
 
 #include <graphics-ui/core/controls.hpp>
@@ -77,6 +78,76 @@ struct TwoButtons final : IUiScreen {
         }
         return {};
     }
+};
+
+// 루트 아래 글자 칸 하나 (TextInput) + 휠 상자 하나 — 글자 대상 · 휠 · 클립보드 (UI-R1-08)
+struct OneField final : IUiScreen {
+    gui::ComponentHandle root, field, box;
+    std::unique_ptr<gui::TextInput> input;
+    std::string value;
+    int wheelRoot = 0, wheelBox = 0;
+    bool boxHandles = true;
+
+    Expected<void> mount(UiHost& host) override {
+        const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0}, {0, 2, 1}, {0, 3, 2}}};
+        if (!host.tree().commit(specs)) {
+            return makeError(ErrorCode::Unknown, "commit");
+        }
+        const auto snap = host.tree().snapshot();
+        root = snap->components[0].handle;
+        field = snap->components[1].handle;
+        box = snap->components[2].handle;
+        input = std::make_unique<gui::TextInput>(host.input(), field, 64);
+        (void)input->setEnabled(true);
+        const auto publish = [this](std::string_view v) -> gui::Result<void> {
+            value = std::string(v);
+            return {};
+        };
+        (void)host.input().setHandler(field, [this, &host, publish](const gui::RoutedEvent& e) {
+            const auto r = input->handle(e, host.editCallbacks(publish));
+            return r ? *r : gui::EventReply{};
+        });
+        TextTarget t;
+        t.insert = [this, &host, publish](std::string_view utf8) {
+            if (auto s = input->beginInput(); s && *s) {
+                (void)input->edit(**s, {gui::TextEditAction::replace_selection, utf8}, host.editCallbacks(publish));
+            }
+        };
+        t.caret = [] { return std::optional<gui::LayoutRect>(gui::LayoutRect{4, 2, 1, 16}); };
+        if (auto r = host.setTextTarget(field, t); !r) {
+            return r;
+        }
+        (void)host.setWheelHandler(root, [this](f32, f32) {
+            ++wheelRoot;
+            return true;
+        });
+        (void)host.setWheelHandler(box, [this](f32, f32 dy) {
+            wheelBox += dy < 0 ? -1 : 1;
+            return boxHandles; // false 면 조상 (루트) 에게
+        });
+        (void)host.input().setFocus(field);
+        return {};
+    }
+    Expected<void> layout(UiHost&, const gui::ComponentSnapshot&, std::vector<gui::LayoutNode>& out) override {
+        gui::LayoutNode r;
+        r.component = root;
+        r.style.kind = gui::LayoutKind::column;
+        r.style.padding = {10, 10, 10, 10};
+        r.style.gap = 10;
+        out.push_back(r);
+        gui::LayoutNode f;
+        f.component = field;
+        f.style.preferred_width = 120;
+        f.style.preferred_height = 20;
+        out.push_back(f);
+        gui::LayoutNode b;
+        b.component = box;
+        b.style.preferred_width = 50;
+        b.style.preferred_height = 50;
+        out.push_back(b);
+        return {};
+    }
+    Expected<void> paint(UiHost&, const gui::LayoutFrame&, PaintList&) override { return {}; }
 };
 
 platform::PlatformEvent down(f32 x, f32 y) {
@@ -260,5 +331,100 @@ TEST_SUITE("uihost") {
         CHECK(hangul.height == doctest::Approx(12.5));
         CHECK(guiErrorName(gui::ErrorCode::stale_handle) == "stale_handle");
         CHECK(toError(gui::ErrorCode::queue_full, "post").code == ErrorCode::OutOfRange);
+    }
+
+    TEST_CASE("host: committed text goes to the focused text target as one run, IME area follows the caret") {
+        ApproxTextMeasure text;
+        auto host = UiHost::create(text);
+        REQUIRE(host);
+        OneField screen;
+        REQUIRE((*host)->setScreen(&screen));
+        REQUIRE((*host)->frame({200, 120}));
+        CHECK((*host)->textFocused());
+        const TextInputState ti = (*host)->textInput();
+        CHECK(ti.active);
+        REQUIRE(ti.caret);
+        CHECK(ti.caret->x == doctest::Approx(14)); // 칸 (10,10) + 캐럿 (4,2)
+        CHECK(ti.caret->y == doctest::Approx(12));
+        // IME 가 두 글자를 한꺼번에 확정 — 한 편집 (실행 취소 한 번에 둘 다 사라진다)
+        const std::array ime{platform::PlatformEvent{platform::TextInput{U'한'}},
+                             platform::PlatformEvent{platform::TextInput{U'글'}}};
+        (*host)->feed(ime);
+        CHECK(screen.value == "한글");
+        const std::array undo{
+            platform::PlatformEvent{platform::KeyDown{Key::Z, 0, {platform::Modifiers::kCtrl}, false}}};
+        (*host)->feed(undo);
+        CHECK(screen.value.empty());
+        // 포커스가 없으면 글자는 버린다 · 글자 입력을 끈다
+        REQUIRE((*host)->input().setFocus(std::nullopt));
+        const std::array lost{platform::PlatformEvent{platform::TextInput{U'x'}}};
+        (*host)->feed(lost);
+        CHECK(screen.value.empty());
+        CHECK_FALSE((*host)->textInput().active);
+        CHECK_FALSE((*host)->textFocused());
+    }
+
+    TEST_CASE("host: clipboard callbacks reach the window clipboard, missing clipboard fails the paste only") {
+        ApproxTextMeasure text;
+        auto host = UiHost::create(text);
+        REQUIRE(host);
+        OneField screen;
+        REQUIRE((*host)->setScreen(&screen));
+        REQUIRE((*host)->frame({200, 120}));
+        const auto ctrl = [](Key k) {
+            return platform::PlatformEvent{platform::KeyDown{k, 0, {platform::Modifiers::kCtrl}, false}};
+        };
+        const std::array paste{ctrl(Key::V)};
+        (*host)->feed(paste); // 클립보드가 없다 — 값이 그대로
+        CHECK(screen.value.empty());
+        std::string board = "붙임";
+        (*host)->setClipboard({[&] { return board; }, [&](std::string_view t) { board = std::string(t); }});
+        (*host)->feed(paste);
+        CHECK(screen.value == "붙임");
+        const std::array cut{ctrl(Key::A), ctrl(Key::X)};
+        board.clear();
+        (*host)->feed(cut);
+        CHECK(board == "붙임");
+        CHECK(screen.value.empty());
+    }
+
+    TEST_CASE("host: wheel goes to the innermost handler under the pointer, then to ancestors") {
+        ApproxTextMeasure text;
+        auto host = UiHost::create(text);
+        REQUIRE(host);
+        OneField screen;
+        REQUIRE((*host)->setScreen(&screen));
+        REQUIRE((*host)->frame({200, 120}));
+        // 상자 (10,40)-(60,90) 위
+        const std::array overBox{platform::PlatformEvent{platform::MouseMove{{20, 50}, {}}},
+                                 platform::PlatformEvent{platform::MouseWheel{{0, -1}}}};
+        (*host)->feed(overBox);
+        CHECK(screen.wheelBox == -1);
+        CHECK(screen.wheelRoot == 0);
+        screen.boxHandles = false; // 상자가 처리하지 않으면 루트
+        (*host)->feed(overBox);
+        CHECK(screen.wheelRoot == 1);
+        // 글자 칸 위 = 글자 칸은 휠 처리기가 없다 → 루트
+        const std::array overField{platform::PlatformEvent{platform::MouseMove{{20, 15}, {}}},
+                                   platform::PlatformEvent{platform::MouseWheel{{0, 1}}}};
+        (*host)->feed(overField);
+        CHECK(screen.wheelRoot == 2);
+        // 화면을 바꾸면 처리기가 사라진다
+        REQUIRE((*host)->setScreen(nullptr));
+        (*host)->feed(overBox);
+        CHECK(screen.wheelRoot == 2);
+    }
+
+    TEST_CASE("caretFromX: nearest grapheme boundary, combining marks stay whole") {
+        ApproxTextMeasure m; // ASCII 0.55 em, 그 밖 1 em
+        CHECK(caretFromX(m, "abcd", 10, -5) == 0);
+        CHECK(caretFromX(m, "abcd", 10, 6) == 1);   // 5.5 에 가깝다
+        CHECK(caretFromX(m, "abcd", 10, 100) == 4); // 끝
+        CHECK(caretFromX(m, "가나", 10, 9) == 3);    // 한 글자 = 3 바이트
+        // e + 결합 악센트 (U+0301) 는 그래핌 하나 — 그 가운데 (바이트 1) 로 가지 않는다
+        const std::string combined = "e\xCC\x81x";
+        const usize c = caretFromX(m, combined, 10, 6);
+        CHECK((c == 0 || c == 3));
+        CHECK(caretFromX(m, "", 10, 5) == 0);
     }
 }
