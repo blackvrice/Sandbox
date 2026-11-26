@@ -54,6 +54,10 @@ add_subdirectory(core)
 add_subdirectory(network)
 # Platform 은 항상 만든다: 클라이언트가 없어도 입력·오디오 단위 테스트가 쓴다 (창 구현은 OS 별, 없으면 stub).
 add_subdirectory(platform)
+# GraphicsUI 통합 (UI-R1 — ADR-0174): GraphicsUI Core (external/graphics-ui) 와 응용 호스트 SandboxUiHost. 항상 만든다 —
+# GPU · OS 창 의존이 없어 단위 테스트가 헤드리스로 돈다. 쓰는 곳은 클라이언트 · 시험뿐 (Server 는 링크하지 않는다)
+include(SbxGraphicsUi)
+add_subdirectory(uihost)
 # Render 도 항상 만든다: RHI 의 순수 로직(핸들 풀·지연 해제·업로드 링)과 이미지 비교를 단위 테스트가 쓴다.
 # 백엔드가 없는 OS 는 createRenderDevice 가 Unsupported.
 add_subdirectory(render)
@@ -103,7 +107,13 @@ sbx_forbid_link(SandboxProcess    SandboxCore SandboxNetwork SandboxPlatform San
 sbx_forbid_link(SandboxRender     SandboxCore SandboxNetwork SandboxEditor)
 sbx_forbid_link(SandboxEditor     SandboxNetwork)
 sbx_forbid_link(SandboxEditorServices SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui)
-sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui)
+sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui SandboxUiHost GraphicsUICore)
+# GraphicsUI (UI-R1 — ADR-0174): 통합 계층 (SandboxUiHost) · 클라이언트 · 시험만. 아래 계층 · 서비스 · 렌더는 GraphicsUI 를 모른다
+foreach(_sbx_lower SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender
+                   SandboxEditorServices SandboxCrash SandboxProcess sbx_net_probe sbx)
+    sbx_forbid_link(${_sbx_lower} SandboxUiHost GraphicsUICore)
+endforeach()
+sbx_forbid_link(SandboxUiHost     SandboxCore SandboxNetwork SandboxRender SandboxEditor SandboxEditorServices imgui sbx_imgui)
 sbx_forbid_link(sbx_net_probe     SandboxPlatform SandboxRender SandboxEditor imgui)
 sbx_forbid_link(sbx               SandboxNetwork SandboxPlatform SandboxRender SandboxEditor imgui)
 

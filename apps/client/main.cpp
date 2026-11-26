@@ -493,6 +493,7 @@ int main(int argc, char** argv) {
     cfg.fixedDt = opts->headless ? 1.0 / 60.0 : 0.0; // 헤드리스는 프레임마다 1/60 초 — 같은 명령이면 같은 틱 수
     cfg.ui = ui.get();
     cfg.uiRendered = uiRendered;
+    cfg.graphicsUiHome = opts->graphicsUi; // UI-R1 (ADR-0174)
     cfg.notices = std::move(notices);
     cfg.lateFeed = lateFeed;
     cfg.defaultActions = defaultActions;
@@ -614,6 +615,14 @@ int main(int argc, char** argv) {
         const sbx::render::AssetStats& as = renderer->assets()->stats();
         printText(std::format("에셋: 스프라이트 {} · 준비 {} · 실패 {} · 프로젝트 파일 {} (준비 {} · 실패 {})\n",
                               as.sprites, as.ready, as.failed, as.files, as.filesReady, as.filesFailed));
+    }
+    if (const sbx::uihost::UiFrameStats* g = app.graphicsUiStats(); g != nullptr && g->frames > 0) {
+        // UI-R1 (ADR-0174): GraphicsUI 홈의 프레임 평균 (배치 · 그리기 명령 — 과도기 렌더 경로의 GPU 시간은 렌더러 몫)
+        printText(std::format("GraphicsUI 평균 ({} 프레임): 배치 {:.3f} ms · 그리기 명령 {:.3f} ms · 가장 긴 배치 {:.3f} ms · "
+                              "버린 입력 {} · 작업자 오류 {}\n",
+                              g->frames, g->layoutMsTotal / static_cast<double>(g->frames),
+                              g->paintMsTotal / static_cast<double>(g->frames), g->layoutMsMax, g->inputRejected,
+                              g->workerErrors));
     }
     if (renderer && ui) {
         renderer->detachImGui(ui->platformIo()); // ImGui 컨텍스트보다 먼저 UI 텍스처를 놓는다

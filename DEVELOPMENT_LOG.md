@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-11-26 — GraphicsUI 통합 UI-R0 (분석 · 설계) · UI-R1 기반 (호스트 · 입력 · 과도기 렌더 · `--ui graphicsui`) — ADR-0174
+
+**무엇을**
+
+- **UI-R0 (분석 · 설계 — docs/graphics-ui-refactor/).** 세 저장소 최신 상태 (gh api — fetch 없이), ImGui 사용 위치 (editor/ui 22 파일 ·
+  apps/client 21 파일, `ImGui::` 줄 1,621), 자체 게임 UI (ui/ — 모델 · 그리기 이미 분리), GraphicsUI 공개 API · 진행 (fa1e371 — 105 중 완료
+  84, P9-06 · P9-07 · P10-03 ~ 07 미완), GraphicsSDK 충돌 (GraphicsUI SdkRenderer 는 9ae01bb7 스냅숏만 · Sandbox 95967d2e — 한 프로세스
+  한 SDK), 대응표 (Studio 화면 26 · 게임 UI · 공통 기반 · 의존 — 6 분류), upstream 요구 GUI-UP-01 ~ 13 · Sandbox 선행 S-01 ~ 03, 위험
+  W1 ~ W8, 로드맵 UI-R0 ~ R10 (81 세부 작업 — TASK_REGISTRY), 마이그레이션 · 시험 · QA · 성능 기준선. ADR-0174.
+- **UI-R1-01 빌드.** `cmake/SbxGraphicsUi.cmake` — CORE_SOURCES.txt 로 `GraphicsUICore` (별칭 `GraphicsUI::Core`, C++23 · SYSTEM ·
+  /permissive- /utf-8 · 버전 헤더 생성). GraphicsUI 의 최상위 CMakeLists 는 쓰지 않는다 (연구 타깃 · Python · SDK 스냅숏이 함께 붙는다).
+- **UI-R1-02 · 03 · 07 `uihost/` (SandboxUiHost — Foundation · Platform · GraphicsUI Core 만).** `UiHost` — 트리 · 상태 · 입력 소유,
+  `feed` (직전 배치로 hit-test — 그린 자리 = 누르는 자리, Tab 포커스 순회, 창 포커스 잃음 = 포인터 cancel) · `frame` (StateSender 값 →
+  배치 (LayoutCache) → 그리기 → DisplayList) · `setScreen` (빈 트리로 지난 세대 무효) · 통계. `InputRouting` — PlatformEvent → GraphicsUI
+  입력 (키 코드 = Windows 가상 키 번호 — GraphicsUI 컨트롤 상수의 정본).
+- **UI-R1-04 과도기 렌더.** `apps/client/ui/GraphicsUiImGuiBridge` — DisplayList → ImDrawList (사각형 · 글자 · 그라데이션 · 그림자 근사 ·
+  clip 짝), ImGui 글꼴 측정 (`GuiImGuiTextMeasure`). 새 GPU 자원 · 펜스 없음 — 기존 ImGui 렌더러 (GraphicsSDK 세 백엔드).
+- **UI-R1-05 선택 실행.** `SandboxClient --ui imgui|graphicsui` (기본 imgui). `GuiStudioHome` — 최근 목록 (앞 8) · 열기 · "기존 UI 로" ·
+  종료 → ImGui 홈과 같은 `StudioHomeAction` 처리. 실패 · 기존 UI 로 = 트리를 비우고 ImGui 홈 (두 UI 가 같은 입력을 처리하지 않는다).
+  끝에 "GraphicsUI 평균" 줄 (배치 · 그리기 명령 · 버린 입력 · 작업자 오류).
+- **UI-R1-06 경계.** check_includes: `uihost` 모듈 (foundation · platform 만) · GraphicsUI 헤더는 uihost · apps · tests · bench · tools 만.
+  sbx_forbid_link: Server 와 아래 계층 · 서비스 · Render ↛ SandboxUiHost · GraphicsUICore, uihost ↛ Core · Network · Render · Editor · ImGui.
+  `sbx_forbid_link` 는 같은 타깃의 규칙을 이제 **더한다** (전에는 덮어썼다 — 두 번 부르면 앞 규칙이 사라졌다).
+- 문서: 01 (타깃 · 강제 수단) · 15 (타깃) · 17 (소스 지도) · 25 6장 (UI 기술 재평가) · docs/README · AGENTS.md 4장 · external/README.
+
+**왜** — 사용자 요청 (GraphicsUI 기반 단계적 통합 — UI-R0 완료, 선행이 되면 UI-R1 최소 통합 · 실행 검증). GraphicsUI 의 GPU 렌더러는
+SDK 고정이 달라 같은 프로세스에 둘 수 없어 (ADR-0174 2), Core 만 들여오고 과도기 경로로 그린다.
+
+**검증** (Windows 11 · MSVC 14.44, 2026-11-26)
+
+- Debug 빌드 · `ci-werror` (/WX) 빌드 통과 (벤더링 Core 의 C4834 경고 1 — 우리 경고 정책 밖, GUI-UP-13).
+- 전체 CTest (project_doctor 제외 — 이 PC 의 AppData 문제, 리팩터링 전부터): 결과는 아래 "최종" 줄. 새 시험 — `unit_uihost` (7 케이스:
+  키 표 전부 · 이벤트 변환 · 마운트 · 클릭 · 밖에서 떼기 · Enter · Tab · 포커스 잃음 취소 · 다른 스레드의 작업자 값 · 지난 세대 거절 · 화면 바꾸기 ·
+  음수 크기), `unit_client` gui 3 케이스 (홈 행 · 단추 · Enter · Space, 빈 목록 · 긴 목록 · 다시 마운트 · 좁은 화면, 브리지 명령 수 · clip 짝 ·
+  ImGui 글꼴 측정), `client_graphicsui_home_headless`, `client_ui_rejects_unknown`, `arch_include_lint_selftest` (15 → 18 — 새 위반 3).
+  `client_x11_graphicsui_home` (Linux CI · lavapipe 스왑체인) 은 등록만 — 이 브랜치의 CI 는 PR 을 열어야 돈다.
+- 골든 WorldHash: det_* 16 개 통과 (시뮬레이션 코드를 고치지 않았다).
+- 실제 실행 (헤드리스, Release): `SandboxClient --headless --ui graphicsui --frames 600` — 컴포넌트 13 · 그리기 명령 32 · 첫 배치 0.76 ~ 0.84 ms ·
+  정상 상태 배치 0.008 ms · 그리기 명령 0.008 ~ 0.010 ms (3 회). 옵션 없이 = 기존과 같은 출력. `--ui qt` → 종료 코드 2.
+- 문서: check_docs 0 건.
+
+**남은 일**
+
+- 창 실행 (Windows D3D12 · macOS Metal) — 사람 QA Q-01 (이 세션은 창을 띄우지 않았다). ImGui 기준선 FPS — Q-00.
+- UI-R1-08 (글자 입력 · IME · 휠 · 클립보드) → UI-R2-09 (홈 전체), UI-R2-01 · 02 ADR, GUI-UP-01 · 03 · 04 를 GraphicsUI 작업으로.
+- 커밋을 하나로 묶었다 (빌드 · 통합 · 화면 · 문서) — 단계마다 따로 빌드하지 않았다.
+
 ## 2026-11-26 — external: GraphicsUI Core 를 고정 커밋으로 가져온다 (UI-R1-01 의 1 단계)
 
 **무엇을**

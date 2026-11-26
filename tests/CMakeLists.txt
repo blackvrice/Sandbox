@@ -105,6 +105,7 @@ add_executable(SandboxTests
     unit/ui/test_ui_textinput.cpp
     unit/ui/test_ui_choice.cpp
     unit/ui/test_ui_scroll.cpp
+    unit/uihost/test_ui_host.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
@@ -209,6 +210,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_user_settings.cpp
         unit/client/test_font_fallback.cpp
         unit/client/test_key_bindings.cpp
+        unit/client/test_gui_studio_home.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"
@@ -227,6 +229,8 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/studio/GuiStudioHome.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/GraphicsUiImGuiBridge.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioShell.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerLibrary.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerScreens.cpp"
@@ -239,7 +243,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess SandboxUiHost sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
@@ -254,7 +258,7 @@ if(TARGET SandboxServer)
 endif()
 
 # 스위트별로 등록해 라벨로 고를 수 있게 한다
-set(_sbx_suites foundation script ui core ecs persist content project network server tools platform render editor)
+set(_sbx_suites foundation script ui uihost core ecs persist content project network server tools platform render editor)
 if(SBX_BUILD_CLIENT)
     list(APPEND _sbx_suites client)
 endif()
@@ -411,6 +415,14 @@ if(TARGET SandboxClient)
     add_test(NAME client_headless_smoke COMMAND SandboxClient --headless --frames 30 --fps 120)
     set_tests_properties(client_headless_smoke PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "SandboxClient 끝: frames 30 state Shutdown")
+    # UI-R1 (ADR-0174): --ui graphicsui — Studio 홈을 GraphicsUI 호스트 · 화면 · 과도기 브리지로 (헤드리스: ImGui 레이어는 있고
+    # 렌더러는 없다 — 배치 · 입력 · DisplayList · ImDrawList 까지). 실패해 기존 UI 로 돌아가면 FAIL
+    add_test(NAME client_graphicsui_home_headless COMMAND SandboxClient --headless --ui graphicsui --frames 30 --fps 120)
+    set_tests_properties(client_graphicsui_home_headless PROPERTIES LABELS "unit;client"
+        PASS_REGULAR_EXPRESSION "GraphicsUI 홈: 컴포넌트 [0-9]+ · 그리기 명령 [1-9][0-9]*.*GraphicsUI 평균 \\([0-9]+ 프레임\\).*버린 입력 0 · 작업자 오류 0.*SandboxClient 끝: frames 30 state Shutdown"
+        FAIL_REGULAR_EXPRESSION "기존 UI 로:")
+    add_test(NAME client_ui_rejects_unknown COMMAND SandboxClient --ui qt)
+    set_tests_properties(client_ui_rejects_unknown PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     # Phase 10B: --world 가 같은 프로세스의 서버(헤드리스는 프레임 안에서 — 프레임마다 1/60 초)에 접속해 첫 스냅숏을 받고
     # InWorld 로 들어가 그린다. 같은 dt 열이라 틱 수가 고정된다
     add_test(NAME client_local_world_headless
@@ -436,6 +448,14 @@ if(TARGET SandboxClient)
             set_tests_properties(client_x11_world_smoke PROPERTIES
                 PASS_REGULAR_EXPRESSION "GraphicsSDK 스왑체인.*창 X11.*SandboxClient 끝: frames 90 state Shutdown"
                 FAIL_REGULAR_EXPRESSION "렌더러 없이 계속합니다"
+                ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
+            # UI-R1 (ADR-0174): 실제 X11 창 · lavapipe 스왑체인 위에서 GraphicsUI 홈 (과도기 경로 = ImGui 렌더러가 GPU 로 그린다)
+            add_test(NAME client_x11_graphicsui_home
+                COMMAND "${SBX_XVFB_RUN}" -a -s "-screen 0 1280x800x24 -noreset"
+                        $<TARGET_FILE:SandboxClient> --ui graphicsui --frames 60 --width 800 --height 500)
+            set_tests_properties(client_x11_graphicsui_home PROPERTIES LABELS "client" RUN_SERIAL TRUE
+                PASS_REGULAR_EXPRESSION "GraphicsSDK 스왑체인.*GraphicsUI 홈: 컴포넌트 [0-9]+.*SandboxClient 끝: frames 60 state Shutdown"
+                FAIL_REGULAR_EXPRESSION "렌더러 없이 계속합니다;기존 UI 로:"
                 ENVIRONMENT "VK_DRIVER_FILES=${SBX_LAVAPIPE_ICD};VK_ICD_FILENAMES=${SBX_LAVAPIPE_ICD}")
             # 자기 PNG 게임 (v0.6 M6-T9) — 패키지만 다른 폴더 · 빈 캐시로, 창 클라이언트 (렌더러) 가 그 그림을 올린다.
             # 렌더러가 있어야 하므로 lavapipe 가 있을 때만
@@ -827,7 +847,7 @@ if(Python3_Interpreter_FOUND)
             -X utf8
             ${CMAKE_SOURCE_DIR}/tools/check_includes.py
             --root ${CMAKE_SOURCE_DIR}/tests/arch/fixtures
-            --expect 15
+            --expect 18
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
     # 문서 · 로드맵 일관성 (링크 · ADR · 태스크 ID · 목표 버전 · 상태 — docs/roadmap/README.md 5장, ADR-0096)

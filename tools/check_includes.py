@@ -6,6 +6,7 @@
   2. 금지 헤더: 그래픽 API·OS 창·ImGui·오디오 헤더가 금지된 위치에 나타나지 않는다.
   1b. 하위 경로 방향: editor/services/ 는 foundation · script · ui · core · editor/services 만 (SUBPATH_ALLOWED).
   3. 전역 금지: SFML, OpenGL (어디서도 쓰지 않는다).
+  3b. GraphicsUI (<graphics-ui/...>) 는 통합 계층 uihost/ 와 apps/ · tests/ · bench/ · tools/ 만 (UI-R1, ADR-0174).
   4. Objective-C #import 는 .mm 에서만.
 
 사용
@@ -23,7 +24,8 @@ from pathlib import Path
 SOURCE_SUFFIXES = {".hpp", ".h", ".cpp", ".cc", ".inl", ".ipp", ".mm"}
 SKIP_DIRS = {"external", "build", "out", "docs", ".git", "fixtures", "cmake-build-debug", "cmake-build-release"}
 
-ALL = {"foundation", "script", "ui", "core", "network", "platform", "render", "editor", "apps", "tests", "bench", "tools"}
+ALL = {"foundation", "script", "ui", "core", "network", "platform", "render", "uihost", "editor", "apps", "tests", "bench",
+       "tools"}
 
 # 모듈 → include 해도 되는 모듈 (docs/01-ARCHITECTURE.md 2장 의존 방향)
 ALLOWED_MODULES = {
@@ -34,6 +36,8 @@ ALLOWED_MODULES = {
     "network": {"foundation", "script", "core", "network"},
     "platform": {"foundation", "platform"},
     "render": {"foundation", "platform", "render"},
+    # GraphicsUI 통합 계층 (UI-R1, ADR-0174) — 이벤트 · 키 타입 (platform/common) 만. GPU · ImGui · ECS 를 모른다
+    "uihost": {"foundation", "platform", "uihost"},
     "editor": {"foundation", "script", "ui", "core", "platform", "render", "editor"},  # ui = Game UI Designer (ADR-0145)
     "apps": ALL,
     "tests": ALL,
@@ -56,6 +60,9 @@ PLATFORM_HEADERS = [
     r"imgui", r"miniaudio", r"enet/",
 ]
 GLOBALLY_BANNED = [r"sfml/", r"gl/", r"opengl/", r"glad/", r"glfw"]
+# GraphicsUI 공개 헤더 — 이 접두사 아래에서만 (편집기 화면 · 게임 UI 어댑터가 필요해지면 그 단계의 ADR 로 넓힌다)
+GRAPHICS_UI_HEADER = re.compile(r"^graphics-ui/")
+GRAPHICS_UI_ALLOWED = ("uihost/", "apps/", "tests/", "bench/", "tools/")
 
 # (경로 접두사, 그 아래에서 허용되는 금지 헤더 패턴). 가장 긴 접두사가 이긴다.
 # 접두사가 매칭되지 않으면 PLATFORM_HEADERS 전부 허용 (예: apps/, tests/).
@@ -74,6 +81,7 @@ RESTRICTED = [
     ("editor/", {r"imgui"}),
     ("editor/services/", set()),
     ("platform/common/", set()),
+    ("uihost/", set()),
 ]
 
 INCLUDE_RE = re.compile(r'^\s*#\s*(include|import)\s*([<"])([^>"]+)[>"]')
@@ -119,6 +127,10 @@ def check_file(path: Path, rel: str) -> list[str]:
 
         if any(re.search(p, lower) for p in GLOBALLY_BANNED):
             problems.append(f"{where}: banned-global — SFML/OpenGL 은 사용하지 않습니다 ({target})")
+            continue
+
+        if GRAPHICS_UI_HEADER.search(lower) and not rel.startswith(GRAPHICS_UI_ALLOWED):
+            problems.append(f"{where}: graphics-ui — GraphicsUI 는 {' · '.join(GRAPHICS_UI_ALLOWED)} 만 include 한다 ({target})")
             continue
 
         # 모듈 방향: "module/..." 형식의 프로젝트 include

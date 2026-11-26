@@ -160,6 +160,11 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
         log::info("client", "Player 모드");
     }
     m_shell.density = m_config.compactDensity ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
+    // GraphicsUI 홈 (UI-R1): 그리기가 ImGui 렌더러를 빌리므로 ImGui 레이어가 있어야 한다. Player 는 홈이 없다
+    m_guiHomeActive = m_config.graphicsUiHome && m_config.ui != nullptr && !m_config.playerMode;
+    if (m_config.graphicsUiHome && !m_guiHomeActive) {
+        log::warn("client", "--ui graphicsui: UI 레이어가 없거나 Player 모드 — 기존 UI 로");
+    }
     m_shell.theme = editor::theme::themeFromName(m_config.theme).value_or(editor::theme::Theme::Dark); // v0.8 ST-06-2
     if (m_config.ui != nullptr) {
         applyTheme();
@@ -1013,7 +1018,10 @@ bool Application::frame() {
             hv.autosave = m_config.autosave;
             hv.version = m_config.engineVersion;
             hv.compact = m_shell.density == editor::theme::Density::Compact;
-            if (const auto a = drawStudioHome(m_home, hv)) {
+            // UI-R1: --ui graphicsui 면 GraphicsUI 홈 (같은 행동 → 아래 같은 처리), 아니면 · 기존 UI 로 바꾼 뒤엔 ImGui 홈
+            const std::optional<StudioHomeAction> homeAction =
+                m_guiHomeActive ? guiHomeFrame() : drawStudioHome(m_home, hv);
+            if (const auto& a = homeAction) {
                 switch (a->kind) {
                 case StudioHomeAction::Kind::CopyExample:
                     studioCopyExample(a->dir, a->dest);
@@ -2189,6 +2197,85 @@ std::string Application::studioTitle() const {
                                 : "";
     }
     return std::format("{}{} — {}", name, mode, app);
+}
+
+// ---- GraphicsUI 홈 (UI-R1 — ADR-0174) ----
+
+std::optional<StudioHomeAction> Application::guiHomeFrame() {
+    const auto fallBack = [this](const Error& e) -> std::optional<StudioHomeAction> {
+        log::error("client", "GraphicsUI 홈을 그리지 못했다 — 기존 UI 로: {}", e.describe());
+        m_guiHomeActive = false;
+        (void)m_guiHost->setScreen(nullptr);
+        return std::nullopt;
+    };
+    if (!m_guiHost) { // 처음: ImGui 프레임 안이라 ImGui 글꼴로 잰다
+        m_guiText = std::make_unique<GuiImGuiTextMeasure>();
+        auto host = uihost::UiHost::create(*m_guiText);
+        if (!host) {
+            log::error("client", "GraphicsUI 호스트를 만들지 못했다 — 기존 UI 로: {}", host.error().describe());
+            m_guiHomeActive = false;
+            return std::nullopt;
+        }
+        m_guiHost = std::move(*host);
+        m_guiHome = std::make_unique<GuiStudioHome>();
+    }
+    // 최근 목록이 바뀌었으면 (열기 · 잊기 · 처음) 모델을 다시 만들고 다시 마운트 — 지난 트리의 포커스 · 캡처는 풀린다
+    std::vector<std::filesystem::path> dirs;
+    for (const editor::services::RecentProject& r : m_config.projects->recent()) {
+        dirs.push_back(r.dir);
+    }
+    if (dirs != m_guiRecent || m_guiHost->stats().frames == 0) {
+        GuiHomeModel model;
+        model.version = m_config.engineVersion;
+        for (const editor::services::RecentProject& r : m_config.projects->recent()) {
+            const std::u8string d = r.dir.generic_u8string();
+            model.recent.push_back({r.name.empty() ? r.gameId : r.name,
+                                    std::format("{}{} · {}", r.gameId, r.missing ? " (폴더 없음)" : "",
+                                                std::string(d.begin(), d.end())),
+                                    r.dir});
+        }
+        m_guiHome->setModel(std::move(model));
+        if (auto r = m_guiHost->setScreen(m_guiHome.get()); !r) {
+            return fallBack(r.error());
+        }
+        m_guiRecent = std::move(dirs);
+    }
+    m_guiHost->feed(m_events.events());
+    const ImVec2 size = ImGui::GetIO().DisplaySize;
+    auto display = m_guiHost->frame({static_cast<double>(size.x), static_cast<double>(size.y)});
+    if (!display) {
+        return fallBack(display.error());
+    }
+    // 배경 그리기 목록 — 알림 · 팔레트 같은 ImGui 창이 그 위에 온다 (과도기 렌더 경로, GraphicsUiImGuiBridge)
+    const GuiBridgeStats drawn = drawDisplayList(**display, *ImGui::GetBackgroundDrawList());
+    if (!m_guiHomeLogged) {
+        const uihost::UiFrameStats& st = m_guiHost->stats();
+        log::info("client", "GraphicsUI 홈: 컴포넌트 {} · 그리기 명령 {} (사각형 {} · 글자 {} · clip {}) · 최근 {} · 배치 {:.3f} ms · "
+                            "그리기 {:.3f} ms",
+                  st.components, st.commands, drawn.rects, drawn.texts, drawn.clips, m_guiHome->rowCount(),
+                  st.layoutMs, st.paintMs);
+        m_guiHomeLogged = true;
+    }
+    const auto intent = m_guiHome->takeIntent();
+    if (!intent) {
+        return std::nullopt;
+    }
+    StudioHomeAction a;
+    switch (intent->kind) {
+    case GuiHomeIntent::Kind::OpenRecent:
+        a.kind = StudioHomeAction::Kind::OpenRecent;
+        a.dir = intent->dir;
+        return a;
+    case GuiHomeIntent::Kind::Quit:
+        a.kind = StudioHomeAction::Kind::Quit;
+        return a;
+    case GuiHomeIntent::Kind::SwitchToClassic:
+        log::info("client", "GraphicsUI 홈 → 기존 UI (ImGui)");
+        m_guiHomeActive = false;
+        (void)m_guiHost->setScreen(nullptr); // 트리를 비운다 — 입력이 두 UI 에 가지 않는다
+        return std::nullopt;
+    }
+    return std::nullopt;
 }
 
 // ---- Player 모드 (v0.8 NG-03 — ADR-0121) ----

@@ -109,6 +109,8 @@ struct ClientOptions {
     // UI (Phase 8C)
     std::string font;     // --font <ttf|ttc>: ImGui 폰트 (비면 OS 한글 폰트 → 내장)
     bool noUi = false;    // --no-ui: ImGui 패널 없이
+    // --ui imgui|graphicsui (UI-R1, ADR-0174): Studio 홈을 GraphicsUI 로. 기본 imgui — 프로젝트 안은 어느 쪽이든 ImGui
+    bool graphicsUi = false;
     bool noAudio = false; // --no-audio: 소리 장치를 열지 않는다 (Null — v0.11 NG-17)
 };
 

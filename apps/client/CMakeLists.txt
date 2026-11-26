@@ -47,6 +47,10 @@ add_executable(SandboxClient
     ui/GamePanel.cpp
     studio/StudioHome.hpp
     studio/StudioHome.cpp
+    studio/GuiStudioHome.hpp
+    studio/GuiStudioHome.cpp
+    ui/GraphicsUiImGuiBridge.hpp
+    ui/GraphicsUiImGuiBridge.cpp
     studio/ProcessLauncher.hpp
     studio/ProcessLauncher.cpp
     studio/StudioShell.hpp
@@ -66,7 +70,7 @@ add_executable(SandboxClient
     ReleaseFeed.hpp
     ReleaseFeed.cpp
 )
-target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxGameUI SandboxCrash SandboxProcess sbx_imgui sbx_warnings)
+target_link_libraries(SandboxClient PRIVATE SandboxEditor SandboxNetwork SandboxRender SandboxPlatform SandboxCore SandboxGameUI SandboxUiHost SandboxCrash SandboxProcess sbx_imgui sbx_warnings)
 target_compile_definitions(SandboxClient PRIVATE SBX_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
                                                  SBX_DEFAULT_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets"
                                                  SBX_DEFAULT_SAMPLES_DIR="${PROJECT_SOURCE_DIR}/samples")

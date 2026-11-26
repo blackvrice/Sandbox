@@ -136,13 +136,18 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 GraphicsSDKCore           STATIC     external/graphics-sdk (EXCLUDE_FROM_ALL · SYSTEM — SDK 의 경고 설정, ADR-0169). D3D12 · Vulkan
                                      (헤더 = external/vulkan-headers, Linux XCB) · Metal 을 Sandbox 옵션대로
+GraphicsUICore            STATIC     external/graphics-ui 의 Core 만 (UI-R1, ADR-0174 — cmake/SbxGraphicsUi.cmake, 별칭 GraphicsUI::Core).
+                                     소스 = CORE_SOURCES.txt (그 커밋의 GraphicsUI CMakeLists 목록), C++23 · SYSTEM include · MSVC /permissive-
+                                     /utf-8 (sbx_warnings 밖). 생성 헤더 graphics-ui/core/version.hpp (VERSION). 항상 구성, 링크는 아래 둘만
+SandboxUiHost             STATIC     PUBLIC Foundation Platform GraphicsUI::Core (UI-R1 — uihost/). Core · Network · Render · Editor · ImGui 를
+                                     모른다 (sbx_forbid_link · check_includes.py). Server 는 링크하지 않는다
 sbx_spirv_cross           STATIC     external/spirv-cross (코어 · GLSL · MSL, 경고 끔). SBX_SHADER_MSL 일 때만 (14A)
 sbx_msl                   EXECUTABLE tools/shader/sbx_msl.cpp — 빌드 때 SPIR-V → MSL 호스트 도구. 셰이더 생성이 의존한다 (14A)
 SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Transport · Protocol · ServerHost · ClientSession
 SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
 SandboxServer             EXE        Network Core Crash (v0.5 M1-T1 — 충돌 처리기)
-SandboxClient             EXE        Editor Network Render Platform Core Crash (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
+SandboxClient             EXE        Editor Network Render Platform Core Crash UiHost (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
 SandboxTests              EXE        Foundation Script Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·

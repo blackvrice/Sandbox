@@ -166,6 +166,7 @@ DPI · 배율  uiScale (현행) · 글꼴 배율, 테마 = 색 표 (어두움 ·
 |----|------|------|------|
 | ImGui (지금) | 이미 패널 13 개 · 도킹 · 렌더 백엔드 셋 (DX12 · Vulkan · Metal) 이 그린다, 의존 0 추가 | 텍스트 편집기 (여러 줄 · 구문 색 · 자동 완성 팝업) 가 약하다, 접근성 (스크린 리더) 없음 | **v0.5 ~ v0.6 채택** — 서비스 층으로 나중 교체 비용을 줄인다 |
 | GraphicsUI (자체 — 게임 UI 런타임 확장) | 게임 UI 와 같은 엔진 · 스타일 | 아직 없다 (ADR-0079 — v0.5 는 게임 UI 런타임만) | v0.8 이후 재평가 (측정 · 사용성 결과로) |
+| → 2026-11-26 재평가 | 별도 저장소 GraphicsUI (C++23 — 트리 · 상태 · 입력 · 배치 · Dock · 데이터 뷰) 가 생겼다 | GPU 렌더러가 다른 GraphicsSDK 커밋에 고정 · 메뉴 · 코드 편집기 · 이미지 명령 없음 · 안정 API 전 | **단계적 통합 착수** — Core 만 고정, 통합 계층 uihost, `--ui graphicsui` 선택 실행, 기본은 ImGui ([ADR-0174](adr/0174-graphics-ui-integration.md), [graphics-ui-refactor](graphics-ui-refactor/README.md)) |
 | 웹 (Electron · CEF · WebView) | 풍부한 편집기 (Monaco 등) · 접근성 | 큰 의존 · 두 번째 프로세스 · 렌더 통합 · 보안 면 증가 | 도입 안 함 (v1.0 전) — 외부 IDE 는 LSP 로 (27 5장) |
 
 텍스트 편집기는 ImGui 위 자체 위젯 (줄 버퍼 · 구문 색 = 렉서 토큰 · 팝업) 으로 — 공개 ImGui 확장 (ImGuiColorTextEdit 류) 도입은 라이선스 ·

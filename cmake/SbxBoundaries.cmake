@@ -7,9 +7,13 @@
 # 검사는 **전이적**이다. SandboxServer → X → SandboxRender 도 위반이다.
 # 위반이 하나라도 있으면 FATAL_ERROR 로 구성을 중단한다.
 
+#   같은 타깃에 여러 번 부르면 금지 목록이 더해진다 (덮어쓰지 않는다 — UI-R1 의 GraphicsUI 규칙이 기존 규칙 뒤에 붙는다)
 function(sbx_forbid_link target)
-    set_property(GLOBAL APPEND PROPERTY SBX_BOUNDARY_RULES "${target}")
-    set_property(GLOBAL PROPERTY "SBX_BOUNDARY_FORBIDDEN_${target}" "${ARGN}")
+    get_property(rules GLOBAL PROPERTY SBX_BOUNDARY_RULES)
+    if(NOT target IN_LIST rules)
+        set_property(GLOBAL APPEND PROPERTY SBX_BOUNDARY_RULES "${target}")
+    endif()
+    set_property(GLOBAL APPEND PROPERTY "SBX_BOUNDARY_FORBIDDEN_${target}" ${ARGN})
 endfunction()
 
 # target 이 (직접 또는 간접으로) 링크하는 타깃 이름 목록을 out_var 에 돌려준다.

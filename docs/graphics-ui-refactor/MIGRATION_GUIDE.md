@@ -1,0 +1,44 @@
+# 마이그레이션 안내 — ImGui 화면을 GraphicsUI 로
+
+> 대상: 다음 단계 (UI-R2 ~) 를 이어받는 사람 · 에이전트. 결정: [ADR-0174](../adr/0174-graphics-ui-integration.md).
+> 예시 구현: `apps/client/studio/GuiStudioHome` (UI-R1 — 홈의 최근 목록 · 열기 · 종료).
+
+## 1. 화면 하나를 옮기는 순서
+
+```text
+1. 데이터 · 행동을 찾는다    ImGui 화면이 읽는 서비스 (예: ProjectService::recent) 와 돌려주는 행동 (예: StudioHomeAction)
+                            → 둘 다 그대로 쓴다. 로직을 화면으로 옮기지 않는다
+2. IUiScreen 을 만든다       mount   부모 우선 ComponentSpec 목록 → tree().commit → snapshot 의 핸들 (게시 순서) → 컨트롤 · 핸들러
+                            layout  컴포넌트마다 LayoutNode 하나 (컨테이너 = row/column/grid/flex, 글자 = intrinsic → host.text())
+                            paint   보이는 상자마다 DrawCommand (컴포넌트 기준 좌표, 크기는 0 이상 — fit)
+3. 행동을 꺼낸다             핸들러가 "의도" 를 저장 → 앱이 frame 뒤 takeIntent 로 읽어 기존 처리로 (콜백에서 앱 상태를 바꾸지 않는다)
+4. 선택 실행에 묶는다        --ui graphicsui 일 때 ImGui 화면 대신 (같은 프레임에 둘을 그리지 않는다 — 입력 중복)
+5. 시험                     헤드리스 UiHost + 입력 주입 (tests/unit/client/test_gui_studio_home.cpp 처럼) + ImGui 판과 같은 서비스 시험
+```
+
+## 2. 규칙
+
+- **키 · 차례.** 같은 부모 아래 키가 같으면 같은 컴포넌트 (세대 유지) — 목록 행은 행 번호 대신 안정 키 (예: 경로 해시) 를 쓰면 재정렬에도
+  포커스 · 선택이 남는다. 지금 홈은 행 번호 (목록이 바뀌면 다시 마운트 — 단순한 첫 판).
+- **포커스 · 키보드.** Button 은 누르면 포커스를 가져간다. Tab 은 호스트가 순회한다 (아무도 처리하지 않을 때).
+- **글자 크기.** 측정은 `ITextMeasure` 로만 — 과도기에는 ImGui 글꼴 (`GuiImGuiTextMeasure`, ImGui 프레임 안에서만), 헤드리스 시험은
+  `ApproxTextMeasure`. 픽셀 기준 이미지는 과도기 경로로 만들지 않는다 (목표 렌더러와 글자 배치가 다르다).
+- **색.** RenderColor 는 곱하지 않은 RGBA8. 테마 값은 UI-R2-03 (GCSS) 전까지 화면 안의 상수 — Studio 테마 (StudioTheme) 와 같은 계열로.
+- **스레드.** 화면 · 호스트는 UI 스레드에서만. 작업자는 `host.sender()` 로 값만 보낸다.
+
+## 3. 레이아웃 데이터 (ImGui ini → DockLayout)
+
+- ImGui 의 ini (studio/layouts/<이름>.ini — LayoutService, ADR-0114) 는 창 이름 · 도크 노드 id · 픽셀 크기를 담는다. DockLayout 은 안정
+  패널 ID · 비율 (10,000 분율) · 분리 창의 논리 좌표를 담는 다른 형식 (GUIDOCK 버전 1 바이트) 이다 — **자동 변환은 하지 않는다**.
+- 이전 방식 [계획 — UI-R2-07]: 레이아웃 **이름** (scene · scripting … — 29 5장 프리셋) 을 유지하고, 첫 실행에 그 이름의 프리셋으로
+  DockLayout 을 만든다. 사용자가 손으로 바꾼 ini 배치는 옮기지 않는다 (알림 한 줄). ini 파일은 지우지 않는다 (ImGui 판이 남아 있는 동안).
+- 창 열림 목록 (studio.json "windows" — ST-08-2) 은 패널 ID 표로 대응한다.
+
+## 4. 과도기 경로의 알려진 차이
+
+| 항목 | 과도기 (ImDrawList) | GraphicsUI D3D12 |
+|---|---|---|
+| DropShadow | 진한 사각형 + 최대 8 겹 테두리 (선형 감쇠 근사) | 정확한 선형 감쇠 |
+| LinearGradient | 꼭짓점 색 보간 | 픽셀 경계에 맞춘 그라데이션 |
+| 글자 | ImGui 아틀라스 (stb_truetype, 대체 글꼴 사슬) · 상자로 자르기 | DirectWrite |
+| 불투명도 · 배율 (visual) | DisplayList 가 이미 명령에 반영 | 같음 |

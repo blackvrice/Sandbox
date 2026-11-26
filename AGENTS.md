@@ -48,6 +48,8 @@ Simulation 코드 docs/04-DETERMINISM.md  ★ 다른 모든 문서보다 우선�
 - ui/ (SandboxGameUI — 게임 UI) 도 Foundation 만 — core · render · ImGui 를 모른다. (ADR-0079 · 0101)
 - editor/services/ (SandboxEditorServices — Studio 서비스) 는 Foundation · Script · ui (게임 UI 모델 — ADR-0145) · Core 만 — render · platform · ImGui ·
   나머지 editor/ 를 모른다. (ADR-0089 · 0108)
+- GraphicsUI (<graphics-ui/…> · SandboxUiHost · GraphicsUICore) 는 uihost/ · apps/ · tests/ · bench/ · tools/ 만. uihost/ 는
+  Foundation · Platform (common) · GraphicsUI Core 만 — Render · ImGui · Core (ECS) 를 모른다. Server 는 링크하지 않는다. (ADR-0174)
   (d3d12.h dxgi.h vulkan.h Metal.h Cocoa.h windows.h X11/* imgui.h)  → tools/check_includes.py 가 검사
 - SandboxServer 는 SandboxPlatform / SandboxRender / SandboxEditor 를 링크하지 않는다.  → CMake 가 검사
 - SandboxRender 는 SandboxCore(ECS)를 모른다. ECS → RenderWorld 변환은 SandboxClient/presentation 에.

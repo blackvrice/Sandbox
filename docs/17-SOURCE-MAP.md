@@ -212,6 +212,8 @@
 | `editor/ui/CommandPalette.{hpp,cpp}` | 명령 팔레트 (Ctrl+Shift+P — CommandService::search · ↑ ↓ · Enter · Esc · 흐린 끈 명령) · 단축키 표 · 충돌, shortcutChord (단축키 글자 → ImGui 키 조합) (v0.8 ST-06-2) | SandboxEditor |
 | `editor/ui/ConsolePanel.{hpp,cpp}` | Studio "콘솔" — 로그 최근 줄 (log::recentLines · recentTotal 이 바뀔 때만), 수준 · 글자 거르기 · 지우기 · 복사 · 따라가기 (v0.8 UI-3) | SandboxEditor |
 | `apps/client/studio/StudioShell.{hpp,cpp}` | Studio 셸 — 메뉴 막대 · 툴바 · 상태 막대 · 도크 공간 (가운데 통과) · 배치 프리셋 (DockBuilder) · 모드 띠, 고른 일만 돌려준다 (ShellActions) (v0.8 UI-1, ADR-0118) | SandboxClient |
+| `apps/client/studio/GuiStudioHome.{hpp,cpp}` · `apps/client/ui/GraphicsUiImGuiBridge.{hpp,cpp}` | GraphicsUI Studio 홈 (`--ui graphicsui` — 최근 목록 · 열기 · 기존 UI 로 · 종료 → 같은 StudioHomeAction) · DisplayList → ImDrawList 과도기 렌더 · ImGui 글꼴 측정 (UI-R1-04 · 05, ADR-0174). 시험 `tests/unit/client/test_gui_studio_home.cpp` · `client_graphicsui_home_headless` | SandboxClient |
+| `uihost/UiHost.{hpp,cpp}` · `uihost/InputRouting.{hpp,cpp}` | GraphicsUI 응용 호스트 · 입력 변환 (UI-R1-02 · 03 · 07, ADR-0174). 시험 `tests/unit/uihost/test_ui_host.cpp` (`unit_uihost`) | SandboxUiHost |
 | `apps/client/studio/StudioHome.{hpp,cpp}` | Studio 홈 — 창 전체: 위 막대 · 사이드바 (프로젝트 · 새 프로젝트 · 예제) · 검색 · 프로젝트 카드 (판 · 최근 · 복구 가능) · 단계형 새 프로젝트 (gameId 바로 검사) · 예제 복사 · 열기 창 · 복구 창, 고른 일만 돌려준다 (v0.8 M6-T1 → UI-2) | SandboxClient |
 | `editor/CMakeLists.txt`, `editor/EditorHost.hpp`                                                            | SandboxEditor (Core + Render + imgui + EditorServices, Network 금지) · SandboxEditorServices (Core 만 — ADR-0108). `ICommandSink` · `IEditorHost` — 에디터 ↔ 클라이언트 경계 (12A)                                                | SandboxEditor               |
 | `editor/Editor.{hpp,cpp}`, `editor/ui/EditorPanel.{hpp,cpp}`                                                | 툴 다섯 (선택 · 이동 · 배치 · 지형 · 지우기) · EditPreview · 덧그림, "편집" 패널 (12A, ADR-0028)                                                                    | SandboxEditor               |
@@ -283,6 +285,7 @@
 | `external/enet/`                                                                                            | ENet v1.3.18 (C 소스 · include/enet · LICENSE, 수정 없음)                                                                                                           | sbx_enet                    |
 | `external/imgui/`                                                                                           | Dear ImGui v1.92.9b docking (imgui*.{h,cpp} · imstb_* · LICENSE, 수정 없음 — ADR-0023)                                                                              | sbx_imgui                   |
 | `external/vulkan-headers/`                                                                                  | Vulkan-Headers v1.4.309 (C 헤더만, 수정 없음) — Graphics SDK 의 Vulkan 백엔드가 쓴다 (volk 는 ADR-0168 뒤 삭제)                                                       | — (GFX_VULKAN_HEADERS)      |
+| `external/graphics-ui/` · `cmake/SbxGraphicsUi.cmake` · `tools/vendor_graphics_ui.py` | GraphicsUI Core 만 (고정 커밋 `VENDORED_COMMIT` · `CORE_SOURCES.txt` · `VERSION`, 수정 없음) · 같은 이름의 타깃 정의 · 갱신 도구 (ADR-0174) | `GraphicsUI::Core` (GraphicsUICore) |
 | `external/graphics-sdk/` · `cmake/SbxGraphicsSdk.cmake` · `tools/vendor_graphics_sdk.py` | Graphics SDK 코어 (고정 커밋 `VENDORED_COMMIT`, 수정 없음) · 공급 (기본 함께 빌드, `SBX_SYSTEM_GRAPHICS_SDK` = 설치본) · 갱신 도구 (ADR-0169) | `GraphicsSDK::Core` |
 | `external/spirv-cross/`                                                                                     | SPIRV-Cross 1.4.304.1 의 코어 · GLSL · MSL 소스 (수정 없음 — ADR-0035)                                                                                              | sbx_spirv_cross             |
 | `apps/client/main.cpp`                                                                                      | 클라이언트 진입점 (Windows: GUI 서브시스템 + main)                                                                                                                  | SandboxClient               |
@@ -362,6 +365,7 @@
 | `core/`                                         | ECS·시뮬레이션·월드·콘텐츠·명령·직렬화·리플레이·난수·게임·트리거·프로젝트·패키지·스크립트 바인딩 | SandboxCore                    |
 | `network/`                                      | Transport·Protocol·Client (ClientSession · ClientWorld)·Replication·ServerHost                 | SandboxNetwork                 |
 | `platform/`                                     | 창·입력·오디오                                                                                 | SandboxPlatform                |
+| `uihost/`                                       | GraphicsUI 통합 계층 — 응용 호스트 · 입력 변환 · 글자 측정 계약 (UI-R1, ADR-0174)              | SandboxUiHost                  |
 | `render/`                                       | RHI·백엔드·Renderer·Shader·Asset·ImGui 렌더러                                                  | SandboxRender                  |
 | `editor/`                                       | 패널·툴·선택·Inspector·편집 명령                                                               | SandboxEditor                  |
 | `apps/client/`                                  | 클라이언트 진입점·앱 상태기계·Presentation·NetworkSession                                      | SandboxClient                  |
@@ -450,6 +454,11 @@ render/
   generated/    (빌드 산출 <빌드>/generated/render/generated/ — 셰이더 바이트코드 · 리플렉션 헤더, 저장소에 없음)
   [계획]        shader/ShaderLibrary (생성 헤더가 대신 — ADR-0019) · FontAsset (ImGuiLayer 가 폰트 파일을 직접)
 
+uihost/                     GraphicsUI 통합 계층 (UI-R1 — ADR-0174 · docs/graphics-ui-refactor). Foundation · Platform (common) · GraphicsUI::Core 만
+  UiHost        응용 호스트 — 트리 · 상태 · 입력 소유, feed (직전 배치로 hit-test) · frame (작업자 → 배치 → DisplayList) ·
+                setScreen (IUiScreen) · ITextMeasure · ApproxTextMeasure · PaintList · UiFrameStats · toError
+  InputRouting  PlatformEvent → GraphicsUI PointerEvent · KeyEvent (Windows 가상 키 번호 — GraphicsUI 컨트롤의 정본)
+
 editor/
   EditorHost (ICommandSink · IEditorHost · EditPermissions) · Editor (툴 · EditPreview · editContent) · Undo
   ui/           EditorPanel ("편집") · InspectorPanel (인스펙터 · 목록) · ContentPanel ("콘텐츠" — JSON · 트리거 폼 · 스크립트) ·
@@ -460,7 +469,9 @@ apps/client/
   main · Application (앱 상태기계) · ClientOptions · NetworkSession · WorldSession · ClientRenderer · FrameRenderer ·
   DefaultInput · PlayKeys (팩 게임 키)
   presentation/ SpriteExtraction · SelectionOverlay
-  ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel · ScriptPanel
+  ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel · ScriptPanel ·
+                GraphicsUiImGuiBridge (GraphicsUI DisplayList → ImDrawList — 과도기 렌더, UI-R1)
+  studio/       StudioShell · StudioHome (ImGui) · GuiStudioHome (GraphicsUI 홈 — --ui graphicsui, UI-R1) · ProcessLauncher
 apps/server/
   main · ServerOptions
 

@@ -217,6 +217,18 @@ Expected<ClientOptions> parseClientOptions(std::span<const std::string_view> arg
             opts.font = std::string(*v);
         } else if (a == "--no-ui") {
             opts.noUi = true;
+        } else if (a == "--ui") {
+            auto v = value();
+            if (!v) {
+                return std::unexpected(v.error());
+            }
+            if (*v == "graphicsui") {
+                opts.graphicsUi = true;
+            } else if (*v == "imgui") {
+                opts.graphicsUi = false;
+            } else {
+                return makeError(ErrorCode::InvalidArgument, std::format("--ui 는 imgui|graphicsui: '{}'", *v));
+            }
         } else if (a == "--no-audio") {
             opts.noAudio = true;
         } else if (a == "--safe-mode") {
@@ -556,6 +568,8 @@ std::string clientUsage() {
            "      --font <file>      UI 폰트 (.ttf/.ttc — 기본: Windows 맑은 고딕 · Linux Noto CJK · 나눔고딕, 없으면 "
            "내장 영문)\n"
            "      --no-ui            ImGui 패널 없이 (제목 줄만)\n"
+           "      --ui imgui|graphicsui  Studio 홈의 UI (기본 imgui). graphicsui = GraphicsUI 미리보기 (UI-R1 — "
+           "프로젝트 안은 ImGui)\n"
            "      --no-audio         소리 장치를 열지 않는다 (헤드리스는 늘 — v0.11)"
            "\n"
            "창 안 단축키 (수동 QA, docs/qa/MANUAL-QA.md): F2 글자 입력 켜기/끄기, F3 마우스 캡처, F4 커서 모양,\n"

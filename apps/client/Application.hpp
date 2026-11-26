@@ -32,11 +32,13 @@
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/player/PlayerScreens.hpp"
 #include "apps/client/presentation/GameUiLayer.hpp"
+#include "apps/client/studio/GuiStudioHome.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "apps/client/ui/FontFallback.hpp"
+#include "apps/client/ui/GraphicsUiImGuiBridge.hpp"
 #include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "editor/Editor.hpp"
@@ -95,6 +97,9 @@ struct AppConfig {
     f64 fixedDt = 0;                    // > 0 이면 월드 진행에 실제 시간 대신 이 값 (헤드리스 시험 — 결과가 고정된다)
     ImGuiLayer* ui = nullptr;           // 8C: 있으면 패널을 그리고 입력을 먼저 본다 (I1)
     bool uiRendered = false;            // renderer->attachImGui 가 성공했다 (아니면 텍스처 요청을 레이어가 받는다)
+    // Studio 홈을 GraphicsUI 로 (UI-R1 — --ui graphicsui, ADR-0174). 프로젝트 안 (셸 · 패널) · Player 는 그대로 ImGui.
+    // 그리기는 과도기 경로 (GraphicsUiImGuiBridge — ImGui 렌더러) 라 ui 가 있어야 한다
+    bool graphicsUiHome = false;
     std::string saveName; // "월드" 창 · Ctrl+S 의 처음 이름 (비면 quicksave — 게임 프로젝트는 시작 월드, M1-T5)
     // 프레임마다 묻는다 — true 면 끝낸다 (자동 플레이가 끝났다 — v0.2 M6-T1 --script 헤드리스)
     std::function<bool()> quitWhen;
@@ -194,6 +199,10 @@ public:
     [[nodiscard]] AppState state() const noexcept { return m_state; }
     [[nodiscard]] WorldMode worldMode() const noexcept { return m_mode; }
     [[nodiscard]] u64 frameCount() const noexcept { return m_frame; }
+    // GraphicsUI 홈 (UI-R1) 의 누적 통계 — 한 번도 그리지 않았으면 nullptr
+    [[nodiscard]] const uihost::UiFrameStats* graphicsUiStats() const noexcept {
+        return m_guiHost ? &m_guiHost->stats() : nullptr;
+    }
     [[nodiscard]] const platform::InputSystem& input() const noexcept { return m_input; }
     [[nodiscard]] const platform::ActionMap& actions() const noexcept { return m_actionMap; }
     [[nodiscard]] const std::string& typedText() const noexcept { return m_text; }
@@ -243,6 +252,9 @@ private:
     void studioOpen(const std::filesystem::path& dir);
     void studioCopyExample(const std::filesystem::path& example, const std::filesystem::path& dest); // v0.8 UI-2
     void playerFrame(); // Player 모드 — 최근 게임 · 오류 화면 (v0.8 NG-03)
+    // GraphicsUI Studio 홈 (UI-R1 — ADR-0174): 처음 부를 때 호스트를 만들고, 최근 목록이 바뀌면 다시 마운트한다.
+    // 고른 일은 ImGui 홈과 같은 StudioHomeAction 으로 돌려준다 (같은 처리). 실패하면 기록하고 ImGui 홈으로 돌아간다
+    std::optional<StudioHomeAction> guiHomeFrame();
     void playerOpen(const std::filesystem::path& package);
     void playerReport();
     bool enterProject(const std::filesystem::path& dir);
@@ -313,6 +325,14 @@ private:
     ShellState m_shell;                 // v0.8 UI-1 — 메뉴 · 툴바 · 도크 · 보기
     editor::ConsoleState m_console;     // v0.8 UI-3 "콘솔"
     PlayerHomeState m_playerHome;       // v0.8 NG-03
+    // GraphicsUI 홈 (UI-R1): 측정 → 호스트 → 화면 차례로 만들고, 역순으로 지운다 (선언 역순 = 화면이 먼저 — 호스트의 핸들러가
+    // 화면을 가리키므로 호스트 소멸자가 트리를 닫을 때 화면이 아직 살아 있게 화면을 호스트 앞에 선언)
+    std::unique_ptr<GuiImGuiTextMeasure> m_guiText;
+    std::unique_ptr<GuiStudioHome> m_guiHome;
+    std::unique_ptr<uihost::UiHost> m_guiHost;
+    bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
+    bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다
+    std::vector<std::filesystem::path> m_guiRecent; // 마운트한 최근 목록 (바뀌면 다시 마운트)
     // 명령 팔레트 · 단축키 표 (v0.8 ST-06-2), 명령이 고른 셸 일 (다음 셸 단계에서 적용 — 툴바 · 메뉴와 같은 길)
     editor::PaletteState m_palette;
     bool m_shortcutsOpen = false;

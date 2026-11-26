@@ -1,6 +1,6 @@
 # check_includes.py 자체 시험용 픽스처
 
-**컴파일되지 않습니다.** 일부러 경계를 어긴 파일들이며, `arch_include_lint_selftest`가 정확히 **15건**의 위반을 기대합니다.
+**컴파일되지 않습니다.** 일부러 경계를 어긴 파일들이며, `arch_include_lint_selftest`가 정확히 **18건**의 위반을 기대합니다.
 파일을 추가·수정하면 `tests/CMakeLists.txt`의 `--expect` 값을 함께 고칩니다.
 
 | 파일 | 기대 위반 |
@@ -18,4 +18,7 @@
 | `editor/services/BadService.hpp` | banned-header(imgui) + subpath-direction(editor/Editor.hpp · render) = 3 — Studio 서비스는 UI · render 를 모른다 (v0.8 ST-06-1) |
 | `editor/services/ServiceOk.hpp` | 0 — foundation · script · core · editor/services |
 | `editor/ToolOk.cpp` | 0 — editor/ (툴 · 패널) 는 ImGui · render · services 를 쓴다 |
-| **합계** | **15** |
+| `core/BadGraphicsUi.hpp` | graphics-ui = 1 — Core 는 GraphicsUI 를 모른다 (UI-R1, ADR-0174) |
+| `uihost/BadHost.hpp` | module-direction(render) + banned-header(imgui) = 2 — 통합 계층은 GPU · ImGui 를 모른다 |
+| `uihost/HostOk.hpp` | 0 — uihost 는 foundation · platform · GraphicsUI |
+| **합계** | **18** |
