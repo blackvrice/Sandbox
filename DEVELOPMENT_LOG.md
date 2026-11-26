@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-11-26 — external: GraphicsUI Core 를 고정 커밋으로 가져온다 (UI-R1-01 의 1 단계)
+
+**무엇을**
+
+- `external/graphics-ui/` — GraphicsUI (https://github.com/blackvrice/GraphicsUI) `fa1e37157d148e31a2475fba034d600b9edaff0c` (main 최신,
+  2026-11-26) 의 **Core 만**: 공개 헤더 `include/graphics-ui/core` · `src/core` · `cmake/GraphicsUIVersion.hpp.in` · `LICENSE` (MIT) ·
+  Unicode 데이터 라이선스, 그리고 그 커밋 CMakeLists 의 `add_library(GraphicsUICore …)` 목록 (`CORE_SOURCES.txt`) · 버전 (`VERSION`) ·
+  `VENDORED_COMMIT`. 수정 없음. SDK 렌더러 · 예제 · 연구 · Python 도구는 넣지 않는다.
+- `tools/vendor_graphics_ui.py` — `git archive <커밋>` 으로 커밋 내용만 읽는다 (GraphicsUI 체크아웃에 사용자가 고치는 파일이 있다 —
+  작업 트리를 읽지도 쓰지도 않는다). Core 목록 · 버전을 그 커밋의 CMakeLists 에서 읽어 적고, 목록의 소스가 없으면 실패.
+- external/README 표. 빌드에는 아직 묶지 않았다 (다음 커밋 — cmake/SbxGraphicsUi.cmake).
+
+**왜** — GraphicsUI 통합 (ADR-0174 — 다음 커밋). 고정 커밋 · 단독 갱신 커밋은 GraphicsSDK (ADR-0169) 와 같은 방식.
+
+**검증** — 도구 실행 (46 파일 · Core 소스 17), b29d1cd 로 가져온 사본과 fa1e371 사본의 차이 = VENDORED_COMMIT 한 줄 (두 커밋의
+Core 가 같다). 빌드 입력이 바뀌지 않았다 (CMake 가 아직 이 폴더를 보지 않는다).
+
+**남은 일** — 다음 커밋에서 빌드 · 통합.
+
 ## 2026-11-23 — CI: client_x11_world_smoke 의 정규식 순서 (분석 2 의 후속)
 
 **무엇을**
