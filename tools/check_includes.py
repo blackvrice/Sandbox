@@ -38,7 +38,8 @@ ALLOWED_MODULES = {
     "render": {"foundation", "platform", "render"},
     # GraphicsUI 통합 계층 (UI-R1, ADR-0174) — 이벤트 · 키 타입 (platform/common) 만. GPU · ImGui · ECS 를 모른다
     "uihost": {"foundation", "platform", "uihost"},
-    "editor": {"foundation", "script", "ui", "core", "platform", "render", "editor"},  # ui = Game UI Designer (ADR-0145)
+    # ui = Game UI Designer (ADR-0145), uihost = GraphicsUI Studio 화면 (editor/gui 만 — 하위 경로 규칙, ADR-0175)
+    "editor": {"foundation", "script", "ui", "core", "platform", "render", "uihost", "editor"},
     "apps": ALL,
     "tests": ALL,
     "bench": ALL,
@@ -50,6 +51,10 @@ ALLOWED_MODULES = {
 #   모른다. ui/ (게임 UI 문서 모델 · 배치 — Foundation 만) 는 된다 (v0.10 ST-06-4 — Game UI Designer 의 모델, ADR-0145)
 SUBPATH_ALLOWED = [
     ("editor/services/", ("foundation/", "script/", "ui/", "core/", "editor/services/")),  # ui = 순수 모델 · 배치 (ADR-0145)
+    # editor/gui — GraphicsUI Studio 화면 (UI-R2-01, ADR-0175): 서비스 · 호스트 (uihost · platform/common 의 이벤트 타입) 만.
+    # ImGui 패널 (editor/ui) · render 를 모른다
+    ("editor/gui/", ("foundation/", "script/", "ui/", "core/", "editor/services/", "editor/gui/", "uihost/",
+                     "platform/common/")),
 ]
 
 # 그래픽 API · OS 창 · UI · 오디오 · 전송 헤더 (꺾쇠 include 기준, 소문자 비교)
@@ -62,7 +67,7 @@ PLATFORM_HEADERS = [
 GLOBALLY_BANNED = [r"sfml/", r"gl/", r"opengl/", r"glad/", r"glfw"]
 # GraphicsUI 공개 헤더 — 이 접두사 아래에서만 (편집기 화면 · 게임 UI 어댑터가 필요해지면 그 단계의 ADR 로 넓힌다)
 GRAPHICS_UI_HEADER = re.compile(r"^graphics-ui/")
-GRAPHICS_UI_ALLOWED = ("uihost/", "apps/", "tests/", "bench/", "tools/")
+GRAPHICS_UI_ALLOWED = ("uihost/", "editor/gui/", "apps/", "tests/", "bench/", "tools/")
 
 # (경로 접두사, 그 아래에서 허용되는 금지 헤더 패턴). 가장 긴 접두사가 이긴다.
 # 접두사가 매칭되지 않으면 PLATFORM_HEADERS 전부 허용 (예: apps/, tests/).
@@ -80,6 +85,7 @@ RESTRICTED = [
     ("render/shader/", set()),
     ("editor/", {r"imgui"}),
     ("editor/services/", set()),
+    ("editor/gui/", set()),
     ("platform/common/", set()),
     ("uihost/", set()),
 ]

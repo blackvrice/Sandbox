@@ -9,14 +9,16 @@
 
 ```text
                      apps/client (SandboxClient)                         apps/server (SandboxServer)
-                     ├─ studio/  StudioHome (ImGui) · GuiStudioHome (GraphicsUI)   ← GraphicsUI 를 모른다 (CMake 검사)
+                     ├─ studio/  StudioHome (ImGui)                                 ← GraphicsUI 를 모른다 (CMake 검사)
                      ├─ ui/      ImGui 패널 · GraphicsUiImGuiBridge (과도기 렌더)
                      └─ presentation/ (ECS → RenderWorld)
                           │            │                 │
              ┌────────────┘            │                 └──────────────┐
              ▼                         ▼                                ▼
    editor/ (SandboxEditor — ImGui)   uihost/ (SandboxUiHost)          render/ (SandboxRender)
-   editor/services (UI 무관)           ├─ UiHost (응용 호스트)            ├─ rhi · renderer · imgui
+   editor/gui (SandboxStudioGui —      ├─ UiHost (응용 호스트)            ├─ rhi · renderer · imgui
+     GraphicsUI 화면: StudioHomeScreen) │
+   editor/services (UI 무관)           │
                                        ├─ InputRouting                  └─ graphics_sdk ─► GraphicsSDK::Core (95967d2e)
                                        └─ ITextMeasure                                       (프로세스에 하나)
                                               │
@@ -31,7 +33,8 @@
 | `uihost/` (SandboxUiHost) | Foundation · Platform (common 의 이벤트 · 키 타입) · GraphicsUI::Core | Core (ECS) · Network · Render · Editor · EditorServices · ImGui — `sbx_forbid_link` · check_includes (`uihost` 모듈 방향 · 금지 헤더) |
 | `apps/client` | 전부 (uihost 포함) | — |
 | Foundation · Script · GameUI · Core · Network · Platform · Render · EditorServices · Crash · Process · sbx · net_probe · Server | 그대로 | SandboxUiHost · GraphicsUICore (`sbx_forbid_link`), `<graphics-ui/…>` 헤더 (check_includes `graphics-ui`) |
-| `editor/` | 그대로 (ImGui) | GraphicsUI 헤더 — UI-R2-01 의 ADR 로 넓힌다 [계획] |
+| `editor/gui/` (SandboxStudioGui — UI-R2-01, ADR-0175) | Editor Services · uihost · GraphicsUI Core | ImGui · Render · Network · 나머지 editor/ (ImGui 패널) — check_includes 하위 경로 규칙 · sbx_forbid_link |
+| `editor/` (그 밖 — ImGui 패널) | 그대로 (ImGui) | GraphicsUI 헤더 |
 
 ## 2. 프레임 · 스레드
 

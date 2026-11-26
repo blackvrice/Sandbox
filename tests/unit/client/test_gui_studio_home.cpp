@@ -15,7 +15,7 @@
 
 #include "apps/client/Application.hpp"
 #include "apps/client/DefaultInput.hpp"
-#include "apps/client/studio/GuiStudioHome.hpp"
+#include "editor/gui/StudioHomeScreen.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/ui/GraphicsUiImGuiBridge.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
@@ -27,12 +27,12 @@
 using namespace sbx;
 using namespace sbx::client;
 using namespace sbx::platform;
-using Part = GuiStudioHome::Part;
+using Part = StudioHomeScreen::Part;
 
 namespace {
 
-GuiHomeModel model(usize n) {
-    GuiHomeModel m;
+StudioHomeModel model(usize n) {
+    StudioHomeModel m;
     m.version = "0.7.0";
     for (usize i = 0; i < n; ++i) {
         editor::services::RecentProject p;
@@ -88,7 +88,7 @@ PlatformEvent key(Key k, u8 mods = 0) {
 struct Fixture {
     uihost::ApproxTextMeasure text;
     std::unique_ptr<uihost::UiHost> host;
-    GuiStudioHome home;
+    StudioHomeScreen home;
     std::string clipboard;
 
     explicit Fixture(usize recent, gui::LayoutSize vp = {1280, 720}) {
@@ -140,7 +140,7 @@ TEST_SUITE("client") {
         f.feed(key(Key::Enter));
         auto open = f.home.takeIntent();
         REQUIRE(open);
-        CHECK(open->kind == GuiHomeIntent::Kind::OpenRecent);
+        CHECK(open->kind == StudioHomeIntent::Kind::OpenRecent);
         CHECK(open->dir == std::filesystem::path("D:/p/2"));
 
         // 지우면 다시 전부 — ↓ 두 번은 목록을 움직인다 (검색 칸을 떠나지 않는다)
@@ -159,7 +159,7 @@ TEST_SUITE("client") {
         Fixture f(40);
         CHECK(f.home.listedCount() == 40);
         // 둘째 행 (목록 위에서 1.5 행) 을 누르면 연다 — 누르면 목록이 포커스
-        f.feed(clickAt(*f.host, f.h(Part::List), 30.f, static_cast<f32>(GuiStudioHome::kRowHeight * 1.5)));
+        f.feed(clickAt(*f.host, f.h(Part::List), 30.f, static_cast<f32>(StudioHomeScreen::kRowHeight * 1.5)));
         const auto open = f.home.takeIntent();
         REQUIRE(open);
         CHECK(open->dir == std::filesystem::path("D:/p/1"));
@@ -179,11 +179,11 @@ TEST_SUITE("client") {
             PlatformEvent{MouseMove{{static_cast<f32>(lb.x + 10), static_cast<f32>(lb.y + 10)}, {}}},
             PlatformEvent{MouseWheel{{0.f, -1.f}}}};
         f.feed(wheel);
-        CHECK(f.home.listOffset() == doctest::Approx(GuiStudioHome::kRowHeight * 3.0));
+        CHECK(f.home.listOffset() == doctest::Approx(StudioHomeScreen::kRowHeight * 3.0));
         // 목록 밖 (제목) 의 휠은 아무것도 밀지 않는다
         const std::array outside{PlatformEvent{MouseMove{{5.f, 5.f}, {}}}, PlatformEvent{MouseWheel{{0.f, -1.f}}}};
         f.feed(outside);
-        CHECK(f.home.listOffset() == doctest::Approx(GuiStudioHome::kRowHeight * 3.0));
+        CHECK(f.home.listOffset() == doctest::Approx(StudioHomeScreen::kRowHeight * 3.0));
 
         // 검색 칸에서 Tab → 목록 (포커스 순회는 호스트)
         f.feed(clickAt(*f.host, f.h(Part::Search)));
@@ -222,7 +222,7 @@ TEST_SUITE("client") {
         f.feed(clickAt(*f.host, f.h(Part::Create)));
         auto made = f.home.takeIntent();
         REQUIRE(made);
-        CHECK(made->kind == GuiHomeIntent::Kind::NewProject);
+        CHECK(made->kind == StudioHomeIntent::Kind::NewProject);
         CHECK(made->name == "Rabbit Run2");
         CHECK(made->gameId == "studio.rabbit");
         CHECK(made->templateId == "minigame");
@@ -232,7 +232,7 @@ TEST_SUITE("client") {
         f.feed(key(Key::Enter));
         const auto again = f.home.takeIntent();
         REQUIRE(again);
-        CHECK(again->kind == GuiHomeIntent::Kind::NewProject);
+        CHECK(again->kind == StudioHomeIntent::Kind::NewProject);
 
         // 다시 마운트 (최근 목록이 바뀜) 해도 쓰던 글자가 남는다
         f.home.setModel(model(2));
@@ -259,28 +259,28 @@ TEST_SUITE("client") {
         f.feed(clickAt(*f.host, f.h(Part::Open)));
         const auto open = f.home.takeIntent();
         REQUIRE(open);
-        CHECK(open->kind == GuiHomeIntent::Kind::OpenFolder);
+        CHECK(open->kind == StudioHomeIntent::Kind::OpenFolder);
         CHECK(open->dir == std::filesystem::path("XC:/Games/Mine"));
         // 단추: 기존 UI 로 · 종료
         f.feed(clickAt(*f.host, f.h(Part::Switch)));
         const auto sw = f.home.takeIntent();
         REQUIRE(sw);
-        CHECK(sw->kind == GuiHomeIntent::Kind::SwitchToClassic);
+        CHECK(sw->kind == StudioHomeIntent::Kind::SwitchToClassic);
         f.feed(clickAt(*f.host, f.h(Part::Quit)));
         const auto quit = f.home.takeIntent();
         REQUIRE(quit);
-        CHECK(quit->kind == GuiHomeIntent::Kind::Quit);
+        CHECK(quit->kind == StudioHomeIntent::Kind::Quit);
         // 아주 좁은 화면에서도 배치가 실패하지 않는다
         REQUIRE(f.host->frame({40, 300}));
     }
 
     TEST_CASE("gui studio home: forget from the list, recovery badge, example copy, density toggle") {
-        GuiHomeModel m = model(3);
+        StudioHomeModel m = model(3);
         m.recovery = {"", "2026-11-20T08:00:00Z", ""};
         uihost::ApproxTextMeasure text;
         auto host = uihost::UiHost::create(text);
         REQUIRE(host);
-        GuiStudioHome home;
+        StudioHomeScreen home;
         home.setModel(m);
         REQUIRE((*host)->setScreen(&home));
         const auto d = (*host)->frame({1280, 720});
@@ -303,12 +303,12 @@ TEST_SUITE("client") {
         feed(clickAt(**host, *home.handleOf(Part::Forget)));
         auto forget = home.takeIntent();
         REQUIRE(forget);
-        CHECK(forget->kind == GuiHomeIntent::Kind::ForgetRecent);
+        CHECK(forget->kind == StudioHomeIntent::Kind::ForgetRecent);
         CHECK(forget->dir == std::filesystem::path("D:/p/0"));
         const std::array down{PlatformEvent{MouseMove{{0, 0}, {}}}};
         feed(down);
         const gui::LayoutRect lb = boxOf(**host, *home.handleOf(Part::List));
-        feed(clickAt(**host, *home.handleOf(Part::List), 20.f, static_cast<f32>(GuiStudioHome::kRowHeight * 2.5)));
+        feed(clickAt(**host, *home.handleOf(Part::List), 20.f, static_cast<f32>(StudioHomeScreen::kRowHeight * 2.5)));
         (void)home.takeIntent(); // 클릭은 연다 — 버린다
         const std::array del{key(Key::Delete)};
         feed(del);
@@ -326,7 +326,7 @@ TEST_SUITE("client") {
         feed(clickAt(**host, *home.handleOf(Part::CopyExample)));
         const auto copy = home.takeIntent();
         REQUIRE(copy);
-        CHECK(copy->kind == GuiHomeIntent::Kind::CopyExample);
+        CHECK(copy->kind == StudioHomeIntent::Kind::CopyExample);
         CHECK(copy->dir == std::filesystem::path("D:/samples/orbs"));
         CHECK(pathText8(copy->dest).ends_with("Orbs"));
 
@@ -334,11 +334,11 @@ TEST_SUITE("client") {
         feed(clickAt(**host, *home.handleOf(Part::Density)));
         const auto dens = home.takeIntent();
         REQUIRE(dens);
-        CHECK(dens->kind == GuiHomeIntent::Kind::Density);
+        CHECK(dens->kind == StudioHomeIntent::Kind::Density);
         CHECK(dens->compact);
         home.setCompact(true);
         REQUIRE((*host)->frame({1280, 720}));
-        CHECK(home.rowHeight() == doctest::Approx(GuiStudioHome::kCompactRowHeight));
+        CHECK(home.rowHeight() == doctest::Approx(StudioHomeScreen::kCompactRowHeight));
         REQUIRE((*host)->setScreen(nullptr));
     }
 
@@ -359,7 +359,7 @@ TEST_SUITE("client") {
 
         auto host = uihost::UiHost::create(measure);
         REQUIRE(host);
-        GuiStudioHome home;
+        StudioHomeScreen home;
         home.setModel(model(2));
         REQUIRE((*host)->setScreen(&home));
         const auto d = (*host)->frame({1280, 720});
@@ -417,7 +417,7 @@ TEST_SUITE("client") {
         CHECK(window.textInputActive()); // 첫 포커스 = 검색 칸 → 창의 글자 입력이 켜졌다
 
         const uihost::UiHost& host = *app.graphicsUiHost();
-        const GuiStudioHome& home = *app.graphicsUiHome();
+        const StudioHomeScreen& home = *app.graphicsUiHome();
         const auto inject = [&](const auto& events) {
             for (const PlatformEvent& e : events) {
                 window.inject(e);

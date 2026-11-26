@@ -229,7 +229,6 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/WorldPanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
-        "${PROJECT_SOURCE_DIR}/apps/client/studio/GuiStudioHome.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GraphicsUiImGuiBridge.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioShell.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerLibrary.cpp"
@@ -243,7 +242,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/DefaultInput.cpp")
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
-target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess SandboxUiHost sbx_imgui sbx_doctest sbx_warnings)
+target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess SandboxUiHost SandboxStudioGui sbx_imgui sbx_doctest sbx_warnings)
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"
@@ -847,7 +846,7 @@ if(Python3_Interpreter_FOUND)
             -X utf8
             ${CMAKE_SOURCE_DIR}/tools/check_includes.py
             --root ${CMAKE_SOURCE_DIR}/tests/arch/fixtures
-            --expect 18
+            --expect 20
     )
     set_tests_properties(arch_include_lint arch_include_lint_selftest PROPERTIES LABELS "arch")
     # 문서 · 로드맵 일관성 (링크 · ADR · 태스크 ID · 목표 버전 · 상태 — docs/roadmap/README.md 5장, ADR-0096)

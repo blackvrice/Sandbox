@@ -139,6 +139,8 @@ GraphicsSDKCore           STATIC     external/graphics-sdk (EXCLUDE_FROM_ALL · 
 GraphicsUICore            STATIC     external/graphics-ui 의 Core 만 (UI-R1, ADR-0174 — cmake/SbxGraphicsUi.cmake, 별칭 GraphicsUI::Core).
                                      소스 = CORE_SOURCES.txt (그 커밋의 GraphicsUI CMakeLists 목록), C++23 · SYSTEM include · MSVC /permissive-
                                      /utf-8 (sbx_warnings 밖). 생성 헤더 graphics-ui/core/version.hpp (VERSION). 항상 구성, 링크는 아래 둘만
+SandboxStudioGui          STATIC     PUBLIC EditorServices UiHost (UI-R2-01 — editor/gui, GraphicsUI Studio 화면). Network · Render · Editor ·
+                                     ImGui 를 모른다 (ADR-0175)
 SandboxUiHost             STATIC     PUBLIC Foundation Platform GraphicsUI::Core (UI-R1 — uihost/). Core · Network · Render · Editor · ImGui 를
                                      모른다 (sbx_forbid_link · check_includes.py). Server 는 링크하지 않는다
 sbx_spirv_cross           STATIC     external/spirv-cross (코어 · GLSL · MSL, 경고 끔). SBX_SHADER_MSL 일 때만 (14A)
@@ -147,7 +149,7 @@ SandboxNetwork            STATIC     PUBLIC Core, PRIVATE sbx_enet (Phase 9). Tr
 SandboxEditor             STATIC     PUBLIC Core Render, PRIVATE sbx_imgui (Phase 12A). 항상 빌드 (툴 단위 테스트). Network 를 모른다
 sbx_enet                  STATIC     external/enet (C — 루트가 C 언어를 켠다). WIN32: ws2_32 winmm. 그 밖: 업스트림과 같은 configure 검사
 SandboxServer             EXE        Network Core Crash (v0.5 M1-T1 — 충돌 처리기)
-SandboxClient             EXE        Editor Network Render Platform Core Crash UiHost (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
+SandboxClient             EXE        Editor Network Render Platform Core Crash UiHost StudioGui (SBX_BUILD_CLIENT=ON — 10B: 로컬 · 원격 서버의 복제본). WIN32: GUI 서브시스템 +
                                      /ENTRY:mainCRTStartup (MSVC), SandboxClient.manifest (Per-Monitor DPI v2). 정의 SBX_DEFAULT_CONTENT_DIR ·
                                      SBX_DEFAULT_ASSETS_DIR (저장소의 content/ · assets/). Editor 는 Phase 12
 SandboxTests              EXE        Foundation Script Core Network Platform Render Editor (+ ServerOptions.cpp · SimCheckOptions.cpp · NetProbeOptions.cpp · SbxOptions.cpp · apps/client 의 Application ·

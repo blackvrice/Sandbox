@@ -1,5 +1,6 @@
 #pragma once
-// Studio 홈의 GraphicsUI 화면 (UI-R1-05 · R2-09, ADR-0174) — `--ui graphicsui` 일 때 ImGui 홈 (StudioHome) 대신 그린다.
+// Studio 홈의 GraphicsUI 화면 (UI-R1-05 · R2-09, ADR-0174 · 0175 — editor/gui 로 옮김) — `--ui graphicsui` 일 때 ImGui 홈
+// (apps/client/studio/StudioHome) 대신 그린다.
 // 같은 데이터 (ProjectService 의 최근 목록 · 템플릿 · 예제, AutosaveService 의 복구) · 같은 도우미 (filterRecent · suggestGameId ·
 // suggestProjectDir · displayTime) · 같은 행동 (StudioHomeAction — Application 이 같은 명령 · 처리로) — 로직을 옮기지 않는다.
 //
@@ -19,20 +20,20 @@
 #include "editor/services/ProjectService.hpp"
 #include "uihost/UiHost.hpp"
 
-namespace sbx::client {
+namespace sbx::editor::gui {
 
 namespace gui = graphics_ui::core;
 
-struct GuiHomeModel {
+struct StudioHomeModel {
     std::string version;
-    std::vector<editor::services::RecentProject> recent;
-    std::vector<editor::services::ProjectTemplate> templates;
-    std::vector<editor::services::ExampleProject> examples;
+    std::vector<services::RecentProject> recent;
+    std::vector<services::ProjectTemplate> templates;
+    std::vector<services::ExampleProject> examples;
     // recent 와 같은 차례 — 빈 글자 = 복구할 것 없음, 아니면 자동 저장 시각 (AutosaveService::peek — 비정상 종료 뒤)
     std::vector<std::string> recovery;
 };
 
-struct GuiHomeIntent {
+struct StudioHomeIntent {
     enum class Kind : u8 { OpenRecent, ForgetRecent, NewProject, OpenFolder, CopyExample, Density, SwitchToClassic, Quit };
     Kind kind = Kind::Quit;
     std::filesystem::path dir;  // OpenRecent · ForgetRecent · NewProject · OpenFolder · CopyExample (예제)
@@ -43,7 +44,7 @@ struct GuiHomeIntent {
     bool compact = false;       // Density
 };
 
-class GuiStudioHome final : public uihost::IUiScreen {
+class StudioHomeScreen final : public uihost::IUiScreen {
 public:
     static constexpr gui::FontId kFont = 1;    // 글꼴 하나 (렌더 어댑터가 ID → 글꼴)
     static constexpr double kRowHeight = 48.0; // 보통 간격의 행 높이 (촘촘 = kCompactRowHeight)
@@ -56,15 +57,15 @@ public:
     };
 
     // 모델이 바뀌면 (최근 목록 · 템플릿 · 예제) 다시 마운트해야 한다 — Application 이 setScreen 을 다시 부른다. 쓰던 글자는 남긴다
-    void setModel(GuiHomeModel model);
-    [[nodiscard]] const GuiHomeModel& model() const noexcept { return m_model; }
+    void setModel(StudioHomeModel model);
+    [[nodiscard]] const StudioHomeModel& model() const noexcept { return m_model; }
     // 결과 줄 · 간격 (마운트 없이 — Application 의 StudioHomeState::message · failed, Studio 간격)
     void setStatus(std::string message, bool failed);
     void setCompact(bool compact) noexcept { m_compact = compact; }
     [[nodiscard]] bool compact() const noexcept { return m_compact; }
     [[nodiscard]] double rowHeight() const noexcept { return m_compact ? kCompactRowHeight : kRowHeight; }
     // 이번 프레임에 고른 것 (한 번 읽으면 비운다)
-    [[nodiscard]] std::optional<GuiHomeIntent> takeIntent();
+    [[nodiscard]] std::optional<StudioHomeIntent> takeIntent();
 
     Expected<void> mount(uihost::UiHost& host) override;
     Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree,
@@ -119,7 +120,7 @@ private:
     gui::EventReply fieldEvent(usize fieldIndex, const gui::RoutedEvent& ev);
     void moveSelection(std::ptrdiff_t delta, bool toEnd = false, bool toStart = false);
 
-    GuiHomeModel m_model;
+    StudioHomeModel m_model;
     std::string m_status;
     bool m_failed = false;
     bool m_compact = false;
@@ -130,7 +131,7 @@ private:
     std::optional<gui::ListItemKey> m_pressKey; // 누른 행 — 같은 행에서 떼면 연다
     usize m_template = 0;
     usize m_example = 0;
-    std::optional<GuiHomeIntent> m_intent;
+    std::optional<StudioHomeIntent> m_intent;
 };
 
-} // namespace sbx::client
+} // namespace sbx::editor::gui

@@ -107,13 +107,14 @@ sbx_forbid_link(SandboxProcess    SandboxCore SandboxNetwork SandboxPlatform San
 sbx_forbid_link(SandboxRender     SandboxCore SandboxNetwork SandboxEditor)
 sbx_forbid_link(SandboxEditor     SandboxNetwork)
 sbx_forbid_link(SandboxEditorServices SandboxNetwork SandboxPlatform SandboxRender SandboxEditor sbx_imgui)
-sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui SandboxUiHost GraphicsUICore)
+sbx_forbid_link(SandboxServer     SandboxPlatform SandboxRender SandboxEditor imgui SandboxUiHost GraphicsUICore SandboxStudioGui)
 # GraphicsUI (UI-R1 — ADR-0174): 통합 계층 (SandboxUiHost) · 클라이언트 · 시험만. 아래 계층 · 서비스 · 렌더는 GraphicsUI 를 모른다
 foreach(_sbx_lower SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender
                    SandboxEditorServices SandboxCrash SandboxProcess sbx_net_probe sbx)
     sbx_forbid_link(${_sbx_lower} SandboxUiHost GraphicsUICore)
 endforeach()
 sbx_forbid_link(SandboxUiHost     SandboxCore SandboxNetwork SandboxRender SandboxEditor SandboxEditorServices imgui sbx_imgui)
+sbx_forbid_link(SandboxStudioGui  SandboxNetwork SandboxRender SandboxEditor imgui sbx_imgui)  # UI-R2-01 (ADR-0175)
 sbx_forbid_link(sbx_net_probe     SandboxPlatform SandboxRender SandboxEditor imgui)
 sbx_forbid_link(sbx               SandboxNetwork SandboxPlatform SandboxRender SandboxEditor imgui)
 

@@ -1,4 +1,4 @@
-# UI-R2 — Studio Shell [진행 — R2-09 홈 ✅]
+# UI-R2 — Studio Shell [진행 — R2-01 · R2-09 ✅, R2-02 결정]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R2-01 ~ 10. 선행: UI-R1 (특히 R1-08 글자 입력).
 
@@ -8,6 +8,10 @@ Studio 의 틀 — 메인 메뉴 · 툴바 · 상태 표시줄 · Docking 작업
 Studio 홈 전체 — 를 GraphicsUI 로. GraphicsUI 의 기존 DockLayout (P9-01) 을 쓴다 — Sandbox 에서 Dock 을 다시 만들지 않는다.
 
 ## 먼저 정할 것 (ADR)
+
+> **2026-11-26 결정 — [ADR-0175](../../adr/0175-studio-gui-location-gxml-adoption.md).** R2-01 ✅: `editor/gui` (SandboxStudioGui), 홈 화면
+> 옮김, UI 무관 도우미 → `editor/services/ProjectHome`. R2-02: 빌드 때 AOT (`--compile-core`, 생성물 커밋 안 함), 정적 화면 = GXML
+> (`uihost::DocumentView`), 데이터 · 편집 화면 = C++, DocumentSession 의 포커스 · 캐럿 · 휠 · 트리 합성은 GUI-UP-14 — 구현은 다음 커밋.
 
 1. **R2-01 화면의 자리.** Studio 화면 (GraphicsUI) 을 editor/ 의 어느 하위 경로에 두고, check_includes 의 GraphicsUI 허용을 어디까지
    넓히나. editor/services (UI 무관) 는 그대로 GraphicsUI 를 모른다.

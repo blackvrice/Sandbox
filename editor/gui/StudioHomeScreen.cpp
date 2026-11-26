@@ -1,11 +1,16 @@
-#include "apps/client/studio/GuiStudioHome.hpp"
+#include "editor/gui/StudioHomeScreen.hpp"
 
 #include <algorithm>
 #include <format>
 
-#include "apps/client/studio/StudioHome.hpp"
+#include "editor/services/ProjectHome.hpp"
 
-namespace sbx::client {
+namespace sbx::editor::gui {
+
+using services::displayTime;
+using services::filterRecent;
+using services::suggestGameId;
+using services::suggestProjectDir;
 
 namespace {
 
@@ -60,28 +65,28 @@ std::filesystem::path pathOf(const std::string& s) {
 
 } // namespace
 
-void GuiStudioHome::setModel(GuiHomeModel model) {
+void StudioHomeScreen::setModel(StudioHomeModel model) {
     m_model = std::move(model);
     m_model.recovery.resize(m_model.recent.size()); // 짝이 맞지 않으면 복구 없음으로
 }
 
-void GuiStudioHome::setStatus(std::string message, bool failed) {
+void StudioHomeScreen::setStatus(std::string message, bool failed) {
     m_status = std::move(message);
     m_failed = failed;
 }
 
-std::optional<GuiHomeIntent> GuiStudioHome::takeIntent() {
+std::optional<StudioHomeIntent> StudioHomeScreen::takeIntent() {
     auto out = std::move(m_intent);
     m_intent.reset();
     return out;
 }
 
-std::optional<usize> GuiStudioHome::selectedRecent() const noexcept {
+std::optional<usize> StudioHomeScreen::selectedRecent() const noexcept {
     const auto key = m_list.selection();
     return key ? std::optional<usize>(static_cast<usize>(*key)) : std::nullopt;
 }
 
-GuiStudioHome::Field& GuiStudioHome::field(Part part) {
+StudioHomeScreen::Field& StudioHomeScreen::field(Part part) {
     for (Field& f : m_fields) {
         if (f.part == part) {
             return f;
@@ -90,7 +95,7 @@ GuiStudioHome::Field& GuiStudioHome::field(Part part) {
     return m_fields.front(); // 모든 칸을 mount 가 만든다 — 여기 오지 않는다
 }
 
-const std::string& GuiStudioHome::fieldText(Part part) const {
+const std::string& StudioHomeScreen::fieldText(Part part) const {
     static const std::string kEmpty;
     for (const Field& f : m_fields) {
         if (f.part == part) {
@@ -100,12 +105,12 @@ const std::string& GuiStudioHome::fieldText(Part part) const {
     return kEmpty;
 }
 
-const GuiStudioHome::Node* GuiStudioHome::nodeOf(gui::ComponentHandle h) const {
+const StudioHomeScreen::Node* StudioHomeScreen::nodeOf(gui::ComponentHandle h) const {
     const auto it = std::find_if(m_nodes.begin(), m_nodes.end(), [&](const Node& n) { return n.handle == h; });
     return it == m_nodes.end() ? nullptr : &*it;
 }
 
-std::optional<gui::ComponentHandle> GuiStudioHome::handleOf(Part part) const {
+std::optional<gui::ComponentHandle> StudioHomeScreen::handleOf(Part part) const {
     for (const Node& n : m_nodes) {
         bool match = false;
         switch (n.role) {
@@ -152,7 +157,7 @@ std::optional<gui::ComponentHandle> GuiStudioHome::handleOf(Part part) const {
     return std::nullopt;
 }
 
-std::string GuiStudioHome::textOf(const Node& n) const {
+std::string StudioHomeScreen::textOf(const Node& n) const {
     switch (n.role) {
     case Role::Title:
         return "Sandbox Studio";
@@ -207,7 +212,7 @@ std::string GuiStudioHome::textOf(const Node& n) const {
     }
 }
 
-double GuiStudioHome::emOf(Role role) const noexcept {
+double StudioHomeScreen::emOf(Role role) const noexcept {
     const double s = m_compact ? 0.93 : 1.0; // 촘촘 — 글자 · 여백을 조금 줄인다 (ImGui 홈의 Density 와 같은 뜻)
     switch (role) {
     case Role::Title:
@@ -221,7 +226,7 @@ double GuiStudioHome::emOf(Role role) const noexcept {
     }
 }
 
-void GuiStudioHome::refilter() {
+void StudioHomeScreen::refilter() {
     const std::string& query = fieldText(Part::Search);
     const std::vector<usize> order = filterRecent(m_model.recent, query);
     std::vector<gui::ListItemKey> keys;
@@ -238,7 +243,7 @@ void GuiStudioHome::refilter() {
     (void)m_list.scrollTo(0.0);
 }
 
-void GuiStudioHome::suggestExampleDir() {
+void StudioHomeScreen::suggestExampleDir() {
     if (m_example >= m_model.examples.size()) {
         return;
     }
@@ -251,7 +256,7 @@ void GuiStudioHome::suggestExampleDir() {
     }
 }
 
-void GuiStudioHome::fieldChanged(Field& f) {
+void StudioHomeScreen::fieldChanged(Field& f) {
     switch (f.part) {
     case Part::Search:
         refilter();
@@ -275,12 +280,12 @@ void GuiStudioHome::fieldChanged(Field& f) {
     }
 }
 
-void GuiStudioHome::submit(Part from) {
-    GuiHomeIntent intent;
+void StudioHomeScreen::submit(Part from) {
+    StudioHomeIntent intent;
     switch (from) {
     case Part::OpenDir:
     case Part::Open:
-        intent.kind = GuiHomeIntent::Kind::OpenFolder;
+        intent.kind = StudioHomeIntent::Kind::OpenFolder;
         intent.dir = pathOf(field(Part::OpenDir).value);
         break;
     case Part::ExampleDir:
@@ -288,12 +293,12 @@ void GuiStudioHome::submit(Part from) {
         if (m_example >= m_model.examples.size()) {
             return;
         }
-        intent.kind = GuiHomeIntent::Kind::CopyExample;
+        intent.kind = StudioHomeIntent::Kind::CopyExample;
         intent.dir = m_model.examples[m_example].dir;
         intent.dest = pathOf(field(Part::ExampleDir).value);
         break;
     default:
-        intent.kind = GuiHomeIntent::Kind::NewProject;
+        intent.kind = StudioHomeIntent::Kind::NewProject;
         intent.dir = pathOf(field(Part::Dir).value);
         intent.gameId = field(Part::GameId).value;
         intent.name = field(Part::Name).value;
@@ -305,16 +310,16 @@ void GuiStudioHome::submit(Part from) {
     m_intent = std::move(intent);
 }
 
-void GuiStudioHome::forgetSelected() {
+void StudioHomeScreen::forgetSelected() {
     if (const auto sel = selectedRecent()) {
-        GuiHomeIntent intent;
-        intent.kind = GuiHomeIntent::Kind::ForgetRecent;
+        StudioHomeIntent intent;
+        intent.kind = StudioHomeIntent::Kind::ForgetRecent;
         intent.dir = m_model.recent[*sel].dir;
         m_intent = std::move(intent);
     }
 }
 
-void GuiStudioHome::activate(const Node& n) {
+void StudioHomeScreen::activate(const Node& n) {
     const auto step = [](usize at, usize count, bool forward) -> usize {
         if (count == 0) {
             return 0;
@@ -346,18 +351,18 @@ void GuiStudioHome::activate(const Node& n) {
         submit(Part::CopyExample);
         break;
     case Role::Switch:
-        m_intent = GuiHomeIntent{GuiHomeIntent::Kind::SwitchToClassic, {}, {}, {}, {}, {}, false};
+        m_intent = StudioHomeIntent{StudioHomeIntent::Kind::SwitchToClassic, {}, {}, {}, {}, {}, false};
         break;
     case Role::Density:
-        m_intent = GuiHomeIntent{GuiHomeIntent::Kind::Density, {}, {}, {}, {}, {}, !m_compact};
+        m_intent = StudioHomeIntent{StudioHomeIntent::Kind::Density, {}, {}, {}, {}, {}, !m_compact};
         break;
     default:
-        m_intent = GuiHomeIntent{GuiHomeIntent::Kind::Quit, {}, {}, {}, {}, {}, false};
+        m_intent = StudioHomeIntent{StudioHomeIntent::Kind::Quit, {}, {}, {}, {}, {}, false};
         break;
     }
 }
 
-void GuiStudioHome::moveSelection(std::ptrdiff_t delta, bool toEnd, bool toStart) {
+void StudioHomeScreen::moveSelection(std::ptrdiff_t delta, bool toEnd, bool toStart) {
     const usize n = m_list.itemCount();
     if (n == 0) {
         return;
@@ -375,7 +380,7 @@ void GuiStudioHome::moveSelection(std::ptrdiff_t delta, bool toEnd, bool toStart
     }
 }
 
-gui::EventReply GuiStudioHome::listEvent(const gui::RoutedEvent& ev) {
+gui::EventReply StudioHomeScreen::listEvent(const gui::RoutedEvent& ev) {
     if (ev.phase != gui::EventPhase::target) {
         return {};
     }
@@ -403,8 +408,8 @@ gui::EventReply GuiStudioHome::listEvent(const gui::RoutedEvent& ev) {
             const bool same = row && m_pressKey && row->key == *m_pressKey;
             m_pressKey.reset();
             if (same && p->button == gui::PointerButton::primary) {
-                GuiHomeIntent intent;
-                intent.kind = GuiHomeIntent::Kind::OpenRecent;
+                StudioHomeIntent intent;
+                intent.kind = StudioHomeIntent::Kind::OpenRecent;
                 intent.dir = m_model.recent[static_cast<usize>(row->key)].dir;
                 m_intent = std::move(intent);
             }
@@ -441,8 +446,8 @@ gui::EventReply GuiStudioHome::listEvent(const gui::RoutedEvent& ev) {
         return {true, true};
     case gui::enter_key:
         if (const auto sel = selectedRecent(); sel && !k.repeat) {
-            GuiHomeIntent intent;
-            intent.kind = GuiHomeIntent::Kind::OpenRecent;
+            StudioHomeIntent intent;
+            intent.kind = StudioHomeIntent::Kind::OpenRecent;
             intent.dir = m_model.recent[*sel].dir;
             m_intent = std::move(intent);
         }
@@ -452,7 +457,7 @@ gui::EventReply GuiStudioHome::listEvent(const gui::RoutedEvent& ev) {
     }
 }
 
-gui::EventReply GuiStudioHome::fieldEvent(usize fieldIndex, const gui::RoutedEvent& ev) {
+gui::EventReply StudioHomeScreen::fieldEvent(usize fieldIndex, const gui::RoutedEvent& ev) {
     Field& f = m_fields[fieldIndex];
     const auto publish = [this, fieldIndex](std::string_view v) -> gui::Result<void> {
         Field& target = m_fields[fieldIndex];
@@ -479,8 +484,8 @@ gui::EventReply GuiStudioHome::fieldEvent(usize fieldIndex, const gui::RoutedEve
     if (ev.phase == gui::EventPhase::target && isKeyDown(ev, gui::enter_key)) {
         if (f.part == Part::Search) {
             if (const auto sel = selectedRecent()) {
-                GuiHomeIntent intent;
-                intent.kind = GuiHomeIntent::Kind::OpenRecent;
+                StudioHomeIntent intent;
+                intent.kind = StudioHomeIntent::Kind::OpenRecent;
                 intent.dir = m_model.recent[*sel].dir;
                 m_intent = std::move(intent);
             }
@@ -503,7 +508,7 @@ gui::EventReply GuiStudioHome::fieldEvent(usize fieldIndex, const gui::RoutedEve
     return r ? *r : gui::EventReply{};
 }
 
-Expected<void> GuiStudioHome::mount(uihost::UiHost& host) {
+Expected<void> StudioHomeScreen::mount(uihost::UiHost& host) {
     m_host = &host;
     m_nodes.clear();
     m_intent.reset();
@@ -716,7 +721,7 @@ Expected<void> GuiStudioHome::mount(uihost::UiHost& host) {
     return {};
 }
 
-Expected<void> GuiStudioHome::layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree,
+Expected<void> StudioHomeScreen::layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree,
                                      std::vector<gui::LayoutNode>& out) {
     if (tree.components.size() != m_nodes.size()) {
         return makeError(ErrorCode::Unknown, "GraphicsUI 홈: 트리와 노드 수가 다르다");
@@ -794,7 +799,7 @@ Expected<void> GuiStudioHome::layout(uihost::UiHost& host, const gui::ComponentS
     return {};
 }
 
-Expected<void> GuiStudioHome::paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) {
+Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) {
     const auto hit = host.pointerHit();
     const auto focusR = host.input().focus();
     const std::optional<gui::ComponentHandle> focus = focusR ? *focusR : std::nullopt;
@@ -859,7 +864,7 @@ Expected<void> GuiStudioHome::paint(uihost::UiHost& host, const gui::LayoutFrame
                     continue;
                 }
                 const usize at = static_cast<usize>(row->key);
-                const editor::services::RecentProject& p = m_model.recent[at];
+                const services::RecentProject& p = m_model.recent[at];
                 const gui::LayoutRect r = row->bounds;
                 const bool pressing = hit && *hit == n.handle && m_pressKey && *m_pressKey == row->key;
                 draws.push_back(gui::FillRect{{r.x, r.y + 1, r.width, fit(r.height - 2)},
@@ -957,4 +962,4 @@ Expected<void> GuiStudioHome::paint(uihost::UiHost& host, const gui::LayoutFrame
     return {};
 }
 
-} // namespace sbx::client
+} // namespace sbx::editor::gui

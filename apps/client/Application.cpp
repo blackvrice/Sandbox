@@ -2243,7 +2243,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         // 클립보드 = 창의 것 (ImGui 와 같은 곳 — 두 UI 사이 복사 · 붙여넣기가 된다)
         m_guiHost->setClipboard({[this] { return m_window.clipboardText(); },
                                  [this](std::string_view t) { m_window.setClipboardText(t); }});
-        m_guiHome = std::make_unique<GuiStudioHome>();
+        m_guiHome = std::make_unique<StudioHomeScreen>();
     }
     // 최근 목록이 바뀌었으면 (열기 · 잊기 · 만들기 · 처음) 다시 마운트 — 쓰던 글자는 화면이 남긴다
     std::vector<std::filesystem::path> dirs;
@@ -2251,7 +2251,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         dirs.push_back(r.dir);
     }
     if (dirs != m_guiRecent || m_guiHost->stats().frames == 0) {
-        GuiHomeModel model;
+        StudioHomeModel model;
         model.version = m_config.engineVersion;
         model.recent = m_config.projects->recent();
         model.templates = m_config.projects->templates();
@@ -2309,40 +2309,40 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     }
     StudioHomeAction a;
     switch (intent->kind) {
-    case GuiHomeIntent::Kind::OpenRecent:
+    case StudioHomeIntent::Kind::OpenRecent:
         a.kind = StudioHomeAction::Kind::OpenRecent;
         a.dir = intent->dir;
         return a;
-    case GuiHomeIntent::Kind::ForgetRecent:
+    case StudioHomeIntent::Kind::ForgetRecent:
         a.kind = StudioHomeAction::Kind::ForgetRecent;
         a.dir = intent->dir;
         return a;
-    case GuiHomeIntent::Kind::CopyExample:
+    case StudioHomeIntent::Kind::CopyExample:
         a.kind = StudioHomeAction::Kind::CopyExample;
         a.dir = intent->dir;
         a.dest = intent->dest;
         return a;
-    case GuiHomeIntent::Kind::Density:
+    case StudioHomeIntent::Kind::Density:
         a.kind = StudioHomeAction::Kind::Density;
         a.compact = intent->compact;
         return a;
-    case GuiHomeIntent::Kind::NewProject:
+    case StudioHomeIntent::Kind::NewProject:
         // ImGui 홈의 폼과 같은 상태를 채우고 같은 명령 (studio.new-project — 검사 · 만들기 · 들어가기 · 결과 줄)
         if (!fillHomeNewProject({intent->dir, intent->gameId, intent->name, intent->templateId})) {
             return std::nullopt;
         }
         a.kind = StudioHomeAction::Kind::NewProject;
         return a;
-    case GuiHomeIntent::Kind::OpenFolder: {
+    case StudioHomeIntent::Kind::OpenFolder: {
         const std::u8string d = intent->dir.generic_u8string();
         fillText(m_home.openDir, std::string(d.begin(), d.end()));
         a.kind = StudioHomeAction::Kind::OpenProject;
         return a;
     }
-    case GuiHomeIntent::Kind::Quit:
+    case StudioHomeIntent::Kind::Quit:
         a.kind = StudioHomeAction::Kind::Quit;
         return a;
-    case GuiHomeIntent::Kind::SwitchToClassic:
+    case StudioHomeIntent::Kind::SwitchToClassic:
         log::info("client", "GraphicsUI 홈 → 기존 UI (ImGui)");
         m_guiHomeActive = false;
         (void)m_guiHost->setScreen(nullptr); // 트리를 비운다 — 입력이 두 UI 에 가지 않는다

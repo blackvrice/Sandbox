@@ -32,7 +32,7 @@
 #include "apps/client/WorldSession.hpp"
 #include "apps/client/player/PlayerScreens.hpp"
 #include "apps/client/presentation/GameUiLayer.hpp"
-#include "apps/client/studio/GuiStudioHome.hpp"
+#include "editor/gui/StudioHomeScreen.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
@@ -70,6 +70,11 @@
 #include "platform/common/Window.hpp"
 
 namespace sbx::client {
+
+// GraphicsUI Studio 화면 (UI-R2-01 — editor/gui, ADR-0175)
+using editor::gui::StudioHomeIntent;
+using editor::gui::StudioHomeModel;
+using editor::gui::StudioHomeScreen;
 
 class ImGuiLayer;
 
@@ -204,7 +209,7 @@ public:
         return m_guiHost ? &m_guiHost->stats() : nullptr;
     }
     // 시험 · 진단: GraphicsUI 홈 화면 · 호스트 (처음 그리기 전 · 기존 UI 로 바꾼 뒤에도 남는다 — active 로 구분)
-    [[nodiscard]] const GuiStudioHome* graphicsUiHome() const noexcept { return m_guiHome.get(); }
+    [[nodiscard]] const StudioHomeScreen* graphicsUiHome() const noexcept { return m_guiHome.get(); }
     [[nodiscard]] const uihost::UiHost* graphicsUiHost() const noexcept { return m_guiHost.get(); }
     [[nodiscard]] bool graphicsUiHomeActive() const noexcept { return m_guiHomeActive; }
     [[nodiscard]] const platform::InputSystem& input() const noexcept { return m_input; }
@@ -335,7 +340,7 @@ private:
     // GraphicsUI 홈 (UI-R1): 측정 → 호스트 → 화면 차례로 만들고, 역순으로 지운다 (선언 역순 = 화면이 먼저 — 호스트의 핸들러가
     // 화면을 가리키므로 호스트 소멸자가 트리를 닫을 때 화면이 아직 살아 있게 화면을 호스트 앞에 선언)
     std::unique_ptr<GuiImGuiTextMeasure> m_guiText;
-    std::unique_ptr<GuiStudioHome> m_guiHome;
+    std::unique_ptr<StudioHomeScreen> m_guiHome;
     std::unique_ptr<uihost::UiHost> m_guiHost;
     bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
     bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다

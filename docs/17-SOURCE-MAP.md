@@ -212,7 +212,7 @@
 | `editor/ui/CommandPalette.{hpp,cpp}` | 명령 팔레트 (Ctrl+Shift+P — CommandService::search · ↑ ↓ · Enter · Esc · 흐린 끈 명령) · 단축키 표 · 충돌, shortcutChord (단축키 글자 → ImGui 키 조합) (v0.8 ST-06-2) | SandboxEditor |
 | `editor/ui/ConsolePanel.{hpp,cpp}` | Studio "콘솔" — 로그 최근 줄 (log::recentLines · recentTotal 이 바뀔 때만), 수준 · 글자 거르기 · 지우기 · 복사 · 따라가기 (v0.8 UI-3) | SandboxEditor |
 | `apps/client/studio/StudioShell.{hpp,cpp}` | Studio 셸 — 메뉴 막대 · 툴바 · 상태 막대 · 도크 공간 (가운데 통과) · 배치 프리셋 (DockBuilder) · 모드 띠, 고른 일만 돌려준다 (ShellActions) (v0.8 UI-1, ADR-0118) | SandboxClient |
-| `apps/client/studio/GuiStudioHome.{hpp,cpp}` · `apps/client/ui/GraphicsUiImGuiBridge.{hpp,cpp}` | GraphicsUI Studio 홈 (`--ui graphicsui` — 검색 · 가상 최근 목록 (ListView — 휠 · 키 · 클릭 · Delete) · 빼기 · 복구 표시 · 새 프로젝트 폼 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 · 간격 · 기존 UI 로 · 종료 → ImGui 홈과 같은 StudioHomeAction · 명령, UI-R2-09) · DisplayList → ImDrawList 과도기 렌더 · ImGui 글꼴 측정 (UI-R1-04 · 05, ADR-0174). 시험 `tests/unit/client/test_gui_studio_home.cpp` · `client_graphicsui_home_headless` | SandboxClient |
+| `editor/gui/StudioHomeScreen.{hpp,cpp}` · `editor/services/ProjectHome.{hpp,cpp}` · `apps/client/ui/GraphicsUiImGuiBridge.{hpp,cpp}` | (SandboxStudioGui · EditorServices — UI-R2-01, ADR-0175 — 홈 도우미 filterRecent · suggestProjectDir · suggestGameId · displayTime 는 ProjectHome) GraphicsUI Studio 홈 (`--ui graphicsui` — 검색 · 가상 최근 목록 (ListView — 휠 · 키 · 클릭 · Delete) · 빼기 · 복구 표시 · 새 프로젝트 폼 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 · 간격 · 기존 UI 로 · 종료 → ImGui 홈과 같은 StudioHomeAction · 명령, UI-R2-09) · DisplayList → ImDrawList 과도기 렌더 · ImGui 글꼴 측정 (UI-R1-04 · 05, ADR-0174). 시험 `tests/unit/client/test_gui_studio_home.cpp` · `client_graphicsui_home_headless` | SandboxClient |
 | `uihost/UiHost.{hpp,cpp}` · `uihost/InputRouting.{hpp,cpp}` | GraphicsUI 응용 호스트 · 입력 변환 · 글자 대상 (확정 글자 · IME 자리) · 휠 · 클립보드 · `caretFromX` · UI 배율 `setScale` (UI-R1-02 · 03 · 07 · 08 · 09, ADR-0174). 시험 `tests/unit/uihost/test_ui_host.cpp` (`unit_uihost`) | SandboxUiHost |
 | `apps/client/studio/StudioHome.{hpp,cpp}` | Studio 홈 — 창 전체: 위 막대 · 사이드바 (프로젝트 · 새 프로젝트 · 예제) · 검색 · 프로젝트 카드 (판 · 최근 · 복구 가능) · 단계형 새 프로젝트 (gameId 바로 검사) · 예제 복사 · 열기 창 · 복구 창, 고른 일만 돌려준다 (v0.8 M6-T1 → UI-2) | SandboxClient |
 | `editor/CMakeLists.txt`, `editor/EditorHost.hpp`                                                            | SandboxEditor (Core + Render + imgui + EditorServices, Network 금지) · SandboxEditorServices (Core 만 — ADR-0108). `ICommandSink` · `IEditorHost` — 에디터 ↔ 클라이언트 경계 (12A)                                                | SandboxEditor               |
@@ -460,6 +460,7 @@ uihost/                     GraphicsUI 통합 계층 (UI-R1 — ADR-0174 · docs
   InputRouting  PlatformEvent → GraphicsUI PointerEvent · KeyEvent (Windows 가상 키 번호 — GraphicsUI 컨트롤의 정본)
 
 editor/
+  gui/          StudioHomeScreen — GraphicsUI 로 그리는 Studio 화면 (SandboxStudioGui — 서비스 · uihost 위, ImGui · Render 모름, ADR-0175)
   EditorHost (ICommandSink · IEditorHost · EditPermissions) · Editor (툴 · EditPreview · editContent) · Undo
   ui/           EditorPanel ("편집") · InspectorPanel (인스펙터 · 목록) · ContentPanel ("콘텐츠" — JSON · 트리거 폼 · 스크립트) ·
                 TriggerForm · ScriptEditor (스크립트 칸 — v0.9 M6-T8)
@@ -471,7 +472,7 @@ apps/client/
   presentation/ SpriteExtraction · SelectionOverlay
   ui/           ImGuiLayer · DebugPanels · PlayersPanel · WorldPanel · GamePanel · ActionPanel · ScriptPanel ·
                 GraphicsUiImGuiBridge (GraphicsUI DisplayList → ImDrawList — 과도기 렌더, UI-R1)
-  studio/       StudioShell · StudioHome (ImGui) · GuiStudioHome (GraphicsUI 홈 — --ui graphicsui, UI-R1) · ProcessLauncher
+  studio/       StudioShell · StudioHome (ImGui) · ProcessLauncher   (GraphicsUI 홈은 editor/gui/StudioHomeScreen — UI-R2-01)
 apps/server/
   main · ServerOptions
 

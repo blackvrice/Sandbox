@@ -90,6 +90,7 @@ A3. 아래 계층은 위 계층을 모른다. 의존은 2장의 방향으로만.
 | SandboxRender     | static | RHI + 백엔드, Renderer, Shader, Asset, ImGui 렌더러                            | Platform                                | **Core**, Network, Editor                         |
 | SandboxEditorServices | static | UI 를 모르는 Studio 서비스 (editor/services — v0.8 ST-06-1, ADR-0089 · 0108): 명령 표 (CommandService) · 파일 문서 (DocumentService) · 하나의 되돌리기 줄 (UndoService — Editor 가 World 참여자, ADR-0110) · Game UI Designer 모델 (UiDesignService — ui/ 의 문서 모델 · 배치를 쓴다, v0.10 ST-06-4, ADR-0145) | Core                                    | Network, Platform, Render, Editor, ImGui, 그래픽/OS 헤더 |
 | SandboxUiHost     | static | GraphicsUI 통합 계층 (uihost/ — UI-R1, ADR-0174): GraphicsUI Core 의 트리 · 상태 · 입력을 소유하는 응용 호스트 · PlatformEvent → GraphicsUI 입력 · 글자 측정 계약 | Foundation, Platform, GraphicsUI::Core (external/graphics-ui) | Core, Network, Render, Editor, EditorServices, ImGui |
+| SandboxStudioGui  | static | GraphicsUI 로 그리는 Studio 화면 (editor/gui — UI-R2-01, ADR-0175): 홈 (StudioHomeScreen) | EditorServices, UiHost (GraphicsUI::Core) | Network, Render, Editor, ImGui |
 | SandboxEditor     | static | 패널, 툴, 선택, Inspector, 편집 명령 빌더                                      | Core, Render, EditorServices            | Network (ICommandSink로 분리)                     |
 | SandboxClient     | exe    | 앱 상태기계, Presentation(Extraction/Interpolation), LocalServerHost           | Editor, Network, Render, Platform, Core, Crash, Process | —                                          |
 | SandboxServer     | exe    | 인자 파싱 → ServerHost                                                         | Network, Core, Crash                    | Platform, Render, Editor, ImGui, UiHost · GraphicsUI |
@@ -120,7 +121,7 @@ include 루트가 저장소 루트라 링크하지 않은 모듈의 헤더도 �
 | GameUI(SandboxGameUI)가 Core · Render · ImGui 를 include 하지 않음 (v0.7, ADR-0079 3) | `check_includes.py` (ui/ → foundation · ui, ui/ 아래 그래픽 · ImGui 헤더 금지) | 테스트 실패                 |
 | EditorServices 가 Render · Platform · ImGui · 나머지 editor/ 를 모름 (v0.8 ST-06-1, ADR-0108) | 링크 경계 (sbx_forbid_link) + `check_includes.py` 하위 경로 규칙 (editor/services/ → foundation · script · ui · core · editor/services — ui 는 v0.10 ADR-0145) | 구성 오류 · 테스트 실패 |
 | Render가 Core를 링크하지 않음                                               | 같은 검사                                                | `FATAL_ERROR` |
-| GraphicsUI (`<graphics-ui/…>` · SandboxUiHost · GraphicsUICore) 는 uihost/ · apps/ · tests/ · bench/ · tools/ 만 — 아래 계층 · 서비스 · Render · Server 금지, uihost 는 Render · ImGui · Core 를 모름 (UI-R1, ADR-0174) | 링크 경계 (sbx_forbid_link — 같은 타깃의 규칙은 더한다) + `check_includes.py` (graphics-ui 규칙 · uihost 모듈 방향) | 구성 오류 · 테스트 실패 |
+| GraphicsUI (`<graphics-ui/…>` · SandboxUiHost · GraphicsUICore) 는 uihost/ · editor/gui/ · apps/ · tests/ · bench/ · tools/ 만 — 아래 계층 · 서비스 · Render · Server 금지, uihost 는 Render · ImGui · Core 를 모름 (UI-R1, ADR-0174) | 링크 경계 (sbx_forbid_link — 같은 타깃의 규칙은 더한다) + `check_includes.py` (graphics-ui 규칙 · uihost 모듈 방향) | 구성 오류 · 테스트 실패 |
 | foundation/script/core/network 및 render/rhi·render/renderer에 그래픽·OS 헤더 없음 | `tools/check_includes.py` (CTest 라벨 `arch`)            | 테스트 실패   |
 | 플랫폼 소스가 다른 OS에서 컴파일되지 않음                                   | CMake `if(WIN32)/APPLE/UNIX` + 백엔드 헤더 `#error` 가드 | 컴파일 에러   |
 

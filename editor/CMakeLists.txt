@@ -31,9 +31,20 @@ add_library(SandboxEditorServices STATIC
     services/ScriptDebugService.cpp
     services/UiDesignService.hpp
     services/UiDesignService.cpp
+    services/ProjectHome.hpp
+    services/ProjectHome.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)
+
+# SandboxStudioGui — GraphicsUI 로 그리는 Studio 화면 (editor/gui — UI-R2-01, ADR-0175). Editor Services (데이터 · 행동) ·
+# uihost (GraphicsUI 호스트 · 입력) 위. ImGui · Render · 나머지 editor/ (ImGui 패널) 를 모른다 — check_includes · sbx_forbid_link.
+add_library(SandboxStudioGui STATIC
+    gui/StudioHomeScreen.hpp
+    gui/StudioHomeScreen.cpp
+)
+add_library(Sandbox::StudioGui ALIAS SandboxStudioGui)
+target_link_libraries(SandboxStudioGui PUBLIC SandboxEditorServices SandboxUiHost PRIVATE sbx_warnings)
 
 # SandboxEditor — 툴 · 선택 · 패널 · 편집 명령 빌더 (Phase 12, docs/10-EDITOR.md, ADR-0028).
 # Core + Render 위. Network 를 모른다 (ICommandSink · IEditorHost 로 분리 — 경계 규칙이 검사한다).

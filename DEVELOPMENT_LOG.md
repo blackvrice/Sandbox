@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-11-26 — GraphicsUI 통합 UI-R2-01: Studio 의 GraphicsUI 화면 = editor/gui (ADR-0175), GXML 도입 방식 결정
+
+**무엇을**
+
+- 새 타깃 **SandboxStudioGui** (`editor/gui/`) — Editor Services · uihost 위의 GraphicsUI Studio 화면. 홈 화면을 옮겼다
+  (`apps/client/studio/GuiStudioHome` → `editor/gui/StudioHomeScreen`, 이름 GuiStudioHome · GuiHomeModel · GuiHomeIntent →
+  StudioHomeScreen · StudioHomeModel · StudioHomeIntent, 동작 그대로). Application 은 using 선언으로 연결만.
+- UI 와 무관한 홈 도우미 (filterRecent · suggestProjectDir · suggestGameId · displayTime) 를 ImGui 파일 (StudioHome.cpp) 에서
+  `editor/services/ProjectHome` 로 (동작 그대로). ImGui 홈은 using 선언으로 같은 함수를 부른다.
+- 경계: check_includes — editor/gui 하위 경로 규칙 (foundation · script · ui · core · editor/services · editor/gui · uihost · platform/common
+  만), 금지 헤더 (ImGui 등), GraphicsUI 허용 목록에 editor/gui. sbx_forbid_link — StudioGui ↛ Network · Render · Editor · ImGui,
+  Server ↛ StudioGui. 자체 시험 예제 editor/gui/BadGui (2) · GuiOk → `arch_include_lint_selftest` 18 → 20.
+- **ADR-0175** — 위 자리 + GXML · GCSS 도입 방식 (빌드 때 `--compile-core` AOT · 생성물 커밋 안 함 · 컴파일러 6 파일 벤더링 · Python ≥ 3.11,
+  정적 화면 = GXML · 데이터 화면 = C++, DocumentSession 호스트 = uihost::DocumentView, 부족한 것은 GUI-UP-14). 구현은 다음 커밋.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R2-01 · 02 (현황 문서의 다음 작업). Studio 화면 26 개를 실행 파일 폴더에 둘 수 없다.
+
+**검증** (Windows MSVC, 2026-11-26) — 구성 (링크 경계 검사) · Debug 빌드 통과, `unit_client` 124 케이스 통과 (홈 화면 · Application 시험 포함 —
+이름만 바뀌었다), `check_includes` 0 · 자체 시험 20, 헤드리스 실행 그대로 (컴포넌트 36 · 그리기 명령 87). 전체 CTest 99 / 99 · /WX (ci-werror) 빌드 통과.
+
+**남은 일** — UI-R2-02 구현 (GXML 컴파일러 벤더링 · sbx_gxml_core · DocumentView · 첫 GXML 화면 · CI Python 3.12).
+
 ## 2026-11-26 — GraphicsUI 통합 UI-R1-09: UI 배율 · DPI — ImGui 와 같은 크기
 
 **무엇을**
