@@ -7,9 +7,9 @@
 
 | 항목 | 상태 |
 |---|---|
-| 단계 | UI-R0 ✅ (창 FPS 기준선만 실기 대기) · UI-R1 🟡 9 / 12 (남음: 창 실행 실기 · 렌더러 공유 · 장치 손실) · UI-R2 🟡 2 / 10 (R2-01 화면 자리 · R2-09 홈 ✅, R2-02 GXML 결정) · UI-R3 ~ R10 ⬜ (R7 · R10 🔴) |
-| 작업 진행 | 81 중 22 Done (27 %) — **작업 수 비율이지 기능 완료가 아니다** |
-| 화면 이전 | Studio 화면 26 중 1 (홈 — ImGui 홈의 행동 전부). 기본 UI 는 여전히 ImGui (`--ui graphicsui` 로 고른다) |
+| 단계 | UI-R0 ✅ (창 FPS 기준선만 실기 대기) · UI-R1 🟡 9 / 12 (남음: 창 실행 실기 · 렌더러 공유 · 장치 손실) · UI-R2 🟡 3 / 10 (R2-01 화면 자리 · R2-02 GXML AOT · R2-09 홈 ✅) · UI-R3 ~ R10 ⬜ (R7 · R10 🔴) |
+| 작업 진행 | 81 중 23 Done (28 %) — **작업 수 비율이지 기능 완료가 아니다** |
+| 화면 이전 | Studio 화면 26 중 1 (홈 — ImGui 홈의 행동 전부) + 새 GXML 화면 1 (Studio 설정 — 테마 · 간격 · 개발자 창). 기본 UI 는 여전히 ImGui (`--ui graphicsui` 로 고른다) |
 | GraphicsUI 고정 | Core 만 `fa1e371` (main 최신, 2026-11-26) |
 | GPU 렌더 | 과도기 — DisplayList → ImDrawList → 기존 ImGui 렌더러 (GraphicsSDK 세 백엔드). GraphicsUI 렌더러는 GUI-UP-01 대기 |
 | 실행 | `SandboxClient --ui graphicsui` (헤드리스 검증 ✅ · Linux X11 창은 CI 시험 등록 · Windows · macOS 창은 사람 QA) |
@@ -33,8 +33,8 @@ UI-R0-01 ~ 08 · 10 ~ 12 (분석 · 대응표 · upstream 요구 · 기준선 ·
 
 ## 4. 다음 작업 (순서)
 
-1. **UI-R2-02 구현** — GXML 컴파일러 벤더링 · `sbx_gxml_core` (빌드 때 AOT) · `uihost::DocumentView` · 첫 GXML 화면 (설정), CI 에 Python 3.12.
-   (UI-R2-01 ✅ — 화면은 editor/gui.) 그다음 **UI-R2-03** 테마 토큰 → GCSS — Studio 화면의 자리 (editor/ 의 GraphicsUI 허용), GXML · GCSS 도입 방식 (AOT 도구 · 생성물).
+1. **UI-R2-03** 테마 토큰 → GCSS (StudioTheme 의 Dark · Light · High Contrast 를 GCSS 변수로 — 홈 (C++) · 설정 (GXML) 이 같은 토큰).
+   (UI-R2-01 · 02 ✅ — 화면은 editor/gui, GXML 은 빌드 때 C++, 첫 GXML 화면 = 설정) — Studio 화면의 자리 (editor/ 의 GraphicsUI 허용), GXML · GCSS 도입 방식 (AOT 도구 · 생성물).
 2. **UI-R2-05** Dock 작업 공간 (좁은 창 세로 스크롤 포함) (한 OS 창 안) → UI-R3 의 즉시 · 어댑터 패널 (콘솔 · 빌드 · 테스트 · 단축키 표 · 진단 · Hierarchy).
 3. 사람 QA — Q-00 (ImGui 기준선) · Q-01 (GraphicsUI 홈 — Windows 창).
 4. upstream — GUI-UP-01 · 03 · 04 를 GraphicsUI 작업으로 넘긴다 (이 저장소에서 GraphicsUI 를 고치지 않는다).

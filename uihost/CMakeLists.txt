@@ -7,6 +7,8 @@ add_library(SandboxUiHost STATIC
     UiHost.cpp
     InputRouting.hpp
     InputRouting.cpp
+    DocumentView.hpp
+    DocumentView.cpp
 )
 add_library(Sandbox::UiHost ALIAS SandboxUiHost)
 

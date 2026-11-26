@@ -4,7 +4,7 @@
     python tools/vendor_graphics_ui.py --ui D:/source/GraphicsUI --commit <40자 해시>
 
 `git archive <commit>` 로 Core 의 공개 헤더 (include/graphics-ui/core) · 구현 (src/core) · 버전 헤더 틀
-(cmake/GraphicsUIVersion.hpp.in) · LICENSE · Unicode 데이터 라이선스를 external/graphics-ui 에 풀고, 그 커밋의 CMakeLists.txt
+(cmake/GraphicsUIVersion.hpp.in) · LICENSE · Unicode 데이터 라이선스 · GXML 컴파일러의 Core 모드 6 파일 (tools/ — ADR-0175) 을 external/graphics-ui 에 풀고, 그 커밋의 CMakeLists.txt
 에서 GraphicsUICore 의 소스 목록과 project VERSION 을 읽어 CORE_SOURCES.txt · VERSION 에 적는다. Sandbox 는 GraphicsUI 의
 최상위 CMakeLists 를 add_subdirectory 하지 않는다 (연구 · 예제 · Python 도구 · SDK 스냅숏 검사가 함께 붙는다) —
 cmake/SbxGraphicsUi.cmake 가 이 목록으로 같은 GraphicsUICore 타깃을 만든다.
@@ -31,7 +31,16 @@ PATHS = [
     "cmake/GraphicsUIVersion.hpp.in",
     "LICENSE",
     "third_party/unicode/17.0.0/license.txt",
+    # GXML · GCSS 컴파일러의 Core 모드 (--compile-core · --compile-ir) — 순수 Python 3.11 + 표준 expat (ADR-0175).
+    # 이 목록은 그 커밋 gxmlc.py 의 compiler_inputs 와 같아야 한다 (아래에서 검사)
+    "tools/gxmlc.py",
+    "tools/gxml_schema.py",
+    "tools/gxml_core.py",
+    "tools/gcss_syntax.py",
+    "tools/gcss_core.py",
+    "tools/gxml_ir.py",
 ]
+GXML_TOOLS = [p.removeprefix("tools/") for p in PATHS if p.startswith("tools/")]
 
 
 def git(repo: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
@@ -70,6 +79,11 @@ def main() -> int:
         return 2
 
     cmake_text = git(args.ui, "show", f"{args.commit}:CMakeLists.txt").stdout.decode("utf-8")
+    gxmlc = git(args.ui, "show", f"{args.commit}:tools/gxmlc.py").stdout.decode("utf-8")
+    m = re.search(r"compiler_inputs = \(([^)]*)\)", gxmlc)
+    if not m or sorted(re.findall(r'"([^"]+)"', m.group(1))) != sorted(GXML_TOOLS):
+        print("gxmlc.py 의 compiler_inputs 가 바뀌었다 — PATHS 의 tools 목록을 맞춘다", file=sys.stderr)
+        return 1
     sources = core_sources(cmake_text)
     version = project_version(cmake_text)
     archive = git(args.ui, "archive", "--format=tar", args.commit, *PATHS).stdout

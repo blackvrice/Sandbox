@@ -285,6 +285,9 @@
 | `external/enet/`                                                                                            | ENet v1.3.18 (C 소스 · include/enet · LICENSE, 수정 없음)                                                                                                           | sbx_enet                    |
 | `external/imgui/`                                                                                           | Dear ImGui v1.92.9b docking (imgui*.{h,cpp} · imstb_* · LICENSE, 수정 없음 — ADR-0023)                                                                              | sbx_imgui                   |
 | `external/vulkan-headers/`                                                                                  | Vulkan-Headers v1.4.309 (C 헤더만, 수정 없음) — Graphics SDK 의 Vulkan 백엔드가 쓴다 (volk 는 ADR-0168 뒤 삭제)                                                       | — (GFX_VULKAN_HEADERS)      |
+| `cmake/SbxGxml.cmake` · `external/graphics-ui/tools/` (gxmlc · gxml_schema · gxml_core · gcss_syntax · gcss_core · gxml_ir) | GXML · GCSS → C++ 헤더 (빌드 때 AOT — `sbx_gxml_core`, Python ≥ 3.11, UI-R2-02, ADR-0175) | — (함수) |
+| `uihost/DocumentView.{hpp,cpp}` | GXML 화면의 호스트 — DocumentSession + 포인터 · 키 · 배율 · 확정 글자 → 누른 TextBox · IME 자리 (UI-R2-02). 시험 `tests/unit/uihost/test_document_view.cpp` (문서 `tests/data/gxml/test_form.*`) | SandboxUiHost |
+| `editor/gui/StudioSettingsScreen.{hpp,cpp}` · `editor/gui/gxml/studio_settings.{gxml,gcss,model.json}` | Studio 설정 — GXML 로 쓴 첫 화면 (테마 · 간격 · 개발자 창 · 닫기 → 의도, Application 이 기존 명령으로), 홈의 "설정" 단추 (UI-R2-02) | SandboxStudioGui |
 | `external/graphics-ui/` · `cmake/SbxGraphicsUi.cmake` · `tools/vendor_graphics_ui.py` | GraphicsUI Core 만 (고정 커밋 `VENDORED_COMMIT` · `CORE_SOURCES.txt` · `VERSION`, 수정 없음) · 같은 이름의 타깃 정의 · 갱신 도구 (ADR-0174) | `GraphicsUI::Core` (GraphicsUICore) |
 | `external/graphics-sdk/` · `cmake/SbxGraphicsSdk.cmake` · `tools/vendor_graphics_sdk.py` | Graphics SDK 코어 (고정 커밋 `VENDORED_COMMIT`, 수정 없음) · 공급 (기본 함께 빌드, `SBX_SYSTEM_GRAPHICS_SDK` = 설치본) · 갱신 도구 (ADR-0169) | `GraphicsSDK::Core` |
 | `external/spirv-cross/`                                                                                     | SPIRV-Cross 1.4.304.1 의 코어 · GLSL · MSL 소스 (수정 없음 — ADR-0035)                                                                                              | sbx_spirv_cross             |
@@ -458,9 +461,10 @@ uihost/                     GraphicsUI 통합 계층 (UI-R1 — ADR-0174 · docs
   UiHost        응용 호스트 — 트리 · 상태 · 입력 소유, feed (직전 배치로 hit-test) · frame (작업자 → 배치 → DisplayList) ·
                 setScreen (IUiScreen) · ITextMeasure · ApproxTextMeasure · PaintList · UiFrameStats · toError
   InputRouting  PlatformEvent → GraphicsUI PointerEvent · KeyEvent (Windows 가상 키 번호 — GraphicsUI 컨트롤의 정본)
+  DocumentView  GXML 화면 (DocumentSession) 의 호스트 — 같은 창 계약 (UI-R2-02)
 
 editor/
-  gui/          StudioHomeScreen — GraphicsUI 로 그리는 Studio 화면 (SandboxStudioGui — 서비스 · uihost 위, ImGui · Render 모름, ADR-0175)
+  gui/          StudioHomeScreen · StudioSettingsScreen (GXML — gxml/studio_settings.*) — GraphicsUI 로 그리는 Studio 화면 (SandboxStudioGui — 서비스 · uihost 위, ImGui · Render 모름, ADR-0175)
   EditorHost (ICommandSink · IEditorHost · EditPermissions) · Editor (툴 · EditPreview · editContent) · Undo
   ui/           EditorPanel ("편집") · InspectorPanel (인스펙터 · 목록) · ContentPanel ("콘텐츠" — JSON · 트리거 폼 · 스크립트) ·
                 TriggerForm · ScriptEditor (스크립트 칸 — v0.9 M6-T8)

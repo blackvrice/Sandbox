@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "fields": {
+    "status": {"type": "text"}
+  },
+  "commands": {
+    "theme_dark": {"argument": null},
+    "theme_light": {"argument": null},
+    "theme_contrast": {"argument": null},
+    "toggle_density": {"argument": null},
+    "toggle_developer": {"argument": null},
+    "close": {"argument": null}
+  }
+}

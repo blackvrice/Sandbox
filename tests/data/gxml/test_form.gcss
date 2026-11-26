@@ -1,0 +1,4 @@
+:root { font-id: resource(ui-font); font-size: 14px; background-color: #101418; color: #E0E0E0; }
+Panel#main { padding: 10px 10px; gap: 10px; }
+TextBox { width: 200px; height: 30px; }
+Button { width: 100px; height: 30px; }

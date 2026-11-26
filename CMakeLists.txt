@@ -57,6 +57,7 @@ add_subdirectory(platform)
 # GraphicsUI 통합 (UI-R1 — ADR-0174): GraphicsUI Core (external/graphics-ui) 와 응용 호스트 SandboxUiHost. 항상 만든다 —
 # GPU · OS 창 의존이 없어 단위 테스트가 헤드리스로 돈다. 쓰는 곳은 클라이언트 · 시험뿐 (Server 는 링크하지 않는다)
 include(SbxGraphicsUi)
+include(SbxGxml) # GXML · GCSS → C++ (UI-R2-02, ADR-0175)
 add_subdirectory(uihost)
 # Render 도 항상 만든다: RHI 의 순수 로직(핸들 풀·지연 해제·업로드 링)과 이미지 비교를 단위 테스트가 쓴다.
 # 백엔드가 없는 OS 는 createRenderDevice 가 Unsupported.

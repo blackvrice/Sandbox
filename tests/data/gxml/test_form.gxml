@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- uihost::DocumentView 시험용 폼 (UI-R2-02) — 글자 칸 하나 · 단추 하나 -->
+<Window xmlns="urn:graphics-ui:gxml" id="test-form">
+  <Resource id="ui-font" type="font" value="1"/>
+  <Panel id="main">
+    <TextBlock id="echo" text="{Binding name}"/>
+    <TextBox id="name" text="{Binding name, Mode=TwoWay}" onChange="set_name"/>
+    <Button id="ok" text="확인" onClick="ok"/>
+  </Panel>
+</Window>

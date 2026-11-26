@@ -2271,6 +2271,9 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     m_guiHome->setCompact(m_shell.density == editor::theme::Density::Compact);
     // UI 배율 = ImGui 와 같은 값 (ImGuiLayer — contentScale × 사용자 uiScale) — 두 UI 가 같은 크기로 보인다 (UI-R1-09)
     const f32 scale = ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
+    if (m_guiSettingsOpen && m_guiSettings) {
+        return guiSettingsFrame(scale); // 설정 화면이 열린 동안 홈은 입력 · 그리기를 받지 않는다
+    }
     m_guiHost->setScale(scale);
     m_guiHost->feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2281,18 +2284,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     // 배경 그리기 목록 — 알림 · 팔레트 같은 ImGui 창이 그 위에 온다 (과도기 렌더 경로, GraphicsUiImGuiBridge)
     const GuiBridgeStats drawn = drawDisplayList(**display, *ImGui::GetBackgroundDrawList(), nullptr, 0.f, 0.f, scale);
     // 글자 칸에 포커스가 있으면 창의 글자 입력 (IME) 을 켜고 후보 창을 캐럿에 — 우리가 켠 것만 끈다 (게임 UI · ImGui 와 같은 규칙)
-    const uihost::TextInputState ti = m_guiHost->textInput();
-    if (ti.active && !m_window.textInputActive()) {
-        m_window.setTextInputActive(true);
-        m_guiTextInput = true;
-    } else if (!ti.active && m_guiTextInput) {
-        m_window.setTextInputActive(false);
-        m_guiTextInput = false;
-    }
-    if (ti.active && ti.caret) {
-        m_window.setTextInputArea(static_cast<f32>(ti.caret->x), static_cast<f32>(ti.caret->y),
-                                  static_cast<f32>(ti.caret->height));
-    }
+    syncGuiTextInput(m_guiHost->textInput());
     m_guiHomeDrawn = true;
     if (!m_guiHomeLogged) {
         const uihost::UiFrameStats& st = m_guiHost->stats();
@@ -2326,6 +2318,20 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         a.kind = StudioHomeAction::Kind::Density;
         a.compact = intent->compact;
         return a;
+    case StudioHomeIntent::Kind::OpenSettings:
+        if (!m_guiSettings) {
+            auto made = StudioSettingsScreen::create();
+            if (!made) {
+                m_home.failed = true;
+                m_home.message = std::format("설정 화면을 열 수 없다 — {}", made.error().describe());
+                log::warn("client", "{}", m_home.message);
+                return std::nullopt;
+            }
+            m_guiSettings = std::move(*made);
+        }
+        m_guiSettingsOpen = true;
+        log::info("client", "GraphicsUI 설정 (GXML)");
+        return std::nullopt;
     case StudioHomeIntent::Kind::NewProject:
         // ImGui 홈의 폼과 같은 상태를 채우고 같은 명령 (studio.new-project — 검사 · 만들기 · 들어가기 · 결과 줄)
         if (!fillHomeNewProject({intent->dir, intent->gameId, intent->name, intent->templateId})) {
@@ -2346,6 +2352,65 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         log::info("client", "GraphicsUI 홈 → 기존 UI (ImGui)");
         m_guiHomeActive = false;
         (void)m_guiHost->setScreen(nullptr); // 트리를 비운다 — 입력이 두 UI 에 가지 않는다
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+void Application::syncGuiTextInput(const uihost::TextInputState& ti) {
+    if (ti.active && !m_window.textInputActive()) {
+        m_window.setTextInputActive(true);
+        m_guiTextInput = true;
+    } else if (!ti.active && m_guiTextInput) {
+        m_window.setTextInputActive(false);
+        m_guiTextInput = false;
+    }
+    if (ti.active && ti.caret) {
+        m_window.setTextInputArea(static_cast<f32>(ti.caret->x), static_cast<f32>(ti.caret->y),
+                                  static_cast<f32>(ti.caret->height));
+    }
+}
+
+std::optional<StudioHomeAction> Application::guiSettingsFrame(f32 scale) {
+    uihost::DocumentView& view = m_guiSettings->view();
+    m_guiSettings->setState({std::string(editor::theme::themeName(m_shell.theme)),
+                             m_shell.density == editor::theme::Density::Compact, m_shell.developerPanels});
+    view.setScale(scale);
+    view.feed(m_events.events());
+    const ImVec2 size = ImGui::GetIO().DisplaySize;
+    auto display = view.frame({static_cast<double>(size.x), static_cast<double>(size.y)});
+    if (!display) {
+        log::error("client", "GraphicsUI 설정을 그리지 못했다 — 홈으로: {}", display.error().describe());
+        m_guiSettingsOpen = false;
+        return std::nullopt;
+    }
+    (void)drawDisplayList(**display, *ImGui::GetBackgroundDrawList(), nullptr, 0.f, 0.f, scale);
+    syncGuiTextInput(view.textInput());
+    m_guiHomeDrawn = true;
+    const auto intent = m_guiSettings->takeIntent();
+    if (!intent) {
+        return std::nullopt;
+    }
+    using K = editor::gui::StudioSettingsIntent::Kind;
+    switch (intent->kind) {
+    case K::Theme:
+        // 보기 › 테마 와 같은 명령 — 다음 셸 단계가 적용 · studio.json 저장
+        (void)m_commands.run("view.theme-" + intent->theme);
+        return std::nullopt;
+    case K::ToggleDeveloper: {
+        (void)m_commands.run("view.developer-panels");
+        PanelActions unused;
+        applyShellActions(ShellActions{}, unused); // 개발자 창 설정 저장 (셸의 적용 단계와 같은 길)
+        return std::nullopt;
+    }
+    case K::ToggleDensity: {
+        StudioHomeAction a;
+        a.kind = StudioHomeAction::Kind::Density;
+        a.compact = m_shell.density != editor::theme::Density::Compact;
+        return a;
+    }
+    case K::Close:
+        m_guiSettingsOpen = false;
         return std::nullopt;
     }
     return std::nullopt;
@@ -2435,7 +2500,8 @@ void Application::dispatchShortcuts() {
     if (m_config.ui == nullptr || ImGui::GetIO().WantTextInput) {
         return; // 글자 칸에 쓰는 중
     }
-    if (m_guiHomeActive && m_guiHost && m_guiHost->textFocused()) {
+    if (m_guiHomeActive && ((m_guiHost && m_guiHost->textFocused()) ||
+                            (m_guiSettingsOpen && m_guiSettings && m_guiSettings->view().textFocused()))) {
         return; // GraphicsUI 글자 칸에 쓰는 중 (UI-R1-08 — Ctrl+A · C · V · Z 는 그 칸의 편집)
     }
     const std::string_view context =

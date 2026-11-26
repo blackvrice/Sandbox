@@ -136,6 +136,9 @@ SandboxRender             STATIC     PUBLIC Platform, PRIVATE sbx_stb. 항상 �
 sbx_stb_impl              OBJECT     render/asset/StbImpl.cpp — stb 구현 TU (sbx_warnings 밖)
 GraphicsSDKCore           STATIC     external/graphics-sdk (EXCLUDE_FROM_ALL · SYSTEM — SDK 의 경고 설정, ADR-0169). D3D12 · Vulkan
                                      (헤더 = external/vulkan-headers, Linux XCB) · Metal 을 Sandbox 옵션대로
+sbx_gxml_core(<타깃> …)    함수       GXML · GCSS → C++ 헤더 (빌드 때 external/graphics-ui/tools/gxmlc.py --compile-core — UI-R2-02,
+                                     ADR-0175, cmake/SbxGxml.cmake). Python ≥ 3.11 이 필요 (없으면 SBX_GXML_AVAILABLE=OFF — GXML 화면 없이 빌드,
+                                     SBX_HAS_GXML 정의 없음). 생성물은 <빌드>/generated/gxml (커밋하지 않는다)
 GraphicsUICore            STATIC     external/graphics-ui 의 Core 만 (UI-R1, ADR-0174 — cmake/SbxGraphicsUi.cmake, 별칭 GraphicsUI::Core).
                                      소스 = CORE_SOURCES.txt (그 커밋의 GraphicsUI CMakeLists 목록), C++23 · SYSTEM include · MSVC /permissive-
                                      /utf-8 (sbx_warnings 밖). 생성 헤더 graphics-ui/core/version.hpp (VERSION). 항상 구성, 링크는 아래 둘만

@@ -18,6 +18,7 @@
 #include "editor/gui/StudioHomeScreen.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/ui/GraphicsUiImGuiBridge.hpp"
+#include "editor/gui/StudioSettingsScreen.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
@@ -530,4 +531,123 @@ TEST_SUITE("client") {
         std::error_code ec;
         fs::remove_all(root, ec);
     }
+
+#if defined(SBX_HAS_GXML)
+    TEST_CASE("gui settings (GXML): status shows the state, buttons return intents") {
+        auto made = editor::gui::StudioSettingsScreen::create();
+        REQUIRE(made);
+        editor::gui::StudioSettingsScreen& screen = **made;
+        screen.setState({"dark", false, true});
+        CHECK(screen.statusText() == "테마 어두움 · 간격 보통 · 개발자 창 켜짐");
+        uihost::DocumentView& v = screen.view();
+        const auto d = v.frame({1280, 720});
+        REQUIRE(d);
+        bool shown = false;
+        for (const gui::RenderCommand& c : (*d)->commands()) {
+            if (const auto* t = std::get_if<gui::DrawText>(&c); t != nullptr && t->utf8 == screen.statusText()) {
+                shown = true;
+            }
+        }
+        CHECK(shown); // GXML 의 {Binding status} 가 화면에
+        const auto press = [&](std::string_view id) {
+            const auto h = v.session().find(id);
+            REQUIRE(h);
+            REQUIRE(*h);
+            gui::LayoutRect r{};
+            for (const gui::LayoutBox& b : v.session().layout().boxes()) {
+                if (b.component == **h) {
+                    r = b.bounds;
+                }
+            }
+            const Vec2 at{static_cast<f32>(r.x + r.width / 2), static_cast<f32>(r.y + r.height / 2)};
+            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at}},
+                                PlatformEvent{MouseButtonUp{MouseButton::Left, at}}};
+            v.feed(ev);
+            REQUIRE(v.frame({1280, 720}));
+            return screen.takeIntent();
+        };
+        using K = editor::gui::StudioSettingsIntent::Kind;
+        auto i = press("theme-light");
+        REQUIRE(i);
+        CHECK(i->kind == K::Theme);
+        CHECK(i->theme == "light");
+        i = press("theme-contrast");
+        REQUIRE(i);
+        CHECK(i->theme == "high-contrast");
+        i = press("density");
+        REQUIRE(i);
+        CHECK(i->kind == K::ToggleDensity);
+        i = press("developer");
+        REQUIRE(i);
+        CHECK(i->kind == K::ToggleDeveloper);
+        i = press("close");
+        REQUIRE(i);
+        CHECK(i->kind == K::Close);
+        // 상태가 바뀌면 다음 frame 의 글이 바뀐다
+        screen.setState({"light", true, false});
+        CHECK(screen.statusText() == "테마 밝음 · 간격 촘촘 · 개발자 창 꺼짐");
+    }
+
+    TEST_CASE("app (--ui graphicsui, 헤드리스): 설정 (GXML) — 테마 · 개발자 창은 기존 명령, 닫으면 홈") {
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_settings_{}", std::random_device{}());
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        editor::services::ProjectService projects(catalog, SemVer{0, 8, 0, {}, {}}, SBX_CONTENT_DIR,
+                                                  root / "studio.json", SBX_ASSETS_DIR, SBX_SAMPLES_DIR);
+        HeadlessWindow window(WindowDesc{.width = 1280, .height = 720});
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.fixedDt = 1.0 / 60.0;
+        cfg.ui = &imgui;
+        cfg.projects = &projects;
+        cfg.graphicsUiHome = true;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        const auto inject = [&](const auto& events) {
+            for (const PlatformEvent& e : events) {
+                window.inject(e);
+            }
+            REQUIRE(app.frame());
+        };
+        inject(clickAt(*app.graphicsUiHost(), *app.graphicsUiHome()->handleOf(Part::Settings)));
+        REQUIRE(app.frame());
+        editor::gui::StudioSettingsScreen* settings = app.graphicsUiSettings();
+        REQUIRE(settings != nullptr);
+        const auto press = [&](std::string_view id) {
+            uihost::DocumentView& v = settings->view();
+            const auto h = v.session().find(id);
+            REQUIRE(h);
+            REQUIRE(*h);
+            gui::LayoutRect r{};
+            for (const gui::LayoutBox& b : v.session().layout().boxes()) {
+                if (b.component == **h) {
+                    r = b.bounds;
+                }
+            }
+            const Vec2 at{static_cast<f32>(r.x + r.width / 2), static_cast<f32>(r.y + r.height / 2)};
+            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at}},
+                                PlatformEvent{MouseButtonUp{MouseButton::Left, at}}};
+            inject(ev);
+            REQUIRE(app.frame()); // 명령이 고른 셸 일은 다음 셸 단계에서 적용된다
+        };
+        CHECK(app.studioTheme() == editor::theme::Theme::Dark);
+        press("theme-light");
+        CHECK(app.studioTheme() == editor::theme::Theme::Light);
+        const bool dev = app.developerPanels();
+        press("developer");
+        CHECK(app.developerPanels() != dev);
+        CHECK(settings->statusText().find("밝음") != std::string::npos);
+        press("close");
+        CHECK(app.graphicsUiSettings() == nullptr); // 홈으로
+        CHECK(app.graphicsUiHomeActive());
+        std::error_code ec;
+        fs::remove_all(root, ec);
+    }
+#endif
 }

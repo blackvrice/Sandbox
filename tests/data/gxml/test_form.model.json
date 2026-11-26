@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "fields": {"name": {"type": "text"}},
+  "commands": {
+    "set_name": {"argument": "text", "writes": "name"},
+    "ok": {"argument": null}
+  }
+}

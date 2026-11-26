@@ -6,7 +6,7 @@
 
 | 의존 | 고정 | 어디 | 가져오는 것 | 도구 |
 |---|---|---|---|---|
-| GraphicsUI | `fa1e37157d148e31a2475fba034d600b9edaff0c` (main, 2026-11-26 13:34 UTC 커밋 · GraphicsUI 0.0.1) | `external/graphics-ui/VENDORED_COMMIT` | Core 만 — `include/graphics-ui/core` · `src/core` · `cmake/GraphicsUIVersion.hpp.in` · `LICENSE` (MIT) · Unicode 라이선스. `CORE_SOURCES.txt` = 그 커밋의 `add_library(GraphicsUICore …)` 목록, `VERSION` = project VERSION | `tools/vendor_graphics_ui.py` |
+| GraphicsUI | `fa1e37157d148e31a2475fba034d600b9edaff0c` (main, 2026-11-26 13:34 UTC 커밋 · GraphicsUI 0.0.1) | `external/graphics-ui/VENDORED_COMMIT` | Core 만 — `include/graphics-ui/core` · `src/core` · `cmake/GraphicsUIVersion.hpp.in` · `LICENSE` (MIT) · Unicode 라이선스 · GXML 컴파일러 Core 모드 6 파일 (`tools/` — 그 커밋 gxmlc.py 의 compiler_inputs 와 같은지 도구가 검사, ADR-0175). `CORE_SOURCES.txt` = 그 커밋의 `add_library(GraphicsUICore …)` 목록, `VERSION` = project VERSION | `tools/vendor_graphics_ui.py` |
 | GraphicsSDK | `95967d2ea3c2412fa1b51ee21a2e8fcee0759a59` | `external/graphics-sdk/VENDORED_COMMIT` | 코어 (ADR-0169) | `tools/vendor_graphics_sdk.py` |
 
 - 2026-11-26 조사: GraphicsUI main 은 이 세션 중에 b29d1cd → fa1e371 로 움직였다. 두 커밋의 Core 파일은 같다 (`git diff b29d1cd fa1e371 --
@@ -30,6 +30,8 @@ utf8) 는 include 하지 않는다.
 | `controls.hpp` | `Button` (`setEnabled · handle · visualState`), 키 상수 (`enter_key` …) | uihost/InputRouting · GuiStudioHome |
 | `layout.hpp` | `LayoutNode` · `LayoutStyle` · `LayoutCache::measure` · `arrangeLayout` · `LayoutFrame::hitTest · boxes` | uihost · GuiStudioHome |
 | `render.hpp` | `RenderNode` · `DrawCommand` (FillRect · DrawText · LinearGradient · DropShadow) · `buildDisplayList` · `DisplayList::commands` · `PushClip` · `PopClip` | uihost · GraphicsUiImGuiBridge |
+| `scroll.hpp` · `text.hpp` | `ListView` (setItems · select · reveal · scrollBy · visibleRange · visibleRow · hitTest) · `textBoundaries` | StudioHomeScreen · uihost (caretFromX) |
+| `document.hpp` | `Document` · `DocumentSession` (create · render · pointer · key · editText · find · layout · display) · `DocumentHost` · `DocumentField` · `DocumentCommand` · 생성 헤더의 `graphics_ui::generated::document_*()` | uihost/DocumentView · StudioSettingsScreen |
 
 ## 3. 갱신 절차 (GraphicsUI)
 

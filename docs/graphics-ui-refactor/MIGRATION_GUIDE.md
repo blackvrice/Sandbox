@@ -16,6 +16,21 @@
 5. 시험                     헤드리스 UiHost + 입력 주입 (tests/unit/client/test_gui_studio_home.cpp 처럼) + ImGui 판과 같은 서비스 시험
 ```
 
+## 1b. GXML 로 쓰는 화면 (정적 구조 — UI-R2-02, ADR-0175)
+
+```text
+1. editor/gui/gxml/<이름>.gxml · .gcss · .model.json (필드 · 명령 — DocumentSession 이 등록과 대조한다)
+   쓸 수 있는 노드: Window · Panel · StackPanel · Grid · FlexPanel · TextBlock · TextBox · Button (+ Component · Template · Use)
+2. editor/CMakeLists.txt: sbx_gxml_core(SandboxStudioGui NAME <이름> MARKUP … STYLE … MODEL …) — 빌드 때
+   <빌드>/generated/gxml/sandbox/gxml/<이름>.hpp (graphics_ui::generated::document_<루트 id>())
+3. 화면 클래스: #if defined(SBX_HAS_GXML) 로 그 헤더 → uihost::DocumentView::create(document, setup)
+   setup = 모델과 같은 필드 (StateStore::define) · 명령 (Invoke = 단추, Edit = 글자 칸 — **처리기가 값을 transact 로 게시한다**)
+4. 의도만 돌려주고 Application 이 기존 명령으로 처리 (editor/gui/StudioSettingsScreen 이 예)
+5. 시험: tests/data/gxml 의 문서를 SandboxTests 에 sbx_gxml_core 로 — DocumentView 에 입력 주입 (tests/unit/uihost/test_document_view.cpp)
+```
+
+GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 · 정확한 IME 캐럿이 없다. 목록 · 표 · 트리 · 스크롤이 필요한 화면은 C++ 로.
+
 ## 2. 규칙
 
 - **키 · 차례.** 같은 부모 아래 키가 같으면 같은 컴포넌트 (세대 유지) — 목록 행은 행 번호 대신 안정 키 (예: 경로 해시) 를 쓰면 재정렬에도

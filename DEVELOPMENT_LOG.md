@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-11-26 — GraphicsUI 통합 UI-R2-02: GXML · GCSS 를 빌드 때 C++ 로 (AOT), uihost::DocumentView, 첫 GXML 화면 "Studio 설정"
+
+**무엇을**
+
+- **컴파일러 벤더링.** `tools/vendor_graphics_ui.py` 가 GXML 컴파일러의 Core 모드 6 파일 (gxmlc · gxml_schema · gxml_core · gcss_syntax ·
+  gcss_core · gxml_ir — 순수 Python + 표준 expat) 을 같은 고정 커밋 (fa1e371) 에서 `external/graphics-ui/tools/` 로 가져온다. 그 커밋
+  gxmlc.py 의 `compiler_inputs` 와 목록이 다르면 실패한다.
+- **`cmake/SbxGxml.cmake` — `sbx_gxml_core(<타깃> NAME … MARKUP … [STYLE …] [MODEL …])`.** 빌드 때 `--compile-core` 로
+  `<빌드>/generated/gxml/sandbox/gxml/<이름>.hpp` (SYSTEM include, `SBX_HAS_GXML`). 원본 · 컴파일러 파일이 바뀌면 다시 만든다. 생성물은
+  커밋하지 않는다. Python ≥ 3.11 이 없으면 GXML 화면을 빼고 구성 로그에 알린다.
+- **`uihost::DocumentView`** — GraphicsUI DocumentSession (자기 트리 · 상태 · 입력) 을 UiHost 와 같은 창 계약으로: 포인터 · 키
+  (InputRouting), 배율, 확정 글자 → 누른 TextBox (`editText(id, replace_selection)` — 포커스 조회가 Core 에 없어 pointer down 의 대상으로
+  추적), IME 자리 (그 상자의 왼쪽 아래), hitsUi, 통계. 첫 frame 전의 포인터는 버린다.
+- **첫 GXML 화면 `editor/gui/StudioSettingsScreen`** — `editor/gui/gxml/studio_settings.{gxml,gcss,model.json}`: 상태 줄 ({Binding status}),
+  테마 (어두움 · 밝음 · 고대비), 간격 바꾸기, 개발자 창 켜고 끄기, 닫기 → 의도. 홈에 "설정" 단추. Application 이 의도를 기존 명령
+  (`view.theme-*` · `view.developer-panels`) · 간격 행동으로 처리 — ImGui 셸의 보기 메뉴와 같은 길 · 같은 studio.json 저장. 설정이 열린
+  동안 홈은 입력 · 그리기를 받지 않는다. 글자 입력 켜고 끄기는 `syncGuiTextInput` 로 모았다.
+- **CI** — 다섯 잡에 `actions/setup-python@v5` (3.12) — 러너의 기본 Python 판이 OS 마다 다르다.
+- 문서: ADR-0175 (결정은 앞 커밋), MIGRATION_GUIDE 1b (GXML 화면 쓰는 법), UPSTREAM GUI-UP-14 (Tab 포커스 이동 · 편집 콜백의 클립보드가
+  비어 있음을 더함), 15 · 17, external/README, DEPENDENCY_CONTRACT.
+
+**왜** — 사용자 요청 ("다음 개발 진행") · 요청 4장 (GXML · GCSS · AOT 우선) — UI-R2-02.
+
+**검증** (Windows MSVC · Python 3.14.5, 2026-11-26)
+
+- 구성: "GXML AOT — Python 3.14.5", 빌드 로그 "GXML → C++ (studio_settings)" · "(test_form)".
+- `unit_uihost` 16 (새 DocumentView 3: 시험 폼 — 첫 frame 전 클릭 무시, 글자 칸을 누르면 포커스 · IME 자리 = 상자, 한글 두 글자 확정 →
+  값, Backspace, 검증기가 넘는 글자를 거절 → 값 그대로 · 버린 입력, 단추 → 명령 · 포커스가 칸을 떠나면 글자 무시, 배율 2 — 창 좌표 클릭 ·
+  IME 자리 × 2, 등록이 모델과 다르면 거절).
+- `unit_client` 설정 2: GXML 의 {Binding status} 가 그리기에 나온다 · 단추 다섯 → 의도, **Application**: 홈 "설정" → 설정 화면 → 밝음 →
+  `studioTheme() == Light` · 개발자 창 → 바뀜 · 상태 줄 갱신 · 닫기 → 홈.
+- 처음 DocumentView 시험의 글자 편집이 값에 들어가지 않았다 — DocumentSession 의 Edit 처리기가 값을 직접 게시해야 한다 (GraphicsUI 예제와
+  같다). 시험 모델을 고쳤고 MIGRATION_GUIDE 1b 에 적었다.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 99 / 99.
+
+**남은 일** — GXML Hot Reload (.guir 다시 읽기) [계획], UI-R2-03 테마 토큰 → GCSS, GUI-UP-14 (GXML 글자 칸의 Tab · 클립보드 · 캐럿).
+
 ## 2026-11-26 — GraphicsUI 통합 UI-R2-01: Studio 의 GraphicsUI 화면 = editor/gui (ADR-0175), GXML 도입 방식 결정
 
 **무엇을**

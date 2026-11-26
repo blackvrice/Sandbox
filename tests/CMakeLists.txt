@@ -106,6 +106,7 @@ add_executable(SandboxTests
     unit/ui/test_ui_choice.cpp
     unit/ui/test_ui_scroll.cpp
     unit/uihost/test_ui_host.cpp
+    unit/uihost/test_document_view.cpp
     unit/project/test_export_profile.cpp
     unit/project/test_pack_source.cpp
     unit/project/test_git_source.cpp
@@ -243,6 +244,11 @@ if(SBX_BUILD_CLIENT)
     # ClientRenderer.cpp 는 넣지 않는다 — 클라이언트 테스트는 가짜 IFrameRenderer 를 쓴다
 endif()
 target_link_libraries(SandboxTests PRIVATE SandboxFoundation SandboxScript SandboxGameUI SandboxCore SandboxNetwork SandboxPlatform SandboxRender SandboxEditor SandboxProcess SandboxUiHost SandboxStudioGui sbx_imgui sbx_doctest sbx_warnings)
+# GXML 시험 폼 → 빌드 때 C++ (UI-R2-02 — uihost::DocumentView 시험, cmake/SbxGxml.cmake). Python ≥ 3.11 이 없으면 그 시험이 빠진다
+sbx_gxml_core(SandboxTests NAME test_form
+    MARKUP "${CMAKE_CURRENT_SOURCE_DIR}/data/gxml/test_form.gxml"
+    STYLE "${CMAKE_CURRENT_SOURCE_DIR}/data/gxml/test_form.gcss"
+    MODEL "${CMAKE_CURRENT_SOURCE_DIR}/data/gxml/test_form.model.json")
 # 커밋된 테스트 데이터 (샘플 세이브 등). 빌드 폴더로 복사하지 않고 소스 트리에서 읽는다.
 target_compile_definitions(SandboxTests PRIVATE SBX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                                SBX_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content"

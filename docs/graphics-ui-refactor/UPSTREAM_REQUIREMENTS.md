@@ -18,7 +18,7 @@
 | GUI-UP-10 | **P9-06 물리 GPU surface resize 메모리 증가 해결** | GraphicsUI ROADMAP_STATUS P9-06: GTX validation-on +161.99 MiB · Intel UHD 770 +634.55 MiB (SDK 단독 swapchain resize 400 회) | UI-R2-06 · R4-05 · R8-05 | P0 (출시) | GraphicsUI 진행 중 — 검증 기준을 낮추지 않는다 |
 | GUI-UP-11 | **P9-07 게임 런타임 UI (HUD · 월드 UI · 게임패드 · 권한 · 쿼터)** | ROADMAP_STATUS: P9-07 미진행 | UI-R7 전부 | P1 | 미진행 — 있는 것으로 가정하지 않는다 |
 | GUI-UP-12 | **안정 API · 버전 정책 · 설치 패키지** (P10-04 · 05) | 0.0.1 개발 스냅숏, 안정 API · deprecation 정책 없음 | 제품 출시 판정 (ROADMAP 4장) | P1 | 미진행 |
-| GUI-UP-14 | **DocumentSession 의 호스트 연결** — 포커스 조회 (지금 포커스 노드 id), TextBox 의 선택 · 캐럿 위치 (IME 자리), 휠 · 스크롤, 배율, 호스트의 ComponentTree 에 문서를 마운트 (C++ 화면과 한 트리) | DocumentSession 은 자기 트리 · 상태 · 입력을 만들고 공개 API 가 pointer · key · editText(id) · find · render 뿐 (document.hpp, fa1e371). uihost::DocumentView 는 DispatchResult 대상으로 포커스를 추적하고 IME 자리를 상자 왼쪽 아래로 어림한다 | UI-R2-02 (GXML 화면) · R2-04 · R6 | P1 | 열림 |
+| GUI-UP-14 | **DocumentSession 의 호스트 연결** — 포커스 조회 (지금 포커스 노드 id) · 포커스 이동 (Tab — `moveFocus` 가 공개되지 않았다), TextBox 의 선택 · 캐럿 위치 (IME 자리), 편집 콜백의 클립보드 (지금 `callbacks()` 가 read/write_clipboard 를 비운다 — GXML 글자 칸의 복사 · 붙여넣기가 안 된다), 휠 · 스크롤, 호스트의 ComponentTree 에 문서를 마운트 (C++ 화면과 한 트리) | DocumentSession 은 자기 트리 · 상태 · 입력을 만들고 공개 API 가 pointer · key · editText(id) · find · render 뿐 (document.hpp, fa1e371). uihost::DocumentView 는 DispatchResult 대상으로 포커스를 추적하고 IME 자리를 상자 왼쪽 아래로 어림한다 | UI-R2-02 (GXML 화면) · R2-04 · R6 | P1 | 열림 |
 | GUI-UP-13 | `src/core/layout.cpp:590` 의 `[[nodiscard]]` 반환값 버림 (MSVC C4834) | Sandbox 빌드 로그 (2026-11-26, MSVC 14.44 — 벤더링 사본은 우리 경고 정책 밖) | — | P3 | 열림 |
 
 ## Sandbox 쪽 선행 (GraphicsUI 아님)

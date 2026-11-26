@@ -6,7 +6,7 @@
 //
 // 화면: 최근 프로젝트 (검색 글자 칸 + 가상 목록 — ListView, 휠 · ↑↓ · Home · End · Enter · Delete · 클릭, 복구 가능 표시, 목록에서 빼기) |
 // 새 프로젝트 (템플릿 ‹ › · 이름 · gameId · 폴더 — 이름을 쓰면 gameId · 폴더를 제안, 손으로 고친 칸은 그대로) · 폴더 열기 · 예제 복사
-// (예제 ‹ › · 복사할 곳) | 결과 줄 | 기존 UI 로 · 간격 · 종료.
+// (예제 ‹ › · 복사할 곳) | 결과 줄 | 기존 UI 로 · 간격 · 설정 (GXML 화면 — UI-R2-02) · 종료.
 
 #include <filesystem>
 #include <memory>
@@ -34,7 +34,7 @@ struct StudioHomeModel {
 };
 
 struct StudioHomeIntent {
-    enum class Kind : u8 { OpenRecent, ForgetRecent, NewProject, OpenFolder, CopyExample, Density, SwitchToClassic, Quit };
+    enum class Kind : u8 { OpenRecent, ForgetRecent, NewProject, OpenFolder, CopyExample, Density, OpenSettings, SwitchToClassic, Quit };
     Kind kind = Kind::Quit;
     std::filesystem::path dir;  // OpenRecent · ForgetRecent · NewProject · OpenFolder · CopyExample (예제)
     std::filesystem::path dest; // CopyExample (복사할 곳)
@@ -53,7 +53,7 @@ public:
     // 시험 · 자동화가 컴포넌트를 찾는 이름
     enum class Part : u8 {
         Search, List, Forget, Name, GameId, Dir, Create, OpenDir, Open, ExampleDir, CopyExample, TemplatePrev,
-        TemplateNext, ExamplePrev, ExampleNext, Switch, Density, Quit,
+        TemplateNext, ExamplePrev, ExampleNext, Switch, Density, Settings, Quit,
     };
 
     // 모델이 바뀌면 (최근 목록 · 템플릿 · 예제) 다시 마운트해야 한다 — Application 이 setScreen 을 다시 부른다. 쓰던 글자는 남긴다
@@ -84,8 +84,8 @@ public:
 private:
     enum class Role : u8 {
         Root, Title, Version, Body, Left, Heading, Field, List, ListBar, Forget, Right, NewHeading, Picker, PickPrev,
-        PickLabel, PickNext, Create, OpenHeading, Open, ExampleHeading, CopyExample, Message, Bar, Switch, Density, Quit,
-        Note,
+        PickLabel, PickNext, Create, OpenHeading, Open, ExampleHeading, CopyExample, Message, Bar, Switch, Density, Settings,
+        Quit, Note,
     };
     // 넘기기 (‹ 이름 ›) 의 대상 — Node::index 가 이것
     static constexpr usize kTemplatePicker = 0;

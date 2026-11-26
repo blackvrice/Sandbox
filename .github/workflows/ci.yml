@@ -21,6 +21,9 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5          # GXML · GCSS AOT 컴파일러 — Python ≥ 3.11 (러너 기본 판이 OS 마다 다르다, ADR-0175)
+        with:
+          python-version: '3.12'
       - uses: ilammy/msvc-dev-cmd@v1          # cl.exe 와 Windows SDK 환경 변수
         with:
           arch: x64
@@ -60,6 +63,9 @@ jobs:
             cxx: clang++-19
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5          # GXML · GCSS AOT 컴파일러 — Python ≥ 3.11 (러너 기본 판이 OS 마다 다르다, ADR-0175)
+        with:
+          python-version: '3.12'
       - name: Install toolchain
         run: |
           sudo apt-get update
@@ -87,6 +93,9 @@ jobs:
     runs-on: macos-15                        # Apple Silicon, Xcode 16 (Apple Clang)
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5          # GXML · GCSS AOT 컴파일러 — Python ≥ 3.11 (러너 기본 판이 OS 마다 다르다, ADR-0175)
+        with:
+          python-version: '3.12'
       - name: Install Ninja
         run: brew install ninja
       - name: Configure

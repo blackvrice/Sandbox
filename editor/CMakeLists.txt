@@ -42,9 +42,16 @@ target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warni
 add_library(SandboxStudioGui STATIC
     gui/StudioHomeScreen.hpp
     gui/StudioHomeScreen.cpp
+    gui/StudioSettingsScreen.hpp
+    gui/StudioSettingsScreen.cpp
 )
 add_library(Sandbox::StudioGui ALIAS SandboxStudioGui)
 target_link_libraries(SandboxStudioGui PUBLIC SandboxEditorServices SandboxUiHost PRIVATE sbx_warnings)
+# GXML · GCSS 화면 → 빌드 때 C++ (UI-R2-02, ADR-0175 — cmake/SbxGxml.cmake). Python ≥ 3.11 이 없으면 빠진다 (create → Unsupported)
+sbx_gxml_core(SandboxStudioGui NAME studio_settings
+    MARKUP "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.gxml"
+    STYLE "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.gcss"
+    MODEL "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.model.json")
 
 # SandboxEditor — 툴 · 선택 · 패널 · 편집 명령 빌더 (Phase 12, docs/10-EDITOR.md, ADR-0028).
 # Core + Render 위. Network 를 모른다 (ICommandSink · IEditorHost 로 분리 — 경계 규칙이 검사한다).

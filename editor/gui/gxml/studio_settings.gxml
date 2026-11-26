@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Studio 설정 (UI-R2-02, ADR-0175) — GXML 로 쓴 첫 Studio 화면. 빌드 때 C++ 로 (cmake/SbxGxml.cmake). 행동은 Application 이
+     기존 명령 (view.theme-* · view.developer-panels) · 간격 행동으로 한다 — editor/gui/StudioSettingsScreen -->
+<Window xmlns="urn:graphics-ui:gxml" id="studio-settings">
+  <Resource id="ui-font" type="font" value="1"/>
+  <Panel id="main">
+    <TextBlock id="title" class="title" text="Studio 설정"/>
+    <TextBlock id="status" class="status" text="{Binding status}"/>
+    <TextBlock id="theme-label" class="label" text="테마"/>
+    <FlexPanel id="themes" orientation="horizontal">
+      <Button id="theme-dark" text="어두움" onClick="theme_dark"/>
+      <Button id="theme-light" text="밝음" onClick="theme_light"/>
+      <Button id="theme-contrast" text="고대비" onClick="theme_contrast"/>
+    </FlexPanel>
+    <TextBlock id="view-label" class="label" text="화면"/>
+    <FlexPanel id="toggles" orientation="horizontal">
+      <Button id="density" class="wide" text="간격 바꾸기" onClick="toggle_density"/>
+      <Button id="developer" class="wide" text="개발자 창 켜고 끄기" onClick="toggle_developer"/>
+    </FlexPanel>
+    <TextBlock id="note" class="note" text="바꾼 설정은 studio.json 에 저장된다 — 다음 실행도 같다"/>
+    <FlexPanel id="actions" orientation="horizontal">
+      <Button id="close" class="primary" text="닫기" onClick="close"/>
+    </FlexPanel>
+  </Panel>
+</Window>

@@ -12,7 +12,7 @@
 |---|---:|---:|---:|---:|---|
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
-| UI-R2 Studio Shell | 10 | 2 | 1 | 2 | R2-01 · R2-09 ✅, R2-02 결정 (구현은 다음) |
+| UI-R2 Studio Shell | 10 | 3 | 0 | 2 | R2-01 · 02 · 09 ✅ |
 | UI-R3 편집 패널 | 12 | 0 | 0 | 4 | |
 | UI-R4 Viewport | 6 | 0 | 0 | 2 | |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **22 (27 %)** | 3 | 21 | |
+| **합계** | **81** | **23 (28 %)** | 2 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -56,7 +56,7 @@
 | UI-R1-11 | 장치 손실 · 오류 복구 (UI 렌더 자원) | Blocked | R1-10 | render · uihost | 과도기 경로는 ImGui 렌더러의 복구를 따른다 (새 자원 없음) |
 | UI-R1-12 | 실제 창 실행 검증 (X11 · Windows · macOS) | Partial | R1-05 | apps/client · CI | `client_x11_graphicsui_home` (CI · lavapipe) 등록 — 결과는 CI. Windows · macOS 창은 실기 (QA Q-01) |
 | UI-R2-01 | Studio 화면의 자리 — editor/ 에 GraphicsUI 허용 범위 (ADR) | Done | R1 | editor/gui · editor/services | ADR-0175 — `editor/gui` (SandboxStudioGui), 홈 화면 옮김 (StudioHomeScreen), UI 무관 도우미 → `editor/services/ProjectHome`. check_includes (editor/gui 하위 경로 · GraphicsUI 허용) · sbx_forbid_link · `arch_include_lint_selftest` (20) |
-| UI-R2-02 | GXML · GCSS 도입 방식 (AOT 도구 · 생성물 · Hot Reload 범위) | Partial | R2-01 | cmake · tools · uihost | 결정 ✅ ADR-0175 (빌드 때 `--compile-core` · 생성물 커밋 안 함 · 정적 화면 = GXML, 데이터 화면 = C++, uihost::DocumentView). 구현 (컴파일러 벤더링 · `sbx_gxml_core` · DocumentView · 첫 GXML 화면) 은 다음 커밋 |
+| UI-R2-02 | GXML · GCSS 도입 방식 (AOT 도구 · 생성물 · Hot Reload 범위) | Done | R2-01 | cmake · uihost · editor/gui | ADR-0175. 컴파일러 6 파일 벤더링 (external/graphics-ui/tools), `cmake/SbxGxml.cmake` `sbx_gxml_core` (빌드 때 `--compile-core`, Python ≥ 3.11 — 없으면 GXML 화면을 빼고 알림), `uihost::DocumentView`, 첫 GXML 화면 **Studio 설정** (editor/gui/gxml/studio_settings — 홈의 "설정" 단추), CI 에 Python 3.12. `unit_uihost` DocumentView 3 · `unit_client` 설정 2 (app — 테마 · 개발자 창 · 닫기). Hot Reload (.guir) 는 [계획] |
 | UI-R2-03 | Studio 테마 토큰 → GCSS 테마 (Dark · Light · High Contrast) | Planned | R2-02 | editor/ | StudioTheme 토큰과 같은 값, 시각 비교 |
 | UI-R2-04 | 메인 메뉴 · 툴바 · 상태 표시줄 | Blocked | GUI-UP-03 | editor/ | 메뉴 · 팝업 컨트롤 |
 | UI-R2-05 | Docking 작업 공간 (DockLayout) · 탭 이동 | Planned | R2-01 | editor/ · uihost | DockLayout + 호스트의 그룹 · 탭 그리기 · 끌기 |
