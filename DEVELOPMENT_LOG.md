@@ -38,7 +38,7 @@ SDK 고정이 달라 같은 프로세스에 둘 수 없어 (ADR-0174 2), Core �
 **검증** (Windows 11 · MSVC 14.44, 2026-11-26)
 
 - Debug 빌드 · `ci-werror` (/WX) 빌드 통과 (벤더링 Core 의 C4834 경고 1 — 우리 경고 정책 밖, GUI-UP-13).
-- 전체 CTest (project_doctor 제외 — 이 PC 의 AppData 문제, 리팩터링 전부터): 결과는 아래 "최종" 줄. 새 시험 — `unit_uihost` (7 케이스:
+- 전체 CTest (project_doctor 제외 — 이 PC 의 AppData 문제, 리팩터링 전부터): 99 / 99 통과 (커밋 75a71fd 의 상태). 새 시험 — `unit_uihost` (7 케이스:
   키 표 전부 · 이벤트 변환 · 마운트 · 클릭 · 밖에서 떼기 · Enter · Tab · 포커스 잃음 취소 · 다른 스레드의 작업자 값 · 지난 세대 거절 · 화면 바꾸기 ·
   음수 크기), `unit_client` gui 3 케이스 (홈 행 · 단추 · Enter · Space, 빈 목록 · 긴 목록 · 다시 마운트 · 좁은 화면, 브리지 명령 수 · clip 짝 ·
   ImGui 글꼴 측정), `client_graphicsui_home_headless`, `client_ui_rejects_unknown`, `arch_include_lint_selftest` (15 → 18 — 새 위반 3).

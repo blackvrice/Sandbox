@@ -43,7 +43,7 @@ UI-R0-01 ~ 08 · 10 ~ 12 (분석 · 대응표 · upstream 요구 · 기준선 ·
 |---|---|---|
 | 구성 · 빌드 (Debug) | 통과 — 구성 로그 "GraphicsUI Core 0.0.1 — external/graphics-ui (fa1e371…)" | 2026-11-26 `cmake --preset windows-msvc` · `cmake --build build/windows-msvc --config Debug` |
 | 경고 = 오류 빌드 (/WX) | 통과 (벤더링 Core 의 C4834 경고 1 — 우리 경고 정책 밖, GUI-UP-13) | `cmake --build build/ci-werror --config Debug` |
-| 전체 CTest (Debug, project_doctor 제외) | 99 중 98 — 실패 1 은 docs_consistency (그때 문서 작성 중). 문서를 마친 뒤 결과는 DEVELOPMENT_LOG | `ctest --preset windows-msvc-debug -E project_doctor -j 6` |
+| 전체 CTest (Debug, project_doctor 제외) | **99 / 99 통과** (문서를 마친 최종 상태) | `ctest --preset windows-msvc-debug -E project_doctor -j 6` |
 | 새 시험 | `unit_uihost` 7 케이스 · `unit_client` gui 3 케이스 · `client_graphicsui_home_headless` · `client_ui_rejects_unknown` · `arch_include_lint_selftest` (18) 통과 | 같은 CTest |
 | 골든 WorldHash | det_* 16 개 통과 (시뮬레이션 코드를 고치지 않았다) | 같은 CTest |
 | 서버 무의존 | 구성 단계 링크 검사 통과 (SandboxServer ↛ SandboxUiHost · GraphicsUICore) | 구성 |
@@ -63,4 +63,5 @@ UI-R0-01 ~ 08 · 10 ~ 12 (분석 · 대응표 · upstream 요구 · 기준선 ·
 
 | 커밋 | 내용 |
 |---|---|
-| (이 브랜치 — DEVELOPMENT_LOG 2026-11-26 항목에 해시) | UI-R0 문서 · ADR-0174 / UI-R1 구현 |
+| `da274e9` | external: GraphicsUI Core 를 고정 커밋 fa1e371 로 (UI-R1-01 의 벤더링) |
+| `75a71fd` | uihost · client · docs: UI-R0 분석 · 설계 (ADR-0174 · 이 폴더), UI-R1-01 ~ 07 구현 · 시험 |
