@@ -50,6 +50,9 @@ Application::frame
   ImGui::Render → 렌더러 (GraphicsSDK)                                                   (기존)
 ```
 
+- 좌표: 배치 · 그리기 명령 · hit-test 는 **UI 단위** (= 창 논리 단위 ÷ 배율). 배율은 ImGui 와 같은 값 (contentScale × 사용자 uiScale —
+  ImGuiLayer 의 FontScaleDpi) 이라 두 UI 가 같은 크기로 보인다. 창과 주고받는 것 (포인터 · 화면 크기 · IME 자리) 만 호스트가 바꾸고, 렌더
+  어댑터가 배율을 곱해 그린다 (UI-R1-09).
 - 작업자 → UI: `UiHost::sender()` 의 `StateSender` 복사본만 다른 스레드로 넘긴다. 값은 다음 `frame()` 에서 적용된다.
 - 시뮬레이션 (30 TPS, 별도 스레드) 과 무관하다 — UI 가 보는 월드 데이터는 지금과 같이 복제된 클라이언트 월드 · 서비스에서 읽는다.
   결정론 · 골든 WorldHash 에 닿지 않는다 (04 — UI 는 Simulation 밖).

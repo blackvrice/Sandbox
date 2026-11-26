@@ -2269,6 +2269,9 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     }
     m_guiHome->setStatus(m_home.message, m_home.failed); // 결과 줄 = ImGui 홈과 같은 상태
     m_guiHome->setCompact(m_shell.density == editor::theme::Density::Compact);
+    // UI 배율 = ImGui 와 같은 값 (ImGuiLayer — contentScale × 사용자 uiScale) — 두 UI 가 같은 크기로 보인다 (UI-R1-09)
+    const f32 scale = ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
+    m_guiHost->setScale(scale);
     m_guiHost->feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
     auto display = m_guiHost->frame({static_cast<double>(size.x), static_cast<double>(size.y)});
@@ -2276,7 +2279,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         return fallBack(display.error());
     }
     // 배경 그리기 목록 — 알림 · 팔레트 같은 ImGui 창이 그 위에 온다 (과도기 렌더 경로, GraphicsUiImGuiBridge)
-    const GuiBridgeStats drawn = drawDisplayList(**display, *ImGui::GetBackgroundDrawList());
+    const GuiBridgeStats drawn = drawDisplayList(**display, *ImGui::GetBackgroundDrawList(), nullptr, 0.f, 0.f, scale);
     // 글자 칸에 포커스가 있으면 창의 글자 입력 (IME) 을 켜고 후보 창을 캐럿에 — 우리가 켠 것만 끈다 (게임 UI · ImGui 와 같은 규칙)
     const uihost::TextInputState ti = m_guiHost->textInput();
     if (ti.active && !m_window.textInputActive()) {

@@ -17,11 +17,14 @@ ImU32 col(gui::RenderColor c, f32 alphaScale = 1.f) {
 
 } // namespace
 
-GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImFont* font, f32 originX, f32 originY) {
+GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImFont* font, f32 originX, f32 originY,
+                               f32 scale) {
     GuiBridgeStats st;
     ImFont* f = font != nullptr ? font : ImGui::GetFont();
+    const f32 s = scale > 0.f ? scale : 1.f;
+    // UI 단위 → 논리 좌표 (ImGui 의 좌표)
     const auto p = [&](double x, double y) {
-        return ImVec2(originX + static_cast<f32>(x), originY + static_cast<f32>(y));
+        return ImVec2(originX + static_cast<f32>(x) * s, originY + static_cast<f32>(y) * s);
     };
     int depth = 0;
     for (const gui::RenderCommand& cmd : list.commands()) {
@@ -62,15 +65,15 @@ GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImF
                         dl.AddRect(p(c.bounds.x - r, c.bounds.y - r),
                                    p(c.bounds.x + c.bounds.width + r, c.bounds.y + c.bounds.height + r),
                                    col(c.color, 1.f - static_cast<f32>(i) / static_cast<f32>(steps + 1)), 0.f,
-                                   static_cast<f32>(c.radius / steps));
+                                   static_cast<f32>(c.radius / steps) * s);
                     }
                     ++st.shadows;
                 } else if constexpr (std::is_same_v<T, gui::DrawText>) {
                     // 글자 상자로 자른다 (GraphicsUI 의 글자 명령은 상자 안에서 배치된다 — 넘친 부분은 보이지 않는다)
-                    const ImVec4 clip(originX + static_cast<f32>(c.bounds.x), originY + static_cast<f32>(c.bounds.y),
-                                      originX + static_cast<f32>(c.bounds.x + c.bounds.width),
-                                      originY + static_cast<f32>(c.bounds.y + c.bounds.height));
-                    dl.AddText(f, static_cast<f32>(c.em_size), p(c.bounds.x, c.bounds.y), col(c.color),
+                    const ImVec2 lo = p(c.bounds.x, c.bounds.y);
+                    const ImVec2 hi = p(c.bounds.x + c.bounds.width, c.bounds.y + c.bounds.height);
+                    const ImVec4 clip(lo.x, lo.y, hi.x, hi.y);
+                    dl.AddText(f, static_cast<f32>(c.em_size) * s, lo, col(c.color),
                                c.utf8.data(), c.utf8.data() + c.utf8.size(), 0.f, &clip);
                     ++st.texts;
                 }

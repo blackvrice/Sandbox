@@ -32,10 +32,11 @@ struct GuiBridgeStats {
     usize clips = 0; // PushClip 수
 };
 
-// list 를 dl 에 그린다 (origin = 논리 좌표 원점). font 가 없으면 ImGui 기본 글꼴. PushClip/PopClip 짝이 맞지 않으면 남은 clip 을
+// list 를 dl 에 그린다. list 는 UI 단위 — scale 을 곱해 논리 좌표로 (UiHost::scale — UI-R1-09), origin = 논리 좌표 원점.
+// font 가 없으면 ImGui 기본 글꼴. PushClip/PopClip 짝이 맞지 않으면 남은 clip 을
 // 닫는다 (DisplayList 는 짝을 보장하지만 렌더러 쪽에서도 ImDrawList 의 clip 스택을 깨뜨리지 않는다)
 GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImFont* font = nullptr,
-                               f32 originX = 0.f, f32 originY = 0.f);
+                               f32 originX = 0.f, f32 originY = 0.f, f32 scale = 1.f);
 
 // ImGui 글꼴로 글자 크기 재기 — ImGui 프레임 안 (NewFrame ~ Render) 에서만 (1.92 의 동적 아틀라스가 그 크기를 굽는다)
 class GuiImGuiTextMeasure final : public uihost::ITextMeasure {

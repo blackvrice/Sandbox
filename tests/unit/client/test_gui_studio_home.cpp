@@ -3,6 +3,7 @@
 // 창 · GPU 없이 (HeadlessWindow + ImGuiLayer — 렌더러 없음).
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <format>
@@ -371,6 +372,19 @@ TEST_SUITE("client") {
         CHECK(st.clips >= 1);
         CHECK(dl->VtxBuffer.Size > before);
         CHECK(dl->_ClipRectStack.Size == 1); // clip 짝이 맞는다 (배경 목록의 기본 clip 하나만 남는다)
+        // 배율 (UI-R1-09): 같은 목록을 배율 2 로 그리면 꼭짓점이 두 배 자리 (UI 단위 → 논리)
+        const auto maxX = [&](int from) {
+            float m = 0.f;
+            for (int i = from; i < dl->VtxBuffer.Size; ++i) {
+                m = std::max(m, dl->VtxBuffer[i].pos.x);
+            }
+            return m;
+        };
+        const float x1 = maxX(before);
+        const int mid = dl->VtxBuffer.Size;
+        (void)drawDisplayList(**d, *dl, nullptr, 0.f, 0.f, 2.f);
+        CHECK(maxX(mid) == doctest::Approx(x1 * 2.f).epsilon(0.02));
+        CHECK(dl->_ClipRectStack.Size == 1);
         (void)layer.endFrame(CursorShape::Arrow);
         layer.acknowledgeTextures();
         REQUIRE((*host)->setScreen(nullptr)); // 화면을 먼저 놓는다 (호스트보다 화면이 먼저 사라지지 않게)
@@ -474,6 +488,45 @@ TEST_SUITE("client") {
         REQUIRE(app.frame());
         CHECK_FALSE(app.graphicsUiHomeActive());
         CHECK_FALSE(window.textInputActive());
+        std::error_code ec;
+        fs::remove_all(root, ec);
+    }
+
+    TEST_CASE("app (--ui graphicsui, DPI 1.5): GraphicsUI 홈이 ImGui 와 같은 배율 — 창 좌표 클릭이 UI 단위 단추에 닿는다") {
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_scale_{}", std::random_device{}());
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        editor::services::ProjectService projects(catalog, SemVer{0, 8, 0, {}, {}}, SBX_CONTENT_DIR,
+                                                  root / "studio.json", SBX_ASSETS_DIR, SBX_SAMPLES_DIR);
+        HeadlessWindow window(WindowDesc{.width = 1600, .height = 1000}, 1.5f);
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.fixedDt = 1.0 / 60.0;
+        cfg.ui = &imgui;
+        cfg.projects = &projects;
+        cfg.graphicsUiHome = true;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        REQUIRE(app.graphicsUiHost() != nullptr);
+        const uihost::UiHost& host = *app.graphicsUiHost();
+        CHECK(host.scale() == doctest::Approx(ImGui::GetStyle().FontScaleDpi));
+        CHECK(host.scale() == doctest::Approx(1.5f));
+        CHECK(host.viewport().width == doctest::Approx(1600.0 / 1.5));
+        // 종료 단추의 가운데 (UI 단위) × 배율 = 창 좌표
+        const gui::LayoutRect q = boxOf(host, *app.graphicsUiHome()->handleOf(Part::Quit));
+        const Vec2 at{static_cast<f32>((q.x + q.width / 2) * 1.5), static_cast<f32>((q.y + q.height / 2) * 1.5)};
+        CHECK(host.hitsUi(at.x, at.y));
+        window.inject(MouseMove{at, {0, 0}});
+        window.inject(MouseButtonDown{MouseButton::Left, at});
+        window.inject(MouseButtonUp{MouseButton::Left, at});
+        (void)app.frame(); // 종료가 이 프레임에 적용된다 (false = 끝)
+        CHECK(app.state() == AppState::Shutdown);
         std::error_code ec;
         fs::remove_all(root, ec);
     }

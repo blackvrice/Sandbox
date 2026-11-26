@@ -427,4 +427,40 @@ TEST_SUITE("uihost") {
         CHECK((c == 0 || c == 3));
         CHECK(caretFromX(m, "", 10, 5) == 0);
     }
+
+    TEST_CASE("host: UI scale — layout in UI units, pointer and IME area in window logical units") {
+        ApproxTextMeasure text;
+        auto host = UiHost::create(text);
+        REQUIRE(host);
+        TwoButtons screen;
+        (*host)->setScale(2.f);
+        REQUIRE((*host)->setScreen(&screen));
+        REQUIRE((*host)->frame({400, 240})); // 창 400 × 240 = UI 200 × 120
+        CHECK((*host)->viewport().width == doctest::Approx(200));
+        CHECK((*host)->viewport().height == doctest::Approx(120));
+        // 첫 단추는 UI (10,10)-(74,34) = 창 (20,20)-(148,68)
+        CHECK((*host)->hitsUi(30, 30));
+        CHECK((*host)->hitsUi(140, 60));
+        CHECK_FALSE((*host)->hitsUi(160, 60));
+        const std::array click{down(140, 60), up(140, 60)};
+        (*host)->feed(click);
+        CHECK(screen.pressedA == 1);
+        (*host)->setScale(0.f); // 0 이하는 1
+        CHECK((*host)->scale() == doctest::Approx(1.f));
+    }
+
+    TEST_CASE("host: UI scale multiplies the IME caret area") {
+        ApproxTextMeasure text;
+        auto host = UiHost::create(text);
+        REQUIRE(host);
+        OneField screen;
+        (*host)->setScale(1.5f);
+        REQUIRE((*host)->setScreen(&screen));
+        REQUIRE((*host)->frame({300, 180}));
+        const TextInputState ti = (*host)->textInput();
+        REQUIRE(ti.caret);
+        CHECK(ti.caret->x == doctest::Approx(14 * 1.5)); // UI (10 + 4)
+        CHECK(ti.caret->y == doctest::Approx(12 * 1.5));
+        CHECK(ti.caret->height == doctest::Approx(16 * 1.5));
+    }
 }

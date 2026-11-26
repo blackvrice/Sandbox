@@ -208,12 +208,15 @@ void UiHost::feed(std::span<const platform::PlatformEvent> events) {
             (void)m_input->dispatchPointer({gui::PointerAction::cancel, kMousePointer, 0.0, 0.0});
             continue;
         }
-        const auto in = translate(e, m_mods);
+        auto in = translate(e, m_mods);
         if (!in) {
             continue;
         }
         ++m_stats.inputEvents;
-        if (const auto* p = std::get_if<gui::PointerEvent>(&*in)) {
+        if (auto* p = std::get_if<gui::PointerEvent>(&*in)) {
+            // 창의 논리 좌표 → UI 단위 (배치 · hit-test 의 좌표)
+            p->x /= static_cast<double>(m_scale);
+            p->y /= static_cast<double>(m_scale);
             // 직전 배치가 지금 트리의 것일 때만 대상을 준다 — 지난 세대 핸들은 디스패처가 거절한다
             std::optional<gui::ComponentHandle> hit;
             if (m_layout && m_layout->treeRevision() == m_stats.treeRevision) {
@@ -326,7 +329,9 @@ TextInputState UiHost::textInput() const {
     // 캐럿은 컴포넌트 기준 — 그 상자의 자리를 더한다 (직전 frame 의 배치)
     for (const gui::LayoutBox& box : m_layout->boxes()) {
         if (box.component == **focus) {
-            out.caret = gui::LayoutRect{box.bounds.x + local->x, box.bounds.y + local->y, local->width, local->height};
+            const double s = m_scale;
+            out.caret = gui::LayoutRect{(box.bounds.x + local->x) * s, (box.bounds.y + local->y) * s, local->width * s,
+                                        local->height * s};
             break;
         }
     }
@@ -365,13 +370,14 @@ void UiHost::deliverWheel(f32 dx, f32 dy) {
     }
 }
 
-Expected<const gui::DisplayList*> UiHost::frame(gui::LayoutSize viewport) {
-    if (!(viewport.width >= 0.0) || !(viewport.height >= 0.0)) { // NaN 도 여기서 (비교가 거짓)
+Expected<const gui::DisplayList*> UiHost::frame(gui::LayoutSize logical) {
+    if (!(logical.width >= 0.0) || !(logical.height >= 0.0)) { // NaN 도 여기서 (비교가 거짓)
         return makeError(ErrorCode::InvalidArgument, "GraphicsUI 화면 크기가 음수 · NaN");
     }
     if (m_screen == nullptr) {
         return nullptr;
     }
+    const gui::LayoutSize viewport{logical.width / m_scale, logical.height / m_scale};
     m_viewport = viewport;
     // 1. 작업자 결과 (도착 순서). 지난 세대 대상 · 검증 실패는 그 메시지만 버린다
     if (auto drained = m_state->drain(); drained) {
@@ -433,7 +439,7 @@ bool UiHost::hitsUi(f32 x, f32 y) const noexcept {
     if (!m_layout || m_layout->boxes().empty()) {
         return false;
     }
-    const auto hit = m_layout->hitTest({x, y});
+    const auto hit = m_layout->hitTest({static_cast<double>(x) / m_scale, static_cast<double>(y) / m_scale});
     return hit.has_value() && *hit != m_layout->boxes().front().component;
 }
 

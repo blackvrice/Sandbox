@@ -78,7 +78,7 @@ struct Clipboard {
 // 창에 알릴 글자 입력 상태 — frame 뒤에 읽는다
 struct TextInputState {
     bool active = false;                // 포커스가 글자 대상이다 → 창의 글자 입력 (IME) 을 켠다
-    std::optional<gui::LayoutRect> caret; // 화면 논리 좌표 (후보 창 자리)
+    std::optional<gui::LayoutRect> caret; // 창의 논리 좌표 (후보 창 자리 — 배율을 곱했다)
 };
 
 // 논리 x (글자 시작 기준) 에 가장 가까운 그래핌 경계의 UTF-8 바이트 위치 — 글자 칸을 눌러 캐럿을 놓을 때
@@ -125,8 +125,13 @@ public:
     [[nodiscard]] gui::InputDispatcher& input() noexcept { return *m_input; }
     [[nodiscard]] gui::StateStore& state() noexcept { return *m_state; }
     [[nodiscard]] const ITextMeasure& text() const noexcept { return m_text; }
-    // 이번 frame 의 화면 크기 (논리 단위) — 화면의 layout 이 읽는다
+    // 이번 frame 의 화면 크기 (UI 단위 = 논리 ÷ 배율) — 화면의 layout 이 읽는다
     [[nodiscard]] gui::LayoutSize viewport() const noexcept { return m_viewport; }
+    // UI 배율 (UI-R1-09) — UI 단위 1 = 논리 단위 scale. ImGui 와 같은 크기로 보이게 앱이 같은 값 (contentScale × 사용자 uiScale —
+    // ImGuiLayer 의 FontScaleDpi) 을 준다. 배치 · 그리기 명령 · hit-test 는 UI 단위, 창과 주고받는 좌표 (포인터 · IME 자리 · 화면 크기) 만
+    // 여기서 바꾼다. 0 이하 · NaN 은 1
+    void setScale(f32 scale) noexcept { m_scale = scale > 0.f ? scale : 1.f; }
+    [[nodiscard]] f32 scale() const noexcept { return m_scale; }
     // 작업자 스레드에 넘길 복사본 (값만 — 다음 frame 이 UI 스레드에서 차례대로 적용)
     [[nodiscard]] Expected<gui::StateSender> sender() const;
 
@@ -136,8 +141,9 @@ public:
 
     // 이번 프레임 이벤트 (도착 순서). 직전 frame 의 배치로 hit-test 한다 — 그 뒤 트리가 바뀌었으면 대상 없이 보낸다
     void feed(std::span<const platform::PlatformEvent> events);
-    // 작업자 결과 적용 → 배치 → 그리기. 반환 포인터는 다음 frame · setScreen 까지 유효. 화면이 없으면 nullptr
-    Expected<const gui::DisplayList*> frame(gui::LayoutSize viewport);
+    // 작업자 결과 적용 → 배치 → 그리기. logical = 창의 논리 크기 (배율로 나눠 UI 단위로). DisplayList 는 UI 단위 — 렌더 어댑터가
+    // 배율을 곱해 그린다. 반환 포인터는 다음 frame · setScreen 까지 유효. 화면이 없으면 nullptr
+    Expected<const gui::DisplayList*> frame(gui::LayoutSize logical);
 
     [[nodiscard]] const UiFrameStats& stats() const noexcept { return m_stats; }
     [[nodiscard]] const gui::LayoutFrame* lastLayout() const noexcept { return m_layout.get(); }
@@ -153,7 +159,7 @@ public:
 
     // 마지막 포인터 이벤트가 가리킨 컴포넌트 (hover 표시 — Button::visualState 에 넘긴다)
     [[nodiscard]] std::optional<gui::ComponentHandle> pointerHit() const noexcept { return m_hover; }
-    // 논리 좌표가 루트가 아닌 컴포넌트 위인가 (게임 입력과 나누기 — 빈 배경은 UI 가 아니다)
+    // 논리 좌표 (창) 가 루트가 아닌 컴포넌트 위인가 (게임 입력과 나누기 — 빈 배경은 UI 가 아니다)
     [[nodiscard]] bool hitsUi(f32 x, f32 y) const noexcept;
 
 private:
@@ -172,6 +178,7 @@ private:
     platform::Modifiers m_mods;
     std::optional<gui::ComponentHandle> m_hover;
     gui::LayoutSize m_viewport;
+    f32 m_scale = 1.f;
     UiFrameStats m_stats;
     std::vector<std::pair<gui::ComponentHandle, TextTarget>> m_textTargets;
     std::vector<std::pair<gui::ComponentHandle, WheelHandler>> m_wheelHandlers;

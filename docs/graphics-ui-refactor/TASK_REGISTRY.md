@@ -11,7 +11,7 @@
 | Phase | 작업 수 | Done | Partial · QA | Blocked | 비고 |
 |---|---:|---:|---:|---:|---|
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
-| UI-R1 통합 기반 | 12 | 8 | 2 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
+| UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 1 | 0 | 2 | R2-09 홈 ✅ |
 | UI-R3 편집 패널 | 12 | 0 | 0 | 4 | |
 | UI-R4 Viewport | 6 | 0 | 0 | 2 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **20 (25 %)** | 3 | 21 | |
+| **합계** | **81** | **21 (26 %)** | 2 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -51,7 +51,7 @@
 | UI-R1-06 | 경계 — include · link 규칙 | Done | R1-01 | tools · CMake | `arch_include_lint_selftest` (18) · 구성 단계 sbx_check_link_boundaries |
 | UI-R1-07 | 비동기 작업 결과 → UI 스레드 (StateSender) | Done | R1-02 | uihost/ | `unit_uihost` "worker values" (다음 frame 적용 · 지난 세대 거절) |
 | UI-R1-08 | 글자 입력 · IME · 휠 · 클립보드 라우팅 | Done | R1-03 | uihost/ · apps/client | `UiHost::setTextTarget` (확정 글자 묶음 → 포커스 칸 · 캐럿 → IME 후보 창 자리) · `setWheelHandler` (안쪽 → 조상) · `setClipboard` · `editCallbacks` · `caretFromX`, 앱 단축키 막기 · 창 글자 입력 켜고 끄기. `unit_uihost` 4 케이스 · `unit_client` app 시험. 조합 중 미리보기는 OS 입력기 창 (S-04) |
-| UI-R1-09 | DPI · 사용자 UI 배율 · 화면 크기 | Partial | R1-02 | uihost/ · apps/client | 논리 좌표 · 화면 크기는 됨. uiScale · 글꼴 배율 · ContentScaleChanged 재배치 남음 |
+| UI-R1-09 | DPI · 사용자 UI 배율 · 화면 크기 | Done | R1-02 | uihost/ · apps/client | `UiHost::setScale` — 배치 · 그리기 명령 · hit-test 는 UI 단위, 포인터 · IME 자리 · 화면 크기만 바꾼다. 배율 = ImGui 의 FontScaleDpi (contentScale × uiScale — 두 UI 가 같은 크기). 브리지가 배율을 곱해 그린다. `unit_uihost` 2 · `unit_client` 브리지 · app (DPI 1.5 창에서 클릭). 실행 중 DPI 변경은 ImGui 처럼 시작 배율 유지 (실기 Q-01d) |
 | UI-R1-10 | GraphicsSDK 장치 공유 GraphicsUI 렌더러 | Blocked | GUI-UP-01 | uihost/ · render | 하나의 gfx::Device · 세 백엔드 · 과도기 경로 대체 |
 | UI-R1-11 | 장치 손실 · 오류 복구 (UI 렌더 자원) | Blocked | R1-10 | render · uihost | 과도기 경로는 ImGui 렌더러의 복구를 따른다 (새 자원 없음) |
 | UI-R1-12 | 실제 창 실행 검증 (X11 · Windows · macOS) | Partial | R1-05 | apps/client · CI | `client_x11_graphicsui_home` (CI · lavapipe) 등록 — 결과는 CI. Windows · macOS 창은 실기 (QA Q-01) |

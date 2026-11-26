@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-11-26 — GraphicsUI 통합 UI-R1-09: UI 배율 · DPI — ImGui 와 같은 크기
+
+**무엇을**
+
+- `UiHost::setScale` — 배치 · 그리기 명령 · hit-test 는 **UI 단위** (= 창 논리 단위 ÷ 배율). 창과 주고받는 것만 바꾼다: `frame(논리 크기)`
+  는 배율로 나눠 화면의 viewport 로, 포인터 좌표는 나누고, `textInput()` 의 IME 자리는 곱한다, `hitsUi` 는 창 좌표를 받는다.
+- 브리지 `drawDisplayList(…, scale)` — 좌표 · 글자 크기 · clip · 그림자 두께에 배율을 곱한다. 글자 측정 (`GuiImGuiTextMeasure`) 은 em 그대로라
+  UI 단위와 맞는다.
+- Application — 배율 = `ImGui::GetStyle().FontScaleDpi` (ImGuiLayer 가 정한 contentScale × 사용자 uiScale). 두 UI (GraphicsUI 홈 ·
+  ImGui 셸) 가 같은 크기로 보인다.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R1 의 남은 Partial (R1-09). 125 % · 200 % 화면에서 GraphicsUI 홈만 작게 보였다.
+
+**검증** (Windows MSVC, 2026-11-26)
+
+- `unit_uihost` 13 (새 2: 배율 2 — viewport 200 × 120 · 창 좌표 hit-test · 클릭 · 0 이하 → 1, 배율 1.5 — IME 자리 × 1.5).
+- `unit_client` 브리지: 같은 목록을 배율 2 로 그리면 꼭짓점 최대 x 가 두 배 (±2 %) · clip 짝. app: HeadlessWindow contentScale 1.5 → 호스트 배율 =
+  FontScaleDpi = 1.5 · viewport = 1600 / 1.5 · 창 좌표로 종료 단추를 누르면 끝난다.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 99 / 99.
+
+**남은 일** — 실행 중 DPI 변경 (모니터 이동) 은 ImGui 와 같이 시작 배율을 유지한다 — 실기 Q-01d. UI-R1 의 남은 것: 창 실행 실기 (R1-12),
+렌더러 공유 · 장치 손실 (GUI-UP-01).
+
 ## 2026-11-26 — GraphicsUI 통합 UI-R1-08 (글자 입력 · IME 자리 · 휠 · 클립보드) · UI-R2-09 홈 전체 (ImGui 홈의 행동 전부)
 
 **무엇을**
