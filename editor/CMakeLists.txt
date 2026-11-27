@@ -58,6 +58,8 @@ add_library(SandboxStudioGui STATIC
     gui/HierarchyPanel.cpp
     gui/InspectorPanel.hpp
     gui/InspectorPanel.cpp
+    gui/ContentPanel.hpp
+    gui/ContentPanel.cpp
     gui/ToolPanel.hpp
     gui/ToolPanel.cpp
     gui/StudioWorkspace.cpp
@@ -89,6 +91,8 @@ add_library(SandboxEditor STATIC
     Editor.cpp
     Undo.hpp
     Undo.cpp
+    ContentItems.hpp
+    ContentItems.cpp
     PackGroups.hpp
     PackGroups.cpp
     ui/EditorPanel.hpp

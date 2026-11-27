@@ -13,7 +13,7 @@
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 6 | 1 | 2 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-08 일부 |
-| UI-R3 편집 패널 | 12 | 1 | 5 | 3 | R3-06 콘솔 ✅, R3-02 목록 · 03 인스펙터 · 07 빌드 · 08 테스트 · 09 통계 일부 |
+| UI-R3 편집 패널 | 12 | 1 | 6 | 3 | R3-06 콘솔 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 · 09 통계 일부 |
 | UI-R4 Viewport | 6 | 0 | 1 | 2 | R4-01 과도기 (통과 장면) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **27 (33 %)** | 9 | 20 | |
+| **합계** | **81** | **27 (33 %)** | 10 | 20 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -69,7 +69,7 @@
 | UI-R3-02 | Hierarchy (가상 TreeView · 다중 선택 · 검색) | Partial | R2-05 | editor/gui · apps/client | `HierarchyPanel` (작업 공간 "목록" — 장면 왼쪽) — HierarchyService 그대로 (parseHierarchyQuery · buildHierarchy — 그룹 머리 · 펼친 그룹의 개체 · 그룹 없는 개체), 가상 목록, 검색 (낱말 · #번호 · prefab: · tag: · group:), 누르기 = 그것만 · Ctrl/Cmd+누르기 = 더하기 · 빼기 · 두 번 = 카메라 맞추기, ↑↓ · F · Enter · Delete, 그룹 이름 · 묶기 · 빼기, 머리 = 접기. 일은 의도 → Application 이 Editor · IEditorHost (ImGui 창과 같은 호출). 수정자 키는 모든 패널로 (DockWorkspace). `unit_client` "hierarchy panel" + app (local server — 누르면 실제 선택). 남음: 맥락 메뉴 (그룹 지우기 · 이것만 선택 — GUI-UP-03), 10 만 행 측정 (R9-03) |
 | UI-R3-03 | Inspector · Component 편집 (DataForm → 속성 편집 컨트롤) | Partial | R1-08 | editor/gui · apps/client | `InspectorPanel` (작업 공간 "인스펙터" — 도구 그룹의 앞 탭, ADR-0180) — 속성 표 (가상 목록: Prefab 에서 뺀 컴포넌트 · 섹션 머리 (접기 · "(서버)" · "● Prefab 과 다름 / 더함") · 필드 "이름 | 값" (오버라이드는 경고색)) + 편집 줄 (값 칸 · 적용 — 글자 → parseFieldText → DataForm setFormField 로 범위 · 반올림 · 검증, bool 은 Space · 두 번 누르기, Esc = 되돌림) + 컴포넌트 빼기 · Prefab 값으로 / 되살리기 + 더하기 (이름 칸). 보기는 `makeGuiInspectorView` (IEditorHost::components · Editor::prefabOverrides — ImGui 창과 같은 원천), 일은 의도 → Editor::setField · addComponent · removeComponent · revertToPrefab, Ctrl+Z · Y = edit.undo · redo. `unit_client` "inspector panel" + app (local server — 토끼의 maxSpeed 를 패널로 바꾸고 Ctrl+Z 로 되돌림). **편집 (툴) 패널** `ToolPanel` (작업 공간 "편집" — 인스펙터 뒤 탭, ADR-0181): 툴 단추 5 (역할로 못 쓰는 것 꺼짐) · 배치 Prefab (팩별 묶음 · 거르기 · ↑↓) · 끌기 간격 · 격자 맞춤 · 지형 머티리얼 · 붓 반지름 · 모양 · 되돌리기 | 다시 · 명령 수 · 사유 — 의도 SelectTool · ToolSettings → Editor::setTool · settings() (`apps/client/ui/GuiToolModel`). `unit_client` "tool panel" + app (배치 툴 · Prefab · 간격 · 격자가 Editor 에). 남음: 콤보 · 슬라이더 끌기 · 개체 참조 고르기 (GUI-UP-03), Prefab 으로 만들기 |
 | UI-R3-04 | Asset Browser (썸네일) | Blocked | R1-10 | editor/ · render | 텍스처 핸들 → UI 이미지 |
-| UI-R3-05 | Prefab Browser | Planned | R3-02 | editor/ | |
+| UI-R3-05 | Prefab Browser | Partial | R3-02 | editor/gui · apps/client · editor/ContentItems | `ContentPanel` (작업 공간 "콘텐츠" — 장면 옆 문서 탭, ADR-0182): 종류 단추 (규칙 · 행동 · Prefab · 트리거 · 스크립트) · 목록 (팩별 묶음 · 거르기 · ● 오버레이 · ↑↓) · 요약 · Prefab 폼 (DataForm — 속성 표 + 편집 줄: 값 · 기본값으로 · 컴포넌트 빼기 · 더하기) · 검사 · 적용 · 고친 것 버리기 · 팩 값으로 · 새 항목, 그 밖의 종류는 줄로 읽기만. 보기 · 일은 `apps/client/ui/GuiContentModel` (contentItems · groupByPack · currentContentText · checkContentEdit · Editor::editContent · contentTemplate — ImGui 창과 같은 함수). `unit_client` "content panel" + app (eco.rabbit maxSpeed 를 폼으로 고쳐 적용 → 서버 오버레이 → 팩 값으로). 남음: 여러 줄 JSON · 트리거 폼 · 그래프 · 스크립트 편집기 (여러 줄 글 칸 · 팝업 — 업스트림) |
 | UI-R3-06 | Console (가상 ListView · 거르기) | Done | R2-05 | editor/gui | `ConsolePanel` — log::recentLines (순번 키 · 바뀔 때만 다시 읽기) · 가상 목록 · 글자 거르기 (대소문자 무시 — ImGui 는 그대로) · 수준 (전부 · 경고 이상 · 오류만 — ImGui 와 같은 머리 규칙) · 지우기 (그 뒤 줄만) · 복사 (거른 줄 전부) · 따라가기 (휠로 밀면 끔 · End 로 켬) · ↑↓ Home End · 고른 줄 복사 (Ctrl · Cmd+C) · 수준 색. `unit_client` "console panel". 프로젝트 안에서는 아직 ImGui 콘솔 (작업 공간은 홈에서 연다 — 프로젝트 안 GraphicsUI 는 R4-01 뒤) |
 | UI-R3-07 | Build 패널 | Partial | R2-05 | editor/gui · apps/client | `BuildPanel` — 프로필 ‹ › (SelectProfile → ImGui 창과 같은 profileIndex) · 검사 · 빌드 (명령 studio.check · studio.build) · 빌드 중 · 마지막 보고 줄 (BuildReport 그대로 — 요약 · 패키지 · digest · 에셋 그룹 · 오류 · 경고, 가상 목록), 프로젝트가 없으면 단추를 끈다. 값 모델 `BuildPanelModel` 을 Application 이 frame 마다 (바뀐 보고만 다시). 작업 공간의 콘솔 옆 탭 (패널 id 4). `unit_client` "build panel". 프로젝트 안 표시는 R4-01 과도기 (ADR-0179) 로 된다 — 남음: 실제 창 QA (빌드 · 검사를 작업 공간에서) |
 | UI-R3-08 | Test 패널 | Partial | R2-05 | editor/gui · apps/client | `TestPanel` — 클라이언트 · 지연 · 흔들림 · 손실 (− 값 + — ImGui 창과 같은 범위, TestPlan 의도 → m_testPanel) · 서버 + 클라이언트 시작 · 모두 끝내기 (studio.test-start · stop) · 프로세스 목록 (상태 · 종료 코드 · 로그 경로 — 툴팁 대신 줄 오른쪽), 도는 동안 값 · 시작 꺼짐. 값 모델 `TestPanelModel` (`TestProcess::operator==`). `unit_client` "test panel". 프로젝트 안 표시는 R4-01 과도기 (ADR-0179) 로 된다 — 남음: 실제 창 QA |

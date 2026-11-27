@@ -96,6 +96,8 @@ public:
     [[nodiscard]] static std::string fieldText(const FormField& field);
     // 글자 → 그 종류의 JSON 값 (범위 자르기 · 검증은 setFormField). 못 읽으면 오류
     [[nodiscard]] static Expected<ecs::Json> parseFieldText(const FormField& field, std::string_view text);
+    // 필드 종류 · 범위 안내 ("수 · 범위 0 ~ 64" — 인스펙터 · 콘텐츠 패널의 안내 줄)
+    [[nodiscard]] static std::string kindText(const FormField& f);
 
 private:
     void rebuild();

@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R3-05: 작업 공간 콘텐츠 패널 — 장면 옆 문서 탭, Prefab 폼 · 검사 · 적용 (ADR-0182)
+
+**무엇을**
+
+- `editor/ContentItems` — ImGui 콘텐츠 창 파일의 익명 이름공간에 있던 contentItems (옛 itemsOf) · currentContentText (옛 currentTextOf) ·
+  contentRawOf · scriptFileOf · scriptSourceOf 를 ImGui 없는 곳으로 옮겼다 (동작 그대로 — ImGui 창도 이것을 부른다).
+- `editor/gui/ContentPanel` — 종류 단추 (규칙 · 행동 · Prefab · 트리거 · 스크립트) · 오버레이 수 · 왼쪽 (거르기 · 목록 — 팩별 묶음 머리 ·
+  "●" 오버레이 · ↑↓ · 새 id + 새 항목) · 오른쪽 (제목 — 새 항목 / 월드 오버레이 / 팩 원본 · 고침 · 보기만, 내용 목록, 안내 줄, 값 칸 + 바꾸기 +
+  기본값으로, 컴포넌트 빼기 + 더하기 이름 칸, 검사 · 적용 · 고친 것 버리기 · 팩 값으로, 결과 줄). Prefab 은 DataForm `prefabForm` 섹션을
+  인스펙터와 같은 "이름 | 값" 줄로 (기본값은 흐리게 "(기본)") — 값 → `parseFieldText` → `setFormField`, `resetFormField`,
+  `removePrefabComponent` · `addPrefabComponent` 로 고친 JSON 을 고치는 글에. 그 밖의 종류는 내용 줄 읽기만. 다시 불러오기 규칙은 ImGui
+  창과 같다 (보낸 것이 받아들여짐 · 고치지 않은 채 남이 바꿈 · 없어짐).
+- `apps/client/ui/GuiContentModel` — `makeGuiContentView` (패널이 고른 종류 · id 로: contentItems → groupByPack, 지금 값 · 오버레이 ·
+  요약 줄 (`contentSummaryLines` — ImGui 요약과 같은 내용), 역할, 카탈로그 · 더할 컴포넌트, 콘텐츠 거절) · `runGuiContentIntent`
+  (checkContentEdit · editContent · contentEditValue · contentTemplate).
+- `InspectorPanel::kindText` 를 공개 (콘텐츠 패널의 안내 줄이 같이 쓴다). `WorkspaceIntent` — ContentCheck · ContentApply · ContentRevert ·
+  ContentNew, `text`.
+- `StudioWorkspace` — 콘텐츠 (id 11) 는 장면 옆 문서 탭 (모든 프리셋, 앞은 장면 — 크기 맞추기 전에 장면을 고른다). 옛 .guidock 은 프리셋으로.
+- ADR-0182, 문서: TASK_REGISTRY (R3-05 Partial · 합계 일부 10), CURRENT_STATUS, UI-R3, FEATURE_MATRIX 11, MIGRATION_GUIDE 4b-5, 17-SOURCE-MAP,
+  29-STUDIO-UI.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 편집 (툴) 다음. 프로젝트 안 작업 공간에서 콘텐츠를 볼 · 고칠 곳이 없었다. GraphicsUI 글 칸은 한
+줄이라 첫 조각은 폼으로 고칠 수 있는 Prefab 만 고치고 나머지는 읽기만.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 16 케이스 (2097 단언): content panel — 자리 (장면 옆, 앞은 장면) · 프로젝트 밖 · 묶음 머리 · ● ·
+  고르기 → 다음 보기에서 불러오기 · 요약 · 폼 줄 (set / 기본) · maxSpeed 3.25 · 100 → 64 · "fast" 오류 · Esc · bool Space · 기본값으로 ·
+  컴포넌트 빼기 · "sens" → ai.sensor · 검사 의도 · 여러 줄 결과 · 적용 → 받아들여지면 다시 불러오기 · 남이 바꾸면 따라가기 · 고친 것 버리기 ·
+  팩 값으로 · 새 항목 (openItem · 버리면 놓기) · 거르기 (머리 없음) · ↓ · 없어진 id 놓기 · 규칙 읽기만 · 보기만 역할 / app (local server
+  ecosystem_small) — 콘텐츠 탭 → "eco.rabbit" 거르기 → 고르기 → core.movement.maxSpeed 7.25 → 적용 → 서버 오버레이에 7.25 · 결과 "보냈습니다"
+  → 팩 값으로 → 오버레이 없음.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 11". ImGui 콘텐츠 창 시험 (unit_editor) 그대로 통과.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 831
+  파일 0 위반.
+
+**남은 일** — 여러 줄 JSON (규칙 · 행동 · 트리거) · 트리거 폼 · 그래프 · 스크립트 편집기 · 저장 · 새 스크립트 (여러 줄 글 칸 · 팝업 — 업스트림),
+실제 창 QA.
+
 ## 2026-11-27 — GraphicsUI 통합: 작업 공간 편집 (툴) 패널 — 툴 단추 · 배치 Prefab · 붓, 상태는 Editor 그대로 (ADR-0181)
 
 **무엇을**

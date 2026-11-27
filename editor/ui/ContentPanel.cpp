@@ -13,6 +13,7 @@
 #include "core/content/ContentLoader.hpp"
 #include "core/content/ScriptPrograms.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
+#include "editor/ContentItems.hpp"
 #include "editor/PackGroups.hpp"
 #include "editor/services/DataForm.hpp"
 #include "editor/services/ScriptAssist.hpp"
@@ -31,143 +32,6 @@ constexpr ImGuiWindowFlags kPanelFlags = ImGuiWindowFlags_None; // 자리는 레
     return ImGui::GetStyle().FontScaleDpi;
 }
 
-struct Item {
-    std::string id;
-    bool overlay = false;
-    const ecs::Json* raw = nullptr; // 스크립트는 없다 (소스 — scriptSourceOf)
-};
-
-// 스크립트 오버레이 id 의 팩 파일 (v0.3 M5-T2) — 팩 폴더 · 원본 텍스트. 팩에 없는 (오버레이로 더한) 파일이면 text 가
-// 없다
-struct ScriptFile {
-    std::string display; // "<팩 폴더>/scripts/a.ts" (콘텐츠 문제의 file 과 같다)
-    const std::string* text = nullptr;
-    std::filesystem::path disk; // 이 컴퓨터의 그 파일 (팩 폴더를 모르면 비었다)
-    bool installed = false;     // 설치한 패키지 (.sandbox/packages/ — [저장] 하지 않는다)
-};
-[[nodiscard]] std::optional<ScriptFile> scriptFileOf(const content::ContentDatabase& db, std::string_view id) {
-    const auto path = content::scriptOverlayPath(id);
-    if (!path || db.sources() == nullptr) {
-        return std::nullopt;
-    }
-    for (const content::ContentSourcePack& sp : db.sources()->packs) {
-        if (sp.info.id != path->pack) {
-            continue;
-        }
-        ScriptFile out{sp.folder + "/" + path->rel, nullptr,
-                       sp.dir.empty() ? std::filesystem::path() : sp.dir / path->rel,
-                       sp.folder.starts_with(".sandbox/packages/")};
-        for (const content::ContentSourceFile& f : sp.files) {
-            if (f.rel == path->rel) {
-                out.text = &f.text;
-            }
-        }
-        return out;
-    }
-    return std::nullopt;
-}
-
-// 지금 소스 (오버레이 → 팩 원본). 없으면 nullopt
-[[nodiscard]] std::optional<std::string> scriptSourceOf(const content::ContentDatabase& db, std::string_view id) {
-    if (const ecs::Json* v = db.overlay().find(content::ContentKind::Script, id);
-        v != nullptr && v->contains("source") && (*v)["source"].is_string()) {
-        return (*v)["source"].get<std::string>();
-    }
-    const auto file = scriptFileOf(db, id);
-    if (file && file->text != nullptr) {
-        return *file->text;
-    }
-    return std::nullopt;
-}
-
-[[nodiscard]] std::vector<Item> itemsOf(const content::ContentDatabase& db, content::ContentKind kind) {
-    std::vector<Item> out;
-    switch (kind) {
-    case content::ContentKind::Prefab:
-        for (const content::Prefab& p : db.prefabs()) {
-            out.push_back({p.id, p.overlay, &p.raw});
-        }
-        break;
-    case content::ContentKind::Rule:
-        for (const content::Rule& r : db.rules()) {
-            out.push_back({r.id, r.overlay, &r.raw});
-        }
-        break;
-    case content::ContentKind::Behavior:
-        for (const content::BehaviorGraph& g : db.behaviors()) {
-            out.push_back({g.id, g.overlay, &g.raw});
-        }
-        break;
-    case content::ContentKind::Trigger:
-        for (const content::TriggerDef& t : db.triggers()) { // 실행 순서
-            out.push_back({t.id, t.overlay, &t.raw});
-        }
-        break;
-    case content::ContentKind::Script: {
-        // 팩의 scripts/*.ts (오버레이 id 로 쓸 수 있는 경로만) + 오버레이로 더한 파일 — id 정렬
-        std::vector<std::string> ids;
-        if (db.sources() != nullptr) {
-            for (const content::ContentSourcePack& sp : db.sources()->packs) {
-                for (const content::ContentSourceFile& f : sp.files) {
-                    if (const auto id = content::scriptOverlayId(sp.info.id, f.rel)) {
-                        ids.push_back(*id);
-                    }
-                }
-            }
-        }
-        for (const auto& [id, value] : db.overlay().items(content::ContentKind::Script)) {
-            (void)value;
-            ids.push_back(id);
-        }
-        std::sort(ids.begin(), ids.end());
-        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
-        for (std::string& id : ids) {
-            const bool overlaid = db.overlay().find(content::ContentKind::Script, id) != nullptr;
-            out.push_back({std::move(id), overlaid, nullptr});
-        }
-        break;
-    }
-    }
-    return out;
-}
-
-// 고르는 항목의 지금 값 — JSON 종류는 dump(2), 스크립트는 소스. 없으면 nullopt
-[[nodiscard]] std::optional<std::string> currentTextOf(const content::ContentDatabase& db, content::ContentKind kind,
-                                                       std::string_view id);
-
-[[nodiscard]] const ecs::Json* rawOf(const content::ContentDatabase& db, content::ContentKind kind,
-                                     std::string_view id) {
-    switch (kind) {
-    case content::ContentKind::Prefab: {
-        const content::Prefab* p = db.findPrefab(id);
-        return p != nullptr ? &p->raw : nullptr;
-    }
-    case content::ContentKind::Rule: {
-        const content::Rule* r = db.findRule(id);
-        return r != nullptr ? &r->raw : nullptr;
-    }
-    case content::ContentKind::Behavior: {
-        const content::BehaviorGraph* g = db.findBehavior(id);
-        return g != nullptr ? &g->raw : nullptr;
-    }
-    case content::ContentKind::Trigger: {
-        const content::TriggerDef* t = db.findTrigger(id);
-        return t != nullptr ? &t->raw : nullptr;
-    }
-    case content::ContentKind::Script:
-        return nullptr; // 소스 텍스트 — currentTextOf
-    }
-    return nullptr;
-}
-
-std::optional<std::string> currentTextOf(const content::ContentDatabase& db, content::ContentKind kind,
-                                         std::string_view id) {
-    if (kind == content::ContentKind::Script) {
-        return scriptSourceOf(db, id);
-    }
-    const ecs::Json* raw = rawOf(db, kind, id);
-    return raw != nullptr ? std::optional<std::string>(raw->dump(2)) : std::nullopt;
-}
 
 [[nodiscard]] bool containsIgnoreCase(std::string_view text, std::string_view needle) {
     if (needle.empty()) {
@@ -568,7 +432,7 @@ void stashScriptDraft(ContentPanelState& st) {
 bool openScript(ContentPanelState& st, const content::ContentDatabase& db, std::string_view id,
                 std::optional<usize> offset) {
     if (st.kind != content::ContentKind::Script || st.selected != id || st.isNew) {
-        const std::optional<std::string> current = currentTextOf(db, content::ContentKind::Script, id);
+        const std::optional<std::string> current = currentContentText(db, content::ContentKind::Script, id);
         if (!current) {
             return false;
         }
@@ -653,7 +517,7 @@ std::string createScriptFile(ContentPanelState& st, const content::ContentDataba
         return std::format("{} — 이 월드가 읽은 팩의 scripts/ 아래가 아니라 스크립트 id 를 만들 수 없습니다",
                            file.generic_string());
     }
-    if (currentTextOf(db, content::ContentKind::Script, *id)) {
+    if (currentContentText(db, content::ContentKind::Script, *id)) {
         return std::format("스크립트 '{}' 가 이미 있습니다", *id);
     }
     if (st.documents == nullptr) {
@@ -892,7 +756,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     // 서버 값이 바뀌면 다시 불러온다: 보낸 것이 받아들여졌거나(pendingFrom 과 달라짐), 고치지 않은 채 남이 바꿨다.
     // 없어진 항목(오버레이로 더한 것을 뺐다)은 놓는다
     const std::optional<std::string> now =
-        st.selected.empty() ? std::nullopt : currentTextOf(*db, st.kind, st.selected);
+        st.selected.empty() ? std::nullopt : currentContentText(*db, st.kind, st.selected);
     const std::string current = now.value_or(std::string());
     if (!st.selected.empty()) {
         if (st.pendingFrom) {
@@ -920,14 +784,14 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
     ImGui::InputTextWithHint("##filter", "거르기", st.filter.data(), st.filter.size());
     const std::string_view filter(st.filter.data());
     // 팩별 묶음 (v0.4 M4-T3) — 프로젝트 팩 · 설치한 패키지 · 그 밖. 팩이 하나면 머리 없이
-    std::vector<Item> items;
+    std::vector<ContentItem> items;
     std::vector<std::string_view> ids;
-    for (Item& item : itemsOf(*db, st.kind)) {
+    for (ContentItem& item : contentItems(*db, st.kind)) {
         if (containsIgnoreCase(item.id, filter)) {
             items.push_back(std::move(item));
         }
     }
-    for (const Item& item : items) {
+    for (const ContentItem& item : items) {
         ids.push_back(item.id);
     }
     const std::vector<PackGroup> groups = groupByPack(*db, ids);
@@ -936,7 +800,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             ImGui::SeparatorText(g.label.c_str());
         }
         for (const usize i : g.items) {
-            const Item& item = items[i];
+            const ContentItem& item = items[i];
             const bool draft = st.kind == content::ContentKind::Script && st.drafts.contains(item.id);
             const std::string label =
                 std::format("{}{}{}", item.overlay ? "● " : "   ", item.id, draft ? " ✎" : ""); // ✎ = 적용 · 저장 전
@@ -948,7 +812,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
                     st.saveAsk = ContentPanelState::SaveAsk::None;
                     st.isNew = false;
                     st.pendingFrom.reset();
-                    st.text = st.loaded = currentTextOf(*db, st.kind, item.id).value_or(std::string());
+                    st.text = st.loaded = currentContentText(*db, st.kind, item.id).value_or(std::string());
                     st.issues.clear();
                     st.checked.clear();
                 }
@@ -963,7 +827,7 @@ void drawContentPanel(Editor& editor, ContentPanelState& st, IEditorHost& host, 
             st.newId.data(), st.newId.size());
         if (ImGui::Button("새 항목") && st.newId[0] != '\0') {
             st.selected = st.newId.data();
-            const std::optional<std::string> existing = currentTextOf(*db, st.kind, st.selected);
+            const std::optional<std::string> existing = currentContentText(*db, st.kind, st.selected);
             st.isNew = !existing.has_value();
             st.text = existing                                  ? *existing
                       : st.kind == content::ContentKind::Script ? scriptTemplate(st.selected)

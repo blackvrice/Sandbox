@@ -31,6 +31,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     ws->m_inspector = inspector.get();
     auto tools = std::make_unique<ToolPanel>(*ws->m_ctx);
     ws->m_tools = tools.get();
+    auto content = std::make_unique<ContentPanel>(*ws->m_ctx);
+    ws->m_content = content.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -46,6 +48,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kHierarchy, "목록", std::move(hierarchy)}); // ImGui 창 이름과 같다
     panes.push_back({kInspector, "인스펙터", std::move(inspector)});
     panes.push_back({kTools, "편집", std::move(tools)}); // ImGui 창 이름과 같다
+    panes.push_back({kContent, "콘텐츠", std::move(content)});
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -82,7 +85,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
                  {kTest, kBuild, gui::DockSide::tab_after},   {kShortcuts, kTest, gui::DockSide::tab_after},
                  {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after},
                  {kHierarchy, kScene, gui::DockSide::left},     {kInspector, kConsole, gui::DockSide::tab_before},
-                 {kTools, kInspector, gui::DockSide::tab_after}};
+                 {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after}};
     } else {
         // scene (기본 · default · 모르는 이름) = 도구가 오른쪽, scripting = 도구가 왼쪽 (명령 표를 쓰며 찾기)
         const gui::DockSide tools = preset == "scripting" ? gui::DockSide::left : gui::DockSide::right;
@@ -94,12 +97,14 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
                                               : Move{kHierarchy, kScene, gui::DockSide::left});
         moves.push_back({kInspector, kShortcuts, gui::DockSide::tab_before}); // 도구 그룹의 첫 탭
         moves.push_back({kTools, kInspector, gui::DockSide::tab_after});      // 그다음 = 편집 (툴)
+        moves.push_back({kContent, kScene, gui::DockSide::tab_after});        // 장면 옆 문서 탭 = 콘텐츠 (넓은 칸)
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
             return std::unexpected(uihost::toError(r.error(), "작업 공간 프리셋"));
         }
     }
+    (void)layout.select(kScene); // 장면 그룹의 앞 탭 = 장면 (콘텐츠 문서 탭 앞 — 아래 크기 맞추기가 장면 그룹을 찾는다)
     // 장면 쪽을 크게 (ImGui 셸의 가운데 노드처럼) — 장면이 앞 (왼쪽 · 위) 이면 76 % · 72 %, 뒤면 그 나머지.
     // 분할 토큰은 개정에 묶인다 — 바꿀 때마다 다시 배치해 다음 차례를 찾는다 (크기는 비율이라 배치 크기와 무관)
     constexpr gui::LayoutSize kNominal{1600, 900};

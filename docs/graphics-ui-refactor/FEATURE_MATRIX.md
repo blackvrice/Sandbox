@@ -29,7 +29,7 @@
 | 8 | 목록 · Hierarchy (`EditorPanel` · HierarchyService) | TreeView (가상 · 펼침 · 거르기 · 선택 보존) | 즉시 (다중 선택은 GUI 개선 — TreeView 는 단일 선택) — **일부 (작업 공간의 목록 패널 — 같은 서비스 · 검색 · 그룹 · 선택 · 두 번 누르기, 맥락 메뉴는 GUI-UP-03)** | UI-R3-02 |
 | 9 | 인스펙터 (`InspectorPanel` · DataForm) | Slider · Toggle · ComboBox · TextInput | 어댑터 (속성 편집 Custom Control) — **일부 (작업 공간의 인스펙터 — 속성 표 + 편집 줄, DataForm 검사, 빼기 · 더하기 · Prefab 값으로 · 되돌리기, 콤보 · 끌기는 GUI-UP-03 — ADR-0180)** | UI-R3-03 |
 | 10 | 편집 (툴) 패널 (`EditorPanel`) | Toggle · Button | 즉시 — **일부 (작업 공간의 "편집" — 툴 단추 · 배치 Prefab · 간격 · 격자 · 머티리얼 · 붓 · 되돌리기, 슬라이더는 − + — ADR-0181)** | UI-R3-03 |
-| 11 | 콘텐츠 창 (`ContentPanel` — 1,317 줄) | TreeView · TextInput · 폼 | 어댑터 | UI-R3-05 |
+| 11 | 콘텐츠 창 (`ContentPanel` — 1,317 줄) | TreeView · TextInput · 폼 | 어댑터 — **일부 (작업 공간의 "콘텐츠" — 목록 · 요약 · Prefab 폼 · 검사 · 적용 · 팩 값으로 · 새 항목, 그 밖은 읽기만 — ADR-0182)** | UI-R3-05 |
 | 12 | 트리거 폼 (`TriggerForm`) | ComboBox · TextInput | 어댑터 | UI-R3-03 |
 | 13 | 트리거 캔버스 (`TriggerCanvas` — 노드 그래프) | 예제만 (game-editor Node Graph — Core 아님) | GUI 개선 (GUI-UP-06) 또는 Sandbox Custom Control | UI-R3 (후속) |
 | 14 | 스크립트 편집기 (`ScriptEditor`) | TextInput = 단일행 · 32 단계 실행 취소 | GUI 개선 (GUI-UP-04 코드 편집기) | UI-R5-01 |

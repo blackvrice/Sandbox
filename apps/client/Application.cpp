@@ -1,5 +1,6 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/GuiContentModel.hpp"
 #include "apps/client/ui/GuiInspectorModel.hpp"
 #include "apps/client/ui/GuiToolModel.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
@@ -2552,6 +2553,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         ws.inspector().setView(ihost != nullptr ? makeGuiInspectorView(*ihost) : editor::gui::InspectorView{});
         // 편집 (툴 — ADR-0181) — ImGui "편집" 창과 같은 원천 (Editor 의 툴 · 설정 · 기록, 역할, 콘텐츠의 Prefab · 머티리얼)
         ws.tools().setView(ihost != nullptr ? makeGuiToolView(m_editor, *ihost) : editor::gui::ToolPanelView{});
+        // 콘텐츠 (ADR-0182) — ImGui "콘텐츠" 창과 같은 원천 (패널이 고른 종류 · 항목으로)
+        ws.content().setView(ihost != nullptr ? makeGuiContentView(ws.content(), m_editor, *ihost) : editor::gui::ContentView{});
     }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2679,6 +2682,16 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             }
         } else {
             applyGuiToolSettings(m_editor, intent->tools);
+        }
+        return std::nullopt;
+    }
+    case K::ContentCheck:
+    case K::ContentApply:
+    case K::ContentRevert:
+    case K::ContentNew: {
+        // 콘텐츠 패널 — ImGui "콘텐츠" 창과 같은 함수 (checkContentEdit · Editor::editContent · contentTemplate)
+        if (editor::IEditorHost* host = inWorld ? m_config.world->editorHost() : nullptr) {
+            runGuiContentIntent(*intent, ws.content(), m_editor, *host);
         }
         return std::nullopt;
     }

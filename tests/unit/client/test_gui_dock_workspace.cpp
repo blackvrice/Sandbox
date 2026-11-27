@@ -10,6 +10,7 @@
 #include <format>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <numbers>
 #include <random>
 #include <string>
@@ -51,6 +52,7 @@ constexpr gui::DockPaneId kScene = StudioWorkspace::kScene;
 constexpr gui::DockPaneId kHierarchy = StudioWorkspace::kHierarchy;
 constexpr gui::DockPaneId kInspector = StudioWorkspace::kInspector;
 constexpr gui::DockPaneId kTools = StudioWorkspace::kTools;
+constexpr gui::DockPaneId kContent = StudioWorkspace::kContent;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -220,7 +222,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 10);
+        CHECK(d.lastFrame()->tabs.size() == 11);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1156,6 +1158,241 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(takeKind(WorkspaceIntent::Kind::SelectTool).value == 0);
     }
 
+    TEST_CASE("content panel (ADR-0182): kinds, pack groups, Prefab form edits through DataForm, check · apply · revert · new intents, reload") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::ContentPanel& cp = f.ws->content();
+        using Row = editor::gui::ContentPanel::Row;
+        // 자리 — 장면 옆 문서 탭 (앞은 장면)
+        CHECK(sameGroup(d, kContent, kScene));
+        CHECK(tabOf(d, kContent).bounds.x > tabOf(d, kScene).bounds.x);
+        CHECK(groupOf(d, kScene).active == kScene);
+        f.show(kContent);
+        REQUIRE(groupOf(d, kContent).active == kContent);
+        CHECK(cp.title() == "콘텐츠 — 프로젝트 안에서 쓴다");
+        CHECK(cp.items().empty());
+
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog));
+        std::map<std::string, std::string, std::less<>> store;
+        store["eco.rabbit"] = ecs::Json{{"id", "eco.rabbit"},
+                                        {"name", "Rabbit"},
+                                        {"tags", ecs::Json::array()},
+                                        {"components", {{"core.movement", {{"maxSpeed", 2.5}}}, {"core.transform", ecs::Json::object()}}}}
+                                  .dump(2);
+        store["eco.wolf"] = ecs::Json{{"id", "eco.wolf"}, {"components", {{"core.transform", ecs::Json::object()}}}}.dump(2);
+        store["eco.eat"] = ecs::Json{{"id", "eco.eat"}, {"action", "eat"}, {"range", 1.0}}.dump(2);
+        bool editable = true;
+        const auto view = [&] {
+            editor::gui::ContentView v;
+            v.available = true;
+            v.editable = editable;
+            v.kind = cp.kind();
+            v.overlayCount = 1;
+            if (v.kind == content::ContentKind::Prefab) {
+                v.groups = {{"eco · 프로젝트", {{"eco.rabbit", true}, {"eco.wolf", false}}},
+                            {"inv 1.0.0 · MIT · 설치한 패키지", {{"inv.crate", false}}}};
+            } else {
+                v.groups = {{"eco · 프로젝트", {{"eco.eat", false}}}};
+            }
+            v.selected = cp.selected();
+            if (const auto it = store.find(v.selected); it != store.end()) {
+                v.current = it->second;
+                v.summary = {"요약 — " + v.selected};
+            }
+            v.inOverlay = v.selected == "eco.rabbit";
+            v.catalog = &catalog;
+            v.prefabs = {"eco.rabbit", "eco.wolf", "inv.crate"};
+            v.addable = {"ai.sensor", "core.movement", "core.transform", "life.age"};
+            cp.setView(std::move(v));
+            f.frame();
+        };
+        const auto takeKind = [&](WorkspaceIntent::Kind k) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == k);
+            return *i;
+        };
+        const auto at = [&](gui::ComponentHandle listHandle, std::optional<gui::LayoutRect> r) {
+            REQUIRE(r);
+            const gui::DockGroupBox g = groupOf(d, kContent);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kContent)->lastLayout()->boxes()) {
+                if (b.component == listHandle) {
+                    list = b.bounds;
+                }
+            }
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        const auto findRow = [&](std::string_view component, std::string_view name) {
+            for (usize i = 0; i < cp.rows().size(); ++i) {
+                const Row& r = cp.rows()[i];
+                if (r.component == component && (name.empty() ? r.kind == Row::Kind::Header : r.name == name)) {
+                    return i;
+                }
+            }
+            FAIL("그 줄이 없다");
+            return usize{0};
+        };
+        const auto pickRow = [&](usize row) { f.feed(click(at(cp.rowListHandle(), cp.rowBounds(row)))); };
+        const auto prefab = [&] { return ecs::Json::parse(cp.text()); };
+
+        // Prefab 목록 — 팩 묶음 둘 = 머리 줄, "●" = 오버레이
+        view();
+        CHECK(cp.kind() == content::ContentKind::Prefab);
+        REQUIRE(cp.items().size() == 5);
+        CHECK(cp.items()[0].header);
+        CHECK(cp.items()[1].text == "eco.rabbit");
+        CHECK(cp.items()[1].overlay);
+        CHECK(cp.title().find("왼쪽에서 항목을 고르십시오") != std::string::npos);
+        // 고르기 → 다음 보기에서 지금 값 → 폼 줄 (요약 · 섹션 머리 · 필드)
+        f.feed(click(at(cp.itemListHandle(), cp.itemBounds(1))));
+        CHECK(cp.selected() == "eco.rabbit");
+        view();
+        CHECK(cp.text() == store["eco.rabbit"]);
+        CHECK_FALSE(cp.dirty());
+        CHECK(cp.formMode());
+        CHECK(cp.title() == "eco.rabbit  — 월드 오버레이");
+        REQUIRE(!cp.rows().empty());
+        CHECK(cp.rows()[0].kind == Row::Kind::Summary);
+        CHECK(cp.rows()[0].name == "요약 — eco.rabbit");
+        const usize speed = findRow("core.movement", "maxSpeed");
+        CHECK(cp.rows()[speed].value == "2.500");
+        CHECK(cp.rows()[speed].set);
+        CHECK_FALSE(cp.rows()[findRow("core.movement", "hasGoal")].set);
+
+        // 필드 고치기 — DataForm 검사 · 범위로 자르기, 글이 바뀌면 "고침"
+        pickRow(speed);
+        CHECK(cp.message() == "core.movement.maxSpeed — 수 · 범위 0 ~ 64");
+        f.feed(click(paneCenter(d, kContent, cp.valueHandle())));
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"3.25"));
+        f.feed(key(Key::Enter));
+        CHECK(prefab()["components"]["core.movement"]["maxSpeed"].get<f64>() == doctest::Approx(3.25));
+        CHECK(cp.dirty());
+        CHECK(cp.title() == "eco.rabbit  — 월드 오버레이 · 고침");
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"100"));
+        f.feed(key(Key::Enter));
+        CHECK(prefab()["components"]["core.movement"]["maxSpeed"].get<f64>() == doctest::Approx(64.0));
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"fast"));
+        f.feed(key(Key::Enter));
+        CHECK(cp.message().starts_with("maxSpeed — "));
+        f.feed(key(Key::Escape));
+        CHECK(cp.message() == "core.movement.maxSpeed — 수 · 범위 0 ~ 64");
+        // bool (기본값) — Space 로 켜고, "기본값으로" 로 원본에서 뺀다
+        pickRow(findRow("core.movement", "hasGoal"));
+        f.feed(key(Key::Space));
+        CHECK(prefab()["components"]["core.movement"]["hasGoal"].get<bool>());
+        CHECK(cp.rows()[findRow("core.movement", "hasGoal")].set);
+        f.feed(click(paneCenter(d, kContent, cp.resetHandle())));
+        CHECK_FALSE(prefab()["components"]["core.movement"].contains("hasGoal"));
+        // 컴포넌트 빼기 · 더하기 (이름 칸 — 하나로 좁혀지면)
+        pickRow(findRow("core.movement", ""));
+        f.feed(click(paneCenter(d, kContent, cp.removeHandle())));
+        CHECK_FALSE(prefab()["components"].contains("core.movement"));
+        f.feed(click(paneCenter(d, kContent, cp.addNameHandle())));
+        f.feed(typed(U"sens"));
+        f.feed(key(Key::Enter));
+        CHECK(prefab()["components"].contains("ai.sensor"));
+
+        // 검사 · 적용 — 의도 (앱이 checkContentEdit · editContent), 결과 줄
+        f.feed(click(paneCenter(d, kContent, cp.checkHandle())));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::ContentCheck);
+            CHECK(i.command == "eco.rabbit");
+            CHECK(i.value == static_cast<int>(content::ContentKind::Prefab));
+            CHECK(i.text == cp.text());
+        }
+        cp.setResult({{true, "규칙 위반\n  고치는 법: 이렇게"}}, false);
+        f.frame();
+        REQUIRE(cp.issueLines().size() == 2); // 문제의 줄바꿈마다
+        CHECK(cp.issueLines()[1].text == "  고치는 법: 이렇게");
+        f.feed(click(paneCenter(d, kContent, cp.applyHandle())));
+        const std::string sentText = takeKind(WorkspaceIntent::Kind::ContentApply).text;
+        cp.setResult({{false, "보냈습니다"}}, true);
+        view(); // 서버가 아직 — 고친 글 그대로
+        CHECK(cp.dirty());
+        store["eco.rabbit"] = sentText; // 받아들여졌다 → 새 값으로 다시 불러온다
+        view();
+        CHECK_FALSE(cp.dirty());
+        CHECK(cp.text() == sentText);
+        // 고치지 않은 채 남이 바꾸면 따라간다
+        store["eco.rabbit"] = ecs::Json{{"id", "eco.rabbit"}, {"components", {{"core.transform", ecs::Json::object()}}}}.dump(2);
+        view();
+        CHECK(cp.text() == store["eco.rabbit"]);
+        // 고친 것 버리기
+        pickRow(findRow("core.transform", "rotation"));
+        f.feed(click(paneCenter(d, kContent, cp.valueHandle())));
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"90"));
+        f.feed(key(Key::Enter));
+        CHECK(cp.dirty());
+        f.feed(click(paneCenter(d, kContent, cp.discardHandle())));
+        CHECK_FALSE(cp.dirty());
+        // 팩 값으로 (오버레이일 때)
+        f.feed(click(paneCenter(d, kContent, cp.revertHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::ContentRevert).command == "eco.rabbit");
+
+        // 새 항목 — 앱이 틀을 연다 (openItem)
+        f.feed(click(paneCenter(d, kContent, cp.newIdHandle())));
+        f.feed(typed(U"eco.fox"));
+        f.feed(key(Key::Enter));
+        CHECK(takeKind(WorkspaceIntent::Kind::ContentNew).command == "eco.fox");
+        cp.openItem("eco.fox", ecs::Json{{"id", "eco.fox"}, {"components", {{"core.transform", ecs::Json::object()}}}}.dump(2), true);
+        view();
+        CHECK(cp.isNew());
+        CHECK(cp.dirty());
+        CHECK(cp.title().find("새 항목") != std::string::npos);
+        (void)findRow("core.transform", "");
+        f.feed(click(paneCenter(d, kContent, cp.discardHandle()))); // 새 항목 버리기 = 놓는다
+        CHECK(cp.selected().empty());
+
+        // 거르기 — 묶음 하나면 머리 없이, ↓ 로 고르기
+        f.feed(click(paneCenter(d, kContent, cp.filterHandle())));
+        f.feed(typed(U"WOLF"));
+        REQUIRE(cp.items().size() == 1);
+        CHECK(cp.items()[0].text == "eco.wolf");
+        f.feed(click(at(cp.itemListHandle(), cp.itemBounds(0))));
+        CHECK(cp.selected() == "eco.wolf");
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(click(paneCenter(d, kContent, cp.filterHandle())));
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(key(Key::Backspace));
+        f.feed(click(at(cp.itemListHandle(), cp.itemBounds(2))));
+        f.feed(key(Key::Down)); // 머리 건너뛰고 inv.crate
+        CHECK(cp.selected() == "inv.crate");
+        view();
+        CHECK(cp.selected().empty()); // 콘텐츠에 없는 id = 놓는다
+
+        // 규칙 — 읽기만 (글 줄), 편집 줄은 꺼짐
+        f.feed(click(paneCenter(d, kContent, cp.kindHandle(0))));
+        CHECK(cp.kind() == content::ContentKind::Rule);
+        view();
+        REQUIRE(cp.items().size() == 1); // 묶음 하나 — 머리 없이
+        f.feed(click(at(cp.itemListHandle(), cp.itemBounds(0))));
+        view();
+        CHECK_FALSE(cp.formMode());
+        CHECK(cp.message().starts_with("읽기만"));
+        REQUIRE(cp.rows().size() >= 2);
+        CHECK(cp.rows()[1].kind == Row::Kind::Text);
+        CHECK(cp.rows()[1].name == "{");
+        f.feed(click(paneCenter(d, kContent, cp.setHandle())));
+        f.feed(click(paneCenter(d, kContent, cp.applyHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 보기만 (역할) — 검사만
+        editable = false;
+        view();
+        CHECK(cp.title().ends_with(" · 보기만"));
+        f.feed(click(paneCenter(d, kContent, cp.checkHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::ContentCheck).command == "eco.eat");
+        f.feed(click(paneCenter(d, kContent, cp.newHandle()))); // 새 항목 · 적용은 꺼짐
+        f.feed(click(paneCenter(d, kContent, cp.applyHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -1599,6 +1836,80 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(app.frame());
         CHECK(app.editor().tool() == editor::Tool::Select);
         CHECK(tp.title() == "툴: 선택 (1)");
+
+        // 콘텐츠 (ADR-0182) — 장면 옆 탭, Prefab 폼으로 eco.rabbit 을 고쳐 적용 (검사 → Editor::editContent → 서버 오버레이) · 팩 값으로
+        editor::gui::ContentPanel& cp = ws->content();
+        const content::ContentDatabase* cdb = eh.content();
+        REQUIRE(cdb != nullptr);
+        const auto rabbitPrefab = [&]() -> const content::Prefab* { return eh.content()->findPrefab("eco.rabbit"); };
+        REQUIRE(rabbitPrefab() != nullptr);
+        const bool overlayBefore = rabbitPrefab()->overlay;
+        REQUIRE_FALSE(overlayBefore);
+        injectAll(click(center(tabOf(d, kContent).bounds, d.scale())));
+        REQUIRE(groupOf(d, kContent).active == kContent);
+        CHECK(cp.view().available);
+        CHECK(cp.view().editable);
+        CHECK(cp.kind() == content::ContentKind::Prefab);
+        injectAll(click(paneCenter(d, kContent, cp.filterHandle())));
+        injectAll(typed(U"eco.rabbit"));
+        usize rabbitItem = cp.items().size();
+        for (usize i = 0; i < cp.items().size(); ++i) {
+            if (!cp.items()[i].header && cp.items()[i].text == "eco.rabbit") {
+                rabbitItem = i;
+            }
+        }
+        REQUIRE(rabbitItem < cp.items().size());
+        const auto contentAt = [&](gui::ComponentHandle listHandle, std::optional<gui::LayoutRect> r) {
+            REQUIRE(r);
+            const gui::DockGroupBox g = groupOf(d, kContent);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kContent)->lastLayout()->boxes()) {
+                if (b.component == listHandle) {
+                    list = b.bounds;
+                }
+            }
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height}, d.scale());
+        };
+        injectAll(click(contentAt(cp.itemListHandle(), cp.itemBounds(rabbitItem))));
+        REQUIRE(app.frame());
+        REQUIRE(cp.selected() == "eco.rabbit");
+        REQUIRE(cp.formMode());
+        REQUIRE_FALSE(cp.text().empty());
+        // 고칠 필드 — 첫 섹션의 첫 수 필드 (줄을 누르고 ↓ 로 — 고르면 보이게 스크롤)
+        usize fieldRow = cp.rows().size();
+        for (usize i = 0; i < cp.rows().size(); ++i) {
+            const auto& r = cp.rows()[i];
+            if (r.kind == editor::gui::ContentPanel::Row::Kind::Field && r.editable && r.component == "core.movement" &&
+                r.name == "maxSpeed") {
+                fieldRow = i;
+            }
+        }
+        REQUIRE(fieldRow < cp.rows().size());
+        injectAll(click(contentAt(cp.rowListHandle(), cp.rowBounds(0))));
+        while (cp.selectedRow() != fieldRow) {
+            injectAll({key(Key::Down)});
+        }
+        injectAll(click(paneCenter(d, kContent, cp.valueHandle())));
+        injectAll({key(Key::A, Modifiers::kCtrl)});
+        injectAll(typed(U"7.25"));
+        injectAll({key(Key::Enter)});
+        REQUIRE(cp.dirty());
+        injectAll(click(paneCenter(d, kContent, cp.applyHandle())));
+        for (int i = 0; i < 120 && (!rabbitPrefab()->overlay || cp.dirty()); ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(rabbitPrefab()->overlay);
+        CHECK_FALSE(cp.dirty());
+        CHECK(rabbitPrefab()->raw["components"]["core.movement"]["maxSpeed"].get<f64>() == doctest::Approx(7.25));
+        CHECK(std::ranges::any_of(cp.issues(), [](const auto& i) { return i.text.starts_with("보냈습니다"); }));
+        // 팩 값으로 — 오버레이에서 뺀다
+        injectAll(click(paneCenter(d, kContent, cp.revertHandle())));
+        for (int i = 0; i < 120 && rabbitPrefab()->overlay; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK_FALSE(rabbitPrefab()->overlay);
+        injectAll(click(center(tabOf(d, kScene).bounds, d.scale())));
+        REQUIRE(groupOf(d, kScene).active == kScene);
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

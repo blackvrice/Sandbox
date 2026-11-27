@@ -54,7 +54,12 @@ constexpr std::string_view kDegree = "\xC2\xB0"; // °
     return out;
 }
 
-[[nodiscard]] std::string kindText(const FormField& f) {
+
+} // namespace
+
+// ---- 값 글자 ----
+
+std::string InspectorPanel::kindText(const FormField& f) {
     std::string k;
     switch (f.kind) {
     case FormFieldKind::Bool:
@@ -93,9 +98,6 @@ constexpr std::string_view kDegree = "\xC2\xB0"; // °
     return k;
 }
 
-} // namespace
-
-// ---- 값 글자 ----
 
 std::string InspectorPanel::fieldText(const FormField& f) {
     const ecs::Json& v = f.value;
@@ -271,7 +273,7 @@ std::string InspectorPanel::message() const {
     }
     if (const FormField* f = selectedField()) {
         std::string s = std::format("{}.{} — {}", m_view.sections[m_rows[*m_selRow].section].form.component, f->name,
-                                    kindText(*f));
+                                    InspectorPanel::kindText(*f));
         if (f->kind == FormFieldKind::PrefabRef && !m_view.prefabs.empty()) {
             s += std::format(" · Prefab {} 개", m_view.prefabs.size());
         }

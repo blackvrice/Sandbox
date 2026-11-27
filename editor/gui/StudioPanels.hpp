@@ -63,6 +63,8 @@ struct WorkspaceIntent {
         SetField, AddComponent, RemoveComponent, RevertToPrefab,
         // 편집 (툴) 패널 — 앱이 Editor::setTool (value = Tool 차례) · Editor::settings
         SelectTool, ToolSettings,
+        // 콘텐츠 (ADR-0182) — 앱이 checkContentEdit · Editor::editContent · 새 항목 틀 (command = id, value = ContentKind)
+        ContentCheck, ContentApply, ContentRevert, ContentNew,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)
@@ -72,6 +74,7 @@ struct WorkspaceIntent {
     u64 component = 0;         // 인스펙터 — 컴포넌트 stableId (SetField 의 필드 이름은 command)
     ecs::Json json;            // SetField — 검사한 값 (DataForm::setFormField 를 통과한 것)
     ToolSettingsValues tools;  // ToolSettings — 고친 설정 전부
+    std::string text;          // ContentCheck · ContentApply — 고친 글 (JSON · 스크립트 소스)
 
     [[nodiscard]] static WorkspaceIntent of(Kind kind, std::string command = {}, int value = 0) {
         WorkspaceIntent i;
