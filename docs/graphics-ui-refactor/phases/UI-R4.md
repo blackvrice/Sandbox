@@ -1,4 +1,4 @@
-# UI-R4 — Scene · Game Viewport [계획]
+# UI-R4 — Scene · Game Viewport [진행 — R4-01 과도기]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R4-01 ~ 06. 선행: UI-R1-10 (렌더러 공유), S-02 (외부 렌더 타깃).
 
@@ -23,3 +23,11 @@
 ## 완료 조건
 
 세 백엔드에서 Viewport 픽셀 기준 이미지 (렌더 시험 — WARP · lavapipe · Metal), 반복 resize · 분리 · 재도킹의 메모리 추세 (R8-05), QA Q-05.
+
+## 진행 — R4-01 과도기 (2026-11-27, ADR-0179)
+
+ImGui 셸과 같은 모델 — 월드를 창 전체에 먼저 그리고, 작업 공간의 **장면 패널** 칸을 칠하지 않는다 (`DockWorkspace::setPassthrough`). 그 칸
+위의 포인터 · 장면에 포커스가 있을 때의 키는 게임 · 편집 도구로 (`wantsPointer` · `wantsKeyboard` → `InputSystem::setCapture`). `--ui graphicsui`
+는 프로젝트 안에서도 작업 공간을 셸 대신 그린다 (정보의 "기존 UI 로" · 명령 `view.graphicsui-workspace` 로 오간다). 목표 경로 (장면 → 렌더
+타깃 → UI 합성 — GUI-UP-02 · R1-10) 는 그대로 남는다 — 그때 ADR-0179 를 대체한다. 한계: 장면은 맨 아래 층 하나 (떠 있는 장면 · 장면 여럿 X).
+

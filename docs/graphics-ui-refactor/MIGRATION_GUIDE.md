@@ -45,6 +45,8 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
 4b. 앱 데이터가 필요한 패널 (빌드 · 테스트 …) 은 **값 모델** — `BuildPanelModel` 처럼 비교 가능한 구조체를 Application 이 frame 마다
    setModel 로 넘기고, 패널은 바뀌었을 때만 줄을 다시 만든다. 패널은 Application · ImGui 상태를 가리키지 않는다 (editor/ui 를 모른다)
    — 고른 값 (프로필 차례 등) 은 의도 (WorkspaceIntent::value) 로 돌려준다. 패널을 더하면 옛 .guidock 은 프리셋으로 돌아간다 (ADR-0178)
+4c. 프로젝트 안 (ADR-0179): 장면 패널은 통과 — 장면 칸의 입력은 게임으로 간다. 패널을 키보드로 쓰려면 그 패널을 눌러 포커스를 옮긴다.
+   새 패널의 기본 자리는 프리셋 (StudioWorkspace::applyPreset) 의 도구 · 출력 그룹 중 하나 — 장면 그룹에 넣지 않는다
 5. 시험: StudioWorkspace 를 헤드리스로 만들고 창 좌표 이벤트를 dock().feed — 패널 컴포넌트의 창 좌표 = 그룹 content 원점 + 패널 배치 상자
    (tests/unit/client/test_gui_dock_workspace.cpp 의 paneCenter)
 ```

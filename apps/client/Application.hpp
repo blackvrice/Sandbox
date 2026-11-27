@@ -218,7 +218,11 @@ public:
     [[nodiscard]] bool graphicsUiHomeActive() const noexcept { return m_guiHomeActive; }
     [[nodiscard]] StudioSettingsScreen* graphicsUiSettings() noexcept { return m_guiSettingsOpen ? m_guiSettings.get() : nullptr; }
     // GraphicsUI Dock 작업 공간 (UI-R2-05) — 열린 동안만
-    [[nodiscard]] StudioWorkspace* graphicsUiWorkspace() noexcept { return m_guiWorkspaceOpen ? m_guiWorkspace.get() : nullptr; }
+    [[nodiscard]] StudioWorkspace* graphicsUiWorkspace() noexcept {
+        return m_guiWorkspaceOpen || guiWorldActive() ? m_guiWorkspace.get() : nullptr;
+    }
+    // 프로젝트 안에서 GraphicsUI 작업 공간을 ImGui 셸 대신 그리나 (ADR-0179 — --ui graphicsui 의 기본, "기존 UI 로" · 명령으로 끈다)
+    [[nodiscard]] bool guiWorldActive() const noexcept;
     [[nodiscard]] editor::theme::Theme studioTheme() const noexcept { return m_shell.theme; }
     [[nodiscard]] bool developerPanels() const noexcept { return m_shell.developerPanels; }
     [[nodiscard]] const platform::InputSystem& input() const noexcept { return m_input; }
@@ -279,6 +283,10 @@ private:
     std::optional<StudioHomeAction> guiWorkspaceFrame(f32 scale);
     // 작업 공간 배치 (UI-R2-07): 지금 레이아웃 이름의 .guidock → 없거나 거절되면 그 이름의 프리셋. 저장은 바뀐 뒤 (놓은 다음)
     void loadGuiWorkspaceLayout();
+    // 작업 공간을 처음 만든다 (측정 · 클립보드 · 배치 읽기) — 실패하면 기록하고 false
+    bool ensureGuiWorkspace();
+    // 프로젝트 안의 작업 공간 (ADR-0179) — guiWorkspaceFrame 과 같은 그리기 · 의도, 장면 패널은 통과
+    void guiWorldFrame();
     void saveGuiWorkspaceLayout();
     // GraphicsUI 글자 칸의 포커스 → 창의 글자 입력 (IME) 켜기 · 후보 창 자리 (우리가 켠 것만 끈다)
     void syncGuiTextInput(const uihost::TextInputState& state);
@@ -364,6 +372,8 @@ private:
     bool m_guiSettingsOpen = false;
     std::unique_ptr<StudioWorkspace> m_guiWorkspace; // 처음 열 때 만든다 (명령 표 m_commands 를 빌린다 — 그 뒤에 선언)
     bool m_guiWorkspaceOpen = false;
+    bool m_guiWorldWorkspace = false; // 프로젝트 안에서 작업 공간 (--ui graphicsui 면 처음 켬 — ADR-0179)
+    bool m_guiWorldLogged = false;    // 프로젝트 안 작업 공간의 첫 그리기를 남겼다
     std::optional<std::string> m_guiWorkspaceLayout; // 작업 공간에 읽어 둔 레이아웃 이름 (지금 이름과 다르면 열 때 다시 읽는다)
     // 마지막으로 저장한 (또는 읽은 뒤 처음 배치한) DockLayout 개정 — nullopt = 읽은 뒤 아직 배치 전 (그 개정을 기준으로 — 열기만
     // 해서는 파일을 만들지 않는다)

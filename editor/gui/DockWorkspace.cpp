@@ -86,6 +86,41 @@ DockWorkspace::~DockWorkspace() {
     }
 }
 
+void DockWorkspace::setPassthrough(gui::DockPaneId id, bool passthrough) {
+    if (Pane* p = pane(id)) {
+        p->passthrough = passthrough;
+    }
+}
+
+bool DockWorkspace::passthrough(gui::DockPaneId id) const {
+    const Pane* p = pane(id);
+    return p != nullptr && p->passthrough;
+}
+
+bool DockWorkspace::wantsPointer(gui::LayoutPoint logical) const {
+    if (interacting()) {
+        return true;
+    }
+    if (!m_frame) {
+        return false;
+    }
+    const gui::LayoutPoint p{logical.x / m_scale, logical.y / m_scale};
+    for (const gui::DockDividerBox& d : m_frame->dividers) {
+        if (contains(d.bounds, p)) {
+            return true;
+        }
+    }
+    const gui::DockGroupBox* g = groupAt(p);
+    if (g == nullptr) {
+        return false;
+    }
+    return !(passthrough(g->active) && contains(g->content, p)); // 통과 칸의 내용 = 월드
+}
+
+bool DockWorkspace::wantsKeyboard() const {
+    return m_focus != 0 && !passthrough(m_focus);
+}
+
 void DockWorkspace::setClipboard(const uihost::Clipboard& clipboard) {
     for (Pane& p : m_panes) {
         p.host->setClipboard(clipboard);
@@ -410,9 +445,16 @@ Expected<const WorkspaceDraw*> DockWorkspace::frame(gui::LayoutSize logical) {
     d.chrome.clear();
     d.panes.clear();
     d.overlay.clear();
-    d.chrome.push_back(gui::FillRect{{0, 0, vp.width, vp.height}, rc(c.background)});
+    // 통과 그룹이 보이면 창 전체 바탕을 칠하지 않는다 (그룹 · 분할선이 창을 덮는다 — 통과 칸만 비운다)
+    const bool anyPassthrough = std::any_of(m_frame->groups.begin(), m_frame->groups.end(),
+                                            [&](const gui::DockGroupBox& g) { return passthrough(g.active); });
+    if (!anyPassthrough) {
+        d.chrome.push_back(gui::FillRect{{0, 0, vp.width, vp.height}, rc(c.background)});
+    }
     for (const gui::DockGroupBox& g : m_frame->groups) {
-        d.chrome.push_back(gui::FillRect{g.bounds, rc(c.surface)});
+        if (!passthrough(g.active)) {
+            d.chrome.push_back(gui::FillRect{g.bounds, rc(c.surface)});
+        }
         d.chrome.push_back(gui::FillRect{{g.bounds.x, g.bounds.y, g.bounds.width, tabH}, rc(c.background)});
     }
     for (const gui::DockTabBox& t : m_frame->tabs) {

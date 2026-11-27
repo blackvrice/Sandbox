@@ -1,9 +1,9 @@
 #pragma once
 // Studio GraphicsUI 작업 공간 (UI-R2-05) — DockWorkspace 에 패널 (정보 · 단축키 · 콘솔 · 빌드 · 테스트 · 통계 — UI-R3) 을 꽂은 화면 하나.
 //
-//   프리셋       ImGui 셸과 같은 이름 (UI-R2-07 — presetFor): scene (기본) = 정보 | 단축키, 아래 콘솔 · scripting = 단축키 | 정보,
-//                아래 콘솔 · play = 정보 | 콘솔 (+ 단축키 탭). 빌드 · 테스트는 어느 프리셋이든 콘솔 옆 탭 (출력끼리),
-//                통계는 단축키 옆 탭. 저장된 배치 (.guidock) 가
+//   프리셋       ImGui 셸과 같은 이름 (UI-R2-07 — presetFor), 장면이 가운데 · 크게 (ADR-0179): scene (기본) = 장면 | 단축키 · 통계 ·
+//                정보, 아래 콘솔 · 빌드 · 테스트 · scripting = 단축키 · 통계 · 정보 | 장면, 아래 출력 · play = 장면 | 콘솔 · 빌드 · 테스트 ·
+//                단축키 · 통계 · 정보. 저장된 배치 (.guidock) 가
 //                없을 때 · 배치 초기화 때. 패널 목록이 바뀌면 옛 .guidock 은 복원이 거절한다 → .broken + 프리셋 (ADR-0178)
 //   의도         패널이 고른 일 (홈으로 · 배치 초기화 · 명령 실행) 을 takeIntent() 로 — 일은 Application 이 기존 처리로
 //   테마 · 간격 · 배율   작업 공간 크롬과 패널이 같은 값 (PanelContext)
@@ -26,6 +26,7 @@ public:
     static constexpr gui::DockPaneId kBuild = 4;
     static constexpr gui::DockPaneId kTest = 5;
     static constexpr gui::DockPaneId kStats = 6;
+    static constexpr gui::DockPaneId kScene = 7;
 
     [[nodiscard]] static Expected<std::unique_ptr<StudioWorkspace>> create(const uihost::ITextMeasure& text,
                                                                            const services::CommandService& commands,
@@ -37,6 +38,9 @@ public:
     void setTheme(services::StudioTheme theme) noexcept;
     void setCompact(bool compact) noexcept;
     void setScale(f32 scale) noexcept;
+    // 프로젝트 안 — 장면 패널을 통과로, 정보의 단추를 "기존 UI 로" (ADR-0179)
+    void setInWorld(bool inWorld) noexcept;
+    [[nodiscard]] bool inWorld() const noexcept { return m_ctx->inWorld; }
     // 그 프리셋의 배치로 (scene · scripting · play — 그 밖의 이름은 scene). 패널 상태는 그대로
     Expected<void> applyPreset(std::string_view preset);
     [[nodiscard]] static bool isPreset(std::string_view preset) noexcept;

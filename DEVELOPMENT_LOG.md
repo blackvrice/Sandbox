@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R4-01 과도기: 프로젝트 안의 작업 공간 — 통과 장면 패널 (ADR-0179)
+
+**무엇을**
+
+- 사용자 결정 (1번 — 과도기 경로로 먼저). 조사: ImGui 셸은 장면을 텍스처로 그리지 않고 월드를 창 전체에 먼저 그린 뒤 DockSpace 가운데 노드를
+  통과 (PassthruCentralNode) 로 둔다 — 같은 모델로 했다 (렌더러 · 카메라 · 월드 그리기는 그대로).
+- `DockWorkspace::setPassthrough` — 그 패널이 활성인 그룹의 내용 칸 · 창 전체 바탕을 칠하지 않는다. `wantsPointer` (작업 공간 위이고 통과 칸 밖,
+  분할선, 끄는 중) · `wantsKeyboard` (포커스 패널이 통과가 아니다).
+- `ScenePanel` (id 7 "장면") — 프로젝트 안에서는 그리지 않음, 홈에서는 안내. `PanelContext::inWorld` — 정보의 단추가 "기존 UI 로".
+  `StudioWorkspace::setInWorld`. 프리셋을 장면 가운데로 다시 — scene = 장면 | 도구 (단축키 · 통계 · 정보), 아래 출력 (콘솔 · 빌드 · 테스트),
+  scripting = 도구가 왼쪽, play = 장면 | 나머지 전부. 장면 쪽 76 % · 72 % (분할 토큰이 개정에 묶여 하나씩 다시 배치하며).
+- Application — `guiWorldActive` (`--ui graphicsui` 의 기본 · F1 로 숨김), 프로젝트 안이면 ImGui 셸 · 창들 (`m_panels.visible` 14 곳 → `shellVisible`)
+  · 개발자 진단 창 대신 `guiWorldFrame` (작업 공간을 같은 `guiWorkspaceFrame` 으로). 입력: `setCapture` 에 작업 공간의 뜻을 더한다 (ImGui 와 같은
+  자리 · 지난 frame 배치). "기존 UI 로" (Home 의도 — 프로젝트 안) · 명령 `view.graphicsui-workspace` 로 오간다. 홈의 "기존 UI 로" 는 프로젝트 안도
+  끈다. `ensureGuiWorkspace` (홈을 거치지 않은 실행 — 측정기를 만든다). 단축키 막기는 프로젝트 안 작업 공간의 글자 칸도. 첫 그리기 로그 한 줄.
+- 패널 목록이 바뀌어 옛 .guidock 은 프리셋으로 (ADR-0178).
+- ADR-0179 · refactor 문서 (TASK_REGISTRY R4-01 Partial · R3-07 · 08 남음 갱신, CURRENT_STATUS, UI-R3 · UI-R4, MIGRATION_GUIDE 4c) · 29-STUDIO-UI ·
+  17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("1번으로 진행") — 빌드 · 테스트 패널을 프로젝트 안에서 쓰게. 목표 경로 (외부 텍스처 GUI-UP-02) 를 기다리지 않는다.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 11 케이스 (752 단언): 장면 통과 — 홈이면 칠하고 가져감, 프로젝트 안이면 장면 칸 위 FillRect 0 개 ·
+  장면 패널 그리기 없음 · 포인터 · 키를 가져가지 않음 · 패널을 누르면 키를 가져가고 장면을 누르면 돌려줌 · 끄는 중엔 장면 위도 · 배율 2 / app
+  (local server ecosystem_small, --ui graphicsui) — 셸 DockSpace 를 만들지 않음 · 장면 칸 위 마우스 = 게임 (downstream mouseCaptured 거짓) ·
+  도구 위 = 가로챔 · "기존 UI 로" → ImGui 셸 · 명령으로 다시 / 기존 시험은 장면 가운데 배치로.
+- 새 CTest `client_graphicsui_world_headless` (`SandboxClient --headless --ui graphicsui --world ecosystem_small` — "그룹 3 · 패널 7").
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외).
+
+**남은 일** — 편집 창 (Hierarchy · 인스펙터 · 편집 · 콘텐츠 — R3-02 · 03) 을 작업 공간으로 (지금은 "기존 UI 로"), 메뉴 · 툴바 · 팔레트 (GUI-UP-03),
+실제 창 QA (장면 칸 클릭 · 카메라 · 편집 도구), 목표 경로 (장면 렌더 타깃 — GUI-UP-02 · R1-10).
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R3-08 · 09: 작업 공간 테스트 패널 · 통계 패널 (값 모델)
 
 **무엇을**

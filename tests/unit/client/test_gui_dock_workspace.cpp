@@ -16,6 +16,7 @@
 
 #include "apps/client/Application.hpp"
 #include "apps/client/DefaultInput.hpp"
+#include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
@@ -26,6 +27,7 @@
 #include "foundation/log/Log.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
 #include "platform/common/HeadlessWindow.hpp"
+#include "render/asset/MaterialLibrary.hpp"
 
 using namespace sbx;
 using namespace sbx::client;
@@ -42,6 +44,7 @@ constexpr gui::DockPaneId kConsole = StudioWorkspace::kConsole;
 constexpr gui::DockPaneId kBuild = StudioWorkspace::kBuild;
 constexpr gui::DockPaneId kTest = StudioWorkspace::kTest;
 constexpr gui::DockPaneId kStats = StudioWorkspace::kStats;
+constexpr gui::DockPaneId kScene = StudioWorkspace::kScene;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -161,6 +164,13 @@ struct Fixture {
         frame();
     }
     void feed(PlatformEvent e) { feed(std::vector<PlatformEvent>{e}); }
+    // 그 패널이 그룹의 앞 탭이 아니면 탭을 눌러 보이게
+    void show(gui::DockPaneId id) {
+        const gui::DockTabBox t = tabOf(dock(), id);
+        if (t.group_active != id) {
+            feed(click(center(t.bounds)));
+        }
+    }
 };
 
 } // namespace
@@ -169,15 +179,18 @@ TEST_SUITE("graphics ui dock workspace") {
     TEST_CASE("dock workspace: default layout, drag a tab into a group and to an edge, Esc cancels, divider, save and restore") {
         Fixture f;
         DockWorkspace& d = f.dock();
-        // 기본 배치 — 정보 | 단축키 위, 콘솔 아래: 그룹 셋 · 분할선 둘, 처음 포커스 = 정보
+        // 기본 배치 (scene — ADR-0179): 장면 (가운데 · 크게) | 도구 (단축키 · 통계 · 정보), 아래 출력 (콘솔 · 빌드 · 테스트)
         REQUIRE(d.lastFrame()->groups.size() == 3);
         CHECK(d.lastFrame()->dividers.size() == 2);
-        CHECK(d.focusedPane() == kInfo);
-        CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kInfo).bounds.y);
-        CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kInfo).bounds.x);
-        CHECK(sameGroup(d, kBuild, kConsole)); // 빌드 = 콘솔의 탭 (앞은 콘솔)
+        CHECK(d.focusedPane() == kScene);
+        CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kScene).bounds.y);
+        CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kScene).bounds.x);
+        CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);  // 장면 쪽 76 %
+        CHECK(groupOf(d, kScene).bounds.height > 0.6 * f.size.height); // 장면 쪽 72 %
+        CHECK(sameGroup(d, kBuild, kConsole)); // 출력끼리 (앞은 콘솔)
         CHECK(sameGroup(d, kTest, kConsole));
-        CHECK(sameGroup(d, kStats, kShortcuts)); // 통계 = 단축키의 탭
+        CHECK(sameGroup(d, kStats, kShortcuts)); // 도구끼리 (앞은 단축키)
+        CHECK(sameGroup(d, kInfo, kShortcuts));
         CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
             const editor::gui::WorkspaceDraw& draw = f.frame();
@@ -186,7 +199,7 @@ TEST_SUITE("graphics ui dock workspace") {
             CHECK(draw.overlay.empty());
         }
 
-        // 콘솔 탭을 정보 탭의 오른쪽 절반에 끌어 놓는다 → 정보 그룹의 탭 (그 뒤)
+        // 콘솔 탭을 정보 탭의 오른쪽 절반에 끌어 놓는다 → 도구 그룹의 탭 (정보 뒤)
         const gui::DockTabBox infoTab = tabOf(d, kInfo);
         const Vec2 onInfoTab{static_cast<f32>(infoTab.bounds.x + infoTab.bounds.width * 0.75),
                              static_cast<f32>(infoTab.bounds.y + infoTab.bounds.height / 2)};
@@ -198,11 +211,11 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(!f.frame().overlay.empty()); // 놓을 자리 미리보기
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
-        CHECK(d.lastFrame()->groups.size() == 3); // 정보 + 콘솔 · 단축키 · 빌드 (콘솔이 떠난 그룹)
-        CHECK(d.lastFrame()->tabs.size() == 6);
+        CHECK(d.lastFrame()->groups.size() == 3); // 장면 · 도구 + 콘솔 · 빌드 + 테스트
+        CHECK(d.lastFrame()->tabs.size() == 7);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
-        CHECK(tabOf(d, kConsole).group_active == tabOf(d, kInfo).group_active); // 같은 그룹
+        CHECK(sameGroup(d, kConsole, kInfo));
         CHECK(tabOf(d, kConsole).bounds.x > tabOf(d, kInfo).bounds.x);
 
         // 탭 누르기 = 고르기 (끌지 않으면 옮기지 않는다)
@@ -210,27 +223,26 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.focusedPane() == kInfo);
         CHECK(groupOf(d, kInfo).active == kInfo);
         CHECK(d.lastFrame()->groups.size() == 3);
-        // Ctrl+PageDown · PageUp = 그룹 안 탭 순회
+        // Ctrl+PageDown · PageUp = 그룹 안 탭 순회 (단축키 · 통계 · 정보 · 콘솔)
         f.feed(key(Key::PageDown, Modifiers::kCtrl));
         CHECK(d.focusedPane() == kConsole);
         CHECK(groupOf(d, kConsole).active == kConsole);
         f.feed(key(Key::PageUp, Modifiers::kCtrl));
         CHECK(d.focusedPane() == kInfo);
 
-        // 끄는 중 Esc = 취소 — 놓아도 배치가 그대로 (누른 탭은 골라진다 — 저장 바이트의 포커스는 바뀐다)
-        const gui::LayoutRect shortcutsBefore = groupOf(d, kShortcuts).bounds;
-        f.feed(drag(center(tabOf(d, kShortcuts).bounds), center(groupOf(d, kInfo).content), false));
+        // 끄는 중 Esc = 취소 — 놓아도 배치가 그대로 (누른 탭은 골라진다)
+        f.feed(drag(center(tabOf(d, kShortcuts).bounds), center(groupOf(d, kScene).content), false));
         CHECK(d.dragging());
         f.feed(key(Key::Escape));
         CHECK_FALSE(d.dragging());
         CHECK_FALSE(d.dropTarget());
-        f.feed(MouseButtonUp{MouseButton::Left, center(groupOf(d, kInfo).content)});
+        f.feed(MouseButtonUp{MouseButton::Left, center(groupOf(d, kScene).content)});
         CHECK(d.lastFrame()->groups.size() == 3);
-        CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(shortcutsBefore.x));
-        CHECK(groupOf(d, kShortcuts).bounds.width == doctest::Approx(shortcutsBefore.width));
-        CHECK(tabOf(d, kShortcuts).group_active != tabOf(d, kInfo).group_active);
+        CHECK(sameGroup(d, kShortcuts, kInfo));
+        CHECK_FALSE(sameGroup(d, kShortcuts, kScene));
 
-        // 단축키 탭을 정보 그룹 내용의 아래 가장자리로 → 정보 아래로 나누기
+        // 단축키 탭을 정보 그룹 내용의 아래 가장자리로 → 도구 그룹을 위 · 아래로 나누기
+        f.feed(click(center(tabOf(d, kInfo).bounds)));
         const gui::LayoutRect c = groupOf(d, kInfo).content;
         const Vec2 bottomEdge{static_cast<f32>(c.x + c.width / 2), static_cast<f32>(c.y + c.height * 0.92)};
         f.feed(drag(center(tabOf(d, kShortcuts).bounds), bottomEdge, false));
@@ -238,17 +250,18 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.dropTarget()->side == gui::DockSide::bottom);
         CHECK(d.dropTarget()->target == kInfo);
         f.feed(MouseButtonUp{MouseButton::Left, bottomEdge});
-        CHECK(d.lastFrame()->groups.size() == 4); // 통계는 오른쪽에 남는다
+        CHECK(d.lastFrame()->groups.size() == 4);
+        f.show(kInfo); // 단축키를 누를 때 골라져 남은 그룹의 앞 탭이 바뀌었다
         CHECK(groupOf(d, kShortcuts).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(groupOf(d, kInfo).bounds.x));
 
-        // 분할선 끌기 = 비율. 끄는 동안 개정이 바뀌어도 (토큰은 개정에 묶인다) 이어서 끈다
-        // 정보 · 단축키 사이의 분할선 (정보 바로 아래)
+        // 분할선 끌기 = 비율. 끄는 동안 개정이 바뀌어도 (토큰은 개정에 묶인다) 이어서 끈다 — 정보 바로 아래 분할선
         REQUIRE(d.lastFrame()->dividers.size() == 3);
         const auto dividerUnderInfo = [&] {
             const gui::LayoutRect info = groupOf(d, kInfo).bounds;
             for (const gui::DockDividerBox& dv : d.lastFrame()->dividers) {
-                if (std::abs(dv.bounds.y - (info.y + info.height)) < 1.0 && dv.bounds.x < info.x + info.width) {
+                if (std::abs(dv.bounds.y - (info.y + info.height)) < 1.0 && dv.bounds.x >= info.x - 1.0 &&
+                    dv.bounds.x < info.x + info.width) {
                     return dv;
                 }
             }
@@ -259,8 +272,8 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(div.axis == gui::DockAxis::vertical);
         const double infoH = groupOf(d, kInfo).bounds.height;
         const Vec2 from = center(div.bounds);
-        f.feed(drag(from, {from.x, from.y + 60.f}));
-        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 60.0).epsilon(0.02));
+        f.feed(drag(from, {from.x, from.y + 40.f}));
+        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 40.0).epsilon(0.02));
         CHECK(dividerUnderInfo().fraction > div.fraction);
 
         // 저장 바이트 → 배치 초기화 (프리셋 — 콘솔은 아래 그룹) → 되살리기 (콘솔은 정보 그룹 · 같은 높이)
@@ -272,17 +285,88 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(d.restore(*saved));
         f.frame();
         CHECK(sameGroup(d, kConsole, kInfo));
-        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 60.0).epsilon(0.02));
+        f.show(kInfo);
+        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 40.0).epsilon(0.02));
         const std::vector<std::byte> junk{std::byte{1}, std::byte{2}, std::byte{3}};
         CHECK_FALSE(d.restore(junk)); // 틀린 바이트는 거절 — 배치는 그대로
         f.frame();
         CHECK(sameGroup(d, kConsole, kInfo));
     }
 
+    TEST_CASE("scene pane (ADR-0179): passthrough in a project — no fill over the world, pointer and keys go to the game") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        const gui::LayoutRect scene = groupOf(d, kScene).content;
+        const gui::LayoutPoint inScene{scene.x + scene.width / 2, scene.y + scene.height / 2};
+        const gui::LayoutPoint inTools = [&] {
+            const gui::LayoutRect t = groupOf(d, kShortcuts).content;
+            return gui::LayoutPoint{t.x + t.width / 2, t.y + t.height / 2};
+        }();
+        const auto fillsOver = [&](const editor::gui::WorkspaceDraw& draw, gui::LayoutPoint p) {
+            usize n = 0;
+            for (const gui::RenderCommand& cmd : draw.chrome) {
+                if (const auto* r = std::get_if<gui::FillRect>(&cmd)) {
+                    if (p.x >= r->bounds.x && p.y >= r->bounds.y && p.x < r->bounds.x + r->bounds.width &&
+                        p.y < r->bounds.y + r->bounds.height) {
+                        ++n;
+                    }
+                }
+            }
+            return n;
+        };
+        // 홈 (프로젝트 없음) — 장면 칸도 작업 공간이 가져가고 칠한다 (안내 글)
+        CHECK_FALSE(d.passthrough(kScene));
+        CHECK(d.wantsPointer(inScene));
+        CHECK(d.wantsKeyboard()); // 포커스 = 장면이지만 통과가 아니다
+        CHECK(fillsOver(f.frame(), inScene) > 0);
+
+        // 프로젝트 안 — 장면 칸은 통과: 크롬이 그 칸을 칠하지 않고 (창 전체 바탕도 없다), 포인터 · 키를 가져가지 않는다
+        f.ws->setInWorld(true);
+        CHECK(d.passthrough(kScene));
+        const editor::gui::WorkspaceDraw& draw = f.frame();
+        CHECK(fillsOver(draw, inScene) == 0);
+        CHECK(fillsOver(draw, inTools) > 0);
+        for (const editor::gui::WorkspaceDraw::Pane& p : draw.panes) {
+            if (p.id == kScene) {
+                for (const gui::RenderCommand& cmd : p.list->commands()) { // 장면 패널도 칠하지 않는다 (clip 짝만 있을 수 있다)
+                    CHECK_FALSE(std::holds_alternative<gui::FillRect>(cmd));
+                    CHECK_FALSE(std::holds_alternative<gui::DrawText>(cmd));
+                }
+            }
+        }
+        CHECK_FALSE(d.wantsPointer(inScene));
+        CHECK(d.wantsPointer(inTools));
+        CHECK_FALSE(d.wantsKeyboard()); // 포커스 = 장면 → 키는 게임 · 편집으로
+        // 패널을 누르면 키를 가져가고, 장면을 누르면 돌려준다
+        f.feed(click(paneCenter(d, kShortcuts, f.ws->shortcuts().searchHandle())));
+        CHECK(d.wantsKeyboard());
+        f.feed(click({static_cast<f32>(inScene.x), static_cast<f32>(inScene.y)}));
+        CHECK(d.focusedPane() == kScene);
+        CHECK_FALSE(d.wantsKeyboard());
+        // 끄는 중에는 장면 위여도 가져간다 (놓을 자리 미리보기)
+        f.feed(drag(center(tabOf(d, kConsole).bounds), {static_cast<f32>(inScene.x), static_cast<f32>(inScene.y)}, false));
+        CHECK(d.wantsPointer(inScene));
+        f.feed(key(Key::Escape));
+        f.feed(MouseButtonUp{MouseButton::Left, {static_cast<f32>(inScene.x), static_cast<f32>(inScene.y)}});
+        // 정보의 단추 = "기존 UI 로" (의도는 같은 Home — 앱이 뜻을 고른다)
+        f.show(kInfo);
+        f.feed(click(paneCenter(d, kInfo, f.ws->info().homeHandle())));
+        const auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::Home);
+        // 배율 2 — 창 논리 좌표로 묻는다
+        f.ws->setScale(2.f);
+        f.size = {2560, 1440};
+        f.frame();
+        CHECK_FALSE(d.wantsPointer({inScene.x * 2, inScene.y * 2}));
+        CHECK(d.wantsPointer({inTools.x * 2, inTools.y * 2}));
+    }
+
     TEST_CASE("dock workspace: content clicks reach the pane in its own coordinates, keys and text go to the focused pane") {
         Fixture f;
         DockWorkspace& d = f.dock();
-        // 정보 패널의 단추 — 패널 호스트는 내용 원점 기준 좌표를 받는다
+        // 정보 패널의 단추 — 패널 호스트는 내용 원점 기준 좌표를 받는다 (도구 그룹의 앞 탭은 단축키 — 정보를 보이게)
+        f.show(kInfo);
         f.feed(click(paneCenter(d, kInfo, f.ws->info().homeHandle())));
         auto intent = f.ws->takeIntent();
         REQUIRE(intent);
@@ -294,6 +378,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(intent->kind == WorkspaceIntent::Kind::ResetLayout);
 
         // 단축키 검색 칸 — 누르면 그 패널이 포커스, 글자 입력 (IME) 자리는 창 좌표
+        f.show(kShortcuts);
         f.feed(click(paneCenter(d, kShortcuts, f.ws->shortcuts().searchHandle())));
         CHECK(d.focusedPane() == kShortcuts);
         CHECK(d.textFocused());
@@ -320,6 +405,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(f.ws->shortcuts().listedCount() == 1);
 
         // 배율 2 — 배치는 UI 단위로 같고, 창 좌표 클릭이 같은 단추에 닿는다
+        f.show(kInfo);
         const gui::LayoutRect infoAt1 = groupOf(d, kInfo).bounds;
         f.ws->setScale(2.f);
         f.size = {2560, 1440};
@@ -603,15 +689,20 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(f.ws->applyPreset("scripting"));
         f.frame();
         REQUIRE(d.lastFrame()->groups.size() == 3);
-        CHECK(groupOf(d, kShortcuts).bounds.x < groupOf(d, kInfo).bounds.x); // 명령 표가 왼쪽
-        CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kInfo).bounds.y);
+        CHECK(groupOf(d, kShortcuts).bounds.x < groupOf(d, kScene).bounds.x); // 도구가 왼쪽
+        CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kScene).bounds.y);
+        CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);
+        CHECK(d.focusedPane() == kScene);
 
         REQUIRE(f.ws->applyPreset("play"));
         f.frame();
-        REQUIRE(d.lastFrame()->groups.size() == 2);
-        CHECK(groupOf(d, kConsole).bounds.x > groupOf(d, kInfo).bounds.x); // 로그가 옆에
-        CHECK(tabOf(d, kShortcuts).group_active == kConsole);             // 단축키는 콘솔의 탭 (앞은 콘솔)
-        CHECK(d.focusedPane() == kInfo);
+        REQUIRE(d.lastFrame()->groups.size() == 2); // 장면 | 나머지 전부
+        CHECK(groupOf(d, kConsole).bounds.x > groupOf(d, kScene).bounds.x);
+        CHECK(sameGroup(d, kShortcuts, kConsole));
+        CHECK(sameGroup(d, kInfo, kConsole));
+        CHECK(groupOf(d, kConsole).active == kConsole); // 앞은 콘솔
+        CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);
+        CHECK(d.focusedPane() == kScene);
 
         REQUIRE(f.ws->applyPreset("my-layout")); // 프리셋이 아닌 이름 = scene
         const auto again = d.save();
@@ -706,6 +797,77 @@ TEST_SUITE("graphics ui dock workspace") {
         fs::remove_all(root, ec);
     }
 
+    TEST_CASE("app (local server, --ui graphicsui): 프로젝트 안에서 작업 공간이 ImGui 셸 대신 — 장면 칸 입력은 게임으로, 기존 UI 로 · 명령으로 오간다 (ADR-0179)") {
+        render::MaterialLibrary mats;
+        NetworkSessionDesc nd;
+        nd.world = "ecosystem_small";
+        nd.contentRoot = SBX_CONTENT_DIR;
+        nd.inlineServer = true;
+        auto session = NetworkSession::create(nd, mats);
+        REQUIRE_MESSAGE(session.has_value(), session.error().describe());
+        auto ns = std::move(*session);
+        HeadlessWindow window(WindowDesc{.width = 1280, .height = 720});
+        ImGuiLayer imgui(window);
+        NullAudioBackend audio;
+        audio.init({});
+        AppConfig cfg;
+        cfg.world = ns.get();
+        cfg.fixedDt = 1.0 / 60.0;
+        cfg.ui = &imgui;
+        cfg.engineVersion = "0.8.0";
+        cfg.graphicsUiHome = true;
+        auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+        REQUIRE(map.has_value());
+        Application app(window, std::move(*map), audio, cfg);
+        for (int i = 0; i < 200 && app.state() != AppState::InWorld; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.state() == AppState::InWorld);
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+
+        // 작업 공간이 셸 대신 — ImGui DockSpace 를 만들지 않았다, 장면 패널은 통과
+        CHECK(app.guiWorldActive());
+        StudioWorkspace* ws = app.graphicsUiWorkspace();
+        REQUIRE(ws != nullptr);
+        CHECK(ws->inWorld());
+        CHECK(ws->dock().passthrough(kScene));
+        CHECK(app.shell().dockId == 0);
+        CHECK_FALSE(ws->stats().model().frameMs.empty()); // 진단 입력이 온다 (프레임 시간)
+
+        // 입력 — 장면 칸 위는 게임으로, 도구 패널 위는 작업 공간이 가져간다
+        const DockWorkspace& d = ws->dock();
+        const auto moveTo = [&](gui::LayoutRect r) {
+            window.inject(MouseMove{center(r, d.scale()), {}});
+            REQUIRE(app.frame());
+            REQUIRE(app.frame());
+        };
+        moveTo(groupOf(d, kScene).content);
+        CHECK_FALSE(app.input().downstream().mouseCaptured);
+        CHECK_FALSE(app.input().downstream().keyboardCaptured); // 포커스 = 장면
+        moveTo(groupOf(d, kShortcuts).content);
+        CHECK(app.input().downstream().mouseCaptured);
+
+        // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
+        for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {
+            window.inject(e);
+        }
+        REQUIRE(app.frame());
+        for (const PlatformEvent& e : click(paneCenter(d, kInfo, ws->info().homeHandle()))) {
+            window.inject(e);
+        }
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        CHECK_FALSE(app.guiWorldActive());
+        CHECK(app.graphicsUiWorkspace() == nullptr);
+        CHECK(app.shell().dockId != 0);
+        // 명령으로 다시 (팔레트 · 단축키 패널과 같은 명령 표)
+        CHECK(app.commands().run("view.graphicsui-workspace") == editor::services::RunResult::Ran);
+        REQUIRE(app.frame());
+        CHECK(app.guiWorldActive());
+        CHECK(app.graphicsUiWorkspace() != nullptr);
+    }
+
     TEST_CASE("app (--ui graphicsui, 헤드리스): 홈 → 작업 공간 → 단축키 패널이 기존 명령을 실행 → 홈으로") {
         namespace fs = std::filesystem;
         const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_workspace_{}", std::random_device{}());
@@ -758,6 +920,7 @@ TEST_SUITE("graphics ui dock workspace") {
 
         // 단축키 패널에서 테마 명령을 찾아 Enter — 보기 › 테마 와 같은 명령 (다음 셸 단계가 적용)
         CHECK(app.studioTheme() == editor::theme::Theme::Dark);
+        inject(click(center(tabOf(ws->dock(), kShortcuts).bounds, ws->dock().scale())));
         inject(click(paneCenter(ws->dock(), kShortcuts, ws->shortcuts().searchHandle())));
         CHECK(ws->dock().textFocused());
         REQUIRE(app.commands().find("view.theme-light") != nullptr);
@@ -770,6 +933,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(ws->info().homeHandle() != gui::ComponentHandle{}); // 테마가 바뀌어도 작업 공간은 그대로 (색만)
 
         // 홈으로 — 작업 공간은 닫히고 (상태는 남는다) 홈이 다시 그린다
+        inject(click(center(tabOf(ws->dock(), kInfo).bounds, ws->dock().scale())));
         inject(click(paneCenter(ws->dock(), kInfo, ws->info().homeHandle())));
         REQUIRE(app.frame());
         CHECK(app.graphicsUiWorkspace() == nullptr);

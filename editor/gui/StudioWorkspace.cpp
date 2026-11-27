@@ -1,5 +1,6 @@
 #include "editor/gui/StudioWorkspace.hpp"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -23,6 +24,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     ws->m_test = test.get();
     auto stats = std::make_unique<StatsPanel>(*ws->m_ctx);
     ws->m_stats = stats.get();
+    auto scene = std::make_unique<ScenePanel>(*ws->m_ctx);
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -34,6 +36,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kBuild, "빌드", std::move(build)});
     panes.push_back({kTest, "테스트", std::move(test)});
     panes.push_back({kStats, "통계", std::move(stats)});
+    panes.push_back({kScene, "장면", std::move(scene)});
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -63,27 +66,58 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         gui::DockPaneId pane, target;
         gui::DockSide side;
     };
-    // 처음 한 그룹 (패널 전부의 탭) 에서 옮긴다. 빌드 · 테스트는 콘솔의 탭 (출력끼리 — 앞은 콘솔), 통계는 단축키의 탭
+    // 처음 한 그룹 (패널 전부의 탭) 에서 옮긴다 — 장면이 혼자 남는다. 출력 (콘솔 · 빌드 · 테스트) 은 한 그룹, 도구 (단축키 · 통계 · 정보) 는 한 그룹
     std::vector<Move> moves;
-    if (preset == "scripting") { // 명령 표를 왼쪽에 (스크립트를 쓰며 찾기)
-        moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::left}};
-    } else if (preset == "play") { // 로그를 옆에 크게 (실행 중 보기), 단축키는 그 탭
-        moves = {{kConsole, kInfo, gui::DockSide::right}, {kShortcuts, kConsole, gui::DockSide::tab_after}};
-    } else { // scene · default · 모르는 이름
-        moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::right}};
+    if (preset == "play") { // 출력 · 도구를 오른쪽 한 그룹에 (실행 중 장면을 넓게)
+        moves = {{kConsole, kScene, gui::DockSide::right}, {kBuild, kConsole, gui::DockSide::tab_after},
+                 {kTest, kBuild, gui::DockSide::tab_after},   {kShortcuts, kTest, gui::DockSide::tab_after},
+                 {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after}};
+    } else {
+        // scene (기본 · default · 모르는 이름) = 도구가 오른쪽, scripting = 도구가 왼쪽 (명령 표를 쓰며 찾기)
+        const gui::DockSide tools = preset == "scripting" ? gui::DockSide::left : gui::DockSide::right;
+        moves = {{kConsole, kScene, gui::DockSide::bottom}, {kBuild, kConsole, gui::DockSide::tab_after},
+                 {kTest, kBuild, gui::DockSide::tab_after},    {kShortcuts, kScene, tools},
+                 {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after}};
     }
-    moves.push_back({kBuild, kConsole, gui::DockSide::tab_after});
-    moves.push_back({kTest, kBuild, gui::DockSide::tab_after});
-    moves.push_back({kStats, kShortcuts, gui::DockSide::tab_after});
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
             return std::unexpected(uihost::toError(r.error(), "작업 공간 프리셋"));
         }
     }
-    (void)layout.select(kShortcuts); // 그 그룹의 앞 탭 = 단축키 (통계가 아니라)
-    (void)layout.select(kConsole);   // 그 그룹의 앞 탭 = 콘솔 (빌드 · 테스트가 아니라 — play 는 단축키도 그 그룹)
-    (void)layout.select(kInfo); // 포커스 = 정보
+    // 장면 쪽을 크게 (ImGui 셸의 가운데 노드처럼) — 장면이 앞 (왼쪽 · 위) 이면 76 % · 72 %, 뒤면 그 나머지.
+    // 분할 토큰은 개정에 묶인다 — 바꿀 때마다 다시 배치해 다음 차례를 찾는다 (크기는 비율이라 배치 크기와 무관)
+    constexpr gui::LayoutSize kNominal{1600, 900};
+    for (usize i = 0;; ++i) {
+        auto fr = layout.arrange(kNominal);
+        if (!fr || i >= fr->dividers.size()) {
+            break;
+        }
+        const gui::DockDividerBox& dv = fr->dividers[i];
+        const auto scene = std::find_if(fr->groups.begin(), fr->groups.end(),
+                                        [](const gui::DockGroupBox& g) { return g.active == kScene; });
+        if (scene == fr->groups.end()) {
+            break;
+        }
+        const double cx = scene->bounds.x + scene->bounds.width / 2;
+        const double cy = scene->bounds.y + scene->bounds.height / 2;
+        const gui::LayoutRect t = dv.track;
+        if (cx < t.x || cx > t.x + t.width || cy < t.y || cy > t.y + t.height) {
+            continue; // 이 분할은 장면을 나누지 않는다
+        }
+        const bool horizontal = dv.axis == gui::DockAxis::horizontal;
+        const bool sceneFirst = horizontal ? cx < dv.bounds.x : cy < dv.bounds.y;
+        const double big = horizontal ? 0.76 : 0.72;
+        (void)layout.resize(dv.key, sceneFirst ? big : 1.0 - big);
+    }
+    (void)layout.select(kShortcuts); // 도구 그룹의 앞 탭 = 단축키
+    (void)layout.select(kConsole);   // 출력 그룹의 앞 탭 = 콘솔 (play 는 도구도 그 그룹 — 콘솔이 앞)
+    (void)layout.select(kScene);     // 포커스 = 장면 (키가 게임 · 편집으로)
     return {};
+}
+
+void StudioWorkspace::setInWorld(bool inWorld) noexcept {
+    m_ctx->inWorld = inWorld;
+    m_dock->setPassthrough(kScene, inWorld);
 }
 
 void StudioWorkspace::setTheme(services::StudioTheme theme) noexcept {

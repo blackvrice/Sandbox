@@ -428,6 +428,12 @@ if(TARGET SandboxClient)
     set_tests_properties(client_graphicsui_home_headless PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "GraphicsUI 홈: 컴포넌트 [0-9]+ · 그리기 명령 [1-9][0-9]*.*GraphicsUI 평균 \\([0-9]+ 프레임\\).*버린 입력 0 · 작업자 오류 0.*SandboxClient 끝: frames 30 state Shutdown"
         FAIL_REGULAR_EXPRESSION "기존 UI 로:")
+    # ADR-0179: --ui graphicsui 로 월드에 들어가면 ImGui 셸 대신 작업 공간 (장면 통과)
+    add_test(NAME client_graphicsui_world_headless
+        COMMAND SandboxClient --headless --ui graphicsui --world ecosystem_small --frames 90 --fps 120)
+    set_tests_properties(client_graphicsui_world_headless PROPERTIES LABELS "unit;client"
+        PASS_REGULAR_EXPRESSION "GraphicsUI 작업 공간 \\(프로젝트 안 — 장면 통과, 그룹 3 · 패널 7\\).*SandboxClient 끝: frames 90"
+        FAIL_REGULAR_EXPRESSION "작업 공간을 만들지 못했다")
     add_test(NAME client_ui_rejects_unknown COMMAND SandboxClient --ui qt)
     set_tests_properties(client_ui_rejects_unknown PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)
     # Phase 10B: --world 가 같은 프로세스의 서버(헤드리스는 프레임 안에서 — 프레임마다 1/60 초)에 접속해 첫 스냅숏을 받고

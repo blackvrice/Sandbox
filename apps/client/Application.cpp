@@ -171,6 +171,7 @@ Application::Application(IWindow& window, ActionMap actions, IAudioBackend& audi
     m_shell.density = m_config.compactDensity ? editor::theme::Density::Compact : editor::theme::Density::Comfortable;
     // GraphicsUI 홈 (UI-R1): 그리기가 ImGui 렌더러를 빌리므로 ImGui 레이어가 있어야 한다. Player 는 홈이 없다
     m_guiHomeActive = m_config.graphicsUiHome && m_config.ui != nullptr && !m_config.playerMode;
+    m_guiWorldWorkspace = m_guiHomeActive; // 프로젝트 안에서도 GraphicsUI 작업 공간 (ADR-0179)
     if (m_config.graphicsUiHome && !m_guiHomeActive) {
         log::warn("client", "--ui graphicsui: UI 레이어가 없거나 Player 모드 — 기존 UI 로");
     }
@@ -877,7 +878,13 @@ bool Application::frame() {
         // 게임 UI (v0.7 M3-T3): modal · menu · hud 버튼 위면 게임 (카메라 · 선택 · 행동) 에 마우스를 주지 않는다
         const bool gameUiMouse = m_state == AppState::InWorld && m_config.world != nullptr && routeGameUi();
         // 게임 UI 에 키보드 포커스가 있으면 키는 게임 · 엔진 키에 가지 않는다 (v0.7 NG-06 (1) — Esc 가 놓는다)
-        m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse, m_config.ui->wantKeyboard() || m_gameUi.hasFocus());
+        // GraphicsUI 작업 공간 (ADR-0179): 장면 칸 밖의 작업 공간 위 · 끄는 중이면 마우스, 장면이 아닌 패널에 포커스면 키 (지난 frame 배치)
+        const bool guiWorld = guiWorldActive() && m_guiWorkspace;
+        const bool guiMouse = guiWorld && m_guiWorkspace->dock().wantsPointer(
+                                              {m_input.raw().mousePosition.x, m_input.raw().mousePosition.y});
+        const bool guiKeys = guiWorld && m_guiWorkspace->dock().wantsKeyboard();
+        m_input.setCapture(m_config.ui->wantMouse() || gameUiMouse || guiMouse,
+                           m_config.ui->wantKeyboard() || m_gameUi.hasFocus() || guiKeys);
         // 게임 UI 글자 칸을 편집하는 동안 창의 글자 입력 (IME) 을 켜고, 끝나면 우리가 켠 것만 끈다 (v0.7 NG-06 (2) —
         // ImGui 의 글자 칸 · F2 시험 상태와 같은 규칙: 남이 켠 것은 끄지 않는다)
         const bool editing = m_state == AppState::InWorld && m_config.world != nullptr && m_gameUi.editingText();
@@ -963,12 +970,15 @@ bool Application::frame() {
         pin.details = m_detailOverlay;
         pin.zoom = m_renderWorld.camera.pixelsPerUnit;
         pin.font = m_config.ui->fontName();
-        if (m_guiWorkspaceOpen) {
+        // 프로젝트 안의 GraphicsUI 작업 공간이면 ImGui 셸 · 창들을 그리지 않는다 (ADR-0179 — 같은 프레임에 두 UI 를 그리지 않는다)
+        const bool guiWorldUi = guiWorldActive();
+        const bool shellVisible = m_panels.visible && !guiWorldUi;
+        if (m_guiWorkspaceOpen || guiWorldUi) {
             m_guiStats = makeGuiStatsModel(m_panels, pin); // GraphicsUI 통계 패널 (UI-R3-09) — 같은 입력
         }
         // Studio 셸 (v0.8 UI-1 — ADR-0118): 월드 안이면 메뉴 · 툴바 · 도크 공간을 다른 창보다 먼저 (도킹 · 프리셋)
         ShellActions shell;
-        if (inWorld && m_panels.visible && !m_config.playerMode) {
+        if (inWorld && shellVisible && !m_config.playerMode) {
             m_shell.view.content = m_editorPanel.contentOpen;
             shell = drawStudioShell(m_shell, shellInputs(inWorld));
             m_editorPanel.contentOpen = m_shell.view.content;
@@ -978,7 +988,7 @@ bool Application::frame() {
         PanelActions act;
         act.grid = pin.grid;
         act.details = pin.details;
-        if (m_shell.developerPanels) {
+        if (m_shell.developerPanels && !guiWorldUi) {
             act = drawDebugPanels(m_panels, pin);
         }
         // 명령 (팔레트 · 단축키) 이 고른 셸 일 — 툴바 · 메뉴와 같은 길 (v0.8 ST-06-2)
@@ -1074,11 +1084,14 @@ bool Application::frame() {
                 }
             }
         }
+        if (guiWorldUi) {
+            guiWorldFrame(); // 프로젝트 안의 작업 공간 (ADR-0179) — 셸 대신
+        }
         if (!m_guiHomeDrawn && m_guiTextInput) { // 홈을 떠났다 (프로젝트 · 기존 UI) — 우리가 켠 글자 입력을 끈다
             m_window.setTextInputActive(false);
             m_guiTextInput = false;
         }
-        if (m_panels.visible && m_shell.developerPanels) { // v0.7 M4-T3 "키" — 개발자 창 (v0.8 UI-1)
+        if (shellVisible && m_shell.developerPanels) { // v0.7 M4-T3 "키" — 개발자 창 (v0.8 UI-1)
             KeysView view = buildKeysView(m_keys, m_playKeys.map);
             view.canSave = !m_config.userInputFile.empty();
             if (const auto r = drawKeysPanel(view, m_keysPanel)) {
@@ -1087,7 +1100,7 @@ bool Application::frame() {
         }
         if (inWorld) {
             applyPanelActions(act);
-            if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && m_panels.visible) {
+            if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && shellVisible) {
                 if (m_shell.view.tools) {
                     editor::drawEditorPanel(m_editor, m_editorPanel, *host, &m_shell.view.tools); // 12A "편집"
                 }
@@ -1119,10 +1132,10 @@ bool Application::frame() {
                     }
                 }
             }
-            if (m_panels.visible && m_shell.view.console) { // v0.8 UI-3 "콘솔" — 로그의 최근 줄
+            if (shellVisible && m_shell.view.console) { // v0.8 UI-3 "콘솔" — 로그의 최근 줄
                 editor::drawConsolePanel(m_console, &m_shell.view.console);
             }
-            if (m_config.tests != nullptr && !m_projectDir.empty() && m_panels.visible &&
+            if (m_config.tests != nullptr && !m_projectDir.empty() && shellVisible &&
                 m_shell.view.test) { // ST-06-9
                 if (const auto a =
                         editor::drawTestPanel(m_testPanel, m_config.tests->processes(), m_config.tests->running(),
@@ -1131,7 +1144,7 @@ bool Application::frame() {
                                                                               : "studio.test-stop");
                 }
             }
-            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.uiDesigner) { // ST-06-4 "UI 디자이너"
+            if (!m_projectDir.empty() && shellVisible && m_shell.view.uiDesigner) { // ST-06-4 "UI 디자이너"
                 if (m_uiDocsProject != m_projectDir || m_uiDocsAge++ % 120 == 0) {      // 폴더 목록은 2 초쯤마다
                     m_uiDocsProject = m_projectDir;
                     m_uiDocs = editor::uiDocumentFiles(m_projectDir);
@@ -1153,24 +1166,24 @@ bool Application::frame() {
                     }
                 }
             }
-            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.project) { // v0.13 ST-08-3 "프로젝트"
+            if (!m_projectDir.empty() && shellVisible && m_shell.view.project) { // v0.13 ST-08-3 "프로젝트"
                 if (const auto a = editor::drawProjectExplorer(m_projectExplorer, m_projectDir, &m_shell.view.project)) {
                     applyProjectExplorerAction(*a);
                 }
             }
-            if (!m_projectDir.empty() && m_panels.visible && m_shell.view.assets) { // ST-06-3 "에셋"
+            if (!m_projectDir.empty() && shellVisible && m_shell.view.assets) { // ST-06-3 "에셋"
                 if (const auto c = editor::drawAssetBrowser(m_assetBrowser, m_projectDir, &m_shell.view.assets)) {
                     reloadAssetSprites(*c);
                 }
             }
-            if (m_config.layouts != nullptr && m_panels.visible &&
+            if (m_config.layouts != nullptr && shellVisible &&
                 m_shell.developerPanels) { // M6-T6 "레이아웃" — 개발자 창
                 if (const auto a = editor::drawLayoutPanel(m_layoutPanel, m_config.layouts->active(), m_layoutNames,
                                                            m_config.layouts->enabled())) {
                     applyLayoutAction(*a);
                 }
             }
-            if (m_config.builds != nullptr && !m_projectDir.empty() && m_panels.visible &&
+            if (m_config.builds != nullptr && !m_projectDir.empty() && shellVisible &&
                 m_shell.view.build) { // M6-T3
                 if (const auto a =
                         editor::drawBuildPanel(m_buildPanel, m_projectDir, m_profiles, m_config.builds->running(),
@@ -1179,12 +1192,12 @@ bool Application::frame() {
                 }
             }
             if (const auto players = m_config.world->players();
-                players && m_panels.visible && m_shell.developerPanels) {
+                players && shellVisible && m_shell.developerPanels) {
                 if (const auto req = drawPlayersPanel(*players)) { // 12C "접속자"
                     m_config.world->requestRole(req->clientId, req->role);
                 }
             }
-            if (const auto ops = m_config.world->worldOps(); ops && m_panels.visible && m_shell.view.world) {
+            if (const auto ops = m_config.world->worldOps(); ops && shellVisible && m_shell.view.world) {
                 if (auto req = drawWorldPanel(*ops, m_worldPanel, &m_shell.view.world)) { // 12D "월드"
                     if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
                         m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
@@ -1192,13 +1205,13 @@ bool Application::frame() {
                     m_config.world->worldOp(req->op, std::move(req->name), req->target);
                 }
             }
-            if (auto game = m_config.world->game(); game && m_panels.visible && m_shell.view.game) {
+            if (auto game = m_config.world->game(); game && shellVisible && m_shell.view.game) {
                 localizeNames(*game);
                 if (const auto c = drawGamePanel(*game, &m_shell.view.game)) { // v0.2 M2-T3 "게임"
                     m_config.world->gameCommand(*c);
                 }
             }
-            if (auto acts = m_config.world->playerActions(); acts && m_panels.visible && m_shell.view.game) {
+            if (auto acts = m_config.world->playerActions(); acts && shellVisible && m_shell.view.game) {
                 localizeNames(*acts);
                 drawActionPanel(*acts, m_actionPanel, &m_shell.view.game); // v0.2 M3-T1 "행동"
             } else if (!acts) {
@@ -1212,7 +1225,7 @@ bool Application::frame() {
             if (const auto so = m_config.world->scriptOverlay()) {
                 drawScriptOverlay(*so, m_renderWorld.camera); // v0.3 M5-T3 — 게임 화면이라 늘
             }
-            if (const auto sp = m_config.world->scriptProfile(); sp && m_panels.visible && m_shell.developerPanels) {
+            if (const auto sp = m_config.world->scriptProfile(); sp && shellVisible && m_shell.developerPanels) {
                 drawScriptProfilePanel(*sp); // v0.3 M5-T4 "스크립트 프로파일"
             }
         }
@@ -1507,6 +1520,11 @@ void Application::registerStudioCommands() {
     }
     add({"view.developer-panels", "개발자 창 켜고 끄기", "", "global", {}, [this] {
              m_shell.developerPanels = !m_shell.developerPanels;
+         }});
+    add({"view.graphicsui-workspace", "GraphicsUI 작업 공간 (미리보기) 켜고 끄기", "", "global",
+         [this, inWorld] { return inWorld() && m_config.ui != nullptr && !m_config.playerMode; }, [this] {
+             m_guiWorldWorkspace = !m_guiWorldWorkspace; // ADR-0179 — ImGui 셸 ↔ 작업 공간
+             log::info("client", "프로젝트 안 UI: {}", m_guiWorldWorkspace ? "GraphicsUI 작업 공간" : "기존 UI (ImGui 셸)");
          }});
     add({"view.console", "콘솔 창 켜고 끄기", "", "global", {}, [this] {
              m_shell.view.console = !m_shell.view.console;
@@ -2342,21 +2360,10 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         log::info("client", "GraphicsUI 설정 (GXML)");
         return std::nullopt;
     case StudioHomeIntent::Kind::OpenWorkspace:
-        if (!m_guiWorkspace) {
-            auto made = StudioWorkspace::create(*m_guiText, m_commands, m_config.engineVersion);
-            if (!made) {
-                m_home.failed = true;
-                m_home.message = std::format("작업 공간을 열 수 없다 — {}", made.error().describe());
-                log::warn("client", "{}", m_home.message);
-                return std::nullopt;
-            }
-            m_guiWorkspace = std::move(*made);
-            m_guiWorkspace->dock().setClipboard({[this] { return m_window.clipboardText(); },
-                                                 [this](std::string_view t) { m_window.setClipboardText(t); }});
-        }
-        if (!m_guiWorkspaceLayout ||
-            (m_config.layouts != nullptr && *m_guiWorkspaceLayout != m_config.layouts->active())) {
-            loadGuiWorkspaceLayout(); // 처음 · ImGui 레이아웃 창에서 다른 이름을 고른 뒤
+        if (!ensureGuiWorkspace()) {
+            m_home.failed = true;
+            m_home.message = "작업 공간을 열 수 없다 — 로그를 본다";
+            return std::nullopt;
         }
         m_guiWorkspaceOpen = true;
         log::info("client", "GraphicsUI 작업 공간 (Dock — UI-R2-05)");
@@ -2380,6 +2387,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     case StudioHomeIntent::Kind::SwitchToClassic:
         log::info("client", "GraphicsUI 홈 → 기존 UI (ImGui)");
         m_guiHomeActive = false;
+        m_guiWorldWorkspace = false; // 프로젝트 안도 기존 UI (명령 view.graphicsui-workspace 로 다시 켠다)
         (void)m_guiHost->setScreen(nullptr); // 트리를 비운다 — 입력이 두 UI 에 가지 않는다
         return std::nullopt;
     }
@@ -2451,8 +2459,50 @@ std::optional<StudioHomeAction> Application::guiSettingsFrame(f32 scale) {
     return std::nullopt;
 }
 
+bool Application::guiWorldActive() const noexcept {
+    return m_guiWorldWorkspace && m_panels.visible && m_state == AppState::InWorld && m_config.world != nullptr &&
+           m_config.ui != nullptr && !m_config.playerMode;
+}
+
+bool Application::ensureGuiWorkspace() {
+    if (!m_guiWorkspace) {
+        if (!m_guiText) { // 홈을 거치지 않고 프로젝트로 들어온 실행 (--project) — ImGui 프레임 안이라 ImGui 글꼴로 잰다
+            m_guiText = std::make_unique<GuiImGuiTextMeasure>();
+        }
+        auto made = StudioWorkspace::create(*m_guiText, m_commands, m_config.engineVersion);
+        if (!made) {
+            log::warn("client", "GraphicsUI 작업 공간을 만들지 못했다 — {}", made.error().describe());
+            return false;
+        }
+        m_guiWorkspace = std::move(*made);
+        m_guiWorkspace->dock().setClipboard({[this] { return m_window.clipboardText(); },
+                                             [this](std::string_view t) { m_window.setClipboardText(t); }});
+    }
+    if (!m_guiWorkspaceLayout ||
+        (m_config.layouts != nullptr && *m_guiWorkspaceLayout != m_config.layouts->active())) {
+        loadGuiWorkspaceLayout(); // 처음 · ImGui 레이아웃 창에서 다른 이름을 고른 뒤
+    }
+    return true;
+}
+
+void Application::guiWorldFrame() {
+    if (!ensureGuiWorkspace()) {
+        m_guiWorldWorkspace = false; // 기존 UI 로 (로그에 까닭)
+        return;
+    }
+    const f32 scale = ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
+    (void)guiWorkspaceFrame(scale); // 프로젝트 안에서는 홈 행동이 없다
+    if (!m_guiWorldLogged && m_guiWorkspace->dock().lastFrame() != nullptr) {
+        log::info("client", "GraphicsUI 작업 공간 (프로젝트 안 — 장면 통과, 그룹 {} · 패널 {})",
+                  m_guiWorkspace->dock().lastFrame()->groups.size(), m_guiWorkspace->dock().lastFrame()->tabs.size());
+        m_guiWorldLogged = true;
+    }
+}
+
 std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     StudioWorkspace& ws = *m_guiWorkspace;
+    const bool inWorld = m_state == AppState::InWorld && m_config.world != nullptr;
+    ws.setInWorld(inWorld); // 장면 패널 = 통과 (먼저 그린 월드가 보인다 — ADR-0179)
     ws.setTheme(m_shell.theme);
     ws.setCompact(m_shell.density == editor::theme::Density::Compact);
     ws.setScale(scale);
@@ -2505,6 +2555,11 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     using K = editor::gui::WorkspaceIntent::Kind;
     switch (intent->kind) {
     case K::Home:
+        if (inWorld) { // 프로젝트 안 — ImGui 셸로 (ADR-0179)
+            m_guiWorldWorkspace = false;
+            log::info("client", "GraphicsUI 작업 공간 → 기존 UI (ImGui 셸)");
+            return std::nullopt;
+        }
         m_guiWorkspaceOpen = false; // 배치 · 패널 상태는 남는다 (다시 열면 그대로)
         return std::nullopt;
     case K::ResetLayout: {
@@ -2686,10 +2741,11 @@ void Application::dispatchShortcuts() {
         return; // 글자 칸에 쓰는 중
     }
     // 지금 그리는 GraphicsUI 화면 (설정 → 작업 공간 → 홈 차례 — guiHomeFrame 과 같다) 의 글자 칸
-    const bool guiTyping = m_guiSettingsOpen && m_guiSettings     ? m_guiSettings->view().textFocused()
-                           : m_guiWorkspaceOpen && m_guiWorkspace ? m_guiWorkspace->dock().textFocused()
-                                                                  : m_guiHost && m_guiHost->textFocused();
-    if (m_guiHomeActive && guiTyping) {
+    const bool workspace = m_guiWorkspace && (m_guiWorkspaceOpen || guiWorldActive());
+    const bool guiTyping = m_guiSettingsOpen && m_guiSettings ? m_guiSettings->view().textFocused()
+                           : workspace                        ? m_guiWorkspace->dock().textFocused()
+                                                              : m_guiHost && m_guiHost->textFocused();
+    if ((m_guiHomeActive || guiWorldActive()) && guiTyping) {
         return; // GraphicsUI 글자 칸에 쓰는 중 (UI-R1-08 — Ctrl+A · C · V · Z 는 그 칸의 편집)
     }
     const std::string_view context =

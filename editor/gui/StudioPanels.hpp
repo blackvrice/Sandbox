@@ -6,6 +6,7 @@
 //   InfoPanel      판 · 테마 · 배율 · 조작 안내 · 홈으로 · 배치 초기화 (의도)
 //   BuildPanel     빌드 창 (UI-R3-07) — 프로필 ‹ › · 검사 · 빌드 (명령 studio.check · studio.build) · 마지막 보고 (BuildReport 그대로)
 //   TestPanel      테스트 창 (UI-R3-08) — 클라이언트 · 지연 · 흔들림 · 손실 (− 값 +) · 시작 · 끝내기 (studio.test-*) · 프로세스 목록
+//   ScenePanel     장면 (ADR-0179) — 프로젝트 안에서는 아무것도 그리지 않는다 (통과 — 먼저 그린 월드가 보인다), 홈에서는 안내
 //   StatsPanel     통계 창 (UI-R3-09) — 프레임 시간 막대 · CPU · GPU · 그리기 · 디바이스 · 네트워크 줄 (진단 창과 같은 원천)
 //
 // 패널은 고른 일을 WorkspaceIntent 로 돌려준다 — 일은 Application 이 기존 명령 · 처리로 한다.
@@ -62,6 +63,7 @@ struct PanelContext {
     services::StudioTheme theme = services::StudioTheme::Dark;
     bool compact = false;
     f32 scale = 1.f;
+    bool inWorld = false; // 프로젝트 안 (장면 패널 = 통과, 정보의 "기존 UI 로" — ADR-0179)
     std::optional<WorkspaceIntent> intent; // 이번 frame 에 고른 일 (작업 공간이 꺼낸다)
 };
 
@@ -138,6 +140,19 @@ private:
     gui::ListView m_list;
     gui::LayoutRect m_listBounds;
     std::vector<const services::CommandSpec*> m_rows; // 검색 결과 — 키 = 차례
+};
+
+class ScenePanel final : public uihost::IUiScreen {
+public:
+    explicit ScenePanel(PanelContext& ctx) : m_ctx(ctx) {}
+
+    Expected<void> mount(uihost::UiHost& host) override;
+    Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
+    Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
+
+private:
+    PanelContext& m_ctx;
+    gui::ComponentHandle m_root;
 };
 
 class InfoPanel final : public uihost::IUiScreen {

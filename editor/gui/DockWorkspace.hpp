@@ -7,6 +7,8 @@
 //                그룹의 탭), 분할선 끌기 = 비율, Esc · 창 포커스 잃음 = 끌기 취소, Ctrl+PageUp · PageDown = 그룹 안 탭 순회.
 //                내용 영역의 포인터 · 휠은 그 패널 호스트로 (좌표를 내용 원점 기준으로), 키 · 글자는 포커스된 패널로
 //   분리 창      DockLayout 은 안다 (undock) — 다중 OS 창 (S-01) 이 없어 지금은 쓰지 않는다 (UI-R2-06)
+//   통과 패널    setPassthrough — 그 패널이 활성인 그룹의 내용 칸 (과 창 전체 바탕) 을 칠하지 않는다. 먼저 그린 월드가 보이고, 그 칸 위의
+//                포인터 · 그 패널에 포커스가 있을 때의 키는 앱이 게임 · 편집으로 보낸다 (wantsPointer · wantsKeyboard — ADR-0179)
 //
 // ImGui · Render 를 모른다 — 그리기는 앱의 렌더 어댑터가 draw() 결과로 (크롬 → 패널 DisplayList (원점 이동) → 끌기 미리보기).
 
@@ -62,6 +64,12 @@ public:
     void setScale(f32 scale) noexcept { m_scale = scale > 0.f ? scale : 1.f; }
     [[nodiscard]] f32 scale() const noexcept { return m_scale; }
     void setClipboard(const uihost::Clipboard& clipboard);
+    void setPassthrough(gui::DockPaneId id, bool passthrough);
+    [[nodiscard]] bool passthrough(gui::DockPaneId id) const;
+    // 이 포인터 (창 논리 좌표) 를 작업 공간이 가져가나 — 그룹 · 분할선 위이고 통과 칸 밖, 또는 끄는 중 (지난 frame 의 배치)
+    [[nodiscard]] bool wantsPointer(gui::LayoutPoint logical) const;
+    // 키를 작업 공간이 가져가나 — 포커스 패널이 통과 패널이 아니다
+    [[nodiscard]] bool wantsKeyboard() const;
 
     void feed(std::span<const platform::PlatformEvent> events);
     // logical = 창의 논리 크기. 반환 포인터는 다음 frame 까지 유효
@@ -87,6 +95,7 @@ private:
         std::string title;
         std::unique_ptr<uihost::IUiScreen> screen;
         std::unique_ptr<uihost::UiHost> host;
+        bool passthrough = false;
     };
     DockWorkspace(const uihost::ITextMeasure& text) noexcept : m_text(text) {}
 

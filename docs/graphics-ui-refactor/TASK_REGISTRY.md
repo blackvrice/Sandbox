@@ -14,14 +14,14 @@
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 6 | 1 | 2 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-08 일부 |
 | UI-R3 편집 패널 | 12 | 1 | 3 | 4 | R3-06 콘솔 ✅, R3-07 빌드 · 08 테스트 · 09 통계 일부 |
-| UI-R4 Viewport | 6 | 0 | 0 | 2 | |
+| UI-R4 Viewport | 6 | 0 | 1 | 2 | R4-01 과도기 (통과 장면) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
 | UI-R7 게임 런타임 UI | 5 | 0 | 0 | 5 | GraphicsUI P9-07 미진행 |
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **27 (33 %)** | 6 | 21 | |
+| **합계** | **81** | **27 (33 %)** | 7 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -71,13 +71,13 @@
 | UI-R3-04 | Asset Browser (썸네일) | Blocked | R1-10 | editor/ · render | 텍스처 핸들 → UI 이미지 |
 | UI-R3-05 | Prefab Browser | Planned | R3-02 | editor/ | |
 | UI-R3-06 | Console (가상 ListView · 거르기) | Done | R2-05 | editor/gui | `ConsolePanel` — log::recentLines (순번 키 · 바뀔 때만 다시 읽기) · 가상 목록 · 글자 거르기 (대소문자 무시 — ImGui 는 그대로) · 수준 (전부 · 경고 이상 · 오류만 — ImGui 와 같은 머리 규칙) · 지우기 (그 뒤 줄만) · 복사 (거른 줄 전부) · 따라가기 (휠로 밀면 끔 · End 로 켬) · ↑↓ Home End · 고른 줄 복사 (Ctrl · Cmd+C) · 수준 색. `unit_client` "console panel". 프로젝트 안에서는 아직 ImGui 콘솔 (작업 공간은 홈에서 연다 — 프로젝트 안 GraphicsUI 는 R4-01 뒤) |
-| UI-R3-07 | Build 패널 | Partial | R2-05 | editor/gui · apps/client | `BuildPanel` — 프로필 ‹ › (SelectProfile → ImGui 창과 같은 profileIndex) · 검사 · 빌드 (명령 studio.check · studio.build) · 빌드 중 · 마지막 보고 줄 (BuildReport 그대로 — 요약 · 패키지 · digest · 에셋 그룹 · 오류 · 경고, 가상 목록), 프로젝트가 없으면 단추를 끈다. 값 모델 `BuildPanelModel` 을 Application 이 frame 마다 (바뀐 보고만 다시). 작업 공간의 콘솔 옆 탭 (패널 id 4). `unit_client` "build panel". 남음: 프로젝트 안에서 작업 공간을 여는 것 (R4-01 — Viewport 합성) |
-| UI-R3-08 | Test 패널 | Partial | R2-05 | editor/gui · apps/client | `TestPanel` — 클라이언트 · 지연 · 흔들림 · 손실 (− 값 + — ImGui 창과 같은 범위, TestPlan 의도 → m_testPanel) · 서버 + 클라이언트 시작 · 모두 끝내기 (studio.test-start · stop) · 프로세스 목록 (상태 · 종료 코드 · 로그 경로 — 툴팁 대신 줄 오른쪽), 도는 동안 값 · 시작 꺼짐. 값 모델 `TestPanelModel` (`TestProcess::operator==`). `unit_client` "test panel". 남음: 프로젝트 안 표시 (R4-01) |
+| UI-R3-07 | Build 패널 | Partial | R2-05 | editor/gui · apps/client | `BuildPanel` — 프로필 ‹ › (SelectProfile → ImGui 창과 같은 profileIndex) · 검사 · 빌드 (명령 studio.check · studio.build) · 빌드 중 · 마지막 보고 줄 (BuildReport 그대로 — 요약 · 패키지 · digest · 에셋 그룹 · 오류 · 경고, 가상 목록), 프로젝트가 없으면 단추를 끈다. 값 모델 `BuildPanelModel` 을 Application 이 frame 마다 (바뀐 보고만 다시). 작업 공간의 콘솔 옆 탭 (패널 id 4). `unit_client` "build panel". 프로젝트 안 표시는 R4-01 과도기 (ADR-0179) 로 된다 — 남음: 실제 창 QA (빌드 · 검사를 작업 공간에서) |
+| UI-R3-08 | Test 패널 | Partial | R2-05 | editor/gui · apps/client | `TestPanel` — 클라이언트 · 지연 · 흔들림 · 손실 (− 값 + — ImGui 창과 같은 범위, TestPlan 의도 → m_testPanel) · 서버 + 클라이언트 시작 · 모두 끝내기 (studio.test-start · stop) · 프로세스 목록 (상태 · 종료 코드 · 로그 경로 — 툴팁 대신 줄 오른쪽), 도는 동안 값 · 시작 꺼짐. 값 모델 `TestPanelModel` (`TestProcess::operator==`). `unit_client` "test panel". 프로젝트 안 표시는 R4-01 과도기 (ADR-0179) 로 된다 — 남음: 실제 창 QA |
 | UI-R3-09 | 통계 · 네트워크 · 프로파일러 | Partial | R2-05 | editor/gui · apps/client | `StatsPanel` — 프레임 시간 막대 (최근 120) · CPU · GPU 패스 · 그리기 · 디바이스 · 네트워크 줄. 값 모델 `StatsModel` 을 `apps/client/ui/GuiStatsModel` 이 진단 창과 같은 입력 (PanelState · PanelInputs) · 같은 글로 만든다 — **홈에서도 쓸 수 있다** (프레임 · GPU · 디바이스). `unit_client` "stats panel". 남음: 시뮬레이션 창 (실행 제어) · 접속자 · 스크립트 진단 창 |
 | UI-R3-10 | 끌어다 놓기 (패널 사이 · 바깥 파일) | Blocked | GUI-UP-05 | uihost | |
 | UI-R3-11 | 맥락 메뉴 · 툴팁 | Blocked | GUI-UP-03 | uihost | |
 | UI-R3-12 | Undo/Redo · 부분 갱신 (바뀐 영역만) | Planned | R3-03 | editor/ | UndoService · StateStore 구독 |
-| UI-R4-01 | Scene 렌더러 → 외부 렌더 타깃 → UI 합성 | Blocked | R1-10 · GUI-UP-02 | render · uihost | 같은 장치 · 큐, CPU 왕복 없음 |
+| UI-R4-01 | Scene 렌더러 → 외부 렌더 타깃 → UI 합성 | Partial | R1-10 · GUI-UP-02 | editor/gui · apps/client | **과도기 (ADR-0179)** — 통과 장면 패널 (`ScenePanel` · `DockWorkspace::setPassthrough` — 월드를 창 전체에 먼저 그리고 그 칸을 칠하지 않는다, ImGui 셸과 같은 모델), 입력 `wantsPointer` · `wantsKeyboard` → InputSystem.setCapture, `--ui graphicsui` 는 프로젝트 안에서 셸 대신 작업 공간 ("기존 UI 로" · `view.graphicsui-workspace`), 장면이 가운데 · 크게 프리셋. `unit_client` 장면 1 + app 1 (local server — 장면 칸 = 게임 입력, 도구 위 = 가로챔, 오가기) · `client_graphicsui_world_headless`. 남음 (목표): 장면을 렌더 타깃으로 · UI 합성 (GUI-UP-02 · R1-10) |
 | UI-R4-02 | Scene / Game Viewport 분리 | Planned | R4-01 | apps/client | ADR-0164 (v0.21) 과 함께 |
 | UI-R4-03 | 피킹 · 기즈모 · 배치 · 격자 · 스냅 (기존 툴 재사용) | Planned | R4-01 | editor/ | editor 툴 · IEditorHost 그대로 |
 | UI-R4-04 | UI 입력과 게임 입력 분리 | Planned | R1-03 | uihost · apps/client | hitsUi · InputSystem.setCapture |

@@ -481,6 +481,47 @@ Expected<void> ShortcutPanel::paint(uihost::UiHost& host, const gui::LayoutFrame
     return {};
 }
 
+// ---- ScenePanel ----
+
+Expected<void> ScenePanel::mount(uihost::UiHost& host) {
+    const std::array<gui::ComponentSpec, 1> specs{{{std::nullopt, 1, 0, true}}};
+    auto h = commitTree(host, specs);
+    if (!h) {
+        return std::unexpected(h.error());
+    }
+    m_root = (*h)[0];
+    return {};
+}
+
+Expected<void> ScenePanel::layout(uihost::UiHost& host, const gui::ComponentSnapshot&, std::vector<gui::LayoutNode>& out) {
+    gui::LayoutNode root;
+    root.component = m_root;
+    root.style.preferred_width = host.viewport().width;
+    root.style.preferred_height = host.viewport().height;
+    out.push_back(root);
+    return {};
+}
+
+Expected<void> ScenePanel::paint(uihost::UiHost&, const gui::LayoutFrame& frame, uihost::PaintList& out) {
+    if (m_ctx.inWorld) {
+        return {}; // 통과 — 작업 공간도 이 칸을 칠하지 않는다 (DockWorkspace::setPassthrough)
+    }
+    const services::StudioColors& c = services::studioColors(m_ctx.theme);
+    for (const gui::LayoutBox& box : frame.boxes()) {
+        if (box.component == m_root) {
+            const double w = box.bounds.width;
+            const double h = box.bounds.height;
+            out.add(box.component,
+                    {gui::FillRect{{0, 0, w, h}, rc(c.background)},
+                     gui::DrawText{{16, fit(h / 2 - 10), fit(w - 32), 20}, kFont, 14.0,
+                                   "장면 — 프로젝트를 열면 여기에 월드가 보인다 (그 칸 위의 마우스 · 키는 게임 · 편집 도구로)",
+                                   rc(c.muted)}},
+                    true);
+        }
+    }
+    return {};
+}
+
 // ---- InfoPanel ----
 
 std::vector<std::string> InfoPanel::lines() const {
@@ -492,6 +533,8 @@ std::vector<std::string> InfoPanel::lines() const {
         "탭을 끌어 옮긴다 — 탭 줄 = 그 탭 앞 · 뒤, 칸 가장자리 = 위 · 아래 · 왼쪽 · 오른쪽으로 나누기, 가운데 = 그 칸의 탭",
         "분할선을 끌어 크기를 바꾼다 · Esc = 끌기 취소 · Ctrl+PageUp · PageDown = 칸 안의 탭 바꾸기",
         "콘솔: 거르기 · 따라가기 · ↑↓ · Ctrl+C (고른 줄 복사)   단축키: 검색 · ↑↓ · Enter (그 명령 실행)",
+        m_ctx.inWorld ? "장면 칸 = 월드 (그 칸을 누르면 키가 게임 · 편집으로) · 편집 창 (Hierarchy · 인스펙터 …) 은 \"기존 UI 로\""
+                      : "프로젝트를 열면 장면 칸으로 월드가 보인다 (ADR-0179)",
     };
 }
 
@@ -577,7 +620,9 @@ Expected<void> InfoPanel::paint(uihost::UiHost& host, const gui::LayoutFrame& fr
             if (auto v = (home ? m_home : m_reset)->visualState(host.pointerHit())) {
                 vs = *v;
             }
-            out.add(box.component, kit::button(host, box, vs, home ? "홈으로" : "배치 초기화", 14.0, home, c));
+            // 프로젝트 안 = ImGui 셸로 (ADR-0179), 홈 = 홈 화면으로
+            const char* homeLabel = m_ctx.inWorld ? "기존 UI 로" : "홈으로";
+            out.add(box.component, kit::button(host, box, vs, home ? homeLabel : "배치 초기화", 14.0, home, c));
         }
     }
     return {};
