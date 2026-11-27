@@ -37,8 +37,8 @@ UI-R4-01 과도기 (ADR-0179 — 프로젝트 안에서 작업 공간이 ImGui �
 
 ## 4. 다음 작업 (순서)
 
-1. **편집 창을 작업 공간으로** — 목록 (R3-02) · 인스펙터 (R3-03 — ADR-0180) 는 들어왔다. 다음은 편집 (툴) 창 (도구 · 배치 Prefab · 붓),
-   그다음 콘텐츠 창. 그 동안 그 일은 "기존 UI 로". 시뮬레이션 (실행 제어) · 접속자 진단 창 (R3-09 나머지).
+1. **편집 창을 작업 공간으로** — 목록 (R3-02) · 인스펙터 (R3-03 — ADR-0180) · 편집 (툴 — ADR-0181) 은 들어왔다. 다음은 콘텐츠 창
+   (Rule · Behavior · Prefab — FEATURE_MATRIX 11). 그 동안 그 일은 "기존 UI 로". 시뮬레이션 (실행 제어) · 접속자 진단 창 (R3-09 나머지).
    떠 있는 명령 팔레트 (R2-08) · 메뉴 (R2-04) 는 오버레이 (GUI-UP-03) 뒤.
 2. Linux · macOS CI 확인 — 사용자 요청으로 리팩터링을 마친 뒤 (PR 을 열어 CI).
 3. 사람 QA — Q-00 (ImGui 기준선) · Q-01 (GraphicsUI 홈 — Windows 창) · Q-02 (Dock 작업 공간 — 끌기 · 분할선 · 탭).
@@ -62,6 +62,7 @@ UI-R4-01 과도기 (ADR-0179 — 프로젝트 안에서 작업 공간이 ImGui �
 | UI-R4-01 과도기 (2026-11-27) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 11 케이스 (752 단언 — 장면 통과 · 앱 local server), `client_graphicsui_world_headless` | 같은 명령 |
 | UI-R3-02 (2026-11-27) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 12 케이스 (887 단언 — 목록 패널 · 앱에서 누르면 실제 선택) | 같은 명령 |
 | UI-R3-03 (2026-11-27) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 14 케이스 (1246 단언 — 인스펙터 줄 · 편집 · 단추 · 앱에서 토끼의 maxSpeed 를 바꾸고 Ctrl+Z 로 되돌림) | 같은 명령 |
+| 편집 (툴) 패널 (2026-11-27, ADR-0181) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 15 케이스 (1730 단언 — 툴 단추 · 묶음 · 거르기 · − + 자르기 · 켜고 끄기 · 되돌리기, 앱에서 배치 툴 · Prefab · 간격 · 격자가 Editor 에) | 같은 명령 |
 | 실제 실행 (헤드리스) | `SandboxClient --headless --ui graphicsui` — 컴포넌트 13 · 그리기 명령 32 · 정상 상태 배치 0.008 ms (Release) | [PERFORMANCE_BASELINE](PERFORMANCE_BASELINE.md) 3장 |
 | 잘못된 값 | `--ui qt` → 종료 코드 2 · 오류 줄 | 직접 실행 |
 

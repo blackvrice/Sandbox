@@ -71,7 +71,7 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 
 ## 3. 디자인 시스템 (editor/ui/StudioTheme · StudioWidgets)
 
-> 2026-11-27 — `--ui graphicsui` 는 프로젝트 안에서도 GraphicsUI 작업 공간을 ImGui 셸 대신 그린다 (통과 장면 패널 — ADR-0179, 미리보기: 목록 · 인스펙터 (ADR-0180) 는 작업 공간에, 메뉴 · 툴바 · 편집 (툴) · 콘텐츠 창은 아직 "기존 UI 로").
+> 2026-11-27 — `--ui graphicsui` 는 프로젝트 안에서도 GraphicsUI 작업 공간을 ImGui 셸 대신 그린다 (통과 장면 패널 — ADR-0179, 미리보기: 목록 · 인스펙터 (ADR-0180) · 편집 (툴 — ADR-0181) 은 작업 공간에, 메뉴 · 툴바 · 콘텐츠 창은 아직 "기존 UI 로").
 >
 > 2026-11-27 — 색 토큰의 정본은 `editor/services/studio_tokens.json` (→ `StudioTokens` 표). ImGui 테마와 GraphicsUI 화면 (C++ · GXML 의
 > GCSS 변수) 이 같은 값을 쓴다 ([ADR-0176](adr/0176-studio-design-tokens-single-source.md)). 아래 표의 값은 그 JSON 과 같다.

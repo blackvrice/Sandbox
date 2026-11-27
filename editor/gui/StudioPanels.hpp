@@ -43,6 +43,17 @@ struct TestPlanValues {
     bool operator==(const TestPlanValues&) const = default;
 };
 
+// 편집 툴의 설정 (편집 패널 — ImGui EditorSettings 와 같은 뜻 · 범위: 간격 0.5 ~ 8 칸, 반지름 0 ~ Editor::kMaxBrushRadius)
+struct ToolSettingsValues {
+    std::string prefab;        // 배치
+    double placeSpacing = 2.0; // 배치 끌기 간격 (칸)
+    bool snap = false;         // 이동 · 배치 격자 맞춤
+    std::string material;      // 지형 왼쪽
+    int brushRadius = 1;       // 0 = 한 칸
+    bool circle = true;        // 붓 모양 (아니면 사각형)
+    bool operator==(const ToolSettingsValues&) const = default;
+};
+
 struct WorkspaceIntent {
     enum class Kind : u8 {
         Home, ResetLayout, RunCommand, SelectProfile, TestPlan,
@@ -50,6 +61,8 @@ struct WorkspaceIntent {
         SelectEntities, FocusSelection, DeleteSelection, GroupSelection, UngroupSelection, ToggleGroup,
         // 인스펙터 (UI-R3-03) — 앱이 Editor::setField · addComponent · removeComponent · revertToPrefab
         SetField, AddComponent, RemoveComponent, RevertToPrefab,
+        // 편집 (툴) 패널 — 앱이 Editor::setTool (value = Tool 차례) · Editor::settings
+        SelectTool, ToolSettings,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)
@@ -58,6 +71,7 @@ struct WorkspaceIntent {
     std::vector<u32> entities; // SelectEntities — 새 선택 (NetEntityId, 오름차순 — editor/gui 는 core 를 직접 쓰지 않는다)
     u64 component = 0;         // 인스펙터 — 컴포넌트 stableId (SetField 의 필드 이름은 command)
     ecs::Json json;            // SetField — 검사한 값 (DataForm::setFormField 를 통과한 것)
+    ToolSettingsValues tools;  // ToolSettings — 고친 설정 전부
 
     [[nodiscard]] static WorkspaceIntent of(Kind kind, std::string command = {}, int value = 0) {
         WorkspaceIntent i;

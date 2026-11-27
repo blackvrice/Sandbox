@@ -1,6 +1,7 @@
 #include "apps/client/Application.hpp"
 
 #include "apps/client/ui/GuiInspectorModel.hpp"
+#include "apps/client/ui/GuiToolModel.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
 #include "render/asset/AssetManager.hpp"
 
@@ -2549,6 +2550,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         // 인스펙터 (UI-R3-03) — ImGui "인스펙터" 창과 같은 원천 (첫 선택 개체의 컴포넌트 · Prefab 오버라이드 · 역할)
         editor::IEditorHost* ihost = inWorld ? m_config.world->editorHost() : nullptr;
         ws.inspector().setView(ihost != nullptr ? makeGuiInspectorView(*ihost) : editor::gui::InspectorView{});
+        // 편집 (툴 — ADR-0181) — ImGui "편집" 창과 같은 원천 (Editor 의 툴 · 설정 · 기록, 역할, 콘텐츠의 Prefab · 머티리얼)
+        ws.tools().setView(ihost != nullptr ? makeGuiToolView(m_editor, *ihost) : editor::gui::ToolPanelView{});
     }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2657,6 +2660,25 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         default: // RevertToPrefab
             m_editor.revertToPrefab(*host, c);
             break;
+        }
+        return std::nullopt;
+    }
+    case K::SelectTool:
+    case K::ToolSettings: {
+        // 편집 (툴) 패널 — ImGui 셸의 툴바 · "편집" 창과 같은 Editor 상태 (툴 · 설정은 이 클라이언트의 것 — 월드는 툴이 명령으로)
+        editor::IEditorHost* host = inWorld ? m_config.world->editorHost() : nullptr;
+        if (host == nullptr) {
+            return std::nullopt;
+        }
+        if (intent->kind == K::SelectTool) {
+            if (intent->value >= 0 && static_cast<usize>(intent->value) < editor::kToolCount) {
+                const auto t = static_cast<editor::Tool>(intent->value);
+                if (editor::toolAllowed(t, host->permissions())) {
+                    m_editor.setTool(t);
+                }
+            }
+        } else {
+            applyGuiToolSettings(m_editor, intent->tools);
         }
         return std::nullopt;
     }

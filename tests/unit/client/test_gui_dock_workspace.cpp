@@ -20,6 +20,7 @@
 #include "apps/client/NetworkSession.hpp"
 #include "apps/client/ui/GuiInspectorModel.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
+#include "apps/client/ui/GuiToolModel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
@@ -49,6 +50,7 @@ constexpr gui::DockPaneId kStats = StudioWorkspace::kStats;
 constexpr gui::DockPaneId kScene = StudioWorkspace::kScene;
 constexpr gui::DockPaneId kHierarchy = StudioWorkspace::kHierarchy;
 constexpr gui::DockPaneId kInspector = StudioWorkspace::kInspector;
+constexpr gui::DockPaneId kTools = StudioWorkspace::kTools;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -218,7 +220,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 9);
+        CHECK(d.lastFrame()->tabs.size() == 10);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -963,6 +965,197 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(in.status().starts_with("선택 없음"));
     }
 
+    TEST_CASE("tool panel (ADR-0181): tool buttons by role, prefab groups and filter, steppers clamp, toggles, undo · redo intents") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::ToolPanel& t = f.ws->tools();
+        using editor::gui::ToolPanel;
+        using Kind = ToolPanel::Line::Kind;
+        // 자리 — 도구 그룹, 인스펙터 바로 뒤 탭 (앞은 인스펙터 그대로)
+        CHECK(sameGroup(d, kTools, kInspector));
+        CHECK(tabOf(d, kTools).bounds.x > tabOf(d, kInspector).bounds.x);
+        CHECK(tabOf(d, kTools).bounds.x < tabOf(d, kShortcuts).bounds.x);
+        CHECK(groupOf(d, kInspector).active == kInspector);
+        f.show(kTools);
+        REQUIRE(groupOf(d, kTools).active == kTools);
+
+        // 프로젝트 밖 — 단추는 꺼져 있다
+        CHECK(t.title() == "편집 — 프로젝트 안에서 쓴다");
+        CHECK(t.lines().empty());
+        f.feed(click(paneCenter(d, kTools, t.toolHandle(2))));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        const auto view = [&](int tool, bool canEdit) {
+            editor::gui::ToolPanelView v;
+            v.available = true;
+            v.canEdit = canEdit;
+            v.tool = tool;
+            v.toolNames = {"선택", "이동", "배치", "지형", "지우기"};
+            v.toolMask = canEdit ? 0b11111u : 0b00001u;
+            v.settings.prefab = "eco.rabbit";
+            v.settings.material = "grass";
+            v.prefabGroups = {{"eco · 프로젝트", {"eco.rabbit", "eco.wolf", "eco.Bush"}},
+                              {"inv 1.0.0 · MIT · 설치한 패키지", {"inv.crate"}}};
+            v.materials = {"grass", "sand", "water"};
+            v.canUndo = canEdit;
+            v.undoLabel = "배치";
+            v.undoDepth = 2;
+            v.sent = 3;
+            v.accepted = 2;
+            v.rejected = 1;
+            v.message = "거절: 그 칸은 막혔다";
+            t.setView(std::move(v));
+            f.frame();
+        };
+        const auto takeKind = [&](WorkspaceIntent::Kind k) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == k);
+            return *i;
+        };
+        const auto lineAt = [&](usize line) {
+            const gui::DockGroupBox g = groupOf(d, kTools);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kTools)->lastLayout()->boxes()) {
+                if (b.component == t.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = t.rowBounds(line);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+
+        // 선택 툴 — 목록 · 값 줄은 쓰지 않는다
+        view(ToolPanel::kSelect, true);
+        CHECK(t.title() == "툴: 선택 (1)");
+        CHECK(t.hint().find("Delete") != std::string::npos);
+        CHECK(t.lines().empty());
+        CHECK_FALSE(t.stepEnabled());
+        CHECK_FALSE(t.toggleEnabled());
+        CHECK(t.toggleLabel() == "—");
+        CHECK(t.countLine() == "명령 3 · 수락 2 · 거절 1 — 기록 2 · 0");
+        f.feed(click(paneCenter(d, kTools, t.plusHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 툴 단추 → SelectTool (앱이 Editor::setTool), 다음 보기 전에도 그 툴로
+        f.feed(click(paneCenter(d, kTools, t.toolHandle(2))));
+        CHECK(takeKind(WorkspaceIntent::Kind::SelectTool).value == 2);
+        CHECK(t.view().tool == ToolPanel::kPlace);
+
+        // 배치 — 팩별 묶음 (둘이면 머리), 지금 Prefab 이 고른 줄
+        view(ToolPanel::kPlace, true);
+        CHECK(t.title() == "툴: 배치 (3)");
+        const auto& lines = t.lines();
+        REQUIRE(lines.size() == 6);
+        CHECK(lines[0].kind == Kind::Header);
+        CHECK(lines[0].text == "eco · 프로젝트");
+        CHECK(lines[1].text == "eco.rabbit");
+        CHECK(lines[4].kind == Kind::Header);
+        CHECK(lines[5].text == "inv.crate");
+        CHECK(t.selectedLine() == 1u);
+        f.feed(click(lineAt(2)));
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.prefab == "eco.wolf");
+        CHECK(t.selectedLine() == 2u);
+        f.feed(click(lineAt(0))); // 머리 = 아무 일 없음
+        CHECK_FALSE(f.ws->takeIntent());
+        // ↓ ↑ — 머리는 건너뛴다
+        f.feed(key(Key::Down));
+        CHECK(t.selectedLine() == 3u);
+        f.feed(key(Key::Down));
+        CHECK(t.selectedLine() == 5u);
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.prefab == "inv.crate");
+        f.feed(key(Key::Down)); // 끝
+        CHECK(t.selectedLine() == 5u);
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(key(Key::Up));
+        CHECK(t.selectedLine() == 3u);
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.prefab == "eco.Bush");
+        // Ctrl+Z · Ctrl+Y = 툴바와 같은 명령
+        f.feed(key(Key::Z, Modifiers::kCtrl));
+        CHECK(takeKind(WorkspaceIntent::Kind::RunCommand).command == "edit.undo");
+        f.feed(key(Key::Y, Modifiers::kCtrl));
+        CHECK(takeKind(WorkspaceIntent::Kind::RunCommand).command == "edit.redo");
+
+        // 거르기 — 대소문자 무시, 묶음이 하나만 남으면 머리 없이, Enter = 첫 Prefab
+        f.feed(click(paneCenter(d, kTools, t.filterHandle())));
+        f.feed(typed(U"CRATE"));
+        REQUIRE(t.lines().size() == 1);
+        CHECK(t.lines()[0].text == "inv.crate");
+        f.feed(key(Key::Enter));
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.prefab == "inv.crate");
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"zzz"));
+        CHECK(t.lines().empty());
+        f.feed(key(Key::Enter));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(key(Key::Backspace));
+        CHECK(t.lines().size() == 6);
+
+        // 끌기 간격 — 0.5 칸 눈금, 0.5 ~ 8 로 자른다
+        CHECK(t.stepLabel() == "끌기 간격 (칸)");
+        CHECK(t.stepValue() == "2.0");
+        f.feed(click(paneCenter(d, kTools, t.plusHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.placeSpacing == doctest::Approx(2.5));
+        for (int i = 0; i < 10; ++i) {
+            f.feed(click(paneCenter(d, kTools, t.minusHandle())));
+        }
+        CHECK(t.stepValue() == "0.5");
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.placeSpacing == doctest::Approx(0.5));
+        for (int i = 0; i < 20; ++i) {
+            f.feed(click(paneCenter(d, kTools, t.plusHandle())));
+        }
+        CHECK(t.stepValue() == "8.0");
+        (void)f.ws->takeIntent();
+        // 격자 맞춤
+        CHECK(t.toggleLabel() == "격자 맞춤: 끔");
+        f.feed(click(paneCenter(d, kTools, t.toggleHandle())));
+        const WorkspaceIntent snap = takeKind(WorkspaceIntent::Kind::ToolSettings);
+        CHECK(snap.tools.snap);
+        CHECK(snap.tools.placeSpacing == doctest::Approx(8.0)); // 고친 설정 전부를 싣는다
+        CHECK(t.toggleLabel() == "격자 맞춤: 켬");
+        // 되돌리기 (이름 = 무엇을) · 다시 (기록이 없으면 꺼짐)
+        f.feed(click(paneCenter(d, kTools, t.undoHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::RunCommand).command == "edit.undo");
+        f.feed(click(paneCenter(d, kTools, t.redoHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 지형 — 머티리얼 목록 · 붓 반지름 (0 = 한 칸, 최대 maxRadius) · 모양
+        view(ToolPanel::kTerrain, true);
+        REQUIRE(t.lines().size() == 3);
+        CHECK(t.lines()[0].kind == Kind::Material);
+        CHECK(t.selectedLine() == 0u);
+        f.feed(click(lineAt(2)));
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.material == "water");
+        CHECK(t.stepLabel() == "붓 반지름");
+        CHECK(t.stepValue() == "1");
+        f.feed(click(paneCenter(d, kTools, t.minusHandle())));
+        CHECK(t.stepValue() == "0 (한 칸)");
+        CHECK(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.brushRadius == 0);
+        f.feed(click(paneCenter(d, kTools, t.minusHandle())));
+        CHECK_FALSE(f.ws->takeIntent()); // 그대로면 보내지 않는다
+        for (int i = 0; i < 12; ++i) {
+            f.feed(click(paneCenter(d, kTools, t.plusHandle())));
+        }
+        CHECK(t.stepValue() == "8");
+        (void)f.ws->takeIntent();
+        CHECK(t.toggleLabel() == "붓 모양: 원 (눌러서 사각형)");
+        f.feed(click(paneCenter(d, kTools, t.toggleHandle())));
+        CHECK_FALSE(takeKind(WorkspaceIntent::Kind::ToolSettings).tools.circle);
+        CHECK(t.toggleLabel() == "붓 모양: 사각형 (눌러서 원)");
+
+        // 보기만 (역할) — 선택 툴만, 되돌리기 꺼짐
+        view(ToolPanel::kSelect, false);
+        CHECK(t.title() == "툴: 선택 (1)  — 보기만");
+        CHECK(t.hint().find("보기만") != std::string::npos);
+        f.feed(click(paneCenter(d, kTools, t.toolHandle(2))));
+        f.feed(click(paneCenter(d, kTools, t.undoHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kTools, t.toolHandle(0))));
+        CHECK(takeKind(WorkspaceIntent::Kind::SelectTool).value == 0);
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -1093,6 +1286,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(sameGroup(d, kShortcuts, kConsole));
         CHECK(sameGroup(d, kInfo, kConsole));
         CHECK(sameGroup(d, kInspector, kConsole));
+        CHECK(sameGroup(d, kTools, kConsole));
         CHECK(groupOf(d, kConsole).active == kConsole); // 앞은 콘솔
         CHECK(groupOf(d, kScene).bounds.width > 0.55 * f.size.width);
         CHECK(d.focusedPane() == kScene);
@@ -1363,6 +1557,48 @@ TEST_SUITE("graphics ui dock workspace") {
             REQUIRE(app.frame());
         }
         CHECK(maxSpeed() == doctest::Approx(before));
+
+        // 편집 (툴 — ADR-0181) — 툴 단추 → Editor::setTool, Prefab 줄 → settings().prefab, 간격 + → placeSpacing (ImGui 창과 같은 상태)
+        editor::gui::ToolPanel& tp = ws->tools();
+        injectAll(click(center(tabOf(d, kTools).bounds, d.scale())));
+        REQUIRE(groupOf(d, kTools).active == kTools);
+        CHECK(tp.view().available);
+        CHECK(tp.view().canEdit);
+        CHECK(tp.view().toolNames[2] == "배치");
+        injectAll(click(paneCenter(d, kTools, tp.toolHandle(2))));
+        REQUIRE(app.frame());
+        CHECK(app.editor().tool() == editor::Tool::Place);
+        usize target = tp.lines().size();
+        for (usize i = 0; i < tp.lines().size(); ++i) {
+            if (tp.lines()[i].kind == editor::gui::ToolPanel::Line::Kind::Prefab &&
+                tp.lines()[i].text != app.editor().settings().prefab) {
+                target = i;
+                break;
+            }
+        }
+        REQUIRE(target < tp.lines().size());
+        {
+            const gui::DockGroupBox tg = groupOf(d, kTools);
+            gui::LayoutRect tl{};
+            for (const gui::LayoutBox& b : d.paneHost(kTools)->lastLayout()->boxes()) {
+                if (b.component == tp.listHandle()) {
+                    tl = b.bounds;
+                }
+            }
+            const auto r = tp.rowBounds(target);
+            REQUIRE(r);
+            injectAll(click(center({tg.content.x + tl.x + r->x, tg.content.y + tl.y + r->y, r->width, r->height}, d.scale())));
+        }
+        CHECK(app.editor().settings().prefab == tp.lines()[target].text);
+        const f32 spacing = app.editor().settings().placeSpacing;
+        injectAll(click(paneCenter(d, kTools, tp.plusHandle())));
+        CHECK(app.editor().settings().placeSpacing == doctest::Approx(std::min(8.f, spacing + 0.5f)));
+        injectAll(click(paneCenter(d, kTools, tp.toggleHandle())));
+        CHECK(app.editor().settings().snap);
+        injectAll(click(paneCenter(d, kTools, tp.toolHandle(0))));
+        REQUIRE(app.frame());
+        CHECK(app.editor().tool() == editor::Tool::Select);
+        CHECK(tp.title() == "툴: 선택 (1)");
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

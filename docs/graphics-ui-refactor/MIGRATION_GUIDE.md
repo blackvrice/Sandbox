@@ -49,6 +49,8 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
    받고, 배치 때 자기 줄로 옮긴다. 핸들러는 자기 줄만 본다 (빌린 것은 다음 setView 에서 무효). 일은 의도 (WorkspaceIntent — 선택은 entities)
 4b-3. 필드 수가 대상마다 다른 패널 (인스펙터 — ADR-0180) 은 필드마다 컴포넌트를 두지 않는다 — 고정 트리 (가상 목록의 줄 + 고른 줄을
    쓰는 편집 줄) 로. 값 검사는 화면이 하지 않고 서비스 (DataForm setFormField) 에 맡기고, 통과한 값만 의도에 싣는다 (WorkspaceIntent::json)
+4b-4. 앱의 로컬 상태를 바꾸는 패널 (편집 툴 — ADR-0181) 은 고친 값 전부를 의도에 싣고 (ToolSettingsValues), 앱이 범위를 다시 잘라 원래
+   상태 (Editor::settings) 에 쓴다 — ImGui 창과 같은 상태라 두 UI 가 서로 따라간다. 슬라이더가 없으면 − + 눈금 (범위는 ImGui 와 같게)
 4c. 프로젝트 안 (ADR-0179): 장면 패널은 통과 — 장면 칸의 입력은 게임으로 간다. 패널을 키보드로 쓰려면 그 패널을 눌러 포커스를 옮긴다.
    새 패널의 기본 자리는 프리셋 (StudioWorkspace::applyPreset) 의 도구 · 출력 그룹 중 하나 — 장면 그룹에 넣지 않는다
 5. 시험: StudioWorkspace 를 헤드리스로 만들고 창 좌표 이벤트를 dock().feed — 패널 컴포넌트의 창 좌표 = 그룹 content 원점 + 패널 배치 상자

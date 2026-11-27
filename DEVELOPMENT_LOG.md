@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합: 작업 공간 편집 (툴) 패널 — 툴 단추 · 배치 Prefab · 붓, 상태는 Editor 그대로 (ADR-0181)
+
+**무엇을**
+
+- `editor/gui/ToolPanel` — ImGui "편집" 창 (drawEditorPanel) 과 같은 일을 고정 트리로: 제목 ("툴: 배치 (3)" · "— 보기만") · 툴 단추 5 개
+  (지금 툴 = 강조, 역할로 못 쓰는 툴 꺼짐) · 툴 안내 · 거르기 칸 · 가상 목록 (배치 = 팩별 묶음 머리 + Prefab, 지형 = 머티리얼) · 값 줄
+  (끌기 간격 0.5 칸 눈금 0.5 ~ 8 · 붓 반지름 0 ~ 8, − 값 +) · 켜고 끄기 (격자 맞춤 · 붓 모양) · 되돌리기 | 다시 (이름 = 무엇을) · 명령 수
+  · 최근 거절 사유. 줄 누르기 · ↑↓ (머리 건너뜀) · 거르기 Enter (첫 Prefab) = 바로 설정, Ctrl+Z · Y = edit.undo · redo.
+- `apps/client/ui/GuiToolModel` — `makeGuiToolView` (Editor 의 툴 · 설정 · 기록 · 통계 · 사유, toolAllowed · anyEdit, 콘텐츠 Prefab 을
+  groupByPack 으로 한 번 · 머티리얼) · `applyGuiToolSettings` (범위를 다시 잘라 Editor::settings). Application 은 의도 SelectTool
+  (toolAllowed → Editor::setTool) · ToolSettings 를 처리.
+- `WorkspaceIntent` — SelectTool · ToolSettings, `ToolSettingsValues tools`.
+- `StudioWorkspace` — 편집 (id 10) 은 도구 그룹, 인스펙터 바로 뒤 탭 (모든 프리셋). 옛 .guidock 은 프리셋으로.
+- ADR-0181, 문서: TASK_REGISTRY (R3-03 비고), CURRENT_STATUS, UI-R3, FEATURE_MATRIX 10, MIGRATION_GUIDE 4b-4, 17-SOURCE-MAP, 29-STUDIO-UI.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 프로젝트 안 작업 공간은 ImGui 셸 (툴바 · "편집" 창) 대신 그리므로 툴 · 배치 Prefab · 붓을 정할
+곳이 없었다. 인스펙터 (R3-03) 다음.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 15 케이스 (1730 단언): tool panel — 자리 (인스펙터 뒤 탭, 앞은 인스펙터) · 프로젝트 밖은 꺼짐 ·
+  선택 툴 (목록 · 값 줄 꺼짐, 수 줄) · 툴 단추 → SelectTool · 묶음 2 개 = 머리 줄 · 줄 누르기 · ↓↑ 머리 건너뜀 · 끝에서 그대로 · Ctrl+Z · Y ·
+  거르기 (대소문자 무시, 묶음 하나 = 머리 없음, Enter = 첫 Prefab, 맞는 것 없음) · 간격 2.0 → 2.5 · 0.5 · 8.0 자르기 · 격자 맞춤 (설정 전부를
+  싣는다) · 되돌리기 / 다시 꺼짐 · 지형 머티리얼 · 반지름 0 (한 칸) · 그대로면 보내지 않음 · 8 · 붓 모양 · 보기만 역할 / app (local server
+  ecosystem_small) — 편집 탭 → 배치 툴 단추 → `Editor::tool() == Place` → 다른 Prefab 줄 → `settings().prefab` → + → 간격 +0.5 → 격자 켬
+  → 선택 툴.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 10".
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 825
+  파일 0 위반.
+
+**남은 일** — 콘텐츠 창 (Rule · Behavior · Prefab — FEATURE_MATRIX 11), 슬라이더 끌기 (GUI-UP-03 뒤), 실제 창 QA.
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R3-03: 작업 공간 인스펙터 — 속성 표 + 편집 줄, 값 검사는 DataForm (ADR-0180)
 
 **무엇을**
