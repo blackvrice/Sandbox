@@ -34,6 +34,7 @@
 #include "apps/client/presentation/GameUiLayer.hpp"
 #include "editor/gui/StudioHomeScreen.hpp"
 #include "editor/gui/StudioSettingsScreen.hpp"
+#include "editor/gui/StudioWorkspace.hpp"
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/ActionPanel.hpp"
@@ -77,6 +78,7 @@ using editor::gui::StudioHomeIntent;
 using editor::gui::StudioHomeModel;
 using editor::gui::StudioHomeScreen;
 using editor::gui::StudioSettingsScreen;
+using editor::gui::StudioWorkspace;
 
 class ImGuiLayer;
 
@@ -215,6 +217,8 @@ public:
     [[nodiscard]] const uihost::UiHost* graphicsUiHost() const noexcept { return m_guiHost.get(); }
     [[nodiscard]] bool graphicsUiHomeActive() const noexcept { return m_guiHomeActive; }
     [[nodiscard]] StudioSettingsScreen* graphicsUiSettings() noexcept { return m_guiSettingsOpen ? m_guiSettings.get() : nullptr; }
+    // GraphicsUI Dock 작업 공간 (UI-R2-05) — 열린 동안만
+    [[nodiscard]] StudioWorkspace* graphicsUiWorkspace() noexcept { return m_guiWorkspaceOpen ? m_guiWorkspace.get() : nullptr; }
     [[nodiscard]] editor::theme::Theme studioTheme() const noexcept { return m_shell.theme; }
     [[nodiscard]] bool developerPanels() const noexcept { return m_shell.developerPanels; }
     [[nodiscard]] const platform::InputSystem& input() const noexcept { return m_input; }
@@ -271,6 +275,8 @@ private:
     std::optional<StudioHomeAction> guiHomeFrame();
     // GraphicsUI 설정 화면 (GXML — UI-R2-02): 홈 대신 그린다. 테마 · 개발자 창은 기존 명령, 간격은 홈과 같은 Density 행동
     std::optional<StudioHomeAction> guiSettingsFrame(f32 scale);
+    // GraphicsUI Dock 작업 공간 (UI-R2-05): 홈 대신 그린다. 패널의 의도 — 홈으로 · 배치 초기화 · 명령 실행 (기존 명령 표)
+    std::optional<StudioHomeAction> guiWorkspaceFrame(f32 scale);
     // GraphicsUI 글자 칸의 포커스 → 창의 글자 입력 (IME) 켜기 · 후보 창 자리 (우리가 켠 것만 끈다)
     void syncGuiTextInput(const uihost::TextInputState& state);
     // 홈 폼 상태 (StudioHomeState — newDir · newGameId · newName · templateIndex) 를 요청으로 채운다. 템플릿이 없으면 결과 줄에
@@ -353,6 +359,8 @@ private:
     std::unique_ptr<uihost::UiHost> m_guiHost;
     std::unique_ptr<StudioSettingsScreen> m_guiSettings; // 처음 열 때 만든다 (GXML 이 없는 빌드면 만들지 못한다)
     bool m_guiSettingsOpen = false;
+    std::unique_ptr<StudioWorkspace> m_guiWorkspace; // 처음 열 때 만든다 (명령 표 m_commands 를 빌린다 — 그 뒤에 선언)
+    bool m_guiWorkspaceOpen = false;
     bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
     bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다
     bool m_guiHomeDrawn = false;       // 이번 프레임에 GraphicsUI 홈을 그렸다 (아니면 우리가 켠 글자 입력을 끈다)

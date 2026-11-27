@@ -2275,6 +2275,9 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     if (m_guiSettingsOpen && m_guiSettings) {
         return guiSettingsFrame(scale); // 설정 화면이 열린 동안 홈은 입력 · 그리기를 받지 않는다
     }
+    if (m_guiWorkspaceOpen && m_guiWorkspace) {
+        return guiWorkspaceFrame(scale); // 작업 공간도 같다
+    }
     m_guiHost->setScale(scale);
     m_guiHost->feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2332,6 +2335,22 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         }
         m_guiSettingsOpen = true;
         log::info("client", "GraphicsUI 설정 (GXML)");
+        return std::nullopt;
+    case StudioHomeIntent::Kind::OpenWorkspace:
+        if (!m_guiWorkspace) {
+            auto made = StudioWorkspace::create(*m_guiText, m_commands, m_config.engineVersion);
+            if (!made) {
+                m_home.failed = true;
+                m_home.message = std::format("작업 공간을 열 수 없다 — {}", made.error().describe());
+                log::warn("client", "{}", m_home.message);
+                return std::nullopt;
+            }
+            m_guiWorkspace = std::move(*made);
+            m_guiWorkspace->dock().setClipboard({[this] { return m_window.clipboardText(); },
+                                                 [this](std::string_view t) { m_window.setClipboardText(t); }});
+        }
+        m_guiWorkspaceOpen = true;
+        log::info("client", "GraphicsUI 작업 공간 (Dock — UI-R2-05)");
         return std::nullopt;
     case StudioHomeIntent::Kind::NewProject:
         // ImGui 홈의 폼과 같은 상태를 채우고 같은 명령 (studio.new-project — 검사 · 만들기 · 들어가기 · 결과 줄)
@@ -2423,6 +2442,56 @@ std::optional<StudioHomeAction> Application::guiSettingsFrame(f32 scale) {
     return std::nullopt;
 }
 
+std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
+    StudioWorkspace& ws = *m_guiWorkspace;
+    ws.setTheme(m_shell.theme);
+    ws.setCompact(m_shell.density == editor::theme::Density::Compact);
+    ws.setScale(scale);
+    ws.dock().feed(m_events.events());
+    const ImVec2 size = ImGui::GetIO().DisplaySize;
+    auto draw = ws.dock().frame({static_cast<double>(size.x), static_cast<double>(size.y)});
+    if (!draw) {
+        log::error("client", "GraphicsUI 작업 공간을 그리지 못했다 — 홈으로: {}", draw.error().describe());
+        m_guiWorkspaceOpen = false;
+        return std::nullopt;
+    }
+    // 크롬 (배경 · 탭 · 분할선) → 패널마다 그 내용 원점으로 옮겨 → 끌기 미리보기 (과도기 렌더 경로)
+    ImDrawList& bg = *ImGui::GetBackgroundDrawList();
+    (void)drawCommands((*draw)->chrome, bg, nullptr, 0.f, 0.f, scale);
+    for (const editor::gui::WorkspaceDraw::Pane& p : (*draw)->panes) {
+        (void)drawDisplayList(*p.list, bg, nullptr, static_cast<f32>(p.origin.x) * scale,
+                              static_cast<f32>(p.origin.y) * scale, scale);
+    }
+    (void)drawCommands((*draw)->overlay, bg, nullptr, 0.f, 0.f, scale);
+    syncGuiTextInput(ws.dock().textInput());
+    m_guiHomeDrawn = true;
+    const auto intent = ws.takeIntent();
+    if (!intent) {
+        return std::nullopt;
+    }
+    using K = editor::gui::WorkspaceIntent::Kind;
+    switch (intent->kind) {
+    case K::Home:
+        m_guiWorkspaceOpen = false; // 배치 · 패널 상태는 남는다 (다시 열면 그대로)
+        return std::nullopt;
+    case K::ResetLayout:
+        if (auto r = ws.resetLayout(); !r) {
+            log::warn("client", "작업 공간 배치를 되돌리지 못했다 — {}", r.error().describe());
+        }
+        return std::nullopt;
+    case K::RunCommand: {
+        // 팔레트 · 단축키와 같은 명령 표 — 다음 셸 단계가 고른 셸 일을 적용한다
+        const editor::services::RunResult r = m_commands.run(intent->command);
+        log::info("client", "작업 공간 › 명령 {} — {}", intent->command,
+                  r == editor::services::RunResult::Ran        ? "실행"
+                  : r == editor::services::RunResult::Disabled ? "지금은 쓸 수 없다"
+                                                               : "없는 명령");
+        return std::nullopt;
+    }
+    }
+    return std::nullopt;
+}
+
 // ---- Player 모드 (v0.8 NG-03 — ADR-0121) ----
 
 void Application::playerFrame() {
@@ -2507,8 +2576,11 @@ void Application::dispatchShortcuts() {
     if (m_config.ui == nullptr || ImGui::GetIO().WantTextInput) {
         return; // 글자 칸에 쓰는 중
     }
-    if (m_guiHomeActive && ((m_guiHost && m_guiHost->textFocused()) ||
-                            (m_guiSettingsOpen && m_guiSettings && m_guiSettings->view().textFocused()))) {
+    // 지금 그리는 GraphicsUI 화면 (설정 → 작업 공간 → 홈 차례 — guiHomeFrame 과 같다) 의 글자 칸
+    const bool guiTyping = m_guiSettingsOpen && m_guiSettings     ? m_guiSettings->view().textFocused()
+                           : m_guiWorkspaceOpen && m_guiWorkspace ? m_guiWorkspace->dock().textFocused()
+                                                                  : m_guiHost && m_guiHost->textFocused();
+    if (m_guiHomeActive && guiTyping) {
         return; // GraphicsUI 글자 칸에 쓰는 중 (UI-R1-08 — Ctrl+A · C · V · Z 는 그 칸의 편집)
     }
     const std::string_view context =

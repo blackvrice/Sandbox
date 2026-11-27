@@ -31,6 +31,20 @@
 
 GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 · 정확한 IME 캐럿이 없다. 목록 · 표 · 트리 · 스크롤이 필요한 화면은 C++ 로.
 
+## 1c. Dock 작업 공간의 패널 (UI-R2-05, ADR-0177)
+
+```text
+1. 패널 = IUiScreen 하나 (editor/gui/StudioPanels 가 예 — ConsolePanel · ShortcutPanel · InfoPanel). 자기 UiHost 를 받는다 — 좌표는
+   패널 내용 기준, host.viewport() = 내용 크기 (UI 단위). 패널끼리 서로 모른다
+2. 글자 칸 = editor/gui/TextField (TextInput + 글자 대상 · IME 자리 + 편집 콜백 + 눌러 캐럿 + 그리기 — Enter · ↑↓ 는 KeyHook 으로 패널이)
+   단추 · 색 · 0 이상 크기 · 글자 intrinsic = editor/gui/PanelKit (kit::button · rc · fit · textIntrinsic)
+3. 고른 일은 PanelContext::intent (WorkspaceIntent) 에 — Application::guiWorkspaceFrame 이 기존 처리로. 테마 · 간격 · 배율은 PanelContext 에서 읽는다
+4. 작업 공간에 꽂기: StudioWorkspace::create 의 DockPaneSpec (안정 id · 제목 · 화면) 하나 + 기본 배치 (layout().dock(…)). id 는 저장 바이트에
+   들어간다 — 바꾸지 않는다 (복원은 같은 패널 목록만 받는다)
+5. 시험: StudioWorkspace 를 헤드리스로 만들고 창 좌표 이벤트를 dock().feed — 패널 컴포넌트의 창 좌표 = 그룹 content 원점 + 패널 배치 상자
+   (tests/unit/client/test_gui_dock_workspace.cpp 의 paneCenter)
+```
+
 ## 2. 규칙
 
 - **키 · 차례.** 같은 부모 아래 키가 같으면 같은 컴포넌트 (세대 유지) — 목록 행은 행 번호 대신 안정 키 (예: 경로 해시) 를 쓰면 재정렬에도
@@ -46,6 +60,7 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
 
 - ImGui 의 ini (studio/layouts/<이름>.ini — LayoutService, ADR-0114) 는 창 이름 · 도크 노드 id · 픽셀 크기를 담는다. DockLayout 은 안정
   패널 ID · 비율 (10,000 분율) · 분리 창의 논리 좌표를 담는 다른 형식 (GUIDOCK 버전 1 바이트) 이다 — **자동 변환은 하지 않는다**.
+- DockWorkspace 는 `save` · `restore` (GUIDOCK 바이트 — 패널 id 목록이 같아야 받는다) 를 이미 한다 (UI-R2-05). 파일 · 이름은 아직 없다.
 - 이전 방식 [계획 — UI-R2-07]: 레이아웃 **이름** (scene · scripting … — 29 5장 프리셋) 을 유지하고, 첫 실행에 그 이름의 프리셋으로
   DockLayout 을 만든다. 사용자가 손으로 바꾼 ini 배치는 옮기지 않는다 (알림 한 줄). ini 파일은 지우지 않는다 (ImGui 판이 남아 있는 동안).
 - 창 열림 목록 (studio.json "windows" — ST-08-2) 은 패널 ID 표로 대응한다.

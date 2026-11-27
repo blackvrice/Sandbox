@@ -46,6 +46,15 @@ add_library(SandboxStudioGui STATIC
     gui/StudioHomeScreen.cpp
     gui/StudioSettingsScreen.hpp
     gui/StudioSettingsScreen.cpp
+    gui/PanelKit.hpp
+    gui/TextField.hpp
+    gui/TextField.cpp
+    gui/DockWorkspace.hpp
+    gui/DockWorkspace.cpp
+    gui/StudioPanels.hpp
+    gui/StudioPanels.cpp
+    gui/StudioWorkspace.hpp
+    gui/StudioWorkspace.cpp
 )
 add_library(Sandbox::StudioGui ALIAS SandboxStudioGui)
 target_link_libraries(SandboxStudioGui PUBLIC SandboxEditorServices SandboxUiHost PRIVATE sbx_warnings)

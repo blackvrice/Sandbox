@@ -10,6 +10,7 @@
 // 좌표: GraphicsUI · ImGui 모두 논리 단위 (ImGuiLayer — DisplaySize 논리, 프레임버퍼 배율은 렌더러). 색: RenderColor 는 곱하지
 // 않은 RGBA8 = IM_COL32 그대로.
 
+#include <span>
 #include <string_view>
 
 #include <graphics-ui/core/render.hpp>
@@ -37,6 +38,9 @@ struct GuiBridgeStats {
 // 닫는다 (DisplayList 는 짝을 보장하지만 렌더러 쪽에서도 ImDrawList 의 clip 스택을 깨뜨리지 않는다)
 GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImFont* font = nullptr,
                                f32 originX = 0.f, f32 originY = 0.f, f32 scale = 1.f);
+// 같은 것 — DisplayList 가 아닌 명령 묶음 (Dock 작업 공간의 탭 · 분할선 — UI-R2-05). 좌표는 UI 단위
+GuiBridgeStats drawCommands(std::span<const gui::RenderCommand> commands, ImDrawList& dl, ImFont* font = nullptr,
+                            f32 originX = 0.f, f32 originY = 0.f, f32 scale = 1.f);
 
 // ImGui 글꼴로 글자 크기 재기 — ImGui 프레임 안 (NewFrame ~ Render) 에서만 (1.92 의 동적 아틀라스가 그 크기를 굽는다)
 class GuiImGuiTextMeasure final : public uihost::ITextMeasure {

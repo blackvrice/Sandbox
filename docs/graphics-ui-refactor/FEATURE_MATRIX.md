@@ -21,10 +21,10 @@
 |---|---|---|---|---|
 | 1 | Studio 홈 (`apps/client/studio/StudioHome`) | Button · ListView · TextInput · 레이아웃 | **완료 (선택 실행)** — 검색 · 가상 최근 목록 (휠 · 키 · Delete) · 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료가 GraphicsUI (`--ui graphicsui`, 같은 행동 · 명령). 좁은 창 세로 스크롤 없음 | UI-R1-05 · R1-08 · R2-09 ✅ |
 | 2 | 메인 메뉴 · 툴바 (`StudioShell`) | 메뉴 · 팝업 없음 | GUI 개선 (GUI-UP-03) | UI-R2-04 |
-| 3 | 도크 작업 공간 · 프리셋 (`StudioShell` — ImGui DockBuilder) | DockLayout (분할 · 탭 · 분리 · 저장) — 그리기 · 끌기는 호스트 | 어댑터 | UI-R2-05 |
+| 3 | 도크 작업 공간 · 프리셋 (`StudioShell` — ImGui DockBuilder) | DockLayout (분할 · 탭 · 분리 · 저장) — 그리기 · 끌기는 호스트 | 어댑터 — **작업 공간 완료 (미리보기 — `editor/gui/DockWorkspace`, ADR-0177: 분할 · 탭 · 끌기 · 분할선 · 저장 바이트)**, 프리셋 · 파일 저장 R2-07, 분리 창 R2-06 | UI-R2-05 |
 | 4 | 레이아웃 창 (`editor/ui/LayoutPanel`) | ListView · Button | 즉시 (R2-05 뒤) | UI-R2-07 |
 | 5 | 명령 팔레트 (`CommandPalette`) | TextInput · ListView | 어댑터 (글자 입력 R1-08) | UI-R2-08 |
-| 6 | 단축키 표 (`CommandPalette`) | TableView (정렬 · 거르기) | 즉시 | UI-R2-08 |
+| 6 | 단축키 표 (`CommandPalette`) | TableView (정렬 · 거르기) | 즉시 — **일부 (작업 공간의 단축키 패널 — ListView · 검색 · Enter = 실행)** | UI-R2-08 |
 | 7 | 알림 (`Application::drawNotices`) | ListView · Button | 즉시 | UI-R2-10 |
 | 8 | 목록 · Hierarchy (`EditorPanel` · HierarchyService) | TreeView (가상 · 펼침 · 거르기 · 선택 보존) | 즉시 (다중 선택은 GUI 개선 — TreeView 는 단일 선택) | UI-R3-02 |
 | 9 | 인스펙터 (`InspectorPanel` · DataForm) | Slider · Toggle · ComboBox · TextInput | 어댑터 (속성 편집 Custom Control) | UI-R3-03 |
@@ -37,7 +37,7 @@
 | 16 | 프로젝트 창 (`ProjectExplorerPanel`) | TreeView | GUI 개선 (맥락 메뉴 GUI-UP-03 · 끌어다 놓기 GUI-UP-05) | UI-R3-01 |
 | 17 | 에셋 창 (`AssetBrowserPanel` — 썸네일) | 이미지 그리기 명령 없음 (DisplayList = 사각형 · 글자 · 그라데이션 · 그림자) | GUI 개선 (GUI-UP-02 이미지 · 외부 텍스처) | UI-R3-04 |
 | 18 | UI 디자이너 (`UiDesignerPanel`) | GXML Designer 는 VS Code 확장 (Core 아님) | 보류 (UI-R6-01 의 형식 결정 먼저) | UI-R6 |
-| 19 | 콘솔 (`ConsolePanel`) | ListView (가상) · TextInput (거르기) | 즉시 | UI-R3-06 |
+| 19 | 콘솔 (`ConsolePanel`) | ListView (가상) · TextInput (거르기) | 즉시 — **일부 (작업 공간의 콘솔 패널 — 거르기 · 따라가기 · 복사, 남음 수준 거르기 · 지우기)** | UI-R3-06 |
 | 20 | 빌드 (`BuildPanel`) | ComboBox · Button · ListView | 즉시 | UI-R3-07 |
 | 21 | 테스트 (`TestPanel`) | Slider · Toggle · Button | 즉시 | UI-R3-08 |
 | 22 | 월드 창 (`apps/client/ui/WorldPanel`) | TextInput · ListView · Button | 어댑터 (글자 입력) | UI-R3 |

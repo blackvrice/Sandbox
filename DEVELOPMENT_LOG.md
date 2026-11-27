@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R2-05: Dock 작업 공간 (ADR-0177) — DockLayout + 패널마다 UiHost, 첫 패널 정보 · 단축키 · 콘솔
+
+**무엇을**
+
+- `editor/gui/DockWorkspace` — GraphicsUI `DockLayout` (그리기 없는 모델) 위의 작업 공간. 패널 = IUiScreen 하나 = UiHost 하나 (자기 트리 ·
+  입력 · 포커스), 그룹의 활성 탭만 배치 · 그린다. 크롬 (배경 · 탭 줄 · 탭 · 분할선, 포커스 탭 강조선) 과 끌기 미리보기는 그리기 명령 묶음
+  (UI 단위, 토큰 색). 입력: 탭 누르기 = 고르기, 6 단위 넘게 끌면 옮기기 (놓을 자리: 탭 줄 = 그 탭 앞 · 뒤, 그룹 내용 가장자리 25 % = 위 ·
+  아래 · 왼쪽 · 오른쪽 분할, 가운데 = 그 그룹의 탭, 자기 자리는 거절), 분할선 끌기 = 비율 (개정에 묶인 토큰 — 다시 배치해 같은 차례로
+  이어 끈다), Esc · 창 포커스 잃음 = 끌기 취소, Ctrl+PageUp · PageDown = 그룹 안 탭 순회. 내용 영역의 포인터 · 휠 = 그 패널 (내용 원점
+  기준 좌표 — 누른 패널이 뗄 때까지 잡는다), 키 · 글자 = 포커스 패널, IME 자리 = 패널 캐럿 + 원점. `save` · `restore` (GUIDOCK 바이트).
+- `editor/gui/StudioPanels` — `ConsolePanel` (log::recentLines · 순번 키 · 바뀔 때만 다시 읽기 · 가상 목록 · 거르기 · 따라가기 · ↑↓ Home End
+  · 고른 줄 복사 Ctrl/Cmd+C · 수준 색), `ShortcutPanel` (CommandService 검색 · ↑↓ · Enter = 실행 의도 · 꺼진 명령 흐리게 · 단축키 · 키 힌트),
+  `InfoPanel` (판 · 테마 · 배율 · 조작 안내 · 홈으로 · 배치 초기화). 일은 `WorkspaceIntent` 로.
+- `editor/gui/StudioWorkspace` — 패널 셋 + 기본 배치 (정보 | 단축키, 아래 콘솔) · 배치 초기화 · 테마 · 간격 · 배율 전달.
+- 재사용 `editor/gui/TextField` (TextInput + 글자 대상 · 편집 콜백 · 눌러 캐럿 · 그리기 · KeyHook) · `editor/gui/PanelKit.hpp` (토큰 색 · fit ·
+  intrinsic · 단추).
+- 홈에 "작업 공간" 단추 (`Part::Workspace` · `OpenWorkspace`), `Application::guiWorkspaceFrame` — 크롬 → 패널 (원점 이동) → 미리보기를
+  과도기 경로로 (`drawCommands` 추가 — `drawDisplayList` 가 그것을 부른다), 의도: 홈으로 · 배치 초기화 · 명령 실행 (`m_commands.run` — 팔레트와
+  같은 길). 앱 단축키 막기는 지금 그리는 GraphicsUI 화면 (설정 → 작업 공간 → 홈) 의 글자 칸 기준으로.
+- ADR-0177 · refactor 문서 (TASK_REGISTRY R2-05 Done · R2-08 · R3-06 Partial, CURRENT_STATUS, UI-R2, FEATURE_MATRIX, MIGRATION_GUIDE 1c장) ·
+  17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("Linux · macOS 확인은 리팩토링을 마친 뒤, 다음 단계 개발") — UI-R2-05. UI-R3 패널들이 들어갈 자리.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 4 케이스 (266 단언): 기본 배치 · 탭을 그룹 탭으로 끌기 (미리보기) · 탭 고르기 · Ctrl+PageUp/Down ·
+  Esc 취소 · 가장자리로 끌어 분할 · 분할선 +120 · 저장 → 초기화 → 복원 · 틀린 바이트 거절 / 옮긴 좌표 클릭 · 포커스 패널의 글자 · IME 자리 ·
+  검색 + Enter = 명령 의도 · 배율 2 / 콘솔 로그 줄 · 거르기 · 따라가기 · 복사 / app: 홈 → 작업 공간 → 단축키 패널에서 view.theme-light →
+  테마 바뀜 → 홈으로.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 100 / 100 (project_doctor 제외 — client_graphicsui_home_headless 포함), check_includes 813 파일 0 위반.
+- GCC · Clang 전용 경고 점검 — 새 코드의 부분 집합 초기화 (ComponentSpec · TextEdit · MouseButtonDown) 를 모든 필드로.
+
+**남은 일** — 배치 파일 저장 · 프리셋 (R2-07), 콘솔 수준 거르기 · 지우기 (R3-06), 떠 있는 팔레트 (R2-08 — GUI-UP-03), 분리 창 (R2-06 — S-01),
+간격 · 크기 토큰, 실제 창 QA (Q-02), Linux · macOS CI (리팩터링을 마친 뒤).
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R2-03: Studio 디자인 토큰의 단일 정본 (ADR-0176) — ImGui · GraphicsUI C++ · GXML 이 같은 색
 
 **무엇을**

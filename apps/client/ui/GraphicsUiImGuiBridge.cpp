@@ -19,6 +19,11 @@ ImU32 col(gui::RenderColor c, f32 alphaScale = 1.f) {
 
 GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImFont* font, f32 originX, f32 originY,
                                f32 scale) {
+    return drawCommands(list.commands(), dl, font, originX, originY, scale);
+}
+
+GuiBridgeStats drawCommands(std::span<const gui::RenderCommand> commands, ImDrawList& dl, ImFont* font, f32 originX,
+                            f32 originY, f32 scale) {
     GuiBridgeStats st;
     ImFont* f = font != nullptr ? font : ImGui::GetFont();
     const f32 s = scale > 0.f ? scale : 1.f;
@@ -27,7 +32,7 @@ GuiBridgeStats drawDisplayList(const gui::DisplayList& list, ImDrawList& dl, ImF
         return ImVec2(originX + static_cast<f32>(x) * s, originY + static_cast<f32>(y) * s);
     };
     int depth = 0;
-    for (const gui::RenderCommand& cmd : list.commands()) {
+    for (const gui::RenderCommand& cmd : commands) {
         std::visit(
             [&](const auto& c) {
                 using T = std::decay_t<decltype(c)>;

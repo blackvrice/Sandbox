@@ -212,6 +212,7 @@ if(SBX_BUILD_CLIENT)
         unit/client/test_font_fallback.cpp
         unit/client/test_key_bindings.cpp
         unit/client/test_gui_studio_home.cpp
+        unit/client/test_gui_dock_workspace.cpp
         "${PROJECT_SOURCE_DIR}/apps/client/Application.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/NetworkSession.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/presentation/SpriteExtraction.cpp"

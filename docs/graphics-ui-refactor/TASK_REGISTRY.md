@@ -12,8 +12,8 @@
 |---|---:|---:|---:|---:|---|
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
-| UI-R2 Studio Shell | 10 | 4 | 0 | 2 | R2-01 · 02 · 03 · 09 ✅ |
-| UI-R3 편집 패널 | 12 | 0 | 0 | 4 | |
+| UI-R2 Studio Shell | 10 | 5 | 1 | 2 | R2-01 · 02 · 03 · 05 · 09 ✅, R2-08 일부 |
+| UI-R3 편집 패널 | 12 | 0 | 1 | 4 | R3-06 콘솔 일부 |
 | UI-R4 Viewport | 6 | 0 | 0 | 2 | |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
@@ -21,11 +21,11 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **24 (30 %)** | 2 | 21 | |
+| **합계** | **81** | **25 (31 %)** | 4 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
-[FEATURE_MATRIX](FEATURE_MATRIX.md) 2장). 기본 UI 는 ImGui, GPU 렌더러는 과도기 경로다.
+[FEATURE_MATRIX](FEATURE_MATRIX.md) 2장). 그 밖에 미리보기: Dock 작업 공간 (UI-R2-05) 의 패널 셋 — 콘솔 (일부) · 단축키 표 · 정보. 기본 UI 는 ImGui, GPU 렌더러는 과도기 경로다.
 
 ## 2. 등록부
 
@@ -59,10 +59,10 @@
 | UI-R2-02 | GXML · GCSS 도입 방식 (AOT 도구 · 생성물 · Hot Reload 범위) | Done | R2-01 | cmake · uihost · editor/gui | ADR-0175. 컴파일러 6 파일 벤더링 (external/graphics-ui/tools), `cmake/SbxGxml.cmake` `sbx_gxml_core` (빌드 때 `--compile-core`, Python ≥ 3.11 — 없으면 GXML 화면을 빼고 알림), `uihost::DocumentView`, 첫 GXML 화면 **Studio 설정** (editor/gui/gxml/studio_settings — 홈의 "설정" 단추), CI 에 Python 3.12. `unit_uihost` DocumentView 3 · `unit_client` 설정 2 (app — 테마 · 개발자 창 · 닫기). Hot Reload (.guir) 는 [계획] |
 | UI-R2-03 | Studio 테마 토큰 → GCSS 테마 (Dark · Light · High Contrast) | Done | R2-02 | editor/services · editor/ui · editor/gui · cmake | ADR-0176 — 정본 `editor/services/studio_tokens.json` → 커밋한 C++ 표 (`StudioTokens`, CTest `studio_tokens_sync`) · ImGui 테마 · GraphicsUI 홈 (`setTheme`) · GXML 의 GCSS 변수 (`sbx_gxml_core THEMES` — 테마마다 변형). `unit_client` "studio tokens" (ImGui · 홈 · 설정 바탕이 같은 값, 옮기기 전 값 그대로) · app (테마 바꾸면 설정을 그 테마 문서로). 간격 토큰은 R2-05 |
 | UI-R2-04 | 메인 메뉴 · 툴바 · 상태 표시줄 | Blocked | GUI-UP-03 | editor/ | 메뉴 · 팝업 컨트롤 |
-| UI-R2-05 | Docking 작업 공간 (DockLayout) · 탭 이동 | Planned | R2-01 | editor/ · uihost | DockLayout + 호스트의 그룹 · 탭 그리기 · 끌기 |
+| UI-R2-05 | Docking 작업 공간 (DockLayout) · 탭 이동 | Done | R2-01 | editor/gui · apps/client | ADR-0177 — `editor/gui/DockWorkspace` (DockLayout + 패널마다 UiHost, 탭 · 분할선 · 끌기 미리보기 크롬, 놓을 자리 탭 줄 · 가장자리 25 % · 가운데, 분할선 비율, Esc · 포커스 잃음 = 취소, Ctrl+PageUp · PageDown, 포인터는 내용 원점 기준 · 키는 포커스 패널, IME 자리, 저장 · 복원 바이트), `StudioWorkspace` (정보 · 단축키 · 콘솔 — 기본 배치 · 배치 초기화), 홈의 "작업 공간" 단추 · Application `guiWorkspaceFrame` (의도 → 기존 명령). 재사용 `TextField` · `PanelKit`. `unit_client` dock 3 + app 1 (끌어 분할 · 탭 · Esc · 분할선 · 저장 바이트 · 옮긴 좌표 · 배율 2 · 홈 → 작업 공간 → 테마 명령 → 홈). 분리 창 R2-06 · 파일 저장 R2-07 · 간격 토큰은 R2-04 와 [계획] |
 | UI-R2-06 | 독립 OS 창 분리 · 재도킹 · 다중 모니터 | Blocked | Sandbox 다중 창 (S-01) · GUI-UP-01 | platform · uihost | 창마다 스왑체인 · DPI |
 | UI-R2-07 | 레이아웃 저장 · 복원 · ImGui ini 마이그레이션 | Planned | R2-05 | editor/services | DockLayout 바이트 · LayoutService 이름 유지, ini → 프리셋 이름 대응 (MIGRATION_GUIDE 3장) |
-| UI-R2-08 | 명령 팔레트 · 단축키 (CommandService 재사용) | Planned | R1-08 | editor/ | 같은 명령 id · when |
+| UI-R2-08 | 명령 팔레트 · 단축키 (CommandService 재사용) | Partial | R1-08 | editor/gui | 단축키 패널 (`ShortcutPanel` — 같은 명령 표 · 검색 · ↑↓ · Enter = 실행, 꺼진 명령은 흐리게, 단축키 · 키 힌트). 남음: 떠 있는 팔레트 (Ctrl+Shift+P — 오버레이 · GUI-UP-03), 단축키 바꾸기 · 충돌 표시 |
 | UI-R2-09 | Studio 홈 전체 (새 프로젝트 · 폴더 열기 · 예제 · 복구 · 검색) | Done | R1-08 | apps/client | 검색 · 가상 목록 (휠 · 키 · 클릭 · Delete) · 목록에서 빼기 · 복구 가능 표시 · 새 프로젝트 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 (예제 ‹ › · 복사할 곳 제안) · 간격 — ImGui 홈과 같은 StudioHomeAction · 명령. `unit_client` gui 5 + app 1 (실제 만들기 · 예제 복사 · 빼기). 남음: 좁은 창의 세로 스크롤 (R2-05 와 함께) · 템플릿 설명 글 |
 | UI-R2-10 | 상태 · 알림 · 진행 표시 | Planned | R2-04 | editor/ | |
 | UI-R3-01 | Project Explorer (TreeView · 맥락 메뉴 · 끌어다 놓기) | Blocked | GUI-UP-03 · 05 | editor/ | ProjectFiles 서비스 재사용 |
@@ -70,7 +70,7 @@
 | UI-R3-03 | Inspector · Component 편집 (DataForm → 속성 편집 컨트롤) | Planned | R1-08 | editor/ | DataForm · UndoService 재사용 |
 | UI-R3-04 | Asset Browser (썸네일) | Blocked | R1-10 | editor/ · render | 텍스처 핸들 → UI 이미지 |
 | UI-R3-05 | Prefab Browser | Planned | R3-02 | editor/ | |
-| UI-R3-06 | Console (가상 ListView · 거르기) | Planned | R2-05 | editor/ | log::recentLines 재사용 |
+| UI-R3-06 | Console (가상 ListView · 거르기) | Partial | R2-05 | editor/gui | `ConsolePanel` — log::recentLines (순번 키 · 바뀔 때만 다시 읽기) · 가상 목록 · 거르기 (대소문자 무시 — ImGui 는 그대로) · 따라가기 (휠로 밀면 끔 · End 로 켬) · ↑↓ Home End · 고른 줄 복사 (Ctrl · Cmd+C) · 수준 색. `unit_client` "console panel". 남음: 수준 거르기 (전부 · 경고 · 오류) · 지우기 |
 | UI-R3-07 | Build 패널 | Planned | R2-05 | editor/ | BuildService 재사용 |
 | UI-R3-08 | Test 패널 | Planned | R2-05 | editor/ | TestService 재사용 |
 | UI-R3-09 | 통계 · 네트워크 · 프로파일러 | Planned | R2-05 | apps/client | DebugPanels 의 데이터 |

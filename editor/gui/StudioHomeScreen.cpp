@@ -146,6 +146,9 @@ std::optional<gui::ComponentHandle> StudioHomeScreen::handleOf(Part part) const 
         case Role::Settings:
             match = part == Part::Settings;
             break;
+        case Role::Workspace:
+            match = part == Part::Workspace;
+            break;
         case Role::Quit:
             match = part == Part::Quit;
             break;
@@ -207,6 +210,8 @@ std::string StudioHomeScreen::textOf(const Node& n) const {
         return m_compact ? "간격: 촘촘" : "간격: 보통";
     case Role::Settings:
         return "설정";
+    case Role::Workspace:
+        return "작업 공간";
     case Role::Quit:
         return "종료";
     case Role::Note:
@@ -362,6 +367,9 @@ void StudioHomeScreen::activate(const Node& n) {
         break;
     case Role::Settings:
         m_intent = StudioHomeIntent{StudioHomeIntent::Kind::OpenSettings, {}, {}, {}, {}, {}, false};
+        break;
+    case Role::Workspace:
+        m_intent = StudioHomeIntent{StudioHomeIntent::Kind::OpenWorkspace, {}, {}, {}, {}, {}, false};
         break;
     default:
         m_intent = StudioHomeIntent{StudioHomeIntent::Kind::Quit, {}, {}, {}, {}, {}, false};
@@ -594,7 +602,8 @@ Expected<void> StudioHomeScreen::mount(uihost::UiHost& host) {
     push(bar, Role::Switch, 1);
     push(bar, Role::Density, 2);
     push(bar, Role::Settings, 3);
-    push(bar, Role::Quit, 4);
+    push(bar, Role::Workspace, 4);
+    push(bar, Role::Quit, 5);
     push(root, Role::Note, 6);
 
     if (auto r = host.tree().commit(specs); !r) {
@@ -691,6 +700,7 @@ Expected<void> StudioHomeScreen::mount(uihost::UiHost& host) {
         case Role::Switch:
         case Role::Density:
         case Role::Settings:
+        case Role::Workspace:
         case Role::Quit: {
             n.button = std::make_unique<gui::Button>(host.input(), n.handle);
             if (auto r = check(n.button->setEnabled(true), "Button::setEnabled"); !r) {
@@ -796,6 +806,7 @@ Expected<void> StudioHomeScreen::layout(uihost::UiHost& host, const gui::Compone
         case Role::Switch:
         case Role::Density:
         case Role::Settings:
+        case Role::Workspace:
         case Role::Quit:
             st.padding = {14, m_compact ? 5.0 : 7.0, 14, m_compact ? 5.0 : 7.0};
             node.intrinsic = textIntrinsic(host.text(), textOf(n), emOf(n.role));
@@ -934,6 +945,7 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
         case Role::Switch:
         case Role::Density:
         case Role::Settings:
+        case Role::Workspace:
         case Role::Quit: {
             const bool accent = n.role == Role::Create || n.role == Role::Open || n.role == Role::CopyExample;
             const bool hot = vs.hovered || vs.pressed;

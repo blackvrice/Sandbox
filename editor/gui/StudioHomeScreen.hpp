@@ -35,7 +35,7 @@ struct StudioHomeModel {
 };
 
 struct StudioHomeIntent {
-    enum class Kind : u8 { OpenRecent, ForgetRecent, NewProject, OpenFolder, CopyExample, Density, OpenSettings, SwitchToClassic, Quit };
+    enum class Kind : u8 { OpenRecent, ForgetRecent, NewProject, OpenFolder, CopyExample, Density, OpenSettings, OpenWorkspace, SwitchToClassic, Quit };
     Kind kind = Kind::Quit;
     std::filesystem::path dir;  // OpenRecent · ForgetRecent · NewProject · OpenFolder · CopyExample (예제)
     std::filesystem::path dest; // CopyExample (복사할 곳)
@@ -54,7 +54,7 @@ public:
     // 시험 · 자동화가 컴포넌트를 찾는 이름
     enum class Part : u8 {
         Search, List, Forget, Name, GameId, Dir, Create, OpenDir, Open, ExampleDir, CopyExample, TemplatePrev,
-        TemplateNext, ExamplePrev, ExampleNext, Switch, Density, Settings, Quit,
+        TemplateNext, ExamplePrev, ExampleNext, Switch, Density, Settings, Workspace, Quit,
     };
 
     // 모델이 바뀌면 (최근 목록 · 템플릿 · 예제) 다시 마운트해야 한다 — Application 이 setScreen 을 다시 부른다. 쓰던 글자는 남긴다
@@ -89,7 +89,7 @@ private:
     enum class Role : u8 {
         Root, Title, Version, Body, Left, Heading, Field, List, ListBar, Forget, Right, NewHeading, Picker, PickPrev,
         PickLabel, PickNext, Create, OpenHeading, Open, ExampleHeading, CopyExample, Message, Bar, Switch, Density, Settings,
-        Quit, Note,
+        Workspace, Quit, Note,
     };
     // 넘기기 (‹ 이름 ›) 의 대상 — Node::index 가 이것
     static constexpr usize kTemplatePicker = 0;
