@@ -33,6 +33,8 @@ add_library(SandboxEditorServices STATIC
     services/UiDesignService.cpp
     services/ProjectHome.hpp
     services/ProjectHome.cpp
+    services/StudioTokens.hpp
+    services/StudioTokens.cpp
 )
 add_library(Sandbox::EditorServices ALIAS SandboxEditorServices)
 target_link_libraries(SandboxEditorServices PUBLIC SandboxCore PRIVATE sbx_warnings)
@@ -51,7 +53,8 @@ target_link_libraries(SandboxStudioGui PUBLIC SandboxEditorServices SandboxUiHos
 sbx_gxml_core(SandboxStudioGui NAME studio_settings
     MARKUP "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.gxml"
     STYLE "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.gcss"
-    MODEL "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.model.json")
+    MODEL "${CMAKE_CURRENT_SOURCE_DIR}/gui/gxml/studio_settings.model.json"
+    THEMES) # 테마마다 변형 — 색은 editor/services/studio_tokens.json 의 토큰 (UI-R2-03, ADR-0176)
 
 # SandboxEditor — 툴 · 선택 · 패널 · 편집 명령 빌더 (Phase 12, docs/10-EDITOR.md, ADR-0028).
 # Core + Render 위. Network 를 모른다 (ICommandSink · IEditorHost 로 분리 — 경계 규칙이 검사한다).

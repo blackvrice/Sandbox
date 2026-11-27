@@ -867,6 +867,10 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME docs_roadmap_generated
         COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/gen_roadmap.py --root ${CMAKE_SOURCE_DIR} --check)
     set_tests_properties(docs_consistency docs_consistency_selftest docs_roadmap_generated PROPERTIES LABELS "arch")
+    # Studio 디자인 토큰 (UI-R2-03, ADR-0176) — 커밋한 editor/services/StudioTokens.cpp 가 정본 studio_tokens.json 과 같은가
+    add_test(NAME studio_tokens_sync
+        COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/gen_studio_tokens.py --root ${CMAKE_SOURCE_DIR} --check)
+    set_tests_properties(studio_tokens_sync PROPERTIES LABELS "arch")
     # 셰이더 코드 생성기 자체 검사 (손으로 만든 SPIR-V 로 리플렉션·병합 규칙) — dxc 없이 모든 OS 에서 (ADR-0019)
     add_test(NAME shader_gen_selftest
         COMMAND ${Python3_EXECUTABLE} -X utf8 ${CMAKE_SOURCE_DIR}/tools/shader/sbx_shader_gen.py --self-test)

@@ -1,4 +1,4 @@
-# UI-R2 — Studio Shell [진행 — R2-01 · 02 · 09 ✅]
+# UI-R2 — Studio Shell [진행 — R2-01 · 02 · 03 · 09 ✅]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R2-01 ~ 10. 선행: UI-R1 (특히 R1-08 글자 입력).
 
@@ -24,7 +24,7 @@ Studio 홈 전체 — 를 GraphicsUI 로. GraphicsUI 의 기존 DockLayout (P9-0
 
 | 작업 | 막힘 |
 |---|---|
-| R2-03 테마 토큰 → GCSS (Dark · Light · High Contrast, DPI) | — |
+| R2-03 테마 토큰 → GCSS (Dark · Light · High Contrast, DPI) | ✅ (2026-11-27, ADR-0176) — 정본 studio_tokens.json → ImGui · 홈 · GXML (테마마다 변형) |
 | R2-04 메뉴 · 툴바 · 상태 표시줄 | GUI-UP-03 (메뉴 · 팝업) |
 | R2-05 Dock 작업 공간 · 탭 | — (한 OS 창 안) |
 | R2-06 분리 OS 창 · 재도킹 · 다중 모니터 | S-01 (Sandbox 다중 창) · GUI-UP-01 · GUI-UP-10 (resize 메모리) |

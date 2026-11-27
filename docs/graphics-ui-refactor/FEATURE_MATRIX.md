@@ -72,7 +72,7 @@
 | GPU 렌더 | render/imgui (GraphicsSDK — D3D12 · Vulkan · Metal) | SdkRenderer (GraphicsSDK 9ae01bb7 · D3D12 만) | GUI 개선 (GUI-UP-01) | 과도기 = DisplayList → ImDrawList ✅ |
 | 이미지 · 외부 텍스처 · Viewport 합성 | ImGui 사용자 텍스처 (AssetManager) | SdkRenderer 의 Viewport (Windows · 같은 장치) — DisplayList 에 이미지 명령 없음 | GUI 개선 (GUI-UP-02) | UI-R3-04 · R4-01 |
 | Dock · 분리 창 | ImGui docking (한 OS 창) | DockLayout (분리 창 좌표 · 저장) | 어댑터 + Sandbox 개발 (다중 OS 창 S-01) | UI-R2-05 · 06 |
-| 테마 · 디자인 토큰 | StudioTheme (ImGuiStyle) | StyleEngine (토큰 · 테마) · GCSS | 어댑터 | UI-R2-03 |
+| 테마 · 디자인 토큰 | StudioTheme (ImGuiStyle) | StyleEngine (토큰 · 테마) · GCSS | 어댑터 | ✅ 정본 studio_tokens.json → ImGui · C++ 화면 · GCSS 변수 (UI-R2-03, ADR-0176) |
 | DPI · 배율 | contentScale · uiScale (ImGui FontScaleDpi) | 논리 단위 (호스트가 배율) | 어댑터 | ✅ `UiHost::setScale` = FontScaleDpi (UI-R1-09) |
 | 접근성 | 없음 | Windows UIA 예제 (Core: 의미 노드 없음 — 예제가 만든다) | 보류 | GraphicsUI P7-05 |
 | 진단 (인스펙터 · 배치 · 바인딩) | ImGui Metrics (개발) | ComponentInspector · LayoutDiagnostics · inspectBindings | 즉시 | UI-R3-09 |

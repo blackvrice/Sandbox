@@ -1,0 +1,31 @@
+{
+  "comment": "Studio 디자인 토큰의 정본 (UI-R2-03, ADR-0176). 값을 바꾸면 python tools/gen_studio_tokens.py --root . 로 editor/services/StudioTokens.cpp 를 다시 만든다 (CTest studio_tokens_sync 가 어긋남을 잡는다). ImGui 테마 (editor/ui/StudioTheme) · GraphicsUI C++ 화면 · GXML 화면의 GCSS 변수가 모두 여기서 온다. 대비는 docs/29-STUDIO-UI.md 3장 (WCAG).",
+  "tokens": [
+    "background", "surface", "elevated", "border", "text", "muted", "accent", "accentHover", "accentText",
+    "warning", "error", "success",
+    "frameActive", "scrollHover", "controlHover", "controlActive", "header", "headerHover", "headerActive"
+  ],
+  "themes": {
+    "dark": {
+      "background": "#15171B", "surface": "#1D2026", "elevated": "#262A31", "border": "#323741",
+      "text": "#E6E8EB", "muted": "#8B93A1", "accent": "#F5B83D", "accentHover": "#FFC95C", "accentText": "#15171B",
+      "warning": "#F0A030", "error": "#EF6461", "success": "#5BC489",
+      "frameActive": "#3B414C", "scrollHover": "#454B57", "controlHover": "#343943", "controlActive": "#404652",
+      "header": "#343A45", "headerHover": "#3D4451", "headerActive": "#474F5D"
+    },
+    "light": {
+      "background": "#EEF0F3", "surface": "#FFFFFF", "elevated": "#F4F5F7", "border": "#C9CED6",
+      "text": "#1A1D23", "muted": "#5B6370", "accent": "#8A5A00", "accentHover": "#A06A00", "accentText": "#FFFFFF",
+      "warning": "#A35F00", "error": "#C42B2B", "success": "#1E7A46",
+      "frameActive": "#DCE0E6", "scrollHover": "#A9B0BA", "controlHover": "#E3E6EB", "controlActive": "#D5DAE1",
+      "header": "#E1E5EB", "headerHover": "#D6DBE2", "headerActive": "#CBD1DA"
+    },
+    "high-contrast": {
+      "background": "#000000", "surface": "#0A0A0A", "elevated": "#1A1A1A", "border": "#FFFFFF",
+      "text": "#FFFFFF", "muted": "#D0D0D0", "accent": "#FFD400", "accentHover": "#FFE65C", "accentText": "#000000",
+      "warning": "#FFB000", "error": "#FF6B6B", "success": "#5CFF8F",
+      "frameActive": "#333333", "scrollHover": "#454B57", "controlHover": "#333333", "controlActive": "#4D4D4D",
+      "header": "#333333", "headerHover": "#4D4D4D", "headerActive": "#666666"
+    }
+  }
+}

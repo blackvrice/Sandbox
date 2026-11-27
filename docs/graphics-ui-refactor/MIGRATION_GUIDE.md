@@ -38,7 +38,8 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
 - **포커스 · 키보드.** Button 은 누르면 포커스를 가져간다. Tab 은 호스트가 순회한다 (아무도 처리하지 않을 때).
 - **글자 크기.** 측정은 `ITextMeasure` 로만 — 과도기에는 ImGui 글꼴 (`GuiImGuiTextMeasure`, ImGui 프레임 안에서만), 헤드리스 시험은
   `ApproxTextMeasure`. 픽셀 기준 이미지는 과도기 경로로 만들지 않는다 (목표 렌더러와 글자 배치가 다르다).
-- **색.** RenderColor 는 곱하지 않은 RGBA8. 테마 값은 UI-R2-03 (GCSS) 전까지 화면 안의 상수 — Studio 테마 (StudioTheme) 와 같은 계열로.
+- **색.** 하드코딩하지 않는다 — C++ 화면은 `services::studioColors(theme)` 의 토큰, GXML 화면의 GCSS 는 `var(--토큰)` 만 (`sbx_gxml_core … THEMES`).
+  토큰을 더하거나 바꾸면 `editor/services/studio_tokens.json` → `python tools/gen_studio_tokens.py --root .` (ADR-0176). RenderColor 는 곱하지 않은 RGBA8.
 - **스레드.** 화면 · 호스트는 UI 스레드에서만. 작업자는 `host.sender()` 로 값만 보낸다.
 
 ## 3. 레이아웃 데이터 (ImGui ini → DockLayout)

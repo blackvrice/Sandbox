@@ -1,25 +1,21 @@
-/* Studio 설정 (UI-R2-02) — Studio 어두운 테마와 같은 계열 (editor/ui/StudioTheme · StudioHomeScreen 의 색). 토큰 공유는 UI-R2-03 */
+/* Studio 설정 (UI-R2-02 · 03) — 색은 Studio 디자인 토큰 변수만 (var(--…)). 빌드가 테마마다 editor/services/studio_tokens.json 에서
+   만든 :root 블록을 앞에 붙여 변형 셋 (dark · light · high-contrast) 으로 컴파일한다 — cmake/SbxGxml.cmake (THEMES), ADR-0176 */
 :root {
-  --surface: #181A1E;
-  --ink: #E8EAEE;
-  --muted: #969CA8;
-  --neutral: #3C404A;
-  --accent: #3A6EDC;
-  background-color: var(--surface);
-  color: var(--ink);
+  background-color: var(--background);
+  color: var(--text);
   font-id: resource(ui-font);
   font-size: 15px;
 }
 Panel#main { padding: 28px 32px; gap: 10px; }
 FlexPanel { gap: 8px; }
 .title { font-size: 26px; }
-.status { color: #78C88C; font-size: 14px; }
+.status { color: var(--success); font-size: 14px; }
 .label { color: var(--muted); font-size: 14px; }
 .note { color: var(--muted); font-size: 13px; }
-Button { width: 120px; height: 34px; background-color: var(--neutral); }
+Button { width: 120px; height: 34px; background-color: var(--elevated); color: var(--text); }
 Button.wide { width: 220px; }
-Button:hover { background-color: #4C515D; }
-Button:pressed { background-color: #2C2F37; }
-Button:focus { background-color: #4C515D; }
-Button.primary { background-color: var(--accent); }
-Button.primary:hover { background-color: #4E82F0; }
+Button:hover { background-color: var(--control-hover); }
+Button:pressed { background-color: var(--control-active); }
+Button:focus { background-color: var(--control-hover); }
+Button.primary { background-color: var(--accent); color: var(--accent-text); }
+Button.primary:hover { background-color: var(--accent-hover); }

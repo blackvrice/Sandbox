@@ -19,6 +19,8 @@
 #include "apps/client/studio/StudioHome.hpp"
 #include "apps/client/ui/GraphicsUiImGuiBridge.hpp"
 #include "editor/gui/StudioSettingsScreen.hpp"
+#include "editor/services/StudioTokens.hpp"
+#include "editor/ui/StudioTheme.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
@@ -617,10 +619,10 @@ TEST_SUITE("client") {
         };
         inject(clickAt(*app.graphicsUiHost(), *app.graphicsUiHome()->handleOf(Part::Settings)));
         REQUIRE(app.frame());
-        editor::gui::StudioSettingsScreen* settings = app.graphicsUiSettings();
-        REQUIRE(settings != nullptr);
+        REQUIRE(app.graphicsUiSettings() != nullptr);
+        // 테마가 바뀌면 화면을 그 테마의 문서로 다시 만든다 (UI-R2-03) — 포인터를 매번 다시 얻는다
         const auto press = [&](std::string_view id) {
-            uihost::DocumentView& v = settings->view();
+            uihost::DocumentView& v = app.graphicsUiSettings()->view();
             const auto h = v.session().find(id);
             REQUIRE(h);
             REQUIRE(*h);
@@ -639,10 +641,13 @@ TEST_SUITE("client") {
         CHECK(app.studioTheme() == editor::theme::Theme::Dark);
         press("theme-light");
         CHECK(app.studioTheme() == editor::theme::Theme::Light);
+        REQUIRE(app.frame());
+        REQUIRE(app.graphicsUiSettings() != nullptr);
+        CHECK(app.graphicsUiSettings()->theme() == editor::services::StudioTheme::Light); // 밝음 문서로 다시 만들었다
         const bool dev = app.developerPanels();
         press("developer");
         CHECK(app.developerPanels() != dev);
-        CHECK(settings->statusText().find("밝음") != std::string::npos);
+        CHECK(app.graphicsUiSettings()->statusText().find("밝음") != std::string::npos);
         press("close");
         CHECK(app.graphicsUiSettings() == nullptr); // 홈으로
         CHECK(app.graphicsUiHomeActive());
@@ -650,4 +655,50 @@ TEST_SUITE("client") {
         fs::remove_all(root, ec);
     }
 #endif
+
+    TEST_CASE("studio tokens (UI-R2-03): one table — ImGui theme, GraphicsUI home and GXML settings use the same colors") {
+        using editor::services::StudioTheme;
+        // ImGui 테마는 표의 값을 그대로 (0..1 로)
+        for (const StudioTheme t : {StudioTheme::Dark, StudioTheme::Light, StudioTheme::HighContrast}) {
+            const editor::services::StudioColors& c = editor::services::studioColors(t);
+            const editor::theme::Tokens& k = editor::theme::tokensOf(t);
+            CHECK(k.background.x == doctest::Approx(c.background.r / 255.0));
+            CHECK(k.text.y == doctest::Approx(c.text.g / 255.0));
+            CHECK(k.accent.z == doctest::Approx(c.accent.b / 255.0));
+            CHECK(editor::services::studioThemeFromName(editor::services::studioThemeName(t)) == t);
+        }
+        // 옮기기 전 값 그대로 (ImGui 화면이 바뀌지 않는다) — 어두움 바탕 #15171B · 밝음 강조 #8A5A00
+        CHECK(editor::services::studioColors(StudioTheme::Dark).background == editor::services::Rgba8{0x15, 0x17, 0x1B, 0xFF});
+        CHECK(editor::services::studioColors(StudioTheme::Light).accent == editor::services::Rgba8{0x8A, 0x5A, 0x00, 0xFF});
+        CHECK_FALSE(editor::services::studioThemeFromName("sepia"));
+
+        // GraphicsUI 홈 — 첫 사각형 (루트 바탕) 이 테마의 background
+        const auto firstFill = [](const gui::DisplayList& d) -> std::optional<gui::RenderColor> {
+            for (const gui::RenderCommand& c : d.commands()) {
+                if (const auto* f = std::get_if<gui::FillRect>(&c)) {
+                    return f->color;
+                }
+            }
+            return std::nullopt;
+        };
+        const auto asColor = [](editor::services::Rgba8 c) { return gui::RenderColor{c.r, c.g, c.b, c.a}; };
+        Fixture f(2);
+        for (const StudioTheme t : {StudioTheme::Light, StudioTheme::HighContrast, StudioTheme::Dark}) {
+            f.home.setTheme(t);
+            const auto d = f.host->frame({1280, 720});
+            REQUIRE(d);
+            CHECK(firstFill(**d) == std::optional(asColor(editor::services::studioColors(t).background)));
+        }
+#if defined(SBX_HAS_GXML)
+        // GXML 설정 — 테마마다 컴파일한 문서의 루트 바탕도 같은 값 (GCSS var(--background))
+        for (const StudioTheme t : {StudioTheme::Dark, StudioTheme::Light, StudioTheme::HighContrast}) {
+            auto settings = editor::gui::StudioSettingsScreen::create(t);
+            REQUIRE(settings);
+            CHECK((*settings)->theme() == t);
+            const auto d = (*settings)->view().frame({1280, 720});
+            REQUIRE(d);
+            CHECK(firstFill(**d) == std::optional(asColor(editor::services::studioColors(t).background)));
+        }
+#endif
+    }
 }

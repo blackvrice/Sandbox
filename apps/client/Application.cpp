@@ -2269,6 +2269,7 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
     }
     m_guiHome->setStatus(m_home.message, m_home.failed); // 결과 줄 = ImGui 홈과 같은 상태
     m_guiHome->setCompact(m_shell.density == editor::theme::Density::Compact);
+    m_guiHome->setTheme(m_shell.theme); // ImGui 셸과 같은 테마 (UI-R2-03 — 같은 토큰 표)
     // UI 배율 = ImGui 와 같은 값 (ImGuiLayer — contentScale × 사용자 uiScale) — 두 UI 가 같은 크기로 보인다 (UI-R1-09)
     const f32 scale = ImGui::GetStyle().FontScaleDpi > 0.f ? ImGui::GetStyle().FontScaleDpi : 1.f;
     if (m_guiSettingsOpen && m_guiSettings) {
@@ -2319,8 +2320,8 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
         a.compact = intent->compact;
         return a;
     case StudioHomeIntent::Kind::OpenSettings:
-        if (!m_guiSettings) {
-            auto made = StudioSettingsScreen::create();
+        if (!m_guiSettings || m_guiSettings->theme() != m_shell.theme) {
+            auto made = StudioSettingsScreen::create(m_shell.theme);
             if (!made) {
                 m_home.failed = true;
                 m_home.message = std::format("설정 화면을 열 수 없다 — {}", made.error().describe());
@@ -2372,6 +2373,12 @@ void Application::syncGuiTextInput(const uihost::TextInputState& ti) {
 }
 
 std::optional<StudioHomeAction> Application::guiSettingsFrame(f32 scale) {
+    if (m_guiSettings->theme() != m_shell.theme) {
+        // 테마가 바뀌었다 (이 화면의 단추 · 명령 팔레트) — 그 테마로 컴파일한 문서로 다시 만든다 (UI-R2-03)
+        if (auto made = StudioSettingsScreen::create(m_shell.theme)) {
+            m_guiSettings = std::move(*made);
+        }
+    }
     uihost::DocumentView& view = m_guiSettings->view();
     m_guiSettings->setState({std::string(editor::theme::themeName(m_shell.theme)),
                              m_shell.density == editor::theme::Density::Compact, m_shell.developerPanels});

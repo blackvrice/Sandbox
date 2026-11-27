@@ -18,6 +18,7 @@
 #include <graphics-ui/core/scroll.hpp>
 
 #include "editor/services/ProjectService.hpp"
+#include "editor/services/StudioTokens.hpp"
 #include "uihost/UiHost.hpp"
 
 namespace sbx::editor::gui {
@@ -62,6 +63,9 @@ public:
     // 결과 줄 · 간격 (마운트 없이 — Application 의 StudioHomeState::message · failed, Studio 간격)
     void setStatus(std::string message, bool failed);
     void setCompact(bool compact) noexcept { m_compact = compact; }
+    // 색 = Studio 디자인 토큰의 테마 (UI-R2-03 — ImGui 셸과 같은 테마 · 같은 값, 마운트 없이)
+    void setTheme(services::StudioTheme theme) noexcept { m_theme = theme; }
+    [[nodiscard]] services::StudioTheme theme() const noexcept { return m_theme; }
     [[nodiscard]] bool compact() const noexcept { return m_compact; }
     [[nodiscard]] double rowHeight() const noexcept { return m_compact ? kCompactRowHeight : kRowHeight; }
     // 이번 프레임에 고른 것 (한 번 읽으면 비운다)
@@ -124,6 +128,7 @@ private:
     std::string m_status;
     bool m_failed = false;
     bool m_compact = false;
+    services::StudioTheme m_theme = services::StudioTheme::Dark;
     uihost::UiHost* m_host = nullptr; // mount 한 호스트 (핸들러 · 편집 콜백) — 호스트가 핸들러를 소유한다
     std::vector<Node> m_nodes;
     std::vector<Field> m_fields;

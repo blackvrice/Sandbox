@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "editor/services/StudioTokens.hpp"
 #include "foundation/types/Error.hpp"
 #include "uihost/DocumentView.hpp"
 
@@ -30,8 +31,11 @@ struct StudioSettingsIntent {
 
 class StudioSettingsScreen {
 public:
+    // theme = 색 변형 (빌드가 테마마다 컴파일한 문서 — studio_tokens.json 의 토큰, UI-R2-03). 테마가 바뀌면 다시 만든다 (상태가 작다).
     // GXML 이 빠진 빌드 (Python ≥ 3.11 없음 — SBX_HAS_GXML 없음) 면 Unsupported
-    [[nodiscard]] static Expected<std::unique_ptr<StudioSettingsScreen>> create();
+    [[nodiscard]] static Expected<std::unique_ptr<StudioSettingsScreen>> create(
+        services::StudioTheme theme = services::StudioTheme::Dark);
+    [[nodiscard]] services::StudioTheme theme() const noexcept { return m_theme; }
 
     // 지금 값 → 상태 줄 (바뀔 때만 상태 게시 — 다음 frame 의 그리기에 반영)
     void setState(const StudioSettingsState& state);
@@ -47,6 +51,7 @@ private:
     gui::StateField m_status;
     std::string m_statusText;
     std::optional<StudioSettingsIntent> m_intent;
+    services::StudioTheme m_theme = services::StudioTheme::Dark;
 };
 
 } // namespace sbx::editor::gui

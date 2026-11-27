@@ -14,24 +14,23 @@ using services::suggestProjectDir;
 
 namespace {
 
-// 색 — Studio 어두운 테마 (editor/ui/StudioTheme 의 Dark 와 같은 계열 · 토큰 공유는 UI-R2-03 의 GCSS 테마)
-constexpr gui::RenderColor kBackground{24, 26, 30, 255};
-constexpr gui::RenderColor kPanel{30, 33, 39, 255};
-constexpr gui::RenderColor kText{232, 234, 238, 255};
-constexpr gui::RenderColor kMuted{150, 156, 168, 255};
-constexpr gui::RenderColor kRow{36, 39, 46, 255};
-constexpr gui::RenderColor kRowHover{48, 53, 63, 255};
-constexpr gui::RenderColor kRowSelected{44, 62, 98, 255};
-constexpr gui::RenderColor kFocus{86, 140, 255, 255};
-constexpr gui::RenderColor kAccent{58, 110, 220, 255};
-constexpr gui::RenderColor kAccentHover{78, 130, 240, 255};
-constexpr gui::RenderColor kNeutral{60, 64, 74, 255};
-constexpr gui::RenderColor kNeutralHover{76, 81, 93, 255};
-constexpr gui::RenderColor kFieldBg{18, 20, 24, 255};
-constexpr gui::RenderColor kSelection{58, 92, 160, 255};
-constexpr gui::RenderColor kError{240, 112, 104, 255};
-constexpr gui::RenderColor kWarning{232, 180, 80, 255};
-constexpr gui::RenderColor kOk{120, 200, 140, 255};
+gui::RenderColor rc(services::Rgba8 c, u8 alpha = 255) {
+    return {c.r, c.g, c.b, alpha};
+}
+
+// 색 — Studio 디자인 토큰 (editor/services/studio_tokens.json — ImGui 테마와 같은 표, UI-R2-03 · ADR-0176)
+struct Palette {
+    gui::RenderColor background, panel, text, muted, row, rowHover, rowSelected, focus, accent, accentHover, accentText,
+        neutral, neutralHover, neutralActive, fieldBg, fieldLine, selection, error, warning, ok;
+};
+
+Palette paletteOf(services::StudioTheme theme) {
+    const services::StudioColors& c = services::studioColors(theme);
+    return {rc(c.background),   rc(c.surface),      rc(c.text),    rc(c.muted),       rc(c.elevated),
+            rc(c.headerHover),  rc(c.header),       rc(c.accent),  rc(c.accent),      rc(c.accentHover),
+            rc(c.accentText),   rc(c.elevated),     rc(c.controlHover), rc(c.controlActive), rc(c.elevated),
+            rc(c.border),       rc(c.accent, 77),   rc(c.error),   rc(c.warning),     rc(c.success)};
+}
 
 constexpr double kPad = 12.0;
 constexpr double kFieldPad = 8.0;
@@ -815,6 +814,7 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
     const auto focusR = host.input().focus();
     const std::optional<gui::ComponentHandle> focus = focusR ? *focusR : std::nullopt;
     const double rowH = rowHeight();
+    const Palette pal = paletteOf(m_theme);
     for (const gui::LayoutBox& box : frame.boxes()) {
         const auto it = std::find_if(m_nodes.begin(), m_nodes.end(),
                                      [&](const Node& n) { return n.handle == box.component; });
@@ -836,13 +836,13 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
         bool clip = false;
         switch (n.role) {
         case Role::Root:
-            draws.push_back(gui::FillRect{{0, 0, w, h}, kBackground});
+            draws.push_back(gui::FillRect{{0, 0, w, h}, pal.background});
             break;
         case Role::Field: {
             const Field& f = m_fields[n.index];
             clip = true;
-            draws.push_back(gui::FillRect{{0, 0, w, h}, kFieldBg});
-            draws.push_back(gui::FillRect{{0, fit(h - 2), w, 2}, focused ? kFocus : kNeutral});
+            draws.push_back(gui::FillRect{{0, 0, w, h}, pal.fieldBg});
+            draws.push_back(gui::FillRect{{0, fit(h - 2), w, 2}, focused ? pal.focus : pal.fieldLine});
             const gui::TextSelection sel = f.input ? f.input->selection() : gui::TextSelection{};
             const usize a = std::min({sel.anchor, sel.caret, f.value.size()});
             const usize b = std::min(std::max(sel.anchor, sel.caret), f.value.size());
@@ -850,23 +850,23 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
             if (focused && a != b) {
                 const double x0 = host.text().measure(v.substr(0, a), kFieldEm).width;
                 const double x1 = host.text().measure(v.substr(0, b), kFieldEm).width;
-                draws.push_back(gui::FillRect{{kFieldPad + x0, 5, fit(x1 - x0), fit(h - 10)}, kSelection});
+                draws.push_back(gui::FillRect{{kFieldPad + x0, 5, fit(x1 - x0), fit(h - 10)}, pal.selection});
             }
             const bool empty = f.value.empty();
             draws.push_back(gui::DrawText{{kFieldPad, fit((h - kFieldEm * 1.25) / 2), fit(w - 2 * kFieldPad),
                                            kFieldEm * 1.25},
-                                          kFont, kFieldEm, empty ? f.placeholder : f.value, empty ? kMuted : kText});
+                                          kFont, kFieldEm, empty ? f.placeholder : f.value, empty ? pal.muted : pal.text});
             if (focused) {
                 const usize c = std::min(sel.caret, f.value.size());
                 const double x = host.text().measure(v.substr(0, c), kFieldEm).width;
-                draws.push_back(gui::FillRect{{kFieldPad + x, 6, 1.5, fit(h - 12)}, kText});
+                draws.push_back(gui::FillRect{{kFieldPad + x, 6, 1.5, fit(h - 12)}, pal.text});
             }
             break;
         }
         case Role::List: {
             clip = true;
             (void)m_list.resize({w, h}, rowH);
-            draws.push_back(gui::FillRect{{0, 0, w, h}, kPanel});
+            draws.push_back(gui::FillRect{{0, 0, w, h}, pal.panel});
             const gui::ListRange range = m_list.visibleRange();
             const double nameEm = m_compact ? 15.0 : 16.0;
             for (usize i = range.first; i < range.past; ++i) {
@@ -879,9 +879,9 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
                 const gui::LayoutRect r = row->bounds;
                 const bool pressing = hit && *hit == n.handle && m_pressKey && *m_pressKey == row->key;
                 draws.push_back(gui::FillRect{{r.x, r.y + 1, r.width, fit(r.height - 2)},
-                                              row->selected ? kRowSelected : pressing ? kRowHover : kRow});
+                                              row->selected ? pal.rowSelected : pressing ? pal.rowHover : pal.row});
                 if (row->selected && focused) {
-                    draws.push_back(gui::FillRect{{r.x, r.y + 1, 3, fit(r.height - 2)}, kFocus});
+                    draws.push_back(gui::FillRect{{r.x, r.y + 1, 3, fit(r.height - 2)}, pal.focus});
                 }
                 const std::string title = p.name.empty() ? p.gameId : p.name;
                 std::string detail = std::format("{} · {}", p.gameId, pathText(p.dir));
@@ -890,13 +890,13 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
                 }
                 // 오른쪽 위 표시: 폴더 없음 (빨강) · 복구 가능 (주황 — ImGui 홈의 배지와 같은 뜻)
                 std::string badge;
-                gui::RenderColor badgeColor = kMuted;
+                gui::RenderColor badgeColor = pal.muted;
                 if (p.missing) {
                     badge = "폴더가 없다";
-                    badgeColor = kError;
+                    badgeColor = pal.error;
                 } else if (!m_model.recovery[at].empty()) {
                     badge = std::format("복구 가능 ({})", displayTime(m_model.recovery[at]));
-                    badgeColor = kWarning;
+                    badgeColor = pal.warning;
                 }
                 double badgeW = 0.0;
                 if (!badge.empty()) {
@@ -907,22 +907,22 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
                 const double textW = fit(r.width - 2 * kPad - (badgeW > 0 ? badgeW + kPad : 0.0));
                 const double detailY = r.y + (m_compact ? 21.0 : 27.0);
                 draws.push_back(gui::DrawText{{r.x + kPad, r.y + 4, textW, nameEm * 1.3}, kFont, nameEm, title,
-                                              p.missing ? kMuted : kText});
+                                              p.missing ? pal.muted : pal.text});
                 draws.push_back(gui::DrawText{{r.x + kPad, detailY, fit(r.width - 2 * kPad), 16}, kFont, 12.0, detail,
-                                              kMuted});
+                                              pal.muted});
             }
             if (m_list.itemCount() == 0) {
                 draws.push_back(gui::DrawText{{kPad, kPad, fit(w - 2 * kPad), 22}, kFont, 14.0,
                                               m_model.recent.empty() ? "최근 프로젝트가 없다 — 오른쪽에서 새로 만들거나 연다"
                                                                      : "검색에 맞는 프로젝트가 없다",
-                                              kMuted});
+                                              pal.muted});
             }
             break;
         }
         case Role::PickLabel:
-            draws.push_back(gui::FillRect{{0, 0, w, h}, kFieldBg});
+            draws.push_back(gui::FillRect{{0, 0, w, h}, pal.fieldBg});
             draws.push_back(gui::DrawText{{kFieldPad, fit((h - 15.0 * 1.25) / 2), fit(w - 2 * kFieldPad), 15.0 * 1.25},
-                                          kFont, 15.0, textOf(n), kText});
+                                          kFont, 15.0, textOf(n), pal.text});
             clip = true;
             break;
         case Role::Forget:
@@ -937,19 +937,21 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
         case Role::Quit: {
             const bool accent = n.role == Role::Create || n.role == Role::Open || n.role == Role::CopyExample;
             const bool hot = vs.hovered || vs.pressed;
-            draws.push_back(gui::FillRect{{0, 0, w, h}, accent ? (hot ? kAccentHover : kAccent)
-                                                                : (hot ? kNeutralHover : kNeutral)});
+            draws.push_back(gui::FillRect{{0, 0, w, h}, accent ? (hot ? pal.accentHover : pal.accent)
+                                                         : vs.pressed ? pal.neutralActive
+                                                         : hot        ? pal.neutralHover
+                                                                      : pal.neutral});
             if (vs.focused) {
-                draws.push_back(gui::FillRect{{0, fit(h - 2), w, 2}, kFocus});
+                draws.push_back(gui::FillRect{{0, fit(h - 2), w, 2}, accent ? pal.accentText : pal.focus});
             }
             const double em = emOf(n.role);
             const double tw = host.text().measure(textOf(n), em).width;
             draws.push_back(gui::DrawText{{fit((w - tw) / 2), fit((h - em * 1.25) / 2), fit(std::min(tw, w)), em * 1.25},
-                                          kFont, em, textOf(n), kText});
+                                          kFont, em, textOf(n), accent ? pal.accentText : pal.text});
             break;
         }
         case Role::Message:
-            draws.push_back(gui::DrawText{{0, 0, w, h}, kFont, emOf(n.role), textOf(n), m_failed ? kError : kOk});
+            draws.push_back(gui::DrawText{{0, 0, w, h}, kFont, emOf(n.role), textOf(n), m_failed ? pal.error : pal.ok});
             break;
         case Role::Body:
         case Role::Left:
@@ -963,8 +965,8 @@ Expected<void> StudioHomeScreen::paint(uihost::UiHost& host, const gui::LayoutFr
                                           n.role == Role::Title || n.role == Role::Heading ||
                                                   n.role == Role::NewHeading || n.role == Role::OpenHeading ||
                                                   n.role == Role::ExampleHeading
-                                              ? kText
-                                              : kMuted});
+                                              ? pal.text
+                                              : pal.muted});
             break;
         }
         if (!draws.empty()) {

@@ -5,7 +5,10 @@
 #include <utility>
 
 #if defined(SBX_HAS_GXML)
-#include "sandbox/gxml/studio_settings.hpp" // 빌드 때 생성 — editor/gui/gxml/studio_settings.gxml · .gcss
+// 빌드 때 생성 — editor/gui/gxml/studio_settings.gxml · .gcss + 테마 토큰 (cmake/SbxGxml.cmake THEMES)
+#include "sandbox/gxml/studio_settings_dark.hpp"
+#include "sandbox/gxml/studio_settings_high_contrast.hpp"
+#include "sandbox/gxml/studio_settings_light.hpp"
 #endif
 
 namespace sbx::editor::gui {
@@ -24,9 +27,10 @@ std::string themeTitle(std::string_view name) {
 
 } // namespace
 
-Expected<std::unique_ptr<StudioSettingsScreen>> StudioSettingsScreen::create() {
+Expected<std::unique_ptr<StudioSettingsScreen>> StudioSettingsScreen::create(services::StudioTheme theme) {
 #if defined(SBX_HAS_GXML)
     std::unique_ptr<StudioSettingsScreen> screen(new StudioSettingsScreen());
+    screen->m_theme = theme;
     StudioSettingsScreen* self = screen.get();
     // 모델 (studio_settings.model.json) 과 같은 이름 · 타입 — 다르면 DocumentSession::create 가 거절한다
     const auto setup = [self](gui::StateStore& store) -> gui::Result<gui::DocumentHost> {
@@ -51,13 +55,18 @@ Expected<std::unique_ptr<StudioSettingsScreen>> StudioSettingsScreen::create() {
                                   {"toggle_developer", intent(K::ToggleDeveloper), {}},
                                   {"close", intent(K::Close), {}}}};
     };
-    auto view = uihost::DocumentView::create(graphics_ui::generated::document_studio_settings(), setup);
+    gui::Document document = theme == services::StudioTheme::Light ? graphics_ui::generated::document_studio_settings_light()
+                             : theme == services::StudioTheme::HighContrast
+                                 ? graphics_ui::generated::document_studio_settings_high_contrast()
+                                 : graphics_ui::generated::document_studio_settings_dark();
+    auto view = uihost::DocumentView::create(std::move(document), setup);
     if (!view) {
         return std::unexpected(view.error());
     }
     screen->m_view = std::move(*view);
     return screen;
 #else
+    (void)theme;
     return makeError(ErrorCode::Unsupported, "GXML 화면이 빠진 빌드 (Python ≥ 3.11 없음 — ADR-0175)");
 #endif
 }

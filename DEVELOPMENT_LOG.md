@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R2-03: Studio 디자인 토큰의 단일 정본 (ADR-0176) — ImGui · GraphicsUI C++ · GXML 이 같은 색
+
+**무엇을**
+
+- 정본 `editor/services/studio_tokens.json` (어두움 · 밝음 · 고대비 × 토큰 19 — 기본 12 + 단추 · 머리 · 입력 파생 7). 값은 옮기기 전
+  `editor/ui/StudioTheme.cpp` 의 상수 · 삼항식과 같다.
+- `tools/gen_studio_tokens.py` — JSON → `editor/services/StudioTokens.cpp` (커밋, `--check` = CTest `studio_tokens_sync`), `--gcss <테마>` →
+  GCSS `:root` 토큰 변수 (선언 16 개 제한이라 블록을 나눈다). `StudioTokens.hpp` — `StudioTheme` · `studioThemeName` · `Rgba8` ·
+  `StudioColors` · `studioColors`. `editor::theme::Theme` 은 그 별칭.
+- ImGui 테마 (`StudioTheme.cpp`) 가 표를 ImVec4 로 옮겨 쓴다 (상수 · 삼항식 삭제).
+- GraphicsUI 홈 (`StudioHomeScreen`) — 하드코딩 색 (파란 강조) 대신 `setTheme` 의 토큰 팔레트 (Studio 의 노란 강조 · 강조 위 글자색 · 단추
+  누름 색). Application 이 ImGui 셸의 테마를 넘긴다.
+- GXML — `sbx_gxml_core(… THEMES)` 가 테마마다 토큰 변수 + 화면 GCSS 로 컴파일 (`tools/gxml_theme_variant.py` — 함수 이름
+  `document_<이름>_<테마>()`). 설정 GCSS 는 `var(--…)` 만. `StudioSettingsScreen::create(theme)` 가 문서를 고르고, 테마가 바뀌면
+  Application 이 그 테마로 다시 만든다.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R2-03. GraphicsUI 화면이 ImGui 와 다른 색 · 테마를 바꿔도 그대로였다.
+
+**검증** (Windows MSVC · Python 3.14.5, 2026-11-27)
+
+- 빌드 로그 "GXML → C++ (studio_settings · dark | light | high-contrast)".
+- `unit_client` "studio tokens" — 세 테마의 ImGui 토큰 = 표, 옮기기 전 값 (어두움 바탕 #15171B · 밝음 강조 #8A5A00), 이름 왕복, 홈 · GXML
+  설정의 루트 바탕 = 그 테마의 background. app 시험 — 설정에서 밝음 → 설정 화면을 밝음 문서로 다시 만든다. `unit_editor` 93 (ImGui 테마
+  시험 포함) 그대로. 헤드리스 실행 그대로.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 100 / 100 (새 studio_tokens_sync).
+
+**남은 일** — 간격 · 크기 토큰 (R2-05 와 함께), Dock 작업 공간 (UI-R2-05).
+
 ## 2026-11-26 — GraphicsUI 통합 UI-R2-02: GXML · GCSS 를 빌드 때 C++ 로 (AOT), uihost::DocumentView, 첫 GXML 화면 "Studio 설정"
 
 **무엇을**

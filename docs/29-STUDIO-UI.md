@@ -71,6 +71,9 @@ P8  콘솔 없음      빌드 · 테스트 · 리플레이 결과가 로그 (터
 
 ## 3. 디자인 시스템 (editor/ui/StudioTheme · StudioWidgets)
 
+> 2026-11-27 — 색 토큰의 정본은 `editor/services/studio_tokens.json` (→ `StudioTokens` 표). ImGui 테마와 GraphicsUI 화면 (C++ · GXML 의
+> GCSS 변수) 이 같은 값을 쓴다 ([ADR-0176](adr/0176-studio-design-tokens-single-source.md)). 아래 표의 값은 그 JSON 과 같다.
+
 ```text
 색 토큰   background #15171B · surface #1D2026 · elevated #262A31 · border #323741 · text #E6E8EB · muted #8B93A1
           accent #F5B83D (노랑 — 고른 것 · 주 단추 · 포커스) · accentHover #FFC95C · warning #F0A030 · error #EF6461 · success #5BC489

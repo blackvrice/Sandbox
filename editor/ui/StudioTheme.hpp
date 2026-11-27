@@ -3,21 +3,23 @@
 // 정하고 ImGuiStyle 로 옮긴다. 패널은 색을 하드코딩하지 않고 여기 토큰 (status · tokens()) 을 쓴다 — 새 창도 같은
 // 모양이 된다.
 //
-// 색 (다크 하나 — 밝음 · 고대비는 ST-06-2 [계획]): 대비는 WCAG 공식으로 계산해 29 3장에 적었다 (글자 14.6:1 ·
-// 보조 5.3:1 · 강조 위 글자 10.1:1). 간격은 4 단위 × 배율 (uiScale × DPI — 부르는 쪽이 넘긴다).
+// 색 값의 정본은 editor/services/studio_tokens.json (UI-R2-03, ADR-0176 — ImGui 와 GraphicsUI 화면이 같은 표). 대비는 WCAG 공식으로
+// 계산해 29 3장에 적었다. 간격은 4 단위 × 배율 (uiScale × DPI — 부르는 쪽이 넘긴다).
 
 #include <optional>
 #include <string_view>
 
 #include <imgui.h>
 
+#include "editor/services/StudioTokens.hpp"
 #include "foundation/types/Types.hpp"
 
 namespace sbx::editor::theme {
 
 enum class Density : u8 { Comfortable, Compact };
-// 테마 (v0.8 ST-06-2): 어두움 (기본) · 밝음 · 고대비 — 대비는 WCAG 공식으로 계산 (29 3장)
-enum class Theme : u8 { Dark, Light, HighContrast };
+// 테마 (v0.8 ST-06-2): 어두움 (기본) · 밝음 · 고대비 — 대비는 WCAG 공식으로 계산 (29 3장). 정본은 Editor Services 의 토큰 표
+// (UI-R2-03, ADR-0176 — GraphicsUI 화면과 같은 값)
+using Theme = services::StudioTheme;
 [[nodiscard]] std::string_view themeName(Theme t) noexcept; // "dark" · "light" · "high-contrast"
 [[nodiscard]] std::optional<Theme> themeFromName(std::string_view name) noexcept;
 enum class Status : u8 { Info, Muted, Success, Warning, Error, Accent };
