@@ -277,6 +277,9 @@ private:
     std::optional<StudioHomeAction> guiSettingsFrame(f32 scale);
     // GraphicsUI Dock 작업 공간 (UI-R2-05): 홈 대신 그린다. 패널의 의도 — 홈으로 · 배치 초기화 · 명령 실행 (기존 명령 표)
     std::optional<StudioHomeAction> guiWorkspaceFrame(f32 scale);
+    // 작업 공간 배치 (UI-R2-07): 지금 레이아웃 이름의 .guidock → 없거나 거절되면 그 이름의 프리셋. 저장은 바뀐 뒤 (놓은 다음)
+    void loadGuiWorkspaceLayout();
+    void saveGuiWorkspaceLayout();
     // GraphicsUI 글자 칸의 포커스 → 창의 글자 입력 (IME) 켜기 · 후보 창 자리 (우리가 켠 것만 끈다)
     void syncGuiTextInput(const uihost::TextInputState& state);
     // 홈 폼 상태 (StudioHomeState — newDir · newGameId · newName · templateIndex) 를 요청으로 채운다. 템플릿이 없으면 결과 줄에
@@ -361,6 +364,10 @@ private:
     bool m_guiSettingsOpen = false;
     std::unique_ptr<StudioWorkspace> m_guiWorkspace; // 처음 열 때 만든다 (명령 표 m_commands 를 빌린다 — 그 뒤에 선언)
     bool m_guiWorkspaceOpen = false;
+    std::optional<std::string> m_guiWorkspaceLayout; // 작업 공간에 읽어 둔 레이아웃 이름 (지금 이름과 다르면 열 때 다시 읽는다)
+    // 마지막으로 저장한 (또는 읽은 뒤 처음 배치한) DockLayout 개정 — nullopt = 읽은 뒤 아직 배치 전 (그 개정을 기준으로 — 열기만
+    // 해서는 파일을 만들지 않는다)
+    std::optional<u64> m_guiWorkspaceSaved;
     bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
     bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다
     bool m_guiHomeDrawn = false;       // 이번 프레임에 GraphicsUI 홈을 그렸다 (아니면 우리가 켠 글자 입력을 끈다)

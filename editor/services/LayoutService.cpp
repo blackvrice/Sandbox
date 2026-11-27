@@ -66,6 +66,22 @@ fs::path LayoutService::fileFor(std::string_view name) const {
     return m_folder / (std::string(name) + ".ini");
 }
 
+fs::path LayoutService::dockFileFor(std::string_view name) const {
+    return m_folder / (std::string(name) + ".guidock");
+}
+
+bool LayoutService::isDockBytes(std::span<const std::byte> bytes) noexcept {
+    if (bytes.size() < kDockMagic.size() || bytes.size() > kMaxDockBytes) {
+        return false;
+    }
+    for (usize i = 0; i < kDockMagic.size(); ++i) {
+        if (static_cast<char>(bytes[i]) != kDockMagic[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::vector<std::string> LayoutService::names() const {
     std::vector<std::string> out;
     if (enabled()) {
@@ -73,12 +89,13 @@ std::vector<std::string> LayoutService::names() const {
         for (fs::directory_iterator it(m_folder, ec), end; !ec && it != end; it.increment(ec)) {
             const fs::path& p = it->path();
             const std::string stem = p.stem().string();
-            if (p.extension() == ".ini" && isName(stem) && stem != kDefault) {
+            if ((p.extension() == ".ini" || p.extension() == ".guidock") && isName(stem) && stem != kDefault) {
                 out.push_back(stem);
             }
         }
     }
     std::ranges::sort(out);
+    out.erase(std::unique(out.begin(), out.end()), out.end()); // 두 형식이 다 있는 이름
     out.insert(out.begin(), std::string(kDefault));
     return out;
 }
@@ -101,15 +118,79 @@ Expected<std::string> LayoutService::readLayout(std::string_view name) {
     if (isLayoutText(*text)) {
         return text;
     }
+    moveAside(file, "깨졌다");
+    return std::string();
+}
+
+void LayoutService::moveAside(const fs::path& file, std::string_view why) {
+    std::error_code ec;
     fs::path aside = file;
     aside += ".broken";
     fs::remove(aside, ec);
     fs::rename(file, aside, ec);
     m_warnings.push_back(
-        ec ? std::format("레이아웃 {} 이 깨졌다 — 옮기지 못했다 ({}), 기본 배치로", io::displayPath(file), ec.message())
-           : std::format("레이아웃 {} 이 깨졌다 — {} 로 옮기고 기본 배치로", io::displayPath(file),
+        ec ? std::format("레이아웃 {} 이 {} — 옮기지 못했다 ({}), 기본 배치로", io::displayPath(file), why, ec.message())
+           : std::format("레이아웃 {} 이 {} — {} 로 옮기고 기본 배치로", io::displayPath(file), why,
                          io::displayPath(aside)));
-    return std::string();
+}
+
+std::optional<std::vector<std::byte>> LayoutService::loadDock() {
+    m_dockFor = m_active;
+    m_lastDock.clear();
+    if (!enabled()) {
+        return std::nullopt;
+    }
+    const fs::path file = dockFileFor(m_active);
+    std::error_code ec;
+    if (!fs::exists(file, ec)) {
+        return std::nullopt;
+    }
+    const auto size = fs::file_size(file, ec);
+    Expected<std::string> raw = !ec && size <= kMaxDockBytes ? io::readFile(file) : Expected<std::string>(std::string());
+    if (!raw) {
+        m_warnings.push_back(std::format("레이아웃 {} 을 읽지 못했다 — {} — 기본 배치로", io::displayPath(file),
+                                         raw.error().describe()));
+        return std::nullopt;
+    }
+    std::vector<std::byte> bytes(raw->size());
+    std::ranges::transform(*raw, bytes.begin(), [](char c) { return static_cast<std::byte>(c); });
+    if (!isDockBytes(bytes)) {
+        moveAside(file, "깨졌다 (GUIDOCK 이 아니거나 너무 크다)");
+        return std::nullopt;
+    }
+    m_lastDock = bytes;
+    return bytes;
+}
+
+Expected<void> LayoutService::saveDock(std::span<const std::byte> bytes) {
+    if (!enabled()) {
+        return {};
+    }
+    if (!isDockBytes(bytes)) {
+        return makeError(ErrorCode::InvalidArgument,
+                         std::format("레이아웃 '{}' 의 Dock 배치가 GUIDOCK 바이트가 아니다 ({} 바이트)", m_active,
+                                     bytes.size()));
+    }
+    if (m_dockFor == m_active && std::ranges::equal(bytes, m_lastDock)) {
+        return {};
+    }
+    std::error_code ec;
+    fs::create_directories(m_folder, ec);
+    const std::string_view text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    if (Expected<void> w = io::writeFileAtomic(dockFileFor(m_active), text); !w) {
+        return w;
+    }
+    m_dockFor = m_active;
+    m_lastDock.assign(bytes.begin(), bytes.end());
+    return {};
+}
+
+void LayoutService::quarantineDock(std::string_view why) {
+    m_lastDock.clear();
+    std::error_code ec;
+    if (enabled() && fs::exists(dockFileFor(m_active), ec)) {
+        moveAside(dockFileFor(m_active), std::format("복원되지 않는다 ({})", why));
+    }
 }
 
 std::string LayoutService::loadActive() {

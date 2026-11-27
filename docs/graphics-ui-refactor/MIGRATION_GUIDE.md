@@ -60,9 +60,12 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
 
 - ImGui 의 ini (studio/layouts/<이름>.ini — LayoutService, ADR-0114) 는 창 이름 · 도크 노드 id · 픽셀 크기를 담는다. DockLayout 은 안정
   패널 ID · 비율 (10,000 분율) · 분리 창의 논리 좌표를 담는 다른 형식 (GUIDOCK 버전 1 바이트) 이다 — **자동 변환은 하지 않는다**.
-- DockWorkspace 는 `save` · `restore` (GUIDOCK 바이트 — 패널 id 목록이 같아야 받는다) 를 이미 한다 (UI-R2-05). 파일 · 이름은 아직 없다.
-- 이전 방식 [계획 — UI-R2-07]: 레이아웃 **이름** (scene · scripting … — 29 5장 프리셋) 을 유지하고, 첫 실행에 그 이름의 프리셋으로
-  DockLayout 을 만든다. 사용자가 손으로 바꾼 ini 배치는 옮기지 않는다 (알림 한 줄). ini 파일은 지우지 않는다 (ImGui 판이 남아 있는 동안).
+- 이전 방식 (UI-R2-07 ✅, ADR-0178): 레이아웃 **이름** 을 그대로 쓰고, 파일은 같은 폴더의 `<이름>.guidock` (LayoutService —
+  `loadDock` · `saveDock` · `quarantineDock`). 그 이름의 .guidock 이 없으면 그 이름의 프리셋 (`presetFor` — scene · scripting · play,
+  `StudioWorkspace::applyPreset`) 으로 시작한다. 사용자가 손으로 바꾼 ini 배치는 옮기지 않는다 (알림 한 줄). ini 파일은 읽거나 지우지
+  않는다 (ImGui 판이 남아 있는 동안).
+- 쓰는 때: 놓은 뒤 (DockLayout 개정이 바뀌고 끄는 중이 아닐 때) · 끝낼 때. 열기만 해서는 쓰지 않는다. 복원이 거절한 바이트 (패널 목록이
+  바뀐 판) 는 `.guidock.broken` 으로 옮기고 프리셋 — **패널 id 를 바꾸거나 패널을 더하면 사용자의 옛 배치는 프리셋으로 돌아간다.**
 - 창 열림 목록 (studio.json "windows" — ST-08-2) 은 패널 ID 표로 대응한다.
 
 ## 4. 과도기 경로의 알려진 차이

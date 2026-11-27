@@ -1,13 +1,15 @@
 #pragma once
 // Studio GraphicsUI 작업 공간 (UI-R2-05) — DockWorkspace 에 첫 패널 셋 (정보 · 단축키 · 콘솔) 을 꽂은 화면 하나.
 //
-//   기본 배치    정보 (왼쪽 위) | 단축키 (오른쪽) — 그 아래 콘솔 (ImGui Studio 의 기본 배치와 같은 결 — 아래 = 로그)
+//   프리셋       ImGui 셸과 같은 이름 (UI-R2-07 — presetFor): scene (기본) = 정보 | 단축키, 아래 콘솔 · scripting = 단축키 | 정보,
+//                아래 콘솔 · play = 정보 | 콘솔 (+ 단축키 탭). 저장된 배치 (.guidock) 가 없을 때 · 배치 초기화 때
 //   의도         패널이 고른 일 (홈으로 · 배치 초기화 · 명령 실행) 을 takeIntent() 로 — 일은 Application 이 기존 처리로
 //   테마 · 간격 · 배율   작업 공간 크롬과 패널이 같은 값 (PanelContext)
 
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "editor/gui/DockWorkspace.hpp"
 #include "editor/gui/StudioPanels.hpp"
@@ -30,8 +32,9 @@ public:
     void setTheme(services::StudioTheme theme) noexcept;
     void setCompact(bool compact) noexcept;
     void setScale(f32 scale) noexcept;
-    // 기본 배치로 (배치 초기화)
-    Expected<void> resetLayout();
+    // 그 프리셋의 배치로 (scene · scripting · play — 그 밖의 이름은 scene). 패널 상태는 그대로
+    Expected<void> applyPreset(std::string_view preset);
+    [[nodiscard]] static bool isPreset(std::string_view preset) noexcept;
 
     // 이번까지 패널이 고른 일 — 꺼내면 비운다
     [[nodiscard]] std::optional<WorkspaceIntent> takeIntent() noexcept;
@@ -49,7 +52,7 @@ private:
     ConsolePanel* m_console = nullptr;
     ShortcutPanel* m_shortcuts = nullptr;
     InfoPanel* m_info = nullptr;
-    std::vector<std::byte> m_default; // 기본 배치의 저장 바이트 (배치 초기화)
+    std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)
 };
 
 } // namespace sbx::editor::gui

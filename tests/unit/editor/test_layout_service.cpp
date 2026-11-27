@@ -257,3 +257,79 @@ TEST_CASE("레이아웃: 저장 · 고르기 · 기억 · 깨진 파일 · 안�
     CHECK(safe.names() == std::vector<std::string>{"default"});
     CHECK(fs::is_empty(s.path));
 }
+
+TEST_CASE("레이아웃: GraphicsUI 작업 공간 배치 (.guidock) — 이름별 저장 · 같으면 쓰지 않기 · 깨짐 · 거절 옮기기 · 안전 모드 (UI-R2-07)") {
+    TempDir t("dock");
+    const fs::path folder = t.path / "studio" / "layouts";
+    const fs::path settings = t.path / "studio.json";
+    const auto bytesOf = [](std::string_view s) {
+        std::vector<std::byte> out;
+        for (const char c : s) {
+            out.push_back(static_cast<std::byte>(c));
+        }
+        return out;
+    };
+    const std::vector<std::byte> dockA = bytesOf("GUIDOCK\x01\x02payload-a");
+    const std::vector<std::byte> dockB = bytesOf("GUIDOCK\x01\x02payload-b");
+
+    CHECK(LayoutService::isDockBytes(dockA));
+    CHECK_FALSE(LayoutService::isDockBytes(bytesOf("GUIDOC")));
+    CHECK_FALSE(LayoutService::isDockBytes(bytesOf("NOTDOCK....")));
+    std::vector<std::byte> big = dockA;
+    big.resize(LayoutService::kMaxDockBytes + 1);
+    CHECK_FALSE(LayoutService::isDockBytes(big));
+
+    LayoutService l(folder, settings, "");
+    CHECK_FALSE(l.loadDock()); // 없음 = 프리셋으로
+    REQUIRE(l.saveDock(dockA).has_value());
+    CHECK(l.dockFileFor("default") == folder / "default.guidock");
+    CHECK(io::readFile(folder / "default.guidock").value() == "GUIDOCK\x01\x02payload-a");
+    CHECK_FALSE(fs::exists(l.fileFor("default"))); // ini 와 따로
+    // 같은 바이트면 다시 쓰지 않는다
+    fs::remove(folder / "default.guidock");
+    REQUIRE(l.saveDock(dockA).has_value());
+    CHECK_FALSE(fs::exists(folder / "default.guidock"));
+    REQUIRE(l.saveDock(dockB).has_value());
+    CHECK(fs::exists(folder / "default.guidock"));
+    CHECK_FALSE(l.saveDock(bytesOf("garbage")).has_value());
+
+    // 이름마다 — .guidock 만 있는 이름도 목록에, 두 형식이 다 있으면 한 번
+    REQUIRE(l.select("play").has_value());
+    CHECK_FALSE(l.loadDock());
+    REQUIRE(l.saveDock(dockA).has_value()); // 다른 이름 — default 에 쓴 바이트와 같아도 쓴다
+    CHECK(fs::exists(folder / "play.guidock"));
+    write(folder / "play.ini", "[Window][a]\nPos=1,1\n");
+    CHECK(l.names() == std::vector<std::string>{"default", "play"});
+    REQUIRE(l.select("default").has_value());
+    const auto back = l.loadDock();
+    REQUIRE(back);
+    CHECK(*back == dockB);
+
+    // 깨진 파일 (머리 글자가 아님) — .guidock.broken 으로 옮기고 nullopt + 경고
+    write(folder / "default.guidock", "not a dock");
+    CHECK_FALSE(l.loadDock());
+    CHECK(fs::exists(folder / "default.guidock.broken"));
+    CHECK_FALSE(fs::exists(folder / "default.guidock"));
+    std::vector<std::string> w = l.takeWarnings();
+    REQUIRE(w.size() == 1);
+    CHECK(w.front().find("깨졌다") != std::string::npos);
+
+    // 복원이 거절한 바이트 (패널 목록이 바뀐 판) — 앱이 옮기게 한다
+    REQUIRE(l.saveDock(dockA).has_value());
+    l.quarantineDock("패널 목록이 다르다");
+    CHECK_FALSE(fs::exists(folder / "default.guidock"));
+    CHECK(io::readFile(folder / "default.guidock.broken").value() == "GUIDOCK\x01\x02payload-a");
+    w = l.takeWarnings();
+    REQUIRE(w.size() == 1);
+    CHECK(w.front().find("패널 목록이 다르다") != std::string::npos);
+    REQUIRE(l.saveDock(dockA).has_value()); // 옮긴 뒤에는 같은 바이트도 다시 쓴다
+    CHECK(fs::exists(folder / "default.guidock"));
+
+    // 안전 모드 — 아무 파일도 읽거나 쓰지 않는다
+    TempDir s("dock_safe");
+    LayoutService safe({}, {}, "scene");
+    CHECK_FALSE(safe.loadDock());
+    REQUIRE(safe.saveDock(dockA).has_value());
+    safe.quarantineDock("x");
+    CHECK(fs::is_empty(s.path));
+}

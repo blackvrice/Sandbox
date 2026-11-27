@@ -71,6 +71,8 @@ public:
     [[nodiscard]] bool textFocused() const;
     [[nodiscard]] gui::DockPaneId focusedPane() const noexcept { return m_focus; }
     [[nodiscard]] bool dragging() const noexcept { return m_dragging; }
+    // 탭을 누르고 있거나 · 끌거나 · 분할선을 끄는 중 (배치 저장은 놓은 뒤에)
+    [[nodiscard]] bool interacting() const noexcept { return m_dragging || m_divider.has_value() || m_pressTab != 0; }
     [[nodiscard]] const std::optional<DockDropTarget>& dropTarget() const noexcept { return m_drop; }
     [[nodiscard]] const gui::DockFrame* lastFrame() const noexcept { return m_frame ? &*m_frame : nullptr; }
     [[nodiscard]] uihost::UiHost* paneHost(gui::DockPaneId id) const;

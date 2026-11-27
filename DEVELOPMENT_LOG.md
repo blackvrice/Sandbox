@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R2-07: 작업 공간 배치 저장 · 복원 (ADR-0178) — 레이아웃 이름별 .guidock, ini 는 변환 없이 프리셋
+
+**무엇을**
+
+- `LayoutService` — 같은 이름의 `studio/layouts/<이름>.guidock` (DockLayout 저장 바이트): `loadDock` (없음 = nullopt, 크기 · "GUIDOCK" 머리
+  글자가 틀리면 `.guidock.broken` + 경고), `saveDock` (같은 바이트면 안 씀 · 이름이 바뀌면 씀), `quarantineDock` (복원이 거절한 파일을 옆으로),
+  `dockFileFor`, `isDockBytes`, `names()` 가 두 형식의 이름을 합친다. 안전 모드는 읽지도 쓰지도 않는다. 깨진 파일 옮기기를 `moveAside` 로
+  모았다 (ini 경고 글은 그대로). `kMaxDockBytes` = GraphicsUI `dock_layout_byte_limit` (editor/gui 의 static_assert).
+- `StudioWorkspace::applyPreset` — scene (정보 | 단축키, 아래 콘솔) · scripting (단축키 | 정보, 아래 콘솔) · play (정보 | 콘솔 + 단축키 탭),
+  그 밖의 이름 = scene. 처음 한 그룹 배치 바이트에서 시작 (`resetLayout` 대신).
+- `DockWorkspace::interacting` (탭 누름 · 끌기 · 분할선).
+- Application — 작업 공간을 열 때 지금 레이아웃 이름의 배치를 읽는다 (처음 · 이름이 바뀐 뒤): 있으면 restore, 거절이면 quarantine + 프리셋,
+  없으면 `presetFor(이름)` 의 프리셋 (그 이름의 ini 가 있으면 "옮기지 않는다" 한 줄). 저장은 frame 뒤 개정이 바뀌고 끄는 중이 아닐 때 ·
+  Shutdown 때 — 열고 처음 배치한 개정은 기준만 (열기만으로는 파일을 만들지 않는다). "배치 초기화" = 그 이름의 프리셋.
+- ADR-0178 · refactor 문서 (TASK_REGISTRY R2-07 Done, CURRENT_STATUS, UI-R2, MIGRATION_GUIDE 3장) · 25-STUDIO-ARCHITECTURE · 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R2-07. 작업 공간의 배치가 다시 열거나 다음 실행에 기본으로 돌아갔다.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_editor` "레이아웃: GraphicsUI 작업 공간 배치 (.guidock)" — 머리 글자 · 크기, 저장 · 같으면 안 씀, 이름별 · 목록 합치기, 깨진 파일 옮기기,
+  거절 옮기기 뒤 다시 씀, 안전 모드.
+- `unit_client` "studio workspace presets" — 셋의 모양 · 모르는 이름 = scene. app (LayoutService 를 임시 폴더로): 열기만으로는 파일 없음 →
+  끄는 동안 안 씀 → 놓으면 default.guidock → 다음 실행에 같은 배치 → 다른 판 바이트는 .broken + 프리셋.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 100 / 100 (project_doctor 제외).
+
+**남은 일** — GraphicsUI 레이아웃 창 (고르기 · 다른 이름으로 — R2-04 메뉴와), 패널 열림 목록 (닫기 · 열기가 생기면), ImGui ini 정리 (UI-R10).
+
 ## 2026-11-27 — GraphicsUI 통합: 브랜치 코드의 부분 집합 초기화를 모든 필드로 (GCC · Clang -Werror 대비)
 
 **무엇을** — `ComponentSpec{parent, type, key}` (필드 4) · `TextEdit{action, utf8}` (필드 4) · `MouseButtonDown{button, position}` (필드 3) 를

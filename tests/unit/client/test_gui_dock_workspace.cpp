@@ -6,6 +6,8 @@
 #include <array>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <functional>
 #include <random>
 #include <string>
 #include <vector>
@@ -16,6 +18,7 @@
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/gui/StudioWorkspace.hpp"
+#include "editor/services/LayoutService.hpp"
 #include "editor/ui/StudioTheme.hpp"
 #include "foundation/log/Log.hpp"
 #include "platform/audio/NullAudioBackend.hpp"
@@ -235,7 +238,7 @@ TEST_SUITE("graphics ui dock workspace") {
         // 저장 바이트 → 배치 초기화 (그룹 셋) → 되살리기 (그룹 둘 · 같은 높이)
         const auto saved = d.save();
         REQUIRE(saved);
-        REQUIRE(f.ws->resetLayout());
+        REQUIRE(f.ws->applyPreset("scene"));
         f.frame();
         CHECK(d.lastFrame()->groups.size() == 3);
         REQUIRE(d.restore(*saved));
@@ -339,6 +342,122 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(f.ws->console().following());
         f.feed(click(paneCenter(d, kConsole, f.ws->console().followHandle())));
         CHECK(f.ws->console().following());
+    }
+
+    TEST_CASE("studio workspace presets (UI-R2-07): scene · scripting · play, unknown names fall back to scene") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        CHECK(StudioWorkspace::isPreset("scene"));
+        CHECK(StudioWorkspace::isPreset("play"));
+        CHECK_FALSE(StudioWorkspace::isPreset("default"));
+        const auto scene = d.save();
+        REQUIRE(scene);
+
+        REQUIRE(f.ws->applyPreset("scripting"));
+        f.frame();
+        REQUIRE(d.lastFrame()->groups.size() == 3);
+        CHECK(groupOf(d, kShortcuts).bounds.x < groupOf(d, kInfo).bounds.x); // 명령 표가 왼쪽
+        CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kInfo).bounds.y);
+
+        REQUIRE(f.ws->applyPreset("play"));
+        f.frame();
+        REQUIRE(d.lastFrame()->groups.size() == 2);
+        CHECK(groupOf(d, kConsole).bounds.x > groupOf(d, kInfo).bounds.x); // 로그가 옆에
+        CHECK(tabOf(d, kShortcuts).group_active == kConsole);             // 단축키는 콘솔의 탭 (앞은 콘솔)
+        CHECK(d.focusedPane() == kInfo);
+
+        REQUIRE(f.ws->applyPreset("my-layout")); // 프리셋이 아닌 이름 = scene
+        const auto again = d.save();
+        REQUIRE(again);
+        CHECK(*again == *scene);
+    }
+
+    TEST_CASE("app (--ui graphicsui, 헤드리스): 작업 공간 배치를 지금 레이아웃 이름으로 저장하고 다음 실행에 되살린다 (UI-R2-07)") {
+        namespace fs = std::filesystem;
+        const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_ws_layout_{}", std::random_device{}());
+        const fs::path folder = root / "studio" / "layouts";
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog).has_value());
+        editor::services::ProjectService projects(catalog, SemVer{0, 8, 0, {}, {}}, SBX_CONTENT_DIR,
+                                                  root / "studio.json", SBX_ASSETS_DIR, SBX_SAMPLES_DIR);
+        // 한 번 실행 — 열기 → (열기만으로는 파일 없음) → 콘솔 탭을 정보 그룹으로 → 저장 → 홈 → 끝
+        const auto run = [&](const std::function<void(Application&, HeadlessWindow&, StudioWorkspace&)>& body) {
+            editor::services::LayoutService layouts(folder, root / "studio.json", "");
+            HeadlessWindow window(WindowDesc{.width = 1280, .height = 720});
+            ImGuiLayer imgui(window);
+            NullAudioBackend audio;
+            audio.init({});
+            AppConfig cfg;
+            cfg.fixedDt = 1.0 / 60.0;
+            cfg.ui = &imgui;
+            cfg.projects = &projects;
+            cfg.layouts = &layouts;
+            cfg.graphicsUiHome = true;
+            auto map = ActionMap::parse(defaultInputJson(), "<기본 바인딩>");
+            REQUIRE(map.has_value());
+            Application app(window, std::move(*map), audio, cfg);
+            REQUIRE(app.frame());
+            REQUIRE(app.frame());
+            const uihost::UiHost& home = *app.graphicsUiHost();
+            const auto wsButton = app.graphicsUiHome()->handleOf(StudioHomeScreen::Part::Workspace);
+            REQUIRE(wsButton);
+            gui::LayoutRect r{};
+            for (const gui::LayoutBox& b : home.lastLayout()->boxes()) {
+                if (b.component == *wsButton) {
+                    r = b.bounds;
+                }
+            }
+            for (const PlatformEvent& e : click(center(r, home.scale()))) {
+                window.inject(e);
+            }
+            REQUIRE(app.frame());
+            REQUIRE(app.frame());
+            StudioWorkspace* ws = app.graphicsUiWorkspace();
+            REQUIRE(ws != nullptr);
+            REQUIRE(ws->dock().lastFrame() != nullptr);
+            body(app, window, *ws);
+        };
+        const auto inject = [](Application& app, HeadlessWindow& window, const std::vector<PlatformEvent>& events) {
+            for (const PlatformEvent& e : events) {
+                window.inject(e);
+            }
+            REQUIRE(app.frame());
+            REQUIRE(app.frame());
+        };
+
+        run([&](Application& app, HeadlessWindow& window, StudioWorkspace& ws) {
+            const DockWorkspace& d = ws.dock();
+            CHECK(d.lastFrame()->groups.size() == 3); // 저장된 것 없음 = default 의 프리셋 (scene)
+            CHECK_FALSE(fs::exists(folder / "default.guidock")); // 열기만 해서는 쓰지 않는다
+            const gui::DockTabBox infoTab = tabOf(d, kInfo);
+            const Vec2 onInfoTab{static_cast<f32>(infoTab.bounds.x + infoTab.bounds.width * 0.75),
+                                 static_cast<f32>(infoTab.bounds.y + infoTab.bounds.height / 2)};
+            std::vector<PlatformEvent> ev = drag(center(tabOf(d, kConsole).bounds, d.scale()),
+                                                 {onInfoTab.x * d.scale(), onInfoTab.y * d.scale()}, false);
+            inject(app, window, ev);
+            CHECK(d.interacting());
+            CHECK_FALSE(fs::exists(folder / "default.guidock")); // 끄는 동안은 쓰지 않는다
+            inject(app, window, {MouseButtonUp{MouseButton::Left, {onInfoTab.x * d.scale(), onInfoTab.y * d.scale()}}});
+            CHECK(d.lastFrame()->groups.size() == 2);
+            CHECK(fs::exists(folder / "default.guidock")); // 놓은 뒤 저장
+            inject(app, window, click(center(tabOf(d, kInfo).bounds, d.scale()))); // 그 그룹의 앞 탭 = 콘솔 → 정보로
+            inject(app, window, click(paneCenter(d, kInfo, ws.info().homeHandle())));
+            CHECK(app.graphicsUiWorkspace() == nullptr);
+        });
+        run([&](Application&, HeadlessWindow&, StudioWorkspace& ws) {
+            CHECK(ws.dock().lastFrame()->groups.size() == 2); // 다음 실행 — 되살렸다
+            CHECK(tabOf(ws.dock(), kConsole).group_active == tabOf(ws.dock(), kInfo).group_active);
+        });
+        // 다른 판의 바이트 (복원 거절) — 옆에 옮기고 프리셋으로
+        {
+            std::ofstream(folder / "default.guidock", std::ios::binary | std::ios::trunc) << "GUIDOCK-but-not-really";
+        }
+        run([&](Application&, HeadlessWindow&, StudioWorkspace& ws) {
+            CHECK(ws.dock().lastFrame()->groups.size() == 3);
+            CHECK(fs::exists(folder / "default.guidock.broken"));
+        });
+        std::error_code ec;
+        fs::remove_all(root, ec);
     }
 
     TEST_CASE("app (--ui graphicsui, 헤드리스): 홈 → 작업 공간 → 단축키 패널이 기존 명령을 실행 → 홈으로") {

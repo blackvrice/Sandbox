@@ -838,6 +838,7 @@ void Application::applyPendingTransition() {
     }
     if (next == AppState::Shutdown) {
         (void)saveLayout(false); // 끝낼 때의 배치 (v0.8 M6-T6 — 기본 배치로 되돌린 뒤 움직이지 않았어도)
+        saveGuiWorkspaceLayout(); // GraphicsUI 작업 공간의 아직 쓰지 않은 배치 (UI-R2-07)
     }
 }
 
@@ -2349,6 +2350,10 @@ std::optional<StudioHomeAction> Application::guiHomeFrame() {
             m_guiWorkspace->dock().setClipboard({[this] { return m_window.clipboardText(); },
                                                  [this](std::string_view t) { m_window.setClipboardText(t); }});
         }
+        if (!m_guiWorkspaceLayout ||
+            (m_config.layouts != nullptr && *m_guiWorkspaceLayout != m_config.layouts->active())) {
+            loadGuiWorkspaceLayout(); // 처음 · ImGui 레이아웃 창에서 다른 이름을 고른 뒤
+        }
         m_guiWorkspaceOpen = true;
         log::info("client", "GraphicsUI 작업 공간 (Dock — UI-R2-05)");
         return std::nullopt;
@@ -2465,6 +2470,7 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     (void)drawCommands((*draw)->overlay, bg, nullptr, 0.f, 0.f, scale);
     syncGuiTextInput(ws.dock().textInput());
     m_guiHomeDrawn = true;
+    saveGuiWorkspaceLayout(); // 옮기기 · 분할선 · 탭을 놓은 뒤에만 (끄는 동안은 쓰지 않는다)
     const auto intent = ws.takeIntent();
     if (!intent) {
         return std::nullopt;
@@ -2474,11 +2480,16 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     case K::Home:
         m_guiWorkspaceOpen = false; // 배치 · 패널 상태는 남는다 (다시 열면 그대로)
         return std::nullopt;
-    case K::ResetLayout:
-        if (auto r = ws.resetLayout(); !r) {
+    case K::ResetLayout: {
+        // ImGui 의 "기본 배치로" 와 같은 뜻 — 지금 레이아웃 이름의 프리셋으로, 그 이름에 저장
+        const std::string_view preset =
+            presetFor(m_config.layouts != nullptr ? m_config.layouts->active() : std::string_view("default"));
+        if (auto r = ws.applyPreset(preset); !r) {
             log::warn("client", "작업 공간 배치를 되돌리지 못했다 — {}", r.error().describe());
         }
+        log::info("studio", "작업 공간 — 기본 배치로 (프리셋 {})", preset);
         return std::nullopt;
+    }
     case K::RunCommand: {
         // 팔레트 · 단축키와 같은 명령 표 — 다음 셸 단계가 고른 셸 일을 적용한다
         const editor::services::RunResult r = m_commands.run(intent->command);
@@ -2490,6 +2501,67 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     }
     }
     return std::nullopt;
+}
+
+void Application::loadGuiWorkspaceLayout() {
+    StudioWorkspace& ws = *m_guiWorkspace;
+    editor::services::LayoutService* l = m_config.layouts;
+    const std::string name = l != nullptr ? l->active() : std::string(editor::services::LayoutService::kDefault);
+    const std::string_view preset = presetFor(name);
+    m_guiWorkspaceLayout = name;
+    m_guiWorkspaceSaved.reset();
+    bool restored = false;
+    if (l != nullptr) {
+        if (const auto bytes = l->loadDock()) {
+            if (auto r = ws.dock().restore(*bytes)) {
+                restored = true;
+                log::info("studio", "작업 공간 배치 '{}' 을 되살렸다", name);
+            } else {
+                // 패널 목록이 바뀐 판 · 다른 GraphicsUI 판의 바이트 — 옆에 옮기고 프리셋으로 (지우지 않는다)
+                l->quarantineDock(r.error().message);
+            }
+        } else if (l->enabled() && std::filesystem::exists(l->fileFor(name))) {
+            log::info("studio", "레이아웃 '{}' — ImGui 배치 (.ini) 는 작업 공간으로 옮기지 않는다 (형식이 다르다), 프리셋 {} 으로",
+                      name, preset);
+        }
+        for (const std::string& w : l->takeWarnings()) {
+            log::warn("studio", "{}", w);
+        }
+    }
+    if (!restored) {
+        if (auto r = ws.applyPreset(preset); !r) {
+            log::warn("studio", "작업 공간 프리셋 {} 을 만들지 못했다 — {}", preset, r.error().describe());
+        }
+    }
+}
+
+void Application::saveGuiWorkspaceLayout() {
+    if (!m_guiWorkspace || m_config.layouts == nullptr) {
+        return;
+    }
+    const editor::gui::DockWorkspace& dock = m_guiWorkspace->dock();
+    const graphics_ui::core::DockFrame* frame = dock.lastFrame();
+    if (frame == nullptr || dock.interacting()) {
+        return;
+    }
+    if (!m_guiWorkspaceSaved) {
+        m_guiWorkspaceSaved = frame->revision; // 읽은 배치 · 프리셋 그대로 — 기준만 (열기만 해서는 파일을 만들지 않는다)
+        return;
+    }
+    if (frame->revision == *m_guiWorkspaceSaved) {
+        return;
+    }
+    auto bytes = dock.save();
+    if (!bytes) {
+        log::warn("studio", "작업 공간 배치를 꺼내지 못했다 — {}", bytes.error().describe());
+        return;
+    }
+    // 같은 바이트면 서비스가 쓰지 않는다 (탭만 다시 누른 경우)
+    if (auto r = m_config.layouts->saveDock(*bytes); !r) {
+        log::warn("studio", "작업 공간 배치 '{}' 을 저장하지 못했다 — {}", m_config.layouts->active(), r.error().describe());
+        return;
+    }
+    m_guiWorkspaceSaved = frame->revision;
 }
 
 // ---- Player 모드 (v0.8 NG-03 — ADR-0121) ----

@@ -1,8 +1,14 @@
 #include "editor/gui/StudioWorkspace.hpp"
 
 #include <utility>
+#include <vector>
+
+#include "editor/services/LayoutService.hpp"
 
 namespace sbx::editor::gui {
+
+// 배치 바이트 상한 — 저장 서비스 (GraphicsUI 를 모른다) 와 같은 값
+static_assert(services::LayoutService::kMaxDockBytes == gui::dock_layout_byte_limit);
 
 Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost::ITextMeasure& text,
                                                                    const services::CommandService& commands,
@@ -24,22 +30,49 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
         return std::unexpected(dock.error());
     }
     ws->m_dock = std::move(*dock);
-
-    // 기본 배치 — 처음 한 그룹 (정보 · 단축키 · 콘솔 탭) 에서 콘솔을 아래로, 단축키를 오른쪽으로
-    gui::DockLayout& layout = ws->m_dock->layout();
-    if (auto r = layout.dock(kConsole, kInfo, gui::DockSide::bottom); !r) {
-        return std::unexpected(uihost::toError(r.error(), "기본 배치 (콘솔)"));
+    auto fresh = ws->m_dock->save();
+    if (!fresh) {
+        return std::unexpected(fresh.error());
     }
-    if (auto r = layout.dock(kShortcuts, kInfo, gui::DockSide::right); !r) {
-        return std::unexpected(uihost::toError(r.error(), "기본 배치 (단축키)"));
+    ws->m_fresh = std::move(*fresh);
+    if (auto r = ws->applyPreset("scene"); !r) {
+        return std::unexpected(r.error());
     }
-    (void)layout.select(kInfo);
-    auto bytes = ws->m_dock->save();
-    if (!bytes) {
-        return std::unexpected(bytes.error());
-    }
-    ws->m_default = std::move(*bytes);
     return ws;
+}
+
+bool StudioWorkspace::isPreset(std::string_view preset) noexcept {
+    return preset == "scene" || preset == "scripting" || preset == "play";
+}
+
+Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
+    if (auto r = m_dock->restore(m_fresh); !r) {
+        return r;
+    }
+    gui::DockLayout& layout = m_dock->layout();
+    struct Move {
+        gui::DockPaneId pane, target;
+        gui::DockSide side;
+    };
+    // 처음 한 그룹 (정보 · 단축키 · 콘솔 탭) 에서 옮긴다
+    std::vector<Move> moves;
+    if (preset == "scripting") { // 명령 표를 왼쪽에 (스크립트를 쓰며 찾기)
+        moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::left}};
+    } else if (preset == "play") { // 로그를 옆에 크게 (실행 중 보기), 단축키는 그 탭
+        moves = {{kConsole, kInfo, gui::DockSide::right}, {kShortcuts, kConsole, gui::DockSide::tab_after}};
+    } else { // scene · default · 모르는 이름
+        moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::right}};
+    }
+    for (const Move& m : moves) {
+        if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
+            return std::unexpected(uihost::toError(r.error(), "작업 공간 프리셋"));
+        }
+    }
+    if (preset == "play") {
+        (void)layout.select(kConsole); // 그 그룹의 앞 탭 = 콘솔 (단축키가 아니라)
+    }
+    (void)layout.select(kInfo); // 포커스 = 정보
+    return {};
 }
 
 void StudioWorkspace::setTheme(services::StudioTheme theme) noexcept {
@@ -55,10 +88,6 @@ void StudioWorkspace::setCompact(bool compact) noexcept {
 void StudioWorkspace::setScale(f32 scale) noexcept {
     m_dock->setScale(scale);
     m_ctx->scale = m_dock->scale();
-}
-
-Expected<void> StudioWorkspace::resetLayout() {
-    return m_dock->restore(m_default);
 }
 
 std::optional<WorkspaceIntent> StudioWorkspace::takeIntent() noexcept {
