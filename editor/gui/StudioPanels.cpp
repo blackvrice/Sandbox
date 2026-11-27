@@ -71,30 +71,54 @@ void moveIn(gui::ListView& list, std::ptrdiff_t delta, bool toStart, bool toEnd)
 
 // ---- ConsolePanel ----
 
+int ConsolePanel::lineLevel(std::string_view line) noexcept {
+    // ImGui 콘솔 (editor/ui consoleLineLevel) 과 같은 규칙 — 줄 머리의 수준 (Log 의 "[수준] [분류] 글")
+    if (line.starts_with("[error]")) {
+        return 2;
+    }
+    if (line.starts_with("[warn]")) {
+        return 1;
+    }
+    return 0;
+}
+
 Expected<void> ConsolePanel::mount(uihost::UiHost& host) {
     m_host = &host;
-    const std::array<gui::ComponentSpec, 5> specs{
-        {{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {1, 3, 1, true}, {1, 4, 2, true}, {0, 5, 2, true}}};
+    // 뿌리 · 막대 (거르기 · 수준 · 지우기 · 복사 · 따라가기) · 목록
+    const std::array<gui::ComponentSpec, 8> specs{{{std::nullopt, 1, 0, true},
+                                                   {0, 2, 1, true},
+                                                   {1, 3, 1, true},
+                                                   {1, 4, 2, true},
+                                                   {1, 4, 3, true},
+                                                   {1, 4, 4, true},
+                                                   {1, 4, 5, true},
+                                                   {0, 5, 2, true}}};
     auto h = commitTree(host, specs);
     if (!h) {
         return std::unexpected(h.error());
     }
     m_root = (*h)[0];
     m_bar = (*h)[1];
-    m_followNode = (*h)[3];
-    m_listNode = (*h)[4];
+    m_levelNode = (*h)[3];
+    m_clearNode = (*h)[4];
+    m_copyNode = (*h)[5];
+    m_followNode = (*h)[6];
+    m_listNode = (*h)[7];
     if (auto r = m_filter.mount(host, (*h)[2], [this](const std::string&) { refresh(true); }); !r) {
         return r;
     }
-    m_followButton = std::make_unique<gui::Button>(host.input(), m_followNode);
-    (void)m_followButton->setEnabled(true);
-    (void)host.input().setHandler(m_followNode, [this](const gui::RoutedEvent& ev) -> gui::EventReply {
-        const auto r = m_followButton->handle(ev);
-        if (r && r->activated) {
-            m_follow = !m_follow;
-            refresh(true);
-        }
-        return r ? r->reply : gui::EventReply{};
+    m_levelButton = kit::bindButton(host, m_levelNode, [this] {
+        m_level = (m_level + 1) % 3; // 전부 → 경고 이상 → 오류만
+        refresh(true);
+    });
+    m_clearButton = kit::bindButton(host, m_clearNode, [this] {
+        m_clearedAt = log::recentTotal(); // 지금까지의 줄을 숨긴다 (로그 자체는 그대로 — ImGui 콘솔과 같다)
+        refresh(true);
+    });
+    m_copyButton = kit::bindButton(host, m_copyNode, [this] { copyShown(); });
+    m_followButton = kit::bindButton(host, m_followNode, [this] {
+        m_follow = !m_follow;
+        refresh(true);
     });
     (void)host.input().setFocusable(m_listNode, true);
     (void)host.input().setHandler(m_listNode, [this](const gui::RoutedEvent& ev) { return listEvent(ev); });
@@ -121,9 +145,11 @@ void ConsolePanel::refresh(bool force) {
     m_applied = m_filter.value();
     std::vector<gui::ListItemKey> keys;
     for (usize i = 0; i < m_lines.size(); ++i) {
-        if (containsNoCase(m_lines[i], m_applied)) {
-            keys.push_back(m_first + i);
+        const std::uint64_t key = m_first + i;
+        if (key < m_clearedAt || lineLevel(m_lines[i]) < m_level || !containsNoCase(m_lines[i], m_applied)) {
+            continue;
         }
+        keys.push_back(key);
     }
     const auto sel = m_list.selection();
     (void)m_list.setItems(keys);
@@ -135,12 +161,37 @@ void ConsolePanel::refresh(bool force) {
     }
 }
 
-std::optional<std::string> ConsolePanel::selectedLine() const {
-    const auto key = m_list.selection();
-    if (!key || *key < m_first || *key - m_first >= m_lines.size()) {
+std::optional<std::string> ConsolePanel::lineOf(gui::ListItemKey key) const {
+    if (key < m_first || key - m_first >= m_lines.size()) {
         return std::nullopt;
     }
-    return m_lines[static_cast<usize>(*key - m_first)];
+    return m_lines[static_cast<usize>(key - m_first)];
+}
+
+std::optional<std::string> ConsolePanel::selectedLine() const {
+    const auto key = m_list.selection();
+    return key ? lineOf(*key) : std::nullopt;
+}
+
+void ConsolePanel::writeClipboard(const std::string& text) const {
+    const gui::TextEditCallbacks cb = m_host->editCallbacks({});
+    if (cb.write_clipboard) {
+        (void)cb.write_clipboard(text);
+    }
+}
+
+void ConsolePanel::copyShown() const {
+    // 거른 줄 전부 (보이는 줄만이 아니다 — ImGui 콘솔의 "복사" 와 같다)
+    std::string text;
+    for (usize i = 0; i < m_list.itemCount(); ++i) {
+        if (const auto key = m_list.itemKey(i)) {
+            if (const auto line = lineOf(*key)) {
+                text += *line;
+                text += '\n';
+            }
+        }
+    }
+    writeClipboard(text);
 }
 
 gui::EventReply ConsolePanel::listEvent(const gui::RoutedEvent& ev) {
@@ -160,10 +211,7 @@ gui::EventReply ConsolePanel::listEvent(const gui::RoutedEvent& ev) {
     // 고른 줄 복사 (창 클립보드 — 호스트의 편집 콜백). Ctrl+C · macOS Cmd+C (meta)
     if (keyDown(ev, 'C', gui::KeyModifiers::control) || keyDown(ev, 'C', gui::KeyModifiers::meta)) {
         if (const auto line = selectedLine()) {
-            const gui::TextEditCallbacks cb = m_host->editCallbacks({});
-            if (cb.write_clipboard) {
-                (void)cb.write_clipboard(*line);
-            }
+            writeClipboard(*line);
         }
         return {true, true};
     }
@@ -175,6 +223,10 @@ gui::EventReply ConsolePanel::listEvent(const gui::RoutedEvent& ev) {
         return {true, true};
     }
     return {};
+}
+
+std::string ConsolePanel::levelLabel() const {
+    return m_level == 0 ? "수준: 전부" : m_level == 1 ? "수준: 경고 이상" : "수준: 오류만";
 }
 
 Expected<void> ConsolePanel::layout(uihost::UiHost& host, const gui::ComponentSnapshot&,
@@ -193,16 +245,25 @@ Expected<void> ConsolePanel::layout(uihost::UiHost& host, const gui::ComponentSn
     bar.style.kind = gui::LayoutKind::row;
     bar.style.gap = 6;
     out.push_back(bar);
+    // 단추 너비 (수준 · 지우기 · 복사 · 따라가기) — 거르기 칸이 나머지 (좁으면 80 까지)
+    constexpr std::array<double, 4> widths{116, 64, 56, 104};
+    double buttons = 0;
+    for (const double w : widths) {
+        buttons += w + 6;
+    }
     gui::LayoutNode filter;
     filter.component = m_filter.handle();
-    filter.style.preferred_width = fit(inner - 130);
+    filter.style.preferred_width = std::max(80.0, inner - buttons);
     filter.style.preferred_height = 28;
     out.push_back(filter);
-    gui::LayoutNode follow;
-    follow.component = m_followNode;
-    follow.style.preferred_width = 124;
-    follow.style.preferred_height = 28;
-    out.push_back(follow);
+    const std::array<gui::ComponentHandle, 4> nodes{m_levelNode, m_clearNode, m_copyNode, m_followNode};
+    for (usize i = 0; i < nodes.size(); ++i) {
+        gui::LayoutNode b;
+        b.component = nodes[i];
+        b.style.preferred_width = widths[i];
+        b.style.preferred_height = 28;
+        out.push_back(b);
+    }
     gui::LayoutNode list;
     list.component = m_listNode;
     list.style.preferred_width = inner;
@@ -220,12 +281,16 @@ Expected<void> ConsolePanel::paint(uihost::UiHost& host, const gui::LayoutFrame&
         const double h = box.bounds.height;
         if (box.component == m_filter.handle()) {
             m_filter.paint(host, box, focus && *focus == box.component, c, out);
+        } else if (box.component == m_levelNode) {
+            out.add(box.component, kit::button(host, box, kit::visualOf(*m_levelButton, host), levelLabel(), 13.0,
+                                               m_level != 0, c));
+        } else if (box.component == m_clearNode) {
+            out.add(box.component, kit::button(host, box, kit::visualOf(*m_clearButton, host), "지우기", 13.0, false, c));
+        } else if (box.component == m_copyNode) {
+            out.add(box.component, kit::button(host, box, kit::visualOf(*m_copyButton, host), "복사", 13.0, false, c));
         } else if (box.component == m_followNode) {
-            gui::ControlVisualState vs;
-            if (auto v = m_followButton->visualState(host.pointerHit())) {
-                vs = *v;
-            }
-            out.add(box.component, kit::button(host, box, vs, m_follow ? "따라가기 켬" : "따라가기 끔", 13.0, m_follow, c));
+            out.add(box.component, kit::button(host, box, kit::visualOf(*m_followButton, host),
+                                               m_follow ? "따라가기 켬" : "따라가기 끔", 13.0, m_follow, c));
         } else if (box.component == m_listNode) {
             m_listBounds = box.bounds;
             constexpr double rowH = 20.0;
@@ -236,23 +301,25 @@ Expected<void> ConsolePanel::paint(uihost::UiHost& host, const gui::LayoutFrame&
             const gui::ListRange range = m_list.visibleRange();
             for (usize i = range.first; i < range.past; ++i) {
                 const auto row = m_list.visibleRow(i);
-                if (!row || row->key < m_first || row->key - m_first >= m_lines.size()) {
+                const auto line = row ? lineOf(row->key) : std::nullopt;
+                if (!line) {
                     continue;
                 }
-                const std::string& line = m_lines[static_cast<usize>(row->key - m_first)];
                 if (row->selected) {
                     d.push_back(gui::FillRect{row->bounds, listFocused ? rc(c.header) : rc(c.elevated)});
                 }
-                // 수준 색 — ImGui 콘솔과 같은 규칙 (줄의 "[warn]" · "[error]")
-                const gui::RenderColor color = line.find("[error]") != std::string::npos ? rc(c.error)
-                                               : line.find("[warn]") != std::string::npos ? rc(c.warning)
-                                                                                          : rc(c.text);
+                const int level = lineLevel(*line);
+                const gui::RenderColor color = level == 2 ? rc(c.error) : level == 1 ? rc(c.warning) : rc(c.text);
                 d.push_back(gui::DrawText{{row->bounds.x + 6, row->bounds.y + 2, fit(row->bounds.width - 12), 16}, kFont,
-                                          12.5, line, color});
+                                          12.5, *line, color});
             }
             if (m_list.itemCount() == 0) {
+                // ImGui 콘솔과 같은 빈 줄 안내
                 d.push_back(gui::DrawText{{8, 8, fit(w - 16), 18}, kFont, 13.0,
-                                          m_lines.empty() ? "로그가 없다" : "거르기에 맞는 줄이 없다", rc(c.muted)});
+                                          m_lines.empty() || m_clearedAt >= m_total
+                                              ? "줄이 없다 — 빌드 · 테스트 · 저장 · 리플레이 결과가 여기 온다"
+                                              : "거르기에 맞는 줄이 없다",
+                                          rc(c.muted)});
             }
             out.add(box.component, std::move(d), true);
         } else if (box.component == m_root) {
@@ -314,7 +381,7 @@ void ShortcutPanel::refilter() {
 void ShortcutPanel::runSelected() {
     const auto key = m_list.selection();
     if (key && *key < m_rows.size()) {
-        m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::RunCommand, m_rows[static_cast<usize>(*key)]->id};
+        m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::RunCommand, m_rows[static_cast<usize>(*key)]->id, 0};
     }
 }
 
@@ -447,14 +514,14 @@ Expected<void> InfoPanel::mount(uihost::UiHost& host) {
     (void)host.input().setHandler(m_homeNode, [this](const gui::RoutedEvent& ev) -> gui::EventReply {
         const auto r = m_home->handle(ev);
         if (r && r->activated) {
-            m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::Home, {}};
+            m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::Home, {}, 0};
         }
         return r ? r->reply : gui::EventReply{};
     });
     (void)host.input().setHandler(m_resetNode, [this](const gui::RoutedEvent& ev) -> gui::EventReply {
         const auto r = m_reset->handle(ev);
         if (r && r->activated) {
-            m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::ResetLayout, {}};
+            m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::ResetLayout, {}, 0};
         }
         return r ? r->reply : gui::EventReply{};
     });
@@ -511,6 +578,221 @@ Expected<void> InfoPanel::paint(uihost::UiHost& host, const gui::LayoutFrame& fr
                 vs = *v;
             }
             out.add(box.component, kit::button(host, box, vs, home ? "홈으로" : "배치 초기화", 14.0, home, c));
+        }
+    }
+    return {};
+}
+
+// ---- BuildPanel ----
+
+std::vector<BuildPanel::Line> BuildPanel::reportLines(const services::BuildReport& r) {
+    std::vector<Line> out;
+    const char* what = r.checkOnly ? "검사" : "빌드";
+    if (r.ok) {
+        out.push_back({std::format("{} 통과 — 오류 0 · 경고 {} ({:.2f} 초)", what, r.warnings.size(), r.seconds), Tone::Ok});
+    } else {
+        out.push_back({std::format("{} 실패 — 오류 {} · 경고 {}", what, r.errors.size(), r.warnings.size()), Tone::Error});
+    }
+    if (!r.checkOnly && r.ok) {
+        const std::u8string f = r.file.generic_u8string();
+        out.push_back({"패키지 " + std::string(f.begin(), f.end()), Tone::Text});
+        out.push_back({std::format("{} {} · 파일 {} · {} 바이트 · digest {}…", r.gameId, r.version, r.files, r.bytes,
+                                   std::string_view(r.digest).substr(0, 16)),
+                       Tone::Muted});
+    }
+    for (const std::string& g : r.groups) {
+        out.push_back({"에셋 그룹 " + g, Tone::Text});
+    }
+    for (const std::string& e : r.errors) {
+        out.push_back({e, Tone::Error});
+    }
+    for (const std::string& w : r.warnings) {
+        out.push_back({w, Tone::Warning});
+    }
+    return out;
+}
+
+void BuildPanel::setModel(BuildPanelModel model) {
+    if (model == m_model) {
+        return;
+    }
+    const bool reportChanged = model.last != m_model.last;
+    m_model = std::move(model);
+    m_model.profileIndex = std::clamp(m_model.profileIndex, 0, static_cast<int>(m_model.profiles.size()));
+    if (reportChanged) {
+        m_lines = m_model.last ? reportLines(*m_model.last) : std::vector<Line>{};
+        std::vector<gui::ListItemKey> keys;
+        for (usize i = 0; i < m_lines.size(); ++i) {
+            keys.push_back(i);
+        }
+        (void)m_list.setItems(keys);
+        (void)m_list.scrollTo(0);
+    }
+    applyEnabled();
+}
+
+void BuildPanel::applyEnabled() {
+    // 검사 · 빌드 — 프로젝트가 있고 돌고 있지 않을 때 (ImGui 창의 BeginDisabled(running) · 명령의 when 과 같다)
+    const bool can = m_model.available && !m_model.running;
+    if (m_check) {
+        (void)m_check->setEnabled(can);
+        (void)m_build->setEnabled(can);
+        (void)m_prev->setEnabled(can && !m_model.profiles.empty());
+        (void)m_next->setEnabled(can && !m_model.profiles.empty());
+    }
+}
+
+std::string BuildPanel::profileLabel() const {
+    if (m_model.profileIndex <= 0 || static_cast<usize>(m_model.profileIndex) > m_model.profiles.size()) {
+        return "(프로필 없이)";
+    }
+    return m_model.profiles[static_cast<usize>(m_model.profileIndex) - 1];
+}
+
+void BuildPanel::stepProfile(int step) {
+    const int n = static_cast<int>(m_model.profiles.size()) + 1; // 0 = 프로필 없이
+    m_model.profileIndex = ((m_model.profileIndex + step) % n + n) % n;
+    m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::SelectProfile, {}, m_model.profileIndex};
+}
+
+Expected<void> BuildPanel::mount(uihost::UiHost& host) {
+    m_host = &host;
+    // 뿌리 · 제목 · 막대 (‹ 프로필 › · 검사 · 빌드 · 상태) · 보고 목록
+    const std::array<gui::ComponentSpec, 10> specs{{{std::nullopt, 1, 0, true},
+                                                    {0, 2, 1, true},
+                                                    {0, 3, 2, true},
+                                                    {2, 4, 1, true},
+                                                    {2, 2, 2, true},
+                                                    {2, 4, 3, true},
+                                                    {2, 4, 4, true},
+                                                    {2, 4, 5, true},
+                                                    {2, 2, 6, true},
+                                                    {0, 5, 3, true}}};
+    auto h = commitTree(host, specs);
+    if (!h) {
+        return std::unexpected(h.error());
+    }
+    m_root = (*h)[0];
+    m_title = (*h)[1];
+    m_bar = (*h)[2];
+    m_prevNode = (*h)[3];
+    m_profileNode = (*h)[4];
+    m_nextNode = (*h)[5];
+    m_checkNode = (*h)[6];
+    m_buildNode = (*h)[7];
+    m_status = (*h)[8];
+    m_listNode = (*h)[9];
+    m_prev = kit::bindButton(host, m_prevNode, [this] { stepProfile(-1); });
+    m_next = kit::bindButton(host, m_nextNode, [this] { stepProfile(+1); });
+    // 일은 ImGui 창과 같은 명령 — 검사는 곧바로, 빌드는 일꾼 스레드 (BuildService) 에서
+    m_check = kit::bindButton(host, m_checkNode, [this] {
+        m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::RunCommand, "studio.check", 0};
+    });
+    m_build = kit::bindButton(host, m_buildNode, [this] {
+        m_ctx.intent = WorkspaceIntent{WorkspaceIntent::Kind::RunCommand, "studio.build", 0};
+    });
+    applyEnabled();
+    (void)host.setWheelHandler(m_listNode, [this](f32, f32 dy) {
+        (void)m_list.scrollBy(-static_cast<double>(dy) * 20.0 * 3.0);
+        return true;
+    });
+    return {};
+}
+
+Expected<void> BuildPanel::layout(uihost::UiHost& host, const gui::ComponentSnapshot&, std::vector<gui::LayoutNode>& out) {
+    const gui::LayoutSize vp = host.viewport();
+    const double inner = fit(vp.width - 16);
+    gui::LayoutNode root;
+    root.component = m_root;
+    root.style.kind = gui::LayoutKind::column;
+    root.style.padding = {8, 8, 8, 8};
+    root.style.gap = 6;
+    out.push_back(root);
+    gui::LayoutNode title;
+    title.component = m_title;
+    title.style.preferred_width = inner;
+    title.style.preferred_height = 18;
+    out.push_back(title);
+    gui::LayoutNode bar;
+    bar.component = m_bar;
+    bar.style.kind = gui::LayoutKind::row;
+    bar.style.gap = 6;
+    out.push_back(bar);
+    const std::array<std::pair<gui::ComponentHandle, double>, 6> parts{
+        {{m_prevNode, 28}, {m_profileNode, 150}, {m_nextNode, 28}, {m_checkNode, 64}, {m_buildNode, 64}, {m_status, 120}}};
+    for (const auto& [node, w] : parts) {
+        gui::LayoutNode n;
+        n.component = node;
+        n.style.preferred_width = w;
+        n.style.preferred_height = 28;
+        out.push_back(n);
+    }
+    gui::LayoutNode list;
+    list.component = m_listNode;
+    list.style.preferred_width = inner;
+    list.style.preferred_height = fit(vp.height - 16 - 18 - 28 - 12);
+    out.push_back(list);
+    return {};
+}
+
+Expected<void> BuildPanel::paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) {
+    const services::StudioColors& c = services::studioColors(m_ctx.theme);
+    const bool can = m_model.available && !m_model.running;
+    for (const gui::LayoutBox& box : frame.boxes()) {
+        const double w = box.bounds.width;
+        const double h = box.bounds.height;
+        if (box.component == m_root) {
+            out.add(box.component, {gui::FillRect{{0, 0, w, h}, rc(c.surface)}});
+        } else if (box.component == m_title) {
+            out.add(box.component,
+                    {gui::DrawText{{0, 0, w, h}, kFont, 13.0,
+                                   m_model.available ? "프로젝트 " + m_model.project
+                                                     : std::string("프로젝트가 열려 있지 않다 — 프로젝트를 열면 검사 · 빌드"),
+                                   m_model.available ? rc(c.text) : rc(c.muted)}},
+                    true);
+        } else if (box.component == m_profileNode) {
+            out.add(box.component,
+                    {gui::FillRect{{0, 0, w, h}, rc(c.elevated)},
+                     gui::DrawText{{6, fit((h - 16) / 2), fit(w - 12), 16}, kFont, 13.0, profileLabel(), rc(c.text)}},
+                    true);
+        } else if (box.component == m_status) {
+            out.add(box.component, {gui::DrawText{{0, fit((h - 16) / 2), w, 16}, kFont, 13.0,
+                                                  m_model.running ? "빌드 중…" : "", rc(c.muted)}});
+        } else if (box.component == m_prevNode || box.component == m_nextNode || box.component == m_checkNode ||
+                   box.component == m_buildNode) {
+            const bool prev = box.component == m_prevNode;
+            const bool next = box.component == m_nextNode;
+            const bool build = box.component == m_buildNode;
+            const std::string label = prev ? "‹" : next ? "›" : build ? "빌드" : "검사";
+            const gui::Button& b = prev ? *m_prev : next ? *m_next : build ? *m_build : *m_check;
+            const bool enabled = can && (!(prev || next) || !m_model.profiles.empty());
+            out.add(box.component, enabled ? kit::button(host, box, kit::visualOf(b, host), label, 13.0, build, c)
+                                           : kit::disabledButton(host, box, label, 13.0, c));
+        } else if (box.component == m_listNode) {
+            constexpr double rowH = 20.0;
+            (void)m_list.resize({w, h}, rowH);
+            std::vector<gui::DrawCommand> d;
+            d.push_back(gui::FillRect{{0, 0, w, h}, rc(c.background)});
+            const gui::ListRange range = m_list.visibleRange();
+            for (usize i = range.first; i < range.past; ++i) {
+                const auto row = m_list.visibleRow(i);
+                if (!row || row->key >= m_lines.size()) {
+                    continue;
+                }
+                const Line& line = m_lines[static_cast<usize>(row->key)];
+                const gui::RenderColor color = line.tone == Tone::Ok        ? rc(c.success)
+                                               : line.tone == Tone::Error   ? rc(c.error)
+                                               : line.tone == Tone::Warning ? rc(c.warning)
+                                               : line.tone == Tone::Muted   ? rc(c.muted)
+                                                                            : rc(c.text);
+                d.push_back(gui::DrawText{{row->bounds.x + 6, row->bounds.y + 2, fit(row->bounds.width - 12), 16}, kFont,
+                                          12.5, line.text, color});
+            }
+            if (m_lines.empty()) {
+                d.push_back(gui::DrawText{{8, 8, fit(w - 16), 18}, kFont, 13.0, "보고가 없다 — 검사 · 빌드 결과가 여기 온다",
+                                          rc(c.muted)});
+            }
+            out.add(box.component, std::move(d), true);
         }
     }
     return {};

@@ -7,8 +7,8 @@
 
 | 항목 | 상태 |
 |---|---|
-| 단계 | UI-R0 ✅ (창 FPS 기준선만 실기 대기) · UI-R1 🟡 9 / 12 (남음: 창 실행 실기 · 렌더러 공유 · 장치 손실) · UI-R2 🟡 6 / 10 (R2-01 화면 자리 · R2-02 GXML AOT · R2-03 테마 토큰 · R2-05 Dock 작업 공간 · R2-07 배치 저장 · R2-09 홈 ✅, R2-08 단축키 패널 일부) · UI-R3 ~ R10 ⬜ (R7 · R10 🔴) |
-| 작업 진행 | 81 중 26 Done (32 %) — **작업 수 비율이지 기능 완료가 아니다** |
+| 단계 | UI-R0 ✅ (창 FPS 기준선만 실기 대기) · UI-R1 🟡 9 / 12 (남음: 창 실행 실기 · 렌더러 공유 · 장치 손실) · UI-R2 🟡 6 / 10 (R2-01 화면 자리 · R2-02 GXML AOT · R2-03 테마 토큰 · R2-05 Dock 작업 공간 · R2-07 배치 저장 · R2-09 홈 ✅, R2-08 단축키 패널 일부) · UI-R3 🟡 1 / 12 (R3-06 콘솔 ✅, R3-07 빌드 일부) · UI-R4 ~ R10 ⬜ (R7 · R10 🔴) |
+| 작업 진행 | 81 중 27 Done (33 %) — **작업 수 비율이지 기능 완료가 아니다** |
 | 화면 이전 | Studio 화면 26 중 1 (홈 — ImGui 홈의 행동 전부) + 새 GXML 화면 1 (Studio 설정 — 테마 · 간격 · 개발자 창) + Dock 작업 공간 미리보기 1 (정보 · 단축키 · 콘솔 패널 — 분할 · 탭 · 끌기). 기본 UI 는 여전히 ImGui (`--ui graphicsui` 로 고른다) |
 | GraphicsUI 고정 | Core 만 `fa1e371` (main 최신, 2026-11-26) |
 | GPU 렌더 | 과도기 — DisplayList → ImDrawList → 기존 ImGui 렌더러 (GraphicsSDK 세 백엔드). GraphicsUI 렌더러는 GUI-UP-01 대기 |
@@ -21,7 +21,8 @@ UI-R0-01 ~ 08 · 10 ~ 12 (분석 · 대응표 · upstream 요구 · 기준선 ·
 08 (글자 입력 · IME 자리 · 휠 · 클립보드) · 09 (UI 배율 · DPI — ImGui 와 같은 크기), UI-R2-09 (홈 — 검색 · 가상 목록 · 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 ·
 간격), UI-R2-01 · 02 · 03 (editor/gui · GXML AOT · 토큰 표 — ADR-0175 · 0176), UI-R2-05 (Dock 작업 공간 — ADR-0177: DockLayout + 패널마다
 UiHost, 탭 · 분할선 · 끌기 · Esc 취소 · Ctrl+PageUp/Down · 저장 바이트, 첫 패널 정보 · 단축키 (R2-08 일부) · 콘솔 (R3-06 일부)),
-UI-R2-07 (배치 저장 — ADR-0178: 레이아웃 이름별 .guidock, ini 는 변환 없이 프리셋, 놓은 뒤 저장 · 다음 실행 복원).
+UI-R2-07 (배치 저장 — ADR-0178: 레이아웃 이름별 .guidock, ini 는 변환 없이 프리셋, 놓은 뒤 저장 · 다음 실행 복원),
+UI-R3-06 (콘솔 — 수준 거르기 · 지우기 · 복사까지 ImGui 콘솔과 같은 기능).
 
 ## 3. 막힌 것
 
@@ -35,8 +36,8 @@ UI-R2-07 (배치 저장 — ADR-0178: 레이아웃 이름별 .guidock, ini 는 �
 
 ## 4. 다음 작업 (순서)
 
-1. **UI-R3** 즉시 · 어댑터 패널을 작업 공간에 — 콘솔 마무리 (수준 거르기 · 지우기 — R3-06) · 빌드 (R3-07) · 테스트 (R3-08) · 통계 (R3-09) ·
-   Hierarchy (R3-02). 떠 있는 명령 팔레트 (R2-08) 는 오버레이 (GUI-UP-03) 뒤.
+1. **UI-R3** 남은 즉시 · 어댑터 패널 — 테스트 (R3-08) · 통계 (R3-09) · Hierarchy (R3-02) 를 값 모델로 (프로젝트 안 표시는 R4-01 뒤 —
+   R3-07 빌드와 같다). 떠 있는 명령 팔레트 (R2-08) 는 오버레이 (GUI-UP-03) 뒤.
 2. Linux · macOS CI 확인 — 사용자 요청으로 리팩터링을 마친 뒤 (PR 을 열어 CI).
 3. 사람 QA — Q-00 (ImGui 기준선) · Q-01 (GraphicsUI 홈 — Windows 창) · Q-02 (Dock 작업 공간 — 끌기 · 분할선 · 탭).
 4. upstream — GUI-UP-01 · 03 · 04 를 GraphicsUI 작업으로 넘긴다 (이 저장소에서 GraphicsUI 를 고치지 않는다).
@@ -54,6 +55,7 @@ UI-R2-07 (배치 저장 — ADR-0178: 레이아웃 이름별 .guidock, ini 는 �
 | UI-R1-08 · R2-09 (2026-11-26 2 차) | /WX 빌드 · 전체 CTest 99 / 99, 새 시험 uihost 4 · client gui 5 + app 1 (실제 만들기 · 예제 복사 · 빼기 · IME 켜고 끄기) | 같은 명령 |
 | UI-R2-05 (2026-11-27) | /WX 빌드 · 전체 CTest (project_doctor 제외) — 전체 CTest 100 / 100, 새 시험 `unit_client` dock 3 + app 1 (266 단언), check_includes 813 파일 0 위반 | 같은 명령 |
 | UI-R2-07 (2026-11-27) | /WX 빌드 · 전체 CTest 100 / 100 (project_doctor 제외), 새 시험 `unit_editor` .guidock 1 · `unit_client` 프리셋 1 + app 1 | 같은 명령 |
+| UI-R3-06 · 07 (2026-11-27) | /WX 빌드 · 전체 CTest 100 / 100 (project_doctor 제외), `unit_client` dock 7 케이스 (489 단언 — 콘솔 수준 · 지우기 · 복사, 빌드 패널 새 1) | 같은 명령 |
 | 실제 실행 (헤드리스) | `SandboxClient --headless --ui graphicsui` — 컴포넌트 13 · 그리기 명령 32 · 정상 상태 배치 0.008 ms (Release) | [PERFORMANCE_BASELINE](PERFORMANCE_BASELINE.md) 3장 |
 | 잘못된 값 | `--ui qt` → 종료 코드 2 · 오류 줄 | 직접 실행 |
 

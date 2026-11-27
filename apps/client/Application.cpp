@@ -2452,6 +2452,18 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     ws.setTheme(m_shell.theme);
     ws.setCompact(m_shell.density == editor::theme::Density::Compact);
     ws.setScale(scale);
+    {
+        // 빌드 창 — ImGui "빌드" 창과 같은 원천 (BuildService · export 프로필 · 마지막 보고 m_buildPanel)
+        editor::gui::BuildPanelModel bm;
+        bm.available = m_state == AppState::InWorld && m_config.builds != nullptr && !m_projectDir.empty();
+        const std::u8string dir = m_projectDir.generic_u8string();
+        bm.project = std::string(dir.begin(), dir.end());
+        bm.profiles = m_profiles;
+        bm.profileIndex = m_buildPanel.profileIndex;
+        bm.running = m_config.builds != nullptr && m_config.builds->running();
+        bm.last = m_buildPanel.last;
+        ws.build().setModel(std::move(bm));
+    }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
     auto draw = ws.dock().frame({static_cast<double>(size.x), static_cast<double>(size.y)});
@@ -2490,6 +2502,9 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         log::info("studio", "작업 공간 — 기본 배치로 (프리셋 {})", preset);
         return std::nullopt;
     }
+    case K::SelectProfile:
+        m_buildPanel.profileIndex = intent->value; // 다음 studio.build 가 이 프로필로 (ImGui 창과 같은 상태)
+        return std::nullopt;
     case K::RunCommand: {
         // 팔레트 · 단축키와 같은 명령 표 — 다음 셸 단계가 고른 셸 일을 적용한다
         const editor::services::RunResult r = m_commands.run(intent->command);

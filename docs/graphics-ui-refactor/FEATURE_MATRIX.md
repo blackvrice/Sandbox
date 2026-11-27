@@ -37,8 +37,8 @@
 | 16 | 프로젝트 창 (`ProjectExplorerPanel`) | TreeView | GUI 개선 (맥락 메뉴 GUI-UP-03 · 끌어다 놓기 GUI-UP-05) | UI-R3-01 |
 | 17 | 에셋 창 (`AssetBrowserPanel` — 썸네일) | 이미지 그리기 명령 없음 (DisplayList = 사각형 · 글자 · 그라데이션 · 그림자) | GUI 개선 (GUI-UP-02 이미지 · 외부 텍스처) | UI-R3-04 |
 | 18 | UI 디자이너 (`UiDesignerPanel`) | GXML Designer 는 VS Code 확장 (Core 아님) | 보류 (UI-R6-01 의 형식 결정 먼저) | UI-R6 |
-| 19 | 콘솔 (`ConsolePanel`) | ListView (가상) · TextInput (거르기) | 즉시 — **일부 (작업 공간의 콘솔 패널 — 거르기 · 따라가기 · 복사, 남음 수준 거르기 · 지우기)** | UI-R3-06 |
-| 20 | 빌드 (`BuildPanel`) | ComboBox · Button · ListView | 즉시 | UI-R3-07 |
+| 19 | 콘솔 (`ConsolePanel`) | ListView (가상) · TextInput (거르기) | 즉시 — **완료 (작업 공간의 콘솔 패널 — 글자 · 수준 거르기 · 지우기 · 복사 · 따라가기, 프로젝트 안 표시는 R4-01 뒤)** | UI-R3-06 |
+| 20 | 빌드 (`BuildPanel`) | ComboBox · Button · ListView | 즉시 — **일부 (패널 · 같은 명령 · 보고 완료, 프로젝트 안 표시는 R4-01 뒤)** | UI-R3-07 |
 | 21 | 테스트 (`TestPanel`) | Slider · Toggle · Button | 즉시 | UI-R3-08 |
 | 22 | 월드 창 (`apps/client/ui/WorldPanel`) | TextInput · ListView · Button | 어댑터 (글자 입력) | UI-R3 |
 | 23 | 게임 창 (`GamePanel`) | Button · 글자 | 즉시 | UI-R3 |

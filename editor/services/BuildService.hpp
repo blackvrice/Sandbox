@@ -45,6 +45,7 @@ struct BuildReport {
     std::vector<std::string> warnings; // 검사 경고 · 프로필 미검증 · 부르지 않는 에셋
     std::vector<std::string> groups;   // "이름 — N 개 · B 바이트"
     f64 seconds = 0;
+    bool operator==(const BuildReport&) const = default; // 화면이 바뀐 보고만 다시 그린다
 };
 
 class BuildService {

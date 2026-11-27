@@ -13,7 +13,7 @@
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 6 | 1 | 2 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-08 일부 |
-| UI-R3 편집 패널 | 12 | 0 | 1 | 4 | R3-06 콘솔 일부 |
+| UI-R3 편집 패널 | 12 | 1 | 1 | 4 | R3-06 콘솔 ✅, R3-07 빌드 일부 |
 | UI-R4 Viewport | 6 | 0 | 0 | 2 | |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **26 (32 %)** | 4 | 21 | |
+| **합계** | **81** | **27 (33 %)** | 4 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -70,8 +70,8 @@
 | UI-R3-03 | Inspector · Component 편집 (DataForm → 속성 편집 컨트롤) | Planned | R1-08 | editor/ | DataForm · UndoService 재사용 |
 | UI-R3-04 | Asset Browser (썸네일) | Blocked | R1-10 | editor/ · render | 텍스처 핸들 → UI 이미지 |
 | UI-R3-05 | Prefab Browser | Planned | R3-02 | editor/ | |
-| UI-R3-06 | Console (가상 ListView · 거르기) | Partial | R2-05 | editor/gui | `ConsolePanel` — log::recentLines (순번 키 · 바뀔 때만 다시 읽기) · 가상 목록 · 거르기 (대소문자 무시 — ImGui 는 그대로) · 따라가기 (휠로 밀면 끔 · End 로 켬) · ↑↓ Home End · 고른 줄 복사 (Ctrl · Cmd+C) · 수준 색. `unit_client` "console panel". 남음: 수준 거르기 (전부 · 경고 · 오류) · 지우기 |
-| UI-R3-07 | Build 패널 | Planned | R2-05 | editor/ | BuildService 재사용 |
+| UI-R3-06 | Console (가상 ListView · 거르기) | Done | R2-05 | editor/gui | `ConsolePanel` — log::recentLines (순번 키 · 바뀔 때만 다시 읽기) · 가상 목록 · 글자 거르기 (대소문자 무시 — ImGui 는 그대로) · 수준 (전부 · 경고 이상 · 오류만 — ImGui 와 같은 머리 규칙) · 지우기 (그 뒤 줄만) · 복사 (거른 줄 전부) · 따라가기 (휠로 밀면 끔 · End 로 켬) · ↑↓ Home End · 고른 줄 복사 (Ctrl · Cmd+C) · 수준 색. `unit_client` "console panel". 프로젝트 안에서는 아직 ImGui 콘솔 (작업 공간은 홈에서 연다 — 프로젝트 안 GraphicsUI 는 R4-01 뒤) |
+| UI-R3-07 | Build 패널 | Partial | R2-05 | editor/gui · apps/client | `BuildPanel` — 프로필 ‹ › (SelectProfile → ImGui 창과 같은 profileIndex) · 검사 · 빌드 (명령 studio.check · studio.build) · 빌드 중 · 마지막 보고 줄 (BuildReport 그대로 — 요약 · 패키지 · digest · 에셋 그룹 · 오류 · 경고, 가상 목록), 프로젝트가 없으면 단추를 끈다. 값 모델 `BuildPanelModel` 을 Application 이 frame 마다 (바뀐 보고만 다시). 작업 공간의 콘솔 옆 탭 (패널 id 4). `unit_client` "build panel". 남음: 프로젝트 안에서 작업 공간을 여는 것 (R4-01 — Viewport 합성) |
 | UI-R3-08 | Test 패널 | Planned | R2-05 | editor/ | TestService 재사용 |
 | UI-R3-09 | 통계 · 네트워크 · 프로파일러 | Planned | R2-05 | apps/client | DebugPanels 의 데이터 |
 | UI-R3-10 | 끌어다 놓기 (패널 사이 · 바깥 파일) | Blocked | GUI-UP-05 | uihost | |

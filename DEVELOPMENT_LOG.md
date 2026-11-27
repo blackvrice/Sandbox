@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R3-06 · 07: 작업 공간 콘솔 마무리 (수준 · 지우기 · 복사), 빌드 패널 (값 모델)
+
+**무엇을**
+
+- `ConsolePanel` (R3-06 ✅) — 수준 단추 (전부 → 경고 이상 → 오류만, ImGui 콘솔의 consoleLineLevel 과 같은 머리 규칙 — `lineLevel`), 지우기
+  (그때의 recentTotal 앞 줄을 숨긴다 — 로그는 그대로), 복사 (거른 줄 전부), 빈 목록 안내를 ImGui 와 같게. 단추는 `kit::bindButton`.
+- `BuildPanel` (R3-07 일부) — 프로필 ‹ › (WorkspaceIntent::SelectProfile → Application 의 m_buildPanel.profileIndex — ImGui "빌드" 창과
+  같은 상태) · 검사 · 빌드 (명령 studio.check · studio.build) · 빌드 중 · 마지막 보고 줄 (`reportLines` — ImGui 창과 같은 내용 · 차례, 가상
+  목록). 프로젝트가 없거나 빌드 중이면 단추를 끈다. 값 모델 `BuildPanelModel` (비교 가능 — `BuildReport::operator==` 추가) 을 Application 이
+  frame 마다 setModel, 바뀐 보고만 줄을 다시 만든다.
+- `StudioWorkspace` — 빌드 패널 (id 4, "빌드") 을 어느 프리셋이든 콘솔 옆 탭으로. 패널 목록이 바뀌어 옛 .guidock 은 복원이 거절 →
+  .broken + 프리셋 (ADR-0178 의 규칙대로).
+- `PanelKit` — `bindButton` · `visualOf` · `disabledButton`. `WorkspaceIntent::value`.
+- 문서: TASK_REGISTRY (R3-06 Done · R3-07 Partial), CURRENT_STATUS, UI-R3 (프로젝트 안의 패널 — R4-01 뒤), FEATURE_MATRIX, MIGRATION_GUIDE
+  (값 모델 패널), 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R3 의 즉시 · 어댑터 패널. 빌드는 프로젝트가 있어야 쓰는데 GraphicsUI 작업 공간은 아직 홈에서만
+연다 (프로젝트 안은 Viewport 합성 R4-01 뒤) — 그래서 패널 · 명령 · 보고를 값 모델로 먼저 옮기고 시험한다 (Partial).
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 7 케이스 (489 단언): 콘솔 수준 셋 · 복사 줄 수 · 지우기 뒤 새 줄 / 빌드 패널 — 프로젝트 없음이면
+  꺼짐 · 보고 4 줄 (요약 · 그룹 · 오류 · 경고 색) · 검사 · 빌드 의도 · 프로필 ‹ › 감기 · 빌드 중 꺼짐 · 통과 보고 (패키지 · digest 16 자) /
+  기존 시험은 패널이 늘어난 배치로 (그룹 수 대신 같은 그룹인가로).
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 100 / 100 (project_doctor 제외), check_includes 813 파일 0 위반.
+
+**남은 일** — 프로젝트 안에서 작업 공간 (R4-01), 테스트 (R3-08) · 통계 (R3-09) · Hierarchy (R3-02) 패널.
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R2-07: 작업 공간 배치 저장 · 복원 (ADR-0178) — 레이아웃 이름별 .guidock, ini 는 변환 없이 프리셋
 
 **무엇을**

@@ -41,6 +41,10 @@ GXML 화면의 한계 (GUI-UP-14): Tab 포커스 이동 · 클립보드 · 휠 �
 3. 고른 일은 PanelContext::intent (WorkspaceIntent) 에 — Application::guiWorkspaceFrame 이 기존 처리로. 테마 · 간격 · 배율은 PanelContext 에서 읽는다
 4. 작업 공간에 꽂기: StudioWorkspace::create 의 DockPaneSpec (안정 id · 제목 · 화면) 하나 + 기본 배치 (layout().dock(…)). id 는 저장 바이트에
    들어간다 — 바꾸지 않는다 (복원은 같은 패널 목록만 받는다)
+   단추는 kit::bindButton (눌리면 함수 하나), 그리기 kit::button · kit::visualOf · kit::disabledButton
+4b. 앱 데이터가 필요한 패널 (빌드 · 테스트 …) 은 **값 모델** — `BuildPanelModel` 처럼 비교 가능한 구조체를 Application 이 frame 마다
+   setModel 로 넘기고, 패널은 바뀌었을 때만 줄을 다시 만든다. 패널은 Application · ImGui 상태를 가리키지 않는다 (editor/ui 를 모른다)
+   — 고른 값 (프로필 차례 등) 은 의도 (WorkspaceIntent::value) 로 돌려준다. 패널을 더하면 옛 .guidock 은 프리셋으로 돌아간다 (ADR-0178)
 5. 시험: StudioWorkspace 를 헤드리스로 만들고 창 좌표 이벤트를 dock().feed — 패널 컴포넌트의 창 좌표 = 그룹 content 원점 + 패널 배치 상자
    (tests/unit/client/test_gui_dock_workspace.cpp 의 paneCenter)
 ```

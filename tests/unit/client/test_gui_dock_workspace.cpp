@@ -3,7 +3,9 @@
 // 창 · GPU 없이 (HeadlessWindow + ImGuiLayer — 렌더러 없음).
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -36,6 +38,9 @@ namespace {
 constexpr gui::DockPaneId kInfo = StudioWorkspace::kInfo;
 constexpr gui::DockPaneId kShortcuts = StudioWorkspace::kShortcuts;
 constexpr gui::DockPaneId kConsole = StudioWorkspace::kConsole;
+constexpr gui::DockPaneId kBuild = StudioWorkspace::kBuild;
+
+bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
 editor::services::CommandSpec command(std::string id, std::string title, std::string shortcut, int& counter) {
     editor::services::CommandSpec c;
@@ -67,6 +72,10 @@ gui::DockTabBox tabOf(const DockWorkspace& d, gui::DockPaneId id) {
     }
     FAIL("탭이 없다");
     return {};
+}
+
+bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b) {
+    return tabOf(d, a).group_active == tabOf(d, b).group_active;
 }
 
 Vec2 center(const gui::LayoutRect& r, f32 s = 1.f) {
@@ -163,6 +172,8 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.focusedPane() == kInfo);
         CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kInfo).bounds.x);
+        CHECK(sameGroup(d, kBuild, kConsole)); // 빌드 = 콘솔의 탭 (앞은 콘솔)
+        CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
             const editor::gui::WorkspaceDraw& draw = f.frame();
             CHECK(draw.panes.size() == 3); // 그룹마다 활성 패널 하나
@@ -182,8 +193,9 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(!f.frame().overlay.empty()); // 놓을 자리 미리보기
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
-        CHECK(d.lastFrame()->groups.size() == 2);
-        CHECK(d.lastFrame()->tabs.size() == 3);
+        CHECK(d.lastFrame()->groups.size() == 3); // 정보 + 콘솔 · 단축키 · 빌드 (콘솔이 떠난 그룹)
+        CHECK(d.lastFrame()->tabs.size() == 4);
+        CHECK(groupOf(d, kBuild).active == kBuild);
         CHECK(d.focusedPane() == kConsole);
         CHECK(tabOf(d, kConsole).group_active == tabOf(d, kInfo).group_active); // 같은 그룹
         CHECK(tabOf(d, kConsole).bounds.x > tabOf(d, kInfo).bounds.x);
@@ -192,7 +204,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(click(center(tabOf(d, kInfo).bounds)));
         CHECK(d.focusedPane() == kInfo);
         CHECK(groupOf(d, kInfo).active == kInfo);
-        CHECK(d.lastFrame()->groups.size() == 2);
+        CHECK(d.lastFrame()->groups.size() == 3);
         // Ctrl+PageDown · PageUp = 그룹 안 탭 순회
         f.feed(key(Key::PageDown, Modifiers::kCtrl));
         CHECK(d.focusedPane() == kConsole);
@@ -208,7 +220,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(d.dragging());
         CHECK_FALSE(d.dropTarget());
         f.feed(MouseButtonUp{MouseButton::Left, center(groupOf(d, kInfo).content)});
-        CHECK(d.lastFrame()->groups.size() == 2);
+        CHECK(d.lastFrame()->groups.size() == 3);
         CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(shortcutsBefore.x));
         CHECK(groupOf(d, kShortcuts).bounds.width == doctest::Approx(shortcutsBefore.width));
         CHECK(tabOf(d, kShortcuts).group_active != tabOf(d, kInfo).group_active);
@@ -221,34 +233,45 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.dropTarget()->side == gui::DockSide::bottom);
         CHECK(d.dropTarget()->target == kInfo);
         f.feed(MouseButtonUp{MouseButton::Left, bottomEdge});
-        CHECK(d.lastFrame()->groups.size() == 2);
+        CHECK(d.lastFrame()->groups.size() == 3);
         CHECK(groupOf(d, kShortcuts).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(groupOf(d, kInfo).bounds.x));
 
         // 분할선 끌기 = 비율. 끄는 동안 개정이 바뀌어도 (토큰은 개정에 묶인다) 이어서 끈다
-        REQUIRE(d.lastFrame()->dividers.size() == 1);
-        const gui::DockDividerBox div = d.lastFrame()->dividers.front();
+        // 정보 · 단축키 사이의 분할선 (정보 바로 아래)
+        REQUIRE(d.lastFrame()->dividers.size() == 2);
+        const auto dividerUnderInfo = [&] {
+            const gui::LayoutRect info = groupOf(d, kInfo).bounds;
+            for (const gui::DockDividerBox& dv : d.lastFrame()->dividers) {
+                if (std::abs(dv.bounds.y - (info.y + info.height)) < 1.0 && dv.bounds.x < info.x + info.width) {
+                    return dv;
+                }
+            }
+            FAIL("정보 아래 분할선이 없다");
+            return gui::DockDividerBox{};
+        };
+        const gui::DockDividerBox div = dividerUnderInfo();
         CHECK(div.axis == gui::DockAxis::vertical);
         const double infoH = groupOf(d, kInfo).bounds.height;
         const Vec2 from = center(div.bounds);
-        f.feed(drag(from, {from.x, from.y + 120.f}));
-        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 120.0).epsilon(0.02));
-        CHECK(d.lastFrame()->dividers.front().fraction > div.fraction);
+        f.feed(drag(from, {from.x, from.y + 60.f}));
+        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 60.0).epsilon(0.02));
+        CHECK(dividerUnderInfo().fraction > div.fraction);
 
-        // 저장 바이트 → 배치 초기화 (그룹 셋) → 되살리기 (그룹 둘 · 같은 높이)
+        // 저장 바이트 → 배치 초기화 (프리셋 — 콘솔은 아래 그룹) → 되살리기 (콘솔은 정보 그룹 · 같은 높이)
         const auto saved = d.save();
         REQUIRE(saved);
         REQUIRE(f.ws->applyPreset("scene"));
         f.frame();
-        CHECK(d.lastFrame()->groups.size() == 3);
+        CHECK_FALSE(sameGroup(d, kConsole, kInfo));
         REQUIRE(d.restore(*saved));
         f.frame();
-        CHECK(d.lastFrame()->groups.size() == 2);
-        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 120.0).epsilon(0.02));
+        CHECK(sameGroup(d, kConsole, kInfo));
+        CHECK(groupOf(d, kInfo).bounds.height == doctest::Approx(infoH + 60.0).epsilon(0.02));
         const std::vector<std::byte> junk{std::byte{1}, std::byte{2}, std::byte{3}};
         CHECK_FALSE(d.restore(junk)); // 틀린 바이트는 거절 — 배치는 그대로
         f.frame();
-        CHECK(d.lastFrame()->groups.size() == 2);
+        CHECK(sameGroup(d, kConsole, kInfo));
     }
 
     TEST_CASE("dock workspace: content clicks reach the pane in its own coordinates, keys and text go to the focused pane") {
@@ -342,6 +365,119 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(f.ws->console().following());
         f.feed(click(paneCenter(d, kConsole, f.ws->console().followHandle())));
         CHECK(f.ws->console().following());
+
+        // 수준 (UI-R3-06) — 전부 → 경고 이상 → 오류만 → 전부 (ImGui 콘솔의 고르기와 같은 거르기)
+        CHECK(editor::gui::ConsolePanel::lineLevel("[warn] [x] y") == 1);
+        CHECK(editor::gui::ConsolePanel::lineLevel("[error] [x] y") == 2);
+        CHECK(editor::gui::ConsolePanel::lineLevel("[info] [x] [error] 안") == 0); // 머리만 본다
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().levelHandle())));
+        CHECK(f.ws->console().level() == 1);
+        CHECK(f.ws->console().listedCount() == 6); // 경고 다섯 + 오류 하나
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().levelHandle())));
+        CHECK(f.ws->console().level() == 2);
+        CHECK(f.ws->console().listedCount() == 1);
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().levelHandle())));
+        CHECK(f.ws->console().level() == 0);
+        CHECK(f.ws->console().listedCount() == 6);
+
+        // 복사 = 거른 줄 전부 (줄마다 개행)
+        f.clipboard.clear();
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().copyHandle())));
+        CHECK(std::count(f.clipboard.begin(), f.clipboard.end(), '\n') == 6);
+        CHECK(f.clipboard.find("줄 0") != std::string::npos);
+
+        // 지우기 = 지금까지의 줄을 숨긴다 (로그는 그대로) — 뒤에 온 줄은 보인다
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().clearHandle())));
+        CHECK(f.ws->console().listedCount() == 0);
+        log::warn("test", "{} 지운 뒤", marker);
+        f.frame();
+        CHECK(f.ws->console().listedCount() == 1);
+    }
+
+    TEST_CASE("build panel (UI-R3-07): report lines, profile picker, check and build intents, disabled without a project") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::BuildPanel& b = f.ws->build();
+        // 콘솔 그룹의 둘째 탭 — 눌러 보이게
+        f.feed(click(center(tabOf(d, kBuild).bounds)));
+        REQUIRE(groupOf(d, kBuild).active == kBuild);
+
+        // 프로젝트 없음 (홈) — 단추가 꺼져 있다
+        CHECK_FALSE(b.model().available);
+        f.feed(click(paneCenter(d, kBuild, b.checkHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        CHECK(b.lines().empty());
+
+        editor::services::BuildReport report;
+        report.checkOnly = true;
+        report.ok = false;
+        report.errors = {"content/x.json: 틀린 키"};
+        report.warnings = {"부르지 않는 에셋 a.png"};
+        report.groups = {"core — 3 개 · 120 바이트"};
+        editor::gui::BuildPanelModel m;
+        m.available = true;
+        m.project = "D:/p/game";
+        m.profiles = {"web", "desktop"};
+        m.last = report;
+        b.setModel(m);
+        f.frame();
+        REQUIRE(b.lines().size() == 4); // 요약 · 그룹 · 오류 · 경고 (ImGui 창과 같은 차례)
+        CHECK(b.lines()[0].text == "검사 실패 — 오류 1 · 경고 1");
+        CHECK(b.lines()[0].tone == editor::gui::BuildPanel::Tone::Error);
+        CHECK(b.lines()[1].text == "에셋 그룹 core — 3 개 · 120 바이트");
+        CHECK(b.lines()[2].tone == editor::gui::BuildPanel::Tone::Error);
+        CHECK(b.lines()[3].tone == editor::gui::BuildPanel::Tone::Warning);
+
+        // 검사 · 빌드 = 기존 명령
+        f.feed(click(paneCenter(d, kBuild, b.checkHandle())));
+        auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RunCommand);
+        CHECK(intent->command == "studio.check");
+        f.feed(click(paneCenter(d, kBuild, b.buildHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->command == "studio.build");
+
+        // 프로필 ‹ › — 0 (프로필 없이) → 1 web, 그리고 거꾸로 돌아 2 desktop
+        CHECK(b.profileLabel() == "(프로필 없이)");
+        f.feed(click(paneCenter(d, kBuild, b.nextHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::SelectProfile);
+        CHECK(intent->value == 1);
+        CHECK(b.profileLabel() == "web");
+        f.feed(click(paneCenter(d, kBuild, b.prevHandle())));
+        f.feed(click(paneCenter(d, kBuild, b.prevHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->value == 2);
+        CHECK(b.profileLabel() == "desktop");
+
+        // 빌드 중 — 단추가 꺼진다
+        m.profileIndex = 2;
+        m.running = true;
+        b.setModel(m);
+        f.frame();
+        f.feed(click(paneCenter(d, kBuild, b.buildHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 빌드 통과 보고 — 패키지 · digest 앞 16 자
+        editor::services::BuildReport ok;
+        ok.ok = true;
+        ok.file = "D:/p/game/build/game.sbxpkg";
+        ok.gameId = "me.game";
+        ok.version = "1.2.0";
+        ok.files = 7;
+        ok.bytes = 4096;
+        ok.digest = "0123456789abcdef0123456789abcdef";
+        ok.seconds = 1.5;
+        const auto lines = editor::gui::BuildPanel::reportLines(ok);
+        REQUIRE(lines.size() == 3);
+        CHECK(lines[0].text == "빌드 통과 — 오류 0 · 경고 0 (1.50 초)");
+        CHECK(lines[0].tone == editor::gui::BuildPanel::Tone::Ok);
+        CHECK(lines[1].text == "패키지 D:/p/game/build/game.sbxpkg");
+        CHECK(lines[2].text == "me.game 1.2.0 · 파일 7 · 4096 바이트 · digest 0123456789abcdef…");
     }
 
     TEST_CASE("studio workspace presets (UI-R2-07): scene · scripting · play, unknown names fall back to scene") {
@@ -438,22 +574,21 @@ TEST_SUITE("graphics ui dock workspace") {
             CHECK(d.interacting());
             CHECK_FALSE(fs::exists(folder / "default.guidock")); // 끄는 동안은 쓰지 않는다
             inject(app, window, {MouseButtonUp{MouseButton::Left, {onInfoTab.x * d.scale(), onInfoTab.y * d.scale()}}});
-            CHECK(d.lastFrame()->groups.size() == 2);
+            CHECK(sameGroup(d, kConsole, kInfo));
             CHECK(fs::exists(folder / "default.guidock")); // 놓은 뒤 저장
             inject(app, window, click(center(tabOf(d, kInfo).bounds, d.scale()))); // 그 그룹의 앞 탭 = 콘솔 → 정보로
             inject(app, window, click(paneCenter(d, kInfo, ws.info().homeHandle())));
             CHECK(app.graphicsUiWorkspace() == nullptr);
         });
         run([&](Application&, HeadlessWindow&, StudioWorkspace& ws) {
-            CHECK(ws.dock().lastFrame()->groups.size() == 2); // 다음 실행 — 되살렸다
-            CHECK(tabOf(ws.dock(), kConsole).group_active == tabOf(ws.dock(), kInfo).group_active);
+            CHECK(sameGroup(ws.dock(), kConsole, kInfo)); // 다음 실행 — 되살렸다
         });
         // 다른 판의 바이트 (복원 거절) — 옆에 옮기고 프리셋으로
         {
             std::ofstream(folder / "default.guidock", std::ios::binary | std::ios::trunc) << "GUIDOCK-but-not-really";
         }
         run([&](Application&, HeadlessWindow&, StudioWorkspace& ws) {
-            CHECK(ws.dock().lastFrame()->groups.size() == 3);
+            CHECK_FALSE(sameGroup(ws.dock(), kConsole, kInfo)); // 프리셋
             CHECK(fs::exists(folder / "default.guidock.broken"));
         });
         std::error_code ec;
@@ -505,6 +640,7 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(ws->dock().lastFrame() != nullptr);
         CHECK(ws->dock().lastFrame()->groups.size() == 3);
         CHECK(ws->shortcuts().listedCount() == app.commands().commands().size()); // 같은 명령 표
+        CHECK_FALSE(ws->build().model().available); // 홈 — 프로젝트가 없어 검사 · 빌드를 끈다
 
         // 단축키 패널에서 테마 명령을 찾아 Enter — 보기 › 테마 와 같은 명령 (다음 셸 단계가 적용)
         CHECK(app.studioTheme() == editor::theme::Theme::Dark);

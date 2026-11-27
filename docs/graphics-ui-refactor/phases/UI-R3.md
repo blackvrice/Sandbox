@@ -1,4 +1,4 @@
-# UI-R3 — Studio 기본 편집 패널 [계획]
+# UI-R3 — Studio 기본 편집 패널 [진행 — R3-06 ✅, R3-07 일부]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R3-01 ~ 12. 선행: UI-R2 (Dock 작업 공간).
 
@@ -14,6 +14,17 @@
 | 즉시 · 어댑터 | 막힘 |
 |---|---|
 | Console (R3-06) · Build (R3-07) · Test (R3-08) · 진단 (R3-09) · Hierarchy (R3-02 — 다중 선택은 GUI-UP-09) · Inspector (R3-03 — 속성 편집 Custom Control) · Prefab (R3-05) · Undo/Redo (R3-12) | Project Explorer (R3-01 — GUI-UP-03 · 05) · Asset Browser 썸네일 (R3-04 — GUI-UP-02 · R1-10) · DnD (R3-10 — GUI-UP-05) · 맥락 메뉴 · 툴팁 (R3-11 — GUI-UP-03) |
+
+## 진행
+
+| 패널 | 상태 |
+|---|---|
+| R3-06 콘솔 | ✅ (2026-11-27) — 작업 공간의 `ConsolePanel`: 글자 · 수준 거르기 · 지우기 · 복사 · 따라가기 · 줄 복사 |
+| R3-07 빌드 | 일부 (2026-11-27) — `BuildPanel` (프로필 · 검사 · 빌드 · 보고). 프로젝트가 열린 동안 작업 공간을 띄우는 것은 R4-01 (Viewport 합성) 뒤 — 지금 작업 공간은 홈에서만 열린다 |
+
+**프로젝트 안의 패널.** 지금 GraphicsUI 작업 공간은 홈 (프로젝트 없음) 에서 연다. 프로젝트를 열면 화면 대부분이 장면 Viewport 인데, Viewport 를
+GraphicsUI 안에 합성하는 길 (외부 텍스처 — GUI-UP-02 · R1-10 · R4-01) 이 없어 그 동안은 ImGui 셸이 그린다. 프로젝트 데이터가 필요한 패널
+(빌드 · 테스트 · Hierarchy · Inspector) 은 값 모델 (`BuildPanelModel` 처럼) 로 먼저 옮기고 시험하며, 표시는 R4-01 뒤에 켠다.
 
 ## 완료 조건
 

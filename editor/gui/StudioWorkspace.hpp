@@ -1,8 +1,9 @@
 #pragma once
-// Studio GraphicsUI 작업 공간 (UI-R2-05) — DockWorkspace 에 첫 패널 셋 (정보 · 단축키 · 콘솔) 을 꽂은 화면 하나.
+// Studio GraphicsUI 작업 공간 (UI-R2-05) — DockWorkspace 에 패널 (정보 · 단축키 · 콘솔 · 빌드 — UI-R3-07) 을 꽂은 화면 하나.
 //
 //   프리셋       ImGui 셸과 같은 이름 (UI-R2-07 — presetFor): scene (기본) = 정보 | 단축키, 아래 콘솔 · scripting = 단축키 | 정보,
-//                아래 콘솔 · play = 정보 | 콘솔 (+ 단축키 탭). 저장된 배치 (.guidock) 가 없을 때 · 배치 초기화 때
+//                아래 콘솔 · play = 정보 | 콘솔 (+ 단축키 탭). 빌드는 어느 프리셋이든 콘솔 옆 탭 (출력끼리). 저장된 배치 (.guidock) 가
+//                없을 때 · 배치 초기화 때. 패널 목록이 바뀌면 옛 .guidock 은 복원이 거절한다 → .broken + 프리셋 (ADR-0178)
 //   의도         패널이 고른 일 (홈으로 · 배치 초기화 · 명령 실행) 을 takeIntent() 로 — 일은 Application 이 기존 처리로
 //   테마 · 간격 · 배율   작업 공간 크롬과 패널이 같은 값 (PanelContext)
 
@@ -21,6 +22,7 @@ public:
     static constexpr gui::DockPaneId kInfo = 1;
     static constexpr gui::DockPaneId kShortcuts = 2;
     static constexpr gui::DockPaneId kConsole = 3;
+    static constexpr gui::DockPaneId kBuild = 4;
 
     [[nodiscard]] static Expected<std::unique_ptr<StudioWorkspace>> create(const uihost::ITextMeasure& text,
                                                                            const services::CommandService& commands,
@@ -42,6 +44,7 @@ public:
     [[nodiscard]] ConsolePanel& console() const noexcept { return *m_console; }
     [[nodiscard]] ShortcutPanel& shortcuts() const noexcept { return *m_shortcuts; }
     [[nodiscard]] InfoPanel& info() const noexcept { return *m_info; }
+    [[nodiscard]] BuildPanel& build() const noexcept { return *m_build; }
 
 private:
     StudioWorkspace() = default;
@@ -52,6 +55,7 @@ private:
     ConsolePanel* m_console = nullptr;
     ShortcutPanel* m_shortcuts = nullptr;
     InfoPanel* m_info = nullptr;
+    BuildPanel* m_build = nullptr;
     std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)
 };
 
