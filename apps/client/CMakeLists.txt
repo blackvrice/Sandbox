@@ -51,6 +51,8 @@ add_executable(SandboxClient
     ui/GraphicsUiImGuiBridge.cpp
     ui/GuiStatsModel.hpp
     ui/GuiStatsModel.cpp
+    ui/GuiInspectorModel.hpp
+    ui/GuiInspectorModel.cpp
     studio/ProcessLauncher.hpp
     studio/ProcessLauncher.cpp
     studio/StudioShell.hpp

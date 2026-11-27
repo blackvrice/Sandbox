@@ -56,6 +56,8 @@ add_library(SandboxStudioGui STATIC
     gui/StudioWorkspace.hpp
     gui/HierarchyPanel.hpp
     gui/HierarchyPanel.cpp
+    gui/InspectorPanel.hpp
+    gui/InspectorPanel.cpp
     gui/StudioWorkspace.cpp
 )
 add_library(Sandbox::StudioGui ALIAS SandboxStudioGui)

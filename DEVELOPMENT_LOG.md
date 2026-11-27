@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R3-03: 작업 공간 인스펙터 — 속성 표 + 편집 줄, 값 검사는 DataForm (ADR-0180)
+
+**무엇을**
+
+- `editor/gui/InspectorPanel` — ImGui "인스펙터" 창과 같은 원천을 DataForm 섹션으로 보인다. 고정 트리: 제목 ("eco.rabbit #42 외 N" ·
+  "보기만") · 속성 표 (가상 목록 — Prefab 에서 뺀 컴포넌트 · 섹션 머리 (접기, "(서버)", "● Prefab 과 다름 / 더함") · 필드 "이름 | 값"
+  (오버라이드 = 경고색, 읽기만 = 흐리게)) · 안내 줄 (종류 · 범위 / 오류 / 더하기 후보) · 값 칸 + 적용 · 컴포넌트 빼기 + Prefab 값으로
+  (되살리기 · Prefab 처럼) · 더하기 이름 칸 + 더하기. 값 글자 (`fieldText` — 각도는 도, 좌표 "x, y") → `parseFieldText` → DataForm
+  `setFormField` (범위 자르기 · 정수 반올림 · 검증) 를 통과한 값만 의도 SetField. 바꾸지 않은 글은 보내지 않는다. bool = Space · 두 번
+  누르기, Enter = 값 칸으로, Esc = 지금 값, Ctrl+Z · Y = `edit.undo` · `edit.redo`. 값 칸을 쓰는 중이 아니면 지금 값을 따라간다.
+- `apps/client/ui/GuiInspectorModel` — `makeGuiInspectorView` (IEditorHost::components 이름 차례 · core.prefab 제목 · Editor::prefabOverrides
+  · 역할 · 더할 수 있는 EditorVisible 이름 · 콘텐츠 Prefab id). Application 은 의도 4 가지를 Editor::setField · addComponent ·
+  removeComponent · revertToPrefab 로 (ImGui 창과 같은 호출 — 역할 검사 · 되돌리기 기록 · 여러 개체).
+- `WorkspaceIntent` — SetField · AddComponent · RemoveComponent · RevertToPrefab, `component` (stableId) · `json` (검사한 값).
+- `TextField` — `setEnabled` (읽기만 필드) · `focusAll` (두 번 누르기 · Enter 로 값 칸).
+- `StudioWorkspace` — 인스펙터 (id 9) 는 도구 그룹의 앞 탭 (scene 오른쪽 · scripting 왼쪽 · play 는 오른쪽 한 그룹 — 앞은 콘솔). 옛 .guidock 은 프리셋으로.
+- ADR-0180, 문서: TASK_REGISTRY (R3-03 Partial), CURRENT_STATUS, UI-R3, FEATURE_MATRIX, MIGRATION_GUIDE 4b-3, 17-SOURCE-MAP, 29-STUDIO-UI.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 프로젝트 안 작업 공간에서 고른 개체의 값을 보고 바꾸는 곳. 목록 (R3-02) 다음.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 14 케이스: 값 글자 (각도 · 좌표 · bool 말 · 정수 · 개체 참조 읽기만) / 패널 — 줄 10 개 (뺀 것 ·
+  머리 · reflect 차례 필드) · 고르기 → 안내 "core.movement.maxSpeed — 수 · 범위 0 ~ 64" · 3.25 → SetField · 100 → 64 (DataForm) · "fast"
+  = 오류 · Esc · 바꾸지 않은 Enter = 없음 · 새 값 따라가기 · 좌표 · Space bool · 빼기 · Prefab 값으로 (오버라이드 없으면 꺼짐) · 되살리기 ·
+  접기 · ↓ · Ctrl+Z · Y · 더하기 (후보 2 → 하나) · 보기만 · 선택 없음 / app (local server ecosystem_small) — 토끼를 골라 패널로 maxSpeed
+  3.75 → 서버 값이 바뀜 → 목록에서 Ctrl+Z → 원래 값.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 9".
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 821 파일 0 위반.
+
+**남은 일** — 콤보 (Prefab · 행동 id) · 슬라이더 끌기 · 개체 참조 고르기 (GUI-UP-03), Prefab 으로 만들기 (Object → Prefab — 아직 ImGui),
+편집 (툴) 창 · 콘텐츠 창.
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R3-02: 작업 공간 목록 (Hierarchy) 패널 — HierarchyService 그대로, 일은 의도로
 
 **무엇을**

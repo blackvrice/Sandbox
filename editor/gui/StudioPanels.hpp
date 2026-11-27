@@ -22,6 +22,7 @@
 #include <graphics-ui/core/controls.hpp>
 #include <graphics-ui/core/scroll.hpp>
 
+#include "core/serialization/JsonVisitor.hpp"
 #include "editor/gui/TextField.hpp"
 #include "editor/services/BuildService.hpp"
 #include "editor/services/TestService.hpp"
@@ -47,12 +48,16 @@ struct WorkspaceIntent {
         Home, ResetLayout, RunCommand, SelectProfile, TestPlan,
         // Hierarchy (UI-R3-02) — 앱이 Editor · IEditorHost 로
         SelectEntities, FocusSelection, DeleteSelection, GroupSelection, UngroupSelection, ToggleGroup,
+        // 인스펙터 (UI-R3-03) — 앱이 Editor::setField · addComponent · removeComponent · revertToPrefab
+        SetField, AddComponent, RemoveComponent, RevertToPrefab,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)
     int value = 0;       // SelectProfile (0 = 프로필 없이, 1 ~ = profiles[value - 1] — ImGui BuildPanelState 와 같은 뜻)
     TestPlanValues test; // TestPlan
     std::vector<u32> entities; // SelectEntities — 새 선택 (NetEntityId, 오름차순 — editor/gui 는 core 를 직접 쓰지 않는다)
+    u64 component = 0;         // 인스펙터 — 컴포넌트 stableId (SetField 의 필드 이름은 command)
+    ecs::Json json;            // SetField — 검사한 값 (DataForm::setFormField 를 통과한 것)
 
     [[nodiscard]] static WorkspaceIntent of(Kind kind, std::string command = {}, int value = 0) {
         WorkspaceIntent i;

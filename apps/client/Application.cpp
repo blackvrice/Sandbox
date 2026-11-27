@@ -1,5 +1,6 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/GuiInspectorModel.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
 #include "render/asset/AssetManager.hpp"
 
@@ -2545,6 +2546,9 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             hv.canDelete = host->permissions().entities;
         }
         ws.hierarchy().setView(std::move(hv));
+        // 인스펙터 (UI-R3-03) — ImGui "인스펙터" 창과 같은 원천 (첫 선택 개체의 컴포넌트 · Prefab 오버라이드 · 역할)
+        editor::IEditorHost* ihost = inWorld ? m_config.world->editorHost() : nullptr;
+        ws.inspector().setView(ihost != nullptr ? makeGuiInspectorView(*ihost) : editor::gui::InspectorView{});
     }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2627,6 +2631,32 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             }
             break;
         }
+        }
+        return std::nullopt;
+    }
+    case K::SetField:
+    case K::AddComponent:
+    case K::RemoveComponent:
+    case K::RevertToPrefab: {
+        // 인스펙터 (UI-R3-03) — ImGui "인스펙터" 창과 같은 Editor 호출 (선택한 개체 중 그 컴포넌트가 있는 것 전부 · 되돌리기 기록)
+        editor::IEditorHost* host = inWorld ? m_config.world->editorHost() : nullptr;
+        if (host == nullptr || !host->permissions().entities) {
+            return std::nullopt;
+        }
+        const ecs::StableId c = intent->component;
+        switch (intent->kind) {
+        case K::SetField:
+            m_editor.setField(*host, c, intent->command, intent->json);
+            break;
+        case K::AddComponent:
+            m_editor.addComponent(*host, c);
+            break;
+        case K::RemoveComponent:
+            m_editor.removeComponent(*host, c);
+            break;
+        default: // RevertToPrefab
+            m_editor.revertToPrefab(*host, c);
+            break;
         }
         return std::nullopt;
     }

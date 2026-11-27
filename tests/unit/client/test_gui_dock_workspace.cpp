@@ -10,6 +10,7 @@
 #include <format>
 #include <fstream>
 #include <functional>
+#include <numbers>
 #include <random>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "apps/client/Application.hpp"
 #include "apps/client/DefaultInput.hpp"
 #include "apps/client/NetworkSession.hpp"
+#include "apps/client/ui/GuiInspectorModel.hpp"
 #include "apps/client/ui/GuiStatsModel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
@@ -46,6 +48,7 @@ constexpr gui::DockPaneId kTest = StudioWorkspace::kTest;
 constexpr gui::DockPaneId kStats = StudioWorkspace::kStats;
 constexpr gui::DockPaneId kScene = StudioWorkspace::kScene;
 constexpr gui::DockPaneId kHierarchy = StudioWorkspace::kHierarchy;
+constexpr gui::DockPaneId kInspector = StudioWorkspace::kInspector;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -180,17 +183,19 @@ TEST_SUITE("graphics ui dock workspace") {
     TEST_CASE("dock workspace: default layout, drag a tab into a group and to an edge, Esc cancels, divider, save and restore") {
         Fixture f;
         DockWorkspace& d = f.dock();
-        // 기본 배치 (scene — ADR-0179): 장면 (가운데 · 크게) | 도구 (단축키 · 통계 · 정보), 아래 출력 (콘솔 · 빌드 · 테스트)
+        // 기본 배치 (scene — ADR-0179): 목록 | 장면 (가운데 · 크게) | 도구 (인스펙터 · 단축키 · 통계 · 정보), 아래 출력 (콘솔 · 빌드 · 테스트)
         REQUIRE(d.lastFrame()->groups.size() == 4);
         CHECK(d.lastFrame()->dividers.size() == 3);
         CHECK(d.focusedPane() == kScene);
         CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kScene).bounds.y);
-        CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kScene).bounds.x);
+        CHECK(groupOf(d, kInspector).bounds.x > groupOf(d, kScene).bounds.x);
         CHECK(groupOf(d, kScene).bounds.width > 0.55 * f.size.width); // 양옆 (목록 · 도구) 80 % 씩
         CHECK(groupOf(d, kScene).bounds.height > 0.6 * f.size.height); // 장면 쪽 72 %
         CHECK(sameGroup(d, kBuild, kConsole)); // 출력끼리 (앞은 콘솔)
         CHECK(sameGroup(d, kTest, kConsole));
-        CHECK(sameGroup(d, kStats, kShortcuts)); // 도구끼리 (앞은 단축키)
+        CHECK(sameGroup(d, kStats, kShortcuts)); // 도구끼리 (앞은 인스펙터)
+        CHECK(sameGroup(d, kInspector, kShortcuts));
+        CHECK(tabOf(d, kInspector).bounds.x < tabOf(d, kShortcuts).bounds.x);
         CHECK(sameGroup(d, kInfo, kShortcuts));
         CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
@@ -213,7 +218,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 8);
+        CHECK(d.lastFrame()->tabs.size() == 9);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -300,7 +305,7 @@ TEST_SUITE("graphics ui dock workspace") {
         const gui::LayoutRect scene = groupOf(d, kScene).content;
         const gui::LayoutPoint inScene{scene.x + scene.width / 2, scene.y + scene.height / 2};
         const gui::LayoutPoint inTools = [&] {
-            const gui::LayoutRect t = groupOf(d, kShortcuts).content;
+            const gui::LayoutRect t = groupOf(d, kInspector).content;
             return gui::LayoutPoint{t.x + t.width / 2, t.y + t.height / 2};
         }();
         const auto fillsOver = [&](const editor::gui::WorkspaceDraw& draw, gui::LayoutPoint p) {
@@ -339,7 +344,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.wantsPointer(inTools));
         CHECK_FALSE(d.wantsKeyboard()); // 포커스 = 장면 → 키는 게임 · 편집으로
         // 패널을 누르면 키를 가져가고, 장면을 누르면 돌려준다
-        f.feed(click(paneCenter(d, kShortcuts, f.ws->shortcuts().searchHandle())));
+        f.feed(click(paneCenter(d, kInspector, f.ws->inspector().listHandle())));
         CHECK(d.wantsKeyboard());
         f.feed(click({static_cast<f32>(inScene.x), static_cast<f32>(inScene.y)}));
         CHECK(d.focusedPane() == kScene);
@@ -699,6 +704,265 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(h.shownEntities() == 2);
     }
 
+    TEST_CASE("inspector panel (UI-R3-03): value text by kind — angle in degrees, x, y, bool words") {
+        using editor::gui::InspectorPanel;
+        editor::FormField angle;
+        angle.name = "rotation";
+        angle.kind = editor::FormFieldKind::Number;
+        angle.hint = ecs::Hint::Angle;
+        angle.value = std::numbers::pi / 2;
+        CHECK(InspectorPanel::fieldText(angle) == "90.0\xC2\xB0");
+        auto a = InspectorPanel::parseFieldText(angle, "45");
+        REQUIRE(a);
+        CHECK(a->get<f64>() == doctest::Approx(std::numbers::pi / 4));
+        a = InspectorPanel::parseFieldText(angle, " 180\xC2\xB0 ");
+        REQUIRE(a);
+        CHECK(a->get<f64>() == doctest::Approx(std::numbers::pi));
+        CHECK_FALSE(InspectorPanel::parseFieldText(angle, "half"));
+
+        editor::FormField vec;
+        vec.kind = editor::FormFieldKind::Vec2;
+        vec.value = ecs::Json::array({1.5, -2.0});
+        CHECK(InspectorPanel::fieldText(vec) == "1.50, -2.00");
+        auto v = InspectorPanel::parseFieldText(vec, "3.25, 4");
+        REQUIRE(v);
+        CHECK(*v == ecs::Json::array({3.25, 4.0}));
+        v = InspectorPanel::parseFieldText(vec, "[7 8]");
+        REQUIRE(v);
+        CHECK(*v == ecs::Json::array({7.0, 8.0}));
+        CHECK_FALSE(InspectorPanel::parseFieldText(vec, "7"));
+        CHECK_FALSE(InspectorPanel::parseFieldText(vec, "1, two"));
+
+        editor::FormField flag;
+        flag.kind = editor::FormFieldKind::Bool;
+        flag.value = true;
+        CHECK(InspectorPanel::fieldText(flag) == "true");
+        CHECK(*InspectorPanel::parseFieldText(flag, "끄기") == ecs::Json(false));
+        CHECK(*InspectorPanel::parseFieldText(flag, "ON") == ecs::Json(true));
+        CHECK_FALSE(InspectorPanel::parseFieldText(flag, "maybe"));
+
+        editor::FormField count;
+        count.kind = editor::FormFieldKind::Int;
+        count.value = 12;
+        CHECK(InspectorPanel::fieldText(count) == "12");
+        CHECK(InspectorPanel::parseFieldText(count, "7.6")->get<f64>() == doctest::Approx(7.6)); // 반올림은 setFormField
+        editor::FormField ref;
+        ref.kind = editor::FormFieldKind::EntityRef;
+        ref.value = 42;
+        CHECK(InspectorPanel::fieldText(ref) == "#42");
+        CHECK_FALSE(InspectorPanel::parseFieldText(ref, "43")); // 읽기만
+    }
+
+    TEST_CASE("inspector panel (UI-R3-03): form rows, select, edit through DataForm, remove · revert · add, collapse, keys") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::InspectorPanel& in = f.ws->inspector();
+        REQUIRE(groupOf(d, kInspector).active == kInspector); // 도구 그룹의 앞 탭
+        CHECK(in.rows().empty());
+        CHECK(in.status().find("프로젝트가 열려 있지 않다") != std::string::npos);
+
+        ecs::ComponentCatalog catalog;
+        REQUIRE(comp::registerCoreComponents(catalog));
+        const ecs::ComponentInfo* movement = catalog.find(std::string_view("core.movement"));
+        const ecs::ComponentInfo* transform = catalog.find(std::string_view("core.transform"));
+        const ecs::ComponentInfo* path = catalog.find(std::string_view("ai.path"));
+        const ecs::ComponentInfo* sensor = catalog.find(std::string_view("ai.sensor"));
+        REQUIRE(movement != nullptr);
+        REQUIRE(transform != nullptr);
+        REQUIRE(path != nullptr);
+        REQUIRE(sensor != nullptr);
+        const auto view = [&](f32 maxSpeed, bool editable) {
+            editor::gui::InspectorView v;
+            v.available = true;
+            v.entity = 42;
+            v.selected = 2;
+            v.title = "eco.rabbit #42";
+            v.editable = editable;
+            v.catalog = &catalog;
+            editor::gui::InspectorSection m;
+            m.form = *editor::componentForm(*movement, ecs::Json{{"maxSpeed", maxSpeed}, {"hasGoal", false}});
+            m.mark = editor::gui::InspectorSection::Mark::Different;
+            m.overridden = {"maxSpeed"};
+            v.sections.push_back(std::move(m));
+            editor::gui::InspectorSection t;
+            t.form = *editor::componentForm(*transform, ecs::Json{{"position", {3.0, 4.0}}, {"rotation", 0.0}});
+            v.sections.push_back(std::move(t));
+            v.removed.push_back({path->stableId, "ai.path"});
+            v.addable = {"ai.sensor", "life.age"};
+            in.setView(std::move(v));
+            f.frame();
+        };
+        view(2.5f, true);
+        CHECK(in.status() == "eco.rabbit #42  외 1 — 바꾸면 그 컴포넌트가 있는 개체 전부");
+        // 줄 — 뺀 컴포넌트 · 머리 · 필드 (reflect 차례) · 머리 · 필드
+        const auto& rows = in.rows();
+        REQUIRE(rows.size() == 1 + 1 + 5 + 1 + 2);
+        using Kind = editor::gui::InspectorPanel::Row::Kind;
+        CHECK(rows[0].kind == Kind::Removed);
+        CHECK(rows[0].name == "Prefab 에서 뺌: ai.path");
+        CHECK(rows[1].kind == Kind::Header);
+        CHECK(rows[1].name == "▾ core.movement  ● Prefab 과 다름");
+        CHECK(rows[2].name == "maxSpeed");
+        CHECK(rows[2].value == "2.500");
+        CHECK(rows[2].overridden);
+        CHECK(rows[2].editable);
+        CHECK(rows[5].name == "goal");
+        CHECK(rows[5].value == "0.00, 0.00");
+        CHECK(rows[6].name == "hasGoal");
+        CHECK(rows[6].value == "false");
+        CHECK(rows[7].name == "▾ core.transform");
+        CHECK(rows[9].value == "0.0\xC2\xB0");
+
+        const auto rowAt = [&](usize row) {
+            const gui::DockGroupBox g = groupOf(d, kInspector);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kInspector)->lastLayout()->boxes()) {
+                if (b.component == in.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = in.rowBounds(row);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        // 필드 고르기 → 편집 줄 (종류 · 범위 안내, 지금 값)
+        f.feed(click(rowAt(2)));
+        REQUIRE(in.selectedRow() == 2u);
+        CHECK(in.message() == "core.movement.maxSpeed — 수 · 범위 0 ~ 64");
+        CHECK(in.valueText() == "2.500");
+        CHECK(in.revertLabel() == "Prefab 값으로");
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 값 쓰기 → Enter = SetField (DataForm 이 검사한 값)
+        const auto write = [&](std::u32string_view text) {
+            f.feed(click(paneCenter(d, kInspector, in.valueHandle())));
+            f.feed(key(Key::A, Modifiers::kCtrl));
+            f.feed(typed(text));
+            f.feed(key(Key::Enter));
+        };
+        write(U"3.25");
+        auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::SetField);
+        CHECK(intent->component == movement->stableId);
+        CHECK(intent->command == "maxSpeed");
+        CHECK(intent->json.get<f64>() == doctest::Approx(3.25));
+        // 범위 밖은 자른다 (FieldMeta 0 ~ 64 — 콘텐츠 창의 폼과 같은 규칙)
+        write(U"100");
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->json.get<f64>() == doctest::Approx(64.0));
+        // 못 읽는 글 = 오류 줄, 보내지 않는다 · Esc = 지금 값으로
+        write(U"fast");
+        CHECK_FALSE(f.ws->takeIntent());
+        CHECK(in.messageIsError());
+        CHECK(in.message().find("maxSpeed") != std::string::npos);
+        f.feed(key(Key::Escape));
+        CHECK_FALSE(in.messageIsError());
+        CHECK(in.valueText() == "2.500");
+        // 바꾸지 않고 Enter = 보내지 않는다 (보이는 자릿수로 원래 값을 덮지 않는다)
+        f.feed(key(Key::Enter));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 쓰는 중이 아니면 새 값을 따라간다 (서버가 바꾼 값) — 목록에 포커스 (같은 줄을 곧 다시 누르면 두 번 누르기 = 값 칸으로)
+        f.feed(click(rowAt(3)));
+        f.feed(key(Key::Up));
+        REQUIRE(in.selectedRow() == 2u);
+        view(3.25f, true);
+        CHECK(in.valueText() == "3.250");
+
+        // 좌표 · bool
+        f.feed(click(rowAt(5)));
+        write(U"1, 2");
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->command == "goal");
+        CHECK(intent->json == ecs::Json::array({1.0, 2.0}));
+        f.feed(click(rowAt(6)));
+        f.feed(key(Key::Space)); // 목록에 포커스 — Space = 켜기 끄기
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->command == "hasGoal");
+        CHECK(intent->json == ecs::Json(true));
+
+        // 컴포넌트 단추 — 빼기 · Prefab 값으로
+        f.feed(click(paneCenter(d, kInspector, in.removeHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RemoveComponent);
+        CHECK(intent->component == movement->stableId);
+        f.feed(click(paneCenter(d, kInspector, in.revertHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RevertToPrefab);
+        CHECK(intent->component == movement->stableId);
+        // 오버라이드가 없는 컴포넌트는 되돌릴 것이 없다
+        f.feed(click(rowAt(8)));
+        f.feed(click(paneCenter(d, kInspector, in.revertHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 뺀 컴포넌트 = 되살리기
+        f.feed(click(rowAt(0)));
+        CHECK(in.revertLabel() == "되살리기");
+        f.feed(click(paneCenter(d, kInspector, in.revertHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RevertToPrefab);
+        CHECK(intent->component == path->stableId);
+
+        // 머리 = 접기 · 펴기
+        f.feed(click(rowAt(1)));
+        CHECK(in.rows().size() == 1 + 1 + 1 + 2);
+        CHECK(in.rows()[1].name == "▸ core.movement  ● Prefab 과 다름");
+        f.feed(click(rowAt(1)));
+        CHECK(in.rows().size() == 10);
+
+        // 키 — ↓ = 다음 줄, Ctrl+Z · Ctrl+Y = 편집 되돌리기 · 다시 (명령)
+        f.feed(key(Key::Down));
+        CHECK(in.selectedRow() == 2u);
+        f.feed(key(Key::Z, Modifiers::kCtrl));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RunCommand);
+        CHECK(intent->command == "edit.undo");
+        f.feed(key(Key::Y, Modifiers::kCtrl));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->command == "edit.redo");
+
+        // 더하기 — 이름 칸 (부분 이름 → 하나면 Enter)
+        f.feed(click(paneCenter(d, kInspector, in.addNameHandle())));
+        f.feed(typed(U"a"));
+        CHECK(in.message().starts_with("후보 2"));
+        f.feed(click(paneCenter(d, kInspector, in.addHandle())));
+        CHECK_FALSE(f.ws->takeIntent()); // 둘이 맞으면 고르지 않는다
+        f.feed(typed(U"i.sen"));
+        CHECK(in.message() == "더하기: ai.sensor (Enter)");
+        f.feed(key(Key::Enter));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::AddComponent);
+        CHECK(intent->component == sensor->stableId);
+
+        // 보기만 (역할) — 값 칸 · 단추가 꺼진다
+        view(2.5f, false);
+        CHECK(in.status().ends_with("보기만 (지금 역할로는 바꿀 수 없다)"));
+        CHECK_FALSE(in.rows()[2].editable);
+        f.feed(click(rowAt(2)));
+        f.feed(click(paneCenter(d, kInspector, in.valueHandle())));
+        f.feed(typed(U"9"));
+        f.feed(key(Key::Enter));
+        f.feed(click(paneCenter(d, kInspector, in.removeHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        CHECK(in.valueText() == "2.500");
+
+        // 선택이 없으면 안내
+        editor::gui::InspectorView none;
+        none.available = true;
+        in.setView(std::move(none));
+        f.frame();
+        CHECK(in.rows().empty());
+        CHECK(in.status().starts_with("선택 없음"));
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -817,7 +1081,7 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(f.ws->applyPreset("scripting"));
         f.frame();
         REQUIRE(d.lastFrame()->groups.size() == 3);
-        CHECK(groupOf(d, kShortcuts).bounds.x < groupOf(d, kScene).bounds.x); // 도구가 왼쪽
+        CHECK(groupOf(d, kInspector).bounds.x < groupOf(d, kScene).bounds.x); // 도구가 왼쪽
         CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kScene).bounds.y);
         CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);
         CHECK(d.focusedPane() == kScene);
@@ -828,6 +1092,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(groupOf(d, kConsole).bounds.x > groupOf(d, kScene).bounds.x);
         CHECK(sameGroup(d, kShortcuts, kConsole));
         CHECK(sameGroup(d, kInfo, kConsole));
+        CHECK(sameGroup(d, kInspector, kConsole));
         CHECK(groupOf(d, kConsole).active == kConsole); // 앞은 콘솔
         CHECK(groupOf(d, kScene).bounds.width > 0.55 * f.size.width);
         CHECK(d.focusedPane() == kScene);
@@ -973,7 +1238,7 @@ TEST_SUITE("graphics ui dock workspace") {
         moveTo(groupOf(d, kScene).content);
         CHECK_FALSE(app.input().downstream().mouseCaptured);
         CHECK_FALSE(app.input().downstream().keyboardCaptured); // 포커스 = 장면
-        moveTo(groupOf(d, kShortcuts).content);
+        moveTo(groupOf(d, kInspector).content);
         CHECK(app.input().downstream().mouseCaptured);
 
         // 목록 (UI-R3-02) — 같은 편집 호스트의 개체 · 누르면 그 개체가 선택된다 (ImGui 창과 같은 setSelection)
@@ -1004,6 +1269,100 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(app.frame());
         REQUIRE(ns->editorHost()->selection().size() == 1);
         CHECK(ns->editorHost()->selection().front() == h.lines()[firstEntity].id);
+
+        // 인스펙터 (UI-R3-03) — 토끼 하나를 골라 core.movement.maxSpeed 를 패널로 바꾸고 (Editor::setField → 서버), Ctrl+Z 로 되돌린다
+        editor::IEditorHost& eh = *ns->editorHost();
+        NetEntityId rabbit = kInvalidNetEntityId;
+        for (const auto& l : h.lines()) {
+            if (!l.group && l.text.starts_with("eco.rabbit")) {
+                rabbit = l.id;
+                break;
+            }
+        }
+        REQUIRE(rabbit != kInvalidNetEntityId);
+        eh.setSelection({rabbit});
+        REQUIRE(app.frame());
+        editor::gui::InspectorPanel& in = ws->inspector();
+        CHECK(in.status() == std::format("eco.rabbit #{}", rabbit));
+        const auto maxSpeed = [&] {
+            for (const editor::ComponentState& c : eh.components(rabbit)) {
+                if (c.name == "core.movement") {
+                    return c.value["maxSpeed"].get<f64>();
+                }
+            }
+            return -1.0;
+        };
+        // core.movement 는 복제되지 않는다 — 서버의 선택 상세 (Inspect) 가 올 때까지
+        for (int i = 0; i < 60 && maxSpeed() < 0; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(app.frame());
+        const f64 before = maxSpeed();
+        REQUIRE(before > 0);
+        const auto injectAll = [&](const std::vector<PlatformEvent>& events) {
+            for (const PlatformEvent& e : events) {
+                window.inject(e);
+            }
+            REQUIRE(app.frame());
+        };
+        const auto findRow = [&](std::string_view component, std::string_view field) {
+            bool inside = false;
+            for (usize i = 0; i < in.rows().size(); ++i) {
+                const auto& r = in.rows()[i];
+                if (r.kind == editor::gui::InspectorPanel::Row::Kind::Header) {
+                    inside = r.name.find(component) != std::string::npos;
+                } else if (inside && r.name == field) {
+                    return i;
+                }
+            }
+            FAIL("인스펙터에 그 필드 줄이 없다");
+            return usize{0};
+        };
+        // 목록의 첫 필드 줄을 눌러 포커스 (머리를 누르면 접힌다) → ↑↓ 로 그 줄까지 (고르면 보이게 스크롤)
+        const auto focusList = [&] {
+            // 같은 줄을 곧 다시 누르면 두 번 누르기 (값 칸으로 포커스) — 그 창 (20 frame) 을 넘긴다
+            for (u64 i = 0; i <= editor::gui::InspectorPanel::kDoubleClickFrames; ++i) {
+                REQUIRE(app.frame());
+            }
+            usize first = 0;
+            while (first < in.rows().size() && in.rows()[first].kind != editor::gui::InspectorPanel::Row::Kind::Field) {
+                ++first;
+            }
+            const gui::DockGroupBox ig = groupOf(d, kInspector);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kInspector)->lastLayout()->boxes()) {
+                if (b.component == in.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = in.rowBounds(first);
+            REQUIRE(r);
+            injectAll(click(center({ig.content.x + list.x + r->x, ig.content.y + list.y + r->y, r->width, r->height},
+                                   d.scale())));
+            REQUIRE(in.selectedRow() == first);
+        };
+        focusList();
+        const usize speedRow = findRow("core.movement", "maxSpeed");
+        while (in.selectedRow() != speedRow) {
+            injectAll({key(in.selectedRow() < speedRow ? Key::Down : Key::Up)});
+        }
+        CHECK(in.message() == "core.movement.maxSpeed — 수 · 범위 0 ~ 64");
+        injectAll(click(paneCenter(d, kInspector, in.valueHandle())));
+        injectAll({key(Key::A, Modifiers::kCtrl)});
+        injectAll(typed(U"3.75"));
+        injectAll({key(Key::Enter)});
+        for (int i = 0; i < 60 && std::abs(maxSpeed() - 3.75) > 1e-4; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(maxSpeed() == doctest::Approx(3.75));
+        CHECK(in.rows()[speedRow].value == "3.750");
+        // 목록에 포커스 → Ctrl+Z = edit.undo (Editor 의 기록 — 툴바와 같은 명령)
+        focusList();
+        injectAll({key(Key::Z, Modifiers::kCtrl)});
+        for (int i = 0; i < 60 && std::abs(maxSpeed() - before) > 1e-4; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(maxSpeed() == doctest::Approx(before));
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

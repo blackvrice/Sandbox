@@ -30,6 +30,11 @@ public:
     // 바깥에서 값 바꾸기 (게시 콜백 없음 — 실행 취소 기록을 비운다)
     void setValue(std::string value);
     [[nodiscard]] const std::string& value() const noexcept { return m_value; }
+    // 끄면 포커스 · 입력을 받지 않는다 (글은 그대로 — 흐리게 그린다)
+    void setEnabled(bool enabled);
+    // 호스트 포커스를 이 칸으로 · 글 전부 고르기 (바로 덮어 쓰기)
+    void focusAll();
+    [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
     [[nodiscard]] gui::ComponentHandle handle() const noexcept { return m_handle; }
     [[nodiscard]] double emSize() const noexcept { return m_em; }
 
@@ -51,6 +56,7 @@ private:
     std::unique_ptr<gui::TextInput> m_input;
     Changed m_changed;
     KeyHook m_keys;
+    bool m_enabled = true;
 };
 
 } // namespace sbx::editor::gui

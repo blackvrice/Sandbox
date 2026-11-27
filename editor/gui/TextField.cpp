@@ -34,7 +34,7 @@ Expected<void> TextField::mount(uihost::UiHost& host, gui::ComponentHandle handl
     m_changed = std::move(changed);
     m_keys = std::move(keys);
     m_input = std::make_unique<gui::TextInput>(host.input(), handle, m_maxBytes);
-    if (auto r = m_input->setEnabled(true); !r) {
+    if (auto r = m_input->setEnabled(m_enabled); !r) {
         return std::unexpected(uihost::toError(r.error(), "TextInput::setEnabled"));
     }
     if (auto r = m_input->setText(m_value); !r) {
@@ -61,6 +61,26 @@ void TextField::setValue(std::string value) {
     m_value = std::move(value);
     if (m_input) {
         (void)m_input->setText(m_value);
+    }
+}
+
+void TextField::setEnabled(bool enabled) {
+    if (enabled == m_enabled) {
+        return;
+    }
+    m_enabled = enabled;
+    if (m_input) {
+        (void)m_input->setEnabled(enabled);
+    }
+}
+
+void TextField::focusAll() {
+    if (m_host == nullptr || !m_enabled) {
+        return;
+    }
+    (void)m_host->input().setFocus(m_handle);
+    if (auto session = m_input->beginInput(); session && *session) {
+        (void)m_input->setSelection(**session, {0, m_value.size()});
     }
 }
 
@@ -103,7 +123,7 @@ void TextField::paint(const uihost::UiHost& host, const gui::LayoutBox& box, boo
     }
     const bool empty = m_value.empty();
     d.push_back(gui::DrawText{{kPad, fit((h - m_em * 1.25) / 2), fit(w - 2 * kPad), m_em * 1.25}, 1, m_em,
-                              empty ? m_placeholder : m_value, empty ? rc(c.muted) : rc(c.text)});
+                              empty ? m_placeholder : m_value, empty || !m_enabled ? rc(c.muted) : rc(c.text)});
     if (focused) {
         const double x = host.text().measure(v.substr(0, std::min(sel.caret, v.size())), m_em).width;
         d.push_back(gui::FillRect{{kPad + x, 5, 1.5, fit(h - 10)}, rc(c.text)});
