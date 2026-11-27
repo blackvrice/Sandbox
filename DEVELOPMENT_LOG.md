@@ -7,6 +7,18 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합: 브랜치 코드의 부분 집합 초기화를 모든 필드로 (GCC · Clang -Werror 대비)
+
+**무엇을** — `ComponentSpec{parent, type, key}` (필드 4) · `TextEdit{action, utf8}` (필드 4) · `MouseButtonDown{button, position}` (필드 3) 를
+모든 필드로 (uihost/DocumentView · editor/gui/StudioHomeScreen · tests/unit/uihost 둘 · tests/unit/client/test_gui_studio_home). 동작은 같다.
+
+**왜** — CI 의 GCC 13 · Clang 19 는 -Wextra -Werror 라 -Wmissing-field-initializers 가 실패가 된다 (v0.11 ~ 12 에 여러 번 — MSVC /WX 는 잡지
+못한다). 이 브랜치는 아직 PR · CI 를 거치지 않았다 (Linux · macOS 확인은 리팩터링을 마친 뒤 — 사용자 요청) — 그때 왕복을 줄인다.
+
+**검증** — Debug · /WX 빌드, 전체 CTest 100 / 100 (project_doctor 제외). GCC · Clang 실제 빌드는 CI 에서 (로컬에 없음).
+
+**남은 일** — 없음 (CI 를 열 때 다시 본다).
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R2-05: Dock 작업 공간 (ADR-0177) — DockLayout + 패널마다 UiHost, 첫 패널 정보 · 단축키 · 콘솔
 
 **무엇을**

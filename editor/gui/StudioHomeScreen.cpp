@@ -646,7 +646,7 @@ Expected<void> StudioHomeScreen::mount(uihost::UiHost& host) {
             target.insert = [this, fi](std::string_view utf8) {
                 Field& tf = m_fields[fi];
                 if (auto session = tf.input->beginInput(); session && *session) {
-                    (void)tf.input->edit(**session, {gui::TextEditAction::replace_selection, utf8},
+                    (void)tf.input->edit(**session, gui::TextEdit{gui::TextEditAction::replace_selection, utf8, false, std::nullopt},
                                          m_host->editCallbacks([this, fi](std::string_view v) -> gui::Result<void> {
                                              Field& pf = m_fields[fi];
                                              pf.value = std::string(v);

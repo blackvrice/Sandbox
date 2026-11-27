@@ -49,7 +49,7 @@ void DocumentView::feed(std::span<const platform::PlatformEvent> events) {
         }
         if (m_focusText) {
             ++m_stats.inputEvents;
-            const auto r = m_session->editText(*m_focusText, {gui::TextEditAction::replace_selection, pending});
+            const auto r = m_session->editText(*m_focusText, gui::TextEdit{gui::TextEditAction::replace_selection, pending, false, std::nullopt});
             if (!r) {
                 ++m_stats.inputRejected; // 문서 검증기가 거절 · 포커스가 떠났다
             }

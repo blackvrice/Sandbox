@@ -74,7 +74,7 @@ std::array<platform::PlatformEvent, 3> click(DocumentView& v, std::string_view i
     const gui::LayoutRect r = boxOf(v, id);
     const f32 s = v.scale();
     const Vec2 p{static_cast<f32>((r.x + r.width / 2) * s), static_cast<f32>((r.y + r.height / 2) * s)};
-    return {platform::MouseMove{p, {}}, platform::MouseButtonDown{platform::MouseButton::Left, p},
+    return {platform::MouseMove{p, {}}, platform::MouseButtonDown{platform::MouseButton::Left, p, 1},
             platform::MouseButtonUp{platform::MouseButton::Left, p}};
 }
 
@@ -88,7 +88,7 @@ TEST_SUITE("uihost") {
         REQUIRE(view);
         DocumentView& v = **view;
         // 첫 frame 전에는 누를 자리가 없다
-        const std::array early{platform::PlatformEvent{platform::MouseButtonDown{platform::MouseButton::Left, {20, 20}}}};
+        const std::array early{platform::PlatformEvent{platform::MouseButtonDown{platform::MouseButton::Left, {20, 20}, 1}}};
         v.feed(early);
         REQUIRE(v.frame({400, 300}));
         CHECK(v.stats().components >= 5);

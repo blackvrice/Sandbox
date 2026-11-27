@@ -68,7 +68,7 @@ std::array<PlatformEvent, 3> clickAt(const uihost::UiHost& host, gui::ComponentH
     const gui::LayoutRect r = boxOf(host, h);
     const Vec2 p{static_cast<f32>(r.x + (dx < 0 ? r.width / 2 : dx)),
                  static_cast<f32>(r.y + (dy < 0 ? r.height / 2 : dy))};
-    return {MouseMove{p, {0, 0}}, MouseButtonDown{MouseButton::Left, p}, MouseButtonUp{MouseButton::Left, p}};
+    return {MouseMove{p, {0, 0}}, MouseButtonDown{MouseButton::Left, p, 1}, MouseButtonUp{MouseButton::Left, p}};
 }
 
 std::string pathText8(const std::filesystem::path& p) {
@@ -526,7 +526,7 @@ TEST_SUITE("client") {
         const Vec2 at{static_cast<f32>((q.x + q.width / 2) * 1.5), static_cast<f32>((q.y + q.height / 2) * 1.5)};
         CHECK(host.hitsUi(at.x, at.y));
         window.inject(MouseMove{at, {0, 0}});
-        window.inject(MouseButtonDown{MouseButton::Left, at});
+        window.inject(MouseButtonDown{MouseButton::Left, at, 1});
         window.inject(MouseButtonUp{MouseButton::Left, at});
         (void)app.frame(); // 종료가 이 프레임에 적용된다 (false = 끝)
         CHECK(app.state() == AppState::Shutdown);
@@ -562,7 +562,7 @@ TEST_SUITE("client") {
                 }
             }
             const Vec2 at{static_cast<f32>(r.x + r.width / 2), static_cast<f32>(r.y + r.height / 2)};
-            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at}},
+            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at, 1}},
                                 PlatformEvent{MouseButtonUp{MouseButton::Left, at}}};
             v.feed(ev);
             REQUIRE(v.frame({1280, 720}));
@@ -633,7 +633,7 @@ TEST_SUITE("client") {
                 }
             }
             const Vec2 at{static_cast<f32>(r.x + r.width / 2), static_cast<f32>(r.y + r.height / 2)};
-            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at}},
+            const std::array ev{PlatformEvent{MouseMove{at, {}}}, PlatformEvent{MouseButtonDown{MouseButton::Left, at, 1}},
                                 PlatformEvent{MouseButtonUp{MouseButton::Left, at}}};
             inject(ev);
             REQUIRE(app.frame()); // 명령이 고른 셸 일은 다음 셸 단계에서 적용된다

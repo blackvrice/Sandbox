@@ -27,7 +27,7 @@ struct TwoButtons final : IUiScreen {
 
     Expected<void> mount(UiHost& host) override {
         ++mounts;
-        const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0}, {0, 2, 1}, {0, 2, 2}}};
+        const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {0, 2, 2, true}}};
         if (!host.tree().commit(specs)) {
             return makeError(ErrorCode::Unknown, "commit");
         }
@@ -89,7 +89,7 @@ struct OneField final : IUiScreen {
     bool boxHandles = true;
 
     Expected<void> mount(UiHost& host) override {
-        const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0}, {0, 2, 1}, {0, 3, 2}}};
+        const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {0, 3, 2, true}}};
         if (!host.tree().commit(specs)) {
             return makeError(ErrorCode::Unknown, "commit");
         }
@@ -110,7 +110,8 @@ struct OneField final : IUiScreen {
         TextTarget t;
         t.insert = [this, &host, publish](std::string_view utf8) {
             if (auto s = input->beginInput(); s && *s) {
-                (void)input->edit(**s, {gui::TextEditAction::replace_selection, utf8}, host.editCallbacks(publish));
+                (void)input->edit(**s, gui::TextEdit{gui::TextEditAction::replace_selection, utf8, false, std::nullopt},
+                                  host.editCallbacks(publish));
             }
         };
         t.caret = [] { return std::optional<gui::LayoutRect>(gui::LayoutRect{4, 2, 1, 16}); };
@@ -151,7 +152,7 @@ struct OneField final : IUiScreen {
 };
 
 platform::PlatformEvent down(f32 x, f32 y) {
-    return platform::MouseButtonDown{platform::MouseButton::Left, {x, y}};
+    return platform::MouseButtonDown{platform::MouseButton::Left, {x, y}, 1};
 }
 platform::PlatformEvent up(f32 x, f32 y) {
     return platform::MouseButtonUp{platform::MouseButton::Left, {x, y}};
