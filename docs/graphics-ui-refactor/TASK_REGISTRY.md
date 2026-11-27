@@ -13,7 +13,7 @@
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 6 | 1 | 2 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-08 일부 |
-| UI-R3 편집 패널 | 12 | 1 | 3 | 4 | R3-06 콘솔 ✅, R3-07 빌드 · 08 테스트 · 09 통계 일부 |
+| UI-R3 편집 패널 | 12 | 1 | 4 | 4 | R3-06 콘솔 ✅, R3-02 목록 · 07 빌드 · 08 테스트 · 09 통계 일부 |
 | UI-R4 Viewport | 6 | 0 | 1 | 2 | R4-01 과도기 (통과 장면) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **27 (33 %)** | 7 | 21 | |
+| **합계** | **81** | **27 (33 %)** | 8 | 21 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -66,7 +66,7 @@
 | UI-R2-09 | Studio 홈 전체 (새 프로젝트 · 폴더 열기 · 예제 · 복구 · 검색) | Done | R1-08 | apps/client | 검색 · 가상 목록 (휠 · 키 · 클릭 · Delete) · 목록에서 빼기 · 복구 가능 표시 · 새 프로젝트 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 (예제 ‹ › · 복사할 곳 제안) · 간격 — ImGui 홈과 같은 StudioHomeAction · 명령. `unit_client` gui 5 + app 1 (실제 만들기 · 예제 복사 · 빼기). 남음: 좁은 창의 세로 스크롤 (R2-05 와 함께) · 템플릿 설명 글 |
 | UI-R2-10 | 상태 · 알림 · 진행 표시 | Planned | R2-04 | editor/ | |
 | UI-R3-01 | Project Explorer (TreeView · 맥락 메뉴 · 끌어다 놓기) | Blocked | GUI-UP-03 · 05 | editor/ | ProjectFiles 서비스 재사용 |
-| UI-R3-02 | Hierarchy (가상 TreeView · 다중 선택 · 검색) | Planned | R2-05 | editor/ | HierarchyService 재사용, 10만 행 |
+| UI-R3-02 | Hierarchy (가상 TreeView · 다중 선택 · 검색) | Partial | R2-05 | editor/gui · apps/client | `HierarchyPanel` (작업 공간 "목록" — 장면 왼쪽) — HierarchyService 그대로 (parseHierarchyQuery · buildHierarchy — 그룹 머리 · 펼친 그룹의 개체 · 그룹 없는 개체), 가상 목록, 검색 (낱말 · #번호 · prefab: · tag: · group:), 누르기 = 그것만 · Ctrl/Cmd+누르기 = 더하기 · 빼기 · 두 번 = 카메라 맞추기, ↑↓ · F · Enter · Delete, 그룹 이름 · 묶기 · 빼기, 머리 = 접기. 일은 의도 → Application 이 Editor · IEditorHost (ImGui 창과 같은 호출). 수정자 키는 모든 패널로 (DockWorkspace). `unit_client` "hierarchy panel" + app (local server — 누르면 실제 선택). 남음: 맥락 메뉴 (그룹 지우기 · 이것만 선택 — GUI-UP-03), 10 만 행 측정 (R9-03) |
 | UI-R3-03 | Inspector · Component 편집 (DataForm → 속성 편집 컨트롤) | Planned | R1-08 | editor/ | DataForm · UndoService 재사용 |
 | UI-R3-04 | Asset Browser (썸네일) | Blocked | R1-10 | editor/ · render | 텍스처 핸들 → UI 이미지 |
 | UI-R3-05 | Prefab Browser | Planned | R3-02 | editor/ | |

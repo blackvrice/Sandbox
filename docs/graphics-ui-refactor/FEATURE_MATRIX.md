@@ -26,7 +26,7 @@
 | 5 | 명령 팔레트 (`CommandPalette`) | TextInput · ListView | 어댑터 (글자 입력 R1-08) | UI-R2-08 |
 | 6 | 단축키 표 (`CommandPalette`) | TableView (정렬 · 거르기) | 즉시 — **일부 (작업 공간의 단축키 패널 — ListView · 검색 · Enter = 실행)** | UI-R2-08 |
 | 7 | 알림 (`Application::drawNotices`) | ListView · Button | 즉시 | UI-R2-10 |
-| 8 | 목록 · Hierarchy (`EditorPanel` · HierarchyService) | TreeView (가상 · 펼침 · 거르기 · 선택 보존) | 즉시 (다중 선택은 GUI 개선 — TreeView 는 단일 선택) | UI-R3-02 |
+| 8 | 목록 · Hierarchy (`EditorPanel` · HierarchyService) | TreeView (가상 · 펼침 · 거르기 · 선택 보존) | 즉시 (다중 선택은 GUI 개선 — TreeView 는 단일 선택) — **일부 (작업 공간의 목록 패널 — 같은 서비스 · 검색 · 그룹 · 선택 · 두 번 누르기, 맥락 메뉴는 GUI-UP-03)** | UI-R3-02 |
 | 9 | 인스펙터 (`InspectorPanel` · DataForm) | Slider · Toggle · ComboBox · TextInput | 어댑터 (속성 편집 Custom Control) | UI-R3-03 |
 | 10 | 편집 (툴) 패널 (`EditorPanel`) | Toggle · Button | 즉시 | UI-R3-03 |
 | 11 | 콘텐츠 창 (`ContentPanel` — 1,317 줄) | TreeView · TextInput · 폼 | 어댑터 | UI-R3-05 |

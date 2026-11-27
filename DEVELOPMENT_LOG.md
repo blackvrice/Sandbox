@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R3-02: 작업 공간 목록 (Hierarchy) 패널 — HierarchyService 그대로, 일은 의도로
+
+**무엇을**
+
+- `editor/gui/HierarchyPanel` — ImGui "목록" 창과 같은 서비스 (parseHierarchyQuery · buildHierarchy): 그룹 머리 (▾ · ▸ · 맞은 수) · 펼친 그룹의 개체
+  (들여쓰기) · 그룹 없는 개체, 가상 목록 (키 = netId · 그룹은 위 비트), 상태 줄 ("개체 N / M (관심 영역 안) · 선택 K"), 검색, 그룹 이름 · 묶기
+  · 빼기 (선택 · 이름이 있을 때만 — ImGui 와 같다). 누르기 = 그것만, Ctrl · Cmd+누르기 = 더하기 · 빼기, 같은 줄을 20 frame 안에 다시 = 카메라
+  맞추기 (호스트 frame 차례 — 결정적), 머리 = 접기 · 펴기, ↑↓ (개체만) · F · Enter · Delete (편집 권한).
+- 보기 `HierarchyView` (빌린 줄 · EditorGroups · 콘텐츠 · 선택 — 그 frame 동안) → 배치 때 자기 줄로. 의도 `WorkspaceIntent` 6 가지 (SelectEntities ·
+  FocusSelection · DeleteSelection · GroupSelection · UngroupSelection · ToggleGroup) → Application 이 Editor · IEditorHost (ImGui 창과 같은 호출).
+  editor/gui 는 나머지 editor/ · core 를 직접 쓰지 않는다 (entities = u32).
+- `DockWorkspace` — 수정자 키 (Ctrl · Shift · Alt · Super) 이벤트는 모든 패널 호스트로 (포커스가 없는 패널의 Ctrl+누르기).
+- `StudioWorkspace` — 목록 (id 8, "목록") 은 scene · play 에서 장면 왼쪽, scripting 에서 도구 그룹의 탭. 장면 양옆 80 % 씩. 옛 .guidock 은 프리셋으로.
+- `PanelKit` — `commitTree` · `keyDown` 을 모았다 (StudioPanels 의 사본 삭제).
+- 문서: TASK_REGISTRY (R3-02 Partial), CURRENT_STATUS, UI-R3, FEATURE_MATRIX, MIGRATION_GUIDE 4b-2, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 프로젝트 안 작업 공간 (ADR-0179) 에 편집 창을. 첫째가 목록.
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 12 케이스 (887 단언): 목록 — 프로젝트 없음 안내 · 서비스 줄 5 (글 · 들여쓰기) · 상태 · 누르기 =
+  {1} · 다시 = 맞추기 · 콘솔에 포커스인 채 Ctrl+누르기 = {1, 2} · 머리 = 접기 의도 → 접힌 줄 4 · ↓ · F · Delete · 묶기 (이름 없으면 꺼짐) · 빼기 ·
+  검색 (#2 · rabbit) / app (local server ecosystem_small) — 목록에 실제 개체, 누르면 편집 호스트의 선택이 그 개체 / 기존 시험은 패널이 는 배치로.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 8", 이제 `--safe-mode` (사용자의 지금 레이아웃에 따라 프리셋 · 그룹 수가 달라지던 것 — 이 PC 는 scripting 이라 실패했다).
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외), check_includes 817 파일 0 위반.
+
+**남은 일** — 맥락 메뉴 (그룹 지우기 · 이것만 선택 — GUI-UP-03), 10 만 행 측정 (R9-03), 인스펙터 (R3-03).
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R4-01 과도기: 프로젝트 안의 작업 공간 — 통과 장면 패널 (ADR-0179)
 
 **무엇을**

@@ -2528,6 +2528,23 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         }
         ws.test().setModel(std::move(tm));
         ws.stats().setModel(m_guiStats);
+        // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
+        editor::gui::HierarchyView hv;
+        m_guiEntities.clear();
+        m_guiHierarchyRows.clear();
+        if (editor::IEditorHost* host = inWorld ? m_config.world->editorHost() : nullptr) {
+            host->listEntities(m_guiEntities);
+            for (const editor::EntityRow& r : m_guiEntities) {
+                m_guiHierarchyRows.push_back({r.id, r.saveId, r.prefab, r.tags});
+            }
+            hv.available = true;
+            hv.rows = m_guiHierarchyRows;
+            hv.groups = &m_editor.groups();
+            hv.content = host->content();
+            hv.selection.assign(host->selection().begin(), host->selection().end());
+            hv.canDelete = host->permissions().entities;
+        }
+        ws.hierarchy().setView(std::move(hv));
     }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2575,6 +2592,44 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     case K::SelectProfile:
         m_buildPanel.profileIndex = intent->value; // 다음 studio.build 가 이 프로필로 (ImGui 창과 같은 상태)
         return std::nullopt;
+    case K::SelectEntities:
+    case K::FocusSelection:
+    case K::DeleteSelection:
+    case K::GroupSelection:
+    case K::UngroupSelection:
+    case K::ToggleGroup: {
+        // 목록 패널 (UI-R3-02) — ImGui "목록" 창과 같은 Editor · IEditorHost 호출
+        editor::IEditorHost* host = inWorld ? m_config.world->editorHost() : nullptr;
+        if (host == nullptr) {
+            return std::nullopt;
+        }
+        switch (intent->kind) {
+        case K::SelectEntities:
+            host->setSelection(std::vector<NetEntityId>(intent->entities.begin(), intent->entities.end()));
+            break;
+        case K::FocusSelection:
+            m_editor.requestFocus();
+            break;
+        case K::DeleteSelection:
+            if (host->permissions().entities) {
+                m_editor.deleteSelection(*host);
+            }
+            break;
+        case K::GroupSelection:
+            (void)m_editor.groupSelection(*host, intent->command);
+            break;
+        case K::UngroupSelection:
+            (void)m_editor.ungroupSelection(*host);
+            break;
+        default: { // ToggleGroup
+            if (const editor::EditorGroup* g = m_editor.groups().find(intent->command)) {
+                (void)m_editor.groups().setCollapsed(g->name, !g->collapsed);
+            }
+            break;
+        }
+        }
+        return std::nullopt;
+    }
     case K::TestPlan:
         // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)
         m_testPanel.clients = intent->test.clients;

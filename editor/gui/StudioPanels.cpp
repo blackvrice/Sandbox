@@ -14,6 +14,8 @@ namespace sbx::editor::gui {
 
 using kit::fit;
 using kit::kFont;
+using kit::commitTree;
+using kit::keyDown;
 using kit::rc;
 
 namespace {
@@ -25,27 +27,6 @@ bool containsNoCase(std::string_view hay, std::string_view needle) {
     const auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     return std::search(hay.begin(), hay.end(), needle.begin(), needle.end(),
                        [&](char a, char b) { return lower(a) == lower(b); }) != hay.end();
-}
-
-bool keyDown(const gui::RoutedEvent& ev, gui::KeyCode key, gui::KeyModifiers mods = gui::KeyModifiers::none) {
-    const auto* k = std::get_if<gui::KeyEvent>(&ev.input);
-    return k != nullptr && k->action == gui::KeyAction::down && k->chord.key == key && k->chord.modifiers == mods;
-}
-
-// 부모 우선 게시 — 핸들은 snapshot 의 같은 차례
-Expected<std::vector<gui::ComponentHandle>> commitTree(uihost::UiHost& host, std::span<const gui::ComponentSpec> specs) {
-    if (auto r = host.tree().commit(specs); !r) {
-        return std::unexpected(uihost::toError(r.error(), "패널 트리 게시"));
-    }
-    auto snap = host.tree().snapshot();
-    if (!snap || snap->components.size() != specs.size()) {
-        return makeError(ErrorCode::Unknown, "패널 트리를 읽지 못했다");
-    }
-    std::vector<gui::ComponentHandle> out;
-    for (const auto& c : snap->components) {
-        out.push_back(c.handle);
-    }
-    return out;
 }
 
 // 가상 목록의 한 칸 이동 · 끝 — 고르고 보이게

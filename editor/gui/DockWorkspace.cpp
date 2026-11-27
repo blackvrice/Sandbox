@@ -409,6 +409,16 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
                 continue;
             }
         }
+        // 수정자 키 (Ctrl · Shift · Alt · Super) 는 모든 패널로 — 호스트가 키 이벤트로 수정자를 기억하는데, 포커스가 없는
+        // 패널을 Ctrl+누르기 할 때도 그 패널이 Ctrl 을 알아야 한다 (수정자 키 자신은 GraphicsUI 키 코드가 없어 다른 일은 없다)
+        const auto* kd = std::get_if<platform::KeyDown>(&e);
+        const auto* ku = std::get_if<platform::KeyUp>(&e);
+        if ((kd != nullptr && platform::modifierBitOf(kd->key) != 0) || (ku != nullptr && platform::modifierBitOf(ku->key) != 0)) {
+            for (Pane& p : m_panes) {
+                p.host->feed(std::span<const platform::PlatformEvent>(&e, 1));
+            }
+            continue;
+        }
         if (std::holds_alternative<platform::FocusLost>(e)) {
             cancelDrag();
             if (m_capture != 0 && m_capture != m_focus) {

@@ -378,6 +378,8 @@ private:
     // 마지막으로 저장한 (또는 읽은 뒤 처음 배치한) DockLayout 개정 — nullopt = 읽은 뒤 아직 배치 전 (그 개정을 기준으로 — 열기만
     // 해서는 파일을 만들지 않는다)
     std::optional<u64> m_guiWorkspaceSaved;
+    std::vector<editor::EntityRow> m_guiEntities;           // 작업 공간 목록 패널의 줄 (IEditorHost::listEntities — UI-R3-02)
+    std::vector<editor::HierarchyRow> m_guiHierarchyRows;  // 위를 서비스 줄로 (패널이 frame 동안 빌린다)
     editor::gui::StatsModel m_guiStats; // 이번 프레임의 통계 (진단 창과 같은 입력 — 작업 공간이 열린 동안만 만든다)
     bool m_guiHomeActive = false;      // --ui graphicsui 이고 아직 기존 UI 로 바꾸지 않았다
     bool m_guiHomeLogged = false;      // 첫 프레임 요약을 남겼다

@@ -428,11 +428,12 @@ if(TARGET SandboxClient)
     set_tests_properties(client_graphicsui_home_headless PROPERTIES LABELS "unit;client"
         PASS_REGULAR_EXPRESSION "GraphicsUI 홈: 컴포넌트 [0-9]+ · 그리기 명령 [1-9][0-9]*.*GraphicsUI 평균 \\([0-9]+ 프레임\\).*버린 입력 0 · 작업자 오류 0.*SandboxClient 끝: frames 30 state Shutdown"
         FAIL_REGULAR_EXPRESSION "기존 UI 로:")
-    # ADR-0179: --ui graphicsui 로 월드에 들어가면 ImGui 셸 대신 작업 공간 (장면 통과)
+    # ADR-0179: --ui graphicsui 로 월드에 들어가면 ImGui 셸 대신 작업 공간 (장면 통과). --safe-mode — 사용자의 지금 레이아웃
+    # (studio.json · studio/layouts) 을 읽지도 쓰지도 않는다 (그 이름의 프리셋에 따라 그룹 수가 달라진다)
     add_test(NAME client_graphicsui_world_headless
-        COMMAND SandboxClient --headless --ui graphicsui --world ecosystem_small --frames 90 --fps 120)
+        COMMAND SandboxClient --headless --safe-mode --ui graphicsui --world ecosystem_small --frames 90 --fps 120)
     set_tests_properties(client_graphicsui_world_headless PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "GraphicsUI 작업 공간 \\(프로젝트 안 — 장면 통과, 그룹 3 · 패널 7\\).*SandboxClient 끝: frames 90"
+        PASS_REGULAR_EXPRESSION "GraphicsUI 작업 공간 \\(프로젝트 안 — 장면 통과, 그룹 4 · 패널 8\\).*SandboxClient 끝: frames 90"
         FAIL_REGULAR_EXPRESSION "작업 공간을 만들지 못했다")
     add_test(NAME client_ui_rejects_unknown COMMAND SandboxClient --ui qt)
     set_tests_properties(client_ui_rejects_unknown PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)

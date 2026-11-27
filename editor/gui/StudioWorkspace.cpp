@@ -25,6 +25,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     auto stats = std::make_unique<StatsPanel>(*ws->m_ctx);
     ws->m_stats = stats.get();
     auto scene = std::make_unique<ScenePanel>(*ws->m_ctx);
+    auto hierarchy = std::make_unique<HierarchyPanel>(*ws->m_ctx);
+    ws->m_hierarchy = hierarchy.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -37,6 +39,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kTest, "테스트", std::move(test)});
     panes.push_back({kStats, "통계", std::move(stats)});
     panes.push_back({kScene, "장면", std::move(scene)});
+    panes.push_back({kHierarchy, "목록", std::move(hierarchy)}); // ImGui 창 이름과 같다
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -71,13 +74,17 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
     if (preset == "play") { // 출력 · 도구를 오른쪽 한 그룹에 (실행 중 장면을 넓게)
         moves = {{kConsole, kScene, gui::DockSide::right}, {kBuild, kConsole, gui::DockSide::tab_after},
                  {kTest, kBuild, gui::DockSide::tab_after},   {kShortcuts, kTest, gui::DockSide::tab_after},
-                 {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after}};
+                 {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after},
+                 {kHierarchy, kScene, gui::DockSide::left}};
     } else {
         // scene (기본 · default · 모르는 이름) = 도구가 오른쪽, scripting = 도구가 왼쪽 (명령 표를 쓰며 찾기)
         const gui::DockSide tools = preset == "scripting" ? gui::DockSide::left : gui::DockSide::right;
         moves = {{kConsole, kScene, gui::DockSide::bottom}, {kBuild, kConsole, gui::DockSide::tab_after},
                  {kTest, kBuild, gui::DockSide::tab_after},    {kShortcuts, kScene, tools},
                  {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after}};
+        // 목록 — scene 은 장면 왼쪽 (ImGui 셸의 scene 프리셋처럼), scripting 은 왼쪽 도구 그룹의 탭
+        moves.push_back(preset == "scripting" ? Move{kHierarchy, kInfo, gui::DockSide::tab_after}
+                                              : Move{kHierarchy, kScene, gui::DockSide::left});
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
@@ -106,7 +113,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         }
         const bool horizontal = dv.axis == gui::DockAxis::horizontal;
         const bool sceneFirst = horizontal ? cx < dv.bounds.x : cy < dv.bounds.y;
-        const double big = horizontal ? 0.76 : 0.72;
+        const double big = horizontal ? 0.80 : 0.72; // 양옆이 다 있으면 장면 ≈ 64 %
         (void)layout.resize(dv.key, sceneFirst ? big : 1.0 - big);
     }
     (void)layout.select(kShortcuts); // 도구 그룹의 앞 탭 = 단축키

@@ -45,6 +45,7 @@ constexpr gui::DockPaneId kBuild = StudioWorkspace::kBuild;
 constexpr gui::DockPaneId kTest = StudioWorkspace::kTest;
 constexpr gui::DockPaneId kStats = StudioWorkspace::kStats;
 constexpr gui::DockPaneId kScene = StudioWorkspace::kScene;
+constexpr gui::DockPaneId kHierarchy = StudioWorkspace::kHierarchy;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -180,12 +181,12 @@ TEST_SUITE("graphics ui dock workspace") {
         Fixture f;
         DockWorkspace& d = f.dock();
         // 기본 배치 (scene — ADR-0179): 장면 (가운데 · 크게) | 도구 (단축키 · 통계 · 정보), 아래 출력 (콘솔 · 빌드 · 테스트)
-        REQUIRE(d.lastFrame()->groups.size() == 3);
-        CHECK(d.lastFrame()->dividers.size() == 2);
+        REQUIRE(d.lastFrame()->groups.size() == 4);
+        CHECK(d.lastFrame()->dividers.size() == 3);
         CHECK(d.focusedPane() == kScene);
         CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kScene).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kScene).bounds.x);
-        CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);  // 장면 쪽 76 %
+        CHECK(groupOf(d, kScene).bounds.width > 0.55 * f.size.width); // 양옆 (목록 · 도구) 80 % 씩
         CHECK(groupOf(d, kScene).bounds.height > 0.6 * f.size.height); // 장면 쪽 72 %
         CHECK(sameGroup(d, kBuild, kConsole)); // 출력끼리 (앞은 콘솔)
         CHECK(sameGroup(d, kTest, kConsole));
@@ -194,7 +195,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
             const editor::gui::WorkspaceDraw& draw = f.frame();
-            CHECK(draw.panes.size() == 3); // 그룹마다 활성 패널 하나
+            CHECK(draw.panes.size() == 4); // 그룹마다 활성 패널 하나
             CHECK(!draw.chrome.empty());
             CHECK(draw.overlay.empty());
         }
@@ -211,8 +212,8 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(!f.frame().overlay.empty()); // 놓을 자리 미리보기
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
-        CHECK(d.lastFrame()->groups.size() == 3); // 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 7);
+        CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
+        CHECK(d.lastFrame()->tabs.size() == 8);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -222,7 +223,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(click(center(tabOf(d, kInfo).bounds)));
         CHECK(d.focusedPane() == kInfo);
         CHECK(groupOf(d, kInfo).active == kInfo);
-        CHECK(d.lastFrame()->groups.size() == 3);
+        CHECK(d.lastFrame()->groups.size() == 4);
         // Ctrl+PageDown · PageUp = 그룹 안 탭 순회 (단축키 · 통계 · 정보 · 콘솔)
         f.feed(key(Key::PageDown, Modifiers::kCtrl));
         CHECK(d.focusedPane() == kConsole);
@@ -237,7 +238,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(d.dragging());
         CHECK_FALSE(d.dropTarget());
         f.feed(MouseButtonUp{MouseButton::Left, center(groupOf(d, kScene).content)});
-        CHECK(d.lastFrame()->groups.size() == 3);
+        CHECK(d.lastFrame()->groups.size() == 4);
         CHECK(sameGroup(d, kShortcuts, kInfo));
         CHECK_FALSE(sameGroup(d, kShortcuts, kScene));
 
@@ -250,13 +251,13 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.dropTarget()->side == gui::DockSide::bottom);
         CHECK(d.dropTarget()->target == kInfo);
         f.feed(MouseButtonUp{MouseButton::Left, bottomEdge});
-        CHECK(d.lastFrame()->groups.size() == 4);
+        CHECK(d.lastFrame()->groups.size() == 5);
         f.show(kInfo); // 단축키를 누를 때 골라져 남은 그룹의 앞 탭이 바뀌었다
         CHECK(groupOf(d, kShortcuts).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(groupOf(d, kInfo).bounds.x));
 
         // 분할선 끌기 = 비율. 끄는 동안 개정이 바뀌어도 (토큰은 개정에 묶인다) 이어서 끈다 — 정보 바로 아래 분할선
-        REQUIRE(d.lastFrame()->dividers.size() == 3);
+        REQUIRE(d.lastFrame()->dividers.size() == 4);
         const auto dividerUnderInfo = [&] {
             const gui::LayoutRect info = groupOf(d, kInfo).bounds;
             for (const gui::DockDividerBox& dv : d.lastFrame()->dividers) {
@@ -571,6 +572,133 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(lines[2].text == "me.game 1.2.0 · 파일 7 · 4096 바이트 · digest 0123456789abcdef…");
     }
 
+    TEST_CASE("hierarchy panel (UI-R3-02): same service lines as the ImGui list — groups, search, select, Ctrl, double click, keys") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::HierarchyPanel& h = f.ws->hierarchy();
+        REQUIRE(groupOf(d, kHierarchy).active == kHierarchy); // 장면 왼쪽 (혼자)
+
+        // 프로젝트 없음 — 줄 없음 · 안내
+        CHECK(h.lines().empty());
+        CHECK(h.status().find("프로젝트가 열려 있지 않다") != std::string::npos);
+
+        const std::string rabbit = "eco.rabbit";
+        const std::string wolf = "eco.wolf";
+        const std::vector<editor::HierarchyRow> rows{{1, 101, rabbit, {}}, {2, 102, rabbit, {}}, {3, 103, wolf, {}},
+                                                     {4, kInvalidSaveId, {}, {}}};
+        editor::EditorGroups groups;
+        const std::array<SaveId, 1> wolves{103};
+        REQUIRE(groups.create("wolves", wolves));
+        const auto view = [&](std::vector<NetEntityId> selection) {
+            editor::gui::HierarchyView v;
+            v.available = true;
+            v.rows = rows;
+            v.groups = &groups;
+            v.selection = std::move(selection);
+            v.canDelete = true;
+            h.setView(std::move(v));
+            f.frame();
+        };
+        view({});
+        // 서비스 줄 그대로 — 그룹 머리 · 그 안의 개체 · 그룹 없는 개체 (rows 차례)
+        REQUIRE(h.lines().size() == 5);
+        CHECK(h.lines()[0].group);
+        CHECK(h.lines()[0].text == "▾ wolves  (1)");
+        CHECK(h.lines()[1].text == "eco.wolf #3");
+        CHECK(h.lines()[1].inGroup);
+        CHECK(h.lines()[2].text == "eco.rabbit #1");
+        CHECK(h.lines()[4].text == "개체 #4");
+        CHECK(h.shownEntities() == 4);
+        CHECK(h.status() == "개체 4 / 4 (관심 영역 안) · 선택 0");
+
+        // 줄의 창 좌표 — 그룹 내용 원점 + 목록 상자 + 줄
+        const auto rowAt = [&](usize line) {
+            const gui::DockGroupBox g = groupOf(d, kHierarchy);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kHierarchy)->lastLayout()->boxes()) {
+                if (b.component == h.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = h.rowBounds(line);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        // 누르기 = 그것만 고르기
+        f.feed(click(rowAt(2)));
+        auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::SelectEntities);
+        CHECK(intent->entities == std::vector<u32>{1});
+        view({1});
+        CHECK(h.status() == "개체 4 / 4 (관심 영역 안) · 선택 1");
+        // 같은 줄을 곧 다시 = 카메라 맞추기
+        f.feed(click(rowAt(2)));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::FocusSelection);
+        // Ctrl+누르기 = 더하기 (포커스가 다른 패널이어도 Ctrl 이 온다 — 수정자 키는 모든 패널로)
+        f.feed(click(paneCenter(d, kConsole, f.ws->console().filterHandle()))); // 포커스를 콘솔로
+        (void)f.ws->takeIntent();
+        f.feed(KeyDown{Key::LeftCtrl, 0, Modifiers{Modifiers::kCtrl}, false});
+        f.feed(click(rowAt(3)));
+        f.feed(KeyUp{Key::LeftCtrl, 0, Modifiers{}});
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::SelectEntities);
+        CHECK(intent->entities == std::vector<u32>{1, 2});
+        view({1, 2});
+        // 그룹 머리 = 접기 의도 (Editor 의 그룹은 앱이 바꾼다 — 여기서는 직접)
+        f.feed(click(rowAt(0)));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::ToggleGroup);
+        CHECK(intent->command == "wolves");
+        REQUIRE(groups.setCollapsed("wolves", true));
+        view({1, 2});
+        REQUIRE(h.lines().size() == 4); // 접힌 그룹의 개체는 빠진다
+        CHECK(h.lines()[0].text == "▸ wolves  (1)");
+
+        // 키 — ↓ = 다음 개체만, F = 맞추기, Delete = 지우기
+        f.feed(click(rowAt(1)));
+        (void)f.ws->takeIntent();
+        f.feed(key(Key::Down));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->entities == std::vector<u32>{2});
+        f.feed(key(Key::F));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::FocusSelection);
+        f.feed(key(Key::Delete));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::DeleteSelection);
+
+        // 묶기 — 이름을 쓰면 켜진다, 빼기
+        f.feed(click(paneCenter(d, kHierarchy, h.groupHandle())));
+        CHECK_FALSE(f.ws->takeIntent()); // 이름이 없다
+        f.feed(click(paneCenter(d, kHierarchy, h.groupNameHandle())));
+        f.feed(typed(U"rabbits"));
+        f.feed(click(paneCenter(d, kHierarchy, h.groupHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::GroupSelection);
+        CHECK(intent->command == "rabbits");
+        f.feed(click(paneCenter(d, kHierarchy, h.ungroupHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::UngroupSelection);
+
+        // 검색 — 서비스 규칙 (낱말 · #번호 · group:)
+        f.feed(click(paneCenter(d, kHierarchy, h.searchHandle())));
+        f.feed(typed(U"#2"));
+        CHECK(h.shownEntities() == 1);
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"rabbit"));
+        CHECK(h.shownEntities() == 2);
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -696,12 +824,12 @@ TEST_SUITE("graphics ui dock workspace") {
 
         REQUIRE(f.ws->applyPreset("play"));
         f.frame();
-        REQUIRE(d.lastFrame()->groups.size() == 2); // 장면 | 나머지 전부
+        REQUIRE(d.lastFrame()->groups.size() == 3); // 목록 | 장면 | 나머지 전부
         CHECK(groupOf(d, kConsole).bounds.x > groupOf(d, kScene).bounds.x);
         CHECK(sameGroup(d, kShortcuts, kConsole));
         CHECK(sameGroup(d, kInfo, kConsole));
         CHECK(groupOf(d, kConsole).active == kConsole); // 앞은 콘솔
-        CHECK(groupOf(d, kScene).bounds.width > 0.7 * f.size.width);
+        CHECK(groupOf(d, kScene).bounds.width > 0.55 * f.size.width);
         CHECK(d.focusedPane() == kScene);
 
         REQUIRE(f.ws->applyPreset("my-layout")); // 프리셋이 아닌 이름 = scene
@@ -765,7 +893,7 @@ TEST_SUITE("graphics ui dock workspace") {
 
         run([&](Application& app, HeadlessWindow& window, StudioWorkspace& ws) {
             const DockWorkspace& d = ws.dock();
-            CHECK(d.lastFrame()->groups.size() == 3); // 저장된 것 없음 = default 의 프리셋 (scene)
+            CHECK(d.lastFrame()->groups.size() == 4); // 저장된 것 없음 = default 의 프리셋 (scene)
             CHECK_FALSE(fs::exists(folder / "default.guidock")); // 열기만 해서는 쓰지 않는다
             const gui::DockTabBox infoTab = tabOf(d, kInfo);
             const Vec2 onInfoTab{static_cast<f32>(infoTab.bounds.x + infoTab.bounds.width * 0.75),
@@ -848,6 +976,35 @@ TEST_SUITE("graphics ui dock workspace") {
         moveTo(groupOf(d, kShortcuts).content);
         CHECK(app.input().downstream().mouseCaptured);
 
+        // 목록 (UI-R3-02) — 같은 편집 호스트의 개체 · 누르면 그 개체가 선택된다 (ImGui 창과 같은 setSelection)
+        editor::gui::HierarchyPanel& h = ws->hierarchy();
+        REQUIRE(ns->editorHost() != nullptr);
+        REQUIRE(h.shownEntities() > 0);
+        CHECK(h.status().find("선택 0") != std::string::npos);
+        usize firstEntity = 0;
+        while (firstEntity < h.lines().size() && h.lines()[firstEntity].group) {
+            ++firstEntity;
+        }
+        REQUIRE(firstEntity < h.lines().size());
+        const auto rb = h.rowBounds(firstEntity);
+        REQUIRE(rb);
+        gui::LayoutRect list{};
+        for (const gui::LayoutBox& b : d.paneHost(kHierarchy)->lastLayout()->boxes()) {
+            if (b.component == h.listHandle()) {
+                list = b.bounds;
+            }
+        }
+        const gui::DockGroupBox hg = groupOf(d, kHierarchy);
+        for (const PlatformEvent& e : click(center({hg.content.x + list.x + rb->x, hg.content.y + list.y + rb->y, rb->width,
+                                                    rb->height},
+                                                   d.scale()))) {
+            window.inject(e);
+        }
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        REQUIRE(ns->editorHost()->selection().size() == 1);
+        CHECK(ns->editorHost()->selection().front() == h.lines()[firstEntity].id);
+
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {
             window.inject(e);
@@ -911,7 +1068,7 @@ TEST_SUITE("graphics ui dock workspace") {
         StudioWorkspace* ws = app.graphicsUiWorkspace();
         REQUIRE(ws != nullptr);
         REQUIRE(ws->dock().lastFrame() != nullptr);
-        CHECK(ws->dock().lastFrame()->groups.size() == 3);
+        CHECK(ws->dock().lastFrame()->groups.size() == 4);
         CHECK(ws->shortcuts().listedCount() == app.commands().commands().size()); // 같은 명령 표
         CHECK_FALSE(ws->build().model().available); // 홈 — 프로젝트가 없어 검사 · 빌드를 끈다
         CHECK_FALSE(ws->test().model().available);
