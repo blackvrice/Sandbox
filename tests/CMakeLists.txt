@@ -232,6 +232,7 @@ if(SBX_BUILD_CLIENT)
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GamePanel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioHome.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/ui/GraphicsUiImGuiBridge.cpp"
+        "${PROJECT_SOURCE_DIR}/apps/client/ui/GuiStatsModel.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/studio/StudioShell.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerLibrary.cpp"
         "${PROJECT_SOURCE_DIR}/apps/client/player/PlayerScreens.cpp"

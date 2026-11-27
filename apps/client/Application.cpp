@@ -1,5 +1,6 @@
 #include "apps/client/Application.hpp"
 
+#include "apps/client/ui/GuiStatsModel.hpp"
 #include "render/asset/AssetManager.hpp"
 
 #include "core/script/ClientScriptHost.hpp"
@@ -962,6 +963,9 @@ bool Application::frame() {
         pin.details = m_detailOverlay;
         pin.zoom = m_renderWorld.camera.pixelsPerUnit;
         pin.font = m_config.ui->fontName();
+        if (m_guiWorkspaceOpen) {
+            m_guiStats = makeGuiStatsModel(m_panels, pin); // GraphicsUI 통계 패널 (UI-R3-09) — 같은 입력
+        }
         // Studio 셸 (v0.8 UI-1 — ADR-0118): 월드 안이면 메뉴 · 툴바 · 도크 공간을 다른 창보다 먼저 (도킹 · 프리셋)
         ShellActions shell;
         if (inWorld && m_panels.visible && !m_config.playerMode) {
@@ -2463,6 +2467,17 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         bm.running = m_config.builds != nullptr && m_config.builds->running();
         bm.last = m_buildPanel.last;
         ws.build().setModel(std::move(bm));
+        // 테스트 창 — ImGui "테스트" 창과 같은 원천 (TestService · m_testPanel)
+        editor::gui::TestPanelModel tm;
+        tm.available = m_state == AppState::InWorld && m_config.tests != nullptr && !m_projectDir.empty();
+        tm.running = m_config.tests != nullptr && m_config.tests->running();
+        tm.plan = {m_testPanel.clients, static_cast<f64>(m_testPanel.latencyMs), static_cast<f64>(m_testPanel.jitterMs),
+                   static_cast<f64>(m_testPanel.lossPercent)};
+        if (m_config.tests != nullptr) {
+            tm.processes = m_config.tests->processes();
+        }
+        ws.test().setModel(std::move(tm));
+        ws.stats().setModel(m_guiStats);
     }
     ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -2504,6 +2519,13 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     }
     case K::SelectProfile:
         m_buildPanel.profileIndex = intent->value; // 다음 studio.build 가 이 프로필로 (ImGui 창과 같은 상태)
+        return std::nullopt;
+    case K::TestPlan:
+        // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)
+        m_testPanel.clients = intent->test.clients;
+        m_testPanel.latencyMs = static_cast<float>(intent->test.latencyMs);
+        m_testPanel.jitterMs = static_cast<float>(intent->test.jitterMs);
+        m_testPanel.lossPercent = static_cast<float>(intent->test.lossPercent);
         return std::nullopt;
     case K::RunCommand: {
         // 팔레트 · 단축키와 같은 명령 표 — 다음 셸 단계가 고른 셸 일을 적용한다

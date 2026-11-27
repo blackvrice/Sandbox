@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-27 — GraphicsUI 통합 UI-R3-08 · 09: 작업 공간 테스트 패널 · 통계 패널 (값 모델)
+
+**무엇을**
+
+- `TestPanel` (R3-08 일부) — 클라이언트 (1 ~ 4) · 지연 (±10 ms) · 흔들림 (±5 ms) · 손실 (±0.5 %) 의 − 값 + (ImGui 창과 같은 범위 — 의도
+  `WorkspaceIntent::Kind::TestPlan` → Application 의 m_testPanel, studio.test-start 가 applyTestPanel 로 계획에), 서버 + 클라이언트 시작 · 모두
+  끝내기 (studio.test-start · stop), 프로세스 목록 (ImGui 와 같은 글 `processLine` · 로그 경로는 툴팁 대신 줄 오른쪽). 도는 동안 값 · 시작 꺼짐,
+  끝내기는 도는 동안만. 값 모델 `TestPanelModel` (`TestProcess::operator==` 추가).
+- `StatsPanel` (R3-09 일부) — 프레임 시간 막대 · 줄 (CPU · GPU 패스 · 그리기 · 디바이스 · 네트워크 · 폰트). 값 모델 `StatsModel` 은
+  `apps/client/ui/GuiStatsModel` (`makeGuiStatsModel`) 이 진단 창 (DebugPanels "통계" · "네트워크") 과 같은 입력 · 같은 글로 — 작업 공간이 열린
+  동안만 만든다. 홈에서도 쓸 수 있는 첫 진단 패널.
+- `StudioWorkspace` — 테스트 (id 5, 콘솔 옆 탭) · 통계 (id 6, 단축키 옆 탭). 프리셋에서 각 그룹의 앞 탭은 그대로 (단축키 · 콘솔).
+- `WorkspaceIntent::of(...)` — 필드가 늘어도 부분 집합 초기화가 되지 않게 (GCC · Clang -Wmissing-field-initializers).
+- 문서: TASK_REGISTRY (R3-08 · 09 Partial), CURRENT_STATUS (다음 = 프로젝트 안의 작업 공간 — R4-01 결정 필요), UI-R3, FEATURE_MATRIX,
+  17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R3 의 즉시 · 어댑터 패널 (테스트 · 통계).
+
+**검증** (Windows MSVC, 2026-11-27)
+
+- `unit_client` "graphics ui dock workspace" 9 케이스 (618 단언): 테스트 패널 — 프로젝트 없음이면 꺼짐 · 클라이언트 4 에서 멈춤 · 지연 +10 ·
+  손실 0 아래로 안 감 · 시작 의도 · 도는 중 목록 2 줄 (글) · 값 꺼짐 · 끝내기 의도 / 통계 — 진단 입력 → 머리 글 "60 fps · 프레임 16.67 ms" ·
+  막대 10 · 줄 5 (CPU · 월드 1.25 ms …) · 패널 목록 5 줄 · 막대 10 개 / app — 홈에서 통계 막대가 찬다 · 테스트 꺼짐 / 기존 시험은 탭이 늘어난
+  배치로.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 100 / 100 (project_doctor 제외), check_includes 815 파일 0 위반.
+
+**남은 일** — 프로젝트 안에서 작업 공간 (R4-01 — 표시 길 결정), 시뮬레이션 · 접속자 · 스크립트 진단 창 (R3-09 나머지), Hierarchy (R3-02).
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R3-06 · 07: 작업 공간 콘솔 마무리 (수준 · 지우기 · 복사), 빌드 패널 (값 모델)
 
 **무엇을**

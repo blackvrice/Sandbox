@@ -67,6 +67,7 @@ struct TestProcess {
     u32 handle = 0;
     TestProcessState state = TestProcessState::Running;
     int exitCode = 0;
+    bool operator==(const TestProcess&) const = default; // 화면이 바뀐 목록만 다시 그린다
 };
 
 class TestService {

@@ -16,6 +16,7 @@
 
 #include "apps/client/Application.hpp"
 #include "apps/client/DefaultInput.hpp"
+#include "apps/client/ui/GuiStatsModel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
@@ -39,6 +40,8 @@ constexpr gui::DockPaneId kInfo = StudioWorkspace::kInfo;
 constexpr gui::DockPaneId kShortcuts = StudioWorkspace::kShortcuts;
 constexpr gui::DockPaneId kConsole = StudioWorkspace::kConsole;
 constexpr gui::DockPaneId kBuild = StudioWorkspace::kBuild;
+constexpr gui::DockPaneId kTest = StudioWorkspace::kTest;
+constexpr gui::DockPaneId kStats = StudioWorkspace::kStats;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -173,6 +176,8 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(groupOf(d, kConsole).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x > groupOf(d, kInfo).bounds.x);
         CHECK(sameGroup(d, kBuild, kConsole)); // 빌드 = 콘솔의 탭 (앞은 콘솔)
+        CHECK(sameGroup(d, kTest, kConsole));
+        CHECK(sameGroup(d, kStats, kShortcuts)); // 통계 = 단축키의 탭
         CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
             const editor::gui::WorkspaceDraw& draw = f.frame();
@@ -194,8 +199,8 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 3); // 정보 + 콘솔 · 단축키 · 빌드 (콘솔이 떠난 그룹)
-        CHECK(d.lastFrame()->tabs.size() == 4);
-        CHECK(groupOf(d, kBuild).active == kBuild);
+        CHECK(d.lastFrame()->tabs.size() == 6);
+        CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(tabOf(d, kConsole).group_active == tabOf(d, kInfo).group_active); // 같은 그룹
         CHECK(tabOf(d, kConsole).bounds.x > tabOf(d, kInfo).bounds.x);
@@ -233,13 +238,13 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(d.dropTarget()->side == gui::DockSide::bottom);
         CHECK(d.dropTarget()->target == kInfo);
         f.feed(MouseButtonUp{MouseButton::Left, bottomEdge});
-        CHECK(d.lastFrame()->groups.size() == 3);
+        CHECK(d.lastFrame()->groups.size() == 4); // 통계는 오른쪽에 남는다
         CHECK(groupOf(d, kShortcuts).bounds.y > groupOf(d, kInfo).bounds.y);
         CHECK(groupOf(d, kShortcuts).bounds.x == doctest::Approx(groupOf(d, kInfo).bounds.x));
 
         // 분할선 끌기 = 비율. 끄는 동안 개정이 바뀌어도 (토큰은 개정에 묶인다) 이어서 끈다
         // 정보 · 단축키 사이의 분할선 (정보 바로 아래)
-        REQUIRE(d.lastFrame()->dividers.size() == 2);
+        REQUIRE(d.lastFrame()->dividers.size() == 3);
         const auto dividerUnderInfo = [&] {
             const gui::LayoutRect info = groupOf(d, kInfo).bounds;
             for (const gui::DockDividerBox& dv : d.lastFrame()->dividers) {
@@ -480,6 +485,112 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(lines[2].text == "me.game 1.2.0 · 파일 7 · 4096 바이트 · digest 0123456789abcdef…");
     }
 
+    TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::TestPanel& t = f.ws->test();
+        using F = editor::gui::TestPanel::Field;
+        f.feed(click(center(tabOf(d, kTest).bounds)));
+        REQUIRE(groupOf(d, kTest).active == kTest);
+
+        // 프로젝트 없음 — 값 · 시작이 꺼져 있다
+        f.feed(click(paneCenter(d, kTest, t.startHandle())));
+        f.feed(click(paneCenter(d, kTest, t.plusHandle(F::Clients))));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        editor::gui::TestPanelModel m;
+        m.available = true;
+        t.setModel(m);
+        f.frame();
+        CHECK(t.valueText(F::Clients) == "2");
+        // 클라이언트 + 세 번 → 4 에서 멈춘다 (TestService::kMaxClients)
+        for (int i = 0; i < 3; ++i) {
+            f.feed(click(paneCenter(d, kTest, t.plusHandle(F::Clients))));
+        }
+        auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::TestPlan);
+        CHECK(intent->test.clients == 4);
+        f.feed(click(paneCenter(d, kTest, t.plusHandle(F::Latency))));
+        f.feed(click(paneCenter(d, kTest, t.minusHandle(F::Loss)))); // 0 아래로 가지 않는다
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->test.latencyMs == doctest::Approx(10.0));
+        CHECK(intent->test.lossPercent == doctest::Approx(0.0));
+        CHECK(t.valueText(F::Latency) == "10 ms");
+        f.feed(click(paneCenter(d, kTest, t.plusHandle(F::Loss))));
+        CHECK(t.valueText(F::Loss) == "0.5 %");
+        (void)f.ws->takeIntent();
+
+        // 시작 = 기존 명령. 끝내기는 도는 동안만
+        f.feed(click(paneCenter(d, kTest, t.stopHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kTest, t.startHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::RunCommand);
+        CHECK(intent->command == "studio.test-start");
+
+        // 도는 중 — 프로세스 목록, 값 · 시작 꺼짐, 끝내기 켜짐
+        editor::services::TestProcess server;
+        server.label = "서버";
+        server.log = "D:/p/logs/server.log";
+        editor::services::TestProcess client;
+        client.label = "클라이언트 1";
+        client.state = editor::services::TestProcessState::Exited;
+        client.exitCode = 3;
+        m.running = true;
+        m.plan.clients = 4;
+        m.processes = {server, client};
+        t.setModel(m);
+        f.frame();
+        CHECK(t.listedCount() == 2);
+        CHECK(editor::gui::TestPanel::processLine(server) == "서버 — 도는 중");
+        CHECK(editor::gui::TestPanel::processLine(client) == "클라이언트 1 — 끝남 (종료 코드 3)");
+        f.feed(click(paneCenter(d, kTest, t.plusHandle(F::Jitter))));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kTest, t.stopHandle())));
+        intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->command == "studio.test-stop");
+    }
+
+    TEST_CASE("stats panel (UI-R3-09): frame bars and lines from the same inputs as the developer stats window") {
+        // 앱의 진단 입력 → 값 모델 (진단 창과 같은 글)
+        PanelState state;
+        for (int i = 0; i < 10; ++i) {
+            state.pushFrame(16.0 + i);
+        }
+        FrameTimings timings;
+        timings.frameMs = 1000.0 / 60.0;
+        timings.worldMs = 1.25;
+        timings.extractMs = 0.5;
+        timings.renderMs = 2.0;
+        timings.frames = 30;
+        PanelInputs in;
+        in.timings = &timings;
+        in.font = "NanumGothic";
+        const editor::gui::StatsModel m = makeGuiStatsModel(state, in);
+        CHECK(m.headline == "60 fps · 프레임 16.67 ms");
+        REQUIRE(m.frameMs.size() == 10);
+        CHECK(m.frameMs.front() == doctest::Approx(16.f));
+        CHECK(m.frameMs.back() == doctest::Approx(25.f));
+        REQUIRE(m.lines.size() == 5); // CPU · 월드 · 추출 · 렌더 · 폰트 (렌더러 · 네트워크 없음)
+        CHECK(m.lines[0].tone == editor::gui::StatTone::Section);
+        CHECK(m.lines[1].label == "월드");
+        CHECK(m.lines[1].value == "1.25 ms");
+        CHECK(m.lines[4].value == "NanumGothic");
+
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        f.feed(click(center(tabOf(d, kStats).bounds)));
+        REQUIRE(groupOf(d, kStats).active == kStats);
+        f.ws->stats().setModel(m);
+        f.frame();
+        CHECK(f.ws->stats().listedCount() == 5);
+        CHECK(f.ws->stats().barsDrawn() == 10);
+    }
+
     TEST_CASE("studio workspace presets (UI-R2-07): scene · scripting · play, unknown names fall back to scene") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -641,6 +752,9 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(ws->dock().lastFrame()->groups.size() == 3);
         CHECK(ws->shortcuts().listedCount() == app.commands().commands().size()); // 같은 명령 표
         CHECK_FALSE(ws->build().model().available); // 홈 — 프로젝트가 없어 검사 · 빌드를 끈다
+        CHECK_FALSE(ws->test().model().available);
+        REQUIRE(app.frame());
+        CHECK_FALSE(ws->stats().model().frameMs.empty()); // 통계는 홈에서도 (프레임 시간 · 디바이스)
 
         // 단축키 패널에서 테마 명령을 찾아 Enter — 보기 › 테마 와 같은 명령 (다음 셸 단계가 적용)
         CHECK(app.studioTheme() == editor::theme::Theme::Dark);

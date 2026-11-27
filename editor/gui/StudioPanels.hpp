@@ -5,9 +5,12 @@
 //   ShortcutPanel  명령 표 (CommandService — 팔레트 · 단축키 표와 같은 원천) · 검색 · Enter = 그 명령 실행 (의도)
 //   InfoPanel      판 · 테마 · 배율 · 조작 안내 · 홈으로 · 배치 초기화 (의도)
 //   BuildPanel     빌드 창 (UI-R3-07) — 프로필 ‹ › · 검사 · 빌드 (명령 studio.check · studio.build) · 마지막 보고 (BuildReport 그대로)
+//   TestPanel      테스트 창 (UI-R3-08) — 클라이언트 · 지연 · 흔들림 · 손실 (− 값 +) · 시작 · 끝내기 (studio.test-*) · 프로세스 목록
+//   StatsPanel     통계 창 (UI-R3-09) — 프레임 시간 막대 · CPU · GPU · 그리기 · 디바이스 · 네트워크 줄 (진단 창과 같은 원천)
 //
 // 패널은 고른 일을 WorkspaceIntent 로 돌려준다 — 일은 Application 이 기존 명령 · 처리로 한다.
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -20,6 +23,7 @@
 
 #include "editor/gui/TextField.hpp"
 #include "editor/services/BuildService.hpp"
+#include "editor/services/TestService.hpp"
 #include "editor/services/CommandService.hpp"
 #include "editor/services/StudioTokens.hpp"
 #include "uihost/UiHost.hpp"
@@ -28,11 +32,29 @@ namespace sbx::editor::gui {
 
 namespace gui = graphics_ui::core;
 
+// 테스트 세션의 값 (ImGui TestPanelState 와 같은 뜻 — 클라이언트 1 ~ 4, 지연 · 흔들림 0 ~ 2000 ms, 손실 0 ~ 50 %)
+struct TestPlanValues {
+    int clients = 2;
+    double latencyMs = 0;
+    double jitterMs = 0;
+    double lossPercent = 0;
+    bool operator==(const TestPlanValues&) const = default;
+};
+
 struct WorkspaceIntent {
-    enum class Kind : u8 { Home, ResetLayout, RunCommand, SelectProfile };
+    enum class Kind : u8 { Home, ResetLayout, RunCommand, SelectProfile, TestPlan };
     Kind kind = Kind::Home;
     std::string command; // RunCommand
     int value = 0;       // SelectProfile (0 = 프로필 없이, 1 ~ = profiles[value - 1] — ImGui BuildPanelState 와 같은 뜻)
+    TestPlanValues test; // TestPlan
+
+    [[nodiscard]] static WorkspaceIntent of(Kind kind, std::string command = {}, int value = 0) {
+        WorkspaceIntent i;
+        i.kind = kind;
+        i.command = std::move(command);
+        i.value = value;
+        return i;
+    }
 };
 
 // 패널들이 같이 보는 것 — 작업 공간이 소유하고 패널에 빌려준다
@@ -190,6 +212,94 @@ private:
         m_listNode;
     std::unique_ptr<gui::Button> m_prev, m_next, m_check, m_build;
     gui::ListView m_list;
+};
+
+
+// 테스트 창이 보이는 것 · 고른 값 (UI-R3-08) — ImGui TestPanelState 와 같은 뜻 · 같은 범위 (applyTestPanel 이 다시 자른다)
+struct TestPanelModel {
+    bool available = false; // 프로젝트가 열렸고 테스트 서비스가 있다
+    bool running = false;
+    TestPlanValues plan;
+    std::vector<services::TestProcess> processes;
+    bool operator==(const TestPanelModel&) const = default;
+};
+
+class TestPanel final : public uihost::IUiScreen {
+public:
+    // 값 줄 — 클라이언트 · 지연 · 흔들림 · 손실
+    enum class Field : u8 { Clients, Latency, Jitter, Loss };
+    static constexpr usize kFields = 4;
+
+    explicit TestPanel(PanelContext& ctx) : m_ctx(ctx) {}
+
+    void setModel(TestPanelModel model);
+    [[nodiscard]] const TestPanelModel& model() const noexcept { return m_model; }
+    // 프로세스 한 줄 ("서버 — 도는 중", "클라이언트 1 — 끝남 (종료 코드 3)" — ImGui 창과 같은 글)
+    [[nodiscard]] static std::string processLine(const services::TestProcess& p);
+    // 값 줄의 글 ("2", "120 ms", "1.5 %")
+    [[nodiscard]] std::string valueText(Field f) const;
+
+    Expected<void> mount(uihost::UiHost& host) override;
+    Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
+    Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
+
+    [[nodiscard]] gui::ComponentHandle minusHandle(Field f) const noexcept { return m_rows[static_cast<usize>(f)].minus; }
+    [[nodiscard]] gui::ComponentHandle plusHandle(Field f) const noexcept { return m_rows[static_cast<usize>(f)].plus; }
+    [[nodiscard]] gui::ComponentHandle startHandle() const noexcept { return m_startNode; }
+    [[nodiscard]] gui::ComponentHandle stopHandle() const noexcept { return m_stopNode; }
+    [[nodiscard]] usize listedCount() const noexcept { return m_list.itemCount(); }
+
+private:
+    struct Row {
+        gui::ComponentHandle row, label, minus, value, plus;
+        std::unique_ptr<gui::Button> minusButton, plusButton;
+    };
+    void step(Field f, int dir);
+    void applyEnabled();
+
+    PanelContext& m_ctx;
+    TestPanelModel m_model;
+    std::array<Row, kFields> m_rows;
+    gui::ComponentHandle m_root, m_bar, m_startNode, m_stopNode, m_note, m_listNode;
+    std::unique_ptr<gui::Button> m_start, m_stop;
+    gui::ListView m_list;
+};
+
+// 통계 창이 보이는 것 (UI-R3-09) — Application 이 진단 창 ("통계" · "네트워크") 과 같은 원천으로 만든다 (apps/client GuiStatsModel)
+enum class StatTone : u8 { Text, Muted, Section, Warning, Error };
+struct StatLine {
+    std::string label; // 빈 글자 = 줄 전체가 value
+    std::string value;
+    StatTone tone = StatTone::Text;
+    bool operator==(const StatLine&) const = default;
+};
+struct StatsModel {
+    std::string headline;       // "60 fps · 프레임 16.67 ms"
+    std::vector<float> frameMs; // 최근 프레임 시간 (오래된 것 먼저) — 막대 그래프
+    std::vector<StatLine> lines;
+    bool operator==(const StatsModel&) const = default;
+};
+
+class StatsPanel final : public uihost::IUiScreen {
+public:
+    explicit StatsPanel(PanelContext& ctx) : m_ctx(ctx) {}
+
+    void setModel(StatsModel model);
+    [[nodiscard]] const StatsModel& model() const noexcept { return m_model; }
+
+    Expected<void> mount(uihost::UiHost& host) override;
+    Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
+    Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
+
+    [[nodiscard]] usize listedCount() const noexcept { return m_list.itemCount(); }
+    [[nodiscard]] usize barsDrawn() const noexcept { return m_bars; }
+
+private:
+    PanelContext& m_ctx;
+    StatsModel m_model;
+    gui::ComponentHandle m_root, m_headline, m_graph, m_listNode;
+    gui::ListView m_list;
+    usize m_bars = 0; // 마지막 그리기의 막대 수 (시험)
 };
 
 } // namespace sbx::editor::gui

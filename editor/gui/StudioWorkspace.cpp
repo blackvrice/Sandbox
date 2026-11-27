@@ -19,6 +19,10 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     auto console = std::make_unique<ConsolePanel>(*ws->m_ctx);
     auto build = std::make_unique<BuildPanel>(*ws->m_ctx);
     ws->m_build = build.get();
+    auto test = std::make_unique<TestPanel>(*ws->m_ctx);
+    ws->m_test = test.get();
+    auto stats = std::make_unique<StatsPanel>(*ws->m_ctx);
+    ws->m_stats = stats.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -28,6 +32,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kShortcuts, "단축키", std::move(shortcuts)});
     panes.push_back({kConsole, "콘솔", std::move(console)});
     panes.push_back({kBuild, "빌드", std::move(build)});
+    panes.push_back({kTest, "테스트", std::move(test)});
+    panes.push_back({kStats, "통계", std::move(stats)});
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -57,7 +63,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         gui::DockPaneId pane, target;
         gui::DockSide side;
     };
-    // 처음 한 그룹 (정보 · 단축키 · 콘솔 · 빌드 탭) 에서 옮긴다. 빌드는 콘솔의 탭 (출력끼리 — 앞은 콘솔)
+    // 처음 한 그룹 (패널 전부의 탭) 에서 옮긴다. 빌드 · 테스트는 콘솔의 탭 (출력끼리 — 앞은 콘솔), 통계는 단축키의 탭
     std::vector<Move> moves;
     if (preset == "scripting") { // 명령 표를 왼쪽에 (스크립트를 쓰며 찾기)
         moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::left}};
@@ -67,12 +73,15 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves = {{kConsole, kInfo, gui::DockSide::bottom}, {kShortcuts, kInfo, gui::DockSide::right}};
     }
     moves.push_back({kBuild, kConsole, gui::DockSide::tab_after});
+    moves.push_back({kTest, kBuild, gui::DockSide::tab_after});
+    moves.push_back({kStats, kShortcuts, gui::DockSide::tab_after});
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
             return std::unexpected(uihost::toError(r.error(), "작업 공간 프리셋"));
         }
     }
-    (void)layout.select(kConsole); // 그 그룹의 앞 탭 = 콘솔 (빌드 · 단축키가 아니라)
+    (void)layout.select(kShortcuts); // 그 그룹의 앞 탭 = 단축키 (통계가 아니라)
+    (void)layout.select(kConsole);   // 그 그룹의 앞 탭 = 콘솔 (빌드 · 테스트가 아니라 — play 는 단축키도 그 그룹)
     (void)layout.select(kInfo); // 포커스 = 정보
     return {};
 }
