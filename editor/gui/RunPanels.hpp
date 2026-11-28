@@ -7,6 +7,8 @@
 //                    SimAction) — 앱이 ImGui 창과 같은 PanelActions → applyPanelActions
 //   PlayersPanel     내 역할 · 접속자 줄 ("이름 #번호 (나)" | 역할) · 고른 사람의 역할 단추 5 (바꿀 수 있는 역할만 — 서버와 같은
 //                    canAssignRole) · 최근 결과. 콤보 대신 단추 (팝업이 없다 — GUI-UP-03). 일 = 의도 SetRole → requestRole
+//   ScriptProfilePanel  "스크립트 프로파일" (ADR-0184) — 서버 · 엔진 · 클라이언트 시스템 표와 함수 표를 한 가상 목록에 (구역 머리 · 열
+//                    머리 · 줄). 첫 열은 남은 폭, 나머지는 고정 폭 — 칸이 좁으면 오른쪽 열은 잘린다. 줄 고르기 · Ctrl+C = 그 줄 (탭으로)
 //   보기  앱이 frame 마다 (apps/client GuiStatsModel — 진단 창과 같은 PanelInputs · PlayersInfo)
 
 #include <array>
@@ -119,6 +121,54 @@ private:
     gui::ComponentHandle m_root, m_me, m_listNode, m_hint, m_roleRow, m_message;
     std::array<gui::ComponentHandle, kRoles> m_roleNodes{};
     std::array<std::unique_ptr<gui::Button>, kRoles> m_roles;
+    gui::ListView m_list;
+    gui::LayoutRect m_listBounds;
+};
+
+// 스크립트 프로파일 한 줄 (ADR-0184) — 값 모델은 앱이 진단 창과 같은 글로 (ScriptProfileInfo)
+struct ProfileLine {
+    enum class Kind : u8 { Section, Columns, Row, Note };
+    Kind kind = Kind::Row;
+    std::vector<std::string> cells; // Section · Note = 한 칸
+    StatTone tone = StatTone::Text;
+    bool operator==(const ProfileLine&) const = default;
+};
+
+struct ScriptProfileModel {
+    bool available = false; // 세션이 프로파일을 준다
+    std::vector<ProfileLine> lines;
+    bool operator==(const ScriptProfileModel&) const = default;
+};
+
+class ScriptProfilePanel final : public uihost::IUiScreen {
+public:
+    static constexpr double kCellW = 76.0; // 둘째 열부터의 폭
+
+    explicit ScriptProfilePanel(PanelContext& ctx) : m_ctx(ctx) {}
+
+    // 바뀌었을 때만 목록 키를 다시 (스크롤 · 고른 줄은 줄 수가 같은 동안 남는다)
+    void setModel(ScriptProfileModel model);
+    [[nodiscard]] const ScriptProfileModel& model() const noexcept { return m_model; }
+    [[nodiscard]] std::optional<usize> selectedLine() const noexcept { return m_selected; }
+    [[nodiscard]] std::string lineText(usize line) const; // 칸을 탭으로 (복사)
+    [[nodiscard]] usize visibleColumns(double width, usize cells) const; // 그 폭에 다 들어가는 열 수 (시험)
+
+    Expected<void> mount(uihost::UiHost& host) override;
+    Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
+    Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
+
+    [[nodiscard]] gui::ComponentHandle listHandle() const noexcept { return m_listNode; }
+    [[nodiscard]] std::optional<gui::LayoutRect> rowBounds(usize line) const;
+
+private:
+    gui::EventReply listEvent(const gui::RoutedEvent& ev);
+
+    PanelContext& m_ctx;
+    ScriptProfileModel m_model;
+    std::vector<gui::ListItemKey> m_keys;
+    std::optional<usize> m_selected;
+    uihost::UiHost* m_host = nullptr;
+    gui::ComponentHandle m_root, m_title, m_listNode;
     gui::ListView m_list;
     gui::LayoutRect m_listBounds;
 };

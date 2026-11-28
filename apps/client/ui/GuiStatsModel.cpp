@@ -147,4 +147,69 @@ editor::gui::PlayersModel makeGuiPlayersModel(const std::optional<PlayersInfo>& 
     return m;
 }
 
+editor::gui::ScriptProfileModel makeGuiScriptProfileModel(const std::optional<ScriptProfileInfo>& info) {
+    using L = editor::gui::ProfileLine;
+    using editor::gui::StatTone;
+    editor::gui::ScriptProfileModel m;
+    if (!info) {
+        return m;
+    }
+    m.available = true;
+    const auto section = [&](std::string t) { m.lines.push_back({L::Kind::Section, {std::move(t)}, StatTone::Section}); };
+    const auto note = [&](std::string t) { m.lines.push_back({L::Kind::Note, {std::move(t)}, StatTone::Muted}); };
+    // 시스템 표 (진단 창과 같은 열 · 자릿수)
+    const auto systems = [&](const std::vector<ScriptProfileRow>& rows) {
+        m.lines.push_back({L::Kind::Columns,
+                           {"시스템", "호출/초", "연료/호출", "ms/초", "ms/호출", "최대 ms", "최대 연료", "트랩", "예산 · 건너뜀", "상태"},
+                           StatTone::Muted});
+        for (const ScriptProfileRow& r : rows) {
+            m.lines.push_back({L::Kind::Row,
+                               {r.id, std::format("{:.1f}", r.callsPerSecond), std::format("{:.0f}", r.fuelPerCall),
+                                std::format("{:.3f}", r.msPerSecond), std::format("{:.4f}", r.msPerCall),
+                                std::format("{:.3f}", r.maxMs), std::format("{}", r.maxFuel), std::format("{}", r.traps),
+                                std::format("{} · {}", r.budget, r.cut), r.disabled ? "꺼짐" : "켜짐"},
+                               r.disabled || r.traps > 0 ? StatTone::Warning : StatTone::Text});
+        }
+    };
+    const auto functions = [&](const std::vector<ScriptFunctionProfileRow>& rows) {
+        m.lines.push_back({L::Kind::Columns, {"함수 (파일:줄:열)", "호출", "자기 연료", "몫", "연료/호출"}, StatTone::Muted});
+        for (const ScriptFunctionProfileRow& r : rows) {
+            m.lines.push_back({L::Kind::Row,
+                               {r.site, std::format("{}", r.calls), std::format("{}", r.fuel), std::format("{:.1f} %", r.share * 100.0),
+                                std::format("{:.1f}", r.calls > 0 ? static_cast<f64>(r.fuel) / static_cast<f64>(r.calls) : 0.0)},
+                               StatTone::Text});
+        }
+    };
+    if (!info->server.empty() || info->serverOmitted > 0) {
+        section("서버 (최근 통계 창 — 서버 시계)");
+        systems(info->server);
+        if (info->serverOmitted > 0) {
+            note(std::format("… 표 상한으로 빠진 시스템 {}", info->serverOmitted));
+        }
+        if (!info->serverFunctions.empty()) {
+            section("서버 함수 — 자기 연료 상위 (누적)");
+            functions(info->serverFunctions);
+        }
+    }
+    if (!info->engine.empty()) {
+        section("엔진 시스템 (단계 · 최근 통계 창 — 서버 시계)");
+        m.lines.push_back({L::Kind::Columns, {"시스템", "단계", "ms/틱", "최대 ms", "몫"}, StatTone::Muted});
+        for (const EngineProfileRow& r : info->engine) {
+            m.lines.push_back({L::Kind::Row,
+                               {r.name, r.stage, std::format("{:.3f}", r.msPerCall), std::format("{:.3f}", r.maxMs),
+                                std::format("{:.1f} %", r.share * 100.0)},
+                               StatTone::Text});
+        }
+    }
+    if (!info->client.empty()) {
+        section("클라이언트 (최근 1 초)");
+        systems(info->client);
+        if (!info->clientFunctions.empty()) {
+            section("클라이언트 함수 — 자기 연료 상위 (누적)");
+            functions(info->clientFunctions);
+        }
+    }
+    return m;
+}
+
 } // namespace sbx::client

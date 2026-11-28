@@ -486,4 +486,195 @@ Expected<void> PlayersPanel::paint(uihost::UiHost& host, const gui::LayoutFrame&
     return {};
 }
 
+
+// ---- 스크립트 프로파일 ----
+
+void ScriptProfilePanel::setModel(ScriptProfileModel model) {
+    if (model == m_model) {
+        return;
+    }
+    m_model = std::move(model);
+    std::vector<gui::ListItemKey> keys(m_model.lines.size());
+    for (usize i = 0; i < keys.size(); ++i) {
+        keys[i] = i; // 줄 차례 — 표 모양 (시스템 수) 이 같으면 그대로 (값만 바뀐다)
+    }
+    if (keys != m_keys) {
+        m_keys = std::move(keys);
+        (void)m_list.setItems(m_keys);
+    }
+    if (m_selected && *m_selected >= m_model.lines.size()) {
+        m_selected.reset();
+    }
+}
+
+std::string ScriptProfilePanel::lineText(usize line) const {
+    if (line >= m_model.lines.size()) {
+        return {};
+    }
+    std::string out;
+    for (const std::string& c : m_model.lines[line].cells) {
+        out += (out.empty() ? "" : "\t") + c;
+    }
+    return out;
+}
+
+usize ScriptProfilePanel::visibleColumns(double width, usize cells) const {
+    // 첫 열은 적어도 120 — 그 뒤 고정 폭 열이 들어가는 만큼
+    if (cells == 0) {
+        return 0;
+    }
+    const double rest = width - 120.0 - 12.0;
+    const usize more = rest <= 0 ? 0 : static_cast<usize>(rest / kCellW);
+    return std::min(cells, 1 + more);
+}
+
+std::optional<gui::LayoutRect> ScriptProfilePanel::rowBounds(usize line) const {
+    if (line >= m_keys.size()) {
+        return std::nullopt;
+    }
+    const gui::ListRange range = m_list.visibleRange();
+    for (usize i = range.first; i < range.past; ++i) {
+        if (const auto r = m_list.visibleRow(i); r && r->key == m_keys[line]) {
+            return r->bounds;
+        }
+    }
+    return std::nullopt;
+}
+
+gui::EventReply ScriptProfilePanel::listEvent(const gui::RoutedEvent& ev) {
+    if (ev.phase != gui::EventPhase::target) {
+        return {};
+    }
+    if (const auto* p = std::get_if<gui::PointerEvent>(&ev.input)) {
+        if (p->action == gui::PointerAction::down && p->button == gui::PointerButton::primary) {
+            (void)m_host->input().setFocus(m_listNode);
+            if (const auto row = m_list.hitTest({p->x - m_listBounds.x, p->y - m_listBounds.y})) {
+                m_selected = static_cast<usize>(row->key);
+            }
+            return {true, true};
+        }
+        return {};
+    }
+    for (const gui::KeyModifiers mod : {gui::KeyModifiers::control, gui::KeyModifiers::meta}) {
+        if (kit::keyDown(ev, 'C', mod) && m_selected) { // 고른 줄을 탭으로 (표 계산기에 붙일 수 있다)
+            const gui::TextEditCallbacks cb = m_host->editCallbacks({});
+            if (cb.write_clipboard) {
+                (void)cb.write_clipboard(lineText(*m_selected));
+            }
+            return {true, true};
+        }
+    }
+    const bool up = kit::keyDown(ev, gui::up_key), down = kit::keyDown(ev, gui::down_key);
+    if ((up || down) && !m_model.lines.empty()) {
+        usize at = m_selected.value_or(up ? m_model.lines.size() : static_cast<usize>(-1));
+        at = up ? (at == 0 ? 0 : at - 1) : std::min(at + 1, m_model.lines.size() - 1);
+        m_selected = at;
+        (void)m_list.reveal(m_keys[at]);
+        return {true, true};
+    }
+    return {};
+}
+
+Expected<void> ScriptProfilePanel::mount(uihost::UiHost& host) {
+    m_host = &host;
+    const std::array<gui::ComponentSpec, 3> specs{{{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {0, 5, 2, true}}};
+    auto h = kit::commitTree(host, specs);
+    if (!h) {
+        return std::unexpected(h.error());
+    }
+    m_root = (*h)[0];
+    m_title = (*h)[1];
+    m_listNode = (*h)[2];
+    (void)host.input().setFocusable(m_listNode, true);
+    (void)host.input().setHandler(m_listNode, [this](const gui::RoutedEvent& ev) { return listEvent(ev); });
+    (void)host.setWheelHandler(m_listNode, [this](f32, f32 dy) {
+        (void)m_list.scrollBy(-static_cast<double>(dy) * kRowH * 3.0);
+        return true;
+    });
+    return {};
+}
+
+Expected<void> ScriptProfilePanel::layout(uihost::UiHost& host, const gui::ComponentSnapshot&, std::vector<gui::LayoutNode>& out) {
+    const gui::LayoutSize vp = host.viewport();
+    const double inner = fit(vp.width - 16);
+    gui::LayoutNode root;
+    root.component = m_root;
+    root.style.kind = gui::LayoutKind::column;
+    root.style.padding = {8, 8, 8, 8};
+    root.style.gap = 6;
+    out.push_back(root);
+    for (const auto& [node, height] : std::array<std::pair<gui::ComponentHandle, double>, 2>{
+             {{m_title, 16.0}, {m_listNode, fit(vp.height - 16 - 16 - 6)}}}) {
+        gui::LayoutNode n;
+        n.component = node;
+        n.style.preferred_width = inner;
+        n.style.preferred_height = height;
+        out.push_back(n);
+    }
+    return {};
+}
+
+Expected<void> ScriptProfilePanel::paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) {
+    const services::StudioColors& c = services::studioColors(m_ctx.theme);
+    const auto focusR = host.input().focus();
+    const bool listFocused = focusR && *focusR && **focusR == m_listNode;
+    for (const gui::LayoutBox& box : frame.boxes()) {
+        const double w = box.bounds.width;
+        const double h = box.bounds.height;
+        if (box.component == m_root) {
+            out.add(box.component, {gui::FillRect{{0, 0, w, h}, rc(c.surface)}});
+        } else if (box.component == m_title) {
+            const std::string t = !m_model.available       ? std::string("스크립트 프로파일 — 월드에 들어가면 (서버 · 클라이언트 시스템)")
+                                  : m_model.lines.empty() ? std::string("스크립트 프로파일 — 아직 표가 없다")
+                                                          : std::string("스크립트 프로파일 — 줄을 고르고 Ctrl+C = 그 줄 (탭으로)");
+            out.add(box.component, {gui::DrawText{{0, 0, w, h}, kFont, 12.5, t, rc(c.muted)}}, true);
+        } else if (box.component == m_listNode) {
+            m_listBounds = box.bounds;
+            (void)m_list.resize({w, h}, kRowH);
+            std::vector<gui::DrawCommand> d;
+            d.push_back(gui::FillRect{{0, 0, w, h}, rc(c.background)});
+            const gui::ListRange range = m_list.visibleRange();
+            for (usize i = range.first; i < range.past; ++i) {
+                const auto vr = m_list.visibleRow(i);
+                if (!vr || vr->key >= m_model.lines.size()) {
+                    continue;
+                }
+                const usize index = static_cast<usize>(vr->key);
+                const ProfileLine& l = m_model.lines[index];
+                const gui::LayoutRect b = vr->bounds;
+                if (l.kind == ProfileLine::Kind::Section) {
+                    d.push_back(gui::FillRect{{b.x, b.y + 1, b.width, fit(b.height - 2)}, rc(c.elevated)});
+                }
+                if (m_selected == index) {
+                    d.push_back(gui::FillRect{b, listFocused ? rc(c.header) : rc(c.headerHover)});
+                    d.push_back(gui::FillRect{{b.x, b.y, 2, b.height}, rc(c.accent)});
+                }
+                if (l.kind == ProfileLine::Kind::Section || l.kind == ProfileLine::Kind::Note) {
+                    d.push_back(gui::DrawText{{b.x + 6, b.y + 3, fit(b.width - 12), 16}, kFont, 12.5,
+                                              l.cells.empty() ? std::string() : l.cells.front(),
+                                              l.kind == ProfileLine::Kind::Section ? rc(c.accent) : rc(c.muted)});
+                    continue;
+                }
+                // 열 — 첫 열은 남은 폭, 나머지는 고정 폭 (들어가는 만큼)
+                const usize cols = visibleColumns(b.width, l.cells.size());
+                const double firstW = fit(b.width - 12 - static_cast<double>(cols > 0 ? cols - 1 : 0) * kCellW);
+                const gui::RenderColor color = l.kind == ProfileLine::Kind::Columns ? rc(c.muted) : toneColor(l.tone, c);
+                const double em = 12.0;
+                for (usize k = 0; k < cols; ++k) {
+                    const double x = k == 0 ? b.x + 6 : b.x + 6 + firstW + static_cast<double>(k - 1) * kCellW;
+                    const double cw = k == 0 ? fit(firstW - 6) : kCellW - 6;
+                    d.push_back(gui::DrawText{{x, b.y + 3, fit(cw), 16}, kFont, em, l.cells[k], color});
+                }
+            }
+            if (m_model.lines.empty()) {
+                d.push_back(gui::DrawText{{8, 8, fit(w - 16), 18}, kFont, 13.0,
+                                          m_model.available ? "스크립트 · 엔진 시스템 표가 오면 보인다" : "월드 없음",
+                                          rc(c.muted)});
+            }
+            out.add(box.component, std::move(d), true);
+        }
+    }
+    return {};
+}
+
 } // namespace sbx::editor::gui

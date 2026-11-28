@@ -2569,6 +2569,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         ws.stats().setModel(m_guiStats);
         ws.simulation().setModel(m_guiSimulation);
         ws.players().setModel(makeGuiPlayersModel(inWorld ? m_config.world->players() : std::nullopt)); // "접속자" 와 같은 원천
+        // 스크립트 프로파일 (ADR-0184) — "스크립트 프로파일" 창과 같은 원천 (바뀐 때만 목록을 다시)
+        ws.profile().setModel(makeGuiScriptProfileModel(inWorld ? m_config.world->scriptProfile() : std::nullopt));
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();

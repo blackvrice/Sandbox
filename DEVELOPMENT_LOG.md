@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R3-09 ✅: 작업 공간 스크립트 프로파일 — 표들을 한 가상 목록으로 (ADR-0184)
+
+**무엇을**
+
+- `editor/gui/RunPanels` — `ScriptProfilePanel`: 제목 · 가상 목록 (구역 머리 · 열 머리 · 줄 · 안내). 첫 열 (시스템 · 함수 자리) 은 남은
+  폭, 나머지는 76 px — 좁으면 오른쪽 열이 잘린다. 줄 고르기 · ↑↓ · Ctrl / Cmd+C = 그 줄을 탭으로. 같은 모양 (줄 수) 이면 스크롤 · 고른
+  줄이 남고, 바뀐 때만 목록을 다시.
+- `apps/client/ui/GuiStatsModel` — `makeGuiScriptProfileModel(ScriptProfileInfo)` — 진단 창 "스크립트 프로파일" 과 같은 표 차례 (서버 ·
+  서버 함수 · 엔진 시스템 · 클라이언트 · 클라이언트 함수) · 열 · 자릿수, 꺼짐 · 트랩 줄은 경고색, "표 상한으로 빠진 시스템 N".
+- `StudioWorkspace` — 스크립트 프로파일 (14) 은 출력 그룹의 테스트 뒤 탭 (넓은 표). 옛 .guidock 은 프리셋으로.
+- UI-R3-09 Done — 진단 창 다섯 (통계 · 네트워크 · 시뮬레이션 · 접속자 · 스크립트 프로파일) 이 모두 작업 공간에. 진행 28 / 81.
+- ADR-0184, 문서: TASK_REGISTRY (R3-09 Done · 합계 28 (35 %)), CURRENT_STATUS, UI-R3, FEATURE_MATRIX 25, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 진단 창 중 이것만 프로젝트 안 작업 공간에 없었다 (R3-09 마지막).
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 18 케이스 (2388 단언): script profile — 자리 (테스트 뒤, 앞은 콘솔) · 없음 = 빈 모델 · 표 차례 ·
+  열 수 · 자릿수 (30.0 · 100 · 1.500 · 0.0500 · 0.120) · 꺼짐 경고색 · 빠진 시스템 안내 · 함수 몫 80.0 % · 엔진 줄 · 열 자르기 (2000 → 10,
+  첫 열 + 3 칸 → 4, 100 → 1) · 줄 고르기 · Ctrl+C 탭 글 · ↓ · 같은 모양 갱신 (고른 줄 남음) · 줄이 줄면 놓기 / app (local server) — 프로파일
+  탭에 서버의 엔진 시스템 표가 온다.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 14". Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 —
+  studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 833 파일 0 위반.
+
+**남은 일** — 열 정렬 · 가로 스크롤 (표마다 Core TableView 로 — 지금은 열이 다른 표 다섯을 한 목록에), 실제 창 QA.
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R3-09: 작업 공간 실행 · 접속자 패널 — 진단 창과 같은 PanelActions · requestRole (ADR-0183)
 
 **무엇을**

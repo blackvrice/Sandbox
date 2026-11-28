@@ -23,6 +23,7 @@
 #include "apps/client/ui/GuiStatsModel.hpp"
 #include "apps/client/ui/GuiToolModel.hpp"
 #include "apps/client/ui/ImGuiLayer.hpp"
+#include "apps/client/ui/ScriptPanel.hpp"
 #include "core/components/RegisterCoreComponents.hpp"
 #include "core/ecs/ComponentCatalog.hpp"
 #include "editor/gui/StudioWorkspace.hpp"
@@ -55,6 +56,7 @@ constexpr gui::DockPaneId kTools = StudioWorkspace::kTools;
 constexpr gui::DockPaneId kContent = StudioWorkspace::kContent;
 constexpr gui::DockPaneId kSimulation = StudioWorkspace::kSimulation;
 constexpr gui::DockPaneId kPlayers = StudioWorkspace::kPlayers;
+constexpr gui::DockPaneId kProfile = StudioWorkspace::kProfile;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -224,7 +226,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 13);
+        CHECK(d.lastFrame()->tabs.size() == 14);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1541,6 +1543,82 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(pp.selectedRow());
     }
 
+    TEST_CASE("script profile panel (ADR-0184): same tables and digits as the profile window, column clipping, copy a line") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::ScriptProfilePanel& sp = f.ws->profile();
+        using L = editor::gui::ProfileLine;
+        // 자리 — 출력 그룹의 테스트 뒤 (앞은 콘솔)
+        CHECK(sameGroup(d, kProfile, kConsole));
+        CHECK(tabOf(d, kProfile).bounds.x > tabOf(d, kTest).bounds.x);
+        CHECK(groupOf(d, kConsole).active == kConsole);
+        CHECK(makeGuiScriptProfileModel(std::nullopt).lines.empty());
+        CHECK_FALSE(makeGuiScriptProfileModel(std::nullopt).available);
+
+        ScriptProfileInfo info;
+        info.server.push_back(scriptProfileRow("eco.regen", 30, 3000, 1'500'000, 1.0, 120'000, 150, 0, 0, 0, false));
+        info.server.push_back(scriptProfileRow("eco.broken", 0, 0, 0, 1.0, 0, 0, 2, 1, 0, true));
+        info.serverOmitted = 3;
+        info.serverFunctions.push_back({"eco/scripts/regen.ts:4:3 (onTick)", 30, 2400, 0.8});
+        info.engine.push_back({"movement", "simulate", 0.25, 0.5, 0.4});
+        const editor::gui::ScriptProfileModel m = makeGuiScriptProfileModel(info);
+        CHECK(m.available);
+        REQUIRE(m.lines.size() == 1 + 1 + 2 + 1 + 1 + 1 + 1 + 1 + 1 + 1);
+        CHECK(m.lines[0].kind == L::Kind::Section);
+        CHECK(m.lines[0].cells.front() == "서버 (최근 통계 창 — 서버 시계)");
+        CHECK(m.lines[1].kind == L::Kind::Columns);
+        CHECK(m.lines[1].cells.size() == 10);
+        // 진단 창과 같은 자릿수 — 호출/초 %.1f · 연료/호출 %.0f · ms/초 %.3f · ms/호출 %.4f · 최대 ms %.3f
+        const std::vector<std::string> regen{"eco.regen", "30.0", "100", "1.500", "0.0500", "0.120", "150", "0", "0 · 0", "켜짐"};
+        CHECK(m.lines[2].cells == regen);
+        CHECK(m.lines[2].tone == editor::gui::StatTone::Text);
+        CHECK(m.lines[3].cells.back() == "꺼짐");
+        CHECK(m.lines[3].tone == editor::gui::StatTone::Warning); // 꺼짐 · 트랩
+        CHECK(m.lines[4].kind == L::Kind::Note);
+        CHECK(m.lines[4].cells.front() == "… 표 상한으로 빠진 시스템 3");
+        CHECK(m.lines[7].cells == std::vector<std::string>{"eco/scripts/regen.ts:4:3 (onTick)", "30", "2400", "80.0 %", "80.0"});
+        CHECK(m.lines[8].cells.front() == "엔진 시스템 (단계 · 최근 통계 창 — 서버 시계)");
+        CHECK(m.lines[10].cells == std::vector<std::string>{"movement", "simulate", "0.250", "0.500", "40.0 %"});
+
+        f.show(kProfile);
+        REQUIRE(groupOf(d, kProfile).active == kProfile);
+        sp.setModel(m);
+        f.frame();
+        // 열 — 좁으면 오른쪽 열이 잘린다 (첫 열 120 + 고정 폭)
+        CHECK(sp.visibleColumns(2000, 10) == 10);
+        CHECK(sp.visibleColumns(120 + 12 + 3 * editor::gui::ScriptProfilePanel::kCellW, 10) == 4);
+        CHECK(sp.visibleColumns(100, 10) == 1);
+        // 줄 고르기 → Ctrl+C = 탭으로
+        const auto rowAt = [&](usize line) {
+            const gui::DockGroupBox g = groupOf(d, kProfile);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kProfile)->lastLayout()->boxes()) {
+                if (b.component == sp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = sp.rowBounds(line);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        f.feed(click(rowAt(2)));
+        CHECK(sp.selectedLine() == 2u);
+        f.feed(key(Key::C, Modifiers::kCtrl));
+        CHECK(f.clipboard == "eco.regen\t30.0\t100\t1.500\t0.0500\t0.120\t150\t0\t0 · 0\t켜짐");
+        f.feed(key(Key::Down));
+        CHECK(sp.selectedLine() == 3u);
+        // 같은 모양의 새 값 — 고른 줄은 남는다, 줄이 줄면 놓는다
+        info.server[0] = scriptProfileRow("eco.regen", 60, 6000, 3'000'000, 1.0, 120'000, 150, 0, 0, 0, false);
+        sp.setModel(makeGuiScriptProfileModel(info));
+        f.frame();
+        CHECK(sp.selectedLine() == 3u);
+        CHECK(sp.model().lines[2].cells[1] == "60.0");
+        sp.setModel(makeGuiScriptProfileModel(ScriptProfileInfo{}));
+        f.frame();
+        CHECK(sp.model().lines.empty());
+        CHECK_FALSE(sp.selectedLine());
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -2090,6 +2168,24 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(pl.model().players[0].self);
         CHECK(pl.model().players[0].who.ends_with("(나)"));
         CHECK(pl.model().myRole == 4); // 로컬 서버 기본 역할 owner
+
+        // 스크립트 프로파일 (ADR-0184) — "스크립트 프로파일" 창과 같은 원천 (엔진 시스템 표는 스크립트가 없어도 서버가 보낸다)
+        editor::gui::ScriptProfilePanel& prof = ws->profile();
+        injectAll(click(center(tabOf(d, kProfile).bounds, d.scale())));
+        REQUIRE(groupOf(d, kProfile).active == kProfile);
+        CHECK(prof.model().available == ns->scriptProfile().has_value());
+        const auto profileHasEngine = [&] {
+            return std::ranges::any_of(prof.model().lines, [](const editor::gui::ProfileLine& l) {
+                return l.kind == editor::gui::ProfileLine::Kind::Section && !l.cells.empty() && l.cells.front().starts_with("엔진 시스템");
+            });
+        };
+        for (int i = 0; i < 180 && !profileHasEngine(); ++i) {
+            REQUIRE(app.frame());
+        }
+        const auto sessionProfile = ns->scriptProfile();
+        REQUIRE(sessionProfile.has_value());
+        REQUIRE_FALSE(sessionProfile->engine.empty());
+        CHECK(profileHasEngine());
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

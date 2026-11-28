@@ -292,8 +292,8 @@
 | `apps/client/ui/GuiToolModel.{hpp,cpp}` | GraphicsUI 편집 (툴) 패널의 보기 (Editor 의 툴 · 설정 · 기록, 역할, groupByPack 묶음 · 머티리얼) · 설정 적용 (applyGuiToolSettings — 범위 자르기, ADR-0181) | SandboxClient |
 | `apps/client/ui/GuiContentModel.{hpp,cpp}` | GraphicsUI 콘텐츠 패널의 보기 (contentItems · groupByPack · 지금 값 · 요약 줄 · 역할) · 의도 처리 (checkContentEdit · Editor::editContent · contentTemplate — ImGui 창과 같은 함수, ADR-0182) | SandboxClient |
 | `apps/client/ui/GuiInspectorModel.{hpp,cpp}` | GraphicsUI 인스펙터의 보기 — ImGui 인스펙터와 같은 원천 (components · prefabOverrides · 역할) 을 DataForm 섹션으로 (UI-R3-03) | SandboxClient |
-| `apps/client/ui/GuiStatsModel.{hpp,cpp}` | GraphicsUI 통계 · 실행 · 접속자 패널의 값 모델 — 진단 창 (DebugPanels · PlayersPanel) 과 같은 입력 · 같은 글 (UI-R3-09, ADR-0183) | SandboxClient |
-| `editor/gui/RunPanels.{hpp,cpp}` | 작업 공간 "시뮬레이션" (실행 제어 · 보기 · 선택 해제 — 의도 SimAction) · "접속자" (역할 표 · 역할 단추 — 의도 SetRole) 패널 (UI-R3-09, ADR-0183) | SandboxStudioGui |
+| `apps/client/ui/GuiStatsModel.{hpp,cpp}` | GraphicsUI 통계 · 실행 · 접속자 · 스크립트 프로파일 패널의 값 모델 — 진단 창 (DebugPanels · PlayersPanel) 과 같은 입력 · 같은 글 (UI-R3-09, ADR-0183) | SandboxClient |
+| `editor/gui/RunPanels.{hpp,cpp}` | 작업 공간 "시뮬레이션" (실행 제어 · 보기 · 선택 해제 — 의도 SimAction) · "접속자" (역할 표 · 역할 단추 — 의도 SetRole) · "스크립트 프로파일" (표들을 한 가상 목록, ADR-0184) 패널 (UI-R3-09, ADR-0183) | SandboxStudioGui |
 | `editor/gui/ToolPanel.{hpp,cpp}` | 작업 공간 "편집" (툴) 패널 (ADR-0181) — 툴 단추 · 배치 Prefab (팩별 · 거르기) · 끌기 간격 · 격자 · 머티리얼 · 붓 · 되돌리기, 일은 의도 (SelectTool · ToolSettings) | SandboxStudioGui |
 | `editor/gui/ContentPanel.{hpp,cpp}` | 작업 공간 "콘텐츠" 패널 (UI-R3-05, ADR-0182) — 종류 · 목록 (팩별 · 거르기) · 요약 · Prefab 폼 (DataForm 속성 표 + 편집 줄) · 검사 · 적용 · 팩 값으로 · 새 항목 (의도), 그 밖은 읽기만 | SandboxStudioGui |
 | `editor/gui/InspectorPanel.{hpp,cpp}` | 작업 공간 "인스펙터" 패널 (UI-R3-03, ADR-0180) — DataForm 섹션의 속성 표 + 편집 줄 (글자 → setFormField 검사), 컴포넌트 빼기 · 더하기 · Prefab 값으로는 의도로 (Application 이 Editor) | SandboxStudioGui |
