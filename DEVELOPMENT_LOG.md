@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R3-09: 작업 공간 실행 · 접속자 패널 — 진단 창과 같은 PanelActions · requestRole (ADR-0183)
+
+**무엇을**
+
+- `editor/gui/RunPanels` — `SimulationPanel` (제목 "월드 · tick" · 정보 줄 (게임 · 개체 · 진행 TPS — 못 따라가면 오류색, 일시정지는 경고색 ·
+  틱 ms) · 일시정지 / 재개 · 한 틱 (일시정지 중에만) · 속도 − ×n + (canControl 이 아니면 꺼짐) · 격자 · 자세히 (켬 / 끔) · 월드 맞춤 · 줌 ·
+  선택 글 · 선택 해제) — 의도 `Simulation` (value = SimAction). `PlayersPanel` (내 역할 · 접속자 줄 "이름 #번호 (나)" | 역할 (키 = clientId,
+  ↑↓) · 안내 · 역할 단추 5 (지금 역할 강조 · 줄 수 있는 역할만) · 최근 결과) — 의도 `SetRole`.
+- `apps/client/ui/GuiStatsModel` — `makeGuiSimulationModel(PanelInputs)` · `makeGuiPlayersModel(PlayersInfo)` (roleLabel · canAssignRole —
+  서버와 같은 규칙). Application 은 Simulation 의도를 그 frame 의 PanelActions 에 합쳐 (`addSimAction`) 진단 창과 같은 applyPanelActions 로,
+  SetRole 은 requestRole.
+- `StudioWorkspace` — 시뮬레이션 (12) · 접속자 (13) 는 도구 그룹의 통계 뒤 탭. 옛 .guidock 은 프리셋으로.
+- ADR-0183, 문서: TASK_REGISTRY (R3-09 비고), CURRENT_STATUS, UI-R3, FEATURE_MATRIX 25, MIGRATION_GUIDE 4b-6, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 편집 패널의 남은 것은 대부분 업스트림 (팝업 · 끌어다 놓기 · 여러 줄 글) 을 기다린다. 프로젝트 안
+작업 공간에서 실행 속도 · 자세히 · 역할을 바꿀 곳이 없었다 (진단 창은 그리지 않는다).
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 17 케이스 (2320 단언): simulation · players — 자리 (통계 뒤) · 월드 없음 = 꺼짐 · 모델 글 (TPS
+  오류색 · 일시정지) · 단추 → SimAction · 한 틱은 일시정지 중에만 · 선택 해제는 선택이 있을 때만 · canControl 이 아니면 실행 꺼짐 (맞춤은
+  그대로) · admin 이 owner · 자기 · player 를 바꿀 수 있는지 (canAssignRole) · ↓ · SetRole (clientId · 역할) · 지금 역할 꺼짐 · 나간 사람 놓기 /
+  app (local server) — 실행 탭 → 일시정지 → 세션이 멈춤 → 다시 → 재개 · 격자 켜짐 · 접속자 탭에 나 (owner).
+- 처음엔 격자가 켜지지 않았다 — 작업 공간 frame 이 applyPanelActions 보다 먼저라 바로 쓴 값을 frame 처음 값이 덮었다. 의도를 그 frame 의
+  PanelActions 에 합치게 고쳤다 (ADR-0183 결정 1).
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 13". Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 —
+  studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 833 파일 0 위반.
+
+**남은 일** — 스크립트 진단 창, 실제 창 QA.
+
 ## 2026-11-27 — GraphicsUI 통합 UI-R3-05: 작업 공간 콘텐츠 패널 — 장면 옆 문서 탭, Prefab 폼 · 검사 · 적용 (ADR-0182)
 
 **무엇을**

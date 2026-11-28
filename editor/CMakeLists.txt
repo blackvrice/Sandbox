@@ -60,6 +60,8 @@ add_library(SandboxStudioGui STATIC
     gui/InspectorPanel.cpp
     gui/ContentPanel.hpp
     gui/ContentPanel.cpp
+    gui/RunPanels.hpp
+    gui/RunPanels.cpp
     gui/ToolPanel.hpp
     gui/ToolPanel.cpp
     gui/StudioWorkspace.cpp

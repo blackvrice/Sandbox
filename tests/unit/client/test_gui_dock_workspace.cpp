@@ -53,6 +53,8 @@ constexpr gui::DockPaneId kHierarchy = StudioWorkspace::kHierarchy;
 constexpr gui::DockPaneId kInspector = StudioWorkspace::kInspector;
 constexpr gui::DockPaneId kTools = StudioWorkspace::kTools;
 constexpr gui::DockPaneId kContent = StudioWorkspace::kContent;
+constexpr gui::DockPaneId kSimulation = StudioWorkspace::kSimulation;
+constexpr gui::DockPaneId kPlayers = StudioWorkspace::kPlayers;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -222,7 +224,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 11);
+        CHECK(d.lastFrame()->tabs.size() == 13);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1393,6 +1395,152 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(f.ws->takeIntent());
     }
 
+    TEST_CASE("simulation · players panels (ADR-0183): run control like the developer window, role buttons by the server rule") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::SimulationPanel& sp = f.ws->simulation();
+        editor::gui::PlayersPanel& pp = f.ws->players();
+        using editor::gui::SimAction;
+        // 자리 — 도구 그룹, 통계 뒤 (앞은 인스펙터 그대로)
+        CHECK(sameGroup(d, kSimulation, kStats));
+        CHECK(sameGroup(d, kPlayers, kStats));
+        CHECK(tabOf(d, kSimulation).bounds.x > tabOf(d, kStats).bounds.x);
+        CHECK(tabOf(d, kPlayers).bounds.x > tabOf(d, kSimulation).bounds.x);
+        CHECK(groupOf(d, kInspector).active == kInspector);
+        const auto takeKind = [&](WorkspaceIntent::Kind k) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == k);
+            return *i;
+        };
+
+        // 실행 — 월드가 없으면 꺼짐
+        f.show(kSimulation);
+        f.feed(click(paneCenter(d, kSimulation, sp.pauseHandle())));
+        f.feed(click(paneCenter(d, kSimulation, sp.fitHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 진단 창과 같은 입력으로 만든 값
+        WorldInfo w;
+        w.name = "ecosystem_small";
+        w.tick = 120;
+        w.entities = 42;
+        w.speed = 2;
+        w.ticksPerSecond = 40;
+        w.targetTicksPerSecond = 60; // 못 따라간다 → 오류색
+        w.tickMs = 1.25;
+        w.canControl = true;
+        PanelInputs in;
+        in.world = &w;
+        in.grid = true;
+        in.details = false;
+        in.zoom = 32;
+        const auto setSim = [&] {
+            sp.setModel(makeGuiSimulationModel(in));
+            f.frame();
+        };
+        setSim();
+        const editor::gui::SimulationModel& m = sp.model();
+        CHECK(m.headline == "ecosystem_small · tick 120");
+        REQUIRE(m.lines.size() == 3);
+        CHECK(m.lines[0].value == "42");
+        CHECK(m.lines[1].value == "40.0 / 60 TPS");
+        CHECK(m.lines[1].tone == editor::gui::StatTone::Error);
+        CHECK(sp.pauseLabel() == "일시정지 (Space)");
+        CHECK(sp.speedText() == "속도 ×2");
+        // 단추 → 의도 (앱이 PanelActions), 한 틱은 일시정지 중에만, 선택 해제는 선택이 있을 때만
+        f.feed(click(paneCenter(d, kSimulation, sp.pauseHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::TogglePause));
+        f.feed(click(paneCenter(d, kSimulation, sp.stepHandle())));
+        f.feed(click(paneCenter(d, kSimulation, sp.clearHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kSimulation, sp.fasterHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::Faster));
+        f.feed(click(paneCenter(d, kSimulation, sp.slowerHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::Slower));
+        f.feed(click(paneCenter(d, kSimulation, sp.gridHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::ToggleGrid));
+        f.feed(click(paneCenter(d, kSimulation, sp.detailsHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::ToggleDetails));
+        w.paused = true;
+        in.selection = "선택 1 — eco.rabbit #7";
+        setSim();
+        CHECK(sp.model().lines[1].value == "일시정지");
+        CHECK(sp.pauseLabel() == "재개 (Space)");
+        f.feed(click(paneCenter(d, kSimulation, sp.stepHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::Step));
+        f.feed(click(paneCenter(d, kSimulation, sp.clearHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::ClearSelection));
+        // 역할이 실행 제어를 못 하면 — 일시정지 · 속도 꺼짐, 보기 (맞춤) 는 그대로
+        w.canControl = false;
+        setSim();
+        f.feed(click(paneCenter(d, kSimulation, sp.pauseHandle())));
+        f.feed(click(paneCenter(d, kSimulation, sp.fasterHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kSimulation, sp.fitHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::Simulation).value == static_cast<int>(SimAction::FitCamera));
+
+        // 접속자 — 서버와 같은 규칙 (canAssignRole): admin 은 자기보다 낮은 사람을 admin 아래로만
+        f.show(kPlayers);
+        CHECK(pp.hint().starts_with("접속자 정보가 없다"));
+        PlayersInfo info;
+        info.myRole = 3; // admin
+        info.players = {{1, 4, "host", false}, {2, 3, "me", true}, {3, 1, "guest", false}};
+        info.message = "거절: 그 역할은 줄 수 없다";
+        pp.setModel(makeGuiPlayersModel(info));
+        f.frame();
+        const editor::gui::PlayersModel& pm = pp.model();
+        REQUIRE(pm.players.size() == 3);
+        CHECK(pm.players[1].who == "me #2 (나)");
+        CHECK(pm.players[0].assignable == 0); // owner 는 바꿀 수 없다
+        CHECK(pm.players[1].assignable == 0); // 자기
+        CHECK(pm.players[2].assignable != 0);
+        CHECK((pm.players[2].assignable & (1u << 1)) == 0); // 지금 역할은 빼고
+        CHECK(pm.roleNames[4] == "owner (주인)");
+        const auto rowAt = [&](usize row) {
+            const gui::DockGroupBox g = groupOf(d, kPlayers);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kPlayers)->lastLayout()->boxes()) {
+                if (b.component == pp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = pp.rowBounds(row);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        f.feed(click(rowAt(0)));
+        CHECK(pp.selectedRow() == 0u);
+        CHECK(pp.hint() == "host #1 — 지금 역할로는 바꿀 수 없다");
+        f.feed(click(paneCenter(d, kPlayers, pp.roleHandle(0))));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(key(Key::Down));
+        CHECK(pp.hint() == "자기 역할은 바꿀 수 없다");
+        f.feed(key(Key::Down));
+        CHECK(pp.hint() == "guest #3 의 역할");
+        // 줄 수 있는 첫 역할 → SetRole (value = clientId)
+        usize give = editor::gui::PlayersModel::kRoles;
+        for (usize r = 0; r < editor::gui::PlayersModel::kRoles; ++r) {
+            if ((pm.players[2].assignable & (1u << r)) != 0) {
+                give = r;
+                break;
+            }
+        }
+        REQUIRE(give < editor::gui::PlayersModel::kRoles);
+        f.feed(click(paneCenter(d, kPlayers, pp.roleHandle(give))));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::SetRole);
+            CHECK(i.value == 3);
+            CHECK(i.role == static_cast<int>(give));
+        }
+        f.feed(click(paneCenter(d, kPlayers, pp.roleHandle(1)))); // 지금 역할 = 꺼짐
+        CHECK_FALSE(f.ws->takeIntent());
+        // 그 사람이 나가면 고른 것을 놓는다
+        info.players.pop_back();
+        pp.setModel(makeGuiPlayersModel(info));
+        f.frame();
+        CHECK_FALSE(pp.selectedRow());
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -1910,6 +2058,38 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(rabbitPrefab()->overlay);
         injectAll(click(center(tabOf(d, kScene).bounds, d.scale())));
         REQUIRE(groupOf(d, kScene).active == kScene);
+
+        // 실행 · 접속자 (ADR-0183) — 패널의 일시정지 · 격자가 진단 창과 같은 길로 (세션 · 오버레이), 접속자에 나
+        editor::gui::SimulationPanel& sim = ws->simulation();
+        injectAll(click(center(tabOf(d, kSimulation).bounds, d.scale())));
+        REQUIRE(groupOf(d, kSimulation).active == kSimulation);
+        CHECK(sim.model().available);
+        CHECK(sim.model().headline.starts_with(ns->info().name));
+        const bool pausedBefore = ns->info().paused;
+        injectAll(click(paneCenter(d, kSimulation, sim.pauseHandle())));
+        for (int i = 0; i < 60 && ns->info().paused == pausedBefore; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(ns->info().paused != pausedBefore);
+        REQUIRE(app.frame());
+        CHECK(sim.model().paused == ns->info().paused);
+        injectAll(click(paneCenter(d, kSimulation, sim.pauseHandle()))); // 되돌린다
+        for (int i = 0; i < 60 && ns->info().paused != pausedBefore; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(ns->info().paused == pausedBefore);
+        const bool gridBefore = sim.model().grid;
+        injectAll(click(paneCenter(d, kSimulation, sim.gridHandle())));
+        REQUIRE(app.frame());
+        CHECK(sim.model().grid != gridBefore);
+        editor::gui::PlayersPanel& pl = ws->players();
+        injectAll(click(center(tabOf(d, kPlayers).bounds, d.scale())));
+        REQUIRE(groupOf(d, kPlayers).active == kPlayers);
+        CHECK(pl.model().available);
+        REQUIRE(pl.model().players.size() == 1);
+        CHECK(pl.model().players[0].self);
+        CHECK(pl.model().players[0].who.ends_with("(나)"));
+        CHECK(pl.model().myRole == 4); // 로컬 서버 기본 역할 owner
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

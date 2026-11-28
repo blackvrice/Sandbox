@@ -72,6 +72,37 @@ void eraseLastCodepoint(std::string& s) {
     }
 }
 
+// 실행 패널의 일 하나를 PanelActions 에 (진단 창의 단추와 같은 칸 — 격자 · 자세히는 지금 값을 뒤집는다)
+void addSimAction(editor::gui::SimAction a, PanelActions& act) {
+    using S = editor::gui::SimAction;
+    switch (a) {
+    case S::TogglePause:
+        act.togglePause = true;
+        break;
+    case S::Step:
+        act.step = true;
+        break;
+    case S::Slower:
+        act.speed = -1;
+        break;
+    case S::Faster:
+        act.speed = +1;
+        break;
+    case S::ToggleGrid:
+        act.grid = !act.grid;
+        break;
+    case S::ToggleDetails:
+        act.details = !act.details;
+        break;
+    case S::FitCamera:
+        act.fitCamera = true;
+        break;
+    case S::ClearSelection:
+        act.clearSelection = true;
+        break;
+    }
+}
+
 } // namespace
 
 std::string_view appStateName(AppState s) noexcept {
@@ -978,6 +1009,7 @@ bool Application::frame() {
         const bool shellVisible = m_panels.visible && !guiWorldUi;
         if (m_guiWorkspaceOpen || guiWorldUi) {
             m_guiStats = makeGuiStatsModel(m_panels, pin); // GraphicsUI 통계 패널 (UI-R3-09) — 같은 입력
+            m_guiSimulation = makeGuiSimulationModel(pin); // 실행 패널 (ADR-0183) — 진단 창 "시뮬레이션" 과 같은 입력
         }
         // Studio 셸 (v0.8 UI-1 — ADR-0118): 월드 안이면 메뉴 · 툴바 · 도크 공간을 다른 창보다 먼저 (도킹 · 프리셋)
         ShellActions shell;
@@ -1102,6 +1134,10 @@ bool Application::frame() {
             }
         }
         if (inWorld) {
+            if (m_guiSimAction) { // GraphicsUI 실행 패널이 고른 일 (ADR-0183)
+                addSimAction(*m_guiSimAction, act);
+                m_guiSimAction.reset();
+            }
             applyPanelActions(act);
             if (editor::IEditorHost* host = m_config.world->editorHost(); host != nullptr && shellVisible) {
                 if (m_shell.view.tools) {
@@ -2531,6 +2567,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         }
         ws.test().setModel(std::move(tm));
         ws.stats().setModel(m_guiStats);
+        ws.simulation().setModel(m_guiSimulation);
+        ws.players().setModel(makeGuiPlayersModel(inWorld ? m_config.world->players() : std::nullopt)); // "접속자" 와 같은 원천
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();
@@ -2695,6 +2733,19 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         }
         return std::nullopt;
     }
+    case K::Simulation:
+        // 실행 패널 — 이 frame 의 PanelActions 에 합친다 (진단 창 "시뮬레이션" 과 같은 applyPanelActions — 격자 · 자세히는 그때의 값을
+        // 뒤집는다. 여기서 바로 적용하면 아래 applyPanelActions 가 frame 처음에 읽은 값으로 되돌린다)
+        if (inWorld) {
+            m_guiSimAction = static_cast<editor::gui::SimAction>(intent->value);
+        }
+        return std::nullopt;
+    case K::SetRole:
+        // 접속자 패널 — "접속자" 창과 같은 요청 (판단은 서버 — 결과는 PlayersInfo::message)
+        if (inWorld && intent->value >= 0 && intent->role >= 0) {
+            m_config.world->requestRole(static_cast<u16>(intent->value), static_cast<u8>(intent->role));
+        }
+        return std::nullopt;
     case K::TestPlan:
         // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)
         m_testPanel.clients = intent->test.clients;

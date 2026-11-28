@@ -3,6 +3,7 @@
 #include <format>
 
 #include "apps/client/Application.hpp"
+#include "apps/client/ui/PlayersPanel.hpp"
 
 namespace sbx::client {
 
@@ -84,6 +85,64 @@ editor::gui::StatsModel makeGuiStatsModel(const PanelState& state, const PanelIn
     }
     if (!in.font.empty()) {
         row("폰트", in.font, StatTone::Muted);
+    }
+    return m;
+}
+
+editor::gui::SimulationModel makeGuiSimulationModel(const PanelInputs& in) {
+    using editor::gui::StatTone;
+    editor::gui::SimulationModel m;
+    if (in.world == nullptr) {
+        return m;
+    }
+    const WorldInfo& w = *in.world;
+    m.available = true;
+    m.headline = std::format("{} · tick {}", w.name, w.tick);
+    if (!w.game.empty()) {
+        m.lines.push_back({"게임", w.game, StatTone::Text});
+    }
+    m.lines.push_back({"개체", std::format("{}", w.entities), StatTone::Text});
+    if (w.paused) {
+        m.lines.push_back({"진행", "일시정지", StatTone::Warning});
+    } else if (w.ticksPerSecond > 0) {
+        const bool behind = w.ticksPerSecond < w.targetTicksPerSecond * 0.95; // 실시간을 못 따라간다 (진단 창과 같은 문턱)
+        m.lines.push_back({"진행", std::format("{:.1f} / {:.0f} TPS", w.ticksPerSecond, w.targetTicksPerSecond),
+                           behind ? StatTone::Error : StatTone::Text});
+    }
+    m.lines.push_back({"틱", std::format("{:.2f} ms", w.tickMs), StatTone::Text});
+    m.paused = w.paused;
+    m.canControl = w.canControl;
+    m.speed = w.speed;
+    m.grid = in.grid;
+    m.details = in.details;
+    m.zoom = in.zoom;
+    m.selection = in.selection;
+    return m;
+}
+
+editor::gui::PlayersModel makeGuiPlayersModel(const std::optional<PlayersInfo>& info) {
+    editor::gui::PlayersModel m;
+    for (usize r = 0; r < editor::gui::PlayersModel::kRoles; ++r) {
+        m.roleNames[r] = std::string(roleLabel(static_cast<u8>(r)));
+    }
+    if (!info) {
+        return m;
+    }
+    m.available = true;
+    m.myRole = info->myRole;
+    m.message = info->message;
+    for (const PlayerRow& p : info->players) {
+        editor::gui::PlayerEntry e;
+        e.clientId = p.clientId;
+        e.who = std::format("{} #{}{}", p.name, p.clientId, p.self ? " (나)" : "");
+        e.role = p.role;
+        e.self = p.self;
+        for (u8 r = 0; r < editor::gui::PlayersModel::kRoles && !p.self; ++r) {
+            if (r != p.role && canAssignRole(info->myRole, p.role, r)) {
+                e.assignable = static_cast<u8>(e.assignable | (1u << r));
+            }
+        }
+        m.players.push_back(std::move(e));
     }
     return m;
 }

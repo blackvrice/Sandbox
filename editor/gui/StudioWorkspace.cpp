@@ -33,6 +33,10 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     ws->m_tools = tools.get();
     auto content = std::make_unique<ContentPanel>(*ws->m_ctx);
     ws->m_content = content.get();
+    auto simulation = std::make_unique<SimulationPanel>(*ws->m_ctx);
+    ws->m_simulation = simulation.get();
+    auto players = std::make_unique<PlayersPanel>(*ws->m_ctx);
+    ws->m_players = players.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -49,6 +53,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kInspector, "인스펙터", std::move(inspector)});
     panes.push_back({kTools, "편집", std::move(tools)}); // ImGui 창 이름과 같다
     panes.push_back({kContent, "콘텐츠", std::move(content)});
+    panes.push_back({kSimulation, "시뮬레이션", std::move(simulation)}); // ImGui 창 이름과 같다
+    panes.push_back({kPlayers, "접속자", std::move(players)});
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -84,6 +90,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves = {{kConsole, kScene, gui::DockSide::right}, {kBuild, kConsole, gui::DockSide::tab_after},
                  {kTest, kBuild, gui::DockSide::tab_after},   {kShortcuts, kTest, gui::DockSide::tab_after},
                  {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after},
+                 {kSimulation, kStats, gui::DockSide::tab_after}, {kPlayers, kSimulation, gui::DockSide::tab_after},
                  {kHierarchy, kScene, gui::DockSide::left},     {kInspector, kConsole, gui::DockSide::tab_before},
                  {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after}};
     } else {
@@ -98,6 +105,8 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves.push_back({kInspector, kShortcuts, gui::DockSide::tab_before}); // 도구 그룹의 첫 탭
         moves.push_back({kTools, kInspector, gui::DockSide::tab_after});      // 그다음 = 편집 (툴)
         moves.push_back({kContent, kScene, gui::DockSide::tab_after});        // 장면 옆 문서 탭 = 콘텐츠 (넓은 칸)
+        moves.push_back({kSimulation, kStats, gui::DockSide::tab_after});     // 통계 뒤 = 시뮬레이션 · 접속자 (진단)
+        moves.push_back({kPlayers, kSimulation, gui::DockSide::tab_after});
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {

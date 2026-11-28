@@ -5,7 +5,8 @@
 //                정보, 아래 콘솔 · 빌드 · 테스트 · scripting = 단축키 · 통계 · 정보 | 장면, 아래 출력 · play = 장면 | 콘솔 · 빌드 · 테스트 ·
 //                단축키 · 통계 · 정보. 목록 (Hierarchy — UI-R3-02) 은 scene · play 에서 장면 왼쪽, scripting 에서 도구 그룹의 탭. 인스펙터
 //                (UI-R3-03) 는 도구 그룹의 앞 탭 (ImGui 셸처럼 오른쪽 — scripting 은 왼쪽 도구 그룹, play 는 오른쪽 한 그룹), 편집 (툴 — ADR-0181)
-//                은 그 바로 뒤 탭, 콘텐츠 (ADR-0182) 는 장면 옆 문서 탭 (앞은 장면). 저장된 배치 (.guidock) 가
+//                은 그 바로 뒤 탭, 콘텐츠 (ADR-0182) 는 장면 옆 문서 탭 (앞은 장면),
+//                시뮬레이션 · 접속자 (ADR-0183) 는 도구 그룹의 통계 뒤 탭. 저장된 배치 (.guidock) 가
 //                없을 때 · 배치 초기화 때. 패널 목록이 바뀌면 옛 .guidock 은 복원이 거절한다 → .broken + 프리셋 (ADR-0178)
 //   의도         패널이 고른 일 (홈으로 · 배치 초기화 · 명령 실행) 을 takeIntent() 로 — 일은 Application 이 기존 처리로
 //   테마 · 간격 · 배율   작업 공간 크롬과 패널이 같은 값 (PanelContext)
@@ -19,6 +20,7 @@
 #include "editor/gui/DockWorkspace.hpp"
 #include "editor/gui/HierarchyPanel.hpp"
 #include "editor/gui/InspectorPanel.hpp"
+#include "editor/gui/RunPanels.hpp"
 #include "editor/gui/StudioPanels.hpp"
 #include "editor/gui/ToolPanel.hpp"
 
@@ -37,6 +39,8 @@ public:
     static constexpr gui::DockPaneId kInspector = 9;
     static constexpr gui::DockPaneId kTools = 10;
     static constexpr gui::DockPaneId kContent = 11;
+    static constexpr gui::DockPaneId kSimulation = 12;
+    static constexpr gui::DockPaneId kPlayers = 13;
 
     [[nodiscard]] static Expected<std::unique_ptr<StudioWorkspace>> create(const uihost::ITextMeasure& text,
                                                                            const services::CommandService& commands,
@@ -68,6 +72,8 @@ public:
     [[nodiscard]] InspectorPanel& inspector() const noexcept { return *m_inspector; }
     [[nodiscard]] ToolPanel& tools() const noexcept { return *m_tools; }
     [[nodiscard]] ContentPanel& content() const noexcept { return *m_content; }
+    [[nodiscard]] SimulationPanel& simulation() const noexcept { return *m_simulation; }
+    [[nodiscard]] PlayersPanel& players() const noexcept { return *m_players; }
 
 private:
     StudioWorkspace() = default;
@@ -85,6 +91,8 @@ private:
     InspectorPanel* m_inspector = nullptr;
     ToolPanel* m_tools = nullptr;
     ContentPanel* m_content = nullptr;
+    SimulationPanel* m_simulation = nullptr;
+    PlayersPanel* m_players = nullptr;
     std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)
 };
 
