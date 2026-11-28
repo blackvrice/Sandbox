@@ -25,6 +25,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     auto stats = std::make_unique<StatsPanel>(*ws->m_ctx);
     ws->m_stats = stats.get();
     auto scene = std::make_unique<ScenePanel>(*ws->m_ctx);
+    ws->m_scene = scene.get();
     auto hierarchy = std::make_unique<HierarchyPanel>(*ws->m_ctx);
     ws->m_hierarchy = hierarchy.get();
     auto inspector = std::make_unique<InspectorPanel>(*ws->m_ctx);

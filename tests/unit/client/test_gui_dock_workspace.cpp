@@ -10,6 +10,7 @@
 #include <format>
 #include <fstream>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <numbers>
 #include <random>
@@ -354,6 +355,50 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(d.wantsPointer(inScene));
         CHECK(d.wantsPointer(inTools));
         CHECK_FALSE(d.wantsKeyboard()); // 포커스 = 장면 → 키는 게임 · 편집으로
+
+        // 모드 띠 (UI-R4-03, ADR-0193) — 왼쪽 위 배지 (모드 이름), 편집이 아니면 테두리. 가운데는 여전히 비어 월드가 보인다
+        const auto sceneDraws = [&](const editor::gui::WorkspaceDraw& w) {
+            std::vector<gui::RenderCommand> out;
+            for (const editor::gui::WorkspaceDraw::Pane& p : w.panes) {
+                if (p.id == kScene) {
+                    out.assign(p.list->commands().begin(), p.list->commands().end());
+                }
+            }
+            return out;
+        };
+        const gui::LayoutPoint paneMid{scene.width / 2, scene.height / 2}; // 패널 좌표
+        const auto covers = [](const std::vector<gui::RenderCommand>& cmds, gui::LayoutPoint q) {
+            return std::ranges::any_of(cmds, [&](const gui::RenderCommand& cmd) {
+                const auto* r = std::get_if<gui::FillRect>(&cmd);
+                return r != nullptr && q.x >= r->bounds.x && q.y >= r->bounds.y && q.x < r->bounds.x + r->bounds.width &&
+                       q.y < r->bounds.y + r->bounds.height;
+            });
+        };
+        const auto fills = [](const std::vector<gui::RenderCommand>& cmds) {
+            return std::ranges::count_if(cmds, [](const gui::RenderCommand& cmd) { return std::holds_alternative<gui::FillRect>(cmd); });
+        };
+        f.ws->scene().setMode("Scene — 편집", false);
+        {
+            const auto cmds = sceneDraws(f.frame());
+            CHECK(fills(cmds) == 1); // 배지 바탕 하나
+            CHECK(covers(cmds, {12, 12}));
+            CHECK_FALSE(covers(cmds, paneMid));
+            CHECK(std::ranges::any_of(cmds, [](const gui::RenderCommand& cmd) {
+                const auto* t = std::get_if<gui::DrawText>(&cmd);
+                return t != nullptr && t->utf8 == "Scene — 편집";
+            }));
+        }
+        f.ws->scene().setMode("Game — 테스트 플레이", true);
+        {
+            const auto cmds = sceneDraws(f.frame());
+            CHECK(fills(cmds) == 5); // 배지 + 테두리 넷
+            CHECK(covers(cmds, {1, paneMid.y}));                    // 왼쪽 테두리
+            CHECK(covers(cmds, {scene.width - 1, paneMid.y}));      // 오른쪽
+            CHECK_FALSE(covers(cmds, paneMid));
+        }
+        CHECK_FALSE(d.wantsPointer(inScene)); // 띠는 포인터를 받지 않는다
+        f.ws->scene().setMode({}, false);
+        f.frame();
         // 패널을 누르면 키를 가져가고, 장면을 누르면 돌려준다
         f.feed(click(paneCenter(d, kInspector, f.ws->inspector().listHandle())));
         CHECK(d.wantsKeyboard());
@@ -2623,6 +2668,52 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(app.editor().settings().placeSpacing == doctest::Approx(std::min(8.f, spacing + 0.5f)));
         injectAll(click(paneCenter(d, kTools, tp.toggleHandle())));
         CHECK(app.editor().settings().snap);
+        // 장면 칸 = 기존 편집 도구 (UI-R4-03) — 배치 툴로 장면을 누르면 그 Prefab 이 서버에 생기고 (Editor · IEditorHost 그대로),
+        // Ctrl+Z (포커스 = 장면 — 전역 단축키 · 같은 되돌리기 줄) 로 사라진다
+        // 생태계는 도는 중 (태어나고 죽는다) — 개체 수가 아니라 그 Prefab 의 새 id 와 되돌리기 줄로 본다
+        const std::string placed = app.editor().settings().prefab;
+        const auto idsOf = [&] {
+            std::vector<editor::EntityRow> rows;
+            eh.listEntities(rows);
+            std::vector<NetEntityId> ids;
+            for (const editor::EntityRow& r : rows) {
+                if (r.prefab == placed) {
+                    ids.push_back(r.id);
+                }
+            }
+            std::ranges::sort(ids);
+            return ids;
+        };
+        const std::vector<NetEntityId> placedBefore = idsOf();
+        const auto fresh = [&] { // 누르기 전에 없던 그 Prefab 의 id
+            std::vector<NetEntityId> out;
+            std::ranges::set_difference(idsOf(), placedBefore, std::back_inserter(out));
+            return out;
+        };
+        injectAll(click(center(groupOf(d, kScene).content, d.scale())));
+        CHECK(d.focusedPane() == kScene);
+        // 되돌리기 칸은 서버가 배치를 받아들였다고 알린 뒤에 생긴다 (편집 결과를 기다림 — ADR-0110)
+        for (int i = 0; i < 180 && (fresh().empty() || !app.undoLine().canUndo()); ++i) {
+            REQUIRE(app.frame());
+        }
+        const std::vector<NetEntityId> made = fresh();
+        REQUIRE_FALSE(made.empty()); // 그 Prefab 이 장면 칸을 누른 자리에 생겼다
+        REQUIRE(app.undoLine().canUndo());
+        const std::string placeLabel = app.undoLine().nextUndo()->label;
+        // 사람처럼 Ctrl 을 누른 채 Z — 누르기 · 떼기는 다른 frame (게임 입력의 editor.undo 는 눌린 Ctrl 키를 본다)
+        injectAll({KeyDown{Key::LeftCtrl, 0, Modifiers{}, false}});
+        injectAll({key(Key::Z, Modifiers::kCtrl)});
+        injectAll({KeyUp{Key::Z, 0, Modifiers{Modifiers::kCtrl}}, KeyUp{Key::LeftCtrl, 0, Modifiers{}}});
+        const auto stillThere = [&] {
+            const std::vector<NetEntityId> now = idsOf();
+            return std::ranges::count_if(made, [&](NetEntityId id) { return std::ranges::binary_search(now, id); });
+        };
+        for (int i = 0; i < 180 && (stillThere() > 0 || app.undoLine().pending()); ++i) {
+            REQUIRE(app.frame()); // 되돌리기도 서버의 결과를 기다린다
+        }
+        CHECK(stillThere() == 0);
+        REQUIRE(app.undoLine().canRedo()); // 되돌린 것 — 배치는 다시 하기 줄로
+        CHECK(app.undoLine().nextRedo()->label == placeLabel);
         injectAll(click(paneCenter(d, kTools, tp.toolHandle(0))));
         REQUIRE(app.frame());
         CHECK(app.editor().tool() == editor::Tool::Select);
@@ -2767,11 +2858,17 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(worldMode() == 3);
         REQUIRE(app.frame());
         CHECK(wpanel.status().starts_with("테스트 플레이"));
+        // 장면 칸의 모드 띠 (ADR-0193) — ImGui 셸의 modeBand 와 같은 글 · 테스트 플레이는 강조 (테두리)
+        CHECK(ws->scene().mode() == "Game — 테스트 플레이");
+        CHECK(ws->scene().live());
         injectAll(click(paneCenter(d, kWorld, wpanel.testHandle())));
         for (int i = 0; i < 3000 && worldMode() != 0; ++i) {
             REQUIRE(app.frame());
         }
         CHECK(worldMode() == 0);
+        REQUIRE(app.frame());
+        CHECK(ws->scene().mode() == "Scene — 편집");
+        CHECK_FALSE(ws->scene().live());
 
         // 게임 (ADR-0186) — 세션의 행동 (ecosystem 팩 — eco.feed · eco.trap) 을 패널로 쥐고 놓는다 (장면 클릭이 쓰는 같은 상태)
         editor::gui::GamePanel& gpanel = ws->game();

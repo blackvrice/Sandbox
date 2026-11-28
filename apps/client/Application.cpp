@@ -2625,9 +2625,12 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
                                                                return p.state == editor::services::TestProcessState::Running;
                                                            }))
                 : 0;
-        ws.statusBar().setModel(makeGuiStatusModel(
+        editor::gui::StatusBarModel status = makeGuiStatusModel(
             sin, inWorld, m_config.notices.size(), testsRunning,
-            {StudioWorkspace::kNotices, StudioWorkspace::kBuild, StudioWorkspace::kTest}));
+            {StudioWorkspace::kNotices, StudioWorkspace::kBuild, StudioWorkspace::kTest});
+        // 장면 칸의 모드 띠 (ADR-0193) — ImGui 셸의 modeBand 와 같은 글 (상태 표시줄의 배지와 같은 값)
+        ws.scene().setMode(status.mode, status.live);
+        ws.statusBar().setModel(std::move(status));
     }
     if (shown(StudioWorkspace::kHierarchy)) {
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택). 개체가 많으면 가장 비싼 모델

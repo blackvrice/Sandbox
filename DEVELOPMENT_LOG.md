@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R4-03 ✅: 장면 칸 = 기존 편집 도구 그대로 + 모드 띠 (ADR-0193)
+
+**무엇을**
+
+- `ScenePanel::setMode(글, live)` — 프로젝트 안 (통과) 장면 칸 위에 모드 띠: 왼쪽 위 배지 (ImGui 셸 modeBand 와 같은 자리 · 색 · 투명도)
+  · 편집이 아니면 2 단위 강조 테두리. 바탕은 칠하지 않고 포인터도 받지 않는다. `StudioWorkspace::scene()`.
+- 앱: 상태 표시줄 모델 (`makeGuiStatusModel`) 의 mode · live 를 장면 패널에도 준다.
+- 툴은 그대로 — 통과 칸 → 게임 입력 → `Editor::update` (ImGui 셸의 가운데 노드와 같은 길), 오버레이는 월드 렌더러. 앱 시험으로 고정.
+- ADR-0193, 문서: TASK_REGISTRY (R4-03 Done — 합계 32 Done · 40 %), UI-R4, CURRENT_STATUS, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). R4-02 (Scene / Game 분리) 는 제품 줄에서 v0.21 로 미뤄져 있다 (ADR-0164). R4-03 은 툴이 이미
+통과 칸으로 동작했지만 시험이 없었고, ImGui 셸의 모드 배지 · 플레이 테두리가 작업 공간 장면 칸에는 없었다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 24 케이스: scene pane — 띠 (배지 하나 · 글 · live 면 테두리 넷 · 가운데 칠하지 않음 · 포인터는
+  게임) / app (로컬 서버) — 툴 패널로 배치 툴 · Prefab, 장면 칸을 누르면 그 Prefab 의 새 개체 (생태계가 도는 중이라 개체 수가 아니라 새 id),
+  되돌리기 줄 "배치", 장면 포커스로 Ctrl+Z → 그 개체가 사라지고 다시 하기 줄로, 테스트 플레이 띠 "Game — 테스트 플레이" · live → 멈추면 편집.
+- 시험 주입에서 Ctrl 키를 누르지 않고 Z 에 수정자 비트만 주면 게임 입력의 `editor.undo` 가 오지 않는다 (눌린 Ctrl 키를 본다) — 시험은
+  사람처럼 LeftCtrl 을 누른 채 Z, 누르기 · 떼기를 다른 frame 에.
+- Debug · /WX (ci-werror) 빌드, 전체 CTest (project_doctor 제외), check_includes.
+
+**남은 일** — 장면 칸이 렌더 타깃이 되면 (R4-01 목표) 좌표를 다시 시험, 실제 창에서 띠 · 배치 확인 (QA Q-05).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R9-03 🟡: 나머지 대량 목록 — 콘텐츠 줄은 보기를 빌리고, 차례 키는 줄 수가 바뀔 때만 (ADR-0192)
 
 **무엇을**

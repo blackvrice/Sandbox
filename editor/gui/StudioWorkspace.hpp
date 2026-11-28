@@ -96,6 +96,7 @@ public:
     [[nodiscard]] GamePanel& game() const noexcept { return *m_game; }
     [[nodiscard]] NoticesPanel& notices() const noexcept { return *m_notices; }
     [[nodiscard]] StatusBar& statusBar() const noexcept { return *m_status; }
+    [[nodiscard]] ScenePanel& scene() const noexcept { return *m_scene; }
 
 private:
     StudioWorkspace() = default;
@@ -120,6 +121,7 @@ private:
     GamePanel* m_game = nullptr;
     NoticesPanel* m_notices = nullptr;
     StatusBar* m_status = nullptr;
+    ScenePanel* m_scene = nullptr;
     bool m_noticesShown = false; // 알림이 처음 생겨 한 번 보이게 했다
     u64 m_shown = ~u64{0};       // 보이는 패널 (비트 = 패널 id — 1 ~ 17)
     std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)

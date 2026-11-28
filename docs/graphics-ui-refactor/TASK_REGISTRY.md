@@ -14,14 +14,14 @@
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 7 | 2 | 1 | R2-01 · 02 · 03 · 05 · 07 · 09 · 10 ✅, R2-04 상태 표시줄 · R2-08 단축키 일부 |
 | UI-R3 편집 패널 | 12 | 3 | 5 | 3 | R3-06 콘솔 · R3-09 진단 · R3-12 Undo · 부분 갱신 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 일부 |
-| UI-R4 Viewport | 6 | 1 | 2 | 2 | R4-04 입력 나누기 ✅, R4-01 과도기 (통과 장면), R4-06 월드 패널 (테스트 플레이 · 멈춤) |
+| UI-R4 Viewport | 6 | 2 | 2 | 1 | R4-03 장면 칸 편집 도구 · R4-04 입력 나누기 ✅, R4-01 과도기 (통과 장면), R4-06 월드 패널 (테스트 플레이 · 멈춤) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
 | UI-R7 게임 런타임 UI | 5 | 0 | 0 | 5 | GraphicsUI P9-07 미진행 |
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 1 | 0 | R9-03 대량 목록 (목록 패널 — 벤치 · 6 배) |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **31 (38 %)** | 12 | 19 | |
+| **합계** | **81** | **32 (40 %)** | 12 | 19 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -79,7 +79,7 @@
 | UI-R3-12 | Undo/Redo · 부분 갱신 (바뀐 영역만) | Done | R3-03 | editor/gui · apps/client | Undo/Redo — 하나의 줄 (`UndoService`) 을 인스펙터 Ctrl+Z · Y · 툴 패널 단추 (다음 칸 이름 · 수) · 전역 단축키가 같은 명령으로 (ADR-0180 · 0181). 부분 갱신 — 보이는 패널 (`DockWorkspace::shownPanes` · `StudioWorkspace::refreshShown` · `shown`) 의 모델만, 차례 = feed → 세기 → 모델 → frame (ADR-0191). 벤치 `gui.workspace_hierarchy` shown=false — 숨은 목록 10 만 개체 frame 0.02 ~ 0.03 ms. GPU 쪽 건너뛰기는 R9-04 |
 | UI-R4-01 | Scene 렌더러 → 외부 렌더 타깃 → UI 합성 | Partial | R1-10 · GUI-UP-02 | editor/gui · apps/client | **과도기 (ADR-0179)** — 통과 장면 패널 (`ScenePanel` · `DockWorkspace::setPassthrough` — 월드를 창 전체에 먼저 그리고 그 칸을 칠하지 않는다, ImGui 셸과 같은 모델), 입력 `wantsPointer` · `wantsKeyboard` → InputSystem.setCapture, `--ui graphicsui` 는 프로젝트 안에서 셸 대신 작업 공간 ("기존 UI 로" · `view.graphicsui-workspace`), 장면이 가운데 · 크게 프리셋. `unit_client` 장면 1 + app 1 (local server — 장면 칸 = 게임 입력, 도구 위 = 가로챔, 오가기) · `client_graphicsui_world_headless`. 남음 (목표): 장면을 렌더 타깃으로 · UI 합성 (GUI-UP-02 · R1-10) |
 | UI-R4-02 | Scene / Game Viewport 분리 | Planned | R4-01 | apps/client | ADR-0164 (v0.21) 과 함께 |
-| UI-R4-03 | 피킹 · 기즈모 · 배치 · 격자 · 스냅 (기존 툴 재사용) | Planned | R4-01 | editor/ | editor 툴 · IEditorHost 그대로 |
+| UI-R4-03 | 피킹 · 기즈모 · 배치 · 격자 · 스냅 (기존 툴 재사용) | Done | R4-01 | editor/gui · apps/client | 툴은 그대로 — 통과 장면 칸의 포인터 · 키 → 게임 입력 → `Editor::update` (IEditorHost — ImGui 셸과 같은 길), 끌기 상자 · 붓 · 배치 자리 · 격자는 월드 렌더러. 장면 패널의 모드 띠 (`ScenePanel::setMode` — 배지 · 편집이 아니면 테두리, ImGui modeBand 와 같은 글 — ADR-0193). `unit_client` "scene pane" (띠) + app (배치 툴로 장면 칸을 누르면 그 Prefab 의 새 개체 · Ctrl+Z 로 사라짐 · 테스트 플레이 띠). 렌더 타깃 합성 (R4-01 목표) 뒤 다시 확인 |
 | UI-R4-04 | UI 입력과 게임 입력 분리 | Done | R1-03 | editor/gui · apps/client | `DockWorkspace::wantsPointer` · `wantsKeyboard` → `InputSystem::setCapture` (ADR-0179) + 누른 자리가 놓을 때까지 주인 (장면에서 시작한 끌기가 패널 위로 가도 게임, 패널에서 누른 것은 게임으로 새지 않는다) + 글자 칸이 아닌 패널의 Esc = 키를 장면으로 (ADR-0187). `unit_client` "input split" + app (장면에서 누른 채 패널 위 → 게임이 마우스를 갖고, 놓은 뒤 작업 공간 · Esc → 키가 게임으로). 실제 창 끌기는 QA Q-05 |
 | UI-R4-05 | 독립 창 Viewport · 반복 resize | Blocked | R2-06 · P9-06 | platform · render | 반복 resize 메모리 추세 (P9-06 위험) |
 | UI-R4-06 | Test Play · Stop | Partial | R4-02 | editor/gui · apps/client | `WorldPanel` (작업 공간 "월드" — 편집 뒤 탭, ADR-0185): 테스트 플레이 / 멈추기 (되돌리기) · 저장 · 기록 시작 / 끝 · 새로고침 · 세이브 · 리플레이 목록 · 불러오기 / 재생 · 탐색 (call 칸) — 의도 → `Application::requestWorldOp` ("월드" 창과 같은 함수 — 테스트 플레이 전 자동 저장). `unit_client` "world panel" + app (패널로 테스트 플레이 → 서버 mode 3 → 멈추기 → 보통). 남음: 장면 / 게임 Viewport 분리 (R4-02) 뒤의 게임 칸 플레이, 탐색 슬라이더 |

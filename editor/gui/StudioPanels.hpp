@@ -178,9 +178,17 @@ private:
     std::vector<const services::CommandSpec*> m_rows; // 검색 결과 — 키 = 차례
 };
 
+// 장면 칸 — 홈에서는 안내 글, 프로젝트 안에서는 통과 (월드가 보인다 — ADR-0179) 위에 모드 띠만: 왼쪽 위 배지 (모드 이름) · 편집이
+// 아니면 (테스트 플레이 · 재생) 강조 테두리. ImGui 셸의 modeBand (가운데 노드) 와 같은 원천 · 글 (UI-R4-03, ADR-0193). 띠는
+// 포인터를 받지 않는다 — 장면 칸의 입력은 그대로 게임 · 편집 도구로
 class ScenePanel final : public uihost::IUiScreen {
 public:
     explicit ScenePanel(PanelContext& ctx) : m_ctx(ctx) {}
+
+    // 앱이 frame 마다 (상태 표시줄과 같은 workspaceModeName · live = 편집이 아님)
+    void setMode(std::string mode, bool live);
+    [[nodiscard]] const std::string& mode() const noexcept { return m_mode; }
+    [[nodiscard]] bool live() const noexcept { return m_live; }
 
     Expected<void> mount(uihost::UiHost& host) override;
     Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
@@ -189,6 +197,8 @@ public:
 private:
     PanelContext& m_ctx;
     gui::ComponentHandle m_root;
+    std::string m_mode;
+    bool m_live = false;
 };
 
 class InfoPanel final : public uihost::IUiScreen {

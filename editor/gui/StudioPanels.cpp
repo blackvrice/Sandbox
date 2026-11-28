@@ -483,11 +483,41 @@ Expected<void> ScenePanel::layout(uihost::UiHost& host, const gui::ComponentSnap
     return {};
 }
 
-Expected<void> ScenePanel::paint(uihost::UiHost&, const gui::LayoutFrame& frame, uihost::PaintList& out) {
-    if (m_ctx.inWorld) {
-        return {}; // 통과 — 작업 공간도 이 칸을 칠하지 않는다 (DockWorkspace::setPassthrough)
-    }
+void ScenePanel::setMode(std::string mode, bool live) {
+    m_mode = std::move(mode);
+    m_live = live;
+}
+
+Expected<void> ScenePanel::paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) {
     const services::StudioColors& c = services::studioColors(m_ctx.theme);
+    if (m_ctx.inWorld) {
+        // 통과 — 바탕을 칠하지 않는다 (DockWorkspace::setPassthrough). 모드 띠만 (ImGui modeBand 와 같은 자리 · 색 · 투명도)
+        if (m_mode.empty()) {
+            return {};
+        }
+        for (const gui::LayoutBox& box : frame.boxes()) {
+            if (box.component != m_root) {
+                continue;
+            }
+            const double w = box.bounds.width;
+            const double h = box.bounds.height;
+            constexpr double em = 13.0;
+            const double tw = host.text().measure(m_mode, em).width;
+            const gui::LayoutRect badge{8, 8, fit(tw + 20), em * 1.25 + 8};
+            std::vector<gui::DrawCommand> d;
+            d.push_back(gui::FillRect{badge, m_live ? rc(c.accent, 235) : rc(c.surface, 217)});
+            d.push_back(gui::DrawText{{badge.x + 10, badge.y + 4, fit(tw), em * 1.25}, kFont, em, m_mode,
+                                      m_live ? rc(c.accentText) : rc(c.text)});
+            if (m_live) { // 플레이 중 테두리 (2 단위)
+                d.push_back(gui::FillRect{{0, 0, w, 2}, rc(c.accent)});
+                d.push_back(gui::FillRect{{0, fit(h - 2), w, 2}, rc(c.accent)});
+                d.push_back(gui::FillRect{{0, 0, 2, h}, rc(c.accent)});
+                d.push_back(gui::FillRect{{fit(w - 2), 0, 2, h}, rc(c.accent)});
+            }
+            out.add(box.component, std::move(d), true);
+        }
+        return {};
+    }
     for (const gui::LayoutBox& box : frame.boxes()) {
         if (box.component == m_root) {
             const double w = box.bounds.width;
