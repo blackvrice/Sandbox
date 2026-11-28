@@ -84,6 +84,43 @@ DockWorkspace::~DockWorkspace() {
             (void)p.host->setScreen(nullptr);
         }
     }
+    if (m_footer && m_footer->host) {
+        (void)m_footer->host->setScreen(nullptr);
+    }
+}
+
+Expected<void> DockWorkspace::setFooter(std::unique_ptr<uihost::IUiScreen> screen, double height) {
+    if (m_footer && m_footer->host) {
+        (void)m_footer->host->setScreen(nullptr);
+    }
+    m_footer.reset();
+    m_footerHeight = 0;
+    m_footerBounds = {};
+    if (!screen) {
+        return {};
+    }
+    if (!(height > 0.0)) {
+        return makeError(ErrorCode::InvalidArgument, "아래 띠 높이가 0 이하");
+    }
+    auto host = uihost::UiHost::create(m_text);
+    if (!host) {
+        return std::unexpected(host.error());
+    }
+    auto p = std::make_unique<Pane>();
+    p->id = kFooterPane;
+    p->screen = std::move(screen);
+    p->host = std::move(*host);
+    if (auto r = p->host->setScreen(p->screen.get()); !r) {
+        return std::unexpected(r.error());
+    }
+    p->host->setClipboard(m_clipboard); // 다른 패널과 같은 것 (setClipboard 전에 붙여도 그때 다시)
+    m_footer = std::move(p);
+    m_footerHeight = height;
+    return {};
+}
+
+bool DockWorkspace::inFooter(gui::LayoutPoint p) const {
+    return m_footer != nullptr && contains(m_footerBounds, p);
 }
 
 void DockWorkspace::setPassthrough(gui::DockPaneId id, bool passthrough) {
@@ -110,6 +147,9 @@ bool DockWorkspace::wantsPointer(gui::LayoutPoint logical) const {
         return false;
     }
     const gui::LayoutPoint p{logical.x / m_scale, logical.y / m_scale};
+    if (inFooter(p)) {
+        return true;
+    }
     for (const gui::DockDividerBox& d : m_frame->dividers) {
         if (contains(d.bounds, p)) {
             return true;
@@ -127,12 +167,19 @@ bool DockWorkspace::wantsKeyboard() const {
 }
 
 void DockWorkspace::setClipboard(const uihost::Clipboard& clipboard) {
+    m_clipboard = clipboard;
     for (Pane& p : m_panes) {
         p.host->setClipboard(clipboard);
+    }
+    if (m_footer) {
+        m_footer->host->setClipboard(clipboard);
     }
 }
 
 DockWorkspace::Pane* DockWorkspace::pane(gui::DockPaneId id) const {
+    if (id == kFooterPane) {
+        return m_footer.get();
+    }
     for (const Pane& p : m_panes) {
         if (p.id == id) {
             return const_cast<Pane*>(&p);
@@ -270,6 +317,9 @@ void DockWorkspace::forward(gui::DockPaneId id, const platform::PlatformEvent& e
         return;
     }
     gui::LayoutPoint origin;
+    if (id == kFooterPane) {
+        origin = {m_footerBounds.x, m_footerBounds.y};
+    }
     for (const gui::DockGroupBox& g : m_frame->groups) {
         if (g.active == id) {
             origin = {g.content.x, g.content.y};
@@ -352,6 +402,8 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
                 forward(m_capture, e);
             } else if (const gui::DockGroupBox* g = groupAt(m_pointer); g && contains(g->content, m_pointer)) {
                 forward(g->active, e); // hover 표시 · 휠 자리
+            } else if (inFooter(m_pointer)) {
+                forward(kFooterPane, e);
             }
             continue;
         }
@@ -376,6 +428,9 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
                 m_focus = g->active;
                 m_capture = g->active;
                 forward(g->active, e);
+            } else if (inFooter(m_pointer)) {
+                m_capture = kFooterPane; // 키 포커스는 그대로 (아래 띠는 포인터만)
+                forward(kFooterPane, e);
             }
             continue;
         }
@@ -435,6 +490,9 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
             for (Pane& p : m_panes) {
                 p.host->feed(std::span<const platform::PlatformEvent>(&e, 1));
             }
+            if (m_footer) {
+                m_footer->host->feed(std::span<const platform::PlatformEvent>(&e, 1));
+            }
             continue;
         }
         if (std::holds_alternative<platform::FocusLost>(e)) {
@@ -452,7 +510,11 @@ Expected<const WorkspaceDraw*> DockWorkspace::frame(gui::LayoutSize logical) {
     if (!(logical.width >= 0.0) || !(logical.height >= 0.0)) {
         return makeError(ErrorCode::InvalidArgument, "작업 공간 크기가 음수 · NaN");
     }
-    const gui::LayoutSize vp{logical.width / m_scale, logical.height / m_scale};
+    const gui::LayoutSize full{logical.width / m_scale, logical.height / m_scale};
+    // 아래 띠는 도킹 밖 — 도킹은 그만큼 위에서 배치한다 (창이 띠보다 낮으면 띠가 창을 다 쓴다)
+    const double footerH = m_footer ? std::min(m_footerHeight, full.height) : 0.0;
+    const gui::LayoutSize vp{full.width, full.height - footerH};
+    m_footerBounds = m_footer ? gui::LayoutRect{0, vp.height, full.width, footerH} : gui::LayoutRect{};
     m_lastViewport = vp;
     auto arranged = m_layout->arrange(vp, metrics());
     if (!arranged) {
@@ -517,6 +579,16 @@ Expected<const WorkspaceDraw*> DockWorkspace::frame(gui::LayoutSize logical) {
         }
         if (*list != nullptr) {
             d.panes.push_back({p->id, *list, {g.content.x, g.content.y}});
+        }
+    }
+    if (m_footer) {
+        m_footer->host->setScale(m_scale);
+        auto list = m_footer->host->frame({m_footerBounds.width * m_scale, m_footerBounds.height * m_scale});
+        if (!list) {
+            return std::unexpected(list.error());
+        }
+        if (*list != nullptr) {
+            d.panes.push_back({kFooterPane, *list, {m_footerBounds.x, m_footerBounds.y}});
         }
     }
     if (m_dragging && m_drop) {

@@ -71,6 +71,8 @@ struct WorkspaceIntent {
         WorldOp, WorldName,
         // 게임 (ADR-0186) — 앱이 gameCommand (value = client::GameCommand) · 쥔 행동 (command = PlayerAction id, 빈 글 = 놓기)
         GameCommand, ArmAction,
+        // 상태 표시줄 (ADR-0189) — 작업 공간이 그 패널을 보이게 (value = DockPaneId — 앱에 가지 않는다)
+        ShowPane,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)

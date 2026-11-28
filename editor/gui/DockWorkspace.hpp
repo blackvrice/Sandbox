@@ -7,6 +7,8 @@
 //                그룹의 탭), 분할선 끌기 = 비율, Esc · 창 포커스 잃음 = 끌기 취소, Ctrl+PageUp · PageDown = 그룹 안 탭 순회.
 //                내용 영역의 포인터 · 휠은 그 패널 호스트로 (좌표를 내용 원점 기준으로), 키 · 글자는 포커스된 패널로
 //   분리 창      DockLayout 은 안다 (undock) — 다중 OS 창 (S-01) 이 없어 지금은 쓰지 않는다 (UI-R2-06)
+//   아래 띠      setFooter — 도킹 밖, 창 아래 고정 높이의 화면 하나 (상태 표시줄 — ADR-0189). 포인터만 (키 포커스를 받지 않는다),
+//                frame() 의 panes 에 kFooterPane 으로 (도킹은 그만큼 위에서 배치)
 //   통과 패널    setPassthrough — 그 패널이 활성인 그룹의 내용 칸 (과 창 전체 바탕) 을 칠하지 않는다. 먼저 그린 월드가 보이고, 그 칸 위의
 //                포인터 · 그 패널에 포커스가 있을 때의 키는 앱이 게임 · 편집으로 보낸다 (wantsPointer · wantsKeyboard — ADR-0179)
 //
@@ -52,6 +54,8 @@ struct DockDropTarget {
 
 class DockWorkspace {
 public:
+    static constexpr gui::DockPaneId kFooterPane = 0xFFFFFFFFu; // 아래 띠 (도킹 패널 id 와 겹치지 않는다)
+
     [[nodiscard]] static Expected<std::unique_ptr<DockWorkspace>> create(const uihost::ITextMeasure& text,
                                                                          std::vector<DockPaneSpec> panes);
     ~DockWorkspace();
@@ -65,6 +69,10 @@ public:
     [[nodiscard]] f32 scale() const noexcept { return m_scale; }
     void setClipboard(const uihost::Clipboard& clipboard);
     void setPassthrough(gui::DockPaneId id, bool passthrough);
+    // 아래 띠 (높이 = UI 단위). 다시 부르면 바꾼다, nullptr = 없앤다
+    Expected<void> setFooter(std::unique_ptr<uihost::IUiScreen> screen, double height);
+    // 마지막 frame 의 아래 띠 자리 (UI 단위 — 없으면 0 크기)
+    [[nodiscard]] gui::LayoutRect footerBounds() const noexcept { return m_footerBounds; }
     [[nodiscard]] bool passthrough(gui::DockPaneId id) const;
     // 이 포인터 (창 논리 좌표) 를 작업 공간이 가져가나 — 그룹 · 분할선 위이고 통과 칸 밖, 또는 끄는 중 (지난 frame 의 배치)
     // 누른 채면 누른 자리의 주인 (통과 패널 = 게임 · 그 밖 = 작업 공간) 이 놓을 때까지 (ADR-0187)
@@ -106,11 +114,16 @@ private:
     [[nodiscard]] const gui::DockTabBox* tabAt(gui::LayoutPoint p) const;
     [[nodiscard]] std::optional<DockDropTarget> dropAt(gui::LayoutPoint p) const;
     void forward(gui::DockPaneId id, const platform::PlatformEvent& e);
+    [[nodiscard]] bool inFooter(gui::LayoutPoint p) const;
     void cycleTab(int step);
 
     const uihost::ITextMeasure& m_text;
+    uihost::Clipboard m_clipboard;
     std::unique_ptr<gui::DockLayout> m_layout;
     std::vector<Pane> m_panes;
+    std::unique_ptr<Pane> m_footer; // 아래 띠 (도킹 밖 — DockLayout 은 모른다)
+    double m_footerHeight = 0;
+    gui::LayoutRect m_footerBounds;
     std::optional<gui::DockFrame> m_frame;
     gui::LayoutSize m_lastViewport; // 마지막 frame 의 크기 (UI 단위) — 분할선을 끄는 동안 다시 배치할 때
     WorkspaceDraw m_draw;

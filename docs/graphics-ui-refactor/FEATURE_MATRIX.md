@@ -20,12 +20,12 @@
 | # | 화면 (소스) | GraphicsUI 대응 | 분류 | 작업 |
 |---|---|---|---|---|
 | 1 | Studio 홈 (`apps/client/studio/StudioHome`) | Button · ListView · TextInput · 레이아웃 | **완료 (선택 실행)** — 검색 · 가상 최근 목록 (휠 · 키 · Delete) · 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료가 GraphicsUI (`--ui graphicsui`, 같은 행동 · 명령). 좁은 창 세로 스크롤 없음 | UI-R1-05 · R1-08 · R2-09 ✅ |
-| 2 | 메인 메뉴 · 툴바 (`StudioShell`) | 메뉴 · 팝업 없음 | GUI 개선 (GUI-UP-03) | UI-R2-04 |
+| 2 | 메인 메뉴 · 툴바 · 상태 표시줄 (`StudioShell`) | 메뉴 · 팝업 없음 | GUI 개선 (GUI-UP-03) — **상태 표시줄은 완료 (작업 공간 아래 띠 — 같은 원천 · 글 · 모드 배지, ADR-0189)** | UI-R2-04 |
 | 3 | 도크 작업 공간 · 프리셋 (`StudioShell` — ImGui DockBuilder) | DockLayout (분할 · 탭 · 분리 · 저장) — 그리기 · 끌기는 호스트 | 어댑터 — **작업 공간 완료 (미리보기 — `editor/gui/DockWorkspace`, ADR-0177: 분할 · 탭 · 끌기 · 분할선 · 저장 바이트)**, 프리셋 · 파일 저장 R2-07, 분리 창 R2-06 | UI-R2-05 |
 | 4 | 레이아웃 창 (`editor/ui/LayoutPanel`) | ListView · Button | 즉시 (R2-05 뒤) | UI-R2-07 |
 | 5 | 명령 팔레트 (`CommandPalette`) | TextInput · ListView | 어댑터 (글자 입력 R1-08) | UI-R2-08 |
 | 6 | 단축키 표 (`CommandPalette`) | TableView (정렬 · 거르기) | 즉시 — **일부 (작업 공간의 단축키 패널 — ListView · 검색 · Enter = 실행)** | UI-R2-08 |
-| 7 | 알림 (`Application::drawNotices`) | ListView · Button | 즉시 | UI-R2-10 |
+| 7 | 알림 (`Application::drawNotices`) | ListView · Button | 즉시 — **완료 (작업 공간의 알림 패널 — 낱말 감싸기 · 휠 · 처음 한 번 보이게, 상태 표시줄의 알림 단추, ADR-0189)** | UI-R2-10 |
 | 8 | 목록 · Hierarchy (`EditorPanel` · HierarchyService) | TreeView (가상 · 펼침 · 거르기 · 선택 보존) | 즉시 (다중 선택은 GUI 개선 — TreeView 는 단일 선택) — **일부 (작업 공간의 목록 패널 — 같은 서비스 · 검색 · 그룹 · 선택 · 두 번 누르기, 맥락 메뉴는 GUI-UP-03)** | UI-R3-02 |
 | 9 | 인스펙터 (`InspectorPanel` · DataForm) | Slider · Toggle · ComboBox · TextInput | 어댑터 (속성 편집 Custom Control) — **일부 (작업 공간의 인스펙터 — 속성 표 + 편집 줄, DataForm 검사, 빼기 · 더하기 · Prefab 값으로 · 되돌리기, 콤보 · 끌기는 GUI-UP-03 — ADR-0180)** | UI-R3-03 |
 | 10 | 편집 (툴) 패널 (`EditorPanel`) | Toggle · Button | 즉시 — **일부 (작업 공간의 "편집" — 툴 단추 · 배치 Prefab · 간격 · 격자 · 머티리얼 · 붓 · 되돌리기, 슬라이더는 − + — ADR-0181)** | UI-R3-03 |

@@ -53,6 +53,8 @@ add_library(SandboxStudioGui STATIC
     gui/DockWorkspace.cpp
     gui/StudioPanels.hpp
     gui/StudioPanels.cpp
+    gui/StatusBar.hpp
+    gui/StatusBar.cpp
     gui/StudioWorkspace.hpp
     gui/GamePanel.hpp
     gui/GamePanel.cpp

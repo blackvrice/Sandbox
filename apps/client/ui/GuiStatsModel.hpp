@@ -5,9 +5,11 @@
 #include <optional>
 
 #include "apps/client/ui/ActionPanel.hpp"
+#include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "editor/gui/GamePanel.hpp"
 #include "editor/gui/RunPanels.hpp"
+#include "editor/gui/StatusBar.hpp"
 #include "editor/gui/StudioPanels.hpp"
 #include "editor/gui/WorldPanel.hpp"
 
@@ -25,5 +27,8 @@ namespace sbx::client {
 // 게임 패널 (ADR-0186) — "게임" · "행동" 창과 같은 원천 · 같은 글 (표시 이름은 부르는 쪽이 먼저 바꾼다 — localizeNames)
 [[nodiscard]] editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, const std::optional<ActionsInfo>& actions,
                                                       const ActionPanelState& actionState);
+// 상태 표시줄 (ADR-0189) — ImGui 셸의 statusBar · 모드 배지와 같은 원천 (ShellInputs · workspaceModeName). notices = 알림 줄 수
+[[nodiscard]] editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices,
+                                                             u32 noticesPane);
 
 } // namespace sbx::client

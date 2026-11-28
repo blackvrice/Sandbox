@@ -1065,7 +1065,9 @@ bool Application::frame() {
             PanelActions unused;
             applyShellActions(shell, unused);
         }
-        drawNotices(m_config.notices, m_noticesOpen);
+        if (!guiWorldUi && !m_guiWorkspaceOpen) { // GraphicsUI 작업 공간은 알림 패널 · 상태 표시줄로 (ADR-0189 — 두 UI 를 겹쳐 그리지 않는다)
+            drawNotices(m_config.notices, m_noticesOpen);
+        }
         m_guiHomeDrawn = false;
         // Studio 홈 (v0.8 M6-T1) — 월드가 없을 때 (MainMenu)
         if (m_state == AppState::MainMenu && m_config.world == nullptr && m_config.playerMode) {
@@ -2590,6 +2592,13 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             m_actionPanel.armed.clear();
         }
         ws.game().setModel(makeGuiGameModel(game, acts, m_actionPanel));
+        // 상태 표시줄 · 알림 (ADR-0189) — ImGui 셸의 상태 표시줄 · 알림 창과 같은 원천 (프로젝트 밖이어도 배치 이름)
+        ShellInputs sin = shellInputs(inWorld);
+        if (sin.layout.empty() && m_config.layouts != nullptr) {
+            sin.layout = m_config.layouts->active();
+        }
+        ws.setNotices(m_config.notices);
+        ws.statusBar().setModel(makeGuiStatusModel(sin, inWorld, m_config.notices.size(), StudioWorkspace::kNotices));
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();
@@ -2802,6 +2811,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         }
         return std::nullopt;
     }
+    case K::ShowPane: // 작업 공간이 처리한다 (takeIntent 가 꺼내지 않는다)
+        return std::nullopt;
     case K::TestPlan:
         // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)
         m_testPanel.clients = intent->test.clients;

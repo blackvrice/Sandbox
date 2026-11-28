@@ -289,4 +289,23 @@ editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, con
     return m;
 }
 
+editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices, u32 noticesPane) {
+    editor::gui::StatusBarModel m;
+    m.inWorld = inWorld;
+    m.place = in.project.empty() ? in.world : in.project; // ImGui 상태 표시줄과 같다
+    m.layout = in.layout;
+    m.selected = in.selected;
+    m.tick = in.tick;
+    m.paused = in.paused;
+    m.tps = in.tps;
+    m.speed = in.speed;
+    if (inWorld) {
+        m.mode = std::string(workspaceModeName(in.mode));
+        m.live = in.mode != WorkspaceMode::Edit; // 배지 강조 (ImGui 셸의 Accent)
+    }
+    m.notices = notices;
+    m.noticesPane = noticesPane;
+    return m;
+}
+
 } // namespace sbx::client

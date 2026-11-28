@@ -7,6 +7,34 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R2-10 · R2-04 🟡: 작업 공간 상태 표시줄 · 알림 — 도킹 밖 아래 띠 · 알림 패널 (ADR-0189)
+
+**무엇을**
+
+- `DockWorkspace::setFooter` — 도킹 밖 창 아래 고정 높이의 화면 하나 (자기 UiHost, panes 에 `kFooterPane`). 도킹은 그만큼 위에서 배치,
+  포인터만 (누르면 놓을 때까지 주인 · 키 포커스 그대로), 수정자 키 · 클립보드는 다른 패널과 같이, 배치 저장 바이트에는 없다.
+- `editor/gui/StatusBar` — `StatusBar` (ImGui 셸 statusBar 와 같은 글: 프로젝트 · 배치 · 선택 · tick · 일시정지 (경고색) 또는 TPS · 배속,
+  모드 배지 — 편집이 아니면 강조색, "알림 N" 단추) · `NoticesPanel` (출력 그룹 끝 탭 — 낱말 감싸기 · 넓은 낱말은 코드 포인트 단위 · 휠).
+- `WorkspaceIntent::ShowPane` — `StudioWorkspace::takeIntent` 가 그 탭을 고르고 앱에 돌려주지 않는다. `setNotices` — 처음 생기면 한 번
+  알림 탭을 보이게.
+- 앱: `makeGuiStatusModel(shellInputs …)` (apps/client/ui/GuiStatsModel — workspaceModeName 까지 같다), 작업 공간 frame 에는 ImGui 알림 창을
+  그리지 않는다. 패널 17 개 (헤드리스 시험 "그룹 4 · 패널 17").
+- ADR-0189, 문서: TASK_REGISTRY (R2-04 · R2-10 Partial — 합계 Partial 13 · Blocked 19), FEATURE_MATRIX 2 · 7, UI-R2, CURRENT_STATUS,
+  MIGRATION_GUIDE 4b-9, 17-SOURCE-MAP, 29-STUDIO-UI.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). 프로젝트 안 작업 공간 (ADR-0179) 은 ImGui 셸을 그리지 않아 상태 표시줄이 없었고, 알림 창은 ImGui 로
+작업 공간 위에 겹쳐 그려졌다. 메뉴 · 툴바와 달리 팝업이 필요 없어 막히지 않았다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 23 케이스 (3052 단언): status bar · notices — 띠 자리 (창 아래 24 · 그룹은 그 위) · 프로젝트 밖 글
+  · ImGui 와 같은 글 (60 TPS · ×2 · ×0.5 · 일시정지) · 알림 처음 한 번 보이게 · 다시 넣어도 빼앗지 않음 · "알림 2" 단추 → 알림 탭 (의도는 앱에
+  가지 않음, 누를 때 포커스 그대로) · 감싸기 (폭 안 · 앞 공백 없음 · 한글 긴 낱말이 코드 포인트로 나뉘고 이으면 원문) / app (로컬 서버 월드 —
+  상태 표시줄 모델 inWorld · tick · "Scene — 편집" · 띠 높이).
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 840 파일 0 위반.
+
+**남은 일** — 빌드 · 테스트 진행 표시 (R2-10), 메뉴 · 툴바 (GUI-UP-03), 실제 창에서 띠 · 알림 확인 (QA).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R9-03 🟡: 대량 목록 비용 — 벤치 `gui.workspace_hierarchy`, 목록 패널 10 만 개체 29.6 → 4.7 ms (ADR-0188)
 
 **무엇을**

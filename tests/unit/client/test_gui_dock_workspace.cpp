@@ -59,6 +59,7 @@ constexpr gui::DockPaneId kPlayers = StudioWorkspace::kPlayers;
 constexpr gui::DockPaneId kProfile = StudioWorkspace::kProfile;
 constexpr gui::DockPaneId kWorld = StudioWorkspace::kWorld;
 constexpr gui::DockPaneId kGame = StudioWorkspace::kGame;
+constexpr gui::DockPaneId kNotices = StudioWorkspace::kNotices;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -210,7 +211,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(tabOf(d, kBuild).bounds.x > tabOf(d, kConsole).bounds.x);
         {
             const editor::gui::WorkspaceDraw& draw = f.frame();
-            CHECK(draw.panes.size() == 4); // 그룹마다 활성 패널 하나
+            CHECK(draw.panes.size() == 5); // 그룹마다 활성 패널 하나 + 아래 띠 (상태 표시줄 — ADR-0189)
             CHECK(!draw.chrome.empty());
             CHECK(draw.overlay.empty());
         }
@@ -228,7 +229,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 16);
+        CHECK(d.lastFrame()->tabs.size() == 17);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1945,6 +1946,98 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(gp.actionHint().starts_with("행동이 없다"));
     }
 
+    TEST_CASE("status bar · notices (ADR-0189): footer below the dock, same text as the ImGui status bar, notices button shows the pane") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::StatusBar& bar = f.ws->statusBar();
+        // 아래 띠 — 도킹 밖, 창 아래 24 (도킹 그룹은 그 위)
+        const gui::LayoutRect fb = d.footerBounds();
+        CHECK(fb.height == doctest::Approx(editor::gui::StatusBar::kHeight));
+        CHECK(fb.y + fb.height == doctest::Approx(f.size.height));
+        CHECK(fb.width == doctest::Approx(f.size.width));
+        for (const gui::DockGroupBox& g : d.lastFrame()->groups) {
+            CHECK(g.bounds.y + g.bounds.height <= fb.y + 0.5);
+        }
+        CHECK(d.paneHost(DockWorkspace::kFooterPane) != nullptr);
+        // 프로젝트 밖 — 배치 이름만
+        editor::gui::StatusBarModel m;
+        m.layout = "default";
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.summary() == "프로젝트가 열려 있지 않다 · 배치 default");
+        // 프로젝트 안 — ImGui 상태 표시줄과 같은 글 (프로젝트 · 배치 · 선택 · tick · TPS · 배속), 일시정지면 TPS 대신
+        m.inWorld = true;
+        m.place = "eco";
+        m.selected = 2;
+        m.tick = 120;
+        m.tps = 59.6;
+        m.speed = 2.f;
+        m.mode = "Scene — 편집";
+        m.noticesPane = kNotices;
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.summary() == "eco · 배치 default · 선택 2 · tick 120 · 60 TPS · ×2");
+        m.paused = true;
+        bar.setModel(m);
+        CHECK(bar.summary() == "eco · 배치 default · 선택 2 · tick 120 · 일시정지");
+        m.paused = false;
+        m.speed = 0.5f;
+        bar.setModel(m);
+        CHECK(bar.summary() == "eco · 배치 default · 선택 2 · tick 120 · 60 TPS · ×0.5");
+        CHECK(bar.noticesLabel().empty()); // 알림이 없으면 단추 없음
+
+        // 알림 — 처음 생기면 알림 패널을 한 번 보이게 (출력 그룹의 끝 탭), 감싼 줄
+        CHECK(sameGroup(d, kNotices, kConsole));
+        CHECK(groupOf(d, kConsole).active == kConsole);
+        f.ws->setNotices({"설정 파일이 깨져 옮겼습니다 — user.json.broken", "더 새 판의 설정입니다"});
+        f.frame();
+        CHECK(groupOf(d, kNotices).active == kNotices);
+        REQUIRE(f.ws->notices().wrapped().size() >= 2);
+        CHECK(f.ws->notices().wrapped().front().starts_with("• 설정 파일이"));
+        // 콘솔로 돌아간 뒤 · 같은 알림을 다시 넣어도 다시 빼앗지 않는다
+        f.show(kConsole);
+        f.ws->setNotices({"설정 파일이 깨져 옮겼습니다 — user.json.broken", "더 새 판의 설정입니다"});
+        f.frame();
+        CHECK(groupOf(d, kConsole).active == kConsole);
+        // 상태 표시줄의 알림 단추 = 알림 패널을 보이게 (작업 공간이 처리 — 앱에 의도가 가지 않는다)
+        m.notices = 2;
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.noticesLabel() == "알림 2");
+        const uihost::UiHost* fh = d.paneHost(DockWorkspace::kFooterPane);
+        REQUIRE(fh->lastLayout() != nullptr);
+        Vec2 at{};
+        for (const gui::LayoutBox& b : fh->lastLayout()->boxes()) {
+            if (b.component == bar.noticesHandle()) {
+                REQUIRE(b.bounds.width > 0);
+                at = center({fb.x + b.bounds.x, fb.y + b.bounds.y, b.bounds.width, b.bounds.height});
+            }
+        }
+        REQUIRE(at.x > 0);
+        CHECK(d.wantsPointer({at.x, at.y}));
+        const gui::DockPaneId focus = d.focusedPane();
+        f.feed(click(at));
+        CHECK(d.focusedPane() == focus); // 아래 띠를 눌러도 키 포커스는 그대로
+        CHECK_FALSE(f.ws->takeIntent()); // ShowPane 은 작업 공간 안의 일
+        f.frame();
+        CHECK(groupOf(d, kNotices).active == kNotices); // (포커스가 콘솔이었으면 같은 그룹의 보이는 탭 = 알림으로 — 탭 고르기와 같다)
+
+        // 낱말 단위 감싸기 — 폭 안 · 넓은 낱말은 글자 단위
+        const auto lines = editor::gui::NoticesPanel::wrap(f.text, "alpha beta gamma delta", 10.0, 60.0);
+        REQUIRE(lines.size() >= 2);
+        for (const std::string& l : lines) {
+            CHECK(f.text.measure(l, 10.0).width <= 60.0 + 1e-9);
+            CHECK_FALSE(l.starts_with(" "));
+        }
+        const auto longWord = editor::gui::NoticesPanel::wrap(f.text, "가나다라마바사아자차카타파하", 10.0, 35.0);
+        CHECK(longWord.size() >= 4);
+        std::string joined;
+        for (const std::string& l : longWord) {
+            joined += l;
+        }
+        CHECK(joined == "가나다라마바사아자차카타파하");
+    }
+
     TEST_CASE("input split (ADR-0187): the pane under the press owns the pointer until release, Esc returns keys to the scene") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -2260,6 +2353,11 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(ws->dock().passthrough(kScene));
         CHECK(app.shell().dockId == 0);
         CHECK_FALSE(ws->stats().model().frameMs.empty()); // 진단 입력이 온다 (프레임 시간)
+        // 상태 표시줄 (ADR-0189) — ImGui 셸의 상태 표시줄과 같은 원천 (월드 · tick · 모드)
+        CHECK(ws->statusBar().model().inWorld);
+        CHECK(ws->statusBar().summary().find(" · tick ") != std::string::npos);
+        CHECK(ws->statusBar().model().mode == "Scene — 편집");
+        CHECK(ws->dock().footerBounds().height > 0);
 
         // 입력 — 장면 칸 위는 게임으로, 도구 패널 위는 작업 공간이 가져간다
         const DockWorkspace& d = ws->dock();

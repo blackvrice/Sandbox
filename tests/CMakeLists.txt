@@ -436,7 +436,7 @@ if(TARGET SandboxClient)
     add_test(NAME client_graphicsui_world_headless
         COMMAND SandboxClient --headless --safe-mode --ui graphicsui --world ecosystem_small --frames 90 --fps 120)
     set_tests_properties(client_graphicsui_world_headless PROPERTIES LABELS "unit;client"
-        PASS_REGULAR_EXPRESSION "GraphicsUI 작업 공간 \\(프로젝트 안 — 장면 통과, 그룹 4 · 패널 16\\).*SandboxClient 끝: frames 90"
+        PASS_REGULAR_EXPRESSION "GraphicsUI 작업 공간 \\(프로젝트 안 — 장면 통과, 그룹 4 · 패널 17\\).*SandboxClient 끝: frames 90"
         FAIL_REGULAR_EXPRESSION "작업 공간을 만들지 못했다")
     add_test(NAME client_ui_rejects_unknown COMMAND SandboxClient --ui qt)
     set_tests_properties(client_ui_rejects_unknown PROPERTIES LABELS "unit;client" WILL_FAIL TRUE)

@@ -43,6 +43,10 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     ws->m_world = world.get();
     auto game = std::make_unique<GamePanel>(*ws->m_ctx);
     ws->m_game = game.get();
+    auto notices = std::make_unique<NoticesPanel>(*ws->m_ctx);
+    ws->m_notices = notices.get();
+    auto status = std::make_unique<StatusBar>(*ws->m_ctx);
+    ws->m_status = status.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -64,11 +68,15 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kProfile, "스크립트 프로파일", std::move(profile)}); // ImGui 창 이름과 같다
     panes.push_back({kWorld, "월드", std::move(world)});
     panes.push_back({kGame, "게임", std::move(game)}); // ImGui 창 이름과 같다
+    panes.push_back({kNotices, "알림", std::move(notices)}); // ImGui 창 이름과 같다
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
     }
     ws->m_dock = std::move(*dock);
+    if (auto r = ws->m_dock->setFooter(std::move(status), StatusBar::kHeight); !r) {
+        return std::unexpected(r.error());
+    }
     auto fresh = ws->m_dock->save();
     if (!fresh) {
         return std::unexpected(fresh.error());
@@ -101,7 +109,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
                  {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after},
                  {kSimulation, kStats, gui::DockSide::tab_after}, {kPlayers, kSimulation, gui::DockSide::tab_after},
                  {kProfile, kTest, gui::DockSide::tab_after},     {kWorld, kTools, gui::DockSide::tab_after},
-                 {kGame, kWorld, gui::DockSide::tab_after},
+                 {kGame, kWorld, gui::DockSide::tab_after},       {kNotices, kProfile, gui::DockSide::tab_after},
                  {kHierarchy, kScene, gui::DockSide::left},     {kInspector, kConsole, gui::DockSide::tab_before},
                  {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after}};
     } else {
@@ -121,6 +129,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves.push_back({kProfile, kTest, gui::DockSide::tab_after}); // 출력 그룹 끝 = 스크립트 프로파일 (넓은 표)
         moves.push_back({kWorld, kTools, gui::DockSide::tab_after});  // 편집 뒤 = 월드 (저장 · 테스트 플레이)
         moves.push_back({kGame, kWorld, gui::DockSide::tab_after});   // 그 뒤 = 게임 (상태 · 점수 · 행동)
+        moves.push_back({kNotices, kProfile, gui::DockSide::tab_after}); // 출력 그룹 끝 = 알림 (시작 알림 — ADR-0189)
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
@@ -179,8 +188,22 @@ void StudioWorkspace::setScale(f32 scale) noexcept {
     m_ctx->scale = m_dock->scale();
 }
 
-std::optional<WorkspaceIntent> StudioWorkspace::takeIntent() noexcept {
-    return std::exchange(m_ctx->intent, std::nullopt);
+std::optional<WorkspaceIntent> StudioWorkspace::takeIntent() {
+    std::optional<WorkspaceIntent> i = std::exchange(m_ctx->intent, std::nullopt);
+    if (i && i->kind == WorkspaceIntent::Kind::ShowPane) {
+        (void)m_dock->layout().select(static_cast<gui::DockPaneId>(i->value)); // 그 그룹의 앞 탭으로 (다음 frame 부터 보인다)
+        return std::nullopt;
+    }
+    return i;
+}
+
+void StudioWorkspace::setNotices(std::vector<std::string> notices) {
+    const bool any = !notices.empty();
+    m_notices->setNotices(std::move(notices));
+    if (any && !m_noticesShown) {
+        m_noticesShown = true;
+        (void)m_dock->layout().select(kNotices);
+    }
 }
 
 } // namespace sbx::editor::gui
