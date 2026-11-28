@@ -1889,6 +1889,56 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(gp.actionHint().starts_with("행동이 없다"));
     }
 
+    TEST_CASE("input split (ADR-0187): the pane under the press owns the pointer until release, Esc returns keys to the scene") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        f.ws->setInWorld(true); // 장면 = 통과
+        f.frame();
+        REQUIRE(d.passthrough(kScene));
+        const gui::LayoutRect scene = groupOf(d, kScene).content;
+        const gui::LayoutRect tools = groupOf(d, kInspector).content;
+        const Vec2 inScene = center(scene);
+        const Vec2 inTools = center(tools);
+        const auto wants = [&](Vec2 p) { return d.wantsPointer({p.x, p.y}); };
+        CHECK_FALSE(wants(inScene));
+        CHECK(wants(inTools));
+
+        // 장면에서 누르고 패널 위로 — 놓을 때까지 게임 (박스 선택 · 이동이 끊기지 않는다)
+        f.feed(std::vector<PlatformEvent>{MouseMove{inScene, {}}, MouseButtonDown{MouseButton::Left, inScene, 1}});
+        f.feed(MouseMove{inTools, {}});
+        CHECK_FALSE(wants(inTools));
+        f.feed(MouseButtonUp{MouseButton::Left, inTools});
+        CHECK(wants(inTools)); // 놓으면 자리대로
+        // 패널에서 누르고 장면 위로 — 놓을 때까지 작업 공간 (게임이 반쪽 누르기를 받지 않는다)
+        f.feed(std::vector<PlatformEvent>{MouseMove{inTools, {}}, MouseButtonDown{MouseButton::Left, inTools, 1}});
+        f.feed(MouseMove{inScene, {}});
+        CHECK(wants(inScene));
+        f.feed(MouseButtonUp{MouseButton::Left, inScene});
+        CHECK_FALSE(wants(inScene));
+
+        // 패널 (글자 칸 아님) 에 포커스 → 키는 작업 공간, Esc → 장면으로 (키는 다시 게임)
+        f.feed(click(paneCenter(d, kInspector, f.ws->inspector().listHandle())));
+        CHECK(d.focusedPane() == kInspector);
+        CHECK(d.wantsKeyboard());
+        f.feed(key(Key::Escape));
+        CHECK(d.focusedPane() == kScene);
+        CHECK_FALSE(d.wantsKeyboard());
+        // 글자 칸이면 Esc 는 그 칸의 일 (포커스는 그대로)
+        f.feed(click(paneCenter(d, kHierarchy, f.ws->hierarchy().searchHandle())));
+        REQUIRE(d.textFocused());
+        f.feed(key(Key::Escape));
+        CHECK(d.focusedPane() == kHierarchy);
+        CHECK(d.wantsKeyboard());
+        // 수정자와 함께면 돌려주지 않는다 · 장면이 가려져 있으면 (콘텐츠 탭이 앞) 포커스 그대로
+        f.feed(click(paneCenter(d, kInspector, f.ws->inspector().listHandle())));
+        f.feed(key(Key::Escape, Modifiers::kShift));
+        CHECK(d.focusedPane() == kInspector);
+        f.show(kContent);
+        f.feed(click(paneCenter(d, kInspector, f.ws->inspector().listHandle())));
+        f.feed(key(Key::Escape));
+        CHECK(d.focusedPane() == kInspector);
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -2505,6 +2555,28 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(gpanel.model().armed == firstAction);
         injectAll(click(gameRowAt(0)));
         CHECK(app.actionPanel().armed.empty());
+
+        // 입력 나누기 (ADR-0187) — 장면에서 누른 채 패널 위로 끌어도 게임이 마우스를 잃지 않는다, 놓으면 자리대로
+        const Vec2 sceneAt = center(groupOf(d, kScene).content, d.scale());
+        const Vec2 panelAt = center(groupOf(d, kGame).content, d.scale());
+        injectAll({MouseMove{sceneAt, {}}, MouseButtonDown{MouseButton::Left, sceneAt, 1}});
+        REQUIRE(app.frame());
+        injectAll({MouseMove{panelAt, {}}});
+        REQUIRE(app.frame());
+        CHECK_FALSE(app.input().downstream().mouseCaptured); // 누른 자리 (장면) 의 주인 = 게임
+        injectAll({MouseButtonUp{MouseButton::Left, panelAt}});
+        REQUIRE(app.frame());
+        REQUIRE(app.frame());
+        CHECK(app.input().downstream().mouseCaptured); // 놓은 뒤 패널 위 = 작업 공간
+        // 패널을 누르면 키는 작업 공간, Esc 로 장면에 돌려주면 게임 키
+        injectAll(click(gameRowAt(0)));
+        injectAll(click(gameRowAt(0))); // 쥐고 놓기 (그대로)
+        REQUIRE(app.frame());
+        CHECK(app.input().downstream().keyboardCaptured);
+        injectAll({key(Key::Escape)});
+        REQUIRE(app.frame());
+        CHECK(ws->dock().focusedPane() == kScene);
+        CHECK_FALSE(app.input().downstream().keyboardCaptured);
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

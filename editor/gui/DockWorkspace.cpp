@@ -101,6 +101,11 @@ bool DockWorkspace::wantsPointer(gui::LayoutPoint logical) const {
     if (interacting()) {
         return true;
     }
+    // 누른 채면 누른 자리의 주인이 놓을 때까지 (ADR-0187 — 장면에서 끄는 박스 · 이동이 패널 위로 가도 게임이, 패널에서 누른 것이 장면
+    // 위로 가도 패널이). 누른 frame 은 아직 이벤트를 먹이기 전이라 지금 자리로 정한다 (그 자리 = 누른 자리)
+    if (m_capture != 0) {
+        return !passthrough(m_capture);
+    }
     if (!m_frame) {
         return false;
     }
@@ -402,6 +407,19 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
         if (const auto* k = std::get_if<platform::KeyDown>(&e)) {
             if (k->key == platform::Key::Escape && (m_dragging || m_divider)) {
                 cancelDrag(); // 끌기 취소 — 패널에 Esc 를 보내지 않는다
+                continue;
+            }
+            // 글자 칸이 아닌 패널에서 Esc = 키를 장면 (통과 패널) 으로 돌려준다 (ADR-0187 — 패널을 누른 뒤 장면을 다시 누르지 않고 게임 키로).
+            // 그 Esc 는 패널에 먼저 주고, 게임에는 주지 않는다 (이 frame 은 키를 가져간 채)
+            if (k->key == platform::Key::Escape && k->mods.bits == 0 && m_focus != 0 && !passthrough(m_focus) && !textFocused() &&
+                m_frame) {
+                forward(m_focus, e);
+                for (const gui::DockGroupBox& g : m_frame->groups) {
+                    if (passthrough(g.active)) {
+                        m_focus = g.active;
+                        break;
+                    }
+                }
                 continue;
             }
             if (k->mods.ctrl() && !k->mods.shift() && (k->key == platform::Key::PageDown || k->key == platform::Key::PageUp)) {

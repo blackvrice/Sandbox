@@ -67,6 +67,7 @@ public:
     void setPassthrough(gui::DockPaneId id, bool passthrough);
     [[nodiscard]] bool passthrough(gui::DockPaneId id) const;
     // 이 포인터 (창 논리 좌표) 를 작업 공간이 가져가나 — 그룹 · 분할선 위이고 통과 칸 밖, 또는 끄는 중 (지난 frame 의 배치)
+    // 누른 채면 누른 자리의 주인 (통과 패널 = 게임 · 그 밖 = 작업 공간) 이 놓을 때까지 (ADR-0187)
     [[nodiscard]] bool wantsPointer(gui::LayoutPoint logical) const;
     // 키를 작업 공간이 가져가나 — 포커스 패널이 통과 패널이 아니다
     [[nodiscard]] bool wantsKeyboard() const;

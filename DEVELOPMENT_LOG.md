@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R4-04 ✅: 작업 공간 · 게임 입력 나누기 — 누른 자리가 주인, Esc 로 키를 장면에 (ADR-0187)
+
+**무엇을**
+
+- `DockWorkspace::wantsPointer` — 누른 채면 누를 때의 패널 (m_capture) 이 주인: 통과 (장면) 면 게임, 아니면 작업 공간이 놓을 때까지. 전에는
+  매 frame 지금 자리로 정해, 장면에서 끄는 박스 선택 · 이동 · 붓 · 카메라 끌기가 패널 위로 가면 끊겼고 (놓기를 못 받음), 패널에서 누른 것을
+  장면에서 놓으면 게임이 반쪽 누르기를 받았다.
+- `DockWorkspace::feed` — 글자 칸이 아닌 패널에 포커스가 있을 때 수정자 없는 Esc = 그 패널에 준 뒤 포커스를 보이는 통과 패널 (장면) 로. 그 Esc 는
+  게임에 가지 않는다. 글자 칸 · 수정자 · 장면이 가려져 있으면 그대로.
+- ADR-0187, 문서: TASK_REGISTRY (R4-04 Done · 합계 29 (36 %)), CURRENT_STATUS, UI-R4, MIGRATION_GUIDE 4b-8.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R4 중 막히지 않은 것. 패널이 늘수록 장면 ↔ 패널을 오가는 끌기 · 키가 잦다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 21 케이스 (2950 단언): input split — 장면에서 누르고 패널 위 = 게임 (고치기 전에는 작업 공간) · 놓으면
+  자리대로 · 패널에서 누르고 장면 위 = 작업 공간 · 놓으면 게임 · 목록 포커스 = 키 작업 공간 · Esc → 장면 · 키 게임 · 글자 칸 Esc = 그대로 · Shift+Esc
+  = 그대로 · 콘텐츠 탭이 장면을 가리면 그대로 / app (local server) — 장면에서 누른 채 게임 패널 위로 → mouseCaptured 아님 → 놓은 뒤 패널 위 =
+  captured · 패널 누름 → keyboardCaptured → Esc → 장면 포커스 · 키가 게임으로.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 837
+  파일 0 위반.
+
+**남은 일** — 실제 창의 끌기 QA (Q-05), 장면 / 게임 Viewport 분리 (R4-02).
+
 ## 2026-11-28 — GraphicsUI 통합: 작업 공간 게임 패널 — "게임" · "행동" 창을 한 패널로 (ADR-0186)
 
 **무엇을**
