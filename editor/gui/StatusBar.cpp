@@ -56,21 +56,40 @@ std::string StatusBar::summary() const {
     return s;
 }
 
+std::string StatusBar::busyLabel() const {
+    std::string s;
+    if (m_model.building) {
+        s = "빌드 중…";
+    }
+    if (m_model.testsRunning > 0) {
+        s += std::format("{}테스트 {} 실행 중", s.empty() ? "" : " · ", m_model.testsRunning);
+    }
+    return s;
+}
+
 std::string StatusBar::noticesLabel() const {
     return m_model.notices == 0 ? std::string() : std::format("알림 {}", m_model.notices);
 }
 
 Expected<void> StatusBar::mount(uihost::UiHost& host) {
-    // 뿌리 · 글 · 알림 단추 · 모드 배지
-    const std::array<gui::ComponentSpec, 4> specs{{{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {0, 3, 2, true}, {0, 2, 3, true}}};
+    // 뿌리 · 글 · 진행 · 알림 단추 · 모드 배지
+    const std::array<gui::ComponentSpec, 5> specs{
+        {{std::nullopt, 1, 0, true}, {0, 2, 1, true}, {0, 3, 2, true}, {0, 3, 3, true}, {0, 2, 4, true}}};
     auto h = kit::commitTree(host, specs);
     if (!h) {
         return std::unexpected(h.error());
     }
     m_root = (*h)[0];
     m_text = (*h)[1];
-    m_noticesNode = (*h)[2];
-    m_mode = (*h)[3];
+    m_busyNode = (*h)[2];
+    m_noticesNode = (*h)[3];
+    m_mode = (*h)[4];
+    m_busy = kit::bindButton(host, m_busyNode, [this] { // 도는 것의 패널을 보이게 (빌드가 먼저)
+        const gui::DockPaneId pane = m_model.building ? m_model.buildPane : m_model.testsRunning > 0 ? m_model.testPane : 0;
+        if (pane != 0) {
+            m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ShowPane, {}, static_cast<int>(pane));
+        }
+    });
     m_notices = kit::bindButton(host, m_noticesNode, [this] {
         if (m_model.notices > 0 && m_model.noticesPane != 0) {
             m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ShowPane, {}, static_cast<int>(m_model.noticesPane));
@@ -84,6 +103,8 @@ Expected<void> StatusBar::layout(uihost::UiHost& host, const gui::ComponentSnaps
     const std::string notices = noticesLabel();
     const double noticesW = notices.empty() ? 0.0 : host.text().measure(notices, kEm).width + 16;
     const double modeW = m_model.mode.empty() ? 0.0 : host.text().measure(m_model.mode, kEm).width + 20;
+    const std::string busy = busyLabel();
+    const double busyW = busy.empty() ? 0.0 : host.text().measure(busy, kEm).width + 20;
     gui::LayoutNode root;
     root.component = m_root;
     root.style.kind = gui::LayoutKind::row;
@@ -91,8 +112,9 @@ Expected<void> StatusBar::layout(uihost::UiHost& host, const gui::ComponentSnaps
     root.style.gap = kGap;
     out.push_back(root);
     const double inner = fit(vp.width - 2 * kGap);
-    const double textW = fit(inner - noticesW - modeW - 2 * kGap);
-    const std::array<std::pair<gui::ComponentHandle, double>, 3> parts{{{m_text, textW}, {m_noticesNode, noticesW}, {m_mode, modeW}}};
+    const double textW = fit(inner - busyW - noticesW - modeW - 3 * kGap);
+    const std::array<std::pair<gui::ComponentHandle, double>, 4> parts{
+        {{m_text, textW}, {m_busyNode, busyW}, {m_noticesNode, noticesW}, {m_mode, modeW}}};
     for (const auto& [node, w] : parts) {
         gui::LayoutNode n;
         n.component = node;
@@ -126,6 +148,21 @@ Expected<void> StatusBar::paint(uihost::UiHost& host, const gui::LayoutFrame& fr
                 d.push_back(gui::DrawText{{0, ty, w, kEm * 1.25}, kFont, kEm, all, rc(c.muted)});
             }
             out.add(box.component, std::move(d), true);
+        } else if (box.component == m_busyNode) {
+            if (w > 0) {
+                // 단계 · 퍼센트가 없다 — 아래에 오가는 짧은 막대 (호스트 frame 차례로 — 시험에서 결정적)
+                const gui::ControlVisualState vs = kit::visualOf(*m_busy, host);
+                std::vector<gui::DrawCommand> d;
+                d.push_back(gui::FillRect{{0, 1, w, fit(h - 2)}, vs.hovered || vs.pressed ? rc(c.controlHover) : rc(c.elevated)});
+                const double barW = std::min(24.0, w);
+                const double span = fit(w - barW);
+                const u64 period = 90; // frame
+                const double t = static_cast<double>(host.stats().frames % period) / static_cast<double>(period);
+                const double x = span * (t < 0.5 ? t * 2 : (1 - t) * 2);
+                d.push_back(gui::FillRect{{x, fit(h - 3), barW, 2}, rc(c.accent)});
+                d.push_back(gui::DrawText{{10, ty, fit(w - 20), kEm * 1.25}, kFont, kEm, busyLabel(), rc(c.text)});
+                out.add(box.component, std::move(d), true);
+            }
         } else if (box.component == m_noticesNode) {
             if (w > 0) {
                 out.add(box.component, kit::button(host, box, kit::visualOf(*m_notices, host), noticesLabel(), kEm, false, c));

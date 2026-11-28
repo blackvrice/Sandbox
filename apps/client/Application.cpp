@@ -2598,7 +2598,18 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             sin.layout = m_config.layouts->active();
         }
         ws.setNotices(m_config.notices);
-        ws.statusBar().setModel(makeGuiStatusModel(sin, inWorld, m_config.notices.size(), StudioWorkspace::kNotices));
+        // shellInputs 는 프로젝트 밖이면 빌드 값을 채우지 않는다 — 진행은 언제나 서비스에서
+        sin.buildRunning = m_config.builds != nullptr && m_config.builds->running();
+        const usize testsRunning =
+            m_config.tests != nullptr
+                ? static_cast<usize>(std::ranges::count_if(m_config.tests->processes(),
+                                                           [](const editor::services::TestProcess& p) {
+                                                               return p.state == editor::services::TestProcessState::Running;
+                                                           }))
+                : 0;
+        ws.statusBar().setModel(makeGuiStatusModel(
+            sin, inWorld, m_config.notices.size(), testsRunning,
+            {StudioWorkspace::kNotices, StudioWorkspace::kBuild, StudioWorkspace::kTest}));
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();

@@ -171,6 +171,7 @@
 | [0154](0154-v011-integration-orbs-physics-minigame.md) | v0.11 통합 시험 NG-19 — samples/orbs (템플릿 physics — 8b 물리 명령 · 트리거 · 충돌 이벤트 · client 소리 · 그리기), CTest sample_orbs (헤드리스 서버 = 로컬 플레이 (Null 오디오) = 패키지, 트랩 0) · project_templates, 폭주는 단위 시험 (틱 4,096 쌍 · 이벤트 예산) | Accepted | 2026-11-17 |
 | [0155](0155-shapecast-host-params-five.md) | ShapeCast — ctx.shapeCast(x0, y0, x1, y1, r) = raycast 의 Minkowski 합 (같은 차례 · r 0 ~ 32), Host 표 매개변수 상한 4 → 5 (.sbc 형식 그대로), 지문 0xf8098f2fe1551dbf | Accepted | 2026-11-18 |
 | [0156](0156-tilemap-terrain-materials-sprite-cells.md) | 2D 타일맵 = 지형 머티리얼 (칠하기 · 세이브 · 해시 · 복제 · 막힘 그대로) + 그림 ("terrain/<id>" 의 sprite · 시트의 칸 cell · grid), SpriteDraw::sub, 보이는 칸만 타일 스프라이트 (32,768 넘으면 색만) | Accepted | 2026-11-18 |
+| [0190](0190-status-bar-busy-indicator.md) | 상태 표시줄 진행 표시 (UI-R2-10) — 빌드 · 테스트가 도는 동안 "도는 중" 만 (퍼센트를 지어내지 않는다 — 오가는 막대), 누르면 빌드 → 테스트 패널 |
 | [0189](0189-workspace-status-bar-footer-notices-pane.md) | 작업 공간 상태 표시줄 · 알림 (UI-R2-10 · R2-04 일부) — 도킹 밖 아래 띠 (`DockWorkspace::setFooter` — 포인터만, 키 포커스 그대로), ImGui 상태 표시줄과 같은 원천 · 글, 알림 = 도크 패널 (처음 한 번 보이게), 알림 단추 = ShowPane (작업 공간 안의 일) |
 | [0188](0188-hierarchy-large-list-lazy-text-index-lookup.md) | 대량 목록 비용 (UI-R9-03) — 벤치 `gui.workspace_hierarchy` (작업 공간 한 frame, 개체 0 ~ 10 만), 목록 패널의 글은 보이는 줄만 · 줄 찾기는 목록 번호로 · frame 마다 쓰는 자리 재사용 — 10 만 개체 29.6 → 4.7 ms |
 | [0187](0187-workspace-input-press-owner-escape.md) | 작업 공간 · 게임 입력 나누기 (UI-R4-04) — 누른 채면 누른 자리 (장면 = 게임 · 패널 = 작업 공간) 가 놓을 때까지 마우스 주인, 글자 칸이 아닌 패널의 Esc = 키를 장면으로 (게임에는 그 Esc 를 주지 않는다), 포커스된 패널이 키를 갖는 규칙 · 전역 단축키는 그대로 |

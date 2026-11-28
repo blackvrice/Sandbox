@@ -28,7 +28,11 @@ namespace sbx::client {
 [[nodiscard]] editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, const std::optional<ActionsInfo>& actions,
                                                       const ActionPanelState& actionState);
 // 상태 표시줄 (ADR-0189) — ImGui 셸의 statusBar · 모드 배지와 같은 원천 (ShellInputs · workspaceModeName). notices = 알림 줄 수
-[[nodiscard]] editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices,
-                                                             u32 noticesPane);
+// testsRunning = 돌고 있는 테스트 프로세스 수. 패널 id 는 작업 공간의 것 (알림 · 빌드 · 테스트 단추가 보이게 할 탭)
+struct GuiStatusPanes {
+    u32 notices = 0, build = 0, test = 0;
+};
+[[nodiscard]] editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices, usize testsRunning,
+                                                             GuiStatusPanes panes);
 
 } // namespace sbx::client

@@ -2022,6 +2022,46 @@ TEST_SUITE("graphics ui dock workspace") {
         f.frame();
         CHECK(groupOf(d, kNotices).active == kNotices); // (포커스가 콘솔이었으면 같은 그룹의 보이는 탭 = 알림으로 — 탭 고르기와 같다)
 
+        // 진행 표시 (UI-R2-10) — 빌드 · 테스트가 도는 동안. 누르면 그 패널 (빌드가 먼저), 다 끝나면 표시 없음
+        const auto clickIn = [&](gui::ComponentHandle handle) {
+            Vec2 c{};
+            for (const gui::LayoutBox& b : fh->lastLayout()->boxes()) {
+                if (b.component == handle) {
+                    REQUIRE(b.bounds.width > 0);
+                    c = center({fb.x + b.bounds.x, fb.y + b.bounds.y, b.bounds.width, b.bounds.height});
+                }
+            }
+            REQUIRE(c.x > 0);
+            f.feed(click(c));
+            CHECK_FALSE(f.ws->takeIntent());
+            f.frame();
+        };
+        CHECK(bar.busyLabel().empty());
+        m.building = true;
+        m.testsRunning = 2;
+        m.buildPane = kBuild;
+        m.testPane = kTest;
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.busyLabel() == "빌드 중… · 테스트 2 실행 중");
+        clickIn(bar.busyHandle());
+        CHECK(groupOf(d, kBuild).active == kBuild);
+        m.building = false;
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.busyLabel() == "테스트 2 실행 중");
+        clickIn(bar.busyHandle());
+        CHECK(groupOf(d, kTest).active == kTest);
+        m.testsRunning = 0;
+        bar.setModel(m);
+        f.frame();
+        CHECK(bar.busyLabel().empty());
+        for (const gui::LayoutBox& b : fh->lastLayout()->boxes()) {
+            if (b.component == bar.busyHandle()) {
+                CHECK(b.bounds.width == doctest::Approx(0.0));
+            }
+        }
+
         // 낱말 단위 감싸기 — 폭 안 · 넓은 낱말은 글자 단위
         const auto lines = editor::gui::NoticesPanel::wrap(f.text, "alpha beta gamma delta", 10.0, 60.0);
         REQUIRE(lines.size() >= 2);

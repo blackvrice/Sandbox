@@ -12,7 +12,7 @@
 |---|---:|---:|---:|---:|---|
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
-| UI-R2 Studio Shell | 10 | 6 | 3 | 1 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-04 상태 표시줄 · R2-08 단축키 · R2-10 알림 일부 |
+| UI-R2 Studio Shell | 10 | 7 | 2 | 1 | R2-01 · 02 · 03 · 05 · 07 · 09 · 10 ✅, R2-04 상태 표시줄 · R2-08 단축키 일부 |
 | UI-R3 편집 패널 | 12 | 2 | 5 | 3 | R3-06 콘솔 · R3-09 진단 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 일부 |
 | UI-R4 Viewport | 6 | 1 | 2 | 2 | R4-04 입력 나누기 ✅, R4-01 과도기 (통과 장면), R4-06 월드 패널 (테스트 플레이 · 멈춤) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 1 | 0 | R9-03 대량 목록 (목록 패널 — 벤치 · 6 배) |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **29 (36 %)** | 13 | 19 | |
+| **합계** | **81** | **30 (37 %)** | 12 | 19 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -64,7 +64,7 @@
 | UI-R2-07 | 레이아웃 저장 · 복원 · ImGui ini 마이그레이션 | Done | R2-05 | editor/services · editor/gui · apps/client | ADR-0178 — `LayoutService` 의 `<이름>.guidock` (loadDock · saveDock · quarantineDock — 크기 · GUIDOCK 머리 글자, 이름 목록에 합침, 안전 모드), `StudioWorkspace::applyPreset` (scene · scripting · play — ImGui 와 같은 presetFor), Application: 열 때 지금 이름의 배치 → 없으면 프리셋 (ini 는 옮기지 않는다 — 한 줄), 놓은 뒤 · 끝낼 때 저장 (열기만으로는 안 씀), 거절 → .broken + 프리셋, 배치 초기화 = 그 이름의 프리셋. `unit_editor` 레이아웃 .guidock 1 · `unit_client` 프리셋 1 + app 1 (저장 → 다음 실행 복원 → 다른 판 바이트 옮기기). 남음: GraphicsUI 레이아웃 창 (R2-04 와), 패널 열림 목록 |
 | UI-R2-08 | 명령 팔레트 · 단축키 (CommandService 재사용) | Partial | R1-08 | editor/gui | 단축키 패널 (`ShortcutPanel` — 같은 명령 표 · 검색 · ↑↓ · Enter = 실행, 꺼진 명령은 흐리게, 단축키 · 키 힌트). 남음: 떠 있는 팔레트 (Ctrl+Shift+P — 오버레이 · GUI-UP-03), 단축키 바꾸기 · 충돌 표시 |
 | UI-R2-09 | Studio 홈 전체 (새 프로젝트 · 폴더 열기 · 예제 · 복구 · 검색) | Done | R1-08 | apps/client | 검색 · 가상 목록 (휠 · 키 · 클릭 · Delete) · 목록에서 빼기 · 복구 가능 표시 · 새 프로젝트 (템플릿 ‹ › · 이름 · gameId · 폴더 제안) · 폴더 열기 · 예제 복사 (예제 ‹ › · 복사할 곳 제안) · 간격 — ImGui 홈과 같은 StudioHomeAction · 명령. `unit_client` gui 5 + app 1 (실제 만들기 · 예제 복사 · 빼기). 남음: 좁은 창의 세로 스크롤 (R2-05 와 함께) · 템플릿 설명 글 |
-| UI-R2-10 | 상태 · 알림 · 진행 표시 | Partial | R2-04 | editor/gui · apps/client | 상태 표시줄 + 알림 패널 (`NoticesPanel` — 출력 그룹 끝 탭, 낱말 감싸기 · 휠, 처음 생기면 한 번 보이게, 상태 표시줄의 "알림 N" = ShowPane — ADR-0189). 작업 공간 frame 에는 ImGui 알림 창을 그리지 않는다. 남은 것: 빌드 · 테스트 진행 표시 |
+| UI-R2-10 | 상태 · 알림 · 진행 표시 | Done | R2-04 | editor/gui · apps/client | 상태 표시줄 + 알림 패널 (`NoticesPanel` — 출력 그룹 끝 탭, 낱말 감싸기 · 휠, 처음 생기면 한 번 보이게, 상태 표시줄의 "알림 N" = ShowPane — ADR-0189). 작업 공간 frame 에는 ImGui 알림 창을 그리지 않는다. 진행 표시 (ADR-0190 — 빌드 중 · 테스트 N 실행 중, 오가는 막대, 누르면 그 패널). 실제 창 확인은 QA |
 | UI-R3-01 | Project Explorer (TreeView · 맥락 메뉴 · 끌어다 놓기) | Blocked | GUI-UP-03 · 05 | editor/ | ProjectFiles 서비스 재사용 |
 | UI-R3-02 | Hierarchy (가상 TreeView · 다중 선택 · 검색) | Partial | R2-05 | editor/gui · apps/client | `HierarchyPanel` (작업 공간 "목록" — 장면 왼쪽) — HierarchyService 그대로 (parseHierarchyQuery · buildHierarchy — 그룹 머리 · 펼친 그룹의 개체 · 그룹 없는 개체), 가상 목록, 검색 (낱말 · #번호 · prefab: · tag: · group:), 누르기 = 그것만 · Ctrl/Cmd+누르기 = 더하기 · 빼기 · 두 번 = 카메라 맞추기, ↑↓ · F · Enter · Delete, 그룹 이름 · 묶기 · 빼기, 머리 = 접기. 일은 의도 → Application 이 Editor · IEditorHost (ImGui 창과 같은 호출). 수정자 키는 모든 패널로 (DockWorkspace). `unit_client` "hierarchy panel" + app (local server — 누르면 실제 선택). 남음: 맥락 메뉴 (그룹 지우기 · 이것만 선택 — GUI-UP-03), 10 만 행 측정 (R9-03) |
 | UI-R3-03 | Inspector · Component 편집 (DataForm → 속성 편집 컨트롤) | Partial | R1-08 | editor/gui · apps/client | `InspectorPanel` (작업 공간 "인스펙터" — 도구 그룹의 앞 탭, ADR-0180) — 속성 표 (가상 목록: Prefab 에서 뺀 컴포넌트 · 섹션 머리 (접기 · "(서버)" · "● Prefab 과 다름 / 더함") · 필드 "이름 | 값" (오버라이드는 경고색)) + 편집 줄 (값 칸 · 적용 — 글자 → parseFieldText → DataForm setFormField 로 범위 · 반올림 · 검증, bool 은 Space · 두 번 누르기, Esc = 되돌림) + 컴포넌트 빼기 · Prefab 값으로 / 되살리기 + 더하기 (이름 칸). 보기는 `makeGuiInspectorView` (IEditorHost::components · Editor::prefabOverrides — ImGui 창과 같은 원천), 일은 의도 → Editor::setField · addComponent · removeComponent · revertToPrefab, Ctrl+Z · Y = edit.undo · redo. `unit_client` "inspector panel" + app (local server — 토끼의 maxSpeed 를 패널로 바꾸고 Ctrl+Z 로 되돌림). **편집 (툴) 패널** `ToolPanel` (작업 공간 "편집" — 인스펙터 뒤 탭, ADR-0181): 툴 단추 5 (역할로 못 쓰는 것 꺼짐) · 배치 Prefab (팩별 묶음 · 거르기 · ↑↓) · 끌기 간격 · 격자 맞춤 · 지형 머티리얼 · 붓 반지름 · 모양 · 되돌리기 | 다시 · 명령 수 · 사유 — 의도 SelectTool · ToolSettings → Editor::setTool · settings() (`apps/client/ui/GuiToolModel`). `unit_client` "tool panel" + app (배치 툴 · Prefab · 간격 · 격자가 Editor 에). 남음: 콤보 · 슬라이더 끌기 · 개체 참조 고르기 (GUI-UP-03), Prefab 으로 만들기 |

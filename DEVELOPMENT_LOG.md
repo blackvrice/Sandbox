@@ -7,6 +7,26 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R2-10 ✅: 상태 표시줄 진행 표시 — 빌드 · 테스트가 도는 동안, 누르면 그 패널 (ADR-0190)
+
+**무엇을**
+
+- `StatusBar` — 진행 칸 ("빌드 중…" · "테스트 N 실행 중" · 둘 다), 아래 오가는 짧은 막대 (90 frame 주기 — 호스트 frame 차례), 누르면 빌드 →
+  테스트 패널을 앞 탭으로 (ShowPane). 돌지 않으면 칸 폭 0.
+- `makeGuiStatusModel` — `BuildService::running` (ImGui 툴바의 "빌드 중…" 과 같은 값) · `TestService::processes` 의 Running 수, 패널 id 묶음
+  (`GuiStatusPanes`).
+- ADR-0190, 문서: TASK_REGISTRY (R2-10 Done — 합계 30 (37 %) · Partial 12), UI-R2, CURRENT_STATUS.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). UI-R2-10 의 남은 진행 표시. 서비스가 단계 · 퍼센트를 알리지 않아 지어내지 않고 "도는 중" 만 보인다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 23 케이스 (3081 단언): status bar — 두 일 · 한 일의 글, 누르면 빌드 패널 → (빌드 끝) 테스트 패널, 다
+  끝나면 칸 폭 0.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 840 파일 0 위반.
+
+**남은 일** — 서비스의 단계 보고 (빌드 단계 · 테스트 끝 상태) 가 생기면 막대 대신 단계 [계획], 실제 창 확인 (QA).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R2-10 · R2-04 🟡: 작업 공간 상태 표시줄 · 알림 — 도킹 밖 아래 띠 · 알림 패널 (ADR-0189)
 
 **무엇을**

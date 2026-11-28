@@ -289,7 +289,8 @@ editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, con
     return m;
 }
 
-editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices, u32 noticesPane) {
+editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices, usize testsRunning,
+                                               GuiStatusPanes panes) {
     editor::gui::StatusBarModel m;
     m.inWorld = inWorld;
     m.place = in.project.empty() ? in.world : in.project; // ImGui 상태 표시줄과 같다
@@ -304,7 +305,11 @@ editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWor
         m.live = in.mode != WorkspaceMode::Edit; // 배지 강조 (ImGui 셸의 Accent)
     }
     m.notices = notices;
-    m.noticesPane = noticesPane;
+    m.noticesPane = panes.notices;
+    m.building = in.buildRunning; // ImGui 툴바의 "빌드 중…" 과 같은 값
+    m.testsRunning = testsRunning;
+    m.buildPane = panes.build;
+    m.testPane = panes.test;
     return m;
 }
 
