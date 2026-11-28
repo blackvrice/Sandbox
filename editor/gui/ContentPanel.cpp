@@ -46,14 +46,7 @@ constexpr double kIssuesH = 60.0;
 }
 
 void setKeys(gui::ListView& list, std::vector<gui::ListItemKey>& keys, usize count) {
-    std::vector<gui::ListItemKey> next(count);
-    for (usize i = 0; i < count; ++i) {
-        next[i] = i; // 줄 차례 — 줄 수가 같으면 그대로 (스크롤 유지)
-    }
-    if (next != keys) {
-        keys = std::move(next);
-        (void)list.setItems(keys);
-    }
+    kit::setIndexKeys(list, keys, count); // 줄 차례 — 줄 수가 같으면 그대로 (스크롤 유지)
 }
 
 [[nodiscard]] std::optional<gui::LayoutRect> boundsOf(const gui::ListView& list, const std::vector<gui::ListItemKey>& keys,
@@ -76,6 +69,7 @@ void setKeys(gui::ListView& list, std::vector<gui::ListItemKey>& keys, usize cou
 
 void ContentPanel::setView(ContentView view) {
     m_view = std::move(view);
+    rebuildItems(); // 줄 글은 보기를 빌린다 — 새 보기로 곧바로 (옛 보기를 가리키는 줄이 남지 않게)
 }
 
 void ContentPanel::setResult(std::vector<ContentIssueLine> issues, bool sent) {
@@ -222,6 +216,8 @@ void ContentPanel::syncFromView() {
 
 void ContentPanel::rebuildItems() {
     m_items.clear();
+    m_itemsFilter = m_filter.value();
+    m_itemsKind = m_kind;
     if (m_view.available && m_view.kind == m_kind) {
         const std::string& filter = m_filter.value();
         std::vector<std::pair<const ContentListGroup*, std::vector<const ContentListItem*>>> shown;
@@ -433,7 +429,7 @@ void ContentPanel::selectItem(usize item) {
     if (m_items[item].text == m_selected && !m_isNew) {
         return; // 같은 항목 — 고친 것을 버리지 않는다
     }
-    m_selected = m_items[item].text;
+    m_selected = std::string(m_items[item].text);
     m_isNew = false;
     m_needLoad = true; // 지금 값은 다음 보기에서 (앱이 이 id 로 만든다)
     m_pendingFrom.reset();
@@ -845,7 +841,9 @@ Expected<void> ContentPanel::mount(uihost::UiHost& host) {
 
 Expected<void> ContentPanel::layout(uihost::UiHost& host, const gui::ComponentSnapshot&, std::vector<gui::LayoutNode>& out) {
     syncFromView();
-    rebuildItems();
+    if (m_itemsFilter != m_filter.value() || m_itemsKind != m_kind) {
+        rebuildItems(); // 거르기 · 종류가 바뀌었다 (보기가 바뀌면 setView 가 이미)
+    }
     rebuildRows();
     // 검사 결과 줄 — 여러 줄 문제 ("고치는 법", 스크립트 줄) 는 줄마다, 끝에 Editor 의 콘텐츠 거절
     m_issueLines.clear();
@@ -1003,7 +1001,8 @@ Expected<void> ContentPanel::paint(uihost::UiHost& host, const gui::LayoutFrame&
                 const gui::LayoutRect b = vr->bounds;
                 if (it.header) {
                     d.push_back(gui::FillRect{{b.x, b.y + 1, b.width, fit(b.height - 2)}, rc(c.elevated)});
-                    d.push_back(gui::DrawText{{b.x + 6, b.y + 2, fit(b.width - 12), 16}, kFont, 12.5, it.text, rc(c.accent)});
+                    d.push_back(gui::DrawText{{b.x + 6, b.y + 2, fit(b.width - 12), 16}, kFont, 12.5, std::string(it.text),
+                                              rc(c.accent)});
                     continue;
                 }
                 if (it.text == m_selected && !m_isNew) {
@@ -1011,7 +1010,7 @@ Expected<void> ContentPanel::paint(uihost::UiHost& host, const gui::LayoutFrame&
                     d.push_back(gui::FillRect{{b.x, b.y, 2, b.height}, rc(c.accent)});
                 }
                 d.push_back(gui::DrawText{{b.x + 8, b.y + 2, fit(b.width - 14), 16}, kFont, 13.0,
-                                          (it.overlay ? "● " : "   ") + it.text, rc(c.text)});
+                                          std::string(it.overlay ? "● " : "   ").append(it.text), rc(c.text)});
             }
             if (m_items.empty()) {
                 d.push_back(gui::DrawText{{8, 8, fit(w - 16), 18}, kFont, 13.0,

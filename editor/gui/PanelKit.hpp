@@ -112,4 +112,17 @@ inline constexpr gui::FontId kFont = 1;
             gui::DrawText{{fit((w - tw) / 2), fit((h - em * 1.25) / 2), fit(tw), em * 1.25}, kFont, em, label, rc(c.muted)}};
 }
 
+// 줄 차례 키 (0 … count-1) — 키가 차례 번호면 줄 수가 같을 때 키도 같다. 수가 바뀔 때만 다시 만들고 setItems 한다 (스크롤 · 고른
+// 줄 유지). frame 마다 줄 수만큼 키를 만들어 비교하지 않는다 (UI-R9-03, ADR-0192)
+inline void setIndexKeys(gui::ListView& list, std::vector<gui::ListItemKey>& keys, usize count) {
+    if (keys.size() == count) {
+        return;
+    }
+    keys.resize(count);
+    for (usize i = 0; i < count; ++i) {
+        keys[i] = i;
+    }
+    (void)list.setItems(keys);
+}
+
 } // namespace sbx::editor::gui::kit

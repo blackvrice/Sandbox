@@ -150,14 +150,7 @@ void ToolPanel::rebuild() {
             m_lines.push_back({Line::Kind::Material, m});
         }
     }
-    std::vector<gui::ListItemKey> keys(m_lines.size());
-    for (usize i = 0; i < keys.size(); ++i) {
-        keys[i] = i; // 줄 차례 — 같은 툴 · 같은 거르기 동안 그대로 (스크롤 유지)
-    }
-    if (keys != m_keys) {
-        m_keys = std::move(keys);
-        (void)m_list.setItems(m_keys);
-    }
+    kit::setIndexKeys(m_list, m_keys, m_lines.size()); // 줄 차례 — 같은 툴 · 같은 거르기 동안 그대로 (스크롤 유지)
     applyEnabled();
 }
 

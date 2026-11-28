@@ -494,14 +494,7 @@ void ScriptProfilePanel::setModel(ScriptProfileModel model) {
         return;
     }
     m_model = std::move(model);
-    std::vector<gui::ListItemKey> keys(m_model.lines.size());
-    for (usize i = 0; i < keys.size(); ++i) {
-        keys[i] = i; // 줄 차례 — 표 모양 (시스템 수) 이 같으면 그대로 (값만 바뀐다)
-    }
-    if (keys != m_keys) {
-        m_keys = std::move(keys);
-        (void)m_list.setItems(m_keys);
-    }
+    kit::setIndexKeys(m_list, m_keys, m_model.lines.size()); // 줄 차례 — 표 모양 (시스템 수) 이 같으면 그대로 (값만 바뀐다)
     if (m_selected && *m_selected >= m_model.lines.size()) {
         m_selected.reset();
     }

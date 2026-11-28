@@ -350,14 +350,7 @@ void InspectorPanel::rebuild() {
             }
         }
     }
-    std::vector<gui::ListItemKey> keys(m_rows.size());
-    for (usize i = 0; i < keys.size(); ++i) {
-        keys[i] = i; // 줄 차례 — 줄 수가 같으면 그대로 (스크롤 유지)
-    }
-    if (keys != m_keys) {
-        m_keys = std::move(keys);
-        (void)m_list.setItems(m_keys);
-    }
+    kit::setIndexKeys(m_list, m_keys, m_rows.size()); // 줄 차례 — 줄 수가 같으면 그대로 (스크롤 유지)
     // 고른 줄을 이름으로 다시 찾는다 (컴포넌트가 빠졌으면 없음)
     const std::optional<usize> before = m_selRow;
     m_selRow.reset();

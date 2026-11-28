@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R9-03 🟡: 나머지 대량 목록 — 콘텐츠 줄은 보기를 빌리고, 차례 키는 줄 수가 바뀔 때만 (ADR-0192)
+
+**무엇을**
+
+- 벤치 `gui.workspace_list` (새) — 콘텐츠 · 월드 · 스크립트 프로파일 패널을 앞 탭으로, 1k · 10k · 100k, frame 마다 앱처럼 새 모델 → frame,
+  그중 모델 만들기 비용 (`model_ms`) 따로. `gui.workspace_hierarchy` 에 검색어 (`query=rabbit` — 검색 칸에 글자 입력으로) 를 더했다.
+- `ContentPanel::Item::text` = `std::string_view` (보기의 팩 이름 · id 를 빌림). `setView` 가 새 보기로 곧바로 줄을 다시 만들고, 배치는
+  거르기 · 종류가 바뀌었을 때만.
+- `kit::setIndexKeys` (PanelKit) — 차례 키 (0 … n-1) 를 줄 수가 바뀔 때만 다시 만든다. 콘텐츠 · 월드 · 프로파일 · 게임 · 인스펙터 · 툴 패널.
+- ADR-0192, 문서: TASK_REGISTRY · UI-R9 (R9-03 — 남은 것 GXML 바인딩), PERFORMANCE_BASELINE 3.2 (검색어) · 3.3 (새), 14-PERFORMANCE, CURRENT_STATUS.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). UI-R9-03 의 남은 것 (다른 목록 · 검색어). 재 보니 콘텐츠 패널이 배치마다 모든 id 를 복사했고
+(10 만에서 패널 쪽 약 19 ms), 패널 여섯이 모델마다 줄 수만큼 키 벡터를 만들어 비교했다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- A/B (같은 벤치 코드, 패널 코드만 고치기 전 · 뒤, 번갈아 3 회 — RelWithDebInfo): 콘텐츠 패널 쪽 (frame − 모델) 10 만 18.7 → 3.6 ms, 1 만
+  0.33 → 0.27 ms (중앙값). 이 날 기계가 흔들려 100k 수치는 회마다 ±30 %. 월드 · 프로파일은 비용 대부분이 모델 (프로토콜 상한 256 · 64 줄
+  안에서는 0.1 ms 대). 목록 검색어는 검색어 없을 때와 같거나 싸다.
+- `unit_client` "graphics ui dock workspace" 24 케이스 (3124 단언 — 콘텐츠 패널 · 앱의 콘텐츠 고르기 · 적용 그대로), Debug · /WX (ci-werror)
+  빌드, 전체 CTest (project_doctor 제외), check_includes.
+
+**남은 일** — 앱의 콘텐츠 보기 만들기 (frame 마다 모든 id — 콘텐츠 데이터베이스에 판 번호가 없다), GXML 바인딩 비용 (R9-03).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R3-12 ✅: 바뀐 영역만 — 작업 공간은 보이는 패널의 모델만, 입력 먼저 (ADR-0191)
 
 **무엇을**

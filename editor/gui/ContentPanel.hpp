@@ -15,6 +15,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/content/ContentOverlay.hpp"
@@ -80,9 +81,10 @@ public:
     Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
     Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
 
-    struct Item { // 왼쪽 목록 한 줄
+    struct Item { // 왼쪽 목록 한 줄 — 글은 보기 (ContentView::groups) 를 빌린다 (10 만 항목의 id 를 frame 마다 복사하지 않는다 —
+                  // ADR-0192). setView 가 새 보기로 다시 만든다
         bool header = false;
-        std::string text; // 머리 글 · id
+        std::string_view text; // 머리 글 · id
         bool overlay = false;
     };
     struct Row { // 오른쪽 내용 한 줄
@@ -172,6 +174,8 @@ private:
     std::vector<std::string> m_formWarnings;
     std::vector<std::string> m_collapsed;
     std::vector<Item> m_items;
+    std::string m_itemsFilter;                        // m_items 를 만든 거르기 · 종류 (바뀌면 배치가 다시)
+    std::optional<content::ContentKind> m_itemsKind;
     std::vector<Row> m_rows;
     std::vector<gui::ListItemKey> m_itemKeys, m_rowKeys, m_issueKeys;
     std::optional<usize> m_selRow;

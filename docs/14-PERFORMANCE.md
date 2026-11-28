@@ -73,7 +73,8 @@ Phase 11 측정 (7.11): 바이트 ∝ 관심 엔티티 ✅, 새 접속(화면 �
 | `net.late_join`       | 50k, 256 KB/s, 새 클라이언트가 관심 개체 99 % 를 받기까지 (화면 · 월드 전체) — **Phase 11 구현**                                       | 스냅숏 수 · 초 · 바이트                        |
 | `render.sprites`      | 1k/10k/50k                                                                                                                             | CPU ms, GPU ms, Draw 수                        |
 | `render.sprite_batch` | 10k/50k 스프라이트 SpriteBatcher(컬링 · 정렬 · 묶음) CPU — **Phase 8A 구현** (`--quick` 은 10k), GPU 없이 모든 OS                      | build ms, 묶음 수                              |
-| `gui.workspace_hierarchy` | GraphicsUI Studio 작업 공간 한 frame (1080p, 목록 패널 개체 0 / 1k / 10k / 100k, 그룹 10) — **UI-R9-03 구현** (`--quick` 은 10k, ADR-0188) + 가장 큰 N 의 `shown=false` (목록이 숨은 탭 — 보이는 패널만 모델, ADR-0191), 창 · GPU 없이 모든 OS | frame ms, 줄 수 |
+| `gui.workspace_list` | GraphicsUI Studio 작업 공간 한 frame — 콘텐츠 (항목, 팩 10) · 월드 (세이브) · 스크립트 프로파일 (시스템 줄) 패널 × 1k / 10k / 100k (`--quick` 은 10k), 그중 모델 만들기 비용 따로 — **UI-R9-03 구현** (ADR-0192), 창 · GPU 없이 모든 OS | frame ms, model ms |
+| `gui.workspace_hierarchy` | GraphicsUI Studio 작업 공간 한 frame (1080p, 목록 패널 개체 0 / 1k / 10k / 100k, 그룹 10) — **UI-R9-03 구현** (`--quick` 은 10k, ADR-0188) + 가장 큰 N 의 `shown=false` (목록이 숨은 탭 — 보이는 패널만 모델, ADR-0191) · `query` (검색어 — ADR-0192), 창 · GPU 없이 모든 OS | frame ms, 줄 수 |
 | `save.world`          | 50k 저장/로드 — **Phase 4 구현** (컴포넌트 5~6개, 칠한 청크 약 260개)                                                                  | ms, 파일 크기                                  |
 | `script.regen`        | 스크립트 컴포넌트 개체 10k (`--quick` 1k) 에 서버 시스템 하나가 틱마다 질의 · 읽기 · 쓰기, 예열 5틱 후 120틱 — **v0.3 M6-T2 구현** (ADR-0070) | tick (스크립트 없는 같은 월드와), 스크립트 ms/틱 · ns/개체 · 연료/개체 |
 

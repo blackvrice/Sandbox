@@ -21,14 +21,7 @@ constexpr double kTextH = 18.0;
 
 void GamePanel::setModel(GameModel model) {
     m_model = std::move(model);
-    std::vector<gui::ListItemKey> keys(m_model.actions.size());
-    for (usize i = 0; i < keys.size(); ++i) {
-        keys[i] = i; // id 순 (콘텐츠) — 목록이 같으면 그대로
-    }
-    if (keys != m_keys) {
-        m_keys = std::move(keys);
-        (void)m_list.setItems(m_keys);
-    }
+    kit::setIndexKeys(m_list, m_keys, m_model.actions.size()); // id 순 (콘텐츠) — 목록이 같으면 그대로
     if (m_cursor && *m_cursor >= m_model.actions.size()) {
         m_cursor.reset();
     }

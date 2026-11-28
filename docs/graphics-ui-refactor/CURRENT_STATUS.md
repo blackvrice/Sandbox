@@ -72,6 +72,7 @@ UI-R4-01 과도기 (ADR-0179 — 프로젝트 안에서 작업 공간이 ImGui �
 | 부분 갱신 (2026-11-28, ADR-0191) | /WX 빌드 · 전체 CTest, `unit_client` dock 24 케이스 (3124 단언 — 보이는 · 숨은 패널, 탭을 누른 feed 뒤 세기, 알림 · 프리셋, 앱에서 숨은 편집 탭은 모델 없음 → 누른 frame 에 생김), 벤치 shown=false | 같은 명령 · `sbx_bench --only gui.` |
 | 진행 표시 (2026-11-28, ADR-0190) | /WX 빌드 · 전체 CTest, `unit_client` dock 23 케이스 (3081 단언 — 빌드 · 테스트 글 · 누르면 그 패널 · 다 끝나면 칸 0) | 같은 명령 |
 | 상태 표시줄 · 알림 (2026-11-28, ADR-0189) | /WX 빌드 · 전체 CTest, `unit_client` dock 23 케이스 (띠 자리 · ImGui 와 같은 글 · 일시정지 · 배속 · 알림 처음 한 번 · 단추 → 알림 탭 · 포커스 그대로 · 감싸기 · 앱 월드의 모델), 헤드리스 "그룹 4 · 패널 17" | 같은 명령 |
+| 나머지 대량 목록 (2026-11-28, ADR-0192) | 벤치 `gui.workspace_list` · `gui.workspace_hierarchy` query (RelWithDebInfo, A/B 3 회 — 콘텐츠 패널 쪽 10 만 18.7 → 3.6 ms), /WX 빌드 · 전체 CTest, `unit_client` dock 24 케이스 | `sbx_bench --only gui.` |
 | 대량 목록 (2026-11-28, ADR-0188) | 벤치 `gui.workspace_hierarchy` (RelWithDebInfo) 10 만 개체 29.6 → 4.7 ms, /WX 빌드 · 전체 CTest, `unit_client` 2 만 줄 굴린 뒤 누르기 | `sbx_bench --only gui.` · [PERFORMANCE_BASELINE](PERFORMANCE_BASELINE.md) 3.2 |
 | 실제 실행 (헤드리스) | `SandboxClient --headless --ui graphicsui` — 컴포넌트 13 · 그리기 명령 32 · 정상 상태 배치 0.008 ms (Release) | [PERFORMANCE_BASELINE](PERFORMANCE_BASELINE.md) 3장 |
 | 잘못된 값 | `--ui qt` → 종료 코드 2 · 오류 줄 | 직접 실행 |

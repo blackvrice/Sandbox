@@ -21,14 +21,7 @@ constexpr double kRowH = 22.0;
 
 void WorldPanel::setModel(WorldModel model) {
     m_model = std::move(model);
-    std::vector<gui::ListItemKey> keys(m_model.saved.size());
-    for (usize i = 0; i < keys.size(); ++i) {
-        keys[i] = i; // 이름 차례 (서버 목록) — 목록이 같으면 그대로
-    }
-    if (keys != m_keys) {
-        m_keys = std::move(keys);
-        (void)m_list.setItems(m_keys);
-    }
+    kit::setIndexKeys(m_list, m_keys, m_model.saved.size()); // 이름 차례 (서버 목록) — 목록이 같으면 그대로
     if (m_selected && !selectedRow()) {
         m_selected.reset(); // 목록에서 사라졌다
     }
