@@ -58,6 +58,7 @@ constexpr gui::DockPaneId kSimulation = StudioWorkspace::kSimulation;
 constexpr gui::DockPaneId kPlayers = StudioWorkspace::kPlayers;
 constexpr gui::DockPaneId kProfile = StudioWorkspace::kProfile;
 constexpr gui::DockPaneId kWorld = StudioWorkspace::kWorld;
+constexpr gui::DockPaneId kGame = StudioWorkspace::kGame;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -227,7 +228,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 15);
+        CHECK(d.lastFrame()->tabs.size() == 16);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1771,6 +1772,123 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(wp.selectedRow());
     }
 
+    TEST_CASE("game panel (ADR-0186): state line · score · start / abort / restart by state and role, arm and release actions") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::GamePanel& gp = f.ws->game();
+        using M = editor::gui::GameModel;
+        // 자리 — 도구 그룹, 월드 뒤
+        CHECK(sameGroup(d, kGame, kWorld));
+        CHECK(tabOf(d, kGame).bounds.x > tabOf(d, kWorld).bounds.x);
+        f.show(kGame);
+        REQUIRE(groupOf(d, kGame).active == kGame);
+        f.feed(click(paneCenter(d, kGame, gp.restartHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        const auto takeKind = [&](WorkspaceIntent::Kind k) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == k);
+            return *i;
+        };
+
+        GameInfo g;
+        g.modeId = "eco.protect";
+        g.modeName = "토끼 지키기";
+        g.minPlayers = 1;
+        g.maxPlayers = 4;
+        g.autoRestart = true;
+        g.restartDelayTicks = 5 * 30;
+        g.canControl = true;
+        g.scores = {{"빨강", 3}, {"파랑", 5}};
+        ActionsInfo a;
+        a.canAct = true;
+        a.actions = {{"eco.feed", "먹이 주기", 3.f, 3}, {"eco.trap", "덫 놓기", 1.5f, 1}};
+        ActionPanelState st;
+        st.keys["eco.feed"] = "Q";
+        const auto set = [&] {
+            gp.setModel(makeGuiGameModel(g, a, st));
+            f.frame();
+        };
+        set();
+        const M& m = gp.model();
+        CHECK(m.modeInfo == "eco.protect · 참가 1 ~ 4 · 자동 재시작");
+        CHECK(m.stateLine == "Lobby — 시작을 기다립니다"); // "게임" 창과 같은 글 (gameStateLine)
+        CHECK(m.scoreLine == "빨강 3 · 파랑 5");
+        CHECK(m.restartLine.empty()); // 끝났을 때만
+        REQUIRE(m.actions.size() == 2);
+        CHECK(m.actions[0].text == "[Q] 먹이 주기  (반경 3.0 · 3개)");
+        CHECK(m.actions[1].text == "덫 놓기  (반경 1.5 · 1개)");
+        // Lobby — 시작만 · 재시작, 중단은 꺼짐
+        f.feed(click(paneCenter(d, kGame, gp.abortHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kGame, gp.startHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::GameCommand).value == M::kStart);
+        // Running — 중단 · 재시작, 시작 꺼짐
+        g.state = 2;
+        g.tick = 30 * 65;
+        set();
+        CHECK(gp.model().stateLine == "Running — 1:05");
+        f.feed(click(paneCenter(d, kGame, gp.startHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kGame, gp.abortHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::GameCommand).value == M::kAbort);
+        // 끝 — 결과 · 자동 재시작 안내
+        g.state = 3;
+        g.result = 1;
+        g.team = "빨강";
+        set();
+        CHECK(gp.model().stateLine == "Finished — 승리 (빨강)");
+        CHECK(gp.model().restartLine == "0:05 뒤 자동 재시작");
+        f.feed(click(paneCenter(d, kGame, gp.restartHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::GameCommand).value == M::kRestart);
+        // 역할이 못 하면 다 꺼짐
+        g.canControl = false;
+        set();
+        f.feed(click(paneCenter(d, kGame, gp.restartHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+
+        // 행동 — 누르면 쥐고, 다시 누르면 놓는다 (ArmAction)
+        const auto rowAt = [&](usize row) {
+            const gui::DockGroupBox grp = groupOf(d, kGame);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kGame)->lastLayout()->boxes()) {
+                if (b.component == gp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = gp.rowBounds(row);
+            REQUIRE(r);
+            return center({grp.content.x + list.x + r->x, grp.content.y + list.y + r->y, r->width, r->height});
+        };
+        CHECK(gp.actionHint() == "행동을 고르고 장면을 클릭 · [키] = 커서 자리에");
+        f.feed(click(rowAt(1)));
+        CHECK(takeKind(WorkspaceIntent::Kind::ArmAction).command == "eco.trap");
+        CHECK(gp.model().armed == "eco.trap");
+        st.armed = "eco.trap";
+        set();
+        CHECK(gp.actionHint().starts_with("쥐고 있다: eco.trap"));
+        f.feed(click(rowAt(1)));
+        CHECK(takeKind(WorkspaceIntent::Kind::ArmAction).command.empty()); // 놓기
+        st.armed.clear();
+        set();
+        // 키보드 — ↑ 로 고르고 Space = 쥐기
+        f.feed(key(Key::Up));
+        f.feed(key(Key::Space));
+        CHECK(takeKind(WorkspaceIntent::Kind::ArmAction).command == "eco.feed");
+        // 역할 player 아래 — 고를 수 없다
+        a.canAct = false;
+        st.armed.clear();
+        set();
+        CHECK(gp.actionHint() == "행동은 역할 player 부터");
+        f.feed(click(rowAt(0)));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 게임 · 행동이 없는 월드
+        gp.setModel(makeGuiGameModel(std::nullopt, std::nullopt, st));
+        f.frame();
+        CHECK_FALSE(gp.model().available);
+        CHECK(gp.actionHint().starts_with("행동이 없다"));
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -2359,6 +2477,34 @@ TEST_SUITE("graphics ui dock workspace") {
             REQUIRE(app.frame());
         }
         CHECK(worldMode() == 0);
+
+        // 게임 (ADR-0186) — 세션의 행동 (ecosystem 팩 — eco.feed · eco.trap) 을 패널로 쥐고 놓는다 (장면 클릭이 쓰는 같은 상태)
+        editor::gui::GamePanel& gpanel = ws->game();
+        injectAll(click(center(tabOf(d, kGame).bounds, d.scale())));
+        REQUIRE(groupOf(d, kGame).active == kGame);
+        CHECK(gpanel.model().available == ns->game().has_value());
+        REQUIRE(gpanel.model().actionsAvailable);
+        REQUIRE_FALSE(gpanel.model().actions.empty());
+        CHECK(gpanel.model().canAct);
+        const std::string firstAction = gpanel.model().actions.front().id;
+        const auto gameRowAt = [&](usize row) {
+            const gui::DockGroupBox grp = groupOf(d, kGame);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kGame)->lastLayout()->boxes()) {
+                if (b.component == gpanel.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = gpanel.rowBounds(row);
+            REQUIRE(r);
+            return center({grp.content.x + list.x + r->x, grp.content.y + list.y + r->y, r->width, r->height}, d.scale());
+        };
+        injectAll(click(gameRowAt(0)));
+        CHECK(app.actionPanel().armed == firstAction);
+        REQUIRE(app.frame());
+        CHECK(gpanel.model().armed == firstAction);
+        injectAll(click(gameRowAt(0)));
+        CHECK(app.actionPanel().armed.empty());
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

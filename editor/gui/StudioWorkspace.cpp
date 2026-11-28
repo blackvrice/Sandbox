@@ -41,6 +41,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     ws->m_profile = profile.get();
     auto world = std::make_unique<WorldPanel>(*ws->m_ctx);
     ws->m_world = world.get();
+    auto game = std::make_unique<GamePanel>(*ws->m_ctx);
+    ws->m_game = game.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
     ws->m_console = console.get();
@@ -61,6 +63,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kPlayers, "접속자", std::move(players)});
     panes.push_back({kProfile, "스크립트 프로파일", std::move(profile)}); // ImGui 창 이름과 같다
     panes.push_back({kWorld, "월드", std::move(world)});
+    panes.push_back({kGame, "게임", std::move(game)}); // ImGui 창 이름과 같다
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -98,6 +101,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
                  {kStats, kShortcuts, gui::DockSide::tab_after}, {kInfo, kStats, gui::DockSide::tab_after},
                  {kSimulation, kStats, gui::DockSide::tab_after}, {kPlayers, kSimulation, gui::DockSide::tab_after},
                  {kProfile, kTest, gui::DockSide::tab_after},     {kWorld, kTools, gui::DockSide::tab_after},
+                 {kGame, kWorld, gui::DockSide::tab_after},
                  {kHierarchy, kScene, gui::DockSide::left},     {kInspector, kConsole, gui::DockSide::tab_before},
                  {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after}};
     } else {
@@ -116,6 +120,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves.push_back({kPlayers, kSimulation, gui::DockSide::tab_after});
         moves.push_back({kProfile, kTest, gui::DockSide::tab_after}); // 출력 그룹 끝 = 스크립트 프로파일 (넓은 표)
         moves.push_back({kWorld, kTools, gui::DockSide::tab_after});  // 편집 뒤 = 월드 (저장 · 테스트 플레이)
+        moves.push_back({kGame, kWorld, gui::DockSide::tab_after});   // 그 뒤 = 게임 (상태 · 점수 · 행동)
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {

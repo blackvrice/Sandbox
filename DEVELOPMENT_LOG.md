@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합: 작업 공간 게임 패널 — "게임" · "행동" 창을 한 패널로 (ADR-0186)
+
+**무엇을**
+
+- `editor/gui/GamePanel` — 위: 모드 이름 · 모드 정보 (id · 참가 수 · 자동 재시작) · 상태 한 줄 · 점수 · 자동 재시작 안내 · 시작 (Lobby 에서만) ·
+  중단 (Starting · Running) · 재시작 (admin 아래면 꺼짐) · 결과. 아래: 행동 목록 ("[키] 이름 (반경 · 개수)" — 누르거나 ↑↓ + Enter · Space 로
+  쥐고 다시 하면 놓기, 역할 player 아래면 못 고름) · 안내 · 결과. 의도 GameCommand · ArmAction.
+- `apps/client/ui/GuiStatsModel` — `makeGuiGameModel(GameInfo, ActionsInfo, ActionPanelState)` — gameStateLine · scoreLine · "m:ss 뒤 자동
+  재시작" · 행동 글 (두 창과 같은 글). Application 은 표시 이름 바꾸기 (localizeNames) · syncArmedAction 뒤 보기를 만들고, GameCommand =
+  gameCommand, ArmAction = m_actionPanel.armed (장면 클릭이 보는 같은 상태) 에 쓰고 맞춘다.
+- `StudioWorkspace` — 게임 (16) 은 도구 그룹의 월드 뒤 탭. 옛 .guidock 은 프리셋으로.
+- ADR-0186, 문서: FEATURE_MATRIX 23 · 24, UI-R4, CURRENT_STATUS, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 월드 패널 (테스트 플레이) 다음, 프로젝트 안 작업 공간에 게임 시작 · 점수 · 행동 쥐기가 없었다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 20 케이스 (2858 단언): game panel — 자리 (월드 뒤) · 게임 없음 = 꺼짐 · 모드 정보 · 상태 줄
+  (Lobby · Running 1:05 · Finished 승리 (빨강)) · 점수 · 자동 재시작 0:05 · Lobby = 시작만 · Running = 중단 · 재시작 · 역할 = 다 꺼짐 · 행동 글
+  ([Q]) · 쥐기 · 놓기 · ↑ + Space · player 아래 = 못 고름 · 행동 없음 / app (local server ecosystem_small) — 게임 탭 → 첫 행동을 눌러
+  app.actionPanel().armed = 그 id → 다시 눌러 놓기.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 16". Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 —
+  studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 837 파일 0 위반.
+
+**남은 일** — 장면 / 게임 Viewport 분리 (R4-02), 실제 창 QA.
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R4-06: 작업 공간 월드 패널 — 테스트 플레이 · 저장 · 기록 · 재생 (ADR-0185)
 
 **무엇을**

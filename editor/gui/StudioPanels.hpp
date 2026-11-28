@@ -69,6 +69,8 @@ struct WorkspaceIntent {
         Simulation, SetRole,
         // 월드 (ADR-0185) — 앱이 세션의 worldOp (value = client::WorldOp, command = 이름, component = 탐색 call) · 이름
         WorldOp, WorldName,
+        // 게임 (ADR-0186) — 앱이 gameCommand (value = client::GameCommand) · 쥔 행동 (command = PlayerAction id, 빈 글 = 놓기)
+        GameCommand, ArmAction,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)

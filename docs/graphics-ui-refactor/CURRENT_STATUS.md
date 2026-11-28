@@ -67,6 +67,7 @@ UI-R4-01 과도기 (ADR-0179 — 프로젝트 안에서 작업 공간이 ImGui �
 | 실행 · 접속자 패널 (2026-11-28, ADR-0183) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 17 케이스 (2320 단언 — 실행 단추 · 역할로 끄기 · 접속자 역할 단추 (서버 규칙) · 나간 사람, 앱에서 패널로 일시정지 · 되돌리기 · 격자 · 접속자에 나) | 같은 명령 |
 | 스크립트 프로파일 (2026-11-28, ADR-0184) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 18 케이스 (2388 단언 — 진단 창과 같은 표 · 자릿수 · 열 자르기 · 줄 복사 · 같은 모양 갱신, 앱에서 서버의 엔진 시스템 표) | 같은 명령 |
 | 월드 패널 (2026-11-28, ADR-0185) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 19 케이스 (2717 단언 — 저장 · 기록 · 이름 · 목록 · 불러오기 · 재생 · 탐색 자르기 · 역할, 앱에서 패널로 테스트 플레이 → 멈추기) | 같은 명령 |
+| 게임 패널 (2026-11-28, ADR-0186) | /WX 빌드 · 전체 CTest 101 / 101 (project_doctor 제외), `unit_client` dock 20 케이스 (2858 단언 — 상태 줄 · 점수 · 상태 · 역할별 단추 · 행동 쥐기 · 놓기 · 키보드, 앱에서 ecosystem 의 행동을 패널로 쥐고 놓음) | 같은 명령 |
 | 실제 실행 (헤드리스) | `SandboxClient --headless --ui graphicsui` — 컴포넌트 13 · 그리기 명령 32 · 정상 상태 배치 0.008 ms (Release) | [PERFORMANCE_BASELINE](PERFORMANCE_BASELINE.md) 3장 |
 | 잘못된 값 | `--ui qt` → 종료 코드 2 · 오류 줄 | 직접 실행 |
 

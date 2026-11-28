@@ -54,6 +54,8 @@ add_library(SandboxStudioGui STATIC
     gui/StudioPanels.hpp
     gui/StudioPanels.cpp
     gui/StudioWorkspace.hpp
+    gui/GamePanel.hpp
+    gui/GamePanel.cpp
     gui/HierarchyPanel.hpp
     gui/HierarchyPanel.cpp
     gui/InspectorPanel.hpp

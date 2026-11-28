@@ -3,8 +3,10 @@
 #include <format>
 
 #include "apps/client/Application.hpp"
+#include "apps/client/ui/GamePanel.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
+#include "core/simulation/SimConstants.hpp"
 #include "network/protocol/Messages.hpp"
 
 namespace sbx::client {
@@ -245,6 +247,44 @@ editor::gui::WorldModel makeGuiWorldModel(const std::optional<WorldOpsInfo>& inf
     for (const SavedWorldRow& w : info->saved) {
         m.saved.push_back({w.name, w.replay,
                            std::format("{}{} · tick {} · 개체 {}", w.replay ? "[리플레이] " : "", w.name, w.tick, w.entities)});
+    }
+    return m;
+}
+
+static_assert(editor::gui::GameModel::kStart == static_cast<int>(GameCommand::Start) &&
+              editor::gui::GameModel::kAbort == static_cast<int>(GameCommand::Abort) &&
+              editor::gui::GameModel::kRestart == static_cast<int>(GameCommand::Restart));
+
+editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, const std::optional<ActionsInfo>& actions,
+                                        const ActionPanelState& actionState) {
+    editor::gui::GameModel m;
+    if (game) {
+        const GameInfo& g = *game;
+        m.available = true;
+        m.modeName = g.modeName;
+        m.modeInfo = std::format("{} · 참가 {} ~ {}{}", g.modeId, g.minPlayers, g.maxPlayers, g.autoRestart ? " · 자동 재시작" : "");
+        m.stateLine = gameStateLine(g);
+        m.scoreLine = scoreLine(g);
+        if (g.state == 3 && g.autoRestart) {
+            const u64 s = g.restartDelayTicks / sim::kTickRate; // "게임" 창과 같은 m:ss
+            m.restartLine = std::format("{}:{:02} 뒤 자동 재시작", s / 60, s % 60);
+        }
+        m.state = g.state;
+        m.canControl = g.canControl;
+        m.message = g.message;
+    }
+    if (actions) {
+        const ActionsInfo& a = *actions;
+        m.actionsAvailable = true;
+        m.canAct = a.canAct;
+        m.actionMessage = a.message;
+        m.hasKeys = !actionState.keys.empty();
+        m.armed = actionState.armed;
+        for (const ActionRow& r : a.actions) {
+            const auto key = actionState.keys.find(r.id);
+            const std::string prefix = key != actionState.keys.end() && !key->second.empty() ? std::format("[{}] ", key->second) : std::string();
+            m.actions.push_back({r.id, std::format("{}{}  (반경 {:.1f} · {}개)", prefix, r.name, r.range, r.maxTargets)});
+        }
     }
     return m;
 }

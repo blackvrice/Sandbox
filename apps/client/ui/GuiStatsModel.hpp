@@ -4,7 +4,9 @@
 
 #include <optional>
 
+#include "apps/client/ui/ActionPanel.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
+#include "editor/gui/GamePanel.hpp"
 #include "editor/gui/RunPanels.hpp"
 #include "editor/gui/StudioPanels.hpp"
 #include "editor/gui/WorldPanel.hpp"
@@ -20,5 +22,8 @@ namespace sbx::client {
 [[nodiscard]] editor::gui::ScriptProfileModel makeGuiScriptProfileModel(const std::optional<ScriptProfileInfo>& info);
 // 월드 패널 (ADR-0185) — "월드" 창과 같은 원천 (WorldOpsInfo · worldModeLine), name = 저장 · 기록 이름 (Ctrl+S 와 같은 값)
 [[nodiscard]] editor::gui::WorldModel makeGuiWorldModel(const std::optional<WorldOpsInfo>& info, const std::string& name);
+// 게임 패널 (ADR-0186) — "게임" · "행동" 창과 같은 원천 · 같은 글 (표시 이름은 부르는 쪽이 먼저 바꾼다 — localizeNames)
+[[nodiscard]] editor::gui::GameModel makeGuiGameModel(const std::optional<GameInfo>& game, const std::optional<ActionsInfo>& actions,
+                                                      const ActionPanelState& actionState);
 
 } // namespace sbx::client

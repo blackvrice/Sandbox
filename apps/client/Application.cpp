@@ -2577,6 +2577,19 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         ws.profile().setModel(makeGuiScriptProfileModel(inWorld ? m_config.world->scriptProfile() : std::nullopt));
         // 월드 (ADR-0185) — "월드" 창과 같은 원천 · 같은 이름 (Ctrl+S)
         ws.world().setModel(makeGuiWorldModel(inWorld ? m_config.world->worldOps() : std::nullopt, m_worldPanel.name));
+        // 게임 (ADR-0186) — "게임" · "행동" 창과 같은 원천 (표시 이름 바꾸기 · 쥔 행동 맞추기도 같다)
+        std::optional<GameInfo> game = inWorld ? m_config.world->game() : std::nullopt;
+        if (game) {
+            localizeNames(*game);
+        }
+        std::optional<ActionsInfo> acts = inWorld ? m_config.world->playerActions() : std::nullopt;
+        if (acts) {
+            localizeNames(*acts);
+            syncArmedAction(*acts, m_actionPanel);
+        } else if (inWorld) {
+            m_actionPanel.armed.clear();
+        }
+        ws.game().setModel(makeGuiGameModel(game, acts, m_actionPanel));
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();
@@ -2772,6 +2785,23 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     case K::WorldName:
         m_worldPanel.name = intent->command; // "월드" 창 · Ctrl+S 와 같은 이름 (검사는 쓸 때)
         return std::nullopt;
+    case K::GameCommand:
+        // 게임 패널 — "게임" 창과 같은 요청 (판단은 서버)
+        if (inWorld && intent->value >= static_cast<int>(GameCommand::Start) && intent->value <= static_cast<int>(GameCommand::Restart)) {
+            m_config.world->gameCommand(static_cast<GameCommand>(intent->value));
+        }
+        return std::nullopt;
+    case K::ArmAction: {
+        // 행동 쥐기 · 놓기 — "행동" 창과 같은 상태 (그동안 장면 클릭이 그 자리에 행동을 쓴다). 목록에 없거나 역할이 못 쓰면 놓는다
+        const auto acts = inWorld ? m_config.world->playerActions() : std::nullopt;
+        m_actionPanel.armed = intent->command;
+        if (acts) {
+            syncArmedAction(*acts, m_actionPanel);
+        } else {
+            m_actionPanel.armed.clear();
+        }
+        return std::nullopt;
+    }
     case K::TestPlan:
         // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)
         m_testPanel.clients = intent->test.clients;
