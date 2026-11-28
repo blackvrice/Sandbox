@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R4-06: 작업 공간 월드 패널 — 테스트 플레이 · 저장 · 기록 · 재생 (ADR-0185)
+
+**무엇을**
+
+- `editor/gui/WorldPanel` — ImGui "월드" 창과 같은 일: 상태 한 줄 (worldModeLine · 월드 #n) · 탐색 줄 (call 칸 · 탐색 · "/ N call (지금 n)") ·
+  이름 칸 · 저장 · 기록 시작 / 끝 · 새로고침 · 테스트 플레이 / 멈추기 (되돌리기) · 세이브 · 리플레이 목록 (↑↓ · Enter = 불러오기 / 재생, 세이브를
+  고르면 이름 칸이 그 이름) · 불러오기 / 재생 · 결과. 켜고 끄는 규칙은 ImGui 창과 같다 (admin 아래 = 새로고침만, 재생 중 기록 · 테스트 플레이
+  꺼짐). 이름 칸은 쓰는 중이 아니면 앱의 이름을 따라간다. 탐색은 0 ~ 전체로 자른다.
+- `apps/client/ui/GuiStatsModel` — `makeGuiWorldModel(WorldOpsInfo, 이름)` (nameOk = net::isValidSaveName, 목록 글 = ImGui 창과 같은 글,
+  패널 op 번호 = client::WorldOp static_assert).
+- `Application::requestWorldOp` — "월드" 창의 요청 처리 (테스트 플레이 전 자동 저장 → worldOp) 를 함수로 빼서 ImGui 창 · 패널이 같이 부른다
+  (동작 그대로). 의도 WorldOp (저장 · 기록 시작은 이름을 다시 검사하고 m_worldPanel.name 에) · WorldName (Ctrl+S 와 같은 이름).
+- `StudioWorkspace` — 월드 (15) 는 도구 그룹의 편집 뒤 탭. 옛 .guidock 은 프리셋으로.
+- ADR-0185, 문서: TASK_REGISTRY (R4-06 Partial · 합계 일부 10), CURRENT_STATUS, UI-R4, FEATURE_MATRIX 22, MIGRATION_GUIDE 4b-7, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — UI-R4 중 막히지 않은 것. 프로젝트 안 작업 공간에서 테스트 플레이 · 멈춤은 단축키로만 됐고 세이브 ·
+리플레이는 할 곳이 없었다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 19 케이스 (2717 단언): world panel — 자리 (편집 뒤) · 월드 없음 = 꺼짐 · 상태 · 목록 글 · 저장 ·
+  기록 시작 · 새로고침 · 테스트 플레이 · 이름 → WorldName · 틀린 이름 = 저장 꺼짐 · 세이브 고르기 → 이름 · 불러오기 · ↓ 리플레이 → Enter 재생 ·
+  재생 중 탐색 9999 → 608 · 정수 아님 = 안 보냄 · 재생 중 기록 · 테스트 플레이 꺼짐 · 기록 끝 · 테스트 플레이 멈추기 · 역할 = 새로고침만 · 목록에서
+  사라지면 놓기 / app (local server) — 월드 탭 → 테스트 플레이 → 서버 mode 3 · 상태 "테스트 플레이" → 멈추기 → mode 0.
+- `client_graphicsui_world_headless` — "그룹 4 · 패널 15". Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 —
+  studio_gui_smoke 는 건너뜀, 전과 같다), check_includes 835 파일 0 위반.
+
+**남은 일** — 탐색 슬라이더 (Core Slider + 끄는 동안의 값), 장면 / 게임 Viewport 분리 (R4-02), "게임" 창, 실제 창 QA.
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R3-09 ✅: 작업 공간 스크립트 프로파일 — 표들을 한 가상 목록으로 (ADR-0184)
 
 **무엇을**

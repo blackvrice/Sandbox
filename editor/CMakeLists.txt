@@ -64,6 +64,8 @@ add_library(SandboxStudioGui STATIC
     gui/RunPanels.cpp
     gui/ToolPanel.hpp
     gui/ToolPanel.cpp
+    gui/WorldPanel.hpp
+    gui/WorldPanel.cpp
     gui/StudioWorkspace.cpp
 )
 add_library(Sandbox::StudioGui ALIAS SandboxStudioGui)

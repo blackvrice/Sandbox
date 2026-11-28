@@ -14,14 +14,14 @@
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 6 | 1 | 2 | R2-01 · 02 · 03 · 05 · 07 · 09 ✅, R2-08 일부 |
 | UI-R3 편집 패널 | 12 | 2 | 5 | 3 | R3-06 콘솔 · R3-09 진단 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 일부 |
-| UI-R4 Viewport | 6 | 0 | 1 | 2 | R4-01 과도기 (통과 장면) |
+| UI-R4 Viewport | 6 | 0 | 2 | 2 | R4-01 과도기 (통과 장면), R4-06 월드 패널 (테스트 플레이 · 멈춤) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
 | UI-R7 게임 런타임 UI | 5 | 0 | 0 | 5 | GraphicsUI P9-07 미진행 |
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 0 | 0 | |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **28 (35 %)** | 9 | 20 | |
+| **합계** | **81** | **28 (35 %)** | 10 | 20 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -82,7 +82,7 @@
 | UI-R4-03 | 피킹 · 기즈모 · 배치 · 격자 · 스냅 (기존 툴 재사용) | Planned | R4-01 | editor/ | editor 툴 · IEditorHost 그대로 |
 | UI-R4-04 | UI 입력과 게임 입력 분리 | Planned | R1-03 | uihost · apps/client | hitsUi · InputSystem.setCapture |
 | UI-R4-05 | 독립 창 Viewport · 반복 resize | Blocked | R2-06 · P9-06 | platform · render | 반복 resize 메모리 추세 (P9-06 위험) |
-| UI-R4-06 | Test Play · Stop | Planned | R4-02 | apps/client | 기존 play · stop 명령 |
+| UI-R4-06 | Test Play · Stop | Partial | R4-02 | editor/gui · apps/client | `WorldPanel` (작업 공간 "월드" — 편집 뒤 탭, ADR-0185): 테스트 플레이 / 멈추기 (되돌리기) · 저장 · 기록 시작 / 끝 · 새로고침 · 세이브 · 리플레이 목록 · 불러오기 / 재생 · 탐색 (call 칸) — 의도 → `Application::requestWorldOp` ("월드" 창과 같은 함수 — 테스트 플레이 전 자동 저장). `unit_client` "world panel" + app (패널로 테스트 플레이 → 서버 mode 3 → 멈추기 → 보통). 남음: 장면 / 게임 Viewport 분리 (R4-02) 뒤의 게임 칸 플레이, 탐색 슬라이더 |
 | UI-R5-01 | 코드 편집기 컨트롤 (여러 줄 · 구문 색 · 접기 · 대용량) | Blocked | GUI-UP-04 | editor/ | 단일행 TextInput 으로 대신하지 않는다 |
 | UI-R5-02 | LanguageService 연결 (완성 · 서명 · hover · 정의 · 진단 · 포맷) | Planned | R5-01 | editor/ · script | script/lang/LanguageService 그대로 |
 | UI-R5-03 | 디버거 (중단점 · 단계 · 변수) | Planned | R5-01 | editor/ | ScriptDebugService 그대로 |

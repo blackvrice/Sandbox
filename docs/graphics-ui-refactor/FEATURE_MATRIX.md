@@ -40,7 +40,7 @@
 | 19 | 콘솔 (`ConsolePanel`) | ListView (가상) · TextInput (거르기) | 즉시 — **완료 (작업 공간의 콘솔 패널 — 글자 · 수준 거르기 · 지우기 · 복사 · 따라가기, 프로젝트 안 표시는 R4-01 뒤)** | UI-R3-06 |
 | 20 | 빌드 (`BuildPanel`) | ComboBox · Button · ListView | 즉시 — **일부 (패널 · 같은 명령 · 보고 완료, 프로젝트 안 표시는 R4-01 뒤)** | UI-R3-07 |
 | 21 | 테스트 (`TestPanel`) | Slider · Toggle · Button | 즉시 — **일부 (패널 · 같은 명령 · 프로세스 목록 완료, 프로젝트 안 표시는 R4-01 뒤)** | UI-R3-08 |
-| 22 | 월드 창 (`apps/client/ui/WorldPanel`) | TextInput · ListView · Button | 어댑터 (글자 입력) | UI-R3 |
+| 22 | 월드 창 (`apps/client/ui/WorldPanel`) | TextInput · ListView · Button | 어댑터 (글자 입력) — **일부 (작업 공간의 "월드" — 저장 · 기록 · 테스트 플레이 · 목록 · 불러오기 · 재생 · 탐색 (call 칸), ADR-0185)** | UI-R3 |
 | 23 | 게임 창 (`GamePanel`) | Button · 글자 | 즉시 | UI-R3 |
 | 24 | 행동 창 (`ActionPanel`) | Button | 즉시 | UI-R3 |
 | 25 | 진단 창 — 시뮬레이션 · 통계 · 네트워크 · 플레이어 · 스크립트 (`DebugPanels` · `PlayersPanel` · `ScriptPanel`) | TableView · 글자 · (그래프 없음) | 즉시 (그래프는 Custom Control) — **완료 (작업 공간의 통계 · 실행 · 접속자 · 스크립트 프로파일 패널 — UI-R3-09, ADR-0183 · 0184. 그래프는 막대만)** | UI-R3-09 |

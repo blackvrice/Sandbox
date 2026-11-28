@@ -57,6 +57,7 @@ constexpr gui::DockPaneId kContent = StudioWorkspace::kContent;
 constexpr gui::DockPaneId kSimulation = StudioWorkspace::kSimulation;
 constexpr gui::DockPaneId kPlayers = StudioWorkspace::kPlayers;
 constexpr gui::DockPaneId kProfile = StudioWorkspace::kProfile;
+constexpr gui::DockPaneId kWorld = StudioWorkspace::kWorld;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -226,7 +227,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 14);
+        CHECK(d.lastFrame()->tabs.size() == 15);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -1619,6 +1620,157 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(sp.selectedLine());
     }
 
+    TEST_CASE("world panel (ADR-0185): save · record · test play · list · load · replay seek like the world window") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::WorldPanel& wp = f.ws->world();
+        using M = editor::gui::WorldModel;
+        // 자리 — 도구 그룹, 편집 뒤
+        CHECK(sameGroup(d, kWorld, kTools));
+        CHECK(tabOf(d, kWorld).bounds.x > tabOf(d, kTools).bounds.x);
+        f.show(kWorld);
+        REQUIRE(groupOf(d, kWorld).active == kWorld);
+        CHECK(wp.status().starts_with("월드 — 프로젝트를 열면"));
+        f.feed(click(paneCenter(d, kWorld, wp.testHandle())));
+        f.feed(click(paneCenter(d, kWorld, wp.refreshHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        const auto takeKind = [&](WorkspaceIntent::Kind k) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == k);
+            return *i;
+        };
+
+        WorldOpsInfo info;
+        info.canChange = true;
+        info.listed = true;
+        info.generation = 2;
+        info.saved = {{"alpha", false, 120, 40}, {"run1", true, 0, 40}};
+        std::string name = "quicksave";
+        const auto set = [&] {
+            wp.setModel(makeGuiWorldModel(info, name));
+            f.frame();
+        };
+        set();
+        CHECK(wp.status() == "보통 · 월드 #2");
+        REQUIRE(wp.model().saved.size() == 2);
+        CHECK(wp.model().saved[0].text == "alpha · tick 120 · 개체 40");
+        CHECK(wp.model().saved[1].text == "[리플레이] run1 · tick 0 · 개체 40");
+        CHECK(wp.model().nameOk);
+        // 저장 · 기록 시작 (이름) · 새로고침 · 테스트 플레이
+        f.feed(click(paneCenter(d, kWorld, wp.saveHandle())));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::WorldOp);
+            CHECK(i.value == M::kSave);
+            CHECK(i.command == "quicksave");
+        }
+        f.feed(click(paneCenter(d, kWorld, wp.recordHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldOp).value == M::kRecordStart);
+        f.feed(click(paneCenter(d, kWorld, wp.refreshHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldOp).value == M::kList);
+        f.feed(click(paneCenter(d, kWorld, wp.testHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldOp).value == M::kTestPlay);
+        // 이름 칸 → WorldName (Ctrl+S 와 같은 이름), 틀린 이름이면 저장 꺼짐 (앱의 검사)
+        f.feed(click(paneCenter(d, kWorld, wp.nameHandle())));
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"bad name!"));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldName).command == "bad name!");
+        name = "bad name!";
+        set();
+        CHECK_FALSE(wp.model().nameOk);
+        f.feed(click(paneCenter(d, kWorld, wp.saveHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 목록 — 세이브를 고르면 이름 칸이 그 이름 (덮어 저장), 불러오기
+        const auto rowAt = [&](usize row) {
+            const gui::DockGroupBox g = groupOf(d, kWorld);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kWorld)->lastLayout()->boxes()) {
+                if (b.component == wp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = wp.rowBounds(row);
+            REQUIRE(r);
+            return center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height});
+        };
+        f.feed(click(rowAt(0)));
+        CHECK(wp.selectedRow() == 0u);
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldName).command == "alpha");
+        name = "alpha";
+        set();
+        f.feed(click(paneCenter(d, kWorld, wp.openHandle())));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::WorldOp);
+            CHECK(i.value == M::kLoad);
+            CHECK(i.command == "alpha");
+        }
+        // 리플레이 — ↓ 로 고르고 Enter = 재생 (이름 칸은 그대로)
+        f.feed(click(rowAt(0)));
+        (void)f.ws->takeIntent();
+        f.feed(key(Key::Down));
+        CHECK(wp.selectedRow() == 1u);
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(key(Key::Enter));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::WorldOp);
+            CHECK(i.value == M::kPlay);
+            CHECK(i.command == "run1");
+        }
+        // 재생 중 — 탐색 (0 ~ 전체로 자른다), 기록 · 테스트 플레이 꺼짐
+        info.mode = 2;
+        info.modeName = "run1";
+        info.replayCall = 100;
+        info.replayCalls = 608;
+        set();
+        CHECK(wp.status().starts_with("재생 'run1' 100/608 call"));
+        f.feed(click(paneCenter(d, kWorld, wp.seekFieldHandle())));
+        f.feed(typed(U"9999"));
+        f.feed(key(Key::Enter));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::WorldOp);
+            CHECK(i.value == M::kSeek);
+            CHECK(i.command == "run1");
+            CHECK(i.component == 608u);
+        }
+        f.feed(key(Key::A, Modifiers::kCtrl));
+        f.feed(typed(U"x"));
+        f.feed(click(paneCenter(d, kWorld, wp.seekHandle())));
+        CHECK_FALSE(f.ws->takeIntent()); // 정수가 아니면 보내지 않는다
+        f.feed(click(paneCenter(d, kWorld, wp.testHandle())));
+        f.feed(click(paneCenter(d, kWorld, wp.recordHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 기록 중 — "기록 끝" (그 이름)
+        info.mode = 1;
+        info.modeName = "rec";
+        set();
+        f.feed(click(paneCenter(d, kWorld, wp.recordHandle())));
+        {
+            const WorkspaceIntent i = takeKind(WorkspaceIntent::Kind::WorldOp);
+            CHECK(i.value == M::kRecordStop);
+            CHECK(i.command == "rec");
+        }
+        // 테스트 플레이 중 — 같은 단추가 멈추기 (되돌리기)
+        info.mode = 3;
+        set();
+        CHECK(wp.status().starts_with("테스트 플레이"));
+        f.feed(click(paneCenter(d, kWorld, wp.testHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldOp).value == M::kTestStop);
+        // 역할이 못 바꾸면 — 새로고침만
+        info.mode = 0;
+        info.canChange = false;
+        set();
+        f.feed(click(paneCenter(d, kWorld, wp.saveHandle())));
+        f.feed(click(paneCenter(d, kWorld, wp.testHandle())));
+        f.feed(click(paneCenter(d, kWorld, wp.openHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kWorld, wp.refreshHandle())));
+        CHECK(takeKind(WorkspaceIntent::Kind::WorldOp).value == M::kList);
+        // 목록에서 사라지면 고른 것을 놓는다
+        info.saved.clear();
+        set();
+        CHECK_FALSE(wp.selectedRow());
+    }
+
     TEST_CASE("test panel (UI-R3-08): steppers clamp like the ImGui panel, start and stop intents, process lines") {
         Fixture f;
         DockWorkspace& d = f.dock();
@@ -2186,6 +2338,27 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(sessionProfile.has_value());
         REQUIRE_FALSE(sessionProfile->engine.empty());
         CHECK(profileHasEngine());
+
+        // 월드 (ADR-0185) — 패널로 테스트 플레이 → 서버가 테스트 플레이 상태 → 멈추기 (되돌리기) → 보통 (R4-06)
+        editor::gui::WorldPanel& wpanel = ws->world();
+        injectAll(click(center(tabOf(d, kWorld).bounds, d.scale())));
+        REQUIRE(groupOf(d, kWorld).active == kWorld);
+        REQUIRE(wpanel.model().available);
+        CHECK(wpanel.model().canChange);
+        CHECK(wpanel.model().mode == 0);
+        const auto worldMode = [&] { return ns->worldOps() ? ns->worldOps()->mode : u8{255}; };
+        injectAll(click(paneCenter(d, kWorld, wpanel.testHandle())));
+        for (int i = 0; i < 3000 && worldMode() != 3; ++i) {
+            REQUIRE(app.frame());
+        }
+        REQUIRE(worldMode() == 3);
+        REQUIRE(app.frame());
+        CHECK(wpanel.status().starts_with("테스트 플레이"));
+        injectAll(click(paneCenter(d, kWorld, wpanel.testHandle())));
+        for (int i = 0; i < 3000 && worldMode() != 0; ++i) {
+            REQUIRE(app.frame());
+        }
+        CHECK(worldMode() == 0);
 
         // 정보의 "기존 UI 로" — ImGui 셸이 다시 그린다
         for (const PlatformEvent& e : click(center(tabOf(d, kInfo).bounds, d.scale()))) {

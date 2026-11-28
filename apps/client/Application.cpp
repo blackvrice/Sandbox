@@ -1238,10 +1238,7 @@ bool Application::frame() {
             }
             if (const auto ops = m_config.world->worldOps(); ops && shellVisible && m_shell.view.world) {
                 if (auto req = drawWorldPanel(*ops, m_worldPanel, &m_shell.view.world)) { // 12D "월드"
-                    if (req->op == WorldOp::TestPlay && m_config.autosave != nullptr) {
-                        m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
-                    }
-                    m_config.world->worldOp(req->op, std::move(req->name), req->target);
+                    requestWorldOp(req->op, std::move(req->name), req->target);
                 }
             }
             if (auto game = m_config.world->game(); game && shellVisible && m_shell.view.game) {
@@ -1326,6 +1323,13 @@ bool Application::frame() {
     }
 
     return m_state != AppState::Shutdown;
+}
+
+void Application::requestWorldOp(WorldOp op, std::string name, u64 target) {
+    if (op == WorldOp::TestPlay && m_config.autosave != nullptr) {
+        m_config.autosave->requestNow(); // 플레이 시작 전에 편집 월드를 (v0.8 M6-T7)
+    }
+    m_config.world->worldOp(op, std::move(name), target);
 }
 
 void Application::applyPanelActions(const PanelActions& act) {
@@ -2571,6 +2575,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         ws.players().setModel(makeGuiPlayersModel(inWorld ? m_config.world->players() : std::nullopt)); // "접속자" 와 같은 원천
         // 스크립트 프로파일 (ADR-0184) — "스크립트 프로파일" 창과 같은 원천 (바뀐 때만 목록을 다시)
         ws.profile().setModel(makeGuiScriptProfileModel(inWorld ? m_config.world->scriptProfile() : std::nullopt));
+        // 월드 (ADR-0185) — "월드" 창과 같은 원천 · 같은 이름 (Ctrl+S)
+        ws.world().setModel(makeGuiWorldModel(inWorld ? m_config.world->worldOps() : std::nullopt, m_worldPanel.name));
         // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();
@@ -2747,6 +2753,24 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         if (inWorld && intent->value >= 0 && intent->role >= 0) {
             m_config.world->requestRole(static_cast<u16>(intent->value), static_cast<u8>(intent->role));
         }
+        return std::nullopt;
+    case K::WorldOp: {
+        // 월드 패널 — "월드" 창과 같은 세션 요청 (판단은 서버). 이름이 필요한 일은 여기서도 이름 규칙을 본다
+        if (!inWorld || intent->value < static_cast<int>(WorldOp::List) || intent->value > static_cast<int>(WorldOp::Seek)) {
+            return std::nullopt;
+        }
+        const auto op = static_cast<WorldOp>(intent->value);
+        if ((op == WorldOp::Save || op == WorldOp::RecordStart) && !net::isValidSaveName(intent->command)) {
+            return std::nullopt;
+        }
+        if (op == WorldOp::Save || op == WorldOp::RecordStart) {
+            m_worldPanel.name = intent->command; // 다음 Ctrl+S 도 이 이름
+        }
+        requestWorldOp(op, intent->command, intent->component);
+        return std::nullopt;
+    }
+    case K::WorldName:
+        m_worldPanel.name = intent->command; // "월드" 창 · Ctrl+S 와 같은 이름 (검사는 쓸 때)
         return std::nullopt;
     case K::TestPlan:
         // ImGui 창과 같은 상태 — studio.test-start 가 applyTestPanel 로 계획에 (범위도 거기서 다시 자른다)

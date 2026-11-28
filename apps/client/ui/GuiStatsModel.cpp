@@ -4,6 +4,8 @@
 
 #include "apps/client/Application.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
+#include "apps/client/ui/WorldPanel.hpp"
+#include "network/protocol/Messages.hpp"
 
 namespace sbx::client {
 
@@ -208,6 +210,41 @@ editor::gui::ScriptProfileModel makeGuiScriptProfileModel(const std::optional<Sc
             section("클라이언트 함수 — 자기 연료 상위 (누적)");
             functions(info->clientFunctions);
         }
+    }
+    return m;
+}
+
+// 패널의 op 번호가 client::WorldOp 과 같다
+static_assert(editor::gui::WorldModel::kList == static_cast<int>(WorldOp::List) &&
+              editor::gui::WorldModel::kSave == static_cast<int>(WorldOp::Save) &&
+              editor::gui::WorldModel::kLoad == static_cast<int>(WorldOp::Load) &&
+              editor::gui::WorldModel::kRecordStart == static_cast<int>(WorldOp::RecordStart) &&
+              editor::gui::WorldModel::kRecordStop == static_cast<int>(WorldOp::RecordStop) &&
+              editor::gui::WorldModel::kPlay == static_cast<int>(WorldOp::Play) &&
+              editor::gui::WorldModel::kTestPlay == static_cast<int>(WorldOp::TestPlay) &&
+              editor::gui::WorldModel::kTestStop == static_cast<int>(WorldOp::TestStop) &&
+              editor::gui::WorldModel::kSeek == static_cast<int>(WorldOp::Seek));
+
+editor::gui::WorldModel makeGuiWorldModel(const std::optional<WorldOpsInfo>& info, const std::string& name) {
+    editor::gui::WorldModel m;
+    m.name = name;
+    m.nameOk = net::isValidSaveName(name);
+    if (!info) {
+        return m;
+    }
+    m.available = true;
+    m.canChange = info->canChange;
+    m.listed = info->listed;
+    m.mode = info->mode;
+    m.modeLine = worldModeLine(*info);
+    m.modeName = info->modeName;
+    m.replayCall = info->replayCall;
+    m.replayCalls = info->replayCalls;
+    m.generation = info->generation;
+    m.message = info->message;
+    for (const SavedWorldRow& w : info->saved) {
+        m.saved.push_back({w.name, w.replay,
+                           std::format("{}{} · tick {} · 개체 {}", w.replay ? "[리플레이] " : "", w.name, w.tick, w.entities)});
     }
     return m;
 }

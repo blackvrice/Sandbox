@@ -67,6 +67,8 @@ struct WorkspaceIntent {
         ContentCheck, ContentApply, ContentRevert, ContentNew,
         // 실행 · 접속자 (ADR-0183) — 앱이 PanelActions → applyPanelActions (value = SimAction) · requestRole (value = clientId)
         Simulation, SetRole,
+        // 월드 (ADR-0185) — 앱이 세션의 worldOp (value = client::WorldOp, command = 이름, component = 탐색 call) · 이름
+        WorldOp, WorldName,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)

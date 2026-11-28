@@ -334,6 +334,8 @@ private:
     void handleSelection(const render::Camera2D& cam, Vec2 mousePx); // 에디터가 없을 때 (8B)
     void handleEditor(editor::IEditorHost& host, const render::Camera2D& cam, Vec2 mousePx, f64 dt);
     void applyPanelActions(const PanelActions& act);
+    // 월드 요청 하나 — "월드" 창 · GraphicsUI 월드 패널이 같이 (테스트 플레이 전 자동 저장 — v0.8 M6-T7)
+    void requestWorldOp(WorldOp op, std::string name, u64 target);
     void syncViewport();
 
     platform::IWindow& m_window;

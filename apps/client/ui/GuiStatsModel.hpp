@@ -7,6 +7,7 @@
 #include "apps/client/ui/DebugPanels.hpp"
 #include "editor/gui/RunPanels.hpp"
 #include "editor/gui/StudioPanels.hpp"
+#include "editor/gui/WorldPanel.hpp"
 
 namespace sbx::client {
 
@@ -17,5 +18,7 @@ namespace sbx::client {
 [[nodiscard]] editor::gui::PlayersModel makeGuiPlayersModel(const std::optional<PlayersInfo>& info);
 // 스크립트 프로파일 패널 (ADR-0184) — "스크립트 프로파일" 창과 같은 표 · 같은 글 (서버 · 함수 · 엔진 · 클라이언트)
 [[nodiscard]] editor::gui::ScriptProfileModel makeGuiScriptProfileModel(const std::optional<ScriptProfileInfo>& info);
+// 월드 패널 (ADR-0185) — "월드" 창과 같은 원천 (WorldOpsInfo · worldModeLine), name = 저장 · 기록 이름 (Ctrl+S 와 같은 값)
+[[nodiscard]] editor::gui::WorldModel makeGuiWorldModel(const std::optional<WorldOpsInfo>& info, const std::string& name);
 
 } // namespace sbx::client
