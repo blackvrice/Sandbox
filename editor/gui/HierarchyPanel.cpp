@@ -30,6 +30,25 @@ bool HierarchyPanel::selected(NetEntityId id) const {
     return std::ranges::binary_search(m_view.selection, id);
 }
 
+std::string HierarchyPanel::lineText(usize line) const {
+    if (line >= m_lines.size()) {
+        return {};
+    }
+    const Line& l = m_lines[line];
+    if (l.group) {
+        return l.row < m_heads.size() ? m_heads[l.row].text : std::string{};
+    }
+    const std::string_view prefab = l.row < m_view.rows.size() ? m_view.rows[l.row].prefab : std::string_view{};
+    return std::format("{} #{}", prefab.empty() ? std::string_view("개체") : prefab, l.id);
+}
+
+std::string_view HierarchyPanel::groupName(usize line) const {
+    if (line >= m_lines.size() || !m_lines[line].group || m_lines[line].row >= m_heads.size()) {
+        return {};
+    }
+    return m_heads[m_lines[line].row].name;
+}
+
 std::string HierarchyPanel::status() const {
     if (!m_view.available) {
         return "프로젝트가 열려 있지 않다 (또는 편집할 수 없는 접속) — 월드를 열면 개체 목록";
@@ -47,37 +66,39 @@ void HierarchyPanel::applyEnabled() {
 
 void HierarchyPanel::rebuild() {
     m_lines.clear();
+    m_heads.clear();
     m_shown = 0;
     if (m_view.available && m_view.groups != nullptr) {
         // 줄은 서비스가 만든다 (ImGui "목록" 창과 같은 buildHierarchy — 그룹 머리 · 펼친 그룹의 개체 · 그룹 없는 개체)
-        std::vector<HierarchyLine> lines;
+        std::vector<HierarchyLine>& lines = m_built;
         buildHierarchy(m_view.rows, *m_view.groups, parseHierarchyQuery(m_search.value(), m_view.content), lines);
         const auto& groups = m_view.groups->groups();
+        m_lines.reserve(lines.size());
         for (const HierarchyLine& l : lines) {
             Line out;
             if (l.kind == HierarchyLine::Kind::Group) {
                 const EditorGroup& g = groups[l.group];
                 out.group = true;
-                out.groupName = g.name;
-                out.text = std::format("{} {}  ({})", g.collapsed ? "▸" : "▾", g.name, l.matches);
+                out.row = m_heads.size();
+                m_heads.push_back({g.name, std::format("{} {}  ({})", g.collapsed ? "▸" : "▾", g.name, l.matches)});
             } else {
-                const HierarchyRow& r = m_view.rows[l.row];
-                out.id = r.id;
+                out.id = m_view.rows[l.row].id;
+                out.row = l.row;
                 out.inGroup = l.inGroup;
-                out.text = std::format("{} #{}", r.prefab.empty() ? std::string_view("개체") : r.prefab, r.id);
                 ++m_shown;
             }
             m_lines.push_back(std::move(out));
         }
     }
-    std::vector<gui::ListItemKey> keys;
+    std::vector<gui::ListItemKey>& keys = m_nextKeys;
+    keys.clear();
     keys.reserve(m_lines.size());
     usize groupIndex = 0;
     for (const Line& l : m_lines) {
         keys.push_back(l.group ? kGroupKey | groupIndex++ : static_cast<gui::ListItemKey>(l.id));
     }
     if (keys != m_keys) { // 같으면 그대로 (스크롤 · 크기 계산을 frame 마다 다시 하지 않는다)
-        m_keys = std::move(keys);
+        std::swap(m_keys, keys);
         (void)m_list.setItems(m_keys);
     }
     m_cursor = m_lines.empty() ? 0 : std::min(m_cursor, m_lines.size() - 1);
@@ -96,7 +117,7 @@ void HierarchyPanel::clickLine(usize line, gui::KeyModifiers mods) {
     m_cursor = line;
     const Line& l = m_lines[line];
     if (l.group) { // 머리 = 접기 · 펴기 (ImGui 창과 같다)
-        m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ToggleGroup, l.groupName);
+        m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ToggleGroup, std::string(groupName(line)));
         return;
     }
     // 두 번 누르기 = 카메라 맞추기 (ImGui 창의 IsMouseDoubleClicked — 여기서는 호스트 frame 차례로)
@@ -147,10 +168,9 @@ gui::EventReply HierarchyPanel::listEvent(const gui::RoutedEvent& ev) {
     if (const auto* p = std::get_if<gui::PointerEvent>(&ev.input)) {
         if (p->action == gui::PointerAction::down && p->button == gui::PointerButton::primary) {
             (void)m_host->input().setFocus(m_listNode);
-            if (const auto row = m_list.hitTest({p->x - m_listBounds.x, p->y - m_listBounds.y})) {
-                if (const auto at = std::ranges::find(m_keys, row->key); at != m_keys.end()) {
-                    clickLine(static_cast<usize>(at - m_keys.begin()), p->modifiers);
-                }
+            // 줄 번호 = 목록의 항목 번호 (setItems(m_keys) 의 차례 — 키로 찾지 않는다, 10 만 줄에서 O(N))
+            if (const auto row = m_list.hitTest({p->x - m_listBounds.x, p->y - m_listBounds.y}); row && row->index < m_lines.size()) {
+                clickLine(row->index, p->modifiers);
             }
             return {true, true};
         }
@@ -178,7 +198,7 @@ gui::EventReply HierarchyPanel::listEvent(const gui::RoutedEvent& ev) {
     }
     if (kit::keyDown(ev, gui::enter_key) || kit::keyDown(ev, 'F')) {
         if (m_lines[m_cursor].group) {
-            m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ToggleGroup, m_lines[m_cursor].groupName);
+            m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::ToggleGroup, std::string(groupName(m_cursor)));
         } else {
             m_ctx.intent = WorkspaceIntent::of(WorkspaceIntent::Kind::FocusSelection);
         }
@@ -307,11 +327,10 @@ Expected<void> HierarchyPanel::paint(uihost::UiHost& host, const gui::LayoutFram
                 if (!row) {
                     continue;
                 }
-                const auto at = std::ranges::find(m_keys, row->key);
-                if (at == m_keys.end()) {
+                const usize index = row->index; // = m_keys · m_lines 의 번호 (보이는 줄마다 키를 찾지 않는다)
+                if (index >= m_lines.size()) {
                     continue;
                 }
-                const usize index = static_cast<usize>(at - m_keys.begin());
                 const Line& l = m_lines[index];
                 const gui::LayoutRect b = row->bounds;
                 if (!l.group && selected(l.id)) {
@@ -321,7 +340,7 @@ Expected<void> HierarchyPanel::paint(uihost::UiHost& host, const gui::LayoutFram
                     d.push_back(gui::FillRect{{b.x, b.y, 2, b.height}, rc(c.accent)});
                 }
                 const double x = b.x + 6 + (l.inGroup ? kIndent : 0.0);
-                d.push_back(gui::DrawText{{x, b.y + 2, fit(b.x + b.width - x - 6), 16}, kFont, l.group ? 13.0 : 12.5, l.text,
+                d.push_back(gui::DrawText{{x, b.y + 2, fit(b.x + b.width - x - 6), 16}, kFont, l.group ? 13.0 : 12.5, lineText(index),
                                           l.group ? rc(c.accent) : rc(c.text)});
             }
             if (m_lines.empty()) {

@@ -61,5 +61,6 @@ void runSimBenchmarks(Context& ctx);
 void runScriptBenchmarks(Context& ctx);
 void runNetBenchmarks(Context& ctx);
 void runRenderBenchmarks(Context& ctx);
+void runGuiBenchmarks(Context& ctx);
 
 } // namespace sbx::bench

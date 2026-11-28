@@ -7,6 +7,31 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R9-03 🟡: 대량 목록 비용 — 벤치 `gui.workspace_hierarchy`, 목록 패널 10 만 개체 29.6 → 4.7 ms (ADR-0188)
+
+**무엇을**
+
+- `bench/GuiBench.cpp` — `gui.workspace_hierarchy`: GraphicsUI 작업 공간 한 frame (앱과 같은 차례 setView → `DockWorkspace::frame`, 1080p)
+  의 CPU, 목록 패널 개체 0 / 1k / 10k / 100k (그룹 10 개에 10 %). 창 · GPU 없이 (sbx_bench 가 SandboxStudioGui 를 링크).
+- `HierarchyPanel` — 개체 줄의 글은 보이는 줄만 그릴 때 (`lineText`), 줄 구조는 글 없이 16 바이트 (그룹 머리 이름 · 글은 `GroupHead` 로
+  따로 · `groupName`), 그리기 · 누르기의 줄 찾기는 `ListRow::index` (보이는 줄마다 키를 처음부터 찾지 않는다), 서비스 줄 · 다음 키 벡터는
+  자리 재사용.
+- ADR-0188, 문서: TASK_REGISTRY (R9-03 Partial), PERFORMANCE_BASELINE 3.2, UI-R9, CURRENT_STATUS, 14-PERFORMANCE, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행") — 막히지 않은 UI-R9 항목. 대량 목록을 잰 적이 없었고, 재 보니 10 만 개체에서 목록 패널 하나가
+frame 예산 (16.7 ms) 을 넘었다 (29.6 ms).
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `sbx_bench --only gui.` (RelWithDebInfo, 20 frame 평균의 5 회 중앙값): 고치기 전 0 / 1k / 10k / 100k = 0.039 / 0.278 / 2.690 / 29.611 ms →
+  고친 뒤 0.041 / 0.092 / 0.407 ~ 0.451 / 4.707 ~ 5.000 ms (2 회).
+- `unit_client` "hierarchy panel (UI-R9-03)" — 2 만 줄, 굴린 뒤 보이는 줄을 누르면 그 줄의 개체 · lineText · groupName. 기존 목록 시험은
+  `lineText` 로.
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest 101 / 101 (project_doctor 제외 — studio_gui_smoke 는 건너뜀, 전과 같다), dock 22 케이스 (2983 단언), check_includes 838 파일 0 위반.
+
+**남은 일** — 다른 목록 (콘텐츠 · 월드 · 프로파일) · GXML 바인딩 · 검색어가 있는 목록의 비용, 화면이 바뀌지 않을 때 건너뛰기 (R9-04),
+창 FPS 비교 (R9-01).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R4-04 ✅: 작업 공간 · 게임 입력 나누기 — 누른 자리가 주인, Esc 로 키를 장면에 (ADR-0187)
 
 **무엇을**

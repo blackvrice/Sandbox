@@ -45,14 +45,23 @@ public:
     Expected<void> layout(uihost::UiHost& host, const gui::ComponentSnapshot& tree, std::vector<gui::LayoutNode>& out) override;
     Expected<void> paint(uihost::UiHost& host, const gui::LayoutFrame& frame, uihost::PaintList& out) override;
 
+    // 줄 — 개체 줄의 글은 보이는 줄만 그릴 때 만든다 (frame 마다 10 만 줄의 글을 만들지 않는다 — UI-R9-03, ADR-0188)
+    //      줄은 작게 (글자 없이 16 바이트) — 그룹 머리의 이름 · 글은 따로 (그룹 수만큼)
     struct Line {
         bool group = false;
-        NetEntityId id = kInvalidNetEntityId; // 개체 줄
-        std::string groupName;                // 그룹 줄
-        std::string text;                     // 보이는 글 ("v wolves  (3)", "eco.rabbit #42")
         bool inGroup = false;
+        NetEntityId id = kInvalidNetEntityId; // 개체 줄
+        usize row = 0;                        // 개체 줄 = 보기의 rows 번호, 그룹 줄 = 그룹 머리 번호 (groupName)
+    };
+    struct GroupHead {
+        std::string name;
+        std::string text; // "▾ wolves  (3)"
     };
     [[nodiscard]] const std::vector<Line>& lines() const noexcept { return m_lines; }
+    // 보이는 글 ("▾ wolves  (3)", "eco.rabbit #42") — 개체 줄은 빌린 rows 로 만든다 (다음 setView 까지)
+    [[nodiscard]] std::string lineText(usize line) const;
+    // 그룹 줄의 그룹 이름 (아니면 빈 글)
+    [[nodiscard]] std::string_view groupName(usize line) const;
     [[nodiscard]] usize shownEntities() const noexcept { return m_shown; }
     [[nodiscard]] std::string status() const;
     [[nodiscard]] gui::ComponentHandle searchHandle() const noexcept { return m_search.handle(); }
@@ -76,7 +85,10 @@ private:
     TextField m_groupName;
     HierarchyView m_view;
     std::vector<Line> m_lines;
+    std::vector<GroupHead> m_heads;
     std::vector<gui::ListItemKey> m_keys;
+    std::vector<HierarchyLine> m_built;        // frame 마다 쓰는 자리 (할당을 되풀이하지 않는다)
+    std::vector<gui::ListItemKey> m_nextKeys;
     usize m_shown = 0;
     uihost::UiHost* m_host = nullptr;
     gui::ComponentHandle m_root, m_status, m_bar, m_groupNode, m_ungroupNode, m_listNode;

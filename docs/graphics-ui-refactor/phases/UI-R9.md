@@ -1,4 +1,4 @@
-# UI-R9 — 성능 [계획]
+# UI-R9 — 성능 [진행 — R9-03 일부]
 
 > 작업: [TASK_REGISTRY](../TASK_REGISTRY.md) UI-R9-01 ~ 04. 기준선: [PERFORMANCE_BASELINE](../PERFORMANCE_BASELINE.md).
 
@@ -7,3 +7,7 @@
   배치 · 바인딩 비용 · 대량 Entity · Asset 목록 · 유휴 CPU · GPU.
 - 순서: 기능 정확성 → 성능. 평균 FPS 하나로 판단하지 않는다. 목표 (1080p 평균 60 · 1 % Low 50) 의 세부 값은 기준선 측정 뒤.
 - 과도기 경로의 GPU 수치는 목표 렌더러와 다르다 — GPU · VRAM 비교는 R1-10 뒤 (R9-02).
+
+| 작업 | 상태 |
+|---|---|
+| R9-03 대량 목록 | 🟡 (2026-11-28, ADR-0188 — 벤치 `gui.workspace_hierarchy`, 목록 패널 10 만 개체 29.6 → 4.7 ms. 남은 것: 다른 목록 · 바인딩 · 검색어) |

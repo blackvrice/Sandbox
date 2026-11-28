@@ -19,9 +19,9 @@
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
 | UI-R7 게임 런타임 UI | 5 | 0 | 0 | 5 | GraphicsUI P9-07 미진행 |
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
-| UI-R9 성능 | 4 | 0 | 0 | 0 | |
+| UI-R9 성능 | 4 | 0 | 1 | 0 | R9-03 대량 목록 (목록 패널 — 벤치 · 6 배) |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **29 (36 %)** | 10 | 20 | |
+| **합계** | **81** | **29 (36 %)** | 11 | 20 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -105,7 +105,7 @@
 | UI-R8-06 | 비정상 종료 복구 (자동 저장 · 레이아웃) | Planned | R2-07 | — | AutosaveService 그대로 |
 | UI-R9-01 | 같은 조건 비교 — 시작 · 로딩 · FPS · 1 % Low · P50/95/99 | Planned | R2 | bench | PERFORMANCE_BASELINE 의 같은 장면 |
 | UI-R9-02 | CPU · GPU · RAM · VRAM · draw call · upload | Planned | R1-10 | bench | |
-| UI-R9-03 | 배치 · 바인딩 · 대량 목록 비용 | Planned | R3-02 | bench | |
+| UI-R9-03 | 배치 · 바인딩 · 대량 목록 비용 | Partial | R3-02 | bench · editor/gui | 벤치 `gui.workspace_hierarchy` (작업 공간 한 frame · 목록 패널 개체 0 / 1k / 10k / 100k, 창 · GPU 없이) + 목록 패널 고침 (글은 보이는 줄만 · 줄 찾기는 목록 번호 — ADR-0188): 10 만 개체 29.6 → 4.7 ms (RelWithDebInfo). 남은 것: 다른 목록 (콘텐츠 · 월드 · 프로파일) · GXML 바인딩 비용 · 검색어가 있는 경우 |
 | UI-R9-04 | 유휴 CPU · GPU (화면이 바뀌지 않을 때 그리지 않기) | Planned | R1-10 | apps/client | |
 | UI-R10-01 | 기존 ImGui Studio UI 제거 | Blocked | R2 ~ R9 동등성 | editor/ui · apps/client | |
 | UI-R10-02 | 과도기 브리지 · ImGui 렌더러 제거 | Blocked | R1-10 · R10-01 | render/imgui · apps/client | |

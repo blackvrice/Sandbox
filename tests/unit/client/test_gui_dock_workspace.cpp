@@ -618,11 +618,11 @@ TEST_SUITE("graphics ui dock workspace") {
         // 서비스 줄 그대로 — 그룹 머리 · 그 안의 개체 · 그룹 없는 개체 (rows 차례)
         REQUIRE(h.lines().size() == 5);
         CHECK(h.lines()[0].group);
-        CHECK(h.lines()[0].text == "▾ wolves  (1)");
-        CHECK(h.lines()[1].text == "eco.wolf #3");
+        CHECK(h.lineText(0) == "▾ wolves  (1)");
+        CHECK(h.lineText(1) == "eco.wolf #3");
         CHECK(h.lines()[1].inGroup);
-        CHECK(h.lines()[2].text == "eco.rabbit #1");
-        CHECK(h.lines()[4].text == "개체 #4");
+        CHECK(h.lineText(2) == "eco.rabbit #1");
+        CHECK(h.lineText(4) == "개체 #4");
         CHECK(h.shownEntities() == 4);
         CHECK(h.status() == "개체 4 / 4 (관심 영역 안) · 선택 0");
 
@@ -672,7 +672,7 @@ TEST_SUITE("graphics ui dock workspace") {
         REQUIRE(groups.setCollapsed("wolves", true));
         view({1, 2});
         REQUIRE(h.lines().size() == 4); // 접힌 그룹의 개체는 빠진다
-        CHECK(h.lines()[0].text == "▸ wolves  (1)");
+        CHECK(h.lineText(0) == "▸ wolves  (1)");
 
         // 키 — ↓ = 다음 개체만, F = 맞추기, Delete = 지우기
         f.feed(click(rowAt(1)));
@@ -712,6 +712,62 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(key(Key::A, Modifiers::kCtrl));
         f.feed(typed(U"rabbit"));
         CHECK(h.shownEntities() == 2);
+    }
+
+    TEST_CASE("hierarchy panel (UI-R9-03): a large list maps rows by list index after scrolling, text only for what it asks") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        editor::gui::HierarchyPanel& h = f.ws->hierarchy();
+        const std::string rabbit = "eco.rabbit";
+        std::vector<editor::HierarchyRow> rows(20'000);
+        for (u32 i = 0; i < rows.size(); ++i) {
+            rows[i] = {i + 1, i + 1, rabbit, {}};
+        }
+        editor::EditorGroups groups;
+        const std::array<SaveId, 2> pair{5, 9};
+        REQUIRE(groups.create("pair", pair));
+        editor::gui::HierarchyView v;
+        v.available = true;
+        v.rows = rows;
+        v.groups = &groups;
+        h.setView(std::move(v));
+        f.frame();
+        REQUIRE(h.lines().size() == 20'001); // 그룹 머리 + 개체
+        CHECK(h.lineText(0) == "▾ pair  (2)");
+        CHECK(h.groupName(0) == "pair");
+        CHECK(h.groupName(1).empty());
+        CHECK(h.lineText(2) == "eco.rabbit #9");
+        CHECK(h.lineText(20'000) == "eco.rabbit #20000");
+        CHECK(h.lineText(20'001).empty()); // 밖
+
+        // 아래로 한참 굴린 뒤 보이는 첫 줄을 누르면 그 줄의 개체 (목록 번호 = 줄 번호)
+        const gui::DockGroupBox g = groupOf(d, kHierarchy);
+        f.feed(MouseMove{paneCenter(d, kHierarchy, h.listHandle()), {}});
+        f.feed(MouseWheel{{0.0f, -500.0f}});
+        usize first = h.lines().size();
+        for (usize i = 0; i < h.lines().size(); ++i) {
+            if (h.rowBounds(i)) {
+                first = i;
+                break;
+            }
+        }
+        REQUIRE(first > 1000); // 굴렸다
+        REQUIRE(first + 2 < h.lines().size());
+        gui::LayoutRect list{};
+        for (const gui::LayoutBox& b : d.paneHost(kHierarchy)->lastLayout()->boxes()) {
+            if (b.component == h.listHandle()) {
+                list = b.bounds;
+            }
+        }
+        const usize target = first + 2;
+        const auto r = h.rowBounds(target);
+        REQUIRE(r);
+        f.feed(click(center({g.content.x + list.x + r->x, g.content.y + list.y + r->y, r->width, r->height})));
+        const auto intent = f.ws->takeIntent();
+        REQUIRE(intent);
+        CHECK(intent->kind == WorkspaceIntent::Kind::SelectEntities);
+        CHECK(intent->entities == std::vector<u32>{h.lines()[target].id});
+        CHECK(h.lineText(target) == std::format("eco.rabbit #{}", h.lines()[target].id));
     }
 
     TEST_CASE("inspector panel (UI-R3-03): value text by kind — angle in degrees, x, y, bool words") {
@@ -2250,9 +2306,9 @@ TEST_SUITE("graphics ui dock workspace") {
         // 인스펙터 (UI-R3-03) — 토끼 하나를 골라 core.movement.maxSpeed 를 패널로 바꾸고 (Editor::setField → 서버), Ctrl+Z 로 되돌린다
         editor::IEditorHost& eh = *ns->editorHost();
         NetEntityId rabbit = kInvalidNetEntityId;
-        for (const auto& l : h.lines()) {
-            if (!l.group && l.text.starts_with("eco.rabbit")) {
-                rabbit = l.id;
+        for (usize i = 0; i < h.lines().size(); ++i) {
+            if (!h.lines()[i].group && h.lineText(i).starts_with("eco.rabbit")) {
+                rabbit = h.lines()[i].id;
                 break;
             }
         }
