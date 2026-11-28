@@ -206,4 +206,20 @@ void StudioWorkspace::setNotices(std::vector<std::string> notices) {
     }
 }
 
+void StudioWorkspace::refreshShown() {
+    m_shown = 0;
+    for (const gui::DockPaneId id : m_dock->shownPanes()) {
+        if (id < 64) { // 띠 (kFooterPane) 는 언제나 보인다 — shown() 이 따로
+            m_shown |= u64{1} << id;
+        }
+    }
+}
+
+bool StudioWorkspace::shown(gui::DockPaneId pane) const noexcept {
+    if (pane == DockWorkspace::kFooterPane) {
+        return true;
+    }
+    return pane < 64 && (m_shown & (u64{1} << pane)) != 0;
+}
+
 } // namespace sbx::editor::gui

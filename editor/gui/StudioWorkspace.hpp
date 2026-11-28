@@ -74,6 +74,11 @@ public:
     // 앱의 알림 줄 (ImGui 알림 창과 같은 원천) — 처음 생기면 한 번 알림 패널을 보이게 한다 (ImGui 창이 열린 채 시작하듯)
     void setNotices(std::vector<std::string> notices);
 
+    // 바뀐 영역만 (UI-R3-12, ADR-0191) — 지금 배치에서 보이는 패널을 다시 센다 (feed 뒤 · 모델 앞에). 숨은 탭은 그리지
+    // 않으니 앱은 보이는 패널의 모델만 만든다 — 다시 보이는 frame 에 새로 만든다. 처음 (부르기 전) 은 모두 보인다
+    void refreshShown();
+    [[nodiscard]] bool shown(gui::DockPaneId pane) const noexcept;
+
     [[nodiscard]] ConsolePanel& console() const noexcept { return *m_console; }
     [[nodiscard]] ShortcutPanel& shortcuts() const noexcept { return *m_shortcuts; }
     [[nodiscard]] InfoPanel& info() const noexcept { return *m_info; }
@@ -116,6 +121,7 @@ private:
     NoticesPanel* m_notices = nullptr;
     StatusBar* m_status = nullptr;
     bool m_noticesShown = false; // 알림이 처음 생겨 한 번 보이게 했다
+    u64 m_shown = ~u64{0};       // 보이는 패널 (비트 = 패널 id — 1 ~ 17)
     std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)
 };
 

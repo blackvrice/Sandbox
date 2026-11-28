@@ -54,6 +54,13 @@ UI-R9 (같은 조건 비교) 에서.
 | 10 000 (10 010) | 2.690 ms | 0.407 ~ 0.451 ms |
 | 100 000 (100 010) | 29.611 ms | 4.707 ~ 5.000 ms |
 
+**숨은 목록 (UI-R3-12, ADR-0191).** 같은 벤치의 `shown=false` — scripting 프리셋에서 목록이 정보 뒤 탭, 앱과 같은 차례 (`refreshShown` →
+보일 때만 setView). 2026-11-28 · 같은 기계 2 회 (이 날은 기계 부하로 보인 쪽 수치가 흔들렸다):
+
+| 개체 10 만 | 보임 (`shown=true`) | 숨음 (`shown=false`) |
+|---|---:|---:|
+| frame | 5.829 · 8.370 ms | 0.032 · 0.018 ms |
+
 명령: `build/bench/bin/RelWithDebInfo/sbx_bench --only gui.` (SBX_BUILD_BENCH=ON 빌드). 남은 비용의 대부분은 줄 만들기 (`buildHierarchy` — 그룹 표 · 검색, 개체 수에 비례 — ImGui 창과 같은 서비스).
 
 ## 4. 아직 재지 않은 것 (UI-R9)

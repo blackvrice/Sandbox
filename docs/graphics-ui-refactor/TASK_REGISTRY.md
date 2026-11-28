@@ -13,7 +13,7 @@
 | UI-R0 현황 분석 · 설계 | 12 | 11 | 1 (QA) | 0 | 창 실행 FPS 기준선은 실기 (UI-R0-09) |
 | UI-R1 통합 기반 | 12 | 9 | 1 | 2 | 렌더러 공유 · 장치 손실은 GUI-UP-01 |
 | UI-R2 Studio Shell | 10 | 7 | 2 | 1 | R2-01 · 02 · 03 · 05 · 07 · 09 · 10 ✅, R2-04 상태 표시줄 · R2-08 단축키 일부 |
-| UI-R3 편집 패널 | 12 | 2 | 5 | 3 | R3-06 콘솔 · R3-09 진단 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 일부 |
+| UI-R3 편집 패널 | 12 | 3 | 5 | 3 | R3-06 콘솔 · R3-09 진단 · R3-12 Undo · 부분 갱신 ✅, R3-02 목록 · 03 인스펙터 · 05 콘텐츠 · 07 빌드 · 08 테스트 일부 |
 | UI-R4 Viewport | 6 | 1 | 2 | 2 | R4-04 입력 나누기 ✅, R4-01 과도기 (통과 장면), R4-06 월드 패널 (테스트 플레이 · 멈춤) |
 | UI-R5 Script IDE | 5 | 0 | 0 | 1 | |
 | UI-R6 Game UI Designer | 4 | 0 | 0 | 0 | |
@@ -21,7 +21,7 @@
 | UI-R8 플랫폼 · 안정성 | 6 | 0 | 0 | 0 | |
 | UI-R9 성능 | 4 | 0 | 1 | 0 | R9-03 대량 목록 (목록 패널 — 벤치 · 6 배) |
 | UI-R10 기존 UI 제거 | 5 | 0 | 0 | 5 | 기능 동등 · GUI-UP-01 뒤 |
-| **합계** | **81** | **30 (37 %)** | 12 | 19 | |
+| **합계** | **81** | **31 (38 %)** | 12 | 19 | |
 
 **작업 수 비율은 기능 완료가 아니다.** 화면 기준으로는 Studio 화면 26 개 중 1 개 (홈 — ImGui 홈의 행동 전부: 검색 · 가상 최근 목록 ·
 열기 · 목록에서 빼기 · 복구 표시 · 새 프로젝트 · 폴더 열기 · 예제 복사 · 간격 · 종료) 를 GraphicsUI 로 옮겼다 (약 4 %,
@@ -76,7 +76,7 @@
 | UI-R3-09 | 통계 · 네트워크 · 프로파일러 | Done | R2-05 | editor/gui · apps/client | `StatsPanel` — 프레임 시간 막대 (최근 120) · CPU · GPU 패스 · 그리기 · 디바이스 · 네트워크 줄. 값 모델 `StatsModel` 을 `apps/client/ui/GuiStatsModel` 이 진단 창과 같은 입력 (PanelState · PanelInputs) · 같은 글로 만든다 — **홈에서도 쓸 수 있다** (프레임 · GPU · 디바이스). `unit_client` "stats panel". **실행 · 접속자** (ADR-0183): `SimulationPanel` (월드 · TPS · 일시정지 · 한 틱 · 속도 · 격자 · 자세히 · 맞춤 · 선택 해제 — 의도 → 그 frame 의 PanelActions) · `PlayersPanel` (역할 표 · 역할 단추 5 — canAssignRole → requestRole), 값 모델은 같은 GuiStatsModel. `unit_client` "simulation · players" + app (패널로 일시정지 · 되돌리기 · 격자, 접속자에 나 — owner). **스크립트 프로파일** `ScriptProfilePanel` (ADR-0184 — 서버 · 함수 · 엔진 · 클라이언트 표를 한 가상 목록, 진단 창과 같은 자릿수, Ctrl+C = 줄). `unit_client` "script profile" + app (엔진 시스템 표가 서버에서 온다). 진단 창 다섯이 모두 작업 공간에 (2026-11-28) |
 | UI-R3-10 | 끌어다 놓기 (패널 사이 · 바깥 파일) | Blocked | GUI-UP-05 | uihost | |
 | UI-R3-11 | 맥락 메뉴 · 툴팁 | Blocked | GUI-UP-03 | uihost | |
-| UI-R3-12 | Undo/Redo · 부분 갱신 (바뀐 영역만) | Planned | R3-03 | editor/ | UndoService · StateStore 구독 |
+| UI-R3-12 | Undo/Redo · 부분 갱신 (바뀐 영역만) | Done | R3-03 | editor/gui · apps/client | Undo/Redo — 하나의 줄 (`UndoService`) 을 인스펙터 Ctrl+Z · Y · 툴 패널 단추 (다음 칸 이름 · 수) · 전역 단축키가 같은 명령으로 (ADR-0180 · 0181). 부분 갱신 — 보이는 패널 (`DockWorkspace::shownPanes` · `StudioWorkspace::refreshShown` · `shown`) 의 모델만, 차례 = feed → 세기 → 모델 → frame (ADR-0191). 벤치 `gui.workspace_hierarchy` shown=false — 숨은 목록 10 만 개체 frame 0.02 ~ 0.03 ms. GPU 쪽 건너뛰기는 R9-04 |
 | UI-R4-01 | Scene 렌더러 → 외부 렌더 타깃 → UI 합성 | Partial | R1-10 · GUI-UP-02 | editor/gui · apps/client | **과도기 (ADR-0179)** — 통과 장면 패널 (`ScenePanel` · `DockWorkspace::setPassthrough` — 월드를 창 전체에 먼저 그리고 그 칸을 칠하지 않는다, ImGui 셸과 같은 모델), 입력 `wantsPointer` · `wantsKeyboard` → InputSystem.setCapture, `--ui graphicsui` 는 프로젝트 안에서 셸 대신 작업 공간 ("기존 UI 로" · `view.graphicsui-workspace`), 장면이 가운데 · 크게 프리셋. `unit_client` 장면 1 + app 1 (local server — 장면 칸 = 게임 입력, 도구 위 = 가로챔, 오가기) · `client_graphicsui_world_headless`. 남음 (목표): 장면을 렌더 타깃으로 · UI 합성 (GUI-UP-02 · R1-10) |
 | UI-R4-02 | Scene / Game Viewport 분리 | Planned | R4-01 | apps/client | ADR-0164 (v0.21) 과 함께 |
 | UI-R4-03 | 피킹 · 기즈모 · 배치 · 격자 · 스냅 (기존 툴 재사용) | Planned | R4-01 | editor/ | editor 툴 · IEditorHost 그대로 |

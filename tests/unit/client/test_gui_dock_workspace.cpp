@@ -2269,6 +2269,48 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(*again == *scene);
     }
 
+    TEST_CASE("partial update (UI-R3-12, ADR-0191): shown panes are the front tab of each group and the footer, a tab click counts before the next frame") {
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        StudioWorkspace& ws = *f.ws;
+        CHECK(ws.shown(kTools)); // 세기 전에는 모두 보인다 (처음 모델은 다 만든다)
+        ws.refreshShown();
+        // scene 프리셋 — 장면 (콘텐츠는 뒤) · 목록 · 인스펙터 (편집 · 월드 · 게임 · 단축키 … 는 뒤) · 콘솔 (빌드 · 테스트 … 는 뒤)
+        CHECK(ws.shown(kScene));
+        CHECK(ws.shown(kHierarchy));
+        CHECK(ws.shown(kInspector));
+        CHECK(ws.shown(kConsole));
+        CHECK(ws.shown(DockWorkspace::kFooterPane));
+        for (const gui::DockPaneId hidden : {kContent, kTools, kWorld, kGame, kBuild, kTest, kProfile, kNotices}) {
+            CAPTURE(hidden);
+            CHECK_FALSE(ws.shown(hidden));
+        }
+        const std::vector<gui::DockPaneId> panes = d.shownPanes();
+        CHECK(panes.size() == d.lastFrame()->groups.size() + 1); // 그룹마다 하나 + 띠
+        for (const gui::DockGroupBox& g : d.lastFrame()->groups) {
+            CHECK(ws.shown(g.active));
+        }
+
+        // 탭을 누른 feed 뒤 · frame 전 — 앱은 이때 센다 (그 frame 에 그릴 패널의 모델을 만든다)
+        d.feed(click(center(tabOf(d, kTools).bounds, d.scale())));
+        ws.refreshShown();
+        CHECK(ws.shown(kTools));
+        CHECK_FALSE(ws.shown(kInspector));
+        f.frame();
+        CHECK(groupOf(d, kTools).active == kTools);
+
+        // 알림이 처음 생기면 앞 탭이 바뀐다 — 앱은 setNotices 다음에 센다
+        ws.setNotices({"설정을 옮겼다"});
+        ws.refreshShown();
+        CHECK(ws.shown(kNotices));
+        CHECK_FALSE(ws.shown(kConsole));
+        // 배치를 바꾸면 (프리셋) 그대로 따른다
+        REQUIRE(ws.applyPreset("play"));
+        ws.refreshShown();
+        CHECK(ws.shown(kConsole));
+        CHECK_FALSE(ws.shown(kInspector)); // play — 출력 · 도구가 한 그룹 (앞은 콘솔)
+    }
+
     TEST_CASE("app (--ui graphicsui, 헤드리스): 작업 공간 배치를 지금 레이아웃 이름으로 저장하고 다음 실행에 되살린다 (UI-R2-07)") {
         namespace fs = std::filesystem;
         const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_ws_layout_{}", std::random_device{}());
@@ -2392,7 +2434,13 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(ws->inWorld());
         CHECK(ws->dock().passthrough(kScene));
         CHECK(app.shell().dockId == 0);
-        CHECK_FALSE(ws->stats().model().frameMs.empty()); // 진단 입력이 온다 (프레임 시간)
+        // 진단 입력이 온다 (프레임 시간) — 통계는 인스펙터 뒤 탭이라 보일 때 (UI-R3-12 — 숨은 탭은 모델을 만들지 않는다)
+        CHECK_FALSE(ws->shown(kStats));
+        REQUIRE(ws->dock().layout().select(kStats));
+        REQUIRE(app.frame());
+        CHECK_FALSE(ws->stats().model().frameMs.empty());
+        REQUIRE(ws->dock().layout().select(kInspector)); // 도구 그룹의 앞은 다시 인스펙터
+        REQUIRE(app.frame());
         // 상태 표시줄 (ADR-0189) — ImGui 셸의 상태 표시줄과 같은 원천 (월드 · tick · 모드)
         CHECK(ws->statusBar().model().inWorld);
         CHECK(ws->statusBar().summary().find(" · tick ") != std::string::npos);
@@ -2537,6 +2585,9 @@ TEST_SUITE("graphics ui dock workspace") {
 
         // 편집 (툴 — ADR-0181) — 툴 단추 → Editor::setTool, Prefab 줄 → settings().prefab, 간격 + → placeSpacing (ImGui 창과 같은 상태)
         editor::gui::ToolPanel& tp = ws->tools();
+        // 바뀐 영역만 (UI-R3-12) — 인스펙터 뒤에 숨은 동안은 모델을 만들지 않았다, 탭을 누른 frame 에 만든다
+        CHECK_FALSE(ws->shown(kTools));
+        CHECK_FALSE(tp.view().available);
         injectAll(click(center(tabOf(d, kTools).bounds, d.scale())));
         REQUIRE(groupOf(d, kTools).active == kTools);
         CHECK(tp.view().available);
@@ -2839,6 +2890,7 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(ws->shortcuts().listedCount() == app.commands().commands().size()); // 같은 명령 표
         CHECK_FALSE(ws->build().model().available); // 홈 — 프로젝트가 없어 검사 · 빌드를 끈다
         CHECK_FALSE(ws->test().model().available);
+        REQUIRE(ws->dock().layout().select(kStats)); // 통계 탭이 보이면 (UI-R3-12)
         REQUIRE(app.frame());
         CHECK_FALSE(ws->stats().model().frameMs.empty()); // 통계는 홈에서도 (프레임 시간 · 디바이스)
 

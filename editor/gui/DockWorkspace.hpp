@@ -92,6 +92,9 @@ public:
     [[nodiscard]] bool interacting() const noexcept { return m_dragging || m_divider.has_value() || m_pressTab != 0; }
     [[nodiscard]] const std::optional<DockDropTarget>& dropTarget() const noexcept { return m_drop; }
     [[nodiscard]] const gui::DockFrame* lastFrame() const noexcept { return m_frame ? &*m_frame : nullptr; }
+    // 지금 배치에서 보이는 패널 — 그룹마다 앞 탭 · 떠 있는 패널 · 띠 (kFooterPane). 마지막 frame 이 아니라 지금의 배치라
+    // feed 가 탭을 바꾼 frame 에도 맞다 (UI-R3-12 — 앱은 보이는 패널의 모델만 만든다). 배치를 못 하면 모든 패널
+    [[nodiscard]] std::vector<gui::DockPaneId> shownPanes() const;
     [[nodiscard]] uihost::UiHost* paneHost(gui::DockPaneId id) const;
     [[nodiscard]] uihost::IUiScreen* paneScreen(gui::DockPaneId id) const;
 

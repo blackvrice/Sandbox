@@ -506,6 +506,30 @@ void DockWorkspace::feed(std::span<const platform::PlatformEvent> events) {
     }
 }
 
+std::vector<gui::DockPaneId> DockWorkspace::shownPanes() const {
+    std::vector<gui::DockPaneId> out;
+    // 앞 탭은 크기와 상관없다 — 처음 (frame 전) 이면 아무 크기로
+    const bool sized = m_lastViewport.width > 0.0 && m_lastViewport.height > 0.0;
+    const gui::LayoutSize vp = sized ? m_lastViewport : gui::LayoutSize{1280.0, 720.0};
+    if (auto arranged = m_layout->arrange(vp, metrics())) {
+        out.reserve(arranged->groups.size() + arranged->floating.size() + 1);
+        for (const gui::DockGroupBox& g : arranged->groups) {
+            out.push_back(g.active);
+        }
+        for (const gui::DockFloatingPane& f : arranged->floating) {
+            out.push_back(f.pane);
+        }
+    } else {
+        for (const Pane& p : m_panes) {
+            out.push_back(p.id);
+        }
+    }
+    if (m_footer) {
+        out.push_back(kFooterPane);
+    }
+    return out;
+}
+
 Expected<const WorkspaceDraw*> DockWorkspace::frame(gui::LayoutSize logical) {
     if (!(logical.width >= 0.0) || !(logical.height >= 0.0)) {
         return makeError(ErrorCode::InvalidArgument, "작업 공간 크기가 음수 · NaN");

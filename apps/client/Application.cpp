@@ -2551,7 +2551,12 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
     ws.setTheme(m_shell.theme);
     ws.setCompact(m_shell.density == editor::theme::Density::Compact);
     ws.setScale(scale);
-    {
+    ws.setNotices(m_config.notices); // 처음 생기면 알림 탭을 앞으로 — 아래 보이는 패널 세기 전에
+    // 입력 먼저 (UI-R3-12, ADR-0191) — 패널은 지난 frame 에 그린 모델로 누른 자리를 찾고, 탭을 바꾼 것은 아래 보이는 패널에 든다
+    ws.dock().feed(m_events.events());
+    ws.refreshShown();
+    const auto shown = [&ws](auto id) { return ws.shown(id); };
+    if (shown(StudioWorkspace::kBuild)) {
         // 빌드 창 — ImGui "빌드" 창과 같은 원천 (BuildService · export 프로필 · 마지막 보고 m_buildPanel)
         editor::gui::BuildPanelModel bm;
         bm.available = m_state == AppState::InWorld && m_config.builds != nullptr && !m_projectDir.empty();
@@ -2562,6 +2567,8 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         bm.running = m_config.builds != nullptr && m_config.builds->running();
         bm.last = m_buildPanel.last;
         ws.build().setModel(std::move(bm));
+    }
+    if (shown(StudioWorkspace::kTest)) {
         // 테스트 창 — ImGui "테스트" 창과 같은 원천 (TestService · m_testPanel)
         editor::gui::TestPanelModel tm;
         tm.available = m_state == AppState::InWorld && m_config.tests != nullptr && !m_projectDir.empty();
@@ -2572,14 +2579,26 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             tm.processes = m_config.tests->processes();
         }
         ws.test().setModel(std::move(tm));
+    }
+    if (shown(StudioWorkspace::kStats)) {
         ws.stats().setModel(m_guiStats);
+    }
+    if (shown(StudioWorkspace::kSimulation)) {
         ws.simulation().setModel(m_guiSimulation);
+    }
+    if (shown(StudioWorkspace::kPlayers)) {
         ws.players().setModel(makeGuiPlayersModel(inWorld ? m_config.world->players() : std::nullopt)); // "접속자" 와 같은 원천
+    }
+    if (shown(StudioWorkspace::kProfile)) {
         // 스크립트 프로파일 (ADR-0184) — "스크립트 프로파일" 창과 같은 원천 (바뀐 때만 목록을 다시)
         ws.profile().setModel(makeGuiScriptProfileModel(inWorld ? m_config.world->scriptProfile() : std::nullopt));
+    }
+    if (shown(StudioWorkspace::kWorld)) {
         // 월드 (ADR-0185) — "월드" 창과 같은 원천 · 같은 이름 (Ctrl+S)
         ws.world().setModel(makeGuiWorldModel(inWorld ? m_config.world->worldOps() : std::nullopt, m_worldPanel.name));
-        // 게임 (ADR-0186) — "게임" · "행동" 창과 같은 원천 (표시 이름 바꾸기 · 쥔 행동 맞추기도 같다)
+    }
+    {
+        // 게임 (ADR-0186) — 숨어 있어도 만든다: 쥔 행동 맞추기 (syncArmedAction) 는 장면 클릭이 쓰는 앱 상태 — "게임" · "행동" 창과 같은 원천 (표시 이름 바꾸기 · 쥔 행동 맞추기도 같다)
         std::optional<GameInfo> game = inWorld ? m_config.world->game() : std::nullopt;
         if (game) {
             localizeNames(*game);
@@ -2597,7 +2616,6 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         if (sin.layout.empty() && m_config.layouts != nullptr) {
             sin.layout = m_config.layouts->active();
         }
-        ws.setNotices(m_config.notices);
         // shellInputs 는 프로젝트 밖이면 빌드 값을 채우지 않는다 — 진행은 언제나 서비스에서
         sin.buildRunning = m_config.builds != nullptr && m_config.builds->running();
         const usize testsRunning =
@@ -2610,7 +2628,9 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         ws.statusBar().setModel(makeGuiStatusModel(
             sin, inWorld, m_config.notices.size(), testsRunning,
             {StudioWorkspace::kNotices, StudioWorkspace::kBuild, StudioWorkspace::kTest}));
-        // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택)
+    }
+    if (shown(StudioWorkspace::kHierarchy)) {
+        // 목록 (Hierarchy — UI-R3-02) — ImGui "목록" 창과 같은 원천 (listEntities · Editor 의 그룹 · 선택). 개체가 많으면 가장 비싼 모델
         editor::gui::HierarchyView hv;
         m_guiEntities.clear();
         m_guiHierarchyRows.clear();
@@ -2627,15 +2647,20 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             hv.canDelete = host->permissions().entities;
         }
         ws.hierarchy().setView(std::move(hv));
+    }
+    editor::IEditorHost* ihost = inWorld ? m_config.world->editorHost() : nullptr;
+    if (shown(StudioWorkspace::kInspector)) {
         // 인스펙터 (UI-R3-03) — ImGui "인스펙터" 창과 같은 원천 (첫 선택 개체의 컴포넌트 · Prefab 오버라이드 · 역할)
-        editor::IEditorHost* ihost = inWorld ? m_config.world->editorHost() : nullptr;
         ws.inspector().setView(ihost != nullptr ? makeGuiInspectorView(*ihost) : editor::gui::InspectorView{});
+    }
+    if (shown(StudioWorkspace::kTools)) {
         // 편집 (툴 — ADR-0181) — ImGui "편집" 창과 같은 원천 (Editor 의 툴 · 설정 · 기록, 역할, 콘텐츠의 Prefab · 머티리얼)
         ws.tools().setView(ihost != nullptr ? makeGuiToolView(m_editor, *ihost) : editor::gui::ToolPanelView{});
+    }
+    if (shown(StudioWorkspace::kContent)) {
         // 콘텐츠 (ADR-0182) — ImGui "콘텐츠" 창과 같은 원천 (패널이 고른 종류 · 항목으로)
         ws.content().setView(ihost != nullptr ? makeGuiContentView(ws.content(), m_editor, *ihost) : editor::gui::ContentView{});
     }
-    ws.dock().feed(m_events.events());
     const ImVec2 size = ImGui::GetIO().DisplaySize;
     auto draw = ws.dock().frame({static_cast<double>(size.x), static_cast<double>(size.y)});
     if (!draw) {

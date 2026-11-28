@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R3-12 ✅: 바뀐 영역만 — 작업 공간은 보이는 패널의 모델만, 입력 먼저 (ADR-0191)
+
+**무엇을**
+
+- `DockWorkspace::shownPanes()` — 지금 배치 (마지막 frame 이 아니라 지금의 DockLayout) 에서 그룹마다 앞 탭 · 떠 있는 패널 · 띠.
+  `StudioWorkspace::refreshShown()` · `shown(id)` — 비트로 둔다 (부르기 전에는 모두 보인다).
+- 앱 `guiWorkspaceFrame` 의 차례를 setNotices → feed → refreshShown → 모델 → frame 으로. 빌드 · 테스트 · 통계 · 실행 · 접속자 · 프로파일 ·
+  월드 · 목록 · 인스펙터 · 편집 · 콘텐츠의 모델은 보일 때만 만든다. 게임 모델은 늘 (쥔 행동 맞추기 = 장면 클릭이 쓰는 앱 상태).
+- 벤치 `gui.workspace_hierarchy` 에 가장 큰 N 의 `shown=false` (scripting 프리셋 — 목록이 정보 뒤 탭, 앱과 같은 차례).
+- Undo/Redo 는 새로 만들지 않았다 — 이미 하나의 줄 (`UndoService`) 을 인스펙터 Ctrl+Z · Y · 툴 패널 단추 · 전역 단축키가 같은 명령으로 쓴다.
+- ADR-0191, 문서: TASK_REGISTRY (R3-12 Done — 합계 31 Done · 38 %), UI-R3, CURRENT_STATUS, MIGRATION_GUIDE 4b-10, PERFORMANCE_BASELINE 3.2,
+  14-PERFORMANCE.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). `DockWorkspace::frame` 은 앞 탭만 그리는데 앱은 숨은 탭 (scene 프리셋에서 콘텐츠 · 편집 · 월드 ·
+통계 · 빌드 · 테스트 · 프로파일 · 알림 …) 의 모델도 frame 마다 만들어 버렸다. 목록이 숨으면 개체 10 만에서 frame 마다 listEntities ·
+buildHierarchy 가 헛돈다. 모델 → feed 차례는 누른 자리를 그린 것과 다른 줄로 찾을 수 있었다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 24 케이스 (3124 단언): partial update — scene 프리셋의 보이는 패널 (장면 · 목록 · 인스펙터 · 콘솔 ·
+  띠) · 숨은 패널 8, 그룹마다 하나 + 띠, 탭을 누른 feed 뒤 · frame 전에 세면 새 탭, 알림이 처음 생기면 알림 탭, play 프리셋을 따른다 /
+  app (로컬 서버 — 인스펙터 뒤 편집 탭은 모델이 없다가 누른 frame 에 생긴다, 통계는 보일 때 프레임 시간이 온다 — 홈 시험도).
+- 벤치 (RelWithDebInfo, 2 회): 개체 10 만 목록 보임 5.829 · 8.370 ms → 숨음 0.032 · 0.018 ms per frame (보인 쪽은 이 날 기계 부하로 흔들림).
+- Debug · /WX (ci-werror) 빌드 통과, 전체 CTest (project_doctor 제외), check_includes.
+
+**남은 일** — GPU 쪽 "바뀐 것이 없으면 그리지 않기" (UI-R9-04 — 목표 렌더러 R1-10 뒤), 실제 창에서 탭 전환 확인 (QA).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R2-10 ✅: 상태 표시줄 진행 표시 — 빌드 · 테스트가 도는 동안, 누르면 그 패널 (ADR-0190)
 
 **무엇을**
