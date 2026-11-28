@@ -4,6 +4,7 @@
 
 #include "apps/client/Application.hpp"
 #include "apps/client/ui/GamePanel.hpp"
+#include "apps/client/ui/KeysPanel.hpp"
 #include "apps/client/ui/PlayersPanel.hpp"
 #include "apps/client/ui/WorldPanel.hpp"
 #include "core/simulation/SimConstants.hpp"
@@ -310,6 +311,20 @@ editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWor
     m.testsRunning = testsRunning;
     m.buildPane = panes.build;
     m.testPane = panes.test;
+    return m;
+}
+
+editor::gui::KeyBindingsModel makeGuiKeysModel(const KeysView& view, const KeysPanelState& state) {
+    editor::gui::KeyBindingsModel m;
+    m.rows.reserve(view.rows.size());
+    for (const KeyRow& r : view.rows) {
+        m.rows.push_back({r.action, r.keys, r.play, r.changed});
+    }
+    m.conflicts = view.conflicts;
+    m.dirty = view.dirty;
+    m.canSave = view.canSave;
+    m.capturing = state.capturing;
+    m.status = state.status;
     return m;
 }
 

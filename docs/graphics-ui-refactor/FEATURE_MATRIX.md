@@ -44,7 +44,7 @@
 | 23 | 게임 창 (`GamePanel`) | Button · 글자 | 즉시 — **완료 (작업 공간의 "게임" 패널 — ADR-0186)** | UI-R3 |
 | 24 | 행동 창 (`ActionPanel`) | Button | 즉시 — **완료 (작업 공간의 "게임" 패널 — ADR-0186)** | UI-R3 |
 | 25 | 진단 창 — 시뮬레이션 · 통계 · 네트워크 · 플레이어 · 스크립트 (`DebugPanels` · `PlayersPanel` · `ScriptPanel`) | TableView · 글자 · (그래프 없음) | 즉시 (그래프는 Custom Control) — **완료 (작업 공간의 통계 · 실행 · 접속자 · 스크립트 프로파일 패널 — UI-R3-09, ADR-0183 · 0184. 그래프는 막대만)** | UI-R3-09 |
-| 26 | 키 창 (`KeysPanel`) | TableView · Button | 어댑터 (키 잡기 = 입력 라우팅) | UI-R3 |
+| 26 | 키 창 (`KeysPanel`) | TableView · Button | 어댑터 (키 잡기 = 입력 라우팅) — **완료 (작업 공간의 "키" 패널 — 같은 KeyBindingEditor · 잡기 · 저장, 작업 공간 위 클릭은 바인딩이 아니다, ADR-0194)** | UI-R2-08 |
 
 화면 수: 26 중 **1** (홈) — 약 4 %. 새 화면: **Studio 설정** (GXML — 테마 · 간격 · 개발자 창 — ImGui 셸의 보기 메뉴와 같은 명령, UI-R2-02). 그 밖의 화면: Player 화면 (`player/PlayerScreens` — Player 모드, UI-R2 뒤), 게임 UI 런타임 (3장).
 

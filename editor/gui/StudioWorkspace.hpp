@@ -7,7 +7,8 @@
 //                (UI-R3-03) 는 도구 그룹의 앞 탭 (ImGui 셸처럼 오른쪽 — scripting 은 왼쪽 도구 그룹, play 는 오른쪽 한 그룹), 편집 (툴 — ADR-0181)
 //                은 그 바로 뒤 탭, 콘텐츠 (ADR-0182) 는 장면 옆 문서 탭 (앞은 장면),
 //                시뮬레이션 · 접속자 (ADR-0183) 는 도구 그룹의 통계 뒤 탭, 스크립트 프로파일 (ADR-0184) 은 출력 그룹의 테스트 뒤 탭,
-//                월드 (ADR-0185) · 게임 (ADR-0186) 은 도구 그룹의 편집 뒤 탭, 알림 (ADR-0189) 은 출력 그룹의 끝 탭. 저장된 배치 (.guidock) 가
+//                월드 (ADR-0185) · 게임 (ADR-0186) 은 도구 그룹의 편집 뒤 탭, 알림 (ADR-0189) 은 출력 그룹의 끝 탭, 키 (ADR-0194) 는
+//                도구 그룹의 단축키 바로 뒤 탭. 저장된 배치 (.guidock) 가
 //                없을 때 · 배치 초기화 때. 패널 목록이 바뀌면 옛 .guidock 은 복원이 거절한다 → .broken + 프리셋 (ADR-0178)
 //   의도         패널이 고른 일 (홈으로 · 배치 초기화 · 명령 실행) 을 takeIntent() 로 — 일은 Application 이 기존 처리로
 //   상태 표시줄  도킹 밖 아래 띠 (DockWorkspace::setFooter — ADR-0189). 알림 단추 = 알림 패널을 보이게 (ShowPane — 작업 공간이 처리)
@@ -23,6 +24,7 @@
 #include "editor/gui/GamePanel.hpp"
 #include "editor/gui/HierarchyPanel.hpp"
 #include "editor/gui/InspectorPanel.hpp"
+#include "editor/gui/KeyBindingsPanel.hpp"
 #include "editor/gui/RunPanels.hpp"
 #include "editor/gui/StatusBar.hpp"
 #include "editor/gui/StudioPanels.hpp"
@@ -50,6 +52,7 @@ public:
     static constexpr gui::DockPaneId kWorld = 15;
     static constexpr gui::DockPaneId kGame = 16;
     static constexpr gui::DockPaneId kNotices = 17;
+    static constexpr gui::DockPaneId kKeys = 18; // 키 다시 묶기 (ADR-0194) — 도구 그룹의 단축키 뒤
 
     [[nodiscard]] static Expected<std::unique_ptr<StudioWorkspace>> create(const uihost::ITextMeasure& text,
                                                                            const services::CommandService& commands,
@@ -97,6 +100,7 @@ public:
     [[nodiscard]] NoticesPanel& notices() const noexcept { return *m_notices; }
     [[nodiscard]] StatusBar& statusBar() const noexcept { return *m_status; }
     [[nodiscard]] ScenePanel& scene() const noexcept { return *m_scene; }
+    [[nodiscard]] KeyBindingsPanel& keys() const noexcept { return *m_keys; }
 
 private:
     StudioWorkspace() = default;
@@ -122,6 +126,7 @@ private:
     NoticesPanel* m_notices = nullptr;
     StatusBar* m_status = nullptr;
     ScenePanel* m_scene = nullptr;
+    KeyBindingsPanel* m_keys = nullptr;
     bool m_noticesShown = false; // 알림이 처음 생겨 한 번 보이게 했다
     u64 m_shown = ~u64{0};       // 보이는 패널 (비트 = 패널 id — 1 ~ 17)
     std::vector<std::byte> m_fresh; // 패널이 모두 한 그룹인 처음 배치 (프리셋은 여기서 시작한다)

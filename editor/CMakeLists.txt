@@ -58,6 +58,8 @@ add_library(SandboxStudioGui STATIC
     gui/StudioWorkspace.hpp
     gui/GamePanel.hpp
     gui/GamePanel.cpp
+    gui/KeyBindingsPanel.hpp
+    gui/KeyBindingsPanel.cpp
     gui/HierarchyPanel.hpp
     gui/HierarchyPanel.cpp
     gui/InspectorPanel.hpp

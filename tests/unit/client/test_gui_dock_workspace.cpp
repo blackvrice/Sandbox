@@ -61,6 +61,7 @@ constexpr gui::DockPaneId kProfile = StudioWorkspace::kProfile;
 constexpr gui::DockPaneId kWorld = StudioWorkspace::kWorld;
 constexpr gui::DockPaneId kGame = StudioWorkspace::kGame;
 constexpr gui::DockPaneId kNotices = StudioWorkspace::kNotices;
+constexpr gui::DockPaneId kKeys = StudioWorkspace::kKeys;
 
 bool sameGroup(const DockWorkspace& d, gui::DockPaneId a, gui::DockPaneId b);
 
@@ -230,7 +231,7 @@ TEST_SUITE("graphics ui dock workspace") {
         f.feed(MouseButtonUp{MouseButton::Left, onInfoTab});
         CHECK_FALSE(d.dragging());
         CHECK(d.lastFrame()->groups.size() == 4); // 목록 · 장면 · 도구 + 콘솔 · 빌드 + 테스트
-        CHECK(d.lastFrame()->tabs.size() == 17);
+        CHECK(d.lastFrame()->tabs.size() == 18);
         CHECK(sameGroup(d, kBuild, kTest));
         CHECK(d.focusedPane() == kConsole);
         CHECK(sameGroup(d, kConsole, kInfo));
@@ -2356,6 +2357,133 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK_FALSE(ws.shown(kInspector)); // play — 출력 · 도구가 한 그룹 (앞은 콘솔)
     }
 
+    TEST_CASE("keys panel (UI-R2-08, ADR-0194): same rows and overlaps as the keys window, capture · reset · reset all · save intents") {
+        using editor::gui::KeyBindingsPanel;
+        using M = editor::gui::KeyBindingsModel;
+        Fixture f;
+        DockWorkspace& d = f.dock();
+        KeyBindingsPanel& kp = f.ws->keys();
+        CHECK(sameGroup(d, kKeys, kShortcuts)); // 도구 그룹 — 단축키 바로 뒤
+        CHECK(tabOf(d, kKeys).bounds.x > tabOf(d, kShortcuts).bounds.x);
+        f.show(kKeys);
+        REQUIRE(groupOf(d, kKeys).active == kKeys);
+        const auto takeKey = [&](int kind) {
+            auto i = f.ws->takeIntent();
+            REQUIRE(i);
+            CHECK(i->kind == WorkspaceIntent::Kind::KeyBinding);
+            CHECK(i->value == kind);
+            return i->command;
+        };
+
+        // ImGui "키" 창과 같은 보기 (buildKeysView) → 모델
+        KeysView view;
+        view.rows = {{"camera.left", "A / Left", false, false},
+                     {"editor.undo", "Ctrl+Z", false, true},
+                     {"play.jump", "Space", true, false}};
+        view.conflicts = {"Q — a · b"};
+        view.dirty = true;
+        view.canSave = true;
+        KeysPanelState state;
+        state.status = "editor.undo = Ctrl+Z";
+        kp.setModel(makeGuiKeysModel(view, state));
+        f.frame();
+        REQUIRE(kp.model().rows.size() == 3);
+        CHECK(kp.model().rows[1].changed);
+        CHECK(kp.model().status == "editor.undo = Ctrl+Z");
+        // 줄: 겹침 · 엔진 머리 · 엔진 둘 · 게임 머리 · 게임 하나
+        REQUIRE(kp.lines().size() == 6);
+        CHECK(kp.lineText(0) == "겹침 Q — a · b");
+        CHECK(kp.lineText(1) == "엔진 키");
+        CHECK(kp.lineText(2) == "camera.left  —  A / Left");
+        CHECK(kp.lineText(4) == "게임 키 (팩)");
+        CHECK(kp.lineText(5) == "play.jump  —  Space");
+        CHECK(kp.title().starts_with("키 (저장 안 함)"));
+
+        // 고른 줄이 없으면 바꾸기 · 기본 꺼짐
+        f.feed(click(paneCenter(d, kKeys, kp.captureHandle())));
+        f.feed(click(paneCenter(d, kKeys, kp.resetHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        const auto lineAt = [&](usize line) {
+            const gui::DockGroupBox grp = groupOf(d, kKeys);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : d.paneHost(kKeys)->lastLayout()->boxes()) {
+                if (b.component == kp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto r = kp.lineBounds(line);
+            REQUIRE(r);
+            return center({grp.content.x + list.x + r->x, grp.content.y + list.y + r->y, r->width, r->height}, d.scale());
+        };
+        // 겹침 · 머리 줄은 고르지 않는다
+        f.feed(click(lineAt(0)));
+        f.feed(click(lineAt(1)));
+        CHECK(kp.selected().empty());
+        // editor.undo — 바뀐 것: 바꾸기 · 기본 둘 다
+        f.feed(click(lineAt(3)));
+        CHECK(kp.selected() == "editor.undo");
+        f.feed(click(paneCenter(d, kKeys, kp.captureHandle())));
+        CHECK(takeKey(M::kCapture) == "editor.undo");
+        f.feed(click(paneCenter(d, kKeys, kp.resetHandle())));
+        CHECK(takeKey(M::kReset) == "editor.undo");
+        // ↑ = camera.left (머리는 건너뛴다) — 바뀌지 않아 기본은 꺼짐, Enter = 바꾸기
+        f.feed(click(lineAt(3)));
+        f.feed(key(Key::Up));
+        CHECK(kp.selected() == "camera.left");
+        f.feed(key(Key::Up));
+        CHECK(kp.selected() == "camera.left"); // 위는 머리 · 겹침뿐
+        f.feed(click(paneCenter(d, kKeys, kp.resetHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(lineAt(2)));
+        f.feed(key(Key::Down));
+        f.feed(key(Key::Down));
+        CHECK(kp.selected() == "play.jump"); // 게임 머리를 건너뛴다
+        f.feed(key(Key::Up));
+        f.feed(key(Key::Up));
+        CHECK(kp.selected() == "camera.left");
+        f.feed(key(Key::Enter));
+        CHECK(takeKey(M::kCapture) == "camera.left");
+
+        // 바꾸는 중 — 안내 · 같은 자리가 "취소", 패널은 키를 쓰지 않는다 (앱이 잡는다), 다른 단추는 꺼짐
+        state.capturing = "camera.left";
+        kp.setModel(makeGuiKeysModel(view, state));
+        f.frame();
+        CHECK(kp.title() == "camera.left — 새 키를 누르세요 (Esc 취소)");
+        f.feed(key(Key::Down));
+        CHECK(kp.selected() == "camera.left");
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kKeys, kp.saveHandle())));
+        f.feed(click(paneCenter(d, kKeys, kp.resetAllHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        f.feed(click(paneCenter(d, kKeys, kp.captureHandle())));
+        takeKey(M::kCancel);
+
+        // 모두 기본값 · 저장 (저장 안 한 것이 있고 설정 폴더가 있을 때만)
+        state.capturing.clear();
+        kp.setModel(makeGuiKeysModel(view, state));
+        f.frame();
+        f.feed(click(paneCenter(d, kKeys, kp.resetAllHandle())));
+        takeKey(M::kResetAll);
+        f.feed(click(paneCenter(d, kKeys, kp.saveHandle())));
+        takeKey(M::kSave);
+        view.canSave = false; // 안전 모드
+        kp.setModel(makeGuiKeysModel(view, state));
+        f.frame();
+        f.feed(click(paneCenter(d, kKeys, kp.saveHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        view.canSave = true;
+        view.dirty = false; // 저장했다
+        kp.setModel(makeGuiKeysModel(view, state));
+        f.frame();
+        CHECK(kp.title().starts_with("키 —"));
+        f.feed(click(paneCenter(d, kKeys, kp.saveHandle())));
+        CHECK_FALSE(f.ws->takeIntent());
+        // 표에서 사라진 액션은 고른 것도 사라진다
+        view.rows.erase(view.rows.begin());
+        kp.setModel(makeGuiKeysModel(view, state));
+        CHECK(kp.selected().empty());
+    }
+
     TEST_CASE("app (--ui graphicsui, 헤드리스): 작업 공간 배치를 지금 레이아웃 이름으로 저장하고 다음 실행에 되살린다 (UI-R2-07)") {
         namespace fs = std::filesystem;
         const fs::path root = fs::temp_directory_path() / std::format("sbx_gui_ws_layout_{}", std::random_device{}());
@@ -3004,6 +3132,73 @@ TEST_SUITE("graphics ui dock workspace") {
         CHECK(app.studioTheme() == editor::theme::Theme::Light);
         REQUIRE(app.frame());
         CHECK(ws->info().homeHandle() != gui::ComponentHandle{}); // 테마가 바뀌어도 작업 공간은 그대로 (색만)
+
+        // 키 (ADR-0194) — 패널로 엔진 키 하나를 F8 로 다시 묶는다 (ImGui "키" 창과 같은 KeyBindingEditor · 같은 잡기)
+        editor::gui::KeyBindingsPanel& kp = ws->keys();
+        inject(click(center(tabOf(ws->dock(), kKeys).bounds, ws->dock().scale())));
+        REQUIRE(groupOf(ws->dock(), kKeys).active == kKeys);
+        REQUIRE_FALSE(kp.model().rows.empty());
+        CHECK_FALSE(kp.model().canSave); // 이 시험은 설정 폴더 (input.json) 가 없다
+        usize firstRow = kp.lines().size();
+        for (usize i = 0; i < kp.lines().size(); ++i) {
+            if (kp.lines()[i].kind == editor::gui::KeyBindingsPanel::Line::Kind::Row) {
+                firstRow = i;
+                break;
+            }
+        }
+        REQUIRE(firstRow < kp.lines().size());
+        const std::string target = kp.model().rows[kp.lines()[firstRow].index].action;
+        const auto keyLineAt = [&](usize line) {
+            const DockWorkspace& wd = ws->dock();
+            const gui::DockGroupBox grp = groupOf(wd, kKeys);
+            gui::LayoutRect list{};
+            for (const gui::LayoutBox& b : wd.paneHost(kKeys)->lastLayout()->boxes()) {
+                if (b.component == kp.listHandle()) {
+                    list = b.bounds;
+                }
+            }
+            const auto rb = kp.lineBounds(line);
+            REQUIRE(rb);
+            return center({grp.content.x + list.x + rb->x, grp.content.y + list.y + rb->y, rb->width, rb->height}, wd.scale());
+        };
+        const auto rowOf = [&](const std::string& action) {
+            for (const editor::gui::KeyBindingRow& row : kp.model().rows) {
+                if (row.action == action) {
+                    return row;
+                }
+            }
+            return editor::gui::KeyBindingRow{};
+        };
+        inject(click(keyLineAt(firstRow)));
+        REQUIRE(kp.selected() == target);
+        inject(click(paneCenter(ws->dock(), kKeys, kp.captureHandle())));
+        CHECK(app.keysPanel().capturing == target);
+        REQUIRE(app.frame());
+        CHECK(kp.model().capturing == target);
+        // 바꾸는 중 패널 (작업 공간) 위를 누른 것은 바인딩이 아니다 — ImGui 창의 wantMouse 와 같은 규칙
+        inject(click(keyLineAt(firstRow)));
+        CHECK(app.keysPanel().capturing == target);
+        // 사람처럼 F8 누르고 (다른 frame 에) 떼기 → 그 액션 = F8
+        inject({KeyDown{Key::F8, 0, Modifiers{}, false}});
+        inject({KeyUp{Key::F8, 0, Modifiers{}}});
+        CHECK(app.keysPanel().capturing.empty());
+        CHECK(app.keysPanel().status == std::format("{} = F8", target));
+        REQUIRE(app.frame());
+        CHECK(rowOf(target).keys == "F8");
+        CHECK(rowOf(target).changed);
+        CHECK(kp.model().dirty);
+        // 기본으로 — 패널의 기본 단추
+        inject(click(paneCenter(ws->dock(), kKeys, kp.resetHandle())));
+        REQUIRE(app.frame());
+        CHECK_FALSE(rowOf(target).changed);
+        CHECK(rowOf(target).keys != "F8");
+        // 바꾸기 → Esc = 취소 (바꾸지 않았다)
+        inject(click(paneCenter(ws->dock(), kKeys, kp.captureHandle())));
+        REQUIRE(app.keysPanel().capturing == target);
+        inject({key(Key::Escape)});
+        inject({KeyUp{Key::Escape, 0, Modifiers{}}});
+        CHECK(app.keysPanel().capturing.empty());
+        CHECK(app.keysPanel().status == std::format("{} — 바꾸지 않았다", target));
 
         // 홈으로 — 작업 공간은 닫히고 (상태는 남는다) 홈이 다시 그린다
         inject(click(center(tabOf(ws->dock(), kInfo).bounds, ws->dock().scale())));

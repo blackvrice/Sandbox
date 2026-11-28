@@ -29,7 +29,7 @@ Studio 홈 전체 — 를 GraphicsUI 로. GraphicsUI 의 기존 DockLayout (P9-0
 | R2-05 Dock 작업 공간 · 탭 | ✅ (2026-11-27, ADR-0177) — DockLayout + 패널마다 UiHost, 탭 · 분할선 · 끌기 크롬은 작업 공간, 첫 패널 정보 · 단축키 · 콘솔 |
 | R2-06 분리 OS 창 · 재도킹 · 다중 모니터 | S-01 (Sandbox 다중 창) · GUI-UP-01 · GUI-UP-10 (resize 메모리) |
 | R2-07 레이아웃 저장 · 복원 · ImGui ini 마이그레이션 | ✅ (2026-11-27, ADR-0178) — 이름별 .guidock, ini 는 변환 없이 프리셋으로 시작 |
-| R2-08 명령 팔레트 · 단축키 (CommandService 그대로) | 단축키 패널 ✅ (검색 · Enter = 실행). 떠 있는 팔레트는 GUI-UP-03 (오버레이) |
+| R2-08 명령 팔레트 · 단축키 (CommandService 그대로) | 단축키 패널 ✅ (검색 · Enter = 실행). 키 패널 ✅ (2026-11-28, ADR-0194 — 다시 묶기 · 겹침, ImGui "키" 창과 같은 KeyBindingEditor). 떠 있는 팔레트는 GUI-UP-03 (오버레이) |
 | R2-09 홈 전체 | ✅ (2026-11-26) — ImGui 홈의 행동 전부. 남음: 좁은 창 세로 스크롤 · 템플릿 설명 글 |
 | R2-10 상태 · 알림 · 진행 | ✅ (2026-11-28, ADR-0189 — 알림 패널 · 단추, ADR-0190 — 빌드 · 테스트 진행 칸) |
 

@@ -8,6 +8,7 @@
 #include "apps/client/studio/StudioShell.hpp"
 #include "apps/client/ui/DebugPanels.hpp"
 #include "editor/gui/GamePanel.hpp"
+#include "editor/gui/KeyBindingsPanel.hpp"
 #include "editor/gui/RunPanels.hpp"
 #include "editor/gui/StatusBar.hpp"
 #include "editor/gui/StudioPanels.hpp"
@@ -34,5 +35,10 @@ struct GuiStatusPanes {
 };
 [[nodiscard]] editor::gui::StatusBarModel makeGuiStatusModel(const ShellInputs& in, bool inWorld, usize notices, usize testsRunning,
                                                              GuiStatusPanes panes);
+
+// 키 (ADR-0194) — ImGui "키" 창과 같은 보기 (buildKeysView — 엔진 · 게임 키 · 겹침) 와 패널 상태 (바꾸는 중 · 결과)
+struct KeysView;
+struct KeysPanelState;
+[[nodiscard]] editor::gui::KeyBindingsModel makeGuiKeysModel(const KeysView& view, const KeysPanelState& state);
 
 } // namespace sbx::client

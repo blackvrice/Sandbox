@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-11-28 — GraphicsUI 통합 UI-R2-08 🟡: 작업 공간 "키" 패널 — 키 다시 묶기 · 겹침 표시 (ADR-0194)
+
+**무엇을**
+
+- `editor/gui/KeyBindingsPanel` — 목록 (겹침 줄 경고색 · "엔진 키" · "게임 키 (팩)" 머리 · "액션 | 키", 기본과 다르면 강조색) + 막대 (바꾸기 /
+  바꾸는 중이면 취소 · 기본 · 모두 기본값 · 저장), ↑↓ (액션 줄만) · Enter = 바꾸기, 바꾸는 중에는 키를 쓰지 않는다.
+- 의도 `WorkspaceIntent::KeyBinding` (value = KeysPanelRequest::Kind 차례 — static_assert) → 앱의 `applyKeysRequest` (ImGui "키" 창과 같다).
+  모델 `makeGuiKeysModel(buildKeysView(...), KeysPanelState)` (apps/client/ui/GuiStatsModel). 보일 때만 (ADR-0191).
+- `Application::handleKeyCapture` — 작업 공간이 그 자리를 가져가면 (`wantsPointer`) 마우스 버튼은 바인딩이 아니다 (ImGui wantMouse 와 같은 규칙).
+- `StudioWorkspace::kKeys` = 18 (도구 그룹의 단축키 바로 뒤 — 세 프리셋). 헤드리스 시험 "그룹 4 · 패널 18".
+- ADR-0194, 문서: TASK_REGISTRY · UI-R2 (R2-08 — 남은 것 떠 있는 팔레트), FEATURE_MATRIX 26, CURRENT_STATUS, 17-SOURCE-MAP.
+
+**왜** — 사용자 요청 ("다음 개발 진행"). R2-08 의 남은 것 중 "단축키 바꾸기 · 충돌 표시" 는 팝업이 필요 없어 막히지 않았다.
+
+**검증** (Windows MSVC, 2026-11-28)
+
+- `unit_client` "graphics ui dock workspace" 25 케이스 (3367 단언): keys panel — ImGui 보기 → 모델, 줄 6 (겹침 · 머리 둘 · 액션 셋), 겹침 · 머리는
+  고르지 않음, ↑↓ 가 머리를 건너뜀, 바꾸기 · 기본 (바뀐 것만) · 모두 기본값 · 저장 (저장 안 함 · 설정 폴더) 의도와 꺼짐, 바꾸는 중 "취소" · 키
+  무시 · 다른 단추 꺼짐, 사라진 액션은 고른 것도 / app (홈 작업 공간) — 첫 엔진 액션을 패널로 바꾸기 → 패널 위 클릭은 바인딩이 아님 → F8 →
+  그 액션 = F8 · 바뀜 · 저장 안 함 → 기본 → 바꾸기 · Esc = "바꾸지 않았다".
+- Debug · /WX (ci-werror) 빌드, 전체 CTest (project_doctor 제외), check_includes.
+
+**남은 일** — 떠 있는 명령 팔레트 (GUI-UP-03 — 오버레이), 실제 창에서 키 잡기 확인 (QA).
+
 ## 2026-11-28 — GraphicsUI 통합 UI-R4-03 ✅: 장면 칸 = 기존 편집 도구 그대로 + 모드 띠 (ADR-0193)
 
 **무엇을**

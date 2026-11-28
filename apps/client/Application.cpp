@@ -571,6 +571,11 @@ void Application::handleKeyCapture() {
     if (b->kind == platform::Binding::Kind::Mouse && m_config.ui != nullptr && m_config.ui->wantMouse()) {
         return;
     }
+    // GraphicsUI 작업 공간 (ADR-0194) — 패널 · 탭 위를 누른 것도 바인딩이 아니다 (장면 칸 = 통과 위만)
+    if (b->kind == platform::Binding::Kind::Mouse && m_guiWorkspace && (m_guiWorkspaceOpen || guiWorldActive()) &&
+        m_guiWorkspace->dock().wantsPointer({raw.mousePosition.x, raw.mousePosition.y})) {
+        return;
+    }
     if (b->kind == platform::Binding::Kind::Key && b->key == platform::Key::Escape && b->mods.none()) {
         m_keysPanel.status = std::format("{} — 바꾸지 않았다", m_keysPanel.capturing);
         m_keysPanel.capturing.clear();
@@ -2660,6 +2665,12 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
         // 편집 (툴 — ADR-0181) — ImGui "편집" 창과 같은 원천 (Editor 의 툴 · 설정 · 기록, 역할, 콘텐츠의 Prefab · 머티리얼)
         ws.tools().setView(ihost != nullptr ? makeGuiToolView(m_editor, *ihost) : editor::gui::ToolPanelView{});
     }
+    if (shown(StudioWorkspace::kKeys)) {
+        // 키 (ADR-0194) — ImGui "키" 창과 같은 보기 · 상태 (KeyBindingEditor · 게임 키 맵 · 바꾸는 중)
+        KeysView kv = buildKeysView(m_keys, m_playKeys.map);
+        kv.canSave = !m_config.userInputFile.empty();
+        ws.keys().setModel(makeGuiKeysModel(kv, m_keysPanel));
+    }
     if (shown(StudioWorkspace::kContent)) {
         // 콘텐츠 (ADR-0182) — ImGui "콘텐츠" 창과 같은 원천 (패널이 고른 종류 · 항목으로)
         ws.content().setView(ihost != nullptr ? makeGuiContentView(ws.content(), m_editor, *ihost) : editor::gui::ContentView{});
@@ -2847,6 +2858,18 @@ std::optional<StudioHomeAction> Application::guiWorkspaceFrame(f32 scale) {
             syncArmedAction(*acts, m_actionPanel);
         } else {
             m_actionPanel.armed.clear();
+        }
+        return std::nullopt;
+    }
+    case K::KeyBinding: { // 키 패널 (ADR-0194) — ImGui "키" 창과 같은 applyKeysRequest
+        using KK = KeysPanelRequest::Kind;
+        static_assert(static_cast<int>(KK::Capture) == editor::gui::KeyBindingsModel::kCapture &&
+                      static_cast<int>(KK::Cancel) == editor::gui::KeyBindingsModel::kCancel &&
+                      static_cast<int>(KK::Reset) == editor::gui::KeyBindingsModel::kReset &&
+                      static_cast<int>(KK::ResetAll) == editor::gui::KeyBindingsModel::kResetAll &&
+                      static_cast<int>(KK::Save) == editor::gui::KeyBindingsModel::kSave);
+        if (intent->value >= 0 && intent->value <= editor::gui::KeyBindingsModel::kSave) {
+            applyKeysRequest(KeysPanelRequest{static_cast<KK>(intent->value), intent->command});
         }
         return std::nullopt;
     }

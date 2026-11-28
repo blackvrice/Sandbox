@@ -294,6 +294,7 @@
 | `apps/client/ui/GuiInspectorModel.{hpp,cpp}` | GraphicsUI 인스펙터의 보기 — ImGui 인스펙터와 같은 원천 (components · prefabOverrides · 역할) 을 DataForm 섹션으로 (UI-R3-03) | SandboxClient |
 | `apps/client/ui/GuiStatsModel.{hpp,cpp}` | GraphicsUI 통계 · 실행 · 접속자 · 스크립트 프로파일 · 월드 · 게임 패널의 값 모델 — 진단 창 (DebugPanels · PlayersPanel) 과 같은 입력 · 같은 글 (UI-R3-09, ADR-0183) | SandboxClient |
 | `editor/gui/RunPanels.{hpp,cpp}` | 작업 공간 "시뮬레이션" (실행 제어 · 보기 · 선택 해제 — 의도 SimAction) · "접속자" (역할 표 · 역할 단추 — 의도 SetRole) · "스크립트 프로파일" (표들을 한 가상 목록, ADR-0184) 패널 (UI-R3-09, ADR-0183) | SandboxStudioGui |
+| `editor/gui/KeyBindingsPanel.{hpp,cpp}` | 작업 공간 "키" 패널 — 엔진 · 게임 키 · 겹침, 바꾸기 · 기본 · 모두 기본값 · 저장 (의도 KeyBinding → 앱의 applyKeysRequest — ImGui "키" 창과 같은 KeyBindingEditor, UI-R2-08, ADR-0194). 모델 `makeGuiKeysModel` (apps/client/ui/GuiStatsModel) | SandboxStudioGui |
 | `editor/gui/StatusBar.{hpp,cpp}` | 작업 공간 상태 표시줄 (`StatusBar` — 아래 띠 `DockWorkspace::setFooter`, ImGui 셸의 statusBar 와 같은 글 · 모드 배지 · 알림 단추 = ShowPane) · 알림 패널 (`NoticesPanel` — 낱말 감싸기 · 휠) (UI-R2-10, ADR-0189). 모델 `makeGuiStatusModel` (apps/client/ui/GuiStatsModel) | SandboxStudioGui |
 | `editor/gui/WorldPanel.{hpp,cpp}` | 작업 공간 "월드" 패널 (UI-R4-06, ADR-0185) — 저장 · 기록 · 테스트 플레이 / 멈추기 · 세이브 · 리플레이 목록 · 불러오기 / 재생 · 탐색, 일은 의도 (WorldOp · WorldName → Application::requestWorldOp) | SandboxStudioGui |
 | `editor/gui/ToolPanel.{hpp,cpp}` | 작업 공간 "편집" (툴) 패널 (ADR-0181) — 툴 단추 · 배치 Prefab (팩별 · 거르기) · 끌기 간격 · 격자 · 머티리얼 · 붓 · 되돌리기, 일은 의도 (SelectTool · ToolSettings) | SandboxStudioGui |

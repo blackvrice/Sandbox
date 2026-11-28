@@ -73,6 +73,8 @@ struct WorkspaceIntent {
         GameCommand, ArmAction,
         // 상태 표시줄 (ADR-0189) — 작업 공간이 그 패널을 보이게 (value = DockPaneId — 앱에 가지 않는다)
         ShowPane,
+        // 키 (ADR-0194) — 앱이 applyKeysRequest (value = KeysPanelRequest::Kind 차례, command = 액션)
+        KeyBinding,
     };
     Kind kind = Kind::Home;
     std::string command; // RunCommand · GroupSelection (그룹 이름) · ToggleGroup (그룹 이름)

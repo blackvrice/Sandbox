@@ -47,6 +47,8 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     auto notices = std::make_unique<NoticesPanel>(*ws->m_ctx);
     ws->m_notices = notices.get();
     auto status = std::make_unique<StatusBar>(*ws->m_ctx);
+    auto keys = std::make_unique<KeyBindingsPanel>(*ws->m_ctx);
+    ws->m_keys = keys.get();
     ws->m_status = status.get();
     ws->m_info = info.get();
     ws->m_shortcuts = shortcuts.get();
@@ -70,6 +72,7 @@ Expected<std::unique_ptr<StudioWorkspace>> StudioWorkspace::create(const uihost:
     panes.push_back({kWorld, "월드", std::move(world)});
     panes.push_back({kGame, "게임", std::move(game)}); // ImGui 창 이름과 같다
     panes.push_back({kNotices, "알림", std::move(notices)}); // ImGui 창 이름과 같다
+    panes.push_back({kKeys, "키", std::move(keys)});          // ImGui 창 이름과 같다
     auto dock = DockWorkspace::create(text, std::move(panes));
     if (!dock) {
         return std::unexpected(dock.error());
@@ -112,7 +115,8 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
                  {kProfile, kTest, gui::DockSide::tab_after},     {kWorld, kTools, gui::DockSide::tab_after},
                  {kGame, kWorld, gui::DockSide::tab_after},       {kNotices, kProfile, gui::DockSide::tab_after},
                  {kHierarchy, kScene, gui::DockSide::left},     {kInspector, kConsole, gui::DockSide::tab_before},
-                 {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after}};
+                 {kTools, kInspector, gui::DockSide::tab_after},  {kContent, kScene, gui::DockSide::tab_after},
+                 {kKeys, kShortcuts, gui::DockSide::tab_after}};
     } else {
         // scene (기본 · default · 모르는 이름) = 도구가 오른쪽, scripting = 도구가 왼쪽 (명령 표를 쓰며 찾기)
         const gui::DockSide tools = preset == "scripting" ? gui::DockSide::left : gui::DockSide::right;
@@ -131,6 +135,7 @@ Expected<void> StudioWorkspace::applyPreset(std::string_view preset) {
         moves.push_back({kWorld, kTools, gui::DockSide::tab_after});  // 편집 뒤 = 월드 (저장 · 테스트 플레이)
         moves.push_back({kGame, kWorld, gui::DockSide::tab_after});   // 그 뒤 = 게임 (상태 · 점수 · 행동)
         moves.push_back({kNotices, kProfile, gui::DockSide::tab_after}); // 출력 그룹 끝 = 알림 (시작 알림 — ADR-0189)
+        moves.push_back({kKeys, kShortcuts, gui::DockSide::tab_after});  // 단축키 바로 뒤 = 키 (다시 묶기 — ADR-0194)
     }
     for (const Move& m : moves) {
         if (auto r = layout.dock(m.pane, m.target, m.side); !r) {
